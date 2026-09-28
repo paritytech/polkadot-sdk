@@ -664,7 +664,6 @@ impl RelayChainDataCache<TestRelayClient> {
 	}
 }
 
-/// Create a relay header with a BABE pre-digest containing the given slot.
 /// Like [`relay_header_with_slot`] but claiming a BABE *primary* slot. The VRF data is dummy:
 /// only the digest variant matters.
 pub fn relay_header_primary_with_slot(
@@ -696,6 +695,7 @@ pub fn relay_header_primary_with_slot(
 	}
 }
 
+/// Create a relay header with a BABE pre-digest containing the given slot.
 pub fn relay_header_with_slot(number: u32, parent_hash: RelayHash, slot: u64) -> RelayHeader {
 	use sc_consensus_babe::{CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest};
 	use sp_runtime::DigestItem;

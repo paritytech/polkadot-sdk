@@ -213,6 +213,7 @@ async fn derive_relay_context<RelayClient>(
 	scheduling_info: &mut SchedulingInfo<RelayClient>,
 	params: SchedulingParams,
 	slot: &Slot,
+	wait_deadline: tokio::time::Instant,
 ) -> Option<(RelayHeader, bool, u32, RelayParentData)>
 where
 	RelayClient: RelayChainInterface + 'static,
@@ -223,6 +224,7 @@ where
 			params.v3_enabled,
 			*slot,
 			params.relay_parent_offset,
+			wait_deadline,
 		)
 		.await
 	else {
@@ -389,7 +391,11 @@ where
 	/// context from the para best head in order to run the parent search, and the second
 	/// re-derives it from the chosen parent whenever the two disagree, keeping the parent the
 	/// first phase settled on.
-	async fn building_prerequisites(&mut self, slot: Slot) -> Option<BuildingPrerequisites<Block>> {
+	async fn building_prerequisites(
+		&mut self,
+		slot: Slot,
+		wait_deadline: tokio::time::Instant,
+	) -> Option<BuildingPrerequisites<Block>> {
 		let best_hash = self.para_client.info().best_hash;
 		let best_params = scheduling_params_at(&*self.para_client, best_hash);
 
@@ -400,6 +406,7 @@ where
 				&mut self.scheduling_info,
 				best_params,
 				&slot,
+				wait_deadline,
 			)
 			.await?;
 
@@ -449,6 +456,7 @@ where
 				&mut self.scheduling_info,
 				build_params,
 				&slot,
+				wait_deadline,
 			)
 			.await?;
 
@@ -464,7 +472,11 @@ where
 
 	/// Resolve everything needed to author in the current slot, up to a successful slot claim.
 	/// Returns `None` when this slot should be skipped.
-	async fn prepare_slot(&mut self, slot: Slot) -> Option<SlotContext<Block, P::Public>> {
+	async fn prepare_slot(
+		&mut self,
+		slot: Slot,
+		wait_deadline: tokio::time::Instant,
+	) -> Option<SlotContext<Block, P::Public>> {
 		// The relay chain context and the parent to build on. Reads the scheduling parameters from
 		// the runtime that will execute the block, so unlike a plain read at the para best head
 		// this stays correct when a runtime upgrade rides in on an unincluded candidate.
@@ -475,7 +487,7 @@ where
 			max_relay_parent_session_age,
 			relay_parent_data,
 			parent_search_result,
-		} = self.building_prerequisites(slot).await?;
+		} = self.building_prerequisites(slot, wait_deadline).await?;
 
 		// Set after the derive: a context re-derived from the build parent's runtime can flip
 		// `v3_enabled`, and the timer offset must follow the final value.
@@ -983,8 +995,13 @@ where
 				tracing::error!(target: LOG_TARGET, "Unable to wait for next slot.");
 				return;
 			};
+			// Bounds the V3 scheduling-parent wait at `relay_parent_offset >= 1`: the same relay
+			// block propagation allowance V2 grants the current-slot block.
+			let sp_wait_deadline = slot_time.instant_into_slot(env.slot_offset);
 
-			let Some(cx) = env.prepare_slot(slot_time.slot()).await else { continue };
+			let Some(cx) = env.prepare_slot(slot_time.slot(), sp_wait_deadline).await else {
+				continue;
+			};
 
 			// Informational; warns at genesis on a mismatch with on-chain data.
 			collator
