@@ -291,8 +291,6 @@ mod benchmarks {
 		<session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
 		<session::Pallet<T>>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof)
 			.unwrap();
-		// The key deposit may have consumed the bond.
-		<T as pallet::Config>::Currency::make_free_balance_be(&caller, bond);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
@@ -319,8 +317,6 @@ mod benchmarks {
 		<session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
 		<session::Pallet<T>>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof)
 			.unwrap();
-		// The key deposit may have consumed the bond.
-		<T as pallet::Config>::Currency::make_free_balance_be(&caller, bond);
 
 		let target = CandidateList::<T>::get().iter().last().unwrap().who.clone();
 
