@@ -1,5 +1,5 @@
 error: Pallet index doesn't fit into u8, index is 256
-  --> tests/construct_runtime_ui/more_than_256_modules.rs:27:3
+  --> tests/construct_runtime_ui/more_than_256_modules.rs:23:3
    |
-27 |         Pallet256: pallet256::{},
+23 |         Pallet256: pallet256::{},
    |         ^^^^^^^^^

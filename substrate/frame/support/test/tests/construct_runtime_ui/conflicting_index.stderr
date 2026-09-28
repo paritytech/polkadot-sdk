@@ -1,11 +1,11 @@
 error: Pallet indices are conflicting: Both pallets System and Pallet1 are at index 0
-  --> tests/construct_runtime_ui/conflicting_index.rs:26:3
+  --> tests/construct_runtime_ui/conflicting_index.rs:22:3
    |
-26 |         System: system::{},
+22 |         System: system::{},
    |         ^^^^^^
 
 error: Pallet indices are conflicting: Both pallets System and Pallet1 are at index 0
-  --> tests/construct_runtime_ui/conflicting_index.rs:27:3
+  --> tests/construct_runtime_ui/conflicting_index.rs:23:3
    |
-27 |         Pallet1: pallet1::{} = 0,
+23 |         Pallet1: pallet1::{} = 0,
    |         ^^^^^^^
