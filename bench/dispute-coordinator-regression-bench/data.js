@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790618083770,
+  "lastUpdate": 1790627380961,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1c2eeb77e605b3c9d17649ca6b08dea99d5b3f94",
-          "message": "Revive, Estimate Gas with Binary Search (#11000)\n\n# Description\n\nThis PR implements binary search for the gas estimation logic in the\neth-rpc which means that gas estimations are no longer just simple dry\nruns but that binary search is now used to find the smallest gas limit\nat which the transaction would run.\n\nThis PR closes https://github.com/paritytech/contract-issues/issues/217\nand also _kind of_ fixes\nhttps://github.com/paritytech/contract-issues/issues/259 or at least\nmakes it harder to trigger the case in which we observe it, but the\nunderlying issue still exists.\n\nThe binary search algorithm implemented in this PR is as close as\npossible to that used in Geth\n\n# Note\n\nThis PR **does not** fix\nhttps://github.com/paritytech/contract-issues/issues/259 where the dry\nrun could fail but the submission succeeds. It makes it so that it's\nharder for that case to be triggered by the underlying issue causing\nhttps://github.com/paritytech/contract-issues/issues/259 is still there\nand it's caused by the overflows and saturations that happen in the gas\n-> fee -> weight computations\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-20T13:04:25Z",
-          "tree_id": "78385e67f8f6c591acab1f0e52fceb68a042e628",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1c2eeb77e605b3c9d17649ca6b08dea99d5b3f94"
-        },
-        "date": 1774016669955,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009363471229999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009168955749999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026896914299999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.00947320071999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "derek@colley.cc",
+            "name": "Derek Colley",
+            "username": "dcolley"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "64de0b9212cfd56d831feed24f3a959b19f73daa",
+          "message": "add INTERWEB polkadot boot node (#13297)\n\n# Description\n\nAdds four Interweb IT bootnode multiaddrs to the embedded Polkadot relay\nchainspec (`polkadot/node/service/chain-specs/polkadot.json`):\n\n-\n`/ip4/195.144.22.130/udp/13012/webrtc-direct/certhash/uEiAh5tKwiZJCcuqrK28fbtyfPtCKxe0YhLUmd5hmKVZF4g/p2p/12D3KooWRjHFApinuqSBjoaDjQHvxwubQSpEVy5hrgC9Smvh92WF`\n(WebRTC)\n-\n`/ip4/195.144.22.130/tcp/13012/p2p/12D3KooWRjHFApinuqSBjoaDjQHvxwubQSpEVy5hrgC9Smvh92WF`\n(TCP)\n-\n`/dns/boot.interweb-it.com/tcp/13012/p2p/12D3KooWRjHFApinuqSBjoaDjQHvxwubQSpEVy5hrgC9Smvh92WF`\n(DNS/TCP)\n-\n`/dns/boot.interweb-it.com/tcp/13016/wss/p2p/12D3KooWRjHFApinuqSBjoaDjQHvxwubQSpEVy5hrgC9Smvh92WF`\n(DNS/WSS)\n\nPeer ID: `12D3KooWRjHFApinuqSBjoaDjQHvxwubQSpEVy5hrgC9Smvh92WF`. No\nexisting bootnodes were removed or reordered. No crate or runtime code\nchanges.\n\nReachability checked before opening:\n- `boot.interweb-it.com` → `195.144.22.130`\n- TCP `13012` accepts connections\n- WSS/TLS on `13016` succeeds (cert CN/SAN `boot.interweb-it.com`)\n- WebRTC UDP `13012` responds to a STUN binding probe\n\n## Integration\n\nNo downstream integration steps. Chainspec `bootNodes` only; nodes pick\nup the new entries on the next release that ships this chainspec. No\nAPI, CLI, or crate version impact. Prefer label\n`R0-no-crate-publish-required`.\n\n## Review Notes\n\nSingle-file change to `polkadot/node/service/chain-specs/polkadot.json`,\nappending the four multiaddrs above to the existing `bootNodes` array,\nplus `prdoc/pr_13297.prdoc`.\n\nSame pattern as prior operator bootnode PRs (e.g. IBP/stakeworld\nbootnode updates): JSON-only, no code paths touched.\n\nSuggested labels (also requested via `/cmd label`):\n- `T0-node`\n- `R0-no-crate-publish-required`\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required) — requested via `/cmd label T0-node\nR0-no-crate-publish-required`\n* [x] I have made corresponding changes to the documentation (if\napplicable) — N/A (chainspec bootNodes only; prdoc included)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable) — N/A (static chainspec data; reachability\nverified off-CI)\n\n---------\n\nCo-authored-by: Derek Colley <dcolley@users.noreply.github.com>",
+          "timestamp": "2026-09-28T18:53:24Z",
+          "tree_id": "350c0f11dd1681ccbbc761742e486f84d8e8de9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/64de0b9212cfd56d831feed24f3a959b19f73daa"
+        },
+        "date": 1790627348672,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00929912079999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010213854040000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025587990299999995,
             "unit": "seconds"
           }
         ]
