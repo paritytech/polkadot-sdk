@@ -34,7 +34,7 @@ token, where it is managed, sold and leased.
 
 This document covers:
 
-- The flows: supervisor-managed allocation (lease, loan), permanent release and
+- The flows: supervisor-managed allocation (lease), permanent release and
   return of funds
 - The components they use: the JAMKB asset, `pallet-jamkb`, the policy adapters
 
@@ -119,8 +119,8 @@ balance on the Parachain Service. This asset is managed by `pallet-jamkb`. It
 holds the four privileged roles (Owner, Issuer, Admin, Freezer), assigned to it
 at initialization.
 
-The full JAMKB cap is minted into the pallet's custody account (§3.2), so that
-Asset Hub holds a 1:1 representation of the JAM-side balance. The mint is a
+The full JAMKB cap is minted into the pallet's custody account (§3.2). Asset
+Hub then holds a 1:1 representation of the JAM-side balance. The mint is a
 one-time executed runtime call on the Asset Hub.
 
 Parachain state footprint is backed on the Coretime chain. JAMKB is teleported
@@ -142,14 +142,14 @@ The pallet keeps the JAMKB in four keyless accounts derived from its
 
 A FRAME pallet that manages the JAMKB asset and executes transfer operations
 against the Parachain Service. Before any action like a permanent
-release or a lease is triggered, the tokens are locked in place: a hold is
+release or a lease is triggered, the units are locked in place: a hold is
 placed on them, and only then does the transfer execute on the JAM side. On
-confirmation the tokens of a lease stay held; the tokens of a permanent release
+confirmation the units of a lease stay held; the units of a permanent release
 move into the `released` account. On failure the pallet undoes what the call
 did.
 
-Every transfer operation is asynchronous and its outcome, Confirmed or Failed, is resolved on Asset Hub by
-`settle`.
+Every transfer operation is asynchronous. Its outcome, Confirmed or Failed, is
+resolved on Asset Hub by `settle`.
 
 The pallet also supports voluntary return (§4.4): a JAM service sends its
 funds back to the Parachain Service balance, setting an Asset Hub beneficiary
@@ -217,9 +217,10 @@ struct Allocation {
                                       // `delivered_at + duration` (§4.1)
     approver: PalletsOrigin,          // a signed origin (an account or a
                                       // contract) or governance
-    valid_from: BlockNumber,          // execute lease and release are rejected before this block
-    expires_at: BlockNumber,          // execute is rejected from this block
-                                      // on
+    valid_from: BlockNumber,          // `accept_lease` and `execute_release`
+                                      // are rejected before this block
+    expires_at: BlockNumber,          // `accept_lease` and `execute_release`
+                                      // are rejected from this block on
 }
 
 enum AllocationMode {
@@ -296,13 +297,15 @@ enum OperationPayload {
     },
     /// A freeze (`freeze_target`, §4.3).
     /// One message that stops the target from taking more state footprint.
+    /// The Parachain Service design does not provide it.
     ///
     /// Confirmed: the target is recorded in `FrozenTargets`.
     Freeze {
         target: ServiceId,
     },
     /// An unfreeze (`unfreeze_target`, §4.3).
-    /// One message that reverses the freeze.
+    /// One message that reverses the freeze. The Parachain Service design
+    /// does not provide it.
     ///
     /// Confirmed: the target is removed from `FrozenTargets`.
     Unfreeze {
@@ -408,7 +411,7 @@ enum Event {
     LeaseClosed { id: AllocationId, amount: Balance },
     LeaseIncreased { id: AllocationId, additional: Balance },
     LeaseExtended { id: AllocationId, duration: BlockNumber },
-    /// `allocation` is `None` for a redemption, a refund or a recovery step.
+    /// `allocation` is `None` for a redemption, a refund or a recovery operation.
     OperationSubmitted { id: OperationId, allocation: Option<AllocationId> },
     OperationConfirmed { id: OperationId },
     /// `error` carries the Parachain Service failure.
@@ -535,11 +538,9 @@ fn cleanup_storage(target: ServiceId, keys: BoundedVec<Key, MAX_KEYS_PER_PAGE>);
 /// Releases a solicited preimage of the target. Origin: the lease's approver,
 /// the target's service account, or governance, with `RECOVERY_DEPOSIT`.
 /// Legal while the target is in recovery and recorded frozen. A provided
-/// preimage is
-/// expunged by a second call more than `C_expungeperiod` timeslots after the
-/// first (Parachain Service design §6.1). Rejected for the target's
-/// code hash except from governance
-/// Records a `Forget` operation.
+/// preimage is expunged by a second call more than `C_expungeperiod`
+/// timeslots after the first (Parachain Service design §6.1). Rejected for the
+/// target's code hash except from governance. Records a `Forget` operation.
 fn forget_preimage(target: ServiceId, hash: Hash, len: u32);
 
 /// Destroys the emptied target, crediting its balances to the Parachain
@@ -559,13 +560,13 @@ fn unsupervise(target: ServiceId);
 
 /// Claims the voluntarily returned balance to `beneficiary`'s account (§4.4).
 /// Origin: any signed account. Moves the beneficiary's balance from the
-/// `custodial` account to the `beneficiary` account..
+/// `custodial` account to the `beneficiary` account.
 fn claim(beneficiary: AccountId);
 
 /// Disposes an excess amount per service. Origin: governance (Root).
-/// With `refund = true` it creates a `Refund` operation sending the tokens
+/// With `refund = true` it creates a `Refund` operation sending the units
 /// back to the `source` service's regular balance; with `refund = false` it
-/// moves the tokens from the `excess` account to custody.
+/// moves the units from the `excess` account to custody.
 fn dispose_excess(source: ServiceId, amount: Balance, refund: bool);
 
 // ── Shared by every flow ───────────────────────────────────────────────────
@@ -651,7 +652,7 @@ the failure entries, finds the `Submitted` operations they name, and marks them
 
 One risk remains: a `TransferFailed` entry can be overwritten in `parachain_log`
 (its 64 KiB cap) before Asset Hub has read it. Asset Hub and JAM state then
-disagree: the funds were never transferred on JAM, but the units stay locked on
+disagree: the transfer never happened on JAM, but the units stay locked on
 Asset Hub.
 
 ---
@@ -749,8 +750,8 @@ Phase 3: Submit       pallet-parachain-system sends the TransferOut via
 Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet.
                       The output:
                       Confirmed: `amount` is released from the hold; a
-                      fully returned lease moves to Closed; once every lease
-                      on the target is Closed, unsupervise(target) may be
+                      fully returned lease moves to Closed. Once every lease
+                      on the target is Closed, `unsupervise` may be
                       called.
                       Failed: JAM rejected the transfer; the lease moves to
                       Reclaiming (`Reclaim`).
@@ -775,7 +776,7 @@ Phase 2: Cleanup      The approver submits `cleanup_storage` pages, and
                           reduced footprint, the leased balance returns via
                           the cooperative flow above; the service account or
                           governance calls `unfreeze_target`;
-                          unsupervise(target) ends the enforced cleanup,
+                          `unsupervise` ends the enforced cleanup,
                           leaving the target self-supervised.
                       (b) TERMINATE: continue below.
 Phase 3: Forget       The approver or governance discards the code preimage:
@@ -823,8 +824,8 @@ id: its `TransferOut` carries the `OperationId` as its `id` field, and a
 `TransferFailed { id }` entry points directly at the failed operation.
 
 A recovery operation has no id in its message. Its failure entry
-(`ServiceStoreFailed`, `ServiceEjectFailed`, `ServiceSupervisorFailed`,
-`ServiceCodeFailed`) names the service, so it correlates by target and entry
+(`ServiceStoreFailed`, `ServiceEjectFailed`, `ServiceSupervisorFailed`)
+names the service, so it correlates by target and entry
 class. The pallet keeps at most one unsettled operation per allocation and at
 most one unsettled recovery operation per target.
 
