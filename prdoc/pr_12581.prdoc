@@ -65,20 +65,28 @@ doc:
     receipt with no logs and an empty bloom. Before, such logs stayed in the receipt,
     `receipts_root` and `logs_bloom` while the state and events that produced them rolled back.
 
-    The cap is a backstop no block can reach. Every buffered log is read back by the `on_finalize`
-    drain, so its encoded bytes are in the block's proof whatever produced it — an assets
-    extrinsic, a storage deposit settled by a contract frame, an XCM fee swap, a batch — and the
-    insert charges at least those bytes of proof. Asset Hub Westend's 10 MiB proof therefore
-    holds fewer than 480,000 entries even of the smallest shape, an address with no topics and no
-    data, against the 524,288 it wires once enabled; its runtime tests pin that bound against the
-    value. A runtime with an unbounded proof budget has no such bound and should size its cap from
-    ref_time, or leave the buffer off.
+    The cap is a backstop no block can reach. Buffering a log registers at least its encoded bytes
+    as proof size, unchecked, whatever produced it — an assets extrinsic, a storage deposit settled
+    by a contract frame, an XCM fee swap, a batch. That is an admission charge rather than a cost:
+    the buffer is written and taken within the block, so the drain reads it from the overlay and
+    the proof holds one absence lookup for the key, nothing per entry. The charge binds all the
+    same, since it lands in `BlockWeight` and proof-size reclaim only swaps out an extrinsic's own
+    weight. The smallest entry, an address with no topics and no data, is 26 bytes, so Asset Hub
+    Westend's 10 MiB proof budget admits about 403,000 of them against the 524,288 it wires once
+    enabled; its runtime tests pin that bound against the value. The bound is not exact: an
+    unchecked registration can overshoot `max_block` from `on_initialize` and from a block's last
+    extrinsic, and ref_time runs out long before either. A runtime with an unbounded proof budget
+    has no such bound and should size its cap from ref_time, or leave the buffer off.
 
-    Asset Hub Westend ships with the buffer off (`MaxOutsideFrameLogs = 0`), so this release
-    changes nothing an eth-rpc serves: mirrored balance changes are `ContractEmitted` events and
-    reach a receipt only when an ethereum transaction is open. Turning the buffer on is a separate
-    runtime upgrade, wiring `OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED`, after every eth-rpc serving
-    the chain reads receipt data version 2.
+    Asset Hub Westend ships with the buffer off (`MaxOutsideFrameLogs = 0`): a mirrored balance
+    change with no ethereum transaction open is a `ContractEmitted` event and nothing else, so a
+    block's transaction list is what any eth-rpc can serve. Receipts of new blocks still change in
+    two ways. Logs of reverted frames and of failed transactions leave the receipt, `receipts_root`
+    and `logs_bloom`. An asset balance change dispatched through `eth_substrate_call` now puts its
+    mirrored `Transfer` on the ethereum receipt. Past blocks are unaffected and no migration is
+    needed. Turning the buffer on is a separate runtime upgrade, wiring
+    `OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED`, after every eth-rpc serving the chain reads receipt
+    data version 2.
 
     Follow-up: a buffered log's share of the `on_finalize` drain is registered on the block rather
     than charged to the emitter, which is why contract frames are kept out of the buffer. A
