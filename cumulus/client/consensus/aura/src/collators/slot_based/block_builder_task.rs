@@ -92,6 +92,14 @@ const MAX_HEDGE_CONTENDERS: usize = MAX_HEDGED_SIBLINGS + 2;
 /// long backlog buys fewer siblings, and past this length none at all.
 pub(crate) const MAX_HEDGED_REBUILDS_PER_CORE: usize = 6;
 
+/// Hedged siblings a core submitting `entries` entries can afford (0 when there is nothing).
+pub(crate) fn hedge_budget(entries: usize) -> usize {
+	MAX_HEDGED_REBUILDS_PER_CORE
+		.checked_div(entries)
+		.unwrap_or_default()
+		.min(MAX_HEDGED_SIBLINGS)
+}
+
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
 	Block: BlockT,
@@ -784,8 +792,9 @@ impl<'a> HedgeContext<'a> {
 pub(crate) type HedgeMemo = HashMap<RelayHash, Option<Vec<RelayHeader>>>;
 
 /// Header chains for the siblings the same blocks can also be advertised under, best first, up to
-/// `max_siblings`. Called per core so a sibling landing mid-slot is still hedged, which `resolved`
-/// keeps cheap. Always empty at `relay_parent_offset == 0`: a sibling is a different relay parent.
+/// `max_siblings`. Called per core, and again after each build, so a sibling landing mid-slot is
+/// still hedged; `resolved` keeps repeat calls cheap. Always empty at `relay_parent_offset == 0`: a
+/// sibling is a different relay parent.
 pub(crate) async fn sp_hedge_chains<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	scheduling_info: &mut SchedulingInfo<RelayClient>,
@@ -1044,6 +1053,11 @@ where
 					None
 				};
 
+				let unincluded_headers =
+					per_selector_unincluded_headers.remove(&bucket_idx).unwrap_or_default();
+
+				let max_siblings = hedge_budget(unincluded_headers.len().max(1));
+
 				// Time the core build so we can pace after submitting (send early, then sleep).
 				let core_start = Instant::now();
 				let build = build_collation_for_core(BuildCollationParams {
@@ -1073,8 +1087,18 @@ where
 					para_slot: cx.para_slot.slot,
 					para_client: &*env.para_client,
 				});
+				let hedge = sp_hedge_chains(
+					&mut env.relay_chain_data_cache,
+					&mut env.scheduling_info,
+					&mut hedge_memo,
+					max_siblings,
+					HedgeContext::new(&cx, &cores, para_id),
+				);
 
-				let built = match build.await {
+				// Concurrent, not sequential: the build's heavy work runs on a spawn_blocking
+				// thread, so this task is otherwise idle while awaiting it.
+				let (built, mut hedge_chains) = futures::join!(build, hedge);
+				let built = match built {
 					Ok(built) => built,
 					Err(()) => return,
 				};
@@ -1089,23 +1113,23 @@ where
 
 				// V3: this core's resubmitted bucket plus the freshly-built bundle (or the bucket
 				// alone); V2: a single collation, only when a fresh block was built.
-				let unincluded_headers =
-					per_selector_unincluded_headers.remove(&bucket_idx).unwrap_or_default();
 				let bundle = built.map(|BuiltCollation { entry, .. }| entry);
 
 				let entries = unincluded_headers.len() + usize::from(bundle.is_some());
-				let max_siblings = MAX_HEDGED_REBUILDS_PER_CORE
-					.checked_div(entries)
-					.unwrap_or_default()
-					.min(MAX_HEDGED_SIBLINGS);
-				let hedge_chains = sp_hedge_chains(
-					&mut env.relay_chain_data_cache,
-					&mut env.scheduling_info,
-					&mut hedge_memo,
-					max_siblings,
-					HedgeContext::new(&cx, &cores, para_id),
-				)
-				.await;
+				let budget = hedge_budget(entries);
+
+				if hedge_chains.len() < budget {
+					hedge_chains = sp_hedge_chains(
+						&mut env.relay_chain_data_cache,
+						&mut env.scheduling_info,
+						&mut hedge_memo,
+						budget,
+						HedgeContext::new(&cx, &cores, para_id),
+					)
+					.await;
+				} else {
+					hedge_chains.truncate(budget);
+				}
 
 				let v3_header_chains = v3_header_chain.map(|chosen| V3HeaderChains {
 					chosen,
@@ -2149,6 +2173,29 @@ mod block_production_schedule_tests {
 					total_blocks,
 					is_last_core
 				);
+			}
+		}
+	}
+
+	mod hedge_budget_tests {
+		use super::*;
+
+		/// `hedge_budget(entries.max(1))`, taken before the entry count is known, must never
+		/// under-hedge either build outcome, and the resulting budget must never let a core
+		/// exceed its rebuild allowance.
+		#[test]
+		fn upfront_budget_bounds_both_outcomes() {
+			assert_eq!(hedge_budget(0), 0);
+			assert_eq!(hedge_budget(1), MAX_HEDGED_SIBLINGS);
+			assert_eq!(hedge_budget(MAX_HEDGED_REBUILDS_PER_CORE + 1), 0);
+
+			for n in 0..=(MAX_HEDGED_REBUILDS_PER_CORE + 1) {
+				let upfront = hedge_budget(n.max(1));
+				assert!(upfront >= hedge_budget(n));
+				assert!(upfront >= hedge_budget(n + 1));
+			}
+			for entries in 0..=(MAX_HEDGED_REBUILDS_PER_CORE + 2) {
+				assert!(entries * hedge_budget(entries) <= MAX_HEDGED_REBUILDS_PER_CORE);
 			}
 		}
 	}
