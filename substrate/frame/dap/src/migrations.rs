@@ -83,7 +83,7 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>, M: Get<u64>> Unchecked
 			);
 		}
 		let minted = pallet::Pallet::<T>::mint_and_distribute(elapsed);
-		weight = weight.saturating_add(<T as Config>::WeightInfo::drip_issuance());
+		weight = weight.saturating_add(<T as Config>::WeightInfo::drip_issuance(0));
 
 		// Regular drips resume from `now`.
 		LastIssuanceTimestamp::<T>::put(now);

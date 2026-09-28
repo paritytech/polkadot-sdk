@@ -524,8 +524,10 @@ pub mod pallet {
 			// Always advance the clock so elapsed time doesn't accumulate across skipped drips.
 			LastIssuanceTimestamp::<T>::put(now);
 
-			let _ = Self::mint_and_distribute(elapsed);
-			T::WeightInfo::drip_issuance()
+			Self::mint_and_distribute(elapsed);
+
+			let allocations = AssetAllocation::<T>::get();
+			T::WeightInfo::drip_issuance(allocations.len() as u32)
 		}
 
 		/// Mints `IssuanceCurve::issue(total_issuance, elapsed)` and distributes the
@@ -535,16 +537,13 @@ pub mod pallet {
 		/// `IssuanceCadence`, and does not apply the `MaxElapsedPerDrip` safety
 		/// ceiling.
 		///
-		/// Returns the total amount successfully minted. Individual recipient mint
-		/// failures emit `MintFailed` and are skipped; the function does not roll
-		/// back successful mints for earlier recipients.
-		pub(crate) fn mint_and_distribute(elapsed: u64) -> BalanceOf<T> {
+		/// Individual recipient mint failures emit `MintFailed` and are skipped;
+		/// the function does not roll back successful mints for earlier recipients.
+		pub(crate) fn mint_and_distribute(elapsed: u64) {
 			let recipients = T::BudgetRecipients::recipients();
 
 			Self::mint_native_currency(elapsed, &recipients);
 			Self::distribute_assets(elapsed, &recipients);
-
-			BalanceOf::<T>::zero()
 		}
 
 		fn mint_native_currency(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
@@ -598,7 +597,7 @@ pub mod pallet {
 			);
 		}
 
-		fn distribute_assets(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
+		pub(crate) fn distribute_assets(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
 			let buffer = Self::buffer_account();
 			let elapsed_as_balance = SaturatedConversion::saturated_into::<BalanceOf<T>>(elapsed);
 

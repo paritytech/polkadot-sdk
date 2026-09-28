@@ -72,7 +72,7 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_dap`.
 pub trait WeightInfo {
 	fn set_allocations() -> Weight;
-	fn drip_issuance() -> Weight;
+	fn drip_issuance(_n: u32) -> Weight;
 	fn on_idle_base() -> Weight;
 	fn on_idle_single_asset_drain() -> Weight;
 }
@@ -94,7 +94,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Dap::LastIssuanceTimestamp` (r:1 w:1)
 	/// Proof: `Dap::LastIssuanceTimestamp` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	fn drip_issuance() -> Weight {
+	fn drip_issuance(_n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `241`
 		//  Estimated: `1493`
@@ -127,7 +127,7 @@ impl WeightInfo for () {
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Dap::LastIssuanceTimestamp` (r:1 w:1)
 	/// Proof: `Dap::LastIssuanceTimestamp` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	fn drip_issuance() -> Weight {
+	fn drip_issuance(_n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `241`
 		//  Estimated: `1493`

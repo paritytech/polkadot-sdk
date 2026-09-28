@@ -18,6 +18,7 @@
 //! Benchmarks for pallet-dap.
 
 use super::*;
+use crate::AssetAllocation;
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, traits::fungibles::Create};
 use frame_system::RawOrigin;
@@ -52,7 +53,15 @@ mod benchmarks {
 		assert_ok!(T::Assets::create(asset, caller, false, T::Balance::one()));
 	}
 
-	fn create_asset_allocations<T>() -> AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>
+	fn create_full_asset_allocations<T>() -> AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>
+	where
+		T: Config,
+		AssetKindOf<T>: From<u32>,
+	{
+		create_asset_allocations::<T>(MAX_DISTRIBUTABLE_ASSETS)
+	}
+
+	fn create_asset_allocations<T>(count: u32) -> AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>
 	where
 		T: Config,
 		AssetKindOf<T>: From<u32>,
@@ -60,10 +69,17 @@ mod benchmarks {
 		let mut allocations: AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>> =
 			BoundedBTreeMap::new();
 
-		for asset_id in 0..MAX_DISTRIBUTABLE_ASSETS {
+		let recipients = T::BudgetRecipients::recipients();
+		let mut single_asset_allocation = BoundedBTreeMap::new();
+		for (budget_key, _) in recipients {
+			single_asset_allocation
+				.try_insert(budget_key, AssetAllocation { amount_per_ms: T::Balance::one() });
+		}
+
+		for asset_id in 0..count {
 			let asset_id: AssetKindOf<T> = asset_id.into();
 			create_asset::<T>(asset_id.clone());
-			assert_ok!(allocations.try_insert(asset_id, Default::default()));
+			assert_ok!(allocations.try_insert(asset_id, single_asset_allocation.clone()));
 		}
 
 		allocations
@@ -85,7 +101,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_allocations() {
-		let asset_allocations = create_asset_allocations::<T>();
+		let asset_allocations = create_full_asset_allocations::<T>();
 		let budget_allocations = build_even_allocation::<T>();
 
 		#[extrinsic_call]
@@ -96,14 +112,38 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn drip_issuance() {
-		let allocations = build_even_allocation::<T>();
-		BudgetAllocation::<T>::put(allocations);
+	fn drip_issuance(n: Linear<0, { MAX_DISTRIBUTABLE_ASSETS.into() }>) {
+		let budget_allocations = build_even_allocation::<T>();
+		let asset_allocations = create_asset_allocations::<T>(n);
+		Pallet::<T>::set_allocations(
+			RawOrigin::Root.into(),
+			Some(budget_allocations),
+			Some(asset_allocations),
+		);
+
+		let recipients = T::BudgetRecipients::recipients();
+
+		// Mint ED.
+		for (_, recipient) in &recipients {
+			T::Assets::mint_into(
+				T::NativeCurrencyAssetId::get(),
+				recipient,
+				T::Balance::from(100u32),
+			);
+		}
+
+		for i in 0..n {
+			mint_to_staging::<T>(i.into(), 1_000_000_000);
+		}
+
+		// Trigger transfer from staging to buffer.
+		Pallet::<T>::on_idle(Default::default(), Weight::MAX);
 
 		// Set a timestamp so the drip fires.
 		let now: u64 = 1_000_000;
 		pallet_timestamp::Now::<T>::put(now);
-		let past = now.saturating_sub(T::IssuanceCadence::get() + 1);
+		let elapsed_millis = T::IssuanceCadence::get() + 1;
+		let past = now.saturating_sub(elapsed_millis);
 		LastIssuanceTimestamp::<T>::put(past);
 
 		#[block]
@@ -112,11 +152,19 @@ mod benchmarks {
 		}
 
 		assert!(LastIssuanceTimestamp::<T>::get() > past);
+
+		for i in 0..n {
+			assert_has_event::<T>(Event::AssetDistributed {
+				asset: i.into(),
+				amount: (elapsed_millis as u32 * recipients.len() as u32).into(),
+				elapsed_millis,
+			});
+		}
 	}
 
 	#[benchmark]
 	fn on_idle_base() {
-		let allocations = create_asset_allocations::<T>();
+		let allocations = create_full_asset_allocations::<T>();
 		Pallet::<T>::set_allocations(RawOrigin::Root.into(), None, Some(allocations));
 
 		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1);
@@ -134,7 +182,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_idle_single_asset_drain() {
-		let allocations = create_asset_allocations::<T>();
+		let allocations = create_full_asset_allocations::<T>();
 		Pallet::<T>::set_allocations(RawOrigin::Root.into(), None, Some(allocations));
 
 		const ASSET: u32 = 1;
