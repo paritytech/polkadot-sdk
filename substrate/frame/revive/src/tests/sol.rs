@@ -51,6 +51,7 @@ mod memory;
 mod stack;
 mod system;
 mod terminate;
+mod terminate_storage;
 mod tx_info;
 
 fn make_initcode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
@@ -1167,8 +1168,15 @@ fn eth_substrate_call_tracks_weight_correctly() {
 
 /// Tests execution tracing for both EVM and PVM.
 ///
-/// Each test case runs for both Solc (EVM) and Resolc (PVM) with separate expected traces.
-/// Expected traces are stored in `src/tests/json_trace/` directory.
+/// Each test case runs for both Solc (EVM) and Resolc (PVM).
+///
+/// The EVM trace is compared against a snapshot in `src/tests/json_trace/`: every opcode is
+/// traced, so the step sequence is determined by the bytecode.
+///
+/// The PVM trace only contains syscalls, and which syscalls a contract makes is up to the
+/// compiler: resolc releases add and remove them. It is therefore not compared against a
+/// snapshot. `verify_pvm_trace` checks what the tracer is responsible for instead: the call
+/// structure, the fuel steps around every syscall, the return data and the result.
 ///
 /// Gas consistency is verified for consecutive steps:
 /// - For EVM: gas - gas_cost == next_step.gas (exact, every opcode is traced)
@@ -1182,12 +1190,29 @@ fn execution_tracing_works() {
 	};
 	use pallet_revive_fixtures::{Callee, Caller};
 
+	/// A PVM step that enters or leaves a call frame.
+	#[derive(Debug, PartialEq, Eq)]
+	enum Frame {
+		Call,
+		DelegateCall,
+		Return,
+	}
+
 	struct TestCase {
 		name: &'static str,
 		setup: Box<dyn Fn(FixtureType) -> ExecutionTrace>,
 		expected_evm_trace: &'static str,
-		expected_pvm_trace: &'static str,
+		/// Every step of the PVM trace that enters or leaves a frame, with its depth.
+		pvm_frames: &'static [(u16, Frame)],
+		/// The `limit` the tracer was configured with, if any.
+		step_limit: Option<usize>,
+		/// The output of the traced call.
+		return_value: Vec<u8>,
+		/// The output of the sub call. Unused by cases which make none.
+		callee_output: Vec<u8>,
 	}
+
+	let echo_output = Callee::echoCall::abi_encode_returns(&42u64);
 
 	let test_cases: Vec<TestCase> = vec![
 		TestCase {
@@ -1211,7 +1236,10 @@ fn execution_tracing_works() {
 				tracer.collect_trace()
 			}),
 			expected_evm_trace: include_str!("json_trace/fibonacci_evm.json"),
-			expected_pvm_trace: include_str!("json_trace/fibonacci_pvm.json"),
+			pvm_frames: &[],
+			step_limit: Some(5),
+			return_value: Fibonacci::fibCall::abi_encode_returns(&2u64),
+			callee_output: Vec::new(),
 		},
 		TestCase {
 			name: "CALL",
@@ -1245,7 +1273,13 @@ fn execution_tracing_works() {
 				tracer.collect_trace()
 			}),
 			expected_evm_trace: include_str!("json_trace/call_evm.json"),
-			expected_pvm_trace: include_str!("json_trace/call_pvm.json"),
+			pvm_frames: &[(1, Frame::Call), (2, Frame::Return), (1, Frame::Return)],
+			step_limit: None,
+			return_value: Caller::normalCall::abi_encode_returns(&Caller::normalReturn {
+				success: true,
+				output: echo_output.clone().into(),
+			}),
+			callee_output: echo_output.clone(),
 		},
 		TestCase {
 			name: "DELEGATECALL",
@@ -1278,11 +1312,17 @@ fn execution_tracing_works() {
 				tracer.collect_trace()
 			}),
 			expected_evm_trace: include_str!("json_trace/delegatecall_evm.json"),
-			expected_pvm_trace: include_str!("json_trace/delegatecall_pvm.json"),
+			pvm_frames: &[(1, Frame::DelegateCall), (2, Frame::Return), (1, Frame::Return)],
+			step_limit: None,
+			return_value: Caller::delegateCall::abi_encode_returns(&Caller::delegateReturn {
+				success: true,
+				output: echo_output.clone().into(),
+			}),
+			callee_output: echo_output,
 		},
 	];
 
-	/// Normalizes trace by zeroing out all dynamic values for stable comparisons.
+	/// Normalizes an EVM trace by zeroing out all dynamic values for stable comparisons.
 	fn normalize_trace(trace: &ExecutionTraceV1) -> ExecutionTraceV1 {
 		use frame_support::weights::Weight;
 
@@ -1296,41 +1336,90 @@ fn execution_tracing_works() {
 			step.gas_cost = 0;
 			step.weight_cost = Weight::zero();
 
-			match &mut step.kind {
-				ExecutionStepKindV1::EVMOpcode { stack, .. } => {
-					for val in stack.iter_mut() {
-						*val = Bytes::from(vec![0u8]);
-					}
-				},
-				ExecutionStepKindV1::PVMSyscall { op, args, returned, .. } => {
-					// Normalize call/delegate_call to their _evm variants so
-					// the test passes regardless of which resolc version
-					// compiled the fixtures (older emits call/delegate_call,
-					// newer emits call_evm/delegate_call_evm).
-					match op {
-						PolkavmSyscallV1::Call | PolkavmSyscallV1::CallEvm => {
-							*op = PolkavmSyscallV1::CallEvm;
-							// Clear args since the two variants have compatible behavior but
-							// different argument layouts.
-							args.clear();
-						},
-						PolkavmSyscallV1::DelegateCall | PolkavmSyscallV1::DelegateCallEvm => {
-							*op = PolkavmSyscallV1::DelegateCallEvm;
-							args.clear();
-						},
-						_ => {
-							for val in args.iter_mut() {
-								*val = 0;
-							}
-						},
-					}
-					if returned.is_some() {
-						*returned = Some(0);
-					}
-				},
+			let ExecutionStepKindV1::EVMOpcode { stack, .. } = &mut step.kind else {
+				panic!("an EVM trace only contains opcodes: {step:?}");
+			};
+			for val in stack.iter_mut() {
+				*val = Bytes::from(vec![0u8]);
 			}
 		}
 		normalized
+	}
+
+	/// Verifies the parts of a PVM trace that do not depend on the compiler.
+	///
+	/// The tracer records a `PvmFuel` step for the instructions executed before every syscall
+	/// and at the end of a frame. A frame's steps therefore alternate between fuel and syscall,
+	/// starting and ending with fuel. The steps of a sub call sit between the calling syscall
+	/// and the fuel step that follows it.
+	fn verify_pvm_trace(trace: &ExecutionTraceV1, case: &TestCase) {
+		let name = case.name;
+
+		assert!(!trace.failed, "{name}: the call must succeed");
+		assert_eq!(trace.return_value.0, case.return_value, "{name}: wrong return value");
+		if let Some(limit) = case.step_limit {
+			assert_eq!(trace.struct_logs.len(), limit, "{name}: the step limit was not applied");
+		}
+
+		let mut frames = Vec::new();
+		// Whether the next step of the frame at `depth - 1` has to be a fuel step.
+		let mut expects_fuel: Vec<bool> = Vec::new();
+		// Whether the next step may be one level deeper: the first step and the one after a call.
+		let mut enters_frame = true;
+		let mut sub_call_returned = false;
+
+		for (i, step) in trace.struct_logs.iter().enumerate() {
+			let ExecutionStepKindV1::PVMSyscall { op, .. } = &step.kind else {
+				panic!("{name}: step {i} is not a syscall: {step:?}");
+			};
+			assert_eq!(step.error, None, "{name}: step {i} failed");
+
+			let depth = usize::from(step.depth);
+			if depth > expects_fuel.len() {
+				assert_eq!(depth, expects_fuel.len() + 1, "{name}: step {i} skips a depth");
+				assert!(enters_frame, "{name}: step {i} enters a frame without a call");
+				expects_fuel.push(true);
+			} else if depth < expects_fuel.len() {
+				assert_eq!(depth + 1, expects_fuel.len(), "{name}: step {i} skips a depth");
+				assert_eq!(
+					expects_fuel.pop(),
+					Some(false),
+					"{name}: the frame left at step {i} does not end with a fuel step",
+				);
+				sub_call_returned = true;
+			}
+
+			let is_fuel = matches!(op, PolkavmSyscallV1::PvmFuel);
+			assert_eq!(
+				is_fuel,
+				expects_fuel[depth - 1],
+				"{name}: step {i} breaks the fuel and syscall alternation: {op:?}",
+			);
+			expects_fuel[depth - 1] = !is_fuel;
+			assert!(is_fuel || step.gas_cost > 0, "{name}: step {i} is free: {op:?}");
+
+			let expected_return_data =
+				if sub_call_returned { case.callee_output.as_slice() } else { &[] };
+			assert_eq!(step.return_data.0, expected_return_data, "{name}: step {i} return data");
+
+			// Which of the two syscalls a call compiles to depends on the resolc version.
+			let frame = match op {
+				PolkavmSyscallV1::Call | PolkavmSyscallV1::CallEvm => Some(Frame::Call),
+				PolkavmSyscallV1::DelegateCall | PolkavmSyscallV1::DelegateCallEvm => {
+					Some(Frame::DelegateCall)
+				},
+				PolkavmSyscallV1::SealReturn => Some(Frame::Return),
+				_ => None,
+			};
+			enters_frame = matches!(frame, Some(Frame::Call | Frame::DelegateCall));
+			frames.extend(frame.map(|frame| (step.depth, frame)));
+		}
+
+		assert_eq!(frames, case.pvm_frames, "{name}: wrong call structure");
+		// A truncated trace ends wherever the limit was reached.
+		if case.step_limit.is_none() {
+			assert_eq!(expects_fuel, [false], "{name}: the trace does not end with a fuel step");
+		}
 	}
 
 	/// Verifies gas consistency for execution traces.
@@ -1371,22 +1460,21 @@ fn execution_tracing_works() {
 				let name = test_case.name;
 				let vm_type = if is_evm { "EVM" } else { "PVM" };
 
-				let expected_json_str = if is_evm {
-					test_case.expected_evm_trace
+				if is_evm {
+					let expected: ExecutionTraceV1 =
+						serde_json::from_str(test_case.expected_evm_trace).unwrap_or_else(|e| {
+							panic!("{name} ({vm_type}): failed to parse expected JSON: {e}")
+						});
+					// Normalize both traces for comparison (zeroes out dynamic values)
+					let normalized_actual = normalize_trace(&actual_trace.clone().into());
+					let normalized_expected = normalize_trace(&expected);
+					assert_eq!(
+						normalized_actual, normalized_expected,
+						"{name} ({vm_type}): trace mismatch"
+					);
 				} else {
-					test_case.expected_pvm_trace
-				};
-				let expected: ExecutionTraceV1 = serde_json::from_str(expected_json_str)
-					.unwrap_or_else(|e| {
-						panic!("{name} ({vm_type}): failed to parse expected JSON: {e}")
-					});
-				// Normalize both traces for comparison (zeroes out dynamic values)
-				let normalized_actual = normalize_trace(&actual_trace.clone().into());
-				let normalized_expected = normalize_trace(&expected);
-				assert_eq!(
-					normalized_actual, normalized_expected,
-					"{name} ({vm_type}): trace mismatch"
-				);
+					verify_pvm_trace(&actual_trace.clone().into(), &test_case);
+				}
 
 				verify_gas_consistency(&actual_trace, is_evm, &format!("{name} ({vm_type})"));
 			});

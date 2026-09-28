@@ -1,0 +1,14 @@
+title: 'rpc_server: set `TCP_NODELAY` on JSON-RPC connections'
+doc:
+- audience: Node Dev
+  description: |-
+    ### Summary
+    The JSON-RPC server never sets `TCP_NODELAY`, so [Nagle's algorithm](https://en.wikipedia.org/wiki/Nagle%27s_algorithm) stays enabled on every RPC socket. jsonrpsee sets the option in its own accept loop and defaults it to on, but that loop never runs: substrate accepts connections itself and hands jsonrpsee an already-accepted socket.
+
+    CI runtime for `revive-differential-tests` rose to ~2 hours after the subxt 0.50 bump moved eth-rpc onto `chainHead`; the main cause is the latency between the messages a `chainHead` call sends.
+
+    ### Change
+    Set `TCP_NODELAY` on every accepted connection, restoring jsonrpsee's default for all nodes. Messages that would otherwise be coalesced are now sent separately, which can increase the number of emitted TCP packets.
+crates:
+- name: sc-rpc-server
+  bump: patch

@@ -39,7 +39,9 @@ use cumulus_primitives_core::{
 	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, VerifySchedulingSignature,
 	XcmpMessageHandler, XcmpMessageSource,
 };
-use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
+use cumulus_primitives_parachain_inherent::{
+	v0, HashedMessage, MessageQueueChain, ParachainInherentData,
+};
 use frame_support::{
 	dispatch::{DispatchClass, DispatchResult},
 	ensure,
@@ -107,7 +109,7 @@ pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
 pub use unincluded_segment::{Ancestor, UsedBandwidth};
 pub use weights::WeightInfo;
 
-use crate::parachain_inherent::AbridgedInboundMessagesSizeInfo;
+use crate::parachain_inherent::{AbridgedInboundMessagesSizeInfo, InboundHrmpMessageId};
 pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::parachain-system";
@@ -1049,7 +1051,7 @@ pub mod pallet {
 	///
 	/// We need to keep track of this to filter the messages that have been already processed.
 	#[pallet::storage]
-	pub type LastProcessedHrmpMessage<T: Config> = StorageValue<_, InboundMessageId>;
+	pub type LastProcessedHrmpMessage<T: Config> = StorageValue<_, InboundHrmpMessageId>;
 
 	/// HRMP messages that were sent in a block.
 	///
@@ -1305,9 +1307,11 @@ impl<T: Config> Pallet<T> {
 		let downward_messages = downward_messages.into_abridged(&mut size_limit);
 
 		// HRMP.
-		let last_processed_msg = LastProcessedHrmpMessage::<T>::get()
-			.unwrap_or(InboundMessageId { sent_at: last_relay_block_number, reverse_idx: 0 });
-		horizontal_messages.drop_processed_messages(&last_processed_msg);
+		let last_processed_msg =
+			LastProcessedHrmpMessage::<T>::get().unwrap_or(InboundHrmpMessageId::Generic(
+				InboundMessageId { sent_at: last_relay_block_number, reverse_idx: 0 },
+			));
+		horizontal_messages.drop_hrmp_processed_messages(&last_processed_msg);
 		size_limit = size_limit.saturating_add(messages_collection_size_limit);
 		let horizontal_messages = horizontal_messages.into_abridged(&mut size_limit);
 
@@ -1468,20 +1472,32 @@ impl<T: Config> Pallet<T> {
 
 		if messages.is_empty() {
 			Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);
-			let last_processed_msg =
-				InboundMessageId { sent_at: relay_parent_number, reverse_idx: 0 };
 
-			LastProcessedHrmpMessage::<T>::put(last_processed_msg);
 			HrmpWatermark::<T>::put(relay_parent_number);
 			LastHrmpMqcHeads::<T>::put(&mqc_heads); // write back in case of modification
 
 			return T::DbWeight::get().reads_writes(1, 2);
 		}
 
+		let max_weight =
+			<ReservedXcmpWeightOverride<T>>::get().unwrap_or_else(T::ReservedXcmpWeight::get);
+		let (mut num_processed_pages, weight_used) = T::XcmpMessageHandler::handle_xcmp_messages(
+			horizontal_messages.flat_msgs_iter(),
+			max_weight,
+		);
+		num_processed_pages = cmp::min(num_processed_pages, messages.len());
+		let (processed_messages, unprocessed_messages) = messages.split_at(num_processed_pages);
+
 		let mut prev_msg_metadata = None;
 		let mut last_processed_block = HrmpWatermark::<T>::get();
-		let mut last_processed_msg = InboundMessageId { sent_at: 0, reverse_idx: 0 };
-		for (sender, msg) in messages {
+		let mut last_processed_msg =
+			LastProcessedHrmpMessage::<T>::get().unwrap_or(InboundHrmpMessageId::Specific {
+				sent_at: 0,
+				sender: 0.into(),
+				reverse_idx: u32::MAX,
+			});
+
+		for (sender, msg) in processed_messages {
 			Self::check_hrmp_message_metadata(
 				ingress_channels,
 				&mut prev_msg_metadata,
@@ -1489,15 +1505,23 @@ impl<T: Config> Pallet<T> {
 			);
 			mqc_heads.entry(*sender).or_default().extend_hrmp(msg);
 
-			if msg.sent_at > last_processed_msg.sent_at && last_processed_msg.sent_at > 0 {
-				last_processed_block = last_processed_msg.sent_at;
+			if msg.sent_at > last_processed_msg.sent_at() {
+				last_processed_block = last_processed_block.max(last_processed_msg.sent_at());
 			}
-			last_processed_msg.sent_at = msg.sent_at;
+			last_processed_msg = InboundHrmpMessageId::Specific {
+				sent_at: msg.sent_at,
+				sender: *sender,
+				reverse_idx: 0,
+			};
 		}
 
 		LastHrmpMqcHeads::<T>::put(&mqc_heads);
 
-		for (sender, msg) in hashed_messages {
+		let unprocessed_messages = unprocessed_messages
+			.iter()
+			.map(|(sender, msg)| (*sender, HashedMessage::from(msg)))
+			.collect::<Vec<_>>();
+		for (sender, msg) in unprocessed_messages.iter().chain(hashed_messages) {
 			Self::check_hrmp_message_metadata(
 				ingress_channels,
 				&mut prev_msg_metadata,
@@ -1505,22 +1529,25 @@ impl<T: Config> Pallet<T> {
 			);
 			mqc_heads.entry(*sender).or_default().extend_with_hashed_msg(msg);
 
-			if msg.sent_at == last_processed_msg.sent_at {
-				last_processed_msg.reverse_idx += 1;
+			if last_processed_msg.sent_at() == msg.sent_at &&
+				(last_processed_msg.sender() == Some(*sender) ||
+					last_processed_msg.sender() == None)
+			{
+				last_processed_msg.inc_reverse_idx();
 			}
 		}
-		if last_processed_msg.sent_at > 0 && last_processed_msg.reverse_idx == 0 {
-			last_processed_block = last_processed_msg.sent_at;
+		match hashed_messages.first() {
+			Some((_, first_hashed_msg)) => {
+				if first_hashed_msg.sent_at > last_processed_msg.sent_at() {
+					last_processed_block = last_processed_block.max(last_processed_msg.sent_at());
+				}
+			},
+			None => {
+				last_processed_block = last_processed_block.max(last_processed_msg.sent_at());
+			},
 		}
 		LastProcessedHrmpMessage::<T>::put(&last_processed_msg);
 		Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);
-
-		let max_weight =
-			<ReservedXcmpWeightOverride<T>>::get().unwrap_or_else(T::ReservedXcmpWeight::get);
-		let weight_used = T::XcmpMessageHandler::handle_xcmp_messages(
-			horizontal_messages.flat_msgs_iter(),
-			max_weight,
-		);
 
 		// Update watermark
 		HrmpWatermark::<T>::put(last_processed_block);

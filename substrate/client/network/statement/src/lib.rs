@@ -88,12 +88,17 @@
 //! The `statement/2` protocol lets a peer advertise which topics it cares about as a bloom filter
 //! ("topic affinity"). Once a peer has an active affinity filter, only matching statements are
 //! forwarded to it; when its affinity changes, newly relevant statements are re-sent. Affinity
-//! advertisements are rate-limited. See the `affinity` module.
+//! advertisements are rate-limited per peer, see `config::AFFINITY_UPDATES_PER_SECOND`.
 //!
 //! Light-client peers on `statement/2` must advertise an affinity before receiving any statements:
 //! a light V2 peer pulls only the topics it cares about instead of the full feed, and is synced
 //! those statements in an initial burst on connect. Full nodes receive all statements unless they
 //! opt into an affinity.
+//!
+//! With the v2 DHT path enabled, every `statement/2` peer sends its affinity filter as the first
+//! message on connect, and the initial sync waits for the peer's filter, replaying the statements
+//! it matches and those the peer is a DHT routing target for. Propagation targets are chosen by
+//! the orchestrator, so the outbox drain applies no affinity filter of its own.
 //!
 //! ## Usage
 //!
@@ -159,7 +164,7 @@ use std::{
 use tokio::time::timeout;
 use v2dht::{RetentionHandle, V2DhtMetrics, V2DhtOrchestrator};
 pub mod config;
-pub use config::V2DhtConfig;
+pub use config::{AffinityTopicsFile, V2DhtConfig};
 pub use v2dht::RetentionReasonMask;
 #[cfg(test)]
 mod test_helpers;
@@ -233,6 +238,8 @@ mod rep {
 	pub const STATEMENT_FLOODING: Rep = Rep::new_fatal("Statement flooding");
 	/// Reputation change when a peer sends us a message we can't decode.
 	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad statement message");
+	/// Reputation change when a peer sends topic affinity updates faster than the limit.
+	pub const AFFINITY_FLOODING: Rep = Rep::new(-(1 << 12), "Topic affinity flooding");
 }
 
 const LOG_TARGET: &str = "statement-gossip";
@@ -251,6 +258,13 @@ const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::fr
 const INITIAL_SYNC_SCAN_LIMIT: usize = 4096;
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+/// How long a full `statement/2` peer may stay silent about its affinity before it is treated as
+/// wanting every statement.
+///
+/// TODO: Remove once the filter is mandatory by protocol version. A full node running without
+/// the v2 DHT path never sends a filter, so a node with the path on would wait for it forever.
+/// The rollout flips every node at once, so the grace period is a safety net in case it does not.
+const AFFINITY_FILTER_GRACE_PERIOD: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval between sweeps that evict statement-store peers unseen for the staleness TTL, so the
 /// topology converges on live peers even while discovery is quiet.
 const PEER_EVICTION_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
@@ -287,6 +301,7 @@ struct Metrics {
 	initial_sync_peers_active: Gauge<U64>,
 	initial_sync_duration_seconds: HistogramVec,
 	statement_flooding_detected: Counter<U64>,
+	affinity_flooding_detected: Counter<U64>,
 	send_failures: CounterVec<U64>,
 	undelivered_statements: CounterVec<U64>,
 }
@@ -300,6 +315,10 @@ mod send_failure {
 	pub const NO_SINK: &str = "no_sink";
 	/// The peer's propagation outbox overflowed and the oldest queued hashes were dropped.
 	pub const OUTBOX_FULL: &str = "outbox_full";
+	/// A queued statement left the store, failed to decode or expired before its chunk went out.
+	pub const MISSING_FROM_STORE: &str = "missing_from_store";
+	/// The peer disconnected with statements still queued.
+	pub const DISCONNECTED: &str = "disconnected";
 }
 
 mod sync_outcome {
@@ -455,6 +474,13 @@ impl Metrics {
 				Counter::new(
 					"substrate_sync_statement_flooding_detected",
 					"Number of peers disconnected for exceeding statement rate limits",
+				)?,
+				r,
+			)?,
+			affinity_flooding_detected: register(
+				Counter::new(
+					"substrate_sync_statement_affinity_flooding_detected",
+					"Number of topic affinity updates dropped for exceeding the per-peer rate limit",
 				)?,
 				r,
 			)?,
@@ -635,12 +661,14 @@ impl StatementHandlerPrototype {
 			.as_ref()
 			.map(|cfg| RetentionHandle::new(network.local_peer_id(), cfg.replication_factor));
 		let V2DhtConfig {
-			affinity_topics,
+			mut affinity_topics,
+			affinity_topics_file,
 			bloom_false_pos_rate,
 			bloom_seed,
 			replication_factor,
 			gossip_target,
 		} = v2dht_config.unwrap_or_default();
+		affinity_topics.extend(affinity_topics_file.into_iter().flat_map(|file| file.0));
 		let mut v2dht = V2DhtOrchestrator::new(
 			&affinity_topics,
 			bloom_seed,
@@ -681,6 +709,7 @@ impl StatementHandlerPrototype {
 				Box::pin(pending().fuse())
 			},
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -748,6 +777,8 @@ pub struct StatementHandler<
 	peer_eviction_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 	/// Pending initial syncs per peer.
 	pending_initial_syncs: HashMap<PeerId, PendingInitialSync>,
+	/// Full `statement/2` peers whose affinity filter is still due, keyed by connection time.
+	awaiting_affinity_filter: HashMap<PeerId, Instant>,
 	/// Queue for round-robin processing of initial syncs.
 	initial_sync_peer_queue: VecDeque<PeerId>,
 	/// Next value to hand out as [`PendingInitialSync::sync_id`].
@@ -825,7 +856,12 @@ impl PeerRateLimiter {
 		Self { bucket: Box::new(RateLimiter::direct_with_clock(quota, clock)) }
 	}
 
-	/// Check if receiving `count` statements would exceed the rate limit.
+	/// The quota for `ExplicitTopicAffinity` updates from one peer.
+	fn for_affinity_updates() -> Self {
+		Self::new(config::AFFINITY_UPDATES_PER_SECOND, config::AFFINITY_UPDATES_BURST)
+	}
+
+	/// Check if receiving `count` more messages would exceed the rate limit.
 	fn is_flooding(&self, count: usize) -> bool {
 		if count > u32::MAX as usize {
 			return true;
@@ -844,6 +880,9 @@ impl PeerRateLimiter {
 pub struct Peer {
 	/// Rate limiter for statement flooding protection.
 	rate_limiter: PeerRateLimiter,
+	/// Rate limiter for `ExplicitTopicAffinity` updates, kept apart from the statement bucket
+	/// so a statement burst cannot reject a filter change.
+	affinity_rate_limiter: PeerRateLimiter,
 	/// Protocol version negotiated with this peer.
 	protocol_version: PeerProtocolVersion,
 	/// Topic affinity filter received from a v2 peer.
@@ -933,54 +972,6 @@ fn max_statement_payload_size(envelope_overhead: usize) -> usize {
 	MAX_STATEMENT_NOTIFICATION_SIZE as usize - envelope_overhead
 }
 
-/// Result of finding a sendable chunk of statements.
-enum ChunkResult {
-	/// Found a chunk that fits. Contains the end index (exclusive).
-	Send(usize),
-	/// First statement is oversized, skip it.
-	SkipOversized,
-}
-
-/// Find the largest chunk of statements starting from the beginning that fits
-/// within MAX_STATEMENT_NOTIFICATION_SIZE minus the given `envelope_overhead`.
-///
-/// Uses an incremental approach: adds statements one by one until the limit is reached.
-/// This is efficient because we only compute sizes for statements we'll actually send
-/// in this chunk, rather than computing sizes for all statements upfront.
-fn find_sendable_chunk(statements: &[&Statement], envelope_overhead: usize) -> ChunkResult {
-	if statements.is_empty() {
-		return ChunkResult::Send(0);
-	}
-	let max_size = max_statement_payload_size(envelope_overhead);
-
-	// Incrementally add statements until we exceed the limit.
-	// This is efficient because we only compute sizes for statements in this chunk.
-	// accumulated_size is the sum of encoded sizes of all statements so far (without vec
-	// overhead).
-	let mut accumulated_size = 0;
-	let mut count = 0usize;
-
-	for stmt in &statements[0..] {
-		let stmt_size = stmt.encoded_size();
-		let new_count = count + 1;
-		// Compact encoding overhead for the new count
-		let new_total = accumulated_size + stmt_size;
-		if new_total > max_size {
-			break;
-		}
-
-		accumulated_size += stmt_size;
-		count = new_count;
-	}
-
-	// If we couldn't fit even a single statement, skip it.
-	if count == 0 {
-		ChunkResult::SkipOversized
-	} else {
-		ChunkResult::Send(count)
-	}
-}
-
 fn unix_timestamp_secs() -> u64 {
 	std::time::SystemTime::now()
 		.duration_since(std::time::UNIX_EPOCH)
@@ -1001,6 +992,7 @@ fn fetch_admitted_chunk(
 	pending_statements_peers: &HashMap<Hash, HashSet<PeerId>>,
 	who: &PeerId,
 	peer_data: &Peer,
+	is_dht_target: &dyn Fn(&Statement) -> bool,
 	cursor: u64,
 	watermark: u64,
 	max_size: usize,
@@ -1015,7 +1007,9 @@ fn fetch_admitted_chunk(
 			if stmt.is_expired(now) {
 				return FilterDecision::Skip;
 			}
-			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) &&
+				(peer_data.is_light || !is_dht_target(stmt))
+			{
 				return FilterDecision::Skip;
 			}
 			// The peer supplied this statement, do not send it back.
@@ -1033,39 +1027,67 @@ fn fetch_admitted_chunk(
 	Ok((batch, accumulated_size))
 }
 
-/// Fetch the next chunk of statements for a peer from `hashes`, filtering in the
+struct FetchedChunk {
+	statements: Vec<(Hash, Statement)>,
+	/// Hashes consumed from the outbox, whether they yielded a statement or not.
+	processed: usize,
+	/// Consumed hashes the store yielded no live statement for: absent, corrupt or expired.
+	missing: usize,
+	/// Encoded size of `statements`, above the maximum only for a lone oversized statement.
+	encoded_size: usize,
+}
+
+/// Fetch the next chunk of statements for a peer from the front of `hashes`, filtering in the
 /// `statements_by_hashes` callback so non-matching statements are never materialized.
+///
+/// `filter_by_affinity` is off when the hashes were queued by the v2 DHT orchestrator, whose
+/// choice of peer is final.
 fn fetch_statement_chunk(
 	store: &dyn StatementStore,
 	recently_received_statements: &HashMap<Hash, HashSet<PeerId>>,
 	pending_statements_peers: &HashMap<Hash, HashSet<PeerId>>,
 	who: &PeerId,
 	peer_data: &Peer,
+	filter_by_affinity: bool,
 	hashes: &[Hash],
 	max_size: usize,
-) -> sp_statement_store::Result<(Vec<(Hash, Statement)>, usize, usize)> {
+) -> sp_statement_store::Result<FetchedChunk> {
 	let now = unix_timestamp_secs();
 	let mut accumulated_size = 0;
+	let mut admit = |hash: &Hash, encoded_size: usize, stmt: &Statement| {
+		if filter_by_affinity &&
+			peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt))
+		{
+			return FilterDecision::Skip;
+		}
+		// The peer supplied this statement, do not send it back.
+		if has_received_from(recently_received_statements, pending_statements_peers, hash, who) {
+			return FilterDecision::Skip;
+		}
+		if accumulated_size > 0 && accumulated_size + encoded_size > max_size {
+			return FilterDecision::Abort;
+		}
+		accumulated_size += encoded_size;
+		FilterDecision::Take
+	};
+	let mut found = 0;
 	let (statements, processed) =
 		store.statements_by_hashes(hashes, &mut |hash, encoded, stmt| {
 			if stmt.is_expired(now) {
 				return FilterDecision::Skip;
 			}
-			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
-				return FilterDecision::Skip;
+			let decision = admit(hash, encoded.len(), stmt);
+			if !matches!(decision, FilterDecision::Abort) {
+				found += 1;
 			}
-			// The peer supplied this statement, do not send it back.
-			if has_received_from(recently_received_statements, pending_statements_peers, hash, who)
-			{
-				return FilterDecision::Skip;
-			}
-			if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
-				return FilterDecision::Abort;
-			}
-			accumulated_size += encoded.len();
-			FilterDecision::Take
+			decision
 		})?;
-	Ok((statements, processed, accumulated_size))
+	Ok(FetchedChunk {
+		statements,
+		processed,
+		missing: processed - found,
+		encoded_size: accumulated_size,
+	})
 }
 
 async fn send_with_timeout<F>(send: F) -> SendOutcome
@@ -1098,6 +1120,7 @@ impl Peer {
 	pub fn new_for_testing(statements_per_second: NonZeroU32, burst: NonZeroU32) -> Self {
 		Self {
 			rate_limiter: PeerRateLimiter::new(statements_per_second, burst),
+			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
@@ -1108,11 +1131,12 @@ impl Peer {
 
 	/// Whether this peer is ready to receive statements.
 	///
-	/// Light V2 peers must set their topic affinity before receiving any statements.
+	/// Light V2 peers must set their topic affinity before receiving any statements; with the
+	/// v2 DHT path on, every V2 peer must.
 	fn can_receive(&self) -> bool {
-		!(self.is_light &&
-			self.protocol_version == PeerProtocolVersion::V2 &&
-			self.topic_affinity.is_none())
+		!(self.protocol_version == PeerProtocolVersion::V2 &&
+			self.topic_affinity.is_none() &&
+			(self.is_light || v2dht_enabled()))
 	}
 
 	fn kind(&self) -> &'static str {
@@ -1178,6 +1202,7 @@ where
 			pending_affinities_timeout: Box::pin(pending().fuse()),
 			peer_eviction_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -1270,18 +1295,10 @@ where
 							self.broadcast_local_filter(filter).await;
 						}
 
-						// TODO: serve the backlog of stored statements here.
-						//
-						// When a peer advertises new topics, `on_peer_filter_update` records its
-						// filter in the orchestrator, but nothing sends it the statements we
-						// already hold — so a fresh v2 subscriber receives only statements that
-						// arrive after it subscribed, never the backlog. `on_pending_affinities`
-						// should close that gap: for each peer whose advertised topics changed,
-						// send the matching stored statements. This is the v2 counterpart of v1's
-						// `process_pending_affinities` -> `schedule_initial_sync_for_peer`.
 						self.v2dht.on_pending_affinities();
 						self.v2dht.refresh_connections(&self.network);
 					}
+					self.assume_match_all_after_filter_grace();
 					self.process_pending_affinities();
 					self.pending_affinities_timeout =
 						Box::pin(tokio::time::sleep(PENDING_AFFINITIES_INTERVAL).fuse());
@@ -1539,8 +1556,8 @@ where
 	/// - Decodes incoming notifications: V1 peers send raw statement batches; V2 peers send a
 	///   `StatementMessage` that is either a batch of statements or an `ExplicitTopicAffinity`
 	///   advertisement.
-	/// - Rate-limits affinity advertisements (reporting `rep::BAD_MESSAGE` on abuse); otherwise
-	///   stores the filter as pending until applied by the main loop.
+	/// - Rate-limits affinity advertisements (reporting `rep::AFFINITY_FLOODING` on abuse);
+	///   otherwise stores the filter as pending until applied by the main loop.
 	async fn handle_notification_event(&mut self, event: NotificationEvent) {
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
@@ -1590,6 +1607,7 @@ where
 							)
 							.expect("burst capacity is nonzero"),
 						),
+						affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 						protocol_version,
 						topic_affinity: None,
 						is_light,
@@ -1613,10 +1631,13 @@ where
 					self.send_local_filter(&peer).await;
 				}
 
-				// Light V2 peers must set topic affinity before receiving statements.
-				// All other peers get initial sync immediately.
+				// Peers awaiting their affinity filter are synced by the pending-affinity tick.
+				// Light peers owe the filter by protocol; full peers owe it only with the v2 DHT
+				// path on, so they get [`AFFINITY_FILTER_GRACE_PERIOD`] to deliver it.
 				if self.peers.get(&peer).map_or(false, |p| p.can_receive()) {
 					self.schedule_initial_sync_for_peer(peer);
+				} else if !is_light {
+					self.awaiting_affinity_filter.insert(peer, Instant::now());
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
@@ -1625,6 +1646,7 @@ where
 				}
 				let removed_peer = self.peers.remove(&peer);
 				debug_assert!(removed_peer.is_some());
+				self.awaiting_affinity_filter.remove(&peer);
 
 				if let Some(removed_peer) = removed_peer {
 					self.metrics.as_ref().map(|metrics| {
@@ -1639,7 +1661,11 @@ where
 					);
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
-				self.propagation_outboxes.remove(&peer);
+				if let Some(outbox) = self.propagation_outboxes.remove(&peer) {
+					if !outbox.is_empty() {
+						self.record_abandoned_send(send_failure::DISCONNECTED, outbox.len());
+					}
+				}
 				self.in_flight_chunks.remove(&peer);
 			},
 			NotificationEvent::NotificationReceived { peer, notification } => {
@@ -1676,6 +1702,9 @@ where
 								"Failed to decode v1 statement list from {peer}"
 							);
 							self.network.report_peer(peer, rep::BAD_MESSAGE);
+							if v2dht_enabled() {
+								self.v2dht.on_peer_misbehaved(peer);
+							}
 						}
 					},
 					PeerProtocolVersion::V2 => {
@@ -1686,12 +1715,18 @@ where
 									self.on_statements(peer, statements.into_inner());
 								},
 								StatementMessage::ExplicitTopicAffinity(filter) => {
-									if peer_data.rate_limiter.is_flooding(1) {
+									if peer_data.affinity_rate_limiter.is_flooding(1) {
 										log::debug!(
 											target: LOG_TARGET,
-											"Rate-limiting ExplicitTopicAffinity from {peer}"
+											"Dropping rate-limited ExplicitTopicAffinity from {peer}"
 										);
-										self.network.report_peer(peer, rep::BAD_MESSAGE);
+										self.network.report_peer(peer, rep::AFFINITY_FLOODING);
+										if let Some(ref metrics) = self.metrics {
+											metrics.affinity_flooding_detected.inc();
+										}
+										if v2dht_enabled() {
+											self.v2dht.on_peer_misbehaved(peer);
+										}
 										return;
 									}
 									if v2dht_enabled() {
@@ -1701,9 +1736,9 @@ where
 									// Record the filter for propagation decisions, and route it
 									// through the pending-affinity path so
 									// `schedule_initial_sync_for_peer` replays the matching
-									// already-stored statements (filtered by `topic_affinity`).
-									// Without this a late subscriber sees only the statements
-									// that arrive after it subscribes.
+									// already-stored statements (filtered by `topic_affinity`
+									// and DHT routing targets). Without this a late subscriber
+									// sees only the statements that arrive after it subscribes.
 									if let Some(peer_data) = self.peers.get_mut(&peer) {
 										log::debug!(
 											target: LOG_TARGET,
@@ -1712,6 +1747,7 @@ where
 										// Defer both the affinity update and sync scheduling
 										// to the main loop tick.
 										peer_data.pending_topic_affinity = Some(filter);
+										self.awaiting_affinity_filter.remove(&peer);
 									}
 								},
 							}
@@ -1721,6 +1757,9 @@ where
 								"Failed to decode v2 statement message from {peer}"
 							);
 							self.network.report_peer(peer, rep::BAD_MESSAGE);
+							if v2dht_enabled() {
+								self.v2dht.on_peer_misbehaved(peer);
+							}
 						}
 					},
 				}
@@ -1812,6 +1851,9 @@ where
 								"Already received the statement from the same peer {who}.",
 							);
 							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
+							if v2dht_enabled() {
+								self.v2dht.on_peer_misbehaved(who);
+							}
 						}
 					}
 					continue;
@@ -1851,6 +1893,9 @@ where
 						if !entry.get_mut().insert(who) {
 							// Already received this from the same peer.
 							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
+							if v2dht_enabled() {
+								self.v2dht.on_peer_misbehaved(who);
+							}
 						}
 					},
 				}
@@ -1914,14 +1959,7 @@ where
 	/// For v2 peers with a topic affinity filter, also filters by topic match.
 	/// Surviving hashes are appended to the peer's outbox.
 	fn queue_statements_for_peer(&mut self, who: &PeerId, statements: &[(u64, Hash, Statement)]) {
-		let Self {
-			peers,
-			propagation_outboxes,
-			recently_received_statements,
-			pending_statements_peers,
-			..
-		} = self;
-		let Some(peer) = peers.get(who) else {
+		let Some(peer) = self.peers.get(who) else {
 			return;
 		};
 
@@ -1929,26 +1967,83 @@ where
 			return;
 		}
 
-		let to_send = statements.iter().filter_map(|(seq, hash, stmt)| {
-			if *seq < peer.sync_watermark {
-				return None;
-			}
-			// The peer supplied this statement, do not send it back.
-			if has_received_from(recently_received_statements, pending_statements_peers, hash, who)
-			{
-				return None;
-			}
-			// For v2 peers with topic affinity, filter by topic match.
-			if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
-				return None;
-			}
-			Some(*hash)
-		});
+		let to_send: Vec<_> = statements
+			.iter()
+			.filter_map(|(seq, hash, stmt)| {
+				if *seq < peer.sync_watermark {
+					return None;
+				}
+				// The peer supplied this statement, do not send it back.
+				if has_received_from(
+					&self.recently_received_statements,
+					&self.pending_statements_peers,
+					hash,
+					who,
+				) {
+					return None;
+				}
+				// For v2 peers with topic affinity, filter by topic match.
+				if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+					return None;
+				}
+				Some(*hash)
+			})
+			.collect();
 
-		let outbox = propagation_outboxes.entry(*who).or_default();
-		let mut queued = 0;
+		self.push_outbox_hashes(who, to_send);
+	}
+
+	/// Queue the `indices` of `statements` for each peer the orchestrator chose as a target.
+	///
+	/// The orchestrator already picked the peer, so neither its sync watermark nor its affinity
+	/// filter applies and only statements the peer sent to us are dropped.
+	fn queue_statements_for_targets(
+		&mut self,
+		statements: &[(u64, Hash, Statement)],
+		targets: Vec<(PeerId, Vec<usize>)>,
+	) {
+		for (who, indices) in targets {
+			let Some(peer) = self.peers.get(&who) else {
+				continue;
+			};
+
+			// TODO(#11288): light peers may need different gating on the v2 DHT path. The
+			// orchestrator already chose the peer, so blocking it until it advertises a filter
+			// may be redundant here.
+			if !peer.can_receive() {
+				continue;
+			}
+
+			let to_send: Vec<_> = indices
+				.iter()
+				.filter_map(|&index| {
+					let (_, hash, _) = &statements[index];
+					// The peer supplied this statement, do not send it back.
+					if has_received_from(
+						&self.recently_received_statements,
+						&self.pending_statements_peers,
+						hash,
+						&who,
+					) {
+						return None;
+					}
+					Some(*hash)
+				})
+				.collect();
+
+			self.push_outbox_hashes(&who, to_send);
+		}
+	}
+
+	/// Append `hashes` to the peer's outbox and send the next chunk if its slot is free.
+	fn push_outbox_hashes(&mut self, who: &PeerId, hashes: Vec<Hash>) {
+		if hashes.is_empty() {
+			return;
+		}
+		let outbox = self.propagation_outboxes.entry(*who).or_default();
+		let queued = hashes.len();
 		let mut overflow = 0;
-		for hash in to_send {
+		for hash in hashes {
 			// The freshest statements are the ones still worth delivering, so an
 			// overflowing outbox drops from the front.
 			if outbox.len() == MAX_PROPAGATION_OUTBOX_LEN {
@@ -1956,7 +2051,6 @@ where
 				overflow += 1;
 			}
 			outbox.push_back(hash);
-			queued += 1;
 		}
 
 		log::trace!(target: LOG_TARGET, "We have {queued} statements that the peer doesn't know about");
@@ -2004,12 +2098,13 @@ where
 			let Some(outbox) = self.propagation_outboxes.get_mut(&who) else {
 				return;
 			};
-			let (statements, processed, accumulated_size) = match fetch_statement_chunk(
+			let chunk = match fetch_statement_chunk(
 				&*self.statement_store,
 				&self.recently_received_statements,
 				&self.pending_statements_peers,
 				&who,
 				peer_data,
+				!v2dht_enabled(),
 				outbox.make_contiguous(),
 				max_size,
 			) {
@@ -2029,6 +2124,8 @@ where
 					return;
 				},
 			};
+			let FetchedChunk { statements, processed, missing, encoded_size: accumulated_size } =
+				chunk;
 
 			debug_assert!(
 				processed > 0,
@@ -2041,6 +2138,10 @@ where
 			// Consume the fetched hashes before the oversized check, otherwise the oversized
 			// statement would be fetched again on the next iteration.
 			outbox.drain(..processed);
+
+			if missing > 0 {
+				self.record_abandoned_send(send_failure::MISSING_FROM_STORE, missing);
+			}
 
 			if accumulated_size > max_size {
 				log::warn!(target: LOG_TARGET, "Statement too large, skipping");
@@ -2093,122 +2194,6 @@ where
 				}
 			}));
 			return;
-		}
-	}
-
-	/// Send the `indices` of `statements` to `peer`, batched.
-	///
-	/// The v2 DHT path's [`V2DhtOrchestrator::propagation_plan`] already decided that `peer`
-	/// should receive these statements, so this skips the explicit-affinity bloom filter that
-	/// [`Self::queue_statements_for_peer`] applies and only drops statements the peer sent to us.
-	// TODO(#11932): fold this into the per-peer outbox path (`try_send_next_chunk`) and delete
-	// `queue_statements_in_chunks`/`find_sendable_chunk`. Blocked on two gaps in the outbox
-	// machinery: transient statement bodies leave the store on `take_recent_statements`, so the
-	// fetch needs the bodies carried alongside the queued hashes, and the fetch re-applies the
-	// peer's affinity filter, which orchestrator-chosen targets must bypass.
-	fn send_targeted_statements_to_peer(
-		&mut self,
-		who: &PeerId,
-		statements: &[(u64, Hash, Statement)],
-		indices: &[usize],
-	) {
-		let Some(peer) = self.peers.get(who) else {
-			return;
-		};
-
-		// TODO(#11288): light peers may need different gating on the v2 DHT path. The
-		// orchestrator already chose this peer, so blocking it until it advertises a filter
-		// may be redundant here.
-		if !peer.can_receive() {
-			return;
-		}
-
-		let protocol_version = peer.protocol_version;
-		let to_send: Vec<_> = indices
-			.iter()
-			.filter_map(|&index| {
-				let (_, hash, stmt) = &statements[index];
-				// The peer supplied this statement, do not send it back.
-				if has_received_from(
-					&self.recently_received_statements,
-					&self.pending_statements_peers,
-					hash,
-					who,
-				) {
-					return None;
-				}
-				Some(stmt)
-			})
-			.collect();
-
-		if to_send.is_empty() {
-			return;
-		}
-
-		self.queue_statements_in_chunks(who, &to_send, protocol_version);
-	}
-
-	/// Queue statement chunks for asynchronous propagation from the main event loop.
-	///
-	/// Each chunk occupies the peer's send slot and counts toward the propagation in-flight
-	/// bytes, so [`Self::process_send_result`]'s accounting stays symmetric.
-	fn queue_statements_in_chunks(
-		&mut self,
-		who: &PeerId,
-		statements: &[&Statement],
-		protocol_version: PeerProtocolVersion,
-	) {
-		let envelope_overhead = protocol_version.envelope_overhead();
-		let mut offset = 0;
-		while offset < statements.len() {
-			match find_sendable_chunk(&statements[offset..], envelope_overhead) {
-				ChunkResult::Send(0) => return,
-				ChunkResult::Send(chunk_end) => {
-					let chunk = &statements[offset..offset + chunk_end];
-					let encoded = match protocol_version {
-						PeerProtocolVersion::V1 => chunk.encode(),
-						PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(chunk),
-					};
-					let bytes_sent = encoded.len() as u64;
-					let Some(message_sink) = self.notification_service.message_sink(who) else {
-						let abandoned = statements.len() - offset;
-						log::debug!(
-							target: LOG_TARGET,
-							"Failed to get message sink for peer {who}, abandoning {abandoned} statements ({bytes_sent} bytes in the current chunk)",
-						);
-						self.record_abandoned_send(send_failure::NO_SINK, abandoned);
-						return;
-					};
-					let peer = *who;
-					let chunk_id = self.occupy_send_slot(peer);
-					let in_flight = self.propagation_in_flight_bytes.saturating_add(bytes_sent);
-					self.set_propagation_in_flight_bytes(in_flight);
-					let sent_latency =
-						self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
-					self.pending_sends.push(Box::pin(async move {
-						let sent_latency_timer = sent_latency.map(|metric| metric.start_timer());
-						let result =
-							send_with_timeout(message_sink.send_async_notification(encoded)).await;
-						drop(sent_latency_timer);
-						PendingSendResult {
-							peer,
-							statement_count: chunk_end,
-							bytes_sent,
-							result,
-							kind: SendKind::Propagation,
-							chunk_id,
-						}
-					}));
-					offset += chunk_end;
-				},
-				ChunkResult::SkipOversized => {
-					log::warn!(target: LOG_TARGET, "Statement too large, skipping");
-					self.metrics.as_ref().map(|metrics| {
-						metrics.skipped_oversized_statements.inc();
-					});
-					offset += 1;
-				},
-			}
 		}
 	}
 
@@ -2347,9 +2332,8 @@ where
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
 			if v2dht_enabled() {
-				for (who, indices) in self.v2dht.propagation_plan(&statements) {
-					self.send_targeted_statements_to_peer(&who, &statements, &indices);
-				}
+				let targets = self.v2dht.propagation_plan(&statements);
+				self.queue_statements_for_targets(&statements, targets);
 			} else {
 				self.do_propagate_statements(&statements);
 			}
@@ -2404,6 +2388,33 @@ where
 			self.metrics.as_ref().map(|metrics| {
 				metrics.initial_sync_peers_active.inc();
 			});
+		}
+	}
+
+	/// Give peers silent past [`AFFINITY_FILTER_GRACE_PERIOD`] a match-all filter, the v1 meaning
+	/// of no filter, and schedule their initial sync.
+	fn assume_match_all_after_filter_grace(&mut self) {
+		let now = Instant::now();
+		let expired: Vec<PeerId> = self
+			.awaiting_affinity_filter
+			.iter()
+			.filter(|(_, connected_at)| {
+				now.duration_since(**connected_at) >= AFFINITY_FILTER_GRACE_PERIOD
+			})
+			.map(|(peer, _)| *peer)
+			.collect();
+		for peer in expired {
+			self.awaiting_affinity_filter.remove(&peer);
+			let Some(peer_data) = self.peers.get_mut(&peer) else {
+				continue;
+			};
+			log::warn!(
+				target: LOG_TARGET,
+				"No affinity filter from {peer} within the grace period, assuming it wants everything"
+			);
+			// The seed is irrelevant to a filter with every bit set.
+			peer_data.topic_affinity = Some(AffinityFilter::match_all(0));
+			self.schedule_initial_sync_for_peer(peer);
 		}
 	}
 
@@ -2565,6 +2576,7 @@ where
 			&self.pending_statements_peers,
 			&peer_id,
 			peer_data,
+			&self.v2dht.dht_target_predicate(peer_id),
 			entry.get().cursor,
 			entry.get().watermark,
 			max_size,
@@ -2647,7 +2659,7 @@ where
 mod tests {
 
 	use super::*;
-	use crate::test_helpers::topology_config;
+	use crate::test_helpers::{filter_over, topic, topology_config};
 	use governor::clock::FakeRelativeClock;
 	use sp_statement_store::Topic;
 	use std::{
@@ -3272,6 +3284,7 @@ mod tests {
 						)
 						.expect("burst capacity is nonzero"),
 					),
+					affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 					protocol_version: PeerProtocolVersion::V1,
 					topic_affinity: None,
 					is_light: false,
@@ -3308,6 +3321,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -3701,8 +3715,10 @@ mod tests {
 				.insert(statement.hash(), statement);
 		}
 		notification_service.block_sends();
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
 		handler.propagate_statements().await;
-		assert!(handler.propagation_outboxes.contains_key(&peer_id));
+		let queued = handler.propagation_outboxes.get(&peer_id).map_or(0, |outbox| outbox.len());
+		assert!(queued > 0);
 		assert!(handler.in_flight_chunks.contains_key(&peer_id));
 
 		handler
@@ -3713,6 +3729,80 @@ mod tests {
 
 		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
 		assert!(!handler.in_flight_chunks.contains_key(&peer_id));
+		let metrics = handler.metrics.as_ref().unwrap();
+		assert_eq!(
+			metrics
+				.undelivered_statements
+				.with_label_values(&[send_failure::DISCONNECTED])
+				.get(),
+			queued as u64,
+			"every hash still queued at disconnect counts as undelivered"
+		);
+		assert_eq!(
+			metrics.send_failures.with_label_values(&[send_failure::DISCONNECTED]).get(),
+			1,
+			"one disconnect event"
+		);
+	}
+
+	#[tokio::test]
+	async fn disconnect_with_an_empty_outbox_records_no_loss() {
+		let (mut handler, _store, _network, _notification_service, _, peer_ids) = build_handler(1);
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamClosed {
+				peer: peer_ids[0],
+			})
+			.await;
+
+		let metrics = handler.metrics.as_ref().unwrap();
+		assert_eq!(
+			metrics
+				.undelivered_statements
+				.with_label_values(&[send_failure::DISCONNECTED])
+				.get(),
+			0
+		);
+		assert_eq!(metrics.send_failures.with_label_values(&[send_failure::DISCONNECTED]).get(), 0);
+	}
+
+	#[tokio::test]
+	async fn drain_counts_queued_statements_the_store_no_longer_serves() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+		let peer_id = peer_ids[0];
+
+		let mut gone = new_live_statement();
+		gone.set_plain_data(b"gone".to_vec());
+		let gone_hash = gone.hash();
+		let mut expired = Statement::new();
+		expired.set_plain_data(b"expired".to_vec());
+		let expired_hash = expired.hash();
+		let mut live = new_live_statement();
+		live.set_plain_data(b"live".to_vec());
+		let live_hash = live.hash();
+		statement_store.insert(expired);
+		statement_store.insert(live);
+
+		handler
+			.propagation_outboxes
+			.insert(peer_id, VecDeque::from(vec![gone_hash, expired_hash, live_hash]));
+		handler.try_send_next_chunk(peer_id);
+		handler.flush_pending_sends().await;
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![live_hash]);
+		let metrics = handler.metrics.as_ref().unwrap();
+		assert_eq!(
+			metrics
+				.undelivered_statements
+				.with_label_values(&[send_failure::MISSING_FROM_STORE])
+				.get(),
+			2,
+			"the hash the store never held and the expired one are lost"
+		);
 	}
 
 	#[tokio::test]
@@ -3900,73 +3990,29 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn send_targeted_statements_skips_affinity_filter_then_dedups() {
-		let (mut handler, _store, _network, notification_service, _, _) = build_handler(0);
-
-		// A peer whose advertised filter matches no topic; the v2 send must ignore it because the
-		// orchestrator already chose this peer.
-		let peer_id = PeerId::random();
-		handler.peers.insert(
-			peer_id,
-			Peer {
-				rate_limiter: PeerRateLimiter::new(
-					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
-					NonZeroU32::new(
-						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-					)
-					.expect("nonzero"),
-				),
-				protocol_version: PeerProtocolVersion::V1,
-				topic_affinity: Some(AffinityFilter::new(BLOOM_SEED, 0.01, 10)),
-				is_light: false,
-				pending_topic_affinity: None,
-				sync_watermark: 0,
-			},
-		);
-
-		let mut statement = Statement::new();
-		statement.set_plain_data(b"targeted".to_vec());
-		statement.set_topic(0, Topic([7u8; 32]));
-		let hash = statement.hash();
-		let statements = vec![(0, hash, statement)];
-
-		handler.send_targeted_statements_to_peer(&peer_id, &statements, &[0]);
-		handler.flush_pending_sends().await;
-		assert_eq!(
-			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
-			vec![hash],
-			"targeted send must deliver the statement despite the non-matching filter"
-		);
-
-		// The peer supplied the statement, so a send delivers nothing back to it.
-		notification_service.clear_sent_notifications();
-		handler.recently_received_statements.entry(hash).or_default().insert(peer_id);
-		handler.send_targeted_statements_to_peer(&peer_id, &statements, &[0]);
-		handler.flush_pending_sends().await;
-		assert!(notification_service.get_sent_notifications().is_empty());
-	}
-
-	#[tokio::test]
-	async fn send_targeted_statements_ignores_a_disconnected_peer() {
-		let (mut handler, _store, _network, notification_service, _, _) = build_handler(0);
+	async fn targets_ignore_a_disconnected_peer() {
+		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
 
 		let mut statement = Statement::new();
 		statement.set_plain_data(b"orphan".to_vec());
 		let hash = statement.hash();
+		statement_store.insert(statement.clone());
 		let statements = vec![(0, hash, statement)];
 
-		handler.send_targeted_statements_to_peer(&PeerId::random(), &statements, &[0]);
+		handler.queue_statements_for_targets(&statements, vec![(PeerId::random(), vec![0])]);
 		handler.flush_pending_sends().await;
 		assert!(notification_service.get_sent_notifications().is_empty());
+		assert!(handler.propagation_outboxes.is_empty());
 	}
 
 	#[tokio::test]
-	async fn send_targeted_statements_delivers_only_indexed_statements_not_from_the_peer() {
-		let (mut handler, _store, _network, notification_service, _, _) = build_handler(0);
+	async fn targets_receive_the_indexed_statements_except_those_from_the_peer() {
+		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
 
 		let make = |seed: u8| {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			statement.set_plain_data(vec![seed]);
+			statement_store.insert(statement.clone());
 			(seed as u64, statement.hash(), statement)
 		};
 		let statements = vec![make(1), make(2), make(3)];
@@ -3985,14 +4031,62 @@ mod tests {
 			.insert(peer_id);
 		handler.peers.insert(peer_id, peer);
 
-		// The plan names indices 0 and 1: index 1 drops as received from the peer, index 2 is
-		// never offered.
-		handler.send_targeted_statements_to_peer(&peer_id, &statements, &[0, 1]);
+		// The orchestrator names indices 0 and 1: index 1 drops as received from the peer,
+		// index 2 is never offered.
+		handler.queue_statements_for_targets(&statements, vec![(peer_id, vec![0, 1])]);
 		handler.flush_pending_sends().await;
 		assert_eq!(
 			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
 			vec![statements[0].1]
 		);
+	}
+
+	#[tokio::test]
+	async fn targets_are_queued_past_the_affinity_filter_and_the_sync_watermark() {
+		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = new_live_statement();
+		statement.set_plain_data(b"targeted".to_vec());
+		statement.set_topic(0, Topic([7u8; 32]));
+		let hash = statement.hash();
+		statement_store.insert(statement.clone());
+		let statements = vec![(0, hash, statement)];
+
+		// The peer's filter matches no topic and its watermark sits above the statement. The
+		// orchestrator chose the peer regardless, and the initial sync would skip the statement.
+		let peer = handler.peers.get_mut(&peer_id).unwrap();
+		peer.topic_affinity = Some(AffinityFilter::new(BLOOM_SEED, 0.01, 10));
+		peer.sync_watermark = 10;
+		handler.in_flight_chunks.insert(peer_id, 0);
+
+		handler.queue_statements_for_targets(&statements, vec![(peer_id, vec![0])]);
+		assert_eq!(
+			handler.propagation_outboxes.get(&peer_id).unwrap(),
+			&VecDeque::from(vec![hash])
+		);
+	}
+
+	#[tokio::test]
+	async fn targets_skip_a_peer_that_cannot_receive_yet() {
+		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = new_live_statement();
+		statement.set_plain_data(b"targeted".to_vec());
+		let hash = statement.hash();
+		statement_store.insert(statement.clone());
+		let statements = vec![(0, hash, statement)];
+
+		// A light V2 peer owes its affinity filter before it may receive anything.
+		let peer = handler.peers.get_mut(&peer_id).unwrap();
+		peer.protocol_version = PeerProtocolVersion::V2;
+		peer.is_light = true;
+
+		handler.queue_statements_for_targets(&statements, vec![(peer_id, vec![0])]);
+		assert!(handler.propagation_outboxes.is_empty());
 	}
 
 	#[tokio::test]
@@ -4146,6 +4240,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -4211,6 +4306,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -5692,6 +5788,75 @@ mod tests {
 		);
 	}
 
+	async fn send_affinity(
+		handler: &mut StatementHandler<TestNetwork, TestSync>,
+		peer_id: PeerId,
+		topic: [u8; 32],
+	) {
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		filter.insert(&topic);
+		let notification = StatementMessage::ExplicitTopicAffinity(filter).encode().into();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification,
+			})
+			.await;
+	}
+
+	#[tokio::test]
+	async fn affinity_updates_are_rate_limited_per_peer() {
+		let (mut handler, _statement_store, network, _notification_service) =
+			build_handler_no_peers();
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+		let clock = FakeRelativeClock::default();
+		handler.peers.get_mut(&peer_id).unwrap().affinity_rate_limiter =
+			PeerRateLimiter::with_clock(
+				config::AFFINITY_UPDATES_PER_SECOND,
+				config::AFFINITY_UPDATES_BURST,
+				&clock,
+			);
+		let flooding_reports = || {
+			network
+				.get_reports()
+				.iter()
+				.filter(|(id, rep)| *id == peer_id && *rep == rep::AFFINITY_FLOODING)
+				.count()
+		};
+
+		let nth_topic = |n: u32| {
+			let mut topic = [0u8; 32];
+			topic[..4].copy_from_slice(&n.to_le_bytes());
+			topic
+		};
+
+		let burst = config::AFFINITY_UPDATES_BURST.get();
+		for i in 0..=burst {
+			send_affinity(&mut handler, peer_id, nth_topic(i)).await;
+		}
+		assert_eq!(flooding_reports(), 1, "only the update past the burst is reported");
+		assert!(!network.get_disconnected_peers().contains(&peer_id));
+		handler.process_pending_affinities();
+		let affinity = handler.peers[&peer_id].topic_affinity.clone().unwrap();
+		assert!(affinity.contains(&nth_topic(burst - 1)), "last accepted update is applied");
+		assert!(!affinity.contains(&nth_topic(burst)), "dropped update is not applied");
+
+		clock.advance(Duration::from_secs(1));
+		send_affinity(&mut handler, peer_id, nth_topic(burst)).await;
+		assert_eq!(flooding_reports(), 1, "the refilled token admits the next update");
+		handler.process_pending_affinities();
+		let affinity = handler.peers[&peer_id].topic_affinity.clone().unwrap();
+		assert!(affinity.contains(&nth_topic(burst)), "update after the refill is applied");
+	}
+
 	#[tokio::test]
 	async fn test_topic_affinity_filters_propagation() {
 		let (mut handler, statement_store, _network, notification_service) =
@@ -6192,6 +6357,7 @@ mod tests {
 					)
 					.expect("nonzero"),
 				),
+				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 				protocol_version: version,
 				topic_affinity,
 				is_light,
@@ -6369,6 +6535,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -6466,6 +6633,7 @@ mod tests {
 					)
 					.unwrap(),
 				),
+				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
@@ -6875,6 +7043,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -6971,6 +7140,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -7035,6 +7205,7 @@ mod tests {
 					)
 					.expect("burst capacity is nonzero"),
 				),
+				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
@@ -7070,6 +7241,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -7152,6 +7324,7 @@ mod tests {
 				)
 				.expect("burst capacity is nonzero"),
 			),
+			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
@@ -7193,6 +7366,7 @@ mod tests {
 					pending_affinities_timeout: Box::pin(futures::future::pending()),
 					peer_eviction_timeout: Box::pin(futures::future::pending()),
 					pending_initial_syncs: HashMap::new(),
+					awaiting_affinity_filter: HashMap::new(),
 					initial_sync_peer_queue: VecDeque::new(),
 					next_initial_sync_id: 0,
 					initial_sync_in_flight_bytes: 0,
@@ -7244,6 +7418,10 @@ mod tests {
 		stale.set_plain_data(vec![2u8; 16]);
 		let stale_hash = stale.hash();
 
+		let mut gone = new_live_statement();
+		gone.set_plain_data(vec![3u8; 16]);
+		let gone_hash = gone.hash();
+
 		let store = TestStatementStore::new();
 		store.insert(stale.clone());
 		store.insert(live.clone());
@@ -7257,6 +7435,7 @@ mod tests {
 				)
 				.expect("burst capacity is nonzero"),
 			),
+			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
@@ -7268,25 +7447,148 @@ mod tests {
 		let pending = HashMap::new();
 		let max_size = max_statement_payload_size(V1_ENVELOPE_OVERHEAD);
 
-		let (statements, _processed, _size) = fetch_statement_chunk(
+		let chunk = fetch_statement_chunk(
 			&store,
 			&received,
 			&pending,
 			&who,
 			&peer,
-			&[stale_hash, live_hash],
+			true,
+			&[gone_hash, stale_hash, live_hash],
 			max_size,
 		)
 		.expect("the test store never fails a fetch");
-		assert_eq!(statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![live_hash],);
+		assert_eq!(
+			chunk.statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+			vec![live_hash],
+		);
+		assert_eq!(chunk.processed, 3);
+		assert_eq!(chunk.missing, 2, "the hash the store never held and the expired one are lost");
 
 		let watermark = store.admission_watermark().expect("watermark is readable");
-		let (batch, _size) =
-			fetch_admitted_chunk(&store, &received, &pending, &who, &peer, 0, watermark, max_size)
-				.expect("the test store never fails a walk");
+		let (batch, _size) = fetch_admitted_chunk(
+			&store,
+			&received,
+			&pending,
+			&who,
+			&peer,
+			&|_| false,
+			0,
+			watermark,
+			max_size,
+		)
+		.expect("the test store never fails a walk");
 		assert_eq!(
 			batch.statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
 			vec![live_hash],
+		);
+	}
+
+	#[test]
+	fn initial_sync_serves_dht_targeted_statements_outside_the_explicit_filter() {
+		let mut statement = new_live_statement();
+		statement.set_plain_data(vec![1u8; 16]);
+		statement.set_topic(0, topic(7));
+		let hash = statement.hash();
+
+		let store = TestStatementStore::new();
+		store.insert(statement);
+
+		let peer = Peer {
+			rate_limiter: PeerRateLimiter::new(
+				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+				NonZeroU32::new(
+					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+				)
+				.expect("burst capacity is nonzero"),
+			),
+			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+			protocol_version: PeerProtocolVersion::V2,
+			topic_affinity: Some(filter_over(&[topic(9)])),
+			is_light: false,
+			pending_topic_affinity: None,
+			sync_watermark: 0,
+		};
+		let who = PeerId::random();
+		let received = HashMap::new();
+		let pending = HashMap::new();
+		let max_size = max_statement_payload_size(V2_ENVELOPE_OVERHEAD);
+		let watermark = store.admission_watermark().expect("watermark is readable");
+
+		let fetch = |peer: &Peer, is_dht_target: &dyn Fn(&Statement) -> bool| {
+			fetch_admitted_chunk(
+				&store,
+				&received,
+				&pending,
+				&who,
+				peer,
+				is_dht_target,
+				0,
+				watermark,
+				max_size,
+			)
+			.expect("the test store never fails a walk")
+			.0
+		};
+
+		let batch = fetch(&peer, &|_| false);
+		assert!(batch.statements.is_empty(), "the explicit filter alone rejects the statement");
+
+		let batch = fetch(&peer, &|stmt| stmt.topics().contains(&topic(7)));
+		assert_eq!(
+			batch.statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+			vec![hash],
+			"a DHT routing target receives the statement despite its explicit filter"
+		);
+
+		let mut light_peer = peer;
+		light_peer.is_light = true;
+		let batch = fetch(&light_peer, &|_| true);
+		assert!(batch.statements.is_empty(), "a light peer gets filter matches only");
+	}
+
+	#[test]
+	fn drain_applies_the_explicit_filter_only_when_asked() {
+		let mut statement = new_live_statement();
+		statement.set_plain_data(vec![1u8; 16]);
+		statement.set_topic(0, topic(7));
+		let hash = statement.hash();
+
+		let store = TestStatementStore::new();
+		store.insert(statement);
+
+		let mut peer = Peer::new_for_testing(
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT)
+				.expect("nonzero"),
+		);
+		peer.topic_affinity = Some(filter_over(&[topic(9)]));
+		let who = PeerId::random();
+		let received = HashMap::new();
+		let pending = HashMap::new();
+		let max_size = max_statement_payload_size(V2_ENVELOPE_OVERHEAD);
+
+		let fetch = |filter_by_affinity: bool| {
+			fetch_statement_chunk(
+				&store,
+				&received,
+				&pending,
+				&who,
+				&peer,
+				filter_by_affinity,
+				&[hash],
+				max_size,
+			)
+			.expect("the test store never fails a fetch")
+			.statements
+		};
+
+		assert!(fetch(true).is_empty(), "the explicit filter rejects the statement");
+		assert_eq!(
+			fetch(false).iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+			vec![hash],
+			"an orchestrator target receives the statement despite its explicit filter"
 		);
 	}
 }
