@@ -1595,4 +1595,46 @@ mod tests {
 		let (_, single) = extractor.extract_from_transaction(&block, 2).await.unwrap();
 		assert_eq!(&single, synthetic_receipt, "the single-receipt path serves the same receipt");
 	}
+
+	/// An extractor whose receipt data query always yields what `receipt_data` builds.
+	fn extractor_answering(receipt_data: fn() -> ReceiptData) -> ReceiptExtractor {
+		ReceiptExtractor {
+			fetch_receipt_data: Arc::new(move |_| {
+				Box::pin(std::future::ready(receipt_data())) as Pin<Box<_>>
+			}),
+			..ReceiptExtractor::new_mock()
+		}
+	}
+
+	#[tokio::test]
+	async fn a_failed_receipt_data_query_is_an_error_on_both_paths() {
+		// The query runs for every block, since one with no ethereum transaction can still carry
+		// a synthetic transaction. A failed query must not read as an empty block: indexed that
+		// way, a block whose header commits to a synthetic transaction would be stored without
+		// its receipt.
+		let block = mocked_block(vec![non_revive_extrinsic()], EventsBuilder::new().encode()).await;
+		let extractor = extractor_answering(|| ReceiptData::Failed);
+
+		let err = extractor
+			.extract_from_block_with_eth_hash(&block, H256::zero())
+			.await
+			.unwrap_err();
+		assert!(matches!(err, ClientError::ReceiptDataNotFound), "{err:?}");
+		let err = extractor.extract_from_transaction(&block, 0).await.unwrap_err();
+		assert!(matches!(err, ClientError::ReceiptDataNotFound), "{err:?}");
+	}
+
+	#[tokio::test]
+	async fn a_block_before_the_receipt_data_api_is_an_empty_block_on_both_paths() {
+		// A runtime without the API has neither ethereum transactions nor mirrored logs, so the
+		// block reconstructs as empty rather than failing every pre-EVM request.
+		let block = mocked_block(vec![non_revive_extrinsic()], EventsBuilder::new().encode()).await;
+		let extractor = extractor_answering(|| ReceiptData::Unsupported);
+
+		let receipts =
+			extractor.extract_from_block_with_eth_hash(&block, H256::zero()).await.unwrap();
+		assert!(receipts.is_empty());
+		let err = extractor.extract_from_transaction(&block, 0).await.unwrap_err();
+		assert!(matches!(err, ClientError::EthExtrinsicNotFound), "{err:?}");
+	}
 }

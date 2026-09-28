@@ -1251,6 +1251,49 @@ fn a_log_emitted_after_the_drain_stays_substrate_only() {
 	});
 }
 
+// The cap's bound rests on buffering a log registering at least its encoded bytes as proof size.
+// The drain benchmark measures a marginal per data byte over a fixed-shape entry, so a log whose
+// topics outweigh that shape is where the floor, not the marginal, is what gets registered.
+#[test]
+fn buffering_a_log_registers_at_least_its_encoded_bytes() {
+	use crate::{evm::block_hash::OutsideFrameLog, weightinfo_extension::OnFinalizeBlockParts};
+	use codec::Encode;
+	use frame_support::dispatch::DispatchClass;
+	use sp_core::H256;
+
+	let registered_by = |contract: H160, topics: Vec<H256>, data: Vec<u8>| {
+		let before = *frame_system::BlockWeight::<Test>::get().get(DispatchClass::Normal);
+		Pallet::<Test>::emit_contract_log_outside_frame(
+			contract,
+			topics.clone().try_into().unwrap(),
+			data.clone().try_into().unwrap(),
+		);
+		let after = *frame_system::BlockWeight::<Test>::get().get(DispatchClass::Normal);
+		let entry = OutsideFrameLog { event_index: 0, contract, topics, data };
+		(after.saturating_sub(before).proof_size(), entry.encoded_size() as u64)
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		// The first log also registers the `BlockHash` read and the synthetic transaction's
+		// `on_finalize` share; absorb those here.
+		registered_by(H160::repeat_byte(1), vec![H256::repeat_byte(1)], vec![]);
+
+		let topics = vec![H256::repeat_byte(2); crate::limits::NUM_EVENT_TOPICS as usize];
+		let (registered, entry_bytes) = registered_by(H160::repeat_byte(2), topics, vec![]);
+		let marginal = <Test as Config>::WeightInfo::per_outside_frame_log(0).proof_size();
+		assert!(entry_bytes > marginal, "the floor is the operative term for this shape");
+		assert_eq!(registered, entry_bytes, "and it is what the block is charged");
+
+		let data = vec![0u8; 32];
+		let (registered, entry_bytes) =
+			registered_by(H160::repeat_byte(3), vec![H256::repeat_byte(3)], data.clone());
+		let marginal =
+			<Test as Config>::WeightInfo::per_outside_frame_log(data.len() as u32).proof_size();
+		assert!(entry_bytes <= marginal, "the marginal covers this shape");
+		assert_eq!(registered, marginal, "and the floor does not overshoot it");
+	});
+}
+
 #[test]
 fn tracing_a_log_emitted_inside_a_call_frame_attaches_to_it() {
 	use crate::{evm::CallTracer, tracing::Tracing};
