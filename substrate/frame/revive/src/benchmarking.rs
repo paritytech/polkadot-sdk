@@ -5427,23 +5427,35 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
 	}
 
-	/// Benchmark `r` `SHL` instructions with full-width operands and small, varying shifts.
+	/// Benchmark `r` `SHL` instructions.
+	///
+	/// `U256` shifts move whole words first and then carry the remaining bits across words. In the
+	/// compiled runtime both steps are unrolled into branches: the first step branches on how many
+	/// whole words the shift moves, and the carry step only runs when there are bits left to shift.
+	/// With the same kind of shift every time, the CPU would predict these branches perfectly.
+	/// Instead a pseudo-random generator picks whether each shift moves zero or one whole word and
+	/// whether it shifts zero or one bit on top of that, with a 50% chance each, which makes the
+	/// CPU mispredict both branches. The mispredictions cost more than the work that the shorter
+	/// shifts skip. Shifts of two or more words would skip too much work to pay off.
+	///
+	/// Each `SHL` is followed by a `POP`, because otherwise its result would become the shift of
+	/// the next one.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_shl_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		const SHIFTS: [u32; 30] = [
-			1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 17, 17, 15, 14, 13, 12, 11, 10, 9, 7,
-			6, 5, 4, 3, 2, 1,
-		];
+		use rand::{Rng, SeedableRng};
+		use rand_pcg::Pcg64;
+
+		let mut rng = Pcg64::seed_from_u64(42);
+		let operands = (0..r).flat_map(|_| {
+			let words = rng.gen_range(0..=1u32);
+			let bits = rng.gen_range(0..=1u32);
+			[U256::MAX, U256::from(64 * words + bits)]
+		});
 
 		let code = Bytecode::new_raw([SHL, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		let operands = SHIFTS
-			.into_iter()
-			.cycle()
-			.take(r as usize)
-			.flat_map(|shift| [U256::MAX, U256::from(shift)]);
 		for operand in operands {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
