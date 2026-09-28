@@ -21,6 +21,7 @@
 use sp_statement_store::Topic;
 use std::{
 	num::{NonZeroU32, NonZeroUsize},
+	str::FromStr,
 	time,
 };
 
@@ -88,6 +89,8 @@ pub const DEFAULT_GOSSIP_TARGET: NonZeroUsize = NonZeroUsize::new(3).expect("3 i
 pub struct V2DhtConfig {
 	/// Topics the node stores in full, regardless of DHT affinity.
 	pub affinity_topics: Vec<Topic>,
+	/// Topics from a file, added to [`Self::affinity_topics`].
+	pub affinity_topics_file: Option<AffinityTopicsFile>,
 	/// False-positive rate of the topic-affinity bloom filter this node advertises.
 	/// Must be at least [`DEFAULT_BLOOM_FALSE_POS_RATE`] and below 1.
 	pub bloom_false_pos_rate: f64,
@@ -103,11 +106,40 @@ impl Default for V2DhtConfig {
 	fn default() -> Self {
 		Self {
 			affinity_topics: Vec::new(),
+			affinity_topics_file: None,
 			bloom_false_pos_rate: DEFAULT_BLOOM_FALSE_POS_RATE,
 			bloom_seed: None,
 			replication_factor: DEFAULT_REPLICATION_FACTOR,
 			gossip_target: DEFAULT_GOSSIP_TARGET,
 		}
+	}
+}
+
+/// Affinity topics read from a file: one 32-byte hex topic per line, blank lines and `#` comments
+/// skipped. A line holds the topic itself, not a name to hash, since applications derive topics in
+/// their own ways.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AffinityTopicsFile(pub Vec<Topic>);
+
+impl AffinityTopicsFile {
+	pub fn parse(text: &str) -> Result<Self, String> {
+		text.lines()
+			.enumerate()
+			.map(|(i, line)| (i + 1, line.trim()))
+			.filter(|(_, line)| !line.is_empty() && !line.starts_with('#'))
+			.map(|(number, line)| line.parse().map_err(|e| format!("line {number}: {e}")))
+			.collect::<Result<_, _>>()
+			.map(Self)
+	}
+}
+
+impl FromStr for AffinityTopicsFile {
+	type Err = String;
+
+	fn from_str(path: &str) -> Result<Self, String> {
+		let text = std::fs::read_to_string(path)
+			.map_err(|e| format!("cannot read affinity topics file '{path}': {e}"))?;
+		Self::parse(&text).map_err(|e| format!("affinity topics file '{path}', {e}"))
 	}
 }
 
@@ -139,5 +171,34 @@ mod tests {
 		.min()
 		.expect("the proof list is nonempty");
 		assert_eq!(min, MIN_ENCODED_STATEMENT_SIZE);
+	}
+
+	#[test]
+	fn affinity_topics_file_parses_lines_and_skips_comments() {
+		let text = format!("# topics\n\n0x{}\n  {}  \n", "11".repeat(32), "22".repeat(32));
+		assert_eq!(
+			AffinityTopicsFile::parse(&text),
+			Ok(AffinityTopicsFile(vec![Topic([0x11; 32]), Topic([0x22; 32])]))
+		);
+	}
+
+	#[test]
+	fn affinity_topics_file_reports_the_bad_line() {
+		let text = format!("{}\nnot a topic\n", "11".repeat(32));
+		let err = AffinityTopicsFile::parse(&text).unwrap_err();
+		assert!(err.starts_with("line 2: "), "{err}");
+	}
+
+	#[test]
+	fn affinity_topics_file_reads_from_a_path() {
+		let dir = tempfile::tempdir().unwrap();
+		let path = dir.path().join("topics.txt");
+		std::fs::write(&path, format!("0x{}\n", "33".repeat(32))).unwrap();
+		let parsed: AffinityTopicsFile = path.to_str().unwrap().parse().unwrap();
+		assert_eq!(parsed.0, vec![Topic([0x33; 32])]);
+
+		let missing = dir.path().join("missing.txt");
+		let err = missing.to_str().unwrap().parse::<AffinityTopicsFile>().unwrap_err();
+		assert!(err.starts_with("cannot read affinity topics file"), "{err}");
 	}
 }

@@ -23,12 +23,18 @@ const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_connected_p
 // Statement-store peers known to a node's topology, exported per node by the v2 DHT path.
 const KNOWN_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_known_peers";
 
+/// Probe budget, in one-second attempts, for waiting out the maintenance sweep: a statement no
+/// affinity covers stays in the store until the sweep (every 29 s) removes it once propagated, and
+/// a probe's own subscription grants explicit affinity while it runs, which can carry the
+/// statement over one more sweep.
+const SWEEP_ATTEMPTS: u32 = 90;
+
 /// Scans `[i; 32]` topics and returns the first `count` to which the node behind `non_affine` is
 /// not a DHT replica. With `K=1` over two nodes the other node is then the replica.
 ///
-/// A non-affine node keeps none of its own submissions (it holds them transiently, which the query
-/// API never surfaces), so we submit a throwaway statement on each candidate and pick the topics
-/// the node does not report storing.
+/// A non-affine node keeps its own submission only until the maintenance sweep removes it, so we
+/// submit a throwaway statement on each candidate and pick the topics whose probe the node stops
+/// reporting. A replica keeps its probe for good, so a dropped probe cannot be a false pick.
 async fn select_topics_non_affine_to(
 	non_affine: &zombienet_sdk::subxt::backend::rpc::RpcClient,
 	keypair: &sr25519::Pair,
@@ -36,7 +42,7 @@ async fn select_topics_non_affine_to(
 ) -> Result<Vec<Topic>, anyhow::Error> {
 	const CANDIDATES: u8 = 24;
 
-	let mut found = Vec::with_capacity(count);
+	let mut probes = Vec::with_capacity(CANDIDATES as usize);
 	for i in 0..CANDIDATES {
 		let topic: Topic = [i; 32].into();
 		let probe = create_test_statement(
@@ -49,17 +55,21 @@ async fn select_topics_non_affine_to(
 		);
 		let expected: Bytes = probe.encode().into();
 		assert_eq!(submit_statement(non_affine, &probe).await?, SubmitResult::New);
+		probes.push((topic, expected));
+	}
 
-		// The node decides retention synchronously on submit: a topic it is a replica for is kept
-		// (persistent, visible to the query API), one it is not is held transiently (never
-		// surfaced). So a topic the node does not report storing is one it is not a DHT replica
-		// for.
-		if !stores_locally(non_affine, topic, &expected).await? {
-			found.push(topic);
-			if found.len() == count {
-				return Ok(found);
+	let mut found = Vec::with_capacity(count);
+	for _ in 0..SWEEP_ATTEMPTS {
+		found.clear();
+		for (topic, expected) in &probes {
+			if !stores_locally(non_affine, *topic, expected).await? {
+				found.push(*topic);
+				if found.len() == count {
+					return Ok(found);
+				}
 			}
 		}
+		tokio::time::sleep(Duration::from_secs(1)).await;
 	}
 
 	Err(anyhow::anyhow!(
@@ -86,13 +96,32 @@ async fn wait_until_stored(
 	Err(anyhow::anyhow!("statement not stored after {attempts} probes"))
 }
 
+/// Polls [`stores_locally`] until the node stops reporting `expected`, once a second up to
+/// `attempts` times, and returns whether it did. Use for statements no affinity covers: the node
+/// keeps them until the maintenance sweep removes them, see [`SWEEP_ATTEMPTS`].
+async fn dropped_within(
+	rpc: &zombienet_sdk::subxt::backend::rpc::RpcClient,
+	topic: Topic,
+	expected: &Bytes,
+	attempts: u32,
+) -> Result<bool, anyhow::Error> {
+	for _ in 0..attempts {
+		if !stores_locally(rpc, topic, expected).await? {
+			return Ok(true);
+		}
+		tokio::time::sleep(Duration::from_secs(1)).await;
+	}
+	Ok(false)
+}
+
 /// A node applies the affinity rule to its own RPC submissions, and the responsible node stores
 /// them regardless of where they originate.
 ///
 /// Two nodes, `K=1`. We pick `topic_a` and `topic_b` to which node_1 is not a DHT replica, so
 /// node_2 is. node_1 subscribes to `topic_a` only, then submits one statement on each topic. node_1
-/// keeps `topic_a` (its subscription grants explicit affinity) but drops `topic_b` (no affinity).
-/// node_2, the DHT replica for both, stores both — reached by forwarding from node_1.
+/// keeps `topic_a` (its subscription grants explicit affinity) but keeps `topic_b` (no affinity)
+/// only until the maintenance sweep removes it. node_2, the DHT replica for both, stores both —
+/// reached by forwarding from node_1.
 ///
 /// We first wait for node_1 to open its statement substream to node_2: affinity is computed over
 /// the peers a node has learned, so until then node_1 knows no peer, judges itself the closest to
@@ -130,14 +159,16 @@ async fn local_submission_retention_works() -> Result<(), anyhow::Error> {
 	let topic_a = topics[0];
 	let topic_b = topics[1];
 
-	// Control: with no affinity for `topic_a` yet, node_1 drops its own submission.
+	// Control: with no affinity for `topic_a` yet, node_1 keeps its own submission only until the
+	// sweep. It must be gone before the subscription below, or the affinity it grants would keep
+	// it.
 	let probe_a =
 		create_test_statement(&keypair, &[topic_a], None, vec![0xa0, 9, 9, 9], u32::MAX, 1000);
 	let probe_a_encoded: Bytes = probe_a.encode().into();
 	assert_eq!(submit_statement(&rpc_1, &probe_a).await?, SubmitResult::New);
 	assert!(
-		!stores_locally(&rpc_1, topic_a, &probe_a_encoded).await?,
-		"node_1 accepted but must not store its own topic_a submission while non-affine",
+		dropped_within(&rpc_1, topic_a, &probe_a_encoded, SWEEP_ATTEMPTS).await?,
+		"node_1 accepted but must not keep its own topic_a submission while non-affine",
 	);
 
 	// Subscribing grants node_1 explicit affinity for `topic_a` only; `topic_b` stays
@@ -159,11 +190,11 @@ async fn local_submission_retention_works() -> Result<(), anyhow::Error> {
 	// stores it.
 	expect_statement_delivered(&mut sub_a, &expected_a, 20).await?;
 
-	// node_1 decides retention synchronously on submit, so we probe right away. We check the two
-	// specific statements, not a total count: the topic-selection probes above leave other
-	// statements in node_1's store.
+	// node_1 decides retention synchronously on submit, so the kept statement is visible right away
+	// and the other one leaves with the sweep. We check the two specific statements, not a total
+	// count: the topic-selection probes above leave other statements in node_1's store.
 	assert!(stores_locally(&rpc_1, topic_a, &expected_a).await?); // kept by explicit affinity
-	assert!(!stores_locally(&rpc_1, topic_b, &expected_b).await?); // dropped, no affinity
+	assert!(dropped_within(&rpc_1, topic_b, &expected_b, SWEEP_ATTEMPTS).await?); // no affinity
 
 	// node_2 is the K=1 DHT replica for both topics, so both statements reach it by forwarding from
 	// node_1 — including `topic_b`, which node_1 itself dropped. Forwarding is asynchronous, so we
@@ -179,8 +210,9 @@ async fn local_submission_retention_works() -> Result<(), anyhow::Error> {
 ///
 /// Three nodes, `K=2`. With `K=2` over three nodes, any topic has exactly two DHT replicas and one
 /// non-replica. Each node submits its own statement on the same topic. The two replicas each end up
-/// storing all three statements (their own plus the two routed to them); the non-replica stores
-/// none — it keeps no copy of its own submission and is not a routing target for the others.
+/// storing all three statements (their own plus the two routed to them); the non-replica ends up
+/// with none — it keeps its own submission only until the maintenance sweep removes it and is not
+/// a routing target for the others.
 ///
 /// We first wait for each node to learn the other two: affinity is computed over the peers a node
 /// has learned, so it cannot tell whether it is among the `K` closest until it knows them all.
@@ -240,9 +272,10 @@ async fn dht_affinity_works() -> Result<(), anyhow::Error> {
 	}
 
 	// Poll until the K=2 distribution settles: the two replicas each store all three statements
-	// (own plus the two routed to them), the non-replica stores none. Forwarding is asynchronous,
-	// so we retry rather than sleep a fixed time.
-	const ATTEMPTS: u32 = 30;
+	// (own plus the two routed to them), the non-replica stores none once the sweep has removed
+	// its own. Forwarding is asynchronous and the sweep periodic, so we retry rather than sleep a
+	// fixed time.
+	const ATTEMPTS: u32 = SWEEP_ATTEMPTS / 2;
 	for attempt in 0..ATTEMPTS {
 		let mut counts = Vec::with_capacity(rpcs.len());
 		for rpc in &rpcs {
@@ -312,12 +345,13 @@ async fn explicit_affinity_works() -> Result<(), anyhow::Error> {
 	let topic: Topic = [0x33u8; 32].into();
 
 	// Find the DHT replica for `topic`: submit a throwaway statement on alice; the replica keeps it
-	// (persistent, visible to the query API), a non-replica drops it (transient, never surfaced).
+	// for good, a non-replica only until the maintenance sweep removes it.
 	let probe = create_test_statement(&keypair, &[topic], None, vec![0x99, 0xfe], u32::MAX, 9000);
 	let probe_expected: Bytes = probe.encode().into();
 	assert_eq!(submit_statement(&alice_rpc, &probe).await?, SubmitResult::New);
 
-	let alice_is_replica = stores_locally(&alice_rpc, topic, &probe_expected).await?;
+	let alice_is_replica =
+		!dropped_within(&alice_rpc, topic, &probe_expected, SWEEP_ATTEMPTS).await?;
 	let (replica_rpc, non_replica_rpc) =
 		if alice_is_replica { (&alice_rpc, &bob_rpc) } else { (&bob_rpc, &alice_rpc) };
 

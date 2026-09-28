@@ -50,6 +50,8 @@ pub(crate) mod score {
 	pub(crate) const GOOD_ACTION: i32 = 1;
 	/// A peer sent an invalid statement, a duplicate, or an undecodable message.
 	pub(crate) const BAD_ACTION: i32 = -50;
+	/// A peer resent a banned statement.
+	pub(crate) const WASTEFUL_ACTION: i32 = -1;
 }
 
 /// Upper bound, as a percent of the connected peers, on how many connections a single refresh
