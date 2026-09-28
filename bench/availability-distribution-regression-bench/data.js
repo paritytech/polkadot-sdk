@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790631254231,
+  "lastUpdate": 1790638796260,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3e473207db22679d341e914fd138bf222fc9ac8e",
-          "message": "[Release|CI/CD] Add parallelisation improvements (#11444)\n\nAdd check that workspace compiles before crates publishing to use\n--no-verify flag during publishing",
-          "timestamp": "2026-03-23T16:08:29Z",
-          "tree_id": "c2daef9e067159bc9ce7307726e688848abe79ed",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3e473207db22679d341e914fd138bf222fc9ac8e"
-        },
-        "date": 1774287073411,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024281185073333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14488117362,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010129804766666648,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007160112720000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02512685762666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5123f42751116805f178f0044f7ddb1190c78079",
+          "message": "pallet-recovery: add do_try_state invariant checks (#12490)\n\n## Description\n\nAdds a `do_try_state` implementation to `pallet-recovery`, wired into\nthe `try_state` runtime hook. The revamped recovery pallet shipped\nwithout runtime invariant checks; this PR addresses that, mirroring the\napproach taken for `pallet-psm` in #12154.\n\n`do_try_state` checks eight state-consistency invariants over `Attempt`,\n`FriendGroups`, and `Inheritor` storage:\n\n1. No orphan attempts (every `Attempt[lost, _]` has a matching\n`FriendGroups[lost]` entry).\n2. In-range friend-group index.\n3. No bit set past `friends.len()` in an attempt's approval bitfield.\n4. (warn) Inheritor overridability: an existing inheritor is either at\nthe strongest priority, overridable by some currently-configured group,\nor the lost account can clear it via `revoke_inheritor`. Warn-only\nbecause the state is reachable through legal single-signer actions.\n5. Each storage entry (`AttemptStorage`, `SecurityDeposit`,\n`FriendGroupsStorage`, `InheritorStorage`) has a non-zero balance on\nhold for its depositor.\n6. Approval count `<= friends_needed`.\n7. `init_block <= last_approval_block`.\n8. `inheritor != lost`.\n\n`do_try_state` is `pub(crate)` and gated on `#[cfg(any(feature =\n\"try-runtime\", test))]`; the `try_state` hook is gated on `try-runtime`.\n\n## Tests\n\nA `try_state` test module covers all eight invariants: a passing case\nper storage shape and a failing case per hard error, plus the warn-only\npath. The four deposit-hold checks are exercised by releasing a hold\nwhile leaving the backing storage entry in place.",
+          "timestamp": "2026-09-28T22:06:52Z",
+          "tree_id": "09b5f71b3ab3fb1a996d4accf029a1127d01809a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5123f42751116805f178f0044f7ddb1190c78079"
+        },
+        "date": 1790638765711,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025194250979999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1435836755933334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009900565213333315,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007822753160000001,
             "unit": "seconds"
           }
         ]
