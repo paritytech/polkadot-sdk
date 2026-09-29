@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790695993381,
+  "lastUpdate": 1790701631525,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3e473207db22679d341e914fd138bf222fc9ac8e",
-          "message": "[Release|CI/CD] Add parallelisation improvements (#11444)\n\nAdd check that workspace compiles before crates publishing to use\n--no-verify flag during publishing",
-          "timestamp": "2026-03-23T16:08:29Z",
-          "tree_id": "c2daef9e067159bc9ce7307726e688848abe79ed",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3e473207db22679d341e914fd138bf222fc9ac8e"
-        },
-        "date": 1774287142514,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.064,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038527662696000026,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08254003126999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03875589268999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c09e4690a08fa3beca53e1fe8e6b7125a0224315",
+          "message": "try state hook for pallet core fellowship (#12419)\n\nThis PR introduces try state hook into the Core Fellowship Pallet. It\nalso defines the invariants that holds for the pallet.\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2026-09-29T15:29:20Z",
+          "tree_id": "87194736b2979f5f2c03a19e76bb7f0fb4e24988",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c09e4690a08fa3beca53e1fe8e6b7125a0224315"
+        },
+        "date": 1790701597566,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11200000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038569978524,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08743537912999991,
             "unit": "seconds"
           }
         ]
