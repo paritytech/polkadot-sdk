@@ -38,7 +38,6 @@ use sc_consensus_aura::{standalone as aura_internal, AuraApi};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_core::Pair;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::Header;
 use sp_timestamp::Timestamp;
 
 pub mod lookahead;
@@ -244,7 +243,9 @@ async fn find_parent<Block>(
 where
 	Block: BlockT,
 {
-	let mut result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
+	// The best parent may be a middle block in a bundle; the trim walks it (and the resubmittable
+	// segment) back to the first block passing the filter, so the segment ends on a bundle-ender.
+	let result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
 		relay_client,
 		para_backend,
 		para_id,
@@ -252,7 +253,10 @@ where
 	)
 	.await
 	{
-		Ok(Some(result)) => result,
+		Ok(Some(result)) => result.trim_best_parent_to_filter(
+			|hash| para_backend.blockchain().header(hash).ok().flatten(),
+			filter_parent,
+		),
 		Ok(None) => {
 			tracing::warn!(
 				target: crate::LOG_TARGET,
@@ -271,26 +275,6 @@ where
 			return None;
 		},
 	};
-
-	// If the best parent doesn't pass the filter (e.g. it's a middle block in a bundle),
-	// walk backwards towards the included block until we find one that does.
-	// This avoids falling all the way back to the included block when there are valid
-	// last-in-core ancestors closer to the chain tip.
-	while !filter_parent(&result.best_parent_header) {
-		let parent_hash = *result.best_parent_header.parent_hash();
-		match para_backend.blockchain().header(parent_hash) {
-			Ok(Some(header)) => {
-				result.walk_best_parent_back(header);
-				if parent_hash == result.included_at_scheduling.hash() {
-					break;
-				}
-			},
-			_ => {
-				result.fall_back_to_included();
-				break;
-			},
-		}
-	}
 
 	Some(result)
 }

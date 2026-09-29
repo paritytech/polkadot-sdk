@@ -89,6 +89,31 @@ impl<Block: BlockT> ParentSearchResult<Block> {
 		self.best_parent_header = self.included_at_scheduling.clone();
 		self.resubmittable_segment.clear();
 	}
+
+	/// Walk the best parent and its resubmittable segment back to the first ancestor passing
+	/// `filter_parent`, or to the included head.
+	pub fn trim_best_parent_to_filter(
+		mut self,
+		get_header: impl Fn(Block::Hash) -> Option<Block::Header>,
+		filter_parent: impl Fn(&Block::Header) -> bool,
+	) -> Self {
+		while !filter_parent(&self.best_parent_header) {
+			let parent_hash = *self.best_parent_header.parent_hash();
+			match get_header(parent_hash) {
+				Some(header) => {
+					self.walk_best_parent_back(header);
+					if parent_hash == self.included_at_scheduling.hash() {
+						break;
+					}
+				},
+				None => {
+					self.fall_back_to_included();
+					break;
+				},
+			}
+		}
+		self
+	}
 }
 
 impl<B: BlockT> std::fmt::Debug for ParentSearchResult<B> {
