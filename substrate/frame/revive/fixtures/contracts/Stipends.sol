@@ -317,6 +317,42 @@ contract WarmWriteSender {
 }
 
 /**
+ * @title NestedWritingReceiver
+ * @dev On receiving value, writes storage from a nested call, delegate call or create.
+ */
+contract NestedWritingReceiver {
+    enum Nesting { Call, DelegateCall, Create }
+
+    uint256 public counter;
+    WritingReceiver immutable target;
+    Nesting immutable nesting;
+
+    constructor(WritingReceiver _target, Nesting _nesting) {
+        target = _target;
+        nesting = _nesting;
+    }
+
+    receive() external payable {
+        if (nesting == Nesting.Call) {
+            target.bump();
+        } else if (nesting == Nesting.DelegateCall) {
+            (bool success, ) = address(target).delegatecall(abi.encodeCall(WritingReceiver.bump, ()));
+            require(success, "delegate call failed");
+        } else {
+            new CounterStartingAtOne();
+        }
+    }
+}
+
+/**
+ * @title CounterStartingAtOne
+ * @dev Writes storage in its constructor.
+ */
+contract CounterStartingAtOne {
+    uint256 public counter = 1;
+}
+
+/**
  * @title ClearingReceiver
  * @dev Increments `counter` on `bump` and zeroes it on receiving value.
  */

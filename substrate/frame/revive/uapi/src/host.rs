@@ -126,7 +126,8 @@ pub trait HostFn: private::Sealed {
 	///
 	/// A call shaped like Solidity's `transfer` or `send` (value with a gas of 0, or no value with
 	/// a gas of 2300) does not let the callee call back into the caller, even with
-	/// [`CallFlags::ALLOW_REENTRY`].
+	/// [`CallFlags::ALLOW_REENTRY`]. The callee, and any contract it calls or creates, also cannot
+	/// write persistent storage. Transient storage still works.
 	///
 	/// If gas is `u64::MAX`, the call will run with uncapped limits.
 	fn call_evm(
@@ -388,6 +389,9 @@ pub trait HostFn: private::Sealed {
 	/// The key and value lengths must not exceed the maximums defined by the `pallet-revive`
 	/// parameters.
 	///
+	/// Persistent writes trap in the callee of a `transfer` or `send`, and in any contract that
+	/// callee calls or creates. Transient writes still work.
+	///
 	/// # Parameters
 	///
 	/// - `key`: The storage key.
@@ -402,6 +406,9 @@ pub trait HostFn: private::Sealed {
 	///
 	/// If the provided 32‑byte value is all zeros then the key is cleared (i.e. deleted),
 	/// mimicking Ethereum’s SSTORE behavior.
+	///
+	/// Persistent writes trap in the callee of a `transfer` or `send`, and in any contract that
+	/// callee calls or creates. Transient writes still work.
 	///
 	/// # Parameters
 	/// - `key`: The fixed 256‑bit storage key (32 bytes).

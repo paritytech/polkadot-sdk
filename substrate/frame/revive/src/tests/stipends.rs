@@ -331,6 +331,99 @@ fn stipend_check_denies_persistent_storage_writes_even_on_hot_slots(
 	}
 }
 
+#[test_case(FixtureType::Solc,   Nesting::Call;         "solc, call")]
+#[test_case(FixtureType::Resolc, Nesting::Call;         "resolc, call")]
+#[test_case(FixtureType::Solc,   Nesting::DelegateCall; "solc, delegate call")]
+#[test_case(FixtureType::Resolc, Nesting::DelegateCall; "resolc, delegate call")]
+#[test_case(FixtureType::Solc,   Nesting::Create;       "solc, create")]
+#[test_case(FixtureType::Resolc, Nesting::Create;       "resolc, create")]
+fn stipend_check_denies_storage_writes_below_the_receiver(
+	fixture_type: FixtureType,
+	nesting: Nesting,
+) {
+	let (target_code, _) = compile_module_with_type("WritingReceiver", fixture_type).unwrap();
+	let (receiver_code, _) =
+		compile_module_with_type("NestedWritingReceiver", fixture_type).unwrap();
+	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+		if fixture_type == FixtureType::Resolc {
+			let (child_code, _) =
+				compile_module_with_type("CounterStartingAtOne", fixture_type).unwrap();
+			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), child_code, u128::MAX)
+				.unwrap();
+		}
+		let Contract { addr: target, .. } =
+			builder::bare_instantiate(Code::Upload(target_code)).build_and_unwrap_contract();
+		let Contract { addr: receiver, .. } =
+			builder::bare_instantiate(Code::Upload(receiver_code))
+				.constructor_data(
+					NestedWritingReceiver::constructorCall {
+						_target: target.0.into(),
+						_nesting: nesting,
+					}
+					.abi_encode(),
+				)
+				.build_and_unwrap_contract();
+		let Contract { addr: sender, .. } = builder::bare_instantiate(Code::Upload(sender_code))
+			.constructor_data(
+				StipendSender::constructorCall { _probe: receiver.0.into() }.abi_encode(),
+			)
+			.build_and_unwrap_contract();
+		let is_denied = |gas_limit: u64| {
+			let result = builder::bare_call(sender)
+				.data(StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode())
+				.build_and_unwrap_result();
+			bool::abi_decode(&result.data).unwrap()
+		};
+
+		// The raised gas scale gives the zero-value calls enough to create the nested frame.
+		let default_gas_scale = GasScale::get();
+		GasScale::set(20_000_000);
+		let with_2300_gas = is_denied(2300);
+		let with_other_gas = [is_denied(2299), is_denied(2301)];
+		GasScale::set(default_gas_scale);
+
+		assert!(with_2300_gas, "frames below the receiver of a zero-value `send` should not write");
+		assert_eq!(with_other_gas, [false, false], "only exactly 2300 gas calls should be denied");
+	});
+}
+
+#[test_case(FixtureType::Solc;   "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn stipend_check_applies_under_strict_reentrancy(fixture_type: FixtureType) {
+	// The fixture calls `call_evm` with empty flags, so the caller asks for `Strict`.
+	let (caller_code, _) = compile_module("call_with_gas").unwrap();
+	let (receiver_code, _) = compile_module_with_type("WritingReceiver", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+		let Contract { addr: caller, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+		let Contract { addr: receiver, .. } =
+			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
+		let call_with_gas =
+			|gas: u64| builder::bare_call(caller).data((receiver, gas).encode()).build().result;
+
+		// The raised gas scale gives the zero-value calls enough to write.
+		let default_gas_scale = GasScale::get();
+		GasScale::set(2_000_000);
+		let with_2300_gas = call_with_gas(2300);
+		let with_other_gas = [call_with_gas(2299), call_with_gas(2301)];
+		GasScale::set(default_gas_scale);
+
+		assert_eq!(
+			with_2300_gas.map(|_| ()),
+			Err(Error::<Test>::ContractTrapped.into()),
+			"a zero-value `send` receiver should not write, whatever the reentrancy protection"
+		);
+		assert_eq!(
+			with_other_gas.map(|result| result.is_ok()),
+			[true, true],
+			"only exactly 2300 gas calls should be denied"
+		);
+	});
+}
+
 #[test_case(FixtureType::Solc,   "TransientWritingReceiver"; "solc, writing")]
 #[test_case(FixtureType::Resolc, "TransientWritingReceiver"; "resolc, writing")]
 #[test_case(FixtureType::Solc,   "TransientClearingReceiver"; "solc, clearing")]
