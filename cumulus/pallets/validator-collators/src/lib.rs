@@ -22,8 +22,9 @@
 //! ## Overview
 //!
 //! The announcing chain sends the active validator set of each era, tagged with the era index.
-//! This pallet stores the latest set, accepted from [`Config::SetOrigin`] only, and rejects a set
-//! whose era is not newer than the stored one.
+//! This pallet stores the latest set, received through `set_validators` from [`Config::SetOrigin`]
+//! or from another pallet through [`Pallet::receive_validator_set`], and rejects a set whose era
+//! is not newer than the stored one.
 //!
 //! The pallet is a [`pallet_session::SessionManager`]. At every session rotation it returns the
 //! stored validators that have registered local session keys, checked with
