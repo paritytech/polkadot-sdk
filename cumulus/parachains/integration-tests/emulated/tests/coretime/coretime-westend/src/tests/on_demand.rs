@@ -56,6 +56,9 @@ fn on_demand_orders_reach_relay() {
 		base_fee,
 	};
 
+	let sender = CoretimeWestendSender::get();
+	let pot = CoretimeWestend::ext_wrapper(OnDemand::account_id);
+
 	Westend::execute_with(|| {
 		Dmp::make_parachain_reachable(CoretimeWestend::para_id());
 	});
@@ -64,6 +67,15 @@ fn on_demand_orders_reach_relay() {
 	// on-demand pallet.
 	CoretimeWestend::execute_with(|| {
 		let root = <CoretimeWestend as Chain>::RuntimeOrigin::root();
+
+		// The pot is expected to be pre-funded with the existential deposit, which must never be
+		// paid out.
+		assert_ok!(Balances::transfer_keep_alive(
+			<CoretimeWestend as Chain>::RuntimeOrigin::signed(sender.clone()),
+			pot.clone().into(),
+			CORETIME_WESTEND_ED
+		));
+		assert_eq!(Balances::free_balance(&pot), CORETIME_WESTEND_ED);
 
 		let schedule =
 			vec![ScheduleItem { mask: CoreMask::complete(), assignment: CoreAssignment::Pool }];
@@ -91,7 +103,7 @@ fn on_demand_orders_reach_relay() {
 		// The pool only gets its core once the reserved schedule becomes active.
 		assert_noop!(
 			OnDemand::place_order(
-				<CoretimeWestend as Chain>::RuntimeOrigin::signed(CoretimeWestendSender::get()),
+				<CoretimeWestend as Chain>::RuntimeOrigin::signed(sender.clone()),
 				para_a,
 				base_fee
 			),
@@ -114,9 +126,7 @@ fn on_demand_orders_reach_relay() {
 	}
 
 	// Place two orders. They are charged the spot price and batched up.
-	let sender = CoretimeWestendSender::get();
-	let pot = CoretimeWestend::ext_wrapper(OnDemand::account_id);
-	let pot_before = CoretimeWestend::ext_wrapper(|| Balances::free_balance(&pot));
+	let revenue = base_fee + base_fee + base_fee / 10;
 	let ordered_at = CoretimeWestend::execute_with(|| {
 		let origin = <CoretimeWestend as Chain>::RuntimeOrigin::signed(sender.clone());
 		let second_price = base_fee + base_fee / 10;
@@ -150,7 +160,7 @@ fn on_demand_orders_reach_relay() {
 	// The batch was sent out when the block was finalized, and the revenue is in the pot.
 	CoretimeWestend::ext_wrapper(|| {
 		assert!(PendingBatch::<CoretimeRuntime>::get().is_empty());
-		assert_eq!(Balances::free_balance(&pot), pot_before + base_fee + base_fee + base_fee / 10);
+		assert_eq!(Balances::free_balance(&pot), CORETIME_WESTEND_ED + revenue);
 	});
 
 	// The relay chain receives the batch and queues both orders.
@@ -171,5 +181,35 @@ fn on_demand_orders_reach_relay() {
 		let queued: Vec<_> =
 			queue.pop_assignment_for_cores::<WestendRuntime>(ordered_at + 10, 2).collect();
 		assert_eq!(queued, vec![para_a.into(), para_b.into()]);
+	});
+
+	// Run until the broker claims the revenue of the orders at the start of the next timeslice.
+	let broker_account = CoretimeWestend::ext_wrapper(Broker::account_id);
+	let mut claimed = None;
+	let mut blocks = 0;
+	while claimed.is_none() {
+		assert!(blocks < TIMESLICE_PERIOD * 2, "the broker never claimed the on-demand revenue");
+		CoretimeWestend::execute_with(|| {
+			for record in <CoretimeWestend as Chain>::System::events() {
+				if let CoretimeEvent::OnDemand(pallet_on_demand_para::Event::RevenueClaimed {
+					until,
+					amount,
+					beneficiary,
+				}) = record.event
+				{
+					assert!(until > ordered_at, "the orders must be covered by the claim");
+					assert_eq!(beneficiary, broker_account);
+					claimed = Some(amount);
+				}
+			}
+		});
+		Westend::execute_with(|| {});
+		blocks += 1;
+	}
+
+	// The whole revenue was paid out, and the existential deposit was left untouched.
+	assert_eq!(claimed, Some(revenue));
+	CoretimeWestend::ext_wrapper(|| {
+		assert_eq!(Balances::free_balance(&pot), CORETIME_WESTEND_ED);
 	});
 }
