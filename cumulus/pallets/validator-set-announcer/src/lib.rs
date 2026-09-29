@@ -15,17 +15,18 @@
 
 //! Validator Set Announcer pallet.
 //!
-//! Applies the validator set of each era locally and announces it to other system chains,
-//! retrying until it is sent or replaced. Meant for the chain that runs `pallet-staking-async`,
-//! typically Asset Hub.
+//! Applies the validator set of each era locally and hands it to [`Config::Sender`] for the other
+//! system chains. Meant for the chain that runs `pallet-staking-async`, typically Asset Hub.
 //!
 //! ## Overview
 //!
 //! The runtime calls [`Pallet::announce`] when a new era becomes active. It stores the set in the
 //! local `pallet-validator-collators` and queues it for every destination in
-//! [`Config::Destinations`]. The queue is drained in `on_initialize` through [`Config::Sender`]. A
-//! failed send is retried in every following block until it succeeds or a newer set replaces it,
-//! so a destination always receives the latest stored set.
+//! [`Config::Destinations`]. The queue is drained in `on_initialize`: each queued destination is
+//! handed the latest stored set, and a rejected hand-off is retried in every following block until
+//! the sender accepts it or a newer set replaces it. Acceptance means the message was queued for
+//! delivery. Execution on the destination is not acknowledged. If it fails there, the next era's
+//! announcement carries the full set again.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -42,7 +43,9 @@ pub trait SendValidatorSet<AccountId> {
 	/// Identifies a destination.
 	type Destination: Parameter + MaxEncodedLen;
 
-	/// Send the validator set of `era` to `destination`.
+	/// Hand the validator set of `era` to the transport for `destination`.
+	///
+	/// `Ok` means the set was accepted for delivery, not that the destination applied it.
 	#[allow(clippy::result_unit_err)]
 	fn send(
 		destination: &Self::Destination,
@@ -115,7 +118,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The set of `era` was sent to a destination.
+		/// The sender accepted the set of `era` for `destination`. Delivery and execution there
+		/// are not confirmed.
 		AnnouncementSent { destination: DestinationOf<T>, era: EraIndex },
 		/// Sending the set of `era` to a destination failed and will be retried.
 		AnnouncementFailed { destination: DestinationOf<T>, era: EraIndex },

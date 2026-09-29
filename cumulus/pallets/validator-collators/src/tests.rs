@@ -309,13 +309,15 @@ fn empty_set_is_accepted_and_contributes_no_collators() {
 fn try_state_detects_a_stored_set_that_does_not_decode() {
 	new_test_ext().execute_with(|| {
 		// GIVEN a stored set with more validators than MaxValidators
+		initialize_to_block(1);
 		frame_support::storage::unhashed::put_raw(
 			&ValidatorSet::<Test>::hashed_key(),
 			&(1u32, (0..51u64).collect::<Vec<_>>()).encode(),
 		);
 		// WHEN the invariants are checked and a session is planned
-		// THEN try_state fails and the pallet returns no validators
+		// THEN try_state fails, and the pallet returns no validators and emits an event
 		assert!(ValidatorCollators::do_try_state().is_err());
 		assert_eq!(<ValidatorCollators as SessionManager<u64>>::new_session(1), None);
+		System::assert_last_event(Event::StoredSetUndecodable.into());
 	});
 }

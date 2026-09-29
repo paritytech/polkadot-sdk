@@ -39,8 +39,8 @@
 //!
 //! ## TODO
 //!
-//! - A random draw among the opted-in validators when a cap is set. For now the cap keeps the first
-//!   validators in the received order.
+//! - A random draw among the opted-in validators when a cap is set. For now the cap keeps a prefix
+//!   of the list as received, which staking hands over sorted by account id.
 //! - Counting the blocks each validator authors and reporting era points to the chain where
 //!   `pallet-staking-async` runs, typically Asset Hub.
 //! - Dropping validators that author no blocks for a session.
@@ -163,6 +163,9 @@ pub mod pallet {
 		ValidatorSetReceived { era: EraIndex, count: u32 },
 		/// The maximum number of validator collators was changed.
 		MaxCollatorsSet { max: Option<u32> },
+		/// The stored validator set does not decode, so no validators were returned for the
+		/// session.
+		StoredSetUndecodable,
 	}
 
 	#[pallet::error]
@@ -214,9 +217,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			let mut seen = BTreeSet::new();
 			ensure!(validators.iter().all(|v| seen.insert(v)), Error::<T>::DuplicateValidator);
-			if ValidatorSet::<T>::get().is_some_and(|stored| era <= stored.era) {
-				return Err(Error::<T>::StaleEra.into());
-			}
+			ensure!(
+				ValidatorSet::<T>::get().is_none_or(|stored| era > stored.era),
+				Error::<T>::StaleEra
+			);
 			let count = validators.len() as u32;
 			ValidatorSet::<T>::put(EraValidatorSet { era, validators });
 			PendingRotation::<T>::put(RotationState::ToPlan);
@@ -252,6 +256,7 @@ pub mod pallet {
 						target: crate::LOG_TARGET,
 						"the stored validator set does not decode"
 					);
+					Self::deposit_event(Event::StoredSetUndecodable);
 				}
 				return None;
 			};

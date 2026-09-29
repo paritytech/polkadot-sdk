@@ -291,8 +291,8 @@ impl<A> SessionManager<A> for () {
 ///
 /// Both managers are expected to return their full current set at every rotation. `None` from one
 /// side means that side contributes nothing this time. The result is `None` only when both sides
-/// return `None`, otherwise it is `A`'s set followed by `B`'s set, keeping the first occurrence of
-/// every account.
+/// return `None`. When only one side returns a set, that set is returned unchanged. When both do,
+/// the result is `A`'s set followed by `B`'s set, keeping the first occurrence of every account.
 pub struct UnionSessionManager<A, B>(PhantomData<(A, B)>);
 
 impl<A, B> UnionSessionManager<A, B> {
@@ -300,11 +300,14 @@ impl<A, B> UnionSessionManager<A, B> {
 		a: Option<Vec<ValidatorId>>,
 		b: Option<Vec<ValidatorId>>,
 	) -> Option<Vec<ValidatorId>> {
-		if a.is_none() && b.is_none() {
-			return None;
+		match (a, b) {
+			(Some(a), Some(b)) => {
+				let mut seen = BTreeSet::new();
+				Some(a.into_iter().chain(b).filter(|id| seen.insert(id.clone())).collect())
+			},
+			(a, None) => a,
+			(None, b) => b,
 		}
-		let mut seen = BTreeSet::new();
-		Some(a.into_iter().chain(b).flatten().filter(|id| seen.insert(id.clone())).collect())
 	}
 }
 

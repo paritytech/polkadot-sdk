@@ -1131,9 +1131,11 @@ fn union_session_manager_merges_and_forwards_to_both_managers() {
 
 	// GIVEN two managers returning every combination of None and overlapping sets
 	// WHEN the union plans sessions, the genesis session, and starts and ends a session
-	// THEN it merges left then right without duplicates and is None only if both are None
+	// THEN it is None only if both are None, returns a one-sided set unchanged, and merges two
+	// sets left then right without duplicates
 	assert_eq!(merged(None, None), None);
 	assert_eq!(merged(Some(vec![1, 2]), None), Some(vec![1, 2]));
+	assert_eq!(merged(Some(vec![1, 1]), None), Some(vec![1, 1]));
 	assert_eq!(merged(None, Some(vec![3])), Some(vec![3]));
 	assert_eq!(merged(Some(vec![]), None), Some(vec![]));
 	assert_eq!(merged(Some(vec![2, 1]), Some(vec![3, 1, 4, 3])), Some(vec![2, 1, 3, 4]));
