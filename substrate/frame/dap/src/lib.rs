@@ -94,12 +94,12 @@ pub type AssetAllocationMap<AssetKind, Balance> = BoundedBTreeMap<
 >;
 
 pub type SingleAssetAllocationMap<Balance> =
-	BoundedBTreeMap<BudgetKey, AssetAllocation<Balance>, ConstU32<MAX_BUDGET_RECIPIENTS>>;
+	BoundedBTreeMap<BudgetKey, SingleAssetAllocation<Balance>, ConstU32<MAX_BUDGET_RECIPIENTS>>;
 
 #[derive(
 	Clone, Copy, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug, MaxEncodedLen,
 )]
-pub struct AssetAllocation<Balance> {
+pub struct SingleAssetAllocation<Balance> {
 	amount_per_ms: Balance,
 }
 
@@ -273,6 +273,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// A key in the budget allocation does not match any registered recipient.
 		UnknownBudgetKey,
+		/// A zero asset distribution share is detected.
+		ZeroAssetDistribution,
 		/// Budget allocation percentages do not sum to exactly 100%.
 		BudgetNotExact,
 	}
@@ -420,10 +422,11 @@ pub mod pallet {
 			}
 
 			if let Some(asset_allocations) = new_asset_allocations {
-				// Validate all keys are registered recipients.
+				// Validate all keys are registered recipients and no zero amounts are set.
 				for (_, allocations) in &asset_allocations {
-					for key in allocations.keys() {
+					for (key, amount) in allocations {
 						ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
+						ensure!(!amount.amount_per_ms.is_zero(), Error::<T>::ZeroAssetDistribution)
 					}
 				}
 
@@ -689,12 +692,16 @@ pub mod pallet {
 			let registered: Vec<BudgetKey> =
 				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
 
-			// Every asset allocation key must be a registered recipient.
+			// Every asset allocation key must be a registered recipient and not equal to zero.
 			for (_, allocations) in asset_allocation {
-				for key in allocations.keys() {
+				for (key, amount) in allocations {
 					ensure!(
-						registered.contains(key),
+						registered.contains(&key),
 						"AssetAllocation contains key not in BudgetRecipients"
+					);
+					ensure!(
+						!amount.amount_per_ms.is_zero(),
+						"AssetAllocation contains zero distribution share"
 					);
 				}
 			}

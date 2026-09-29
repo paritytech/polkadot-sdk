@@ -18,7 +18,7 @@
 //! Benchmarks for pallet-dap.
 
 use super::*;
-use crate::AssetAllocation;
+use crate::SingleAssetAllocation;
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, traits::fungibles::Create};
 use frame_system::RawOrigin;
@@ -72,8 +72,10 @@ mod benchmarks {
 		let recipients = T::BudgetRecipients::recipients();
 		let mut single_asset_allocation = BoundedBTreeMap::new();
 		for (budget_key, _) in recipients {
-			assert_ok!(single_asset_allocation
-				.try_insert(budget_key, AssetAllocation { amount_per_ms: T::Balance::one() }));
+			assert_ok!(single_asset_allocation.try_insert(
+				budget_key,
+				SingleAssetAllocation { amount_per_ms: T::Balance::one() }
+			));
 		}
 
 		for asset_id in 0..count {

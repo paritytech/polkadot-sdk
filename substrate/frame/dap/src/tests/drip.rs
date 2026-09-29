@@ -20,18 +20,40 @@
 use super::budget_map;
 use crate::{
 	mock::{
-		account_id, build_and_execute, set_default_budget_allocation, Balances, Dap, MockTime,
-		RuntimeOrigin, System, Test,
+		account_id, build_and_execute, set_default_budget_allocation, AccountId, Balances, Dap,
+		MockTime, NativeAndAssets, RuntimeOrigin, System, Test,
 	},
+	tests::asset_allocations,
 	Event,
 };
-use frame_support::{assert_ok, traits::fungible::Inspect};
+use frame_benchmarking::whitelisted_caller;
+use frame_support::{
+	assert_ok,
+	traits::{
+		fungible::{Inspect as FungibleInspect, Mutate as FungibleMutate, NativeOrWithId},
+		fungibles::{Create, Inspect, Mutate},
+	},
+};
 use sp_runtime::BuildStorage;
 
 fn advance_time_and_drip(elapsed_ms: u64) {
 	let now = MockTime::get();
 	MockTime::set(now + elapsed_ms);
 	Dap::drip_issuance();
+}
+
+fn balance_of_asset(asset_id: u32, account: &AccountId) -> u64 {
+	NativeAndAssets::balance(NativeOrWithId::WithId(asset_id), account)
+}
+
+fn create_asset(asset_id: u32) {
+	let caller: AccountId = whitelisted_caller();
+	assert_ok!(NativeAndAssets::create(NativeOrWithId::WithId(asset_id), caller, false, 1));
+}
+
+fn event_count(event: Event<Test>) -> usize {
+	let event: <Test as frame_system::Config>::RuntimeEvent = event.into();
+	System::events().into_iter().filter(|e| e.event == event).count()
 }
 
 #[test]
@@ -62,6 +84,171 @@ fn drip_distributes_according_to_budget() {
 
 		System::assert_has_event(
 			Event::<Test>::IssuanceMinted { total_minted: 100, elapsed_millis: 60_000 }.into(),
+		);
+	});
+}
+
+#[test]
+fn assets_are_distributed_on_drip() {
+	build_and_execute(true, || {
+		System::set_block_number(1);
+
+		let budget_allocations = budget_map(&[(b"buffer", 100)]);
+		let asset_allocations = asset_allocations(&[
+			(NativeOrWithId::Native, &[(b"buffer", 10), (b"staker_rewards", 60)]),
+			(NativeOrWithId::WithId(10), &[(b"validator_incentive", 10), (b"staker_rewards", 20)]),
+		]);
+		assert_ok!(Dap::set_allocations(
+			RuntimeOrigin::root(),
+			Some(budget_allocations),
+			Some(asset_allocations.clone())
+		));
+
+		let staker_pot = account_id(500); // TestStakerRecipient pot account
+		let incentive_pot = account_id(501); // TestValidatorIncentiveRecipient pot account
+		let buffer = Dap::buffer_account();
+
+		// Check the Native asset.
+
+		Balances::mint_into(&buffer, 100_000_000);
+		Balances::mint_into(&staker_pot, 10);
+		Balances::mint_into(&incentive_pot, 10);
+
+		let staker_before = Balances::balance(&staker_pot);
+		let incentive_before = Balances::balance(&incentive_pot);
+		let buffer_before = Balances::balance(&buffer);
+
+		advance_time_and_drip(60_000);
+
+		assert_eq!(staker_before + 60_000 * 60, Balances::balance(&staker_pot));
+		assert_eq!(incentive_before, Balances::balance(&incentive_pot));
+		// Distribute 60_000 * 60 to staker pot, distribute 60_000 * 10 to itself, receive 100 from
+		// budget
+		assert_eq!(
+			buffer_before - 60_000 * 60 - 60_000 * 10 + 60_000 * 10 + 100,
+			Balances::balance(&buffer)
+		);
+
+		System::assert_has_event(
+			Event::<Test>::AssetDistributed {
+				asset: NativeOrWithId::Native,
+				amount: 60_000 * (60 + 10),
+				elapsed_millis: 60_000,
+			}
+			.into(),
+		);
+
+		// Check the WithId(10) asset.
+
+		create_asset(10);
+		NativeAndAssets::mint_into(NativeOrWithId::WithId(10), &buffer, 100_000_000);
+
+		let staker_before = balance_of_asset(10, &staker_pot);
+		let incentive_before = balance_of_asset(10, &incentive_pot);
+		let buffer_before = balance_of_asset(10, &buffer);
+
+		advance_time_and_drip(60_000);
+
+		assert_eq!(staker_before + 60_000 * 20, balance_of_asset(10, &staker_pot));
+		assert_eq!(incentive_before + 60_000 * 10, balance_of_asset(10, &incentive_pot));
+		// Distribute 60_000 * 20 to staker pot, distribute 60_000 * 10 to incentive pot.
+		assert_eq!(buffer_before - 60_000 * 20 - 60_000 * 10, balance_of_asset(10, &buffer));
+
+		System::assert_has_event(
+			Event::<Test>::AssetDistributed {
+				asset: NativeOrWithId::WithId(10),
+				amount: 60_000 * (20 + 10),
+				elapsed_millis: 60_000,
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn asset_distribution_silently_fails_when_there_are_not_enough_funds() {
+	build_and_execute(true, || {
+		System::set_block_number(1);
+
+		let budget_allocations = budget_map(&[(b"buffer", 100)]);
+		let asset_allocations = asset_allocations(&[
+			(NativeOrWithId::Native, &[(b"buffer", 10), (b"staker_rewards", 60)]),
+			(NativeOrWithId::WithId(10), &[(b"validator_incentive", 10), (b"staker_rewards", 20)]),
+		]);
+		assert_ok!(Dap::set_allocations(
+			RuntimeOrigin::root(),
+			Some(budget_allocations),
+			Some(asset_allocations.clone())
+		));
+
+		let staker_pot = account_id(500); // TestStakerRecipient pot account
+		let incentive_pot = account_id(501); // TestValidatorIncentiveRecipient pot account
+		let buffer = Dap::buffer_account();
+
+		// Check the Native asset.
+
+		Balances::mint_into(&buffer, 10);
+		Balances::mint_into(&staker_pot, 10);
+		Balances::mint_into(&incentive_pot, 10);
+
+		let staker_before = Balances::balance(&staker_pot);
+		let incentive_before = Balances::balance(&incentive_pot);
+		let buffer_before = Balances::balance(&buffer);
+
+		advance_time_and_drip(60_000);
+
+		assert_eq!(staker_before, Balances::balance(&staker_pot));
+		assert_eq!(incentive_before, Balances::balance(&incentive_pot));
+		// Nothing was distributed, so only +100 from the budget.
+		assert_eq!(buffer_before + 100, Balances::balance(&buffer));
+
+		assert_eq!(
+			event_count(Event::<Test>::Unexpected(
+				crate::UnexpectedKind::DistributionTransferFailed { asset: NativeOrWithId::Native },
+			)),
+			2
+		);
+		System::assert_has_event(
+			Event::<Test>::AssetDistributed {
+				asset: NativeOrWithId::Native,
+				amount: 0,
+				elapsed_millis: 60_000,
+			}
+			.into(),
+		);
+
+		System::reset_events();
+
+		// Check the WithId(10) asset.
+
+		create_asset(10);
+		NativeAndAssets::mint_into(NativeOrWithId::WithId(10), &buffer, 10);
+
+		let staker_before = balance_of_asset(10, &staker_pot);
+		let incentive_before = balance_of_asset(10, &incentive_pot);
+		let buffer_before = balance_of_asset(10, &buffer);
+
+		advance_time_and_drip(60_000);
+
+		assert_eq!(staker_before, balance_of_asset(10, &staker_pot));
+		assert_eq!(incentive_before, balance_of_asset(10, &incentive_pot));
+		assert_eq!(buffer_before, balance_of_asset(10, &buffer));
+
+		assert_eq!(
+			event_count(Event::<Test>::Unexpected(
+				crate::UnexpectedKind::DistributionTransferFailed {
+					asset: NativeOrWithId::WithId(10),
+				},
+			)),
+			2
+		);
+		System::assert_has_event(
+			Event::<Test>::AssetDistributed {
+				asset: NativeOrWithId::WithId(10),
+				amount: 0,
+				elapsed_millis: 60_000,
+			}
+			.into(),
 		);
 	});
 }

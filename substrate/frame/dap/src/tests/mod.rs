@@ -22,7 +22,10 @@ mod drip;
 mod genesis;
 mod on_unbalanced;
 
-use crate::BudgetAllocationMap;
+use crate::{
+	mock::Test, AssetAllocationMap, AssetKindOf, BalanceOf, BudgetAllocationMap,
+	SingleAssetAllocation,
+};
 use sp_runtime::{BoundedBTreeMap, Perbill};
 use sp_staking::budget::BudgetKey;
 
@@ -35,5 +38,24 @@ fn budget_map(entries: &[(&[u8], u32)]) -> BudgetAllocationMap {
 	for (name, pct) in entries {
 		map.try_insert(key(name), Perbill::from_percent(*pct)).unwrap();
 	}
+	map
+}
+
+fn asset_allocations(
+	entries: &[(AssetKindOf<Test>, &[(&[u8], BalanceOf<Test>)])],
+) -> AssetAllocationMap<AssetKindOf<Test>, BalanceOf<Test>> {
+	let mut map = BoundedBTreeMap::new();
+
+	for (asset, budget) in entries {
+		let mut asset_map = BoundedBTreeMap::new();
+		for (name, amount) in *budget {
+			asset_map
+				.try_insert(key(name), SingleAssetAllocation { amount_per_ms: *amount })
+				.expect("Too much assets per budget key");
+		}
+
+		map.try_insert(asset.clone(), asset_map).expect("Too much budget recipients");
+	}
+
 	map
 }
