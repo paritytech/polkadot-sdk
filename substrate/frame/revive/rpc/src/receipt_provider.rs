@@ -795,7 +795,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			separated.push_unseparated(")");
 		}
 
-		qb.push(" LIMIT ").push_bind(MAX_LOG_RESULTS as i64);
+		qb.push(" ORDER BY block_number, log_index LIMIT ")
+			.push_bind(MAX_LOG_RESULTS as i64);
 
 		let logs = qb.build().try_map(parse_log_row).fetch_all(&self.db_ctx.pool).await?;
 
