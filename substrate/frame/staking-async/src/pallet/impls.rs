@@ -829,13 +829,14 @@ impl<T: Config> Pallet<T> {
 					defensive!("IdleIncentiveBuckets overflow");
 				}
 
-				Self::release_matured_idle_incentive(&account, era, buckets);
+				let _ = Self::release_matured_idle_incentive(&account, era, buckets);
 			});
 		}
 	}
 
 	/// Release matured idle incentive to `free` for `account`'s buckets, pruning exhausted ones.
-	fn release_matured_idle_incentive(
+	/// Returns the total amount released across all buckets.
+	pub(crate) fn release_matured_idle_incentive(
 		account: &T::AccountId,
 		current_era: EraIndex,
 		buckets: &mut BoundedBTreeMap<
@@ -843,10 +844,11 @@ impl<T: Config> Pallet<T> {
 			IncentiveBucket<BalanceOf<T>>,
 			MaxIdleIncentiveBuckets<T>,
 		>,
-	) {
+	) -> BalanceOf<T> {
 		let vesting_periods = T::VestingBondingPeriods::get();
 		let bonding_duration = T::BondingDuration::get();
 
+		let mut total_released = BalanceOf::<T>::zero();
 		let mut exhausted = Vec::new();
 		for (period, bucket) in buckets.iter_mut() {
 			let releasable =
@@ -858,7 +860,10 @@ impl<T: Config> Pallet<T> {
 					releasable,
 					Precision::BestEffort,
 				) {
-					Ok(released) => bucket.released = bucket.released.saturating_add(released),
+					Ok(released) => {
+						bucket.released = bucket.released.saturating_add(released);
+						total_released = total_released.saturating_add(released);
+					},
 					Err(e) => log!(
 						warn,
 						"Failed to release matured incentive for {:?}, period {}: {:?}",
@@ -875,6 +880,7 @@ impl<T: Config> Pallet<T> {
 		for period in exhausted {
 			buckets.remove(&period);
 		}
+		total_released
 	}
 
 	/// Chill a stash account.

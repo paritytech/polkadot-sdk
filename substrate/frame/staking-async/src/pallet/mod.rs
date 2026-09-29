@@ -1497,6 +1497,11 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
+		/// Matured idle incentive was released to `who`'s free balance.
+		ValidatorIncentiveReleased {
+			who: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1611,6 +1616,10 @@ pub mod pallet {
 		InvalidInactivityProof(InvalidInactivityProofError),
 		/// Cannot set [`ChillInactiveThreshold`] to the provided value.
 		InvalidChillInactiveThreshold,
+		/// `target` has no idle incentive buckets to release.
+		NoIncentiveToRelease,
+		/// Staking is not active; there is no current era.
+		NoActiveEra,
 	}
 
 	#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo, PalletError)]
@@ -3302,6 +3311,35 @@ pub mod pallet {
 			} else {
 				Err(Error::<T>::BadTarget.into())
 			}
+		}
+
+		/// Release `target`'s matured idle incentive from hold to `free`, pruning empty buckets.
+		///
+		/// Permissionless: anyone may call this for any `target`, e.g. a bot, or a validator who
+		/// has left the active set and is no longer covered by auto-pay.
+		#[pallet::call_index(36)]
+		// TODO: benchmark release_incentive
+		#[pallet::weight(T::DbWeight::get().reads_writes(
+			2,
+			(T::VestingBondingPeriods::get() as u64).saturating_add(2),
+		))]
+		pub fn release_incentive(origin: OriginFor<T>, target: T::AccountId) -> DispatchResult {
+			ensure_signed(origin)?;
+
+			ensure!(
+				IdleIncentiveBuckets::<T>::contains_key(&target),
+				Error::<T>::NoIncentiveToRelease
+			);
+			let current_era =
+				ActiveEra::<T>::get().map(|a| a.index).ok_or(Error::<T>::NoActiveEra)?;
+
+			let amount = IdleIncentiveBuckets::<T>::mutate(&target, |buckets| {
+				Self::release_matured_idle_incentive(&target, current_era, buckets)
+			});
+
+			Self::deposit_event(Event::<T>::ValidatorIncentiveReleased { who: target, amount });
+
+			Ok(())
 		}
 	}
 

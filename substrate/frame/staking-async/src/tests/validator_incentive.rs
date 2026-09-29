@@ -811,6 +811,119 @@ fn idle_incentive_bucket_matures_and_prunes_after_full_window() {
 	});
 }
 
+// ===== `release_incentive` extrinsic tests =====
+
+#[test]
+fn release_incentive_frees_matured_incentive_for_departed_validator() {
+	// A validator who has chilled (left the active set, no longer covered by auto-pay) can still
+	// have their vesting idle incentive pulled via the permissionless extrinsic.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+		let bystander = 999; // unrelated signed caller
+
+		// GIVEN: alice's era-2 incentive is auto-paid at era 3's start.
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		let _ = staking_events_since_last_call();
+		Session::roll_until_active_era(3);
+		let incentive = incentive_paid_for(alice, &staking_events_since_last_call())
+			.expect("incentive auto-paid");
+		let hold_after_delivery = asset::incentive_on_hold::<Test>(&alice);
+		let free_before = Balances::free_balance(&alice);
+
+		// GIVEN: alice chills — leaves the active set.
+		assert_ok!(Staking::chill(RuntimeOrigin::signed(alice)));
+
+		// WHEN: a bystander releases alice's matured idle incentive on her behalf.
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(bystander), alice));
+
+		// THEN: hold decreases and free increases by exactly the newly-matured amount. The bucket
+		// was created in era 2's period; the active era (3) has since moved one further than the
+		// auto-delivery's own release baseline (era 2), so a bit more has now matured.
+		let bonding_duration = BondingDuration::get();
+		let period = 2u32.checked_div(bonding_duration).unwrap_or(0);
+		let matured_at_release =
+			matured_fraction(period, 3, VestingBondingPeriods::get(), bonding_duration)
+				.mul_floor(incentive);
+		let expected_hold = incentive - matured_at_release;
+		assert!(expected_hold < hold_after_delivery, "more should mature by era 3 than era 2");
+		let released = hold_after_delivery - expected_hold;
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), expected_hold);
+		assert_eq!(Balances::free_balance(&alice), free_before + released);
+		assert!(staking_events_since_last_call().iter().any(|e| matches!(
+			e,
+			Event::ValidatorIncentiveReleased { who, amount }
+				if *who == alice && *amount == released
+		)));
+	});
+}
+
+#[test]
+fn release_incentive_is_permissionless() {
+	// Any signed account may call `release_incentive` for any `target`, not just the target
+	// itself.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator, still active (not chilled)
+		let bystander = 424_242; // unrelated signed caller
+
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		let hold_before = asset::incentive_on_hold::<Test>(&alice);
+
+		// WHEN: bystander (not alice, not her controller) calls release_incentive for alice.
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(bystander), alice));
+
+		// THEN: succeeds; incentive moves to alice's free balance, not the caller's.
+		assert!(asset::incentive_on_hold::<Test>(&alice) < hold_before);
+		assert_eq!(Balances::free_balance(&bystander), 0);
+	});
+}
+
+#[test]
+fn release_incentive_prunes_fully_matured_bucket() {
+	// Once a bucket has fully matured, `release_incentive` releases everything held and prunes
+	// the bucket from `IdleIncentiveBuckets`.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+		let window = VestingBondingPeriods::get() * BondingDuration::get();
+
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert_ok!(Staking::chill(RuntimeOrigin::signed(alice)));
+
+		// WHEN: enough eras pass for the (period-0) bucket to fully mature.
+		Session::roll_until_active_era(window + 1);
+		let hold_before = asset::incentive_on_hold::<Test>(&alice);
+		assert!(hold_before > 0, "bucket should still be idle before release");
+		let free_before = Balances::free_balance(&alice);
+
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+
+		// THEN: fully released to free, and the bucket is pruned.
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), 0);
+		assert_eq!(Balances::free_balance(&alice), free_before + hold_before);
+		assert!(IdleIncentiveBuckets::<Test>::get(&alice).is_empty());
+	});
+}
+
+#[test]
+fn release_incentive_errors_without_idle_buckets() {
+	ExtBuilder::default().build_and_execute(|| {
+		let target = 31; // never earned any incentive in this test
+		assert!(IdleIncentiveBuckets::<Test>::get(&target).is_empty());
+
+		assert_noop!(
+			Staking::release_incentive(RuntimeOrigin::signed(999), target),
+			Error::<Test>::NoIncentiveToRelease
+		);
+	});
+}
+
 // ===== Defensive path tests =====
 
 #[test]
