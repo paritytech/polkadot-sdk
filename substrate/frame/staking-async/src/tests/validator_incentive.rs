@@ -141,6 +141,8 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 		let alice = 11; // validator
 		let bob = 101; // nominator
 
+		// GIVEN: payee = Stash, so the incentive lands as an idle hold (not auto-bonded).
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
 		// GIVEN: incentive budget enabled (45% staker, 5% incentive).
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
@@ -572,6 +574,8 @@ fn chilling_after_era_end_does_not_affect_already_delivered_incentive() {
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11; // validator
 
+		// GIVEN: payee = Stash, so the incentive lands as an idle hold (not auto-bonded).
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
 		// GIVEN: alice earns weight in era 2.
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
@@ -739,6 +743,8 @@ fn idle_incentive_recorded_in_bucket_for_its_period() {
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11; // validator
 
+		// GIVEN: payee = Stash, so the incentive lands as an idle hold (not auto-bonded).
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
 		// GIVEN: incentive enabled, validator has weight.
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
@@ -768,6 +774,8 @@ fn idle_incentive_bucket_matures_and_prunes_after_full_window() {
 		let alice = 11; // validator
 		let window = VestingBondingPeriods::get() * BondingDuration::get();
 
+		// GIVEN: payee = Stash, so the incentive lands as an idle hold (not auto-bonded).
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
 		// Use the legacy stake-only formula so a single-validator delivery is trivial: weight ==
 		// total weight ⇒ alice gets the full budget every time.
 		WeightedPointsFormulaStartEra::<Test>::put(u32::MAX);
@@ -821,6 +829,8 @@ fn release_incentive_frees_matured_incentive_for_departed_validator() {
 		let alice = 11; // validator
 		let bystander = 999; // unrelated signed caller
 
+		// GIVEN: payee = Stash, so the incentive lands as an idle hold (not auto-bonded).
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
 		// GIVEN: alice's era-2 incentive is auto-paid at era 3's start.
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
@@ -867,6 +877,8 @@ fn release_incentive_is_permissionless() {
 		let alice = 11; // validator, still active (not chilled)
 		let bystander = 424_242; // unrelated signed caller
 
+		// GIVEN: payee = Stash, so the incentive lands as an idle hold (not auto-bonded).
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
@@ -890,6 +902,8 @@ fn release_incentive_prunes_fully_matured_bucket() {
 		let alice = 11; // validator
 		let window = VestingBondingPeriods::get() * BondingDuration::get();
 
+		// GIVEN: payee = Stash, so the incentive lands as an idle hold (not auto-bonded).
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
@@ -921,6 +935,233 @@ fn release_incentive_errors_without_idle_buckets() {
 			Staking::release_incentive(RuntimeOrigin::signed(999), target),
 			Error::<Test>::NoIncentiveToRelease
 		);
+	});
+}
+
+// ===== `bond_incentive` extrinsic and Variant A unbonding gate =====
+
+#[test]
+fn bond_incentive_moves_idle_into_bonded() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		// GIVEN: payee = Stash, so the incentive lands as an idle hold first.
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		// Normalize: release whatever has matured as of the *current* era first, so
+		// `bond_incentive`'s own internal release (also computed at the current era) is a no-op
+		// and `idle_before` below is exactly what's available to draw from.
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+
+		let idle_before = asset::incentive_on_hold::<Test>(&alice);
+		let active_before = Staking::ledger(alice.into()).unwrap().active;
+		let period = 2 / BondingDuration::get();
+		let bond_amount = idle_before / 2;
+		assert!(bond_amount > 0);
+
+		// WHEN: alice bonds half her idle incentive.
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), bond_amount));
+
+		// THEN: idle hold shrinks, `Staking` active grows, and a bonded bucket appears under the
+		// source period (same vesting schedule carried over).
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), idle_before - bond_amount);
+		assert_eq!(Staking::ledger(alice.into()).unwrap().active, active_before + bond_amount);
+		let bonded = BondedIncentiveBuckets::<Test>::get(&alice);
+		assert_eq!(bonded.get(&period).map(|b| b.total), Some(bond_amount));
+
+		assert!(staking_events_since_last_call().iter().any(|e| matches!(
+			e,
+			Event::IncentiveBonded { stash, amount } if *stash == alice && *amount == bond_amount
+		)));
+	});
+}
+
+#[test]
+fn bond_incentive_errors_when_amount_exceeds_available_idle() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+
+		let idle = asset::incentive_on_hold::<Test>(&alice);
+
+		// WHEN/THEN: asking for more than the still-unmatured idle amount is rejected outright
+		// (no silent clamping), and nothing changes (the whole call is wrapped in a storage
+		// transaction, so the internal matured-release step rolls back too).
+		assert_noop!(
+			Staking::bond_incentive(RuntimeOrigin::signed(alice), idle + 1),
+			Error::<Test>::InsufficientIdleIncentive
+		);
+	});
+}
+
+#[test]
+fn incentive_gate_blocks_restricted_unbond_but_allows_the_rest() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+
+		let idle = asset::incentive_on_hold::<Test>(&alice);
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), idle));
+
+		let ledger = Staking::ledger(alice.into()).unwrap();
+		let restricted = Staking::still_restricted(&alice);
+		assert!(restricted > 0, "freshly-bonded incentive should still be restricted");
+
+		// WHEN: unbonding the full active stake would touch the restricted part — rejected.
+		assert_noop!(
+			Staking::unbond(RuntimeOrigin::signed(alice), ledger.active),
+			Error::<Test>::IncentiveStillRestricted
+		);
+
+		// WHEN: unbonding exactly the unrestricted remainder — allowed.
+		let unrestricted = ledger.active - restricted;
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), unrestricted));
+	});
+}
+
+#[test]
+fn incentive_gate_opens_once_bonded_incentive_fully_matures() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+
+		let idle = asset::incentive_on_hold::<Test>(&alice);
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), idle));
+		assert!(Staking::still_restricted(&alice) > 0);
+
+		// WHEN: enough eras pass for the (period-0) bonded bucket to fully mature.
+		let window = VestingBondingPeriods::get() * BondingDuration::get();
+		Session::roll_until_active_era(window);
+
+		// THEN: no longer restricted — the full active stake (original + bonded) can unbond.
+		assert_eq!(Staking::still_restricted(&alice), 0);
+		let active = Staking::ledger(alice.into()).unwrap().active;
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), active));
+	});
+}
+
+#[test]
+fn bonded_incentive_bucket_is_removed_when_stash_is_reaped() {
+	// A fully-matured bonded bucket must not outlive the ledger it backs, or `try_state`'s
+	// `still_restricted <= active` check has no ledger left to compare against.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+
+		let idle = asset::incentive_on_hold::<Test>(&alice);
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), idle));
+		assert!(!BondedIncentiveBuckets::<Test>::get(&alice).is_empty());
+
+		// GIVEN: the bonded bucket fully matures — the gate opens, but (since payee = Stash, not
+		// Staked) nothing has pruned it yet.
+		let window = VestingBondingPeriods::get() * BondingDuration::get();
+		Session::roll_until_active_era(window);
+		assert_eq!(Staking::still_restricted(&alice), 0);
+		assert!(!BondedIncentiveBuckets::<Test>::get(&alice).is_empty());
+
+		// WHEN: alice fully unbonds (auto-chills), waits out the bonding duration, then
+		// withdraws — which reaps the now-empty ledger.
+		let active = Staking::ledger(alice.into()).unwrap().active;
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), active));
+		Session::roll_until_active_era(active_era() + BondingDuration::get());
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(alice), 0));
+
+		// THEN: the ledger is gone, and so is the (fully-matured) bonded bucket — no orphan left
+		// for `try_state` to trip over.
+		StakingLedger::<T>::assert_stash_killed(alice);
+		assert!(BondedIncentiveBuckets::<Test>::get(&alice).is_empty());
+	});
+}
+
+// ===== `Staked` auto-bond =====
+
+#[test]
+fn staked_destination_auto_bonds_incentive_at_era_end() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator, default payee = Staked
+
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		let active_before = Staking::ledger(alice.into()).unwrap().active;
+		let _ = staking_events_since_last_call();
+
+		// WHEN: era 2 ends — `Staked` auto-bonds into self-stake instead of an idle hold.
+		Session::roll_until_active_era(3);
+		let events = staking_events_since_last_call();
+		let incentive = incentive_paid_for(alice, &events).expect("incentive bonus");
+
+		// THEN: no idle hold, active stake grew by the full incentive, and a bonded bucket
+		// appeared for the delivery period.
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), 0);
+		assert!(IdleIncentiveBuckets::<Test>::get(&alice).is_empty());
+		assert_eq!(Staking::ledger(alice.into()).unwrap().active, active_before + incentive);
+		let period = 2 / BondingDuration::get();
+		let bonded = BondedIncentiveBuckets::<Test>::get(&alice);
+		assert_eq!(bonded.get(&period).map(|b| b.total), Some(incentive));
+	});
+}
+
+// ===== Slashing scales bonded incentive =====
+
+#[test]
+fn slashing_scales_bonded_incentive_buckets() {
+	ExtBuilder::default().nominate(false).build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+
+		let idle = asset::incentive_on_hold::<Test>(&alice);
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), idle));
+
+		let period = 2 / BondingDuration::get();
+		let bonded_before = BondedIncentiveBuckets::<Test>::get(&alice).get(&period).unwrap().total;
+		let active_before = Staking::ledger(alice.into()).unwrap().active;
+
+		// WHEN: alice is slashed 50% (deferred duration is 0 in the mock, so it applies on the
+		// next block).
+		add_slash_with_percent(alice, 50);
+		Session::roll_next();
+
+		// THEN: active stake shrank, and the bonded bucket scaled by the same ratio.
+		let active_after = Staking::ledger(alice.into()).unwrap().active;
+		assert!(active_after < active_before);
+		let bonded_after = BondedIncentiveBuckets::<Test>::get(&alice).get(&period).unwrap().total;
+		let expected = Perbill::from_rational(active_after, active_before).mul_floor(bonded_before);
+		assert_eq!(bonded_after, expected);
+		assert!(Staking::still_restricted(&alice) <= active_after);
 	});
 }
 

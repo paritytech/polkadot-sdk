@@ -104,6 +104,21 @@ where
 	pub fn is_exhausted(&self) -> bool {
 		self.released >= self.total
 	}
+
+	/// Still-restricted (not yet matured) amount at `current_era`: `total` minus cumulative
+	/// matured. Used by bonded buckets, whose `total` never shrinks except via slashing.
+	pub fn restricted_at(
+		&self,
+		period_index: PeriodIndex,
+		current_era: EraIndex,
+		vesting_periods: u32,
+		bonding_duration: EraIndex,
+	) -> Balance {
+		let matured =
+			matured_fraction(period_index, current_era, vesting_periods, bonding_duration)
+				.mul_floor(self.total);
+		self.total.saturating_sub(matured)
+	}
 }
 
 #[cfg(test)]
@@ -283,5 +298,25 @@ mod tests {
 		let bucket = IncentiveBucket::<Balance>::new(1_000);
 		assert_eq!(bucket.releasable_at(0, 10_000, 0, BONDING_DURATION), 0);
 		assert!(!bucket.is_exhausted());
+	}
+
+	#[test]
+	fn bucket_restricted_linear_across_window() {
+		let bucket = IncentiveBucket::<Balance>::new(WINDOW as Balance * 10);
+		assert_eq!(
+			bucket.restricted_at(0, 0, VESTING_PERIODS, BONDING_DURATION),
+			WINDOW as Balance * 10
+		);
+		assert_eq!(
+			bucket.restricted_at(0, WINDOW / 2, VESTING_PERIODS, BONDING_DURATION),
+			(WINDOW as Balance * 10) / 2
+		);
+		assert_eq!(bucket.restricted_at(0, WINDOW, VESTING_PERIODS, BONDING_DURATION), 0);
+	}
+
+	#[test]
+	fn bucket_restricted_zero_once_slashed_to_zero() {
+		let bucket = IncentiveBucket::<Balance>::new(0);
+		assert_eq!(bucket.restricted_at(0, 0, VESTING_PERIODS, BONDING_DURATION), 0);
 	}
 }

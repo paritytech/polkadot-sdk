@@ -743,10 +743,11 @@ impl<T: Config> Pallet<T> {
 		Some(validator_incentive)
 	}
 
-	/// Auto-pay each elected validator's earned `era` incentive as a
-	/// [`HoldReason::ValidatorIncentive`] hold on their [`RewardDestination`] account, record it
-	/// in [`IdleIncentiveBuckets`], then release whatever has matured. Called once at era-end.
-	/// `Staked` is treated like `Stash` for now; auto-bonding lands in a later PR.
+	/// Auto-pay each elected validator's earned `era` incentive to their [`RewardDestination`]
+	/// account: `Staked` auto-bonds straight into self-stake (a bonded bucket, see
+	/// [`BondedIncentiveBuckets`]); `Stash`/`Account(x)` land as an idle
+	/// [`HoldReason::ValidatorIncentive`] hold (an [`IdleIncentiveBuckets`] bucket), with whatever
+	/// has matured released immediately. Called once at era-end.
 	pub(crate) fn auto_pay_incentive(era: EraIndex) {
 		if Eras::<T>::get_validator_incentive_budget(era).is_zero() {
 			return;
@@ -770,12 +771,11 @@ impl<T: Config> Pallet<T> {
 				}));
 				continue;
 			};
-			// `Staked` is treated like `Stash` for now: idle hold on the stash. Auto-bonding
-			// into self-stake is a later PR.
 			let Some(account) = Self::payout_account_for_dest(&stash, &dest) else {
 				// Destination is `None`; intentional opt-out.
 				continue;
 			};
+			let is_staked = matches!(dest, RewardDestination::Staked);
 
 			if let Err(e) =
 				T::Currency::transfer(&incentive_pot, &account, amount, Preservation::Expendable)
@@ -793,7 +793,19 @@ impl<T: Config> Pallet<T> {
 				defensive!("Validator incentive transfer failed");
 				continue;
 			}
-			if let Err(e) =
+
+			if is_staked {
+				// `account == stash` here (see `payout_account_for_dest`), so the ledger exists.
+				let Ok(mut ledger) = Self::ledger(Stash(account.clone())) else {
+					defensive!("`Staked` reward destination without a ledger");
+					continue;
+				};
+				ledger.active += amount;
+				ledger.total += amount;
+				let _ = ledger
+					.update()
+					.defensive_proof("ledger fetched from storage, so it exists; qed.");
+			} else if let Err(e) =
 				T::Currency::hold(&HoldReason::ValidatorIncentive.into(), &account, amount)
 			{
 				log!(
@@ -817,20 +829,36 @@ impl<T: Config> Pallet<T> {
 				amount,
 			});
 
-			IdleIncentiveBuckets::<T>::mutate(&account, |buckets| {
-				if let Some(bucket) = buckets.get_mut(&period) {
-					bucket.merge(amount);
-				} else if buckets.try_insert(period, IncentiveBucket::new(amount)).is_err() {
-					log!(
-						warn,
-						"IdleIncentiveBuckets full for {:?}; incentive held but untracked",
-						account
-					);
-					defensive!("IdleIncentiveBuckets overflow");
-				}
+			if is_staked {
+				BondedIncentiveBuckets::<T>::mutate(&account, |buckets| {
+					if let Some(bucket) = buckets.get_mut(&period) {
+						bucket.merge(amount);
+					} else if buckets.try_insert(period, IncentiveBucket::new(amount)).is_err() {
+						log!(
+							warn,
+							"BondedIncentiveBuckets full for {:?}; incentive bonded but untracked",
+							account
+						);
+						defensive!("BondedIncentiveBuckets overflow");
+					}
+					Self::prune_matured_bonded_incentive(era, buckets);
+				});
+			} else {
+				IdleIncentiveBuckets::<T>::mutate(&account, |buckets| {
+					if let Some(bucket) = buckets.get_mut(&period) {
+						bucket.merge(amount);
+					} else if buckets.try_insert(period, IncentiveBucket::new(amount)).is_err() {
+						log!(
+							warn,
+							"IdleIncentiveBuckets full for {:?}; incentive held but untracked",
+							account
+						);
+						defensive!("IdleIncentiveBuckets overflow");
+					}
 
-				let _ = Self::release_matured_idle_incentive(&account, era, buckets);
-			});
+					let _ = Self::release_matured_idle_incentive(&account, era, buckets);
+				});
+			}
 		}
 	}
 
@@ -842,7 +870,7 @@ impl<T: Config> Pallet<T> {
 		buckets: &mut BoundedBTreeMap<
 			PeriodIndex,
 			IncentiveBucket<BalanceOf<T>>,
-			MaxIdleIncentiveBuckets<T>,
+			MaxIncentiveBuckets<T>,
 		>,
 	) -> BalanceOf<T> {
 		let vesting_periods = T::VestingBondingPeriods::get();
@@ -883,6 +911,150 @@ impl<T: Config> Pallet<T> {
 		total_released
 	}
 
+	/// Prune `account`'s bonded incentive buckets that are fully matured or fully slashed.
+	pub(crate) fn prune_matured_bonded_incentive(
+		current_era: EraIndex,
+		buckets: &mut BoundedBTreeMap<
+			PeriodIndex,
+			IncentiveBucket<BalanceOf<T>>,
+			MaxIncentiveBuckets<T>,
+		>,
+	) {
+		let vesting_periods = T::VestingBondingPeriods::get();
+		let bonding_duration = T::BondingDuration::get();
+		let exhausted: Vec<PeriodIndex> = buckets
+			.iter()
+			.filter(|(period, bucket)| {
+				bucket.total.is_zero() ||
+					bucket
+						.restricted_at(**period, current_era, vesting_periods, bonding_duration)
+						.is_zero()
+			})
+			.map(|(period, _)| *period)
+			.collect();
+		for period in exhausted {
+			buckets.remove(&period);
+		}
+	}
+
+	/// Sum of `account`'s bonded buckets' still-restricted (unmatured) amount at the active era;
+	/// the floor [`Pallet::unbond`] enforces on top of `ledger.active`.
+	pub(crate) fn still_restricted(account: &T::AccountId) -> BalanceOf<T> {
+		let current_era = Rotator::<T>::active_era();
+		let vesting_periods = T::VestingBondingPeriods::get();
+		let bonding_duration = T::BondingDuration::get();
+		BondedIncentiveBuckets::<T>::get(account).iter().fold(
+			BalanceOf::<T>::zero(),
+			|acc, (period, bucket)| {
+				acc.saturating_add(bucket.restricted_at(
+					*period,
+					current_era,
+					vesting_periods,
+					bonding_duration,
+				))
+			},
+		)
+	}
+
+	/// Scale `stash`'s bonded incentive buckets by `new_active / old_active`, mirroring a slash's
+	/// reduction of `active` stake; prunes buckets scaled to zero. Idle incentive is untouched.
+	pub(crate) fn scale_bonded_incentive_buckets(
+		stash: &T::AccountId,
+		old_active: BalanceOf<T>,
+		new_active: BalanceOf<T>,
+	) {
+		if !BondedIncentiveBuckets::<T>::contains_key(stash) {
+			return;
+		}
+		BondedIncentiveBuckets::<T>::mutate(stash, |buckets| {
+			let mut exhausted = Vec::new();
+			for (period, bucket) in buckets.iter_mut() {
+				bucket.total = if old_active.is_zero() {
+					Zero::zero()
+				} else {
+					Perbill::from_rational(new_active, old_active).mul_floor(bucket.total)
+				};
+				if bucket.total.is_zero() {
+					exhausted.push(*period);
+				}
+			}
+			for period in exhausted {
+				buckets.remove(&period);
+			}
+		});
+	}
+
+	/// Release matured idle incentive first, then draw `amount` of the remaining (purely
+	/// unmatured) idle incentive into bonded buckets, ascending period order, carrying each
+	/// source bucket's own period (and so its vesting schedule) into the bonded side.
+	///
+	/// Reduces each drawn-from idle bucket's `total` by exactly the drawn amount, leaving
+	/// `released` untouched: this can lag that bucket's own release schedule slightly (it
+	/// self-corrects and fully releases by window end) but keeps `try_state` exact, avoiding
+	/// `Perbill` rounding drift. Does not move any currency; the caller moves `amount` from the
+	/// `ValidatorIncentive` hold into stake.
+	pub(crate) fn do_bond_incentive(
+		stash: &T::AccountId,
+		current_era: EraIndex,
+		amount: BalanceOf<T>,
+	) -> DispatchResult {
+		IdleIncentiveBuckets::<T>::mutate(stash, |idle| {
+			let _ = Self::release_matured_idle_incentive(stash, current_era, idle);
+		});
+
+		let drawn = IdleIncentiveBuckets::<T>::try_mutate(
+			stash,
+			|idle| -> Result<Vec<(PeriodIndex, BalanceOf<T>)>, Error<T>> {
+				let available = idle.values().fold(BalanceOf::<T>::zero(), |acc, bucket| {
+					acc.saturating_add(bucket.total.saturating_sub(bucket.released))
+				});
+				ensure!(amount <= available, Error::<T>::InsufficientIdleIncentive);
+
+				let mut remaining = amount;
+				let mut drawn = Vec::new();
+				let mut exhausted = Vec::new();
+				for (period, bucket) in idle.iter_mut() {
+					if remaining.is_zero() {
+						break;
+					}
+					let held = bucket.total.saturating_sub(bucket.released);
+					let take = remaining.min(held);
+					if take.is_zero() {
+						continue;
+					}
+					bucket.total = bucket.total.saturating_sub(take);
+					remaining = remaining.saturating_sub(take);
+					drawn.push((*period, take));
+					if bucket.total.saturating_sub(bucket.released).is_zero() {
+						exhausted.push(*period);
+					}
+				}
+				for period in exhausted {
+					idle.remove(&period);
+				}
+				Ok(drawn)
+			},
+		)?;
+
+		BondedIncentiveBuckets::<T>::mutate(stash, |bonded| {
+			for (period, take) in drawn {
+				if let Some(bucket) = bonded.get_mut(&period) {
+					bucket.merge(take);
+				} else if bonded.try_insert(period, IncentiveBucket::new(take)).is_err() {
+					defensive!("BondedIncentiveBuckets overflow");
+				}
+			}
+		});
+
+		T::Currency::release(
+			&HoldReason::ValidatorIncentive.into(),
+			stash,
+			amount,
+			Precision::Exact,
+		)?;
+		Ok(())
+	}
+
 	/// Chill a stash account.
 	pub(crate) fn chill_stash(stash: &T::AccountId) {
 		let chilled_as_validator = Self::do_remove_validator(stash);
@@ -910,6 +1082,12 @@ impl<T: Config> Pallet<T> {
 
 		// Clean up validator history tracking.
 		LastValidatorEra::<T>::remove(&stash);
+
+		// Bonded incentive buckets are meaningless without a ledger: reaping only ever succeeds
+		// once `still_restricted` is 0 (the unbond gate blocks it otherwise), so any lingering
+		// buckets here are fully matured. `IdleIncentiveBuckets` is left alone: it lives in the
+		// `ValidatorIncentive` hold, independent of the ledger, and may outlive it.
+		BondedIncentiveBuckets::<T>::remove(&stash);
 
 		Ok(())
 	}
@@ -2199,6 +2377,7 @@ impl<T: Config> Pallet<T> {
 		Self::check_slash_health()?;
 		Self::check_reward_mode_consistency()?;
 		Self::check_idle_incentive_buckets()?;
+		Self::check_bonded_incentive_buckets()?;
 
 		Ok(())
 	}
@@ -2214,6 +2393,21 @@ impl<T: Config> Pallet<T> {
 			ensure!(
 				asset::incentive_on_hold::<T>(&account) == unmatured,
 				"ValidatorIncentive hold does not match sum of idle bucket (total - released)"
+			);
+		}
+		Ok(())
+	}
+
+	/// Invariant: bonded incentive is mixed into the `Staking` hold with ordinary stake, so
+	/// there's no exact hold equality — only that `still_restricted` never exceeds `active`.
+	fn check_bonded_incentive_buckets() -> Result<(), TryRuntimeError> {
+		for (account, _) in BondedIncentiveBuckets::<T>::iter() {
+			let active = Self::ledger(Stash(account.clone()))
+				.map(|l| l.active)
+				.map_err(|_| "bonded incentive bucket without a ledger")?;
+			ensure!(
+				Self::still_restricted(&account) <= active,
+				"still_restricted exceeds ledger active stake"
 			);
 		}
 		Ok(())

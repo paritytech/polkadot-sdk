@@ -609,10 +609,10 @@ pub mod pallet {
 	pub type ErasSumWeightedPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
 
-	/// Per-account cap on live [`IdleIncentiveBuckets`] entries: [`Config::VestingBondingPeriods`]
-	/// + 1 headroom for lazy pruning.
-	pub struct MaxIdleIncentiveBuckets<T>(core::marker::PhantomData<T>);
-	impl<T: Config> Get<u32> for MaxIdleIncentiveBuckets<T> {
+	/// Per-account cap on live idle/bonded incentive bucket entries:
+	/// [`Config::VestingBondingPeriods`] + 1 headroom for lazy pruning.
+	pub struct MaxIncentiveBuckets<T>(core::marker::PhantomData<T>);
+	impl<T: Config> Get<u32> for MaxIncentiveBuckets<T> {
 		fn get() -> u32 {
 			T::VestingBondingPeriods::get().saturating_add(1)
 		}
@@ -623,13 +623,30 @@ pub mod pallet {
 	///
 	/// Keyed by recipient account → per bonding-period ([`crate::maturation::PeriodIndex`])
 	/// [`IncentiveBucket`]. Each bucket matures over `VestingBondingPeriods × BondingDuration` eras
-	/// (see [`crate::maturation::matured_fraction`]) and is pruned once fully released.
+	/// (see [`crate::maturation::matured_fraction`]) and is pruned once fully released. See
+	/// [`BondedIncentiveBuckets`] for the bonded counterpart.
 	#[pallet::storage]
 	pub type IdleIncentiveBuckets<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
-		BoundedBTreeMap<PeriodIndex, IncentiveBucket<BalanceOf<T>>, MaxIdleIncentiveBuckets<T>>,
+		BoundedBTreeMap<PeriodIndex, IncentiveBucket<BalanceOf<T>>, MaxIncentiveBuckets<T>>,
+		ValueQuery,
+	>;
+
+	/// Validator incentive bonded into self-stake via [`Pallet::bond_incentive`] or auto-bonded
+	/// by [`RewardDestination::Staked`], keyed the same way as [`IdleIncentiveBuckets`].
+	///
+	/// A bucket's `total` is the amount bonded for that period and never shrinks except by
+	/// slashing or once fully matured (pruned); `released` is unused (stays `0`). The
+	/// still-restricted (not-yet-vested) amount is `total` minus its matured fraction (see
+	/// [`IncentiveBucket::restricted_at`]) — this is what [`Pallet::unbond`] forbids withdrawing.
+	#[pallet::storage]
+	pub type BondedIncentiveBuckets<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		BoundedBTreeMap<PeriodIndex, IncentiveBucket<BalanceOf<T>>, MaxIncentiveBuckets<T>>,
 		ValueQuery,
 	>;
 
@@ -1502,6 +1519,11 @@ pub mod pallet {
 			who: T::AccountId,
 			amount: BalanceOf<T>,
 		},
+		/// Idle incentive was bonded into self-stake.
+		IncentiveBonded {
+			stash: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1620,6 +1642,10 @@ pub mod pallet {
 		NoIncentiveToRelease,
 		/// Staking is not active; there is no current era.
 		NoActiveEra,
+		/// Not enough unmatured idle incentive to bond the requested amount.
+		InsufficientIdleIncentive,
+		/// Cannot unbond: the amount overlaps still-restricted (unvested) bonded incentive.
+		IncentiveStillRestricted,
 	}
 
 	#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo, PalletError)]
@@ -1994,6 +2020,13 @@ pub mod pallet {
 			let mut ledger = Self::ledger(Controller(controller))?;
 			let mut value = value.min(ledger.active);
 			let stash = ledger.stash.clone();
+
+			// Forbid unbonding into still-restricted (unvested) bonded incentive.
+			let restricted = Self::still_restricted(&stash);
+			ensure!(
+				value <= ledger.active.defensive_saturating_sub(restricted),
+				Error::<T>::IncentiveStillRestricted
+			);
 
 			// If unbonding all active stake, chill the stash first to avoid `InsufficientBond`
 			// errors. This matches the behavior of pallet-staking.
@@ -3338,6 +3371,43 @@ pub mod pallet {
 			});
 
 			Self::deposit_event(Event::<T>::ValidatorIncentiveReleased { who: target, amount });
+
+			Ok(())
+		}
+
+		/// Bond `amount` of the caller's still-unmatured idle incentive into self-stake.
+		///
+		/// Carries the drawn amount's remaining vesting restriction into a bonded bucket (see
+		/// [`BondedIncentiveBuckets`]), which then blocks [`Call::unbond`] until it matures.
+		///
+		/// The dispatch origin must be _Signed_ by the stash.
+		#[pallet::call_index(37)]
+		// TODO: benchmark bond_incentive
+		#[pallet::weight(T::DbWeight::get().reads_writes(
+			3,
+			(T::VestingBondingPeriods::get() as u64).saturating_add(3),
+		))]
+		pub fn bond_incentive(
+			origin: OriginFor<T>,
+			#[pallet::compact] amount: BalanceOf<T>,
+		) -> DispatchResult {
+			let stash = ensure_signed(origin)?;
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
+
+			let current_era =
+				ActiveEra::<T>::get().map(|a| a.index).ok_or(Error::<T>::NoActiveEra)?;
+			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
+
+			Self::do_bond_incentive(&stash, current_era, amount)?;
+
+			ledger.active += amount;
+			ledger.total += amount;
+			ledger.update()?;
+			if T::VoterList::contains(&stash) {
+				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash));
+			}
+
+			Self::deposit_event(Event::<T>::IncentiveBonded { stash, amount });
 
 			Ok(())
 		}
