@@ -18,15 +18,7 @@
 
 //! RPC middleware to collect prometheus metrics on RPC calls.
 
-<<<<<<< HEAD
-use std::time::Instant;
-=======
-use std::{
-	collections::HashSet,
-	sync::{Arc, LazyLock},
-	time::Instant,
-};
->>>>>>> 684e208 (sc-rpc-server: bound the cardinality of the RPC metrics `method` label (#13045))
+use std::{collections::HashSet, sync::Arc, time::Instant};
 
 use jsonrpsee::{types::Request, MethodResponse};
 use prometheus_endpoint::{
@@ -180,31 +172,6 @@ impl RpcMetrics {
 			.inc();
 	}
 
-<<<<<<< HEAD
-=======
-	pub(crate) fn on_rejected(&self, req: &Request, transport_label: &'static str) {
-		log::trace!(
-			target: "rpc_metrics",
-			"[{transport_label}] {} call rejected due to rate limiting",
-			req.method_name(),
-		);
-		self.calls_rejected
-			.with_label_values(&[transport_label, self.method_label(req)])
-			.inc();
-	}
-
-	pub(crate) fn on_retry(&self, req: &Request, transport_label: &'static str) {
-		log::trace!(
-			target: "rpc_metrics",
-			"[{transport_label}] {} call retrying due to rate limiting",
-			req.method_name(),
-		);
-		self.calls_retried
-			.with_label_values(&[transport_label, self.method_label(req)])
-			.inc();
-	}
-
->>>>>>> 684e208 (sc-rpc-server: bound the cardinality of the RPC metrics `method` label (#13045))
 	pub(crate) fn on_response(
 		&self,
 		req: &Request,
@@ -284,8 +251,7 @@ impl Metrics {
 mod tests {
 	use super::*;
 	use jsonrpsee::types::Request;
-	use prometheus::core::Collector;
-	use prometheus_endpoint::Registry;
+	use prometheus_endpoint::{prometheus::core::Collector, Registry};
 	use std::borrow::Cow;
 
 	fn req(method: &'static str) -> Request<'static> {
