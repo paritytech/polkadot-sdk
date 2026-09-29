@@ -23,7 +23,8 @@ use crate::{
 };
 use fp_coretime::revenue::OnDemandRevenue;
 use frame_support::{
-	assert_noop, assert_ok, dispatch::Pays,
+	assert_noop, assert_ok,
+	dispatch::Pays,
 	traits::{
 		fungible::{Inspect, Mutate},
 		Get,
