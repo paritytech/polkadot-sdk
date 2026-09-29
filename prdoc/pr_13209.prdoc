@@ -3,14 +3,14 @@ title: Make `pallet-assets` transfers move exactly the requested amount
 doc:
 - audience: Runtime Dev
   description: |-
-    `pallet_assets::prep_debit` promotes a debit to the account's whole balance when debiting the
+    `pallet_assets::prep_debit` increases a debit to the account's whole balance when debiting the
     requested amount exactly would strand a remainder below the asset's `min_balance`. That is
-    sound where the caller can observe it — `fungibles::Balanced::withdraw` reports the promoted
+    sound where the caller can observe it, `fungibles::Balanced::withdraw` reports the promoted
     figure in the credit it returns, and `burn` destroys what it takes and squares supply — but
     at least three consumers could not, and each lost track of the difference:
 
     - `transfer_and_die` (so `transfer`, `transfer_keep_alive`, `force_transfer`,
-      `transfer_approved`, and the `ERC20` precompile) fed the promoted debit into `prep_credit`,
+      `transfer_approved`, and the `ERC20` precompile) fed the increased debit into `prep_credit`,
       so the destination received `amount + remainder`. For `transfer_approved` this moved more
       of the owner's funds than the allowance the owner had granted, while charging only `amount`
       against that allowance.
@@ -36,7 +36,18 @@ doc:
     - `pallet_asset_conversion::withdraw` rejects an expendable withdrawal that would strand a
       remainder before touching state, and asserts the returned credit matches the requested
       value as a backstop.
-      
+
+    The assets ERC-20 precompile and the asset-conversion precompile also now revert, with a reason a
+    contract can read, for the caller-facing failures that used to trap with empty return data.
+    `Error::Error` remains only for charging failures, which still arrive through
+    `From<DispatchError>`. Other precompiles are unchanged.
+
+    Asset-conversion quotes no longer share "Pool does not exist or has no liquidity". A zero
+    amount reverts with "Amount can't be zero", a pair with no pool with "Pool does not exist",
+    a created pool with no liquidity with "Pool exists but has no liquidity", and a quote the
+    reserves cannot fill with "Insufficient liquidity". `getReserves` uses that same mapping, so
+    a missing pool now reports "Pool does not exist" rather than the empty-pool reason.
+
 - audience: Runtime User
   description: |-
     Transferring an amount that would leave you holding less than an asset's minimum balance now
@@ -45,6 +56,20 @@ doc:
     `transfer`/`transferFrom` on `pallet-assets` tokens, to assets moved over XCM, and to
     `swap_exact_tokens_for_tokens` / `swap_tokens_for_exact_tokens` with `keep_alive: false`. Send
     your whole balance instead — that leaves no remainder and still cleans up the account.
+
+    Contracts calling the assets ERC-20 precompile or the asset-conversion precompile should catch
+    `Error(string)` for these failures. They used to trap, so `catch Error(string)` never ran and
+    the return data was empty:
+
+    - `DELEGATECALL` now reverts with "illegal to call this pre-compile via delegate call".
+    - `STATICCALL` of `transfer`, `approve`, `transferFrom`, `permit`, or a state-changing
+      asset-conversion method now reverts with "cannot modify state in a static call".
+    - `quoteExactTokensForTokens` and `quoteTokensForExactTokens` now say which failure it was:
+      "Amount can't be zero", "Pool does not exist", "Pool exists but has no liquidity", or
+      "Insufficient liquidity". `getReserves` reports the same pool reasons.
+
+    No storage migration and no signature change. Update any caller that matched the old empty
+    return data, or the single quote string "Pool does not exist or has no liquidity".
 
 crates:
 - name: pallet-assets

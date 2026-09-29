@@ -169,10 +169,11 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		frame_support::ensure!(
-			!env.is_delegate_call(),
-			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
-		);
+		if env.is_delegate_call() {
+			return Err(Error::try_to_revert::<Self::T>(
+				pallet_revive::Error::<Self::T>::PrecompileDelegateDenied.into(),
+			));
+		}
 
 		let asset_id = PrecompileConfig::AssetIdExtractor::asset_id_from_address(address)?.into();
 		let contract_addr = H160::from(*address);
@@ -185,7 +186,7 @@ where
 			IERC20Calls::permit(_)
 				if env.is_read_only() =>
 			{
-				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
+				Err(Error::Revert(Revert { reason: ERR_STATE_CHANGE_DENIED.into() }))
 			},
 
 			// ERC20 functions
@@ -214,6 +215,7 @@ where
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 const ERR_WOULD_SWEEP_REMAINDER: &str = "Transfer would leave sender below minimum balance";
+const ERR_STATE_CHANGE_DENIED: &str = "cannot modify state in a static call";
 const ERR_UNEXPECTED: &str = "Unexpected error";
 
 impl<Runtime, PrecompileConfig, Instance: 'static> ERC20<Runtime, PrecompileConfig, Instance>
@@ -253,7 +255,8 @@ where
 	}
 
 	/// Every pallet or token failure of a state-changing call is a Solidity revert.
-	/// A trap (`Error::Error`) is reserved for host failures such as out-of-gas.
+	/// `Error::Error` comes from the blanket `From<DispatchError>`; only charging
+	/// failures should reach it.
 	fn revert_dispatch(e: DispatchError) -> Error {
 		Error::Revert(Revert { reason: Self::dispatch_reason(e).into() })
 	}
@@ -269,9 +272,7 @@ where
 		}
 	}
 
-	fn decode_pallet_error(
-		e: DispatchError,
-	) -> Option<pallet_assets::Error<Runtime, Instance>> {
+	fn decode_pallet_error(e: DispatchError) -> Option<pallet_assets::Error<Runtime, Instance>> {
 		use frame_support::traits::PalletInfoAccess;
 		let DispatchError::Module(module) = e else { return None };
 		let index = <pallet_assets::Pallet<Runtime, Instance> as PalletInfoAccess>::index() as u8;

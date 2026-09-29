@@ -76,12 +76,12 @@ fn deposit_event_charges_data_byte_length() {
 		);
 		assert!(result.result.is_ok(), "transfer call failed: {:?}", result.result);
 
-		let expected = <() as pallet_assets::WeightInfo>::transfer().saturating_add(
-			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::DepositEvent {
-				num_topic: 3,
-				len: 32,
-			}),
-		);
+		let expected =
+			<() as pallet_assets::WeightInfo>::transfer().saturating_add(<RuntimeCosts as Token<
+				Test,
+			>>::weight(
+				&RuntimeCosts::DepositEvent { num_topic: 3, len: 32 },
+			));
 		assert_eq!(
 			result.weight_consumed, expected,
 			"transfer weight does not match WeightInfo::transfer() + \
@@ -711,6 +711,9 @@ fn delegatecall_is_rejected() {
 		let ret = ICaller::delegateCall::abi_decode_returns(&result.data)
 			.expect("return must decode as (bool, bytes)");
 		assert!(!ret.success, "DELEGATECALL to asset precompile must be rejected");
+		use alloy::sol_types::{Revert, SolError};
+		let decoded = Revert::abi_decode(&ret.output).expect("Error(string) revert");
+		assert_eq!(decoded.reason, "illegal to call this pre-compile via delegate call");
 	});
 }
 
