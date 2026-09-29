@@ -159,6 +159,8 @@ pub enum RejectionReason {
 	},
 	/// The global statement store is full and cannot accept new statements.
 	StoreFull,
+	/// The size limit of the retention track the statement would be kept on is reached.
+	TrackFull,
 	/// Account has no allowance set.
 	NoAllowance,
 }
@@ -171,6 +173,7 @@ impl RejectionReason {
 			RejectionReason::ChannelPriorityTooLow { .. } => "channel_priority_too_low",
 			RejectionReason::AccountFull { .. } => "account_full",
 			RejectionReason::StoreFull => "store_full",
+			RejectionReason::TrackFull => "track_full",
 			RejectionReason::NoAllowance => "no_allowance",
 		}
 	}
@@ -274,7 +277,10 @@ impl From<RejectionReason> for SubmitRejectionReason {
 			RejectionReason::AccountFull { submitted_expiry, min_expiry } => {
 				SubmitRejectionReason::AccountFull { submitted_expiry, min_expiry }
 			},
-			RejectionReason::StoreFull => SubmitRejectionReason::StoreFull,
+			// The RPC spec knows no tracks: a full track is a full store to the submitter.
+			RejectionReason::StoreFull | RejectionReason::TrackFull => {
+				SubmitRejectionReason::StoreFull
+			},
 			RejectionReason::NoAllowance => SubmitRejectionReason::NoAllowance,
 		}
 	}
@@ -420,7 +426,9 @@ pub trait StatementStore: Send + Sync {
 	/// - `Take`: include this statement in the result, continue to next
 	/// - `Abort`: stop iteration, return collected statements so far
 	///
-	/// Returns (statements, number_of_hashes_processed).
+	/// Returns (statements, number_of_hashes_processed). A hash absent from the store or whose
+	/// statement fails to decode counts as processed without reaching the callback, the hash an
+	/// `Abort` stopped on does not.
 	fn statements_by_hashes(
 		&self,
 		hashes: &[Hash],
