@@ -462,7 +462,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Price one market from the responses to its queries, at the node's time `now_ms`.
 	///
-	/// See [`parse_market`](crate::parse_market).
+	/// See [`parse_market`].
 	///
 	/// Backs [`PriceOracleApi::parse`](sp_price_oracle::runtime_api::PriceOracleApi::parse).
 	pub fn parse_market(
