@@ -27,7 +27,6 @@ pub mod pricing;
 pub mod registry;
 pub mod schema;
 pub mod signers;
-pub mod venues;
 pub mod weights;
 
 use alloc::{collections::BTreeMap, vec::Vec};

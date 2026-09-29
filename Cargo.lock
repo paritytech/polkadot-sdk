@@ -14280,6 +14280,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-price-oracle-venues"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "pallet-price-oracle",
+ "sc-price-oracle",
+ "sp-price-oracle",
+ "sp-runtime 31.0.1",
+ "tokio",
+]
+
+[[package]]
 name = "pallet-proxy"
 version = "28.0.0"
 dependencies = [
@@ -22435,7 +22447,6 @@ dependencies = [
  "hyper-rustls 0.27.3",
  "hyper-util",
  "log",
- "pallet-price-oracle",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "rustls 0.23.31",

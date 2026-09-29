@@ -17,29 +17,36 @@
 
 //! Definitions of the markets of well-known exchanges.
 //!
-//! Each function builds one market as stored by [`Pallet::set_market`](crate::Pallet::set_market),
-//! with an order book query and a recent trades query. The definitions are generic over the
-//! asset pair. The venue and pair are those the runtime assigns, and the symbol names any pair
-//! the exchange lists, in the exchange's own convention.
+//! Each function builds one market as stored by
+//! [`Pallet::set_market`](pallet_price_oracle::Pallet::set_market), with an order book query and
+//! a recent trades query. The definitions are generic over the asset pair. The venue and pair are
+//! those the runtime assigns, and the symbol names any pair the exchange lists, in the exchange's
+//! own convention.
 //!
 //! Each definition is tested against a sample response of the exchange. A definition is `None`
 //! only if one of its values does not fit the bounds of the registry.
 
-use crate::{
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
+use alloc::{format, vec::Vec};
+use pallet_price_oracle::{
 	registry::{MaxParamName, MaxParamValue, StoredMarket, StoredQuery, StoredRequest},
 	schema::{LevelLayout, Path, PathStep, ResponseSchema, TimeFormat},
 };
-use alloc::{format, vec::Vec};
-use frame_support::{traits::Get, BoundedVec};
 use sp_price_oracle::{
 	market::{Method, QueryTag, VenueId},
 	PairId, Price,
 };
-use sp_runtime::traits::One;
+use sp_runtime::{
+	traits::{Get, One},
+	BoundedVec,
+};
 
-/// The tag of the order book query of every market defined in this module.
+/// The tag of the order book query of every market defined in this crate.
 const BOOK: QueryTag = QueryTag(0);
-/// The tag of the trades query of every market defined in this module.
+/// The tag of the trades query of every market defined in this crate.
 const TRADES: QueryTag = QueryTag(1);
 
 /// The time after which a request is abandoned. A venue that does not answer in time is left
@@ -588,7 +595,7 @@ fn market(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{
+	use pallet_price_oracle::{
 		price_market,
 		pricing::{parse_decimal, PairSettings},
 	};

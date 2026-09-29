@@ -24,9 +24,6 @@ pub mod inherent;
 pub mod pool;
 pub mod signer;
 
-#[cfg(test)]
-mod tests;
-
 pub use gossip::peers_set_config;
 pub use inherent::PriceOracleInherentDataProvider;
 pub use pool::ReportPool;
