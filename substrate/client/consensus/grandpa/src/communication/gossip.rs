@@ -552,6 +552,8 @@ impl<N: Ord> Peers<N> {
 				self.second_stage_peers.insert(who);
 			},
 			ObservedRole::Light => {
+				// Best effort: `light_peers_in_turn` is not updated until the next round. That's
+				// fine, all light clients still get a commit soon enough.
 				self.light_peers.insert(who);
 			},
 			_ => {},
