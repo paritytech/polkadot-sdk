@@ -18,7 +18,7 @@ pub const PAYLOAD_SIZE_MAX: usize = 1536 * 1024;
 
 pub const BUNDLE_ENV: &str = "STORAGE_CHAIN_BUNDLE";
 
-const DEFAULT_BUNDLE_URL: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/storage_chain_sync/tip-sync-100-bundle.tar.gz";
+const DEFAULT_BUNDLE_URL: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/storage_chain_sync/tip-sync-100-bundle-v2.tar.gz";
 
 const PARA_DB_ARCHIVE: &str = "parachain-db.tgz";
 const RELAY_DB_ARCHIVE: &str = "relaychain-db.tgz";

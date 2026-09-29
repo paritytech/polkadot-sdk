@@ -106,16 +106,6 @@ impl From<&Key> for Slot {
 	}
 }
 
-/// How a storage access is priced.
-#[cfg_attr(test, derive(PartialEq, Eq))]
-#[derive(Clone, Copy, Debug)]
-pub enum StorageAccessKind {
-	/// Persistent storage, priced by its access-list warmth.
-	Persistent(Warmth),
-	/// Transient storage, every access costs the same.
-	Transient,
-}
-
 /// The operation a storage access performs.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StorageOp {

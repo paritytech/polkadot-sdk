@@ -153,6 +153,8 @@ parameter_types! {
 	pub DepositPerPage: Balance = 1 * UNITS;
 	pub RewardBase: Balance = 10 * UNITS;
 	pub MaxSubmissions: u32 = 8;
+	/// The DAP buffer account, used as the signed-phase reward pot.
+	pub SignedRewardPot: Option<AccountId> = Some(Dap::buffer_account());
 }
 
 impl multi_block::signed::Config for Runtime {
@@ -166,6 +168,8 @@ impl multi_block::signed::Config for Runtime {
 	type MaxFeeRefund = multi_block::signed::FullSubmissionFee<Runtime, TransactionPayment>;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
+	type Slash = Dap;
+	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
 	type WeightInfo = weights::pallet_election_provider_multi_block_signed::WeightInfo<Runtime>;
 }
 
@@ -577,6 +581,33 @@ where
 
 	fn create_transaction(call: RuntimeCall, extension: TxExtension) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<LocalCall> frame_system::offchain::CreateAuthorizedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_extension() -> Self::Extension {
+		(
+			frame_system::AuthorizeCall::<Runtime>::new(),
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(generic::Era::Immortal),
+			frame_system::CheckNonce::<Runtime>::from(0),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_pgas_allowance::ChargePGAS::<
+				Runtime,
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+			>::new_skip_pgas(
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
+			),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
+		)
+			.into()
 	}
 }
 
