@@ -21,7 +21,7 @@ use frame_support::{
 	pallet_prelude::{
 		Decode, DecodeWithMemTracking, DispatchResult, Encode, TransactionSource, TypeInfo, Weight,
 	},
-	traits::Authorize,
+	traits::{Authorize, OriginTrait},
 	CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use sp_runtime::{
@@ -29,7 +29,7 @@ use sp_runtime::{
 		AsTransactionAuthorizedOrigin, Dispatchable, Implication, PostDispatchInfoOf,
 		TransactionExtension, ValidateResult,
 	},
-	transaction_validity::TransactionValidityError,
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 
 /// A transaction extension that authorizes some calls (i.e. dispatchable functions) to be
@@ -77,9 +77,13 @@ where
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		if !origin.is_transaction_authorized() {
 			if let Some(authorize) = call.authorize(source) {
-				return authorize.map(|(validity, unspent)| {
-					(validity, unspent, crate::Origin::<T>::Authorized.into())
-				});
+				let (validity, unspent) = authorize?;
+				let authorized: T::RuntimeOrigin = crate::Origin::<T>::Authorized.into();
+				// The authorized origin must still be subject to the runtime call filter.
+				if !authorized.filter_call(call) {
+					return Err(InvalidTransaction::Call.into());
+				}
+				return Ok((validity, unspent, authorized));
 			}
 		}
 
