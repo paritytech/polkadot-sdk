@@ -1040,9 +1040,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 	}
 
-	/// Schedule a call to `one_fewer_deciding` function via the dispatchable
-	/// `defer_one_fewer_deciding`. We could theoretically call it immediately (and it would be
-	/// overall more efficient), however the weights become rather less easy to measure.
 	/// Remove a queued referendum from its track's queue. Terminal transitions of a
 	/// queued referendum must call this, or the entry outlives the referendum: the
 	/// timeout path skips queued referenda, so nothing else removes it.
@@ -1052,6 +1049,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 	}
 
+	/// Schedule a call to `one_fewer_deciding` function via the dispatchable
+	/// `defer_one_fewer_deciding`. We could theoretically call it immediately (and it would be
+	/// overall more efficient), however the weights become rather less easy to measure.
 	fn note_one_fewer_deciding(track: TrackIdOf<T, I>) {
 		// Set an alarm call for the next block to nudge the track along.
 		let now = T::BlockNumberProvider::current_block_number();
