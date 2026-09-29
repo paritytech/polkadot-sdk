@@ -37,8 +37,8 @@
 
 This document describes the architecture of the **Parachain Service**, a JAM service that implements
 Polkadot's parachain host functionality. The Parachain Service is the JAM successor to the current
-Polkadot relay-chain parachain host, mapping all the concepts of collation, validation, availability,
-and finality into JAM's Collect-Refine-Join-Accumulate (CRJA) computation model.
+Polkadot relay-chain parachain host, mapping collation, validation, availability, and finality onto
+JAM's Collect-Refine-Join-Accumulate (CRJA) computation model.
 
 The key conceptual mapping from today's Polkadot to JAM:
 
@@ -59,7 +59,7 @@ This document covers:
 - How authorization and coretime allocation integrate
 - Cross-chain messaging under the new model
 
-This document does **not** cover JAM fundamentals in depth; readers are assumed to be familiar with
+This document does **not** cover JAM fundamentals in depth. Readers are assumed to be familiar with
 the [JAM Gray Paper](https://graypaper.com) concepts (services, work packages, refine, accumulate,
 guarantors, etc.).
 
@@ -78,9 +78,8 @@ two execution domains:
 - **Refine (in-core)**: Executes `jam_validate_block`, the validation-code execution that backing
   validators currently perform. Guarantors run the validation code against the PoV to verify the
   parachain block candidate. This replaces the current backing subsystem.
-- **Accumulate (on-chain)**: Performs candidate enactment: updating head data, processing
-  signals, managing channels and code upgrades. This replaces the current inclusion pallet
-  logic.
+- **Accumulate (on-chain)**: Enacts the candidate by updating head data, processing signals,
+  and managing channels and code upgrades. This replaces the current inclusion pallet logic.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
@@ -128,19 +127,19 @@ The CRJA pipeline for a parachain block:
 [Collect]     Collator gathers transactions, builds a parachain block candidate and puts it into a work package.
     │
     ▼
-[Refine]      IN-CORE: Guarantors execute the parachain service refine functionality. Internally this calls the validation code to verify the work package.
+[Refine]      IN-CORE: Guarantors run the Parachain Service's Refine, which calls the validation
+              code to verify the work package.
               Stateless, off-chain, metered via PVM gas.
               Output: per-item work-digests plus authorization/export metadata, assembled into a Work Report.
     │
     ▼
-[Join]        The Work Report (aggregating per-item work-digests and authorization metadata) is submitted on-chain.
+[Join]        The Work Report is submitted on-chain.
               JAM validators attest (guarantee) its correctness. Availability of the work package is ensured.
     │
     ▼
-[Accumulate]  ON-CHAIN: The Parachain Service's Accumulate function runs on-chain.
-              It records the new parachain head, applies the validation code's upward host-function
-              effects (code upgrades, outbound transfers, authorizer updates, etc.), and queues
-              incoming transfers from other services.
+[Accumulate]  ON-CHAIN: The Parachain Service's Accumulate records the new parachain head, applies
+              the validation code's upward messages (code upgrades, outbound transfers,
+              authorizer updates, etc.), and queues incoming transfers from other services.
 
 ```
 
@@ -151,15 +150,15 @@ host. It holds all per-parachain state and drives the CRJA pipeline for every re
 It uses the fixed JAM service ID **1337**.
 
 The Parachain Service is expected to be an **always-accumulate** service in the Gray Paper sense.
-Even in blocks where no parachain candidate becomes available, it still needs an accumulation step
-to apply privileged control-plane updates such as authorizer queue changes, validator-key updates,
-and other service-level bookkeeping that must take effect without waiting for a parachain block.
+Even in blocks where no parachain candidate becomes available, it needs an accumulation step to
+apply scheduled authorizer queue changes once they are due (§5.1). These must take effect
+without waiting for a parachain block.
 
-This, together with the host calls the service forwards, presupposes four privileged
-registrations in JAM's protocol state: membership in the always-accumulate set (with a gas
-allowance), being the **delegator** (required for `designate`, §5.3), being the registered
-**assigner** of every core it manages (required for `assign`, §7.1), and being the
-**registrar** (required for `CreateService`'s `desired_id`, §3.3).
+Together with the privileged host calls the service forwards, this requires four registrations
+in JAM's protocol state: membership in the always-accumulate set (with a gas allowance), being
+the **delegator** (required for `designate`, §5.3), being the registered **assigner** of every
+core it manages (required for `assign`, §7.1), and being the **registrar** (required for
+`CreateService`'s `desired_id`, §3.3).
 
 ### 3.1 Service State Layout
 
@@ -171,46 +170,32 @@ struct ParachainServiceState {
     /// All registered parachains and their current metadata.
     parachains: Map<ParaId, ParaInfo>,
 
-    /// Incoming transfers for Asset Hub, held in fixed-size buckets keyed by an
-    /// allocated bucket id. Maintained in §5.1.
+    /// Incoming transfers recorded for Asset Hub. See §5.1.
     incoming_transfers: Map<BucketId, IncomingTransfers>,
 
-    /// First and last bucket id of the `incoming_transfers` queue. Its storage
-    /// key is absent while the queue is empty, which is how "no queue" is
-    /// represented.
+    /// Endpoints of the `incoming_transfers` queue. See §5.1.
     incoming_transfer_buckets: IncomingTransferBuckets,
 
-    /// Per-parachain log, keyed only by ParaId. Each entry carries its
-    /// Timeslot inline; multiple entries may share a timeslot (e.g. several
-    /// work packages at the same height each producing a refine error). The
-    /// log's total encoded size is bounded to 64 KiB; entries are evicted and
-    /// pruned during Accumulate (see §5.1).
+    /// Per-parachain log of Refine failures and Accumulate events, capped at
+    /// 64 KiB. See §5.1.
     parachain_log: Map<ParaId, Vec<(Timeslot, LogEntry)>>,
 
     /// Scheduled-but-unapplied `assign` payloads, keyed by core.
     pending_assigns: Map<CoreIndex, PendingAssign>,
 
-    /// Dirty-core index: each core with a pending assign, paired with the
-    /// timeslot at which it is due, `jam_slot` first, then every 80 blocks for
-    /// a queue that must keep rotating. Sole home of the due time, so the
-    /// always-accumulate path can find and gate due entries without reading the
-    /// much larger payloads above (see §5.1).
+    /// Each core with a pending assign, paired with the timeslot it is due at.
+    /// See §5.1.
     pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), CoreCount>,
 
-    /// Cross-parachain preimage registry. Holds every preimage the service
-    /// has solicited from JAM (each parachain's active validation code, any
-    /// pending-upgrade code, and parachain-initiated `Solicit` requests) under the
-    /// same referencer-sharing scheme. In the key, `Hash` is
-    /// the preimage's hash and `u32` its byte length. See §6.1.
+    /// Every preimage the service has solicited from JAM, keyed by hash and
+    /// length, with the parachains referencing it. See §6.1.
     preimage_registry: Map<(Hash, u32), PreimageEntry>,
 
     /// Validator-key set being assembled chunk by chunk by
     /// `SetValidatorKeys`. See §5.3.
     staged_validator_keys: BoundedVec<ValidatorKey, 1023>,
 
-    /// Per-parachain key/value store. 
-    ///
-    /// See §6.1 for the per-entry formula.
+    /// Per-parachain key/value store. See §6.1 for the per-entry footprint.
     key_value_storage: Map<(ParaId, Vec<u8>), Vec<u8>>,
 }
 
@@ -228,30 +213,17 @@ struct RefineLogEntry {
 }
 
 struct AccumulateLogEntry {
-    /// Events recorded while Accumulating a work digest for this parachain.
-    /// Not separately count-bounded; the whole `parachain_log` is held within
-    /// its 64 KiB byte cap by eviction during Accumulate (see §5.1).
+    /// Events recorded while accumulating one of this parachain's work
+    /// packages. See §5.1.
     entries: Vec<AccumulateLog>,
 }
 
-/// Why Refine failed, as recorded in `parachain_log`.
-///
-/// `Opaque` is the most important variant: it is the only one carrying a payload
-/// the parachain's own code chose, and so the only one conveying context the
-/// parachain can act on. The rest are valuable for debugging, but each is a fixed
-/// structural failure carrying no parachain-supplied detail. The log's eviction
-/// ranking is built around that (§5.1).
-///
-/// Every variant is raised only after §4.1 step 2 fixes an authoritative
-/// `para_id`, since the entry lands in `parachain_log[para_id]`. Failures before
-/// that panic instead (§4.2).
+/// Why Refine failed, as recorded in `parachain_log` (§5.1).
 enum RefineLog {
-    /// `historical_lookup(validation_code_hash)` returned `None`: the
-    /// validation code preimage is not available in the service's store
-    /// at the lookup-anchor. See §4.1 step 4.
+    /// The validation code is not available at the lookup-anchor.
+    /// See §4.1 step 4.
     InvalidCodeHash,
-    /// Opaque payload with which the validation code aborted itself via `report_error(data)`
-    /// (max 1024 bytes). See §4.2.
+    /// Payload the validation code passed to `report_error`. See §4.2.
     Opaque(BoundedVec<u8, 1024>),
     /// `SetValidatorKeys` was called more than once in a single Refine
     /// invocation. See §4.3, §5.3.
@@ -263,22 +235,19 @@ enum RefineLog {
     TooManyUpwardMessages,
     /// The parachain's 40 KiB upward-message budget was exceeded. See §4.3.
     UpwardMessagesTooLarge,
-    /// The validation code invoked a host function restricted to another parachain (Asset
-    /// Hub or the Coretime chain), or named a `para_id` it may not act for.
-    /// See §4.3.
+    /// The validation code sent an upward message reserved for another
+    /// parachain, or named a `para_id` it may not act for. See §4.3.
     RestrictedHostFunction,
     /// The work item payload failed to decode into a `ParachainCandidate`.
     /// See §4.1 step 3.
     MalformedPayload,
-    /// An `AssignCore` carried an empty queue, or more than `AUTH_QUEUE_SIZE`
-    /// hashes, or fewer than `AUTH_QUEUE_SIZE` hashes while handing the core to
-    /// another assigner. See §3.3.
+    /// An `AssignCore` carried a queue of invalid length. See §3.3.
     InvalidAuthorizerQueue,
     /// The encoded `ParachainWorkDigest` and auth trace would exceed the Gray
     /// Paper's 48 KiB. See §4.1.
     RefineOutputTooLarge,
-    /// The validation code did not call `set_parent_head_hash` or `set_head`
-    /// exactly once. Both head declarations are mandatory. See §4.2.
+    /// The validation code did not call both `set_parent_head_hash` and
+    /// `set_head` exactly once. See §4.2.
     InvalidHeadDeclaration,
     /// `set_head` was called with head data beyond the 4 KiB `HeadData` bound.
     /// See §4.3.
@@ -299,13 +268,12 @@ enum CodeUpgradePhase {
 enum InsufficientBalanceReason {
     /// A `Solicit` of the preimage with `hash` and `len`.
     Solicit { hash: Hash, len: Compact<u32> },
-    /// A `SetKV { key, value }` write to `key_value_storage`. Only the
-    /// hash of `key` is recorded so an arbitrarily large
-    /// user key cannot inflate `parachain_log`.
+    /// A `SetKV` write to `key_value_storage`, identified by the hash of its
+    /// key.
     SetKV { key_hash: Hash },
     /// A `staged_validator_keys` append.
     StagedValidatorKeys,
-    /// An `incoming_transfers` bucket or chain-pointer write.
+    /// An `incoming_transfers` or `incoming_transfer_buckets` write.
     IncomingTransfer,
     /// A `ParaInfo` write: head, registration, forced code or announced upgrade.
     ParaInfo,
@@ -330,13 +298,11 @@ enum AccumulateLog {
         attempted: Compact<Balance>,
         reason: StateBalanceRejection,
     },
-    /// JAM `designate` rejected the assembled validator-key set, because its
-    /// `len` is not in `valcount` or this service is not the delegator. The
-    /// staging buffer is cleared regardless. See §5.3.
+    /// JAM `designate` rejected the assembled validator-key set of length
+    /// `len`. See §5.3.
     DesignateRejected { len: Compact<u32> },
-    /// A `SetValidatorKeys` chunk would grow `staged_validator_keys` beyond
-    /// its reserved capacity (`MaxStagedValidatorKeys`); the append is rejected
-    /// and the buffer left unchanged. See §5.3.
+    /// A `SetValidatorKeys` chunk would overflow `staged_validator_keys`.
+    /// See §5.3.
     StagedValidatorKeysOverflow,
     /// Asset Hub does not reference the new code's preimage, or it is not
     /// available for lookup. See §5.4.
@@ -345,19 +311,15 @@ enum AccumulateLog {
     CodeUpgradeNotAvailable { hash: Hash, len: Compact<u32> },
     /// An `Apply` that does not match the standing announcement. See §5.2.
     CodeUpgradeNotAnnounced { hash: Hash, len: Compact<u32> },
-    /// A `Forget` naming code that is in use: the parachain's `validation_code`
-    /// or `announced_upgrade` (§5.2), or for Asset Hub the Parachain Service's
-    /// active code (§5.4).
+    /// A `Forget` naming code that is still in use. See §6.1.
     CanNotRemoveCode { hash: Hash, len: Compact<u32> },
     /// JAM rejected an `assign` because this service is no longer the core's
-    /// assigner. See §7.1.
+    /// assigner. See §5.1.
     CoreNotAssignable { core: CoreIndex },
-    /// The JAM `transfer` call replaying a `TransferOut` failed. `id` is the
-    /// caller-supplied identifier from the `TransferOut`, echoed back so Asset
-    /// Hub can match the failure to its request. See §5.1 step 6.
+    /// The JAM `transfer` for the `TransferOut` with this `id` failed. See §5.1.
     TransferFailed { id: Compact<u64>, error: TransferError },
-    /// A `forget` left the preimage in place. It must be forgotten again at
-    /// `due`. See §6.1.
+    /// A `forget` left the preimage in place. `Forget` it again after `due`.
+    /// See §6.1.
     ForgetAgainAt { hash: Hash, len: Compact<u32>, due: Timeslot },
     /// A `Forget` or `RemoveServiceStorage` on a supervised service's store
     /// failed.
@@ -368,13 +330,10 @@ enum AccumulateLog {
     ServiceEjectFailed { service: ServiceId, error: ServiceEjectError },
     /// A `SetServiceSupervisor` failed.
     ServiceSupervisorFailed { service: ServiceId, error: ServiceSupervisorError },
-    /// Announces a `CreateService` outcome to Asset Hub. `id` is the
-    /// caller-supplied identifier from the `CreateService`, echoed back so Asset
-    /// Hub can match the outcome to its request.
+    /// Outcome of the `CreateService` with this `id`.
     ServiceCreation { id: Compact<u64>, result: ServiceCreationResult },
     /// `ParachainCleanUp` was rejected because the parachain still holds state
-    /// beyond its baseline and validation code(s); it must release the rest
-    /// first. See §6.4.
+    /// beyond its baseline and validation code(s). See §6.4.
     TooMuchStateHeld,
 }
 
@@ -432,9 +391,8 @@ enum ServiceSupervisorError {
 
 /// How a `CreateService` turned out.
 enum ServiceCreationResult {
-    /// Succeeded, carrying the id JAM assigned. JAM honours `desired_id` only
-    /// while the Parachain Service is the registrar and otherwise picks an id
-    /// itself without signalling an error, so this may differ from `desired_id`.
+    /// Succeeded, carrying the id JAM assigned, which may differ from
+    /// `desired_id`.
     Created(ServiceId),
     /// The Parachain Service cannot fund the new service.
     CannotAfford,
@@ -448,7 +406,7 @@ enum TransferError {
     UnknownSource,
     /// `dest` is not a known service.
     UnknownDestination,
-    /// The service is not `source`'s effective supervisor; only its own regular
+    /// The service is not `source`'s effective supervisor. Only its own regular
     /// balance is exempt. Takes precedence over `DestinationNotSupervised`.
     SourceNotSupervised,
     /// A plain move to another service needs the service to be `dest`'s
@@ -472,9 +430,7 @@ struct PreimageEntry {
 /// A scheduled JAM `assign` for one core, where `AUTH_QUEUE_SIZE = 80` is the
 /// number of slots `assign` consumes. See §7.1.
 struct PendingAssign {
-    /// The authorizer set, up to `AUTH_QUEUE_SIZE` hashes. Stored already
-    /// rotated to where the next cycle starts, so its own order carries the
-    /// schedule and no separate cursor is needed. See §7.1.
+    /// The authorizer set, up to `AUTH_QUEUE_SIZE` hashes. See §7.1.
     queue: BoundedVec<AuthorizerHash, AUTH_QUEUE_SIZE>,
     assigner: Option<ServiceId>,
 }
@@ -482,7 +438,7 @@ struct PendingAssign {
 /// Key of one `incoming_transfers` bucket. See §5.1.
 type BucketId = u64;
 
-/// One fixed-size bucket in the `incoming_transfers` queue, in arrival order.
+/// One bucket of the `incoming_transfers` queue, in arrival order.
 type IncomingTransfers = BoundedVec<IncomingTransfer, MAX_TRANSFERS_PER_BUCKET>;
 
 /// One recorded incoming transfer.
@@ -494,8 +450,7 @@ struct IncomingTransfer {
     memo: Memo,
 }
 
-/// Endpoints of the `incoming_transfers` queue. The occupied ids are exactly
-/// `first_bucket ..= last_bucket`. Absent from state while the queue is empty.
+/// The occupied bucket ids are `first_bucket ..= last_bucket`. See §5.1.
 struct IncomingTransferBuckets {
     first_bucket: BucketId,
     last_bucket: BucketId,
@@ -503,8 +458,7 @@ struct IncomingTransferBuckets {
     count: u32,
 }
 
-/// Head data is capped at 4 KiB to bound the per-parachain footprint that
-/// `ParaInfo` contributes to the baseline state-balance reservation (see §6.1).
+/// Parachain head data, capped at 4 KiB. See §6.1.
 type HeadData = BoundedVec<u8, { 4 * 1024 }>;
 
 /// Fixed 128-byte transfer memo, matching Gray Paper `C_memosize = 128`.
@@ -524,15 +478,11 @@ struct ParaInfo {
     validation_code: Option<ValidationCodeRef>,
     /// Announced code upgrade. See §5.2.
     announced_upgrade: Option<ValidationCodeRef>,
-    /// Total state balance allocated to this parachain. Set exclusively by
-    /// the Coretime chain via `ParachainSetStateBalance`. See §6.1.
+    /// State balance allocated to this parachain. See §6.1.
     total_state_balance: Compact<Balance>,
-    /// State balance currently consumed by this parachain's solicited validation code
-    /// preimages (active validation code + announced upgrade, if any).
-    /// Increased on `Solicit`, decreased on `Forget`. See §6.1.
+    /// State balance currently charged to this parachain. See §6.1.
     used_state_balance: Compact<Balance>,
-    /// Set once `ParachainCleanUp` has begun deregistering this parachain
-    /// but some preimage still awaits its second, expunging `forget`. See §6.4.
+    /// Whether the parachain is being deregistered. See §6.4.
     is_deregistering: bool,
 }
 ```
@@ -541,8 +491,10 @@ struct ParaInfo {
 
 Each storage item (a top-level `Map` or a singleton) is assigned a distinct
 **1-byte tag** identifying it within the service's JAM storage. The full JAM
-storage key is `[tag: u8] || SCALE-encoded logical key` (the tag alone for
-singletons; the tag prepended to the encoded map key for map entries). 
+storage key is `[tag: u8] || SCALE-encoded logical key`: the tag followed by the
+encoded map key for a map entry, and the tag alone for a singleton. The exception is
+`key_value_storage`, whose user key is appended as sent, without a length prefix:
+`0x08 || para_id || key`.
 
 | Tag | Storage item |
 |--------|------------------------------|
@@ -564,8 +516,7 @@ carries the validation code hash, and the **PoV** is passed as a work-item extri
 
 ```rust
 struct ParachainCandidate {
-    /// The hash of the currently active validation code. Used by Refine to
-    /// look up the validation code from the preimage store.
+    /// The hash of the currently active validation code. See §4.1.
     validation_code_hash: ValidationCodeHash,
 }
 ```
@@ -588,28 +539,22 @@ succeeds or fails:
 
 ```rust
 /// The Parachain Service's Refine output for one parachain candidate.
-/// Side effects from host functions (code upgrades, transfers, authorizer
-/// updates) are recorded separately during Refine and forwarded to Accumulate.
 enum ParachainWorkDigest {
     Ok {
         /// The parachain this digest belongs to.
         para_id: ParaId,
-        /// The validation code that Refine actually used to check the candidate.
+        /// The validation code Refine used to check the candidate.
         validation_code: ValidationCodeRef,
         /// Hash of the parent head data this candidate was built on top of.
         parent_head_hash: Hash,
         /// New head data produced by the parachain block.
         head_data: HeadData,
-        /// Upward messages emitted through host functions during Refine.
-        /// Accumulate replays these in order.
+        /// Upward messages in the order they were emitted. See §5.1 step 6.
         upward_messages: Vec<UpwardMessage>,
         /// The work package's lookup-anchor timeslot.
         lookup_anchor: Timeslot,
     },
-    /// Validation code execution failed (e.g. invalid PoV, bad state proof, panic).
-    ///
-    /// Carries a structured `RefineLog`. Validation code reaches this by aborting itself
-    /// with `report_error(data)` (§4.2).
+    /// Refine failed. See §4.1.
     Err {
         /// The parachain this failure belongs to.
         para_id: ParaId,
@@ -626,8 +571,7 @@ enum UpwardMessage {
     },
     /// Request a preimage, charged to the target's state balance. See §6.1 for a
     /// `Parachain` target. A `Service` target requests into that service's own
-    /// store and is **Asset Hub only**. No-op if the `Parachain` target has
-    /// `is_deregistering == true` (§6.4).
+    /// store and is **Asset Hub only**.
     Solicit { target: Target, hash: Hash, len: Compact<u32> },
     /// Destroy an empty supervised service, crediting its balances to this
     /// service. **Asset Hub only.**
@@ -645,41 +589,24 @@ enum UpwardMessage {
         min_item_gas: u64,
         min_memo_gas: u64,
         id: Compact<u64>,
-        /// Index to create the service at, in JAM's protected range. Silently
-        /// ignored by JAM unless the Parachain Service is the registrar. Asset
-        /// Hub must compare it against the id echoed in `ServiceCreation`.
+        /// Index to create the service at, in JAM's protected range. Only
+        /// honoured while the Parachain Service is the registrar (§3).
         desired_id: Option<ServiceId>,
         source_supervisor_balance: bool,
         new_supervisor_balance: bool,
     },
-    /// Release a previously solicited preimage. The target names whose reference
-    /// is released and whose `used_state_balance` is refunded, since only that
-    /// parachain was ever charged for it. Removing the last referencer may need
-    /// a follow-up `Forget` (two-step expunge, see §6.1). Rejected with
-    /// `AccumulateLog::CanNotRemoveCode` if `hash` is the target's
-    /// `validation_code` or `announced_upgrade` (§5.2), or, for an Asset Hub
-    /// target, the Parachain Service's active code (§5.4). A `Service` target is
-    /// **Asset Hub only**.
+    /// Release a previously solicited preimage of `target`. See §6.1. A
+    /// `Service` target is **Asset Hub only**.
     Forget { target: Target, hash: Hash, len: Compact<u32> },
     /// Delete `key` from a supervised service's own storage. **Asset Hub only.**
     RemoveServiceStorage { service: ServiceId, key: Vec<u8> },
-    /// Upsert `key_value_storage[(para_id, key)] = value`. Accumulate replays it
-    /// and charges the change in `used_state_balance` (see §6.1). No-op if
-    /// `para_id` has `is_deregistering == true` (§6.4).
+    /// Upsert `key_value_storage[(para_id, key)] = value`. See §6.1.
     SetKV { key: Vec<u8>, value: Vec<u8> },
-    /// Remove `key_value_storage[(para_id, key)]`, refunding its footprint to
-    /// `para_id` (see §6.1). No-op if `para_id` has `is_deregistering == true`
-    /// (§6.4).
+    /// Remove `key_value_storage[(para_id, key)]`. See §6.1.
     RemoveKV { para_id: ParaId, key: Vec<u8> },
-    /// Transfer balance to another JAM service.
-    /// `deferred` is `None` for a plain move and `Some((memo, gas))` for a
-    /// deferred transfer. JAM ignores the gas limit when no memo is supplied.
-    /// `source = None` means this service, matching JAM's self sentinel. The
-    /// two selectors choose the balance on each side: which of `source`'s is
-    /// debited, and which of `dest`'s receives the funds. True means the
-    /// supervisor balance. `id` is a caller-supplied identifier, echoed back in
-    /// the `TransferFailed` log entry so Asset Hub can match a failure to its
-    /// request. See §5.1 step 6. **Asset Hub only.**
+    /// Transfer balance via JAM `transfer`. `id` is a caller-supplied
+    /// identifier, echoed back in `TransferFailed` so Asset Hub can match a
+    /// failure to its request. See §5.1. **Asset Hub only.**
     TransferOut {
         source: Option<ServiceId>,
         dest: ServiceId,
@@ -689,24 +616,17 @@ enum UpwardMessage {
         dest_supervisor_balance: bool,
         deferred: Option<(Memo, u64)>,
     },
-    /// Schedule a core's JAM `assign` (queue + assigner). A queue violating
-    /// either length rule below aborts Refine with
-    /// `Err(RefineLog::InvalidAuthorizerQueue)`. Rejected with
-    /// `AccumulateLog::CoreNotAssignable` if this service is no longer `core`'s
-    /// assigner. See §7.1. **Coretime chain only.**
+    /// Schedule a core's JAM `assign`. A queue violating either length rule
+    /// below aborts Refine with `Err(RefineLog::InvalidAuthorizerQueue)`.
+    /// See §5.1 and §7.1. **Coretime chain only.**
     AssignCore {
         /// Must be below `C_corecount`, whether or not the core is currently
         /// active. Otherwise Refine fails with `Err(RefineLog::InvalidCoreIndex)`.
         core: CoreIndex,
-        /// As emitted by the validation code, so any length is representable. Refine holds
-        /// it to 1 to `AUTH_QUEUE_SIZE` hashes and rejects any other length,
-        /// empty included.
+        /// Between 1 and `AUTH_QUEUE_SIZE` authorizer hashes.
         queue: Vec<AuthorizerHash>,
-        /// `None` leaves this service as the core's assigner, the common
-        /// queue-rotation case. `Some(s)` hands the core to `s`, which is
-        /// one-way: the service is no longer the assigner afterwards and so
-        /// cannot re-present a short queue, which is why `Some(s)` requires an
-        /// exactly `AUTH_QUEUE_SIZE`-hash queue.
+        /// `None` keeps this service as the core's assigner. `Some(s)` hands the
+        /// core to `s` and requires exactly `AUTH_QUEUE_SIZE` hashes. See §7.1.
         new_assigner: Option<ServiceId>,
         /// Timeslot at which the queue should be applied.
         jam_slot: Timeslot,
@@ -724,23 +644,17 @@ enum UpwardMessage {
     /// Replace the Parachain Service's own service code. See §5.4.
     /// **Asset Hub only.**
     UpgradeService { code_hash: Hash, len: Compact<u32>, min_acc_gas: u64, min_memo_gas: u64 },
-    /// Upsert a parachain's head data. **Coretime chain only.** No-op if
-    /// `para_id` has `is_deregistering == true` (§6.4).
+    /// Upsert a parachain's head data. See §6.3. **Coretime chain only.**
     ParachainSetHead { para_id: ParaId, new_head: HeadData },
-    /// Upsert a parachain's validation code hash. The service must solicit the
-    /// validation code preimage. **Coretime chain only.** No-op if `para_id` has
-    /// `is_deregistering == true` (§6.4).
+    /// Upsert a parachain's validation code. See §6.3. **Coretime chain only.**
     ParachainSetValidationCode {
         para_id: ParaId,
         new_validation_code_hash: ValidationCodeHash,
         new_validation_code_len: Compact<u32>,
     },
-    /// Remove all per-parachain state. **Coretime chain only.**
+    /// Remove all per-parachain state. See §6.4. **Coretime chain only.**
     ParachainCleanUp(ParaId),
-    /// Overwrite `ParaInfo[para_id].total_state_balance`. See §6.1.
-    /// **Coretime chain only.** Rejected with
-    /// `StateBalanceUpdateRejected { reason: ParachainIsDeregistering }` if
-    /// `para_id` has `is_deregistering == true` (§6.4).
+    /// Set a parachain's `total_state_balance`. See §6.1. **Coretime chain only.**
     ParachainSetStateBalance { para_id: ParaId, new_total: Compact<Balance> },
 }
 ```
@@ -748,9 +662,9 @@ enum UpwardMessage {
 The combined size of all result blobs plus the authorizer trace in a work-report is limited
 to **48 KiB** by the Gray Paper.
 
-- **`Ok`** is returned when validation succeeds. The upward host-function calls made
-  during Refine (code upgrades, transfers, authorizer updates, etc.) are carried alongside
-  this digest and applied by Accumulate.
+- **`Ok`** is returned when validation succeeds. The upward messages emitted during Refine
+  (code upgrades, transfers, authorizer updates, etc.) are carried alongside this digest and
+  applied by Accumulate.
 
 - **`Err`** is returned when Refine fails (see `RefineLog`). Accumulate appends
   a `LogEntry::Refine` to the parachain's `parachain_log` (see §3.1) together
@@ -758,10 +672,10 @@ to **48 KiB** by the Gray Paper.
   collator who claimed an authorizer slot that was not theirs.
 
 > **JAM `WorkErrorCode` is skipped.** When JAM substitutes a work-item with
-> a gray paper `WorkExecResult::Error(WorkErrorCode)`, the Parachain
-> Service's refine wrapper never produces a `ParachainWorkDigest`. The
-> service does not progress that work-item: Accumulate skips it as if it
-> did not exist: no `parachain_log` entry, no state change.
+> a Gray Paper `WorkExecResult::Error(WorkErrorCode)`, the Parachain
+> Service's refine wrapper never produces a `ParachainWorkDigest`.
+> Accumulate skips that work-item as if it did not exist, with no
+> `parachain_log` entry and no state change.
 
 ---
 
@@ -773,8 +687,8 @@ Refine is invoked **per work item** by JAM. For each work item at
 index `item_index` the Parachain Service performs:
 
 1. Reads the authorizer config via `fetch` and decodes the `authorized_paras`
-   prefix (§3.2). A config not prefixed with a `Vec<ParaId>` panics (§4.2) rather than
-   logging: there is no authoritative `para_id` to attribute an entry to.
+   prefix (§3.2). If the config is not prefixed with a `Vec<ParaId>`, Refine panics (§4.2)
+   instead of logging, because there is no authoritative `para_id` to attribute an entry to.
 2. Takes `para_id = authorized_paras[item_index]` as authoritative for this item.
 3. Decodes the `ParachainCandidate` from the work item payload. If the payload fails to
    decode, aborts with `Err(RefineLog::MalformedPayload)`.
@@ -787,7 +701,7 @@ index `item_index` the Parachain Service performs:
    authoritative `para_id` (see §4.2).
 8. Checks that the encoded digest (head data + upward messages) plus the
    work-report's authorizer trace fits in the Gray Paper's 48 KiB
-   combined-result-blob budget; if not, aborts with
+   combined-result-blob budget. If not, aborts with
    `Err(RefineLog::RefineOutputTooLarge)`. Parachain-driven overflow (upward
    messages exceeding the 40 KiB budget) aborts earlier with
    `Err(RefineLog::UpwardMessagesTooLarge)` inside `send_upward_message`.
@@ -804,22 +718,20 @@ The Parachain Service's Refine spawns a child PVM and calls the validation code'
 fn jam_validate_block() -> ()
 ```
 
-The validation code reads its inputs (PoV, context, downward transfers) through host functions and
-writes its outputs (head data, code upgrades, transfers) through host functions. It does
-not return a value directly. The `ParachainWorkDigest` is assembled by the Parachain
-Service's Refine wrapper from the accumulated host-function side effects.
+The validation code reads its inputs (PoV, context, downward transfers) and writes its outputs
+(head data, code upgrades, transfers) through host functions. It returns nothing. The
+Parachain Service's Refine wrapper assembles the `ParachainWorkDigest` from the accumulated
+host-function side effects.
 
 Validation code has two ways to fail, and they differ in what is recorded. Calling
 `report_error(data)` aborts it immediately and fails Refine with `RefineLog::Opaque(data)`.
-Any other abnormal exit (panic, trap, failed execution) is deliberately not caught: the
-service's entire `refine` fails with it, so the work-digest's result is a gray-paper work
-error (`WorkExecResult::Error`) and §3.3 applies.
-Recording a failure is therefore opt-in: validation code that wants one to leave no trace simply
-panics.
+Any other abnormal exit (panic, trap, failed execution) is not caught. The service's entire
+`refine` fails with it, so the work-digest's result is a Gray Paper work error
+(`WorkExecResult::Error`) and §3.3 applies. Recording a failure is therefore opt-in, and
+validation code that wants a failure to leave no trace panics.
 
-The Refine wrapper also fails the invocation as `Err` if the validation code exits without calling
-`set_parent_head_hash` exactly once or without calling `set_head` exactly once. Both the
-parent-head and the new-head declarations are mandatory.
+The Refine wrapper also fails the invocation as `Err` unless the validation code called both
+`set_parent_head_hash` and `set_head` exactly once.
 
 ### 4.3 Host Functions & PVM Imports
 
@@ -842,7 +754,7 @@ not restated here:
 | 0 | `gas` | The remaining gas budget. |
 | 1 | `grow_heap` | Expand the RW data region. |
 | 2 | `fetch` | Read the work package and its context: the package itself, the refine context, the authorizer config and token, the work-item summaries, payloads and extrinsics, and the import segments. |
-| 7 | `historical_lookup` | Read a service's preimage store at the lookup-anchor; serves both own and foreign lookups. |
+| 7 | `historical_lookup` | Read a service's preimage store at the lookup-anchor, for both own and foreign lookups. |
 | 8 | `export` | Write a segment to the JAM Data Lake, e.g. an outbound XCMP payload. |
 
 #### Parachain Service host functions
@@ -884,28 +796,30 @@ Once a work report has been guaranteed and its data is available, JAM invokes th
 service storage.
 
 Accumulate for the Parachain Service covers the parachain-specific parts of what the
-relay chain's `enact_candidate` does today; availability, approvals, and disputes are handled
-by JAM natively (see §2). The work runs in three phases, in order: all always-accumulate
-work first (due authorizer-queue flushes, then incoming-transfer processing) and then
-per-work-package work. Because always-accumulate runs *before* the work packages, a queue
-a work package schedules this block is normally not applied in the same block: it fires in
-a later block's always-accumulate once its `jam_slot` arrives. The exception is a queue
-whose `jam_slot` is already due (`jam_slot <= now`) when the scheduling message is
-processed; since always-accumulate has already run, it is applied inline right away.
+relay chain's `enact_candidate` does today. JAM handles availability, approvals, and disputes
+natively (see §2). The work runs in three phases, in order: due authorizer-queue flushes,
+incoming-transfer processing, and per-work-package work. The first two form the
+always-accumulate work. Because always-accumulate runs *before* the work packages, a queue
+scheduled by a work package is normally applied in a later block's always-accumulate, once
+its `jam_slot` arrives. A queue whose `jam_slot` is already due (`jam_slot <= now`) when the
+scheduling message is processed is instead applied inline right away, since
+always-accumulate has already run.
 
-The always-accumulate phases go first and must stay within the always-accumulate
-allowance, since every report's gas is budgeted for that report alone (the gas gate under
-*Per-work-package work* below). Their cost must therefore be bounded and **benchmarked**,
-so a block heavy in due assigns or incoming transfers cannot eat into report gas.
+The always-accumulate phases must stay within the always-accumulate allowance, since every
+report's gas is budgeted for that report alone (see the gas gate under *Per-work-package
+work* below). Their cost must therefore be bounded and **benchmarked**, so that a block
+heavy in due assigns or incoming transfers cannot eat into report gas.
 
 #### Apply due assigns (before work packages)
 
-For each core in `pending_assign_cores` whose `due_at` has been reached, call JAM
+For each core in `pending_assign_cores` whose due timeslot has been reached, call JAM
 `assign(core, queue, assigner)` from its `pending_assigns` entry: the cached queue filled
 to 80 slots (§7.1), and the cached `assigner`, or this service's own id if none is set.
+Due timeslots are kept only in `pending_assign_cores`, so Accumulate reads a core's
+`pending_assigns` entry only when that core is due.
 
-- If the call succeeds, the core is dropped from both maps. The one exception is a core that
-  stays assigned to this service and whose queue needs rewriting every 80 blocks (§7.1): it
+- If the call succeeds, the core is dropped from both maps. The exception is a core that
+  stays assigned to this service and whose queue needs rewriting every 80 blocks (§7.1). It
   is re-armed 80 blocks out with its rotation advanced.
 - If JAM rejects it because this service is no longer the core's assigner, the core is
   dropped from both maps and `AccumulateLog::CoreNotAssignable` is recorded in the
@@ -916,13 +830,13 @@ to 80 slots (§7.1), and the cached `assigner`, or this service's own id if none
 JAM credits a transfer's balance to the destination service unconditionally, before the
 service's code runs and even if that code panics or runs out of gas. The service
 therefore **cannot refuse or fail an incoming transfer**. Its only decision is whether to
-*record* one in `incoming_transfers` for Asset Hub to act on, so handling is **best
-effort**: the funds are kept either way.
+*record* it in `incoming_transfers` for Asset Hub to act on. Recording is **best effort**,
+and the funds are kept either way.
 
 `MAX_INCOMING_TRANSFERS` is the portion of the queue Asset Hub pre-provisions in its
 baseline (§6.1), not a hard cap. While the queue holds fewer than that many transfers, a
 new one is recorded unconditionally, since the storage it occupies is already paid for.
-Once it already holds `MAX_INCOMING_TRANSFERS`, every further transfer is unprovisioned
+Once the queue holds `MAX_INCOMING_TRANSFERS`, every further transfer is unprovisioned
 and is recorded only if its `amount` covers its own entry's cost (the per-bucket figure
 derived in §6.1). One that does not is dropped, with no record and no log entry.
 Admitting one raises Asset Hub's `used_state_balance` and `total_state_balance` alike by
@@ -932,36 +846,36 @@ unchanged whatever the queue holds.
 Recording appends to the bucket the current accumulate invocation opened. A bucket is
 closed once it holds `MAX_TRANSFERS_PER_BUCKET` transfers or the invocation that opened
 it ends. The next arrival opens `last_bucket + 1`, or `0` when the queue is empty. Ids
-are thus contiguous, so Asset Hub enumerates the queue from the two endpoints alone, and
-the cap bounds what reading any one bucket can cost.
+are thus contiguous, so Asset Hub can enumerate the queue from the two endpoints alone.
+The per-bucket cap bounds the cost of reading any one bucket.
 
 `CleanUpBucketsUpTo(bucket_id)` removes whole buckets from `first_bucket` up to and
 including `bucket_id` and points `first_bucket` at the first survivor. Once nothing
 remains, the `incoming_transfer_buckets` entry is removed, so ids restart from `0` rather
 than increasing forever.
 
-As long as the JAM block the parachain references only ever advances, this is safe: it can
-only ever name buckets it has actually seen, so nothing it has not read is removed.
+This is safe as long as the JAM block Asset Hub references only moves forward. Asset Hub
+can then only name buckets it has seen, so nothing it has not read is removed.
 
 **`min_memo_gas` must be benchmarked** against the real cost of admitting one transfer,
 and `MAX_INCOMING_TRANSFERS` derived from it.
 
 #### Per-work-package work
 
-Performed once for each work package that is being accumulated in this block, in order.
-A work result of gray-paper `WorkExecResult::Error`, either a bug in the parachain
-service's `refine` or validation code that failed without reporting an actual error (§4.2), is skipped entirely
-here: no `parachain_log` entry, no state change, and it never reaches the steps below.
+Performed once for each work package accumulated in this block, in order. A Gray Paper
+`WorkExecResult::Error` result, caused either by a bug in the Parachain Service's `refine` or
+by validation code failing without calling `report_error` (§4.2), is skipped. It records no
+`parachain_log` entry, changes no state, and never reaches the steps below.
 
-**Gas gate.** JAM funds the invocation from the gas limits the reports passed to it
-declared, plus the always-accumulate allowance on the first accumulation round (§3), but
-the service budgets **per report**: a report is checked against the limit it declared
-itself, not against what the pool happens to have left, so no parachain can spend gas
-another registered. Exhausting the budget mid-invocation discards everything not yet
-checkpointed, and JAM does not retry the reports that were lost, so no report is started
-that cannot be paid for in full. Before any of the steps below run for a report:
+**Gas gate.** JAM funds the invocation from the gas limits declared by the reports passed
+to it, plus the always-accumulate allowance on the first accumulation round (§3). The
+service still budgets **per report**. Each report is checked against its own declared
+limit, not against what is left in the pool, so no parachain can spend gas that another
+one registered. Running out of gas mid-invocation discards everything not yet
+checkpointed, and JAM does not retry the lost reports. The service therefore never
+processes a report it cannot pay for in full. Before any of the steps below run for a report:
 
-- **Base cost**: the fixed cost of applying a work report at all, independent of its
+- **Base cost**: the fixed cost of applying any work report, independent of its
   contents. This must be **benchmarked**.
 - **Report cost**: derived from the report's contents before any of it is applied. It
   covers the upward messages to be replayed (§4.3) and the state writes each implies.
@@ -972,20 +886,17 @@ that cannot be paid for in full. Before any of the steps below run for a report:
 A report that clears the gate runs the steps below, and the invocation `checkpoint`s once
 they are done, so a later report running the budget dry cannot undo it.
 
-A candidate **rejected** at any step below changes nothing at all: no later step runs
-for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
+A candidate **rejected** at any step below has no effect. No later step runs for it, and it
+writes no state, records no log entry, and prunes nothing. The steps are:
 
-1. **Registration check**: Reject the work-package immediately, and record no
-   `parachain_log` entry, if `para_id` is not in `parachains` or its `ParaInfo`
-   has `is_deregistering == true` (§6.4), since a deregistering para is treated as if
-   it no longer exists.
- 2. **Refine-result dispatch**: If the work digest is a **Refine failure**
-    (`ParachainWorkDigest::Err`, where `refine` completed and returned an error digest,
-    see §3.3), forward its `RefineLog` into a `RefineLogEntry` appended to
-    `parachain_log[para_id]` (the work-report's authorizer trace is already attached)
-     under the eviction rules below, then stop: no further steps run and no log
-     pruning is done. A **Refine success** (`ParachainWorkDigest::Ok`) proceeds through
-     the remaining steps.
+1. **Registration check**: Reject the work package, without a `parachain_log` entry, if
+   `para_id` is not in `parachains` or its `ParaInfo` has `is_deregistering == true`
+   (§6.4). A deregistering para is treated as if it no longer exists.
+2. **Refine-result dispatch**: A **Refine failure** (`ParachainWorkDigest::Err`, see §3.3)
+   is appended to `parachain_log[para_id]` as a `RefineLogEntry` carrying its `RefineLog`
+   and the work-report's authorizer trace, under the eviction rules below. Processing then
+   stops, with no further steps and no log pruning. A **Refine success**
+   (`ParachainWorkDigest::Ok`) proceeds through the remaining steps.
 3. **Parent head check**: Verify the work digest's `parent_head_hash` equals
    `hash(ParaInfo[para_id].head_data)`. If not, the candidate is rejected. This prevents
    a collator from including a candidate that was built on top of a stale, skipped, or
@@ -995,29 +906,27 @@ for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
    If not, the candidate is rejected.
 5. **Head data update**: Write the new `head_data` from the work digest into
    `ParaInfo` for the parachain.
-6. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
-   the work digest, applying the effect each one carries (code upgrades, transfers,
-   authorizer queue updates, validator key updates, etc.). See the `UpwardMessage`
-   variants in §3.3 for the full list. Refine already rejects a message the parachain
-   was not entitled to emit, so one arriving here is dropped silently rather than
-   logged. This replay may itself emit further `AccumulateLog` events for the work
-   package.
+6. **Process host-function calls from Refine**: Replay the `UpwardMessage`s in the work
+   digest, applying each one's effect (code upgrades, transfers, authorizer queue
+   updates, validator key updates, etc.). See the `UpwardMessage` variants in §3.3 for
+   the full list. Refine already rejects messages the parachain was not entitled to
+   emit, so any such message reaching Accumulate is dropped without a log entry. The
+   replay may emit `AccumulateLog` events.
 
-All `AccumulateLog` events emitted while processing a work package (necessarily from
-the step 6 replay, since no earlier step emits any) are collected and appended to
+All `AccumulateLog` events emitted by the step 6 replay are collected and appended to
 `parachain_log[para_id]` as a single `LogEntry::Accumulate`, where `para_id` is the
-parachain that submitted the work package. Every append to
-`parachain_log[para_id]`, whether the `RefineLogEntry` from step 2 or this
-`LogEntry::Accumulate`, is subject to the eviction rules below.
+parachain that submitted the work package. Every append to `parachain_log[para_id]`,
+whether the `RefineLogEntry` from step 2 or this `LogEntry::Accumulate`, is subject to the
+eviction rules below.
 
-**Log pruning and eviction.** The per-parachain `parachain_log` is kept bounded
-during Accumulate. When a candidate is **accepted**, entries whose inline timeslot is
-strictly less than its lookup-anchor timeslot are pruned before any of that candidate's
-own effects are applied. Only accepted candidates prune: the anchor is chosen by whoever
-submitted the package and pruning ignores rank, so letting a rejected candidate prune
-would let anyone holding coretime erase a parachain's log wholesale and bypass the
-ranking below. The log is additionally bounded to a 64 KiB total encoded size (not a
-fixed entry count), so each entry is charged only its actual size.
+**Log pruning and eviction.** Accumulate prunes each parachain's `parachain_log` and caps
+its size. When a candidate is **accepted**, entries whose inline timeslot is strictly less
+than its lookup-anchor timeslot are pruned before any of that candidate's own effects are
+applied. Only accepted candidates prune. The anchor is chosen by whoever submitted the
+package and pruning ignores rank, so if rejected candidates could prune, anyone holding
+coretime could erase a parachain's log wholesale and bypass the ranking below. The cap is
+64 KiB of total encoded size rather than a fixed number of entries, so an entry takes up
+only the space it needs.
 
 When a new entry would push the log over 64 KiB, eviction follows a **fixed rank
 order**, lowest rank discarded first:
@@ -1028,37 +937,34 @@ order**, lowest rank discarded first:
 | 1 | `RefineLogEntry` carrying `Opaque` |
 | 2 | `LogEntry::Accumulate` |
 
-The log is a `Vec` built by appending, so entries sit in arrival order and their
-inline timeslots are non-decreasing. The entry evicted is the one of the lowest
-occupied rank *at or below* the incoming entry's own rank and, within that rank, the
-earliest inline timeslot; this repeats until the log fits. Entries sharing a rank and
-a timeslot are equally old, so exactly one of them goes and which is immaterial.
+The log is a `Vec` built by appending, so entries sit in arrival order and their inline
+timeslots are non-decreasing. Eviction picks the lowest occupied rank *at or below* the
+incoming entry's own rank and, within that rank, the entry with the earliest inline
+timeslot. This repeats until the log fits. Entries sharing a rank and a timeslot are
+equally old, so it does not matter which of them is evicted.
 
-So a new `Opaque` displaces rank-0 entries first and, failing those, the oldest
-existing `Opaque`; a new accumulate entry displaces refine entries of either rank
-before the oldest accumulate entry. An entry is **never** evicted to make room for
-something of lower rank: when only higher-ranked entries remain, the incoming entry
-is dropped instead.
+A new `Opaque` therefore displaces rank-0 entries first and, once none are left, the oldest
+existing `Opaque`. A new accumulate entry displaces refine entries of either rank before
+the oldest accumulate entry. An entry is **never** evicted to make room for something of
+lower rank. When only higher-ranked entries remain, the incoming entry is dropped instead.
 
-**Why the ranking exists.** Coretime on a core assigned to a parachain can be bought
-by anyone, and a work package submitted that way still reaches Refine, so its
-failures are recorded against the parachain even though the parachain did not cause
-them. Every such failure lands in rank 0: producing an `Opaque` requires the
-parachain's own validation code to call `report_error` (§4.2), and only Accumulate produces
-rank 2. A buyer can therefore churn rank 0 against itself, but can never evict the
-parachain's own reports or its on-chain state changes, which bounds the damage to
-losing diagnostics that were, by construction, the attacker's own noise.
+**Why the ranking exists.** Anyone can buy coretime on a core assigned to a parachain. A
+work package submitted that way still reaches Refine, so its failures are recorded against
+the parachain even though the parachain did not cause them. All such failures land in
+rank 0, because producing an `Opaque` requires the parachain's own validation code to call
+`report_error` (§4.2), and only Accumulate produces rank 2. A buyer can churn rank 0
+against itself, but can never evict the parachain's own reports or its on-chain state
+changes. The damage is limited to losing diagnostics that were the attacker's own noise.
 
 **What this means for parachain implementors.** `parachain_log` is the only channel
-through which a parachain learns why its candidates failed, and it is lossy by
-design: entries below a candidate's lookup-anchor are pruned, and entries are
-evicted under capacity pressure. It should be read promptly through the validation
-inputs (§5.4 phase 2 shows the pattern) and never treated as a durable record.
-Rank-0 entries in particular are both evictable and producible by anyone holding
-coretime, so parachain logic must not depend on one being present, nor on one being
-absent. Anything a parachain needs to act on reliably belongs either in an `Opaque`
-payload its own validation code emitted, or in an accumulate event, which records a state change
-that has already happened.
+through which a parachain learns why its candidates failed, and it is lossy. Entries below
+a candidate's lookup-anchor are pruned, and entries are evicted under capacity pressure.
+Parachains should read it promptly through the validation inputs (§5.4 phase 2 shows the
+pattern) and never treat it as a durable record. Rank-0 entries can be both evicted and
+produced by anyone holding coretime, so parachain logic must depend neither on their
+presence nor on their absence. Anything a parachain needs to act on reliably belongs in an
+`Opaque` payload its own validation code emitted, or in an accumulate event, which records
+a state change that has already happened.
 
 #### Outgoing transfers
 
@@ -1080,20 +986,15 @@ candidate registered.
 `source_supervisor_balance` and `dest_supervisor_balance` pick which balance is used
 on each side: the supervisor balance when true, the regular balance when false.
 
-The core Accumulate logic is primarily **parachain bookkeeping**: updating head data,
-tracking code upgrades, applying queued authorizer updates, and managing incoming
-transfers.
-
 ### 5.2 Parachain Code Upgrade Lifecycle
 
 A parachain switches to new validation code in two explicit steps, both carried by
 `RequestCodeUpgrade` (§3.3): an **`Announcement`** naming the code, and a later
-**`Apply`** that makes it active. Getting the code into the preimage store is not part of
-either: the parachain solicits it beforehand with `Solicit` (§3.3).
+**`Apply`** that makes it active. Neither step puts the code into the preimage store. The
+parachain solicits it beforehand with `Solicit` (§3.3).
 
-The split exists to settle availability before the switch: the code must be available to
-be announced, so an `Apply` can never leave the parachain pointing at validation code JAM
-cannot serve.
+The split settles availability before the switch. Code must be available to be announced,
+so an `Apply` can never leave the parachain pointing at validation code JAM cannot serve.
 
 ```
 Step 1: Solicit the code
@@ -1115,7 +1016,7 @@ Step 2: Announcement
     otherwise       -> announced_upgrade = (hash, len), replacing any
                        standing announcement
 
-    The active validation_code is untouched: candidates must still be validated
+    The active validation_code is untouched. Candidates must still be validated
     with it (§5.1 step 4) until the Apply lands.
     │
     ▼
@@ -1128,29 +1029,28 @@ Step 3: Apply
     otherwise       -> validation_code = announced code, and
                        announced_upgrade is cleared
 
-    The switch is immediate: the candidate carrying the Apply was itself
+    The switch is immediate. The candidate carrying the Apply was itself
     validated with the old code, and every candidate after it must use the new
     one.
 ```
 
 ### 5.3 Validator-Key Updates
 
-A full `stagingset` (Gray Paper, Safrole section, validator-key definitions) is up to `1023 × 336 B ≈
-336 KiB`, too large for a single work-report's `C_maxreportvarsize = 48 KiB`
-result-blob budget, and JAM's `designate` accepts only the complete vector.
-The Parachain Service therefore buffers chunks in `staged_validator_keys`
-across multiple Asset Hub blocks (one chunk per block, since
-`SetValidatorKeys` may be sent at most once per Refine; see §4.3) until
-Asset Hub signals completion via `is_last`.
+A full `stagingset` (Gray Paper, Safrole section, validator-key definitions) is up to
+`1023 × 336 B ≈ 336 KiB`. That is too large for a single work-report's
+`C_maxreportvarsize = 48 KiB` result-blob budget, and JAM's `designate` accepts only the
+complete vector. The Parachain Service therefore buffers chunks in `staged_validator_keys`
+across multiple Asset Hub blocks until Asset Hub signals completion via `is_last`. Each
+block carries one chunk, since `SetValidatorKeys` may be sent at most once per Refine
+(§4.3).
 
-When Accumulate replays a `SetValidatorKeys { keys, is_last }` upward message
-it:
+When Accumulate replays a `SetValidatorKeys { keys, is_last }` upward message it:
 
-1. If `is_last == false`, appends `keys` to `staged_validator_keys`. The
-   staging buffer is reserved worst-case in Asset Hub's baseline footprint
-   (§6.1), but an append that would grow the buffer beyond its reserved capacity
-   (the `1023`-key bound on `staged_validator_keys`) is rejected as invalid with
-   `AccumulateLog::StagedValidatorKeysOverflow`, leaving the buffer unchanged.
+1. If `is_last == false`, appends `keys` to `staged_validator_keys`. The staging buffer
+   is reserved at its worst case in Asset Hub's baseline footprint (§6.1). An append
+   that would grow it beyond that capacity (the 1023-key bound on
+   `staged_validator_keys`) is rejected with `AccumulateLog::StagedValidatorKeysOverflow`,
+   leaving the buffer unchanged.
 2. If `is_last == true`, clears the buffer and calls JAM `designate` with the
    assembled set (prior buffer + `keys`). `designate` accepts it only if its
    length is in `valcount`: **a multiple of 3, at least 6 and at most 1023**.
@@ -1165,13 +1065,12 @@ buffer is covered in §6.1.
 
 ### 5.4 Service Self-Upgrade
 
-Authority over Parachain Service code upgrades is held by **Asset Hub**. Asset Hub
+**Asset Hub** controls upgrades of the Parachain Service's own code. Asset Hub
 triggers the upgrade by emitting `UpwardMessage::UpgradeService` (§3.3), which the
 Refine wrapper rejects from any other parachain. Accumulate forwards it to JAM's `upgrade`
 host call after verifying that **Asset Hub references** the new code's preimage (§6.1)
 and that the preimage is **available for lookup**, meaning JAM's `query` reports it as
-provided or re-requested. As long as a code is the active code, Asset Hub's reference to it
-cannot be forgotten.
+provided or re-requested. Asset Hub cannot `Forget` its reference to the active code.
 
 ```
 Phase 1: Solicit
@@ -1200,12 +1099,10 @@ Phase 5: Forget
     and emits Forget { target: Parachain(asset_hub_para_id), hash: old_code_hash, len } (§6.1).
 ```
 
----
-
 ### 5.5 Parachain Head Commitment
 
 `accumulate` may return a 32-byte hash. The Parachain Service uses it to commit to
-**parachain heads**: an accumulate invocation that changed at least one head builds a
+**parachain heads**. An accumulate invocation that changed at least one head builds a
 binary Merkle tree over the heads it changed and returns its root. One that changed
 none returns nothing and adds no entry to the accumulation output log.
 
@@ -1254,15 +1151,14 @@ state-balance management, registration, forced updates, and deregistration:
 - `ParachainSetValidationCode { para_id, new_validation_code_hash, new_validation_code_len }`: upsert validation code
 - `ParachainCleanUp(para_id)`: remove all per-parachain state
 
-All four are Coretime-chain-only; the Parachain Service performs no rights-checking
-of its own and in particular **does not enforce ParaId uniqueness**. The Coretime
-chain is the sole authority on which `ParaId`s are live and who owns them.
-`ParachainSetStateBalance` is the sole creator of `ParaInfo` (see §6.1);
-`ParachainSetHead`, `ParachainSetValidationCode`, and `ParachainCleanUp`
-silently no-op when invoked on a `ParaId` whose `ParaInfo` doesn't exist yet, so
-Coretime must emit `ParachainSetStateBalance` first in any registration
-sequence. On an existing `ParaId`, `ParachainSetHead` /
-`ParachainSetValidationCode` simply overwrite (useful for forced recovery).
+All four are Coretime-chain-only. The Parachain Service performs no rights-checking of its
+own and **does not enforce ParaId uniqueness**. The Coretime chain is the sole authority on
+which `ParaId`s are live and who owns them. `ParachainSetStateBalance` is the sole creator
+of `ParaInfo` (see §6.1). `ParachainSetHead`, `ParachainSetValidationCode`, and
+`ParachainCleanUp` silently no-op on a `ParaId` whose `ParaInfo` doesn't exist yet, so
+Coretime must emit `ParachainSetStateBalance` first in any registration sequence. On an
+existing `ParaId`, `ParachainSetHead` / `ParachainSetValidationCode` overwrite the current
+value, which is what forced recovery uses (§6.3).
 
 ### 6.1 State-Balance Accounting
 
@@ -1301,8 +1197,8 @@ recomputing when the referencer set changes.
 
 The Coretime chain is the sole authority on `total_state_balance`. It calls
 `ParachainSetStateBalance { para_id, new_total }` to set the value: at registration
-to create the initial budget (see §6.2), and at any later point to grant additional
-headroom for any additional state requirements or to reclaim slack once the parachain stabilizes.
+to create the initial budget (see §6.2), and later to raise it when the parachain needs
+more state or to lower it to reclaim balance the parachain does not use.
 
 `ParachainSetStateBalance` is the sole creator of `ParaInfo`. Called on a
 previously-unused `ParaId`, it creates a fresh entry with
@@ -1311,62 +1207,73 @@ the other fields uninitialized (to be filled in by subsequent `ParachainSetHead`
 `ParachainSetValidationCode` calls in the same registration sequence). Called on
 an existing `ParaId`, it overwrites `total_state_balance` in place.
 
-In either case the call is applied only if `new_total >= used_state_balance` (so
-the Coretime chain cannot strand currently-paid-for state by under-funding the
-parachain). Otherwise no state change happens and an
+In either case the call is applied only if `new_total >= used_state_balance`, so
+`total_state_balance` always covers the parachain's state. Otherwise nothing changes, and an
 `AccumulateLog::StateBalanceUpdateRejected { para_id, attempted, reason }` with reason
-`BelowUsed { current_total, current_used }` is appended to the Coretime
-chain's `parachain_log` (§5.1) so it can observe the rejection and size a retry. A
-deregistering `ParaId` (§6.4) is rejected the same way with reason
-`ParachainIsDeregistering`. To free state balance,
-`used_state_balance` must first be reduced
-by releasing state via `Forget` / `RemoveKV`, emitted either by the parachain
-itself or by the Coretime chain on its behalf (see §6.4).
+`BelowUsed { current_total, current_used }` is appended to the Coretime chain's
+`parachain_log` (§5.1) so it can observe the rejection and size a retry. A deregistering
+`ParaId` (§6.4) is rejected the same way with reason `ParachainIsDeregistering`. To free
+state balance, `used_state_balance` must first be reduced by releasing state via
+`Forget` / `RemoveKV`, emitted either by the parachain itself or by the Coretime chain on
+its behalf (see §6.4).
 
-Verifying the user has enough balance to cover at least the baseline is the Coretime
-chain's responsibility, done before starting the registration sequence.
+The Coretime chain verifies that the user can cover at least the baseline before starting
+the registration sequence.
 
-Deposits, sizing, and refunds are owned end-to-end by the Coretime chain; end users
-interact with it via its usual extrinsics, and the Coretime chain reflects those
-interactions into the Parachain Service via `ParachainSetStateBalance`.
+Deposits, sizing, and refunds are owned end-to-end by the Coretime chain. End users
+interact with it through its usual extrinsics, and the Coretime chain reflects the results
+into the Parachain Service via `ParachainSetStateBalance`.
 
 #### Preimage handling
 
-JAM allows only one `(hash, len)` solicitation per service. The Parachain Service is
-a single service hosting many parachains, so they share one request via `preimage_registry`:
-each entry records the set of `ParaId`s referencing the hash. JAM `solicit` is
-called when the set transitions empty → non-empty; JAM `forget` is called when it
-transitions back to empty.
+JAM allows only one `(hash, len)` solicitation per service. The Parachain Service is a
+single service hosting many parachains, so they share one request via `preimage_registry`,
+where each entry records the set of `ParaId`s referencing the hash. JAM `solicit` is called
+when the set goes from empty to non-empty, and JAM `forget` when it becomes empty again.
 
-Releasing an *available* preimage takes **two steps**. A JAM `forget` does not
-delete it. It marks the request unavailable, and only a **second** `forget`, no
-earlier than `C_expungeperiod = 19 200` timeslots (~32 h) later, actually expunges
-it. The service keeps no bookkeeping for this. When a `forget` removes the last
-referencer without expunging the preimage, Accumulate appends an
-`AccumulateLog::ForgetAgainAt { hash, len, due }`, where `due = now +
-C_expungeperiod`, to the log of the parachain that emitted the `Forget` (§5.1), and
-leaves the last referencer in `referencers`, still charged the full footprint. That
-parachain emits `Forget { target: Parachain(para_id), hash, len }` again once the
-timeslot is *strictly
-after* `due` to complete the expunge and free the footprint.
+A `Forget` of code still in use is rejected with `AccumulateLog::CanNotRemoveCode`. Code
+counts as in use while it is the target's `validation_code` or `announced_upgrade` (§5.2)
+or, for Asset Hub, the Parachain Service's active code (§5.4).
 
-A preimage that was solicited but **never provided** to JAM is different: a single
-`forget` of its last referencer drops the request outright - there is nothing to
-expunge, so the footprint is freed immediately with no `ForgetAgainAt`.
+A `Forget` that leaves other referencers drops the parachain from `referencers` and
+refunds its footprint right away. Removing the last referencer of an *available* preimage
+takes **two steps**. A JAM `forget` does not delete it but marks the request unavailable. Only a **second** `forget`, no earlier than
+`C_expungeperiod = 19 200` timeslots (~32 h) later, expunges it. The service keeps no
+bookkeeping for this. When a `forget` removes the last referencer without expunging the
+preimage, Accumulate appends an `AccumulateLog::ForgetAgainAt { hash, len, due }`, where
+`due = now + C_expungeperiod`, to the log of the parachain that emitted the `Forget`
+(§5.1). The last referencer stays in `referencers` and is still charged the full
+footprint. That parachain emits `Forget { target: Parachain(para_id), hash, len }` again
+once the timeslot is *strictly after* `due` to complete the expunge and free the
+footprint.
 
-**Rescue.** During the ~32 h window between the two forgets, JAM still holds the
-blob, so a `solicit` can bring the request back to available. The service does this
-automatically: if a parachain references an entry whose last referencer is awaiting
-expunge, Accumulate re-forwards JAM `solicit` and the preimage serves lookups again.
-The rescuing parachain becomes the entry's sole referencer, and the parachain that
-was awaiting expunge is dropped and refunded (it had already forgotten; it was only
-being held as the stand-in for the pending second forget).
+A preimage that was solicited but **never provided** to JAM is different. A single
+`forget` of its last referencer drops the request outright. There is nothing to expunge,
+so the footprint is freed immediately and no `ForgetAgainAt` is logged.
 
-A rescue does **not** reset the expunge deadline: the gate on the next `forget` is
-still measured from the *original* unrequest. And when that `forget` does fire, it
-does not expunge - it only marks the preimage unavailable again.
+**Rescue.** During the ~32 h window between the two forgets, JAM still holds the blob, so
+a `solicit` can make the request available again. The service does this automatically. If
+a parachain references an entry whose last referencer is awaiting expunge, Accumulate
+re-forwards JAM `solicit` and the preimage serves lookups again. The rescuing parachain
+becomes the entry's sole referencer. The parachain awaiting expunge is dropped and
+refunded, since it had already forgotten the preimage and was only kept as a stand-in for
+the pending second forget. It no longer references the preimage, so its second `Forget` is
+a no-op without a log entry. To the upstream parachain this looks like a normal successful
+forget.
 
-Applying §6.1's sole-user rule, a single referencer's **preimage footprint** is the
+A rescue does **not** reset the expunge deadline, so the last referencer may need three
+`Forget`s to expunge a rescued preimage:
+
+1. A `Forget` before the original expunge period has ended changes nothing. The parachain
+   gets a `ForgetAgainAt` whose `due` is the end of that period.
+2. A `Forget` after that `due` makes the preimage unavailable again. The parachain gets a
+   `ForgetAgainAt` whose `due` is the end of a new expunge period.
+3. A `Forget` after the new `due` expunges the preimage and frees the footprint.
+
+If the first `Forget` comes after the original expunge period has ended, step 1 is
+skipped.
+
+Applying the sole-user rule, a single referencer's **preimage footprint** is the
 sum of two JAM entries: the **preimage request** (`101 + len`) and its
 **`preimage_registry` entry** at `44 + |value| + |key|`, with `|value| = 5` (a singleton
 `{ParaId}` referencer set) and `|key| = 37` (1 B map tag + 32 B hash + 4 B len), giving
@@ -1400,16 +1307,13 @@ is_deregistering: bool                                             =       1
                                                                        4 240
 ```
 
-`(ParaId, parachain_log[para_id])` entry, value + key bounded by a flat 64 KiB cap,
-with JAM's per-entry overhead on top:
+`(ParaId, parachain_log[para_id])` entry. The log value is bounded by its exact encoded
+size, with entries sized by their actual SCALE length rather than their worst case. The
+64 KiB cap covers every log element plus the vector's own length prefix. JAM's 34 B
+per-entry overhead and the 5 B storage key (1 B map tag + 4 B ParaId) sit on top, so the
+service reserves a flat 64 KiB + 34 + 5 regardless of current contents:
 
 ```
-The log value is bounded by exact encoded size (entries sized by actual SCALE
-length, not worst-case). The 64 KiB cap covers every log element plus the
-vector's own length prefix; JAM's 34 B per-entry overhead and the 5 B storage key
-(1 B map tag + 4 B ParaId) sit on top, so the service reserves a flat
-64 KiB + 34 + 5 regardless of current contents.
-
 JAM per-entry octet overhead                                       =      34
 storage key (1 B map tag + 4 B ParaId)                             =       5
 parachain_log value (flat cap): 64 KiB                             =  65 536
@@ -1424,9 +1328,9 @@ parachain_log value (flat cap): 64 KiB                             =  65 536
 #### Asset Hub baseline footprint
 
 Asset Hub additionally owns the service-global state items as privileged caller. Its
-`total_state_balance` must cover them, provisioned at genesis. Each is billed as a
-general-storage entry (§6.1), so a `Map` costs one entry per key it holds while a
-`BoundedVec` or a singleton costs one entry in total.
+`total_state_balance`, provisioned at genesis, must cover them. Each is billed as a
+general-storage entry, so a `Map` costs one entry per key it holds while a `BoundedVec` or
+a singleton costs one entry in total.
 
 Of these only `incoming_transfers` grows with the transfer bound. Taking
 `CoreCount = 341`, `AuthorizerHash = 32 B`, `ServiceId = 4 B`, `Memo = 128 B`,
@@ -1449,13 +1353,13 @@ incoming_transfer_buckets: IncomingTransferBuckets  · 1 item
 ```
 
 Writing `N` for `MAX_INCOMING_TRANSFERS`, the queue's worst case is **maximal
-fragmentation**: every transfer alone in its own bucket, which is what one transfer per
-accumulate invocation produces. `MAX_TRANSFERS_PER_BUCKET` does not improve this, since
-it limits how much a single bucket can hold, not how little. Bounding the total transfer
-count therefore bounds the bucket count too, since a bucket always holds at least a transfer.
+fragmentation**: every transfer alone in its own bucket, as produced by one transfer per
+accumulate invocation. `MAX_TRANSFERS_PER_BUCKET` does not improve this, since it limits
+how much a single bucket can hold, not how little. Every bucket holds at least one
+transfer, so bounding the transfer count also bounds the bucket count.
 
 ```
-incoming_transfers: Map<BucketId, IncomingTransfers>  — worst case N items
+incoming_transfers: Map<BucketId, IncomingTransfers>  (worst case N items)
   N × (34 + 9 (key) + 1 + 142 (transfer))                       186 × N
   N storage items × 10                                           10 × N
                                                               ---------
@@ -1470,42 +1374,40 @@ asset_hub_global_items = 1 237 307 + 196 × N
 
 `N` is provisional until `min_memo_gas` is benchmarked and the bound derived from it
 (§5.1), and it is the only input that moves. Entries past `N` are not part of this
-reservation: each is charged to Asset Hub as it arrives and refunded as it drains
+reservation. Each is charged to Asset Hub as it arrives and refunded as it drains
 (§5.1). At `N = 1000` the reservation is `1 237 307 + 196 000 = 1 433 307`, or
 **≈ 1.37 MiB**, on top of the generic per-para baseline.
 
 #### Key-Value storage footprint
 
 Each `(ParaId, key) -> value` entry in `key_value_storage` pays the sole-user
-general-storage cost `44 + |value| + |storage_key|`, where the storage key
-composes the map tag, the parachain id, and the SCALE-encoded user key:
+general-storage cost `44 + |value| + |storage_key|`. The value is stored exactly as the
+parachain sent it, and the storage key is the map tag, the parachain id and the user key
+as sent:
 
 ```
 kv_entry_footprint(k, v) = 44
- + compactLen(v) + v (SCALE Vec<u8> value)
+ + v (value, stored as sent)
  + 1 (map tag) + 4 (ParaId) (per §3.1 storage-key encoding)
- + compactLen(k) + k (SCALE Vec<u8> user key)
- = 49 + compactLen(k) + k + compactLen(v) + v
+ + k (user key, as sent)
+ = 49 + k + v
 ```
 
-A `SetKV` computes the change in `used_state_balance`: the new entry's
-footprint, or `compactLen(new_v) + new_v − compactLen(old_v) − old_v` when
-overwriting an existing key. The old value's length is recovered without
-materializing the old value: since it is a SCALE-encoded `Vec<u8>`, reading
-just the first 4 bytes (via JAM `read`'s offset/length) is enough to decode
-the `Compact<u32>` length prefix. When the change is positive it must fit
-within `total_state_balance` before the write is applied; when it is negative
-(an overwrite with a smaller value) the freed balance is credited back. A
-`RemoveKV` refunds `kv_entry_footprint(k, v)` for the removed entry.
+A `SetKV` computes the change in `used_state_balance`: the new entry's footprint, or the
+difference in value length, `new_v − old_v`, when overwriting an existing key. JAM `read`
+returns the stored value's length, so calling it with an output length of 0 yields
+`old_v` without copying the value. A positive change must fit within
+`total_state_balance` before the write is applied. A negative change (an overwrite with a
+smaller value) is credited back. A `RemoveKV` refunds `kv_entry_footprint(k, v)` for the
+removed entry.
 
 #### Write-time invariant
 
-Every mutation that would grow `used_state_balance` is guarded by a headroom
-pre-check against `total_state_balance` before the write. On insufficient
-headroom the write is skipped and `AccumulateLog::InsufficientStateBalance` is
-appended to the emitting parachain's log (§5.1); otherwise the write is applied and
-`used_state_balance` is bumped atomically. Baseline-covered state is
-pre-charged and needs no per-write check.
+Every mutation that would grow `used_state_balance` is first checked against the headroom
+left in `total_state_balance`. Without enough headroom the write is skipped and
+`AccumulateLog::InsufficientStateBalance` is appended to the emitting parachain's log
+(§5.1). Otherwise the write is applied and `used_state_balance` is raised atomically.
+Baseline-covered state is pre-charged and needs no per-write check.
 
 JAM's `write` returns `StorageFull` when the service's own balance cannot cover
 the new footprint. Seeing it indicates a bookkeeping bug and can leave the entire
@@ -1537,18 +1439,18 @@ Registration does **not** wait for the preimage.
 
 ### 6.3 Forced Updates (Recovery)
 
-The same two messages also handle exceptional recovery, e.g. unsticking a chain
-whose last included block cannot be built on, or swapping in new validation code outside the normal
-upgrade lifecycle:
+`ParachainSetHead` and `ParachainSetValidationCode` also handle exceptional recovery, e.g.
+unsticking a chain whose last included block cannot be built on, or swapping in new
+validation code outside the normal upgrade lifecycle:
 
 - `ParachainSetHead { para_id, new_head }` overwrites `ParaInfo.head_data`.
 - `ParachainSetValidationCode { para_id, new_hash, new_len }` sets
   `ParaInfo.validation_code` to `Some(new_hash)`, solicits `new_hash`, and clears any
-  `announced_upgrade`. Unless the parachain already references `new_hash`, in which case
-  the solicit is a no-op and nothing is charged, `used_state_balance` grows by
-  `preimage_footprint(new_len)` to hold the new validation code. The displaced validation
-  codes are left untouched (as for the normal code upgrade path, §5.2). The call is rejected
-  with `AccumulateLog::InsufficientStateBalance` if the new footprint wouldn't fit, so Coretime
+  `announced_upgrade`. `used_state_balance` grows by `preimage_footprint(new_len)` to hold
+  the new validation code, unless the parachain already references `new_hash`, in which
+  case the solicit is a no-op and nothing is charged. The displaced validation codes are
+  left untouched, as on the normal upgrade path (§5.2). The call is rejected with
+  `AccumulateLog::InsufficientStateBalance` if the new footprint wouldn't fit, so Coretime
   must raise `total_state_balance` first when needed.
 
 ```
@@ -1571,33 +1473,34 @@ Coretime chain
     │  Emits ParachainCleanUp(para_id)
     ▼
 Parachain Service (Accumulate)
-	│  Rejects with `AccumulateLog::TooMuchStateHeld` unless used_state_balance
-	│  is at most BASELINE_FOOTPRINT + preimage_footprint(validation_code)
-	│  + preimage_footprint(announced_upgrade code, if any), i.e. the parachain
-	│  has already released all other solicited preimages and key_value_storage.
-	│  Otherwise forgets the validation code(s). If any cannot be expunged yet
-	│  (JAM's two-step forget; see §6.1), sets ParaInfo.is_deregistering = true
-	│  and stops. Once expungeable, drops parachains[para_id]
-	│  and parachain_log[para_id].
+    │  Rejects with TooMuchStateHeld if the parachain holds state beyond its
+    │  baseline, its active validation code and its announced validation code.
+    │  Otherwise forgets the active and the announced validation code:
+    │
+    │    all expunged  -> removes parachains[para_id] and parachain_log[para_id]
+    │    otherwise     -> sets is_deregistering and stops until the retry
 ```
 
-Requiring the parachain to drain its own extra state first keeps clean-up bounded:
-the service only ever has to forget the two validation codes, never an unbounded
-set of solicited preimages or KV entries. A parachain that can no longer produce
+Requiring the parachain to drain its own extra state first keeps clean-up bounded. The
+service only has to forget the two validation codes, never an unbounded set of solicited
+preimages or KV entries. A parachain that can no longer produce
 blocks cannot drain itself, so `Forget` and `RemoveKV` take a `para_id` (§3.3),
 letting the Coretime chain free any parachain's state on its behalf.
 
-A clean-up that stops for a retry leaves `validation_code` and `announced_upgrade` in
-place. Their footprints remain charged until the expunging `forget` succeeds, so the
-allowance the check compares against must keep counting them.
+The `TooMuchStateHeld` check allows `used_state_balance` up to `baseline_footprint` plus
+the preimage footprints of `validation_code` and `announced_upgrade`, where set. A
+clean-up that stops for a retry leaves both validation codes in place and charged until the
+expunging `forget` succeeds, so the retry passes the same check.
 
 While `is_deregistering` is set the service rejects every work package for the
-parachain (§5.1), so no new state accrues. Each not-yet-expungeable validation
-code emits a `ForgetAgainAt { .., due }` into the Coretime chain's `parachain_log`
-(§6.1), as does `TooMuchStateHeld` above. The Coretime chain retries
-the call once the timeslot is strictly past the latest such `due`, and the
-parachain is fully removed. This keeps all follow-up in a single message rather
-than tracking per-preimage `forget` deadlines.
+parachain (§5.1). `Solicit`, `SetKV`, `RemoveKV`, `ParachainSetHead` and
+`ParachainSetValidationCode` for it are no-ops, and `ParachainSetStateBalance` is
+rejected with `ParachainIsDeregistering` (§6.1), so no new state accrues. Each
+not-yet-expungeable validation code emits a `ForgetAgainAt { .., due }` into the
+Coretime chain's `parachain_log` (§6.1), as does `TooMuchStateHeld` above. The Coretime
+chain retries the call once the timeslot is strictly past the latest such `due`, and the
+parachain is fully removed. This keeps all follow-up in a single message rather than
+tracking per-preimage `forget` deadlines.
 
 Coretime also handles deposit refund and any economic unwinding according to its
 own policy.
@@ -1623,11 +1526,10 @@ For the Parachain Service, the ownership boundary is:
 
 ### 7.1 Authorizer Design: AURA Example
 
-Each parachain supplies its own authorizer. The Parachain Service does
-not prescribe a specific one. The only constraint the service imposes is
-that the authorizer's config blob begins with a `Vec<ParaId>` matching
-the work package's items (§3.2). What follows is one AURA-style collator-set
-authorizer, sketched for demonstration purposes only.
+Each parachain supplies its own authorizer, and the Parachain Service does not prescribe
+one. Its only constraint is that the authorizer's config blob begins with a `Vec<ParaId>`
+matching the work package's items (§3.2). What follows is an example AURA-style
+collator-set authorizer.
 
 The authorizer is a single piece of PVM code (≤ 64 KB) deployed once as a preimage and
 reused across all cores. Per-core behavior is controlled by the **config blob** (`pf`),
@@ -1694,8 +1596,8 @@ struct AuthorizationToken {
 
 Independently of the authorizer code, the Parachain Service's **Refine wrapper** enforces:
 
-- `Vec<ParaId>` (`authorized_paras`) is required to be the first bytes of the config blob.
-- `len(authorized_paras) == len(workitems)`: rejects the package if they differ.
+- The config blob starts with the `Vec<ParaId>` (`authorized_paras`).
+- `len(authorized_paras) == len(workitems)`, rejecting the package otherwise.
 
 #### Anchor Selection and Slot Claiming
 
@@ -1704,23 +1606,23 @@ to their collator index. In steady-state AURA the authorizer queue is filled wit
 **same** authorizer hash, so the pool's 8 entries are all the same hash and the collator
 can pick any of the 8 recent anchors.
 
-This has a consequence: for **small collator sets** (< 8 collators), a collator could
-claim **two consecutive blocks** by choosing different anchor blocks whose timeslots
-both map to their index (e.g. with `collator_set_size = 4` and `slot_duration = 6`,
-anchor timeslots T and T+4 both yield the same collator index).
+For **small collator sets** (< 8 collators), a collator can therefore claim **two
+consecutive blocks** by choosing different anchor blocks whose timeslots both map to their
+index (e.g. with `collator_set_size = 4` and `slot_duration = 6`, anchor timeslots T and
+T+4 both yield the same collator index).
 
 Preventing this is the responsibility of the **parachain's validation code**, not the
-authorizer. If the validation code detects that the claimed anchor timeslot is inconsistent with the
-parachain's own slot progression (e.g. the same collator claiming back-to-back slots they
-are not entitled to), it can call `report_error(data)` to record a structured complaint
-against the offending collator in the parachain log, which can then be read by the
-parachain's slashing logic.
+authorizer. If the validation code detects that the claimed anchor timeslot is inconsistent
+with the parachain's own slot progression (e.g. the same collator claiming back-to-back
+slots they are not entitled to), it can call `report_error(data)` to record a structured
+complaint against the offending collator in the parachain log, for the parachain's
+slashing logic to read.
 
-The mirror case is an author the parachain does not recognise at all: anyone can buy
-coretime on a core assigned to the parachain and submit whatever they like for it. Here
-`report_error` is the wrong tool. There is no known account to slash, so the complaint has
-no reader, and writing one would hand the buyer a free way to evict genuine entries from
-the capacity-bounded `parachain_log` (§3.1). The validation code should simply panic (§4.2).
+The mirror case is an author the parachain does not recognise. Anyone can buy coretime on
+a core assigned to the parachain and submit whatever they like for it. Here `report_error`
+is the wrong tool. There is no known account to slash, so the complaint has no reader, and
+writing one would hand the buyer a free way to evict genuine entries from the
+capacity-bounded `parachain_log` (§3.1). The validation code should panic instead (§4.2).
 
 #### Filling the 80-slot queue
 
@@ -1735,7 +1637,7 @@ slots with the next 80 entries of that set repeated endlessly:
 - X < 80 with `80 % X != 0`: 80 slots do not land on a set boundary, so each cycle must
   resume where the last one stopped. The service keeps the queue and rewrites it every
   80 blocks, shifting its start forward by `80 % X` each time. For X = 11 the first
-  cycle is 7 full passes (77) plus authorizers 1 to 3; the next starts at the 4th, runs
+  cycle is 7 full passes (77) plus authorizers 1 to 3. The next starts at the 4th, runs
   to the 11th, then repeats. The stored order is the schedule, so there is no separate cursor.
 
 #### Collator Set Rotation Flow
@@ -1760,25 +1662,21 @@ Pool (up to 8 entries)
 
 ### 7.2 On-Demand Parachains
 
-On-demand coretime is not a special case for the Parachain Service. It is handled
-entirely by the **Coretime chain**. When someone buys a single-slot coretime allocation,
-the Coretime chain just emits `AssignCore { core, queue, new_assigner: None, jam_slot }` with a
-near-term `jam_slot` to install the buyer's authorizer on the target core for the
-duration of that slot. The
-Parachain Service sees no difference between on-demand and bulk-purchased coretime; it
-only sees a queue update.
+On-demand coretime is not a special case for the Parachain Service. The **Coretime chain**
+handles it. When someone buys a single-slot coretime allocation, the Coretime chain emits
+`AssignCore { core, queue, new_assigner: None, jam_slot }` with a near-term `jam_slot` to
+install the buyer's authorizer on the target core for the duration of that slot. The
+Parachain Service only sees a queue update and cannot tell on-demand from bulk-purchased
+coretime.
 
-Two plausible policies on the Coretime chain side:
+Two possible policies on the Coretime chain side:
 
-- **Direct buyer authorization**: the authorizer for an on-demand slot simply verifies a
+- **Direct buyer authorization**: the authorizer for an on-demand slot verifies a
   signature from the buyer's key. The Coretime chain builds the authorizer config with
   the buyer's public key at the time of purchase.
 - **Secondary market with pre-registered authorizers**: an off-chain service pre-registers
   generic authorizers on the Coretime chain and resells access tokens off-chain. Whoever
   holds a valid token can then submit work packages against the pre-registered authorizer.
-
-In both cases, the Parachain Service implementation is unchanged. The Coretime chain
-decides the policy, constructs the authorizer config, and emits `AssignCore`.
 
 ---
 
@@ -1796,35 +1694,26 @@ Polkadot mainnet the per-channel throughput is capped by the host configuration:
 - `hrmpMaxMessageNumPerCandidate` = **10** HRMP messages per candidate
   (summed across all channels, not per channel)
 
-So a parachain can emit at most 10 HRMP messages per block across all its channels, each
-at most 100 KiB, and each channel can hold at most 100 KiB / 25 messages pending at a time.
 UMP (Upward Message Passing) is similarly bounded: `maxUpwardMessageSize` ≈ 64 KiB and
 `maxUpwardQueueSize` = 1 MiB on Polkadot mainnet.
 
-On JAM, the buffer between Refine and Accumulate is even tighter: the work-report's
-combined successful result blobs plus authorizer trace are bounded by **48 KiB**. All
-upward messages the validation code emits through host functions have to fit inside that
-budget alongside the new head data. Carrying HRMP-style message payloads through the
-work-report is therefore not an option. They must go through a different channel, which
-is what §8.2 proposes.
+On JAM, the buffer between Refine and Accumulate is even tighter. The work-report's
+combined successful result blobs plus authorizer trace are bounded by **48 KiB**, and all
+upward messages the validation code emits have to fit inside that budget alongside the new
+head data. HRMP-style message payloads therefore cannot be carried through the work-report
+and need a different channel (§8.2).
 
 ### 8.2 Proposed Solution: Full XCMP
 
-The current HRMP model, routing full message payloads through the relay chain, cannot
-work on JAM because the work digest output is too small to carry message payloads on-chain.
-Off-chain messaging is required.
-
-The proposed model is **full XCMP**: only message *headers* and
-*hashes* are recorded on-chain; the actual message payloads could be distributed off-chain via
-JAM's data availability layer (D3L). This removes the per-message size bottleneck. The
-Refine function uses `export()` to write outbound message payloads into DA segments, and
-Accumulate only records the message hashes and channel metadata on-chain. See
+The proposed model is **full XCMP**. Refine uses `export()` to write outbound message
+payloads into DA segments, so they are distributed off-chain via JAM's data availability
+layer (D3L). Accumulate records only message *headers*, *hashes*, and channel metadata
+on-chain. This removes the per-message size bottleneck. See
 [paritytech/polkadot-sdk#10449](https://github.com/paritytech/polkadot-sdk/pull/10449)
 for a potential specification of XCMP.
 
-The exact host functions for HRMP channel management (open, accept, close) and XCMP message
-handling are not yet specified. Additional host functions will likely be needed once the
-messaging model is finalized.
+The host functions for HRMP channel management (open, accept, close) and XCMP message
+handling are not yet specified.
 
 ---
 
