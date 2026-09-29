@@ -23,7 +23,7 @@
 
 use futures::{channel::mpsc, StreamExt};
 use pallet_price_oracle::{
-	price_market,
+	parse_market,
 	pricing::{self, parse_decimal, PairSettings},
 	registry::StoredMarket,
 };
@@ -110,7 +110,7 @@ async fn venues_are_fetched_and_priced() {
 	let mut missing = Vec::new();
 	fetched.into_iter().for_each(|r| {
 		let (name, market) = &stored[r.market.0 as usize];
-		match price_market(market, &settings(), r.responses, now) {
+		match parse_market(market, &settings(), r.responses, now) {
 			Ok(price) => prices.push(Quote { pair: market.pair, price }),
 			Err(e) => missing.push((*name, String::from_utf8_lossy(&e.0).into_owned())),
 		}

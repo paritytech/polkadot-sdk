@@ -596,7 +596,7 @@ fn market(
 mod tests {
 	use super::*;
 	use pallet_price_oracle::{
-		price_market,
+		parse_market,
 		pricing::{parse_decimal, PairSettings},
 	};
 	use sp_price_oracle::runtime_api::ParseError;
@@ -629,7 +629,7 @@ mod tests {
 		}
 	}
 
-	/// The recorded responses of a market, tagged for `price_market`.
+	/// The recorded responses of a market, tagged for `parse_market`.
 	fn responses(book: &[u8], trades: &[u8]) -> Vec<(QueryTag, Vec<u8>)> {
 		vec![(BOOK, book.to_vec()), (TRADES, trades.to_vec())]
 	}
@@ -637,11 +637,11 @@ mod tests {
 	/// Price `market` from its recorded responses. The price must be near 1 USDT, and the
 	/// market must turn stale once the recorded trade is older than allowed.
 	fn assert_prices(market: &StoredMarket, book: &[u8], trades: &[u8]) {
-		let price = price_market(market, &settings(), responses(book, trades), NOW_MS).unwrap();
+		let price = parse_market(market, &settings(), responses(book, trades), NOW_MS).unwrap();
 		assert!(price > p("0.95") && price < p("1.05"), "unexpected price {price:?}");
 
 		let later = NOW_MS + MAX_TRADE_AGE_MS as u64 + 1;
-		let stale = price_market(market, &settings(), responses(book, trades), later);
+		let stale = parse_market(market, &settings(), responses(book, trades), later);
 		assert_eq!(stale, Err(ParseError(b"StaleTrades".to_vec())));
 	}
 
@@ -740,7 +740,7 @@ mod tests {
 		let mut market = binance_spot(VENUE, PAIR, "DOTUSDT").unwrap();
 		market.queries[0].request.max_response_bytes = 16;
 		let responses = responses(fixture!("binance_spot_book"), fixture!("binance_spot_trades"));
-		let rejected = price_market(&market, &settings(), responses, NOW_MS);
+		let rejected = parse_market(&market, &settings(), responses, NOW_MS);
 		assert_eq!(rejected, Err(ParseError(b"response too large".to_vec())));
 	}
 
@@ -751,7 +751,7 @@ mod tests {
 		let mut market = binance_spot(VENUE, PAIR, "DOTUSDT").unwrap();
 		market.contract_size = p("0.001");
 		let responses = responses(fixture!("binance_spot_book"), fixture!("binance_spot_trades"));
-		let thin = price_market(&market, &settings(), responses, NOW_MS);
+		let thin = parse_market(&market, &settings(), responses, NOW_MS);
 		assert_eq!(thin, Err(ParseError(b"BookTooThin".to_vec())));
 	}
 }
