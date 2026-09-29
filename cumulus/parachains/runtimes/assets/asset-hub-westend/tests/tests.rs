@@ -2525,6 +2525,57 @@ fn rolled_back_batch_all_keeps_a_mirrored_transfer_off_the_receipt() {
 	});
 }
 
+// A plain asset transfer dispatched through `eth_substrate_call` runs with a receipt open, so its
+// mirrored `Transfer` goes onto that receipt rather than into the buffer.
+#[test]
+fn a_transfer_under_eth_substrate_call_puts_its_mirror_on_the_receipt() {
+	erc20_mirror_ext().execute_with(|| {
+		let owner = AccountId::from(ALICE);
+		let recipient = AccountId::from(BOB);
+		Balances::mint_into(&owner, 100 * UNITS).unwrap();
+
+		let asset_id: AssetIdForTrustBackedAssets = 1;
+		assert_ok!(Assets::force_create(
+			RuntimeHelper::root_origin(),
+			asset_id.into(),
+			owner.clone().into(),
+			true,
+			1
+		));
+		assert_ok!(Assets::mint(
+			RuntimeHelper::origin_of(owner.clone()),
+			asset_id.into(),
+			owner.clone().into(),
+			1_000
+		));
+		Revive::on_finalize(System::block_number());
+		RuntimeHelper::run_to_block(2, owner.clone());
+
+		let transfer = RuntimeCall::Assets(pallet_assets::Call::transfer {
+			id: asset_id.into(),
+			target: recipient.clone().into(),
+			amount: 400,
+		});
+		assert_ok!(Revive::eth_substrate_call(
+			pallet_revive::Origin::<Runtime>::EthTransaction(owner.clone()).into(),
+			Box::new(transfer),
+			vec![],
+		));
+		assert_eq!(Assets::balance(asset_id, &recipient), 400, "the transfer ran");
+
+		Revive::on_finalize(System::block_number());
+
+		let block = Revive::eth_block();
+		let hashes = match block.transactions {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes,
+			_ => panic!("expected transaction hashes"),
+		};
+		assert_eq!(hashes.len(), 1, "the transaction is in the block, and no synthetic one");
+		assert_ne!(block.logs_bloom.0, [0u8; 256], "with the mirrored `Transfer` in its receipt");
+		assert!(Revive::eth_synthetic_transaction().is_none());
+	});
+}
+
 // Buffering a log registers at least its encoded bytes as proof size, whatever admitted it: an
 // assets extrinsic, a storage deposit settled by a contract frame, an XCM fee swap, a batch. The
 // entries never reach the proof, the buffer is written and taken within the block, but the
