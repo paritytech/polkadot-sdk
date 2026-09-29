@@ -105,9 +105,9 @@ included in one block stays available for the next.
 ## Inherent data
 
 For the block on `parent`, the provider reads the parent's height, `settings` and
-`latest_anchors` at the parent, and takes every pooled report anchored within the window at or
-below that height, except those anchored before the signer's vote already on chain. No other
-filtering: the author includes every fresh report it holds. If the header or the API is
+`latest_anchors` at the parent, and takes every pooled report anchored within the report window
+of the block being built, except those anchored before the signer's vote already on chain. No
+other filtering: the author includes every fresh report it holds. If the header or the API is
 unavailable, the block is authored without oracle data.
 
 ## Signing
