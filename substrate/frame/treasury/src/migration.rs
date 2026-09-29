@@ -120,111 +120,6 @@ pub fn try_state_proposals<T: Config<I>, I: 'static>() -> Result<(), sp_runtime:
 	Ok(())
 }
 
-pub mod cleanup_proposals {
-	use super::*;
-
-	/// Migration to cleanup unapproved proposals to return the bonds back to the proposers.
-	/// Proposals can no longer be created and the `Proposal` storage item will be removed in the
-	/// future.
-	///
-	/// `UnreserveWeight` returns `Weight` of `unreserve_balance` operation which is performed
-	/// during this migration.
-	pub struct Migration<T, I, UnreserveWeight>(PhantomData<(T, I, UnreserveWeight)>);
-
-	impl<T: Config<I>, I: 'static, UnreserveWeight: Get<Weight>> OnRuntimeUpgrade
-		for Migration<T, I, UnreserveWeight>
-	{
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			let mut approval_index = BTreeSet::new();
-			for approval in legacy::Approvals::<T, I>::get().iter() {
-				approval_index.insert(*approval);
-			}
-
-			let mut proposals_processed = 0;
-			for (proposal_index, p) in legacy::Proposals::<T, I>::iter() {
-				if !approval_index.contains(&proposal_index) {
-					let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
-					if err_amount.is_zero() {
-						legacy::Proposals::<T, I>::remove(proposal_index);
-						log::info!(
-							target: LOG_TARGET,
-							"Released bond amount of {:?} to proposer {:?}",
-							p.bond,
-							p.proposer,
-						);
-					} else {
-						defensive!(
-							"err_amount is non zero for proposal",
-							(proposal_index, err_amount),
-						);
-						legacy::Proposals::<T, I>::mutate_extant(proposal_index, |proposal| {
-							proposal.value = err_amount;
-						});
-						log::info!(
-							target: LOG_TARGET,
-							"Released partial bond amount of {:?} to proposer {:?}",
-							p.bond - err_amount,
-							p.proposer,
-						);
-					}
-					proposals_processed += 1;
-				}
-			}
-
-			log::info!(
-				target: LOG_TARGET,
-				"Migration for pallet-treasury finished, released {} proposal bonds.",
-				proposals_processed,
-			);
-
-			// calculate and return migration weights
-			let approvals_read = 1;
-			T::DbWeight::get().reads_writes(
-				proposals_processed as u64 + approvals_read,
-				proposals_processed as u64,
-			) + UnreserveWeight::get() * proposals_processed
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			let value = (
-				legacy::Proposals::<T, I>::iter_values().count() as u32,
-				legacy::Approvals::<T, I>::get().len() as u32,
-			);
-			log::info!(
-				target: LOG_TARGET,
-				"Proposals and Approvals count {:?}",
-				value,
-			);
-			Ok(value.encode())
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			let (old_proposals_count, old_approvals_count) =
-				<(u32, u32)>::decode(&mut &state[..]).expect("Known good");
-			let new_proposals_count = legacy::Proposals::<T, I>::iter_values().count() as u32;
-			let new_approvals_count = legacy::Approvals::<T, I>::get().len() as u32;
-
-			log::info!(
-				target: LOG_TARGET,
-				"Proposals and Approvals count {:?}",
-				(new_proposals_count, new_approvals_count),
-			);
-
-			ensure!(
-				new_proposals_count <= old_proposals_count,
-				"Proposals after migration should be less or equal to old proposals"
-			);
-			ensure!(
-				new_approvals_count == old_approvals_count,
-				"Approvals after migration should remain the same"
-			);
-			Ok(())
-		}
-	}
-}
-
 pub mod migrate_legacy_proposals {
 	use super::*;
 
@@ -248,7 +143,10 @@ pub mod migrate_legacy_proposals {
 	///
 	/// # Weight
 	/// One read per legacy proposal visited, plus fixed reads for the pot, `Approvals` and
-	/// settlement. Up to three reads and three writes per proposal actually processed.
+	/// settlement. Each processed proposal also reads the proposer account, and each payout reads
+	/// the beneficiary account. Up to three writes per proposal actually processed, plus the
+	/// treasury `settle` write when something was paid. One extra write when pruning `Approvals`
+	/// for deferred payouts, two when deleting all legacy storage.
 	///
 	/// # Defensive
 	/// A non-zero `unreserve` remainder (bond partially slashed, or the proposer reaped since the
@@ -342,14 +240,23 @@ pub mod migrate_legacy_proposals {
 				if deferred { "kept, some payouts exceed the pot" } else { "deleted" },
 			);
 
-			// One read per proposal visited, plus pot, `Approvals` and settlement. Up to three
-			// reads and three writes per proposal actually processed; one extra write when pruning
-			// `Approvals` for deferred payouts, two when deleting all legacy storage.
+			// One read per proposal visited, plus pot, `Approvals` and settlement. Each processed
+			// proposal reads the proposer account, and each payout reads the beneficiary account.
+			// Up to three writes per processed proposal, plus the treasury `settle` write when
+			// something was paid. One extra write when pruning `Approvals` for deferred payouts,
+			// two when deleting all legacy storage.
 			let fixed_reads = if deferred { 4 } else { 3 };
 			let fixed_writes = if deferred { 1 } else { 2 };
+			let settle_write = u64::from(paid > 0);
 			T::DbWeight::get().reads_writes(
-				iterations.saturating_add(fixed_reads),
-				processed.saturating_mul(3).saturating_add(fixed_writes),
+				iterations
+					.saturating_add(fixed_reads)
+					.saturating_add(processed)
+					.saturating_add(paid),
+				processed
+					.saturating_mul(3)
+					.saturating_add(fixed_writes)
+					.saturating_add(settle_write),
 			)
 		}
 

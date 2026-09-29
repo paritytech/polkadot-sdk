@@ -8,9 +8,12 @@ doc:
 
     The legacy `ProposalCount` / `Proposals` / `Approvals` storage now lives behind
     `migration::legacy` aliases and is cleared by the new
-    `migration::migrate_legacy_proposals::Migration`. That migration pays approved proposals out of
-    the pot, refunds every proposer's bond and then deletes the legacy storage, doing in one
-    upgrade what `spend_funds` previously did once per spend period. If the pot cannot cover an
+    `migration::migrate_legacy_proposals::Migration`. The old `cleanup_proposals` migration is
+    removed in the same bump: a partial unreserve wrote the shortfall into `proposal.value`, so a
+    second run would unreserve the full bond again, and nothing in-repo still schedules it. The
+    new migration pays approved proposals out of the pot, refunds every proposer's bond and then
+    deletes the legacy storage, doing in one upgrade what `spend_funds` previously did once per
+    spend period. If the pot cannot cover an
     approved proposal, the migration defers it, logs a warning naming the index and amount, and
     keeps the legacy storage. **Before enacting the upgrade, a chain whose pot cannot cover an
     approved proposal must pay it out manually, fund the pot, or remove the approval: once this
