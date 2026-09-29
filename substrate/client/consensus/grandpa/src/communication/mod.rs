@@ -614,14 +614,24 @@ fn incoming_global<B: BlockT>(
 					// if it checks out, gossip it. not accounting for
 					// any discrepancy between the actual ghost and the claimed
 					// finalized number.
-					gossip_validator.note_commit_finalized(
+					let advanced = gossip_validator.note_commit_finalized(
 						round,
 						set_id,
 						finalized_number,
 						|to, neighbor| neighbor_sender.send(to, neighbor),
 					);
 
-					gossip_engine.lock().gossip_message(topic, notification.message.clone(), false);
+					// multiple voters can issue a commit for the same round, and several of them
+					// can pass validation before any of them is processed. a commit that doesn't
+					// finalize anything new is redundant, as we've already gossiped one for the
+					// same height, so don't gossip it again.
+					if advanced {
+						gossip_engine.lock().gossip_message(
+							topic,
+							notification.message.clone(),
+							false,
+						);
+					}
 				},
 				voter::CommitProcessingOutcome::Bad(_) => {
 					// report peer and do not gossip.
