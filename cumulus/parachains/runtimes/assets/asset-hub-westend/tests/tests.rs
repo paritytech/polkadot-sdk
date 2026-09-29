@@ -2479,7 +2479,9 @@ fn rolled_back_batch_all_keeps_a_mirrored_transfer_off_the_receipt() {
 		};
 		let call = RuntimeCall::Utility(pallet_utility::Call::batch {
 			calls: vec![RuntimeCall::Utility(pallet_utility::Call::batch_all {
-				calls: vec![transfer(400), transfer(10_000)],
+				// 700 exceeds the balance only after the first transfer debited 400; a no-op
+				// first transfer would let it succeed and fail the balance assertion below.
+				calls: vec![transfer(400), transfer(700)],
 			})],
 		});
 		assert_ok!(Revive::eth_substrate_call(
@@ -2488,6 +2490,16 @@ fn rolled_back_batch_all_keeps_a_mirrored_transfer_off_the_receipt() {
 			vec![],
 		));
 		assert_eq!(Assets::balance(asset_id, &owner), 1_000, "the first transfer rolled back");
+		assert!(
+			System::events().iter().any(|record| matches!(
+				&record.event,
+				RuntimeEvent::Utility(pallet_utility::Event::BatchInterrupted { index: 0, error })
+					if *error ==
+						pallet_assets::Error::<Runtime, TrustBackedAssetsInstance>::BalanceLow
+							.into()
+			)),
+			"the batch_all was interrupted, which needs the first transfer's debit"
+		);
 		assert!(
 			!System::events().iter().any(|record| matches!(
 				record.event,
