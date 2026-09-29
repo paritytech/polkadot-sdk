@@ -340,4 +340,32 @@ mod tests {
 			assert!(!new_origin.filter_call(&filtered_call));
 		});
 	}
+
+	#[test]
+	fn skipped_authorization_refunds_its_weight() {
+		new_test_ext().execute_with(|| {
+			let ext = frame_system::AuthorizeCall::<Runtime>::new();
+			let call = RuntimeCall::Pallet1(pallet1::Call::call1 { valid: true });
+			let origin: RuntimeOrigin = crate::Origin::<Runtime>::Signed(42).into();
+
+			// `weight()` books the authorize weight whatever the origin is.
+			assert_eq!(ext.weight(&call), pallet1::AUTH_WEIGHT);
+
+			let (_, unspent, _) = ext
+				.validate(
+					origin,
+					&call,
+					&crate::DispatchInfo::default(),
+					Default::default(),
+					(),
+					&TxBaseImplication(()),
+					External,
+				)
+				.expect("valid");
+
+			// The origin is already authorized, so the callback is skipped and none of the
+			// weight booked for it is spent.
+			assert_eq!(unspent, pallet1::AUTH_WEIGHT);
+		});
+	}
 }
