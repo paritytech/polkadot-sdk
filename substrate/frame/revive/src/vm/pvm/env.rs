@@ -312,6 +312,7 @@ pub mod env {
 			callee_ptr,
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			None,
+			false,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -333,17 +334,19 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-		let (resources, stipend_protection) = if gas == u64::MAX {
-			(CallResources::NoLimits, None)
+		let (resources, stipend_protection, apply_eip2200_guard) = if gas == u64::MAX {
+			(CallResources::NoLimits, None, false)
 		} else {
 			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
 			let value = memory.read_u256(value_ptr)?;
-			let (add_stipend, reentrancy) = stipend_and_reentrancy_protection(value, Some(gas));
+			let (add_stipend, reentrancy, apply_eip2200_guard) =
+				stipend_and_reentrancy_protection(value, Some(gas));
 			(
 				CallResources::from_ethereum_gas(gas.into(), add_stipend),
 				// Ensure the callee of a `transfer`/`send` cannot reenter its caller, by enforcing
 				// the `AllowNext` protection.
 				(reentrancy == ReentrancyProtection::AllowNext).then_some(reentrancy),
+				apply_eip2200_guard,
 			)
 		};
 
@@ -354,6 +357,7 @@ pub mod env {
 			callee,
 			&resources,
 			stipend_protection,
+			apply_eip2200_guard,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -388,6 +392,7 @@ pub mod env {
 			address_ptr,
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			None,
+			false,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -421,6 +426,7 @@ pub mod env {
 			callee,
 			&resources,
 			None,
+			false,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,

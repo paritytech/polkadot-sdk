@@ -16,9 +16,9 @@
 // limitations under the License.
 
 use crate::{
-	Code, Config, Error, EthTxInfo, TransactionLimits,
+	Code, Config, Error, EthTxInfo, Pallet, TransactionLimits,
 	test_utils::{ALICE, WEIGHT_LIMIT, builder::Contract, deposit_limit},
-	tests::{ExtBuilder, GasScale, Test, builder},
+	tests::{ExtBuilder, GasScale, RuntimeOrigin, Test, builder},
 };
 use alloy_core::{
 	primitives::U256,
@@ -27,8 +27,8 @@ use alloy_core::{
 use codec::Encode;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
-	FixtureType, StipendSender, StipendTest, WarmWriteSender, WritingReceiver, compile_module,
-	compile_module_with_type,
+	FixtureType, NestedWritingReceiver, NestedWritingReceiver::Nesting, StipendSender, StipendTest,
+	WarmWriteSender, WritingReceiver, compile_module, compile_module_with_type,
 };
 use sp_runtime::Weight;
 use test_case::test_case;

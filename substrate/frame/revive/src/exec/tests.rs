@@ -670,6 +670,7 @@ fn max_depth() {
 			vec![],
 			ReentrancyProtection::AllowReentry,
 			false,
+			false,
 		);
 
 		ReachedBottom::mutate(|reached_bottom| {
@@ -730,6 +731,7 @@ fn caller_returns_proper_values() {
 				U256::zero(),
 				vec![],
 				ReentrancyProtection::AllowReentry,
+				false,
 				false
 			),
 			Ok(_)
@@ -792,6 +794,7 @@ fn origin_returns_proper_values() {
 				U256::zero(),
 				vec![],
 				ReentrancyProtection::AllowReentry,
+				false,
 				false
 			),
 			Ok(_)
@@ -944,6 +947,7 @@ fn caller_is_origin_returns_proper_values() {
 				vec![],
 				ReentrancyProtection::AllowReentry,
 				false,
+				false,
 			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
@@ -1036,6 +1040,7 @@ fn root_caller_succeeds_with_consecutive_calls() {
 				vec![],
 				ReentrancyProtection::AllowReentry,
 				false,
+				false,
 			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
@@ -1072,6 +1077,7 @@ fn address_returns_proper_values() {
 				U256::zero(),
 				vec![],
 				ReentrancyProtection::AllowReentry,
+				false,
 				false
 			),
 			Ok(_)
@@ -1300,6 +1306,7 @@ fn reentrant_instantiate_at_same_address_is_rejected() {
 				vec![],
 				ReentrancyProtection::AllowReentry,
 				false,
+				false,
 			)
 			.unwrap();
 		exec_success()
@@ -1476,6 +1483,7 @@ fn in_memory_changes_not_discarded() {
 						U256::zero(),
 						vec![],
 						ReentrancyProtection::AllowReentry,
+						false,
 						false
 					)
 					.map(|_| ctx.ext.last_frame_output().clone()),
@@ -1494,6 +1502,7 @@ fn in_memory_changes_not_discarded() {
 					U256::zero(),
 					vec![99],
 					ReentrancyProtection::AllowReentry,
+					false,
 					false
 				)
 				.is_ok()
@@ -1536,6 +1545,7 @@ fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 				vec![1],
 				ReentrancyProtection::AllowReentry,
 				false,
+				false,
 			));
 			ctx.ext
 				.charge_storage(&Diff { bytes_removed: 30, ..Default::default() })
@@ -1546,6 +1556,7 @@ fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 				U256::zero(),
 				vec![1],
 				ReentrancyProtection::AllowReentry,
+				false,
 				false,
 			));
 		}
@@ -1593,6 +1604,7 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 			(balance - 1).into(),
 			vec![],
 			ReentrancyProtection::AllowReentry,
+			false,
 			false
 		));
 
@@ -1604,6 +1616,7 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 			1u32.into(),
 			vec![1, 2, 3, 4],
 			ReentrancyProtection::AllowReentry,
+			false,
 			false
 		));
 		exec_success()
@@ -1649,6 +1662,7 @@ fn cannot_send_more_balance_than_available_to_self() {
 				(balance + 1).into(),
 				vec![],
 				ReentrancyProtection::AllowReentry,
+				false,
 				false
 			),
 			<Error<Test>>::TransferFailed,
@@ -1689,6 +1703,7 @@ fn call_reentry_direct_recursion() {
 				U256::zero(),
 				vec![],
 				ReentrancyProtection::Strict,
+				false,
 				false,
 			)
 			.map(|_| ctx.ext.last_frame_output().clone())
@@ -1740,6 +1755,7 @@ fn call_deny_reentry() {
 					vec![],
 					ReentrancyProtection::Strict,
 					false,
+					false,
 				)
 				.map(|_| ctx.ext.last_frame_output().clone())
 		} else {
@@ -1756,6 +1772,7 @@ fn call_deny_reentry() {
 				U256::zero(),
 				vec![1],
 				ReentrancyProtection::AllowReentry,
+				false,
 				false,
 			)
 			.map(|_| ctx.ext.last_frame_output().clone())
@@ -1809,6 +1826,7 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 							vec![],
 							ReentrancyProtection::Strict,
 							false,
+							false,
 						)
 						.map_err(|e| e.error),
 					<Error<Test>>::ContractTrapped
@@ -1822,6 +1840,7 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 						U256::zero(),
 						vec![],
 						ReentrancyProtection::AllowReentry,
+						false,
 						false,
 					)
 					.map(|_| ctx.ext.last_frame_output().clone())
@@ -1838,6 +1857,7 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 				U256::zero(),
 				vec![1],
 				ReentrancyProtection::AllowReentry,
+				false,
 				false,
 			)
 			.map(|_| ctx.ext.last_frame_output().clone())
@@ -1972,6 +1992,7 @@ fn nonce() {
 				U256::zero(),
 				vec![],
 				ReentrancyProtection::Strict,
+				false,
 				false,
 			)
 			.unwrap();
@@ -2483,6 +2504,7 @@ fn get_transient_storage_works() {
 						vec![],
 						ReentrancyProtection::AllowReentry,
 						false,
+						false,
 					)
 					.map(|_| ctx.ext.last_frame_output().clone()),
 				exec_success()
@@ -2511,6 +2533,7 @@ fn get_transient_storage_works() {
 					U256::zero(),
 					vec![99],
 					ReentrancyProtection::AllowReentry,
+					false,
 					false
 				)
 				.is_ok()
@@ -2593,6 +2616,7 @@ fn rollback_transient_storage_works() {
 						U256::zero(),
 						vec![],
 						ReentrancyProtection::AllowReentry,
+						false,
 						false
 					)
 					.map(|_| ctx.ext.last_frame_output().clone()),
@@ -2618,6 +2642,7 @@ fn rollback_transient_storage_works() {
 					U256::zero(),
 					vec![99],
 					ReentrancyProtection::AllowReentry,
+					false,
 					false
 				)
 				.is_ok()
@@ -2707,6 +2732,7 @@ fn last_frame_output_works_on_instantiate() {
 					vec![],
 					ReentrancyProtection::AllowReentry,
 					false,
+					false,
 				)
 				.unwrap();
 			assert_eq!(ctx.ext.last_frame_output(), &Default::default());
@@ -2775,6 +2801,7 @@ fn last_frame_output_works_on_nested_call() {
 					vec![],
 					ReentrancyProtection::AllowReentry,
 					false,
+					false,
 				)
 				.unwrap();
 			assert_eq!(
@@ -2800,6 +2827,7 @@ fn last_frame_output_works_on_nested_call() {
 					U256::zero(),
 					vec![99],
 					ReentrancyProtection::AllowReentry,
+					false,
 					false
 				)
 				.is_ok()
@@ -2845,6 +2873,7 @@ fn last_frame_output_is_always_reset() {
 				U256::max_value(),
 				vec![],
 				ReentrancyProtection::AllowReentry,
+				false,
 				false,
 			),
 			Err(Error::<Test>::BalanceConversionFailed.into())
@@ -2966,6 +2995,7 @@ fn correct_immutable_data_in_delegate_call() {
 					U256::zero(),
 					vec![],
 					ReentrancyProtection::AllowReentry,
+					false,
 					false,
 				)
 				.map(|_| ctx.ext.last_frame_output().data.clone()),
@@ -3278,6 +3308,7 @@ fn run_child_call<E: Ext>(ext: &mut E, to: &H160, input: Vec<u8>) -> Result<(), 
 		U256::zero(),
 		input,
 		ReentrancyProtection::AllowReentry,
+		false,
 		false,
 	)
 }
@@ -3916,6 +3947,7 @@ fn cold_hot_a_precompile_call_warms_nothing() {
 					U256::zero(),
 					vec![],
 					ReentrancyProtection::AllowReentry,
+					false,
 					false,
 				),
 				Ok(_)

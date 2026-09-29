@@ -476,6 +476,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		value: StorageValue,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
+		if !transient && self.ext.denies_storage_writes() {
+			return Err(Error::<E::T>::OutOfGas.into());
+		}
 
 		let value_len = match &value {
 			StorageValue::Memory { ptr: _, len } => *len,
@@ -529,6 +532,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		key_len: u32,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
+		if !transient && self.ext.denies_storage_writes() {
+			return Err(Error::<E::T>::OutOfGas.into());
+		}
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
 			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
@@ -630,6 +636,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		callee_ptr: u32,
 		resources: &CallResources<E::T>,
 		reentrancy_override: Option<ReentrancyProtection>,
+		apply_eip2200_guard: bool,
 		input_data_ptr: u32,
 		input_data_len: u32,
 		output_ptr: u32,
@@ -709,7 +716,15 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					ReentrancyProtection::Strict
 				};
 
-				self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
+				self.ext.call(
+					resources,
+					&callee,
+					value,
+					input_data,
+					reentrancy,
+					apply_eip2200_guard,
+					read_only,
+				)
 			},
 			CallType::DelegateCall => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {

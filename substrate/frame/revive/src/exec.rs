@@ -354,6 +354,7 @@ pub trait PrecompileExt: sealing::Sealed {
 		value: U256,
 		input_data: Vec<u8>,
 		reentrancy: ReentrancyProtection,
+		apply_eip2200_guard: bool,
 		read_only: bool,
 	) -> Result<(), ExecError>;
 
@@ -494,6 +495,9 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
+
+	/// Check if the current frame cannot write storage.
+	fn denies_storage_writes(&self) -> bool;
 
 	/// Check if running as a delegate call.
 	fn is_delegate_call(&self) -> bool;
@@ -679,6 +683,8 @@ struct Frame<T: Config> {
 	allows_reentry: bool,
 	/// If `true` subsequent calls cannot modify storage.
 	read_only: bool,
+	/// If `true` this frame and every frame it creates cannot write storage.
+	denies_storage_writes: bool,
 	/// The delegate call info of the currently executing frame which was spawned by
 	/// `delegate_call`.
 	delegate: Option<DelegateInfo<T>>,
@@ -1035,6 +1041,7 @@ where
 			transaction_meter,
 			&CallResources::NoLimits,
 			false,
+			false,
 			true,
 			input_data,
 			exec_config,
@@ -1144,6 +1151,7 @@ where
 		meter: &mut ResourceMeter<T, S>,
 		call_resources: &CallResources<T>,
 		read_only: bool,
+		denies_storage_writes: bool,
 		origin_is_caller: bool,
 		input_data: &[u8],
 		exec_config: &ExecConfig<T>,
@@ -1298,6 +1306,7 @@ where
 			frame_meter: meter.new_nested(call_resources)?,
 			allows_reentry: true,
 			read_only,
+			denies_storage_writes,
 			last_frame_output: Default::default(),
 			contracts_created: Default::default(),
 			contracts_to_be_destroyed: Default::default(),
@@ -1313,6 +1322,7 @@ where
 		value_transferred: U256,
 		call_resources: &CallResources<T>,
 		read_only: bool,
+		denies_storage_writes: bool,
 		input_data: &[u8],
 	) -> Result<Option<ExecutableOrPrecompile<T, E, Self>>, ExecError> {
 		if self.frames.len() as u32 == limits::CALL_STACK_DEPTH {
@@ -1349,6 +1359,7 @@ where
 			meter,
 			call_resources,
 			read_only,
+			denies_storage_writes,
 			false,
 			input_data,
 			self.exec_config,
@@ -2131,6 +2142,7 @@ where
 			value,
 			call_resources,
 			self.is_read_only(),
+			self.top_frame().denies_storage_writes,
 			&input_data,
 		)? {
 			self.run(executable, input_data)
@@ -2266,6 +2278,7 @@ where
 				value,
 				call_resources,
 				self.is_read_only(),
+				self.top_frame().denies_storage_writes,
 				&input_data,
 			)?
 		};
@@ -2295,6 +2308,7 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		allows_reentry: ReentrancyProtection,
+		apply_eip2200_guard: bool,
 		read_only: bool,
 	) -> Result<(), ExecError> {
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
@@ -2312,6 +2326,8 @@ where
 		let try_call = || {
 			// Enable read-only access if requested; cannot disable it if already set.
 			let is_read_only = read_only || self.is_read_only();
+			let denies_storage_writes =
+				apply_eip2200_guard || self.top_frame().denies_storage_writes;
 
 			// We can skip the stateful lookup for pre-compiles.
 			let dest = if <AllPrecompiles<T>>::get::<Self>(dest_addr.as_fixed_bytes()).is_some() {
@@ -2352,6 +2368,7 @@ where
 				value,
 				call_resources,
 				is_read_only,
+				denies_storage_writes,
 				&input_data,
 			)? {
 				self.run(executable, input_data)
@@ -2678,6 +2695,10 @@ where
 
 	fn is_read_only(&self) -> bool {
 		self.top_frame().read_only
+	}
+
+	fn denies_storage_writes(&self) -> bool {
+		self.top_frame().denies_storage_writes
 	}
 
 	fn is_delegate_call(&self) -> bool {

@@ -176,8 +176,9 @@ impl<T: Config> Token<T> for CodeLoadToken {
 	}
 }
 
-/// Returns whether to add the call stipend, and the reentrancy protection to enforce: `AllowNext`
-/// when only the stipend is forwarded, and `AllowReentry` otherwise.
+/// Returns whether to add the call stipend, the reentrancy protection to enforce, and whether to
+/// apply the EIP-2200 guard to the callee: `AllowNext` and the guard when only the stipend is
+/// forwarded, and `AllowReentry` and no guard otherwise.
 ///
 /// Solidity's `transfer` and `send` cap the callee at the stipend. For a zero value solc passes
 /// `gas_limit = 2300` explicitly; when value moves it passes 0 and relies on the stipend the EVM
@@ -187,13 +188,13 @@ impl<T: Config> Token<T> for CodeLoadToken {
 pub fn stipend_and_reentrancy_protection(
 	value: U256,
 	gas_limit: Option<u64>,
-) -> (bool, ReentrancyProtection) {
+) -> (bool, ReentrancyProtection, bool) {
 	use revm::interpreter::gas::CALL_STIPEND;
 	match (value.is_zero(), gas_limit) {
-		(true, Some(CALL_STIPEND)) => (true, ReentrancyProtection::AllowNext),
-		(false, Some(0)) => (true, ReentrancyProtection::AllowNext),
-		(false, _) => (true, ReentrancyProtection::AllowReentry),
-		(true, _) => (false, ReentrancyProtection::AllowReentry),
+		(true, Some(CALL_STIPEND)) => (true, ReentrancyProtection::AllowNext, true),
+		(false, Some(0)) => (true, ReentrancyProtection::AllowNext, true),
+		(false, _) => (true, ReentrancyProtection::AllowReentry, false),
+		(true, _) => (false, ReentrancyProtection::AllowReentry, false),
 	}
 }
 

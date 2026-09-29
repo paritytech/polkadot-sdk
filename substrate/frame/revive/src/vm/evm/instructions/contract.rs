@@ -191,7 +191,7 @@ fn run_call<'a, E: Ext>(
 	value: U256,
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
-	let (add_stipend, reentracy) =
+	let (add_stipend, reentracy, apply_eip2200_guard) =
 		stipend_and_reentrancy_protection(value, gas_limit.try_into().ok());
 
 	let call_result = match scheme {
@@ -202,6 +202,7 @@ fn run_call<'a, E: Ext>(
 			input,
 			// protect against rex-entrancy when we grant the stipend
 			reentracy,
+			apply_eip2200_guard,
 			scheme.is_static_call(),
 		),
 		CallScheme::DelegateCall => interpreter.ext.delegate_call(

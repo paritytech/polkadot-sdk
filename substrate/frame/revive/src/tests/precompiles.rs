@@ -119,6 +119,7 @@ impl<T: Config> Precompile for NoInfo<T> {
 					vec![42; *inputLen as usize],
 					ReentrancyProtection::AllowReentry,
 					false,
+					false,
 				)?;
 				Ok(Vec::new())
 			},

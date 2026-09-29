@@ -64,6 +64,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		_value: U256,
 		_input_data: Vec<u8>,
 		_reentrancy: ReentrancyProtection,
+		_apply_eip2200_guard: bool,
 		_read_only: bool,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::call")
@@ -210,6 +211,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn is_read_only(&self) -> bool {
 		panic!("MockExt::is_read_only")
+	}
+
+	fn denies_storage_writes(&self) -> bool {
+		panic!("MockExt::denies_storage_writes")
 	}
 
 	fn is_delegate_call(&self) -> bool {
