@@ -32,8 +32,7 @@ use cumulus_primitives_core::{
 		BlockId, BlockNumber as RelayBlockNumber, Hash as RelayHash, Header as RelayHeader,
 		SessionIndex,
 	},
-	CoreInfo, CumulusDigestItem, RelayBlockIdentifier, SchedulingInfoPayload, SchedulingProof,
-	SignedSchedulingInfo,
+	CoreInfo, CumulusDigestItem, RelayBlockIdentifier, SchedulingInfoPayload, SignedSchedulingInfo,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 use futures::{FutureExt, StreamExt};
@@ -273,39 +272,36 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 	}
 }
 
-/// Assemble a complete V3 [`SchedulingProof`] (with the signed scheduling info populated) for one
-/// core.
+/// Sign the V3 scheduling payload for one core at one internal scheduling parent.
+///
+/// The payload does not depend on the header chain, so hedged submissions share a single
+/// signature: sign once here and clone the result into each
+/// [`SchedulingProof`](cumulus_primitives_core::SchedulingProof).
 ///
 /// Returns `None` when [`sign_scheduling_info`] fails. The caller is expected to skip the
 /// corresponding send — shipping an unsigned proof would be rejected by the relay-chain verifier
 /// as soon as any candidate in the segment has `relay_parent != ISP`.
-pub(crate) fn build_v3_scheduling_proof<P>(
-	header_chain: Vec<RelayHeader>,
-	internal_scheduling_parent_header: RelayHeader,
+pub(crate) fn sign_v3_scheduling_info<P>(
+	internal_scheduling_parent: RelayHash,
 	core_info: &CoreInfo,
 	peer_id: ApprovedPeerId,
 	author_pub: &P::Public,
 	keystore: &KeystorePtr,
-) -> Option<SchedulingProof>
+) -> Option<SignedSchedulingInfo>
 where
 	P: Pair,
 	P::Public: AppPublic,
 {
-	let signed = sign_scheduling_info::<P>(
+	sign_scheduling_info::<P>(
 		SchedulingInfoPayload {
 			core_selector: core_info.selector,
 			claim_queue_offset: core_info.claim_queue_offset.0,
 			peer_id,
-			internal_scheduling_parent: internal_scheduling_parent_header.hash(),
+			internal_scheduling_parent,
 		},
 		author_pub,
 		keystore,
-	)?;
-	Some(SchedulingProof {
-		header_chain,
-		internal_scheduling_parent_header,
-		signed_scheduling_info: Some(signed),
-	})
+	)
 }
 
 /// Sign a [`SchedulingInfoPayload`] with the Aura key that won the current slot claim.

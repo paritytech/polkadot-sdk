@@ -58,6 +58,13 @@ impl SlotTime {
 		self.time_left_internal(Timestamp::current().as_duration())
 	}
 
+	/// The instant `into_slot` past this slot's start, shifted by `time_offset` like
+	/// [`Self::time_left`]; now if that has already passed.
+	pub fn instant_into_slot(&self, into_slot: Duration) -> tokio::time::Instant {
+		let elapsed = self.relay_slot_duration.saturating_sub(self.time_left());
+		tokio::time::Instant::now() + into_slot.saturating_sub(elapsed)
+	}
+
 	/// Internal implementation of [`Self::time_left`] that takes `now` as parameter.
 	fn time_left_internal(&self, now: Duration) -> Duration {
 		let now = now.saturating_sub(self.time_offset);

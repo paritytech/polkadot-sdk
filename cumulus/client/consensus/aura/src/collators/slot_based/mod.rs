@@ -298,7 +298,7 @@ enum CollatorMessage<Block: BlockT> {
 		/// The built collation payload. Submitted as a V2 collation (no scheduling proof).
 		entry: CollatorSegmentEntry<Block>,
 	},
-	/// A segment of collations sharing a scheduling parent and target core.
+	/// A segment of collations sharing target core, submitted once per hedged scheduling parent.
 	///
 	/// V3 collations are submitted as segments; the block builder currently emits 1-length
 	/// segments, and the resubmission path will produce multi-entry ones.
@@ -309,12 +309,13 @@ enum CollatorMessage<Block: BlockT> {
 /// `CollationGenerationMessage::SubmitSegment` by the collation task.
 ///
 /// The collation task prepends the resubmitted unincluded segment (hydrated from
-/// `unincluded_headers`) to the freshly-built `bundle`, all sharing the same `scheduling_proof`.
+/// `unincluded_headers`) to the freshly-built `bundle`, submits it once for `scheduling_proof`,
+/// then re-hydrates from the same headers for each `hedged_proofs` entry.
 struct CollatorSegmentMessage<Block: BlockT> {
-	/// Scheduling proof shared by the whole segment. Segments are V3/V4-only, so this is always
-	/// present; the segment's scheduling parent is derived from
-	/// `scheduling_proof.scheduling_parent()`.
+	/// Proof for the chosen scheduling parent; submitted first.
 	pub scheduling_proof: SchedulingProof,
+	/// One proof per hedged sibling scheduling parent, submitted after the chosen one.
+	pub hedged_proofs: Vec<SchedulingProof>,
 	/// Target core for the whole segment submission.
 	pub core_index: CoreIndex,
 	/// This core's slice of the prior unincluded segment, as bare headers. Hydrated into
@@ -329,7 +330,6 @@ struct CollatorSegmentMessage<Block: BlockT> {
 /// One entry of a [`CollatorSegmentMessage`]. Each entry produces one `SegmentCollation`
 /// (one PoV / one candidate on the relay chain), and may still bundle multiple parablocks
 /// inside its PoV via `build_multi_block_collation`.
-#[derive(Clone)]
 struct CollatorSegmentEntry<Block: BlockT> {
 	/// The hash of the relay chain block that provides the context for the parachain block(s).
 	pub relay_parent: RelayHash,
