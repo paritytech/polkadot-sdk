@@ -5,7 +5,7 @@ doc:
     Makes agenda servicing in `pallet-scheduler` more robust.
 
     Tasks aborted with `CallUnavailable` or `PermanentlyOverweight` are now removed from their
-    agenda together with their retry configuration.
+    agenda together with their name and retry configuration.
 
     A due task whose service weight exceeds `MaximumWeight` is now removed with
     `PermanentlyOverweight`. Tasks that fit `MaximumWeight` but not the weight left in the current
