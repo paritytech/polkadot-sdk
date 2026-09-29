@@ -102,7 +102,6 @@ impl pallet_treasury::Config for Test {
 	type BurnDestination = ();
 	type WeightInfo = ();
 	type SpendFunds = Bounties;
-	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_system::EnsureRootWithSuccess<Self::AccountId, SpendLimit>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
@@ -131,6 +130,7 @@ impl pallet_bounties::Config for Test {
 	type BountyValueMinimum = ConstU64<5>;
 	type DataDepositPerByte = ConstU64<1>;
 	type MaximumReasonLength = ConstU32<300>;
+	type MaxApprovals = ConstU32<100>;
 	type WeightInfo = ();
 	type ChildBountyManager = ChildBounties;
 	type OnSlash = ();
@@ -171,7 +171,6 @@ fn last_event() -> ChildBountiesEvent<Test> {
 fn genesis_config_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(pallet_treasury::migration::legacy::ProposalCount::<Test, ()>::get(), 0);
 	});
 }
 

@@ -111,7 +111,6 @@ impl pallet_treasury::Config for Test {
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
 	type SpendFunds = ();
-	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
@@ -134,7 +133,6 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
 	type SpendFunds = ();
-	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
@@ -215,7 +213,6 @@ fn last_event() -> TipEvent<Test> {
 fn genesis_config_works() {
 	build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(pallet_treasury::migration::legacy::ProposalCount::<Test, ()>::get(), 0);
 	});
 }
 

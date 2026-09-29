@@ -31,7 +31,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		tokens::{ConversionFromAssetBalance, PaymentStatus},
-		ConstU32, ConstU64, OnInitialize, OnRuntimeUpgrade,
+		ConstU32, ConstU64, Get, OnInitialize, OnRuntimeUpgrade, StorageVersion,
 	},
 	PalletId,
 };
@@ -39,7 +39,10 @@ use frame_support::{
 use super::*;
 use crate::{
 	self as treasury,
-	migration::legacy::{Approvals, Proposal, ProposalCount, Proposals},
+	migration::{
+		v0::{Approvals, Proposal, ProposalCount, Proposals},
+		MigrateV0ToV1,
+	},
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -190,7 +193,6 @@ impl Config for Test {
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
 	type SpendFunds = ();
-	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = TestSpendOrigin;
 	type AssetKind = u32;
 	type Beneficiary = u128;
@@ -248,9 +250,11 @@ fn get_payment_id(i: SpendIndex) -> Option<u64> {
 // Directly insert a proposal into the legacy `ProposalCount`/`Proposals`/`Approvals` storage,
 // bypassing the now-removed `spend_local` call. Returns the proposal index. Kept around so that
 // spend-period / integrity tests exercising the legacy approvals queue still work.
+type LegacyApprovals = Approvals<Test, (), ConstU32<100>>;
+
 fn add_proposal(value: u64, beneficiary: u128) -> ProposalIndex {
 	let proposal_index = ProposalCount::<Test, ()>::get();
-	Approvals::<Test, ()>::try_append(proposal_index).expect("too many approvals");
+	LegacyApprovals::try_append(proposal_index).expect("too many approvals");
 	let proposal = Proposal { proposer: beneficiary, value, beneficiary, bond: Default::default() };
 	Proposals::<Test, ()>::insert(proposal_index, proposal);
 	ProposalCount::<Test, ()>::put(proposal_index + 1);
@@ -258,7 +262,9 @@ fn add_proposal(value: u64, beneficiary: u128) -> ProposalIndex {
 }
 
 fn run_migration() {
-	crate::migration::migrate_legacy_proposals::Migration::<Test, ()>::on_runtime_upgrade();
+	// Genesis writes the in-code version (1). An old chain is still at 0.
+	StorageVersion::new(0).put::<Treasury>();
+	MigrateV0ToV1::<Test, (), ConstU32<100>>::on_runtime_upgrade();
 }
 
 #[test]
@@ -370,17 +376,17 @@ fn genesis_funding_works() {
 
 #[test]
 fn max_approvals_limited() {
-	// Regression guard: the legacy `Approvals` queue is still bounded by `Config::MaxApprovals`.
+	// The v0 `Approvals` alias is bounded by the getter passed to `MigrateV0ToV1`.
 	ExtBuilder::default().build().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), u64::MAX);
 		Balances::make_free_balance_be(&0, u64::MAX);
 
-		for _ in 0..<Test as Config>::MaxApprovals::get() {
+		for _ in 0..ConstU32::<100>::get() {
 			add_proposal(100, 3);
 		}
 
 		let proposal_index = ProposalCount::<Test, ()>::get();
-		assert!(Approvals::<Test, ()>::try_append(proposal_index).is_err());
+		assert!(LegacyApprovals::try_append(proposal_index).is_err());
 	});
 }
 
@@ -721,7 +727,7 @@ fn try_state_proposals_invariant_1_works() {
 		ProposalCount::<Test, ()>::put(0);
 		// Invariant 1 should be violated
 		assert_eq!(
-			Treasury::do_try_state(),
+			crate::migration::try_state_proposals::<Test, (), ConstU32<100>>(),
 			Err(Other("Actual number of proposals exceeds `ProposalCount`."))
 		);
 	});
@@ -735,7 +741,7 @@ fn try_state_proposals_invariant_2_works() {
 		add_proposal(1, 3);
 
 		assert_eq!(Proposals::<Test, ()>::iter().count(), 1);
-		assert_eq!(Approvals::<Test, ()>::get().len(), 1);
+		assert_eq!(LegacyApprovals::get().len(), 1);
 		let current_proposal_count = ProposalCount::<Test, ()>::get();
 		assert_eq!(current_proposal_count, 1);
 		// Check invariant 2 holds
@@ -746,7 +752,7 @@ fn try_state_proposals_invariant_2_works() {
 		Proposals::<Test, ()>::insert(1, proposal);
 		// Invariant 2 should be violated
 		assert_eq!(
-			Treasury::do_try_state(),
+			crate::migration::try_state_proposals::<Test, (), ConstU32<100>>(),
 			Err(Other(
 				"`ProposalCount` should be strictly greater than any ProposalIndex used as a key \
 				 for `Proposals`."
@@ -763,18 +769,18 @@ fn try_state_proposals_invariant_3_works() {
 		add_proposal(10, 3);
 
 		assert_eq!(Proposals::<Test, ()>::iter().count(), 1);
-		assert_eq!(Approvals::<Test, ()>::get().len(), 1);
+		assert_eq!(LegacyApprovals::get().len(), 1);
 		// Check invariant 3 holds
-		assert!(Approvals::<Test, ()>::get()
+		assert!(LegacyApprovals::get()
 			.iter()
 			.all(|proposal_index| { Proposals::<Test, ()>::contains_key(proposal_index) }));
 		// Break invariant 3 by adding another key to `Approvals`
-		let mut approvals_modified = Approvals::<Test, ()>::get();
+		let mut approvals_modified = LegacyApprovals::get();
 		approvals_modified.try_push(2).unwrap();
-		Approvals::<Test, ()>::put(approvals_modified);
+		LegacyApprovals::put(approvals_modified);
 		// Invariant 3 should be violated
 		assert_eq!(
-			Treasury::do_try_state(),
+			crate::migration::try_state_proposals::<Test, (), ConstU32<100>>(),
 			Err(Other("Proposal indices in `Approvals` must also be contained in `Proposals`."))
 		);
 	});
@@ -905,7 +911,7 @@ fn migrate_legacy_proposals_works() {
 
 		// Both proposals are gone along with the rest of the legacy storage.
 		assert_eq!(Proposals::<Test, ()>::iter().count(), 0);
-		assert!(Approvals::<Test, ()>::get().is_empty());
+		assert!(LegacyApprovals::get().is_empty());
 		assert_eq!(ProposalCount::<Test, ()>::get(), 0);
 
 		// The approved proposal was paid out of the pot; the unapproved one was not.
@@ -936,16 +942,16 @@ fn migrate_legacy_proposals_defers_unaffordable_payouts() {
 		assert_eq!(Treasury::pot(), 100);
 		assert_eq!(Balances::free_balance(3), 0);
 		assert_eq!(Proposals::<Test, ()>::iter().count(), 1);
-		assert_eq!(Approvals::<Test, ()>::get().len(), 1);
+		assert_eq!(LegacyApprovals::get().len(), 1);
+		assert_eq!(StorageVersion::get::<Treasury>(), StorageVersion::new(1));
 
-		// Re-running the migration after funding the pot clears the deferred entry. On live chains
-		// this only helps while the migration remains in the runtime `Migrations` tuple.
+		// Funding the pot afterwards does not replay the migration: the storage version is already
+		// 1, so the payout has to be funded before the upgrade.
 		let _ = Balances::deposit_into_existing(&Treasury::account_id(), 100).unwrap();
-		run_migration();
+		MigrateV0ToV1::<Test, (), ConstU32<100>>::on_runtime_upgrade();
 
-		assert_eq!(Balances::free_balance(3), 150);
-		assert_eq!(Treasury::pot(), 50);
-		assert_eq!(Proposals::<Test, ()>::iter().count(), 0);
-		assert!(Approvals::<Test, ()>::get().is_empty());
+		assert_eq!(Balances::free_balance(3), 0);
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 1);
+		assert_eq!(LegacyApprovals::get().len(), 1);
 	});
 }

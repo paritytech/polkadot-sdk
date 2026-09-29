@@ -22,15 +22,15 @@ use alloc::collections::BTreeSet;
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use frame_support::{defensive, storage_alias, traits::OnRuntimeUpgrade};
+use frame_support::{defensive, storage_alias, traits::UncheckedOnRuntimeUpgrade};
 
 const LOG_TARGET: &str = "runtime::treasury";
 
+/// Storage as it existed at pallet storage version 0, before [`super::MigrateV0ToV1`].
+///
 /// These aliases deliberately preserve the **on-chain storage keys** of the old pallet storage
-/// declarations that have been removed from `lib.rs`. They must only be used by the migrations
-/// below and by `try_state_proposals` (which also lives here after the main module no longer
-/// declares these items).
-pub mod legacy {
+/// declarations that have been removed from `lib.rs`.
+pub mod v0 {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 
@@ -69,34 +69,41 @@ pub mod legacy {
 		OptionQuery,
 	>;
 
-	/// Proposal indices that have been approved but not yet awarded (legacy queue).
+	/// Proposal indices that have been approved but not yet awarded.
+	///
+	/// `MaxApprovals` is the same getter the runtime used to pass as
+	/// `pallet_treasury::Config::MaxApprovals`. It bounds the decoded queue and is not part of the
+	/// storage key.
 	#[allow(invalid_type_param_default)]
 	#[storage_alias]
-	pub type Approvals<T: Config<I>, I: 'static> = StorageValue<
+	pub type Approvals<T: Config<I>, I: 'static, MaxApprovals: Get<u32> + 'static> = StorageValue<
 		Pallet<T, I>,
-		BoundedVec<ProposalIndex, <T as Config<I>>::MaxApprovals>,
+		BoundedVec<ProposalIndex, MaxApprovals>,
 		ValueQuery,
 	>;
 }
 
-/// Called from the pallet's try-runtime hook so that try-runtime and tests can still verify
-/// the consistency of any remaining on-chain legacy state before the migration fires.
+/// Invariants of the v0 proposal storage.
+///
+/// Called once, from [`v1::UncheckedMigrateToV1::pre_upgrade`], when storage moves from version 0
+/// to 1. It is not part of the pallet's per-block `try_state` hook.
 ///
 /// ### Invariants
-/// 1. [`legacy::ProposalCount`] >= number of entries in [`legacy::Proposals`].
-/// 2. Every key in [`legacy::Proposals`] is strictly less than [`legacy::ProposalCount`].
-/// 3. Every index in [`legacy::Approvals`] exists as a key in [`legacy::Proposals`].
+/// 1. [`v0::ProposalCount`] >= number of entries in [`v0::Proposals`].
+/// 2. Every key in [`v0::Proposals`] is strictly less than [`v0::ProposalCount`].
+/// 3. Every index in [`v0::Approvals`] exists as a key in [`v0::Proposals`].
 #[cfg(any(feature = "try-runtime", test))]
-pub fn try_state_proposals<T: Config<I>, I: 'static>() -> Result<(), sp_runtime::TryRuntimeError> {
+pub fn try_state_proposals<T: Config<I>, I: 'static, MaxApprovals: Get<u32> + 'static>(
+) -> Result<(), sp_runtime::TryRuntimeError> {
 	use frame_support::ensure;
 
-	let current_proposal_count = legacy::ProposalCount::<T, I>::get();
+	let current_proposal_count = v0::ProposalCount::<T, I>::get();
 	ensure!(
-		current_proposal_count as usize >= legacy::Proposals::<T, I>::iter().count(),
+		current_proposal_count as usize >= v0::Proposals::<T, I>::iter().count(),
 		"Actual number of proposals exceeds `ProposalCount`."
 	);
 
-	legacy::Proposals::<T, I>::iter_keys().try_for_each(
+	v0::Proposals::<T, I>::iter_keys().try_for_each(
 		|proposal_index| -> Result<(), sp_runtime::TryRuntimeError> {
 			ensure!(
 				(current_proposal_count as u32) > proposal_index,
@@ -107,10 +114,10 @@ pub fn try_state_proposals<T: Config<I>, I: 'static>() -> Result<(), sp_runtime:
 		},
 	)?;
 
-	legacy::Approvals::<T, I>::get().iter().try_for_each(
+	v0::Approvals::<T, I, MaxApprovals>::get().iter().try_for_each(
 		|proposal_index| -> Result<(), sp_runtime::TryRuntimeError> {
 			ensure!(
-				legacy::Proposals::<T, I>::contains_key(proposal_index),
+				v0::Proposals::<T, I>::contains_key(proposal_index),
 				"Proposal indices in `Approvals` must also be contained in `Proposals`."
 			);
 			Ok(())
@@ -120,26 +127,27 @@ pub fn try_state_proposals<T: Config<I>, I: 'static>() -> Result<(), sp_runtime:
 	Ok(())
 }
 
-pub mod migrate_legacy_proposals {
+mod v1 {
 	use super::*;
 
-	/// Pays out and removes every remaining legacy treasury proposal, then deletes the legacy
-	/// storage.
+	/// Pays out and removes every remaining v0 treasury proposal, then deletes that storage.
+	///
+	/// Wrapped by [`super::MigrateV0ToV1`], which runs this only when the on-chain storage
+	/// version is 0 and then writes version 1.
 	///
 	/// This does the same work [`Pallet::spend_funds`] used to do for the legacy queue, but once
 	/// at upgrade time instead of every spend period:
-	/// - Proposals listed in [`legacy::Approvals`] are paid from the pot, their bond is unreserved,
+	/// - Proposals listed in [`v0::Approvals`] are paid from the pot, their bond is unreserved,
 	///   and an [`Event::Awarded`] is emitted.
 	/// - Unapproved proposals only get their bond refunded; their spend was never authorised.
 	///
 	/// If the pot cannot cover an approved payout, that proposal is left in place and its approval
-	/// is kept. The migration logs a warning naming each deferred index and amount.
+	/// is kept. The migration logs a warning naming each deferred index and amount. Because the
+	/// storage version is then 1, a later upgrade does not retry those entries.
 	///
-	/// **Warning:** once this migration is removed from a runtime's `Migrations` tuple, any
-	/// deferred entries are orphaned: `spend_local`, `remove_approval`, the `spend_funds` drain
-	/// loop and this migration are all gone, so there is no remaining code path to pay them out.
-	/// Before enacting the upgrade, a chain whose pot cannot cover an approved proposal must pay
-	/// it out manually, fund the pot, or remove the approval.
+	/// **Warning:** before enacting the upgrade, a chain whose pot cannot cover an approved
+	/// proposal must pay it out manually, fund the pot, or remove the approval. After this
+	/// migration has run, deferred entries are orphaned.
 	///
 	/// # Weight
 	/// One read per legacy proposal visited, plus fixed reads for the pot, `Approvals` and
@@ -152,12 +160,14 @@ pub mod migrate_legacy_proposals {
 	/// A non-zero `unreserve` remainder (bond partially slashed, or the proposer reaped since the
 	/// proposal was created) emits a `defensive!` and the migration continues; the stranded amount
 	/// cannot be recovered automatically.
-	pub struct Migration<T, I = ()>(PhantomData<(T, I)>);
+	pub struct UncheckedMigrateToV1<T, I, MaxApprovals>(PhantomData<(T, I, MaxApprovals)>);
 
-	impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for Migration<T, I> {
+	impl<T: Config<I>, I: 'static, MaxApprovals: Get<u32> + 'static> UncheckedOnRuntimeUpgrade
+		for UncheckedMigrateToV1<T, I, MaxApprovals>
+	{
 		fn on_runtime_upgrade() -> Weight {
 			let approved: BTreeSet<ProposalIndex> =
-				legacy::Approvals::<T, I>::get().into_iter().collect();
+				v0::Approvals::<T, I, MaxApprovals>::get().into_iter().collect();
 
 			let mut budget_remaining = Pallet::<T, I>::pot();
 			let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
@@ -168,12 +178,12 @@ pub mod migrate_legacy_proposals {
 			let mut deferred_payouts: alloc::vec::Vec<(ProposalIndex, BalanceOf<T, I>)> =
 				alloc::vec::Vec::new();
 
-			for (proposal_index, proposal) in legacy::Proposals::<T, I>::iter() {
+			for (proposal_index, proposal) in v0::Proposals::<T, I>::iter() {
 				iterations = iterations.saturating_add(1);
 				if approved.contains(&proposal_index) {
 					if proposal.value > budget_remaining {
-						// The pot cannot cover this payout, so leave it for manual resolution
-						// before this migration is removed from the runtime's `Migrations` tuple.
+						// The pot cannot cover this payout. The version bump means it will not be
+						// retried, so the chain must resolve it before enacting the upgrade.
 						deferred = true;
 						deferred_payouts.push((proposal_index, proposal.value));
 						continue;
@@ -199,7 +209,7 @@ pub mod migrate_legacy_proposals {
 					);
 				}
 
-				legacy::Proposals::<T, I>::remove(proposal_index);
+				v0::Proposals::<T, I>::remove(proposal_index);
 				processed = processed.saturating_add(1);
 			}
 
@@ -209,15 +219,15 @@ pub mod migrate_legacy_proposals {
 						target: LOG_TARGET,
 						"deferred legacy treasury payout: proposal {proposal_index} requires {amount:?} \
 						 but the pot is insufficient; fund the pot, pay it out manually or remove the \
-						 approval before this migration leaves the runtime Migrations tuple",
+						 approval before enacting this upgrade",
 					);
 				}
-				legacy::Approvals::<T, I>::mutate(|approvals| {
-					approvals.retain(|index| legacy::Proposals::<T, I>::contains_key(index))
+				v0::Approvals::<T, I, MaxApprovals>::mutate(|approvals| {
+					approvals.retain(|index| v0::Proposals::<T, I>::contains_key(index))
 				});
 			} else {
-				legacy::Approvals::<T, I>::kill();
-				legacy::ProposalCount::<T, I>::kill();
+				v0::Approvals::<T, I, MaxApprovals>::kill();
+				v0::ProposalCount::<T, I>::kill();
 			}
 
 			// Balance the freshly created funds against the treasury account, as `spend_funds`
@@ -234,7 +244,7 @@ pub mod migrate_legacy_proposals {
 
 			log::info!(
 				target: LOG_TARGET,
-				"migrate_legacy_proposals: removed {} proposals, paid out {}. Legacy storage {}.",
+				"MigrateV0ToV1: removed {} proposals, paid out {}. Legacy storage {}.",
 				processed,
 				paid,
 				if deferred { "kept, some payouts exceed the pot" } else { "deleted" },
@@ -262,12 +272,14 @@ pub mod migrate_legacy_proposals {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			let proposals_count = legacy::Proposals::<T, I>::iter_values().count() as u32;
-			let approvals_count = legacy::Approvals::<T, I>::get().len() as u32;
+			super::try_state_proposals::<T, I, MaxApprovals>()?;
+
+			let proposals_count = v0::Proposals::<T, I>::iter_values().count() as u32;
+			let approvals_count = v0::Approvals::<T, I, MaxApprovals>::get().len() as u32;
 
 			log::info!(
 				target: LOG_TARGET,
-				"pre_upgrade migrate_legacy_proposals: proposals={}, approvals={}",
+				"pre_upgrade MigrateV0ToV1: proposals={}, approvals={}",
 				proposals_count,
 				approvals_count,
 			);
@@ -280,7 +292,7 @@ pub mod migrate_legacy_proposals {
 			let (old_proposals, old_approvals) =
 				<(u32, u32)>::decode(&mut &state[..]).expect("Known good");
 
-			let remaining = legacy::Proposals::<T, I>::iter().count() as u32;
+			let remaining = v0::Proposals::<T, I>::iter().count() as u32;
 			ensure!(
 				remaining <= old_proposals,
 				"post_upgrade: legacy Proposals grew during the migration"
@@ -288,8 +300,8 @@ pub mod migrate_legacy_proposals {
 
 			// Whatever survived must be an approved payout the pot could not cover; everything
 			// else has to be gone.
-			let approvals = legacy::Approvals::<T, I>::get();
-			for (index, _) in legacy::Proposals::<T, I>::iter() {
+			let approvals = v0::Approvals::<T, I, MaxApprovals>::get();
+			for (index, _) in v0::Proposals::<T, I>::iter() {
 				ensure!(
 					approvals.contains(&index),
 					"post_upgrade: an unapproved legacy proposal survived the migration"
@@ -298,7 +310,7 @@ pub mod migrate_legacy_proposals {
 
 			log::info!(
 				target: LOG_TARGET,
-				"post_upgrade migrate_legacy_proposals: {} of {} proposals removed \
+				"post_upgrade MigrateV0ToV1: {} of {} proposals removed \
 				 ({} approvals before, {} left unpaid).",
 				old_proposals.saturating_sub(remaining),
 				old_proposals,
@@ -310,3 +322,15 @@ pub mod migrate_legacy_proposals {
 		}
 	}
 }
+
+/// Migrate treasury storage from version 0 to 1 by paying out and deleting legacy proposals.
+///
+/// `MaxApprovals` bounds the decoded v0 approvals queue. Pass the same getter the runtime used for
+/// `Config::MaxApprovals` before that constant moved to the bounties pallet.
+pub type MigrateV0ToV1<T, I, MaxApprovals> = frame_support::migrations::VersionedMigration<
+	0,
+	1,
+	v1::UncheckedMigrateToV1<T, I, MaxApprovals>,
+	Pallet<T, I>,
+	<T as frame_system::Config>::DbWeight,
+>;

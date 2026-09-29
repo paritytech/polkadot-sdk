@@ -6,22 +6,19 @@ doc:
     getters, and dropped the legacy drain loop from `spend_funds` along with its
     `on_initialize_proposals` benchmark and weight entries.
 
-    The legacy `ProposalCount` / `Proposals` / `Approvals` storage now lives behind
-    `migration::legacy` aliases and is cleared by the new
-    `migration::migrate_legacy_proposals::Migration`. The old `cleanup_proposals` migration is
-    removed in the same bump: a partial unreserve wrote the shortfall into `proposal.value`, so a
-    second run would unreserve the full bond again, and nothing in-repo still schedules it. The
-    new migration pays approved proposals out of the pot, refunds every proposer's bond and then
-    deletes the legacy storage, doing in one upgrade what `spend_funds` previously did once per
-    spend period. If the pot cannot cover an
+    The legacy `ProposalCount` / `Proposals` / `Approvals` storage now lives behind `migration::v0`
+    aliases. `migration::MigrateV0ToV1` pays approved proposals out of the pot, refunds every
+    proposer's bond and then deletes that storage, and bumps the pallet storage version from 0 to
+    1 so the step runs once. The old `cleanup_proposals` migration is removed in the same bump: a
+    partial unreserve wrote the shortfall into `proposal.value`, so a second run would unreserve
+    the full bond again, and nothing in-repo still schedules it. If the pot cannot cover an
     approved proposal, the migration defers it, logs a warning naming the index and amount, and
     keeps the legacy storage. **Before enacting the upgrade, a chain whose pot cannot cover an
-    approved proposal must pay it out manually, fund the pot, or remove the approval: once this
-    migration leaves the runtime `Migrations` tuple, deferred entries are orphaned with no code
-    path left.** It is wired into the Rococo, Asset Hub Westend, Collectives Westend and
-    kitchensink runtimes.
-
-    `MaxApprovals` stays because the bounties pallet bounds its own `BountyApprovals` queue with it.
+    approved proposal must pay it out manually, fund the pot, or remove the approval: the storage
+    version is then 1, so a later upgrade does not retry deferred entries.** It is wired into the
+    Rococo, Asset Hub Westend, Collectives Westend and kitchensink runtimes. Pass the same
+    `MaxApprovals` getter the runtime used on treasury; that constant now lives on
+    `pallet_bounties::Config` and only bounds `BountyApprovals` there.
 
     Removed the deprecated `Config::RuntimeEvent` associated type from `pallet_bounties::Config`;
     external runtimes must bound `frame_system::Config` with

@@ -43,7 +43,6 @@ use sp_runtime::{
 };
 
 use super::Event as BountiesEvent;
-use pallet_treasury::migration::legacy::{ProposalCount, Proposals};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -105,7 +104,6 @@ impl pallet_treasury::Config for Test {
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
 	type SpendFunds = Bounties;
-	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_system::EnsureRootWithSuccess<Self::AccountId, SpendLimit>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
@@ -128,7 +126,6 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
 	type SpendFunds = Bounties1;
-	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_system::EnsureRootWithSuccess<Self::AccountId, SpendLimit1>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
@@ -178,6 +175,7 @@ impl Config for Test {
 	type BountyValueMinimum = ConstU64<1>;
 	type DataDepositPerByte = DataDepositPerByte;
 	type MaximumReasonLength = ConstU32<16384>;
+	type MaxApprovals = ConstU32<100>;
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
@@ -194,6 +192,7 @@ impl Config<Instance1> for Test {
 	type BountyValueMinimum = ConstU64<1>;
 	type DataDepositPerByte = DataDepositPerByte;
 	type MaximumReasonLength = ConstU32<16384>;
+	type MaxApprovals = ConstU32<100>;
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
@@ -276,7 +275,6 @@ fn expect_events(e: Vec<BountiesEvent<Test>>) {
 fn genesis_config_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(ProposalCount::<Test, ()>::get(), 0);
 	});
 }
 
@@ -382,7 +380,6 @@ fn close_bounty_works() {
 		assert_eq!(Balances::free_balance(0), 100 - deposit);
 
 		assert_eq!(pallet_bounties::Bounties::<Test>::get(0), None);
-		assert!(!Proposals::<Test, ()>::contains_key(0));
 
 		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
 	});

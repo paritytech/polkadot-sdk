@@ -849,9 +849,10 @@ type Migrations = (
 		AmbassadorCoreInstance,
 	>,
 	// unreleased
-	pallet_treasury::migration::migrate_legacy_proposals::Migration<
+	pallet_treasury::migration::MigrateV0ToV1<
 		Runtime,
 		fellowship::FellowshipTreasuryInstance,
+		ConstU32<100>,
 	>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	cumulus_pallet_parachain_system::migration::v3::Migration<Runtime>,

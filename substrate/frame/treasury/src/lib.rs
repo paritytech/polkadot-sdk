@@ -63,16 +63,17 @@
 //! within some temporal bounds, starting from the moment they become valid and within one
 //! [`pallet::Config::PayoutPeriod`].
 //!
-//! A legacy queue of approvals (see [`migration::legacy::Approvals`]) may still exist from before
+//! A legacy queue of approvals (see [`migration::v0::Approvals`]) may still exist from before
 //! the removal of the deprecated `spend_local` call. Runtimes must apply
-//! [`migration::migrate_legacy_proposals::Migration`], which pays out whatever is still owed and
-//! then removes the legacy storage entirely. The bounties pallet keeps its own approvals queue,
-//! bounded by the same [`pallet::Config::MaxApprovals`].
+//! [`migration::MigrateV0ToV1`], which pays out whatever is still owed and then removes the legacy
+//! storage. The migration runs once, from storage version 0 to 1. Pass the same `MaxApprovals`
+//! getter the runtime used to configure on this pallet; that bound now lives on the bounties
+//! pallet.
 //!
 //! **Warning:** if the pot cannot cover an approved legacy proposal at upgrade time, the migration
-//! defers it and keeps the legacy storage. Once the migration is removed from the runtime's
-//! `Migrations` tuple, deferred entries are orphaned with no code path left to pay them out.
-//! Fund the pot, pay the proposal manually, or remove the approval before enacting the upgrade.
+//! defers it and keeps the legacy storage, then sets the storage version to 1. A later upgrade
+//! does not retry those entries. Fund the pot, pay the proposal manually, or remove the approval
+//! before enacting the upgrade.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -199,7 +200,11 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::{ensure_signed, OriginFor};
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
@@ -235,11 +240,6 @@ pub mod pallet {
 
 		/// Runtime hooks to external pallet using treasury to compute spend funds.
 		type SpendFunds: SpendFunds<Self, I>;
-
-		/// Bounds the legacy [`migration::legacy::Approvals`] queue and the bounties pallet's
-		/// `BountyApprovals` queue.
-		#[pallet::constant]
-		type MaxApprovals: Get<u32>;
 
 		/// The origin required for approving spends from the treasury outside of the proposal
 		/// process. The `Success` value is the maximum amount in a native asset that this origin
@@ -341,7 +341,7 @@ pub mod pallet {
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// We have ended a spend period and will now allocate funds.
 		Spending { budget_remaining: BalanceOf<T, I> },
-		/// Legacy: only emitted by [`migration::migrate_legacy_proposals::Migration`] when it pays
+		/// Legacy: only emitted by [`migration::MigrateV0ToV1`] when it pays
 		/// out a proposal left over from `spend_local`.
 		Awarded { proposal_index: ProposalIndex, award: BalanceOf<T, I>, account: T::AccountId },
 		/// Some of our funds have been burnt.
@@ -783,20 +783,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Ensure the correctness of the state of this pallet.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		Self::try_state_proposals()?;
 		Self::try_state_spends()?;
 
 		Ok(())
-	}
-
-	/// ### Invariants of legacy proposal storage items
-	///
-	/// Delegates to [`migration::try_state_proposals`], which checks the historic
-	/// [`migration::legacy::ProposalCount`], [`migration::legacy::Proposals`], and
-	/// [`migration::legacy::Approvals`] storage aliases.
-	#[cfg(any(feature = "try-runtime", test))]
-	fn try_state_proposals() -> Result<(), sp_runtime::TryRuntimeError> {
-		migration::try_state_proposals::<T, I>()
 	}
 
 	/// ## Invariants of spend storage items

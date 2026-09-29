@@ -376,6 +376,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaximumReasonLength: Get<u32>;
 
+		/// Bounds the [`BountyApprovals`] queue.
+		///
+		/// Runtimes migrating legacy treasury approvals should pass this same getter to
+		/// `pallet_treasury::migration::MigrateV0ToV1`.
+		#[pallet::constant]
+		type MaxApprovals: Get<u32>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
