@@ -72,8 +72,8 @@ mod benchmarks {
 		let recipients = T::BudgetRecipients::recipients();
 		let mut single_asset_allocation = BoundedBTreeMap::new();
 		for (budget_key, _) in recipients {
-			single_asset_allocation
-				.try_insert(budget_key, AssetAllocation { amount_per_ms: T::Balance::one() });
+			assert_ok!(single_asset_allocation
+				.try_insert(budget_key, AssetAllocation { amount_per_ms: T::Balance::one() }));
 		}
 
 		for asset_id in 0..count {
@@ -86,7 +86,7 @@ mod benchmarks {
 	}
 
 	fn mint_to_staging<T: Config>(asset: AssetKindOf<T>, amount: u32) {
-		T::Assets::mint_into(asset, &Pallet::<T>::staging_account(), amount.into());
+		assert_ok!(T::Assets::mint_into(asset, &Pallet::<T>::staging_account(), amount.into()));
 	}
 
 	fn assert_has_event<T: Config>(generic_event: crate::Event<T>) {
@@ -115,21 +115,21 @@ mod benchmarks {
 	fn drip_issuance(n: Linear<0, { MAX_DISTRIBUTABLE_ASSETS.into() }>) {
 		let budget_allocations = build_even_allocation::<T>();
 		let asset_allocations = create_asset_allocations::<T>(n);
-		Pallet::<T>::set_allocations(
+		assert_ok!(Pallet::<T>::set_allocations(
 			RawOrigin::Root.into(),
 			Some(budget_allocations),
 			Some(asset_allocations),
-		);
+		));
 
 		let recipients = T::BudgetRecipients::recipients();
 
 		// Mint ED.
 		for (_, recipient) in &recipients {
-			T::Assets::mint_into(
+			assert_ok!(T::Assets::mint_into(
 				T::NativeCurrencyAssetId::get(),
 				recipient,
 				T::Balance::from(100u32),
-			);
+			));
 		}
 
 		for i in 0..n {
@@ -165,7 +165,7 @@ mod benchmarks {
 	#[benchmark]
 	fn on_idle_base() {
 		let allocations = create_full_asset_allocations::<T>();
-		Pallet::<T>::set_allocations(RawOrigin::Root.into(), None, Some(allocations));
+		assert_ok!(Pallet::<T>::set_allocations(RawOrigin::Root.into(), None, Some(allocations)));
 
 		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1);
 
@@ -183,7 +183,7 @@ mod benchmarks {
 	#[benchmark]
 	fn on_idle_single_asset_drain() {
 		let allocations = create_full_asset_allocations::<T>();
-		Pallet::<T>::set_allocations(RawOrigin::Root.into(), None, Some(allocations));
+		assert_ok!(Pallet::<T>::set_allocations(RawOrigin::Root.into(), None, Some(allocations)));
 
 		const ASSET: u32 = 1;
 

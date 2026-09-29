@@ -254,8 +254,7 @@ impl<
 		Criterion: Convert<AssetKind, Either<(), Right::AssetId>>,
 		AssetKind: AssetId,
 		AccountId,
-	> fungibles::metadata::Mutate<AccountId>
-	for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+	> fungibles::metadata::Mutate<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
 {
 	fn set(
 		asset: Self::AssetId,
@@ -449,6 +448,26 @@ impl<
 			Right(a) => <Right as fungibles::Unbalanced<AccountId>>::increase_balance(
 				a, who, amount, precision,
 			),
+		}
+	}
+	fn deactivate(asset: Self::AssetId, amount: Self::Balance) {
+		match Criterion::convert(asset) {
+			Left(()) => {
+				<Left as fungible::Unbalanced<AccountId>>::deactivate(amount);
+			},
+			Right(a) => {
+				<Right as fungibles::Unbalanced<AccountId>>::deactivate(a, amount);
+			},
+		}
+	}
+	fn reactivate(asset: Self::AssetId, amount: Self::Balance) {
+		match Criterion::convert(asset) {
+			Left(()) => {
+				<Left as fungible::Unbalanced<AccountId>>::reactivate(amount);
+			},
+			Right(a) => {
+				<Right as fungibles::Unbalanced<AccountId>>::reactivate(a, amount);
+			},
 		}
 	}
 }

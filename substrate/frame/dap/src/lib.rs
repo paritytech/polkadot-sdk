@@ -705,22 +705,36 @@ pub mod pallet {
 }
 
 /// Type alias for credit (negative imbalance - funds that were slashed/removed).
-pub type CreditOf<T> = FungibleCredit<<T as frame_system::Config>::AccountId, NativeCurrencyOf<T>>;
+type CreditOf<T, C> = FungibleCredit<<T as frame_system::Config>::AccountId, C>;
 
-/// Implementation of `OnUnbalanced` for the `fungible::Balanced` trait.
-/// Example: use as `type Slash = Dap` in staking-async config.
+/// Adapter that implements `OnUnbalanced` which redirects funds to the staging account of the dap
+/// pallet.
 ///
 /// For pallets still using the legacy `Currency` trait (e.g. `pallet_referenda`),
 /// use [`DapLegacyAdapter`] instead.
-impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
-	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
-		let staging = Self::staging_account();
+///
+/// # Example
+/// ```ignore
+/// type Slash = pallet_dap::DapUnbalancedAdapter<Runtime, Balances>;
+/// ```
+struct DapUnbalancedAdapter<T: Config, C>(PhantomData<(T, C)>)
+where
+	C: FungibleInspect<T::AccountId>,
+	C: FungibleBalanced<T::AccountId>;
+
+impl<T: Config, C> OnUnbalanced<CreditOf<T, C>> for DapUnbalancedAdapter<T, C>
+where
+	C: FungibleInspect<T::AccountId>,
+	C: FungibleBalanced<T::AccountId>,
+{
+	fn on_nonzero_unbalanced(amount: CreditOf<T, C>) {
+		let staging = Pallet::<T>::staging_account();
 		let numeric_amount = amount.peek();
 
 		// Funds land in the staging account; `on_idle` will drain them into the buffer and
 		// deactivate them there.  Deactivation is intentionally deferred so that active issuance
 		// does not flicker down-then-up within the same block.
-		let _ = NativeCurrencyOf::<T>::resolve(&staging, amount).inspect_err(|_| {
+		let _ = C::resolve(&staging, amount).inspect_err(|_| {
 			defensive!(
 				"🚨 Failed to deposit slash to DAP staging account - funds burned, it should never happen!"
 			);
