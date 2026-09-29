@@ -5143,8 +5143,9 @@ mod tests {
 		handler.process_initial_sync_burst();
 		handler.flush_pending_sends().await;
 		let sent = notification_service.get_sent_notifications();
-		assert_eq!(get_peer_hashes(&sent, served).len(), 20);
-		assert_eq!(get_peer_hashes(&sent, throttled).len(), 10, "the propagation chunk alone");
+		assert_eq!(get_peer_hashes(&sent, served), hashes);
+		let mut expected = hashes[..10].to_vec();
+		assert_eq!(get_peer_hashes(&sent, throttled), expected, "the propagation chunk alone");
 		assert!(handler.initial_sync_peer_queue.contains(&throttled), "a skipped turn is kept");
 
 		// Ten seconds refill ten statements, so the chunk carries half the backlog.
@@ -5153,14 +5154,17 @@ mod tests {
 		handler.process_initial_sync_burst();
 		handler.flush_pending_sends().await;
 		let sent = notification_service.get_sent_notifications();
-		assert_eq!(get_peer_hashes(&sent, throttled).len(), 20);
+		expected.extend_from_slice(&hashes[..10]);
+		assert_eq!(get_peer_hashes(&sent, throttled), expected);
 
+		// The fetch resumes at the statement the quota stopped it on.
 		clock.advance(Duration::from_secs(10));
 		handler.process_initial_sync_burst();
 		handler.process_initial_sync_burst();
 		handler.flush_pending_sends().await;
 		let sent = notification_service.get_sent_notifications();
-		assert_eq!(get_peer_hashes(&sent, throttled).len(), 30);
+		expected.extend_from_slice(&hashes[10..]);
+		assert_eq!(get_peer_hashes(&sent, throttled), expected);
 	}
 
 	#[tokio::test]
