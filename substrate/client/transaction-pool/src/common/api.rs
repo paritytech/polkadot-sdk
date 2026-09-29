@@ -27,13 +27,12 @@ use async_trait::async_trait;
 use codec::Encode;
 use futures::future::{Future, FutureExt};
 use prometheus_endpoint::Registry as PrometheusRegistry;
-use sc_client_api::{blockchain::HeaderBackend, BlockBackend};
-use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_blockchain::{HeaderMetadata, TreeRoute};
+use sp_api::ApiExt;
+use sp_blockchain::TreeRoute;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{self, Block as BlockT, BlockIdTo},
+	traits::{self, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
@@ -186,13 +185,7 @@ impl<Client, Block> FullChainApi<Client, Block> {
 impl<Client, Block> graph::ChainApi for FullChainApi<Client, Block>
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ BlockBackend<Block>
-		+ BlockIdTo<Block>
-		+ HeaderBackend<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>,
-	Client: Send + Sync + 'static,
-	Client::Api: TaggedTransactionQueue<Block>,
+	Client: crate::ClientForTransactionPool<Block>,
 {
 	type Block = Block;
 	type Error = error::Error;
@@ -321,13 +314,7 @@ fn validate_transaction_blocking<Client, Block>(
 ) -> error::Result<TransactionValidity>
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ BlockBackend<Block>
-		+ BlockIdTo<Block>
-		+ HeaderBackend<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>,
-	Client: Send + Sync + 'static,
-	Client::Api: TaggedTransactionQueue<Block>,
+	Client: crate::ClientForTransactionPool<Block>,
 {
 	let s = std::time::Instant::now();
 	let tx_hash = uxt.using_encoded(|x| <traits::HashingFor<Block> as traits::Hash>::hash(x));
