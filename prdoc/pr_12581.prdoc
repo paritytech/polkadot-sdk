@@ -20,15 +20,17 @@ doc:
     `pallet_revive::Pallet::emit_contract_log_outside_frame` is exposed for runtime components that
     mirror non-contract activity as EVM logs from outside any contract call frame, with a matching
     `Tracing::log_event_outside_frame` hook so tracing such a log no longer panics. The in-frame
-    `log_event` (the `LOG` opcode) keeps its active-frame invariant.
+    `log_event` (the `LOG` opcode) keeps its active-frame invariant as a debug assertion.
 
     A new `Erc20TransferLogsCallback` in `pallet-assets-precompiles` mirrors the balance changes as
     canonical ERC-20 `Transfer` logs at the asset's precompile address. The `ERC20` precompile no
-    longer emits its own `Transfer` log, so wire this callback as the instance's `CallbackHandle`
-    to keep precompile transfers logged. Asset Hub Westend wires it for the trust-backed and pool
-    instances (inline-id) and for foreign assets (via `ForeignIdConfig` and the asset-index map).
-    The kitchensink runtime wires only the foreign-asset index-map callback and no mirror, so its
-    precompile transfers emit no `Transfer` log.
+    longer emits its own `Transfer` log for a non-zero transfer, so wire this callback as the
+    instance's `CallbackHandle` to keep precompile transfers logged; a zero-value transfer moves
+    no balance and stays self-emitted, as ERC-20 requires. Asset Hub Westend wires the callback
+    for the trust-backed and pool instances (inline-id) and for foreign assets (via
+    `ForeignIdConfig` and the asset-index map). The kitchensink runtime wires only the
+    foreign-asset index-map callback and no mirror, so its non-zero precompile transfers emit no
+    `Transfer` log.
 
     A log emitted with no ethereum transaction open — a mirror from a plain extrinsic or an XCM
     balance change — has no receipt to attach to, so it is buffered per block and flushed in
@@ -50,12 +52,13 @@ doc:
     substrate-only as they were before.
 
     Contract logs emitted outside an ethereum transaction (`Revive::call`, an XCM `Transact` into
-    a contract) do not use the buffer and stay substrate-only, as before. Only pallet mirrors do,
-    so every buffered log is priced at the weight of the balance change that produced it: a
-    pallet-assets `transfer()` or `mint()`, a precompile transfer driven from a contract, or the
-    hold operation that settles a contract frame's storage deposit, which on Asset Hub Westend is
-    mirrored per frame that changed storage and is the highest-volume producer. The cheap route
-    into the buffer, a raw `LOG` at a few hundred gas, is closed.
+    a contract) do not use the buffer and stay substrate-only, as before. Only pallet mirrors and
+    the precompile's zero-value `Transfer` do, so every buffered log is priced at the weight of
+    the operation that produced it: a pallet-assets `transfer()` or `mint()`, a precompile
+    transfer driven from a contract, or the hold operation that settles a contract's storage
+    deposit, which on Asset Hub Westend is mirrored once per contract whose net deposit changed
+    in the call and is the highest-volume producer once the buffer is on. The cheap route into
+    the buffer, a raw `LOG` at a few hundred gas, is closed.
 
     The ethereum receipt now follows storage rollback. What a transaction has committed to its
     receipt is kept in storage while it runs, so a log is dropped from the receipt together with
@@ -128,8 +131,9 @@ doc:
         it, and run through pallet-assets' `Unbalanced` impl, below the `Mutate` impl the balance
         hooks hang off. `pallet-assets-holder` therefore reports them itself, firing `transferred`
         and `burned` from `done_transfer_on_hold` and `done_burn_held`; on Asset Hub Westend these
-        are the paths `pallet_revive`'s `PGasDeposit` drives on every contract storage deposit and
-        refund. A runtime pairing the mirror with a different `Holder` implementation must report
+        are the paths `pallet_revive`'s `PGasDeposit` drives for every contract storage deposit
+        and refund paid in PGAS (a payer without PGAS pays in the native asset, with no mirror).
+        A runtime pairing the mirror with a different `Holder` implementation must report
         the same three paths, or balance moves through them with no `Transfer` log.
 crates:
 - name: pallet-assets
