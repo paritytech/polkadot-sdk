@@ -631,6 +631,15 @@ fn incoming_global<B: BlockT>(
 							notification.message.clone(),
 							false,
 						);
+					} else {
+						debug!(
+							target: LOG_TARGET,
+							"Not gossiping commit for round {}, set_id {}, block #{:?}: \
+							 finality didn't advance",
+							round.0,
+							set_id.0,
+							finalized_number,
+						);
 					}
 				},
 				voter::CommitProcessingOutcome::Bad(_) => {
