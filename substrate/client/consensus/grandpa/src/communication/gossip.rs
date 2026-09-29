@@ -1342,7 +1342,7 @@ impl<Block: BlockT> Inner<Block> {
 	///
 	/// - State 1: allowed to max(LUCKY_PEERS, sqrt(peers)) (where at least LUCKY_PEERS are
 	///   authorities) and to the current group of light clients
-	/// - State 2: allowed to all peers
+	/// - State 2: allowed to all peers except light clients
 	///
 	/// We are more lenient with global messages since there should be a lot
 	/// less global messages than round messages (just commits), and we want
@@ -1351,7 +1351,9 @@ impl<Block: BlockT> Inner<Block> {
 	///
 	/// Light clients take turns in groups (see `Peers::rotate_light_peers`). A commit also
 	/// finalizes all of its ancestors, so a light client skipping a few commits still observes
-	/// every block being finalized, just with a bounded delay.
+	/// every block being finalized, just with a bounded delay. Light clients don't help to
+	/// conclude a round, so State 2 doesn't include them, as it could be a lot of outbound
+	/// traffic with many light clients connected.
 	///
 	/// Transitions will be triggered on repropagation attempts by the
 	/// underlying gossip layer.
@@ -1367,7 +1369,7 @@ impl<Block: BlockT> Inner<Block> {
 				self.peers.second_stage_peers.contains(who) ||
 				self.peers.is_light_peer_in_turn(who)
 		} else {
-			true
+			self.peers.peer(who).is_some_and(|info| !info.roles.is_light())
 		}
 	}
 }
@@ -2537,7 +2539,10 @@ mod tests {
 			.encode()
 		};
 
-		// global messages are gossiped to light clients though
+		// global messages are gossiped to light clients though, unless the round takes long
+		// (see `does_not_gossip_commits_to_light_clients_in_long_rounds`)
+		val.inner.write().local_view.as_mut().unwrap().round_start = Instant::now();
+
 		assert!(val.message_allowed()(
 			&light_peer,
 			MessageIntent::Broadcast,
@@ -2652,6 +2657,45 @@ mod tests {
 		// the next group is a full one, and nobody from the previous group is served twice
 		assert_eq!(second_group.len(), LIGHT_PEERS_MIN_GROUP_SIZE);
 		assert!(first_group.is_disjoint(&second_group));
+	}
+
+	#[test]
+	fn does_not_gossip_commits_to_light_clients_in_long_rounds() {
+		let mut config = config();
+		config.gossip_duration = Duration::from_secs(300); // Set to high value to prevent test race
+		let round_duration = config.gossip_duration * ROUND_DURATION;
+		let (val, _) = GossipValidator::<Block>::new(config, voter_set_state(), None, None);
+
+		// the validator starts at set id 0
+		val.note_set(SetId(0), Vec::new(), |_, _| {});
+
+		let mut full_nodes = Vec::new();
+		full_nodes.resize_with(10, || PeerId::random());
+
+		for peer in &full_nodes {
+			val.inner.write().peers.new_peer(*peer, ObservedRole::Full);
+		}
+
+		let mut light_peers = Vec::new();
+		light_peers.resize_with(LIGHT_PEERS_MIN_GROUP_SIZE * 3, || PeerId::random());
+
+		for peer in &light_peers {
+			val.inner.write().peers.new_peer(*peer, ObservedRole::Light);
+		}
+
+		val.inner.write().peers.reshuffle();
+
+		// the round has been going for longer than `PROPAGATION_ALL` round durations
+		val.inner.write().local_view.as_mut().unwrap().round_start =
+			Instant::now() - round_duration.mul_f32(PROPAGATION_ALL * 1.1);
+
+		let inner = val.inner.read();
+
+		// commits are gossiped to all full nodes
+		assert!(full_nodes.iter().all(|peer| inner.global_message_allowed(peer)));
+
+		// but not to light clients
+		assert!(!light_peers.iter().any(|peer| inner.global_message_allowed(peer)));
 	}
 
 	#[test]
