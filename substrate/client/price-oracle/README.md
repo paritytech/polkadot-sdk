@@ -90,7 +90,9 @@ Anchors ahead of the current anchor are accepted: a peer may be ahead of this no
 runtime rejects anchors ahead of the block including them. Valid messages are inserted into the
 pool by the validator itself. The signer set, the current anchor and the window form a snapshot
 the tick loop replaces once per tick, so validation never calls the runtime on the network path.
-A message is expired for rebroadcast once its anchor falls out of the window.
+While the node is major syncing or cannot read the rules from the runtime, the snapshot is
+cleared and incoming reports are discarded without judging the sender. A message is expired for
+rebroadcast once its anchor falls out of the window.
 
 ## Pool
 

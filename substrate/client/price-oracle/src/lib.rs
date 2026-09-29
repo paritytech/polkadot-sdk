@@ -167,11 +167,14 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				}
 				if sync.is_major_syncing() {
 					log::debug!(target: LOG_TARGET, "Major syncing, skipping a tick");
+					// The rules of the last tick are stale; do not judge peers by them.
+					validator.clear_acceptance();
 					continue;
 				}
 				// Read the settings and the markets from the runtime at the best block.
 				let Some(setup) = TickSetup::read(&*client, &keystore, &mut api_missing_logged)
 				else {
+					validator.clear_acceptance();
 					continue;
 				};
 				let acceptance = setup.acceptance();
