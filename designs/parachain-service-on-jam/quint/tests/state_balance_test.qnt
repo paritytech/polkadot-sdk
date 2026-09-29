@@ -236,6 +236,66 @@ module state_balance_test {
     }
   }
 
+  /// The last referencer of a rescued preimage needs three `Forget`s to expunge it (§6.1).
+  run forgetRescuedThreeStepsTest = {
+    val h: Hash = { hashBytes: 0x8E }
+    val p1 = CoretimeParaId
+    val p2 = AssetHubParaId
+    // p1 solicit + provide + forget at now = 10 -> Unrequested(10), then p2 rescues.
+    val d1 = initialState.addReferencer(p1, h, 512)
+    val provided = markProvided(d1.state, h, 512)
+    val d2 = provided.removeReferencer(p1, h, 512, 10)
+    val d3 = d2.state.addReferencer(p2, h, 512)
+    // 1. Within the original period: no-op, due is the end of the original period.
+    val first = d3.state.removeReferencer(p2, h, 512, 20)
+    // 2. After that due: unrequested again, due is the end of the new period.
+    val t2 = 10 + ExpungePeriod + 1
+    val second = first.state.removeReferencer(p2, h, 512, t2)
+    // 3. After the new due: expunged and refunded.
+    val third = second.state.removeReferencer(p2, h, 512, t2 + ExpungePeriod + 1)
+    all {
+      assert(d3.state.preimageStatus.get((h, 512)) == Rerequested(10)),
+      assert(first.state == d3.state),
+      assert(first.jamForget == None),
+      assert(first.retained),
+      assert(first.log == Some(ForgetAgainAt({ hash: h, len: 512, due: 10 + ExpungePeriod }))),
+      assert(second.state.preimageStatus.get((h, 512)) == Unrequested(t2)),
+      assert(second.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
+      assert(second.jamForget == Some(h)),
+      assert(second.retained),
+      assert(second.log == Some(ForgetAgainAt({ hash: h, len: 512, due: t2 + ExpungePeriod }))),
+      assert(not(third.state.preimageRegistry.keys().contains((h, 512)))),
+      assert(not(third.state.preimageStatus.keys().contains((h, 512)))),
+      assert(third.jamForget == Some(h)),
+      assert(not(third.retained)),
+      assert(third.log == None),
+      assert(third.state.paraInfo(p2).usedStateBalance == d2.state.paraInfo(p2).usedStateBalance),
+      init
+    }
+  }
+
+  /// After a rescue, the freed ghost's pending second `Forget` changes nothing and logs
+  /// nothing (§6.1).
+  run forgetFreedGhostNoOpTest = {
+    val h: Hash = { hashBytes: 0x8F }
+    val p1 = CoretimeParaId
+    val p2 = AssetHubParaId
+    val d1 = initialState.addReferencer(p1, h, 512)
+    val provided = markProvided(d1.state, h, 512)
+    val d2 = provided.removeReferencer(p1, h, 512, 10)
+    val d3 = d2.state.addReferencer(p2, h, 512)
+    // p1 sends its second `Forget` after the due of its `ForgetAgainAt`.
+    val ghost = d3.state.removeReferencer(p1, h, 512, 10 + ExpungePeriod + 1)
+    all {
+      assert(ghost.state == d3.state),
+      assert(ghost.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
+      assert(ghost.jamForget == None),
+      assert(not(ghost.retained)),
+      assert(ghost.log == None),
+      init
+    }
+  }
+
   /// SetKV charges `kvEntryFootprint(kLen, vLen)` to `usedStateBalance`.
   run kvSetChargesTest = {
     val s = initialState
