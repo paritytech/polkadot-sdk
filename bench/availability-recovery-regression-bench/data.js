@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790638748007,
+  "lastUpdate": 1790683793553,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a754446d5f37e02ccfec44431a0f25732072e15e",
-          "message": "eth-rpc: add support for the earliest block tag (#11457)\n\n### Summary\n1. Resolve the earliest block tag to the first known EVM block across\nRPC methods (eth_getBlockByNumber, eth_call, eth_getLogs, etc.)\n2. Add a known_first_evm_block_for_chain() lookup for Polkadot, Kusama,\nPaseo, and Westend Asset Hubs so earliest works without historical sync\n3. Fix tracing_block to propagate errors and handle genesis (no parent)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/11383\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-24T07:31:49Z",
-          "tree_id": "1d2b8439d38d9f6a2c24d5de07bbb5bc8083e019",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a754446d5f37e02ccfec44431a0f25732072e15e"
-        },
-        "date": 1774342395467,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.256955148266666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12498241566666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.072526448633335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "38c00a18e68620ebe3324116757ca5f424b2e0f8",
+          "message": "cumulus: submit V2/V3 collations as segments (#13312)\n\n# Description\n\nReworks the slot-based collator to submit every collation through the\nsegment path (CollationGenerationMessage::SubmitSegment), and shares the\nUMP scheduling-signal logic between the PVF and the collator so the two\ncan't drift.\n\n### What changes\n\n- One submission path. A single V2 collation is submitted as a\none-element V2 segment (no scheduling proof, scheduling parent = relay\nparent); a V3 segment carries the shared scheduling proof and its\nscheduling parent comes from the proof. No more separate V2/V3 code\npaths in the collation task.\n- Builder → collator protocol module (message.rs). CollatorMessage\n(Collation | Segment) is the channel payload — pure data — with\nCollationParts (the block builder's per-collation output) and\nCollatorMessageBuilder. Assembling and submitting a message is the\ncollation task's job, via the new CollationSubmitter.\n- Shared SchedulingSignals. Moved from parachain-system/validate_block\ninto cumulus-primitives-core, so the PVF (validate_block) and the\ncollator apply the same UMP scheduling tail.\n\n### Notes\n\n- message.rs leaves room for the resubmission work (a\nresubmittable_headers slot on Segment) without implementing it here.\n- No behavior change to what validators receive for a plain V2 collation\n— it's the same bytes, now routed through the segment API.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-09-29T09:30:51Z",
+          "tree_id": "4cb52a1aa3574e65593a1711dfd9a6473a2560ba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/38c00a18e68620ebe3324116757ca5f424b2e0f8"
+        },
+        "date": 1790683762635,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.849684516700004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1399285885,
             "unit": "seconds"
           }
         ]
