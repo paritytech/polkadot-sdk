@@ -12,13 +12,10 @@
 
 use super::common::{
 	assert_statements_match, base_dir, collator_args, create_chain_spec_with_allowances,
-	launch_network_with_commands, submit_statement, subscribe_topic, wait_for_first_block,
+	launch_network_with_commands, submit_at_rate, subscribe_topic, wait_for_first_block, Load,
 };
-use codec::Encode;
 use log::info;
-use sc_statement_store::test_utils::{create_test_statement, get_keypair};
-use sp_core::sr25519;
-use sp_statement_store::{SubmitResult, Topic};
+use sp_statement_store::Topic;
 use std::time::{Duration, Instant};
 use zombienet_sdk::NetworkNode;
 
@@ -31,9 +28,7 @@ const LOG_FILTER: &str = "info,statement-store=info,statement-gossip=debug";
 
 const PARTICIPANTS: u32 = 2_000;
 const STATEMENTS_PER_SECOND: usize = 50;
-const SUBMIT_TICK: Duration = Duration::from_millis(100);
 const ROUND_SECS: u64 = 60;
-const PAYLOAD_SIZE: usize = 128;
 const RESTART_EVERY_ROUNDS: usize = 10;
 const RESTART_DOWNTIME: Duration = Duration::from_secs(30);
 const VERIFY_TIMEOUT_SECS: u64 = 60;
@@ -43,27 +38,6 @@ fn round_topic(round: usize) -> Topic {
 	let mut topic = [0u8; 32];
 	topic[..8].copy_from_slice(&(round as u64).to_le_bytes());
 	topic.into()
-}
-
-struct Load {
-	keypairs: Vec<sr25519::Pair>,
-	seq: u32,
-}
-
-impl Load {
-	fn new() -> Self {
-		let keypairs = (0..PARTICIPANTS).map(get_keypair).collect();
-		Self { keypairs, seq: 0 }
-	}
-
-	fn next_statement(&mut self, round: usize, topic: Topic) -> sp_statement_store::Statement {
-		let keypair = &self.keypairs[self.seq as usize % self.keypairs.len()];
-		self.seq += 1;
-		let mut payload = vec![0u8; PAYLOAD_SIZE];
-		payload[..8].copy_from_slice(&(round as u64).to_le_bytes());
-		payload[8..12].copy_from_slice(&self.seq.to_le_bytes());
-		create_test_statement(keypair, &[topic], None, payload, u32::MAX, self.seq)
-	}
 }
 
 struct RoundReport {
@@ -87,21 +61,17 @@ async fn run_round(
 		targets.push((node.name(), rpc, subscription));
 	}
 
-	let total = STATEMENTS_PER_SECOND * ROUND_SECS as usize;
-	let per_tick = STATEMENTS_PER_SECOND * SUBMIT_TICK.as_millis() as usize / 1000;
-	let mut expected = Vec::with_capacity(total);
-	let mut ticker = tokio::time::interval(SUBMIT_TICK);
+	let submit_targets: Vec<_> = targets.iter().map(|(name, rpc, _)| (*name, rpc)).collect();
 	let started = Instant::now();
-	while expected.len() < total {
-		ticker.tick().await;
-		for _ in 0..per_tick.min(total - expected.len()) {
-			let statement = load.next_statement(round, topic);
-			let (name, rpc, _) = &targets[expected.len() % targets.len()];
-			let result = submit_statement(rpc, &statement).await?;
-			assert_eq!(result, SubmitResult::New, "round {round}: {name} rejected");
-			expected.push(statement.encode());
-		}
-	}
+	let expected = submit_at_rate(
+		load,
+		round as u64,
+		topic,
+		STATEMENTS_PER_SECOND,
+		ROUND_SECS,
+		&submit_targets,
+	)
+	.await?;
 	let submit_time = started.elapsed();
 
 	let verify_started = Instant::now();
@@ -159,7 +129,8 @@ async fn statement_store_mixed_version() -> Result<(), anyhow::Error> {
 		(OLD_COLLATORS[0], Some(old_command.as_str())),
 		(OLD_COLLATORS[1], Some(old_command.as_str())),
 	];
-	let network = launch_network_with_commands(&collators, &chain_spec_path, args, &[]).await?;
+	let network =
+		launch_network_with_commands(&collators, &[], &chain_spec_path, args, &[]).await?;
 
 	let alice = network.get_node(NEW_COLLATORS[0])?;
 	let bob = network.get_node(NEW_COLLATORS[1])?;
@@ -175,7 +146,7 @@ async fn statement_store_mixed_version() -> Result<(), anyhow::Error> {
 		 {RESTART_EVERY_ROUNDS} rounds with {}s downtime",
 		RESTART_DOWNTIME.as_secs()
 	);
-	let mut load = Load::new();
+	let mut load = Load::new(PARTICIPANTS);
 	let mut restarts = 0usize;
 	let mut max_verify = Duration::ZERO;
 	let mut total_verify = Duration::ZERO;

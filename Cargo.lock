@@ -5822,6 +5822,7 @@ name = "cumulus-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bs58",
  "cid",
  "cumulus-primitives-core",
  "cumulus-test-runtime",
@@ -8844,6 +8845,7 @@ version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -14097,6 +14099,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-on-demand-para"
+version = "0.1.0"
+dependencies = [
+ "fp-coretime",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "num-traits",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-arithmetic 23.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-oracle"
 version = "1.0.0"
 dependencies = [
@@ -17797,6 +17817,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-offences-benchmarking",
+ "pallet-on-demand-para",
  "pallet-oracle",
  "pallet-oracle-runtime-api",
  "pallet-origin-restriction",
@@ -24404,7 +24425,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "alloy-core",
  "frame-benchmarking",
