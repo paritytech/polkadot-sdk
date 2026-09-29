@@ -10,10 +10,11 @@ doc:
       discarding `Action::NoteApprovedInChainSelection` even though the
       overlay already marked the block fully approved.
 
-      There is no retry: a later remote approval or wakeup for an already
-      approved candidate returns without re-emitting the notification, so
-      chain-selection can treat a valid fork as unapproved until it goes
-      stagnant.
+      Approval-distribution rejects a coalesced vote as soon as any named
+      candidate has no known assignment, so this path is not reached from
+      the network. GRANDPA uses `ApprovedAncestor` and does not depend on
+      `ChainSelectionMessage::Approved`. The import change is a defensive
+      check against that early return.
 
       Per-candidate errors now skip that candidate and continue. Accumulated
       actions are always returned. The overall result remains `Bad` if any
@@ -21,10 +22,12 @@ doc:
 
   - audience: Node Operator
     description: |
-      Fixes a rare approval-voting liveness bug where a coalesced approval
-      vote that mixed assigned and unassigned candidates could approve a
-      block on disk without telling chain-selection. No CLI, config, or
-      migration changes. Restart onto this binary to pick up the fix.
+      Hardens coalesced approval import so a per-candidate failure keeps
+      actions already accumulated for the valid candidates.
+      Approval-distribution already rejects a vote that names an unassigned
+      candidate, and GRANDPA finality does not use this notification, so
+      live chain behavior is unchanged. No CLI, config, or migration
+      changes.
 
 crates:
   - name: polkadot-node-core-approval-voting
