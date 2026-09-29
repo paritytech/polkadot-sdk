@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["SchedulingInfoPayload","SchedulingProof","SignedSchedulingInfo"],"trait":["VerifySchedulingSignature"]};
+window.SIDEBAR_ITEMS = {"struct":["SchedulingInfoPayload","SchedulingProof","SchedulingSignals","SignedSchedulingInfo"],"trait":["VerifySchedulingSignature"]};

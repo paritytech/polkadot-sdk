@@ -177,7 +177,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>polkadot_node_primitives::PoV;
 <a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>polkadot_primitives::{BlockNumber <span class="kw">as </span>RBlockNumber, Hash <span class="kw">as </span>RHash};
 <a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
-<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>std::{fs, fs::File, path::PathBuf};
+<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>std::{fs, fs::File, path::Path};
 <a href=#31 id=31 data-nosnippet>31</a>
 <a href=#32 id=32 data-nosnippet>32</a><span class="kw">mod </span>import_queue;
 <a href=#33 id=33 data-nosnippet>33</a>
@@ -201,7 +201,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#51 id=51 data-nosnippet>51</a>/// The `parent_header`, `relay_parent_storage_root` and `relay_parent_number` will also be
 <a href=#52 id=52 data-nosnippet>52</a>/// stored in the file alongside the `pov`. This enables stateless validation of the `pov`.
 <a href=#53 id=53 data-nosnippet>53</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>export_pov_to_path&lt;Block: BlockT&gt;(
-<a href=#54 id=54 data-nosnippet>54</a>	path: PathBuf,
+<a href=#54 id=54 data-nosnippet>54</a>	path: <span class="kw-2">&amp;</span>Path,
 <a href=#55 id=55 data-nosnippet>55</a>	pov: PoV,
 <a href=#56 id=56 data-nosnippet>56</a>	block_hash: Block::Hash,
 <a href=#57 id=57 data-nosnippet>57</a>	block_number: NumberFor&lt;Block&gt;,
