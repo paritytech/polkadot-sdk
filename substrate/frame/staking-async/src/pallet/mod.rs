@@ -1646,6 +1646,10 @@ pub mod pallet {
 		InsufficientIdleIncentive,
 		/// Cannot unbond: the amount overlaps still-restricted (unvested) bonded incentive.
 		IncentiveStillRestricted,
+		/// `BondedIncentiveBuckets` is full even after pruning fully-matured buckets; should be
+		/// unreachable, since the map is bounded by `VestingBondingPeriods + 1` and pruning keeps
+		/// it at or under that as long as bonding happens at least once per bonding period.
+		TooManyIncentiveBuckets,
 	}
 
 	#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo, PalletError)]
@@ -2022,6 +2026,7 @@ pub mod pallet {
 			let stash = ledger.stash.clone();
 
 			// Forbid unbonding into still-restricted (unvested) bonded incentive.
+			// TODO: the `still_restricted` computation must also reflect in `unbond` weight
 			let restricted = Self::still_restricted(&stash);
 			ensure!(
 				value <= ledger.active.defensive_saturating_sub(restricted),
@@ -3351,7 +3356,7 @@ pub mod pallet {
 		/// Permissionless: anyone may call this for any `target`, e.g. a bot, or a validator who
 		/// has left the active set and is no longer covered by auto-pay.
 		#[pallet::call_index(36)]
-		// TODO: benchmark release_incentive
+		// TODO: benchmark release_incentive (placeholder weight)
 		#[pallet::weight(T::DbWeight::get().reads_writes(
 			2,
 			(T::VestingBondingPeriods::get() as u64).saturating_add(2),
@@ -3382,7 +3387,7 @@ pub mod pallet {
 		///
 		/// The dispatch origin must be _Signed_ by the stash.
 		#[pallet::call_index(37)]
-		// TODO: benchmark bond_incentive
+		// TODO: benchmark bond_incentive (placeholder weight)
 		#[pallet::weight(T::DbWeight::get().reads_writes(
 			3,
 			(T::VestingBondingPeriods::get() as u64).saturating_add(3),
@@ -3392,6 +3397,11 @@ pub mod pallet {
 			#[pallet::compact] amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+			// A zero-amount bond is a pure no-op: skip it before `do_bond_incentive` can release
+			// any matured idle incentive as a side effect.
+			if amount.is_zero() {
+				return Ok(());
+			}
 			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
 
 			let current_era =

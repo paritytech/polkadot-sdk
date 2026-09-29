@@ -1100,6 +1100,97 @@ fn bonded_incentive_bucket_is_removed_when_stash_is_reaped() {
 	});
 }
 
+#[test]
+fn bond_incentive_prunes_matured_buckets_and_never_leaves_stake_untracked() {
+	// Regression for the bonded-bucket overflow: `do_bond_incentive` used to never prune
+	// matured bonded buckets before inserting, so a `Stash`-payee validator bonding once per
+	// bonding period would eventually overflow `BondedIncentiveBuckets`' bounded cap. The
+	// overflow was silent (`defensive!` + drop) and the funds were bonded into `active` stake
+	// anyway, with no bucket recording the restriction — i.e. the vesting lock was bypassed and
+	// the amount became immediately unbondable. This test bonds a slice every bonding period for
+	// more than `VestingBondingPeriods + 1` periods and checks, after every bond, that: (a) the
+	// bonded-bucket map never exceeds its cap, and (b) `still_restricted` matches a shadow
+	// model of every bonded-and-still-unmatured amount exactly — so nothing is silently dropped
+	// from tracking. Confirmed to fail before the fix (the shadow-model equality trips once the
+	// map would have overflowed) and pass after.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+
+		let bonding_duration = BondingDuration::get();
+		let vesting_periods = VestingBondingPeriods::get();
+		let cap = vesting_periods + 1; // MaxIncentiveBuckets<Test>
+
+		// More than `VestingBondingPeriods + 1` distinct bonding periods, so a version that
+		// never prunes before inserting is forced to overflow the bounded map.
+		let periods_to_cover = cap + 3;
+
+		// Shadow model: every amount ever successfully bonded, keyed by its source period, using
+		// the exact same maturation formula as `IncentiveBucket::restricted_at`.
+		let mut bonded_history: Vec<(EraIndex, Balance)> = Vec::new();
+
+		for period in 0..periods_to_cover {
+			// Land on the first era of this bonding period, so the delivered incentive is
+			// (almost entirely) unmatured when bonded.
+			let target_era = period * bonding_duration + 1;
+			Session::roll_until_active_era(target_era);
+			Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+			Session::roll_until_active_era(target_era + 1);
+
+			if !IdleIncentiveBuckets::<Test>::contains_key(&alice) {
+				// No incentive delivered this era (e.g. weight/points gate closed it).
+				continue;
+			}
+			// Normalize: release whatever has matured as of the current era first, so the whole
+			// idle hold is bondable in one call (mirrors other `bond_incentive` tests).
+			assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+			let idle = asset::incentive_on_hold::<Test>(&alice);
+			if idle.is_zero() {
+				continue;
+			}
+
+			assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), idle));
+			bonded_history.push((period, idle));
+
+			// (a) the bonded-bucket map is bounded by the cap after every bond.
+			let bonded = BondedIncentiveBuckets::<Test>::get(&alice);
+			assert!(
+				bonded.len() as u32 <= cap,
+				"BondedIncentiveBuckets grew past cap ({cap}) at period {period}: {} entries",
+				bonded.len()
+			);
+
+			// (b) `still_restricted` must equal the shadow model: every bonded amount that
+			// hasn't matured yet, full stop. If a bucket was ever silently dropped on overflow,
+			// its contribution goes missing here while the shadow model still counts it.
+			let current_era = active_era();
+			let expected_restricted: Balance = bonded_history
+				.iter()
+				.map(|(p, amt)| {
+					let matured =
+						matured_fraction(*p, current_era, vesting_periods, bonding_duration)
+							.mul_floor(*amt);
+					amt.saturating_sub(matured)
+				})
+				.fold(0u128, |acc, x| acc.saturating_add(x));
+			assert_eq!(
+				Staking::still_restricted(&alice),
+				expected_restricted,
+				"still_restricted diverged from the shadow model at period {period}: a bonded \
+				 amount went untracked (the bypass this test guards against)",
+			);
+
+			// try_state invariants must hold throughout, not just at the end of the test.
+			Staking::do_try_state(System::block_number()).unwrap();
+		}
+
+		// Sanity: we actually drove the map past its cap worth of distinct periods.
+		assert!(bonded_history.len() as u32 > cap);
+	});
+}
+
 // ===== `Staked` auto-bond =====
 
 #[test]
@@ -1769,5 +1860,945 @@ fn migration_sets_cutoff_to_active_era_plus_one() {
 		// Active era at upgrade time was 3 ⇒ cutoff = 4. Era 3 (which may already
 		// have points credited without a denominator) stays on the legacy formula.
 		assert_eq!(WeightedPointsFormulaStartEra::<Test>::get(), Some(4));
+	});
+}
+
+// ===== Lock correctness =====
+//
+// The whole reason for this feature: a genuine hold cannot be masked by another (much larger)
+// hold the way the old vesting *freeze* was masked by the `Staking` hold (see design doc §2.2).
+
+#[test]
+fn idle_incentive_unspendable_despite_large_staking_hold() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		// GIVEN: bump alice's self-stake hold far above the incentive she's about to receive.
+		let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&alice, 50_000);
+		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(alice), 50_000));
+		let staking_hold = asset::staked::<Test>(&alice);
+		assert!(staking_hold >= 51_000);
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+
+		let incentive_hold = asset::incentive_on_hold::<Test>(&alice);
+		assert!(incentive_hold > 0);
+		assert!(staking_hold > incentive_hold * 10, "self-stake hold should dwarf the incentive");
+
+		// Top up `free` so the boundary check below isn't entangled with existential-deposit dust.
+		let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&alice, 1_000);
+
+		let free = Balances::free_balance(&alice);
+		let total = asset::total_balance::<Test>(&alice);
+		assert_eq!(total, free + staking_hold + incentive_hold, "total == free + both holds");
+
+		// THEN: `total_balance` looks ample, but only `free` is spendable. A transfer that dips
+		// one unit into held funds fails outright — no freeze/hold "untouchable" arithmetic can
+		// let the large `Staking` hold mask the smaller `ValidatorIncentive` one, because a hold
+		// (unlike a freeze) removes its tokens from `free` unconditionally.
+		assert_noop!(
+			Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 999, free + 1),
+			TokenError::FundsUnavailable,
+		);
+		// AND: the true spendable ceiling — `free` minus the existential deposit an active
+		// staking ledger's consumer ref keeps untouchable (an ED/provider-ref detail orthogonal
+		// to either hold) — succeeds, while one more than that is rejected too.
+		let spendable = free - ExistentialDeposit::get();
+		assert_noop!(
+			Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 999, spendable + 1),
+			TokenError::Frozen,
+		);
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 999, spendable));
+	});
+}
+
+#[test]
+fn matured_incentive_becomes_spendable_after_release() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+
+		// WHEN: advance to full maturation and release everything to `free`.
+		let window = VestingBondingPeriods::get() * BondingDuration::get();
+		Session::roll_until_active_era(window + 1);
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), 0);
+
+		let free = Balances::free_balance(&alice);
+		assert!(free > 0);
+
+		// THEN: the now-`free` (formerly incentive-held) funds are genuinely transferable — the
+		// lock is fully lifted, not just relaxed. (`free - ED` is the true spendable ceiling: an
+		// active staking ledger's consumer ref keeps the existential deposit itself untouchable,
+		// independent of either hold — see
+		// `idle_incentive_unspendable_despite_large_staking_hold`.)
+		let spendable = free - ExistentialDeposit::get();
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 999, spendable));
+	});
+}
+
+// ===== Flagship end-to-end lifecycle =====
+
+#[test]
+fn full_lifecycle_deliver_bond_mature_release_unbond_withdraw_reap() {
+	// deliver -> bond part -> partial maturation -> release the matured idle remainder -> full
+	// maturation -> unbond everything (auto-chills) -> wait out bonding -> withdraw (reaps).
+	// `do_try_state` (covering both incentive invariants, among everything else) runs after
+	// every step, not just at the end.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+		let check = || Staking::do_try_state(System::block_number()).unwrap();
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		// Legacy stake-only formula: single validator with weight 1 gets the full budget.
+		WeightedPointsFormulaStartEra::<Test>::put(u32::MAX);
+		let bonding_duration = BondingDuration::get();
+		let vesting_periods = VestingBondingPeriods::get();
+		let window = vesting_periods * bonding_duration;
+		let original_self_stake = 1_000; // mock default for validator 11
+
+		// The mock's genesis already leaves the active era at 1 (not 0), so period 0's own
+		// maturation clock (fixed at era 0) is already slightly ticking by delivery time — use
+		// `expected_hold_after_delivery` (as the earlier delivery tests do) rather than assuming
+		// zero maturation at era 0.
+		let era0 = active_era();
+		let period = era0 / bonding_duration;
+		let period_start = period * bonding_duration;
+
+		// STEP 1: deliver idle incentive for the current period.
+		ErasValidatorIncentiveBudget::<Test>::insert(era0, 1_200u128);
+		ErasValidatorIncentiveWeight::<Test>::insert(era0, alice, 1u128);
+		ErasSumValidatorIncentiveWeight::<Test>::insert(era0, 1u128);
+		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+			era0,
+			RewardKind::ValidatorSelfStake,
+		));
+		let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&pot, 1_200);
+		Staking::auto_pay_incentive(era0);
+		assert_eq!(
+			asset::incentive_on_hold::<Test>(&alice),
+			expected_hold_after_delivery(1_200, era0)
+		);
+		check();
+
+		// STEP 2: bond half of whatever is currently idle (normalizing via `release_incentive`
+		// first, so the requested amount is always exactly what's available at the current era).
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(alice), alice));
+		let idle_after_release = asset::incentive_on_hold::<Test>(&alice);
+		let bond_amount = idle_after_release / 2;
+		assert!(bond_amount > 0);
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), bond_amount));
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), idle_after_release - bond_amount);
+		assert_eq!(
+			Staking::ledger(alice.into()).unwrap().active,
+			original_self_stake + bond_amount
+		);
+		check();
+
+		// STEP 3: advance to the window's midpoint (relative to the period's fixed start) — the
+		// bonded portion PARTIALLY matures.
+		Session::roll_until_active_era(period_start + window / 2);
+		let restricted_mid = Staking::still_restricted(&alice);
+		assert!(
+			restricted_mid > 0 && restricted_mid < bond_amount,
+			"should be partially, not fully, restricted"
+		);
+		check();
+
+		// STEP 4: release the matured idle remainder to `free`.
+		let free_before_release = Balances::free_balance(&alice);
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(alice), alice));
+		assert!(Balances::free_balance(&alice) > free_before_release);
+		check();
+
+		// STEP 5: advance to full maturation — the gate fully opens.
+		Session::roll_until_active_era(period_start + window);
+		assert_eq!(Staking::still_restricted(&alice), 0);
+		check();
+
+		// STEP 6: unbond everything (auto-chills, since it's the full active stake).
+		let ledger = Staking::ledger(alice.into()).unwrap();
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), ledger.active));
+		assert!(!Validators::<Test>::contains_key(&alice), "full unbond auto-chills");
+		check();
+
+		// STEP 7: wait out the bonding duration.
+		Session::roll_until_active_era(active_era() + bonding_duration);
+		check();
+
+		// STEP 8: withdraw — fully drains the ledger, reaping the stash.
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(alice), 0));
+		StakingLedger::<T>::assert_stash_killed(alice);
+		assert!(BondedIncentiveBuckets::<Test>::get(&alice).is_empty());
+		check();
+
+		WeightedPointsFormulaStartEra::<Test>::put(0);
+	});
+}
+
+// ===== Multi-period idle buckets =====
+
+#[test]
+fn idle_buckets_across_multiple_periods_mature_independently() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		WeightedPointsFormulaStartEra::<Test>::put(u32::MAX);
+		let bonding_duration = BondingDuration::get();
+		let vesting_periods = VestingBondingPeriods::get();
+		let window = vesting_periods * bonding_duration;
+
+		let deliver = |era: EraIndex, budget: Balance| {
+			ErasValidatorIncentiveBudget::<Test>::insert(era, budget);
+			ErasValidatorIncentiveWeight::<Test>::insert(era, alice, 1u128);
+			ErasSumValidatorIncentiveWeight::<Test>::insert(era, 1u128);
+			let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+				era,
+				RewardKind::ValidatorSelfStake,
+			));
+			let _ =
+				<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&pot, budget);
+			Staking::auto_pay_incentive(era);
+		};
+
+		// Deliver into 3 distinct periods, landing on each period's first era so nothing has
+		// matured yet at delivery time.
+		deliver(0, 300); // period 0
+		deliver(bonding_duration, 600); // period 1
+		deliver(2 * bonding_duration, 900); // period 2
+
+		let buckets = IdleIncentiveBuckets::<Test>::get(&alice);
+		assert_eq!(buckets.len(), 3);
+		assert_eq!(buckets.get(&0).map(|b| b.total), Some(300));
+		assert_eq!(buckets.get(&1).map(|b| b.total), Some(600));
+		assert_eq!(buckets.get(&2).map(|b| b.total), Some(900));
+
+		// WHEN: era `window` arrives — period 0's window fully matures; periods 1 and 2 have not.
+		// Released directly (rather than rolling real sessions to that era and going through the
+		// `release_incentive` extrinsic) so this test stays purely about the maturation math.
+		IdleIncentiveBuckets::<Test>::mutate(&alice, |buckets| {
+			let _ = Staking::release_matured_idle_incentive(&alice, window, buckets);
+		});
+
+		// THEN: period 0 is fully matured and pruned; the others each matured only their own
+		// (period-relative) fraction, and survive with an updated `released`.
+		let buckets = IdleIncentiveBuckets::<Test>::get(&alice);
+		assert!(buckets.get(&0).is_none(), "period 0 fully matured & pruned");
+		let p1 = buckets.get(&1).expect("period 1 not yet fully matured");
+		let expected_p1_released =
+			matured_fraction(1, window, vesting_periods, bonding_duration).mul_floor(600);
+		assert_eq!(p1.released, expected_p1_released);
+		assert!(p1.released < 600, "period 1 not exhausted");
+
+		let p2 = buckets.get(&2).expect("period 2 not yet fully matured");
+		let expected_p2_released =
+			matured_fraction(2, window, vesting_periods, bonding_duration).mul_floor(900);
+		assert_eq!(p2.released, expected_p2_released);
+		assert!(p2.released < 900, "period 2 not exhausted");
+		// Period 2 started later, so a smaller FRACTION of it has matured by `window` (absolute
+		// released amounts aren't comparable across buckets with different totals).
+		assert!(
+			matured_fraction(2, window, vesting_periods, bonding_duration) <
+				matured_fraction(1, window, vesting_periods, bonding_duration),
+			"period 2 started later, so a smaller fraction has matured"
+		);
+
+		WeightedPointsFormulaStartEra::<Test>::put(0);
+	});
+}
+
+#[test]
+fn bond_incentive_draws_oldest_period_first_preserving_schedule() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		let bonding_duration = BondingDuration::get();
+
+		// GIVEN: idle buckets across 3 periods, constructed directly (rather than via real
+		// delivery) and placed just ahead of the current era so none of them have started
+		// maturing yet — keeping this test purely about the draw order, not maturation timing.
+		let base_period = active_era() / bonding_duration + 1;
+		let total: Balance = 300 + 600 + 900;
+		IdleIncentiveBuckets::<Test>::mutate(&alice, |buckets| {
+			buckets.try_insert(base_period, IncentiveBucket::new(300)).unwrap();
+			buckets.try_insert(base_period + 1, IncentiveBucket::new(600)).unwrap();
+			buckets.try_insert(base_period + 2, IncentiveBucket::new(900)).unwrap();
+		});
+		let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&alice, total);
+		let _ = <Balances as frame_support::traits::fungible::hold::Mutate<_>>::hold(
+			&HoldReason::ValidatorIncentive.into(),
+			&alice,
+			total,
+		);
+
+		// WHEN: bond 700 — enough to fully drain the oldest period (300) and partially draw the
+		// next (400 of 600), leaving the newest period untouched.
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), 700));
+
+		let idle = IdleIncentiveBuckets::<Test>::get(&alice);
+		assert!(idle.get(&base_period).is_none(), "oldest period fully drawn and pruned");
+		assert_eq!(idle.get(&(base_period + 1)).map(|b| b.total), Some(200)); // 600 - 400
+		assert_eq!(idle.get(&(base_period + 2)).map(|b| b.total), Some(900)); // untouched
+
+		// THEN: each drawn slice lands in a bonded bucket keyed by its SOURCE period — the
+		// original vesting schedule is carried over, not reset to the current period.
+		let bonded = BondedIncentiveBuckets::<Test>::get(&alice);
+		assert_eq!(bonded.get(&base_period).map(|b| b.total), Some(300));
+		assert_eq!(bonded.get(&(base_period + 1)).map(|b| b.total), Some(400));
+		assert!(bonded.get(&(base_period + 2)).is_none());
+	});
+}
+
+// ===== Incremental gate opening =====
+
+#[test]
+fn incentive_gate_opens_incrementally_per_bucket() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+		let bonding_duration = BondingDuration::get();
+		let vesting_periods = VestingBondingPeriods::get();
+		let window = vesting_periods * bonding_duration;
+
+		// GIVEN: bonded buckets in two different periods, constructed directly (mirroring what
+		// two successive `bond_incentive` calls, one per period, would leave behind) so this test
+		// stays purely about the gate math, not delivery/bonding timing.
+		let period_a = active_era() / bonding_duration + 1;
+		let period_b = period_a + 1;
+		let mut ledger = Staking::ledger(alice.into()).unwrap();
+		let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&alice, 1_500);
+		ledger.active += 1_500;
+		ledger.total += 1_500;
+		ledger.update().unwrap();
+		BondedIncentiveBuckets::<Test>::mutate(&alice, |buckets| {
+			buckets.try_insert(period_a, IncentiveBucket::new(1_000)).unwrap();
+			buckets.try_insert(period_b, IncentiveBucket::new(500)).unwrap();
+		});
+		let active = Staking::ledger(alice.into()).unwrap().active; // 1000 (self) + 1000 + 500
+
+		// WHEN: advance to when ONLY period A's bucket is fully matured; period B's (one bonding
+		// period younger) still has `bonding_duration` eras left in its own window.
+		let period_a_start = period_a * bonding_duration;
+		Session::roll_until_active_era(period_a_start + window);
+		let current_era = active_era();
+		let period_b_bucket =
+			BondedIncentiveBuckets::<Test>::get(&alice).get(&period_b).cloned().unwrap();
+		let expected_restricted =
+			period_b_bucket.restricted_at(period_b, current_era, vesting_periods, bonding_duration);
+		assert!(expected_restricted > 0 && expected_restricted < 500);
+
+		// THEN: `still_restricted` drops by exactly period A's (now fully matured) contribution
+		// — only period B's still-unmatured slice remains.
+		assert_eq!(Staking::still_restricted(&alice), expected_restricted);
+
+		// AND: an unbond that would touch period B's restricted remainder is rejected...
+		hypothetically!({
+			assert_noop!(
+				Staking::unbond(RuntimeOrigin::signed(alice), active - expected_restricted + 1),
+				Error::<Test>::IncentiveStillRestricted
+			);
+		});
+		// ...while the correspondingly larger unbond (everything except period B's remainder,
+		// which now includes period A's freshly-opened bucket) succeeds.
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), active - expected_restricted));
+	});
+}
+
+// ===== Slashing =====
+
+#[test]
+fn slash_scales_bonded_but_leaves_idle_untouched_with_remainder() {
+	ExtBuilder::default().nominate(false).build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+
+		// GIVEN: bond only part of the idle incentive, leaving a nonzero idle remainder.
+		let idle_total = asset::incentive_on_hold::<Test>(&alice);
+		let bond_amount = idle_total / 3;
+		assert!(bond_amount > 0);
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), bond_amount));
+
+		let idle_before_slash = asset::incentive_on_hold::<Test>(&alice);
+		assert!(idle_before_slash > 0, "nonzero idle remainder must survive bonding");
+		let period = 2 / BondingDuration::get();
+		let bonded_before = BondedIncentiveBuckets::<Test>::get(&alice).get(&period).unwrap().total;
+		let active_before = Staking::ledger(alice.into()).unwrap().active;
+
+		// WHEN: alice is slashed 30%.
+		add_slash_with_percent(alice, 30);
+		Session::roll_next();
+
+		// THEN: idle incentive is bit-for-bit unchanged — only bonded incentive is at risk.
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), idle_before_slash);
+
+		// AND: the bonded bucket scaled by the same ratio `active` was reduced by.
+		let active_after = Staking::ledger(alice.into()).unwrap().active;
+		let bonded_after = BondedIncentiveBuckets::<Test>::get(&alice).get(&period).unwrap().total;
+		let expected = Perbill::from_rational(active_after, active_before).mul_floor(bonded_before);
+		assert_eq!(bonded_after, expected);
+		assert!(Staking::still_restricted(&alice) <= active_after);
+	});
+}
+
+#[test]
+fn full_slash_prunes_bonded_buckets_and_unblocks_full_exit() {
+	ExtBuilder::default().nominate(false).build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+		let idle = asset::incentive_on_hold::<Test>(&alice);
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), idle));
+		assert!(Staking::still_restricted(&alice) > 0);
+
+		// A fresh election (rolling into era 4) re-snapshots alice's exposure with her now-larger
+		// (bonded) active stake, so a 100% slash below is a 100% slash of the FULL active amount.
+		Session::roll_until_active_era(4);
+
+		// WHEN: alice is slashed 100%.
+		add_slash_with_percent(alice, 100);
+		Session::roll_next();
+
+		// THEN: the gate is fully open and the bonded buckets are pruned (scaled to 0).
+		assert_eq!(Staking::still_restricted(&alice), 0);
+		assert!(BondedIncentiveBuckets::<Test>::get(&alice).is_empty());
+
+		// AND: nothing blocks a full exit any more — whatever (if anything) remains bonded is
+		// freely unbondable.
+		if let Ok(ledger) = Staking::ledger(alice.into()) {
+			if ledger.active > 0 {
+				assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), ledger.active));
+			}
+		}
+	});
+}
+
+#[test]
+fn slash_scales_all_bonded_buckets_by_same_ratio() {
+	ExtBuilder::default().nominate(false).build_and_execute(|| {
+		let alice = 11; // validator, default payee = Staked
+		WeightedPointsFormulaStartEra::<Test>::put(u32::MAX);
+		let bonding_duration = BondingDuration::get();
+
+		let deliver = |era: EraIndex, budget: Balance| {
+			ErasValidatorIncentiveBudget::<Test>::insert(era, budget);
+			ErasValidatorIncentiveWeight::<Test>::insert(era, alice, 1u128);
+			ErasSumValidatorIncentiveWeight::<Test>::insert(era, 1u128);
+			let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+				era,
+				RewardKind::ValidatorSelfStake,
+			));
+			let _ =
+				<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&pot, budget);
+			Staking::auto_pay_incentive(era);
+		};
+
+		// GIVEN: 3 bonded buckets (auto-bonded, since payee = Staked by default).
+		deliver(0, 300);
+		deliver(bonding_duration, 600);
+		deliver(2 * bonding_duration, 900);
+		let bonded_before = BondedIncentiveBuckets::<Test>::get(&alice);
+		assert_eq!(bonded_before.len(), 3);
+		let active_before = Staking::ledger(alice.into()).unwrap().active;
+
+		// WHEN: alice is slashed 40%.
+		add_slash_with_percent(alice, 40);
+		Session::roll_next();
+
+		// THEN: every bonded bucket scaled by the exact same ratio.
+		let active_after = Staking::ledger(alice.into()).unwrap().active;
+		let ratio = Perbill::from_rational(active_after, active_before);
+		let bonded_after = BondedIncentiveBuckets::<Test>::get(&alice);
+		for (period, bucket_before) in bonded_before.iter() {
+			let expected = ratio.mul_floor(bucket_before.total);
+			assert_eq!(bonded_after.get(period).map(|b| b.total).unwrap_or(0), expected);
+		}
+
+		WeightedPointsFormulaStartEra::<Test>::put(0);
+	});
+}
+
+// ===== Bounded idle buckets over a long earning streak =====
+
+#[test]
+fn idle_incentive_buckets_bounded_across_long_earning_streak() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		WeightedPointsFormulaStartEra::<Test>::put(u32::MAX);
+		let bonding_duration = BondingDuration::get();
+		let vesting_periods = VestingBondingPeriods::get();
+		let cap = vesting_periods + 1; // MaxIncentiveBuckets<Test>
+
+		let deliver = |era: EraIndex, budget: Balance| {
+			ErasValidatorIncentiveBudget::<Test>::insert(era, budget);
+			ErasValidatorIncentiveWeight::<Test>::insert(era, alice, 1u128);
+			ErasSumValidatorIncentiveWeight::<Test>::insert(era, 1u128);
+			let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+				era,
+				RewardKind::ValidatorSelfStake,
+			));
+			let _ =
+				<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&pot, budget);
+			Staking::auto_pay_incentive(era);
+		};
+
+		// Earn EVERY era (not just once per period) for well more than `VestingBondingPeriods`
+		// periods' worth of eras — old buckets must keep getting pruned by auto-pay's own idle
+		// branch, without ever calling `release_incentive`/`bond_incentive` by hand.
+		let total_eras = (vesting_periods + 3) * bonding_duration;
+		for era in 0..total_eras {
+			deliver(era, 10);
+			let buckets = IdleIncentiveBuckets::<Test>::get(&alice);
+			assert!(
+				buckets.len() as u32 <= cap,
+				"era {era}: {} idle buckets, cap {cap}",
+				buckets.len()
+			);
+		}
+
+		WeightedPointsFormulaStartEra::<Test>::put(0);
+	});
+}
+
+// ===== RewardDestination edge cases =====
+
+#[test]
+fn account_destination_incentive_is_release_only_not_bondable_by_stash() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+		let reward_account = 7_777;
+		// Pre-fund with ED headroom so holding the *entire* incoming incentive doesn't take
+		// `reward_account`'s free balance below the existential deposit.
+		let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
+			&reward_account,
+			ExistentialDeposit::get(),
+		);
+
+		assert_ok!(Staking::set_payee(
+			RuntimeOrigin::signed(alice),
+			RewardDestination::Account(reward_account)
+		));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+
+		// THEN: incentive landed on the custom account, not alice's stash.
+		assert!(asset::incentive_on_hold::<Test>(&reward_account) > 0);
+		assert!(IdleIncentiveBuckets::<Test>::get(&alice).is_empty());
+
+		// WHEN: alice (the stash) tries to bond it — she has no idle buckets of her own to draw
+		// from (`Account(x)` is release-only, confirming there's no ledger to bond into).
+		assert_noop!(
+			Staking::bond_incentive(RuntimeOrigin::signed(alice), 1),
+			Error::<Test>::InsufficientIdleIncentive
+		);
+	});
+}
+
+#[test]
+fn reward_destination_none_delivers_nothing() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator, opts out
+		let bob = 21; // validator, unaffected
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::None));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
+		// Sanity: alice still earned weight — she's opted out of the payout, not gated out.
+		assert!(ErasValidatorIncentiveWeight::<Test>::get(2, alice).is_some());
+		let alice_before = asset::total_balance::<Test>(&alice);
+		let _ = staking_events_since_last_call();
+
+		// WHEN: era 2 ends.
+		Session::roll_until_active_era(3);
+		let events = staking_events_since_last_call();
+
+		// THEN: no incentive paid to alice — no event, no hold, no bucket, balance untouched.
+		assert!(incentive_paid_for(alice, &events).is_none());
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), 0);
+		assert!(IdleIncentiveBuckets::<Test>::get(&alice).is_empty());
+		assert!(BondedIncentiveBuckets::<Test>::get(&alice).is_empty());
+		assert_eq!(asset::total_balance::<Test>(&alice), alice_before);
+
+		// AND: bob is unaffected.
+		assert!(incentive_paid_for(bob, &events).is_some());
+	});
+}
+
+// ===== try_state failure detection =====
+
+#[test]
+fn try_state_detects_idle_incentive_hold_mismatch() {
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert!(asset::incentive_on_hold::<Test>(&alice) > 0);
+
+		// Sanity: uncorrupted state passes.
+		assert_ok!(Staking::do_try_state(System::block_number()));
+
+		// WHEN: corrupt the invariant directly — inflate a bucket's `total` without touching the
+		// matching `ValidatorIncentive` hold.
+		IdleIncentiveBuckets::<Test>::mutate(&alice, |buckets| {
+			for (_, bucket) in buckets.iter_mut() {
+				bucket.total += 1_000;
+			}
+		});
+
+		// THEN: try_state catches the mismatch — proving the check is load-bearing.
+		assert!(Staking::do_try_state(System::block_number()).is_err());
+	});
+}
+
+// ===== Bonded incentive earns like normal stake =====
+
+#[test]
+fn bonded_incentive_increases_exposure_in_the_next_election() {
+	ExtBuilder::default().nominate(false).build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+		let idle = asset::incentive_on_hold::<Test>(&alice);
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), idle));
+		let active_after_bond = Staking::ledger(alice.into()).unwrap().active;
+		assert!(active_after_bond > 1_000, "bonded incentive grew alice's active stake");
+
+		// WHEN: a fresh election runs (rolling into era 4) with the increased self-stake.
+		Session::roll_until_active_era(4);
+
+		// THEN: alice's own-stake exposure for the new era reflects the bonded incentive.
+		let exposure = Eras::<Test>::get_full_exposure(4, &alice);
+		assert_eq!(exposure.own, active_after_bond);
+	});
+}
+
+// ===== P2: behavioral subtleties and interactions =====
+
+#[test]
+fn auto_release_only_happens_for_accounts_auto_pay_touches() {
+	// Pins §7.2's "for active earners" subtlety: a validator who stops earning stops
+	// auto-releasing until they (or a bot) explicitly call `release_incentive`.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		let hold_after_delivery = asset::incentive_on_hold::<Test>(&alice);
+
+		// WHEN: alice stops earning — auto-pay no longer touches her.
+		assert_ok!(Staking::chill(RuntimeOrigin::signed(alice)));
+
+		// Advance well past full maturation, without ever calling `release_incentive`.
+		let window = VestingBondingPeriods::get() * BondingDuration::get();
+		Session::roll_until_active_era(3 + window);
+
+		// THEN: despite being long matured, the hold has NOT auto-released — nothing touched
+		// alice's bucket.
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), hold_after_delivery);
+
+		// AND: an explicit call still recovers it in full.
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), 0);
+	});
+}
+
+#[test]
+fn departed_validator_release_incentive_grows_over_successive_calls() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert_ok!(Staking::chill(RuntimeOrigin::signed(alice)));
+
+		let mut last_hold = asset::incentive_on_hold::<Test>(&alice);
+		let step = BondingDuration::get();
+		for _ in 0..3 {
+			Session::roll_until_active_era(active_era() + step);
+			let free_before = Balances::free_balance(&alice);
+			assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+			let released = Balances::free_balance(&alice) - free_before;
+			assert!(released > 0, "further eras should always yield newly matured incentive");
+			let hold_now = asset::incentive_on_hold::<Test>(&alice);
+			assert!(hold_now < last_hold);
+			last_hold = hold_now;
+		}
+	});
+}
+
+#[test]
+fn slash_then_unbond_succeeds_up_to_the_rescaled_restriction() {
+	ExtBuilder::default().nominate(false).build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+		let idle = asset::incentive_on_hold::<Test>(&alice);
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), idle));
+
+		let restricted_before = Staking::still_restricted(&alice);
+		assert!(restricted_before > 0);
+
+		// WHEN: alice is slashed 40% — the bonded bucket (and active) scale down together.
+		add_slash_with_percent(alice, 40);
+		Session::roll_next();
+
+		let active_after = Staking::ledger(alice.into()).unwrap().active;
+		let restricted_after = Staking::still_restricted(&alice);
+		assert!(restricted_after < restricted_before, "restriction must shrink with the slash");
+
+		// THEN: unbonding up to the *rescaled* ceiling succeeds. If the restriction had stayed
+		// pinned at its pre-slash (now oversized relative to the shrunk active) value, less
+		// headroom would be unbondable than this.
+		let unrestricted_after = active_after - restricted_after;
+		assert!(
+			unrestricted_after > active_after.saturating_sub(restricted_before),
+			"rescaling frees up more headroom than an unscaled restriction would"
+		);
+		hypothetically!({
+			assert_noop!(
+				Staking::unbond(RuntimeOrigin::signed(alice), unrestricted_after + 1),
+				Error::<Test>::IncentiveStillRestricted
+			);
+		});
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), unrestricted_after));
+	});
+}
+
+#[test]
+fn payee_switch_between_staked_and_stash_keeps_bucket_maps_independent() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator, default payee = Staked
+		WeightedPointsFormulaStartEra::<Test>::put(u32::MAX);
+
+		let deliver = |era: EraIndex, budget: Balance| {
+			ErasValidatorIncentiveBudget::<Test>::insert(era, budget);
+			ErasValidatorIncentiveWeight::<Test>::insert(era, alice, 1u128);
+			ErasSumValidatorIncentiveWeight::<Test>::insert(era, 1u128);
+			let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+				era,
+				RewardKind::ValidatorSelfStake,
+			));
+			let _ =
+				<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&pot, budget);
+			Staking::auto_pay_incentive(era);
+		};
+
+		// GIVEN: era 0 (Staked) auto-bonds into a BONDED bucket for period 0.
+		deliver(0, 400);
+		let period = 0u32;
+		assert_eq!(
+			BondedIncentiveBuckets::<Test>::get(&alice).get(&period).map(|b| b.total),
+			Some(400)
+		);
+		assert!(IdleIncentiveBuckets::<Test>::get(&alice).is_empty());
+
+		// WHEN: switch to Stash, then deliver era 1 — the SAME period key (BondingDuration = 3,
+		// so eras 0 and 1 both fall in period 0).
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		deliver(1, 200);
+
+		// THEN: era 1's delivery lands as an IDLE bucket under the same period key — the two maps
+		// stay independent, no cross-contamination for the shared key.
+		assert_eq!(
+			BondedIncentiveBuckets::<Test>::get(&alice).get(&period).map(|b| b.total),
+			Some(400)
+		);
+		assert_eq!(
+			IdleIncentiveBuckets::<Test>::get(&alice).get(&period).map(|b| b.total),
+			Some(200)
+		);
+
+		WeightedPointsFormulaStartEra::<Test>::put(0);
+	});
+}
+
+#[test]
+fn bond_extra_on_top_of_gated_incentive_is_immediately_unbondable() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+		let idle = asset::incentive_on_hold::<Test>(&alice);
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), idle));
+		let restricted = Staking::still_restricted(&alice);
+		assert!(restricted > 0);
+
+		// WHEN: alice tops up with self-funded free balance via `bond_extra`.
+		let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&alice, 5_000);
+		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(alice), 2_000));
+
+		// THEN: the gate is unaffected by the extra bond — still exactly the incentive amount.
+		assert_eq!(Staking::still_restricted(&alice), restricted);
+
+		// AND: the self-funded top-up (plus the pre-existing unrestricted stake) is immediately
+		// unbondable — only the incentive-bonded slice is gated.
+		let ledger = Staking::ledger(alice.into()).unwrap();
+		let unrestricted = ledger.active - restricted;
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), unrestricted));
+	});
+}
+
+#[test]
+fn rebond_after_unrestricted_unbond_leaves_bonded_buckets_untouched() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+		let idle = asset::incentive_on_hold::<Test>(&alice);
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), idle));
+
+		let period = 2 / BondingDuration::get();
+		let bonded_before =
+			BondedIncentiveBuckets::<Test>::get(&alice).get(&period).cloned().unwrap();
+		let restricted = Staking::still_restricted(&alice);
+		let ledger = Staking::ledger(alice.into()).unwrap();
+		let unrestricted = ledger.active - restricted;
+
+		// WHEN: unbond the unrestricted portion, then rebond it right back.
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), unrestricted));
+		assert_ok!(Staking::rebond(RuntimeOrigin::signed(alice), unrestricted));
+
+		// THEN: the bonded incentive bucket (and the gate) are untouched by the round-trip —
+		// `rebond` only ever moves ordinary stake, never the incentive side-table.
+		assert_eq!(BondedIncentiveBuckets::<Test>::get(&alice).get(&period), Some(&bonded_before));
+		assert_eq!(Staking::still_restricted(&alice), restricted);
+		let ledger_after = Staking::ledger(alice.into()).unwrap();
+		assert_eq!(ledger_after.active, ledger.active);
+
+		// AND: the gate still applies.
+		assert_noop!(
+			Staking::unbond(RuntimeOrigin::signed(alice), ledger_after.active),
+			Error::<Test>::IncentiveStillRestricted
+		);
+	});
+}
+
+#[test]
+fn bond_incentive_zero_amount_is_a_noop() {
+	// `bond_incentive(0)` is now guarded at the top of the extrinsic: it returns `Ok(())`
+	// immediately, before `do_bond_incentive` (and its matured-idle release side effect) ever
+	// runs.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+
+		let idle_buckets_before = IdleIncentiveBuckets::<Test>::get(&alice);
+		let idle_hold_before = asset::incentive_on_hold::<Test>(&alice);
+		let free_before = Balances::free_balance(&alice);
+		let active_before = Staking::ledger(alice.into()).unwrap().active;
+		staking_events_since_last_call(); // drain events accrued by the setup above
+
+		assert_ok!(Staking::bond_incentive(RuntimeOrigin::signed(alice), 0));
+
+		// THEN: nothing is bonded, nothing is released, nothing changes.
+		assert_eq!(Staking::ledger(alice.into()).unwrap().active, active_before);
+		assert!(BondedIncentiveBuckets::<Test>::get(&alice).is_empty());
+		assert_eq!(IdleIncentiveBuckets::<Test>::get(&alice), idle_buckets_before);
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), idle_hold_before);
+		assert_eq!(Balances::free_balance(&alice), free_before);
+		assert!(staking_events_since_last_call().is_empty());
+	});
+}
+
+#[test]
+fn dust_rounding_never_exceeds_delivered_and_final_era_clears_remainder() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
+		WeightedPointsFormulaStartEra::<Test>::put(u32::MAX);
+		let window = VestingBondingPeriods::get() * BondingDuration::get();
+
+		// A tiny, awkward (non-round) delivered amount that won't divide evenly across the
+		// window's eras.
+		let tiny = 7u128;
+		ErasValidatorIncentiveBudget::<Test>::insert(0u32, tiny);
+		ErasValidatorIncentiveWeight::<Test>::insert(0u32, alice, 1u128);
+		ErasSumValidatorIncentiveWeight::<Test>::insert(0u32, 1u128);
+		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+			0,
+			RewardKind::ValidatorSelfStake,
+		));
+		let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&pot, tiny);
+		Staking::auto_pay_incentive(0);
+
+		let mut total_released = 0u128;
+		for _ in 0..window {
+			let before = asset::incentive_on_hold::<Test>(&alice);
+			Session::roll_until_active_era(active_era() + 1);
+			// alice isn't earning this era, so nothing auto-releases — touch it explicitly.
+			assert_ok!(Staking::release_incentive(RuntimeOrigin::signed(999), alice));
+			let after = asset::incentive_on_hold::<Test>(&alice);
+			total_released += before.saturating_sub(after);
+			assert!(total_released <= tiny, "never releases more than was delivered");
+			Staking::do_try_state(System::block_number()).unwrap();
+			if IdleIncentiveBuckets::<Test>::get(&alice).is_empty() {
+				break;
+			}
+		}
+
+		// THEN: by the final window era, the entire (awkward, non-divisible) amount has released
+		// — no stuck rounding residue.
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), 0);
+		assert_eq!(total_released, tiny);
+		assert!(IdleIncentiveBuckets::<Test>::get(&alice).is_empty());
+
+		WeightedPointsFormulaStartEra::<Test>::put(0);
 	});
 }

@@ -831,6 +831,14 @@ impl<T: Config> Pallet<T> {
 
 			if is_staked {
 				BondedIncentiveBuckets::<T>::mutate(&account, |buckets| {
+					// Prune before inserting (mirrors `do_bond_incentive`) so a validator who
+					// auto-bonds every era never runs the map into its cap. This is still
+					// era-end code (bounded by the elected-validator loop above), so on the
+					// unreachable event pruning doesn't free enough room, fall back to a
+					// defensive log-and-drop rather than a hard error: failing the whole
+					// era-end loop over one validator's bucket would block auto-pay for every
+					// other validator and stall era rotation.
+					Self::prune_matured_bonded_incentive(era, buckets);
 					if let Some(bucket) = buckets.get_mut(&period) {
 						bucket.merge(amount);
 					} else if buckets.try_insert(period, IncentiveBucket::new(amount)).is_err() {
@@ -841,21 +849,36 @@ impl<T: Config> Pallet<T> {
 						);
 						defensive!("BondedIncentiveBuckets overflow");
 					}
-					Self::prune_matured_bonded_incentive(era, buckets);
 				});
 			} else {
 				IdleIncentiveBuckets::<T>::mutate(&account, |buckets| {
 					if let Some(bucket) = buckets.get_mut(&period) {
 						bucket.merge(amount);
-					} else if buckets.try_insert(period, IncentiveBucket::new(amount)).is_err() {
-						log!(
-							warn,
-							"IdleIncentiveBuckets full for {:?}; incentive held but untracked",
-							account
-						);
-						defensive!("IdleIncentiveBuckets overflow");
+					} else {
+						// A brand-new period's bucket: release-and-prune *before* inserting (same
+						// headroom reason as the bonded branch above), so an old, already-fully-
+						// matured-and-released bucket that just hasn't been swept yet doesn't
+						// block this insert. Cheap, since this only runs once per new bonding
+						// period rather than every era. Idle is bounded by this plus the `+1` cap
+						// headroom, so this is not expected to be reachable in steady state;
+						// unlike `bond_incentive` (a retryable, user-signed call blocking nothing
+						// else), this runs inside the era-end loop, where a hard error would
+						// abort auto-pay for every remaining validator — so the `defensive!`
+						// below stays a last-resort guard, not an error path.
+						let _ = Self::release_matured_idle_incentive(&account, era, buckets);
+						if buckets.try_insert(period, IncentiveBucket::new(amount)).is_err() {
+							log!(
+								warn,
+								"IdleIncentiveBuckets full for {:?}; incentive held but untracked",
+								account
+							);
+							defensive!("IdleIncentiveBuckets overflow");
+						}
 					}
 
+					// Release whatever this era's delivery (merged or freshly inserted above)
+					// itself already matured — e.g. a bucket whose period started earlier than
+					// `era` matures a slice of it immediately — and prune anything now exhausted.
 					let _ = Self::release_matured_idle_incentive(&account, era, buckets);
 				});
 			}
@@ -1036,15 +1059,26 @@ impl<T: Config> Pallet<T> {
 			},
 		)?;
 
-		BondedIncentiveBuckets::<T>::mutate(stash, |bonded| {
+		// Prune fully-matured bonded buckets *before* inserting, so a validator who bonds at
+		// least once per bonding period never runs the map into its cap. Unlike
+		// `auto_pay_incentive`'s era-end paths, this runs inside a user-signed, retryable
+		// extrinsic and blocks no era rotation, so a genuine overflow here (should be
+		// unreachable once pruning runs first) is a hard error instead of a silent drop — this
+		// is the path that funds bonded stake, so untracked restriction must never be allowed to
+		// happen.
+		BondedIncentiveBuckets::<T>::try_mutate(stash, |bonded| -> DispatchResult {
+			Self::prune_matured_bonded_incentive(current_era, bonded);
 			for (period, take) in drawn {
 				if let Some(bucket) = bonded.get_mut(&period) {
 					bucket.merge(take);
-				} else if bonded.try_insert(period, IncentiveBucket::new(take)).is_err() {
-					defensive!("BondedIncentiveBuckets overflow");
+				} else {
+					bonded
+						.try_insert(period, IncentiveBucket::new(take))
+						.map_err(|_| Error::<T>::TooManyIncentiveBuckets)?;
 				}
 			}
-		});
+			Ok(())
+		})?;
 
 		T::Currency::release(
 			&HoldReason::ValidatorIncentive.into(),

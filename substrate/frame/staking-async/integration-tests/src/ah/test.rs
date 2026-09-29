@@ -2438,17 +2438,39 @@ fn legacy_to_dap_era_payout_e2e() {
 		// -- Era 3 (full 65/20/15) --
 
 		set_reward_points(3);
+		let alice_before_incentive = Balances::total_balance(&alice);
 		let _ = staking_events_since_last_call();
+
+		// Era 3 ends inside this roll. Incentive is delivered by auto-pay at era-end (not
+		// around `payout_stakers` below anymore), so it must be observed right here. Issuance
+		// keeps growing throughout via the ordinary per-block DAP drip, so `pre_issuance` is
+		// snapshotted *after* this roll (not before) — the checks below only need to confirm
+		// that observing the incentive and claiming the staker share don't mint anything *on
+		// top of* that background drip.
 		roll_until_next_active(19);
 		assert_eq!(Rotator::<T>::active_era(), 4);
 
 		assert_eq!(ErasValidatorReward::<T>::get(3).unwrap(), 210600); // 65%
 		assert_eq!(ErasValidatorIncentiveBudget::<T>::get(3), 64800); // 20%
 
-		// Payout alice for era 3.
-		// Staker share per validator = 210600 / 4 = 52650. Split 50/50 → 26325 each.
-		// Incentive per validator = 64800 / 4 = 16200. Goes entirely to alice.
 		let pre_issuance = Balances::total_issuance();
+
+		// Incentive per validator = 64800 / 4 = 16200. Goes entirely to alice, auto-paid as an
+		// idle `Stash` hold when era 3 ends (counts in `total_balance`, which sums free+held).
+		let era3_alice_incentive = 16200u128; // 64800 / 4
+		assert_eq!(Balances::total_balance(&alice) - alice_before_incentive, era3_alice_incentive);
+		assert!(staking_events_since_last_call().iter().any(|e| matches!(
+			e,
+			StakingEvent::ValidatorIncentivePaid {
+				era: 3,
+				validator_stash,
+				dest: staking_async::RewardDestination::Stash,
+				amount,
+			} if *validator_stash == alice && *amount == era3_alice_incentive
+		)));
+
+		// Payout alice for era 3 (staker share — unaffected, still an explicit claim).
+		// Staker share per validator = 210600 / 4 = 52650. Split 50/50 → 26325 each.
 		let alice_before = Balances::total_balance(&alice);
 		let bob_before = Balances::total_balance(&bob);
 		let _ = staking_events_since_last_call();
@@ -2460,12 +2482,8 @@ fn legacy_to_dap_era_payout_e2e() {
 		assert_eq!(Balances::total_issuance(), pre_issuance); // DAP: no new mint
 
 		let era3_alice_staker = 26325u128; // 52650 * 50%
-		let era3_alice_incentive = 16200u128; // 64800 / 4
 		let era3_bob = 26325u128; // 52650 * 50%
-		assert_eq!(
-			Balances::total_balance(&alice) - alice_before,
-			era3_alice_staker + era3_alice_incentive
-		);
+		assert_eq!(Balances::total_balance(&alice) - alice_before, era3_alice_staker);
 		assert_eq!(Balances::total_balance(&bob) - bob_before, era3_bob);
 		assert_eq!(
 			staking_events_since_last_call(),
@@ -2475,12 +2493,6 @@ fn legacy_to_dap_era_payout_e2e() {
 					validator_stash: alice,
 					page: 0,
 					next: None,
-				},
-				StakingEvent::ValidatorIncentivePaid {
-					era: 3,
-					validator_stash: alice,
-					dest: staking_async::RewardDestination::Stash,
-					amount: era3_alice_incentive,
 				},
 				StakingEvent::Rewarded {
 					stash: alice,
@@ -2519,5 +2531,94 @@ fn legacy_to_dap_era_payout_e2e() {
 		// 5) Total inflation is the same — just distributed differently. era 1 total per-validator:
 		//    34425 + 34425 = 68850. era 3 total per-validator: 42525 + 26325 = 68850. Same!
 		assert_eq!(era1_alice + era1_bob, era3_alice_staker + era3_alice_incentive + era3_bob);
+	});
+}
+
+#[test]
+fn incentive_hold_unspendable_despite_large_staking_hold() {
+	// Integration mirror of the unit-level lock-correctness tests, using the REAL runtime
+	// `Balances`/`HoldReason` wiring (not the pallet's mock currency): confirm the production
+	// spend path (`Fortitude::Polite`, hold vs. freeze precedence) genuinely locks delivered
+	// incentive even when a much larger `Staking` hold sits on the same account — the exact
+	// scenario the old vesting-freeze design got wrong (design doc §2.2).
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		let alice: AccountId = 5; // validator
+
+		staking_async::Payee::<T>::insert(alice, staking_async::RewardDestination::Stash);
+
+		// GIVEN: bump alice's self-stake hold far above the incentive she's about to receive (she
+		// alone earns points below, so she claims the *entire* era's incentive budget).
+		let big_bond = 10_000_000u128;
+		Balances::mint_into(&alice, big_bond).unwrap();
+		assert_ok!(staking_async::Pallet::<T>::bond_extra(RuntimeOrigin::signed(alice), big_bond));
+		let staking_hold =
+			Balances::balance_on_hold(&staking_async::HoldReason::Staking.into(), &alice);
+		assert!(staking_hold >= big_bond);
+
+		roll_until_next_active(1);
+
+		// GIVEN: enable the incentive budget.
+		assert_ok!(staking_async::Pallet::<T>::set_validator_self_stake_incentive_config(
+			RuntimeOrigin::root(),
+			staking_async::ConfigOp::Set(30),
+			staking_async::ConfigOp::Set(1000),
+			staking_async::ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
+		));
+		pallet_dap::BudgetAllocation::<T>::put(build_budget(&[
+			(staker_reward_key(), 65),
+			(validator_incentive_key(), 20),
+			(buffer_key(), 15),
+		]));
+		Balances::mint_into(
+			&SequentialTest::pot_account(RewardPot::General(RewardKind::ValidatorSelfStake)),
+			1,
+		)
+		.unwrap();
+
+		// -- Era 2 (transition — election ran without the config, so no incentive weights yet) --
+		roll_until_next_active(7);
+		assert_eq!(Rotator::<T>::active_era(), 2);
+
+		// Credit alice reward points for era 2 — her incentive is auto-paid when era 2 ends.
+		let era = Rotator::<T>::active_era();
+		staking_async::ErasRewardPoints::<T>::mutate(era, |points| {
+			points.total = 1;
+			points.individual.try_insert(alice, 1).unwrap();
+		});
+		let weight =
+			staking_async::ErasValidatorIncentiveWeight::<T>::get(era, alice).unwrap_or_default();
+		staking_async::ErasSumWeightedPoints::<T>::insert(era, weight);
+
+		// WHEN: era 2 ends — incentive auto-pays as an idle `ValidatorIncentive` hold.
+		roll_until_next_active(13);
+		assert_eq!(Rotator::<T>::active_era(), 3);
+
+		let incentive_hold = Balances::balance_on_hold(
+			&staking_async::HoldReason::ValidatorIncentive.into(),
+			&alice,
+		);
+		assert!(incentive_hold > 0, "alice should have earned an incentive share");
+		assert!(staking_hold > incentive_hold * 10, "self-stake hold should dwarf the incentive");
+
+		// THEN: `total_balance` (free + both holds) looks ample, but only `free` is genuinely
+		// spendable.
+		let free = Balances::free_balance(&alice);
+		let total = Balances::total_balance(&alice);
+		assert_eq!(total, free + staking_hold + incentive_hold, "total == free + both holds");
+
+		// A transfer dipping into held funds fails outright — no freeze/hold "untouchable"
+		// arithmetic lets the large `Staking` hold mask the smaller `ValidatorIncentive` one,
+		// because a hold (unlike the old vesting freeze) removes its tokens from `free`
+		// unconditionally. `free - ED` is the true spendable ceiling (an active staking ledger's
+		// consumer ref keeps the existential deposit itself untouchable, independent of either
+		// hold).
+		let ed = Balances::minimum_balance();
+		let spendable = free.saturating_sub(ed);
+		assert!(
+			Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 999, spendable + 1)
+				.is_err(),
+			"must not be able to dip into held funds"
+		);
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 999, spendable));
 	});
 }
