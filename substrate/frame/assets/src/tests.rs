@@ -2221,6 +2221,34 @@ fn balance_change_callbacks_fire_on_shelve_and_restore() {
 }
 
 #[test]
+fn balance_change_callbacks_fire_on_a_transfer_that_burns_dust() {
+	build_and_execute(|| {
+		let asset = 0u32;
+		let source = 1u64;
+		let dest = 2u64;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, source, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(source), asset, source, 100));
+		storage::clear(AssetsCallbackHandle::ISSUED.as_bytes());
+
+		// 5 would be left below the minimum balance of 10, so it is dust the transfer burns.
+		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: true };
+		assert_ok!(Assets::do_transfer(asset, &source, &dest, 95, None, f));
+		assert_eq!(Assets::balance(asset, dest), 95);
+		assert_eq!(Assets::total_supply(asset), 95);
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::TRANSFERRED),
+			vec![(asset, source, dest, 95u64).encode()],
+		);
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED),
+			vec![(asset, source, 5u64).encode()],
+			"the dust a transfer burns must fire `burned`"
+		);
+	});
+}
+
+#[test]
 fn balance_change_callbacks_fire_on_refund_burn() {
 	build_and_execute(|| {
 		let asset = 0u32;

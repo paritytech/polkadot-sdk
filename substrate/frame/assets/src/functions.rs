@@ -757,6 +757,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			amount: credit,
 		});
 		T::CallbackHandle::transferred(&id, source, dest, credit);
+		if let Some(burn) = maybe_burn {
+			T::CallbackHandle::burned(&id, source, burn);
+		}
 		Ok((credit, source_died))
 	}
 
