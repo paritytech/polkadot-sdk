@@ -1533,3 +1533,115 @@ fn find_best_parent_returns_deepest_block() {
 	assert_eq!(&result.best_parent_header, last_block.header());
 	assert_eq!(&result.included_at_scheduling, included_block.header());
 }
+
+#[test]
+fn find_parent_computes_resubmittable_segment() {
+	sp_tracing::try_init_simple();
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+
+	// Included head, then two unincluded children A -> B on distinct relay parents.
+	let included_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		None,
+		None,
+		Some(relay_hash_from_block_num(10)),
+	);
+	let block_a = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		Some(included_block.header().hash()),
+		None,
+		Some(relay_hash_from_block_num(11)),
+	);
+	let block_b = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		Some(block_a.header().hash()),
+		None,
+		Some(relay_hash_from_block_num(12)),
+	);
+
+	let mut relay_chain = Relaychain::new();
+	let search_relay_parent = relay_hash_from_block_num(15);
+	relay_chain
+		.inner
+		.lock()
+		.unwrap()
+		.included_pvd_header_at
+		.insert(search_relay_parent, included_block.header().clone());
+	// V3 accepts A's and B's relay parents as ancestors of the scheduling parent.
+	relay_chain
+		.allowed_relay_parents_at
+		.entry(search_relay_parent)
+		.or_default()
+		.extend([relay_hash_from_block_num(11), relay_hash_from_block_num(12)]);
+
+	// V3: best parent is B, and the resubmittable segment is [A, B] — the unincluded chain above
+	// the included head, oldest first, exclusive of the start (included) block.
+	relay_chain.scheduling_lookahead = Some(3);
+	let result = block_on(find_parent_for_building(
+		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
+	))
+	.unwrap()
+	.expect("Should find a parent");
+	assert!(result.v3_enabled);
+	assert_eq!(result.best_parent_header.hash(), block_b.hash());
+	let segment: Vec<_> = result.resubmittable_segment.iter().map(|h| h.hash()).collect();
+	assert_eq!(segment, vec![block_a.hash(), block_b.hash()]);
+
+	// V2 never carries a resubmittable segment.
+	let result = block_on(find_parent_for_building(
+		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+	))
+	.unwrap()
+	.expect("Should find a parent");
+	assert!(!result.v3_enabled);
+	assert!(result.resubmittable_segment.is_empty());
+}
+
+#[test]
+fn resubmittable_segment_methods_stay_in_sync() {
+	let header = |number| {
+		Header::new(
+			number,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		)
+	};
+	let (included, a, b) = (header(0), header(1), header(2));
+
+	let mut result = ParentSearchResult::<Block> {
+		included_at_scheduling: included.clone(),
+		best_parent_header: b.clone(),
+		v3_enabled: true,
+		resubmittable_segment: vec![a.clone(), b.clone()],
+	};
+
+	// Walking the best parent back one block drops the matching segment tail.
+	result.walk_best_parent_back(a.clone());
+	assert_eq!(result.best_parent_header, a);
+	assert_eq!(result.resubmittable_segment, vec![a.clone()]);
+
+	// Falling back to the included head empties the segment.
+	result.fall_back_to_included();
+	assert_eq!(result.best_parent_header, included);
+	assert!(result.resubmittable_segment.is_empty());
+}
