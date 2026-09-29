@@ -280,6 +280,11 @@ pub mod pallet {
 		/// A due task that does not fit into this weight is removed with
 		/// [`Event::PermanentlyOverweight`]. Setting it to zero pauses the scheduler without
 		/// removing any task.
+		///
+		/// Tasks are serviced in `on_initialize` with the remaining block weight, capped at this
+		/// value. It should leave enough of the maximum block weight for the work done before the
+		/// scheduler runs, so that a block can give the scheduler all of it. A task that fits into
+		/// this weight but not into the weight left to the scheduler is postponed.
 		#[pallet::constant]
 		type MaximumWeight: Get<Weight>;
 

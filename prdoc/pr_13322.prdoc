@@ -10,6 +10,8 @@ doc:
     A due task whose service weight exceeds `MaximumWeight` is now removed with
     `PermanentlyOverweight`. Tasks that fit `MaximumWeight` but not the weight left in the current
     block are still postponed.
+    `MaximumWeight` should leave enough of the maximum block weight for the work done before the
+    scheduler runs.
 
     The weight budget of a block is treated as fresh only until the first task is serviced.
 - audience: Runtime User
