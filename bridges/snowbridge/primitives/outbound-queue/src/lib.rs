@@ -4,6 +4,7 @@
 //! # Outbound
 //!
 //! Common traits and types
+pub mod dispatch_gas;
 pub mod v1;
 pub mod v2;
 

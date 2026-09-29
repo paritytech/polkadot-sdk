@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! # Outbound V1 primitives
 
-use crate::{OperatingMode, SendError, SendMessageFeeProvider};
+use crate::{dispatch_gas, OperatingMode, SendError, SendMessageFeeProvider};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use ethabi::Token;
 use scale_info::TypeInfo;
@@ -329,48 +329,36 @@ pub trait GasMeter {
 	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64;
 }
 
-/// A meter that assigns a constant amount of gas for the execution of a command
+/// A meter that assigns a constant amount of gas for the execution of a command.
 ///
-/// The gas figures are extracted from this report:
-/// > forge test --match-path test/Gateway.t.sol --gas-report
-///
-/// A healthy buffer is added on top of these figures to account for:
-/// * The EIP-150 63/64 rule
-/// * Future EVM upgrades that may increase gas cost
+/// The ceilings live in [`crate::dispatch_gas`].
 pub struct ConstantGasMeter;
 
 impl GasMeter for ConstantGasMeter {
-	// The base transaction cost, which includes:
-	// 21_000 transaction cost, roughly worst case 64_000 for calldata, and 100_000
-	// for message verification
+	// Intrinsic gas, calldata and verification: about 120_000 for a real `submitV1` on
+	// Glamsterdam. Plus the smallest dispatch ceiling, it also covers the EIP-7976 calldata floor
+	// up to about 3.8 KB.
 	const MAXIMUM_BASE_GAS: u64 = 185_000;
 
 	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64 {
 		match command {
-			Command::SetOperatingMode { .. } => 40_000,
+			Command::SetOperatingMode { .. } => dispatch_gas::SET_OPERATING_MODE,
 			Command::AgentExecute { command, .. } => match command {
 				// Execute IERC20.transferFrom
-				//
-				// Worst-case assumptions are important:
-				// * No gas refund for clearing storage slot of source account in ERC20 contract
-				// * Assume dest account in ERC20 contract does not yet have a storage slot
-				// * ERC20.transferFrom possibly does other business logic besides updating balances
-				AgentExecuteCommand::TransferToken { .. } => 200_000,
+				AgentExecuteCommand::TransferToken { .. } => dispatch_gas::TRANSFER_TOKEN,
 			},
 			Command::Upgrade { initializer, .. } => {
 				let initializer_max_gas = match *initializer {
 					Some(Initializer { maximum_required_gas, .. }) => maximum_required_gas,
 					None => 0,
 				};
-				// total maximum gas must also include the gas used for updating the proxy before
-				// the the initializer is called.
-				50_000 + initializer_max_gas
+				dispatch_gas::UPGRADE_BASE + initializer_max_gas
 			},
-			Command::SetTokenTransferFees { .. } => 60_000,
-			Command::SetPricingParameters { .. } => 60_000,
-			Command::UnlockNativeToken { .. } => 200_000,
-			Command::RegisterForeignToken { .. } => 1_200_000,
-			Command::MintForeignToken { .. } => 100_000,
+			Command::SetTokenTransferFees { .. } => dispatch_gas::SET_TOKEN_TRANSFER_FEES,
+			Command::SetPricingParameters { .. } => dispatch_gas::SET_PRICING_PARAMETERS,
+			Command::UnlockNativeToken { .. } => dispatch_gas::UNLOCK_NATIVE_TOKEN,
+			Command::RegisterForeignToken { .. } => dispatch_gas::REGISTER_FOREIGN_TOKEN,
+			Command::MintForeignToken { .. } => dispatch_gas::MINT_FOREIGN_TOKEN,
 		}
 	}
 }
