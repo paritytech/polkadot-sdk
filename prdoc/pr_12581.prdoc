@@ -64,6 +64,9 @@ doc:
     mirrored, or the whole dispatch failing after its frames at fee settlement, which commits a
     receipt with no logs and an empty bloom. Before, such logs stayed in the receipt,
     `receipts_root` and `logs_bloom` while the state and events that produced them rolled back.
+    Keeping that state in storage rather than in memory is work a contract `LOG` now pays for:
+    `seal_deposit_event` roughly doubles in ref_time, and every gas estimate for a log-emitting
+    call rises with it.
 
     The cap is a backstop no block can reach. Buffering a log registers at least its encoded bytes
     as proof size, unchecked, whatever produced it — an assets extrinsic, a storage deposit settled

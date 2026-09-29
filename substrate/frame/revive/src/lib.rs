@@ -826,7 +826,13 @@ pub mod pallet {
 	/// What the open ethereum transaction has committed to its receipt, see
 	/// `block_storage::capture_into_receipt`. Taken when the transaction's receipt is built, so it
 	/// is empty between transactions.
+	///
+	/// Whitelisted like `frame_system::Events`: read and written on every log, yet never in a
+	/// block's pre-state, so a block pays one absence lookup for it however many logs it holds.
+	/// Without the whitelist the benchmark bills each `LOG` for that lookup as if it were the
+	/// first access of the block.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	pub(crate) type ReceiptLogsCommitted<T: Config> =
 		StorageValue<_, CommittedReceiptLogs, ValueQuery>;
 
