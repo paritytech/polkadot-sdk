@@ -16,9 +16,7 @@
 use super::*;
 use crate as pallet_validator_collators;
 use frame_support::{
-	derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, FindAuthor},
-	PalletId,
+	derive_impl, ord_parameter_types, parameter_types, traits::ConstU32, PalletId,
 };
 use frame_system::EnsureSignedBy;
 use pallet_collator_selection::IdentityCollator;
@@ -30,13 +28,10 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
-		Timestamp: pallet_timestamp,
 		Session: pallet_session,
-		Aura: pallet_aura,
 		Balances: pallet_balances,
 		CollatorSelection: pallet_collator_selection,
 		ValidatorCollators: pallet_validator_collators,
-		Authorship: pallet_authorship,
 	}
 );
 
@@ -54,36 +49,6 @@ parameter_types! {
 impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-}
-
-pub struct Author4;
-impl FindAuthor<u64> for Author4 {
-	fn find_author<'a, I>(_digests: I) -> Option<u64>
-	where
-		I: 'a + IntoIterator<Item = (frame_support::ConsensusEngineId, &'a [u8])>,
-	{
-		Some(4)
-	}
-}
-
-impl pallet_authorship::Config for Test {
-	type FindAuthor = Author4;
-	type EventHandler = CollatorSelection;
-}
-
-impl pallet_timestamp::Config for Test {
-	type Moment = u64;
-	type OnTimestampSet = Aura;
-	type MinimumPeriod = ConstU64<1>;
-	type WeightInfo = ();
-}
-
-impl pallet_aura::Config for Test {
-	type AuthorityId = sp_consensus_aura::sr25519::AuthorityId;
-	type MaxAuthorities = ConstU32<100_000>;
-	type DisabledValidators = ();
-	type AllowMultipleBlocksPerSlot = ConstBool<false>;
-	type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
 }
 
 sp_runtime::impl_opaque_keys! {

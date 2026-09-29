@@ -28,12 +28,8 @@ sp-staking = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-pallet-aura = { workspace = true, default-features = true }
-pallet-authorship = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-collator-selection = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
-sp-consensus-aura = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
@@ -47,7 +43,6 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
@@ -65,11 +60,8 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-aura/try-runtime",
-	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-session/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -63,7 +63,7 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 	let alice = Sr25519Keyring::Alice.to_account_id();
 	let bob = Sr25519Keyring::Bob.to_account_id();
 	let charlie = Sr25519Keyring::Charlie.to_account_id();
-	let validators = vec![alice.clone(), bob.clone(), charlie.clone()];
+	let validators = vec![alice.clone(), bob.clone(), charlie];
 	let expected = invulnerables()
 		.into_iter()
 		.chain([alice.clone(), bob.clone()])
@@ -115,13 +115,13 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 		type Session = pallet_session::Pallet<<AssetHubWestend as Chain>::Runtime>;
 		assert_eq!(Session::current_index(), asset_hub_session_before + 2);
 		assert_eq!(Session::validators(), expected);
-		assert!(!Session::validators().contains(&charlie));
 	});
+	// Every `execute_with` runs one block. People received the set in the block above, so it
+	// needs one more block than Asset Hub to reach the second rotation.
 	PeopleWestend::execute_with(|| {});
 	PeopleWestend::execute_with(|| {
 		type Session = pallet_session::Pallet<<PeopleWestend as Chain>::Runtime>;
 		assert_eq!(Session::current_index(), people_session_before + 2);
 		assert_eq!(Session::validators(), expected);
-		assert!(!Session::validators().contains(&charlie));
 	});
 }
