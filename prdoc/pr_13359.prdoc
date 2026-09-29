@@ -1,0 +1,39 @@
+title: 'Transfer on-demand coretime revenue to the broker pallet locally'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-on-demand-para` now books the revenue from the on-demand coretime orders it
+    sells, and hands it over to `pallet-broker`, replicating what the Relay Chain's
+    on-demand pallet does for the Coretime chain today.
+
+    The spot price paid for an order is kept in the pallet's pot and booked against
+    the Relay Chain block the order was placed at, so that the claimer can attribute
+    it to the right timeslice. The number of Relay Chain blocks tracked separately is
+    bounded by the new `MaxRevenueHistory` config item; once the history is full, new
+    revenue is merged into the most recent bucket rather than dropped.
+
+    `pallet-broker` claims that revenue once per timeslice through the new
+    `OnDemandRevenue` trait in `fp-coretime`, which `pallet-on-demand-para` implements,
+    and which its new `OnDemandRevenue` config item names. Since both pallets live on
+    the same chain there is no need for XCM: the funds are transferred straight into
+    the broker pot, and the revenue is distributed among the contributors to the
+    Instantaneous Coretime Pool within the same block. This replaces the round-trip in
+    which the Relay Chain teleports the revenue to the Coretime chain and reports it
+    with `notify_revenue`, so the payouts are ready one block earlier than they used
+    to be.
+
+    The market is assumed to always be local, so `pallet-broker` no longer calls
+    `CoretimeInterface::request_revenue_info_at`. The `notify_revenue` extrinsic and
+    the `RevenueInbox` storage item it fills are left in place for now and are removed
+    in a follow-up.
+
+    `pallet-on-demand` is also wired into the coretime-westend runtime.
+crates:
+- name: fp-coretime
+  bump: minor
+- name: pallet-broker
+  bump: major
+- name: pallet-on-demand
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
