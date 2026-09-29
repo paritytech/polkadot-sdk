@@ -83,7 +83,8 @@ where
 			}
 		}
 
-		Ok((Default::default(), Weight::zero(), origin))
+		// The authorize callback did not run, so its benchmarked weight is unspent.
+		Ok((Default::default(), call.weight_of_authorize(), origin))
 	}
 
 	fn prepare(
