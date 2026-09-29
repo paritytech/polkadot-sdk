@@ -444,7 +444,7 @@ pub trait LocalTransactionPool: Send + Sync {
 	) -> Result<Self::Hash, Self::Error>;
 }
 
-impl<T: LocalTransactionPool> LocalTransactionPool for Arc<T> {
+impl<T: LocalTransactionPool + ?Sized> LocalTransactionPool for Arc<T> {
 	type Block = T::Block;
 
 	type Hash = T::Hash;
@@ -472,7 +472,7 @@ trait OffchainSubmitTransaction<Block: BlockT>: Send + Sync {
 	fn submit_at(&self, at: Block::Hash, extrinsic: Block::Extrinsic) -> Result<(), ()>;
 }
 
-impl<TPool: LocalTransactionPool> OffchainSubmitTransaction<TPool::Block> for TPool {
+impl<TPool: LocalTransactionPool + ?Sized> OffchainSubmitTransaction<TPool::Block> for TPool {
 	fn submit_at(
 		&self,
 		at: <TPool::Block as BlockT>::Hash,

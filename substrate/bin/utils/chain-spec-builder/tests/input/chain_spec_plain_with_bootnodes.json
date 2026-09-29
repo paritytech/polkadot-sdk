@@ -1,0 +1,42 @@
+{
+  "name": "Custom",
+  "id": "custom",
+  "chainType": "Live",
+  "bootNodes": [
+    "/dns/node-0.example.com/tcp/30333/p2p/12D3KooW9vw7UNUYQtPWK3RS8eyhjJgp4qBwbbiirYQcWLw5bCsf",
+    "/dns/node-1.example.com/tcp/30333/p2p/12D3KooWAb5MyC1UJiEQJk4Hg4B2Vi3AJdqSUhTGYUqSnEqCFMFg"
+  ],
+  "telemetryEndpoints": null,
+  "protocolId": null,
+  "properties": {
+    "tokenDecimals": 12,
+    "tokenSymbol": "UNIT"
+  },
+  "relay_chain": "rococo-local",
+  "custom_field": "custom_value",
+  "codeSubstitutes": {},
+  "genesis": {
+    "runtimeGenesis": {
+      "code": "0x010203",
+      "config": {
+        "babe": {
+          "authorities": [],
+          "epochConfig": {
+            "allowed_slots": "PrimaryAndSecondaryVRFSlots",
+            "c": [
+              1,
+              4
+            ]
+          }
+        },
+        "balances": {
+          "balances": []
+        },
+        "substrateTest": {
+          "authorities": []
+        },
+        "system": {}
+      }
+    }
+  }
+}
