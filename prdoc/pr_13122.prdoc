@@ -2,7 +2,8 @@ title: 'Snowbridge: Ethereum Glamsterdam Upgrade Support'
 doc:
 - audience: Runtime Dev
   description: |-
-    Adds Gloas (Glamsterdam) support to the Snowbridge Ethereum beacon light client.
+    Adds Gloas (Glamsterdam) support to the Snowbridge Ethereum beacon light client, and raises
+    the outbound dispatch gas limits for the Glamsterdam gas schedule (EIP-8037, EIP-8038).
 
 crates:
 - name: snowbridge-beacon-primitives
@@ -14,6 +15,10 @@ crates:
 - name: snowbridge-pallet-inbound-queue
   bump: none
 - name: snowbridge-pallet-inbound-queue-v2
+  bump: none
+- name: snowbridge-outbound-queue-primitives
+  bump: minor
+- name: snowbridge-pallet-outbound-queue-v2
   bump: none
 - name: bridge-hub-rococo-runtime
   bump: patch
