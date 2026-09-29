@@ -98,7 +98,8 @@ pub mod pallet {
 		/// Sends an announced set to one destination.
 		type Sender: SendValidatorSet<Self::AccountId>;
 
-		/// Destinations every announced set is sent to.
+		/// The other system chains every announced set is sent to. This chain is served through
+		/// the receiver directly, before anything is queued.
 		type Destinations: Get<Vec<DestinationOf<Self>>>;
 
 		/// Weight information for this pallet.
