@@ -13,7 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Placeholder weights for `pallet_validator_set_announcer` until benchmarked in CI.
+//! Default weights for `pallet_validator_set_announcer`.
+//!
+//! Runtimes should use their own benchmarked weights.
 
 #![allow(unused_parens)]
 #![allow(unused_imports)]
@@ -30,35 +32,99 @@ pub trait WeightInfo {
 	fn send_announcements(n: u32) -> Weight;
 }
 
-/// Weights for `pallet_validator_set_announcer` using the Substrate node and recommended hardware.
+/// Default weights for `pallet_validator_set_announcer`, see the module doc for their source.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:1)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
+	/// added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:1 w:1)
+	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: None, `max_size`:
+	/// Some(9), added: 2484, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
+	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1),
+	/// added: 496, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
 	fn announce(n: u32) -> Weight {
-		Weight::from_parts(10_000_000, 1_500)
-			.saturating_add(Weight::from_parts(50_000, 32).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(4_u64))
+		Weight::from_parts(27_026_338, 33_491)
+			.saturating_add(Weight::from_parts(130_496, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:2 w:1)
+	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: None, `max_size`:
+	/// Some(9), added: 2484, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:0)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
+	/// added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	/// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added:
+	/// 2503, mode: `MaxEncodedLen`)
+	/// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
+	/// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode:
+	/// `Measured`)
+	/// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	/// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(2306),
+	/// added: 2801, mode: `MaxEncodedLen`)
+	/// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	/// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None,
+	/// mode: `Measured`)
+	/// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	/// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506),
+	/// added: 107981, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
 	fn send_announcements(n: u32) -> Weight {
-		Weight::from_parts(50_000_000, 1_500)
-			.saturating_add(Weight::from_parts(50_000, 32).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+		Weight::from_parts(49_926_666, 33_491)
+			.saturating_add(Weight::from_parts(135_383, 32).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(7_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 }
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:1)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
+	/// added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:1 w:1)
+	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: None, `max_size`:
+	/// Some(9), added: 2484, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
+	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1),
+	/// added: 496, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
 	fn announce(n: u32) -> Weight {
-		Weight::from_parts(10_000_000, 1_500)
-			.saturating_add(Weight::from_parts(50_000, 32).saturating_mul(n.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(4_u64))
+		Weight::from_parts(27_026_338, 33_491)
+			.saturating_add(Weight::from_parts(130_496, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
+	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:2 w:1)
+	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: None, `max_size`:
+	/// Some(9), added: 2484, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:0)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
+	/// added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	/// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added:
+	/// 2503, mode: `MaxEncodedLen`)
+	/// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
+	/// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode:
+	/// `Measured`)
+	/// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	/// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(2306),
+	/// added: 2801, mode: `MaxEncodedLen`)
+	/// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	/// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None,
+	/// mode: `Measured`)
+	/// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	/// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506),
+	/// added: 107981, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
 	fn send_announcements(n: u32) -> Weight {
-		Weight::from_parts(50_000_000, 1_500)
-			.saturating_add(Weight::from_parts(50_000, 32).saturating_mul(n.into()))
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+		Weight::from_parts(49_926_666, 33_491)
+			.saturating_add(Weight::from_parts(135_383, 32).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 }

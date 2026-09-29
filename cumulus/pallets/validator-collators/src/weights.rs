@@ -13,7 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Placeholder weights for `pallet_validator_collators` until benchmarked in CI.
+//! Default weights for `pallet_validator_collators`.
+//!
+//! Runtimes should use their own benchmarked weights.
 
 #![allow(unused_parens)]
 #![allow(unused_imports)]
@@ -30,29 +32,49 @@ pub trait WeightInfo {
 	fn set_max_collators() -> Weight;
 }
 
-/// Weights for `pallet_validator_collators` using the Substrate node and recommended hardware.
+/// Default weights for `pallet_validator_collators`, see the module doc for their source.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:1)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
+	/// added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
+	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1),
+	/// added: 496, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
 	fn set_validators(n: u32) -> Weight {
-		Weight::from_parts(10_000_000, 1_500)
-			.saturating_add(Weight::from_parts(50_000, 32).saturating_mul(n.into()))
+		Weight::from_parts(21_223_720, 33_491)
+			.saturating_add(Weight::from_parts(134_848, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+	/// Storage: `ValidatorCollators::MaxCollators` (r:0 w:1)
+	/// Proof: `ValidatorCollators::MaxCollators` (`max_values`: Some(1), `max_size`: Some(4),
+	/// added: 499, mode: `MaxEncodedLen`)
 	fn set_max_collators() -> Weight {
-		Weight::from_parts(5_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
+		Weight::from_parts(5_786_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:1)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
+	/// added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
+	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1),
+	/// added: 496, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
 	fn set_validators(n: u32) -> Weight {
-		Weight::from_parts(10_000_000, 1_500)
-			.saturating_add(Weight::from_parts(50_000, 32).saturating_mul(n.into()))
+		Weight::from_parts(21_223_720, 33_491)
+			.saturating_add(Weight::from_parts(134_848, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
+	/// Storage: `ValidatorCollators::MaxCollators` (r:0 w:1)
+	/// Proof: `ValidatorCollators::MaxCollators` (`max_values`: Some(1), `max_size`: Some(4),
+	/// added: 499, mode: `MaxEncodedLen`)
 	fn set_max_collators() -> Weight {
-		Weight::from_parts(5_000_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
+		Weight::from_parts(5_786_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
