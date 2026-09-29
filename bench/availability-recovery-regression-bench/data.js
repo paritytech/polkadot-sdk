@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790683793553,
+  "lastUpdate": 1790695845139,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a1eb95e6ee1b2568ea49902a66ce648dbc3807c5",
-          "message": "Add CandidateDescriptorV3 support to experimental validator (#11306)\n\nAdds CandidateDescriptorV3 support to the experimental validator-side\ncollator protocol.\n\nFixes: #11084\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-24T10:25:14Z",
-          "tree_id": "3c94cdb2153b3f99069e4517571cafe050b74f0b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a1eb95e6ee1b2568ea49902a66ce648dbc3807c5"
-        },
-        "date": 1774352674995,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.183590648333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12369298156666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1399285885,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3e5f1af2f62cf4b5997934cc3601be35c9005ee2",
+          "message": "try state hook for pallet grandpa (#12422)\n\nThis PR introduces try state hook for grandpa pallet. It also defines\nthe invariants that holds for the pallet.\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>",
+          "timestamp": "2026-09-29T10:20:26Z",
+          "tree_id": "5a010da1fde702391053484abe01f6659b8c4924",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3e5f1af2f62cf4b5997934cc3601be35c9005ee2"
+        },
+        "date": 1790695812803,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.191193480333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13912450913333332,
             "unit": "seconds"
           }
         ]
