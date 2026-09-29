@@ -26,6 +26,7 @@ use super::{
 };
 use async_trait::async_trait;
 use codec::Encode;
+use cumulus_primitives_aura::Slot;
 use cumulus_primitives_core::{ClaimQueueOffset, CoreInfo, CoreSelector};
 use cumulus_relay_chain_interface::*;
 use cumulus_test_client::runtime::Block;
@@ -785,6 +786,8 @@ fn hedge_context<'a>(
 		para_id: ParaId::from(1),
 		claim_queue_offset: 0,
 		core_indices: &HEDGE_CORES,
+		// `hedge_base_and_chosen` puts `chosen` at BABE slot 101.
+		production_slot: Slot::from(102),
 	}
 }
 

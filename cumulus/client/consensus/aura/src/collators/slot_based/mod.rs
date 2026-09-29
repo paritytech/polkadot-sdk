@@ -309,14 +309,12 @@ enum CollatorMessage<Block: BlockT> {
 /// `CollationGenerationMessage::SubmitSegment` by the collation task.
 ///
 /// The collation task prepends the resubmitted unincluded segment (hydrated from
-/// `unincluded_headers`) to the freshly-built `bundle`, then submits one `SubmitSegment` per
-/// scheduling proof, all over that same entry list.
+/// `unincluded_headers`) to the freshly-built `bundle`, submits it once for `scheduling_proof`,
+/// then re-hydrates from the same headers for each `hedged_proofs` entry.
 struct CollatorSegmentMessage<Block: BlockT> {
-	/// Proof for the chosen scheduling parent. Split from `hedged_proofs` so that "at least one
-	/// proof" and "the chosen one is submitted first" hold by construction.
+	/// Proof for the chosen scheduling parent; submitted first.
 	pub scheduling_proof: SchedulingProof,
-	/// One proof per hedged sibling scheduling parent, submitted over the same entries after the
-	/// chosen one.
+	/// One proof per hedged sibling scheduling parent, submitted after the chosen one.
 	pub hedged_proofs: Vec<SchedulingProof>,
 	/// Target core for the whole segment submission.
 	pub core_index: CoreIndex,
@@ -332,7 +330,6 @@ struct CollatorSegmentMessage<Block: BlockT> {
 /// One entry of a [`CollatorSegmentMessage`]. Each entry produces one `SegmentCollation`
 /// (one PoV / one candidate on the relay chain), and may still bundle multiple parablocks
 /// inside its PoV via `build_multi_block_collation`.
-#[derive(Clone)]
 struct CollatorSegmentEntry<Block: BlockT> {
 	/// The hash of the relay chain block that provides the context for the parachain block(s).
 	pub relay_parent: RelayHash,
@@ -341,7 +338,7 @@ struct CollatorSegmentEntry<Block: BlockT> {
 	/// The built blocks bundled into this entry.
 	pub blocks: Vec<Block>,
 	/// The storage proof collected while building all of `blocks`.
-	pub proof: Arc<StorageProof>,
+	pub proof: StorageProof,
 	/// The validation code hash at the parent block.
 	pub validation_code_hash: ValidationCodeHash,
 	/// The persisted validation data for this entry.
