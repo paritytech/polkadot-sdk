@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790638939052,
+  "lastUpdate": 1790684004996,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "eb1506a9eda06950447ce2e6297c7c17a445183d",
-          "message": "[pallet-assets-precompiles] add foreign assets instance to kitchensink (#11460)\n\n## Summary\n\n- Set `CallbackHandle =\n(pallet_assets_precompiles::ForeignAssetId<Runtime, Instance1>,)`\n  in `pallet_assets::Config<Instance1>` for the kitchensink runtime.\n- Asset creation (`create`, `force_create`) now automatically populates\na sequential\n  foreign asset index mapping. Asset destruction cleans it up.\n\n## Test plan\n\n- [x] Run [end-to-end\ntests](https://github.com/paritytech/evm-test-suite/pull/142) (requires\nsubstrate-node, eth-rpc, node, cast)\n- [x] Revert CallbackHandle to `()` and confirm end-to-end tests fail\n\n\nAlternatively run this bashscript for testing:\nhttps://gist.github.com/0xRVE/99bbc5ec7fcabeb54e3b797bd4cc97c8\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-23T12:20:10Z",
-          "tree_id": "12ec8c7cb0eadb8036a66334890c73f24a2064cb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eb1506a9eda06950447ce2e6297c7c17a445183d"
-        },
-        "date": 1774273499357,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009695039499999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002640733679999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010588667379999984,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011001558319999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "38c00a18e68620ebe3324116757ca5f424b2e0f8",
+          "message": "cumulus: submit V2/V3 collations as segments (#13312)\n\n# Description\n\nReworks the slot-based collator to submit every collation through the\nsegment path (CollationGenerationMessage::SubmitSegment), and shares the\nUMP scheduling-signal logic between the PVF and the collator so the two\ncan't drift.\n\n### What changes\n\n- One submission path. A single V2 collation is submitted as a\none-element V2 segment (no scheduling proof, scheduling parent = relay\nparent); a V3 segment carries the shared scheduling proof and its\nscheduling parent comes from the proof. No more separate V2/V3 code\npaths in the collation task.\n- Builder → collator protocol module (message.rs). CollatorMessage\n(Collation | Segment) is the channel payload — pure data — with\nCollationParts (the block builder's per-collation output) and\nCollatorMessageBuilder. Assembling and submitting a message is the\ncollation task's job, via the new CollationSubmitter.\n- Shared SchedulingSignals. Moved from parachain-system/validate_block\ninto cumulus-primitives-core, so the PVF (validate_block) and the\ncollator apply the same UMP scheduling tail.\n\n### Notes\n\n- message.rs leaves room for the resubmission work (a\nresubmittable_headers slot on Segment) without implementing it here.\n- No behavior change to what validators receive for a plain V2 collation\n— it's the same bytes, now routed through the segment API.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-09-29T09:30:51Z",
+          "tree_id": "4cb52a1aa3574e65593a1711dfd9a6473a2560ba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/38c00a18e68620ebe3324116757ca5f424b2e0f8"
+        },
+        "date": 1790683974824,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009687066129999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026014329600000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009254693709999977,
             "unit": "seconds"
           }
         ]
