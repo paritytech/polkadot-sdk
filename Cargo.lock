@@ -4353,6 +4353,7 @@ dependencies = [
  "frame-support",
  "pallet-broker",
  "pallet-message-queue",
+ "pallet-on-demand-para",
  "polkadot-runtime-parachains",
  "sp-runtime 31.0.1",
  "staging-xcm",
