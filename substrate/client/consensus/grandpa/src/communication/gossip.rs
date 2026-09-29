@@ -1623,13 +1623,9 @@ impl<Block: BlockT> sc_network_gossip::Validator<Block> for GossipValidator<Bloc
 			match GossipMessage::<Block>::decode_all(&mut data) {
 				Err(_) => false,
 				Ok(GossipMessage::Commit(full)) => {
-					// we only broadcast commit messages if they're for the same
-					// set the peer is in and if the commit is better than the
-					// last received by peer, additionally we make sure to only
-					// broadcast our best commit.
-					peer.view.consider_global(set_id, full.message.target_number) ==
-						Consider::Accept && Some(&full.message.target_number) ==
-						local_view.last_commit_height()
+					// only broadcast our best commit, the peer accepting its height
+					// was checked above.
+					full.message.target_number == *best_commit_height
 				},
 				Ok(GossipMessage::Neighbor(_)) => false,
 				Ok(GossipMessage::CatchUpRequest(_)) => false,
