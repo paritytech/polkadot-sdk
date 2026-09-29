@@ -95,6 +95,7 @@ pub trait WeightInfo {
 	fn unmap_account() -> Weight;
 	fn batch_map_accounts(a: u32, ) -> Weight;
 	fn dispatch_as_fallback_account() -> Weight;
+	fn set_origin_substrate_tx() -> Weight;
 	fn noop_host_fn(r: u32, ) -> Weight;
 	fn seal_caller() -> Weight;
 	fn seal_origin() -> Weight;
@@ -686,6 +687,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 18_748_000 picoseconds.
 		Weight::from_parts(20_250_000, 3846)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
+	}
+	/// Storage: `Revive::SubstrateTxSigner` (r:0 w:1)
+	/// Proof: `Revive::SubstrateTxSigner` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `Measured`)
+	fn set_origin_substrate_tx() -> Weight {
+		Weight::from_parts(3_000_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// The range of component `r` is `[0, 1600]`.
 	fn noop_host_fn(r: u32, ) -> Weight {
@@ -2308,6 +2315,12 @@ impl WeightInfo for () {
 		// Minimum execution time: 18_748_000 picoseconds.
 		Weight::from_parts(20_250_000, 3846)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
+	}
+	/// Storage: `Revive::SubstrateTxSigner` (r:0 w:1)
+	/// Proof: `Revive::SubstrateTxSigner` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `Measured`)
+	fn set_origin_substrate_tx() -> Weight {
+		Weight::from_parts(3_000_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// The range of component `r` is `[0, 1600]`.
 	fn noop_host_fn(r: u32, ) -> Weight {

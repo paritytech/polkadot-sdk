@@ -603,6 +603,12 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 3767))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
+	/// Storage: `Revive::SubstrateTxSigner` (r:0 w:1)
+	/// Proof: `Revive::SubstrateTxSigner` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `Measured`)
+	fn set_origin_substrate_tx() -> Weight {
+		Weight::from_parts(3_000_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// The range of component `r` is `[0, 1600]`.
 	fn noop_host_fn(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:

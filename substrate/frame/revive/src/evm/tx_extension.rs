@@ -17,20 +17,26 @@
 
 //! Contains transaction extensions needed for ethereum compatability.
 
-use crate::{CallOf, Config, Origin, OriginFor};
+use crate::{CallOf, Config, Origin, OriginFor, SubstrateTxSigner, WeightInfo};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	DebugNoBound, DefaultNoBound,
 	pallet_prelude::{InvalidTransaction, TransactionSource},
+	traits::OriginTrait,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	Weight, impl_tx_ext_default,
-	traits::{DispatchInfoOf, TransactionExtension, ValidateResult},
+	DispatchResult, Weight,
+	traits::{DispatchInfoOf, PostDispatchInfoOf, TransactionExtension, ValidateResult},
+	transaction_validity::TransactionValidityError,
 };
 
 /// An extension that sets the origin to [`Origin::EthTransaction`] in case it originated from an
 /// eth transaction.
+///
+/// For a signed substrate transaction it records the signer in `SubstrateTxSigner` for the
+/// duration of the dispatch. The pallet needs it to tell whether a signed origin had its nonce
+/// consumed by `CheckNonce`.
 ///
 /// This extension needs to be put behind any other extension that relies on a signed origin.
 #[derive(
@@ -68,11 +74,16 @@ where
 {
 	const IDENTIFIER: &'static str = "EthSetOrigin";
 	type Implicit = ();
-	type Pre = ();
+	/// Whether the signer was recorded and needs to be removed after dispatch.
+	type Pre = bool;
 	type Val = ();
 
 	fn weight(&self, _: &CallOf<T>) -> Weight {
-		Default::default()
+		if self.is_eth_transaction {
+			Weight::zero()
+		} else {
+			T::WeightInfo::set_origin_substrate_tx()
+		}
 	}
 
 	fn validate(
@@ -95,5 +106,34 @@ where
 		Ok((Default::default(), Default::default(), origin))
 	}
 
-	impl_tx_ext_default!(CallOf<T>; prepare);
+	fn prepare(
+		self,
+		_val: Self::Val,
+		origin: &OriginFor<T>,
+		_call: &CallOf<T>,
+		_info: &DispatchInfoOf<CallOf<T>>,
+		_len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		if self.is_eth_transaction {
+			return Ok(false);
+		}
+		let Some(signer) = origin.as_signer() else { return Ok(false) };
+		SubstrateTxSigner::<T>::put(signer);
+		Ok(true)
+	}
+
+	fn post_dispatch_details(
+		pre: Self::Pre,
+		_info: &DispatchInfoOf<CallOf<T>>,
+		_post_info: &PostDispatchInfoOf<CallOf<T>>,
+		_len: usize,
+		_result: &DispatchResult,
+	) -> Result<Weight, TransactionValidityError> {
+		if pre {
+			SubstrateTxSigner::<T>::kill();
+			Ok(Weight::zero())
+		} else {
+			Ok(T::WeightInfo::set_origin_substrate_tx())
+		}
+	}
 }

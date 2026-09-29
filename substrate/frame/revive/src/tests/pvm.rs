@@ -310,40 +310,50 @@ fn create1_address_from_extrinsic() {
 	let (binary, code_hash) = compile_module("dummy").unwrap();
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000_000);
+		let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
 
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
 			binary.clone(),
 			deposit_limit::<Test>(),
 		));
-
 		assert_eq!(System::account_nonce(&ALICE), 0);
-		System::inc_account_nonce(&ALICE);
 
-		for nonce in 1..3 {
-			let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash))
-				.salt(None)
-				.build_and_unwrap_contract();
-			assert!(AccountInfoOf::<Test>::contains_key(&addr));
-			assert_eq!(
-				addr,
-				create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce - 1)
-			);
+		// The contract lands at the nonce the extrinsic was signed with, which is consumed
+		// exactly once.
+		for nonce in 0..2 {
+			assert_ok!(dispatch_signed_tx(
+				&ALICE,
+				RuntimeCall::Contracts(crate::Call::instantiate {
+					value: 0,
+					weight_limit: WEIGHT_LIMIT,
+					storage_deposit_limit: deposit_limit::<Test>(),
+					code_hash,
+					data: vec![],
+					salt: None,
+				}),
+			));
+			assert!(get_contract_checked(&create1(&deployer, nonce.into())).is_some());
+			assert_eq!(System::account_nonce(&ALICE), nonce + 1);
 		}
-		assert_eq!(System::account_nonce(&ALICE), 3);
 
-		for nonce in 3..6 {
-			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary.clone()))
-				.salt(None)
-				.build_and_unwrap_contract();
-			assert!(AccountInfoOf::<Test>::contains_key(&addr));
-			assert_eq!(
-				addr,
-				create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce - 1)
-			);
+		for nonce in 2..5 {
+			assert_ok!(dispatch_signed_tx(
+				&ALICE,
+				RuntimeCall::Contracts(crate::Call::instantiate_with_code {
+					value: 0,
+					weight_limit: WEIGHT_LIMIT,
+					storage_deposit_limit: deposit_limit::<Test>(),
+					code: binary.clone(),
+					data: vec![],
+					salt: None,
+				}),
+			));
+			assert!(get_contract_checked(&create1(&deployer, nonce.into())).is_some());
+			assert_eq!(System::account_nonce(&ALICE), nonce + 1);
 		}
-		assert_eq!(System::account_nonce(&ALICE), 6);
+		assert!(!crate::SubstrateTxSigner::<Test>::exists());
 	});
 }
 
@@ -4661,7 +4671,7 @@ fn prestate_tracing_works() {
 							},
 						),
 						(
-							create1(&ALICE_ADDR, 1),
+							create1(&ALICE_ADDR, 2),
 							PrestateTraceInfo {
 								code: Some(dummy_code.clone().into()),
 								balance: Some(U256::from(0)),

@@ -813,6 +813,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings, ValueQuery>;
 
+	/// The signer of the substrate transaction currently being dispatched.
+	///
+	/// Set by [`crate::evm::tx_extension::SetOrigin`] and removed once the transaction is
+	/// dispatched, so it never persists past a transaction. A signed origin is only known to be
+	/// the signer, whose nonce `CheckNonce` already consumed, if it matches this value. The first
+	/// top level instantiation by the signer takes the value, so that later instantiations in
+	/// the same transaction consume nonces of their own.
+	#[pallet::storage]
+	pub(crate) type SubstrateTxSigner<T: Config> = StorageValue<_, T::AccountId>;
+
 	pub mod genesis {
 		use super::*;
 		use crate::evm::Bytes32;
@@ -1846,9 +1856,10 @@ impl<T: Config> Pallet<T> {
 	/// This function is public because it is called by the runtime API implementation
 	/// (see `impl_runtime_apis_plus_revive`).
 	pub fn prepare_dry_run(account: &T::AccountId) {
-		// Bump the  nonce to simulate what would happen
+		// Bump the  nonce and record the signer to simulate what would happen
 		// `pre-dispatch` if the transaction was executed.
 		frame_system::Pallet::<T>::inc_account_nonce(account);
+		SubstrateTxSigner::<T>::put(account);
 
 		// Map the account if it is not mapped already so we don't hit
 		// `AccountUnmapped` from the origin when dry-running.
