@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790695894958,
+  "lastUpdate": 1790701528814,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a1eb95e6ee1b2568ea49902a66ce648dbc3807c5",
-          "message": "Add CandidateDescriptorV3 support to experimental validator (#11306)\n\nAdds CandidateDescriptorV3 support to the experimental validator-side\ncollator protocol.\n\nFixes: #11084\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-24T10:25:14Z",
-          "tree_id": "3c94cdb2153b3f99069e4517571cafe050b74f0b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a1eb95e6ee1b2568ea49902a66ce648dbc3807c5"
-        },
-        "date": 1774352711871,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006851524806666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024277425806666662,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14721904100666677,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010022613686666643,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007503716353333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c09e4690a08fa3beca53e1fe8e6b7125a0224315",
+          "message": "try state hook for pallet core fellowship (#12419)\n\nThis PR introduces try state hook into the Core Fellowship Pallet. It\nalso defines the invariants that holds for the pallet.\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2026-09-29T15:29:20Z",
+          "tree_id": "87194736b2979f5f2c03a19e76bb7f0fb4e24988",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c09e4690a08fa3beca53e1fe8e6b7125a0224315"
+        },
+        "date": 1790701494653,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1424962430333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009931164019999968,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0074421344799999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02533827050666667,
             "unit": "seconds"
           }
         ]
