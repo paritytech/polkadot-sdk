@@ -93,8 +93,8 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
-				RuntimeEvent::ValidatorCollators(
-					pallet_validator_collators::Event::AnnouncementSent { era: 1, .. }
+				RuntimeEvent::ValidatorSetAnnouncer(
+					pallet_validator_set_announcer::Event::AnnouncementSent { era: 1, .. }
 				) => {},
 			]
 		);
@@ -149,8 +149,8 @@ fn full_size_validator_set_is_delivered_from_asset_hub_to_people() {
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
-				RuntimeEvent::ValidatorCollators(
-					pallet_validator_collators::Event::AnnouncementSent { era: 1, .. }
+				RuntimeEvent::ValidatorSetAnnouncer(
+					pallet_validator_set_announcer::Event::AnnouncementSent { era: 1, .. }
 				) => {},
 			]
 		);

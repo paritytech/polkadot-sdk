@@ -1,0 +1,79 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Weights for `pallet_validator_set_announcer`
+//!
+//! Carried over from the bench-bot output for `pallet_validator_collators` on this runtime, from
+//! before the announcer was split out. They stand in until `/cmd bench` runs for this pallet.
+
+#![cfg_attr(rustfmt, rustfmt_skip)]
+#![allow(unused_parens)]
+#![allow(unused_imports)]
+#![allow(missing_docs)]
+
+use frame_support::{traits::Get, weights::Weight};
+use core::marker::PhantomData;
+
+/// Weight functions for `pallet_validator_set_announcer`.
+pub struct WeightInfo<T>(PhantomData<T>);
+impl<T: frame_system::Config> pallet_validator_set_announcer::WeightInfo for WeightInfo<T> {
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:1)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006), added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:1 w:1)
+	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: None, `max_size`: Some(9), added: 2484, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
+	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
+	fn announce(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `32088`
+		//  Estimated: `33491`
+		// Minimum execution time: 28_054_000 picoseconds.
+		Weight::from_parts(24_744_613, 0)
+			.saturating_add(Weight::from_parts(0, 33491))
+			// Standard Error: 105
+			.saturating_add(Weight::from_parts(127_565, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:2 w:1)
+	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: None, `max_size`: Some(9), added: 2484, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:0)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006), added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	/// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
+	/// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
+	/// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	/// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(2306), added: 2801, mode: `MaxEncodedLen`)
+	/// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	/// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	/// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
+	fn send_announcements(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `320 + n * (32 ±0)`
+		//  Estimated: `33491 + n * (32 ±0)`
+		// Minimum execution time: 41_214_000 picoseconds.
+		Weight::from_parts(48_368_963, 0)
+			.saturating_add(Weight::from_parts(0, 33491))
+			// Standard Error: 90
+			.saturating_add(Weight::from_parts(134_457, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(Weight::from_parts(0, 32).saturating_mul(n.into()))
+	}
+}

@@ -2,28 +2,35 @@ title: 'pallet-validator-collators: relay-chain validators as system chain colla
 doc:
 - audience: Runtime Dev
   description: |-
-    Adds `pallet-validator-collators`, a second session manager for system chains. It stores
-    the active validator set of each era and returns its validators with registered keys as
-    collators, next to `pallet-collator-selection` through `UnionSessionManager`, a new
-    combinator in `pallet-session` that merges the sets of two session managers. A new set
-    forces two session rotations so it takes effect within two blocks. On Asset Hub the
-    pallet also sends the set to the other system chains, with retries.
+    Adds `pallet-validator-collators`, a second session manager that runs on every system
+    chain. It stores the validator set Asset Hub announces for each era and returns its
+    validators with registered keys as collators, next to `pallet-collator-selection` through
+    `UnionSessionManager`, a new combinator in `pallet-session` that merges the sets of two
+    session managers. A new set forces two session rotations so it takes effect within two
+    blocks.
+
+    Adds `pallet-validator-set-announcer`, which runs on Asset Hub only. It applies the set of
+    each era locally and sends it to the other system chains, retrying until it is sent or
+    replaced.
 
     `pallet-staking-async` gains the `OnEraStart` config item, called with the validators of
     each era when it becomes active. Use `()` to keep the previous behaviour at no cost.
 
-    Asset Hub Westend and People Westend use the new pallet. Asset Hub announces every new
-    era to itself and to People. The pallet and call index of People's `set_validators` are
-    hard-coded on Asset Hub, and the two runtimes share the validator bound.
+    People Westend uses the receiver, and Asset Hub Westend uses both pallets. Asset Hub
+    announces every new era to itself and to People. The pallet and call index of People's
+    `set_validators` are hard-coded on Asset Hub, and the two runtimes share the validator
+    bound.
 crates:
 - name: pallet-validator-collators
+  bump: major
+- name: pallet-validator-set-announcer
   bump: major
 # `OnEraStart` is a new required config item and `NextEraValidators` is new storage.
 - name: pallet-staking-async
   bump: major
 - name: pallet-session
   bump: minor
-# Adding the pallet changes the runtimes' public `PalletInstancesInfo` type.
+# Adding the pallets changes the runtimes' public `PalletInstancesInfo` type.
 - name: asset-hub-westend-runtime
   bump: major
 - name: people-westend-runtime

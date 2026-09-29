@@ -1082,8 +1082,9 @@ pub mod pallet {
 	/// relay chain until the era starts, for [`Config::OnEraStart`].
 	///
 	/// Only written when [`OnEraStart::enabled`] is true. An upgrade that switches the hook off
-	/// while a copy exists must remove this item once, since nothing takes it afterwards. The
-	/// first era that starts after the upgrade enabling the hook has no copy and is not notified.
+	/// while a copy exists must remove this item once, since nothing takes it afterwards. An era
+	/// whose set was handed to the relay chain before the hook was enabled has no copy and is not
+	/// notified.
 	#[pallet::storage]
 	pub type NextEraValidators<T: Config> =
 		StorageValue<_, (EraIndex, BoundedVec<T::AccountId, T::MaxValidatorSet>), OptionQuery>;

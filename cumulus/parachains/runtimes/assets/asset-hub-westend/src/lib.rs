@@ -1185,14 +1185,20 @@ impl pallet_collator_selection::Config for Runtime {
 
 impl pallet_validator_collators::Config for Runtime {
 	// The set is written only by the staking era-start hook.
+	// The generated weight of `set_validators` is zero here because the call cannot dispatch, so
+	// re-benchmark if this origin ever changes.
 	type SetOrigin = frame_system::EnsureNever<AccountId>;
 	type UpdateOrigin = CollatorSelectionUpdateOrigin;
 	type ValidatorRegistration = Session;
 	type MaxValidators = staking::MaxValidatorSet;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
+}
+
+impl pallet_validator_set_announcer::Config for Runtime {
 	type Sender = staking::ValidatorSetToSystemChains;
 	type Destinations = staking::ValidatorSetDestinations;
-	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_validator_set_announcer::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1679,6 +1685,7 @@ construct_runtime!(
 		Aura: pallet_aura = 23,
 		AuraExt: cumulus_pallet_aura_ext = 24,
 		ValidatorCollators: pallet_validator_collators = 25,
+		ValidatorSetAnnouncer: pallet_validator_set_announcer = 26,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
@@ -1989,6 +1996,7 @@ mod benches {
 		[pallet_transaction_payment, TransactionPayment]
 		[pallet_collator_selection, CollatorSelection]
 		[pallet_validator_collators, ValidatorCollators]
+		[pallet_validator_set_announcer, ValidatorSetAnnouncer]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_treasury, Treasury]

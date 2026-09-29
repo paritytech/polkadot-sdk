@@ -455,8 +455,6 @@ impl pallet_validator_collators::Config for Runtime {
 	type MaxValidators =
 		ConstU32<{ testnet_parachains_constants::westend::staking::MAX_VALIDATOR_SET }>;
 	type PeriodicSession = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
-	type Sender = ();
-	type Destinations = ();
 	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }
 

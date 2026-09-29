@@ -452,11 +452,11 @@ pub struct AnnounceValidatorSet;
 impl pallet_staking_async::OnEraStart<AccountId> for AnnounceValidatorSet {
 	fn on_era_start(era: EraIndex, validators: &[AccountId]) {
 		// A rejected set is reported by the pallet with `AnnouncementRejected`.
-		let _ = ValidatorCollators::announce(era, validators);
+		let _ = ValidatorSetAnnouncer::announce(era, validators);
 	}
 
 	fn weight(validators: u32) -> Weight {
-		ValidatorCollators::announce_weight(validators)
+		ValidatorSetAnnouncer::announce_weight(validators)
 	}
 }
 
@@ -489,7 +489,7 @@ enum ValidatorCollatorsCalls {
 
 /// Sends the validator set to a system chain as an unpaid `Transact` of `set_validators`.
 pub struct ValidatorSetToSystemChains;
-impl pallet_validator_collators::SendValidatorSet<AccountId> for ValidatorSetToSystemChains {
+impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSetToSystemChains {
 	type Destination = ValidatorSetDestination;
 
 	fn send(
@@ -510,8 +510,8 @@ impl pallet_validator_collators::SendValidatorSet<AccountId> for ValidatorSetToS
 		send_xcm::<xcm_config::XcmRouter>(location, rc_client::build_transact_xcm(call))
 			.map(|_| ())
 			.map_err(|error| {
-				log::error!(
-					target: "runtime::validator-collators",
+				log::warn!(
+					target: "runtime::validator-set-announcer",
 					"failed to send the validator set of era {era} to {destination:?}: {error:?}",
 				);
 			})

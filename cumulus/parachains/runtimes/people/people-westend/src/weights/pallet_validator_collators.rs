@@ -78,32 +78,4 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:1)
-	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006), added: 32501, mode: `MaxEncodedLen`)
-	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
-	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
-	/// The range of component `n` is `[1, 1000]`.
-	fn announce(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `32059`
-		//  Estimated: `33491`
-		// Minimum execution time: 24_423_000 picoseconds.
-		Weight::from_parts(21_136_920, 0)
-			.saturating_add(Weight::from_parts(0, 33491))
-			// Standard Error: 96
-			.saturating_add(Weight::from_parts(127_191, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
-	/// The range of component `n` is `[1, 1000]`.
-	fn send_announcements(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 194_000 picoseconds.
-		Weight::from_parts(252_553, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 0
-			.saturating_add(Weight::from_parts(13, 0).saturating_mul(n.into()))
-	}
 }
