@@ -17,9 +17,6 @@
 
 //! A [`ResubmittableSegment`] of V3 parablock headers, hydrated into [`CollationParts`] from
 //! local state only.
-//!
-//! Dead until the collation task wires it in; the allow comes off then.
-#![allow(dead_code)]
 
 use super::message::CollationParts;
 use codec::Decode;
@@ -194,12 +191,12 @@ where
 	// Anchor on the first block; its store row carries the shared relay parent, session and header.
 	let first_hash = bundle[0].hash();
 	let validation_data = read_validation_data(para_backend, first_hash)?;
-	let relay_parent = store
+	let anchor = store
 		.load(first_hash)
 		.map_err(HydrateError::StoreLoad)?
-		.ok_or(HydrateError::StoredEntryMissing)?
-		.relay_parent_header
-		.hash();
+		.ok_or(HydrateError::StoredEntryMissing)?;
+	let relay_parent_header = anchor.relay_parent_header;
+	let relay_parent = relay_parent_header.hash();
 
 	let mut blocks = Vec::with_capacity(bundle.len());
 	let mut proofs = Vec::with_capacity(bundle.len());
@@ -227,6 +224,9 @@ where
 		proof: StorageProof::merge(proofs),
 		validation_code_hash,
 		validation_data,
+		relay_parent_session: anchor.relay_parent_session,
+		relay_parent_storage_root: *relay_parent_header.state_root(),
+		relay_parent_number: *relay_parent_header.number(),
 	})
 }
 

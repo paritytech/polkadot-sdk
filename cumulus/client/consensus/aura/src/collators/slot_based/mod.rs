@@ -189,7 +189,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
 	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
-	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + Sync + 'static,
+	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Clone + Send + Sync + 'static,
 	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
@@ -235,9 +235,11 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		collator_service: collator_service.clone(),
 		collator_receiver: rx,
 		export_pov,
+		para_backend: para_backend.clone(),
+		code_hash_provider: code_hash_provider.clone(),
 	};
 
-	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);
+	let collation_task_fut = run_collation_task::<Block, _, _, _, _>(collator_task_params);
 
 	let block_builder_params = block_builder_task::BuilderTaskParams {
 		create_inherent_data_providers,
