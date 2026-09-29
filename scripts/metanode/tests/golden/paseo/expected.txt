@@ -1,0 +1,6 @@
+## validator (exit 0)
+@BINDIR@/polkadot --validator --chain paseo --name acme-4-validator --base-path /var/lib/polkadot-validator --node-key-file /var/lib/polkadot-validator/node-key --workers-path @BINDIR@ --port 30333 --prometheus-port 9615 --rpc-port 9944 --force-enable-webrtc
+## asset-hub (exit 0)
+@BINDIR@/polkadot-parachain --collator --chain @CASE@/asset-hub-paseo.json --name acme-4-asset-hub --base-path /var/lib/polkadot-asset-hub --node-key-file /var/lib/polkadot-asset-hub/node-key --authoring slot-based --port 30343 --rpc-port 9954 --prometheus-port 9625 --relay-chain-rpc-url ws://127.0.0.1:9944 --database paritydb --state-pruning 256 --blocks-pruning 256 --force-enable-webrtc -- --chain paseo --port 30344 --prometheus-port 9626
+## people (exit 78)
+polkadot-metanodectl: set CHAIN in @CASE@/people.conf to the absolute path of the Paseo people chain spec (https://paritytech.github.io/chainspecs)

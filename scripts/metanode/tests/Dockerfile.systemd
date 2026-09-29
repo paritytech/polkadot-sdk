@@ -1,0 +1,17 @@
+# A distro image with systemd as PID 1, for testing the metanode units. tests/run.sh builds one
+# per distro (--build-arg BASE=ubuntu:24.04, debian:13, ...) and runs it with
+#   docker run --privileged --cgroupns=private --tmpfs /run --tmpfs /run/lock
+# Privileged, because the units' sandboxing needs mount namespaces.
+ARG BASE=ubuntu:24.04
+FROM ${BASE}
+ENV container=docker DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends systemd systemd-sysv dbus curl jq ca-certificates \
+      gnupg iproute2 procps util-linux \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Units that make no sense in a container.
+RUN systemctl mask getty.target console-getty.service systemd-logind.service systemd-udevd.service \
+      systemd-udev-trigger.service systemd-remount-fs.service systemd-timesyncd.service \
+      sys-kernel-debug.mount sys-kernel-tracing.mount dev-hugepages.mount 2>/dev/null || true
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]

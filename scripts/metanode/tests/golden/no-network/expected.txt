@@ -1,0 +1,6 @@
+## validator (exit 78)
+polkadot-metanodectl: NETWORK is not set; set it in @CASE@/metanode.conf (polkadot, kusama, westend or paseo)
+## asset-hub (exit 78)
+polkadot-metanodectl: NETWORK is not set; set it in @CASE@/metanode.conf (polkadot, kusama, westend or paseo)
+## people (exit 78)
+polkadot-metanodectl: NETWORK is not set; set it in @CASE@/metanode.conf (polkadot, kusama, westend or paseo)

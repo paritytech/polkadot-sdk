@@ -1,0 +1,6 @@
+## validator (exit 78)
+polkadot-metanodectl: WEBRTC='maybe' must be yes or no
+## asset-hub (exit 78)
+polkadot-metanodectl: RELAY_CHAIN_RPC_URLS: 'http://10.0.0.6:9944' is not a ws:// or wss:// URL
+## people (exit 78)
+polkadot-metanodectl: RELAY_CHAIN_RPC_URLS: 'http://10.0.0.6:9944' is not a ws:// or wss:// URL

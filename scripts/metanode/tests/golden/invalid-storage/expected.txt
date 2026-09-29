@@ -1,0 +1,6 @@
+## validator (exit 78)
+polkadot-metanodectl: DATABASE='mysql' must be rocksdb, paritydb, auto or paritydb-experimental
+## asset-hub (exit 78)
+polkadot-metanodectl: BLOCKS_PRUNING='forever' must be archive, archive-canonical or a number of blocks
+## people (exit 78)
+polkadot-metanodectl: EXTRA_ARGS repeats --database, which is already set from the configuration; change it through its key in @CASE@/people.conf (see people.conf.example) instead

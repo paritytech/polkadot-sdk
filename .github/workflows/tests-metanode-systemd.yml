@@ -1,0 +1,188 @@
+# Docker test harness of the metanode systemd units (scripts/metanode, see its README "Testing").
+#
+# build-publish-images.yml calls this once the binaries are built; it only runs when
+# scripts/metanode or this workflow changed. The nightly run catches node changes that break the
+# units (e.g. a renamed CLI flag), using the binaries of the latest successful build on master.
+name: Metanode systemd units
+
+on:
+  workflow_call:
+    inputs:
+      build_run_id:
+        type: string
+        description: "Build run ID from the build workflow."
+        required: true
+      ref_slug:
+        type: string
+        description: "Source ref slug from the build workflow."
+        required: true
+    secrets:
+      ARTIFACTS_DOWNLOADER_APP_ID:
+        required: false
+      ARTIFACTS_DOWNLOADER_PRIVATE_KEY:
+        required: false
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        type: string
+        description: "build-publish-images.yml run to take the binaries from (default: latest successful on master)"
+        required: false
+
+permissions: read-all
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.changes.outputs.run }}
+      build_run_id: ${{ steps.build.outputs.build_run_id }}
+      ref_slug: ${{ steps.build.outputs.ref_slug }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Changed files
+        id: changed
+        if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'merge_group'
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 #v47.0.6
+        with:
+          files: |
+            scripts/metanode/**
+            .github/workflows/tests-metanode-systemd.yml
+      - name: Decide whether to run
+        id: changes
+        env:
+          CHANGED: ${{ steps.changed.outputs.any_changed }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT" == schedule || "$EVENT" == workflow_dispatch || "$CHANGED" == true ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Find the build
+        id: build
+        if: steps.changes.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROVIDED_RUN_ID: ${{ inputs.build_run_id }}
+          PROVIDED_REF_SLUG: ${{ inputs.ref_slug }}
+        run: |
+          run_id=$PROVIDED_RUN_ID
+          if [[ -z "$run_id" ]]; then
+            run_id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow build-publish-images.yml \
+              --branch master --limit 20 --json databaseId,status,conclusion \
+              --jq '[.[] | select(.status == "completed" and .conclusion == "success")][0].databaseId')
+          fi
+          [[ -n "$run_id" && "$run_id" != null ]] || { echo "::error::no successful build to test"; exit 1; }
+          ref_slug=$PROVIDED_REF_SLUG
+          if [[ -z "$ref_slug" ]]; then
+            # The artifact names carry the slug: build-linux-stable-<slug>.
+            ref_slug=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" \
+              --jq '.artifacts[].name | select(startswith("build-linux-stable-") and (startswith("build-linux-stable-cumulus-") | not)) | ltrimstr("build-linux-stable-")' | head -n 1)
+          fi
+          [[ -n "$ref_slug" ]] || { echo "::error::no build-linux-stable artifact in run $run_id"; exit 1; }
+          echo "Testing the binaries of run $run_id ($ref_slug)"
+          echo "build_run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "ref_slug=$ref_slug" >> "$GITHUB_OUTPUT"
+
+  lint:
+    needs: preflight
+    if: needs.preflight.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Golden tests and shellcheck
+        run: scripts/metanode/tests/run.sh lint
+
+  lifecycle:
+    needs: [preflight, lint]
+    if: needs.preflight.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [ubuntu-22.04, ubuntu-24.04, debian-12, debian-13]
+    env:
+      ARTIFACTS_DOWNLOADER_APP_ID: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # paritytech members use the app, external contributors the default token.
+      - name: Create App installation token
+        id: app_token
+        if: env.ARTIFACTS_DOWNLOADER_APP_ID != ''
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        with:
+          app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+          private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
+      - uses: ./.github/actions/download-artifact-extract
+        with:
+          artifact-name: build-linux-stable-${{ needs.preflight.outputs.ref_slug }}
+          gh-token: ${{ steps.app_token.outputs.token || github.token }}
+          run-id: ${{ needs.preflight.outputs.build_run_id }}
+          extract-path: ./tmp
+          files-to-copy: |
+            artifacts/polkadot
+            artifacts/polkadot-execute-worker
+            artifacts/polkadot-prepare-worker
+          destination-path: ./bin
+          cleanup: "true"
+      - uses: ./.github/actions/download-artifact-extract
+        with:
+          artifact-name: build-linux-stable-cumulus-${{ needs.preflight.outputs.ref_slug }}
+          gh-token: ${{ steps.app_token.outputs.token || github.token }}
+          run-id: ${{ needs.preflight.outputs.build_run_id }}
+          extract-path: ./tmp
+          files-to-copy: |
+            artifacts/polkadot-parachain
+          destination-path: ./bin
+          cleanup: "true"
+      - name: Lifecycle on ${{ matrix.distro }}
+        run: |
+          chmod +x bin/*
+          scripts/metanode/tests/run.sh lifecycle --distro ${{ matrix.distro }} --bin-dir bin
+
+  e2e:
+    needs: [preflight, lint]
+    if: needs.preflight.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ARTIFACTS_DOWNLOADER_APP_ID: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Create App installation token
+        id: app_token
+        if: env.ARTIFACTS_DOWNLOADER_APP_ID != ''
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        with:
+          app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+          private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
+      - uses: ./.github/actions/download-artifact-extract
+        with:
+          artifact-name: build-linux-stable-${{ needs.preflight.outputs.ref_slug }}
+          gh-token: ${{ steps.app_token.outputs.token || github.token }}
+          run-id: ${{ needs.preflight.outputs.build_run_id }}
+          extract-path: ./tmp
+          files-to-copy: |
+            artifacts/polkadot
+            artifacts/polkadot-execute-worker
+            artifacts/polkadot-prepare-worker
+          destination-path: ./bin
+          cleanup: "true"
+      - uses: ./.github/actions/download-artifact-extract
+        with:
+          artifact-name: build-linux-stable-cumulus-${{ needs.preflight.outputs.ref_slug }}
+          gh-token: ${{ steps.app_token.outputs.token || github.token }}
+          run-id: ${{ needs.preflight.outputs.build_run_id }}
+          extract-path: ./tmp
+          files-to-copy: |
+            artifacts/polkadot-parachain
+          destination-path: ./bin
+          cleanup: "true"
+      - name: Four-machine network
+        run: |
+          chmod +x bin/*
+          scripts/metanode/tests/run.sh e2e --bin-dir bin

@@ -1,0 +1,6 @@
+## validator (exit 78)
+polkadot-metanodectl: P2P_PORT='70000' is not a valid port
+## asset-hub (exit 78)
+polkadot-metanodectl: CHAIN='asset-hub-polkadot.json' must be a built-in chain id or an absolute path to a chain spec
+## people (exit 78)
+polkadot-metanodectl: RPC_PRIVATE_IP only applies to the validator
