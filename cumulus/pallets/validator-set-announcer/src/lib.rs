@@ -15,8 +15,9 @@
 
 //! Validator Set Announcer pallet.
 //!
-//! Asset Hub applies the validator set of each era locally and announces it to the other system
-//! chains, retrying until it is sent or replaced.
+//! Applies the validator set of each era locally and announces it to other system chains,
+//! retrying until it is sent or replaced. Meant for the chain that runs `pallet-staking-async`,
+//! typically Asset Hub.
 //!
 //! ## Overview
 //!

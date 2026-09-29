@@ -1,6 +1,6 @@
 [package]
 authors.workspace = true
-description = "Pallet that announces each era's validator set from Asset Hub to system chains."
+description = "Pallet that announces each era's validator set to other system chains."
 edition.workspace = true
 homepage.workspace = true
 license = "Apache-2.0"

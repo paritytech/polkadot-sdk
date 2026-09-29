@@ -15,14 +15,15 @@
 
 //! Validator Collators pallet.
 //!
-//! Stores the validator set announced by Asset Hub and offers it as a session manager, so the
-//! relay-chain validators of the current era collate on a system parachain.
+//! Stores the validator set announced by the chain that runs `pallet-staking-async`, typically
+//! Asset Hub, and offers it as a session manager, so the relay-chain validators of the current era
+//! collate on a system parachain.
 //!
 //! ## Overview
 //!
-//! Asset Hub announces the active validator set of each era, tagged with the era index. This
-//! pallet stores the latest set, accepted from [`Config::SetOrigin`] only, and rejects a set whose
-//! era is not newer than the stored one.
+//! The announcing chain sends the active validator set of each era, tagged with the era index.
+//! This pallet stores the latest set, accepted from [`Config::SetOrigin`] only, and rejects a set
+//! whose era is not newer than the stored one.
 //!
 //! The pallet is a [`pallet_session::SessionManager`]. At every session rotation it returns the
 //! stored validators that have registered local session keys, checked with
@@ -40,7 +41,8 @@
 //!
 //! - A random draw among the opted-in validators when a cap is set. For now the cap keeps the first
 //!   validators in the received order.
-//! - Counting the blocks each validator authors and reporting era points to Asset Hub.
+//! - Counting the blocks each validator authors and reporting era points to the chain where
+//!   `pallet-staking-async` runs, typically Asset Hub.
 //! - Dropping validators that author no blocks for a session.
 //! - (Only if a need is established) Propagating relay-chain offences to the collator set.
 

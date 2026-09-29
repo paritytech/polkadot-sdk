@@ -809,7 +809,7 @@ pub use pallet_utility;
 #[cfg(feature = "pallet-validator-collators")]
 pub use pallet_validator_collators;
 
-/// Pallet that announces each era's validator set from Asset Hub to system chains.
+/// Pallet that announces each era's validator set to other system chains.
 #[cfg(feature = "pallet-validator-set-announcer")]
 pub use pallet_validator_set_announcer;
 
