@@ -15,13 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for validator self-stake incentive (liquid payout).
+//! Tests for validator self-stake incentive (hold-based auto-pay).
 
 use super::*;
 use crate::{
 	asset,
+	maturation::matured_fraction,
 	session_rotation::{EraElectionPlanner, Eras, Rotator},
 };
+
+/// Idle hold remaining right after auto-pay delivers `incentive` for `era`: a freshly-merged
+/// bucket already has `matured_fraction` of it releasable if its period started earlier.
+fn expected_hold_after_delivery(incentive: Balance, era: EraIndex) -> Balance {
+	let bonding_duration = BondingDuration::get();
+	let period = era.checked_div(bonding_duration).unwrap_or(0);
+	let matured = matured_fraction(period, era, VestingBondingPeriods::get(), bonding_duration)
+		.mul_floor(incentive);
+	incentive - matured
+}
 
 // ===== Config extrinsic tests =====
 
@@ -134,26 +145,44 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
+		let alice_before = asset::total_balance::<Test>(&alice);
 
-		// GIVEN: era pot starts with full snapshotted budget (nothing paid yet).
+		// WHEN: era 2 ends — incentive is auto-paid as a hold (no claim needed).
+		Session::roll_until_active_era(3);
+		let auto_pay_events = staking_events_since_last_call();
+
+		// THEN: validator's incentive landed as a `ValidatorIncentive` hold (most of it still
+		// vesting; a sliver is already matured since period 0 started before era 2).
+		let incentive = incentive_paid_for(alice, &auto_pay_events).expect("incentive bonus");
+		assert_eq!(
+			asset::incentive_on_hold::<Test>(&alice),
+			expected_hold_after_delivery(incentive, 2)
+		);
+		assert_eq!(asset::total_balance::<Test>(&alice) - alice_before, incentive);
+		assert!(incentive_paid_for(bob, &auto_pay_events).is_none());
+
+		// THEN: era pot deducted by exactly the sum of all incentives paid out (alice and the
+		// other elected validator, 21, who earns equal points and so an equal share).
 		let era_pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
 			2,
 			RewardKind::ValidatorSelfStake,
 		));
 		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
-		assert_eq!(Balances::free_balance(&era_pot), budget);
+		let total_incentive_paid: Balance = auto_pay_events
+			.iter()
+			.filter_map(|e| match e {
+				Event::ValidatorIncentivePaid { amount, .. } => Some(*amount),
+				_ => None,
+			})
+			.sum();
+		assert_eq!(Balances::free_balance(&era_pot), budget - total_incentive_paid);
 
-		// WHEN: payout.
-		let alice_before = asset::total_balance::<Test>(&alice);
+		// AND: the staker-reward payout path (unaffected by the incentive change) still requires
+		// an explicit claim.
 		make_all_reward_payment(2);
 		let events = staking_events_since_last_call();
-
-		// THEN: validator gets both staker reward + incentive bonus.
 		let staker = staker_reward_for(alice, &events).expect("staker reward");
-		let incentive = incentive_paid_for(alice, &events).expect("incentive bonus");
-		assert_eq!(asset::total_balance::<Test>(&alice) - alice_before, staker + incentive);
 
 		// THEN: nominator gets staker reward only (no incentive).
 		// Bob (500 stake) gets less than alice (1000 stake) from staker rewards.
@@ -162,17 +191,6 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 			bob_reward < staker,
 			"nominator ({bob_reward}) should get less than validator ({staker})"
 		);
-		assert!(incentive_paid_for(bob, &events).is_none());
-
-		// THEN: era pot deducted by exactly the sum of all incentives paid out.
-		let total_incentive_paid: Balance = events
-			.iter()
-			.filter_map(|e| match e {
-				Event::ValidatorIncentivePaid { amount, .. } => Some(*amount),
-				_ => None,
-			})
-			.sum();
-		assert_eq!(Balances::free_balance(&era_pot), budget - total_incentive_paid);
 
 		// General pot retains ED after snapshot drained it.
 		assert_eq!(Balances::free_balance(&general_incentive_pot()), ExistentialDeposit::get());
@@ -209,18 +227,18 @@ fn enabling_incentive_budget_mid_flight() {
 		// GIVEN: era 1 has no incentive budget.
 		setup_incentive_with_budget(50, 0);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
-		make_all_reward_payment(1);
+		// WHEN: era 1 ends — no incentive budget, so nothing is auto-paid.
+		Session::roll_until_active_era(2);
 		let era1 = staking_events_since_last_call();
 		assert!(incentive_paid_for(alice, &era1).is_none());
 
 		// WHEN: governance enables 10% incentive for era 2.
 		setup_incentive_with_budget(40, 10);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
-		make_all_reward_payment(2);
+		// WHEN: era 2 ends — incentive is auto-paid.
+		Session::roll_until_active_era(3);
 		let era2 = staking_events_since_last_call();
 
 		// THEN: era 2 has incentive.
@@ -244,35 +262,39 @@ fn zero_reward_points_means_no_payout() {
 		Session::roll_until_active_era(2);
 		// Only bob earns points in era 2.
 		Eras::<Test>::reward_active_era(vec![(bob, 1)]);
-		Session::roll_until_active_era(3);
-		let _ = staking_events_since_last_call();
 
 		// Alice and bob both elected with equal self-stake, so both have equal weights
 		// and the sum counts both.
 		let bob_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
-		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
 		assert_eq!(ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap(), bob_weight);
 		assert_eq!(ErasSumValidatorIncentiveWeight::<Test>::get(2), 2 * bob_weight);
-		assert_eq!(budget, 750);
 
-		// WHEN: payout era 2.
 		let pot: AccountId = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
 			2,
 			RewardKind::ValidatorSelfStake,
 		));
-		make_all_reward_payment(2);
-		let events = staking_events_since_last_call();
+		let _ = staking_events_since_last_call();
 
-		// THEN: alice gets nothing — no reward points => no staker reward and no
-		// incentive share, even though she was elected and has self-stake.
-		assert_eq!(staker_reward_for(alice, &events), None);
-		assert_eq!(incentive_paid_for(alice, &events), None);
+		// WHEN: era 2 ends — budget is snapshotted and incentive is auto-paid.
+		Session::roll_until_active_era(3);
+		let auto_pay_events = staking_events_since_last_call();
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+		assert_eq!(budget, 750);
+
+		// THEN: alice gets no incentive share — no reward points, even though she was
+		// elected and has self-stake.
+		assert_eq!(incentive_paid_for(alice, &auto_pay_events), None);
 		// THEN: bob is the only validator with points, so under the weighted-mean
 		// formula his share (w_b · 1) / (w_b · 1) = 1 — he receives the full budget.
 		// Pot is depleted (modulo Perbill rounding dust).
-		assert!(staker_reward_for(bob, &events).unwrap() > 0);
-		assert_eq!(incentive_paid_for(bob, &events), Some(budget));
+		assert_eq!(incentive_paid_for(bob, &auto_pay_events), Some(budget));
 		assert_eq!(Balances::free_balance(&pot), 0);
+
+		// AND: staker rewards are unaffected — alice still gets nothing, bob gets his share.
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+		assert_eq!(staker_reward_for(alice, &events), None);
+		assert!(staker_reward_for(bob, &events).unwrap() > 0);
 	});
 }
 
@@ -285,16 +307,15 @@ fn incentive_weight_stored_correctly() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(3);
 
 		// THEN: weight = √1000 ≈ 31.
 		let incentive_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
 		assert_eq!(incentive_weight, 31);
 
-		// THEN: incentive is paid. Two validators have equal weight so each gets half of the
-		// incentive budget (750 = 5% of era issuance 15_000).
+		// THEN: incentive is auto-paid at era end. Two validators have equal weight so each
+		// gets half of the incentive budget (750 = 5% of era issuance 15_000).
 		let _ = staking_events_since_last_call();
-		make_all_reward_payment(2);
+		Session::roll_until_active_era(3);
 		assert_eq!(incentive_paid_for(alice, &staking_events_since_last_call()), Some(375));
 	});
 }
@@ -313,18 +334,26 @@ fn incentive_paid_to_custom_account() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 		let before = asset::total_balance::<Test>(&reward_account);
 
-		// WHEN: payout.
+		// WHEN: era 2 ends — incentive is auto-paid to the custom account as a hold.
+		Session::roll_until_active_era(3);
+		let auto_pay_events = staking_events_since_last_call();
+
+		// THEN: event records custom account; incentive landed as a hold (an `Account(x)`
+		// destination is release-only — no stash ledger to bond it into).
+		let (incentive, dest) = incentive_paid_details(alice, &auto_pay_events).expect("incentive");
+		assert_eq!(dest, RewardDestination::Account(reward_account));
+		assert_eq!(
+			asset::incentive_on_hold::<Test>(&reward_account),
+			expected_hold_after_delivery(incentive, 2)
+		);
+		assert_eq!(asset::total_balance::<Test>(&reward_account) - before, incentive);
+
+		// AND: staker reward also goes to the custom account (separate, on-demand claim).
 		make_all_reward_payment(2);
 		let events = staking_events_since_last_call();
-
-		// THEN: event records custom account, balance increased.
-		let (incentive, dest) = incentive_paid_details(alice, &events).expect("incentive");
-		assert_eq!(dest, RewardDestination::Account(reward_account));
-		// Staker reward also goes to the custom account, so balance increase includes both.
 		let staker = staker_reward_for(alice, &events).expect("staker reward");
 		assert_eq!(asset::total_balance::<Test>(&reward_account) - before, staker + incentive);
 	});
@@ -453,7 +482,9 @@ fn multiple_validators_share_incentive_pot_correctly() {
 }
 
 #[test]
-fn validator_incentive_prorated_across_pages() {
+fn validator_incentive_delivered_in_one_shot_at_era_end() {
+	// Unlike staker rewards, the incentive is no longer prorated per exposure page: auto-pay
+	// delivers the full-era share in a single hold at era end, regardless of paging.
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11; // validator
 
@@ -461,22 +492,23 @@ fn validator_incentive_prorated_across_pages() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(3);
-		let _ = staking_events_since_last_call();
 
 		let validator_incentive_weight =
 			ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
 		let sum_incentive_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
-		let pot = ErasValidatorIncentiveBudget::<Test>::get(2);
-		let expected_total =
-			Perbill::from_rational(validator_incentive_weight, sum_incentive_weight).mul_floor(pot);
+		let _ = staking_events_since_last_call();
 
-		// WHEN: all pages paid out.
-		make_all_reward_payment(2);
+		// WHEN: era 2 ends — budget is snapshotted and incentive auto-paid.
+		Session::roll_until_active_era(3);
 		let events = staking_events_since_last_call();
 
-		// THEN: sum of per-page incentive events equals expected total (within rounding).
-		let total_paid: Balance = events
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+		let expected_total =
+			Perbill::from_rational(validator_incentive_weight, sum_incentive_weight)
+				.mul_floor(budget);
+
+		// THEN: exactly one `ValidatorIncentivePaid` event for alice, matching share × budget.
+		let alice_amounts: Vec<Balance> = events
 			.iter()
 			.filter_map(|e| match e {
 				Event::ValidatorIncentivePaid { validator_stash, amount, .. }
@@ -486,18 +518,17 @@ fn validator_incentive_prorated_across_pages() {
 				},
 				_ => None,
 			})
-			.sum();
-		assert!(total_paid <= expected_total);
-		assert!(expected_total - total_paid < 5, "Rounding dust too large");
+			.collect();
+		assert_eq!(alice_amounts.len(), 1, "expected a single incentive delivery per era");
+		assert_eq!(alice_amounts[0], expected_total);
 	});
 }
 
 #[test]
-fn incentive_sum_across_multiple_exposure_pages_equals_share_times_budget() {
-	// With `exposures_page_size(1)`, alice's extra nominators force her exposure to
-	// span ≥ 2 pages. Each page emits its own `ValidatorIncentivePaid` event prorated
-	// by `page_stake_part`; the sum across pages must equal `share × budget` (± dust)
-	// because Σ page_stake_part = 1.
+fn incentive_unaffected_by_multiple_exposure_pages() {
+	// With `exposures_page_size(1)`, alice's extra nominators force her exposure to span ≥ 2
+	// pages. Unlike staker rewards, incentive auto-pay is not prorated per page — it always
+	// delivers the full `share × budget` in one hold at era end, regardless of paging.
 	ExtBuilder::default()
 		.exposures_page_size(1)
 		.add_staker(102, 250, StakerStatus::Nominator(vec![11]))
@@ -510,8 +541,6 @@ fn incentive_sum_across_multiple_exposure_pages_equals_share_times_budget() {
 			setup_incentive_with_budget(45, 5);
 			Session::roll_until_active_era(2);
 			Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
-			Session::roll_until_active_era(3);
-			let _ = staking_events_since_last_call();
 
 			let alice_pages = Eras::<Test>::exposure_page_count(2, &alice);
 			assert!(alice_pages >= 2, "expected alice to have ≥ 2 pages, got {alice_pages}");
@@ -519,41 +548,27 @@ fn incentive_sum_across_multiple_exposure_pages_equals_share_times_budget() {
 			// Equal own-stake & equal points → share = w_a / (w_a + w_b).
 			let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
 			let sum_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
+			let _ = staking_events_since_last_call();
+
+			// WHEN: era 2 ends — budget is snapshotted and incentive auto-paid.
+			Session::roll_until_active_era(3);
+			let events = staking_events_since_last_call();
+
 			let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
 			let expected_total = Perbill::from_rational(alice_weight, sum_weight).mul_floor(budget);
 
-			// WHEN: payout all pages.
-			make_all_reward_payment(2);
-			let events = staking_events_since_last_call();
-
-			// THEN: one ValidatorIncentivePaid event per page.
-			let alice_amounts: Vec<Balance> = events
-				.iter()
-				.filter_map(|e| match e {
-					Event::ValidatorIncentivePaid { validator_stash, amount, .. }
-						if *validator_stash == alice =>
-					{
-						Some(*amount)
-					},
-					_ => None,
-				})
-				.collect();
-			assert_eq!(
-				alice_amounts.len() as u32,
-				alice_pages,
-				"expected one incentive event per page"
-			);
-
-			// THEN: sum across pages equals share × budget within Perbill rounding dust.
-			let total_paid: Balance = alice_amounts.iter().sum();
-			assert_eq_error_rate!(total_paid, expected_total, 4);
+			// THEN: exactly one incentive delivery for alice, unaffected by her page count.
+			assert_eq!(incentive_paid_for(alice, &events), Some(expected_total));
 		});
 }
 
 // ===== Edge cases =====
 
 #[test]
-fn chilled_validator_can_still_claim_past_era() {
+fn chilling_after_era_end_does_not_affect_already_delivered_incentive() {
+	// Auto-pay delivers era 2's incentive automatically when era 2 ends, using the
+	// `ErasValidatorIncentiveWeight` snapshotted at election time — chilling afterwards must
+	// not claw back (or otherwise affect) what was already held.
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11; // validator
 
@@ -561,26 +576,29 @@ fn chilled_validator_can_still_claim_past_era() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 		assert!(ErasValidatorIncentiveWeight::<Test>::get(2, alice).is_some());
 
-		// WHEN: alice chills before claiming.
+		// WHEN: era 2 ends — alice's incentive is auto-paid.
+		Session::roll_until_active_era(3);
+		let events = staking_events_since_last_call();
+		let incentive = incentive_paid_for(alice, &events).expect("incentive auto-paid at era end");
+		let hold_after_delivery = asset::incentive_on_hold::<Test>(&alice);
+		assert_eq!(hold_after_delivery, expected_hold_after_delivery(incentive, 2));
+
+		// WHEN: alice chills afterwards.
 		assert_ok!(Staking::chill(RuntimeOrigin::signed(alice)));
 		assert!(!Validators::<Test>::contains_key(&alice));
 
-		// THEN: payout for era 2 still works.
-		make_all_reward_payment(2);
-		let events = staking_events_since_last_call();
-		assert!(
-			incentive_paid_for(alice, &events).is_some(),
-			"Chilled validator should still receive incentive for past era"
-		);
+		// THEN: her already-delivered incentive hold is untouched.
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), hold_after_delivery);
 	});
 }
 
 #[test]
-fn payee_change_before_payout_uses_new_destination() {
+fn payee_change_before_era_end_uses_new_destination() {
+	// Auto-pay resolves the payee at era-end (when the incentive is actually delivered), not
+	// at points-crediting time — so a payee change earlier in the era takes effect.
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11; // validator
 		let old_account = 888;
@@ -594,25 +612,29 @@ fn payee_change_before_payout_uses_new_destination() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(3);
-		let _ = staking_events_since_last_call();
 
-		// WHEN: payee changes to new_account before payout.
+		// WHEN: payee changes to new_account before era 2 ends.
 		assert_ok!(Staking::set_payee(
 			RuntimeOrigin::signed(alice),
 			RewardDestination::Account(new_account)
 		));
 		let old_before = asset::total_balance::<Test>(&old_account);
 		let new_before = asset::total_balance::<Test>(&new_account);
+		let _ = staking_events_since_last_call();
 
-		make_all_reward_payment(2);
+		// WHEN: era 2 ends — auto-pay resolves the payee as of now.
+		Session::roll_until_active_era(3);
 		let events = staking_events_since_last_call();
 
-		// THEN: incentive goes to new_account (payee at payout time).
+		// THEN: incentive goes to new_account (payee at auto-pay time), held there.
 		let (incentive, dest) = incentive_paid_details(alice, &events).expect("incentive");
 		assert_eq!(dest, RewardDestination::Account(new_account));
 		assert_eq!(asset::total_balance::<Test>(&old_account), old_before);
-		assert!(asset::total_balance::<Test>(&new_account) - new_before >= incentive);
+		assert_eq!(
+			asset::incentive_on_hold::<Test>(&new_account),
+			expected_hold_after_delivery(incentive, 2)
+		);
+		assert_eq!(asset::total_balance::<Test>(&new_account) - new_before, incentive);
 	});
 }
 
@@ -645,12 +667,13 @@ fn missing_payee_emits_unexpected_and_skips_payout() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(3);
 
-		// WHEN: alice's payee is missing at payout time.
+		// WHEN: alice's payee is missing before auto-pay runs.
 		Payee::<Test>::remove(&alice);
 		let _ = staking_events_since_last_call();
-		make_all_reward_payment(2);
+
+		// WHEN: era 2 ends — auto-pay runs.
+		Session::roll_until_active_era(3);
 
 		// THEN: alice's incentive is skipped with an Unexpected event; other validators still paid.
 		let events = staking_events_since_last_call();
@@ -687,29 +710,32 @@ fn validator_with_points_but_zero_weight_gets_no_incentive() {
 
 		// Both validators earn the same reward points.
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
-		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
-		// WHEN: payout era 2.
-		make_all_reward_payment(2);
-		let events = staking_events_since_last_call();
+		// WHEN: era 2 ends — incentive is auto-paid.
+		Session::roll_until_active_era(3);
+		let auto_pay_events = staking_events_since_last_call();
 
 		// THEN: alice — gated out, no incentive.
-		assert_eq!(incentive_paid_for(alice, &events), None);
-		// staker reward is independent of incentive weight → alice still gets one.
-		assert!(staker_reward_for(alice, &events).is_some());
-
+		assert_eq!(incentive_paid_for(alice, &auto_pay_events), None);
 		// THEN: bob is the only non-zero-weight earner → share = 1 → full budget.
 		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
-		assert_eq!(incentive_paid_for(bob, &events), Some(budget));
+		assert_eq!(incentive_paid_for(bob, &auto_pay_events), Some(budget));
+
+		// AND: staker reward is independent of incentive weight → alice still gets one.
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+		assert!(staker_reward_for(alice, &events).is_some());
 	});
 }
 
-// ===== Defensive path tests =====
+// ===== Idle bucket / maturation tests =====
+//
+// `auto_pay_incentive` is exercised directly (bypassing full era rotation) so a bucket's
+// maturation can be driven to specific eras without setting up an election every step.
 
 #[test]
-#[should_panic(expected = "Validator incentive liquid transfer failed")]
-fn defensive_panic_on_transfer_failure() {
+fn idle_incentive_recorded_in_bucket_for_its_period() {
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11; // validator
 
@@ -717,26 +743,94 @@ fn defensive_panic_on_transfer_failure() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		let _ = staking_events_since_last_call();
+
+		// WHEN: era 2 ends — incentive is auto-paid.
 		Session::roll_until_active_era(3);
+		let events = staking_events_since_last_call();
+		let incentive = incentive_paid_for(alice, &events).expect("incentive bonus");
 
-		// WHEN: drain the incentive pot so transfer fails.
-		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
-			2,
-			RewardKind::ValidatorSelfStake,
-		));
-		let pot_balance = Balances::free_balance(&pot);
-		if pot_balance > 0 {
-			// Transfer everything out to account 999 to empty the pot.
-			let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::transfer(
-				&pot,
-				&999,
-				pot_balance,
-				frame_support::traits::tokens::Preservation::Expendable,
-			);
-		}
+		// THEN: recorded in `IdleIncentiveBuckets` under period = era / BondingDuration.
+		let period = 2 / BondingDuration::get();
+		let buckets = IdleIncentiveBuckets::<Test>::get(&alice);
+		let bucket = buckets.get(&period).expect("bucket recorded for the delivery period");
+		assert_eq!(bucket.total, incentive);
+		// A sliver already matured immediately (period 0 started before era 2).
+		assert_eq!(bucket.released, incentive - expected_hold_after_delivery(incentive, 2));
+	});
+}
 
-		// THEN: payout panics on defensive.
-		make_all_reward_payment(2);
+#[test]
+fn idle_incentive_bucket_matures_and_prunes_after_full_window() {
+	// A bucket is keyed by `era / BondingDuration`; deliveries in the same bonding period merge
+	// into one bucket, and a bucket is pruned once `releasable_at` has released its `total`.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+		let window = VestingBondingPeriods::get() * BondingDuration::get();
+
+		// Use the legacy stake-only formula so a single-validator delivery is trivial: weight ==
+		// total weight ⇒ alice gets the full budget every time.
+		WeightedPointsFormulaStartEra::<Test>::put(u32::MAX);
+		let deliver = |era: EraIndex, budget: Balance| {
+			ErasValidatorIncentiveBudget::<Test>::insert(era, budget);
+			ErasValidatorIncentiveWeight::<Test>::insert(era, alice, 1u128);
+			ErasSumValidatorIncentiveWeight::<Test>::insert(era, 1u128);
+			let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+				era,
+				RewardKind::ValidatorSelfStake,
+			));
+			let _ =
+				<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&pot, budget);
+			Staking::auto_pay_incentive(era);
+		};
+
+		// GIVEN: era 0 delivers into period 0's bucket (period start = era 0, so nothing has
+		// matured yet).
+		deliver(0, 1_000);
+		let buckets = IdleIncentiveBuckets::<Test>::get(&alice);
+		assert_eq!(buckets.len(), 1);
+		assert_eq!(buckets.get(&0), Some(&IncentiveBucket { total: 1_000, released: 0 }));
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), 1_000);
+
+		// WHEN: a later delivery lands exactly at the window's end, which also drives release for
+		// period 0 (auto-pay releases matured idle incentive for accounts it touches).
+		deliver(window, 500);
+
+		// THEN: period 0 is fully matured and pruned; only the fresh period's bucket remains.
+		let buckets = IdleIncentiveBuckets::<Test>::get(&alice);
+		assert_eq!(buckets.len(), 1);
+		assert!(buckets.get(&0).is_none(), "period 0 bucket should be pruned once fully matured");
+		let new_period = window / BondingDuration::get();
+		assert_eq!(buckets.get(&new_period), Some(&IncentiveBucket { total: 500, released: 0 }));
+
+		// AND: the fully-matured 1_000 moved to `free`; the fresh 500 stays held.
+		assert_eq!(asset::incentive_on_hold::<Test>(&alice), 500);
+
+		// Restore genesis default so the post-test try-state hook is unaffected.
+		WeightedPointsFormulaStartEra::<Test>::put(0);
+	});
+}
+
+// ===== Defensive path tests =====
+
+#[test]
+#[should_panic(expected = "Validator incentive transfer failed")]
+fn defensive_panic_on_transfer_failure() {
+	// `auto_pay_incentive` is invoked directly (bypassing era rotation) so the era-2 incentive
+	// pot can be left unfunded — normally it is snapshotted from the general pot and auto-paid
+	// in the same era-ending transition, with no window in between for a test to drain it.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+
+		// GIVEN: a non-zero budget but an empty era-2 incentive pot.
+		ErasValidatorIncentiveBudget::<Test>::insert(2, 1_000);
+
+		// THEN: auto-pay panics on defensive when the incentive transfer fails.
+		Staking::auto_pay_incentive(2);
 	});
 }
 
@@ -780,24 +874,23 @@ fn incentive_scales_with_relative_performance() {
 		Session::roll_until_active_era(2);
 		// Bob earns twice as many points as alice.
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 2)]);
-		Session::roll_until_active_era(3);
-		let _ = staking_events_since_last_call();
 
 		let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
 		let bob_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
 		let sum_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
 		assert_eq!(alice_weight, bob_weight);
 		assert_eq!(sum_weight, alice_weight + bob_weight);
+		let _ = staking_events_since_last_call();
+
+		// WHEN: era 2 ends — budget is snapshotted and incentive is auto-paid.
+		Session::roll_until_active_era(3);
+		let events = staking_events_since_last_call();
 
 		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
 		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
 			2,
 			RewardKind::ValidatorSelfStake,
 		));
-
-		// WHEN: payout era 2.
-		make_all_reward_payment(2);
-		let events = staking_events_since_last_call();
 
 		// THEN: equal weights, points 1 & 2 → denominator = w·(1 + 2) = 3w.
 		// bob share = 2/3, alice share = 1/3. Full budget is distributed.
@@ -825,18 +918,17 @@ fn outlier_top_performer_scales_others_down() {
 		Session::roll_until_active_era(2);
 		// Alice earns 10× more points than bob.
 		Eras::<Test>::reward_active_era(vec![(alice, 10), (bob, 1)]);
-		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
+
+		// WHEN: era 2 ends — budget is snapshotted and incentive is auto-paid.
+		Session::roll_until_active_era(3);
+		let events = staking_events_since_last_call();
 
 		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
 		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
 			2,
 			RewardKind::ValidatorSelfStake,
 		));
-
-		// WHEN: payout era 2.
-		make_all_reward_payment(2);
-		let events = staking_events_since_last_call();
 
 		// THEN: equal weights, points 10 & 1 → denominator = w·11.
 		// alice share = 10/11, bob share = 1/11. Full budget is distributed.
@@ -866,18 +958,17 @@ fn uniform_performance_distributes_full_budget() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 5), (bob, 5)]);
-		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
+
+		// WHEN: era 2 ends — budget is snapshotted and incentive is auto-paid.
+		Session::roll_until_active_era(3);
+		let events = staking_events_since_last_call();
 
 		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
 		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
 			2,
 			RewardKind::ValidatorSelfStake,
 		));
-
-		// WHEN: payout era 2.
-		make_all_reward_payment(2);
-		let events = staking_events_since_last_call();
 
 		// THEN: total paid equals budget within rounding dust (≤ a few units).
 		let total_paid: Balance = events
@@ -906,22 +997,21 @@ fn zero_performer_alongside_unequal_others() {
 		Session::roll_until_active_era(2);
 		// Alice gets 0 points (will be gated out); bob and carol earn unequal points.
 		Eras::<Test>::reward_active_era(vec![(bob, 5), (carol, 2)]);
-		Session::roll_until_active_era(3);
+		// Equal stake → equal weights for bob and carol; alice's weight is multiplied
+		// by zero points so it doesn't enter the denominator either way.
+		let bob_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
+		let carol_weight = ErasValidatorIncentiveWeight::<Test>::get(2, carol).unwrap();
 		let _ = staking_events_since_last_call();
+
+		// WHEN: era 2 ends — budget is snapshotted and incentive is auto-paid.
+		Session::roll_until_active_era(3);
+		let events = staking_events_since_last_call();
 
 		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
 		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
 			2,
 			RewardKind::ValidatorSelfStake,
 		));
-		// Equal stake → equal weights for bob and carol; alice's weight is multiplied
-		// by zero points so it doesn't enter the denominator either way.
-		let bob_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
-		let carol_weight = ErasValidatorIncentiveWeight::<Test>::get(2, carol).unwrap();
-
-		// WHEN: payout era 2.
-		make_all_reward_payment(2);
-		let events = staking_events_since_last_call();
 
 		// THEN: alice gated out (zero points → no incentive).
 		assert_eq!(incentive_paid_for(alice, &events), None);
@@ -953,18 +1043,17 @@ fn single_validator_earning_points_gets_full_budget() {
 		Session::roll_until_active_era(2);
 		// Only alice earns points. Denominator = w_a · 3, numerator = w_a · 3 → share = 1.
 		Eras::<Test>::reward_active_era(vec![(alice, 3)]);
-		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
+
+		// WHEN: era 2 ends — budget is snapshotted and incentive is auto-paid.
+		Session::roll_until_active_era(3);
+		let events = staking_events_since_last_call();
 
 		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
 		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
 			2,
 			RewardKind::ValidatorSelfStake,
 		));
-
-		// WHEN: payout era 2.
-		make_all_reward_payment(2);
-		let events = staking_events_since_last_call();
 
 		// THEN: alice is the only earner → share = 1, receives the entire budget.
 		// Bob gated out; his "slot" is implicitly redistributed to alice by the
@@ -1100,7 +1189,7 @@ fn sum_weighted_points_validator_without_weight_excluded_from_sum() {
 
 		// THEN: only bob's contribution lands in the sum; alice is gated out by the
 		// `if !weight.is_zero()` check, matching the gate in
-		// `calculate_validator_incentive_for_page`.
+		// `calculate_validator_incentive`.
 		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), bob_weight * 3);
 	});
 }
@@ -1149,7 +1238,7 @@ fn sum_weighted_points_accrues_across_sequential_calls() {
 // ===== Cutoff-era / legacy-formula fallback tests =====
 //
 // These pin the [`WeightedPointsFormulaStartEra`] branch in
-// `calculate_validator_incentive_for_page`: eras strictly older than the cutoff
+// `calculate_validator_incentive`: eras strictly older than the cutoff
 // fall back to the legacy stake-only share, so pending pre-cutoff payouts still
 // work even when their `ErasSumWeightedPoints` denominator was never populated.
 
@@ -1167,22 +1256,22 @@ fn legacy_formula_used_for_eras_before_cutoff() {
 		// Unequal points; under the new formula this would yield a 10:1 split,
 		// under the legacy formula (equal weights) this is a 1:1 split.
 		Eras::<Test>::reward_active_era(vec![(alice, 10), (bob, 1)]);
-		Session::roll_until_active_era(3);
 
 		// WHEN: pin era 2 as pre-cutoff and wipe its weighted-points denominator to mimic an era
 		// whose points were credited before that denominator was maintained.
 		WeightedPointsFormulaStartEra::<Test>::put(3);
 		ErasSumWeightedPoints::<Test>::remove(2);
-		let _ = staking_events_since_last_call();
 
-		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
 		let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
 		let bob_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
 		let sum_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
+		let _ = staking_events_since_last_call();
 
-		// WHEN: payout era 2.
-		make_all_reward_payment(2);
+		// WHEN: era 2 ends — auto-pay runs under the legacy formula.
+		Session::roll_until_active_era(3);
 		let events = staking_events_since_last_call();
+
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
 
 		// THEN: split follows the legacy formula — equal weights ⇒ equal shares,
 		// regardless of the 10:1 points imbalance.
@@ -1207,14 +1296,13 @@ fn new_formula_used_for_eras_at_and_after_cutoff() {
 		WeightedPointsFormulaStartEra::<Test>::put(2);
 
 		Eras::<Test>::reward_active_era(vec![(alice, 2), (bob, 1)]);
-		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
-		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
-
-		// WHEN: payout era 2.
-		make_all_reward_payment(2);
+		// WHEN: era 2 ends — incentive is auto-paid under the new formula.
+		Session::roll_until_active_era(3);
 		let events = staking_events_since_last_call();
+
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
 
 		// THEN: 2/3 vs 1/3 of the budget.
 		let alice_expected = Perbill::from_rational(2u32, 3u32).mul_floor(budget);
@@ -1235,14 +1323,14 @@ fn new_formula_zero_denominator_emits_unexpected_and_skips_payout() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
-		Session::roll_until_active_era(3);
 
-		// WHEN: corrupt the denominator to zero on a weighted-points era.
+		// WHEN: corrupt the denominator to zero on what will be a weighted-points era.
 		let valid_sum = ErasSumWeightedPoints::<Test>::get(2);
 		ErasSumWeightedPoints::<Test>::remove(2);
 		let _ = staking_events_since_last_call();
 
-		make_all_reward_payment(2);
+		// WHEN: era 2 ends — auto-pay runs against the corrupted denominator.
+		Session::roll_until_active_era(3);
 		let events = staking_events_since_last_call();
 
 		// THEN: no incentive paid, and the inconsistency is reported.
@@ -1269,14 +1357,14 @@ fn legacy_era_pays_out_even_without_weighted_points_storage() {
 		Session::roll_until_active_era(2);
 		// Both validators earn points so the caller's zero-points gate is open.
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
-		Session::roll_until_active_era(3);
 
 		// Model a pre-cutoff era whose weighted-points denominator was not maintained.
 		WeightedPointsFormulaStartEra::<Test>::put(3);
 		ErasSumWeightedPoints::<Test>::remove(2);
 		let _ = staking_events_since_last_call();
 
-		make_all_reward_payment(2);
+		// WHEN: era 2 ends — auto-pay runs under the legacy formula.
+		Session::roll_until_active_era(3);
 		let events = staking_events_since_last_call();
 
 		// Both validators are paid (would have been `None` under the weighted-points formula

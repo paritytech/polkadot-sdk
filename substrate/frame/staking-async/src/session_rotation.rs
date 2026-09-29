@@ -488,7 +488,7 @@ impl<T: Config> Eras<T> {
 	/// [`crate::migrations::SetWeightedPointsFormulaStartEra`].
 	///
 	/// Single source of truth for the cutoff decision, shared by the payout path
-	/// ([`crate::Pallet::calculate_validator_incentive_for_page`]) and [`Self::do_try_state`].
+	/// ([`crate::Pallet::calculate_validator_incentive`]) and [`Self::do_try_state`].
 	pub(crate) fn uses_weighted_points(era: EraIndex) -> bool {
 		crate::WeightedPointsFormulaStartEra::<T>::get().map_or(true, |start| era >= start)
 	}
@@ -997,6 +997,9 @@ impl<T: Config> Rotator<T> {
 
 		Eras::<T>::set_stakers_reward(ending_era.index, allocation.staker_rewards);
 		Eras::<T>::set_validator_incentive_budget(ending_era.index, allocation.validator_incentive);
+
+		// Auto-pay each elected validator's earned incentive as a hold, then release matured.
+		Pallet::<T>::auto_pay_incentive(ending_era.index);
 
 		// Include both staker rewards and validator incentive in the event
 		Pallet::<T>::deposit_event(Event::<T>::EraPaid {

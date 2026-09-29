@@ -244,6 +244,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type BondingDuration: Get<EraIndex>;
 
+		/// Length of the validator incentive vesting window, in [`Config::BondingDuration`]
+		/// periods (13 ≈ 1 year on Polkadot).
+		#[pallet::constant]
+		type VestingBondingPeriods: Get<u32>;
+
 		/// Number of eras nominators must wait to unbond when they are not slashable.
 		///
 		/// This duration is used for nominators when [`AreNominatorsSlashable`] is `false`.
@@ -458,6 +463,7 @@ pub mod pallet {
 		parameter_types! {
 			pub const SessionsPerEra: SessionIndex = 3;
 			pub const BondingDuration: EraIndex = 3;
+			pub const VestingBondingPeriods: u32 = 4;
 			pub const NominatorFastUnbondDuration: EraIndex = 2;
 			pub const MaxPruningItems: u32 = 100;
 		}
@@ -478,6 +484,7 @@ pub mod pallet {
 			type DisableMinting = ConstBool<false>;
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
+			type VestingBondingPeriods = VestingBondingPeriods;
 			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 			type PlanningEraOffset = ConstU32<1>;
 			type SlashDeferDuration = ();
@@ -602,15 +609,12 @@ pub mod pallet {
 	pub type ErasSumWeightedPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
 
-	/// Per-account cap on live [`IdleIncentiveBuckets`] entries.
-	///
-	/// The vesting window is `VestingBondingPeriods` periods, so live buckets stay below that
-	/// once the oldest mature and are pruned. Hardcoded until `T::VestingBondingPeriods`
-	/// lands in a later PR; the margin over 13 is pruning headroom.
-	pub struct MaxIdleIncentiveBuckets;
-	impl Get<u32> for MaxIdleIncentiveBuckets {
+	/// Per-account cap on live [`IdleIncentiveBuckets`] entries: [`Config::VestingBondingPeriods`]
+	/// + 1 headroom for lazy pruning.
+	pub struct MaxIdleIncentiveBuckets<T>(core::marker::PhantomData<T>);
+	impl<T: Config> Get<u32> for MaxIdleIncentiveBuckets<T> {
 		fn get() -> u32 {
-			16
+			T::VestingBondingPeriods::get().saturating_add(1)
 		}
 	}
 
@@ -625,7 +629,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		BoundedBTreeMap<PeriodIndex, IncentiveBucket<BalanceOf<T>>, MaxIdleIncentiveBuckets>,
+		BoundedBTreeMap<PeriodIndex, IncentiveBucket<BalanceOf<T>>, MaxIdleIncentiveBuckets<T>>,
 		ValueQuery,
 	>;
 
@@ -641,7 +645,7 @@ pub mod pallet {
 	/// the rationale for the cutoff.
 	///
 	/// TODO(staking-async): remove this storage item, the legacy stake-only branch in
-	/// [`crate::Pallet::calculate_validator_incentive_for_page`], the
+	/// [`crate::Pallet::calculate_validator_incentive`], the
 	/// [`session_rotation::Eras::uses_weighted_points`] cutoff helper, and the
 	/// [`crate::migrations::SetWeightedPointsFormulaStartEra`] migration once
 	/// [`Config::HistoryDepth`] eras have elapsed since the upgrade — i.e. once the cutoff
