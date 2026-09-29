@@ -306,6 +306,8 @@ mod tests {
 				.expect_err("Transaction is failing, because origin is wrong");
 
 			assert_eq!(dispatch_res.error, DispatchError::BadOrigin);
+			// The origin was already authorized, so the authorize weight is refunded.
+			assert_eq!(dispatch_res.post_info.actual_weight, Some(pallet1::CALL_WEIGHT));
 			assert_eq!(info.call_weight, pallet1::CALL_WEIGHT);
 			assert_eq!(info.extension_weight, pallet1::AUTH_WEIGHT);
 		});
