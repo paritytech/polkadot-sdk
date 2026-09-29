@@ -55,7 +55,7 @@ use frame_support::{
 			common_strategies::{Bytes, Owner},
 			Inspect as InspectUniqueAsset,
 		},
-		ContainsPair, Get, Hooks, SignedTransactionBuilder,
+		ContainsPair, Hooks, SignedTransactionBuilder,
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
@@ -2446,6 +2446,10 @@ fn mirrored_transfer_log_lands_on_the_ethereum_transaction() {
 // A mirrored transfer inside a `batch_all` that rolls back: the balance change and its event are
 // gone, and the receipt of the `eth_substrate_call` around it, which succeeds since `batch` returns
 // `Ok` on an interrupted inner call, must not keep the `Transfer` either.
+//
+// Benchmark builds deposit an `EthExtrinsicRevert` for every successful ethereum transaction, so
+// the success check only holds without them.
+#[cfg(not(feature = "runtime-benchmarks"))]
 #[test]
 fn rolled_back_batch_all_keeps_a_mirrored_transfer_off_the_receipt() {
 	erc20_mirror_ext().execute_with(|| {
@@ -2549,8 +2553,12 @@ fn a_block_cannot_buffer_enough_logs_to_reach_the_cap_once_enabled() {
 
 // Until every eth-rpc reads receipt data V2 the buffer stays off: a mirrored balance change is an
 // event and nothing else, so a block's transaction list matches what any eth-rpc can serve.
+//
+// Benchmark builds force the buffer on, which suspends exactly the behavior this test pins.
+#[cfg(not(feature = "runtime-benchmarks"))]
 #[test]
 fn mirrored_logs_are_not_buffered_until_the_rollout_enables_them() {
+	use frame_support::traits::Get;
 	assert_eq!(<<Runtime as pallet_revive::Config>::MaxOutsideFrameLogs as Get<u32>>::get(), 0);
 
 	erc20_mirror_ext().execute_with(|| {

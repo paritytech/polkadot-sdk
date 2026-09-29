@@ -1008,6 +1008,9 @@ fn eth_block_lists_the_synthetic_transaction_in_every_version() {
 // log leaves no trace in the block: every version lists one hash per receipt entry, and a V2
 // reader of such a block, or of any block from before the buffer was turned on, finds no
 // synthetic transaction to serve.
+//
+// Benchmark builds force the buffer on, so the zero-cap pin only holds without them.
+#[cfg(not(feature = "runtime-benchmarks"))]
 #[test]
 fn eth_block_and_receipt_data_pair_up_in_every_version_while_the_buffer_is_off() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -1060,14 +1063,26 @@ fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
 		}
 		assert_eq!(Pallet::<Test>::eth_block().logs_bloom.0, fitted.bloom);
 	});
+}
 
-	// A zero cap turns the buffer off, which is how a runtime opts out: logs emitted outside an
-	// ethereum transaction stay substrate-only, as they were before the buffer existed.
+// A zero cap turns the buffer off, which is how a runtime opts out: logs emitted outside an
+// ethereum transaction stay substrate-only, as they were before the buffer existed. Benchmark
+// builds force the buffer on, so the pin only holds without them.
+#[cfg(not(feature = "runtime-benchmarks"))]
+#[test]
+fn a_zero_cap_turns_the_outside_of_frame_log_buffer_off() {
+	use frame_support::traits::Hooks;
+	use sp_core::H256;
+
 	ExtBuilder::default().build().execute_with(|| {
 		MaxOutsideFrameLogsFlag::set(0);
 
 		let events_before = System::events().len();
-		emit(1);
+		Pallet::<Test>::emit_contract_log_outside_frame(
+			H160::from_low_u64_be(1),
+			vec![H256::repeat_byte(1)].try_into().unwrap(),
+			vec![1].try_into().unwrap(),
+		);
 		assert_eq!(System::events().len(), events_before + 1, "the event still fires");
 
 		Pallet::<Test>::on_finalize(1);

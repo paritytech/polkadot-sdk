@@ -1060,8 +1060,8 @@ pub mod pallet {
 		}
 
 		/// Buffer a log for the block's synthetic transaction regardless of `MaxOutsideFrameLogs`,
-		/// so a benchmark of the drain measures the entries it sets up on a runtime that keeps the
-		/// buffer off as well.
+		/// and without the first-log check and weight registration, so a benchmark of the drain
+		/// measures exactly the entries it sets up.
 		#[cfg(feature = "runtime-benchmarks")]
 		pub fn bench_buffer_outside_frame_log(contract: H160, topics: Vec<H256>, data: Vec<u8>) {
 			OutsideFrameLogs::<T>::append(OutsideFrameLog {
@@ -1078,6 +1078,10 @@ pub mod pallet {
 		fn buffer_outside_frame_log(contract: &H160, topics: &[H256], data: &[u8]) {
 			let index = OutsideFrameLogs::<T>::decode_len().unwrap_or(0) as u32;
 			let cap = T::MaxOutsideFrameLogs::get();
+			// Benchmarks force a zero cap on, so an emitting extrinsic's measured weight
+			// includes the append and stays valid once the buffer is turned on.
+			#[cfg(feature = "runtime-benchmarks")]
+			let cap = if cap.is_zero() { u32::MAX } else { cap };
 			if index >= cap {
 				// Zero turns the buffer off, so only an exhausted non-zero cap is worth reporting:
 				// the block then commits a bloom that omits this log while its event still stands.
