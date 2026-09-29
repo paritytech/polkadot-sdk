@@ -19,10 +19,10 @@
 
 use crate::{
 	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
-	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
+	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing, IncentiveBucket,
 	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	PeriodIndex, PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash,
+	UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -39,7 +39,7 @@ use frame_support::{
 		Nothing, OnUnbalanced,
 	},
 	weights::Weight,
-	BoundedBTreeSet, BoundedVec,
+	BoundedBTreeMap, BoundedBTreeSet, BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 pub use impls::*;
@@ -441,6 +441,9 @@ pub mod pallet {
 		/// Funds on stake by a nominator or a validator.
 		#[codec(index = 0)]
 		Staking,
+		/// Validator self-stake incentive that has been delivered but is still vesting.
+		#[codec(index = 1)]
+		ValidatorIncentive,
 	}
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -598,6 +601,33 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ErasSumWeightedPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
+
+	/// Per-account cap on live [`IdleIncentiveBuckets`] entries.
+	///
+	/// The vesting window is `VestingBondingPeriods` periods, so live buckets stay below that
+	/// once the oldest mature and are pruned. Hardcoded until `T::VestingBondingPeriods`
+	/// lands in a later PR; the margin over 13 is pruning headroom.
+	pub struct MaxIdleIncentiveBuckets;
+	impl Get<u32> for MaxIdleIncentiveBuckets {
+		fn get() -> u32 {
+			16
+		}
+	}
+
+	/// Idle (not-bonded) validator incentive, delivered but still vesting, held under
+	/// [`HoldReason::ValidatorIncentive`].
+	///
+	/// Keyed by recipient account → per bonding-period ([`crate::maturation::PeriodIndex`])
+	/// [`IncentiveBucket`]. Each bucket matures over `VestingBondingPeriods × BondingDuration` eras
+	/// (see [`crate::maturation::matured_fraction`]) and is pruned once fully released.
+	#[pallet::storage]
+	pub type IdleIncentiveBuckets<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		BoundedBTreeMap<PeriodIndex, IncentiveBucket<BalanceOf<T>>, MaxIdleIncentiveBuckets>,
+		ValueQuery,
+	>;
 
 	/// Cutoff era from which the validator self-stake incentive switches to the
 	/// weighted-points formula.

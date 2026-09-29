@@ -211,6 +211,7 @@ mod tests;
 pub mod asset;
 pub mod election_size_tracker;
 pub mod ledger;
+pub mod maturation;
 pub mod migrations;
 mod pallet;
 pub mod reward;
@@ -242,6 +243,7 @@ pub use weights::WeightInfo;
 
 // public exports
 pub use ledger::{StakingLedger, UnlockChunk};
+pub use maturation::{IncentiveBucket, PeriodIndex};
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
 pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
