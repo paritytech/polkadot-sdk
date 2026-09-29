@@ -25,11 +25,13 @@ doc:
     `RuntimeEvent: From<pallet_bounties::Event>`.
 crates:
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: patch
 - name: collectives-westend-runtime
-  bump: major
+  bump: patch
 - name: rococo-runtime
   bump: major
+- name: polkadot-runtime-common
+  bump: patch
 - name: pallet-bounties
   bump: major
 - name: pallet-child-bounties

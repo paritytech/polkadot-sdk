@@ -26,7 +26,7 @@ use frame_support::{defensive, storage_alias, traits::UncheckedOnRuntimeUpgrade}
 
 const LOG_TARGET: &str = "runtime::treasury";
 
-/// Storage as it existed at pallet storage version 0, before [`super::MigrateV0ToV1`].
+/// Storage as it existed at pallet storage version 0, before [`crate::migration::MigrateV0ToV1`].
 ///
 /// These aliases deliberately preserve the **on-chain storage keys** of the old pallet storage
 /// declarations that have been removed from `lib.rs`.
@@ -76,17 +76,14 @@ pub mod v0 {
 	/// storage key.
 	#[allow(invalid_type_param_default)]
 	#[storage_alias]
-	pub type Approvals<T: Config<I>, I: 'static, MaxApprovals: Get<u32> + 'static> = StorageValue<
-		Pallet<T, I>,
-		BoundedVec<ProposalIndex, MaxApprovals>,
-		ValueQuery,
-	>;
+	pub type Approvals<T: Config<I>, I: 'static, MaxApprovals: Get<u32> + 'static> =
+		StorageValue<Pallet<T, I>, BoundedVec<ProposalIndex, MaxApprovals>, ValueQuery>;
 }
 
 /// Invariants of the v0 proposal storage.
 ///
-/// Called once, from [`v1::UncheckedMigrateToV1::pre_upgrade`], when storage moves from version 0
-/// to 1. It is not part of the pallet's per-block `try_state` hook.
+/// Called once, from the storage v0-to-v1 migration's `pre_upgrade` hook, when storage moves from
+/// version 0 to 1. It is not part of the pallet's per-block `try_state` hook.
 ///
 /// ### Invariants
 /// 1. [`v0::ProposalCount`] >= number of entries in [`v0::Proposals`].
@@ -137,8 +134,8 @@ mod v1 {
 	///
 	/// This does the same work [`Pallet::spend_funds`] used to do for the legacy queue, but once
 	/// at upgrade time instead of every spend period:
-	/// - Proposals listed in [`v0::Approvals`] are paid from the pot, their bond is unreserved,
-	///   and an [`Event::Awarded`] is emitted.
+	/// - Proposals listed in [`v0::Approvals`] are paid from the pot, their bond is unreserved, and
+	///   an [`Event::Awarded`] is emitted.
 	/// - Unapproved proposals only get their bond refunded; their spend was never authorised.
 	///
 	/// If the pot cannot cover an approved payout, that proposal is left in place and its approval
