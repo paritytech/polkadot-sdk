@@ -133,13 +133,18 @@ const PROPAGATION_ALL: f32 = 3.0;
 /// of gossip a message has very likely reached all nodes on the network (`log4(3000)`).
 const LUCKY_PEERS: usize = 4;
 
-/// Maximum number of light clients we gossip commit messages to in a round.
+/// Number of rounds it takes to gossip commit messages to all light clients.
 ///
-/// Light clients are split into groups of this size, which take turns on every round, so each
-/// light client gets a commit at least every `ceil(light_peers / LIGHT_PEERS_GROUP_SIZE)` rounds.
-/// Since commits grow with the number of voters, this bounds the outbound bandwidth spent on
-/// light clients, while keeping their finality lag bounded.
-const LIGHT_PEERS_GROUP_SIZE: usize = 100;
+/// Light clients are split into this many groups, which take turns on every round, so each
+/// light client gets a commit at least every `LIGHT_PEERS_ROUNDS` rounds. The outbound bandwidth
+/// spent on light clients stays bounded, as the number of light clients is limited by the node's
+/// configuration.
+const LIGHT_PEERS_ROUNDS: usize = 5;
+
+/// Minimum number of light clients we gossip commit messages to in a round.
+///
+/// Nodes with at most this many light clients gossip every commit to all of them.
+const LIGHT_PEERS_MIN_GROUP_SIZE: usize = 50;
 
 type Report = (PeerId, ReputationChange);
 
@@ -500,7 +505,7 @@ impl<N> PeerInfo<N> {
 /// The light clients we gossip commit messages to in the current round.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LightPeersInTurn {
-	/// All light clients, as there are no more of them than `LIGHT_PEERS_GROUP_SIZE`.
+	/// All light clients, as there are no more of them than `LIGHT_PEERS_MIN_GROUP_SIZE`.
 	All,
 	/// The light clients with a peer id in `(after, until]`, wrapping around the end of the
 	/// sorted order of peer ids.
@@ -654,8 +659,8 @@ impl<N: Ord> Peers<N> {
 		//   (unless we're not connected to that many authorities)
 		// - second set: max(LUCKY_PEERS, sqrt(peers)) random peers where at least LUCKY_PEERS are
 		//   authorities.
-		// - third set: the next group of LIGHT_PEERS_GROUP_SIZE light client peers, in the order of
-		//   their peer ids (see `rotate_light_peers`).
+		// - third set: the next group of light client peers, in the order of their peer ids (see
+		//   `rotate_light_peers`).
 
 		let shuffled_peers = {
 			let mut peers =
@@ -719,10 +724,10 @@ impl<N: Ord> Peers<N> {
 	///
 	/// We walk through all light clients in the order of their peer ids, continuing after the
 	/// last light client served in the previous round. Every light client gets a commit at least
-	/// every `ceil(light_peers / LIGHT_PEERS_GROUP_SIZE)` rounds, regardless of other light
-	/// clients connecting or disconnecting in the meantime.
+	/// every `LIGHT_PEERS_ROUNDS` rounds, regardless of other light clients connecting or
+	/// disconnecting in the meantime.
 	fn rotate_light_peers(&mut self) {
-		if self.light_peers.len() <= LIGHT_PEERS_GROUP_SIZE {
+		if self.light_peers.len() <= LIGHT_PEERS_MIN_GROUP_SIZE {
 			self.light_peers_in_turn = LightPeersInTurn::All;
 			return;
 		}
@@ -740,10 +745,15 @@ impl<N: Ord> Peers<N> {
 			.light_peers
 			.range((Bound::Excluded(after), Bound::Unbounded))
 			.chain(self.light_peers.iter())
-			.nth(LIGHT_PEERS_GROUP_SIZE - 1)
+			.nth(self.light_peers_group_size() - 1)
 			.expect("there are more light peers than a group, so the chain yields enough; qed");
 
 		self.light_peers_in_turn = LightPeersInTurn::Range { after, until };
+	}
+
+	/// The number of light clients we gossip commit messages to in a round.
+	fn light_peers_group_size(&self) -> usize {
+		LIGHT_PEERS_MIN_GROUP_SIZE.max(self.light_peers.len().div_ceil(LIGHT_PEERS_ROUNDS))
 	}
 }
 
@@ -1329,7 +1339,7 @@ impl<Block: BlockT> Inner<Block> {
 	/// transitions:
 	///
 	/// - State 1: allowed to max(LUCKY_PEERS, sqrt(peers)) (where at least LUCKY_PEERS are
-	///   authorities) and to the current group of LIGHT_PEERS_GROUP_SIZE light clients
+	///   authorities) and to the current group of light clients
 	/// - State 2: allowed to all peers
 	///
 	/// We are more lenient with global messages since there should be a lot
@@ -2536,47 +2546,58 @@ mod tests {
 
 	#[test]
 	fn gossips_commits_to_light_clients_in_rotating_groups() {
-		let mut config = config();
-		config.gossip_duration = Duration::from_secs(300); // Set to high value to prevent test race
-		let (val, _) = GossipValidator::<Block>::new(config, voter_set_state(), None, None);
+		// (light clients, group size, rounds to serve all of them): groups of the minimum size,
+		// and groups growing to keep the number of rounds
+		let cases = [
+			(LIGHT_PEERS_MIN_GROUP_SIZE * 5 / 2, LIGHT_PEERS_MIN_GROUP_SIZE, 3),
+			(
+				LIGHT_PEERS_MIN_GROUP_SIZE * LIGHT_PEERS_ROUNDS * 4,
+				LIGHT_PEERS_MIN_GROUP_SIZE * 4,
+				5,
+			),
+		];
 
-		// the validator starts at set id 0
-		val.note_set(SetId(0), Vec::new(), |_, _| {});
+		for (n_light_peers, group_size, n_rounds) in cases {
+			let mut config = config();
+			config.gossip_duration = Duration::from_secs(300); // Set to high value to prevent test race
+			let (val, _) = GossipValidator::<Block>::new(config, voter_set_state(), None, None);
 
-		// add a few full nodes and 2.5 groups worth of light clients
-		for _ in 0..4 {
-			val.inner.write().peers.new_peer(PeerId::random(), ObservedRole::Full);
+			// the validator starts at set id 0
+			val.note_set(SetId(0), Vec::new(), |_, _| {});
+
+			// add a few full nodes and the light clients
+			for _ in 0..4 {
+				val.inner.write().peers.new_peer(PeerId::random(), ObservedRole::Full);
+			}
+
+			let mut light_peers = Vec::new();
+			light_peers.resize_with(n_light_peers, || PeerId::random());
+
+			for peer in &light_peers {
+				val.inner.write().peers.new_peer(*peer, ObservedRole::Light);
+			}
+
+			let mut served = HashSet::new();
+
+			for _ in 0..n_rounds {
+				// a new round starts
+				val.inner.write().peers.reshuffle();
+
+				let inner = val.inner.read();
+				let allowed = light_peers
+					.iter()
+					.filter(|peer| inner.global_message_allowed(peer))
+					.copied()
+					.collect::<Vec<_>>();
+
+				// every round serves exactly one full group
+				assert_eq!(allowed.len(), group_size);
+				served.extend(allowed);
+			}
+
+			// after `n_rounds` rounds every light client got a commit
+			assert_eq!(served.len(), n_light_peers);
 		}
-
-		let n_light_peers = LIGHT_PEERS_GROUP_SIZE * 2 + LIGHT_PEERS_GROUP_SIZE / 2;
-		let mut light_peers = Vec::new();
-		light_peers.resize_with(n_light_peers, || PeerId::random());
-
-		for peer in &light_peers {
-			val.inner.write().peers.new_peer(*peer, ObservedRole::Light);
-		}
-
-		let n_groups = n_light_peers.div_ceil(LIGHT_PEERS_GROUP_SIZE);
-		let mut served = HashSet::new();
-
-		for _ in 0..n_groups {
-			// a new round starts
-			val.inner.write().peers.reshuffle();
-
-			let inner = val.inner.read();
-			let allowed = light_peers
-				.iter()
-				.filter(|peer| inner.global_message_allowed(peer))
-				.copied()
-				.collect::<Vec<_>>();
-
-			// every round serves exactly one full group
-			assert_eq!(allowed.len(), LIGHT_PEERS_GROUP_SIZE);
-			served.extend(allowed);
-		}
-
-		// after `n_groups` rounds every light client got a commit
-		assert_eq!(served.len(), n_light_peers);
 	}
 
 	#[test]
@@ -2589,7 +2610,7 @@ mod tests {
 		val.note_set(SetId(0), Vec::new(), |_, _| {});
 
 		let mut light_peers = Vec::new();
-		light_peers.resize_with(LIGHT_PEERS_GROUP_SIZE * 3, || PeerId::random());
+		light_peers.resize_with(LIGHT_PEERS_MIN_GROUP_SIZE * 3, || PeerId::random());
 
 		for peer in &light_peers {
 			val.inner.write().peers.new_peer(*peer, ObservedRole::Light);
@@ -2606,7 +2627,7 @@ mod tests {
 
 		val.inner.write().peers.reshuffle();
 		let first_group = served(&val, &light_peers);
-		assert_eq!(first_group.len(), LIGHT_PEERS_GROUP_SIZE);
+		assert_eq!(first_group.len(), LIGHT_PEERS_MIN_GROUP_SIZE);
 
 		// some light clients that were already served disconnect, and new ones connect with
 		// peer ids anywhere in the order
@@ -2615,7 +2636,7 @@ mod tests {
 		}
 
 		let mut new_light_peers = Vec::new();
-		new_light_peers.resize_with(LIGHT_PEERS_GROUP_SIZE / 2, || PeerId::random());
+		new_light_peers.resize_with(LIGHT_PEERS_MIN_GROUP_SIZE / 2, || PeerId::random());
 
 		for peer in &new_light_peers {
 			val.inner.write().peers.new_peer(*peer, ObservedRole::Light);
@@ -2627,7 +2648,7 @@ mod tests {
 		let second_group = served(&val, &light_peers);
 
 		// the next group is a full one, and nobody from the previous group is served twice
-		assert_eq!(second_group.len(), LIGHT_PEERS_GROUP_SIZE);
+		assert_eq!(second_group.len(), LIGHT_PEERS_MIN_GROUP_SIZE);
 		assert!(first_group.is_disjoint(&second_group));
 	}
 
@@ -2641,7 +2662,7 @@ mod tests {
 		val.note_set(SetId(0), Vec::new(), |_, _| {});
 
 		let mut light_peers = Vec::new();
-		light_peers.resize_with(LIGHT_PEERS_GROUP_SIZE / 2, || PeerId::random());
+		light_peers.resize_with(LIGHT_PEERS_MIN_GROUP_SIZE / 2, || PeerId::random());
 
 		for peer in &light_peers {
 			val.inner.write().peers.new_peer(*peer, ObservedRole::Light);

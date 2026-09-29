@@ -6,9 +6,9 @@ doc:
     per round. With many light clients connected to a node, their finality lag grew
     linearly with the number of light clients.
 
-    Light clients now take turns in groups of up to 100, in the order of their peer ids.
-    Each light client gets a commit at least every `ceil(light_clients / 100)` rounds,
-    and outbound bandwidth spent on light clients stays bounded by the group size.
+    Light clients now take turns in groups, in the order of their peer ids. Each light
+    client gets a commit at least every 5 rounds. Nodes with at most 50 light clients
+    gossip every commit to all of them.
     Gossip towards full nodes and authorities is unchanged.
 crates:
 - name: sc-consensus-grandpa
