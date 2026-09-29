@@ -20,6 +20,8 @@ crates:
   bump: minor
 - name: snowbridge-pallet-outbound-queue-v2
   bump: none
+- name: snowbridge-runtime-test-common
+  bump: minor
 - name: bridge-hub-rococo-runtime
   bump: patch
 - name: bridge-hub-westend-runtime
