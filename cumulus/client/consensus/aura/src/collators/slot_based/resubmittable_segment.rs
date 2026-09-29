@@ -17,9 +17,6 @@
 
 //! A [`ResubmittableSegment`] of V3 parablock headers, hydrated into [`CollationParts`] from
 //! local state only.
-//!
-//! Dead until the collation task wires it in; the allow comes off then.
-#![allow(dead_code)]
 
 use super::message::CollationParts;
 use codec::Encode;
@@ -229,6 +226,9 @@ where
 		proof: StorageProof::merge(proofs),
 		validation_code_hash,
 		validation_data,
+		relay_parent_session: anchor.relay_parent_session,
+		relay_parent_storage_root: *relay_parent_header.state_root(),
+		relay_parent_number: *relay_parent_header.number(),
 	})
 }
 
