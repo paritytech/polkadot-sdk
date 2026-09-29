@@ -1645,3 +1645,51 @@ fn resubmittable_segment_methods_stay_in_sync() {
 	assert_eq!(result.best_parent_header, included);
 	assert!(result.resubmittable_segment.is_empty());
 }
+
+#[test]
+fn trim_best_parent_walks_an_incomplete_trailing_bundle_back() {
+	// included <- a <- b <- c, segment [a, b, c]. `b` is a bundle-ender, `c` is mid-bundle: the
+	// filter accepts everything except `c`, so the trim pops `c` and stops at `b`.
+	let header = |number, parent| {
+		Header::new(number, Default::default(), Default::default(), parent, Default::default())
+	};
+	let included = header(0, Default::default());
+	let a = header(1, included.hash());
+	let b = header(2, a.hash());
+	let c = header(3, b.hash());
+	let by_hash = |hash| [&included, &a, &b, &c].into_iter().find(|h| h.hash() == hash).cloned();
+
+	let result = ParentSearchResult::<Block> {
+		included_at_scheduling: included.clone(),
+		best_parent_header: c.clone(),
+		v3_enabled: true,
+		resubmittable_segment: vec![a.clone(), b.clone(), c.clone()],
+	}
+	.trim_best_parent_to_filter(by_hash, |h| h.hash() != c.hash());
+
+	assert_eq!(result.best_parent_header.hash(), b.hash());
+	let segment: Vec<_> = result.resubmittable_segment.iter().map(|h| h.hash()).collect();
+	assert_eq!(segment, vec![a.hash(), b.hash()]);
+}
+
+#[test]
+fn trim_best_parent_falls_back_to_included_when_nothing_passes() {
+	let header = |number, parent| {
+		Header::new(number, Default::default(), Default::default(), parent, Default::default())
+	};
+	let included = header(0, Default::default());
+	let a = header(1, included.hash());
+	let b = header(2, a.hash());
+	let by_hash = |hash| [&included, &a, &b].into_iter().find(|h| h.hash() == hash).cloned();
+
+	let result = ParentSearchResult::<Block> {
+		included_at_scheduling: included.clone(),
+		best_parent_header: b.clone(),
+		v3_enabled: true,
+		resubmittable_segment: vec![a.clone(), b.clone()],
+	}
+	.trim_best_parent_to_filter(by_hash, |h| h.hash() == included.hash());
+
+	assert_eq!(result.best_parent_header.hash(), included.hash());
+	assert!(result.resubmittable_segment.is_empty());
+}
