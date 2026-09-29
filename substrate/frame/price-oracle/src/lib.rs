@@ -387,6 +387,8 @@ pub mod pallet {
 		}
 
 		/// Set the health limits of a pair.
+		///
+		/// `impact_size` and `quorum` must be non-zero.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::set_pair_settings())]
 		pub fn set_pair_settings(
@@ -396,7 +398,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			ensure!(T::Pairs::is_known(pair), Error::<T>::UnknownPair);
-			ensure!(!settings.impact_size.is_zero(), Error::<T>::InvalidParameters);
+			ensure!(
+				!settings.impact_size.is_zero() && settings.quorum >= 1,
+				Error::<T>::InvalidParameters
+			);
 			Settings::<T>::insert(pair, settings);
 			Self::deposit_event(Event::PairSettingsSet { pair });
 			Ok(())
@@ -501,14 +506,12 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Backs [`PriceOracleApi::aggregate`](sp_price_oracle::runtime_api::PriceOracleApi::aggregate).
 	pub fn aggregate_markets(prices: Vec<(MarketId, Price)>) -> Vec<Quote> {
-		let prices = prices
+		let markets = prices
 			.into_iter()
-			.filter_map(|(id, price)| {
-				let m = Markets::<T>::get(id)?;
-				Some((m.venue, m.pair, price))
-			})
+			.filter_map(|(id, price)| Some(Quote { pair: Markets::<T>::get(id)?.pair, price }))
 			.collect();
-		pricing::aggregate(prices, &T::Pairs::all(), T::Pairs::conversions)
+		let quorum = |pair| Settings::<T>::get(pair).map_or(u32::MAX, |s| s.quorum);
+		pricing::aggregate(markets, &T::Pairs::all(), T::Pairs::conversions, quorum)
 	}
 }
 
