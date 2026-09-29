@@ -37,12 +37,12 @@ use pallet_revive::precompiles::{
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
 use sp_runtime::traits::{UniqueSaturatedInto, Zero};
-use weights::WeightInfo as _;
 
 pub mod foreign_assets;
 pub mod migration;
 pub mod permit;
 pub mod weights;
+pub use weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub(crate) mod benchmarking;

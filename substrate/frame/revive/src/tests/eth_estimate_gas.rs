@@ -25,7 +25,8 @@ use crate::{
 		StateOverrideSet,
 	},
 	state_overrides::apply_state_overrides,
-	test_utils::{ALICE_ADDR, BOB, BOB_ADDR, CHARLIE_ADDR},
+	storage::AccountInfo,
+	test_utils::{ALICE, ALICE_ADDR, BOB, BOB_ADDR, CHARLIE_ADDR},
 	tests::{Config, ExtBuilder, Test, test_utils::place_contract},
 };
 use frame_support::traits::fungible::Mutate;
@@ -142,6 +143,26 @@ fn is_simple_transfer_rejects_contract_destination() {
 		place_contract(&BOB, H256::repeat_byte(0xab));
 		let tx = GenericTransaction { to: Some(BOB_ADDR), ..simple_transfer_tx() };
 		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
+	});
+}
+
+/// A transfer to an EIP-7702 delegated EOA runs the delegate's code, so it must not take the
+/// short-circuit path. Clearing the delegation leaves the destination code-free again.
+#[test]
+fn is_simple_transfer_rejects_delegated_eoa_destination() {
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, H256::repeat_byte(0xab));
+		let tx = simple_transfer_tx();
+		assert!(Pallet::<Test>::is_simple_transfer(&tx));
+
+		AccountInfo::<Test>::set_delegation(&CHARLIE_ADDR, Some(BOB_ADDR), &ALICE).unwrap();
+		assert!(
+			!Pallet::<Test>::is_simple_transfer(&tx),
+			"transfer to a delegated EOA executes code and must be estimated by binary search"
+		);
+
+		AccountInfo::<Test>::set_delegation(&CHARLIE_ADDR, None, &ALICE).unwrap();
+		assert!(Pallet::<Test>::is_simple_transfer(&tx));
 	});
 }
 

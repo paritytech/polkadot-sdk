@@ -61,6 +61,31 @@
 //!   PSM's reserve.
 //! * **Circuit Breaker**: Per-external emergency control to disable minting or all swaps.
 //!
+//! ### Storage Invariants
+//!
+//! With the `try-runtime` feature, the pallet tests seventeen storage invariants in
+//! each block. The function `do_try_state` does these tests. It confirms that:
+//!
+//! * each decimals snapshot agrees with the live asset metadata;
+//! * each reserve covers the debt that the PSM records against it;
+//! * the issuance of the internal asset covers the debt of the instance;
+//! * no storage row stays after the removal of its PSM;
+//! * no debt exists for a pair that the PSM does not approve.
+//!
+//! Five of the seventeen checks are advisory. An advisory check writes a warning to
+//! the log. It does not return an error. A permitted action can create these five
+//! states, so an error would stop the chain after a correct call:
+//!
+//! * debt above a per-asset ceiling;
+//! * debt above the ceiling of an instance;
+//! * a reserve with a balance, but with zero weight and zero debt;
+//! * live decimals of the internal asset that differ from the recorded value;
+//! * live decimals of an external asset that differ from the recorded value.
+//!
+//! The two decimal checks are advisory because an asset owner can change asset
+//! metadata at any time, and swaps use the recorded values. Drift does not change
+//! the arithmetic of the pallet. It changes what a reader of live metadata sees.
+//!
 //! ### Fee Structure
 //!
 //! * **Minting Fee (`MintingFee`)**: Deducted from internal-asset output during minting, configured
@@ -636,7 +661,7 @@ pub mod pallet {
 		InsufficientPrivilege,
 		/// Maximum number of approved external assets reached.
 		TooManyAssets,
-		/// Live decimals diverged from the snapshot taken at registration or genesis.
+		/// Reserved legacy error; retained to preserve error variant indices.
 		DecimalsMismatch,
 		/// The asset's decimal precision is outside the supported range.
 		DecimalsRangeExceeded,
@@ -652,6 +677,9 @@ pub mod pallet {
 		PsmHasApprovedExternals,
 		/// An unexpected invariant violation occurred. This should be reported.
 		Unexpected,
+		/// An admin origin was supplied that cannot be used as an authority, such as the system
+		/// `None` origin.
+		InvalidAdminOrigin,
 	}
 
 	#[pallet::call]
@@ -689,8 +717,6 @@ pub mod pallet {
 		/// - [`Error::FeeTooHigh`]: If the configured minting fee exceeds `max_fee`.
 		/// - [`Error::ExceedsMaxPsmDebt`]: If minting would exceed this PSM's debt ceiling
 		///   (aggregate or per-asset).
-		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot taken at
-		///   registration.
 		/// - [`Error::AmountTooSmallAfterConversion`]: If the conversion to the counter-asset
 		///   rounds to zero; swap would transfer nothing.
 		///
@@ -713,8 +739,8 @@ pub mod pallet {
 				.ok_or(Error::<T>::UnsupportedAsset)?;
 			ensure!(external.status.allows_minting(), Error::<T>::MintingStopped);
 
-			let (ext_decimals, internal_decimals) =
-				Self::ensure_decimals_match(&info, &internal_asset, &external_asset, &external)?;
+			let ext_decimals = external.decimals;
+			let internal_decimals = info.internal_decimals;
 
 			let internal_equivalent =
 				Self::external_to_internal(external_amount, ext_decimals, internal_decimals)?;
@@ -928,6 +954,7 @@ pub mod pallet {
 		/// ## Errors
 		///
 		/// - [`DispatchError::BadOrigin`]: The origin is not permitted by [`Config::CreateOrigin`].
+		/// - [`Error::InvalidAdminOrigin`]: Either admin is the system `None` origin.
 		/// - [`Error::PsmAlreadyExists`]: A PSM is already registered for `internal_asset`.
 		/// - [`Error::ZeroMinSwapAmount`]: `min_swap_amount` is zero.
 		/// - [`Error::AssetDoesNotExist`]: The internal asset does not exist.
@@ -949,6 +976,10 @@ pub mod pallet {
 			min_swap_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let maybe_depositor = T::CreateOrigin::ensure_origin(origin, &internal_asset)?;
+			ensure!(
+				!full_admin.is_none() && !emergency_admin.is_none(),
+				Error::<T>::InvalidAdminOrigin
+			);
 			ensure!(!Psm::<T>::contains_key(&internal_asset), Error::<T>::PsmAlreadyExists);
 			ensure!(!min_swap_amount.is_zero(), Error::<T>::ZeroMinSwapAmount);
 			ensure!(
@@ -1303,8 +1334,6 @@ pub mod pallet {
 		/// - [`Error::AssetAlreadyApproved`]: If `external_asset` is already approved on this PSM.
 		/// - [`Error::AssetDoesNotExist`]: If `external_asset` does not exist in the underlying
 		///   fungibles backend.
-		/// - [`Error::DecimalsMismatch`]: If the internal asset's live decimals diverged from the
-		///   snapshot in [`PsmInfo`].
 		/// - [`Error::DecimalsRangeExceeded`]: If `|asset_decimals − internal_decimals|` exceeds
 		///   [`MAX_DECIMALS_DIFF`].
 		///
@@ -1331,10 +1360,6 @@ pub mod pallet {
 			);
 
 			let asset_decimals = T::Fungibles::decimals(external_asset.clone());
-			ensure!(
-				T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
-				Error::<T>::DecimalsMismatch
-			);
 			ensure!(
 				(asset_decimals.abs_diff(info.internal_decimals) as u32) <= MAX_DECIMALS_DIFF,
 				Error::<T>::DecimalsRangeExceeded
@@ -1423,6 +1448,7 @@ pub mod pallet {
 		/// ## Errors
 		///
 		/// - [`Error::PsmNotFound`]: No PSM is registered for `internal_asset`.
+		/// - [`Error::InvalidAdminOrigin`]: `new_admin` is the system `None` origin.
 		///
 		/// ## Events
 		///
@@ -1435,6 +1461,7 @@ pub mod pallet {
 			new_admin: Box<T::PalletsOrigin>,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_admins())?;
+			ensure!(!new_admin.is_none(), Error::<T>::InvalidAdminOrigin);
 			let new_admin = *new_admin;
 			let old_admin = PsmAdmin::<T>::try_mutate(
 				&internal_asset,
@@ -1466,6 +1493,7 @@ pub mod pallet {
 		/// ## Errors
 		///
 		/// - [`Error::PsmNotFound`]: No PSM is registered for `internal_asset`.
+		/// - [`Error::InvalidAdminOrigin`]: `new_admin` is the system `None` origin.
 		///
 		/// ## Events
 		///
@@ -1478,6 +1506,7 @@ pub mod pallet {
 			new_admin: Box<T::PalletsOrigin>,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_admins())?;
+			ensure!(!new_admin.is_none(), Error::<T>::InvalidAdminOrigin);
 			let new_admin = *new_admin;
 			let old_admin = PsmAdmin::<T>::try_mutate(
 				&internal_asset,
@@ -1646,32 +1675,15 @@ pub mod pallet {
 			factor_u128.try_into().map_err(|_| Error::<T>::ConversionOverflow)
 		}
 
-		/// Verify the live decimals for an external still match the snapshot taken at
-		/// registration on this PSM, and that the internal asset's live decimals still
-		/// match the snapshot stored in [`PsmInfo`].
-		pub(crate) fn ensure_decimals_match(
-			info: &PsmInfo<T>,
-			internal_asset: &T::AssetId,
-			external_asset: &T::AssetId,
-			external: &ExternalAssetInfo,
-		) -> Result<(u8, u8), DispatchError> {
-			ensure!(
-				T::Fungibles::decimals(external_asset.clone()) == external.decimals,
-				Error::<T>::DecimalsMismatch
-			);
-			ensure!(
-				T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
-				Error::<T>::DecimalsMismatch
-			);
-			Ok((external.decimals, info.internal_decimals))
-		}
-
 		/// Authorise an operation on the PSM keyed by `internal_asset`.
 		///
 		/// Matches the incoming origin's caller against the PSM's stored
 		/// [`PsmAdminInfo::full_admin`] (yielding `Full`) or [`PsmAdminInfo::emergency_admin`]
 		/// (yielding `Emergency`). The resolved level is then checked against `required`. No
 		/// other authority can manage a PSM.
+		///
+		/// We reject the `None` origin to prevent the block author from controlling PSMs with an
+		/// admin set to `None`.
 		pub(crate) fn ensure_psm_admin(
 			origin: OriginFor<T>,
 			internal_asset: &T::AssetId,
@@ -1679,6 +1691,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let admin = PsmAdmin::<T>::get(internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 			let caller = <T as Config>::RuntimeOrigin::from(origin).into_caller();
+			ensure!(!caller.is_none(), DispatchError::BadOrigin);
 			let level = if caller == admin.full_admin {
 				PsmManagerLevel::Full
 			} else if caller == admin.emergency_admin {
@@ -1690,25 +1703,94 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Test the storage invariants of the pallet.
+		///
+		/// This function runs with the `try-runtime` feature, and in tests. The
+		/// checks occur at three levels:
+		///
+		/// * Checks 1 to 6, 12 and 13 run for each PSM instance.
+		/// * Checks 7 to 11 run for each approved external asset of an instance.
+		/// * Checks 14 to 17 run once, across all of the storage.
+		///
+		/// Checks 2, 7, 10, 11 and 17 are advisory. They write a warning to the
+		/// log, and they do not return an error. A permitted action can create
+		/// each of these states: a metadata change by an asset owner for checks
+		/// 2 and 7, a parameter change by governance for checks 10, 11 and 17.
 		#[cfg(any(feature = "try-runtime", test))]
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			use sp_runtime::traits::CheckedAdd;
 
 			for (internal_asset, info) in Psm::<T>::iter() {
-				// 0. Every PSM has its paired admin record.
+				// Check 1: the instance has its paired admin record.
 				ensure!(
 					PsmAdmin::<T>::contains_key(&internal_asset),
 					"PSM instance without a paired PsmAdmin record"
 				);
 
+				// Check 2 (advisory): live internal decimals match the PsmInfo snapshot.
+				// Swaps use the recorded value, so drift does not change the pallet's
+				// arithmetic; it changes what off-chain readers of live metadata see.
+				let live_internal_decimals = T::Fungibles::decimals(internal_asset.clone());
+				if live_internal_decimals != info.internal_decimals {
+					log::warn!(
+						target: "runtime::psm",
+						"PSM {:?}: internal asset live decimals ({}) differ from the PsmInfo \
+						snapshot ({}); swaps keep using the snapshot",
+						internal_asset, live_internal_decimals, info.internal_decimals,
+					);
+				}
+
+				// Check 3: the reserve account exists.
+				ensure!(
+					frame_system::Pallet::<T>::account_exists(&Self::psm_account(&internal_asset)),
+					"PSM reserve account does not exist"
+				);
+
+				// Check 4: the fee destination account exists.
+				ensure!(
+					frame_system::Pallet::<T>::account_exists(&info.fee_destination),
+					"PSM fee destination account does not exist"
+				);
+
+				// Check 5: the minimum swap amount of the instance is not zero.
+				// `create_psm` refuses a zero value. A migration or a manual genesis
+				// file can bypass that check. A zero value permits swaps of dust.
+				ensure!(!info.min_swap_amount.is_zero(), "PSM instance has a zero min_swap_amount");
+
+				// Check 6: the issuance of the internal asset covers the debt of this
+				// instance. The PSM mints the internal asset for each mint call, and
+				// burns it for each redeem call. A lower issuance therefore has two
+				// possible causes: something burned the asset outside of the PSM, or
+				// the debt records are wrong.
+				ensure!(
+					T::Fungibles::total_issuance(internal_asset.clone()) >=
+						Self::total_psm_debt(&internal_asset),
+					"Total internal issuance is less than total PSM debt"
+				);
+
 				let mut counted = 0u32;
+				let mut approved_debt = BalanceOf::<T>::zero();
 				for (external_asset, external) in ExternalAssets::<T>::iter_prefix(&internal_asset)
 				{
 					counted = counted.saturating_add(1);
-
-					// 1. Per-external reserve covers tracked debt.
 					let debt = PsmDebt::<T>::get(&internal_asset, &external_asset);
 					let reserve = Self::get_reserve(&internal_asset, &external_asset);
+
+					// Check 7 (advisory): live external decimals match the registration
+					// snapshot. Same rationale as check 2: the asset owner can change
+					// metadata at any time, and swaps keep using the snapshot.
+					let live_external_decimals = T::Fungibles::decimals(external_asset.clone());
+					if live_external_decimals != external.decimals {
+						log::warn!(
+							target: "runtime::psm",
+							"Asset {:?}/{:?}: live decimals ({}) differ from the registration \
+							snapshot ({}); swaps keep using the snapshot",
+							internal_asset, external_asset,
+							live_external_decimals, external.decimals,
+						);
+					}
+
+					// Check 8: the reserve covers tracked debt, compared in external units.
 					let debt_as_external =
 						Self::internal_to_external(debt, external.decimals, info.internal_decimals)
 							.map_err(|_| "Failed to convert tracked debt to external units")?;
@@ -1716,26 +1798,68 @@ pub mod pallet {
 						reserve >= debt_as_external,
 						"PSM reserve is less than tracked debt for an asset"
 					);
+
+					// Check 9: summing approved debt must not overflow.
+					approved_debt = approved_debt
+						.checked_add(&debt)
+						.ok_or("PSM debt overflow when summing approved externals")?;
+
+					// Check 10 (advisory): the debt of one asset is above its ceiling.
+					// Governance can set a weight or `max_debt` below the debt. One
+					// documented procedure does this on purpose: to retire an asset,
+					// governance disables minting and sets the weight to zero, which
+					// drives the ceiling to zero while the debt drains. The warning
+					// still fires in that state; it is advisory for this reason.
+					let ceiling = Self::max_asset_debt(&internal_asset, &external_asset, &info);
+					if debt > ceiling {
+						log::warn!(
+							target: "runtime::psm",
+							"Asset {:?}/{:?} debt ({:?}) exceeds ceiling ({:?})",
+							internal_asset, external_asset, debt, ceiling,
+						);
+					}
+
+					// Check 11 (advisory): the ceiling weight and the debt are zero,
+					// but the reserve has a balance. A donation or an error can do
+					// this.
+					if AssetCeilingWeight::<T>::get(&internal_asset, &external_asset).is_zero() &&
+						debt.is_zero() && !reserve.is_zero()
+					{
+						log::warn!(
+							target: "runtime::psm",
+							"Asset {:?}/{:?} has zero ceiling, zero debt, but non-zero reserve {:?}",
+							internal_asset, external_asset, reserve,
+						);
+					}
 				}
 
-				// 2. Cached `external_count` matches the iterated externals.
+				// Check 12: the cached external_count matches the approved externals.
 				ensure!(
 					info.external_count == counted,
 					"PsmInfo.external_count does not match the approved externals"
 				);
 
-				// 3. Sum of per-asset debts equals the aggregate helper.
-				let mut sum = BalanceOf::<T>::zero();
-				for (_, debt) in PsmDebt::<T>::iter_prefix(&internal_asset) {
-					sum = sum.checked_add(&debt).ok_or("PSM debt overflow when summing")?;
-				}
+				// Check 13: the approved-external count is within the configured bound.
 				ensure!(
-					sum == Self::total_psm_debt(&internal_asset),
-					"sum of per-asset debts disagrees with total_psm_debt"
+					counted <= T::MaxExternals::get(),
+					"ExternalAssets count exceeds MaxExternals for a PSM"
 				);
 			}
 
-			// 5. No orphaned per-asset state outside registered PSMs.
+			// Check 14: no `PsmDebt` row with a value exists for a pair that the PSM
+			// does not approve. This check replaces an earlier comparison between
+			// `total_psm_debt` and a sum of the same rows. That comparison always
+			// held true, because both values add the same rows.
+			for (internal_asset, external_asset, debt) in PsmDebt::<T>::iter() {
+				if !debt.is_zero() {
+					ensure!(
+						ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
+						"PsmDebt entry exists for non-approved pair"
+					);
+				}
+			}
+
+			// Check 15: no per-instance row survives without its parent PSM.
 			for (internal_asset, _, _) in ExternalAssets::<T>::iter() {
 				ensure!(
 					Psm::<T>::contains_key(&internal_asset),
@@ -1753,6 +1877,43 @@ pub mod pallet {
 					Psm::<T>::contains_key(&internal_asset),
 					"Orphaned PsmAdmin row without parent PSM"
 				);
+			}
+
+			// Check 16: no fee row or weight row exists for a pair that the PSM
+			// does not approve. The fee extrinsics refuse assets that are not
+			// approved, and remove_external_asset clears all three rows. A stray
+			// weight row also shrinks the ceilings of the approved assets, because
+			// the ceiling formula divides by the sum of the weights.
+			for (internal_asset, external_asset, _) in MintingFee::<T>::iter() {
+				ensure!(
+					ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
+					"MintingFee entry exists for non-approved pair"
+				);
+			}
+			for (internal_asset, external_asset, _) in RedemptionFee::<T>::iter() {
+				ensure!(
+					ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
+					"RedemptionFee entry exists for non-approved pair"
+				);
+			}
+			for (internal_asset, external_asset, _) in AssetCeilingWeight::<T>::iter() {
+				ensure!(
+					ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
+					"AssetCeilingWeight entry exists for non-approved pair"
+				);
+			}
+
+			// Check 17 (advisory): the debt of an instance is above its ceiling.
+			// Governance can set `max_debt` below the debt.
+			for (internal_asset, info) in Psm::<T>::iter() {
+				let total = Self::total_psm_debt(&internal_asset);
+				if total > info.max_debt {
+					log::warn!(
+						target: "runtime::psm",
+						"PSM {:?}: total debt ({:?}) exceeds ceiling ({:?})",
+						internal_asset, total, info.max_debt,
+					);
+				}
 			}
 
 			Ok(())

@@ -988,6 +988,18 @@ pub struct BabeVerifier<Block: BlockT, Client> {
 	telemetry: Option<TelemetryHandle>,
 }
 
+impl<Block: BlockT, Client> BabeVerifier<Block, Client> {
+	pub(crate) fn new(
+		client: Arc<Client>,
+		slot_duration: SlotDuration,
+		config: BabeConfiguration,
+		epoch_changes: SharedEpochChanges<Block, Epoch>,
+		telemetry: Option<TelemetryHandle>,
+	) -> Self {
+		Self { client, slot_duration, config, epoch_changes, telemetry }
+	}
+}
+
 #[async_trait::async_trait]
 impl<Block, Client> Verifier<Block> for BabeVerifier<Block, Client>
 where
@@ -1844,6 +1856,30 @@ where
 	Ok((import, link))
 }
 
+/// Parameters of [`build_verifier`].
+pub struct BuildVerifierParams<Block: BlockT, Client> {
+	/// The client to interact with the internals of the node.
+	pub client: Arc<Client>,
+	/// Slot duration.
+	pub slot_duration: SlotDuration,
+	/// BABE configuration for this chain.
+	pub config: BabeConfiguration,
+	/// Shared epoch-changes tree.
+	pub epoch_changes: SharedEpochChanges<Block, Epoch>,
+	/// Optional telemetry handle to report telemetry events.
+	pub telemetry: Option<TelemetryHandle>,
+}
+
+/// Build the [`BabeVerifier`]
+pub fn build_verifier<Block: BlockT, Client>(
+	BuildVerifierParams { client, slot_duration, config, epoch_changes, telemetry }: BuildVerifierParams<
+		Block,
+		Client,
+	>,
+) -> BabeVerifier<Block, Client> {
+	BabeVerifier::new(client, slot_duration, config, epoch_changes, telemetry)
+}
+
 /// Parameters passed to [`import_queue`].
 pub struct ImportQueueParams<'a, Block: BlockT, BI, Client, Spawn> {
 	/// The BABE link that is created by [`block_import`].
@@ -1899,13 +1935,13 @@ where
 {
 	const HANDLE_BUFFER_SIZE: usize = 1024;
 
-	let verifier = BabeVerifier {
+	let verifier = build_verifier(BuildVerifierParams {
+		client: client.clone(),
 		slot_duration,
 		config: babe_link.config.clone(),
 		epoch_changes: babe_link.epoch_changes.clone(),
 		telemetry,
-		client: client.clone(),
-	};
+	});
 
 	let (worker_tx, worker_rx) = channel(HANDLE_BUFFER_SIZE);
 

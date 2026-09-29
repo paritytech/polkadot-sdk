@@ -606,7 +606,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			Arc::new(Litep2pBandwidthSink { sink: litep2p.bandwidth_sink() });
 
 		if let Some(registry) = &params.metrics_registry {
-			MetricSources::register(registry, bandwidth, Arc::clone(&num_connected))?;
+			MetricSources::register(registry, bandwidth)?;
 		}
 
 		Ok(Self {
@@ -619,7 +619,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			pending_queries: HashMap::new(),
 			peerstore_handle: peer_store_handle,
 			block_announce_protocol,
-			event_streams: out_events::OutChannels::new(None)?,
+			event_streams: out_events::OutChannels::new(params.metrics_registry.as_ref())?,
 			peers: HashMap::new(),
 			litep2p,
 		})
@@ -828,8 +828,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(DiscoveryEvent::RoutingTableUpdate { peers }) => {
-						for peer in peers {
-							self.peerstore_handle.add_known_peer(peer.into());
+						let peers = peers.into_iter().map(Into::into).collect::<Vec<_>>();
+
+						for peer in &peers {
+							self.peerstore_handle.add_known_peer(*peer);
+						}
+
+						if !peers.is_empty() {
+							self.event_streams.send(Event::PeerRoutingTableUpdate(peers));
 						}
 					}
 					Some(DiscoveryEvent::FindNodeSuccess { query_id, target, peers }) => {
@@ -1132,6 +1138,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(DiscoveryEvent::Identified { peer, listen_addresses, supported_protocols, .. }) => {
+						self.event_streams.send(Event::PeerIdentified {
+							peer: peer.into(),
+							supported_protocols: supported_protocols.iter().cloned().map(Into::into).collect(),
+						});
 						self.discovery.add_self_reported_address(peer, supported_protocols, listen_addresses).await;
 					}
 					Some(DiscoveryEvent::ExternalAddressDiscovered { address }) => {
@@ -1382,7 +1392,7 @@ mod tests {
 		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
 			ed25519::SecretKey::try_from_bytes([7u8; 32]).unwrap(),
 		));
-		network_config.validate_and_complete_webrtc_addresses().unwrap();
+		network_config.validate_and_complete_addresses().unwrap();
 
 		let (keypair, _peer_id) =
 			Litep2pNetworkBackend::get_keypair(&network_config.node_key).unwrap();
@@ -1411,7 +1421,7 @@ mod tests {
 		let mut network_config = NetworkConfiguration::new_local();
 		network_config.listen_addresses = vec![WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
 		network_config.public_addresses = vec![WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
-		network_config.validate_and_complete_webrtc_addresses().unwrap();
+		network_config.validate_and_complete_addresses().unwrap();
 
 		// Completing the addresses pinned the key, so this is the key the backend serves.
 		let (keypair, _peer_id) =
@@ -1441,7 +1451,7 @@ mod tests {
 		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
 			ed25519::SecretKey::try_from_bytes([7u8; 32]).unwrap(),
 		));
-		network_config.validate_and_complete_webrtc_addresses().unwrap();
+		network_config.validate_and_complete_addresses().unwrap();
 
 		// Held for the duration of the test: dropping it closes the node's sockets.
 		let backend = start_backend(&network_config).unwrap();
@@ -1457,6 +1467,9 @@ mod tests {
 		);
 	}
 
+	/// A configured `/certhash` is checked against the node's own and removed by
+	/// `NetworkConfiguration::validate_and_complete_addresses`, which this test deliberately skips:
+	/// the backend is the guard for a configuration built without it.
 	#[tokio::test]
 	async fn webrtc_listen_address_with_certhash_refuses_to_start() {
 		let listen_address: NetworkMultiaddr = WEBRTC_LISTEN_ADDRESS.parse().unwrap();

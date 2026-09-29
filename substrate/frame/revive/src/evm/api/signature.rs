@@ -20,6 +20,30 @@ use super::*;
 use sp_core::{H160, U256};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 
+/// Recover an Ethereum address from a message hash and signature.
+///
+/// Rejects high-S signatures: EIP-2 for transactions, and EIP-7702 requires the same
+/// `s <= secp256k1n/2` bound on authorization tuples, so the check applies to every caller.
+///
+/// # Parameters
+/// - `message`: The message bytes to hash
+/// - `signature`: The 65-byte ECDSA signature (r, s, v)
+///
+/// # Returns
+/// The recovered Ethereum address, or an error if recovery fails
+pub fn recover_eth_address_from_message(message: &[u8], signature: &[u8; 65]) -> Result<H160, ()> {
+	if !sp_core::ecdsa::is_signature_normalized(signature) {
+		log::debug!(target: "evm", "Rejected high-S ECDSA signature (EIP-2 violation)");
+		return Err(());
+	}
+
+	let hash = keccak_256(message);
+	let pk = secp256k1_ecdsa_recover(signature, &hash).map_err(|_| ())?;
+	let mut addr = H160::default();
+	addr.assign_from_slice(&keccak_256(&pk[..])[12..]);
+	Ok(addr)
+}
+
 impl TransactionLegacySigned {
 	/// Get the recovery ID from the signed transaction.
 	/// See https://eips.ethereum.org/EIPS/eip-155
@@ -174,17 +198,7 @@ impl TransactionSigned {
 		let bytes = s.out().to_vec();
 		let signature = self.raw_signature()?;
 
-		// Reject high-S signatures per EIP-2 (signature malleability protection)
-		if !sp_core::ecdsa::is_signature_normalized(&signature) {
-			log::debug!(target: "evm", "Rejected high-S ECDSA signature (EIP-2 violation)");
-			return Err(());
-		}
-
-		let hash = keccak_256(&bytes);
-		let mut addr = H160::default();
-		let pk = secp256k1_ecdsa_recover(&signature, &hash).map_err(|_| ())?;
-		addr.assign_from_slice(&keccak_256(&pk[..])[12..]);
-		Ok(addr)
+		recover_eth_address_from_message(&bytes, &signature)
 	}
 }
 

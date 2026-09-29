@@ -1,0 +1,35 @@
+title: 'network: Move the connected peers metric to the sync component'
+
+doc:
+  - audience: Node Dev
+    description: |
+      The `substrate_sub_libp2p_peers_count` gauge was fed from an `Arc<AtomicUsize>` that
+      `sc-network` maintained purely so it could publish a syncing-level number: the libp2p
+      backend filled it from `num_sync_peers()`, and the litep2p backend from the
+      block-announce peerset. Neither is a networking concern.
+
+      The gauge now lives in `sc-network-sync`, registered by the `SyncingEngine` off the peer
+      counter it already maintains, next to `substrate_sub_libp2p_is_major_syncing`, which
+      already sits there under the same legacy name. `MetricSources` in `sc-network` loses its
+      `connected_peers` field and `MetricSources::register` its third argument; both live in the
+      crate-private `service::metrics` module, so there is no public API change. Both backends
+      still keep their own `num_connected` counter, which is what backs
+      `NetworkService::sync_num_connected`.
+
+      Because registration moved into `SyncingEngine::new`, a consumer that builds a network via
+      the public `build_network_advanced` without a syncing engine no longer exports this metric,
+      where before it exported a constant 0. Every in-tree node goes through `build_network`,
+      which creates the engine, so nothing in this repo is affected.
+  - audience: Node Operator
+    description: |
+      `substrate_sub_libp2p_peers_count` keeps its name, so existing dashboards and alerts keep
+      working. It is now sourced from the syncing engine's own peer count rather than from the
+      network backend, so it reports peers that completed the sync handshake instead of peers
+      merely connected on the block-announce protocol. The two agree at rest but can differ
+      transiently while a peer is being validated.
+
+crates:
+  - name: sc-network
+    bump: patch
+  - name: sc-network-sync
+    bump: patch

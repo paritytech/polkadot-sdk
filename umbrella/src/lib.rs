@@ -608,6 +608,10 @@ pub use pallet_offences;
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
 
+/// Sale of on-demand Coretime from the Coretime chain.
+#[cfg(feature = "pallet-on-demand-para")]
+pub use pallet_on_demand_para;
+
 /// FRAME oracle pallet for off-chain data.
 #[cfg(feature = "pallet-oracle")]
 pub use pallet_oracle;
@@ -697,11 +701,6 @@ pub use pallet_safe_mode;
 /// Paymaster.
 #[cfg(feature = "pallet-salary")]
 pub use pallet_salary;
-
-/// FRAME pallet for Scarcity NFTs: coinage-style purse-key ownership with feeless
-/// rest-time-prioritized transfers.
-#[cfg(feature = "pallet-scarcity")]
-pub use pallet_scarcity;
 
 /// FRAME Scheduler pallet.
 #[cfg(feature = "pallet-scheduler")]
