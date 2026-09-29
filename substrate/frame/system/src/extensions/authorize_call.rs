@@ -206,9 +206,22 @@ mod tests {
 		TransactionExtension,
 	>;
 
+	frame_support::parameter_types! {
+		pub static Pallet1Paused: bool = false;
+	}
+
+	/// Stands in for safe mode / tx-pause filtering `Pallet1`.
+	pub struct PausablePallet1;
+	impl frame_support::traits::Contains<RuntimeCall> for PausablePallet1 {
+		fn contains(call: &RuntimeCall) -> bool {
+			!(Pallet1Paused::get() && matches!(call, RuntimeCall::Pallet1(_)))
+		}
+	}
+
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type Block = Block;
+		type BaseCallFilter = PausablePallet1;
 	}
 
 	impl pallet1::Config for Runtime {}
@@ -338,6 +351,34 @@ mod tests {
 				.expect("valid");
 
 			assert!(!new_origin.filter_call(&filtered_call));
+		});
+	}
+
+	#[test]
+	fn filtered_call_is_not_authorized() {
+		let call = RuntimeCall::Pallet1(pallet1::Call::call1 { valid: true });
+
+		new_test_ext().execute_with(|| {
+			Pallet1Paused::set(true);
+
+			let tx = UncheckedExtrinsic::new_transaction(
+				call,
+				(frame_system::AuthorizeCall::<Runtime>::new(),),
+			);
+			let info = tx.get_dispatch_info();
+			let len = tx.using_encoded(|e| e.len());
+			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
+				.expect("Transaction is general so signature is good");
+
+			// The call filter rejects the call at dispatch, so it must not be admitted either.
+			assert_eq!(
+				checked.validate::<Runtime>(TransactionSource::External, &info, len),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
+				checked.apply::<Runtime>(&info, len).map(|_| ()),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
 		});
 	}
 }
