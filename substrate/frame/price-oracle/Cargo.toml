@@ -7,6 +7,7 @@ license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet aggregating signed price reports of oracle nodes into on-chain prices"
+readme = "README.md"
 
 [lints]
 workspace = true

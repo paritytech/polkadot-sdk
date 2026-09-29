@@ -15,12 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Primitives shared by the price oracle node service and the price oracle pallet.
-//!
-//! Block authors collect signed price reports from the oracle nodes of the network and include
-//! them in a block as an inherent. The runtime verifies the reports and aggregates them into
-//! on-chain prices.
-
+#![doc = include_str!("../README.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;

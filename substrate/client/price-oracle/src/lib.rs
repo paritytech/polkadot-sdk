@@ -15,13 +15,7 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-//! Node side of the price oracle.
-//!
-//! Fetches market data from exchanges, prices it through the runtime APIs of
-//! `sp-price-oracle`, signs the resulting pair prices as a report, gossips the report to the
-//! other oracle nodes, and provides the collected reports to the block author as inherent data.
-//! The crate README describes the design.
-
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
 pub mod fetcher;
@@ -176,20 +170,19 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 					continue;
 				}
 				// Read the settings and the markets from the runtime at the best block.
-				let Some((setup, settings)) =
-					TickSetup::read(&*client, &keystore, &mut api_missing_logged)
+				let Some(setup) = TickSetup::read(&*client, &keystore, &mut api_missing_logged)
 				else {
 					continue;
 				};
-				let acceptance = Acceptance::new(settings, setup.anchor);
+				let acceptance = setup.acceptance();
 				// Drop pooled reports that fell out of the report window.
 				pool.prune(acceptance.oldest());
 				// Validate incoming reports against the signers and window of this block.
 				validator.set_acceptance(acceptance);
 				// Follow a changed tick interval from the next tick on.
-				if setup.interval != interval {
-					log::info!(target: LOG_TARGET, "Tick interval is now {:?}", setup.interval);
-					interval = setup.interval;
+				if setup.interval() != interval {
+					interval = setup.interval();
+					log::info!(target: LOG_TARGET, "Tick interval is now {interval:?}");
 					next_tick = Instant::now() + interval;
 				}
 				// Fetch, price, sign and pool in the background; the result arrives in the arm below.
@@ -226,14 +219,13 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 struct TickSetup<Hash, Id> {
 	best_hash: Hash,
 	anchor: Anchor,
-	interval: Duration,
+	settings: Settings<Id>,
 	signer: Option<Id>,
 	markets: Vec<Market>,
 }
 
-impl<Hash: Copy, Id> TickSetup<Hash, Id> {
-	/// Read the state at the best block. Returns the setup of the tick and the settings in force
-	/// at that block.
+impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
+	/// Read the state at the best block.
 	///
 	/// Returns `None` if a runtime API call fails, which is the case when the runtime does not
 	/// implement the price oracle API. The failure is logged once, and again only after the
@@ -242,7 +234,7 @@ impl<Hash: Copy, Id> TickSetup<Hash, Id> {
 		client: &Client,
 		keystore: &KeystorePtr,
 		api_missing_logged: &mut bool,
-	) -> Option<(Self, Settings<Id>)>
+	) -> Option<Self>
 	where
 		Block: BlockT<Hash = Hash>,
 		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
@@ -267,9 +259,17 @@ impl<Hash: Copy, Id> TickSetup<Hash, Id> {
 		*api_missing_logged = false;
 
 		let signer = signer::local_signer(keystore, &settings.signers);
-		let interval =
-			Duration::from_millis(settings.tick_interval_ms.into()).max(MIN_TICK_INTERVAL);
-		Some((Self { best_hash, anchor, interval, signer, markets }, settings))
+		Some(Self { best_hash, anchor, settings, signer, markets })
+	}
+
+	/// The tick interval in force, raised to [`MIN_TICK_INTERVAL`] if shorter.
+	fn interval(&self) -> Duration {
+		Duration::from_millis(self.settings.tick_interval_ms.into()).max(MIN_TICK_INTERVAL)
+	}
+
+	/// The rules incoming reports are checked against at this tick.
+	fn acceptance(&self) -> Acceptance<Id> {
+		Acceptance::new(self.settings.clone(), self.anchor)
 	}
 }
 
@@ -293,7 +293,8 @@ where
 	Id: RuntimeAppPublic<Signature = Signature> + AppCrypto + Ord + Clone + Encode + Decode,
 	Signature: Clone + Encode,
 {
-	let TickSetup { best_hash, anchor, interval, signer, markets } = setup;
+	let interval = setup.interval();
+	let TickSetup { best_hash, anchor, signer, markets, .. } = setup;
 	let Some(signer) = signer else {
 		log::debug!(target: LOG_TARGET, "No signer key in the keystore, not reporting");
 		return None;

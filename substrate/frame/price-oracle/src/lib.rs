@@ -15,16 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Price Oracle Pallet
-//!
-//! Aggregates signed price reports of the oracle nodes of the network into on-chain prices.
-//!
-//! Oracle nodes fetch the markets registered in this pallet, price them through the pallet's
-//! runtime APIs, and sign the resulting pair prices as a report. Block authors include the
-//! reports they collected as an inherent. The pallet verifies the reports against the accepted
-//! signer set, keeps the latest report of every signer, and publishes the median price of every
-//! pair once enough signers have reported it.
-
+#![doc = include_str!("../README.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
