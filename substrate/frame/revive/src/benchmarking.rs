@@ -3964,25 +3964,14 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `MSTORE8` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Memory Size:** memory is grown to its maximum of 1 MiB before the benchmark runs, so no
-	///   `MSTORE8` expands it and only the store itself is measured.
-	/// * **One Byte per Page:** every store writes a byte on a 4 KiB page that no other store
-	///   touches, which costs far more than a store to a page that was already used. Memory has 256
-	///   pages, which is why `r` only goes up to 255.
-	/// * **Pseudo-random Order:** the pages are visited in a pseudo-random order so the CPU can't
-	///   prefetch the next one.
-	/// * **Stack Initialization:** the offsets and values are placed on the stack before the
-	///   benchmark runs, two items per store, so no `PUSH` op-codes are part of the code being
-	///   benchmarked.
-	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the memory,
-	///   which the benchmark's setup wrote, from the L1 and L2 caches.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Storing to two bytes per page, 2048 bytes apart, cost roughly 35% less per store.
-	/// * Storing to those bytes in order instead of a pseudo-random order cost roughly 45% less.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * An L1 and L2 cache miss on each store, since each byte is on a cache line that hasn't been
+	///   accessed since the eviction.
+	/// * A TLB miss on each store, since each byte is on a page that hasn't been accessed since the
+	///   eviction.
+	/// * No help from the pre-fetcher, since the pages are visited in a pseudo-random order.
 	///
 	/// # Subtraction Safety
 	///
