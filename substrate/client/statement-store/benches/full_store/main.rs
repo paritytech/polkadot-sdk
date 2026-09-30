@@ -434,7 +434,7 @@ fn eviction_bench(c: &mut Criterion, dir: &std::path::Path) {
 /// then resubmits the fixture statements that it evicted.
 fn restore_account0(store: &Store, added: &[sp_statement_store::Hash]) {
 	let started = Instant::now();
-	for hash in added.iter().filter(|hash| store.has_statement(hash)) {
+	for hash in added {
 		store.remove(hash).expect("remove succeeds");
 	}
 	let keypairs: Vec<_> = (0..ACCOUNTS).map(account_keypair).collect();
@@ -447,7 +447,6 @@ fn restore_account0(store: &Store, added: &[sp_statement_store::Hash]) {
 			restored += 1;
 		}
 	}
-	store.maintain();
 	eprintln!(
 		"eviction cleanup: {} fixture statements restored in {:.1}s",
 		restored,
