@@ -5,6 +5,9 @@
 
 # Sized down for paritytech/litep2p#665, which takes nodes down above 20 providers per key;
 # raise it again once the fix (paritytech/litep2p#666) ships.
+# DO NOT MERGE. This branch patches in the fix for paritytech/litep2p#665; 40 nodes is above the
+# 20-providers-per-key limit where that bug bites, so the run exercises the fix while staying
+# small enough to finish quickly.
 - job-name: "zombienet-statement-store-soak-0001-v2-dht"
   test-filter: "zombie_ci::statement_store::v2_dht_soak::statement_store_v2_dht_soak"
   cumulus-image: "polkadot-parachain-debug"
