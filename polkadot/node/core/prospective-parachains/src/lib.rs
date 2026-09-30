@@ -366,7 +366,7 @@ async fn handle_active_leaves_update<Context>(
 					candidate_hash,
 					c.candidate,
 					c.persisted_validation_data,
-					c.session_limits,
+					c.session_execution_config,
 				);
 
 				match res {
@@ -514,7 +514,7 @@ struct ImportablePendingAvailability {
 	candidate: CommittedCandidateReceipt,
 	persisted_validation_data: PersistedValidationData,
 	compact: fragment_chain::PendingAvailability,
-	session_limits: Option<SessionExecutionConfig>,
+	session_execution_config: Option<SessionExecutionConfig>,
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
@@ -585,7 +585,7 @@ async fn preprocess_candidates_pending_availability<Context>(
 
 		// The candidate may have been built in an older session than the leaf, so its limits come
 		// from its own relay-parent session where the runtime exposes them.
-		let session_limits =
+		let session_execution_config =
 			match fetch_session_execution_config(ctx, session_config_cache, leaf, fetch_session)
 				.await
 			{
@@ -609,7 +609,7 @@ async fn preprocess_candidates_pending_availability<Context>(
 				},
 			};
 		let max_pov_size =
-			session_limits.map_or(constraints.max_pov_size as _, |cfg| cfg.max_pov_size);
+			session_execution_config.map_or(constraints.max_pov_size as _, |cfg| cfg.max_pov_size);
 
 		let next_required_parent = pending.commitments.head_data.clone();
 		importable.push(ImportablePendingAvailability {
@@ -623,7 +623,7 @@ async fn preprocess_candidates_pending_availability<Context>(
 				relay_parent_number: relay_parent_info.number,
 				relay_parent_storage_root: relay_parent_info.state_root,
 			},
-			session_limits,
+			session_execution_config,
 			compact: fragment_chain::PendingAvailability {
 				candidate_hash,
 				relay_parent: RelayParentInfo {
@@ -754,7 +754,9 @@ async fn handle_introduce_seconded_candidate<Context>(
 		)
 		.await
 		{
-			Ok(session_limits) => candidate_entry.set_session_limits(session_limits),
+			Ok(session_execution_config) => {
+				candidate_entry.set_session_execution_config(session_execution_config)
+			},
 			Err(err) => {
 				gum::trace!(
 					target: LOG_TARGET,
@@ -1020,7 +1022,7 @@ async fn answer_hypothetical_membership_request<Context>(
 					// For Complete candidates, verify the relay parent against this leaf before
 					// running the membership check. Incomplete candidates carry no PVD —
 					// nothing to verify.
-					let session_limits = match verify_relay_parent_within_scope(
+					let session_execution_config = match verify_relay_parent_within_scope(
 						ctx,
 						&mut view.relay_parent_info_cache,
 						&mut view.session_execution_config_cache,
@@ -1053,7 +1055,7 @@ async fn answer_hypothetical_membership_request<Context>(
 						*candidate_hash,
 						(**receipt).clone(),
 						persisted_validation_data.clone(),
-						session_limits,
+						session_execution_config,
 					);
 					match entry {
 						Ok(entry) => fragment_chain

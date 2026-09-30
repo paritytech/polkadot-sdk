@@ -3719,7 +3719,7 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 // it violates the leaf session's limits: the runtime checks it against its relay-parent session
 // snapshot, and a node that disagrees would never back it.
 #[test]
-fn candidate_validated_against_relay_parent_session_limits() {
+fn candidate_validated_against_relay_parent_session_execution_config() {
 	const LEAF_NUMBER: BlockNumber = 100;
 	const OLDER_RELAY_PARENT_NUMBER: BlockNumber = LEAF_NUMBER - 4 * DEFAULT_SCHEDULING_LOOKAHEAD;
 	const OLDER_SESSION: SessionIndex = 0;
