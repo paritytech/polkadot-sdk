@@ -59,9 +59,6 @@ pub fn make_persisted_validation_data<T: paras::Config + hrmp::Config + session_
 
 /// Make the persisted validation data for a particular parachain, a specified relay-parent, its
 /// storage root and parent head data.
-///
-/// `max_pov_size` is supplied by the caller rather than re-read here, so a caller that already
-/// resolved the relay-parent session's snapshot does not pay for a second lookup.
 pub fn make_persisted_validation_data_with_parent<T: frame_system::Config>(
 	relay_parent_number: BlockNumberFor<T>,
 	relay_parent_storage_root: T::Hash,
