@@ -999,6 +999,7 @@ impl<T: Config> Rotator<T> {
 		Eras::<T>::set_validator_incentive_budget(ending_era.index, allocation.validator_incentive);
 
 		// Auto-pay each elected validator's earned incentive as a hold, then release matured.
+		// TODO: the era-end auto-pay cost is not yet in the session-report weight (deferred bench).
 		Pallet::<T>::auto_pay_incentive(ending_era.index);
 
 		// Include both staker rewards and validator incentive in the event

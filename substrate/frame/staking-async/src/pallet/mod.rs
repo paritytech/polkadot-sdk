@@ -245,7 +245,10 @@ pub mod pallet {
 		type BondingDuration: Get<EraIndex>;
 
 		/// Length of the validator incentive vesting window, in [`Config::BondingDuration`]
-		/// periods (13 ≈ 1 year on Polkadot).
+		/// periods (13 ≈ 1 year on Polkadot). Must be non-zero.
+		///
+		/// Changing this or [`Config::BondingDuration`] on a live chain re-times (and may
+		/// invalidate) existing incentive buckets, so it needs a migration.
 		#[pallet::constant]
 		type VestingBondingPeriods: Get<u32>;
 
@@ -637,10 +640,10 @@ pub mod pallet {
 	/// Validator incentive bonded into self-stake via [`Pallet::bond_incentive`] or auto-bonded
 	/// by [`RewardDestination::Staked`], keyed the same way as [`IdleIncentiveBuckets`].
 	///
-	/// A bucket's `total` is the amount bonded for that period and never shrinks except by
-	/// slashing or once fully matured (pruned); `released` is unused (stays `0`). The
-	/// still-restricted (not-yet-vested) amount is `total` minus its matured fraction (see
-	/// [`IncentiveBucket::restricted_at`]) — this is what [`Pallet::unbond`] forbids withdrawing.
+	/// A bucket's `total` is the amount bonded for that period; it only shrinks by slashing (or
+	/// when pruned once matured). `released` is the portion already vested at bond time. The
+	/// still-restricted amount is `total - max(released, matured fraction of total)` (see
+	/// [`IncentiveBucket::restricted_at`]); this is what [`Pallet::unbond`] forbids withdrawing.
 	#[pallet::storage]
 	pub type BondedIncentiveBuckets<T: Config> = StorageMap<
 		_,
@@ -1547,6 +1550,8 @@ pub mod pallet {
 		ValidatorIncentiveWeightMismatch { era: EraIndex },
 		/// Validator incentive transfer from era pot failed.
 		ValidatorIncentiveTransferFailed { era: EraIndex },
+		/// Holding or bonding a validator's incentive failed; the funds stayed in the era pot.
+		ValidatorIncentiveHoldFailed { era: EraIndex },
 	}
 
 	#[pallet::error]
@@ -1646,9 +1651,8 @@ pub mod pallet {
 		InsufficientIdleIncentive,
 		/// Cannot unbond: the amount overlaps still-restricted (unvested) bonded incentive.
 		IncentiveStillRestricted,
-		/// `BondedIncentiveBuckets` is full even after pruning fully-matured buckets; should be
-		/// unreachable, since the map is bounded by `VestingBondingPeriods + 1` and pruning keeps
-		/// it at or under that as long as bonding happens at least once per bonding period.
+		/// `BondedIncentiveBuckets` is full even after pruning; should be unreachable given the
+		/// `VestingBondingPeriods + 1` bound.
 		TooManyIncentiveBuckets,
 	}
 
@@ -1870,6 +1874,11 @@ pub mod pallet {
 				T::NominatorFastUnbondDuration::get(),
 				T::BondingDuration::get(),
 			);
+			assert!(
+				T::VestingBondingPeriods::get() > 0,
+				"VestingBondingPeriods must be greater than zero."
+			);
+
 			// Ensure MaxPruningItems is reasonable (minimum 100 for efficiency)
 			assert!(
 				T::MaxPruningItems::get() >= 100,
@@ -2024,15 +2033,6 @@ pub mod pallet {
 			let mut ledger = Self::ledger(Controller(controller))?;
 			let mut value = value.min(ledger.active);
 			let stash = ledger.stash.clone();
-
-			// Forbid unbonding into still-restricted (unvested) bonded incentive.
-			// TODO: the `still_restricted` computation must also reflect in `unbond` weight
-			let restricted = Self::still_restricted(&stash);
-			ensure!(
-				value <= ledger.active.defensive_saturating_sub(restricted),
-				Error::<T>::IncentiveStillRestricted
-			);
-
 			// If unbonding all active stake, chill the stash first to avoid `InsufficientBond`
 			// errors. This matches the behavior of pallet-staking.
 			let chill_weight = if value >= ledger.active {
@@ -2055,6 +2055,13 @@ pub mod pallet {
 					value += ledger.active;
 					ledger.active = Zero::zero();
 				}
+
+				// Forbid unbonding still-restricted bonded incentive (checked after the dust
+				// sweep). TODO: not yet in the `unbond` weight (deferred benchmark).
+				ensure!(
+					ledger.active >= Self::still_restricted(&stash),
+					Error::<T>::IncentiveStillRestricted
+				);
 
 				let is_nominator = Nominators::<T>::contains_key(&stash);
 
@@ -3371,19 +3378,25 @@ pub mod pallet {
 			let current_era =
 				ActiveEra::<T>::get().map(|a| a.index).ok_or(Error::<T>::NoActiveEra)?;
 
-			let amount = IdleIncentiveBuckets::<T>::mutate(&target, |buckets| {
-				Self::release_matured_idle_incentive(&target, current_era, buckets)
+			let amount = IdleIncentiveBuckets::<T>::mutate_exists(&target, |maybe| {
+				let mut buckets = maybe.take().unwrap_or_default();
+				let amount =
+					Self::release_matured_idle_incentive(&target, current_era, &mut buckets);
+				*maybe = (!buckets.is_empty()).then_some(buckets);
+				amount
 			});
 
-			Self::deposit_event(Event::<T>::ValidatorIncentiveReleased { who: target, amount });
+			if !amount.is_zero() {
+				Self::deposit_event(Event::<T>::ValidatorIncentiveReleased { who: target, amount });
+			}
 
 			Ok(())
 		}
 
 		/// Bond `amount` of the caller's still-unmatured idle incentive into self-stake.
 		///
-		/// Carries the drawn amount's remaining vesting restriction into a bonded bucket (see
-		/// [`BondedIncentiveBuckets`]), which then blocks [`Call::unbond`] until it matures.
+		/// The drawn amount keeps its remaining vesting restriction in a bonded bucket (see
+		/// [`BondedIncentiveBuckets`]), which blocks [`Call::unbond`] until it matures.
 		///
 		/// The dispatch origin must be _Signed_ by the stash.
 		#[pallet::call_index(37)]
@@ -3410,8 +3423,8 @@ pub mod pallet {
 
 			Self::do_bond_incentive(&stash, current_era, amount)?;
 
-			ledger.active += amount;
-			ledger.total += amount;
+			ledger.active = ledger.active.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
+			ledger.total = ledger.total.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
 			ledger.update()?;
 			if T::VoterList::contains(&stash) {
 				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash));

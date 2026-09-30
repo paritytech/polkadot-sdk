@@ -3,11 +3,10 @@ title: Deliver validator self-stake incentive as a hold, with maturation and sel
 doc:
 - audience: Runtime Dev
   description: |-
-    Validator self-stake incentive (issue #11876) is now delivered as a genuine lock-up: a
-    `HoldReason::ValidatorIncentive` hold on `pallet-staking-async`'s own currency, instead of a
-    liquid transfer. This replaces an earlier, abandoned `pallet-vesting`-based design whose
-    freeze was silently masked whenever a validator's much larger `Staking` hold already covered
-    the same funds, leaving the "locked" incentive fully spendable.
+    Validator self-stake incentive (issue #11876) is now paid at era end as a lock-up instead of a
+    liquid transfer: the incentive is transferred to the payee and immediately placed under a
+    `HoldReason::ValidatorIncentive` hold on `pallet-staking-async`'s own currency, and matures
+    linearly over `Config::VestingBondingPeriods × Config::BondingDuration` eras.
 
     AutoPay: at the end of each era, `auto_pay_incentive` pays every elected validator's earned
     incentive automatically, routed by their existing `RewardDestination`. Normal staker rewards
@@ -36,4 +35,6 @@ crates:
 - name: pallet-staking-async
   bump: major
 - name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
   bump: minor

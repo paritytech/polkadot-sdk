@@ -20,8 +20,8 @@
 //! Incentive is placed on hold and matures linearly over a fixed window, sliced into "bonding
 //! periods" (`period_index = era / bonding_duration`). Incentive delivered in a period accumulates
 //! into that period's [`IncentiveBucket`], which matures over `vesting_periods × bonding_duration`
-//! eras from its period start and is pruned once fully released. The maturation logic is parametrized
-//! so that it can be used for both idle and bonded incentive buckets.
+//! eras from its period start and is pruned once fully released. The maturation logic is
+//! parametrized so that it can be used for both idle and bonded incentive buckets.
 
 use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -38,7 +38,7 @@ pub type PeriodIndex = EraIndex;
 ///
 /// The window spans `vesting_periods × bonding_duration` eras from `period_index ×
 /// bonding_duration` (the period's first era): `0` at or before the start, saturating to `1` once
-/// fully elapsed.
+/// fully elapsed. A zero-length window is treated as fully matured (no lock).
 pub fn matured_fraction(
 	period_index: PeriodIndex,
 	current_era: EraIndex,
@@ -47,7 +47,7 @@ pub fn matured_fraction(
 ) -> Perbill {
 	let window = vesting_periods.saturating_mul(bonding_duration);
 	if window.is_zero() {
-		return Perbill::zero();
+		return Perbill::one();
 	}
 
 	let period_start_era = period_index.saturating_mul(bonding_duration);
@@ -67,7 +67,7 @@ pub struct IncentiveBucket<Balance: HasCompact + MaxEncodedLen> {
 	/// Total incentive delivered into this period (grows via [`Self::merge`]).
 	#[codec(compact)]
 	pub total: Balance,
-	/// Amount already released from this bucket.
+	/// Amount already released (idle) or already vested when bonded (bonded).
 	#[codec(compact)]
 	pub released: Balance,
 }
@@ -84,6 +84,13 @@ where
 	/// Add a same-period delivery to this bucket.
 	pub fn merge(&mut self, amount: Balance) {
 		self.total = self.total.saturating_add(amount);
+	}
+
+	/// Add another bucket's `total` and `released` (e.g. a proportional slice drawn from an idle
+	/// bucket).
+	pub fn absorb(&mut self, total: Balance, released: Balance) {
+		self.total = self.total.saturating_add(total);
+		self.released = self.released.saturating_add(released);
 	}
 
 	/// Amount releasable now: cumulative matured (see [`matured_fraction`]) minus already released.
@@ -105,8 +112,8 @@ where
 		self.released >= self.total
 	}
 
-	/// Still-restricted (not yet matured) amount at `current_era`: `total` minus cumulative
-	/// matured. Used by bonded buckets, whose `total` never shrinks except via slashing.
+	/// Still-restricted amount at `current_era`: `total` minus the larger of `released` (already
+	/// vested at bond time) and the cumulative matured amount. Used by bonded buckets.
 	pub fn restricted_at(
 		&self,
 		period_index: PeriodIndex,
@@ -117,7 +124,7 @@ where
 		let matured =
 			matured_fraction(period_index, current_era, vesting_periods, bonding_duration)
 				.mul_floor(self.total);
-		self.total.saturating_sub(matured)
+		self.total.saturating_sub(matured.max(self.released))
 	}
 }
 
@@ -202,13 +209,13 @@ mod tests {
 	}
 
 	#[test]
-	fn matured_fraction_zero_window_returns_zero() {
+	fn matured_fraction_zero_window_is_fully_matured() {
 		// vesting_periods == 0.
-		assert_eq!(matured_fraction(0, 1_000, 0, BONDING_DURATION), Perbill::zero());
+		assert_eq!(matured_fraction(0, 1_000, 0, BONDING_DURATION), Perbill::one());
 		// bonding_duration == 0.
-		assert_eq!(matured_fraction(0, 1_000, VESTING_PERIODS, 0), Perbill::zero());
+		assert_eq!(matured_fraction(0, 1_000, VESTING_PERIODS, 0), Perbill::one());
 		// both zero.
-		assert_eq!(matured_fraction(0, 1_000, 0, 0), Perbill::zero());
+		assert_eq!(matured_fraction(0, 1_000, 0, 0), Perbill::one());
 	}
 
 	#[test]
@@ -294,10 +301,20 @@ mod tests {
 	}
 
 	#[test]
-	fn bucket_zero_window_never_releases() {
+	fn bucket_zero_window_releases_everything() {
 		let bucket = IncentiveBucket::<Balance>::new(1_000);
-		assert_eq!(bucket.releasable_at(0, 10_000, 0, BONDING_DURATION), 0);
-		assert!(!bucket.is_exhausted());
+		assert_eq!(bucket.releasable_at(0, 0, 0, BONDING_DURATION), 1_000);
+		assert_eq!(bucket.restricted_at(0, 0, 0, BONDING_DURATION), 0);
+	}
+
+	#[test]
+	fn bucket_restricted_respects_prevested_released() {
+		// Bonded slice with 50 already vested at bond time: restriction starts at 50, not 100.
+		let bucket = IncentiveBucket::<Balance> { total: 100, released: 50 };
+		assert_eq!(bucket.restricted_at(0, 0, VESTING_PERIODS, BONDING_DURATION), 50);
+		// Decays linearly on the total: at 3/4 of the window 25 remains restricted.
+		assert_eq!(bucket.restricted_at(0, 3 * WINDOW / 4, VESTING_PERIODS, BONDING_DURATION), 25);
+		assert_eq!(bucket.restricted_at(0, WINDOW, VESTING_PERIODS, BONDING_DURATION), 0);
 	}
 
 	#[test]

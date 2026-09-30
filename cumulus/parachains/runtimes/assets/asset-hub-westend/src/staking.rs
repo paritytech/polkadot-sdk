@@ -270,6 +270,8 @@ parameter_types! {
 	pub const RelaySessionDuration: BlockNumber = 1 * HOURS;
 	// 2 eras for unbonding (12 hours).
 	pub const BondingDuration: sp_staking::EraIndex = 2;
+	// 13 bonding periods ≈ 1 year.
+	pub const VestingBondingPeriods: u32 = 13;
 	// Nominators can unbond faster when not slashable (2 eras = 12 hours).
 	pub const NominatorFastUnbondDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
@@ -293,6 +295,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
+	type VestingBondingPeriods = VestingBondingPeriods;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
