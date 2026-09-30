@@ -18,8 +18,9 @@
 //! Migration to storage version 5.
 //!
 //! Up to version 4 a proposal was keyed by the hash of the proposed call alone. From version 5
-//! the key is [`Pallet::proposal_hash`], the hash of `(call, threshold)`. This migration re-keys
-//! every active proposal so that on-chain state satisfies the new derivation.
+//! the key is [`Pallet::proposal_hash`](crate::Pallet::proposal_hash), the hash of
+//! `(call, threshold)`. This migration re-keys every active proposal so that on-chain state
+//! satisfies the new derivation.
 
 use super::super::{Config, CostOf, Pallet, ProposalOf, Proposals, Voting, LOG_TARGET};
 use alloc::vec::Vec;
