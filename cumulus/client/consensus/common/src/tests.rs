@@ -1597,7 +1597,6 @@ fn find_parent_computes_resubmittable_segment() {
 	))
 	.unwrap()
 	.expect("Should find a parent");
-	assert!(result.v3_enabled);
 	assert_eq!(result.best_parent_header.hash(), block_b.hash());
 	let segment: Vec<_> = result.resubmittable_segment.iter().map(|h| h.hash()).collect();
 	assert_eq!(segment, vec![block_a.hash(), block_b.hash()]);
@@ -1611,38 +1610,6 @@ fn find_parent_computes_resubmittable_segment() {
 	))
 	.unwrap()
 	.expect("Should find a parent");
-	assert!(!result.v3_enabled);
-	assert!(result.resubmittable_segment.is_empty());
-}
-
-#[test]
-fn resubmittable_segment_methods_stay_in_sync() {
-	let header = |number| {
-		Header::new(
-			number,
-			Default::default(),
-			Default::default(),
-			Default::default(),
-			Default::default(),
-		)
-	};
-	let (included, a, b) = (header(0), header(1), header(2));
-
-	let mut result = ParentSearchResult::<Block> {
-		included_at_scheduling: included.clone(),
-		best_parent_header: b.clone(),
-		v3_enabled: true,
-		resubmittable_segment: vec![a.clone(), b.clone()],
-	};
-
-	// Walking the best parent back one block drops the matching segment tail.
-	result.walk_best_parent_back(a.clone());
-	assert_eq!(result.best_parent_header, a);
-	assert_eq!(result.resubmittable_segment, vec![a.clone()]);
-
-	// Falling back to the included head empties the segment.
-	result.fall_back_to_included();
-	assert_eq!(result.best_parent_header, included);
 	assert!(result.resubmittable_segment.is_empty());
 }
 
@@ -1662,7 +1629,6 @@ fn trim_best_parent_walks_an_incomplete_trailing_bundle_back() {
 	let result = ParentSearchResult::<Block> {
 		included_at_scheduling: included.clone(),
 		best_parent_header: c.clone(),
-		v3_enabled: true,
 		resubmittable_segment: vec![a.clone(), b.clone(), c.clone()],
 	}
 	.trim_best_parent_to_filter(by_hash, |h| h.hash() != c.hash());
@@ -1685,7 +1651,6 @@ fn trim_best_parent_falls_back_to_included_when_nothing_passes() {
 	let result = ParentSearchResult::<Block> {
 		included_at_scheduling: included.clone(),
 		best_parent_header: b.clone(),
-		v3_enabled: true,
 		resubmittable_segment: vec![a.clone(), b.clone()],
 	}
 	.trim_best_parent_to_filter(by_hash, |h| h.hash() == included.hash());

@@ -71,8 +71,6 @@ pub struct ParentSearchResult<Block: BlockT> {
 	pub included_at_scheduling: Block::Header,
 	/// Block to build on.
 	pub best_parent_header: Block::Header,
-	/// Whether the search ran under V3.
-	pub v3_enabled: bool,
 	/// V3 resubmittable segment, oldest first; empty for V2.
 	pub resubmittable_segment: Vec<Block::Header>,
 }
@@ -119,7 +117,6 @@ impl<Block: BlockT> ParentSearchResult<Block> {
 impl<B: BlockT> std::fmt::Debug for ParentSearchResult<B> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("ParentSearchResult")
-			.field("v3_enabled", &self.v3_enabled)
 			.field("included_at_scheduling_number", &self.included_at_scheduling.number())
 			.field("best_parent_hash", &self.best_parent_header.hash())
 			.field("best_parent_number", &self.best_parent_header.number())
@@ -432,7 +429,6 @@ pub async fn find_parent_for_building<Block: BlockT>(
 			ParentSearchResult {
 				included_at_scheduling: included_header,
 				best_parent_header,
-				v3_enabled: false,
 				resubmittable_segment: Vec::new(),
 			}
 		},
@@ -459,7 +455,6 @@ pub async fn find_parent_for_building<Block: BlockT>(
 			ParentSearchResult {
 				included_at_scheduling: included_header,
 				best_parent_header,
-				v3_enabled: true,
 				resubmittable_segment,
 			}
 		},
