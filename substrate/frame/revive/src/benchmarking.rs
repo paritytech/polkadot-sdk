@@ -3547,19 +3547,11 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `SWAP1` to `SWAP16` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Pseudo-random Depths:** each swap is a `SWAP1` to `SWAP16` picked by a pseudo-random
-	///   generator. Every depth has its own handler, so the CPU can't predict which handler the
-	///   interpreter dispatches to next.
-	/// * **Stack Initialization:** 17 items are placed on the stack before the benchmark runs, so
-	///   even a `SWAP16` has an item to swap with. Swaps don't change the stack's height, so `r` is
-	///   only bounded by the largest code a contract can have.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * One benchmark per depth, each repeating the same swap. The pseudo-random depths cost
-	///   roughly 46% more per swap than the most expensive of them.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A misprediction of the handler the interpreter dispatches to, since the swap op-codes are
+	///   pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
