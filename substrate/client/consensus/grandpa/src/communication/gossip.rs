@@ -1691,16 +1691,21 @@ impl<Block: BlockT> sc_network_gossip::Validator<Block> for GossipValidator<Bloc
 				return false; // cannot evaluate until we have a local view.
 			};
 
+			// we only broadcast our best commit, so check its height before decoding.
+			let Some(best_commit_height) = local_view.last_commit_height() else {
+				return false;
+			};
+
+			if peer.view.consider_global(set_id, *best_commit_height) != Consider::Accept {
+				return false;
+			}
+
 			match GossipMessage::<Block>::decode_all(&mut data) {
 				Err(_) => false,
 				Ok(GossipMessage::Commit(full)) => {
-					// we only broadcast commit messages if they're for the same
-					// set the peer is in and if the commit is better than the
-					// last received by peer, additionally we make sure to only
-					// broadcast our best commit.
-					peer.view.consider_global(set_id, full.message.target_number) ==
-						Consider::Accept && Some(&full.message.target_number) ==
-						local_view.last_commit_height()
+					// only broadcast our best commit, the peer accepting its height
+					// was checked above.
+					full.message.target_number == *best_commit_height
 				},
 				Ok(GossipMessage::Neighbor(_)) => false,
 				Ok(GossipMessage::CatchUpRequest(_)) => false,
@@ -2731,6 +2736,56 @@ mod tests {
 		// a disconnected light client is not served anymore
 		val.inner.write().peers.peer_disconnected(&light_peers[0]);
 		assert!(!val.inner.read().global_message_allowed(&light_peers[0]));
+	}
+
+	#[test]
+	fn doesnt_gossip_best_commit_to_peers_already_at_its_height() {
+		let (val, _) = GossipValidator::<Block>::new(config(), voter_set_state(), None, None);
+
+		// the validator starts at set id 0
+		val.note_set(SetId(0), Vec::new(), |_, _| {});
+
+		let peer_behind = PeerId::random();
+		let peer_up_to_date = PeerId::random();
+
+		for (peer, commit_finalized_height) in [(peer_behind, 1), (peer_up_to_date, 2)] {
+			val.inner.write().peers.new_peer(peer, ObservedRole::Authority);
+			val.inner
+				.write()
+				.peers
+				.update_peer_state(
+					&peer,
+					NeighborPacket { round: Round(1), set_id: SetId(0), commit_finalized_height },
+				)
+				.unwrap();
+		}
+
+		// our best commit finalizes block 2
+		val.note_commit_finalized(Round(1), SetId(0), 2, |_, _| {});
+
+		let commit = communication::gossip::GossipMessage::<Block>::Commit(
+			communication::gossip::FullCommitMessage {
+				round: Round(1),
+				set_id: SetId(0),
+				message: finality_grandpa::CompactCommit {
+					target_hash: H256::random(),
+					target_number: 2,
+					precommits: Vec::new(),
+					auth_data: Vec::new(),
+				},
+			},
+		)
+		.encode();
+
+		let mut message_allowed = val.message_allowed();
+		let topic = communication::global_topic::<Block>(0);
+
+		// the peer behind gets the commit, the one already at its height doesn't
+		assert!(message_allowed(&peer_behind, MessageIntent::Broadcast, &topic, &commit));
+		assert!(!message_allowed(&peer_up_to_date, MessageIntent::Broadcast, &topic, &commit));
+
+		// the peer behind still doesn't get messages we fail to decode
+		assert!(!message_allowed(&peer_behind, MessageIntent::Broadcast, &topic, &[1, 2, 3]));
 	}
 
 	#[test]
