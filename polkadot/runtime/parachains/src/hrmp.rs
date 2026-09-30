@@ -1235,10 +1235,6 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Check that all outbound HRMP messages sent by a candidate pass the acceptance criteria.
-	///
-	/// `max_hrmp_num_per_candidate` is the per-candidate HRMP message limit; it is
-	/// read from the candidate's session snapshot by the caller so this check stays
-	/// consistent with the configuration the collator used.
 	pub(crate) fn check_outbound_hrmp(
 		max_hrmp_num_per_candidate: u32,
 		sender: ParaId,
