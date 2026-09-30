@@ -25,8 +25,7 @@ use crate::utils::initialize_network;
 use anyhow::anyhow;
 use codec::{Decode, Encode};
 use cumulus_zombienet_sdk_helpers::{
-	submit_extrinsic_and_wait_for_finalization_success,
-	submit_extrinsic_and_wait_for_finalization_success_with_timeout,
+	open_hrmp_channel, submit_extrinsic_and_wait_for_finalization_success,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -361,27 +360,17 @@ async fn open_hrmp_channels(
 	relay_client: &OnlineClient<PolkadotConfig>,
 ) -> Result<(), anyhow::Error> {
 	for (sender, recipient) in [(ASSET_HUB_ID, PEOPLE_ID), (PEOPLE_ID, ASSET_HUB_ID)] {
-		let call = subxt::dynamic::tx(
-			"Sudo",
-			"sudo",
-			vec![subxt::ext::scale_value::value! {
-				Hrmp(force_open_hrmp_channel {
-					sender: sender,
-					recipient: recipient,
-					// The preset's `hrmp_channel_max_capacity`.
-					max_capacity: 8u32,
-					max_message_size: 1024u32
-				})
-			}],
-		);
-		submit_extrinsic_and_wait_for_finalization_success_with_timeout(
+		// `max_capacity` is the preset's `hrmp_channel_max_capacity`.
+		open_hrmp_channel(
 			relay_client,
-			&call,
+			sender,
+			recipient,
+			8,
+			1024,
 			&dev::alice(),
 			CALL_TIMEOUT.as_secs(),
 		)
-		.await
-		.map_err(|e| anyhow!("opening HRMP channel {sender} to {recipient}: {e}"))?;
+		.await?;
 		log::info!("Requested HRMP channel {sender} to {recipient}");
 	}
 	Ok(())
