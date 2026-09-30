@@ -2777,7 +2777,8 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			use pallet_xcm_benchmarks::asset_instance_from;
 
 			/// A foreign asset the `SwapFirstAssetTrader` accepts as fee, so the worst case for
-			/// `BuyExecution` and `PayFees` is the pool swap rather than the native trader.
+			/// `BuyExecution`, `PayFees` and `RefundSurplus` is the pool swap rather than the
+			/// native trader.
 			fn benchmark_fee_asset_location() -> Location {
 				Location::new(1, [Parachain(2001)])
 			}

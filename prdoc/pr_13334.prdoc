@@ -11,11 +11,18 @@ doc:
     \ The pool setup is shared with `worst_case_asset_exchange`, which already created\
     \ the same asset and pool inline. `worst_case_holding` gains that asset so the\
     \ holding register can pay with it.\n- `refund_surplus` buys twice the surplus\
-    \ it refunds. A trader that swapped the fee asset refunds less than it was paid,\
-    \ so with purchase equal to surplus the refund was zero and the benchmark's assertion\
-    \ failed against such a trader.\n\n## Origin\n\nSplit out of #12581 at reviewer\
+    \ it refunds. `SwapFirstAssetTrader` refunds nothing when the refund would be the\
+    \ whole fee it holds, so with purchase equal to surplus the refund was zero and the\
+    \ benchmark's assertion failed against it.\n\n## Origin\n\nSplit out of #12581 at reviewer\
     \ request, since the under-benchmarked swap exists on master independently of\
     \ that PR and should be reviewable and backportable on its own."
+- audience: Runtime User
+  description: |-
+    Asset Hub Westend charges `BuyExecution`, `PayFees` and `RefundSurplus` the weight of the
+    swap path whatever the fee asset, so messages paying in WND are charged more as well:
+    `buy_execution` about 9 times, `pay_fees` about 3 times and `refund_surplus` about 115 times
+    the previous weight. Senders with a hard-coded `Limited` weight limit covering these
+    instructions may now fail with `Overweight` and should raise it.
 crates:
 - name: asset-hub-westend-runtime
   bump: patch

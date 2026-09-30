@@ -233,8 +233,8 @@ mod benchmarks {
 		// We can already buy execution since we'll load the holding register manually
 		let (asset_for_fees, _): (Asset, WeightLimit) = T::worst_case_for_trader().unwrap();
 
-		// Buy more than the surplus refunded below: a trader that swaps the fee asset keeps the
-		// refund below what was paid, so refunding the whole purchase would refund nothing.
+		// Buy twice the surplus refunded below: `SwapFirstAssetTrader` refunds nothing when the
+		// refund would be the whole fee it holds.
 		let previous_xcm = Xcm(vec![BuyExecution {
 			fees: asset_for_fees,
 			weight_limit: Limited(Weight::from_parts(2 * 1337, 2 * 1337)),
