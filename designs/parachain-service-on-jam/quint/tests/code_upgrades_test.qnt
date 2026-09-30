@@ -30,8 +30,7 @@ module code_upgrades_test {
         ParachainSetStateBalance({ paraId: para, newTotal: balance }),
         ParachainSetValidationCode({
           paraId: para,
-          newValidationCodeHash: codeA,
-          newValidationCodeLen: FixedCodeLen
+          newValidationCode: { hash: codeA, len: FixedCodeLen }
         })
       )))
       .then(expectThat(all {
@@ -81,7 +80,7 @@ module code_upgrades_test {
   }
 
   /// A candidate validated with the ANNOUNCED code is rejected: only the active
-  /// code is accepted until an `Apply` lands (§5.1 step 4). The head must not
+  /// code is accepted until an `Apply` lands (§5.1 step 2). The head must not
   /// move.
   run announcedCodeIsNotValidForCandidatesTest = {
     val para = CoretimeParaId

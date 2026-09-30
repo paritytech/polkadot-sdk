@@ -275,7 +275,7 @@ module transfers_test {
     // Clean the whole queue back out through the real accumulate path.
     val ok: ParachainWorkDigestOk = {
       paraId: ah,
-      validationCode: { hash: ahCode, len: FixedCodeLen },
+      validationCode: ahCode,
       parentHeadHash: headHash(paid.paraInfo(ah).headData),
       headData: paid.paraInfo(ah).headData + 1,
       upwardMessages: List(CleanUpBucketsUpTo(fresh)),

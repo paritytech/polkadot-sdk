@@ -40,7 +40,7 @@ module support {
   /// against the pre-block state) and paired with lookup-anchor 0 (prune
   /// nothing). Each element is `(para, codeHash, msgs)`; `codeHash` is what the
   /// collator says it validated against; only the ACTIVE code is accepted by
-  /// `accumulateOkPrefix` (§5.1 step 4).
+  /// `accumulateOkPrefix` (§5.1 step 2).
   action applyHappyPaths(
     pkgs: List[(ParaId, ValidationCodeHash, List[UpwardMessage])]
   ): bool = {
@@ -174,7 +174,7 @@ module support {
   /// Refine a candidate for `paraId` declaring a STALE parent head: the sentinel
   /// head the para never has (`StaleParentHead`), as both parent and new head,
   /// carrying `msgs` as its upward messages. Accumulate's parent-head check (§5.1
-  /// step 3) must reject it, so neither its head write nor its replayed messages
+  /// step 4) must reject it, so neither its head write nor its replayed messages
   /// (§5.1 step 6) take effect. The new head is deliberately NOT `current + 1`:
   /// if the check were broken and the candidate applied, the head would jump to
   /// an obviously-invalid sentinel value, so the "head unchanged" assertion can
@@ -242,19 +242,24 @@ module support {
   ): List[CodeCall] =
     List(SetParentHeadHash(parent), SetHead(newHead)).concat(sends(msgs))
 
+  /// The code a `refineCalls` candidate for `caller` carries: its active code.
+  pure def activeCandidateCode(s: ParachainServiceState, caller: ParaId): ValidationCodeRef =
+    { hash: activeCodeHashOr(s.paraInfo(caller), NoCodeHash), len: FixedCodeLen }
+
   /// Refine a candidate for `caller` against its active code, making `calls`.
   pure def refineCalls(
     s: ParachainServiceState, caller: ParaId, calls: List[CodeCall]
   ): WorkExecResult = {
-    val pi = s.paraInfo(caller)
     val pkg: WorkPackage = {
       authorizedParas: List(caller),
-      items: List({
-        validationCode: { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen }
-      })
+      items: List({ validationCode: activeCandidateCode(s, caller) })
     }
     refine(s, pkg, false, calls, 0)[0]
   }
+
+  /// What `refineCalls` returns when Refine fails with `e`.
+  pure def refineCallsErr(s: ParachainServiceState, caller: ParaId, e: RefineLog): WorkExecResult =
+    WorkOk(refineErr(caller, activeCandidateCode(s, caller).hash, e))
 
   /// Refine one otherwise well-formed candidate for `caller`, carrying `msgs`.
   pure def refineWithMsgs(

@@ -29,8 +29,7 @@ module state_balance_test {
         ParachainSetStateBalance({ paraId: para, newTotal: cap }),
         ParachainSetValidationCode({
           paraId: para,
-          newValidationCodeHash: paraCode,
-          newValidationCodeLen: FixedCodeLen
+          newValidationCode: { hash: paraCode, len: FixedCodeLen }
         })
       )))
       // After registration + set validation code: usedStateBalance is exactly at the cap.

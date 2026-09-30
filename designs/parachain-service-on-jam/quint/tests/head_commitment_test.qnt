@@ -76,7 +76,7 @@ module head_commitment_test {
       .then(expectThat(lastHeadRoot == None))
   }
 
-  /// Parent-head check (§5.1 step 3): a candidate declaring a stale parent head
+  /// Parent-head check (§5.1 step 4): a candidate declaring a stale parent head
   /// (one the para no longer has) is rejected, leaving the head unchanged; this
   /// is what stops a candidate built on a superseded head from overwriting a
   /// forced `parachain_set_head`. A candidate on the CURRENT head advances it

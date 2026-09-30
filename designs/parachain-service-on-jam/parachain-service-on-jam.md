@@ -222,7 +222,7 @@ struct AccumulateLogEntry {
 enum RefineLog {
     /// The validation code is not available at the lookup-anchor.
     /// See §4.1 step 4.
-    InvalidCodeHash,
+    ValidationCodeLookupFailed,
     /// Payload the validation code passed to `report_error`. See §4.2.
     Opaque(BoundedVec<u8, 1024>),
     /// `SetValidatorKeys` was called more than once in a single Refine
@@ -238,9 +238,6 @@ enum RefineLog {
     /// The validation code sent an upward message reserved for another
     /// parachain, or named a `para_id` it may not act for. See §4.3.
     RestrictedHostFunction,
-    /// The work item payload failed to decode into a `ParachainCandidate`.
-    /// See §4.1 step 3.
-    MalformedPayload,
     /// An `AssignCore` carried a queue of invalid length. See §3.3.
     InvalidAuthorizerQueue,
     /// The encoded `ParachainWorkDigest` and auth trace would exceed the Gray
@@ -517,7 +514,7 @@ carries the validation code hash, and the **PoV** is passed as a work-item extri
 ```rust
 struct ParachainCandidate {
     /// The hash of the currently active validation code. See §4.1.
-    validation_code_hash: ValidationCodeHash,
+    validation_code: ValidationCodeHash,
 }
 ```
 
@@ -543,8 +540,8 @@ enum ParachainWorkDigest {
     Ok {
         /// The parachain this digest belongs to.
         para_id: ParaId,
-        /// The validation code Refine used to check the candidate.
-        validation_code: ValidationCodeRef,
+        /// Hash of the validation code Refine used to check the candidate.
+        validation_code: ValidationCodeHash,
         /// Hash of the parent head data this candidate was built on top of.
         parent_head_hash: Hash,
         /// New head data produced by the parachain block.
@@ -558,6 +555,8 @@ enum ParachainWorkDigest {
     Err {
         /// The parachain this failure belongs to.
         para_id: ParaId,
+        /// Hash of the validation code the candidate names. See §5.1 step 2.
+        validation_code: ValidationCodeHash,
         error: RefineLog,
     },
 }
@@ -647,11 +646,7 @@ enum UpwardMessage {
     /// Upsert a parachain's head data. See §6.3. **Coretime chain only.**
     ParachainSetHead { para_id: ParaId, new_head: HeadData },
     /// Upsert a parachain's validation code. See §6.3. **Coretime chain only.**
-    ParachainSetValidationCode {
-        para_id: ParaId,
-        new_validation_code_hash: ValidationCodeHash,
-        new_validation_code_len: Compact<u32>,
-    },
+    ParachainSetValidationCode { para_id: ParaId, new_validation_code: ValidationCodeRef },
     /// Remove all per-parachain state. See §6.4. **Coretime chain only.**
     ParachainCleanUp(ParaId),
     /// Set a parachain's `total_state_balance`. See §6.1. **Coretime chain only.**
@@ -659,17 +654,20 @@ enum UpwardMessage {
 }
 ```
 
-The combined size of all result blobs plus the authorizer trace in a work-report is limited
-to **48 KiB** by the Gray Paper.
+Both variants reach JAM as a Gray Paper `WorkExecResult::Ok`, whose result blob is the
+encoded digest. The combined size of all result blobs plus the authorizer trace in a
+work-report is limited to **48 KiB** by the Gray Paper.
 
 - **`Ok`** is returned when validation succeeds. The upward messages emitted during Refine
-  (code upgrades, transfers, authorizer updates, etc.) are carried alongside this digest and
+  (code upgrades, transfers, authorizer updates, etc.) are carried in this digest and
   applied by Accumulate.
 
-- **`Err`** is returned when Refine fails (see `RefineLog`). Accumulate appends
-  a `LogEntry::Refine` to the parachain's `parachain_log` (see §3.1) together
-  with the work-report's authorizer trace, useful for example to slash a
-  collator who claimed an authorizer slot that was not theirs.
+- **`Err`** is returned when Refine fails (see `RefineLog`). If the digest passes the
+  checks in §5.1, Accumulate records the failure in the parachain's `parachain_log` as a
+  `LogEntry::Refine`, together with the work-report's authorizer trace. The trace comes
+  from the authorizer and can identify who submitted the work package, such as the
+  collator key in §7.1. A parachain can use it, for example, to slash a collator that
+  claimed a slot it was not entitled to.
 
 > **JAM `WorkErrorCode` is skipped.** When JAM substitutes a work-item with
 > a Gray Paper `WorkExecResult::Error(WorkErrorCode)`, the Parachain
@@ -687,14 +685,14 @@ Refine is invoked **per work item** by JAM. For each work item at
 index `item_index` the Parachain Service performs:
 
 1. Reads the authorizer config via `fetch` and decodes the `authorized_paras`
-   prefix (§3.2). If the config is not prefixed with a `Vec<ParaId>`, Refine panics (§4.2)
+   prefix (§3.2). If the config is not prefixed with a `Vec<ParaId>`, Refine panics (§3.3)
    instead of logging, because there is no authoritative `para_id` to attribute an entry to.
 2. Takes `para_id = authorized_paras[item_index]` as authoritative for this item.
 3. Decodes the `ParachainCandidate` from the work item payload. If the payload fails to
-   decode, aborts with `Err(RefineLog::MalformedPayload)`.
-4. Fetches the validation code via `historical_lookup` (using `validation_code_hash`).
+   decode, Refine panics (§3.3).
+4. Fetches the validation code via `historical_lookup` (using `validation_code`).
    If the lookup returns `None` (the preimage isn't available in the service's
-   store at the lookup-anchor), aborts with `Err(RefineLog::InvalidCodeHash)`.
+   store at the lookup-anchor), aborts with `Err(RefineLog::ValidationCodeLookupFailed)`.
 5. Instantiates a child PVM with the validation code.
 6. Executes the validation code (the `jam_validate_block` call).
 7. Assembles a `ParachainWorkDigest` from the validation code's host-function side effects and the
@@ -764,7 +762,7 @@ Accumulate:
 
 | Index | Host function | Returns | Purpose |
 |---|---|---|---|
-| 200 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on, as the hash of the parent `head_data`. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate, which checks it against the para's current head (§5.1 step 3). |
+| 200 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on, as the hash of the parent `head_data`. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate, which checks it against the para's current head (§5.1 step 4). |
 | 201 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). Aborts Refine with `Err(RefineLog::HeadDataTooLarge)` if `new_head` exceeds the 4 KiB `HeadData` bound. The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 5). Distinct from the Coretime-only `ParachainSetHead`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
 | 202 | `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
 | 203 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the validation code, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way validation code records a reason for its failure. See §4.2. |
@@ -863,8 +861,7 @@ and `MAX_INCOMING_TRANSFERS` derived from it.
 #### Per-work-package work
 
 Performed once for each work package accumulated in this block, in order. A Gray Paper
-`WorkExecResult::Error` result, caused either by a bug in the Parachain Service's `refine` or
-by validation code failing without calling `report_error` (§4.2), is skipped. It records no
+`WorkExecResult::Error` result, such as a panic in `refine`, is skipped. It records no
 `parachain_log` entry, changes no state, and never reaches the steps below.
 
 **Gas gate.** JAM funds the invocation from the gas limits declared by the reports passed
@@ -892,18 +889,17 @@ writes no state, records no log entry, and prunes nothing. The steps are:
 1. **Registration check**: Reject the work package, without a `parachain_log` entry, if
    `para_id` is not in `parachains` or its `ParaInfo` has `is_deregistering == true`
    (§6.4). A deregistering para is treated as if it no longer exists.
-2. **Refine-result dispatch**: A **Refine failure** (`ParachainWorkDigest::Err`, see §3.3)
+2. **Validation code check**: This is the authoritative check. Reject the work package if
+   the digest's `validation_code` is not the hash of `ParaInfo.validation_code`.
+3. **Refine-result dispatch**: A **Refine failure** (`ParachainWorkDigest::Err`, see §3.3)
    is appended to `parachain_log[para_id]` as a `RefineLogEntry` carrying its `RefineLog`
    and the work-report's authorizer trace, under the eviction rules below. Processing then
    stops, with no further steps and no log pruning. A **Refine success**
    (`ParachainWorkDigest::Ok`) proceeds through the remaining steps.
-3. **Parent head check**: Verify the work digest's `parent_head_hash` equals
+4. **Parent head check**: Verify the work digest's `parent_head_hash` equals
    `hash(ParaInfo[para_id].head_data)`. If not, the candidate is rejected. This prevents
    a collator from including a candidate that was built on top of a stale, skipped, or
    non-canonical parent head.
-4. **Validation code check**: This is the authoritative check. Verify the work
-   result's `(validation_code_hash, len)` pair matches `ParaInfo.validation_code`.
-   If not, the candidate is rejected.
 5. **Head data update**: Write the new `head_data` from the work digest into
    `ParaInfo` for the parachain.
 6. **Process host-function calls from Refine**: Replay the `UpwardMessage`s in the work
@@ -916,7 +912,7 @@ writes no state, records no log entry, and prunes nothing. The steps are:
 All `AccumulateLog` events emitted by the step 6 replay are collected and appended to
 `parachain_log[para_id]` as a single `LogEntry::Accumulate`, where `para_id` is the
 parachain that submitted the work package. Every append to `parachain_log[para_id]`,
-whether the `RefineLogEntry` from step 2 or this `LogEntry::Accumulate`, is subject to the
+whether the `RefineLogEntry` from step 3 or this `LogEntry::Accumulate`, is subject to the
 eviction rules below.
 
 **Log pruning and eviction.** Accumulate prunes each parachain's `parachain_log` and caps
@@ -951,10 +947,9 @@ lower rank. When only higher-ranked entries remain, the incoming entry is droppe
 **Why the ranking exists.** Anyone can buy coretime on a core assigned to a parachain. A
 work package submitted that way still reaches Refine, so its failures are recorded against
 the parachain even though the parachain did not cause them. All such failures land in
-rank 0, because producing an `Opaque` requires the parachain's own validation code to call
-`report_error` (§4.2), and only Accumulate produces rank 2. A buyer can churn rank 0
-against itself, but can never evict the parachain's own reports or its on-chain state
-changes. The damage is limited to losing diagnostics that were the attacker's own noise.
+rank 0. A buyer can churn rank 0 against itself, but can never evict the parachain's own
+reports or its on-chain state changes. The damage is limited to losing diagnostics that
+were the attacker's own noise.
 
 **What this means for parachain implementors.** `parachain_log` is the only channel
 through which a parachain learns why its candidates failed, and it is lossy. Entries below
@@ -1017,7 +1012,7 @@ Step 2: Announcement
                        standing announcement
 
     The active validation_code is untouched. Candidates must still be validated
-    with it (§5.1 step 4) until the Apply lands.
+    with it (§5.1 step 2) until the Apply lands.
     │
     ▼
 Step 3: Apply
@@ -1148,7 +1143,7 @@ state-balance management, registration, forced updates, and deregistration:
 
 - `ParachainSetStateBalance { para_id, new_total }`: set the parachain's quota
 - `ParachainSetHead { para_id, new_head }`: upsert head data
-- `ParachainSetValidationCode { para_id, new_validation_code_hash, new_validation_code_len }`: upsert validation code
+- `ParachainSetValidationCode { para_id, new_validation_code }`: upsert validation code
 - `ParachainCleanUp(para_id)`: remove all per-parachain state
 
 All four are Coretime-chain-only. The Parachain Service performs no rights-checking of its
@@ -1425,7 +1420,7 @@ Coretime chain
     │  Coretime sizes the deposit per §6.1, allocates the ParaId, and emits:
     │      ParachainSetStateBalance { para_id, new_total: total }
     │      ParachainSetHead { para_id, new_head: genesis_head }
-    │      ParachainSetValidationCode { para_id, validation_code_hash, validation_code_len }
+    │      ParachainSetValidationCode { para_id, new_validation_code }
     ▼
 Parachain Service (Accumulate)
     │  ParaInfo created (rejected if total < baseline), head_data set,
@@ -1444,11 +1439,11 @@ unsticking a chain whose last included block cannot be built on, or swapping in 
 validation code outside the normal upgrade lifecycle:
 
 - `ParachainSetHead { para_id, new_head }` overwrites `ParaInfo.head_data`.
-- `ParachainSetValidationCode { para_id, new_hash, new_len }` sets
-  `ParaInfo.validation_code` to `Some(new_hash)`, solicits `new_hash`, and clears any
-  `announced_upgrade`. `used_state_balance` grows by `preimage_footprint(new_len)` to hold
-  the new validation code, unless the parachain already references `new_hash`, in which
-  case the solicit is a no-op and nothing is charged. The displaced validation codes are
+- `ParachainSetValidationCode { para_id, new_validation_code }` sets
+  `ParaInfo.validation_code` to `Some(new_validation_code)`, solicits it, and clears any
+  `announced_upgrade`. `used_state_balance` grows by its `preimage_footprint` to hold the
+  new validation code, unless the parachain already references it, in which case the
+  solicit is a no-op and nothing is charged. The displaced validation codes are
   left untouched, as on the normal upgrade path (§5.2). The call is rejected with
   `AccumulateLog::InsufficientStateBalance` if the new footprint wouldn't fit, so Coretime
   must raise `total_state_balance` first when needed.
@@ -1458,7 +1453,7 @@ Coretime chain
     │  Verifies the rights of the caller
     │  Emits ParachainSetStateBalance { para_id, new_total } if needed
     │  Emits ParachainSetHead { para_id, new_head } OR
-    │        ParachainSetValidationCode { para_id, new_validation_code_hash, new_validation_code_len }
+    │        ParachainSetValidationCode { para_id, new_validation_code }
     ▼
 Parachain Service (Accumulate)
     │  Applies the change, re-soliciting/forgetting preimages and adjusting

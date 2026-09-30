@@ -217,8 +217,8 @@ module accumulate {
       { ...acc, state: o.state }
       | ParachainSetValidationCode(payload) =>
       val o = parachainSetValidationCode(
-        acc.state, payload.paraId, payload.newValidationCodeHash,
-        payload.newValidationCodeLen, now
+        acc.state, payload.paraId, payload.newValidationCode.hash,
+        payload.newValidationCode.len, now
       )
       {
         state: o.state,
@@ -373,15 +373,16 @@ module accumulate {
       { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
     } else {
       val pi0 = s.paraInfo(r.paraId)
-      if (r.parentHeadHash != headHash(pi0.headData)) {
+      // Step 2: authoritative validation-code check. Only the ACTIVE code is
+      // accepted; an announced upgrade becomes a validation option only once
+      // an `Apply` has made it active (§5.2).
+      val codeOk =
+        match pi0.validationCode { | Some(vc) => r.validationCode == vc.hash | None => false }
+      if (not(codeOk)) {
         { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
       } else {
-        // Step 4: authoritative validation-code check. Only the ACTIVE code is
-        // accepted; an announced upgrade becomes a validation option only once
-        // an `Apply` has made it active (§5.2).
-        val codeOk =
-          match pi0.validationCode { | Some(vc) => r.validationCode == vc | None => false }
-        if (not(codeOk)) {
+        // Step 4: parent head check.
+        if (r.parentHeadHash != headHash(pi0.headData)) {
           { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
         } else if (violatesParachainRestrictions(r.upwardMessages, r.paraId)) {
           // §4.3 defense-in-depth: even if Refine should already have
@@ -438,15 +439,23 @@ module accumulate {
       | WorkOk(digest) =>
         match digest {
           | Err(e) =>
-            // §3.3: a failed Refine digest is logged with the work-report's
+            // §5.1 step 2: a failure of any code other than the para's active
+            // code is rejected without a log entry. The `if` guards `paraInfo`,
+            // which crashes on an unregistered para.
+            val codeOk =
+              if (not(state.isLive(e.paraId))) false
+              else state.paraInfo(e.paraId).validationCode.optionMap(vc => vc.hash)
+                == Some(e.validationCode)
+            // §5.1 step 3: a failed Refine digest is logged with the work-report's
             // authorizer trace, truncated to `StoredAuthTraceCap` before
             // storing to keep the log bounded (the Gray Paper only caps the
             // 48 KiB combined budget). No-op inside `appendRefineLog` for an
             // unregistered para (§5.1 step 1). No pruning: a Refine failure is
             // not a candidate, so it carries no lookup-anchor and does not prune
             {
-              state: state
-                .appendRefineLog(e.paraId, now, e.error, truncateAuthTrace(wr.authTrace)),
+              state:
+                if (not(codeOk)) state
+                else state.appendRefineLog(e.paraId, now, e.error, truncateAuthTrace(wr.authTrace)),
               solicited: solicited,
               jamDesignate: prevDesignate,
               jamAssigns: List(),

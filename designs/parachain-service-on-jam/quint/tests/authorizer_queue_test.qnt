@@ -266,15 +266,15 @@ module authorizer_queue_test {
     all {
       // Both ends of the range are rejected with the same error.
       assert(refineWithMsgs(initialState, ct, List(msg(fullQ(h).append(h), None)))
-        == WorkOk(refineErr(ct, InvalidAuthorizerQueue))),
+        == refineCallsErr(initialState, ct, InvalidAuthorizerQueue)),
       assert(refineWithMsgs(initialState, ct, List(msg(List(), None)))
-        == WorkOk(refineErr(ct, InvalidAuthorizerQueue))),
+        == refineCallsErr(initialState, ct, InvalidAuthorizerQueue)),
       // At the maximum and at one, both refine fine.
       assert(isOkDigest(refineWithMsgs(initialState, ct, List(msg(fullQ(h), None))))),
       assert(isOkDigest(refineWithMsgs(initialState, ct, List(msg(List(h), None))))),
       // A hand-off demands an exact 80-hash queue: short is rejected...
       assert(refineWithMsgs(initialState, ct, List(msg(List(h), Some(MkServiceId(7)))))
-        == WorkOk(refineErr(ct, InvalidAuthorizerQueue))),
+        == refineCallsErr(initialState, ct, InvalidAuthorizerQueue)),
       // ...and 80 passes.
       assert(isOkDigest(refineWithMsgs(initialState, ct, List(msg(fullQ(h), Some(MkServiceId(7))))))),
       init
@@ -289,7 +289,7 @@ module authorizer_queue_test {
     all {
       assert(isOkDigest(refineWithMsgs(initialState, ct, List(onCore(CoreCount - 1))))),
       assert(refineWithMsgs(initialState, ct, List(onCore(CoreCount)))
-        == WorkOk(refineErr(ct, InvalidCoreIndex))),
+        == refineCallsErr(initialState, ct, InvalidCoreIndex)),
       init
     }
   }

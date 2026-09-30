@@ -226,7 +226,7 @@ module types {
   //
   // Both digest `head_data` injectively, since only equality semantics matter,
   // but they stand for different real functions and so land in different
-  // domains: `blake2b-256` for the parent-head check (§5.1 step 3) and
+  // domains: `blake2b-256` for the parent-head check (§5.1 step 4) and
   // `keccak_256` for the head a commitment leaf carries (§5.5).
 
   pure def headHash(h: HeadData): HeadHash = { headBytes: h }

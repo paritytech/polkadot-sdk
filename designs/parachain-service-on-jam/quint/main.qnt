@@ -77,13 +77,13 @@ module main {
 
   /// A sentinel head value no live para ever reaches, modelling a candidate
   /// built on a non-current (stale) head that Accumulate's parent-head check
-  /// (§5.1 step 3) must reject.
+  /// (§5.1 step 4) must reject.
   pure val StaleParentHead: HeadData = 9223372036854775807
 
   /// Placeholder hash for a candidate built for a para that has no active
   /// validation code yet (`validationCode == None`). It matches no real code,
   /// so Accumulate's authoritative code check rejects the candidate as
-  /// `InvalidCodeHash`, modelling that a codeless para can validate nothing.
+  /// `ValidationCodeLookupFailed`, modelling that a codeless para can validate nothing.
   pure val NoCodeHash: ValidationCodeHash = { vchBytes: 999999 }
 
   /// Construct one nondet work package's inputs against a service state `s`.
@@ -93,7 +93,7 @@ module main {
   /// para's latest head this block (tracked across packages), so a second
   /// package for the same para chains off the first's new head. The result is
   /// parent `headHash(curHead)`, new head `curHead + 1`, which chains correctly
-  /// and passes Accumulate's parent-head check (§5.1 step 3).
+  /// and passes Accumulate's parent-head check (§5.1 step 4).
   /// `declParent` models whether the validation code called `set_parent_head_hash`.
   /// `headCall` is its `set_head` call, if any: `SetHead`'s payload is ignored and
   /// replaced by the chained head below, `SetHeadOversized` passes through.
@@ -103,7 +103,7 @@ module main {
   /// `staleParent` models a candidate built on a non-current (stale)
   /// head: it declares the `StaleParentHead` sentinel as its parent (and new
   /// head) while still carrying its normal messages, so the candidate is
-  /// well-formed but rejected by Accumulate's parent-head check (§5.1 step 3),
+  /// well-formed but rejected by Accumulate's parent-head check (§5.1 step 4),
   /// exercising that check.
   pure def buildPackage(
     curHead: HeadData,
@@ -190,7 +190,7 @@ module main {
     nondet wp1HeadCall = oneOf(Set(List(SetHead(0)), List(), List(SetHeadOversized)))
     nondet wp1HeadFirst = oneOf(Set(false, true))
     // A stale-parent candidate (built on a non-current head) exercises the
-    // parent-head check's rejection (§5.1 step 3). Forced to active code so it
+    // parent-head check's rejection (§5.1 step 4). Forced to active code so it
     // is rejected on the parent rather than on the code.
     nondet wp1StaleParent = oneOf(Set(false, true))
     // Latest head for wp1's para this block. A non-live para (e.g. not yet
@@ -338,9 +338,9 @@ module main {
 
   /// A small menu of candidates a collator might produce: one carrying the
   /// active validation code (the happy path), one carrying the announced
-  /// upgrade code when there is one (which §5.1 step 4 must reject until an
+  /// upgrade code when there is one (which §5.1 step 2 must reject until an
   /// `Apply` lands), and one carrying an unsolicited hash (which Refine must
-  /// reject as `InvalidCodeHash`).
+  /// reject as `ValidationCodeLookupFailed`).
   pure def arbitraryCandidates(
     s: ParachainServiceState, para_id: ParaId
   ): Set[ParachainCandidate] = {
@@ -454,7 +454,7 @@ module main {
                    queue: repeatList(List(anyAuthHash), AuthorizerQueueLength),
                    newAssigner: Some(MkServiceId(7)), jamSlot: 10 }),
       ParachainSetHead({ paraId: para_id, newHead: 0 }),
-      ParachainSetValidationCode({ paraId: para_id, newValidationCodeHash: codeHashA, newValidationCodeLen: FixedCodeLen }),
+      ParachainSetValidationCode({ paraId: para_id, newValidationCode: { hash: codeHashA, len: FixedCodeLen } }),
       ParachainSetStateBalance({ paraId: para_id, newTotal: 0 }),
       // Coretime-only targeting OTHER paras, registering new paras and
       // performs forced recovery / clean-up across the model's paraId space.
@@ -463,7 +463,7 @@ module main {
       ParachainSetStateBalance({ paraId: MkParaId(5), newTotal: BaselineFootprint * 2 }),
       ParachainSetHead({ paraId: MkParaId(3), newHead: 7 }),
       ParachainSetHead({ paraId: MkParaId(4), newHead: 7 }),
-      ParachainSetValidationCode({ paraId: MkParaId(3), newValidationCodeHash: codeHashB, newValidationCodeLen: FixedCodeLen }),
+      ParachainSetValidationCode({ paraId: MkParaId(3), newValidationCode: { hash: codeHashB, len: FixedCodeLen } }),
       // `ParachainCleanUp` is Coretime-only, but the real Coretime chain
       // never cleans up the privileged chains (1 = Coretime, 2 = Asset Hub)
       // That would brick the control plane. We only generate clean-up of

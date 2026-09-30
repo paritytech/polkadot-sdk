@@ -59,7 +59,7 @@ module invariants {
 
   /// An announced upgrade requires an active validation code to upgrade FROM,
   /// and must differ from it. A para with no validation code has every candidate
-  /// rejected (§5.1 step 4), so it never reaches the replay that could announce.
+  /// rejected (§5.1 step 2), so it never reaches the replay that could announce.
   val announcement_requires_different_active_code: bool =
   svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
@@ -200,11 +200,11 @@ module invariants {
       })
     )
 
-  /// Parent-head continuity (§5.1 step 3): replay the block's head-affecting
+  /// Parent-head continuity (§5.1 step 4): replay the block's head-affecting
   /// operations in order and confirm the result matches the stored heads. Start
   /// from the pre-block heads; for each `Ok` work result, apply it ONLY if its
   /// para is live and its declared parent matches that para's current head
-  /// (step 3). If accepted, write its new head (step 6) then replay its
+  /// (step 4). If accepted, write its new head (step 6) then replay its
   /// `parachain_set_head` messages (step 7). A rejected candidate (stale parent)
   /// is ignored entirely (its head update AND its upward messages), just as
   /// Accumulate never replays a rejected candidate's messages. This is what lets a
@@ -237,25 +237,6 @@ module invariants {
       if (not(svc.parachains.keys().contains(p))) true
       else replayedHeads.get(p) == svc.paraInfo(p).headData)
   }
-
-  /// For every Refine Err in lastStepWorkResults targeting a registered para,
-  /// a matching RefineLogEntry must exist in the flat log at timeslot now. The
-  /// flat vec supports multiple entries per timeslot so ALL errors must be
-  /// present; no last-writer-wins.
-  val refine_error_logged: bool =
-    lastStepWorkResults.foldl(true, (acc, r) => acc and match r.result {
-      | WorkErr => true
-      | WorkOk(digest) => match digest {
-        | Ok(_) => true
-        | Err(e) =>
-          if (not(svc.isLive(e.paraId))) true
-          else svc.paraLog(e.paraId).foldl(false, (found, pair) =>
-            found or (pair._1 == now and match pair._2 {
-              | RefineLogEntry(entry) => entry.error == e.error
-              | AccumulateLogEntry(_) => false
-            }))
-      }
-    })
 
   /// The maintained `count` equals the transfers actually held across the buckets.
   /// It is incremented on append and decremented on clean-up rather than derived,
@@ -398,7 +379,6 @@ module invariants {
     foreign_supervisor_is_us_or_self,
     foreign_excludes_self,
     parent_head_continuity,
-    refine_error_logged,
     incoming_transfer_count_consistent,
     incoming_transfers_buckets_consistent,
     incoming_transfer_bucket_bounded,

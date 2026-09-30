@@ -73,13 +73,13 @@ module parachain_log_test {
     val para = CoretimeParaId
     val s0 = initialState
     // Append two distinct refine errors at the same timeslot (now=0).
-    val s1 = s0.appendRefineLog(para, 0, InvalidCodeHash, 0)
+    val s1 = s0.appendRefineLog(para, 0, ValidationCodeLookupFailed, 0)
     val s2 = s1.appendRefineLog(para, 0, InvalidHeadDeclaration, 0)
     val log = s2.paraLog(para)
     // Both errors must be present as separate entries at timeslot 0.
-    val hasInvalidCodeHash = log.foldl(false, (acc, pair) =>
+    val hasValidationCodeLookupFailed = log.foldl(false, (acc, pair) =>
       acc or (pair._1 == 0 and match pair._2 {
-        | RefineLogEntry(e) => e.error == InvalidCodeHash
+        | RefineLogEntry(e) => e.error == ValidationCodeLookupFailed
         | AccumulateLogEntry(_) => false
       }))
     val hasMissingHead = log.foldl(false, (acc, pair) =>
@@ -88,7 +88,7 @@ module parachain_log_test {
         | AccumulateLogEntry(_) => false
       }))
     all {
-      assert(hasInvalidCodeHash),
+      assert(hasValidationCodeLookupFailed),
       assert(hasMissingHead),
       assert(log.length() == 2),
       init
@@ -102,7 +102,7 @@ module parachain_log_test {
   /// §5.1 rank order: 0 = non-`Opaque` refine error, 1 = `Opaque`, 2 = accumulate.
   run entryRankOrderTest = {
     all {
-      assert(entryRank((0, RefineLogEntry({ error: InvalidCodeHash, authTrace: 0 }))) == 0),
+      assert(entryRank((0, RefineLogEntry({ error: ValidationCodeLookupFailed, authTrace: 0 }))) == 0),
       assert(entryRank((0, RefineLogEntry({ error: InvalidHeadDeclaration, authTrace: 0 }))) == 0),
       assert(entryRank((0, RefineLogEntry({ error: Opaque(8), authTrace: 0 }))) == 1),
       assert(entryRank((0, AccumulateLogEntry(List(TooMuchStateHeld)))) == 2),
@@ -120,7 +120,7 @@ module parachain_log_test {
     val packed = range(0, 64).foldl(List(), (log, _) => pushLogEntry(log, opaqueEntry))
     val opaquesBefore = countRank(packed, 1)
     // Now a buyer floods it with rank-0 refine errors.
-    val spam = (2, RefineLogEntry({ error: InvalidCodeHash, authTrace: 256 }))
+    val spam = (2, RefineLogEntry({ error: ValidationCodeLookupFailed, authTrace: 256 }))
     val flooded = range(0, 40).foldl(packed, (log, _) => pushLogEntry(log, spam))
     all {
       // The log was genuinely full: further Opaques could only displace Opaques.
@@ -137,7 +137,7 @@ module parachain_log_test {
   /// so the ranking is not simply "reject everything once full".
   run higherRankEvictsLowerTest = {
     // ~1008 B each, so ~80 pushes drive the log past the 64 KiB cap.
-    val spam = (1, RefineLogEntry({ error: InvalidCodeHash, authTrace: 1000 }))
+    val spam = (1, RefineLogEntry({ error: ValidationCodeLookupFailed, authTrace: 1000 }))
     val packed = range(0, 80).foldl(List(), (log, _) => pushLogEntry(log, spam))
     val spamBefore = countRank(packed, 0)
     // A ~506 B accumulate entry (rank 2) arriving at the saturated log.

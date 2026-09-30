@@ -7,13 +7,13 @@
 // - The `paraId` of each work-item is sourced from the authorizer config's
 // `authorized_paras` prefix, not from the extrinsic.
 // - The validation code must call `set_parent_head_hash` and `set_head` exactly once.
-// - Refine returns `Err(InvalidCodeHash)` iff `historical_lookup` for the
-// candidate's `validation_code_hash` returns None.
+// - Refine returns `Err(ValidationCodeLookupFailed)` iff `historical_lookup` for the
+// candidate's `validation_code` returns None.
 // - The first host call that breaks a §4.3 rule aborts Refine with that rule's
 //   `RefineLog`.
 //
 // The `parent_head_hash` field is mandatory but is *not* validated against
-// service state here; that check lives in Accumulate (§5.1, step 1).
+// service state here; that check lives in Accumulate (§5.1, step 4).
 module refine {
   import types.* from "./types"
   import messages.* from "./messages"
@@ -82,8 +82,8 @@ module refine {
     // bucket_id u64.
     | CleanUpBucketsUpTo(_) => 8
     | ParachainSetHead(_) => 4102
-    // paraId 4 + hash 32 + Compact<u32> len.
-    | ParachainSetValidationCode(p) => 36 + compactLen(p.newValidationCodeLen)
+    // paraId 4 + ValidationCodeRef (hash 32 + u32 len 4).
+    | ParachainSetValidationCode(_) => 40
     | ParachainCleanUp(_) => 4
     // paraId 4 + newTotal Compact<u64>.
     | ParachainSetStateBalance(p) => 4 + compactLen(p.newTotal)
@@ -120,12 +120,14 @@ module refine {
   // For the model, we nondeterministically pick the host calls in
   // the spec's top-level `step` action; see `main.qnt`.
 
-  pure def refineErr(paraId: ParaId, e: RefineLog): ParachainWorkDigest =
-  Err({ paraId: paraId, error: e })
+  pure def refineErr(
+    paraId: ParaId, codeHash: ValidationCodeHash, e: RefineLog
+  ): ParachainWorkDigest =
+  Err({ paraId: paraId, validationCode: codeHash, error: e })
 
   pure def refineOk(
     paraId: ParaId,
-    ref: ValidationCodeRef,
+    codeHash: ValidationCodeHash,
     parentHead: HeadHash,
     newHead: HeadData,
     msgs: List[UpwardMessage],
@@ -133,7 +135,7 @@ module refine {
   ): ParachainWorkDigest =
   Ok({
       paraId: paraId,
-      validationCode: ref,
+      validationCode: codeHash,
       parentHeadHash: parentHead,
       headData: newHead,
       upwardMessages: msgs,
@@ -261,24 +263,25 @@ module refine {
     calls: List[CodeCall],
     lookupAnchor: Timeslot
   ): Option[ParachainWorkDigest] = {
+    val codeHash = candidate.validationCode.hash
     if (not(codeAvailable(s, candidate.validationCode)))
-    Some(refineErr(para_id, InvalidCodeHash))
+    Some(refineErr(para_id, codeHash, ValidationCodeLookupFailed))
     else {
       val r = calls.foldl(freshRun, (acc, c) => applyCall(acc, para_id, c))
       match r.stop {
         | Panicked => None
-        | Aborted(e) => Some(refineErr(para_id, e))
+        | Aborted(e) => Some(refineErr(para_id, codeHash, e))
         | Running =>
           match r.parent {
-            | None => Some(refineErr(para_id, InvalidHeadDeclaration))
+            | None => Some(refineErr(para_id, codeHash, InvalidHeadDeclaration))
             | Some(ph) =>
               match r.head {
-                | None => Some(refineErr(para_id, InvalidHeadDeclaration))
+                | None => Some(refineErr(para_id, codeHash, InvalidHeadDeclaration))
                 | Some(nh) =>
                   if (refineOutputExceedsBudget(r.msgs))
-                  Some(refineErr(para_id, RefineOutputTooLarge))
+                  Some(refineErr(para_id, codeHash, RefineOutputTooLarge))
                   else
-                  Some(refineOk(para_id, candidate.validationCode, ph, nh, r.msgs, lookupAnchor))
+                  Some(refineOk(para_id, codeHash, ph, nh, r.msgs, lookupAnchor))
               }
           }
       }

@@ -124,7 +124,7 @@ module accumulate_test {
     val seeded = initialState.appendRefineLog(para, 1, Opaque(64), 0)
     val ok: ParachainWorkDigestOk = {
       paraId: para,
-      validationCode: { hash: code, len: FixedCodeLen },
+      validationCode: code,
       // Stale parent: rejected at the parent-head check.
       parentHeadHash: headHash(StaleParentHead),
       headData: StaleParentHead,
@@ -141,6 +141,30 @@ module accumulate_test {
       assert(out.state == seeded),
       assert(out.state.paraLog(para).length() == 1),
       assert(out.logPruned == None),
+      init
+    }
+  }
+
+  /// §5.1 step 2: an `Err` is only logged if it names the para's active code. A
+  /// failure of any other code, e.g. one a coretime buyer picked to call
+  /// `report_error`, is dropped without a log entry, and so is a failed lookup of it.
+  run refineErrCodeCheckTest = {
+    val para = CoretimeParaId
+    val active = activeCandidateCode(initialState, para).hash
+    val other: ValidationCodeHash = { vchBytes: 77 }
+    val lookupFailed = ValidationCodeLookupFailed
+    pure def after(codeHash: ValidationCodeHash, e: RefineLog): ParachainServiceState =
+      accumulateOnePackage(initialState,
+        { result: WorkOk(refineErr(CoretimeParaId, codeHash, e)), authTrace: 0 },
+        Set(), List(), FixedCodeLen, 5, Map()).state
+    pure def logged(e: RefineLog): ParachainLog =
+      List((5, RefineLogEntry({ error: e, authTrace: 0 })))
+    all {
+      assert(initialState.paraInfo(para).validationCode.optionMap(vc => vc.hash) == Some(active)),
+      assert(after(active, Opaque(7)).paraLog(para) == logged(Opaque(7))),
+      assert(after(active, lookupFailed).paraLog(para) == logged(lookupFailed)),
+      assert(after(other, Opaque(7)) == initialState),
+      assert(after(other, lookupFailed) == initialState),
       init
     }
   }

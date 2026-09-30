@@ -59,7 +59,7 @@ module transfer_drain_test {
     val seeded = applyIncomingTransfer(read, { from: from, amount: big, toSupervisorBalance: false, memo: 2 })
     val ok: ParachainWorkDigestOk = {
       paraId: ah,
-      validationCode: { hash: ahCode, len: FixedCodeLen },
+      validationCode: ahCode,
       parentHeadHash: headHash(seeded.paraInfo(ah).headData),
       headData: seeded.paraInfo(ah).headData + 1,
       upwardMessages: List(CleanUpBucketsUpTo(1)),
@@ -104,7 +104,7 @@ module transfer_drain_test {
     // returns to the reservation size.
     val ok: ParachainWorkDigestOk = {
       paraId: ah,
-      validationCode: { hash: ahCode, len: FixedCodeLen },
+      validationCode: ahCode,
       parentHeadHash: headHash(seeded.paraInfo(ah).headData),
       headData: seeded.paraInfo(ah).headData + 1,
       upwardMessages: List(CleanUpBucketsUpTo(2)),
@@ -147,7 +147,7 @@ module transfer_drain_test {
           ah, pi.setTotal(pi.usedStateBalance + preimageFootprint(len) - 1)) }
     pure def candidate(msgs: List[UpwardMessage]): ParachainWorkDigestOk = {
       paraId: ah,
-      validationCode: { hash: ahCode, len: FixedCodeLen },
+      validationCode: ahCode,
       parentHeadHash: headHash(tight.paraInfo(ah).headData),
       headData: tight.paraInfo(ah).headData + 1,
       upwardMessages: msgs,

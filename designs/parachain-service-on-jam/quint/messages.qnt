@@ -26,8 +26,8 @@ module messages {
   /// each is a fixed structural failure carrying no parachain-supplied detail.
   /// `entryRank` (state.qnt) ranks them accordingly.
   type RefineLog =
-  // historical_lookup(validation_code_hash) returned None.
-  | InvalidCodeHash
+  // historical_lookup(validation_code.hash) returned None.
+  | ValidationCodeLookupFailed
   // Validation code aborted itself via report_error(data). Payload ≤ 1024 B.
   | Opaque(int)
   // set_validator_keys was called more than once in a single Refine invocation.
@@ -298,12 +298,8 @@ module messages {
   | CleanUpBucketsUpTo(BucketId)
   // parachain_set_head(para_id, new_head): Coretime only.
   | ParachainSetHead({ paraId: ParaId, newHead: HeadData })
-  // parachain_set_validation_code(para_id, new_hash, new_len): Coretime only.
-  | ParachainSetValidationCode({
-      paraId: ParaId,
-      newValidationCodeHash: ValidationCodeHash,
-      newValidationCodeLen: int
-  })
+  // parachain_set_validation_code(para_id, new_validation_code): Coretime only.
+  | ParachainSetValidationCode({ paraId: ParaId, newValidationCode: ValidationCodeRef })
   // parachain_clean_up(para_id): Coretime only.
   | ParachainCleanUp(ParaId)
   // parachain_set_state_balance(para_id, new_total): Coretime only.
@@ -317,17 +313,18 @@ module messages {
   /// A successful Refine output for one parachain candidate.
   type ParachainWorkDigestOk = {
     paraId: ParaId,
-    validationCode: ValidationCodeRef,
+    validationCode: ValidationCodeHash,
     parentHeadHash: HeadHash,
     headData: HeadData,
     upwardMessages: List[UpwardMessage],
     lookupAnchor: Timeslot
   }
 
-  /// Refine output per work item: a success digest or a Refine error.
+  /// Refine output per work item: a success digest or a Refine error. Both carry
+  /// the hash of the validation code the candidate names (§5.1 step 2).
   type ParachainWorkDigest =
   | Ok(ParachainWorkDigestOk)
-  | Err({ paraId: ParaId, error: RefineLog })
+  | Err({ paraId: ParaId, validationCode: ValidationCodeHash, error: RefineLog })
 
   /// Gray paper `WorkExecResult`. `WorkOk` carries the service-produced
   /// `ParachainWorkDigest`; `WorkErr` is the JAM-substituted error case
