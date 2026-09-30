@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790757852715,
+  "lastUpdate": 1790761908338,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "06bded7ab7ac6a50e0aeba48c0f7f5ca548c3573",
-          "message": "zombienet migrate misc tests (#11394)\n\nMigrate _misc_ test:\n\n- parityDb\n- malus",
-          "timestamp": "2026-03-24T18:20:38Z",
-          "tree_id": "7fdf50b186578735211c7346f83a1ac7ae1eeed3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/06bded7ab7ac6a50e0aeba48c0f7f5ca548c3573"
-        },
-        "date": 1774381436025,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024034275639999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007104375366666669,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009980321873333323,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14881208392666673,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.025411057600000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c99fecfaa1cea379f6c9ec7b66585e9ba8e88749",
+          "message": "Bump litep2p to 0.15.3 (#13366)\n\nThis fixes some internal issues of litep2p assuming connections still\nbeing alive while this not being the case anymore.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-30T08:16:04Z",
+          "tree_id": "49d547fc5fffe23007feef394697df1078d074f6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c99fecfaa1cea379f6c9ec7b66585e9ba8e88749"
+        },
+        "date": 1790761874912,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007770232113333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010141627793333309,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1468015165600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025374530939999994,
             "unit": "seconds"
           }
         ]
