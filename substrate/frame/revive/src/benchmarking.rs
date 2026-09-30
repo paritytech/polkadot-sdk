@@ -133,6 +133,36 @@ fn evict_caches() {
 	core::hint::black_box(vec![1u8; EVICTION_SIZE]);
 }
 
+/// Returns the operands of `r` pairs of `SLT` or `SGT` and `POP` op-codes, in the order they are
+/// pushed onto the stack. The doc of `evm_slt_opcode` explains how they are picked.
+fn signed_comparison_operands(r: u32) -> Vec<U256> {
+	// Every limb is one, so adding one to a limb makes the operands first differ at that limb.
+	const POSITIVE: U256 = U256([1, 1, 1, 1]);
+	const NEGATIVE: U256 = U256([1, 1, 1, 0x8000_0000_0000_0001]);
+
+	fn same_sign_operands(rng: &mut Pcg64, base: U256) -> [U256; 2] {
+		match [3, 2, 1, 0].into_iter().find(|_| rng.gen_bool(0.5)) {
+			Some(limb) => [base, base + (U256::one() << (64 * limb))],
+			None => [base, base],
+		}
+	}
+
+	let mut rng = Pcg64::seed_from_u64(1337);
+	(0..r)
+		.flat_map(|_| {
+			let mut operands = if rng.gen_bool(0.5) {
+				same_sign_operands(&mut rng, NEGATIVE)
+			} else if rng.gen_bool(0.5) {
+				[U256::zero(), POSITIVE]
+			} else {
+				same_sign_operands(&mut rng, POSITIVE)
+			};
+			operands.shuffle(&mut rng);
+			operands
+		})
+		.collect()
+}
+
 #[benchmarks(
 	where
 		T: Config,
@@ -4276,6 +4306,787 @@ mod benchmarks {
 		assert_eq!(interpreter.memory.slice(len + 1..MEMORY_SIZE), &initial[len + 1..]);
 	}
 
+	/// Benchmarks `r` EVM `LT` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Comparison Depth:** `U256` comparison walks the limbs from the highest down and stops at
+	///   the first pair that differs. The operands of every `LT` here have equal upper three limbs,
+	///   so it always compares all four limbs.
+	/// * **Pseudo-random Outcomes:** a pseudo-random generator decides whether each `LT` compares
+	///   equal values or values that differ only in the lowest limb, with a 50% chance either way.
+	///   The comparison branches on whether all four limbs are equal, so the CPU can't predict this
+	///   branch. Whether the result is less or greater is decided without a branch, so randomizing
+	///   only the result wouldn't make the CPU mispredict.
+	/// * **Chained Comparisons:** each `LT` compares the result of the previous one with its
+	///   operand, so each operand is picked based on that result.
+	/// * **Stack Initialization:** the `r` operands and the starting zero are placed on the stack
+	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Operands that always differ only in the lowest limb. The pseudo-random outcomes cost
+	///   roughly 34% more per `LT`.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `LT` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_lt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let start = U256::zero();
+		let mut previous_result = start;
+		let operands = (0..r)
+			.map(|_| {
+				let operand = if rng.gen_bool(0.5) {
+					previous_result
+				} else {
+					previous_result + U256::from(2)
+				};
+				previous_result =
+					if previous_result < operand { U256::one() } else { U256::zero() };
+				operand
+			})
+			.collect::<Vec<_>>();
+
+		let code = Bytecode::new_raw(vec![LT; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in operands.into_iter().rev().chain([start]) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&previous_result));
+	}
+
+	/// Benchmarks `r` EVM `GT` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Comparison Depth:** `U256` comparison walks the limbs from the highest down and stops at
+	///   the first pair that differs. The operands of every `GT` here have equal upper three limbs,
+	///   so it always compares all four limbs.
+	/// * **Pseudo-random Outcomes:** a pseudo-random generator decides whether each `GT` compares
+	///   equal values or values that differ only in the lowest limb, with a 50% chance either way.
+	///   The comparison branches on whether all four limbs are equal, so the CPU can't predict this
+	///   branch.
+	/// * **Chained Comparisons:** each `GT` compares the result of the previous one with its
+	///   operand. Zero is never greater than zero or two, so every result is zero and the operands
+	///   are either zero or two.
+	/// * **Stack Initialization:** the `r` operands and the starting zero are placed on the stack
+	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Comparing zero with zero every time. The pseudo-random outcomes cost roughly 34% more per
+	///   `GT`.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `GT` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_gt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r)
+			.map(|_| if rng.gen_bool(0.5) { U256::zero() } else { U256::from(2) })
+			.collect::<Vec<_>>();
+
+		let code = Bytecode::new_raw(vec![GT; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in operands.into_iter().rev().chain([U256::zero()]) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::zero()));
+	}
+
+	/// Benchmarks `r` EVM `EQ` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Early Exit:** `U256` equality compiles to a `memcmp` that compares the bytes one at a
+	///   time, starting from the least significant, and stops at the first one that differs.
+	/// * **Pseudo-random Stopping Points:** a pseudo-random generator picks whether each `EQ`
+	///   compares values that differ only at byte 29, 30 or 31, or equal values. Each time the
+	///   comparison reaches one of these bytes it stops there with a 50% chance, so the CPU can't
+	///   predict where it stops. Every comparison checks at least 30 of the 32 bytes.
+	/// * **Chained Comparisons:** each `EQ` compares the result of the previous one with its
+	///   operand, so each operand is picked based on that result.
+	/// * **Stack Initialization:** the `r` operands and the starting zero are placed on the stack
+	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Comparing equal values every time. The pseudo-random stopping points cost roughly 15% more
+	///   per `EQ`.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `EQ` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_eq_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let start = U256::zero();
+		let mut previous_result = start;
+		let operands = (0..r)
+			.map(|_| {
+				let operand = match [29, 30, 31].into_iter().find(|_| rng.gen_bool(0.5)) {
+					Some(byte) => previous_result ^ (U256::one() << (8 * byte)),
+					None => previous_result,
+				};
+				previous_result =
+					if previous_result == operand { U256::one() } else { U256::zero() };
+				operand
+			})
+			.collect::<Vec<_>>();
+
+		let code = Bytecode::new_raw(vec![EQ; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in operands.into_iter().rev().chain([start]) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&previous_result));
+	}
+
+	/// Benchmarks `r` EVM `ISZERO` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Early Exit:** `U256::is_zero` checks the words one at a time, starting from the least
+	///   significant, and stops at the first one that isn't zero. In the compiled runtime only the
+	///   checks of the first three words branch, and the last word is checked without a branch.
+	/// * **Pseudo-random Stopping Points:** a pseudo-random generator picks whether each operand is
+	///   zero or is nonzero only in word 0, 1 or 2. Each time the check reaches one of these words
+	///   it stops there with a 50% chance, so the CPU can't predict where it stops. The
+	///   mispredictions cost more than checking the words that are skipped.
+	/// * **Followed by `POP`:** each `ISZERO` is followed by a `POP`, so each one checks a fresh
+	///   operand rather than the result of the previous one. The weight of a `POP` is subtracted
+	///   when charging an `ISZERO`.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Zero operands every time. The pseudo-random stopping points cost roughly 34% more per
+	///   `ISZERO` and `POP` pair.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `ISZERO` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_iszero_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).map(|_| match [0, 1, 2].into_iter().find(|_| rng.gen_bool(0.5)) {
+			Some(word) => U256::one() << (64 * word),
+			None => U256::zero(),
+		});
+
+		let code = Bytecode::new_raw([ISZERO, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `AND` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Value Independence:** `AND` combines all four limbs of its operands with no branch that
+	///   depends on their values, so its work is the same whatever the values.
+	/// * **Chained Operations:** each `AND` combines the result of the previous one with its
+	///   operand. Every operand is `U256::MAX`, so every result is `U256::MAX` too.
+	/// * **Stack Initialization:** the `r` operands and the starting value are placed on the stack
+	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Pseudo-random operands cost the same per `AND`.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `AND` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_and_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![AND; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..=r {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::MAX));
+	}
+
+	/// Benchmarks `r` EVM `OR` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Value Independence:** `OR` combines all four limbs of its operands with no branch that
+	///   depends on their values, so its work is the same whatever the values.
+	/// * **Chained Operations:** each `OR` combines the result of the previous one with its
+	///   operand. Every operand is `U256::MAX`, so every result is `U256::MAX` too.
+	/// * **Stack Initialization:** the `r` operands and the starting value are placed on the stack
+	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `OR` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_or_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![OR; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..=r {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::MAX));
+	}
+
+	/// Benchmarks `r` EVM `XOR` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Value Independence:** `XOR` combines all four limbs of its operands with no branch that
+	///   depends on their values, so its work is the same whatever the values.
+	/// * **Chained Operations:** each `XOR` combines the result of the previous one with its
+	///   operand. Every operand is `U256::MAX`, so the results alternate between zero and
+	///   `U256::MAX`.
+	/// * **Stack Initialization:** the `r` operands and the starting value are placed on the stack
+	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Pseudo-random operands cost the same per `XOR`.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `XOR` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_xor_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![XOR; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..=r {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		let expected = if r.is_multiple_of(2) { U256::MAX } else { U256::zero() };
+		assert_eq!(interpreter.stack.top(), Some(&expected));
+	}
+
+	/// Benchmarks `r` EVM `NOT` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Value Independence:** `NOT` inverts all four limbs of its operand with no branch that
+	///   depends on its value, so its work is the same whatever the value.
+	/// * **Chained Operations:** each `NOT` inverts the result of the previous one, starting from a
+	///   zero placed on the stack before the benchmark runs, so the results alternate between
+	///   `U256::MAX` and zero. `NOT` doesn't change the stack's height, so `r` is only bounded by
+	///   the largest code a contract can have.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `NOT` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_not_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![NOT; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter.stack.push(U256::zero()).continue_value().unwrap();
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		let expected = if r.is_multiple_of(2) { U256::zero() } else { U256::MAX };
+		assert_eq!(interpreter.stack.top(), Some(&expected));
+	}
+
+	/// Benchmarks `r` EVM `BYTE` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Index Check:** `BYTE` branches on whether the index is below 32 and only reads the byte
+	///   when it is. The checks that saturate larger indices don't branch, so 32 stands in for
+	///   every out-of-range index.
+	/// * **Pseudo-random Indices:** a pseudo-random generator picks index 31 or 32 for each `BYTE`,
+	///   with a 50% chance either way, so the CPU can't predict this branch. The mispredictions
+	///   cost more than the reads that the out-of-range indices skip.
+	/// * **Followed by `POP`:** each `BYTE` is followed by a `POP`, so each one gets a fresh index.
+	///   The weight of a `POP` is subtracted when charging a `BYTE`.
+	/// * **Stack Initialization:** the value and the index of every `BYTE` are placed on the stack
+	///   before the benchmark runs. This is why `r` goes up to half the stack limit.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Index 31 every time, with each result becoming the next index. The pseudo-random indices
+	///   cost roughly 28% more per `BYTE` once the `POP` is subtracted.
+	/// * The same chain with index 31 or 32 picked pseudo-randomly. It cost roughly 7% less per
+	///   `BYTE` than this benchmark, because an out-of-range index returns zero, which forces the
+	///   next index into range, so the CPU mispredicts less often.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `BYTE` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_byte_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let index = if rng.gen_bool(0.5) { U256::from(31) } else { U256::from(32) };
+			[U256::from(31), index]
+		});
+
+		let code = Bytecode::new_raw([BYTE, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `CLZ` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Early Exit:** `U256::leading_zeros` checks the limbs one at a time, starting from the
+	///   most significant, and stops at the first one that isn't zero. A zero operand fails every
+	///   check and never counts the zeros of a limb.
+	/// * **Pseudo-random Stopping Points:** a pseudo-random generator picks whether each operand's
+	///   highest nonzero limb is limb 3, 2, 1 or 0, or whether the operand is zero. Each time the
+	///   check reaches one of these limbs it stops there with a 50% chance, so the CPU can't
+	///   predict where it stops. The mispredictions cost more than checking the limbs that are
+	///   skipped.
+	/// * **Followed by `POP`:** each `CLZ` is followed by a `POP`, so each one checks a fresh
+	///   operand rather than the result of the previous one, which is at most 256 and would always
+	///   stop at limb 0. The weight of a `POP` is subtracted when charging a `CLZ`.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * A chain of `CLZ` op-codes on 248, which has 248 leading zeros, so every `CLZ` checked all
+	///   four limbs. The pseudo-random stopping points cost roughly 64% more per `CLZ` once the
+	///   `POP` is subtracted.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `CLZ` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_clz_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).map(|_| match [3, 2, 1, 0].into_iter().find(|_| rng.gen_bool(0.5)) {
+			Some(limb) => U256::one() << (64 * limb),
+			None => U256::zero(),
+		});
+
+		let code = Bytecode::new_raw([CLZ, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SLT` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Signs:** `SLT` first checks whether each operand is negative, zero or positive. Only
+	///   operands with the same sign go on to compare their limbs, starting from the most
+	///   significant, until the first pair that differs. The compiled code branches on the sign of
+	///   each operand, on whether the signs differ, at each limb of the comparison and on which
+	///   operand is smaller.
+	/// * **Pseudo-random Operands:** a pseudo-random generator picks whether each `SLT` compares
+	///   two negative operands or two non-negative ones, and for the non-negative ones, whether one
+	///   of them is zero. Operands with the same sign first differ at limb 3, 2, 1 or 0, or are
+	///   equal, and each time the comparison reaches one of these limbs it stops there with a 50%
+	///   chance. The two operands are in a pseudo-random order. This way the CPU can't predict any
+	///   of these branches, and the mispredictions cost more than the work that the shorter paths
+	///   skip.
+	/// * **Followed by `POP`:** each `SLT` is followed by a `POP`, so each one compares fresh
+	///   operands rather than the result of the previous one, which is zero or one and would make
+	///   every comparison take the same path. The weight of a `POP` is subtracted when charging an
+	///   `SLT`.
+	/// * **Stack Initialization:** both operands of every `SLT` are placed on the stack before the
+	///   benchmark runs. This is why `r` goes up to half the stack limit.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * A chain of `SLT` op-codes on zeros, which compared all four limbs every time. The
+	///   pseudo-random operands cost roughly 81% more per `SLT` once the `POP` is subtracted.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `SLT` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_slt_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let code = Bytecode::new_raw([SLT, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in signed_comparison_operands(r) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SGT` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Signs:** `SGT` first checks whether each operand is negative, zero or positive. Only
+	///   operands with the same sign go on to compare their limbs, starting from the most
+	///   significant, until the first pair that differs. The compiled code branches on the sign of
+	///   each operand, on whether the signs differ, at each limb of the comparison and on which
+	///   operand is greater.
+	/// * **Pseudo-random Operands:** a pseudo-random generator picks whether each `SGT` compares
+	///   two negative operands or two non-negative ones, and for the non-negative ones, whether one
+	///   of them is zero. Operands with the same sign first differ at limb 3, 2, 1 or 0, or are
+	///   equal, and each time the comparison reaches one of these limbs it stops there with a 50%
+	///   chance. The two operands are in a pseudo-random order. This way the CPU can't predict any
+	///   of these branches, and the mispredictions cost more than the work that the shorter paths
+	///   skip.
+	/// * **Followed by `POP`:** each `SGT` is followed by a `POP`, so each one compares fresh
+	///   operands rather than the result of the previous one, which is zero or one and would make
+	///   every comparison take the same path. The weight of a `POP` is subtracted when charging an
+	///   `SGT`.
+	/// * **Stack Initialization:** both operands of every `SGT` are placed on the stack before the
+	///   benchmark runs. This is why `r` goes up to half the stack limit.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * A chain of `SGT` op-codes on zeros, which compared all four limbs every time. The
+	///   pseudo-random operands cost roughly 83% more per `SGT` once the `POP` is subtracted.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `SGT` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sgt_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let code = Bytecode::new_raw([SGT, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in signed_comparison_operands(r) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SHL` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Whole Words and Bits:** `U256` shifts move whole words first and then carry the
+	///   remaining bits across words. In the compiled runtime both steps are unrolled into
+	///   branches: the first step branches on how many whole words the shift moves, and the carry
+	///   step only runs when there are bits left to shift.
+	/// * **Pseudo-random Shifts:** a pseudo-random generator picks whether each `SHL` moves zero or
+	///   one whole word and whether it shifts zero or one bit on top of that, with a 50% chance
+	///   each, so the CPU can't predict either branch. The mispredictions cost more than the work
+	///   that the shorter shifts skip.
+	/// * **Followed by `POP`:** each `SHL` is followed by a `POP`, because otherwise its result
+	///   would become the shift of the next one. The weight of a `POP` is subtracted when charging
+	///   an `SHL`.
+	/// * **Stack Initialization:** the value and the shift of every `SHL` are placed on the stack
+	///   before the benchmark runs. This is why `r` goes up to half the stack limit.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Shifts that always moved less than a word, cycling through 1 to 17 bits. The pseudo-random
+	///   shifts cost roughly 38% more per `SHL` once the `POP` is subtracted.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `SHL` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_shl_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let words = rng.gen_range(0..=1u32);
+			let bits = rng.gen_range(0..=1u32);
+			[U256::MAX, U256::from(64 * words + bits)]
+		});
+
+		let code = Bytecode::new_raw([SHL, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SHR` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Whole Words and Bits:** `U256` shifts move whole words first and then carry the
+	///   remaining bits across words. In the compiled runtime both steps are unrolled into
+	///   branches: the first step branches on how many whole words the shift moves, and the carry
+	///   step only runs when there are bits left to shift.
+	/// * **Pseudo-random Shifts:** a pseudo-random generator picks whether each `SHR` moves zero or
+	///   one whole word and whether it shifts zero or one bit on top of that, with a 50% chance
+	///   each, so the CPU can't predict either branch. The mispredictions cost more than the work
+	///   that the shorter shifts skip.
+	/// * **Followed by `POP`:** each `SHR` is followed by a `POP`, because otherwise its result
+	///   would become the shift of the next one. The weight of a `POP` is subtracted when charging
+	///   an `SHR`.
+	/// * **Stack Initialization:** the value and the shift of every `SHR` are placed on the stack
+	///   before the benchmark runs. This is why `r` goes up to half the stack limit.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Shifts that always moved less than a word, cycling through 1 to 17 bits. The pseudo-random
+	///   shifts cost roughly 38% more per `SHR` once the `POP` is subtracted.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `SHR` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_shr_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let words = rng.gen_range(0..=1u32);
+			let bits = rng.gen_range(0..=1u32);
+			[U256::MAX, U256::from(64 * words + bits)]
+		});
+
+		let code = Bytecode::new_raw([SHR, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SAR` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Mask:** for a negative value `SAR` shifts right like `SHR` and then shifts an all-ones
+	///   mask left into the vacated bits. Both shifts are unrolled into branches on how many whole
+	///   words they move, checking three words, then two, then one, and their carry steps only run
+	///   when there are bits left to shift. Because the two shifts move in opposite directions,
+	///   shifts of one or two words do about as much total work as shifts of less than a word.
+	/// * **Pseudo-random Shifts:** a pseudo-random generator picks a shift of two whole words half
+	///   the time and splits the rest evenly between one word and none, so the CPU can't predict
+	///   the whole-word checks. Each shift also moves one bit on top of the whole words to keep the
+	///   carry steps running.
+	/// * **Negative Values:** every value is `U256::MAX`, which is negative, so every `SAR` also
+	///   shifts the mask.
+	/// * **Followed by `POP`:** each `SAR` is followed by a `POP`, because otherwise its result
+	///   would become the shift of the next one. The weight of a `POP` is subtracted when charging
+	///   an `SAR`.
+	/// * **Stack Initialization:** the value and the shift of every `SAR` are placed on the stack
+	///   before the benchmark runs. This is why `r` goes up to half the stack limit.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Shifts that always moved less than a word, cycling through 1 to 17 bits. The pseudo-random
+	///   shifts cost roughly 32% more per `SAR` once the `POP` is subtracted.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `SAR` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sar_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let words = [2, 1].into_iter().find(|_| rng.gen_bool(0.5)).unwrap_or(0u32);
+			[U256::MAX, U256::from(64 * words + 1)]
+		});
+
+		let code = Bytecode::new_raw([SAR, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmark `r` `ADD` instructions.
 	///
 	/// `U256` addition branches on the carry between limbs. With the same operands every time, such
@@ -4677,530 +5488,6 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 		let operands = (0..r).flat_map(|_| [U256::from(0xffda_dadau32), U256::from(3)]);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
-	}
-
-	/// Benchmark `r` `LT` instructions.
-	///
-	/// `U256` comparison walks the limbs from the highest down and branches when all four are
-	/// equal. With the same kind of operands every time, the CPU would predict this branch
-	/// perfectly. Instead a pseudo-random generator decides whether each `LT` compares equal values
-	/// or values that differ only in the lowest limb, with a 50% chance either way, which makes the
-	/// CPU mispredict this branch. Both cases compare all four limbs.
-	///
-	/// Each `LT` compares the result of the previous one with its operand, so each operand is
-	/// picked based on that result.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_lt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		use rand::{Rng, SeedableRng};
-		use rand_pcg::Pcg64;
-
-		let mut rng = Pcg64::seed_from_u64(42);
-		let start = U256::zero();
-		let mut previous_result = start;
-		let operands = (0..r)
-			.map(|_| {
-				let operand = if rng.gen_bool(0.5) {
-					previous_result
-				} else {
-					previous_result + U256::from(2)
-				};
-				previous_result =
-					if previous_result < operand { U256::one() } else { U256::zero() };
-				operand
-			})
-			.collect::<Vec<_>>();
-
-		let code = Bytecode::new_raw(vec![LT; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands.into_iter().rev().chain([start]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&previous_result));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-	}
-
-	/// Benchmark `r` `GT` instructions.
-	///
-	/// `U256` comparison walks the limbs from the highest down and branches when all four are
-	/// equal. With the same kind of operands every time, the CPU would predict this branch
-	/// perfectly. Instead a pseudo-random generator decides whether each `GT` compares equal values
-	/// or values that differ only in the lowest limb, with a 50% chance either way, which makes the
-	/// CPU mispredict this branch. Both cases compare all four limbs.
-	///
-	/// Each `GT` compares the result of the previous one with its operand. Zero is never greater
-	/// than zero or two, so every result is zero and the operands are either zero or two.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_gt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		use rand::{Rng, SeedableRng};
-		use rand_pcg::Pcg64;
-
-		let mut rng = Pcg64::seed_from_u64(42);
-		let operands = (0..r)
-			.map(|_| if rng.gen_bool(0.5) { U256::zero() } else { U256::from(2) })
-			.collect::<Vec<_>>();
-
-		let code = Bytecode::new_raw(vec![GT; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands.into_iter().rev().chain([U256::zero()]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&U256::zero()));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-	}
-
-	/// Benchmark `r` `CLZ` instructions with 248, preserving the full four-limb scan on every call.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_clz_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
-		let code = Bytecode::new_raw(vec![CLZ; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		let operand = U256::from(248);
-		interpreter.stack.push(operand).continue_value().unwrap();
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&operand));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-	}
-
-	/// Benchmark `r` `SLT` instructions on zeros, forcing full zero checks and limb comparison.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_slt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		let code = Bytecode::new_raw(vec![SLT; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..=r {
-			interpreter.stack.push(U256::zero()).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&U256::zero()));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-	}
-
-	/// Benchmark `r` `SGT` instructions on zeros, forcing full zero checks and limb comparison.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_sgt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		let code = Bytecode::new_raw(vec![SGT; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..=r {
-			interpreter.stack.push(U256::zero()).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&U256::zero()));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-	}
-
-	/// Benchmark `r` `EQ` instructions.
-	///
-	/// `U256` equality compiles to a `memcmp` that compares the bytes one at a time, starting from
-	/// the least significant, and stops at the first one that differs. With the same operands every
-	/// time, the CPU would predict where it stops perfectly. Instead a pseudo-random generator
-	/// picks whether each `EQ` compares values that differ only at byte 29, 30 or 31, or equal
-	/// values. Each time the comparison reaches one of these bytes it stops there with a 50%
-	/// chance, which makes the CPU mispredict where it stops. Every comparison checks at least 30
-	/// of the 32 bytes.
-	///
-	/// Each `EQ` compares the result of the previous one with its operand, so each operand is
-	/// picked based on that result.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_eq_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		use rand::{Rng, SeedableRng};
-		use rand_pcg::Pcg64;
-
-		let mut rng = Pcg64::seed_from_u64(42);
-		let start = U256::zero();
-		let mut previous_result = start;
-		let operands = (0..r)
-			.map(|_| {
-				let operand = match [29, 30, 31].into_iter().find(|_| rng.gen_bool(0.5)) {
-					Some(byte) => previous_result ^ (U256::one() << (8 * byte)),
-					None => previous_result,
-				};
-				previous_result =
-					if previous_result == operand { U256::one() } else { U256::zero() };
-				operand
-			})
-			.collect::<Vec<_>>();
-
-		let code = Bytecode::new_raw(vec![EQ; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands.into_iter().rev().chain([start]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&previous_result));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-	}
-
-	/// Benchmark `r` `ISZERO` instructions.
-	///
-	/// `U256::is_zero` checks the words one at a time, starting from the least significant, and
-	/// stops at the first one that isn't zero. In the compiled runtime only the checks of the first
-	/// three words branch, and the last word is checked without a branch. With zero operands every
-	/// time, the CPU would predict these branches perfectly. Instead a pseudo-random generator
-	/// picks whether each operand is zero or is nonzero only in word 0, 1 or 2. Each time the check
-	/// reaches one of these words it stops there with a 50% chance, which makes the CPU mispredict
-	/// where it stops. The mispredictions cost more than checking the words that are skipped.
-	///
-	/// Each `ISZERO` is followed by a `POP`, so each one checks a fresh operand rather than the
-	/// result of the previous one.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_iszero_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		use rand::{Rng, SeedableRng};
-		use rand_pcg::Pcg64;
-
-		let mut rng = Pcg64::seed_from_u64(42);
-		let operands = (0..r).map(|_| match [0, 1, 2].into_iter().find(|_| rng.gen_bool(0.5)) {
-			Some(word) => U256::one() << (64 * word),
-			None => U256::zero(),
-		});
-
-		let code = Bytecode::new_raw([ISZERO, POP].repeat(r as usize).into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
-	}
-
-	/// Benchmark `r` `AND` instructions with full-width operands that preserve all bits set.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_and_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		let code = Bytecode::new_raw(vec![AND; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..=r {
-			interpreter.stack.push(U256::MAX).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&U256::MAX));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-	}
-
-	/// Benchmark `r` `OR` instructions with full-width operands that preserve all bits set.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_or_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		let code = Bytecode::new_raw(vec![OR; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..=r {
-			interpreter.stack.push(U256::MAX).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&U256::MAX));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-	}
-
-	/// Benchmark `r` `XOR` instructions with MAX operands and alternating zero/MAX results.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_xor_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		let code = Bytecode::new_raw(vec![XOR; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..=r {
-			interpreter.stack.push(U256::MAX).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 1);
-		let expected = if r.is_multiple_of(2) { U256::MAX } else { U256::zero() };
-		assert_eq!(interpreter.stack.top(), Some(&expected));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-	}
-
-	/// Benchmark `r` `NOT` instructions, alternating between zero and all bits set.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_not_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
-		let code = Bytecode::new_raw(vec![NOT; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		interpreter.stack.push(U256::zero()).continue_value().unwrap();
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 1);
-		let expected = if r.is_multiple_of(2) { U256::zero() } else { U256::MAX };
-		assert_eq!(interpreter.stack.top(), Some(&expected));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-	}
-
-	/// Benchmark `r` `BYTE` instructions.
-	///
-	/// `BYTE` branches on whether the index is below 32 and only reads the byte when it is. With
-	/// index 31 every time, the CPU would predict this branch perfectly. Instead a pseudo-random
-	/// generator picks index 31 or 32 for each `BYTE`, with a 50% chance either way, which makes
-	/// the CPU mispredict this branch. The mispredictions cost more than the reads that the
-	/// out-of-range indices skip. The checks that saturate larger indices don't branch, so 32
-	/// stands in for every out-of-range index.
-	///
-	/// Each `BYTE` is followed by a `POP`, so each one gets a fresh index. Using the result of the
-	/// previous one as the index would mispredict less often, because an out-of-range index returns
-	/// zero and forces the next index into range.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_byte_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		use rand::{Rng, SeedableRng};
-		use rand_pcg::Pcg64;
-
-		let mut rng = Pcg64::seed_from_u64(42);
-		let operands = (0..r).flat_map(|_| {
-			let index = if rng.gen_bool(0.5) { U256::from(31) } else { U256::from(32) };
-			[U256::from(31), index]
-		});
-
-		let code = Bytecode::new_raw([BYTE, POP].repeat(r as usize).into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
-	}
-
-	/// Benchmark `r` `SHL` instructions.
-	///
-	/// `U256` shifts move whole words first and then carry the remaining bits across words. In the
-	/// compiled runtime both steps are unrolled into branches: the first step branches on how many
-	/// whole words the shift moves, and the carry step only runs when there are bits left to shift.
-	/// With the same kind of shift every time, the CPU would predict these branches perfectly.
-	/// Instead a pseudo-random generator picks whether each shift moves zero or one whole word and
-	/// whether it shifts zero or one bit on top of that, with a 50% chance each, which makes the
-	/// CPU mispredict both branches. The mispredictions cost more than the work that the shorter
-	/// shifts skip. Shifts of two or more words would skip too much work to pay off.
-	///
-	/// Each `SHL` is followed by a `POP`, because otherwise its result would become the shift of
-	/// the next one.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_shl_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		use rand::{Rng, SeedableRng};
-		use rand_pcg::Pcg64;
-
-		let mut rng = Pcg64::seed_from_u64(42);
-		let operands = (0..r).flat_map(|_| {
-			let words = rng.gen_range(0..=1u32);
-			let bits = rng.gen_range(0..=1u32);
-			[U256::MAX, U256::from(64 * words + bits)]
-		});
-
-		let code = Bytecode::new_raw([SHL, POP].repeat(r as usize).into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
-	}
-
-	/// Benchmark `r` `SHR` instructions, with shifts picked the same way and for the same reasons
-	/// as in [`evm_shl_opcode`].
-	#[benchmark(pov_mode = Measured)]
-	fn evm_shr_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		use rand::{Rng, SeedableRng};
-		use rand_pcg::Pcg64;
-
-		let mut rng = Pcg64::seed_from_u64(42);
-		let operands = (0..r).flat_map(|_| {
-			let words = rng.gen_range(0..=1u32);
-			let bits = rng.gen_range(0..=1u32);
-			[U256::MAX, U256::from(64 * words + bits)]
-		});
-
-		let code = Bytecode::new_raw([SHR, POP].repeat(r as usize).into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
-	}
-
-	/// Benchmark `r` `SAR` instructions.
-	///
-	/// For a negative operand `SAR` shifts right like `SHR` and then shifts an all-ones mask left
-	/// into the vacated bits. Both shifts are unrolled into branches on how many whole words they
-	/// move, checking three words, then two, then one, and their carry steps only run when there
-	/// are bits left to shift. Because the two shifts move in opposite directions, shifts of one or
-	/// two words do about as much total work as shifts of less than a word. A pseudo-random
-	/// generator picks a shift of two words half the time and splits the rest evenly between one
-	/// word and none, which makes the CPU mispredict the whole-word checks. Each shift also moves
-	/// one bit on top of the whole words to keep the carry steps running. Shifts of three words
-	/// skip about as much work as their mispredictions cost, so they are left out.
-	///
-	/// The operands are all negative, because a positive operand skips the mask, which saves more
-	/// than a misprediction costs. Each `SAR` is followed by a `POP`, because otherwise its result
-	/// would become the shift of the next one.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_sar_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		use rand::{Rng, SeedableRng};
-		use rand_pcg::Pcg64;
-
-		let mut rng = Pcg64::seed_from_u64(42);
-		let operands = (0..r).flat_map(|_| {
-			let words = [2u32, 1].into_iter().find(|_| rng.gen_bool(0.5)).unwrap_or(0);
-			[U256::MAX, U256::from(64 * words + 1)]
-		});
-
-		let code = Bytecode::new_raw([SAR, POP].repeat(r as usize).into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 		for operand in operands {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
