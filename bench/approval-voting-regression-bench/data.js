@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790766038061,
+  "lastUpdate": 1790794793544,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dmitry@markin.tech",
-            "name": "Dmitry Markin",
-            "username": "dmitry-markin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1866a5de1d89429ff43f114606f2aa69ffa9a0ae",
-          "message": "Publish indexed transactions with BLAKE2b hashes to IPFS DHT (#10468)\n\nAdd `--ipfs-bootnodes` flag for specifying IPFS bootnodes. If passed\nalong with `--ipfs-server`, the node will register as a content provider\nin IPFS DHT of indexed transactions with BLAKE2b hashes of the last two\nweeks (or pruning depth if smaller).\n\n## Follow-ups\n- Support other hashes (sha2-256 specifically) and CID codecs\n- Adjust `IPFS_MAX_BLOCKS` for chains with elastic scaling\n- Speedup DHT publishing in litep2p (should aim at 10s single provider\npublish time)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-25T09:36:33Z",
-          "tree_id": "40c3531a33f769a8ab358681c7f0f821ac1c0c1f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1866a5de1d89429ff43f114606f2aa69ffa9a0ae"
-        },
-        "date": 1774436368081,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63619.920000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52935.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020301249999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020301249999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.772593978709999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.539136953780006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.315879518553048,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8347939535200006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002033001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8332269655499993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.768073322400001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002033001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7870040140599411,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.540084893139948,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005255705120000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.7984630838500015,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "15fdbd4ba646c4eb64709f97deab8a04de7fd800",
+          "message": "grandpa: gossip commits to light clients in rotating groups (#13318)\n\nFixes https://github.com/paritytech/smoldot/issues/3375\n\n## Problem\n\nGRANDPA gossip sends each commit to only `LUCKY_PEERS` (4) randomly\npicked light clients per round. Light clients don't relay gossip, so\nthey only observe finality when picked. With `N` light clients connected\nto a node, the expected wait is `N / 4` rounds, so finality lag on light\nclients grows linearly with the number of light clients per node. The\n`--in-peers-light` default was recently raised to 500 (#12887), which\nmakes this worse.\n\nThe time-based fallback that allows commits to all peers doesn't help:\nit only kicks in after a round has lasted `PROPAGATION_ALL` round\ndurations, and on a healthy chain every imported commit starts a new\nround.\n\nSending every commit to every light client isn't an option either. A\ncommit carries a signature per voter, so outbound bandwidth would grow\nwith both the validator count and the number of light clients.\n\n## Solution\n\nLight clients take turns in groups of up to `LIGHT_PEERS_GROUP_SIZE`\n(100):\n\n- Connected light clients are kept in a `BTreeSet`, sorted by peer id.\n- On every round, the next group is the range of\n`LIGHT_PEERS_GROUP_SIZE` light clients following the last one served in\nthe previous round, wrapping around at the end.\n- The current group is stored as a peer id range, so checking whether a\nlight client is in turn is two comparisons. Light clients connecting or\ndisconnecting don't shift the rotation.\n- With at most `LIGHT_PEERS_GROUP_SIZE` light clients, all of them get\nevery commit.\n\nA commit also finalizes all of its ancestors, so skipping a few commits\nloses nothing. Every light client observes every finalized block within\n`ceil(light_clients / LIGHT_PEERS_GROUP_SIZE)` rounds, and the outbound\nbandwidth spent on light clients is bounded by the group size.\n\nGossip towards full nodes and authorities is unchanged.\n\n## Results\n\nMeasured `master` against this PR on a Polkadot full node, with up to\n500 synthetic light peers following `/grandpa/1` like smoldot\n([details](https://github.com/paritytech/smoldot/issues/3375#issuecomment-5832488482)):\n\n- **Finality lag on light clients:** on `master` it grows with the\nnumber of light peers, up to several minutes. With this PR it stays\nwithin a few rounds, tens of seconds even at 500 light peers.\n- **Extra GRANDPA traffic:** it grows up to 100 light peers and then\nstays flat, at about 1.4 MB/s.\n- **CPU, memory and block import:** no measurable change.\n\n## Notes\n\n- The commit finalizing the last block of an authority set only reaches\nthe light clients in turn at that moment, as before. Light clients that\nmiss it still learn about the set change from the neighbor packet sent\nto all peers (paritytech/substrate#13559), and can request the\njustification of the set change block, which nodes always store.",
+          "timestamp": "2026-09-30T16:16:49Z",
+          "tree_id": "bb9eddedd103d3f0d2df6241550e05a2f81f70c7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/15fdbd4ba646c4eb64709f97deab8a04de7fd800"
+        },
+        "date": 1790794761554,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63561.43000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.830099730169992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002132371,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000022805960000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.268477939419972,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.782767098699999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.78554408547,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005457135429999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002132371,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7501499207799993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.76555930388,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.5074134147826435,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000022805960000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3489006649899835,
             "unit": "seconds"
           }
         ]
