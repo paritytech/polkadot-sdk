@@ -62,6 +62,8 @@ use pallet_revive_uapi::{
 	CallFlags, ReturnErrorCode, StorageFlags, pack_hi_lo,
 	precompiles::{storage::IStorage, system::ISystem},
 };
+use rand::{Rng, SeedableRng, seq::SliceRandom};
+use rand_pcg::Pcg64;
 use revm::{
 	bytecode::{Bytecode, opcode::*},
 	primitives::eip3860::MAX_INITCODE_SIZE,
@@ -146,49 +148,12 @@ fn evm_swap_code<const N: u8>(r: u32) -> Bytecode {
 	Bytecode::new_raw(vec![opcode; r as usize].into())
 }
 
-/// Code and stack contents for benchmarking one of the EVM jump opcodes.
+/// Pushes the data a benchmark set up out of the L1 and L2 caches by writing unrelated memory.
 ///
-/// The code is always the maximum init code size, independent of how many jumps execute. It's just
-/// `jump; JUMPDEST` pairs, so every destination except the last is followed by another jump.
-struct EvmJumpFixture {
-	code: Vec<u8>,
-	targets: Vec<usize>,
-}
-
-impl EvmJumpFixture {
-	fn new(jump: u8, jumps: u32) -> Self {
-		use rand::{SeedableRng, seq::SliceRandom};
-		use rand_pcg::Pcg64;
-
-		const MAX_CODE_SIZE: usize = MAX_INITCODE_SIZE;
-		let mut code = Vec::<u8>::with_capacity(MAX_CODE_SIZE);
-		let mut index_of_jumpdest = Vec::new();
-		loop {
-			let remaining_capacity =
-				MAX_CODE_SIZE.checked_sub(code.len()).expect("Checked in the loop; qed");
-			let 2.. = remaining_capacity else { break };
-			index_of_jumpdest.push(code.len() + 1);
-			code.extend([jump, JUMPDEST]);
-		}
-
-		let (last_jumpdest, other_jumpdests) =
-			index_of_jumpdest.split_last().expect("The code holds at least one pair; qed");
-		let spread = jumps.saturating_sub(1) as usize;
-		let mut targets = other_jumpdests
-			.iter()
-			.step_by(other_jumpdests.len() / spread.max(1))
-			.take(spread)
-			.copied()
-			.collect::<Vec<_>>();
-		targets.shuffle(&mut Pcg64::seed_from_u64(1337));
-		targets.push(*last_jumpdest);
-
-		Self { code, targets }
-	}
-
-	fn last_target(&self) -> usize {
-		*self.targets.last().expect("The code holds at least one pair; qed")
-	}
+/// Writes 8 MiB, which is larger than the L2 cache of the reference hardware.
+fn evict_caches() {
+	const EVICTION_SIZE: usize = 8 * 1024 * 1024;
+	core::hint::black_box(vec![1u8; EVICTION_SIZE]);
 }
 
 #[benchmarks(
@@ -3277,52 +3242,88 @@ mod benchmarks {
 		assert_eq!(&memory[..20], runtime.ext().ecdsa_to_eth_address(&pub_key_bytes).unwrap());
 	}
 
-	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
+	/// Benchmarks `r` EVM `JUMPDEST` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark most likely underestimates a `JUMPDEST`: it has no operands or branches, so
+	/// no worse case can be constructed for it, and here it runs in the cheapest setting, straight
+	/// line code whose dispatch is always predicted. Subtracting an underestimate from another
+	/// benchmark can only overcharge that benchmark's op-code, never undercharge it, so this
+	/// benchmark is safe to subtract.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_jumpdest_opcode(
 		r: Linear<0, { MAX_INITCODE_SIZE as u32 }>,
 	) -> Result<(), BenchmarkError> {
 		let module = VmBinaryModule::evm_noop(r);
+		let inputs = vec![];
 
 		let code = Bytecode::new_raw(revm::primitives::Bytes::from(module.code.clone()));
 		let mut setup = CallSetup::<T>::new(module);
 		let (mut ext, _) = setup.ext();
 
+		evict_caches();
 		let result;
 		#[block]
 		{
-			result = evm::call(code, &mut ext, vec![]);
+			result = evm::call(code, &mut ext, inputs);
 		}
 
 		assert!(result.is_ok());
 		Ok(())
 	}
 
-	/// Benchmark `r` `JUMP` instructions.
+	/// Benchmarks `r` EVM `JUMP` op-codes.
 	///
-	/// The code used here is of the size [`MAX_INITCODE_SIZE`] to make it as large as possible
-	/// which means that we have jumps that are further apart.
+	/// # Considerations
 	///
-	/// Where the code jumps to is based on an even distribution of jump destinations which is then
-	/// shuffled in a pseudo-random way in order to prevent the CPU's prefetcher from being able to
-	/// fetch the data before the jump.
+	/// * **Pseudo-random Destinations:** the destination of each jump is pseudo-random to prevent
+	///   the CPU from pre-fetching the code at the next destination.
+	/// * **Stack Initialization:** the stack is initialized before running the benchmark in order
+	///   to not introduce any `PUSH` op-codes into the code being benchmarked.
+	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the code and
+	///   the stack, which the benchmark's setup loaded into the L1 and L2 caches.
 	///
-	/// Jump targets are placed in the stack before the code is run in order to not need to subtract
-	/// the weight of pushes after the fact, hence why the benchmark's upper bound on `r` is the
-	/// stack limit.
+	/// # Previous Benchmarks
+	///
+	/// * We've attempted to benchmark this op-code without the pseudo-random destinations, each
+	///   jump just led to the next `JUMPDEST`. That produced a lower ref-time for this op-code.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `JUMP` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_jump_opcode(r: Linear<1, EVM_STACK_LIMIT>) {
-		let fixture = EvmJumpFixture::new(JUMP, r);
-		let last_target = fixture.last_target();
+		let code = [JUMP, JUMPDEST].repeat(MAX_INITCODE_SIZE / 2);
+
+		let mut jumpdest_offsets = code
+			.iter()
+			.enumerate()
+			.filter_map(|(i, op)| (*op == JUMPDEST).then_some(i))
+			.collect::<Vec<_>>();
+		let last_jumpdest_offset =
+			jumpdest_offsets.pop().expect("there is at least 1 jumpdest; qed");
+
+		let spacing = jumpdest_offsets.len() / r as usize;
+		let mut targets = jumpdest_offsets
+			.iter()
+			.step_by(spacing)
+			.take(r as usize - 1)
+			.copied()
+			.collect::<Vec<_>>();
+		targets.shuffle(&mut Pcg64::seed_from_u64(1337));
+		targets.push(last_jumpdest_offset);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
-		let bytecode = ExtBytecode::new(Bytecode::new_raw(fixture.code.into()));
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
-		for target in fixture.targets.into_iter().rev() {
+		for target in targets.into_iter().rev() {
 			interpreter.stack.push(U256::from(target)).continue_value().unwrap();
 		}
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -3332,115 +3333,77 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
+		assert_eq!(interpreter.bytecode.pc(), last_jumpdest_offset + 2);
 	}
 
-	/// Benchmark `r` taken `JUMPI` instructions.
+	/// Benchmarks `r` EVM `JUMPI` op-codes.
 	///
-	/// The condition for the jump is always set to true so the jump is always taken.
+	/// # Considerations
 	///
-	/// Same even distribution and pseudo-random jumping targets from [`evm_jump_opcode`] is used in
-	/// this benchmark as well.
+	/// * **Pseudo-random Conditions:** a pseudo-random generator decides whether each jump is
+	///   taken, with a 50% chance either way, so the CPU mispredicts the branch on the condition.
+	///   The mispredictions cost more than the untaken jumps save.
+	/// * **Pseudo-random Destinations:** the destination of each taken jump is pseudo-random to
+	///   prevent the CPU from pre-fetching the code at the next destination.
+	/// * **Full Condition Check:** a true condition only has its highest word set, so checking it
+	///   for zero reads all four words, just like checking a false condition does.
+	/// * **Stack Initialization:** the stack is initialized before running the benchmark in order
+	///   to not introduce any `PUSH` op-codes into the code being benchmarked.
+	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the code and
+	///   the stack, which the benchmark's setup loaded into the L1 and L2 caches.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Always taking the jump and never taking the jump results in a lower ref-time than pseudo
+	///   randomly taking the jump.
+	/// * Back to back jump destinations result in a lower ref-time.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `JUMPI` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_opcode_always_taken_variant(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
-		let fixture = EvmJumpFixture::new(JUMPI, r);
-		let last_target = fixture.last_target();
+	fn evm_jumpi_opcode(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let code = [JUMPI, JUMPDEST].repeat(MAX_INITCODE_SIZE / 2);
+
+		let mut jumpdest_offsets = code
+			.iter()
+			.enumerate()
+			.filter_map(|(i, op)| (*op == JUMPDEST).then_some(i))
+			.collect::<Vec<_>>();
+		let last_jumpdest_offset =
+			jumpdest_offsets.pop().expect("there is at least 1 jumpdest; qed");
+
+		let spacing = jumpdest_offsets.len() / r as usize;
+		let mut targets = jumpdest_offsets
+			.iter()
+			.step_by(spacing)
+			.take(r as usize - 1)
+			.copied()
+			.collect::<Vec<_>>();
+		targets.shuffle(&mut rng);
+		targets.push(last_jumpdest_offset);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
-		let bytecode = ExtBytecode::new(Bytecode::new_raw(fixture.code.into()));
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
-		for target in fixture.targets.into_iter().rev() {
-			// Push the condition for the jump which evaluates to `true` (i.e., take the jump). In
-			// the current implementation of `U256::is_zero` (which is used in the code for `JUMPI`)
-			// we check the limbs one by one and break as soon as one of them is not zero. The value
-			// `U256::one() << 192` makes it so that the check makes it to the last limb before it
-			// evaluates to not-zero.
-			interpreter.stack.push(U256::one() << 192).continue_value().unwrap();
-			// Push the destination of the jump
-			interpreter.stack.push(U256::from(target)).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
-	}
-
-	/// Benchmark `r` untaken `JUMPI` instructions.
-	///
-	/// A different variant of [`evm_jumpi_opcode_always_taken_variant`] where all `JUMPI`
-	/// conditions always evaluate to `false` and therefore no jump is ever taken (except the last
-	/// one).
-	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_opcode_always_untaken_variant(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
-		let fixture = EvmJumpFixture::new(JUMPI, r);
-		let last_target = fixture.last_target();
-
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let bytecode = ExtBytecode::new(Bytecode::new_raw(fixture.code.into()));
-		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
-		for target in fixture.targets.into_iter().rev() {
-			// Push the condition: always zero unless this is the last target then it's `true`.
-			let condition = if target == last_target { U256::one() << 192 } else { U256::zero() };
-			interpreter.stack.push(condition).continue_value().unwrap();
-			// Push the destination of the jump
-			interpreter.stack.push(U256::from(target)).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
-	}
-
-	/// Benchmark `r` pseudo-random `JUMPI` instructions.
-	///
-	/// A different variant of [`evm_jumpi_opcode_always_taken_variant`] where a pseudo-random
-	/// generator decides whether each `JUMPI` is taken, with a 50% chance either way.
-	///
-	/// The mix makes the branch on the condition unpredictable to the CPU. Every mispredicted
-	/// branch adds its penalty, so this can cost more than always taking the jump even though an
-	/// untaken jump is cheaper.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_opcode_pseudo_random_taken_variant(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
-		use rand::{Rng, SeedableRng};
-		use rand_pcg::Pcg64;
-
-		let fixture = EvmJumpFixture::new(JUMPI, r);
-		let last_target = fixture.last_target();
-		let mut rng = Pcg64::seed_from_u64(42);
-
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let bytecode = ExtBytecode::new(Bytecode::new_raw(fixture.code.into()));
-		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
-		for target in fixture.targets.into_iter().rev() {
-			// Push the condition: we take the jump if the target is the last target or if the
-			// pseudo-random function generates a `true` boolean.
-			let condition = if target == last_target || rng.gen_bool(0.5) {
-				U256::one() << 192
+		for target in targets.into_iter().rev() {
+			// The last jump is always taken so that the code ends on the last `JUMPDEST`.
+			let condition = if target == last_jumpdest_offset || rng.gen_bool(0.5) {
+				// Constructing a truthy value which requires us to check all of the limbs of the
+				// 256-bit word.
+				U256([0, 0, 0, rng.gen_range(1u64..=u64::MAX)])
 			} else {
 				U256::zero()
 			};
 			interpreter.stack.push(condition).continue_value().unwrap();
-			// Push the destination of the jump
 			interpreter.stack.push(U256::from(target)).continue_value().unwrap();
 		}
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -3450,7 +3413,36 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
+		assert_eq!(interpreter.bytecode.pc(), last_jumpdest_offset + 2);
+	}
+
+	/// Benchmarks `r` EVM `PC` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark most likely underestimates a `PC`: it has no operands, so no worse case can
+	/// be constructed for it, and here it runs in the cheapest setting, straight line code whose
+	/// dispatch is always predicted. Subtracting an underestimate from another benchmark can only
+	/// overcharge that benchmark's op-code, never undercharge it, so this benchmark is safe to
+	/// subtract.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_pc_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![PC; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		assert_eq!(interpreter.stack.top(), r.checked_sub(1).map(U256::from).as_ref());
 	}
 
 	/// Benchmark `r` `PUSH0` instructions.
@@ -4384,29 +4376,6 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 17);
-	}
-
-	/// Benchmark `r` `PC` instructions.
-	///
-	/// Each `PC` pushes its own offset, so the top of the stack afterwards is the offset of the
-	/// last one, which checks that every instruction ran and that the program counter is right.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_pc_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = Bytecode::new_raw(vec![PC; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), r as usize);
-		assert_eq!(interpreter.stack.top(), r.checked_sub(1).map(U256::from).as_ref());
 	}
 
 	/// Benchmark `r` `CHAINID` instructions.
