@@ -86,6 +86,9 @@ impl QueueOnDemandOrders<RelayBlockNumber> for RecordingOrderQueue {
 	fn queue_batch(batch: Vec<(TaskId, RelayBlockNumber)>) {
 		QUEUED_BATCHES.with(|b| b.borrow_mut().push(batch));
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery() {}
 }
 
 parameter_types! {
@@ -101,6 +104,14 @@ pub struct MockCorePool;
 impl PoolCapacityProvider for MockCorePool {
 	fn pool_cores() -> u32 {
 		CORE_POOL_SIZE.with(|n| *n.borrow())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_pool_cores(cores: u32) {
+		CORE_POOL_SIZE.with(|pool| {
+			let mut pool = pool.borrow_mut();
+			*pool = (*pool).max(cores);
+		});
 	}
 }
 

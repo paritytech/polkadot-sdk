@@ -28,6 +28,12 @@ doc:
     in a follow-up.
 
     `pallet-on-demand` is also wired into the coretime-westend runtime.
+
+    With the `runtime-benchmarks` feature enabled, `PoolCapacityProvider` has a new
+    `ensure_pool_cores` method, which the benchmarks use to make sure the pool is not
+    empty before they place orders, and `QueueOnDemandOrders` has a new
+    `ensure_successful_delivery` method, which makes sure the batch of orders sent on
+    finalization reaches the Relay Chain.
 crates:
 - name: fp-coretime
   bump: minor

@@ -261,6 +261,12 @@ impl QueueOnDemandOrders<relay_chain::BlockNumber> for CoretimeAllocator {
 			),
 		}
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery() {
+		use cumulus_primitives_core::UpwardMessageSender;
+		ParachainSystem::ensure_successful_delivery();
+	}
 }
 
 /// Reports the size of the Instantaneous Coretime Pool as `pallet-broker` currently sees it.
@@ -270,6 +276,25 @@ impl PoolCapacityProvider for BrokerPoolCapacity {
 		pallet_broker::Status::<Runtime>::get().map_or(0, |status| {
 			status.private_pool_size.saturating_add(status.system_pool_size) / CORE_MASK_BITS as u32
 		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_pool_cores(cores: u32) {
+		if Self::pool_cores() >= cores {
+			return;
+		}
+		pallet_broker::Status::<Runtime>::mutate(|status| {
+			let status = status.get_or_insert(pallet_broker::StatusRecord {
+				core_count: cores.try_into().unwrap_or(CoreIndex::MAX),
+				private_pool_size: 0,
+				system_pool_size: 0,
+				last_committed_timeslice: 0,
+				last_timeslice: 0,
+			});
+			// Top up the system part of the pool, so that the whole pool spans `cores` cores.
+			let bits = cores.saturating_mul(CORE_MASK_BITS as u32);
+			status.system_pool_size = bits.saturating_sub(status.private_pool_size);
+		});
 	}
 }
 

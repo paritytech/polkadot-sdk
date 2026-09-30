@@ -72,6 +72,8 @@ mod benches {
 		);
 		// Store minimum balance in the pallet's account, so that small transfers to it don't fail
 		T::Currency::set_balance(&OnDemand::<T>::account_id(), T::Currency::minimum_balance());
+		// Orders can only be placed while the pool has some cores
+		T::PoolCapacityProvider::ensure_pool_cores(1);
 
 		let _ = OnDemand::<T>::on_initialize(current_block);
 
@@ -134,6 +136,8 @@ mod benches {
 		);
 		// Store minimum balance in the pallet's account, so that small transfers to it don't fail
 		T::Currency::set_balance(&OnDemand::<T>::account_id(), T::Currency::minimum_balance());
+		// Orders can only be placed while the pool has some cores
+		T::PoolCapacityProvider::ensure_pool_cores(1);
 
 		// Pre-populate InflightTransactions with n transactions of fixed size
 		if n > 0 {
@@ -149,6 +153,9 @@ mod benches {
 				.map_err(|_| BenchmarkError::Stop("place_order failed"))?;
 			}
 		}
+
+		// Measure sending the batch, not failing to send it
+		T::OrderQueue::ensure_successful_delivery();
 
 		#[block]
 		{

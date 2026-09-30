@@ -2496,6 +2496,11 @@ impl pallet_on_demand_para::PoolCapacityProvider for OnDemandPoolCapacity {
 	fn pool_cores() -> u32 {
 		1
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_pool_cores(cores: u32) {
+		assert!(cores <= Self::pool_cores(), "the on-demand pool has a fixed size");
+	}
 }
 
 impl pallet_on_demand_para::Config for Runtime {

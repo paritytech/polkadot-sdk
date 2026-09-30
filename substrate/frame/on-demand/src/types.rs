@@ -125,6 +125,12 @@ pub type QueueTrackerOf<T> = QueueTracker<RelayBlockNumberOf<T>>;
 pub trait PoolCapacityProvider {
 	/// Returns how many cores are dedicated to the on-demand pool.
 	fn pool_cores() -> u32;
+
+	/// Make sure that [`Self::pool_cores`] returns at least `cores`.
+	///
+	/// Used to set up the benchmarks, which need a non-empty pool to place orders in.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_pool_cores(cores: u32);
 }
 
 /// Type for determining the prices of on-demand orders

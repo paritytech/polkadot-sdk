@@ -96,10 +96,19 @@ pub trait QueueOnDemandOrders<RelayBlockNumber> {
 	/// Each entry is the parachain the order was placed for and the Relay-chain block number it was
 	/// ordered at.
 	fn queue_batch(batch: Vec<(TaskId, RelayBlockNumber)>);
+
+	/// Make sure that the batches queued afterwards reach the Relay chain.
+	///
+	/// Used to set up the benchmarks, so that they measure a successful delivery.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery();
 }
 
 impl<RelayBlockNumber> QueueOnDemandOrders<RelayBlockNumber> for () {
 	fn queue_batch(_batch: Vec<(TaskId, RelayBlockNumber)>) {}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery() {}
 }
 
 #[frame_support::pallet]
