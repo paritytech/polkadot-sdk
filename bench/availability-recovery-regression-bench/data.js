@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790761857454,
+  "lastUpdate": 1790765941594,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dmitry@markin.tech",
-            "name": "Dmitry Markin",
-            "username": "dmitry-markin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1866a5de1d89429ff43f114606f2aa69ffa9a0ae",
-          "message": "Publish indexed transactions with BLAKE2b hashes to IPFS DHT (#10468)\n\nAdd `--ipfs-bootnodes` flag for specifying IPFS bootnodes. If passed\nalong with `--ipfs-server`, the node will register as a content provider\nin IPFS DHT of indexed transactions with BLAKE2b hashes of the last two\nweeks (or pruning depth if smaller).\n\n## Follow-ups\n- Support other hashes (sha2-256 specifically) and CID codecs\n- Adjust `IPFS_MAX_BLOCKS` for chains with elastic scaling\n- Speedup DHT publishing in litep2p (should aim at 10s single provider\npublish time)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-25T09:36:33Z",
-          "tree_id": "40c3531a33f769a8ab358681c7f0f821ac1c0c1f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1866a5de1d89429ff43f114606f2aa69ffa9a0ae"
-        },
-        "date": 1774436301845,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12079297733333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.645869036166667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13187976889999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e3c36a56d3bb9dde069f66a9238539a0d1a469dd",
+          "message": "grandpa: skip decoding commits peers would reject (#13347)\n\nIn `GossipValidator::message_allowed`, check whether the peer would\naccept a commit at our best commit height before decoding the message.\n\nOnly our best commit is ever gossiped to peers, and its height is\nalready known from the local view, so the check can be done without\ndecoding. Previously the commit was decoded first and then refused for\npeers already at or past that\nheight. A refused peer isn't marked as knowing the message, so this\ncould repeat on later gossip attempts.\n\nDiscovered while working on #13318 (but independent of it)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-30T09:05:44Z",
+          "tree_id": "76de852091b581420a179af876e1afc379a62b75",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e3c36a56d3bb9dde069f66a9238539a0d1a469dd"
+        },
+        "date": 1790765907688,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.921960144233335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12964196043333331,
             "unit": "seconds"
           }
         ]
