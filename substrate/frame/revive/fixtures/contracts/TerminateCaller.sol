@@ -24,6 +24,12 @@ contract TerminateCaller {
         return address(inner);
     }
 
+    function createAndTerminateThenSelfdestruct(uint value, address beneficiary, bool viaDelegateCall) external returns (address) {
+        inner = new Terminate{value: value}(true, 0, beneficiary);
+        inner.terminateThenSelfdestruct(beneficiary, viaDelegateCall);
+        return address(inner);
+    }
+
     function sendFundsAfterTerminateAndCreate(uint value, uint8 method, address beneficiary) external returns (address) {
         inner = new Terminate(true, method, beneficiary);
         inner.terminate(method, beneficiary);

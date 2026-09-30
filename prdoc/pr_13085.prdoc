@@ -10,8 +10,10 @@ doc:
 
     The storage deposit is now refunded to the origin when `System.terminate` is called, before
     the balance is paid out to the beneficiary, instead of at the end of the call stack. Only the
-    part of the deposit that a freeze on the account needs stays on hold. The payout sends the
-    transferable balance as before.
+    part of the deposit that a freeze on the account needs stays on hold. That part stays on the
+    leftover account and the origin does not get it back. If a contract is later deployed to the
+    same address, whoever terminates that contract receives it. The payout sends the transferable
+    balance as before.
 
     If the account cannot be reaped because something still pins funds on it, the contract is
     deleted and the account stays behind as a plain account holding those funds. A contract
@@ -19,9 +21,15 @@ doc:
     `System.terminate` are still forwarded to the beneficiary at the end of the call stack. If
     that transfer fails, the funds stay on the account and the contract is deleted anyway.
 
+    A `SELFDESTRUCT` run after `System.terminate`, in the same frame or in a later one, no longer
+    cancels the termination: the contract is deleted and its deposit is refunded once.
+
     `SELFDESTRUCT` keeps its EIP-6780 semantics. A contract created in the same transaction is
     now deleted even if its account carries a lock, which leaves the locked funds on the account.
-    A pre-existing contract keeps its code and deposits and only has its balance moved.
+    This now also holds for `SELFDESTRUCT` in the constructor of a top-level instantiation, which
+    before left the contract alive. When an EVM constructor runs `SELFDESTRUCT`, the runtime code
+    it deployed and its deposit are now released as well. A pre-existing contract keeps its code
+    and deposits and only has its balance moved.
 
     `ISystem.sol` no longer lists balance locks as a reason for `terminate` to revert. It never
     reverted for that reason.
@@ -30,12 +38,15 @@ doc:
   description: |-
     No migration or configuration change is needed.
 
-    `seal_terminate_logic` now also covers the storage deposit refund that `System.terminate`
-    does when it is called. Runtimes should regenerate their `pallet_revive` weights.
+    `seal_terminate_logic` still measures one storage deposit refund and the teardown. The
+    refund now runs when `System.terminate` is called instead of at the end of the call stack,
+    and each teardown step runs in its own storage layer. Runtimes should regenerate their
+    `pallet_revive` weights.
 
-    `Deposit::refund_all` of the native backend now releases the storage deposit only as far as
-    the freezes on the account allow and returns the amount actually released, instead of
-    failing. `Deposit` is sealed, so no downstream implementation is affected.
+    `Deposit::refund_all` now releases the native storage deposit only as far as the freezes on
+    the account allow and returns the amount actually released, instead of failing. The PGAS
+    backend delegates its native part to the same code, so this applies to both backends.
+    `Deposit` is sealed, so no downstream implementation is affected.
 
     The `Terminate` and `TerminateCaller` fixtures gain functions, which adds variants to the
     generated `Terminate::TerminateCalls` and `TerminateCaller::TerminateCallerCalls` enums in

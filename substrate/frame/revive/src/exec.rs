@@ -782,6 +782,29 @@ impl<T: Config> Frame<T> {
 	fn contract_info(&mut self) -> &mut ContractInfo<T> {
 		self.contract_info.get(&self.account_id)
 	}
+
+	/// Schedule `account_id` for termination at the end of the call stack.
+	///
+	/// A contract can be scheduled more than once, for example by `System.terminate` followed by
+	/// `SELFDESTRUCT`. A later termination must never downgrade an earlier one: once any of them
+	/// is unconditional the contract is deleted, since `System.terminate` already refunded the
+	/// deposit when it was called. The refunds add up, so the transaction meter sees each one.
+	/// The other fields come from the later termination: its `beneficiary` is the one the
+	/// contract named last, and its `code_hash` is the most recent one. The `trie_id` never
+	/// changes.
+	fn schedule_termination(&mut self, account_id: T::AccountId, args: TerminateArgs<T>) {
+		match self.contracts_to_be_destroyed.entry(account_id) {
+			btree_map::Entry::Occupied(mut entry) => {
+				let old = entry.get();
+				let only_if_same_tx = old.only_if_same_tx && args.only_if_same_tx;
+				let refunded = old.refunded.saturating_add(args.refunded);
+				entry.insert(TerminateArgs { only_if_same_tx, refunded, ..args });
+			},
+			btree_map::Entry::Vacant(entry) => {
+				entry.insert(args);
+			},
+		}
+	}
 }
 
 /// Extract the contract info after loading it from storage.
@@ -1246,6 +1269,13 @@ where
 			})
 			.unwrap_or(address);
 
+		// A constructor frame creates its contract in this transaction. Marking it here covers
+		// the first frame of `run_instantiate` as well as nested instantiations.
+		let mut contracts_created = BTreeSet::new();
+		if entry_point == ExportedFunction::Constructor {
+			contracts_created.insert(account_id.clone());
+		}
+
 		let frame = Frame {
 			delegate,
 			value_transferred,
@@ -1257,7 +1287,7 @@ where
 			allows_reentry: true,
 			read_only,
 			last_frame_output: Default::default(),
-			contracts_created: Default::default(),
+			contracts_created,
 			contracts_to_be_destroyed: Default::default(),
 		};
 
@@ -1547,9 +1577,16 @@ where
 					module.store_code(&self.exec_config, &mut frame.frame_meter)?;
 					code_deposit = module.code_info().deposit();
 
-					let contract_info = frame.contract_info();
-					contract_info.code_hash = *module.code_hash();
-					<CodeInfo<T>>::increment_refcount(contract_info.code_hash)?;
+					let code_hash = *module.code_hash();
+					frame.contract_info().code_hash = code_hash;
+					<CodeInfo<T>>::increment_refcount(code_hash)?;
+
+					// A `SELFDESTRUCT` in the constructor scheduled the termination while the
+					// contract still pointed at the init code. Point it at the runtime code, so
+					// that the termination releases the code and its deposit.
+					if let Some(args) = frame.contracts_to_be_destroyed.get_mut(&frame.account_id) {
+						args.code_hash = code_hash;
+					}
 				}
 
 				let deposit = frame.contract_info().update_base_deposit(code_deposit);
@@ -1737,17 +1774,7 @@ where
 			// only on success inherit the created and to be destroyed contracts
 			prev.contracts_created.extend(frame.contracts_created);
 			for (account, args) in frame.contracts_to_be_destroyed {
-				match prev.contracts_to_be_destroyed.entry(account) {
-					// The contract was scheduled for termination before. Only the first
-					// termination refunded the deposit, so keep counting that refund.
-					btree_map::Entry::Occupied(mut entry) => {
-						let refunded = entry.get().refunded.saturating_add(args.refunded);
-						entry.insert(TerminateArgs { refunded, ..args });
-					},
-					btree_map::Entry::Vacant(entry) => {
-						entry.insert(args);
-					},
-				}
+				prev.schedule_termination(account, args);
 			}
 
 			if let Some(contract) = contract {
@@ -1961,6 +1988,19 @@ where
 			Origin::Signed(o) => Origin::Signed(o.clone()),
 			Origin::Root => Origin::from_account_id(crate::Pallet::<T>::account_id()),
 		}
+	}
+
+	/// The storage deposit refund that `System.terminate` does when it is called.
+	///
+	/// Refunds the deposit held on `contract_account` to the termination origin, as far as the
+	/// freezes on the account allow, and returns the amount refunded.
+	fn refund_on_terminate(
+		exec_config: &ExecConfig<T>,
+		contract_account: &T::AccountId,
+		origin: &Origin<T>,
+	) -> Result<BalanceOf<T>, DispatchError> {
+		let origin = Self::termination_origin(origin);
+		T::Deposit::refund_all(contract_account, exec_config.funds(origin.account_id()?))
 	}
 
 	/// Runs `f` in its own storage transaction.
@@ -2220,7 +2260,7 @@ where
 
 		// schedule for delayed deletion
 		let account_id = frame.account_id.clone();
-		self.top_frame_mut().contracts_to_be_destroyed.insert(
+		self.top_frame_mut().schedule_termination(
 			account_id,
 			TerminateArgs {
 				beneficiary,
@@ -2317,10 +2357,6 @@ where
 			)?
 		};
 		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
-
-		// Mark the contract as created in this tx.
-		let account_id = self.top_frame().account_id.clone();
-		self.top_frame_mut().contracts_created.insert(account_id);
 
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		if_tracing(|t| t.instantiate_code(&code, salt));
@@ -2737,11 +2773,8 @@ where
 		// Refund the storage deposit before the payout. The hold counts towards any freeze on
 		// the account, so after the payout it would be needed to cover the freeze. Released now,
 		// it is paid back as far as the freeze allows, and only the remainder stays on hold.
-		let origin = Self::termination_origin(&self.origin);
-		let refunded = T::Deposit::refund_all(
-			&parent_account_id,
-			self.exec_config.funds(origin.account_id()?),
-		)?;
+		let refunded =
+			Self::refund_on_terminate(&self.exec_config, &parent_account_id, &self.origin)?;
 
 		// balance transfer is immediate
 		Self::transfer(
@@ -2757,7 +2790,7 @@ where
 		// schedule for delayed deletion
 		let args =
 			TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx: false, refunded };
-		self.top_frame_mut().contracts_to_be_destroyed.insert(parent_account_id, args);
+		self.top_frame_mut().schedule_termination(parent_account_id, args);
 
 		Ok(())
 	}
@@ -2839,8 +2872,7 @@ pub fn bench_do_terminate<T: Config>(
 	let refunded = if only_if_same_tx {
 		Zero::zero()
 	} else {
-		let origin = BenchStack::<T>::termination_origin(origin);
-		T::Deposit::refund_all(contract_account, exec_config.funds(origin.account_id()?))?
+		BenchStack::<T>::refund_on_terminate(exec_config, contract_account, origin)?
 	};
 	BenchStack::<T>::do_terminate(
 		transaction_meter,
