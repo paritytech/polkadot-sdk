@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790701477372,
+  "lastUpdate": 1790757805553,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "06bded7ab7ac6a50e0aeba48c0f7f5ca548c3573",
-          "message": "zombienet migrate misc tests (#11394)\n\nMigrate _misc_ test:\n\n- parityDb\n- malus",
-          "timestamp": "2026-03-24T18:20:38Z",
-          "tree_id": "7fdf50b186578735211c7346f83a1ac7ae1eeed3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/06bded7ab7ac6a50e0aeba48c0f7f5ca548c3573"
-        },
-        "date": 1774381402922,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.898806780533333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12908132393333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14221489096666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "229b73d531349ee5df46e22869454e620b13d9c7",
+          "message": "statement gossip: hold initial sync to the peer's statement rate limit (#13298)\n\n# Description\n\nInitial sync now respects the peer's statement rate limit. Each peer\ncarries a second `PeerRateLimiter` with the same quota its receive side\napplies to us, charged by every propagation chunk and, during an\ninitial-sync fetch, by each statement it takes, so the fetch stops where\nthe quota runs out. A peer whose quota has no room keeps its turn in the\nsync queue while its neighbours are served, so a peer draws its backlog\nat the rate it accepts, however often it asks for it.\n\nBefore this, bursts ran every 10 ms with one chunk per peer in flight,\nso a fast peer could receive far more than `statements_per_second` and\ndisconnect us as a flooder, and any peer could pull the whole store\nagain by flipping its filter.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12562\n\n# Integration\n\nNo changes needed. The send-side quota mirrors the node's own\n`statement_rate_limit`, so a fleet with one setting throttles exactly to\nwhat its peers accept.",
+          "timestamp": "2026-09-30T07:10:44Z",
+          "tree_id": "66adc6f2b446e84db7b50333ecf2535329d5a8a1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/229b73d531349ee5df46e22869454e620b13d9c7"
+        },
+        "date": 1790757772635,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13649621233333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.881038222833336,
             "unit": "seconds"
           }
         ]
