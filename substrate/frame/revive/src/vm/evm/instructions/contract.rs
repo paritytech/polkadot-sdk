@@ -204,7 +204,7 @@ fn run_call<'a, E: Ext>(
 			scheme.is_static_call(),
 		),
 		CallScheme::DelegateCall => interpreter.ext.delegate_call(
-			&CallResources::from_ethereum_gas(gas_limit, stipend_and_protections.add_stipend()),
+			&CallResources::from_ethereum_gas(gas_limit, false),
 			callee,
 			input,
 		),

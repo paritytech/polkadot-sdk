@@ -389,8 +389,8 @@ pub trait HostFn: private::Sealed {
 	/// The key and value lengths must not exceed the maximums defined by the `pallet-revive`
 	/// parameters.
 	///
-	/// Persistent writes trap in the callee of a `transfer` or `send`, and in any contract that
-	/// callee calls or creates. Transient writes still work.
+	/// Persistent writes trap in the callee of a `transfer`, `send` or any call with that shape,
+	/// and in any contract that callee calls or creates. Transient writes still work.
 	///
 	/// # Parameters
 	///
@@ -407,8 +407,8 @@ pub trait HostFn: private::Sealed {
 	/// If the provided 32‑byte value is all zeros then the key is cleared (i.e. deleted),
 	/// mimicking Ethereum’s SSTORE behavior.
 	///
-	/// Persistent writes trap in the callee of a `transfer` or `send`, and in any contract that
-	/// callee calls or creates. Transient writes still work.
+	/// Persistent writes trap in the callee of a `transfer`, `send` or any call with that shape,
+	/// and in any contract that callee calls or creates. Transient writes still work.
 	///
 	/// # Parameters
 	/// - `key`: The fixed 256‑bit storage key (32 bytes).
