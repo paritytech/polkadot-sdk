@@ -281,11 +281,9 @@ fn outage_topics(peer_keys: &[[u8; 32]]) -> Result<(usize, Vec<OutageTopic>), an
 		.ok_or_else(|| anyhow!("no non-affine full outage node in 100000 bounded candidates"))?;
 
 	let mut topics = Vec::new();
-	for outage_node_role in [
-		OutageNodeRole::Replica,
-		OutageNodeRole::Subscriber,
-		OutageNodeRole::NonAffine,
-	] {
+	for outage_node_role in
+		[OutageNodeRole::Replica, OutageNodeRole::Subscriber, OutageNodeRole::NonAffine]
+	{
 		let (topic, order) = (0..100_000)
 			.find_map(|candidate| {
 				let topic = soak_topic(b"soak-outage", 0, candidate);
@@ -416,20 +414,21 @@ async fn wait_for_stable_placement(
 		let mut stable_since: Option<Instant> = None;
 		loop {
 			let snapshots =
-				futures::future::try_join_all(online_nodes.iter().map(|&(idx, handle)| async move {
-					let snapshot =
-						tokio::time::timeout(Duration::from_secs(30), store_snapshot(&handle.rpc))
-							.await
-							.with_context(|| {
-								format!("{phase}: {} snapshot deadline", handle.name())
-							})?
-							.with_context(|| {
-								format!("{phase}: {} snapshot failed", handle.name())
-							})?;
-					Ok::<_, anyhow::Error>((idx, snapshot))
-				}))
+				futures::future::try_join_all(online_nodes.iter().map(
+					|&(idx, handle)| async move {
+						let snapshot = tokio::time::timeout(
+							Duration::from_secs(30),
+							store_snapshot(&handle.rpc),
+						)
+						.await
+						.with_context(|| format!("{phase}: {} snapshot deadline", handle.name()))?
+						.with_context(|| format!("{phase}: {} snapshot failed", handle.name()))?;
+						Ok::<_, anyhow::Error>((idx, snapshot))
+					},
+				))
 				.await?;
-			let mut problem = placement_mismatch(phase, expected_placements, &snapshots, &node_names);
+			let mut problem =
+				placement_mismatch(phase, expected_placements, &snapshots, &node_names);
 			if problem.is_none() {
 				problem = topology_mismatch(nodes, offline_node_idx).await?;
 			}
@@ -544,15 +543,20 @@ async fn run_replica_outage(
 					"Lifecycle topic {}: topic={}, holders={:?}, submitter={}, receiver={}",
 					topic.outage_node_role,
 					hex::encode(*topic.topic),
-					topic.holder_node_indices.iter().map(|&idx| nodes[idx].name()).collect::<Vec<_>>(),
+					topic
+						.holder_node_indices
+						.iter()
+						.map(|&idx| nodes[idx].name())
+						.collect::<Vec<_>>(),
 					nodes[topic.submitter_node_idx].name(),
 					nodes[topic.receiver_node_idx].name()
 				);
 				receiver_subscriptions
 					.push(subscribe_topic(&nodes[topic.receiver_node_idx].rpc, topic.topic).await?);
 				if topic.outage_node_role != OutageNodeRole::Replica {
-					submitter_subscriptions
-						.push(subscribe_topic(&nodes[topic.submitter_node_idx].rpc, topic.topic).await?);
+					submitter_subscriptions.push(
+						subscribe_topic(&nodes[topic.submitter_node_idx].rpc, topic.topic).await?,
+					);
 				}
 				let submitter = &nodes[topic.submitter_node_idx];
 				let encoded_statements = submit_at_rate(
@@ -629,8 +633,9 @@ async fn run_replica_outage(
 				for (topic_idx, topic) in topics.iter().enumerate() {
 					// Mint fresh hashes only after the statement-substream disconnect barrier.
 					let started = Instant::now();
-					let encoded_statements =
-						tokio::time::timeout(Duration::from_secs(OUTAGE_DELIVERY_TIMEOUT_SECS), async {
+					let encoded_statements = tokio::time::timeout(
+						Duration::from_secs(OUTAGE_DELIVERY_TIMEOUT_SECS),
+						async {
 							let submitter = &nodes[topic.submitter_node_idx];
 							let encoded_statements = submit_at_rate(
 								&mut load,
@@ -649,14 +654,15 @@ async fn run_replica_outage(
 							)
 							.await?;
 							Ok::<_, anyhow::Error>(encoded_statements)
-						})
-						.await
-						.with_context(|| {
-							format!(
-								"outage topic {} batch {batch}: delivery deadline",
-								topic.outage_node_role
-							)
-						})??;
+						},
+					)
+					.await
+					.with_context(|| {
+						format!(
+							"outage topic {} batch {batch}: delivery deadline",
+							topic.outage_node_role
+						)
+					})??;
 					info!(
 						"Lifecycle outage topic {} batch {batch}: all {} hashes delivered \
 						 to {} in {:.1}s while outage node stopped",
@@ -686,27 +692,28 @@ async fn run_replica_outage(
 	)
 	.await;
 
-	let restart_rpc_result = tokio::time::timeout(Duration::from_secs(LIFECYCLE_WAIT_SECS), async {
-		outage_node
-			.restart_with(
-				vec![AssetLocation::FilePath(online_path)],
-				Some(online_program.into()),
-				None,
-				None,
-			)
-			.await?;
-		outage_node.wait_until_is_up(120u64).await?;
-		loop {
-			match outage_node.rpc().await {
-				Ok(rpc) => break Ok::<_, anyhow::Error>(rpc),
-				Err(error) => warn!("Lifecycle RPC not ready after restart: {error:#}"),
+	let restart_rpc_result =
+		tokio::time::timeout(Duration::from_secs(LIFECYCLE_WAIT_SECS), async {
+			outage_node
+				.restart_with(
+					vec![AssetLocation::FilePath(online_path)],
+					Some(online_program.into()),
+					None,
+					None,
+				)
+				.await?;
+			outage_node.wait_until_is_up(120u64).await?;
+			loop {
+				match outage_node.rpc().await {
+					Ok(rpc) => break Ok::<_, anyhow::Error>(rpc),
+					Err(error) => warn!("Lifecycle RPC not ready after restart: {error:#}"),
+				}
+				tokio::time::sleep(Duration::from_secs(1)).await;
 			}
-			tokio::time::sleep(Duration::from_secs(1)).await;
-		}
-	})
-	.await
-	.context("outage node restart/up deadline")
-	.and_then(|result| result);
+		})
+		.await
+		.context("outage node restart/up deadline")
+		.and_then(|result| result);
 	if let Err(error) = &restart_rpc_result {
 		warn!("Lifecycle recovery failed: {error:#}; original node is not confirmed running");
 	}
