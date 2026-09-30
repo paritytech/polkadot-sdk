@@ -63,9 +63,6 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
-				if !transient && env.denies_storage_writes() {
-					return Err(Error::Error(crate::Error::<Self::T>::OutOfGas.into()));
-				}
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
 					let access = StorageItems::new(env.address(), &key, StorageOp::Write);
@@ -80,8 +77,14 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					env.set_transient_storage(&key, None, false)
 						.map_err(|_| Error::Revert("failed setting transient storage".into()))?
 				} else {
-					env.set_storage(&key, None, false)
-						.map_err(|_| Error::Revert("failed setting storage".into()))?
+					env.set_storage(&key, None, false).map_err(|err| {
+						// Pass EIP-2200's `OutOfGas` on to the caller.
+						if err == crate::Error::<Self::T>::OutOfGas.into() {
+							Error::Error(err.into())
+						} else {
+							Error::Revert("failed setting storage".into())
+						}
+					})?
 				};
 				env.frame_meter_mut().adjust_weight(
 					charged,
@@ -119,9 +122,6 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			},
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
-				if !transient && env.denies_storage_writes() {
-					return Err(Error::Error(crate::Error::<Self::T>::OutOfGas.into()));
-				}
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
 					let access = StorageItems::new(env.address(), &key, StorageOp::Write);

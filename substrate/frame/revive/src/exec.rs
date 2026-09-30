@@ -496,9 +496,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
 
-	/// Check if the current frame cannot write storage.
-	fn denies_storage_writes(&self) -> bool;
-
 	/// Check if running as a delegate call.
 	fn is_delegate_call(&self) -> bool;
 
@@ -683,7 +680,7 @@ struct Frame<T: Config> {
 	allows_reentry: bool,
 	/// If `true` subsequent calls cannot modify storage.
 	read_only: bool,
-	/// If `true` this frame and every frame it creates cannot write storage.
+	/// If `true` this frame and every frame it creates cannot write persistent contract storage.
 	denies_storage_writes: bool,
 	/// The delegate call info of the currently executing frame which was spawned by
 	/// `delegate_call`.
@@ -2697,10 +2694,6 @@ where
 		self.top_frame().read_only
 	}
 
-	fn denies_storage_writes(&self) -> bool {
-		self.top_frame().denies_storage_writes
-	}
-
 	fn is_delegate_call(&self) -> bool {
 		self.top_frame().delegate.is_some()
 	}
@@ -2818,6 +2811,10 @@ where
 	) -> Result<WriteOutcome, DispatchError> {
 		assert!(self.has_contract_info());
 		let frame = self.top_frame_mut();
+		if frame.denies_storage_writes {
+			// Keep EIP-2200's out of gas error.
+			return Err(Error::<T>::OutOfGas.into());
+		}
 		frame.contract_info.get(&frame.account_id).write(
 			key.into(),
 			value,

@@ -7,7 +7,7 @@ doc:
     - EVM: The reentrant call returns 0 to the receiver; before #12673 it ran out of gas, which reverted the transfer.
     - PolkaVM: The reentrant call aborts the receiver, so the transfer reverts, as before.
 
-    The receiver of a `transfer()` or `send()`, and any contract it calls or creates, can no longer write persistent storage, even if the slot is warm. On Ethereum such a receiver gets at most 2300 gas, and EIP-2200 fails any `SSTORE` when 2300 gas or less is left. The write fails with `OutOfGas`, as it would on Ethereum. This covers `SSTORE`, the PolkaVM storage host functions, and `clearStorage` and `takeStorage` of the storage precompile. Transient storage is not affected.
+    The receiver of a `transfer()` or `send()`, and any contract it calls or creates, can no longer write persistent storage, even if the slot is warm. On Ethereum such a receiver gets at most 2300 gas, and EIP-2200 fails any `SSTORE` when 2300 gas or less is left. The write fails with `OutOfGas`, as it would on Ethereum. This covers `SSTORE`, the PolkaVM storage host functions, and precompiles that write contract storage, such as `clearStorage` and `takeStorage` of the storage precompile. Transient storage is not affected.
 - audience: Runtime Dev
   description: |-
     `integrity_test` checks that a block cannot write more contract storage than a validator has memory for. It scaled a write's weight by the memory that write uses before dividing the block weight by it, so the storage term came out near zero and the check could not fail on it. It now computes how many writes fit the block weight before multiplying by the memory each one uses.

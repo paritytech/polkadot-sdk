@@ -242,7 +242,7 @@ fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only(fixture_type: F
 }
 
 #[test]
-fn evm_call_stipend_does_not_weaken_strict_reentrancy() {
+fn evm_call_stipend_reentrancy_rule_does_not_weaken_strict() {
 	// The fixture calls `call_evm` with empty flags, so the caller asks for `Strict`.
 	let (code, _) = compile_module("call_with_gas").unwrap();
 	ExtBuilder::default().build().execute_with(|| {

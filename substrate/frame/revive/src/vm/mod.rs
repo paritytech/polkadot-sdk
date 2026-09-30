@@ -176,25 +176,43 @@ impl<T: Config> Token<T> for CodeLoadToken {
 	}
 }
 
-/// Returns whether to add the call stipend, the reentrancy protection to enforce, and whether to
-/// apply the EIP-2200 guard to the callee: `AllowNext` and the guard when only the stipend is
-/// forwarded, and `AllowReentry` and no guard otherwise.
-///
-/// Solidity's `transfer` and `send` cap the callee at the stipend. For a zero value solc passes
-/// `gas_limit = 2300` explicitly; when value moves it passes 0 and relies on the stipend the EVM
-/// grants any call that moves value. We use a heuristic to detect both patterns, applying the
-/// stipend and `AllowNext` reentrancy protection because the fixed 2300 is tailored to Ethereum's
-/// gas scale.
-pub fn stipend_and_reentrancy_protection(
-	value: U256,
-	gas_limit: Option<u64>,
-) -> (bool, ReentrancyProtection, bool) {
-	use revm::interpreter::gas::CALL_STIPEND;
-	match (value.is_zero(), gas_limit) {
-		(true, Some(CALL_STIPEND)) => (true, ReentrancyProtection::AllowNext, true),
-		(false, Some(0)) => (true, ReentrancyProtection::AllowNext, true),
-		(false, _) => (true, ReentrancyProtection::AllowReentry, false),
-		(true, _) => (false, ReentrancyProtection::AllowReentry, false),
+/// Whether a call moves value and has the shape of Solidity's `transfer` or `send`.
+pub struct StipendAndProtections {
+	moves_value: bool,
+	is_transfer_or_send: bool,
+}
+
+impl StipendAndProtections {
+	/// Solidity's `transfer` and `send` cap the callee at the stipend. For a zero value solc passes
+	/// `gas_limit = 2300` explicitly; when value moves it passes 0 and relies on the stipend the
+	/// EVM grants any call that moves value. We use a heuristic to detect both patterns, applying
+	/// the stipend and `AllowNext` reentrancy protection because the fixed 2300 is tailored to
+	/// Ethereum's gas scale.
+	pub fn new(value: U256, gas_limit: Option<u64>) -> Self {
+		use revm::interpreter::gas::CALL_STIPEND;
+		let moves_value = !value.is_zero();
+		let is_transfer_or_send =
+			matches!((moves_value, gas_limit), (false, Some(CALL_STIPEND)) | (true, Some(0)));
+		Self { moves_value, is_transfer_or_send }
+	}
+
+	/// Whether to add the call stipend.
+	pub fn add_stipend(&self) -> bool {
+		self.moves_value || self.is_transfer_or_send
+	}
+
+	/// The reentrancy protection to enforce on the callee.
+	pub fn reentrancy(&self) -> ReentrancyProtection {
+		if self.is_transfer_or_send {
+			ReentrancyProtection::AllowNext
+		} else {
+			ReentrancyProtection::AllowReentry
+		}
+	}
+
+	/// Whether to apply the EIP-2200 guard to the callee.
+	pub fn apply_eip2200_guard(&self) -> bool {
+		self.is_transfer_or_send
 	}
 }
 

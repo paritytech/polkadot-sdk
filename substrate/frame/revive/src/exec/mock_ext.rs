@@ -213,10 +213,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::is_read_only")
 	}
 
-	fn denies_storage_writes(&self) -> bool {
-		panic!("MockExt::denies_storage_writes")
-	}
-
 	fn is_delegate_call(&self) -> bool {
 		panic!("MockExt::is_delegate_call")
 	}

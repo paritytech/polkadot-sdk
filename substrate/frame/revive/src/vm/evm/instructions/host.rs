@@ -164,10 +164,6 @@ fn store_helper<'ext, E: Ext>(
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 
-	if !transient && interpreter.ext.denies_storage_writes() {
-		return ControlFlow::Break(Error::<E::T>::OutOfGas.into());
-	}
-
 	let [index, value] = interpreter.stack.popn()?;
 	let key = Key::Fix(index.to_big_endian());
 
@@ -183,8 +179,13 @@ fn store_helper<'ext, E: Ext>(
 
 	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
 	let new_bytes = value_to_store.as_ref().map(|v| v.len() as u32).unwrap_or(0);
-	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store) else {
-		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
+	let write_outcome = match set_function(interpreter.ext, &key, value_to_store) {
+		Ok(write_outcome) => write_outcome,
+		// Pass EIP-2200's `OutOfGas` on to the caller.
+		Err(err) if err == Error::<E::T>::OutOfGas.into() => {
+			return ControlFlow::Break(Halt::Err(err));
+		},
+		Err(_) => return ControlFlow::Break(Error::<E::T>::ContractTrapped.into()),
 	};
 
 	interpreter.ext.frame_meter_mut().adjust_weight(

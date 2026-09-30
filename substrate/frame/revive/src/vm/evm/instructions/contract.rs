@@ -22,9 +22,8 @@ use crate::{
 	Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, U256,
 	exec::CallResources,
 	vm::{
-		Ext, RuntimeCosts,
+		Ext, RuntimeCosts, StipendAndProtections,
 		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
-		stipend_and_reentrancy_protection,
 	},
 };
 use alloc::{vec, vec::Vec};
@@ -191,22 +190,21 @@ fn run_call<'a, E: Ext>(
 	value: U256,
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
-	let (add_stipend, reentracy, apply_eip2200_guard) =
-		stipend_and_reentrancy_protection(value, gas_limit.try_into().ok());
+	let stipend_and_protections = StipendAndProtections::new(value, gas_limit.try_into().ok());
 
 	let call_result = match scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
-			&CallResources::from_ethereum_gas(gas_limit, add_stipend),
+			&CallResources::from_ethereum_gas(gas_limit, stipend_and_protections.add_stipend()),
 			&callee,
 			value,
 			input,
 			// protect against rex-entrancy when we grant the stipend
-			reentracy,
-			apply_eip2200_guard,
+			stipend_and_protections.reentrancy(),
+			stipend_and_protections.apply_eip2200_guard(),
 			scheme.is_static_call(),
 		),
 		CallScheme::DelegateCall => interpreter.ext.delegate_call(
-			&CallResources::from_ethereum_gas(gas_limit, add_stipend),
+			&CallResources::from_ethereum_gas(gas_limit, stipend_and_protections.add_stipend()),
 			callee,
 			input,
 		),

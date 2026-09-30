@@ -25,8 +25,7 @@ use crate::{
 	limits,
 	primitives::ExecReturnValue,
 	vm::{
-		BytecodeType, ExportedFunction, RuntimeCosts, calculate_code_deposit,
-		stipend_and_reentrancy_protection,
+		BytecodeType, ExportedFunction, RuntimeCosts, StipendAndProtections, calculate_code_deposit,
 	},
 };
 use alloc::vec::Vec;
@@ -339,14 +338,14 @@ pub mod env {
 		} else {
 			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
 			let value = memory.read_u256(value_ptr)?;
-			let (add_stipend, reentrancy, apply_eip2200_guard) =
-				stipend_and_reentrancy_protection(value, Some(gas));
+			let stipend_and_protections = StipendAndProtections::new(value, Some(gas));
 			(
-				CallResources::from_ethereum_gas(gas.into(), add_stipend),
+				CallResources::from_ethereum_gas(gas.into(), stipend_and_protections.add_stipend()),
 				// Ensure the callee of a `transfer`/`send` cannot reenter its caller, by enforcing
 				// the `AllowNext` protection.
-				(reentrancy == ReentrancyProtection::AllowNext).then_some(reentrancy),
-				apply_eip2200_guard,
+				(stipend_and_protections.reentrancy() == ReentrancyProtection::AllowNext)
+					.then_some(stipend_and_protections.reentrancy()),
+				stipend_and_protections.apply_eip2200_guard(),
 			)
 		};
 
