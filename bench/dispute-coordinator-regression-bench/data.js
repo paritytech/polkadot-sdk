@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790766135122,
+  "lastUpdate": 1790794890540,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "39a5e3bd93e216c3e7b499dc6eb8b6c3fe6d248d",
-          "message": "rpc-server: Use own thread pool for RPC functionality (#10757)\n\nRight now the RPC is using the same thread pool as the rest of the node.\nWhen there is high usage and the node is running out of threads for\nblocking futures, RPC calls start to take very long time. This may also\nresults in problems with other node functionality that would also be\nblocked by waiting for new threads. This pull request assigns the rpc\nserver its own thread pool that gets the same number as threads as\n`max_connections`. These threads are only started on demand, but should\nallow any RPC connection to have at least one thread to run blocking\ntasks.\n\nIn a next step we should finally look into the performance metering of\nRPC calls and ensure that we have some proper rate limit in place to\ngive every connection a fair share.\n\n\nHopefully helps with:\nhttps://github.com/paritytech/polkadot-sdk/issues/10719\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-24T12:18:34Z",
-          "tree_id": "da5bce94638820fb9274b002027e778b174d8367",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/39a5e3bd93e216c3e7b499dc6eb8b6c3fe6d248d"
-        },
-        "date": 1774359707952,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009625456499999989,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026821627200000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010453855100000006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025358657599999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "15fdbd4ba646c4eb64709f97deab8a04de7fd800",
+          "message": "grandpa: gossip commits to light clients in rotating groups (#13318)\n\nFixes https://github.com/paritytech/smoldot/issues/3375\n\n## Problem\n\nGRANDPA gossip sends each commit to only `LUCKY_PEERS` (4) randomly\npicked light clients per round. Light clients don't relay gossip, so\nthey only observe finality when picked. With `N` light clients connected\nto a node, the expected wait is `N / 4` rounds, so finality lag on light\nclients grows linearly with the number of light clients per node. The\n`--in-peers-light` default was recently raised to 500 (#12887), which\nmakes this worse.\n\nThe time-based fallback that allows commits to all peers doesn't help:\nit only kicks in after a round has lasted `PROPAGATION_ALL` round\ndurations, and on a healthy chain every imported commit starts a new\nround.\n\nSending every commit to every light client isn't an option either. A\ncommit carries a signature per voter, so outbound bandwidth would grow\nwith both the validator count and the number of light clients.\n\n## Solution\n\nLight clients take turns in groups of up to `LIGHT_PEERS_GROUP_SIZE`\n(100):\n\n- Connected light clients are kept in a `BTreeSet`, sorted by peer id.\n- On every round, the next group is the range of\n`LIGHT_PEERS_GROUP_SIZE` light clients following the last one served in\nthe previous round, wrapping around at the end.\n- The current group is stored as a peer id range, so checking whether a\nlight client is in turn is two comparisons. Light clients connecting or\ndisconnecting don't shift the rotation.\n- With at most `LIGHT_PEERS_GROUP_SIZE` light clients, all of them get\nevery commit.\n\nA commit also finalizes all of its ancestors, so skipping a few commits\nloses nothing. Every light client observes every finalized block within\n`ceil(light_clients / LIGHT_PEERS_GROUP_SIZE)` rounds, and the outbound\nbandwidth spent on light clients is bounded by the group size.\n\nGossip towards full nodes and authorities is unchanged.\n\n## Results\n\nMeasured `master` against this PR on a Polkadot full node, with up to\n500 synthetic light peers following `/grandpa/1` like smoldot\n([details](https://github.com/paritytech/smoldot/issues/3375#issuecomment-5832488482)):\n\n- **Finality lag on light clients:** on `master` it grows with the\nnumber of light peers, up to several minutes. With this PR it stays\nwithin a few rounds, tens of seconds even at 500 light peers.\n- **Extra GRANDPA traffic:** it grows up to 100 light peers and then\nstays flat, at about 1.4 MB/s.\n- **CPU, memory and block import:** no measurable change.\n\n## Notes\n\n- The commit finalizing the last block of an authority set only reaches\nthe light clients in turn at that moment, as before. Light clients that\nmiss it still learn about the set change from the neighbor packet sent\nto all peers (paritytech/substrate#13559), and can request the\njustification of the set change block, which nodes always store.",
+          "timestamp": "2026-09-30T16:16:49Z",
+          "tree_id": "bb9eddedd103d3f0d2df6241550e05a2f81f70c7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/15fdbd4ba646c4eb64709f97deab8a04de7fd800"
+        },
+        "date": 1790794858557,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009361960859999982,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010999623269999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0024964036299999996,
             "unit": "seconds"
           }
         ]
