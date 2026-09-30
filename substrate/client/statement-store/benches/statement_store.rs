@@ -578,7 +578,8 @@ fn bench_mixed_workload(c: &mut Criterion) {
 								let result = store.submit(statement, StatementSource::Local);
 								assert!(matches!(result, SubmitResult::New));
 
-								// Read the subscription snapshot
+								// Read the subscription snapshot, the drop unsubscribes inside the
+								// timing
 								black_box(
 									store
 										.subscribe_statement(filter.clone())
@@ -725,21 +726,25 @@ fn bench_propagate(c: &mut Criterion) {
 ///
 /// Only the readers are timed: one iteration is the slowest reader's batch, while the writers'
 /// signature checks and commits run alongside, untimed.
+///
+/// The store is built once per sample. Each iteration writes fresh statements and removes them
+/// again after the timing, so every iteration starts from the preloaded size.
 fn bench_contention(c: &mut Criterion) {
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let filter = topics_01_filter();
-	let writes: Vec<Statement> = (CONTENTION_PRELOAD..
-		CONTENTION_PRELOAD + CONTENTION_WRITERS * OPS_PER_THREAD)
-		.map(|i| create_signed_statement(i as u64, &[topic(0), topic(1)], &keypair))
-		.collect();
+	const WRITES: usize = CONTENTION_WRITERS * OPS_PER_THREAD;
 
 	let mut group = c.benchmark_group("contention_read_under_write");
 	group.sample_size(10);
 	group.bench_function(BenchmarkId::from_parameter(CONTENTION_PRELOAD), |b| {
 		b.iter_custom(|iters| {
+			let (store, _temp) = setup_scaled(&keypair, CONTENTION_PRELOAD);
 			let mut read_time = std::time::Duration::ZERO;
-			for _ in 0..iters {
-				let (store, _temp) = setup_scaled(&keypair, CONTENTION_PRELOAD);
+			for round in 0..iters as usize {
+				let first = CONTENTION_PRELOAD + round * WRITES;
+				let writes: Vec<Statement> = (first..first + WRITES)
+					.map(|i| create_signed_statement(i as u64, &[topic(0), topic(1)], &keypair))
+					.collect();
 				let start_line = std::sync::Barrier::new(CONTENTION_WRITERS + CONTENTION_READERS);
 				let (store, start_line) = (&store, &start_line);
 				read_time += std::thread::scope(|s| {
@@ -775,6 +780,9 @@ fn bench_contention(c: &mut Criterion) {
 						.max()
 						.unwrap_or_default()
 				});
+				for statement in &writes {
+					store.remove(&statement.hash()).expect("Removes a stored statement");
+				}
 			}
 			read_time
 		})
