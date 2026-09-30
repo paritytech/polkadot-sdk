@@ -1,0 +1,10 @@
+title: 'fix(sc-network-gossip): deduplicate local message registration'
+doc:
+- audience: Node Dev
+  description: |-
+    ## Summary
+    - Fixes `ConsensusGossip::register_message_hashed` to properly deduplicate by message hash before inserting into the `LruMap`
+    - Adds a regression test that ensures calling `register_message` with identical message bytes does not store duplicates
+crates:
+- name: sc-network-gossip
+  bump: patch
