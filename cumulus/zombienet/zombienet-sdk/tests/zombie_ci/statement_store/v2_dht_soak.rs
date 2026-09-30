@@ -12,8 +12,8 @@
 //! also stops and restarts one full node between two successful ordinary waves. During the outage,
 //! every cohort statement must reach an online subscriber and stay on its original online holders.
 //! After restart, the node must recover every replica and subscription statement.
-//! The soak ends with a scan of every node's log for statement errors, including the victim's
-//! pre-outage log. `STATEMENT_V2_SOAK_NODES` (default 12) and `STATEMENT_V2_SOAK_SECS` (default
+//! The soak ends with a scan of every node's log for statement errors.
+//! `STATEMENT_V2_SOAK_NODES` (default 12) and `STATEMENT_V2_SOAK_SECS` (default
 //! 900) size the run; the lifecycle and post-recovery wave are mandatory even with a zero duration.
 //! The lifecycle requires a full statement mesh.
 //!
@@ -75,8 +75,8 @@ const PLACEMENT_TIMEOUT_SECS: u64 = 90;
 const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_connected_peers";
 const ELIGIBLE_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_eligible_peers";
 const OUTAGE_BATCHES: usize = 3;
-const OUTAGE_RATE: usize = 4;
-const OUTAGE_DELIVERY_SECS: u64 = 30;
+const OUTAGE_RATE_PER_SECOND: usize = 4;
+const OUTAGE_DELIVERY_TIMEOUT_SECS: u64 = 30;
 const LIFECYCLE_WAIT_SECS: u64 = 240;
 const OUTAGE_TIMEOUT_SECS: u64 = 600;
 const STABLE_PLACEMENT_SECS: u64 = 35;
@@ -190,8 +190,6 @@ async fn collect_peer_keys(nodes: &[NodeHandle<'_>]) -> Result<Vec<[u8; 32]>, an
 	Ok(keys)
 }
 
-/// Reads every active stored body, including transient records, through a completed replay.
-/// `Any` contributes no explicit topics and therefore does not change the placement oracle.
 async fn store_snapshot(rpc: &RpcClient) -> Result<HashSet<Vec<u8>>, anyhow::Error> {
 	let mut subscription = subscribe_topic_filter(rpc, TopicFilter::Any).await?;
 	let mut snapshot = HashSet::new();
@@ -211,32 +209,34 @@ async fn store_snapshot(rpc: &RpcClient) -> Result<HashSet<Vec<u8>>, anyhow::Err
 }
 
 #[derive(Clone)]
-struct Placement {
+struct ExpectedPlacement {
 	hash: String,
 	encoded_statement: Vec<u8>,
-	holders: Vec<usize>,
+	holder_node_indices: Vec<usize>,
 }
 
-fn placement_disagreement(
+fn placement_mismatch(
 	phase: &str,
-	expected: &[Placement],
+	expected_placements: &[ExpectedPlacement],
 	snapshots: &[(usize, HashSet<Vec<u8>>)],
-	names: &[&str],
+	node_names: &[&str],
 ) -> Option<String> {
-	for placement in expected {
-		let mut missing = Vec::new();
-		let mut extra = Vec::new();
-		for (idx, snapshot) in snapshots {
-			match (placement.holders.contains(idx), snapshot.contains(&placement.encoded_statement))
-			{
-				(true, false) => missing.push(names[*idx]),
-				(false, true) => extra.push(names[*idx]),
+	for placement in expected_placements {
+		let mut missing_nodes = Vec::new();
+		let mut extra_nodes = Vec::new();
+		for (node_idx, snapshot) in snapshots {
+			match (
+				placement.holder_node_indices.contains(node_idx),
+				snapshot.contains(&placement.encoded_statement),
+			) {
+				(true, false) => missing_nodes.push(node_names[*node_idx]),
+				(false, true) => extra_nodes.push(node_names[*node_idx]),
 				_ => {},
 			}
 		}
-		if !missing.is_empty() || !extra.is_empty() {
+		if !missing_nodes.is_empty() || !extra_nodes.is_empty() {
 			return Some(format!(
-				"{phase} {}: missing={missing:?}, extra={extra:?}",
+				"{phase} {}: missing={missing_nodes:?}, extra={extra_nodes:?}",
 				placement.hash,
 			));
 		}
@@ -245,13 +245,13 @@ fn placement_disagreement(
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum OutageRole {
+enum OutageNodeRole {
 	Replica,
 	Subscriber,
 	NonAffine,
 }
 
-impl std::fmt::Display for OutageRole {
+impl std::fmt::Display for OutageNodeRole {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.write_str(match self {
 			Self::Replica => "replica",
@@ -262,82 +262,95 @@ impl std::fmt::Display for OutageRole {
 }
 
 struct OutageTopic {
-	role: OutageRole,
+	outage_node_role: OutageNodeRole,
 	topic: Topic,
-	holders: Vec<usize>,
-	donor: usize,
-	witness: usize,
+	holder_node_indices: Vec<usize>,
+	submitter_node_idx: usize,
+	receiver_node_idx: usize,
 }
 
 fn outage_topics(peer_keys: &[[u8; 32]]) -> Result<(usize, Vec<OutageTopic>), anyhow::Error> {
-	// A fixed peer need not have every XOR rank. Choose the non-affine topic and victim together.
-	// Peer keys follow the soak's node order: authoring collators, then full nodes.
-	let (non_affine_topic, victim) = (0..100_000)
+	// A fixed peer need not have every XOR rank. Choose the non-affine topic and outage node
+	// together. Peer keys follow the soak's node order: authoring collators, then full nodes.
+	let (non_affine_topic, outage_node_idx) = (0..100_000)
 		.find_map(|candidate| {
 			let topic = soak_topic(b"soak-outage", 0, candidate);
-			let victim = ranked_by_distance(peer_keys, topic)[REPLICATION_FACTOR];
-			(victim >= AUTHORING_COLLATORS.len()).then_some((topic, victim))
+			let outage_node_idx = ranked_by_distance(peer_keys, topic)[REPLICATION_FACTOR];
+			(outage_node_idx >= AUTHORING_COLLATORS.len()).then_some((topic, outage_node_idx))
 		})
-		.ok_or_else(|| anyhow!("no non-affine full-node victim in 100000 bounded candidates"))?;
+		.ok_or_else(|| anyhow!("no non-affine full outage node in 100000 bounded candidates"))?;
 
 	let mut topics = Vec::new();
-	for role in [OutageRole::Replica, OutageRole::Subscriber, OutageRole::NonAffine] {
+	for outage_node_role in [
+		OutageNodeRole::Replica,
+		OutageNodeRole::Subscriber,
+		OutageNodeRole::NonAffine,
+	] {
 		let (topic, order) = (0..100_000)
 			.find_map(|candidate| {
 				let topic = soak_topic(b"soak-outage", 0, candidate);
 				let order = ranked_by_distance(peer_keys, topic);
-				let suitable = match role {
-					OutageRole::Replica => {
-						topic != non_affine_topic && order[..REPLICATION_FACTOR].contains(&victim)
+				let suitable = match outage_node_role {
+					OutageNodeRole::Replica => {
+						topic != non_affine_topic &&
+							order[..REPLICATION_FACTOR].contains(&outage_node_idx)
 					},
-					OutageRole::Subscriber => {
-						topic != non_affine_topic && !order[..REPLICATION_FACTOR].contains(&victim)
+					OutageNodeRole::Subscriber => {
+						topic != non_affine_topic &&
+							!order[..REPLICATION_FACTOR].contains(&outage_node_idx)
 					},
-					OutageRole::NonAffine => topic == non_affine_topic,
+					OutageNodeRole::NonAffine => topic == non_affine_topic,
 				};
 				(suitable && topics.iter().all(|t: &OutageTopic| t.topic != topic))
 					.then_some((topic, order))
 			})
 			.ok_or_else(|| {
-				anyhow!("no {role} topic for node index {victim} in 100000 bounded candidates")
+				anyhow!(
+					"no {outage_node_role} topic for node index {outage_node_idx} \
+					 in 100000 bounded candidates"
+				)
 			})?;
 
-		let witness = *order[..REPLICATION_FACTOR]
+		let receiver_node_idx = *order[..REPLICATION_FACTOR]
 			.iter()
-			.find(|&&idx| idx != victim)
+			.find(|&&idx| idx != outage_node_idx)
 			.expect("K > 1 provides an online replica; qed");
 
-		let donor = if role == OutageRole::NonAffine {
-			// A farther explicit donor makes the non-replica victim a routing target on reconnect.
+		let submitter_node_idx = if outage_node_role == OutageNodeRole::NonAffine {
+			// A farther explicit submitter makes the outage node a routing target on reconnect.
 			order[REPLICATION_FACTOR + 1]
 		} else {
 			*order[..REPLICATION_FACTOR]
 				.iter()
-				.find(|&&idx| idx != victim && idx != witness)
-				.expect("K > 2 provides a donor distinct from the delivery witness; qed")
+				.find(|&&idx| idx != outage_node_idx && idx != receiver_node_idx)
+				.expect("K > 2 provides a submitter distinct from the delivery receiver; qed")
 		};
-		let mut holders = order[..REPLICATION_FACTOR].to_vec();
-		match role {
-			OutageRole::Subscriber => holders.push(victim),
-			OutageRole::NonAffine => holders.push(donor),
-			OutageRole::Replica => {},
+		let mut holder_node_indices = order[..REPLICATION_FACTOR].to_vec();
+		match outage_node_role {
+			OutageNodeRole::Subscriber => holder_node_indices.push(outage_node_idx),
+			OutageNodeRole::NonAffine => holder_node_indices.push(submitter_node_idx),
+			OutageNodeRole::Replica => {},
 		}
-		topics.push(OutageTopic { role, topic, holders, donor, witness });
+		topics.push(OutageTopic {
+			outage_node_role,
+			topic,
+			holder_node_indices,
+			submitter_node_idx,
+			receiver_node_idx,
+		});
 	}
 
-	Ok((victim, topics))
+	Ok((outage_node_idx, topics))
 }
 
-/// Require a full statement mesh, excluding the stopped node.
-/// After stopping the node, N-2 open statement substreams on *every* survivor is the barrier;
-/// eligibility stays N-1, so none of the oracle's original replica slots is replaced.
-async fn topology_disagreement(
+async fn topology_mismatch(
 	nodes: &[NodeHandle<'_>],
-	offline: Option<usize>,
+	offline_node_idx: Option<usize>,
 ) -> Result<Option<String>, anyhow::Error> {
-	let connected = nodes.len() - 1 - usize::from(offline.is_some());
+	let expected_eligible = nodes.len() - 1;
+	let expected_connected = expected_eligible - usize::from(offline_node_idx.is_some());
 	let observations = futures::future::try_join_all(
-		nodes.iter().enumerate().filter(|(idx, _)| Some(*idx) != offline).map(
+		nodes.iter().enumerate().filter(|(idx, _)| Some(*idx) != offline_node_idx).map(
 			|(_, handle)| async move {
 				let eligible = handle.node.reports(ELIGIBLE_PEERS_METRIC).await?;
 				let actual_connected = handle.node.reports(CONNECTED_PEERS_METRIC).await?;
@@ -346,18 +359,18 @@ async fn topology_disagreement(
 				let syncing = health["isSyncing"]
 					.as_bool()
 					.ok_or_else(|| anyhow!("{}: missing system_health.isSyncing", handle.name()))?;
-				Ok::<_, anyhow::Error>(
-					(eligible != (nodes.len() - 1) as f64 ||
-						actual_connected != connected as f64 ||
-						syncing)
-						.then(|| {
-							format!(
-							"{}: eligible={eligible}, connected={actual_connected}, syncing={syncing}; \
-							 expected eligible={}, connected={connected}, syncing=false",
-							handle.name(), nodes.len() - 1,
-						)
-						}),
-				)
+				if eligible != expected_eligible as f64 ||
+					actual_connected != expected_connected as f64 ||
+					syncing
+				{
+					return Ok(Some(format!(
+						"{}: eligible={eligible}, connected={actual_connected}, syncing={syncing}; \
+						 expected eligible={expected_eligible}, connected={expected_connected}, \
+						 syncing=false",
+						handle.name(),
+					)));
+				}
+				Ok::<_, anyhow::Error>(None)
 			},
 		),
 	)
@@ -365,15 +378,15 @@ async fn topology_disagreement(
 	Ok(observations.into_iter().flatten().next())
 }
 
-async fn wait_lifecycle_topology(
+async fn wait_for_topology(
 	phase: &str,
 	nodes: &[NodeHandle<'_>],
-	offline: Option<usize>,
+	offline_node_idx: Option<usize>,
 ) -> Result<(), anyhow::Error> {
 	let mut last = String::from("no observation");
 	tokio::time::timeout(Duration::from_secs(LIFECYCLE_WAIT_SECS), async {
 		loop {
-			match topology_disagreement(nodes, offline).await? {
+			match topology_mismatch(nodes, offline_node_idx).await? {
 				None => return Ok::<_, anyhow::Error>(()),
 				Some(problem) => last = problem,
 			}
@@ -386,23 +399,24 @@ async fn wait_lifecycle_topology(
 	Ok(())
 }
 
-/// Require exact placement throughout a quiet interval longer than the maintenance period.
-/// Store snapshots prove the retention outcome without polling each node's entire log.
-async fn wait_cohort_placement(
+async fn wait_for_stable_placement(
 	phase: &str,
 	nodes: &[NodeHandle<'_>],
-	expected: &[Placement],
-	offline: Option<usize>,
+	expected_placements: &[ExpectedPlacement],
+	offline_node_idx: Option<usize>,
 ) -> Result<(), anyhow::Error> {
-	let names: Vec<_> = nodes.iter().map(NodeHandle::name).collect();
-	let active: Vec<_> =
-		nodes.iter().enumerate().filter(|(idx, _)| Some(*idx) != offline).collect();
+	let node_names: Vec<_> = nodes.iter().map(NodeHandle::name).collect();
+	let online_nodes: Vec<_> = nodes
+		.iter()
+		.enumerate()
+		.filter(|(idx, _)| Some(*idx) != offline_node_idx)
+		.collect();
 	let mut last = String::from("no complete snapshot");
 	tokio::time::timeout(Duration::from_secs(LIFECYCLE_WAIT_SECS), async {
 		let mut stable_since: Option<Instant> = None;
 		loop {
 			let snapshots =
-				futures::future::try_join_all(active.iter().map(|&(idx, handle)| async move {
+				futures::future::try_join_all(online_nodes.iter().map(|&(idx, handle)| async move {
 					let snapshot =
 						tokio::time::timeout(Duration::from_secs(30), store_snapshot(&handle.rpc))
 							.await
@@ -415,12 +429,12 @@ async fn wait_cohort_placement(
 					Ok::<_, anyhow::Error>((idx, snapshot))
 				}))
 				.await?;
-			let mut problem = placement_disagreement(phase, expected, &snapshots, &names);
+			let mut problem = placement_mismatch(phase, expected_placements, &snapshots, &node_names);
 			if problem.is_none() {
-				problem = topology_disagreement(nodes, offline).await?;
+				problem = topology_mismatch(nodes, offline_node_idx).await?;
 			}
 			if problem.is_none() {
-				for &(_, handle) in &active {
+				for &(_, handle) in &online_nodes {
 					for metric in QUIET_METRICS {
 						let value = handle.node.reports(metric).await?;
 						if value != 0.0 {
@@ -447,24 +461,24 @@ async fn wait_cohort_placement(
 	info!(
 		"Lifecycle {phase}: all {} cohort hashes exactly placed, \
 		 stable for {STABLE_PLACEMENT_SECS}s with quiet queues",
-		expected.len(),
+		expected_placements.len(),
 	);
 	Ok(())
 }
 
-fn record_cohort(
+fn record_expected_placements(
 	phase: &str,
 	topic: &OutageTopic,
 	encoded_statements: &[Vec<u8>],
-	cohort: &mut Vec<Placement>,
+	expected_placements: &mut Vec<ExpectedPlacement>,
 ) {
 	for encoded_statement in encoded_statements {
 		let hash = hex::encode(blake2_256(encoded_statement));
-		info!("Lifecycle {phase} topic {}: hash={hash}", topic.role);
-		cohort.push(Placement {
+		info!("Lifecycle {phase} topic {}: hash={hash}", topic.outage_node_role);
+		expected_placements.push(ExpectedPlacement {
 			hash,
 			encoded_statement: encoded_statement.clone(),
-			holders: topic.holders.clone(),
+			holder_node_indices: topic.holder_node_indices.clone(),
 		});
 	}
 }
@@ -480,8 +494,8 @@ async fn admissions_by_reason(node: &NetworkNode) -> Result<String, anyhow::Erro
 	Ok(parts.join(" "))
 }
 
-async fn victim_unavailable(victim: &NodeHandle<'_>) -> Result<(), anyhow::Error> {
-	let probe = victim.rpc.request::<String>("system_localPeerId", rpc_params![]);
+async fn ensure_outage_node_unavailable(outage_node: &NodeHandle<'_>) -> Result<(), anyhow::Error> {
+	let probe = outage_node.rpc.request::<String>("system_localPeerId", rpc_params![]);
 	match tokio::time::timeout(Duration::from_secs(3), probe).await {
 		Ok(Ok(peer)) => Err(anyhow!("stopped victim still answers RPC as {peer}")),
 		Ok(Err(error)) => {
@@ -495,93 +509,89 @@ async fn victim_unavailable(victim: &NodeHandle<'_>) -> Result<(), anyhow::Error
 	}
 }
 
-async fn archive_victim_log(victim: &NetworkNode, phase: &str) -> Result<(), anyhow::Error> {
-	let logs = tokio::time::timeout(Duration::from_secs(30), victim.logs())
-		.await
-		.context("victim log deadline")??;
-	let log_dir = base_dir()?.join("logs");
-	std::fs::create_dir_all(&log_dir)?;
-	let path = log_dir.join(format!("{}.{phase}.log", victim.name()));
-	std::fs::write(&path, &logs)?;
-	info!("Lifecycle {phase}: preserved victim log at {}", path.display());
-	ensure!(
-		!logs.lines().any(|line| line.contains("ERROR") && line.contains("statement")),
-		"{}: statement errors in {}",
-		victim.name(),
-		path.display(),
-	);
-	Ok(())
-}
-
+/// Full-node outage and recovery:
+/// 1. Pick replica/subscriber/non-affine topics; check baseline delivery and placement.
+/// 2. Stop the node; wait for its statement substreams to close.
+/// 3. Submit fresh statements; check delivery and placement on original online holders.
+/// 4. Restart even if the outage fails, panics or times out.
+/// 5. Check unchanged PeerId, subscription backlog and replica/subscriber placement.
 async fn run_replica_outage(
 	nodes: &mut [NodeHandle<'_>],
 	peer_keys: &[[u8; 32]],
 ) -> Result<usize, anyhow::Error> {
-	let (victim_idx, topics) = outage_topics(peer_keys)?;
+	let (outage_node_idx, topics) = outage_topics(peer_keys)?;
 	let subscriber_topic = topics
 		.iter()
-		.find(|topic| topic.role == OutageRole::Subscriber)
+		.find(|topic| topic.outage_node_role == OutageNodeRole::Subscriber)
 		.expect("outage topics include a subscriber; qed")
 		.topic;
-	let victim = nodes[victim_idx].node;
-	let mut cohort = Vec::new();
-	let mut subscribed_statements = Vec::new();
+	let outage_node = nodes[outage_node_idx].node;
+	let mut expected_placements = Vec::new();
+	let mut expected_subscription_backlog = Vec::new();
 	let mut load = Load::new(PARTICIPANTS);
-	let mut witnesses = Vec::new();
-	let mut donor_subscriptions = Vec::new();
+	let mut receiver_subscriptions = Vec::new();
+	let mut submitter_subscriptions = Vec::new();
 
-	let (original_peer, old_subscriber_subscription) =
+	let (original_peer_id, pre_outage_subscription) =
 		tokio::time::timeout(Duration::from_secs(LIFECYCLE_WAIT_SECS), async {
-			wait_lifecycle_topology("baseline-ready", nodes, None).await?;
-			let original_peer: String =
-				nodes[victim_idx].rpc.request("system_localPeerId", rpc_params![]).await?;
-			let mut subscriber_subscription =
-				subscribe_topic(&nodes[victim_idx].rpc, subscriber_topic).await?;
+			wait_for_topology("baseline-ready", nodes, None).await?;
+			let original_peer_id: String =
+				nodes[outage_node_idx].rpc.request("system_localPeerId", rpc_params![]).await?;
+			let mut outage_node_subscription =
+				subscribe_topic(&nodes[outage_node_idx].rpc, subscriber_topic).await?;
 			for topic in &topics {
 				info!(
-					"Lifecycle topic {}: topic={}, holders={:?}, donor={}, witness={}",
-					topic.role,
+					"Lifecycle topic {}: topic={}, holders={:?}, submitter={}, receiver={}",
+					topic.outage_node_role,
 					hex::encode(*topic.topic),
-					topic.holders.iter().map(|&idx| nodes[idx].name()).collect::<Vec<_>>(),
-					nodes[topic.donor].name(),
-					nodes[topic.witness].name()
+					topic.holder_node_indices.iter().map(|&idx| nodes[idx].name()).collect::<Vec<_>>(),
+					nodes[topic.submitter_node_idx].name(),
+					nodes[topic.receiver_node_idx].name()
 				);
-				witnesses.push(subscribe_topic(&nodes[topic.witness].rpc, topic.topic).await?);
-				if topic.role != OutageRole::Replica {
-					donor_subscriptions
-						.push(subscribe_topic(&nodes[topic.donor].rpc, topic.topic).await?);
+				receiver_subscriptions
+					.push(subscribe_topic(&nodes[topic.receiver_node_idx].rpc, topic.topic).await?);
+				if topic.outage_node_role != OutageNodeRole::Replica {
+					submitter_subscriptions
+						.push(subscribe_topic(&nodes[topic.submitter_node_idx].rpc, topic.topic).await?);
 				}
-				let donor = &nodes[topic.donor];
-				let blobs = submit_at_rate(
+				let submitter = &nodes[topic.submitter_node_idx];
+				let encoded_statements = submit_at_rate(
 					&mut load,
 					u64::MAX,
 					topic.topic,
 					1,
 					1,
-					&[(donor.name(), &donor.rpc)],
+					&[(submitter.name(), &submitter.rpc)],
 				)
 				.await?;
 				assert_statements_match(
-					witnesses.last_mut().expect("just subscribed; qed"),
-					&blobs,
-					OUTAGE_DELIVERY_SECS,
-					nodes[topic.witness].name(),
+					receiver_subscriptions.last_mut().expect("just subscribed; qed"),
+					&encoded_statements,
+					OUTAGE_DELIVERY_TIMEOUT_SECS,
+					nodes[topic.receiver_node_idx].name(),
 				)
 				.await?;
-				if topic.role == OutageRole::Subscriber {
+
+				if topic.outage_node_role == OutageNodeRole::Subscriber {
 					assert_statements_match(
-						&mut subscriber_subscription,
-						&blobs,
-						OUTAGE_DELIVERY_SECS,
-						victim.name(),
+						&mut outage_node_subscription,
+						&encoded_statements,
+						OUTAGE_DELIVERY_TIMEOUT_SECS,
+						outage_node.name(),
 					)
 					.await?;
-					subscribed_statements.extend(blobs.clone());
+					expected_subscription_backlog.extend(encoded_statements.clone());
 				}
-				record_cohort("baseline", topic, &blobs, &mut cohort);
+
+				record_expected_placements(
+					"baseline",
+					topic,
+					&encoded_statements,
+					&mut expected_placements,
+				);
 			}
-			wait_cohort_placement("baseline", nodes, &cohort, None).await?;
-			Ok::<_, anyhow::Error>((original_peer, subscriber_subscription))
+			wait_for_stable_placement("baseline", nodes, &expected_placements, None).await?;
+			Ok::<_, anyhow::Error>((original_peer_id, outage_node_subscription))
 		})
 		.await
 		.context("lifecycle baseline deadline")??;
@@ -596,15 +606,11 @@ async fn run_replica_outage(
 	std::fs::write(&offline_path, "#!/bin/sh\nexec sleep 3600\n")?;
 	std::fs::write(&online_path, "#!/bin/sh\nexec polkadot-parachain \"$@\"\n")?;
 
-	// Keep this outside run_wave's reconnect-and-skip catch. Even helper assertions/panics or a
-	// timeout must attempt recovery before returning the original failure. Replacing the node
-	// closes its TCP connections; SIGSTOP alone does not guarantee a statement disconnect.
-	let outage = tokio::time::timeout(
+	let outage_result = tokio::time::timeout(
 		Duration::from_secs(OUTAGE_TIMEOUT_SECS),
 		AssertUnwindSafe(async {
-			archive_victim_log(victim, "before-outage").await?;
-			info!("Lifecycle stop: {} peer={original_peer}", victim.name());
-			victim
+			info!("Lifecycle stop: {} peer={original_peer_id}", outage_node.name());
+			outage_node
 				.restart_with(
 					vec![AssetLocation::FilePath(offline_path)],
 					Some(offline_program.into()),
@@ -614,64 +620,74 @@ async fn run_replica_outage(
 				.await?;
 
 			// Pause only the idle replacement so the SDK monitor treats the node as offline.
-			victim.pause().await?;
-			wait_lifecycle_topology("disconnected", nodes, Some(victim_idx)).await?;
-			victim_unavailable(&nodes[victim_idx]).await?;
+			outage_node.pause().await?;
+			wait_for_topology("disconnected", nodes, Some(outage_node_idx)).await?;
+			ensure_outage_node_unavailable(&nodes[outage_node_idx]).await?;
 
+			// Send data during the outage
 			for batch in 0..OUTAGE_BATCHES {
-				for (idx, topic) in topics.iter().enumerate() {
+				for (topic_idx, topic) in topics.iter().enumerate() {
 					// Mint fresh hashes only after the statement-substream disconnect barrier.
 					let started = Instant::now();
-					let blobs =
-						tokio::time::timeout(Duration::from_secs(OUTAGE_DELIVERY_SECS), async {
-							let donor = &nodes[topic.donor];
-							let blobs = submit_at_rate(
+					let encoded_statements =
+						tokio::time::timeout(Duration::from_secs(OUTAGE_DELIVERY_TIMEOUT_SECS), async {
+							let submitter = &nodes[topic.submitter_node_idx];
+							let encoded_statements = submit_at_rate(
 								&mut load,
 								u64::MAX,
 								topic.topic,
-								OUTAGE_RATE,
+								OUTAGE_RATE_PER_SECOND,
 								1,
-								&[(donor.name(), &donor.rpc)],
+								&[(submitter.name(), &submitter.rpc)],
 							)
 							.await?;
 							assert_statements_match(
-								&mut witnesses[idx],
-								&blobs,
-								OUTAGE_DELIVERY_SECS,
-								nodes[topic.witness].name(),
+								&mut receiver_subscriptions[topic_idx],
+								&encoded_statements,
+								OUTAGE_DELIVERY_TIMEOUT_SECS,
+								nodes[topic.receiver_node_idx].name(),
 							)
 							.await?;
-							Ok::<_, anyhow::Error>(blobs)
+							Ok::<_, anyhow::Error>(encoded_statements)
 						})
 						.await
 						.with_context(|| {
-							format!("outage topic {} batch {batch}: delivery deadline", topic.role)
+							format!(
+								"outage topic {} batch {batch}: delivery deadline",
+								topic.outage_node_role
+							)
 						})??;
 					info!(
 						"Lifecycle outage topic {} batch {batch}: all {} hashes delivered \
-						 to {} in {:.1}s while victim stopped",
-						topic.role,
-						blobs.len(),
-						nodes[topic.witness].name(),
+						 to {} in {:.1}s while outage node stopped",
+						topic.outage_node_role,
+						encoded_statements.len(),
+						nodes[topic.receiver_node_idx].name(),
 						started.elapsed().as_secs_f64(),
 					);
-					if topic.role == OutageRole::Subscriber {
-						subscribed_statements.extend(blobs.clone());
+					if topic.outage_node_role == OutageNodeRole::Subscriber {
+						expected_subscription_backlog.extend(encoded_statements.clone());
 					}
-					record_cohort("outage", topic, &blobs, &mut cohort);
+					record_expected_placements(
+						"outage",
+						topic,
+						&encoded_statements,
+						&mut expected_placements,
+					);
 				}
 			}
 			// The replica topic keeps its original K-1 online holders, without a replacement.
-			wait_cohort_placement("outage", nodes, &cohort, Some(victim_idx)).await?;
-			victim_unavailable(&nodes[victim_idx]).await?;
+			wait_for_stable_placement("outage", nodes, &expected_placements, Some(outage_node_idx))
+				.await?;
+			ensure_outage_node_unavailable(&nodes[outage_node_idx]).await?;
 			Ok::<_, anyhow::Error>(())
 		})
 		.catch_unwind(),
 	)
 	.await;
 
-	let restart = tokio::time::timeout(Duration::from_secs(LIFECYCLE_WAIT_SECS), async {
-		victim
+	let restart_rpc_result = tokio::time::timeout(Duration::from_secs(LIFECYCLE_WAIT_SECS), async {
+		outage_node
 			.restart_with(
 				vec![AssetLocation::FilePath(online_path)],
 				Some(online_program.into()),
@@ -679,9 +695,9 @@ async fn run_replica_outage(
 				None,
 			)
 			.await?;
-		victim.wait_until_is_up(120u64).await?;
+		outage_node.wait_until_is_up(120u64).await?;
 		loop {
-			match victim.rpc().await {
+			match outage_node.rpc().await {
 				Ok(rpc) => break Ok::<_, anyhow::Error>(rpc),
 				Err(error) => warn!("Lifecycle RPC not ready after restart: {error:#}"),
 			}
@@ -689,75 +705,76 @@ async fn run_replica_outage(
 		}
 	})
 	.await
-	.context("victim restart/up deadline")
+	.context("outage node restart/up deadline")
 	.and_then(|result| result);
-	if let Err(error) = &restart {
+	if let Err(error) = &restart_rpc_result {
 		warn!("Lifecycle recovery failed: {error:#}; original node is not confirmed running");
 	}
-	match outage {
+
+	match outage_result {
 		Err(_) => return Err(anyhow!("replica outage exceeded {OUTAGE_TIMEOUT_SECS}s")),
 		Ok(Err(panic)) => std::panic::resume_unwind(panic),
 		Ok(Ok(result)) => result?,
 	}
-	nodes[victim_idx].rpc = restart?;
-	drop(old_subscriber_subscription);
 
-	let recovered = tokio::time::timeout(
+	nodes[outage_node_idx].rpc = restart_rpc_result?;
+	drop(pre_outage_subscription);
+
+	let recovery_result = tokio::time::timeout(
 		Duration::from_secs(OUTAGE_TIMEOUT_SECS),
 		AssertUnwindSafe(async {
-			let peer: String =
-				nodes[victim_idx].rpc.request("system_localPeerId", rpc_params![]).await?;
-			ensure!(peer == original_peer, "victim PeerId changed: {original_peer} -> {peer}");
-			let eligible = victim.reports(ELIGIBLE_PEERS_METRIC).await?;
-			info!(
-				"Lifecycle restarted: unchanged PeerId {peer}, same base directory {}, \
-				 {eligible} eligible peers known at the first RPC",
-				victim.base_dir().display()
+			let restarted_peer_id: String =
+				nodes[outage_node_idx].rpc.request("system_localPeerId", rpc_params![]).await?;
+			ensure!(
+				restarted_peer_id == original_peer_id,
+				"outage node PeerId changed: {original_peer_id} -> {restarted_peer_id}"
 			);
-			let mut subscriber_subscription =
-				subscribe_topic(&nodes[victim_idx].rpc, subscriber_topic).await?;
+			let eligible = outage_node.reports(ELIGIBLE_PEERS_METRIC).await?;
+			info!(
+				"Lifecycle restarted: unchanged PeerId {restarted_peer_id}, same base directory {}, \
+				 {eligible} eligible peers known at the first RPC",
+				outage_node.base_dir().display()
+			);
+			let mut outage_node_subscription =
+				subscribe_topic(&nodes[outage_node_idx].rpc, subscriber_topic).await?;
 			assert_statements_match(
-				&mut subscriber_subscription,
-				&subscribed_statements,
+				&mut outage_node_subscription,
+				&expected_subscription_backlog,
 				DELIVERY_TIMEOUT_SECS,
-				victim.name(),
+				outage_node.name(),
 			)
 			.await?;
-			wait_lifecycle_topology("recovered-ready", nodes, None).await?;
 			// Defer non-affine recovery placement: a cold topology can grant permanent DHT
 			// retention.
-			let expected: Vec<Placement> = cohort
+			let recovery_placements: Vec<ExpectedPlacement> = expected_placements
 				.iter()
-				.filter(|placement| placement.holders.contains(&victim_idx))
+				.filter(|placement| placement.holder_node_indices.contains(&outage_node_idx))
 				.cloned()
 				.collect();
-			let placement = wait_cohort_placement("recovered", nodes, &expected, None).await;
-			let admissions = admissions_by_reason(victim).await?;
-			placement.with_context(|| {
-				format!("{} admissions by reason since restart: {admissions}", victim.name())
+			let placement_result =
+				wait_for_stable_placement("recovered", nodes, &recovery_placements, None).await;
+			let admissions = admissions_by_reason(outage_node).await?;
+			placement_result.with_context(|| {
+				format!("{} admissions by reason since restart: {admissions}", outage_node.name())
 			})?;
 			info!(
 				"Lifecycle recovered: {} holds every required replica/subscription statement; \
 				 admissions by reason: {admissions}",
-				victim.name()
+				outage_node.name()
 			);
 			Ok::<_, anyhow::Error>(())
 		})
 		.catch_unwind(),
 	)
 	.await;
-	let after_logs = archive_victim_log(victim, "after-restart").await;
-	if let Err(error) = &after_logs {
-		warn!("Lifecycle post-restart log check failed: {error:#}");
-	}
-	match recovered {
+
+	match recovery_result {
 		Err(_) => return Err(anyhow!("replica recovery exceeded {OUTAGE_TIMEOUT_SECS}s")),
 		Ok(Err(panic)) => std::panic::resume_unwind(panic),
 		Ok(Ok(result)) => result?,
 	}
-	after_logs?;
-	drop(donor_subscriptions);
-	Ok(cohort.len())
+	drop(submitter_subscriptions);
+	Ok(expected_placements.len())
 }
 
 struct WaveReport {
