@@ -206,6 +206,10 @@ fetch fails, is parked once and refilled in parking order as completed sends fre
 propagation ticks. While initial syncs are pending, propagation parks
 <code>config::INITIAL_SYNC_RESERVED_BYTES</code> early: refills reclaim freed bytes synchronously,
 while the timer-driven sync bursts would otherwise always find the budget full.</p>
+<p>A peer disconnects us once we exceed its statement rate limit. Each peer carries a mirror of
+that quota on the send side. Propagation charges it per chunk and sends regardless, while an
+initial sync charges it per statement as the chunk is fetched and cuts the chunk where the
+quota runs out, so a peer draws its backlog at the rate it accepts, however often it asks.</p>
 <h3 id="topic-affinity-and-light-nodes"><a class="doc-anchor" href="#topic-affinity-and-light-nodes">§</a>Topic affinity and light nodes</h3>
 <p>The <code>statement/2</code> protocol lets a peer advertise which topics it cares about as a bloom filter
 (“topic affinity”). Once a peer has an active affinity filter, only matching statements are
