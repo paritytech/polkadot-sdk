@@ -348,39 +348,6 @@ jobs:
 
   ### Build zombienet test artifacts ########################
 
-  #
-  #
-  #
-  prepare-bridges-zombienet-artifacts:
-    needs: [preflight]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: build
-        run: |
-          forklift cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
-      - name: pack artifacts
-        run: |
-          mkdir -p ./artifacts/bridges-polkadot-sdk/bridges
-          cp -r bridges/testing ./artifacts/bridges-polkadot-sdk/bridges/testing
-
-      - name: tar
-        run: tar -cvf artifacts.tar artifacts
-
-      - name: upload artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          path: artifacts.tar
-          retention-days: 1
-
-  #
-  #
-  #
   prepare-polkadot-zombienet-artifacts:
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
@@ -624,57 +591,6 @@ jobs:
         with:
           image-name: "substrate"
           dockerfile: "docker/dockerfiles/substrate_injected.Dockerfile"
-          username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
-          password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
-
-  #
-  #
-  #
-  # unlike other images, bridges+zombienet image is based on Zombienet image that pulls required binaries
-  # from other fresh images (polkadot and cumulus)
-  build-push-image-bridges-zombienet-tests:
-    needs:
-      [
-        preflight,
-        build-linux-stable,
-        build-linux-stable-cumulus,
-        prepare-bridges-zombienet-artifacts,
-      ]
-    runs-on: ${{ needs.preflight.outputs.RUNNER_DEFAULT }}
-    timeout-minutes: 60
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-      - name: tar
-        run: |
-          tar -xvf artifacts.tar
-          rm artifacts.tar
-
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-      - name: tar
-        run: |
-          tar -xvf artifacts.tar
-          rm artifacts.tar
-
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: prepare-bridges-zombienet-artifacts-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-      - name: tar
-        run: |
-          tar -xvf artifacts.tar
-          rm artifacts.tar
-
-      - name: build and push image
-        uses: ./.github/actions/build-push-image
-        with:
-          image-name: "bridges-zombienet-tests"
-          dockerfile: "docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile"
           username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
           password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
 
