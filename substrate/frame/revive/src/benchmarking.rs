@@ -3293,19 +3293,12 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `JUMP` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Pseudo-random Destinations:** the destination of each jump is pseudo-random to prevent
-	///   the CPU from pre-fetching the code at the next destination.
-	/// * **Stack Initialization:** the stack is initialized before running the benchmark in order
-	///   to not introduce any `PUSH` op-codes into the code being benchmarked.
-	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the code and
-	///   the stack, which the benchmark's setup loaded into the L1 and L2 caches.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * We've attempted to benchmark this op-code without the pseudo-random destinations, each
-	///   jump just led to the next `JUMPDEST`. That produced a lower ref-time for this op-code.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * An L1 and L2 cache miss on a destination's op-code the first time its cache line is read,
+	///   since the destinations are spread over the whole code.
+	/// * No help from the pre-fetcher, since the destinations are visited in a pseudo-random order.
 	///
 	/// # Subtraction Safety
 	///
