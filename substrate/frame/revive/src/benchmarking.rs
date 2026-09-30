@@ -3658,9 +3658,15 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&difficulty));
 	}
 
-	/// Benchmark `r` `CODESIZE` instructions.
+	/// Benchmarks `r` EVM `CODESIZE` op-codes.
 	///
-	/// The code is nothing but `r` `CODESIZE` bytes, so every one of them pushes `r`.
+	/// # Subtraction Safety
+	///
+	/// This benchmark most likely underestimates a `CODESIZE`: it has no operands, so no worse case
+	/// can be constructed for it, and here it runs in the cheapest setting, straight line code
+	/// whose dispatch is always predicted. Subtracting an underestimate from another benchmark can
+	/// only overcharge that benchmark's op-code, never undercharge it, so this benchmark is safe to
+	/// subtract.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_codesize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![CODESIZE; r as usize].into());
@@ -3668,6 +3674,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -3677,72 +3684,136 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), r as usize);
-		assert_eq!(interpreter.stack.top(), (r > 0).then_some(U256::from(r)).as_ref());
+		let code_size = U256::from(r);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&code_size));
 	}
 
-	/// Benchmark `r` CALLDATALOAD instructions.
+	/// Benchmarks `r` EVM `CALLDATASIZE` op-codes.
 	///
-	/// This benchmark is quite involved so this doc comment explains it. `CALLDATALOAD` requires
-	/// one operand and pushes one value onto the stack. We use this to construct a linked list
-	/// where each value we read through a `CALLDATALOAD` is then the operand for the next op code.
-	/// Some of the complexity in the code comes from this fact.
+	/// # Subtraction Safety
 	///
-	/// We use the maximum calldata size of 131.072 kB regardless of `r` such that it can never fit
-	/// in L1 cache.
-	///
-	/// There are a number of considerations in how the offsets are laid out inside of the calldata:
-	///
-	/// * Cache Line Size: On the reference hardware the size is 64 bytes. Every offset gets two
-	///   cache lines to itself, so no two offsets share a line and each load has to fetch lines
-	///   that no other load touched.
-	/// * Offset in Cache Line: Each offset starts at a pseudo-random byte between 33 and 63 of its
-	///   first cache line, so every offset straddles both of its cache lines. Most of these
-	///   positions aren't 4-byte aligned, which forces the runtime's `memcpy` to rebuild every
-	///   4-byte word it copies with shifts.
-	/// * Offset Ordering: The offsets in the calldata are pseudo-randomly shuffled so speculative
-	///   execution can't determine where we will end up before performing the calldata load.
-	///
-	/// Before the benchmark runs, 8 MiB of unrelated memory is written to push the calldata out of
-	/// the L1 and L2 caches. Together with the spacing above, every load then has to fetch two
-	/// cache lines that are in neither.
+	/// This benchmark most likely underestimates a `CALLDATASIZE`: it has no operands, so no worse
+	/// case can be constructed for it, and here it runs in the cheapest setting, straight line code
+	/// whose dispatch is always predicted. Subtracting an underestimate from another benchmark can
+	/// only overcharge that benchmark's op-code, never undercharge it, so this benchmark is safe to
+	/// subtract.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_calldataload_opcode(r: Linear<0, { CALLDATA_BYTES / 128 - 1 }>) {
-		use core::ops::Range;
-		use rand::{Rng, SeedableRng, seq::SliceRandom};
-		use rand_pcg::Pcg64;
+	fn evm_calldatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![CALLDATASIZE; r as usize].into());
+		let input = vec![0u8; CALLDATA_BYTES as usize];
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), input, &mut ext);
 
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let calldata_size = U256::from(CALLDATA_BYTES);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&calldata_size));
+	}
+
+	/// Benchmarks `r` EVM `RETURNDATASIZE` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark most likely underestimates a `RETURNDATASIZE`: it has no operands, so no
+	/// worse case can be constructed for it, and here it runs in the cheapest setting, straight
+	/// line code whose dispatch is always predicted. Subtracting an underestimate from another
+	/// benchmark can only overcharge that benchmark's op-code, never undercharge it, so this
+	/// benchmark is safe to subtract.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_returndatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![RETURNDATASIZE; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		*ext.last_frame_output_mut() =
+			ExecReturnValue { data: vec![42; CALLDATA_BYTES as usize], ..Default::default() };
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let return_data_size = U256::from(CALLDATA_BYTES);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&return_data_size));
+	}
+
+	/// Benchmarks `r` EVM `CALLDATALOAD` op-codes.
+	///
+	/// This benchmark constructs a linked list in the calldata. Each value we load from there is
+	/// the operand of the next `CALLDATALOAD` until we reach the end.
+	///
+	/// # Considerations
+	///
+	/// * **Dependent Loads:** every word loaded from the calldata is the offset of the next load,
+	///   so each load has to finish before the next one can start. The last word loaded marks the
+	///   end of the chain.
+	/// * **One Word per Page:** every load reads a word on a 4 KiB page that no other load touches,
+	///   which costs far more than a load from a page that was already used. The calldata is always
+	///   the maximum of 128 KiB, which has 32 pages, so `r` only goes up to 31.
+	/// * **Misaligned Position:** each word sits in the middle of its page at a byte that isn't
+	///   4-byte aligned, which forces the runtime's `memcpy` to rebuild every 4-byte word it copies
+	///   with shifts.
+	/// * **Pseudo-random Order:** the pages are visited in a pseudo-random order so the CPU can't
+	///   prefetch the next one.
+	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the calldata,
+	///   which the benchmark's setup wrote, from the L1 and L2 caches.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Placing the words in 128-byte slots, so that many loads share each page, cost roughly 50%
+	///   less per load.
+	/// * A 4-byte aligned word on its own page cost roughly 18% less.
+	/// * Visiting the words in order cost roughly 15% less than the pseudo-random order.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `CALLDATALOAD` op-code so this can't
+	/// be subtracted from other benchmarks without leading to an undercharge in the other
+	/// benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_calldataload_opcode(r: Linear<0, { CALLDATA_BYTES / 4096 - 1 }>) {
 		const CALLDATA_SIZE: usize = CALLDATA_BYTES as usize;
-		const CACHE_LINE_SIZE: usize = 64;
+		const PAGE_SIZE: usize = 4096;
 		const WORD_SIZE: usize = 32;
-		// Every offset owns two cache lines. An offset starting at byte 63 of the first line ends
-		// at byte 94, so it never reaches the next slot.
-		const SLOT_SIZE: usize = 2 * CACHE_LINE_SIZE;
-		// Slots start from the first cache-line boundary inside calldata, which can be up to 63
-		// bytes in. Leaving out the last slot keeps every offset inside calldata no matter where
-		// that boundary is.
-		const SLOT_COUNT: usize = CALLDATA_SIZE / SLOT_SIZE - 1;
-		// A word starting after byte 32 of a line runs into the next line.
-		const POSITIONS_IN_LINE: Range<usize> = CACHE_LINE_SIZE - WORD_SIZE + 1..CACHE_LINE_SIZE;
-		// Larger than the L2 cache of the reference hardware.
-		const EVICTION_SIZE: usize = 8 * 1024 * 1024;
+		const PAGE_COUNT: usize = CALLDATA_SIZE / PAGE_SIZE - 1;
+		// Mid-page and not 4-byte aligned, so the runtime's `memcpy` copies it with shifts.
+		const OFFSET_IN_PAGE: usize = PAGE_SIZE / 2 + 49;
 		const END_OF_WALK: U256 = U256::MAX;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
 
 		let load_count = r as usize;
 		let mut calldata = vec![0u8; CALLDATA_SIZE];
 
-		// The allocator only aligns to 8 bytes, so calldata can start anywhere within a cache line.
-		// Positions are measured from real cache-line boundaries, not from the start of calldata.
+		// The allocator only aligns to 8 bytes, so the calldata can start anywhere within a page.
+		// Words are placed relative to real page boundaries, not to the start of the calldata.
 		let address = calldata.as_ptr() as usize;
-		let first_line_start = address.next_multiple_of(CACHE_LINE_SIZE) - address;
+		let first_page_start = address.next_multiple_of(PAGE_SIZE) - address;
 
-		let mut rng = Pcg64::seed_from_u64(1337);
-		let mut offsets = (0..SLOT_COUNT)
-			.map(|slot| first_line_start + slot * SLOT_SIZE + rng.gen_range(POSITIONS_IN_LINE))
+		let mut offsets = (0..PAGE_COUNT)
+			.map(|page_index| page_index * PAGE_SIZE)
+			.map(|page_offset| page_offset + first_page_start)
+			.map(|page_start| page_start + OFFSET_IN_PAGE)
 			.collect::<Vec<_>>();
 		offsets.shuffle(&mut rng);
 		let walk = &offsets[..load_count];
 
-		// Each offset in the walk stores the next offset, and the last one stores END_OF_WALK.
+		// Each word in the walk stores the offset of the next one, and the last one stores
+		// END_OF_WALK.
 		let next_values = walk.iter().skip(1).map(|&next| U256::from(next)).chain([END_OF_WALK]);
 		for (&offset, value) in walk.iter().zip(next_values) {
 			calldata[offset..offset + WORD_SIZE].copy_from_slice(&value.to_big_endian());
@@ -3758,9 +3829,7 @@ mod benchmarks {
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), calldata, &mut ext);
 		interpreter.stack.push(initial_stack_value).continue_value().unwrap();
 
-		// Writing memory the calldata doesn't live in pushes it out of the L1 and L2 caches.
-		core::hint::black_box(vec![1u8; EVICTION_SIZE]);
-
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -3771,51 +3840,6 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 1);
 		assert_eq!(interpreter.stack.top(), Some(&END_OF_WALK));
-	}
-
-	/// Benchmark `r` `CALLDATASIZE` instructions.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_calldatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = Bytecode::new_raw(vec![CALLDATASIZE; r as usize].into());
-		let input = vec![0u8; CALLDATA_BYTES as usize];
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), input, &mut ext);
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), r as usize);
-		let expected = U256::from(CALLDATA_BYTES);
-		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
-	}
-
-	/// Benchmark `r` `RETURNDATASIZE` instructions.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_returndatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = Bytecode::new_raw(vec![RETURNDATASIZE; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		*ext.last_frame_output_mut() =
-			ExecReturnValue { data: vec![42; CALLDATA_BYTES as usize], ..Default::default() };
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), vec![], &mut ext);
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), r as usize);
-		let expected = U256::from(CALLDATA_BYTES);
-		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
 	}
 
 	/// Benchmark `r` `ADD` instructions.
