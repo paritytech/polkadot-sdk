@@ -1,0 +1,12 @@
+title: 'cumulus: add resubmittable-segment hydration API'
+doc:
+- audience: Node Dev
+  description: |
+    Adds an internal helper to the slot-based collator that rebuilds a V3 resubmittable segment —
+    a core's resubmittable parachain blocks, oldest first — back into collation parts from local
+    state only: the parachain backend, the code-hash provider and the resubmission store. The
+    headers are regrouped into their original bundles and each bundle's stored proofs are merged
+    into one PoV. Nothing calls it yet; the resubmission wiring that follows does.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
