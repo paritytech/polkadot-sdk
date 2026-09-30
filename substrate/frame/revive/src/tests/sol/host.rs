@@ -364,6 +364,82 @@ fn pallet_code_works() {
 	});
 }
 
+/// eth_getCode (`Pallet::code`) and the EXTCODE* opcodes (`Stack::code_source`) resolve code
+/// through separate functions and must agree on the same address.
+#[test]
+fn pallet_code_agrees_with_extcode_opcodes() {
+	use pallet_revive_fixtures::{HostEvmOnly, HostEvmOnly::HostEvmOnlyCalls};
+
+	let (host_code, _) = compile_module_with_type("Host", FixtureType::Solc).unwrap();
+	let (copier_code, _) = compile_module_with_type("HostEvmOnly", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+		let Contract { addr: host_addr, .. } =
+			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+		let Contract { addr: copier_addr, .. } =
+			builder::bare_instantiate(Code::Upload(copier_code)).build_and_unwrap_contract();
+		let Contract { addr: contract_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		<Test as Config>::Currency::set_balance(&CHARLIE, 100_000_000);
+		<Test as Config>::Currency::set_balance(&DJANGO, 100_000_000);
+		let delegated_eoa = create_delegated_eoa(&contract_addr);
+		AccountInfo::<Test>::set_delegation(&DJANGO_ADDR, Some(contract_addr), &ALICE).unwrap();
+		AccountInfo::<Test>::set_delegation(&DJANGO_ADDR, None, &ALICE).unwrap();
+
+		let cases = [
+			("contract", contract_addr, true),
+			("delegated EOA", delegated_eoa, true),
+			("cleared delegation", DJANGO_ADDR, true),
+			("precompile", H160(SYSTEM_PRECOMPILE_ADDR), true),
+			("primitive precompile", H160::from_low_u64_be(1), true),
+			("regular EOA", CHARLIE_ADDR, true),
+			("non-existent", H160::from_low_u64_be(0xdead), false),
+		];
+
+		for (name, addr, exists) in cases {
+			let code = Contracts::code(&addr);
+
+			assert_eq!(
+				call_extcodesize(&host_addr, &addr),
+				code.len() as u64,
+				"EXTCODESIZE disagrees with Pallet::code for {name}"
+			);
+
+			// EIP-1052: a non-existent account hashes to zero, everything else to keccak(code)
+			let expected_hash =
+				if exists { sp_io::hashing::keccak_256(&code).into() } else { H256::zero() };
+			assert_eq!(
+				call_extcodehash(&host_addr, &addr),
+				expected_hash,
+				"EXTCODEHASH disagrees with Pallet::code for {name}"
+			);
+
+			let size = code.len() + 3;
+			let result = builder::bare_call(copier_addr)
+				.data(
+					HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
+						account: addr.0.into(),
+						offset: 0,
+						size: size as u64,
+					})
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert!(!result.did_revert(), "EXTCODECOPY reverted for {name}");
+			let copied = HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data)
+				.unwrap()
+				.0
+				.to_vec();
+			let mut expected = code.clone();
+			expected.resize(size, 0);
+			assert_eq!(copied, expected, "EXTCODECOPY disagrees with Pallet::code for {name}");
+		}
+	});
+}
+
 /// EXTCODECOPY does not exist in PVM so we only test Solc caller contract.
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
