@@ -90,7 +90,9 @@ Anchors ahead of the current anchor are accepted: a peer may be ahead of this no
 runtime rejects anchors ahead of the block including them. Valid messages are inserted into the
 pool by the validator itself. The signer set, the current anchor and the window form a snapshot
 the tick loop replaces once per tick, so validation never calls the runtime on the network path.
-A message is expired for rebroadcast once its anchor falls out of the window.
+While the node is major syncing or cannot read the rules from the runtime, the snapshot is
+cleared and incoming reports are discarded without judging the sender. A message is expired for
+rebroadcast once its anchor falls out of the window.
 
 ## Pool
 
@@ -103,9 +105,9 @@ included in one block stays available for the next.
 ## Inherent data
 
 For the block on `parent`, the provider reads the parent's height, `settings` and
-`latest_anchors` at the parent, and takes every pooled report anchored within the window at or
-below that height, except those anchored before the signer's vote already on chain. No other
-filtering: the author includes every fresh report it holds. If the header or the API is
+`latest_anchors` at the parent, and takes every pooled report anchored within the report window
+of the block being built, except those anchored before the signer's vote already on chain. No
+other filtering: the author includes every fresh report it holds. If the header or the API is
 unavailable, the block is authored without oracle data.
 
 ## Signing

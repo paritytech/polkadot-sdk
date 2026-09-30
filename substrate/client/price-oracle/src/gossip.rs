@@ -112,12 +112,6 @@ pub struct Acceptance<Id> {
 	pub window: u32,
 }
 
-impl<Id> Default for Acceptance<Id> {
-	fn default() -> Self {
-		Self { signers: Vec::new(), current: Anchor(0), window: 0 }
-	}
-}
-
 impl<Id> Acceptance<Id> {
 	/// The rules of `settings` applied at `current`.
 	pub fn new(settings: Settings<Id>, current: Anchor) -> Self {
@@ -138,9 +132,10 @@ impl<Id> Acceptance<Id> {
 /// reported as a reputation change of the sending peer.
 ///
 /// The acceptance rules are a snapshot replaced by the service, so validation never reads the
-/// chain.
+/// chain. While no rules are set, because the node is syncing or cannot read them from the
+/// runtime, every message is discarded without judging the sender.
 pub struct ReportValidator<Block, Id, Signature> {
-	acceptance: RwLock<Acceptance<Id>>,
+	acceptance: RwLock<Option<Acceptance<Id>>>,
 	pool: ReportPool<Id, Signature>,
 	report_peer: Box<dyn Fn(PeerId, ReputationChange) + Send + Sync>,
 	_block: PhantomData<Block>,
@@ -154,7 +149,7 @@ impl<Block, Id, Signature> ReportValidator<Block, Id, Signature> {
 		report_peer: impl Fn(PeerId, ReputationChange) + Send + Sync + 'static,
 	) -> Self {
 		Self {
-			acceptance: RwLock::new(Acceptance::default()),
+			acceptance: RwLock::new(None),
 			pool,
 			report_peer: Box::new(report_peer),
 			_block: PhantomData,
@@ -163,11 +158,17 @@ impl<Block, Id, Signature> ReportValidator<Block, Id, Signature> {
 
 	/// Replace the acceptance rules.
 	pub fn set_acceptance(&self, acceptance: Acceptance<Id>) {
-		*self.acceptance.write() = acceptance;
+		*self.acceptance.write() = Some(acceptance);
 	}
 
-	/// The current acceptance rules.
-	pub fn acceptance(&self) -> Acceptance<Id>
+	/// Clear the acceptance rules. Until they are set again, every message is discarded without
+	/// judging the sender.
+	pub fn clear_acceptance(&self) {
+		*self.acceptance.write() = None;
+	}
+
+	/// The current acceptance rules, if any.
+	pub fn acceptance(&self) -> Option<Acceptance<Id>>
 	where
 		Id: Clone,
 	{
@@ -193,18 +194,23 @@ where
 			ValidationResult::Discard
 		};
 
+		let guard = self.acceptance.read();
+		let Some(acceptance) = guard.as_ref() else {
+			log::trace!(target: LOG_TARGET, "No acceptance rules yet, ignoring report from {sender}");
+			return ValidationResult::Discard;
+		};
 		let Ok(report) = SignedPriceReport::<Id, Signature>::decode(&mut data) else {
 			return reject(cost::MALFORMED, "undecodable");
 		};
 		let anchor = report.report.anchor;
-		let acceptance = self.acceptance.read();
 		if anchor < acceptance.oldest() {
 			return reject(cost::STALE_REPORT, "stale");
 		}
 		if !acceptance.signers.contains(&report.signer) {
 			return reject(cost::UNKNOWN_SIGNER, "unknown signer");
 		}
-		drop(acceptance);
+		// Release the lock before the signature check.
+		drop(guard);
 		if !report.verify_signature() {
 			return reject(cost::BAD_SIGNATURE, "bad signature");
 		}
@@ -218,11 +224,12 @@ where
 	}
 
 	fn message_expired<'a>(&'a self) -> Box<dyn FnMut(Block::Hash, &[u8]) -> bool + 'a> {
-		let oldest = self.acceptance.read().oldest();
+		// Without rules nothing is worth keeping.
+		let oldest = self.acceptance.read().as_ref().map(Acceptance::oldest);
 		Box::new(move |_topic, mut data| {
-			match SignedPriceReport::<Id, Signature>::decode(&mut data) {
-				Ok(report) => report.report.anchor < oldest,
-				Err(_) => true,
+			match (oldest, SignedPriceReport::<Id, Signature>::decode(&mut data)) {
+				(Some(oldest), Ok(report)) => report.report.anchor < oldest,
+				_ => true,
 			}
 		})
 	}
@@ -356,10 +363,28 @@ mod tests {
 	}
 
 	#[test]
-	fn nothing_is_accepted_before_acceptance_is_set() {
+	fn without_rules_everything_is_discarded_without_penalty() {
 		let pool = ReportPool::new();
-		let v = TestValidator::new(pool.clone(), |_, _| {});
-		assert!(matches!(validate(&v, &signed(1, 0).encode()), ValidationResult::Discard));
+		let reports = Arc::new(Mutex::new(Vec::new()));
+		let recorder = reports.clone();
+		let v = TestValidator::new(pool.clone(), move |_, rep| recorder.lock().push(rep.value));
+		// A valid report, an unknown signer and garbage: all discarded, nobody judged.
+		assert!(matches!(validate(&v, &signed(1, 100).encode()), ValidationResult::Discard));
+		assert!(matches!(validate(&v, &signed(3, 100).encode()), ValidationResult::Discard));
+		assert!(matches!(validate(&v, b"garbage"), ValidationResult::Discard));
 		assert!(pool.is_empty());
+		assert!(reports.lock().is_empty());
+		// Nothing is worth keeping either.
+		assert!(v.message_expired()(topic::<Block>(), &signed(1, 100).encode()));
+	}
+
+	#[test]
+	fn clearing_the_rules_stops_judging_peers() {
+		let (v, pool, reports) = validator();
+		assert!(is_keep(&validate(&v, &signed(1, 100).encode())));
+		v.clear_acceptance();
+		assert!(matches!(validate(&v, &signed(3, 100).encode()), ValidationResult::Discard));
+		assert_eq!(pool.len(), 1);
+		assert_eq!(*reports.lock(), vec![benefit::GOOD_REPORT.value], "no penalty after clearing");
 	}
 }
