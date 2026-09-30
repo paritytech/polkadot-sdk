@@ -163,6 +163,21 @@ fn signed_comparison_operands(r: u32) -> Vec<U256> {
 		.collect()
 }
 
+/// # Subtraction Safety
+///
+/// Some EVM op-codes are charged as the weight of their benchmark minus the weight of another one:
+/// `JUMP` and `JUMPI` subtract `evm_jumpdest_opcode`, and the op-codes benchmarked in pairs with a
+/// `POP` subtract `evm_pop_opcode`. A benchmark is subtraction safe when subtracting it can never
+/// undercharge the op-code that remains.
+///
+/// A benchmark is subtraction safe when it underestimates its op-code: the op-code has no operands
+/// or branches that could make it more expensive, and the benchmark runs it in the cheapest
+/// setting, straight line code whose dispatch is always predicted. Subtracting an underestimate can
+/// only overcharge the op-code that remains.
+///
+/// A benchmark is not subtraction safe when it measures the worst case we have found for its
+/// op-code. The op-code can cost less inside another benchmark than in its own worst case, so
+/// subtracting that worst case can undercharge the op-code that remains.
 #[benchmarks(
 	where
 		T: Config,
@@ -3253,11 +3268,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark most likely underestimates a `JUMPDEST`: it has no operands or branches, so
-	/// no worse case can be constructed for it, and here it runs in the cheapest setting, straight
-	/// line code whose dispatch is always predicted. Subtracting an underestimate from another
-	/// benchmark can only overcharge that benchmark's op-code, never undercharge it, so this
-	/// benchmark is safe to subtract.
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_jumpdest_opcode(
 		r: Linear<0, { MAX_INITCODE_SIZE as u32 }>,
@@ -3298,8 +3309,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `JUMP` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_jump_opcode(r: Linear<1, EVM_STACK_LIMIT>) {
 		let code = [JUMP, JUMPDEST].repeat(MAX_INITCODE_SIZE / 2);
@@ -3367,8 +3377,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `JUMPI` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_jumpi_opcode(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -3427,11 +3436,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark most likely underestimates a `PC`: it has no operands, so no worse case can
-	/// be constructed for it, and here it runs in the cheapest setting, straight line code whose
-	/// dispatch is always predicted. Subtracting an underestimate from another benchmark can only
-	/// overcharge that benchmark's op-code, never undercharge it, so this benchmark is safe to
-	/// subtract.
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_pc_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![PC; r as usize].into());
@@ -3469,8 +3474,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the push op-codes so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -3509,11 +3513,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark most likely underestimates a `POP`: it has no operands, so no worse case can
-	/// be constructed for it, and here it runs in the cheapest setting, straight line code whose
-	/// dispatch is always predicted. Subtracting an underestimate from another benchmark can only
-	/// overcharge that benchmark's op-code, never undercharge it, so this benchmark is safe to
-	/// subtract.
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_pop_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![POP; r as usize].into());
@@ -3553,9 +3553,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the duplication op-codes so this can't
-	/// be subtracted from other benchmarks without leading to an undercharge in the other
-	/// benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_dup_opcode(r: Linear<0, { EVM_STACK_LIMIT - 16 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -3600,8 +3598,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the swap op-codes so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_swap_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -3632,11 +3629,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark most likely underestimates a `CHAINID`: it has no operands, so no worse case
-	/// can be constructed for it, and here it runs in the cheapest setting, straight line code
-	/// whose dispatch is always predicted. Subtracting an underestimate from another benchmark can
-	/// only overcharge that benchmark's op-code, never undercharge it, so this benchmark is safe to
-	/// subtract.
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_chainid_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![CHAINID; r as usize].into());
@@ -3662,11 +3655,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark most likely underestimates a `DIFFICULTY`: it has no operands, so no worse
-	/// case can be constructed for it, and here it runs in the cheapest setting, straight line code
-	/// whose dispatch is always predicted. Subtracting an underestimate from another benchmark can
-	/// only overcharge that benchmark's op-code, never undercharge it, so this benchmark is safe to
-	/// subtract.
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_difficulty_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![DIFFICULTY; r as usize].into());
@@ -3692,11 +3681,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark most likely underestimates a `CODESIZE`: it has no operands, so no worse case
-	/// can be constructed for it, and here it runs in the cheapest setting, straight line code
-	/// whose dispatch is always predicted. Subtracting an underestimate from another benchmark can
-	/// only overcharge that benchmark's op-code, never undercharge it, so this benchmark is safe to
-	/// subtract.
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_codesize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![CODESIZE; r as usize].into());
@@ -3722,11 +3707,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark most likely underestimates a `CALLDATASIZE`: it has no operands, so no worse
-	/// case can be constructed for it, and here it runs in the cheapest setting, straight line code
-	/// whose dispatch is always predicted. Subtracting an underestimate from another benchmark can
-	/// only overcharge that benchmark's op-code, never undercharge it, so this benchmark is safe to
-	/// subtract.
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_calldatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![CALLDATASIZE; r as usize].into());
@@ -3753,11 +3734,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark most likely underestimates a `RETURNDATASIZE`: it has no operands, so no
-	/// worse case can be constructed for it, and here it runs in the cheapest setting, straight
-	/// line code whose dispatch is always predicted. Subtracting an underestimate from another
-	/// benchmark can only overcharge that benchmark's op-code, never undercharge it, so this
-	/// benchmark is safe to subtract.
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_returndatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![RETURNDATASIZE; r as usize].into());
@@ -3811,9 +3788,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `CALLDATALOAD` op-code so this can't
-	/// be subtracted from other benchmarks without leading to an undercharge in the other
-	/// benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_calldataload_opcode(r: Linear<0, { CALLDATA_BYTES / 4096 - 1 }>) {
 		const CALLDATA_SIZE: usize = CALLDATA_BYTES as usize;
@@ -3904,8 +3879,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `MLOAD` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mload_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 4096 - 1 }>) {
 		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
@@ -3969,11 +3943,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark most likely underestimates an `MSIZE`: it has no operands, so no worse case
-	/// can be constructed for it, and here it runs in the cheapest setting, straight line code
-	/// whose dispatch is always predicted. Subtracting an underestimate from another benchmark can
-	/// only overcharge that benchmark's op-code, never undercharge it, so this benchmark is safe to
-	/// subtract.
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_msize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![MSIZE; r as usize].into());
@@ -4030,8 +4000,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `MSTORE` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mstore_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 4096 - 1 }>) {
 		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
@@ -4107,8 +4076,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `MSTORE8` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mstore8_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 4096 - 1 }>) {
 		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
@@ -4189,8 +4157,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `MCOPY` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mcopy_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 8192 - 1 }>) {
 		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
@@ -4271,8 +4238,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `MCOPY` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mcopy_per_byte(n: Linear<0, { EVM_MEMORY_BYTES - 65 }>) {
 		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
@@ -4330,8 +4296,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `LT` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_lt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -4395,8 +4360,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `GT` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_gt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -4447,8 +4411,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `EQ` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_eq_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -4509,8 +4472,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `ISZERO` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_iszero_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -4556,8 +4518,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `AND` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_and_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![AND; r as usize].into());
@@ -4594,8 +4555,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `OR` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_or_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![OR; r as usize].into());
@@ -4637,8 +4597,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `XOR` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_xor_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![XOR; r as usize].into());
@@ -4676,8 +4635,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `NOT` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_not_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
 		let code = Bytecode::new_raw(vec![NOT; r as usize].into());
@@ -4725,8 +4683,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `BYTE` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_byte_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -4779,8 +4736,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `CLZ` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_clz_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -4839,8 +4795,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `SLT` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_slt_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let code = Bytecode::new_raw([SLT, POP].repeat(r as usize).into());
@@ -4893,8 +4848,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `SGT` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sgt_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let code = Bytecode::new_raw([SGT, POP].repeat(r as usize).into());
@@ -4942,8 +4896,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `SHL` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_shl_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -4998,8 +4951,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `SHR` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_shr_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -5057,8 +5009,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `SAR` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sar_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -5127,8 +5078,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `ADDMOD` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_addmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
 		// 2^65 + 3
@@ -5203,8 +5153,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is close to the worst case we can see with the `DIV` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_div_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		// 2^254 + 2^128
@@ -5255,8 +5204,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `ADD` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_add_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -5328,8 +5276,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `SUB` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sub_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -5398,8 +5345,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `MUL` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mul_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		const START: U256 = U256([0x5555_5555_5555_5555; 4]);
@@ -5460,8 +5406,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `SDIV` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sdiv_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		// -2^255
@@ -5544,8 +5489,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `MOD` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		// 2^65 + 3
@@ -5625,8 +5569,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `SMOD` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_smod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		// 2^65 + 3
@@ -5716,8 +5659,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `MULMOD` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mulmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
 		let top_bit = U256::one() << 255;
@@ -5792,8 +5734,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `EXP` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_exp_zero_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -5845,8 +5786,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `EXP` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_exp_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
@@ -5889,8 +5829,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `EXP` op-code so this can't be
-	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_exp_per_bit(b: Linear<0, 255>) {
 		let exponent = U256::MAX >> (255 - b as usize);
@@ -5942,9 +5881,7 @@ mod benchmarks {
 	///
 	/// # Subtraction Safety
 	///
-	/// This benchmark is of the worst case we can see with the `SIGNEXTEND` op-code so this can't
-	/// be subtracted from other benchmarks without leading to an undercharge in the other
-	/// benchmark.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_signextend_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
