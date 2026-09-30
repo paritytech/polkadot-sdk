@@ -6,8 +6,8 @@ doc:
     parachain blocks above the relay-known head (pending availability if any, else included) up to
     the best parent, oldest first. It is reconstructed by walking the chosen parent's ancestry, and
     is empty for V2 and for a V3 search that finds nothing to resubmit. `ParentSearchResult` gains
-    `resubmittable_segment` and a `v3_enabled` flag, plus `walk_best_parent_back` and
-    `fall_back_to_included` that keep the segment in sync as the search walks the best parent back.
+    `resubmittable_segment`, plus `walk_best_parent_back` and `fall_back_to_included` that keep the
+    segment in sync as the search walks the best parent back.
     Nothing consumes the segment yet; the resubmission work that follows does.
 crates:
 - name: cumulus-client-consensus-common
