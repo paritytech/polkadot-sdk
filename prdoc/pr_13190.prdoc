@@ -1,0 +1,10 @@
+title: 'pallet-revive: benchmark the EVM `JUMPI` opcode'
+doc:
+- audience: Runtime Dev
+  description: |-
+    WIP
+crates:
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: patch
