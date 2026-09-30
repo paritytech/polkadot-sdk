@@ -41,7 +41,11 @@ crates:
   bump: none
 - name: pallet-ahm-test
   bump: none
+- name: cumulus-zombienet-sdk-helpers
+  bump: minor
 - name: people-westend-integration-tests
+  bump: none
+- name: cumulus-zombienet-sdk-tests
   bump: none
 - name: polkadot-sdk
   bump: minor
