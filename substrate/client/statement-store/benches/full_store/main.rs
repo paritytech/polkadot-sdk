@@ -96,7 +96,8 @@ fn point_reads(c: &mut Criterion, store: &Arc<Store>) {
 	g.finish();
 }
 
-/// The returned stream unsubscribes on drop, so each iteration measures the snapshot retrieval.
+/// Dropping the returned stream unsubscribes, so subscribers never pile up. The timing covers the
+/// snapshot retrieval and the unsubscribe.
 fn subscribe(b: &mut Bencher, store: &Store, topics: &[Topic]) {
 	let filter = match_all(topics);
 	b.iter(|| store.subscribe_statement(filter.clone()).expect("subscribes to the store"))
@@ -181,7 +182,7 @@ fn mixed_benches(c: &mut Criterion, store: &Arc<Store>) {
 	g.sample_size(10);
 
 	// Submissions carry the scaled topics (T2/T3, ~419k members) so relative drift is negligible;
-	// queries read the bounded set (T0/T1, 100 members) so the read half stays stationary.
+	// subscriptions read the bounded set (T0/T1, 100 members) so the read half stays stationary.
 	g.bench_function("mixed_workload_640", |b| {
 		b.iter_batched(
 			|| {
