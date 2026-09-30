@@ -3,9 +3,8 @@ doc:
 - audience: Node Dev
   description: |-
     The statement store benchmarks time only the operation that they are named after. The store
-    and its directory are dropped outside the timing, maintain purges the removed statements, the
-    full-size stores are built on first use, and the contention benchmark times only the readers.
-    Every benchmark checks its results.
+    and its directory are dropped outside the timing, maintain purges the removed statements, and
+    the contention benchmark times only the readers. Every benchmark checks its results.
 crates:
 - name: sc-statement-store
   bump: none
