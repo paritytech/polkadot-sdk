@@ -607,7 +607,8 @@ fn bench_read_scaling(c: &mut Criterion) {
 	for &size in SCALING_SIZES {
 		// Built on first use, so a run filtered to other benchmarks skips the build.
 		let scaled = std::cell::OnceCell::new();
-		// Full topic query (index scan + body fetch); its result set grows with the store.
+		// Subscription snapshot (index scan + body fetch); its result set grows with the
+		// store.
 		group.bench_with_input(BenchmarkId::new("subscribe_statement", size), &size, |b, _| {
 			let (store, _temp) = scaled.get_or_init(|| setup_scaled(&keypair, size));
 			b.iter(|| store.subscribe_statement(filter.clone()).expect("Subscribes to the store"))
@@ -622,7 +623,7 @@ fn bench_read_scaling(c: &mut Criterion) {
 }
 
 /// Store of `n` statements, each carrying a single topic shared by `matches_per_topic` consecutive
-/// statements (no decryption key). Builds a large, deep on-disk topic index while keeping any
+/// statements. Builds a large, deep on-disk topic index while keeping any
 /// single topic's match set small — the realistic "pull my few statements out of a full store"
 /// shape.
 fn setup_diverse_topics(
@@ -673,7 +674,8 @@ fn bench_subscribe_topic(c: &mut Criterion) {
 	group.bench_function(BenchmarkId::from_parameter(NEAR_LIMIT), |b| {
 		let (store, _temp) =
 			full.get_or_init(|| setup_diverse_topics(&keypair, NEAR_LIMIT, SUBSCRIBE_MATCHES));
-		// The returned stream unsubscribes on drop; we only measure the snapshot retrieval.
+		// Dropping the returned stream unsubscribes, so subscribers never pile up. The timing
+		// covers the snapshot retrieval and the unsubscribe.
 		b.iter(|| {
 			store.subscribe_statement(filter.clone()).expect("Subscribes to the store");
 		})
@@ -717,9 +719,9 @@ fn bench_propagate(c: &mut Criterion) {
 	group.finish();
 }
 
-/// Read latency while writers run concurrently. Measures how much the write/constraint path
-/// interferes with reads — the contention that splitting the index (stage 1) and moving reads off
-/// the write lock (stage 2a) is meant to reduce.
+/// Subscription latency while writers run concurrently. Each subscription takes the submit-index
+/// write lock twice, at the start and at the end of its scan, so it competes with every submit for
+/// that lock.
 ///
 /// Only the readers are timed: one iteration is the slowest reader's batch, while the writers'
 /// signature checks and commits run alongside, untimed.
