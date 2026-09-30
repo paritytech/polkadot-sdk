@@ -621,10 +621,6 @@ fn incoming_global<B: BlockT>(
 						|to, neighbor| neighbor_sender.send(to, neighbor),
 					);
 
-					// multiple voters can issue a commit for the same round, and several of them
-					// can pass validation before any of them is processed. a commit that doesn't
-					// finalize anything new is redundant, as we've already gossiped one for the
-					// same height, so don't gossip it again.
 					if advanced {
 						gossip_engine.lock().gossip_message(
 							topic,
@@ -635,7 +631,7 @@ fn incoming_global<B: BlockT>(
 						debug!(
 							target: LOG_TARGET,
 							"Not gossiping commit for round {}, set_id {}, block #{:?}: \
-							 finality didn't advance",
+							 finality gossip view didn't advance",
 							round.0,
 							set_id.0,
 							finalized_number,
