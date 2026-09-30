@@ -3489,11 +3489,6 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `POP` op-codes.
 	///
-	/// # Considerations
-	///
-	/// * **Value Independence:** `POP` only checks the stack length and removes the top item, so
-	///   its work is the same whatever the value being popped.
-	///
 	/// # Subtraction Safety
 	///
 	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
