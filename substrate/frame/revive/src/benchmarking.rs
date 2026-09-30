@@ -4244,23 +4244,13 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `EQ` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Early Exit:** `U256` equality compiles to a `memcmp` that compares the bytes one at a
-	///   time, starting from the least significant, and stops at the first one that differs.
-	/// * **Pseudo-random Stopping Points:** a pseudo-random generator picks whether each `EQ`
-	///   compares values that differ only at byte 29, 30 or 31, or equal values. Each time the
-	///   comparison reaches one of these bytes it stops there with a 50% chance, so the CPU can't
-	///   predict where it stops. Every comparison checks at least 30 of the 32 bytes.
-	/// * **Chained Comparisons:** each `EQ` compares the result of the previous one with its
-	///   operand, so each operand is picked based on that result.
-	/// * **Stack Initialization:** the `r` operands and the starting zero are placed on the stack
-	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Comparing equal values every time. The pseudo-random stopping points cost roughly 15% more
-	///   per `EQ`.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on the byte where each comparison stops, since that is
+	///   pseudo-random.
+	/// * No early exit before the last bytes of each comparison, since the operands only ever
+	///   differ in those bytes.
 	///
 	/// # Subtraction Safety
 	///
