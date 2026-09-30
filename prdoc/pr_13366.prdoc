@@ -5,8 +5,8 @@ doc:
     being alive while this not being the case anymore.
 crates:
 - name: sc-network-types
-  bump: patch
+  bump: minor
 - name: sc-network
-  bump: patch
+  bump: minor
 - name: sc-network-bitswap
-  bump: patch
+  bump: minor
