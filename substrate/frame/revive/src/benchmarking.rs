@@ -4155,25 +4155,13 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `LT` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Comparison Depth:** `U256` comparison walks the limbs from the highest down and stops at
-	///   the first pair that differs. The operands of every `LT` here have equal upper three limbs,
-	///   so it always compares all four limbs.
-	/// * **Pseudo-random Outcomes:** a pseudo-random generator decides whether each `LT` compares
-	///   equal values or values that differ only in the lowest limb, with a 50% chance either way.
-	///   The comparison branches on whether all four limbs are equal, so the CPU can't predict this
-	///   branch. Whether the result is less or greater is decided without a branch, so randomizing
-	///   only the result wouldn't make the CPU mispredict.
-	/// * **Chained Comparisons:** each `LT` compares the result of the previous one with its
-	///   operand, so each operand is picked based on that result.
-	/// * **Stack Initialization:** the `r` operands and the starting zero are placed on the stack
-	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Operands that always differ only in the lowest limb. The pseudo-random outcomes cost
-	///   roughly 34% more per `LT`.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on whether the operands of each comparison are equal, since that is
+	///   pseudo-random.
+	/// * No early exit from the comparison, since the operands only ever differ in the last word it
+	///   checks.
 	///
 	/// # Subtraction Safety
 	///
