@@ -5,7 +5,8 @@ Substrate's chain spec builder utility.
 A chain-spec is short for `chain-specification`. See the [`sc-chain-spec`](https://crates.io/docs.rs/sc-chain-spec/latest/sc_chain_spec)
 for more information.
 
-_Note:_ this binary is a more flexible alternative to the `build-spec` subcommand, contained in typical Substrate-based nodes.
+_Note:_ this binary is a more flexible alternative to the `export-chain-spec` subcommand,
+contained in typical Substrate-based nodes.
 This particular binary is capable of interacting with [`sp-genesis-builder`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/index.html)
 implementation of any provided runtime allowing to build chain-spec JSON files.
 

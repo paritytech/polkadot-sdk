@@ -87,8 +87,8 @@
 //! * [`frame-omni-bencher`]: a benchmarking tool for FRAME-based runtimes. Nodes typically contain
 //!   a
 //!  `benchmark` subcommand that does the same.
-//! * [`chain_spec_builder`]: Utility to build chain-specs Nodes  typically contain a `build-spec`
-//!   subcommand that does the same.
+//! * [`chain_spec_builder`]: Utility to build chain-specs. Nodes typically contain an
+//!   `export-chain-spec` subcommand that does the same.
 //! * [`subkey`]: Substrate's key management utility.
 //! * [`substrate-node`](node_cli) is an extensive substrate node that contains the superset of all
 //!   runtime and node side features. The corresponding runtime, called [`kitchensink_runtime`]
