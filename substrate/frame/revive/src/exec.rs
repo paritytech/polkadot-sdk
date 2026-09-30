@@ -46,7 +46,7 @@ use frame_support::{
 	traits::{
 		Time,
 		fungible::{Balanced as _, Inspect, Mutate},
-		tokens::Preservation,
+		tokens::{Fortitude, Preservation},
 	},
 	weights::Weight,
 };
@@ -1937,15 +1937,37 @@ where
 		System::<T>::dec_consumers(contract_account);
 
 		// ED was minted when the account was brought into existence. Burn it if the account can
-		// be reaped. Otherwise keep it and leave the account in place as a plain account. A
-		// contract deployed to the same address later takes it over.
+		// be reaped, which is when everything left on it after the burn is free and can be
+		// withdrawn down to zero. A lock, freeze or hold, or a consumer another pallet placed,
+		// keeps the account alive and rolls the burn back, even if funds that arrived after the
+		// call would cover it. The burn is also skipped if it would leave a non-zero amount
+		// below the ED, which the reaping would remove as dust. The ED is then kept and the
+		// account stays in place as a plain account. A contract deployed to the same address
+		// later takes it over.
 		let reaped = Self::best_effort(&contract_address, "burn the existential deposit", || {
-			T::Deposit::destroy_contract(contract_account)
+			let ed = T::Currency::minimum_balance();
+			let rest = T::Currency::total_balance(contract_account).saturating_sub(ed);
+			ensure!(
+				rest.is_zero() || rest >= ed,
+				DispatchError::Other("account can not be reaped")
+			);
+			T::Deposit::destroy_contract(contract_account)?;
+			let reducible = T::Currency::reducible_balance(
+				contract_account,
+				Preservation::Expendable,
+				Fortitude::Polite,
+			);
+			ensure!(
+				reducible == T::Currency::total_balance(contract_account),
+				DispatchError::Other("account can not be reaped")
+			);
+			Ok(())
 		})
 		.is_some();
 
-		// Send the balance that arrived after the termination was scheduled. If the transfer
-		// fails the funds stay on the account.
+		// Send the balance that arrived after the termination was scheduled. If the ED was kept,
+		// `Preserve` leaves it and anything pinned on the account, so the beneficiary still gets
+		// all of the late funds. If the transfer fails the funds stay on the account.
 		let preservation = if reaped { Preservation::Expendable } else { Preservation::Preserve };
 		let balance = <Contracts<T>>::convert_native_to_evm(
 			AccountInfoOf::<T>::get(contract_address)

@@ -720,6 +720,8 @@ enum Encumbrance {
 	Hold(u128),
 	/// A freeze of the given amount under a reason pallet-revive does not own.
 	Freeze(u128),
+	/// A consumer placed by another pallet without any lock, hold or freeze.
+	Consumer,
 }
 
 /// A lock identifier pallet-revive does not own.
@@ -773,6 +775,9 @@ fn encumbered_contract(fixture_type: FixtureType, encumbrance: Encumbrance) -> C
 		Encumbrance::Freeze(amount) => {
 			assert_ok!(Balances::set_freeze(&foreign_freeze(), &contract.account_id, amount));
 		},
+		Encumbrance::Consumer => {
+			assert_ok!(System::inc_consumers(&contract.account_id));
+		},
 	}
 	contract
 }
@@ -806,6 +811,7 @@ fn call_terminate(addr: H160, method: u8) -> crate::ExecReturnValue {
 		Encumbrance::Freeze(500),
 		Encumbrance::Freeze(1_000_000),
 		Encumbrance::Hold(1),
+		Encumbrance::Consumer,
 	]
 )]
 fn precompile_terminate_with_encumbered_balance(
@@ -830,6 +836,7 @@ fn precompile_terminate_with_encumbered_balance(
 			},
 			Encumbrance::Lock(_) | Encumbrance::Freeze(_) => (0, 0, ed + SPENDABLE + deposit),
 			Encumbrance::Hold(amount) => (deposit, SPENDABLE - amount, ed + amount),
+			Encumbrance::Consumer => (deposit, SPENDABLE, ed),
 		};
 		assert!(!result.did_revert(), "terminate must succeed with {encumbrance:?}");
 		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
@@ -856,7 +863,100 @@ fn precompile_terminate_with_encumbered_balance(
 				amount,
 				"the foreign freeze must stay in place",
 			),
+			Encumbrance::Consumer => {
+				assert_eq!(System::consumers(&account_id), 1, "the foreign consumer must stay")
+			},
 			Encumbrance::None | Encumbrance::Lock(_) => {},
+		}
+	});
+}
+
+/// Funds that arrive after `System.terminate` all go to the beneficiary.
+///
+/// The ED is 50 and the late funds are either below it or above it. Late funds above the ED would
+/// cover the burn of the ED, but an encumbrance keeps the account alive. The ED is therefore kept
+/// and the sweep sends the whole late amount. Without an encumbrance the ED is burned and the
+/// account is reaped, unless the late funds are below the ED: the burn would then leave them as
+/// dust, so the ED is kept as well.
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[
+		Encumbrance::None,
+		Encumbrance::Lock(500),
+		Encumbrance::Freeze(500),
+		Encumbrance::Hold(1),
+		Encumbrance::Consumer,
+	],
+	[43, 57]
+)]
+fn precompile_terminate_with_encumbered_balance_and_late_funds(
+	fixture_type: FixtureType,
+	encumbrance: Encumbrance,
+	late: u128,
+) {
+	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let Contract { addr, account_id } = encumbered_contract(fixture_type, encumbrance);
+		let ed = Contracts::min_balance();
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code))
+				.native_value(late)
+				.build_and_unwrap_contract();
+		let django_before = get_balance(&DJANGO);
+
+		let result = builder::bare_call(caller_addr)
+			.data(
+				TerminateCaller::sendFundsAfterTerminateCall {
+					terminate_addr: addr.0.into(),
+					value: alloy_core::primitives::U256::from_limbs(
+						Pallet::<Test>::convert_native_to_evm(late).0,
+					),
+					method: METHOD_PRECOMPILE,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		let (paid_out, left) = match encumbrance {
+			Encumbrance::None if late < ed => (SPENDABLE, ed),
+			Encumbrance::None => (SPENDABLE, 0),
+			Encumbrance::Lock(frozen) | Encumbrance::Freeze(frozen) => {
+				let pinned = frozen.max(ed);
+				(ed + SPENDABLE - pinned, pinned)
+			},
+			Encumbrance::Hold(amount) => (SPENDABLE - amount, ed + amount),
+			Encumbrance::Consumer => (SPENDABLE, ed),
+		};
+		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
+		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
+		assert_eq!(
+			get_balance(&DJANGO) - django_before,
+			paid_out + late,
+			"beneficiary gets the payout and all of the late funds",
+		);
+		assert_eq!(Balances::total_balance(&account_id), left, "balance left on the account");
+		match encumbrance {
+			Encumbrance::None => {},
+			Encumbrance::Lock(amount) => assert!(
+				Balances::locks(&account_id)
+					.iter()
+					.any(|lock| lock.id == FOREIGN_LOCK && lock.amount == amount),
+				"the foreign lock must stay in place",
+			),
+			Encumbrance::Hold(amount) => assert_eq!(
+				get_balance_on_hold(&foreign_hold(), &account_id),
+				amount,
+				"the foreign hold must stay in place",
+			),
+			Encumbrance::Freeze(amount) => assert_eq!(
+				Balances::balance_frozen(&foreign_freeze(), &account_id),
+				amount,
+				"the foreign freeze must stay in place",
+			),
+			Encumbrance::Consumer => {
+				assert_eq!(System::consumers(&account_id), 1, "the foreign consumer must stay")
+			},
 		}
 	});
 }
@@ -1191,6 +1291,73 @@ fn syscall_in_top_level_constructor_deletes_contract(fixture_type: FixtureType) 
 			SPENDABLE,
 			"origin must only pay the value it sent",
 		);
+		assert_eq!(
+			Balances::total_balance_on_hold(&ALICE),
+			alice_held_before,
+			"no deposit stays on hold",
+		);
+	});
+}
+
+/// `SELFDESTRUCT` in the constructor of a contract created by another contract deletes it. With
+/// EVM the termination is scheduled while the new contract still points at the init code, so the
+/// teardown has to release the runtime code the constructor returns. No code and no deposit stay
+/// behind.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn syscall_in_nested_constructor_deletes_contract(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&DJANGO, 1_000_000);
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code))
+				.native_value(SPENDABLE)
+				.build_and_unwrap_contract();
+		let code_infos = || {
+			CodeInfoOf::<Test>::iter()
+				.map(|(hash, info)| (hash, info.refcount()))
+				.collect::<alloc::collections::BTreeMap<_, _>>()
+		};
+		let code_infos_before = code_infos();
+		let alice_before = get_balance(&ALICE);
+		let alice_held_before = Balances::total_balance_on_hold(&ALICE);
+		let django_before = get_balance(&DJANGO);
+		if fixture_type == FixtureType::Resolc {
+			// Need to pre-upload code for PVM. Nothing else references it, so the teardown
+			// removes it again and refunds its deposit.
+			assert_ok!(<Pallet<Test>>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				code,
+				<BalanceOf<Test>>::MAX,
+			));
+		}
+
+		let result = builder::bare_call(caller_addr)
+			.data(
+				TerminateCaller::createAndSelfdestructInConstructorCall {
+					value: alloy_core::primitives::U256::from_limbs(
+						Pallet::<Test>::convert_native_to_evm(SPENDABLE).0,
+					),
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
+		let created = TerminateCaller::createAndSelfdestructInConstructorCall::abi_decode_returns(
+			&result.data,
+		)
+		.unwrap();
+		let addr = H160::from_slice(created.as_slice());
+		let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
+		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
+		assert_eq!(get_balance(&DJANGO) - django_before, SPENDABLE, "beneficiary payout");
+		assert_eq!(Balances::total_balance(&account_id), 0, "nothing is left on the account");
+		assert_eq!(code_infos(), code_infos_before, "no code reference stays behind");
+		assert_eq!(get_balance(&ALICE), alice_before, "origin must get every deposit back");
 		assert_eq!(
 			Balances::total_balance_on_hold(&ALICE),
 			alice_held_before,

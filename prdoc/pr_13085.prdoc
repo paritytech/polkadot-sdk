@@ -18,8 +18,12 @@ doc:
     If the account cannot be reaped because something still pins funds on it, the contract is
     deleted and the account stays behind as a plain account holding those funds. A contract
     deployed to the same address later takes the account over. Funds sent to the contract after
-    `System.terminate` are still forwarded to the beneficiary at the end of the call stack. If
-    that transfer fails, the funds stay on the account and the contract is deleted anyway.
+    `System.terminate` are still forwarded to the beneficiary at the end of the call stack. The
+    ED is only burned when the account can actually be reaped and the burn would not leave an
+    amount below the ED to be removed as dust. Under an encumbrance, or when fewer late funds
+    than the ED arrived, the ED stays on the account and these funds reach the beneficiary in
+    full. If that transfer fails, the funds stay on the account and the contract is deleted
+    anyway.
 
     A `SELFDESTRUCT` run after `System.terminate`, in the same frame or in a later one, no longer
     cancels the termination: the contract is deleted and its deposit is refunded once.
@@ -27,9 +31,11 @@ doc:
     `SELFDESTRUCT` keeps its EIP-6780 semantics. A contract created in the same transaction is
     now deleted even if its account carries a lock, which leaves the locked funds on the account.
     This now also holds for `SELFDESTRUCT` in the constructor of a top-level instantiation, which
-    before left the contract alive. When an EVM constructor runs `SELFDESTRUCT`, the runtime code
-    it deployed and its deposit are now released as well. A pre-existing contract keeps its code
-    and deposits and only has its balance moved.
+    before left the contract alive. A `SELFDESTRUCT` in a nested EVM constructor (`new X()`) also
+    left the contract alive, because the teardown aborted on the init code hash. When an EVM
+    constructor runs `SELFDESTRUCT`, the contract is now deleted and the runtime code it deployed
+    and its deposit are released. A pre-existing contract keeps its code and deposits and only
+    has its balance moved.
 
     `ISystem.sol` no longer lists balance locks as a reason for `terminate` to revert. It never
     reverted for that reason.
