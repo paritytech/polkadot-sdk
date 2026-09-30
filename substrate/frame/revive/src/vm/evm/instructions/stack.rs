@@ -28,7 +28,7 @@ use core::ops::ControlFlow;
 ///
 /// Removes the top item from the stack.
 pub fn pop<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::POP)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Pop)?;
 	let [_] = interpreter.stack.popn()?;
 	ControlFlow::Continue(())
 }
@@ -37,23 +37,23 @@ pub fn pop<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Introduce a new instruction which pushes the constant value 0 onto the stack.
 pub fn push0<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::PUSH { number_of_bytes: 0 })?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Push)?;
 	interpreter.stack.push(U256::zero())
 }
 
 /// Implements the PUSH1-PUSH32 instructions.
 ///
 /// Pushes N bytes from bytecode onto the stack as a 32-byte value.
-pub fn push<'ext, const N: u8, E: Ext>(
+pub fn push<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::PUSH { number_of_bytes: N })?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Push)?;
 
-	let slice = interpreter.bytecode.read_slice(usize::from(N));
+	let slice = interpreter.bytecode.read_slice(N);
 	interpreter.stack.push_slice(slice)?;
 
 	// Can ignore return. as relative N jump is safe operation
-	interpreter.bytecode.relative_jump(isize::from(N));
+	interpreter.bytecode.relative_jump(N as isize);
 	ControlFlow::Continue(())
 }
 
@@ -63,7 +63,7 @@ pub fn push<'ext, const N: u8, E: Ext>(
 pub fn dup<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::DUP)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Dup)?;
 	interpreter.stack.dup(N)
 }
 
@@ -73,7 +73,7 @@ pub fn dup<'ext, const N: usize, E: Ext>(
 pub fn swap<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SWAP { depth: N })?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Swap)?;
 	assert!(N != 0);
 	interpreter.stack.exchange(0, N)
 }

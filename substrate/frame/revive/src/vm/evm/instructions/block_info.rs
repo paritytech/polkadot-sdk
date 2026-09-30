@@ -27,7 +27,7 @@ use sp_core::U256;
 
 /// EIP-1344: ChainID opcode
 pub fn chainid<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::CHAINID)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::ChainId)?;
 	interpreter.stack.push(interpreter.ext.chain_id())?;
 	ControlFlow::Continue(())
 }
@@ -66,7 +66,7 @@ pub fn block_number<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Hal
 ///
 /// Pushes the block difficulty (pre-merge) or prevrandao (post-merge) onto the stack.
 pub fn difficulty<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::PREVRANDAO)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Difficulty)?;
 	interpreter.stack.push(U256::from(DIFFICULTY))?;
 	ControlFlow::Continue(())
 }

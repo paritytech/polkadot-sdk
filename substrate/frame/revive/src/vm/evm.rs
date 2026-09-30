@@ -20,10 +20,7 @@ use crate::{
 	debug::DebugSettings,
 	precompiles::Token,
 	tracing,
-	vm::{
-		BytecodeType, ExecResult, Ext, evm::instructions::exec_instruction,
-		runtime_costs::cost_args,
-	},
+	vm::{BytecodeType, ExecResult, Ext, evm::instructions::exec_instruction},
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
@@ -39,7 +36,7 @@ mod interpreter;
 pub use interpreter::{Halt, Interpreter};
 
 mod ext_bytecode;
-pub(crate) use ext_bytecode::ExtBytecode;
+pub use ext_bytecode::ExtBytecode;
 
 mod memory;
 mod stack;
@@ -65,174 +62,146 @@ impl<T: Config> Token<T> for EVMGas {
 	}
 }
 
-/// Weight costs for EVM opcodes.
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
-pub(crate) enum EvmOpcodeCosts {
-	JUMP,
-	JUMPI,
-	JUMPDEST,
-	PUSH { number_of_bytes: u8 },
-	POP,
-	DUP,
-	SWAP { depth: usize },
-	PC,
-	CHAINID,
-	PREVRANDAO,
-	CODESIZE,
-	CALLDATALOAD,
-	CALLDATASIZE,
-	RETURNDATASIZE,
-	ADD,
-	MUL,
-	SUB,
-	DIV,
-	SDIV,
-	MOD,
-	SMOD,
-	ADDMOD,
-	MULMOD,
-	EXP { exponent_bits: u32 },
-	SIGNEXTEND,
-	LT,
-	GT,
-	CLZ,
-	SLT,
-	SGT,
-	EQ,
-	ISZERO,
-	AND,
-	OR,
-	XOR,
-	NOT,
-	BYTE,
-	SHL,
-	SHR,
-	SAR,
-	MLOAD,
-	MSTORE,
-	MSTORE8,
-	MSIZE,
-	MCOPY { len: u32 },
+enum EvmOpcodeCosts {
+	// Control Opcodes
+	Jump,
+	Jumpi,
+	JumpDest,
+	Pc,
+
+	// Stack Opcodes
+	Push,
+	Pop,
+	Dup,
+	Swap,
+
+	// Block Info Opcodes
+	ChainId,
+	Difficulty,
+
+	// System Opcodes
+	CodeSize,
+	CallDataSize,
+	ReturnDataSize,
+	CallDataLoad,
+
+	// Memory Opcodes
+	MLoad,
+	MSize,
+	MStore,
+	MStore8,
+	MCopy { len: u32 },
+
+	// Bitwise Opcodes
+	Lt,
+	Gt,
+	Eq,
+	IsZero,
+	And,
+	Or,
+	Xor,
+	Not,
+	Byte,
+	Clz,
+	Slt,
+	Sgt,
+	Shl,
+	Shr,
+	Sar,
+
+	// Arithmetic Opcodes
+	AddMod,
+	Div,
+	Add,
+	Sub,
+	Mul,
+	SDiv,
+	Mod,
+	SMod,
+	MulMod,
+	Exp { exponent_bits: u32 },
+	SignExtend,
 }
 
 impl<T: Config> Token<T> for EvmOpcodeCosts {
 	fn weight(&self) -> Weight {
-		use EvmOpcodeCosts::*;
-
-		let weight_of = |token: EvmOpcodeCosts| Token::<T>::weight(&token);
-
+		let per_opcode = |weight_fn: fn(u32) -> Weight| weight_fn(1).saturating_sub(weight_fn(0));
 		match self {
-			JUMP => cost_args!(evm_jump_opcode, 1).saturating_sub(weight_of(JUMPDEST)),
-			JUMPI => cost_args!(evm_jumpi_opcode_always_taken_variant, 1)
-				.max(cost_args!(evm_jumpi_opcode_always_untaken_variant, 1))
-				.max(cost_args!(evm_jumpi_opcode_pseudo_random_taken_variant, 1))
-				.saturating_sub(weight_of(JUMPDEST)),
-			JUMPDEST => cost_args!(evm_jumpdest_opcode, 1),
-			PUSH { number_of_bytes } => match number_of_bytes {
-				0 => cost_args!(evm_push0_opcode, 1),
-				1 => cost_args!(evm_push1_opcode, 1),
-				2 => cost_args!(evm_push2_opcode, 1),
-				3 => cost_args!(evm_push3_opcode, 1),
-				4 => cost_args!(evm_push4_opcode, 1),
-				5 => cost_args!(evm_push5_opcode, 1),
-				6 => cost_args!(evm_push6_opcode, 1),
-				7 => cost_args!(evm_push7_opcode, 1),
-				8 => cost_args!(evm_push8_opcode, 1),
-				9 => cost_args!(evm_push9_opcode, 1),
-				10 => cost_args!(evm_push10_opcode, 1),
-				11 => cost_args!(evm_push11_opcode, 1),
-				12 => cost_args!(evm_push12_opcode, 1),
-				13 => cost_args!(evm_push13_opcode, 1),
-				14 => cost_args!(evm_push14_opcode, 1),
-				15 => cost_args!(evm_push15_opcode, 1),
-				16 => cost_args!(evm_push16_opcode, 1),
-				17 => cost_args!(evm_push17_opcode, 1),
-				18 => cost_args!(evm_push18_opcode, 1),
-				19 => cost_args!(evm_push19_opcode, 1),
-				20 => cost_args!(evm_push20_opcode, 1),
-				21 => cost_args!(evm_push21_opcode, 1),
-				22 => cost_args!(evm_push22_opcode, 1),
-				23 => cost_args!(evm_push23_opcode, 1),
-				24 => cost_args!(evm_push24_opcode, 1),
-				25 => cost_args!(evm_push25_opcode, 1),
-				26 => cost_args!(evm_push26_opcode, 1),
-				27 => cost_args!(evm_push27_opcode, 1),
-				28 => cost_args!(evm_push28_opcode, 1),
-				29 => cost_args!(evm_push29_opcode, 1),
-				30 => cost_args!(evm_push30_opcode, 1),
-				31 => cost_args!(evm_push31_opcode, 1),
-				32 => cost_args!(evm_push32_opcode, 1),
-				// Push can't do more than 32 bytes. If this is encountered we charge maximum weight
-				// for it.
-				33.. => Weight::MAX,
+			Self::Jump => per_opcode(T::WeightInfo::evm_jump_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::JumpDest)),
+			Self::Jumpi => per_opcode(T::WeightInfo::evm_jumpi_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::JumpDest)),
+			Self::JumpDest => per_opcode(T::WeightInfo::evm_jumpdest_opcode),
+			Self::Pc => per_opcode(T::WeightInfo::evm_pc_opcode),
+			Self::Push => per_opcode(T::WeightInfo::evm_push_opcode),
+			Self::Pop => per_opcode(T::WeightInfo::evm_pop_opcode),
+			Self::Dup => per_opcode(T::WeightInfo::evm_dup_opcode),
+			Self::Swap => per_opcode(T::WeightInfo::evm_swap_opcode),
+			Self::ChainId => per_opcode(T::WeightInfo::evm_chainid_opcode),
+			Self::Difficulty => per_opcode(T::WeightInfo::evm_difficulty_opcode),
+			Self::CodeSize => per_opcode(T::WeightInfo::evm_codesize_opcode),
+			Self::CallDataSize => per_opcode(T::WeightInfo::evm_calldatasize_opcode),
+			Self::ReturnDataSize => per_opcode(T::WeightInfo::evm_returndatasize_opcode),
+			Self::CallDataLoad => per_opcode(T::WeightInfo::evm_calldataload_opcode),
+			Self::MLoad => per_opcode(T::WeightInfo::evm_mload_opcode),
+			Self::MSize => per_opcode(T::WeightInfo::evm_msize_opcode),
+			Self::MStore => per_opcode(T::WeightInfo::evm_mstore_opcode),
+			Self::MStore8 => per_opcode(T::WeightInfo::evm_mstore8_opcode),
+			Self::MCopy { len } => {
+				// The fixed cost covers the first 64 bytes, so shorter copies pay nothing more.
+				let extra_bytes = len.saturating_sub(64);
+				per_opcode(T::WeightInfo::evm_mcopy_opcode).saturating_add(
+					T::WeightInfo::evm_mcopy_per_byte(extra_bytes)
+						.saturating_sub(T::WeightInfo::evm_mcopy_per_byte(0)),
+				)
 			},
-			POP => cost_args!(evm_pop_opcode, 1),
-			DUP => cost_args!(evm_dup_opcode, 1),
-			SWAP { depth } => match depth {
-				1 => cost_args!(evm_swap1_opcode, 1),
-				2 => cost_args!(evm_swap2_opcode, 1),
-				3 => cost_args!(evm_swap3_opcode, 1),
-				4 => cost_args!(evm_swap4_opcode, 1),
-				5 => cost_args!(evm_swap5_opcode, 1),
-				6 => cost_args!(evm_swap6_opcode, 1),
-				7 => cost_args!(evm_swap7_opcode, 1),
-				8 => cost_args!(evm_swap8_opcode, 1),
-				9 => cost_args!(evm_swap9_opcode, 1),
-				10 => cost_args!(evm_swap10_opcode, 1),
-				11 => cost_args!(evm_swap11_opcode, 1),
-				12 => cost_args!(evm_swap12_opcode, 1),
-				13 => cost_args!(evm_swap13_opcode, 1),
-				14 => cost_args!(evm_swap14_opcode, 1),
-				15 => cost_args!(evm_swap15_opcode, 1),
-				16 => cost_args!(evm_swap16_opcode, 1),
-				// Swap can only reach the 16 items below the top of the stack. If anything else is
-				// encountered we charge maximum weight for it.
-				0 | 17.. => Weight::MAX,
-			},
-			PC => cost_args!(evm_pc_opcode, 1),
-			CHAINID => cost_args!(evm_chainid_opcode, 1),
-			PREVRANDAO => cost_args!(evm_prevrandao_opcode, 1),
-			CODESIZE => cost_args!(evm_codesize_opcode, 1),
-			CALLDATALOAD => cost_args!(evm_calldataload_opcode, 1),
-			CALLDATASIZE => cost_args!(evm_calldatasize_opcode, 1),
-			RETURNDATASIZE => cost_args!(evm_returndatasize_opcode, 1),
-			ADD => cost_args!(evm_add_opcode, 1),
-			MUL => cost_args!(evm_mul_opcode, 1),
-			SUB => cost_args!(evm_sub_opcode, 1),
-			DIV => cost_args!(evm_div_opcode, 1).saturating_sub(weight_of(POP)),
-			SDIV => cost_args!(evm_sdiv_opcode, 1).saturating_sub(weight_of(POP)),
-			MOD => cost_args!(evm_mod_opcode, 1).saturating_sub(weight_of(POP)),
-			SMOD => cost_args!(evm_smod_opcode, 1).saturating_sub(weight_of(POP)),
-			ADDMOD => cost_args!(evm_addmod_opcode, 1).saturating_sub(weight_of(POP)),
-			MULMOD => cost_args!(evm_mulmod_opcode, 1).saturating_sub(weight_of(POP)),
-			EXP { exponent_bits: 0 } => cost_args!(evm_exp_zero_opcode, 1),
-			EXP { exponent_bits } => cost_args!(evm_exp_opcode, 1)
-				.saturating_add(cost_args!(evm_exp_per_bit, exponent_bits.saturating_sub(1))),
-			SIGNEXTEND => cost_args!(evm_signextend_opcode, 1).saturating_sub(weight_of(POP)),
-			LT => cost_args!(evm_lt_opcode, 1),
-			GT => cost_args!(evm_gt_opcode, 1),
-			CLZ => cost_args!(evm_clz_opcode, 1),
-			SLT => cost_args!(evm_slt_opcode, 1),
-			SGT => cost_args!(evm_sgt_opcode, 1),
-			EQ => cost_args!(evm_eq_opcode, 1),
-			ISZERO => cost_args!(evm_iszero_opcode, 1).saturating_sub(weight_of(POP)),
-			AND => cost_args!(evm_and_opcode, 1),
-			OR => cost_args!(evm_or_opcode, 1),
-			XOR => cost_args!(evm_xor_opcode, 1),
-			NOT => cost_args!(evm_not_opcode, 1),
-			BYTE => cost_args!(evm_byte_opcode, 1).saturating_sub(weight_of(POP)),
-			SHL => cost_args!(evm_shl_opcode, 1).saturating_sub(weight_of(POP)),
-			SHR => cost_args!(evm_shr_opcode, 1).saturating_sub(weight_of(POP)),
-			SAR => cost_args!(evm_sar_opcode, 1).saturating_sub(weight_of(POP)),
-			MLOAD => cost_args!(evm_mload_opcode, 1),
-			MSTORE => cost_args!(evm_mstore_opcode, 1),
-			MSTORE8 => cost_args!(evm_mstore8_opcode, 1),
-			MSIZE => cost_args!(evm_msize_opcode, 1),
-			MCOPY { len } => {
-				// The fixed cost includes copying 64 bytes; shorter copies pay no variable cost.
-				cost_args!(evm_mcopy_opcode, 1)
-					.saturating_add(cost_args!(evm_mcopy_per_byte, len.saturating_sub(64)))
-			},
+			Self::Lt => per_opcode(T::WeightInfo::evm_lt_opcode),
+			Self::Gt => per_opcode(T::WeightInfo::evm_gt_opcode),
+			Self::Eq => per_opcode(T::WeightInfo::evm_eq_opcode),
+			Self::IsZero => per_opcode(T::WeightInfo::evm_iszero_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::And => per_opcode(T::WeightInfo::evm_and_opcode),
+			Self::Or => per_opcode(T::WeightInfo::evm_or_opcode),
+			Self::Xor => per_opcode(T::WeightInfo::evm_xor_opcode),
+			Self::Not => per_opcode(T::WeightInfo::evm_not_opcode),
+			Self::Byte => per_opcode(T::WeightInfo::evm_byte_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Clz => per_opcode(T::WeightInfo::evm_clz_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Slt => per_opcode(T::WeightInfo::evm_slt_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Sgt => per_opcode(T::WeightInfo::evm_sgt_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Shl => per_opcode(T::WeightInfo::evm_shl_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Shr => per_opcode(T::WeightInfo::evm_shr_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Sar => per_opcode(T::WeightInfo::evm_sar_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::AddMod => per_opcode(T::WeightInfo::evm_addmod_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Div => per_opcode(T::WeightInfo::evm_div_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Add => per_opcode(T::WeightInfo::evm_add_opcode),
+			Self::Sub => per_opcode(T::WeightInfo::evm_sub_opcode),
+			Self::Mul => per_opcode(T::WeightInfo::evm_mul_opcode),
+			Self::SDiv => per_opcode(T::WeightInfo::evm_sdiv_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Mod => per_opcode(T::WeightInfo::evm_mod_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::SMod => per_opcode(T::WeightInfo::evm_smod_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::MulMod => per_opcode(T::WeightInfo::evm_mulmod_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Exp { exponent_bits: 0 } => per_opcode(T::WeightInfo::evm_exp_zero_opcode),
+			Self::Exp { exponent_bits } => per_opcode(T::WeightInfo::evm_exp_opcode)
+				.saturating_add(
+					T::WeightInfo::evm_exp_per_bit(exponent_bits.saturating_sub(1))
+						.saturating_sub(T::WeightInfo::evm_exp_per_bit(0)),
+				),
+			Self::SignExtend => per_opcode(T::WeightInfo::evm_signextend_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
 		}
 	}
 }
@@ -337,7 +306,7 @@ pub fn call<E: Ext>(bytecode: Bytecode, ext: &mut E, input: Vec<u8>) -> ExecResu
 	halt.into()
 }
 
-pub(crate) fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infallible> {
+pub fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infallible> {
 	loop {
 		let opcode = interpreter.bytecode.opcode();
 		interpreter.bytecode.relative_jump(1);

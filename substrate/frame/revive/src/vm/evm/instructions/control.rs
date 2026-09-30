@@ -33,7 +33,7 @@ use core::ops::ControlFlow;
 ///
 /// Unconditional jump to a valid destination.
 pub fn jump<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::JUMP)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Jump)?;
 	let [target] = interpreter.stack.popn()?;
 	jump_inner(interpreter, target)?;
 	ControlFlow::Continue(())
@@ -43,7 +43,7 @@ pub fn jump<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Conditional jump to a valid destination if condition is true.
 pub fn jumpi<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::JUMPI)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Jumpi)?;
 	let [target, cond] = interpreter.stack.popn()?;
 
 	if !cond.is_zero() {
@@ -71,7 +71,7 @@ fn jump_inner<E: Ext>(interpreter: &mut Interpreter<E>, target: U256) -> Control
 ///
 /// Marks a valid destination for jump operations.
 pub fn jumpdest<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::JUMPDEST)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::JumpDest)?;
 	ControlFlow::Continue(())
 }
 
@@ -79,7 +79,7 @@ pub fn jumpdest<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Pushes the current program counter onto the stack.
 pub fn pc<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::PC)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Pc)?;
 	// - 1 because we have already advanced the instruction pointer in `Interpreter::step`
 	interpreter.stack.push(U256::from(interpreter.bytecode.pc() - 1))?;
 	ControlFlow::Continue(())

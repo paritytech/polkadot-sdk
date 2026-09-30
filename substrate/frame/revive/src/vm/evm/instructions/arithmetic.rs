@@ -28,10 +28,11 @@ use crate::{
 	},
 };
 use core::ops::ControlFlow;
+use sp_runtime::traits::SaturatedConversion;
 
 /// Implements the ADD instruction - adds two values from stack.
 pub fn add<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::ADD)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Add)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1.overflowing_add(*op2).0;
 	ControlFlow::Continue(())
@@ -39,7 +40,7 @@ pub fn add<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// Implements the MUL instruction - multiplies two values from stack.
 pub fn mul<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::MUL)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Mul)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1.overflowing_mul(*op2).0;
 	ControlFlow::Continue(())
@@ -47,7 +48,7 @@ pub fn mul<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// Implements the SUB instruction - subtracts two values from stack.
 pub fn sub<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SUB)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Sub)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1.overflowing_sub(*op2).0;
 	ControlFlow::Continue(())
@@ -55,7 +56,7 @@ pub fn sub<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// Implements the DIV instruction - divides two values from stack.
 pub fn div<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::DIV)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Div)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	if !op2.is_zero() {
 		*op2 = op1 / *op2;
@@ -67,7 +68,7 @@ pub fn div<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Performs signed division of two values from stack.
 pub fn sdiv<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SDIV)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SDiv)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = i256_div(op1, *op2);
 	ControlFlow::Continue(())
@@ -76,7 +77,7 @@ pub fn sdiv<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Pops two values from stack and pushes the remainder of their division.
 pub fn rem<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::MOD)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Mod)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	if !op2.is_zero() {
 		*op2 = op1 % *op2;
@@ -88,7 +89,7 @@ pub fn rem<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Performs signed modulo of two values from stack.
 pub fn smod<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SMOD)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SMod)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = i256_mod(op1, *op2);
 	ControlFlow::Continue(())
@@ -98,7 +99,7 @@ pub fn smod<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Pops three values from stack and pushes (a + b) % n.
 pub fn addmod<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::ADDMOD)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::AddMod)?;
 	let ([op1, op2], op3) = interpreter.stack.popn_top()?;
 	*op3 = op1.add_mod(op2, *op3);
 	ControlFlow::Continue(())
@@ -108,7 +109,7 @@ pub fn addmod<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Pops three values from stack and pushes (a * b) % n.
 pub fn mulmod<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::MULMOD)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::MulMod)?;
 	let ([op1, op2], op3) = interpreter.stack.popn_top()?;
 	*op3 = op1.mul_mod(op2, *op3);
 	ControlFlow::Continue(())
@@ -117,8 +118,9 @@ pub fn mulmod<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Implements the EXP instruction - exponentiates two values from stack.
 pub fn exp<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([op1], op2) = interpreter.stack.popn_top()?;
-	let exponent_bits = op2.bits() as u32;
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::EXP { exponent_bits })?;
+	interpreter
+		.ext
+		.charge_or_halt(EvmOpcodeCosts::Exp { exponent_bits: op2.bits().saturated_into() })?;
 	*op2 = op1.overflowing_pow(*op2).0;
 	ControlFlow::Continue(())
 }
@@ -153,7 +155,7 @@ pub fn exp<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Similarly, if `b == 0` then the yellow paper says the output should start with all zeros,
 /// then end with bits from `b`; this is equal to `y & mask` where `&` is bitwise `AND`.
 pub fn signextend<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SIGNEXTEND)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SignExtend)?;
 	let ([ext], x) = interpreter.stack.popn_top()?;
 	// For 31 we also don't need to do anything.
 	if ext < U256::from(31) {

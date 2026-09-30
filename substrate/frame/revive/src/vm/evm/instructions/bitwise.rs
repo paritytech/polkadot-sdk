@@ -30,7 +30,7 @@ use core::{cmp::Ordering, ops::ControlFlow};
 
 /// Implements the LT instruction - less than comparison.
 pub fn lt<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::LT)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Lt)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = if op1 < *op2 { U256::one() } else { U256::zero() };
 	ControlFlow::Continue(())
@@ -38,7 +38,7 @@ pub fn lt<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// Implements the GT instruction - greater than comparison.
 pub fn gt<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::GT)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Gt)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	*op2 = if op1 > *op2 { U256::one() } else { U256::zero() };
@@ -47,7 +47,7 @@ pub fn gt<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// Implements the CLZ instruction - count leading zeros.
 pub fn clz<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::CLZ)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Clz)?;
 	let ([], op1) = interpreter.stack.popn_top()?;
 
 	let leading_zeros = op1.leading_zeros();
@@ -59,7 +59,7 @@ pub fn clz<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Signed less than comparison of two values from stack.
 pub fn slt<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SLT)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Slt)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	*op2 = if i256_cmp(&op1, op2) == Ordering::Less { U256::one() } else { U256::zero() };
@@ -70,7 +70,7 @@ pub fn slt<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Signed greater than comparison of two values from stack.
 pub fn sgt<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SGT)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Sgt)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	*op2 = if i256_cmp(&op1, op2) == Ordering::Greater { U256::one() } else { U256::zero() };
@@ -81,7 +81,7 @@ pub fn sgt<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Equality comparison of two values from stack.
 pub fn eq<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::EQ)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Eq)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	*op2 = if op1 == *op2 { U256::one() } else { U256::zero() };
@@ -92,7 +92,7 @@ pub fn eq<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Checks if the top stack value is zero.
 pub fn iszero<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::ISZERO)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::IsZero)?;
 	let ([], op1) = interpreter.stack.popn_top()?;
 
 	*op1 = if op1.is_zero() { U256::one() } else { U256::zero() };
@@ -103,7 +103,7 @@ pub fn iszero<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Bitwise AND of two values from stack.
 pub fn bitand<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::AND)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::And)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1 & *op2;
 	ControlFlow::Continue(())
@@ -113,7 +113,7 @@ pub fn bitand<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Bitwise OR of two values from stack.
 pub fn bitor<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::OR)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Or)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1 | *op2;
 	ControlFlow::Continue(())
@@ -123,7 +123,7 @@ pub fn bitor<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Bitwise XOR of two values from stack.
 pub fn bitxor<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::XOR)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Xor)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1 ^ *op2;
 	ControlFlow::Continue(())
@@ -133,7 +133,7 @@ pub fn bitxor<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Bitwise NOT (negation) of the top stack value.
 pub fn not<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::NOT)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Not)?;
 	let ([], op1) = interpreter.stack.popn_top()?;
 	*op1 = !*op1;
 	ControlFlow::Continue(())
@@ -143,7 +143,7 @@ pub fn not<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Extracts a single byte from a word at a given index.
 pub fn byte<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::BYTE)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Byte)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	let o1 = as_usize_saturated(op1);
@@ -158,7 +158,7 @@ pub fn byte<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// EIP-145: Bitwise shifting instructions in EVM
 pub fn shl<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SHL)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Shl)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	let shift = as_usize_saturated(op1);
@@ -168,7 +168,7 @@ pub fn shl<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// EIP-145: Bitwise shifting instructions in EVM
 pub fn shr<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SHR)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Shr)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	let shift = as_usize_saturated(op1);
@@ -178,7 +178,7 @@ pub fn shr<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// EIP-145: Bitwise shifting instructions in EVM
 pub fn sar<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SAR)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Sar)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	let shift = as_usize_saturated(op1);
