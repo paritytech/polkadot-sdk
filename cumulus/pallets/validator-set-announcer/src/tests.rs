@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, Error, Event, OutgoingAnnouncements};
+use crate::{mock::*, weights::WeightInfo, Error, Event, OutgoingAnnouncements};
 use frame_support::{assert_err, assert_ok};
 use pallet_validator_collators::{
 	Error as ReceiverError, PendingRotation, RotationState, ValidatorSet,
@@ -40,9 +40,7 @@ fn announcement_events() -> Vec<Event<Test>> {
 }
 
 fn outgoing() -> Vec<u32> {
-	let mut outgoing = OutgoingAnnouncements::<Test>::iter_keys().collect::<Vec<_>>();
-	outgoing.sort();
-	outgoing
+	OutgoingAnnouncements::<Test>::get().into_inner()
 }
 
 #[test]
@@ -106,11 +104,16 @@ fn failed_send_is_retried_every_block_until_sent_or_replaced() {
 				Event::AnnouncementFailed { destination: 2, era: 1 },
 			]
 		);
-		// WHEN the era 2 set is announced and destination 2 accepts again
+		// WHEN the single pending destination is retried
+		// THEN the retry is charged one send
+		let one_send = <() as WeightInfo>::send_announcement(1);
+		assert_eq!(ValidatorSetAnnouncer::send_announcements(), one_send);
+		// WHEN the era 2 set is announced, destination 2 accepts again and the queue is drained
 		assert_ok!(announce(2, vec![11]));
 		FailingDestinations::set(vec![]);
-		initialize_to_block(5);
-		// THEN both destinations receive only the era 2 set and the queue is empty
+		// THEN the drain is charged one send per pending destination, both destinations receive
+		// only the era 2 set and the queue is empty
+		assert_eq!(ValidatorSetAnnouncer::send_announcements(), one_send.saturating_mul(2));
 		assert_eq!(Sent::get(), vec![(1, 1, vec![10]), (1, 2, vec![11]), (2, 2, vec![11])]);
 		assert_eq!(outgoing(), Vec::<u32>::new());
 		assert_ok!(ValidatorSetAnnouncer::do_try_state());
@@ -142,7 +145,7 @@ fn try_state_rejects_an_announcement_queued_for_an_unknown_destination() {
 		// GIVEN a stored set
 		assert_ok!(announce(1, vec![10]));
 		// WHEN an unknown destination is queued
-		OutgoingAnnouncements::<Test>::insert(3, ());
+		OutgoingAnnouncements::<Test>::mutate(|outgoing| outgoing[0] = 3);
 		// THEN try_state fails
 		assert!(ValidatorSetAnnouncer::do_try_state().is_err());
 	});

@@ -21,9 +21,12 @@ use super::*;
 
 #[allow(unused)]
 use crate::Pallet as ValidatorSetAnnouncer;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::{account, v2::*, BenchmarkError};
-use frame_support::traits::Get;
+use frame_support::{
+	traits::{DefensiveTruncateFrom, Get},
+	BoundedVec,
+};
 use pallet_validator_collators::ValidatorSet;
 
 #[benchmarks]
@@ -44,22 +47,27 @@ mod benchmarks {
 		}
 
 		assert_eq!(ValidatorSet::<T>::get().map(|set| set.era), Some(1));
-		assert_eq!(OutgoingAnnouncements::<T>::iter_keys().count(), T::Destinations::get().len());
+		assert_eq!(OutgoingAnnouncements::<T>::get().len(), T::Destinations::get().len());
 		Ok(())
 	}
 
 	#[benchmark]
-	fn send_announcements(n: Linear<1, { T::MaxValidators::get() }>) -> Result<(), BenchmarkError> {
+	fn send_announcement(n: Linear<1, { T::MaxValidators::get() }>) -> Result<(), BenchmarkError> {
 		let validators = (0..n).map(|i| account("validator", i, 0)).collect::<Vec<T::AccountId>>();
 		Pallet::<T>::announce(1, &validators)?;
-		T::Destinations::get().iter().for_each(T::Sender::ensure_successful_send);
+		let destination = T::Destinations::get()
+			.into_iter()
+			.next()
+			.ok_or(BenchmarkError::Stop("no destination is configured"))?;
+		T::Sender::ensure_successful_send(&destination);
+		OutgoingAnnouncements::<T>::put(BoundedVec::defensive_truncate_from(vec![destination]));
 
 		#[block]
 		{
 			Pallet::<T>::send_announcements();
 		}
 
-		assert_eq!(OutgoingAnnouncements::<T>::iter_keys().count(), 0);
+		assert!(OutgoingAnnouncements::<T>::get().is_empty());
 		Ok(())
 	}
 

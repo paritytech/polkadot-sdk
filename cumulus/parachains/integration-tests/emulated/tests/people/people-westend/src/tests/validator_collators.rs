@@ -15,9 +15,9 @@
 
 use crate::imports::*;
 use codec::Encode;
-use emulated_integration_tests_common::collators;
+use emulated_integration_tests_common::{collators, xcm_emulator::pallet_aura};
 use pallet_staking_async::OnEraStart;
-use parachains_common::AccountId;
+use parachains_common::{AccountId, AuraId};
 use sp_externalities::ExternalitiesExt;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
@@ -29,32 +29,35 @@ fn use_memory_keystore() {
 	});
 }
 
-fn register_keys_on_asset_hub(who: &AccountId) {
+fn register_keys_on_asset_hub(who: &AccountId) -> AuraId {
 	type Runtime = <AssetHubWestend as Chain>::Runtime;
 	use_memory_keystore();
 	let keys = asset_hub_westend_runtime::SessionKeys::generate(&who.encode(), None);
+	let aura = keys.keys.aura.clone();
 	assert_ok!(pallet_session::Pallet::<Runtime>::set_keys(
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(who.clone()),
 		keys.keys,
 		keys.proof.encode(),
 	));
+	aura
 }
 
-fn register_keys_on_people(who: &AccountId) {
+fn register_keys_on_people(who: &AccountId) -> AuraId {
 	type Runtime = <PeopleWestend as Chain>::Runtime;
 	use_memory_keystore();
 	let keys = people_westend_runtime::SessionKeys::generate(&who.encode(), None);
+	let aura = keys.keys.aura.clone();
 	assert_ok!(pallet_session::Pallet::<Runtime>::set_keys(
 		<PeopleWestend as Chain>::RuntimeOrigin::signed(who.clone()),
 		keys.keys,
 		keys.proof.encode(),
 	));
+	aura
 }
 
-fn invulnerables() -> Vec<AccountId> {
-	let mut invulnerables =
-		collators::invulnerables().into_iter().map(|(who, _)| who).collect::<Vec<_>>();
-	invulnerables.sort();
+fn invulnerables() -> Vec<(AccountId, AuraId)> {
+	let mut invulnerables = collators::invulnerables();
+	invulnerables.sort_by(|(a, _), (b, _)| a.cmp(b));
 	invulnerables
 }
 
@@ -66,17 +69,23 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 	let validators = vec![alice.clone(), bob.clone(), charlie];
 	let expected = invulnerables()
 		.into_iter()
+		.map(|(who, _)| who)
 		.chain([alice.clone(), bob.clone()])
 		.collect::<Vec<_>>();
+	let expected_authorities = |alice_aura: AuraId, bob_aura: AuraId| {
+		invulnerables()
+			.into_iter()
+			.map(|(_, aura)| aura)
+			.chain([alice_aura, bob_aura])
+			.collect::<Vec<_>>()
+	};
 
 	// GIVEN Alice and Bob registered collator keys on both chains and Charlie did not
-	AssetHubWestend::execute_with(|| {
-		register_keys_on_asset_hub(&alice);
-		register_keys_on_asset_hub(&bob);
+	let asset_hub_authorities = AssetHubWestend::execute_with(|| {
+		expected_authorities(register_keys_on_asset_hub(&alice), register_keys_on_asset_hub(&bob))
 	});
-	PeopleWestend::execute_with(|| {
-		register_keys_on_people(&alice);
-		register_keys_on_people(&bob);
+	let people_authorities = PeopleWestend::execute_with(|| {
+		expected_authorities(register_keys_on_people(&alice), register_keys_on_people(&bob))
 	});
 	let people_session_before = PeopleWestend::execute_with(|| {
 		pallet_session::Pallet::<<PeopleWestend as Chain>::Runtime>::current_index()
@@ -115,6 +124,10 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 		type Session = pallet_session::Pallet<<AssetHubWestend as Chain>::Runtime>;
 		assert_eq!(Session::current_index(), asset_hub_session_before + 2);
 		assert_eq!(Session::validators(), expected);
+		assert_eq!(
+			pallet_aura::Authorities::<<AssetHubWestend as Chain>::Runtime>::get().into_inner(),
+			asset_hub_authorities
+		);
 	});
 	// Every `execute_with` runs one block. People received the set in the block above, so it
 	// needs one more block than Asset Hub to reach the second rotation.
@@ -123,5 +136,9 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 		type Session = pallet_session::Pallet<<PeopleWestend as Chain>::Runtime>;
 		assert_eq!(Session::current_index(), people_session_before + 2);
 		assert_eq!(Session::validators(), expected);
+		assert_eq!(
+			pallet_aura::Authorities::<<PeopleWestend as Chain>::Runtime>::get().into_inner(),
+			people_authorities
+		);
 	});
 }

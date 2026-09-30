@@ -52,8 +52,8 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_validator_set_announcer::WeightInfo for WeightInfo<T> {
 	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:1)
 	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006), added: 32501, mode: `MaxEncodedLen`)
-	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:1 w:1)
-	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: None, `max_size`: Some(9), added: 2484, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:0 w:1)
+	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: Some(1), `max_size`: Some(2), added: 497, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
 	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 1000]`.
@@ -66,11 +66,11 @@ impl<T: frame_system::Config> pallet_validator_set_announcer::WeightInfo for Wei
 			.saturating_add(Weight::from_parts(0, 33491))
 			// Standard Error: 128
 			.saturating_add(Weight::from_parts(130_496, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:2 w:1)
-	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: None, `max_size`: Some(9), added: 2484, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:1 w:1)
+	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: Some(1), `max_size`: Some(2), added: 497, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:0)
 	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006), added: 32501, mode: `MaxEncodedLen`)
 	/// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
@@ -84,7 +84,7 @@ impl<T: frame_system::Config> pallet_validator_set_announcer::WeightInfo for Wei
 	/// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
 	/// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 1000]`.
-	fn send_announcements(n: u32, ) -> Weight {
+	fn send_announcement(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `437 + n * (32 ±0)`
 		//  Estimated: `33491 + n * (32 ±0)`
@@ -93,7 +93,7 @@ impl<T: frame_system::Config> pallet_validator_set_announcer::WeightInfo for Wei
 			.saturating_add(Weight::from_parts(0, 33491))
 			// Standard Error: 107
 			.saturating_add(Weight::from_parts(135_383, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(Weight::from_parts(0, 32).saturating_mul(n.into()))
 	}

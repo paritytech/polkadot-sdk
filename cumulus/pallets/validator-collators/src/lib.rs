@@ -21,7 +21,8 @@
 //!
 //! ## Overview
 //!
-//! The announcing chain sends the active validator set of each era, tagged with the era index.
+//! The announcing chain sends the active validator set of each era, tagged with the era index of
+//! `pallet-staking-async`.
 //! This pallet stores the latest set, received through `set_validators` from [`Config::SetOrigin`]
 //! or from another pallet through [`Pallet::receive_validator_set`], and rejects a set whose era
 //! is not newer than the stored one.
@@ -159,6 +160,9 @@ pub mod pallet {
 	/// whenever it changes, and the relay chain rejects a header above its head-data limit. Size
 	/// the cap so that the merged list, invulnerables and candidates included, keeps a
 	/// session-change header within that limit.
+	///
+	/// TODO: replace the prefix with a random draw among the opted-in validators. Until then the
+	/// cap keeps the first ones of the received set, which staking hands over sorted by account id.
 	#[pallet::storage]
 	pub type MaxCollators<T: Config> = StorageValue<_, u32, OptionQuery>;
 
@@ -205,6 +209,8 @@ pub mod pallet {
 		}
 
 		/// Set the maximum number of validators returned as collators.
+		///
+		/// See [`MaxCollators`] for which validators the cap keeps.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_max_collators())]
 		pub fn set_max_collators(origin: OriginFor<T>, max: Option<u32>) -> DispatchResult {

@@ -474,6 +474,8 @@ parameter_types! {
 		vec![ValidatorSetDestination::People];
 }
 
+// `people-westend-integration-tests` executes this call on the People Westend runtime and fails
+// if this encoding drifts.
 #[derive(Encode)]
 enum PeopleRuntimePallets {
 	// index of `ValidatorCollators` in the People Westend runtime.

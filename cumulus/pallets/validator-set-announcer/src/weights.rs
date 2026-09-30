@@ -29,7 +29,7 @@ use frame_support::{
 /// Weight functions needed for `pallet_validator_set_announcer`.
 pub trait WeightInfo {
 	fn announce(n: u32) -> Weight;
-	fn send_announcements(n: u32) -> Weight;
+	fn send_announcement(n: u32) -> Weight;
 }
 
 /// Default weights for `pallet_validator_set_announcer`, see the module doc for their source.
@@ -38,9 +38,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:1)
 	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
 	/// added: 32501, mode: `MaxEncodedLen`)
-	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:1 w:1)
-	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: None, `max_size`:
-	/// Some(9), added: 2484, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:0 w:1)
+	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: Some(1), `max_size`:
+	/// Some(2), added: 497, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
 	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1),
 	/// added: 496, mode: `MaxEncodedLen`)
@@ -48,12 +48,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn announce(n: u32) -> Weight {
 		Weight::from_parts(27_026_338, 33_491)
 			.saturating_add(Weight::from_parts(130_496, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
-	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:2 w:1)
-	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: None, `max_size`:
-	/// Some(9), added: 2484, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:1 w:1)
+	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: Some(1), `max_size`:
+	/// Some(2), added: 497, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:0)
 	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
 	/// added: 32501, mode: `MaxEncodedLen`)
@@ -73,10 +73,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506),
 	/// added: 107981, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 1000]`.
-	fn send_announcements(n: u32) -> Weight {
+	fn send_announcement(n: u32) -> Weight {
 		Weight::from_parts(49_926_666, 33_491)
 			.saturating_add(Weight::from_parts(135_383, 32).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(7_u64))
+			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 }
@@ -86,9 +86,9 @@ impl WeightInfo for () {
 	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:1)
 	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
 	/// added: 32501, mode: `MaxEncodedLen`)
-	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:1 w:1)
-	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: None, `max_size`:
-	/// Some(9), added: 2484, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:0 w:1)
+	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: Some(1), `max_size`:
+	/// Some(2), added: 497, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
 	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1),
 	/// added: 496, mode: `MaxEncodedLen`)
@@ -96,12 +96,12 @@ impl WeightInfo for () {
 	fn announce(n: u32) -> Weight {
 		Weight::from_parts(27_026_338, 33_491)
 			.saturating_add(Weight::from_parts(130_496, 0).saturating_mul(n.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
-	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:2 w:1)
-	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: None, `max_size`:
-	/// Some(9), added: 2484, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorSetAnnouncer::OutgoingAnnouncements` (r:1 w:1)
+	/// Proof: `ValidatorSetAnnouncer::OutgoingAnnouncements` (`max_values`: Some(1), `max_size`:
+	/// Some(2), added: 497, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:0)
 	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
 	/// added: 32501, mode: `MaxEncodedLen`)
@@ -121,10 +121,10 @@ impl WeightInfo for () {
 	/// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506),
 	/// added: 107981, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 1000]`.
-	fn send_announcements(n: u32) -> Weight {
+	fn send_announcement(n: u32) -> Weight {
 		Weight::from_parts(49_926_666, 33_491)
 			.saturating_add(Weight::from_parts(135_383, 32).saturating_mul(n.into()))
-			.saturating_add(RocksDbWeight::get().reads(7_u64))
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 }

@@ -22,11 +22,11 @@
 //!
 //! The runtime calls [`Pallet::announce`] when a new era becomes active. It stores the set in the
 //! local `pallet-validator-collators` and queues it for every destination in
-//! [`Config::Destinations`]. The queue is drained in `on_initialize`: each queued destination is
-//! handed the latest stored set, and a rejected hand-off is retried in every following block until
-//! the sender accepts it or a newer set replaces it. Acceptance means the message was queued for
-//! delivery. Execution on the destination is not acknowledged. If it fails there, the next era's
-//! announcement carries the full set again.
+//! [`Config::Destinations`]. The queue is one bounded list, drained in `on_initialize`: each
+//! queued destination is handed the latest stored set, and a rejected hand-off stays in the list
+//! and is retried in every following block until the sender accepts it or a newer set replaces it.
+//! Acceptance means the message was queued for delivery. Execution on the destination is not
+//! acknowledged. If it fails there, the next era's announcement carries the full set again.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -86,7 +86,7 @@ pub mod pallet {
 	pub use crate::weights::WeightInfo;
 	use crate::{DestinationOf, SendValidatorSet};
 	use alloc::vec::Vec;
-	use frame_support::{defensive, pallet_prelude::*, BoundedVec};
+	use frame_support::{defensive, pallet_prelude::*, traits::DefensiveTruncateFrom, BoundedVec};
 	use frame_system::pallet_prelude::*;
 	use pallet_validator_collators::ValidatorSet;
 	use sp_staking::EraIndex;
@@ -104,16 +104,27 @@ pub mod pallet {
 
 		/// The other system chains every announced set is sent to. This chain is served through
 		/// the receiver directly, before anything is queued.
+		///
+		/// Every send is charged the weight measured for the first entry, so no entry may cost
+		/// more to send than it.
 		type Destinations: Get<Vec<DestinationOf<Self>>>;
 
 		/// Weight information for this pallet.
 		type WeightInfo: WeightInfo;
 	}
 
-	/// Destinations still to be sent the stored set.
+	/// Destinations still to be sent the stored set, empty when nothing is pending.
 	#[pallet::storage]
 	pub type OutgoingAnnouncements<T: Config> =
-		StorageMap<_, Twox64Concat, DestinationOf<T>, (), OptionQuery>;
+		StorageValue<_, BoundedVec<DestinationOf<T>, DestinationCount<T>>, ValueQuery>;
+
+	/// The length of [`Config::Destinations`], the bound of [`OutgoingAnnouncements`].
+	pub struct DestinationCount<T>(PhantomData<T>);
+	impl<T: Config> Get<u32> for DestinationCount<T> {
+		fn get() -> u32 {
+			T::Destinations::get().len() as u32
+		}
+	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -161,10 +172,9 @@ pub mod pallet {
 			let validators = BoundedVec::try_from(validators.to_vec())
 				.map_err(|_| Error::<T>::TooManyValidators)?;
 			pallet_validator_collators::Pallet::<T>::receive_validator_set(era, validators)?;
-			let _ = OutgoingAnnouncements::<T>::clear(u32::MAX, None);
-			T::Destinations::get()
-				.into_iter()
-				.for_each(|destination| OutgoingAnnouncements::<T>::insert(destination, ()));
+			OutgoingAnnouncements::<T>::put(BoundedVec::defensive_truncate_from(
+				T::Destinations::get(),
+			));
 			Ok(())
 		}
 
@@ -174,24 +184,32 @@ pub mod pallet {
 		}
 
 		pub(crate) fn send_announcements() -> Weight {
-			let outgoing = OutgoingAnnouncements::<T>::iter_keys().collect::<Vec<_>>();
+			let mut outgoing = OutgoingAnnouncements::<T>::get();
 			if outgoing.is_empty() {
 				return T::DbWeight::get().reads(1);
 			}
 			let Some(set) = ValidatorSet::<T>::get() else {
-				let _ = OutgoingAnnouncements::<T>::clear(u32::MAX, None);
+				OutgoingAnnouncements::<T>::kill();
 				defensive!("announcements are queued only after a set is stored");
-				return T::DbWeight::get().reads_writes(2, outgoing.len() as u64);
+				return T::DbWeight::get().reads_writes(2, 1);
 			};
-			let weight = <T as Config>::WeightInfo::send_announcements(set.validators.len() as u32);
-			for destination in outgoing {
-				let era = set.era;
+			let weight = <T as Config>::WeightInfo::send_announcement(set.validators.len() as u32)
+				.saturating_mul(outgoing.len() as u64);
+			let era = set.era;
+			outgoing.retain(|destination| {
+				let destination = destination.clone();
 				if T::Sender::send(&destination, era, &set.validators).is_ok() {
-					OutgoingAnnouncements::<T>::remove(&destination);
 					Self::deposit_event(Event::AnnouncementSent { destination, era });
+					false
 				} else {
 					Self::deposit_event(Event::AnnouncementFailed { destination, era });
+					true
 				}
+			});
+			if outgoing.is_empty() {
+				OutgoingAnnouncements::<T>::kill();
+			} else {
+				OutgoingAnnouncements::<T>::put(outgoing);
 			}
 			weight
 		}
@@ -199,14 +217,14 @@ pub mod pallet {
 		/// Check the pallet invariants.
 		#[cfg(any(test, feature = "try-runtime"))]
 		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			let outgoing = OutgoingAnnouncements::<T>::get();
 			ensure!(
-				ValidatorSet::<T>::exists() || OutgoingAnnouncements::<T>::iter().next().is_none(),
+				ValidatorSet::<T>::exists() || outgoing.is_empty(),
 				"announcements are queued without a stored validator set"
 			);
 			let destinations = T::Destinations::get();
 			ensure!(
-				OutgoingAnnouncements::<T>::iter_keys()
-					.all(|destination| destinations.contains(&destination)),
+				outgoing.iter().all(|destination| destinations.contains(destination)),
 				"an announcement is queued for an unknown destination"
 			);
 			Ok(())
