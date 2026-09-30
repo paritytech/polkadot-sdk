@@ -366,12 +366,16 @@ fn pallet_code_works() {
 
 /// eth_getCode (`Pallet::code`) and the EXTCODE* opcodes (`Stack::code_source`) resolve code
 /// through separate functions and must agree on the same address.
-#[test]
-fn pallet_code_agrees_with_extcode_opcodes() {
+///
+/// The EXTCODECOPY caller is always Solc since EXTCODECOPY does not exist in PVM.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn pallet_code_agrees_with_extcode_opcodes(host_type: FixtureType) {
 	use pallet_revive_fixtures::{HostEvmOnly, HostEvmOnly::HostEvmOnlyCalls};
 
-	let (host_code, _) = compile_module_with_type("Host", FixtureType::Solc).unwrap();
+	let (host_code, _) = compile_module_with_type("Host", host_type).unwrap();
 	let (copier_code, _) = compile_module_with_type("HostEvmOnly", FixtureType::Solc).unwrap();
+	let (pvm_code, _) = compile_module_with_type("Host", FixtureType::Resolc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
@@ -382,6 +386,9 @@ fn pallet_code_agrees_with_extcode_opcodes() {
 		let Contract { addr: contract_addr, .. } =
 			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
 				.build_and_unwrap_contract();
+		let Contract { addr: pvm_addr, .. } = builder::bare_instantiate(Code::Upload(pvm_code))
+			.salt(Some([1; 32]))
+			.build_and_unwrap_contract();
 
 		<Test as Config>::Currency::set_balance(&CHARLIE, 100_000_000);
 		<Test as Config>::Currency::set_balance(&DJANGO, 100_000_000);
@@ -390,7 +397,8 @@ fn pallet_code_agrees_with_extcode_opcodes() {
 		AccountInfo::<Test>::set_delegation(&DJANGO_ADDR, None, &ALICE).unwrap();
 
 		let cases = [
-			("contract", contract_addr, true),
+			("EVM contract", contract_addr, true),
+			("PVM contract", pvm_addr, true),
 			("delegated EOA", delegated_eoa, true),
 			("cleared delegation", DJANGO_ADDR, true),
 			("precompile", H160(SYSTEM_PRECOMPILE_ADDR), true),
