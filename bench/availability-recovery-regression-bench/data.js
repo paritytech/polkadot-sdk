@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790794697127,
+  "lastUpdate": 1790797288576,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9d8a2fefd2414591c4a243460f3ffc5195a71deb",
-          "message": "Don't bubble up errors during collator score parsing in collator protocol (#11496)\n\nWhen starting the node with a warp sync and we hit a period near the\n`WARP_SYNC_TARGET_BLOCK` (each 512 blocks) we might not be able to call\na runtime apis for some blocks, which will yield an error in the\ncollator protocol revamp.\n\nDon't bubble up such errors to prevent the subsystem from exiting.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-25T13:06:10Z",
-          "tree_id": "015160e05b32d1df2777d0bc46dea09374e6ed2d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9d8a2fefd2414591c4a243460f3ffc5195a71deb"
-        },
-        "date": 1774448852358,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.088331321633337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12638992226666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.671723047233332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d2e08992098ac61e13117d61420903e1e076d8d8",
+          "message": "statement-store: drop benchmarks of store methods that no node calls (#13369)\n\nThe statement store benchmarks now cover only the store methods that a\nnode actually calls. The benchmarks of statements, broadcasts, posted,\nstatement and remove are gone. The read_scaling, contention and\nfull-store numbers no longer compare with older baselines, because those\nbenchmarks now time subscriptions.\n\nThis is the first step of the benchmark work for\nhttps://github.com/paritytech/polkadot-sdk/issues/13135.",
+          "timestamp": "2026-09-30T18:11:04Z",
+          "tree_id": "459ea28ae9b55b923f0c2e89bf32547d34f4ab45",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d2e08992098ac61e13117d61420903e1e076d8d8"
+        },
+        "date": 1790797260055,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.696156412766667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1347142886666667,
             "unit": "seconds"
           }
         ]
