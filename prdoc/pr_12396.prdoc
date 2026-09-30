@@ -25,7 +25,10 @@ doc:
 crates:
 - name: polkadot-collator-protocol
   bump: minor
+  validate: false
 - name: polkadot-node-core-prospective-parachains
   bump: minor
+  validate: false
 - name: polkadot-node-subsystem-types
   bump: major
+  validate: false
