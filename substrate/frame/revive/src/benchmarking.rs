@@ -3598,7 +3598,15 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 17);
 	}
 
-	/// Benchmark `r` `CHAINID` instructions.
+	/// Benchmarks `r` EVM `CHAINID` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark most likely underestimates a `CHAINID`: it has no operands, so no worse case
+	/// can be constructed for it, and here it runs in the cheapest setting, straight line code
+	/// whose dispatch is always predicted. Subtracting an underestimate from another benchmark can
+	/// only overcharge that benchmark's op-code, never undercharge it, so this benchmark is safe to
+	/// subtract.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_chainid_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![CHAINID; r as usize].into());
@@ -3606,6 +3614,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -3615,18 +3624,27 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), r as usize);
-		let expected = U256::from(interpreter.ext.chain_id());
-		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
+		let chain_id = U256::from(T::ChainId::get());
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&chain_id));
 	}
 
-	/// Benchmark `r` `DIFFICULTY` instructions.
+	/// Benchmarks `r` EVM `DIFFICULTY` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark most likely underestimates a `DIFFICULTY`: it has no operands, so no worse
+	/// case can be constructed for it, and here it runs in the cheapest setting, straight line code
+	/// whose dispatch is always predicted. Subtracting an underestimate from another benchmark can
+	/// only overcharge that benchmark's op-code, never undercharge it, so this benchmark is safe to
+	/// subtract.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_prevrandao_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+	fn evm_difficulty_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![DIFFICULTY; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -3636,8 +3654,8 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), r as usize);
-		let expected = U256::from(evm::DIFFICULTY);
-		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
+		let difficulty = U256::from(evm::DIFFICULTY);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&difficulty));
 	}
 
 	/// Benchmark `r` `CODESIZE` instructions.
