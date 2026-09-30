@@ -72,15 +72,4 @@ contract Memory {
         }
         return uint64(result);
     }
-
-    function copyMemoryRange(uint256 dst, uint256 src, uint256 size)
-        public pure returns (uint256, uint256)
-    {
-        assembly {
-            mstore(0, not(0))
-            mstore(32, 0)
-            mcopy(dst, src, size)
-            return(0, 64)
-        }
-    }
 }
