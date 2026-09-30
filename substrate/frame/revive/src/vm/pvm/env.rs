@@ -21,7 +21,7 @@ use crate::{
 	AccountIdOf, CodeInfo, Config, ContractBlob, Error, SENTINEL, Weight,
 	address::AddressMapper,
 	debug::DebugSettings,
-	exec::Ext,
+	exec::{CallProtections, Ext},
 	limits,
 	primitives::ExecReturnValue,
 	vm::{
@@ -307,11 +307,9 @@ pub mod env {
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::Call { value_ptr },
+			CallType::Call { value_ptr, protections: CallProtections::default() },
 			callee_ptr,
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
-			None,
-			false,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -333,27 +331,24 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-		let (resources, stipend_protection, denies_storage_writes) = if gas == u64::MAX {
-			(CallResources::NoLimits, None, false)
+		let (resources, protections) = if gas == u64::MAX {
+			(CallResources::NoLimits, CallProtections::default())
 		} else {
 			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
 			let value = memory.read_u256(value_ptr)?;
 			let stipend_and_protections = StipendAndProtections::new(value, Some(gas));
 			(
 				CallResources::from_ethereum_gas(gas.into(), stipend_and_protections.add_stipend()),
-				Some(stipend_and_protections.reentrancy()),
-				stipend_and_protections.denies_storage_writes(),
+				stipend_and_protections.protections(),
 			)
 		};
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::Call { value_ptr },
+			CallType::Call { value_ptr, protections },
 			callee,
 			&resources,
-			stipend_protection,
-			denies_storage_writes,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -387,8 +382,6 @@ pub mod env {
 			CallType::DelegateCall,
 			address_ptr,
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
-			None,
-			false,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -421,8 +414,6 @@ pub mod env {
 			CallType::DelegateCall,
 			callee,
 			&resources,
-			None,
-			false,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,

@@ -33,7 +33,8 @@ pub use crate::{
 	AddressMapper, TransactionLimits,
 	access_list::{Access, StorageItems, StorageOp, Summarized, Warmth},
 	exec::{
-		ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo, ReentrancyProtection,
+		CallProtections, ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo,
+		ReentrancyProtection,
 	},
 	metering::{Diff, Token},
 	vm::{RuntimeCosts, StorageAccessKind},

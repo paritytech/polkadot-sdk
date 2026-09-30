@@ -13,8 +13,8 @@ doc:
       receiver ran out of gas while making the reentrant call, with the same result.
 
     The receiver of such a call, and any contract it calls or creates, can no longer write
-    persistent storage, even if the slot is warm. On Ethereum such a receiver gets at most 2300
-    gas, and EIP-2200 fails any `SSTORE` when 2300 gas or less is left. The write fails with
+    persistent contract storage, even if the slot is warm. On Ethereum such a receiver gets at most
+    2300 gas, and EIP-2200 fails any `SSTORE` when 2300 gas or less is left. The write fails with
     `OutOfGas`, as it would on Ethereum. This covers `SSTORE`, the PolkaVM storage host functions,
     and precompiles that write contract storage, such as `clearStorage` and `takeStorage` of the
     storage precompile. Transient storage is not affected. Calls with any other explicit gas limit
@@ -27,10 +27,10 @@ doc:
     Runtime precompiles that write contract storage through `PrecompileExt::set_storage` get an
     `OutOfGas` error in the receiver of a `transfer()`, a `send()` or any call with that shape, and
     in any contract such a receiver calls or creates.
-    The new `PrecompileExt::ensure_storage_write_allowed` lets a precompile verify this before a write.
-    `PrecompileExt::call` takes a new `denies_storage_writes` argument: `true` stops the callee and
-    every frame it creates from writing persistent storage, and `false` keeps what the caller
-    already has.
+    The new `PrecompileExt::ensure_storage_write_allowed` lets a precompile verify this before a
+    write. `PrecompileExt::call` takes a `CallProtections` argument in place of the reentrancy
+    protection. It carries the reentrancy protection and `denies_storage_writes`, which stops the
+    callee and every frame it creates from writing persistent contract storage.
 
     `integrity_test` checks that a block cannot write more contract storage than a validator has
     memory for. It scaled a write's weight by the memory that write uses before dividing the block

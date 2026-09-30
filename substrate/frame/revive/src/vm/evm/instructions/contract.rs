@@ -190,19 +190,19 @@ fn run_call<'a, E: Ext>(
 	value: U256,
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
-	let stipend_and_protections = StipendAndProtections::new(value, gas_limit.try_into().ok());
-
 	let call_result = match scheme {
-		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
-			&CallResources::from_ethereum_gas(gas_limit, stipend_and_protections.add_stipend()),
-			&callee,
-			value,
-			input,
-			// A `transfer`/`send` callee must not reenter its caller.
-			stipend_and_protections.reentrancy(),
-			stipend_and_protections.denies_storage_writes(),
-			scheme.is_static_call(),
-		),
+		CallScheme::Call | CallScheme::StaticCall => {
+			let stipend_and_protections =
+				StipendAndProtections::new(value, gas_limit.try_into().ok());
+			interpreter.ext.call(
+				&CallResources::from_ethereum_gas(gas_limit, stipend_and_protections.add_stipend()),
+				&callee,
+				value,
+				input,
+				stipend_and_protections.protections(),
+				scheme.is_static_call(),
+			)
+		},
 		CallScheme::DelegateCall => interpreter.ext.delegate_call(
 			&CallResources::from_ethereum_gas(gas_limit, false),
 			callee,

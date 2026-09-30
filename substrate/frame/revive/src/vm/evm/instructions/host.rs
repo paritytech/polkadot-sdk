@@ -163,7 +163,7 @@ fn store_helper<'ext, E: Ext>(
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
-	if let Err(err) = interpreter.ext.ensure_storage_write_allowed(transient) {
+	if !transient && let Err(err) = interpreter.ext.ensure_storage_write_allowed() {
 		return ControlFlow::Break(Halt::Err(err));
 	}
 

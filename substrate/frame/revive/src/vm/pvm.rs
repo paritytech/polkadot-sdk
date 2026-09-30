@@ -20,8 +20,8 @@
 pub mod env;
 
 use crate::{
-	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
-	StorageAccessKind,
+	CallProtections, Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts,
+	SENTINEL, StorageAccessKind,
 	access_list::{CallItems, StorageItems, StorageOp, TransferItems},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
@@ -273,7 +273,7 @@ macro_rules! charge_gas {
 /// The kind of call that should be performed.
 enum CallType {
 	/// Execute another instantiated contract
-	Call { value_ptr: u32 },
+	Call { value_ptr: u32, protections: CallProtections },
 	/// Execute another contract code in the context (storage, account ID, value) of the caller
 	/// contract
 	DelegateCall,
@@ -476,7 +476,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		value: StorageValue,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		self.ext.ensure_storage_write_allowed(transient)?;
+		if !transient {
+			self.ext.ensure_storage_write_allowed()?;
+		}
 
 		let value_len = match &value {
 			StorageValue::Memory { ptr: _, len } => *len,
@@ -530,7 +532,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		key_len: u32,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		self.ext.ensure_storage_write_allowed(transient)?;
+		if !transient {
+			self.ext.ensure_storage_write_allowed()?;
+		}
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
 			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
@@ -631,8 +635,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		call_type: CallType,
 		callee_ptr: u32,
 		resources: &CallResources<E::T>,
-		reentrancy_override: Option<ReentrancyProtection>,
-		denies_storage_writes: bool,
 		input_data_ptr: u32,
 		input_data_len: u32,
 		output_ptr: u32,
@@ -640,7 +642,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let callee = memory.read_h160(callee_ptr)?;
 		let value = match &call_type {
-			CallType::Call { value_ptr } => memory.read_u256(*value_ptr)?,
+			CallType::Call { value_ptr, .. } => memory.read_u256(*value_ptr)?,
 			CallType::DelegateCall => U256::zero(),
 		};
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
@@ -683,7 +685,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.reset_interpreter_cache();
 
 		let call_outcome = match call_type {
-			CallType::Call { .. } => {
+			CallType::Call { protections, .. } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
 				if value > 0u32.into() {
 					// If the call value is non-zero and state change is not allowed, issue an
@@ -705,9 +707,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					self.charge_gas(RuntimeCosts::CallTransferSurcharge { dust_transfer, warmth })?;
 				}
 
-				// An override may tighten `AllowReentry`, but never weaken `Strict`.
+				// The flags may tighten the reentrancy protection to `Strict`, but never weaken it.
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
-					reentrancy_override.unwrap_or(ReentrancyProtection::AllowReentry)
+					protections.reentrancy
 				} else {
 					ReentrancyProtection::Strict
 				};
@@ -717,8 +719,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					&callee,
 					value,
 					input_data,
-					reentrancy,
-					denies_storage_writes,
+					CallProtections { reentrancy, ..protections },
 					read_only,
 				)
 			},

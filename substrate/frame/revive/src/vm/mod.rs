@@ -25,8 +25,9 @@ mod runtime_costs;
 pub use runtime_costs::{RuntimeCosts, StorageAccessKind};
 
 use crate::{
-	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
-	HoldReason, LOG_TARGET, Pallet, PristineCode, ReentrancyProtection, StorageDeposit, Weight,
+	AccountIdOf, BalanceOf, CallProtections, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig,
+	ExecError, HoldReason, LOG_TARGET, Pallet, PristineCode, ReentrancyProtection, StorageDeposit,
+	Weight,
 	access_list::{Access, CodeLoadItems, CodeLoadWarmth, Summarized},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
@@ -185,9 +186,10 @@ pub struct StipendAndProtections {
 impl StipendAndProtections {
 	/// Solidity's `transfer` and `send` cap the callee at the stipend. For a zero value solc passes
 	/// `gas_limit = 2300` explicitly; when value moves it passes 0 and relies on the stipend the
-	/// EVM grants any call that moves value. We use a heuristic to detect both patterns, applying
-	/// the stipend and `AllowNext` reentrancy protection because the fixed 2300 is tailored to
-	/// Ethereum's gas scale.
+	/// EVM grants any call that moves value. We use a heuristic to detect both patterns. Such a call
+	/// gets the stipend and `AllowNext` reentrancy protection, because the fixed 2300 is tailored
+	/// to Ethereum's gas scale. Its callee also cannot write persistent storage, as EIP-2200
+	/// specifies.
 	pub fn new(value: U256, gas_limit: Option<u64>) -> Self {
 		use revm::interpreter::gas::CALL_STIPEND;
 		let moves_value = !value.is_zero();
@@ -201,18 +203,16 @@ impl StipendAndProtections {
 		self.moves_value || self.is_transfer_or_send
 	}
 
-	/// The reentrancy protection to enforce on the callee.
-	pub fn reentrancy(&self) -> ReentrancyProtection {
+	/// The protections the call shape sets for the callee.
+	pub fn protections(&self) -> CallProtections {
 		if self.is_transfer_or_send {
-			ReentrancyProtection::AllowNext
+			CallProtections {
+				reentrancy: ReentrancyProtection::AllowNext,
+				denies_storage_writes: true,
+			}
 		} else {
-			ReentrancyProtection::AllowReentry
+			CallProtections::default()
 		}
-	}
-
-	/// Whether the callee and every frame it creates cannot write persistent contract storage.
-	pub fn denies_storage_writes(&self) -> bool {
-		self.is_transfer_or_send
 	}
 }
 

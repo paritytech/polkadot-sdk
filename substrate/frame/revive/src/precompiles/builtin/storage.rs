@@ -63,7 +63,9 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
-				env.ensure_storage_write_allowed(transient)?;
+				if !transient {
+					env.ensure_storage_write_allowed()?;
+				}
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
 					let access = StorageItems::new(env.address(), &key, StorageOp::Write);
@@ -117,7 +119,9 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			},
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
-				env.ensure_storage_write_allowed(transient)?;
+				if !transient {
+					env.ensure_storage_write_allowed()?;
+				}
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
 					let access = StorageItems::new(env.address(), &key, StorageOp::Write);

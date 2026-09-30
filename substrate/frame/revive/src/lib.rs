@@ -108,8 +108,8 @@ pub use crate::{
 	deposit_payment::{Deposit, PGasDeposit},
 	evm::{Address as EthAddress, Block as EthBlock, block_hash::ReceiptGasInfo},
 	exec::{
-		CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin,
-		ReentrancyProtection,
+		CallProtections, CallResources, DelegateInfo, Executable, Key, MomentOf,
+		Origin as ExecOrigin, ReentrancyProtection,
 	},
 	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
 	metering::{

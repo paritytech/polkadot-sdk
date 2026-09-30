@@ -18,7 +18,7 @@
 //! Precompiles added to the test runtime.
 
 use crate::{
-	Config, DispatchError, ExecOrigin as Origin, ReentrancyProtection, U256, Weight,
+	CallProtections, Config, DispatchError, ExecOrigin as Origin, U256, Weight,
 	exec::{CallResources, ErrorOrigin, ExecError},
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile, Token},
 };
@@ -117,8 +117,7 @@ impl<T: Config> Precompile for NoInfo<T> {
 					&env.address(),
 					0.into(),
 					vec![42; *inputLen as usize],
-					ReentrancyProtection::AllowReentry,
-					false,
+					CallProtections::default(),
 					false,
 				)?;
 				Ok(Vec::new())
