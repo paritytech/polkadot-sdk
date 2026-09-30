@@ -229,9 +229,11 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 					// and the last target.
 					.saturating_add(#target_type::max_encoded_len());
 				// The assumption is that it contains #count-1 empty elements
-				// and then last element with full size
-				#count
+				// and then last element with full size. The last element's length prefix is a
+				// compact integer, which can take more than one byte.
+				(#count - 1)
 					.saturating_mul(_fepsp::codec::Compact(0u32).encoded_size())
+					.saturating_add(_fepsp::codec::Compact(s).encoded_size())
 					.saturating_add((s as usize).saturating_mul(max_element_size))
 			}
 		}

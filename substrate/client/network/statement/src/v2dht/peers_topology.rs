@@ -267,7 +267,9 @@ impl PeersTopology {
 
 	/// Evict disconnected peers unseen for `PEER_STALENESS_TTL` as of `now`, plus any excess over
 	/// `MAX_KNOWN_PEERS`.
-	pub fn evict(&mut self, now: Instant) {
+	/// Returns whether the DHT candidate index changed.
+	pub fn evict(&mut self, now: Instant) -> bool {
+		let mut changed = false;
 		loop {
 			let over_cap = self.discovered.len() > MAX_KNOWN_PEERS;
 			let Some((victim, last_seen)) = self
@@ -277,13 +279,14 @@ impl PeersTopology {
 				.min_by_key(|(_, info)| info.last_seen)
 				.map(|(peer, info)| (*peer, info.last_seen))
 			else {
-				return;
+				return changed;
 			};
 			if !over_cap && now.saturating_duration_since(last_seen) < PEER_STALENESS_TTL {
-				return;
+				return changed;
 			}
 			if let Some(info) = self.discovered.remove(&victim) {
 				self.discovered_index.remove(info.key, &victim);
+				changed |= info.supports_protocol;
 			}
 		}
 	}
@@ -764,7 +767,7 @@ mod tests {
 		}
 
 		// Insertion no longer evicts; the periodic sweep bounds the set.
-		topology.evict(Instant::now());
+		assert!(topology.evict(Instant::now()));
 
 		assert_eq!(topology.known_peers_count(), MAX_KNOWN_PEERS);
 	}
@@ -800,9 +803,23 @@ mod tests {
 		dht_peer(&mut topology, peer);
 
 		let last_seen = topology.discovered[&peer].last_seen;
-		topology.evict(last_seen + PEER_STALENESS_TTL - Duration::from_secs(1));
+		assert!(!topology.evict(last_seen + PEER_STALENESS_TTL - Duration::from_secs(1)));
 
 		assert_eq!(topology.known_peers_count(), 1);
+	}
+
+	#[test]
+	fn eviction_reports_only_dht_candidate_removal() {
+		for has_candidate in [false, true] {
+			let mut topology = topology(1);
+			if has_candidate {
+				topology.on_peer_identified(peer(2), true);
+			}
+			topology.on_peers_discovered([peer(3)]);
+
+			assert_eq!(topology.evict(Instant::now() + PEER_STALENESS_TTL), has_candidate);
+			assert_eq!(topology.known_peers_count(), 0);
+		}
 	}
 
 	#[test]
@@ -814,10 +831,12 @@ mod tests {
 		topology.on_substream_opened(live);
 		dht_peer(&mut topology, idle);
 
-		topology.evict(Instant::now() + PEER_STALENESS_TTL + Duration::from_secs(1));
+		let now = Instant::now() + PEER_STALENESS_TTL + Duration::from_secs(1);
+		assert!(topology.evict(now));
 
 		assert!(topology.is_connected(&live));
 		assert_eq!(topology.known_peers_count(), 1);
 		assert!(!known_dht_peers(&topology, topic(7)).contains(&idle));
+		assert!(!topology.evict(now));
 	}
 }

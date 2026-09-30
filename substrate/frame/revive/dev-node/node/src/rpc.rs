@@ -33,7 +33,7 @@ use revive_dev_runtime::{AccountId, Nonce, OpaqueBlock};
 use std::sync::Arc;
 
 /// Full client dependencies.
-pub struct FullDeps<C, P> {
+pub struct FullDeps<C, P: ?Sized> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
@@ -87,7 +87,7 @@ where
 		+ 'static,
 	C::Api: sp_block_builder::BlockBuilder<OpaqueBlock>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
-	P: TransactionPool + 'static,
+	P: TransactionPool + 'static + ?Sized,
 {
 	use polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
 	let mut module = RpcModule::new(());

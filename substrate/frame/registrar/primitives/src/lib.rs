@@ -91,6 +91,51 @@ pub enum MessageToRelayV1<AccountId> {
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
 	},
+	/// Ask the relay chain to drop `para_id` from the registry.
+	///
+	/// The parachain has already checked that it holds neither a lease nor a region, but only the
+	/// relay chain knows whether the para is still live, locked, or has messages left in flight,
+	/// so the deposits stay held until it answers with [`MessageToParaV1::DeregisterResponse`].
+	///
+	/// Idempotent, so this is also the retry when an answer never arrives: a para already gone or
+	/// on its way out is answered `Ok(())` rather than refused, which is what lets the parachain
+	/// tell a lost verdict from a refusal without a second kind of message.
+	#[codec(index = 2)]
+	Deregister {
+		/// The para id to drop.
+		para_id: ParaId,
+		/// The parachain's id for this message, echoed back in the response.
+		message_id: u64,
+	},
+	/// Ask the relay chain to authorize a validation code upgrade for `para_id`.
+	///
+	/// As with a registration, the blob itself is not sent: the relay chain is told which bytes to
+	/// accept and they are uploaded to it separately. Answered with
+	/// [`MessageToParaV1::CodeUpgradeResponse`].
+	#[codec(index = 3)]
+	AuthorizeCodeUpgrade {
+		/// The para id being upgraded.
+		para_id: ParaId,
+		/// The parachain's id for this message, echoed back in the response.
+		message_id: u64,
+		/// Blake2-256 hash of the validation code that will be uploaded.
+		code_hash: H256,
+		/// Length of the validation code that will be uploaded, in bytes.
+		code_len: u32,
+	},
+	/// Ask the relay chain to set the current head data of `para_id`.
+	///
+	/// The head data is small enough to travel with the request, so unlike a code upgrade this is
+	/// a single round trip. Answered with [`MessageToParaV1::SetHeadResponse`].
+	#[codec(index = 4)]
+	SetCurrentHead {
+		/// The para id whose head is being set.
+		para_id: ParaId,
+		/// The parachain's id for this message, echoed back in the response.
+		message_id: u64,
+		/// The new head data.
+		head: Vec<u8>,
+	},
 }
 
 /// Registrar report messages sent back to the parachain.
@@ -140,10 +185,62 @@ pub enum MessageToParaV1 {
 		/// Whether the authorization was dropped.
 		outcome: Outcome,
 	},
+	/// Answer a [`MessageToRelayV1::Deregister`].
+	///
+	/// `Ok(())` means the para is gone from the relay chain's registry, so every deposit the
+	/// parachain is holding for it can be released.
+	#[codec(index = 2)]
+	DeregisterResponse {
+		/// The para id the answer is about.
+		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::Deregister`] this answers, echoed back.
+		message_id: u64,
+		/// Whether the para was dropped.
+		outcome: Outcome,
+	},
+	/// Answer a [`MessageToRelayV1::AuthorizeCodeUpgrade`].
+	///
+	/// `Ok(expire_at)` means the relay chain is holding the authorization and will accept the blob
+	/// until that relay-chain block. The upgrade is not scheduled yet: that is reported separately
+	/// with [`MessageToParaV1::CodeUpgradeScheduled`] once the code lands.
+	#[codec(index = 3)]
+	CodeUpgradeResponse {
+		/// The para id the answer is about.
+		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::AuthorizeCodeUpgrade`] this answers, echoed back.
+		message_id: u64,
+		/// The relay-chain block the authorization lapses at, or why it was refused.
+		outcome: Result<u32, FailureReason>,
+	},
+	/// Report that an authorized code upgrade has been scheduled on the relay chain.
+	///
+	/// Sent when the blob is uploaded, which may be many blocks after the authorization and is not
+	/// something the parachain asked for, so this carries no outcome: a failure to upload simply
+	/// leaves the authorization to lapse.
+	#[codec(index = 4)]
+	CodeUpgradeScheduled {
+		/// The para id the report is about.
+		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::AuthorizeCodeUpgrade`] this concludes, echoed back.
+		message_id: u64,
+	},
+	/// Answer a [`MessageToRelayV1::SetCurrentHead`].
+	///
+	/// The parachain checks the head against its own mirror of the relay chain's limits first, so
+	/// a refusal here means the two have drifted apart.
+	#[codec(index = 5)]
+	SetHeadResponse {
+		/// The para id the answer is about.
+		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::SetCurrentHead`] this answers, echoed back.
+		message_id: u64,
+		/// Whether the head was set.
+		outcome: Outcome,
+	},
 	/// Note that `para_id` has produced a head on the relay chain.
 	///
 	/// Correlates with no request, so it carries no `message_id` and is not answered.
-	#[codec(index = 7)]
+	#[codec(index = 6)]
 	HeadNoted {
 		/// The para id that produced a head.
 		para_id: ParaId,
@@ -172,6 +269,7 @@ pub enum FailureReason {
 	/// The head data or the declared code length is not acceptable to the relay chain.
 	#[codec(index = 1)]
 	InvalidOnboardingData,
+	// Index 2 is reserved for `NotRegistered`, which lands with the deregister flow.
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
@@ -205,4 +303,84 @@ pub trait ParachainRegistrar {
 		genesis_head: Vec<u8>,
 		validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult;
+
+	/// Drop `para_id` from the registry.
+	///
+	/// Idempotent: a para already gone, or still being cleaned up, answers `Ok(())` rather than
+	/// refusing, so a second [`MessageToRelayV1::Deregister`] settles instead of telling the
+	/// parachain the para is still there. Nothing here retries on its own: the parachain waits,
+	/// and if no answer turns up the manager sends the request again. That second request is how
+	/// the parachain learns the first answer never came, and it reports it as an unexpected event.
+	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult;
+
+	/// Whether head data of this size is acceptable right now.
+	#[allow(clippy::result_unit_err)]
+	fn check_head_data(head_len: u32) -> Result<(), ()>;
+
+	/// Set the current head of `para_id`.
+	fn set_current_head(para_id: ParaId, head: Vec<u8>);
+
+	/// Whether `para_id` could take a code upgrade of this size right now.
+	#[allow(clippy::result_unit_err)]
+	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), ()>;
+
+	/// Schedule a validation code upgrade for `para_id`.
+	fn schedule_code_upgrade(
+		para_id: ParaId,
+		validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult;
+}
+
+/// State of migrated para at the source chain.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub enum MigratedParaState {
+	/// The para id is held by its manager, but nothing is registered on the relay chain.
+	Reserved,
+	/// The relay chain has onboarded this para.
+	Registered {
+		/// Length of the para's current head data, so the destination prices the registration
+		/// the way it prices a fresh one.
+		head_len: u32,
+	},
+}
+
+/// One para, as it arrives from source chain that used to own the registry.
+///
+/// Carries no deposit. [`ReceiveMigratedParas::receive_para`] takes the reservation deposit,
+/// and for a registered para the registration deposit, from `manager` at the destination's own
+/// prices.
+///
+/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC para
+/// is dropped.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub struct MigratedPara<AccountId> {
+	/// The para id.
+	pub para_id: ParaId,
+	/// The account that reserved the para id and controls it.
+	pub manager: AccountId,
+	/// Where this para id sits in the registration flow.
+	pub state: MigratedParaState,
+	/// Whether the manager is locked out of controlling this para. `None` until the lock is set
+	/// for the first time, and read as unlocked.
+	pub locked: Option<bool>,
+}
+
+/// Takes migrated para ids into the pallet that owns registration on the destination.
+pub trait ReceiveMigratedParas<AccountId> {
+	/// Take one para, charging its deposits at this chain's prices.
+	///
+	/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC para
+	/// gets dropped.
+	fn receive_para(para: MigratedPara<AccountId>) -> sp_runtime::DispatchResult;
+
+	/// Adopt the next free para id from the source chain.
+	fn receive_next_free_para_id(para_id: ParaId);
+}
+
+impl<AccountId> ReceiveMigratedParas<AccountId> for () {
+	fn receive_para(_: MigratedPara<AccountId>) -> sp_runtime::DispatchResult {
+		Err(sp_runtime::DispatchError::Unavailable)
+	}
+
+	fn receive_next_free_para_id(_: ParaId) {}
 }

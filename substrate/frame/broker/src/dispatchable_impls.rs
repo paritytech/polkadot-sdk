@@ -395,9 +395,16 @@ impl<T: Config> Pallet<T> {
 		payee: T::AccountId,
 		finality: Finality,
 	) -> Result<(), Error<T>> {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+
 		if let Some((region_id, region)) = Self::utilize(region_id, maybe_check_owner, finality)? {
 			let workplan_key = (region_id.begin, region_id.core);
 			let mut workplan = Workplan::<T>::get(&workplan_key).unwrap_or_default();
+
+			// Remove this region from the pool in case it has been pooled provisionally, so that
+			// pooling it again does not count it twice.
+			Self::force_unpool_region(region_id, &region, &status);
+
 			let duration = region.end.saturating_sub(region_id.begin);
 			if workplan
 				.try_push(ScheduleItem { mask: region_id.mask, assignment: CoreAssignment::Pool })
