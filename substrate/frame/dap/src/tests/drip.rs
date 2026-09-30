@@ -17,13 +17,12 @@
 
 //! Tests for issuance drip and distribution.
 
-use super::budget_map;
+use super::{asset_allocations, balance_of_asset, budget_map, create_asset};
 use crate::{
 	mock::{
 		account_id, build_and_execute, set_default_budget_allocation, AccountId, Balances, Dap,
 		MockTime, NativeAndAssets, RuntimeOrigin, System, Test,
 	},
-	tests::asset_allocations,
 	Event,
 };
 use frame_benchmarking::whitelisted_caller;
@@ -40,15 +39,6 @@ fn advance_time_and_drip(elapsed_ms: u64) {
 	let now = MockTime::get();
 	MockTime::set(now + elapsed_ms);
 	Dap::drip_issuance();
-}
-
-fn balance_of_asset(asset_id: u32, account: &AccountId) -> u64 {
-	NativeAndAssets::balance(NativeOrWithId::WithId(asset_id), account)
-}
-
-fn create_asset(asset_id: u32) {
-	let caller: AccountId = whitelisted_caller();
-	assert_ok!(NativeAndAssets::create(NativeOrWithId::WithId(asset_id), caller, false, 1));
 }
 
 fn event_count(event: Event<Test>) -> usize {

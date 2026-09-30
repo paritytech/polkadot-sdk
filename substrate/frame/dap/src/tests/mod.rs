@@ -18,13 +18,23 @@
 //! Tests for the DAP pallet.
 
 mod budget;
+mod drain;
 mod drip;
 mod genesis;
 mod on_unbalanced;
 
 use crate::{
-	mock::Test, AssetAllocationMap, AssetKindOf, BalanceOf, BudgetAllocationMap,
-	SingleAssetAllocation,
+	mock::{AccountId, NativeAndAssets, Test},
+	AssetAllocationMap, AssetKindOf, BalanceOf, BudgetAllocationMap, SingleAssetAllocation,
+};
+use frame_benchmarking::whitelisted_caller;
+use frame_support::{
+	assert_ok,
+	traits::{
+		fungible::{Inspect as FungibleInspect, Mutate as FungibleMutate, NativeOrWithId},
+		fungibles::{Create, Inspect, Mutate},
+		tokens::{Fortitude, Preservation},
+	},
 };
 use sp_runtime::{BoundedBTreeMap, Perbill};
 use sp_staking::budget::BudgetKey;
@@ -58,4 +68,18 @@ fn asset_allocations(
 	}
 
 	map
+}
+
+fn balance_of_asset(asset_id: u32, account: &AccountId) -> u64 {
+	NativeAndAssets::reducible_balance(
+		NativeOrWithId::WithId(asset_id),
+		account,
+		Preservation::Expendable,
+		Fortitude::Polite,
+	)
+}
+
+fn create_asset(asset_id: u32) {
+	let caller: AccountId = whitelisted_caller();
+	assert_ok!(NativeAndAssets::create(NativeOrWithId::WithId(asset_id), caller, false, 1));
 }
