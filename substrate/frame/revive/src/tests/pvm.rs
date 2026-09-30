@@ -4169,6 +4169,8 @@ fn gas_limit_api_works() {
 fn unknown_syscall_rejected() {
 	let (code, _) = compile_module("unknown_syscall").unwrap();
 
+	assert_eq!(crate::check_pvm_code(&code), Err(CodeRejection::Malformed));
+
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 

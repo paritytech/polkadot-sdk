@@ -174,6 +174,11 @@ pub mod code {
 	///
 	/// This is the check the pallet runs on code upload. It is not generic over the runtime so
 	/// that tooling can find out ahead of deployment whether a blob would be accepted.
+	///
+	/// The verdict only matches a production runtime when `pallet-revive` is built without the
+	/// `runtime-benchmarks` feature. With it, the reserved benchmarking syscall is allowed, so a
+	/// blob using it passes here but is rejected with [`CodeRejection::InvalidInstruction`] on
+	/// upload. Features unify across the build, so a dependency can enable it unasked.
 	pub fn check_pvm_code(pvm_blob: &[u8]) -> Result<(), CodeRejection> {
 		use polkavm_common::program::{
 			EstimateInterpreterMemoryUsageArgs, ISA_ReviveV1, InstructionSetKind,
@@ -320,10 +325,9 @@ pub mod code {
 
 	/// Runs [`check_pvm_code`] and turns a rejection into the pallet's dispatch error.
 	pub fn enforce<T: Config>(pvm_blob: Vec<u8>) -> Result<Vec<u8>, DispatchError> {
-		check_blob_size(&pvm_blob).map_err(CodeRejection::into_error::<T>)?;
-
 		#[cfg(feature = "std")]
 		if std::env::var_os("REVIVE_SKIP_VALIDATION").is_some() {
+			check_blob_size(&pvm_blob).map_err(CodeRejection::into_error::<T>)?;
 			log::warn!(target: LOG_TARGET, "Skipping validation because env var REVIVE_SKIP_VALIDATION is set");
 			return Ok(pvm_blob);
 		}
