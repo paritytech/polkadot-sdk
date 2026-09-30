@@ -149,8 +149,8 @@ Before calling `add_external_asset(internal_asset, asset_id)`:
 
 - A PSM must already be registered for `internal_asset`
 - The external `asset_id` must already exist in the `Fungibles` implementation
-- The internal asset's live decimals must still match the snapshot in `PsmInfo`
-- `|external_decimals − internal_decimals|` must be within `MAX_DECIMALS_DIFF`
+- `|external_decimals − internal_decimals|` must be within `MAX_DECIMALS_DIFF`, where
+  `internal_decimals` is the value recorded in `PsmInfo`
 - The PSM must still be below `MaxExternals`
 
 After `add_external_asset`, the external starts with an `AssetCeilingWeight` of `0%`, so its
@@ -175,9 +175,10 @@ impl pallet_psm::Config for Runtime {
 }
 ```
 
-`Fungibles` must expose metadata for both internal and external assets, because
-`add_external_asset` snapshots the external's decimals and the pallet validates
-on every swap that live decimals still match.
+`Fungibles` must expose metadata for both internal and external assets. `create_psm`
+records the internal asset's decimals and `add_external_asset` records the external's
+decimals. Swaps use the recorded values; a later metadata change does not affect them.
+The `try_state` hook writes a warning when live decimals differ from a recorded value.
 
 ### Per-Instance Parameters (Set via Governance)
 
@@ -226,7 +227,7 @@ All events carry `internal_asset` so consumers can attribute them to the correct
 - `AssetHasDebt`: Cannot remove an external with outstanding debt
 - `InsufficientPrivilege`: Emergency origin attempted a Full-only operation
 - `TooManyAssets`: PSM at `MaxExternals`
-- `DecimalsMismatch`: Live decimals diverged from the registration snapshot
+- `DecimalsMismatch`: Reserved legacy error; kept to preserve error variant indices
 - `DecimalsRangeExceeded`: `|external_decimals − internal_decimals|` exceeds `MAX_DECIMALS_DIFF`
 - `ConversionOverflow`: Decimal scaling overflowed
 - `AmountTooSmallAfterConversion`: Counter-asset conversion rounds to zero
