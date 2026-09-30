@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790794890540,
+  "lastUpdate": 1790797497620,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "06bded7ab7ac6a50e0aeba48c0f7f5ca548c3573",
-          "message": "zombienet migrate misc tests (#11394)\n\nMigrate _misc_ test:\n\n- parityDb\n- malus",
-          "timestamp": "2026-03-24T18:20:38Z",
-          "tree_id": "7fdf50b186578735211c7346f83a1ac7ae1eeed3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/06bded7ab7ac6a50e0aeba48c0f7f5ca548c3573"
-        },
-        "date": 1774381535214,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009318824860000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00271985267,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009441729209999989,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0024964036299999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d2e08992098ac61e13117d61420903e1e076d8d8",
+          "message": "statement-store: drop benchmarks of store methods that no node calls (#13369)\n\nThe statement store benchmarks now cover only the store methods that a\nnode actually calls. The benchmarks of statements, broadcasts, posted,\nstatement and remove are gone. The read_scaling, contention and\nfull-store numbers no longer compare with older baselines, because those\nbenchmarks now time subscriptions.\n\nThis is the first step of the benchmark work for\nhttps://github.com/paritytech/polkadot-sdk/issues/13135.",
+          "timestamp": "2026-09-30T18:11:04Z",
+          "tree_id": "459ea28ae9b55b923f0c2e89bf32547d34f4ab45",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d2e08992098ac61e13117d61420903e1e076d8d8"
+        },
+        "date": 1790797469632,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009351497119999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025313362300000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010586130210000006,
             "unit": "seconds"
           }
         ]
