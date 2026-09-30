@@ -9,4 +9,4 @@ doc:
     into one PoV. Nothing calls it yet; the resubmission wiring that follows does.
 crates:
 - name: cumulus-client-consensus-aura
-  bump: patch
+  bump: minor
