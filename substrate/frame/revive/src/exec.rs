@@ -2496,11 +2496,11 @@ where
 	fn code_hash(&self, address: &H160) -> H256 {
 		match self.code_source(address) {
 			Some(CodeSource::Virtual(code)) => sp_io::hashing::keccak_256(code).into(),
-			Some(CodeSource::Indicator(indicator)) =>
-				sp_io::hashing::keccak_256(&indicator).into(),
+			Some(CodeSource::Indicator(indicator)) => sp_io::hashing::keccak_256(&indicator).into(),
 			Some(CodeSource::Contract(contract)) => contract.code_hash,
-			None if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) =>
-				EMPTY_CODE_HASH,
+			None if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) => {
+				EMPTY_CODE_HASH
+			},
 			None => H256::zero(),
 		}
 	}
