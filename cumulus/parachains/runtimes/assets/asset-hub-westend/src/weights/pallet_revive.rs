@@ -1619,27 +1619,298 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(13_840_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
-	/// The range of component `r` is `[0, 49152]`.
+	/// The range of component `r` is `[0, 10000]`.
 	fn evm_jumpdest_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 787_000 picoseconds.
-		Weight::from_parts(856_000, 0)
+		// Minimum execution time: 784_000 picoseconds.
+		Weight::from_parts(1_213_346, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 2
-			.saturating_add(Weight::from_parts(7_893, 0).saturating_mul(r.into()))
+			// Standard Error: 3
+			.saturating_add(Weight::from_parts(7_917, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[1, 1024]`.
 	fn evm_jump_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 641_000 picoseconds.
-		Weight::from_parts(1_020_336, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 8
-			.saturating_add(Weight::from_parts(19_757, 0).saturating_mul(r.into()))
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[1, 512]`.
+	fn evm_jumpi_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_pc_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_pop_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_chainid_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_difficulty_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_codesize_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_calldatasize_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_returndatasize_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 31]`.
+	fn evm_calldataload_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 255]`.
+	fn evm_mload_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_msize_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 255]`.
+	fn evm_mstore_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 255]`.
+	fn evm_mstore8_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 127]`.
+	fn evm_mcopy_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `n` is `[0, 1048511]`.
+	fn evm_mcopy_per_byte(n: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100, 0).saturating_mul(n.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_lt_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_gt_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_eq_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_iszero_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_and_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_or_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_xor_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_not_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_byte_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_clz_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_slt_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sgt_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_shl_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_shr_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sar_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_addmod_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_add_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_sub_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_mul_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_mulmod_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_exp_zero_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_exp_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `b` is `[0, 255]`.
+	fn evm_exp_per_bit(b: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(b.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_signextend_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[1, 512]`.
 	fn evm_jumpi_opcode_always_taken_variant(r: u32, ) -> Weight {
@@ -1873,28 +2144,6 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 1024]`.
-	fn evm_pop_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 347_000 picoseconds.
-		Weight::from_parts(639_956, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 2
-			.saturating_add(Weight::from_parts(8_325, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1008]`.
-	fn evm_dup_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 297_000 picoseconds.
-		Weight::from_parts(641_881, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 4
-			.saturating_add(Weight::from_parts(14_255, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1024]`.
 	fn evm_swap1_opcode(r: u32, ) -> Weight {
 		// Dummy values. These weights will be generated in CI.
 		Weight::from_parts(1_000_000, 0)
@@ -1991,28 +2240,6 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 1024]`.
-	fn evm_pc_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 285_000 picoseconds.
-		Weight::from_parts(639_601, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 5
-			.saturating_add(Weight::from_parts(11_068, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1024]`.
-	fn evm_chainid_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 351_000 picoseconds.
-		Weight::from_parts(690_601, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 4
-			.saturating_add(Weight::from_parts(10_024, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1024]`.
 	fn evm_prevrandao_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -2022,424 +2249,6 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			// Standard Error: 4
 			.saturating_add(Weight::from_parts(9_795, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1024]`.
-	fn evm_codesize_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 329_000 picoseconds.
-		Weight::from_parts(714_897, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 5
-			.saturating_add(Weight::from_parts(10_308, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_calldataload_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 356_000 picoseconds.
-		Weight::from_parts(3_262_359, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 19
-			.saturating_add(Weight::from_parts(24_558, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1024]`.
-	fn evm_calldatasize_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 338_000 picoseconds.
-		Weight::from_parts(630_414, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 3
-			.saturating_add(Weight::from_parts(10_338, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1024]`.
-	fn evm_returndatasize_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 335_000 picoseconds.
-		Weight::from_parts(702_510, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 4
-			.saturating_add(Weight::from_parts(10_420, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_add_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 347_000 picoseconds.
-		Weight::from_parts(673_546, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 3
-			.saturating_add(Weight::from_parts(13_544, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_mul_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 371_000 picoseconds.
-		Weight::from_parts(692_350, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 6
-			.saturating_add(Weight::from_parts(48_221, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_sub_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 347_000 picoseconds.
-		Weight::from_parts(674_103, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 3
-			.saturating_add(Weight::from_parts(13_872, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_div_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 352_000 picoseconds.
-		Weight::from_parts(1_073_593, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 164
-			.saturating_add(Weight::from_parts(399_594, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_sdiv_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 331_000 picoseconds.
-		Weight::from_parts(1_125_403, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 208
-			.saturating_add(Weight::from_parts(416_591, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_mod_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 354_000 picoseconds.
-		Weight::from_parts(1_114_938, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 149
-			.saturating_add(Weight::from_parts(400_507, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_smod_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 335_000 picoseconds.
-		Weight::from_parts(1_108_443, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 162
-			.saturating_add(Weight::from_parts(400_556, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 341]`.
-	fn evm_addmod_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 346_000 picoseconds.
-		Weight::from_parts(772_781, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 328
-			.saturating_add(Weight::from_parts(798_827, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 341]`.
-	fn evm_mulmod_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 370_000 picoseconds.
-		Weight::from_parts(1_489_564, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 142
-			.saturating_add(Weight::from_parts(503_648, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_exp_zero_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 324_000 picoseconds.
-		Weight::from_parts(661_082, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 5
-			.saturating_add(Weight::from_parts(16_833, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_exp_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 345_000 picoseconds.
-		Weight::from_parts(846_069, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 14
-			.saturating_add(Weight::from_parts(49_194, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `b` is `[0, 255]`.
-	fn evm_exp_per_bit(b: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 565_000 picoseconds.
-		Weight::from_parts(952_373, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 12
-			.saturating_add(Weight::from_parts(58_198, 0).saturating_mul(b.into()))
-	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_signextend_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 327_000 picoseconds.
-		Weight::from_parts(867_107, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 7
-			.saturating_add(Weight::from_parts(24_931, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_lt_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 341_000 picoseconds.
-		Weight::from_parts(592_974, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 2
-			.saturating_add(Weight::from_parts(13_004, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_gt_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 318_000 picoseconds.
-		Weight::from_parts(612_813, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 2
-			.saturating_add(Weight::from_parts(12_906, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 49152]`.
-	fn evm_clz_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 307_000 picoseconds.
-		Weight::from_parts(8_060, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 4
-			.saturating_add(Weight::from_parts(10_123, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_slt_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 339_000 picoseconds.
-		Weight::from_parts(664_552, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 3
-			.saturating_add(Weight::from_parts(13_696, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_sgt_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 348_000 picoseconds.
-		Weight::from_parts(661_345, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 3
-			.saturating_add(Weight::from_parts(14_149, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_eq_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 311_000 picoseconds.
-		Weight::from_parts(523_030, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 4
-			.saturating_add(Weight::from_parts(39_091, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1024]`.
-	fn evm_iszero_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 335_000 picoseconds.
-		Weight::from_parts(768_083, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 5
-			.saturating_add(Weight::from_parts(18_961, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_and_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 337_000 picoseconds.
-		Weight::from_parts(631_567, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 3
-			.saturating_add(Weight::from_parts(13_596, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_or_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 358_000 picoseconds.
-		Weight::from_parts(673_796, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 2
-			.saturating_add(Weight::from_parts(13_133, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_xor_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 337_000 picoseconds.
-		Weight::from_parts(639_317, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 3
-			.saturating_add(Weight::from_parts(13_389, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 49152]`.
-	fn evm_not_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 354_000 picoseconds.
-		Weight::from_parts(135_336, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 2
-			.saturating_add(Weight::from_parts(9_679, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1023]`.
-	fn evm_byte_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 314_000 picoseconds.
-		Weight::from_parts(638_406, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 4
-			.saturating_add(Weight::from_parts(12_304, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_shl_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 345_000 picoseconds.
-		Weight::from_parts(1_062_562, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 11
-			.saturating_add(Weight::from_parts(28_975, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_shr_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 324_000 picoseconds.
-		Weight::from_parts(899_470, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 8
-			.saturating_add(Weight::from_parts(24_723, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_sar_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 362_000 picoseconds.
-		Weight::from_parts(1_074_724, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 10
-			.saturating_add(Weight::from_parts(30_622, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 8191]`.
-	fn evm_mload_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 408_000 picoseconds.
-		Weight::from_parts(4_579_697, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 25
-			.saturating_add(Weight::from_parts(26_126, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_mstore_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 400_000 picoseconds.
-		Weight::from_parts(1_319_670, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 25
-			.saturating_add(Weight::from_parts(31_869, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 512]`.
-	fn evm_mstore8_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 409_000 picoseconds.
-		Weight::from_parts(938_254, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 18
-			.saturating_add(Weight::from_parts(32_888, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 1024]`.
-	fn evm_msize_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 415_000 picoseconds.
-		Weight::from_parts(839_419, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 4
-			.saturating_add(Weight::from_parts(9_978, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `r` is `[0, 341]`.
-	fn evm_mcopy_opcode(r: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 441_000 picoseconds.
-		Weight::from_parts(1_284_420, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 45
-			.saturating_add(Weight::from_parts(75_994, 0).saturating_mul(r.into()))
-	}
-	/// The range of component `n` is `[0, 1048511]`.
-	fn evm_mcopy_per_byte(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 977_000 picoseconds.
-		Weight::from_parts(1_071_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 0
-			.saturating_add(Weight::from_parts(329, 0).saturating_mul(n.into()))
 	}
 	/// The range of component `r` is `[0, 10000]`.
 	fn instr(r: u32, ) -> Weight {
