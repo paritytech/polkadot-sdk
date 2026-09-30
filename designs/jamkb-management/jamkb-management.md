@@ -181,8 +181,15 @@ const CAP: Balance;
 type AllocationId = u64;
 type OperationId = u64;
 
+/// A JAM service index.
+type ServiceId = u32;
+
 /// Added to the lease end before `reclaim` opens.
 const GRACE_PERIOD: BlockNumber;
+
+/// The cap on a target's accepted leases: those in `Delivering`, `Delivered`
+/// or `Reclaiming`.
+const MAX_LEASES_PER_TARGET: u32;
 
 /// The recovery deposit (§4.3): a hold on the caller's native balance under the
 /// `RecoveryDeposit` hold reason on `pallet-balances`, `RECOVERY_DEPOSIT` per
@@ -339,10 +346,10 @@ enum OperationPayload {
     /// One `EjectService { service: target }`; it fails `NotEmpty` until the
     /// target's storage and requests are empty.
     ///
-    /// Confirmed: every lease on the target moves to `Closed` and its hold is
-    /// released; the target's `FrozenTargets` and `ServiceAccounts` entries
-    /// are removed; the deposit is released. The amount above `leased` is
-    /// booked as excess (`Excess`).
+    /// Confirmed: every accepted lease on the target moves to `Closed` and
+    /// its hold is released; the target's `FrozenTargets` and
+    /// `ServiceAccounts` entries are removed; the deposit is released. The
+    /// amount above `leased` is booked as excess (`Excess`).
     ///
     /// Assumes the Parachain Service provides the balance credited to it.
     /// The Parachain Service design does not.
@@ -484,9 +491,9 @@ fn offer_lease(target: ServiceId, amount: Balance, duration: BlockNumber,
 
 /// Accepts an offered lease. Origin: the target's service account
 /// (`ServiceAccounts`). Legal while the allocation is `Approved`. Rejected
-/// while the target has another lease within its term, two leases past their
-/// term, or an unsettled `Eject` operation. Moves the allocation to
-/// `Delivering` and records a `Delivery` operation.
+/// while the target has `MAX_LEASES_PER_TARGET` accepted leases or an
+/// unsettled `Eject` operation. Moves the allocation to `Delivering` and
+/// records a `Delivery` operation.
 fn accept_lease(id: AllocationId);
 
 /// Raises a lease's `amount` by `additional` funds. Origin: the lease's approver.
@@ -500,8 +507,8 @@ fn increase_lease(id: AllocationId, additional: Balance);
 /// greater than the current one.
 fn extend_lease(id: AllocationId, duration: BlockNumber);
 
-/// Takes `amount` of the leased units back from the target. Origin: the
-/// lease's approver past the lease end and `GRACE_PERIOD`, or the target's
+/// Takes `amount` of the leased units back from the target. Origin: any
+/// signed account past the lease end and `GRACE_PERIOD`, or the target's
 /// service account at any time. Legal from `Delivered` and from
 /// `Reclaiming`. Records a `Reclaim` operation for `amount`, capped at the
 /// allocation's remaining amount.
@@ -542,14 +549,16 @@ fn forget_preimage(target: ServiceId, hash: Hash, len: u32);
 /// Destroys the emptied target, crediting its balances to the Parachain
 /// Service. Origin: the target's service account, or
 /// governance, with `RECOVERY_DEPOSIT`. Legal while a lease on the target is
-/// `Reclaiming`. Rejected while a lease on the target has an unsettled operation
-/// (§5.1). Records an `Eject` operation
-/// with `leased` = the sum of the target's leases' amounts.
+/// `Reclaiming`. Rejected while a lease on the target has an unsettled
+/// operation (§5.1). Records an `Eject` operation with `leased` = the sum of
+/// the target's leases' amounts. While the `Eject` is unsettled,
+/// `accept_lease`, `increase_lease`, `extend_lease`, `reclaim` and
+/// `close_lease` on the target are rejected.
 fn eject_target(target: ServiceId);
 
 /// Releases the supervised target to itself. Origin: the target's service
 /// account or governance. Rejected while the target is recorded frozen, or
-/// has a lease that is not `Closed`. Records an `Unsupervise` operation.
+/// has an accepted lease. Records an `Unsupervise` operation.
 fn unsupervise(target: ServiceId);
 
 // ── Returns and disposal ───────────────────────────────────────────────────
@@ -639,6 +648,8 @@ interface IJamkb {
     function claimable(address beneficiary) external view returns (uint128);
     function serviceAccount(uint32 target) external view returns (address);
     function isFrozen(uint32 target) external view returns (bool);
+    function leases(uint32 target) external view returns (uint64[] memory allocationIds);
+    function maxLeasesPerTarget() external view returns (uint32);
 }
 ```
 
@@ -769,10 +780,11 @@ Full return, cooperative (the standard end of a lease).
 ```
 Phase 1: Shrink       Target deletes its own state until its residual footprint
                       is covered by its own balance.
-Phase 2: Reclaim      The approver or the target's service account calls
-                      `reclaim`; the pallet queues a TransferOut
-                      debiting the target's supervisor balance by the
-                      requested amount. A partial amount is legal.
+Phase 2: Reclaim      Any signed account past the lease end and GRACE_PERIOD,
+                      or the target's service account at any time, calls
+                      `reclaim`; the pallet queues a TransferOut debiting the
+                      target's supervisor balance by the requested amount. A
+                      partial amount is legal.
 Phase 3: Submit       pallet-parachain-system sends the TransferOut via
                       `send_upward_message` (§3.4). It fails if, after the
                       debit, balance + supervisor_balance < the threshold
@@ -780,9 +792,8 @@ Phase 3: Submit       pallet-parachain-system sends the TransferOut via
 Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet.
                       The output:
                       Confirmed: `amount` is released from the hold; a
-                      fully returned lease moves to Closed. Once every lease
-                      on the target is Closed, `unsupervise` may be
-                      called.
+                      fully returned lease moves to Closed. Once the target
+                      has no accepted lease, `unsupervise` may be called.
                       Failed: JAM rejected the transfer; see `Reclaim`.
 ```
 
