@@ -26,7 +26,7 @@ use crate::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
 		block_hash::EthereumBlockBuilder, block_storage,
 	},
-	exec::{Key, Origin as ExecOrigin, PrecompileExt},
+	exec::{Ext, Key, Origin as ExecOrigin, PrecompileExt},
 	limits::{self, CALLDATA_BYTES, EVM_MEMORY_BYTES, EVM_STACK_LIMIT},
 	precompiles::{
 		self, BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
@@ -131,6 +131,13 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 fn evict_caches() {
 	const EVICTION_SIZE: usize = 8 * 1024 * 1024;
 	core::hint::black_box(vec![1u8; EVICTION_SIZE]);
+}
+
+/// Pushes `values` onto the interpreter's stack in order, so the last value ends up on top.
+fn setup_stack<E: Ext>(interpreter: &mut Interpreter<E>, values: impl IntoIterator<Item = U256>) {
+	for value in values {
+		interpreter.stack.push(value).continue_value().unwrap();
+	}
 }
 
 /// Returns the operands of `r` pairs of `SLT` or `SGT` and `POP` op-codes, in the order they are
@@ -3329,9 +3336,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
-		for target in targets.into_iter().rev() {
-			interpreter.stack.push(U256::from(target)).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, targets.into_iter().rev().map(U256::from));
 
 		evict_caches();
 		let result;
@@ -3389,7 +3394,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
-		for target in targets.into_iter().rev() {
+		let operands = targets.into_iter().rev().flat_map(|target| {
 			// The last jump is always taken so that the code ends on the last `JUMPDEST`.
 			let condition = if target == last_jumpdest_offset || rng.gen_bool(0.5) {
 				// Constructing a truthy value which requires us to check all of the limbs of the
@@ -3398,9 +3403,9 @@ mod benchmarks {
 			} else {
 				U256::zero()
 			};
-			interpreter.stack.push(condition).continue_value().unwrap();
-			interpreter.stack.push(U256::from(target)).continue_value().unwrap();
-		}
+			[condition, U256::from(target)]
+		});
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
@@ -3491,9 +3496,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..r {
-			interpreter.stack.push(U256::MAX).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, vec![U256::MAX; r as usize]);
 
 		evict_caches();
 		let result;
@@ -3535,9 +3538,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
-		for _ in 0..16 {
-			interpreter.stack.push(U256::MAX).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, vec![U256::MAX; 16]);
 
 		evict_caches();
 		let result;
@@ -3580,9 +3581,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
-		for _ in 0..17 {
-			interpreter.stack.push(U256::MAX).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, vec![U256::MAX; 17]);
 
 		evict_caches();
 		let result;
@@ -3803,7 +3802,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), calldata, &mut ext);
-		interpreter.stack.push(initial_stack_value).continue_value().unwrap();
+		setup_stack(&mut interpreter, [initial_stack_value]);
 
 		evict_caches();
 		let result;
@@ -3894,7 +3893,7 @@ mod benchmarks {
 		// With zero loads nothing replaces the stack item, so it has to start as END_OF_WALK for
 		// the final assertion to hold.
 		let initial_stack_value = walk.first().map_or(END_OF_WALK, |&first| U256::from(first));
-		interpreter.stack.push(initial_stack_value).continue_value().unwrap();
+		setup_stack(&mut interpreter, [initial_stack_value]);
 
 		evict_caches();
 		let result;
@@ -4001,9 +4000,10 @@ mod benchmarks {
 			.collect::<Vec<_>>();
 		offsets.shuffle(&mut rng);
 		let stores = &offsets[..r as usize];
-		for operand in stores.iter().flat_map(|&offset| [U256::MAX, U256::from(offset)]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(
+			&mut interpreter,
+			stores.iter().flat_map(|&offset| [U256::MAX, U256::from(offset)]),
+		);
 
 		evict_caches();
 		let result;
@@ -4076,9 +4076,10 @@ mod benchmarks {
 			.collect::<Vec<_>>();
 		offsets.shuffle(&mut rng);
 		let stores = &offsets[..r as usize];
-		for operand in stores.iter().flat_map(|&offset| [U256::MAX, U256::from(offset)]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(
+			&mut interpreter,
+			stores.iter().flat_map(|&offset| [U256::MAX, U256::from(offset)]),
+		);
 
 		evict_caches();
 		let result;
@@ -4162,11 +4163,12 @@ mod benchmarks {
 			.collect::<Vec<_>>();
 		sources.shuffle(&mut rng);
 		let sources = &sources[..r as usize];
-		for &source in sources {
-			for operand in [U256::from(COPY_BYTES), U256::from(source), U256::from(source + 1)] {
-				interpreter.stack.push(operand).continue_value().unwrap();
-			}
-		}
+		setup_stack(
+			&mut interpreter,
+			sources.iter().flat_map(|&source| {
+				[U256::from(COPY_BYTES), U256::from(source), U256::from(source + 1)]
+			}),
+		);
 		let mut expected = initial.clone();
 		for &source in sources {
 			expected[source + 1..source + 1 + COPY_BYTES]
@@ -4223,9 +4225,7 @@ mod benchmarks {
 		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
 		let initial = (0u8..=255).cycle().take(MEMORY_SIZE).collect::<Vec<_>>();
 		interpreter.memory.set(0, &initial);
-		for operand in [U256::from(len), U256::zero(), U256::one()] {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, [U256::from(len), U256::zero(), U256::one()]);
 
 		evict_caches();
 		let result;
@@ -4290,9 +4290,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands.into_iter().rev().chain([start]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands.into_iter().rev().chain([start]));
 
 		evict_caches();
 		let result;
@@ -4343,9 +4341,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands.into_iter().rev().chain([U256::zero()]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands.into_iter().rev().chain([U256::zero()]));
 
 		evict_caches();
 		let result;
@@ -4404,9 +4400,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands.into_iter().rev().chain([start]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands.into_iter().rev().chain([start]));
 
 		evict_caches();
 		let result;
@@ -4456,9 +4450,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
@@ -4496,9 +4488,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..=r {
-			interpreter.stack.push(U256::MAX).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, vec![U256::MAX; r as usize + 1]);
 
 		evict_caches();
 		let result;
@@ -4533,9 +4523,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..=r {
-			interpreter.stack.push(U256::MAX).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, vec![U256::MAX; r as usize + 1]);
 
 		evict_caches();
 		let result;
@@ -4575,9 +4563,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..=r {
-			interpreter.stack.push(U256::MAX).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, vec![U256::MAX; r as usize + 1]);
 
 		evict_caches();
 		let result;
@@ -4613,7 +4599,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		interpreter.stack.push(U256::zero()).continue_value().unwrap();
+		setup_stack(&mut interpreter, [U256::zero()]);
 
 		evict_caches();
 		let result;
@@ -4667,9 +4653,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
@@ -4720,9 +4704,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
@@ -4773,9 +4755,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in signed_comparison_operands(r) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, signed_comparison_operands(r));
 
 		evict_caches();
 		let result;
@@ -4826,9 +4806,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in signed_comparison_operands(r) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, signed_comparison_operands(r));
 
 		evict_caches();
 		let result;
@@ -4881,9 +4859,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
@@ -4936,9 +4912,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
@@ -4993,9 +4967,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
@@ -5091,9 +5063,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
@@ -5136,9 +5106,10 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in [DIVISOR, NUMERATOR].into_iter().cycle().take(2 * r as usize) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(
+			&mut interpreter,
+			[DIVISOR, NUMERATOR].into_iter().cycle().take(2 * r as usize),
+		);
 
 		evict_caches();
 		let result;
@@ -5207,9 +5178,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands.into_iter().rev().chain([start]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands.into_iter().rev().chain([start]));
 
 		evict_caches();
 		let result;
@@ -5279,9 +5248,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands.into_iter().rev().chain([start]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands.into_iter().rev().chain([start]));
 
 		evict_caches();
 		let result;
@@ -5325,9 +5292,8 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in core::iter::repeat_n(U256::MAX, r as usize).chain([START]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, vec![U256::MAX; r as usize]);
+		setup_stack(&mut interpreter, [START]);
 
 		evict_caches();
 		let result;
@@ -5417,9 +5383,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
@@ -5491,9 +5455,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
@@ -5579,9 +5541,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
@@ -5666,9 +5626,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
@@ -5715,9 +5673,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in exponents.chain([U256::MAX]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, exponents.chain([U256::MAX]));
 
 		evict_caches();
 		let result;
@@ -5767,9 +5723,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in exponents.chain([U256::MAX]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, exponents.chain([U256::MAX]));
 
 		evict_caches();
 		let result;
@@ -5809,9 +5763,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in [exponent, U256::MAX] {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, [exponent, U256::MAX]);
 
 		evict_caches();
 		let result;
@@ -5865,9 +5817,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
