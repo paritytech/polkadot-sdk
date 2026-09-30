@@ -3355,25 +3355,15 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `JUMPI` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Pseudo-random Conditions:** a pseudo-random generator decides whether each jump is
-	///   taken, with a 50% chance either way, so the CPU mispredicts the branch on the condition.
-	///   The mispredictions cost more than the untaken jumps save.
-	/// * **Pseudo-random Destinations:** the destination of each taken jump is pseudo-random to
-	///   prevent the CPU from pre-fetching the code at the next destination.
-	/// * **Full Condition Check:** a true condition only has its highest word set, so checking it
-	///   for zero reads all four words, just like checking a false condition does.
-	/// * **Stack Initialization:** the stack is initialized before running the benchmark in order
-	///   to not introduce any `PUSH` op-codes into the code being benchmarked.
-	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the code and
-	///   the stack, which the benchmark's setup loaded into the L1 and L2 caches.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Always taking the jump and never taking the jump results in a lower ref-time than pseudo
-	///   randomly taking the jump.
-	/// * Back to back jump destinations result in a lower ref-time.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on whether each jump is taken, since condition is pseudo-random.
+	/// * An L1 and L2 cache miss on each taken jump's destination op-code, since each destination
+	///   is on a cache line that hasn't been read since the eviction.
+	/// * No help from the pre-fetcher, since the destinations are visited in a pseudo-random order.
+	/// * No early exit from the zero check of a true condition, since its only nonzero word is the
+	///   last one checked.
 	///
 	/// # Subtraction Safety
 	///
