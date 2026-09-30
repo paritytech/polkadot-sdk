@@ -115,14 +115,10 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 		prev_propagated.insert(name, 0);
 	}
 
-	let mut last_scrape = start_time;
 	loop {
-		tokio::time::sleep(Duration::from_secs(5)).await;
+		let interval = 5;
+		tokio::time::sleep(Duration::from_secs(interval)).await;
 		let elapsed = start_time.elapsed().as_secs();
-		// The scrapes themselves take a while, so the rates divide by the measured time between
-		// them rather than by the sleep.
-		let interval = last_scrape.elapsed().as_secs_f64();
-		last_scrape = std::time::Instant::now();
 
 		// Collect submitted metrics
 		let mut submitted_metrics = Vec::new();
@@ -143,7 +139,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 
 			let count = current_count.get() as u64;
 			let delta = count - prev_count;
-			let rate = (delta as f64 / interval) as u64;
+			let rate = delta / interval;
 			submitted_metrics.push((name, count, rate));
 			prev_submitted.insert(name, count);
 		}
@@ -167,7 +163,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 
 			let count = current_count.get() as u64;
 			let delta = count - prev_count;
-			let rate = (delta as f64 / interval) as u64;
+			let rate = delta / interval;
 			propagated_metrics.push((name, count, rate));
 			prev_propagated.insert(name, count);
 		}
@@ -398,12 +394,101 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 						info!("Created {} subscriptions", subscriptions.len());
 					}
 
+					// Step 2: Receive in the background, so the arrival time is taken when the
+					// statement arrives and not when this client finishes its own sends.
+					let total_timeout =
+						Duration::from_millis(config.req_timeout_ms * config.max_retries as u64);
+					let receiver = tokio::spawn(async move {
+						let mut futures: FuturesUnordered<_> = subscriptions
+							.into_iter()
+							.map(|(msg_idx, topic_str, mut subscription)| async move {
+								// The first batch can be an empty snapshot, so wait for one that
+								// carries the neighbour's statement.
+								let first_statement = async {
+									loop {
+										match subscription.next().await {
+											Some(Ok(StatementEvent::NewStatements {
+												statements,
+												..
+											})) => {
+												if let Some(encoded) = statements.into_iter().next()
+												{
+													return Ok(encoded);
+												}
+											},
+											Some(Err(e)) => {
+												return Err(anyhow!(
+													"Subscription error for message {}: {}",
+													msg_idx,
+													e
+												))
+											},
+											None => {
+												return Err(anyhow!(
+													"Subscription ended unexpectedly for message {}",
+													msg_idx
+												))
+											},
+										}
+									}
+								};
+								let encoded =
+									timeout(total_timeout, first_statement).await.map_err(
+										|_| anyhow!("Timeout waiting for message {}", msg_idx),
+									)??;
+								let received_at = unix_micros();
+								let statement =
+									Statement::decode(&mut &encoded[..]).map_err(|e| {
+										anyhow!(
+											"Undecodable statement for message {}: {}",
+											msg_idx,
+											e
+										)
+									})?;
+								let sent_at = statement
+									.data()
+									.and_then(|data| data.get(..8))
+									.map(|bytes| {
+										u64::from_le_bytes(bytes.try_into().expect("8 bytes; qed"))
+									})
+									.ok_or_else(|| {
+										anyhow!("No send time in message {}", msg_idx)
+									})?;
+								let latency =
+									Duration::from_micros(received_at.saturating_sub(sent_at));
+								Ok::<_, anyhow::Error>((msg_idx, topic_str, latency))
+							})
+							.collect();
+
+						let mut message_latencies = Vec::new();
+						while let Some(result) = futures.next().await {
+							let (msg_idx, topic_str, latency) = result.map_err(|e| {
+								anyhow!(
+									"Client {}: Failed to receive message from neighbour {}: {}",
+									client_id,
+									neighbour_id,
+									e
+								)
+							})?;
+							message_latencies.push(latency);
+							if client_id == 0 {
+								info!(
+									"Received {} message(s) {topic_str:?} (msg_idx: {}) after {:?}",
+									message_latencies.len(),
+									msg_idx,
+									latency
+								);
+							}
+						}
+						Ok::<_, anyhow::Error>(message_latencies)
+					});
+
 					// Spreads the submits over a second, as a crowd of real clients would.
 					let submission_jitter = (client_id % 1000) as u64;
 					tokio::time::sleep(Duration::from_millis(submission_jitter)).await;
 					let round_start = std::time::Instant::now();
 
-					// Step 2: Send messages
+					// Step 3: Send messages
 					let send_start = std::time::Instant::now();
 					let mut msg_idx: u32 = 0;
 
@@ -458,92 +543,12 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					let sent_count = msg_idx;
 					let send_duration = send_start.elapsed();
 
-					// Step 3: Wait for subscriptions to receive messages
-					let mut received_count = 0;
-					let mut message_latencies = Vec::with_capacity(subscriptions.len());
-
+					// Step 4: Wait for the neighbour's messages
 					if client_id == 0 {
-						info!("Start receiving messages via subscriptions");
+						info!("Waiting for messages via subscriptions");
 					}
-
-					let total_timeout =
-						Duration::from_millis(config.req_timeout_ms * config.max_retries as u64);
-
-					let mut futures: FuturesUnordered<_> = subscriptions
-						.into_iter()
-						.map(|(msg_idx, topic_str, mut subscription)| async move {
-							// The first batch can be an empty snapshot, so wait for one that
-							// carries the neighbour's statement.
-							let first_statement = async {
-								loop {
-									match subscription.next().await {
-										Some(Ok(StatementEvent::NewStatements {
-											statements,
-											..
-										})) => {
-											if let Some(encoded) = statements.into_iter().next() {
-												return Ok(encoded);
-											}
-										},
-										Some(Err(e)) => {
-											return Err(anyhow!(
-												"Subscription error for message {}: {}",
-												msg_idx,
-												e
-											))
-										},
-										None => {
-											return Err(anyhow!(
-												"Subscription ended unexpectedly for message {}",
-												msg_idx
-											))
-										},
-									}
-								}
-							};
-							let encoded =
-								timeout(total_timeout, first_statement).await.map_err(|_| {
-									anyhow!("Timeout waiting for message {}", msg_idx)
-								})??;
-							let received_at = unix_micros();
-							let statement = Statement::decode(&mut &encoded[..]).map_err(|e| {
-								anyhow!("Undecodable statement for message {}: {}", msg_idx, e)
-							})?;
-							let sent_at = statement
-								.data()
-								.and_then(|data| data.get(..8))
-								.map(|bytes| {
-									u64::from_le_bytes(bytes.try_into().expect("8 bytes; qed"))
-								})
-								.ok_or_else(|| anyhow!("No send time in message {}", msg_idx))?;
-							let latency =
-								Duration::from_micros(received_at.saturating_sub(sent_at));
-							Ok::<_, anyhow::Error>((msg_idx, topic_str, latency))
-						})
-						.collect();
-
-					while let Some(result) = futures.next().await {
-						match result {
-							Ok((msg_idx, topic_str, latency)) => {
-								received_count += 1;
-								message_latencies.push(latency);
-								if client_id == 0 {
-									info!(
-										"Received {received_count} message(s) {topic_str:?} (msg_idx: {}) after {:?}",
-										msg_idx, latency
-									);
-								}
-							},
-							Err(e) => {
-								return Err(anyhow!(
-									"Client {}: Failed to receive message from neighbour {}: {}",
-									client_id,
-									neighbour_id,
-									e
-								));
-							},
-						}
-					}
+					let message_latencies = receiver.await??;
+					let received_count = message_latencies.len() as u32;
 
 					let full_latency = round_start.elapsed();
 					if full_latency < Duration::from_millis(config.interval_ms) {
