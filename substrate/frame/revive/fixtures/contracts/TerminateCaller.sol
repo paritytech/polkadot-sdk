@@ -30,6 +30,11 @@ contract TerminateCaller {
         return address(inner);
     }
 
+    function createAndSelfdestructInConstructor(uint value, address beneficiary) external returns (address) {
+        // 2 is `Terminate.METHOD_SYSCALL`: the constructor runs `SELFDESTRUCT`.
+        return address(new Terminate{value: value}(false, 2, beneficiary));
+    }
+
     function sendFundsAfterTerminateAndCreate(uint value, uint8 method, address beneficiary) external returns (address) {
         inner = new Terminate(true, method, beneficiary);
         inner.terminate(method, beneficiary);
