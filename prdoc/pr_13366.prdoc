@@ -3,4 +3,10 @@ doc:
 - audience: Node Dev
   description: This fixes some internal issues of litep2p assuming connections still
     being alive while this not being the case anymore.
-crates: []
+crates:
+- name: libpsc-network-types2p
+  bump: patch
+- name: sc-network
+  bump: patch
+- name: sc-network-bitswap
+  bump: patch
