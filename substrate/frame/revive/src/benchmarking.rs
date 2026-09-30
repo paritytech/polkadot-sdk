@@ -3512,18 +3512,11 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `DUP1` to `DUP16` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Pseudo-random Depths:** each duplication is a `DUP1` to `DUP16` picked by a
-	///   pseudo-random generator. Every depth has its own handler, so the CPU can't predict which
-	///   handler the interpreter dispatches to next.
-	/// * **Stack Initialization:** 16 items are placed on the stack before the benchmark runs, so
-	///   even a `DUP16` has an item to copy. This is why `r` goes up to the stack limit minus 16.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * One benchmark per depth, each repeating the same duplication. The pseudo-random depths
-	///   cost roughly 73% more per duplication than the most expensive of them.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A misprediction of the handler the interpreter dispatches to, since the duplication
+	///   op-codes are pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
