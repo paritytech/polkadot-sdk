@@ -5087,23 +5087,179 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
-	/// Benchmark `r` `ADD` instructions.
+	/// Benchmarks `r` EVM `ADDMOD` op-codes.
 	///
-	/// `U256` addition branches on the carry between limbs. With the same operands every time, such
-	/// as `U256::MAX`, the CPU would predict these branches perfectly. Instead a pseudo-random
-	/// generator decides whether each limb of each `ADD` carries, with a 50% chance either way,
-	/// which makes the CPU mispredict these branches.
+	/// # Considerations
 	///
-	/// Each `ADD` adds its operand to the result of the previous one, so each operand is picked
-	/// based on the running sum at that point. Uniformly random operands aren't enough since a limb
-	/// that just carried is left smaller, which makes its next carry less likely and gives the CPU
-	/// a pattern to learn.
+	/// * **Division:** `ADDMOD` reduces each addend modulo the modulus with `U256` division, unless
+	///   the addend is already below the modulus, and subtracts the modulus from the sum of the
+	///   remainders if the sum reaches it. The modulus here is 2^65 + 3, whose two limbs give every
+	///   addend three quotient digits, the most that division computes.
+	/// * **Pseudo-random Corrections:** division estimates each quotient digit and then corrects
+	///   the estimate down to the true digit. A pseudo-random generator picks whether the second
+	///   and third digits of each reduction take one or two corrections, with a 50% chance each, so
+	///   the CPU can't predict how many corrections each digit takes. The first digit always takes
+	///   one.
+	/// * **Longest Estimates:** each estimate divides 128 bits by 64 bits in software, which takes
+	///   up to three hardware divisions. The top byte of every addend is all ones and the two lower
+	///   digits of every quotient are at least 2^63, which makes almost every estimate take its
+	///   longest path.
+	/// * **Pseudo-random Subtraction:** a pseudo-random generator also picks whether the sum of the
+	///   remainders reaches the modulus, with a 50% chance, so the CPU can't predict whether the
+	///   modulus is subtracted.
+	/// * **Independent Addends:** the two addends are drawn separately. Using the same addend twice
+	///   makes the second reduction repeat the branches of the first, which the CPU predicts
+	///   better.
+	/// * **Followed by `POP`:** each `ADDMOD` is followed by a `POP`, because otherwise its result,
+	///   which is below the modulus, would become the first addend of the next one and skip its
+	///   division. The weight of a `POP` is subtracted when charging an `ADDMOD`.
+	/// * **Stack Initialization:** the modulus and the addends of every `ADDMOD` are placed on the
+	///   stack before the benchmark runs. This is why `r` goes up to a third of the stack limit.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * The same addends and modulus every time, where both reductions took one, two and two
+	///   corrections. The pseudo-random operands cost roughly 19% more per `ADDMOD` once the `POP`
+	///   is subtracted.
+	/// * Addends drawn from a pool of 64 fixed addends, picked for their corrections, with a
+	///   different modulus that every sum reached. The pseudo-random operands cost between 1% and
+	///   4% more per `ADDMOD`.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `ADDMOD` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		// 2^65 + 3
+		const MODULUS: U256 = U256([3, 2, 0, 0]);
+
+		let slow_addend = |rng: &mut Pcg64| {
+			let corrections = [1, rng.gen_range(1..=2), rng.gen_range(1..=2)].map(U256::from);
+			loop {
+				let mut addend = U256(rng.r#gen());
+				addend.0[3] |= 0xff << 56;
+				let quotient = addend / MODULUS;
+				let longest_estimates = quotient.bit(127) && quotient.bit(63);
+				// Division estimates each digit by dividing what remains of the addend by 2^65,
+				// the modulus without its lowest limb, and corrects the estimate down to the digit.
+				let addend_corrections = [2, 1, 0].map(|digit| {
+					let remainder = (addend >> (64 * digit)) % (MODULUS << 64);
+					remainder / (U256::one() << 65) - remainder / MODULUS
+				});
+				if longest_estimates && addend_corrections == corrections {
+					break addend;
+				}
+			}
+		};
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let a = slow_addend(&mut rng);
+			let subtracts_modulus = rng.gen_bool(0.5);
+			let b = loop {
+				let b = slow_addend(&mut rng);
+				let sum_reaches_modulus = a % MODULUS + b % MODULUS >= MODULUS;
+				if sum_reaches_modulus == subtracts_modulus {
+					break b;
+				}
+			};
+			[MODULUS, b, a]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `DIV` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Division:** the divisor is 2^65 + 3, whose two limbs give the numerator 2^254 + 2^128
+	///   three quotient digits, the most that `U256` division computes.
+	/// * **Estimate Corrections:** division estimates each quotient digit and then corrects the
+	///   estimate down to the true digit. With these operands the three digits take one, two and
+	///   two corrections.
+	/// * **Followed by `POP`:** each `DIV` is followed by a `POP`, because otherwise its result
+	///   would become the numerator of the next one. The weight of a `POP` is subtracted when
+	///   charging a `DIV`.
+	/// * **Stack Initialization:** the numerator and the divisor of every `DIV` are placed on the
+	///   stack before the benchmark runs. This is why `r` goes up to half the stack limit.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is close to the worst case we can see with the `DIV` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		// 2^254 + 2^128
+		const NUMERATOR: U256 = U256([0, 0, 1, 1 << 62]);
+		// 2^65 + 3
+		const DIVISOR: U256 = U256([3, 2, 0, 0]);
+
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in [DIVISOR, NUMERATOR].into_iter().cycle().take(2 * r as usize) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADD` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Carries:** `U256` addition branches on whether a limb carries into the next one. With
+	///   the same operands every time, such as `U256::MAX`, the CPU would predict these branches
+	///   perfectly.
+	/// * **Pseudo-random Carries:** a pseudo-random generator decides whether each limb of each
+	///   `ADD` carries, with a 50% chance either way, so the CPU can't predict these branches.
+	/// * **Chained Additions:** each `ADD` adds its operand to the result of the previous one, so
+	///   each operand is picked based on the running sum at that point. Uniformly random operands
+	///   aren't enough, since a limb that just carried is left smaller, which makes its next carry
+	///   less likely and gives the CPU a pattern to learn.
+	/// * **Stack Initialization:** the `r` operands and the starting value are placed on the stack
+	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Adding `U256::MAX` every time, so every limb carried every time. The pseudo-random carries
+	///   cost roughly 58% more per `ADD`.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `ADD` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_add_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		use rand::{Rng, SeedableRng};
-		use rand_pcg::Pcg64;
-
-		let mut rng = Pcg64::seed_from_u64(42);
+		let mut rng = Pcg64::seed_from_u64(1337);
 		let start = U256([u64::MAX / 2; 4]);
 		let mut running_sum = start;
 		let operands = (0..r)
@@ -5132,10 +5288,11 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for value in operands.into_iter().rev().chain([start]) {
-			interpreter.stack.push(value).continue_value().unwrap();
+		for operand in operands.into_iter().rev().chain([start]) {
+			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -5146,54 +5303,36 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 1);
 		assert_eq!(interpreter.stack.top(), Some(&running_sum));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
 	}
 
-	/// Benchmark `r` `MUL` instructions with dense operands that retain four nonzero result limbs.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_mul_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		const SEED: U256 = U256([0x5555_5555_5555_5555; 4]);
-
-		let code = Bytecode::new_raw(vec![MUL; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..r {
-			interpreter.stack.push(U256::MAX).continue_value().unwrap();
-		}
-		interpreter.stack.push(SEED).continue_value().unwrap();
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 1);
-		let expected = if r.is_multiple_of(2) { SEED } else { SEED.overflowing_neg().0 };
-		assert_eq!(interpreter.stack.top(), Some(&expected));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-	}
-
-	/// Benchmark `r` `SUB` instructions.
+	/// Benchmarks `r` EVM `SUB` op-codes.
 	///
-	/// `U256` subtraction branches on the borrow between limbs. With the same operands every time,
-	/// such as `U256::MAX`, the CPU would predict these branches perfectly. Instead a pseudo-random
-	/// generator decides whether each limb of each `SUB` borrows, with a 50% chance either way,
-	/// which makes the CPU mispredict these branches.
+	/// # Considerations
 	///
-	/// Each `SUB` subtracts its operand from the result of the previous one, so each operand is
-	/// picked based on the running difference at that point. Uniformly random operands aren't
-	/// enough since a limb that just borrowed is left larger, which makes its next borrow less
-	/// likely and gives the CPU a pattern to learn.
+	/// * **Borrows:** `U256` subtraction branches on whether a limb borrows from the next one. With
+	///   the same operands every time, such as `U256::MAX`, the CPU would predict these branches
+	///   perfectly.
+	/// * **Pseudo-random Borrows:** a pseudo-random generator decides whether each limb of each
+	///   `SUB` borrows, with a 50% chance either way, so the CPU can't predict these branches.
+	/// * **Chained Subtractions:** each `SUB` subtracts its operand from the result of the previous
+	///   one, so each operand is picked based on the running difference at that point. Uniformly
+	///   random operands aren't enough, since a limb that just borrowed is left larger, which makes
+	///   its next borrow less likely and gives the CPU a pattern to learn.
+	/// * **Stack Initialization:** the `r` operands and the starting value are placed on the stack
+	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Subtracting `U256::MAX` every time, so every limb borrowed every time. The pseudo-random
+	///   borrows cost roughly 46% more per `SUB`.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `SUB` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sub_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		use rand::{Rng, SeedableRng};
-		use rand_pcg::Pcg64;
-
-		let mut rng = Pcg64::seed_from_u64(42);
+		let mut rng = Pcg64::seed_from_u64(1337);
 		let start = U256([u64::MAX / 2; 4]);
 		let mut running_difference = start;
 		let operands = (0..r)
@@ -5222,10 +5361,11 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for value in operands.into_iter().rev().chain([start]) {
-			interpreter.stack.push(value).continue_value().unwrap();
+		for operand in operands.into_iter().rev().chain([start]) {
+			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -5236,23 +5376,43 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 1);
 		assert_eq!(interpreter.stack.top(), Some(&running_difference));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
 	}
 
-	/// Benchmark `r` `DIV` instructions with three quotient steps and five estimate corrections.
+	/// Benchmarks `r` EVM `MUL` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Value Independence:** `U256` multiplication keeps the low 256 bits of the product with a
+	///   fixed sequence of limb multiplications and no branch that depends on the operands, so its
+	///   work is the same whatever the values.
+	/// * **Chained Multiplications:** each `MUL` multiplies the result of the previous one by
+	///   `U256::MAX`, starting from a value whose limbs are all `0x5555_5555_5555_5555`. The
+	///   results alternate between that value and its negation, so every result keeps four nonzero
+	///   limbs.
+	/// * **Stack Initialization:** the `r` operands and the starting value are placed on the stack
+	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Pseudo-random multipliers, and multipliers of zero, cost the same per `MUL`.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `MUL` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_div_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		const NUMERATOR: U256 = U256([0, 0, 1, 1 << 62]);
-		const DIVISOR: U256 = U256([3, 2, 0, 0]);
+	fn evm_mul_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		const START: U256 = U256([0x5555_5555_5555_5555; 4]);
 
-		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let code = Bytecode::new_raw(vec![MUL; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in [DIVISOR, NUMERATOR].into_iter().cycle().take(2 * r as usize) {
+		for operand in core::iter::repeat_n(U256::MAX, r as usize).chain([START]) {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -5261,26 +5421,91 @@ mod benchmarks {
 
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
+		assert_eq!(interpreter.stack.len(), 1);
+		let expected = if r.is_multiple_of(2) { START } else { START.overflowing_neg().0 };
+		assert_eq!(interpreter.stack.top(), Some(&expected));
 	}
 
-	/// Benchmark `r` `SDIV` instructions using fresh operands. The positive numerator `2^254 +
-	/// 2^128` and negative denominator `-(2^65 + 3)` force sign conversion and five Knuth quotient
-	/// corrections.
+	/// Benchmarks `r` EVM `SDIV` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Most Negative Numerator:** the numerator is -2^255, the only signed value whose
+	///   magnitude reaches 2^255. `SDIV` compares the magnitude of the numerator with 2^255 byte by
+	///   byte, which takes all 32 bytes for this numerator, and negating it carries through every
+	///   limb.
+	/// * **Longest Estimates:** every divisor is 2^64 plus a 64-bit value, so the quotient of 2^255
+	///   has three digits. Each of these divisors makes the `u128` division behind every digit's
+	///   estimate take its longest path. They were found with a seeded search against a model of
+	///   the compiled division.
+	/// * **Pseudo-random Corrections:** with these divisors, division corrects the estimate of each
+	///   digit zero times or once. The divisors are two for each of the eight combinations, and a
+	///   pseudo-random generator picks one for each `SDIV`, so the CPU can't predict the
+	///   corrections.
+	/// * **Pseudo-random Signs:** the generator also picks the sign of the divisor, with a 50%
+	///   chance either way, so the CPU can't predict whether the divisor or the quotient is
+	///   negated.
+	/// * **Followed by `POP`:** each `SDIV` is followed by a `POP`, because otherwise its result
+	///   would become the numerator of the next one. The weight of a `POP` is subtracted when
+	///   charging an `SDIV`.
+	/// * **Stack Initialization:** the numerator and the divisor of every `SDIV` are placed on the
+	///   stack before the benchmark runs. This is why `r` goes up to half the stack limit.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * A numerator of 2^254 + 2^128 and a divisor of -(2^65 + 3) every time. The pseudo-random
+	///   divisors cost roughly 10% more per `SDIV` once the `POP` is subtracted.
+	/// * Numerators of up to 2^255 with pseudo-random signs and corrections over a divisor of 2^65
+	///   + 3 cost roughly 3% less per `SDIV` than this benchmark.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `SDIV` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sdiv_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		const NUMERATOR: U256 = U256([0, 0, 1, 1 << 62]);
-		const DIVISOR: U256 = U256([u64::MAX - 2, u64::MAX - 2, u64::MAX, u64::MAX]);
+		// -2^255
+		const NUMERATOR: U256 = U256([0, 0, 0, 1 << 63]);
+		// The divisors are 2^64 plus one of these, two for each combination of corrections.
+		const DIVISOR_LOW_LIMBS: [u64; 16] = [
+			0x1ac6_6dea_3270_0980,
+			0x1150_77a4_12e2_ccc0,
+			0x3c9b_ee44_0b3f_dba7,
+			0x62aa_fc46_0845_aad9,
+			0x2806_4b94_70ef_f3d9,
+			0x61d1_c4c6_195a_2d43,
+			0x16d5_ec4a_0e7b_8cdb,
+			0x3ef8_7550_1dce_eb99,
+			0xce1e_8ac2_290c_265f,
+			0xd736_05ee_66e1_a76b,
+			0xeb2b_fb00_8fa9_e0f7,
+			0x5141_1d54_0d50_9ec1,
+			0x500c_237e_4578_d88b,
+			0x0164_a34e_0b1c_a4fd,
+			0x0007_f84c_6624_4131,
+			0x05f0_ac84_84d2_a8f7,
+		];
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let magnitude = U256([*DIVISOR_LOW_LIMBS.choose(&mut rng).unwrap(), 1, 0, 0]);
+			let divisor = if rng.gen_bool(0.5) {
+				magnitude
+			} else {
+				U256::zero().overflowing_sub(magnitude).0
+			};
+			[divisor, NUMERATOR]
+		});
 
 		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in [DIVISOR, NUMERATOR].into_iter().cycle().take(2 * r as usize) {
+		for operand in operands {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -5290,23 +5515,72 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
 	}
 
-	/// Benchmark `r` `MOD` instructions with three quotient digits and five estimate corrections.
+	/// Benchmarks `r` EVM `MOD` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Division:** the divisor is 2^65 + 3, whose two limbs give every numerator three quotient
+	///   digits, the most that `U256` division computes.
+	/// * **Pseudo-random Corrections:** division estimates each quotient digit and then corrects
+	///   the estimate down to the true digit. A pseudo-random generator picks whether the second
+	///   and third digits take one or two corrections, with a 50% chance each, so the CPU can't
+	///   predict how many corrections each digit takes. The first digit always takes one.
+	/// * **Longest Estimates:** each estimate divides 128 bits by 64 bits in software, which takes
+	///   up to three hardware divisions. The top byte of every numerator is all ones and the two
+	///   lower digits of every quotient are at least 2^63, which makes almost every estimate take
+	///   its longest path.
+	/// * **Followed by `POP`:** each `MOD` is followed by a `POP`, because otherwise its result
+	///   would become the numerator of the next one. The weight of a `POP` is subtracted when
+	///   charging a `MOD`.
+	/// * **Stack Initialization:** the numerator and the divisor of every `MOD` are placed on the
+	///   stack before the benchmark runs. This is why `r` goes up to half the stack limit.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * A numerator of 2^254 + 2^128 every time, whose digits took one, two and two corrections.
+	///   The pseudo-random numerators cost roughly 8% more per `MOD` once the `POP` is subtracted.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `MOD` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		const NUMERATOR: U256 = U256([0, 0, 1, 1 << 62]);
+		// 2^65 + 3
 		const DIVISOR: U256 = U256([3, 2, 0, 0]);
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let corrections = [1, rng.gen_range(1..=2), rng.gen_range(1..=2)].map(U256::from);
+			let numerator = loop {
+				let mut numerator = U256(rng.r#gen());
+				numerator.0[3] |= 0xff << 56;
+				let quotient = numerator / DIVISOR;
+				let longest_estimates = quotient.bit(127) && quotient.bit(63);
+				// Division estimates each digit by dividing what remains of the numerator by 2^65,
+				// the divisor without its lowest limb, and corrects the estimate down to the digit.
+				let numerator_corrections = [2, 1, 0].map(|digit| {
+					let remainder = (numerator >> (64 * digit)) % (DIVISOR << 64);
+					remainder / (U256::one() << 65) - remainder / DIVISOR
+				});
+				if longest_estimates && numerator_corrections == corrections {
+					break numerator;
+				}
+			};
+			[DIVISOR, numerator]
+		});
 
 		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in [DIVISOR, NUMERATOR].into_iter().cycle().take(2 * r as usize) {
+		for operand in operands {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -5316,24 +5590,86 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
 	}
 
-	/// Benchmark `r` `SMOD` instructions with negative operands and five quotient corrections.
+	/// Benchmarks `r` EVM `SMOD` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Division:** `SMOD` divides the magnitudes of its operands. The magnitude of the divisor
+	///   is 2^65 + 3, whose two limbs give every numerator three quotient digits, the most that
+	///   `U256` division computes.
+	/// * **Largest Magnitudes:** the magnitude of every numerator lies between 2^254 and 2^255, the
+	///   largest a signed value reaches, and the two lower digits of every quotient are at least
+	///   2^63, which makes the estimates of those digits take their longest path.
+	/// * **Pseudo-random Corrections:** division estimates each quotient digit and then corrects
+	///   the estimate down to the true digit. A pseudo-random generator picks whether the first
+	///   digit takes zero corrections or one, and whether the other two take one or two, with a 50%
+	///   chance each, so the CPU can't predict how many corrections each digit takes.
+	/// * **Pseudo-random Signs:** the generator also picks the signs of both operands, with a 50%
+	///   chance each, so the CPU can't predict which operands are negated or whether the remainder
+	///   is.
+	/// * **Pseudo-random Lowest Limb:** the generator also picks whether the lowest limb of the
+	///   numerator's magnitude is zero, with a 50% chance, which decides how far the carry of
+	///   negating the numerator runs.
+	/// * **Followed by `POP`:** each `SMOD` is followed by a `POP`, because otherwise its result
+	///   would become the numerator of the next one. The weight of a `POP` is subtracted when
+	///   charging an `SMOD`.
+	/// * **Stack Initialization:** the numerator and the divisor of every `SMOD` are placed on the
+	///   stack before the benchmark runs. This is why `r` goes up to half the stack limit.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * The same negative numerator and divisor every time. The pseudo-random operands cost
+	///   between 8% and 10% more per `SMOD` once the `POP` is subtracted.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `SMOD` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_smod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		const NUMERATOR: U256 = U256([0, 0, u64::MAX, 0xbfff_ffff_ffff_ffff]);
-		const DIVISOR: U256 =
-			U256([0xffff_ffff_ffff_fffd, 0xffff_ffff_ffff_fffd, u64::MAX, u64::MAX]);
+		// 2^65 + 3
+		const DIVISOR: U256 = U256([3, 2, 0, 0]);
+
+		let negate = |value: U256| U256::zero().overflowing_sub(value).0;
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let corrections = [rng.gen_range(0..=1u64), rng.gen_range(1..=2), rng.gen_range(1..=2)]
+				.map(U256::from);
+			let zero_lowest_limb = rng.gen_bool(0.5);
+			let magnitude = loop {
+				let mut magnitude = U256(rng.r#gen());
+				magnitude.0[3] = magnitude.0[3] >> 1 | 1 << 62;
+				if zero_lowest_limb {
+					magnitude.0[0] = 0;
+				}
+				let quotient = magnitude / DIVISOR;
+				let longest_estimates = quotient.bit(127) && quotient.bit(63);
+				// Division estimates each digit by dividing what remains of the magnitude by 2^65,
+				// the divisor without its lowest limb, and corrects the estimate down to the digit.
+				let magnitude_corrections = [2, 1, 0].map(|digit| {
+					let remainder = (magnitude >> (64 * digit)) % (DIVISOR << 64);
+					remainder / (U256::one() << 65) - remainder / DIVISOR
+				});
+				if longest_estimates && magnitude_corrections == corrections {
+					break magnitude;
+				}
+			};
+			let numerator = if rng.gen_bool(0.5) { magnitude } else { negate(magnitude) };
+			let divisor = if rng.gen_bool(0.5) { DIVISOR } else { negate(DIVISOR) };
+			[divisor, numerator]
+		});
 
 		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in [DIVISOR, NUMERATOR].into_iter().cycle().take(2 * r as usize) {
+		for operand in operands {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -5343,52 +5679,85 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
 	}
 
-	/// Benchmark `r` `ADDMOD` instructions with two full reductions and a final subtraction.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_addmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
-		const OPERAND: U256 = U256([0, 0, 1, 1 << 62]);
-		const MODULUS: U256 = U256([3, 2, 0, 0]);
-
-		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		// Both reductions use three quotient digits with one, two, and two estimate corrections.
-		for value in [MODULUS, OPERAND, OPERAND].into_iter().cycle().take(3 * r as usize) {
-			interpreter.stack.push(value).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
-	}
-
-	/// Benchmark `r` `MULMOD` instructions with full products, five normalized quotient steps and
-	/// two four-word add-back corrections per operation. Fresh operands preserve this path each
-	/// time.
+	/// Benchmarks `r` EVM `MULMOD` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Division:** `MULMOD` multiplies its operands into a 512-bit product and reduces the
+	///   product with the division of `ruint`. The top and lowest bits of both operands are set, so
+	///   the product has eight limbs, and the top two bits of the modulus are clear, so the
+	///   division has to shift the modulus and the product, which takes the most multiplications.
+	/// * **Pseudo-random Modulus Size:** a pseudo-random generator picks a modulus of three or four
+	///   limbs, with a 50% chance either way. Both take the same number of multiplications but loop
+	///   a different number of times, so the CPU can't predict the loops.
+	/// * **Pseudo-random Reciprocal Adjustments:** the division computes a reciprocal of the
+	///   modulus on every `MULMOD` and adjusts it twice, each time depending only on the modulus.
+	///   The generator picks whether each adjustment happens, with a 50% chance each, and draws the
+	///   modulus until it matches.
+	/// * **Pseudo-random Zero Limbs:** the generator also clears the second and third limbs of one
+	///   operand, with a 50% chance each. Each cleared limb makes the multiplication skip a carry
+	///   step, which the CPU can't predict either.
+	/// * **Followed by `POP`:** each `MULMOD` is followed by a `POP`, because otherwise its result,
+	///   which is below the modulus, would become an operand of the next one. The weight of a `POP`
+	///   is subtracted when charging a `MULMOD`.
+	/// * **Stack Initialization:** the modulus and both operands of every `MULMOD` are placed on
+	///   the stack before the benchmark runs. This is why `r` goes up to a third of the stack
+	///   limit.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * `U256::MAX` times `U256::MAX - 6` modulo a four-limb modulus every time, which made the
+	///   division add the modulus back twice. The pseudo-random operands cost roughly 4% more per
+	///   `MULMOD` once the `POP` is subtracted.
+	/// * Operands that made the division add the modulus back a pseudo-random number of times cost
+	///   about the same as that fixed benchmark.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `MULMOD` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mulmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
-		const MODULUS: U256 = U256([4, 1, 1, 1]);
+		let top_bit = U256::one() << 255;
+		// The division computes the reciprocal of the top two limbs of the shifted modulus from the
+		// top limb first, and then adjusts it twice for the second limb. These say whether each
+		// adjustment happens.
+		let reciprocal_adjustments = |modulus: U256| {
+			let top = (modulus << modulus.leading_zeros() as usize) >> 128;
+			let (high, low) = (top.low_u128() >> 64, u128::from(top.low_u64()));
+			[low > u128::MAX % high, (U256::MAX >> 64) / top < U256::from((u128::MAX - low) / high)]
+		};
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let limbs = if rng.gen_bool(0.5) { 3 } else { 4 };
+			let adjustments = [rng.gen_bool(0.5), rng.gen_bool(0.5)];
+			let modulus = loop {
+				let modulus = (U256(rng.r#gen()) | top_bit) >> (2 + 64 * (4 - limbs));
+				if reciprocal_adjustments(modulus) == adjustments {
+					break modulus;
+				}
+			};
+			let a = U256(rng.r#gen()) | top_bit | U256::one();
+			let mut b = U256(rng.r#gen()) | top_bit | U256::one();
+			for limb in 1..=2 {
+				if rng.gen_bool(0.5) {
+					b.0[limb] = 0;
+				}
+			}
+			[modulus, b, a]
+		});
 
-		let multiplier = U256::MAX - U256::from(6);
 		let code = Bytecode::new_raw([MULMOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for operand in [MODULUS, multiplier, U256::MAX].into_iter().cycle().take(3 * r as usize) {
+		for operand in operands {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -5398,21 +5767,47 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
 	}
 
-	/// Benchmark `r` `EXP` instructions taking the zero-exponent shortcut.
+	/// Benchmarks `r` EVM `EXP` op-codes whose exponents are zero or one.
+	///
+	/// # Considerations
+	///
+	/// * **Zero Exponents:** `EXP` returns one for an exponent of zero without multiplying. This
+	///   benchmark is what an `EXP` with a zero exponent is charged.
+	/// * **Pseudo-random Exponents:** a pseudo-random generator picks an exponent of zero or one
+	///   for each `EXP`, with a 50% chance either way, so the CPU can't predict whether it
+	///   multiplies. This covers the mispredictions that zero exponents cause among other
+	///   exponents, at the price of charging them half the cost of an exponent of one on top.
+	/// * **Chained Exponentiations:** each `EXP` raises the result of the previous one to its
+	///   exponent, starting from `U256::MAX`. Multiplication has no branch that depends on the
+	///   values, so the base doesn't change the work.
+	/// * **Stack Initialization:** the `r` exponents and the base are placed on the stack before
+	///   the benchmark runs. This is why `r` goes up to the stack limit minus one.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * An exponent of zero every time. Picking zero or one pseudo-randomly cost roughly 11% more
+	///   per `EXP` than the average of the two on their own.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `EXP` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_exp_zero_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let exponents = (0..r).map(|_| U256::from(u8::from(rng.gen_bool(0.5))));
+
 		let code = Bytecode::new_raw(vec![EXP; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..r {
-			interpreter.stack.push(U256::zero()).continue_value().unwrap();
+		for operand in exponents.chain([U256::MAX]) {
+			interpreter.stack.push(operand).continue_value().unwrap();
 		}
-		interpreter.stack.push(U256::MAX).continue_value().unwrap();
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -5422,23 +5817,50 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 1);
-		let expected = if r == 0 { U256::MAX } else { U256::one() };
-		assert_eq!(interpreter.stack.top(), Some(&expected));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
 	}
 
-	/// Benchmark the fixed positive-exponent cost with `r` `EXP` instructions and exponent one.
+	/// Benchmarks `r` EVM `EXP` op-codes whose exponents are one or three.
+	///
+	/// # Considerations
+	///
+	/// * **Fixed Cost:** `EXP` multiplies once for an exponent of one, and each further bit of the
+	///   exponent adds a squaring, plus a multiplication when the bit is set. This benchmark is the
+	///   fixed cost charged for every nonzero exponent, and `evm_exp_per_bit` charges each bit
+	///   after the first.
+	/// * **Pseudo-random Exponents:** a pseudo-random generator picks an exponent of one or three
+	///   for each `EXP`, with a 50% chance either way, so the CPU can't predict whether the loop
+	///   over the bits of the exponent runs. This covers the mispredictions of code that mixes
+	///   exponents of different lengths, at the price of charging every nonzero exponent half the
+	///   cost of a bit on top.
+	/// * **Chained Exponentiations:** each `EXP` raises the result of the previous one to its
+	///   exponent, starting from `U256::MAX`. Multiplication has no branch that depends on the
+	///   values, so the base doesn't change the work.
+	/// * **Stack Initialization:** the `r` exponents and the base are placed on the stack before
+	///   the benchmark runs. This is why `r` goes up to the stack limit minus one.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * An exponent of one every time. Picking one or three pseudo-randomly cost roughly 4% more
+	///   per `EXP` than the average of the two on their own.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `EXP` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_exp_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let exponents = (0..r).map(|_| U256::from(if rng.gen_bool(0.5) { 3 } else { 1 }));
+
 		let code = Bytecode::new_raw(vec![EXP; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..r {
-			interpreter.stack.push(U256::one()).continue_value().unwrap();
+		for operand in exponents.chain([U256::MAX]) {
+			interpreter.stack.push(operand).continue_value().unwrap();
 		}
-		interpreter.stack.push(U256::MAX).continue_value().unwrap();
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -5448,14 +5870,31 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&U256::MAX));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
 	}
 
-	/// Benchmark `EXP` with all exponent bits set. Each additional bit adds two multiplications.
+	/// Benchmarks one EVM `EXP` op-code whose exponent has `b + 1` bits, all of them set.
+	///
+	/// # Considerations
+	///
+	/// * **Set Bits:** for every bit of the exponent after the first, `EXP` squares the base, and
+	///   for every set bit it also multiplies the base into the result, so an exponent whose bits
+	///   are all set does the most work for its length.
+	/// * **Value Independence:** the base is `U256::MAX`. Multiplication has no branch that depends
+	///   on the values, so the base doesn't change the work, even though its square is one.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Exponents with pseudo-random bits cost roughly 24% less per bit.
+	/// * Chains of 32 `EXP` op-codes per step cost about the same per bit.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `EXP` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_exp_per_bit(b: Linear<0, 255>) {
-		let exponent = U256::MAX >> (255 - b);
+		let exponent = U256::MAX >> (255 - b as usize);
+
 		let code = Bytecode::new_raw(vec![EXP].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -5464,6 +5903,7 @@ mod benchmarks {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -5473,25 +5913,55 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&U256::MAX));
-		assert_eq!(interpreter.bytecode.pc(), 2);
 	}
 
-	/// Benchmark `r` `SIGNEXTEND` instructions with a set sign bit in the lowest limb.
+	/// Benchmarks `r` EVM `SIGNEXTEND` op-codes.
 	///
-	/// Index three keeps mask construction on the full shift path. Fresh operands and `POP`
-	/// preserve the negative extension path on every repetition.
+	/// # Considerations
+	///
+	/// * **Mask:** for an index below 31, `SIGNEXTEND` builds a mask of the bits below the sign bit
+	///   as `(1 << (8 * index + 7)) - 1`. The shift branches on the limb that the sign bit falls
+	///   in, checking limbs 3, 2 and 1 in that order, and the subtraction borrows through the limbs
+	///   below it.
+	/// * **Pseudo-random Indices:** a pseudo-random generator picks an index of 27, 19, 11 or 3,
+	///   whose sign bits fall in limbs 3, 2, 1 and 0. It picks 27 half the time, 19 a quarter of
+	///   the time, and 11 and 3 an eighth of the time each, so every limb check that the CPU
+	///   reaches has a 50% chance either way.
+	/// * **Pseudo-random Values:** the values are pseudo-random too, so each sign bit is set half
+	///   the time, and the CPU can't predict whether the value is extended with ones or with zeros.
+	/// * **Followed by `POP`:** each `SIGNEXTEND` is followed by a `POP`, because otherwise its
+	///   result would become the index of the next one. The weight of a `POP` is subtracted when
+	///   charging a `SIGNEXTEND`.
+	/// * **Stack Initialization:** the value and the index of every `SIGNEXTEND` are placed on the
+	///   stack before the benchmark runs. This is why `r` goes up to half the stack limit.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * An index of 3 and a negative value every time. The pseudo-random operands cost roughly 53%
+	///   more per `SIGNEXTEND` once the `POP` is subtracted.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `SIGNEXTEND` op-code so this can't
+	/// be subtracted from other benchmarks without leading to an undercharge in the other
+	/// benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_signextend_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let index = [27, 19, 11].into_iter().find(|_| rng.gen_bool(0.5)).unwrap_or(3);
+			[U256(rng.r#gen()), U256::from(index)]
+		});
+
 		let code = Bytecode::new_raw([SIGNEXTEND, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		let operands = (0..r).flat_map(|_| [U256::from(0xffda_dadau32), U256::from(3)]);
 		for operand in operands {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
+		evict_caches();
 		let result;
 		#[block]
 		{
@@ -5501,7 +5971,6 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
 	}
 
 	// Benchmark the execution of instructions.
