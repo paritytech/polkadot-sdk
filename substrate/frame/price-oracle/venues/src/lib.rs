@@ -17,29 +17,36 @@
 
 //! Definitions of the markets of well-known exchanges.
 //!
-//! Each function builds one market as stored by [`Pallet::set_market`](crate::Pallet::set_market),
-//! with an order book query and a recent trades query. The definitions are generic over the
-//! asset pair. The venue and pair are those the runtime assigns, and the symbol names any pair
-//! the exchange lists, in the exchange's own convention.
+//! Each function builds one market as stored by
+//! [`Pallet::set_market`](pallet_price_oracle::Pallet::set_market), with an order book query and
+//! a recent trades query. The definitions are generic over the asset pair. The venue and pair are
+//! those the runtime assigns, and the symbol names any pair the exchange lists, in the exchange's
+//! own convention.
 //!
 //! Each definition is tested against a sample response of the exchange. A definition is `None`
 //! only if one of its values does not fit the bounds of the registry.
 
-use crate::{
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
+use alloc::{format, vec::Vec};
+use pallet_price_oracle::{
 	registry::{MaxParamName, MaxParamValue, StoredMarket, StoredQuery, StoredRequest},
 	schema::{LevelLayout, Path, PathStep, ResponseSchema, TimeFormat},
 };
-use alloc::{format, vec::Vec};
-use frame_support::{traits::Get, BoundedVec};
 use sp_price_oracle::{
 	market::{Method, QueryTag, VenueId},
 	PairId, Price,
 };
-use sp_runtime::traits::One;
+use sp_runtime::{
+	traits::{Get, One},
+	BoundedVec,
+};
 
-/// The tag of the order book query of every market defined in this module.
+/// The tag of the order book query of every market defined in this crate.
 const BOOK: QueryTag = QueryTag(0);
-/// The tag of the trades query of every market defined in this module.
+/// The tag of the trades query of every market defined in this crate.
 const TRADES: QueryTag = QueryTag(1);
 
 /// The time after which a request is abandoned. A venue that does not answer in time is left
@@ -588,8 +595,8 @@ fn market(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{
-		price_market,
+	use pallet_price_oracle::{
+		parse_market,
 		pricing::{parse_decimal, PairSettings},
 	};
 	use sp_price_oracle::runtime_api::ParseError;
@@ -622,7 +629,7 @@ mod tests {
 		}
 	}
 
-	/// The recorded responses of a market, tagged for `price_market`.
+	/// The recorded responses of a market, tagged for `parse_market`.
 	fn responses(book: &[u8], trades: &[u8]) -> Vec<(QueryTag, Vec<u8>)> {
 		vec![(BOOK, book.to_vec()), (TRADES, trades.to_vec())]
 	}
@@ -630,11 +637,11 @@ mod tests {
 	/// Price `market` from its recorded responses. The price must be near 1 USDT, and the
 	/// market must turn stale once the recorded trade is older than allowed.
 	fn assert_prices(market: &StoredMarket, book: &[u8], trades: &[u8]) {
-		let price = price_market(market, &settings(), responses(book, trades), NOW_MS).unwrap();
+		let price = parse_market(market, &settings(), responses(book, trades), NOW_MS).unwrap();
 		assert!(price > p("0.95") && price < p("1.05"), "unexpected price {price:?}");
 
 		let later = NOW_MS + MAX_TRADE_AGE_MS as u64 + 1;
-		let stale = price_market(market, &settings(), responses(book, trades), later);
+		let stale = parse_market(market, &settings(), responses(book, trades), later);
 		assert_eq!(stale, Err(ParseError(b"StaleTrades".to_vec())));
 	}
 
@@ -733,7 +740,7 @@ mod tests {
 		let mut market = binance_spot(VENUE, PAIR, "DOTUSDT").unwrap();
 		market.queries[0].request.max_response_bytes = 16;
 		let responses = responses(fixture!("binance_spot_book"), fixture!("binance_spot_trades"));
-		let rejected = price_market(&market, &settings(), responses, NOW_MS);
+		let rejected = parse_market(&market, &settings(), responses, NOW_MS);
 		assert_eq!(rejected, Err(ParseError(b"response too large".to_vec())));
 	}
 
@@ -744,7 +751,7 @@ mod tests {
 		let mut market = binance_spot(VENUE, PAIR, "DOTUSDT").unwrap();
 		market.contract_size = p("0.001");
 		let responses = responses(fixture!("binance_spot_book"), fixture!("binance_spot_trades"));
-		let thin = price_market(&market, &settings(), responses, NOW_MS);
+		let thin = parse_market(&market, &settings(), responses, NOW_MS);
 		assert_eq!(thin, Err(ParseError(b"BookTooThin".to_vec())));
 	}
 }

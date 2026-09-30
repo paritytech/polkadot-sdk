@@ -14280,6 +14280,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-price-oracle-venues"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "pallet-price-oracle",
+ "sc-price-oracle",
+ "sp-price-oracle",
+ "sp-runtime 31.0.1",
+ "tokio",
+]
+
+[[package]]
 name = "pallet-proxy"
 version = "28.0.0"
 dependencies = [
@@ -17847,6 +17859,8 @@ dependencies = [
  "pallet-people",
  "pallet-pgas-allowance",
  "pallet-preimage",
+ "pallet-price-oracle",
+ "pallet-price-oracle-venues",
  "pallet-proxy",
  "pallet-psm",
  "pallet-ranked-collective",
@@ -17985,6 +17999,7 @@ dependencies = [
  "sc-network-transactions",
  "sc-network-types 0.10.0",
  "sc-offchain",
+ "sc-price-oracle",
  "sc-proposer-metrics",
  "sc-rpc",
  "sc-rpc-api",
@@ -18043,6 +18058,7 @@ dependencies = [
  "sp-npos-elections",
  "sp-offchain",
  "sp-panic-handler 13.0.0",
+ "sp-price-oracle",
  "sp-rpc",
  "sp-runtime 31.0.1",
  "sp-runtime-interface 24.0.0",
@@ -22435,7 +22451,6 @@ dependencies = [
  "hyper-rustls 0.27.3",
  "hyper-util",
  "log",
- "pallet-price-oracle",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "rustls 0.23.31",

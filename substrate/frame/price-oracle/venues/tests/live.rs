@@ -1,46 +1,48 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+// SPDX-License-Identifier: Apache-2.0
 
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Live check that venue constructors still fetch and price against public APIs.
 //!
 //! ```text
-//! cargo test -p sc-price-oracle --lib venues_are_fetched_and_priced -- --ignored --nocapture
+//! cargo test -p pallet-price-oracle-venues --test live -- --ignored --nocapture
 //! ```
 
-use crate::{
-	fetcher::{Fetcher, MarketFailure},
-	now_ms,
-};
 use futures::{channel::mpsc, StreamExt};
 use pallet_price_oracle::{
-	price_market,
+	parse_market,
 	pricing::{self, parse_decimal, PairSettings},
 	registry::StoredMarket,
-	venues,
 };
+use pallet_price_oracle_venues as venues;
+use sc_price_oracle::fetcher::{Fetcher, MarketFailure};
 use sp_price_oracle::{
 	market::{MarketId, VenueId},
 	PairId, Price, Quote,
 };
 use sp_runtime::Permill;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::{Duration, Instant};
 
 const PAIR: PairId = PairId(1);
+
+/// Current Unix time in milliseconds.
+fn now_ms() -> u64 {
+	SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
+}
 
 fn p(s: &str) -> Price {
 	parse_decimal(s).unwrap()
@@ -55,7 +57,7 @@ fn settings() -> PairSettings {
 	}
 }
 
-/// One market per constructor in [`venues`].
+/// One market per constructor in [`pallet_price_oracle_venues`].
 fn markets() -> Vec<(&'static str, StoredMarket)> {
 	[
 		("binance_spot", venues::binance_spot(VenueId(0), PAIR, "DOTUSDT")),
@@ -108,7 +110,7 @@ async fn venues_are_fetched_and_priced() {
 	let mut missing = Vec::new();
 	fetched.into_iter().for_each(|r| {
 		let (name, market) = &stored[r.market.0 as usize];
-		match price_market(market, &settings(), r.responses, now) {
+		match parse_market(market, &settings(), r.responses, now) {
 			Ok(price) => prices.push(Quote { pair: market.pair, price }),
 			Err(e) => missing.push((*name, String::from_utf8_lossy(&e.0).into_owned())),
 		}

@@ -429,6 +429,7 @@ members = [
 	"substrate/frame/people",
 	"substrate/frame/preimage",
 	"substrate/frame/price-oracle",
+	"substrate/frame/price-oracle/venues",
 	"substrate/frame/primitives/coretime",
 	"substrate/frame/proxy",
 	"substrate/frame/psm",
@@ -1066,6 +1067,7 @@ pallet-people = { path = "substrate/frame/people", default-features = false }
 pallet-pgas-allowance = { path = "substrate/frame/transaction-payment/pgas-allowance", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
 pallet-price-oracle = { path = "substrate/frame/price-oracle", default-features = false }
+pallet-price-oracle-venues = { path = "substrate/frame/price-oracle/venues", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-psm = { path = "substrate/frame/psm", default-features = false }
 pallet-psm-remote-tests = { path = "substrate/frame/psm/remote-tests" }
