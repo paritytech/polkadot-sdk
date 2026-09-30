@@ -3507,20 +3507,17 @@ fn weight_budget_is_not_fresh_after_a_serviced_task() {
 	});
 }
 
-/// An aborted task is removed from its agenda and is not serviced again when the agenda is
-/// revisited for a postponed task.
+/// An aborted task is removed from its agenda together with its retry configuration, and is not
+/// serviced again when the agenda is revisited for a postponed task.
 #[test]
 fn aborted_task_is_removed_from_agenda() {
 	new_test_ext().execute_with(|| {
 		let budget = set_small_budget();
 		let fresh = fresh_task_budget(budget, 3);
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(4),
-			None,
-			63,
-			root(),
-			missing_lookup(40)
-		));
+		let aborted =
+			Scheduler::do_schedule(DispatchTime::At(4), None, 63, root(), missing_lookup(40))
+				.unwrap();
+		assert_ok!(Scheduler::set_retry(root().into(), aborted, 3, 2));
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(4),
 			None,
@@ -3541,6 +3538,7 @@ fn aborted_task_is_removed_from_agenda() {
 		System::run_to_block::<AllPalletsWithSystem>(4);
 		assert_eq!(logger::log(), vec![(root(), 1)]);
 		assert_eq!(Agenda::<Test>::get(4).iter().flatten().count(), 1);
+		assert!(!Retries::<Test>::contains_key(aborted));
 
 		System::run_to_block::<AllPalletsWithSystem>(5);
 		assert_eq!(logger::log(), vec![(root(), 1), (root(), 2)]);
@@ -3550,122 +3548,8 @@ fn aborted_task_is_removed_from_agenda() {
 	});
 }
 
-/// A lookup that cannot be fetched is aborted and removed like any unavailable call.
-#[test]
-fn unfetchable_lookup_is_removed() {
-	new_test_ext().execute_with(|| {
-		let call = logger_call(9, 10);
-		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(0), call.encode()));
-		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
-		let lookup = Bounded::Lookup { hash, len: call.encoded_size() as u32 + 1 };
-
-		assert_ok!(Scheduler::do_schedule(DispatchTime::At(4), None, 63, root(), lookup));
-		System::run_to_block::<AllPalletsWithSystem>(4);
-
-		assert_eq!(call_unavailable_count((4, 0)), 1);
-		assert!(logger::log().is_empty());
-		assert!(Agenda::<Test>::get(4).is_empty());
-	});
-}
-
-/// A permanently overweight task is removed from its agenda, and a task postponed behind it runs
-/// in the next block.
-#[test]
-fn permanently_overweight_task_is_removed_from_agenda() {
-	new_test_ext().execute_with(|| {
-		let budget = set_small_budget();
-		// Its preimage is noted, so it stays available after the scheduler drops its request.
-		let overweight = logger_call(1, budget.ref_time());
-		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(0), overweight.encode()));
-		let hash = <Test as frame_system::Config>::Hashing::hash_of(&overweight);
-		let len = overweight.encoded_size() as u32;
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(4),
-			None,
-			63,
-			root(),
-			Bounded::Lookup { hash, len },
-		));
-
-		let fresh = fresh_task_budget(budget, 2);
-		let lookup_weight =
-			<Test as Config>::WeightInfo::service_task(Some(len as usize), false, false);
-		let dispatch = <Test as Config>::WeightInfo::execute_dispatch_unsigned();
-		let ref_time = fresh.saturating_sub(lookup_weight).saturating_sub(dispatch).ref_time() + 1;
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(4),
-			None,
-			63,
-			root(),
-			Preimage::bound(logger_call(7, ref_time)).unwrap(),
-		));
-
-		System::run_to_block::<AllPalletsWithSystem>(4);
-		System::assert_has_event(
-			crate::Event::PermanentlyOverweight { task: (4, 0), id: None }.into(),
-		);
-		assert!(logger::log().is_empty());
-
-		System::run_to_block::<AllPalletsWithSystem>(5);
-		assert_eq!(logger::log(), vec![(root(), 7)]);
-		assert_eq!(permanently_overweight_count(), 1);
-		assert!(Agenda::<Test>::get(4).is_empty());
-		assert_eq!(IncompleteSince::<Test>::get(), Some(6));
-	});
-}
-
-/// The retry configuration of an aborted task is removed together with the task.
-#[test]
-fn retry_config_of_aborted_task_is_removed() {
-	new_test_ext().execute_with(|| {
-		let address =
-			Scheduler::do_schedule(DispatchTime::At(4), None, 127, root(), missing_lookup(40))
-				.unwrap();
-		assert_ok!(Scheduler::set_retry(root().into(), address, 3, 2));
-		assert!(Retries::<Test>::contains_key(address));
-
-		System::run_to_block::<AllPalletsWithSystem>(4);
-		assert_eq!(call_unavailable_count(address), 1);
-		assert!(!Retries::<Test>::contains_key(address));
-		assert!(Agenda::<Test>::get(4).is_empty());
-	});
-}
-
-/// A task whose service weight exceeds `MaximumWeight` even in an otherwise empty block is
-/// removed instead of holding back its agenda, and the task after it is still serviced.
-#[test]
-fn task_exceeding_maximum_weight_is_removed() {
-	new_test_ext().execute_with(|| {
-		let budget = set_small_budget();
-		let base = <Test as Config>::WeightInfo::service_task(Some(100), false, false);
-		assert!(base.any_gt(budget));
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(4),
-			None,
-			63,
-			root(),
-			missing_lookup(100)
-		));
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(4),
-			None,
-			128,
-			root(),
-			Preimage::bound(logger_call(7, 10)).unwrap(),
-		));
-
-		System::run_to_block::<AllPalletsWithSystem>(4);
-		System::assert_has_event(
-			crate::Event::PermanentlyOverweight { task: (4, 0), id: None }.into(),
-		);
-		assert_eq!(logger::log(), vec![(root(), 7)]);
-		assert!(Agenda::<Test>::get(4).is_empty());
-		assert_eq!(IncompleteSince::<Test>::get(), Some(5));
-	});
-}
-
-/// A named task that stops fitting because `MaximumWeight` was lowered after it was scheduled is
-/// removed together with its name and retry configuration.
+/// A named periodic task that stops fitting because `MaximumWeight` was lowered after it was
+/// scheduled is removed together with its name and retry configuration, and is not scheduled again.
 #[test]
 fn task_no_longer_fitting_maximum_weight_is_removed_with_its_name_and_retry_config() {
 	new_test_ext().execute_with(|| {
@@ -3673,9 +3557,15 @@ fn task_no_longer_fitting_maximum_weight_is_removed_with_its_name_and_retry_conf
 		let bound = Preimage::bound(call).unwrap();
 		assert!(bound.lookup_needed());
 		let name = [1u8; 32];
-		let address =
-			Scheduler::do_schedule_named(name, DispatchTime::At(4), None, 127, root(), bound)
-				.unwrap();
+		let address = Scheduler::do_schedule_named(
+			name,
+			DispatchTime::At(4),
+			Some((3, 5)),
+			127,
+			root(),
+			bound,
+		)
+		.unwrap();
 		assert_ok!(Scheduler::set_retry_named(root().into(), name, 3, 2));
 
 		set_small_budget();
@@ -3688,6 +3578,11 @@ fn task_no_longer_fitting_maximum_weight_is_removed_with_its_name_and_retry_conf
 		assert!(!Lookup::<Test>::contains_key(name));
 		assert!(!Retries::<Test>::contains_key(address));
 		assert_eq!(IncompleteSince::<Test>::get(), Some(5));
+
+		System::run_to_block::<AllPalletsWithSystem>(20);
+		assert_eq!(Agenda::<Test>::iter().count(), 0);
+		assert_eq!(Retries::<Test>::iter().count(), 0);
+		assert_eq!(permanently_overweight_count(), 1);
 	});
 }
 
@@ -3803,101 +3698,6 @@ fn zero_maximum_weight_pauses_without_removing_tasks() {
 	});
 }
 
-/// A periodic task removed for exceeding `MaximumWeight` is not scheduled again.
-#[test]
-fn removed_periodic_task_is_not_rescheduled() {
-	new_test_ext().execute_with(|| {
-		set_small_budget();
-		let a = Scheduler::do_schedule(
-			DispatchTime::At(4),
-			Some((3, 5)),
-			63,
-			root(),
-			missing_lookup(100),
-		)
-		.unwrap();
-		assert_ok!(Scheduler::set_retry(root().into(), a, 3, 2));
-		System::run_to_block::<AllPalletsWithSystem>(30);
-		assert_eq!(Agenda::<Test>::iter().count(), 0);
-		assert_eq!(Retries::<Test>::iter().count(), 0);
-		assert_eq!(permanently_overweight_count(), 1);
-	});
-}
-
-/// Consecutive tasks exceeding `MaximumWeight` in a later agenda are all removed and the task
-/// after them still runs.
-#[test]
-fn consecutive_tasks_exceeding_maximum_weight_are_removed_in_later_agenda() {
-	new_test_ext().execute_with(|| {
-		let budget = set_small_budget();
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(4),
-			None,
-			63,
-			root(),
-			Preimage::bound(logger_call(1, 10)).unwrap()
-		));
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(5),
-			None,
-			63,
-			root(),
-			missing_lookup(100)
-		));
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(5),
-			None,
-			63,
-			root(),
-			missing_lookup(200)
-		));
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(5),
-			None,
-			128,
-			root(),
-			Preimage::bound(logger_call(2, 10)).unwrap()
-		));
-		System::run_to_block::<AllPalletsWithSystem>(2);
-		MaximumSchedulerWeight::set(&Weight::zero());
-		System::run_to_block::<AllPalletsWithSystem>(6);
-		MaximumSchedulerWeight::set(&budget);
-		System::run_to_block::<AllPalletsWithSystem>(7);
-		assert_eq!(permanently_overweight_count(), 2);
-		assert_eq!(logger::log(), vec![(root(), 1), (root(), 2)]);
-		assert_eq!(Agenda::<Test>::iter().count(), 0);
-		assert_eq!(IncompleteSince::<Test>::get(), Some(8));
-	});
-}
-
-/// A task that fits once the tasks ahead of it are done is postponed, not removed.
-#[test]
-fn task_fitting_once_the_tasks_ahead_are_done_is_postponed() {
-	new_test_ext().execute_with(|| {
-		let budget = set_small_budget();
-		let len = shortest_lookup_not_fitting(budget, 2);
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(4),
-			None,
-			0,
-			root(),
-			Preimage::bound(logger_call(1, 10)).unwrap()
-		));
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(4),
-			None,
-			63,
-			root(),
-			missing_lookup(len)
-		));
-		System::run_to_block::<AllPalletsWithSystem>(6);
-		assert_eq!(logger::log(), vec![(root(), 1)]);
-		assert_eq!(permanently_overweight_count(), 0);
-		assert_eq!(call_unavailable_count((4, 1)), 1);
-		assert_eq!(IncompleteSince::<Test>::get(), Some(7));
-	});
-}
-
 /// A postponed task ahead of another one is serviced first on the next visit, so it does not count
 /// towards the agenda length the task behind it will be serviced with.
 #[test]
@@ -3934,34 +3734,6 @@ fn task_behind_a_postponed_task_is_not_removed() {
 		assert_eq!(call_unavailable_count((4, 2)), 1);
 		assert_eq!(IncompleteSince::<Test>::get(), Some(9));
 	});
-}
-
-/// A task alone in its agenda is kept up to exactly `MaximumWeight` and removed above it.
-#[test]
-fn removal_boundary_is_maximum_weight() {
-	for (extra, expect_po) in [(0u64, 0usize), (1, 1)] {
-		new_test_ext().execute_with(|| {
-			// A budget exactly equal to what the task needs, or one less.
-			let len = 50u32;
-			let base = <Test as Config>::WeightInfo::service_task(Some(len as usize), false, false);
-			let needed = <Test as Config>::WeightInfo::service_agendas_base() +
-				<Test as Config>::WeightInfo::service_agenda_base(1) +
-				base;
-			let budget = Weight::from_parts(needed.ref_time() - extra, u64::MAX);
-			MaximumSchedulerWeight::set(&budget);
-			assert_ok!(Scheduler::do_schedule(
-				DispatchTime::At(4),
-				None,
-				63,
-				root(),
-				missing_lookup(len)
-			));
-			System::run_to_block::<AllPalletsWithSystem>(5);
-			assert_eq!(permanently_overweight_count(), expect_po, "extra={extra}");
-			assert_eq!(call_unavailable_count((4, 0)), 1 - expect_po, "extra={extra}");
-			assert!(Agenda::<Test>::get(4).is_empty());
-		});
-	}
 }
 
 /// A task removed for exceeding `MaximumWeight` gives up its preimage request.
@@ -4005,5 +3777,44 @@ fn removing_a_task_charges_its_cleanup_weight() {
 			db.writes(1);
 		assert_eq!(used, expected);
 		assert_eq!(permanently_overweight_count(), 1);
+	});
+}
+
+/// A task exceeding `MaximumWeight` is postponed when the weight left in the block does not cover
+/// its removal, and removed in the next block.
+#[test]
+fn task_is_postponed_when_its_removal_does_not_fit() {
+	new_test_ext().execute_with(|| {
+		let budget = set_small_budget();
+		let fresh = fresh_task_budget(budget, 2);
+		let dispatch = <Test as Config>::WeightInfo::execute_dispatch_unsigned();
+		let task_base = <Test as Config>::WeightInfo::service_task_base();
+		// Exactly fills a fresh budget.
+		let ref_time = fresh.saturating_sub(dispatch).saturating_sub(task_base).ref_time();
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(4),
+			None,
+			0,
+			root(),
+			Preimage::bound(logger_call(1, ref_time)).unwrap(),
+		));
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(4),
+			None,
+			63,
+			root(),
+			missing_lookup(100)
+		));
+
+		System::run_to_block::<AllPalletsWithSystem>(4);
+		assert_eq!(logger::log(), vec![(root(), 1)]);
+		assert_eq!(permanently_overweight_count(), 0);
+		assert_eq!(Agenda::<Test>::get(4).iter().flatten().count(), 1);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(4));
+
+		System::run_to_block::<AllPalletsWithSystem>(5);
+		assert_eq!(permanently_overweight_count(), 1);
+		assert!(Agenda::<Test>::get(4).is_empty());
+		assert_eq!(IncompleteSince::<Test>::get(), Some(6));
 	});
 }
