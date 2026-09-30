@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790762007455,
+  "lastUpdate": 1790766086412,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a1eb95e6ee1b2568ea49902a66ce648dbc3807c5",
-          "message": "Add CandidateDescriptorV3 support to experimental validator (#11306)\n\nAdds CandidateDescriptorV3 support to the experimental validator-side\ncollator protocol.\n\nFixes: #11084\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-24T10:25:14Z",
-          "tree_id": "3c94cdb2153b3f99069e4517571cafe050b74f0b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a1eb95e6ee1b2568ea49902a66ce648dbc3807c5"
-        },
-        "date": 1774352778996,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.052,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03860765305999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08859175509399993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08073619479799993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e3c36a56d3bb9dde069f66a9238539a0d1a469dd",
+          "message": "grandpa: skip decoding commits peers would reject (#13347)\n\nIn `GossipValidator::message_allowed`, check whether the peer would\naccept a commit at our best commit height before decoding the message.\n\nOnly our best commit is ever gossiped to peers, and its height is\nalready known from the local view, so the check can be done without\ndecoding. Previously the commit was decoded first and then refused for\npeers already at or past that\nheight. A refused peer isn't marked as knowing the message, so this\ncould repeat on later gossip attempts.\n\nDiscovered while working on #13318 (but independent of it)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-30T09:05:44Z",
+          "tree_id": "76de852091b581420a179af876e1afc379a62b75",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e3c36a56d3bb9dde069f66a9238539a0d1a469dd"
+        },
+        "date": 1790766052841,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.06399999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038260958330000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08222807696799991,
             "unit": "seconds"
           }
         ]
