@@ -3897,31 +3897,15 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `MSTORE` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Memory Size:** memory is grown to its maximum of 1 MiB before the benchmark runs, so no
-	///   `MSTORE` expands it and only the store itself is measured.
-	/// * **One Word per Page:** every store writes a word on a 4 KiB page that no other store
-	///   touches, which costs far more than a store to a page that was already used. Memory has 256
-	///   pages, which is why `r` only goes up to 255.
-	/// * **Position in the Page:** each word sits in the middle of its page and starts 36 bytes
-	///   into a cache line, so it straddles two lines.
-	/// * **Pseudo-random Order:** the pages are visited in a pseudo-random order so the CPU can't
-	///   prefetch the next one.
-	/// * **Stack Initialization:** the offsets and values are placed on the stack before the
-	///   benchmark runs, two items per store, so no `PUSH` op-codes are part of the code being
-	///   benchmarked.
-	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the memory,
-	///   which the benchmark's setup wrote, from the L1 and L2 caches.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Cycling through words that each cross a page boundary, so that pages are reused, cost
-	///   roughly 35% less per store.
-	/// * Placing each word across a page boundary instead of in the middle of its page cost roughly
-	///   8% less.
-	/// * Words that straddle two cache lines cost only a few percent more than words inside one
-	///   line.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * An L1 and L2 cache miss on each store, since each word is on a cache line that hasn't been
+	///   accessed since the eviction.
+	/// * A second cache line written on each store, since each word crosses into the next line.
+	/// * A TLB miss on each store, since each word is on a page that hasn't been accessed since the
+	///   eviction.
+	/// * No help from the pre-fetcher, since the pages are visited in a pseudo-random order.
 	///
 	/// # Subtraction Safety
 	///
