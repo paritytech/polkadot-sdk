@@ -21,4 +21,26 @@ contract Emitter {
         emit Emitted(kept);
         try this.emitThenRevert(dropped) {} catch {}
     }
+
+    uint64 public touched;
+
+    /// Writes storage and emits `value`, then returns.
+    function touchAndEmitDoomed(uint64 value) public {
+        touched = value;
+        emit Doomed(value);
+    }
+
+    /// Lets a sub-call write storage, emit `dropped` and return, emits `dropped` itself, then
+    /// reverts, taking the sub-call's committed storage and log down with its own frame.
+    function callThenRevert(uint64 dropped) public {
+        this.touchAndEmitDoomed(dropped);
+        emit Doomed(dropped);
+        revert("reverted after a sub-call committed");
+    }
+
+    /// Emits `kept`, then lets a sub-call commit a nested log and revert, swallowing the revert.
+    function emitAndCallRevertingChain(uint64 kept, uint64 dropped) public {
+        emit Emitted(kept);
+        try this.callThenRevert(dropped) {} catch {}
+    }
 }

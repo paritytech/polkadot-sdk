@@ -1787,6 +1787,47 @@ mod emitter_logs {
 		});
 	}
 
+	/// A log committed by a descendant frame goes with the ancestor that reverts above it, not
+	/// with the frame that emitted it: the descendant's storage write, its log and the
+	/// reverting ancestor's own log are all gone, the outer frame's log stays.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn ancestor_revert_discards_successful_descendant_logs(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			assert_ok!(
+				builder::eth_call(addr)
+					.data(
+						Emitter::emitAndCallRevertingChainCall { kept: 1, dropped: 2 }.abi_encode()
+					)
+					.build()
+			);
+
+			assert_eq!(eth_extrinsic_revert(), None);
+			assert_eq!(contract_emitted_topics(addr), vec![vec![emitted()]]);
+			let touched = builder::bare_call(addr)
+				.data(Emitter::touchedCall {}.abi_encode())
+				.build_and_unwrap_result();
+			assert_eq!(
+				Emitter::touchedCall::abi_decode_returns(&touched.data).unwrap(),
+				0,
+				"the descendant's storage write rolled back"
+			);
+			let committed = finalize_block();
+			assert_eq!(committed.transactions, 1);
+			assert_eq!(
+				committed.bloom,
+				bloom_of(addr, emitted()),
+				"neither the descendant's nor the ancestor's log is in it"
+			);
+			let receipt = committed.first_receipt.expect("one transaction, one receipt");
+			assert_eq!(occurrences(&receipt, &emitted()), 1);
+			assert_eq!(occurrences(&receipt, &doomed()), 0);
+			assert!(!committed.synthetic_transaction);
+		});
+	}
+
 	/// A rollback layer above the frames that still succeeds: `batch_all` rolls back `first`
 	/// when the call after it fails, and the `batch` around it returns `Ok` regardless.
 	fn batch_rolling_back(first: RuntimeCall) -> RuntimeCall {
