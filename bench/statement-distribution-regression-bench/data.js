@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790794841812,
+  "lastUpdate": 1790797445486,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "06bded7ab7ac6a50e0aeba48c0f7f5ca548c3573",
-          "message": "zombienet migrate misc tests (#11394)\n\nMigrate _misc_ test:\n\n- parityDb\n- malus",
-          "timestamp": "2026-03-24T18:20:38Z",
-          "tree_id": "7fdf50b186578735211c7346f83a1ac7ae1eeed3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/06bded7ab7ac6a50e0aeba48c0f7f5ca548c3573"
-        },
-        "date": 1774381502753,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.076,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07962108399799994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03807180392200001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08601655868599993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d2e08992098ac61e13117d61420903e1e076d8d8",
+          "message": "statement-store: drop benchmarks of store methods that no node calls (#13369)\n\nThe statement store benchmarks now cover only the store methods that a\nnode actually calls. The benchmarks of statements, broadcasts, posted,\nstatement and remove are gone. The read_scaling, contention and\nfull-store numbers no longer compare with older baselines, because those\nbenchmarks now time subscriptions.\n\nThis is the first step of the benchmark work for\nhttps://github.com/paritytech/polkadot-sdk/issues/13135.",
+          "timestamp": "2026-09-30T18:11:04Z",
+          "tree_id": "459ea28ae9b55b923f0c2e89bf32547d34f4ab45",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d2e08992098ac61e13117d61420903e1e076d8d8"
+        },
+        "date": 1790797416238,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.13600000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08665750583199987,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038550810228000006,
             "unit": "seconds"
           }
         ]
