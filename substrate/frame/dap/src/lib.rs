@@ -19,17 +19,28 @@
 //!
 //! Generic issuance drip and distribution engine.
 //!
+//! This pallet works with both native and non-native assets. For native asset, it controls the
+//! issuance and distribution while for the non-native assets it just distributes what gets
+//! deposited into it.
+//!
 //! ## Key Responsibilities:
 //!
+//! - **Burn Collection**: Implements `OnUnbalanced` to intercept any burn source wired to it
+//!   (staking slashes, transaction fees, dust removal, EVM gas rounding, etc.) and redirect funds
+//!   into the buffer account. Incoming funds are deactivated to exclude them from governance
+//!   voting.
+//! - **Asset Gathering** Gathers assets transferred to the [`Pallet::staging_account`] and
+//!   redirects them to the buffer account. Note that only assets present as keys in
+//!   [`AssetAllocation`] are gathered.
 //! - **Issuance Drip**: Mints new tokens on a configurable cadence (per-block or every N minutes)
 //!   based on an [`IssuanceCurve`].
 //! - **Budget Distribution**: Distributes minted issuance across registered
 //!   [`sp_staking::budget::BudgetRecipient`]s according to a governance-updatable
 //!   `BoundedBTreeMap<BudgetKey, Perbill>` that must sum to exactly 100%.
-//! - **Burn Collection**: Implements `OnUnbalanced` to intercept any burn source wired to it
-//!   (staking slashes, transaction fees, dust removal, EVM gas rounding, etc.) and redirect funds
-//!   into the buffer account. Incoming funds are deactivated to exclude them from governance
-//!   voting.
+//! - **Asset Distribution**: Distributes assets deposited to it according to [`AssetAllocation`]
+//!   map which can be configured in [`Pallet::set_allocations`]. Distribution happens at the same
+//!   time as issuance drips and can be configured by [`Config::IssuanceCadence`]. When the asset
+//!   amount is insufficient, it will be silently skipped, i.e. no retry mechanism is present.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -82,32 +93,38 @@ pub const MAX_DISTRIBUTABLE_ASSETS: u32 = 8;
 /// Type alias for balance.
 pub type BalanceOf<T> = <T as Config>::Balance;
 
+/// Type alias for asset kind.
 pub type AssetKindOf<T> = <T as Config>::AssetKind;
 
-/// Type alias for the native token allocation map.
+/// Type alias for the native currency as a part of the [`Config::Assets`].
+pub type NativeCurrencyOf<T> = ItemOf<
+	<T as Config>::Assets,
+	<T as Config>::NativeCurrencyAssetId,
+	<T as frame_system::Config>::AccountId,
+>;
+
+/// Type alias for the native asset allocation map.
 pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_BUDGET_RECIPIENTS>>;
 
+/// Type alias for the non-native assets allocation map.
 pub type AssetAllocationMap<AssetKind, Balance> = BoundedBTreeMap<
 	AssetKind,
 	SingleAssetAllocationMap<Balance>,
 	ConstU32<MAX_DISTRIBUTABLE_ASSETS>,
 >;
 
+/// Type alias for the single non-native asset allocation map.
 pub type SingleAssetAllocationMap<Balance> =
 	BoundedBTreeMap<BudgetKey, SingleAssetAllocation<Balance>, ConstU32<MAX_BUDGET_RECIPIENTS>>;
 
+/// Asset allocation for the single budget recipient.
 #[derive(
 	Clone, Copy, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug, MaxEncodedLen,
 )]
 pub struct SingleAssetAllocation<Balance> {
+	/// Amount of the asset that must be distriubted to the given budget recipient per millisecond.
 	amount_per_ms: Balance,
 }
-
-pub type NativeCurrencyOf<T> = ItemOf<
-	<T as Config>::Assets,
-	<T as Config>::NativeCurrencyAssetId,
-	<T as frame_system::Config>::AccountId,
->;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -128,10 +145,27 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
+		/// The pallet ID used to derive the buffer account.
+		#[pallet::constant]
+		type PalletId: Get<PalletId>;
+
+		/// A single balance type for all(native and non-native) assets.
 		type Balance: Balance;
 
+		/// Type of asset. It must include both native asset and non-native assets.
 		type AssetKind: Parameter + MaxEncodedLen + MaybeSerializeDeserialize + Ord + Debug;
 
+		/// Registry of assets. It must include both native asset and non-native assets.
+		///
+		/// In runtime, it can be configured as:
+		/// ```rust
+		/// pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+		///
+		/// impl Config for Runtime {
+		/// 	type Assets = NativeAndAssets;
+		/// 	...
+		/// }
+		/// ```
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>
@@ -145,12 +179,9 @@ pub mod pallet {
 			+ Unbalanced<Self::AccountId>
 			+ Create<Self::AccountId>;
 
+		/// Asset kind of the native currency.
 		#[pallet::constant]
 		type NativeCurrencyAssetId: Get<Self::AssetKind>;
-
-		/// The pallet ID used to derive the buffer account.
-		#[pallet::constant]
-		type PalletId: Get<PalletId>;
 
 		/// Issuance curve: computes how much to mint given total issuance and elapsed time.
 		type IssuanceCurve: IssuanceCurve<BalanceOf<Self>>;
@@ -253,11 +284,19 @@ pub mod pallet {
 
 	/// Budget allocation map: `BudgetKey -> Perbill`.
 	///
+	/// This map controls *only* the native asset distribution.
+	/// a
 	/// Keys must correspond to registered `BudgetRecipients`. Sum of values must be
 	/// exactly `Perbill::one()` (100%). Recipients not included receive nothing.
 	#[pallet::storage]
 	pub type BudgetAllocation<T> = StorageValue<_, BudgetAllocationMap, ValueQuery>;
 
+	/// Asset allocation map: `AssetKind -> (BudgetKey -> amount_per_ms)`.
+	///
+	/// This map controls *only* the non-native asset distribution.
+	///
+	/// Keys must correspond to registered `BudgetRecipients`. All `amount_per_ms` values must be
+	/// non-zero, otherwise `set_allocations` will reject such a config.
 	#[pallet::storage]
 	pub type AssetAllocation<T> =
 		StorageValue<_, AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>, ValueQuery>;
@@ -386,8 +425,8 @@ pub mod pallet {
 		/// Optionally set the budget and asset allocation maps.
 		///
 		/// Each key must match a registered `BudgetRecipient`. For budget allocation, the sum of
-		/// all percentages must be exactly 100%. Recipients not included in the map receive
-		/// nothing.
+		/// all percentages must be exactly 100%. For asset allocation, all `amount_per_ms` values
+		/// must be non-zero. Recipients not included in the map receive nothing.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_allocations())]
 		pub fn set_allocations(
@@ -489,8 +528,8 @@ pub mod pallet {
 			<NativeCurrencyOf<T> as FungibleUnbalanced<T::AccountId>>::deactivate(amount);
 		}
 
-		/// Activate funds on buffer withdrawal.
-		pub(crate) fn activate_buffer_funds(amount: BalanceOf<T>) {
+		/// Reactivate funds on buffer withdrawal.
+		pub(crate) fn reactivate_buffer_funds(amount: BalanceOf<T>) {
 			<NativeCurrencyOf<T> as FungibleUnbalanced<T::AccountId>>::reactivate(amount);
 		}
 
@@ -634,7 +673,7 @@ pub mod pallet {
 					} else {
 						total_distributed.saturating_accrue(amount);
 						if asset == T::NativeCurrencyAssetId::get() && *account != buffer {
-							Self::activate_buffer_funds(amount);
+							Self::reactivate_buffer_funds(amount);
 						}
 					}
 				}
@@ -687,6 +726,7 @@ pub mod pallet {
 
 		/// Check that `AssetAllocation` is consistent:
 		/// - Every key in `AssetAllocation` must be a registered recipient.
+		/// - Every value of `amount_per_ms` in `AssetAllocation` must be non-zero.
 		fn check_asset_allocation() -> Result<(), sp_runtime::TryRuntimeError> {
 			let asset_allocation = AssetAllocation::<T>::get();
 			let registered: Vec<BudgetKey> =
