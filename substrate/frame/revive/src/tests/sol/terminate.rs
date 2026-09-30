@@ -16,11 +16,12 @@
 // limitations under the License.
 
 use crate::{
-	BalanceOf, Code, Config, H160, HoldReason, Pallet, StorageDeposit,
+	BalanceOf, Code, CodeInfoOf, Config, H160, HoldReason, Pallet, StorageDeposit,
 	address::{AddressMapper, create1},
 	test_utils::{ALICE, BOB, BOB_ADDR, DJANGO, DJANGO_ADDR, builder::Contract},
 	tests::{
-		Balances, Contracts, ExtBuilder, RuntimeHoldReason, RuntimeOrigin, System, Test, builder,
+		Balances, Contracts, ExtBuilder, RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin,
+		System, Test, builder, pallet_dummy,
 		test_utils::{
 			get_balance, get_balance_on_hold, get_code_deposit, get_contract, get_contract_checked,
 		},
@@ -31,7 +32,7 @@ use frame_support::{
 	assert_ok,
 	traits::{
 		LockableCurrency, OnIdle, WithdrawReasons,
-		fungible::{Inspect, Mutate, MutateHold},
+		fungible::{Inspect, InspectFreeze, InspectHold, Mutate, MutateFreeze, MutateHold},
 	},
 	weights::Weight,
 };
@@ -717,6 +718,8 @@ enum Encumbrance {
 	Lock(u128),
 	/// A hold of the given amount under a reason other than the storage deposit.
 	Hold(u128),
+	/// A freeze of the given amount under a reason pallet-revive does not own.
+	Freeze(u128),
 }
 
 /// A lock identifier pallet-revive does not own.
@@ -727,6 +730,14 @@ const SPENDABLE: u128 = 1_000;
 
 fn storage_hold() -> RuntimeHoldReason {
 	HoldReason::StorageDepositReserve.into()
+}
+
+fn foreign_hold() -> RuntimeHoldReason {
+	HoldReason::AddressMapping.into()
+}
+
+fn foreign_freeze() -> RuntimeFreezeReason {
+	pallet_dummy::FreezeReason::Foreign.into()
 }
 
 fn terminate_constructor(skip: bool, method: u8) -> Vec<u8> {
@@ -757,11 +768,10 @@ fn encumbered_contract(fixture_type: FixtureType, encumbrance: Encumbrance) -> C
 			Balances::set_lock(FOREIGN_LOCK, &contract.account_id, amount, WithdrawReasons::all())
 		},
 		Encumbrance::Hold(amount) => {
-			assert_ok!(Balances::hold(
-				&RuntimeHoldReason::Contracts(HoldReason::AddressMapping),
-				&contract.account_id,
-				amount,
-			));
+			assert_ok!(Balances::hold(&foreign_hold(), &contract.account_id, amount));
+		},
+		Encumbrance::Freeze(amount) => {
+			assert_ok!(Balances::set_freeze(&foreign_freeze(), &contract.account_id, amount));
 		},
 	}
 	contract
@@ -780,7 +790,9 @@ fn call_terminate(addr: H160, method: u8) -> crate::ExecReturnValue {
 /// allows. A lock the free balance covers leaves the whole deposit to the origin: a lock of 1
 /// only keeps the ED on the account, a lock of 500 also comes out of the payout. Refunding after
 /// the payout would instead leave the hold to cover the lock of 500 and take it from the origin.
-/// A lock of 1,000,000 pins the whole account: nothing is refunded or paid out.
+/// A lock of 1,000,000 pins the whole account: nothing is refunded or paid out. A freeze behaves
+/// like a lock of the same amount. A foreign hold stays in place and only the free balance is paid
+/// out.
 ///
 /// See <https://github.com/paritytech/polkadot-sdk/issues/13017>.
 #[test_matrix(
@@ -790,6 +802,9 @@ fn call_terminate(addr: H160, method: u8) -> crate::ExecReturnValue {
 		Encumbrance::Lock(1),
 		Encumbrance::Lock(500),
 		Encumbrance::Lock(1_000_000),
+		Encumbrance::Freeze(1),
+		Encumbrance::Freeze(500),
+		Encumbrance::Freeze(1_000_000),
 		Encumbrance::Hold(1),
 	]
 )]
@@ -809,11 +824,11 @@ fn precompile_terminate_with_encumbered_balance(
 
 		let (refunded, paid_out, left) = match encumbrance {
 			Encumbrance::None => (deposit, SPENDABLE, 0),
-			Encumbrance::Lock(lock) if lock <= ed + SPENDABLE => {
-				let pinned = lock.max(ed);
+			Encumbrance::Lock(frozen) | Encumbrance::Freeze(frozen) if frozen <= ed + SPENDABLE => {
+				let pinned = frozen.max(ed);
 				(deposit, ed + SPENDABLE - pinned, pinned)
 			},
-			Encumbrance::Lock(_) => (0, 0, ed + SPENDABLE + deposit),
+			Encumbrance::Lock(_) | Encumbrance::Freeze(_) => (0, 0, ed + SPENDABLE + deposit),
 			Encumbrance::Hold(amount) => (deposit, SPENDABLE - amount, ed + amount),
 		};
 		assert!(!result.did_revert(), "terminate must succeed with {encumbrance:?}");
@@ -830,6 +845,19 @@ fn precompile_terminate_with_encumbered_balance(
 			"only the part the freeze needs stays on hold",
 		);
 		assert_eq!(Balances::total_balance(&account_id), left, "balance left on the account");
+		match encumbrance {
+			Encumbrance::Hold(amount) => assert_eq!(
+				get_balance_on_hold(&foreign_hold(), &account_id),
+				amount,
+				"the foreign hold must stay in place",
+			),
+			Encumbrance::Freeze(amount) => assert_eq!(
+				Balances::balance_frozen(&foreign_freeze(), &account_id),
+				amount,
+				"the foreign freeze must stay in place",
+			),
+			Encumbrance::None | Encumbrance::Lock(_) => {},
+		}
 	});
 }
 
@@ -939,6 +967,8 @@ fn syscall_pre_existing_with_lock(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let Contract { addr, account_id } = encumbered_contract(fixture_type, Encumbrance::Lock(1));
 		let deposit = get_balance_on_hold(&storage_hold(), &account_id);
+		let code_hash = get_contract(&addr).code_hash;
+		let refcount = CodeInfoOf::<Test>::get(code_hash).unwrap().refcount();
 		let django_before = get_balance(&DJANGO);
 
 		let result = call_terminate(addr, METHOD_SYSCALL);
@@ -947,6 +977,16 @@ fn syscall_pre_existing_with_lock(fixture_type: FixtureType) {
 		assert!(get_contract_checked(&addr).is_some(), "contract must stay");
 		assert_eq!(get_balance(&DJANGO) - django_before, SPENDABLE);
 		assert_eq!(get_balance_on_hold(&storage_hold(), &account_id), deposit);
+
+		// The code is kept: the contract still runs it and holds its reference.
+		let result = builder::bare_call(addr)
+			.data(Terminate::echoCall { value: 7.try_into().unwrap() }.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!result.did_revert());
+		let echoed = Terminate::echoCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(echoed, alloy_core::primitives::U256::from(7));
+		assert_eq!(get_contract(&addr).code_hash, code_hash);
+		assert_eq!(CodeInfoOf::<Test>::get(code_hash).unwrap().refcount(), refcount);
 	});
 }
 
@@ -1003,4 +1043,158 @@ fn precompile_terminate_twice_reports_refund_once(fixture_type: FixtureType) {
 
 	assert!(matches!(once, StorageDeposit::Refund(amount) if amount > 0), "{once:?}");
 	assert_eq!(twice, once);
+}
+
+fn terminate_then_selfdestruct(via_delegate_call: bool) -> Vec<u8> {
+	Terminate::terminateThenSelfdestructCall {
+		beneficiary: DJANGO_ADDR.0.into(),
+		viaDelegateCall: via_delegate_call,
+	}
+	.abi_encode()
+}
+
+/// `System.terminate` followed by `SELFDESTRUCT` deletes a pre-existing contract, whether the
+/// `SELFDESTRUCT` runs in the same frame or in a delegate call. The `SELFDESTRUCT` must not turn
+/// the termination into one that only applies to a contract created in the same transaction: the
+/// deposit was already refunded when `System.terminate` was called.
+#[test_matrix([FixtureType::Solc, FixtureType::Resolc], [false, true])]
+fn precompile_terminate_then_syscall_pre_existing(
+	fixture_type: FixtureType,
+	via_delegate_call: bool,
+) {
+	let terminate = |data: Vec<u8>| {
+		ExtBuilder::default().build().execute_with(|| {
+			let Contract { addr, account_id } =
+				encumbered_contract(fixture_type, Encumbrance::None);
+			let deposit = get_balance_on_hold(&storage_hold(), &account_id);
+			let code_deposit = get_code_deposit(&get_contract(&addr).code_hash);
+			let alice_before = get_balance(&ALICE);
+			let django_before = get_balance(&DJANGO);
+
+			let result = builder::bare_call(addr).data(data).build();
+			let output = result.result.unwrap();
+
+			assert!(!output.did_revert(), "terminate must succeed: {}", decode_error(&output.data));
+			assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
+			assert_eq!(get_balance(&DJANGO) - django_before, SPENDABLE, "beneficiary payout");
+			assert_eq!(
+				get_balance(&ALICE) - alice_before,
+				deposit + code_deposit,
+				"origin must get the storage deposit back once",
+			);
+			assert_eq!(get_balance_on_hold(&storage_hold(), &account_id), 0);
+			assert_eq!(Balances::total_balance(&account_id), 0, "nothing is left on the account");
+			result.storage_deposit
+		})
+	};
+
+	let once = terminate(
+		Terminate::terminateCall { method: METHOD_PRECOMPILE, beneficiary: DJANGO_ADDR.0.into() }
+			.abi_encode(),
+	);
+	let then_syscall = terminate(terminate_then_selfdestruct(via_delegate_call));
+
+	assert!(matches!(once, StorageDeposit::Refund(amount) if amount > 0), "{once:?}");
+	assert_eq!(then_syscall, once);
+}
+
+/// `System.terminate` followed by `SELFDESTRUCT` deletes a contract created in the same
+/// transaction, with the same balances and storage deposit as `System.terminate` alone.
+#[test_matrix([FixtureType::Solc, FixtureType::Resolc], [false, true])]
+fn precompile_terminate_then_syscall_same_tx(fixture_type: FixtureType, via_delegate_call: bool) {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	let value = alloy_core::primitives::U256::from_limbs(
+		Pallet::<Test>::convert_native_to_evm(SPENDABLE).0,
+	);
+	let terminate = |data: Vec<u8>| {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let _ = <Test as Config>::Currency::set_balance(&DJANGO, 1_000_000);
+			if fixture_type == FixtureType::Resolc {
+				// Need to pre-upload code for PVM
+				assert_ok!(<Pallet<Test>>::upload_code(
+					RuntimeOrigin::signed(ALICE.clone()),
+					code.clone(),
+					<BalanceOf<Test>>::MAX,
+				));
+			}
+			let Contract { addr: caller_addr, .. } =
+				builder::bare_instantiate(Code::Upload(caller_code.clone()))
+					.native_value(SPENDABLE)
+					.build_and_unwrap_contract();
+			let alice_before = get_balance(&ALICE);
+			let django_before = get_balance(&DJANGO);
+
+			let result = builder::bare_call(caller_addr).data(data).build();
+			let output = result.result.unwrap();
+
+			assert!(!output.did_revert(), "terminate must succeed: {}", decode_error(&output.data));
+			let created =
+				TerminateCaller::createAndTerminateCall::abi_decode_returns(&output.data).unwrap();
+			let addr = H160::from_slice(created.as_slice());
+			let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
+			assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
+			assert_eq!(get_balance(&DJANGO) - django_before, SPENDABLE, "beneficiary payout");
+			assert_eq!(Balances::total_balance(&account_id), 0, "nothing is left on the account");
+			// Signed: with PVM the pre-uploaded code is removed and its deposit refunded.
+			(result.storage_deposit, get_balance(&ALICE) as i128 - alice_before as i128)
+		})
+	};
+
+	let once = terminate(
+		TerminateCaller::createAndTerminateCall {
+			value,
+			method: METHOD_PRECOMPILE,
+			beneficiary: DJANGO_ADDR.0.into(),
+		}
+		.abi_encode(),
+	);
+	let then_syscall = terminate(
+		TerminateCaller::createAndTerminateThenSelfdestructCall {
+			value,
+			beneficiary: DJANGO_ADDR.0.into(),
+			viaDelegateCall: via_delegate_call,
+		}
+		.abi_encode(),
+	);
+
+	assert_eq!(then_syscall, once);
+}
+
+/// `SELFDESTRUCT` in the constructor of a top-level instantiation deletes the contract it
+/// creates. The value goes to the beneficiary and every deposit goes back to the origin.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn syscall_in_top_level_constructor_deletes_contract(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&DJANGO, 1_000_000);
+		let alice_before = get_balance(&ALICE);
+		let alice_held_before = Balances::total_balance_on_hold(&ALICE);
+		let django_before = get_balance(&DJANGO);
+
+		let result = builder::bare_instantiate(Code::Upload(code))
+			.native_value(SPENDABLE)
+			.constructor_data(terminate_constructor(false, METHOD_SYSCALL))
+			.build();
+		let output = result.result.unwrap();
+
+		assert!(!output.result.did_revert(), "instantiate must succeed");
+		let account_id = <Test as Config>::AddressMapper::to_account_id(&output.addr);
+		assert!(get_contract_checked(&output.addr).is_none(), "contract must be deleted");
+		assert_eq!(get_balance(&DJANGO) - django_before, SPENDABLE, "beneficiary payout");
+		assert_eq!(Balances::total_balance(&account_id), 0, "nothing is left on the account");
+		assert_eq!(
+			alice_before - get_balance(&ALICE),
+			SPENDABLE,
+			"origin must only pay the value it sent",
+		);
+		assert_eq!(
+			Balances::total_balance_on_hold(&ALICE),
+			alice_held_before,
+			"no deposit stays on hold",
+		);
+	});
 }
