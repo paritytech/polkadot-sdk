@@ -37,6 +37,11 @@ permissions: read-all
 env:
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
   KUBECONFIG: "/data/config"
+  # DO NOT MERGE. Without this the orchestrator brings a whole level up at once - the default
+  # works out to one exec per node, all concurrent - and the apiserver drops connections partway
+  # through: two runs here died at 35 and 39 of 43 nodes with "deadline has elapsed", while a
+  # 102-node run with this set spawned cleanly.
+  ZOMBIE_SPAWN_CONCURRENCY: "20"
   ZOMBIE_CLEANER_DISABLED: 1
 
 jobs:
