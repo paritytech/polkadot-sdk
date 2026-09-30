@@ -8,6 +8,7 @@ doc:
     request the deposit. Storage is written and events are emitted only when the provider reports
     back through `on_deposit_result`, so a provider on another chain can finish the call later.
     Refunds on cancel, close, offboarding and a lowered poke go through `DepositProvider::refund`.
+    Cancel and poke fail with its error; session-change close and offboarding only log it.
 
     `LocalDepositProvider` reserves and unreserves through `Config::Currency` and reports success
     in the same call, so existing runtimes behave as before. This is a breaking change for
