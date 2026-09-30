@@ -3790,33 +3790,17 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `MLOAD` op-codes.
 	///
-	/// This uses a similar linked-list structure to the [`evm_calldataload_opcode`] benchmark.
+	/// This uses a linked-list scheme similar to the one in [`evm_calldataload_opcode`].
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Dependent Loads:** every word loaded from memory is the offset of the next load, so each
-	///   load has to finish before the next one can start. The last word loaded marks the end of
-	///   the chain.
-	/// * **Memory Size:** memory is grown to its maximum of 1 MiB before the benchmark runs, so no
-	///   `MLOAD` expands it and only the load itself is measured.
-	/// * **One Word per Page:** every load reads a word on a 4 KiB page that no other load touches,
-	///   which costs far more than a load from a page that was already used. Memory has 256 pages,
-	///   which is why `r` only goes up to 255.
-	/// * **Position in the Page:** each word sits in the middle of its page and starts 36 bytes
-	///   into a cache line, so it straddles two lines.
-	/// * **Pseudo-random Order:** the pages are visited in a pseudo-random order so the CPU can't
-	///   prefetch the next one.
-	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the memory,
-	///   which the benchmark's setup wrote, from the L1 and L2 caches.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Placing the words in 128-byte slots, so that many loads share each page, cost roughly 60%
-	///   less per load.
-	/// * Placing each word across a page boundary instead of in the middle of its page cost roughly
-	///   10% less.
-	/// * Words that straddle two cache lines cost only a few percent more than words inside one
-	///   line.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * An L1 and L2 cache miss on each load, since each word is on a cache line that hasn't been
+	///   read since the eviction.
+	/// * A second cache line read on each load, since each word crosses into the next line.
+	/// * A TLB miss on each load, since each word is on a page that hasn't been read since the
+	///   eviction.
+	/// * No help from the pre-fetcher, since the pages are visited in a pseudo-random order.
 	///
 	/// # Subtraction Safety
 	///
