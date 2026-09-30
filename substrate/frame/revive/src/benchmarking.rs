@@ -3842,6 +3842,440 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.top(), Some(&END_OF_WALK));
 	}
 
+	/// Benchmarks `r` EVM `MLOAD` op-codes.
+	///
+	/// This uses a similar linked-list structure to the [`evm_calldataload_opcode`] benchmark.
+	///
+	/// # Considerations
+	///
+	/// * **Dependent Loads:** every word loaded from memory is the offset of the next load, so each
+	///   load has to finish before the next one can start. The last word loaded marks the end of
+	///   the chain.
+	/// * **Memory Size:** memory is grown to its maximum of 1 MiB before the benchmark runs, so no
+	///   `MLOAD` expands it and only the load itself is measured.
+	/// * **One Word per Page:** every load reads a word on a 4 KiB page that no other load touches,
+	///   which costs far more than a load from a page that was already used. Memory has 256 pages,
+	///   which is why `r` only goes up to 255.
+	/// * **Position in the Page:** each word sits in the middle of its page and starts 36 bytes
+	///   into a cache line, so it straddles two lines.
+	/// * **Pseudo-random Order:** the pages are visited in a pseudo-random order so the CPU can't
+	///   prefetch the next one.
+	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the memory,
+	///   which the benchmark's setup wrote, from the L1 and L2 caches.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Placing the words in 128-byte slots, so that many loads share each page, cost roughly 60%
+	///   less per load.
+	/// * Placing each word across a page boundary instead of in the middle of its page cost roughly
+	///   10% less.
+	/// * Words that straddle two cache lines cost only a few percent more than words inside one
+	///   line.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `MLOAD` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mload_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 4096 - 1 }>) {
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
+		const PAGE_SIZE: usize = 4096;
+		const WORD_SIZE: usize = 32;
+		const PAGE_COUNT: usize = MEMORY_SIZE / PAGE_SIZE - 1;
+		// Mid-page and 36 bytes into a cache line, so the word runs into the next line.
+		const OFFSET_IN_PAGE: usize = PAGE_SIZE / 2 + 36;
+		const END_OF_WALK: U256 = U256::MAX;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let load_count = r as usize;
+		let code = Bytecode::new_raw(vec![MLOAD; load_count].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+		let memory = interpreter.memory.slice_mut(0, MEMORY_SIZE);
+
+		// The allocator only aligns to 8 bytes, so memory can start anywhere within a page. Words
+		// are placed relative to real page boundaries, not to the start of memory.
+		let address = memory.as_ptr() as usize;
+		let first_page_start = address.next_multiple_of(PAGE_SIZE) - address;
+
+		let mut offsets = (0..PAGE_COUNT)
+			.map(|page_index| page_index * PAGE_SIZE)
+			.map(|page_offset| page_offset + first_page_start)
+			.map(|page_start| page_start + OFFSET_IN_PAGE)
+			.collect::<Vec<_>>();
+		offsets.shuffle(&mut rng);
+		let walk = &offsets[..load_count];
+
+		// Each word in the walk stores the offset of the next one, and the last one stores
+		// END_OF_WALK.
+		let next_values = walk.iter().skip(1).map(|&next| U256::from(next)).chain([END_OF_WALK]);
+		for (&offset, value) in walk.iter().zip(next_values) {
+			memory[offset..offset + WORD_SIZE].copy_from_slice(&value.to_big_endian());
+		}
+
+		// With zero loads nothing replaces the stack item, so it has to start as END_OF_WALK for
+		// the final assertion to hold.
+		let initial_stack_value = walk.first().map_or(END_OF_WALK, |&first| U256::from(first));
+		interpreter.stack.push(initial_stack_value).continue_value().unwrap();
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&END_OF_WALK));
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+	}
+
+	/// Benchmarks `r` EVM `MSIZE` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark most likely underestimates an `MSIZE`: it has no operands, so no worse case
+	/// can be constructed for it, and here it runs in the cheapest setting, straight line code
+	/// whose dispatch is always predicted. Subtracting an underestimate from another benchmark can
+	/// only overcharge that benchmark's op-code, never undercharge it, so this benchmark is safe to
+	/// subtract.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_msize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![MSIZE; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter
+			.memory
+			.resize(0, EVM_MEMORY_BYTES as usize)
+			.continue_value()
+			.unwrap();
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let memory_size = U256::from(EVM_MEMORY_BYTES);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&memory_size));
+	}
+
+	/// Benchmarks `r` EVM `MSTORE` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Memory Size:** memory is grown to its maximum of 1 MiB before the benchmark runs, so no
+	///   `MSTORE` expands it and only the store itself is measured.
+	/// * **One Word per Page:** every store writes a word on a 4 KiB page that no other store
+	///   touches, which costs far more than a store to a page that was already used. Memory has 256
+	///   pages, which is why `r` only goes up to 255.
+	/// * **Position in the Page:** each word sits in the middle of its page and starts 36 bytes
+	///   into a cache line, so it straddles two lines.
+	/// * **Pseudo-random Order:** the pages are visited in a pseudo-random order so the CPU can't
+	///   prefetch the next one.
+	/// * **Stack Initialization:** the offsets and values are placed on the stack before the
+	///   benchmark runs, two items per store, so no `PUSH` op-codes are part of the code being
+	///   benchmarked.
+	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the memory,
+	///   which the benchmark's setup wrote, from the L1 and L2 caches.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Cycling through words that each cross a page boundary, so that pages are reused, cost
+	///   roughly 35% less per store.
+	/// * Placing each word across a page boundary instead of in the middle of its page cost roughly
+	///   8% less.
+	/// * Words that straddle two cache lines cost only a few percent more than words inside one
+	///   line.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `MSTORE` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mstore_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 4096 - 1 }>) {
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
+		const PAGE_SIZE: usize = 4096;
+		const WORD_SIZE: usize = 32;
+		const PAGE_COUNT: usize = MEMORY_SIZE / PAGE_SIZE - 1;
+		// Mid-page and 36 bytes into a cache line, so the word runs into the next line.
+		const OFFSET_IN_PAGE: usize = PAGE_SIZE / 2 + 36;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let code = Bytecode::new_raw(vec![MSTORE; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+
+		// The allocator only aligns to 8 bytes, so memory can start anywhere within a page. Words
+		// are placed relative to real page boundaries, not to the start of memory.
+		let address = interpreter.memory.slice(0..MEMORY_SIZE).as_ptr() as usize;
+		let first_page_start = address.next_multiple_of(PAGE_SIZE) - address;
+
+		let mut offsets = (0..PAGE_COUNT)
+			.map(|page_index| page_index * PAGE_SIZE)
+			.map(|page_offset| page_offset + first_page_start)
+			.map(|page_start| page_start + OFFSET_IN_PAGE)
+			.collect::<Vec<_>>();
+		offsets.shuffle(&mut rng);
+		let stores = &offsets[..r as usize];
+		for operand in stores.iter().flat_map(|&offset| [U256::MAX, U256::from(offset)]) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+		for &offset in stores {
+			assert_eq!(interpreter.memory.slice_len(offset, WORD_SIZE), &[0xff; WORD_SIZE]);
+			assert_eq!(interpreter.memory.slice_len(offset - 1, 1), &[0]);
+			assert_eq!(interpreter.memory.slice_len(offset + WORD_SIZE, 1), &[0]);
+		}
+	}
+
+	/// Benchmarks `r` EVM `MSTORE8` op-codes.
+	///
+	/// # Considerations
+	///
+	/// * **Memory Size:** memory is grown to its maximum of 1 MiB before the benchmark runs, so no
+	///   `MSTORE8` expands it and only the store itself is measured.
+	/// * **One Byte per Page:** every store writes a byte on a 4 KiB page that no other store
+	///   touches, which costs far more than a store to a page that was already used. Memory has 256
+	///   pages, which is why `r` only goes up to 255.
+	/// * **Pseudo-random Order:** the pages are visited in a pseudo-random order so the CPU can't
+	///   prefetch the next one.
+	/// * **Stack Initialization:** the offsets and values are placed on the stack before the
+	///   benchmark runs, two items per store, so no `PUSH` op-codes are part of the code being
+	///   benchmarked.
+	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the memory,
+	///   which the benchmark's setup wrote, from the L1 and L2 caches.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Storing to two bytes per page, 2048 bytes apart, cost roughly 35% less per store.
+	/// * Storing to those bytes in order instead of a pseudo-random order cost roughly 45% less.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `MSTORE8` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mstore8_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 4096 - 1 }>) {
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
+		const PAGE_SIZE: usize = 4096;
+		const PAGE_COUNT: usize = MEMORY_SIZE / PAGE_SIZE - 1;
+		// A single byte can't straddle a cache line, so where it sits in the page doesn't matter.
+		const OFFSET_IN_PAGE: usize = PAGE_SIZE / 2;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let code = Bytecode::new_raw(vec![MSTORE8; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+
+		// The allocator only aligns to 8 bytes, so memory can start anywhere within a page. Bytes
+		// are placed relative to real page boundaries, not to the start of memory.
+		let address = interpreter.memory.slice(0..MEMORY_SIZE).as_ptr() as usize;
+		let first_page_start = address.next_multiple_of(PAGE_SIZE) - address;
+
+		let mut offsets = (0..PAGE_COUNT)
+			.map(|page_index| page_index * PAGE_SIZE)
+			.map(|page_offset| page_offset + first_page_start)
+			.map(|page_start| page_start + OFFSET_IN_PAGE)
+			.collect::<Vec<_>>();
+		offsets.shuffle(&mut rng);
+		let stores = &offsets[..r as usize];
+		for operand in stores.iter().flat_map(|&offset| [U256::MAX, U256::from(offset)]) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+		for &offset in stores {
+			assert_eq!(interpreter.memory.slice_len(offset, 1), &[0xff]);
+			assert_eq!(interpreter.memory.slice_len(offset - 1, 1), &[0]);
+			assert_eq!(interpreter.memory.slice_len(offset + 1, 1), &[0]);
+		}
+	}
+
+	/// Benchmarks `r` EVM `MCOPY` op-codes that copy 64 bytes each.
+	///
+	/// This is the fixed cost of an `MCOPY`, which covers copying its first 64 bytes. Longer copies
+	/// pay for every extra byte on top of it.
+	///
+	/// # Considerations
+	///
+	/// * **Two Pages per Copy:** every copy straddles the boundary between two 4 KiB pages that no
+	///   other copy touches, which costs far more than a copy within pages that were already used.
+	///   Memory has 128 pairs of pages, which is why `r` only goes up to 127.
+	/// * **Backward Misaligned Copy:** the destination is one byte after the source, so the two
+	///   overlap and `memmove` has to copy backward with misaligned words, its slowest path.
+	/// * **Memory Size:** memory is grown to its maximum of 1 MiB before the benchmark runs, so no
+	///   `MCOPY` expands it and only the copy itself is measured.
+	/// * **Pseudo-random Order:** the pairs of pages are visited in a pseudo-random order so the
+	///   CPU can't prefetch the next one.
+	/// * **Stack Initialization:** the lengths, sources and destinations are placed on the stack
+	///   before the benchmark runs, three items per copy, so no `PUSH` op-codes are part of the
+	///   code being benchmarked.
+	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the memory,
+	///   which the benchmark's setup wrote, from the L1 and L2 caches.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Spacing the copies 3 KiB apart, so that pages are shared, cost roughly 20% less per copy.
+	/// * Copying the regions in order instead of a pseudo-random order cost roughly 30% less.
+	/// * Varying how the source and destination are misaligned made no measurable difference.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `MCOPY` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mcopy_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 8192 - 1 }>) {
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
+		const PAGE_SIZE: usize = 4096;
+		const COPY_BYTES: usize = 64;
+		const PAIR_SIZE: usize = 2 * PAGE_SIZE;
+		const PAIR_COUNT: usize = MEMORY_SIZE / PAIR_SIZE - 1;
+		// The source is centred on the boundary between the two pages of its pair, and the
+		// destination is one byte later, so both of them cross it.
+		const SOURCE_IN_PAIR: usize = PAGE_SIZE - COPY_BYTES / 2;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let code = Bytecode::new_raw(vec![MCOPY; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+		let initial = (0u8..=255).cycle().take(MEMORY_SIZE).collect::<Vec<_>>();
+		interpreter.memory.set(0, &initial);
+
+		// The allocator only aligns to 8 bytes, so memory can start anywhere within a page. Copies
+		// are placed relative to real page boundaries, not to the start of memory.
+		let address = interpreter.memory.slice(0..MEMORY_SIZE).as_ptr() as usize;
+		let first_page_start = address.next_multiple_of(PAGE_SIZE) - address;
+
+		let mut sources = (0..PAIR_COUNT)
+			.map(|pair_index| pair_index * PAIR_SIZE)
+			.map(|pair_offset| pair_offset + first_page_start)
+			.map(|pair_start| pair_start + SOURCE_IN_PAIR)
+			.collect::<Vec<_>>();
+		sources.shuffle(&mut rng);
+		let sources = &sources[..r as usize];
+		for &source in sources {
+			for operand in [U256::from(COPY_BYTES), U256::from(source), U256::from(source + 1)] {
+				interpreter.stack.push(operand).continue_value().unwrap();
+			}
+		}
+		let mut expected = initial.clone();
+		for &source in sources {
+			expected[source + 1..source + 1 + COPY_BYTES]
+				.copy_from_slice(&initial[source..source + COPY_BYTES]);
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+		assert_eq!(interpreter.memory.slice_len(0, MEMORY_SIZE), expected);
+	}
+
+	/// Benchmarks one EVM `MCOPY` op-code that copies `64 + n` bytes.
+	///
+	/// The first 64 bytes are covered by [`evm_mcopy_opcode`], so the slope of this benchmark is
+	/// the cost of every extra byte.
+	///
+	/// # Considerations
+	///
+	/// * **Backward Misaligned Copy:** the destination is one byte after the source, so the two
+	///   overlap and `memmove` has to copy backward with misaligned words, its slowest path.
+	/// * **Memory Size:** memory is grown to its maximum of 1 MiB before the benchmark runs, so the
+	///   copy never expands it and only the copy itself is measured.
+	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the memory,
+	///   which the benchmark's setup wrote, from the L1 and L2 caches.
+	///
+	/// # Previous Benchmarks
+	///
+	/// * Copying between two separate halves of memory, which makes `memmove` copy forward, cost
+	///   roughly 18% less per byte.
+	/// * Evicting the caches before the copy made no measurable difference.
+	///
+	/// # Subtraction Safety
+	///
+	/// This benchmark is of the worst case we can see with the `MCOPY` op-code so this can't be
+	/// subtracted from other benchmarks without leading to an undercharge in the other benchmark.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mcopy_per_byte(n: Linear<0, { EVM_MEMORY_BYTES - 65 }>) {
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
+		const BASE_COPY_BYTES: usize = 64;
+
+		let len = n as usize + BASE_COPY_BYTES;
+		let code = Bytecode::new_raw(vec![MCOPY].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+		let initial = (0u8..=255).cycle().take(MEMORY_SIZE).collect::<Vec<_>>();
+		interpreter.memory.set(0, &initial);
+		for operand in [U256::from(len), U256::zero(), U256::one()] {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+		assert_eq!(interpreter.memory.slice_len(0, 1), &initial[..1]);
+		assert_eq!(interpreter.memory.slice_len(1, len), &initial[..len]);
+		assert_eq!(interpreter.memory.slice(len + 1..MEMORY_SIZE), &initial[len + 1..]);
+	}
+
 	/// Benchmark `r` `ADD` instructions.
 	///
 	/// `U256` addition branches on the carry between limbs. With the same operands every time, such
@@ -4781,320 +5215,6 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
 		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
-	}
-
-	/// Benchmark `r` `MLOAD` instructions.
-	///
-	/// Like `evm_calldataload_opcode`, each loaded word is the offset of the next one, so the loads
-	/// form a chain. Memory is grown to its maximum size before the benchmark runs, so no `MLOAD`
-	/// expands it and only the load itself is measured.
-	///
-	/// The words are laid out the same way as the calldata of `evm_calldataload_opcode`:
-	///
-	/// * Cache Line Size: Every word gets two cache lines to itself, so no two words share a line
-	///   and each load has to fetch lines that no other load touched.
-	/// * Offset in Cache Line: Each word starts at a pseudo-random byte between 33 and 63 of its
-	///   first cache line, so every word straddles both of its cache lines.
-	/// * Offset Ordering: The words are visited in a pseudo-random order so speculative execution
-	///   can't determine where the next load will be.
-	///
-	/// Before the benchmark runs, 8 MiB of unrelated memory is written to push the words out of the
-	/// L1 and L2 caches. Together with the spacing above, every load then has to fetch two cache
-	/// lines that are in neither.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_mload_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 128 - 1 }>) {
-		use core::ops::Range;
-		use rand::{Rng, SeedableRng, seq::SliceRandom};
-		use rand_pcg::Pcg64;
-
-		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
-		const CACHE_LINE_SIZE: usize = 64;
-		const WORD_SIZE: usize = 32;
-		// Every word owns two cache lines. A word starting at byte 63 of the first line ends at
-		// byte 94, so it never reaches the next slot.
-		const SLOT_SIZE: usize = 2 * CACHE_LINE_SIZE;
-		// Slots start from the first cache-line boundary inside memory, which can be up to 63 bytes
-		// in. Leaving out the last slot keeps every word inside memory no matter where that
-		// boundary is.
-		const SLOT_COUNT: usize = MEMORY_SIZE / SLOT_SIZE - 1;
-		// A word starting after byte 32 of a line runs into the next line.
-		const POSITIONS_IN_LINE: Range<usize> = CACHE_LINE_SIZE - WORD_SIZE + 1..CACHE_LINE_SIZE;
-		// Larger than the L2 cache of the reference hardware.
-		const EVICTION_SIZE: usize = 8 * 1024 * 1024;
-		const END_OF_WALK: U256 = U256::MAX;
-
-		let load_count = r as usize;
-		let code = Bytecode::new_raw(vec![MLOAD; load_count].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
-		let memory = interpreter.memory.slice_mut(0, MEMORY_SIZE);
-
-		// The allocator only aligns to 8 bytes, so memory can start anywhere within a cache line.
-		// Positions are measured from real cache-line boundaries, not from the start of memory.
-		let address = memory.as_ptr() as usize;
-		let first_line_start = address.next_multiple_of(CACHE_LINE_SIZE) - address;
-
-		let mut rng = Pcg64::seed_from_u64(1337);
-		let mut offsets = (0..SLOT_COUNT)
-			.map(|slot| first_line_start + slot * SLOT_SIZE + rng.gen_range(POSITIONS_IN_LINE))
-			.collect::<Vec<_>>();
-		offsets.shuffle(&mut rng);
-		let walk = &offsets[..load_count];
-
-		// Each offset in the walk stores the next offset, and the last one stores END_OF_WALK.
-		let next_values = walk.iter().skip(1).map(|&next| U256::from(next)).chain([END_OF_WALK]);
-		for (&offset, value) in walk.iter().zip(next_values) {
-			memory[offset..offset + WORD_SIZE].copy_from_slice(&value.to_big_endian());
-		}
-
-		// With zero loads nothing replaces the stack item, so it has to start as END_OF_WALK for
-		// the final assertion to hold.
-		let initial_stack_value = walk.first().map_or(END_OF_WALK, |&first| U256::from(first));
-		interpreter.stack.push(initial_stack_value).continue_value().unwrap();
-
-		// Writing memory the words don't live in pushes them out of the L1 and L2 caches.
-		core::hint::black_box(vec![1u8; EVICTION_SIZE]);
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&END_OF_WALK));
-		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
-		assert_eq!(interpreter.bytecode.pc(), load_count + 1);
-	}
-
-	/// Benchmark `r` `MSTORE` instructions.
-	///
-	/// Every word is stored across a 4 KiB page boundary. It starts 28 bytes before the boundary,
-	/// so the last of the four 8-byte stores that write it crosses into the next page, which costs
-	/// more than a store within a page. Memory only has room for one such word per page, so the
-	/// stores cycle through these words in a pseudo-random order. Memory is grown to its maximum
-	/// size before the benchmark runs, so no `MSTORE` expands it.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_mstore_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		use rand::{SeedableRng, seq::SliceRandom};
-		use rand_pcg::Pcg64;
-
-		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
-		const PAGE_SIZE: usize = 4096;
-		const WORD_SIZE: usize = 32;
-		// The last 8-byte store of a word starting here crosses into the next page.
-		const OFFSET_IN_PAGE: usize = PAGE_SIZE - 28;
-
-		let code = Bytecode::new_raw(vec![MSTORE; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
-
-		// The allocator only aligns to 8 bytes, so memory can start anywhere within a page. Words
-		// are placed relative to real page boundaries, not to the start of memory.
-		let address = interpreter.memory.slice(0..MEMORY_SIZE).as_ptr() as usize;
-		let first_page_start = address.next_multiple_of(PAGE_SIZE) - address;
-		let mut words = (first_page_start + OFFSET_IN_PAGE..=MEMORY_SIZE - WORD_SIZE)
-			.step_by(PAGE_SIZE)
-			.collect::<Vec<_>>();
-		words.shuffle(&mut Pcg64::seed_from_u64(1337));
-		let stores = words.iter().copied().cycle().take(r as usize).collect::<Vec<_>>();
-		for operand in stores.iter().flat_map(|&offset| [U256::MAX, U256::from(offset)]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-		for offset in stores {
-			assert_eq!(interpreter.memory.slice_len(offset, WORD_SIZE), &[0xff; WORD_SIZE]);
-			assert_eq!(interpreter.memory.slice_len(offset - 1, 1), &[0]);
-			assert_eq!(interpreter.memory.slice_len(offset + WORD_SIZE, 1), &[0]);
-		}
-	}
-
-	/// Benchmark `r` `MSTORE8` instructions at distinct offsets across preallocated memory.
-	///
-	/// The offsets are stored to in a pseudo-random order. Walking them in order lets the CPU
-	/// predict the next address and fetch its cache line early, which made each store much cheaper.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_mstore8_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		use rand::{SeedableRng, seq::SliceRandom};
-		use rand_pcg::Pcg64;
-
-		const STRIDE: u32 = EVM_MEMORY_BYTES / (EVM_STACK_LIMIT / 2);
-
-		let code = Bytecode::new_raw(vec![MSTORE8; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		interpreter
-			.memory
-			.resize(0, EVM_MEMORY_BYTES as usize)
-			.continue_value()
-			.unwrap();
-		let mut offsets = (1..=r).map(|i| i * STRIDE - 1).collect::<Vec<_>>();
-		offsets.shuffle(&mut Pcg64::seed_from_u64(1337));
-		for operand in offsets.into_iter().flat_map(|offset| [U256::MAX, U256::from(offset)]) {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-		let mut expected = vec![0; EVM_MEMORY_BYTES as usize];
-		for byte in expected
-			.iter_mut()
-			.skip(STRIDE as usize - 1)
-			.step_by(STRIDE as usize)
-			.take(r as usize)
-		{
-			*byte = 0xff;
-		}
-		assert_eq!(interpreter.memory.size(), expected.len());
-		assert_eq!(interpreter.memory.slice_len(0, expected.len()), expected);
-	}
-
-	/// Benchmark `r` `MSIZE` instructions with maximum-size active memory.
-	///
-	/// The opcode reads the stored memory length and pushes one fixed-size word without reading the
-	/// memory contents. Allocate the memory before measurement and fill the stack with successful
-	/// pushes.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_msize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = Bytecode::new_raw(vec![MSIZE; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		interpreter
-			.memory
-			.resize(0, EVM_MEMORY_BYTES as usize)
-			.continue_value()
-			.unwrap();
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.memory.size(), EVM_MEMORY_BYTES as usize);
-		assert_eq!(interpreter.stack.len(), r as usize);
-		let expected = U256::from(EVM_MEMORY_BYTES);
-		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-	}
-
-	/// Benchmark `r` overlapping 64-byte `MCOPY` instructions in preallocated memory.
-	///
-	/// A one-byte source/destination displacement exercises misaligned backward word copying.
-	/// Distinct regions spread the copies across memory; allocation and zero fill are not measured
-	/// here.
-	///
-	/// The regions are copied in a pseudo-random order. Walking them in order lets the CPU predict
-	/// the next address and fetch its cache lines early, which made each copy much cheaper.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_mcopy_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
-		use rand::{SeedableRng, seq::SliceRandom};
-		use rand_pcg::Pcg64;
-
-		const COPY_BYTES: usize = 64;
-		const STRIDE: usize = 3 * 1024;
-		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
-
-		let code = Bytecode::new_raw(vec![MCOPY; r as usize].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
-		let initial = (0u8..=255).cycle().take(MEMORY_SIZE).collect::<Vec<_>>();
-		interpreter.memory.set(0, &initial);
-		let mut sources = (0..r as usize).map(|i| i * STRIDE).collect::<Vec<_>>();
-		sources.shuffle(&mut Pcg64::seed_from_u64(1337));
-		let operands = sources
-			.iter()
-			.rev()
-			.flat_map(|&src| [U256::from(COPY_BYTES), U256::from(src), U256::from(src + 1)]);
-		for operand in operands {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
-		let mut expected = initial.clone();
-		for src in sources {
-			expected[src + 1..src + 1 + COPY_BYTES]
-				.copy_from_slice(&initial[src..src + COPY_BYTES]);
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
-		assert_eq!(interpreter.memory.slice_len(0, MEMORY_SIZE), expected);
-	}
-
-	/// Benchmark one overlapping `MCOPY` of `n + 64` bytes in preallocated memory.
-	///
-	/// The zero-component case already performs misaligned word copying. The slope measures
-	/// additional bytes, excluding the empty-copy branch and fixed word-copy setup.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_mcopy_per_byte(n: Linear<0, { EVM_MEMORY_BYTES - 65 }>) {
-		const BASE_COPY_BYTES: usize = 64;
-		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
-
-		let len = n as usize + BASE_COPY_BYTES;
-		let code = Bytecode::new_raw(vec![MCOPY].into());
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
-		let initial = (0u8..=255).cycle().take(MEMORY_SIZE).collect::<Vec<_>>();
-		interpreter.memory.set(0, &initial);
-		for operand in [U256::from(len), U256::zero(), U256::one()] {
-			interpreter.stack.push(operand).continue_value().unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = evm::run_plain(&mut interpreter);
-		}
-
-		let ControlFlow::Break(halt) = result;
-		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.bytecode.pc(), 2);
-		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
-		assert_eq!(interpreter.memory.slice_len(0, 1), &initial[..1]);
-		assert_eq!(interpreter.memory.slice_len(1, len), &initial[..len]);
-		assert_eq!(interpreter.memory.slice(len + 1..MEMORY_SIZE), &initial[len + 1..]);
 	}
 
 	// Benchmark the execution of instructions.
