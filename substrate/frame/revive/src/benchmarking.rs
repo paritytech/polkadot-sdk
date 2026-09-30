@@ -3442,18 +3442,11 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH0` to `PUSH32` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Pseudo-random Widths:** each push is a `PUSH0` to `PUSH32` picked by a pseudo-random
-	///   generator. Every width has its own handler, so the CPU can't predict which handler the
-	///   interpreter dispatches to next.
-	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the code and
-	///   the stack, which the benchmark's setup loaded into the L1 and L2 caches.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * One benchmark per width, each repeating the same push. The pseudo-random widths cost
-	///   roughly 78% more per push than the most expensive of them, `PUSH31`.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A misprediction of the handler the interpreter dispatches to, since the push op-codes are
+	///   pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
