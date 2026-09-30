@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790794745544,
+  "lastUpdate": 1790797341279,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9f59e2c307ec5be7d336701b0a83cc8f7c17f760",
-          "message": "Statement Store: Introduce new CLI args (#11407)\n\nCloses #11265 \n\nIn addition to introducing new CLI args, this PR reworks the statement\nstore configuration, consolidating all parameters into a single\nstructure.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-25T11:11:06Z",
-          "tree_id": "261af08efea24c9269c49cf12be52708b213c79b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9f59e2c307ec5be7d336701b0a83cc8f7c17f760"
-        },
-        "date": 1774441815883,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009845552353333325,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14496192983333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006925327426666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023504524213333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.025307504066666674,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d2e08992098ac61e13117d61420903e1e076d8d8",
+          "message": "statement-store: drop benchmarks of store methods that no node calls (#13369)\n\nThe statement store benchmarks now cover only the store methods that a\nnode actually calls. The benchmarks of statements, broadcasts, posted,\nstatement and remove are gone. The read_scaling, contention and\nfull-store numbers no longer compare with older baselines, because those\nbenchmarks now time subscriptions.\n\nThis is the first step of the benchmark work for\nhttps://github.com/paritytech/polkadot-sdk/issues/13135.",
+          "timestamp": "2026-09-30T18:11:04Z",
+          "tree_id": "459ea28ae9b55b923f0c2e89bf32547d34f4ab45",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d2e08992098ac61e13117d61420903e1e076d8d8"
+        },
+        "date": 1790797311539,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14573957917333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0077443033666666685,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02521551044666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010006868219999982,
             "unit": "seconds"
           }
         ]
