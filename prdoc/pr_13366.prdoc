@@ -4,7 +4,7 @@ doc:
   description: This fixes some internal issues of litep2p assuming connections still
     being alive while this not being the case anymore.
 crates:
-- name: libpsc-network-types2p
+- name: libpsc-network-types
   bump: patch
 - name: sc-network
   bump: patch
