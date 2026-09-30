@@ -49,7 +49,7 @@ use sp_statement_store::{
 	OptimizedTopicFilter, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	MAX_TOPICS,
 };
-use std::{hint::black_box, sync::Arc};
+use std::sync::Arc;
 
 type Extrinsic = sp_runtime::OpaqueExtrinsic;
 type Hash = sp_core::H256;
@@ -580,11 +580,9 @@ fn bench_mixed_workload(c: &mut Criterion) {
 
 								// Read the subscription snapshot, the drop unsubscribes inside the
 								// timing
-								black_box(
-									store
-										.subscribe_statement(filter.clone())
-										.expect("Subscribes to the store"),
-								);
+								store
+									.subscribe_statement(filter.clone())
+									.expect("Subscribes to the store");
 							}
 						});
 					}
@@ -606,17 +604,14 @@ fn bench_read_scaling(c: &mut Criterion) {
 
 	let mut group = c.benchmark_group("read_scaling");
 	for &size in SCALING_SIZES {
-		// Built on first use, so a run filtered to other benchmarks skips the build.
-		let scaled = std::cell::OnceCell::new();
+		let (store, _temp) = setup_scaled(&keypair, size);
 		// Subscription snapshot (index scan + body fetch); its result set grows with the
 		// store.
 		group.bench_with_input(BenchmarkId::new("subscribe_statement", size), &size, |b, _| {
-			let (store, _temp) = scaled.get_or_init(|| setup_scaled(&keypair, size));
 			b.iter(|| store.subscribe_statement(filter.clone()).expect("Subscribes to the store"))
 		});
 		// Point existence check (pure index lookup, constant-size result).
 		group.bench_with_input(BenchmarkId::new("has_statement", size), &size, |b, _| {
-			let (store, _temp) = scaled.get_or_init(|| setup_scaled(&keypair, size));
 			b.iter(|| assert!(store.has_statement(&known_hash)))
 		});
 	}
@@ -668,13 +663,11 @@ fn bench_subscribe_topic(c: &mut Criterion) {
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let filter = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic(0)]));
 
+	let (store, _temp) = setup_diverse_topics(&keypair, NEAR_LIMIT, SUBSCRIBE_MATCHES);
+
 	let mut group = c.benchmark_group("subscribe_topic");
 	group.sample_size(10);
-	// Built on first use, so a run filtered to other benchmarks skips the minutes-long build.
-	let full = std::cell::OnceCell::new();
 	group.bench_function(BenchmarkId::from_parameter(NEAR_LIMIT), |b| {
-		let (store, _temp) =
-			full.get_or_init(|| setup_diverse_topics(&keypair, NEAR_LIMIT, SUBSCRIBE_MATCHES));
 		// Dropping the returned stream unsubscribes, so subscribers never pile up. The timing
 		// covers the snapshot retrieval and the unsubscribe.
 		b.iter(|| {
@@ -734,9 +727,7 @@ fn bench_contention(c: &mut Criterion) {
 	let filter = topics_01_filter();
 	const WRITES: usize = CONTENTION_WRITERS * OPS_PER_THREAD;
 
-	let mut group = c.benchmark_group("contention_read_under_write");
-	group.sample_size(10);
-	group.bench_function(BenchmarkId::from_parameter(CONTENTION_PRELOAD), |b| {
+	c.bench_function("contention_read_under_write", |b| {
 		b.iter_custom(|iters| {
 			let (store, _temp) = setup_scaled(&keypair, CONTENTION_PRELOAD);
 			let mut read_time = std::time::Duration::ZERO;
@@ -764,11 +755,9 @@ fn bench_contention(c: &mut Criterion) {
 								start_line.wait();
 								let start = std::time::Instant::now();
 								for _ in 0..OPS_PER_THREAD {
-									black_box(
-										store
-											.subscribe_statement(filter.clone())
-											.expect("Subscribes to the store"),
-									);
+									store
+										.subscribe_statement(filter.clone())
+										.expect("Subscribes to the store");
 								}
 								start.elapsed()
 							})
@@ -787,7 +776,6 @@ fn bench_contention(c: &mut Criterion) {
 			read_time
 		})
 	});
-	group.finish();
 }
 
 criterion_group!(
