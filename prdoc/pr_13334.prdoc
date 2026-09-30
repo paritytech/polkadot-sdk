@@ -1,30 +1,24 @@
-title: '[asset-hub-westend] XCM fee benchmarks on the swap trader'
+title: 'Asset Hub Westend: benchmark XCM fee instructions on the swap trader'
 doc:
 - audience: Runtime Dev
-  description: "Asset Hub Westend's `pallet_xcm_benchmarks::generic` worst case for\
-    \ `BuyExecution`, `PayFees` and `RefundSurplus` pays fees in WND. That path is\
-    \ `UsingComponents`, which never touches the pool. Fees paid in any other asset\
-    \ go through `SwapFirstAssetTrader`, which swaps against `pallet_asset_conversion`,\
-    \ and the runtime charges the WND weight for it. Locally that is about 28 \xB5\
-    s charged for about 120 \xB5s of work.\n\n## Changes\n\n- `worst_case_for_trader`\
-    \ pays in a foreign asset with a pool against WND, so the swap is what gets measured.\
-    \ The pool setup is shared with `worst_case_asset_exchange`, which already created\
-    \ the same asset and pool inline. `worst_case_holding` gains that asset so the\
-    \ holding register can pay with it.\n- `refund_surplus` buys twice the surplus\
-    \ it refunds. `SwapFirstAssetTrader` refunds nothing when the refund would be the\
-    \ whole fee it holds, so with purchase equal to surplus the refund was zero and the\
-    \ benchmark's assertion failed against it.\n\n## Origin\n\nSplit out of #12581 at reviewer\
-    \ request, since the under-benchmarked swap exists on master independently of\
-    \ that PR and should be reviewable and backportable on its own."
-- audience: Runtime User
   description: |-
-    Asset Hub Westend charges `BuyExecution`, `PayFees` and `RefundSurplus` the weight of the
-    swap path whatever the fee asset, so messages paying in WND are charged more as well:
-    `buy_execution` about 9 times, `pay_fees` about 3 times and `refund_surplus` about 115 times
-    the previous weight. Senders with a hard-coded `Limited` weight limit covering these
-    instructions may now fail with `Overweight` and should raise it.
+    Asset Hub Westend's `pallet_xcm_benchmarks::generic` worst case for `BuyExecution`, `PayFees`
+    and `RefundSurplus` paid fees in the native asset, so it measured the `UsingComponents` trader
+    and never the `SwapFirstAssetTrader` that runs when fees come in a foreign asset. That swap
+    goes through `pallet_asset_conversion` and costs an order of magnitude more than the native
+    path, and the runtime charged the native weight for it. `worst_case_for_trader` now pays in a
+    foreign asset with a pool against the native asset, sharing the pool setup with
+    `worst_case_asset_exchange`, so the swap is what gets measured.
+
+    The `refund_surplus` benchmark buys twice the surplus it then refunds. A trader that swapped
+    the fee asset refunds less than it was paid, so refunding the whole purchase refunded nothing
+    and the benchmark's assertion failed against such a trader.
+
+    Runtimes wiring a swap trader should regenerate `pallet_xcm_benchmarks::generic`; Asset Hub
+    Westend's `buy_execution`, `pay_fees` and `refund_surplus` weights rise from about 28 µs to
+    about 120 µs.
 crates:
-- name: asset-hub-westend-runtime
-  bump: patch
 - name: pallet-xcm-benchmarks
+  bump: patch
+- name: asset-hub-westend-runtime
   bump: patch
