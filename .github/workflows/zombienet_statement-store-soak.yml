@@ -38,6 +38,7 @@ env:
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
   KUBECONFIG: "/data/config"
   ZOMBIE_CLEANER_DISABLED: 1
+  RUN_IN_CONTAINER: "1"
 
 jobs:
   preflight:
