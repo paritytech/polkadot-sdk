@@ -3715,31 +3715,17 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `CALLDATALOAD` op-codes.
 	///
-	/// This benchmark constructs a linked list in the calldata. Each value we load from there is
-	/// the operand of the next `CALLDATALOAD` until we reach the end.
+	/// # Added Overheads
 	///
-	/// # Considerations
-	///
-	/// * **Dependent Loads:** every word loaded from the calldata is the offset of the next load,
-	///   so each load has to finish before the next one can start. The last word loaded marks the
-	///   end of the chain.
-	/// * **One Word per Page:** every load reads a word on a 4 KiB page that no other load touches,
-	///   which costs far more than a load from a page that was already used. The calldata is always
-	///   the maximum of 128 KiB, which has 32 pages, so `r` only goes up to 31.
-	/// * **Misaligned Position:** each word sits in the middle of its page at a byte that isn't
-	///   4-byte aligned, which forces the runtime's `memcpy` to rebuild every 4-byte word it copies
-	///   with shifts.
-	/// * **Pseudo-random Order:** the pages are visited in a pseudo-random order so the CPU can't
-	///   prefetch the next one.
-	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the calldata,
-	///   which the benchmark's setup wrote, from the L1 and L2 caches.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Placing the words in 128-byte slots, so that many loads share each page, cost roughly 50%
-	///   less per load.
-	/// * A 4-byte aligned word on its own page cost roughly 18% less.
-	/// * Visiting the words in order cost roughly 15% less than the pseudo-random order.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * An L1 and L2 cache miss on each load, since each word is on a cache line that hasn't been
+	///   read since the eviction.
+	/// * A second cache line read on each load, since each word crosses into the next line.
+	/// * A TLB miss on each load, since each word is on a page that hasn't been read since the
+	///   eviction.
+	/// * No help from the pre-fetcher, since the pages are visited in a pseudo-random order.
+	/// * The runtime's `memcpy` rebuilding everything it copies with shifts, since each word starts
+	///   at a misaligned address.
 	///
 	/// # Subtraction Safety
 	///
