@@ -198,9 +198,9 @@ fn run_call<'a, E: Ext>(
 			&callee,
 			value,
 			input,
-			// protect against rex-entrancy when we grant the stipend
+			// A `transfer`/`send` callee must not reenter its caller.
 			stipend_and_protections.reentrancy(),
-			stipend_and_protections.apply_eip2200_guard(),
+			stipend_and_protections.denies_storage_writes(),
 			scheme.is_static_call(),
 		),
 		CallScheme::DelegateCall => interpreter.ext.delegate_call(

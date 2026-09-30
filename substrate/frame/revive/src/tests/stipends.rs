@@ -17,8 +17,10 @@
 
 use crate::{
 	Code, Config, Error, Pallet,
+	evm::CallTracer,
 	test_utils::{ALICE, builder::Contract},
 	tests::{ExtBuilder, GasScale, RuntimeOrigin, Test, builder},
+	tracing::trace,
 };
 use alloy_core::{
 	primitives::U256,
@@ -211,6 +213,10 @@ fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only(fixture_type: F
 		// On PVM the stipend alone cannot pay for the reentrant call.
 		if fixture_type == FixtureType::Solc {
 			assert!(
+				!run(value, StipendSender::isCallWithGasDeniedCall { gasLimit: 1 }.abi_encode()),
+				"the stipend should be enough for reentry"
+			);
+			assert!(
 				run(value, StipendSender::isTransferDeniedCall {}.abi_encode()),
 				"transfer forwards only the stipend, so its callee must not reenter"
 			);
@@ -225,18 +231,14 @@ fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only(fixture_type: F
 			"self send should be allowed"
 		);
 
-		// The raised gas scale gives a zero-value `send` enough to write on PVM too.
-		let (value_calls, zero_value_send) = with_gas_scale(2_000_000_000, || {
-			let value_calls = [1, 2300].map(|gas_limit| {
-				run(
-					value,
-					StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
-				)
-			});
+		// The raised gas scale gives a zero-value `send` enough to reenter on PVM too.
+		let (value_call, zero_value_send) = with_gas_scale(2_000_000_000, || {
+			let value_call =
+				run(value, StipendSender::isCallWithGasDeniedCall { gasLimit: 2300 }.abi_encode());
 			let zero_value_send = run(0, StipendSender::isSendDeniedCall {}.abi_encode());
-			(value_calls, zero_value_send)
+			(value_call, zero_value_send)
 		});
-		assert_eq!(value_calls, [false, false], "not a `send`, so it may reenter");
+		assert!(!value_call, "not a `send`, so it may reenter");
 		assert!(zero_value_send, "a zero-value `send` should not reenter");
 	});
 }
@@ -311,19 +313,35 @@ fn call_warm_write_sender(
 
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
-	["WritingReceiver", "ClearingReceiver", "PrecompileClearingReceiver", "PrecompileTakingReceiver"]
+	[
+		("WritingReceiver", 2),
+		("ClearingReceiver", 0),
+		("PrecompileClearingReceiver", 0),
+		("PrecompileTakingReceiver", 0)
+	]
 )]
 fn stipend_check_denies_hot_slot_writes_from_a_zero_value_send(
 	fixture_type: FixtureType,
-	receiver_fixture: &str,
+	(receiver_fixture, counter_after_write): (&str, u64),
 ) {
-	let send_result = with_gas_scale(20_000_000, || {
-		call_warm_write_sender(fixture_type, receiver_fixture, 0, WarmWrite::BySend)
+	let (with_other_gas, send_result) = with_gas_scale(20_000_000, || {
+		let with_other_gas = [2299, 2301].map(|gas_limit| {
+			let warm_write = WarmWrite::ByCallWithGas(gas_limit);
+			call_warm_write_sender(fixture_type, receiver_fixture, 0, warm_write)
+		});
+		let send_result =
+			call_warm_write_sender(fixture_type, receiver_fixture, 0, WarmWrite::BySend);
+		(with_other_gas, send_result)
 	});
+	assert_eq!(
+		with_other_gas,
+		[(false, U256::from(counter_after_write)); 2],
+		"only a `send` denies storage writes"
+	);
 	assert_eq!(send_result, (true, U256::from(1)));
 }
 
-// These receivers' writes fit in the stipend, so only the check can refuse them.
+// These receivers' writes fit in the stipend, so only the check can deny them.
 #[test_case(FixtureType::Solc,   "WritingReceiver",  2; "solc, writing")]
 #[test_case(FixtureType::Solc,   "ClearingReceiver", 0; "solc, clearing")]
 #[test_case(FixtureType::Resolc, "ClearingReceiver", 0; "resolc, clearing")]
@@ -393,8 +411,8 @@ fn stipend_check_is_inherited_by_nested_frames(fixture_type: FixtureType, nestin
 
 		let (with_2300_gas, with_other_gas) =
 			with_gas_scale(50_000_000, || (is_denied(2300), [is_denied(2299), is_denied(2301)]));
-		assert!(with_2300_gas, "a nested frame should inherit the mark");
-		assert_eq!(with_other_gas, [false, false], "only a `send` gets marked");
+		assert!(with_2300_gas, "a nested frame should also deny storage writes");
+		assert_eq!(with_other_gas, [false, false], "only a `send` denies storage writes");
 	});
 }
 
@@ -424,9 +442,51 @@ fn stipend_check_applies_under_strict_reentrancy(fixture_type: FixtureType) {
 		assert_eq!(
 			with_2300_gas,
 			Err(Error::<Test>::ContractTrapped.into()),
-			"a `send` gets marked even under `Strict`"
+			"a `send` denies storage writes even under `Strict`"
 		);
-		assert_eq!(with_other_gas, [Ok(()), Ok(())], "only a `send` gets marked");
+		assert_eq!(with_other_gas, [Ok(()), Ok(())], "only a `send` denies storage writes");
+	});
+}
+
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	["WritingReceiver", "PrecompileClearingReceiver", "PrecompileTakingReceiver"]
+)]
+fn stipend_check_denies_writes_with_out_of_gas(fixture_type: FixtureType, receiver_fixture: &str) {
+	let (receiver_code, _) = compile_module_with_type(receiver_fixture, fixture_type).unwrap();
+	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+
+		let Contract { addr: receiver, .. } =
+			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
+		let Contract { addr: sender, .. } = builder::bare_instantiate(Code::Upload(sender_code))
+			.constructor_data(
+				StipendSender::constructorCall { _probe: receiver.0.into() }.abi_encode(),
+			)
+			.build_and_unwrap_contract();
+
+		let write_error = |gas_limit: u64| {
+			let mut tracer = CallTracer::new(Default::default());
+			with_gas_scale(20_000_000, || {
+				trace(&mut tracer, || {
+					builder::bare_call(sender)
+						.data(
+							StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }
+								.abi_encode(),
+						)
+						.build_and_unwrap_result()
+				})
+			});
+			let mut call_trace = tracer.collect_trace().unwrap();
+			while let Some(nested) = call_trace.calls.pop() {
+				call_trace = nested;
+			}
+			call_trace.error
+		};
+
+		assert_eq!(write_error(2300).as_deref(), Some("OutOfGas"));
+		assert_eq!(write_error(2301), None);
 	});
 }
 

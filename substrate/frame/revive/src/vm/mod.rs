@@ -210,8 +210,8 @@ impl StipendAndProtections {
 		}
 	}
 
-	/// Whether to apply the EIP-2200 guard to the callee.
-	pub fn apply_eip2200_guard(&self) -> bool {
+	/// Whether the callee and every frame it creates cannot write persistent contract storage.
+	pub fn denies_storage_writes(&self) -> bool {
 		self.is_transfer_or_send
 	}
 }

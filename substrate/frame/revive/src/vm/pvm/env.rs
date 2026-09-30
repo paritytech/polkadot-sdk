@@ -21,7 +21,7 @@ use crate::{
 	AccountIdOf, CodeInfo, Config, ContractBlob, Error, SENTINEL, Weight,
 	address::AddressMapper,
 	debug::DebugSettings,
-	exec::{Ext, ReentrancyProtection},
+	exec::Ext,
 	limits,
 	primitives::ExecReturnValue,
 	vm::{
@@ -333,7 +333,7 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-		let (resources, stipend_protection, apply_eip2200_guard) = if gas == u64::MAX {
+		let (resources, stipend_protection, denies_storage_writes) = if gas == u64::MAX {
 			(CallResources::NoLimits, None, false)
 		} else {
 			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
@@ -341,11 +341,8 @@ pub mod env {
 			let stipend_and_protections = StipendAndProtections::new(value, Some(gas));
 			(
 				CallResources::from_ethereum_gas(gas.into(), stipend_and_protections.add_stipend()),
-				// Ensure the callee of a `transfer`/`send` cannot reenter its caller, by enforcing
-				// the `AllowNext` protection.
-				(stipend_and_protections.reentrancy() == ReentrancyProtection::AllowNext)
-					.then_some(stipend_and_protections.reentrancy()),
-				stipend_and_protections.apply_eip2200_guard(),
+				Some(stipend_and_protections.reentrancy()),
+				stipend_and_protections.denies_storage_writes(),
 			)
 		};
 
@@ -356,7 +353,7 @@ pub mod env {
 			callee,
 			&resources,
 			stipend_protection,
-			apply_eip2200_guard,
+			denies_storage_writes,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,

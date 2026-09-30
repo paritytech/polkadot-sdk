@@ -476,6 +476,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		value: StorageValue,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
+		self.ext.ensure_storage_write_allowed(transient)?;
 
 		let value_len = match &value {
 			StorageValue::Memory { ptr: _, len } => *len,
@@ -529,6 +530,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		key_len: u32,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
+		self.ext.ensure_storage_write_allowed(transient)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
 			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
@@ -630,7 +632,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		callee_ptr: u32,
 		resources: &CallResources<E::T>,
 		reentrancy_override: Option<ReentrancyProtection>,
-		apply_eip2200_guard: bool,
+		denies_storage_writes: bool,
 		input_data_ptr: u32,
 		input_data_len: u32,
 		output_ptr: u32,
@@ -716,7 +718,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					value,
 					input_data,
 					reentrancy,
-					apply_eip2200_guard,
+					denies_storage_writes,
 					read_only,
 				)
 			},

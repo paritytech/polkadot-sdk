@@ -2137,6 +2137,52 @@ fn set_storage_works() {
 }
 
 #[test]
+fn set_storage_respects_denies_storage_writes() {
+	let charlie_ch = MockLoader::insert(Call, |ctx, _| {
+		assert_eq!(
+			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1]), false),
+			Err(Error::<Test>::OutOfGas.into()),
+			"the callee should not write persistent storage"
+		);
+		assert_eq!(
+			ctx.ext.set_transient_storage(&Key::Fix([1; 32]), Some(vec![1]), false),
+			Ok(WriteOutcome::New),
+			"the callee should still write transient storage"
+		);
+		exec_success()
+	});
+	let bob_ch = MockLoader::insert(Call, |ctx, _| {
+		assert_ok!(ctx.ext.call(
+			&Default::default(),
+			&CHARLIE_ADDR,
+			U256::zero(),
+			vec![],
+			ReentrancyProtection::AllowReentry,
+			true,
+			false,
+		));
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let mut meter =
+			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
+				.unwrap();
+		set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
+		place_contract(&BOB, bob_ch);
+		place_contract(&CHARLIE, charlie_ch);
+		assert_ok!(MockStack::run_call(
+			Origin::from_account_id(ALICE),
+			BOB_ADDR,
+			&mut meter,
+			U256::zero(),
+			vec![],
+			&ExecConfig::new_substrate_tx(),
+		));
+	});
+}
+
+#[test]
 fn set_storage_varsized_key_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		// Write

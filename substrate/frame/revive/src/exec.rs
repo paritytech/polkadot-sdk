@@ -354,7 +354,7 @@ pub trait PrecompileExt: sealing::Sealed {
 		value: U256,
 		input_data: Vec<u8>,
 		reentrancy: ReentrancyProtection,
-		apply_eip2200_guard: bool,
+		denies_storage_writes: bool,
 		read_only: bool,
 	) -> Result<(), ExecError>;
 
@@ -495,6 +495,9 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
+
+	/// Returns an `OutOfGas` error if the current frame cannot write persistent contract storage.
+	fn ensure_storage_write_allowed(&self, transient: bool) -> Result<(), DispatchError>;
 
 	/// Check if running as a delegate call.
 	fn is_delegate_call(&self) -> bool;
@@ -2305,7 +2308,7 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		allows_reentry: ReentrancyProtection,
-		apply_eip2200_guard: bool,
+		denies_storage_writes: bool,
 		read_only: bool,
 	) -> Result<(), ExecError> {
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
@@ -2324,7 +2327,7 @@ where
 			// Enable read-only access if requested; cannot disable it if already set.
 			let is_read_only = read_only || self.is_read_only();
 			let denies_storage_writes =
-				apply_eip2200_guard || self.top_frame().denies_storage_writes;
+				denies_storage_writes || self.top_frame().denies_storage_writes;
 
 			// We can skip the stateful lookup for pre-compiles.
 			let dest = if <AllPrecompiles<T>>::get::<Self>(dest_addr.as_fixed_bytes()).is_some() {
@@ -2694,6 +2697,14 @@ where
 		self.top_frame().read_only
 	}
 
+	fn ensure_storage_write_allowed(&self, transient: bool) -> Result<(), DispatchError> {
+		if !transient && self.top_frame().denies_storage_writes {
+			// EIP-2200 fails such a write with out of gas.
+			return Err(Error::<T>::OutOfGas.into());
+		}
+		Ok(())
+	}
+
 	fn is_delegate_call(&self) -> bool {
 		self.top_frame().delegate.is_some()
 	}
@@ -2810,11 +2821,9 @@ where
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		assert!(self.has_contract_info());
+		// Covers runtime precompiles, which may not check before writing.
+		self.ensure_storage_write_allowed(false)?;
 		let frame = self.top_frame_mut();
-		if frame.denies_storage_writes {
-			// Keep EIP-2200's out of gas error.
-			return Err(Error::<T>::OutOfGas.into());
-		}
 		frame.contract_info.get(&frame.account_id).write(
 			key.into(),
 			value,
