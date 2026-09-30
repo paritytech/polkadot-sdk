@@ -23,7 +23,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse,
-		FromContains, LinearStoragePrice,
+		FromContains, LinearStoragePrice, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRootWithSuccess;
@@ -116,8 +116,9 @@ parameter_types! {
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const PayoutSpendPeriod: BlockNumber = 30 * DAYS;
 	// The asset's interior location for the paying account. This is the Treasury
-	// pallet instance (which sits at index 37).
-	pub TreasuryInteriorLocation: InteriorLocation = PalletInstance(37).into();
+	// pallet instance.
+	pub TreasuryInteriorLocation: InteriorLocation =
+		PalletInstance(<Treasury as PalletInfoAccess>::index() as u8).into();
 
 	pub const TipCountdown: BlockNumber = 1 * DAYS;
 	pub const TipFindersFee: Percent = Percent::from_percent(20);

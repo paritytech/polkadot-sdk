@@ -22,7 +22,7 @@ pub mod evm;
 pub mod pvm;
 mod runtime_costs;
 
-pub use runtime_costs::{RuntimeCosts, StorageAccessKind};
+pub use runtime_costs::{RuntimeCosts, StorageAccessKind, TransferAccessKind};
 
 use crate::{
 	AccountIdOf, BalanceOf, CallProtections, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig,
@@ -132,7 +132,7 @@ impl CodeLoadToken {
 	/// Computes the flat cost of both reads, at the code's own warmth.
 	fn flat<T: Config>(warmth: Summarized<CodeLoadWarmth>) -> Weight {
 		runtime_costs::weight_from_warmth_summary::<T>(
-			warmth.summary,
+			warmth.summary(),
 			CodeLoadItems::KEY_FAMILY,
 			T::WeightInfo::code_load,
 			// Nothing on top of the base hot access.
@@ -146,7 +146,7 @@ impl CodeLoadToken {
 		code_len: u32,
 		code_type: BytecodeType,
 	) -> Weight {
-		let per_byte: fn(u32) -> Weight = match (code_type, warmth.entries.blob.is_hot()) {
+		let per_byte: fn(u32) -> Weight = match (code_type, warmth.entries().blob.is_hot()) {
 			(BytecodeType::Pvm, false) => T::WeightInfo::call_with_pvm_code_per_byte,
 			(BytecodeType::Pvm, true) => T::WeightInfo::call_with_pvm_code_per_byte_hot,
 			(BytecodeType::Evm, false) => T::WeightInfo::call_with_evm_code_per_byte,
@@ -186,10 +186,10 @@ pub struct StipendAndProtections {
 impl StipendAndProtections {
 	/// Solidity's `transfer` and `send` cap the callee at the stipend. For a zero value solc passes
 	/// `gas_limit = 2300` explicitly; when value moves it passes 0 and relies on the stipend the
-	/// EVM grants any call that moves value. We use a heuristic to detect both patterns. Such a call
-	/// gets the stipend and `AllowNext` reentrancy protection, because the fixed 2300 is tailored
-	/// to Ethereum's gas scale. Its callee also cannot write persistent storage, as EIP-2200
-	/// specifies.
+	/// EVM grants any call that moves value. We use a heuristic to detect both patterns. Such a
+	/// call gets the stipend and `AllowNext` reentrancy protection, because the fixed 2300 is
+	/// tailored to Ethereum's gas scale. Its callee also cannot write persistent storage, as
+	/// EIP-2200 specifies.
 	pub fn new(value: U256, gas_limit: Option<u64>) -> Self {
 		use revm::interpreter::gas::CALL_STIPEND;
 		let moves_value = !value.is_zero();
@@ -253,19 +253,20 @@ impl<T: Config> ContractBlob<T> {
 		})
 	}
 
-	/// Puts the module blob into storage, and returns the deposit collected for the storage.
+	/// Puts the module blob into storage unless it is already stored, and returns the deposit
+	/// collected, or `None` when it was already stored.
 	pub fn store_code<S: State>(
 		&mut self,
 		exec_config: &ExecConfig<T>,
 		meter: &mut ResourceMeter<T, S>,
-	) -> Result<BalanceOf<T>, DispatchError> {
+	) -> Result<Option<BalanceOf<T>>, DispatchError> {
 		let code_hash = *self.code_hash();
 		ensure!(code_hash != H256::zero(), <Error<T>>::CodeNotFound);
 
 		<CodeInfoOf<T>>::mutate(code_hash, |stored_code_info| {
 			match stored_code_info {
 				// Contract code is already stored in storage. Nothing to be done here.
-				Some(_) => Ok(Default::default()),
+				Some(_) => Ok(None),
 				// Upload a new contract code.
 				// We need to store the code and its code_info, and collect the deposit.
 				// This `None` case happens only with freshly uploaded modules. This means that
@@ -288,7 +289,7 @@ impl<T: Config> ContractBlob<T> {
 
 					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
 					*stored_code_info = Some(self.code_info.clone());
-					Ok(deposit)
+					Ok(Some(deposit))
 				},
 			}
 		})

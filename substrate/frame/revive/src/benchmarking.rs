@@ -22,7 +22,7 @@ use crate::{
 	Pallet as Contracts,
 	access_list::{
 		AccessEntry, AccessList, CallItems, CodeLoadItems, KeyFamily, MAX_ACCESS_LIST_ENTRIES,
-		StorageItems, StorageOp, Summarized, TransferItems,
+		StorageOp, Summarized, TransferItems,
 	},
 	call_builder::{
 		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit,
@@ -32,7 +32,7 @@ use crate::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
 		block_hash::EthereumBlockBuilder, block_storage,
 	},
-	exec::{Key, Origin as ExecOrigin, PrecompileExt},
+	exec::{BuiltinPrecompileExt, Key, Origin as ExecOrigin, PrecompileExt},
 	limits,
 	precompiles::{
 		self, BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
@@ -466,10 +466,10 @@ mod benchmarks {
 			}
 
 			let (mut ext, _) = setup.ext();
-			ext.warm_summarized(call_items);
-			ext.warm_summarized(code_items);
+			ext.warm(call_items);
+			ext.warm(code_items);
 			if let Some(transfer) = transfer {
-				ext.warm_summarized(transfer);
+				ext.warm(transfer);
 			}
 			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
@@ -2088,8 +2088,8 @@ mod benchmarks {
 		);
 
 		// Add the key to access list so the op's touch is hot.
-		let access = StorageItems::new(runtime.ext().address(), &key, StorageOp::Write);
-		runtime.ext().warm_summarized(access);
+		let access = runtime.ext().slot_access(&key, StorageOp::Write);
+		runtime.ext().warm(access);
 
 		let result;
 		#[block]
@@ -2142,8 +2142,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		let access = StorageItems::new(ext.address(), &key, StorageOp::Write);
-		ext.warm_summarized(access);
+		ext.warm(ext.slot_access(&key, StorageOp::Write));
 
 		let result;
 		#[block]
@@ -2206,8 +2205,8 @@ mod benchmarks {
 			key.hash(),
 		);
 
-		let access = StorageItems::new(runtime.ext().address(), &key, StorageOp::Read);
-		runtime.ext().warm_summarized(access);
+		let access = runtime.ext().slot_access(&key, StorageOp::Read);
+		runtime.ext().warm(access);
 
 		let out_ptr = max_key_len + 4;
 		let result;
@@ -2261,8 +2260,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		let access = StorageItems::new(ext.address(), &key, StorageOp::Read);
-		ext.warm_summarized(access);
+		ext.warm(ext.slot_access(&key, StorageOp::Read));
 
 		let result;
 		#[block]
@@ -2312,8 +2310,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		let access = StorageItems::new(ext.address(), &key, StorageOp::Write);
-		ext.warm_summarized(access);
+		ext.warm(ext.slot_access(&key, StorageOp::Write));
 
 		let result;
 		#[block]

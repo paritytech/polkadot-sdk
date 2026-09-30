@@ -20,7 +20,7 @@ use crate::{
 	access_list::{CallItems, TransferItems},
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{
-		Ext,
+		Ext, TransferAccessKind,
 		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
 };
@@ -86,8 +86,7 @@ pub fn charge_call_gas<'a, E: Ext>(
 		},
 		None => {
 			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported.
-			let call_items = CallItems::new(callee, scheme.is_delegate_call());
-			let warmth = interpreter.ext.warm_summarized(call_items);
+			let warmth = interpreter.ext.warm(CallItems::new(callee, scheme.is_delegate_call()));
 			interpreter.ext.charge_or_halt(RuntimeCosts::CallBase(warmth))?;
 
 			interpreter
@@ -99,15 +98,19 @@ pub fn charge_call_gas<'a, E: Ext>(
 
 	if !value.is_zero() {
 		// A precompile's account state is untracked, so its transfer has no warmth and pays cold.
-		let warmth = precompile.is_none().then(|| {
-			let transfer =
-				TransferItems { from: interpreter.ext.address(), to: callee, dust: dust_transfer };
-			interpreter.ext.warm_summarized(transfer)
-		});
+		let transfer = if precompile.is_none() {
+			TransferAccessKind::Tracked(interpreter.ext.warm(TransferItems {
+				from: interpreter.ext.address(),
+				to: callee,
+				dust: dust_transfer,
+			}))
+		} else {
+			TransferAccessKind::Untracked { dust: dust_transfer }
+		};
 		interpreter
 			.ext
 			.frame_meter_mut()
-			.charge_or_halt(RuntimeCosts::CallTransferSurcharge { dust_transfer, warmth })?;
+			.charge_or_halt(RuntimeCosts::CallTransferSurcharge(transfer))?;
 	}
 
 	ControlFlow::Continue(())

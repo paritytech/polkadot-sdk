@@ -22,13 +22,14 @@ pub mod env;
 use crate::{
 	CallProtections, Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts,
 	SENTINEL, StorageAccessKind,
-	access_list::{CallItems, StorageItems, StorageOp, TransferItems},
+	access_list::{CallItems, CreateItems, StorageOp, TransferItems, WarmthSummary},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	tracing::FrameTraceInfo,
+	vm::TransferAccessKind,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -487,20 +488,20 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let max_size = limits::STORAGE_BYTES;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
+		let access = self.ext.slot_access(&key, StorageOp::Write);
 		let cost =
 			|kind| RuntimeCosts::SetStorage { new_bytes: value_len, old_bytes: max_size, kind };
 
 		if value_len > max_size {
 			// Nothing is accessed on this failure, so the slot stays cold and owes no rollback.
 			let access_kind = StorageAccessKind::new(transient, || {
-				self.ext.warmth_of_summarized(access).to_non_revertible()
+				self.ext.warmth_of(access).to_non_revertible()
 			});
 			self.charge_gas(cost(access_kind))?;
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let access_kind = StorageAccessKind::new(transient, || self.ext.warm_summarized(access));
+		let access_kind = StorageAccessKind::new(transient, || self.ext.warm(access));
 		let charged = self.charge_gas(cost(access_kind))?;
 		let value = match value {
 			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
@@ -537,8 +538,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		}
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
-			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
-			self.ext.warm_summarized(access)
+			self.ext.warm(self.ext.slot_access(&key, StorageOp::Write))
 		});
 		let charged = self.charge_gas(RuntimeCosts::ClearStorage {
 			len: limits::STORAGE_BYTES,
@@ -568,8 +568,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
-			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Read);
-			self.ext.warm_summarized(access)
+			self.ext.warm(self.ext.slot_access(&key, StorageOp::Read))
 		});
 		let charged = self.charge_gas(RuntimeCosts::GetStorage {
 			len: limits::STORAGE_BYTES,
@@ -655,9 +654,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				self.charge_gas(RuntimeCosts::PrecompileBase)?;
 			},
 			None => {
-				let call_items =
-					CallItems::new(callee, matches!(&call_type, CallType::DelegateCall));
-				let warmth = self.ext.warm_summarized(call_items);
+				let warmth = self
+					.ext
+					.warm(CallItems::new(callee, matches!(&call_type, CallType::DelegateCall)));
 				self.charge_gas(RuntimeCosts::CallBase(warmth))?;
 			},
 		};
@@ -696,15 +695,16 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 					// A precompile's account state is untracked, so its transfer has no warmth
 					// and pays cold.
-					let warmth = precompile.is_none().then(|| {
-						let transfer = TransferItems {
+					let transfer = if precompile.is_none() {
+						TransferAccessKind::Tracked(self.ext.warm(TransferItems {
 							from: self.ext.address(),
 							to: callee,
 							dust: dust_transfer,
-						};
-						self.ext.warm_summarized(transfer)
-					});
-					self.charge_gas(RuntimeCosts::CallTransferSurcharge { dust_transfer, warmth })?;
+						}))
+					} else {
+						TransferAccessKind::Untracked { dust: dust_transfer }
+					};
+					self.charge_gas(RuntimeCosts::CallTransferSurcharge(transfer))?;
 				}
 
 				// The flags may tighten the reentrancy protection to `Strict`, but never weaken it.
@@ -783,6 +783,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					input_data_len,
 					balance_transfer: Pallet::<E::T>::has_balance(value),
 					dust_transfer: Pallet::<E::T>::has_dust(value),
+					warming_summary: CreateItems::warming_summary(false),
 				})?;
 				value
 			},
@@ -791,6 +792,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					input_data_len: 0,
 					balance_transfer: false,
 					dust_transfer: false,
+					warming_summary: WarmthSummary::default(),
 				})?;
 				return Err(err.into());
 			},
@@ -819,6 +821,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		) {
 			Ok(address) => {
 				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
+					// EIP-2929 warms a created address. It is safe to do the same, since
+					// `Instantiate` paid for the new entries and they are in the storage overlay.
+					self.ext.warm(CreateItems { address });
 					self.write_fixed_sandbox_output(
 						memory,
 						address_ptr,

@@ -881,6 +881,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		#[allow(deprecated)]
 		inclusion::PendingAvailability::<T>::remove_all(None);
 
+		// Ensure broker parachain is reachable for XCM delivery
+		#[cfg(feature = "runtime-benchmarks")]
+		crate::coretime::Pallet::<T>::ensure_broker_parachain_reachable();
+
 		// We don't allow a core to have both disputes and be marked fully available at this block.
 		let max_cores = self.max_cores() as usize;
 

@@ -18,8 +18,8 @@
 use crate::{
 	Config,
 	access_list::{
-		Access, CallItems, CallWarmth, KeyFamily, StorageItems, Summarized, TransferWarmth, Warmth,
-		WarmthSummary,
+		Access, CallItems, CallWarmth, CreateItems, KeyFamily, StorageItems, Summarized,
+		TransferWarmth, Warmth, WarmthSummary,
 	},
 	limits,
 	metering::Token,
@@ -132,15 +132,23 @@ pub enum RuntimeCosts {
 	/// Weight of reading and decoding the input to a precompile.
 	PrecompileDecode(u32),
 	/// Weight of the transfer performed during a call.
-	/// parameter `dust_transfer` indicates whether the transfer has a `dust` value.
-	/// `warmth` holds the sender and receiver warmth; `None` charges the cold price.
-	CallTransferSurcharge { dust_transfer: bool, warmth: Option<Summarized<TransferWarmth>> },
+	CallTransferSurcharge(TransferAccessKind),
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
-	/// Weight of calling `seal_instantiate`.
-	Instantiate { input_data_len: u32, balance_transfer: bool, dust_transfer: bool },
-	/// Weight of calling `Create` opcode.
-	Create { init_code_len: u32, balance_transfer: bool, dust_transfer: bool },
+	/// Weight of calling `seal_instantiate`, and of warming the entries in `warming_summary`.
+	Instantiate {
+		input_data_len: u32,
+		balance_transfer: bool,
+		dust_transfer: bool,
+		warming_summary: WarmthSummary,
+	},
+	/// Weight of calling `Create` opcode, and of warming the entries in `warming_summary`.
+	Create {
+		init_code_len: u32,
+		balance_transfer: bool,
+		dust_transfer: bool,
+		warming_summary: WarmthSummary,
+	},
 	/// Weight of calling `Ripemd160` precompile for the given input size.
 	Ripemd160(u32),
 	/// Weight of calling `Sha256` precompile for the given input size.
@@ -242,10 +250,7 @@ impl RuntimeCosts {
 	}
 
 	/// Computes the overhead the access list adds to one touch.
-	pub(crate) fn access_list_overhead<T: Config>(
-		summary: WarmthSummary,
-		key: KeyFamily,
-	) -> Weight {
+	pub fn access_list_overhead<T: Config>(summary: WarmthSummary, key: KeyFamily) -> Weight {
 		let [cold_full, cold_base, hot_full, hot_base]: [fn() -> Weight; 4] = match key {
 			KeyFamily::Slot => [
 				T::WeightInfo::access_list_touch_cold_full,
@@ -263,16 +268,16 @@ impl RuntimeCosts {
 		let cold_touch = cold_full().saturating_sub(cold_base());
 		let hot_touch = hot_full().saturating_sub(hot_base());
 		cold_touch
-			.saturating_mul(summary.cold.into())
+			.saturating_mul(summary.cold().into())
 			.saturating_add(hot_touch.saturating_mul(summary.hot().into()))
 			.saturating_add(
 				T::WeightInfo::access_list_rollback_amortization()
-					.saturating_mul(summary.cold_revertible.into()),
+					.saturating_mul(summary.cold_revertible().into()),
 			)
 	}
 
 	/// Computes the cost of journaling a `Read` to `Write` upgrade, on top of the touch itself.
-	pub(crate) fn access_list_upgrade_overhead<T: Config>() -> Weight {
+	pub fn access_list_upgrade_overhead<T: Config>() -> Weight {
 		T::WeightInfo::access_list_touch_hot_upgrade()
 			.saturating_sub(T::WeightInfo::access_list_touch_hot_full())
 	}
@@ -288,22 +293,22 @@ impl RuntimeCosts {
 	fn write_surcharge<T: Config>(summary: WarmthSummary) -> Weight {
 		Self::deferred_write_cost::<T>()
 			.saturating_add(Self::access_list_upgrade_overhead::<T>())
-			.saturating_mul(summary.upgrades.into())
+			.saturating_mul(summary.upgrades().into())
 	}
 }
 
 impl Summarized<CallWarmth> {
 	/// Computes the call cost from the warmth of the entries it reads.
-	pub(crate) fn weight<T: Config>(self) -> Weight {
-		match self.entries {
+	pub fn weight<T: Config>(self) -> Weight {
+		match self.entries() {
 			CallWarmth::Plain { .. } => weight_from_warmth_summary::<T>(
-				self.summary,
+				self.summary(),
 				CallItems::KEY_FAMILY,
 				|| T::WeightInfo::seal_call(0, 0, 0),
 				T::WeightInfo::seal_call_hot,
 			),
 			CallWarmth::Delegate { .. } => weight_from_warmth_summary::<T>(
-				self.summary,
+				self.summary(),
 				CallItems::KEY_FAMILY,
 				T::WeightInfo::seal_delegate_call,
 				T::WeightInfo::seal_delegate_call_hot,
@@ -316,18 +321,19 @@ impl Summarized<CallWarmth> {
 ///
 /// Each bench measures the whole access, so the hot one applies only when every entry is hot. The
 /// access list's own costs come on top, entry by entry.
-pub(crate) fn weight_from_warmth_summary<T: Config>(
+pub fn weight_from_warmth_summary<T: Config>(
 	summary: WarmthSummary,
 	key: KeyFamily,
 	cold: impl FnOnce() -> Weight,
 	hot: impl FnOnce() -> Weight,
 ) -> Weight {
-	defensive_assert!(summary.total > 0, "an access touches at least one state item");
+	defensive_assert!(summary.total() > 0, "an access touches at least one state item");
 	// With no entries `all_hot` is vacuously true, so charge cold instead.
-	let operation_weight = if summary.all_hot() && summary.total > 0 {
+	let operation_weight = if summary.all_hot() && summary.total() > 0 {
 		// One overlay lookup per entry, since each stands for one state read.
 		hot().saturating_add(
-			RuntimeCosts::hot_storage_overlay_overhead::<T>().saturating_mul(summary.total.into()),
+			RuntimeCosts::hot_storage_overlay_overhead::<T>()
+				.saturating_mul(summary.total().into()),
 		)
 	} else {
 		cold()
@@ -360,10 +366,33 @@ impl StorageAccessKind {
 		transient: impl FnOnce() -> Weight,
 	) -> Weight {
 		match self {
-			Self::Persistent(warmth) => {
-				weight_from_warmth_summary::<T>(warmth.summary, StorageItems::KEY_FAMILY, cold, hot)
-			},
+			Self::Persistent(warmth) => weight_from_warmth_summary::<T>(
+				warmth.summary(),
+				StorageItems::KEY_FAMILY,
+				cold,
+				hot,
+			),
 			Self::Transient => transient(),
+		}
+	}
+}
+
+/// How a call's value transfer is priced.
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[derive(Clone, Copy)]
+pub enum TransferAccessKind {
+	/// A transfer the access list tracks, priced by the warmth of its entries.
+	Tracked(Summarized<TransferWarmth>),
+	/// A transfer the access list does not track, priced by its benchmark alone.
+	Untracked { dust: bool },
+}
+
+impl TransferAccessKind {
+	/// Returns whether the transfer moves dust.
+	fn moves_dust(&self) -> bool {
+		match self {
+			Self::Tracked(transfer) => transfer.moves_dust(),
+			Self::Untracked { dust } => *dust,
 		}
 	}
 }
@@ -455,14 +484,13 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
-			CallTransferSurcharge { dust_transfer, warmth } => {
-				let dust = u32::from(dust_transfer);
-				// A precompile's account state is untracked, so its transfer pays the bench alone.
+			CallTransferSurcharge(transfer) => {
+				let dust = u32::from(transfer.moves_dust());
 				let cold = || cost_args!(seal_call, 1, dust, 0);
-				match warmth {
-					None => cold(),
-					Some(warmth) => weight_from_warmth_summary::<T>(
-						warmth.summary,
+				match transfer {
+					TransferAccessKind::Untracked { .. } => cold(),
+					TransferAccessKind::Tracked(warmth) => weight_from_warmth_summary::<T>(
+						warmth.summary(),
 						CallItems::KEY_FAMILY,
 						cold,
 						|| {
@@ -473,19 +501,27 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				}
 			},
 			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
-			Instantiate { input_data_len, balance_transfer, dust_transfer } => {
+			Instantiate { input_data_len, balance_transfer, dust_transfer, warming_summary } => {
 				T::WeightInfo::seal_instantiate(
 					balance_transfer.into(),
 					dust_transfer.into(),
 					input_data_len,
 				)
+				.saturating_add(Self::access_list_overhead::<T>(
+					warming_summary,
+					CreateItems::KEY_FAMILY,
+				))
 			},
-			Create { init_code_len, balance_transfer, dust_transfer } => {
+			Create { init_code_len, balance_transfer, dust_transfer, warming_summary } => {
 				T::WeightInfo::evm_instantiate(
 					balance_transfer.into(),
 					dust_transfer.into(),
 					init_code_len,
 				)
+				.saturating_add(Self::access_list_overhead::<T>(
+					warming_summary,
+					CreateItems::KEY_FAMILY,
+				))
 			},
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
@@ -766,16 +802,14 @@ mod tests {
 	fn a_value_call_prices_the_transfer_at_its_own_warmth() {
 		let write_paid = Warmth::write_paid();
 		let transfer = |dust| TransferItems { from: H160::zero(), to: H160::repeat_byte(2), dust };
-		let weight_of = |dust_transfer, warmth: Option<Warmth>| {
-			weight(&RuntimeCosts::CallTransferSurcharge {
-				dust_transfer,
-				warmth: warmth.map(|warmth| {
-					Summarized::from_warmths(
-						transfer(dust_transfer),
-						[warmth, warmth, write_paid, warmth],
-					)
-				}),
-			})
+		let weight_of = |dust, warmth: Option<Warmth>| {
+			weight(&RuntimeCosts::CallTransferSurcharge(match warmth {
+				Some(warmth) => TransferAccessKind::Tracked(Summarized::from_warmths(
+					transfer(dust),
+					[warmth, warmth, write_paid, warmth],
+				)),
+				None => TransferAccessKind::Untracked { dust },
+			}))
 		};
 
 		for (arm, warmth) in [
@@ -802,14 +836,10 @@ mod tests {
 		let write_paid = Warmth::write_paid();
 		let transfer = |dust| TransferItems { from: H160::zero(), to: H160::repeat_byte(2), dust };
 		// Each pair at the same paid level, so a difference is only what the writes owe.
-		let weight_of = |dust_transfer, accounts, infos| {
-			weight(&RuntimeCosts::CallTransferSurcharge {
-				dust_transfer,
-				warmth: Some(Summarized::from_warmths(
-					transfer(dust_transfer),
-					[accounts, accounts, infos, infos],
-				)),
-			})
+		let weight_of = |dust, accounts, infos| {
+			weight(&RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked(
+				Summarized::from_warmths(transfer(dust), [accounts, accounts, infos, infos]),
+			)))
 		};
 
 		let per_item_write_surcharge = RuntimeCosts::write_surcharge::<Test>(
@@ -833,6 +863,44 @@ mod tests {
 			weight_of(false, write_paid, read_paid),
 			weight_of(false, write_paid, write_paid),
 			"without dust the `AccountInfoOf` entries are only read, so nothing is owed"
+		);
+	}
+
+	#[test]
+	fn a_contract_creation_pays_for_warming_what_it_creates() {
+		let instantiate = |warming_summary| RuntimeCosts::Instantiate {
+			input_data_len: 0,
+			balance_transfer: false,
+			dust_transfer: false,
+			warming_summary,
+		};
+		let create = |warming_summary| RuntimeCosts::Create {
+			init_code_len: 0,
+			balance_transfer: false,
+			dust_transfer: false,
+			warming_summary,
+		};
+		let no_warming = WarmthSummary::default();
+		let some_warming = CreateItems::warming_summary(false);
+
+		assert_eq!(
+			weight(&instantiate(no_warming)),
+			<Test as Config>::WeightInfo::seal_instantiate(0, 0, 0),
+			"with no warming to charge, an instantiate costs only its bench",
+		);
+		assert_eq!(
+			weight(&create(no_warming)),
+			<Test as Config>::WeightInfo::evm_instantiate(0, 0, 0),
+			"with no warming to charge, a CREATE costs only its bench",
+		);
+		assert!(
+			weight(&instantiate(some_warming)).ref_time() >
+				weight(&instantiate(no_warming)).ref_time(),
+			"an instantiate charges for warming on top of its bench",
+		);
+		assert!(
+			weight(&create(some_warming)).ref_time() > weight(&create(no_warming)).ref_time(),
+			"a CREATE charges for warming on top of its bench",
 		);
 	}
 
