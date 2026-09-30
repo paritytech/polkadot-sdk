@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790765989967,
+  "lastUpdate": 1790794745544,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dmitry@markin.tech",
-            "name": "Dmitry Markin",
-            "username": "dmitry-markin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1866a5de1d89429ff43f114606f2aa69ffa9a0ae",
-          "message": "Publish indexed transactions with BLAKE2b hashes to IPFS DHT (#10468)\n\nAdd `--ipfs-bootnodes` flag for specifying IPFS bootnodes. If passed\nalong with `--ipfs-server`, the node will register as a content provider\nin IPFS DHT of indexed transactions with BLAKE2b hashes of the last two\nweeks (or pruning depth if smaller).\n\n## Follow-ups\n- Support other hashes (sha2-256 specifically) and CID codecs\n- Adjust `IPFS_MAX_BLOCKS` for chains with elastic scaling\n- Speedup DHT publishing in litep2p (should aim at 10s single provider\npublish time)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-25T09:36:33Z",
-          "tree_id": "40c3531a33f769a8ab358681c7f0f821ac1c0c1f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1866a5de1d89429ff43f114606f2aa69ffa9a0ae"
-        },
-        "date": 1774436335115,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023559559753333344,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14620494474666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009789387513333303,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007140217053333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14686279888000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "15fdbd4ba646c4eb64709f97deab8a04de7fd800",
+          "message": "grandpa: gossip commits to light clients in rotating groups (#13318)\n\nFixes https://github.com/paritytech/smoldot/issues/3375\n\n## Problem\n\nGRANDPA gossip sends each commit to only `LUCKY_PEERS` (4) randomly\npicked light clients per round. Light clients don't relay gossip, so\nthey only observe finality when picked. With `N` light clients connected\nto a node, the expected wait is `N / 4` rounds, so finality lag on light\nclients grows linearly with the number of light clients per node. The\n`--in-peers-light` default was recently raised to 500 (#12887), which\nmakes this worse.\n\nThe time-based fallback that allows commits to all peers doesn't help:\nit only kicks in after a round has lasted `PROPAGATION_ALL` round\ndurations, and on a healthy chain every imported commit starts a new\nround.\n\nSending every commit to every light client isn't an option either. A\ncommit carries a signature per voter, so outbound bandwidth would grow\nwith both the validator count and the number of light clients.\n\n## Solution\n\nLight clients take turns in groups of up to `LIGHT_PEERS_GROUP_SIZE`\n(100):\n\n- Connected light clients are kept in a `BTreeSet`, sorted by peer id.\n- On every round, the next group is the range of\n`LIGHT_PEERS_GROUP_SIZE` light clients following the last one served in\nthe previous round, wrapping around at the end.\n- The current group is stored as a peer id range, so checking whether a\nlight client is in turn is two comparisons. Light clients connecting or\ndisconnecting don't shift the rotation.\n- With at most `LIGHT_PEERS_GROUP_SIZE` light clients, all of them get\nevery commit.\n\nA commit also finalizes all of its ancestors, so skipping a few commits\nloses nothing. Every light client observes every finalized block within\n`ceil(light_clients / LIGHT_PEERS_GROUP_SIZE)` rounds, and the outbound\nbandwidth spent on light clients is bounded by the group size.\n\nGossip towards full nodes and authorities is unchanged.\n\n## Results\n\nMeasured `master` against this PR on a Polkadot full node, with up to\n500 synthetic light peers following `/grandpa/1` like smoldot\n([details](https://github.com/paritytech/smoldot/issues/3375#issuecomment-5832488482)):\n\n- **Finality lag on light clients:** on `master` it grows with the\nnumber of light peers, up to several minutes. With this PR it stays\nwithin a few rounds, tens of seconds even at 500 light peers.\n- **Extra GRANDPA traffic:** it grows up to 100 light peers and then\nstays flat, at about 1.4 MB/s.\n- **CPU, memory and block import:** no measurable change.\n\n## Notes\n\n- The commit finalizing the last block of an authority set only reaches\nthe light clients in turn at that moment, as before. Light clients that\nmiss it still learn about the set change from the neighbor packet sent\nto all peers (paritytech/substrate#13559), and can request the\njustification of the set change block, which nodes always store.",
+          "timestamp": "2026-09-30T16:16:49Z",
+          "tree_id": "bb9eddedd103d3f0d2df6241550e05a2f81f70c7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/15fdbd4ba646c4eb64709f97deab8a04de7fd800"
+        },
+        "date": 1790794713664,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00977914475999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1453376311800001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007639931680000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025307504066666674,
             "unit": "seconds"
           }
         ]
