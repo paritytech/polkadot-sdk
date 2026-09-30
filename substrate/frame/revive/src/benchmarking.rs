@@ -4032,28 +4032,19 @@ mod benchmarks {
 	/// This is the fixed cost of an `MCOPY`, which covers copying its first 64 bytes. Longer copies
 	/// pay for every extra byte on top of it.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Two Pages per Copy:** every copy straddles the boundary between two 4 KiB pages that no
-	///   other copy touches, which costs far more than a copy within pages that were already used.
-	///   Memory has 128 pairs of pages, which is why `r` only goes up to 127.
-	/// * **Backward Misaligned Copy:** the destination is one byte after the source, so the two
-	///   overlap and `memmove` has to copy backward with misaligned words, its slowest path.
-	/// * **Memory Size:** memory is grown to its maximum of 1 MiB before the benchmark runs, so no
-	///   `MCOPY` expands it and only the copy itself is measured.
-	/// * **Pseudo-random Order:** the pairs of pages are visited in a pseudo-random order so the
-	///   CPU can't prefetch the next one.
-	/// * **Stack Initialization:** the lengths, sources and destinations are placed on the stack
-	///   before the benchmark runs, three items per copy, so no `PUSH` op-codes are part of the
-	///   code being benchmarked.
-	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the memory,
-	///   which the benchmark's setup wrote, from the L1 and L2 caches.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Spacing the copies 3 KiB apart, so that pages are shared, cost roughly 20% less per copy.
-	/// * Copying the regions in order instead of a pseudo-random order cost roughly 30% less.
-	/// * Varying how the source and destination are misaligned made no measurable difference.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * An L1 and L2 cache miss on each copy, since each copied region is on a cache line that
+	///   hasn't been accessed since the eviction.
+	/// * A second cache line accessed on each copy, since each copied region crosses into the next
+	///   line.
+	/// * A TLB miss on each copy, since each copied region is on a page that hasn't been accessed
+	///   since the eviction.
+	/// * A second TLB miss on each copy, since each copied region crosses into the next page.
+	/// * No help from the pre-fetcher, since the pages are visited in a pseudo-random order.
+	/// * The slowest path of the runtime's `memmove`, which copies backward and rebuilds everything
+	///   it copies with shifts, since the destination starts just after the source and overlaps it.
 	///
 	/// # Subtraction Safety
 	///
@@ -4122,20 +4113,11 @@ mod benchmarks {
 	/// The first 64 bytes are covered by [`evm_mcopy_opcode`], so the slope of this benchmark is
 	/// the cost of every extra byte.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Backward Misaligned Copy:** the destination is one byte after the source, so the two
-	///   overlap and `memmove` has to copy backward with misaligned words, its slowest path.
-	/// * **Memory Size:** memory is grown to its maximum of 1 MiB before the benchmark runs, so the
-	///   copy never expands it and only the copy itself is measured.
-	/// * **Cache Eviction:** Before the benchmark runs we write dummy data to evict the memory,
-	///   which the benchmark's setup wrote, from the L1 and L2 caches.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Copying between two separate halves of memory, which makes `memmove` copy forward, cost
-	///   roughly 18% less per byte.
-	/// * Evicting the caches before the copy made no measurable difference.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The slowest path of the runtime's `memmove`, which copies backward and rebuilds everything
+	///   it copies with shifts, since the destination starts just after the source and overlaps it.
 	///
 	/// # Subtraction Safety
 	///
