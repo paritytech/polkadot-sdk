@@ -15,9 +15,11 @@ doc:
 
     Breaking changes:
     - `Pallet::do_propose_execute` takes the `threshold` as its first argument.
-    - Off-chain tooling that computed the proposal hash as `hash(call)` to call `vote`, `close`
-      or `disapprove_proposal` must now compute `hash((call, threshold))`, or read the hash from
-      the `Proposed` event.
+    - Off-chain tooling that computed the proposal hash as `hash(call)` to call `vote`, `close`,
+      `disapprove_proposal` or `kill` must now compute `hash((call, threshold))`, or read the
+      hash from the `Proposed` event.
+    - The `proposal_hash` in the `MemberExecuted` event, emitted when a proposal with
+      `threshold < 2` executes immediately, is also `hash((call, threshold))`.
 - audience: Runtime User
   description: |-
     The Alliance collective on Collectives Westend runs a one-off storage migration that re-keys
