@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790701682909,
+  "lastUpdate": 1790757997280,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dharjeezy@gmail.com",
-            "name": "dharjeezy",
-            "username": "dharjeezy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "61556930595657ee7aa3585f8e42fe319e7046f5",
-          "message": "try state hook for pallet authorship (#11215)\n\nThis PR introduces the try_state hook to pallet-authorship to verify a\nkey storage invariant.\n\ncloses part of https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-23T22:43:02Z",
-          "tree_id": "cc2d9d396fc3f73fc52770a281bae6c983ad8f21",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/61556930595657ee7aa3585f8e42fe319e7046f5"
-        },
-        "date": 1774310715726,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00932882154,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009061909599999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026293072999999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009305638869999988,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "229b73d531349ee5df46e22869454e620b13d9c7",
+          "message": "statement gossip: hold initial sync to the peer's statement rate limit (#13298)\n\n# Description\n\nInitial sync now respects the peer's statement rate limit. Each peer\ncarries a second `PeerRateLimiter` with the same quota its receive side\napplies to us, charged by every propagation chunk and, during an\ninitial-sync fetch, by each statement it takes, so the fetch stops where\nthe quota runs out. A peer whose quota has no room keeps its turn in the\nsync queue while its neighbours are served, so a peer draws its backlog\nat the rate it accepts, however often it asks for it.\n\nBefore this, bursts ran every 10 ms with one chunk per peer in flight,\nso a fast peer could receive far more than `statements_per_second` and\ndisconnect us as a flooder, and any peer could pull the whole store\nagain by flipping its filter.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12562\n\n# Integration\n\nNo changes needed. The send-side quota mirrors the node's own\n`statement_rate_limit`, so a fleet with one setting throttles exactly to\nwhat its peers accept.",
+          "timestamp": "2026-09-30T07:10:44Z",
+          "tree_id": "66adc6f2b446e84db7b50333ecf2535329d5a8a1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/229b73d531349ee5df46e22869454e620b13d9c7"
+        },
+        "date": 1790757964747,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025030897099999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009405597549999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010872463689999995,
             "unit": "seconds"
           }
         ]
