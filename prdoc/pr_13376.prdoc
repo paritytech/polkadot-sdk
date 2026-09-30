@@ -1,0 +1,10 @@
+title: 'statement-store: measure gossip latency between nodes in the zombienet benchmark'
+doc:
+- audience: Node Dev
+  description: |-
+    The statement store latency benchmark in zombienet measures delivery between nodes: each
+    client subscribes to the topics of a neighbour on another node and reports the latency per
+    message. The memory benchmark divides its rates by the measured time between scrapes.
+crates:
+- name: cumulus-zombienet-sdk-tests
+  bump: none
