@@ -15,3 +15,4 @@ mod runtime_upgrade;
 mod statement_store;
 mod storage_chain;
 mod sync_blocks;
+mod validator_collators;
