@@ -194,8 +194,9 @@ impl<T: Config> DepositProvider for LocalDepositProvider<T> {
 		Pallet::<T>::on_deposit_result(channel_id, role, action, DepositResult::Successful)
 	}
 
-	fn refund(channel_id: ChannelId, amount: Balance, role: DepositRole) {
+	fn refund(channel_id: ChannelId, amount: Balance, role: DepositRole) -> DispatchResult {
 		T::Currency::unreserve(&Self::account(&channel_id, role), amount.unique_saturated_into());
+		Ok(())
 	}
 }
 
@@ -815,7 +816,7 @@ pub mod pallet {
 			] {
 				let new = Self::deposit_for(&channel_id, role, &config);
 				if new < current {
-					Self::refund_deposit(&channel_id, current - new, role);
+					Self::refund_deposit(&channel_id, current - new, role)?;
 					Self::set_channel_deposit(&channel_id, role, new)?;
 				} else if new > current {
 					Self::request_deposit(
@@ -982,7 +983,7 @@ impl<T: Config> Pallet<T> {
 
 			// Return the deposit of the sender, but only if it is not the para being offboarded.
 			if !outgoing.contains(&req_id.sender) {
-				Self::refund_deposit(&req_id, req_data.sender_deposit, DepositRole::Sender);
+				Self::refund_deposit_or_log(&req_id, req_data.sender_deposit, DepositRole::Sender);
 			}
 
 			// If the request was confirmed, then it means it was confirmed in the finished session.
@@ -992,7 +993,7 @@ impl<T: Config> Pallet<T> {
 			// We still want to refund the deposit only if the para is not being offboarded.
 			if req_data.confirmed {
 				if !outgoing.contains(&req_id.recipient) {
-					Self::refund_deposit(
+					Self::refund_deposit_or_log(
 						&req_id,
 						config.hrmp_recipient_deposit,
 						DepositRole::Recipient,
@@ -1114,8 +1115,8 @@ impl<T: Config> Pallet<T> {
 		if let Some(HrmpChannel { sender_deposit, recipient_deposit, .. }) =
 			HrmpChannels::<T>::take(channel_id)
 		{
-			Self::refund_deposit(channel_id, sender_deposit, DepositRole::Sender);
-			Self::refund_deposit(channel_id, recipient_deposit, DepositRole::Recipient);
+			Self::refund_deposit_or_log(channel_id, sender_deposit, DepositRole::Sender);
+			Self::refund_deposit_or_log(channel_id, recipient_deposit, DepositRole::Recipient);
 		}
 
 		HrmpChannelContents::<T>::remove(channel_id);
@@ -1536,13 +1537,27 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Gives `amount` back through [`Config::DepositProvider`].
-	fn refund_deposit(channel_id: &HrmpChannelId, amount: Balance, role: DepositRole) {
+	fn refund_deposit(
+		channel_id: &HrmpChannelId,
+		amount: Balance,
+		role: DepositRole,
+	) -> DispatchResult {
 		if amount.is_zero() {
-			return;
+			return Ok(());
 		}
 		let channel_id =
 			ChannelId { sender: channel_id.sender.into(), recipient: channel_id.recipient.into() };
-		T::DepositProvider::refund(channel_id, amount, role);
+		T::DepositProvider::refund(channel_id, amount, role)
+	}
+
+	/// [`Self::refund_deposit`] for session-change paths, which have nowhere to send an error.
+	fn refund_deposit_or_log(channel_id: &HrmpChannelId, amount: Balance, role: DepositRole) {
+		if let Err(e) = Self::refund_deposit(channel_id, amount, role) {
+			log::error!(
+				target: "runtime::hrmp",
+				"refunding {role:?} deposit of {channel_id:?} failed: {e:?}"
+			);
+		}
 	}
 
 	/// Deposit `role` owes for `channel_id`. Channels with or amongst the system are free.
@@ -1667,9 +1682,7 @@ impl<T: Config> Pallet<T> {
 
 		// Unreserve the sender's deposit. The recipient could not have left their deposit because
 		// we ensured that the request is not confirmed.
-		Self::refund_deposit(&channel_id, open_channel_req.sender_deposit, DepositRole::Sender);
-
-		Ok(())
+		Self::refund_deposit(&channel_id, open_channel_req.sender_deposit, DepositRole::Sender)
 	}
 
 	fn close_channel(origin: ParaId, channel_id: HrmpChannelId) -> Result<(), Error<T>> {
