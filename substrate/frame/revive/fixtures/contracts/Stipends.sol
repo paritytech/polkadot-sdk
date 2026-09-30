@@ -314,6 +314,12 @@ contract WarmWriteSender {
         receiver.bump();
         return !payable(address(receiver)).send(msg.value);
     }
+
+    function isWarmWriteDeniedWithGas(WritingReceiver receiver, uint64 gasLimit) public payable returns (bool) {
+        receiver.bump();
+        (bool ok, ) = payable(address(receiver)).call{value: msg.value, gas: gasLimit}("");
+        return !ok;
+    }
 }
 
 /**

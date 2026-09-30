@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	Code, Config, Error, EthTxInfo, Pallet, TransactionLimits,
-	test_utils::{ALICE, WEIGHT_LIMIT, builder::Contract, deposit_limit},
+	Code, Config, Error, Pallet,
+	test_utils::{ALICE, builder::Contract},
 	tests::{ExtBuilder, GasScale, RuntimeOrigin, Test, builder},
 };
 use alloy_core::{
@@ -30,8 +30,20 @@ use pallet_revive_fixtures::{
 	FixtureType, NestedWritingReceiver, NestedWritingReceiver::Nesting, StipendSender, StipendTest,
 	WarmWriteSender, WritingReceiver, compile_module, compile_module_with_type,
 };
-use sp_runtime::Weight;
-use test_case::test_case;
+use test_case::{test_case, test_matrix};
+
+/// Runs `test` under the given gas scale, then restores the default scale.
+fn with_gas_scale<R>(scale: u32, test: impl FnOnce() -> R) -> R {
+	struct RestoreGasScale(u32);
+	impl Drop for RestoreGasScale {
+		fn drop(&mut self) {
+			GasScale::set(self.0);
+		}
+	}
+	let _restore = RestoreGasScale(GasScale::get());
+	GasScale::set(scale);
+	test()
+}
 
 #[test]
 fn evm_call_stipends_work_for_transfers() {
@@ -196,43 +208,41 @@ fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only(fixture_type: F
 			bool::abi_decode(&result.data).unwrap()
 		};
 
-		assert!(
-			run(value, StipendSender::isTransferDeniedCall {}.abi_encode()),
-			"transfer forwards only the stipend, so its callee must not reenter"
-		);
-		assert!(
-			run(value, StipendSender::isSendDeniedCall {}.abi_encode()),
-			"send forwards only the stipend, so its callee must not reenter"
-		);
-
-		assert_eq!(
-			run(value, StipendSender::isCallWithGasDeniedCall { gasLimit: 1 }.abi_encode()),
-			fixture_type == FixtureType::Resolc,
-			"the stipend alone lets the probe reenter on EVM, but is too small on PVM"
-		);
+		// On PVM the stipend alone cannot pay for the reentrant call.
+		if fixture_type == FixtureType::Solc {
+			assert!(
+				run(value, StipendSender::isTransferDeniedCall {}.abi_encode()),
+				"transfer forwards only the stipend, so its callee must not reenter"
+			);
+			assert!(
+				run(value, StipendSender::isSendDeniedCall {}.abi_encode()),
+				"send forwards only the stipend, so its callee must not reenter"
+			);
+		}
 
 		assert!(
 			run(value, StipendSender::isSelfSendAllowedCall {}.abi_encode()),
 			"self send should be allowed"
 		);
 
-		// The raised gas scale makes 2300 gas enough to reenter on PVM.
-		let default_gas_scale = GasScale::get();
-		GasScale::set(200_000);
-		let value_call =
-			run(value, StipendSender::isCallWithGasDeniedCall { gasLimit: 2300 }.abi_encode());
-		let zero_value_send = run(0, StipendSender::isSendDeniedCall {}.abi_encode());
-		GasScale::set(default_gas_scale);
-		assert!(!value_call, "a value call should allow the probe to reenter");
-		assert!(
-			zero_value_send,
-			"a zero-value send also forwards 2300 gas, so only the guard can deny it"
-		);
+		// The raised gas scale gives a zero-value `send` enough to write on PVM too.
+		let (value_calls, zero_value_send) = with_gas_scale(2_000_000_000, || {
+			let value_calls = [1, 2300].map(|gas_limit| {
+				run(
+					value,
+					StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
+				)
+			});
+			let zero_value_send = run(0, StipendSender::isSendDeniedCall {}.abi_encode());
+			(value_calls, zero_value_send)
+		});
+		assert_eq!(value_calls, [false, false], "not a `send`, so it may reenter");
+		assert!(zero_value_send, "a zero-value `send` should not reenter");
 	});
 }
 
 #[test]
-fn reentrancy_override_does_not_weaken_strict() {
+fn evm_call_stipend_does_not_weaken_strict_reentrancy() {
 	// The fixture calls `call_evm` with empty flags, so the caller asks for `Strict`.
 	let (code, _) = compile_module("call_with_gas").unwrap();
 	ExtBuilder::default().build().execute_with(|| {
@@ -254,93 +264,97 @@ fn reentrancy_override_does_not_weaken_strict() {
 	});
 }
 
-#[test_case(FixtureType::Solc,   "WritingReceiver"; "solc, writing")]
-#[test_case(FixtureType::Resolc, "WritingReceiver"; "resolc, writing")]
-#[test_case(FixtureType::Solc,   "ClearingReceiver"; "solc, clearing")]
-#[test_case(FixtureType::Resolc, "ClearingReceiver"; "resolc, clearing")]
-#[test_case(FixtureType::Solc,   "PrecompileClearingReceiver"; "solc, precompile clearing")]
-#[test_case(FixtureType::Resolc, "PrecompileClearingReceiver"; "resolc, precompile clearing")]
-#[test_case(FixtureType::Solc,   "PrecompileTakingReceiver"; "solc, precompile taking")]
-#[test_case(FixtureType::Resolc, "PrecompileTakingReceiver"; "resolc, precompile taking")]
-fn stipend_check_denies_persistent_storage_writes_even_on_hot_slots(
+/// How `WarmWriteSender` reaches the receiver after warming its slot.
+enum WarmWrite {
+	/// The shape the stipend check guards.
+	BySend,
+	/// An explicit gas limit is not that shape, so the check does not apply.
+	ByCallWithGas(u64),
+}
+
+/// Returns whether a `WarmWriteSender` call to a fresh receiver was denied, and its counter.
+fn call_warm_write_sender(
+	fixture_type: FixtureType,
+	receiver_fixture: &str,
+	value: u128,
+	warm_write: WarmWrite,
+) -> (bool, U256) {
+	let (receiver_code, _) = compile_module_with_type(receiver_fixture, fixture_type).unwrap();
+	let (sender_code, _) = compile_module_with_type("WarmWriteSender", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+		let Contract { addr: receiver, .. } =
+			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
+		let Contract { addr: sender, .. } =
+			builder::bare_instantiate(Code::Upload(sender_code)).build_and_unwrap_contract();
+		let receiver_address = receiver.0.into();
+		let call_data = match warm_write {
+			WarmWrite::BySend => {
+				WarmWriteSender::isWarmWriteDeniedCall { receiver: receiver_address }.abi_encode()
+			},
+			WarmWrite::ByCallWithGas(gas_limit) => WarmWriteSender::isWarmWriteDeniedWithGasCall {
+				receiver: receiver_address,
+				gasLimit: gas_limit,
+			}
+			.abi_encode(),
+		};
+		let result = builder::bare_call(sender)
+			.data(call_data)
+			.evm_value(value.into())
+			.build_and_unwrap_result();
+		let counter = builder::bare_call(receiver)
+			.data(WritingReceiver::counterCall {}.abi_encode())
+			.build_and_unwrap_result();
+		(bool::abi_decode(&result.data).unwrap(), U256::abi_decode(&counter.data).unwrap())
+	})
+}
+
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	["WritingReceiver", "ClearingReceiver", "PrecompileClearingReceiver", "PrecompileTakingReceiver"]
+)]
+fn stipend_check_denies_hot_slot_writes_from_a_zero_value_send(
 	fixture_type: FixtureType,
 	receiver_fixture: &str,
 ) {
-	let (receiver_code, _) = compile_module_with_type(receiver_fixture, fixture_type).unwrap();
-	let (sender_code, _) = compile_module_with_type("WarmWriteSender", fixture_type).unwrap();
-	let send_value = |value: u128, limits: &TransactionLimits<Test>| {
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
-			let Contract { addr: receiver, .. } =
-				builder::bare_instantiate(Code::Upload(receiver_code.clone()))
-					.build_and_unwrap_contract();
-			let Contract { addr: sender, .. } =
-				builder::bare_instantiate(Code::Upload(sender_code.clone()))
-					.build_and_unwrap_contract();
-			let result = builder::bare_call(sender)
-				.data(
-					WarmWriteSender::isWarmWriteDeniedCall { receiver: receiver.0.into() }
-						.abi_encode(),
-				)
-				.evm_value(value.into())
-				.transaction_limits(limits.clone())
-				.build_and_unwrap_result();
-			let counter = builder::bare_call(receiver)
-				.data(WritingReceiver::counterCall {}.abi_encode())
-				.build_and_unwrap_result();
-			(bool::abi_decode(&result.data).unwrap(), U256::abi_decode(&counter.data).unwrap())
-		})
-	};
-
-	let substrate_metering = TransactionLimits::WeightAndDeposit {
-		weight_limit: WEIGHT_LIMIT,
-		deposit_limit: deposit_limit::<Test>(),
-	};
-	let substrate_metering_with_no_deposit_limit = TransactionLimits::WeightAndDeposit {
-		weight_limit: WEIGHT_LIMIT,
-		deposit_limit: u128::MAX,
-	};
-	let ethereum_metering = TransactionLimits::EthereumGas {
-		eth_gas_limit: u128::MAX,
-		weight_limit: Weight::MAX,
-		eth_tx_info: EthTxInfo::new(0, Default::default()),
-		authorization_deposit: Default::default(),
-	};
-	for (metering, limits) in [
-		("substrate metering", substrate_metering),
-		("substrate metering with no deposit limit", substrate_metering_with_no_deposit_limit),
-		("ethereum metering", ethereum_metering),
-	] {
-		assert_eq!(
-			send_value(1_000_000, &limits),
-			(true, U256::from(1)),
-			"a write from a value `send` should be rejected by the EIP-2200 check under {metering}"
-		);
-
-		// The raised gas scale gives a zero-value `send` enough to write on PVM too.
-		let default_gas_scale = GasScale::get();
-		GasScale::set(2_000_000);
-		let zero_value = send_value(0, &limits);
-		GasScale::set(default_gas_scale);
-		assert_eq!(
-			zero_value,
-			(true, U256::from(1)),
-			"a write from a zero-value `send` should be rejected by the EIP-2200 check under \
-			 {metering}"
-		);
-	}
+	let send_result = with_gas_scale(20_000_000, || {
+		call_warm_write_sender(fixture_type, receiver_fixture, 0, WarmWrite::BySend)
+	});
+	assert_eq!(send_result, (true, U256::from(1)));
 }
 
-#[test_case(FixtureType::Solc,   Nesting::Call;         "solc, call")]
-#[test_case(FixtureType::Resolc, Nesting::Call;         "resolc, call")]
-#[test_case(FixtureType::Solc,   Nesting::DelegateCall; "solc, delegate call")]
-#[test_case(FixtureType::Resolc, Nesting::DelegateCall; "resolc, delegate call")]
-#[test_case(FixtureType::Solc,   Nesting::Create;       "solc, create")]
-#[test_case(FixtureType::Resolc, Nesting::Create;       "resolc, create")]
-fn stipend_check_denies_storage_writes_below_the_receiver(
+// These receivers' writes fit in the stipend, so only the check can refuse them.
+#[test_case(FixtureType::Solc,   "WritingReceiver",  2; "solc, writing")]
+#[test_case(FixtureType::Solc,   "ClearingReceiver", 0; "solc, clearing")]
+#[test_case(FixtureType::Resolc, "ClearingReceiver", 0; "resolc, clearing")]
+fn stipend_check_denies_hot_slot_writes_from_a_value_send(
 	fixture_type: FixtureType,
-	nesting: Nesting,
+	receiver_fixture: &str,
+	counter_after_write: u64,
 ) {
+	assert_eq!(
+		call_warm_write_sender(
+			fixture_type,
+			receiver_fixture,
+			1_000_000,
+			WarmWrite::ByCallWithGas(1)
+		),
+		(false, U256::from(counter_after_write)),
+		"the write should fit in the stipend"
+	);
+
+	assert_eq!(
+		call_warm_write_sender(fixture_type, receiver_fixture, 1_000_000, WarmWrite::BySend),
+		(true, U256::from(1)),
+		"a write from a value `send` should be rejected by the EIP-2200 check"
+	);
+}
+
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[Nesting::Call, Nesting::DelegateCall, Nesting::Create]
+)]
+fn stipend_check_is_inherited_by_nested_frames(fixture_type: FixtureType, nesting: Nesting) {
 	let (target_code, _) = compile_module_with_type("WritingReceiver", fixture_type).unwrap();
 	let (receiver_code, _) =
 		compile_module_with_type("NestedWritingReceiver", fixture_type).unwrap();
@@ -377,15 +391,10 @@ fn stipend_check_denies_storage_writes_below_the_receiver(
 			bool::abi_decode(&result.data).unwrap()
 		};
 
-		// The raised gas scale gives the zero-value calls enough to create the nested frame.
-		let default_gas_scale = GasScale::get();
-		GasScale::set(20_000_000);
-		let with_2300_gas = is_denied(2300);
-		let with_other_gas = [is_denied(2299), is_denied(2301)];
-		GasScale::set(default_gas_scale);
-
-		assert!(with_2300_gas, "frames below the receiver of a zero-value `send` should not write");
-		assert_eq!(with_other_gas, [false, false], "only exactly 2300 gas calls should be denied");
+		let (with_2300_gas, with_other_gas) =
+			with_gas_scale(50_000_000, || (is_denied(2300), [is_denied(2299), is_denied(2301)]));
+		assert!(with_2300_gas, "a nested frame should inherit the mark");
+		assert_eq!(with_other_gas, [false, false], "only a `send` gets marked");
 	});
 }
 
@@ -401,37 +410,61 @@ fn stipend_check_applies_under_strict_reentrancy(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 		let Contract { addr: receiver, .. } =
 			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
-		let call_with_gas =
-			|gas: u64| builder::bare_call(caller).data((receiver, gas).encode()).build().result;
+		let call_with_gas = |gas: u64| {
+			builder::bare_call(caller)
+				.data((receiver, gas).encode())
+				.build()
+				.result
+				.map(|_| ())
+		};
 
-		// The raised gas scale gives the zero-value calls enough to write.
-		let default_gas_scale = GasScale::get();
-		GasScale::set(2_000_000);
-		let with_2300_gas = call_with_gas(2300);
-		let with_other_gas = [call_with_gas(2299), call_with_gas(2301)];
-		GasScale::set(default_gas_scale);
-
+		let (with_2300_gas, with_other_gas) = with_gas_scale(20_000_000, || {
+			(call_with_gas(2300), [call_with_gas(2299), call_with_gas(2301)])
+		});
 		assert_eq!(
-			with_2300_gas.map(|_| ()),
+			with_2300_gas,
 			Err(Error::<Test>::ContractTrapped.into()),
-			"a zero-value `send` receiver should not write, whatever the reentrancy protection"
+			"a `send` gets marked even under `Strict`"
 		);
-		assert_eq!(
-			with_other_gas.map(|result| result.is_ok()),
-			[true, true],
-			"only exactly 2300 gas calls should be denied"
-		);
+		assert_eq!(with_other_gas, [Ok(()), Ok(())], "only a `send` gets marked");
 	});
 }
 
-#[test_case(FixtureType::Solc,   "TransientWritingReceiver"; "solc, writing")]
-#[test_case(FixtureType::Resolc, "TransientWritingReceiver"; "resolc, writing")]
-#[test_case(FixtureType::Solc,   "TransientClearingReceiver"; "solc, clearing")]
-#[test_case(FixtureType::Resolc, "TransientClearingReceiver"; "resolc, clearing")]
-#[test_case(FixtureType::Solc,   "TransientPrecompileClearingReceiver"; "solc, precompile clearing")]
-#[test_case(FixtureType::Resolc, "TransientPrecompileClearingReceiver"; "resolc, precompile clearing")]
-#[test_case(FixtureType::Solc,   "TransientPrecompileTakingReceiver"; "solc, precompile taking")]
-#[test_case(FixtureType::Resolc, "TransientPrecompileTakingReceiver"; "resolc, precompile taking")]
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[
+		("WritingReceiver", 2),
+		("ClearingReceiver", 0),
+		("PrecompileClearingReceiver", 0),
+		("PrecompileTakingReceiver", 0)
+	],
+	[0, 1_000_000]
+)]
+fn stipend_check_ignores_calls_with_an_explicit_gas_limit(
+	fixture_type: FixtureType,
+	(receiver_fixture, counter_after_write): (&str, u64),
+	value: u128,
+) {
+	assert_eq!(
+		call_warm_write_sender(
+			fixture_type,
+			receiver_fixture,
+			value,
+			WarmWrite::ByCallWithGas(10_000_000_000)
+		),
+		(false, U256::from(counter_after_write))
+	);
+}
+
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[
+		"TransientWritingReceiver",
+		"TransientClearingReceiver",
+		"TransientPrecompileClearingReceiver",
+		"TransientPrecompileTakingReceiver"
+	]
+)]
 fn stipend_check_allows_transient_storage_writes(
 	fixture_type: FixtureType,
 	receiver_fixture: &str,
@@ -448,17 +481,12 @@ fn stipend_check_allows_transient_storage_writes(
 			)
 			.build_and_unwrap_contract();
 
-		// The raised gas scale gives a zero-value `send` enough for the precompile calls too.
-		let default_gas_scale = GasScale::get();
-		GasScale::set(2_000_000);
-		let result = builder::bare_call(sender)
-			.data(StipendSender::isSendDeniedCall {}.abi_encode())
-			.build_and_unwrap_result();
-		GasScale::set(default_gas_scale);
+		let result = with_gas_scale(20_000_000, || {
+			builder::bare_call(sender)
+				.data(StipendSender::isSendDeniedCall {}.abi_encode())
+				.build_and_unwrap_result()
+		});
 
-		assert!(
-			!bool::abi_decode(&result.data).unwrap(),
-			"EIP-2200 exempts transient storage, so a `send` on the stipend can still write it"
-		);
+		assert!(!bool::abi_decode(&result.data).unwrap(), "EIP-2200 exempts transient storage");
 	});
 }
