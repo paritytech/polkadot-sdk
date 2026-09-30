@@ -38,8 +38,12 @@ use std::{
 	collections::{HashMap, HashSet},
 	num::NonZeroUsize,
 	sync::{Arc, RwLock},
-	time::Instant,
+	time::{Duration, Instant},
 };
+
+/// How long the node must stay out of major sync before it re-advertises its filter, so a sync
+/// that flaps around its threshold asks peers for one replay, not one per flap.
+const MAJOR_SYNC_SETTLE_PERIOD: Duration = Duration::from_secs(5);
 
 /// The reasons a received statement is retained, as a bitmask of independent flags.
 ///
@@ -77,6 +81,18 @@ impl RetentionReasonMask {
 	/// Whether the statement should be persisted.
 	pub fn is_persistent(&self) -> bool {
 		self.0 != 0
+	}
+
+	pub fn label(&self) -> &'static str {
+		if *self == Self::persistent() {
+			return "persistent";
+		}
+		match (self.contains(Self::DHT_AFFINITY), self.contains(Self::EXPLICIT_AFFINITY)) {
+			(false, false) => "transient",
+			(true, false) => "dht",
+			(false, true) => "explicit",
+			(true, true) => "both",
+		}
 	}
 }
 
@@ -148,6 +164,8 @@ pub(crate) struct V2DhtOrchestrator {
 	retention: Option<RetentionHandle>,
 	/// Prometheus metrics.
 	metrics: Option<V2DhtMetrics>,
+	/// When the node was last seen major-syncing.
+	major_sync_seen_at: Option<Instant>,
 }
 
 impl V2DhtOrchestrator {
@@ -170,6 +188,7 @@ impl V2DhtOrchestrator {
 			peer_steering: PeerSteering::new(protocol),
 			retention: None,
 			metrics,
+			major_sync_seen_at: None,
 		}
 	}
 
@@ -374,6 +393,9 @@ impl V2DhtOrchestrator {
 		let topics = self.explicit_affinity.topics();
 		let desired = self.peers_topology.peers_for_topics(&topics);
 		self.peer_steering.update_peers_needing_connections(desired);
+		if let Some(metrics) = &self.metrics {
+			metrics.set_desired_unconnected_peers(self.peer_steering.peers_to_connect().len());
+		}
 	}
 
 	/// Align the connected peers with the peers needed to cover the node's subscriptions, opening
@@ -389,9 +411,15 @@ impl V2DhtOrchestrator {
 		self.report_topology_size();
 	}
 
-	pub(crate) fn on_major_sync_end(&mut self) {
-		// TODO: The major sync processing may be different
-		log::trace!(target: LOG_TARGET, "v2dht: on_major_sync_end (stub)");
+	pub(crate) fn on_major_sync(&mut self) {
+		self.major_sync_seen_at = Some(Instant::now());
+		self.explicit_affinity.mark_local_filter_stale();
+	}
+
+	/// Whether the node has stayed out of major sync for `MAJOR_SYNC_SETTLE_PERIOD`.
+	pub(crate) fn major_sync_settled(&self) -> bool {
+		self.major_sync_seen_at
+			.is_none_or(|seen_at| seen_at.elapsed() >= MAJOR_SYNC_SETTLE_PERIOD)
 	}
 }
 #[cfg(test)]
