@@ -1,0 +1,47 @@
+title: Implement multi-origin batches
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds an extension pallet `pallet-utility-ext` to `pallet-utility` which allows for
+    batching calls with different origins. The origins can be custom, they don't have to be
+    `SystemOrigin::Signed(AccountId)`. This is done by supplying a number of batch items
+    consisting of a call and its wrapping inner `TransactionExtension` to
+    `pallet-utility-ext::batch_multi_origin`. The multi origin batch behaves like `batch_all`,
+    meaning that all calls must succeed or the entire call will fail.
+
+    The purpose of this PR is to enable the use case of a user (not an account) who has multiple
+    transactions they would like to execute atomically in a particular order.
+
+    Enabling this feature means configuring `pallet-utility-ext` in your runtime. Importantly, the
+    pallet requires:
+
+    - A maximum number of calls allowed in a single batch. This should generally be a low figure
+      (e.g. 8 calls).
+    - A call filter for which calls are allowed to be part of multi origin batches.
+    - The `TransactionExtension` type which will wrap all of the calls inside the batch. This is
+      different than the runtime's overarching `TransactionExtension` and is meant to be a subset
+      of the items there, but without all of the extensions which are supposed to run only once
+      per transaction (e.g. `CheckWeight`, `StorageReclaim`).
+
+    A `TransactionExtension` is added to the overarching `TransactionExtension` of the runtime
+    which will authorize the batch call to execute without having a "relayer" (a signer who will
+    pay for the fee of the entire thing). Each item pays for itself as we have fee charging inside
+    the inner tx ext pipeline. There is a small overhead because of the batch call itself which is
+    split evenly among the items for fee purposes.
+
+    The payment credit in `pallet-transaction-payment` had to change from a static single thing
+    to a queue of different payment pots to accommodate for potentially many different signed
+    origins re-entering during the same outer call. The pots are opened and settled in order of
+    the items inside the batch.
+
+    There are situations where individual call items are relying on the transient state in
+    `pallet-transaction-payment`. This is the case today with revive calls which assume the fee
+    in `pallet-transaction-payment` belongs only to the signer decoded by the ETH transaction.
+    Such calls must be filtered out.
+crates:
+- name: pallet-utility-ext
+  bump: major
+- name: pallet-transaction-payment
+  bump: minor
+- name: polkadot-sdk
+  bump: minor

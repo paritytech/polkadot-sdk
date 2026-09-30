@@ -801,7 +801,7 @@ pub use pallet_uniques;
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
 
-/// FRAME pallet extending pallet-utility with a batch of calls each dispatched with its own origin.
+/// FRAME pallet extending pallet-utility with batches of calls, each with its own origin.
 #[cfg(feature = "pallet-utility-ext")]
 pub use pallet_utility_ext;
 

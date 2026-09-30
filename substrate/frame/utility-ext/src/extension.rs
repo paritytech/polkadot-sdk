@@ -156,9 +156,9 @@ pub enum Pre<T: Config> {
 /// sees the state left by the items before it.
 /// - `validate` dry runs the items in a storage transaction which is rolled back.
 /// - `prepare` applies them and stores the authorized origins in
-/// [`MultiOrigins`](crate::MultiOrigins) for the call.
+/// [`MultiOrigins`] for the call.
 /// - `post_dispatch` runs every item's post dispatch with the actual weight recorded in
-/// [`MultiOriginPostInfos`](crate::MultiOriginPostInfos).
+/// [`MultiOriginPostInfos`].
 ///
 /// Items pay for the whole transaction, see [`Pallet::multi_origin_item_infos`]. The extension's
 /// own work is not weighed. It handles at most `MaxMultiOriginBatch` items and its storage never

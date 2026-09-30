@@ -1,6 +1,6 @@
 [package]
 name = "pallet-utility-ext"
-description = "FRAME pallet extending pallet-utility with a batch of calls each dispatched with its own origin."
+description = "FRAME pallet extending pallet-utility with batches of calls, each with its own origin."
 license = "Apache-2.0"
 version = "0.1.0"
 edition.workspace = true
