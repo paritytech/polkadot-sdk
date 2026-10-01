@@ -133,28 +133,6 @@ fn evict_caches() {
 	core::hint::black_box(vec![1u8; EVICTION_SIZE]);
 }
 
-/// Inserts a `JUMPDEST` before each instruction of `code` with a 50% chance, so the interpreter
-/// can't predict which handler it dispatches to next. Push data is copied unchanged.
-fn with_random_jumpdests(code: impl AsRef<[u8]>) -> Vec<u8> {
-	let mut rng = Pcg64::seed_from_u64(4242);
-	let mut code = code.as_ref();
-	let mut result = Vec::with_capacity(2 * code.len());
-	while let [opcode, rest @ ..] = code {
-		if rng.gen_bool(0.5) {
-			result.push(JUMPDEST);
-		}
-		let data_len = match *opcode {
-			PUSH1..=PUSH32 => usize::from(opcode - PUSH0),
-			_ => 0,
-		};
-		let (data, rest) = rest.split_at(data_len.min(rest.len()));
-		result.push(*opcode);
-		result.extend_from_slice(data);
-		code = rest;
-	}
-	result
-}
-
 /// Pushes `values` onto the interpreter's stack in order, so the last value ends up on top.
 fn setup_stack<E: Ext>(interpreter: &mut Interpreter<E>, values: impl IntoIterator<Item = U256>) {
 	for value in values {
@@ -3467,9 +3445,7 @@ mod benchmarks {
 	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_pc_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = with_random_jumpdests(vec![PC; r as usize]);
-		let last_pc = code.iter().rposition(|&opcode| opcode == PC).map(U256::from);
-		let code = Bytecode::new_raw(code.into());
+		let code = Bytecode::new_raw(vec![PC; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -3484,7 +3460,7 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), r as usize);
-		assert_eq!(interpreter.stack.top(), last_pc.as_ref());
+		assert_eq!(interpreter.stack.top(), r.checked_sub(1).map(U256::from).as_ref());
 	}
 
 	/// Benchmarks `r` EVM `PUSH0` to `PUSH32` op-codes.
@@ -3512,7 +3488,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
-		let bytecode = ExtBytecode::new(Bytecode::new_raw(with_random_jumpdests(code).into()));
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
 
 		evict_caches();
@@ -3534,7 +3510,7 @@ mod benchmarks {
 	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_pop_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![POP; r as usize]).into());
+		let code = Bytecode::new_raw(vec![POP; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -3571,7 +3547,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
-		let bytecode = ExtBytecode::new(Bytecode::new_raw(with_random_jumpdests(code).into()));
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
 		setup_stack(&mut interpreter, vec![U256::MAX; 16]);
 
@@ -3606,7 +3582,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
-		let bytecode = ExtBytecode::new(Bytecode::new_raw(with_random_jumpdests(code).into()));
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
 		setup_stack(&mut interpreter, vec![U256::MAX; 17]);
 
@@ -3629,7 +3605,7 @@ mod benchmarks {
 	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_chainid_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![CHAINID; r as usize]).into());
+		let code = Bytecode::new_raw(vec![CHAINID; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -3655,7 +3631,7 @@ mod benchmarks {
 	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_difficulty_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![DIFFICULTY; r as usize]).into());
+		let code = Bytecode::new_raw(vec![DIFFICULTY; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -3681,9 +3657,7 @@ mod benchmarks {
 	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_codesize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = with_random_jumpdests(vec![CODESIZE; r as usize]);
-		let code_size = U256::from(code.len());
-		let code = Bytecode::new_raw(code.into());
+		let code = Bytecode::new_raw(vec![CODESIZE; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -3698,6 +3672,7 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), r as usize);
+		let code_size = U256::from(r);
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(&code_size));
 	}
 
@@ -3708,7 +3683,7 @@ mod benchmarks {
 	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_calldatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![CALLDATASIZE; r as usize]).into());
+		let code = Bytecode::new_raw(vec![CALLDATASIZE; r as usize].into());
 		let input = vec![0u8; CALLDATA_BYTES as usize];
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3735,8 +3710,7 @@ mod benchmarks {
 	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_returndatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code =
-			Bytecode::new_raw(with_random_jumpdests(vec![RETURNDATASIZE; r as usize]).into());
+		let code = Bytecode::new_raw(vec![RETURNDATASIZE; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		*ext.last_frame_output_mut() =
@@ -3813,7 +3787,7 @@ mod benchmarks {
 		// the final assertion to hold.
 		let initial_stack_value = walk.first().map_or(END_OF_WALK, |&first| U256::from(first));
 
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![CALLDATALOAD; load_count]).into());
+		let code = Bytecode::new_raw(vec![CALLDATALOAD; load_count].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), calldata, &mut ext);
@@ -3862,7 +3836,7 @@ mod benchmarks {
 		let mut rng = Pcg64::seed_from_u64(1337);
 
 		let load_count = r as usize;
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![MLOAD; load_count]).into());
+		let code = Bytecode::new_raw(vec![MLOAD; load_count].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -3915,7 +3889,7 @@ mod benchmarks {
 	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_msize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![MSIZE; r as usize]).into());
+		let code = Bytecode::new_raw(vec![MSIZE; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -3965,7 +3939,7 @@ mod benchmarks {
 
 		let mut rng = Pcg64::seed_from_u64(1337);
 
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![MSTORE; r as usize]).into());
+		let code = Bytecode::new_raw(vec![MSTORE; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4030,7 +4004,7 @@ mod benchmarks {
 
 		let mut rng = Pcg64::seed_from_u64(1337);
 
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![MSTORE8; r as usize]).into());
+		let code = Bytecode::new_raw(vec![MSTORE8; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4106,7 +4080,7 @@ mod benchmarks {
 
 		let mut rng = Pcg64::seed_from_u64(1337);
 
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![MCOPY; r as usize]).into());
+		let code = Bytecode::new_raw(vec![MCOPY; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4172,7 +4146,7 @@ mod benchmarks {
 		const BASE_COPY_BYTES: usize = 64;
 
 		let len = n as usize + BASE_COPY_BYTES;
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![MCOPY]).into());
+		let code = Bytecode::new_raw(vec![MCOPY].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4227,7 +4201,7 @@ mod benchmarks {
 			})
 			.collect::<Vec<_>>();
 
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![LT; r as usize]).into());
+		let code = Bytecode::new_raw(vec![LT; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4269,7 +4243,7 @@ mod benchmarks {
 			})
 			.collect::<Vec<_>>();
 
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![GT; r as usize]).into());
+		let code = Bytecode::new_raw(vec![GT; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4319,7 +4293,7 @@ mod benchmarks {
 			})
 			.collect::<Vec<_>>();
 
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![EQ; r as usize]).into());
+		let code = Bytecode::new_raw(vec![EQ; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4363,8 +4337,7 @@ mod benchmarks {
 			}
 		});
 
-		let code =
-			Bytecode::new_raw(with_random_jumpdests([ISZERO, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([ISZERO, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4393,7 +4366,7 @@ mod benchmarks {
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_and_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![AND; r as usize]).into());
+		let code = Bytecode::new_raw(vec![AND; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4423,7 +4396,7 @@ mod benchmarks {
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_or_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![OR; r as usize]).into());
+		let code = Bytecode::new_raw(vec![OR; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4453,7 +4426,7 @@ mod benchmarks {
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_xor_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![XOR; r as usize]).into());
+		let code = Bytecode::new_raw(vec![XOR; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4484,7 +4457,7 @@ mod benchmarks {
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_not_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![NOT; r as usize]).into());
+		let code = Bytecode::new_raw(vec![NOT; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4522,7 +4495,7 @@ mod benchmarks {
 			[U256::MAX, index]
 		});
 
-		let code = Bytecode::new_raw(with_random_jumpdests([BYTE, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([BYTE, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4560,7 +4533,7 @@ mod benchmarks {
 			}
 		});
 
-		let code = Bytecode::new_raw(with_random_jumpdests([CLZ, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([CLZ, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4592,7 +4565,7 @@ mod benchmarks {
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_slt_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		let code = Bytecode::new_raw(with_random_jumpdests([SLT, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([SLT, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4624,7 +4597,7 @@ mod benchmarks {
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sgt_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		let code = Bytecode::new_raw(with_random_jumpdests([SGT, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([SGT, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4663,7 +4636,7 @@ mod benchmarks {
 			[U256::MAX, U256::from(64 * whole_words + extra_bits).max(U256::one())]
 		});
 
-		let code = Bytecode::new_raw(with_random_jumpdests([SHL, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([SHL, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4702,7 +4675,7 @@ mod benchmarks {
 			[U256::MAX, U256::from(64 * whole_words + extra_bits).max(U256::one())]
 		});
 
-		let code = Bytecode::new_raw(with_random_jumpdests([SHR, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([SHR, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4743,7 +4716,7 @@ mod benchmarks {
 			[U256::MAX, U256::from(64 * whole_words + extra_bits).max(U256::one())]
 		});
 
-		let code = Bytecode::new_raw(with_random_jumpdests([SAR, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([SAR, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4839,8 +4812,7 @@ mod benchmarks {
 			[MODULUS, b, a]
 		});
 
-		let code =
-			Bytecode::new_raw(with_random_jumpdests([ADDMOD, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4883,7 +4855,7 @@ mod benchmarks {
 		// 2^65 + 3
 		const DIVISOR: U256 = U256([3, 2, 0, 0]);
 
-		let code = Bytecode::new_raw(with_random_jumpdests([DIV, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -4955,7 +4927,7 @@ mod benchmarks {
 			})
 			.collect::<Vec<_>>();
 
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![ADD; r as usize]).into());
+		let code = Bytecode::new_raw(vec![ADD; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -5025,7 +4997,7 @@ mod benchmarks {
 			})
 			.collect::<Vec<_>>();
 
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![SUB; r as usize]).into());
+		let code = Bytecode::new_raw(vec![SUB; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -5069,7 +5041,7 @@ mod benchmarks {
 	fn evm_mul_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		const START: U256 = U256([0x5555_5555_5555_5555; 4]);
 
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![MUL; r as usize]).into());
+		let code = Bytecode::new_raw(vec![MUL; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -5160,7 +5132,7 @@ mod benchmarks {
 			[divisor, NUMERATOR]
 		});
 
-		let code = Bytecode::new_raw(with_random_jumpdests([SDIV, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -5232,7 +5204,7 @@ mod benchmarks {
 			[DIVISOR, numerator]
 		});
 
-		let code = Bytecode::new_raw(with_random_jumpdests([MOD, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -5318,7 +5290,7 @@ mod benchmarks {
 			[divisor, numerator]
 		});
 
-		let code = Bytecode::new_raw(with_random_jumpdests([SMOD, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -5403,8 +5375,7 @@ mod benchmarks {
 			[modulus, b, a]
 		});
 
-		let code =
-			Bytecode::new_raw(with_random_jumpdests([MULMOD, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([MULMOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -5451,7 +5422,7 @@ mod benchmarks {
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let exponents = (0..r).map(|_| U256::from(u8::from(rng.gen_bool(0.5))));
 
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![EXP; r as usize]).into());
+		let code = Bytecode::new_raw(vec![EXP; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -5501,7 +5472,7 @@ mod benchmarks {
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let exponents = (0..r).map(|_| U256::from(if rng.gen_bool(0.5) { 3 } else { 1 }));
 
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![EXP; r as usize]).into());
+		let code = Bytecode::new_raw(vec![EXP; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -5541,7 +5512,7 @@ mod benchmarks {
 	fn evm_exp_per_bit(b: Linear<0, 255>) {
 		let exponent = U256::MAX >> (255 - b as usize);
 
-		let code = Bytecode::new_raw(with_random_jumpdests(vec![EXP]).into());
+		let code = Bytecode::new_raw(vec![EXP].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
@@ -5595,8 +5566,7 @@ mod benchmarks {
 			[U256(rng.r#gen()), U256::from(index)]
 		});
 
-		let code =
-			Bytecode::new_raw(with_random_jumpdests([SIGNEXTEND, POP].repeat(r as usize)).into());
+		let code = Bytecode::new_raw([SIGNEXTEND, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
