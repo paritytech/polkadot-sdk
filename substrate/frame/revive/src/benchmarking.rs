@@ -5263,7 +5263,7 @@ mod benchmarks {
 
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| {
-			let magnitude = U256([*DIVISOR_LOW_LIMBS.choose(&mut rng).unwrap(), 1, 0, 0]);
+			let magnitude = U256([DIVISOR_LOW_LIMBS.choose(&mut rng).copied().unwrap(), 1, 0, 0]);
 			let divisor = if rng.gen_bool(0.5) {
 				magnitude
 			} else {
