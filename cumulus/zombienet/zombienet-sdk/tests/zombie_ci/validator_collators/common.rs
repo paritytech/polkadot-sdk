@@ -87,6 +87,16 @@ pub(super) struct NetworkOptions {
 	pub(super) sudo_balance: Option<u128>,
 }
 
+/// Logging from `RUST_LOG`, `info` by default. The orchestrator's chain spec generator is capped
+/// at `debug`, since at trace it dumps the whole raw chain spec while merging a raw spec override.
+pub(super) fn init_logging() {
+	let _ = env_logger::Builder::from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	)
+	.filter_module("zombienet_orchestrator::generators::chain_spec", log::LevelFilter::Debug)
+	.try_init();
+}
+
 pub(super) async fn build_network_config(
 	options: NetworkOptions,
 ) -> Result<NetworkConfig, anyhow::Error> {

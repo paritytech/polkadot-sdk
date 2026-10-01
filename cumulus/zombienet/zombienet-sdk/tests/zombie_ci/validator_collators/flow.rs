@@ -21,9 +21,9 @@
 //!    author blocks.
 
 use super::common::{
-	account, build_network_config, fetch, fetch_raw, hex_accounts, is_announcement_of_era_1,
-	keypair, node_seed, open_hrmp_channels, session_validators, wait_for_event,
-	wait_for_finalized_block, wait_for_hrmp_channel, NetworkOptions, ASSET_HUB_ID,
+	account, build_network_config, fetch, fetch_raw, hex_accounts, init_logging,
+	is_announcement_of_era_1, keypair, node_seed, open_hrmp_channels, session_validators,
+	wait_for_event, wait_for_finalized_block, wait_for_hrmp_channel, NetworkOptions, ASSET_HUB_ID,
 	ASSET_HUB_INVULNERABLE, CALL_TIMEOUT, CLIENT_TIMEOUT_SECS, PARA_BLOCKS, PEOPLE_ID,
 	PEOPLE_INVULNERABLE, POLL_INTERVAL, VALIDATORS,
 };
@@ -83,9 +83,7 @@ const TEST_TIMEOUT: Duration = Duration::from_secs(50 * 60);
 
 #[tokio::test(flavor = "multi_thread")]
 async fn validator_collators_on_asset_hub_and_people() -> Result<(), anyhow::Error> {
-	let _ = env_logger::try_init_from_env(
-		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-	);
+	init_logging();
 
 	tokio::time::timeout(TEST_TIMEOUT, run())
 		.await
