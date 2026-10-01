@@ -141,7 +141,7 @@ fn setup_stack<E: Ext>(interpreter: &mut Interpreter<E>, values: impl IntoIterat
 }
 
 /// Returns the operands of `r` pairs of `SLT` or `SGT` and `POP` op-codes, in the order they are
-/// pushed onto the stack. The doc of `evm_slt_opcode` explains how they are picked.
+/// pushed onto the stack.
 fn signed_comparison_operands(r: u32) -> Vec<U256> {
 	// Every limb is one, so adding one to a limb makes the operands first differ at that limb.
 	const POSITIVE: U256 = U256([1, 1, 1, 1]);
@@ -4553,31 +4553,12 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `SLT` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Signs:** `SLT` first checks whether each operand is negative, zero or positive. Only
-	///   operands with the same sign go on to compare their limbs, starting from the most
-	///   significant, until the first pair that differs. The compiled code branches on the sign of
-	///   each operand, on whether the signs differ, at each limb of the comparison and on which
-	///   operand is smaller.
-	/// * **Pseudo-random Operands:** a pseudo-random generator picks whether each `SLT` compares
-	///   two negative operands or two non-negative ones, and for the non-negative ones, whether one
-	///   of them is zero. Operands with the same sign first differ at limb 3, 2, 1 or 0, or are
-	///   equal, and each time the comparison reaches one of these limbs it stops there with a 50%
-	///   chance. The two operands are in a pseudo-random order. This way the CPU can't predict any
-	///   of these branches, and the mispredictions cost more than the work that the shorter paths
-	///   skip.
-	/// * **Followed by `POP`:** each `SLT` is followed by a `POP`, so each one compares fresh
-	///   operands rather than the result of the previous one, which is zero or one and would make
-	///   every comparison take the same path. The weight of a `POP` is subtracted when charging an
-	///   `SLT`.
-	/// * **Stack Initialization:** both operands of every `SLT` are placed on the stack before the
-	///   benchmark runs. This is why `r` goes up to half the stack limit.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * A chain of `SLT` op-codes on zeros, which compared all four limbs every time. The
-	///   pseudo-random operands cost roughly 81% more per `SLT` once the `POP` is subtracted.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on the signs of the operands, since they're pseudo-random.
+	/// * A branch misprediction on the limb where each comparison stops, since it's pseudo-random.
+	/// * A branch misprediction on which operand is smaller, since their order is pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
