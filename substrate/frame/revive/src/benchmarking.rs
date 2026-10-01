@@ -4695,29 +4695,14 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `SAR` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Mask:** for a negative value `SAR` shifts right like `SHR` and then shifts an all-ones
-	///   mask left into the vacated bits. Both shifts are unrolled into branches on how many whole
-	///   words they move, checking three words, then two, then one, and their carry steps only run
-	///   when there are bits left to shift. Because the two shifts move in opposite directions,
-	///   shifts of one or two words do about as much total work as shifts of less than a word.
-	/// * **Pseudo-random Shifts:** a pseudo-random generator picks a shift of two whole words half
-	///   the time and splits the rest evenly between one word and none, so the CPU can't predict
-	///   the whole-word checks. Each shift also moves one bit on top of the whole words to keep the
-	///   carry steps running.
-	/// * **Negative Values:** every value is `U256::MAX`, which is negative, so every `SAR` also
-	///   shifts the mask.
-	/// * **Followed by `POP`:** each `SAR` is followed by a `POP`, because otherwise its result
-	///   would become the shift of the next one. The weight of a `POP` is subtracted when charging
-	///   an `SAR`.
-	/// * **Stack Initialization:** the value and the shift of every `SAR` are placed on the stack
-	///   before the benchmark runs. This is why `r` goes up to half the stack limit.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Shifts that always moved less than a word, cycling through 1 to 17 bits. The pseudo-random
-	///   shifts cost roughly 32% more per `SAR` once the `POP` is subtracted.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on how many whole words each shift moves, since it's pseudo-random.
+	/// * A branch misprediction on whether each shift carries bits across words, since it's
+	///   pseudo-random.
+	/// * A second shift on every `SAR`, which fills the vacated bits with ones, since every value
+	///   is negative.
 	///
 	/// # Subtraction Safety
 	///
