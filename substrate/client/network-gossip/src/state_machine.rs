@@ -238,6 +238,13 @@ impl<B: BlockT> ConsensusGossip<B> {
 		self.register_message_hashed(message_hash, topic, message, None);
 	}
 
+	/// Marks a message as known without registering it, so it is never propagated. Incoming
+	/// copies of the message are ignored, as for a registered message.
+	pub fn mark_message_known(&mut self, message: &[u8]) {
+		let message_hash = HashingFor::<B>::hash(message);
+		self.known_messages.insert(message_hash, ());
+	}
+
 	/// Call when a peer has been disconnected to stop tracking gossip status.
 	pub fn peer_disconnected(
 		&mut self,
@@ -924,5 +931,30 @@ mod tests {
 			vec![(peer_id, rep::GOSSIP_SUCCESS)],
 			network.inner.lock().unwrap().peer_reports
 		);
+	}
+
+	#[test]
+	fn message_marked_known_is_ignored_and_not_kept() {
+		let mut consensus = ConsensusGossip::<Block>::new(Arc::new(AllowAll), "/foo".into(), None);
+
+		let mut network = NoOpNetwork::default();
+		let mut notification_service: Box<dyn NotificationService> =
+			Box::new(NoOpNotificationService::default());
+
+		let peer_id = PeerId::random();
+		consensus.new_peer(&mut notification_service, peer_id, ObservedRole::Full);
+
+		let message = vec![1, 2, 3];
+		consensus.mark_message_known(&message);
+
+		// the message isn't kept, so it's never propagated
+		assert!(consensus.messages.is_empty());
+
+		// an incoming copy is ignored: not validated, forwarded or reported
+		let to_forward =
+			consensus.on_incoming(&mut network, &mut notification_service, peer_id, vec![message]);
+		assert!(to_forward.is_empty());
+		assert!(consensus.messages.is_empty());
+		assert!(network.inner.lock().unwrap().peer_reports.is_empty());
 	}
 }
