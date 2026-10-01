@@ -22,7 +22,7 @@ jobs:
   test-linux-stable-int:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER_NEW }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -53,7 +53,7 @@ jobs:
   test-linux-stable-runtime-benchmarks:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER_NEW }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -136,7 +136,7 @@ jobs:
   test-linux-stable-no-try-runtime:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER_NEW }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
