@@ -1019,7 +1019,13 @@ mod tests {
 		// The rolled-back entry is gone, so at the cap it reads like any untracked one.
 		agree(&mut al, reverted, StorageOp::Write, Warmth::cold_non_revertible());
 		// A tracked read-paid slot still upgrades at the cap.
-		agree(&mut al, upgraded_at_cap, StorageOp::Write, Warmth::read_paid());
+		agree(&mut al, upgraded_at_cap.clone(), StorageOp::Write, Warmth::read_paid());
+		al.rollback_frame();
+		assert_eq!(
+			al.peek(&upgraded_at_cap),
+			Warmth::read_paid(),
+			"an at-cap upgrade rolls back with its frame"
+		);
 	}
 
 	#[test]

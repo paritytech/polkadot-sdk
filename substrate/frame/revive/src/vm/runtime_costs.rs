@@ -658,7 +658,7 @@ mod tests {
 			deferred_write.ref_time() > 0 && deferred_write.ref_time() < db.writes(1).ref_time(),
 			"the deferred write is only part of a write: {deferred_write:?}",
 		);
-		assert_eq!(deferred_write.proof_size(), 0, "the deferred write adds nothing to the proof",);
+		assert_eq!(deferred_write.proof_size(), 0, "the deferred write adds nothing to the proof");
 
 		let surcharge_of = |warmth| {
 			RuntimeCosts::write_surcharge::<Test>(
@@ -794,7 +794,7 @@ mod tests {
 				 cold={cold_weight:?} hot={hot_weight:?}",
 			);
 			assert_eq!(hot_weight.proof_size(), 0, "{shape}: a warm call doesn't pay proof");
-			assert!(cold_weight.proof_size() > 0, "{shape}: a cold call pays proof",);
+			assert!(cold_weight.proof_size() > 0, "{shape}: a cold call pays proof");
 		}
 	}
 

@@ -3735,7 +3735,7 @@ fn cold_hot_a_precompile_call_warms_nothing() {
 		let entry = access_list_metrics_of(|| {
 			run_root_call(H160(NoInfo::<Test>::MATCHER.base_address()), input)
 		});
-		assert_eq!((entry.cold, entry.hot), (0, 0), "a root precompile call warms nothing",);
+		assert_eq!((entry.cold, entry.hot), (0, 0), "a root precompile call warms nothing");
 	});
 }
 

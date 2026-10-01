@@ -51,77 +51,60 @@ fn call_and_delegate_reuse_target_warmth(caller_type: FixtureType, target_type: 
 			.build_and_unwrap_contract();
 
 		let noop_call = Caller::dataCall {}.abi_encode();
-
-		let call_target_with = |data: Vec<u8>| {
-			access_list_metrics_of(|| {
-				builder::bare_call(caller)
-					.data(
-						Caller::normalCall {
-							_callee: target.0.into(),
-							_value: 0,
-							_data: data.into(),
-							_gas: u64::MAX,
-						}
-						.abi_encode(),
-					)
-					.build_and_unwrap_result();
-			})
-		};
-
-		let plain_only = call_target_with(noop_call.clone());
-
-		let plain_then_plain = call_target_with(
+		let plain = |data: Vec<u8>| {
 			Caller::normalCall {
 				_callee: target.0.into(),
 				_value: 0,
-				_data: noop_call.clone().into(),
+				_data: data.into(),
 				_gas: u64::MAX,
 			}
-			.abi_encode(),
-		);
+			.abi_encode()
+		};
+		let delegate = |data: Vec<u8>| {
+			Caller::delegateCall { _callee: target.0.into(), _data: data.into(), _gas: u64::MAX }
+				.abi_encode()
+		};
+		let run = |call: Vec<u8>| {
+			access_list_metrics_of(|| {
+				builder::bare_call(caller).data(call).build_and_unwrap_result();
+			})
+		};
 
-		let plain_then_delegate = call_target_with(
-			Caller::delegateCall {
-				_callee: target.0.into(),
-				_data: noop_call.into(),
-				_gas: u64::MAX,
-			}
-			.abi_encode(),
-		);
+		let plain_entries = CallItems::plain_entries();
+		let delegate_entries = CallItems::delegate_entries();
+		// The address mapping, which a plain call reads and a delegate call skips.
+		let mapping_entry = 1;
 
-		assert_eq!(
-			plain_then_plain.cold, plain_only.cold,
-			"a warm plain re-call adds no new cold touch",
-		);
-		assert_eq!(
-			plain_then_delegate.cold, plain_only.cold,
-			"a warm delegate adds no new cold touch",
-		);
-		assert_eq!(
-			plain_then_plain.hot,
-			plain_only.hot + CallItems::plain_entries(),
-			"the plain re-call re-reads the target's account and code hot",
-		);
-		assert_eq!(
-			plain_then_delegate.hot,
-			plain_only.hot + CallItems::delegate_entries(),
-			"the delegate re-reads account info and code hot, but not the original account",
-		);
+		let plain_only = run(plain(noop_call.clone()));
+		let plain_then_plain = run(plain(plain(noop_call.clone())));
+		let plain_then_delegate = run(plain(delegate(noop_call.clone())));
+		let delegate_only = run(delegate(noop_call.clone()));
+		let delegate_then_delegate = run(delegate(delegate(noop_call.clone())));
+		let delegate_then_plain = run(delegate(plain(noop_call)));
+
+		assert_eq!(delegate_only.cold, plain_only.cold - mapping_entry);
+		assert_eq!(plain_then_plain.cold, plain_only.cold);
+		assert_eq!(plain_then_delegate.cold, plain_only.cold);
+		assert_eq!(delegate_then_delegate.cold, delegate_only.cold);
+		assert_eq!(delegate_then_plain.cold, delegate_only.cold + mapping_entry);
+
+		assert_eq!(plain_then_plain.hot, plain_only.hot + plain_entries);
+		assert_eq!(plain_then_delegate.hot, plain_only.hot + delegate_entries);
+		assert_eq!(delegate_then_delegate.hot, delegate_only.hot + delegate_entries);
+		assert_eq!(delegate_then_plain.hot, delegate_only.hot + delegate_entries);
 	});
 }
 
 #[test_case(FixtureType::Solc;   "evm")]
 #[test_case(FixtureType::Resolc; "pvm")]
-fn a_denied_call_keeps_its_target_only_if_the_frame_runs_on(fixture_type: FixtureType) {
+fn a_denied_call_still_touches_its_target(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("Recurse", fixture_type).unwrap();
 	// The two VMs differ once the depth limit denies a call, though both charge the same for it:
 	// EVM keeps the frame running, so its touch stays, while PVM traps the frame and its touch is
 	// rolled back.
-	let target_entries_kept = if fixture_type == FixtureType::Resolc {
-		0
-	} else {
-		CallItems::new(H160::zero(), false).entry_count() as usize
-	};
+	let target_entries = CallItems::new(H160::zero(), false).entry_count();
+	let entries_kept_after_denial =
+		if fixture_type == FixtureType::Resolc { 0 } else { target_entries as usize };
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } =
@@ -141,13 +124,11 @@ fn a_denied_call_keeps_its_target_only_if_the_frame_runs_on(fixture_type: Fixtur
 			})
 		};
 
-		let no_denied_call = recurse_to_the_limit_then_call(H160::zero()).size;
-		let denied_call = recurse_to_the_limit_then_call(H160::from_low_u64_be(0xdead)).size;
-		assert_eq!(
-			denied_call,
-			no_denied_call + target_entries_kept,
-			"the denied call leaves its target's entries only if the frame runs on",
-		);
+		let final_call_allowed = recurse_to_the_limit_then_call(H160::zero());
+		let final_call_denied = recurse_to_the_limit_then_call(H160::from_low_u64_be(0xdead));
+
+		assert_eq!(final_call_denied.cold, final_call_allowed.cold + target_entries);
+		assert_eq!(final_call_denied.size, final_call_allowed.size + entries_kept_after_denial);
 	});
 }
 
@@ -176,26 +157,26 @@ fn call_past_the_depth_limit_pays_by_target_warmth(fixture_type: FixtureType) {
 			})
 		};
 
-		let no_denied_call = recurse_to_the_limit_then_call(H160::zero());
+		let final_call_allowed = recurse_to_the_limit_then_call(H160::zero());
 		let warm_target = recurse_to_the_limit_then_call(addr);
 		let cold_target = recurse_to_the_limit_then_call(H160::from_low_u64_be(0xdead));
 
 		assert_eq!(
-			warm_target.hot - no_denied_call.hot,
+			warm_target.hot - final_call_allowed.hot,
 			2,
 			"a denied call pays hot for a target already in the list: its mapping and account info",
 		);
 		assert_eq!(
-			warm_target.cold, no_denied_call.cold,
+			warm_target.cold, final_call_allowed.cold,
 			"a target already in the list costs the denied call nothing cold",
 		);
 		assert_eq!(
-			cold_target.cold - no_denied_call.cold,
+			cold_target.cold - final_call_allowed.cold,
 			2,
 			"a denied call pays cold for the same two entries when the target is not in the list",
 		);
 		assert_eq!(
-			cold_target.hot, no_denied_call.hot,
+			cold_target.hot, final_call_allowed.hot,
 			"a target outside the list costs the denied call nothing hot",
 		);
 	});
@@ -236,14 +217,11 @@ fn value_transfer_warms_the_account(fixture_type: FixtureType) {
 		let extra_cold = with_value.cold - zero_value.cold;
 		let extra_hot = with_value.hot - zero_value.hot;
 
-		assert_eq!(
-			extra_hot, 2,
-			"two are already warm: the sender's account, and the callee's account info",
-		);
+		assert_eq!(extra_hot, 2, "the sender's account, and the callee's account info are hot");
 		assert_eq!(
 			extra_cold,
 			value_transfer_only - extra_hot,
-			"the rest of the value-transfer state is newly touched",
+			"the rest of the value-transfer entries are newly touched",
 		);
 	});
 }
@@ -263,22 +241,17 @@ fn storage_reread_is_hot(fixture_type: FixtureType) {
 			})
 		};
 
-		// A single write to the slot: touched cold once, never hot.
 		let write_only = metrics_after(Counter::setNumberCall { newNumber: 1 }.abi_encode());
-
 		let read_then_write = metrics_after(Counter::incrementCall {}.abi_encode());
 
-		assert_eq!(read_then_write.cold, write_only.cold, "the slot is touched cold exactly once",);
-		assert_eq!(
-			read_then_write.hot,
-			write_only.hot + 1,
-			"the read warms the slot, so the following write is hot",
-		);
+		assert_eq!(read_then_write.cold, write_only.cold, "the slot is touched cold exactly once");
+		assert_eq!(read_then_write.hot, write_only.hot + 1, "the read should have warmed the slot");
 	});
 }
 
-/// Deploys a `CallEach` and `N` `CallThenRevert`s.
-fn deploy_caller_and_targets<const N: usize>(fixture_type: FixtureType) -> (H160, [H160; N]) {
+fn deploy_call_each_with_reverting_targets<const N: usize>(
+	fixture_type: FixtureType,
+) -> (H160, [H160; N]) {
 	let (caller_code, _) = compile_module_with_type("CallEach", fixture_type).unwrap();
 	let (target_code, _) = compile_module_with_type("CallThenRevert", fixture_type).unwrap();
 	let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -309,7 +282,8 @@ fn access_list_metrics_of_calls(caller: H160, calls: &[(H160, Vec<u8>)]) -> Acce
 #[test_case(FixtureType::Resolc; "pvm")]
 fn callee_revert_drops_only_its_own_touches(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
-		let (caller, [reverter, inner]) = deploy_caller_and_targets::<2>(fixture_type);
+		let (caller, [reverter, inner]) =
+			deploy_call_each_with_reverting_targets::<2>(fixture_type);
 		let call_inner_then_revert =
 			CallThenRevert::callThenRevertCall { target: inner.0.into() }.abi_encode();
 		let call_items_count = CallItems::new(H160::zero(), false).entry_count();
@@ -318,7 +292,7 @@ fn callee_revert_drops_only_its_own_touches(fixture_type: FixtureType) {
 		let no_revert = access_list_metrics_of_calls(caller, &[(reverter, Vec::new())]);
 		let revert =
 			access_list_metrics_of_calls(caller, &[(reverter, call_inner_then_revert.clone())]);
-		assert_eq!(revert.cold - no_revert.cold, call_items_count, "`inner`'s entries are cold",);
+		assert_eq!(revert.cold - no_revert.cold, call_items_count, "`inner`'s entries are cold");
 		assert_eq!(
 			revert.hot - no_revert.hot,
 			code_load_count,
@@ -346,7 +320,7 @@ fn callee_revert_drops_only_its_own_touches(fixture_type: FixtureType) {
 #[test_case(FixtureType::Resolc; "pvm")]
 fn shared_code_is_hot_for_the_second_contract(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
-		let (caller, [first, second]) = deploy_caller_and_targets::<2>(fixture_type);
+		let (caller, [first, second]) = deploy_call_each_with_reverting_targets::<2>(fixture_type);
 
 		let first_only = access_list_metrics_of_calls(caller, &[(first, Vec::new())]);
 		let both =
@@ -416,7 +390,7 @@ fn a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType)
 	ExtBuilder::default().build().execute_with(|| {
 		let expected_extra_entries = CreateItems { address: H160::zero() }.entry_count() as usize;
 		let expected_failed_extra_entries = if fixture_type == FixtureType::Resolc {
-			// The caller loads the code by hash, outside the reverting frame, so it stays warm.
+			// The caller loads the code by hash in its own frame, so the revert does not drop it.
 			CodeLoadItems { hash: H256::zero() }.entry_count() as usize
 		} else {
 			0
@@ -438,16 +412,8 @@ fn a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType)
 		let created_size = size_after(Factory::createCall {}.abi_encode());
 		let failed_size = size_after(Factory::createRevertingCall {}.abi_encode());
 
-		let actual_extra_entries = created_size - failed_size;
-		assert_eq!(
-			actual_extra_entries, expected_extra_entries,
-			"a failed constructor leaves the entries at its address cold",
-		);
-		let actual_failed_extra_entries = failed_size - noop_size;
-		assert_eq!(
-			actual_failed_extra_entries, expected_failed_extra_entries,
-			"only the code the caller loaded stays warm after the constructor reverts",
-		);
+		assert_eq!(created_size - failed_size, expected_extra_entries);
+		assert_eq!(failed_size - noop_size, expected_failed_extra_entries);
 	});
 }
 
@@ -456,8 +422,8 @@ fn newly_stored_code_is_hot_for_the_next_call() {
 	ExtBuilder::default().build().execute_with(|| {
 		let created_account_info = 1; // the child's AccountInfo, warmed by the contract creation
 		let code_load = CodeLoadItems { hash: H256::zero() }.entry_count();
-		let expected_stores_the_code_hot = code_load + created_account_info;
-		let expected_finds_the_code_stored_hot = created_account_info;
+		let stores_the_code_expected_hot = code_load + created_account_info;
+		let finds_the_code_stored_expected_hot = created_account_info;
 
 		let factory = deploy_factory(FixtureType::Solc);
 		let create_then_call = || {
@@ -475,11 +441,11 @@ fn newly_stored_code_is_hot_for_the_next_call() {
 		let finds_the_code_stored = create_then_call();
 
 		// Both find the child's AccountInfo hot; only the first stores and warms the code.
-		assert_eq!(stores_the_code.hot, expected_stores_the_code_hot,);
-		assert_eq!(finds_the_code_stored.hot, expected_finds_the_code_stored_hot,);
+		assert_eq!(stores_the_code.hot, stores_the_code_expected_hot);
+		assert_eq!(finds_the_code_stored.hot, finds_the_code_stored_expected_hot);
 		assert_eq!(
 			stores_the_code.cold, finds_the_code_stored.cold,
-			"both transactions touch the same entries",
+			"finding the code stored saves hot touches only",
 		);
 	});
 }
