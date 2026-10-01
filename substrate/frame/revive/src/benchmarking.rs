@@ -188,6 +188,54 @@ impl Outcome {
 	];
 }
 
+/// Operands that make the division of `U256` values take its longer paths.
+///
+/// Division uses Knuth's Algorithm. It has a longer path if the first estimate of a 64-bit limb of
+/// the quotient is too large and has to be corrected. Each of the quotient's three limbs either
+/// needs that correction or doesn't, which gives eight combinations. We found two divisors for each
+/// combination and pick one at random for each division, so the CPU can't predict when the longer
+/// path is taken. Every one of these divisors also makes the division behind each estimate take its
+/// slowest path.
+///
+/// These operands are precomputed. The denominators were found with a seeded search that ran the
+/// division step by step against a model of the compiled code, and the comment before each pair
+/// names the limbs of the quotient whose estimate it corrects.
+mod knuth_division_worst_case_operands {
+	use super::U256;
+
+	/// 2^255 as an unsigned value, or -2^255 as a signed one, so signed and unsigned divisions
+	/// divide the same magnitudes.
+	pub const NUMERATOR: U256 = U256([0, 0, 0, 1 << 63]);
+
+	/// Denominators of 2^64 plus a 64-bit value, two for each combination of corrections.
+	pub const DENOMINATORS: [U256; 16] = [
+		// Correct no limb
+		U256([0x1ac6_6dea_3270_0980, 1, 0, 0]),
+		U256([0x1150_77a4_12e2_ccc0, 1, 0, 0]),
+		// Correct limb 0
+		U256([0x3c9b_ee44_0b3f_dba7, 1, 0, 0]),
+		U256([0x62aa_fc46_0845_aad9, 1, 0, 0]),
+		// Correct limb 1
+		U256([0x2806_4b94_70ef_f3d9, 1, 0, 0]),
+		U256([0x61d1_c4c6_195a_2d43, 1, 0, 0]),
+		// Correct limbs 1, 0
+		U256([0x16d5_ec4a_0e7b_8cdb, 1, 0, 0]),
+		U256([0x3ef8_7550_1dce_eb99, 1, 0, 0]),
+		// Correct limb 2
+		U256([0xce1e_8ac2_290c_265f, 1, 0, 0]),
+		U256([0xd736_05ee_66e1_a76b, 1, 0, 0]),
+		// Correct limbs 2, 0
+		U256([0xeb2b_fb00_8fa9_e0f7, 1, 0, 0]),
+		U256([0x5141_1d54_0d50_9ec1, 1, 0, 0]),
+		// Correct limbs 2, 1
+		U256([0x500c_237e_4578_d88b, 1, 0, 0]),
+		U256([0x0164_a34e_0b1c_a4fd, 1, 0, 0]),
+		// Correct limbs 2, 1, 0
+		U256([0x0007_f84c_6624_4131, 1, 0, 0]),
+		U256([0x05f0_ac84_84d2_a8f7, 1, 0, 0]),
+	];
+}
+
 /// # Subtraction Safety
 ///
 /// Some EVM op-codes are charged as the weight of their benchmark minus the weight of another one:
@@ -5059,31 +5107,11 @@ mod benchmarks {
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sdiv_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		// -2^255
-		const NUMERATOR: U256 = U256([0, 0, 0, 1 << 63]);
-		// The divisors are 2^64 plus one of these, two for each combination of corrections.
-		const DIVISOR_LOW_LIMBS: [u64; 16] = [
-			0x1ac6_6dea_3270_0980,
-			0x1150_77a4_12e2_ccc0,
-			0x3c9b_ee44_0b3f_dba7,
-			0x62aa_fc46_0845_aad9,
-			0x2806_4b94_70ef_f3d9,
-			0x61d1_c4c6_195a_2d43,
-			0x16d5_ec4a_0e7b_8cdb,
-			0x3ef8_7550_1dce_eb99,
-			0xce1e_8ac2_290c_265f,
-			0xd736_05ee_66e1_a76b,
-			0xeb2b_fb00_8fa9_e0f7,
-			0x5141_1d54_0d50_9ec1,
-			0x500c_237e_4578_d88b,
-			0x0164_a34e_0b1c_a4fd,
-			0x0007_f84c_6624_4131,
-			0x05f0_ac84_84d2_a8f7,
-		];
+		use knuth_division_worst_case_operands::{DENOMINATORS, NUMERATOR};
 
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| {
-			let magnitude = U256([DIVISOR_LOW_LIMBS.choose(&mut rng).copied().unwrap(), 1, 0, 0]);
+			let magnitude = DENOMINATORS.choose(&mut rng).copied().unwrap();
 			let divisor = if rng.gen_bool(0.5) {
 				magnitude
 			} else {
