@@ -10,12 +10,12 @@ repository.workspace = true
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 impl-trait-for-tuples = "0.2.2"
 log = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
-sp-core = { workspace = true }
+sp-core.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 xcm = { optional = true, workspace = true }
