@@ -136,3 +136,70 @@ pub struct Market {
 	pub pair: PairId,
 	pub queries: Vec<Query>,
 }
+
+/// Whether `host` is a host name of letters, digits, `.` and `-`, optionally followed by `:` and
+/// a port, and not an IP address.
+///
+/// The runtime cannot tell where a name points, as that takes a DNS lookup. The nodes do the
+/// lookup and discard any non-public address it returns. IP addresses skip the lookup, so they
+/// are refused. A host counts as an IP address when its last label is a number, as URL parsers
+/// also read short forms such as `127.1` or `0x7f.1` as IPv4 addresses.
+pub fn is_public_host(host: &[u8]) -> bool {
+	let (name, port) = match host.iter().position(|&b| b == b':') {
+		Some(i) => (&host[..i], Some(&host[i + 1..])),
+		None => (host, None),
+	};
+	let name_ok = name.iter().all(|&b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-');
+	let port_ok = port.map_or(true, |p| {
+		p.iter().all(u8::is_ascii_digit) &&
+			core::str::from_utf8(p).map_or(false, |p| p.parse::<u16>().is_ok())
+	});
+	let last = name.strip_suffix(b".").unwrap_or(name);
+	let last = last.rsplit(|&b| b == b'.').next().unwrap_or_default();
+	let numeric = match last {
+		[b'0', b'x' | b'X', hex @ ..] => hex.iter().all(u8::is_ascii_hexdigit),
+		_ => last.iter().all(u8::is_ascii_digit),
+	};
+	name_ok && port_ok && !last.is_empty() && !numeric
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn host_names_are_accepted() {
+		for host in ["api.binance.com", "x.io:8443", "x.io.", "a-1.b2.io"] {
+			assert!(is_public_host(host.as_bytes()), "{host}");
+		}
+		// Whether a name reaches a public address is only checked by the nodes.
+		assert!(is_public_host(b"localhost"));
+	}
+
+	#[test]
+	fn ip_and_malformed_hosts_are_rejected() {
+		for host in [
+			"127.0.0.1",
+			"127.0.0.1:8080",
+			"1.1.1.1",
+			"2130706433",
+			"127.1",
+			"0x7f.1",
+			"x.0X1f",
+			"x.0x",
+			"[::1]",
+			"[::1]:443",
+			"",
+			".",
+			":443",
+			"x.io:",
+			"x.io:abc",
+			"x.io:65536",
+			"x io",
+			"x.io/evil",
+			"user@x.io",
+		] {
+			assert!(!is_public_host(host.as_bytes()), "{host}");
+		}
+	}
+}

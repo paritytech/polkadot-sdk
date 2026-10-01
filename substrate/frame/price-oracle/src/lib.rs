@@ -39,7 +39,7 @@ use frame_system::pallet_prelude::*;
 use sp_inherents::{InherentData, InherentIdentifier, MakeFatalError};
 use sp_price_oracle::{
 	inherents::{PriceOracleInherentDataExt, INHERENT_IDENTIFIER},
-	market::{Market, MarketId, QueryTag, VenueId},
+	market::{is_public_host, Market, MarketId, QueryTag, VenueId},
 	runtime_api::ParseError,
 	Anchor, PairId, Price, Quote, SignedPriceReport,
 };
@@ -261,6 +261,8 @@ pub mod pallet {
 		UnknownPair,
 		/// The venue still has markets.
 		VenueInUse,
+		/// A request host is an IP address or not a valid host name.
+		InvalidHost,
 	}
 
 	#[pallet::hooks]
@@ -360,7 +362,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Add or update a market. Its venue must be registered and its pair known.
+		/// Add or update a market. Its venue must be registered, its pair known and the host of
+		/// every query public, see [`is_public_host`].
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::set_market())]
 		pub fn set_market(
@@ -372,6 +375,10 @@ pub mod pallet {
 			ensure!(Venues::<T>::contains_key(market.venue), Error::<T>::UnknownVenue);
 			ensure!(T::Pairs::is_known(market.pair), Error::<T>::UnknownPair);
 			ensure!(!market.contract_size.is_zero(), Error::<T>::InvalidParameters);
+			ensure!(
+				market.queries.iter().all(|q| is_public_host(&q.request.host)),
+				Error::<T>::InvalidHost
+			);
 			Markets::<T>::insert(id, market);
 			Self::deposit_event(Event::MarketSet { id });
 			Ok(())

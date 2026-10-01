@@ -22434,6 +22434,7 @@ dependencies = [
  "hyper 1.6.0",
  "hyper-rustls 0.27.3",
  "hyper-util",
+ "ip_network",
  "log",
  "pallet-price-oracle",
  "parity-scale-codec",
@@ -22454,6 +22455,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "substrate-prometheus-endpoint 0.17.0",
  "tokio",
+ "tower 0.4.13",
  "url",
 ]
 

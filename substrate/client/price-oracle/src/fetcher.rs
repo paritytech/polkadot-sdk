@@ -18,16 +18,33 @@
 //! HTTPS client for the queries of the markets.
 
 use bytes::Bytes;
-use futures::{channel::mpsc, future::try_join_all, stream::FuturesUnordered, StreamExt};
+use futures::{
+	channel::mpsc,
+	future::{try_join_all, BoxFuture},
+	stream::FuturesUnordered,
+	FutureExt, StreamExt,
+};
 use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, Response, Uri};
 use hyper_rustls::HttpsConnector;
 use hyper_util::{
-	client::legacy::{connect::HttpConnector, Client},
+	client::legacy::{
+		connect::{
+			dns::{GaiResolver, Name},
+			HttpConnector,
+		},
+		Client,
+	},
 	rt::TokioExecutor,
 };
-use sp_price_oracle::market::{Market, MarketId, Method, QueryTag, Request};
-use std::{collections::BTreeSet, time::Duration};
+use ip_network::IpNetwork;
+use sp_price_oracle::market::{is_public_host, Market, MarketId, Method, QueryTag, Request};
+use std::{
+	collections::BTreeSet,
+	net::SocketAddr,
+	task::{Context, Poll},
+	time::Duration,
+};
 use tokio::time::Instant;
 
 /// Upper bound on the combined length of the host and the path of a request, in bytes.
@@ -75,6 +92,9 @@ impl std::fmt::Display for FetchError {
 /// requests and reused, HTTP/1.1 and HTTP/2 are supported, and server certificates are verified
 /// against the operating system's root store. Redirects are not followed.
 ///
+/// Only public addresses are contacted, so a market cannot point the node at its own machine or
+/// network.
+///
 /// Every request is subject to the caps [`MAX_HOST_AND_PATH`], [`MAX_RESPONSE_BYTES`] and
 /// [`MAX_TIMEOUT_MS`] in addition to its own limits.
 ///
@@ -83,8 +103,11 @@ impl std::fmt::Display for FetchError {
 /// set is used instead.
 #[derive(Clone)]
 pub struct Fetcher {
-	client: Client<HttpsConnector<HttpConnector>, Full<Bytes>>,
+	client: Client<HttpsConnector<HttpConnector<PublicResolver>>, Full<Bytes>>,
 	scheme: &'static str,
+	/// Whether a host may be an IP address, for tests against loopback servers.
+	#[cfg(test)]
+	ip_hosts: bool,
 }
 
 /// The responses to the queries of one market, one per query.
@@ -108,39 +131,46 @@ pub enum MarketFailure {
 impl Fetcher {
 	/// Create the client.
 	pub fn new() -> std::io::Result<Self> {
+		let mut http = HttpConnector::new_with_resolver(PublicResolver(GaiResolver::new()));
+		http.enforce_http(false);
 		let connector = hyper_rustls::HttpsConnectorBuilder::new()
 			.with_provider_and_native_roots(rustls::crypto::ring::default_provider())?
 			.https_or_http()
 			.enable_http1()
 			.enable_http2()
-			.build();
+			.wrap_connector(http);
 		let client = Client::builder(TokioExecutor::new())
 			.pool_idle_timeout(POOL_IDLE_TIMEOUT)
 			.build(connector);
-		Ok(Self { client, scheme: "https" })
+		Ok(Self {
+			client,
+			scheme: "https",
+			#[cfg(test)]
+			ip_hosts: false,
+		})
 	}
 
-	/// A client that speaks plain HTTP, for tests against loopback servers.
+	/// A client that speaks plain HTTP to IP addresses, for tests against loopback servers.
 	#[cfg(test)]
 	fn plain_http() -> Self {
-		Self { scheme: "http", ..Self::new().unwrap() }
+		Self { scheme: "http", ip_hosts: true, ..Self::new().unwrap() }
 	}
 
 	/// The URL of `request`: `https://{host}{path}?{query}`, with the query names and values
 	/// percent encoded. The scheme is always `https`.
 	pub fn url(request: &Request) -> Result<Uri, FetchError> {
-		Self::url_with_scheme("https", request)
+		Self::url_with_scheme("https", false, request)
 	}
 
-	fn url_with_scheme(scheme: &str, request: &Request) -> Result<Uri, FetchError> {
+	fn url_with_scheme(scheme: &str, ip_hosts: bool, request: &Request) -> Result<Uri, FetchError> {
 		let invalid = FetchError::InvalidRequest;
 		if request.host.len() + request.path.len() > MAX_HOST_AND_PATH {
 			return Err(invalid("host and path too long"));
 		}
 		let host = std::str::from_utf8(&request.host).map_err(|_| invalid("host is not UTF-8"))?;
 		let path = std::str::from_utf8(&request.path).map_err(|_| invalid("path is not UTF-8"))?;
-		if !is_host(host) {
-			return Err(invalid("malformed host"));
+		if !ip_hosts && !is_public_host(host.as_bytes()) {
+			return Err(invalid("malformed or IP address host"));
 		}
 		if !path.starts_with('/') || path.contains(['?', '#']) {
 			return Err(invalid("malformed path"));
@@ -163,8 +193,16 @@ impl Fetcher {
 
 	/// Perform `request` and return the response body.
 	pub async fn fetch(&self, request: &Request) -> Result<Vec<u8>, FetchError> {
-		let uri = Self::url_with_scheme(self.scheme, request)?;
+		let uri = Self::url_with_scheme(self.scheme, self.ip_hosts(), request)?;
 		self.send(uri, request).await
+	}
+
+	/// Whether a host may be an IP address. Never outside tests.
+	fn ip_hosts(&self) -> bool {
+		#[cfg(test)]
+		return self.ip_hosts;
+		#[cfg(not(test))]
+		false
 	}
 
 	/// Fetch every query of every market in `markets` concurrently, until `deadline`.
@@ -243,7 +281,8 @@ impl Fetcher {
 				.client
 				.request(http_request)
 				.await
-				.map_err(|e| FetchError::Transport(e.to_string()))?;
+				// `Debug`, unlike `Display`, includes the cause, e.g. no public address.
+				.map_err(|e| FetchError::Transport(format!("{e:?}")))?;
 			if !response.status().is_success() {
 				return Err(FetchError::Status(response.status().as_u16()));
 			}
@@ -253,17 +292,33 @@ impl Fetcher {
 	}
 }
 
-/// Whether `host` is a host name of letters, digits, `.` and `-`, optionally followed by `:`
-/// and a decimal port number.
-fn is_host(host: &str) -> bool {
-	let (name, port) = match host.split_once(':') {
-		Some((name, port)) => (name, Some(port)),
-		None => (host, None),
-	};
-	let name_ok = !name.is_empty() &&
-		name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-');
-	let port_ok = port.map_or(true, |p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()));
-	name_ok && port_ok
+/// Resolves host names with the system resolver and keeps only the public addresses.
+#[derive(Clone)]
+struct PublicResolver(GaiResolver);
+
+impl tower::Service<Name> for PublicResolver {
+	type Response = std::vec::IntoIter<SocketAddr>;
+	type Error = std::io::Error;
+	type Future = BoxFuture<'static, std::io::Result<Self::Response>>;
+
+	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+		self.0.poll_ready(cx)
+	}
+
+	fn call(&mut self, name: Name) -> Self::Future {
+		self.0
+			.call(name)
+			.map(|addrs| {
+				// `to_canonical` turns an IPv4-mapped IPv6 address into the IPv4 one it reaches.
+				let public = |a: &SocketAddr| IpNetwork::from(a.ip().to_canonical()).is_global();
+				let addrs = addrs?.filter(public).collect::<Vec<_>>();
+				if addrs.is_empty() {
+					return Err(std::io::Error::other("host has no public address"));
+				}
+				Ok(addrs.into_iter())
+			})
+			.boxed()
+	}
 }
 
 /// Read the body of `response` in full. Fails with [`FetchError::TooLarge`] as soon as the
@@ -354,6 +409,37 @@ mod tests {
 		assert!(matches!(uri, Err(FetchError::InvalidRequest(_))));
 		let uri = Fetcher::url(&request("x.io", "/p", &[])).unwrap();
 		assert_eq!(uri.scheme_str(), Some("https"));
+	}
+
+	#[test]
+	fn ip_hosts_are_rejected() {
+		let rejected = |host| {
+			matches!(
+				Fetcher::url(&request(host, "/p", &[])),
+				Err(FetchError::InvalidRequest("malformed or IP address host"))
+			)
+		};
+		assert!(rejected("127.0.0.1"));
+		assert!(rejected("127.0.0.1:8080"));
+		assert!(rejected("10.0.0.1"));
+		assert!(rejected("1.1.1.1"));
+		// Other spellings of 127.0.0.1.
+		assert!(rejected("2130706433"));
+		assert!(rejected("127.1"));
+		assert!(rejected("0x7f.1"));
+	}
+
+	#[tokio::test]
+	async fn non_public_addresses_are_dropped() {
+		let name = "localhost".parse().unwrap();
+		let addrs = tower::Service::call(&mut PublicResolver(GaiResolver::new()), name).await;
+		assert_eq!(addrs.unwrap_err().to_string(), "host has no public address");
+
+		let result = Fetcher::new().unwrap().fetch(&request("localhost", "/p", &[])).await;
+		match result {
+			Err(FetchError::Transport(reason)) => assert!(reason.contains("no public address")),
+			other => panic!("unexpected result {other:?}"),
+		}
 	}
 
 	/// A loopback HTTP server answering every request with `status` and `body`.

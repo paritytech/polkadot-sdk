@@ -24,6 +24,7 @@ http-body-util = { workspace = true }
 hyper = { features = ["client", "http1", "http2"], workspace = true, default-features = true }
 hyper-rustls = { workspace = true }
 hyper-util = { features = ["client-legacy", "http1", "http2", "tokio"], workspace = true }
+ip_network = { workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
@@ -39,6 +40,7 @@ sp-keystore = { workspace = true, default-features = true }
 sp-price-oracle = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 tokio = { features = ["time"], workspace = true, default-features = true }
+tower = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]

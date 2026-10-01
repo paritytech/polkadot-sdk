@@ -592,7 +592,7 @@ mod tests {
 		price_market,
 		pricing::{parse_decimal, PairSettings},
 	};
-	use sp_price_oracle::runtime_api::ParseError;
+	use sp_price_oracle::{market::is_public_host, runtime_api::ParseError};
 	use sp_runtime::Permill;
 
 	/// 2026-09-17T10:00:00Z. The fixtures were recorded in the two hours before it, with the
@@ -628,8 +628,10 @@ mod tests {
 	}
 
 	/// Price `market` from its recorded responses. The price must be near 1 USDT, and the
-	/// market must turn stale once the recorded trade is older than allowed.
+	/// market must turn stale once the recorded trade is older than allowed. Its hosts must be
+	/// accepted by `set_market`.
 	fn assert_prices(market: &StoredMarket, book: &[u8], trades: &[u8]) {
+		assert!(market.queries.iter().all(|q| is_public_host(&q.request.host)));
 		let price = price_market(market, &settings(), responses(book, trades), NOW_MS).unwrap();
 		assert!(price > p("0.95") && price < p("1.05"), "unexpected price {price:?}");
 
