@@ -1702,7 +1702,7 @@ pub mod pallet {
 		/// - `destination`: The account to which the debited balance will be transferred.
 		/// - `amount`: The amount of assets to transfer.
 		///
-		/// Emits `TransferredApproved` on success.
+		/// Emits `Transferred` on success.
 		///
 		/// Weight: `O(1)`
 		#[pallet::call_index(25)]
