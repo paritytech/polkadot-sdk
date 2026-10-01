@@ -5215,36 +5215,18 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `MULMOD` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Division:** `MULMOD` multiplies its operands into a 512-bit product and reduces the
-	///   product with the division of `ruint`. The top and lowest bits of both operands are set, so
-	///   the product has eight limbs, and the top two bits of the modulus are clear, so the
-	///   division has to shift the modulus and the product, which takes the most multiplications.
-	/// * **Pseudo-random Modulus Size:** a pseudo-random generator picks a modulus of three or four
-	///   limbs, with a 50% chance either way. Both take the same number of multiplications but loop
-	///   a different number of times, so the CPU can't predict the loops.
-	/// * **Pseudo-random Reciprocal Adjustments:** the division computes a reciprocal of the
-	///   modulus on every `MULMOD` and adjusts it twice, each time depending only on the modulus.
-	///   The generator picks whether each adjustment happens, with a 50% chance each, and draws the
-	///   modulus until it matches.
-	/// * **Pseudo-random Zero Limbs:** the generator also clears the second and third limbs of one
-	///   operand, with a 50% chance each. Each cleared limb makes the multiplication skip a carry
-	///   step, which the CPU can't predict either.
-	/// * **Followed by `POP`:** each `MULMOD` is followed by a `POP`, because otherwise its result,
-	///   which is below the modulus, would become an operand of the next one. The weight of a `POP`
-	///   is subtracted when charging a `MULMOD`.
-	/// * **Stack Initialization:** the modulus and both operands of every `MULMOD` are placed on
-	///   the stack before the benchmark runs. This is why `r` goes up to a third of the stack
-	///   limit.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * `U256::MAX` times `U256::MAX - 6` modulo a four-limb modulus every time, which made the
-	///   division add the modulus back twice. The pseudo-random operands cost roughly 4% more per
-	///   `MULMOD` once the `POP` is subtracted.
-	/// * Operands that made the division add the modulus back a pseudo-random number of times cost
-	///   about the same as that fixed benchmark.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A product that fills every limb, since the top and lowest bits of both operands are set.
+	/// * A shift of the modulus and the product before the division, since the top bits of the
+	///   modulus are clear.
+	/// * A branch misprediction on how many times the division loops, since the size of the modulus
+	///   is pseudo-random.
+	/// * A branch misprediction on each adjustment of the modulus's reciprocal, since whether it
+	///   happens is pseudo-random.
+	/// * A branch misprediction on the carry steps of the multiplication, since which limbs of one
+	///   operand are zero is pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
