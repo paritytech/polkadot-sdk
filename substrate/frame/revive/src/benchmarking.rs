@@ -5152,28 +5152,12 @@ mod benchmarks {
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		// 2^65 + 3
-		const DIVISOR: U256 = U256([3, 2, 0, 0]);
+		use knuth_division_worst_case_operands::{DENOMINATORS, NUMERATOR};
 
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| {
-			let corrections = [1, rng.gen_range(1..=2), rng.gen_range(1..=2)].map(U256::from);
-			let numerator = loop {
-				let mut numerator = U256(rng.r#gen());
-				numerator.0[3] |= 0xff << 56;
-				let quotient = numerator / DIVISOR;
-				let longest_estimates = quotient.bit(127) && quotient.bit(63);
-				// Division estimates each digit by dividing what remains of the numerator by 2^65,
-				// the divisor without its lowest limb, and corrects the estimate down to the digit.
-				let numerator_corrections = [2, 1, 0].map(|digit| {
-					let remainder = (numerator >> (64 * digit)) % (DIVISOR << 64);
-					remainder / (U256::one() << 65) - remainder / DIVISOR
-				});
-				if longest_estimates && numerator_corrections == corrections {
-					break numerator;
-				}
-			};
-			[DIVISOR, numerator]
+			let denominator = DENOMINATORS.choose(&mut rng).copied().unwrap();
+			[denominator, NUMERATOR]
 		});
 
 		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
