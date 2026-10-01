@@ -122,8 +122,15 @@ where
 		config;
 
 	let (stop_handle, server_handle) = stop_channel();
+	let rpc_api = build_rpc_api(rpc_api);
+	// Bound the metrics `method` label to the registered methods so its
+	// cardinality stays finite (unknown names collapse to `"unknown"`).
+	let metrics = metrics.map(|m| {
+		let known: Vec<&'static str> = rpc_api.method_names().collect();
+		m.with_known_methods(known)
+	});
 	let cfg = PerConnection {
-		methods: build_rpc_api(rpc_api).into(),
+		methods: rpc_api.into(),
 		metrics,
 		tokio_handle: tokio_handle.clone(),
 		stop_handle,
