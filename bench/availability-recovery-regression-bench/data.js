@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790797288576,
+  "lastUpdate": 1790843941323,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "monica@parity.io",
-            "name": "Monica Jin",
-            "username": "mokita-j"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d36f3b04b0cd268adb905e54382e2f63c3022499",
-          "message": "[pallet-revive] Add PVM fuel tracing (#11481)\n\nAdd **`pvm_fuel`** trace steps to PVM execution traces, recording pvm\nfuel consumption between syscalls and after the execution loop exits.\n\nSeparate synthetic trace steps from the real syscall list:\n`list_syscalls()` contains syscalls contracts can actually import, while\nnew `list_trace_ops()` / `lookup_trace_op_index()` include both real\nsyscalls and synthetic steps like `pvm_fuel`.\n\n## Integration\n\nCode using `list_syscalls()` for **trace** serialization should switch\nto `list_trace_ops()` / `lookup_trace_op_index()`. `list_syscalls()` and\n`lookup_syscall_index()` are unchanged for **real syscalls**.\n\n## Review Notes\n- Proc-macro wraps `sync_from_executor` with `enter_ecall` / `exit_step`\ntracing hooks for `pvm_fuel`\n- PreparedCall::call adds a final `pvm_fuel` trace after the execution\nloop exits\n  - PVM JSON trace fixtures updated to include `pvm_fuel` steps\n \n**Note**: evm-test-suite pvm snapshot needs to be updated with the\n`pvm_fuel` entries.\n[#143](https://github.com/paritytech/evm-test-suite/pull/143)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-25T15:19:45Z",
-          "tree_id": "c39794365e0ef220a2a73af008f1feee9dc7d43f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d36f3b04b0cd268adb905e54382e2f63c3022499"
-        },
-        "date": 1774456727462,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.133135745600004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12551845816666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1347142886666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4cc62947fa17b58cf3dd18f336041253ce117ce5",
+          "message": "Update RC peer ids of Polkadot AH invulnerable collators (#13320)\n\nAs described in https://polkadot.subsquare.io/referenda/1946",
+          "timestamp": "2026-10-01T07:07:39Z",
+          "tree_id": "cbe2d54f3c71e54b88b90e6a98175fc89706f7d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4cc62947fa17b58cf3dd18f336041253ce117ce5"
+        },
+        "date": 1790843912475,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.823807853866665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14258650613333335,
             "unit": "seconds"
           }
         ]
