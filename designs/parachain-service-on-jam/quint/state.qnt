@@ -83,7 +83,7 @@ module state {
   /// One recorded incoming transfer (§3.1). `toSupervisorBalance` is JAM's
   /// `destsupervisor` flag: the amount went to the supervisor balance.
   type IncomingTransfer =
-    { from: ServiceId, amount: Balance, toSupervisorBalance: bool, memo: Memo }
+    { source: ServiceId, amount: Balance, toSupervisorBalance: bool, memo: Memo }
 
   // --- Top-level service state -------------------------------------------
 
@@ -106,7 +106,6 @@ module state {
     incomingTransferBuckets:
       Option[{ firstBucket: BucketId, lastBucket: BucketId, count: int }],
     parachainLog: ParaId -> ParachainLog,
-    preimageRegistry: (Hash, int) -> PreimageEntry,
     // Scheduled-but-unapplied `assign` payloads, keyed by core: the queue to
     // install and who owns the core afterwards (`None` = this service,
     // unchanged). A queue that must keep cycling is stored already rotated to
@@ -120,17 +119,18 @@ module state {
     // timeslot at which it is due. Sole home of the due time, so the
     // always-accumulate path can gate without reading the payloads above.
     pendingAssignCores: CoreIndex -> Timeslot,
+    preimageRegistry: (Hash, int) -> PreimageEntry,
     // Validator-key buffer (design §5.3), appended chunk by chunk by
     // Asset Hub via `set_validator_keys`; flushed to JAM `designate` on
     // `is_last`.
     stagedValidatorKeys: List[ValidatorKey],
+    // Per-parachain key/value store (design §3.1, §6.1). Keyed by
+    // (ParaId, user_key); each entry is billed under the sole-user rule.
+    keyValueStorage: (ParaId, List[int]) -> List[int],
     // JAM `sa.codehash` for the Parachain Service itself, and the length of that
     // code. Both are set by `UpgradeService` (design §5.4).
     serviceCodeHash: Hash,
     serviceCodeLen: int,
-    // Per-parachain key/value store (design §3.1, §6.1). Keyed by
-    // (ParaId, user_key); each entry is billed under the sole-user rule.
-    keyValueStorage: (ParaId, List[int]) -> List[int],
     // MODEL-ONLY ghost state, NOT part of the service's real storage or
     // footprint. The spec keeps no bookkeeping for the two-step forget and
     // reads request status from JAM's `query` (§6.1); the model stands that in
@@ -158,13 +158,13 @@ module state {
     incomingTransfers: Map(),
     incomingTransferBuckets: None,
     parachainLog: Map(),
-    preimageRegistry: Map(),
     pendingAssigns: Map(),
     pendingAssignCores: Map(),
+    preimageRegistry: Map(),
     stagedValidatorKeys: List(),
+    keyValueStorage: Map(),
     serviceCodeHash: { hashBytes: 0 },
     serviceCodeLen: 0,
-    keyValueStorage: Map(),
     preimageStatus: Map(),
     jamCoreAssigners: Map(),
     jamAccount: { balance: 0, supervisorBalance: 0, minMemoGas: 0 }
@@ -398,14 +398,14 @@ module state {
 
   /// SCALE size of one (Timeslot, LogEntry) pair:
   ///   4 B timeslot + 1 B LogEntry discriminant + variant body.
-  /// RefineLogEntry body: refineLogSize(error) + auth_trace compact-len + authTrace.
-  /// AccumulateLogEntry body: 1 (vec compact-len prefix) + Σ accumulateLogSize per event.
+  /// Refine body: refineLogSize(error) + auth_trace compact-len + authTrace.
+  /// Accumulate body: 1 (vec compact-len prefix) + Σ accumulateLogSize per event.
   /// authTrace is an int (abstract length proxy) bounded to 256 by its type.
   pure def logEntrySize(e: (Timeslot, LogEntry)): int =
   4 + 1 + match e._2 {
-    | RefineLogEntry(r) =>
+    | Refine(r) =>
       refineLogSize(r.error) + compactLen(r.authTrace) + r.authTrace
-    | AccumulateLogEntry(evs) =>
+    | Accumulate(evs) =>
       1 + evs.foldl(0, (a, ev) => a + accumulateLogSize(ev))
   }
 
@@ -424,8 +424,8 @@ module state {
   ///   2 - an accumulate event: an actual on-chain state change.
   pure def entryRank(e: (Timeslot, LogEntry)): int =
   match e._2 {
-    | RefineLogEntry(r) => match r.error { | Opaque(_) => 1 | _ => 0 }
-    | AccumulateLogEntry(_) => 2
+    | Refine(r) => match r.error { | Opaque(_) => 1 | _ => 0 }
+    | Accumulate(_) => 2
   }
 
   /// Drop the single best eviction candidate on behalf of an incoming entry of
@@ -476,7 +476,7 @@ module state {
     if (parachainLogSize(shrunk) <= ParachainLogByteCap) shrunk else log
   }
 
-  /// Append a `RefineLogEntry` for a failed Refine at timeslot `now`
+  /// Append a `Refine` for a failed Refine at timeslot `now`
   /// (design §3.3). No-op for an unregistered para: there is no
   /// `parachainLog[para_id]` to append to (§5.1 step 1).
   pure def appendRefineLog(
@@ -489,11 +489,11 @@ module state {
   if (not(s.isLive(para_id))) s
   else {
     val log = s.paraLog(para_id)
-    val entry = (now, RefineLogEntry({ error: error, authTrace: authTrace }))
+    val entry = (now, Refine({ error: error, authTrace: authTrace }))
     { ...s, parachainLog: s.parachainLog.put(para_id, pushLogEntry(log, entry)) }
   }
 
-  /// Append one batched `AccumulateLogEntry` at timeslot `now` for a live para
+  /// Append one batched `Accumulate` at timeslot `now` for a live para
   /// (design §5.1). The batch's total size is bounded only by the 64 KiB
   /// `parachain_log` byte cap enforced in `pushLogEntry`. No-op for an unregistered
   /// para and for an empty `entries` list.
@@ -506,7 +506,7 @@ module state {
   if (not(s.isLive(para_id)) or entries == List()) s
   else {
     val log = s.paraLog(para_id)
-    { ...s, parachainLog: s.parachainLog.put(para_id, pushLogEntry(log, (now, AccumulateLogEntry(entries)))) }
+    { ...s, parachainLog: s.parachainLog.put(para_id, pushLogEntry(log, (now, Accumulate(entries)))) }
   }
 
   /// §5.1 log pruning: after a candidate for `para_id` is processed, drop

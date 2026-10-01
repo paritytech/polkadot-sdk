@@ -182,7 +182,7 @@ module refine_test {
       assert(withParent == tooLarge),
       assert(withoutParent == tooLarge),
       assert(refineLogSize(HeadDataTooLarge) == 1),
-      assert(entryRank((0, RefineLogEntry({ error: HeadDataTooLarge, authTrace: 0 }))) == 0),
+      assert(entryRank((0, Refine({ error: HeadDataTooLarge, authTrace: 0 }))) == 0),
       init
     }
   }

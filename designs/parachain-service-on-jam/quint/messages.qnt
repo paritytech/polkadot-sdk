@@ -298,6 +298,9 @@ module messages {
   | SetValidatorKeys({ keys: List[ValidatorKey], isLast: bool })
   // clean_up_buckets_up_to(bucket_id): Asset Hub only.
   | CleanUpBucketsUpTo(BucketId)
+  // parachain_service_upgrade(code_hash, len, min_acc_gas, min_memo_gas):
+  // Asset Hub only (design §5.4).
+  | UpgradeService({ codeHash: Hash, len: int, minAccGas: int, minMemoGas: int })
   // parachain_set_head(para_id, new_head): Coretime only.
   | ParachainSetHead({ paraId: ParaId, newHead: HeadData })
   // parachain_set_validation_code(para_id, new_validation_code): Coretime only.
@@ -306,9 +309,6 @@ module messages {
   | ParachainCleanUp(ParaId)
   // parachain_set_state_balance(para_id, new_total): Coretime only.
   | ParachainSetStateBalance({ paraId: ParaId, newTotal: Balance })
-  // parachain_service_upgrade(code_hash, len, min_acc_gas, min_memo_gas):
-  // Asset Hub only (design §5.4).
-  | UpgradeService({ codeHash: Hash, len: int, minAccGas: int, minMemoGas: int })
 
   // --- Refine output per work item ---------------------------------------
 
@@ -372,15 +372,15 @@ module messages {
   pure def validCoreIndex(core: CoreIndex): bool = core >= 0 and core < CoreCount
 
   /// Truncate an auth trace to `StoredAuthTraceCap` before the service stores
-  /// it in a `RefineLogEntry` (design §3.3).
+  /// it in a `Refine` (design §3.3).
   pure def truncateAuthTrace(t: AuthTrace): AuthTrace =
   if (t > StoredAuthTraceCap) StoredAuthTraceCap else t
 
   // --- Per-parachain log entries (design §3.1) ---------------------------
 
   type LogEntry =
-  | RefineLogEntry({ error: RefineLog, authTrace: AuthTrace })
-  | AccumulateLogEntry(List[AccumulateLog])
+  | Refine({ error: RefineLog, authTrace: AuthTrace })
+  | Accumulate(List[AccumulateLog])
 
   // --- Helpers ------------------------------------------------------------
 

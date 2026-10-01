@@ -158,7 +158,7 @@ module accumulate_test {
         { result: WorkOk(refineErr(CoretimeParaId, codeHash, e)), authTrace: 0 },
         Set(), List(), FixedCodeLen, 5, Map()).state
     pure def logged(e: RefineLog): ParachainLog =
-      List((5, RefineLogEntry({ error: e, authTrace: 0 })))
+      List((5, Refine({ error: e, authTrace: 0 })))
     all {
       assert(initialState.paraInfo(para).validationCode.optionMap(vc => vc.hash) == Some(active)),
       assert(after(active, Opaque(7)).paraLog(para) == logged(Opaque(7))),

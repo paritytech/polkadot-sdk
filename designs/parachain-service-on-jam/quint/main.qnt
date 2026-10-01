@@ -291,7 +291,7 @@ module main {
     nondet toSup = oneOf(Set(false, true))
     // Batch sizes above one exercise the in-invocation packing.
     nondet extra = oneOf(Set(0, 1))
-    val t = { from: senderId, amount: amount, toSupervisorBalance: toSup, memo: memo }
+    val t = { source: senderId, amount: amount, toSupervisorBalance: toSup, memo: memo }
     all {
       svc' = applyIncomingTransfers(
         svc, if (extra == 0) List(t) else List(t, { ...t, memo: memo + 1 })),

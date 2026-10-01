@@ -314,7 +314,7 @@ module invariants {
   val staged_validator_keys_bounded: bool =
     svc.stagedValidatorKeys.length() <= MaxStagedValidatorKeys
 
-  /// Every batched `AccumulateLogEntry` in a parachain's log is non-empty.
+  /// Every batched `Accumulate` in a parachain's log is non-empty.
   /// `appendAccumulateLogs` short-circuits an empty `entries` list; this pins
   /// that. The batch's total size is bounded by the 64 KiB byte cap
   /// (`parachain_log_within_capacity`), not a separate event count.
@@ -322,8 +322,8 @@ module invariants {
     svc.parachainLog.keys().forall(p =>
       svc.paraLog(p).foldl(true, (acc, pair) =>
         acc and match pair._2 {
-          | AccumulateLogEntry(evs) => evs != List()
-          | RefineLogEntry(_) => true
+          | Accumulate(evs) => evs != List()
+          | Refine(_) => true
         }))
 
   /// Every para's log total encoded size stays within the 64 KiB byte cap.

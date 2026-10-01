@@ -49,14 +49,14 @@ module state_balance_test {
         // Accumulate log carries InsufficientStateBalance(FromSolicit(...)) for this block.
         svc.paraLog(para).foldl(false, (found, pair) =>
           found or (pair._1 == now and match pair._2 {
-            | AccumulateLogEntry(evs) => evs.foldl(false, (a, e) => match e {
+            | Accumulate(evs) => evs.foldl(false, (a, e) => match e {
               | InsufficientStateBalance(reason) => match reason {
                 | FromSolicit(p) => a or (p.hash == soliciteeHash and p.len == soliciteeLen)
                 | FromSetKV(_) => a
               }
               | _ => a
             })
-            | RefineLogEntry(_) => false
+            | Refine(_) => false
           }))
       }))
   }

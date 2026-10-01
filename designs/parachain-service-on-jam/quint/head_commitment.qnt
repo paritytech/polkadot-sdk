@@ -17,16 +17,16 @@ module head_commitment {
   /// `LeafHeadHash`; a node holds its two children's `MerkleHash`es, which the
   /// design writes as the tuple variant `Node(Hash, Hash)`.
   type MerkleTree =
-  | Leaf({ paraId: ParaId, headHash: LeafHeadHash })
   | Node({ left: MerkleHash, right: MerkleHash })
+  | Leaf({ paraId: ParaId, headHash: LeafHeadHash })
 
   /// Abstract `keccak_256` of a tree element's SCALE encoding. Doubling the
   /// body and adding the discriminant keeps the leaf and node images disjoint,
   /// so a leaf hash can never collide with a node hash (§5.5).
   pure def merkleHash(t: MerkleTree): MerkleHash =
   match t {
-    | Leaf(l) => { merkleBytes: 2 * (paraIdInt(l.paraId) * 257 + l.headHash.leafHeadBytes) }
-    | Node(c) => { merkleBytes: 2 * (c.left.merkleBytes * 257 + c.right.merkleBytes) + 1 }
+    | Node(c) => { merkleBytes: 2 * (c.left.merkleBytes * 257 + c.right.merkleBytes) }
+    | Leaf(l) => { merkleBytes: 2 * (paraIdInt(l.paraId) * 257 + l.headHash.leafHeadBytes) + 1 }
   }
 
   /// Set of para ids as a list ordered by ascending `para_id`, so every

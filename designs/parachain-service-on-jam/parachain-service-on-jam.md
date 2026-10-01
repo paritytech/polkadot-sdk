@@ -271,12 +271,6 @@ enum InsufficientBalanceReason {
     /// A `SetKV` write to `key_value_storage`, identified by the hash of its
     /// key.
     SetKV { key_hash: Hash },
-    /// A `staged_validator_keys` append.
-    StagedValidatorKeys,
-    /// An `incoming_transfers` or `incoming_transfer_buckets` write.
-    IncomingTransfer,
-    /// A `ParaInfo` write: head, registration, forced code or announced upgrade.
-    ParaInfo,
 }
 
 /// Why `ParachainSetStateBalance` was rejected (see §6.1).

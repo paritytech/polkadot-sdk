@@ -24,16 +24,16 @@ module transfers_test {
     // One short of the reservation: still inside it, so the entry is free and
     // fills it exactly.
     val edge = applyIncomingTransfer(almostFullTransferQueue,
-      { from: MkServiceId(0), amount: 0, toSupervisorBalance: false, memo: 0 })
+      { source: MkServiceId(0), amount: 0, toSupervisorBalance: false, memo: 0 })
     // Below the bound: a zero-amount transfer is still recorded.
     val below = applyIncomingTransfer(initialState,
-      { from: MkServiceId(0), amount: 0, toSupervisorBalance: false, memo: 0 })
+      { source: MkServiceId(0), amount: 0, toSupervisorBalance: false, memo: 0 })
     // At the bound: too little to pay for its own entry, so not recorded.
     val short = applyIncomingTransfer(full,
-      { from: MkServiceId(0), amount: IncomingTransferEntryFootprint - 1, toSupervisorBalance: false, memo: 0 })
+      { source: MkServiceId(0), amount: IncomingTransferEntryFootprint - 1, toSupervisorBalance: false, memo: 0 })
     // At the bound: exactly covers its entry, so recorded past the reserved portion.
     val paid = applyIncomingTransfer(full,
-      { from: MkServiceId(0), amount: IncomingTransferEntryFootprint, toSupervisorBalance: false, memo: 0 })
+      { source: MkServiceId(0), amount: IncomingTransferEntryFootprint, toSupervisorBalance: false, memo: 0 })
     all {
       // One short of the reservation the entry is free, filling it exactly.
       assert(queuedTransferCount(edge) == MaxIncomingTransfers),
@@ -58,8 +58,8 @@ module transfers_test {
   /// adding no storage item. A later invocation cannot reopen that bucket, so its
   /// arrivals get a fresh id: that is what closes a bucket and makes clean-up safe.
   run oneInvocationSharesBucketTest = {
-    val t1 = { from: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 0 }
-    val t2 = { from: MkServiceId(3), amount: 600, toSupervisorBalance: false, memo: 0 }
+    val t1 = { source: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 0 }
+    val t2 = { source: MkServiceId(3), amount: 600, toSupervisorBalance: false, memo: 0 }
     // One invocation carrying both.
     val together = applyIncomingTransfers(initialState, List(t1, t2))
     // Two invocations carrying one each.
@@ -83,7 +83,7 @@ module transfers_test {
   /// arrival timeslot.
   run bucketSpillsAtCapacityTest = {
     val batch = range(0, MaxTransfersPerBucket + 1).foldl(List(), (acc, i) =>
-      acc.append({ from: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: i }))
+      acc.append({ source: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: i }))
     val filled = applyIncomingTransfers(initialState, batch)
     all {
       // One past capacity in a single invocation: two buckets.
@@ -100,11 +100,11 @@ module transfers_test {
   pure def transferFailures(s: ParachainServiceState, paraId: ParaId):
     List[{ id: int, error: TransferError }] =
   s.paraLog(paraId).foldl(List(), (acc, pair) => match pair._2 {
-    | AccumulateLogEntry(evs) => evs.foldl(acc, (a, e) => match e {
+    | Accumulate(evs) => evs.foldl(acc, (a, e) => match e {
       | TransferFailed(p) => a.append(p)
       | _ => a
     })
-    | RefineLogEntry(_) => acc
+    | Refine(_) => acc
   })
 
   /// A service this one does not supervise: it supervises itself.
@@ -271,7 +271,7 @@ module transfers_test {
     val total0 = full.paraInfo(ah).totalStateBalance
     // Deliberately far more than one entry costs, to pin that the surplus is not
     // credited to the allowance.
-    val paid = applyIncomingTransfer(full, { from: MkServiceId(3), amount: big * 100, toSupervisorBalance: false, memo: 0 })
+    val paid = applyIncomingTransfer(full, { source: MkServiceId(3), amount: big * 100, toSupervisorBalance: false, memo: 0 })
     // Clean the whole queue back out through the real accumulate path.
     val ok: ParachainWorkDigestOk = {
       paraId: ah,
@@ -319,7 +319,7 @@ module transfers_test {
   /// credit either balance with a deferred transfer and Asset Hub must know
   /// which one to move the funds on from.
   run incomingTransferRecordsSupervisorBalanceTest = {
-    val toSup = { from: MkServiceId(0), amount: 500, toSupervisorBalance: true, memo: 0 }
+    val toSup = { source: MkServiceId(0), amount: 500, toSupervisorBalance: true, memo: 0 }
     val toReg = { ...toSup, toSupervisorBalance: false, memo: 1 }
     val s = applyIncomingTransfers(initialState, List(toSup, toReg))
     all {

@@ -13,31 +13,31 @@ module parachain_log_test {
     // Opaque(1024) ≈ 1033 B per entry; 1 acc + 63 refine fits under the cap,
     // so pushing one more triggers byte-cap eviction of the oldest Refine entry.
     val full = range(0, 64).foldl(List(), (acc, i) =>
-      if (i == 0) acc.append((i, AccumulateLogEntry(List(ServiceUpgradePreimageMissing({ codeHash: { hashBytes: 7 } })))))
-      else acc.append((i, RefineLogEntry({ error: Opaque(1024), authTrace: 0 }))))
+      if (i == 0) acc.append((i, Accumulate(List(ServiceUpgradePreimageMissing({ codeHash: { hashBytes: 7 } })))))
+      else acc.append((i, Refine({ error: Opaque(1024), authTrace: 0 }))))
     val after = pushLogEntry(
       full,
-      (64, RefineLogEntry({ error: Opaque(1024), authTrace: 0 }))
+      (64, Refine({ error: Opaque(1024), authTrace: 0 }))
     )
     val accCount = after.foldl(0, (n, pair) => match pair._2 {
-      | AccumulateLogEntry(_) => n + 1
-      | RefineLogEntry(_) => n
+      | Accumulate(_) => n + 1
+      | Refine(_) => n
     })
     all {
       assert(after.length() == 64),
       assert(match after.nth(0)._2 {
-        | AccumulateLogEntry(_) => true
-        | RefineLogEntry(_) => false
+        | Accumulate(_) => true
+        | Refine(_) => false
       }),
       assert(accCount == 1),
       init
     }
   }
 
-  /// A 1-event AccumulateLogEntry with a 32-octet-payload event costs 39 B
+  /// A 1-event Accumulate with a 32-octet-payload event costs 39 B
   /// (4 timeslot + 1 LogEntry disc + 1 vec prefix + 33 event), not the worst case.
   run bytecapSmallEntryCostTest = {
-    val entry = (0, AccumulateLogEntry(List(ServiceUpgradePreimageMissing({ codeHash: { hashBytes: 1 } }))))
+    val entry = (0, Accumulate(List(ServiceUpgradePreimageMissing({ codeHash: { hashBytes: 1 } }))))
     val entrySize = logEntrySize(entry)
     all {
       assert(entrySize < 100),
@@ -49,16 +49,16 @@ module parachain_log_test {
   /// Fill a log with large Refine entries until near the byte cap, push one
   /// more, and verify the cap holds and the Accumulate entry survived eviction.
   run bytecapEvictionTest = {
-    val bigAcc = (1, AccumulateLogEntry(List(ServiceUpgradePreimageMissing({ codeHash: { hashBytes: 1 } }))))
+    val bigAcc = (1, Accumulate(List(ServiceUpgradePreimageMissing({ codeHash: { hashBytes: 1 } }))))
     val withAcc = pushLogEntry(List(), bigAcc)
     // Each Refine entry with Opaque(1014) ≈ 1023 B; after 64 pushes the
     // log wraps once (oldest Refine evicted), leaving the Accumulate intact.
     val nearFull = range(0, 64).foldl(withAcc, (log, i) =>
-      pushLogEntry(log, (i + 2, RefineLogEntry({ error: Opaque(1014), authTrace: 0 }))))
-    val after = pushLogEntry(nearFull, (100, RefineLogEntry({ error: Opaque(1014), authTrace: 0 })))
+      pushLogEntry(log, (i + 2, Refine({ error: Opaque(1014), authTrace: 0 }))))
+    val after = pushLogEntry(nearFull, (100, Refine({ error: Opaque(1014), authTrace: 0 })))
     val accCount = after.foldl(0, (n, pair) => match pair._2 {
-      | AccumulateLogEntry(_) => n + 1
-      | RefineLogEntry(_) => n
+      | Accumulate(_) => n + 1
+      | Refine(_) => n
     })
     all {
       assert(parachainLogSize(after) <= ParachainLogByteCap),
@@ -79,13 +79,13 @@ module parachain_log_test {
     // Both errors must be present as separate entries at timeslot 0.
     val hasValidationCodeLookupFailed = log.foldl(false, (acc, pair) =>
       acc or (pair._1 == 0 and match pair._2 {
-        | RefineLogEntry(e) => e.error == ValidationCodeLookupFailed
-        | AccumulateLogEntry(_) => false
+        | Refine(e) => e.error == ValidationCodeLookupFailed
+        | Accumulate(_) => false
       }))
     val hasMissingHead = log.foldl(false, (acc, pair) =>
       acc or (pair._1 == 0 and match pair._2 {
-        | RefineLogEntry(e) => e.error == InvalidHeadDeclaration
-        | AccumulateLogEntry(_) => false
+        | Refine(e) => e.error == InvalidHeadDeclaration
+        | Accumulate(_) => false
       }))
     all {
       assert(hasValidationCodeLookupFailed),
@@ -102,10 +102,10 @@ module parachain_log_test {
   /// §5.1 rank order: 0 = non-`Opaque` refine error, 1 = `Opaque`, 2 = accumulate.
   run entryRankOrderTest = {
     all {
-      assert(entryRank((0, RefineLogEntry({ error: ValidationCodeLookupFailed, authTrace: 0 }))) == 0),
-      assert(entryRank((0, RefineLogEntry({ error: InvalidHeadDeclaration, authTrace: 0 }))) == 0),
-      assert(entryRank((0, RefineLogEntry({ error: Opaque(8), authTrace: 0 }))) == 1),
-      assert(entryRank((0, AccumulateLogEntry(List(TooMuchStateHeld)))) == 2),
+      assert(entryRank((0, Refine({ error: ValidationCodeLookupFailed, authTrace: 0 }))) == 0),
+      assert(entryRank((0, Refine({ error: InvalidHeadDeclaration, authTrace: 0 }))) == 0),
+      assert(entryRank((0, Refine({ error: Opaque(8), authTrace: 0 }))) == 1),
+      assert(entryRank((0, Accumulate(List(TooMuchStateHeld)))) == 2),
       init
     }
   }
@@ -115,12 +115,12 @@ module parachain_log_test {
   /// coretime can generate. Filling a log with `Opaque`, then pushing rank-0
   /// errors, must leave every `Opaque` intact and drop the newcomers instead.
   run spamCannotEvictOpaqueTest = {
-    val opaqueEntry = (1, RefineLogEntry({ error: Opaque(1014), authTrace: 0 }))
+    val opaqueEntry = (1, Refine({ error: Opaque(1014), authTrace: 0 }))
     // Pack the log with the parachain's own reports until it is near capacity.
     val packed = range(0, 64).foldl(List(), (log, _) => pushLogEntry(log, opaqueEntry))
     val opaquesBefore = countRank(packed, 1)
     // Now a buyer floods it with rank-0 refine errors.
-    val spam = (2, RefineLogEntry({ error: ValidationCodeLookupFailed, authTrace: 256 }))
+    val spam = (2, Refine({ error: ValidationCodeLookupFailed, authTrace: 256 }))
     val flooded = range(0, 40).foldl(packed, (log, _) => pushLogEntry(log, spam))
     all {
       // The log was genuinely full: further Opaques could only displace Opaques.
@@ -137,11 +137,11 @@ module parachain_log_test {
   /// so the ranking is not simply "reject everything once full".
   run higherRankEvictsLowerTest = {
     // ~1008 B each, so ~80 pushes drive the log past the 64 KiB cap.
-    val spam = (1, RefineLogEntry({ error: ValidationCodeLookupFailed, authTrace: 1000 }))
+    val spam = (1, Refine({ error: ValidationCodeLookupFailed, authTrace: 1000 }))
     val packed = range(0, 80).foldl(List(), (log, _) => pushLogEntry(log, spam))
     val spamBefore = countRank(packed, 0)
     // A ~506 B accumulate entry (rank 2) arriving at the saturated log.
-    val bigAcc = (2, AccumulateLogEntry(
+    val bigAcc = (2, Accumulate(
       range(0, 500).foldl(List(), (l, _) => l.append(TooMuchStateHeld))))
     val withAcc = pushLogEntry(packed, bigAcc)
     all {

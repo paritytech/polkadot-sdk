@@ -12,18 +12,16 @@
 // - Each `keys` chunk contains at most 30 keys.
 //
 // Accumulate-side rules (this module):
-// - A partial (non-last) append grows `usedStateBalance` for Asset Hub by
-// `336 * len(keys)`, since the chunk persists in the buffer until
-// finalization. If it would exceed `totalStateBalance`, log
-// `InsufficientStateBalance` and leave the buffer unchanged.
+// - A partial (non-last) append that would grow the buffer past its 1023-key
+// capacity is rejected with `StagedValidatorKeysOverflow`, leaving the buffer
+// unchanged. The buffer is reserved at its worst case in Asset Hub's baseline
+// footprint (§6.1), so an append within capacity is pre-paid and charges no
+// `usedStateBalance`.
 // - On `isLast == true` with an EMPTY chunk, discard the buffer and do not call
 // `designate`.
 // - On `isLast == true` with a non-empty chunk, assemble the full set, hand it
 // to `designate`, and clear the buffer (either way). `designate` rejects a
 // length outside ValCount, which the model records as `DesignateRejected`.
-// The final chunk goes straight to `designate` and never persists, so it
-// needs no headroom check or balance charge; clearing releases the prior
-// buffer's footprint.
 module validator_keys {
   import types.* from "./types"
   import messages.* from "./messages"
