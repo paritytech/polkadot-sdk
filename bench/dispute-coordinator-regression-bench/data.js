@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790844206657,
+  "lastUpdate": 1790891613158,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dmitry@markin.tech",
-            "name": "Dmitry Markin",
-            "username": "dmitry-markin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1866a5de1d89429ff43f114606f2aa69ffa9a0ae",
-          "message": "Publish indexed transactions with BLAKE2b hashes to IPFS DHT (#10468)\n\nAdd `--ipfs-bootnodes` flag for specifying IPFS bootnodes. If passed\nalong with `--ipfs-server`, the node will register as a content provider\nin IPFS DHT of indexed transactions with BLAKE2b hashes of the last two\nweeks (or pruning depth if smaller).\n\n## Follow-ups\n- Support other hashes (sha2-256 specifically) and CID codecs\n- Adjust `IPFS_MAX_BLOCKS` for chains with elastic scaling\n- Speedup DHT publishing in litep2p (should aim at 10s single provider\npublish time)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-25T09:36:33Z",
-          "tree_id": "40c3531a33f769a8ab358681c7f0f821ac1c0c1f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1866a5de1d89429ff43f114606f2aa69ffa9a0ae"
-        },
-        "date": 1774436434153,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00976930733999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00267538273,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010917725190000007,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010786272320000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2d06e303b93c5a4efb5098f71256a15870231d76",
+          "message": "grandpa: don't gossip commits that don't advance finality (#13358)\n\n## Description\n\nMultiple voters can issue a commit for the same round, and several can\npass gossip validation before any is processed, since validation only\ncompares against the height noted after processing. Each was then\ngossiped, so peers got the same finality proof more than once.\n\nNow a processed commit is gossiped only if it advanced finalized height\n(`note_commit_finalized` returns whether it did); otherwise it's logged\nat debug level. Nothing is lost: the commit for our best height is\nalready in the gossip store and keeps being rebroadcast.\n\nThe dropped commit is still marked as known via a new\n`GossipEngine::mark_message_known` (`sc-network-gossip`), which records\na message as known without storing or propagating it.\n\nFound while working on #13318\n(https://github.com/paritytech/smoldot/issues/3375), but independent of\nit.\n\n## Tests\n\n- `note_commit_finalized_reports_whether_finality_advanced`\n- `duplicate_commit_is_not_relayed`",
+          "timestamp": "2026-10-01T20:18:07Z",
+          "tree_id": "947c8d9ae82ee1d6aa11cf8dc482d8b7dc3494d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2d06e303b93c5a4efb5098f71256a15870231d76"
+        },
+        "date": 1790891579696,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00250400202,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010114529709999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009226590239999981,
             "unit": "seconds"
           }
         ]
