@@ -127,18 +127,29 @@ pub enum StorageChanges<Block: BlockT> {
 	Import(ImportedState<Block>),
 }
 
-/// Imported state data. A vector of key-value pairs that should form a trie.
+/// Imported state data.
 #[derive(PartialEq, Eq, Clone)]
-pub struct ImportedState<B: BlockT> {
-	/// Target block hash.
-	pub block: B::Hash,
-	/// State keys and values.
-	pub state: sp_state_machine::KeyValueStates,
+pub enum ImportedState<B: BlockT> {
+	/// A vector of key-value pairs that should form a trie.
+	KeyValues {
+		/// Target block hash.
+		block: B::Hash,
+		/// State keys and values.
+		state: sp_state_machine::KeyValueStates,
+	},
+	/// The trie nodes were already written to the database by state sync. The import only
+	/// checks that the state is complete and marks it as available.
+	Proof,
 }
 
 impl<B: BlockT> std::fmt::Debug for ImportedState<B> {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		fmt.debug_struct("ImportedState").field("block", &self.block).finish()
+		match self {
+			Self::KeyValues { block, .. } => {
+				fmt.debug_struct("ImportedState::KeyValues").field("block", block).finish()
+			},
+			Self::Proof => fmt.debug_struct("ImportedState::Proof").finish(),
+		}
 	}
 }
 

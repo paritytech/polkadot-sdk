@@ -274,7 +274,7 @@ where
 					return ImportResult::BadResponse;
 				},
 			};
-			let (values, completed) = match self.client.verify_range_proof(
+			let (values, completed, _nodes) = match self.client.verify_range_proof(
 				self.metadata.target_root(),
 				proof,
 				self.metadata.last_key.as_slice(),
@@ -308,7 +308,10 @@ where
 			ImportResult::Import(
 				target_hash,
 				self.metadata.target_header.clone(),
-				ImportedState { block: target_hash, state: std::mem::take(&mut self.state).into() },
+				ImportedState::KeyValues {
+					block: target_hash,
+					state: std::mem::take(&mut self.state).into(),
+				},
 				self.metadata.target_body.clone(),
 				self.metadata.target_justifications.clone(),
 			)

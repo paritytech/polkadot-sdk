@@ -2612,6 +2612,11 @@ impl BlockNumberProvider for () {
 	}
 }
 
+/// `PartialState` instantiation for `Block`.
+/// Resolves circular dependency on `sp-trie`.
+#[cfg(feature = "std")]
+pub type PartialStateFor<B> = sp_trie::partial_state::PartialState<HashingFor<B>, NumberFor<B>>;
+
 #[cfg(test)]
 mod tests {
 	use super::*;

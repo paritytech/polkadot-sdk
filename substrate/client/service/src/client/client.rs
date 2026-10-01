@@ -40,12 +40,13 @@ use sc_client_api::{
 	},
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
-	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
-	PrefetchedIndexedTransactions, ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage,
-	UsageProvider,
+	CallExecutor, DecodedCompactProof, ExecutorProvider, KeysIter, OnFinalityAction,
+	OnImportAction, PairsIter, PrefetchedIndexedTransactions, ProofProvider, StaleBlock,
+	TrieCacheContext, UnpinWorkerMessage, UsageProvider,
 };
 use sc_consensus::{
-	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
+	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, ImportedState,
+	StateAction,
 };
 use sc_executor::RuntimeVersion;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
@@ -626,9 +627,18 @@ where
 
 				Some((main_sc, child_sc))
 			},
-			Some(sc_consensus::StorageChanges::Import(changes)) => {
+			Some(sc_consensus::StorageChanges::Import(ImportedState::Proof)) => {
+				let state_root = *import_headers.post().state_root();
+				self.backend.check_have_complete_state(state_root)?;
+				operation.op.set_partial_state_completed();
+				None
+			},
+			Some(sc_consensus::StorageChanges::Import(ImportedState::KeyValues {
+				state: changes_state,
+				..
+			})) => {
 				let mut storage = sp_storage::Storage::default();
-				for state in changes.state.0.into_iter() {
+				for state in changes_state.0.into_iter() {
 					if state.parent_storage_keys.is_empty() && state.state_root.is_empty() {
 						for (key, value) in state.key_values.into_iter() {
 							storage.top.insert(key, value);
@@ -1384,7 +1394,7 @@ where
 		root: Block::Hash,
 		proof: CompactProof,
 		start_key: &[Vec<u8>],
-	) -> sp_blockchain::Result<(KeyValueStates, usize)> {
+	) -> sp_blockchain::Result<(KeyValueStates, usize, DecodedCompactProof<HashingFor<Block>>)> {
 		let mut db = sp_state_machine::MemoryDB::<HashingFor<Block>>::new(&[]);
 		// Compact encoding
 		sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>>, _, _>(
@@ -1394,12 +1404,11 @@ where
 		)
 		.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))?;
 		let proving_backend = sp_state_machine::TrieBackendBuilder::new(db, root).build();
-		let state = read_range_proof_check_with_child_on_proving_backend::<HashingFor<Block>>(
-			&proving_backend,
-			start_key,
-		)?;
-
-		Ok(state)
+		let (key_values, completed) = read_range_proof_check_with_child_on_proving_backend::<
+			HashingFor<Block>,
+		>(&proving_backend, start_key)?;
+		let db = proving_backend.into_storage();
+		Ok((key_values, completed, db))
 	}
 }
 

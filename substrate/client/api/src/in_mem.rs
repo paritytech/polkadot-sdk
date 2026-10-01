@@ -25,13 +25,14 @@ use sp_core::{
 };
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor, Zero},
+	traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor, PartialStateFor, Zero},
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
 	Backend as StateBackend, BackendTransaction, ChildStorageCollection, InMemoryBackend,
-	IndexOperation, StorageCollection,
+	IndexOperation, StorageCollection, TrieBackendBuilder,
 };
+use sp_trie::{partial_state::PartialStatePrefixerPerBlock, PrefixedMemoryDB};
 use std::{
 	collections::{HashMap, HashSet},
 	ptr,
@@ -559,6 +560,12 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		self.apply_storage(storage, true, state_version)
 	}
 
+	fn set_partial_state_completed(&mut self) {
+		// Don't need to do anything,
+		// because in-memory backend doesn't mark blocks with state
+		// like `sc-client-db` backend does.
+	}
+
 	fn insert_aux<I>(&mut self, ops: I) -> sp_blockchain::Result<()>
 	where
 		I: IntoIterator<Item = (Vec<u8>, Option<Vec<u8>>)>,
@@ -612,10 +619,11 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 /// > **Warning**: Doesn't support all the features necessary for a proper database. Only use this
 /// > struct for testing purposes. Do **NOT** use in production.
 pub struct Backend<Block: BlockT> {
-	states: RwLock<HashMap<Block::Hash, InMemoryBackend<HashingFor<Block>>>>,
+	state_db: RwLock<PrefixedMemoryDB<HashingFor<Block>>>,
 	blockchain: Blockchain<Block>,
 	import_lock: RwLock<()>,
 	pinned_blocks: RwLock<HashMap<Block::Hash, i64>>,
+	partial_state_tracking: RwLock<PartialStatePrefixerPerBlock<HashingFor<Block>>>,
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -626,10 +634,11 @@ impl<Block: BlockT> Backend<Block> {
 	/// For testing purposes only!
 	pub fn new() -> Self {
 		Backend {
-			states: RwLock::new(HashMap::new()),
+			state_db: RwLock::new(Default::default()),
 			blockchain: Blockchain::new(),
 			import_lock: Default::default(),
 			pinned_blocks: Default::default(),
+			partial_state_tracking: Default::default(),
 		}
 	}
 
@@ -699,17 +708,13 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		}
 
 		if let Some(pending_block) = operation.pending_block {
-			let old_state = &operation.old_state;
 			let (header, body, justification) = pending_block.block.into_inner();
 
 			let hash = header.hash();
 
-			let new_state = match operation.new_state {
-				Some(state) => old_state.update_backend(*header.state_root(), state),
-				None => old_state.clone(),
-			};
-
-			self.states.write().insert(hash, new_state);
+			if let Some(new_state) = operation.new_state {
+				self.state_db.write().consolidate(new_state);
+			}
 
 			self.blockchain.insert(
 				hash,
@@ -769,11 +774,17 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 			return Ok(Self::State::default());
 		}
 
-		self.states
-			.read()
-			.get(&hash)
-			.cloned()
-			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{}", hash)))
+		let header = self
+			.blockchain
+			.header(hash)?
+			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{hash}")))?;
+
+		Ok(TrieBackendBuilder::new(self.state_db.read().clone(), *header.state_root()).build())
+	}
+
+	fn check_have_complete_state(&self, state_root: Block::Hash) -> sp_blockchain::Result<()> {
+		let state = TrieBackendBuilder::new(self.state_db.read().clone(), state_root).build();
+		crate::partial_state::check_have_complete_state(state)
 	}
 
 	fn revert(
@@ -794,6 +805,19 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 
 	fn requires_full_sync(&self) -> bool {
 		false
+	}
+
+	fn import_partial_state(
+		&self,
+		partial_state: PartialStateFor<Block>,
+	) -> sp_blockchain::Result<()> {
+		let prefixed = self
+			.partial_state_tracking
+			.write()
+			.import(partial_state)
+			.map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
+		self.state_db.write().consolidate(prefixed);
+		Ok(())
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> blockchain::Result<()> {
@@ -829,9 +853,18 @@ pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {
 
 #[cfg(test)]
 mod tests {
-	use crate::{in_mem::Blockchain, NewBlockState};
+	use crate::{
+		backend::{Backend as ScClientApiBackend, BlockImportOperation},
+		in_mem::{BlockT, Blockchain},
+		NewBlockState, TrieCacheContext,
+	};
 	use sp_blockchain::Backend;
-	use sp_runtime::{traits::Header as HeaderT, ConsensusEngineId, Justifications};
+	use sp_runtime::{
+		traits::{HashingFor, Header as HeaderT},
+		ConsensusEngineId, Justifications,
+	};
+	use sp_state_machine::Backend as SpStateMachineBackend;
+	use sp_trie::{partial_state::PartialState, LayoutV0, MemoryDB, TrieDBMutBuilder, TrieMut};
 	use substrate_test_runtime::{Block, Header, H256};
 
 	pub const ID1: ConsensusEngineId = *b"TST1";
@@ -896,5 +929,56 @@ mod tests {
 			blockchain.append_justification(last_finalized, (ID2, vec![1])),
 			Err(sp_blockchain::Error::BadJustification(_)),
 		));
+	}
+
+	#[test]
+	fn import_partial_state() {
+		let expected_key_values =
+			vec![(vec![0u8; 40], vec![0u8; 1]), (vec![1u8; 40], vec![1u8; 1])];
+
+		let mut partial_state = MemoryDB::default();
+		let mut state_root: <Block as BlockT>::Hash = Default::default();
+		let mut trie = TrieDBMutBuilder::<LayoutV0<HashingFor<Block>>>::new(
+			&mut partial_state,
+			&mut state_root,
+		)
+		.build();
+		for (k, v) in &expected_key_values {
+			trie.insert(k, v).unwrap();
+		}
+		trie.commit();
+		drop(trie);
+
+		let header = Header {
+			number: 1,
+			parent_hash: Default::default(),
+			state_root,
+			digest: Default::default(),
+			extrinsics_root: Default::default(),
+		};
+		let backend = super::Backend::<Block>::new();
+		backend
+			.import_partial_state(PartialState {
+				block_hash: header.hash(),
+				block_number: header.number,
+				state_root: header.state_root,
+				nodes: partial_state,
+			})
+			.unwrap();
+
+		let mut op = backend.begin_operation().unwrap();
+		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)
+			.unwrap();
+		op.set_partial_state_completed();
+		backend.commit_operation(op).unwrap();
+
+		let key_values: Vec<_> = backend
+			.state_at(header.hash(), TrieCacheContext::Untrusted)
+			.unwrap()
+			.pairs(Default::default())
+			.unwrap()
+			.map(Result::unwrap)
+			.collect();
+		assert_eq!(key_values, expected_key_values);
 	}
 }
