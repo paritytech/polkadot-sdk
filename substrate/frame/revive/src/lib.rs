@@ -54,7 +54,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	access_list::{CodeLoadItems, StorageOp, Summarized, Warmth},
+	access_list::{CodeLoadItems, StorageItems, StorageOp, Summarized, Warmth},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		StateOverrideSet, TYPE_EIP1559, TYPE_EIP7702, Tracer, TracerType,
@@ -1119,7 +1119,7 @@ pub mod pallet {
 					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
-						kind: StorageAccessKind::Persistent(Summarized::new_single(
+						kind: StorageAccessKind::Persistent(StorageItems::summarize_single(
 							Warmth::cold_revertible(),
 							StorageOp::Write,
 						)),

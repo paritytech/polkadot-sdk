@@ -213,8 +213,10 @@ impl Warmth {
 }
 
 /// An access's entries counted by warmth.
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct WarmthSummary {
+	/// The family of the access's keys.
+	key: KeyFamily,
 	/// How many entries in total.
 	total: u32,
 	/// How many are cold.
@@ -226,6 +228,16 @@ pub struct WarmthSummary {
 }
 
 impl WarmthSummary {
+	/// Builds a summary with nothing counted yet, for an access with keys of the given family.
+	pub fn new(key: KeyFamily) -> Self {
+		Self { key, total: 0, cold: 0, cold_revertible: 0, upgrades: 0 }
+	}
+
+	/// Returns the family of the access's keys.
+	pub fn key(&self) -> KeyFamily {
+		self.key
+	}
+
 	/// Counts one entry, at the operation performed on it.
 	pub fn count(mut self, warmth: Warmth, op: StorageOp) -> Self {
 		self.total = self.total.saturating_add(1);
@@ -310,7 +322,7 @@ impl<W> Summarized<W> {
 		access: A,
 		mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth,
 	) -> Self {
-		let mut summary = WarmthSummary::default();
+		let mut summary = WarmthSummary::new(A::KEY_FAMILY);
 		let entries = access.expand(|entry, op| {
 			let warmth = visit(entry, op);
 			summary = summary.count(warmth, op);
@@ -338,9 +350,9 @@ impl<W> Summarized<W> {
 }
 
 impl Summarized<Warmth> {
-	/// Builds the warmth of a single entry, at the operation performed on it.
-	pub fn new_single(warmth: Warmth, op: StorageOp) -> Self {
-		Self { entries: warmth, summary: WarmthSummary::default().count(warmth, op) }
+	/// Builds the warmth of one entry of the given key family, at the operation performed on it.
+	pub fn from_warmth(key: KeyFamily, warmth: Warmth, op: StorageOp) -> Self {
+		Self { entries: warmth, summary: WarmthSummary::new(key).count(warmth, op) }
 	}
 
 	/// Returns the same warmth with the rollback dropped, for a peek that touched nothing.
@@ -527,10 +539,11 @@ impl Access for TransferItems {
 	}
 }
 
-/// A create writes the account and the account info at `address`.
+/// An instantiate's access: the new contract's account and info, and the deployer's nonce.
 #[derive(Clone, Copy, Debug)]
 pub struct CreateItems {
 	pub address: H160,
+	pub creator: H160,
 }
 
 impl Access for CreateItems {
@@ -540,23 +553,10 @@ impl Access for CreateItems {
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) {
 		visit(AccessEntry::Account { address: self.address }, StorageOp::Write);
 		visit(AccessEntry::AccountInfo { address: self.address }, StorageOp::Write);
-	}
-}
-
-impl CreateItems {
-	/// Returns the summary of the entries a contract creation warms. Each is cold, since the new
-	/// contract and its code do not exist yet, and revertible, the costlier variant.
-	pub fn warming_summary(stores_code: bool) -> WarmthSummary {
-		let mut summary = WarmthSummary::default();
-		let mut count = |_entry: AccessEntry, op: StorageOp| {
-			summary = summary.count(Warmth::cold_revertible(), op);
-			Warmth::cold_revertible()
-		};
-		CreateItems { address: H160::zero() }.expand(&mut count);
-		if stores_code {
-			CodeLoadItems { hash: H256::zero() }.expand(&mut count);
-		}
-		summary
+		// Not read by the instantiate, since a new address has no mapping. The instantiate
+		// benches read it, so a call finding it hot is paid for.
+		visit(AccessEntry::OriginalAccount { address: self.address }, StorageOp::Read);
+		visit(AccessEntry::Account { address: self.creator }, StorageOp::Write);
 	}
 }
 
@@ -598,6 +598,11 @@ impl StorageItems {
 	/// Builds the items `op` touches on `address`'s storage slot `key`.
 	pub fn new(address: H160, key: &Key, op: StorageOp) -> Self {
 		Self { key: ContractSlot { slot: key.into(), address }, op }
+	}
+
+	/// Counts one slot's warmth, at the operation performed on it.
+	pub fn summarize_single(warmth: Warmth, op: StorageOp) -> Summarized<Warmth> {
+		Summarized::from_warmth(Self::KEY_FAMILY, warmth, op)
 	}
 }
 

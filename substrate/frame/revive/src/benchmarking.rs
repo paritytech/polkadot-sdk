@@ -3039,6 +3039,8 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
+			// Charges for the `OriginalAccount` entry the instantiate warms but never reads.
+			let _ = T::AddressMapper::to_account_id(&addr);
 			result = runtime.bench_instantiate(
 				memory.as_mut_slice(),
 				u64::MAX,                                           // ref_time_limit
@@ -3074,6 +3076,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
 		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(caller_funding::<T>());
+		let deployer = setup.contract().address;
 
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
@@ -3088,6 +3091,7 @@ mod benchmarks {
 		let _ = interpreter.memory.resize(0, init_code.len());
 		let salt = U256::from(42u64);
 		interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
+		let addr = crate::address::create2(&deployer, &init_code, &[], &salt.to_big_endian());
 
 		// Setup stack for create instruction [value, offset, size, salt]
 		let _ = interpreter.stack.push(salt);
@@ -3098,6 +3102,8 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
+			// Charges for the `OriginalAccount` entry the instantiate warms but never reads.
+			let _ = T::AddressMapper::to_account_id(&addr);
 			result = instructions::contract::create::<true, _>(&mut interpreter);
 		}
 

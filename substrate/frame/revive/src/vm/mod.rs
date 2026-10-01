@@ -27,7 +27,7 @@ pub use runtime_costs::{RuntimeCosts, StorageAccessKind, TransferAccessKind};
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
-	access_list::{Access, CodeLoadItems, CodeLoadWarmth, Summarized},
+	access_list::{CodeLoadWarmth, Summarized},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
@@ -132,7 +132,6 @@ impl CodeLoadToken {
 	fn flat<T: Config>(warmth: Summarized<CodeLoadWarmth>) -> Weight {
 		runtime_costs::weight_from_warmth_summary::<T>(
 			warmth.summary(),
-			CodeLoadItems::KEY_FAMILY,
 			T::WeightInfo::code_load,
 			// Nothing on top of the base hot access.
 			Weight::zero,
@@ -448,7 +447,7 @@ pub(crate) fn exec_error_into_return_code<E: Ext>(
 mod tests {
 	use super::*;
 	use crate::{
-		access_list::Warmth,
+		access_list::{CodeLoadItems, Warmth},
 		metering::TransactionMeter,
 		test_utils::ALICE,
 		tests::{ExtBuilder, Test},

@@ -17,10 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{
-		Access, CallItems, CallWarmth, CreateItems, KeyFamily, StorageItems, Summarized,
-		TransferWarmth, Warmth, WarmthSummary,
-	},
+	access_list::{CallWarmth, KeyFamily, Summarized, TransferWarmth, Warmth, WarmthSummary},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -135,20 +132,12 @@ pub enum RuntimeCosts {
 	CallTransferSurcharge(TransferAccessKind),
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
-	/// Weight of calling `seal_instantiate`, and of warming the entries in `warming_summary`.
-	Instantiate {
-		input_data_len: u32,
-		balance_transfer: bool,
-		dust_transfer: bool,
-		warming_summary: WarmthSummary,
-	},
-	/// Weight of calling `Create` opcode, and of warming the entries in `warming_summary`.
-	Create {
-		init_code_len: u32,
-		balance_transfer: bool,
-		dust_transfer: bool,
-		warming_summary: WarmthSummary,
-	},
+	/// Weight of calling `seal_instantiate`.
+	Instantiate { input_data_len: u32, balance_transfer: bool, dust_transfer: bool },
+	/// Weight of calling `Create` opcode.
+	Create { init_code_len: u32, balance_transfer: bool, dust_transfer: bool },
+	/// Weight of registering the accesses counted in the summary in the access list.
+	AccessListRegistration(WarmthSummary),
 	/// Weight of calling `Ripemd160` precompile for the given input size.
 	Ripemd160(u32),
 	/// Weight of calling `Sha256` precompile for the given input size.
@@ -250,8 +239,8 @@ impl RuntimeCosts {
 	}
 
 	/// Computes the overhead the access list adds to one touch.
-	pub fn access_list_overhead<T: Config>(summary: WarmthSummary, key: KeyFamily) -> Weight {
-		let [cold_full, cold_base, hot_full, hot_base]: [fn() -> Weight; 4] = match key {
+	pub fn access_list_overhead<T: Config>(summary: WarmthSummary) -> Weight {
+		let [cold_full, cold_base, hot_full, hot_base]: [fn() -> Weight; 4] = match summary.key() {
 			KeyFamily::Slot => [
 				T::WeightInfo::access_list_touch_cold_full,
 				T::WeightInfo::access_list_touch_cold_empty,
@@ -303,13 +292,11 @@ impl Summarized<CallWarmth> {
 		match self.entries() {
 			CallWarmth::Plain { .. } => weight_from_warmth_summary::<T>(
 				self.summary(),
-				CallItems::KEY_FAMILY,
 				|| T::WeightInfo::seal_call(0, 0, 0),
 				T::WeightInfo::seal_call_hot,
 			),
 			CallWarmth::Delegate { .. } => weight_from_warmth_summary::<T>(
 				self.summary(),
-				CallItems::KEY_FAMILY,
 				T::WeightInfo::seal_delegate_call,
 				T::WeightInfo::seal_delegate_call_hot,
 			),
@@ -323,7 +310,6 @@ impl Summarized<CallWarmth> {
 /// access list's own costs come on top, entry by entry.
 pub fn weight_from_warmth_summary<T: Config>(
 	summary: WarmthSummary,
-	key: KeyFamily,
 	cold: impl FnOnce() -> Weight,
 	hot: impl FnOnce() -> Weight,
 ) -> Weight {
@@ -339,7 +325,7 @@ pub fn weight_from_warmth_summary<T: Config>(
 		cold()
 	};
 	operation_weight
-		.saturating_add(RuntimeCosts::access_list_overhead::<T>(summary, key))
+		.saturating_add(RuntimeCosts::access_list_overhead::<T>(summary))
 		.saturating_add(RuntimeCosts::write_surcharge::<T>(summary))
 }
 
@@ -366,12 +352,9 @@ impl StorageAccessKind {
 		transient: impl FnOnce() -> Weight,
 	) -> Weight {
 		match self {
-			Self::Persistent(warmth) => weight_from_warmth_summary::<T>(
-				warmth.summary(),
-				StorageItems::KEY_FAMILY,
-				cold,
-				hot,
-			),
+			Self::Persistent(warmth) => {
+				weight_from_warmth_summary::<T>(warmth.summary(), cold, hot)
+			},
 			Self::Transient => transient(),
 		}
 	}
@@ -489,40 +472,30 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				let cold = || cost_args!(seal_call, 1, dust, 0);
 				match transfer {
 					TransferAccessKind::Untracked { .. } => cold(),
-					TransferAccessKind::Tracked(warmth) => weight_from_warmth_summary::<T>(
-						warmth.summary(),
-						CallItems::KEY_FAMILY,
-						cold,
-						|| {
+					TransferAccessKind::Tracked(warmth) => {
+						weight_from_warmth_summary::<T>(warmth.summary(), cold, || {
 							T::WeightInfo::seal_call_transfer_hot(dust)
 								.saturating_sub(T::WeightInfo::seal_call_hot())
-						},
-					),
+						})
+					},
 				}
 			},
 			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
-			Instantiate { input_data_len, balance_transfer, dust_transfer, warming_summary } => {
+			Instantiate { input_data_len, balance_transfer, dust_transfer } => {
 				T::WeightInfo::seal_instantiate(
 					balance_transfer.into(),
 					dust_transfer.into(),
 					input_data_len,
 				)
-				.saturating_add(Self::access_list_overhead::<T>(
-					warming_summary,
-					CreateItems::KEY_FAMILY,
-				))
 			},
-			Create { init_code_len, balance_transfer, dust_transfer, warming_summary } => {
+			Create { init_code_len, balance_transfer, dust_transfer } => {
 				T::WeightInfo::evm_instantiate(
 					balance_transfer.into(),
 					dust_transfer.into(),
 					init_code_len,
 				)
-				.saturating_add(Self::access_list_overhead::<T>(
-					warming_summary,
-					CreateItems::KEY_FAMILY,
-				))
 			},
+			AccessListRegistration(summary) => Self::access_list_overhead::<T>(summary),
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
@@ -556,7 +529,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 mod tests {
 	use super::*;
 	use crate::{
-		access_list::{StorageOp, TransferItems},
+		access_list::{Access, CallItems, StorageItems, StorageOp, TransferItems},
 		tests::Test,
 	};
 	use alloc::{vec, vec::Vec};
@@ -574,8 +547,9 @@ mod tests {
 		let cold_revertible = Warmth::cold_revertible();
 		let hot_warmths = [Warmth::read_paid(), Warmth::write_paid()];
 
-		let persistent =
-			|warmth| move |op| StorageAccessKind::Persistent(Summarized::new_single(warmth, op));
+		let persistent = |warmth| {
+			move |op| StorageAccessKind::Persistent(StorageItems::summarize_single(warmth, op))
+		};
 		let transient = |_op| StorageAccessKind::Transient;
 		let with_kind = |kind: &dyn Fn(StorageOp) -> StorageAccessKind| -> Vec<RuntimeCosts> {
 			vec![
@@ -662,7 +636,7 @@ mod tests {
 
 		let surcharge_of = |warmth| {
 			RuntimeCosts::write_surcharge::<Test>(
-				WarmthSummary::default().count(warmth, StorageOp::Write),
+				WarmthSummary::new(StorageItems::KEY_FAMILY).count(warmth, StorageOp::Write),
 			)
 		};
 		let write_surcharge = surcharge_of(Warmth::read_paid());
@@ -681,8 +655,10 @@ mod tests {
 		let read_paid_slot = Warmth::read_paid();
 		let write_paid_slot = Warmth::write_paid();
 		let write_costs = |warmth| {
-			let kind =
-				StorageAccessKind::Persistent(Summarized::new_single(warmth, StorageOp::Write));
+			let kind = StorageAccessKind::Persistent(StorageItems::summarize_single(
+				warmth,
+				StorageOp::Write,
+			));
 			[
 				RuntimeCosts::SetStorage { new_bytes: LEN, old_bytes: LEN, kind },
 				RuntimeCosts::ClearStorage { len: LEN, kind },
@@ -700,8 +676,10 @@ mod tests {
 		}
 
 		let read_costs = |warmth| {
-			let kind =
-				StorageAccessKind::Persistent(Summarized::new_single(warmth, StorageOp::Read));
+			let kind = StorageAccessKind::Persistent(StorageItems::summarize_single(
+				warmth,
+				StorageOp::Read,
+			));
 			[
 				RuntimeCosts::GetStorage { len: LEN, kind },
 				RuntimeCosts::ContainsStorage { len: LEN, kind },
@@ -732,10 +710,11 @@ mod tests {
 		let cold_bench = || Weight::from_parts(1_000_000, 500);
 		let hot_bench = || Weight::from_parts(10_000, 7);
 		let price = |items: &[Warmth]| {
-			let summary = items.iter().fold(WarmthSummary::default(), |summary, warmth| {
-				summary.count(*warmth, StorageOp::Read)
-			});
-			weight_from_warmth_summary::<Test>(summary, KeyFamily::Slot, cold_bench, hot_bench)
+			let summary =
+				items.iter().fold(WarmthSummary::new(KeyFamily::Slot), |summary, warmth| {
+					summary.count(*warmth, StorageOp::Read)
+				});
+			weight_from_warmth_summary::<Test>(summary, cold_bench, hot_bench)
 		};
 		let hot = Warmth::read_paid();
 		let cold = Warmth::cold_non_revertible();
@@ -843,7 +822,7 @@ mod tests {
 		};
 
 		let per_item_write_surcharge = RuntimeCosts::write_surcharge::<Test>(
-			WarmthSummary::default().count(read_paid, StorageOp::Write),
+			WarmthSummary::new(StorageItems::KEY_FAMILY).count(read_paid, StorageOp::Write),
 		);
 		let value_transfer_write_paid = weight_of(true, write_paid, write_paid);
 
@@ -867,51 +846,13 @@ mod tests {
 	}
 
 	#[test]
-	fn a_contract_creation_pays_for_warming_what_it_creates() {
-		let instantiate = |warming_summary| RuntimeCosts::Instantiate {
-			input_data_len: 0,
-			balance_transfer: false,
-			dust_transfer: false,
-			warming_summary,
-		};
-		let create = |warming_summary| RuntimeCosts::Create {
-			init_code_len: 0,
-			balance_transfer: false,
-			dust_transfer: false,
-			warming_summary,
-		};
-		let no_warming = WarmthSummary::default();
-		let some_warming = CreateItems::warming_summary(false);
-
-		assert_eq!(
-			weight(&instantiate(no_warming)),
-			<Test as Config>::WeightInfo::seal_instantiate(0, 0, 0),
-			"with no warming to charge, an instantiate costs only its bench",
-		);
-		assert_eq!(
-			weight(&create(no_warming)),
-			<Test as Config>::WeightInfo::evm_instantiate(0, 0, 0),
-			"with no warming to charge, a CREATE costs only its bench",
-		);
-		assert!(
-			weight(&instantiate(some_warming)).ref_time() >
-				weight(&instantiate(no_warming)).ref_time(),
-			"an instantiate charges for warming on top of its bench",
-		);
-		assert!(
-			weight(&create(some_warming)).ref_time() > weight(&create(no_warming)).ref_time(),
-			"a CREATE charges for warming on top of its bench",
-		);
-	}
-
-	#[test]
 	fn derived_overheads_stay_positive() {
 		let cold = Warmth::cold_non_revertible();
 		let hot = Warmth::read_paid();
 		let overlay = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
 		let touch_overhead = |warmth, key| {
-			let summary = WarmthSummary::default().count(warmth, StorageOp::Read);
-			RuntimeCosts::access_list_overhead::<Test>(summary, key)
+			let summary = WarmthSummary::new(key).count(warmth, StorageOp::Read);
+			RuntimeCosts::access_list_overhead::<Test>(summary)
 		};
 		let derived = [
 			("cold slot touch", touch_overhead(cold, KeyFamily::Slot)),

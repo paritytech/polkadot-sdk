@@ -18,13 +18,16 @@
 //! Which state entries the access list finds cold or hot, on both vms.
 
 use crate::{
-	BalanceOf, Code, Config,
+	BalanceOf, Code, Config, Weight,
 	access_list::{Access, AccessListMetrics, CallItems, CodeLoadItems, CreateItems},
 	limits,
 	test_utils::{ALICE, builder::Contract},
 	tests::{ExtBuilder, RuntimeOrigin, Test, access_list_metrics_of, builder},
 };
-use alloy_core::sol_types::SolCall;
+use alloy_core::{
+	primitives::Address,
+	sol_types::{SolCall, SolValue},
+};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
 	CallEach, CallThenRevert, Caller, Counter, Factory, FixtureType, Recurse,
@@ -366,7 +369,11 @@ fn a_contract_creation_warms_the_new_contract(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		// solc stores `ReceivingChild`'s code on the first contract creation; resolc uploaded it.
 		let stores_code = matches!(fixture_type, FixtureType::Solc);
-		let expected_extra_entries = CreateItems::warming_summary(stores_code).total() as usize;
+		let code_entries =
+			if stores_code { CodeLoadItems { hash: H256::zero() }.entry_count() } else { 0 };
+		let expected_extra_entries = (CreateItems { address: H160::zero(), creator: H160::zero() }
+			.entry_count() +
+			code_entries) as usize;
 
 		let factory = deploy_factory(fixture_type);
 		let size_after = |data: Vec<u8>| {
@@ -388,7 +395,8 @@ fn a_contract_creation_warms_the_new_contract(fixture_type: FixtureType) {
 #[test_case(FixtureType::Resolc; "pvm")]
 fn a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
-		let expected_extra_entries = CreateItems { address: H160::zero() }.entry_count() as usize;
+		let expected_extra_entries =
+			CreateItems { address: H160::zero(), creator: H160::zero() }.entry_count() as usize;
 		let expected_failed_extra_entries = if fixture_type == FixtureType::Resolc {
 			// The caller loads the code by hash in its own frame, so the revert does not drop it.
 			CodeLoadItems { hash: H256::zero() }.entry_count() as usize
@@ -420,10 +428,11 @@ fn a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType)
 #[test]
 fn newly_stored_code_is_hot_for_the_next_call() {
 	ExtBuilder::default().build().execute_with(|| {
-		let created_account_info = 1; // the child's AccountInfo, warmed by the contract creation
+		// The child's AccountInfo and address mapping, both warmed by the contract creation.
+		let created_entries = 2;
 		let code_load = CodeLoadItems { hash: H256::zero() }.entry_count();
-		let stores_the_code_expected_hot = code_load + created_account_info;
-		let finds_the_code_stored_expected_hot = created_account_info;
+		let stores_the_code_expected_hot = code_load + created_entries;
+		let finds_the_code_stored_expected_hot = created_entries;
 
 		let factory = deploy_factory(FixtureType::Solc);
 		let create_then_call = || {
@@ -440,7 +449,7 @@ fn newly_stored_code_is_hot_for_the_next_call() {
 		let stores_the_code = create_then_call();
 		let finds_the_code_stored = create_then_call();
 
-		// Both find the child's AccountInfo hot; only the first stores and warms the code.
+		// Both find the child's entries hot; only the first stores and warms the code.
 		assert_eq!(stores_the_code.hot, stores_the_code_expected_hot);
 		assert_eq!(finds_the_code_stored.hot, finds_the_code_stored_expected_hot);
 		assert_eq!(
@@ -457,13 +466,13 @@ fn a_created_contract_is_warm_for_the_rest_of_the_transaction(fixture_type: Fixt
 		let (expected_child_call_cold, expected_child_call_hot) =
 			if fixture_type == FixtureType::Resolc {
 				// Instantiating from a code hash loads the code, which warms it.
-				(1, 3) // cold: OriginalAccount; hot: AccountInfo, CodeInfo, CodeBlob
+				(0, 4) // hot: OriginalAccount, AccountInfo, CodeInfo, CodeBlob
 			} else {
 				// The code is already stored, so CREATE never reads it and it stays cold.
-				(3, 1) // cold: OriginalAccount, CodeInfo, CodeBlob; hot: AccountInfo
+				(2, 2) // cold: CodeInfo, CodeBlob; hot: OriginalAccount, AccountInfo
 			};
-		let expected_transfer_cold = 1; // creator's Account
-		let expected_transfer_hot = 3; // child's Account, AccountInfo; creator's AccountInfo
+		let expected_transfer_cold = 0; // the create already wrote the creator's Account
+		let expected_transfer_hot = 4; // both parties' Account and AccountInfo
 
 		let factory = deploy_factory(fixture_type);
 		let metrics_of = |data: Vec<u8>| {
@@ -495,4 +504,51 @@ fn a_created_contract_is_warm_for_the_rest_of_the_transaction(fixture_type: Fixt
 		assert_eq!(actual_transfer_cold, expected_transfer_cold);
 		assert_eq!(actual_transfer_hot, expected_transfer_hot);
 	});
+}
+
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn a_call_to_a_created_contract_is_charged_hot(fixture_type: FixtureType) {
+	let with_fresh_factory = |run: &dyn Fn(H160) -> (Weight, Option<H160>)| {
+		ExtBuilder::default().build().execute_with(|| run(deploy_factory(fixture_type)))
+	};
+	let invoke_factory =
+		|factory_addr: H160, data: Vec<u8>| builder::bare_call(factory_addr).data(data).build();
+
+	let (create_weight, _) = with_fresh_factory(&|factory_addr| {
+		(invoke_factory(factory_addr, Factory::createCall {}.abi_encode()).weight_consumed, None)
+	});
+
+	let (create_then_call_weight, child_addr) = with_fresh_factory(&|factory_addr| {
+		let create_then_call = invoke_factory(
+			factory_addr,
+			Factory::createThenCallCall { value: 0u64.try_into().unwrap() }.abi_encode(),
+		);
+		let child_addr = Address::abi_decode(&create_then_call.result.unwrap().data).unwrap();
+		(create_then_call.weight_consumed, Some(child_addr.0.0.into()))
+	});
+	let child_addr = child_addr.unwrap();
+
+	let (noop_weight, _) = with_fresh_factory(&|factory_addr| {
+		(invoke_factory(factory_addr, Factory::noopCall {}.abi_encode()).weight_consumed, None)
+	});
+
+	let (call_child_weight, _) = with_fresh_factory(&|factory_addr| {
+		invoke_factory(factory_addr, Factory::createCall {}.abi_encode());
+		let call_child = Factory::callChildCall { child: child_addr.0.into() }.abi_encode();
+		(invoke_factory(factory_addr, call_child).weight_consumed, None)
+	});
+
+	let hot_call_weight = create_then_call_weight - create_weight;
+	let cold_call_weight = call_child_weight - noop_weight;
+
+	assert!(
+		hot_call_weight.all_lt(cold_call_weight),
+		"hot {hot_call_weight:?} should cost less than cold {cold_call_weight:?}",
+	);
+	assert_eq!(hot_call_weight.proof_size(), 0);
+	assert!(
+		cold_call_weight.ref_time() >= hot_call_weight.ref_time() + 100_000_000,
+		"cold {cold_call_weight:?} should cost at least 100M more ref time than hot {hot_call_weight:?}",
+	);
 }
