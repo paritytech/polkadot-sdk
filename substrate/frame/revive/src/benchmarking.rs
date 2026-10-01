@@ -4825,39 +4825,12 @@ mod benchmarks {
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_addmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
-		// 2^65 + 3
-		const MODULUS: U256 = U256([3, 2, 0, 0]);
+		use knuth_division_worst_case_operands::{DENOMINATORS, NUMERATOR};
 
-		let slow_addend = |rng: &mut Pcg64| {
-			let corrections = [1, rng.gen_range(1..=2), rng.gen_range(1..=2)].map(U256::from);
-			loop {
-				let mut addend = U256(rng.r#gen());
-				addend.0[3] |= 0xff << 56;
-				let quotient = addend / MODULUS;
-				let longest_estimates = quotient.bit(127) && quotient.bit(63);
-				// Division estimates each digit by dividing what remains of the addend by 2^65,
-				// the modulus without its lowest limb, and corrects the estimate down to the digit.
-				let addend_corrections = [2, 1, 0].map(|digit| {
-					let remainder = (addend >> (64 * digit)) % (MODULUS << 64);
-					remainder / (U256::one() << 65) - remainder / MODULUS
-				});
-				if longest_estimates && addend_corrections == corrections {
-					break addend;
-				}
-			}
-		};
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| {
-			let a = slow_addend(&mut rng);
-			let subtracts_modulus = rng.gen_bool(0.5);
-			let b = loop {
-				let b = slow_addend(&mut rng);
-				let sum_reaches_modulus = a % MODULUS + b % MODULUS >= MODULUS;
-				if sum_reaches_modulus == subtracts_modulus {
-					break b;
-				}
-			};
-			[MODULUS, b, a]
+			let modulus = DENOMINATORS.choose(&mut rng).copied().unwrap();
+			[modulus, NUMERATOR, NUMERATOR]
 		});
 
 		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
