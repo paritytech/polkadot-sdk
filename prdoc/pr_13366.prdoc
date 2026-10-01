@@ -8,6 +8,4 @@ crates:
   bump: minor
 - name: sc-network
   bump: minor
-- name: sc-network-bitswap
-  bump: minor
 
