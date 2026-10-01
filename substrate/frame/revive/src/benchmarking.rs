@@ -4387,14 +4387,9 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `OR` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Value Independence:** `OR` combines all four limbs of its operands with no branch that
-	///   depends on their values, so its work is the same whatever the values.
-	/// * **Chained Operations:** each `OR` combines the result of the previous one with its
-	///   operand. Every operand is `U256::MAX`, so every result is `U256::MAX` too.
-	/// * **Stack Initialization:** the `r` operands and the starting value are placed on the stack
-	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
 	///
 	/// # Subtraction Safety
 	///
