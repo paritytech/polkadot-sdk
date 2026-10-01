@@ -48,9 +48,9 @@ mod benchmarks {
 		allocations
 	}
 
-	fn create_asset<T: Config>(asset: T::AssetKind) {
+	fn create_asset<T: Config>(asset: NativeOrWithId<T::AssetKind>) {
 		let caller: T::AccountId = whitelisted_caller();
-		assert_ok!(T::Assets::create(asset, caller, false, T::Balance::one()));
+		assert_ok!(AllAssets::<T>::create(asset, caller, false, T::Balance::one()));
 	}
 
 	fn create_full_asset_allocations<T>() -> AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>
@@ -88,7 +88,11 @@ mod benchmarks {
 	}
 
 	fn mint_to_staging<T: Config>(asset: AssetKindOf<T>, amount: u32) {
-		assert_ok!(T::Assets::mint_into(asset, &Pallet::<T>::staging_account(), amount.into()));
+		assert_ok!(AllAssets::<T>::mint_into(
+			asset,
+			&Pallet::<T>::staging_account(),
+			amount.into()
+		));
 	}
 
 	fn assert_has_event<T: Config>(generic_event: crate::Event<T>) {
@@ -127,8 +131,8 @@ mod benchmarks {
 
 		// Mint ED.
 		for (_, recipient) in &recipients {
-			assert_ok!(T::Assets::mint_into(
-				T::NativeCurrencyAssetId::get(),
+			assert_ok!(AllAssets::<T>::mint_into(
+				NativeOrWithId::Native,
 				recipient,
 				T::Balance::from(100u32),
 			));
@@ -169,7 +173,7 @@ mod benchmarks {
 		let allocations = create_full_asset_allocations::<T>();
 		assert_ok!(Pallet::<T>::set_allocations(RawOrigin::Root.into(), None, Some(allocations)));
 
-		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1);
+		mint_to_staging::<T>(NativeOrWithId::Native, 1);
 
 		#[block]
 		{
@@ -178,7 +182,7 @@ mod benchmarks {
 
 		assert_last_event::<T>(Event::StagingDrained {
 			amount: T::Balance::one(),
-			asset: T::NativeCurrencyAssetId::get(),
+			asset: NativeOrWithId::Native,
 		});
 	}
 
@@ -189,7 +193,7 @@ mod benchmarks {
 
 		const ASSET: u32 = 1;
 
-		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1);
+		mint_to_staging::<T>(NativeOrWithId::Native, 1);
 		mint_to_staging::<T>(ASSET.into(), 100);
 
 		#[block]
@@ -204,7 +208,7 @@ mod benchmarks {
 
 		assert_has_event::<T>(Event::StagingDrained {
 			amount: T::Balance::one(),
-			asset: T::NativeCurrencyAssetId::get(),
+			asset: NativeOrWithId::Native,
 		});
 	}
 

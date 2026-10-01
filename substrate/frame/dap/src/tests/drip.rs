@@ -20,8 +20,8 @@
 use super::{asset_allocations, balance_of_asset, budget_map, create_asset};
 use crate::{
 	mock::{
-		account_id, build_and_execute, set_default_budget_allocation, Balances, Dap, MockTime,
-		NativeAndAssets, RuntimeOrigin, System, Test,
+		account_id, build_and_execute, set_default_budget_allocation, Assets, Balances, Dap,
+		MockTime, RuntimeOrigin, System, Test,
 	},
 	Event,
 };
@@ -130,7 +130,7 @@ fn assets_are_distributed_on_drip() {
 		// Check the WithId(10) asset.
 
 		create_asset(10);
-		assert_ok!(NativeAndAssets::mint_into(NativeOrWithId::WithId(10), &buffer, 100_000_000));
+		assert_ok!(Assets::mint_into(10, &buffer, 100_000_000));
 
 		let staker_before = balance_of_asset(10, &staker_pot);
 		let incentive_before = balance_of_asset(10, &incentive_pot);
@@ -211,7 +211,7 @@ fn asset_distribution_silently_fails_when_there_are_not_enough_funds() {
 		// Check the WithId(10) asset.
 
 		create_asset(10);
-		assert_ok!(NativeAndAssets::mint_into(NativeOrWithId::WithId(10), &buffer, 10));
+		assert_ok!(Assets::mint_into(10, &buffer, 10));
 
 		let staker_before = balance_of_asset(10, &staker_pot);
 		let incentive_before = balance_of_asset(10, &incentive_pot);
