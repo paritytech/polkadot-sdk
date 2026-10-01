@@ -5124,28 +5124,14 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `MOD` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Division:** the divisor is 2^65 + 3, whose two limbs give every numerator three quotient
-	///   digits, the most that `U256` division computes.
-	/// * **Pseudo-random Corrections:** division estimates each quotient digit and then corrects
-	///   the estimate down to the true digit. A pseudo-random generator picks whether the second
-	///   and third digits take one or two corrections, with a 50% chance each, so the CPU can't
-	///   predict how many corrections each digit takes. The first digit always takes one.
-	/// * **Longest Estimates:** each estimate divides 128 bits by 64 bits in software, which takes
-	///   up to three hardware divisions. The top byte of every numerator is all ones and the two
-	///   lower digits of every quotient are at least 2^63, which makes almost every estimate take
-	///   its longest path.
-	/// * **Followed by `POP`:** each `MOD` is followed by a `POP`, because otherwise its result
-	///   would become the numerator of the next one. The weight of a `POP` is subtracted when
-	///   charging a `MOD`.
-	/// * **Stack Initialization:** the numerator and the divisor of every `MOD` are placed on the
-	///   stack before the benchmark runs. This is why `r` goes up to half the stack limit.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * A numerator of 2^254 + 2^128 every time, whose digits took one, two and two corrections.
-	///   The pseudo-random numerators cost roughly 8% more per `MOD` once the `POP` is subtracted.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The longest path of the `u128` division behind each quotient limb's estimate, since the
+	///   operands are the worst case operands of the division algorithm, from
+	///   [`knuth_division_worst_case_operands`].
+	/// * A branch misprediction on which quotient limbs' estimates are corrected, since the divisor
+	///   is picked at random from those worst case operands.
 	///
 	/// # Subtraction Safety
 	///
