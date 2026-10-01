@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790844074655,
+  "lastUpdate": 1790891515322,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "monica@parity.io",
-            "name": "Monica Jin",
-            "username": "mokita-j"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d36f3b04b0cd268adb905e54382e2f63c3022499",
-          "message": "[pallet-revive] Add PVM fuel tracing (#11481)\n\nAdd **`pvm_fuel`** trace steps to PVM execution traces, recording pvm\nfuel consumption between syscalls and after the execution loop exits.\n\nSeparate synthetic trace steps from the real syscall list:\n`list_syscalls()` contains syscalls contracts can actually import, while\nnew `list_trace_ops()` / `lookup_trace_op_index()` include both real\nsyscalls and synthetic steps like `pvm_fuel`.\n\n## Integration\n\nCode using `list_syscalls()` for **trace** serialization should switch\nto `list_trace_ops()` / `lookup_trace_op_index()`. `list_syscalls()` and\n`lookup_syscall_index()` are unchanged for **real syscalls**.\n\n## Review Notes\n- Proc-macro wraps `sync_from_executor` with `enter_ecall` / `exit_step`\ntracing hooks for `pvm_fuel`\n- PreparedCall::call adds a final `pvm_fuel` trace after the execution\nloop exits\n  - PVM JSON trace fixtures updated to include `pvm_fuel` steps\n \n**Note**: evm-test-suite pvm snapshot needs to be updated with the\n`pvm_fuel` entries.\n[#143](https://github.com/paritytech/evm-test-suite/pull/143)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-25T15:19:45Z",
-          "tree_id": "c39794365e0ef220a2a73af008f1feee9dc7d43f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d36f3b04b0cd268adb905e54382e2f63c3022499"
-        },
-        "date": 1774456780009,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63624.270000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.341830402182899,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.782431087330001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.77495136709,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001926228,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.83495152368,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000018671919999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001926228,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005086622309999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4215817402500095,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000018671919999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.760146122389953,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.83444842883,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.413596891879966,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.7938926772399997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2d06e303b93c5a4efb5098f71256a15870231d76",
+          "message": "grandpa: don't gossip commits that don't advance finality (#13358)\n\n## Description\n\nMultiple voters can issue a commit for the same round, and several can\npass gossip validation before any is processed, since validation only\ncompares against the height noted after processing. Each was then\ngossiped, so peers got the same finality proof more than once.\n\nNow a processed commit is gossiped only if it advanced finalized height\n(`note_commit_finalized` returns whether it did); otherwise it's logged\nat debug level. Nothing is lost: the commit for our best height is\nalready in the gossip store and keeps being rebroadcast.\n\nThe dropped commit is still marked as known via a new\n`GossipEngine::mark_message_known` (`sc-network-gossip`), which records\na message as known without storing or propagating it.\n\nFound while working on #13318\n(https://github.com/paritytech/smoldot/issues/3375), but independent of\nit.\n\n## Tests\n\n- `note_commit_finalized_reports_whether_finality_advanced`\n- `duplicate_commit_is_not_relayed`",
+          "timestamp": "2026-10-01T20:18:07Z",
+          "tree_id": "947c8d9ae82ee1d6aa11cf8dc482d8b7dc3494d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2d06e303b93c5a4efb5098f71256a15870231d76"
+        },
+        "date": 1790891482194,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63559.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.281248051842648,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001567393,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000018607199999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0055154671099999966,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.77051430134,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.208303122559983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7964194388600023,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8117594853099803,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.73736728564,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000018607199999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001567393,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.749817872609999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.336909271690002,
             "unit": "seconds"
           }
         ]
