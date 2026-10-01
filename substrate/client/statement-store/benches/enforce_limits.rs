@@ -79,7 +79,7 @@ fn main() {
 	let started = Instant::now();
 	let mut last_hash = None;
 	for k in 0..BACKLOG as u64 {
-		let statement = create_statement(base + k, &[], None, 64, expiry, &keypair);
+		let statement = create_statement(base + k, &[], 64, expiry, &keypair);
 		last_hash = Some(statement.hash());
 		let result = store.submit(statement, StatementSource::Local);
 		assert!(matches!(result, SubmitResult::New), "backlog statement rejected: {:?}", result);
