@@ -78,6 +78,9 @@ use frame_support::{
 use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, SaturatedConversion, Saturating};
 use sp_staking::budget::{BudgetKey, BudgetRecipientList, IssuanceCurve};
 
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::fungibles::Create;
+
 pub use pallet::*;
 
 pub use sp_dap::DAP_PALLET_ID;
@@ -132,7 +135,7 @@ pub mod pallet {
 	use crate::weights::WeightInfo;
 	use frame_support::{
 		sp_runtime::traits::AccountIdConversion,
-		traits::{fungibles::Create, tokens::Balance, StorageVersion},
+		traits::{tokens::Balance, StorageVersion},
 	};
 	use frame_system::pallet_prelude::*;
 
@@ -158,7 +161,7 @@ pub mod pallet {
 		/// Registry of assets. It must include both native asset and non-native assets.
 		///
 		/// In runtime, it can be configured as:
-		/// ```rust
+		/// ```ignore
 		/// pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
 		///
 		/// impl Config for Runtime {
@@ -608,7 +611,7 @@ pub mod pallet {
 			let mut total_minted = BalanceOf::<T>::zero();
 
 			let buffer = Self::buffer_account();
-			for (key, account) in &*recipients {
+			for (key, account) in recipients {
 				let perbill = budget.get(key).copied().unwrap_or(Perbill::zero());
 				let amount = perbill.mul_floor(issuance);
 				if !amount.is_zero() {
@@ -647,7 +650,7 @@ pub mod pallet {
 			for (asset, allocations) in allocations {
 				let mut total_distributed = BalanceOf::<T>::zero();
 
-				for (key, account) in &*recipients {
+				for (key, account) in recipients {
 					let Some(allocation) = allocations.get(key).copied() else {
 						continue;
 					};
@@ -764,7 +767,7 @@ type CreditOf<T, C> = FungibleCredit<<T as frame_system::Config>::AccountId, C>;
 /// ```ignore
 /// type Slash = pallet_dap::DapUnbalancedAdapter<Runtime, Balances>;
 /// ```
-struct DapUnbalancedAdapter<T: Config, C>(PhantomData<(T, C)>)
+pub struct DapUnbalancedAdapter<T: Config, C>(PhantomData<(T, C)>)
 where
 	C: FungibleInspect<T::AccountId>,
 	C: FungibleBalanced<T::AccountId>;

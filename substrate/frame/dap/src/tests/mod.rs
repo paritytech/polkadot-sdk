@@ -24,15 +24,14 @@ mod genesis;
 mod on_unbalanced;
 
 use crate::{
-	mock::{AccountId, NativeAndAssets, Test},
+	mock::{account_id, AccountId, NativeAndAssets, Test},
 	AssetAllocationMap, AssetKindOf, BalanceOf, BudgetAllocationMap, SingleAssetAllocation,
 };
-use frame_benchmarking::whitelisted_caller;
 use frame_support::{
 	assert_ok,
 	traits::{
-		fungible::{Inspect as FungibleInspect, Mutate as FungibleMutate, NativeOrWithId},
-		fungibles::{Create, Inspect, Mutate},
+		fungible::NativeOrWithId,
+		fungibles::{Create, Inspect},
 		tokens::{Fortitude, Preservation},
 	},
 };
@@ -80,6 +79,5 @@ fn balance_of_asset(asset_id: u32, account: &AccountId) -> u64 {
 }
 
 fn create_asset(asset_id: u32) {
-	let caller: AccountId = whitelisted_caller();
-	assert_ok!(NativeAndAssets::create(NativeOrWithId::WithId(asset_id), caller, false, 1));
+	assert_ok!(NativeAndAssets::create(NativeOrWithId::WithId(asset_id), account_id(0), false, 1));
 }

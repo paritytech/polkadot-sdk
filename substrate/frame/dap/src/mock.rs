@@ -161,6 +161,7 @@ pub fn set_default_budget_allocation() {
 	crate::BudgetAllocation::<Test>::put(map);
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 pub fn new_test_ext_bench() -> sp_io::TestExternalities {
 	new_test_ext_inner(true)
 }

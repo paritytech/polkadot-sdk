@@ -20,8 +20,7 @@
 use super::{asset_allocations, balance_of_asset, budget_map, create_asset};
 use crate::{
 	mock::{
-		account_id, build_and_execute, set_default_budget_allocation, AccountId, Balances, Dap,
-		NativeAndAssets, RuntimeOrigin, System, Test,
+		build_and_execute, AccountId, Balances, Dap, NativeAndAssets, RuntimeOrigin, System, Test,
 	},
 	Event,
 };
@@ -29,10 +28,10 @@ use frame_support::{
 	assert_ok,
 	pallet_prelude::Weight,
 	traits::{
-		fungible::{Balanced, Inspect, Mutate as FungibleMutate, NativeOrWithId},
+		fungible::{Inspect, Mutate as FungibleMutate, NativeOrWithId},
 		fungibles::Mutate,
-		tokens::{Fortitude, Precision, Preservation},
-		Currency, Hooks, OnUnbalanced,
+		tokens::{Fortitude, Preservation},
+		Hooks,
 	},
 };
 
