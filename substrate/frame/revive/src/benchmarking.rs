@@ -5200,36 +5200,17 @@ mod benchmarks {
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_smod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		// 2^65 + 3
-		const DIVISOR: U256 = U256([3, 2, 0, 0]);
+		use knuth_division_worst_case_operands::{DENOMINATORS, NUMERATOR};
 
-		let negate = |value: U256| U256::zero().overflowing_sub(value).0;
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| {
-			let corrections = [rng.gen_range(0..=1u64), rng.gen_range(1..=2), rng.gen_range(1..=2)]
-				.map(U256::from);
-			let zero_lowest_limb = rng.gen_bool(0.5);
-			let magnitude = loop {
-				let mut magnitude = U256(rng.r#gen());
-				magnitude.0[3] = magnitude.0[3] >> 1 | 1 << 62;
-				if zero_lowest_limb {
-					magnitude.0[0] = 0;
-				}
-				let quotient = magnitude / DIVISOR;
-				let longest_estimates = quotient.bit(127) && quotient.bit(63);
-				// Division estimates each digit by dividing what remains of the magnitude by 2^65,
-				// the divisor without its lowest limb, and corrects the estimate down to the digit.
-				let magnitude_corrections = [2, 1, 0].map(|digit| {
-					let remainder = (magnitude >> (64 * digit)) % (DIVISOR << 64);
-					remainder / (U256::one() << 65) - remainder / DIVISOR
-				});
-				if longest_estimates && magnitude_corrections == corrections {
-					break magnitude;
-				}
+			let magnitude = DENOMINATORS.choose(&mut rng).copied().unwrap();
+			let divisor = if rng.gen_bool(0.5) {
+				magnitude
+			} else {
+				U256::zero().overflowing_sub(magnitude).0
 			};
-			let numerator = if rng.gen_bool(0.5) { magnitude } else { negate(magnitude) };
-			let divisor = if rng.gen_bool(0.5) { DIVISOR } else { negate(DIVISOR) };
-			[divisor, numerator]
+			[divisor, NUMERATOR]
 		});
 
 		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
