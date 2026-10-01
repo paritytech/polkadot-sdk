@@ -4327,13 +4327,16 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn evm_iszero_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
-		// This mirrors the control flow of the zero check, which tests word 0, then word 1, then
-		// word 2, and stops at the first one that isn't zero. Each coin decides one of those
-		// branches, in the order the CPU runs them, so every branch the check reaches is a coin
-		// flip the CPU can't predict.
-		let operands = (0..r).map(|_| match [0, 1, 2].into_iter().find(|_| rng.gen_bool(0.5)) {
-			Some(word) => U256::one() << (64 * word),
-			None => U256::zero(),
+		// Each operand is zero or nonzero in only one of words 0, 1 and 2. In the compiled runtime,
+		// the zero check branches on words 0, 1 and 2 to stop at the first nonzero one, but tests
+		// word 3 without a branch. An operand that is nonzero only in word 3 therefore takes the
+		// same path as zero, and adding it would only make that path more likely, and so easier to
+		// predict.
+		let operands = (0..r).map(|_| {
+			match [Some(0), Some(1), Some(2), None].choose(&mut rng).copied().unwrap() {
+				Some(word) => U256::one() << (64 * word),
+				None => U256::zero(),
+			}
 		});
 
 		let code = Bytecode::new_raw([ISZERO, POP].repeat(r as usize).into());
