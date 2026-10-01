@@ -144,7 +144,7 @@ pub enum ReentrancyProtection {
 	AllowNext,
 }
 
-/// The reentrancy protection and storage write rule a caller sets for its callee.
+/// The protections a caller sets for its callee.
 #[derive(Copy, Clone)]
 pub struct CallProtections {
 	/// The reentrancy protection to enforce on the callee.
@@ -2862,7 +2862,7 @@ where
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		assert!(self.has_contract_info());
-		// Covers runtime precompiles, which may not check before writing.
+		// Covers runtime precompiles
 		self.ensure_storage_write_allowed()?;
 		let frame = self.top_frame_mut();
 		frame.contract_info.get(&frame.account_id).write(

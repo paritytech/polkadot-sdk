@@ -29,9 +29,8 @@ use alloy_core::{
 use codec::Encode;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
-	BumpableCounter, FixtureType, LightStipendSender, NestedWritingReceiver,
-	NestedWritingReceiver::Nesting, StipendSender, StipendTest, WarmWriteSender, compile_module,
-	compile_module_with_type,
+	BumpableCounter, FixtureType, NestedWritingReceiver, NestedWritingReceiver::Nesting,
+	StipendSender, StipendTest, WarmWriteSender, compile_module, compile_module_with_type,
 };
 use sp_core::H160;
 use test_case::{test_case, test_matrix};
@@ -175,6 +174,8 @@ fn evm_call_stipend_is_only_added_to_plain_calls() {
 				.build_and_unwrap_contract();
 		let Contract { addr: warm_sender, .. } =
 			builder::bare_instantiate(Code::Upload(warm_sender_code)).build_and_unwrap_contract();
+		let writing_receiver = writing_receiver.0.into();
+
 		let is_denied = |sender: H160, call_data: Vec<u8>, value: u128| {
 			let result = builder::bare_call(sender)
 				.data(call_data)
@@ -182,7 +183,6 @@ fn evm_call_stipend_is_only_added_to_plain_calls() {
 				.build_and_unwrap_result();
 			bool::abi_decode(&result.data).unwrap()
 		};
-		let writing_receiver = writing_receiver.0.into();
 		let value_call_denied = |gas_limit: u64| {
 			let call = StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit };
 			is_denied(stipend_sender, call.abi_encode(), 1_000_000)
@@ -265,16 +265,17 @@ fn evm_call_stipend_prevents_send_reentrancy() {
 fn evm_call_stipend_denies_reentry_by_rule_not_by_gas() {
 	// On PVM the stipend alone cannot pay for the reentrant call.
 	let (probe_code, _) = compile_module_with_type("ReentrancyProbe", FixtureType::Solc).unwrap();
-	let (code, _) = compile_module_with_type("LightStipendSender", FixtureType::Solc).unwrap();
+	let (code, _) = compile_module_with_type("StipendSender", FixtureType::Solc).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
 		let Contract { addr: probe, .. } =
 			builder::bare_instantiate(Code::Upload(probe_code)).build_and_unwrap_contract();
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
 			.constructor_data(
-				LightStipendSender::constructorCall { _probe: probe.0.into() }.abi_encode(),
+				StipendSender::constructorCall { _receiver: probe.0.into() }.abi_encode(),
 			)
 			.build_and_unwrap_contract();
+
 		let run = |call: Vec<u8>| {
 			builder::bare_call(addr)
 				.data(call)
@@ -284,15 +285,15 @@ fn evm_call_stipend_denies_reentry_by_rule_not_by_gas() {
 		let denied = |call: Vec<u8>| bool::abi_decode(&run(call).data).unwrap();
 
 		assert!(
-			!denied(LightStipendSender::isCallWithGasDeniedCall { gasLimit: 1 }.abi_encode()),
+			!denied(StipendSender::isCallWithGasDeniedCall { gasLimit: 1 }.abi_encode()),
 			"the stipend should be enough for reentry"
 		);
 		assert!(
-			run(LightStipendSender::transferToProbeCall {}.abi_encode()).did_revert(),
+			run(StipendSender::transferToReceiverCall {}.abi_encode()).did_revert(),
 			"a value `transfer` should not reenter"
 		);
 		assert!(
-			denied(LightStipendSender::isSendDeniedCall {}.abi_encode()),
+			denied(StipendSender::isSendDeniedCall {}.abi_encode()),
 			"a value `send` should not reenter"
 		);
 	});
@@ -505,6 +506,7 @@ fn stipend_check_is_inherited_by_nested_frames(fixture_type: FixtureType, nestin
 				StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
 			)
 			.build_and_unwrap_contract();
+
 		let is_denied = |gas_limit: u64| {
 			let result = builder::bare_call(sender)
 				.data(StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode())
@@ -531,6 +533,7 @@ fn stipend_check_applies_under_strict_reentrancy(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 		let Contract { addr: receiver, .. } =
 			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
+
 		let call_with_gas = |gas: u64| {
 			builder::bare_call(caller)
 				.data((receiver, gas).encode())

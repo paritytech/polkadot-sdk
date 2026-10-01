@@ -88,18 +88,12 @@ contract StipendTest {
         // DoNothingReceiver should succeed (empty receive)
         balanceBefore = address(doNothingReceiver).balance;
         payable(address(doNothingReceiver)).transfer(amount);
-        require(
-            address(doNothingReceiver).balance == balanceBefore + amount,
-            "DoNothingReceiver transfer failed"
-        );
+        require(address(doNothingReceiver).balance == balanceBefore + amount, "DoNothingReceiver transfer failed");
 
         // SimpleReceiver should succeed
         balanceBefore = address(simpleReceiver).balance;
         payable(address(simpleReceiver)).transfer(amount);
-        require(
-            address(simpleReceiver).balance == balanceBefore + amount,
-            "SimpleReceiver transfer failed"
-        );
+        require(address(simpleReceiver).balance == balanceBefore + amount, "SimpleReceiver transfer failed");
 
         // ComplexReceiver should fail (not enough gas for SSTORE)
         balanceBefore = address(complexReceiver).balance;
@@ -111,10 +105,7 @@ contract StipendTest {
             failed = true;
         }
         require(failed, "ComplexReceiver transfer should have failed");
-        require(
-            address(complexReceiver).balance == balanceBefore,
-            "ComplexReceiver balance changed on failed transfer"
-        );
+        require(address(complexReceiver).balance == balanceBefore, "ComplexReceiver balance changed on failed transfer");
     }
 
     // Test send method (2300 gas stipend, returns bool)
@@ -131,28 +122,19 @@ contract StipendTest {
         balanceBefore = address(doNothingReceiver).balance;
         success = payable(address(doNothingReceiver)).send(amount);
         require(success, "DoNothingReceiver send failed");
-        require(
-            address(doNothingReceiver).balance == balanceBefore + amount,
-            "DoNothingReceiver balance not updated"
-        );
+        require(address(doNothingReceiver).balance == balanceBefore + amount, "DoNothingReceiver balance not updated");
 
         // SimpleReceiver should succeed
         balanceBefore = address(simpleReceiver).balance;
         success = payable(address(simpleReceiver)).send(amount);
         require(success, "SimpleReceiver send failed");
-        require(
-            address(simpleReceiver).balance == balanceBefore + amount,
-            "SimpleReceiver balance not updated"
-        );
+        require(address(simpleReceiver).balance == balanceBefore + amount, "SimpleReceiver balance not updated");
 
         // ComplexReceiver should fail (not enough gas for SSTORE)
         balanceBefore = address(complexReceiver).balance;
         success = payable(address(complexReceiver)).send(amount);
         require(!success, "ComplexReceiver send should have failed");
-        require(
-            address(complexReceiver).balance == balanceBefore,
-            "ComplexReceiver balance changed on failed send"
-        );
+        require(address(complexReceiver).balance == balanceBefore, "ComplexReceiver balance changed on failed send");
     }
 
     // Test transfer with zero value (solc injects gas=2300 explicitly)
@@ -196,33 +178,21 @@ contract StipendTest {
         balanceBefore = address(doNothingReceiver).balance;
         (success, ) = payable(address(doNothingReceiver)).call{value: amount}("");
         require(success, "DoNothingReceiver call failed");
-        require(
-            address(doNothingReceiver).balance == balanceBefore + amount,
-            "DoNothingReceiver balance not updated"
-        );
+        require(address(doNothingReceiver).balance == balanceBefore + amount, "DoNothingReceiver balance not updated");
 
         // SimpleReceiver should succeed
         balanceBefore = address(simpleReceiver).balance;
         (success, ) = payable(address(simpleReceiver)).call{value: amount}("");
         require(success, "SimpleReceiver call failed");
-        require(
-            address(simpleReceiver).balance == balanceBefore + amount,
-            "SimpleReceiver balance not updated"
-        );
+        require(address(simpleReceiver).balance == balanceBefore + amount, "SimpleReceiver balance not updated");
 
         // ComplexReceiver should succeed (enough gas for SSTORE with call)
         balanceBefore = address(complexReceiver).balance;
         uint256 counterBefore = complexReceiver.counter();
         (success, ) = payable(address(complexReceiver)).call{value: amount}("");
         require(success, "ComplexReceiver call failed");
-        require(
-            address(complexReceiver).balance == balanceBefore + amount,
-            "ComplexReceiver balance not updated"
-        );
-        require(
-            complexReceiver.counter() == counterBefore + 1,
-            "ComplexReceiver counter not incremented"
-        );
+        require(address(complexReceiver).balance == balanceBefore + amount, "ComplexReceiver balance not updated");
+        require(complexReceiver.counter() == counterBefore + 1, "ComplexReceiver counter not incremented");
     }
 
     // Test that the transfer stipend prevents reentrancy. The attacker's receive()
@@ -268,7 +238,7 @@ contract StipendTest {
 /**
  * @title ReentrancyProbe
  * @dev Checks whether reentry is admitted. The reentrant call is cheap enough to fit the stipend,
- * and reverts when denied, which makes the outer call fail.
+ * and reverts when denied.
  */
 contract ReentrancyProbe {
     receive() external payable {
@@ -288,6 +258,10 @@ contract StipendSender {
         receiver = _receiver;
     }
 
+    function transferToReceiver() public payable {
+        receiver.transfer(msg.value);
+    }
+
     function isSendDenied() public payable returns (bool) {
         return !receiver.send(msg.value);
     }
@@ -304,33 +278,6 @@ contract StipendSender {
 
     function isSelfSendAllowed() public payable returns (bool) {
         return payable(address(this)).send(msg.value);
-    }
-
-    receive() external payable {}
-}
-
-/**
- * @title LightStipendSender
- * @dev Small enough that its code loads within the stipend when it is reentered.
- */
-contract LightStipendSender {
-    address payable immutable probe;
-
-    constructor(address payable _probe) {
-        probe = _probe;
-    }
-
-    function transferToProbe() public payable {
-        probe.transfer(msg.value);
-    }
-
-    function isSendDenied() public payable returns (bool) {
-        return !probe.send(msg.value);
-    }
-
-    function isCallWithGasDenied(uint64 gasLimit) public payable returns (bool) {
-        (bool ok, ) = probe.call{value: msg.value, gas: gasLimit}("");
-        return !ok;
     }
 
     receive() external payable {}
@@ -405,14 +352,15 @@ library StorageHelpers {
     // The `flags` bit of the storage precompile that selects transient storage.
     uint32 internal constant TRANSIENT = 1;
 
-    // Clears or takes `key` (by `selector`) in the calling contract's storage.
-    function callPrecompile(
-        bytes4 selector,
-        uint32 flags,
-        bytes32 key
-    ) internal returns (bool success) {
+    function clearStorage(uint32 flags, bytes32 key) internal returns (bool success) {
         (success, ) = STORAGE_ADDR.delegatecall(
-            abi.encodeWithSelector(selector, flags, true, abi.encodePacked(key))
+            abi.encodeCall(IStorage.clearStorage, (flags, true, abi.encodePacked(key)))
+        );
+    }
+
+    function takeStorage(uint32 flags, bytes32 key) internal returns (bool success) {
+        (success, ) = STORAGE_ADDR.delegatecall(
+            abi.encodeCall(IStorage.takeStorage, (flags, true, abi.encodePacked(key)))
         );
     }
 
@@ -460,10 +408,7 @@ contract ClearingReceiver is BumpableCounter {
  */
 contract PrecompileClearingReceiver is BumpableCounter {
     receive() external payable {
-        require(
-            StorageHelpers.callPrecompile(IStorage.clearStorage.selector, 0, counterSlot()),
-            "clear denied"
-        );
+        require(StorageHelpers.clearStorage(0, counterSlot()), "clear denied");
     }
 }
 
@@ -474,10 +419,7 @@ contract PrecompileClearingReceiver is BumpableCounter {
  */
 contract PrecompileTakingReceiver is BumpableCounter {
     receive() external payable {
-        require(
-            StorageHelpers.callPrecompile(IStorage.takeStorage.selector, 0, counterSlot()),
-            "take denied"
-        );
+        require(StorageHelpers.takeStorage(0, counterSlot()), "take denied");
     }
 }
 
@@ -550,12 +492,7 @@ contract TransientClearingReceiver {
 contract TransientPrecompileClearingReceiver {
     receive() external payable {
         StorageHelpers.writeTransient();
-        require(
-            StorageHelpers.callPrecompile(
-                IStorage.clearStorage.selector, StorageHelpers.TRANSIENT, bytes32(0)
-            ),
-            "clear denied"
-        );
+        require(StorageHelpers.clearStorage(StorageHelpers.TRANSIENT, bytes32(0)), "clear denied");
         require(StorageHelpers.transientValue() == 0, "transient clear denied");
     }
 }
@@ -567,12 +504,7 @@ contract TransientPrecompileClearingReceiver {
 contract TransientPrecompileTakingReceiver {
     receive() external payable {
         StorageHelpers.writeTransient();
-        require(
-            StorageHelpers.callPrecompile(
-                IStorage.takeStorage.selector, StorageHelpers.TRANSIENT, bytes32(0)
-            ),
-            "take denied"
-        );
+        require(StorageHelpers.takeStorage(StorageHelpers.TRANSIENT, bytes32(0)), "take denied");
         require(StorageHelpers.transientValue() == 0, "transient take denied");
     }
 }
