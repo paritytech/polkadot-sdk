@@ -1444,7 +1444,7 @@ fn extract_core_index_from_statement_works() {
 		.map(|(i, g)| (CoreIndex(i as u32), g.clone()))
 		.collect();
 
-	let sp_state = PerSchedulingParentState {
+	let mut sp_state = PerSchedulingParentState {
 		parent: test_state.relay_parent,
 		node_features: test_state.node_features.clone(),
 		assigned_core: None,
@@ -1479,6 +1479,10 @@ fn extract_core_index_from_statement_works() {
 	let core_index_3 = core_index_from_statement(&sp_state, &signed_statement_3).unwrap();
 
 	assert_eq!(core_index_3, CoreIndex(1));
+
+	sp_state.n_cores = 1;
+	sp_state.group_rotation_info.group_rotation_frequency = 0;
+	assert_eq!(core_index_from_statement(&sp_state, &signed_statement_3), None);
 }
 
 #[test]
