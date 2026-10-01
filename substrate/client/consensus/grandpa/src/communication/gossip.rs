@@ -2552,8 +2552,6 @@ mod tests {
 	}
 
 	#[test]
-<<<<<<< HEAD
-=======
 	fn gossips_commits_to_light_clients_in_rotating_groups() {
 		// (light clients, group size, rounds to serve all of them): groups of the minimum size,
 		// and groups growing to keep the number of rounds
@@ -2786,7 +2784,6 @@ mod tests {
 	}
 
 	#[test]
->>>>>>> 15fdbd4 (grandpa: gossip commits to light clients in rotating groups (#13318))
 	fn only_gossip_commits_to_peers_on_same_set() {
 		let (val, _) = GossipValidator::<Block>::new(config(), voter_set_state(), None, None);
 
