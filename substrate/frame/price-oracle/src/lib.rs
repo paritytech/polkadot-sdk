@@ -27,7 +27,6 @@ pub mod pricing;
 pub mod registry;
 pub mod schema;
 pub mod signers;
-pub mod venues;
 pub mod weights;
 
 use alloc::{collections::BTreeMap, vec::Vec};
@@ -470,7 +469,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Price one market from the responses to its queries, at the node's time `now_ms`.
 	///
-	/// See [`price_market`].
+	/// See [`parse_market`].
 	///
 	/// Backs [`PriceOracleApi::parse`](sp_price_oracle::runtime_api::PriceOracleApi::parse).
 	pub fn parse_market(
@@ -482,7 +481,7 @@ impl<T: Config> Pallet<T> {
 		let market = Markets::<T>::get(id).ok_or_else(|| err("unknown market"))?;
 		let settings =
 			Settings::<T>::get(market.pair).ok_or_else(|| err("pair has no settings"))?;
-		price_market(&market, &settings, responses, now_ms)
+		crate::parse_market(&market, &settings, responses, now_ms)
 	}
 
 	/// Anchor of the latest vote on chain, per signer. Lets block authors skip reports that are
@@ -517,7 +516,7 @@ impl<T: Config> Pallet<T> {
 ///
 /// Needs one order book and one trades response among the market's queries. A response larger
 /// than its query allows is rejected.
-pub fn price_market(
+pub fn parse_market(
 	market: &StoredMarket,
 	settings: &PairSettings,
 	responses: Vec<(QueryTag, Vec<u8>)>,
