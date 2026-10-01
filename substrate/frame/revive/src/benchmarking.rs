@@ -4633,7 +4633,7 @@ mod benchmarks {
 		let operands = (0..r).flat_map(|_| {
 			let whole_words = rng.gen_range(0..=3u32);
 			let extra_bits = rng.gen_range(0..=1u32);
-			[U256::MAX, U256::from(64 * whole_words + extra_bits)]
+			[U256::MAX, U256::from(64 * whole_words + extra_bits).max(U256::one())]
 		});
 
 		let code = Bytecode::new_raw([SHL, POP].repeat(r as usize).into());
