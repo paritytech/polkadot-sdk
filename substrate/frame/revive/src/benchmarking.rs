@@ -5072,35 +5072,19 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `SDIV` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Most Negative Numerator:** the numerator is -2^255, the only signed value whose
-	///   magnitude reaches 2^255. `SDIV` compares the magnitude of the numerator with 2^255 byte by
-	///   byte, which takes all 32 bytes for this numerator, and negating it carries through every
-	///   limb.
-	/// * **Longest Estimates:** every divisor is 2^64 plus a 64-bit value, so the quotient of 2^255
-	///   has three digits. Each of these divisors makes the `u128` division behind every digit's
-	///   estimate take its longest path. They were found with a seeded search against a model of
-	///   the compiled division.
-	/// * **Pseudo-random Corrections:** with these divisors, division corrects the estimate of each
-	///   digit zero times or once. The divisors are two for each of the eight combinations, and a
-	///   pseudo-random generator picks one for each `SDIV`, so the CPU can't predict the
-	///   corrections.
-	/// * **Pseudo-random Signs:** the generator also picks the sign of the divisor, with a 50%
-	///   chance either way, so the CPU can't predict whether the divisor or the quotient is
-	///   negated.
-	/// * **Followed by `POP`:** each `SDIV` is followed by a `POP`, because otherwise its result
-	///   would become the numerator of the next one. The weight of a `POP` is subtracted when
-	///   charging an `SDIV`.
-	/// * **Stack Initialization:** the numerator and the divisor of every `SDIV` are placed on the
-	///   stack before the benchmark runs. This is why `r` goes up to half the stack limit.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * A numerator of 2^254 + 2^128 and a divisor of -(2^65 + 3) every time. The pseudo-random
-	///   divisors cost roughly 10% more per `SDIV` once the `POP` is subtracted.
-	/// * Numerators of up to 2^255 with pseudo-random signs and corrections over a divisor of 2^65
-	///   + 3 cost roughly 3% less per `SDIV` than this benchmark.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A carry through every limb to negate the numerator, since it's the most negative value.
+	/// * No early exit from the check against the most negative value, since the numerator is that
+	///   value.
+	/// * The longest path of the `u128` division behind each quotient limb's estimate, since the
+	///   operands are the worst case operands of the division algorithm, from
+	///   [`knuth_division_worst_case_operands`].
+	/// * A branch misprediction on which quotient limbs' estimates are corrected, since the divisor
+	///   is picked at random from those worst case operands.
+	/// * A branch misprediction on whether the divisor and the quotient are negated, since the
+	///   divisor's sign is pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
