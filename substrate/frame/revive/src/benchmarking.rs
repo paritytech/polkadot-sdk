@@ -4247,8 +4247,7 @@ mod benchmarks {
 	/// # Added Overheads
 	///
 	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
-	/// * A branch misprediction on the byte where each comparison stops, since that is
-	///   pseudo-random.
+	/// * A branch misprediction on the byte where each comparison stops, since it's pseudo-random.
 	/// * No early exit before the last bytes of each comparison, since the operands only ever
 	///   differ in those bytes.
 	///
@@ -4293,23 +4292,10 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `ISZERO` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Early Exit:** `U256::is_zero` checks the words one at a time, starting from the least
-	///   significant, and stops at the first one that isn't zero. In the compiled runtime only the
-	///   checks of the first three words branch, and the last word is checked without a branch.
-	/// * **Pseudo-random Stopping Points:** a pseudo-random generator picks whether each operand is
-	///   zero or is nonzero only in word 0, 1 or 2. Each time the check reaches one of these words
-	///   it stops there with a 50% chance, so the CPU can't predict where it stops. The
-	///   mispredictions cost more than checking the words that are skipped.
-	/// * **Followed by `POP`:** each `ISZERO` is followed by a `POP`, so each one checks a fresh
-	///   operand rather than the result of the previous one. The weight of a `POP` is subtracted
-	///   when charging an `ISZERO`.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Zero operands every time. The pseudo-random stopping points cost roughly 34% more per
-	///   `ISZERO` and `POP` pair.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on the word where each zero check stops, since it's pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
@@ -4317,6 +4303,10 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn evm_iszero_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
+		// This mirrors the control flow of the zero check, which tests word 0, then word 1, then
+		// word 2, and stops at the first one that isn't zero. Each coin decides one of those
+		// branches, in the order the CPU runs them, so every branch the check reaches is a coin
+		// flip the CPU can't predict.
 		let operands = (0..r).map(|_| match [0, 1, 2].into_iter().find(|_| rng.gen_bool(0.5)) {
 			Some(word) => U256::one() << (64 * word),
 			None => U256::zero(),
