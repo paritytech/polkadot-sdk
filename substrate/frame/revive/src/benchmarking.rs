@@ -4492,7 +4492,7 @@ mod benchmarks {
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| {
 			let index = if rng.gen_bool(0.5) { U256::from(31) } else { U256::from(32) };
-			[U256::from(31), index]
+			[U256::MAX, index]
 		});
 
 		let code = Bytecode::new_raw([BYTE, POP].repeat(r as usize).into());
