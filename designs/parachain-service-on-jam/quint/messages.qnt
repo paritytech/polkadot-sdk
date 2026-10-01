@@ -57,6 +57,8 @@ module messages {
   | HeadDataTooLarge
   // An `assign_core` named a core at or above `CoreCount` (§3.3).
   | InvalidCoreIndex
+  // A `SetKV` or `RemoveKV` carried an empty key, or a `SetKV` an empty value (§3.3).
+  | EmptyKVKeyOrValue
 
   // --- Accumulate-side log payloads ---------------------------------------
 

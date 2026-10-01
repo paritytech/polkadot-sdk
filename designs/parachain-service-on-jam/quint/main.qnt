@@ -479,9 +479,11 @@ module main {
       Forget({ target: Parachain(MkParaId(3)), hash: codeHashB.asPreimage(), len: FixedCodeLen }),
       RemoveKV({ paraId: MkParaId(3), key: List(0) }),
       // KV store operations: exercises SetKV/RemoveKV paths (§6.1).
-      // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded.
+      // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded. The empty
+      // value is rejected by Refine with `EmptyKVKeyOrValue` (§3.3).
       SetKV({ key: List(0), value: List(0) }),
       SetKV({ key: List(0), value: List(0, 1) }),
+      SetKV({ key: List(1), value: List(1) }),
       SetKV({ key: List(1), value: List() }),
       RemoveKV({ paraId: para_id, key: List(0) }),
       RemoveKV({ paraId: para_id, key: List(1) })

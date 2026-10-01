@@ -205,6 +205,9 @@ module refine {
         if (p.keys.length() > SetValidatorKeysMaxKeys) Some(TooManyValidatorKeys)
         else if (r.keysSent) Some(SetValidatorKeysRepeated)
         else None
+      | SetKV(p) =>
+        if (p.key == List() or p.value == List()) Some(EmptyKVKeyOrValue) else None
+      | RemoveKV(p) => if (p.key == List()) Some(EmptyKVKeyOrValue) else None
       | _ => None
     }
     if (violatesParachainRestrictions(List(m), para_id)) Some(RestrictedHostFunction)

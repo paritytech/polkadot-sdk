@@ -251,6 +251,9 @@ enum RefineLog {
     HeadDataTooLarge,
     /// An `AssignCore` named a core at or above `C_corecount`. See §3.3.
     InvalidCoreIndex,
+    /// A `SetKV` or `RemoveKV` carried an empty key, or a `SetKV` an empty value.
+    /// See §3.3.
+    EmptyKVKeyOrValue,
 }
 
 /// The two phases of a `RequestCodeUpgrade` (see §5.2).
@@ -599,9 +602,11 @@ enum UpwardMessage {
     Forget { target: Target, hash: Hash, len: Compact<u32> },
     /// Delete `key` from a supervised service's own storage. **Asset Hub only.**
     RemoveServiceStorage { service: ServiceId, key: Vec<u8> },
-    /// Upsert `key_value_storage[(para_id, key)] = value`. See §6.1.
+    /// Upsert `key_value_storage[(para_id, key)] = value`. An empty `key` or `value`
+    /// aborts Refine with `Err(RefineLog::EmptyKVKeyOrValue)`. See §6.1.
     SetKV { key: Vec<u8>, value: Vec<u8> },
-    /// Remove `key_value_storage[(para_id, key)]`. See §6.1.
+    /// Remove `key_value_storage[(para_id, key)]`. An empty `key` aborts Refine with
+    /// `Err(RefineLog::EmptyKVKeyOrValue)`. See §6.1.
     RemoveKV { para_id: ParaId, key: Vec<u8> },
     /// Transfer balance via JAM `transfer`. `id` is a caller-supplied
     /// identifier, echoed back in `TransferFailed` so Asset Hub can match a

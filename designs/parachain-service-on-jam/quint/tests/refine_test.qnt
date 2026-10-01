@@ -212,6 +212,24 @@ module refine_test {
     }
   }
 
+  /// §3.3: Refine rejects a `SetKV` or `RemoveKV` with an empty key, and a `SetKV` with
+  /// an empty value. One-byte keys and values refine fine.
+  run emptyKVKeyOrValueRejectedTest = {
+    val ct = CoretimeParaId
+    pure def refined(m: UpwardMessage): WorkExecResult = refineWithMsgs(initialState, ct, List(m))
+    all {
+      assert(refined(SetKV({ key: List(), value: List(0) }))
+        == refineCallsErr(initialState, ct, EmptyKVKeyOrValue)),
+      assert(refined(SetKV({ key: List(1), value: List() }))
+        == refineCallsErr(initialState, ct, EmptyKVKeyOrValue)),
+      assert(refined(RemoveKV({ paraId: ct, key: List() }))
+        == refineCallsErr(initialState, ct, EmptyKVKeyOrValue)),
+      assert(isOkDigest(refined(SetKV({ key: List(1), value: List(0) })))),
+      assert(isOkDigest(refined(RemoveKV({ paraId: ct, key: List(1) })))),
+      init
+    }
+  }
+
   /// §4.3: naming a `para_id` the caller may not touch makes REFINE fail with
   /// `RestrictedHostFunction`, so the message never reaches Accumulate at all.
   /// Naming itself, or being the Coretime chain, refines fine.
