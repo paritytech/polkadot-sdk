@@ -170,6 +170,24 @@ fn signed_comparison_operands(r: u32) -> Vec<U256> {
 		.collect()
 }
 
+enum Outcome {
+	DifferInLimb3,
+	DifferInLimb2,
+	DifferInLimb1,
+	DifferInLimb0,
+	Equal,
+}
+
+impl Outcome {
+	const ALL: [Self; 5] = [
+		Self::DifferInLimb3,
+		Self::DifferInLimb2,
+		Self::DifferInLimb1,
+		Self::DifferInLimb0,
+		Self::Equal,
+	];
+}
+
 /// # Subtraction Safety
 ///
 /// Some EVM op-codes are charged as the weight of their benchmark minus the weight of another one:
@@ -4158,10 +4176,8 @@ mod benchmarks {
 	/// # Added Overheads
 	///
 	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
-	/// * A branch misprediction on whether the operands of each comparison are equal, since that is
+	/// * A branch misprediction on the limb where each comparison stops, since that is
 	///   pseudo-random.
-	/// * No early exit from the comparison, since the operands only ever differ in the last word it
-	///   checks.
 	///
 	/// # Subtraction Safety
 	///
@@ -4173,10 +4189,12 @@ mod benchmarks {
 		let mut previous_result = start;
 		let operands = (0..r)
 			.map(|_| {
-				let operand = if rng.gen_bool(0.5) {
-					previous_result
-				} else {
-					previous_result + U256::from(2)
+				let operand = match Outcome::ALL.choose(&mut rng).unwrap() {
+					Outcome::DifferInLimb3 => previous_result + (U256::from(2) << 192),
+					Outcome::DifferInLimb2 => previous_result + (U256::from(2) << 128),
+					Outcome::DifferInLimb1 => previous_result + (U256::from(2) << 64),
+					Outcome::DifferInLimb0 => previous_result + U256::from(2),
+					Outcome::Equal => previous_result,
 				};
 				previous_result =
 					if previous_result < operand { U256::one() } else { U256::zero() };
