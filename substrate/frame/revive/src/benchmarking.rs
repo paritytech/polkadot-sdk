@@ -4479,26 +4479,10 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `BYTE` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Index Check:** `BYTE` branches on whether the index is below 32 and only reads the byte
-	///   when it is. The checks that saturate larger indices don't branch, so 32 stands in for
-	///   every out-of-range index.
-	/// * **Pseudo-random Indices:** a pseudo-random generator picks index 31 or 32 for each `BYTE`,
-	///   with a 50% chance either way, so the CPU can't predict this branch. The mispredictions
-	///   cost more than the reads that the out-of-range indices skip.
-	/// * **Followed by `POP`:** each `BYTE` is followed by a `POP`, so each one gets a fresh index.
-	///   The weight of a `POP` is subtracted when charging a `BYTE`.
-	/// * **Stack Initialization:** the value and the index of every `BYTE` are placed on the stack
-	///   before the benchmark runs. This is why `r` goes up to half the stack limit.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Index 31 every time, with each result becoming the next index. The pseudo-random indices
-	///   cost roughly 28% more per `BYTE` once the `POP` is subtracted.
-	/// * The same chain with index 31 or 32 picked pseudo-randomly. It cost roughly 7% less per
-	///   `BYTE` than this benchmark, because an out-of-range index returns zero, which forces the
-	///   next index into range, so the CPU mispredicts less often.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on whether each index is in range, since it's pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
