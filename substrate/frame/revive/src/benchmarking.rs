@@ -5227,24 +5227,12 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `EXP` op-codes whose exponents are zero or one.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Zero Exponents:** `EXP` returns one for an exponent of zero without multiplying. This
-	///   benchmark is what an `EXP` with a zero exponent is charged.
-	/// * **Pseudo-random Exponents:** a pseudo-random generator picks an exponent of zero or one
-	///   for each `EXP`, with a 50% chance either way, so the CPU can't predict whether it
-	///   multiplies. This covers the mispredictions that zero exponents cause among other
-	///   exponents, at the price of charging them half the cost of an exponent of one on top.
-	/// * **Chained Exponentiations:** each `EXP` raises the result of the previous one to its
-	///   exponent, starting from `U256::MAX`. Multiplication has no branch that depends on the
-	///   values, so the base doesn't change the work.
-	/// * **Stack Initialization:** the `r` exponents and the base are placed on the stack before
-	///   the benchmark runs. This is why `r` goes up to the stack limit minus one.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * An exponent of zero every time. Picking zero or one pseudo-randomly cost roughly 11% more
-	///   per `EXP` than the average of the two on their own.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on whether each exponent is zero, since it's pseudo-random.
+	/// * A multiplication for every exponent of one, since the exponents are a pseudo-random mix of
+	///   zero and one.
 	///
 	/// # Subtraction Safety
 	///
@@ -5274,27 +5262,13 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `EXP` op-codes whose exponents are one or three.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Fixed Cost:** `EXP` multiplies once for an exponent of one, and each further bit of the
-	///   exponent adds a squaring, plus a multiplication when the bit is set. This benchmark is the
-	///   fixed cost charged for every nonzero exponent, and `evm_exp_per_bit` charges each bit
-	///   after the first.
-	/// * **Pseudo-random Exponents:** a pseudo-random generator picks an exponent of one or three
-	///   for each `EXP`, with a 50% chance either way, so the CPU can't predict whether the loop
-	///   over the bits of the exponent runs. This covers the mispredictions of code that mixes
-	///   exponents of different lengths, at the price of charging every nonzero exponent half the
-	///   cost of a bit on top.
-	/// * **Chained Exponentiations:** each `EXP` raises the result of the previous one to its
-	///   exponent, starting from `U256::MAX`. Multiplication has no branch that depends on the
-	///   values, so the base doesn't change the work.
-	/// * **Stack Initialization:** the `r` exponents and the base are placed on the stack before
-	///   the benchmark runs. This is why `r` goes up to the stack limit minus one.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * An exponent of one every time. Picking one or three pseudo-randomly cost roughly 4% more
-	///   per `EXP` than the average of the two on their own.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on whether the loop over the bits of each exponent runs, since the
+	///   exponent is pseudo-random.
+	/// * A squaring and a multiplication for every exponent of three, since the exponents are a
+	///   pseudo-random mix of one and three.
 	///
 	/// # Subtraction Safety
 	///
@@ -5324,18 +5298,10 @@ mod benchmarks {
 
 	/// Benchmarks one EVM `EXP` op-code whose exponent has `b + 1` bits, all of them set.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Set Bits:** for every bit of the exponent after the first, `EXP` squares the base, and
-	///   for every set bit it also multiplies the base into the result, so an exponent whose bits
-	///   are all set does the most work for its length.
-	/// * **Value Independence:** the base is `U256::MAX`. Multiplication has no branch that depends
-	///   on the values, so the base doesn't change the work, even though its square is one.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Exponents with pseudo-random bits cost roughly 24% less per bit.
-	/// * Chains of 32 `EXP` op-codes per step cost about the same per bit.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A multiplication for every bit of the exponent, since all of them are set.
 	///
 	/// # Subtraction Safety
 	///
