@@ -279,26 +279,26 @@ contract ReentrancyProbe {
 
 /**
  * @title StipendSender
- * @dev Reaches the probe in the shapes the stipend rule tells apart.
+ * @dev Calls the receiver in each call form that the stipend rule checks.
  */
 contract StipendSender {
-    address payable immutable probe;
+    address payable immutable receiver;
 
-    constructor(address payable _probe) {
-        probe = _probe;
+    constructor(address payable _receiver) {
+        receiver = _receiver;
     }
 
     function isSendDenied() public payable returns (bool) {
-        return !probe.send(msg.value);
+        return !receiver.send(msg.value);
     }
 
     function isCallWithGasDenied(uint64 gasLimit) public payable returns (bool) {
-        (bool ok, ) = probe.call{value: msg.value, gas: gasLimit}("");
+        (bool ok, ) = receiver.call{value: msg.value, gas: gasLimit}("");
         return !ok;
     }
 
-    function isStaticCallWithGasDenied(uint64 gasLimit) public returns (bool) {
-        (bool ok, ) = address(probe).staticcall{gas: gasLimit}("");
+    function isStaticCallWithGasDenied(uint64 gasLimit) public view returns (bool) {
+        (bool ok, ) = address(receiver).staticcall{gas: gasLimit}("");
         return !ok;
     }
 
@@ -337,35 +337,19 @@ contract LightStipendSender {
 }
 
 /**
- * @title WritingReceiver
- * @dev Increments `counter` on `bump` and on receiving value.
- */
-contract WritingReceiver {
-    uint256 public counter;
-
-    function bump() external {
-        counter += 1;
-    }
-
-    receive() external payable {
-        counter += 1;
-    }
-}
-
-/**
  * @title WarmWriteSender
  * @dev Makes a slot hot with a normal write, then reaches it again on a limited gas budget.
  */
 contract WarmWriteSender {
     uint256 public counter;
 
-    function isWarmWriteDenied(WritingReceiver receiver) public payable returns (bool) {
+    function isWarmWriteDenied(BumpableCounter receiver) public payable returns (bool) {
         receiver.bump();
         return !payable(address(receiver)).send(msg.value);
     }
 
     function isWarmWriteDeniedWithGas(
-        WritingReceiver receiver,
+        BumpableCounter receiver,
         uint64 gasLimit
     ) public payable returns (bool) {
         receiver.bump();
@@ -374,7 +358,7 @@ contract WarmWriteSender {
     }
 
     function isWarmStaticReadDenied(
-        WritingReceiver receiver,
+        BumpableCounter receiver,
         uint64 gasLimit
     ) public returns (bool) {
         receiver.bump();
@@ -384,14 +368,116 @@ contract WarmWriteSender {
     }
 
     function isWarmDelegateWriteDenied(
-        WritingReceiver receiver,
+        BumpableCounter receiver,
         uint64 gasLimit
     ) public returns (bool) {
         counter += 1;
         (bool ok, ) = address(receiver).delegatecall{gas: gasLimit}(
-            abi.encodeCall(WritingReceiver.bump, ())
+            abi.encodeCall(BumpableCounter.bump, ())
         );
         return !ok;
+    }
+}
+
+/**
+ * @title BumpableCounter
+ * @dev Stores a `counter`, and `bump` adds one to it.
+ */
+abstract contract BumpableCounter {
+    uint256 public counter;
+
+    function bump() external {
+        counter += 1;
+    }
+
+    function counterSlot() internal pure returns (bytes32 slot) {
+        assembly {
+            slot := counter.slot
+        }
+    }
+}
+
+/**
+ * @title StorageHelpers
+ * @dev Storage helpers shared by the receivers.
+ */
+library StorageHelpers {
+    // The `flags` bit of the storage precompile that selects transient storage.
+    uint32 internal constant TRANSIENT = 1;
+
+    // Clears or takes `key` (by `selector`) in the calling contract's storage.
+    function callPrecompile(
+        bytes4 selector,
+        uint32 flags,
+        bytes32 key
+    ) internal returns (bool success) {
+        (success, ) = STORAGE_ADDR.delegatecall(
+            abi.encodeWithSelector(selector, flags, true, abi.encodePacked(key))
+        );
+    }
+
+    // Writes 1 to transient slot 0, failing unless the write is visible.
+    function writeTransient() internal {
+        uint256 value;
+        assembly {
+            tstore(0, 1)
+            value := tload(0)
+        }
+        require(value == 1, "transient write denied");
+    }
+
+    function transientValue() internal view returns (uint256 value) {
+        assembly {
+            value := tload(0)
+        }
+    }
+}
+
+/**
+ * @title WritingReceiver
+ * @dev Increments `counter` on `bump` and on receiving value.
+ */
+contract WritingReceiver is BumpableCounter {
+    receive() external payable {
+        counter += 1;
+    }
+}
+
+/**
+ * @title ClearingReceiver
+ * @dev Increments `counter` on `bump` and zeroes it on receiving value.
+ */
+contract ClearingReceiver is BumpableCounter {
+    receive() external payable {
+        counter = 0;
+    }
+}
+
+/**
+ * @title PrecompileClearingReceiver
+ * @dev Increments `counter` on `bump` and clears its slot through the storage precompile on
+ * receiving value.
+ */
+contract PrecompileClearingReceiver is BumpableCounter {
+    receive() external payable {
+        require(
+            StorageHelpers.callPrecompile(IStorage.clearStorage.selector, 0, counterSlot()),
+            "clear denied"
+        );
+    }
+}
+
+/**
+ * @title PrecompileTakingReceiver
+ * @dev Increments `counter` on `bump` and takes its slot through the storage precompile on
+ * receiving value.
+ */
+contract PrecompileTakingReceiver is BumpableCounter {
+    receive() external payable {
+        require(
+            StorageHelpers.callPrecompile(IStorage.takeStorage.selector, 0, counterSlot()),
+            "take denied"
+        );
     }
 }
 
@@ -416,7 +502,7 @@ contract NestedWritingReceiver {
             target.bump();
         } else if (nesting == Nesting.DelegateCall) {
             (bool success, ) =
-                address(target).delegatecall(abi.encodeCall(WritingReceiver.bump, ()));
+                address(target).delegatecall(abi.encodeCall(BumpableCounter.bump, ()));
             require(success, "delegate call failed");
         } else {
             new CounterStartingAtOne();
@@ -433,88 +519,12 @@ contract CounterStartingAtOne {
 }
 
 /**
- * @title ClearingReceiver
- * @dev Increments `counter` on `bump` and zeroes it on receiving value.
- */
-contract ClearingReceiver {
-    uint256 public counter;
-
-    function bump() external {
-        counter += 1;
-    }
-
-    receive() external payable {
-        counter = 0;
-    }
-}
-
-/**
- * @title PrecompileClearingReceiver
- * @dev Increments `counter` on `bump` and clears its slot through the storage precompile on
- * receiving value.
- */
-contract PrecompileClearingReceiver {
-    uint256 public counter;
-
-    function bump() external {
-        counter += 1;
-    }
-
-    receive() external payable {
-        uint256 slot;
-        assembly {
-            slot := counter.slot
-        }
-        (bool success, ) = STORAGE_ADDR.delegatecall(
-            abi.encodeWithSelector(
-                IStorage.clearStorage.selector, 0, true, abi.encodePacked(bytes32(slot))
-            )
-        );
-        require(success, "clear denied");
-    }
-}
-
-/**
- * @title PrecompileTakingReceiver
- * @dev Increments `counter` on `bump` and takes its slot through the storage precompile on
- * receiving value.
- */
-contract PrecompileTakingReceiver {
-    uint256 public counter;
-
-    function bump() external {
-        counter += 1;
-    }
-
-    receive() external payable {
-        uint256 slot;
-        assembly {
-            slot := counter.slot
-        }
-        (bool success, ) = STORAGE_ADDR.delegatecall(
-            abi.encodeWithSelector(
-                IStorage.takeStorage.selector, 0, true, abi.encodePacked(bytes32(slot))
-            )
-        );
-        require(success, "take denied");
-    }
-}
-
-// The `flags` bit of the storage precompile that selects transient storage.
-uint32 constant TRANSIENT = 1;
-
-/**
  * @title TransientWritingReceiver
  * @dev Writes transient storage on receiving value, failing unless the write is visible.
  */
 contract TransientWritingReceiver {
     receive() external payable {
-        uint256 value;
-        assembly {
-            tstore(0, 1)
-            value := tload(0)
-        }
-        require(value == 1, "transient write denied");
+        StorageHelpers.writeTransient();
     }
 }
 
@@ -525,17 +535,11 @@ contract TransientWritingReceiver {
  */
 contract TransientClearingReceiver {
     receive() external payable {
-        uint256 value;
-        assembly {
-            tstore(0, 1)
-            value := tload(0)
-        }
-        require(value == 1, "transient write denied");
+        StorageHelpers.writeTransient();
         assembly {
             tstore(0, 0)
-            value := tload(0)
         }
-        require(value == 0, "transient clear denied");
+        require(StorageHelpers.transientValue() == 0, "transient clear denied");
     }
 }
 
@@ -545,22 +549,14 @@ contract TransientClearingReceiver {
  */
 contract TransientPrecompileClearingReceiver {
     receive() external payable {
-        uint256 value;
-        assembly {
-            tstore(0, 1)
-            value := tload(0)
-        }
-        require(value == 1, "transient write denied");
-        (bool success, ) = STORAGE_ADDR.delegatecall(
-            abi.encodeWithSelector(
-                IStorage.clearStorage.selector, TRANSIENT, true, abi.encodePacked(bytes32(0))
-            )
+        StorageHelpers.writeTransient();
+        require(
+            StorageHelpers.callPrecompile(
+                IStorage.clearStorage.selector, StorageHelpers.TRANSIENT, bytes32(0)
+            ),
+            "clear denied"
         );
-        require(success, "clear denied");
-        assembly {
-            value := tload(0)
-        }
-        require(value == 0, "transient clear denied");
+        require(StorageHelpers.transientValue() == 0, "transient clear denied");
     }
 }
 
@@ -570,21 +566,13 @@ contract TransientPrecompileClearingReceiver {
  */
 contract TransientPrecompileTakingReceiver {
     receive() external payable {
-        uint256 value;
-        assembly {
-            tstore(0, 1)
-            value := tload(0)
-        }
-        require(value == 1, "transient write denied");
-        (bool success, ) = STORAGE_ADDR.delegatecall(
-            abi.encodeWithSelector(
-                IStorage.takeStorage.selector, TRANSIENT, true, abi.encodePacked(bytes32(0))
-            )
+        StorageHelpers.writeTransient();
+        require(
+            StorageHelpers.callPrecompile(
+                IStorage.takeStorage.selector, StorageHelpers.TRANSIENT, bytes32(0)
+            ),
+            "take denied"
         );
-        require(success, "take denied");
-        assembly {
-            value := tload(0)
-        }
-        require(value == 0, "transient take denied");
+        require(StorageHelpers.transientValue() == 0, "transient take denied");
     }
 }
