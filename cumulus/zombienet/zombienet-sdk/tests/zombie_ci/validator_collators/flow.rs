@@ -20,17 +20,20 @@
 //! 3. Both parachains rotate AliceStash and BobStash in as collators, and their collator nodes
 //!    author blocks.
 
+use super::common::{
+	account, build_network_config, fetch, fetch_raw, hex_accounts, is_announcement_of_era_1,
+	keypair, node_seed, open_hrmp_channels, session_validators, wait_for_event,
+	wait_for_finalized_block, wait_for_hrmp_channel, NetworkOptions, ASSET_HUB_ID,
+	ASSET_HUB_INVULNERABLE, CALL_TIMEOUT, CLIENT_TIMEOUT_SECS, PARA_BLOCKS, PEOPLE_ID,
+	PEOPLE_INVULNERABLE, POLL_INTERVAL, VALIDATORS,
+};
 use crate::utils::initialize_network;
 
 use anyhow::anyhow;
-use codec::{Decode, Encode};
-use cumulus_zombienet_sdk_helpers::{
-	open_hrmp_channel, submit_extrinsic_and_wait_for_finalization_success,
-};
+use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success;
 use serde::Deserialize;
-use serde_json::json;
 use sp_core::Bytes;
-use std::{collections::BTreeSet, str::FromStr, time::Duration};
+use std::{collections::BTreeSet, time::Duration};
 use tokio::time::Instant;
 use zombienet_sdk::{
 	subxt::{
@@ -38,34 +41,17 @@ use zombienet_sdk::{
 		backend::rpc::RpcClient,
 		dynamic::Value,
 		ext::{
-			scale_value::{At, Composite, ValueDef},
+			scale_value::{At, Composite},
 			subxt_rpcs::rpc_params,
 		},
 		OnlineClient, PolkadotConfig,
 	},
-	subxt_signer::{
-		sr25519::{dev, Keypair},
-		SecretUri,
-	},
-	LocalFileSystem, Network, NetworkConfig, NetworkConfigBuilder,
+	subxt_signer::sr25519::Keypair,
+	LocalFileSystem, Network,
 };
 
-const ASSET_HUB_ID: u32 = 1000;
-const PEOPLE_ID: u32 = 1004;
-
-/// Length of the unsigned election phase on Asset Hub, in blocks.
-const UNSIGNED_PHASE: u32 = 20;
-
-/// For each sudo call on the relay chain and each RPC request to a collator node.
-const CALL_TIMEOUT: Duration = Duration::from_secs(60);
-
-/// From `check_preconditions`, which runs after the parachain-block wait, to the relay chain
-/// session change that opens the HRMP channels. Relay chain sessions last 2 minutes.
-const HRMP_OPEN_TIMEOUT: Duration = Duration::from_secs(3 * 60);
-
-/// Blocks each parachain must finalize before the test registers keys.
-const PARA_BLOCKS: u32 = 3;
-const PARA_BLOCKS_TIMEOUT: Duration = Duration::from_secs(5 * 60);
+/// Largest HRMP message between the two chains. The announcement of two validators fits.
+const HRMP_MAX_MESSAGE_SIZE: u32 = 1024;
 
 /// For all four key registrations.
 const KEY_REGISTRATION_TIMEOUT: Duration = Duration::from_secs(5 * 60);
@@ -84,31 +70,6 @@ const SESSION_ROTATION_TIMEOUT: Duration = Duration::from_secs(2 * 60);
 /// From the rotations to both validator collators having authored a block on both parachains.
 const AUTHORSHIP_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
-const POLL_INTERVAL: Duration = Duration::from_secs(6);
-
-/// A relay chain validator: the relay node, its stash and its collator node on each parachain.
-struct Validator {
-	stash_uri: &'static str,
-	asset_hub_collator: &'static str,
-	people_collator: &'static str,
-}
-
-const VALIDATORS: [Validator; 2] = [
-	Validator {
-		stash_uri: "//Alice//stash",
-		asset_hub_collator: "asset-hub-alice",
-		people_collator: "people-alice",
-	},
-	Validator {
-		stash_uri: "//Bob//stash",
-		asset_hub_collator: "asset-hub-bob",
-		people_collator: "people-bob",
-	},
-];
-
-const ASSET_HUB_INVULNERABLE: &str = "asset-hub-collator";
-const PEOPLE_INVULNERABLE: &str = "people-collator";
-
 /// Response of `author_rotateKeysWithOwner`.
 #[derive(Deserialize)]
 struct GeneratedSessionKeys {
@@ -116,25 +77,45 @@ struct GeneratedSessionKeys {
 	proof: Option<Bytes>,
 }
 
+/// The whole test, below the 60-minute CI step so that the step ends with this error and the log
+/// collection steps run.
+const TEST_TIMEOUT: Duration = Duration::from_secs(50 * 60);
+
 #[tokio::test(flavor = "multi_thread")]
 async fn validator_collators_on_asset_hub_and_people() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
+	tokio::time::timeout(TEST_TIMEOUT, run())
+		.await
+		.map_err(|_| anyhow!("the flow test did not finish within {TEST_TIMEOUT:?}"))?
+}
+
+async fn run() -> Result<(), anyhow::Error> {
 	log::info!("Spawning network");
-	let config = build_network_config().await?;
+	let config = build_network_config(NetworkOptions {
+		validator_collators: true,
+		election: true,
+		hrmp_channel_max_total_size: None,
+		sudo_balance: None,
+	})
+	.await?;
 	let network = initialize_network(config).await?;
 	network.wait_until_is_up(120).await?;
 
 	let relay_client: OnlineClient<PolkadotConfig> =
-		network.get_node("alice")?.wait_client().await?;
-	let asset_hub_client: OnlineClient<PolkadotConfig> =
-		network.get_node(ASSET_HUB_INVULNERABLE)?.wait_client().await?;
-	let people_client: OnlineClient<PolkadotConfig> =
-		network.get_node(PEOPLE_INVULNERABLE)?.wait_client().await?;
+		network.get_node("alice")?.wait_client_with_timeout(CLIENT_TIMEOUT_SECS).await?;
+	let asset_hub_client: OnlineClient<PolkadotConfig> = network
+		.get_node(ASSET_HUB_INVULNERABLE)?
+		.wait_client_with_timeout(CLIENT_TIMEOUT_SECS)
+		.await?;
+	let people_client: OnlineClient<PolkadotConfig> = network
+		.get_node(PEOPLE_INVULNERABLE)?
+		.wait_client_with_timeout(CLIENT_TIMEOUT_SECS)
+		.await?;
 
-	open_hrmp_channels(&relay_client).await?;
+	open_hrmp_channels(&relay_client, HRMP_MAX_MESSAGE_SIZE).await?;
 
 	log::info!("Waiting for both parachains to finalize {PARA_BLOCKS} blocks");
 	tokio::try_join!(
@@ -242,91 +223,6 @@ async fn validator_collators_on_asset_hub_and_people() -> Result<(), anyhow::Err
 	Ok(())
 }
 
-async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
-	let images = zombienet_sdk::environment::get_images_from_env();
-	log::info!("Using images: {images:?}");
-
-	NetworkConfigBuilder::new()
-		.with_relaychain(|r| {
-			r.with_chain("westend-local")
-				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![
-					("-lparachain=info,runtime::staking-async::ah-client=debug,xcm=info").into(),
-				])
-				.with_genesis_overrides(json!({
-					"stakingAhClient": { "operatingMode": "Active" }
-				}))
-				.with_validator(|node| node.with_name("alice"))
-				.with_validator(|node| node.with_name("bob"))
-		})
-		.with_parachain(|p| {
-			p.with_id(ASSET_HUB_ID)
-				.with_default_command("polkadot-parachain")
-				.with_default_image(images.cumulus.as_str())
-				.with_chain("asset-hub-westend-local")
-				.with_default_args(collator_args(
-					"runtime::multiblock-election=debug,runtime::staking-async=debug,\
-					runtime::staking-async::rc-client=debug,runtime::validator-collators=debug,\
-					runtime::validator-set-announcer=debug",
-				))
-				.with_genesis_overrides(json!({
-					"staking": { "validatorCount": VALIDATORS.len(), "devStakers": null }
-				}))
-				.with_raw_spec_override(election_phases_override())
-				.with_collator(|n| n.with_name(ASSET_HUB_INVULNERABLE))
-				.with_collator(|n| {
-					n.with_name(VALIDATORS[0].asset_hub_collator).invulnerable(false)
-				})
-				.with_collator(|n| {
-					n.with_name(VALIDATORS[1].asset_hub_collator).invulnerable(false)
-				})
-		})
-		.with_parachain(|p| {
-			p.with_id(PEOPLE_ID)
-				.with_default_command("polkadot-parachain")
-				.with_default_image(images.cumulus.as_str())
-				.with_chain("people-westend-local")
-				.with_default_args(collator_args("runtime::validator-collators=debug"))
-				.with_collator(|n| n.with_name(PEOPLE_INVULNERABLE))
-				.with_collator(|n| n.with_name(VALIDATORS[0].people_collator).invulnerable(false))
-				.with_collator(|n| n.with_name(VALIDATORS[1].people_collator).invulnerable(false))
-		})
-		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
-			Ok(val) => global_settings.with_base_dir(val),
-			_ => global_settings,
-		})
-		.build()
-		.map_err(|e| {
-			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
-			anyhow!("config errs: {errs}")
-		})
-}
-
-fn collator_args(log_targets: &str) -> Vec<zombienet_sdk::Arg> {
-	vec![
-		format!("-lparachain=info,aura=debug,xcm=info,{log_targets}").as_str().into(),
-		("--force-authoring").into(),
-		("--authoring", "slot-based").into(),
-	]
-}
-
-/// Skips the signed election phases on Asset Hub and shortens the unsigned one, by writing the
-/// `pub storage` parameters `SignedPhase`, `UnsignedPhase` and `SignedValidationPhase` into the
-/// raw genesis.
-fn election_phases_override() -> serde_json::Value {
-	let entry = |name: &str, value: u32| {
-		let key = sp_crypto_hashing::twox_128(format!(":{name}:").as_bytes());
-		(format!("0x{}", hex::encode(key)), json!(format!("0x{}", hex::encode(value.encode()))))
-	};
-	let top = serde_json::Map::from_iter([
-		entry("SignedPhase", 0),
-		entry("UnsignedPhase", UNSIGNED_PHASE),
-		entry("SignedValidationPhase", 0),
-	]);
-	json!({ "genesis": { "raw": { "top": top } } })
-}
-
 async fn check_preconditions(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	asset_hub_client: &OnlineClient<PolkadotConfig>,
@@ -352,51 +248,6 @@ async fn check_preconditions(
 		return Err(anyhow!("relay ah-client mode is {mode}, expected `Active`"));
 	}
 	wait_for_hrmp_channel(relay_client, ASSET_HUB_ID, PEOPLE_ID).await
-}
-
-/// Opens the HRMP channels from Asset Hub to People and back. They open at the next relay chain
-/// session change. The channel back lets People answer Asset Hub's version subscription.
-async fn open_hrmp_channels(
-	relay_client: &OnlineClient<PolkadotConfig>,
-) -> Result<(), anyhow::Error> {
-	for (sender, recipient) in [(ASSET_HUB_ID, PEOPLE_ID), (PEOPLE_ID, ASSET_HUB_ID)] {
-		// `max_capacity` is the preset's `hrmp_channel_max_capacity`.
-		open_hrmp_channel(
-			relay_client,
-			sender,
-			recipient,
-			8,
-			1024,
-			&dev::alice(),
-			CALL_TIMEOUT.as_secs(),
-		)
-		.await?;
-		log::info!("Requested HRMP channel {sender} to {recipient}");
-	}
-	Ok(())
-}
-
-async fn wait_for_hrmp_channel(
-	relay_client: &OnlineClient<PolkadotConfig>,
-	sender: u32,
-	recipient: u32,
-) -> Result<(), anyhow::Error> {
-	let wait = async {
-		loop {
-			let channel = Value::named_composite([
-				("sender", Value::u128(sender.into())),
-				("recipient", Value::u128(recipient.into())),
-			]);
-			if fetch_raw(relay_client, "Hrmp", "HrmpChannels", vec![channel]).await?.is_some() {
-				log::info!("HRMP channel {sender} to {recipient} is open");
-				return Ok::<_, anyhow::Error>(());
-			}
-			tokio::time::sleep(POLL_INTERVAL).await;
-		}
-	};
-	tokio::time::timeout(HRMP_OPEN_TIMEOUT, wait).await.map_err(|_| {
-		anyhow!("HRMP channel {sender} to {recipient} not open within {HRMP_OPEN_TIMEOUT:?}")
-	})?
 }
 
 /// Generates keys on `collator` owned by `stash` and registers them from `stash`.
@@ -448,74 +299,10 @@ async fn register_keys(
 	Ok(())
 }
 
-/// Waits for an event of `pallet` and `variant` whose fields satisfy `matches`, and returns the
-/// number of the finalized block holding it.
-async fn wait_for_event(
-	client: OnlineClient<PolkadotConfig>,
-	chain: &'static str,
-	pallet: &'static str,
-	variant: &'static str,
-	matches: fn(&Composite<u32>) -> bool,
-	timeout: Duration,
-) -> Result<u32, anyhow::Error> {
-	let wait = async {
-		let mut blocks = client.blocks().subscribe_finalized().await?;
-		while let Some(block) = blocks.next().await {
-			let block = block?;
-			if block.number() % 50 == 0 {
-				log::info!("{chain} at #{}, waiting for `{pallet}::{variant}`", block.number());
-			}
-			for event in block.events().await?.iter() {
-				let event = event?;
-				if event.pallet_name() != pallet || event.variant_name() != variant {
-					continue;
-				}
-				let fields = event.field_values()?;
-				if matches(&fields) {
-					log::info!("{chain} #{}: `{pallet}::{variant}` {fields:?}", block.number());
-					return Ok(block.number());
-				}
-			}
-		}
-		Err(anyhow!("{chain} block subscription ended"))
-	};
-	tokio::time::timeout(timeout, wait)
-		.await
-		.map_err(|_| anyhow!("no `{pallet}::{variant}` on {chain} within {timeout:?}"))?
-}
-
 /// `ValidatorSetReceived { era: 1, count: 2 }`.
 fn is_set_of_era_1_with_two_validators(fields: &Composite<u32>) -> bool {
 	fields.at("era").and_then(|era| era.as_u128()) == Some(1) &&
 		fields.at("count").and_then(|count| count.as_u128()) == Some(VALIDATORS.len() as u128)
-}
-
-/// `AnnouncementSent { destination: People, era: 1 }`.
-fn is_announcement_of_era_1(fields: &Composite<u32>) -> bool {
-	let to_people = fields.at("destination").is_some_and(
-		|destination| matches!(&destination.value, ValueDef::Variant(v) if v.name == "People"),
-	);
-	to_people && fields.at("era").and_then(|era| era.as_u128()) == Some(1)
-}
-
-async fn wait_for_finalized_block(
-	client: &OnlineClient<PolkadotConfig>,
-	chain: &str,
-	number: u32,
-) -> Result<(), anyhow::Error> {
-	let wait = async {
-		let mut blocks = client.blocks().subscribe_finalized().await?;
-		while let Some(block) = blocks.next().await {
-			if block?.number() >= number {
-				log::info!("{chain} finalized block #{number}");
-				return Ok(());
-			}
-		}
-		Err(anyhow!("{chain} block subscription ended"))
-	};
-	tokio::time::timeout(PARA_BLOCKS_TIMEOUT, wait)
-		.await
-		.map_err(|_| anyhow!("{chain} did not finalize #{number} within {PARA_BLOCKS_TIMEOUT:?}"))?
 }
 
 async fn wait_for_session_validators(
@@ -580,60 +367,4 @@ async fn active_era(client: &OnlineClient<PolkadotConfig>) -> Result<u32, anyhow
 		.await?
 		.ok_or_else(|| anyhow!("`Staking::ActiveEra` is not set"))?;
 	Ok(index)
-}
-
-async fn session_validators(
-	client: &OnlineClient<PolkadotConfig>,
-) -> Result<BTreeSet<[u8; 32]>, anyhow::Error> {
-	let validators: Vec<[u8; 32]> =
-		fetch(client, "Session", "Validators", vec![]).await?.unwrap_or_default();
-	Ok(validators.into_iter().collect())
-}
-
-async fn fetch<T: Decode>(
-	client: &OnlineClient<PolkadotConfig>,
-	pallet: &str,
-	item: &str,
-	keys: Vec<Value>,
-) -> Result<Option<T>, anyhow::Error> {
-	fetch_raw(client, pallet, item, keys)
-		.await?
-		.map(|encoded| {
-			T::decode(&mut &encoded[..]).map_err(|e| anyhow!("decode `{pallet}::{item}`: {e}"))
-		})
-		.transpose()
-}
-
-async fn fetch_raw(
-	client: &OnlineClient<PolkadotConfig>,
-	pallet: &str,
-	item: &str,
-	keys: Vec<Value>,
-) -> Result<Option<Vec<u8>>, anyhow::Error> {
-	let query = subxt::dynamic::storage(pallet, item, keys);
-	let value = client.storage().at_latest().await?.fetch(&query).await?;
-	Ok(value.map(|value| value.into_encoded()))
-}
-
-fn keypair(uri: &str) -> Result<Keypair, anyhow::Error> {
-	Ok(Keypair::from_uri(&SecretUri::from_str(uri)?)?)
-}
-
-fn account(keypair: &Keypair) -> [u8; 32] {
-	keypair.public_key().0
-}
-
-/// The seed zombienet derives a node's keys from: its name with the first letter capitalised.
-fn node_seed(name: &str) -> String {
-	let mut chars = name.chars();
-	let first = chars.next().map(|c| c.to_uppercase().collect::<String>()).unwrap_or_default();
-	format!("//{first}{}", chars.as_str())
-}
-
-fn hex_accounts(accounts: &BTreeSet<[u8; 32]>) -> String {
-	accounts
-		.iter()
-		.map(|a| format!("0x{}", hex::encode(a)))
-		.collect::<Vec<_>>()
-		.join(", ")
 }
