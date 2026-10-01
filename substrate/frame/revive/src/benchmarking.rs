@@ -4526,9 +4526,11 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn evm_clz_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
-		let operands = (0..r).map(|_| match [3, 2, 1, 0].into_iter().find(|_| rng.gen_bool(0.5)) {
-			Some(limb) => U256::one() << (64 * limb),
-			None => U256::zero(),
+		let operands = (0..r).map(|_| {
+			match [Some(3), Some(2), Some(1), Some(0), None].choose(&mut rng).copied().unwrap() {
+				Some(limb) => U256::one() << (64 * limb),
+				None => U256::zero(),
+			}
 		});
 
 		let code = Bytecode::new_raw([CLZ, POP].repeat(r as usize).into());
