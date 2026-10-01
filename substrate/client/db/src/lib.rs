@@ -47,6 +47,7 @@ use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use std::{
+	borrow::Cow,
 	collections::{HashMap, HashSet},
 	io,
 	path::{Path, PathBuf},
@@ -1107,15 +1108,26 @@ struct StorageDb<Block: BlockT> {
 	prefix_keys: bool,
 }
 
+impl<Block: BlockT> StorageDb<Block> {
+	/// Key of a state node in the `STATE` column.
+	///
+	/// A database that counts references itself (parity-db) stores a node once, by hash. The
+	/// others get the node's trie position in front of the hash, so that identical nodes at
+	/// different positions stay distinct. Reads and partial-state writes share this rule.
+	fn state_key<'a>(&self, hash: &'a Block::Hash, prefix: Prefix) -> Cow<'a, [u8]> {
+		if self.prefix_keys {
+			Cow::Owned(prefixed_key::<HashingFor<Block>>(hash, prefix))
+		} else {
+			Cow::Borrowed(hash.as_ref())
+		}
+	}
+}
+
 impl<Block: BlockT> sp_state_machine::Storage<HashingFor<Block>> for StorageDb<Block> {
 	fn get(&self, key: &Block::Hash, prefix: Prefix) -> Result<Option<DBValue>, String> {
-		if self.prefix_keys {
-			let key = prefixed_key::<HashingFor<Block>>(key, prefix);
-			self.state_db.get(&key, self)
-		} else {
-			self.state_db.get(key.as_ref(), self)
-		}
-		.map_err(|e| format!("Database backend error: {e:?}"))
+		self.state_db
+			.get(&*self.state_key(key, prefix), self)
+			.map_err(|e| format!("Database backend error: {e:?}"))
 	}
 }
 
@@ -2917,10 +2929,13 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		partial_state: PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()> {
 		let mut transaction = Transaction::new();
+		// Each node is keyed exactly as `StorageDb::get` will look it up.
 		let commit = self
 			.storage
 			.partial_state_tracking
-			.import_partial_state(partial_state)
+			.import_partial_state(partial_state, |hash, prefix| {
+				self.storage.state_key(hash, prefix).into_owned()
+			})
 			.map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
 		apply_state_commit(&mut transaction, commit);
 		self.storage.db.commit(transaction)?;
@@ -6281,8 +6296,56 @@ pub(crate) mod tests {
 		assert!(bc.body(fork_hash_3).unwrap().is_none());
 	}
 
-	#[test]
-	fn import_partial_state() {
+	/// Databases the partial-state tests run against. The in-memory kvdb and RocksDB store
+	/// state nodes under `prefix ++ hash`; parity-db counts references itself and stores them
+	/// under the bare hash, see `StorageDb::get`.
+	#[derive(Debug, Clone, Copy)]
+	enum PartialStateDb {
+		KvdbMemdb,
+		ParityDb,
+		RocksDb,
+	}
+
+	fn partial_state_test_backend(
+		kind: PartialStateDb,
+	) -> (Backend<Block>, Option<tempfile::TempDir>) {
+		let (db, tmp): (Arc<dyn Database<DbHash>>, Option<tempfile::TempDir>) = match kind {
+			PartialStateDb::KvdbMemdb => {
+				(sp_database::as_database(kvdb_memorydb::create(crate::utils::NUM_COLUMNS)), None)
+			},
+			PartialStateDb::ParityDb => {
+				let tmp = tempfile::TempDir::new().unwrap();
+				let db =
+					crate::parity_db::open::<DbHash>(tmp.path(), DatabaseType::Full, true, false)
+						.expect("parity-db open succeeds in test");
+				(db, Some(tmp))
+			},
+			PartialStateDb::RocksDb => {
+				let tmp = tempfile::TempDir::new().unwrap();
+				let mut cfg = kvdb_rocksdb::DatabaseConfig::with_columns(crate::utils::NUM_COLUMNS);
+				cfg.create_if_missing = true;
+				let db = kvdb_rocksdb::Database::open(&cfg, tmp.path())
+					.expect("kvdb-rocksdb open succeeds in test");
+				(sp_database::as_database(db), Some(tmp))
+			},
+		};
+		let backend = Backend::<Block>::new_test_with_tx_storage_source(
+			BlocksPruning::Some(10),
+			10,
+			// A fresh database: the create flag makes `Backend::new` initialise the state-db meta.
+			DatabaseSource::Custom { db, require_create_flag: true },
+			Default::default(),
+		);
+		(backend, tmp)
+	}
+
+	/// Nodes written through `import_partial_state` must be readable through the regular state
+	/// backend once the block is committed, whatever key layout the database uses.
+	#[rstest::rstest]
+	#[case::kvdb_memdb(PartialStateDb::KvdbMemdb)]
+	#[case::paritydb(PartialStateDb::ParityDb)]
+	#[case::rocksdb(PartialStateDb::RocksDb)]
+	fn import_partial_state(#[case] kind: PartialStateDb) {
 		let expected_key_values =
 			vec![(vec![0u8; 40], vec![0u8; 1]), (vec![1u8; 40], vec![1u8; 1])];
 
@@ -6306,7 +6369,7 @@ pub(crate) mod tests {
 			digest: Default::default(),
 			extrinsics_root: Default::default(),
 		};
-		let backend = Backend::<Block>::new_test(10, 10);
+		let (backend, _tmp) = partial_state_test_backend(kind);
 		backend
 			.import_partial_state(PartialState {
 				block_hash: header.hash(),

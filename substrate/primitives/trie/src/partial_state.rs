@@ -1,6 +1,6 @@
 //! Functions for partial state.
 
-use super::{LayoutV1 as Layout, MemoryDB, PrefixedMemoryDB};
+use super::{LayoutV1 as Layout, MemoryDB};
 use codec::{Decode, Encode, Input, Output};
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use sp_storage::{well_known_keys, ChildType, PrefixedStorageKey};
@@ -19,9 +19,21 @@ pub struct PartialState<H: Hasher, BlockNumber: Default> {
 	pub nodes: MemoryDB<H>,
 }
 
-/// Database requires prefix to store trie nodes.
-/// Prefixed partial state can be written to database.
-pub type PrefixedPartialState<H> = PrefixedMemoryDB<H>;
+/// A received trie node together with the position it has to be stored at.
+///
+/// `prefix` is the node's database prefix: its nibble path inside the trie, preceded by the child
+/// trie keyspace for nodes of a child trie. It is the prefix `sp_state_machine` passes when it
+/// reads the node back (`prefix.as_prefix()` gives the `hash_db` form), so a database layer
+/// derives the key from `(hash, prefix)` exactly as it does for reads, with no intermediate
+/// prefixed map.
+pub struct PrefixedTrieNode<H: Hasher> {
+	/// Node hash.
+	pub hash: H::Out,
+	/// Database prefix, see the struct docs.
+	pub prefix: NibbleVec,
+	/// Encoded node.
+	pub encoded: Vec<u8>,
+}
 
 /// Traverse trie nodes asynchronously.
 ///
@@ -51,12 +63,12 @@ impl<H: Hasher> PartialStatePrefixer<H> {
 	}
 
 	/// Resume trie traversal using nodes from partial state.
-	/// Returns prefixed partial state for nodes used during traversal.
+	/// Returns every node that became writable, with its database prefix.
 	pub fn import<BlockNumber: Default>(
 		&mut self,
 		partial_state: PartialState<H, BlockNumber>,
-	) -> Result<PrefixedPartialState<H>, Error> {
-		let mut result = PrefixedPartialState::new(&[]);
+	) -> Result<Vec<PrefixedTrieNode<H>>, Error> {
+		let mut result = Vec::new();
 		// resume recursive trie traversal
 		let mut nodes_queue = self.nodes.clone();
 		let mut nodes_after: Vec<TrieNodeInfo<H>> = vec![];
@@ -69,7 +81,11 @@ impl<H: Hasher> PartialStatePrefixer<H> {
 				// node received, traverse it's children
 				nodes_queue.extend(info.children(&encoded)?);
 				// write this node to db
-				result.emplace(info.hash, info.db_prefix()?.as_prefix(), encoded);
+				result.push(PrefixedTrieNode {
+					hash: info.hash,
+					prefix: info.db_prefix()?,
+					encoded,
+				});
 			} else {
 				// wait for this node to be received
 				nodes_after.push(info);
@@ -109,10 +125,11 @@ where
 }
 
 impl<H: Hasher> PartialStatePrefixerPerBlock<H> {
+	/// Feed a chunk to the walker of its block, see [`PartialStatePrefixer::import`].
 	pub fn import<BlockNumber: Default>(
 		&mut self,
 		partial_state: PartialState<H, BlockNumber>,
-	) -> Result<PrefixedPartialState<H>, Error> {
+	) -> Result<Vec<PrefixedTrieNode<H>>, Error> {
 		self.0
 			.entry(partial_state.block_hash)
 			.or_insert_with(|| PartialStatePrefixer::new(partial_state.state_root))
@@ -281,5 +298,117 @@ where
 		let is_detached_value = Decode::decode(input)?;
 		let child_trie_key = Decode::decode(input)?;
 		Ok(Self { trie_prefix, hash, is_detached_value, child_trie_key })
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		prefixed_key, KeySpacedDBMut, LayoutV1, PrefixedMemoryDB, TrieDBMutBuilder, TrieMut,
+	};
+	use sp_core::Blake2Hasher;
+	use std::collections::BTreeSet;
+
+	type Hash = <Blake2Hasher as Hasher>::Out;
+
+	const CHILD_NAME: &[u8] = b"child";
+
+	/// Builds a top trie with one child trie the way `sp_state_machine` lays them out in the
+	/// database, and returns that prefixed database together with the state root.
+	fn build_state() -> (PrefixedMemoryDB<Blake2Hasher>, Hash) {
+		let mut db = PrefixedMemoryDB::<Blake2Hasher>::default();
+
+		let mut child_root = Hash::default();
+		{
+			let mut keyspaced = KeySpacedDBMut::new(&mut db, CHILD_NAME);
+			let mut trie =
+				TrieDBMutBuilder::<LayoutV1<Blake2Hasher>>::new(&mut keyspaced, &mut child_root)
+					.build();
+			trie.insert(b"a", b"1").unwrap();
+			// Longer than 32 bytes: stored as a detached value node under LayoutV1.
+			trie.insert(b"b", &[7u8; 64]).unwrap();
+			trie.commit();
+		}
+
+		let mut root = Hash::default();
+		{
+			let mut trie =
+				TrieDBMutBuilder::<LayoutV1<Blake2Hasher>>::new(&mut db, &mut root).build();
+			trie.insert(b"key0", &[0u8; 40]).unwrap();
+			trie.insert(b"key1", b"short").unwrap();
+			let mut child_key = well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX.to_vec();
+			child_key.extend_from_slice(CHILD_NAME);
+			trie.insert(&child_key, child_root.as_ref()).unwrap();
+			trie.commit();
+		}
+		(db, root)
+	}
+
+	/// Keys under which `db` holds its nodes: the oracle for the walker's prefixes.
+	fn db_keys(db: &PrefixedMemoryDB<Blake2Hasher>) -> BTreeSet<Vec<u8>> {
+		db.clone()
+			.drain()
+			.into_iter()
+			.filter(|(_, (_, rc))| *rc > 0)
+			.map(|(key, _)| key)
+			.collect()
+	}
+
+	fn all_nodes(db: &PrefixedMemoryDB<Blake2Hasher>) -> Vec<Vec<u8>> {
+		db.clone()
+			.drain()
+			.into_values()
+			.filter(|(_, rc)| *rc > 0)
+			.map(|(encoded, _)| encoded)
+			.collect()
+	}
+
+	/// The nodes as a state-sync chunk: a `MemoryDB` keyed by hash only, no prefixes.
+	fn chunk(nodes: Vec<Vec<u8>>, root: Hash) -> PartialState<Blake2Hasher, u64> {
+		let mut db = MemoryDB::<Blake2Hasher>::default();
+		for encoded in nodes {
+			db.insert(EMPTY_PREFIX, &encoded);
+		}
+		PartialState { block_hash: root, block_number: 0, state_root: root, nodes: db }
+	}
+
+	fn written_keys(nodes: &[PrefixedTrieNode<Blake2Hasher>]) -> BTreeSet<Vec<u8>> {
+		nodes
+			.iter()
+			.map(|node| prefixed_key::<Blake2Hasher>(&node.hash, node.prefix.as_prefix()))
+			.collect()
+	}
+
+	#[test]
+	fn import_recovers_database_prefixes() {
+		let (db, root) = build_state();
+		let expected = db_keys(&db);
+
+		let mut walker = PartialStatePrefixer::<Blake2Hasher>::new(root);
+		let written = walker.import(chunk(all_nodes(&db), root)).unwrap();
+
+		assert_eq!(written_keys(&written), expected);
+		assert_eq!(written.len(), expected.len(), "every position is written exactly once");
+		assert!(walker.is_completed());
+	}
+
+	#[test]
+	fn import_resumes_across_chunks() {
+		let (db, root) = build_state();
+		let expected = db_keys(&db);
+		let root_node = db.get(&root, EMPTY_PREFIX).unwrap();
+
+		let mut walker = PartialStatePrefixer::<Blake2Hasher>::new(root);
+		let mut written = walker.import(chunk(vec![root_node], root)).unwrap();
+		assert_eq!(written.len(), 1);
+		assert!(!walker.is_completed());
+
+		// The second chunk re-sends the root, as a range proof does: it must not be written again.
+		written.extend(walker.import(chunk(all_nodes(&db), root)).unwrap());
+
+		assert_eq!(written_keys(&written), expected);
+		assert_eq!(written.len(), expected.len(), "the root is written once");
+		assert!(walker.is_completed());
 	}
 }

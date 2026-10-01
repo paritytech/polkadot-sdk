@@ -1,7 +1,7 @@
 //! Partial state keys tracking.
 
 use codec::{Decode, Encode};
-use hash_db::Hasher;
+use hash_db::{Hasher, Prefix};
 use parking_lot::Mutex;
 use sc_state_db::{CommitSet, MetaDb};
 use sp_runtime::traits::HashingFor;
@@ -66,15 +66,23 @@ where
 	/// completely donwloaded state. Block hash is passed to remember partial state belonging to
 	/// that block, to avoid inserting node second time (may break reference counting),
 	/// and to allow cleaning up incomplete partial state for that block.
+	///
+	/// `state_key` turns a node's hash and database prefix into its key in the `STATE` column; the
+	/// backend passes the same rule it uses for reads.
 	pub fn import_partial_state<BlockNumber: Default>(
 		&self,
 		partial_state: PartialState<H, BlockNumber>,
+		mut state_key: impl FnMut(&H::Out, Prefix) -> Vec<u8>,
 	) -> Result<DbCommitSet, PartialStateError> {
 		let mut prefixer_per_block = self.prefixer_per_block.lock();
-		let mut prefixed = prefixer_per_block.import(partial_state)?;
+		let nodes = prefixer_per_block.import(partial_state)?;
 		let mut commit = CommitSet::default();
-		for (key, (value, _)) in prefixed.drain() {
-			commit.data.inserted.push((key, value));
+		commit.data.inserted.reserve(nodes.len());
+		for node in nodes {
+			commit
+				.data
+				.inserted
+				.push((state_key(&node.hash, node.prefix.as_prefix()), node.encoded));
 		}
 		if !commit.data.inserted.is_empty() {
 			Self::write_partial_state_keys(&mut prefixer_per_block, &mut commit);

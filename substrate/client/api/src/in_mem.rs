@@ -32,7 +32,7 @@ use sp_state_machine::{
 	Backend as StateBackend, BackendTransaction, ChildStorageCollection, InMemoryBackend,
 	IndexOperation, StorageCollection, TrieBackendBuilder,
 };
-use sp_trie::{partial_state::PartialStatePrefixerPerBlock, PrefixedMemoryDB};
+use sp_trie::{partial_state::PartialStatePrefixerPerBlock, HashDBT, PrefixedMemoryDB};
 use std::{
 	collections::{HashMap, HashSet},
 	ptr,
@@ -811,12 +811,15 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		&self,
 		partial_state: PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()> {
-		let prefixed = self
+		let nodes = self
 			.partial_state_tracking
 			.write()
 			.import(partial_state)
 			.map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
-		self.state_db.write().consolidate(prefixed);
+		let mut state_db = self.state_db.write();
+		for node in nodes {
+			state_db.emplace(node.hash, node.prefix.as_prefix(), node.encoded);
+		}
 		Ok(())
 	}
 
