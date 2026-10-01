@@ -4448,14 +4448,9 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `NOT` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Value Independence:** `NOT` inverts all four limbs of its operand with no branch that
-	///   depends on its value, so its work is the same whatever the value.
-	/// * **Chained Operations:** each `NOT` inverts the result of the previous one, starting from a
-	///   zero placed on the stack before the benchmark runs, so the results alternate between
-	///   `U256::MAX` and zero. `NOT` doesn't change the stack's height, so `r` is only bounded by
-	///   the largest code a contract can have.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
 	///
 	/// # Subtraction Safety
 	///
