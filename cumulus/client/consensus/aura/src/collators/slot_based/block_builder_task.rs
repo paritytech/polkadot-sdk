@@ -498,8 +498,8 @@ where
 				)
 			};
 
-		let best_parent_header = parent_search_result.best_parent_header.clone();
-		let resubmittable_headers = parent_search_result.resubmittable_segment.clone();
+		let best_parent_header = parent_search_result.best_parent_header;
+		let resubmittable_headers = parent_search_result.resubmittable_segment;
 
 		// Building on a parent that already sits on our relay parent would put two blocks on the
 		// same one, so the prerequisites are not met for this slot.
@@ -518,7 +518,7 @@ where
 		// survives, and only for V2, whose scheduling parent is the relay parent the block
 		// executes against. Otherwise take it at the settled relay parent.
 		let included_header_at_execution = if build_parent_agrees && !v3_enabled {
-			parent_search_result.included_at_scheduling.clone()
+			parent_search_result.included_at_scheduling
 		} else {
 			self.included_header_at_execution(relay_parent_data.relay_parent().hash())
 				.await?
