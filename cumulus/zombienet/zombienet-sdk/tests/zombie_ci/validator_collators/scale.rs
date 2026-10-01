@@ -100,6 +100,9 @@ struct Chain<'a> {
 }
 
 /// The block that enacts a new Aura authority list.
+/// Raw storage keys and values for `System::set_storage`.
+type StorageItems = Vec<(Vec<u8>, Vec<u8>)>;
+
 struct RotationBlock {
 	hash: H256,
 	number: u32,
@@ -270,7 +273,7 @@ fn storage_item(
 fn session_key_items(
 	client: &OnlineClient<PolkadotConfig>,
 	accounts: &[[u8; 32]],
-) -> Result<Vec<(Vec<u8>, Vec<u8>)>, anyhow::Error> {
+) -> Result<StorageItems, anyhow::Error> {
 	let aura = key_types::AURA.0;
 	accounts
 		.iter()
@@ -302,7 +305,7 @@ fn session_key_items(
 fn announcement_items(
 	client: &OnlineClient<PolkadotConfig>,
 	accounts: &[[u8; 32]],
-) -> Result<Vec<(Vec<u8>, Vec<u8>)>, anyhow::Error> {
+) -> Result<StorageItems, anyhow::Error> {
 	let set = Value::named_composite([
 		("era", Value::u128(1)),
 		("validators", Value::unnamed_composite(accounts.iter().map(Value::from_bytes))),
@@ -325,7 +328,7 @@ fn announcement_items(
 async fn write_storage(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	chain: &Chain<'_>,
-	items: Vec<(Vec<u8>, Vec<u8>)>,
+	items: StorageItems,
 ) -> Result<Vec<Vec<u8>>, anyhow::Error> {
 	let heap_size: u32 = chain
 		.client
@@ -334,7 +337,7 @@ async fn write_storage(
 		.as_type()?;
 	// Half the page leaves room for the XCM around the call.
 	let budget = heap_size as usize / 2;
-	let mut chunks: Vec<Vec<(Vec<u8>, Vec<u8>)>> = vec![vec![]];
+	let mut chunks: Vec<StorageItems> = vec![vec![]];
 	let mut size = 0;
 	for item in items {
 		let item_size = item.encoded_size();
