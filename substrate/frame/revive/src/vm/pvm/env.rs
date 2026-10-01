@@ -21,10 +21,12 @@ use crate::{
 	AccountIdOf, CodeInfo, Config, ContractBlob, Error, SENTINEL, Weight,
 	address::AddressMapper,
 	debug::DebugSettings,
-	exec::Ext,
+	exec::{CallProtections, Ext},
 	limits,
 	primitives::ExecReturnValue,
-	vm::{BytecodeType, ExportedFunction, RuntimeCosts, calculate_code_deposit},
+	vm::{
+		BytecodeType, ExportedFunction, RuntimeCosts, StipendAndProtections, calculate_code_deposit,
+	},
 };
 use alloc::vec::Vec;
 use core::mem;
@@ -305,7 +307,7 @@ pub mod env {
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::Call { value_ptr },
+			CallType::Call { value_ptr, protections: CallProtections::default() },
 			callee_ptr,
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			input_data_ptr,
@@ -329,20 +331,26 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-		let resources = if gas == u64::MAX {
-			CallResources::NoLimits
+		let flags = CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?;
+		let (resources, protections) = if gas == u64::MAX {
+			(CallResources::NoLimits, CallProtections::default())
+		} else if flags.contains(CallFlags::READ_ONLY) {
+			// A read-only call is never a `transfer` or `send`, and it cannot move value.
+			(CallResources::from_ethereum_gas(gas.into(), false), CallProtections::default())
 		} else {
 			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
 			let value = memory.read_u256(value_ptr)?;
-			// We also need to detect the 2300: We need to add something scaled.
-			let add_stipend = !value.is_zero() || gas == revm::interpreter::gas::CALL_STIPEND;
-			CallResources::from_ethereum_gas(gas.into(), add_stipend)
+			let stipend_and_protections = StipendAndProtections::new(value, Some(gas));
+			(
+				CallResources::from_ethereum_gas(gas.into(), stipend_and_protections.add_stipend()),
+				stipend_and_protections.protections(),
+			)
 		};
 
 		self.call(
 			memory,
-			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::Call { value_ptr },
+			flags,
+			CallType::Call { value_ptr, protections },
 			callee,
 			&resources,
 			input_data_ptr,

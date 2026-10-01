@@ -164,8 +164,10 @@ fn store_helper<'ext, E: Ext>(
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
-
 	let [index, value] = interpreter.stack.popn()?;
+	if !transient && let Err(err) = interpreter.ext.ensure_storage_write_allowed() {
+		return ControlFlow::Break(Halt::Err(err));
+	}
 	let key = Key::Fix(index.to_big_endian());
 
 	let access_kind = StorageAccessKind::new(transient, || {

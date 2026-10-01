@@ -19,11 +19,11 @@ mod call_helpers;
 
 use super::utility::IntoAddress;
 use crate::{
-	Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, ReentrancyProtection, U256,
+	CallProtections, Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, U256,
 	access_list::CreateItems,
 	exec::CallResources,
 	vm::{
-		Ext, RuntimeCosts,
+		Ext, RuntimeCosts, StipendAndProtections,
 		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
 };
@@ -33,7 +33,7 @@ use core::{
 	cmp::min,
 	ops::{ControlFlow, Range},
 };
-use revm::interpreter::{gas::CALL_STIPEND, interpreter_action::CallScheme};
+use revm::interpreter::interpreter_action::CallScheme;
 
 /// Implements the CREATE/CREATE2 instruction.
 ///
@@ -196,30 +196,29 @@ fn run_call<'a, E: Ext>(
 	value: U256,
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
-	let (add_stipend, reentracy) =
-		match (value.is_zero(), gas_limit.try_into().is_ok_and(|limit: u64| limit == CALL_STIPEND))
-		{
-			(false, _) => (true, ReentrancyProtection::AllowReentry),
-			// Heuristic: detect when solc passes `gas_limit = 2300` (the call stipend).
-			// For zero-value transfer/send, solc injects `gas_limit = 2300` explicitly.
-			// We apply `AllowNext` reentrancy protection and set `add_stipend = true` since the
-			// raw 2300 gas value is only meaningful at Ethereum's gas scale.
-			(_, true) => (true, ReentrancyProtection::AllowNext),
-			(_, _) => (false, ReentrancyProtection::AllowReentry),
-		};
-
 	let call_result = match scheme {
-		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
-			&CallResources::from_ethereum_gas(gas_limit, add_stipend),
+		CallScheme::Call => {
+			let stipend_and_protections =
+				StipendAndProtections::new(value, gas_limit.try_into().ok());
+			interpreter.ext.call(
+				&CallResources::from_ethereum_gas(gas_limit, stipend_and_protections.add_stipend()),
+				&callee,
+				value,
+				input,
+				stipend_and_protections.protections(),
+				false,
+			)
+		},
+		CallScheme::StaticCall => interpreter.ext.call(
+			&CallResources::from_ethereum_gas(gas_limit, false),
 			&callee,
 			value,
 			input,
-			// protect against rex-entrancy when we grant the stipend
-			reentracy,
-			scheme.is_static_call(),
+			CallProtections::default(),
+			true,
 		),
 		CallScheme::DelegateCall => interpreter.ext.delegate_call(
-			&CallResources::from_ethereum_gas(gas_limit, add_stipend),
+			&CallResources::from_ethereum_gas(gas_limit, false),
 			callee,
 			input,
 		),

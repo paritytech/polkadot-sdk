@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
+
+import "@revive/IStorage.sol";
 
 /**
  * @title DoNothingReceiver
@@ -231,4 +233,278 @@ contract StipendTest {
     }
 
     receive() external payable {}
+}
+
+/**
+ * @title ReentrancyProbe
+ * @dev Checks whether reentry is admitted. The reentrant call is cheap enough to fit the stipend,
+ * and reverts when denied.
+ */
+contract ReentrancyProbe {
+    receive() external payable {
+        (bool reentered, ) = msg.sender.call("");
+        require(reentered, "reentry denied");
+    }
+}
+
+/**
+ * @title StipendSender
+ * @dev Calls the receiver in each call form that the stipend rule checks.
+ */
+contract StipendSender {
+    address payable immutable receiver;
+
+    constructor(address payable _receiver) {
+        receiver = _receiver;
+    }
+
+    function transferToReceiver() public payable {
+        receiver.transfer(msg.value);
+    }
+
+    function isSendDenied() public payable returns (bool) {
+        return !receiver.send(msg.value);
+    }
+
+    function isCallWithGasDenied(uint64 gasLimit) public payable returns (bool) {
+        (bool ok, ) = receiver.call{value: msg.value, gas: gasLimit}("");
+        return !ok;
+    }
+
+    function isStaticCallWithGasDenied(uint64 gasLimit) public view returns (bool) {
+        (bool ok, ) = address(receiver).staticcall{gas: gasLimit}("");
+        return !ok;
+    }
+
+    function isSelfSendAllowed() public payable returns (bool) {
+        return payable(address(this)).send(msg.value);
+    }
+
+    receive() external payable {}
+}
+
+/**
+ * @title WarmWriteSender
+ * @dev Makes a slot hot with a normal write, then reaches it again on a limited gas budget.
+ */
+contract WarmWriteSender {
+    uint256 public counter;
+
+    function isWarmWriteDenied(BumpableCounter receiver) public payable returns (bool) {
+        receiver.bump();
+        return !payable(address(receiver)).send(msg.value);
+    }
+
+    function isWarmWriteDeniedWithGas(
+        BumpableCounter receiver,
+        uint64 gasLimit
+    ) public payable returns (bool) {
+        receiver.bump();
+        (bool ok, ) = payable(address(receiver)).call{value: msg.value, gas: gasLimit}("");
+        return !ok;
+    }
+
+    function isWarmStaticReadDenied(
+        BumpableCounter receiver,
+        uint64 gasLimit
+    ) public returns (bool) {
+        receiver.bump();
+        (bool ok, ) =
+            address(receiver).staticcall{gas: gasLimit}(abi.encodeCall(receiver.counter, ()));
+        return !ok;
+    }
+
+    function isWarmDelegateWriteDenied(
+        BumpableCounter receiver,
+        uint64 gasLimit
+    ) public returns (bool) {
+        counter += 1;
+        (bool ok, ) = address(receiver).delegatecall{gas: gasLimit}(
+            abi.encodeCall(BumpableCounter.bump, ())
+        );
+        return !ok;
+    }
+}
+
+/**
+ * @title BumpableCounter
+ * @dev Stores a `counter`, and `bump` adds one to it.
+ */
+abstract contract BumpableCounter {
+    uint256 public counter;
+
+    function bump() external {
+        counter += 1;
+    }
+
+    function counterSlot() internal pure returns (bytes32 slot) {
+        assembly {
+            slot := counter.slot
+        }
+    }
+}
+
+/**
+ * @title StorageHelpers
+ * @dev Storage helpers shared by the receivers.
+ */
+library StorageHelpers {
+    // The `flags` bit of the storage precompile that selects transient storage.
+    uint32 internal constant TRANSIENT = 1;
+
+    function clearStorage(uint32 flags, bytes32 key) internal returns (bool success) {
+        (success, ) = STORAGE_ADDR.delegatecall(
+            abi.encodeCall(IStorage.clearStorage, (flags, true, abi.encodePacked(key)))
+        );
+    }
+
+    function takeStorage(uint32 flags, bytes32 key) internal returns (bool success) {
+        (success, ) = STORAGE_ADDR.delegatecall(
+            abi.encodeCall(IStorage.takeStorage, (flags, true, abi.encodePacked(key)))
+        );
+    }
+
+    // Writes 1 to transient slot 0, failing unless the write is visible.
+    function writeTransient() internal {
+        uint256 value;
+        assembly {
+            tstore(0, 1)
+            value := tload(0)
+        }
+        require(value == 1, "transient write denied");
+    }
+
+    function transientValue() internal view returns (uint256 value) {
+        assembly {
+            value := tload(0)
+        }
+    }
+}
+
+/**
+ * @title WritingReceiver
+ * @dev Increments `counter` on `bump` and on receiving value.
+ */
+contract WritingReceiver is BumpableCounter {
+    receive() external payable {
+        counter += 1;
+    }
+}
+
+/**
+ * @title ClearingReceiver
+ * @dev Increments `counter` on `bump` and zeroes it on receiving value.
+ */
+contract ClearingReceiver is BumpableCounter {
+    receive() external payable {
+        counter = 0;
+    }
+}
+
+/**
+ * @title PrecompileClearingReceiver
+ * @dev Increments `counter` on `bump` and clears its slot through the storage precompile on
+ * receiving value.
+ */
+contract PrecompileClearingReceiver is BumpableCounter {
+    receive() external payable {
+        require(StorageHelpers.clearStorage(0, counterSlot()), "clear denied");
+    }
+}
+
+/**
+ * @title PrecompileTakingReceiver
+ * @dev Increments `counter` on `bump` and takes its slot through the storage precompile on
+ * receiving value.
+ */
+contract PrecompileTakingReceiver is BumpableCounter {
+    receive() external payable {
+        require(StorageHelpers.takeStorage(0, counterSlot()), "take denied");
+    }
+}
+
+/**
+ * @title NestedWritingReceiver
+ * @dev On receiving value, writes storage from a nested call, delegate call or create.
+ */
+contract NestedWritingReceiver {
+    enum Nesting { Call, DelegateCall, Create }
+
+    uint256 public counter;
+    WritingReceiver immutable target;
+    Nesting immutable nesting;
+
+    constructor(WritingReceiver _target, Nesting _nesting) {
+        target = _target;
+        nesting = _nesting;
+    }
+
+    receive() external payable {
+        if (nesting == Nesting.Call) {
+            target.bump();
+        } else if (nesting == Nesting.DelegateCall) {
+            (bool success, ) =
+                address(target).delegatecall(abi.encodeCall(BumpableCounter.bump, ()));
+            require(success, "delegate call failed");
+        } else {
+            new CounterStartingAtOne();
+        }
+    }
+}
+
+/**
+ * @title CounterStartingAtOne
+ * @dev Writes storage in its constructor.
+ */
+contract CounterStartingAtOne {
+    uint256 public counter = 1;
+}
+
+/**
+ * @title TransientWritingReceiver
+ * @dev Writes transient storage on receiving value, failing unless the write is visible.
+ */
+contract TransientWritingReceiver {
+    receive() external payable {
+        StorageHelpers.writeTransient();
+    }
+}
+
+/**
+ * @title TransientClearingReceiver
+ * @dev Writes and then zeroes transient storage on receiving value, failing unless the slot ends
+ * empty.
+ */
+contract TransientClearingReceiver {
+    receive() external payable {
+        StorageHelpers.writeTransient();
+        assembly {
+            tstore(0, 0)
+        }
+        require(StorageHelpers.transientValue() == 0, "transient clear denied");
+    }
+}
+
+/**
+ * @title TransientPrecompileClearingReceiver
+ * @dev Writes transient storage and clears it through the storage precompile on receiving value.
+ */
+contract TransientPrecompileClearingReceiver {
+    receive() external payable {
+        StorageHelpers.writeTransient();
+        require(StorageHelpers.clearStorage(StorageHelpers.TRANSIENT, bytes32(0)), "clear denied");
+        require(StorageHelpers.transientValue() == 0, "transient clear denied");
+    }
+}
+
+/**
+ * @title TransientPrecompileTakingReceiver
+ * @dev Writes transient storage and takes it through the storage precompile on receiving value.
+ */
+contract TransientPrecompileTakingReceiver {
+    receive() external payable {
+        StorageHelpers.writeTransient();
+        require(StorageHelpers.takeStorage(StorageHelpers.TRANSIENT, bytes32(0)), "take denied");
+        require(StorageHelpers.transientValue() == 0, "transient take denied");
+    }
 }

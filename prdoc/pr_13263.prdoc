@@ -1,0 +1,49 @@
+title: 'pallet-revive: deny reentrancy and storage writes from transfer and send receivers'
+doc:
+- audience: Runtime User
+  description: |-
+    A contract called through Solidity's `transfer()` or `send()` can no longer call back into
+    the sender. The same holds for any call with that shape: value with a gas limit of 0, or no
+    value with a gas limit of exactly 2300. On the EVM this already held for zero-value transfers
+    and now also applies when value moves, while on PolkaVM both are new behavior. How the denied
+    call fails depends on the VM the receiver runs on:
+    - EVM: The reentrant call returns 0 to the receiver; before #12673 it ran out of gas, which
+      reverted the transfer.
+    - PolkaVM: The reentrant call aborts the receiver, so the transfer reverts. Before, the
+      receiver ran out of gas while making the reentrant call, with the same result.
+
+    The receiver of such a call, and any contract it calls or creates, can no longer write
+    persistent contract storage, even if the slot is warm. On Ethereum such a receiver gets at most
+    2300 gas, and EIP-2200 fails any `SSTORE` when 2300 gas or less is left. The write fails with
+    `OutOfGas`, as it would on Ethereum. This covers `SSTORE`, the PolkaVM storage host functions,
+    and precompiles that write contract storage, such as `clearStorage` and `takeStorage` of the
+    storage precompile. Transient storage is not affected. Calls with any other explicit gas limit
+    are not checked, even one below 2300.
+
+    An EVM `DELEGATECALL` with a gas limit of exactly 2300 no longer gets the call stipend, aligning
+    it with PolkaVM and Ethereum. A `STATICCALL`, or a PolkaVM `call_evm` with `READ_ONLY`, with
+    that gas limit is no longer treated as a zero-value `send`: it gets no stipend and its callee
+    may call back into the caller.
+- audience: Runtime Dev
+  description: |-
+    Runtime precompiles that write contract storage through `PrecompileExt::set_storage` get an
+    `OutOfGas` error in the receiver of a `transfer()`, a `send()` or any call with that shape, and
+    in any contract such a receiver calls or creates.
+    The new `PrecompileExt::ensure_storage_write_allowed` lets a precompile verify this before a
+    write. `PrecompileExt::call` takes a `CallProtections` argument in place of the reentrancy
+    protection. It carries the reentrancy protection and `denies_storage_writes`, which stops the
+    callee and every frame it creates from writing persistent contract storage. A precompile that
+    passed `ReentrancyProtection::AllowReentry` should now pass `CallProtections::default()`; any
+    other level should be set on the struct's `reentrancy` field.
+
+    `integrity_test` checks that a block cannot write more contract storage than a validator has
+    memory for. It scaled a write's weight by the memory that write uses before dividing the block
+    weight by it, so the storage term came out near zero and the check could not fail on it. It now
+    computes how many writes fit the block weight before multiplying by the memory each one uses.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive-uapi
+  bump: patch

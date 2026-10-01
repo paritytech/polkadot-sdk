@@ -144,6 +144,21 @@ pub enum ReentrancyProtection {
 	AllowNext,
 }
 
+/// The protections a caller sets for its callee.
+#[derive(Copy, Clone)]
+pub struct CallProtections {
+	/// The reentrancy protection to enforce on the callee.
+	pub reentrancy: ReentrancyProtection,
+	/// Whether the callee and every frame it creates cannot write persistent contract storage.
+	pub denies_storage_writes: bool,
+}
+
+impl Default for CallProtections {
+	fn default() -> Self {
+		Self { reentrancy: ReentrancyProtection::AllowReentry, denies_storage_writes: false }
+	}
+}
+
 /// Origin of the error.
 ///
 /// Call or instantiate both called into other contracts and pass through errors happening
@@ -371,7 +386,7 @@ pub trait PrecompileExt: sealing::Sealed {
 		to: &H160,
 		value: U256,
 		input_data: Vec<u8>,
-		reentrancy: ReentrancyProtection,
+		protections: CallProtections,
 		read_only: bool,
 	) -> Result<(), ExecError>;
 
@@ -513,6 +528,9 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
 
+	/// Returns an `OutOfGas` error if the current frame cannot write persistent contract storage.
+	fn ensure_storage_write_allowed(&self) -> Result<(), DispatchError>;
+
 	/// Check if running as a delegate call.
 	fn is_delegate_call(&self) -> bool;
 
@@ -561,6 +579,8 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
 	/// the storage entry is deleted.
+	///
+	/// Returns an `OutOfGas` error when storage writes are denied.
 	fn set_storage(
 		&mut self,
 		key: &Key,
@@ -690,6 +710,8 @@ struct Frame<T: Config> {
 	allows_reentry: bool,
 	/// If `true` subsequent calls cannot modify storage.
 	read_only: bool,
+	/// If `true` this frame and every frame it creates cannot write persistent contract storage.
+	denies_storage_writes: bool,
 	/// The delegate call info of the currently executing frame which was spawned by
 	/// `delegate_call`.
 	delegate: Option<DelegateInfo<T>>,
@@ -1042,6 +1064,7 @@ where
 			transaction_meter,
 			&CallResources::NoLimits,
 			false,
+			false,
 			true,
 			input_data,
 			exec_config,
@@ -1150,6 +1173,7 @@ where
 		meter: &mut ResourceMeter<T, S>,
 		call_resources: &CallResources<T>,
 		read_only: bool,
+		denies_storage_writes: bool,
 		origin_is_caller: bool,
 		input_data: &[u8],
 		exec_config: &ExecConfig<T>,
@@ -1304,6 +1328,7 @@ where
 			frame_meter: meter.new_nested(call_resources)?,
 			allows_reentry: true,
 			read_only,
+			denies_storage_writes,
 			last_frame_output: Default::default(),
 			contracts_created: Default::default(),
 			contracts_to_be_destroyed: Default::default(),
@@ -1319,6 +1344,7 @@ where
 		value_transferred: U256,
 		call_resources: &CallResources<T>,
 		read_only: bool,
+		denies_storage_writes: bool,
 		input_data: &[u8],
 	) -> Result<Option<ExecutableOrPrecompile<T, E, Self>>, ExecError> {
 		if self.frames.len() as u32 == limits::CALL_STACK_DEPTH {
@@ -1355,6 +1381,7 @@ where
 			meter,
 			call_resources,
 			read_only,
+			denies_storage_writes,
 			false,
 			input_data,
 			self.exec_config,
@@ -2143,6 +2170,7 @@ where
 			value,
 			call_resources,
 			self.is_read_only(),
+			self.top_frame().denies_storage_writes,
 			&input_data,
 		)? {
 			self.run(executable, input_data)
@@ -2292,6 +2320,7 @@ where
 				value,
 				call_resources,
 				self.is_read_only(),
+				self.top_frame().denies_storage_writes,
 				&input_data,
 			)?
 		};
@@ -2320,7 +2349,7 @@ where
 		dest_addr: &H160,
 		value: U256,
 		input_data: Vec<u8>,
-		allows_reentry: ReentrancyProtection,
+		protections: CallProtections,
 		read_only: bool,
 	) -> Result<(), ExecError> {
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
@@ -2331,13 +2360,15 @@ where
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
 
-		if allows_reentry == ReentrancyProtection::Strict {
+		if protections.reentrancy == ReentrancyProtection::Strict {
 			self.top_frame_mut().allows_reentry = false;
 		}
 
 		let try_call = || {
 			// Enable read-only access if requested; cannot disable it if already set.
 			let is_read_only = read_only || self.is_read_only();
+			let denies_storage_writes =
+				protections.denies_storage_writes || self.top_frame().denies_storage_writes;
 
 			// We can skip the stateful lookup for pre-compiles.
 			let dest = if <AllPrecompiles<T>>::get::<Self>(dest_addr.as_fixed_bytes()).is_some() {
@@ -2350,7 +2381,7 @@ where
 				return Err(<Error<T>>::ReentranceDenied.into());
 			}
 
-			if allows_reentry == ReentrancyProtection::AllowNext {
+			if protections.reentrancy == ReentrancyProtection::AllowNext {
 				self.top_frame_mut().allows_reentry = false;
 			}
 
@@ -2378,6 +2409,7 @@ where
 				value,
 				call_resources,
 				is_read_only,
+				denies_storage_writes,
 				&input_data,
 			)? {
 				self.run(executable, input_data)
@@ -2706,6 +2738,14 @@ where
 		self.top_frame().read_only
 	}
 
+	fn ensure_storage_write_allowed(&self) -> Result<(), DispatchError> {
+		if self.top_frame().denies_storage_writes {
+			// EIP-2200 fails such a write with out of gas.
+			return Err(Error::<T>::OutOfGas.into());
+		}
+		Ok(())
+	}
+
 	fn is_delegate_call(&self) -> bool {
 		self.top_frame().delegate.is_some()
 	}
@@ -2822,6 +2862,8 @@ where
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		assert!(self.has_contract_info());
+		// Covers runtime precompiles
+		self.ensure_storage_write_allowed()?;
 		let frame = self.top_frame_mut();
 		frame.contract_info.get(&frame.account_id).write(
 			key.into(),

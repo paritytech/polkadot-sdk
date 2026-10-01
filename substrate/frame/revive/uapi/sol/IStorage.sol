@@ -6,6 +6,9 @@ address constant STORAGE_ADDR = 0x0000000000000000000000000000000000000901;
 interface IStorage {
 	/// Clear the value at the given key in the contract storage.
 	///
+	/// Persistent writes fail in the callee of a `transfer`, `send` or any call with that shape,
+	/// and in any contract that callee calls or creates. Transient writes still work.
+	///
 	/// # Important
 	///
 	/// This function can only be called via a delegate call! For Solidity, the low level
@@ -46,6 +49,9 @@ interface IStorage {
 		external view returns (bool containedKey, uint valueLen);
 
 	/// Retrieve and remove the value under the given key from storage.
+	///
+	/// Persistent writes fail in the callee of a `transfer`, `send` or any call with that shape,
+	/// and in any contract that callee calls or creates. Transient writes still work.
 	///
 	/// # Important
 	///

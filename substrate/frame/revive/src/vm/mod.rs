@@ -25,8 +25,9 @@ mod runtime_costs;
 pub use runtime_costs::{RuntimeCosts, StorageAccessKind, TransferAccessKind};
 
 use crate::{
-	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
-	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
+	AccountIdOf, BalanceOf, CallProtections, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig,
+	ExecError, HoldReason, LOG_TARGET, Pallet, PristineCode, ReentrancyProtection, StorageDeposit,
+	Weight,
 	access_list::{Access, CodeLoadItems, CodeLoadWarmth, Summarized},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
@@ -38,7 +39,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::DispatchResult;
 use pallet_revive_uapi::ReturnErrorCode;
-use sp_core::{Get, H256};
+use sp_core::{Get, H256, U256};
 use sp_runtime::{DispatchError, Saturating, traits::BadOrigin};
 
 /// Validated Vm module ready for execution.
@@ -172,6 +173,45 @@ impl<T: Config> Token<T> for CodeLoadToken {
 			Self::Blob { warmth, code_len, code_type } => {
 				Self::blob::<T>(warmth, code_len, code_type)
 			},
+		}
+	}
+}
+
+/// Whether a call moves value and has the shape of Solidity's `transfer` or `send`.
+pub struct StipendAndProtections {
+	moves_value: bool,
+	is_transfer_or_send: bool,
+}
+
+impl StipendAndProtections {
+	/// Solidity's `transfer` and `send` cap the callee at the stipend. For a zero value solc passes
+	/// `gas_limit = 2300` explicitly; when value moves it passes 0 and relies on the stipend the
+	/// EVM grants any call that moves value. We use a heuristic to detect both patterns. Such a
+	/// call gets the stipend and `AllowNext` reentrancy protection, because the fixed 2300 is
+	/// tailored to Ethereum's gas scale. Its callee also cannot write persistent storage, as
+	/// EIP-2200 specifies.
+	pub fn new(value: U256, gas_limit: Option<u64>) -> Self {
+		use revm::interpreter::gas::CALL_STIPEND;
+		let moves_value = !value.is_zero();
+		let is_transfer_or_send =
+			matches!((moves_value, gas_limit), (false, Some(CALL_STIPEND)) | (true, Some(0)));
+		Self { moves_value, is_transfer_or_send }
+	}
+
+	/// Whether to add the call stipend.
+	pub fn add_stipend(&self) -> bool {
+		self.moves_value || self.is_transfer_or_send
+	}
+
+	/// The protections the call shape sets for the callee.
+	pub fn protections(&self) -> CallProtections {
+		if self.is_transfer_or_send {
+			CallProtections {
+				reentrancy: ReentrancyProtection::AllowNext,
+				denies_storage_writes: true,
+			}
+		} else {
+			CallProtections::default()
 		}
 	}
 }

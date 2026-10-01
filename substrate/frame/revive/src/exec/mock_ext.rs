@@ -17,8 +17,8 @@
 
 #![cfg(test)]
 use crate::{
-	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
-	ReentrancyProtection,
+	BalanceOf, CallProtections, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue,
+	ImmutableData,
 	access_list::{Access, Summarized},
 	exec::{
 		AccountIdOf, BuiltinPrecompileExt, CallResources, ExecError, Ext, Key, Origin,
@@ -63,7 +63,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		_to: &H160,
 		_value: U256,
 		_input_data: Vec<u8>,
-		_reentrancy: ReentrancyProtection,
+		_protections: CallProtections,
 		_read_only: bool,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::call")
@@ -210,6 +210,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn is_read_only(&self) -> bool {
 		panic!("MockExt::is_read_only")
+	}
+
+	fn ensure_storage_write_allowed(&self) -> Result<(), DispatchError> {
+		panic!("MockExt::ensure_storage_write_allowed")
 	}
 
 	fn is_delegate_call(&self) -> bool {
