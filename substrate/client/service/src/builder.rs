@@ -32,8 +32,8 @@ use prometheus_endpoint::Registry;
 use sc_chain_spec::{get_extension, ChainSpec};
 use sc_client_api::{
 	execution_extensions::ExecutionExtensions, proof_provider::ProofProvider, BadBlocks,
-	BlockBackend, BlockchainEvents, ExecutorProvider, ForkBlocks, KeysIter, StorageProvider,
-	TrieCacheContext, UsageProvider,
+	BlockBackend, BlockchainEvents, ExecutorProvider, ForkBlocks, KeysIter, PartialStateImport,
+	StorageProvider, TrieCacheContext, UsageProvider,
 };
 use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, PruningMode};
 use sc_consensus::import_queue::{ImportQueue, ImportQueueService};
@@ -457,6 +457,7 @@ pub trait ClientForService<Block: BlockT>:
 	+ HeaderBackend<Block>
 	+ BlockBackend<Block>
 	+ ProofProvider<Block>
+	+ PartialStateImport<Block>
 	+ BlockchainEvents<Block>
 	+ 'static
 {
@@ -468,6 +469,7 @@ impl<Block: BlockT, T> ClientForService<Block> for T where
 		+ HeaderBackend<Block>
 		+ BlockBackend<Block>
 		+ ProofProvider<Block>
+		+ PartialStateImport<Block>
 		+ BlockchainEvents<Block>
 		+ 'static
 {
@@ -1428,6 +1430,7 @@ where
 		+ BlockBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ ProofProvider<Block>
+		+ PartialStateImport<Block>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -1562,6 +1565,7 @@ where
 		+ BlockBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ ProofProvider<Block>
+		+ PartialStateImport<Block>
 		+ Send
 		+ Sync
 		+ 'static,

@@ -34,7 +34,7 @@ use crate::{
 };
 use log::{debug, error, info, warn};
 use prometheus_endpoint::Registry;
-use sc_client_api::{BlockBackend, ProofProvider};
+use sc_client_api::{BlockBackend, PartialStateImport, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus};
 use sc_network::ProtocolName;
 use sc_network_common::sync::{message::BlockAnnounce, SyncMode};
@@ -102,6 +102,7 @@ where
 		+ BlockBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
 		+ ProofProvider<B>
+		+ PartialStateImport<B>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -341,6 +342,7 @@ where
 		+ BlockBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
 		+ ProofProvider<B>
+		+ PartialStateImport<B>
 		+ Send
 		+ Sync
 		+ 'static,

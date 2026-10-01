@@ -23,16 +23,19 @@ use crate::{
 	LOG_TARGET,
 };
 use codec::{Decode, Encode};
-use log::debug;
-use sc_client_api::{CompactProof, KeyValueStates, ProofProvider};
+use log::{debug, warn};
+use sc_client_api::{CompactProof, PartialStateImport, ProofProvider};
 use sc_consensus::ImportedState;
 use smallvec::SmallVec;
 use sp_core::storage::well_known_keys;
 use sp_runtime::{
-	traits::{Block as BlockT, Header, NumberFor},
+	traits::{Block as BlockT, Header, NumberFor, PartialStateFor},
 	Justifications,
 };
 use std::{collections::HashMap, fmt, sync::Arc};
+
+/// Consecutive database write failures tolerated before state sync gives up on the target.
+const MAX_PARTIAL_STATE_WRITE_FAILURES: u32 = 3;
 
 /// Generic state sync provider. Used for mocking in tests.
 pub trait StateSyncProvider<B: BlockT>: Send + Sync {
@@ -87,6 +90,8 @@ pub enum ImportResult<B: BlockT> {
 	Continue,
 	/// Bad state chunk.
 	BadResponse,
+	/// The chunk could not be written to the database repeatedly. Give up on this target.
+	Abort,
 }
 
 struct StateSyncMetadata<B: BlockT> {
@@ -97,6 +102,8 @@ struct StateSyncMetadata<B: BlockT> {
 	complete: bool,
 	imported_bytes: u64,
 	skip_proof: bool,
+	/// Consecutive failures of `import_partial_state`, reset by the next successful write.
+	write_failures: u32,
 }
 
 impl<B: BlockT> StateSyncMetadata<B> {
@@ -138,7 +145,9 @@ impl<B: BlockT> StateSyncMetadata<B> {
 
 /// State sync state machine.
 ///
-/// Accumulates partial state data until it is ready to be imported.
+/// With proofs, every verified chunk is written to the database as it arrives, and the cursor
+/// moves only once that write succeeded. Without proofs, the key-values are accumulated in memory
+/// until the whole state has been downloaded.
 pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
@@ -148,7 +157,7 @@ pub struct StateSync<B: BlockT, Client> {
 impl<B, Client> StateSync<B, Client>
 where
 	B: BlockT,
-	Client: ProofProvider<B> + Send + Sync + 'static,
+	Client: ProofProvider<B> + PartialStateImport<B> + Send + Sync + 'static,
 {
 	///  Create a new instance.
 	pub fn new(
@@ -168,6 +177,7 @@ where
 				complete: false,
 				imported_bytes: 0,
 				skip_proof,
+				write_failures: 0,
 			},
 			state: HashMap::default(),
 		}
@@ -202,12 +212,6 @@ where
 
 		for (root, storage_key) in child_storage_roots {
 			self.state.entry(root).or_default().1.push(storage_key);
-		}
-	}
-
-	fn process_state_verified(&mut self, values: KeyValueStates) {
-		for values in values.0 {
-			self.process_state_key_values(values.state_root, values.key_values);
 		}
 	}
 
@@ -253,7 +257,7 @@ where
 impl<B, Client> StateSyncProvider<B> for StateSync<B, Client>
 where
 	B: BlockT,
-	Client: ProofProvider<B> + Send + Sync + 'static,
+	Client: ProofProvider<B> + PartialStateImport<B> + Send + Sync + 'static,
 {
 	///  Validate and import a state response.
 	fn import(&mut self, response: StateResponse) -> ImportResult<B> {
@@ -274,7 +278,7 @@ where
 					return ImportResult::BadResponse;
 				},
 			};
-			let (values, completed, _nodes) = match self.client.verify_range_proof(
+			let (values, completed, nodes) = match self.client.verify_range_proof(
 				self.metadata.target_root(),
 				proof,
 				self.metadata.last_key.as_slice(),
@@ -289,14 +293,37 @@ where
 				},
 				Ok(values) => values,
 			};
-			debug!(target: LOG_TARGET, "Imported with {} keys", values.len());
+			debug!(target: LOG_TARGET, "Verified state response with {} keys", values.len());
+
+			// Write the chunk before moving the cursor: a chunk that never reached the database
+			// is asked for again, because `last_key` still points at its start.
+			let partial_state = PartialStateFor::<B> {
+				block_hash: self.metadata.target_hash(),
+				block_number: self.metadata.target_number(),
+				state_root: self.metadata.target_root(),
+				nodes,
+			};
+			if let Err(e) = self.client.import_partial_state(partial_state) {
+				self.metadata.write_failures += 1;
+				warn!(
+					target: LOG_TARGET,
+					"Failed to write state chunk to the database ({}/{}): {e}",
+					self.metadata.write_failures,
+					MAX_PARTIAL_STATE_WRITE_FAILURES,
+				);
+				return if self.metadata.write_failures >= MAX_PARTIAL_STATE_WRITE_FAILURES {
+					ImportResult::Abort
+				} else {
+					ImportResult::Continue
+				};
+			}
+			self.metadata.write_failures = 0;
 
 			let complete = completed == 0;
 			if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
 				debug!(target: LOG_TARGET, "Error updating key cursor, depth: {}", completed);
 			};
 
-			self.process_state_verified(values);
 			self.metadata.imported_bytes += proof_size;
 			complete
 		} else {
@@ -305,13 +332,20 @@ where
 		if complete {
 			self.metadata.complete = true;
 			let target_hash = self.metadata.target_hash();
-			ImportResult::Import(
-				target_hash,
-				self.metadata.target_header.clone(),
+			let state = if self.metadata.skip_proof {
 				ImportedState::KeyValues {
 					block: target_hash,
 					state: std::mem::take(&mut self.state).into(),
-				},
+				}
+			} else {
+				// Every chunk is already in the database. The block import checks that the
+				// state is complete and marks it as available.
+				ImportedState::Proof
+			};
+			ImportResult::Import(
+				target_hash,
+				self.metadata.target_header.clone(),
+				state,
 				self.metadata.target_body.clone(),
 				self.metadata.target_justifications.clone(),
 			)
@@ -343,5 +377,215 @@ where
 	/// Returns state sync estimated progress.
 	fn progress(&self) -> StateSyncProgress {
 		self.metadata.progress()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sc_client_api::{ChildInfo, DecodedCompactProof, StorageProof};
+	use sp_runtime::traits::{HashingFor, Header as HeaderT};
+	use sp_state_machine::{KeyValueStates, KeyValueStorageLevel};
+	use std::sync::{
+		atomic::{AtomicUsize, Ordering},
+		Mutex,
+	};
+	use substrate_test_runtime_client::runtime::{Block, Header};
+
+	/// A client whose range-proof verification returns a fixed answer and whose partial-state
+	/// writes fail a configurable number of times before they start succeeding.
+	struct StubClient {
+		/// Key-values and the depth the range read stopped at, as `verify_range_proof` reports.
+		verified: Mutex<(Vec<KeyValueStorageLevel>, usize)>,
+		failing_writes: AtomicUsize,
+		writes: AtomicUsize,
+	}
+
+	impl StubClient {
+		fn new(
+			key_values: Vec<KeyValueStorageLevel>,
+			completed: usize,
+			failing_writes: usize,
+		) -> Arc<Self> {
+			Arc::new(Self {
+				verified: Mutex::new((key_values, completed)),
+				failing_writes: AtomicUsize::new(failing_writes),
+				writes: AtomicUsize::new(0),
+			})
+		}
+
+		fn writes(&self) -> usize {
+			self.writes.load(Ordering::SeqCst)
+		}
+	}
+
+	impl ProofProvider<Block> for StubClient {
+		fn read_proof(
+			&self,
+			_: <Block as BlockT>::Hash,
+			_: &mut dyn Iterator<Item = &[u8]>,
+		) -> sp_blockchain::Result<StorageProof> {
+			unimplemented!()
+		}
+
+		fn read_child_proof(
+			&self,
+			_: <Block as BlockT>::Hash,
+			_: &ChildInfo,
+			_: &mut dyn Iterator<Item = &[u8]>,
+		) -> sp_blockchain::Result<StorageProof> {
+			unimplemented!()
+		}
+
+		fn execution_proof(
+			&self,
+			_: <Block as BlockT>::Hash,
+			_: &str,
+			_: &[u8],
+		) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
+			unimplemented!()
+		}
+
+		fn read_proof_collection(
+			&self,
+			_: <Block as BlockT>::Hash,
+			_: &[Vec<u8>],
+			_: usize,
+		) -> sp_blockchain::Result<(CompactProof, u32)> {
+			unimplemented!()
+		}
+
+		fn storage_collection(
+			&self,
+			_: <Block as BlockT>::Hash,
+			_: &[Vec<u8>],
+			_: usize,
+		) -> sp_blockchain::Result<Vec<(KeyValueStorageLevel, bool)>> {
+			unimplemented!()
+		}
+
+		fn verify_range_proof(
+			&self,
+			_root: <Block as BlockT>::Hash,
+			_proof: CompactProof,
+			_start_keys: &[Vec<u8>],
+		) -> sp_blockchain::Result<(KeyValueStates, usize, DecodedCompactProof<HashingFor<Block>>)>
+		{
+			let (key_values, completed) = &*self.verified.lock().unwrap();
+			Ok((KeyValueStates(key_values.clone()), *completed, Default::default()))
+		}
+	}
+
+	impl PartialStateImport<Block> for StubClient {
+		fn import_partial_state(
+			&self,
+			partial_state: PartialStateFor<Block>,
+		) -> sp_blockchain::Result<()> {
+			assert_eq!(partial_state.block_hash, header().hash());
+			let failing = self.failing_writes.load(Ordering::SeqCst);
+			if failing > 0 {
+				self.failing_writes.store(failing - 1, Ordering::SeqCst);
+				return Err(sp_blockchain::Error::Storage("injected write failure".into()));
+			}
+			self.writes.fetch_add(1, Ordering::SeqCst);
+			Ok(())
+		}
+	}
+
+	fn header() -> Header {
+		Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		)
+	}
+
+	fn state_sync(client: Arc<StubClient>) -> StateSync<Block, StubClient> {
+		StateSync::new(client, header(), None, None, false)
+	}
+
+	/// A response whose proof decodes (to an empty compact proof); the stub never reads it.
+	fn response() -> StateResponse {
+		StateResponse { entries: vec![], proof: vec![0u8] }
+	}
+
+	/// One key in the top trie, with the range read stopped at depth 1: a chunk in the middle of
+	/// the download.
+	fn one_key_in_the_top_trie() -> Vec<KeyValueStorageLevel> {
+		vec![KeyValueStorageLevel {
+			state_root: vec![],
+			parent_storage_keys: vec![],
+			key_values: vec![(vec![0x80], vec![])],
+		}]
+	}
+
+	#[test]
+	fn failed_write_keeps_the_cursor_and_continues() {
+		let client = StubClient::new(one_key_in_the_top_trie(), 1, 1);
+		let mut sync = state_sync(client.clone());
+
+		assert!(matches!(sync.import(response()), ImportResult::Continue));
+		assert_eq!(sync.metadata.write_failures, 1);
+		assert!(sync.next_request().start.is_empty(), "the same range is asked again");
+		assert_eq!(client.writes(), 0);
+		assert!(!sync.is_complete());
+	}
+
+	#[test]
+	fn successful_write_moves_the_cursor_and_resets_the_failures() {
+		let client = StubClient::new(one_key_in_the_top_trie(), 1, 1);
+		let mut sync = state_sync(client.clone());
+
+		assert!(matches!(sync.import(response()), ImportResult::Continue));
+		assert!(matches!(sync.import(response()), ImportResult::Continue));
+		assert_eq!(sync.metadata.write_failures, 0);
+		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
+		assert_eq!(sync.progress().percentage, 50);
+		assert_eq!(client.writes(), 1);
+	}
+
+	#[test]
+	fn third_consecutive_failed_write_aborts() {
+		let client = StubClient::new(one_key_in_the_top_trie(), 1, 3);
+		let mut sync = state_sync(client.clone());
+
+		assert!(matches!(sync.import(response()), ImportResult::Continue));
+		assert!(matches!(sync.import(response()), ImportResult::Continue));
+		assert!(matches!(sync.import(response()), ImportResult::Abort));
+		assert!(sync.next_request().start.is_empty());
+		assert_eq!(client.writes(), 0);
+		assert!(!sync.is_complete());
+	}
+
+	#[test]
+	fn last_chunk_is_written_before_the_target_import_is_requested() {
+		let client = StubClient::new(vec![], 0, 0);
+		let mut sync = state_sync(client.clone());
+
+		match sync.import(response()) {
+			ImportResult::Import(hash, _, ImportedState::Proof, _, _) => {
+				assert_eq!(hash, header().hash())
+			},
+			_ => panic!("expected the target block import with the proof state"),
+		}
+		assert!(sync.is_complete());
+		assert_eq!(client.writes(), 1);
+	}
+
+	#[test]
+	fn failed_write_of_the_last_chunk_does_not_complete() {
+		let client = StubClient::new(vec![], 0, 1);
+		let mut sync = state_sync(client.clone());
+
+		assert!(matches!(sync.import(response()), ImportResult::Continue));
+		assert!(!sync.is_complete());
+		assert!(matches!(
+			sync.import(response()),
+			ImportResult::Import(_, _, ImportedState::Proof, _, _)
+		));
+		assert!(sync.is_complete());
+		assert_eq!(client.writes(), 1);
 	}
 }

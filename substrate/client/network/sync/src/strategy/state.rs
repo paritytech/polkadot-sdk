@@ -32,7 +32,7 @@ use crate::{
 use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, trace};
 use prost::Message;
-use sc_client_api::ProofProvider;
+use sc_client_api::{PartialStateImport, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::BlockAnnounce;
@@ -78,6 +78,8 @@ pub struct StateStrategy<B: BlockT> {
 	actions: Vec<SyncingAction<B>>,
 	protocol_name: ProtocolName,
 	succeeded: bool,
+	/// Set once the state sync gave up on its target; no further requests are scheduled.
+	aborted: bool,
 }
 
 impl<B: BlockT> StateStrategy<B> {
@@ -95,7 +97,7 @@ impl<B: BlockT> StateStrategy<B> {
 		protocol_name: ProtocolName,
 	) -> Self
 	where
-		Client: ProofProvider<B> + Send + Sync + 'static,
+		Client: ProofProvider<B> + PartialStateImport<B> + Send + Sync + 'static,
 	{
 		let peers = initial_peers
 			.map(|(peer_id, best_number)| {
@@ -115,6 +117,7 @@ impl<B: BlockT> StateStrategy<B> {
 			actions: Vec::new(),
 			protocol_name,
 			succeeded: false,
+			aborted: false,
 		}
 	}
 
@@ -138,6 +141,7 @@ impl<B: BlockT> StateStrategy<B> {
 			actions: Vec::new(),
 			protocol_name,
 			succeeded: false,
+			aborted: false,
 		}
 	}
 
@@ -236,6 +240,16 @@ impl<B: BlockT> StateStrategy<B> {
 				Ok(())
 			},
 			ImportResult::Continue => Ok(()),
+			ImportResult::Abort => {
+				error!(
+					target: LOG_TARGET,
+					"State sync aborted: the state could not be written to the database. \
+					Falling back to full sync.",
+				);
+				self.aborted = true;
+				self.actions.push(SyncingAction::Finished);
+				Ok(())
+			},
 			ImportResult::BadResponse => {
 				debug!(target: LOG_TARGET, "Bad state data received from {peer_id}");
 				Err(BadPeer(*peer_id, rep::BAD_STATE))
@@ -284,6 +298,13 @@ impl<B: BlockT> StateStrategy<B> {
 
 	/// Produce state request.
 	fn state_request(&mut self) -> Option<(PeerId, StateRequest)> {
+		// After an abort `Finished` is already queued. `actions()` would still send this request
+		// before the holder swaps strategies, and its response would reach a strategy that does
+		// not expect it.
+		if self.aborted {
+			return None;
+		}
+
 		if self.state_sync.is_complete() {
 			return None;
 		}
@@ -744,6 +765,33 @@ mod test {
 
 		// No actions generated.
 		assert_eq!(state_strategy.actions.len(), 0)
+	}
+
+	#[test]
+	fn abort_finishes_without_success_and_stops_requesting() {
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		// Sync provider gave up on the target.
+		state_sync_provider.expect_import().return_once(|_| ImportResult::Abort);
+		let peer_id = PeerId::random();
+		let initial_peers = std::iter::once((peer_id, 10));
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
+		// Manually set the peer's state .
+		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
+
+		let dummy_response = StateResponse::default().encode_to_vec();
+		state_strategy.on_state_response(&peer_id, dummy_response);
+
+		// The strategy finishes without success and, although the peer is available again, it
+		// schedules no further state request.
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
+		let actions = state_strategy.actions(&network_handle).collect::<Vec<_>>();
+		assert!(matches!(actions.as_slice(), [SyncingAction::Finished]));
+		assert!(!state_strategy.is_succeeded());
 	}
 
 	#[test]

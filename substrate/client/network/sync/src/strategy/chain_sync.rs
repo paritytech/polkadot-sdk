@@ -49,7 +49,7 @@ use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Counter, Gauge, PrometheusError, Registry, U64};
 use prost::Message;
-use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
+use sc_client_api::{blockchain::BlockGap, BlockBackend, PartialStateImport, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::{
@@ -489,6 +489,7 @@ where
 		+ BlockBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
 		+ ProofProvider<B>
+		+ PartialStateImport<B>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -1097,6 +1098,7 @@ where
 		+ BlockBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
 		+ ProofProvider<B>
+		+ PartialStateImport<B>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -2320,6 +2322,15 @@ where
 				Ok(())
 			},
 			ImportResult::Continue => Ok(()),
+			ImportResult::Abort => {
+				error!(
+					target: LOG_TARGET,
+					"State sync aborted: the state could not be written to the database.",
+				);
+				self.state_sync = None;
+				self.restart();
+				Ok(())
+			},
 			ImportResult::BadResponse => {
 				debug!(target: LOG_TARGET, "Bad state data received from {peer_id}");
 				Err(BadPeer(*peer_id, rep::BAD_BLOCK))
