@@ -146,9 +146,7 @@ pub mod pallet {
 		Halted,
 		/// The submitted Gloas execution header is not one canonical RLP header.
 		MalformedExecutionHeader,
-		/// The commitment scheme of the submitted execution proof does not match the fork era
-		/// of the beacon header's slot: a Gloas commitment for a pre-Gloas slot, or a pre-Gloas
-		/// commitment for a Gloas slot.
+		/// The proof's commitment scheme does not match the fork era of the beacon header's slot.
 		ExecutionHeaderEraMismatch,
 	}
 
@@ -786,8 +784,7 @@ pub mod pallet {
 			config::altair::BLOCK_ROOTS_INDEX
 		}
 
-		/// The commitment scheme a proof at `slot` must use. Derived from the slot, never from
-		/// the variant a relayer submits.
+		/// The commitment scheme a proof at `slot` must use.
 		pub fn commitment_scheme_at_slot(
 			slot: u64,
 			fork_versions: ForkVersions,
@@ -801,9 +798,7 @@ pub mod pallet {
 			CommitmentScheme::PayloadHeaderRoot
 		}
 
-		/// Generalized index of the execution commitment inside `BeaconBlockBody`. Tracked
-		/// separately from the scheme: a fork can move the field without changing what the
-		/// leaf is.
+		/// Generalized index of the execution commitment in `BeaconBlockBody` at `slot`.
 		pub fn execution_commitment_gindex_at_slot(
 			slot: u64,
 			fork_versions: ForkVersions,
@@ -817,8 +812,7 @@ pub mod pallet {
 			config::altair::EXECUTION_HEADER_INDEX
 		}
 
-		/// The commitment a proof at `slot` must prove, and the gindex it must prove it at.
-		/// Both come from the same slot, so the leaf and the position cannot disagree.
+		/// The commitment and gindex a proof at `slot` must prove, both chosen by the slot.
 		pub fn execution_commitment_at_slot(
 			header: &VersionedExecutionPayloadHeader,
 			slot: u64,

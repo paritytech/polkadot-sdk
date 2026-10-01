@@ -395,13 +395,9 @@ pub enum VersionedExecutionPayloadHeader {
 	Gloas(BoundedVec<u8, ConstU32<MAX_EXECUTION_HEADER_RLP_SIZE>>),
 }
 
-/// The commitment scheme a proof uses. Pre-Gloas the leaf is the SSZ root of
-/// `BeaconBlockBody.execution_payload`; for Gloas it is the execution block hash at
-/// `BeaconBlockBody.signed_execution_payload_bid.message.parent_block_hash`.
-///
-/// Which one applies is decided by the beacon header's slot, not by the variant a relayer
-/// submits: [`VersionedExecutionPayloadHeader::commitment`] takes the scheme the slot demands
-/// and rejects a variant that cannot satisfy it.
+/// The leaf a proof commits to: pre-Gloas, the SSZ root of `BeaconBlockBody.execution_payload`;
+/// for Gloas, the execution block hash in `signed_execution_payload_bid.message.parent_block_hash`.
+/// The beacon header's slot picks the scheme, never the variant a relayer submits.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum CommitmentScheme {
 	PayloadHeaderRoot,
@@ -439,9 +435,7 @@ impl ExecutionCommitment {
 }
 
 impl VersionedExecutionPayloadHeader {
-	/// Build the commitment the execution branch must prove, under the `scheme` the beacon
-	/// header's slot demands. A variant that cannot satisfy that scheme is rejected here, so
-	/// no leaf can be computed without stating the era it belongs to.
+	/// Build the commitment for `scheme`, rejecting a variant that cannot satisfy it.
 	pub fn commitment(
 		&self,
 		scheme: CommitmentScheme,

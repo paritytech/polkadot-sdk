@@ -189,7 +189,7 @@ parameter_types! {
 		},
 		gloas: Fork {
 			// Sepolia activation 2026-10-06 13:53:36 UTC, per the Glamsterdam deployment table.
-			// Version follows the network's 0x9000006x..0x9000007x sequence (eth-clients/sepolia).
+			// https://github.com/eth-clients/sepolia/blob/main/metadata/config.yaml
 			version: hex!("90000076"),
 			epoch: 353024, // https://github.com/ethereum/pm/blob/master/glamsterdam-pm.md
 		},

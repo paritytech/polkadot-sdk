@@ -82,9 +82,6 @@ impl<T: Config> Pallet<T> {
 	/// Validates an execution header with ancestry_proof against a finalized checkpoint on
 	/// chain.The beacon header containing the execution header is sent, plus the execution header,
 	/// along with a proof that the execution header is rooted in the beacon header body.
-	///
-	/// The beacon header's slot decides both the commitment scheme and the gindex the branch
-	/// must prove; a variant that cannot satisfy that scheme is rejected.
 	pub(crate) fn verify_execution_proof(
 		execution_proof: &ExecutionProof,
 	) -> Result<H256, DispatchError> {
