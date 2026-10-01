@@ -4283,7 +4283,9 @@ mod benchmarks {
 		let mut previous_result = start;
 		let operands = (0..r)
 			.map(|_| {
-				let operand = match [29, 30, 31].into_iter().find(|_| rng.gen_bool(0.5)) {
+				let differing_byte =
+					[Some(29), Some(30), Some(31), None].choose(&mut rng).copied().unwrap();
+				let operand = match differing_byte {
 					Some(byte) => previous_result ^ (U256::one() << (8 * byte)),
 					None => previous_result,
 				};
