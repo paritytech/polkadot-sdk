@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790797341279,
+  "lastUpdate": 1790844007874,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9d8a2fefd2414591c4a243460f3ffc5195a71deb",
-          "message": "Don't bubble up errors during collator score parsing in collator protocol (#11496)\n\nWhen starting the node with a warp sync and we hit a period near the\n`WARP_SYNC_TARGET_BLOCK` (each 512 blocks) we might not be able to call\na runtime apis for some blocks, which will yield an error in the\ncollator protocol revamp.\n\nDon't bubble up such errors to prevent the subsystem from exiting.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-25T13:06:10Z",
-          "tree_id": "015160e05b32d1df2777d0bc46dea09374e6ed2d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9d8a2fefd2414591c4a243460f3ffc5195a71deb"
-        },
-        "date": 1774448885026,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023587218740000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0071678996666666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009874197726666646,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14549037994000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010006868219999982,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4cc62947fa17b58cf3dd18f336041253ce117ce5",
+          "message": "Update RC peer ids of Polkadot AH invulnerable collators (#13320)\n\nAs described in https://polkadot.subsquare.io/referenda/1946",
+          "timestamp": "2026-10-01T07:07:39Z",
+          "tree_id": "cbe2d54f3c71e54b88b90e6a98175fc89706f7d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4cc62947fa17b58cf3dd18f336041253ce117ce5"
+        },
+        "date": 1790843978984,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14725071494666678,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025588301386666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.008099798413333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01007903361333331,
             "unit": "seconds"
           }
         ]
