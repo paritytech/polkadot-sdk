@@ -4617,26 +4617,12 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `SHL` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Whole Words and Bits:** `U256` shifts move whole words first and then carry the
-	///   remaining bits across words. In the compiled runtime both steps are unrolled into
-	///   branches: the first step branches on how many whole words the shift moves, and the carry
-	///   step only runs when there are bits left to shift.
-	/// * **Pseudo-random Shifts:** a pseudo-random generator picks whether each `SHL` moves zero or
-	///   one whole word and whether it shifts zero or one bit on top of that, with a 50% chance
-	///   each, so the CPU can't predict either branch. The mispredictions cost more than the work
-	///   that the shorter shifts skip.
-	/// * **Followed by `POP`:** each `SHL` is followed by a `POP`, because otherwise its result
-	///   would become the shift of the next one. The weight of a `POP` is subtracted when charging
-	///   an `SHL`.
-	/// * **Stack Initialization:** the value and the shift of every `SHL` are placed on the stack
-	///   before the benchmark runs. This is why `r` goes up to half the stack limit.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Shifts that always moved less than a word, cycling through 1 to 17 bits. The pseudo-random
-	///   shifts cost roughly 38% more per `SHL` once the `POP` is subtracted.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on how many whole words each shift moves, since it's pseudo-random.
+	/// * A branch misprediction on whether each shift carries bits across words, since it's
+	///   pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
