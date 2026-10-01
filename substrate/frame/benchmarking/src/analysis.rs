@@ -337,11 +337,11 @@ impl Analysis {
 			return Self::median_value(r, selector);
 		}
 
-		// The OLS fit below requires more than two samples. Fall back to
-		// `median_slopes` because two samples at distinct x-values still uniquely
-		// determine a slope.
+		// The fit below requires more than two samples. Two samples at distinct
+		// x-values still determine a slope via `median_slopes`; samples without distinct
+		// x-values per component have no slope, so the median value is used instead.
 		if r.len() <= 2 {
-			return Self::median_slopes(r, selector);
+			return Self::median_slopes(r, selector).or_else(|_| Self::median_value(r, selector));
 		}
 
 		let mut results = BTreeMap::<Vec<u32>, Vec<u128>>::new();
@@ -609,16 +609,40 @@ mod tests {
 		assert_eq!(analysis.base, 4);
 	}
 
-	// All samples at the same x cannot determine a slope. The previous
-	// `median_value` fallback silently produced a constant; the new fallback
-	// surfaces an explicit error from `median_slopes`.
+	// Regression: per-prefix proof-size groups built by the weight writer can hold
+	// only one or two samples at the same x, e.g. a key touched only at the
+	// component max. Such samples determine no slope, so `min_squares_iqr` falls
+	// back to the median value, as it does for three or more such samples.
 	#[test]
-	fn min_squares_iqr_two_samples_same_x_errors() {
+	fn min_squares_iqr_uses_median_value_with_same_x_samples() {
+		let sample = |components: Vec<(BenchmarkParameter, u32)>, reads| {
+			benchmark_result(components, 0, 0, reads, 0)
+		};
+		use BenchmarkParameter::{m, n};
+		let cases = [
+			// A single sample at n=4.
+			(vec![sample(vec![(n, 4)], 8)], 8),
+			// Two samples sharing n=4.
+			(vec![sample(vec![(n, 4)], 8), sample(vec![(n, 4)], 10)], 10),
+			// Two samples over two components, with no pair differing in a single component.
+			(vec![sample(vec![(n, 1), (m, 1)], 8), sample(vec![(n, 2), (m, 2)], 10)], 10),
+		];
+		for (data, base) in cases {
+			let analysis = Analysis::min_squares_iqr(&data, BenchmarkSelector::Reads).unwrap();
+			assert_eq!(analysis.base, base);
+			assert!(analysis.slopes.iter().all(|s| *s == 0));
+		}
+	}
+
+	// Samples at the same x cannot determine a slope, so a direct `median_slopes`
+	// call surfaces an explicit error.
+	#[test]
+	fn median_slopes_same_x_errors() {
 		let data = vec![
 			benchmark_result(vec![(BenchmarkParameter::n, 4)], 0, 0, 8, 0),
 			benchmark_result(vec![(BenchmarkParameter::n, 4)], 0, 0, 10, 0),
 		];
-		let err = Analysis::min_squares_iqr(&data, BenchmarkSelector::Reads).unwrap_err();
+		let err = Analysis::median_slopes(&data, BenchmarkSelector::Reads).unwrap_err();
 		assert!(
 			err.to_string().contains("only has 1 unique value"),
 			"expected 'only has 1 unique value' diagnostic, got: {err}",
