@@ -4784,41 +4784,17 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `ADDMOD` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Division:** `ADDMOD` reduces each addend modulo the modulus with `U256` division, unless
-	///   the addend is already below the modulus, and subtracts the modulus from the sum of the
-	///   remainders if the sum reaches it. The modulus here is 2^65 + 3, whose two limbs give every
-	///   addend three quotient digits, the most that division computes.
-	/// * **Pseudo-random Corrections:** division estimates each quotient digit and then corrects
-	///   the estimate down to the true digit. A pseudo-random generator picks whether the second
-	///   and third digits of each reduction take one or two corrections, with a 50% chance each, so
-	///   the CPU can't predict how many corrections each digit takes. The first digit always takes
-	///   one.
-	/// * **Longest Estimates:** each estimate divides 128 bits by 64 bits in software, which takes
-	///   up to three hardware divisions. The top byte of every addend is all ones and the two lower
-	///   digits of every quotient are at least 2^63, which makes almost every estimate take its
-	///   longest path.
-	/// * **Pseudo-random Subtraction:** a pseudo-random generator also picks whether the sum of the
-	///   remainders reaches the modulus, with a 50% chance, so the CPU can't predict whether the
-	///   modulus is subtracted.
-	/// * **Independent Addends:** the two addends are drawn separately. Using the same addend twice
-	///   makes the second reduction repeat the branches of the first, which the CPU predicts
-	///   better.
-	/// * **Followed by `POP`:** each `ADDMOD` is followed by a `POP`, because otherwise its result,
-	///   which is below the modulus, would become the first addend of the next one and skip its
-	///   division. The weight of a `POP` is subtracted when charging an `ADDMOD`.
-	/// * **Stack Initialization:** the modulus and the addends of every `ADDMOD` are placed on the
-	///   stack before the benchmark runs. This is why `r` goes up to a third of the stack limit.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * The same addends and modulus every time, where both reductions took one, two and two
-	///   corrections. The pseudo-random operands cost roughly 19% more per `ADDMOD` once the `POP`
-	///   is subtracted.
-	/// * Addends drawn from a pool of 64 fixed addends, picked for their corrections, with a
-	///   different modulus that every sum reached. The pseudo-random operands cost between 1% and
-	///   4% more per `ADDMOD`.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A division for each addend, since both are above the modulus.
+	/// * The longest path of the `u128` division behind each quotient limb's estimate, since the
+	///   operands are the worst case operands of the division algorithm, from
+	///   [`knuth_division_worst_case_operands`].
+	/// * A branch misprediction on which quotient limbs' estimates are corrected, since the modulus
+	///   is picked at random from those worst case operands.
+	/// * A branch misprediction on whether the modulus is subtracted from the sum, since that
+	///   depends on the modulus picked.
 	///
 	/// # Subtraction Safety
 	///
