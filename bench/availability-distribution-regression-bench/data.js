@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790844007874,
+  "lastUpdate": 1790891467699,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "monica@parity.io",
-            "name": "Monica Jin",
-            "username": "mokita-j"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d36f3b04b0cd268adb905e54382e2f63c3022499",
-          "message": "[pallet-revive] Add PVM fuel tracing (#11481)\n\nAdd **`pvm_fuel`** trace steps to PVM execution traces, recording pvm\nfuel consumption between syscalls and after the execution loop exits.\n\nSeparate synthetic trace steps from the real syscall list:\n`list_syscalls()` contains syscalls contracts can actually import, while\nnew `list_trace_ops()` / `lookup_trace_op_index()` include both real\nsyscalls and synthetic steps like `pvm_fuel`.\n\n## Integration\n\nCode using `list_syscalls()` for **trace** serialization should switch\nto `list_trace_ops()` / `lookup_trace_op_index()`. `list_syscalls()` and\n`lookup_syscall_index()` are unchanged for **real syscalls**.\n\n## Review Notes\n- Proc-macro wraps `sync_from_executor` with `enter_ecall` / `exit_step`\ntracing hooks for `pvm_fuel`\n- PreparedCall::call adds a final `pvm_fuel` trace after the execution\nloop exits\n  - PVM JSON trace fixtures updated to include `pvm_fuel` steps\n \n**Note**: evm-test-suite pvm snapshot needs to be updated with the\n`pvm_fuel` entries.\n[#143](https://github.com/paritytech/evm-test-suite/pull/143)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-25T15:19:45Z",
-          "tree_id": "c39794365e0ef220a2a73af008f1feee9dc7d43f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d36f3b04b0cd268adb905e54382e2f63c3022499"
-        },
-        "date": 1774456753826,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14618372741333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006951582560000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023600227080000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009902157673333314,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01007903361333331,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2d06e303b93c5a4efb5098f71256a15870231d76",
+          "message": "grandpa: don't gossip commits that don't advance finality (#13358)\n\n## Description\n\nMultiple voters can issue a commit for the same round, and several can\npass gossip validation before any is processed, since validation only\ncompares against the height noted after processing. Each was then\ngossiped, so peers got the same finality proof more than once.\n\nNow a processed commit is gossiped only if it advanced finalized height\n(`note_commit_finalized` returns whether it did); otherwise it's logged\nat debug level. Nothing is lost: the commit for our best height is\nalready in the gossip store and keeps being rebroadcast.\n\nThe dropped commit is still marked as known via a new\n`GossipEngine::mark_message_known` (`sc-network-gossip`), which records\na message as known without storing or propagating it.\n\nFound while working on #13318\n(https://github.com/paritytech/smoldot/issues/3375), but independent of\nit.\n\n## Tests\n\n- `note_commit_finalized_reports_whether_finality_advanced`\n- `duplicate_commit_is_not_relayed`",
+          "timestamp": "2026-10-01T20:18:07Z",
+          "tree_id": "947c8d9ae82ee1d6aa11cf8dc482d8b7dc3494d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2d06e303b93c5a4efb5098f71256a15870231d76"
+        },
+        "date": 1790891433997,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007726164426666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14517365468000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02519225628666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01006974917999997,
             "unit": "seconds"
           }
         ]
