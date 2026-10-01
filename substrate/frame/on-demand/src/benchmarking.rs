@@ -167,39 +167,27 @@ mod benches {
 	}
 
 	/// Benchmark claiming the revenue accumulated from on-demand sales.
-	///
-	/// The worst case is a full revenue history, all of which is claimed at once.
 	#[benchmark]
-	fn claim_revenue_until() -> Result<(), BenchmarkError> {
-		let buckets = T::MaxRevenueHistory::get();
-		let per_bucket = BalanceOf::<T>::from(DEFAULT_BASE_FEE);
-		let total = per_bucket.saturating_mul(buckets.into());
+	fn claim_revenue() -> Result<(), BenchmarkError> {
+		let revenue = BalanceOf::<T>::from(DEFAULT_BASE_FEE);
 
 		// The pot holds the accumulated revenue on top of its existential deposit.
 		T::Currency::set_balance(
 			&OnDemand::<T>::account_id(),
-			T::Currency::minimum_balance().saturating_add(total),
+			T::Currency::minimum_balance().saturating_add(revenue),
 		);
 		let beneficiary: T::AccountId = account("beneficiary", 0, 0);
 		T::Currency::set_balance(&beneficiary, T::Currency::minimum_balance());
-
-		let revenue: Vec<RevenueRecordOf<T>> = (0..buckets)
-			.map(|block| RevenueRecord { ordered_at: block.into(), amount: per_bucket })
-			.collect();
-		Revenue::<T>::put(
-			BoundedVec::try_from(revenue).expect("bounded by MaxRevenueHistory; qed"),
-		);
-
-		// Every bucket is in the past, so all of the revenue is claimed.
-		let until = RelayBlockNumberOf::<T>::from(buckets);
+		let when = 0;
+		Revenue::<T>::insert(when, revenue);
 
 		#[block]
 		{
-			<OnDemand<T> as OnDemandRevenue<_, _, _>>::claim_revenue_until(until, &beneficiary);
+			<OnDemand<T> as OnDemandRevenue<_, _>>::claim_revenue(when, &beneficiary);
 		}
 
-		assert!(Revenue::<T>::get().is_empty());
-		assert_eq!(T::Currency::balance(&beneficiary), T::Currency::minimum_balance() + total);
+		assert!(!Revenue::<T>::contains_key(when));
+		assert_eq!(T::Currency::balance(&beneficiary), T::Currency::minimum_balance() + revenue);
 
 		Ok(())
 	}

@@ -18,17 +18,14 @@
 //! Tests for the on-demand pallet.
 
 use crate::{
-	mock::*, Config, Error, Event, PendingBatch, PriceConfig, PriceParameters, QueueState, Revenue,
-	RevenueRecord, DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP,
+	mock::*, Error, Event, PendingBatch, PriceConfig, PriceParameters, QueueState, Revenue,
+	DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP,
 };
 use fp_coretime::revenue::OnDemandRevenue;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::Pays,
-	traits::{
-		fungible::{Inspect, Mutate},
-		Get,
-	},
+	traits::fungible::{Inspect, Mutate},
 };
 use sp_runtime::{traits::BadOrigin, Perbill};
 
@@ -251,49 +248,68 @@ fn configure_works() {
 	});
 }
 
-#[test]
-fn revenue_is_bucketed_by_the_relay_chain_block_of_the_order() {
-	new_test_ext().execute_with(|| {
-		let first = place_order_at(0);
-		let second = place_order_at(0);
-		let third = place_order_at(7);
+/// Claim the revenue of timeslice `when` for `BOB`.
+fn claim(when: u32) -> u64 {
+	<OnDemand as OnDemandRevenue<_, _>>::claim_revenue(when, &BOB)
+}
 
-		// Orders placed at the same Relay-chain block share a bucket.
+#[test]
+fn revenue_is_booked_against_the_timeslice_of_the_order() {
+	new_test_ext().execute_with(|| {
+		// The first and last Relay-chain blocks of timeslice 0, and the first one of timeslice 1.
+		let first = place_order_at(0);
+		let second = place_order_at(TIMESLICE_PERIOD - 1);
+		let third = place_order_at(TIMESLICE_PERIOD);
+
 		assert_eq!(
-			Revenue::<Test>::get().into_inner(),
-			vec![
-				RevenueRecord { ordered_at: 0, amount: first + second },
-				RevenueRecord { ordered_at: 7, amount: third },
-			]
+			Revenue::<Test>::iter().collect::<std::collections::BTreeMap<_, _>>(),
+			[(0, first + second), (1, third)].into(),
 		);
 	});
 }
 
 #[test]
-fn claim_revenue_until_pays_out_only_what_was_earned_before_the_cutoff() {
+fn claim_revenue_pays_out_only_the_revenue_of_the_given_timeslice() {
 	new_test_ext().execute_with(|| {
-		let early = place_order_at(0) + place_order_at(3);
-		let late = place_order_at(4);
+		let early = place_order_at(0) + place_order_at(TIMESLICE_PERIOD - 1);
+		let late = place_order_at(TIMESLICE_PERIOD);
 
 		let beneficiary_before = Balances::balance(&BOB);
 
-		// Everything ordered before Relay-chain block 4 is claimable, the rest is not.
-		assert_eq!(<OnDemand as OnDemandRevenue<_, _, _>>::claim_revenue_until(4, &BOB), early);
+		assert_eq!(claim(0), early);
 		assert_eq!(Balances::balance(&BOB), beneficiary_before + early);
-		assert_eq!(
-			Revenue::<Test>::get().into_inner(),
-			vec![RevenueRecord { ordered_at: 4, amount: late }]
-		);
+		assert!(!Revenue::<Test>::contains_key(0));
+		assert_eq!(Revenue::<Test>::get(1), late);
 		assert!(on_demand_events().contains(&Event::RevenueClaimed {
-			until: 4,
+			when: 0,
 			amount: early,
 			beneficiary: BOB,
 		}));
 
-		// The remainder is claimed once its block is in the past as well.
-		assert_eq!(<OnDemand as OnDemandRevenue<_, _, _>>::claim_revenue_until(5, &BOB), late);
+		// A timeslice is only paid out once.
+		assert_eq!(claim(0), 0);
+
+		assert_eq!(claim(1), late);
 		assert_eq!(Balances::balance(&BOB), beneficiary_before + early + late);
-		assert!(Revenue::<Test>::get().is_empty());
+		assert_eq!(Revenue::<Test>::iter().count(), 0);
+	});
+}
+
+#[test]
+fn revenue_of_later_timeslices_stays_booked_while_earlier_ones_are_claimed() {
+	new_test_ext().execute_with(|| {
+		// The claimer lags behind: orders are placed in timeslices 5 and 6 before it gets to
+		// claim timeslices 3 and 4, in which nothing was ordered.
+		let in_5 = place_order_at(5 * TIMESLICE_PERIOD);
+		let in_6 = place_order_at(6 * TIMESLICE_PERIOD);
+
+		assert_eq!(claim(3), 0);
+		assert_eq!(claim(4), 0);
+		assert_eq!(Revenue::<Test>::get(5), in_5);
+		assert_eq!(Revenue::<Test>::get(6), in_6);
+
+		assert_eq!(claim(5), in_5);
+		assert_eq!(claim(6), in_6);
 	});
 }
 
@@ -305,7 +321,7 @@ fn claiming_revenue_keeps_the_pot_alive() {
 		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT + revenue);
 
 		// The whole revenue is paid out, but the pot is left with its existential deposit.
-		assert_eq!(<OnDemand as OnDemandRevenue<_, _, _>>::claim_revenue_until(1, &BOB), revenue);
+		assert_eq!(claim(0), revenue);
 		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT);
 	});
 }
@@ -321,15 +337,12 @@ fn claiming_revenue_from_an_unendowed_pot_holds_back_one_existential_deposit() {
 		assert_eq!(Balances::balance(&pot), revenue);
 
 		// The existential deposit is held back, once, to keep the pot from being reaped.
-		assert_eq!(
-			<OnDemand as OnDemandRevenue<_, _, _>>::claim_revenue_until(1, &BOB),
-			revenue - EXISTENTIAL_DEPOSIT
-		);
+		assert_eq!(claim(0), revenue - EXISTENTIAL_DEPOSIT);
 		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT);
 
 		// From then on the full revenue of every order is paid out.
-		let revenue = place_order_at(1);
-		assert_eq!(<OnDemand as OnDemandRevenue<_, _, _>>::claim_revenue_until(2, &BOB), revenue);
+		let revenue = place_order_at(TIMESLICE_PERIOD);
+		assert_eq!(claim(1), revenue);
 		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT);
 	});
 }
@@ -337,43 +350,13 @@ fn claiming_revenue_from_an_unendowed_pot_holds_back_one_existential_deposit() {
 #[test]
 fn claiming_revenue_with_nothing_to_claim_is_a_no_op() {
 	new_test_ext().execute_with(|| {
-		let revenue = place_order_at(5);
+		let revenue = place_order_at(TIMESLICE_PERIOD);
 		let before = Balances::balance(&BOB);
 
-		// Nothing was ordered before Relay-chain block 5.
-		assert_eq!(<OnDemand as OnDemandRevenue<_, _, _>>::claim_revenue_until(5, &BOB), 0);
+		// Nothing was ordered in timeslice 0.
+		assert_eq!(claim(0), 0);
 		assert_eq!(Balances::balance(&BOB), before);
-		assert_eq!(
-			Revenue::<Test>::get().into_inner(),
-			vec![RevenueRecord { ordered_at: 5, amount: revenue }]
-		);
-	});
-}
-
-#[test]
-fn a_full_revenue_history_merges_into_the_most_recent_bucket() {
-	new_test_ext().execute_with(|| {
-		let capacity = <<Test as Config>::MaxRevenueHistory as Get<u32>>::get();
-
-		let mut total = 0;
-		for block in 0..capacity {
-			total += place_order_at(block);
-		}
-		assert_eq!(Revenue::<Test>::get().len() as u32, capacity);
-
-		// The history is full, so this order's revenue joins the last bucket instead of opening a
-		// new one - no revenue is lost.
-		let overflowing = place_order_at(capacity);
-		total += overflowing;
-		let revenue = Revenue::<Test>::get();
-		assert_eq!(revenue.len() as u32, capacity);
-		assert_eq!(revenue.last().unwrap().ordered_at, capacity - 1);
-		assert_eq!(revenue.iter().map(|record| record.amount).sum::<u64>(), total);
-
-		// It is therefore claimable one Relay-chain block earlier than it was ordered at.
-		assert_eq!(
-			<OnDemand as OnDemandRevenue<_, _, _>>::claim_revenue_until(capacity, &BOB),
-			total
-		);
+		assert_eq!(Revenue::<Test>::get(1), revenue);
+		assert!(!on_demand_events().iter().any(|e| matches!(e, Event::RevenueClaimed { .. })));
 	});
 }

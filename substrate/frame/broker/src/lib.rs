@@ -100,11 +100,9 @@ pub mod pallet {
 		/// The on-demand Coretime market whose revenue is distributed among the contributors to
 		/// the Instantaneous Coretime Pool. Expected to live on the same chain as this pallet, so
 		/// the revenue can be claimed directly.
-		type OnDemandRevenue: OnDemandRevenue<
-			RelayBlockNumberOf<Self>,
-			BalanceOf<Self>,
-			Self::AccountId,
-		>;
+		///
+		/// The revenue of each timeslice is claimed once that timeslice has ended.
+		type OnDemandRevenue: OnDemandRevenue<BalanceOf<Self>, Self::AccountId>;
 
 		/// The algorithm to determine the next price on the basis of market performance.
 		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;

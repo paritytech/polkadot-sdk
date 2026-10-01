@@ -135,14 +135,15 @@ impl CoretimeInterface for TestCoretimeProvider {
 /// Stands in for the on-demand Coretime market living on this chain, such as
 /// `pallet-on-demand-para`.
 pub struct TestLocalRevenue;
-impl OnDemandRevenue<u64, u64, u64> for TestLocalRevenue {
-	fn claim_revenue_until(until: u64, beneficiary: &u64) -> u64 {
+impl OnDemandRevenue<u64, u64> for TestLocalRevenue {
+	fn claim_revenue(when: Timeslice, beneficiary: &u64) -> u64 {
 		assert_eq!(*beneficiary, Broker::account_id(), "Revenue is paid into the broker pot");
 
+		let period = <<Test as crate::Config>::TimeslicePeriod as Get<u64>>::get();
 		let mut total = 0;
 		CoretimeSpending::mutate(|s| {
 			s.retain(|(n, a)| {
-				if (*n as u64) < until {
+				if *n as u64 / period == when as u64 {
 					total += a;
 					false
 				} else {

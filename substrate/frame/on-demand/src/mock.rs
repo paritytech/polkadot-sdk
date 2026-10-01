@@ -132,7 +132,7 @@ impl Config for Test {
 	type PricingProvider = DefaultPricingProvider;
 	type OrderQueue = RecordingOrderQueue;
 	type MaxBatchSize = ConstU32<1000>;
-	type MaxRevenueHistory = ConstU32<10>;
+	type TimeslicePeriod = ConstU32<TIMESLICE_PERIOD>;
 	type PalletId = OnDemandPalletId;
 }
 
@@ -153,6 +153,9 @@ pub fn advance_block() {
 	System::set_block_number(now + 1);
 	OnDemand::on_initialize(now + 1);
 }
+
+/// The number of Relay-chain blocks in a timeslice.
+pub const TIMESLICE_PERIOD: u32 = 10;
 
 /// The default balance for test accounts.
 pub const DEFAULT_ACCOUNT_BALANCE: u64 = DEFAULT_BASE_FEE as u64 * 1000;

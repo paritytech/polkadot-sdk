@@ -2513,7 +2513,7 @@ impl pallet_on_demand_para::Config for Runtime {
 	// Orders are dropped instead of being forwarded to a Relay chain.
 	type OrderQueue = ();
 	type MaxBatchSize = ConstU32<1000>;
-	type MaxRevenueHistory = ConstU32<100>;
+	type TimeslicePeriod = <Runtime as pallet_broker::Config>::TimeslicePeriod;
 	type PalletId = OnDemandPalletId;
 }
 

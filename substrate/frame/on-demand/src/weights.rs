@@ -74,7 +74,7 @@ pub trait WeightInfo {
 	fn configure() -> Weight;
 	fn place_order() -> Weight;
 	fn on_finalize_with_orders(n: u32, ) -> Weight;
-	fn claim_revenue_until() -> Weight;
+	fn claim_revenue() -> Weight;
 }
 
 /// Weights for `pallet_on_demand_para` using the Substrate node and recommended hardware.
@@ -96,6 +96,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `OnDemand::QueueState` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `OnDemand::PriceConfig` (r:1 w:0)
 	/// Proof: `OnDemand::PriceConfig` (`max_values`: Some(1), `max_size`: Some(28), added: 523, mode: `MaxEncodedLen`)
+	/// Storage: `OnDemand::Revenue` (r:1 w:1)
+	/// Proof: `OnDemand::Revenue` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn place_order() -> Weight {
@@ -104,8 +106,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `9487`
 		// Minimum execution time: 38_720_000 picoseconds.
 		Weight::from_parts(41_150_000, 9487)
-			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	/// Storage: `OnDemand::PendingBatch` (r:1 w:1)
 	/// Proof: `OnDemand::PendingBatch` (`max_values`: Some(1), `max_size`: Some(8002), added: 8497, mode: `Measured`)
@@ -123,12 +125,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(0, 8).saturating_mul(n.into()))
 	}
 	/// Storage: `OnDemand::Revenue` (r:1 w:1)
-	/// Proof: `OnDemand::Revenue` (`max_values`: Some(1), `max_size`: Some(1202), added: 1697, mode: `MaxEncodedLen`)
+	/// Proof: `OnDemand::Revenue` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn claim_revenue_until() -> Weight {
+	fn claim_revenue() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1258`
+		//  Measured:  `103`
 		//  Estimated: `6196`
 		// Minimum execution time: 50_000_000 picoseconds.
 		Weight::from_parts(50_000_000, 6196)
@@ -155,6 +157,8 @@ impl WeightInfo for () {
 	/// Proof: `OnDemand::QueueState` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `OnDemand::PriceConfig` (r:1 w:0)
 	/// Proof: `OnDemand::PriceConfig` (`max_values`: Some(1), `max_size`: Some(28), added: 523, mode: `MaxEncodedLen`)
+	/// Storage: `OnDemand::Revenue` (r:1 w:1)
+	/// Proof: `OnDemand::Revenue` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn place_order() -> Weight {
@@ -163,8 +167,8 @@ impl WeightInfo for () {
 		//  Estimated: `9487`
 		// Minimum execution time: 38_720_000 picoseconds.
 		Weight::from_parts(41_150_000, 9487)
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
-			.saturating_add(RocksDbWeight::get().writes(3_u64))
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	/// Storage: `OnDemand::PendingBatch` (r:1 w:1)
 	/// Proof: `OnDemand::PendingBatch` (`max_values`: Some(1), `max_size`: Some(8002), added: 8497, mode: `Measured`)
@@ -182,12 +186,12 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(0, 8).saturating_mul(n.into()))
 	}
 	/// Storage: `OnDemand::Revenue` (r:1 w:1)
-	/// Proof: `OnDemand::Revenue` (`max_values`: Some(1), `max_size`: Some(1202), added: 1697, mode: `MaxEncodedLen`)
+	/// Proof: `OnDemand::Revenue` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn claim_revenue_until() -> Weight {
+	fn claim_revenue() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1258`
+		//  Measured:  `103`
 		//  Estimated: `6196`
 		// Minimum execution time: 50_000_000 picoseconds.
 		Weight::from_parts(50_000_000, 6196)

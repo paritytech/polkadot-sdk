@@ -335,8 +335,6 @@ impl pallet_on_demand_para::Config for Runtime {
 	type PricingProvider = pallet_on_demand_para::DefaultPricingProvider;
 	type OrderQueue = CoretimeAllocator;
 	type MaxBatchSize = ConstU32<MAX_ORDERS_PER_MESSAGE>;
-	// A timeslice is `TIMESLICE_PERIOD` Relay-chain blocks long, and the revenue is claimed once
-	// per timeslice, so this covers an order in every one of them.
-	type MaxRevenueHistory = ConstU32<{ coretime::TIMESLICE_PERIOD }>;
+	type TimeslicePeriod = <Runtime as pallet_broker::Config>::TimeslicePeriod;
 	type PalletId = OnDemandPalletId;
 }

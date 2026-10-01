@@ -72,12 +72,12 @@ impl<T: Config> Pallet<T> {
 
 		let current_timeslice = Self::current_timeslice();
 		if status.last_timeslice < current_timeslice {
+			// The timeslice `status.last_timeslice` has just ended, so claim its on-demand revenue.
+			let ended_timeslice = status.last_timeslice;
 			status.last_timeslice.saturating_inc();
-			let rc_block = T::TimeslicePeriod::get() * status.last_timeslice.into();
-			// Process the on-demand revenue from this chain.
-			let revenue = T::OnDemandRevenue::claim_revenue_until(rc_block, &Self::account_id());
-			meter.consume(T::OnDemandRevenue::claim_revenue_until_weight());
-			Self::process_revenue_amount(rc_block, revenue);
+			let revenue = T::OnDemandRevenue::claim_revenue(ended_timeslice, &Self::account_id());
+			meter.consume(T::OnDemandRevenue::claim_revenue_weight());
+			Self::process_revenue_amount(ended_timeslice, revenue);
 			meter.consume(T::WeightInfo::process_revenue());
 			T::Coretime::on_new_timeslice(status.last_timeslice);
 			meter.consume(T::WeightInfo::on_new_timeslice());
@@ -108,17 +108,17 @@ impl<T: Config> Pallet<T> {
 			"Received {amount:?} from RC, converted into {revenue:?} revenue",
 		);
 
-		Self::process_revenue_amount(until, revenue);
+		let when: Timeslice =
+			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
+		Self::process_revenue_amount(when, revenue);
 		true
 	}
 
-	/// Distribute `revenue`, earned from instantaneous Coretime sales made before Relay-chain
-	/// block `until`, among the contributors to the Instantaneous Coretime Pool.
+	/// Distribute `revenue`, earned from instantaneous Coretime sales during timeslice `when`,
+	/// among the contributors to the Instantaneous Coretime Pool.
 	///
 	/// The funds backing `revenue` are expected to already be in this pallet's pot.
-	pub(crate) fn process_revenue_amount(until: RelayBlockNumberOf<T>, mut revenue: BalanceOf<T>) {
-		let when: Timeslice =
-			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
+	pub(crate) fn process_revenue_amount(when: Timeslice, mut revenue: BalanceOf<T>) {
 		if revenue.is_zero() {
 			Self::deposit_event(Event::<T>::HistoryDropped { when, revenue });
 			InstaPoolHistory::<T>::remove(when);

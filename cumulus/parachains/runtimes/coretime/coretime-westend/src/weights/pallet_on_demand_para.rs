@@ -50,7 +50,7 @@ impl<T: frame_system::Config> pallet_on_demand_para::WeightInfo for WeightInfo<T
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// To be measured.
-	fn claim_revenue_until() -> Weight {
+	fn claim_revenue() -> Weight {
 		// A placeholder value.
 		Weight::from_parts(50_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
