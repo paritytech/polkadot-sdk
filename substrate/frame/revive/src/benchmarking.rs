@@ -4829,18 +4829,14 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `DIV` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Division:** the divisor is 2^65 + 3, whose two limbs give the numerator 2^254 + 2^128
-	///   three quotient digits, the most that `U256` division computes.
-	/// * **Estimate Corrections:** division estimates each quotient digit and then corrects the
-	///   estimate down to the true digit. With these operands the three digits take one, two and
-	///   two corrections.
-	/// * **Followed by `POP`:** each `DIV` is followed by a `POP`, because otherwise its result
-	///   would become the numerator of the next one. The weight of a `POP` is subtracted when
-	///   charging a `DIV`.
-	/// * **Stack Initialization:** the numerator and the divisor of every `DIV` are placed on the
-	///   stack before the benchmark runs. This is why `r` goes up to half the stack limit.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The longest path of the `u128` division behind each quotient limb's estimate, since the
+	///   operands are the worst case operands of the division algorithm, from
+	///   [`knuth_division_worst_case_operands`].
+	/// * A branch misprediction on which quotient limbs' estimates are corrected, since the divisor
+	///   is picked at random from those worst case operands.
 	///
 	/// # Subtraction Safety
 	///
