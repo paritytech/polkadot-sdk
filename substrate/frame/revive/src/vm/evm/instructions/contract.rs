@@ -19,7 +19,7 @@ mod call_helpers;
 
 use super::utility::IntoAddress;
 use crate::{
-	Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, U256,
+	CallProtections, Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, U256,
 	access_list::CreateItems,
 	exec::CallResources,
 	vm::{
@@ -197,7 +197,7 @@ fn run_call<'a, E: Ext>(
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
 	let call_result = match scheme {
-		CallScheme::Call | CallScheme::StaticCall => {
+		CallScheme::Call => {
 			let stipend_and_protections =
 				StipendAndProtections::new(value, gas_limit.try_into().ok());
 			interpreter.ext.call(
@@ -206,9 +206,17 @@ fn run_call<'a, E: Ext>(
 				value,
 				input,
 				stipend_and_protections.protections(),
-				scheme.is_static_call(),
+				false,
 			)
 		},
+		CallScheme::StaticCall => interpreter.ext.call(
+			&CallResources::from_ethereum_gas(gas_limit, false),
+			&callee,
+			value,
+			input,
+			CallProtections::default(),
+			true,
+		),
 		CallScheme::DelegateCall => interpreter.ext.delegate_call(
 			&CallResources::from_ethereum_gas(gas_limit, false),
 			callee,

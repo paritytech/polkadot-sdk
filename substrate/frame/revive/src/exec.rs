@@ -145,7 +145,7 @@ pub enum ReentrancyProtection {
 }
 
 /// The reentrancy protection and storage write rule a caller sets for its callee.
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone)]
 pub struct CallProtections {
 	/// The reentrancy protection to enforce on the callee.
 	pub reentrancy: ReentrancyProtection,

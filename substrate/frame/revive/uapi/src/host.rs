@@ -129,6 +129,8 @@ pub trait HostFn: private::Sealed {
 	/// [`CallFlags::ALLOW_REENTRY`]. The callee, and any contract it calls or creates, also cannot
 	/// write persistent storage. Transient storage still works.
 	///
+	/// A call with [`CallFlags::READ_ONLY`] gets neither the stipend nor these protections.
+	///
 	/// If gas is `u64::MAX`, the call will run with uncapped limits.
 	fn call_evm(
 		flags: CallFlags,

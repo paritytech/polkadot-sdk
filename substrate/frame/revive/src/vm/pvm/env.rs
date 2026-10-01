@@ -331,8 +331,12 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let flags = CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?;
 		let (resources, protections) = if gas == u64::MAX {
 			(CallResources::NoLimits, CallProtections::default())
+		} else if flags.contains(CallFlags::READ_ONLY) {
+			// A read-only call is never a `transfer` or `send`, and it cannot move value.
+			(CallResources::from_ethereum_gas(gas.into(), false), CallProtections::default())
 		} else {
 			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
 			let value = memory.read_u256(value_ptr)?;
@@ -345,7 +349,7 @@ pub mod env {
 
 		self.call(
 			memory,
-			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
+			flags,
 			CallType::Call { value_ptr, protections },
 			callee,
 			&resources,
