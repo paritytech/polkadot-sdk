@@ -11,7 +11,12 @@ doc:
     finalized height is now dropped after processing instead of being gossiped, and a debug
     log is emitted for it. A commit for that height has already been gossiped.
 
+    The dropped commit is still marked as known (new `GossipEngine::mark_message_known`), so
+    later copies of it aren't penalized as past messages.
+
     Discovered while working on #13318 (but independent of it).
 crates:
 - name: sc-consensus-grandpa
   bump: patch
+- name: sc-network-gossip
+  bump: minor
