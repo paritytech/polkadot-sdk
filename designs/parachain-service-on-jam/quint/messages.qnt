@@ -177,7 +177,7 @@ module messages {
   // request. See §5.1 step 7.
   | TransferFailed({ id: int, error: TransferError })
   // A `forget` removed the last referencer without expunging the preimage;
-  // the caller must `forget(hash, len)` again at `due` to free it. See §6.1.
+  // the caller must `forget(hash, len)` again after `due` to free it. See §6.1.
   | ForgetAgainAt({ hash: Hash, len: int, due: Timeslot })
   // Failures of the supervised-service operations, one per operation.
   | ServiceStoreFailed({ service: ServiceId, error: ServiceStoreError })

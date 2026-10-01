@@ -305,6 +305,8 @@ module state_balance_test {
     val d = applySetKV(s, para, key, value)
     val expected = kvEntryFootprint(key.length(), value.length())
     all {
+      // §6.1: `49 + k + v`, key and value stored without length prefixes.
+      assert(expected == 49 + key.length() + value.length()),
       assert(d.log == None),
       assert(d.state.paraInfo(para).usedStateBalance == before + expected),
       init
@@ -329,22 +331,21 @@ module state_balance_test {
     }
   }
 
-  /// Overwriting an existing key charges only the value-size delta.
+  /// Overwriting an existing key charges only the difference in value length (§6.1).
   run kvOverwriteDeltaTest = {
     val s = initialState
     val para = CoretimeParaId
     val key = List(5)
-    val value1 = List(1, 2)
-    val value2 = List(1, 2, 3, 4)
+    // 63 -> 64 bytes is where a SCALE length prefix would grow, but stored values have none.
+    val value1 = range(0, 63)
+    val value2 = range(0, 64)
     val d1 = applySetKV(s, para, key, value1)
     val afterInsert = d1.state.paraInfo(para).usedStateBalance
     val d2 = applySetKV(d1.state, para, key, value2)
-    // Growing overwrite: delta = (compactLen(4)+4) - (compactLen(2)+2) = 5 - 3 = 2
-    val growDelta = (1 + value2.length()) - (1 + value1.length())
     all {
       assert(d1.log == None),
       assert(d2.log == None),
-      assert(d2.state.paraInfo(para).usedStateBalance == afterInsert + growDelta),
+      assert(d2.state.paraInfo(para).usedStateBalance == afterInsert + 1),
       init
     }
   }
@@ -358,7 +359,7 @@ module state_balance_test {
     // InitialParaBalance = BaselineFootprint + 2*preimageFootprint(FixedCodeLen) + BaselineFootprint
     // After registration, usedStateBalance = BaselineFootprint + 2*preimageFootprint(FixedCodeLen).
     // Remaining headroom ≈ BaselineFootprint. A value of length BaselineFootprint+1 bytes
-    // will exceed it (kvEntryFootprint adds 39+ bytes of overhead on top).
+    // will exceed it (kvEntryFootprint adds 49 on top).
     // We approximate with a list of length 200000 (well above any headroom).
     val v1 = List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
     val v2 = v1.concat(v1).concat(v1).concat(v1).concat(v1)   // 50

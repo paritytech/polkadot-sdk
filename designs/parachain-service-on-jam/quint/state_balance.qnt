@@ -335,14 +335,14 @@ module state_balance {
   // --- Parachain-storage KV accounting (§6.1) ----------------------------
 
   /// Per-entry footprint for a `key_value_storage` write of a `kLen`-byte key
-  /// and `vLen`-byte value, per §6.1, in balance units:
+  /// and `vLen`-byte value, per §6.1, in balance units. Key and value are stored
+  /// as sent, without length prefixes:
   /// 10 (1 storage item)
-  /// + 34 (JAM overhead) + compactLen(vLen) + vLen (SCALE Vec<u8> value)
-  /// + 1 (map tag 0x07) + 4 (ParaId) + compactLen(kLen) + kLen (key)
-  /// = 49 + compactLen(kLen) + kLen + compactLen(vLen) + vLen
+  /// + 34 (JAM overhead) + vLen (value)
+  /// + 1 (map tag 0x08) + 4 (ParaId) + kLen (key)
+  /// = 49 + kLen + vLen
   pure def kvEntryFootprint(kLen: int, vLen: int): int =
-    ItemDeposit + StorageEntryOverhead + 1 + 4 + compactLen(kLen) + kLen +
-    compactLen(vLen) + vLen
+    ItemDeposit + StorageEntryOverhead + 1 + 4 + kLen + vLen
 
   type KVDelta = {
     state: ParachainServiceState,
@@ -356,15 +356,12 @@ module state_balance {
     s: ParachainServiceState, para_id: ParaId, key: List[int], value: List[int]
   ): KVDelta = {
     val pi = s.paraInfo(para_id)
-    val newVBytes = compactLen(value.length()) + value.length()
     val entryExists = s.keyValueStorage.keys().contains((para_id, key))
     val delta =
       if (not(entryExists))
         kvEntryFootprint(key.length(), value.length())
-      else {
-        val oldV = s.keyValueStorage.get((para_id, key))
-        newVBytes - (compactLen(oldV.length()) + oldV.length())
-      }
+      else
+        value.length() - s.keyValueStorage.get((para_id, key)).length()
     if (delta > 0 and not(pi.hasHeadroom(delta))) {
       {
         state: s,
