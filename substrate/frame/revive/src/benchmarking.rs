@@ -145,7 +145,7 @@ fn setup_stack<E: Ext>(interpreter: &mut Interpreter<E>, values: impl IntoIterat
 fn signed_comparison_operands(r: u32) -> Vec<U256> {
 	// Every limb is one, so adding one to a limb makes the operands first differ at that limb.
 	const POSITIVE: U256 = U256([1, 1, 1, 1]);
-	const NEGATIVE: U256 = U256([1, 1, 1, 0x8000_0000_0000_0001]);
+	const NEGATIVE: U256 = U256([1, 1, 1, (1 << 63) + 1]);
 
 	fn same_sign_operands(rng: &mut Pcg64, base: U256) -> [U256; 2] {
 		match [3, 2, 1, 0].into_iter().find(|_| rng.gen_bool(0.5)) {
