@@ -19,7 +19,8 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::traits::{ConstU128, EitherOf};
+use frame_support::traits::{fungible::NativeOrWithId, ConstU128, EitherOf};
+use pallet_dap::DapUnbalancedAdapter;
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
@@ -323,7 +324,7 @@ impl multi_block::signed::Config for Runtime {
 	type MaxFeeRefund = multi_block::signed::FullSubmissionFee<Runtime, TransactionPayment>;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
-	type Slash = Dap;
+	type Slash = DapUnbalancedAdapter<Runtime, Balances>;
 	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockSignedWeightInfo<Self>;
 }
@@ -443,7 +444,7 @@ impl pallet_staking_async::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 	type RewardRemainder = ();
-	type Slash = Dap;
+	type Slash = DapUnbalancedAdapter<Runtime, Balances>;
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
@@ -464,7 +465,7 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;
 	type MaxEraDuration = MaxEraDuration;
 	type DisableMinting = ConstBool<true>;
-	type UnclaimedRewardHandler = Dap;
+	type UnclaimedRewardHandler = DapUnbalancedAdapter<Runtime, Balances>;
 	type RewardPots = pallet_staking_async::Seed<StakingPotsPalletId>;
 	type StakerRewardCalculator =
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
@@ -502,13 +503,25 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 }
 
 parameter_types! {
+	pub const DapNativeCurrencyAssetId: NativeOrWithId<u32> = NativeOrWithId::Native;
 	pub const DapPalletId: frame_support::PalletId = pallet_dap::DAP_PALLET_ID;
 	pub const DapIssuanceCadence: u64 = 60_000;
 	pub const DapMaxElapsedPerDrip: u64 = 600_000;
 }
 
+type NativeAndEmptyAssets = frame_support::traits::fungible::UnionOf<
+	Balances,
+	frame_support::traits::fungibles::EmptyFungibles<u32, Balance>,
+	frame_support::traits::fungible::NativeFromLeft,
+	NativeOrWithId<u32>,
+	AccountId,
+>;
+
 impl pallet_dap::Config for Runtime {
-	type NativeCurrency = Balances;
+	type Balance = Balance;
+	type Assets = NativeAndEmptyAssets;
+	type AssetKind = NativeOrWithId<u32>;
+	type NativeCurrencyAssetId = DapNativeCurrencyAssetId;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = PolkadotIssuanceCurve;
 	type BudgetRecipients = (

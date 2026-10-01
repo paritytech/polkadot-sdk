@@ -26,20 +26,20 @@ use crate::{
 	traits::{
 		tokens::{
 			misc::{
-				Balance, DepositConsequence,
+				Balance, Balance as BalanceTrait, DepositConsequence,
 				Fortitude::{self, Force, Polite},
 				Precision::{self, BestEffort, Exact},
 				Preservation::{self, Expendable},
 				Provenance::{self, Extant},
 				WithdrawConsequence,
 			},
-			AssetId,
+			AssetId, AssetId as AssetIdTrait,
 		},
 		SameOrOther, TryDrop,
 	},
 };
 use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
-use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
+use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, DispatchResult, TokenError};
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
 
@@ -617,6 +617,104 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	fn done_issue(_asset: Self::AssetId, _amount: Self::Balance) {}
 	fn done_deposit(_asset: Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
 	fn done_withdraw(_asset: Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
+}
+
+pub struct EmptyFungibles<AssetId: AssetIdTrait, Balance: BalanceTrait>(
+	PhantomData<(AssetId, Balance)>,
+);
+
+impl<AccountId, AssetId: AssetIdTrait, Balance: BalanceTrait> Inspect<AccountId>
+	for EmptyFungibles<AssetId, Balance>
+{
+	type AssetId = AssetId;
+	type Balance = Balance;
+	fn total_issuance(_: Self::AssetId) -> Self::Balance {
+		Default::default()
+	}
+	fn minimum_balance(_: Self::AssetId) -> Self::Balance {
+		Default::default()
+	}
+	fn total_balance(_: Self::AssetId, _: &AccountId) -> Self::Balance {
+		Default::default()
+	}
+	fn balance(_: Self::AssetId, _: &AccountId) -> Self::Balance {
+		Default::default()
+	}
+	fn reducible_balance(
+		_: Self::AssetId,
+		_: &AccountId,
+		_: Preservation,
+		_: Fortitude,
+	) -> Self::Balance {
+		Default::default()
+	}
+	fn can_deposit(
+		_: Self::AssetId,
+		_: &AccountId,
+		_: Self::Balance,
+		_: Provenance,
+	) -> DepositConsequence {
+		DepositConsequence::Success
+	}
+	fn can_withdraw(
+		_: Self::AssetId,
+		_: &AccountId,
+		_: Self::Balance,
+	) -> WithdrawConsequence<Self::Balance> {
+		WithdrawConsequence::Success
+	}
+	fn asset_exists(_: Self::AssetId) -> bool {
+		false
+	}
+}
+
+impl<AccountId, AssetId: AssetIdTrait, Balance: BalanceTrait> Unbalanced<AccountId>
+	for EmptyFungibles<AssetId, Balance>
+{
+	fn handle_dust(_: Dust<AccountId, Self>) {}
+	fn write_balance(
+		_: Self::AssetId,
+		_: &AccountId,
+		_: Self::Balance,
+	) -> Result<Option<Self::Balance>, DispatchError> {
+		Ok(None)
+	}
+	fn set_total_issuance(_: Self::AssetId, _: Self::Balance) {}
+}
+
+impl<AccountId, AssetId: AssetIdTrait, Balance: BalanceTrait> Balanced<AccountId>
+	for EmptyFungibles<AssetId, Balance>
+{
+	type OnDropCredit = DummyHandleImbalanceDrop<AssetId, Balance>;
+	type OnDropDebt = DummyHandleImbalanceDrop<AssetId, Balance>;
+}
+
+pub struct DummyHandleImbalanceDrop<AssetId: AssetIdTrait, Balance: BalanceTrait>(
+	PhantomData<(AssetId, Balance)>,
+);
+
+impl<AssetId: AssetIdTrait, Balance: BalanceTrait> HandleImbalanceDrop<AssetId, Balance>
+	for DummyHandleImbalanceDrop<AssetId, Balance>
+{
+	fn handle(_asset: AssetId, _amount: Balance) {}
+}
+
+impl<AccountId: Eq, AssetId: AssetIdTrait, Balance: BalanceTrait> Mutate<AccountId>
+	for EmptyFungibles<AssetId, Balance>
+{
+}
+
+impl<AccountId, AssetId: AssetIdTrait, Balance: BalanceTrait> super::Create<AccountId>
+	for EmptyFungibles<AssetId, Balance>
+{
+	fn create(
+		_id: AssetId,
+		_admin: AccountId,
+		_is_sufficient: bool,
+		_min_balance: Balance,
+	) -> sp_runtime::DispatchResult {
+		DispatchResult::Err(DispatchError::Token(TokenError::Unsupported))
+	}
 }
 
 /// Dummy implementation of [`Inspect`]

@@ -763,13 +763,17 @@ impl pallet_staking::Config for Runtime {
 }
 
 parameter_types! {
+	pub const DapNativeCurrencyAssetId: NativeOrWithId<u32> = NativeOrWithId::Native;
 	pub const DapPalletId: PalletId = pallet_dap::DAP_PALLET_ID;
 	pub const DapIssuanceCadence: u64 = 0; // drip every block
 	pub const DapMaxElapsedPerDrip: u64 = 600_000;
 }
 
 impl pallet_dap::Config for Runtime {
-	type NativeCurrency = Balances;
+	type Balance = Balance;
+	type Assets = NativeAndAssets;
+	type AssetKind = NativeOrWithId<u32>;
+	type NativeCurrencyAssetId = DapNativeCurrencyAssetId;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = ();
 	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);

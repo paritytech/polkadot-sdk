@@ -29,10 +29,15 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{EitherOfDiverse, Get, Imbalance, OnUnbalanced},
+	traits::{
+		fungible::{NativeFromLeft, NativeOrWithId},
+		fungibles::EmptyFungibles,
+		EitherOfDiverse, Get, Imbalance, OnUnbalanced,
+	},
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
+use pallet_dap::DapUnbalancedAdapter;
 use pallet_staking_async_rc_client as rc_client;
 use sp_core::{ConstBool, ConstU64};
 use sp_io;
@@ -463,8 +468,23 @@ pub fn general_staker_pot() -> AccountId {
 	SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards))
 }
 
+type NativeAndEmptyAssets = frame_support::traits::fungible::UnionOf<
+	Balances,
+	EmptyFungibles<u32, Balance>,
+	NativeFromLeft,
+	NativeOrWithId<u32>,
+	AccountId,
+>;
+
+parameter_types! {
+	pub const NativeCurrencyAssetId: NativeOrWithId<u32> = NativeOrWithId::Native;
+}
+
 impl pallet_dap::Config for Test {
-	type NativeCurrency = Balances;
+	type Balance = Balance;
+	type Assets = NativeAndEmptyAssets;
+	type AssetKind = NativeOrWithId<u32>;
+	type NativeCurrencyAssetId = NativeCurrencyAssetId;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = OneTokenPerMillisecond;
 	type BudgetRecipients =
@@ -549,7 +569,7 @@ impl Config for Test {
 	type EventListeners = EventListenerMock;
 	type MaxEraDuration = MaxEraDuration;
 	type DisableMinting = DisableMintingMode;
-	type UnclaimedRewardHandler = Dap;
+	type UnclaimedRewardHandler = DapUnbalancedAdapter<Test, Balances>;
 	type RewardPots = SequentialTest;
 	type StakerRewardCalculator = reward::DefaultStakerRewardCalculator<Test>;
 	type MaxPruningItems = MaxPruningItems;
@@ -558,7 +578,7 @@ impl Config for Test {
 	type RcClientInterface = session_mock::Session;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = SaturatingCurrencyToVote;
-	type Slash = Dap;
+	type Slash = DapUnbalancedAdapter<Runtime, Balances>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type WeightInfo = ();
 	type IsValidatorInactive = ();
