@@ -5394,7 +5394,7 @@ mod benchmarks {
 	fn evm_signextend_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| {
-			let index = [27, 19, 11].into_iter().find(|_| rng.gen_bool(0.5)).unwrap_or(3);
+			let index = [27, 19, 11, 3].choose(&mut rng).copied().unwrap();
 			[U256(rng.r#gen()), U256::from(index)]
 		});
 
