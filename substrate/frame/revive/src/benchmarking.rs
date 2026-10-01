@@ -4176,8 +4176,7 @@ mod benchmarks {
 	/// # Added Overheads
 	///
 	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
-	/// * A branch misprediction on the limb where each comparison stops, since that is
-	///   pseudo-random.
+	/// * A branch misprediction on the limb where each comparison stops, since it's pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
@@ -4226,8 +4225,7 @@ mod benchmarks {
 	/// # Added Overheads
 	///
 	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
-	/// * A branch misprediction on the limb where each comparison stops, since that is
-	///   pseudo-random.
+	/// * A branch misprediction on the limb where each comparison stops, since it's pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
