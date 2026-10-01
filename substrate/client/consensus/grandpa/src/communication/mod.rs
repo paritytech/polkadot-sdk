@@ -636,6 +636,9 @@ fn incoming_global<B: BlockT>(
 							set_id.0,
 							finalized_number,
 						);
+						// still mark it as known, so that peers sending it to us later aren't
+						// penalized for sending a past message.
+						gossip_engine.lock().mark_message_known(&notification.message);
 					}
 				},
 				voter::CommitProcessingOutcome::Bad(_) => {

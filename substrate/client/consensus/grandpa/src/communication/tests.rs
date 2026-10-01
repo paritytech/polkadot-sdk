@@ -572,6 +572,7 @@ fn duplicate_commit_is_not_relayed() {
 
 	let sender_id = PeerId::random();
 	let receiver_id = PeerId::random();
+	let late_sender_id = PeerId::random();
 
 	let test = make_test_network().0.then(move |tester| {
 		let (commits_in, _) =
@@ -579,10 +580,15 @@ fn duplicate_commit_is_not_relayed() {
 		let network_bridge = tester.net_handle.clone();
 
 		let commits = vec![first.clone(), duplicate.clone(), next.clone()];
+		let late_duplicate = duplicate.clone();
 		let send_messages = async move {
 			// the receiver is an authority, so that commits are gossiped to it right away,
 			// without waiting for gossip to reach all peers.
-			for (peer, roles) in [(sender_id, Roles::FULL), (receiver_id, Roles::AUTHORITY)] {
+			for (peer, roles) in [
+				(sender_id, Roles::FULL),
+				(receiver_id, Roles::AUTHORITY),
+				(late_sender_id, Roles::FULL),
+			] {
 				let _ = tester.notification_tx.unbounded_send(
 					NotificationEvent::NotificationStreamOpened {
 						peer,
@@ -646,6 +652,31 @@ fn duplicate_commit_is_not_relayed() {
 						} else {
 							false
 						}
+					},
+					_ => false,
+				})
+			})
+			.then(move |tester| {
+				// another peer sends us the duplicate after it was processed, followed by an
+				// undecodable message. the duplicate must be ignored as already known, so the
+				// first report for that peer is the one for the undecodable message.
+				for notification in [late_duplicate, vec![1, 2, 3]] {
+					let _ = tester.notification_tx.unbounded_send(
+						NotificationEvent::NotificationReceived {
+							peer: late_sender_id,
+							notification,
+						},
+					);
+				}
+
+				tester.filter_network_events(move |event| match event {
+					Event::Report(peer, cost_benefit) if peer == late_sender_id => {
+						assert_ne!(
+							cost_benefit,
+							super::cost::PAST_REJECTION,
+							"duplicate commit must not be penalized",
+						);
+						true
 					},
 					_ => false,
 				})
