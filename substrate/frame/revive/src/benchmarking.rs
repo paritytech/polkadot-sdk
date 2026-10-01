@@ -4726,8 +4726,9 @@ mod benchmarks {
 	fn evm_sar_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| {
-			let words = [2, 1].into_iter().find(|_| rng.gen_bool(0.5)).unwrap_or(0u32);
-			[U256::MAX, U256::from(64 * words + 1)]
+			let whole_words = rng.gen_range(0..=3u32);
+			let extra_bits = rng.gen_range(0..=1u32);
+			[U256::MAX, U256::from(64 * whole_words + extra_bits).max(U256::one())]
 		});
 
 		let code = Bytecode::new_raw([SAR, POP].repeat(r as usize).into());
