@@ -4,7 +4,7 @@ use super::{LayoutV1 as Layout, MemoryDB};
 use codec::{Decode, Encode, Input, Output};
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use sp_storage::{well_known_keys, ChildType, PrefixedStorageKey};
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 use trie_db::{
 	node::{decode_hash, Node, NodeHandle, Value},
 	NibbleSlice, NibbleVec, NodeCodec, TrieLayout,
@@ -96,9 +96,23 @@ impl<H: Hasher> PartialStatePrefixer<H> {
 	}
 }
 
-/// Reused by sc-client-db and in-mem backend.
+/// The walkers of every block whose state is being synced, keyed by block hash.
+///
+/// Reused by sc-client-db and the in-memory backend. The map is only reachable through its
+/// methods: `import` advances a block's walker, and the `snapshot` / `rollback` pair undoes that
+/// advance when the caller could not persist what `import` returned.
 #[derive(Clone)]
-pub struct PartialStatePrefixerPerBlock<H: Hasher>(pub HashMap<H::Out, PartialStatePrefixer<H>>);
+pub struct PartialStatePrefixerPerBlock<H: Hasher>(HashMap<H::Out, PartialStatePrefixer<H>>);
+
+/// What [`PartialStatePrefixerPerBlock`] held for a block before an `import`, taken with
+/// [`PartialStatePrefixerPerBlock::snapshot`] and handed back to
+/// [`PartialStatePrefixerPerBlock::rollback`] if the imported nodes were not persisted.
+#[must_use = "hand the snapshot to `rollback` if the imported nodes were not persisted"]
+pub struct Snapshot<H: Hasher> {
+	block_hash: H::Out,
+	/// The worklist before the import, or `None` if the block had no walker yet.
+	nodes: Option<Vec<TrieNodeInfo<H>>>,
+}
 
 impl<H: Hasher> Default for PartialStatePrefixerPerBlock<H> {
 	fn default() -> Self {
@@ -125,15 +139,50 @@ where
 }
 
 impl<H: Hasher> PartialStatePrefixerPerBlock<H> {
+	/// Record the walker of `block_hash` before an `import`, so that `rollback` can undo it.
+	pub fn snapshot(&self, block_hash: &H::Out) -> Snapshot<H> {
+		Snapshot {
+			block_hash: *block_hash,
+			nodes: self.0.get(block_hash).map(|walker| walker.nodes.clone()),
+		}
+	}
+
 	/// Feed a chunk to the walker of its block, see [`PartialStatePrefixer::import`].
+	///
+	/// On `Err` the map is unchanged. On `Ok` the block's walker has advanced past the returned
+	/// nodes; if they are then not persisted, `rollback` the snapshot taken before this call.
 	pub fn import<BlockNumber: Default>(
 		&mut self,
 		partial_state: PartialState<H, BlockNumber>,
 	) -> Result<Vec<PrefixedTrieNode<H>>, Error> {
-		self.0
-			.entry(partial_state.block_hash)
-			.or_insert_with(|| PartialStatePrefixer::new(partial_state.state_root))
-			.import(partial_state)
+		match self.0.entry(partial_state.block_hash) {
+			Entry::Occupied(entry) => entry.into_mut().import(partial_state),
+			Entry::Vacant(entry) => {
+				let mut walker = PartialStatePrefixer::new(partial_state.state_root);
+				let nodes = walker.import(partial_state)?;
+				entry.insert(walker);
+				Ok(nodes)
+			},
+		}
+	}
+
+	/// Put the walker of the snapshot's block back to where it was when the snapshot was taken:
+	/// restore its worklist, or remove the walker if the block had none.
+	pub fn rollback(&mut self, snapshot: Snapshot<H>) {
+		match snapshot.nodes {
+			Some(nodes) => {
+				self.0.insert(snapshot.block_hash, PartialStatePrefixer { nodes });
+			},
+			None => {
+				self.0.remove(&snapshot.block_hash);
+			},
+		}
+	}
+
+	/// Forget the walker of `block_hash`, once its state is complete. Returns whether there was
+	/// one.
+	pub fn remove(&mut self, block_hash: &H::Out) -> bool {
+		self.0.remove(block_hash).is_some()
 	}
 }
 

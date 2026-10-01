@@ -2928,18 +2928,22 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		&self,
 		partial_state: PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()> {
-		let mut transaction = Transaction::new();
-		// Each node is keyed exactly as `StorageDb::get` will look it up.
-		let commit = self
-			.storage
-			.partial_state_tracking
-			.import_partial_state(partial_state, |hash, prefix| {
-				self.storage.state_key(hash, prefix).into_owned()
-			})
-			.map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
-		apply_state_commit(&mut transaction, commit);
-		self.storage.db.commit(transaction)?;
-		Ok(())
+		self.storage.partial_state_tracking.import_partial_state(
+			partial_state,
+			// Each node is keyed exactly as `StorageDb::get` will look it up.
+			|hash, prefix| self.storage.state_key(hash, prefix).into_owned(),
+			|commit| {
+				let (ops, bytes) =
+					commit.data.inserted.iter().fold((0u64, 0u64), |(ops, bytes), (key, value)| {
+						(ops + 1, bytes + (key.len() + value.len()) as u64)
+					});
+				let mut transaction = Transaction::new();
+				apply_state_commit(&mut transaction, commit);
+				self.storage.db.commit(transaction)?;
+				self.state_usage.tally_writes_nodes(ops, bytes);
+				Ok(())
+			},
+		)
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> sp_blockchain::Result<()> {
@@ -3003,6 +3007,7 @@ pub(crate) mod tests {
 		ConsensusEngineId, StateVersion,
 	};
 	use sp_trie::{partial_state::PartialState, LayoutV0, TrieDBMutBuilder, TrieMut};
+	use std::sync::atomic::{AtomicBool, Ordering};
 
 	const CONS0_ENGINE_ID: ConsensusEngineId = *b"CON0";
 	const CONS1_ENGINE_ID: ConsensusEngineId = *b"CON1";
@@ -6348,15 +6353,73 @@ pub(crate) mod tests {
 	fn import_partial_state(#[case] kind: PartialStateDb) {
 		let expected_key_values =
 			vec![(vec![0u8; 40], vec![0u8; 1]), (vec![1u8; 40], vec![1u8; 1])];
+		let (partial_state, header) = partial_state_chunk(&expected_key_values);
 
-		let mut partial_state = MemoryDB::default();
+		let (backend, _tmp) = partial_state_test_backend(kind);
+		backend
+			.import_partial_state(PartialState {
+				block_hash: header.hash(),
+				block_number: header.number,
+				state_root: header.state_root,
+				nodes: partial_state,
+			})
+			.unwrap();
+
+		complete_partial_state(&backend, &header);
+		assert_eq!(state_pairs(&backend, &header), expected_key_values);
+	}
+
+	/// A chunk whose commit fails must be accepted again: the tracker restores its worklist, so
+	/// the retry writes the nodes the failed commit lost. Without the rollback the retry finds
+	/// nothing awaited, writes nothing, reports success, and the state is incomplete.
+	#[test]
+	fn import_partial_state_retries_after_failed_commit() {
+		let expected_key_values =
+			vec![(vec![0u8; 40], vec![0u8; 1]), (vec![1u8; 40], vec![1u8; 1])];
+		let (partial_state, header) = partial_state_chunk(&expected_key_values);
+		let chunk = || PartialState {
+			block_hash: header.hash(),
+			block_number: header.number,
+			state_root: header.state_root,
+			nodes: partial_state.clone(),
+		};
+
+		let db = Arc::new(FailingDb {
+			inner: sp_database::as_database(kvdb_memorydb::create(crate::utils::NUM_COLUMNS)),
+			fail_next_commit: AtomicBool::new(false),
+		});
+		let backend = Backend::<Block>::new_test_with_tx_storage_source(
+			BlocksPruning::Some(10),
+			10,
+			DatabaseSource::Custom { db: db.clone(), require_create_flag: true },
+			Default::default(),
+		);
+
+		// `Backend::new` has committed its own initialisation by now: arm the failure only here.
+		db.fail_next_commit.store(true, Ordering::SeqCst);
+		assert!(backend.import_partial_state(chunk()).is_err());
+		assert!(
+			!db.fail_next_commit.load(Ordering::SeqCst),
+			"the injected failure was consumed by the chunk's commit"
+		);
+
+		backend.import_partial_state(chunk()).unwrap();
+
+		complete_partial_state(&backend, &header);
+		assert_eq!(state_pairs(&backend, &header), expected_key_values);
+	}
+
+	/// Builds a one-level trie holding `key_values` and returns its nodes as a state-sync chunk
+	/// would carry them, together with a header whose state root is the trie root.
+	fn partial_state_chunk(
+		key_values: &[(Vec<u8>, Vec<u8>)],
+	) -> (MemoryDB<HashingFor<Block>>, Header) {
+		let mut nodes = MemoryDB::default();
 		let mut state_root: <Block as BlockT>::Hash = Default::default();
-		let mut trie = TrieDBMutBuilder::<LayoutV0<HashingFor<Block>>>::new(
-			&mut partial_state,
-			&mut state_root,
-		)
-		.build();
-		for (k, v) in &expected_key_values {
+		let mut trie =
+			TrieDBMutBuilder::<LayoutV0<HashingFor<Block>>>::new(&mut nodes, &mut state_root)
+				.build();
+		for (k, v) in key_values {
 			trie.insert(k, v).unwrap();
 		}
 		trie.commit();
@@ -6369,30 +6432,72 @@ pub(crate) mod tests {
 			digest: Default::default(),
 			extrinsics_root: Default::default(),
 		};
-		let (backend, _tmp) = partial_state_test_backend(kind);
-		backend
-			.import_partial_state(PartialState {
-				block_hash: header.hash(),
-				block_number: header.number,
-				state_root: header.state_root,
-				nodes: partial_state,
-			})
-			.unwrap();
+		(nodes, header)
+	}
 
+	/// Imports `header` as the block whose state was delivered through `import_partial_state`.
+	fn complete_partial_state(backend: &Backend<Block>, header: &Header) {
 		let mut op = backend.begin_operation().unwrap();
 		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)
 			.unwrap();
 		op.set_partial_state_completed();
 		backend.commit_operation(op).unwrap();
+	}
 
-		let key_values: Vec<_> = backend
+	fn state_pairs(backend: &Backend<Block>, header: &Header) -> Vec<(Vec<u8>, Vec<u8>)> {
+		backend
 			.state_at(header.hash(), TrieCacheContext::Untrusted)
 			.unwrap()
 			.pairs(Default::default())
 			.unwrap()
 			.map(Result::unwrap)
-			.collect();
-		assert_eq!(key_values, expected_key_values);
+			.collect()
+	}
+
+	/// Delegates to an in-memory database and fails one `commit` while armed.
+	struct FailingDb {
+		inner: Arc<dyn Database<DbHash>>,
+		fail_next_commit: AtomicBool,
+	}
+
+	impl Database<DbHash> for FailingDb {
+		fn commit(&self, transaction: Transaction<DbHash>) -> sp_database::error::Result<()> {
+			if self.fail_next_commit.swap(false, Ordering::SeqCst) {
+				return Err(sp_database::error::DatabaseError(Box::new(std::io::Error::other(
+					"injected commit failure",
+				))));
+			}
+			self.inner.commit(transaction)
+		}
+
+		fn get(&self, col: sp_database::ColumnId, key: &[u8]) -> Option<Vec<u8>> {
+			self.inner.get(col, key)
+		}
+
+		fn contains(&self, col: sp_database::ColumnId, key: &[u8]) -> bool {
+			self.inner.contains(col, key)
+		}
+
+		fn value_size(&self, col: sp_database::ColumnId, key: &[u8]) -> Option<usize> {
+			self.inner.value_size(col, key)
+		}
+
+		fn with_get(&self, col: sp_database::ColumnId, key: &[u8], f: &mut dyn FnMut(&[u8])) {
+			self.inner.with_get(col, key, f)
+		}
+
+		// The key layout follows these two, so they must be the inner database's answers.
+		fn supports_ref_counting(&self) -> bool {
+			self.inner.supports_ref_counting()
+		}
+
+		fn sanitize_key(&self, key: &mut Vec<u8>) {
+			self.inner.sanitize_key(key)
+		}
+
+		fn optimize_db_col(&self, col: sp_database::ColumnId) -> sp_database::error::Result<()> {
+			self.inner.optimize_db_col(col)
+		}
 	}
 
 	#[test]
