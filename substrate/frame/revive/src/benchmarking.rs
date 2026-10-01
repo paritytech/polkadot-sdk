@@ -4631,9 +4631,9 @@ mod benchmarks {
 	fn evm_shl_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| {
-			let words = rng.gen_range(0..=1u32);
-			let bits = rng.gen_range(0..=1u32);
-			[U256::MAX, U256::from(64 * words + bits)]
+			let whole_words = rng.gen_range(0..=3u32);
+			let extra_bits = rng.gen_range(0..=1u32);
+			[U256::MAX, U256::from(64 * whole_words + extra_bits)]
 		});
 
 		let code = Bytecode::new_raw([SHL, POP].repeat(r as usize).into());
