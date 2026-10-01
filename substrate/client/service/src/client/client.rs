@@ -41,8 +41,8 @@ use sc_client_api::{
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
 	CallExecutor, DecodedCompactProof, ExecutorProvider, KeysIter, OnFinalityAction,
-	OnImportAction, PairsIter, PrefetchedIndexedTransactions, ProofProvider, StaleBlock,
-	TrieCacheContext, UnpinWorkerMessage, UsageProvider,
+	OnImportAction, PairsIter, PartialStateImport, PrefetchedIndexedTransactions, ProofProvider,
+	StaleBlock, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
 };
 use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, ImportedState,
@@ -69,7 +69,7 @@ use sp_core::{
 use sp_runtime::{
 	generic::{BlockId, SignedBlock},
 	traits::{
-		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One,
+		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One, PartialStateFor,
 		SaturatedConversion, Zero,
 	},
 	Justification, Justifications, StateVersion,
@@ -1409,6 +1409,21 @@ where
 		>(&proving_backend, start_key)?;
 		let db = proving_backend.into_storage();
 		Ok((key_values, completed, db))
+	}
+}
+
+impl<B, E, Block, RA> PartialStateImport<Block> for Client<B, E, Block, RA>
+where
+	B: backend::Backend<Block>,
+	E: CallExecutor<Block>,
+	Block: BlockT,
+{
+	fn import_partial_state(
+		&self,
+		partial_state: PartialStateFor<Block>,
+	) -> sp_blockchain::Result<()> {
+		let _import_lock = self.backend.get_import_lock().write();
+		self.backend.import_partial_state(partial_state)
 	}
 }
 

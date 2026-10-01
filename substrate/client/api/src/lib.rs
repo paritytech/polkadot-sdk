@@ -33,6 +33,7 @@ pub use backend::*;
 pub use call_executor::*;
 pub use client::*;
 pub use notifications::*;
+pub use partial_state::PartialStateImport;
 pub use proof_provider::*;
 pub use sp_blockchain as blockchain;
 pub use sp_blockchain::HeaderBackend;
