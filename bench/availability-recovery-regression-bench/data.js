@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790843941323,
+  "lastUpdate": 1790891419512,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a60abddb213ad35d7648ab9ca158c1de8cb75c98",
-          "message": "Expose ECC host functions (#11334)\n\nChanges:\n- Expose host functions for `BLS12-381`, `Ed-on-BLS12-381-Bandersnatch`,\n`Pallas`, `Vesta` for parachains\n- Add new executor param `EnabledHostFunction` that can be used to\nenable host function usage.\n\nThese were ratified in [RFC\n163](https://github.com/polkadot-fellows/RFCs/pull/163). The missing\nPasta curves will be added later\nhttps://github.com/paritytech/polkadot-sdk/pull/11035. We will use these\non the people chain only.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Davide Galassi <davxy@datawok.net>",
-          "timestamp": "2026-03-25T20:19:07Z",
-          "tree_id": "9cc973886416a77569a2f7e5bc7a71d084a2221f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a60abddb213ad35d7648ab9ca158c1de8cb75c98"
-        },
-        "date": 1774474739116,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1272244226,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.2214864506,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14258650613333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2d06e303b93c5a4efb5098f71256a15870231d76",
+          "message": "grandpa: don't gossip commits that don't advance finality (#13358)\n\n## Description\n\nMultiple voters can issue a commit for the same round, and several can\npass gossip validation before any is processed, since validation only\ncompares against the height noted after processing. Each was then\ngossiped, so peers got the same finality proof more than once.\n\nNow a processed commit is gossiped only if it advanced finalized height\n(`note_commit_finalized` returns whether it did); otherwise it's logged\nat debug level. Nothing is lost: the commit for our best height is\nalready in the gossip store and keeps being rebroadcast.\n\nThe dropped commit is still marked as known via a new\n`GossipEngine::mark_message_known` (`sc-network-gossip`), which records\na message as known without storing or propagating it.\n\nFound while working on #13318\n(https://github.com/paritytech/smoldot/issues/3375), but independent of\nit.\n\n## Tests\n\n- `note_commit_finalized_reports_whether_finality_advanced`\n- `duplicate_commit_is_not_relayed`",
+          "timestamp": "2026-10-01T20:18:07Z",
+          "tree_id": "947c8d9ae82ee1d6aa11cf8dc482d8b7dc3494d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2d06e303b93c5a4efb5098f71256a15870231d76"
+        },
+        "date": 1790891385307,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.852297746666661,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13804551283333333,
             "unit": "seconds"
           }
         ]
