@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790797445486,
+  "lastUpdate": 1790844140176,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "44f97882cb5c890a6d228df63499953f317348d0",
-          "message": "[pallet-assets] fix: decrement supply when refund burns balance (#11441)\n\nWhen a user calls `refund` with `allow_burn = true`, their token balance\nis destroyed, but the asset's total supply was never updated. This\ncaused `total_issuance()` to overcount. The fix decrements supply and\nemits a `Burned` event, consistent with how every other burn path works.\n\nIn production, burning path is rarely triggered. The fungibles trait\ninterface always passes `allow_burn = false`, so only users manually\nsubmitting the refund extrinsic with the burn flag would hit it.\n\nFollow-up issue for migrating the discrepancy (observed on Westend):\nhttps://github.com/paritytech/polkadot-sdk/issues/11443.\n\nFixes #10412\n\n---------\n\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-24T23:11:04Z",
-          "tree_id": "8913f0797ad96e0c40b4c5cf461ae950eca3eda4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/44f97882cb5c890a6d228df63499953f317348d0"
-        },
-        "date": 1774398753534,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.094,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03828282778399998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08221552183599991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038550810228000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4cc62947fa17b58cf3dd18f336041253ce117ce5",
+          "message": "Update RC peer ids of Polkadot AH invulnerable collators (#13320)\n\nAs described in https://polkadot.subsquare.io/referenda/1946",
+          "timestamp": "2026-10-01T07:07:39Z",
+          "tree_id": "cbe2d54f3c71e54b88b90e6a98175fc89706f7d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4cc62947fa17b58cf3dd18f336041253ce117ce5"
+        },
+        "date": 1790844112168,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.09999999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038664729658000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09148226116399989,
             "unit": "seconds"
           }
         ]
