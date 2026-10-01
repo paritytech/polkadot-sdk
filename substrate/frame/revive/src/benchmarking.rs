@@ -4226,10 +4226,8 @@ mod benchmarks {
 	/// # Added Overheads
 	///
 	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
-	/// * A branch misprediction on whether the operands of each comparison are equal, since that is
+	/// * A branch misprediction on the limb where each comparison stops, since that is
 	///   pseudo-random.
-	/// * No early exit from the comparison, since the operands only ever differ in the last word it
-	///   checks.
 	///
 	/// # Subtraction Safety
 	///
@@ -4238,7 +4236,13 @@ mod benchmarks {
 	fn evm_gt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r)
-			.map(|_| if rng.gen_bool(0.5) { U256::zero() } else { U256::from(2) })
+			.map(|_| match Outcome::ALL.choose(&mut rng).unwrap() {
+				Outcome::DifferInLimb3 => U256::from(2) << 192,
+				Outcome::DifferInLimb2 => U256::from(2) << 128,
+				Outcome::DifferInLimb1 => U256::from(2) << 64,
+				Outcome::DifferInLimb0 => U256::from(2),
+				Outcome::Equal => U256::zero(),
+			})
 			.collect::<Vec<_>>();
 
 		let code = Bytecode::new_raw(vec![GT; r as usize].into());
