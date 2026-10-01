@@ -24,7 +24,7 @@ mod genesis;
 mod on_unbalanced;
 
 use crate::{
-	mock::{account_id, AccountId, Assets, RuntimeOrigin, Test},
+	mock::{account_id, AccountId, NativeAndAssets, Test},
 	AssetAllocationMap, AssetKindOf, BalanceOf, BudgetAllocationMap, SingleAssetAllocation,
 };
 use frame_support::{
@@ -70,9 +70,14 @@ fn asset_allocations(
 }
 
 fn balance_of_asset(asset_id: u32, account: &AccountId) -> u64 {
-	Assets::reducible_balance(asset_id, account, Preservation::Expendable, Fortitude::Polite)
+	NativeAndAssets::reducible_balance(
+		NativeOrWithId::WithId(asset_id),
+		account,
+		Preservation::Expendable,
+		Fortitude::Polite,
+	)
 }
 
 fn create_asset(asset_id: u32) {
-	assert_ok!(<Assets as Create<AccountId>>::create(asset_id, account_id(0), false, 1));
+	assert_ok!(NativeAndAssets::create(NativeOrWithId::WithId(asset_id), account_id(0), false, 1));
 }

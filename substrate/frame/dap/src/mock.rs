@@ -125,11 +125,18 @@ impl sp_staking::budget::BudgetRecipient<AccountId> for TestValidatorIncentiveRe
 	}
 }
 
+parameter_types! {
+	pub const NativeCurrencyAssetId: NativeOrWithId<u32> = NativeOrWithId::Native;
+}
+
+pub type NativeAndAssets =
+	UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
 impl Config for Test {
 	type Balance = u64;
-	type AssetKind = u32;
-	type Assets = Assets;
-	type NativeCurrency = Balances;
+	type AssetKind = NativeOrWithId<u32>;
+	type Assets = NativeAndAssets;
+	type NativeCurrencyAssetId = NativeCurrencyAssetId;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = TestIssuanceCurve;
 	type BudgetRecipients = (Dap, TestStakerRecipient, TestValidatorIncentiveRecipient);

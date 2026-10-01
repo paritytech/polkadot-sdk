@@ -19,7 +19,9 @@
 
 use super::{asset_allocations, balance_of_asset, budget_map, create_asset};
 use crate::{
-	mock::{build_and_execute, AccountId, Assets, Balances, Dap, RuntimeOrigin, System, Test},
+	mock::{
+		build_and_execute, AccountId, Balances, Dap, NativeAndAssets, RuntimeOrigin, System, Test,
+	},
 	Event,
 };
 use frame_support::{
@@ -57,8 +59,8 @@ fn deposited_assets_are_drained() {
 		create_asset(9);
 		create_asset(10);
 
-		assert_ok!(Assets::mint_into(9, &staging, 50));
-		assert_ok!(Assets::mint_into(10, &staging, 100));
+		assert_ok!(NativeAndAssets::mint_into(NativeOrWithId::WithId(9), &staging, 50));
+		assert_ok!(NativeAndAssets::mint_into(NativeOrWithId::WithId(10), &staging, 100));
 
 		assert_eq!(balance_of_asset(9, &buffer), 0);
 		assert_eq!(balance_of_asset(10, &buffer), 0);
@@ -127,7 +129,7 @@ fn on_idle_doesnt_fail_when_native_asset_in_asset_distribution_map() {
 		create_asset(10);
 
 		assert_ok!(Balances::mint_into(&staging, 1_000));
-		assert_ok!(Assets::mint_into(10, &staging, 100));
+		assert_ok!(NativeAndAssets::mint_into(NativeOrWithId::WithId(10), &staging, 100));
 
 		assert_eq!(balance_of_asset(10, &buffer), 0);
 		assert_eq!(native_balance(&buffer), 0);

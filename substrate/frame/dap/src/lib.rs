@@ -66,8 +66,7 @@ use frame_support::{
 	traits::{
 		fungible::{
 			Balanced as FungibleBalanced, Credit as FungibleCredit, Inspect as FungibleInspect,
-			Mutate as FungibleMutate, NativeFromLeft, NativeOrWithId,
-			Unbalanced as FungibleUnbalanced, UnionOf,
+			ItemOf, Mutate as FungibleMutate, Unbalanced as FungibleUnbalanced,
 		},
 		fungibles::{Balanced, Inspect, Mutate, Unbalanced},
 		tokens::{Fortitude, Preservation},
@@ -98,13 +97,12 @@ pub const MAX_DISTRIBUTABLE_ASSETS: u32 = 8;
 pub type BalanceOf<T> = <T as Config>::Balance;
 
 /// Type alias for asset kind.
-pub type AssetKindOf<T> = NativeOrWithId<<T as Config>::AssetKind>;
+pub type AssetKindOf<T> = <T as Config>::AssetKind;
 
-pub type AllAssets<T> = UnionOf<
-	<T as Config>::NativeCurrency,
+/// Type alias for the native currency as a part of the [`Config::Assets`].
+pub type NativeCurrencyOf<T> = ItemOf<
 	<T as Config>::Assets,
-	NativeFromLeft,
-	NativeOrWithId<<T as Config>::AssetKind>,
+	<T as Config>::NativeCurrencyAssetId,
 	<T as frame_system::Config>::AccountId,
 >;
 
@@ -184,10 +182,9 @@ pub mod pallet {
 			+ Unbalanced<Self::AccountId>
 			+ Create<Self::AccountId>;
 
-		type NativeCurrency: FungibleInspect<Self::AccountId, Balance = Self::Balance>
-			+ FungibleMutate<Self::AccountId>
-			+ FungibleBalanced<Self::AccountId>
-			+ FungibleUnbalanced<Self::AccountId>;
+		/// Asset kind of the native currency.
+		#[pallet::constant]
+		type NativeCurrencyAssetId: Get<Self::AssetKind>;
 
 		/// Issuance curve: computes how much to mint given total issuance and elapsed time.
 		type IssuanceCurve: IssuanceCurve<BalanceOf<Self>>;
@@ -340,7 +337,7 @@ pub mod pallet {
 			let buffer = Self::buffer_account();
 
 			let drain_staging_account = move |asset: AssetKindOf<T>| {
-				let available = AllAssets::<T>::reducible_balance(
+				let available = T::Assets::reducible_balance(
 					asset.clone(),
 					&staging_account,
 					Preservation::Preserve,
@@ -351,7 +348,7 @@ pub mod pallet {
 					return;
 				}
 
-				if AllAssets::<T>::transfer(
+				if T::Assets::transfer(
 					asset.clone(),
 					&staging_account,
 					&buffer,
@@ -364,7 +361,7 @@ pub mod pallet {
 					return;
 				}
 
-				if asset == NativeOrWithId::Native {
+				if asset == T::NativeCurrencyAssetId::get() {
 					Self::deactivate_buffer_funds(available);
 				}
 
@@ -376,11 +373,12 @@ pub mod pallet {
 				Self::deposit_event(Event::StagingDrained { amount: available, asset });
 			};
 
-			drain_staging_account(NativeOrWithId::Native);
+			let native_currency = T::NativeCurrencyAssetId::get();
+			drain_staging_account(native_currency.clone());
 
 			for asset in AssetAllocation::<T>::get().keys().cloned() {
 				// Don't drain the native currency twice.
-				if asset == NativeOrWithId::Native {
+				if asset == native_currency {
 					continue;
 				}
 
@@ -530,12 +528,12 @@ pub mod pallet {
 
 		/// Deactivate funds on buffer inflow.
 		pub(crate) fn deactivate_buffer_funds(amount: BalanceOf<T>) {
-			<T::NativeCurrency as FungibleUnbalanced<T::AccountId>>::deactivate(amount);
+			<NativeCurrencyOf<T> as FungibleUnbalanced<T::AccountId>>::deactivate(amount);
 		}
 
 		/// Reactivate funds on buffer withdrawal.
 		pub(crate) fn reactivate_buffer_funds(amount: BalanceOf<T>) {
-			<T::NativeCurrency as FungibleUnbalanced<T::AccountId>>::reactivate(amount);
+			<NativeCurrencyOf<T> as FungibleUnbalanced<T::AccountId>>::reactivate(amount);
 		}
 
 		/// Core issuance drip logic, called from `on_initialize`.
@@ -594,7 +592,7 @@ pub mod pallet {
 		}
 
 		fn mint_native_currency(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
-			let total_issuance = T::NativeCurrency::total_issuance();
+			let total_issuance = NativeCurrencyOf::<T>::total_issuance();
 			let issuance = T::IssuanceCurve::issue(total_issuance, elapsed);
 
 			if issuance.is_zero() {
@@ -617,7 +615,7 @@ pub mod pallet {
 				let perbill = budget.get(key).copied().unwrap_or(Perbill::zero());
 				let amount = perbill.mul_floor(issuance);
 				if !amount.is_zero() {
-					if let Err(_) = T::NativeCurrency::mint_into(account, amount) {
+					if let Err(_) = NativeCurrencyOf::<T>::mint_into(account, amount) {
 						Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
 						defensive!("Issuance mint should not fail");
 					} else {
@@ -663,7 +661,7 @@ pub mod pallet {
 
 					let amount = allocation.amount_per_ms.saturating_mul(elapsed_as_balance);
 
-					let result = AllAssets::<T>::transfer(
+					let result = T::Assets::transfer(
 						asset.clone(),
 						&buffer,
 						account,
@@ -677,7 +675,7 @@ pub mod pallet {
 						));
 					} else {
 						total_distributed.saturating_accrue(amount);
-						if asset == NativeOrWithId::Native && *account != buffer {
+						if asset == T::NativeCurrencyAssetId::get() && *account != buffer {
 							Self::reactivate_buffer_funds(amount);
 						}
 					}
