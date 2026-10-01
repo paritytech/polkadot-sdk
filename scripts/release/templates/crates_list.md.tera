@@ -1,4 +1,8 @@
 The following crates were updated to the corresponding versions:
 
-- sc-consensus-beefy@35.0.1
-- sc-consensus-grandpa@0.41.1
+<details>
+  <summary>Changed crates: </summary>
+
+- sc-rpc-server@28.1.0
+
+</details>
