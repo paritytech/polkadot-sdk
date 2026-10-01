@@ -4585,31 +4585,12 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `SGT` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Signs:** `SGT` first checks whether each operand is negative, zero or positive. Only
-	///   operands with the same sign go on to compare their limbs, starting from the most
-	///   significant, until the first pair that differs. The compiled code branches on the sign of
-	///   each operand, on whether the signs differ, at each limb of the comparison and on which
-	///   operand is greater.
-	/// * **Pseudo-random Operands:** a pseudo-random generator picks whether each `SGT` compares
-	///   two negative operands or two non-negative ones, and for the non-negative ones, whether one
-	///   of them is zero. Operands with the same sign first differ at limb 3, 2, 1 or 0, or are
-	///   equal, and each time the comparison reaches one of these limbs it stops there with a 50%
-	///   chance. The two operands are in a pseudo-random order. This way the CPU can't predict any
-	///   of these branches, and the mispredictions cost more than the work that the shorter paths
-	///   skip.
-	/// * **Followed by `POP`:** each `SGT` is followed by a `POP`, so each one compares fresh
-	///   operands rather than the result of the previous one, which is zero or one and would make
-	///   every comparison take the same path. The weight of a `POP` is subtracted when charging an
-	///   `SGT`.
-	/// * **Stack Initialization:** both operands of every `SGT` are placed on the stack before the
-	///   benchmark runs. This is why `r` goes up to half the stack limit.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * A chain of `SGT` op-codes on zeros, which compared all four limbs every time. The
-	///   pseudo-random operands cost roughly 83% more per `SGT` once the `POP` is subtracted.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on the signs of the operands, since they're pseudo-random.
+	/// * A branch misprediction on the limb where each comparison stops, since it's pseudo-random.
+	/// * A branch misprediction on which operand is greater, since their order is pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
