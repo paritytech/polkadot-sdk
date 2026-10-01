@@ -5166,34 +5166,16 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `SMOD` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Division:** `SMOD` divides the magnitudes of its operands. The magnitude of the divisor
-	///   is 2^65 + 3, whose two limbs give every numerator three quotient digits, the most that
-	///   `U256` division computes.
-	/// * **Largest Magnitudes:** the magnitude of every numerator lies between 2^254 and 2^255, the
-	///   largest a signed value reaches, and the two lower digits of every quotient are at least
-	///   2^63, which makes the estimates of those digits take their longest path.
-	/// * **Pseudo-random Corrections:** division estimates each quotient digit and then corrects
-	///   the estimate down to the true digit. A pseudo-random generator picks whether the first
-	///   digit takes zero corrections or one, and whether the other two take one or two, with a 50%
-	///   chance each, so the CPU can't predict how many corrections each digit takes.
-	/// * **Pseudo-random Signs:** the generator also picks the signs of both operands, with a 50%
-	///   chance each, so the CPU can't predict which operands are negated or whether the remainder
-	///   is.
-	/// * **Pseudo-random Lowest Limb:** the generator also picks whether the lowest limb of the
-	///   numerator's magnitude is zero, with a 50% chance, which decides how far the carry of
-	///   negating the numerator runs.
-	/// * **Followed by `POP`:** each `SMOD` is followed by a `POP`, because otherwise its result
-	///   would become the numerator of the next one. The weight of a `POP` is subtracted when
-	///   charging an `SMOD`.
-	/// * **Stack Initialization:** the numerator and the divisor of every `SMOD` are placed on the
-	///   stack before the benchmark runs. This is why `r` goes up to half the stack limit.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * The same negative numerator and divisor every time. The pseudo-random operands cost
-	///   between 8% and 10% more per `SMOD` once the `POP` is subtracted.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A carry through every limb to negate the numerator, since it's the most negative value.
+	/// * The longest path of the `u128` division behind each quotient limb's estimate, since the
+	///   operands are the worst case operands of the division algorithm, from
+	///   [`knuth_division_worst_case_operands`].
+	/// * A branch misprediction on which quotient limbs' estimates are corrected, since the divisor
+	///   is picked at random from those worst case operands.
+	/// * A branch misprediction on whether the divisor is negated, since its sign is pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
