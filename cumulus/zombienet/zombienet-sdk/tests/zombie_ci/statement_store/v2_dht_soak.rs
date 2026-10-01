@@ -290,8 +290,7 @@ fn outage_topics(peer_keys: &[[u8; 32]]) -> Result<(usize, Vec<OutageTopic>), an
 				let order = ranked_by_distance(peer_keys, topic);
 				let suitable = match outage_node_role {
 					OutageNodeRole::Replica => {
-						topic != non_affine_topic &&
-							order[..REPLICATION_FACTOR].contains(&outage_node_idx)
+						order[..REPLICATION_FACTOR].contains(&outage_node_idx)
 					},
 					OutageNodeRole::Subscriber => {
 						topic != non_affine_topic &&
@@ -299,8 +298,7 @@ fn outage_topics(peer_keys: &[[u8; 32]]) -> Result<(usize, Vec<OutageTopic>), an
 					},
 					OutageNodeRole::NonAffine => topic == non_affine_topic,
 				};
-				(suitable && topics.iter().all(|t: &OutageTopic| t.topic != topic))
-					.then_some((topic, order))
+				suitable.then_some((topic, order))
 			})
 			.ok_or_else(|| {
 				anyhow!(
@@ -727,59 +725,50 @@ async fn run_replica_outage(
 	nodes[outage_node_idx].rpc = restart_rpc_result?;
 	drop(pre_outage_subscription);
 
-	let recovery_result = tokio::time::timeout(
-		Duration::from_secs(OUTAGE_TIMEOUT_SECS),
-		AssertUnwindSafe(async {
-			let restarted_peer_id: String =
-				nodes[outage_node_idx].rpc.request("system_localPeerId", rpc_params![]).await?;
-			ensure!(
-				restarted_peer_id == original_peer_id,
-				"outage node PeerId changed: {original_peer_id} -> {restarted_peer_id}"
-			);
-			let eligible = outage_node.reports(ELIGIBLE_PEERS_METRIC).await?;
-			info!(
-				"Lifecycle restarted: unchanged PeerId {restarted_peer_id}, same base directory {}, \
+	tokio::time::timeout(Duration::from_secs(OUTAGE_TIMEOUT_SECS), async {
+		let restarted_peer_id: String =
+			nodes[outage_node_idx].rpc.request("system_localPeerId", rpc_params![]).await?;
+		ensure!(
+			restarted_peer_id == original_peer_id,
+			"outage node PeerId changed: {original_peer_id} -> {restarted_peer_id}"
+		);
+		let eligible = outage_node.reports(ELIGIBLE_PEERS_METRIC).await?;
+		info!(
+			"Lifecycle restarted: unchanged PeerId {restarted_peer_id}, same base directory {}, \
 				 {eligible} eligible peers known at the first RPC",
-				outage_node.base_dir().display()
-			);
-			let mut outage_node_subscription =
-				subscribe_topic(&nodes[outage_node_idx].rpc, subscriber_topic).await?;
-			assert_statements_match(
-				&mut outage_node_subscription,
-				&expected_subscription_backlog,
-				DELIVERY_TIMEOUT_SECS,
-				outage_node.name(),
-			)
-			.await?;
-			// Defer non-affine recovery placement: a cold topology can grant permanent DHT
-			// retention.
-			let recovery_placements: Vec<ExpectedPlacement> = expected_placements
-				.iter()
-				.filter(|placement| placement.holder_node_indices.contains(&outage_node_idx))
-				.cloned()
-				.collect();
-			let placement_result =
-				wait_for_stable_placement("recovered", nodes, &recovery_placements, None).await;
-			let admissions = admissions_by_reason(outage_node).await?;
-			placement_result.with_context(|| {
-				format!("{} admissions by reason since restart: {admissions}", outage_node.name())
-			})?;
-			info!(
-				"Lifecycle recovered: {} holds every required replica/subscription statement; \
+			outage_node.base_dir().display()
+		);
+		let mut outage_node_subscription =
+			subscribe_topic(&nodes[outage_node_idx].rpc, subscriber_topic).await?;
+		assert_statements_match(
+			&mut outage_node_subscription,
+			&expected_subscription_backlog,
+			DELIVERY_TIMEOUT_SECS,
+			outage_node.name(),
+		)
+		.await?;
+		// Defer non-affine recovery placement: a cold topology can grant permanent DHT
+		// retention.
+		let recovery_placements: Vec<ExpectedPlacement> = expected_placements
+			.iter()
+			.filter(|placement| placement.holder_node_indices.contains(&outage_node_idx))
+			.cloned()
+			.collect();
+		let placement_result =
+			wait_for_stable_placement("recovered", nodes, &recovery_placements, None).await;
+		let admissions = admissions_by_reason(outage_node).await?;
+		placement_result.with_context(|| {
+			format!("{} admissions by reason since restart: {admissions}", outage_node.name())
+		})?;
+		info!(
+			"Lifecycle recovered: {} holds every required replica/subscription statement; \
 				 admissions by reason: {admissions}",
-				outage_node.name()
-			);
-			Ok::<_, anyhow::Error>(())
-		})
-		.catch_unwind(),
-	)
-	.await;
-
-	match recovery_result {
-		Err(_) => return Err(anyhow!("replica recovery exceeded {OUTAGE_TIMEOUT_SECS}s")),
-		Ok(Err(panic)) => std::panic::resume_unwind(panic),
-		Ok(Ok(result)) => result?,
-	}
+			outage_node.name()
+		);
+		Ok::<_, anyhow::Error>(())
+	})
+	.await
+	.map_err(|_| anyhow!("replica recovery exceeded {OUTAGE_TIMEOUT_SECS}s"))??;
 	drop(submitter_subscriptions);
 	Ok(expected_placements.len())
 }
