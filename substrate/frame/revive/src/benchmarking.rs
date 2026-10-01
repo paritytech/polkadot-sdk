@@ -4515,25 +4515,10 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `CLZ` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Early Exit:** `U256::leading_zeros` checks the limbs one at a time, starting from the
-	///   most significant, and stops at the first one that isn't zero. A zero operand fails every
-	///   check and never counts the zeros of a limb.
-	/// * **Pseudo-random Stopping Points:** a pseudo-random generator picks whether each operand's
-	///   highest nonzero limb is limb 3, 2, 1 or 0, or whether the operand is zero. Each time the
-	///   check reaches one of these limbs it stops there with a 50% chance, so the CPU can't
-	///   predict where it stops. The mispredictions cost more than checking the limbs that are
-	///   skipped.
-	/// * **Followed by `POP`:** each `CLZ` is followed by a `POP`, so each one checks a fresh
-	///   operand rather than the result of the previous one, which is at most 256 and would always
-	///   stop at limb 0. The weight of a `POP` is subtracted when charging a `CLZ`.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * A chain of `CLZ` op-codes on 248, which has 248 leading zeros, so every `CLZ` checked all
-	///   four limbs. The pseudo-random stopping points cost roughly 64% more per `CLZ` once the
-	///   `POP` is subtracted.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on the limb where each count stops, since it's pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
