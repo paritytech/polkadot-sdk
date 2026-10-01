@@ -39,6 +39,14 @@
 //! the following two blocks, so the set is in force without waiting for the regular period. The
 //! regular rotations given by [`Config::PeriodicSession`] continue as before.
 //!
+//! The returned validators author blocks like any collator, so a `pallet-collator-selection` event
+//! handler pays them from its pot and records them in `LastAuthoredBlock`.
+//!
+//! A runtime must configure `pallet-collator-selection`'s `KickThreshold` to exceed a full Aura
+//! round of the merged list, [`Config::MaxValidators`] plus the invulnerables and candidates, times
+//! the blocks the chain produces per Aura slot. Otherwise bonded candidates are kicked as stale
+//! between their slots.
+//!
 //! ## TODO
 //!
 //! - A random draw among the opted-in validators when a cap is set. For now the cap keeps a prefix
@@ -188,6 +196,14 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// Charges the read of [`PendingRotation`] by [`ShouldEndSession::should_end_session`],
+		/// which pallet-session makes in every block without charging it.
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			T::DbWeight::get()
+				.reads(1)
+				.saturating_add(Weight::from_parts(0, RotationState::max_encoded_len() as u64))
+		}
+
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()

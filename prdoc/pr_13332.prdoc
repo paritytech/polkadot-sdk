@@ -2,12 +2,11 @@ title: 'pallet-validator-collators: relay-chain validators as system chain colla
 doc:
 - audience: Runtime Dev
   description: |-
-    Adds `pallet-validator-collators`, a second session manager that runs on every system
-    chain. It stores the validator set Asset Hub announces for each era and returns its
-    validators with registered keys as collators, next to `pallet-collator-selection` through
-    `UnionSessionManager`, a new combinator in `pallet-session` that merges the sets of two
-    session managers. A new set forces two session rotations so it takes effect within two
-    blocks.
+    Adds `pallet-validator-collators`, a second session manager for system chains. It stores the
+    validator set Asset Hub announces for each era and returns its validators with registered
+    keys as collators, next to `pallet-collator-selection` through `UnionSessionManager`, a new
+    combinator in `pallet-session` that merges the sets of two session managers. A new set forces
+    two session rotations so it takes effect within two blocks.
 
     Adds `pallet-validator-set-announcer`, which runs on Asset Hub only. It applies the set of
     each era locally and sends it to the other system chains, retrying until the XCM router

@@ -60,6 +60,10 @@ mod benchmarks {
 			.next()
 			.ok_or(BenchmarkError::Stop("no destination is configured"))?;
 		T::Sender::ensure_successful_send(&destination);
+		// Leave a set queued for the destination, the worst case for a transport that appends
+		// to queued messages.
+		T::Sender::send(&destination, 0, &validators)
+			.map_err(|_| BenchmarkError::Stop("the sender rejected the set"))?;
 		OutgoingAnnouncements::<T>::put(BoundedVec::defensive_truncate_from(vec![destination]));
 
 		#[block]

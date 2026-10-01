@@ -69,14 +69,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
 	/// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None,
 	/// mode: `Measured`)
-	/// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	/// Storage: `XcmpQueue::OutboundXcmpMessages` (r:1 w:1)
 	/// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506),
 	/// added: 107981, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 1000]`.
 	fn send_announcement(n: u32) -> Weight {
 		Weight::from_parts(49_926_666, 33_491)
 			.saturating_add(Weight::from_parts(135_383, 32).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(6_u64))
+			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 }
@@ -117,14 +117,14 @@ impl WeightInfo for () {
 	/// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
 	/// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None,
 	/// mode: `Measured`)
-	/// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	/// Storage: `XcmpQueue::OutboundXcmpMessages` (r:1 w:1)
 	/// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506),
 	/// added: 107981, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 1000]`.
 	fn send_announcement(n: u32) -> Weight {
 		Weight::from_parts(49_926_666, 33_491)
 			.saturating_add(Weight::from_parts(135_383, 32).saturating_mul(n.into()))
-			.saturating_add(RocksDbWeight::get().reads(6_u64))
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 }

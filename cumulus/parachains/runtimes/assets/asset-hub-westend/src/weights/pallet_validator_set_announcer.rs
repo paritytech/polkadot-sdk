@@ -81,7 +81,7 @@ impl<T: frame_system::Config> pallet_validator_set_announcer::WeightInfo for Wei
 	/// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(2306), added: 2801, mode: `MaxEncodedLen`)
 	/// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
 	/// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	/// Storage: `XcmpQueue::OutboundXcmpMessages` (r:1 w:1)
 	/// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 1000]`.
 	fn send_announcement(n: u32, ) -> Weight {
@@ -93,7 +93,7 @@ impl<T: frame_system::Config> pallet_validator_set_announcer::WeightInfo for Wei
 			.saturating_add(Weight::from_parts(0, 33491))
 			// Standard Error: 96
 			.saturating_add(Weight::from_parts(151_170, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(Weight::from_parts(0, 32).saturating_mul(n.into()))
 	}

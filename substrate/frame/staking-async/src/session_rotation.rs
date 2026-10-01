@@ -903,7 +903,7 @@ impl<T: Config> Rotator<T> {
 		Self::notify_era_start(starting_era)
 	}
 
-	/// Keep the validators elected for `era`, as they are sent to the relay chain, for
+	/// Keep the validators elected for `era` when its election completes, for
 	/// [`Self::notify_era_start`].
 	///
 	/// Costs one write of the set in the block that completes the election.
@@ -916,8 +916,8 @@ impl<T: Config> Rotator<T> {
 	/// Notify [`Config::OnEraStart`] with the validators of `era`, taking the copy kept by
 	/// [`Self::keep_next_era_validators`].
 	///
-	/// Costs one read and one removal of the copy. Without a copy, as for an era whose set was
-	/// handed to the relay chain before the hook was enabled, the hook is not called for that era.
+	/// Costs one read and one removal of the copy. Without a copy, as for an era whose election
+	/// completed before the hook was enabled, the hook is not called for that era.
 	fn notify_era_start(era: EraIndex) -> Weight {
 		if !T::OnEraStart::enabled() {
 			return Weight::zero();
