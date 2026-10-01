@@ -5364,28 +5364,14 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `SIGNEXTEND` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Mask:** for an index below 31, `SIGNEXTEND` builds a mask of the bits below the sign bit
-	///   as `(1 << (8 * index + 7)) - 1`. The shift branches on the limb that the sign bit falls
-	///   in, checking limbs 3, 2 and 1 in that order, and the subtraction borrows through the limbs
-	///   below it.
-	/// * **Pseudo-random Indices:** a pseudo-random generator picks an index of 27, 19, 11 or 3,
-	///   whose sign bits fall in limbs 3, 2, 1 and 0. It picks 27 half the time, 19 a quarter of
-	///   the time, and 11 and 3 an eighth of the time each, so every limb check that the CPU
-	///   reaches has a 50% chance either way.
-	/// * **Pseudo-random Values:** the values are pseudo-random too, so each sign bit is set half
-	///   the time, and the CPU can't predict whether the value is extended with ones or with zeros.
-	/// * **Followed by `POP`:** each `SIGNEXTEND` is followed by a `POP`, because otherwise its
-	///   result would become the index of the next one. The weight of a `POP` is subtracted when
-	///   charging a `SIGNEXTEND`.
-	/// * **Stack Initialization:** the value and the index of every `SIGNEXTEND` are placed on the
-	///   stack before the benchmark runs. This is why `r` goes up to half the stack limit.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * An index of 3 and a negative value every time. The pseudo-random operands cost roughly 53%
-	///   more per `SIGNEXTEND` once the `POP` is subtracted.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on which limb holds the sign bit, since the index is pseudo-random.
+	/// * A branch misprediction on how far the subtraction that builds the mask borrows, since the
+	///   index is pseudo-random.
+	/// * A branch misprediction on whether the value is extended with ones or zeros, since the
+	///   value is pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
