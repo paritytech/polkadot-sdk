@@ -4847,19 +4847,19 @@ mod benchmarks {
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_div_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		// 2^254 + 2^128
-		const NUMERATOR: U256 = U256([0, 0, 1, 1 << 62]);
-		// 2^65 + 3
-		const DIVISOR: U256 = U256([3, 2, 0, 0]);
+		use knuth_division_worst_case_operands::{DENOMINATORS, NUMERATOR};
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let denominator = DENOMINATORS.choose(&mut rng).copied().unwrap();
+			[denominator, NUMERATOR]
+		});
 
 		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		setup_stack(
-			&mut interpreter,
-			[DIVISOR, NUMERATOR].into_iter().cycle().take(2 * r as usize),
-		);
+		setup_stack(&mut interpreter, operands);
 
 		evict_caches();
 		let result;
