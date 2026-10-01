@@ -21,15 +21,18 @@
    - 5.1 [Operations, Correlation](#51-operations-correlation)
    - 5.2 [Memo Requirements](#52-memo-requirements)
 6. [References](#6-references)
+7. [Open Issues](#7-open-issues)
 
 ---
 
 ## 1. Overview
 
-This document describes the architecture of JAMKB management on Asset Hub. JAMKB
-is JAM's resource-access token for state footprint. A JAM service may keep as
-much state as its balance covers. Asset Hub carries a 1:1 representation of the
-token, where it is managed, sold and leased.
+This document specifies how JAMKB is managed on Asset Hub.
+
+JAMKB is JAM's resource-access token for state footprint: a JAM service may keep
+state up to what its balance covers. Asset Hub maintains a 1:1 representation of
+that token and provides the management layer for distribution, leasing, release,
+and return.
 
 ### Scope
 
@@ -54,17 +57,10 @@ back the service's state footprint. The service can transfer its regular
 balance, but the supervisor balance can be transferred only by the effective
 supervisor. In this design the supervisor is the Parachain Service.
 
-Initially all JAMKB sits on the Parachain Service balance. All the management
-is done on Asset Hub. The DAO owns those funds and is responsible for their
-distribution.
+Initially all JAMKB sits on the Parachain Service balance. Asset Hub
+manages distribution on behalf of the DAO.
 
-When a balance transfer from Asset Hub to a target JAM service is executed, the
-pallet locks the requested amount on Asset Hub. On JAM the same amount moves
-from the Parachain Service balance to the target JAM service.
-
-The detailed flow below is a governance-executed permanent release (§4.2.1): one
-deferred transfer from the Parachain Service balance to the target's regular
-balance.
+Example flow for governance permanent release, from approval through settlement.
 
 ```
 ━━ Asset Hub block B — execution ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -122,8 +118,8 @@ balance on the Parachain Service. This asset is managed by `pallet-jamkb`. It
 holds the four privileged roles (Owner, Issuer, Admin, Freezer), assigned to it
 at initialization.
 
-The full JAMKB cap is minted into the pallet's custody account (§3.2). The mint is a
-one-time executed runtime call on the Asset Hub.
+The full JAMKB cap is minted into the `pallet-jamkb` custody account (§3.2).
+The mint is a one-time executed runtime call on the Asset Hub.
 
 Parachain state footprint is backed on the Coretime chain. JAMKB is teleported
 there, and the Coretime chain backs each parachain's footprint against what it
@@ -132,34 +128,33 @@ checking account.
 
 ### 3.2 `pallet-jamkb`
 
-The pallet keeps the JAMKB in four keyless accounts derived from its
-`PalletId`. A unit changes account by a transfer between them.
+`pallet-jamkb` manages JAMKB on Asset Hub and executes asynchronous
+cross-system operations through `pallet-parachain-system`.
+
+It keeps JAMKB in four keyless accounts derived from its `PalletId`. Units
+move between these accounts via transfers.
 
 | Account     | Derivation                             | Balance                         |
 |-------------|----------------------------------------|---------------------------------|
 | `custody`   | `into_account_truncating()`            | DAO undistributed units         |
-| `released`  | `into_sub_account_truncating(b"rlsd")` | permanent releases              |
+| `released`  | `into_sub_account_truncating(b"rlsd")` | permanently released units      |
 | `custodial` | `into_sub_account_truncating(b"cstd")` | returns awaiting `claim` (§4.4) |
 | `excess`    | `into_sub_account_truncating(b"xces")` | unattributed inflows (§4.4)     |
 
-A FRAME pallet that manages the JAMKB asset and executes transfer operations
-against the Parachain Service. Before any action like a permanent
-release or a lease is triggered, the units are locked in place: a hold is
-placed on them, and only then does the transfer execute on the JAM side. On
-confirmation the units of a lease stay held; the units of a permanent release
-move into the `released` account. On failure the pallet undoes what the call
-did.
+Before any action like a permanent release or a lease is triggered, the units
+are locked in place: a hold is placed on them, and only then does the transfer
+execute on the JAM side. Every cross-system operation is asynchronous and is
+finalized by `settle`. On confirmation the units of a lease stay held; the
+units of a permanent release move into the `released` account. On failure the
+pallet undoes what the call did.
 
-Every transfer operation is asynchronous and is finalized by `settle`.
+To resolve operations, the pallet receives the validation inputs each block
+(§3.4). It stores the para head and marks the operations named by the failure
+entries of `parachain_log` as `Failed`.
 
-Each block the pallet receives the validation inputs (§3.4): it stores the
-para head, marks the operations named by the failure entries of
-`parachain_log` as `Failed`, and books the incoming transfers (§4.4).
-
-The pallet also supports voluntary return (§4.4): a JAM service sends its
-funds back to the Parachain Service balance, setting an Asset Hub beneficiary
-in the transfer memo. The pallet records the returned amount as claimable, and
-the beneficiary claims the units back to its Asset Hub account.
+For voluntary return (§4.4) it processes `incoming_transfers`. A valid
+beneficiary memo credits `Custodial`; a missing or malformed memo credits
+`Excess`.
 
 The pallet starts inactive. Governance verifies, against public JAM state at a
 defined block, that the Parachain Service holds `CAP`. It records the result
@@ -191,8 +186,7 @@ const GRACE_PERIOD: BlockNumber;
 /// or `Reclaiming`.
 const MAX_LEASES_PER_TARGET: u32;
 
-/// The recovery deposit (§4.3): a hold on the caller's native balance under the
-/// `RecoveryDeposit` hold reason on `pallet-balances`, `RECOVERY_DEPOSIT` per
+/// The recovery deposit (§4.3): a hold on the caller's native balance per
 /// operation.
 const RECOVERY_DEPOSIT: Balance;
 /// `RECOVERY_DEPOSIT_PER_KEY` per key of a `cleanup_storage` page.
@@ -447,11 +441,12 @@ fn initialize();
 /// (Root). Enables operations.
 fn attest(anchor: Anchor);
 
-/// Sets and clears the pallet pause flag. Origin: governance (Root). While
-/// set, a call that creates an allocation, records an operation or
-/// distributes units from custody is rejected. Messages already queued are
-/// still processed.
+/// Sets the pallet pause flag. Origin: governance (Root). While set, a call
+/// that creates an allocation, records an operation or distributes units from
+/// custody is rejected. Messages already queued are still processed.
 fn pause();
+
+/// Clears the pallet pause flag. Origin: governance (Root).
 fn resume();
 
 // ── Distribution from custody ──────────────────────────────────────────────
@@ -568,10 +563,11 @@ fn unsupervise(target: ServiceId);
 /// `custodial` account to the `beneficiary` account.
 fn claim(beneficiary: AccountId);
 
-/// Disposes an excess amount per service. Origin: governance (Root).
-/// With `refund = true` it creates a `Refund` operation sending the units
-/// back to the `source` service's regular balance; with `refund = false` it
-/// moves the units from the `excess` account to custody.
+/// Disposes an excess amount per service. Origin: governance (Root). Lowers
+/// `Excess[source]` by `amount`. With `refund = true` it holds `amount` on the
+/// `excess` account and records a `Refund` operation sending the units back to
+/// the `source` service's regular balance; with `refund = false` it moves the
+/// units from the `excess` account to custody.
 fn dispose_excess(source: ServiceId, amount: Balance, refund: bool);
 
 // ── Shared by every flow ───────────────────────────────────────────────────
@@ -581,10 +577,10 @@ fn dispose_excess(source: ServiceId, amount: Balance, refund: bool);
 /// A `Delivering` allocation cannot be cancelled.
 fn cancel_allocation(id: AllocationId);
 
-/// Finalizes an operation. Origin: any signed account. `Failed`: the call
-/// that recorded the operation is undone and its recovery deposit, if any,
-/// is slashed. `Submitted` and the block that sent it is accumulated on JAM:
-/// Confirmed. Before that: no change.
+/// Resolves an operation. Origin: any signed account. Operation marked
+/// `Failed`: the call that recorded it is undone and its recovery deposit, if
+/// any, is slashed. Operation `Submitted`: moves to Confirmed once the block
+/// it was sent in is accumulated on JAM, otherwise stays `Submitted`.
 fn settle(op_id: OperationId);
 ```
 
@@ -592,10 +588,9 @@ fn settle(op_id: OperationId);
 
 Contracts reach the pallet through a precompile at a fixed address. It
 exposes the calls open to a signed account and returns the new allocation or
-operation id, since a contract cannot read events. It also exposes the reads
-a contract needs: an allocation, an operation, a beneficiary's claimable
-balance. Each function runs the pallet call of the same
-name with the caller as origin.
+operation id, since a contract cannot read events. It also exposes the reads a
+contract needs. Each function runs the pallet call of the same name with the
+caller as origin.
 
 ```solidity
 interface IJamkb {
@@ -630,7 +625,7 @@ interface IJamkb {
 
     // -- Shared --
     function cancelAllocation(uint64 allocationId) external;
-
+    function settle(uint64 opId) external;
 
     // -- Reads --
     /// state: 0 Approved, 1 Delivering, 2 Delivered, 3 Reclaiming, 4 Closed.
@@ -649,7 +644,11 @@ interface IJamkb {
     function serviceAccount(uint32 target) external view returns (address);
     function isFrozen(uint32 target) external view returns (bool);
     function leases(uint32 target) external view returns (uint64[] memory allocationIds);
+    function gracePeriod() external view returns (uint32);
     function maxLeasesPerTarget() external view returns (uint32);
+    function recoveryDeposit() external view returns (uint128);
+    function recoveryDepositPerKey() external view returns (uint128);
+    function maxKeysPerPage() external view returns (uint32);
 }
 ```
 
@@ -696,6 +695,9 @@ parachain_log, incoming_transfers)` against the state root after the
 lookup-anchor block and exposes the para head, `parachain_log` and
 `incoming_transfers` to pallets as validation inputs.
 
+It also accepts the messages `pallet-jamkb` queues and sends them through
+`send_upward_message`.
+
 ---
 
 ## 4. Allocation Protocols
@@ -726,12 +728,12 @@ Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet.
 
 ### 4.2 Permanent Release
 
-A permanent release is a token transfer to the target service's regular balance.
+A permanent release credits a target service's regular balance.
 
 Units reach a regular balance by two routes: the DAO releases them to a named
 service (§4.2.1), or a holder releases their own units (§4.2.2). A market sale
-uses the second route: the DAO grants an adapter a budget (`grant`), the
-adapter sells the units on the Hub, and the buyer releases them.
+uses the second route: the DAO grants an adapter contract a budget (`grant`),
+the adapter sells the units on the Hub, and the buyer releases them.
 
 #### 4.2.1 Governance-initiated Release
 
@@ -797,7 +799,7 @@ Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet.
                       Failed: JAM rejected the transfer; see `Reclaim`.
 ```
 
-Full return, non-cooperative. The lease is `Reclaiming`.
+Non-cooperative return (`Reclaiming`):
 
 Supervision gives the pallet full power over the target, including cleaning
 its state and ejecting it. `cleanup_storage`, `forget_preimage` and
@@ -853,8 +855,8 @@ Phase 3: Claim        Any signed account calls `claim(beneficiary)`; the
 
 ### 5.1 Operations, Correlation
 
-An `OperationId` is unique and never reused. A failed operation is terminal;
-a retry creates a new operation with a new id.
+An `OperationId` is unique and never reused. Every operation is resolved by
+`settle`. A retry after a failure requires a new operation.
 
 A `Delivery`, `Increase`, `Redemption`, `Reclaim` or `Refund` correlates by
 id: its `TransferOut` carries the `OperationId` as its `id` field, and a
@@ -884,3 +886,32 @@ account in it. The exact layout is to be defined.
   Gavin Wood
 - [DOT DAOism under JAM: An Island Story](https://medium.com/polkadot-network/dot-daoism-under-jam-an-island-story-efe0d02ee084):
   Gavin Wood
+
+---
+
+## 7. Open Issues
+
+1. **AH migration.** During the migration the pallet must mint the units and
+   allow allocating them to the system parachains. Other parachains will
+   probably start building blocks right after the migration, so they need JAMKB
+   granted immediately. How does that relate to the referendum, which allows
+   only selling JAMKB for DOT?
+2. **Storage footprint cleanup.** The pallet does not know the value length of
+   a deleted key, so it cannot reclaim what a cleanup page freed. The freeing
+   and the reclaim must also be atomic, since concurrent reclaims race for the
+   freed funds and the caller of the cleanup should be the one to get them
+   back.
+3. **Freeze.** No Parachain Service message stops a service from taking more
+   state footprint.
+4. **Eject sweep.** `EjectService` credits the ejected service's balances to
+   the Parachain Service without reporting the amount, so Asset Hub is not
+   aware of the incoming transfer. Needs the Parachain Service to report the
+   swept balance.
+5. **Storage key removal.** `ServiceStoreError` has no variant for a key that
+   is not present, so `cleanup_storage` cannot tell whether keys were removed.
+   `settle` slashes the deposit on Failed.
+6. **Service accounts.** A mapping from JAM service to Asset Hub account is
+   needed, probably provided by another pallet.
+7. **Generic transport.** The parachain-system rework that pulls the pallet's
+   upward messages and delivers the validation inputs does not exist yet
+   (§3.4).
