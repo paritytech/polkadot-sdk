@@ -4934,24 +4934,10 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `SUB` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Borrows:** `U256` subtraction branches on whether a limb borrows from the next one. With
-	///   the same operands every time, such as `U256::MAX`, the CPU would predict these branches
-	///   perfectly.
-	/// * **Pseudo-random Borrows:** a pseudo-random generator decides whether each limb of each
-	///   `SUB` borrows, with a 50% chance either way, so the CPU can't predict these branches.
-	/// * **Chained Subtractions:** each `SUB` subtracts its operand from the result of the previous
-	///   one, so each operand is picked based on the running difference at that point. Uniformly
-	///   random operands aren't enough, since a limb that just borrowed is left larger, which makes
-	///   its next borrow less likely and gives the CPU a pattern to learn.
-	/// * **Stack Initialization:** the `r` operands and the starting value are placed on the stack
-	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Subtracting `U256::MAX` every time, so every limb borrowed every time. The pseudo-random
-	///   borrows cost roughly 46% more per `SUB`.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on whether each limb borrows, since it's pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
