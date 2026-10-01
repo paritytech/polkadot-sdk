@@ -6,37 +6,46 @@ bounded model checking.
 
 ## Why a model, in addition to try_state
 
-Every hard `try_state` check bounds `PsmDebt` from above: `reserve >= debt`,
-`issuance >= debt`, `debt <= ceiling`. A bug that understates the debt moves
-all of them further from their boundary, so none of them can see it. The
-stateful fuzzer ran 48,000 commands against an injected understatement and
-did not catch it.
+[Check 6](https://github.com/paritytech/polkadot-sdk/blob/d2e08992098ac61e13117d61420903e1e076d8d8/substrate/frame/psm/src/lib.rs#L1760) reads `total_issuance >= total_psm_debt`.
+[Check 8](https://github.com/paritytech/polkadot-sdk/blob/d2e08992098ac61e13117d61420903e1e076d8d8/substrate/frame/psm/src/lib.rs#L1793) reads `reserve >= debt`, after converting `debt` to
+external units. [Check 10](https://github.com/paritytech/polkadot-sdk/blob/d2e08992098ac61e13117d61420903e1e076d8d8/substrate/frame/psm/src/lib.rs#L1807) and [check 17](https://github.com/paritytech/polkadot-sdk/blob/d2e08992098ac61e13117d61420903e1e076d8d8/substrate/frame/psm/src/lib.rs#L1906) keep `PsmDebt`
+within its per-asset and per-instance ceilings. All four bound `PsmDebt` from
+above, so a pallet that records less debt than it owes passes every one of
+them, further from the limit than before. Nothing bounds `PsmDebt` from below,
+because the pallet stores balances, not flows.
 
-The models add a bidirectional invariant:
+The models add two counters per `(internal_asset, external_asset)` pair:
+inflow on mint, outflow on redeem, both only ever increasing. The check is
 
 ```
-psmDebt == totalInflow - totalOutflow
+PsmDebt[internal, external] == inflow[internal, external] - outflow[internal, external]
 ```
 
-The pallet does not check this today, because it keeps no inflow or outflow
-ledger: two monotone counters written on mint and redeem would make it a
-`try_state` check like any other. The model keeps those counters, so the
-model-based tests can hold the pallet to the invariant while the pallet's own
-storage stays as it is. If the counters are later added to the pallet, the
-check moves on-chain and the model keeps agreeing with it.
+The two sides are equal, so a recorded debt that is too low fails the check as
+readily as one that is too high. Measured against an injected understatement
+of one unit per redeem: 200,000 fuzzed commands passed under the seventeen
+checks, and this check failed at command 1.
+
+Both counters hold internal units, the unit of `PsmDebt`. An earlier version
+counted external amounts and compared their difference against `PsmDebt`. That
+version fails on the first mint of any asset whose decimals differ from the
+internal asset, since the two sides are then scaled by `10^|Δdecimals|`.
+`psm_multidecimal.qnt` states both versions and is the regression guard. The
+error was in the invariant, not in `pallet-psm`.
 
 ## Files
 
 | File | Modules | Purpose |
 | --- | --- | --- |
 | `psm.qnt` | `psm`, `psm_correct`, `psm_buggy` | One asset, no fees, no decimals. `psm` takes `understateDebtOnMint`; `psm_correct` instantiates it false, `psm_buggy` true. Start here. |
+| `psm_multidecimal.qnt` | `psm_multidecimal` | The two versions of the flow counters, external units and internal units, side by side. |
 | `psm_extended.qnt` | `psm_extended` | Three decimal regimes, per-asset fees and ceilings, donations, asset lifecycle, governance levels, two users. |
 
-`psm_extended` is a second abstraction level rather than an extension of
-`psm`: its state is per-asset and per-user maps where `psm` has scalars, so it
-shares no declarations with it.
+`psm_multidecimal` and `psm_extended` are separate abstraction levels rather
+than extensions of `psm`. Each declares its own state, so the three share no
+declarations.
 
-Both models cover a single PSM instance. `PsmDebt` is a double map in the
+All three models cover a single PSM instance. `PsmDebt` is a double map in the
 pallet, keyed by `(internal_asset, external_asset)`, but every invariant
 modelled here is per-instance, so the instance dimension adds no reachable
 behaviour.
@@ -74,10 +83,11 @@ Bounded model checking (downloads Apalache on first use; needs a JVM):
 quint verify psm.qnt --main=psm_correct --invariant=safetyInvariant --max-steps=10
 ```
 
-The negative control must fail:
+The negative controls must fail:
 
 ```
 quint verify psm.qnt --main=psm_buggy --invariant=safetyInvariant --max-steps=10
+quint run psm_multidecimal.qnt --invariant=proposalInvariant --max-steps=10
 ```
 
 ## Results
@@ -88,9 +98,10 @@ No invariant violation was found in the pallet as merged.
 | --- | --- |
 | `psm_correct`, Apalache, 10 steps | no violation, 32s |
 | `psm_extended` `hardInvariant`, 3000 traces of 60 steps | no violation |
+| `psm_multidecimal` `fixedInvariant`, 2000 traces of 60 steps | no violation |
+| `psm_multidecimal` `proposalInvariant` | violation, 25ms |
 | `psm_buggy`, Apalache, 10 steps | violation, 5s |
 | `psm_buggy`, simulation | violation on the first mint |
 
-The negative control confirms that the toolchain reports violations when they
-exist. The models found one real defect during development, in a proposal
-document rather than in the pallet; the document was corrected.
+The last three rows are negative controls: each states something known to be
+false, and the toolchain reports it.
