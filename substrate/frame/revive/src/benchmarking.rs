@@ -4878,24 +4878,10 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `ADD` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Carries:** `U256` addition branches on whether a limb carries into the next one. With
-	///   the same operands every time, such as `U256::MAX`, the CPU would predict these branches
-	///   perfectly.
-	/// * **Pseudo-random Carries:** a pseudo-random generator decides whether each limb of each
-	///   `ADD` carries, with a 50% chance either way, so the CPU can't predict these branches.
-	/// * **Chained Additions:** each `ADD` adds its operand to the result of the previous one, so
-	///   each operand is picked based on the running sum at that point. Uniformly random operands
-	///   aren't enough, since a limb that just carried is left smaller, which makes its next carry
-	///   less likely and gives the CPU a pattern to learn.
-	/// * **Stack Initialization:** the `r` operands and the starting value are placed on the stack
-	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Adding `U256::MAX` every time, so every limb carried every time. The pseudo-random carries
-	///   cost roughly 58% more per `ADD`.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on whether each limb carries, since it's pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
