@@ -4990,21 +4990,9 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `MUL` op-codes.
 	///
-	/// # Considerations
+	/// # Added Overheads
 	///
-	/// * **Value Independence:** `U256` multiplication keeps the low 256 bits of the product with a
-	///   fixed sequence of limb multiplications and no branch that depends on the operands, so its
-	///   work is the same whatever the values.
-	/// * **Chained Multiplications:** each `MUL` multiplies the result of the previous one by
-	///   `U256::MAX`, starting from a value whose limbs are all `0x5555_5555_5555_5555`. The
-	///   results alternate between that value and its negation, so every result keeps four nonzero
-	///   limbs.
-	/// * **Stack Initialization:** the `r` operands and the starting value are placed on the stack
-	///   before the benchmark runs. This is why `r` goes up to the stack limit minus one.
-	///
-	/// # Previous Benchmarks
-	///
-	/// * Pseudo-random multipliers, and multipliers of zero, cost the same per `MUL`.
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
 	///
 	/// # Subtraction Safety
 	///
