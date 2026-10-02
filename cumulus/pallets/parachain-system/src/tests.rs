@@ -1840,17 +1840,21 @@ fn ump_signals_are_sent_correctly() {
 	}
 }
 
-/// The riscv (parachain-service) branch reads the included para head from JAM state.
+fn blake2_head(head: &relay_chain::HeadData) -> H256 {
+	<sp_runtime::traits::BlakeTwo256 as sp_runtime::traits::Hash>::hash(&head.0)
+}
+
+/// The riscv (parachain-service) branch reads the included para head hash from JAM state.
 ///
-/// `read_included_para_head_jam` is the `#[cfg(jam)]` branch of
-/// `read_included_para_head`, compiled on host test builds via `cfg(test)` and reached here
+/// `read_included_para_head_hash_jam` is the `#[cfg(jam)]` branch of
+/// `read_included_para_head_hash`, compiled on host test builds via `cfg(test)` and reached here
 /// directly (the public entry point stays on the relay branch on host).
 #[test]
 fn read_included_para_head_reads_from_jam_state() {
-	let head = relay_chain::HeadData(vec![0xca, 0xfe, 0x00, 0x01]);
+	let head = H256::repeat_byte(0xca);
 	let para_info = parachain_service_core::ParaInfo {
-		head_data: parachain_service_core::types::HeadData::try_from(head.0.clone())
-			.expect("4 bytes < 4 KiB; qed"),
+		head_data: parachain_service_core::types::HeadData::try_from(head.as_bytes().to_vec())
+			.expect("32 bytes < 4 KiB; qed"),
 		validation_code: None,
 		announced_upgrade: None,
 		total_state_balance: 0,
@@ -1868,7 +1872,36 @@ fn read_included_para_head_reads_from_jam_state() {
 		let relay_state_proof =
 			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, relay_proof)
 				.expect("valid relay-state proof");
-		assert_eq!(relay_state_proof.read_included_para_head_jam().unwrap(), head);
+		assert_eq!(
+			relay_state_proof
+				.read_included_para_head_hash_jam::<sp_runtime::traits::BlakeTwo256>()
+				.expect("the included head reads; qed"),
+			head
+		);
+	});
+}
+
+/// A JAM head that is not a 32-byte hash (e.g. an encoded header) is a decode error.
+#[test]
+fn read_included_para_head_jam_non_hash_head_errors() {
+	let mut jam_reads = BTreeMap::new();
+	jam_reads
+		.insert(jam_para_info_state_key(200).to_vec(), jam_para_info(&[0xca, 0xfe, 0x00, 0x01]));
+
+	// `new_test_ext` clears the mock stores, so seed them after building the externality.
+	let mut ext = new_test_ext();
+	set_mock_jam_reads(jam_reads);
+	let (root, relay_proof) = RelayStateSproofBuilder::default().into_state_root_and_proof();
+	ext.execute_with(|| {
+		let relay_state_proof =
+			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, relay_proof)
+				.expect("the default relay-state proof is valid; qed");
+		assert!(matches!(
+			relay_state_proof.read_included_para_head_hash_jam::<sp_runtime::traits::BlakeTwo256>(),
+			Err(relay_chain::relay_state_snapshot::Error::ParaHead(
+				relay_chain::relay_state_snapshot::ReadEntryErr::Decode
+			))
+		));
 	});
 }
 
@@ -1887,11 +1920,17 @@ fn read_included_para_head_reads_from_relay_state() {
 			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, proof)
 				.expect("valid relay-state proof");
 		assert_eq!(relay_state_proof.read_included_para_head().unwrap(), head);
+		assert_eq!(
+			relay_state_proof
+				.read_included_para_head_hash::<sp_runtime::traits::BlakeTwo256>()
+				.expect("the included head reads; qed"),
+			blake2_head(&head)
+		);
 	});
 }
 
 /// An absent JAM `ParaInfo` key falls back to the relay chain state proof (interim task 8 → 11
-/// behaviour: byte-identical to pre-task-8), so the read still returns the relay head.
+/// behaviour: byte-identical to pre-task-8), so the read returns the hash of the relay head.
 #[test]
 fn read_included_para_head_jam_absent_key_falls_back_to_relay() {
 	let head = relay_chain::HeadData(vec![0xde, 0xad, 0xbe, 0xef]);
@@ -1906,7 +1945,12 @@ fn read_included_para_head_jam_absent_key_falls_back_to_relay() {
 		let relay_state_proof =
 			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, proof)
 				.expect("valid relay-state proof");
-		assert_eq!(relay_state_proof.read_included_para_head_jam().unwrap(), head);
+		assert_eq!(
+			relay_state_proof
+				.read_included_para_head_hash_jam::<sp_runtime::traits::BlakeTwo256>()
+				.expect("the included head reads; qed"),
+			blake2_head(&head)
+		);
 	});
 }
 
@@ -1928,7 +1972,7 @@ fn read_included_para_head_jam_malformed_value_errors() {
 			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, relay_proof)
 				.expect("valid relay-state proof");
 		assert!(matches!(
-			relay_state_proof.read_included_para_head_jam(),
+			relay_state_proof.read_included_para_head_hash_jam::<sp_runtime::traits::BlakeTwo256>(),
 			Err(relay_chain::relay_state_snapshot::Error::ParaHead(
 				relay_chain::relay_state_snapshot::ReadEntryErr::Decode
 			))
@@ -1941,13 +1985,16 @@ fn read_included_para_head_jam_malformed_value_errors() {
 /// against polkajam's own trie.
 struct JamTrie {
 	nodes: Vec<jam_helpers::ProofNode>,
+	/// Values too large to sit inside their leaf.
+	values: Vec<(jam_helpers::StateKey, Vec<u8>)>,
 	root: jam_helpers::Hash,
 }
 
 impl JamTrie {
 	fn new(mut entries: Vec<(jam_helpers::StateKey, Vec<u8>)>) -> Self {
 		entries.sort_by_key(|(a, _)| *a);
-		let mut trie = JamTrie { nodes: Vec::new(), root: [0u8; 32] };
+		let values = entries.iter().filter(|(_, value)| value.len() > 32).cloned().collect();
+		let mut trie = JamTrie { nodes: Vec::new(), values, root: [0u8; 32] };
 		trie.root = trie.hash_subtree(0, &entries);
 		trie
 	}
@@ -1977,7 +2024,7 @@ impl JamTrie {
 	}
 
 	fn proof(&self) -> jam_helpers::StateProof {
-		jam_helpers::StateProof { nodes: self.nodes.clone(), values: Vec::new() }
+		jam_helpers::StateProof { nodes: self.nodes.clone(), values: self.values.clone() }
 	}
 }
 
@@ -2038,8 +2085,8 @@ fn jam_para_info_state_key(para_id: u32) -> jam_helpers::StateKey {
 /// reader against the carried entry.
 #[test]
 fn read_included_para_head_reads_from_carried_jam_proof() {
-	let head = relay_chain::HeadData(vec![0xca, 0xfe, 0x00, 0x01]);
-	let encoded = jam_para_info(&head.0);
+	let head = H256::repeat_byte(0xca);
+	let encoded = jam_para_info(head.as_bytes());
 	let trie = JamTrie::new(vec![(jam_para_info_state_key(200), encoded)]);
 
 	// The PoV carries the `(anchor_state_root, proof)` entry; build the reader the way
@@ -2056,13 +2103,18 @@ fn read_included_para_head_reads_from_carried_jam_proof() {
 		let relay_state_proof =
 			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, relay_proof)
 				.expect("valid relay-state proof");
-		assert_eq!(relay_state_proof.read_included_para_head_jam().unwrap(), head);
+		assert_eq!(
+			relay_state_proof
+				.read_included_para_head_hash_jam::<sp_runtime::traits::BlakeTwo256>()
+				.expect("the included head reads; qed"),
+			head
+		);
 	});
 }
 
 /// A carried proof that shows the `ParaInfo` key absent (a different para's leaf sits on the
-/// walk) reads `None` through `jam_state_read`, and the read falls back to the relay head — the
-/// genesis / not-yet-registered case, unchanged from before.
+/// walk) reads `None` through `jam_state_read`, and the read falls back to the relay head's hash —
+/// the genesis / not-yet-registered case, unchanged from before.
 #[test]
 fn read_included_para_head_jam_absent_in_carried_proof_falls_back_to_relay() {
 	let head = relay_chain::HeadData(vec![0xde, 0xad, 0xbe, 0xef]);
@@ -2083,7 +2135,12 @@ fn read_included_para_head_jam_absent_in_carried_proof_falls_back_to_relay() {
 		let relay_state_proof =
 			RelayChainStateProof::from_inherent_proof(ParaId::from(200), relay_root, relay_proof)
 				.expect("valid relay-state proof");
-		assert_eq!(relay_state_proof.read_included_para_head_jam().unwrap(), head);
+		assert_eq!(
+			relay_state_proof
+				.read_included_para_head_hash_jam::<sp_runtime::traits::BlakeTwo256>()
+				.expect("the included head reads; qed"),
+			blake2_head(&head)
+		);
 	});
 }
 
@@ -2107,7 +2164,8 @@ fn read_included_para_head_jam_tampered_proof_panics() {
 		let relay_state_proof =
 			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, relay_proof)
 				.expect("valid relay-state proof");
-		let _ = relay_state_proof.read_included_para_head_jam();
+		let _ =
+			relay_state_proof.read_included_para_head_hash_jam::<sp_runtime::traits::BlakeTwo256>();
 	});
 }
 
@@ -2124,15 +2182,15 @@ impl AdditionalDataFinalizer for JamProofFinalizer {
 }
 
 /// The JAM refine digest fold: a carried `JAM_PROOF_KEY` entry arms both the proof-backed reader
-/// (serving `read_included_para_head_jam`) and the digest finalizer, and the registry fold
+/// (serving `read_included_para_head_hash_jam`) and the digest finalizer, and the registry fold
 /// recomputes exactly the `DigestItem::AdditionalData` the collator committed at authoring —
 /// `hash_commitments([hash_value(entry)])` — the very digest `frame_executive::final_checks`
 /// compares on refine (a missing finalizer leaves the recomputed digest empty and the 3-vs-2
 /// digest-count panic).
 #[test]
 fn carried_jam_proof_finalizes_to_authored_digest() {
-	let head = relay_chain::HeadData(vec![0xca, 0xfe, 0x00, 0x01]);
-	let encoded = jam_para_info(&head.0);
+	let head = H256::repeat_byte(0xca);
+	let encoded = jam_para_info(head.as_bytes());
 	let trie = JamTrie::new(vec![(jam_para_info_state_key(200), encoded)]);
 	let entry = (trie.root, &trie.proof()).encode();
 
@@ -2155,7 +2213,12 @@ fn carried_jam_proof_finalizes_to_authored_digest() {
 		let relay_state_proof =
 			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, relay_proof)
 				.expect("valid relay-state proof");
-		assert_eq!(relay_state_proof.read_included_para_head_jam().unwrap(), head);
+		assert_eq!(
+			relay_state_proof
+				.read_included_para_head_hash_jam::<sp_runtime::traits::BlakeTwo256>()
+				.expect("the included head reads; qed"),
+			head
+		);
 
 		// The finalizer commits the carried entry, and the registry fold — the same one
 		// `frame_executive::note_additional_data` performs — recomputes the authored digest.

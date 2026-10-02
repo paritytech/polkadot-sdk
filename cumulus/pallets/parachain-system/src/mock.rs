@@ -229,13 +229,13 @@ impl XcmpMessageHandler for SaveIntoThreadLocal {
 }
 
 thread_local! {
-	/// Serves the JAM-state reads made by the riscv `read_included_para_head_jam` branch during
+	/// Serves the JAM-state reads made by the riscv `read_included_para_head_hash_jam` branch during
 	/// the mock tests, keyed by the 31-byte JAM state key.
 	static MOCK_JAM_READS: RefCell<Option<BTreeMap<Vec<u8>, Vec<u8>>>> =
 		const { RefCell::new(None) };
 }
 
-/// Configure the JAM-state reads served to `read_included_para_head_jam` (the riscv branch).
+/// Configure the JAM-state reads served to `read_included_para_head_hash_jam` (the riscv branch).
 pub(crate) fn set_mock_jam_reads(map: BTreeMap<Vec<u8>, Vec<u8>>) {
 	MOCK_JAM_READS.with(|c| *c.borrow_mut() = Some(map));
 }

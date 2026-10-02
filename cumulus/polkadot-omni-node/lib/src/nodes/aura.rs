@@ -810,8 +810,9 @@ where
 				let jam = Arc::new(jam);
 				spawn_essential.spawn_essential("jam-rpc-worker", Some("jam"), Box::pin(worker));
 
-				let best_heads = match jam::para_head_stream(
+				let best_heads = match jam::para_header_stream::<Block, _>(
 					&*jam,
+					client.clone(),
 					jam_params.service_id,
 					para_id.into(),
 					false,
@@ -824,35 +825,29 @@ where
 						return;
 					},
 				};
-				let finalized_heads =
-					match jam::para_head_stream(&*jam, jam_params.service_id, para_id.into(), true)
-						.await
-					{
-						Ok(stream) => stream,
-						Err(error) => {
-							log::error!(
-								"Unable to open the JAM finalized para-head stream: {error}"
-							);
-							return;
-						},
-					};
-				let (finalized_tx, finalized_rx) = futures::channel::mpsc::unbounded();
-				spawn_essential.spawn_essential_blocking(
-					"jam-finalized-head-stream",
-					Some("jam"),
-					Box::pin(consensus_common::finalized_head_stream_worker::<Block>(
-						finalized_tx,
-						finalized_heads,
-					)),
-				);
+				let finalized_heads = match jam::para_header_stream::<Block, _>(
+					&*jam,
+					client.clone(),
+					jam_params.service_id,
+					para_id.into(),
+					true,
+				)
+				.await
+				{
+					Ok(stream) => stream,
+					Err(error) => {
+						log::error!("Unable to open the JAM finalized para-head stream: {error}");
+						return;
+					},
+				};
 				spawn_essential.spawn_essential_blocking(
 					"jam-parachain-consensus",
 					Some("jam"),
 					Box::pin(consensus_common::run_parachain_consensus(
 						client.clone(),
 						announce_block.clone(),
-						Box::new(best_heads.boxed()),
-						Box::new(finalized_rx),
+						Box::new(best_heads.map(|header| header.encode()).boxed()),
+						Box::new(finalized_heads.boxed()),
 						None,
 					)),
 				);

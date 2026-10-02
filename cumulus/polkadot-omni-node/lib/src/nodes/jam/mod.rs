@@ -52,7 +52,8 @@
 //! [`DeadBlocks`], and the builder never authors on a dead block or any of its descendants.
 //!
 //! Heads following reuses `cumulus_client_consensus_common::run_parachain_consensus` with
-//! streams built from the parachain service's per-para state entry (`ParaInfo.head_data`).
+//! streams built from the parachain service's per-para state entry: `ParaInfo.head_data` holds
+//! the head's header hash, which is resolved to the header from the local database.
 
 pub(crate) mod authorizer;
 pub(crate) mod block_import;
@@ -68,7 +69,7 @@ use crate::common::{
 	ConstructNodeRuntimeApi, NodeBlock,
 };
 use authorizer::AuraAuthorizer;
-use codec::Decode;
+use codec::{Decode, DecodeAll};
 use cumulus_jam_state_reader::{JamStateExt, JamStateReader};
 use futures::{Stream, StreamExt};
 use jam_interface::{
@@ -77,13 +78,15 @@ use jam_interface::{
 };
 use jam_types::RefineContext;
 use parachain_service_core::{para_info_key, ParaInfo};
-use sc_client_api::{Backend as _, StorageProvider};
+use sc_client_api::{Backend as _, BlockchainEvents, StorageProvider};
 use sp_additional_data::AdditionalData;
+use sp_blockchain::HeaderBackend;
 use sp_consensus::ProposeArgs;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use sp_timestamp::Timestamp;
 use std::{
 	collections::HashMap,
+	fmt::Debug,
 	future::Future,
 	pin::Pin,
 	sync::{
@@ -634,40 +637,47 @@ pub(crate) async fn choose_lookup_anchor<Jam: JamChainSource + ?Sized>(
 	Some(chosen)
 }
 
-/// Stream of raw para-head bytes for heads following: every change of the para's `ParaInfo`
-/// entry in the parachain service's state yields the new `head_data` bytes.
+/// The head hash a SCALE-encoded `ParaInfo` holds: `head_data` is the header hash of the para's
+/// last included block.
+pub(crate) fn head_hash_of<Hash: Decode>(para_info: &[u8]) -> Result<Hash, String> {
+	let info = ParaInfo::decode(&mut &para_info[..]).map_err(|e| format!("ParaInfo: {e}"))?;
+	Hash::decode_all(&mut &info.head_data[..]).map_err(|e| format!("head hash: {e}"))
+}
+
+/// Stream of para-head hashes for heads following: every change of the para's `ParaInfo` entry
+/// in the parachain service's state yields the new head's header hash.
 ///
 /// Absent values (para not registered yet) and undecodable values are dropped, matching the
 /// relay-chain streams' behavior of dropping absent heads.
-pub(crate) async fn para_head_stream(
+pub(crate) async fn para_head_stream<Hash: Decode + Debug + Send + 'static>(
 	jam: &impl JamStateSource,
 	parachain_service: ServiceId,
 	para_id: u32,
 	finalized: bool,
-) -> jam_interface::Result<impl Stream<Item = Vec<u8>> + Send> {
+) -> jam_interface::Result<impl Stream<Item = Hash> + Send> {
 	let key = para_info_key(para_id.into());
 	let stream = jam.service_value_stream(parachain_service, &key, finalized).await?;
 	Ok(stream.filter_map(move |update| {
 		futures::future::ready(match update.value {
-			Some(bytes) => match ParaInfo::decode(&mut &bytes[..]) {
-				Ok(info) => {
+			Some(bytes) => match head_hash_of::<Hash>(&bytes) {
+				Ok(head) => {
 					tracing::debug!(
 						target: LOG_TARGET,
 						para_id,
 						finalized,
 						at = ?update.header_hash,
 						slot = update.slot,
-						head_len = info.head_data.len(),
+						?head,
 						"Para head changed in JAM state.",
 					);
-					Some(info.head_data.into_inner())
+					Some(head)
 				},
 				Err(error) => {
 					tracing::warn!(
 						target: LOG_TARGET,
 						para_id,
 						?error,
-						"Failed to decode ParaInfo from JAM state; dropping update.",
+						"Failed to decode the para head from JAM state; dropping update.",
 					);
 					None
 				},
@@ -686,9 +696,175 @@ pub(crate) async fn para_head_stream(
 	}))
 }
 
+/// Resolve head hashes to headers: a head whose header `lookup` finds is yielded at once, any
+/// other waits until its block is imported.
+///
+/// A newer head replaces the one waiting, so only the latest head is reported. The stream ends
+/// when `heads` ends.
+pub(crate) fn resolve_heads<Hash, Header>(
+	heads: impl Stream<Item = Hash> + Send + Unpin + 'static,
+	imports: impl Stream<Item = (Hash, Header)> + Send + Unpin + 'static,
+	lookup: impl Fn(&Hash) -> Option<Header> + Send + 'static,
+) -> impl Stream<Item = Header> + Send
+where
+	Hash: PartialEq + Send + 'static,
+	Header: Send + 'static,
+{
+	enum Event<Hash, Header> {
+		Head(Option<Hash>),
+		Import(Option<(Hash, Header)>),
+	}
+
+	futures::stream::unfold(
+		(heads.fuse(), imports.fuse(), lookup, None::<Hash>),
+		|(mut heads, mut imports, lookup, mut pending)| async move {
+			loop {
+				let event = futures::select! {
+					head = heads.next() => Event::Head(head),
+					import = imports.next() => Event::Import(import),
+				};
+				match event {
+					Event::Head(head) => {
+						let head = head?;
+						match lookup(&head) {
+							Some(header) => return Some((header, (heads, imports, lookup, None))),
+							None => pending = Some(head),
+						}
+					},
+					Event::Import(Some((hash, header))) if pending.as_ref() == Some(&hash) => {
+						return Some((header, (heads, imports, lookup, None)))
+					},
+					Event::Import(_) => {},
+				}
+			}
+		},
+	)
+}
+
+/// The para's head headers, resolved from the head hashes in JAM state through the local
+/// database; see [`resolve_heads`].
+pub(crate) async fn para_header_stream<Block, Client>(
+	jam: &(impl JamStateSource + 'static),
+	client: Arc<Client>,
+	parachain_service: ServiceId,
+	para_id: u32,
+	finalized: bool,
+) -> jam_interface::Result<impl Stream<Item = Block::Header> + Send>
+where
+	Block: BlockT,
+	Client: HeaderBackend<Block> + BlockchainEvents<Block> + Send + Sync + 'static,
+{
+	// Subscribe before opening the JAM stream, so an import racing the first lookup is seen.
+	let imports = client.every_import_notification_stream().map(|n| (n.hash, n.header)).boxed();
+	let heads = para_head_stream::<Block::Hash>(jam, parachain_service, para_id, finalized).await?;
+	Ok(resolve_heads(heads.boxed(), imports, move |hash| client.header(*hash).ok().flatten()))
+}
+
 #[cfg(test)]
 mod tests {
 	use super::{authorizer::tests::authorizer_of, *};
+	use codec::Encode;
+	use futures::{channel::mpsc, FutureExt};
+	use sp_core::H256;
+
+	fn para_info(head: Vec<u8>) -> Vec<u8> {
+		ParaInfo {
+			head_data: head.try_into().expect("heads in these tests are below 4 KiB; qed"),
+			validation_code: None,
+			announced_upgrade: None,
+			total_state_balance: 0,
+			used_state_balance: 0,
+			is_deregistering: false,
+		}
+		.encode()
+	}
+
+	#[test]
+	fn the_head_is_the_hash_in_para_info() {
+		let hash = H256::repeat_byte(0xab);
+		assert_eq!(head_hash_of::<H256>(&para_info(hash.as_bytes().to_vec())), Ok(hash));
+	}
+
+	#[test]
+	fn an_encoded_header_is_not_a_head_hash() {
+		use sp_runtime::traits::Header as _;
+		let header = sp_runtime::generic::Header::<u32, sp_runtime::traits::BlakeTwo256>::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+		assert!(head_hash_of::<H256>(&para_info(header.encode())).is_err());
+	}
+
+	#[test]
+	fn bytes_that_are_no_para_info_are_an_error() {
+		assert!(head_hash_of::<H256>(&[0xff, 0x00]).is_err());
+	}
+
+	type Resolved = std::pin::Pin<Box<dyn Stream<Item = &'static str> + Send>>;
+
+	fn resolver(
+		known: Vec<(H256, &'static str)>,
+	) -> (mpsc::UnboundedSender<H256>, mpsc::UnboundedSender<(H256, &'static str)>, Resolved) {
+		let (heads_tx, heads_rx) = mpsc::unbounded();
+		let (imports_tx, imports_rx) = mpsc::unbounded();
+		let lookup = move |hash: &H256| {
+			known.iter().find(|(known, _)| known == hash).map(|(_, header)| *header)
+		};
+		(heads_tx, imports_tx, Box::pin(resolve_heads(heads_rx, imports_rx, lookup)))
+	}
+
+	#[test]
+	fn a_known_head_resolves_at_once() {
+		let a = H256::repeat_byte(1);
+		let (heads, _imports, mut resolved) = resolver(vec![(a, "a")]);
+		heads.unbounded_send(a).expect("the resolver holds the receiving end; qed");
+		assert_eq!(resolved.next().now_or_never(), Some(Some("a")));
+	}
+
+	#[test]
+	fn an_unknown_head_resolves_when_imported() {
+		let (a, other) = (H256::repeat_byte(1), H256::repeat_byte(9));
+		let (heads, imports, mut resolved) = resolver(vec![]);
+		heads.unbounded_send(a).expect("the resolver holds the receiving end; qed");
+		assert_eq!(resolved.next().now_or_never(), None);
+		imports
+			.unbounded_send((other, "other"))
+			.expect("the resolver holds the receiving end; qed");
+		assert_eq!(resolved.next().now_or_never(), None, "an unrelated import yields nothing");
+		imports
+			.unbounded_send((a, "a"))
+			.expect("the resolver holds the receiving end; qed");
+		assert_eq!(resolved.next().now_or_never(), Some(Some("a")));
+	}
+
+	#[test]
+	fn a_newer_head_replaces_the_waiting_one() {
+		let (a, b) = (H256::repeat_byte(1), H256::repeat_byte(2));
+		let (heads, imports, mut resolved) = resolver(vec![]);
+		heads.unbounded_send(a).expect("the resolver holds the receiving end; qed");
+		assert_eq!(resolved.next().now_or_never(), None);
+		heads.unbounded_send(b).expect("the resolver holds the receiving end; qed");
+		assert_eq!(resolved.next().now_or_never(), None);
+		imports
+			.unbounded_send((a, "a"))
+			.expect("the resolver holds the receiving end; qed");
+		assert_eq!(resolved.next().now_or_never(), None, "the replaced head is not reported");
+		imports
+			.unbounded_send((b, "b"))
+			.expect("the resolver holds the receiving end; qed");
+		assert_eq!(resolved.next().now_or_never(), Some(Some("b")));
+	}
+
+	#[test]
+	fn the_resolver_ends_with_the_heads() {
+		let (heads, _imports, mut resolved) = resolver(vec![]);
+		drop(heads);
+		assert_eq!(resolved.next().now_or_never(), Some(None));
+	}
+
 	/// A finalized JAM chain, newest first, one block per slot ending at `newest_slot`. Block
 	/// `slot` is named by its own slot number so the walk is legible from the assertions.
 	fn finalized_chain(newest_slot: JamSlot, length: u32) -> Vec<BlockDesc> {

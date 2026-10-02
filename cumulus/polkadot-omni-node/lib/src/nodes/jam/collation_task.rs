@@ -62,7 +62,7 @@ use super::{
 	hash_ledger::WpHashLedger,
 	package::{build_pov, extrinsic_spec, work_package, work_package_hash, PackageParams},
 	package_sync::{ForeignPackage, ImportedPovs},
-	para_head_stream,
+	para_header_stream,
 	resubmission::*,
 	AuthoringHold, DeadBlocks, JamCollatorMessage, LOG_TARGET,
 };
@@ -70,7 +70,6 @@ use crate::common::{
 	types::{ParachainBackend, ParachainClient},
 	ConstructNodeRuntimeApi, NodeBlock,
 };
-use codec::Decode;
 use futures::{
 	channel::mpsc,
 	future::{AbortHandle, FutureExt},
@@ -150,7 +149,15 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 
 	let mut foreign_rx = Some(foreign_rx);
 
-	let mut para_heads = match para_head_stream(&*jam, service_id, para_id.into(), false).await {
+	let mut para_heads = match para_header_stream::<Block, _>(
+		&*jam,
+		Arc::clone(&para_client),
+		service_id,
+		para_id.into(),
+		false,
+	)
+	.await
+	{
 		Ok(stream) => stream.boxed().fuse(),
 		Err(error) => {
 			tracing::error!(target: LOG_TARGET, ?error, "Unable to watch the para head.");
@@ -1304,19 +1311,7 @@ where
 	/// if it chains onto the stored one, and sweeps the rest of that height out of its reorder
 	/// buffer. So those packages either just accumulated or lost their fork, and either way this
 	/// task is done with them.
-	fn on_para_head(&mut self, head: &[u8]) {
-		let header = match Block::Header::decode(&mut &head[..]) {
-			Ok(header) => header,
-			Err(error) => {
-				tracing::warn!(
-					target: LOG_TARGET,
-					?error,
-					head = ?format!("0x{}", hex_prefix(head)),
-					"Para head in JAM state does not decode as a header.",
-				);
-				return;
-			},
-		};
+	fn on_para_head(&mut self, header: &Block::Header) {
 		let hash = header.hash();
 		let number = *header.number();
 		self.included_head = Some(hash);
@@ -1390,10 +1385,6 @@ where
 	}
 }
 
-fn hex_prefix(bytes: &[u8]) -> String {
-	bytes.iter().take(32).map(|byte| format!("{byte:02x}")).collect()
-}
-
 /// The parts a package is assembled from: the built block(s), the parachain storage proof
 /// witnessing them, the parent header (travels in the V4 PoV), and the work-item settings.
 struct PackageSource<Block: BlockT> {
@@ -1432,7 +1423,7 @@ impl<Block: BlockT> PackageSource<Block> {
 	/// The PoV travels as work-item extrinsic 0, not in the payload: CE 133 caps the first message
 	/// (core index plus package, payloads included) at 200 KiB, while extrinsics ride the bulk
 	/// channel, bounded only by `max_input`. The payload's `ParachainCandidate` keeps its
-	/// `validation_code_hash` — the parachain service still reads that — and carries no PoV.
+	/// `validation_code` — the parachain service still reads that — and carries no PoV.
 	///
 	/// The token cannot be built here: it signs a hash of the finished package, so authorizing is
 	/// the step after this one ([`AuraAuthorizer::authorize`]).
@@ -1456,7 +1447,7 @@ mod tests {
 		super::{authorizer::tests::authorizer_of, hash_ledger::test_support::ledger},
 		*,
 	};
-	use codec::{DecodeAll, Encode};
+	use codec::{Decode, DecodeAll, Encode};
 	use cumulus_jam_state_reader::JAM_PROOF_KEY;
 	use cumulus_primitives_core::ParachainBlockData;
 	use cumulus_test_runtime::{Block as TestBlock, Header as TestHeader};
@@ -1831,7 +1822,7 @@ mod tests {
 			<ParachainCandidate as Decode>::decode(&mut &package.items[0].payload.0[..])
 				.expect("the payload is a ParachainCandidate");
 		let expected = ParachainCandidate {
-			validation_code_hash: parachain_service_core::types::ValidationCodeHash(
+			validation_code: parachain_service_core::types::ValidationCodeHash(
 				source.validation_code_hash.into(),
 			),
 		};

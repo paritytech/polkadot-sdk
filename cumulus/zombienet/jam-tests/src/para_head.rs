@@ -6,43 +6,46 @@
 //! This is the completion signal of the whole pipeline: JAM emits no "accumulated" event, so a
 //! para head that moves is the only proof that a work package was guaranteed, reported and
 //! accumulated. The read is the collator's own — `serviceValue` at the best block, under the key
-//! the parachain service files a para's [`ParaInfo`] at.
+//! the parachain service files a para's [`ParaInfo`] at — and yields the head's header hash; the
+//! para's collator resolves it to a height.
 
-use crate::rpc::JamRpc;
+use crate::rpc::{CollatorRpc, JamRpc};
 use anyhow::Context;
 use codec::DecodeAll;
 use parachain_service_core::{para_info_key, ParaInfo};
-use sp_runtime::traits::BlakeTwo256;
+use sp_core::H256;
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
 
 /// A parachain head as JAM has accumulated it: the tip the service believes the chain has reached.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParaHead {
-	pub number: u64,
 	/// The block hash, `0x`-prefixed, in the same spelling a collator's RPC uses.
 	pub hash: String,
+	/// The block's height as the para's collator knows it; `None` while it does not hold it.
+	pub number: Option<u64>,
 }
 
 impl std::fmt::Display for ParaHead {
 	fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(formatter, "#{} {}", self.number, self.hash)
+		match self.number {
+			Some(number) => write!(formatter, "#{number} {}", self.hash),
+			None => write!(formatter, "#? {}", self.hash),
+		}
 	}
 }
 
-/// The parachain header type, which is the parachain template runtime's `Header`.
-type ParaHeader = sp_runtime::generic::Header<u32, BlakeTwo256>;
-
-/// The parachain head the service has accumulated for `para`, or `None` while it has none.
+/// The hash of the parachain head the service has accumulated for `para`, or `None` while it has
+/// none.
 ///
 /// The read is the collator's own: `serviceValue` at the best block, under the key the parachain
 /// service files a para's [`ParaInfo`] at. A value that does not decode is an error rather than
 /// "no head", because the two mean opposite things to a stall assertion.
-pub async fn read_para_head(
+pub async fn read_para_head_hash(
 	jam: &JamRpc,
 	service_id: u32,
 	para: u32,
-) -> anyhow::Result<Option<ParaHead>> {
+) -> anyhow::Result<Option<String>> {
 	let key = para_info_key(para.into());
 	let at = jam.best_block_hash().await?;
 
@@ -50,20 +53,35 @@ pub async fn read_para_head(
 	let stored = jam.service_value(&at, service_id, &key).await?;
 	let elapsed = started.elapsed();
 
-	let head = stored
+	let hash = stored
 		.as_deref()
-		.map(decode_para_head)
+		.map(decode_para_head_hash)
 		.transpose()
 		.with_context(|| format!("para {para}'s entry at block {at}"))?;
 	log::info!(
 		"serviceValue(service {}, para {para}) at block {at}: {} in {elapsed:?}",
 		service_id,
-		match &head {
-			Some(head) => format!("head {head}"),
+		match &hash {
+			Some(hash) => format!("head hash {hash}"),
 			None => "no entry".to_string(),
 		},
 	);
-	Ok(head)
+	Ok(hash)
+}
+
+/// The parachain head the service has accumulated for `para`, with the height `collator` knows
+/// it at: JAM stores only the header hash.
+pub async fn read_para_head(
+	jam: &JamRpc,
+	collator: &CollatorRpc,
+	service_id: u32,
+	para: u32,
+) -> anyhow::Result<Option<ParaHead>> {
+	let Some(hash) = read_para_head_hash(jam, service_id, para).await? else { return Ok(None) };
+	let number = collator.height_of(&hash).await?;
+	let head = ParaHead { hash, number };
+	log::info!("para {para}'s accumulated head {head}");
+	Ok(Some(head))
 }
 
 /// Gap between accumulated-head polls; the head cannot advance more than once per JAM slot.
@@ -71,13 +89,14 @@ const HEAD_POLL: Duration = Duration::from_secs(3);
 
 /// Wait until JAM has accumulated a head of at least `target` for `para`.
 ///
-/// The read is [`read_para_head`]: `serviceValue` at the JAM best block, under the key the
-/// parachain service files a para's [`ParaInfo`] at, then the header in `head_data`. The
+/// The read is [`read_para_head`]: the head hash in the service's [`ParaInfo`], resolved to a
+/// height by the para's collator. A head the collator does not know yet is not there yet. The
 /// collator's own best-block metric is not a faithful stand-in: it holds its slot while a package
 /// is overdue, so its height trails the accumulated head and would let the assertion below fail
 /// on a healthy run.
 pub async fn wait_for_jam_head(
 	jam: &JamRpc,
+	collator: &CollatorRpc,
 	service_id: u32,
 	para: u32,
 	target: u64,
@@ -86,12 +105,12 @@ pub async fn wait_for_jam_head(
 	let deadline = Instant::now() + budget;
 	let mut last = None;
 	loop {
-		if let Some(head) = read_para_head(jam, service_id, para).await? {
-			log::info!("JAM accumulated head for para {para}: #{}", head.number);
-			if head.number >= target {
+		if let Some(head) = read_para_head(jam, collator, service_id, para).await? {
+			log::info!("JAM accumulated head for para {para}: {head}");
+			if head.number.is_some_and(|number| number >= target) {
 				return Ok(());
 			}
-			last = Some(head.number);
+			last = Some(head);
 		}
 		anyhow::ensure!(
 			Instant::now() < deadline,
@@ -102,16 +121,15 @@ pub async fn wait_for_jam_head(
 	}
 }
 
-/// Wait until JAM's accumulated head for `para` has not increased for `still_for`.
+/// Wait until JAM's accumulated head for `para` has not changed for `still_for`.
 ///
 /// Standing still is what a stall looks like from the chain: nothing announces that packages
 /// stopped being reported, the head simply stops moving. The core tests use this to confirm a
-/// parked core really stopped carrying the para's work; it mirrors the old harness's
-/// `Run::wait_for_frozen_jam_head`, reading the accumulated head through [`read_para_head`].
+/// parked core really stopped carrying the para's work; it compares the head hashes
+/// [`read_para_head_hash`] reads.
 ///
-/// The head is a number, so "not increased" and "unchanged" coincide, and no head at all
-/// (`None`) is unchanged for as long as it stays absent — the caller decides whether that
-/// counts as a stall.
+/// No head at all (`None`) is unchanged for as long as it stays absent — the caller decides
+/// whether that counts as a stall.
 pub async fn wait_for_frozen_jam_head(
 	jam: &JamRpc,
 	service_id: u32,
@@ -122,9 +140,9 @@ pub async fn wait_for_frozen_jam_head(
 	let deadline = Instant::now() + budget;
 	// The last head and the instant it was first seen. Reset the instant whenever the head
 	// changes, so the elapsed time measured is only ever time spent on the current head.
-	let mut frozen: Option<(Option<u64>, Instant)> = None;
+	let mut frozen: Option<(Option<String>, Instant)> = None;
 	loop {
-		let head = read_para_head(jam, service_id, para).await?.map(|head| head.number);
+		let head = read_para_head_hash(jam, service_id, para).await?;
 		match &frozen {
 			Some((last, since)) if *last == head && since.elapsed() >= still_for => {
 				log::info!(
@@ -134,7 +152,7 @@ pub async fn wait_for_frozen_jam_head(
 				return Ok(());
 			},
 			Some((last, _)) if *last == head => {},
-			_ => frozen = Some((head, Instant::now())),
+			_ => frozen = Some((head.clone(), Instant::now())),
 		}
 		anyhow::ensure!(
 			Instant::now() < deadline,
@@ -145,35 +163,37 @@ pub async fn wait_for_frozen_jam_head(
 	}
 }
 
-/// Read the accumulated head out of a para's stored [`ParaInfo`].
+/// Read the accumulated head's hash out of a para's stored [`ParaInfo`].
 ///
-/// Both decodes go through the real types — the service's own `ParaInfo`, and the header type the
-/// runtime the collators run defines — so no layout is spelled out here to drift out of step with
-/// either. A value that does not decode is an error rather than "no head": the two mean opposite
-/// things to a stall assertion, so a layout that has moved on has to say so loudly.
-fn decode_para_head(stored: &[u8]) -> anyhow::Result<ParaHead> {
+/// `head_data` is the header hash of the para's last included block. A value that does not decode
+/// is an error rather than "no head": the two mean opposite things to a stall assertion, so a
+/// layout that has moved on has to say so loudly.
+pub fn decode_para_head_hash(stored: &[u8]) -> anyhow::Result<String> {
 	let info = ParaInfo::decode_all(&mut &stored[..])
 		.with_context(|| format!("decoding {} bytes as the service's ParaInfo", stored.len()))?;
 	let head = info.head_data.into_inner();
-	let header = ParaHeader::decode_all(&mut &head[..]).with_context(|| {
-		format!("decoding ParaInfo's {} bytes of head_data as a substrate header", head.len())
+	let hash = H256::decode_all(&mut &head[..]).with_context(|| {
+		format!("decoding ParaInfo's {} bytes of head_data as a 32-byte header hash", head.len())
 	})?;
-
-	Ok(ParaHead { number: header.number.into(), hash: array_bytes::bytes2hex("0x", header.hash()) })
+	Ok(array_bytes::bytes2hex("0x", hash))
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use codec::Encode;
+	use sp_runtime::traits::BlakeTwo256;
 
-	/// A header of the kind a collator files as its para head.
+	/// The parachain header type, which is the parachain template runtime's `Header`.
+	type ParaHeader = sp_runtime::generic::Header<u32, BlakeTwo256>;
+
+	/// A header of the kind a collator authors.
 	fn header(number: u32) -> ParaHeader {
 		ParaHeader {
-			parent_hash: sp_core::H256::repeat_byte(0xaa),
+			parent_hash: H256::repeat_byte(0xaa),
 			number,
-			state_root: sp_core::H256::repeat_byte(0xbb),
-			extrinsics_root: sp_core::H256::repeat_byte(0xcc),
+			state_root: H256::repeat_byte(0xbb),
+			extrinsics_root: H256::repeat_byte(0xcc),
 			digest: Default::default(),
 		}
 	}
@@ -191,38 +211,29 @@ mod tests {
 		.encode()
 	}
 
-	/// The head arrives wrapped in `ParaInfo`, so the two decodes have to compose. Both fields are
-	/// asserted because a header read at the wrong offset would still yield *some* number and
-	/// *some* hash, and every phase assertion in this suite is a comparison of those.
+	/// The collator's RPC is handed this string verbatim, and substrate reads a block hash as
+	/// `0x` and 32 bytes of hex.
 	#[test]
-	fn the_accumulated_head_is_the_header_in_para_infos_head_data() {
-		let header = header(17);
-
-		let head = decode_para_head(&stored_entry(header.encode())).expect("the entry decodes");
-
-		assert_eq!(head.number, 17);
-		// The collator's RPC is handed this string verbatim, and substrate reads a block hash as
-		// `0x` and 32 bytes of hex.
-		assert_eq!(head.hash, array_bytes::bytes2hex("0x", header.hash()));
-		assert_eq!(head.hash.len(), 2 + 64);
+	fn the_accumulated_head_is_the_hash_in_para_infos_head_data() {
+		let hash = header(17).hash();
+		let head = decode_para_head_hash(&stored_entry(hash.as_bytes().to_vec()))
+			.expect("the test entry is a ParaInfo holding a hash; qed");
+		assert_eq!(head, array_bytes::bytes2hex("0x", hash));
+		assert_eq!(head.len(), 2 + 64);
 	}
 
 	#[test]
-	fn a_head_of_zero_is_a_real_head() {
-		// Height zero is a real head — the genesis one — so "nothing accumulated yet" has to come
-		// from the para having no entry at all, never from its number, or a stall would read as
-		// progress.
-		let stored = stored_entry(header(0).encode());
-		assert_eq!(decode_para_head(&stored).expect("the entry decodes").number, 0);
+	fn a_full_header_in_head_data_is_an_error() {
+		assert!(decode_para_head_hash(&stored_entry(header(17).encode())).is_err());
+	}
+
+	#[test]
+	fn a_head_that_is_not_32_bytes_is_an_error() {
+		assert!(decode_para_head_hash(&stored_entry(vec![0xff; 8])).is_err());
 	}
 
 	#[test]
 	fn an_entry_that_is_not_a_para_info_is_an_error() {
-		assert!(decode_para_head(&[0xff; 8]).is_err());
-	}
-
-	#[test]
-	fn a_head_that_is_not_a_substrate_header_is_an_error() {
-		assert!(decode_para_head(&stored_entry(vec![0xff; 8])).is_err());
+		assert!(decode_para_head_hash(&[0xff; 8]).is_err());
 	}
 }

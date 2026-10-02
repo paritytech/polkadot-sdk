@@ -84,7 +84,7 @@ hex-literal = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 rstest = { workspace = true }
 trie-standardmap = { workspace = true }
-# Host tests compile the riscv-gated JAM branch (`read_included_para_head_jam`) via `cfg(test)`,
+# Host tests compile the riscv-gated JAM branch (`read_included_para_head_hash_jam`) via `cfg(test)`,
 # so `parachain-service-core` must be a direct dev-dep there.
 parachain-service-core = { path = "../../../../parachain-service/core", features = ["std"] }
 # The JAM branch decodes JAM's own `jam-codec`-encoded preimage-request value, and `cfg(test)`

@@ -145,8 +145,7 @@ fn make_pov(
 /// validation-code hash; the PoV travels as work-item extrinsic 0, exactly as the collator sends
 /// it.
 fn build_bundle(extrinsics: Vec<ExtrinsicSpec>, extrinsic_data: &[u8]) -> (Vec<u8>, WorkPackage) {
-	let payload =
-		ParachainCandidate { validation_code_hash: ValidationCodeHash([0u8; 32]) }.encode();
+	let payload = ParachainCandidate { validation_code: ValidationCodeHash([0u8; 32]) }.encode();
 
 	let work_item = WorkItem {
 		service: 0,

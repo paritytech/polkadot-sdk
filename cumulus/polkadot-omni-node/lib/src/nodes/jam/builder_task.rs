@@ -72,8 +72,7 @@ use jam_interface::{
 };
 use jam_types::RefineContext;
 use parachain_service_core::{
-	para_info_key, service_value_state_key, verify as verify_state_proof, ParaInfo, StateKey,
-	StateProof,
+	para_info_key, service_value_state_key, verify as verify_state_proof, StateKey, StateProof,
 };
 use polkadot_primitives::{HeadData, Id as ParaId};
 use sc_client_api::Backend as _;
@@ -180,15 +179,14 @@ enum HeadMove {
 /// Nothing branches on the answer any more: phase 5a picks the next parent from the local block
 /// tree below whatever head JAM accepted, so a head this collator did not author is not a
 /// divergence to heal but simply the block the next one is built on.
-fn head_move<Header: HeaderT>(
-	before: Option<&Header>,
-	after: Option<&Header>,
-	ours: &VecDeque<Header::Hash>,
+fn head_move<Hash: PartialEq>(
+	before: Option<&Hash>,
+	after: Option<&Hash>,
+	ours: &VecDeque<Hash>,
 ) -> HeadMove {
-	let hash = |header: Option<&Header>| header.map(|header| header.hash());
-	match hash(after) {
-		after if after == hash(before) => HeadMove::Unchanged,
-		Some(after) if ours.contains(&after) => HeadMove::Ours,
+	match after {
+		after if after == before => HeadMove::Unchanged,
+		Some(after) if ours.contains(after) => HeadMove::Ours,
 		_ => HeadMove::Foreign,
 	}
 }
@@ -367,36 +365,28 @@ struct InFlightReport<Header: HeaderT> {
 	/// The parachain block the report's work digest says its package carries, read best-effort.
 	/// `None` means the digest is in a shape this collator cannot read, which is never an error
 	/// here — see [`decode_digest_head`].
-	head: Option<ReportedHead<Header>>,
-}
-
-/// The parachain block a work digest names.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct ReportedHead<Header: HeaderT> {
-	hash: Header::Hash,
-	number: <Header as HeaderT>::Number,
+	head: Option<Header::Hash>,
 }
 
 /// Read the parachain head out of a work digest's output, best-effort.
 ///
 /// The work output belongs to the parachain service and its shape moves with the service — 5a.1
 /// appends the block's number to it — so only the prefix every shape shares is parsed: the para
-/// id and the head data, which *is* the encoded header, and therefore carries both the block hash
-/// and its number without any of the rest being understood.
+/// id and the head data, which is the block's header hash.
 ///
 /// Anything that does not parse comes back as `None`. This is a logging aid: it must tolerate an
 /// unknown format, a failed refine's error output, and outright garbage, and it must never fail a
 /// tick or feed a decision.
-fn decode_digest_head<Header: HeaderT>(output: &[u8]) -> Option<Header> {
+fn decode_digest_head<Hash: Decode>(output: &[u8]) -> Option<Hash> {
 	let mut input = output;
 	let _para_id = u32::decode(&mut input).ok()?;
 	let head_data = Vec::<u8>::decode(&mut input).ok()?;
 	// Every shape of the output carries the parent head hash behind the head data. Requiring it
-	// stops a short byte string that happens to decode as a vector from being read as a header.
+	// stops a short byte string that happens to decode as a vector from being read as a head.
 	if input.len() < 32 {
 		return None;
 	}
-	Header::decode_all(&mut &head_data[..]).ok()
+	Hash::decode_all(&mut &head_data[..]).ok()
 }
 
 /// Which of JAM's two in-flight state entries a report was read from.
@@ -532,8 +522,7 @@ fn push_report<Header: HeaderT>(
 		.result
 		.as_ref()
 		.ok()
-		.and_then(|output| decode_digest_head::<Header>(&output.0))
-		.map(|header| ReportedHead { hash: header.hash(), number: *header.number() });
+		.and_then(|output| decode_digest_head::<Header::Hash>(&output.0));
 	reports.push(InFlightReport { wp_hash, source, head });
 }
 
@@ -541,8 +530,8 @@ fn push_report<Header: HeaderT>(
 struct BuilderState<Header: HeaderT> {
 	/// Aura guard: the parachain slot last claimed.
 	last_claimed_slot: Option<Slot>,
-	/// The para head JAM has accumulated, as of the last tick that managed to read it.
-	included: Option<Header>,
+	/// The hash of the para head JAM has accumulated, as of the last tick that managed to read it.
+	included: Option<Header::Hash>,
 	/// The blocks this collator authored most recently, oldest first, capped at
 	/// [`MAX_UNINCLUDED`]. Its only job is to let [`select_parent`] prefer our own block over a
 	/// peer's at the same depth, so it needs no pruning beyond that cap: a block below the
@@ -1007,7 +996,7 @@ where
 		?tip,
 		tip_lag_slots = wall_jam_slot.saturating_sub(tip.slot),
 		tip_fresh = tip_is_fresh(wall_jam_slot, tip.slot),
-		included_head = ?state.included.as_ref().map(|header| header.hash()),
+		included_head = ?state.included,
 		"Parachain slot tick.",
 	);
 
@@ -1063,27 +1052,25 @@ where
 	};
 	state.note_pool_scan(&pool_scan, &anchor, authorizer);
 
-	let included_head = match &included {
-		Some(bytes) => {
-			let info =
-				ParaInfo::decode(&mut &bytes[..]).map_err(|e| format!("included ParaInfo: {e}"))?;
-			let head = info.head_data.into_inner();
-			Some(
-				<Block::Header as Decode>::decode(&mut &head[..])
-					.map_err(|e| format!("included head data: {e}"))?,
-			)
-		},
-		None => None,
+	let included_head = included
+		.as_deref()
+		.map(super::head_hash_of::<Block::Hash>)
+		.transpose()
+		.map_err(|e| format!("included head: {e}"))?;
+	// Best effort, for the log: JAM holds only the hash.
+	let local_number = |hash: Option<Block::Hash>| {
+		hash.and_then(|hash| para_client.header(hash).ok().flatten())
+			.map(|h| *h.number())
 	};
 	tracing::debug!(
 		target: LOG_TARGET,
 		anchor = ?anchor.header_hash,
-		included_head = ?included_head.as_ref().map(|header| header.hash()),
-		included_number = ?included_head.as_ref().map(|header| *header.number()),
+		?included_head,
+		included_number = ?local_number(included_head),
 		"Para head accumulated in JAM state at the anchor.",
 	);
 
-	let head_before = state.included.as_ref().map(|header| header.hash());
+	let head_before = state.included;
 	let moved = head_move(state.included.as_ref(), included_head.as_ref(), &state.own_recent);
 	state.included = included_head;
 	let stalled_for = state.note_head(moved, para_slot);
@@ -1094,8 +1081,8 @@ where
 				target: LOG_TARGET,
 				?moved,
 				?head_before,
-				head_after = ?state.included.as_ref().map(|header| header.hash()),
-				head_number = ?state.included.as_ref().map(|header| *header.number()),
+				head_after = ?state.included,
+				head_number = ?local_number(state.included),
 				own_recent = ?state.own_recent,
 				stalled_for,
 				stall_reroot_slots = STALL_REROOT_SLOTS,
@@ -1128,9 +1115,21 @@ where
 	let genesis_hash = para_client.info().genesis_hash;
 	// The whole header, not just its hash: the mocked inherent advertises it to the runtime as
 	// the relay chain's included para head, which is what `parachain-system` prunes its own
-	// unincluded segment against.
-	let included_header = match state.included.clone() {
-		Some(header) => header,
+	// unincluded segment against. It comes from the local database, as JAM holds only its hash.
+	let included_header = match state.included {
+		Some(hash) => {
+			match para_client.header(hash).map_err(|e| format!("included header: {e}"))? {
+				Some(header) => header,
+				None => {
+					tracing::warn!(
+						target: LOG_TARGET,
+						accumulated_head = ?hash,
+						"The accumulated head is not known locally; waiting for import/sync.",
+					);
+					return Ok(Vec::new());
+				},
+			}
+		},
 		// Nothing accumulated yet, so the para's included head is still its genesis block.
 		None => para_client
 			.header(genesis_hash)
@@ -1226,32 +1225,28 @@ where
 	// The monitor's derived events. Nothing branches on them; they are the pre-accumulation view
 	// of the pipeline, which with no links left is the only one there is.
 	for report in &reports {
-		let known = match &report.head {
-			Some(head) => para_client.header(head.hash).ok().flatten().is_some(),
-			None => false,
-		};
-		match &report.head {
-			Some(head) if !known => tracing::warn!(
+		let known = report.head.and_then(|head| para_client.header(head).ok().flatten());
+		match (&report.head, known) {
+			(Some(head), None) => tracing::warn!(
 				target: LOG_TARGET,
 				wp_hash = ?report.wp_hash,
 				source = ?report.source,
-				head = ?head.hash,
-				head_number = %head.number,
+				?head,
 				?included_hash,
 				"A work package is in flight for a parachain block we do not hold. Somebody's \
 				 chain is ahead of ours and we have not been told about the block — normally the \
 				 announcement is still on its way, but a block withheld on purpose looks exactly \
 				 like this.",
 			),
-			Some(head) => tracing::debug!(
+			(Some(head), Some(header)) => tracing::debug!(
 				target: LOG_TARGET,
 				wp_hash = ?report.wp_hash,
 				source = ?report.source,
-				head = ?head.hash,
-				head_number = %head.number,
+				?head,
+				head_number = %header.number(),
 				"A work package is in flight for a block we hold.",
 			),
-			None => tracing::debug!(
+			(None, _) => tracing::debug!(
 				target: LOG_TARGET,
 				wp_hash = ?report.wp_hash,
 				source = ?report.source,
@@ -1824,9 +1819,9 @@ mod tests {
 	}
 
 	/// A work output in the shape the parachain service produces: para id, head data (the
-	/// encoded header itself), the parent head hash, and — since 5a.1 — the block's number.
+	/// header hash), the parent head hash, and — since 5a.1 — the block's number.
 	fn work_output(header: &TestHeader, with_number: bool) -> Vec<u8> {
-		let mut output = (0u32, header.encode(), [7u8; 32]).encode();
+		let mut output = (0u32, header.hash().as_ref().to_vec(), [7u8; 32]).encode();
 		if with_number {
 			output.extend(header.number().encode());
 		}
@@ -2143,11 +2138,12 @@ mod tests {
 		let chain = chain(2);
 		let mine = ours(&[&chain[1]]);
 
-		assert_eq!(head_move(Some(&chain[0]), Some(&chain[0]), &mine), HeadMove::Unchanged);
-		assert_eq!(head_move(Some(&chain[0]), Some(&chain[1]), &mine), HeadMove::Ours);
-		assert_eq!(head_move(Some(&chain[0]), Some(&sibling(&chain[1])), &mine), HeadMove::Foreign,);
+		let (a, b) = (chain[0].hash(), chain[1].hash());
+		assert_eq!(head_move(Some(&a), Some(&a), &mine), HeadMove::Unchanged);
+		assert_eq!(head_move(Some(&a), Some(&b), &mine), HeadMove::Ours);
+		assert_eq!(head_move(Some(&a), Some(&sibling(&chain[1]).hash()), &mine), HeadMove::Foreign);
 		assert_eq!(
-			head_move(Some(&chain[0]), None, &mine),
+			head_move(Some(&a), None, &mine),
 			HeadMove::Foreign,
 			"a head that vanished is nothing we authored — it cannot happen, and if it did the \
 			 log is where it should show up",
@@ -2158,8 +2154,8 @@ mod tests {
 	#[test]
 	fn the_first_head_of_all_is_a_move() {
 		let chain = chain(1);
-		assert_eq!(head_move(None, Some(&chain[0]), &ours(&[&chain[0]])), HeadMove::Ours);
-		assert_eq!(head_move::<TestHeader>(None, None, &VecDeque::new()), HeadMove::Unchanged);
+		assert_eq!(head_move(None, Some(&chain[0].hash()), &ours(&[&chain[0]])), HeadMove::Ours);
+		assert_eq!(head_move::<H256>(None, None, &VecDeque::new()), HeadMove::Unchanged);
 	}
 
 	/// The remembered blocks are a tie-breaker, not a ledger, so the list stays bounded — and the
@@ -2354,10 +2350,11 @@ mod tests {
 		let header = chain(1).remove(0);
 
 		for with_number in [false, true] {
-			let decoded = decode_digest_head::<TestHeader>(&work_output(&header, with_number))
-				.expect("the shared prefix parses in either shape");
-			assert_eq!(decoded.hash(), header.hash());
-			assert_eq!(*decoded.number(), *header.number());
+			assert_eq!(
+				decode_digest_head::<H256>(&work_output(&header, with_number)),
+				Some(header.hash()),
+				"the shared prefix parses in either shape",
+			);
 		}
 	}
 
@@ -2376,7 +2373,7 @@ mod tests {
 			("a vector that is no header", (0u32, vec![1u8, 2, 3], [0u8; 32]).encode()),
 		] {
 			assert!(
-				decode_digest_head::<TestHeader>(&output).is_none(),
+				decode_digest_head::<H256>(&output).is_none(),
 				"{what} must not be read as a block",
 			);
 		}
@@ -2399,10 +2396,7 @@ mod tests {
 		push_report(&mut reports, &failed, ReportSource::ReadyQueue, 42);
 
 		assert_eq!(reports.len(), 3);
-		assert_eq!(
-			reports[0].head,
-			Some(ReportedHead { hash: header.hash(), number: *header.number() }),
-		);
+		assert_eq!(reports[0].head, Some(header.hash()));
 		assert_eq!(reports[1].head, None);
 		assert_eq!(reports[2].head, None, "a failed refinement names no block");
 	}
@@ -2516,7 +2510,7 @@ mod tests {
 	async fn the_state_proof_is_verified_and_carried_as_one_entry() {
 		let service_id = 9;
 		let para_id = parachain_service_core::types::ParaId::from(TEST_PARA_ID);
-		let expected_head = chain(1).remove(0).encode();
+		let expected_head = chain(1).remove(0).hash().as_ref().to_vec();
 		let value = para_info_value(&expected_head);
 		assert!(value.len() > 32, "the head entry is a large leaf, as on the real service");
 		let state_key = service_value_state_key(service_id, &para_info_key(para_id));
@@ -2557,7 +2551,7 @@ mod tests {
 		assert_eq!(
 			info.head_data.to_vec(),
 			expected_head,
-			"the value at the state key is the head"
+			"the value at the state key is the head hash"
 		);
 
 		// The same proof backs the runtime's reads and the digest while the block is built.

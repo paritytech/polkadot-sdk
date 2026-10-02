@@ -68,7 +68,7 @@ pub fn build_jam_genesis(
 		.collect::<anyhow::Result<Vec<_>>>()?;
 	let heads = para_specs
 		.iter()
-		.map(|spec| export_genesis_head(&binaries.omni_node, spec))
+		.map(|spec| export_genesis_head(&binaries.omni_node, spec).map(|h| genesis_head_hash(&h)))
 		.collect::<anyhow::Result<Vec<_>>>()?;
 	let validation_codes = validation_code_paths
 		.iter()
@@ -180,7 +180,8 @@ pub fn polkavm_env() -> Vec<(&'static str, &'static str)> {
 ///
 /// Every para also registers its own `validation_code` — `validation_codes[i]`, the frozen copy
 /// of the blob its chain spec was built from — and the genesis head derived from that chain
-/// spec, so the service's `parent_head_hash` check accepts the collators' first block.
+/// spec (its genesis header's hash, [`genesis_head_hash`]), so the service's `parent_head_hash`
+/// check accepts the collators' first block.
 pub fn parachain_service_spec(
 	paras: &[Para],
 	service_code: Vec<u8>,
@@ -216,10 +217,15 @@ pub fn parachain_service_spec(
 	Ok(spec)
 }
 
+/// The head JAM holds for a para whose SCALE-encoded genesis header is `header`: its hash.
+pub fn genesis_head_hash(header: &[u8]) -> Vec<u8> {
+	use sp_runtime::traits::{BlakeTwo256, Hash};
+	BlakeTwo256::hash(header).as_ref().to_vec()
+}
+
 /// The SCALE-encoded genesis header of the parachain `spec` describes, exported by the very
-/// binary the collators run (`export-genesis-head --chain <spec> -r`): the header the chain
-/// initializes from is the one its first block is built on, so this is the `head_data` JAM must
-/// hold for the service's `parent_head_hash == blake2_256(head_data)` check to pass.
+/// binary the collators run (`export-genesis-head --chain <spec> -r`). JAM holds its hash
+/// ([`genesis_head_hash`]), which the para's first block names as its parent.
 pub fn export_genesis_head(omni_node: &Path, spec: &Path) -> anyhow::Result<Vec<u8>> {
 	let output = Command::new(omni_node)
 		.envs(polkavm_env())
@@ -382,6 +388,20 @@ pub(crate) fn write_sidecar(bytes: &[u8], work_dir: &Path, name: &str) -> anyhow
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn the_genesis_head_hash_is_the_genesis_header_hash() {
+		use codec::Encode;
+		use sp_runtime::traits::{BlakeTwo256, Header as _};
+		let header = sp_runtime::generic::Header::<u32, BlakeTwo256>::new(
+			0,
+			Default::default(),
+			sp_core::H256::repeat_byte(0xbb),
+			Default::default(),
+			Default::default(),
+		);
+		assert_eq!(genesis_head_hash(&header.encode()), header.hash().as_ref());
+	}
 	use codec::DecodeAll;
 	use parachain_service_core::{para_info_key, types::ParaId, ParaInfo};
 	use serde_json::json;

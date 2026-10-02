@@ -69,7 +69,7 @@ pub mod weights;
 #[macro_use]
 pub mod validate_block;
 // Compiled on the riscv runtime and, so the host tests can exercise the pure upgrade decision,
-// on host test builds (`cfg(any(test, jam))`), mirroring `read_included_para_head_jam`.
+// on host test builds (`cfg(any(test, jam))`), mirroring `read_included_para_head_hash_jam`.
 #[cfg(any(test, jam))]
 mod jam;
 pub mod parachain_inherent;

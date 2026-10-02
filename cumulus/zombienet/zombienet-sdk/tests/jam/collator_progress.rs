@@ -104,8 +104,16 @@ async fn assert_collators_build_blocks(test: &str, collators: usize) -> anyhow::
 /// authored blocks. A wrong PVF format, an unregistered para, or a missing code preimage leaves
 /// the collator authoring while JAM accepts nothing, so the height waits above cannot see it.
 async fn assert_jam_heads_advance(jam: &JamNetwork, para: &Para) -> anyhow::Result<()> {
-	wait_for_jam_head(&jam.jam_rpc, PARACHAIN_SERVICE_ID, para.id, JAM_HEAD_TARGET, JAM_HEAD_BUDGET)
-		.await
+	let collator = jam.collator_rpc(&para.collators[0]).await?;
+	wait_for_jam_head(
+		&jam.jam_rpc,
+		&collator,
+		PARACHAIN_SERVICE_ID,
+		para.id,
+		JAM_HEAD_TARGET,
+		JAM_HEAD_BUDGET,
+	)
+	.await
 }
 
 /// Assert the finalized header carries a `JamParent` digest whose anchors are non-zero — proof the

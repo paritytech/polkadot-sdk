@@ -123,7 +123,7 @@ pub(crate) async fn read_package_params<
 
 /// Assemble the work package for `context`, carrying `spec` as its single extrinsic.
 ///
-/// The payload's `ParachainCandidate` keeps only the `validation_code_hash` — the parachain
+/// The payload's `ParachainCandidate` keeps only the `validation_code` — the parachain
 /// service still reads that — and no PoV. The PoV travels as work-item extrinsic 0 instead: CE 133
 /// caps the first message at 200 KiB, while extrinsics ride the bulk channel.
 pub(crate) fn work_package(
@@ -134,7 +134,7 @@ pub(crate) fn work_package(
 	context: RefineContext,
 ) -> WorkPackage {
 	let payload = ParachainCandidate {
-		validation_code_hash: parachain_service_core::types::ValidationCodeHash(
+		validation_code: parachain_service_core::types::ValidationCodeHash(
 			validation_code_hash.into(),
 		),
 	}

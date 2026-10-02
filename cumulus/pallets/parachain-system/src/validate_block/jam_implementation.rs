@@ -34,10 +34,11 @@
 //! - the shared core's `verify_blocks_form_chain` asserts `blocks[0].parent_hash ==
 //!   parent_header.hash()`, so a candidate that declares a parent other than the parent of its own
 //!   first block aborts;
-//! - the parachain service binds it to the canonical chain: its `accumulate` compares the
-//!   `parent_head_hash` declared here (via `host::set_parent_head_hash`, a `blake2_256` of the
-//!   encoded header) against the head it itself stored, so a candidate built on a stale or forged
-//!   parent never accumulates.
+//! - the parachain service binds it to the canonical chain: the head it stores is a header hash
+//!   (declared through `host::set_head`), and its `accumulate` compares `blake2_256` of that stored
+//!   head against the `parent_head_hash` declared here (`host::set_parent_head_hash`, the
+//!   `blake2_256` of the parent header's hash), so a candidate built on a stale or forged parent
+//!   never accumulates.
 //!
 //! There is no relay chain on JAM: the core runs with `relay_parent_storage_root = None`, so its
 //! relay-proof reader and `validate_validation_data` re-check are never armed, and the trie
@@ -50,14 +51,16 @@ use super::{
 	validate_block_core::{execute_blocks, SharedValidationInputs},
 };
 use alloc::vec::Vec;
-use codec::Decode;
+use codec::{Decode, Encode};
 use cumulus_jam_state_reader::{JamProofReader, JAM_PROOF_KEY};
 use cumulus_primitives_core::{CumulusDigestItem, ParachainBlockData};
 use frame_support::traits::{ExecuteBlock, Get};
 use parachain_service_core::StateProof;
 use sp_additional_data::{hash_value, AdditionalData, AdditionalDataFinalizer};
 use sp_crypto_hashing::{blake2_128, blake2_256};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, LazyBlock};
+use sp_runtime::traits::{
+	Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
+};
 
 /// Bounded, opaque error payloads the caller leaves on the failure report path when the PVF
 /// aborts abnormally (spec §4.2 / `report_error`). Kept as static slices so no unbounded
@@ -121,12 +124,14 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 	// The block hashes feed the randomness seed below; grab them before `block_data` is moved
 	// into the core.
 	let blocks = block_data.blocks();
+	let last_block_hash = blocks.last().map(|block| block.header().hash());
 
 	// 4. Declare the parent head hash this candidate is built on, exactly once (mandatory). The
-	// service records it in the work digest and compares it against the head it stored at
-	// accumulate, so it must stay an explicit `blake2_256` over the encoded header (NOT
-	// `B::Hashing`): `accumulate` compares its stored `blake2_256(&head_data)` against this.
-	host::set_parent_head_hash(&blake2_256(&parent_header));
+	// stored head is the parent's header hash and `accumulate` compares `blake2_256` of it with
+	// this declaration; `verify_blocks_form_chain` binds the parent header to `blocks[0]`.
+	host::set_parent_head_hash(&blake2_256(
+		&<HashingFor<B> as HashT>::hash(&parent_header).encode(),
+	));
 
 	// 5. Seed the trie-hashmap randomness. The relay path seeds from
 	// `relay_parent_storage_root` + block hashes; JAM has no relay state, so the refine
@@ -185,7 +190,7 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 	let upgrade_emit: core::cell::Cell<
 		Option<([u8; 32], u32, crate::jam::upgrade::EmitPhase, u32)>,
 	> = core::cell::Cell::new(None);
-	let result = execute_blocks::<B, E, PSC>(
+	execute_blocks::<B, E, PSC>(
 		SharedValidationInputs::<B> {
 			block_data,
 			parent_head: Bytes::from(parent_header),
@@ -230,12 +235,11 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 		},
 	);
 
-	// 7. Sink the result through host side effects (spec §4.2). `head_data` is set by the core
-	// after the last block executes; a `None` here is impossible if any block ran
-	// (`verify_blocks_form_chain` aborts on an empty PoV first), so it means a core invariant
-	// broke, not a malformed candidate — abort loudly instead of declaring no head.
-	let Some(head) = result.head_data else { host::report_error(ERR_HEAD_DATA_MISSING) };
-	host::set_head(&head.0);
+	// 7. Sink the result through host side effects (spec §4.2). The head is the last block's
+	// header hash; `CustomValidationHeadData` is relay-only. An empty PoV already aborted in
+	// `verify_blocks_form_chain`, so a missing last block means a core invariant broke.
+	let Some(head) = last_block_hash else { host::report_error(ERR_HEAD_DATA_MISSING) };
+	host::set_head(&head.encode());
 	// Hash-only upgrade path: the runtime decides during execution and stashes the upward
 	// message in `PendingUpgradeEmit`; the service host calls only exist here, after execution.
 	if let Some((hash, len, phase, para_id)) = upgrade_emit.get() {

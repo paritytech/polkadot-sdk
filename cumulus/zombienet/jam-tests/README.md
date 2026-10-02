@@ -533,15 +533,15 @@ it are worth knowing before adding a test there.
 
 **A test asserts on the accumulated head, not on the collator's height.** A collator authors
 whether or not anything works, so its own height proves nothing about JAM. What proves it is the
-head parasim has stored for the para, read the way the collator reads it: `serviceValue` at the
-best block, under the key the parachain service files a para's `ParaInfo` at, whose `head_data` is
-the para's header. The harness exposes it as `para_head::read_para_head` and every phase wait is
-written against it. The two readings together are the assertion: a frozen head with a climbing
+head the parachain service has stored for the para, read the way the collator reads it:
+`serviceValue` at the best block, under the key the parachain service files a para's `ParaInfo`
+at, whose `head_data` is the header hash of the para's last included block. The harness resolves
+that hash to a height through the para's collator (`chain_getHeader`), exposes the pair as
+`para_head::read_para_head`, and every phase wait is written against it. The two readings together are the assertion: a frozen head with a climbing
 local best is a stall, and both climbing is a healthy para.
 
-The key and both decodes come from the crates that wrote them — `para_info_key` and `ParaInfo`
-from the facade, the header from the runtime's own type — so nothing in the harness holds a byte
-offset that could drift out of step with the service.
+The key and the decode come from the crate that wrote them — `para_info_key` and `ParaInfo` — so
+nothing in the harness holds a byte offset that could drift out of step with the service.
 
 **Freeing a core parks it; it does not empty it.** `free-core` installs the same authorizer code
 under a config naming no para, so the para's hash drains out of the pool and the core stops

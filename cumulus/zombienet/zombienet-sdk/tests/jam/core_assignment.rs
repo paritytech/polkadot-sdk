@@ -135,7 +135,7 @@ async fn heads_belong_to_their_own_para(jam: &JamNetwork, paras: &[Para]) -> any
 			let known = rpc.height_of(&head.hash).await?;
 			match (*owner == ids[index], known) {
 				(true, Some(number)) => anyhow::ensure!(
-					number == head.number,
+					Some(number) == head.number,
 					"para {owner}'s collator has {} at height {number}, but JAM accumulated it as \
 					 {head}",
 					head.hash,
@@ -258,7 +258,11 @@ async fn stall_then_heal(run: &Run<'_>) -> anyhow::Result<()> {
 	// core is recoverable on a network with nothing else to fall back on.
 	run.assign_core(CORE)?;
 	let frozen_at = frozen.jam_head.context("the head froze before anything accumulated")?;
-	run.wait_for_jam_head(frozen_at.number + 1, HEAL_BUDGET).await?;
+	run.wait_for_jam_head(
+		frozen_at.number.context("the collator does not know the frozen head")? + 1,
+		HEAL_BUDGET,
+	)
+	.await?;
 	let healed = run.sample(&rpc).await?;
 	log::info!("para {PARA} healed on core {CORE}, the core it lost: {frozen_at} -> {healed}");
 	Ok(())
@@ -377,7 +381,12 @@ async fn reroots(run: &Run<'_>) -> anyhow::Result<usize> {
 async fn walk_heads(run: &Run<'_>, rpc: &CollatorRpc, count: u64) -> anyhow::Result<Progress> {
 	let mut progress = run.sample(rpc).await?;
 	for step in 1..=count {
-		let next = progress.jam_head.as_ref().map_or(1, |head| head.number + 1);
+		let next = match &progress.jam_head {
+			Some(head) => {
+				head.number.context("the collator does not know the accumulated head")? + 1
+			},
+			None => 1,
+		};
 		log::info!("head {step} of {count} after the change: waiting for #{next}");
 		run.wait_for_jam_head(next, GAP_TOLERANCE).await?;
 		progress = run.sample(rpc).await?;
@@ -414,7 +423,7 @@ impl std::fmt::Display for Progress {
 async fn read_progress(jam_rpc: &JamRpc, rpc: &CollatorRpc, para: u32) -> anyhow::Result<Progress> {
 	Ok(Progress {
 		height: rpc.height().await?,
-		jam_head: read_para_head(jam_rpc, PARACHAIN_SERVICE_ID, para).await?,
+		jam_head: read_para_head(jam_rpc, rpc, PARACHAIN_SERVICE_ID, para).await?,
 	})
 }
 
@@ -456,8 +465,16 @@ impl Run<'_> {
 
 	/// Wait until JAM has accumulated a head of at least `target` for the para.
 	async fn wait_for_jam_head(&self, target: u64, budget: Duration) -> anyhow::Result<()> {
-		wait_for_jam_head(&self.jam.jam_rpc, PARACHAIN_SERVICE_ID, self.para.id, target, budget)
-			.await
+		let rpc = self.rpc().await?;
+		wait_for_jam_head(
+			&self.jam.jam_rpc,
+			&rpc,
+			PARACHAIN_SERVICE_ID,
+			self.para.id,
+			target,
+			budget,
+		)
+		.await
 	}
 
 	/// Wait until JAM's head for the para has stood still for `still_for`.
