@@ -1,0 +1,37 @@
+title: 'pallet-revive: benchmark some EVM arithmetic op-codes'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-revive` now charges the EVM `DIV`, `SDIV`, `MOD`, `SMOD`, `ADDMOD` and `MULMOD`
+    op-codes from their own benchmarks. All other EVM op-codes and all PVM instructions keep their
+    current charges.
+
+    `pallet_revive::WeightInfo` has seven new methods, each taking the number of op-codes executed:
+
+    - `evm_pop_opcode`
+    - `evm_div_opcode`
+    - `evm_sdiv_opcode`
+    - `evm_mod_opcode`
+    - `evm_smod_opcode`
+    - `evm_addmod_opcode`
+    - `evm_mulmod_opcode`
+
+    The arithmetic op-codes are benchmarked in pairs with a `POP`. Their charge is the slope of
+    their benchmark minus the slope of `evm_pop_opcode`. `POP` itself is still charged as before.
+
+    Runtimes that use `pallet_revive::weights::SubstrateWeight` or `()` need no changes. Runtimes
+    with their own `WeightInfo` implementation stop compiling until they implement the new methods.
+- audience: Runtime User
+  description: |-
+    In EVM contracts, `DIV`, `SDIV`, `MOD`, `SMOD`, `ADDMOD` and `MULMOD` use a different amount
+    of gas than before. Results and all other behavior are unchanged, and deployed contracts don't
+    need to be redeployed. PVM contracts are not affected.
+
+    Estimate gas with `eth_estimateGas` instead of reusing gas limits recorded before this change.
+    Contracts that pass a fixed gas amount to calls into code that runs these op-codes should check
+    that the amount is still enough.
+crates:
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: patch
