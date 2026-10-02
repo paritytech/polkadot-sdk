@@ -27,11 +27,11 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This may do several things:
 	/// - Processes notifications of the core count changing
-	/// - Processes reports of Instantaneous Core Market Revenue
 	/// - Commit a timeslice
 	/// - Rotate the sale period
-	/// - Request revenue information for a previous timeslice
 	/// - Initialize an instantaneous core pool historical revenue record
+	/// - Claim the on-demand revenue of the timeslice which has just ended
+	/// - Distribute the revenue of one timeslice, claimed or reported by the Relay chain
 	pub(crate) fn do_tick() -> Weight {
 		let mut meter = WeightMeter::new();
 		meter.consume(T::WeightInfo::do_tick_base());
@@ -43,10 +43,6 @@ impl<T: Config> Pallet<T> {
 
 		if Self::process_core_count(&mut status) {
 			meter.consume(T::WeightInfo::process_core_count(status.core_count.into()));
-		}
-
-		if Self::process_revenue() {
-			meter.consume(T::WeightInfo::process_revenue());
 		}
 
 		if let Some(commit_timeslice) = Self::next_timeslice_to_commit(&config, &status) {
@@ -70,17 +66,32 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
+		// The on-demand revenue to distribute in this block, and the timeslice it was earned in.
+		let mut revenue = None;
+
 		let current_timeslice = Self::current_timeslice();
 		if status.last_timeslice < current_timeslice {
 			// The timeslice `status.last_timeslice` has just ended, so claim its on-demand revenue.
 			let ended_timeslice = status.last_timeslice;
 			status.last_timeslice.saturating_inc();
-			let revenue = T::OnDemandRevenue::claim_revenue(ended_timeslice, &Self::account_id());
+			let claimed = T::OnDemandRevenue::claim_revenue(ended_timeslice, &Self::account_id());
 			meter.consume(T::OnDemandRevenue::claim_revenue_weight());
-			Self::process_revenue_amount(ended_timeslice, revenue);
-			meter.consume(T::WeightInfo::process_revenue());
+			revenue = Some((ended_timeslice, claimed));
 			T::Coretime::on_new_timeslice(status.last_timeslice);
 			meter.consume(T::WeightInfo::on_new_timeslice());
+		}
+
+		// Only one timeslice's revenue is distributed per block, so a revenue report from the
+		// Relay chain is merged with the revenue claimed above if it is for the same timeslice,
+		// and otherwise left in the inbox for a later block.
+		if let Some((when, reported)) = Self::take_revenue_report(revenue.map(|(when, _)| when)) {
+			let claimed = revenue.map_or_else(Zero::zero, |(_, claimed)| claimed);
+			revenue = Some((when, claimed.saturating_add(reported)));
+		}
+
+		if let Some((when, amount)) = revenue {
+			Self::process_revenue_amount(when, amount);
+			meter.consume(T::WeightInfo::process_revenue());
 		}
 
 		Status::<T>::put(&status);
@@ -97,21 +108,28 @@ impl<T: Config> Pallet<T> {
 		false
 	}
 
-	pub(crate) fn process_revenue() -> bool {
-		let Some(OnDemandRevenueRecord { until, amount }) = RevenueInbox::<T>::take() else {
-			return false;
-		};
-		let revenue = T::ConvertBalance::convert_back(amount.clone());
+	/// Take the revenue report from the Relay chain out of the inbox, returning the revenue and
+	/// the timeslice it was earned in.
+	///
+	/// If `only_for` is given, a report for any other timeslice is left in the inbox.
+	pub(crate) fn take_revenue_report(
+		only_for: Option<Timeslice>,
+	) -> Option<(Timeslice, BalanceOf<T>)> {
+		let OnDemandRevenueRecord { until, amount } = RevenueInbox::<T>::get()?;
+		let when: Timeslice =
+			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
+		if only_for.is_some_and(|only_for| only_for != when) {
+			return None;
+		}
+		RevenueInbox::<T>::kill();
 
+		let revenue = T::ConvertBalance::convert_back(amount.clone());
 		log::debug!(
 			target: "pallet_broker::process_revenue",
 			"Received {amount:?} from RC, converted into {revenue:?} revenue",
 		);
 
-		let when: Timeslice =
-			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
-		Self::process_revenue_amount(when, revenue);
-		true
+		Some((when, revenue))
 	}
 
 	/// Distribute `revenue`, earned from instantaneous Coretime sales during timeslice `when`,
