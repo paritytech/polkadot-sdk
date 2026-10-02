@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790928065009,
+  "lastUpdate": 1790951869008,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9d8a2fefd2414591c4a243460f3ffc5195a71deb",
-          "message": "Don't bubble up errors during collator score parsing in collator protocol (#11496)\n\nWhen starting the node with a warp sync and we hit a period near the\n`WARP_SYNC_TARGET_BLOCK` (each 512 blocks) we might not be able to call\na runtime apis for some blocks, which will yield an error in the\ncollator protocol revamp.\n\nDon't bubble up such errors to prevent the subsystem from exiting.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-25T13:06:10Z",
-          "tree_id": "015160e05b32d1df2777d0bc46dea09374e6ed2d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9d8a2fefd2414591c4a243460f3ffc5195a71deb"
-        },
-        "date": 1774448950723,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.042,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03817296872400001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08571672564999988,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03866232896199999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "18311d6fa3f6649ba3e0622ad2928ed0789bfbb9",
+          "message": "statement-store: time only the measured operation in the store benchmarks (#13370)\n\nThe statement store benchmarks now time only the operation that they are\nnamed after. Before this change, several benchmarks reported costs that\na node never pays: the drop of a store, a no-op maintain, and the setup\nof the contention store. A benchmark whose submits were rejected looked\nthe same as a working one.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13135.",
+          "timestamp": "2026-10-02T12:59:50Z",
+          "tree_id": "e18cc27d1ff2992072228d780d5a8204e17e32c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/18311d6fa3f6649ba3e0622ad2928ed0789bfbb9"
+        },
+        "date": 1790951837212,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11599999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038518377184,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08912197875999993,
             "unit": "seconds"
           }
         ]
