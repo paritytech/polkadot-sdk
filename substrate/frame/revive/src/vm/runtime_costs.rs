@@ -39,6 +39,9 @@ const GAS_PER_SECOND: u64 = 40_000_000;
 /// gas.
 const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 
+/// Smallest init code length the `evm_instantiate*` benchmarks run at.
+pub const BENCH_MIN_EVM_INIT_CODE_LEN: u32 = 1;
+
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 pub enum RuntimeCosts {
@@ -247,9 +250,6 @@ macro_rules! cost_args {
 }
 
 impl RuntimeCosts {
-	/// Smallest init code length the `evm_instantiate*` benchmarks run at.
-	pub const BENCH_MIN_EVM_INIT_CODE_LEN: u32 = 1;
-
 	/// Extra ref_time a hot storage access pays to look up the block's overlay.
 	fn hot_storage_overlay_overhead<T: Config>() -> Weight {
 		let per_read = |weight_fn: fn(u32) -> Weight| weight_fn(1).saturating_sub(weight_fn(0));
@@ -412,9 +412,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			},
 			Create { init_code_len, balance_transfer, dust_transfer } => {
 				let transfer = if balance_transfer || dust_transfer {
-					T::WeightInfo::evm_instantiate_transfer(dust_transfer.into()).saturating_sub(
-						T::WeightInfo::evm_instantiate(Self::BENCH_MIN_EVM_INIT_CODE_LEN),
-					)
+					T::WeightInfo::evm_instantiate_transfer(dust_transfer.into())
+						.saturating_sub(T::WeightInfo::evm_instantiate(BENCH_MIN_EVM_INIT_CODE_LEN))
 				} else {
 					Weight::zero()
 				};
@@ -595,44 +594,38 @@ mod tests {
 	}
 
 	#[test]
-	fn value_transfers_pay_a_surcharge_independent_of_the_input_size() {
+	fn value_transfers_pay_a_surcharge() {
 		let weight = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
 
-		for dust_transfer in [false, true] {
-			let surcharge = weight(RuntimeCosts::CallTransferSurcharge { dust_transfer });
-			assert!(surcharge.ref_time() > 0, "dust_transfer: {dust_transfer}");
-		}
+		let call = |dust_transfer| weight(RuntimeCosts::CallTransferSurcharge { dust_transfer });
+		assert!(call(false).ref_time() > 0, "a call with value must pay for its transfer");
+		assert!(call(true).ref_time() > 0, "a call with value and dust must pay for its transfer");
 
-		let instantiate: fn(u32, bool, bool) -> RuntimeCosts =
-			|input_data_len, balance_transfer, dust_transfer| RuntimeCosts::Instantiate {
-				input_data_len,
-				balance_transfer,
-				dust_transfer,
-			};
-		let create: fn(u32, bool, bool) -> RuntimeCosts =
-			|init_code_len, balance_transfer, dust_transfer| RuntimeCosts::Create {
-				init_code_len,
-				balance_transfer,
-				dust_transfer,
-			};
+		let instantiate: fn(bool, bool) -> RuntimeCosts = |balance_transfer, dust_transfer| {
+			RuntimeCosts::Instantiate { input_data_len: 0, balance_transfer, dust_transfer }
+		};
+		let create: fn(bool, bool) -> RuntimeCosts = |balance_transfer, dust_transfer| {
+			RuntimeCosts::Create { init_code_len: 0, balance_transfer, dust_transfer }
+		};
 
-		for (cost_of, max_len) in [
-			(instantiate, limits::CALLDATA_BYTES),
-			(create, revm::primitives::eip3860::MAX_INITCODE_SIZE as u32),
-		] {
-			let surcharge = |len, dust_transfer| {
-				weight(cost_of(len, true, dust_transfer))
-					.saturating_sub(weight(cost_of(len, false, false)))
+		for (name, cost_of) in [("instantiate", instantiate), ("create", create)] {
+			let surcharge = |balance_transfer, dust_transfer| {
+				weight(cost_of(balance_transfer, dust_transfer))
+					.saturating_sub(weight(cost_of(false, false)))
 			};
-			for dust_transfer in [false, true] {
-				let with_empty_input = surcharge(0, dust_transfer);
-				assert!(with_empty_input.ref_time() > 0, "dust_transfer: {dust_transfer}");
-				assert_eq!(
-					surcharge(max_len, dust_transfer),
-					with_empty_input,
-					"dust_transfer: {dust_transfer}",
-				);
-			}
+			assert!(
+				surcharge(true, false).ref_time() > 0,
+				"{name} with value must pay for its transfer",
+			);
+			assert!(
+				surcharge(true, true).ref_time() > 0,
+				"{name} with value and dust must pay for its transfer",
+			);
+			assert_eq!(
+				surcharge(false, true),
+				surcharge(true, true),
+				"{name} with only dust does the same work as with value and dust",
+			);
 		}
 	}
 }

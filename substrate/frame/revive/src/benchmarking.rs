@@ -38,7 +38,7 @@ use crate::{
 	},
 	storage::WriteOutcome,
 	vm::{
-		evm,
+		BENCH_MIN_EVM_INIT_CODE_LEN, evm,
 		evm::{Interpreter, instructions},
 		pvm,
 	},
@@ -2577,18 +2577,23 @@ mod benchmarks {
 	}
 
 	// Sets up a call that sends `$value` plus `$dust` and clones an input of `$input_len` bytes.
-	// Defines `$do_call` to make the call and `$assert_transferred` to check the value arrived.
+	// The callee's account is funded up front if `$callee_exists`; otherwise the transfer creates
+	// it. Defines `$do_call` to make the call and `$assert_transferred` to check that the value
+	// arrived.
 	macro_rules! call_setup {
 		(
 			$do_call:ident, $assert_transferred:ident,
-			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr
+			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr,
+			callee_exists: $callee_exists:expr
 		) => {
 			// An EIP-7702 delegated callee is the worst case for the account resolution.
 			let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 			let callee_addr = H160([0x42; 20]);
 			let callee = delegated_eoa::<T>(callee_addr, target.address)?;
-			// Fund the callee so the transfer does not have to create its account.
-			T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
+			if $callee_exists {
+				T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
+			}
+			assert_eq!(System::<T>::account_exists(&callee), $callee_exists);
 
 			let callee_bytes = callee.encode();
 			let callee_len = callee_bytes.len() as u32;
@@ -2599,20 +2604,25 @@ mod benchmarks {
 			);
 			let value_bytes = evm_value.encode();
 
-			let deposit: BalanceOf<T> = (u32::MAX - 100).into();
+			let deposit = default_deposit_limit::<T>();
 			let deposit_bytes = Into::<U256>::into(deposit).encode();
 			let deposit_len = deposit_bytes.len() as u32;
 
 			let mut setup = CallSetup::<T>::default();
-			setup.set_storage_deposit_limit(deposit);
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-			setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
+			setup.set_balance(caller_funding::<T>());
+			let caller_addr = setup.contract().address;
+			let caller_balance_before = Pallet::<T>::evm_balance(&caller_addr);
+			let callee_ed_paid = if $callee_exists {
+				U256::zero()
+			} else {
+				Pallet::<T>::convert_native_to_evm(Pallet::<T>::min_balance())
+			};
 
 			let (mut ext, _) = setup.ext();
 			// `CLONE_INPUT` clones the runtime's own input, so the input goes here.
 			let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![42; $input_len as usize]);
 			let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
-			let before = Pallet::<T>::evm_balance(&callee_addr);
 
 			let mut $do_call = || {
 				runtime.bench_call(
@@ -2625,11 +2635,18 @@ mod benchmarks {
 					pack_hi_lo(0, SENTINEL),                      // output len + data ptr
 				)
 			};
+
 			let $assert_transferred = || {
+				assert!(System::<T>::account_exists(&callee), "{callee_addr:?} should exist");
 				assert_eq!(
 					Pallet::<T>::evm_balance(&callee_addr),
-					before + evm_value,
-					"{callee_addr:?} balance should have grown by {evm_value:?}"
+					evm_value,
+					"{callee_addr:?} should hold {evm_value:?}"
+				);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&caller_addr),
+					caller_balance_before - evm_value - callee_ed_paid,
+					"{caller_addr:?} should pay only the value and the callee's ED"
 				);
 			};
 		};
@@ -2638,7 +2655,14 @@ mod benchmarks {
 	// i: size of the input the call clones
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
-		call_setup!(do_call, assert_transferred, value: 0u32, dust: 0u32, input_len: i);
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 0u32,
+			dust: 0u32,
+			input_len: i,
+			callee_exists: true
+		);
 
 		let result;
 		#[block]
@@ -2659,7 +2683,9 @@ mod benchmarks {
 			assert_transferred,
 			value: 1_000_000u32,
 			dust: 100u32 * d,
-			input_len: 0u32
+			input_len: 0u32,
+			// Worst case: the transfer also has to create the callee's account.
+			callee_exists: false
 		);
 
 		let result;
@@ -2775,7 +2801,8 @@ mod benchmarks {
 	}
 
 	// Sets up an instantiate that sends `$value` plus `$dust` with an input of `$input_len` bytes.
-	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check the value arrived.
+	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check that the value
+	// arrived.
 	macro_rules! seal_instantiate_setup {
 		(
 			$do_instantiate:ident, $assert_instantiated:ident,
@@ -2799,7 +2826,7 @@ mod benchmarks {
 
 			let mut setup = CallSetup::<T>::default();
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-			setup.set_balance(value + 1u32.into() + (Pallet::<T>::min_balance() * 2u32.into()));
+			setup.set_balance(caller_funding::<T>());
 
 			let account_id = &setup.contract().account_id.clone();
 			let (mut ext, _) = setup.ext();
@@ -2809,13 +2836,14 @@ mod benchmarks {
 			let input_len = hash_bytes.len() as u32 + input.len() as u32;
 			let salt = [42u8; 32];
 			let deployer = T::AddressMapper::to_address(&account_id);
-			let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
+			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
+			let new_contract_addr = crate::address::create2(&deployer, &code.code, &input, &salt);
 			let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
 			let deposit_ptr = input_len;
 			let value_ptr = deposit_ptr + deposit_len;
 			let salt_ptr = value_ptr + value_len;
 
-			assert!(AccountInfoOf::<T>::get(&addr).is_none());
+			assert!(AccountInfoOf::<T>::get(&new_contract_addr).is_none());
 
 			let mut $do_instantiate = || {
 				runtime.bench_instantiate(
@@ -2829,11 +2857,16 @@ mod benchmarks {
 				)
 			};
 			let $assert_instantiated = || {
-				assert!(AccountInfo::<T>::load_contract(&addr).is_some());
+				assert!(AccountInfo::<T>::load_contract(&new_contract_addr).is_some());
 				assert_eq!(
-					Pallet::<T>::evm_balance(&addr),
+					Pallet::<T>::evm_balance(&new_contract_addr),
 					evm_value,
-					"{addr:?} balance should hold {evm_value:?}"
+					"{new_contract_addr:?} balance should hold {evm_value:?}"
+				);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&deployer),
+					deployer_balance_before - evm_value,
+					"{deployer:?} should pay only the value"
 				);
 			};
 		};
@@ -2884,7 +2917,8 @@ mod benchmarks {
 	}
 
 	// Sets up an instantiate that sends `$value` plus `$dust` with `$init_code_len` bytes of code.
-	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check the value arrived.
+	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check that the value
+	// arrived.
 	macro_rules! evm_instantiate_setup {
 		(
 			$do_instantiate:ident, $assert_instantiated:ident,
@@ -2895,6 +2929,7 @@ mod benchmarks {
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 			setup.set_balance(caller_funding::<T>());
 			let deployer = setup.contract().address;
+			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
 
 			let (mut ext, _) = setup.ext();
 			let mut interpreter =
@@ -2909,7 +2944,8 @@ mod benchmarks {
 			let _ = interpreter.memory.resize(0, init_code.len());
 			let salt = U256::from(42u64);
 			interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
-			let addr = crate::address::create2(&deployer, &init_code, &[], &salt.to_big_endian());
+			let new_contract_addr =
+				crate::address::create2(&deployer, &init_code, &[], &salt.to_big_endian());
 
 			// Setup stack for create instruction [value, offset, size, salt]
 			let _ = interpreter.stack.push(salt);
@@ -2920,12 +2956,23 @@ mod benchmarks {
 			let mut $do_instantiate =
 				|| instructions::contract::create::<true, _>(&mut interpreter);
 			let $assert_instantiated = || {
-				assert!(AccountInfo::<T>::load_contract(&addr).is_some());
-				assert_eq!(Pallet::<T>::code(&addr).len(), MAX_CODE_SIZE);
+				let new_contract = AccountInfo::<T>::load_contract(&new_contract_addr)
+					.expect("the create should deploy a contract");
+				assert_eq!(Pallet::<T>::code(&new_contract_addr).len(), MAX_CODE_SIZE);
 				assert_eq!(
-					Pallet::<T>::evm_balance(&addr),
+					Pallet::<T>::evm_balance(&new_contract_addr),
 					evm_value,
 					"balance should hold {evm_value:?}"
+				);
+				let code_deposit = Pallet::<T>::convert_native_to_evm(
+					CodeInfoOf::<T>::get(new_contract.code_hash)
+						.expect("the create should store its runtime code")
+						.deposit(),
+				);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&deployer),
+					deployer_balance_before - evm_value - code_deposit,
+					"{deployer:?} should pay only the value and the code deposit"
 				);
 			};
 		};
@@ -2934,7 +2981,7 @@ mod benchmarks {
 	// i: size of the init code
 	#[benchmark(pov_mode = Measured)]
 	fn evm_instantiate(
-		i: Linear<{ RuntimeCosts::BENCH_MIN_EVM_INIT_CODE_LEN }, { MAX_INITCODE_SIZE as u32 }>,
+		i: Linear<{ BENCH_MIN_EVM_INIT_CODE_LEN }, { MAX_INITCODE_SIZE as u32 }>,
 	) -> Result<(), BenchmarkError> {
 		evm_instantiate_setup!(
 			do_instantiate,
@@ -2963,7 +3010,7 @@ mod benchmarks {
 			assert_instantiated,
 			value: 1_000_000u32,
 			dust: 100u32 * d,
-			init_code_len: RuntimeCosts::BENCH_MIN_EVM_INIT_CODE_LEN
+			init_code_len: BENCH_MIN_EVM_INIT_CODE_LEN
 		);
 
 		let result;
