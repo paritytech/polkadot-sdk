@@ -1464,19 +1464,27 @@ impl<Block: BlockT> GossipValidator<Block> {
 	/// Note that we've imported a commit finalizing a given block.
 	/// `set_id` & `round` are the ones the commit message is from and not necessarily
 	/// the latest set ID & round started.
+	///
+	/// Returns `true` if the commit advanced our view of the finalized height, i.e. it isn't a
+	/// duplicate of (or older than) a commit we've already noted.
 	pub(super) fn note_commit_finalized<F>(
 		&self,
 		round: Round,
 		set_id: SetId,
 		finalized: NumberFor<Block>,
 		send_neighbor: F,
-	) where
+	) -> bool
+	where
 		F: FnOnce(Vec<PeerId>, NeighborPacket<NumberFor<Block>>),
 	{
 		let maybe_msg = self.inner.write().note_commit_finalized(round, set_id, finalized);
 
-		if let Some((to, msg)) = maybe_msg {
-			send_neighbor(to, msg);
+		match maybe_msg {
+			Some((to, msg)) => {
+				send_neighbor(to, msg);
+				true
+			},
+			None => false,
 		}
 	}
 
@@ -2554,6 +2562,26 @@ mod tests {
 			&communication::global_topic::<Block>(0),
 			&commit,
 		));
+	}
+
+	#[test]
+	fn note_commit_finalized_reports_whether_finality_advanced() {
+		let (val, _) = GossipValidator::<Block>::new(config(), voter_set_state(), None, None);
+
+		// the validator starts at set id 0
+		val.note_set(SetId(0), Vec::new(), |_, _| {});
+
+		// the first commit advances finality
+		assert!(val.note_commit_finalized(Round(1), SetId(0), 2, |_, _| {}));
+
+		// a second commit for the same height (e.g. from another voter) doesn't
+		assert!(!val.note_commit_finalized(Round(1), SetId(0), 2, |_, _| {}));
+
+		// neither does an older one
+		assert!(!val.note_commit_finalized(Round(1), SetId(0), 1, |_, _| {}));
+
+		// a higher one does
+		assert!(val.note_commit_finalized(Round(2), SetId(0), 3, |_, _| {}));
 	}
 
 	#[test]

@@ -63,7 +63,6 @@ const MAX_DISCONNECT_PERCENT: usize = 20;
 ///
 /// The connected set is fed by statement notification substream events; the desired set is supplied
 /// by the orchestrator. [`Self::refresh_connections`] drives the two together.
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct PeerSteering {
 	/// Statement protocol whose reserved set the connections are steered through.
@@ -85,7 +84,6 @@ struct ConnectedPeer {
 	score: i32,
 }
 
-#[allow(dead_code)]
 impl PeerSteering {
 	pub(crate) fn new(protocol: ProtocolName) -> Self {
 		Self {
