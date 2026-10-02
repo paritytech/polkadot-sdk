@@ -37,6 +37,10 @@ pub trait WeightInfo {
 	fn remove_market() -> Weight;
 	/// Setting the health limits of a pair.
 	fn set_pair_settings() -> Weight;
+	/// Setting the cross rates of a pair.
+	fn set_cross_rates() -> Weight;
+	/// Removing a pair.
+	fn remove_pair() -> Weight;
 }
 
 impl WeightInfo for () {
@@ -62,6 +66,12 @@ impl WeightInfo for () {
 		Weight::zero()
 	}
 	fn set_pair_settings() -> Weight {
+		Weight::zero()
+	}
+	fn set_cross_rates() -> Weight {
+		Weight::zero()
+	}
+	fn remove_pair() -> Weight {
 		Weight::zero()
 	}
 }
