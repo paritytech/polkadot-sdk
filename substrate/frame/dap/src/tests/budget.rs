@@ -22,7 +22,7 @@ use crate::{
 		account_id, assert_try_state_invalid, build_and_execute, set_default_budget_allocation,
 		Dap, RuntimeOrigin, System, Test,
 	},
-	tests::asset_allocations,
+	tests::{asset_allocations, create_asset},
 	AssetAllocation, BudgetAllocation, Error, Event,
 };
 use frame_support::{assert_noop, assert_ok, traits::fungible::NativeOrWithId};
@@ -32,6 +32,8 @@ use sp_runtime::{BoundedBTreeMap, Perbill};
 fn set_budget_allocation_works_with_root() {
 	build_and_execute(true, || {
 		System::set_block_number(1);
+
+		create_asset(10);
 
 		let budget_allocations =
 			budget_map(&[(b"buffer", 20), (b"staker_rewards", 60), (b"validator_incentive", 20)]);
@@ -101,6 +103,24 @@ fn set_asset_allocation_rejects_zero_amounts() {
 			Dap::set_allocations(RuntimeOrigin::root(), None, Some(allocations)),
 			Error::<Test>::ZeroAssetDistribution
 		);
+	});
+}
+
+#[test]
+fn set_asset_allocation_rejects_nonexistent_assets() {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
+		let allocations = asset_allocations(&[(NativeOrWithId::WithId(10), &[(b"buffer", 10)])]);
+
+		assert_noop!(
+			Dap::set_allocations(RuntimeOrigin::root(), None, Some(allocations.clone())),
+			Error::<Test>::AssetDoesntExist
+		);
+
+		create_asset(10);
+
+		assert_ok!(Dap::set_allocations(RuntimeOrigin::root(), None, Some(allocations)));
 	});
 }
 

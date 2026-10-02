@@ -44,6 +44,9 @@ fn deposited_assets_are_drained() {
 	build_and_execute(true, || {
 		System::set_block_number(1);
 
+		create_asset(9);
+		create_asset(10);
+
 		let budget_allocations = budget_map(&[(b"buffer", 100)]);
 		let asset_allocations =
 			asset_allocations(&[(NativeOrWithId::WithId(10), &[(b"validator_incentive", 10)])]);
@@ -55,9 +58,6 @@ fn deposited_assets_are_drained() {
 
 		let staging = Dap::staging_account();
 		let buffer = Dap::buffer_account();
-
-		create_asset(9);
-		create_asset(10);
 
 		assert_ok!(NativeAndAssets::mint_into(NativeOrWithId::WithId(9), &staging, 50));
 		assert_ok!(NativeAndAssets::mint_into(NativeOrWithId::WithId(10), &staging, 100));
@@ -112,6 +112,8 @@ fn on_idle_doesnt_fail_when_native_asset_in_asset_distribution_map() {
 	build_and_execute(true, || {
 		System::set_block_number(1);
 
+		create_asset(10);
+
 		let budget_allocations = budget_map(&[(b"buffer", 100)]);
 		let asset_allocations = asset_allocations(&[
 			(NativeOrWithId::Native, &[(b"validator_incentive", 10)]),
@@ -125,8 +127,6 @@ fn on_idle_doesnt_fail_when_native_asset_in_asset_distribution_map() {
 
 		let staging = Dap::staging_account();
 		let buffer = Dap::buffer_account();
-
-		create_asset(10);
 
 		assert_ok!(Balances::mint_into(&staging, 1_000));
 		assert_ok!(NativeAndAssets::mint_into(NativeOrWithId::WithId(10), &staging, 100));

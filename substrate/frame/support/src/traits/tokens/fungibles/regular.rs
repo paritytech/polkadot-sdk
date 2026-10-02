@@ -619,6 +619,11 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	fn done_withdraw(_asset: Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
 }
 
+/// An implementation of [`fungibles`](super) traits such as [`Inspect`], [`Balanced`],
+/// [`Unbalanced`], [`Mutate`] and [`Create`](super::Create) which contains no assets and no valid
+/// ways of creating one.
+///
+/// Can be used as a dummy replacement for `pallet-assets`.
 pub struct EmptyFungibles<AssetId: AssetIdTrait, Balance: BalanceTrait>(
 	PhantomData<(AssetId, Balance)>,
 );

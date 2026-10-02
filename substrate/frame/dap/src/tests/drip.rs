@@ -82,6 +82,8 @@ fn assets_are_distributed_on_drip() {
 	build_and_execute(true, || {
 		System::set_block_number(1);
 
+		create_asset(10);
+
 		let budget_allocations = budget_map(&[(b"buffer", 100)]);
 		let asset_allocations = asset_allocations(&[
 			(NativeOrWithId::Native, &[(b"buffer", 10), (b"staker_rewards", 60)]),
@@ -129,7 +131,6 @@ fn assets_are_distributed_on_drip() {
 
 		// Check the WithId(10) asset.
 
-		create_asset(10);
 		assert_ok!(NativeAndAssets::mint_into(NativeOrWithId::WithId(10), &buffer, 100_000_000));
 
 		let staker_before = balance_of_asset(10, &staker_pot);
@@ -158,6 +159,8 @@ fn assets_are_distributed_on_drip() {
 fn asset_distribution_silently_fails_when_there_are_not_enough_funds() {
 	build_and_execute(true, || {
 		System::set_block_number(1);
+
+		create_asset(10);
 
 		let budget_allocations = budget_map(&[(b"buffer", 100)]);
 		let asset_allocations = asset_allocations(&[
@@ -210,7 +213,6 @@ fn asset_distribution_silently_fails_when_there_are_not_enough_funds() {
 
 		// Check the WithId(10) asset.
 
-		create_asset(10);
 		assert_ok!(NativeAndAssets::mint_into(NativeOrWithId::WithId(10), &buffer, 10));
 
 		let staker_before = balance_of_asset(10, &staker_pot);
