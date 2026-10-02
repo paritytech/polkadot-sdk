@@ -1,0 +1,24 @@
+title: 'Cleanup: Remove unused INDEXED_BODY attribute'
+doc:
+- audience: Node Dev
+  description: |-
+    In our substrate backend, there has been a `SyncMode::LightState`  which held a `storage_chain_mode` flag which was supposed to sync storage chains. However, this has been unused for years and is also not in use in the current storage chain syncing solution. This is because the original design had the problem that Blocks on storage chains can hold more than 16MB of data (including renewals) and it is not reasonable or possible to fetch them in one go with the block request. The mechanism has been superseeded by a blockimport which fetches this data based on info from the runtime, see #12242.
+
+    This cleans up the never-used leftovers from the previous approach.
+crates:
+- name: cumulus-client-pov-recovery
+  bump: major
+- name: sc-client-api
+  bump: major
+- name: sc-cli
+  bump: major
+- name: sc-consensus
+  bump: major
+- name: sc-client-db
+  bump: major
+- name: sc-network-common
+  bump: major
+- name: sc-network-sync
+  bump: major
+- name: sc-service
+  bump: major
