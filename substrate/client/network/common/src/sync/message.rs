@@ -52,8 +52,12 @@ bitflags! {
 		const MESSAGE_QUEUE = 0b00001000;
 		/// Include a justification for the block.
 		const JUSTIFICATION = 0b00010000;
-		/// Include indexed transactions for a block.
-		const INDEXED_BODY = 0b00100000;
+		/// Deprecated indexed-body attribute bit.
+		///
+		/// Kept so that block requests from older peers still decode. The bit is ignored:
+		/// indexed transactions are fetched through the storage-chain bitswap path instead of
+		/// block requests.
+		const DEPRECATED_INDEXED_BODY = 0b00100000;
 	}
 }
 
@@ -139,8 +143,6 @@ pub mod generic {
 		pub header: Option<Header>,
 		/// Block body if requested.
 		pub body: Option<Vec<Extrinsic>>,
-		/// Block body indexed transactions if requested.
-		pub indexed_body: Option<Vec<Vec<u8>>>,
 		/// Block receipt if requested.
 		pub receipt: Option<Vec<u8>>,
 		/// Block message queue if requested.
