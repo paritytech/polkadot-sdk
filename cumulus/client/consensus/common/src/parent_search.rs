@@ -75,43 +75,22 @@ pub struct ParentSearchResult<Block: BlockT> {
 	pub resubmittable_segment: Vec<Block::Header>,
 }
 
-impl<Block: BlockT> ParentSearchResult<Block> {
-	/// Step the best parent back one block, keeping the ancestry in sync.
-	pub fn walk_best_parent_back(&mut self, new_best: Block::Header) {
-		self.best_parent_header = new_best;
-		self.resubmittable_segment.pop();
+/// Walk the best parent (and its resubmittable segment) back to the first ancestor passing
+/// `filter_parent`, or to the included head. Pure: the segment already holds the ancestry up to the
+/// best parent, so no backend access is needed.
+pub(crate) fn trim_best_parent_to_filter<Block: BlockT>(
+	mut result: ParentSearchResult<Block>,
+	filter_parent: impl Fn(&Block::Header) -> bool,
+) -> ParentSearchResult<Block> {
+	while !filter_parent(&result.best_parent_header) && !result.resubmittable_segment.is_empty() {
+		result.resubmittable_segment.pop();
+		result.best_parent_header = result
+			.resubmittable_segment
+			.last()
+			.cloned()
+			.unwrap_or_else(|| result.included_at_scheduling.clone());
 	}
-
-	/// Fall the best parent back to the included head; ancestry becomes empty.
-	pub fn fall_back_to_included(&mut self) {
-		self.best_parent_header = self.included_at_scheduling.clone();
-		self.resubmittable_segment.clear();
-	}
-
-	/// Walk the best parent and its resubmittable segment back to the first ancestor passing
-	/// `filter_parent`, or to the included head.
-	pub fn trim_best_parent_to_filter(
-		mut self,
-		get_header: impl Fn(Block::Hash) -> Option<Block::Header>,
-		filter_parent: impl Fn(&Block::Header) -> bool,
-	) -> Self {
-		while !filter_parent(&self.best_parent_header) {
-			let parent_hash = *self.best_parent_header.parent_hash();
-			match get_header(parent_hash) {
-				Some(header) => {
-					self.walk_best_parent_back(header);
-					if parent_hash == self.included_at_scheduling.hash() {
-						break;
-					}
-				},
-				None => {
-					self.fall_back_to_included();
-					break;
-				},
-			}
-		}
-		self
-	}
+	result
 }
 
 impl<B: BlockT> std::fmt::Debug for ParentSearchResult<B> {
@@ -363,6 +342,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	backend: &impl Backend<Block>,
 	para_id: ParaId,
 	params: ParentSearchParams,
+	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> RelayChainResult<Option<ParentSearchResult<Block>>> {
 	tracing::trace!(
 		target: LOG_TARGET,
@@ -460,5 +440,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 		},
 	};
 
-	Ok(Some(result))
+	// Trim the best parent (and its segment) back to the first ancestor passing the filter, so the
+	// returned result is the final parent to build on.
+	Ok(Some(trim_best_parent_to_filter(result, filter_parent)))
 }
