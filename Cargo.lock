@@ -6909,7 +6909,7 @@ dependencies = [
  "impl-serde",
  "primitive-types 0.13.1",
  "scale-info",
- "uint 0.10.0",
+ "uint 0.10.2",
 ]
 
 [[package]]
@@ -9322,7 +9322,7 @@ checksum = "803d15461ab0dcc56706adf266158acbc44ccf719bf7d0af30705f58b90a4b8c"
 dependencies = [
  "integer-sqrt",
  "num-traits",
- "uint 0.10.0",
+ "uint 0.10.2",
 ]
 
 [[package]]
@@ -10907,7 +10907,7 @@ dependencies = [
  "tokio-tungstenite 0.27.0",
  "tokio-util",
  "tracing",
- "uint 0.10.0",
+ "uint 0.10.2",
  "unsigned-varint 0.8.0",
  "url",
  "x25519-dalek",
@@ -10919,9 +10919,9 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.15.3"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75a2c94e6b822a70bf38263b39c26ce3bffbdd78795d7da8de134d1f0cb3f7ea"
+checksum = "9395e843af557d592cbde1a17f4070b2cbaa2fe4e518cdcb29c3a36dbfb7bd9b"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10961,7 +10961,7 @@ dependencies = [
  "tokio-tungstenite 0.27.0",
  "tokio-util",
  "tracing",
- "uint 0.10.0",
+ "uint 0.10.2",
  "unsigned-varint 0.8.0",
  "url",
  "x25519-dalek",
@@ -19025,7 +19025,7 @@ dependencies = [
  "impl-rlp",
  "impl-serde",
  "scale-info",
- "uint 0.10.0",
+ "uint 0.10.2",
 ]
 
 [[package]]
@@ -22005,7 +22005,7 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
- "litep2p 0.15.3",
+ "litep2p 0.16.0",
  "log",
  "mockall",
  "multistream-select",
@@ -22107,7 +22107,7 @@ dependencies = [
  "bytes",
  "cid",
  "futures",
- "litep2p 0.15.3",
+ "litep2p 0.16.0",
  "log",
  "proptest",
  "rand 0.8.5",
@@ -22327,7 +22327,7 @@ dependencies = [
  "ed25519-dalek",
  "libp2p-identity",
  "libp2p-kad",
- "litep2p 0.15.3",
+ "litep2p 0.16.0",
  "log",
  "multiaddr",
  "multihash",
@@ -29298,9 +29298,9 @@ dependencies = [
 
 [[package]]
 name = "uint"
-version = "0.10.0"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "909988d098b2f738727b161a106cfc7cab00c539c2687a8836f8e565976fb53e"
+checksum = "2833f28e3adbd1b867292ee4053252ea89ab85e44e5e4701ffead8cada0539fa"
 dependencies = [
  "byteorder",
  "crunchy",
