@@ -48,9 +48,9 @@ mod benchmarks {
 		allocations
 	}
 
-	fn create_asset<T: Config>(asset: NativeOrWithId<T::AssetKind>) {
+	fn create_asset<T: Config>(asset: T::AssetKind) -> DispatchResult {
 		let caller: T::AccountId = whitelisted_caller();
-		assert_ok!(AllAssets::<T>::create(asset, caller, false, T::Balance::one()));
+		T::Assets::create(asset, caller, false, T::Balance::one())
 	}
 
 	fn create_full_asset_allocations<T>() -> AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>
@@ -61,6 +61,10 @@ mod benchmarks {
 		create_asset_allocations::<T>(MAX_DISTRIBUTABLE_ASSETS)
 	}
 
+	/// Will attempt to create `count` assets with ids defined as `AssetKind::from(0)`,
+	/// `AssetKind::from(1)`, ..., `AssetKind::from(count - 1)`. If some assets couldn't be created,
+	/// they are skipped. It's done so because in some runtime configurations `Pallet::Assets` won't
+	/// be configured to the real `pallet-assets` and may not allow creating the assets.
 	fn create_asset_allocations<T>(count: u32) -> AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>
 	where
 		T: Config,
@@ -80,19 +84,16 @@ mod benchmarks {
 
 		for asset_id in 0..count {
 			let asset_id: AssetKindOf<T> = asset_id.into();
-			create_asset::<T>(asset_id.clone());
-			assert_ok!(allocations.try_insert(asset_id, single_asset_allocation.clone()));
+			if create_asset::<T>(asset_id.clone()).is_ok() {
+				assert_ok!(allocations.try_insert(asset_id, single_asset_allocation.clone()));
+			}
 		}
 
 		allocations
 	}
 
 	fn mint_to_staging<T: Config>(asset: AssetKindOf<T>, amount: u32) {
-		assert_ok!(AllAssets::<T>::mint_into(
-			asset,
-			&Pallet::<T>::staging_account(),
-			amount.into()
-		));
+		assert_ok!(T::Assets::mint_into(asset, &Pallet::<T>::staging_account(), amount.into()));
 	}
 
 	fn assert_has_event<T: Config>(generic_event: crate::Event<T>) {
@@ -124,22 +125,22 @@ mod benchmarks {
 		assert_ok!(Pallet::<T>::set_allocations(
 			RawOrigin::Root.into(),
 			Some(budget_allocations),
-			Some(asset_allocations),
+			Some(asset_allocations.clone()),
 		));
 
 		let recipients = T::BudgetRecipients::recipients();
 
 		// Mint ED.
 		for (_, recipient) in &recipients {
-			assert_ok!(AllAssets::<T>::mint_into(
-				NativeOrWithId::Native,
+			assert_ok!(T::Assets::mint_into(
+				T::NativeCurrencyAssetId::get(),
 				recipient,
 				T::Balance::from(100u32),
 			));
 		}
 
-		for i in 0..n {
-			mint_to_staging::<T>(i.into(), 1_000_000_000);
+		for i in asset_allocations.keys() {
+			mint_to_staging::<T>(i.clone(), 1_000_000_000);
 		}
 
 		// Trigger transfer from staging to buffer.
@@ -159,9 +160,9 @@ mod benchmarks {
 
 		assert!(LastIssuanceTimestamp::<T>::get() > past);
 
-		for i in 0..n {
+		for i in asset_allocations.keys() {
 			assert_has_event::<T>(Event::AssetDistributed {
-				asset: i.into(),
+				asset: i.clone(),
 				amount: (elapsed_millis as u32 * recipients.len() as u32).into(),
 				elapsed_millis,
 			});
@@ -173,7 +174,7 @@ mod benchmarks {
 		let allocations = create_full_asset_allocations::<T>();
 		assert_ok!(Pallet::<T>::set_allocations(RawOrigin::Root.into(), None, Some(allocations)));
 
-		mint_to_staging::<T>(NativeOrWithId::Native, 1);
+		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1);
 
 		#[block]
 		{
@@ -182,19 +183,28 @@ mod benchmarks {
 
 		assert_last_event::<T>(Event::StagingDrained {
 			amount: T::Balance::one(),
-			asset: NativeOrWithId::Native,
+			asset: T::NativeCurrencyAssetId::get(),
 		});
 	}
 
 	#[benchmark]
-	fn on_idle_single_asset_drain() {
+	fn on_idle_single_asset_drain() -> Result<(), BenchmarkError> {
 		let allocations = create_full_asset_allocations::<T>();
-		assert_ok!(Pallet::<T>::set_allocations(RawOrigin::Root.into(), None, Some(allocations)));
+		assert_ok!(Pallet::<T>::set_allocations(
+			RawOrigin::Root.into(),
+			None,
+			Some(allocations.clone())
+		));
 
-		const ASSET: u32 = 1;
+		// Can't create any assets.
+		if allocations.is_empty() {
+			return Err(BenchmarkError::Weightless);
+		}
 
-		mint_to_staging::<T>(NativeOrWithId::Native, 1);
-		mint_to_staging::<T>(ASSET.into(), 100);
+		let asset = allocations.keys().next().expect("Checked to be non-empty");
+
+		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1);
+		mint_to_staging::<T>(asset.clone(), 100);
 
 		#[block]
 		{
@@ -203,13 +213,15 @@ mod benchmarks {
 
 		assert_has_event::<T>(Event::StagingDrained {
 			amount: T::Balance::from(99u32),
-			asset: ASSET.into(),
+			asset: asset.clone(),
 		});
 
 		assert_has_event::<T>(Event::StagingDrained {
 			amount: T::Balance::one(),
-			asset: NativeOrWithId::Native,
+			asset: T::NativeCurrencyAssetId::get(),
 		});
+
+		Ok(())
 	}
 
 	// Implements a test for each benchmark. Execute with:
