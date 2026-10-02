@@ -340,7 +340,7 @@ where
 			return Ok(amount);
 		}
 
-		let actual = Self::decrease_balance(source, amount, BestEffort, preservation, Polite)?;
+		let actual = Self::decrease_balance(source, amount, Exact, preservation, Polite)?;
 		// This should never fail as we checked `can_deposit` earlier. But we do a best-effort
 		// anyway.
 		let _ = Self::increase_balance(dest, actual, BestEffort);

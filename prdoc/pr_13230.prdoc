@@ -17,7 +17,9 @@ doc:
     the last of which is what indexers read. This is inert for implementors whose
     `decrease_balance` returns exactly `amount` and disposes of dust separately, which includes
     `pallet-balances`; it reaches those that fold the promotion into the return value, which
-    in-tree means `pallet-assets` and the `ItemOf` and `UnionOf` adapters over it.
+    in-tree means `pallet-assets` and the `ItemOf` and `UnionOf` adapters over it. Both defaults
+    also debit with `Exact` instead of `BestEffort`, so a `decrease_balance` that cannot take the
+    full `amount` fails the transfer rather than moving less.
 
     `Unbalanced::decrease_balance` already documented that its return may exceed `amount` by up to
     `minimum_balance() - 1`. It now also states that the excess must still be in the system and
