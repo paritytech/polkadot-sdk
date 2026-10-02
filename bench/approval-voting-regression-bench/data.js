@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790928018232,
+  "lastUpdate": 1790951821300,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "af5c0145f3c9c5b925c1a2013ad8f0d02a30b649",
-          "message": "Add a call to `.unvalidated()` for all eth-rpc interactions (#11468)\n\n# Description\n\nThis PR updates the `eth-rpc` so that all interactions with subxt are\nunvalidated. This change was made to allow us to use any `eth-rpc`\nversion with any version of pallet revive given that there's no actual\ninterface differences in the runtime functions that we called. Before\nthis change, we would get a lot of metadata mismatch errors for slightly\nolder versions of revive. Our assumption is that this happened due to us\nadding more runtime functions into pallet-revive's runtime API which\nlead to the hash of the metadata being different, thus to the metadata\nmismatch.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-26T07:39:10Z",
-          "tree_id": "5d64f75170fc2f7dc7da51c1587d965d19720aab",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/af5c0145f3c9c5b925c1a2013ad8f0d02a30b649"
-        },
-        "date": 1774515570495,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63629.37000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002302099,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00555548366,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.84789931483,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.469712793429967,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002453903,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7955583170899667,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.427643359599997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8024372473200017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.818957000330001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002302099,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002453903,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7716620705999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.416084574942862,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.754487351640001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "18311d6fa3f6649ba3e0622ad2928ed0789bfbb9",
+          "message": "statement-store: time only the measured operation in the store benchmarks (#13370)\n\nThe statement store benchmarks now time only the operation that they are\nnamed after. Before this change, several benchmarks reported costs that\na node never pays: the drop of a store, a no-op maintain, and the setup\nof the contention store. A benchmark whose submits were rejected looked\nthe same as a working one.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13135.",
+          "timestamp": "2026-10-02T12:59:50Z",
+          "tree_id": "e18cc27d1ff2992072228d780d5a8204e17e32c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/18311d6fa3f6649ba3e0622ad2928ed0789bfbb9"
+        },
+        "date": 1790951788945,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63562.44999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005407882520000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7853694079100024,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002158558,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3482445578299966,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.38162335349281,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019698549999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.798924306259998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002158558,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.244905882519998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7654930998299996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7392003956500015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.80226623252,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019698549999999998,
             "unit": "seconds"
           }
         ]
