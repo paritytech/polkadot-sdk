@@ -2245,6 +2245,14 @@ fn balance_change_callbacks_fire_on_a_transfer_that_burns_dust() {
 			vec![(asset, source, 5u64).encode()],
 			"the dust a transfer burns must fire `burned`"
 		);
+
+		// A self-transfer moves nothing, so it burns no dust either: 5 would be dust again, but
+		// the supply stays and so must the callbacks.
+		storage::clear(AssetsCallbackHandle::BURNED.as_bytes());
+		assert_ok!(Assets::do_transfer(asset, &dest, &dest, 90, None, f));
+		assert_eq!(Assets::balance(asset, dest), 95);
+		assert_eq!(Assets::total_supply(asset), 95);
+		assert!(AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED).is_empty());
 	});
 }
 
