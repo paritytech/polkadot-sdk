@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	BalanceOf, Code, CodeInfoOf, Config, H160, HoldReason, Pallet, StorageDeposit,
+	BalanceOf, Code, CodeInfoOf, Config, H160, H256, HoldReason, Pallet, StorageDeposit,
 	address::{AddressMapper, create1},
 	test_utils::{ALICE, BOB, BOB_ADDR, DJANGO, DJANGO_ADDR, builder::Contract},
 	tests::{
@@ -32,7 +32,7 @@ use frame_support::{
 	assert_ok,
 	traits::{
 		LockableCurrency, OnIdle, WithdrawReasons,
-		fungible::{Inspect, InspectFreeze, InspectHold, Mutate, MutateFreeze, MutateHold},
+		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze, MutateHold},
 	},
 	weights::Weight,
 };
@@ -735,7 +735,7 @@ fn storage_hold() -> RuntimeHoldReason {
 }
 
 fn foreign_hold() -> RuntimeHoldReason {
-	HoldReason::AddressMapping.into()
+	pallet_dummy::HoldReason::Foreign.into()
 }
 
 fn foreign_freeze() -> RuntimeFreezeReason {
@@ -871,19 +871,22 @@ fn precompile_terminate_with_encumbered_balance(
 	});
 }
 
-/// Funds that arrive after `System.terminate` all go to the beneficiary.
+/// Funds that arrive after `System.terminate` go to the beneficiary as long as the balance covers
+/// the lock or freeze.
 ///
-/// The ED is 50 and the late funds are either below it or above it. Late funds above the ED would
-/// cover the burn of the ED, but an encumbrance keeps the account alive. The ED is therefore kept
-/// and the sweep sends the whole late amount. Without an encumbrance the ED is burned and the
-/// account is reaped, unless the late funds are below the ED: the burn would then leave them as
-/// dust, so the ED is kept as well.
+/// The ED is 50 and the late funds are either below it or above it. The sweep sends everything
+/// above the ED and what an encumbrance pins, before the ED is burned. Without an encumbrance the
+/// burn then reaps the account, so nothing is left. An encumbrance keeps the account alive, so the
+/// ED is kept, and the sweep still sent the whole late amount. A lock or freeze of 1,000,000 is
+/// more than the whole balance: the sweep sends nothing and the late funds stay on the account.
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
 	[
 		Encumbrance::None,
 		Encumbrance::Lock(500),
+		Encumbrance::Lock(1_000_000),
 		Encumbrance::Freeze(500),
+		Encumbrance::Freeze(1_000_000),
 		Encumbrance::Hold(1),
 		Encumbrance::Consumer,
 	],
@@ -898,6 +901,7 @@ fn precompile_terminate_with_encumbered_balance_and_late_funds(
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let Contract { addr, account_id } = encumbered_contract(fixture_type, encumbrance);
 		let ed = Contracts::min_balance();
+		let deposit = get_balance_on_hold(&storage_hold(), &account_id);
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code))
 				.native_value(late)
@@ -918,22 +922,24 @@ fn precompile_terminate_with_encumbered_balance_and_late_funds(
 			)
 			.build_and_unwrap_result();
 
-		let (paid_out, left) = match encumbrance {
-			Encumbrance::None if late < ed => (SPENDABLE, ed),
-			Encumbrance::None => (SPENDABLE, 0),
-			Encumbrance::Lock(frozen) | Encumbrance::Freeze(frozen) => {
+		let (paid_out, swept, left) = match encumbrance {
+			Encumbrance::None => (SPENDABLE, late, 0),
+			Encumbrance::Lock(frozen) | Encumbrance::Freeze(frozen) if frozen <= ed + SPENDABLE => {
 				let pinned = frozen.max(ed);
-				(ed + SPENDABLE - pinned, pinned)
+				(ed + SPENDABLE - pinned, late, pinned)
 			},
-			Encumbrance::Hold(amount) => (SPENDABLE - amount, ed + amount),
-			Encumbrance::Consumer => (SPENDABLE, ed),
+			Encumbrance::Lock(_) | Encumbrance::Freeze(_) => {
+				(0, 0, ed + SPENDABLE + deposit + late)
+			},
+			Encumbrance::Hold(amount) => (SPENDABLE - amount, late, ed + amount),
+			Encumbrance::Consumer => (SPENDABLE, late, ed),
 		};
 		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
 		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
 		assert_eq!(
 			get_balance(&DJANGO) - django_before,
-			paid_out + late,
-			"beneficiary gets the payout and all of the late funds",
+			paid_out + swept,
+			"beneficiary gets the payout and the late funds the encumbrance does not pin",
 		);
 		assert_eq!(Balances::total_balance(&account_id), left, "balance left on the account");
 		match encumbrance {
@@ -1262,6 +1268,11 @@ fn precompile_terminate_then_syscall_same_tx(fixture_type: FixtureType, via_dele
 	assert_eq!(then_syscall, once);
 }
 
+/// The refcount of every stored code.
+fn code_infos() -> alloc::collections::BTreeMap<H256, u64> {
+	CodeInfoOf::<Test>::iter().map(|(hash, info)| (hash, info.refcount())).collect()
+}
+
 /// `SELFDESTRUCT` in the constructor of a top-level instantiation deletes the contract it
 /// creates. The value goes to the beneficiary and every deposit goes back to the origin.
 #[test_case(FixtureType::Solc)]
@@ -1271,8 +1282,8 @@ fn syscall_in_top_level_constructor_deletes_contract(fixture_type: FixtureType) 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let _ = <Test as Config>::Currency::set_balance(&DJANGO, 1_000_000);
+		let code_infos_before = code_infos();
 		let alice_before = get_balance(&ALICE);
-		let alice_held_before = Balances::total_balance_on_hold(&ALICE);
 		let django_before = get_balance(&DJANGO);
 
 		let result = builder::bare_instantiate(Code::Upload(code))
@@ -1291,11 +1302,7 @@ fn syscall_in_top_level_constructor_deletes_contract(fixture_type: FixtureType) 
 			SPENDABLE,
 			"origin must only pay the value it sent",
 		);
-		assert_eq!(
-			Balances::total_balance_on_hold(&ALICE),
-			alice_held_before,
-			"no deposit stays on hold",
-		);
+		assert_eq!(code_infos(), code_infos_before, "no code reference stays behind");
 	});
 }
 
@@ -1315,14 +1322,8 @@ fn syscall_in_nested_constructor_deletes_contract(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(caller_code))
 				.native_value(SPENDABLE)
 				.build_and_unwrap_contract();
-		let code_infos = || {
-			CodeInfoOf::<Test>::iter()
-				.map(|(hash, info)| (hash, info.refcount()))
-				.collect::<alloc::collections::BTreeMap<_, _>>()
-		};
 		let code_infos_before = code_infos();
 		let alice_before = get_balance(&ALICE);
-		let alice_held_before = Balances::total_balance_on_hold(&ALICE);
 		let django_before = get_balance(&DJANGO);
 		if fixture_type == FixtureType::Resolc {
 			// Need to pre-upload code for PVM. Nothing else references it, so the teardown
@@ -1358,10 +1359,5 @@ fn syscall_in_nested_constructor_deletes_contract(fixture_type: FixtureType) {
 		assert_eq!(Balances::total_balance(&account_id), 0, "nothing is left on the account");
 		assert_eq!(code_infos(), code_infos_before, "no code reference stays behind");
 		assert_eq!(get_balance(&ALICE), alice_before, "origin must get every deposit back");
-		assert_eq!(
-			Balances::total_balance_on_hold(&ALICE),
-			alice_held_before,
-			"no deposit stays on hold",
-		);
 	});
 }

@@ -18,12 +18,12 @@ doc:
     If the account cannot be reaped because something still pins funds on it, the contract is
     deleted and the account stays behind as a plain account holding those funds. A contract
     deployed to the same address later takes the account over. Funds sent to the contract after
-    `System.terminate` are still forwarded to the beneficiary at the end of the call stack. The
-    ED is only burned when the account can actually be reaped and the burn would not leave an
-    amount below the ED to be removed as dust. Under an encumbrance, or when fewer late funds
-    than the ED arrived, the ED stays on the account and these funds reach the beneficiary in
-    full. If that transfer fails, the funds stay on the account and the contract is deleted
-    anyway.
+    `System.terminate` are forwarded to the beneficiary at the end of the call stack, before the
+    ED is burned. This only holds as far as the balance covers the locks and freezes on the
+    account: under a lock or freeze larger than the balance nothing is forwarded and the late
+    funds stay on the account. If the transfer fails, the funds stay on the account as well, and
+    the contract is deleted anyway. The ED is only burned when the account can actually be reaped.
+    Under an encumbrance the ED stays on the account.
 
     A `SELFDESTRUCT` run after `System.terminate`, in the same frame or in a later one, no longer
     cancels the termination: the contract is deleted and its deposit is refunded once.
