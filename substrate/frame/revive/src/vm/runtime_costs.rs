@@ -599,7 +599,7 @@ mod tests {
 
 		let call = |dust_transfer| weight(RuntimeCosts::CallTransferSurcharge { dust_transfer });
 		assert!(call(false).ref_time() > 0, "a call with value must pay for its transfer");
-		assert!(call(true).ref_time() > 0, "a call with value and dust must pay for its transfer");
+		assert!(call(true).ref_time() > call(false).ref_time(), "a call with dust must cost more");
 
 		let instantiate: fn(bool, bool) -> RuntimeCosts = |balance_transfer, dust_transfer| {
 			RuntimeCosts::Instantiate { input_data_len: 0, balance_transfer, dust_transfer }
@@ -618,8 +618,8 @@ mod tests {
 				"{name} with value must pay for its transfer",
 			);
 			assert!(
-				surcharge(true, true).ref_time() > 0,
-				"{name} with value and dust must pay for its transfer",
+				surcharge(true, true).ref_time() > surcharge(true, false).ref_time(),
+				"{name} with dust must cost more",
 			);
 			assert_eq!(
 				surcharge(false, true),
