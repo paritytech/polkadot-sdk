@@ -467,11 +467,11 @@ impl Client {
 		is_archive: bool,
 		subscription_gap_queue: SubscriptionGapQueue,
 		runtime_api_provider: VersionAwareRuntimeApiProvider,
+		chain_id: u64,
 	) -> Result<Self, ClientError> {
-		let (chain_id, max_block_weight, automine) =
-			tokio::try_join!(crate::chain_id(&api), max_block_weight(&api), async {
-				Ok(get_automine(&rpc_client).await)
-			},)?;
+		let (max_block_weight, automine) = tokio::try_join!(max_block_weight(&api), async {
+			Ok(get_automine(&rpc_client).await)
+		},)?;
 
 		// Compute the very first capabilities so that the provider's cache has an anchor which
 		// the subscriptions grow forward and the backfill grows backward.
