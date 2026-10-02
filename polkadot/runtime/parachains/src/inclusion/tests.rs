@@ -403,10 +403,12 @@ fn make_vdata_hash_with_block_number(
 	para_id: ParaId,
 	relay_parent_number: BlockNumber,
 ) -> Option<Hash> {
+	let session_index = shared::CurrentSessionIndex::<Test>::get();
 	let persisted_validation_data = crate::util::make_persisted_validation_data::<Test>(
 		para_id,
 		relay_parent_number,
 		Default::default(),
+		session_index,
 	)?;
 	Some(persisted_validation_data.hash())
 }
@@ -1342,6 +1344,9 @@ fn candidate_checks() {
 					RELAY_PARENT_NUM,
 					Default::default(),
 					candidate_b_1.commitments.head_data.clone(),
+					crate::util::session_max_pov_size::<Test>(
+						shared::CurrentSessionIndex::<Test>::get(),
+					),
 				)
 				.hash(),
 				hrmp_watermark: RELAY_PARENT_NUM,
@@ -1427,6 +1432,9 @@ fn candidate_checks() {
 					RELAY_PARENT_NUM,
 					Default::default(),
 					candidate_b_1.commitments.head_data.clone(),
+					crate::util::session_max_pov_size::<Test>(
+						shared::CurrentSessionIndex::<Test>::get(),
+					),
 				)
 				.hash(),
 				hrmp_watermark: RELAY_PARENT_NUM,
@@ -2171,6 +2179,9 @@ fn backing_works_with_elastic_scaling() {
 				RELAY_PARENT_NUM,
 				Default::default(),
 				candidate_b_1.commitments.head_data.clone(),
+				crate::util::session_max_pov_size::<Test>(
+					shared::CurrentSessionIndex::<Test>::get(),
+				),
 			)
 			.hash(),
 			hrmp_watermark: RELAY_PARENT_NUM,
@@ -3207,5 +3218,61 @@ fn check_validation_outputs_for_runtime_api_rejects_oversized_new_validation_cod
 		};
 
 		assert!(!ParaInclusion::check_validation_outputs_for_runtime_api(chain_a, 1, commitments,));
+	});
+}
+
+/// A candidate accepted under a looser session snapshot must get its code upgrade scheduled:
+/// `enact_candidate` must not re-check the code size against the live `ActiveConfig`.
+#[test]
+fn code_upgrade_accepted_under_looser_session_is_scheduled() {
+	let chain_a = ParaId::from(1_u32);
+	let paras = vec![(chain_a, ParaKind::Parachain)];
+
+	new_test_ext(genesis_config(paras)).execute_with(|| {
+		run_to_block(2, |_| None);
+		let _ = default_allowed_scheduling_parent_tracker();
+
+		let active_config = configuration::ActiveConfig::<Test>::get();
+		let new_code = ValidationCode(vec![0u8; active_config.max_code_size as usize + 1]);
+
+		let parent_number = System::block_number().saturating_sub(1);
+		let candidate = TestCandidateBuilder {
+			para_id: chain_a,
+			relay_parent: System::parent_hash(),
+			pov_hash: Hash::repeat_byte(1),
+			persisted_validation_data_hash: make_vdata_hash(chain_a).unwrap(),
+			hrmp_watermark: parent_number,
+			new_validation_code: Some(new_code.clone()),
+			..Default::default()
+		}
+		.build();
+
+		// The session the candidate was built in allowed a larger code than the live config does.
+		let session_index = candidate
+			.descriptor
+			.session_index()
+			.unwrap_or_else(shared::CurrentSessionIndex::<Test>::get);
+		session_info::SessionExecutionConfigs::<Test>::insert(
+			session_index,
+			SessionExecutionConfig {
+				max_code_size: new_code.0.len() as u32,
+				..active_config.session_execution_config()
+			},
+		);
+
+		let parent_head = paras::Heads::<Test>::get(chain_a).unwrap_or_default();
+		let check_ctx = CandidateCheckContext::<Test>::new(None);
+		assert!(check_ctx.verify_backed_candidate(&candidate, parent_head).is_ok());
+
+		ParaInclusion::enact_candidate(
+			parent_number,
+			candidate,
+			Default::default(),
+			Default::default(),
+			CoreIndex(0),
+			GroupIndex(0),
+		);
+
+		assert_eq!(paras::FutureCodeHash::<Test>::get(&chain_a), Some(new_code.hash()));
 	});
 }

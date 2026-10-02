@@ -332,6 +332,7 @@ mod response_sanity_check {
 		harness::CollatorSut,
 		world::{activated_world, WorldExt as _},
 	};
+	use polkadot_subsystem_test_sim::chain::model::sim_session_execution_config;
 	use std::time::Duration;
 
 	/// Window for the "candidate not seconded" assertion. Long enough that a working impl
@@ -356,7 +357,7 @@ mod response_sanity_check {
 			parent_head: HeadData(Vec::new()),
 			relay_parent_number,
 			relay_parent_storage_root: Hash::zero(),
-			max_pov_size: 5 * 1024 * 1024,
+			max_pov_size: sim_session_execution_config().max_pov_size,
 		}
 	}
 

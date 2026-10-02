@@ -1017,6 +1017,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			let config = configuration::ActiveConfig::<T>::get();
+			ensure!(new_code.0.len() <= config.max_code_size as usize, Error::<T>::InvalidCode);
 			Self::schedule_code_upgrade(
 				para,
 				new_code,
@@ -2220,9 +2221,10 @@ impl<T: Config> Pallet<T> {
 		cfg: &configuration::HostConfiguration<BlockNumberFor<T>>,
 		upgrade_strategy: UpgradeStrategy,
 	) {
-		// Should be prevented by checks in `schedule_code_upgrade_external`
-		let new_code_len = new_code.0.len();
-		if new_code_len < MIN_CODE_SIZE as usize || new_code_len > cfg.max_code_size as usize {
+		// `max_code_size` is not checked here. The extrinsic paths check it against `ActiveConfig`;
+		// the inclusion caller does not, relying on the backing-time check against the relay-parent
+		// session, which may be looser than `cfg`. Re-checking would drop upgrades that passed it.
+		if new_code.0.len() < MIN_CODE_SIZE as usize {
 			log::warn!(target: LOG_TARGET, "attempted to schedule an upgrade with invalid new validation code",);
 			return;
 		}

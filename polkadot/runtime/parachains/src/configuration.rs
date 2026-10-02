@@ -366,6 +366,11 @@ where
 		SessionExecutionConfig {
 			max_pov_size: self.max_pov_size,
 			validation_code_bomb_limit: self.validation_code_bomb_limit(),
+			max_code_size: self.max_code_size,
+			max_head_data_size: self.max_head_data_size,
+			max_upward_message_num_per_candidate: self.max_upward_message_num_per_candidate,
+			max_upward_message_size: self.max_upward_message_size,
+			hrmp_max_message_num_per_candidate: self.hrmp_max_message_num_per_candidate,
 		}
 	}
 
@@ -1271,6 +1276,9 @@ pub mod pallet {
 		}
 
 		/// Set the maximum relay parent session age.
+		///
+		/// Shrinking it prunes older execution data at once, so candidates already included with
+		/// such old relay parents can no longer be validated in disputes.
 		#[pallet::call_index(56)]
 		#[pallet::weight((
 			T::WeightInfo::set_config_with_u32(),

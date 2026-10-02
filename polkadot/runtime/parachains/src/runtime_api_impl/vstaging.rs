@@ -56,7 +56,7 @@ pub fn ancestor_relay_parent_info<T: shared::Config>(
 /// Implementation of `session_execution_config` runtime API.
 ///
 /// Returns the execution-relevant host configuration for the given session,
-/// if stored. Data is available for sessions within the dispute window.
+/// if stored. Data is kept for `dispute_period + max_relay_parent_session_age` sessions.
 pub fn session_execution_config<T: session_info::Config>(
 	session_index: SessionIndex,
 ) -> Option<SessionExecutionConfig> {

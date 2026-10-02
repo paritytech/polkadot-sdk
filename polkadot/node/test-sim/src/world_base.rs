@@ -299,19 +299,21 @@ pub fn synthesise_constraints(
 	required_parent: HeadData,
 	validation_code_hash: ValidationCodeHash,
 ) -> Constraints {
-	const MAX_POV_SIZE: u32 = 1_000_000;
+	// The session-scoped limits must match what the model reports for `SessionExecutionConfig`,
+	// which now overrides these fields per candidate in real prospective-parachains.
+	let session_cfg = crate::chain::model::sim_session_execution_config();
 	Constraints {
 		min_relay_parent_number,
-		max_pov_size: MAX_POV_SIZE,
-		max_head_data_size: 20480,
-		max_code_size: 1_000_000,
+		max_pov_size: session_cfg.max_pov_size,
+		max_head_data_size: session_cfg.max_head_data_size,
+		max_code_size: session_cfg.max_code_size,
 		ump_remaining: 10,
 		ump_remaining_bytes: 1_000,
-		max_ump_num_per_candidate: 10,
+		max_ump_num_per_candidate: session_cfg.max_upward_message_num_per_candidate,
 		dmp_remaining_messages: vec![],
 		hrmp_inbound: InboundHrmpLimitations { valid_watermarks },
 		hrmp_channels_out: vec![],
-		max_hrmp_num_per_candidate: 0,
+		max_hrmp_num_per_candidate: session_cfg.hrmp_max_message_num_per_candidate,
 		required_parent,
 		validation_code_hash,
 		upgrade_restriction: None,

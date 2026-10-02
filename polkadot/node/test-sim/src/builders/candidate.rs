@@ -206,7 +206,7 @@ impl CandidateBuilder {
 				parent_head: self.parent_head,
 				relay_parent_number: self.relay_parent_number,
 				relay_parent_storage_root: Hash::zero(),
-				max_pov_size: 5 * 1024 * 1024,
+				max_pov_size: crate::chain::model::sim_session_execution_config().max_pov_size,
 			}
 		};
 		let mut upward_messages: Vec<Vec<u8>> = Vec::new();

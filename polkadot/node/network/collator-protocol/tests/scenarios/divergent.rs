@@ -309,6 +309,7 @@ mod reputation_emission {
 		MutateDescriptorV2, PersistedValidationData,
 	};
 	use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v2;
+	use polkadot_subsystem_test_sim::chain::model::sim_session_execution_config;
 	use std::time::Duration;
 
 	const PARA_A: ParaId = ParaId::new(2000);
@@ -319,7 +320,7 @@ mod reputation_emission {
 			parent_head: HeadData(Vec::new()),
 			relay_parent_number,
 			relay_parent_storage_root: Hash::zero(),
-			max_pov_size: 5 * 1024 * 1024,
+			max_pov_size: sim_session_execution_config().max_pov_size,
 		}
 	}
 

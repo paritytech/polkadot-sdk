@@ -300,7 +300,14 @@ sp_api::decl_runtime_apis! {
 
 		/***** Added in v12 *****/
 		/// Retrieve the maximum uncompressed code size.
+		///
+		/// Deprecated. Use `session_execution_config(session_index).validation_code_bomb_limit`
+		/// instead so the value is keyed on the candidate's session rather than the live
+		/// host configuration. This API will be removed in a future runtime API version.
 		#[api_version(12)]
+		#[deprecated(
+			note = "use `session_execution_config(session_index).validation_code_bomb_limit`"
+		)]
 		fn validation_code_bomb_limit() -> u32;
 
 		/***** Added in v13 *****/

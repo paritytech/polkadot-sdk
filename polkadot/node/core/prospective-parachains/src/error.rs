@@ -54,6 +54,9 @@ pub enum Error {
 
 	#[error("Candidate's PVD max_pov_size {got} does not match runtime value {expected}")]
 	MaxPovSizeMismatch { expected: u32, got: u32 },
+
+	#[error("Querying the candidate's relay-parent session execution config failed")]
+	SessionExecutionConfigQueryFailed,
 }
 
 /// General `Result` type.

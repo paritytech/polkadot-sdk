@@ -537,6 +537,7 @@ mod v3_scheduling_parent {
 		MutateDescriptorV2, PersistedValidationData, RELAY_CHAIN_SLOT_DURATION_MILLIS,
 	};
 	use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v3;
+	use polkadot_subsystem_test_sim::chain::model::sim_session_execution_config;
 	use sp_consensus_slots::Slot;
 	use std::time::Duration;
 
@@ -561,7 +562,7 @@ mod v3_scheduling_parent {
 			parent_head: HeadData(Vec::new()),
 			relay_parent_number: w.base.chain.lock().block(&relay_parent).unwrap().number,
 			relay_parent_storage_root: Hash::zero(),
-			max_pov_size: 5 * 1024 * 1024,
+			max_pov_size: sim_session_execution_config().max_pov_size,
 		};
 		let mut committed = dummy_committed_candidate_receipt_v3(relay_parent, scheduling_parent);
 		committed.descriptor.set_para_id(PARA_A);

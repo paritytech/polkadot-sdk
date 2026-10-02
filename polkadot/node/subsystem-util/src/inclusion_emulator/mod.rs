@@ -81,9 +81,9 @@
 /// That means a few blocks of execution time lost, which is not a big deal for code upgrades
 /// in practice at most once every few weeks.
 use polkadot_primitives::{
-	async_backing::Constraints as PrimitiveConstraints, skip_ump_signals, BlockNumber,
-	CandidateCommitments, Hash, HeadData, Id as ParaId, PersistedValidationData,
-	UpgradeRestriction, ValidationCodeHash,
+	async_backing::Constraints as PrimitiveConstraints, skip_ump_signals,
+	vstaging::SessionExecutionConfig, BlockNumber, CandidateCommitments, Hash, HeadData,
+	Id as ParaId, PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -228,6 +228,17 @@ pub enum ModificationError {
 }
 
 impl Constraints {
+	/// Replace the per-candidate limits with the candidate's relay-parent session snapshot, which
+	/// is what the runtime's acceptance check uses. Queue capacities are left alone: they are live
+	/// relay-chain state, not limits the collator built against.
+	pub fn apply_session_execution_config(&mut self, cfg: &SessionExecutionConfig) {
+		self.max_pov_size = cfg.max_pov_size as _;
+		self.max_code_size = cfg.max_code_size as _;
+		self.max_head_data_size = cfg.max_head_data_size as _;
+		self.max_ump_num_per_candidate = cfg.max_upward_message_num_per_candidate as _;
+		self.max_hrmp_num_per_candidate = cfg.hrmp_max_message_num_per_candidate as _;
+	}
+
 	/// Check modifications against constraints.
 	pub fn check_modifications(
 		&self,
