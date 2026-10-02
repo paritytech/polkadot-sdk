@@ -23,7 +23,7 @@
 //! `examples/full_store_memory.rs` first to build it while measuring memory), and all benchmarks
 //! run against it in phases:
 //!
-//! 1. reads on the shared store (point lookups, bounded / diverse / scaled queries, scans);
+//! 1. reads on the shared store (point lookups, bounded / diverse / scaled subscriptions);
 //! 2. writes through a dedicated sacrificial account (fresh high-range ids, so the fixture accounts
 //!    are never perturbed);
 //! 3. sacrificial-account cleanup (`remove_by`), restoring exact fixture counts;
@@ -37,11 +37,10 @@
 mod common;
 
 use common::*;
-use criterion::{BatchSize, Criterion};
+use criterion::{BatchSize, Bencher, Criterion};
 use sp_core::Pair as _;
-use sp_statement_store::{OptimizedTopicFilter, StatementSource, SubmitResult};
+use sp_statement_store::{StatementSource, SubmitResult, Topic};
 use std::{
-	collections::HashSet,
 	sync::{
 		atomic::{AtomicU64, Ordering},
 		Arc,
@@ -63,7 +62,7 @@ fn sacrificial_batch(count: usize, topics_per: usize) -> Vec<sp_statement_store:
 			let id = base + k;
 			let topics: Vec<_> =
 				(0..topics_per as u64).map(|t| topic(30_000_000_000 + id * 4 + t)).collect();
-			create_statement(id, &topics, None, data_size, LOW_EXPIRY, &keypair)
+			create_statement(id, &topics, data_size, LOW_EXPIRY, &keypair)
 		})
 		.collect()
 }
@@ -94,73 +93,26 @@ fn point_reads(c: &mut Criterion, store: &Arc<Store>) {
 	g.sample_size(50);
 	g.bench_function("has_statement_hit", |b| b.iter(|| store.has_statement(&hit)));
 	g.bench_function("has_statement_miss", |b| b.iter(|| store.has_statement(&miss)));
-	g.bench_function("statement_hit", |b| b.iter(|| store.statement(&hit)));
 	g.finish();
 }
 
-fn query_reads(c: &mut Criterion, store: &Arc<Store>) {
-	let t01 = t01();
-	let dtopic = [diverse_topic()];
-	let dkey = diverse_key();
+/// Dropping the returned stream unsubscribes, so subscribers never pile up. The timing covers the
+/// snapshot retrieval and the unsubscribe.
+fn subscribe(b: &mut Bencher, store: &Store, topics: &[Topic]) {
+	let filter = match_all(topics);
+	b.iter(|| store.subscribe_statement(filter.clone()).expect("subscribes to the store"))
+}
 
-	let mut g = c.benchmark_group("full4m_query");
+/// Subscription snapshots: a bounded and a diverse topic set, then the scaled ~10% set.
+fn subscribe_reads(c: &mut Criterion, store: &Arc<Store>) {
+	let mut g = c.benchmark_group("full4m_subscribe");
 	g.sample_size(30);
-	g.bench_function("broadcasts_100", |b| b.iter(|| store.broadcasts(&t01)));
-	g.bench_function("broadcasts_diverse_6", |b| b.iter(|| store.broadcasts(&dtopic)));
-	g.bench_function("posted_100", |b| b.iter(|| store.posted(&[], dk42())));
-	g.bench_function("posted_diverse_4", |b| b.iter(|| store.posted(&[], dkey)));
-	g.finish();
-
-	// 64 threads × 10 ops, the same shape as `broadcasts` / `posted` in the standard suite.
-	let mut g = c.benchmark_group("full4m_query_concurrent");
-	g.sample_size(10);
-	g.bench_function("broadcasts_100_x640", |b| {
-		b.iter(|| {
-			std::thread::scope(|s| {
-				for _ in 0..NUM_THREADS {
-					let store = store.clone();
-					let topics = t01.clone();
-					s.spawn(move || {
-						for _ in 0..OPS_PER_THREAD {
-							let _ = store.broadcasts(&topics);
-						}
-					});
-				}
-			});
-		})
-	});
-	g.bench_function("posted_100_x640", |b| {
-		b.iter(|| {
-			std::thread::scope(|s| {
-				for _ in 0..NUM_THREADS {
-					let store = store.clone();
-					s.spawn(move || {
-						for _ in 0..OPS_PER_THREAD {
-							let _ = store.posted(&[], dk42());
-						}
-					});
-				}
-			});
-		})
-	});
-	g.finish();
-}
-
-fn scan_reads(c: &mut Criterion, store: &Arc<Store>) {
-	let t23 = t23();
-	let filter = OptimizedTopicFilter::MatchAll(HashSet::from([diverse_topic()]));
-
-	let mut g = c.benchmark_group("full4m_scan");
+	g.bench_function("bounded_100", |b| subscribe(b, store, &t01()));
+	g.bench_function("diverse_8", |b| subscribe(b, store, &[diverse_topic()]));
+	// The scaled set reads ~419k bodies per snapshot, so fewer and longer samples.
 	g.sample_size(10);
 	g.measurement_time(Duration::from_secs(30));
-	g.bench_function("broadcasts_scaled_419k", |b| b.iter(|| store.broadcasts(&t23)));
-	g.bench_function("subscribe_topic_diverse", |b| {
-		// The returned stream unsubscribes on drop; this measures the snapshot retrieval.
-		b.iter(|| {
-			let _ = store.subscribe_statement(filter.clone());
-		})
-	});
-	g.bench_function("statements_all_4m", |b| b.iter(|| store.statements()));
+	g.bench_function("scaled_419k", |b| subscribe(b, store, &t23()));
 	g.finish();
 }
 
@@ -180,34 +132,6 @@ fn write_benches(c: &mut Criterion, store: &Arc<Store>) {
 		b.iter_batched(
 			|| sacrificial_batch(TOTAL_OPS, 4),
 			|statements| submit_concurrently(store, statements),
-			BatchSize::LargeInput,
-		)
-	});
-
-	g.bench_function("remove_640", |b| {
-		b.iter_batched(
-			|| {
-				let statements = sacrificial_batch(TOTAL_OPS, 0);
-				let hashes: Vec<_> = statements.iter().map(|s| s.hash()).collect();
-				for statement in statements {
-					let result = store.submit(statement, StatementSource::Local);
-					assert!(matches!(result, SubmitResult::New));
-				}
-				hashes
-			},
-			|hashes| {
-				std::thread::scope(|s| {
-					for t in 0..NUM_THREADS {
-						let store = store.clone();
-						let chunk = hashes[t * OPS_PER_THREAD..(t + 1) * OPS_PER_THREAD].to_vec();
-						s.spawn(move || {
-							for hash in chunk {
-								let _ = store.remove(&hash);
-							}
-						});
-					}
-				});
-			},
 			BatchSize::LargeInput,
 		)
 	});
@@ -256,7 +180,7 @@ fn mixed_benches(c: &mut Criterion, store: &Arc<Store>) {
 	g.sample_size(10);
 
 	// Submissions carry the scaled topics (T2/T3, ~419k members) so relative drift is negligible;
-	// queries read the bounded set (T0/T1, 100 members) so the read half stays stationary.
+	// subscriptions read the bounded set (T0/T1, 100 members) so the read half stays stationary.
 	g.bench_function("mixed_workload_640", |b| {
 		b.iter_batched(
 			|| {
@@ -267,7 +191,6 @@ fn mixed_benches(c: &mut Criterion, store: &Arc<Store>) {
 						create_statement(
 							base + k,
 							&t23(),
-							None,
 							STATEMENT_DATA_SIZE,
 							LOW_EXPIRY,
 							&keypair,
@@ -281,12 +204,12 @@ fn mixed_benches(c: &mut Criterion, store: &Arc<Store>) {
 						let store = store.clone();
 						let chunk =
 							statements[t * OPS_PER_THREAD..(t + 1) * OPS_PER_THREAD].to_vec();
-						let topics = t01();
+						let filter = match_all(&t01());
 						s.spawn(move || {
 							for statement in chunk {
 								let result = store.submit(statement, StatementSource::Local);
 								assert!(matches!(result, SubmitResult::New));
-								let _ = store.broadcasts(&topics);
+								let _ = store.subscribe_statement(filter.clone());
 							}
 						});
 					}
@@ -306,7 +229,6 @@ fn mixed_benches(c: &mut Criterion, store: &Arc<Store>) {
 						create_statement(
 							base + k as u64,
 							&t23(),
-							None,
 							STATEMENT_DATA_SIZE,
 							LOW_EXPIRY,
 							&keypair,
@@ -327,10 +249,10 @@ fn mixed_benches(c: &mut Criterion, store: &Arc<Store>) {
 					}
 					for _ in 0..NUM_THREADS / 2 {
 						let store = store.clone();
-						let topics = t01();
+						let filter = match_all(&t01());
 						s.spawn(move || {
 							for _ in 0..OPS_PER_THREAD {
-								let _ = store.broadcasts(&topics);
+								let _ = store.subscribe_statement(filter.clone());
 							}
 						});
 					}
@@ -370,7 +292,6 @@ fn account_rotation_benches(c: &mut Criterion, store: &Arc<Store>) {
 						create_statement(
 							base + k,
 							&[],
-							None,
 							STATEMENT_DATA_SIZE,
 							LOW_EXPIRY,
 							&keypairs[k as usize % ACCOUNTS],
@@ -491,9 +412,7 @@ fn eviction_bench(c: &mut Criterion, dir: &std::path::Path) {
 				let expiry = EVICT_EXPIRY.fetch_add(1, Ordering::Relaxed);
 				let base = fresh_id_base();
 				(0..TOTAL_OPS as u64)
-					.map(|k| {
-						create_statement(base + k, &[], None, STATEMENT_DATA_SIZE, expiry, &acc0)
-					})
+					.map(|k| create_statement(base + k, &[], STATEMENT_DATA_SIZE, expiry, &acc0))
 					.collect::<Vec<_>>()
 			},
 			|statements| submit_concurrently(&store, statements),
@@ -532,28 +451,20 @@ fn main() {
 	println!("FULL4M_META drained_recent={}", drained);
 
 	// Result-set sizes; asserted only on a fresh build (eviction-bench reruns can erode a few
-	// account-0 members of the bounded broadcast set).
-	let b100 = store.broadcasts(&t01()).unwrap().len();
-	let p100 = store.posted(&[], dk42()).unwrap().len();
-	let d6 = store.broadcasts(&[diverse_topic()]).unwrap().len();
-	let p4 = store.posted(&[], diverse_key()).unwrap().len();
-	println!(
-		"FULL4M_META broadcasts_100={} posted_100={} broadcasts_diverse={} posted_diverse={}",
-		b100, p100, d6, p4
-	);
+	// account-0 members of the bounded set).
+	let bounded = snapshot_len(&store, &t01());
+	let diverse = snapshot_len(&store, &[diverse_topic()]);
+	println!("FULL4M_META subscribe_bounded={} subscribe_diverse={}", bounded, diverse);
 	if built.is_some() {
-		assert_eq!(b100, 100);
-		assert_eq!(p100, 100);
-		assert_eq!(d6, DIVERSE_TOPIC_MATCHES);
-		assert_eq!(p4, DIVERSE_KEY_MATCHES);
+		assert_eq!(bounded, 100);
+		assert_eq!(diverse, DIVERSE_TOPIC_MATCHES);
 	}
 
 	let store = Arc::new(store);
 	let mut c = Criterion::default().configure_from_args();
 
 	point_reads(&mut c, &store);
-	query_reads(&mut c, &store);
-	scan_reads(&mut c, &store);
+	subscribe_reads(&mut c, &store);
 	write_benches(&mut c, &store);
 	mixed_benches(&mut c, &store);
 	account_rotation_benches(&mut c, &store);

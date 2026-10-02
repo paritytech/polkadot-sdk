@@ -21,7 +21,7 @@
 use crate::common::{
 	aux::{
 		AvailabilityDistributionNoop, AvailabilityStoreStub, CandidateBackingAux, CandidateOutputs,
-		CandidateValidationStub, ProspectiveParachainsAux, ProvisionerNoop,
+		CandidateValidationStub, ProspectiveParachainsAux, ProvisionerNoop, SharedInvalidSet,
 		StatementDistributionNoop,
 	},
 	chain::CoreSchedule,
@@ -114,6 +114,36 @@ where
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<S::Message>,
 {
+	bootstrap_world_inner(config, can_second_verdict, None)
+}
+
+/// [`bootstrap_world`] variant whose validation stub rejects the candidates in
+/// `invalid`: real backing then reports them back to the collator protocol as invalid
+/// — the production-verdict path for "fetched fine, failed validation" scenarios.
+/// Everything not in the set validates exactly as under [`bootstrap_world`].
+pub fn bootstrap_world_with_invalid_set<S>(
+	config: WorldConfig,
+	can_second_verdict: Option<bool>,
+	invalid: SharedInvalidSet,
+) -> World<S>
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	bootstrap_world_inner(config, can_second_verdict, Some(invalid))
+}
+
+fn bootstrap_world_inner<S>(
+	config: WorldConfig,
+	can_second_verdict: Option<bool>,
+	invalid_set: Option<SharedInvalidSet>,
+) -> World<S>
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
 	let chain = build_chain_model(&config);
 
 	let mut responder = LayeredResponder::new();
@@ -122,14 +152,17 @@ where
 
 	let base = WorldBase::<S>::start_with_responder(responder, chain, config);
 	let mut world = World { base, outputs: CandidateOutputs::default() };
-	spawn_default_aux(&mut world, can_second_verdict);
+	spawn_default_aux(&mut world, can_second_verdict, invalid_set);
 	world
 }
 
 /// Spawn the standard collator-side aux subsystems on `world.base.sim`. Internal
 /// helper for [`bootstrap_world`]; tests don't call it directly.
-fn spawn_default_aux<S>(world: &mut World<S>, can_second_verdict: Option<bool>)
-where
+fn spawn_default_aux<S>(
+	world: &mut World<S>,
+	can_second_verdict: Option<bool>,
+	invalid_set: Option<SharedInvalidSet>,
+) where
 	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<S::Message>,
@@ -147,7 +180,10 @@ where
 		sim.register_aux(cb, cb_rx);
 	}
 
-	let cv = CandidateValidationStub::always_valid(sim, world.outputs.clone());
+	let cv = match invalid_set {
+		Some(invalid) => CandidateValidationStub::valid_unless(sim, world.outputs.clone(), invalid),
+		None => CandidateValidationStub::always_valid(sim, world.outputs.clone()),
+	};
 	let av = AvailabilityStoreStub::spawn(sim);
 	sim.register_aux_slot_only(cv);
 	sim.register_aux_slot_only(av);
