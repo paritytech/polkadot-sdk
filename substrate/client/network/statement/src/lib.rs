@@ -1301,9 +1301,6 @@ where
 					}
 				}
 				_ = &mut self.initial_sync_timeout => {
-					if v2dht_enabled() {
-						self.v2dht.on_initial_sync().await;
-					}
 					self.process_initial_sync_burst();
 					self.initial_sync_timeout =
 						Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse());
@@ -1555,9 +1552,6 @@ where
 	fn handle_sync_event(&mut self, event: SyncEvent) {
 		match event {
 			SyncEvent::PeerConnected { peer_id: remote, roles: _ } => {
-				if v2dht_enabled() {
-					self.v2dht.on_peer_connected(remote);
-				}
 				if self.sync.is_major_syncing() {
 					log::trace!(
 						target: LOG_TARGET,
@@ -1618,9 +1612,6 @@ where
 	async fn handle_notification_event(&mut self, event: NotificationEvent) {
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
-				if v2dht_enabled() {
-					self.v2dht.on_validate_inbound_substream(peer)
-				}
 				// Only accept peers whose role can be determined
 				let result = self
 					.network
