@@ -222,6 +222,13 @@ pub mod pallet {
 			/// The account the revenue was paid out to.
 			beneficiary: T::AccountId,
 		},
+		/// The funds in pot were unexpectedly too low to handle a revenue claim.
+		UnexpectedLowFunds {
+			/// The amount that was being claimed.
+			amount_to_claim: BalanceOf<T>,
+			/// The claimable amount in the pot.
+			claimable: BalanceOf<T>,
+		},
 	}
 
 	#[pallet::error]
@@ -387,11 +394,15 @@ pub mod pallet {
 			let reducible = T::Currency::reducible_balance(&pot, Preserve, Polite);
 			let amount = claimable.min(reducible);
 			if amount < claimable {
-				log::warn!(
+				log::error!(
 					target: LOG_TARGET,
 					"The pot holds less than the {claimable:?} of revenue booked for timeslice \
 					 {when}; paying out {amount:?} instead.",
 				);
+				Self::deposit_event(Event::<T>::UnexpectedLowFunds {
+					amount_to_claim: amount,
+					claimable,
+				});
 			}
 
 			if let Err(err) = T::Currency::transfer(&pot, beneficiary, amount, Preserve) {
