@@ -12,56 +12,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! Configuration of the price oracle: the pairs, the accepted signers and the pallet.
+//! Configuration of the price oracle: the accepted signers and the pallet.
 
 use crate::{AccountId, AuraId, Runtime, System};
 use alloc::vec::Vec;
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use frame_support::traits::ConstU32;
 use frame_system::EnsureRoot;
-use pallet_price_oracle::{Pairs, Signers};
-use sp_price_oracle::PairId;
-
-/// The pairs priced on Asset Hub. Discriminants are the wire identifiers and must never change.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-#[repr(u16)]
-pub enum Pair {
-	DotUsdt = 1,
-	DotUsd = 2,
-	UsdtUsd = 3,
-}
-
-impl TryFrom<PairId> for Pair {
-	type Error = ();
-
-	fn try_from(id: PairId) -> Result<Self, ()> {
-		Ok(match id.0 {
-			1 => Pair::DotUsdt,
-			2 => Pair::DotUsd,
-			3 => Pair::UsdtUsd,
-			_ => return Err(()),
-		})
-	}
-}
-
-impl From<Pair> for PairId {
-	fn from(pair: Pair) -> PairId {
-		PairId(pair as u16)
-	}
-}
-
-impl Pairs for Pair {
-	fn all() -> Vec<PairId> {
-		alloc::vec![Pair::DotUsdt.into(), Pair::DotUsd.into(), Pair::UsdtUsd.into()]
-	}
-
-	fn conversions(pair: PairId) -> Vec<(PairId, PairId)> {
-		match Pair::try_from(pair) {
-			Ok(Pair::DotUsd) => alloc::vec![(Pair::DotUsdt.into(), Pair::UsdtUsd.into())],
-			_ => Vec::new(),
-		}
-	}
-}
+use pallet_price_oracle::Signers;
 
 /// The collators: the current Aura authorities and the ones queued for the next session.
 pub struct Collators;
@@ -84,7 +42,7 @@ impl pallet_price_oracle::Config for Runtime {
 	type SignerSignature = sp_consensus_aura::sr25519::AuthoritySignature;
 	type Signers = Collators;
 	type MaxSigners = ConstU32<600>;
-	type Pairs = Pair;
+	type MaxCrossRates = ConstU32<4>;
 	type AnchorProvider = System;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type AdminOrigin = EnsureRoot<AccountId>;

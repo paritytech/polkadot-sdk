@@ -20,9 +20,6 @@
 
 extern crate alloc;
 
-#[cfg(test)]
-mod mock;
-pub mod pair;
 pub mod pricing;
 pub mod registry;
 pub mod schema;
@@ -53,7 +50,6 @@ const LOG_TARGET: &str = "runtime::price-oracle";
 pub type SignedPriceReportOf<T> =
 	SignedPriceReport<<T as Config>::SignerId, <T as Config>::SignerSignature>;
 
-pub use pair::Pairs;
 pub use pallet::*;
 pub use pricing::PairSettings;
 pub use registry::{StoredMarket, Venue};
@@ -159,8 +155,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxSigners: Get<u32>;
 
-		/// The pairs the runtime knows and how they derive from each other.
-		type Pairs: Pairs;
+		/// Maximum number of cross rates of a pair.
+		#[pallet::constant]
+		type MaxCrossRates: Get<u32>;
 
 		/// Provides the anchor reports are measured against.
 		type AnchorProvider: AnchorProvider;
@@ -209,9 +206,21 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Paused<T: Config> = StorageValue<_, Pause, ValueQuery>;
 
-	/// Health limits per pair. A pair without settings is not priced.
+	/// Registered pairs and their health limits.
 	#[pallet::storage]
 	pub type Settings<T: Config> = StorageMap<_, Twox64Concat, PairId, PairSettings, OptionQuery>;
+
+	/// Other ways to price a pair, as `(source, rate)` such that `pair = source * rate`.
+	///
+	/// E.g. DOT/USD => [(DOT/USDT, USDT/USD), (DOT/USDC, USDC/USD)].
+	#[pallet::storage]
+	pub type CrossRates<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		PairId,
+		BoundedVec<(PairId, PairId), T::MaxCrossRates>,
+		ValueQuery,
+	>;
 
 	/// Registered venues.
 	#[pallet::storage]
@@ -246,6 +255,10 @@ pub mod pallet {
 		MarketRemoved { id: MarketId },
 		/// The health limits of a pair were set.
 		PairSettingsSet { pair: PairId },
+		/// The cross rates of a pair were set.
+		CrossRatesSet { pair: PairId },
+		/// A pair was removed.
+		PairRemoved { pair: PairId },
 	}
 
 	#[pallet::error]
@@ -256,10 +269,12 @@ pub mod pallet {
 		UnknownVenue,
 		/// The market is not registered.
 		UnknownMarket,
-		/// The pair is not known to the runtime.
+		/// The pair is not registered.
 		UnknownPair,
 		/// The venue still has markets.
 		VenueInUse,
+		/// The pair still has markets or is used in a cross rate.
+		PairInUse,
 	}
 
 	#[pallet::hooks]
@@ -359,7 +374,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Add or update a market. Its venue must be registered and its pair known.
+		/// Add or update a market. Its venue and pair must be registered.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::set_market())]
 		pub fn set_market(
@@ -369,14 +384,14 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			ensure!(Venues::<T>::contains_key(market.venue), Error::<T>::UnknownVenue);
-			ensure!(T::Pairs::is_known(market.pair), Error::<T>::UnknownPair);
+			ensure!(Settings::<T>::contains_key(market.pair), Error::<T>::UnknownPair);
 			ensure!(!market.contract_size.is_zero(), Error::<T>::InvalidParameters);
 			Markets::<T>::insert(id, market);
 			Self::deposit_event(Event::MarketSet { id });
 			Ok(())
 		}
 
-		/// Set the health limits of a pair.
+		/// Register a pair or update its health limits.
 		///
 		/// `impact_size` and `quorum` must be non-zero.
 		#[pallet::call_index(7)]
@@ -387,7 +402,6 @@ pub mod pallet {
 			settings: PairSettings,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			ensure!(T::Pairs::is_known(pair), Error::<T>::UnknownPair);
 			ensure!(
 				!settings.impact_size.is_zero() && settings.quorum >= 1,
 				Error::<T>::InvalidParameters
@@ -405,6 +419,50 @@ pub mod pallet {
 			ensure!(Markets::<T>::contains_key(id), Error::<T>::UnknownMarket);
 			Markets::<T>::remove(id);
 			Self::deposit_event(Event::MarketRemoved { id });
+			Ok(())
+		}
+
+		/// Set the cross rates of a pair. An empty list removes them.
+		///
+		/// All pairs involved must be registered.
+		#[pallet::call_index(8)]
+		#[pallet::weight(T::WeightInfo::set_cross_rates())]
+		pub fn set_cross_rates(
+			origin: OriginFor<T>,
+			pair: PairId,
+			cross_rates: BoundedVec<(PairId, PairId), T::MaxCrossRates>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(Settings::<T>::contains_key(pair), Error::<T>::UnknownPair);
+			for (source, rate) in cross_rates.iter() {
+				ensure!(Settings::<T>::contains_key(source), Error::<T>::UnknownPair);
+				ensure!(Settings::<T>::contains_key(rate), Error::<T>::UnknownPair);
+			}
+			CrossRates::<T>::insert(pair, cross_rates);
+			Self::deposit_event(Event::CrossRatesSet { pair });
+			Ok(())
+		}
+
+		/// Remove a pair, along with its cross rates, votes and price.
+		///
+		/// Fails while the pair has markets or is used in a cross rate.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::remove_pair())]
+		pub fn remove_pair(origin: OriginFor<T>, pair: PairId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(Settings::<T>::contains_key(pair), Error::<T>::UnknownPair);
+			ensure!(!Markets::<T>::iter_values().any(|m| m.pair == pair), Error::<T>::PairInUse);
+			ensure!(
+				!CrossRates::<T>::iter_values()
+					.flatten()
+					.any(|(source, rate)| source == pair || rate == pair),
+				Error::<T>::PairInUse
+			);
+			Settings::<T>::remove(pair);
+			CrossRates::<T>::remove(pair);
+			Votes::<T>::remove(pair);
+			Prices::<T>::remove(pair);
+			Self::deposit_event(Event::PairRemoved { pair });
 			Ok(())
 		}
 	}
@@ -500,8 +558,10 @@ impl<T: Config> Pallet<T> {
 			.into_iter()
 			.filter_map(|(id, price)| Some(Quote { pair: Markets::<T>::get(id)?.pair, price }))
 			.collect();
+		let pairs: Vec<PairId> = Settings::<T>::iter_keys().collect();
+		let cross_rates = |pair| CrossRates::<T>::get(pair).into_inner();
 		let quorum = |pair| Settings::<T>::get(pair).map_or(u32::MAX, |s| s.quorum);
-		pricing::aggregate(markets, &T::Pairs::all(), T::Pairs::conversions, quorum)
+		pricing::aggregate(markets, &pairs, cross_rates, quorum)
 	}
 }
 
@@ -610,7 +670,7 @@ impl<T: Config> Pallet<T> {
 		for report in reports {
 			let anchor = report.report.anchor;
 			for quote in report.report.quotes {
-				if !T::Pairs::is_known(quote.pair) {
+				if !Settings::<T>::contains_key(quote.pair) {
 					continue;
 				}
 				let pair_votes = votes.entry(quote.pair).or_default();
