@@ -28,6 +28,9 @@ crates:
 # `OnEraStart` is a new required config item and `NextEraValidators` is new storage.
 - name: pallet-staking-async
   bump: major
+# `build_transact_xcm` takes an `OriginKind`.
+- name: pallet-staking-async-rc-client
+  bump: major
 - name: pallet-session
   bump: minor
 # Adding the pallets changes the runtimes' public `PalletInstancesInfo` type.

@@ -35,7 +35,7 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, EnsureOrigin, Everything,
+		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, Everything,
 		InstanceFilter, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
@@ -68,7 +68,7 @@ pub use sp_runtime::{MultiAddress, Perbill, Percent, Permill};
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	accumulate_forward::*, consensus::*, currency::*, dap::*, fee::WeightToFee,
-	locations::AssetHubParaId, time::*,
+	locations::AssetHubLocation, time::*,
 };
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{prelude::*, Version as XcmVersion};
@@ -426,30 +426,8 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
-/// Accepts only Asset Hub, as the sibling origin that `SiblingParachainAsNative` produces.
-pub struct EnsureAssetHub;
-impl EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
-	type Success = ();
-
-	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
-		match <RuntimeOrigin as Into<Result<cumulus_pallet_xcm::Origin, RuntimeOrigin>>>::into(
-			o.clone(),
-		) {
-			Ok(cumulus_pallet_xcm::Origin::SiblingParachain(id)) if id == AssetHubParaId::get() => {
-				Ok(())
-			},
-			_ => Err(o),
-		}
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
-		Ok(cumulus_pallet_xcm::Origin::SiblingParachain(AssetHubParaId::get()).into())
-	}
-}
-
 impl pallet_validator_collators::Config for Runtime {
-	type SetOrigin = EnsureAssetHub;
+	type SetOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureXcm<Equals<AssetHubLocation>>>;
 	type UpdateOrigin = CollatorSelectionUpdateOrigin;
 	type ValidatorRegistration = Session;
 	type MaxValidators =

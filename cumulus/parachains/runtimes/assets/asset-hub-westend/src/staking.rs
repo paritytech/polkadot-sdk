@@ -420,6 +420,7 @@ impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<(
 	fn convert(report: rc_client::ValidatorSetReport<AccountId>) -> Xcm<()> {
 		rc_client::build_transact_xcm(
 			RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report)).encode(),
+			OriginKind::Native,
 		)
 	}
 }
@@ -435,7 +436,7 @@ impl sp_runtime::traits::Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for
 				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeys { stash }).encode()
 			},
 		};
-		rc_client::build_transact_xcm(encoded_call)
+		rc_client::build_transact_xcm(encoded_call, OriginKind::Native)
 	}
 }
 
@@ -490,7 +491,8 @@ enum ValidatorCollatorsCalls {
 	SetValidators { era: EraIndex, validators: Vec<AccountId> },
 }
 
-/// Sends the validator set to a system chain as an unpaid `Transact` of `set_validators`.
+/// Sends the validator set to a system chain as an unpaid `Transact` of `set_validators`, which the
+/// destination dispatches with Asset Hub's location as an XCM origin.
 pub struct ValidatorSetToSystemChains;
 impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSetToSystemChains {
 	type Destination = ValidatorSetDestination;
@@ -510,14 +512,17 @@ impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSe
 				.encode(),
 			),
 		};
-		send_xcm::<xcm_config::XcmRouter>(location, rc_client::build_transact_xcm(call))
-			.map(|_| ())
-			.map_err(|error| {
-				log::warn!(
-					target: "runtime::validator-set-announcer",
-					"failed to send the validator set of era {era} to {destination:?}: {error:?}",
-				);
-			})
+		send_xcm::<xcm_config::XcmRouter>(
+			location,
+			rc_client::build_transact_xcm(call, OriginKind::Xcm),
+		)
+		.map(|_| ())
+		.map_err(|error| {
+			log::warn!(
+				target: "runtime::validator-set-announcer",
+				"failed to send the validator set of era {era} to {destination:?}: {error:?}",
+			);
+		})
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

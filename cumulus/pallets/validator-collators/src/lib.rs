@@ -172,10 +172,6 @@ pub mod pallet {
 	///
 	/// A change is read at the next rotation, which queues the capped list, and is in force from
 	/// the rotation after. Setting the cap does not force rotations.
-	///
-	/// TODO: replace the prefix with a random draw among the validators with registered keys.
-	/// Until then the cap keeps the first validators with registered keys in the received set,
-	/// which staking hands over sorted by account id.
 	#[pallet::storage]
 	pub type MaxCollators<T: Config> = StorageValue<_, u32, OptionQuery>;
 
@@ -230,8 +226,6 @@ pub mod pallet {
 		}
 
 		/// Set the maximum number of validators returned as collators.
-		///
-		/// See [`MaxCollators`] for which validators the cap keeps.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_max_collators())]
 		pub fn set_max_collators(origin: OriginFor<T>, max: Option<u32>) -> DispatchResult {
@@ -295,7 +289,9 @@ pub mod pallet {
 			};
 			let registered =
 				set.validators.into_iter().filter(T::ValidatorRegistration::is_registered);
-			// TODO: replace the truncation with a random draw among the registered validators.
+			// TODO: replace the truncation with a random draw among the validators with registered
+			// keys. Until then the cap keeps the first validators with registered keys in the
+			// received set, which staking hands over sorted by account id.
 			Some(match MaxCollators::<T>::get() {
 				Some(max) => registered.take(max as usize).collect(),
 				None => registered.collect(),
