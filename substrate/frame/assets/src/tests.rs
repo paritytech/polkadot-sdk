@@ -2483,6 +2483,52 @@ fn transfer_approved_charges_the_debit_not_the_request() {
 		assert_eq!(Assets::balance(0, 1), 0);
 		assert_eq!(Assets::balance(0, 3), 100);
 		assert_eq!(Assets::allowance(0, &1, &2), 10);
+		System::assert_has_event(RuntimeEvent::Assets(crate::Event::Transferred {
+			asset_id: 0,
+			from: 1,
+			to: 3,
+			amount: 100,
+		}));
+	});
+}
+
+#[test]
+fn transfer_approved_sweep_can_exhaust_a_larger_approval() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_eq!(Balances::reserved_balance(&1), 1);
+
+		// Requesting 91 sweeps the whole 100, which spends the whole approval.
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91));
+		assert!(!Approvals::<Test>::contains_key((0, 1, 2)));
+		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 0);
+		assert_eq!(Balances::reserved_balance(&1), 0);
+	});
+}
+
+#[test]
+fn transfer_approved_does_not_sweep_an_owner_with_a_freeze_or_hold() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 110));
+
+		set_frozen_balance(0, 1, 1);
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91),
+			Error::<Test>::BalanceLow
+		);
+		clear_frozen_balance(0, 1);
+
+		set_balance_on_hold(0, 1, 1);
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 90),
+			Error::<Test>::BalanceLow
+		);
 	});
 }
 
