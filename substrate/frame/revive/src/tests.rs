@@ -1008,9 +1008,6 @@ fn eth_block_lists_the_synthetic_transaction_in_every_version() {
 // log leaves no trace in the block: every version lists one hash per receipt entry, and a V2
 // reader of such a block, or of any block from before the buffer was turned on, finds no
 // synthetic transaction to serve.
-//
-// Benchmark builds force the buffer on, so the zero-cap pin only holds without them.
-#[cfg(not(feature = "runtime-benchmarks"))]
 #[test]
 fn eth_block_and_receipt_data_pair_up_in_every_version_while_the_buffer_is_off() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -1066,9 +1063,7 @@ fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
 }
 
 // A zero cap turns the buffer off, which is how a runtime opts out: logs emitted outside an
-// ethereum transaction stay substrate-only, as they were before the buffer existed. Benchmark
-// builds force the buffer on, so the pin only holds without them.
-#[cfg(not(feature = "runtime-benchmarks"))]
+// ethereum transaction stay substrate-only, as they were before the buffer existed.
 #[test]
 fn a_zero_cap_turns_the_outside_of_frame_log_buffer_off() {
 	use frame_support::traits::Hooks;
@@ -1266,9 +1261,8 @@ fn a_log_emitted_after_the_drain_stays_substrate_only() {
 	});
 }
 
-// The cap's bound rests on buffering a log registering at least its encoded bytes as proof size.
-// The drain benchmark measures a marginal per data byte over a fixed-shape entry, so a log that
-// outgrows that shape's encoding is where the floor, not the marginal, is what gets registered.
+// The cap's bound rests on buffering a log registering at least its encoded bytes as proof size,
+// whatever the drain benchmark's per-byte marginal comes to for that shape.
 #[test]
 fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 	use crate::{evm::block_hash::OutsideFrameLog, weightinfo_extension::OnFinalizeBlockParts};
@@ -1289,25 +1283,24 @@ fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 	};
 
 	ExtBuilder::default().build().execute_with(|| {
-		// The first log also registers the `BlockHash` read and the synthetic transaction's
-		// `on_finalize` share; absorb those here.
+		// The first log also registers the synthetic transaction's `on_finalize` share; absorb
+		// it here.
 		registered_by(H160::repeat_byte(1), vec![H256::repeat_byte(1)], vec![]);
 
-		let topics = vec![H256::repeat_byte(2); crate::limits::NUM_EVENT_TOPICS as usize];
-		let data = vec![0u8; 64];
-		let (registered, entry_bytes) = registered_by(H160::repeat_byte(2), topics, data.clone());
-		let marginal =
-			<Test as Config>::WeightInfo::per_outside_frame_log(data.len() as u32).proof_size();
-		assert!(entry_bytes > marginal, "the floor is the operative term for this shape");
-		assert_eq!(registered, entry_bytes, "and it is what the block is charged");
-
-		let data = vec![0u8; 32];
-		let (registered, entry_bytes) =
-			registered_by(H160::repeat_byte(3), vec![H256::repeat_byte(3)], data.clone());
-		let marginal =
-			<Test as Config>::WeightInfo::per_outside_frame_log(data.len() as u32).proof_size();
-		assert!(entry_bytes <= marginal, "the marginal covers this shape");
-		assert_eq!(registered, marginal, "and the floor does not overshoot it");
+		let shapes = [
+			(vec![H256::repeat_byte(2); crate::limits::NUM_EVENT_TOPICS as usize], vec![0u8; 64]),
+			(vec![H256::repeat_byte(3)], vec![0u8; 32]),
+			(vec![], vec![]),
+		];
+		for (i, (topics, data)) in shapes.into_iter().enumerate() {
+			let (registered, entry_bytes) =
+				registered_by(H160::repeat_byte(4 + i as u8), topics, data.clone());
+			let marginal =
+				<Test as Config>::WeightInfo::per_outside_frame_log(data.len() as u32).proof_size();
+			assert!(entry_bytes > 0);
+			assert!(registered >= entry_bytes, "shape {i}");
+			assert_eq!(registered, marginal.max(entry_bytes), "shape {i}");
+		}
 	});
 }
 

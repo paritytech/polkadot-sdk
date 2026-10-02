@@ -1459,8 +1459,9 @@ impl pallet_revive::Config for Runtime {
 	type OnBurn = Dap;
 	// Off until every eth-rpc serving this chain reads receipt data V2: an older one lists the
 	// synthetic transaction's hash in a block without a receipt to serve for it. A later runtime
-	// upgrade turns the buffer on with `OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED`. Benchmarks run with
-	// the buffer on, so the committed weights already price the append.
+	// upgrade turns the buffer on with `OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED` and re-runs the
+	// benchmarks of every pallet that mirrors, since the append is only in their weights once
+	// they measure with the buffer on.
 	type MaxOutsideFrameLogs = ConstU32<0>;
 	type Deposit = pallet_revive::PGasDeposit<
 		Runtime,

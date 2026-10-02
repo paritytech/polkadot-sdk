@@ -2604,9 +2604,6 @@ fn a_block_cannot_buffer_enough_logs_to_reach_the_cap_once_enabled() {
 
 // Until every eth-rpc reads receipt data V2 the buffer stays off: a mirrored balance change is an
 // event and nothing else, so a block's transaction list matches what any eth-rpc can serve.
-//
-// Benchmark builds force the buffer on, which suspends exactly the behavior this test pins.
-#[cfg(not(feature = "runtime-benchmarks"))]
 #[test]
 fn mirrored_logs_are_not_buffered_until_the_rollout_enables_them() {
 	use frame_support::traits::Get;

@@ -861,9 +861,14 @@ pub mod pallet {
 	/// as a single synthetic transaction receipt, so the logs enter the block's `logs_bloom`,
 	/// `receipts_root` and transaction trie.
 	///
+	/// Whitelisted like `frame_system::Events` and for the same reason: a block pays that one
+	/// lookup however many logs it buffers, so counting it in every producer's benchmark would
+	/// bill each mirrored balance change for a database access the block makes once.
+	///
 	/// NOTE: unbounded; accumulated across the block and consumed in `on_finalize`.
 	#[pallet::storage]
 	#[pallet::unbounded]
+	#[pallet::whitelist_storage]
 	type OutsideFrameLogs<T: Config> = StorageValue<_, Vec<OutsideFrameLog>, ValueQuery>;
 
 	/// Debugging settings that can be configured when DebugEnabled config is true.
@@ -1082,40 +1087,34 @@ pub mod pallet {
 		/// transaction. A log the buffer cannot take, because it is off or full, stays a
 		/// substrate-only event.
 		fn buffer_outside_frame_log(contract: &H160, topics: &[H256], data: &[u8]) {
-			let index = OutsideFrameLogs::<T>::decode_len().unwrap_or(0) as u32;
 			let cap = T::MaxOutsideFrameLogs::get();
-			// Benchmarks force a zero cap on, so an emitting extrinsic's measured weight
-			// includes the append and stays valid once the buffer is turned on.
-			#[cfg(feature = "runtime-benchmarks")]
-			let cap = if cap.is_zero() { u32::MAX } else { cap };
+			if cap.is_zero() {
+				return;
+			}
+			let index = OutsideFrameLogs::<T>::decode_len().unwrap_or(0) as u32;
 			if index >= cap {
-				// Zero turns the buffer off, so only an exhausted non-zero cap is worth reporting:
-				// the block then commits a bloom that omits this log while its event still stands.
-				if !cap.is_zero() {
-					log::warn!(
-						target: LOG_TARGET,
-						"outside-of-frame log buffer full ({index} logs); log for {contract:?} stays substrate-only",
-					);
-				}
+				// The block then commits a bloom that omits this log while its event still stands.
+				log::warn!(
+					target: LOG_TARGET,
+					"outside-of-frame log buffer full ({index} logs); log for {contract:?} stays substrate-only",
+				);
 				return;
 			}
 
 			// The drain has run once the block's hash is stored. A log arriving after it, from an
 			// `on_finalize` ordered after this pallet's, is not buffered: committed a block late,
 			// its event index would point at an unrelated event. Only the first log needs the
-			// check, since a first log before the drain puts every later one before it too.
-			if index.is_zero() {
-				frame_system::Pallet::<T>::register_extra_weight_unchecked(
-					<T as frame_system::Config>::DbWeight::get().reads(1),
-					DispatchClass::Normal,
+			// check, since a first log before the drain puts every later one before it too. Every
+			// mirroring extrinsic's benchmark starts from an empty buffer and so carries this
+			// read, though in a block only the first log performs it.
+			if index.is_zero() &&
+				BlockHash::<T>::contains_key(frame_system::Pallet::<T>::block_number())
+			{
+				log::warn!(
+					target: LOG_TARGET,
+					"outside-of-frame log for {contract:?} emitted after the block's drain stays substrate-only",
 				);
-				if BlockHash::<T>::contains_key(frame_system::Pallet::<T>::block_number()) {
-					log::warn!(
-						target: LOG_TARGET,
-						"outside-of-frame log for {contract:?} emitted after the block's drain stays substrate-only",
-					);
-					return;
-				}
+				return;
 			}
 
 			// The index the `ContractEmitted` deposited right after this lands at, which is how
