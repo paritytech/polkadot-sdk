@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790927971633,
+  "lastUpdate": 1790951772761,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "af5c0145f3c9c5b925c1a2013ad8f0d02a30b649",
-          "message": "Add a call to `.unvalidated()` for all eth-rpc interactions (#11468)\n\n# Description\n\nThis PR updates the `eth-rpc` so that all interactions with subxt are\nunvalidated. This change was made to allow us to use any `eth-rpc`\nversion with any version of pallet revive given that there's no actual\ninterface differences in the runtime functions that we called. Before\nthis change, we would get a lot of metadata mismatch errors for slightly\nolder versions of revive. Our assumption is that this happened due to us\nadding more runtime functions into pallet-revive's runtime API which\nlead to the hash of the metadata being different, thus to the metadata\nmismatch.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-26T07:39:10Z",
-          "tree_id": "5d64f75170fc2f7dc7da51c1587d965d19720aab",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/af5c0145f3c9c5b925c1a2013ad8f0d02a30b649"
-        },
-        "date": 1774515541240,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007037060833333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14337626007333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009815687079999977,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023699601100000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009933291586666637,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "18311d6fa3f6649ba3e0622ad2928ed0789bfbb9",
+          "message": "statement-store: time only the measured operation in the store benchmarks (#13370)\n\nThe statement store benchmarks now time only the operation that they are\nnamed after. Before this change, several benchmarks reported costs that\na node never pays: the drop of a store, a no-op maintain, and the setup\nof the contention store. A benchmark whose submits were rejected looked\nthe same as a working one.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13135.",
+          "timestamp": "2026-10-02T12:59:50Z",
+          "tree_id": "e18cc27d1ff2992072228d780d5a8204e17e32c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/18311d6fa3f6649ba3e0622ad2928ed0789bfbb9"
+        },
+        "date": 1790951740740,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007926226473333329,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025541487899999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14659819976666671,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010062017833333319,
             "unit": "seconds"
           }
         ]
