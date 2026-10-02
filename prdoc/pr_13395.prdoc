@@ -1,0 +1,14 @@
+title: 'pallet-revive: drop cfg-gated host functions from the upload import allowlist'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `list_syscalls()` now respects each host function's `#[cfg]`. Before this, builds without
+    `runtime-benchmarks` still listed the benchmark-only `noop` syscall, so uploads importing it
+    were accepted and then trapped with `InvalidSyscall` when called. Such uploads are now
+    rejected with `CodeRejected`. `lookup_syscall_index` derives its indices from the filtered
+    list. The trace op list is unchanged.
+crates:
+- name: pallet-revive-proc-macro
+  bump: patch
+- name: pallet-revive
+  bump: patch
