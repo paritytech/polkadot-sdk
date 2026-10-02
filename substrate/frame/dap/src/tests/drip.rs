@@ -156,7 +156,7 @@ fn assets_are_distributed_on_drip() {
 }
 
 #[test]
-fn asset_distribution_silently_fails_when_there_are_not_enough_funds() {
+fn asset_distribution_fails_with_event_when_there_are_not_enough_funds() {
 	build_and_execute(true, || {
 		System::set_block_number(1);
 

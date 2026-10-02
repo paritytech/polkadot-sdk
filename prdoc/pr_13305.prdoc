@@ -1,0 +1,52 @@
+title: Distribute arbitrary assets in `pallet-dap`
+doc:
+  - audience: Runtime Dev
+    description: |
+      An ability to distribute arbitrary assets is added to `pallet-dap`. 
+
+      The distribution will happen on the same schedule as the issuance, i.e. can be 
+      configured by setting `Config::IssuanceCadence`. The amounts distributed to 
+      the recipients are defined in `AssetAllocation` storage map and can be set by 
+      `set_allocations` extrinsic.
+
+      If distribution fails(because of an insufficient balance), no further attempts 
+      to distribute the same share again will be made. Instead, an event signalizing 
+      the failure will be deposited. But if balance becomes sufficient before the next 
+      distribution again, it will be distributed normally.
+
+      Asset distribution may include both native and non-native assets. In case
+      of a native asset the distribution mechanism is independent of an issuance:
+      native tokens will be issued according to the budget AND distributed according 
+      to the asset distribution.
+
+      `Config::Assets` is introduced, which must contain all the assets(native and 
+      non-native). For example, it can be configured as 
+      `type Assets = UnionOf<Balances, Assets, ...>` in runtime.
+  - audience: Runtime User
+    description: |
+      An ability to distribute arbitrary assets is added to `pallet-dap`. 
+
+      The distribution will happen on the same schedule as the issuance.
+
+      If distribution fails(because of an insufficient balance), no further attempts 
+      to distribute the same share again will be made. Instead, an event signalizing 
+      the failure will be deposited. But if balance becomes sufficient before the next 
+      distribution again, it will be distributed normally.
+
+      Asset distribution may include both native and non-native assets. In case
+      of a native asset the distribution mechanism is independent of an issuance:
+      native tokens will be issued according to the budget AND distributed according 
+      to the asset distribution.
+crates:
+  - name: pallet-dap
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: pallet-staking-async
+    bump: minor
+  - name: pallet-staking-async-parachain-runtime
+    bump: minor
+  - name: pallet-ahm-test
+    bump: minor
+  - name: frame-support
+    bump: minor

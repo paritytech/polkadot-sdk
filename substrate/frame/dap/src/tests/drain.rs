@@ -108,7 +108,7 @@ fn native_asset_is_also_drained() {
 }
 
 #[test]
-fn on_idle_doesnt_fail_when_native_asset_in_asset_distribution_map() {
+fn on_idle_doesnt_fail_when_native_asset_is_in_asset_distribution_map() {
 	build_and_execute(true, || {
 		System::set_block_number(1);
 

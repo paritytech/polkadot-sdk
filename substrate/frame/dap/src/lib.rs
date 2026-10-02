@@ -20,15 +20,15 @@
 //! Generic issuance drip and distribution engine.
 //!
 //! This pallet works with both native and non-native assets. For native asset, it controls the
-//! issuance and distribution while for the non-native assets it just distributes what gets
+//! issuance and distribution, while for the non-native assets it just distributes what gets
 //! deposited into it.
 //!
 //! ## Key Responsibilities:
 //!
-//! - **Burn Collection**: Implements `OnUnbalanced` to intercept any burn source wired to it
-//!   (staking slashes, transaction fees, dust removal, EVM gas rounding, etc.) and redirect funds
-//!   into the buffer account. Incoming funds are deactivated to exclude them from governance
-//!   voting.
+//! - **Burn Collection**: [`DapUnbalancedAdapter`] implements `OnUnbalanced` to intercept any burn
+//!   source wired to it (staking slashes, transaction fees, dust removal, EVM gas rounding, etc.)
+//!   and redirect funds into the buffer account. Incoming funds are deactivated to exclude them
+//!   from governance voting.
 //! - **Asset Gathering** Gathers assets transferred to the [`Pallet::staging_account`] and
 //!   redirects them to the buffer account. Note that only assets present as keys in
 //!   [`AssetAllocation`] are gathered.
@@ -40,7 +40,8 @@
 //! - **Asset Distribution**: Distributes assets deposited to it according to [`AssetAllocation`]
 //!   map which can be configured in [`Pallet::set_allocations`]. Distribution happens at the same
 //!   time as issuance drips and can be configured by [`Config::IssuanceCadence`]. When the asset
-//!   amount is insufficient, it will be silently skipped, i.e. no retry mechanism is present.
+//!   amount is insufficient, it will be skipped(emitting an event), i.e. no retry mechanism is
+//!   present.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -77,9 +78,6 @@ use frame_support::{
 };
 use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, SaturatedConversion, Saturating};
 use sp_staking::budget::{BudgetKey, BudgetRecipientList, IssuanceCurve};
-
-#[cfg(feature = "runtime-benchmarks")]
-use frame_support::traits::fungibles::Create;
 
 pub use pallet::*;
 
@@ -180,7 +178,7 @@ pub mod pallet {
 			+ Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>
 			+ Unbalanced<Self::AccountId>
-			+ Create<Self::AccountId>;
+			+ frame_support::traits::fungibles::Create<Self::AccountId>;
 
 		/// Asset kind of the native currency.
 		#[pallet::constant]
@@ -288,7 +286,7 @@ pub mod pallet {
 	/// Budget allocation map: `BudgetKey -> Perbill`.
 	///
 	/// This map controls *only* the native asset distribution.
-	/// a
+	///
 	/// Keys must correspond to registered `BudgetRecipients`. Sum of values must be
 	/// exactly `Perbill::one()` (100%). Recipients not included receive nothing.
 	#[pallet::storage]
