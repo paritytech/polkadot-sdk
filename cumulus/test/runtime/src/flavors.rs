@@ -45,7 +45,9 @@ macro_rules! define_flavors {
 		define_flavor!(v3_rpo_4, $($capabilities)*);
 		define_flavor!(v3_rpo_6, $($capabilities)*);
 		define_flavor!(v3_rpo_15, $($capabilities)*);
+		define_flavor!(elastic_scaling_rpo_1, $($capabilities)*);
 		define_flavor!(elastic_scaling_v3, $($capabilities)*);
+		define_flavor!(elastic_scaling_v3_headroom, $($capabilities)*);
 		define_flavor!(slot_duration_18s, $($capabilities)*);
 		define_flavor!(with_authority_discovery, $($capabilities)*);
 	};

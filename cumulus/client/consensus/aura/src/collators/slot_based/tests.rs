@@ -248,7 +248,7 @@ async fn determine_core_new_relay_parent() {
 	cache.set_test_data(relay_parent.clone(), vec![CoreIndex(0), CoreIndex(1)], Default::default());
 
 	// For V1/V2 mode: claim_queue_relay_block = relay_parent.hash()
-	let result = determine_cores(&mut cache, &relay_parent, 1.into(), 0).await;
+	let result = determine_cores(&mut cache, &relay_parent, 1.into(), 0, None).await;
 
 	let core = result.unwrap();
 	let core = core.unwrap();
@@ -275,7 +275,7 @@ async fn determine_core_no_cores_available() {
 	// Setup empty claim queue
 	cache.set_test_data(relay_parent.clone(), vec![], Default::default());
 
-	let result = determine_cores(&mut cache, &relay_parent, 1.into(), 0).await;
+	let result = determine_cores(&mut cache, &relay_parent, 1.into(), 0, None).await;
 
 	let core = result.unwrap();
 	assert!(core.is_none());

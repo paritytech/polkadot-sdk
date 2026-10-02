@@ -133,6 +133,8 @@ velocity-6 = []
 velocity-12 = []
 
 # The default relay parent offset is 0. The following features can be used to change this value:
+# Change the relay parent offset to 1
+relay-parent-offset-1 = []
 # Change the relay parent offset to 2
 relay-parent-offset-2 = []
 # Change the relay parent offset to 4
@@ -141,6 +143,11 @@ relay-parent-offset-4 = []
 relay-parent-offset-6 = []
 # Change the relay parent offset to 15
 relay-parent-offset-15 = []
+
+# Add two slots of unincluded-segment headroom (`2 * velocity`) on top of the default capacity, so
+# the collator keeps building through the two relay blocks after a session change in which nothing
+# of its can be backed yet.
+segment-headroom = []
 
 # Configure the runtime to use scheduling V3
 v3-descriptor = []

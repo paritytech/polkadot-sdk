@@ -105,6 +105,21 @@ fn main() {
 		.set_file_name(elastic_scaling_v3::WASM_FILE_NAME)
 		.build();
 
+	// Elastic scaling (V2 descriptors) with a relay parent offset of 1.
+	WasmBuilder::init_with_defaults()
+		.enable_feature("velocity-3")
+		.enable_feature("relay-parent-offset-1")
+		.set_file_name(elastic_scaling_rpo_1::WASM_FILE_NAME)
+		.build();
+
+	// Elastic scaling V3 with two slots of unincluded-segment headroom (capacity 15 instead of 9).
+	WasmBuilder::init_with_defaults()
+		.enable_feature("v3-descriptor")
+		.enable_feature("velocity-3")
+		.enable_feature("segment-headroom")
+		.set_file_name(elastic_scaling_v3_headroom::WASM_FILE_NAME)
+		.build();
+
 	// A runtime with 18s slot duration with increased spec version for runtime upgrade testing.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("18s-slot")

@@ -301,7 +301,8 @@ impl<Block: BlockT, Pub> SlotContext<Block, Pub> {
 	}
 }
 
-// Alias that explains what is stored in the hashmap.
+// Alias that explains what is stored in the hashmap: resubmittable headers keyed by bucket, the
+// block's committed `selector % total_cores`, which is the core it was built on.
 type PerSelectorResubmittableHeaders<Block> = HashMap<u32, Vec<<Block as BlockT>::Header>>;
 
 /// The core/blocks plan for one slot: scheduled cores, per-core block counts, and the per-core
@@ -658,11 +659,15 @@ where
 		// V3 looks up at the scheduling parent (fresh RC tip); V1/V2 at the relay parent.
 		let claim_queue_relay_block =
 			if cx.v3_enabled { &cx.scheduling_parent_header } else { cx.relay_parent() };
+		// The selector is a running counter across bundles: this slot continues from the parent's.
+		let parent_selector = CumulusDigestItem::find_core_info(cx.initial_parent_header.digest())
+			.map(|core_info| core_info.selector);
 		let mut cores = match determine_cores(
 			&mut self.relay_chain_data_cache,
 			claim_queue_relay_block,
 			self.para_id,
 			claim_queue_offset,
+			parent_selector,
 		)
 		.await
 		{
@@ -701,11 +706,12 @@ where
 				},
 			};
 
-		// In total we want to have at max `number_of_blocks` cores to use.
-		cores.truncate_cores(number_of_blocks);
-		let raw_blocks_per_core = (number_of_blocks / cores.total_cores()).max(1);
-		let left_over_blocks = number_of_blocks % cores.total_cores();
-		let blocks_per_cores = (0..cores.total_cores())
+		// Fresh production uses at most `number_of_blocks` cores this slot; the other assigned
+		// cores are spare backing capacity that only carries resubmissions (V3).
+		cores.set_cores_used(number_of_blocks);
+		let raw_blocks_per_core = (number_of_blocks / cores.cores_used()).max(1);
+		let left_over_blocks = number_of_blocks % cores.cores_used();
+		let blocks_per_cores = (0..cores.cores_used())
 			.map(|i| {
 				// We distribute the left over blocks across the cores.
 				raw_blocks_per_core + u32::from(i < left_over_blocks)
@@ -716,14 +722,16 @@ where
 			target: LOG_TARGET,
 			?blocks_per_cores,
 			core_indices = ?cores.core_indices(),
+			cores_used = cores.cores_used(),
+			first_selector = cores.core_info().selector.0,
 			"Core configuration",
 		);
 
-		// Core affinity serves two purposes: spread resubmission work over the assigned cores
-		// instead of piling it on one, and keep each resubmittable block on a single core so it is
-		// not refetched by another. The second holds only while the assigned cores keep their
-		// order across slots; when it shifts, a duplicate refetch is possible if the block is
-		// re-advertised within ~4s.
+		// A block's bucket is the core it was built on: fresh blocks commit a running selector and
+		// the relay maps `selector % total_cores` onto the ascending assigned cores, so keying the
+		// resubmission by the same residue keeps every block on a single core and it is never
+		// fetched by a second group. The residues no fresh core uses this slot are the spare
+		// cores'.
 		let total_cores = cores.total_cores();
 		let mut resubmittable_headers: PerSelectorResubmittableHeaders<Block> = HashMap::new();
 		if total_cores > 0 {
@@ -881,6 +889,50 @@ where
 			} = plan;
 			let total_cores = cores.total_cores();
 			let mut pov_parent_header = cx.initial_parent_header.clone();
+
+			// Spare cores go out first, as resubmit-only segments: validators accept a V3
+			// scheduling parent only within a one-relay-slot window, so sending these after the
+			// fresh builds would leave them rejected and never fetched. V2 has no proof to sign,
+			// so it never resubmits on another core.
+			let spare_bucket_keys =
+				if cx.v3_enabled { cores.spare_bucket_keys() } else { Vec::new() };
+			for key in spare_bucket_keys {
+				let Some(headers) = resubmittable_headers.remove(&key) else { continue };
+				// The bucket key is a residue modulo the core count, and the relay maps a committed
+				// selector onto `assigned_cores[selector % len]`, so committing the residue itself
+				// lands the segment on that spare core.
+				let spare_core_index = cores.core_indices()[key as usize];
+				let core_info = CoreInfo { selector: CoreSelector(key as u8), ..cores.core_info() };
+				let v3_descendants = cx.relay_parent_data.clone().take_descendants();
+				let builder = CollatorMessageBuilder::new(spare_core_index)
+					.with_resubmittable_headers(headers);
+				let Some(submission) = assemble_core_submission::<Block, P>(
+					builder,
+					Some(v3_descendants),
+					true,
+					cx.relay_parent(),
+					&core_info,
+					collator_peer_id,
+					cx.slot_claim.author_pub(),
+					&env.keystore,
+					spare_core_index,
+				) else {
+					continue;
+				};
+				tracing::debug!(
+					target: LOG_TARGET,
+					core_index = ?spare_core_index,
+					selector = key,
+					"Submitting resubmit-only segment on a spare core.",
+				);
+				if collator_sender.unbounded_send(submission).is_err() {
+					tracing::error!(
+						target: LOG_TARGET,
+						"Unable to send collation to the collation task.",
+					);
+					return;
+				}
+			}
 
 			for blocks_per_core in blocks_per_cores {
 				let core_info = cores.core_info();
@@ -1217,6 +1269,11 @@ where
 				target: LOG_TARGET,
 				?parent_hash,
 				?included_hash_at_execution,
+				relay_parent_num = %relay_parent_header.number(),
+				slot = %para_slot,
+				core_index = %core_index.0,
+				%block_index,
+				?session,
 				"Cannot build next block due to unincluded segment constraints, skipping entire bundle. Will continue at the next slot."
 			);
 
@@ -1536,8 +1593,17 @@ where
 
 /// Return value of [`determine_cores`].
 pub struct Cores {
+	/// The selector the next fresh bundle commits. A running counter carried in the block digest:
+	/// each bundle's selector is its parent bundle's plus one, so consecutive bundles land on
+	/// consecutive cores and a block's resubmission bucket, `selector % total_cores`, is the core
+	/// it was built on.
 	selector: CoreSelector,
+	/// Position within this slot's fresh cores.
+	position: u32,
+	/// Fresh cores used this slot. The remaining assigned cores are spare, resubmit-only.
+	cores_used: u32,
 	claim_queue_offset: ClaimQueueOffset,
+	/// All cores assigned to the para at the claim-queue offset, ascending; never truncated.
 	core_indices: Vec<CoreIndex>,
 }
 
@@ -1547,7 +1613,7 @@ impl Cores {
 		CoreInfo {
 			selector: self.selector,
 			claim_queue_offset: self.claim_queue_offset,
-			number_of_cores: (self.core_indices.len() as u16).into(),
+			number_of_cores: (self.cores_used as u16).into(),
 		}
 	}
 
@@ -1556,41 +1622,78 @@ impl Cores {
 		&self.core_indices
 	}
 
-	/// Returns the current [`CoreIndex`].
+	/// Returns the current [`CoreIndex`]: the relay maps a selector onto the ascending assigned
+	/// cores modulo their count.
 	pub fn core_index(&self) -> CoreIndex {
-		self.core_indices[self.selector.0 as usize]
+		self.core_indices[self.bucket_key(self.selector) as usize]
 	}
 
-	/// Advance to the next available core.
+	/// The bucket a selector routes to.
+	fn bucket_key(&self, selector: CoreSelector) -> u32 {
+		selector.0 as u32 % self.total_cores()
+	}
+
+	/// Advance to the next fresh core.
 	///
-	/// Returns `false` if there is no core left.
+	/// Returns `false` if there is no fresh core left this slot.
 	fn advance(&mut self) -> bool {
-		if self.selector.0 as usize + 1 < self.core_indices.len() {
-			self.selector.0 += 1;
-			true
-		} else {
-			false
-		}
+		self.position += 1;
+		self.selector = next_selector(self.selector, self.total_cores());
+		self.position < self.cores_used
 	}
 
-	/// Returns the total number of cores.
+	/// Returns the total number of assigned cores.
 	pub fn total_cores(&self) -> u32 {
 		self.core_indices.len() as u32
 	}
 
-	/// Truncate `cores` to `max_cores`.
-	pub fn truncate_cores(&mut self, max_cores: u32) {
-		self.core_indices.truncate(max_cores as usize);
+	/// Returns the number of fresh cores used this slot.
+	pub fn cores_used(&self) -> u32 {
+		self.cores_used
 	}
 
-	/// Returns the number of cores left.
+	/// Use at most `cores_used` of the assigned cores for fresh production this slot.
+	pub fn set_cores_used(&mut self, cores_used: u32) {
+		self.cores_used = cores_used.clamp(1, self.total_cores());
+	}
+
+	/// Returns the number of fresh cores left.
 	fn cores_left(&self) -> u32 {
-		self.total_cores() - self.selector.0 as u32
+		self.cores_used - self.position
 	}
 
-	/// Returns if the current core is the last core.
+	/// Returns if the current core is the last fresh core.
 	fn is_last_core(&self) -> bool {
 		self.cores_left() == 1
+	}
+
+	/// The buckets this slot's fresh cores read, in build order.
+	fn fresh_bucket_keys(&self) -> Vec<u32> {
+		let mut selector = self.selector;
+		(0..self.cores_used)
+			.map(|_| {
+				let key = self.bucket_key(selector);
+				selector = next_selector(selector, self.total_cores());
+				key
+			})
+			.collect()
+	}
+
+	/// The buckets no fresh core reads this slot: the spare cores', ascending.
+	fn spare_bucket_keys(&self) -> Vec<u32> {
+		let fresh = self.fresh_bucket_keys();
+		(0..self.total_cores()).filter(|key| !fresh.contains(key)).collect()
+	}
+}
+
+/// The selector of the bundle following one with `selector`, over `total_cores` assigned cores.
+///
+/// A plain increment, except across the `u8` wrap, where the residues modulo the core count must
+/// stay consecutive: `255 % n` is followed by `256 % n`.
+fn next_selector(selector: CoreSelector, total_cores: u32) -> CoreSelector {
+	match selector.0.checked_add(1) {
+		Some(next) => CoreSelector(next),
+		None => CoreSelector((256 % total_cores.max(1)) as u8),
 	}
 }
 
@@ -1734,6 +1837,7 @@ pub async fn determine_cores<RI: RelayChainInterface + 'static>(
 	scheduling_parent: &RelayHeader,
 	para_id: ParaId,
 	relay_parent_offset: u32,
+	parent_selector: Option<CoreSelector>,
 ) -> Result<Option<Cores>, ()> {
 	let claim_queue =
 		&relay_chain_data_cache.get_by_hash(scheduling_parent.hash()).await?.claim_queue;
@@ -1745,12 +1849,75 @@ pub async fn determine_cores<RI: RelayChainInterface + 'static>(
 	Ok(if core_indices.is_empty() {
 		None
 	} else {
+		let total_cores = core_indices.len() as u32;
+		// Continue the running selector from the parent bundle; a parent without a `CoreInfo`
+		// digest (genesis, or a runtime predating the digest) starts the sequence.
+		let selector = parent_selector
+			.map(|parent| next_selector(parent, total_cores))
+			.unwrap_or(CoreSelector(0));
 		Some(Cores {
-			selector: CoreSelector(0),
+			selector,
+			position: 0,
+			cores_used: total_cores,
 			claim_queue_offset: ClaimQueueOffset(relay_parent_offset as u8),
 			core_indices,
 		})
 	})
+}
+
+#[cfg(test)]
+mod cores_tests {
+	use super::*;
+
+	fn make_cores(selector: u8, total: u32) -> Cores {
+		Cores {
+			selector: CoreSelector(selector),
+			position: 0,
+			cores_used: total,
+			claim_queue_offset: ClaimQueueOffset(0),
+			core_indices: (0..total).map(CoreIndex).collect(),
+		}
+	}
+
+	#[test]
+	fn selector_increments_and_wraps_with_consecutive_residues() {
+		assert_eq!(next_selector(CoreSelector(1), 4), CoreSelector(2));
+		// 255 % 3 == 0, so the residue after the wrap must be 1 == 256 % 3.
+		assert_eq!(next_selector(CoreSelector(255), 3), CoreSelector(1));
+		assert_eq!(next_selector(CoreSelector(255), 4), CoreSelector(0));
+	}
+
+	#[test]
+	fn core_index_is_selector_modulo_assigned_cores() {
+		let cores = make_cores(6, 4);
+		assert_eq!(cores.core_index(), CoreIndex(2));
+		assert_eq!(cores.core_info().selector, CoreSelector(6));
+	}
+
+	#[test]
+	fn cores_used_bounds_the_fresh_loop() {
+		let mut cores = make_cores(0, 4);
+		cores.set_cores_used(2);
+		assert_eq!(cores.core_info().number_of_cores, 2u16.into());
+		assert_eq!(cores.cores_left(), 2);
+		assert!(!cores.is_last_core());
+		assert!(cores.advance());
+		assert_eq!(cores.cores_left(), 1);
+		assert!(cores.is_last_core());
+		assert!(!cores.advance());
+	}
+
+	#[test]
+	fn spare_buckets_are_the_residues_no_fresh_core_uses() {
+		let mut cores = make_cores(3, 4);
+		cores.set_cores_used(3);
+		assert_eq!(cores.fresh_bucket_keys(), vec![3, 0, 1]);
+		assert_eq!(cores.spare_bucket_keys(), vec![2]);
+
+		let mut all = make_cores(0, 3);
+		all.set_cores_used(3);
+		assert!(all.spare_bucket_keys().is_empty());
+	}
 }
 
 #[cfg(test)]

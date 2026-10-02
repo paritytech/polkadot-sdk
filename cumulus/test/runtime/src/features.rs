@@ -29,6 +29,9 @@ pub(crate) const fn relay_parent_offset() -> u32 {
 	if cfg!(feature = "relay-parent-offset-2") {
 		return 2;
 	}
+	if cfg!(feature = "relay-parent-offset-1") {
+		return 1;
+	}
 
 	0
 }
@@ -77,5 +80,10 @@ pub(crate) const fn unincluded_segment_capacity() -> u32 {
 	// With `relay_parent_offset() = N`, the collator builds on relay tip `R - N` while the
 	// chain is at `R`, so the buffer must additionally absorb `N * velocity` parablocks worth
 	// of in-flight blocks between the relay parent and the relay tip.
-	block_processing_velocity() * (3 + relay_parent_offset())
+	// With `segment-headroom`, two more slots: after a session change the first candidates can
+	// only be backed two relay blocks later, and this lets production continue through that gap.
+	let headroom =
+		if cfg!(feature = "segment-headroom") { 2 * block_processing_velocity() } else { 0 };
+
+	block_processing_velocity() * (3 + relay_parent_offset()) + headroom
 }
