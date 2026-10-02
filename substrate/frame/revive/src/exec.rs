@@ -18,7 +18,7 @@
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
-	Pallet as Contracts, RuntimeCosts, TrieId,
+	Pallet as Contracts, RuntimeCosts,
 	access_list::{AccessEntry, AccessList, StorageOp, Warmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
@@ -252,10 +252,6 @@ impl<T: Config> Default for CallResources<T> {
 struct TerminateArgs<T: Config> {
 	/// Where to send the free balance of the terminated contract.
 	beneficiary: T::AccountId,
-	/// The storage child trie of the contract that needs to be deleted.
-	trie_id: TrieId,
-	/// The code referenced by the contract. Will be deleted if refcount drops to zero.
-	code_hash: H256,
 	/// Triggered by the EVM opcode.
 	only_if_same_tx: bool,
 	/// The storage deposit already refunded when the termination was scheduled.
@@ -789,9 +785,8 @@ impl<T: Config> Frame<T> {
 	/// `SELFDESTRUCT`. A later termination must never downgrade an earlier one: once any of them
 	/// is unconditional the contract is deleted, since `System.terminate` already refunded the
 	/// deposit when it was called. The refunds add up, so the transaction meter sees each one.
-	/// The other fields come from the later termination: its `beneficiary` is the one the
-	/// contract named last, and its `code_hash` is the most recent one. The `trie_id` never
-	/// changes.
+	/// The `beneficiary` comes from the later termination, since it is the one the contract named
+	/// last.
 	fn schedule_termination(&mut self, account_id: T::AccountId, args: TerminateArgs<T>) {
 		match self.contracts_to_be_destroyed.entry(account_id) {
 			btree_map::Entry::Occupied(mut entry) => {
@@ -1580,13 +1575,6 @@ where
 					let code_hash = *module.code_hash();
 					frame.contract_info().code_hash = code_hash;
 					<CodeInfo<T>>::increment_refcount(code_hash)?;
-
-					// A `SELFDESTRUCT` in the constructor scheduled the termination while the
-					// contract still pointed at the init code. Point it at the runtime code, so
-					// that the termination releases the code and its deposit.
-					if let Some(args) = frame.contracts_to_be_destroyed.get_mut(&frame.account_id) {
-						args.code_hash = code_hash;
-					}
 				}
 
 				let deposit = frame.contract_info().update_base_deposit(code_deposit);
@@ -1923,28 +1911,49 @@ where
 		args: &TerminateArgs<T>,
 	) {
 		let contract_address = T::AddressMapper::to_address(contract_account);
-		let origin = Self::termination_origin(origin);
+		// Every scheduled contract has its info stored by now: popping its frame wrote it.
+		let account_info = AccountInfoOf::<T>::get(contract_address).unwrap_or_default();
 
 		// `System.terminate` refunded the deposit when it was called, as far as the freeze on
 		// the account allowed. This refunds what is still held. A freeze can keep part of it on
 		// hold. That part stays on the account.
 		let refund = Self::best_effort(&contract_address, "refund the storage deposit", || {
-			T::Deposit::refund_all(contract_account, exec_config.funds(origin.account_id()?))
+			Self::refund_on_terminate(exec_config, contract_account, origin)
 		})
 		.unwrap_or_default();
 
 		// we added this consumer manually when instantiating
 		System::<T>::dec_consumers(contract_account);
 
+		// Send the balance that arrived after the termination was scheduled. `Preserve` leaves
+		// the ED and anything a lock, freeze or hold pins on the account. The beneficiary
+		// therefore gets all of the late funds only if the balance covers the lock or freeze. If
+		// it does not, for example with a lock larger than the whole balance, nothing is sent and
+		// the late funds stay on the account. If the transfer fails they stay as well.
+		let origin = Self::termination_origin(origin);
+		let balance = <Contracts<T>>::convert_native_to_evm(
+			account_info.balance(contract_account, Preservation::Preserve),
+		);
+		Self::best_effort(&contract_address, "send the remaining balance", || {
+			Self::transfer(
+				&origin,
+				contract_account,
+				&args.beneficiary,
+				balance,
+				Preservation::Preserve,
+				transaction_meter,
+				exec_config,
+			)
+		});
+
 		// ED was minted when the account was brought into existence. Burn it if the account can
 		// be reaped, which is when everything left on it after the burn is free and can be
-		// withdrawn down to zero. A lock, freeze or hold, or a consumer another pallet placed,
-		// keeps the account alive and rolls the burn back, even if funds that arrived after the
-		// call would cover it. The burn is also skipped if it would leave a non-zero amount
-		// below the ED, which the reaping would remove as dust. The ED is then kept and the
-		// account stays in place as a plain account. A contract deployed to the same address
-		// later takes it over.
-		let reaped = Self::best_effort(&contract_address, "burn the existential deposit", || {
+		// withdrawn down to zero. A lock, freeze or hold, or a consumer or provider another pallet
+		// placed, keeps the account alive and rolls the burn back. The burn is also skipped if it
+		// would leave a non-zero amount below the ED, which the reaping would remove as dust. This
+		// happens when the sweep above failed. The ED is then kept and the account stays in place
+		// as a plain account. A contract deployed to the same address later takes it over.
+		Self::best_effort(&contract_address, "burn the existential deposit", || {
 			let ed = T::Currency::minimum_balance();
 			let rest = T::Currency::total_balance(contract_account).saturating_sub(ed);
 			ensure!(
@@ -1962,36 +1971,17 @@ where
 				DispatchError::Other("account can not be reaped")
 			);
 			Ok(())
-		})
-		.is_some();
-
-		// Send the balance that arrived after the termination was scheduled. If the ED was kept,
-		// `Preserve` leaves it and anything pinned on the account, so the beneficiary still gets
-		// all of the late funds. If the transfer fails the funds stay on the account.
-		let preservation = if reaped { Preservation::Expendable } else { Preservation::Preserve };
-		let balance = <Contracts<T>>::convert_native_to_evm(
-			AccountInfoOf::<T>::get(contract_address)
-				.unwrap_or_default()
-				.balance(contract_account, preservation),
-		);
-		Self::best_effort(&contract_address, "send the remaining balance", || {
-			Self::transfer(
-				&origin,
-				contract_account,
-				&args.beneficiary,
-				balance,
-				preservation,
-				transaction_meter,
-				exec_config,
-			)
 		});
 
-		// this deletes the code if refcount drops to zero
-		Self::best_effort(&contract_address, "release the code", || {
-			CodeInfo::<T>::decrement_refcount(args.code_hash)
-		});
-
-		ContractInfo::<T>::queue_for_deletion(args.trie_id.clone(), contract_account.clone());
+		if let Some(info) = account_info.account_type.contract_info() {
+			// this deletes the code if refcount drops to zero
+			Self::best_effort(&contract_address, "release the code", || {
+				CodeInfo::<T>::decrement_refcount(info.code_hash)
+			});
+			ContractInfo::<T>::queue_for_deletion(info.trie_id, contract_account.clone());
+		} else {
+			log::debug!(target: LOG_TARGET, "Terminating {contract_address:?}: no contract info");
+		}
 		AccountInfoOf::<T>::remove(contract_address);
 		ImmutableDataOf::<T>::remove(contract_address);
 
@@ -2263,9 +2253,6 @@ where
 			);
 		});
 		let frame = top_frame_mut!(self);
-		let info = frame.contract_info();
-		let trie_id = info.trie_id.clone();
-		let code_hash = info.code_hash;
 		let contract_address = T::AddressMapper::to_address(&frame.account_id);
 		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
 
@@ -2284,13 +2271,7 @@ where
 		let account_id = frame.account_id.clone();
 		self.top_frame_mut().schedule_termination(
 			account_id,
-			TerminateArgs {
-				beneficiary,
-				trie_id,
-				code_hash,
-				only_if_same_tx: true,
-				refunded: Zero::zero(),
-			},
+			TerminateArgs { beneficiary, only_if_same_tx: true, refunded: Zero::zero() },
 		);
 		Ok(CodeRemoved::Yes)
 	}
@@ -2785,9 +2766,6 @@ where
 			Error::<T>::CannotTerminateDelegatedAccount,
 		);
 
-		let info = parent.contract_info();
-		let trie_id = info.trie_id.clone();
-		let code_hash = info.code_hash;
 		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
 
 		let parent_account_id = parent.account_id.clone();
@@ -2810,8 +2788,7 @@ where
 		)?;
 
 		// schedule for delayed deletion
-		let args =
-			TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx: false, refunded };
+		let args = TerminateArgs { beneficiary, only_if_same_tx: false, refunded };
 		self.top_frame_mut().schedule_termination(parent_account_id, args);
 
 		Ok(())
@@ -2886,8 +2863,6 @@ pub fn bench_do_terminate<T: Config>(
 	contract_account: &T::AccountId,
 	origin: &Origin<T>,
 	beneficiary: T::AccountId,
-	trie_id: TrieId,
-	code_hash: H256,
 	only_if_same_tx: bool,
 ) -> Result<(), DispatchError> {
 	type BenchStack<'a, T> = Stack<'a, T, crate::ContractBlob<T>>;
@@ -2901,7 +2876,7 @@ pub fn bench_do_terminate<T: Config>(
 		exec_config,
 		contract_account,
 		origin,
-		&TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx, refunded },
+		&TerminateArgs { beneficiary, only_if_same_tx, refunded },
 	);
 	Ok(())
 }

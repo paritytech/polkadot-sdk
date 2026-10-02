@@ -42,6 +42,13 @@ pub mod pallet {
 		Foreign,
 	}
 
+	/// Holds placed by a pallet other than pallet-revive.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// A hold on a contract account that the contract did not place.
+		Foreign,
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Dummy function that overcharges the predispatch weight, allowing us to test the correct
