@@ -6,8 +6,9 @@ doc:
     `deposited`, `withdrawn`) fired next to the matching pallet-assets events on every path:
     extrinsics, the `fungibles` traits (incl. XCM asset transactors) and the `Balanced` imbalance
     paths. `fungibles::Mutate::shelve` and `restore` have no pallet-assets event of their own and
-    fire `burned` and `issued`, since they move total supply like a burn and a mint do. The trait
-    gains a third generic parameter `Balance`; any hand-written
+    fire `burned` and `issued`, since they move total supply like a burn and a mint do; likewise
+    the dust a transfer burns (`TransferFlags::burn_dust`) fires `burned` with no event of its
+    own. The trait gains a third generic parameter `Balance`; any hand-written
     `impl AssetsCallback<Id, Acct>` must add it. Genesis asset creation now fires `created` too, so
     a `CallbackHandle` seeds genesis assets like runtime-created ones; a failure there panics
     genesis construction.
@@ -42,8 +43,10 @@ doc:
     log the block committed to it. A consumer rebuilding those logs from block events must select
     by those indices, since the block's `ContractEmitted` events are a superset of what the header
     commits to, and number them after every other log of the block: eth-rpc gives them a
-    `logIndex` from the block's event count on, so `eth_getLogs`, ordered by `logIndex`, keeps the
-    synthetic transaction's logs last as its `transactionIndex` is. `eth_block` lists the
+    `logIndex` from the block's event count on, and `eth_getLogs` now orders its results by block
+    number and `logIndex`, so the synthetic transaction's logs come last as its `transactionIndex`
+    is. Before, a filtered query returned the logs of a block in the order of its
+    `(block_number, address, topics)` index. `eth_block` lists the
     synthetic transaction's hash in every version, since
     `transactions` is the list the header commits to; an eth-rpc on receipt data version 1 sees
     that hash with no receipt to serve for it. The new `Config` item `MaxOutsideFrameLogs` bounds
@@ -140,6 +143,23 @@ doc:
         and refund paid in PGAS (a payer without PGAS pays in the native asset, with no mirror).
         A runtime pairing the mirror with a different `Holder` implementation must report
         the same three paths, or balance moves through them with no `Transfer` log.
+- audience: Node Operator
+  description: |-
+    Upgrade eth-rpc before the chain turns the outside-of-frame log buffer on. This release reads
+    receipt data version 2, which carries the synthetic transaction holding a block's mirrored
+    logs. An older eth-rpc on a chain with the buffer on lists that transaction's hash in a block
+    but returns null for its receipt and transaction, reports one fewer in
+    `eth_getBlockTransactionCountByNumber` and serves none of the mirrored logs. With the buffer
+    off, as Asset Hub Westend ships it, old and new eth-rpc serve the same blocks. `eth_getLogs`
+    now returns logs ordered by block number and `logIndex`; before, a filtered query returned a
+    block's logs in the order of its `(block_number, address, topics)` index. No database
+    migration.
+- audience: Node Dev
+  description: |-
+    `pallet-revive-eth-rpc`: `ReceiptExtractor::new` and `new_with_custom_address_recovery` take
+    the chain's EVM chain id as a second argument, which the extractor needs to rebuild the
+    synthetic transaction that carries a block's outside-of-frame logs, and are plain functions
+    now, neither `async` nor fallible.
 crates:
 - name: pallet-assets
   bump: major
