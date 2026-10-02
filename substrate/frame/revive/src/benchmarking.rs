@@ -188,6 +188,82 @@ impl Outcome {
 	];
 }
 
+/// The code of the `evm_dispatch_mix` benchmark: a pseudo-random, stack-neutral mix of cheap
+/// op-codes, built in blocks that each contain the same op-codes the same number of times.
+struct EvmMixedOpcodes;
+
+impl EvmMixedOpcodes {
+	/// Cheap op-codes whose work doesn't depend on their operands, so in the mix each one does
+	/// exactly the work it's charged for. The repetitions make every block leave the stack as high
+	/// as it found it.
+	const BLOCK: [(u8, usize, usize, usize); 14] = [
+		// (op-code, pops, pushes, repetitions)
+		(PC, 0, 1, 5),
+		(CHAINID, 0, 1, 5),
+		(DIFFICULTY, 0, 1, 5),
+		(CODESIZE, 0, 1, 5),
+		(CALLDATASIZE, 0, 1, 5),
+		(RETURNDATASIZE, 0, 1, 5),
+		(MSIZE, 0, 1, 5),
+		(JUMPDEST, 0, 0, 5),
+		(NOT, 1, 1, 5),
+		(POP, 1, 0, 7),
+		(AND, 2, 1, 7),
+		(OR, 2, 1, 7),
+		(XOR, 2, 1, 7),
+		(MUL, 2, 1, 7),
+	];
+
+	/// The number of op-codes in a block.
+	const CODE_BLOCK_SIZE: usize = {
+		let mut size = 0;
+		let mut index = 0;
+		while index < Self::BLOCK.len() {
+			size += Self::BLOCK[index].3;
+			index += 1;
+		}
+		size
+	};
+
+	/// The height of the stack at the start and the end of every block.
+	const STACK_INITIAL_HEIGHT: usize = 16;
+
+	/// The highest the stack gets, within its initial capacity so pushing never reallocates it.
+	const STACK_MAX_HEIGHT: usize = 32;
+
+	/// Returns `r` blocks of op-codes, each in its own pseudo-random order.
+	fn generate_code(rng: &mut impl Rng, r: u32) -> Vec<u8> {
+		let mut code = Vec::with_capacity(r as usize * Self::CODE_BLOCK_SIZE);
+		for _ in 0..r {
+			Self::generate_block(rng, &mut code);
+		}
+		code
+	}
+
+	/// Appends one block to `code` in a pseudo-random order that keeps the stack between empty and
+	/// `STACK_MAX_HEIGHT`.
+	fn generate_block(rng: &mut impl Rng, code: &mut Vec<u8>) {
+		use alloc::collections::VecDeque;
+
+		let mut remaining = Self::BLOCK
+			.into_iter()
+			.flat_map(|(op_code, pops, pushes, repetitions)| {
+				vec![(op_code, pops, pushes); repetitions]
+			})
+			.collect::<VecDeque<_>>();
+		remaining.make_contiguous().shuffle(rng);
+		let mut height = Self::STACK_INITIAL_HEIGHT;
+		while let Some(instruction @ (op_code, pops, pushes)) = remaining.pop_front() {
+			if pops <= height && height - pops + pushes <= Self::STACK_MAX_HEIGHT {
+				code.push(op_code);
+				height = height - pops + pushes;
+			} else {
+				remaining.push_back(instruction);
+			}
+		}
+	}
+}
+
 /// Operands that make the division of `U256` values take its longer paths.
 ///
 /// Division uses Knuth's Algorithm. It has a longer path if the first estimate of a 64-bit limb of
@@ -5366,6 +5442,45 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` blocks of a pseudo-random, stack-neutral mix of cheap EVM op-codes.
+	///
+	/// Every block runs the same op-codes the same number of times, so what the mix costs beyond
+	/// the charges of its op-codes is the cost of dispatching to a handler the CPU can't predict.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A misprediction of the handler the interpreter dispatches to, since the op-codes are in a
+	///   pseudo-random order.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dispatch_mix(
+		r: Linear<0, { (MAX_INITCODE_SIZE / EvmMixedOpcodes::CODE_BLOCK_SIZE) as u32 }>,
+	) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let code = EvmMixedOpcodes::generate_code(&mut rng, r);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; EvmMixedOpcodes::STACK_INITIAL_HEIGHT]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), EvmMixedOpcodes::STACK_INITIAL_HEIGHT);
 	}
 
 	// Benchmark the execution of instructions.
