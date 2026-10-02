@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790927924720,
+  "lastUpdate": 1790951724612,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e8ad708d0c69e053458f3b89b20f3f1833e0e203",
-          "message": "[Penpal] cleanup XCM config setup regarding assets (#10726)\n\nCloses #7314 by implementing all the subtasks mentioned in\nhttps://github.com/paritytech/polkadot-sdk/issues/7314#issuecomment-2792437373.\n\n## Changes\nEssentially, the main driver of all changes is that we adjust the Penpal\nruntime as follows:\n* Make the native token the base token for buying weight (before it was\na hybrid set up, probably not 100% intentional).\n* Merge the `Assets` and the `ForeignAssets` pallet into one pallet\ncalled `Assets`, as the local assets can also be identified with a\nlocation starting with `parents: 0`.\n* Give the pallet-asset-conversion a genesis config so that we can\neasily set up pools at genesis instead of redundantly calling the setup\nmacro with the same args.\n\n\n### Test Changes\nI tried to keep the changes minimal in the tests in order to not harm\nany previously established invariants. Hence, in most cases I just did:\n\n* Add a PEN<>WND pool in order to be able to pay xcm execution fees in\nWND\n* Replaced the Penpal's teleportable asset with it's new location based\nversion.\n* In very few cases, I switched from WND to PEN to make the tests\neasier, when I was sure that no invariants would be harmed.\n* The rest should only be renamings.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2026-03-26T09:15:46Z",
-          "tree_id": "0bf1df960c712ba73727cb542412ff9a662ac660",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e8ad708d0c69e053458f3b89b20f3f1833e0e203"
-        },
-        "date": 1774521665136,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.250800387366667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13434253686666664,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1359937576,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "18311d6fa3f6649ba3e0622ad2928ed0789bfbb9",
+          "message": "statement-store: time only the measured operation in the store benchmarks (#13370)\n\nThe statement store benchmarks now time only the operation that they are\nnamed after. Before this change, several benchmarks reported costs that\na node never pays: the drop of a store, a no-op maintain, and the setup\nof the contention store. A benchmark whose submits were rejected looked\nthe same as a working one.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13135.",
+          "timestamp": "2026-10-02T12:59:50Z",
+          "tree_id": "e18cc27d1ff2992072228d780d5a8204e17e32c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/18311d6fa3f6649ba3e0622ad2928ed0789bfbb9"
+        },
+        "date": 1790951692289,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.568799144633335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14049879793333334,
             "unit": "seconds"
           }
         ]
