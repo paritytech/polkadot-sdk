@@ -2221,9 +2221,9 @@ impl<T: Config> Pallet<T> {
 		cfg: &configuration::HostConfiguration<BlockNumberFor<T>>,
 		upgrade_strategy: UpgradeStrategy,
 	) {
-		// `max_code_size` is not re-checked here: it is session-scoped, and the caller already
-		// validated the code against the bound that applies to it. Re-reading the live config
-		// would silently drop upgrades accepted under an older, looser session.
+		// `max_code_size` is not checked here. The extrinsic paths check it against `ActiveConfig`;
+		// the inclusion caller does not, relying on the backing-time check against the relay-parent
+		// session, which may be looser than `cfg`. Re-checking would drop upgrades that passed it.
 		if new_code.0.len() < MIN_CODE_SIZE as usize {
 			log::warn!(target: LOG_TARGET, "attempted to schedule an upgrade with invalid new validation code",);
 			return;

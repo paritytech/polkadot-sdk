@@ -90,11 +90,19 @@ const LOG_TARGET: &str = "parachain::prospective-parachains";
 /// full.
 const RELAY_PARENT_INFO_CACHE_CAPACITY: u32 = 2400;
 
-/// LRU cache mapping `(leaf_session, fetch_session, relay_parent)` to runtime-reported relay parent
-/// info. `fetch_session` belongs in the key because the lookup asserts the relay parent lives in
-/// that session: without it a hit would answer for a session the runtime was never asked about.
-type RelayParentInfoCache =
-	LruMap<(SessionIndex, SessionIndex, Hash), RuntimeRelayParentInfo<Hash, BlockNumber>>;
+/// Key of the [`RelayParentInfoCache`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+struct RelayParentInfoKey {
+	/// Session for children of the queried scheduling parent; the allowed relay parents depend
+	/// on it.
+	scheduling_session: SessionIndex,
+	/// Session the candidate claims its relay parent is in; the runtime answers only if it is.
+	fetch_session: SessionIndex,
+	relay_parent: Hash,
+}
+
+/// LRU cache of runtime-reported relay parent info.
+type RelayParentInfoCache = LruMap<RelayParentInfoKey, RuntimeRelayParentInfo<Hash, BlockNumber>>;
 
 /// Per-session cache for the `SessionExecutionConfig` snapshot. `None` records a definitive
 /// "the runtime has no snapshot for this session"; transient failures are never cached.
@@ -109,15 +117,6 @@ enum SessionExecutionConfigLookup {
 	Unavailable,
 	/// Transient runtime or channel failure.
 	Failed,
-}
-
-impl SessionExecutionConfigLookup {
-	fn found(&self) -> Option<SessionExecutionConfig> {
-		match self {
-			Self::Found(cfg) => Some(*cfg),
-			Self::Unavailable | Self::Failed => None,
-		}
-	}
 }
 
 struct PerSchedulingParent {
@@ -147,14 +146,13 @@ struct View {
 	/// The hashes of the currently active leaves. Always a subset of the keys in
 	/// `per_scheduling_parent`.
 	active_leaves: HashSet<Hash>,
-	/// LRU cache of relay-parent-info answers keyed by `(leaf_session, fetch_session,
-	/// relay_parent)`.
+	/// LRU cache of relay-parent-info answers keyed by [`RelayParentInfoKey`].
 	///
-	/// Semantically this caches "under a leaf in this session, the runtime confirmed this relay
-	/// parent belongs to `fetch_session` and returned this info". Session-keying means entries
-	/// from older sessions are naturally invalidated (miss + repopulate) when we move forward,
-	/// matching the runtime's `max_relay_parent_session_age` pruning behavior. Only positive
-	/// results are cached; `None`/`Err` results force a fresh query on the next call.
+	/// Semantically this caches "under a scheduling parent in this session, the runtime confirmed
+	/// this relay parent belongs to `fetch_session` and returned this info". Session-keying means
+	/// entries from older sessions are naturally invalidated (miss + repopulate) when we move
+	/// forward, matching the runtime's `max_relay_parent_session_age` pruning behavior. Only
+	/// positive results are cached; `None`/`Err` results force a fresh query on the next call.
 	relay_parent_info_cache: RelayParentInfoCache,
 	/// LRU cache of the `SessionExecutionConfig` snapshot per session.
 	session_execution_config_cache: SessionExecutionConfigCache,
@@ -642,7 +640,7 @@ async fn preprocess_candidates_pending_availability<Context>(
 
 /// Verifies the candidate's relay parent is within the leaf's scope and that its PVD
 /// `max_pov_size` matches the runtime value for the candidate's relay-parent session. Returns that
-/// session's `SessionExecutionConfig`, or `None` when the runtime cannot supply it.
+/// session's `SessionExecutionConfig`, or `None` when the runtime has no snapshot for it.
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
 async fn verify_relay_parent_within_scope<Context>(
 	ctx: &mut Context,
@@ -676,23 +674,23 @@ async fn verify_relay_parent_within_scope<Context>(
 	}
 
 	let session_config =
-		fetch_session_execution_config(ctx, session_config_cache, query_at, fetch_session).await;
+		match fetch_session_execution_config(ctx, session_config_cache, query_at, fetch_session)
+			.await
+		{
+			SessionExecutionConfigLookup::Found(cfg) => Some(cfg),
+			SessionExecutionConfigLookup::Unavailable => None,
+			// Checking against another session's limits instead could wrongly accept or reject.
+			SessionExecutionConfigLookup::Failed => {
+				return Err(JfyiError::SessionExecutionConfigQueryFailed)
+			},
+		};
 
-	// A failed lookup must not reject the candidate: we cannot distinguish a tampered PVD from an
-	// unanswered query, and rejecting here drops the candidate permanently.
-	let expected_max_pov_size = match &session_config {
-		SessionExecutionConfigLookup::Found(cfg) => Some(cfg.max_pov_size),
-		SessionExecutionConfigLookup::Unavailable => Some(scheduling_session_max_pov_size),
-		SessionExecutionConfigLookup::Failed => None,
-	};
-
-	if let Some(expected) = expected_max_pov_size {
-		if expected != pvd.max_pov_size {
-			return Err(JfyiError::MaxPovSizeMismatch { expected, got: pvd.max_pov_size });
-		}
+	let expected = session_config.map_or(scheduling_session_max_pov_size, |cfg| cfg.max_pov_size);
+	if expected != pvd.max_pov_size {
+		return Err(JfyiError::MaxPovSizeMismatch { expected, got: pvd.max_pov_size });
 	}
 
-	Ok(session_config.found())
+	Ok(session_config)
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
@@ -1343,7 +1341,7 @@ async fn fetch_scheduling_parent_ancestors<Context>(
 async fn fetch_relay_parent_info_cached<Sender>(
 	sender: &mut Sender,
 	cache: &mut RelayParentInfoCache,
-	leaf_session: SessionIndex,
+	scheduling_session: SessionIndex,
 	query_at: Hash,
 	fetch_session: SessionIndex,
 	relay_parent: Hash,
@@ -1352,12 +1350,13 @@ where
 	Sender: polkadot_node_subsystem::SubsystemSender<RuntimeApiMessage>
 		+ polkadot_node_subsystem::SubsystemSender<ChainApiMessage>,
 {
-	if let Some(info) = cache.get(&(leaf_session, fetch_session, relay_parent)) {
+	let key = RelayParentInfoKey { scheduling_session, fetch_session, relay_parent };
+	if let Some(info) = cache.get(&key) {
 		return Ok(Some(info.clone()));
 	}
 	match fetch_relay_parent_info(sender, query_at, fetch_session, relay_parent).await? {
 		Some(info) => {
-			cache.insert((leaf_session, fetch_session, relay_parent), info.clone());
+			cache.insert(key, info.clone());
 			Ok(Some(info))
 		},
 		None => Ok(None),

@@ -103,16 +103,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type AccountKeys<T: Config> = StorageMap<_, Identity, SessionIndex, Vec<AccountId<T>>>;
 
-	/// Executor parameter set for a given session index
+	/// Executor parameter set for a given session index.
+	///
+	/// Keyed by a candidate's relay-parent session, so kept `max_relay_parent_session_age` sessions
+	/// longer than `Sessions`: a candidate may be disputed that much later.
 	#[pallet::storage]
 	pub type SessionExecutorParams<T: Config> =
 		StorageMap<_, Identity, SessionIndex, ExecutorParams>;
 
-	/// Execution-relevant host configuration for a given session index.
-	///
-	/// Stored in a rolling window matching the dispute period, so that
-	/// validators can look up the configuration that was active when a
-	/// candidate was produced.
+	/// Execution-relevant host configuration for a given session index. Retained like
+	/// `SessionExecutorParams`.
 	#[pallet::storage]
 	pub type SessionExecutionConfigs<T: Config> =
 		StorageMap<_, Identity, SessionIndex, SessionExecutionConfig>;
@@ -179,14 +179,26 @@ impl<T: Config> Pallet<T> {
 				// Idx will be missing for a few sessions after the runtime upgrade.
 				// But it shouldn't be a problem.
 				AccountKeys::<T>::remove(&idx);
-				SessionExecutorParams::<T>::remove(&idx);
-				SessionExecutionConfigs::<T>::remove(&idx);
 			}
 			// update `EarliestStoredSession` based on `config.dispute_period`
 			EarliestStoredSession::<T>::set(new_earliest_stored_session);
 		} else {
 			// just introduced on a live chain
 			EarliestStoredSession::<T>::set(new_session_index);
+		}
+		// Both maps hold one entry per session, so walking back from the new lower bound until the
+		// first gap prunes everything older, including after the retention shrank.
+		let earliest_execution_session = new_session_index
+			.saturating_sub(dispute_period.saturating_add(config.max_relay_parent_session_age));
+		let mut idx = earliest_execution_session;
+		while idx > 0 && SessionExecutorParams::<T>::contains_key(idx - 1) {
+			idx -= 1;
+			SessionExecutorParams::<T>::remove(&idx);
+		}
+		let mut idx = earliest_execution_session;
+		while idx > 0 && SessionExecutionConfigs::<T>::contains_key(idx - 1) {
+			idx -= 1;
+			SessionExecutionConfigs::<T>::remove(&idx);
 		}
 
 		// The validator set is guaranteed to be of the current session

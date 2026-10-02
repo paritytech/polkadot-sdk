@@ -3814,16 +3814,12 @@ fn candidate_validated_against_relay_parent_session_execution_config() {
 	assert_eq!(view.active_leaves.len(), 1);
 }
 
-// A transient `SessionExecutionConfig` failure must not reject the candidate. The strict
-// `max_pov_size` cross-check only applies when the runtime gave a definitive answer; failing
-// closed here would permanently drop a candidate over a momentarily busy runtime-api subsystem.
+// A failed `SessionExecutionConfig` query rejects the candidate: checking it against the
+// scheduling session's limits instead could wrongly accept or reject it.
 #[test]
-fn transient_session_execution_config_failure_does_not_reject_candidate() {
+fn session_execution_config_query_failure_rejects_candidate() {
 	const LEAF_NUMBER: BlockNumber = 100;
 	const OLDER_RELAY_PARENT_NUMBER: BlockNumber = LEAF_NUMBER - 4 * DEFAULT_SCHEDULING_LOOKAHEAD;
-	// Differs from the scheduling session's `base_constraints.max_pov_size`, so the strict
-	// fallback would reject this candidate if a failed lookup were treated as "not stored".
-	const RELAY_PARENT_SESSION_MAX_POV_SIZE: u32 = 123_456;
 
 	let para_id = ParaId::from(1);
 	let mut test_state = TestState::default();
@@ -3843,9 +3839,8 @@ fn transient_session_execution_config_failure_does_not_reject_candidate() {
 		};
 		activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
 
-		let older_relay_parent = Hash::from_low_u64_be(9999);
-		let (mut candidate_a, mut pvd_a) = make_candidate_v3(
-			older_relay_parent,
+		let (candidate_a, pvd_a) = make_candidate_v3(
+			Hash::from_low_u64_be(9999),
 			OLDER_RELAY_PARENT_NUMBER,
 			leaf_a.hash,
 			para_id,
@@ -3853,11 +3848,9 @@ fn transient_session_execution_config_failure_does_not_reject_candidate() {
 			HeadData(vec![1]),
 			test_state.validation_code_hash,
 		);
-		assert_ne!(RELAY_PARENT_SESSION_MAX_POV_SIZE, MAX_POV_SIZE, "test sentinel collision");
-		pvd_a.max_pov_size = RELAY_PARENT_SESSION_MAX_POV_SIZE;
-		candidate_a.descriptor.set_persisted_validation_data_hash(pvd_a.hash());
 
-		introduce_seconded_candidate(&mut virtual_overseer, &test_state, candidate_a, pvd_a).await;
+		introduce_seconded_candidate_failed(&mut virtual_overseer, &test_state, candidate_a, pvd_a)
+			.await;
 
 		virtual_overseer
 	});

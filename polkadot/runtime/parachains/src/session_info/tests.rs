@@ -321,3 +321,35 @@ fn session_execution_config_is_pruned_with_dispute_window() {
 		assert!(SessionExecutionConfigs::<Test>::get(10).is_some());
 	})
 }
+
+// A candidate disputed at the end of the dispute window may have a relay parent
+// `max_relay_parent_session_age` sessions older still; its execution data must outlive `Sessions`.
+#[test]
+fn execution_data_outlives_sessions_by_max_relay_parent_session_age() {
+	let mut genesis = genesis_config();
+	genesis.configuration.config.max_relay_parent_session_age = 3;
+	new_test_ext(genesis).execute_with(|| {
+		run_to_block(100, session_changes);
+		// `Sessions` keeps 10 - 2 = 8 onwards, execution data 10 - (2 + 3) = 5 onwards.
+		assert_eq!(EarliestStoredSession::<Test>::get(), 8);
+
+		assert!(Sessions::<Test>::get(7).is_none());
+		assert!(SessionExecutionConfigs::<Test>::get(4).is_none());
+		assert!(SessionExecutorParams::<Test>::get(4).is_none());
+		for session in 5..=10 {
+			assert!(SessionExecutionConfigs::<Test>::get(session).is_some());
+			assert!(SessionExecutorParams::<Test>::get(session).is_some());
+		}
+
+		// The shrink takes effect at session 12, pruning the backlog below 12 - (2 + 1) = 9 at
+		// once.
+		Configuration::set_max_relay_parent_session_age(RuntimeOrigin::root(), 1).unwrap();
+		run_to_block(120, session_changes);
+		for session in 5..=8 {
+			assert!(SessionExecutionConfigs::<Test>::get(session).is_none());
+			assert!(SessionExecutorParams::<Test>::get(session).is_none());
+		}
+		assert!(SessionExecutionConfigs::<Test>::get(9).is_some());
+		assert!(SessionExecutorParams::<Test>::get(9).is_some());
+	})
+}
