@@ -67,9 +67,12 @@ doc:
     mirrored, or the whole dispatch failing after its frames at fee settlement, which commits a
     receipt with no logs and an empty bloom. Before, such logs stayed in the receipt,
     `receipts_root` and `logs_bloom` while the state and events that produced them rolled back.
-    Keeping that state in storage rather than in memory is work a contract `LOG` now pays for:
-    `seal_deposit_event` roughly doubles in ref_time, and every gas estimate for a log-emitting
-    call rises with it.
+    `seal_deposit_event` is now benchmarked inside an ethereum transaction, where the log is
+    RLP-encoded and accrued into the receipt's bloom. Every `eth_transact` always did that work,
+    but the benchmark emitted its log outside a transaction and never measured it. Its fixed part
+    doubles (5.7 to 12.3 µs on dev, 6.9 to 15.0 µs on Asset Hub Westend) and its per-byte part
+    rises by 16% on dev and 53% on Asset Hub Westend; the storage round trip for the committed
+    state is a small share of that. Every gas estimate for a log-emitting call rises with it.
 
     The cap is a backstop no block can reach. Buffering a log registers at least its encoded bytes
     as proof size, unchecked, whatever produced it — an assets extrinsic, a storage deposit settled
