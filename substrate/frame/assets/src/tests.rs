@@ -2517,5 +2517,12 @@ fn transfer_approved_to_self_charges_the_request() {
 		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 1, 95));
 		assert_eq!(Assets::balance(0, 1), 100);
 		assert_eq!(Assets::allowance(0, &1, &2), 0);
+		// The event still reports the swept debit, as for any self-transfer.
+		System::assert_has_event(RuntimeEvent::Assets(crate::Event::Transferred {
+			asset_id: 0,
+			from: 1,
+			to: 1,
+			amount: 100,
+		}));
 	});
 }
