@@ -4786,10 +4786,10 @@ pub(crate) mod tests {
 		.unwrap();
 
 		let bc = backend.blockchain();
-		let indexed = bc.block_indexed_body(block1).unwrap().unwrap();
-		assert_eq!(indexed.len(), 2, "Should have 2 indexed data blobs");
-		assert_eq!(&indexed[0][..], &x1[1..]);
-		assert_eq!(&indexed[1][..], &x2[1..]);
+		let indexed_body = bc.block_indexed_body(block1).unwrap().unwrap();
+		assert_eq!(indexed_body.len(), 2, "Should have 2 indexed data blobs");
+		assert_eq!(&indexed_body[0][..], &x1[1..]);
+		assert_eq!(&indexed_body[1][..], &x2[1..]);
 	}
 
 	#[test]
@@ -5088,13 +5088,13 @@ pub(crate) mod tests {
 
 		let bc = backend.blockchain();
 
-		let indexed = bc.block_indexed_body(blocks[1]).unwrap().unwrap();
-		assert_eq!(indexed.len(), 5);
-		assert_eq!(&indexed[0][..], &w[1..]);
-		assert_eq!(&indexed[1][..], &x[1..]);
-		assert_eq!(&indexed[2][..], &y[1..]);
-		assert_eq!(&indexed[3][..], &w[1..]);
-		assert_eq!(&indexed[4][..], &z[1..]);
+		let indexed_body = bc.block_indexed_body(blocks[1]).unwrap().unwrap();
+		assert_eq!(indexed_body.len(), 5);
+		assert_eq!(&indexed_body[0][..], &w[1..]);
+		assert_eq!(&indexed_body[1][..], &x[1..]);
+		assert_eq!(&indexed_body[2][..], &y[1..]);
+		assert_eq!(&indexed_body[3][..], &w[1..]);
+		assert_eq!(&indexed_body[4][..], &z[1..]);
 
 		for i in 1..6 {
 			let mut op = backend.begin_operation().unwrap();

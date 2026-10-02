@@ -52,11 +52,8 @@ bitflags! {
 		const MESSAGE_QUEUE = 0b00001000;
 		/// Include a justification for the block.
 		const JUSTIFICATION = 0b00010000;
-		/// Deprecated indexed-body attribute bit.
-		///
-		/// Kept so that block requests from older peers still decode. The bit is ignored:
-		/// indexed transactions are fetched through the storage-chain bitswap path instead of
-		/// block requests.
+		/// Deprecated indexed-body attribute bit. Kept so that requests from older peers
+		/// still decode; the bit is ignored.
 		const DEPRECATED_INDEXED_BODY = 0b00100000;
 	}
 }
