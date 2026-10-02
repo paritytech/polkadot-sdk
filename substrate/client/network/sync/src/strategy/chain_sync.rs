@@ -50,7 +50,7 @@ use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Counter, Gauge, PrometheusError, Registry, U64};
 use prost::Message;
 use sc_client_api::{blockchain::BlockGap, BlockBackend, PartialStateImport, ProofProvider};
-use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
+use sc_consensus::{BlockImportError, BlockImportStatus, ImportedState, IncomingBlock};
 use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
@@ -298,10 +298,9 @@ struct GapSync<B: BlockT> {
 pub enum ChainSyncMode {
 	/// Full block download and verification.
 	Full,
-	/// Download blocks and the latest state.
+	/// Download blocks and the latest state. The state is downloaded with proofs and written to
+	/// the database as it arrives.
 	LightState {
-		/// Skip state proof download and verification.
-		skip_proofs: bool,
 		/// Download indexed transactions for recent blocks.
 		storage_chain_mode: bool,
 	},
@@ -452,7 +451,7 @@ pub struct ChainSync<B: BlockT, Client> {
 	/// when `queue_blocks` is not empty or there are no peers. This field holds the
 	/// necessary information to attempt the state sync at a later point when
 	/// conditions are satisfied.
-	pending_state_sync_attempt: Option<(B::Hash, NumberFor<B>, bool)>,
+	pending_state_sync_attempt: Option<(B::Hash, NumberFor<B>)>,
 	/// Fork sync targets.
 	fork_targets: HashMap<B::Hash, ForkTarget<B>>,
 	/// A set of peers for which there might be potential block requests
@@ -954,13 +953,11 @@ where
 			is_descendent_of(&**client, base, block)
 		});
 
-		if let ChainSyncMode::LightState { skip_proofs, .. } = &self.mode {
-			if self.state_sync.is_none() {
-				if !self.peers.is_empty() && self.queue_blocks.is_empty() {
-					self.attempt_state_sync(*hash, number, *skip_proofs);
-				} else {
-					self.pending_state_sync_attempt.replace((*hash, number, *skip_proofs));
-				}
+		if matches!(self.mode, ChainSyncMode::LightState { .. }) && self.state_sync.is_none() {
+			if !self.peers.is_empty() && self.queue_blocks.is_empty() {
+				self.attempt_state_sync(*hash, number);
+			} else {
+				self.pending_state_sync_attempt.replace((*hash, number));
 			}
 		}
 
@@ -1039,8 +1036,8 @@ where
 		network_service: &NetworkServiceHandle,
 	) -> Result<Vec<SyncingAction<B>>, ClientError> {
 		if !self.peers.is_empty() && self.queue_blocks.is_empty() {
-			if let Some((hash, number, skip_proofs)) = self.pending_state_sync_attempt.take() {
-				self.attempt_state_sync(hash, number, skip_proofs);
+			if let Some((hash, number)) = self.pending_state_sync_attempt.take() {
+				self.attempt_state_sync(hash, number);
 			}
 		}
 
@@ -2303,7 +2300,7 @@ where
 		};
 
 		match import_result {
-			ImportResult::Import(hash, header, state, body, justifications) => {
+			ImportResult::Import(hash, header, body, justifications) => {
 				let origin = BlockOrigin::NetworkInitialSync;
 				let block = IncomingBlock {
 					hash,
@@ -2315,7 +2312,7 @@ where
 					allow_missing_state: true,
 					import_existing: true,
 					skip_execution: self.skip_execution(),
-					state: Some(state),
+					state: Some(ImportedState),
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
 				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
@@ -2338,12 +2335,7 @@ where
 		}
 	}
 
-	fn attempt_state_sync(
-		&mut self,
-		finalized_hash: B::Hash,
-		finalized_number: NumberFor<B>,
-		skip_proofs: bool,
-	) {
+	fn attempt_state_sync(&mut self, finalized_hash: B::Hash, finalized_number: NumberFor<B>) {
 		let mut heads: Vec<_> = self.peers.values().map(|peer| peer.best_number).collect();
 		heads.sort();
 		let median = heads[heads.len() / 2];
@@ -2353,8 +2345,7 @@ where
 					target: LOG_TARGET,
 					"Starting state sync for #{finalized_number} ({finalized_hash})",
 				);
-				self.state_sync =
-					Some(StateSync::new(self.client.clone(), header, None, None, skip_proofs));
+				self.state_sync = Some(StateSync::new(self.client.clone(), header, None, None));
 				self.allowed_requests.set_all();
 			} else {
 				log::error!(

@@ -19,20 +19,18 @@
 //! State sync support.
 
 use crate::{
-	schema::v1::{KeyValueStateEntry, StateEntry, StateRequest, StateResponse},
+	schema::v1::{StateRequest, StateResponse},
 	LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use log::{debug, warn};
 use sc_client_api::{CompactProof, PartialStateImport, ProofProvider};
-use sc_consensus::ImportedState;
 use smallvec::SmallVec;
-use sp_core::storage::well_known_keys;
 use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor, PartialStateFor},
 	Justifications,
 };
-use std::{collections::HashMap, fmt, sync::Arc};
+use std::{fmt, sync::Arc};
 
 /// Consecutive database write failures tolerated before state sync gives up on the target.
 const MAX_PARTIAL_STATE_WRITE_FAILURES: u32 = 3;
@@ -84,8 +82,8 @@ pub struct StateSyncProgress {
 
 /// Import state chunk result.
 pub enum ImportResult<B: BlockT> {
-	/// State is complete and ready for import.
-	Import(B::Hash, B::Header, ImportedState<B>, Option<Vec<B::Extrinsic>>, Option<Justifications>),
+	/// The whole state is in the database: import the target block.
+	Import(B::Hash, B::Header, Option<Vec<B::Extrinsic>>, Option<Justifications>),
 	/// Continue downloading.
 	Continue,
 	/// Bad state chunk.
@@ -101,7 +99,6 @@ struct StateSyncMetadata<B: BlockT> {
 	target_justifications: Option<Justifications>,
 	complete: bool,
 	imported_bytes: u64,
-	skip_proof: bool,
 	/// Consecutive failures of `import_partial_state`, reset by the next successful write.
 	write_failures: u32,
 }
@@ -124,7 +121,8 @@ impl<B: BlockT> StateSyncMetadata<B> {
 		StateRequest {
 			block: self.target_hash().encode(),
 			start: self.last_key.clone().into_vec(),
-			no_proof: self.skip_proof,
+			// Proofs are mandatory. The field stays for peers on older releases.
+			no_proof: false,
 		}
 	}
 
@@ -145,12 +143,10 @@ impl<B: BlockT> StateSyncMetadata<B> {
 
 /// State sync state machine.
 ///
-/// With proofs, every verified chunk is written to the database as it arrives, and the cursor
-/// moves only once that write succeeded. Without proofs, the key-values are accumulated in memory
-/// until the whole state has been downloaded.
+/// Every verified chunk is written to the database as it arrives, and the cursor moves only once
+/// that write succeeded. Nothing of the state is kept in memory between two responses.
 pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
-	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
 	client: Arc<Client>,
 }
 
@@ -165,7 +161,6 @@ where
 		target_header: B::Header,
 		target_body: Option<Vec<B::Extrinsic>>,
 		target_justifications: Option<Justifications>,
-		skip_proof: bool,
 	) -> Self {
 		Self {
 			client,
@@ -176,81 +171,9 @@ where
 				target_justifications,
 				complete: false,
 				imported_bytes: 0,
-				skip_proof,
 				write_failures: 0,
 			},
-			state: HashMap::default(),
 		}
-	}
-
-	fn process_state_key_values(
-		&mut self,
-		state_root: Vec<u8>,
-		key_values: impl IntoIterator<Item = (Vec<u8>, Vec<u8>)>,
-	) {
-		let is_top = state_root.is_empty();
-
-		let entry = self.state.entry(state_root).or_default();
-
-		if entry.0.len() > 0 && entry.1.len() > 1 {
-			// Already imported child_trie with same root.
-			// Warning this will not work with parallel download.
-			return;
-		}
-
-		let mut child_storage_roots = Vec::new();
-
-		for (key, value) in key_values {
-			// Skip all child key root (will be recalculated on import)
-			if is_top && well_known_keys::is_child_storage_key(key.as_slice()) {
-				child_storage_roots.push((value, key));
-			} else {
-				self.metadata.imported_bytes += key.len() as u64;
-				entry.0.push((key, value));
-			}
-		}
-
-		for (root, storage_key) in child_storage_roots {
-			self.state.entry(root).or_default().1.push(storage_key);
-		}
-	}
-
-	fn process_state_unverified(&mut self, response: StateResponse) -> bool {
-		let mut complete = true;
-		// if the trie is a child trie and one of its parent trie is empty,
-		// the parent cursor stays valid.
-		// Empty parent trie content only happens when all the response content
-		// is part of a single child trie.
-		let first_entry_is_empty =
-			response.entries.first().is_some_and(|entry| entry.entries.is_empty());
-		if self.metadata.last_key.len() == 2 && first_entry_is_empty {
-			// Do not remove the parent trie position.
-			self.metadata.last_key.pop();
-		} else {
-			self.metadata.last_key.clear();
-		}
-		for state in response.entries {
-			debug!(
-				target: LOG_TARGET,
-				"Importing state from {:?} to {:?}",
-				state.entries.last().map(|e| sp_core::hexdisplay::HexDisplay::from(&e.key)),
-				state.entries.first().map(|e| sp_core::hexdisplay::HexDisplay::from(&e.key)),
-			);
-
-			if !state.complete {
-				if let Some(e) = state.entries.last() {
-					self.metadata.last_key.push(e.key.clone());
-				}
-				complete = false;
-			}
-
-			let KeyValueStateEntry { state_root, entries, complete: _ } = state;
-			self.process_state_key_values(
-				state_root,
-				entries.into_iter().map(|StateEntry { key, value }| (key, value)),
-			);
-		}
-		complete
 	}
 }
 
@@ -261,91 +184,73 @@ where
 {
 	///  Validate and import a state response.
 	fn import(&mut self, response: StateResponse) -> ImportResult<B> {
-		if self.metadata.skip_proof && response.entries.is_empty() {
-			debug!(target: LOG_TARGET, "Missing state entries");
-			return ImportResult::BadResponse;
-		} else if !self.metadata.skip_proof && response.proof.is_empty() {
+		if response.proof.is_empty() {
 			debug!(target: LOG_TARGET, "Missing proof");
 			return ImportResult::BadResponse;
 		}
-		let complete = if !self.metadata.skip_proof {
-			debug!(target: LOG_TARGET, "Importing state from {} trie nodes", response.proof.len());
-			let proof_size = response.proof.len() as u64;
-			let proof = match CompactProof::decode(&mut response.proof.as_ref()) {
-				Ok(proof) => proof,
-				Err(e) => {
-					debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
-					return ImportResult::BadResponse;
-				},
-			};
-			let (values, completed, nodes) = match self.client.verify_range_proof(
-				self.metadata.target_root(),
-				proof,
-				self.metadata.last_key.as_slice(),
-			) {
-				Err(e) => {
-					debug!(
-						target: LOG_TARGET,
-						"StateResponse failed proof verification: {}",
-						e,
-					);
-					return ImportResult::BadResponse;
-				},
-				Ok(values) => values,
-			};
-			debug!(target: LOG_TARGET, "Verified state response with {} keys", values.len());
-
-			// Write the chunk before moving the cursor: a chunk that never reached the database
-			// is asked for again, because `last_key` still points at its start.
-			let partial_state = PartialStateFor::<B> {
-				block_hash: self.metadata.target_hash(),
-				block_number: self.metadata.target_number(),
-				state_root: self.metadata.target_root(),
-				nodes,
-			};
-			if let Err(e) = self.client.import_partial_state(partial_state) {
-				self.metadata.write_failures += 1;
-				warn!(
-					target: LOG_TARGET,
-					"Failed to write state chunk to the database ({}/{}): {e}",
-					self.metadata.write_failures,
-					MAX_PARTIAL_STATE_WRITE_FAILURES,
-				);
-				return if self.metadata.write_failures >= MAX_PARTIAL_STATE_WRITE_FAILURES {
-					ImportResult::Abort
-				} else {
-					ImportResult::Continue
-				};
-			}
-			self.metadata.write_failures = 0;
-
-			let complete = completed == 0;
-			if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
-				debug!(target: LOG_TARGET, "Error updating key cursor, depth: {}", completed);
-			};
-
-			self.metadata.imported_bytes += proof_size;
-			complete
-		} else {
-			self.process_state_unverified(response)
+		debug!(target: LOG_TARGET, "Importing state from {} trie nodes", response.proof.len());
+		let proof_size = response.proof.len() as u64;
+		let proof = match CompactProof::decode(&mut response.proof.as_ref()) {
+			Ok(proof) => proof,
+			Err(e) => {
+				debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
+				return ImportResult::BadResponse;
+			},
 		};
-		if complete {
-			self.metadata.complete = true;
-			let target_hash = self.metadata.target_hash();
-			let state = if self.metadata.skip_proof {
-				ImportedState::KeyValues {
-					block: target_hash,
-					state: std::mem::take(&mut self.state).into(),
-				}
+		let (values, completed, nodes) = match self.client.verify_range_proof(
+			self.metadata.target_root(),
+			proof,
+			self.metadata.last_key.as_slice(),
+		) {
+			Err(e) => {
+				debug!(
+					target: LOG_TARGET,
+					"StateResponse failed proof verification: {}",
+					e,
+				);
+				return ImportResult::BadResponse;
+			},
+			Ok(values) => values,
+		};
+		debug!(target: LOG_TARGET, "Verified state response with {} keys", values.len());
+
+		// Write the chunk before moving the cursor: a chunk that never reached the database
+		// is asked for again, because `last_key` still points at its start.
+		let partial_state = PartialStateFor::<B> {
+			block_hash: self.metadata.target_hash(),
+			block_number: self.metadata.target_number(),
+			state_root: self.metadata.target_root(),
+			nodes,
+		};
+		if let Err(e) = self.client.import_partial_state(partial_state) {
+			self.metadata.write_failures += 1;
+			warn!(
+				target: LOG_TARGET,
+				"Failed to write state chunk to the database ({}/{}): {e}",
+				self.metadata.write_failures,
+				MAX_PARTIAL_STATE_WRITE_FAILURES,
+			);
+			return if self.metadata.write_failures >= MAX_PARTIAL_STATE_WRITE_FAILURES {
+				ImportResult::Abort
 			} else {
-				// Every chunk is already in the database. The block import checks that the
-				// state is complete and marks it as available.
-				ImportedState::Proof
+				ImportResult::Continue
 			};
+		}
+		self.metadata.write_failures = 0;
+
+		let complete = completed == 0;
+		if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
+			debug!(target: LOG_TARGET, "Error updating key cursor, depth: {}", completed);
+		};
+
+		self.metadata.imported_bytes += proof_size;
+		if complete {
+			// Every chunk is already in the database. The block import checks that the state is
+			// complete and marks it as available.
+			self.metadata.complete = true;
 			ImportResult::Import(
-				target_hash,
+				self.metadata.target_hash(),
 				self.metadata.target_header.clone(),
-				state,
 				self.metadata.target_body.clone(),
 				self.metadata.target_justifications.clone(),
 			)
@@ -503,7 +408,7 @@ mod tests {
 	}
 
 	fn state_sync(client: Arc<StubClient>) -> StateSync<Block, StubClient> {
-		StateSync::new(client, header(), None, None, false)
+		StateSync::new(client, header(), None, None)
 	}
 
 	/// A response whose proof decodes (to an empty compact proof); the stub never reads it.
@@ -565,10 +470,8 @@ mod tests {
 		let mut sync = state_sync(client.clone());
 
 		match sync.import(response()) {
-			ImportResult::Import(hash, _, ImportedState::Proof, _, _) => {
-				assert_eq!(hash, header().hash())
-			},
-			_ => panic!("expected the target block import with the proof state"),
+			ImportResult::Import(hash, _, _, _) => assert_eq!(hash, header().hash()),
+			_ => panic!("expected the target block import"),
 		}
 		assert!(sync.is_complete());
 		assert_eq!(client.writes(), 1);
@@ -581,10 +484,7 @@ mod tests {
 
 		assert!(matches!(sync.import(response()), ImportResult::Continue));
 		assert!(!sync.is_complete());
-		assert!(matches!(
-			sync.import(response()),
-			ImportResult::Import(_, _, ImportedState::Proof, _, _)
-		));
+		assert!(matches!(sync.import(response()), ImportResult::Import(_, _, _, _)));
 		assert!(sync.is_complete());
 		assert_eq!(client.writes(), 1);
 	}

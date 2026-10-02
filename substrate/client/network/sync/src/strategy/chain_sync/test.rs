@@ -1811,7 +1811,7 @@ fn ancestry_search_allows_state_request_to_move_to_another_peer() {
 	for peer in peers {
 		sync.add_peer(peer, block.hash(), 1);
 	}
-	sync.attempt_state_sync(block.hash(), 1, false);
+	sync.attempt_state_sync(block.hash(), 1);
 	let (busy, original) = sync.state_request().unwrap();
 	assert!(sync.allowed_requests.is_empty());
 

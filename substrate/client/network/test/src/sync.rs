@@ -1069,76 +1069,73 @@ async fn syncs_after_missing_announcement() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn syncs_state() {
 	sp_tracing::try_init_simple();
-	for skip_proofs in &[false, true] {
-		let mut net = TestNet::new(0);
-		let mut genesis_storage: sp_core::storage::Storage = Default::default();
-		genesis_storage.top.insert(b"additional_key".to_vec(), vec![1]);
-		let mut child_data: std::collections::BTreeMap<Vec<u8>, Vec<u8>> = Default::default();
-		for i in 0u8..16 {
-			child_data.insert(vec![i; 5], vec![i; 33]);
-		}
-		let child1 = sp_core::storage::StorageChild {
-			data: child_data.clone(),
-			child_info: sp_core::storage::ChildInfo::new_default(b"child1"),
-		};
-		let child3 = sp_core::storage::StorageChild {
-			data: child_data.clone(),
-			child_info: sp_core::storage::ChildInfo::new_default(b"child3"),
-		};
-		for i in 22u8..33 {
-			child_data.insert(vec![i; 5], vec![i; 33]);
-		}
-		let child2 = sp_core::storage::StorageChild {
-			data: child_data.clone(),
-			child_info: sp_core::storage::ChildInfo::new_default(b"child2"),
-		};
-		genesis_storage
-			.children_default
-			.insert(child1.child_info.storage_key().to_vec(), child1);
-		genesis_storage
-			.children_default
-			.insert(child2.child_info.storage_key().to_vec(), child2);
-		genesis_storage
-			.children_default
-			.insert(child3.child_info.storage_key().to_vec(), child3);
-		let mut config_one = FullPeerConfig::default();
-		config_one.extra_storage = Some(genesis_storage.clone());
-		net.add_full_peer_with_config(config_one);
-		let mut config_two = FullPeerConfig::default();
-		config_two.extra_storage = Some(genesis_storage);
-		config_two.sync_mode =
-			SyncMode::LightState { skip_proofs: *skip_proofs, storage_chain_mode: false };
-		net.add_full_peer_with_config(config_two);
-		let hashes = net.peer(0).push_blocks(64, false);
-		// Wait for peer 1 to sync header chain.
-		net.run_until_sync().await;
-		assert!(!net.peer(1).client().has_state_at(&BlockId::Number(64)));
-
-		let just = (*b"FRNK", Vec::new());
-		let hashof60 = hashes[59];
-		net.peer(1).client().finalize_block(hashof60, Some(just), true).unwrap();
-		// Wait for state sync.
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
-			if net.peer(1).client.info().finalized_state.is_some() {
-				Poll::Ready(())
-			} else {
-				Poll::Pending
-			}
-		})
-		.await;
-		assert!(!net.peer(1).client().has_state_at(&BlockId::Number(64)));
-		// Wait for the rest of the states to be imported.
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
-			if net.peer(1).client().has_state_at(&BlockId::Number(64)) {
-				Poll::Ready(())
-			} else {
-				Poll::Pending
-			}
-		})
-		.await;
+	let mut net = TestNet::new(0);
+	let mut genesis_storage: sp_core::storage::Storage = Default::default();
+	genesis_storage.top.insert(b"additional_key".to_vec(), vec![1]);
+	let mut child_data: std::collections::BTreeMap<Vec<u8>, Vec<u8>> = Default::default();
+	for i in 0u8..16 {
+		child_data.insert(vec![i; 5], vec![i; 33]);
 	}
+	let child1 = sp_core::storage::StorageChild {
+		data: child_data.clone(),
+		child_info: sp_core::storage::ChildInfo::new_default(b"child1"),
+	};
+	let child3 = sp_core::storage::StorageChild {
+		data: child_data.clone(),
+		child_info: sp_core::storage::ChildInfo::new_default(b"child3"),
+	};
+	for i in 22u8..33 {
+		child_data.insert(vec![i; 5], vec![i; 33]);
+	}
+	let child2 = sp_core::storage::StorageChild {
+		data: child_data.clone(),
+		child_info: sp_core::storage::ChildInfo::new_default(b"child2"),
+	};
+	genesis_storage
+		.children_default
+		.insert(child1.child_info.storage_key().to_vec(), child1);
+	genesis_storage
+		.children_default
+		.insert(child2.child_info.storage_key().to_vec(), child2);
+	genesis_storage
+		.children_default
+		.insert(child3.child_info.storage_key().to_vec(), child3);
+	let mut config_one = FullPeerConfig::default();
+	config_one.extra_storage = Some(genesis_storage.clone());
+	net.add_full_peer_with_config(config_one);
+	let mut config_two = FullPeerConfig::default();
+	config_two.extra_storage = Some(genesis_storage);
+	config_two.sync_mode = SyncMode::LightState { storage_chain_mode: false };
+	net.add_full_peer_with_config(config_two);
+	let hashes = net.peer(0).push_blocks(64, false);
+	// Wait for peer 1 to sync header chain.
+	net.run_until_sync().await;
+	assert!(!net.peer(1).client().has_state_at(&BlockId::Number(64)));
+
+	let just = (*b"FRNK", Vec::new());
+	let hashof60 = hashes[59];
+	net.peer(1).client().finalize_block(hashof60, Some(just), true).unwrap();
+	// Wait for state sync.
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		if net.peer(1).client.info().finalized_state.is_some() {
+			Poll::Ready(())
+		} else {
+			Poll::Pending
+		}
+	})
+	.await;
+	assert!(!net.peer(1).client().has_state_at(&BlockId::Number(64)));
+	// Wait for the rest of the states to be imported.
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		if net.peer(1).client().has_state_at(&BlockId::Number(64)) {
+			Poll::Ready(())
+		} else {
+			Poll::Pending
+		}
+	})
+	.await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1150,7 +1147,7 @@ async fn syncs_indexed_blocks() {
 	net.add_full_peer_with_config(FullPeerConfig { storage_chain: true, ..Default::default() });
 	net.add_full_peer_with_config(FullPeerConfig {
 		storage_chain: true,
-		sync_mode: SyncMode::LightState { skip_proofs: false, storage_chain_mode: true },
+		sync_mode: SyncMode::LightState { storage_chain_mode: true },
 		..Default::default()
 	});
 	net.peer(0).generate_blocks_at(

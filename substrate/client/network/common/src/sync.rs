@@ -25,10 +25,9 @@ pub mod message;
 pub enum SyncMode {
 	/// Full block download and verification.
 	Full,
-	/// Download blocks and the latest state.
+	/// Download blocks and the latest state. The state is downloaded with proofs and written to
+	/// the database as it arrives.
 	LightState {
-		/// Skip state proof download and verification.
-		skip_proofs: bool,
 		/// Download indexed transactions for recent blocks.
 		storage_chain_mode: bool,
 	},

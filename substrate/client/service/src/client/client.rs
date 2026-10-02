@@ -27,7 +27,7 @@ use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use rand::Rng;
-use sc_chain_spec::{resolve_state_version_from_wasm, BuildGenesisBlock};
+use sc_chain_spec::BuildGenesisBlock;
 use sc_client_api::{
 	backend::{
 		self, apply_aux, BlockImportOperation, ClientImportOperation, FinalizeSummary, Finalizer,
@@ -62,7 +62,7 @@ use sp_consensus::{BlockOrigin, BlockStatus, Error as ConsensusError};
 
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_core::{
-	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData, StorageKey},
+	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageData, StorageKey},
 	traits::{CallContext, SpawnNamed},
 	H256,
 };
@@ -627,60 +627,10 @@ where
 
 				Some((main_sc, child_sc))
 			},
-			Some(sc_consensus::StorageChanges::Import(ImportedState::Proof)) => {
+			Some(sc_consensus::StorageChanges::Import(ImportedState)) => {
 				let state_root = *import_headers.post().state_root();
 				self.backend.check_have_complete_state(state_root)?;
 				operation.op.set_partial_state_completed();
-				None
-			},
-			Some(sc_consensus::StorageChanges::Import(ImportedState::KeyValues {
-				state: changes_state,
-				..
-			})) => {
-				let mut storage = sp_storage::Storage::default();
-				for state in changes_state.0.into_iter() {
-					if state.parent_storage_keys.is_empty() && state.state_root.is_empty() {
-						for (key, value) in state.key_values.into_iter() {
-							storage.top.insert(key, value);
-						}
-					} else {
-						for parent_storage in state.parent_storage_keys {
-							let storage_key = PrefixedStorageKey::new_ref(&parent_storage);
-							let storage_key = match ChildType::from_prefixed_key(storage_key) {
-								Some((ChildType::ParentKeyId, storage_key)) => storage_key,
-								None => {
-									return Err(Error::Backend(
-										"Invalid child storage key.".to_string(),
-									))
-								},
-							};
-							let entry = storage
-								.children_default
-								.entry(storage_key.to_vec())
-								.or_insert_with(|| StorageChild {
-									data: Default::default(),
-									child_info: ChildInfo::new_default(storage_key),
-								});
-							for (key, value) in state.key_values.iter() {
-								entry.data.insert(key.clone(), value.clone());
-							}
-						}
-					}
-				}
-
-				// This is use by fast sync for runtime version to be resolvable from
-				// changes.
-				let state_version = resolve_state_version_from_wasm::<_, HashingFor<Block>>(
-					&storage,
-					&self.executor,
-				)?;
-				let state_root = operation.op.reset_storage(storage, state_version)?;
-				if state_root != *import_headers.post().state_root() {
-					// State root mismatch when importing state. This should not happen in
-					// safe fast sync mode, but may happen in unsafe mode.
-					warn!("Error importing state: State root mismatch.");
-					return Err(Error::InvalidStateRoot);
-				}
 				None
 			},
 			None => None,

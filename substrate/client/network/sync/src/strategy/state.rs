@@ -33,7 +33,7 @@ use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, trace};
 use prost::Message;
 use sc_client_api::{PartialStateImport, ProofProvider};
-use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
+use sc_consensus::{BlockImportError, BlockImportStatus, ImportedState, IncomingBlock};
 use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::BlockAnnounce;
 use sc_network_types::PeerId;
@@ -92,7 +92,6 @@ impl<B: BlockT> StateStrategy<B> {
 		target_header: B::Header,
 		target_body: Option<Vec<B::Extrinsic>>,
 		target_justifications: Option<Justifications>,
-		skip_proof: bool,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
 		protocol_name: ProtocolName,
 	) -> Self
@@ -110,7 +109,6 @@ impl<B: BlockT> StateStrategy<B> {
 				target_header,
 				target_body,
 				target_justifications,
-				skip_proof,
 			)),
 			peers,
 			disconnected_peers: DisconnectedPeers::new(),
@@ -221,7 +219,7 @@ impl<B: BlockT> StateStrategy<B> {
 		);
 
 		match self.state_sync.import(response) {
-			ImportResult::Import(hash, header, state, body, justifications) => {
+			ImportResult::Import(hash, header, body, justifications) => {
 				let origin = BlockOrigin::NetworkInitialSync;
 				let block = IncomingBlock {
 					hash,
@@ -233,7 +231,7 @@ impl<B: BlockT> StateStrategy<B> {
 					allow_missing_state: true,
 					import_existing: true,
 					skip_execution: true,
-					state: Some(state),
+					state: Some(ImportedState),
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
 				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
@@ -416,11 +414,10 @@ mod test {
 	use crate::{
 		schema::v1::{StateRequest, StateResponse},
 		service::network::NetworkServiceProvider,
-		strategy::state_sync::{ImportResult, StateSync, StateSyncProgress, StateSyncProvider},
+		strategy::state_sync::{ImportResult, StateSyncProgress, StateSyncProvider},
 	};
 	use codec::Decode;
 	use sc_block_builder::BlockBuilderBuilder;
-	use sc_client_api::KeyValueStates;
 	use sc_consensus::{ImportedAux, ImportedState};
 	use sp_core::H256;
 	use sp_runtime::traits::Zero;
@@ -460,7 +457,6 @@ mod test {
 			target_header,
 			None,
 			None,
-			false,
 			std::iter::empty(),
 			ProtocolName::Static(""),
 		);
@@ -493,7 +489,6 @@ mod test {
 				target_block.header().clone(),
 				None,
 				None,
-				false,
 				initial_peers,
 				ProtocolName::Static(""),
 			);
@@ -527,7 +522,6 @@ mod test {
 				target_block.header().clone(),
 				None,
 				None,
-				false,
 				initial_peers,
 				ProtocolName::Static(""),
 			);
@@ -561,7 +555,6 @@ mod test {
 			target_block.header().clone(),
 			None,
 			None,
-			false,
 			initial_peers,
 			ProtocolName::Static(""),
 		);
@@ -611,7 +604,6 @@ mod test {
 			target_block.header().clone(),
 			None,
 			None,
-			false,
 			initial_peers,
 			ProtocolName::Static(""),
 		);
@@ -641,7 +633,6 @@ mod test {
 			target_block.header().clone(),
 			None,
 			None,
-			false,
 			initial_peers,
 			ProtocolName::Static(""),
 		);
@@ -692,56 +683,6 @@ mod test {
 		assert!(matches!(
 			state_strategy.on_state_response_inner(&peer_id, &dummy_response),
 			Err(BadPeer(id, _rep)) if id == peer_id,
-		));
-	}
-
-	#[test]
-	fn empty_unverified_state_response_is_rejected() {
-		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
-		let target_block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().best_hash)
-			.with_parent_block_number(client.chain_info().best_number)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let mut state_sync =
-			StateSync::new(client, target_block.header().clone(), None, None, true);
-
-		let response = StateResponse { entries: Vec::new(), proof: vec![1] };
-
-		assert!(matches!(state_sync.import(response), ImportResult::BadResponse));
-	}
-
-	#[test]
-	fn empty_unverified_state_response_drops_peer() {
-		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
-		let target_block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().best_hash)
-			.with_parent_block_number(client.chain_info().best_number)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let peer_id = PeerId::random();
-		let mut state_strategy = StateStrategy::new(
-			client,
-			target_block.header().clone(),
-			None,
-			None,
-			true,
-			std::iter::once((peer_id, 10)),
-			ProtocolName::Static(""),
-		);
-		let response = StateResponse { entries: Vec::new(), proof: vec![1] }.encode_to_vec();
-
-		state_strategy.on_state_response(&peer_id, response);
-
-		assert!(matches!(
-			state_strategy.actions.as_slice(),
-			[SyncingAction::DropPeer(BadPeer(id, _))] if *id == peer_id,
 		));
 	}
 
@@ -808,18 +749,12 @@ mod test {
 		let header = block.header().clone();
 		let hash = header.hash();
 		let body = Some(block.extrinsics().iter().cloned().collect::<Vec<_>>());
-		let state = ImportedState::KeyValues { block: hash, state: KeyValueStates(Vec::new()) };
 		let justifications = Some(Justifications::from((*b"FRNK", Vec::new())));
 
 		// Prepare `StateSync`
 		let mut state_sync_provider = MockStateSync::<Block>::new();
-		let import = ImportResult::Import(
-			hash,
-			header.clone(),
-			state.clone(),
-			body.clone(),
-			justifications.clone(),
-		);
+		let import =
+			ImportResult::Import(hash, header.clone(), body.clone(), justifications.clone());
 		state_sync_provider.expect_import().return_once(move |_| import);
 
 		// Reference values to check against.
@@ -834,7 +769,7 @@ mod test {
 			allow_missing_state: true,
 			import_existing: true,
 			skip_execution: true,
-			state: Some(state),
+			state: Some(ImportedState),
 		};
 		let expected_blocks = vec![expected_block];
 

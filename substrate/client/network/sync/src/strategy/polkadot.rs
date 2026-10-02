@@ -47,8 +47,8 @@ use std::{any::Any, collections::HashMap, sync::Arc};
 fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
 	match sync_mode {
 		SyncMode::Full => ChainSyncMode::Full,
-		SyncMode::LightState { skip_proofs, storage_chain_mode } => {
-			ChainSyncMode::LightState { skip_proofs, storage_chain_mode }
+		SyncMode::LightState { storage_chain_mode } => {
+			ChainSyncMode::LightState { storage_chain_mode }
 		},
 		SyncMode::Warp => ChainSyncMode::Full,
 	}
@@ -418,7 +418,6 @@ where
 						res.target_header,
 						res.target_body,
 						res.target_justifications,
-						false,
 						self.peer_best_blocks
 							.iter()
 							.map(|(peer_id, (_, best_number))| (*peer_id, *best_number)),

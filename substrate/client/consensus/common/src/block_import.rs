@@ -123,35 +123,20 @@ pub struct BlockCheckParams<Block: BlockT> {
 pub enum StorageChanges<Block: BlockT> {
 	/// Changes coming from block execution.
 	Changes(sp_state_machine::StorageChanges<HashingFor<Block>>),
-	/// Whole new state.
-	Import(ImportedState<Block>),
+	/// The state was written to the database by state sync before the block.
+	Import(ImportedState),
 }
 
-/// Imported state data.
-#[derive(PartialEq, Eq, Clone)]
-pub enum ImportedState<B: BlockT> {
-	/// A vector of key-value pairs that should form a trie.
-	KeyValues {
-		/// Target block hash.
-		block: B::Hash,
-		/// State keys and values.
-		state: sp_state_machine::KeyValueStates,
-	},
-	/// The trie nodes were already written to the database by state sync. The import only
-	/// checks that the state is complete and marks it as available.
-	Proof,
-}
-
-impl<B: BlockT> std::fmt::Debug for ImportedState<B> {
-	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match self {
-			Self::KeyValues { block, .. } => {
-				fmt.debug_struct("ImportedState::KeyValues").field("block", block).finish()
-			},
-			Self::Proof => fmt.debug_struct("ImportedState::Proof").finish(),
-		}
-	}
-}
+/// Marker for a block whose state was written to the database by state sync, one verified chunk
+/// at a time, before the block itself is imported. Importing the block executes nothing and
+/// computes no state: it checks that the state is complete and marks it as available.
+///
+/// NOTE: this was used to carry the downloaded key-values, which the import turned into a trie in memory.
+/// That path went away with `--sync fast-unsafe`. The marker keeps the shape of 
+/// of certain public api. Once the `fast-unsafe` deprecation period is over, 
+/// this marker should be removed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ImportedState;
 
 /// Defines how a new state is computed for a given imported block.
 pub enum StateAction<Block: BlockT> {

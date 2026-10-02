@@ -92,7 +92,7 @@ pub struct IncomingBlock<B: BlockT> {
 	/// Re-validate existing block.
 	pub import_existing: bool,
 	/// Do not compute new state, but rather set it to the given set.
-	pub state: Option<ImportedState<B>>,
+	pub state: Option<ImportedState>,
 }
 
 /// Verify a justification of a block

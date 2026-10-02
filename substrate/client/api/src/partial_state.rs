@@ -10,7 +10,7 @@ use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 ///
 /// State sync calls this once per state response, before it moves its download cursor. The
 /// block itself is not imported: the nodes stay invisible to `state_at` until the block is
-/// imported with `ImportedState::Proof`, which checks that the state is complete and marks it
+/// imported with `ImportedState`, which checks that the state is complete and marks it
 /// present. Nodes already written, or not awaited by the per-target worklist, are ignored, so
 /// the same chunk may be submitted again after an `Err`.
 pub trait PartialStateImport<Block: BlockT> {
