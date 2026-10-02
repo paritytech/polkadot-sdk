@@ -272,7 +272,7 @@ where
 		);
 
 		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
-		pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
+		let moved = pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
 			asset_id,
 			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from),
 			&dest,
@@ -286,7 +286,7 @@ where
 			IERC20Events::Transfer(IERC20::Transfer {
 				from: from.0.into(),
 				to: call.to,
-				value: call.value,
+				value: Self::to_u256(moved)?,
 			}),
 		)?;
 
@@ -448,7 +448,7 @@ where
 		let to = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&to);
 
 		let approval_amount = Self::to_balance(call.value)?;
-		pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
+		let charged = pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
 			asset_id,
 			&from,
 			&spender,
@@ -461,7 +461,7 @@ where
 			IERC20Events::Transfer(IERC20::Transfer {
 				from: call.from,
 				to: call.to,
-				value: call.value,
+				value: Self::to_u256(charged)?,
 			}),
 		)?;
 
