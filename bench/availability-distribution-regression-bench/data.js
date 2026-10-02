@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790891467699,
+  "lastUpdate": 1790927971633,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a60abddb213ad35d7648ab9ca158c1de8cb75c98",
-          "message": "Expose ECC host functions (#11334)\n\nChanges:\n- Expose host functions for `BLS12-381`, `Ed-on-BLS12-381-Bandersnatch`,\n`Pallas`, `Vesta` for parachains\n- Add new executor param `EnabledHostFunction` that can be used to\nenable host function usage.\n\nThese were ratified in [RFC\n163](https://github.com/polkadot-fellows/RFCs/pull/163). The missing\nPasta curves will be added later\nhttps://github.com/paritytech/polkadot-sdk/pull/11035. We will use these\non the people chain only.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Davide Galassi <davxy@datawok.net>",
-          "timestamp": "2026-03-25T20:19:07Z",
-          "tree_id": "9cc973886416a77569a2f7e5bc7a71d084a2221f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a60abddb213ad35d7648ab9ca158c1de8cb75c98"
-        },
-        "date": 1774474768363,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007002700346666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023656604280000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14320640810666674,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00940941991999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01006974917999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f5b80bb77f92709695bf8fb00cb64c2db3238cd5",
+          "message": "statement gossip: remove unused code left by the v2 DHT work (#13353)\n\n# Description\n\nRemoves code that the v2 DHT work introduced and nothing uses anymore.\nBehaviour does not change on either path, and the v1 path is untouched.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12137\n\n# Integration\n\nNo changes needed. Everything touched is private to\nsc-network-statement.\n\n# Review Notes\n\n- Three orchestrator hooks only wrote a trace log: on_peer_connected,\non_validate_inbound_substream and on_initial_sync.\n- The dead_code allows in affinity, peer steering and explicit affinity\nwent stale\n- Explicit affinity counted references per source for each topic, but no\ncount ever exceeded one. Configured topics were deduplicated at\nconstruction, and subscription topics arrive only through\nreplace_source_topics, which adds just the topics the source lacks. A\nset of sources per topic keeps the same rule, a topic stays while some\nsource wants it, without the counters. The two tests that exercised\ncounting a source twice are gone with them, and add_topics and\nremove_topics become private.\n- The peer_is_dht_target_for_topic helper had one caller and is inlined\ninto dht_target_predicate. The Clone derives on PeersTopology and\nV2DhtMetrics had no users.",
+          "timestamp": "2026-10-02T06:26:46Z",
+          "tree_id": "694f9fef7e67d930ac4aff2dc9abcb43215e3ec9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f5b80bb77f92709695bf8fb00cb64c2db3238cd5"
+        },
+        "date": 1790927940106,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14582532618666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007832653773333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025189540913333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009933291586666637,
             "unit": "seconds"
           }
         ]
