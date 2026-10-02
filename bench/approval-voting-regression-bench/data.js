@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790891515322,
+  "lastUpdate": 1790928018232,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a60abddb213ad35d7648ab9ca158c1de8cb75c98",
-          "message": "Expose ECC host functions (#11334)\n\nChanges:\n- Expose host functions for `BLS12-381`, `Ed-on-BLS12-381-Bandersnatch`,\n`Pallas`, `Vesta` for parachains\n- Add new executor param `EnabledHostFunction` that can be used to\nenable host function usage.\n\nThese were ratified in [RFC\n163](https://github.com/polkadot-fellows/RFCs/pull/163). The missing\nPasta curves will be added later\nhttps://github.com/paritytech/polkadot-sdk/pull/11035. We will use these\non the people chain only.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Davide Galassi <davxy@datawok.net>",
-          "timestamp": "2026-03-25T20:19:07Z",
-          "tree_id": "9cc973886416a77569a2f7e5bc7a71d084a2221f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a60abddb213ad35d7648ab9ca158c1de8cb75c98"
-        },
-        "date": 1774474797410,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63631.619999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.437905275762864,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000329958,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000329958,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.81523727745,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002032951,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7839405467399985,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8563284893499996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7687698553299973,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.435595546330011,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.430751409399955,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7656356291499435,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002032951,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005244065049999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.336909271690002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f5b80bb77f92709695bf8fb00cb64c2db3238cd5",
+          "message": "statement gossip: remove unused code left by the v2 DHT work (#13353)\n\n# Description\n\nRemoves code that the v2 DHT work introduced and nothing uses anymore.\nBehaviour does not change on either path, and the v1 path is untouched.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12137\n\n# Integration\n\nNo changes needed. Everything touched is private to\nsc-network-statement.\n\n# Review Notes\n\n- Three orchestrator hooks only wrote a trace log: on_peer_connected,\non_validate_inbound_substream and on_initial_sync.\n- The dead_code allows in affinity, peer steering and explicit affinity\nwent stale\n- Explicit affinity counted references per source for each topic, but no\ncount ever exceeded one. Configured topics were deduplicated at\nconstruction, and subscription topics arrive only through\nreplace_source_topics, which adds just the topics the source lacks. A\nset of sources per topic keeps the same rule, a topic stays while some\nsource wants it, without the counters. The two tests that exercised\ncounting a source twice are gone with them, and add_topics and\nremove_topics become private.\n- The peer_is_dht_target_for_topic helper had one caller and is inlined\ninto dht_target_predicate. The Clone derives on PeersTopology and\nV2DhtMetrics had no users.",
+          "timestamp": "2026-10-02T06:26:46Z",
+          "tree_id": "694f9fef7e67d930ac4aff2dc9abcb43215e3ec9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f5b80bb77f92709695bf8fb00cb64c2db3238cd5"
+        },
+        "date": 1790927987158,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63573.42999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020052729999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8315818639799641,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.0000214792,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00528865892,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020052729999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.723309423700003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.788756120330001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.0000214792,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.350099600062762,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.191297234339975,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.345306584660005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7425672311100016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.754487351640001,
             "unit": "seconds"
           }
         ]
