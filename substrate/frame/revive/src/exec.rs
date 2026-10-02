@@ -2056,7 +2056,7 @@ where
 	///
 	/// Single source of truth for `code_hash`, `code_size` and `copy_code_slice`, which
 	/// must all resolve code from the same sources in the same priority order.
-	fn code_source(&self, address: &H160) -> Option<CodeSource<'_, T>> {
+	fn code_source(&self, address: &H160) -> Option<CodeSource<'_>> {
 		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
 			self.exec_config
 				.mock_handler
@@ -2078,18 +2078,18 @@ where
 			return Some(CodeSource::Indicator(<AccountInfo<T>>::delegation_indicator(&target)));
 		}
 
-		contract.map(CodeSource::Contract)
+		contract.map(|contract| CodeSource::Contract(contract.code_hash))
 	}
 }
 
 /// Where the code reported for an address comes from.
-enum CodeSource<'a, T: Config> {
+enum CodeSource<'a> {
 	/// A precompile's code stub or mocked code. Never stored in `PristineCode`.
 	Virtual(&'a [u8]),
 	/// The EIP-7702 delegation indicator `0xef0100 || target`.
 	Indicator([u8; 23]),
-	/// A deployed contract whose code is stored in `PristineCode`.
-	Contract(ContractInfo<T>),
+	/// The code hash of a deployed contract whose code is stored in `PristineCode`.
+	Contract(H256),
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -2497,7 +2497,7 @@ where
 		match self.code_source(address) {
 			Some(CodeSource::Virtual(code)) => sp_io::hashing::keccak_256(code).into(),
 			Some(CodeSource::Indicator(indicator)) => sp_io::hashing::keccak_256(&indicator).into(),
-			Some(CodeSource::Contract(contract)) => contract.code_hash,
+			Some(CodeSource::Contract(code_hash)) => code_hash,
 			None if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) => {
 				EMPTY_CODE_HASH
 			},
@@ -2509,9 +2509,9 @@ where
 		match self.code_source(address) {
 			Some(CodeSource::Virtual(code)) => code.len() as u64,
 			Some(CodeSource::Indicator(indicator)) => indicator.len() as u64,
-			Some(CodeSource::Contract(contract)) => CodeInfoOf::<T>::get(contract.code_hash)
-				.map(|info| info.code_len())
-				.unwrap_or_default(),
+			Some(CodeSource::Contract(code_hash)) => {
+				CodeInfoOf::<T>::get(code_hash).map(|info| info.code_len()).unwrap_or_default()
+			},
 			None => 0,
 		}
 	}
@@ -2666,9 +2666,9 @@ where
 		match self.code_source(address) {
 			Some(CodeSource::Virtual(code)) => copy_padded(buf, code, code_offset),
 			Some(CodeSource::Indicator(indicator)) => copy_padded(buf, &indicator, code_offset),
-			Some(CodeSource::Contract(contract)) => copy_padded(
+			Some(CodeSource::Contract(code_hash)) => copy_padded(
 				buf,
-				&crate::PristineCode::<T>::get(&contract.code_hash).unwrap_or_default(),
+				&crate::PristineCode::<T>::get(&code_hash).unwrap_or_default(),
 				code_offset,
 			),
 			None => buf.fill(0),

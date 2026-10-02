@@ -375,7 +375,6 @@ fn pallet_code_agrees_with_extcode_opcodes(host_type: FixtureType) {
 
 	let (host_code, _) = compile_module_with_type("Host", host_type).unwrap();
 	let (copier_code, _) = compile_module_with_type("HostEvmOnly", FixtureType::Solc).unwrap();
-	let (pvm_code, _) = compile_module_with_type("Host", FixtureType::Resolc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
@@ -386,9 +385,14 @@ fn pallet_code_agrees_with_extcode_opcodes(host_type: FixtureType) {
 		let Contract { addr: contract_addr, .. } =
 			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
 				.build_and_unwrap_contract();
-		let Contract { addr: pvm_addr, .. } = builder::bare_instantiate(Code::Upload(pvm_code))
-			.salt(Some([1; 32]))
-			.build_and_unwrap_contract();
+		let pvm_addr = if host_type == FixtureType::Resolc {
+			host_addr
+		} else {
+			let (pvm_code, _) = compile_module_with_type("Host", FixtureType::Resolc).unwrap();
+			builder::bare_instantiate(Code::Upload(pvm_code))
+				.build_and_unwrap_contract()
+				.addr
+		};
 
 		<Test as Config>::Currency::set_balance(&CHARLIE, 100_000_000);
 		<Test as Config>::Currency::set_balance(&DJANGO, 100_000_000);
@@ -424,6 +428,11 @@ fn pallet_code_agrees_with_extcode_opcodes(host_type: FixtureType) {
 				expected_hash,
 				"EXTCODEHASH disagrees with Pallet::code for {name}"
 			);
+
+			// the EXTCODECOPY caller is always Solc, so this sweep is identical for both host types
+			if host_type == FixtureType::Resolc {
+				continue;
+			}
 
 			let size = code.len() + 3;
 			let result = builder::bare_call(copier_addr)
