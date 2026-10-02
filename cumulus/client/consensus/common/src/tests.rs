@@ -1050,6 +1050,7 @@ fn find_best_parent_unknown_included_returns_none() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap();
 
@@ -1103,6 +1104,7 @@ fn find_best_parent_unknown_pending_returns_none() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap();
 
@@ -1158,6 +1160,7 @@ fn find_best_parent_with_pending() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1170,6 +1173,7 @@ fn find_best_parent_with_pending() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1211,6 +1215,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V2 { scheduling_parent: relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1223,6 +1228,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V3 { scheduling_parent: relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1254,6 +1260,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1270,6 +1277,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1284,6 +1292,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1295,6 +1304,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1425,6 +1435,7 @@ fn find_best_parent_with_forks_returns_deepest() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1437,6 +1448,7 @@ fn find_best_parent_with_forks_returns_deepest() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1511,6 +1523,7 @@ fn find_best_parent_returns_deepest_block() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1526,6 +1539,7 @@ fn find_best_parent_returns_deepest_block() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1594,6 +1608,7 @@ fn find_parent_computes_resubmittable_segment() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1607,6 +1622,7 @@ fn find_parent_computes_resubmittable_segment() {
 		&*backend,
 		ParaId::from(100),
 		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+		|_| true,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1624,14 +1640,15 @@ fn trim_best_parent_walks_an_incomplete_trailing_bundle_back() {
 	let a = header(1, included.hash());
 	let b = header(2, a.hash());
 	let c = header(3, b.hash());
-	let by_hash = |hash| [&included, &a, &b, &c].into_iter().find(|h| h.hash() == hash).cloned();
 
-	let result = ParentSearchResult::<Block> {
-		included_at_scheduling: included.clone(),
-		best_parent_header: c.clone(),
-		resubmittable_segment: vec![a.clone(), b.clone(), c.clone()],
-	}
-	.trim_best_parent_to_filter(by_hash, |h| h.hash() != c.hash());
+	let result = crate::parent_search::trim_best_parent_to_filter(
+		ParentSearchResult::<Block> {
+			included_at_scheduling: included.clone(),
+			best_parent_header: c.clone(),
+			resubmittable_segment: vec![a.clone(), b.clone(), c.clone()],
+		},
+		|h| h.hash() != c.hash(),
+	);
 
 	assert_eq!(result.best_parent_header.hash(), b.hash());
 	let segment: Vec<_> = result.resubmittable_segment.iter().map(|h| h.hash()).collect();
@@ -1646,14 +1663,15 @@ fn trim_best_parent_falls_back_to_included_when_nothing_passes() {
 	let included = header(0, Default::default());
 	let a = header(1, included.hash());
 	let b = header(2, a.hash());
-	let by_hash = |hash| [&included, &a, &b].into_iter().find(|h| h.hash() == hash).cloned();
 
-	let result = ParentSearchResult::<Block> {
-		included_at_scheduling: included.clone(),
-		best_parent_header: b.clone(),
-		resubmittable_segment: vec![a.clone(), b.clone()],
-	}
-	.trim_best_parent_to_filter(by_hash, |h| h.hash() == included.hash());
+	let result = crate::parent_search::trim_best_parent_to_filter(
+		ParentSearchResult::<Block> {
+			included_at_scheduling: included.clone(),
+			best_parent_header: b.clone(),
+			resubmittable_segment: vec![a.clone(), b.clone()],
+		},
+		|h| h.hash() == included.hash(),
+	);
 
 	assert_eq!(result.best_parent_header.hash(), included.hash());
 	assert!(result.resubmittable_segment.is_empty());

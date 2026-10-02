@@ -33,7 +33,6 @@ use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
 };
-use sc_client_api::HeaderBackend;
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_core::Pair;
@@ -243,20 +242,19 @@ async fn find_parent<Block>(
 where
 	Block: BlockT,
 {
-	// The best parent may be a middle block in a bundle; the trim walks it (and the resubmittable
-	// segment) back to the first block passing the filter, so the segment ends on a bundle-ender.
+	// The best parent may be a middle block in a bundle; `find_parent_for_building` trims it (and
+	// the resubmittable segment) back to the first block passing the filter, so the segment ends on
+	// a bundle-ender.
 	let result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
 		relay_client,
 		para_backend,
 		para_id,
 		params.clone(),
+		filter_parent,
 	)
 	.await
 	{
-		Ok(Some(result)) => result.trim_best_parent_to_filter(
-			|hash| para_backend.blockchain().header(hash).ok().flatten(),
-			filter_parent,
-		),
+		Ok(Some(result)) => result,
 		Ok(None) => {
 			tracing::warn!(
 				target: crate::LOG_TARGET,
