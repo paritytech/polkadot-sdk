@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790891564982,
+  "lastUpdate": 1790928065009,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9f59e2c307ec5be7d336701b0a83cc8f7c17f760",
-          "message": "Statement Store: Introduce new CLI args (#11407)\n\nCloses #11265 \n\nIn addition to introducing new CLI args, this PR reworks the statement\nstore configuration, consolidating all parameters into a single\nstructure.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-25T11:11:06Z",
-          "tree_id": "261af08efea24c9269c49cf12be52708b213c79b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9f59e2c307ec5be7d336701b0a83cc8f7c17f760"
-        },
-        "date": 1774441882882,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.06599999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08028312133399997,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03793674413999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038479168912,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f5b80bb77f92709695bf8fb00cb64c2db3238cd5",
+          "message": "statement gossip: remove unused code left by the v2 DHT work (#13353)\n\n# Description\n\nRemoves code that the v2 DHT work introduced and nothing uses anymore.\nBehaviour does not change on either path, and the v1 path is untouched.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12137\n\n# Integration\n\nNo changes needed. Everything touched is private to\nsc-network-statement.\n\n# Review Notes\n\n- Three orchestrator hooks only wrote a trace log: on_peer_connected,\non_validate_inbound_substream and on_initial_sync.\n- The dead_code allows in affinity, peer steering and explicit affinity\nwent stale\n- Explicit affinity counted references per source for each topic, but no\ncount ever exceeded one. Configured topics were deduplicated at\nconstruction, and subscription topics arrive only through\nreplace_source_topics, which adds just the topics the source lacks. A\nset of sources per topic keeps the same rule, a topic stays while some\nsource wants it, without the counters. The two tests that exercised\ncounting a source twice are gone with them, and add_topics and\nremove_topics become private.\n- The peer_is_dht_target_for_topic helper had one caller and is inlined\ninto dht_target_predicate. The Clone derives on PeersTopology and\nV2DhtMetrics had no users.",
+          "timestamp": "2026-10-02T06:26:46Z",
+          "tree_id": "694f9fef7e67d930ac4aff2dc9abcb43215e3ec9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f5b80bb77f92709695bf8fb00cb64c2db3238cd5"
+        },
+        "date": 1790928034316,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.10600000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08531507997199993,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03866232896199999,
             "unit": "seconds"
           }
         ]
