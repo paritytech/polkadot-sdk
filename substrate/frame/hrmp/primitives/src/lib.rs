@@ -187,19 +187,3 @@ pub trait DepositProvider {
 		role: DepositRole,
 	) -> sp_runtime::DispatchResult;
 }
-
-/// Takes and gives back nothing and never reports back, so no deposit-backed call ever completes.
-impl DepositProvider for () {
-	fn deposit(
-		_: ChannelId,
-		_: Balance,
-		_: DepositRole,
-		_: DepositAction,
-	) -> sp_runtime::DispatchResult {
-		Ok(())
-	}
-
-	fn refund(_: ChannelId, _: Balance, _: DepositRole) -> sp_runtime::DispatchResult {
-		Ok(())
-	}
-}

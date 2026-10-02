@@ -27,7 +27,7 @@ use crate::{
 	},
 	shared,
 };
-use frame_support::{assert_noop, assert_ok, assert_storage_noop};
+use frame_support::{assert_noop, assert_ok};
 use polkadot_primitives::{BlockNumber, InboundDownwardMessage};
 use sp_runtime::traits::BadOrigin;
 use std::collections::BTreeMap;
@@ -520,39 +520,6 @@ fn poke_deposits_increase_without_balance_fails() {
 			Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b),
 			pallet_balances::Error::<Test, _>::InsufficientBalance
 		);
-	});
-}
-
-#[test]
-fn deposit_not_successful_changes_nothing() {
-	let para_a = 2001.into();
-	let para_b = 2002.into();
-
-	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		register_parachain(para_a);
-		register_parachain(para_b);
-		run_to_block(5, Some(vec![4, 5]));
-		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
-
-		assert_storage_noop!(assert_ok!(Hrmp::on_deposit_result(
-			channel_id.clone(),
-			DepositRole::Sender,
-			DepositAction::InitOpenChannel {
-				max_capacity: 2,
-				max_message_size: 8,
-				max_total_size: 16
-			},
-			DepositResult::NotSuccessful,
-		)));
-
-		assert_ok!(Hrmp::init_open_channel(para_a, para_b, 2, 8));
-		assert_storage_noop!(assert_ok!(Hrmp::on_deposit_result(
-			channel_id,
-			DepositRole::Recipient,
-			DepositAction::AcceptOpenChannel,
-			DepositResult::NotSuccessful,
-		)));
-		Hrmp::assert_storage_consistency_exhaustive();
 	});
 }
 
