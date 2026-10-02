@@ -128,14 +128,20 @@ enum CodeLoadToken {
 }
 
 impl CodeLoadToken {
-	/// Computes the flat cost of both reads, at the code's own warmth.
-	fn flat<T: Config>(warmth: Summarized<CodeLoadWarmth>) -> Weight {
+	/// Computes the flat cost of the two code entries at their own warmth, plus the write that
+	/// `code_load` does not measure.
+	fn flat_cost<T: Config>(warmth: Summarized<CodeLoadWarmth>) -> Weight {
+		let summary = warmth.summary();
+		// The `code_load` bench only reads, so a cold write still owes its re-hash.
+		let cold_writes =
+			RuntimeCosts::deferred_write_cost::<T>().saturating_mul(summary.cold_writes().into());
 		runtime_costs::weight_from_warmth_summary::<T>(
-			warmth.summary(),
+			summary,
 			T::WeightInfo::code_load,
 			// Nothing on top of the base hot access.
 			Weight::zero,
 		)
+		.saturating_add(cold_writes)
 	}
 
 	/// Computes the cost of the code's bytes at the blob's warmth, plus PVM compilation.
@@ -167,7 +173,7 @@ impl CodeLoadToken {
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
 		match *self {
-			Self::Flat(warmth) => Self::flat::<T>(warmth),
+			Self::Flat(warmth) => Self::flat_cost::<T>(warmth),
 			Self::Blob { warmth, code_len, code_type } => {
 				Self::blob::<T>(warmth, code_len, code_type)
 			},
@@ -182,10 +188,10 @@ pub fn code_load_weight(
 	code_type: BytecodeType,
 	warmth: Summarized<CodeLoadWarmth>,
 ) -> Weight {
-	let flat = Token::<crate::tests::Test>::weight(&CodeLoadToken::Flat(warmth));
-	let blob =
+	let flat_cost = Token::<crate::tests::Test>::weight(&CodeLoadToken::Flat(warmth));
+	let blob_cost =
 		Token::<crate::tests::Test>::weight(&CodeLoadToken::Blob { warmth, code_len, code_type });
-	flat.saturating_add(blob)
+	flat_cost.saturating_add(blob_cost)
 }
 
 impl<T: Config> ContractBlob<T> {
@@ -447,17 +453,17 @@ pub(crate) fn exec_error_into_return_code<E: Ext>(
 mod tests {
 	use super::*;
 	use crate::{
-		access_list::{CodeLoadItems, Warmth},
+		access_list::{CodeLoadItems, StorageOp, Warmth},
 		metering::TransactionMeter,
 		test_utils::ALICE,
 		tests::{ExtBuilder, Test},
 	};
 
 	fn load_warmth(info: Warmth, blob: Warmth) -> Summarized<CodeLoadWarmth> {
-		Summarized::from_warmths(CodeLoadItems { hash: H256::zero() }, [info, blob])
+		Summarized::from_warmths(CodeLoadItems::new(H256::zero()), [info, blob])
 	}
 
-	fn warmth(both: Warmth) -> Summarized<CodeLoadWarmth> {
+	fn load_warmth_at(both: Warmth) -> Summarized<CodeLoadWarmth> {
 		load_warmth(both, both)
 	}
 
@@ -465,8 +471,12 @@ mod tests {
 	fn code_load_cold_hot_pricing() {
 		let code_len = 1024_u32;
 		for code_type in [BytecodeType::Pvm, BytecodeType::Evm] {
-			let cold = code_load_weight(code_len, code_type, warmth(Warmth::cold_non_revertible()));
-			let hot = code_load_weight(code_len, code_type, warmth(Warmth::read_paid()));
+			let cold = code_load_weight(
+				code_len,
+				code_type,
+				load_warmth_at(Warmth::cold_non_revertible()),
+			);
+			let hot = code_load_weight(code_len, code_type, load_warmth_at(Warmth::read_paid()));
 			assert!(
 				cold.ref_time() > hot.ref_time(),
 				"expected cold > hot ref_time for {code_type:?}: cold={cold:?} hot={hot:?}",
@@ -488,8 +498,11 @@ mod tests {
 				 {hot_info_cold_blob:?}",
 			);
 
-			let twice_as_long =
-				code_load_weight(code_len * 2, code_type, warmth(Warmth::cold_non_revertible()));
+			let twice_as_long = code_load_weight(
+				code_len * 2,
+				code_type,
+				load_warmth_at(Warmth::cold_non_revertible()),
+			);
 			assert!(
 				twice_as_long.proof_size().saturating_sub(cold.proof_size()) >= u64::from(code_len),
 				"doubling the code adds at least {code_len} bytes of proof: \
@@ -504,15 +517,15 @@ mod tests {
 			let hot_blob = Warmth::read_paid();
 			assert_eq!(
 				bytes_of(load_warmth(Warmth::cold_non_revertible(), hot_blob)),
-				bytes_of(warmth(hot_blob)),
+				bytes_of(load_warmth_at(hot_blob)),
 				"the code info's warmth does not price the bytes: only the blob is read by length",
 			);
 			assert!(
-				bytes_of(warmth(hot_blob)).ref_time() > 0,
+				bytes_of(load_warmth_at(hot_blob)).ref_time() > 0,
 				"a hot blob still pays for its bytes: {code_type:?}",
 			);
 			let empty_blob = Token::<Test>::weight(&CodeLoadToken::Blob {
-				warmth: warmth(hot_blob),
+				warmth: load_warmth_at(hot_blob),
 				code_len: 0,
 				code_type,
 			});
@@ -534,10 +547,53 @@ mod tests {
 		let rollback = <Test as Config>::WeightInfo::access_list_rollback_amortization();
 		let empty_blob = |load| code_load_weight(0, BytecodeType::Evm, load);
 		assert_eq!(
-			empty_blob(warmth(Warmth::cold_revertible()))
-				.saturating_sub(empty_blob(warmth(Warmth::cold_non_revertible()))),
+			empty_blob(load_warmth_at(Warmth::cold_revertible()))
+				.saturating_sub(empty_blob(load_warmth_at(Warmth::cold_non_revertible()))),
 			rollback.saturating_mul(2),
 			"one rollback prepay per code entry",
+		);
+	}
+
+	#[test]
+	fn an_instantiate_load_pays_for_the_code_info_write_exactly_when_owed() {
+		let flat_cost = |info_op, info, blob| {
+			let load = CodeLoadItems::with_info_op(H256::zero(), info_op);
+			<CodeLoadToken as Token<Test>>::weight(&CodeLoadToken::Flat(Summarized::from_warmths(
+				load,
+				[info, blob],
+			)))
+		};
+		// What a writing load costs on top of one that only reads.
+		let owed_for_the_info_write = |info, blob| {
+			flat_cost(StorageOp::Write, info, blob).saturating_sub(flat_cost(
+				StorageOp::Read,
+				info,
+				blob,
+			))
+		};
+		let rehash_weight = RuntimeCosts::deferred_write_cost::<Test>();
+		let rehash_and_upgrade_weight =
+			rehash_weight.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<Test>());
+
+		assert_eq!(
+			owed_for_the_info_write(Warmth::cold_non_revertible(), Warmth::cold_non_revertible()),
+			rehash_weight,
+			"a cold code info write adds what the `code_load` bench never measured",
+		);
+		assert_eq!(
+			owed_for_the_info_write(Warmth::read_paid(), Warmth::read_paid()),
+			rehash_and_upgrade_weight,
+			"a read-paid code info write also journals the upgrade",
+		);
+		assert_eq!(
+			owed_for_the_info_write(Warmth::read_paid(), Warmth::cold_non_revertible()),
+			rehash_and_upgrade_weight,
+			"a cold blob adds no write charge of its own",
+		);
+		assert_eq!(
+			owed_for_the_info_write(Warmth::write_paid(), Warmth::read_paid()),
+			Weight::zero(),
+			"a write-paid code info write adds nothing",
 		);
 	}
 
@@ -556,7 +612,7 @@ mod tests {
 			let blob_missing = H256::repeat_byte(2);
 			<CodeInfoOf<Test>>::insert(blob_missing, code_info);
 
-			let cold = warmth(Warmth::cold_non_revertible());
+			let cold = load_warmth_at(Warmth::cold_non_revertible());
 			let new_meter = |weight_limit| {
 				TransactionMeter::<Test>::new_from_limits(weight_limit, u128::MAX)
 					.expect("a weight-and-deposit meter always builds")
@@ -572,14 +628,14 @@ mod tests {
 				"a load consumes exactly the blob's weight",
 			);
 
-			let flat = Token::<Test>::weight(&CodeLoadToken::Flat(cold));
-			let mut meter = new_meter(flat);
+			let flat_cost = Token::<Test>::weight(&CodeLoadToken::Flat(cold));
+			let mut meter = new_meter(flat_cost);
 			assert_eq!(
 				ContractBlob::<Test>::from_storage(blob_missing, &mut meter, cold).map(|_| ()),
 				Err(Error::<Test>::OutOfGas.into()),
 				"with weight for the two reads only, the blob's charge fails before the blob is read",
 			);
-			assert_eq!(meter.weight_consumed(), flat, "only the first charge landed");
+			assert_eq!(meter.weight_consumed(), flat_cost, "only the first charge landed");
 
 			let mut meter = new_meter(Weight::zero());
 			assert_eq!(

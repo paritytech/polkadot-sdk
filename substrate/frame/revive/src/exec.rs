@@ -1110,12 +1110,11 @@ where
 	fn load_code<S: State>(
 		access_list: &mut AccessList,
 		meter: &mut ResourceMeter<T, S>,
-		code_hash: H256,
+		code_load_items: access_list::CodeLoadItems,
 	) -> Result<E, DispatchError> {
-		let code_load = access_list::CodeLoadItems { hash: code_hash };
-		let executable =
-			E::from_storage(code_hash, meter, access_list.warmth_of_summarized(code_load))?;
-		access_list.warm(code_load);
+		let warmth = access_list.warmth_of_summarized(code_load_items);
+		let executable = E::from_storage(code_load_items.hash, meter, warmth)?;
+		access_list.warm(code_load_items);
 		Ok(executable)
 	}
 
@@ -1225,7 +1224,11 @@ where
 							return Ok(None);
 						};
 						delegate_code_target = target;
-						let executable = Self::load_code(access_list, meter, info.code_hash)?;
+						let executable = Self::load_code(
+							access_list,
+							meter,
+							access_list::CodeLoadItems::new(info.code_hash),
+						)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				} else if let Some(precompile) = precompile {
@@ -1238,7 +1241,11 @@ where
 						.as_contract()
 						.expect("When not a precompile the contract was loaded above; qed")
 						.code_hash;
-					let executable = Self::load_code(access_list, meter, code_hash)?;
+					let executable = Self::load_code(
+						access_list,
+						meter,
+						access_list::CodeLoadItems::new(code_hash),
+					)?;
 					ExecutableOrPrecompile::Executable(executable)
 				};
 
@@ -1596,9 +1603,12 @@ where
 
 					if module.store_code(&self.exec_config, &mut frame.frame_meter)?.is_some() {
 						// New code is in the storage overlay, so its entries can be warm.
-						let warmth = self.access_list.warm_summarized(access_list::CodeLoadItems {
-							hash: *module.code_hash(),
-						});
+						let warmth = self.access_list.warm_summarized(
+							access_list::CodeLoadItems::with_info_op(
+								*module.code_hash(),
+								StorageOp::Write,
+							),
+						);
 						frame.frame_meter.charge_weight_token(
 							RuntimeCosts::AccessListRegistration(warmth.summary()),
 						)?;
@@ -2279,7 +2289,7 @@ where
 					let executable = Self::load_code(
 						&mut self.access_list,
 						&mut top_frame_mut!(self).frame_meter,
-						*hash,
+						access_list::CodeLoadItems::with_info_op(*hash, StorageOp::Write),
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable

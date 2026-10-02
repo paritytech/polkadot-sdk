@@ -459,7 +459,7 @@ mod benchmarks {
 
 			let call_items = CallItems::new(callee_addr, $delegate);
 			whitelist_access::<T>(call_items);
-			let code_items = CodeLoadItems { hash: code_hash };
+			let code_items = CodeLoadItems::new(code_hash);
 			whitelist_access::<T>(code_items);
 			if let Some(transfer) = transfer {
 				whitelist_access::<T>(transfer);
@@ -742,6 +742,8 @@ mod benchmarks {
 		let addr = crate::address::create2(&deployer, &code, &input, &salt);
 		let hash = Contracts::<T>::bare_upload_code(origin.clone().into(), code, storage_deposit)?
 			.code_hash;
+		// The code load prices these reads.
+		whitelist_access::<T>(CodeLoadItems::new(hash));
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
 
 		#[extrinsic_call]
@@ -781,7 +783,7 @@ mod benchmarks {
 			blob = ContractBlob::<T>::from_storage(
 				code_hash,
 				&mut meter,
-				Summarized::all_cold(CodeLoadItems { hash: code_hash }),
+				Summarized::all_cold(CodeLoadItems::new(code_hash)),
 			);
 		}
 		assert!(blob.is_ok(), "an existing contract must load");
@@ -2998,6 +3000,8 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let code = VmBinaryModule::dummy();
 		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
+		// The code load prices these reads.
+		whitelist_access::<T>(CodeLoadItems::new(hash));
 		let hash_bytes = hash.encode();
 
 		let value: BalanceOf<T> = (1_000_000u32 * t).into();

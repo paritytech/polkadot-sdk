@@ -223,6 +223,8 @@ pub struct WarmthSummary {
 	cold: u32,
 	/// How many of the cold ones roll back with the frame.
 	cold_revertible: u32,
+	/// How many of the cold ones are writes.
+	cold_writes: u32,
 	/// How many are written after paying only for a read.
 	upgrades: u32,
 }
@@ -230,7 +232,7 @@ pub struct WarmthSummary {
 impl WarmthSummary {
 	/// Builds a summary with nothing counted yet, for an access with keys of the given family.
 	pub fn new(key: KeyFamily) -> Self {
-		Self { key, total: 0, cold: 0, cold_revertible: 0, upgrades: 0 }
+		Self { key, total: 0, cold: 0, cold_revertible: 0, cold_writes: 0, upgrades: 0 }
 	}
 
 	/// Returns the family of the access's keys.
@@ -245,6 +247,8 @@ impl WarmthSummary {
 			Warmth::Cold { revertible } => {
 				self.cold = self.cold.saturating_add(1);
 				self.cold_revertible = self.cold_revertible.saturating_add(u32::from(revertible));
+				self.cold_writes =
+					self.cold_writes.saturating_add(u32::from(op == StorageOp::Write));
 			},
 			Warmth::Hot { .. } => {
 				self.upgrades = self.upgrades.saturating_add(u32::from(warmth.owes_upgrade(op)))
@@ -266,6 +270,11 @@ impl WarmthSummary {
 	/// Returns how many of the cold entries roll back with the frame.
 	pub fn cold_revertible(&self) -> u32 {
 		self.cold_revertible
+	}
+
+	/// Returns how many of the cold entries are writes.
+	pub fn cold_writes(&self) -> u32 {
+		self.cold_writes
 	}
 
 	/// Returns how many entries are written after paying only for a read.
@@ -451,7 +460,7 @@ impl CallItems {
 	/// Returns how many entries a plain call to a contract touches, its own plus the callee's code.
 	pub fn plain_entries() -> u32 {
 		Self::Plain { target: H160::zero() }.entry_count() +
-			CodeLoadItems { hash: H256::zero() }.entry_count()
+			CodeLoadItems::new(H256::zero()).entry_count()
 	}
 
 	/// Returns how many entries a transfer touches.
@@ -462,7 +471,7 @@ impl CallItems {
 	/// Returns how many entries a delegate call touches, the target's account info plus its code.
 	pub fn delegate_entries() -> u32 {
 		Self::Delegate { target: H160::zero() }.entry_count() +
-			CodeLoadItems { hash: H256::zero() }.entry_count()
+			CodeLoadItems::new(H256::zero()).entry_count()
 	}
 }
 
@@ -569,10 +578,24 @@ pub struct CodeLoadWarmth {
 	pub blob: Warmth,
 }
 
-/// A code load reads the info and the blob at `hash`.
+/// A code load reads the blob at `hash` and performs `info_op` on its info.
 #[derive(Clone, Copy, Debug)]
 pub struct CodeLoadItems {
 	pub hash: H256,
+	/// `Write` for an instantiate, which bumps the refcount.
+	pub info_op: StorageOp,
+}
+
+impl CodeLoadItems {
+	/// Builds the items a code load touches when it only reads the info.
+	pub fn new(hash: H256) -> Self {
+		Self::with_info_op(hash, StorageOp::Read)
+	}
+
+	/// Builds the items a code load touches, with `info_op` on the info.
+	pub fn with_info_op(hash: H256, info_op: StorageOp) -> Self {
+		Self { hash, info_op }
+	}
 }
 
 impl Access for CodeLoadItems {
@@ -581,7 +604,7 @@ impl Access for CodeLoadItems {
 
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CodeLoadWarmth {
 		CodeLoadWarmth {
-			info: visit(AccessEntry::CodeInfo { hash: self.hash }, StorageOp::Read),
+			info: visit(AccessEntry::CodeInfo { hash: self.hash }, self.info_op),
 			blob: visit(AccessEntry::CodeBlob { hash: self.hash }, StorageOp::Read),
 		}
 	}
@@ -1177,7 +1200,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			recorded(CodeLoadItems { hash: H256::zero() }).entries,
+			recorded(CodeLoadItems::new(H256::zero())).entries,
 			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
 		);
 
@@ -1217,8 +1240,8 @@ mod tests {
 				recorded(CallItems::Delegate { target }).summary.total,
 			),
 			(
-				CodeLoadItems { hash: H256::zero() }.entry_count(),
-				recorded(CodeLoadItems { hash: H256::zero() }).summary.total,
+				CodeLoadItems::new(H256::zero()).entry_count(),
+				recorded(CodeLoadItems::new(H256::zero())).summary.total,
 			),
 			(transfer(true).entry_count(), recorded(transfer(true)).summary.total),
 		] {

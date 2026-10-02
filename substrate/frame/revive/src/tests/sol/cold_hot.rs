@@ -290,7 +290,7 @@ fn callee_revert_drops_only_its_own_touches(fixture_type: FixtureType) {
 		let call_inner_then_revert =
 			CallThenRevert::callThenRevertCall { target: inner.0.into() }.abi_encode();
 		let call_items_count = CallItems::new(H160::zero(), false).entry_count();
-		let code_load_count = CodeLoadItems { hash: H256::zero() }.entry_count();
+		let code_load_count = CodeLoadItems::new(H256::zero()).entry_count();
 
 		let no_revert = access_list_metrics_of_calls(caller, &[(reverter, Vec::new())]);
 		let revert =
@@ -336,7 +336,7 @@ fn shared_code_is_hot_for_the_second_contract(fixture_type: FixtureType) {
 		);
 		assert_eq!(
 			both.hot - first_only.hot,
-			CodeLoadItems { hash: H256::zero() }.entry_count(),
+			CodeLoadItems::new(H256::zero()).entry_count(),
 			"the second contract's code is hot, shared with the first",
 		);
 	});
@@ -370,7 +370,7 @@ fn a_contract_creation_warms_the_new_contract(fixture_type: FixtureType) {
 		// solc stores `ReceivingChild`'s code on the first contract creation; resolc uploaded it.
 		let stores_code = matches!(fixture_type, FixtureType::Solc);
 		let code_entries =
-			if stores_code { CodeLoadItems { hash: H256::zero() }.entry_count() } else { 0 };
+			if stores_code { CodeLoadItems::new(H256::zero()).entry_count() } else { 0 };
 		let expected_extra_entries = (CreateItems { address: H160::zero(), creator: H160::zero() }
 			.entry_count() +
 			code_entries) as usize;
@@ -399,7 +399,7 @@ fn a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType)
 			CreateItems { address: H160::zero(), creator: H160::zero() }.entry_count() as usize;
 		let expected_failed_extra_entries = if fixture_type == FixtureType::Resolc {
 			// The caller loads the code by hash in its own frame, so the revert does not drop it.
-			CodeLoadItems { hash: H256::zero() }.entry_count() as usize
+			CodeLoadItems::new(H256::zero()).entry_count() as usize
 		} else {
 			0
 		};
@@ -430,7 +430,7 @@ fn newly_stored_code_is_hot_for_the_next_call() {
 	ExtBuilder::default().build().execute_with(|| {
 		// The child's AccountInfo and address mapping, both warmed by the contract creation.
 		let created_entries = 2;
-		let code_load = CodeLoadItems { hash: H256::zero() }.entry_count();
+		let code_load = CodeLoadItems::new(H256::zero()).entry_count();
 		let stores_the_code_expected_hot = code_load + created_entries;
 		let finds_the_code_stored_expected_hot = created_entries;
 

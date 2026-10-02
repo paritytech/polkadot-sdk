@@ -211,7 +211,7 @@ fn from_storage_cold<S: crate::metering::State>(
 	MockExecutable::from_storage(
 		code_hash,
 		meter,
-		Summarized::all_cold(CodeLoadItems { hash: code_hash }),
+		Summarized::all_cold(CodeLoadItems::new(code_hash)),
 	)
 }
 
@@ -3653,7 +3653,7 @@ fn cold_hot_a_load_warms_both_code_entries() {
 			.find(|hash| *hash != dummy_code_hash)
 			.unwrap();
 		assert_eq!(
-			ctx.ext.warmth_of(CodeLoadItems { hash: own_hash }).entries(),
+			ctx.ext.warmth_of(CodeLoadItems::new(own_hash)).entries(),
 			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
 			"a call warms the code it loads",
 		);
@@ -3670,9 +3670,9 @@ fn cold_hot_a_load_warms_both_code_entries() {
 			)
 			.unwrap();
 		assert_eq!(
-			ctx.ext.warmth_of(CodeLoadItems { hash: dummy_code_hash }).entries(),
-			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
-			"an instantiate warms the code it loads",
+			ctx.ext.warmth_of(CodeLoadItems::new(dummy_code_hash)).entries(),
+			CodeLoadWarmth { info: Warmth::write_paid(), blob: Warmth::read_paid() },
+			"an instantiate warms the code it loads, and pays for its refcount write to the code info",
 		);
 		exec_success()
 	});

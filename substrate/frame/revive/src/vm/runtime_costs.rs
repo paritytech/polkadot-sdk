@@ -273,7 +273,7 @@ impl RuntimeCosts {
 
 	/// Computes the cost a hot write adds on top of the cold read that warmed the key: re-hashing
 	/// its trie path when the block's storage root is computed.
-	fn deferred_write_cost<T: Config>() -> Weight {
+	pub fn deferred_write_cost<T: Config>() -> Weight {
 		let db = T::DbWeight::get();
 		db.writes(1).saturating_sub(db.reads(1))
 	}

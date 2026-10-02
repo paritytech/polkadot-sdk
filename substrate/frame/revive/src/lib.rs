@@ -1912,7 +1912,10 @@ impl<T: Config> Pallet<T> {
 					let executable = ContractBlob::from_storage(
 						code_hash,
 						&mut transaction_meter,
-						Summarized::all_cold(CodeLoadItems { hash: code_hash }),
+						Summarized::all_cold(CodeLoadItems::with_info_op(
+							code_hash,
+							StorageOp::Write,
+						)),
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
