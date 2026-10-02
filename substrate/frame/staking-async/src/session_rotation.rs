@@ -726,9 +726,7 @@ impl<T: Config> Rotator<T> {
 			},
 		}
 
-		if let Some((kept_era, _)) =
-			NextEraValidators::<T>::get().filter(|_| T::OnEraStart::enabled())
-		{
+		if let Some((kept_era, _)) = NextEraValidators::<T>::get() {
 			ensure!(
 				Self::is_planning() == Some(kept_era),
 				"kept validators exist only for an era that is planned and not yet active"
@@ -917,13 +915,17 @@ impl<T: Config> Rotator<T> {
 	/// [`Self::keep_next_era_validators`].
 	///
 	/// Costs one read and one removal of the copy. Without a copy, as for an era whose election
-	/// completed before the hook was enabled, the hook is not called for that era.
+	/// completed before the hook was enabled, the hook is not called for that era. With the hook
+	/// disabled, a copy kept while it was enabled is removed at the cost of one write and the hook
+	/// is not called.
 	fn notify_era_start(era: EraIndex) -> Weight {
+		let kept = NextEraValidators::<T>::take();
 		if !T::OnEraStart::enabled() {
-			return Weight::zero();
+			// The read is part of the benchmarked weight of the session report.
+			return if kept.is_some() { T::DbWeight::get().writes(1) } else { Weight::zero() };
 		}
 		let read_weight = Self::kept_validators_weight();
-		match NextEraValidators::<T>::take() {
+		match kept {
 			Some((kept_era, validators)) if kept_era == era => {
 				T::OnEraStart::on_era_start(era, &validators);
 				read_weight.saturating_add(T::OnEraStart::weight(validators.len() as u32))

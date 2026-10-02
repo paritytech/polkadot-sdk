@@ -445,26 +445,26 @@ fn era_start_is_charged_only_when_the_hook_is_on_and_on_the_final_page() {
 	});
 }
 
-#[cfg(feature = "try-runtime")]
 #[test]
-fn copy_left_by_a_disabled_hook_does_not_fail_try_state() {
+fn copy_left_by_a_disabled_hook_is_removed_at_era_start() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
-		// GIVEN the era-start hook is switched off and era 1 is active
-		assert!(!EraStartHookEnabled::get());
+		// GIVEN the hook is on while the era 1 election completes, so a copy is kept
+		EraStartHookEnabled::set(true);
 		end_session_with(false, AssertSessionType::ElectionWithBufferedExport);
 		for _ in 0..2 {
 			end_session_with(false, AssertSessionType::IdleNoExport);
 		}
 		end_session_with(false, AssertSessionType::IdleOnlyExport);
+		assert!(staking_async::NextEraValidators::<T>::exists());
+		// WHEN the hook is switched off and era 1 starts
+		EraStartHookEnabled::set(false);
 		end_session_with(false, AssertSessionType::IdleNoExport);
 		end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
 		assert_eq!(ActiveEra::<T>::get().unwrap().index, 1);
-		// WHEN a copy for the already active era is left over from an enabled hook
-		staking_async::NextEraValidators::<T>::put((
-			1,
-			frame_support::BoundedVec::truncate_from(vec![1]),
-		));
-		// THEN try_state ignores it
+		// THEN the copy is removed without calling the hook, and try_state holds
+		assert!(!staking_async::NextEraValidators::<T>::exists());
+		assert!(StartedEras::get().is_empty());
+		#[cfg(feature = "try-runtime")]
 		assert_ok!(<Staking as frame_support::traits::Hooks<_>>::try_state(System::block_number()));
 	});
 }

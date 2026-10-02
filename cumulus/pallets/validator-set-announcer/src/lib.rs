@@ -25,6 +25,8 @@
 //! [`Config::Destinations`]. The queue is one bounded list, drained in `on_initialize`: each
 //! queued destination is handed the latest stored set, and a rejected hand-off stays in the list
 //! and is retried in every following block until the sender accepts it or a newer set replaces it.
+//! Retries have no limit or expiry, since every retry sends the latest stored set, so a send that
+//! succeeds after a long outage still delivers the right set.
 //! Acceptance means the message was queued for delivery. Execution on the destination is not
 //! acknowledged. If it fails there, the next era's announcement carries the full set again.
 

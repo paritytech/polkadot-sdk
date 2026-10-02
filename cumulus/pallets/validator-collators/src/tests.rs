@@ -263,6 +263,25 @@ fn cap_limits_only_the_validator_side_after_the_key_filter() {
 			assert_ok!(ValidatorCollators::do_try_state());
 		});
 	}
+	new_test_ext().execute_with(|| {
+		// GIVEN invulnerables 1 and 2, candidate 4, and a set whose first validator is candidate 4
+		initialize_to_block(1);
+		register_candidate(4);
+		[11, 12].into_iter().for_each(set_keys);
+		// WHEN a cap of 1 is set and the set is received and enacted
+		assert_ok!(ValidatorCollators::set_max_collators(
+			RuntimeOrigin::signed(RootAccount::get()),
+			Some(1)
+		));
+		assert_ok!(receive(1, vec![4, 11, 12]));
+		initialize_to_block(3);
+		// THEN candidate 4 takes the only place under the cap and adds no collator
+		assert_eq!(
+			<ValidatorCollators as SessionManager<u64>>::new_session(Session::current_index()),
+			Some(vec![4])
+		);
+		assert_eq!(Session::validators(), vec![1, 2, 4]);
+	});
 }
 
 #[test]

@@ -159,18 +159,23 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PendingRotation<T: Config> = StorageValue<_, RotationState, ValueQuery>;
 
-	/// Maximum number of validators returned as collators, `None` returns all opted-in ones.
+	/// Maximum number of validators returned as collators, `None` returns every validator with
+	/// registered keys.
 	///
-	/// The cap also counts validators that the other session manager may return, so after the
-	/// union removes duplicates fewer extra collators may be added than the cap suggests.
+	/// The cap applies before the union with the other session manager. A validator that the
+	/// other session manager also returns takes a place under the cap without adding a collator.
 	///
 	/// The merged list becomes Aura's authority list, which Aura writes into the block header
 	/// whenever it changes, and the relay chain rejects a header above its head-data limit. Size
 	/// the cap so that the merged list, invulnerables and candidates included, keeps a
 	/// session-change header within that limit.
 	///
-	/// TODO: replace the prefix with a random draw among the opted-in validators. Until then the
-	/// cap keeps the first ones of the received set, which staking hands over sorted by account id.
+	/// A change is read at the next rotation, which queues the capped list, and is in force from
+	/// the rotation after. Setting the cap does not force rotations.
+	///
+	/// TODO: replace the prefix with a random draw among the validators with registered keys.
+	/// Until then the cap keeps the first validators with registered keys in the received set,
+	/// which staking hands over sorted by account id.
 	#[pallet::storage]
 	pub type MaxCollators<T: Config> = StorageValue<_, u32, OptionQuery>;
 
