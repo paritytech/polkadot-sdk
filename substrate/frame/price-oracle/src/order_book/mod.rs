@@ -17,8 +17,7 @@
 //! Prices markets from their order book and the time of their latest trade.
 //!
 //! The responses are read with a [`ResponseSchema`] per query. The price of a market is the impact
-//! mid of its book, rejected if the book or the latest trade fails the health limits of
-//! [`OrderBookParams`].
+//! mid of its book, rejected if the book or the latest trade fails its [`HealthLimits`].
 
 pub mod schema;
 
@@ -49,6 +48,24 @@ pub struct OrderBookParams {
 	/// fixed quantity of the base asset can be configured; inverse contracts, sized in the quote
 	/// currency, cannot.
 	pub contract_size: FixedU128,
+	/// The limits the market must pass to be priced.
+	pub limits: HealthLimits,
+}
+
+/// The limits a market must pass to be priced by [`OrderBookPricing`].
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
+pub struct HealthLimits {
 	/// Quote asset amount priced against each side of the book to obtain its impact mid.
 	pub impact_size: Price,
 	/// A book whose spread relative to its mid exceeds this is rejected.
@@ -79,11 +96,11 @@ pub enum Error {
 pub enum HealthError {
 	/// The best bid is not below the best ask.
 	CrossedBook,
-	/// The spread exceeds [`OrderBookParams::max_spread`].
+	/// The spread exceeds [`HealthLimits::max_spread`].
 	SpreadTooWide,
-	/// The latest trade is older than [`OrderBookParams::max_trade_age_ms`].
+	/// The latest trade is older than [`HealthLimits::max_trade_age_ms`].
 	StaleTrades,
-	/// A side of the book cannot fill [`OrderBookParams::impact_size`].
+	/// A side of the book cannot fill [`HealthLimits::impact_size`].
 	BookTooThin,
 	/// Arithmetic overflow.
 	Overflow,
@@ -94,7 +111,7 @@ impl MarketPricing for OrderBookPricing {
 	type Error = Error;
 
 	fn validate(params: &OrderBookParams) -> bool {
-		!params.contract_size.is_zero() && !params.impact_size.is_zero()
+		!params.contract_size.is_zero() && !params.limits.impact_size.is_zero()
 	}
 
 	/// Needs one order book and one trades response among the responses.
@@ -125,7 +142,7 @@ impl MarketPricing for OrderBookPricing {
 		}
 		let book = book.ok_or(Error::NoOrderBook)?;
 		let latest_trade_ms = latest_trade_ms.ok_or(Error::NoTrades)?;
-		price_market(&book, latest_trade_ms, now_ms, params).map_err(Error::Unhealthy)
+		price_market(&book, latest_trade_ms, now_ms, &params.limits).map_err(Error::Unhealthy)
 	}
 }
 
@@ -134,7 +151,7 @@ pub fn price_market(
 	book: &OrderBook,
 	latest_trade_ms: u64,
 	now_ms: u64,
-	params: &OrderBookParams,
+	limits: &HealthLimits,
 ) -> Result<Price, HealthError> {
 	let (Some(best_bid), Some(best_ask)) = (book.bids.first(), book.asks.first()) else {
 		return Err(HealthError::BookTooThin);
@@ -149,14 +166,14 @@ pub fn price_market(
 		.and_then(|d| d.checked_mul(&Price::from_u32(2)))
 		.ok_or(HealthError::Overflow)?;
 	let sum = best_ask.price.checked_add(&best_bid.price).ok_or(HealthError::Overflow)?;
-	let allowed = Price::from_inner(params.max_spread.mul_floor(sum.into_inner()));
+	let allowed = Price::from_inner(limits.max_spread.mul_floor(sum.into_inner()));
 	if spread2 > allowed {
 		return Err(HealthError::SpreadTooWide);
 	}
-	if now_ms.saturating_sub(latest_trade_ms) > params.max_trade_age_ms as u64 {
+	if now_ms.saturating_sub(latest_trade_ms) > limits.max_trade_age_ms as u64 {
 		return Err(HealthError::StaleTrades);
 	}
-	impact_mid(book, params.impact_size)
+	impact_mid(book, limits.impact_size)
 }
 
 /// The impact mid of a book: the mean of the prices at which `size` quote units are bought
