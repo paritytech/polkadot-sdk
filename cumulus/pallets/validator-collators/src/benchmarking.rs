@@ -21,10 +21,11 @@ use super::*;
 
 #[allow(unused)]
 use crate::Pallet as ValidatorCollators;
+use alloc::collections::BTreeSet;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
 	traits::{EnsureOrigin, Get},
-	BoundedVec,
+	BoundedBTreeSet,
 };
 
 #[benchmarks]
@@ -33,12 +34,14 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_validators(n: Linear<1, { T::MaxValidators::get() }>) -> Result<(), BenchmarkError> {
-		let stored = BoundedVec::truncate_from(
-			(0..T::MaxValidators::get()).map(|i| account("stored", i, 0)).collect(),
-		);
-		Pallet::<T>::receive_validator_set(0, stored)?;
-		let validators =
-			BoundedVec::truncate_from((0..n).map(|i| account("validator", i, 0)).collect());
+		let set = |name: &'static str, count: u32| {
+			BoundedBTreeSet::try_from(
+				(0..count).map(|i| account(name, i, 0)).collect::<BTreeSet<_>>(),
+			)
+			.map_err(|_| BenchmarkError::Stop("the set exceeds MaxValidators"))
+		};
+		Pallet::<T>::receive_validator_set(0, set("stored", T::MaxValidators::get())?)?;
+		let validators = set("validator", n)?;
 
 		#[block]
 		{

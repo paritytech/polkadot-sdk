@@ -67,16 +67,21 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 	let bob = Sr25519Keyring::Bob.to_account_id();
 	let charlie = Sr25519Keyring::Charlie.to_account_id();
 	let validators = vec![alice.clone(), bob.clone(), charlie];
+	// The validators follow the invulnerables in account order.
+	let mut with_keys = vec![alice.clone(), bob.clone()];
+	with_keys.sort();
 	let expected = invulnerables()
 		.into_iter()
 		.map(|(who, _)| who)
-		.chain([alice.clone(), bob.clone()])
+		.chain(with_keys.clone())
 		.collect::<Vec<_>>();
 	let expected_authorities = |alice_aura: AuraId, bob_aura: AuraId| {
+		let aura_of =
+			|who: &AccountId| if *who == alice { alice_aura.clone() } else { bob_aura.clone() };
 		invulnerables()
 			.into_iter()
 			.map(|(_, aura)| aura)
-			.chain([alice_aura, bob_aura])
+			.chain(with_keys.iter().map(aura_of))
 			.collect::<Vec<_>>()
 	};
 

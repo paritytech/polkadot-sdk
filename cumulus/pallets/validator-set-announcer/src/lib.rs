@@ -87,8 +87,8 @@ pub mod weights;
 pub mod pallet {
 	pub use crate::weights::WeightInfo;
 	use crate::{DestinationOf, SendValidatorSet};
-	use alloc::vec::Vec;
-	use frame_support::{pallet_prelude::*, BoundedVec};
+	use alloc::{collections::BTreeSet, vec::Vec};
+	use frame_support::{pallet_prelude::*, BoundedBTreeSet};
 	use sp_staking::EraIndex;
 
 	#[pallet::pallet]
@@ -154,8 +154,9 @@ pub mod pallet {
 		}
 
 		pub(crate) fn store(era: EraIndex, validators: &[T::AccountId]) -> DispatchResult {
-			let validators = BoundedVec::try_from(validators.to_vec())
-				.map_err(|_| Error::<T>::TooManyValidators)?;
+			let validators =
+				BoundedBTreeSet::try_from(validators.iter().cloned().collect::<BTreeSet<_>>())
+					.map_err(|_| Error::<T>::TooManyValidators)?;
 			pallet_validator_collators::Pallet::<T>::receive_validator_set(era, validators)
 		}
 

@@ -54,7 +54,7 @@
 //! ## TODO
 //!
 //! - A random draw among the opted-in validators when a cap is set. For now the cap keeps a prefix
-//!   of the list as received, which staking hands over sorted by account id.
+//!   of the set in account order.
 //! - Counting the blocks each validator authors and reporting era points to the chain where
 //!   `pallet-staking-async` runs, typically Asset Hub.
 //! - Dropping validators that author no blocks for a session.
@@ -81,11 +81,11 @@ const LOG_TARGET: &str = "runtime::validator-collators";
 #[frame_support::pallet]
 pub mod pallet {
 	pub use crate::weights::WeightInfo;
-	use alloc::{collections::BTreeSet, vec::Vec};
+	use alloc::vec::Vec;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{EnsureOrigin, ValidatorRegistration},
-		BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
+		BoundedBTreeSet, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 	};
 	use frame_system::pallet_prelude::*;
 	use pallet_session::{SessionManager, ShouldEndSession};
@@ -105,13 +105,13 @@ pub mod pallet {
 	#[scale_info(skip_type_params(MaxValidators))]
 	pub struct EraValidatorSet<AccountId, MaxValidators>
 	where
-		AccountId: Clone + Eq + core::fmt::Debug,
+		AccountId: Clone + Ord + core::fmt::Debug,
 		MaxValidators: Get<u32>,
 	{
 		/// The era the set belongs to.
 		pub era: EraIndex,
 		/// The validator stashes of that era.
-		pub validators: BoundedVec<AccountId, MaxValidators>,
+		pub validators: BoundedBTreeSet<AccountId, MaxValidators>,
 	}
 
 	/// Progress of the two rotations that bring a received set into force.
@@ -193,8 +193,6 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The set contains the same account more than once.
-		DuplicateValidator,
 		/// The era of the set is not newer than the era of the stored set.
 		StaleEra,
 	}
@@ -223,7 +221,7 @@ pub mod pallet {
 		pub fn set_validators(
 			origin: OriginFor<T>,
 			era: EraIndex,
-			validators: BoundedVec<T::AccountId, T::MaxValidators>,
+			validators: BoundedBTreeSet<T::AccountId, T::MaxValidators>,
 		) -> DispatchResult {
 			T::SetOrigin::ensure_origin(origin)?;
 			Self::receive_validator_set(era, validators)
@@ -244,10 +242,8 @@ pub mod pallet {
 		/// Store the validator set of `era` and schedule the rotations that bring it into force.
 		pub fn receive_validator_set(
 			era: EraIndex,
-			validators: BoundedVec<T::AccountId, T::MaxValidators>,
+			validators: BoundedBTreeSet<T::AccountId, T::MaxValidators>,
 		) -> DispatchResult {
-			let mut seen = BTreeSet::new();
-			ensure!(validators.iter().all(|v| seen.insert(v)), Error::<T>::DuplicateValidator);
 			ensure!(
 				ValidatorSet::<T>::get().is_none_or(|stored| era > stored.era),
 				Error::<T>::StaleEra
@@ -296,8 +292,8 @@ pub mod pallet {
 			let registered =
 				set.validators.into_iter().filter(T::ValidatorRegistration::is_registered);
 			// TODO: replace the truncation with a random draw among the validators with registered
-			// keys. Until then the cap keeps the first validators with registered keys in the
-			// received set, which staking hands over sorted by account id.
+			// keys. Until then the cap keeps the first validators with registered keys in account
+			// order.
 			Some(match MaxCollators::<T>::get() {
 				Some(max) => registered.take(max as usize).collect(),
 				None => registered.collect(),

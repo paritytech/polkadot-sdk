@@ -18,7 +18,7 @@ use crate::{
 	RotationState, ValidatorSet,
 };
 use codec::{Decode, Encode};
-use frame_support::{assert_noop, assert_ok, BoundedVec};
+use frame_support::{assert_noop, assert_ok, traits::UnfilteredDispatchable, BoundedBTreeSet};
 use pallet_session::SessionManager;
 use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin, DispatchResult};
 use sp_staking::EraIndex;
@@ -29,8 +29,12 @@ fn set_keys(who: u64) {
 	assert_ok!(Session::set_keys(RuntimeOrigin::signed(who), keys, proof));
 }
 
-fn bounded(validators: Vec<u64>) -> BoundedVec<u64, <Test as Config>::MaxValidators> {
-	validators.try_into().unwrap()
+fn bounded(validators: Vec<u64>) -> BoundedBTreeSet<u64, <Test as Config>::MaxValidators> {
+	validators
+		.into_iter()
+		.collect::<std::collections::BTreeSet<_>>()
+		.try_into()
+		.unwrap()
 }
 
 fn receive(era: EraIndex, validators: Vec<u64>) -> DispatchResult {
@@ -85,7 +89,7 @@ fn set_with_era_not_newer_than_stored_is_rejected() {
 		assert_noop!(receive(4, vec![12]), Error::<Test>::StaleEra);
 		assert_eq!(
 			ValidatorSet::<Test>::get(),
-			Some(EraValidatorSet { era: 5, validators: vec![10, 11].try_into().unwrap() })
+			Some(EraValidatorSet { era: 5, validators: bounded(vec![10, 11]) })
 		);
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
 		assert_ok!(ValidatorCollators::do_try_state());
@@ -108,15 +112,18 @@ fn call_with_more_than_max_validators_does_not_decode() {
 }
 
 #[test]
-fn set_with_duplicate_accounts_is_rejected() {
+fn call_listing_an_account_twice_stores_it_once() {
 	new_test_ext().execute_with(|| {
-		// GIVEN a set that lists validator 10 twice
-		let duplicated = vec![10, 10, 11];
-		// WHEN it is submitted
-		// THEN it fails with DuplicateValidator and nothing is stored
-		assert_noop!(receive(1, duplicated), Error::<Test>::DuplicateValidator);
-		assert_eq!(ValidatorSet::<Test>::get(), None);
-		assert_ok!(ValidatorCollators::do_try_state());
+		// GIVEN a set_validators call encoded with validator 10 listed twice
+		let encoded = (0u8, 1 as EraIndex, vec![11u64, 10, 10]).encode();
+		// WHEN it is decoded and dispatched
+		let call = Call::<Test>::decode(&mut &encoded[..]).unwrap();
+		assert_ok!(call.dispatch_bypass_filter(RuntimeOrigin::signed(SetAccount::get())));
+		// THEN the set holds each account once
+		assert_eq!(
+			ValidatorSet::<Test>::get().map(|set| set.validators),
+			Some(bounded(vec![10, 11]))
+		);
 	});
 }
 
@@ -132,14 +139,15 @@ fn received_set_is_enacted_after_two_forced_rotations() {
 		assert_eq!(Session::current_index(), 0);
 		// WHEN a set that repeats invulnerable 2 is received at block 3
 		assert_ok!(receive(1, vec![11, 2, 10]));
-		// THEN the session rotates at blocks 4 and 5 and then holds the deduplicated union
+		// THEN the session rotates at blocks 4 and 5 and then holds the deduplicated union, with
+		// the validators in account order
 		initialize_to_block(4);
 		assert_eq!(Session::current_index(), 1);
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingEnactment);
 		initialize_to_block(5);
 		assert_eq!(Session::current_index(), 2);
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
-		assert_eq!(Session::validators(), vec![1, 2, 4, 11, 10]);
+		assert_eq!(Session::validators(), vec![1, 2, 4, 10, 11]);
 		initialize_to_block(6);
 		assert_eq!(Session::current_index(), 2);
 		assert_ok!(ValidatorCollators::do_try_state());

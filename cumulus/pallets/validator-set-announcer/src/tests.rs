@@ -38,7 +38,7 @@ fn run_block(n: u64) {
 }
 
 fn stored() -> Option<(u32, Vec<u64>)> {
-	ValidatorSet::<Test>::get().map(|set| (set.era, set.validators.to_vec()))
+	ValidatorSet::<Test>::get().map(|set| (set.era, set.validators.into_iter().collect()))
 }
 
 #[test]
