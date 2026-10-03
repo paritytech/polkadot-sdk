@@ -1,0 +1,9 @@
+title: 'approval-voting: prune every wakeup when the finalized number is BlockNumber::MAX'
+doc:
+  - audience: Node Dev
+    description: |
+      Pruning finalized wakeups no longer overflows when the finalized block number is
+      BlockNumber::MAX. Every tracked block is pruned at that height.
+crates:
+  - name: polkadot-node-core-approval-voting
+    bump: patch
