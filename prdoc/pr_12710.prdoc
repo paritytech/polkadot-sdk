@@ -27,6 +27,10 @@ doc:
     and the Rococo runtimes are skipped because that testnet is retired. The Polkadot and
     Kusama Asset Hub runtimes live in `polkadot-fellows/runtimes` and can take it once this
     is released.
+
+    Two breaking changes come with it, hence the major bump: `WeightInfo` gains a required
+    `migrate_v0_to_v1_step` method, and `migrations::MigrateV0ToV1` is now a struct
+    implementing `SteppedMigration` rather than an alias for a `VersionedMigration`.
 - audience: Runtime User
   description: |-
     Accounts whose proxy list was stored out of order can add and remove proxies again once
@@ -36,7 +40,7 @@ doc:
 
 crates:
 - name: pallet-proxy
-  bump: minor
+  bump: major
 - name: westend-runtime
   bump: patch
 - name: asset-hub-westend-runtime
