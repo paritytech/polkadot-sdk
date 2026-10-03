@@ -548,8 +548,8 @@ fn host_storage_proof_size() -> u64 {
 	recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed") as _
 }
 
-fn host_storage_root(version: StateVersion) -> Vec<u8> {
-	with_externalities(|ext| ext.storage_root(version))
+fn host_storage_root(_version: StateVersion) -> Vec<u8> {
+	with_externalities(|ext| ext.storage_root())
 }
 
 fn host_storage_clear_prefix(prefix: &[u8], limit: Option<u32>) -> KillStorageResult {
@@ -636,9 +636,9 @@ fn host_default_child_storage_clear_prefix(
 	with_externalities(|ext| ext.clear_child_prefix(&child_info, prefix, limit, None).into())
 }
 
-fn host_default_child_storage_root(storage_key: &[u8], version: StateVersion) -> Vec<u8> {
+fn host_default_child_storage_root(storage_key: &[u8], _version: StateVersion) -> Vec<u8> {
 	let child_info = ChildInfo::new_default(storage_key);
-	with_externalities(|ext| ext.child_storage_root(&child_info, version))
+	with_externalities(|ext| ext.child_storage_root(&child_info))
 }
 
 fn host_default_child_storage_next_key(storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {

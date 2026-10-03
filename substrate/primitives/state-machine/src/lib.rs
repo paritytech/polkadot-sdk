@@ -1985,10 +1985,10 @@ mod tests {
 
 		let mut transaction = {
 			let backend = test_trie(state_version, None, None);
-			let mut ext = Ext::new(&mut overlay, &backend, None);
+			let mut ext = Ext::new(&mut overlay, &backend, None).with_state_version(state_version);
 			ext.set_child_storage(&child_info_1, b"abc".to_vec(), b"def".to_vec());
 			ext.set_child_storage(&child_info_2, b"abc".to_vec(), b"def".to_vec());
-			ext.storage_root(state_version);
+			ext.storage_root();
 			overlay.drain_storage_changes(&backend, state_version).unwrap().transaction
 		};
 		let mut duplicate = false;

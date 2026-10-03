@@ -896,3 +896,58 @@ fn import_doubles_heap_strategy(wasm_method: WasmExecutionMethod) {
 	);
 	assert!(result.is_ok(), "Doubled strategy (64 pages) should allow 3 MiB allocation");
 }
+
+#[test]
+fn executor_applies_embedded_runtime_state_version() {
+	use sp_core::{
+		storage::StateVersion,
+		traits::{RuntimeCode, WrappedRuntimeCode},
+	};
+	use sp_version::RuntimeVersion;
+
+	// Embed a version whose `state_version()` is `V0`, while the externalities are created with
+	// `V1`. The executor is expected to apply the version from the runtime.
+	let blob = sp_version::embed::embed_runtime_version(
+		wasm_binary_unwrap(),
+		RuntimeVersion { system_version: 0, ..Default::default() },
+	)
+	.unwrap();
+
+	let code_fetcher = WrappedRuntimeCode(blob.clone().into());
+	let code = RuntimeCode {
+		code_fetcher: &code_fetcher,
+		heap_pages: None,
+		hash: blake2_256(&blob).to_vec(),
+	};
+
+	let executor = crate::WasmExecutor::<HostFunctions>::builder()
+		// The test runtime intentionally imports some host functions that do not exist.
+		.with_allow_missing_host_functions(true)
+		.build();
+	let mut t = TestExternalities::new_with_state_version(Default::default(), StateVersion::V1);
+	let mut ext = t.ext();
+
+	let root = executor
+		.with_instance(
+			&code,
+			&mut ext,
+			HeapAllocStrategy::Dynamic { maximum_pages: Some(1024) },
+			|_, _, version, mut ext| {
+				assert!(version.is_some());
+				ext.place_storage(b"key".to_vec(), Some(vec![42u8; 64]));
+				Ok(Ok(ext.storage_root()))
+			},
+		)
+		.unwrap();
+
+	let storage_root = |state_version| {
+		let mut t = TestExternalities::new_with_state_version(Default::default(), state_version);
+		let mut ext = t.ext();
+		ext.place_storage(b"key".to_vec(), Some(vec![42u8; 64]));
+		ext.storage_root()
+	};
+
+	// The value is large enough to be stored differently in `V0` and `V1`.
+	assert_eq!(root, storage_root(StateVersion::V0));
+	assert_ne!(root, storage_root(StateVersion::V1));
+}

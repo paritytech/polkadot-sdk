@@ -1050,9 +1050,9 @@ mod tests {
 			let mut ext = Ext::new(&mut overlay, &backend, None);
 			let root = "39245109cef3758c2eed2ccba8d9b370a917850af3824bc8348d505df2c298fa";
 
-			assert_eq!(bytes2hex("", &ext.storage_root(state_version)), root);
+			assert_eq!(bytes2hex("", &ext.storage_root()), root);
 			// Calling a second time should use it from the cache
-			assert_eq!(bytes2hex("", &ext.storage_root(state_version)), root);
+			assert_eq!(bytes2hex("", &ext.storage_root()), root);
 		}
 
 		// Check that the storage root is recalculated
@@ -1060,7 +1060,7 @@ mod tests {
 
 		let mut ext = Ext::new(&mut overlay, &backend, None);
 		let root = "5c0a4e35cb967de785e1cb8743e6f24b6ff6d45155317f2078f6eb3fc4ff3e3d";
-		assert_eq!(bytes2hex("", &ext.storage_root(state_version)), root);
+		assert_eq!(bytes2hex("", &ext.storage_root()), root);
 	}
 
 	#[test]
@@ -1095,7 +1095,6 @@ mod tests {
 
 	#[test]
 	fn overlayed_child_storage_root_works() {
-		let state_version = StateVersion::default();
 		let child_info = ChildInfo::new_default(b"Child1");
 		let child_info = &child_info;
 		let backend = new_in_mem::<Blake2Hasher>();
@@ -1113,18 +1112,12 @@ mod tests {
 			let child_root = "c02965e1df4dc5baf6977390ce67dab1d7a9b27a87c1afe27b50d29cc990e0f5";
 			let root = "eafb765909c3ed5afd92a0c564acf4620d0234b31702e8e8e9b48da72a748838";
 
-			assert_eq!(
-				bytes2hex("", &ext.child_storage_root(child_info, state_version)),
-				child_root,
-			);
+			assert_eq!(bytes2hex("", &ext.child_storage_root(child_info)), child_root,);
 
-			assert_eq!(bytes2hex("", &ext.storage_root(state_version)), root);
+			assert_eq!(bytes2hex("", &ext.storage_root()), root);
 
 			// Calling a second time should use it from the cache
-			assert_eq!(
-				bytes2hex("", &ext.child_storage_root(child_info, state_version)),
-				child_root,
-			);
+			assert_eq!(bytes2hex("", &ext.child_storage_root(child_info)), child_root,);
 		}
 	}
 

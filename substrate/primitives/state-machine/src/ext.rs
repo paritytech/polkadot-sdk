@@ -71,6 +71,8 @@ where
 	/// Extensions registered with this instance.
 	#[cfg(feature = "std")]
 	extensions: Option<OverlayedExtensions<'a>>,
+	/// State version used by `storage_root` and `child_storage_root` to compute the trie layout.
+	state_version: StateVersion,
 }
 
 impl<'a, H, B> Ext<'a, H, B>
@@ -81,7 +83,7 @@ where
 	/// Create a new `Ext`.
 	#[cfg(not(feature = "std"))]
 	pub fn new(overlay: &'a mut OverlayedChanges<H>, backend: &'a B) -> Self {
-		Ext { overlay, backend, id: 0 }
+		Ext { overlay, backend, id: 0, state_version: StateVersion::default() }
 	}
 
 	/// Create a new `Ext` from overlayed changes and read-only backend
@@ -96,7 +98,15 @@ where
 			backend,
 			id: rand::random(),
 			extensions: extensions.map(OverlayedExtensions::new),
+			state_version: StateVersion::default(),
 		}
+	}
+
+	/// Override the state version used by `storage_root`. Chained-call equivalent of
+	/// [`Externalities::set_runtime_state_version`].
+	pub fn with_state_version(mut self, state_version: StateVersion) -> Self {
+		self.state_version = state_version;
+		self
 	}
 }
 
@@ -475,10 +485,14 @@ where
 		});
 	}
 
-	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
+	fn set_runtime_state_version(&mut self, state_version: StateVersion) {
+		self.state_version = state_version;
+	}
+
+	fn storage_root(&mut self) -> Vec<u8> {
 		let _guard = guard();
 
-		let (root, _cached) = self.overlay.storage_root(self.backend, state_version);
+		let (root, _cached) = self.overlay.storage_root(self.backend, self.state_version);
 
 		trace!(
 			target: "state",
@@ -491,16 +505,12 @@ where
 		root.encode()
 	}
 
-	fn child_storage_root(
-		&mut self,
-		child_info: &ChildInfo,
-		state_version: StateVersion,
-	) -> Vec<u8> {
+	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
 		let _guard = guard();
 
 		let (root, _cached) = self
 			.overlay
-			.child_storage_root(child_info, self.backend, state_version)
+			.child_storage_root(child_info, self.backend, self.state_version)
 			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 
 		trace!(
@@ -839,6 +849,7 @@ mod tests {
 		storage::{Storage, StorageChild},
 		Blake2Hasher,
 	};
+	use sp_trie::{LayoutV0, TrieConfiguration};
 
 	type TestBackend = InMemoryBackend<Blake2Hasher>;
 	type TestExt<'a> = Ext<'a, Blake2Hasher, TestBackend>;
@@ -1064,5 +1075,35 @@ mod tests {
 		drop(append);
 
 		assert_eq!(Vec::<u32>::decode(&mut &data[..]).unwrap(), vec![1, 2]);
+	}
+
+	#[test]
+	fn with_state_version_is_used_for_root() {
+		let backend = TestBackend::default();
+		let mut overlay = OverlayedChanges::default();
+		let mut ext = TestExt::new(&mut overlay, &backend, None);
+
+		// A value of at least `TRIE_VALUE_NODE_THRESHOLD` bytes is inlined under V0 but stored as
+		// a separate hashed node under V1, producing distinct roots.
+		let key = b"key".to_vec();
+		let value = vec![0x42; sp_core::storage::TRIE_VALUE_NODE_THRESHOLD as usize + 1];
+		ext.set_storage(key.clone(), value.clone());
+
+		let root_v1 = ext.storage_root();
+		ext.set_runtime_state_version(StateVersion::V0);
+		let root_v0_from_setter = ext.storage_root();
+		assert_ne!(root_v0_from_setter, root_v1);
+
+		let mut ext =
+			TestExt::new(&mut overlay, &backend, None).with_state_version(StateVersion::V0);
+		let root_v0 = ext.storage_root();
+		assert_eq!(root_v0, root_v0_from_setter);
+
+		let expected_v0 = LayoutV0::<Blake2Hasher>::trie_root(
+			vec![(key, value)].into_iter().collect::<std::collections::BTreeMap<_, _>>(),
+		)
+		.as_ref()
+		.to_vec();
+		assert_eq!(root_v0, expected_v0);
 	}
 }
