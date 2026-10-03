@@ -717,15 +717,19 @@ pub mod pallet {
 			T::OnNewHead::on_new_head(parachain, &new_head);
 
 			// remove old head
-			let prune_happened = head_hash_to_prune.is_ok();
+			let prune_happened = head_hash_to_prune
+				.as_ref()
+				.is_ok_and(|head_hash_to_prune| head_hash_to_prune != &new_head_hash);
 			if let Ok(head_hash_to_prune) = head_hash_to_prune {
-				tracing::trace!(
-					target: LOG_TARGET,
-					?parachain,
-					%head_hash_to_prune,
-					"Pruning old head of parachain"
-				);
-				ImportedParaHeads::<T, I>::remove(parachain, head_hash_to_prune);
+				if head_hash_to_prune != new_head_hash {
+					tracing::trace!(
+						target: LOG_TARGET,
+						?parachain,
+						%head_hash_to_prune,
+						"Pruning old head of parachain"
+					);
+					ImportedParaHeads::<T, I>::remove(parachain, head_hash_to_prune);
+				}
 			}
 			Self::deposit_event(Event::UpdatedParachainHead {
 				parachain,
@@ -1548,6 +1552,41 @@ pub(crate) mod tests {
 				assert!(ImportedParaHeads::<TestRuntime>::get(ParaId(1), head_data(1, i).hash())
 					.is_some());
 			}
+		});
+	}
+
+	#[test]
+	fn keeps_reimported_head_when_ring_wraps() {
+		run_test(|| {
+			let heads_to_keep = crate::mock::HeadsToKeep::get();
+
+			// Fill every ring slot while retaining the first head in storage.
+			for i in 0..heads_to_keep {
+				let (state_root, proof, parachains) = prepare_parachain_heads_proof::<
+					RegularParachainHeader,
+				>(vec![(1, head_data(1, i))]);
+				if i == 0 {
+					initialize(state_root);
+				} else {
+					proceed(i, state_root);
+				}
+
+				assert_ok!(import_parachain_1_head(i, state_root, parachains, proof));
+			}
+
+			// Re-importing the first head targets the slot containing the same hash. The new
+			// storage entry must not be deleted by the pruning step.
+			let (state_root, proof, parachains) =
+				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(1, head_data(1, 0))]);
+			proceed(heads_to_keep, state_root);
+			let expected_weight = weight_of_import_parachain_1_head(&proof, false);
+			let result = import_parachain_1_head(heads_to_keep, state_root, parachains, proof);
+			assert_ok!(result);
+			assert_eq!(result.expect("checked above").actual_weight, Some(expected_weight));
+			assert_eq!(
+				Pallet::<TestRuntime>::parachain_head(ParaId(1), head_data(1, 0).hash()),
+				Some(stored_head_data(1, 0)),
+			);
 		});
 	}
 
