@@ -90,8 +90,8 @@ pub struct BenchmarkBatch {
 	pub results: Vec<BenchmarkResult>,
 }
 
-// TODO: could probably make API cleaner here.
-/// The results of a single of benchmark, where time and db results are separated.
+/// Results of a single benchmark, with timing and storage-access measurements kept apart so the
+/// analysis layer can apply a different statistical model to each.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct BenchmarkBatchSplitResults {
@@ -373,21 +373,22 @@ pub trait Benchmarking {
 	) -> Result<Vec<BenchmarkResult>, BenchmarkError>;
 }
 
-/// The recording trait used to mark the start and end of a benchmark.
+/// Marks the timed region of a single benchmark iteration.
 pub trait Recording {
-	/// Start the benchmark.
+	/// Start the timed region, just before the benchmarked code runs.
 	fn start(&mut self) {}
 
-	// Stop the benchmark.
+	/// Stop the timed region, just after the benchmarked code runs.
 	fn stop(&mut self) {}
 }
 
-/// A no-op recording, used for unit test.
+/// A no-op recording, used for unit tests that don't need timing.
 struct NoopRecording;
 impl Recording for NoopRecording {}
 
-/// A no-op recording, used for tests that should setup some state before running the benchmark.
+/// A recording that runs a setup closure just before the timed region starts, for tests.
 struct TestRecording<'a> {
+	/// Setup closure, taken on the first [`Recording::start`]; a second `start` panics.
 	on_before_start: Option<&'a dyn Fn()>,
 }
 
@@ -399,11 +400,15 @@ impl<'a> TestRecording<'a> {
 
 impl<'a> Recording for TestRecording<'a> {
 	fn start(&mut self) {
-		(self.on_before_start.take().expect("start called more than once"))();
+		let cb = self.on_before_start.take().expect(
+			"Recording::start called more than once; \
+			 each recording must only be started once",
+		);
+		cb();
 	}
 }
 
-/// Records the time and proof size of a single benchmark iteration.
+/// Records the wall-clock time and proof size of a single benchmark iteration.
 pub struct BenchmarkRecording<'a> {
 	on_before_start: Option<&'a dyn Fn()>,
 	start_extrinsic: Option<u128>,
@@ -426,7 +431,11 @@ impl<'a> BenchmarkRecording<'a> {
 
 impl<'a> Recording for BenchmarkRecording<'a> {
 	fn start(&mut self) {
-		(self.on_before_start.take().expect("start called more than once"))();
+		let cb = self.on_before_start.take().expect(
+			"Recording::start called more than once; \
+			 each recording must only be started once",
+		);
+		cb();
 		self.start_pov = crate::benchmarking::proof_size();
 		self.start_extrinsic = Some(current_time());
 	}
@@ -438,18 +447,22 @@ impl<'a> Recording for BenchmarkRecording<'a> {
 }
 
 impl<'a> BenchmarkRecording<'a> {
+	/// Proof size at the start of the timed region, if started.
 	pub fn start_pov(&self) -> Option<u32> {
 		self.start_pov
 	}
 
+	/// Proof size at the end of the timed region, if stopped.
 	pub fn end_pov(&self) -> Option<u32> {
 		self.end_pov
 	}
 
+	/// Proof size consumed across the timed region, or `None` if not both started and stopped.
 	pub fn diff_pov(&self) -> Option<u32> {
 		self.start_pov.zip(self.end_pov).map(|(start, end)| end.saturating_sub(start))
 	}
 
+	/// Nanoseconds elapsed across the timed region, or `None` if not both started and stopped.
 	pub fn elapsed_extrinsic(&self) -> Option<u128> {
 		self.start_extrinsic
 			.zip(self.finish_extrinsic)

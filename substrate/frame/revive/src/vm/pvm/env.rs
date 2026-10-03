@@ -615,14 +615,14 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
-		let is_delegate = self.ext.is_delegate_call();
-		let charge_len =
-			if is_delegate { limits::IMMUTABLE_BYTES } else { self.ext.immutable_data_len() };
+		// `immutable_data_len` is exact for a frame executing its own code and the
+		// `IMMUTABLE_BYTES` cap when the code (and so the data) belongs to another account —
+		// delegate calls, and calls to EIP-7702 delegated EOAs. Charge it, then settle on the
+		// actual length.
+		let charge_len = self.ext.immutable_data_len();
 		let charged = self.charge_gas(RuntimeCosts::GetImmutableData(charge_len))?;
 		let data = self.ext.get_immutable_data()?;
-		if is_delegate {
-			self.adjust_gas(charged, RuntimeCosts::GetImmutableData(data.len() as u32));
-		}
+		self.adjust_gas(charged, RuntimeCosts::GetImmutableData(data.len() as u32));
 		self.write_sandbox_output(memory, out_ptr, out_len_ptr, &data, false, already_charged)?;
 		Ok(())
 	}

@@ -91,7 +91,6 @@ bp-bridge-hub-westend = { workspace = true }
 bp-header-chain = { workspace = true }
 bp-messages = { workspace = true }
 bp-parachains = { workspace = true }
-bp-polkadot-bulletin = { workspace = true }
 bp-polkadot-core = { workspace = true }
 bp-relayers = { workspace = true }
 bp-runtime = { workspace = true }
@@ -137,7 +136,6 @@ std = [
 	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-parachains/std",
-	"bp-polkadot-bulletin/std",
 	"bp-polkadot-core/std",
 	"bp-relayers/std",
 	"bp-runtime/std",

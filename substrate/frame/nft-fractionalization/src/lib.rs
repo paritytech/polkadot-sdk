@@ -53,6 +53,8 @@ pub use pallet::*;
 pub use types::*;
 pub use weights::WeightInfo;
 
+const LOG_TARGET: &str = "runtime::nft-fractionalization";
+
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
@@ -264,6 +266,10 @@ pub mod pallet {
 
 		/// Burn the total issuance of the fungible asset and return (unlock) the locked NFT.
 		///
+		/// The asset is destroyed as well, unless it still has asset accounts -- from `touch` --
+		/// or approvals, or the asset registry refuses, in which case anyone can finish the
+		/// destruction later.
+		///
 		/// The dispatch origin for this call must be Signed.
 		///
 		/// `Deposit` funds will be returned to `asset_creator`.
@@ -363,14 +369,32 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Burn tokens from the account.
+		/// Burn tokens from the account and destroy the asset, best effort.
 		fn do_burn_asset(
 			asset_id: AssetIdOf<T>,
 			account: &T::AccountId,
 			amount: AssetBalanceOf<T>,
 		) -> DispatchResult {
 			T::Assets::burn_from(asset_id.clone(), account, amount, Expendable, Exact, Polite)?;
-			T::Assets::start_destroy(asset_id, None)
+			T::Assets::start_destroy(asset_id.clone(), None)?;
+			// Finish the destruction, otherwise the asset entry, its metadata and the metadata
+			// deposit stay around. `burn_from` above emptied the only account holding fractions,
+			// so this normally succeeds. But if the asset still has accounts or approvals, which
+			// anyone could create, it fails. So we don't block the unify so the NFT doesn't get
+			// locked for good. We keep old behavior: the asset stays in `Destroying` state and
+			// anyone can clean it up with `destroy_accounts`/`destroy_approvals` +
+			// `finish_destroy`. The storage layer is there because a `Destroy` impl is not
+			// required to be atomic on failure, and we are swallowing that failure.
+			if let Err(error) =
+				storage::with_storage_layer(|| T::Assets::finish_destroy(asset_id.clone()))
+			{
+				log::debug!(
+					target: LOG_TARGET,
+					"asset {asset_id:?} left in destroying state: {error:?}",
+				);
+			}
+
+			Ok(())
 		}
 
 		/// Set the metadata for the newly created asset.

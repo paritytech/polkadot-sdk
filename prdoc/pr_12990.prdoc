@@ -1,0 +1,12 @@
+title: Remove deprecated BuildModuleGenesisStorage
+doc:
+- audience: Node Dev
+  description: |-
+    ## Summary
+
+    Removed `sp_runtime::BuildModuleGenesisStorage`, deprecated since December 2023 in favour of `BuildStorage`. There are no remaining in-repo callers.
+
+    Part of #11561
+crates:
+- name: sp-runtime
+  bump: major

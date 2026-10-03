@@ -87,8 +87,6 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 	type MaxLocks = MaxLocks;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
@@ -130,6 +128,7 @@ impl pallet_assets::Config for Runtime {
 	type RemoveItemsLimit = RemoveItemsLimit;
 	type AssetIdParameter = AssetIdForAssets;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }

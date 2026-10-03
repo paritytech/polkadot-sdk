@@ -1,0 +1,15 @@
+title: 'statement network: score peers by behaviour to steer disconnects'
+
+doc:
+- audience: Node Operator
+  description: |-
+    With the v2 DHT path enabled (`STATEMENT_STORE_V2_DHT_ENABLED=1`), peer steering
+    disconnects the worst-behaved statement peers first instead of the longest-connected.
+    Each connected peer carries a score that rises on a valid statement and drops twice as
+    much on an invalid, duplicate, or undecodable one; outcomes caused by the local node
+    leave it unchanged. The score resets when the peer's substream closes. Without the flag,
+    behavior is unchanged.
+
+crates:
+- name: sc-network-statement
+  bump: minor

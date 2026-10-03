@@ -168,12 +168,15 @@ pub type Barrier = TrailingSetTopicAsId<
 					AllowTopLevelPaidExecutionFrom<Everything>,
 					// Parent, the Fellows plurality, and sibling system parachains get free
 					// execution.
-					AllowExplicitUnpaidExecutionFrom<(
-						IsParentsOnly<ConstU8<1>>,
-						RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
-						FellowsPlurality,
-						Equals<GovernanceLocation>,
-					)>,
+					AllowExplicitUnpaidExecutionFrom<
+						(
+							IsParentsOnly<ConstU8<1>>,
+							RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
+							FellowsPlurality,
+							Equals<GovernanceLocation>,
+						),
+						CheapTrustedAliasers,
+					>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 					// HRMP notifications from the relay chain are OK.
@@ -206,18 +209,26 @@ pub type WaivedLocations = (
 /// - WND with the parent Relay Chain and sibling parachains.
 pub type TrustedTeleporters = ConcreteAssetFromSystem<TokenRelayLocation>;
 
-/// Defines origin aliasing rules for this chain.
+/// Aliasing rules that are pure computation and thus cheap enough to also be evaluated by
+/// barriers, before any payment is taken.
 ///
 /// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin),
 /// - Allow same accounts to alias into each other across system chains,
-/// - Allow AssetHub root to alias into anything,
-/// - Allow origins explicitly authorized to alias into target location.
-pub type TrustedAliasers = (
+/// - Allow AssetHub root to alias into anything.
+///
+/// `AuthorizedAliasers` is deliberately NOT part of this: it reads storage, which is more than a
+/// barrier is allowed to cost.
+pub type CheapTrustedAliasers = (
 	AliasChildLocation,
 	AliasAccountId32FromSiblingSystemChain,
 	AliasOriginRootUsingFilter<AssetHubLocation, Everything>,
-	AuthorizedAliasers<Runtime>,
 );
+
+/// Defines origin aliasing rules for this chain. Used by the executor.
+///
+/// - Allow all the cheap aliasing rules also used by the barriers,
+/// - Allow origins explicitly authorized to alias into target location.
+pub type TrustedAliasers = (CheapTrustedAliasers, AuthorizedAliasers<Runtime>);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {

@@ -25,8 +25,14 @@ pub struct BlockHashInputPayloadV1 {
 	pub block_number: U256,
 }
 
+/// The input type used when calling the `eth_block_hash_versioned` runtime API function. This
+/// function replaces the unversioned `eth_block_hash` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum BlockHashVersionedInputPayload {
+	/// The arguments provided when calling the `eth_block_hash_versioned` runtime API function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `eth_block_hash` runtime API function.
 	V1(BlockHashInputPayloadV1),
 }
 
@@ -35,7 +41,14 @@ pub struct BlockHashOutputPayloadV1 {
 	pub block_hash: Option<H256>,
 }
 
+/// The output type returned when calling the `eth_block_hash_versioned` runtime API function. This
+/// function replaces the unversioned `eth_block_hash` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum BlockHashVersionedOutputPayload {
+	/// The output returned when calling the `eth_block_hash_versioned` runtime API function with
+	/// `V1` arguments.
+	///
+	/// This output is identical to the output returned by the unversioned `eth_block_hash` runtime
+	/// API function.
 	V1(BlockHashOutputPayloadV1),
 }

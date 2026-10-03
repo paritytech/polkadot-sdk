@@ -17,7 +17,7 @@
 
 use pallet_revive_types::runtime_api::*;
 
-use crate::evm::{Trace, TracerType};
+use crate::evm::{TraceEntry, TracerType};
 
 pub struct TraceTxInputPayload<Block> {
 	pub block: Block,
@@ -47,17 +47,22 @@ impl<Block> From<TraceTxInputPayloadV2<Block>> for TraceTxInputPayload<Block> {
 }
 
 pub struct TraceTxOutputPayload {
-	pub trace: Option<Trace>,
+	pub entry: Option<TraceEntry>,
 }
 
 impl From<TraceTxOutputPayload> for TraceTxOutputPayloadV1 {
 	fn from(value: TraceTxOutputPayload) -> Self {
-		Self { trace: value.trace.map(Into::into) }
+		// V1 has no way to report an untraced extrinsic, so it keeps omitting it.
+		let trace = match value.entry {
+			Some(TraceEntry::Traced(trace)) => Some(trace.into()),
+			Some(TraceEntry::NotTraced) | None => None,
+		};
+		Self { trace }
 	}
 }
 
 impl From<TraceTxOutputPayload> for TraceTxOutputPayloadV2 {
 	fn from(value: TraceTxOutputPayload) -> Self {
-		Self { trace: value.trace.map(Into::into) }
+		Self { entry: value.entry.map(Into::into) }
 	}
 }

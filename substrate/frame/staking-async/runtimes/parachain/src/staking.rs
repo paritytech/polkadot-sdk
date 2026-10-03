@@ -307,6 +307,11 @@ impl multi_block::verifier::Config for Runtime {
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockVerifierWeightInfo<Self>;
 }
 
+parameter_types! {
+	/// The DAP buffer account, used as the signed-phase reward pot.
+	pub SignedRewardPot: Option<AccountId> = Some(Dap::buffer_account());
+}
+
 impl multi_block::signed::Config for Runtime {
 	type Currency = Balances;
 	type BailoutGraceRatio = BailoutGraceRatio;
@@ -315,8 +320,11 @@ impl multi_block::signed::Config for Runtime {
 	type DepositPerPage = DepositPerPage;
 	type InvulnerableDeposit = InvulnerableDeposit;
 	type RewardBase = RewardBase;
+	type MaxFeeRefund = multi_block::signed::FullSubmissionFee<Runtime, TransactionPayment>;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
+	type Slash = Dap;
+	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockSignedWeightInfo<Self>;
 }
 
@@ -654,7 +662,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 parameter_types! {
@@ -728,6 +736,7 @@ where
 			.saturating_sub(1);
 		let tip = 0;
 		let tx_ext = TxExtension::from((
+			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -757,6 +766,26 @@ where
 {
 	fn create_bare(call: RuntimeCall) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_bare(call)
+	}
+}
+
+impl<LocalCall> frame_system::offchain::CreateAuthorizedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_extension() -> TxExtension {
+		TxExtension::from((
+			frame_system::AuthorizeCall::<Runtime>::new(),
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(generic::Era::Immortal),
+			frame_system::CheckNonce::<Runtime>::from(0),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+		))
 	}
 }
 

@@ -1,0 +1,15 @@
+title: 'cumulus: fix V3 scheduling parent picking'
+doc:
+- audience: Node Dev
+  description: |
+    A V3 candidate takes its scheduling parent by walking back from the relay
+    chain best block until a slot older than the one being produced for. That
+    walk read the wall clock a second time to decide which slot that was. The
+    slot timer wakes 2ms before the slot it reports begins, so the second read
+    still returned the previous slot. The walk then stepped one block too far
+    back, anchoring the candidate at an older relay block than the slot intended.
+    The production slot is now passed down from the slot timer and used as the
+    only source of truth for the walk.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: minor

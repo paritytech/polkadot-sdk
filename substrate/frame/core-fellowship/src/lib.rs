@@ -369,7 +369,7 @@ pub mod pallet {
 				params.offboard_timeout
 			} else {
 				let rank_index = Self::rank_to_index(rank).ok_or(Error::<T, I>::InvalidRank)?;
-				params.demotion_period[rank_index]
+				*params.demotion_period.get(rank_index).ok_or(Error::<T, I>::InvalidRank)?
 			};
 
 			if demotion_period.is_zero() {
@@ -519,7 +519,8 @@ pub mod pallet {
 
 			let params = Params::<T, I>::get();
 			let rank_index = Self::rank_to_index(to_rank).ok_or(Error::<T, I>::InvalidRank)?;
-			let min_period = params.min_promotion_period[rank_index];
+			let min_period =
+				*params.min_promotion_period.get(rank_index).ok_or(Error::<T, I>::InvalidRank)?;
 			// Ensure enough time has passed.
 			ensure!(
 				member.last_promotion.saturating_add(min_period) <= now,
@@ -747,6 +748,18 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>>
+		for Pallet<T, I>
+	{
+		#[cfg(feature = "try-runtime")]
+		fn try_state(
+			_n: frame_system::pallet_prelude::BlockNumberFor<T>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	impl<T: Config<I>, I: 'static> GetSalary<RankOf<T, I>, T::AccountId, T::Balance> for Pallet<T, I> {
 		fn get_salary(rank: RankOf<T, I>, who: &T::AccountId) -> T::Balance {
 			let index = match Self::rank_to_index(rank) {
@@ -760,8 +773,51 @@ pub mod pallet {
 			let params = Params::<T, I>::get();
 			let salary =
 				if member.is_active { params.active_salary } else { params.passive_salary };
-			salary[index]
+			// `GetSalary::get_salary` returns `T::Balance` directly, not a `Result`, so an
+			// out-of-range rank can't be rejected here the way `bump`/`promote` reject it; fall
+			// back to zero, consistent with the early returns above.
+			salary.get(index).copied().unwrap_or_default()
 		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_members()?;
+		Self::try_state_member_evidence()?;
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Every account in [`Member`] must also be ranked in the underlying `T::Members` collective.
+	fn try_state_members() -> Result<(), sp_runtime::TryRuntimeError> {
+		Member::<T, I>::iter().try_for_each(|(who, _)| -> Result<(), sp_runtime::TryRuntimeError> {
+			ensure!(
+				T::Members::rank_of(&who).is_some(),
+				"Account in `Member` is not ranked in the underlying collective"
+			);
+			Ok(())
+		})
+	}
+
+	/// # Invariants
+	///
+	/// * Every account in [`MemberEvidence`] must also exist in [`Member`].
+	fn try_state_member_evidence() -> Result<(), sp_runtime::TryRuntimeError> {
+		MemberEvidence::<T, I>::iter().try_for_each(
+			|(who, _)| -> Result<(), sp_runtime::TryRuntimeError> {
+				ensure!(
+					Member::<T, I>::contains_key(&who),
+					"Account in `MemberEvidence` is not tracked in `Member`"
+				);
+				Ok(())
+			},
+		)
 	}
 }
 

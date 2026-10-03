@@ -1,0 +1,11 @@
+title: 'statement-store: drop benchmarks of store methods that no node calls'
+doc:
+- audience: Node Dev
+  description: |-
+    The statement store benchmarks cover only the store methods that a node calls. The benchmarks
+    of statements, broadcasts, posted, statement and remove are removed, and the remaining reads go
+    through the subscription snapshot. The read_scaling, contention and full-store numbers no
+    longer compare with older baselines.
+crates:
+- name: sc-statement-store
+  bump: none

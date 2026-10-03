@@ -15,14 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod block;
+mod contract;
+mod dry_run;
 mod receipt;
+mod state_overrides;
 mod storage;
 mod tracer;
 mod traces;
+mod transaction;
 mod upload;
 
+pub use block::*;
+pub use contract::*;
+pub use dry_run::*;
 pub use receipt::*;
+pub use state_overrides::*;
 pub use storage::*;
 pub use tracer::*;
 pub use traces::*;
+pub use transaction::*;
 pub use upload::*;

@@ -23,8 +23,14 @@ use sp_core::U256;
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct BlockGasLimitInputPayloadV1;
 
+/// The input type used when calling the `block_gas_limit_versioned` runtime API function. This
+/// function replaces the unversioned `block_gas_limit` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum BlockGasLimitVersionedInputPayload {
+	/// The arguments provided when calling the `block_gas_limit_versioned` runtime API function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `block_gas_limit` runtime API function.
 	V1(BlockGasLimitInputPayloadV1),
 }
 
@@ -33,7 +39,14 @@ pub struct BlockGasLimitOutputPayloadV1 {
 	pub block_gas_limit: U256,
 }
 
+/// The output type returned when calling the `block_gas_limit_versioned` runtime API function. This
+/// function replaces the unversioned `block_gas_limit` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum BlockGasLimitVersionedOutputPayload {
+	/// The output returned when calling the `block_gas_limit_versioned` runtime API function with
+	/// `V1` arguments.
+	///
+	/// This output is identical to the output returned by the unversioned `block_gas_limit` runtime
+	/// API function.
 	V1(BlockGasLimitOutputPayloadV1),
 }

@@ -1390,7 +1390,7 @@ where
 		sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>>, _, _>(
 			&mut db,
 			proof.iter_compact_encoded_nodes(),
-			Some(&root),
+			&root,
 		)
 		.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))?;
 		let proving_backend = sp_state_machine::TrieBackendBuilder::new(db, root).build();

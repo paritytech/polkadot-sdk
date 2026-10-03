@@ -7,8 +7,9 @@
 //! block.
 
 use crate::utils::{
-	assert_nodes_are_validators, env_or_default, initialize_network, COL_IMAGE_ENV,
-	INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV,
+	assert_nodes_are_validators, env_or_default, initialize_network,
+	maybe_enable_experimental_collator_protocol, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
+	MALUS_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
@@ -165,7 +166,9 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		r.with_chain("rococo-local")
 			.with_default_command("polkadot")
 			.with_default_image(polkadot_image.as_str())
-			.with_default_args(vec!["-lparachain=debug,runtime=debug".into()])
+			.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+				"-lparachain=debug,runtime=debug".into(),
+			]))
 			.with_genesis_overrides(json!({
 				"patch": {
 					"configuration": {

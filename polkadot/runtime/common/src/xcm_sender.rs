@@ -17,7 +17,7 @@
 //! XCM sender for relay chain.
 
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
-use codec::{DecodeLimit, Encode};
+use codec::Encode;
 use core::marker::PhantomData;
 use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -27,7 +27,7 @@ use polkadot_runtime_parachains::{
 	dmp, FeeTracker,
 };
 use sp_runtime::FixedPointNumber;
-use xcm::{prelude::*, MAX_XCM_DECODE_DEPTH};
+use xcm::prelude::*;
 use xcm_builder::InspectMessageQueues;
 use SendError::*;
 
@@ -173,8 +173,7 @@ impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P
 					dmp::Pallet::<T>::dmq_contents_do_not_call_in_consensus(para_id)
 						.iter()
 						.map(|downward_message| {
-							let message = VersionedXcm::<()>::decode_all_with_depth_limit(
-								MAX_XCM_DECODE_DEPTH,
+							let message = VersionedXcm::<()>::decode_all_with_mem_and_depth_limit(
 								&mut &downward_message.msg[..],
 							)
 							.unwrap();

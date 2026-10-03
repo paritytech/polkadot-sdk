@@ -31,6 +31,7 @@ std = [
 	"bounded-collections/std",
 	"codec/std",
 	"scale-info/std",
+	"schemars?/std",
 	"serde/std",
 	"sp-arithmetic/std",
 	"sp-debug-derive/std",
@@ -47,4 +48,4 @@ serde = [
 	"sp-arithmetic/serde",
 ]
 
-json-schema = ["dep:schemars"]
+json-schema = ["dep:schemars", "schemars?/derive"]

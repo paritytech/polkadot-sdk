@@ -22,7 +22,7 @@
 
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion as ProtoCollationVersion, v1 as protocol_v1, v2 as protocol_v2,
-	v3_collation as protocol_v3, CollationProtocols, ObservedRole,
+	v3_collation as protocol_v3, v4_collation as protocol_v4, CollationProtocols, ObservedRole,
 };
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
 use polkadot_primitives::{CandidateHash, CollatorPair, Hash, Id as ParaId};
@@ -40,6 +40,9 @@ pub enum ProtocolVersion {
 	V2,
 	/// V3 protocol — separate scheduling parent + relay parent.
 	V3,
+	/// V4 protocol — segment advertisements keyed by output head; no `Declare` message
+	/// (the first `AdvertiseSegment` binds the peer to its para).
+	V4,
 }
 
 impl ProtocolVersion {
@@ -48,6 +51,7 @@ impl ProtocolVersion {
 			Self::V1 => ProtoCollationVersion::V1,
 			Self::V2 => ProtoCollationVersion::V2,
 			Self::V3 => ProtoCollationVersion::V3,
+			Self::V4 => ProtoCollationVersion::V4,
 		}
 	}
 }
@@ -90,6 +94,7 @@ impl Peer {
 				protocol_v1::CollatorProtocolMessage,
 				protocol_v2::CollatorProtocolMessage,
 				protocol_v3::CollatorProtocolMessage,
+				protocol_v4::AdvertiseSegment,
 			>,
 		>,
 	) -> CollatorProtocolMessage {
@@ -130,6 +135,9 @@ impl Peer {
 					self.collator.sign(&protocol_v3::declare_signature_payload(&self.peer_id)),
 				))
 			},
+			ProtocolVersion::V4 => {
+				panic!("V4 has no `Declare` message; the first `AdvertiseSegment` binds the para")
+			},
 		};
 		Self::wrap(NetworkBridgeEvent::PeerMessage(self.peer_id, proto))
 	}
@@ -159,6 +167,9 @@ impl Peer {
 					self.para,
 					bad,
 				))
+			},
+			ProtocolVersion::V4 => {
+				panic!("V4 has no `Declare` message; the first `AdvertiseSegment` binds the para")
 			},
 		};
 		Self::wrap(NetworkBridgeEvent::PeerMessage(self.peer_id, proto))
@@ -199,6 +210,9 @@ impl Peer {
 					relay_parent,
 				})
 			},
+			ProtocolVersion::V4 => {
+				panic!("V4 advertises segments, not single collations; use `advertise_segment`")
+			},
 		};
 		Self::wrap(NetworkBridgeEvent::PeerMessage(self.peer_id, proto))
 	}
@@ -228,6 +242,32 @@ impl Peer {
 				candidate_descriptor_version: descriptor_version,
 				relay_parent,
 			});
+		Self::wrap(NetworkBridgeEvent::PeerMessage(self.peer_id, proto))
+	}
+
+	/// V4 `AdvertiseSegment` wire message: a list of candidate fingerprints for this
+	/// peer's para at `scheduling_parent`. The peer must have been built with
+	/// [`ProtocolVersion::V4`]; otherwise this method panics. A V4 peer's first
+	/// segment doubles as its declaration.
+	pub fn advertise_segment(
+		&self,
+		scheduling_parent: Hash,
+		descriptor_version: polkadot_primitives::CandidateDescriptorVersion,
+		fingerprints: Vec<protocol_v4::CandidateFingerprint>,
+	) -> CollatorProtocolMessage {
+		assert_eq!(
+			self.version,
+			ProtocolVersion::V4,
+			"advertise_segment requires a peer constructed with ProtocolVersion::V4"
+		);
+		let proto = CollationProtocols::V4(protocol_v4::AdvertiseSegment {
+			scheduling_parent,
+			para_id: self.para,
+			candidates_descriptor_version: descriptor_version,
+			candidates: fingerprints
+				.try_into()
+				.expect("test segment length within MAX_SEGMENT_LEN"),
+		});
 		Self::wrap(NetworkBridgeEvent::PeerMessage(self.peer_id, proto))
 	}
 }

@@ -393,15 +393,14 @@ pub trait XcmpMessageHandler {
 	fn handle_xcmp_messages<'a, I: Iterator<Item = (Id, RelayChainBlockNumber, &'a [u8])>>(
 		iter: I,
 		max_weight: Weight,
-	) -> Weight;
+	) -> (usize, Weight);
 }
 impl XcmpMessageHandler for () {
 	fn handle_xcmp_messages<'a, I: Iterator<Item = (Id, RelayChainBlockNumber, &'a [u8])>>(
 		iter: I,
 		_max_weight: Weight,
-	) -> Weight {
-		for _ in iter {}
-		Weight::zero()
+	) -> (usize, Weight) {
+		(iter.count(), Weight::zero())
 	}
 }
 

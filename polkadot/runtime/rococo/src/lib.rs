@@ -119,8 +119,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, Debug, FixedU128, KeyTypeId, Perbill, Percent, Permill,
 };
 use sp_staking::SessionIndex;
-#[cfg(any(feature = "std", test))]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm::{
 	latest::prelude::*, Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets,
@@ -195,12 +193,6 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 		c: PRIMARY_PROBABILITY,
 		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
 	};
-
-/// Native version.
-#[cfg(any(feature = "std", test))]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 /// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
 /// locking the state of the pallet and preventing further updates to identities and sub-identities.
@@ -423,10 +415,8 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 	type WeightInfo = weights::pallet_balances_balances::WeightInfo<Runtime>;
-	type FreezeIdentifier = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
 	type DoneSlashHandler = ();
 }
 
@@ -599,7 +589,7 @@ impl pallet_bounties::Config for Runtime {
 	type MaximumReasonLength = MaximumReasonLength;
 	type WeightInfo = weights::pallet_bounties::WeightInfo<Runtime>;
 	type OnSlash = Treasury;
-	type TransferAllAssets = ();
+	type TransferAllAssets = pallet_bounties::TransferFungible<AccountId, Balances>;
 }
 
 parameter_types! {
@@ -1324,8 +1314,6 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 	type WeightInfo = weights::pallet_balances_nis_counterpart_balances::WeightInfo<Runtime>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<1>;
 	type DoneSlashHandler = ();
 }
 
@@ -2577,11 +2565,16 @@ sp_api::impl_runtime_apis! {
 					)
 				}
 
+				// `get_assets` stays at its default: the `AssetTransactor` only handles the
+				// native token, so a multi-asset worst case is not constructible here.
 				fn get_asset() -> Asset {
 					Asset {
 						id: AssetId(Location::here()),
 						fun: Fungible(ExistentialDeposit::get()),
 					}
+				}
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
 				}
 			}
 			impl pallet_xcm_benchmarks::Config for Runtime {

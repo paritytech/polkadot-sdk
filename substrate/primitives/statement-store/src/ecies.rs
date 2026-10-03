@@ -108,7 +108,11 @@ pub fn decrypt_x25519(sk: &SecretKey, encrypted: &[u8]) -> Result<Vec<u8>, Error
 	ephemeral_pk.copy_from_slice(&encrypted[0..PK_LEN]);
 	let ephemeral_pk = PublicKey::from(ephemeral_pk);
 
-	let mut shared_secret = sk.diffie_hellman(&ephemeral_pk).to_bytes().to_vec();
+	let shared_secret = sk.diffie_hellman(&ephemeral_pk);
+	if !shared_secret.was_contributory() {
+		return Err(Error::BadData);
+	}
+	let mut shared_secret = shared_secret.to_bytes().to_vec();
 	shared_secret.extend_from_slice(ephemeral_pk.as_bytes());
 
 	let aes_key = kdf(&shared_secret);
@@ -170,5 +174,27 @@ mod test {
 			decrypt_x25519(&sk, &encrypted[0..super::PK_LEN + super::NONCE_LEN - 1]),
 			Err(Error::BadData)
 		);
+	}
+
+	#[test]
+	fn rejects_non_contributory_ephemeral_key() {
+		let sk = SecretKey::random_from_rng(OsRng);
+		let ephemeral_pk = PublicKey::from([0u8; PK_LEN]);
+		let shared_secret = sk.diffie_hellman(&ephemeral_pk);
+		assert!(!shared_secret.was_contributory());
+
+		let mut key_material = shared_secret.to_bytes().to_vec();
+		key_material.extend_from_slice(ephemeral_pk.as_bytes());
+		let aes_key = kdf(&key_material);
+		let nonce = [0u8; NONCE_LEN];
+		let plaintext = b"attacker-forged-plaintext";
+		let ciphertext = aes_encrypt(&aes_key, &nonce, plaintext).unwrap();
+
+		let mut forged = Vec::new();
+		forged.extend_from_slice(ephemeral_pk.as_bytes());
+		forged.extend_from_slice(&nonce);
+		forged.extend_from_slice(&ciphertext);
+
+		assert_eq!(decrypt_x25519(&sk, &forged), Err(Error::BadData));
 	}
 }

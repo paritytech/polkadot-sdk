@@ -281,7 +281,7 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 				let is_signature_valid =
 					check_commitment_signature(&vote.commitment, &vote.id, &vote.signature);
 				if !is_signature_valid {
-					return Err(Error::<T>::InvalidForkVotingProof);
+					return Err(Error::<T>::InvalidFutureBlockVotingProof);
 				}
 
 				Ok(())

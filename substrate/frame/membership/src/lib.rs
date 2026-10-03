@@ -313,10 +313,13 @@ pub mod pallet {
 				&members[..],
 			);
 
-			if Prime::<T, I>::get() == Some(remove) {
+			let mut prime = Prime::<T, I>::get();
+			if prime == Some(remove) {
 				Prime::<T, I>::put(&new);
-				T::MembershipChanged::set_prime(Some(new));
+				prime = Some(new);
 			}
+
+			T::MembershipChanged::set_prime(prime);
 
 			Self::deposit_event(Event::KeyChanged);
 			Ok(Some(T::WeightInfo::change_key(members_length)).into())

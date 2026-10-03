@@ -62,8 +62,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult,
 };
 use sp_session::OpaqueGeneratedSessionKeys;
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId, VerifySchedulingSignature};
@@ -110,12 +108,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 1,
 	system_version: 1,
 };
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.

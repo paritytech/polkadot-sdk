@@ -101,7 +101,10 @@ use sp_runtime::{
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, traits::fungibles::Refund};
+	use frame_support::{
+		pallet_prelude::*,
+		traits::{fungibles::Refund, EnsureOrigin},
+	};
 	use frame_system::pallet_prelude::*;
 	use sp_arithmetic::{traits::Unsigned, PerThing, Permill};
 
@@ -158,8 +161,19 @@ pub mod pallet {
 			+ Refund<Self::AccountId, AssetId = Self::PoolAssetId>;
 
 		/// The fraction of every swap that the liquidity providers take as a fee.
+		///
+		/// Used as the default swap fee for any pool that has no per-pool override set in
+		/// [`PoolFees`]. See [`Pallet::pool_fee`].
 		#[pallet::constant]
 		type LPFee: Get<Permill>;
+
+		/// The origin permitted to set per-pool swap fees, via
+		/// [`Pallet::create_pool_with_fee`] and [`Pallet::set_pool_fee`].
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// The maximum swap fee that can be set for a pool.
+		#[pallet::constant]
+		type MaxSwapFee: Get<Permill>;
 
 		/// A one-time fee to setup the pool.
 		#[pallet::constant]
@@ -206,6 +220,14 @@ pub mod pallet {
 	/// This gets incremented whenever a new lp pool is created.
 	#[pallet::storage]
 	pub type NextPoolAssetId<T: Config> = StorageValue<_, T::PoolAssetId, OptionQuery>;
+
+	/// Per-pool swap fee overrides.
+	///
+	/// When a pool has no entry here, the global [`Config::LPFee`] applies. This storage is purely
+	/// additive: existing pools and runtimes that never set a per-pool fee behave exactly as before
+	/// and require no migration. See [`Pallet::pool_fee`] for the resolution logic.
+	#[pallet::storage]
+	pub type PoolFees<T: Config> = StorageMap<_, Blake2_128Concat, T::PoolId, Permill, OptionQuery>;
 
 	/// Genesis config for the asset conversion pallet.
 	#[pallet::genesis_config]
@@ -255,6 +277,15 @@ pub mod pallet {
 			/// The id of the liquidity tokens that will be minted when assets are added to this
 			/// pool.
 			lp_token: T::PoolAssetId,
+		},
+
+		/// A pool's swap fee was set, either at creation via [`Pallet::create_pool_with_fee`]
+		/// or afterwards via [`Pallet::set_pool_fee`].
+		PoolFeeSet {
+			/// The pool whose fee was set.
+			pool_id: T::PoolId,
+			/// The swap fee now applied to the pool.
+			fee: Permill,
 		},
 
 		/// A successful call of the `AddLiquidity` extrinsic will create this event.
@@ -381,6 +412,8 @@ pub mod pallet {
 		BelowMinimum,
 		/// The pool exists but has no liquidity (at least one of the reserves is zero).
 		PoolEmpty,
+		/// The fee exceeds [`Config::MaxSwapFee`].
+		FeeTooHigh,
 	}
 
 	#[pallet::hooks]
@@ -389,6 +422,10 @@ pub mod pallet {
 			assert!(
 				T::MaxSwapPathLength::get() > 1,
 				"the `MaxSwapPathLength` should be greater than 1",
+			);
+			assert!(
+				T::MaxSwapFee::get() < Permill::one(),
+				"the `MaxSwapFee` should be less than 100%",
 			);
 		}
 	}
@@ -408,7 +445,7 @@ pub mod pallet {
 			asset2: Box<T::AssetKind>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-			Self::do_create_pool(&sender, *asset1, *asset2)?;
+			Self::do_create_pool(&sender, *asset1, *asset2, None)?;
 			Ok(())
 		}
 
@@ -577,6 +614,48 @@ pub mod pallet {
 			Self::deposit_event(Event::Touched { pool_id, who });
 			Ok(Some(T::WeightInfo::touch(refunds_number)).into())
 		}
+
+		/// Like [`Pallet::create_pool`], but sets an initial per-pool swap `fee` overriding the
+		/// global [`Config::LPFee`].
+		///
+		/// Requires [`Config::AdminOrigin`]. `creator` pays the pool setup fee and deposits.
+		/// `fee` must not exceed [`Config::MaxSwapFee`].
+		///
+		/// Emits both [`Event::PoolCreated`] and [`Event::PoolFeeSet`] on success.
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::create_pool_with_fee())]
+		pub fn create_pool_with_fee(
+			origin: OriginFor<T>,
+			creator: T::AccountId,
+			asset1: Box<T::AssetKind>,
+			asset2: Box<T::AssetKind>,
+			fee: Permill,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			Self::do_create_pool(&creator, *asset1, *asset2, Some(fee))?;
+			Ok(())
+		}
+
+		/// Set the per-pool swap `fee` for an existing pool, overriding the global
+		/// [`Config::LPFee`].
+		///
+		/// Requires [`Config::AdminOrigin`]. `fee` must not exceed [`Config::MaxSwapFee`].
+		///
+		/// Emits [`Event::PoolFeeSet`] on success.
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::set_pool_fee())]
+		pub fn set_pool_fee(
+			origin: OriginFor<T>,
+			pool_id: T::PoolId,
+			fee: Permill,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(fee <= T::MaxSwapFee::get(), Error::<T>::FeeTooHigh);
+			ensure!(Pools::<T>::contains_key(&pool_id), Error::<T>::PoolNotFound);
+			PoolFees::<T>::insert(&pool_id, fee);
+			Self::deposit_event(Event::PoolFeeSet { pool_id, fee });
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -651,8 +730,12 @@ pub mod pallet {
 			creator: &T::AccountId,
 			asset1: T::AssetKind,
 			asset2: T::AssetKind,
+			initial_fee: Option<Permill>,
 		) -> Result<T::PoolId, DispatchError> {
 			ensure!(asset1 != asset2, Error::<T>::InvalidAssetPair);
+			if let Some(fee) = initial_fee {
+				ensure!(fee <= T::MaxSwapFee::get(), Error::<T>::FeeTooHigh);
+			}
 
 			// prepare pool_id
 			let pool_id = T::PoolLocator::pool_id(&asset1, &asset2)
@@ -695,6 +778,11 @@ pub mod pallet {
 				pool_account,
 				lp_token,
 			});
+
+			if let Some(fee) = initial_fee {
+				PoolFees::<T>::insert(&pool_id, fee);
+				Self::deposit_event(Event::PoolFeeSet { pool_id: pool_id.clone(), fee });
+			}
 
 			Ok(pool_id)
 		}
@@ -1180,6 +1268,26 @@ pub mod pallet {
 			T::Assets::balance(asset, owner)
 		}
 
+		/// Resolve the effective swap fee for `pool_id`.
+		///
+		/// Returns the per-pool override from [`PoolFees`] if one is set, otherwise falls back to
+		/// the global [`Config::LPFee`].
+		pub fn pool_fee(pool_id: &T::PoolId) -> Permill {
+			PoolFees::<T>::get(pool_id).unwrap_or_else(T::LPFee::get)
+		}
+
+		/// Resolve the effective swap fee for the pool of the `asset1`/`asset2` pair.
+		///
+		/// See [`Self::pool_fee`] for the resolution logic.
+		pub(crate) fn pool_fee_for(
+			asset1: &T::AssetKind,
+			asset2: &T::AssetKind,
+		) -> Result<Permill, DispatchError> {
+			let pool_id = T::PoolLocator::pool_id(asset1, asset2)
+				.map_err(|_| Error::<T>::InvalidAssetPair)?;
+			Ok(Self::pool_fee(&pool_id))
+		}
+
 		/// Leading to an amount at the end of a `path`, get the required amounts in.
 		pub(crate) fn balance_path_from_amount_out(
 			amount_out: T::Balance,
@@ -1197,9 +1305,10 @@ pub mod pallet {
 						break;
 					},
 				};
+				let fee = Self::pool_fee_for(asset1, &asset2)?;
 				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
 				balance_path.push((asset2, amount_in));
-				amount_in = Self::get_amount_in(&amount_in, &reserve_in, &reserve_out)?;
+				amount_in = Self::get_amount_in(fee, &amount_in, &reserve_in, &reserve_out)?;
 			}
 			balance_path.reverse();
 
@@ -1223,9 +1332,10 @@ pub mod pallet {
 						break;
 					},
 				};
+				let fee = Self::pool_fee_for(&asset1, asset2)?;
 				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
 				balance_path.push((asset1, amount_out));
-				amount_out = Self::get_amount_out(&amount_out, &reserve_in, &reserve_out)?;
+				amount_out = Self::get_amount_out(fee, &amount_out, &reserve_in, &reserve_out)?;
 			}
 			Ok(balance_path)
 		}
@@ -1271,11 +1381,12 @@ pub mod pallet {
 			result.try_into().map_err(|_| Error::<T>::Overflow)
 		}
 
-		/// Calculates amount out.
+		/// Calculates amount out for a given swap `fee`.
 		///
 		/// Given an input amount of an asset and pair reserves, returns the maximum output amount
 		/// of the other asset.
 		pub fn get_amount_out(
+			fee: Permill,
 			amount_in: &T::Balance,
 			reserve_in: &T::Balance,
 			reserve_out: &T::Balance,
@@ -1288,7 +1399,7 @@ pub mod pallet {
 				return Err(Error::<T>::ZeroLiquidity);
 			}
 
-			let fee_complement = T::LPFee::get().left_from_one().deconstruct();
+			let fee_complement = fee.left_from_one().deconstruct();
 			let amount_in_with_fee = amount_in
 				.checked_mul(&T::HigherPrecisionBalance::from(fee_complement))
 				.ok_or(Error::<T>::Overflow)?;
@@ -1307,11 +1418,12 @@ pub mod pallet {
 			result.try_into().map_err(|_| Error::<T>::Overflow)
 		}
 
-		/// Calculates amount in.
+		/// Calculates amount in for a given swap `fee`.
 		///
 		/// Given an output amount of an asset and pair reserves, returns a required input amount
 		/// of the other asset.
 		pub fn get_amount_in(
+			fee: Permill,
 			amount_out: &T::Balance,
 			reserve_in: &T::Balance,
 			reserve_out: &T::Balance,
@@ -1328,7 +1440,7 @@ pub mod pallet {
 				Err(Error::<T>::AmountOutTooHigh)?
 			}
 
-			let fee_complement = T::LPFee::get().left_from_one().deconstruct();
+			let fee_complement = fee.left_from_one().deconstruct();
 			let numerator = reserve_in
 				.checked_mul(&amount_out)
 				.ok_or(Error::<T>::Overflow)?
@@ -1428,7 +1540,8 @@ pub mod pallet {
 			}
 
 			let amount_out = if include_fee {
-				Self::get_amount_out(&amount, &balance1, &balance2).ok()?
+				let fee = Self::pool_fee_for(&asset1, &asset2).ok()?;
+				Self::get_amount_out(fee, &amount, &balance1, &balance2).ok()?
 			} else {
 				Self::quote(&amount, &balance1, &balance2).ok()?
 			};
@@ -1475,13 +1588,15 @@ pub mod pallet {
 
 			// Swap withdrawals from pools use `keep_alive=true` (Preserve). Use the same
 			// preservation level to determine the actual withdrawable amount.
-			let max_output = T::Assets::reducible_balance(asset2, &pool_account, Preserve, Polite);
+			let max_output =
+				T::Assets::reducible_balance(asset2.clone(), &pool_account, Preserve, Polite);
 			if amount > max_output {
 				return None;
 			}
 
 			if include_fee {
-				Self::get_amount_in(&amount, &balance1, &balance2).ok()
+				let fee = Self::pool_fee_for(&asset1, &asset2).ok()?;
+				Self::get_amount_in(fee, &amount, &balance1, &balance2).ok()
 			} else {
 				Self::quote(&amount, &balance2, &balance1).ok()
 			}

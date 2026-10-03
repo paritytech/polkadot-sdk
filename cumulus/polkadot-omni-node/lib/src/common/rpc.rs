@@ -28,6 +28,7 @@ use sc_rpc::{
 	dev::{Dev, DevApiServer},
 	statement::{StatementApiServer, StatementStore},
 };
+use sc_rpc_spec_v2::statement::{StatementSpec, StatementSpecApiServer};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc};
 use substrate_frame_rpc_system::{System, SystemApiServer};
@@ -36,7 +37,7 @@ use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
-pub(crate) trait BuildRpcExtensions<Client, Backend, Pool, StatementStore> {
+pub(crate) trait BuildRpcExtensions<Client, Backend, Pool: ?Sized, StatementStore> {
 	fn build_rpc_extensions(
 		client: Arc<Client>,
 		backend: Arc<Backend>,
@@ -53,7 +54,7 @@ impl<Block: BlockT, RuntimeApi>
 	BuildRpcExtensions<
 		ParachainClient<Block, RuntimeApi>,
 		ParachainBackend<Block>,
-		sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+		sc_transaction_pool::TransactionPoolHandle<Block>,
 		sc_statement_store::Store,
 	> for BuildParachainRpcExtensions<Block, RuntimeApi>
 where
@@ -65,9 +66,7 @@ where
 	fn build_rpc_extensions(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		backend: Arc<ParachainBackend<Block>>,
-		pool: Arc<
-			sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
-		>,
+		pool: Arc<sc_transaction_pool::TransactionPoolHandle<Block>>,
 		statement_store: Option<Arc<sc_statement_store::Store>>,
 		hop_pool: Option<Arc<sc_hop::HopDataPool>>,
 		spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
@@ -79,7 +78,10 @@ where
 			module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 			module.merge(StateMigration::new(client.clone(), backend).into_rpc())?;
 			if let Some(statement_store) = statement_store {
-				module.merge(StatementStore::new(statement_store, spawn_handle).into_rpc())?;
+				module.merge(
+					StatementStore::new(statement_store.clone(), spawn_handle.clone()).into_rpc(),
+				)?;
+				module.merge(StatementSpec::new(statement_store, spawn_handle).into_rpc())?;
 			}
 			if let Some(hop_pool) = hop_pool {
 				module.merge(HopRpcServer::new(hop_pool, client.clone()).into_rpc())?;
