@@ -38,7 +38,7 @@
 use anyhow::Context;
 use cumulus_jam_zombienet_tests::{
 	control,
-	env::binaries_or_err,
+	env::{binaries_or_err, Binaries},
 	network::wait_for_collators,
 	para::{Para, DEADLINE, PARACHAIN_SERVICE_ID, TINY_CORES},
 	para_head::{read_para_head, wait_for_frozen_jam_head, wait_for_jam_head, ParaHead},
@@ -182,6 +182,7 @@ async fn freeing_the_core_freezes_the_para_head_until_it_is_assigned_again(
 		.parasim_tool
 		.clone()
 		.context("PARASIM_TOOL_BIN is required for the dynamic-core tests")?;
+	require_bootstrap_service(&binaries)?;
 
 	let paras = vec![Para::single(1)];
 	let jam = spawn(TEST, &paras, SpawnOptions::new(TINY_CORES)).await?;
@@ -194,6 +195,16 @@ async fn freeing_the_core_freezes_the_para_head_until_it_is_assigned_again(
 
 	jam.destroy().await;
 	result
+}
+
+/// `parasim-tool` reaches a spare core through service 0, which genesis only registers when
+/// `BOOTSTRAP_SERVICE_BLOB` names polkajam's bootstrap service.
+fn require_bootstrap_service(binaries: &Binaries) -> anyhow::Result<()> {
+	binaries
+		.bootstrap_service_blob
+		.as_ref()
+		.map(|_| ())
+		.context("BOOTSTRAP_SERVICE_BLOB is required for the dynamic-core tests")
 }
 
 async fn stall_then_heal(run: &Run<'_>) -> anyhow::Result<()> {
@@ -289,6 +300,7 @@ async fn moving_the_para_to_the_other_core_keeps_its_head_moving() -> Result<(),
 		.parasim_tool
 		.clone()
 		.context("PARASIM_TOOL_BIN is required for the dynamic-core tests")?;
+	require_bootstrap_service(&binaries)?;
 
 	let paras = vec![Para::single(1)];
 	let jam = spawn(TEST, &paras, SpawnOptions::new(TINY_CORES)).await?;

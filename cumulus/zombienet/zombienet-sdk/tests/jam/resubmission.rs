@@ -41,7 +41,6 @@
 use anyhow::{anyhow, Context};
 use codec::Decode;
 use cumulus_jam_zombienet_tests::{
-	env::binaries_or_err,
 	network::free_port,
 	para::{Para, JAM_SLOT, TINY_CORES},
 	proxy::{DropPolicy, ProxyServer},
@@ -82,8 +81,7 @@ async fn resends_make_the_head_advance() -> Result<(), anyhow::Error> {
 #[tokio::test(flavor = "multi_thread")]
 async fn another_collator_resends_a_lost_package() -> Result<(), anyhow::Error> {
 	const TEST: &str = "another_collator_resends_a_lost_package";
-	let binaries = binaries_or_err()?;
-	let runtime = binaries.runtime_wasm.clone();
+	let runtime = authority_discovery_runtime()?;
 	let (jam, proxy) = spawn_proxied_network(
 		TEST,
 		&["alice", "bob"],
@@ -96,6 +94,23 @@ async fn another_collator_resends_a_lost_package() -> Result<(), anyhow::Error> 
 	let result = result.map_err(|error| anyhow!("{error}\n\n{}", proxy.describe()));
 	proxy.shutdown().await;
 	jam.finish(result).await
+}
+
+/// Writes the `with_authority_discovery` runtime flavor to a file the harness freezes into the
+/// para's validation code.
+///
+/// The cross-collator sync finds its peers through `AuthorityDiscoveryApi`, which the parachain
+/// template behind `RUNTIME_WASM` does not implement.
+fn authority_discovery_runtime() -> Result<PathBuf, anyhow::Error> {
+	use cumulus_test_runtime::with_authority_discovery::{WASM_BINARY, WASM_FILE_NAME};
+
+	let bytes = WASM_BINARY
+		.ok_or_else(|| anyhow!("the `with_authority_discovery` runtime flavor was not built"))?;
+	let dir = std::env::temp_dir().join(format!("cumulus-jam-resubmission-{}", std::process::id()));
+	std::fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
+	let path = dir.join(format!("{WASM_FILE_NAME}.polkavm"));
+	std::fs::write(&path, bytes).with_context(|| format!("writing {}", path.display()))?;
+	Ok(path)
 }
 
 /// Spawn the tiny JAM network with `collators` authoring para 0, the ones named in `proxied`

@@ -12,7 +12,7 @@ use crate::{
 	para::{Para, PARACHAIN_SERVICE_ID},
 };
 use anyhow::{anyhow, Context};
-use jam_types::ProtocolParameters;
+use jam_types::{AuthConfig, Authorizer, ProtocolParameters};
 use parachain_chain_spec::{ParachainServiceSpec, ParachainSpec};
 use parachain_service_core::{authorizer::AuthorizerHash, types::ParaId};
 use serde_json::json;
@@ -62,7 +62,10 @@ pub fn build_jam_genesis(
 		.zip(&validation_code_paths)
 		.map(|(para, runtime_blob)| {
 			let spec = work_dir.join(format!("jam-parachain-{}-spec.json", para.id));
-			chain_spec::build(&binaries.omni_node, runtime_blob, &spec, para.id, &para.collators)?;
+			// Written in authority order, so a runtime that keeps genesis order (no
+			// collator-selection) returns the same set `genesis.rs` hashes.
+			let collators = chain_spec::in_authority_order(&para.collators)?;
+			chain_spec::build(&binaries.omni_node, runtime_blob, &spec, para.id, &collators)?;
 			Ok(spec)
 		})
 		.collect::<anyhow::Result<Vec<_>>>()?;
@@ -84,6 +87,7 @@ pub fn build_jam_genesis(
 		&heads,
 	)?;
 	let queues = auth_queues(paras, &spec.authorizer_hashes())?;
+	let spare = spare_queues(&queues, cores);
 	let genesis = spec.build()?;
 	// `genesis.code` is exactly the frozen copy's bytes, so the copy `copy_aside` wrote is
 	// the file `gen-spec` reads `code` from — no second sidecar to write or drift.
@@ -105,6 +109,13 @@ pub fn build_jam_genesis(
 			.collect::<anyhow::Result<Vec<_>>>()?,
 		&genesis.storage,
 	);
+	for (core, hash) in spare {
+		overrides["auth_queues"][core.to_string()] = json!([hash]);
+	}
+	if let Some(blob) = &binaries.bootstrap_service_blob {
+		overrides["services"][BOOTSTRAP_SERVICE_ID.to_string()] =
+			bootstrap_service(blob, work_dir)?;
+	}
 	overrides["protocol_parameters"] = parameters_for_cores(cores)?;
 	overrides["privileges"] = service_privileges(&queues, PARACHAIN_SERVICE_ID);
 
@@ -157,12 +168,11 @@ pub fn parameters_for_cores(cores: u16) -> anyhow::Result<serde_json::Value> {
 	serde_json::to_value(&params).context("serializing the JAM protocol parameters")
 }
 
-/// PolkaVM cannot use its recompiler in this sandbox (no userfaultfd), and the native provider
-/// clears the environment before spawning, so every JAM node needs these explicitly. The last
-/// one turns on the PolkaVM executor everywhere, which both a JAM chain spec built from a
-/// PolkaVM runtime blob and the collators — whose `:code` is that same blob — need to
-/// construct the runtime at all. The collators get the same environment from the sdk crate's
-/// `tests/jam/mod.rs`.
+/// PolkaVM cannot use its recompiler's Linux sandbox here (no userfaultfd), and the native
+/// provider clears the environment before spawning, so every collator and tool needs these
+/// explicitly. `SUBSTRATE_ENABLE_POLKAVM` turns on the PolkaVM executor, which both a chain spec
+/// built from a PolkaVM runtime blob and the collators — whose `:code` is that same blob — need
+/// to construct the runtime at all. JAM nodes get [`jam_node_env`] instead.
 pub fn polkavm_env() -> Vec<(&'static str, &'static str)> {
 	vec![
 		("POLKAVM_BACKEND", "interpreter"),
@@ -170,6 +180,28 @@ pub fn polkavm_env() -> Vec<(&'static str, &'static str)> {
 		("SUBSTRATE_ENABLE_POLKAVM", "1"),
 		("RUST_LOG", "debug"),
 	]
+}
+
+/// The environment of a JAM node. Its refine runs the parachain service, and on the interpreter
+/// one package takes about a whole six-second slot, so a para on two cores never gets its
+/// packages reported in time. The recompiler is used whenever its Linux sandbox can start, which
+/// needs `vm.unprivileged_userfaultfd = 1`.
+pub fn jam_node_env() -> Vec<(&'static str, &'static str)> {
+	let backend = if userfaultfd_available() {
+		"compiler"
+	} else {
+		log::warn!(
+			"vm.unprivileged_userfaultfd is not 1, so the JAM nodes fall back to the slow PVM \
+			 interpreter; enable it with `sudo sysctl -w vm.unprivileged_userfaultfd=1`"
+		);
+		"interpreter"
+	};
+	vec![("POLKAVM_BACKEND", backend), ("POLKAVM_ALLOW_INSECURE", "1"), ("RUST_LOG", "debug")]
+}
+
+fn userfaultfd_available() -> bool {
+	std::fs::read_to_string("/proc/sys/vm/unprivileged_userfaultfd")
+		.is_ok_and(|value| value.trim() == "1")
 }
 
 /// The service this suite bootstraps, as `parachain-chain-spec` describes it: the service code
@@ -286,6 +318,40 @@ pub fn auth_queues(
 		}
 	}
 	Ok(queues)
+}
+
+/// The service id polkajam's bootstrap service runs under.
+const BOOTSTRAP_SERVICE_ID: u32 = 0;
+
+/// The bootstrap service as `gen-spec` reads it: its code, with the null authorizer as a
+/// preimage so a spare core's packages can be authorized. `gen-spec` only installs the services
+/// it is given, so without this there is no service 0 for `parasim-tool` to instruct.
+fn bootstrap_service(blob: &Path, work_dir: &Path) -> anyhow::Result<serde_json::Value> {
+	let code = copy_aside(blob, work_dir)?;
+	let null_authorizer =
+		write_sidecar(jam_null_authorizer_bin::BLOB, work_dir, "null-authorizer.jam")?;
+	Ok(json!({
+		"code": path_str(&code)?,
+		"balance": json_balance(PARACHAIN_SERVICE_ENDOWMENT),
+		"preimages": [path_str(&null_authorizer)?],
+	}))
+}
+
+/// Every core of `cores` no para claims in `queues`, paired with the null authorizer.
+///
+/// `gen-spec` fills an unnamed core's queue with zero hashes, but an unassigned core is one
+/// whose queue holds the null authorizer with an empty config: that is what `parasim-tool`'s
+/// bootstrap lane looks for. Its assigner stays service 0, the `gen-spec` default.
+pub fn spare_queues(queues: &[(u16, String)], cores: u16) -> Vec<(u16, String)> {
+	let null = Authorizer {
+		code_hash: jam_null_authorizer_bin::HASH.into(),
+		config: AuthConfig::default(),
+	}
+	.hash(jam_std_common::hash_raw);
+	(0..cores)
+		.filter(|core| queues.iter().all(|(taken, _)| taken != core))
+		.map(|core| (core, array_bytes::bytes2hex("", null.0)))
+		.collect()
 }
 
 /// The genesis beyond the validator set, spelled as `gen-spec` reads it, from the built service:
@@ -491,6 +557,20 @@ mod tests {
 		assert_eq!(overrides["auth_queues"]["0"], json!(["aa".repeat(32)]));
 		assert_eq!(overrides["auth_queues"]["7"], json!(["bb".repeat(32)]));
 		assert_eq!(overrides["assigners"]["7"], json!(PARACHAIN_SERVICE_ID));
+	}
+
+	/// A core no para names gets the null authorizer, which is what `parasim-tool` recognises as
+	/// unassigned; a zero hash would leave the bootstrap lane with no core to run on.
+	#[test]
+	fn spare_cores_hold_the_null_authorizer() {
+		let queues = vec![(0u16, "aa".repeat(32))];
+		let null = jam_std_common::hash_raw(&jam_null_authorizer_bin::HASH);
+		assert_eq!(spare_queues(&queues, 3), [1u16, 2].map(|core| (core, hex(null))));
+		assert!(spare_queues(&queues, 1).is_empty());
+
+		fn hex(hash: [u8; 32]) -> String {
+			array_bytes::bytes2hex("", hash)
+		}
 	}
 
 	/// A custom core count has no named set upstream, so the override has to be the object form,

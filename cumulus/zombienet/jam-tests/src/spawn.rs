@@ -5,8 +5,9 @@
 //! [`Para`] with its collators, and the handle a test drives the run through.
 
 use crate::{
+	chain_spec,
 	env::{binaries_or_err, init_logger},
-	genesis_build::{build_jam_genesis, polkavm_env, JamGenesis},
+	genesis_build::{build_jam_genesis, jam_node_env, polkavm_env, JamGenesis},
 	network::{
 		base_dir, collator_args, copy_para_specs, path_str, work_dir, ORDINARY_NODE,
 		VALIDATORS_PER_CORE,
@@ -100,45 +101,43 @@ pub async fn spawn(
 			_ => jam,
 		};
 		let jam = jam.with_genesis_overrides(genesis_overrides);
-		let jam = jam.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
+		let jam = jam.with_validator(|node| node.with_name("jam0").with_env(jam_node_env()));
 		let jam = (1..validators).fold(jam, |jam, index| {
 			jam.with_validator(|node| {
-				node.with_name(&format!("jam{index}")).with_env(polkavm_env())
+				node.with_name(&format!("jam{index}")).with_env(jam_node_env())
 			})
 		});
 		match options.ordinary_rpc_port {
 			Some(port) => jam.with_ordinary(|node| {
-				node.with_name(ORDINARY_NODE).with_env(polkavm_env()).with_rpc_port(port)
+				node.with_name(ORDINARY_NODE).with_env(jam_node_env()).with_rpc_port(port)
 			}),
-			None => jam.with_ordinary(|node| node.with_name(ORDINARY_NODE).with_env(polkavm_env())),
+			None => {
+				jam.with_ordinary(|node| node.with_name(ORDINARY_NODE).with_env(jam_node_env()))
+			},
 		}
 	});
-	let builder = paras.iter().zip(para_specs.iter()).fold(builder, |config, (para, spec)| {
-		config.with_parachain(|p| {
-			let p = p
-				.with_id(para.id)
-				.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
-				.with_chain_spec_path(spec.clone())
-				.with_default_command(omni_node.as_str());
-			let first = para.collators.first().expect("a para names at least one collator; qed");
-			let p = p.with_collator(|node| {
-				let mut args = collator_args(&authorizer_blob, &jam_rpc_url_overrides, first);
-				let node = node.with_name(first.as_str()).with_env(polkavm_env());
-				let node = match options.collators.get(first).and_then(|options| options.p2p_port) {
-					Some(port) => {
-						args.push(public_addr(port));
-						node.with_p2p_port(port)
-					},
-					None => node,
-				};
-				node.with_args(args)
-			});
-			para.collators[1..].iter().fold(p, |p, name| {
-				p.with_collator(|node| {
-					let mut args = collator_args(&authorizer_blob, &jam_rpc_url_overrides, name);
-					let node = node.with_name(name.as_str()).with_env(polkavm_env());
+	// zombienet rewrites the para spec's authorities in the order its collators are added, and a
+	// runtime without collator-selection keeps that order. Adding them in authority order keeps
+	// every runtime on the set `genesis.rs` hashes and on the spec the genesis head came from.
+	let ordered = paras
+		.iter()
+		.map(|para| chain_spec::in_authority_order(&para.collators))
+		.collect::<anyhow::Result<Vec<_>>>()?;
+	let builder = paras.iter().zip(para_specs.iter()).zip(&ordered).fold(
+		builder,
+		|config, ((para, spec), collators)| {
+			config.with_parachain(|p| {
+				let p = p
+					.with_id(para.id)
+					.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
+					.with_chain_spec_path(spec.clone())
+					.with_default_command(omni_node.as_str());
+				let first = collators.first().expect("a para names at least one collator; qed");
+				let p = p.with_collator(|node| {
+					let mut args = collator_args(&authorizer_blob, &jam_rpc_url_overrides, first);
+					let node = node.with_name(first.as_str()).with_env(polkavm_env());
 					let node =
-						match options.collators.get(name).and_then(|options| options.p2p_port) {
+						match options.collators.get(first).and_then(|options| options.p2p_port) {
 							Some(port) => {
 								args.push(public_addr(port));
 								node.with_p2p_port(port)
@@ -146,10 +145,29 @@ pub async fn spawn(
 							None => node,
 						};
 					node.with_args(args)
+				});
+				collators[1..].iter().fold(p, |p, name| {
+					p.with_collator(|node| {
+						let mut args =
+							collator_args(&authorizer_blob, &jam_rpc_url_overrides, name);
+						let node = node.with_name(name.as_str()).with_env(polkavm_env());
+						let node = match options
+							.collators
+							.get(name)
+							.and_then(|options| options.p2p_port)
+						{
+							Some(port) => {
+								args.push(public_addr(port));
+								node.with_p2p_port(port)
+							},
+							None => node,
+						};
+						node.with_args(args)
+					})
 				})
 			})
-		})
-	});
+		},
+	);
 	let config =
 		builder
 			.with_global_settings(|g| g.with_base_dir(base_dir))

@@ -148,6 +148,7 @@ spawns the same six-validator network plus collators.
 | `AUTHORIZER_BLOB` | `parachain-authorizer-sr25519.jam`, the AURA authorizer the cores run |
 | `RUNTIME_WASM` | the PolkaVM build of the parachain runtime (`PVM\0` magic), the para's JAM validation code *and* the runtime the collators execute. The name is misleading (it is not WASM); a future rename to `RUNTIME_PVF` is deferred. **Must be built with `--cfg jam`** for the `JamParent` digest assertion to pass — `run.sh` builds it through the wasm-builder's channel (`SUBSTRATE_RUNTIME_TARGET=riscv WASM_BUILD_RUSTFLAGS="--cfg jam" cargo build -p parachain-template-runtime`). Without the cfg the runtime never deposits the digest and the assertion fails for a configuration reason rather than a code reason. The collator-to-collator sync test needs a runtime that implements `AuthorityDiscoveryApi` and carries `audi` keys, which the template does not; that test selects the `cumulus-test-runtime` built with `--features with-authority-discovery` through `Para::with_runtime` instead; see "The runtime the sync test needs". |
 | `PARASIM_TOOL_BIN` | optional: the `parasim-tool` CLI, required only by the dynamic-core tests, which move cores mid-run |
+| `BOOTSTRAP_SERVICE_BLOB` | optional: polkajam's `jam-bootstrap-service.jam` (`cargo-jam-build -p jam-bootstrap-service` in polkajam), registered at genesis as service 0 with the null authorizer; required only by the dynamic-core tests, whose `parasim-tool` bootstrap lane runs through it |
 | `OMNI_NODE_BIN`, `RELAY_NODE_BIN` | override the `target/release` defaults |
 | `JAM_TEST_BASE_DIR` | keep every run's work dir under this directory |
 | `NUM_COLLATORS` | how many collators the demo runs (default 1) |
@@ -323,8 +324,9 @@ the harder case, where the author cannot deliver at all and a peer has to recons
 ### The runtime the sync test needs
 
 The cross-collator protocol needs `AuthorityDiscoveryApi` plus `audi` keys, and the parachain
-template has no authority discovery. The sync test therefore runs the `cumulus-test-runtime` built
-with `--features with-authority-discovery` as the PolkaVM PVF:
+template has no authority discovery. The sync test therefore runs the `cumulus-test-runtime`
+`with_authority_discovery` flavor the test crate embeds, written to a file and handed to
+`Para::with_runtime`. A standalone build of the same runtime is:
 
 ```sh
 SUBSTRATE_RUNTIME_TARGET=riscv WASM_BUILD_RUSTFLAGS="--cfg jam" \

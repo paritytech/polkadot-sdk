@@ -37,6 +37,8 @@ parachain-authorizer = { path = "../../../../parachain-service/authorizer", feat
 # work), so the storage layout and authorizer hashes cannot drift from what the service decodes.
 parachain-chain-spec = { path = "../../../../parachain-service/chain-spec" }
 jam-std-common = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-std-common" }
+# The hash an unassigned core's queue holds at genesis.
+jam-null-authorizer-bin = { path = "../../../../parachain-service/vendor/polkajam/services/null-authorizer-bin" }
 # The byte strings the JAM RPC carries are base64, and this is where that spelling is defined.
 jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", features = [
 	"bytes",

@@ -33,6 +33,10 @@ pub struct Binaries {
 	/// every other test asserts on is read straight off the JAM node's RPC — so only those two
 	/// tests need it and nothing else does.
 	pub parasim_tool: Option<PathBuf>,
+	/// polkajam's bootstrap service, registered at genesis as service 0 with the null
+	/// authorizer as its preimage. `parasim-tool`'s bootstrap lane runs through it, so only the
+	/// dynamic-core tests need it; `None` unless `BOOTSTRAP_SERVICE_BLOB` is set.
+	pub bootstrap_service_blob: Option<PathBuf>,
 	/// The compiled real parachain-service blob, which genesis creates the service from.
 	pub parachain_service_blob: PathBuf,
 	/// The compiled AURA authorizer blob. Only its hash ever reaches the chain, but the collators
@@ -130,6 +134,7 @@ impl Binaries {
 			jam_node: from_env_or("JAM_NODE_BIN", PathBuf::new),
 			genspec_node: std::env::var_os("JAM_GENSPEC_BIN").map(PathBuf::from),
 			parasim_tool: std::env::var_os("PARASIM_TOOL_BIN").map(PathBuf::from),
+			bootstrap_service_blob: std::env::var_os("BOOTSTRAP_SERVICE_BLOB").map(PathBuf::from),
 			parachain_service_blob: from_env_or("PARACHAIN_SERVICE_BLOB", PathBuf::new),
 			authorizer_blob: from_env_or("AUTHORIZER_BLOB", PathBuf::new),
 			omni_node: node.omni_node,
@@ -168,6 +173,12 @@ impl Binaries {
 		// skipping as though it had been left unset.
 		if let Some(tool) = &binaries.parasim_tool {
 			wanted.push((PARASIM_TOOL, tool));
+		}
+		if let Some(blob) = &binaries.bootstrap_service_blob {
+			wanted.push((
+				"BOOTSTRAP_SERVICE_BLOB (polkajam's jam-bootstrap-service.jam, service 0)",
+				blob,
+			));
 		}
 
 		if let Some(reason) = missing(&wanted) {

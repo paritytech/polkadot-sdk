@@ -21,6 +21,8 @@ async fn connect(url: &str, deadline: Instant) -> anyhow::Result<WsClient> {
 			// The collator's `:code` read is a ~14 MB hex response, above jsonrpsee's 10 MB
 			// default cap.
 			.max_response_size(128 * 1024 * 1024)
+			// A runtime-upgrade `submitPreimage` carries the ~8 MB blob as base64.
+			.max_request_size(128 * 1024 * 1024)
 			.build(url)
 			.await
 		{

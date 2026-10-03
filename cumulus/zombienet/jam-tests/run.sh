@@ -27,6 +27,7 @@
 # Optional:
 #   JAM_GENSPEC_BIN         the polkajam build that runs gen-spec, if not JAM_NODE_BIN
 #   PARASIM_TOOL_BIN        for the two dynamic-core tests
+#   BOOTSTRAP_SERVICE_BLOB  jam-bootstrap-service.jam, also for the two dynamic-core tests
 #   NUM_COLLATORS           how many collators to run (default 1)
 #   OMNI_NODE_BIN, RELAY_NODE_BIN, RUNTIME_WASM   override the target/release defaults
 #
