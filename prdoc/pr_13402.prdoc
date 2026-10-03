@@ -1,0 +1,9 @@
+title: 'pallet-beefy: reject a set_new_genesis delay that overflows the block number'
+doc:
+  - audience: Runtime Dev
+    description: |
+      set_new_genesis now returns InvalidConfiguration when adding delay_in_blocks to the
+      current block number would overflow, instead of panicking. GenesisBlock is left unchanged.
+crates:
+  - name: pallet-beefy
+    bump: patch
