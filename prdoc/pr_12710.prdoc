@@ -14,18 +14,25 @@ doc:
     delegate that is present, leaving the owner unable to remove that proxy or recover its
     deposit while `add_proxy` adds a duplicate instead of failing with `Duplicate`. The
     pallet now declares a storage version and adds `migrations::MigrateV0ToV1`, which sorts
-    each entry and drops exact duplicates in a single block. Deposits are left as they are,
-    a deduplicated entry pricing below its deposit until `poke_deposit` corrects it.
+    each entry and drops exact duplicates. Deposits are left as they are, a deduplicated
+    entry pricing below its deposit until `poke_deposit` corrects it.
 
-    The migration is added to every live runtime in this repository that uses the pallet.
-    The Rococo runtimes are skipped because that testnet is retired. The Polkadot and Kusama
-    Asset Hub runtimes live in `polkadot-fellows/runtimes` and can take it once this is
-    released.
+    `MigrateV0ToV1` is a multi-block migration, one entry per step, so it belongs in
+    `pallet_migrations::Config::Migrations` rather than in a runtime's single-block
+    migration tuple: the map is large enough on the Asset Hubs (4,455 entries on Polkadot,
+    262.2 KiB of proof) that walking it in one block is worth avoiding. It is added to the
+    live runtimes in this repository that both use the pallet and run multi-block
+    migrations, namely Westend, Asset Hub Westend and People Westend. Collectives Westend
+    and Coretime Westend have no multi-block migration runner and so cannot take it yet,
+    and the Rococo runtimes are skipped because that testnet is retired. The Polkadot and
+    Kusama Asset Hub runtimes live in `polkadot-fellows/runtimes` and can take it once this
+    is released.
 - audience: Runtime User
   description: |-
-    Accounts whose proxy list was stored out of order can add and remove proxies again after
-    the runtime upgrade. A list that held a duplicate is now one entry shorter than the
-    deposit recorded for it, and `poke_deposit` returns the difference.
+    Accounts whose proxy list was stored out of order can add and remove proxies again once
+    the migration has walked past their entry. A list that held a duplicate is then one
+    entry shorter than the deposit recorded for it, and `poke_deposit` returns the
+    difference.
 
 crates:
 - name: pallet-proxy
@@ -34,9 +41,17 @@ crates:
   bump: patch
 - name: asset-hub-westend-runtime
   bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
 - name: collectives-westend-runtime
   bump: patch
 - name: coretime-westend-runtime
   bump: patch
-- name: people-westend-runtime
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: pallet-staking-async-rc-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
   bump: patch

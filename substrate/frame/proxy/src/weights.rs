@@ -81,6 +81,7 @@ pub trait WeightInfo {
 	fn create_pure(p: u32, ) -> Weight;
 	fn kill_pure(p: u32, ) -> Weight;
 	fn poke_deposit() -> Weight;
+	fn migrate_v0_to_v1_step() -> Weight;
 }
 
 /// Weights for `pallet_proxy` using the Substrate node and recommended hardware.
@@ -272,6 +273,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+	/// Storage: `Proxy::Proxies` (r:1 w:1)
+	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
+	fn migrate_v0_to_v1_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1341`
+		//  Estimated: `4706`
+		// Minimum execution time: 30_000_000 picoseconds.
+		Weight::from_parts(30_000_000, 4706)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -461,5 +473,16 @@ impl WeightInfo for () {
 		Weight::from_parts(47_972_000, 5698)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	/// Storage: `Proxy::Proxies` (r:1 w:1)
+	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
+	fn migrate_v0_to_v1_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1341`
+		//  Estimated: `4706`
+		// Minimum execution time: 30_000_000 picoseconds.
+		Weight::from_parts(30_000_000, 4706)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

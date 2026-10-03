@@ -459,5 +459,36 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// One step of [`migrations::MigrateV0ToV1`]: the walk to the next `Proxies` key, reading a
+	/// worst-case entry and writing back its sorted form.
+	#[benchmark]
+	fn migrate_v0_to_v1_step() -> Result<(), BenchmarkError> {
+		let delegator: T::AccountId = account("delegator", 0, SEED);
+
+		let mut proxies = (0..T::MaxProxies::get())
+			.map(|i| ProxyDefinition {
+				delegate: account("target", i, SEED),
+				proxy_type: T::ProxyType::default(),
+				delay: BlockNumberFor::<T>::zero(),
+			})
+			.collect::<alloc::vec::Vec<_>>();
+		// Stored in reverse, so the sort has to move every delegate. `dedup` then has nothing to
+		// drop, which is the heavier case: a shorter list writes less.
+		proxies.sort();
+		proxies.reverse();
+		let proxies = BoundedVec::try_from(proxies).map_err(|_| "too many proxies")?;
+		Proxies::<T>::insert(&delegator, (proxies, BalanceOf::<T>::zero()));
+
+		#[block]
+		{
+			assert_eq!(migrations::MigrateV0ToV1::<T>::repair_next(None), Some(delegator.clone()),);
+		}
+
+		let (migrated, _) = Proxies::<T>::get(&delegator);
+		assert!(migrated.windows(2).all(|w| w[0] < w[1]));
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(Proxy, crate::tests::new_test_ext(), crate::tests::Test);
 }

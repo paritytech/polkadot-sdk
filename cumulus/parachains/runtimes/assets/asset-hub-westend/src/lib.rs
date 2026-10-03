@@ -1457,6 +1457,9 @@ impl pallet_migrations::Config for Runtime {
 			weights::pallet_assets_precompiles::WeightInfo<Runtime>,
 		>,
 		pallet_revive::migrations::v3::Migration<Runtime>,
+		// Sorts and deduplicates the `Proxies` map, which `binary_search` needs and some live
+		// entries here violate.
+		pallet_proxy::migrations::MigrateV0ToV1<Runtime>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1849,9 +1852,6 @@ pub type Migrations = (
 	// incentive formula applies; pending pre-cutoff eras keep the legacy
 	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
 	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
-	// Sorts and deduplicates the `Proxies` map, which `binary_search` needs and some live
-	// entries here violate.
-	pallet_proxy::migrations::MigrateV0ToV1<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

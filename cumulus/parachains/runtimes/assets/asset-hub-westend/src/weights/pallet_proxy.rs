@@ -255,4 +255,16 @@ impl<T: frame_system::Config> pallet_proxy::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	/// Storage: `Proxy::Proxies` (r:1 w:1)
+	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
+	fn migrate_v0_to_v1_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1241`
+		//  Estimated: `4706`
+		// Minimum execution time: 94_637_012 picoseconds.
+		Weight::from_parts(94_637_012, 0)
+			.saturating_add(Weight::from_parts(0, 4706))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

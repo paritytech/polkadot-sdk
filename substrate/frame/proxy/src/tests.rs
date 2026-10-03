@@ -1223,10 +1223,18 @@ mod try_state {
 mod migration {
 	use super::*;
 	use crate::migrations::MigrateV0ToV1;
-	use frame::traits::{GetStorageVersion, OnRuntimeUpgrade};
+	use frame::{
+		deps::frame_support::{
+			migrations::{SteppedMigration, SteppedMigrationError},
+			weights::WeightMeter,
+		},
+		traits::GetStorageVersion,
+	};
 
 	type ProxiesValue =
 		(BoundedVec<ProxyDefinition<u64, ProxyType, u64>, <Test as Config>::MaxProxies>, u64);
+
+	type MigrationCursor = <MigrateV0ToV1<Test> as SteppedMigration>::Cursor;
 
 	fn def(delegate: u64) -> ProxyDefinition<u64, ProxyType, u64> {
 		ProxyDefinition { delegate, proxy_type: ProxyType::Any, delay: 0 }
@@ -1240,6 +1248,32 @@ mod migration {
 	) {
 		let value: ProxiesValue = (proxies.try_into().unwrap(), deposit);
 		Proxies::<Test>::insert(delegator, value);
+	}
+
+	/// The weight one step of the migration charges per `Proxies` entry.
+	fn step_weight() -> Weight {
+		<<Test as Config>::WeightInfo as WeightInfo>::migrate_v0_to_v1_step()
+	}
+
+	/// Steps the migration to completion against an unlimited budget, the single-block case.
+	fn run_migration() {
+		assert_eq!(run_migration_from(None, WeightMeter::new), 1);
+	}
+
+	/// Steps the migration from `cursor` to completion, building a fresh meter per step with
+	/// `meter`, and returns the number of steps it took.
+	fn run_migration_from(
+		mut cursor: Option<MigrationCursor>,
+		meter: impl Fn() -> WeightMeter,
+	) -> u32 {
+		for steps in 1.. {
+			match MigrateV0ToV1::<Test>::step(cursor, &mut meter()) {
+				Ok(None) => return steps,
+				Ok(Some(next)) => cursor = Some(next),
+				Err(e) => panic!("migration step failed: {:?}", e),
+			}
+		}
+		unreachable!()
 	}
 
 	/// The storage version is unset before the migration, which is what version 0 means here.
@@ -1259,7 +1293,7 @@ mod migration {
 			insert_proxies(1, vec![def(3), def(2)], Proxy::deposit(2));
 			assert_unmigrated();
 
-			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+			run_migration();
 
 			let (proxies, deposit) = Proxies::<Test>::get(1);
 			assert_eq!(proxies.to_vec(), vec![def(2), def(3)]);
@@ -1274,7 +1308,7 @@ mod migration {
 		new_test_ext_and_execute_with_stale_deposit(|| {
 			insert_proxies(1, vec![def(2), def(2)], Proxy::deposit(2));
 
-			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+			run_migration();
 
 			let (proxies, deposit) = Proxies::<Test>::get(1);
 			assert_eq!(proxies.to_vec(), vec![def(2)]);
@@ -1291,7 +1325,7 @@ mod migration {
 			// An unsorted list that also repeats its first delegate.
 			insert_proxies(1, vec![def(4), def(2), def(4), def(3)], Proxy::deposit(4));
 
-			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+			run_migration();
 
 			assert_eq!(Proxies::<Test>::get(1).0.to_vec(), vec![def(2), def(3), def(4)]);
 			assert_migrated();
@@ -1305,7 +1339,7 @@ mod migration {
 			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
 			let before = Proxies::<Test>::get(1);
 
-			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+			run_migration();
 
 			assert_eq!(Proxies::<Test>::get(1), before);
 			assert_migrated();
@@ -1317,14 +1351,15 @@ mod migration {
 		new_test_ext_and_execute(|| {
 			insert_proxies(1, vec![def(3), def(2)], Proxy::deposit(2));
 
-			MigrateV0ToV1::<Test>::on_runtime_upgrade();
-			let after_first = Proxies::<Test>::get(1);
-
-			// The second run is a noop: the version gate has already moved past it.
-			MigrateV0ToV1::<Test>::on_runtime_upgrade();
-
-			assert_eq!(Proxies::<Test>::get(1), after_first);
+			run_migration();
 			assert_migrated();
+
+			// The second run is a noop: the version gate has already moved past it, so the first
+			// step ends the migration without touching storage.
+			let _guard = frame::deps::frame_support::StorageNoopGuard::new();
+			let mut meter = WeightMeter::new();
+			assert_eq!(MigrateV0ToV1::<Test>::step(None, &mut meter), Ok(None));
+			assert!(meter.consumed().is_zero());
 		});
 	}
 
@@ -1344,7 +1379,7 @@ mod migration {
 			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
 			assert_eq!(Proxies::<Test>::get(1).0.to_vec(), vec![def(3), def(2), def(3)]);
 
-			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+			run_migration();
 
 			// The duplicate is gone and both operations behave again.
 			assert_eq!(Proxies::<Test>::get(1).0.to_vec(), vec![def(2), def(3)]);
@@ -1364,7 +1399,7 @@ mod migration {
 			insert_proxies(2, vec![def(3), def(3)], Proxy::deposit(2));
 			insert_proxies(3, vec![def(4)], Proxy::deposit(1));
 
-			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+			run_migration();
 
 			assert_eq!(Proxies::<Test>::get(1).0.to_vec(), vec![def(2), def(3)]);
 			assert_eq!(Proxies::<Test>::get(2).0.to_vec(), vec![def(3)]);
@@ -1380,7 +1415,7 @@ mod migration {
 			assert_ok!(Proxy::announce(RuntimeOrigin::signed(2), 1, [1; 32].into()));
 			let before = Announcements::<Test>::get(2);
 
-			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+			run_migration();
 
 			assert_eq!(Announcements::<Test>::get(2), before);
 		});
@@ -1394,8 +1429,81 @@ mod migration {
 			insert_proxies(2, vec![def(3)], Proxy::deposit(1));
 
 			let state = MigrateV0ToV1::<Test>::pre_upgrade().unwrap();
-			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+			run_migration();
 			assert_ok!(MigrateV0ToV1::<Test>::post_upgrade(state));
+		});
+	}
+
+	#[test]
+	fn resumes_across_steps() {
+		new_test_ext_and_execute_with_stale_deposit(|| {
+			insert_proxies(1, vec![def(3), def(2)], Proxy::deposit(2));
+			insert_proxies(2, vec![def(3), def(3)], Proxy::deposit(2));
+			insert_proxies(3, vec![def(5), def(4)], Proxy::deposit(2));
+
+			// A budget of exactly one entry, so each step repairs one and hands back a cursor.
+			// Three entries plus the step that finds the map exhausted.
+			assert_eq!(run_migration_from(None, || WeightMeter::with_limit(step_weight())), 4);
+
+			assert_eq!(Proxies::<Test>::get(1).0.to_vec(), vec![def(2), def(3)]);
+			assert_eq!(Proxies::<Test>::get(2).0.to_vec(), vec![def(3)]);
+			assert_eq!(Proxies::<Test>::get(3).0.to_vec(), vec![def(4), def(5)]);
+			assert_migrated();
+		});
+	}
+
+	#[test]
+	fn leaves_the_version_at_zero_until_the_last_entry() {
+		new_test_ext_and_execute(|| {
+			insert_proxies(1, vec![def(3), def(2)], Proxy::deposit(2));
+			insert_proxies(2, vec![def(5), def(4)], Proxy::deposit(2));
+
+			let mut meter = WeightMeter::with_limit(step_weight());
+			let cursor = MigrateV0ToV1::<Test>::step(None, &mut meter).unwrap();
+
+			// One entry done, the map not yet walked to its end.
+			assert!(cursor.is_some());
+			assert_unmigrated();
+
+			// Only once the walk resumes and runs out of keys does the version move.
+			run_migration_from(cursor, || WeightMeter::with_limit(step_weight()));
+			assert_migrated();
+		});
+	}
+
+	#[test]
+	fn rejects_a_budget_below_one_entry() {
+		new_test_ext_and_execute(|| {
+			insert_proxies(1, vec![def(3), def(2)], Proxy::deposit(2));
+
+			let mut meter =
+				WeightMeter::with_limit(step_weight().saturating_sub(Weight::from_parts(1, 0)));
+			assert_eq!(
+				MigrateV0ToV1::<Test>::step(None, &mut meter),
+				Err(SteppedMigrationError::InsufficientWeight { required: step_weight() })
+			);
+
+			// Nothing was repaired and no weight was consumed.
+			assert_eq!(Proxies::<Test>::get(1).0.to_vec(), vec![def(3), def(2)]);
+			assert!(meter.consumed().is_zero());
+			assert_unmigrated();
+
+			// The runner retries in the next block, against a budget that fits.
+			run_migration();
+			assert_eq!(Proxies::<Test>::get(1).0.to_vec(), vec![def(2), def(3)]);
+			assert_migrated();
+		});
+	}
+
+	#[test]
+	fn migrates_an_empty_map() {
+		new_test_ext_and_execute(|| {
+			assert_eq!(Proxies::<Test>::iter().count(), 0);
+			assert_unmigrated();
+
+			run_migration();
+
+			assert_migrated();
 		});
 	}
 }
