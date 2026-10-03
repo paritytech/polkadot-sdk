@@ -297,12 +297,21 @@ fn write_pruning_key(
 	tx.put(config.col_meta, &key, TOMBSTONE_VALUE);
 }
 
-fn finalized_block_range(finalized: BlockNumber) -> (Vec<u8>, Vec<u8>) {
+/// The unfinalized-index keys for blocks at or below `finalized`: they start with the returned
+/// prefix and sort below the returned end key. There is no end key at `BlockNumber::MAX`, where
+/// every key under the prefix is in range.
+fn finalized_block_range(finalized: BlockNumber) -> (Vec<u8>, Option<Vec<u8>>) {
 	// We use big-endian encoding to iterate in ascending order.
 	let start = UNFINALIZED_PREFIX.encode();
-	let end = (UNFINALIZED_PREFIX, BEBlockNumber(finalized + 1)).encode();
+	let end = finalized
+		.checked_add(1)
+		.map(|first_unfinalized| (UNFINALIZED_PREFIX, BEBlockNumber(first_unfinalized)).encode());
 
 	(start, end)
+}
+
+fn is_below_end(key: &[u8], end: &Option<Vec<u8>>) -> bool {
+	end.as_ref().map_or(true, |end| key < &end[..])
 }
 
 fn write_unfinalized_block_contains(
@@ -509,9 +518,12 @@ impl KnownUnfinalizedBlocks {
 
 	/// Prune all finalized blocks.
 	fn prune_finalized(&mut self, finalized: BlockNumber) {
-		// split_off returns everything after the given key, including the key
-		let split_point = finalized.saturating_add(1);
-		let mut finalized = self.by_number.split_off(&(split_point, Hash::zero()));
+		// split_off returns everything after the given key, including the key.
+		// At `BlockNumber::MAX` every block is finalized, so nothing is split off.
+		let mut finalized = match finalized.checked_add(1) {
+			Some(split_point) => self.by_number.split_off(&(split_point, Hash::zero())),
+			None => BTreeSet::new(),
+		};
 		// after split_off `finalized` actually contains unfinalized blocks, we need to swap
 		std::mem::swap(&mut self.by_number, &mut finalized);
 		for (_, block) in finalized {
@@ -883,7 +895,9 @@ async fn process_block_finalized<Context>(
 			let mut iter = subsystem
 				.db
 				.iter_with_prefix(subsystem.config.col_meta, &start_prefix)
-				.take_while(|r| r.as_ref().map_or(true, |(k, _v)| &k[..] < &end_prefix[..]))
+				.take_while(|r| {
+					r.as_ref().map_or(true, |(k, _v)| is_below_end(&k[..], &end_prefix))
+				})
 				.peekable();
 
 			match peek_num!(iter)? {
@@ -895,7 +909,7 @@ async fn process_block_finalized<Context>(
 		if batch_num < next_possible_batch {
 			continue;
 		} // sanity.
-		next_possible_batch = batch_num + 1;
+		next_possible_batch = batch_num.saturating_add(1);
 
 		let batch_finalized_hash = if batch_num == finalized_number {
 			finalized_hash
@@ -931,7 +945,7 @@ async fn process_block_finalized<Context>(
 		let iter = subsystem
 			.db
 			.iter_with_prefix(subsystem.config.col_meta, &start_prefix)
-			.take_while(|r| r.as_ref().map_or(true, |(k, _v)| &k[..] < &end_prefix[..]))
+			.take_while(|r| r.as_ref().map_or(true, |(k, _v)| is_below_end(&k[..], &end_prefix)))
 			.peekable();
 
 		let batch = load_all_at_finalized_height(iter, batch_num, batch_finalized_hash)?;

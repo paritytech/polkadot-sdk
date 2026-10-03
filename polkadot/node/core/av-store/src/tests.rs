@@ -1364,3 +1364,47 @@ fn query_chunk_size_works() {
 		virtual_overseer
 	});
 }
+
+#[test]
+fn finalized_block_range_covers_the_max_block_number() {
+	let key_at = |number: BlockNumber| {
+		(
+			UNFINALIZED_PREFIX,
+			BEBlockNumber(number),
+			Hash::repeat_byte(1),
+			CandidateHash(Hash::repeat_byte(2)),
+		)
+			.encode()
+	};
+
+	let (start, end) = finalized_block_range(BlockNumber::MAX - 1);
+	assert!(key_at(BlockNumber::MAX - 1).starts_with(&start));
+	assert!(is_below_end(&key_at(BlockNumber::MAX - 1), &end));
+	assert!(!is_below_end(&key_at(BlockNumber::MAX), &end));
+
+	// `MAX + 1` used to overflow; every unfinalized key is finalized at `MAX`.
+	let (start, end) = finalized_block_range(BlockNumber::MAX);
+	assert_eq!(end, None);
+	for number in [0, 1, BlockNumber::MAX - 1, BlockNumber::MAX] {
+		assert!(key_at(number).starts_with(&start));
+		assert!(is_below_end(&key_at(number), &end));
+	}
+}
+
+#[test]
+fn known_unfinalized_blocks_prune_finalized_at_max_block_number() {
+	let mut known = KnownUnfinalizedBlocks::default();
+	let below_max = Hash::repeat_byte(1);
+	let at_max = Hash::repeat_byte(2);
+	known.insert(below_max, BlockNumber::MAX - 1);
+	known.insert(at_max, BlockNumber::MAX);
+
+	known.prune_finalized(BlockNumber::MAX - 1);
+	assert!(!known.is_known(&below_max));
+	assert!(known.is_known(&at_max));
+
+	// Saturating the split point at `MAX` used to keep the block at `MAX`.
+	known.prune_finalized(BlockNumber::MAX);
+	assert!(!known.is_known(&at_max));
+	assert!(known.by_number.is_empty());
+}
