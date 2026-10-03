@@ -5707,3 +5707,25 @@ fn test_observe_assignment_gathering_status() {
 
 	assert_eq!(value.get_sample_count(), 1);
 }
+
+#[test]
+fn prune_finalized_wakeups_at_max_block_number_prunes_everything() {
+	let mut wakeups = Wakeups::default();
+	let below_max = (Hash::repeat_byte(1), CandidateHash(Hash::repeat_byte(11)));
+	let at_max = (Hash::repeat_byte(2), CandidateHash(Hash::repeat_byte(22)));
+	wakeups.schedule(below_max.0, BlockNumber::MAX - 1, below_max.1, 5);
+	wakeups.schedule(at_max.0, BlockNumber::MAX, at_max.1, 7);
+
+	// Finalizing `MAX - 1` keeps the block at `MAX`.
+	wakeups.prune_finalized_wakeups(BlockNumber::MAX - 1);
+	assert_eq!(wakeups.wakeup_for(below_max.0, below_max.1), None);
+	assert_eq!(wakeups.wakeup_for(at_max.0, at_max.1), Some(7));
+	assert_eq!(wakeups.first(), Some(7));
+
+	// Finalizing `MAX` used to overflow; it must prune the last block too.
+	wakeups.prune_finalized_wakeups(BlockNumber::MAX);
+	assert_eq!(wakeups.wakeup_for(at_max.0, at_max.1), None);
+	assert_eq!(wakeups.first(), None);
+	assert!(wakeups.block_numbers.is_empty());
+	assert!(wakeups.reverse_wakeups.is_empty());
+}

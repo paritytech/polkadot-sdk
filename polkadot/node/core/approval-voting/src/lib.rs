@@ -657,7 +657,11 @@ impl Wakeups {
 	}
 
 	fn prune_finalized_wakeups(&mut self, finalized_number: BlockNumber) {
-		let after = self.block_numbers.split_off(&(finalized_number + 1));
+		// At `BlockNumber::MAX` every tracked block is finalized, so nothing stays.
+		let after = match finalized_number.checked_add(1) {
+			Some(first_unfinalized) => self.block_numbers.split_off(&first_unfinalized),
+			None => BTreeMap::new(),
+		};
 		let pruned_blocks: HashSet<_> = std::mem::replace(&mut self.block_numbers, after)
 			.into_iter()
 			.flat_map(|(_number, hashes)| hashes)
