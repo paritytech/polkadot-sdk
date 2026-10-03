@@ -804,10 +804,17 @@ pub mod pallet {
 				.map(Some)
 				.or_else(|_| T::RejectOrigin::ensure_origin(origin).map(|_| None))?;
 
-			// Ensure parent bounty exist, get parent curator.
-			let (parent_curator, _) = Self::ensure_bounty_active(parent_bounty_id)?;
-
-			ensure!(maybe_sender.map_or(true, |sender| parent_curator == sender), BadOrigin);
+			// A signed caller must be the active parent curator. `RejectOrigin` is
+			// allowed to force cleanup even after the parent leaves the active state.
+			if let Some(sender) = maybe_sender {
+				let (parent_curator, _) = Self::ensure_bounty_active(parent_bounty_id)?;
+				ensure!(parent_curator == sender, BadOrigin);
+			} else {
+				ensure!(
+					pallet_bounties::Bounties::<T>::contains_key(parent_bounty_id),
+					BountiesError::<T>::InvalidIndex,
+				);
+			}
 
 			Self::impl_close_child_bounty(parent_bounty_id, child_bounty_id)?;
 			Ok(())
