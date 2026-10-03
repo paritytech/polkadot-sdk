@@ -21,12 +21,9 @@ use super::*;
 
 #[allow(unused)]
 use crate::Pallet as ValidatorSetAnnouncer;
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
-use frame_support::{
-	traits::{DefensiveTruncateFrom, Get},
-	BoundedVec,
-};
+use frame_support::traits::Get;
 use pallet_validator_collators::ValidatorSet;
 
 #[benchmarks]
@@ -38,23 +35,23 @@ mod benchmarks {
 		let stored = (0..T::MaxValidators::get())
 			.map(|i| account("stored", i, 0))
 			.collect::<Vec<_>>();
-		Pallet::<T>::announce(0, &stored)?;
+		Pallet::<T>::store(0, &stored)?;
 		let validators = (0..n).map(|i| account("validator", i, 0)).collect::<Vec<T::AccountId>>();
 
 		#[block]
 		{
-			Pallet::<T>::announce(1, &validators)?;
+			Pallet::<T>::store(1, &validators)?;
 		}
 
 		assert_eq!(ValidatorSet::<T>::get().map(|set| set.era), Some(1));
-		assert_eq!(OutgoingAnnouncements::<T>::get().len(), T::Destinations::get().len());
 		Ok(())
 	}
 
+	// Measures one send to the first entry of `Destinations`. `announce_weight` charges this
+	// weight once for every destination.
 	#[benchmark]
 	fn send_announcement(n: Linear<1, { T::MaxValidators::get() }>) -> Result<(), BenchmarkError> {
 		let validators = (0..n).map(|i| account("validator", i, 0)).collect::<Vec<T::AccountId>>();
-		Pallet::<T>::announce(1, &validators)?;
 		let destination = T::Destinations::get()
 			.into_iter()
 			.next()
@@ -64,14 +61,18 @@ mod benchmarks {
 		// to queued messages.
 		T::Sender::send(&destination, 0, &validators)
 			.map_err(|_| BenchmarkError::Stop("the sender rejected the set"))?;
-		OutgoingAnnouncements::<T>::put(BoundedVec::defensive_truncate_from(vec![destination]));
 
 		#[block]
 		{
-			Pallet::<T>::send_announcements();
+			Pallet::<T>::send_to(destination.clone(), 1, &validators);
 		}
 
-		assert!(OutgoingAnnouncements::<T>::get().is_empty());
+		frame_system::Pallet::<T>::assert_last_event(
+			<T as frame_system::Config>::RuntimeEvent::from(Event::<T>::AnnouncementSent {
+				destination,
+				era: 1,
+			}),
+		);
 		Ok(())
 	}
 

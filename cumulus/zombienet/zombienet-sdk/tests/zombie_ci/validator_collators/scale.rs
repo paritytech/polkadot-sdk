@@ -15,20 +15,20 @@
 //! Test flow:
 //! 1. Both parachains get session keys for the generated accounts, which with the invulnerable make
 //!    `AUTHORITIES` authorities.
-//! 2. Asset Hub gets the generated accounts as the validator set of era 1 and announces it to
-//!    People over HRMP. People stores it and performs its two forced rotations.
-//! 3. Asset Hub is set to perform its two forced rotations.
-//! 4. On each parachain the block that enacts the new authority list holds the generated accounts
+//! 2. Asset Hub starts era 1 with the generated accounts: the relay chain writes the planned era
+//!    and staking's kept copy of its validators, then hands Asset Hub a session report that
+//!    activates era 1. Staking's era-start hook stores the set on Asset Hub and sends it to People
+//!    over HRMP, and both chains perform their two forced rotations.
+//! 3. On each parachain the block that enacts the new authority list holds the generated accounts
 //!    plus the invulnerable, has a header within the backing limit, and is included and finalized
 //!    by the relay chain. As small extra bonus, the collator's log gives the size of the PoV that
 //!    carries it.
 
 use super::common::{
-	account, build_network_config, fetch, fetch_at, fetch_raw_at, init_logging,
-	is_announcement_of_era_1, keypair, node_seed, open_hrmp_channels, wait_for_event,
-	wait_for_finalized_block, wait_for_hrmp_channel, NetworkOptions, ASSET_HUB_ID,
-	ASSET_HUB_INVULNERABLE, CALL_TIMEOUT, CLIENT_TIMEOUT_SECS, PARA_BLOCKS, PEOPLE_ID,
-	PEOPLE_INVULNERABLE, POLL_INTERVAL,
+	account, build_network_config, fetch, fetch_at, fetch_raw_at, init_logging, keypair, node_seed,
+	open_hrmp_channels, wait_for_event, wait_for_finalized_block, wait_for_hrmp_channel,
+	NetworkOptions, ASSET_HUB_ID, ASSET_HUB_INVULNERABLE, CALL_TIMEOUT, CLIENT_TIMEOUT_SECS,
+	PARA_BLOCKS, PEOPLE_ID, PEOPLE_INVULNERABLE, POLL_INTERVAL,
 };
 use crate::utils::initialize_network;
 
@@ -64,7 +64,7 @@ const SCALE_ACCOUNTS: u32 = 613;
 /// The generated accounts plus the invulnerable.
 const AUTHORITIES: usize = SCALE_ACCOUNTS as usize + 1;
 
-/// Largest HRMP message between the two chains. The announcement of the whole set fits.
+/// Largest HRMP message between the two chains. The message carrying the whole set fits.
 const HRMP_MAX_MESSAGE_SIZE: u32 = 64 * 1024;
 
 /// The relay chain's `hrmp_channel_max_total_size`, room for one message of the largest size.
@@ -78,12 +78,13 @@ const SUDO_BALANCE: u128 = 1_000_000 * 1_000_000_000_000;
 /// state.
 const KEYS_WRITTEN_TIMEOUT: Duration = Duration::from_secs(2 * 60);
 
-/// From writing the validator set on Asset Hub to People's second rotation: Asset Hub stores the
+/// From the session report that starts era 1 to People's second rotation: Asset Hub stores the
 /// set, sends it over HRMP, People stores it and rotates twice, and the relay chain finalizes the
 /// rotation.
 const PEOPLE_ROTATION_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
-/// From arming Asset Hub to its second rotation being finalized.
+/// From the finalization of the session report that starts era 1 to Asset Hub's second rotation
+/// being finalized.
 const ASSET_HUB_ROTATION_TIMEOUT: Duration = Duration::from_secs(4 * 60);
 
 /// From a parachain's second rotation to the relay chain finalizing its inclusion.
@@ -178,17 +179,18 @@ async fn run() -> Result<(), anyhow::Error> {
 		wait_for_keys(chain, &keys).await?;
 	}
 
-	// WHEN Asset Hub announces the generated accounts to People as the set of era 1
+	// WHEN Asset Hub starts era 1 with the generated accounts
 	let people_index = current_index(&people_client).await?;
-	let announced = tokio::spawn(wait_for_event(
+	let asset_hub_index = current_index(&asset_hub_client).await?;
+	let asset_hub_received = tokio::spawn(wait_for_event(
 		asset_hub_client.clone(),
 		asset_hub.name,
-		"ValidatorSetAnnouncer",
-		"AnnouncementSent",
-		is_announcement_of_era_1,
-		PEOPLE_ROTATION_TIMEOUT,
+		"ValidatorCollators",
+		"ValidatorSetReceived",
+		is_set_of_era_1_at_scale,
+		ASSET_HUB_ROTATION_TIMEOUT,
 	));
-	let received = tokio::spawn(wait_for_event(
+	let people_received = tokio::spawn(wait_for_event(
 		people_client.clone(),
 		people.name,
 		"ValidatorCollators",
@@ -196,42 +198,31 @@ async fn run() -> Result<(), anyhow::Error> {
 		is_set_of_era_1_at_scale,
 		PEOPLE_ROTATION_TIMEOUT,
 	));
+	// Subscribed before the report so the rotation cannot be missed, timed from the report below.
+	let asset_hub_rotation = tokio::spawn(wait_for_authorities_change(
+		asset_hub_client.clone(),
+		asset_hub.name,
+		TEST_TIMEOUT,
+	));
 	let people_rotation = tokio::spawn(wait_for_authorities_change(
 		people_client.clone(),
 		people.name,
 		PEOPLE_ROTATION_TIMEOUT,
 	));
+	log_latest_pov(&network, &asset_hub).await?;
 	log_latest_pov(&network, &people).await?;
-	let items = announcement_items(&asset_hub_client, &accounts)?;
-	write_storage(&relay_client, &asset_hub, items).await?;
-	announced.await??;
-	received.await??;
+	start_era_1(&relay_client, &asset_hub, &accounts).await?;
+	let asset_hub_rotation = tokio::time::timeout(ASSET_HUB_ROTATION_TIMEOUT, asset_hub_rotation);
+	asset_hub_received.await??;
+	people_received.await??;
 
-	// THEN People rotates to the generated accounts plus the invulnerable in a block the relay
+	// THEN both chains rotate to the generated accounts plus the invulnerable in a block the relay
 	// chain includes and finalizes
 	let rotation = people_rotation.await??;
 	check_rotation(&relay_client, &network, &people, &accounts, &rotation, people_index).await?;
-
-	// WHEN Asset Hub performs its forced rotations
-	let asset_hub_index = current_index(&asset_hub_client).await?;
-	let asset_hub_rotation = tokio::spawn(wait_for_authorities_change(
-		asset_hub_client.clone(),
-		asset_hub.name,
-		ASSET_HUB_ROTATION_TIMEOUT,
-	));
-	log_latest_pov(&network, &asset_hub).await?;
-	let items = vec![storage_item(
-		&asset_hub_client,
-		"ValidatorCollators",
-		"PendingRotation",
-		vec![],
-		Value::unnamed_variant("ToPlan", []),
-	)?];
-	write_storage(&relay_client, &asset_hub, items).await?;
-
-	// THEN Asset Hub rotates to the generated accounts plus the invulnerable in a block the relay
-	// chain includes and finalizes
-	let rotation = asset_hub_rotation.await??;
+	let rotation = asset_hub_rotation.await.map_err(|_| {
+		anyhow!("Asset Hub did not rotate within {ASSET_HUB_ROTATION_TIMEOUT:?} of the report")
+	})???;
 	check_rotation(&relay_client, &network, &asset_hub, &accounts, &rotation, asset_hub_index)
 		.await?;
 
@@ -299,27 +290,61 @@ fn session_key_items(
 		.collect()
 }
 
-/// The set of era 1 in `ValidatorCollators` and People queued in `ValidatorSetAnnouncer`, so the
-/// announcer sends the set in the next block. `PendingRotation` stays idle.
-fn announcement_items(
-	client: &OnlineClient<PolkadotConfig>,
+/// Starts era 1 on Asset Hub with `accounts` as its validators, without an election.
+///
+/// The relay chain writes era 1 as the planned era and as staking's kept copy of its validators,
+/// then sends `relay_session_report` with an activation of era 1, which ends era 0 and calls the
+/// era-start hook.
+async fn start_era_1(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	asset_hub: &Chain<'_>,
 	accounts: &[[u8; 32]],
-) -> Result<StorageItems, anyhow::Error> {
-	let set = Value::named_composite([
-		("era", Value::u128(1)),
-		("validators", Value::unnamed_composite(accounts.iter().map(Value::from_bytes))),
-	]);
-	let destinations = Value::unnamed_composite([Value::unnamed_variant("People", [])]);
-	Ok(vec![
-		storage_item(client, "ValidatorCollators", "ValidatorSet", vec![], set)?,
+) -> Result<(), anyhow::Error> {
+	let validators = Value::unnamed_composite(accounts.iter().map(Value::from_bytes));
+	let items = vec![
+		storage_item(asset_hub.client, "Staking", "CurrentEra", vec![], Value::u128(1))?,
 		storage_item(
-			client,
-			"ValidatorSetAnnouncer",
-			"OutgoingAnnouncements",
+			asset_hub.client,
+			"Staking",
+			"NextEraValidators",
 			vec![],
-			destinations,
+			Value::unnamed_composite([Value::u128(1), validators]),
 		)?,
-	])
+	];
+	write_storage(relay_client, asset_hub, items).await?;
+
+	// Past any report the relay chain may have sent, so the report is not taken as a repeat.
+	let last_report: Option<u32> =
+		fetch(asset_hub.client, "StakingRcClient", "LastSessionReportEndingIndex", vec![]).await?;
+	let end_index = last_report.map_or(0, |last| last + 100);
+	let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_millis();
+	let report = Value::named_composite([
+		("end_index", Value::u128(end_index.into())),
+		("validator_points", Value::unnamed_composite([])),
+		(
+			"activation_timestamp",
+			Value::unnamed_variant(
+				"Some",
+				[Value::unnamed_composite([Value::u128(now), Value::u128(1)])],
+			),
+		),
+		("leftover", Value::bool(false)),
+	]);
+	let call = asset_hub.client.tx().call_data(&subxt::dynamic::tx(
+		"StakingRcClient",
+		"relay_session_report",
+		vec![report],
+	))?;
+	submit_extrinsic_and_wait_for_finalization_success_with_timeout(
+		relay_client,
+		&root_transact(asset_hub.id, call),
+		&dev::alice(),
+		CALL_TIMEOUT.as_secs(),
+	)
+	.await
+	.map_err(|e| anyhow!("sending the session report to {}: {e}", asset_hub.name))?;
+	log::info!("Sent the session report that starts era 1 to {}", asset_hub.name);
+	Ok(())
 }
 
 /// Writes `items` on `chain` from the relay chain, in as many messages as the chain's message

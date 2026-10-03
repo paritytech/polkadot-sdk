@@ -33,8 +33,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_validators(n: Linear<1, { T::MaxValidators::get() }>) -> Result<(), BenchmarkError> {
-		let origin =
-			T::SetOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let stored = BoundedVec::truncate_from(
 			(0..T::MaxValidators::get()).map(|i| account("stored", i, 0)).collect(),
 		);
@@ -42,8 +40,10 @@ mod benchmarks {
 		let validators =
 			BoundedVec::truncate_from((0..n).map(|i| account("validator", i, 0)).collect());
 
-		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, 1, validators);
+		#[block]
+		{
+			Pallet::<T>::receive_validator_set(1, validators)?;
+		}
 
 		assert_eq!(
 			ValidatorSet::<T>::get().map(|set| (set.era, set.validators.len() as u32)),

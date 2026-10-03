@@ -1185,8 +1185,6 @@ impl pallet_collator_selection::Config for Runtime {
 
 impl pallet_validator_collators::Config for Runtime {
 	// The set is written only by the staking era-start hook.
-	// The generated weight of `set_validators` is zero here because the call cannot dispatch, so
-	// re-benchmark if this origin ever changes.
 	type SetOrigin = frame_system::EnsureNever<AccountId>;
 	type UpdateOrigin = CollatorSelectionUpdateOrigin;
 	type ValidatorRegistration = Session;

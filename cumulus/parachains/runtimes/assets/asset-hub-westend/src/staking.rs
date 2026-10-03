@@ -452,8 +452,7 @@ parameter_types! {
 pub struct AnnounceValidatorSet;
 impl pallet_staking_async::OnEraStart<AccountId> for AnnounceValidatorSet {
 	fn on_era_start(era: EraIndex, validators: &[AccountId]) {
-		// Storing the set and retrying the sends is the announcer's responsibility, not the
-		// caller's. A rejected set is reported with `AnnouncementRejected`.
+		// A rejected set is reported by the announcer with `AnnouncementRejected`.
 		let _ = ValidatorSetAnnouncer::announce(era, validators);
 	}
 

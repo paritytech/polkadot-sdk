@@ -93,19 +93,26 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 
 	// WHEN Asset Hub starts era 1 with Alice, Bob and Charlie
 	let asset_hub_session_before = AssetHubWestend::execute_with(|| {
-		asset_hub_westend_runtime::staking::AnnounceValidatorSet::on_era_start(1, &validators);
-		pallet_session::Pallet::<<AssetHubWestend as Chain>::Runtime>::current_index()
-	});
-	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		asset_hub_westend_runtime::staking::AnnounceValidatorSet::on_era_start(1, &validators);
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
+				RuntimeEvent::ValidatorCollators(
+					pallet_validator_collators::Event::ValidatorSetReceived { era: 1, count: 3 }
+				) => {},
 				RuntimeEvent::ValidatorSetAnnouncer(
 					pallet_validator_set_announcer::Event::AnnouncementSent { era: 1, .. }
 				) => {},
 			]
 		);
+		assert!(!<AssetHubWestend as Chain>::events().iter().any(|event| matches!(
+			event,
+			RuntimeEvent::ValidatorSetAnnouncer(
+				pallet_validator_set_announcer::Event::AnnouncementFailed { .. }
+			)
+		)));
+		pallet_session::Pallet::<<AssetHubWestend as Chain>::Runtime>::current_index()
 	});
 	PeopleWestend::execute_with(|| {
 		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
@@ -120,6 +127,9 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 	});
 
 	// THEN after two forced rotations both chains collate with the invulnerables, Alice and Bob
+	// Every `execute_with` runs one block, and the rotations run in the two blocks after the one
+	// that received the set.
+	AssetHubWestend::execute_with(|| {});
 	AssetHubWestend::execute_with(|| {
 		type Session = pallet_session::Pallet<<AssetHubWestend as Chain>::Runtime>;
 		assert_eq!(Session::current_index(), asset_hub_session_before + 2);
@@ -129,8 +139,6 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 			asset_hub_authorities
 		);
 	});
-	// Every `execute_with` runs one block. People received the set in the block above, so it
-	// needs one more block than Asset Hub to reach the second rotation.
 	PeopleWestend::execute_with(|| {});
 	PeopleWestend::execute_with(|| {
 		type Session = pallet_session::Pallet<<PeopleWestend as Chain>::Runtime>;
