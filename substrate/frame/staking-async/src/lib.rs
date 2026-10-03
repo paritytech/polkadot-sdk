@@ -520,7 +520,8 @@ impl<AccountId> IsValidatorInactive<AccountId> for () {
 /// Notified when a new era becomes active.
 pub trait OnEraStart<AccountId> {
 	/// Whether the hook is in use. When `false`, staking does not keep the elected set, and at
-	/// era start it only removes a copy kept while the hook was enabled, at the cost of one read.
+	/// era start it only removes a copy kept while the hook was enabled, charged as one read and
+	/// one write.
 	///
 	/// Expected to be constant for a given runtime version.
 	fn enabled() -> bool {

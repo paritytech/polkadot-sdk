@@ -49,7 +49,7 @@ mod benchmarks {
 			ValidatorSet::<T>::get().map(|set| (set.era, set.validators.len() as u32)),
 			Some((1, n))
 		);
-		assert_eq!(PendingRotation::<T>::get(), RotationState::ToPlan);
+		assert_eq!(PendingRotation::<T>::get(), RotationState::AwaitingQueue);
 		Ok(())
 	}
 

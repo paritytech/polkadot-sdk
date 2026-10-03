@@ -50,7 +50,7 @@ fn announce_stores_the_set_and_sends_it_once_to_every_destination() {
 		assert_ok!(ValidatorSetAnnouncer::announce(1, &[10, 11]));
 		// THEN it is stored locally, destination 1 got it, and each send is reported
 		assert_eq!(stored(), Some((1, vec![10, 11])));
-		assert_eq!(PendingRotation::<Test>::get(), RotationState::ToPlan);
+		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
 		assert_eq!(Sent::get(), vec![(1, 1, vec![10, 11])]);
 		assert_eq!(
 			announcement_events(),

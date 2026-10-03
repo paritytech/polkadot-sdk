@@ -14,8 +14,8 @@ doc:
     not retry, since the next era sends the full set again.
 
     `pallet-staking-async` gains the `OnEraStart` config item, called with the validators of
-    each era when it becomes active. Use `()` to keep the previous behaviour, at the cost of one
-    storage read per era.
+    each era when it becomes active. Use `()` to keep the previous behaviour.
+    storage read and write per era.
 
     People Westend uses the receiver, and Asset Hub Westend uses both pallets. Asset Hub
     announces every new era to itself and to People. The pallet and call index of People's

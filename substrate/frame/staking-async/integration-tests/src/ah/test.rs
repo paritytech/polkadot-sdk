@@ -20,7 +20,10 @@ use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
 use frame_support::{
 	assert_ok, hypothetically,
-	traits::fungible::{hold::Inspect as HoldInspect, Inspect, Mutate, Unbalanced},
+	traits::{
+		fungible::{hold::Inspect as HoldInspect, Inspect, Mutate, Unbalanced},
+		Get, StorageInfoTrait,
+	},
 };
 use pallet_election_provider_multi_block::{
 	signed::Event as SignedEvent, unsigned::miner::OffchainWorkerMiner,
@@ -413,7 +416,7 @@ fn roll_many_eras() {
 }
 
 #[test]
-fn era_start_is_charged_only_when_the_hook_is_on_and_on_the_final_page() {
+fn era_start_is_charged_only_on_the_final_page() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		// GIVEN the era-start hook is switched off
 		assert!(!EraStartHookEnabled::get());
@@ -428,18 +431,34 @@ fn era_start_is_charged_only_when_the_hook_is_on_and_on_the_final_page() {
 		assert!(!staking_async::NextEraValidators::<T>::exists());
 		end_session_with(false, AssertSessionType::IdleNoExport);
 		end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
-		// THEN no set was kept and the session report is charged no era-start weight
+		// THEN no set was kept and the session report is charged only for taking a kept set, as
+		// one read and one write with the set's maximum size as proof size
 		assert_eq!(ActiveEra::<T>::get().unwrap().index, 1);
 		assert!(!staking_async::NextEraValidators::<T>::exists());
 		let weigh = <Staking as AHStakingInterface>::weigh_on_relay_session_report;
+		let kept_set_size =
+			<staking_async::NextEraValidators<T> as StorageInfoTrait>::storage_info()
+				.iter()
+				.filter_map(|info| info.max_size)
+				.map(u64::from)
+				.sum::<u64>();
+		let db_weight: frame_support::weights::RuntimeDbWeight =
+			<T as frame::deps::frame_system::Config>::DbWeight::get();
+		let take = db_weight
+			.reads_writes(1, 1)
+			.saturating_add(Weight::from_parts(0, kept_set_size));
 		let base =
 			<<T as staking_async::Config>::WeightInfo as WeightInfo>::rc_on_session_report(n);
-		assert_eq!(weigh(&report), base);
+		assert_eq!(weigh(&report), base.saturating_add(take));
 		// WHEN the hook is switched on
 		EraStartHookEnabled::set(true);
-		// THEN only the final page of a report carries the era-start cost
+		// THEN the final page also carries the hook's weight, and a non-final page carries no
+		// era-start cost
 		let non_final_page = rc_client::SessionReport { leftover: true, ..report.clone() };
-		assert!(weigh(&report).any_gt(base));
+		assert_eq!(
+			weigh(&report),
+			base.saturating_add(take).saturating_add(EraStartHookWeight::get())
+		);
 		assert_eq!(weigh(&non_final_page), base);
 		EraStartHookEnabled::set(false);
 	});

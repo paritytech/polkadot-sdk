@@ -914,44 +914,45 @@ impl<T: Config> Rotator<T> {
 	/// Notify [`Config::OnEraStart`] with the validators of `era`, taking the copy kept by
 	/// [`Self::keep_next_era_validators`].
 	///
-	/// Costs one read and one removal of the copy. Without a copy, as for an era whose election
-	/// completed before the hook was enabled, the hook is not called for that era. With the hook
-	/// disabled, a copy kept while it was enabled is removed at the cost of one write and the hook
-	/// is not called.
+	/// Taking the copy is charged as one read and one write, with the copy's maximum size as
+	/// proof size, whether or not the hook is enabled. Without a copy, as for an era whose
+	/// election completed before the hook was enabled, the hook is not called for that era. With
+	/// the hook disabled, a copy kept while it was enabled is removed and the hook is not called.
 	fn notify_era_start(era: EraIndex) -> Weight {
 		let kept = NextEraValidators::<T>::take();
+		let take_weight = Self::take_kept_validators_weight();
 		if !T::OnEraStart::enabled() {
-			// The read is part of the benchmarked weight of the session report.
-			return if kept.is_some() { T::DbWeight::get().writes(1) } else { Weight::zero() };
+			return take_weight;
 		}
-		let read_weight = Self::kept_validators_weight();
 		match kept {
 			Some((kept_era, validators)) if kept_era == era => {
 				T::OnEraStart::on_era_start(era, &validators);
-				read_weight.saturating_add(T::OnEraStart::weight(validators.len() as u32))
+				take_weight.saturating_add(T::OnEraStart::weight(validators.len() as u32))
 			},
 			Some(_) => {
 				defensive!("kept validators belong to another era");
-				read_weight
+				take_weight
 			},
 			None => {
 				log!(warn, "no validators kept for era {:?}, the era-start hook is skipped", era);
-				read_weight
+				take_weight
 			},
 		}
 	}
 
 	/// Worst-case weight of [`Self::notify_era_start`].
 	pub(crate) fn notify_era_start_max_weight() -> Weight {
-		if !T::OnEraStart::enabled() {
-			return Weight::zero();
-		}
-		Self::kept_validators_weight()
-			.saturating_add(T::OnEraStart::weight(T::MaxValidatorSet::get()))
+		let hook_weight = if T::OnEraStart::enabled() {
+			T::OnEraStart::weight(T::MaxValidatorSet::get())
+		} else {
+			Weight::zero()
+		};
+		Self::take_kept_validators_weight().saturating_add(hook_weight)
 	}
 
-	/// Weight of taking [`NextEraValidators`], with its maximum encoded size as proof size.
-	fn kept_validators_weight() -> Weight {
+	/// Weight of taking [`NextEraValidators`]: one read and one write, with its maximum encoded
+	/// size as proof size.
+	fn take_kept_validators_weight() -> Weight {
 		let proof_size =
 			<NextEraValidators<T> as frame_support::traits::StorageInfoTrait>::storage_info()
 				.iter()

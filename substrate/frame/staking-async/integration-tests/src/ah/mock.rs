@@ -518,6 +518,8 @@ parameter_types! {
 	pub static EraStartHookEnabled: bool = false;
 	/// The eras and validators [`EraStartRecorder`] was called with.
 	pub static StartedEras: Vec<(EraIndex, Vec<AccountId>)> = Vec::new();
+	/// The weight [`EraStartRecorder`] reports for any set.
+	pub const EraStartHookWeight: Weight = Weight::from_parts(1_000_000, 1_000);
 }
 
 /// An `OnEraStart` hook that records its calls while [`EraStartHookEnabled`] is set.
@@ -532,7 +534,7 @@ impl pallet_staking_async::OnEraStart<AccountId> for EraStartRecorder {
 	}
 
 	fn weight(_validators: u32) -> Weight {
-		Weight::zero()
+		EraStartHookWeight::get()
 	}
 }
 

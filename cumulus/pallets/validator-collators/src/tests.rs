@@ -87,7 +87,7 @@ fn set_with_era_not_newer_than_stored_is_rejected() {
 			ValidatorSet::<Test>::get(),
 			Some(EraValidatorSet { era: 5, validators: vec![10, 11].try_into().unwrap() })
 		);
-		assert_eq!(PendingRotation::<Test>::get(), RotationState::ToPlan);
+		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
@@ -135,7 +135,7 @@ fn received_set_is_enacted_after_two_forced_rotations() {
 		// THEN the session rotates at blocks 4 and 5 and then holds the deduplicated union
 		initialize_to_block(4);
 		assert_eq!(Session::current_index(), 1);
-		assert_eq!(PendingRotation::<Test>::get(), RotationState::Planned);
+		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingEnactment);
 		initialize_to_block(5);
 		assert_eq!(Session::current_index(), 2);
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
@@ -294,11 +294,11 @@ fn set_received_while_planned_rearms_the_rotations() {
 		initialize_to_block(3);
 		assert_ok!(receive(1, vec![10]));
 		initialize_to_block(4);
-		assert_eq!(PendingRotation::<Test>::get(), RotationState::Planned);
+		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingEnactment);
 		// WHEN a set for era 2 arrives at block 4
 		assert_ok!(receive(2, vec![11]));
 		// THEN the session rotates again at blocks 5 and 6 and the era 2 set is enacted
-		assert_eq!(PendingRotation::<Test>::get(), RotationState::ToPlan);
+		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
 		initialize_to_block(5);
 		assert_eq!(Session::current_index(), 2);
 		initialize_to_block(6);

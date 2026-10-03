@@ -34,6 +34,10 @@
 //! [`pallet_session::UnionSessionManager`], so invulnerables and candidates keep collating next to
 //! the validators.
 //!
+//! The stored set is the one staking elected for the era. The relay chain enacts only the elected
+//! validators with relay-chain session keys, and each system chain returns only those with keys
+//! registered there, so a returned collator is not necessarily an active relay-chain validator.
+//!
 //! The pallet is also a [`pallet_session::ShouldEndSession`]. Pallet-session queues a new set at
 //! one rotation and enacts it at the next. When a set arrives the pallet forces two rotations in
 //! the following two blocks, so the set is in force without waiting for the regular period. The
@@ -119,9 +123,9 @@ pub mod pallet {
 		#[default]
 		Idle,
 		/// A set was received and the next rotation queues it.
-		ToPlan,
+		AwaitingQueue,
 		/// The set is queued and the next rotation enacts it.
-		Planned,
+		AwaitingEnactment,
 	}
 
 	#[pallet::pallet]
@@ -250,7 +254,7 @@ pub mod pallet {
 			);
 			let count = validators.len() as u32;
 			ValidatorSet::<T>::put(EraValidatorSet { era, validators });
-			PendingRotation::<T>::put(RotationState::ToPlan);
+			PendingRotation::<T>::put(RotationState::AwaitingQueue);
 			Self::deposit_event(Event::ValidatorSetReceived { era, count });
 			Ok(())
 		}
@@ -273,8 +277,10 @@ pub mod pallet {
 	impl<T: Config> SessionManager<T::AccountId> for Pallet<T> {
 		fn new_session(_: SessionIndex) -> Option<Vec<T::AccountId>> {
 			match PendingRotation::<T>::get() {
-				RotationState::ToPlan => PendingRotation::<T>::put(RotationState::Planned),
-				RotationState::Planned => PendingRotation::<T>::kill(),
+				RotationState::AwaitingQueue => {
+					PendingRotation::<T>::put(RotationState::AwaitingEnactment)
+				},
+				RotationState::AwaitingEnactment => PendingRotation::<T>::kill(),
 				RotationState::Idle => {},
 			}
 			let Some(set) = ValidatorSet::<T>::get() else {
