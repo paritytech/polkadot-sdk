@@ -1,0 +1,10 @@
+title: 'av-store: prune the unfinalized index when the finalized number is BlockNumber::MAX'
+doc:
+  - audience: Node Dev
+    description: |
+      Finalizing BlockNumber::MAX no longer overflows when computing the unfinalized-index
+      range or the next batch, and prunes every unfinalized entry, both in the database and in
+      the in-memory set of known unfinalized blocks.
+crates:
+  - name: polkadot-node-core-av-store
+    bump: patch
