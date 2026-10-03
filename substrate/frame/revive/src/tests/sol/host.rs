@@ -25,10 +25,11 @@ use crate::{
 	storage::AccountInfo,
 	test_utils::{
 		ALICE, BOB, BOB_ADDR, CHARLIE, CHARLIE_ADDR, DJANGO, DJANGO_ADDR, builder::Contract,
+		deposit_limit,
 	},
 	tests::{
-		Contracts, ExtBuilder, RuntimeEvent, Test, TestSigner, builder, dummy_evm_contract,
-		test_utils, test_utils::get_contract,
+		Contracts, DepositPerByte, ExtBuilder, RuntimeEvent, Test, TestSigner, builder,
+		dummy_evm_contract, test_utils, test_utils::get_contract,
 	},
 };
 use frame_support::{assert_err_ignore_postinfo, assert_ok};
@@ -918,6 +919,58 @@ fn storage_item_zero_shall_refund_deposit_simple(fixture_type: FixtureType) {
 			base_deposit,
 			"contract should refund deposit on zeroing storage item"
 		);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn sstore_deposit_after_rate_change(fixture_type: FixtureType) {
+	let (host_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: host_addr, .. } =
+			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+
+		let store_two = |slot_a, value_a, slot_b, value_b, limit| {
+			builder::call(host_addr)
+				.storage_deposit_limit(limit)
+				.data(
+					Host::sstoreTwoCall {
+						slotA: slot_a,
+						valueA: value_a,
+						slotB: slot_b,
+						valueB: value_b,
+					}
+					.abi_encode(),
+				)
+				.build()
+		};
+
+		assert_ok!(store_two(1, 1, 2, 1, deposit_limit::<Test>()));
+		let deposit = get_contract(&host_addr).total_deposit();
+		DepositPerByte::set(10);
+
+		// Deleting slot 1 and creating slot 3 is netted, so it is free despite the new rate.
+		assert_ok!(store_two(1, 0, 3, 1, 0));
+		assert_eq!(get_contract(&host_addr).total_deposit(), deposit);
+
+		assert_ok!(store_two(2, 2, 2, 3, 0));
+		assert_eq!(get_contract(&host_addr).total_deposit(), deposit);
+
+		assert_ok!(store_two(4, 1, 4, 0, 0));
+		assert_eq!(get_contract(&host_addr).total_deposit(), deposit);
+
+		// 32 for key, 32 for value, 2 for item, per slot
+		let charge = 2 * (64 * 10 + 2);
+		assert_err_ignore_postinfo!(
+			store_two(5, 1, 6, 1, charge - 1),
+			Error::<Test>::StorageDepositLimitExhausted,
+		);
+		assert_eq!(get_contract(&host_addr).total_deposit(), deposit);
+		assert_ok!(store_two(5, 1, 6, 1, charge));
+		assert_eq!(get_contract(&host_addr).total_deposit(), deposit + charge);
 	});
 }
 
