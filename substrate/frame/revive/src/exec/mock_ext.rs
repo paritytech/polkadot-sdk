@@ -318,7 +318,7 @@ impl<T: Config> BuiltinPrecompileExt for MockExt<T> {
 		panic!("MockExt::warmth_of")
 	}
 
-	fn ensure_storage_write_allowed(&self) -> Result<(), DispatchError> {
-		panic!("MockExt::ensure_storage_write_allowed")
+	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError> {
+		panic!("MockExt::ensure_not_stipend_frame")
 	}
 }

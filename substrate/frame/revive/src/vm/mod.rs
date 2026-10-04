@@ -208,7 +208,7 @@ impl StipendAndProtections {
 		if self.is_transfer_or_send {
 			CallProtections {
 				reentrancy: ReentrancyProtection::AllowNext,
-				denies_storage_writes: true,
+				stipend_frame: true,
 				..Default::default()
 			}
 		} else {

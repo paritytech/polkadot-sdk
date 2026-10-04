@@ -30,8 +30,8 @@ doc:
 
     `PrecompileExt::call` takes a `CallProtections` argument in place of its reentrancy protection
     and `read_only` arguments. The struct carries the reentrancy protection, `read_only`, and
-    `denies_storage_writes`, which stops the callee and every frame it creates from writing
-    persistent contract storage. A precompile that passed `ReentrancyProtection::AllowReentry` and
+    `stipend_frame`, which marks the callee as the receiver of a `transfer()` or `send()`: it and
+    every frame it creates cannot write persistent contract storage. A precompile that passed `ReentrancyProtection::AllowReentry` and
     `false` now passes `CallProtections::default()`. Set any other reentrancy level on the
     `reentrancy` field, and a read-only call on the `read_only` field:
     ```rust

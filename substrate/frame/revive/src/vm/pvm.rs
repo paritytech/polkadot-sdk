@@ -478,7 +478,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		if !transient {
-			self.ext.ensure_storage_write_allowed()?;
+			self.ext.ensure_not_stipend_frame()?;
 		}
 
 		let value_len = match &value {
@@ -534,7 +534,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		if !transient {
-			self.ext.ensure_storage_write_allowed()?;
+			self.ext.ensure_not_stipend_frame()?;
 		}
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {

@@ -151,8 +151,9 @@ pub struct CallProtections {
 	pub reentrancy: ReentrancyProtection,
 	/// Whether the callee and every frame it creates cannot change state.
 	pub read_only: bool,
-	/// Whether the callee and every frame it creates cannot write persistent contract storage.
-	pub denies_storage_writes: bool,
+	/// Whether the callee is the receiver of a `transfer` or `send`. Such a callee, and every frame
+	/// it creates, cannot write persistent contract storage.
+	pub stipend_frame: bool,
 }
 
 impl Default for CallProtections {
@@ -160,7 +161,7 @@ impl Default for CallProtections {
 		Self {
 			reentrancy: ReentrancyProtection::AllowReentry,
 			read_only: false,
-			denies_storage_writes: false,
+			stipend_frame: false,
 		}
 	}
 }
@@ -171,7 +172,7 @@ impl CallProtections {
 	fn inherit<T: Config>(self, caller: &Frame<T>) -> Self {
 		Self {
 			read_only: self.read_only || caller.read_only,
-			denies_storage_writes: self.denies_storage_writes || caller.denies_storage_writes,
+			stipend_frame: self.stipend_frame || caller.stipend_frame,
 			..self
 		}
 	}
@@ -353,8 +354,9 @@ pub trait BuiltinPrecompileExt: PrecompileExt {
 		StorageItems::new(self.address(), key, op)
 	}
 
-	/// Returns an `OutOfGas` error if the current frame cannot write persistent contract storage.
-	fn ensure_storage_write_allowed(&self) -> Result<(), DispatchError>;
+	/// Returns an `OutOfGas` error if the current frame is the receiver of a `transfer` or `send`,
+	/// or was created by one.
+	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError>;
 }
 
 /// Environment functions which are available to pre-compiles with `HAS_CONTRACT_INFO = true`.
@@ -727,8 +729,9 @@ struct Frame<T: Config> {
 	allows_reentry: bool,
 	/// If `true` subsequent calls cannot modify storage.
 	read_only: bool,
-	/// If `true` this frame and every frame it creates cannot write persistent contract storage.
-	denies_storage_writes: bool,
+	/// If `true` this frame is the receiver of a `transfer` or `send`, or was created by one, and
+	/// cannot write persistent contract storage.
+	stipend_frame: bool,
 	/// The delegate call info of the currently executing frame which was spawned by
 	/// `delegate_call`.
 	delegate: Option<DelegateInfo<T>>,
@@ -1343,7 +1346,7 @@ where
 			frame_meter: meter.new_nested(call_resources)?,
 			allows_reentry: true,
 			read_only: protections.read_only,
-			denies_storage_writes: protections.denies_storage_writes,
+			stipend_frame: protections.stipend_frame,
 			last_frame_output: Default::default(),
 			contracts_created: Default::default(),
 			contracts_to_be_destroyed: Default::default(),
@@ -2282,8 +2285,8 @@ where
 		self.access_list.warmth_of_summarized(access)
 	}
 
-	fn ensure_storage_write_allowed(&self) -> Result<(), DispatchError> {
-		if self.top_frame().denies_storage_writes {
+	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError> {
+		if self.top_frame().stipend_frame {
 			// EIP-2200 fails such a write with out of gas.
 			return Err(Error::<T>::OutOfGas.into());
 		}
@@ -2869,7 +2872,7 @@ where
 	) -> Result<WriteOutcome, DispatchError> {
 		assert!(self.has_contract_info());
 		// Covers runtime precompiles
-		self.ensure_storage_write_allowed()?;
+		self.ensure_not_stipend_frame()?;
 		let frame = self.top_frame_mut();
 		frame.contract_info.get(&frame.account_id).write(
 			key.into(),

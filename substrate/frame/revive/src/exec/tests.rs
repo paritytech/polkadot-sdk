@@ -2100,7 +2100,7 @@ fn set_storage_works() {
 }
 
 #[test]
-fn set_storage_respects_denies_storage_writes() {
+fn set_storage_is_denied_in_a_stipend_frame() {
 	let charlie_ch = MockLoader::insert(Call, |ctx, _| {
 		assert_eq!(
 			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1]), false),
@@ -2120,7 +2120,7 @@ fn set_storage_respects_denies_storage_writes() {
 			&CHARLIE_ADDR,
 			U256::zero(),
 			vec![],
-			CallProtections { denies_storage_writes: true, ..Default::default() },
+			CallProtections { stipend_frame: true, ..Default::default() },
 		));
 		exec_success()
 	});
