@@ -151,8 +151,8 @@ pub struct CallProtections {
 	pub reentrancy: ReentrancyProtection,
 	/// Whether the callee and every frame it creates cannot change state.
 	pub read_only: bool,
-	/// Whether the callee is the receiver of a `transfer` or `send`. Such a callee, and every frame
-	/// it creates, cannot write persistent contract storage.
+	/// Whether the callee is the receiver of a `transfer` or `send`. Such a callee, and every
+	/// frame it creates, cannot write persistent contract storage or move value.
 	pub stipend_frame: bool,
 }
 
@@ -730,7 +730,7 @@ struct Frame<T: Config> {
 	/// If `true` subsequent calls cannot modify storage.
 	read_only: bool,
 	/// If `true` this frame is the receiver of a `transfer` or `send`, or was created by one, and
-	/// cannot write persistent contract storage.
+	/// cannot write persistent contract storage or move value.
 	stipend_frame: bool,
 	/// The delegate call info of the currently executing frame which was spawned by
 	/// `delegate_call`.
@@ -2287,7 +2287,7 @@ where
 
 	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError> {
 		if self.top_frame().stipend_frame {
-			// EIP-2200 fails such a write with out of gas.
+			// On Ethereum, the 2300 gas stipend cannot pay for a storage write or a value transfer.
 			return Err(Error::<T>::OutOfGas.into());
 		}
 		Ok(())
@@ -2376,6 +2376,11 @@ where
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for balance transfers or when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
+
+		// Checks the caller's frame, not the callee's, so a `transfer` or `send` still moves value.
+		if !value.is_zero() {
+			self.ensure_not_stipend_frame()?;
+		}
 
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion

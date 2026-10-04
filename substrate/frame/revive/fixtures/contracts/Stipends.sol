@@ -463,6 +463,24 @@ contract CounterStartingAtOne {
 }
 
 /**
+ * @title ValueForwardingReceiver
+ * @dev Moves value to `beneficiary` on receiving a call, failing unless the transfer succeeds.
+ */
+contract ValueForwardingReceiver {
+    uint256 constant FORWARDED_VALUE = 1_000_000;
+    address payable immutable beneficiary;
+
+    constructor(address payable _beneficiary) payable {
+        beneficiary = _beneficiary;
+    }
+
+    receive() external payable {
+        (bool success, ) = beneficiary.call{value: FORWARDED_VALUE}("");
+        require(success, "value transfer failed");
+    }
+}
+
+/**
  * @title TransientWritingReceiver
  * @dev Writes transient storage on receiving value, failing unless the write is visible.
  */

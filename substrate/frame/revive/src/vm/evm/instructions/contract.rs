@@ -119,6 +119,9 @@ pub fn call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
+	if has_transfer && let Err(err) = interpreter.ext.ensure_not_stipend_frame() {
+		return ControlFlow::Break(Halt::Err(err));
+	}
 	let scheme = CallScheme::Call;
 	charge_call_gas(interpreter, to, scheme, input.len(), value)?;
 

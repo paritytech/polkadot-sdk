@@ -1736,13 +1736,7 @@ fn call_deny_reentry() {
 	// call BOB with input set to '1'
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		ctx.ext
-			.call(
-				&Default::default(),
-				&BOB_ADDR,
-				U256::zero(),
-				vec![1],
-				CallProtections::default(),
-			)
+			.call(&Default::default(), &BOB_ADDR, U256::zero(), vec![1], CallProtections::default())
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
 
@@ -1818,13 +1812,7 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		ctx.ext
-			.call(
-				&Default::default(),
-				&BOB_ADDR,
-				U256::zero(),
-				vec![1],
-				CallProtections::default(),
-			)
+			.call(&Default::default(), &BOB_ADDR, U256::zero(), vec![1], CallProtections::default())
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
 

@@ -18,7 +18,7 @@
 use crate::{
 	Code, Config, Error, Pallet,
 	evm::CallTracer,
-	test_utils::{ALICE, builder::Contract},
+	test_utils::{ALICE, BOB, BOB_ADDR, builder::Contract},
 	tests::{ExtBuilder, GasScale, RuntimeOrigin, Test, builder},
 	tracing::trace,
 };
@@ -30,7 +30,8 @@ use codec::Encode;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
 	BumpableCounter, FixtureType, NestedWritingReceiver, NestedWritingReceiver::Nesting,
-	StipendSender, StipendTest, WarmWriteSender, compile_module, compile_module_with_type,
+	StipendSender, StipendTest, ValueForwardingReceiver, WarmWriteSender, compile_module,
+	compile_module_with_type,
 };
 use sp_core::H160;
 use test_case::{test_case, test_matrix};
@@ -539,6 +540,83 @@ fn stipend_check_is_inherited_by_nested_frames(fixture_type: FixtureType, nestin
 			with_gas_scale(50_000_000, || (is_denied(2300), [is_denied(2299), is_denied(2301)]));
 		assert!(with_2300_gas, "a nested frame should also deny storage writes");
 		assert_eq!(with_other_gas, [false, false], "only a `send` denies storage writes");
+	});
+}
+
+/// Where `ValueForwardingReceiver` sends value.
+#[derive(Clone, Copy, Debug)]
+enum Beneficiary {
+	AccountWithoutCode,
+	Contract,
+}
+
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[Beneficiary::AccountWithoutCode, Beneficiary::Contract]
+)]
+fn stipend_check_denies_moving_value(fixture_type: FixtureType, beneficiary: Beneficiary) {
+	// The value `ValueForwardingReceiver` sends on each call.
+	const FORWARDED_VALUE: u64 = 1_000_000;
+	let (receiver_code, _) =
+		compile_module_with_type("ValueForwardingReceiver", fixture_type).unwrap();
+	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
+	let (contract_code, _) =
+		compile_module_with_type("DoNothingReceiver", FixtureType::Solc).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+		let beneficiary = match beneficiary {
+			Beneficiary::AccountWithoutCode => {
+				let _ = <Test as Config>::Currency::set_balance(&BOB, 10_000_000_000_000);
+				BOB_ADDR
+			},
+			Beneficiary::Contract => {
+				builder::bare_instantiate(Code::Upload(contract_code))
+					.build_and_unwrap_contract()
+					.addr
+			},
+		};
+		let Contract { addr: receiver, .. } =
+			builder::bare_instantiate(Code::Upload(receiver_code))
+				.native_value(1_000)
+				.constructor_data(
+					ValueForwardingReceiver::constructorCall { _beneficiary: beneficiary.0.into() }
+						.abi_encode(),
+				)
+				.build_and_unwrap_contract();
+		let Contract { addr: sender, .. } = builder::bare_instantiate(Code::Upload(sender_code))
+			.constructor_data(
+				StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
+			)
+			.build_and_unwrap_contract();
+
+		// Returns the receiver's error and the value the beneficiary received.
+		let forward = |gas_limit: u64| {
+			let balance_before = Pallet::<Test>::evm_balance(&beneficiary);
+			let mut tracer = CallTracer::new(Default::default());
+			trace(&mut tracer, || {
+				builder::bare_call(sender)
+					.data(
+						StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
+					)
+					.build_and_unwrap_result()
+			});
+			let receiver_trace = tracer.collect_trace().unwrap().calls.pop().unwrap();
+			let received = Pallet::<Test>::evm_balance(&beneficiary) - balance_before;
+			(receiver_trace.error, received.as_u64())
+		};
+
+		let (with_2300_gas, with_other_gas) =
+			with_gas_scale(50_000_000, || (forward(2300), [forward(2299), forward(2301)]));
+		assert_eq!(
+			with_2300_gas,
+			(Some("OutOfGas".into()), 0),
+			"the receiver of a `send` should halt when it moves value"
+		);
+		assert_eq!(
+			with_other_gas,
+			[(None, FORWARDED_VALUE), (None, FORWARDED_VALUE)],
+			"only a `send` denies moving value"
+		);
 	});
 }
 
