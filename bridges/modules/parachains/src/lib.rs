@@ -720,8 +720,7 @@ pub mod pallet {
 			let prune_happened = head_hash_to_prune
 				.as_ref()
 				.is_ok_and(|head_hash_to_prune| head_hash_to_prune != &new_head_hash);
-			if let Ok(head_hash_to_prune) = head_hash_to_prune {
-				if head_hash_to_prune != new_head_hash {
+			if let Ok(head_hash_to_prune) = head_hash_to_prune.filter(|_| prune_happened) {
 					tracing::trace!(
 						target: LOG_TARGET,
 						?parachain,
@@ -729,7 +728,6 @@ pub mod pallet {
 						"Pruning old head of parachain"
 					);
 					ImportedParaHeads::<T, I>::remove(parachain, head_hash_to_prune);
-				}
 			}
 			Self::deposit_event(Event::UpdatedParachainHead {
 				parachain,
