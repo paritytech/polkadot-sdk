@@ -720,7 +720,7 @@ pub mod pallet {
 			let prune_happened = head_hash_to_prune
 				.as_ref()
 				.is_ok_and(|head_hash_to_prune| head_hash_to_prune != &new_head_hash);
-			if let Ok(head_hash_to_prune) = head_hash_to_prune.ok().filter(|_| prune_happened) {
+			if let Some(head_hash_to_prune) = head_hash_to_prune.ok().filter(|_| prune_happened) {
 					tracing::trace!(
 						target: LOG_TARGET,
 						?parachain,
