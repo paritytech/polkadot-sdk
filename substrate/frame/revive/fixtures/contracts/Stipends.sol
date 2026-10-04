@@ -481,6 +481,28 @@ contract ValueForwardingReceiver {
 }
 
 /**
+ * @title CreatingReceiver
+ * @dev Creates a contract with `CREATE` or `CREATE2` on receiving a call.
+ */
+contract CreatingReceiver {
+    enum Creation { Create, Create2 }
+
+    Creation immutable creation;
+
+    constructor(Creation _creation) {
+        creation = _creation;
+    }
+
+    receive() external payable {
+        if (creation == Creation.Create) {
+            new DoNothingReceiver();
+        } else {
+            new DoNothingReceiver{salt: bytes32(0)}();
+        }
+    }
+}
+
+/**
  * @title TransientWritingReceiver
  * @dev Writes transient storage on receiving value, failing unless the write is visible.
  */

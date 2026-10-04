@@ -29,7 +29,7 @@ use alloy_core::{
 use codec::Encode;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
-	BumpableCounter, FixtureType, NestedWritingReceiver, NestedWritingReceiver::Nesting,
+	BumpableCounter, CreatingReceiver, CreatingReceiver::Creation, FixtureType, NestedWritingReceiver, NestedWritingReceiver::Nesting,
 	StipendSender, StipendTest, ValueForwardingReceiver, WarmWriteSender, compile_module,
 	compile_module_with_type,
 };
@@ -618,6 +618,68 @@ fn stipend_check_denies_moving_value(fixture_type: FixtureType, beneficiary: Ben
 			"only a `send` denies moving value"
 		);
 	});
+}
+
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[Creation::Create, Creation::Create2]
+)]
+fn stipend_check_denies_creating_contracts(fixture_type: FixtureType, creation: Creation) {
+	let (receiver_code, _) = compile_module_with_type("CreatingReceiver", fixture_type).unwrap();
+	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
+	let (child_code, _) = compile_module_with_type("DoNothingReceiver", fixture_type).unwrap();
+
+	// Returns the receiver's error and whether it created a contract. Each call runs on fresh
+	// state, because a second `CREATE2` with the same salt would collide.
+	let create = |gas_limit: u64| {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+			if fixture_type == FixtureType::Resolc {
+				Pallet::<Test>::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					child_code.clone(),
+					u128::MAX,
+				)
+				.unwrap();
+			}
+			let Contract { addr: receiver, .. } =
+				builder::bare_instantiate(Code::Upload(receiver_code.clone()))
+					.constructor_data(
+						CreatingReceiver::constructorCall { _creation: creation }.abi_encode(),
+					)
+					.build_and_unwrap_contract();
+			let Contract { addr: sender, .. } =
+				builder::bare_instantiate(Code::Upload(sender_code.clone()))
+					.constructor_data(
+						StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
+					)
+					.build_and_unwrap_contract();
+
+			let mut tracer = CallTracer::new(Default::default());
+			trace(&mut tracer, || {
+				builder::bare_call(sender)
+					.data(
+						StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
+					)
+					.build_and_unwrap_result()
+			});
+			let receiver_trace = tracer.collect_trace().unwrap().calls.pop().unwrap();
+			(receiver_trace.error, !receiver_trace.calls.is_empty())
+		})
+	};
+
+	let (with_2300_gas, with_other_gas) =
+		with_gas_scale(50_000_000, || (create(2300), [create(2299), create(2301)]));
+	assert_eq!(
+		with_2300_gas,
+		(Some("OutOfGas".into()), false),
+		"the receiver of a `send` should halt when it creates a contract"
+	);
+	assert_eq!(
+		with_other_gas,
+		[(None, true), (None, true)],
+		"only a `send` denies creating a contract"
+	);
 }
 
 #[test_case(FixtureType::Solc;   "solc")]

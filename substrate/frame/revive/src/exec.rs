@@ -152,7 +152,7 @@ pub struct CallProtections {
 	/// Whether the callee and every frame it creates cannot change state.
 	pub read_only: bool,
 	/// Whether the callee is the receiver of a `transfer` or `send`. Such a callee, and every
-	/// frame it creates, cannot write persistent contract storage or move value.
+	/// frame it creates, cannot write persistent contract storage, move value, or create contracts.
 	pub stipend_frame: bool,
 }
 
@@ -730,7 +730,7 @@ struct Frame<T: Config> {
 	/// If `true` subsequent calls cannot modify storage.
 	read_only: bool,
 	/// If `true` this frame is the receiver of a `transfer` or `send`, or was created by one, and
-	/// cannot write persistent contract storage or move value.
+	/// cannot write persistent contract storage, move value, or create contracts.
 	stipend_frame: bool,
 	/// The delegate call info of the currently executing frame which was spawned by
 	/// `delegate_call`.
@@ -2287,7 +2287,8 @@ where
 
 	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError> {
 		if self.top_frame().stipend_frame {
-			// On Ethereum, the 2300 gas stipend cannot pay for a storage write or a value transfer.
+			// On Ethereum, the 2300 gas stipend cannot pay for a storage write, a value transfer,
+			// or a contract creation.
 			return Err(Error::<T>::OutOfGas.into());
 		}
 		Ok(())
@@ -2310,6 +2311,7 @@ where
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
+		self.ensure_not_stipend_frame()?;
 
 		let sender = self.top_frame().account_id.clone();
 		let executable = {

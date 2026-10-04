@@ -77,6 +77,9 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 		None
 	};
 
+	if let Err(err) = interpreter.ext.ensure_not_stipend_frame() {
+		return ControlFlow::Break(Halt::Err(err));
+	}
 	let call_result = interpreter.ext.instantiate(
 		&CallResources::NoLimits,
 		Code::Upload(code),
