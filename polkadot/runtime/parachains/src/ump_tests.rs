@@ -93,7 +93,7 @@ fn try_queue_upward_msg(para: ParaId, msg: UpwardMessage) -> Result<(), UmpAccep
 	let msgs = vec![msg];
 	let active = configuration::ActiveConfig::<Test>::get();
 	let session_cfg = active.session_execution_config();
-	ParaInclusion::check_upward_messages(&active, &session_cfg, para, &msgs)?;
+	ParaInclusion::check_upward_messages(&active, &session_cfg, para, &msgs, &Default::default())?;
 	ParaInclusion::receive_upward_messages(para, msgs.as_slice());
 	Ok(())
 }
@@ -114,7 +114,14 @@ mod check_upward_messages {
 		let active = configuration::ActiveConfig::<Test>::get();
 		let session_cfg = active.session_execution_config();
 		assert_eq!(
-			ParaInclusion::check_upward_messages(&active, &session_cfg, para, &msgs[..]).err(),
+			ParaInclusion::check_upward_messages(
+				&active,
+				&session_cfg,
+				para,
+				&msgs[..],
+				&Default::default()
+			)
+			.err(),
 			err
 		);
 	}
@@ -132,6 +139,55 @@ mod check_upward_messages {
 			check(P_1, vec![msg("p1m0")], None);
 			check(P_0, vec![msg("p0m1")], None);
 			check(P_1, vec![msg("p1m1")], None);
+		});
+	}
+
+	#[test]
+	fn cumulative_segment_usage_enforces_queue_limits() {
+		use crate::inclusion::SegmentUsage;
+
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			let _g = frame_support::StorageNoopGuard::default();
+			let active = configuration::ActiveConfig::<Test>::get();
+			let session_cfg = active.session_execution_config();
+			// Defaults: max_upward_queue_size = 64, max_upward_queue_count = 4,
+			// max_upward_message_size = 16, max_upward_message_num_per_candidate = 2.
+			let small = msg("aaaaaaaa"); // 8 bytes, within per-message/per-candidate limits.
+
+			// With an empty segment the message fits (queue is empty).
+			assert_eq!(
+				ParaInclusion::check_upward_messages(
+					&active,
+					&session_cfg,
+					P_0,
+					&[small.clone()],
+					&Default::default(),
+				),
+				Ok(())
+			);
+
+			// The same message must be rejected once the segment already accounts for 60 bytes:
+			// 60 + 8 = 68 > 64. This is the cumulative check that plain per-candidate checks miss.
+			let seg = SegmentUsage::new_for_test(1, 60);
+			assert_eq!(
+				ParaInclusion::check_upward_messages(
+					&active,
+					&session_cfg,
+					P_0,
+					&[small.clone()],
+					&seg,
+				)
+				.err(),
+				Some(UmpAcceptanceCheckErr::TotalSizeExceeded { total_size: 68, limit: 64 }),
+			);
+
+			// Likewise the cumulative message-count limit: 4 already committed + 1 new > 4.
+			let seg = SegmentUsage::new_for_test(4, 0);
+			assert_eq!(
+				ParaInclusion::check_upward_messages(&active, &session_cfg, P_0, &[small], &seg,)
+					.err(),
+				Some(UmpAcceptanceCheckErr::CapacityExceeded { count: 5, limit: 4 }),
+			);
 		});
 	}
 
@@ -668,7 +724,14 @@ fn enqueue_ump_signals() {
 
 		let active = configuration::ActiveConfig::<Test>::get();
 		let session_cfg = active.session_execution_config();
-		ParaInclusion::check_upward_messages(&active, &session_cfg, para, &messages).unwrap();
+		ParaInclusion::check_upward_messages(
+			&active,
+			&session_cfg,
+			para,
+			&messages,
+			&Default::default(),
+		)
+		.unwrap();
 
 		// We expect that all messages except UMP signal and separator are processed
 		ParaInclusion::receive_upward_messages(para, &messages);
