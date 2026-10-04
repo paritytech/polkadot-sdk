@@ -196,32 +196,25 @@ fn run_call<'a, E: Ext>(
 	value: U256,
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
+	let stipend_and_protections = StipendAndProtections::new(value, gas_limit.try_into().ok());
+	let call_resources =
+		CallResources::from_ethereum_gas(gas_limit, stipend_and_protections.add_stipend());
 	let call_result = match scheme {
-		CallScheme::Call => {
-			let stipend_and_protections =
-				StipendAndProtections::new(value, gas_limit.try_into().ok());
-			interpreter.ext.call(
-				&CallResources::from_ethereum_gas(gas_limit, stipend_and_protections.add_stipend()),
-				&callee,
-				value,
-				input,
-				stipend_and_protections.protections(),
-				false,
-			)
-		},
-		CallScheme::StaticCall => interpreter.ext.call(
-			&CallResources::from_ethereum_gas(gas_limit, false),
+		CallScheme::Call => interpreter.ext.call(
+			&call_resources,
 			&callee,
 			value,
 			input,
-			CallProtections::default(),
-			true,
+			stipend_and_protections.protections(),
 		),
-		CallScheme::DelegateCall => interpreter.ext.delegate_call(
-			&CallResources::from_ethereum_gas(gas_limit, false),
-			callee,
+		CallScheme::StaticCall => interpreter.ext.call(
+			&call_resources,
+			&callee,
+			value,
 			input,
+			CallProtections { read_only: true, ..Default::default() },
 		),
+		CallScheme::DelegateCall => interpreter.ext.delegate_call(&call_resources, callee, input),
 		CallScheme::CallCode => {
 			unreachable!()
 		},

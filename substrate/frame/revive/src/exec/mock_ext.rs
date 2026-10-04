@@ -64,7 +64,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		_value: U256,
 		_input_data: Vec<u8>,
 		_protections: CallProtections,
-		_read_only: bool,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::call")
 	}
@@ -212,10 +211,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::is_read_only")
 	}
 
-	fn ensure_storage_write_allowed(&self) -> Result<(), DispatchError> {
-		panic!("MockExt::ensure_storage_write_allowed")
-	}
-
 	fn is_delegate_call(&self) -> bool {
 		panic!("MockExt::is_delegate_call")
 	}
@@ -321,5 +316,9 @@ impl<T: Config> BuiltinPrecompileExt for MockExt<T> {
 
 	fn warmth_of<A: Access>(&self, _access: A) -> Summarized<A::Warmth> {
 		panic!("MockExt::warmth_of")
+	}
+
+	fn ensure_storage_write_allowed(&self) -> Result<(), DispatchError> {
+		panic!("MockExt::ensure_storage_write_allowed")
 	}
 }

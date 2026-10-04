@@ -146,17 +146,17 @@ fn evm_call_stipends_work_for_calls() {
 	});
 }
 
-#[test]
-fn evm_call_stipend_is_only_added_to_plain_calls() {
-	// On PVM the stipend alone cannot load the callee's code.
+#[test_case(FixtureType::Solc;   "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn evm_call_stipend_is_added_to_static_and_delegate_calls(sender_type: FixtureType) {
+	// On PVM the stipend alone cannot load the callee's code, so the receivers are always EVM
+	// contracts.
 	let (empty_receiver_code, _) =
 		compile_module_with_type("DoNothingReceiver", FixtureType::Solc).unwrap();
 	let (writing_receiver_code, _) =
 		compile_module_with_type("WritingReceiver", FixtureType::Solc).unwrap();
-	let (stipend_sender_code, _) =
-		compile_module_with_type("StipendSender", FixtureType::Solc).unwrap();
-	let (warm_sender_code, _) =
-		compile_module_with_type("WarmWriteSender", FixtureType::Solc).unwrap();
+	let (stipend_sender_code, _) = compile_module_with_type("StipendSender", sender_type).unwrap();
+	let (warm_sender_code, _) = compile_module_with_type("WarmWriteSender", sender_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
 		let Contract { addr: empty_receiver, .. } =
@@ -194,8 +194,8 @@ fn evm_call_stipend_is_only_added_to_plain_calls() {
 			};
 			is_denied(warm_sender, call.abi_encode(), 0)
 		};
-		let delegate_write_denied = |gas_limit: u64| {
-			let call = WarmWriteSender::isWarmDelegateWriteDeniedCall {
+		let delegate_read_denied = |gas_limit: u64| {
+			let call = WarmWriteSender::isWarmDelegateReadDeniedCall {
 				receiver: writing_receiver,
 				gasLimit: gas_limit,
 			};
@@ -203,18 +203,31 @@ fn evm_call_stipend_is_only_added_to_plain_calls() {
 		};
 
 		assert!(!value_call_denied(1), "the stipend should be enough for an empty receive");
-		assert_eq!(
-			[static_read_denied(1), static_read_denied(2300)],
-			[true; 2],
-			"a static call gets no stipend"
+		assert!(
+			!static_read_denied(2300),
+			"a static call with a gas limit of 2300 gets the stipend"
 		);
 		assert_eq!(
-			[delegate_write_denied(1), delegate_write_denied(2300)],
+			[static_read_denied(2299), static_read_denied(2301)],
 			[true; 2],
-			"a delegate call gets no stipend"
+			"a static call with any other gas limit gets no stipend"
+		);
+
+		if sender_type == FixtureType::Solc {
+			assert!(
+				!delegate_read_denied(2300),
+				"an EVM delegate call with a gas limit of 2300 gets the stipend"
+			);
+		} else {
+			assert!(delegate_read_denied(2300), "a PolkaVM delegate call gets no stipend");
+		}
+		assert_eq!(
+			[delegate_read_denied(2299), delegate_read_denied(2301)],
+			[true; 2],
+			"a delegate call with any other gas limit gets no stipend"
 		);
 		assert_eq!(
-			[static_read_denied(10_000_000_000), delegate_write_denied(10_000_000_000)],
+			[static_read_denied(10_000_000_000), delegate_read_denied(10_000_000_000)],
 			[false; 2],
 			"both work with enough gas"
 		);
@@ -409,6 +422,14 @@ fn call_warm_write_sender(
 			.data(call_data)
 			.evm_value(value.into())
 			.build_and_unwrap_result();
+		let sender_counter = builder::bare_call(sender)
+			.data(WarmWriteSender::counterCall {}.abi_encode())
+			.build_and_unwrap_result();
+		assert_eq!(
+			U256::abi_decode(&sender_counter.data).unwrap(),
+			U256::from(1),
+			"the sender should write after the call, since only the receiver is denied writes"
+		);
 		let counter = builder::bare_call(receiver)
 			.data(BumpableCounter::counterCall {}.abi_encode())
 			.build_and_unwrap_result();

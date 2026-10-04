@@ -668,7 +668,6 @@ fn max_depth() {
 			U256::zero(),
 			vec![],
 			CallProtections::default(),
-			false,
 		);
 
 		ReachedBottom::mutate(|reached_bottom| {
@@ -729,7 +728,6 @@ fn caller_returns_proper_values() {
 				U256::zero(),
 				vec![],
 				CallProtections::default(),
-				false
 			),
 			Ok(_)
 		);
@@ -791,7 +789,6 @@ fn origin_returns_proper_values() {
 				U256::zero(),
 				vec![],
 				CallProtections::default(),
-				false
 			),
 			Ok(_)
 		);
@@ -942,7 +939,6 @@ fn caller_is_origin_returns_proper_values() {
 				U256::zero(),
 				vec![],
 				CallProtections::default(),
-				false,
 			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
@@ -1034,7 +1030,6 @@ fn root_caller_succeeds_with_consecutive_calls() {
 				U256::zero(),
 				vec![],
 				CallProtections::default(),
-				false,
 			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
@@ -1071,7 +1066,6 @@ fn address_returns_proper_values() {
 				U256::zero(),
 				vec![],
 				CallProtections::default(),
-				false
 			),
 			Ok(_)
 		);
@@ -1298,7 +1292,6 @@ fn reentrant_instantiate_at_same_address_is_rejected() {
 				U256::zero(),
 				vec![],
 				CallProtections::default(),
-				false,
 			)
 			.unwrap();
 		exec_success()
@@ -1475,7 +1468,6 @@ fn in_memory_changes_not_discarded() {
 						U256::zero(),
 						vec![],
 						CallProtections::default(),
-						false
 					)
 					.map(|_| ctx.ext.last_frame_output().clone()),
 				exec_trapped()
@@ -1493,7 +1485,6 @@ fn in_memory_changes_not_discarded() {
 					U256::zero(),
 					vec![99],
 					CallProtections::default(),
-					false
 				)
 				.is_ok()
 		);
@@ -1534,7 +1525,6 @@ fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 				U256::zero(),
 				vec![1],
 				CallProtections::default(),
-				false,
 			));
 			ctx.ext
 				.charge_storage(&Diff { bytes_removed: 30, ..Default::default() })
@@ -1545,7 +1535,6 @@ fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 				U256::zero(),
 				vec![1],
 				CallProtections::default(),
-				false,
 			));
 		}
 		exec_success()
@@ -1592,7 +1581,6 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 			(balance - 1).into(),
 			vec![],
 			CallProtections::default(),
-			false
 		));
 
 		// Should also work with call data set as it is ignored when no
@@ -1603,7 +1591,6 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 			1u32.into(),
 			vec![1, 2, 3, 4],
 			CallProtections::default(),
-			false
 		));
 		exec_success()
 	});
@@ -1648,7 +1635,6 @@ fn cannot_send_more_balance_than_available_to_self() {
 				(balance + 1).into(),
 				vec![],
 				CallProtections::default(),
-				false
 			),
 			<Error<Test>>::TransferFailed,
 		);
@@ -1688,7 +1674,6 @@ fn call_reentry_direct_recursion() {
 				U256::zero(),
 				vec![],
 				CallProtections { reentrancy: ReentrancyProtection::Strict, ..Default::default() },
-				false,
 			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
@@ -1741,7 +1726,6 @@ fn call_deny_reentry() {
 						reentrancy: ReentrancyProtection::Strict,
 						..Default::default()
 					},
-					false,
 				)
 				.map(|_| ctx.ext.last_frame_output().clone())
 		} else {
@@ -1758,7 +1742,6 @@ fn call_deny_reentry() {
 				U256::zero(),
 				vec![1],
 				CallProtections::default(),
-				false,
 			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
@@ -1813,7 +1796,6 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 								reentrancy: ReentrancyProtection::Strict,
 								..Default::default()
 							},
-							false,
 						)
 						.map_err(|e| e.error),
 					<Error<Test>>::ContractTrapped
@@ -1827,7 +1809,6 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 						U256::zero(),
 						vec![],
 						CallProtections::default(),
-						false,
 					)
 					.map(|_| ctx.ext.last_frame_output().clone())
 			},
@@ -1843,7 +1824,6 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 				U256::zero(),
 				vec![1],
 				CallProtections::default(),
-				false,
 			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
@@ -1977,7 +1957,6 @@ fn nonce() {
 				U256::zero(),
 				vec![],
 				CallProtections { reentrancy: ReentrancyProtection::Strict, ..Default::default() },
-				false,
 			)
 			.unwrap();
 
@@ -2142,7 +2121,6 @@ fn set_storage_respects_denies_storage_writes() {
 			U256::zero(),
 			vec![],
 			CallProtections { denies_storage_writes: true, ..Default::default() },
-			false,
 		));
 		exec_success()
 	});
@@ -2532,7 +2510,6 @@ fn get_transient_storage_works() {
 						U256::zero(),
 						vec![],
 						CallProtections::default(),
-						false,
 					)
 					.map(|_| ctx.ext.last_frame_output().clone()),
 				exec_success()
@@ -2561,7 +2538,6 @@ fn get_transient_storage_works() {
 					U256::zero(),
 					vec![99],
 					CallProtections::default(),
-					false
 				)
 				.is_ok()
 		);
@@ -2643,7 +2619,6 @@ fn rollback_transient_storage_works() {
 						U256::zero(),
 						vec![],
 						CallProtections::default(),
-						false
 					)
 					.map(|_| ctx.ext.last_frame_output().clone()),
 				exec_trapped()
@@ -2668,7 +2643,6 @@ fn rollback_transient_storage_works() {
 					U256::zero(),
 					vec![99],
 					CallProtections::default(),
-					false
 				)
 				.is_ok()
 		);
@@ -2756,7 +2730,6 @@ fn last_frame_output_works_on_instantiate() {
 					Pallet::<Test>::convert_native_to_evm(1),
 					vec![],
 					CallProtections::default(),
-					false,
 				)
 				.unwrap();
 			assert_eq!(ctx.ext.last_frame_output(), &Default::default());
@@ -2824,7 +2797,6 @@ fn last_frame_output_works_on_nested_call() {
 					U256::zero(),
 					vec![],
 					CallProtections::default(),
-					false,
 				)
 				.unwrap();
 			assert_eq!(
@@ -2850,7 +2822,6 @@ fn last_frame_output_works_on_nested_call() {
 					U256::zero(),
 					vec![99],
 					CallProtections::default(),
-					false
 				)
 				.is_ok()
 		);
@@ -2895,7 +2866,6 @@ fn last_frame_output_is_always_reset() {
 				U256::max_value(),
 				vec![],
 				CallProtections::default(),
-				false,
 			),
 			Err(Error::<Test>::BalanceConversionFailed.into())
 		);
@@ -3016,7 +2986,6 @@ fn correct_immutable_data_in_delegate_call() {
 					U256::zero(),
 					vec![],
 					CallProtections::default(),
-					false,
 				)
 				.map(|_| ctx.ext.last_frame_output().data.clone()),
 			Ok(vec![2]),
@@ -3320,7 +3289,7 @@ fn run_root_call_with_value(contract_addr: H160, input: Vec<u8>, value: U256) {
 fn run_child_call<E: Ext>(ext: &mut E, to: &H160, input: Vec<u8>) -> Result<(), ExecError> {
 	// Mirror the interpreter: warm the zero-value plain target, then call it.
 	ext.warm(CallItems::new(*to, false));
-	ext.call(&CallResources::NoLimits, to, U256::zero(), input, CallProtections::default(), false)
+	ext.call(&CallResources::NoLimits, to, U256::zero(), input, CallProtections::default())
 }
 
 #[test]
@@ -3754,7 +3723,6 @@ fn cold_hot_a_precompile_call_warms_nothing() {
 					U256::zero(),
 					vec![],
 					CallProtections::default(),
-					false,
 				),
 				Ok(_)
 			);

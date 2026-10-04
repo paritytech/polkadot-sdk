@@ -719,8 +719,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					&callee,
 					value,
 					input_data,
-					CallProtections { reentrancy, ..protections },
-					read_only,
+					CallProtections { reentrancy, read_only, ..protections },
 				)
 			},
 			CallType::DelegateCall => {

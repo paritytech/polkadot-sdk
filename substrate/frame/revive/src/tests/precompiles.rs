@@ -118,7 +118,6 @@ impl<T: Config> Precompile for NoInfo<T> {
 					0.into(),
 					vec![42; *inputLen as usize],
 					CallProtections::default(),
-					false,
 				)?;
 				Ok(Vec::new())
 			},

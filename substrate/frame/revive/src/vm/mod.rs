@@ -209,6 +209,7 @@ impl StipendAndProtections {
 			CallProtections {
 				reentrancy: ReentrancyProtection::AllowNext,
 				denies_storage_writes: true,
+				..Default::default()
 			}
 		} else {
 			CallProtections::default()

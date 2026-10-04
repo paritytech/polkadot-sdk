@@ -149,13 +149,31 @@ pub enum ReentrancyProtection {
 pub struct CallProtections {
 	/// The reentrancy protection to enforce on the callee.
 	pub reentrancy: ReentrancyProtection,
+	/// Whether the callee and every frame it creates cannot change state.
+	pub read_only: bool,
 	/// Whether the callee and every frame it creates cannot write persistent contract storage.
 	pub denies_storage_writes: bool,
 }
 
 impl Default for CallProtections {
 	fn default() -> Self {
-		Self { reentrancy: ReentrancyProtection::AllowReentry, denies_storage_writes: false }
+		Self {
+			reentrancy: ReentrancyProtection::AllowReentry,
+			read_only: false,
+			denies_storage_writes: false,
+		}
+	}
+}
+
+impl CallProtections {
+	/// Combines the provided protections with the restrictions the caller runs under, which the
+	/// callee cannot lift.
+	fn inherit<T: Config>(self, caller: &Frame<T>) -> Self {
+		Self {
+			read_only: self.read_only || caller.read_only,
+			denies_storage_writes: self.denies_storage_writes || caller.denies_storage_writes,
+			..self
+		}
 	}
 }
 
@@ -334,6 +352,9 @@ pub trait BuiltinPrecompileExt: PrecompileExt {
 	fn slot_access(&self, key: &Key, op: StorageOp) -> StorageItems {
 		StorageItems::new(self.address(), key, op)
 	}
+
+	/// Returns an `OutOfGas` error if the current frame cannot write persistent contract storage.
+	fn ensure_storage_write_allowed(&self) -> Result<(), DispatchError>;
 }
 
 /// Environment functions which are available to pre-compiles with `HAS_CONTRACT_INFO = true`.
@@ -387,7 +408,6 @@ pub trait PrecompileExt: sealing::Sealed {
 		value: U256,
 		input_data: Vec<u8>,
 		protections: CallProtections,
-		read_only: bool,
 	) -> Result<(), ExecError>;
 
 	/// Returns the transient storage entry of the executing account for the given `key`.
@@ -527,9 +547,6 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
-
-	/// Returns an `OutOfGas` error if the current frame cannot write persistent contract storage.
-	fn ensure_storage_write_allowed(&self) -> Result<(), DispatchError>;
 
 	/// Check if running as a delegate call.
 	fn is_delegate_call(&self) -> bool;
@@ -1063,8 +1080,7 @@ where
 			value,
 			transaction_meter,
 			&CallResources::NoLimits,
-			false,
-			false,
+			CallProtections::default(),
 			true,
 			input_data,
 			exec_config,
@@ -1172,8 +1188,7 @@ where
 		value_transferred: U256,
 		meter: &mut ResourceMeter<T, S>,
 		call_resources: &CallResources<T>,
-		read_only: bool,
-		denies_storage_writes: bool,
+		protections: CallProtections,
 		origin_is_caller: bool,
 		input_data: &[u8],
 		exec_config: &ExecConfig<T>,
@@ -1327,8 +1342,8 @@ where
 			code_address,
 			frame_meter: meter.new_nested(call_resources)?,
 			allows_reentry: true,
-			read_only,
-			denies_storage_writes,
+			read_only: protections.read_only,
+			denies_storage_writes: protections.denies_storage_writes,
 			last_frame_output: Default::default(),
 			contracts_created: Default::default(),
 			contracts_to_be_destroyed: Default::default(),
@@ -1343,8 +1358,7 @@ where
 		frame_args: FrameArgs<T, E>,
 		value_transferred: U256,
 		call_resources: &CallResources<T>,
-		read_only: bool,
-		denies_storage_writes: bool,
+		protections: CallProtections,
 		input_data: &[u8],
 	) -> Result<Option<ExecutableOrPrecompile<T, E, Self>>, ExecError> {
 		if self.frames.len() as u32 == limits::CALL_STACK_DEPTH {
@@ -1380,8 +1394,7 @@ where
 			value_transferred,
 			meter,
 			call_resources,
-			read_only,
-			denies_storage_writes,
+			protections,
 			false,
 			input_data,
 			self.exec_config,
@@ -2169,8 +2182,7 @@ where
 			},
 			value,
 			call_resources,
-			self.is_read_only(),
-			self.top_frame().denies_storage_writes,
+			CallProtections::default().inherit(self.top_frame()),
 			&input_data,
 		)? {
 			self.run(executable, input_data)
@@ -2269,6 +2281,14 @@ where
 	fn warmth_of<A: Access>(&self, access: A) -> Summarized<A::Warmth> {
 		self.access_list.warmth_of_summarized(access)
 	}
+
+	fn ensure_storage_write_allowed(&self) -> Result<(), DispatchError> {
+		if self.top_frame().denies_storage_writes {
+			// EIP-2200 fails such a write with out of gas.
+			return Err(Error::<T>::OutOfGas.into());
+		}
+		Ok(())
+	}
 }
 
 impl<'a, T, E> PrecompileWithInfoExt for Stack<'a, T, E>
@@ -2319,8 +2339,7 @@ where
 				},
 				value,
 				call_resources,
-				self.is_read_only(),
-				self.top_frame().denies_storage_writes,
+				CallProtections::default().inherit(self.top_frame()),
 				&input_data,
 			)?
 		};
@@ -2350,7 +2369,6 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		protections: CallProtections,
-		read_only: bool,
 	) -> Result<(), ExecError> {
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for balance transfers or when creating the frame fails.
@@ -2365,10 +2383,7 @@ where
 		}
 
 		let try_call = || {
-			// Enable read-only access if requested; cannot disable it if already set.
-			let is_read_only = read_only || self.is_read_only();
-			let denies_storage_writes =
-				protections.denies_storage_writes || self.top_frame().denies_storage_writes;
+			let protections = protections.inherit(self.top_frame());
 
 			// We can skip the stateful lookup for pre-compiles.
 			let dest = if <AllPrecompiles<T>>::get::<Self>(dest_addr.as_fixed_bytes()).is_some() {
@@ -2408,8 +2423,7 @@ where
 				FrameArgs::Call { dest: dest.clone(), cached_info, delegated_call: None },
 				value,
 				call_resources,
-				is_read_only,
-				denies_storage_writes,
+				protections,
 				&input_data,
 			)? {
 				self.run(executable, input_data)
@@ -2420,7 +2434,7 @@ where
 						T::AddressMapper::to_address(&dest),
 						None,
 						false,
-						is_read_only,
+						protections.read_only,
 						value,
 						&input_data,
 						Default::default(),
@@ -2435,9 +2449,9 @@ where
 					}) {
 					*self.last_frame_output_mut() = mock_answer.clone();
 					Ok(mock_answer)
-				} else if is_read_only && value.is_zero() {
+				} else if protections.read_only && value.is_zero() {
 					Ok(Default::default())
-				} else if is_read_only {
+				} else if protections.read_only {
 					Err(Error::<T>::StateChangeDenied.into())
 				} else {
 					let account_id = self.account_id().clone();
@@ -2736,14 +2750,6 @@ where
 
 	fn is_read_only(&self) -> bool {
 		self.top_frame().read_only
-	}
-
-	fn ensure_storage_write_allowed(&self) -> Result<(), DispatchError> {
-		if self.top_frame().denies_storage_writes {
-			// EIP-2200 fails such a write with out of gas.
-			return Err(Error::<T>::OutOfGas.into());
-		}
-		Ok(())
 	}
 
 	fn is_delegate_call(&self) -> bool {

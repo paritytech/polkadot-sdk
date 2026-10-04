@@ -292,7 +292,9 @@ contract WarmWriteSender {
 
     function isWarmWriteDenied(BumpableCounter receiver) public payable returns (bool) {
         receiver.bump();
-        return !payable(address(receiver)).send(msg.value);
+        bool ok = payable(address(receiver)).send(msg.value);
+        counter += 1;
+        return !ok;
     }
 
     function isWarmWriteDeniedWithGas(
@@ -301,6 +303,7 @@ contract WarmWriteSender {
     ) public payable returns (bool) {
         receiver.bump();
         (bool ok, ) = payable(address(receiver)).call{value: msg.value, gas: gasLimit}("");
+        counter += 1;
         return !ok;
     }
 
@@ -314,14 +317,13 @@ contract WarmWriteSender {
         return !ok;
     }
 
-    function isWarmDelegateWriteDenied(
+    function isWarmDelegateReadDenied(
         BumpableCounter receiver,
         uint64 gasLimit
     ) public returns (bool) {
         counter += 1;
-        (bool ok, ) = address(receiver).delegatecall{gas: gasLimit}(
-            abi.encodeCall(BumpableCounter.bump, ())
-        );
+        (bool ok, ) =
+            address(receiver).delegatecall{gas: gasLimit}(abi.encodeCall(receiver.counter, ()));
         return !ok;
     }
 }
