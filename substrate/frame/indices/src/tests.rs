@@ -26,7 +26,7 @@ use sp_runtime::MultiAddress::Id;
 
 #[test]
 fn claiming_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			Indices::claim(Some(0).into(), 0),
 			BalancesError::<Test, _>::InsufficientBalance
@@ -39,7 +39,7 @@ fn claiming_should_work() {
 
 #[test]
 fn freeing_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_ok!(Indices::claim(Some(2).into(), 1));
 		assert_noop!(Indices::free(Some(0).into(), 0), Error::<Test>::NotOwner);
@@ -53,7 +53,7 @@ fn freeing_should_work() {
 
 #[test]
 fn freezing_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_noop!(Indices::freeze(Some(1).into(), 1), Error::<Test>::NotAssigned);
 		assert_noop!(Indices::freeze(Some(2).into(), 0), Error::<Test>::NotOwner);
@@ -67,7 +67,7 @@ fn freezing_should_work() {
 
 #[test]
 fn indexing_lookup_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_ok!(Indices::claim(Some(2).into(), 1));
 		assert_eq!(Indices::lookup_index(0), Some(1));
@@ -78,7 +78,7 @@ fn indexing_lookup_should_work() {
 
 #[test]
 fn reclaim_index_on_accounts_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_ok!(Indices::free(Some(1).into(), 0));
 		assert_ok!(Indices::claim(Some(2).into(), 0));
@@ -89,7 +89,7 @@ fn reclaim_index_on_accounts_should_work() {
 
 #[test]
 fn transfer_index_on_accounts_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_noop!(Indices::transfer(Some(1).into(), Id(2), 1), Error::<Test>::NotAssigned);
 		assert_noop!(Indices::transfer(Some(2).into(), Id(3), 0), Error::<Test>::NotOwner);
@@ -102,7 +102,7 @@ fn transfer_index_on_accounts_should_work() {
 
 #[test]
 fn force_transfer_index_on_preowned_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_ok!(Indices::force_transfer(RuntimeOrigin::root(), Id(3), 0, false));
 		assert_eq!(Balances::reserved_balance(1), 0);
@@ -113,7 +113,7 @@ fn force_transfer_index_on_preowned_should_work() {
 
 #[test]
 fn force_transfer_index_on_free_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Indices::force_transfer(RuntimeOrigin::root(), Id(3), 0, false));
 		assert_eq!(Balances::reserved_balance(3), 0);
 		assert_eq!(Indices::lookup_index(0), Some(3));
@@ -122,14 +122,14 @@ fn force_transfer_index_on_free_should_work() {
 
 #[test]
 fn poke_deposit_should_fail_for_unassigned_index() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(Indices::poke_deposit(Some(1).into(), 0), Error::<Test>::NotAssigned);
 	});
 }
 
 #[test]
 fn poke_deposit_should_fail_for_wrong_owner() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_noop!(Indices::poke_deposit(Some(2).into(), 0), Error::<Test>::NotOwner);
 	});
@@ -137,7 +137,7 @@ fn poke_deposit_should_fail_for_wrong_owner() {
 
 #[test]
 fn poke_deposit_should_fail_for_permanent_index() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_ok!(Indices::freeze(Some(1).into(), 0));
 		assert_noop!(Indices::poke_deposit(Some(1).into(), 0), Error::<Test>::Permanent);
@@ -146,7 +146,7 @@ fn poke_deposit_should_fail_for_permanent_index() {
 
 #[test]
 fn poke_deposit_should_fail_for_insufficient_balance() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 
 		// Set deposit higher than available balance
@@ -161,7 +161,7 @@ fn poke_deposit_should_fail_for_insufficient_balance() {
 
 #[test]
 fn poke_deposit_should_work_when_deposit_increases() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_eq!(Balances::reserved_balance(1), 1);
 
@@ -187,7 +187,7 @@ fn poke_deposit_should_work_when_deposit_increases() {
 
 #[test]
 fn poke_deposit_should_work_when_deposit_decreases() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Set initial deposit to 3
 		IndexDeposit::set(3);
 		assert_ok!(Indices::claim(Some(1).into(), 0));
@@ -214,7 +214,7 @@ fn poke_deposit_should_work_when_deposit_decreases() {
 
 #[test]
 fn poke_deposit_should_charge_fee_when_deposit_unchanged() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Indices::claim(Some(1).into(), 0));
 		assert_eq!(Balances::reserved_balance(1), 1);
 

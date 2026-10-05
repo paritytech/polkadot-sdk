@@ -293,6 +293,14 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -361,6 +369,57 @@ impl<T: Config> Pallet<T> {
 			MultiAddress::Index(i) => Self::lookup_index(i),
 			_ => None,
 		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_permanent_indices()?;
+		Self::try_state_deposits()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * A permanent index holds no deposit, as the deposit is consumed when the index is frozen.
+	fn try_state_permanent_indices() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (_, (_, deposit, permanent)) in Accounts::<T>::iter() {
+			if permanent {
+				frame_support::ensure!(
+					deposit.is_zero(),
+					"a permanent index must not hold a deposit"
+				);
+			}
+		}
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * The deposits held for the indices of an account are reserved on that account. Other
+	///   pallets may reserve from the same account, hence the reserved balance is only required to
+	///   cover the deposits, not to match them.
+	fn try_state_deposits() -> Result<(), sp_runtime::TryRuntimeError> {
+		let mut deposits = alloc::collections::BTreeMap::<T::AccountId, BalanceOf<T>>::new();
+
+		for (_, (who, deposit, _)) in Accounts::<T>::iter() {
+			deposits.entry(who).or_default().saturating_accrue(deposit);
+		}
+
+		for (who, deposit) in deposits {
+			frame_support::ensure!(
+				T::Currency::reserved_balance(&who) >= deposit,
+				"the deposits held for the indices of an account must be reserved on it"
+			);
+		}
+
+		Ok(())
 	}
 }
 
