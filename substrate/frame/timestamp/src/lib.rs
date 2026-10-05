@@ -143,6 +143,7 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 	use frame_support::{derive_impl, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 
@@ -173,6 +174,7 @@ pub mod pallet {
 		type Moment: Parameter
 			+ Default
 			+ AtLeast32Bit
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Scale<BlockNumberFor<Self>, Output = Self::Moment>
 			+ Copy
 			+ MaxEncodedLen
