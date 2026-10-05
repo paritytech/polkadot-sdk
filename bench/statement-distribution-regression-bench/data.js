@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791221015530,
+  "lastUpdate": 1791223536489,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marios@parity.io",
-            "name": "Marios",
-            "username": "mchristou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f4a82c9be7127ea4a92802c3033e252f8db287bd",
-          "message": "add scheduling tests for v3 descriptor with v2 collators (#11333)\n\n## Description:\n\n  Zombienet SDK tests (polkadot/zombienet-sdk-tests/tests/scheduling/):\n- v3_dynamic_enablement: relay chain starts with V2, enables V3 on the\nfly mid-session via governance.\nVerifies block production continues and descriptors are correctly\ndetected after the feature flip\n- v3_rolling_upgrade: mixed V2/V3 validator fleet using async backing.\nVerifies the network keeps producing blocks during a rolling upgrade\nwhere only some validators support V3\n\n  Unit tests:\n- paras_inherent/tests.rs: V1 descriptor accepted by V3-capable runtime,\nverifies candidates reach PendingAvailability\n- collator-protocol/validator_side/tests/prospective_parachains.rs: V3\ncapable validator correctly detects and handles a V1 descriptor received\nover the wire\n- configuration/tests.rs: max_relay_parent_session_age returns 0 after\nv13 migration\n- backing/src/tests/mod.rs: V3 capable validator fully backs a V1\ncandidate\n- statement-distribution/src/v2/tests/cluster.rs: V1 backed statement is\ndistributed to a V3-capable cluster peer and accepted via the V3 wire\nprotocol\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>",
-          "timestamp": "2026-03-26T10:25:53Z",
-          "tree_id": "c07180f8fe20dd7fff0cebed220f8b4a3fee4b7c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f4a82c9be7127ea4a92802c3033e252f8db287bd"
-        },
-        "date": 1774525722209,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.054,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08544602110599994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038374546008,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03885171056,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "828b9d54038520f680d8f2887aac018f1e404d98",
+          "message": "statement-store: restore the full-store fixture and report percentiles in the benchmarks (#13371)\n\nThe full-store benchmark restores its fixture after the eviction phase,\nso a reused fixture matches a fresh build and its size checks run on\nevery start. The add_filter benchmark reports the median and p90 instead\nof the mean. The enforce_limits benchmark gives the expiry backlog a\n20-second margin and waits by the clock until it expires, so a slow disk\nno longer makes it fail.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13135.",
+          "timestamp": "2026-10-05T15:20:35Z",
+          "tree_id": "d3837b9315f44115cbcdcc3d545701e38a3a4403",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/828b9d54038520f680d8f2887aac018f1e404d98"
+        },
+        "date": 1791223504760,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038559486065999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08460350941999999,
             "unit": "seconds"
           }
         ]
