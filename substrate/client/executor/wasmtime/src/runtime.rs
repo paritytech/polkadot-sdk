@@ -19,6 +19,7 @@
 //! Defines the compiled Wasm runtime that uses Wasmtime internally.
 
 use crate::{
+	epoch::{self, EpochTicker},
 	host::HostState,
 	instance_wrapper::{EntryPoint, InstanceWrapper, MemoryWrapper},
 	util::{self, replace_strategy_if_broken},
@@ -40,6 +41,7 @@ use std::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
 	},
+	time::Duration,
 };
 use wasmtime::{AsContext, Cache, CacheConfig, Engine, Memory};
 
@@ -147,6 +149,8 @@ pub struct WasmtimeRuntime {
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instantiation_strategy: InternalInstantiationStrategy,
 	instance_counter: Arc<InstanceCounter>,
+	/// Present iff the module was compiled with [`Semantics::epoch_interruption`].
+	epoch_ticker: Option<Arc<EpochTicker>>,
 }
 
 impl WasmModule for WasmtimeRuntime {
@@ -163,7 +167,7 @@ impl WasmModule for WasmtimeRuntime {
 			}),
 		};
 
-		Ok(Box::new(WasmtimeInstance { strategy }))
+		Ok(Box::new(WasmtimeInstance { strategy, epoch_ticker: self.epoch_ticker.clone() }))
 	}
 }
 
@@ -171,6 +175,9 @@ impl WasmModule for WasmtimeRuntime {
 /// to execute the compiled code.
 pub struct WasmtimeInstance {
 	strategy: Strategy,
+	/// Keeps the epoch advancing for as long as this instance lives. `None` if the module was
+	/// compiled without epoch interruption.
+	epoch_ticker: Option<Arc<EpochTicker>>,
 }
 
 impl WasmtimeInstance {
@@ -178,11 +185,23 @@ impl WasmtimeInstance {
 		&mut self,
 		method: &str,
 		data: &[u8],
+		timeout: Option<Duration>,
 		allocation_stats: &mut Option<AllocationStats>,
 	) -> Result<Vec<u8>> {
+		let epoch_deadline = match (&self.epoch_ticker, timeout) {
+			(Some(_), Some(timeout)) => Some(epoch::deadline_ticks(timeout)),
+			// An epoch-interruptible store traps immediately unless a deadline is set.
+			(Some(_), None) => Some(epoch::MAX_DEADLINE_TICKS),
+			(None, Some(_)) => return Err(Error::ExecutionTimeoutUnsupported),
+			(None, None) => None,
+		};
+
 		match &mut self.strategy {
 			Strategy::RecreateInstance(ref mut instance_creator) => {
 				let mut instance_wrapper = instance_creator.instantiate()?;
+				if let Some(ticks) = epoch_deadline {
+					instance_wrapper.store_mut().set_epoch_deadline(ticks);
+				}
 				let heap_base = instance_wrapper.extract_heap_base()?;
 				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
 				let allocator = FreeingBumpHeapAllocator::new(heap_base);
@@ -200,8 +219,17 @@ impl WasmInstance for WasmtimeInstance {
 		data: &[u8],
 	) -> (Result<Vec<u8>>, Option<AllocationStats>) {
 		let mut allocation_stats = None;
-		let result = self.call_impl(method, data, &mut allocation_stats);
+		let result = self.call_impl(method, data, None, &mut allocation_stats);
 		(result, allocation_stats)
+	}
+
+	fn call_with_timeout(
+		&mut self,
+		method: &str,
+		data: &[u8],
+		timeout: Duration,
+	) -> Result<Vec<u8>> {
+		self.call_impl(method, data, Some(timeout), &mut None)
 	}
 
 	fn set_heap_alloc_strategy(&mut self, heap_alloc_strategy: HeapAllocStrategy) {
@@ -271,6 +299,7 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 	config.max_wasm_stack(native_stack_max as usize);
 
 	config.parallel_compilation(semantics.parallel_compilation);
+	config.epoch_interruption(semantics.epoch_interruption);
 
 	// Be clear and specific about the extensions we support. If an update brings new features
 	// they should be introduced here as well.
@@ -460,6 +489,12 @@ pub struct Semantics {
 
 	/// Enables WASM Fixed-Width SIMD proposal
 	pub wasm_simd: bool,
+
+	/// Compiles the module with wasmtime epoch interruption, enabling
+	/// [`WasmInstance::call_with_timeout`] on its instances.
+	///
+	/// Adds roughly 10% execution overhead. Calls without a timeout are unaffected otherwise.
+	pub epoch_interruption: bool,
 }
 
 #[derive(Clone)]
@@ -636,11 +671,18 @@ where
 		.instantiate_pre(&module)
 		.map_err(|e| WasmError::Other(format!("cannot preinstantiate module: {:#}", e)))?;
 
+	let epoch_ticker = config
+		.semantics
+		.epoch_interruption
+		.then(|| EpochTicker::new(engine.clone()).map(Arc::new))
+		.transpose()?;
+
 	Ok(WasmtimeRuntime {
 		engine,
 		instance_pre: Arc::new(instance_pre),
 		instantiation_strategy,
 		instance_counter: Default::default(),
+		epoch_ticker,
 	})
 }
 

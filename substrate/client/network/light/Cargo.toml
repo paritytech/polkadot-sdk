@@ -30,5 +30,8 @@ sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 
+[dev-dependencies]
+substrate-test-runtime-client = { workspace = true }
+
 [build-dependencies]
 prost-build = { workspace = true }

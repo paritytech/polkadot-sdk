@@ -20,6 +20,8 @@
 
 use crate::error::Error;
 
+use std::time::Duration;
+
 pub use sc_allocator::AllocationStats;
 
 /// Default heap allocation strategy.
@@ -74,6 +76,23 @@ pub trait WasmInstance: Send {
 	fn call_export(&mut self, method: &str, data: &[u8]) -> Result<Vec<u8>, Error> {
 		self.call(method.into(), data)
 	}
+
+	/// Call a method on this WASM instance, interrupting execution once `timeout` has elapsed.
+	///
+	/// Before execution, instance is reset.
+	///
+	/// Returns the encoded result on success. Fails with [`Error::ExecutionTimeout`] on timeout,
+	/// or with [`Error::ExecutionTimeoutUnsupported`] if the module was not compiled with support
+	/// for execution timeouts.
+	///
+	/// NOTE: engines without an execution-interruption mechanism (PolkaVM) ignore the timeout
+	/// and run uncapped, never producing [`Error::ExecutionTimeout`].
+	fn call_with_timeout(
+		&mut self,
+		method: &str,
+		data: &[u8],
+		timeout: Duration,
+	) -> Result<Vec<u8>, Error>;
 
 	/// Update the heap allocation strategy for subsequent calls.
 	///
