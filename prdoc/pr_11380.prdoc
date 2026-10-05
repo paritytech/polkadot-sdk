@@ -1,0 +1,22 @@
+title: '[NPoS] Expose election round (priority) in ElectionResult winners'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The round value was already computed internally in both solvers but dropped during the mapping to `ElectionResult`. This is a zero-overhead change that makes an already-computed value accessible.
+
+    Changes:
+      - Introduce `Winner<AccountId>` struct in `sp-npos-elections` with `who`, `backed_stake`, and `round` fields
+      - Replace `Vec<(AccountId, ExtendedBalance)>` with `Vec<Winner<AccountId>>` in `ElectionResult::winners`
+      - Both `seq_phragmen` and `phragmms` now preserve the election round index instead of discarding it
+      - Add `winners_are_sorted_by_round` test that explicitly verifies the round-ordering invariant
+
+      Closes #10720
+crates:
+- name: pallet-election-provider-multi-phase
+  bump: minor
+- name: frame-election-provider-support
+  bump: minor
+- name: pallet-elections-phragmen
+  bump: minor
+- name: sp-npos-elections
+  bump: minor
