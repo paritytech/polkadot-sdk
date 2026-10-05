@@ -80,6 +80,7 @@ impl pallet_scheduler::Config for Test {
 	type MaximumWeight = MaxWeight;
 	type ScheduleOrigin = EnsureRoot<u64>;
 	type MaxScheduledPerBlock = ConstU32<100>;
+	type PriorityReserve = ConstU32<10>;
 	type WeightInfo = ();
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = Preimage;
@@ -128,6 +129,7 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
+					alarm_priority: 0,
 				},
 			},
 			Track {
@@ -150,6 +152,7 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 						floor: Perbill::from_percent(90),
 						ceil: Perbill::from_percent(100),
 					},
+					alarm_priority: 128,
 				},
 			},
 			Track {
@@ -172,6 +175,7 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 						floor: Perbill::from_percent(90),
 						ceil: Perbill::from_percent(100),
 					},
+					alarm_priority: 128,
 				},
 			},
 		];

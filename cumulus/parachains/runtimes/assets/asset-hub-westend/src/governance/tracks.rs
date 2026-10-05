@@ -86,6 +86,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 5 * MINUTES,
 			min_approval: APP_ROOT,
 			min_support: SUP_ROOT,
+			alarm_priority: 0,
 		},
 	},
 	pallet_referenda::Track {
@@ -100,6 +101,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 3 * MINUTES,
 			min_approval: APP_WHITELISTED_CALLER,
 			min_support: SUP_WHITELISTED_CALLER,
+			alarm_priority: 0,
 		},
 	},
 	pallet_referenda::Track {
@@ -114,6 +116,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 3 * MINUTES,
 			min_approval: APP_STAKING_ADMIN,
 			min_support: SUP_STAKING_ADMIN,
+			alarm_priority: 128,
 		},
 	},
 	pallet_referenda::Track {
@@ -128,6 +131,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 5 * MINUTES,
 			min_approval: APP_TREASURER,
 			min_support: SUP_TREASURER,
+			alarm_priority: 128,
 		},
 	},
 	pallet_referenda::Track {
@@ -142,6 +146,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 3 * MINUTES,
 			min_approval: APP_LEASE_ADMIN,
 			min_support: SUP_LEASE_ADMIN,
+			alarm_priority: 128,
 		},
 	},
 	pallet_referenda::Track {
@@ -156,6 +161,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 3 * MINUTES,
 			min_approval: APP_FELLOWSHIP_ADMIN,
 			min_support: SUP_FELLOWSHIP_ADMIN,
+			alarm_priority: 128,
 		},
 	},
 	pallet_referenda::Track {
@@ -170,6 +176,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 3 * MINUTES,
 			min_approval: APP_GENERAL_ADMIN,
 			min_support: SUP_GENERAL_ADMIN,
+			alarm_priority: 128,
 		},
 	},
 	pallet_referenda::Track {
@@ -184,6 +191,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 3 * MINUTES,
 			min_approval: APP_AUCTION_ADMIN,
 			min_support: SUP_AUCTION_ADMIN,
+			alarm_priority: 128,
 		},
 	},
 	pallet_referenda::Track {
@@ -199,6 +207,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 1 * MINUTES,
 			min_approval: APP_MONETARY_GUARD,
 			min_support: SUP_MONETARY_GUARD,
+			alarm_priority: 128,
 		},
 	},
 	pallet_referenda::Track {
@@ -213,6 +222,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 3 * MINUTES,
 			min_approval: APP_REFERENDUM_CANCELLER,
 			min_support: SUP_REFERENDUM_CANCELLER,
+			alarm_priority: 0,
 		},
 	},
 	pallet_referenda::Track {
@@ -227,6 +237,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 3 * MINUTES,
 			min_approval: APP_REFERENDUM_KILLER,
 			min_support: SUP_REFERENDUM_KILLER,
+			alarm_priority: 0,
 		},
 	},
 	pallet_referenda::Track {
@@ -241,6 +252,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 1 * MINUTES,
 			min_approval: APP_SMALL_TIPPER,
 			min_support: SUP_SMALL_TIPPER,
+			alarm_priority: 128,
 		},
 	},
 	pallet_referenda::Track {
@@ -255,6 +267,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 3 * MINUTES,
 			min_approval: APP_BIG_TIPPER,
 			min_support: SUP_BIG_TIPPER,
+			alarm_priority: 128,
 		},
 	},
 	pallet_referenda::Track {
@@ -269,6 +282,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 5 * MINUTES,
 			min_approval: APP_SMALL_SPENDER,
 			min_support: SUP_SMALL_SPENDER,
+			alarm_priority: 128,
 		},
 	},
 	pallet_referenda::Track {
@@ -283,6 +297,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 5 * MINUTES,
 			min_approval: APP_MEDIUM_SPENDER,
 			min_support: SUP_MEDIUM_SPENDER,
+			alarm_priority: 128,
 		},
 	},
 	pallet_referenda::Track {
@@ -297,6 +312,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 			min_enactment_period: 5 * MINUTES,
 			min_approval: APP_BIG_SPENDER,
 			min_support: SUP_BIG_SPENDER,
+			alarm_priority: 128,
 		},
 	},
 ];
