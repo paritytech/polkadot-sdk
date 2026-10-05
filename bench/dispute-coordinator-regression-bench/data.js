@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791216202897,
+  "lastUpdate": 1791223583933,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e8ad708d0c69e053458f3b89b20f3f1833e0e203",
-          "message": "[Penpal] cleanup XCM config setup regarding assets (#10726)\n\nCloses #7314 by implementing all the subtasks mentioned in\nhttps://github.com/paritytech/polkadot-sdk/issues/7314#issuecomment-2792437373.\n\n## Changes\nEssentially, the main driver of all changes is that we adjust the Penpal\nruntime as follows:\n* Make the native token the base token for buying weight (before it was\na hybrid set up, probably not 100% intentional).\n* Merge the `Assets` and the `ForeignAssets` pallet into one pallet\ncalled `Assets`, as the local assets can also be identified with a\nlocation starting with `parents: 0`.\n* Give the pallet-asset-conversion a genesis config so that we can\neasily set up pools at genesis instead of redundantly calling the setup\nmacro with the same args.\n\n\n### Test Changes\nI tried to keep the changes minimal in the tests in order to not harm\nany previously established invariants. Hence, in most cases I just did:\n\n* Add a PEN<>WND pool in order to be able to pay xcm execution fees in\nWND\n* Replaced the Penpal's teleportable asset with it's new location based\nversion.\n* In very few cases, I switched from WND to PEN to make the tests\neasier, when I was sure that no invariants would be harmed.\n* The rest should only be renamings.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2026-03-26T09:15:46Z",
-          "tree_id": "0bf1df960c712ba73727cb542412ff9a662ac660",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e8ad708d0c69e053458f3b89b20f3f1833e0e203"
-        },
-        "date": 1774521803032,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009824167079999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00273506295,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010390809590000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011159688389999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "828b9d54038520f680d8f2887aac018f1e404d98",
+          "message": "statement-store: restore the full-store fixture and report percentiles in the benchmarks (#13371)\n\nThe full-store benchmark restores its fixture after the eviction phase,\nso a reused fixture matches a fresh build and its size checks run on\nevery start. The add_filter benchmark reports the median and p90 instead\nof the mean. The enforce_limits benchmark gives the expiry backlog a\n20-second margin and waits by the clock until it expires, so a slow disk\nno longer makes it fail.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13135.",
+          "timestamp": "2026-10-05T15:20:35Z",
+          "tree_id": "d3837b9315f44115cbcdcc3d545701e38a3a4403",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/828b9d54038520f680d8f2887aac018f1e404d98"
+        },
+        "date": 1791223552474,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025770432199999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010911259469999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009440989139999993,
             "unit": "seconds"
           }
         ]
