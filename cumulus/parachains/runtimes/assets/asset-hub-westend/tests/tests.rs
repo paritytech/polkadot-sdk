@@ -2636,6 +2636,13 @@ fn value_moving_calls() -> Vec<(&'static str, RuntimeCall)> {
 				index: 0,
 			}),
 		),
+		(
+			"AssetRewards::deposit_reward_tokens",
+			RuntimeCall::AssetRewards(pallet_asset_rewards::Call::deposit_reward_tokens {
+				pool_id: 0,
+				amount: 1,
+			}),
+		),
 	]
 }
 
@@ -2976,6 +2983,62 @@ fn ah_treasury_creates_asset_reward_pool() {
 		));
 
 		assert_eq!(pallet_asset_rewards::Pools::<Runtime>::iter().count(), 1);
+	});
+}
+
+/// Any signed account can create a reward pool, and `cleanup_pool` pays the pool's balance to its
+/// admin. A `NonTransfer` delegate must not be able to move the delegator's tokens into a pool it
+/// administers.
+#[test]
+fn non_transfer_proxy_cannot_move_delegator_funds_into_own_reward_pool() {
+	use asset_hub_westend_runtime::ProxyType;
+	use frame_support::traits::schedule::DispatchTime;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		frame_system::Pallet::<Runtime>::set_block_number(1);
+		let delegator = AccountId::from(ALICE);
+		let delegate = AccountId::from(BOB);
+		let amount = 10 * UNITS;
+		assert_ok!(Balances::mint_into(&delegator, 100 * UNITS));
+		assert_ok!(Balances::mint_into(&delegate, 100 * UNITS));
+
+		let native = WestendLocation::get();
+		let pool_id = pallet_asset_rewards::NextPoolId::<Runtime>::get();
+		assert_ok!(AssetRewards::create_pool(
+			RuntimeOrigin::signed(delegate.clone()),
+			Box::new(native.clone()),
+			Box::new(native),
+			1,
+			DispatchTime::After(1_000_000),
+			None,
+		));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(delegator.clone()),
+			delegate.clone().into(),
+			ProxyType::NonTransfer,
+			0,
+		));
+		let delegator_before = <Balances as Inspect<_>>::total_balance(&delegator);
+		let delegate_before = <Balances as Inspect<_>>::total_balance(&delegate);
+
+		assert_ok!(Proxy::proxy(
+			RuntimeOrigin::signed(delegate.clone()),
+			delegator.clone().into(),
+			None,
+			Box::new(RuntimeCall::AssetRewards(
+				pallet_asset_rewards::Call::deposit_reward_tokens { pool_id, amount }
+			)),
+		));
+		frame_system::Pallet::<Runtime>::assert_last_event(
+			pallet_proxy::Event::ProxyExecuted {
+				result: Err(frame_system::Error::<Runtime>::CallFiltered.into()),
+			}
+			.into(),
+		);
+		assert_ok!(AssetRewards::cleanup_pool(RuntimeOrigin::signed(delegate.clone()), pool_id));
+
+		assert_eq!(<Balances as Inspect<_>>::total_balance(&delegator), delegator_before);
+		assert_eq!(<Balances as Inspect<_>>::total_balance(&delegate), delegate_before);
 	});
 }
 

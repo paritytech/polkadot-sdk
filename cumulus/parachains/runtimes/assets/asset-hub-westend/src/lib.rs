@@ -845,6 +845,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::PolkadotXcm(..) |
 					// Contract calls and instantiations carry a `value` to transfer.
 					RuntimeCall::Revive(..) |
+					// `deposit_reward_tokens` transfers the caller's tokens into the pool.
+					RuntimeCall::AssetRewards(pallet_asset_rewards::Call::deposit_reward_tokens {
+						..
+					}) |
 					// We allow calling `vest` and merging vesting schedules, but obviously not
 					// vested transfers.
 					RuntimeCall::Vesting(pallet_vesting::Call::vested_transfer { .. }) |
