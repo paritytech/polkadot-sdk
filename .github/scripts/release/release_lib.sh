@@ -29,9 +29,10 @@ commit_with_message() {
 # input: none
 # output: list of filtered runtimes
 get_filtered_runtimes_list() {
+    # "docs" skips the tutorial runtime, which has a placeholder spec_version: 0.
     grep_filters=("runtime.*" "test|template|starters|substrate|docs")
 
-    git grep spec_version: | grep .rs: | grep -e "${grep_filters[0]}" | grep "lib.rs" | grep -vE "${grep_filters[1]}" | cut -d: -f1
+    git grep spec_version: | grep .rs: | grep -e "${grep_filters[0]}" | grep "lib.rs" | grep -vE "${grep_filters[1]}" | cut -d: -f1 | sort -u
 }
 
 # Sets provided spec version
