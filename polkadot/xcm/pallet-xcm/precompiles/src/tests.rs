@@ -916,8 +916,7 @@ fn execute_is_denied_in_the_receiver_of_a_send() {
 	// Returns whether the sender saw its call denied, and the value CHARLIE received.
 	let execute_from_receiver = |gas_limit: u64| {
 		// ALICE also pays the storage deposits of the two deployments.
-		let balances =
-			vec![(ALICE, 1_000_000_000_000_000), (CHARLIE, CUSTOM_INITIAL_BALANCE)];
+		let balances = vec![(ALICE, 1_000_000_000_000_000), (CHARLIE, CUSTOM_INITIAL_BALANCE)];
 		new_test_ext_with_balances(balances).execute_with(|| {
 			let deploy = |name: &str, constructor: Vec<u8>, salt: [u8; 32]| {
 				let (mut code, _) =

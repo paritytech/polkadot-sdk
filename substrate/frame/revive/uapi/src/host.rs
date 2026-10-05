@@ -83,6 +83,9 @@ pub trait HostFn: private::Sealed {
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
+	/// Transferring value traps in the callee of a `transfer`, `send` or any call with that shape,
+	/// and in any contract that callee calls.
+	///
 	/// # Parameters
 	///
 	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
@@ -125,11 +128,10 @@ pub trait HostFn: private::Sealed {
 	/// event.
 	///
 	/// A call shaped like Solidity's `transfer` or `send` (value with a gas of 0, or no value with
-	/// a gas of 2300) does not let the callee call back into the caller, even with
-	/// [`CallFlags::ALLOW_REENTRY`]. The callee, and any contract it calls or creates, also cannot
-	/// write persistent storage. Transient storage still works.
-	///
-	/// A call with [`CallFlags::READ_ONLY`] gets neither the stipend nor these protections.
+	/// a gas of 2300) limits the callee to what the stipend pays for on Ethereum. The callee, and
+	/// any contract it calls, fails with `OutOfGas` when it writes persistent storage, transfers
+	/// value, or creates or terminates a contract. Transient storage still works. A call with
+	/// [`CallFlags::READ_ONLY`] is never treated as such a call.
 	///
 	/// If gas is `u64::MAX`, the call will run with uncapped limits.
 	fn call_evm(
@@ -319,6 +321,9 @@ pub trait HostFn: private::Sealed {
 	/// This function creates an account and executes the constructor defined in the code specified
 	/// by the code hash.
 	///
+	/// Traps in the callee of a `transfer`, `send` or any call with that shape, and in any
+	/// contract that callee calls.
+	///
 	/// # Parameters
 	///
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
@@ -392,7 +397,7 @@ pub trait HostFn: private::Sealed {
 	/// parameters.
 	///
 	/// Persistent writes trap in the callee of a `transfer`, `send` or any call with that shape,
-	/// and in any contract that callee calls or creates. Transient writes still work.
+	/// and in any contract that callee calls. Transient writes still work.
 	///
 	/// # Parameters
 	///
@@ -410,7 +415,7 @@ pub trait HostFn: private::Sealed {
 	/// mimicking Ethereum’s SSTORE behavior.
 	///
 	/// Persistent writes trap in the callee of a `transfer`, `send` or any call with that shape,
-	/// and in any contract that callee calls or creates. Transient writes still work.
+	/// and in any contract that callee calls. Transient writes still work.
 	///
 	/// # Parameters
 	/// - `key`: The fixed 256‑bit storage key (32 bytes).
@@ -490,6 +495,8 @@ pub trait HostFn: private::Sealed {
 	/// - The contract is live i.e is already on the call stack.
 	/// - Failed to send the balance to the beneficiary.
 	/// - The deletion queue is full.
+	/// - The contract is the callee of a `transfer`, `send` or any call with that shape, or a
+	///   contract that callee calls.
 	fn terminate(beneficiary: &[u8; 20]) -> !;
 }
 

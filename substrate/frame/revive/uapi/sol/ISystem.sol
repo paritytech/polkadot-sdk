@@ -62,6 +62,8 @@ interface ISystem {
 	/// - called from static context
 	/// - called from delegate context
 	/// - the contract introduced balance locks
+	/// - called by the callee of a `transfer`, `send` or any call with that shape, or by a
+	///   contract that callee calls
 	function terminate(address beneficiary) external;
 
 	/// Verify a sr25519 signature

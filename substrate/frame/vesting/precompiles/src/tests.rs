@@ -374,9 +374,7 @@ fn delegate_call_guards() {
 fn vested_transfer_is_denied_in_the_receiver_of_a_send() {
 	use alloy_core::sol_types::{SolCall, SolConstructor};
 	use frame_support::weights::Weight;
-	use pallet_revive::{
-		Code, TransactionLimits, test_utils::builder::BareInstantiateBuilder,
-	};
+	use pallet_revive::{Code, TransactionLimits, test_utils::builder::BareInstantiateBuilder};
 	use pallet_revive_fixtures::{CallingReceiver, FixtureType, StipendSender};
 
 	const LOCKED: u64 = 10_000;
@@ -425,9 +423,12 @@ fn vested_transfer_is_denied_in_the_receiver_of_a_send() {
 				[2; 32],
 			);
 
-			let result = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), sender.addr)
-				.data(StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode())
-				.build_and_unwrap_result();
+			let result =
+				BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), sender.addr)
+					.data(
+						StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
+					)
+					.build_and_unwrap_result();
 			let target_vesting =
 				<pallet_vesting::Pallet<Test> as VestingSchedule<u64>>::vesting_balance(&TARGET);
 			(bool::abi_decode(&result.data).unwrap(), target_vesting.is_some())

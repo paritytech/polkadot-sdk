@@ -7,7 +7,7 @@ interface IStorage {
 	/// Clear the value at the given key in the contract storage.
 	///
 	/// Persistent writes fail in the callee of a `transfer`, `send` or any call with that shape,
-	/// and in any contract that callee calls or creates. Transient writes still work.
+	/// and in any contract that callee calls. Transient writes still work.
 	///
 	/// # Important
 	///
@@ -51,7 +51,7 @@ interface IStorage {
 	/// Retrieve and remove the value under the given key from storage.
 	///
 	/// Persistent writes fail in the callee of a `transfer`, `send` or any call with that shape,
-	/// and in any contract that callee calls or creates. Transient writes still work.
+	/// and in any contract that callee calls. Transient writes still work.
 	///
 	/// # Important
 	///
