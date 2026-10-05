@@ -314,14 +314,17 @@ where
 
 /// Verify a merkle branch, yielding the chunk hash meant to be present at that
 /// index.
+///
+/// Returns [`Error::BranchOutOfBounds`] if the index exceeds the trie key's `u32` range.
 pub fn branch_hash(root: &H256, branch_nodes: &Proof, index: usize) -> Result<H256, Error> {
+	let index = u32::try_from(index).map_err(|_| Error::BranchOutOfBounds)?;
 	let mut trie_storage: MemoryDB<Blake2Hasher> = MemoryDB::default();
 	for node in branch_nodes.iter() {
 		(&mut trie_storage as &mut sp_trie::HashDB<_>).insert(EMPTY_PREFIX, node);
 	}
 
 	let trie = TrieDBBuilder::new(&trie_storage, &root).build();
-	let res = (index as u32).using_encoded(|key| {
+	let res = index.using_encoded(|key| {
 		trie.get_with(key, |raw_hash: &[u8]| H256::decode(&mut &raw_hash[..]))
 	});
 
@@ -460,6 +463,25 @@ mod tests {
 			assert_eq!(encode, Encode::encode(&decode));
 
 			assert_eq!(branch_hash(&root, &proof, i).unwrap(), BlakeTwo256::hash(&chunks[i]));
+		}
+	}
+
+	#[test]
+	fn branch_hash_rejects_out_of_bounds_indices() {
+		let chunks = vec![vec![1, 2], vec![3, 4]];
+		let branches = branches(&chunks);
+		let root = branches.root();
+		let proofs: Vec<_> = branches.map(|(proof, _)| proof).collect();
+
+		for (index, proof) in proofs.iter().enumerate() {
+			assert_eq!(branch_hash(&root, proof, index), Ok(BlakeTwo256::hash(&chunks[index])));
+			assert_eq!(branch_hash(&root, proof, chunks.len()), Err(Error::BranchOutOfBounds));
+			assert_eq!(branch_hash(&root, proof, u32::MAX as usize), Err(Error::BranchOutOfBounds));
+
+			// On wider platforms, these indices must not alias the valid chunk at `index`.
+			if let Some(aliased_index) = (u32::MAX as usize).checked_add(1 + index) {
+				assert_eq!(branch_hash(&root, proof, aliased_index), Err(Error::BranchOutOfBounds));
+			}
 		}
 	}
 

@@ -1,0 +1,10 @@
+title: Reject unrepresentable erasure-coding branch indices
+doc:
+  - audience: Node Dev
+    description: |
+      polkadot-erasure-coding's branch_hash now returns BranchOutOfBounds for
+      indices exceeding u32::MAX instead of truncating them to an existing
+      chunk index on wider platforms. Valid u32 indices retain their behavior.
+crates:
+  - name: polkadot-erasure-coding
+    bump: patch
