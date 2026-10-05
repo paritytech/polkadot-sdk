@@ -67,6 +67,10 @@ macro_rules! impl_node_runtime_apis {
 				fn max_claim_queue_offset() -> u8 {
 					unimplemented!()
 				}
+
+				fn reserved_cores() -> u32 {
+					unimplemented!()
+				}
 			}
 
 			impl cumulus_primitives_core::SchedulingV3EnabledApi<$block> for $runtime {

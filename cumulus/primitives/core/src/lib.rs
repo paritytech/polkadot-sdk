@@ -658,6 +658,7 @@ sp_api::decl_runtime_apis! {
 	/// Version history:
 	/// - Version 1: Initial version with `relay_parent_offset` only
 	/// - Version 2: Added `max_claim_queue_offset` method
+	/// - Version 3: Added `reserved_cores` method.
 	#[api_version(2)]
 	pub trait RelayParentOffsetApi {
 		/// Fetch the relay parent offset that is expected from the relay chain.
@@ -701,6 +702,16 @@ sp_api::decl_runtime_apis! {
 		/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
 		#[api_version(2)]
 		fn max_claim_queue_offset() -> u8;
+
+		/// Number of assigned cores that may contain only resubmitted candidates.
+		///
+		/// Collators can build fresh blocks on at most `assigned - reserved` cores,
+		/// minimum being 1 core. The `reserved` cores are used only to resubmit blocks
+		/// and catch up without pausing block production.
+		///
+		/// Note: this method was added in `api_version = 3`. Collators treat an error as 0.
+		#[api_version(3)]
+		fn reserved_cores() -> u32;
 	}
 
 	/// API to tell the node side whether V3 scheduling is enabled.

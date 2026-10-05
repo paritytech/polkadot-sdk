@@ -98,6 +98,7 @@ impl Config for Test {
 	type ConsensusHook = TestConsensusHook;
 	type WeightInfo = ();
 	type RelayParentOffset = MockRelayParentOffset;
+	type ReservedCores = sp_core::ConstU32<0>;
 	type SchedulingSignatureVerifier = ();
 }
 
