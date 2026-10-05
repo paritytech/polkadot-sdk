@@ -1,0 +1,48 @@
+title: 'spec-msg/primitives: Implement Speculative Messaging primitives'
+doc:
+- audience: Runtime Dev
+  description: |
+    Closes #12346
+
+    New `cumulus-primitives-spec-messaging` crate (`cumulus/primitives/spec-messaging/`), `no_std`-compatible, added to workspace members.
+
+    ### `CommitmentSet<const N: u32>` (`polkadot/primitives/src/v9/`)
+
+    Canonical, bounded set of `(ParaId, Hash)` entries for `provides`/`requires` commitments.
+
+    - Manual `Decode` rejects input whose `ParaId`s aren't strictly increasing, preventing collator/PVF encoding disagreements.
+    - `try_from_iter`: builds from an unordered iterator, sorting by `ParaId`, rejecting duplicates (`CommitmentError::DuplicateParaId`) or over-capacity input (`CommitmentError::TooManyEntries`).
+    - Accessors: `get`, `len`, `is_empty`, `iter`, `IntoIterator`.
+    - Full derive set (`Encode`, `Decode`, `DecodeWithMemTracking`, `MaxEncodedLen`, `TypeInfo`, ...).
+    - 10 unit tests: sorted construction, duplicate/overflow rejection, encode/decode round-trip, decode rejection (out-of-order/duplicate/over-capacity), lookup, iteration, default.
+
+    ### `OutgoingMessage<MaxMsgLen: Get<u32>>`
+
+    - Fields: `source`, `destination`, `position`, bounded `payload: BoundedVec<u8, MaxMsgLen>`, full derive set for storage/`UMPSignal` embedding.
+    - `hash_leaf::<H>()`: generic over `H: sp_runtime::traits::Hash<Output = Hash>`; produces the MMR leaf hash from the preimage `LEAF_TAG ++ LEAF_VERSION ++ source ++ destination ++ position.to_le_bytes() ++ (payload.len() as u32).to_le_bytes() ++ payload` — matches the issue's specified preimage format exactly.
+    - 7 unit tests: constructor, determinism, exact preimage (known-answer test), per-field hash sensitivity (source/destination/position/payload).
+
+    ### MMR operations (`mmr.rs`)
+
+    Rather than hand-rolling an accumulator, this crate plugs into `polkadot-ckb-merkle-mountain-range` (`mmr_lib`), already an audited `no_std` workspace dependency exposed via `sp-mmr-primitives`. The crate contributes:
+
+    - `SpecHasher` — `pub type SpecHasher = BlakeTwo256`; the canonical hasher alias. Swapping to a different hash function is a one-line edit.
+    - `SpecMerge<H>` — implements `mmr_lib::Merge` generic over `H: sp_runtime::traits::Hash<Output = Hash>` with domain-tagged hashing:
+      - `merge(l, r)` → `H::hash(INNER_TAG ++ l ++ r)` (inner tree nodes)
+      - `merge_peaks(l, r)` → `H::hash(PEAK_TAG ++ l ++ r)` (peak bagging)
+    - Domain separation constants: `LEAF_TAG`, `INNER_TAG`, `PEAK_TAG`, `LEAF_VERSION` — prevent hash collisions across node types and protocol versions.
+
+    Callers build an accumulator directly with `mmr_lib::MMR<Hash, SpecMerge<SpecHasher>, S>`, gaining multi-leaf inclusion proofs (`gen_proof` / `MerkleProof::verify`) and append-only extension proofs (`gen_ancestry_proof` / `verify_incremental`) from the library at no extra implementation cost.
+
+    - 6 unit tests: empty MMR, root determinism, per-append root change, `merge` order sensitivity, `merge_peaks` order sensitivity, domain tag isolation (inner vs peak).
+
+    ### Notes
+
+    - Adds new `cumulus-primitives-spec-messaging` crate in `polkadot-sdk` (umbrella) crate.
+crates:
+- name: cumulus-primitives-spec-messaging
+  bump: patch
+- name: polkadot-primitives
+  bump: minor
+- name: polkadot-sdk
+  bump: minor
