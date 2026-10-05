@@ -637,7 +637,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		f: TransferFlags,
 	) -> Result<T::Balance, DispatchError> {
 		let (balance, died) =
-			Self::transfer_and_die(id.clone(), source, dest, amount, maybe_need_admin, f)?;
+			Self::transfer_and_die(id.clone(), source, dest, amount, maybe_need_admin, f, |_| {
+				Ok(())
+			})?;
 		if let Some(Remove) = died {
 			T::Freezer::died(id.clone(), source);
 			T::Holder::died(id, source);
@@ -647,6 +649,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Same as `do_transfer` but it does not execute the `FrozenBalance::died` hook and
 	/// instead returns whether and how the `source` account died in this operation.
+	///
+	/// `check` is called with the resolved debit before anything is written, and is not called
+	/// for a zero `amount`.
 	fn transfer_and_die(
 		id: T::AssetId,
 		source: &T::AccountId,
@@ -654,6 +659,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: T::Balance,
 		maybe_need_admin: Option<T::AccountId>,
 		f: TransferFlags,
+		check: impl FnOnce(T::Balance) -> DispatchResult,
 	) -> Result<(T::Balance, Option<DeadConsequence>), DispatchError> {
 		// Early exit if no-op.
 		if amount.is_zero() {
@@ -664,6 +670,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// Figure out the debit and credit, together with side-effects.
 		let debit = Self::prep_debit(id.clone(), source, amount, f.into())?;
+		check(debit)?;
 		let (credit, maybe_burn) = Self::prep_credit(id.clone(), dest, amount, debit, f.burn_dust)?;
 
 		let mut source_account =
@@ -1006,17 +1013,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// `dest` by (similar) amount, checking that 'delegate' has an existing approval from `owner`
 	/// to spend`amount`.
 	///
-	/// Will fail if `amount` is greater than the approval from `owner` to 'delegate'
-	/// Will unreserve the deposit from `owner` if the entire approved `amount` is spent by
-	/// 'delegate'
+	/// Will fail if the charge is greater than the approval from `owner` to 'delegate'. The
+	/// charge is the debit, which exceeds `amount` where transferring `amount` would leave `owner`
+	/// holding a non-zero remainder below the asset's minimum balance. A transfer to `owner`
+	/// itself moves nothing and is charged `amount`.
+	/// Will unreserve the deposit from `owner` if the charge spends the approval in full.
+	///
+	/// Returns the charge.
 	pub fn do_transfer_approved(
 		id: T::AssetId,
 		owner: &T::AccountId,
 		delegate: &T::AccountId,
 		destination: &T::AccountId,
 		amount: T::Balance,
-	) -> DispatchResult {
+	) -> Result<T::Balance, DispatchError> {
 		let mut owner_died: Option<DeadConsequence> = None;
+		let mut charge = amount;
 
 		let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
@@ -1025,12 +1037,29 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			(id.clone(), &owner, delegate),
 			|maybe_approved| -> DispatchResult {
 				let mut approved = maybe_approved.take().ok_or(Error::<T, I>::Unapproved)?;
-				let remaining =
-					approved.amount.checked_sub(&amount).ok_or(Error::<T, I>::Unapproved)?;
+				// Reports `Unapproved` before `prep_debit` can raise a balance error.
+				ensure!(approved.amount >= amount, Error::<T, I>::Unapproved);
 
 				let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
-				owner_died =
-					Self::transfer_and_die(id.clone(), owner, destination, amount, None, f)?.1;
+				let mut remaining = approved.amount;
+				owner_died = Self::transfer_and_die(
+					id.clone(),
+					owner,
+					destination,
+					amount,
+					None,
+					f,
+					|debit| {
+						// A self-transfer moves nothing, so only the request is charged.
+						charge = if owner == destination { amount } else { debit };
+						remaining = approved
+							.amount
+							.checked_sub(&charge)
+							.ok_or(Error::<T, I>::Unapproved)?;
+						Ok(())
+					},
+				)?
+				.1;
 
 				if remaining.is_zero() {
 					T::Currency::unreserve(owner, approved.deposit);
@@ -1052,7 +1081,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			T::Freezer::died(id.clone(), owner);
 			T::Holder::died(id, owner);
 		}
-		Ok(())
+		Ok(charge)
 	}
 
 	/// Do set metadata

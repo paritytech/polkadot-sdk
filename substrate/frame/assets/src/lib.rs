@@ -1691,16 +1691,18 @@ pub mod pallet {
 		/// Origin must be Signed and there must be an approval in place by the `owner` to the
 		/// signer.
 		///
-		/// If the entire amount approved for transfer is transferred, then any deposit previously
-		/// reserved by `approve_transfer` is unreserved.
+		/// If the debit spends the approval in full, then any deposit previously reserved by
+		/// `approve_transfer` is unreserved. The debit exceeds `amount` where transferring
+		/// `amount` would leave `owner` holding a non-zero remainder below the asset's minimum
+		/// balance, so a request smaller than the approval can still spend it in full.
 		///
 		/// - `id`: The identifier of the asset.
-		/// - `owner`: The account which previously approved for a transfer of at least `amount` and
-		/// from which the asset balance will be withdrawn.
-		/// - `destination`: The account to which the asset balance of `amount` will be transferred.
+		/// - `owner`: The account which previously approved for a transfer of at least the debit
+		/// and from which the asset balance will be withdrawn.
+		/// - `destination`: The account to which the debited balance will be transferred.
 		/// - `amount`: The amount of assets to transfer.
 		///
-		/// Emits `TransferredApproved` on success.
+		/// Emits `Transferred` on success.
 		///
 		/// Weight: `O(1)`
 		#[pallet::call_index(25)]
@@ -1715,7 +1717,7 @@ pub mod pallet {
 			let owner = T::Lookup::lookup(owner)?;
 			let destination = T::Lookup::lookup(destination)?;
 			let id: T::AssetId = id.into();
-			Self::do_transfer_approved(id, &owner, &delegate, &destination, amount)
+			Self::do_transfer_approved(id, &owner, &delegate, &destination, amount).map(|_| ())
 		}
 
 		/// Create an asset account for non-provider assets.

@@ -902,3 +902,147 @@ fn transfer_from_decrements_normally_after_max_approve(asset_index: u16) {
 		assert_eq!(Assets::balance(asset_id, &recipient), 10);
 	});
 }
+
+fn call_transfer_from(spender: u64, asset_addr: H160, from: H160, to: H160, value: U256) -> bool {
+	let data =
+		IERC20::transferFromCall { from: from.0.into(), to: to.0.into(), value }.abi_encode();
+	let result = pallet_revive::Pallet::<Test>::bare_call(
+		RuntimeOrigin::signed(spender),
+		asset_addr,
+		0u32.into(),
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u128::MAX },
+		data,
+		&ExecConfig::new_substrate_tx(),
+	);
+	result.result.as_ref().map_or(false, |v| !v.did_revert())
+}
+
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_logs_the_swept_amount(asset_index: u16) {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let from = 123456789u64;
+		let to = 987654321u64;
+		Balances::make_free_balance_be(&from, 100);
+		Balances::make_free_balance_be(&to, 100);
+		let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, from, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(from), asset_id, from, 100));
+
+		// Sending 95 would strand 5, below the minimum of 10, so all 100 move.
+		let data =
+			IERC20::transferCall { to: to_addr.0.into(), value: U256::from(95) }.abi_encode();
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(from),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+		assert!(!result.result.unwrap().did_revert(), "transfer must succeed");
+
+		assert_eq!(Assets::balance(asset_id, from), 0);
+		assert_eq!(Assets::balance(asset_id, to), 100);
+		assert_contract_event(
+			asset_addr,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: from_addr.0.into(),
+				to: to_addr.0.into(),
+				value: U256::from(100),
+			}),
+		);
+	});
+}
+
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_from_logs_the_charged_sweep(asset_index: u16) {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let owner = 123456789u64;
+		let spender = 987654321u64;
+		let recipient = 111222333u64;
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+		Balances::make_free_balance_be(&recipient, 100);
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+		let recipient_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+		call_approve(owner, asset_addr, spender_addr, U256::from(110));
+
+		// Requesting 91 would strand 9, so all 100 move and all 100 are charged.
+		assert!(call_transfer_from(
+			spender,
+			asset_addr,
+			owner_addr,
+			recipient_addr,
+			U256::from(91)
+		));
+
+		assert_eq!(Assets::balance(asset_id, owner), 0);
+		assert_eq!(Assets::balance(asset_id, recipient), 100);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 10);
+		assert_contract_event(
+			asset_addr,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: owner_addr.0.into(),
+				to: recipient_addr.0.into(),
+				value: U256::from(100),
+			}),
+		);
+	});
+}
+
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_from_reverts_when_the_sweep_exceeds_the_allowance(asset_index: u16) {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let owner = 123456789u64;
+		let spender = 987654321u64;
+		let recipient = 111222333u64;
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+		Balances::make_free_balance_be(&recipient, 100);
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+		let recipient_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+		call_approve(owner, asset_addr, spender_addr, U256::from(95));
+
+		// 91 is within both the allowance and the balance, but the sweep would move 100.
+		assert!(!call_transfer_from(
+			spender,
+			asset_addr,
+			owner_addr,
+			recipient_addr,
+			U256::from(91)
+		));
+
+		assert_eq!(Assets::balance(asset_id, owner), 100);
+		assert_eq!(Assets::balance(asset_id, recipient), 0);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 95);
+	});
+}
