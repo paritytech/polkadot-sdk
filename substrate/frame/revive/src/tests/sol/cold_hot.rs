@@ -18,10 +18,10 @@
 //! Which state entries the access list finds cold or hot, on both vms.
 
 use crate::{
-	BalanceOf, Code, Config, Weight,
+	AccountInfo, BalanceOf, Code, Config, Weight,
 	access_list::{Access, AccessListMetrics, CallItems, CodeLoadItems, CreateItems},
 	limits,
-	test_utils::{ALICE, builder::Contract},
+	test_utils::{ALICE, ALICE_ADDR, DJANGO_ADDR, EVE_ADDR, builder::Contract},
 	tests::{ExtBuilder, RuntimeOrigin, Test, access_list_metrics_of, builder},
 };
 use alloy_core::{
@@ -132,6 +132,45 @@ fn a_denied_call_still_touches_its_target(fixture_type: FixtureType) {
 
 		assert_eq!(final_call_denied.cold, final_call_allowed.cold + target_entries);
 		assert_eq!(final_call_denied.size, final_call_allowed.size + entries_kept_after_denial);
+	});
+}
+
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn a_chained_delegation_call_warms_the_target_it_checks(fixture_type: FixtureType) {
+	ExtBuilder::default().build().execute_with(|| {
+		let (caller_addr, [reverter_addr]) =
+			deploy_call_each_with_reverting_targets::<1>(fixture_type);
+		// DJANGO -> EVE -> ALICE: a call to DJANGO traps after reading EVE's account info.
+		AccountInfo::<Test>::set_delegation(&EVE_ADDR, Some(ALICE_ADDR), &ALICE).unwrap();
+		AccountInfo::<Test>::set_delegation(&DJANGO_ADDR, Some(EVE_ADDR), &ALICE).unwrap();
+		let django_call = (DJANGO_ADDR, Vec::new());
+		let reverted_django_call = (
+			reverter_addr,
+			CallThenRevert::callThenRevertCall { target: DJANGO_ADDR.0.into() }.abi_encode(),
+		);
+		// The call's own entries, plus EVE's account info that the chained check reads.
+		let django_call_entries = CallItems::new(DJANGO_ADDR, false).entry_count() + 1;
+
+		let django_only = access_list_metrics_of_calls(caller_addr, &[django_call.clone()]);
+		let django_then_django =
+			access_list_metrics_of_calls(caller_addr, &[django_call.clone(), django_call.clone()]);
+		assert_eq!(django_then_django.cold, django_only.cold, "the second call adds nothing cold");
+		assert_eq!(
+			django_then_django.hot, django_call_entries,
+			"the caller reads DJANGO's and EVE's entries before DJANGO would run, so they stay hot",
+		);
+
+		let reverted_only =
+			access_list_metrics_of_calls(caller_addr, &[reverted_django_call.clone()]);
+		let reverted_then_django =
+			access_list_metrics_of_calls(caller_addr, &[reverted_django_call, django_call]);
+		assert_eq!(
+			reverted_then_django.cold - reverted_only.cold,
+			django_call_entries,
+			"the reverting caller drops DJANGO's entries and EVE's account info",
+		);
+		assert_eq!(reverted_then_django.hot, 0, "the next call to DJANGO finds nothing hot");
 	});
 }
 

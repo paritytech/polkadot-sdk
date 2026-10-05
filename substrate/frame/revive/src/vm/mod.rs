@@ -128,7 +128,7 @@ enum CodeLoadToken {
 }
 
 impl CodeLoadToken {
-	/// Computes the flat cost of the two code entries at their own warmth, plus the write that
+	/// Computes the flat cost of the code entries at their own warmth, plus the write that
 	/// `code_load` does not measure.
 	fn flat_cost<T: Config>(warmth: Summarized<CodeLoadWarmth>) -> Weight {
 		let summary = warmth.summary();

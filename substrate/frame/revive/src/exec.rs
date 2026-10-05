@@ -1127,10 +1127,18 @@ where
 	/// delegated, the spec resolves one hop, retrieves the target's indicator bytes
 	/// `0xef0100 || ..`, and traps on the leading `0xef` invalid opcode. Otherwise the
 	/// resolved code is genuinely empty and the call falls through to the transfer path.
-	fn fail_if_chained_delegation(target: Option<H160>) -> Result<(), ExecError> {
-		if let Some(target) = target &&
-			AccountInfo::<T>::is_delegated(&target)
-		{
+	fn ensure_not_chained_delegation<S: State>(
+		access_list: &mut AccessList,
+		meter: &mut ResourceMeter<T, S>,
+		target: Option<H160>,
+	) -> Result<(), ExecError> {
+		let Some(target) = target else { return Ok(()) };
+		access_list.charge_and_warm(
+			access_list::AccessEntry::AccountInfo { address: target },
+			StorageOp::Read,
+			|warmth| meter.charge_weight_token(RuntimeCosts::AccountInfoRead(warmth)),
+		)?;
+		if AccountInfo::<T>::is_delegated(&target) {
 			return Err(ExecError {
 				error: <Error<T>>::ContractTrapped.into(),
 				origin: ErrorOrigin::Callee,
@@ -1178,7 +1186,7 @@ where
 						if let Some(info) = info {
 							CachedContract::Cached(info)
 						} else {
-							Self::fail_if_chained_delegation(target)?;
+							Self::ensure_not_chained_delegation(access_list, meter, target)?;
 							return Ok(None);
 						}
 					},
@@ -1220,7 +1228,7 @@ where
 						let (info, target) =
 							AccountInfo::<T>::load_contract_with_delegation(&delegated_call.callee);
 						let Some(info) = info else {
-							Self::fail_if_chained_delegation(target)?;
+							Self::ensure_not_chained_delegation(access_list, meter, target)?;
 							return Ok(None);
 						};
 						delegate_code_target = target;

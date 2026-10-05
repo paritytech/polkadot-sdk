@@ -387,6 +387,20 @@ pub enum AccessEntry {
 	Storage(ContractSlot),
 }
 
+impl AccessEntry {
+	/// Returns the family the entry's key belongs to.
+	pub fn key_family(&self) -> KeyFamily {
+		match self {
+			Self::Storage(_) => KeyFamily::Slot,
+			Self::Account { .. } |
+			Self::OriginalAccount { .. } |
+			Self::AccountInfo { .. } |
+			Self::CodeInfo { .. } |
+			Self::CodeBlob { .. } => KeyFamily::Address,
+		}
+	}
+}
+
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 impl AccessEntry {
 	/// Builds the `i`-th entry of `key`'s family. Only the trailing bytes carry `i`, so a
@@ -793,6 +807,17 @@ impl AccessList {
 				Warmth::Cold { revertible: self.in_nested_frame() }
 			},
 		}
+	}
+
+	/// Charges the entry at its warmth and registers it; a failed charge leaves it unmodified.
+	pub fn charge_and_warm<C, E>(
+		&mut self,
+		entry: AccessEntry,
+		op: StorageOp,
+		charge: impl FnOnce(Summarized<Warmth>) -> Result<C, E>,
+	) -> Result<Warmth, E> {
+		charge(Summarized::from_warmth(entry.key_family(), self.peek(&entry), op))?;
+		Ok(self.touch(entry, op))
 	}
 
 	/// Warms every entry the access touches, returning the warmth each had

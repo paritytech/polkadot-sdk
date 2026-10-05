@@ -122,6 +122,8 @@ pub enum RuntimeCosts {
 	TakeStorage { len: u32, kind: StorageAccessKind },
 	/// Base weight of a call-family operation.
 	CallBase(Summarized<CallWarmth>),
+	/// Weight of reading an `AccountInfoOf` entry.
+	AccountInfoRead(Summarized<Warmth>),
 	/// Weight of calling a precompile.
 	PrecompileBase,
 	/// Weight of calling a precompile that has a contract info.
@@ -464,6 +466,12 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase(warmth) => warmth.weight::<T>(),
+			AccountInfoRead(warmth) => weight_from_warmth_summary::<T>(
+				warmth.summary(),
+				T::WeightInfo::account_info_read,
+				// Nothing on top of the base hot access.
+				Weight::zero,
+			),
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
@@ -775,6 +783,25 @@ mod tests {
 			assert_eq!(hot_weight.proof_size(), 0, "{shape}: a warm call doesn't pay proof");
 			assert!(cold_weight.proof_size() > 0, "{shape}: a cold call pays proof");
 		}
+	}
+
+	#[test]
+	fn account_info_read_cold_hot_pricing() {
+		let read = |warmth| {
+			weight(&RuntimeCosts::AccountInfoRead(Summarized::from_warmth(
+				KeyFamily::Address,
+				warmth,
+				StorageOp::Read,
+			)))
+		};
+		let (cold, hot) = (read(Warmth::cold_non_revertible()), read(Warmth::read_paid()));
+
+		assert!(
+			cold.ref_time() > hot.ref_time(),
+			"a warm read costs less: cold={cold:?} hot={hot:?}",
+		);
+		assert_eq!(hot.proof_size(), 0, "a warm read doesn't pay proof");
+		assert!(cold.proof_size() > 0, "a cold read pays proof");
 	}
 
 	#[test]

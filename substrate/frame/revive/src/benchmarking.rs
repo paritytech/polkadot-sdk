@@ -790,6 +790,27 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// A read of an `AccountInfoOf` entry.
+	#[benchmark(pov_mode = Measured)]
+	fn account_info_read() -> Result<(), BenchmarkError> {
+		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		// A delegated EOA is the worst case: its entry carries a contract info and the target.
+		let address = H160([0x42; 20]);
+		delegated_eoa::<T>(address, contract.address)?;
+
+		let info;
+		#[block]
+		{
+			info = AccountInfoOf::<T>::get(&address);
+		}
+		let is_delegated_eoa = matches!(
+			info.map(|info| info.account_type),
+			Some(crate::storage::AccountType::DelegatedEOA { .. })
+		);
+		assert!(is_delegated_eoa);
+		Ok(())
+	}
+
 	// We just call a dummy contract to measure the overhead of the call extrinsic.
 	// The size of the data has no influence on the costs of this extrinsic as long as the contract
 	// won't call `seal_call_data_copy` in its constructor to copy the data to contract memory.
@@ -2776,9 +2797,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		// An EIP-7702 delegated callee is the worst case for the account resolution in
 		// `new_frame`: the `AccountInfoOf` entry decodes the larger `DelegatedEOA` variant and
-		// the call still runs the target's code. (A callee whose delegation snapshot is empty
-		// costs a second read of the target but skips code load and execution entirely, so it
-		// is cheaper overall.)
+		// the call still runs the target's code.
 		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 		let callee_addr = H160([0x42; 20]);
 		let callee = delegated_eoa::<T>(callee_addr, target.address)?;

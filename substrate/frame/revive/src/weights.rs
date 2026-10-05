@@ -88,6 +88,7 @@ pub trait WeightInfo {
 	fn deposit_eth_extrinsic_revert_event() -> Weight;
 	fn instantiate(i: u32, ) -> Weight;
 	fn code_load() -> Weight;
+	fn account_info_read() -> Weight;
 	fn call() -> Weight;
 	fn eth_call(d: u32, ) -> Weight;
 	fn eth_substrate_call(c: u32, ) -> Weight;
@@ -540,6 +541,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 12_749_000 picoseconds.
 		Weight::from_parts(13_863_000, 4348)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
+	}
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	fn account_info_read() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `124`
+		//  Estimated: `3589`
+		// Minimum execution time: 5_877_000 picoseconds.
+		Weight::from_parts(6_465_000, 3589)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
@@ -2231,6 +2242,16 @@ impl WeightInfo for () {
 		// Minimum execution time: 12_749_000 picoseconds.
 		Weight::from_parts(13_863_000, 4348)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
+	}
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	fn account_info_read() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `124`
+		//  Estimated: `3589`
+		// Minimum execution time: 5_877_000 picoseconds.
+		Weight::from_parts(6_465_000, 3589)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)

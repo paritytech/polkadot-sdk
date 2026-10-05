@@ -204,6 +204,19 @@ fn exec_trapped() -> ExecResult {
 	Err(ExecError { error: <Error<Test>>::ContractTrapped.into(), origin: ErrorOrigin::Callee })
 }
 
+/// The account info of an EOA at `address` that delegates to `target`.
+fn delegated_to(address: H160, target: H160) -> crate::storage::AccountInfo<Test> {
+	use crate::storage::{AccountInfo, AccountType, ContractInfo};
+	AccountInfo {
+		account_type: AccountType::DelegatedEOA {
+			delegate_target: Some(target),
+			contract_info: ContractInfo::<Test>::new_for_delegation(&address, H256::zero()),
+			payer: None,
+		},
+		dust: 0,
+	}
+}
+
 fn from_storage_cold<S: crate::metering::State>(
 	code_hash: H256,
 	meter: &mut crate::metering::ResourceMeter<Test, S>,
@@ -1788,12 +1801,7 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 	// frame. When frame creation fails (here: chained delegation traps in `new_frame`), the
 	// trailing reset must still run or the caller's frame stays at `false`, denying later
 	// cross-contract callbacks.
-	use crate::{
-		AccountInfoOf,
-		storage::{
-			AccountInfo as PalletAccountInfo, AccountType, ContractInfo as PalletContractInfo,
-		},
-	};
+	use crate::AccountInfoOf;
 
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		match ctx.input_data[0] {
@@ -1848,34 +1856,8 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 
 		// DJANGO -> EVE -> any addr: a call to DJANGO is a chained delegation.
 		let eve_target = H160::from([0x99; 20]);
-		AccountInfoOf::<Test>::insert(
-			EVE_ADDR,
-			PalletAccountInfo::<Test> {
-				account_type: AccountType::DelegatedEOA {
-					delegate_target: Some(eve_target),
-					contract_info: PalletContractInfo::<Test>::new_for_delegation(
-						&EVE_ADDR,
-						H256::zero(),
-					),
-					payer: None,
-				},
-				dust: 0,
-			},
-		);
-		AccountInfoOf::<Test>::insert(
-			DJANGO_ADDR,
-			PalletAccountInfo::<Test> {
-				account_type: AccountType::DelegatedEOA {
-					delegate_target: Some(EVE_ADDR),
-					contract_info: PalletContractInfo::<Test>::new_for_delegation(
-						&DJANGO_ADDR,
-						H256::zero(),
-					),
-					payer: None,
-				},
-				dust: 0,
-			},
-		);
+		AccountInfoOf::<Test>::insert(EVE_ADDR, delegated_to(EVE_ADDR, eve_target));
+		AccountInfoOf::<Test>::insert(DJANGO_ADDR, delegated_to(DJANGO_ADDR, EVE_ADDR));
 
 		let origin = Origin::from_account_id(ALICE);
 		let mut meter = TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, 0).unwrap();
@@ -3685,6 +3667,76 @@ fn cold_hot_a_load_warms_both_code_entries() {
 			set_balance(&BOB, <Test as Config>::Currency::minimum_balance() * 100);
 			run_root_call(BOB_ADDR, vec![]);
 		});
+}
+
+#[test]
+fn cold_hot_a_chained_delegation_warms_the_target_it_reads() {
+	use crate::{AccountInfoOf, access_list::KeyFamily, vm::RuntimeCosts};
+
+	fn account_info_warmth(ext: &MockStack, address: H160) -> Warmth {
+		match ext.warmth_of(CallItems::Delegate { target: address }).entries() {
+			CallWarmth::Delegate { account_info } => account_info,
+			CallWarmth::Plain { .. } => unreachable!("a delegate access reads one entry"),
+		}
+	}
+
+	for (frame_type, nested) in [("first frame", false), ("nested frame", true)] {
+		let code_bob = MockLoader::insert(Call, move |ctx, _| {
+			let warmth_before = account_info_warmth(ctx.ext, EVE_ADDR);
+			assert_eq!(
+				warmth_before,
+				Warmth::Cold { revertible: nested },
+				"{frame_type}: nothing reads EVE's account info before the call",
+			);
+			let expected_charge = Token::<Test>::weight(&RuntimeCosts::AccountInfoRead(
+				Summarized::from_warmth(KeyFamily::Address, warmth_before, StorageOp::Read),
+			));
+			let weight_before = ctx.ext.frame_meter().weight_consumed();
+
+			let call_django = ctx.ext.call(
+				&Default::default(),
+				&DJANGO_ADDR,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false,
+			);
+
+			assert_err!(call_django.map_err(|e| e.error), <Error<Test>>::ContractTrapped);
+			assert_eq!(
+				account_info_warmth(ctx.ext, EVE_ADDR),
+				Warmth::read_paid(),
+				"{frame_type}: EVE's account info should be hot",
+			);
+			assert_eq!(
+				ctx.ext.frame_meter().weight_consumed().saturating_sub(weight_before),
+				expected_charge,
+				"{frame_type}: the caller paid for reading EVE's account info",
+			);
+			exec_success()
+		});
+		let code_charlie = MockLoader::insert(Call, |ctx, _| {
+			ctx.ext.call(
+				&CallResources::NoLimits,
+				&BOB_ADDR,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false,
+			)?;
+			exec_success()
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			place_contract(&BOB, code_bob);
+			place_contract(&CHARLIE, code_charlie);
+			// DJANGO -> EVE -> ALICE: a call to DJANGO is a chained delegation.
+			AccountInfoOf::<Test>::insert(EVE_ADDR, delegated_to(EVE_ADDR, ALICE_ADDR));
+			AccountInfoOf::<Test>::insert(DJANGO_ADDR, delegated_to(DJANGO_ADDR, EVE_ADDR));
+
+			run_root_call(if nested { CHARLIE_ADDR } else { BOB_ADDR }, vec![]);
+		});
+	}
 }
 
 #[test]
