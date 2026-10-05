@@ -93,45 +93,38 @@ impl<T: Config> PrimitivePrecompile for Modexp<T> {
 
 		// if mod_len is 0 output must be empty
 		if mod_len == 0 {
+			env.frame_meter_mut().charge_weight_token(RuntimeCosts::Modexp(MIN_GAS_COST))?;
 			return Ok(Vec::new());
 		}
 
-		// Gas formula allows arbitrary large exp_len when base and modulus are empty, so we need to
-		// handle empty base first.
-		let r = if base_len == 0 && mod_len == 0 {
-			env.frame_meter_mut().charge_weight_token(RuntimeCosts::Modexp(MIN_GAS_COST))?;
+		// read the numbers themselves.
+		let mut base_buf = vec![0u8; base_len];
+		read_input(&input, &mut base_buf, &mut input_offset);
+		let base = BigUint::from_bytes_be(&base_buf);
 
+		let mut exp_buf = vec![0u8; exp_len];
+		read_input(&input, &mut exp_buf, &mut input_offset);
+		let exponent = BigUint::from_bytes_be(&exp_buf);
+
+		let mut mod_buf = vec![0u8; mod_len];
+		read_input(&input, &mut mod_buf, &mut input_offset);
+		let modulus = BigUint::from_bytes_be(&mod_buf);
+
+		// do our gas accounting
+		let gas_cost = calculate_gas_cost(
+			base_len as u64,
+			mod_len as u64,
+			&exponent,
+			&exp_buf,
+			modulus.is_even(),
+		);
+
+		env.frame_meter_mut().charge_weight_token(RuntimeCosts::Modexp(gas_cost))?;
+
+		let r = if modulus.is_zero() || modulus.is_one() {
 			BigUint::zero()
 		} else {
-			// read the numbers themselves.
-			let mut base_buf = vec![0u8; base_len];
-			read_input(&input, &mut base_buf, &mut input_offset);
-			let base = BigUint::from_bytes_be(&base_buf);
-
-			let mut exp_buf = vec![0u8; exp_len];
-			read_input(&input, &mut exp_buf, &mut input_offset);
-			let exponent = BigUint::from_bytes_be(&exp_buf);
-
-			let mut mod_buf = vec![0u8; mod_len];
-			read_input(&input, &mut mod_buf, &mut input_offset);
-			let modulus = BigUint::from_bytes_be(&mod_buf);
-
-			// do our gas accounting
-			let gas_cost = calculate_gas_cost(
-				base_len as u64,
-				mod_len as u64,
-				&exponent,
-				&exp_buf,
-				modulus.is_even(),
-			);
-
-			env.frame_meter_mut().charge_weight_token(RuntimeCosts::Modexp(gas_cost))?;
-
-			if modulus.is_zero() || modulus.is_one() {
-				BigUint::zero()
-			} else {
-				base.modpow(&exponent, &modulus)
-			}
+			base.modpow(&exponent, &modulus)
 		};
 
 		// write output to given memory, left padded and same length as the modulus.
@@ -396,5 +389,35 @@ mod tests {
 			// 7104 * 20 gas used when ran in geth (x20)
 			assert_eq!(after - before, Token::<Test>::weight(&RuntimeCosts::Modexp(7104 * 20)));
 		})
+	}
+
+	#[test]
+	fn test_zero_modulus_charges_min_gas_cost() {
+		use crate::{call_builder::CallSetup, metering::Token, tests::ExtBuilder};
+
+		for (base_len, exp_len) in [(0u8, 0u8), (0, 32), (32, 32)] {
+			let mut input = vec![0u8; 96];
+			input[31] = base_len;
+			input[63] = exp_len;
+			input.extend(vec![0xff; base_len as usize + exp_len as usize]);
+
+			ExtBuilder::default().build().execute_with(|| {
+				let mut call_setup = CallSetup::<Test>::default();
+				let (mut ext, _) = call_setup.ext();
+
+				let before = ext.frame_meter().weight_consumed();
+				let output =
+					<Modexp<Test>>::call(&<Modexp<Test>>::MATCHER.base_address(), input, &mut ext)
+						.unwrap();
+				let after = ext.frame_meter().weight_consumed();
+
+				assert!(output.is_empty());
+				assert_eq!(
+					after - before,
+					Token::<Test>::weight(&RuntimeCosts::Modexp(MIN_GAS_COST)),
+					"base_len={base_len} exp_len={exp_len}",
+				);
+			})
+		}
 	}
 }

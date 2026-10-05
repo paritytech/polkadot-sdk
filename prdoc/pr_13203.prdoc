@@ -1,0 +1,13 @@
+title: '[pallet-revive] Charge the minimum modexp gas cost when the modulus length is zero'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/12691
+
+    The modexp precompile returned an empty output for `mod_len == 0` before charging any
+    weight, so those calls were free and skipped the EIP-2565 floor of 200 gas. It now charges
+    `MIN_GAS_COST` before that early return. The `base_len == 0 && mod_len == 0` branch, which
+    the early return made unreachable, is removed.
+crates:
+- name: pallet-revive
+  bump: patch
