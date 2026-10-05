@@ -18,6 +18,7 @@ harness = false
 required-features = ["subsystem-benchmarks"]
 
 [dependencies]
+arrayvec = { workspace = true }
 bitvec = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true }
 fatality = { workspace = true }
