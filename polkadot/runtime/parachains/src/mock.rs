@@ -63,8 +63,9 @@ use xcm::{
 	IntoVersion, VersionedXcm, WrapVersion,
 };
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlockU32<Test>;
+type TxExtension = frame_system::AuthorizeCall<Test>;
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test, (), TxExtension>;
+type Block = frame_system::mocking::MockBlockU32<Test, (), TxExtension>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -105,6 +106,26 @@ where
 {
 	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_bare(call)
+	}
+}
+
+impl<C> frame_system::offchain::CreateTransaction<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	type Extension = TxExtension;
+
+	fn create_transaction(call: Self::RuntimeCall, extension: TxExtension) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<C> frame_system::offchain::CreateAuthorizedTransaction<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_extension() -> Self::Extension {
+		TxExtension::new()
 	}
 }
 

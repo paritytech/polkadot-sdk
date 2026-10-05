@@ -71,8 +71,8 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::Convert,
 	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
-		TransactionValidityError, ValidTransaction,
+		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidityError,
+		TransactionValidityWithRefund, ValidTransaction,
 	},
 	KeyTypeId, Perbill,
 };
@@ -419,8 +419,8 @@ pub mod pallet {
 		/// offence (after the slashing report has been validated) and for
 		/// submitting a transaction to report a slash (from an offchain
 		/// context). NOTE: when enabling slashing report handling (i.e. this
-		/// type isn't set to `()`) you must use this pallet's
-		/// `ValidateUnsigned` in the runtime definition.
+		/// type isn't set to `()`) the runtime must include
+		/// [`frame_system::AuthorizeCall`] in its transaction extension pipeline.
 		type HandleReports: HandleReports<Self>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -473,13 +473,19 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::report_dispute_lost_unsigned(
 			key_owner_proof.validator_count()
 		))]
+		// Authorization repeats the session and key ownership proof checks the dispatch does, so
+		// the dispatch weight is a safe upper bound for it.
+		#[pallet::weight_of_authorize(<T as Config>::WeightInfo::report_dispute_lost_unsigned(
+			key_owner_proof.validator_count()
+		))]
+		#[pallet::authorize(Self::authorize_report_dispute_lost_unsigned)]
 		pub fn report_dispute_lost_unsigned(
 			origin: OriginFor<T>,
 			// box to decrease the size of the call
 			dispute_proof: Box<DisputeProof>,
 			key_owner_proof: T::KeyOwnerProof,
 		) -> DispatchResultWithPostInfo {
-			ensure_none(origin)?;
+			ensure_authorized(origin)?;
 			let validator_set_count = key_owner_proof.validator_count() as ValidatorSetCount;
 			let session_index = dispute_proof.time_slot.session_index;
 
@@ -538,19 +544,6 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 	}
-
-	#[allow(deprecated)]
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			Self::validate_unsigned(source, call)
-		}
-
-		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
-			Self::pre_dispatch(call)
-		}
-	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -588,60 +581,51 @@ impl<T: Config> Pallet<T> {
 	) -> Option<()> {
 		T::HandleReports::submit_unsigned_slashing_report(dispute_proof, key_ownership_proof).ok()
 	}
-}
 
-/// Methods for the `ValidateUnsigned` implementation:
-///
-/// It restricts calls to `report_dispute_lost_unsigned` to local calls (i.e.
-/// extrinsics generated on this node) or that already in a block. This
-/// guarantees that only block authors can include unsigned slashing reports.
-impl<T: Config> Pallet<T> {
-	pub fn validate_unsigned(source: TransactionSource, call: &Call<T>) -> TransactionValidity {
-		if let Call::report_dispute_lost_unsigned { dispute_proof, key_owner_proof } = call {
-			// discard slashing report not coming from the local node
-			match source {
-				TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
-				_ => {
-					log::warn!(
-						target: LOG_TARGET,
-						"rejecting unsigned transaction because it is not local/in-block."
-					);
+	/// Authorization logic for the [`Call::report_dispute_lost_unsigned`] call.
+	///
+	/// It restricts the call to local calls (i.e. extrinsics generated on this node) or that
+	/// already in a block. This guarantees that only block authors can include unsigned
+	/// slashing reports.
+	fn authorize_report_dispute_lost_unsigned(
+		source: TransactionSource,
+		dispute_proof: &Box<DisputeProof>,
+		key_owner_proof: &T::KeyOwnerProof,
+	) -> TransactionValidityWithRefund {
+		// discard slashing report not coming from the local node
+		match source {
+			TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
+			_ => {
+				log::warn!(
+					target: LOG_TARGET,
+					"rejecting unsigned transaction because it is not local/in-block."
+				);
 
-					return InvalidTransaction::Call.into();
-				},
-			}
-
-			// check report staleness
-			is_known_offence::<T>(dispute_proof, key_owner_proof)?;
-
-			let longevity = <T::HandleReports as HandleReports<T>>::ReportLongevity::get();
-
-			let tag_prefix = match dispute_proof.kind {
-				DisputeOffenceKind::ForInvalidBacked => "DisputeForInvalidBacked",
-				DisputeOffenceKind::ForInvalidApproved => "DisputeForInvalidApproved",
-				DisputeOffenceKind::AgainstValid => "DisputeAgainstValid",
-			};
-
-			ValidTransaction::with_tag_prefix(tag_prefix)
-				// We assign the maximum priority for any report.
-				.priority(TransactionPriority::max_value())
-				// Only one report for the same offender at the same slot.
-				.and_provides((dispute_proof.time_slot.clone(), dispute_proof.validator_id.clone()))
-				.longevity(longevity)
-				// We don't propagate this. This can never be included on a remote node.
-				.propagate(false)
-				.build()
-		} else {
-			InvalidTransaction::Call.into()
+				return Err(InvalidTransaction::Call.into());
+			},
 		}
-	}
 
-	pub fn pre_dispatch(call: &Call<T>) -> Result<(), TransactionValidityError> {
-		if let Call::report_dispute_lost_unsigned { dispute_proof, key_owner_proof } = call {
-			is_known_offence::<T>(dispute_proof, key_owner_proof)
-		} else {
-			Err(InvalidTransaction::Call.into())
-		}
+		// check report staleness
+		is_known_offence::<T>(dispute_proof, key_owner_proof)?;
+
+		let longevity = <T::HandleReports as HandleReports<T>>::ReportLongevity::get();
+
+		let tag_prefix = match dispute_proof.kind {
+			DisputeOffenceKind::ForInvalidBacked => "DisputeForInvalidBacked",
+			DisputeOffenceKind::ForInvalidApproved => "DisputeForInvalidApproved",
+			DisputeOffenceKind::AgainstValid => "DisputeAgainstValid",
+		};
+
+		ValidTransaction::with_tag_prefix(tag_prefix)
+			// We assign the maximum priority for any report.
+			.priority(TransactionPriority::max_value())
+			// Only one report for the same offender at the same slot.
+			.and_provides((dispute_proof.time_slot.clone(), dispute_proof.validator_id.clone()))
+			.longevity(longevity)
+			// We don't propagate this. This can never be included on a remote node.
+			.propagate(false)
+			.build()
+			.map(|validity| (validity, Weight::zero()))
 	}
 }
 
@@ -689,7 +673,7 @@ impl<I, R, L> Default for SlashingReportHandler<I, R, L> {
 
 impl<T, R, L> HandleReports<T> for SlashingReportHandler<T::KeyOwnerIdentification, R, L>
 where
-	T: Config + frame_system::offchain::CreateBare<Call<T>>,
+	T: Config + frame_system::offchain::CreateAuthorizedTransaction<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		T::KeyOwnerIdentification,
@@ -721,7 +705,7 @@ where
 		dispute_proof: DisputeProof,
 		key_owner_proof: <T as Config>::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
-		use frame_system::offchain::{CreateBare, SubmitTransaction};
+		use frame_system::offchain::{CreateAuthorizedTransaction, SubmitTransaction};
 
 		let session_index = dispute_proof.time_slot.session_index;
 		let validator_index = dispute_proof.validator_index.0;
@@ -732,7 +716,8 @@ where
 			key_owner_proof,
 		};
 
-		let xt = <T as CreateBare<Call<T>>>::create_bare(call.into());
+		let xt =
+			<T as CreateAuthorizedTransaction<Call<T>>>::create_authorized_transaction(call.into());
 		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(()) => {
 				log::info!(

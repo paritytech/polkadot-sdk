@@ -1,0 +1,29 @@
+title: 'Migrate `disputes::slashing` from the deprecated `ValidateUnsigned` trait to `#[pallet::authorize]`'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `polkadot-runtime-parachains::disputes::slashing` no longer uses the deprecated
+    `ValidateUnsigned` trait and the `#[pallet::validate_unsigned]` attribute. The validation of
+    `report_dispute_lost_unsigned` moved to a `#[pallet::authorize]` callback.
+
+    The validation semantics do not change. The callback accepts only `TransactionSource::Local` and
+    `TransactionSource::InBlock`, it runs the same staleness check, and it builds the same
+    transaction validity. The public `Pallet::validate_unsigned` and `Pallet::pre_dispatch` helpers
+    are gone, because `pre_dispatch` ran the same check as `validate_unsigned`.
+
+    Two changes affect a runtime that includes this pallet. The `SlashingReportHandler` bound changed
+    from `CreateBare<Call<T>>` to `CreateAuthorizedTransaction<Call<T>>`, and the runtime must put
+    `frame_system::AuthorizeCall` in its transaction extension pipeline. A runtime that forgets
+    `AuthorizeCall` still compiles, but the report never gets an authorized origin, so unsigned
+    dispute slashing stops working.
+
+    `weight_of_authorize` charges the existing `report_dispute_lost_unsigned` weight. Authorization
+    repeats the session check and the key ownership proof check that the dispatch also does, so the
+    dispatch weight is a safe upper bound.
+
+crates:
+- name: polkadot-runtime-parachains
+  bump: major
+- name: pallet-staking-async-rc-runtime
+  bump: major
