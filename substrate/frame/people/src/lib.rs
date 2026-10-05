@@ -1710,14 +1710,38 @@ pub mod pallet {
 			for (i, key) in keys.into_iter().enumerate() {
 				if j < suspended_indices.len() && i == suspended_indices[j] as usize {
 					j += 1;
-				} else if new_keys
-					.try_push(key)
-					.defensive_proof("cannot move more ring members than the max ring size; qed")
-					.is_err()
-				{
-					return T::WeightInfo::remove_suspended_people(
-						keys_len.try_into().unwrap_or(u32::MAX),
-					);
+				} else {
+					// Once a key is removed, all following keys shift to a lower index. Keep the
+					// corresponding person records in sync with the compacted ring.
+					if j > 0 {
+						if let Some(personal_id) = Keys::<T>::get(&key).defensive() {
+							People::<T>::mutate(personal_id, |maybe_record| {
+								let Some(record) = maybe_record else {
+									defensive!("No person record found for a ring key");
+									return;
+								};
+								let RingPosition::Included { ring_position, .. } =
+									&mut record.position
+								else {
+									defensive!("Ring key belongs to a person who is not included");
+									return;
+								};
+								*ring_position = new_keys.len().saturated_into();
+							});
+						}
+					}
+
+					if new_keys
+						.try_push(key)
+						.defensive_proof(
+							"cannot move more ring members than the max ring size; qed",
+						)
+						.is_err()
+					{
+						return T::WeightInfo::remove_suspended_people(
+							keys_len.try_into().unwrap_or(u32::MAX),
+						);
+					}
 				}
 			}
 
