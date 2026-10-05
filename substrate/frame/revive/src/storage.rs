@@ -65,8 +65,8 @@ pub struct AccountInfo<T: Config> {
 	/// The type of the account.
 	pub account_type: AccountType<T>,
 
-	// The  amount that was transferred to this account that is less than the
-	// NativeToEthRatio, and can be represented in the native currency
+	// The amount that was transferred to this account that is less than the
+	// NativeToEthRatio, and cannot be represented in the native currency
 	pub dust: u32,
 }
 

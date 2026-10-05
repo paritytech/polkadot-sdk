@@ -38,8 +38,8 @@ use crate::{
 	},
 	storage::WriteOutcome,
 	vm::{
-		evm,
-		evm::{Interpreter, instructions, instructions::utility::IntoAddress},
+		BENCH_MIN_EVM_INIT_CODE_LEN, evm,
+		evm::{Interpreter, instructions},
 		pvm,
 	},
 	*,
@@ -61,7 +61,10 @@ use pallet_revive_uapi::{
 	CallFlags, ReturnErrorCode, StorageFlags, pack_hi_lo,
 	precompiles::{storage::IStorage, system::ISystem},
 };
-use revm::bytecode::Bytecode;
+use revm::{
+	bytecode::Bytecode,
+	primitives::{eip170::MAX_CODE_SIZE, eip3860::MAX_INITCODE_SIZE},
+};
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
 	BABE_ENGINE_ID,
@@ -411,7 +414,9 @@ mod benchmarks {
 	// the execution engine.
 	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
+	fn call_with_evm_code_per_byte(
+		c: Linear<1, { MAX_CODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_caller(
 			whitelisted_caller(),
 			VmBinaryModule::evm_init_code_for_runtime_size(c),
@@ -2571,76 +2576,126 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// t: with or without some value to transfer
-	// d: with or without dust value to transfer
-	// i: size of the input data
+	// Sets up a call that sends `$value` plus `$dust` and clones an input of `$input_len` bytes.
+	// The callee's account is funded up front if `$callee_exists`; otherwise the transfer creates
+	// it. Defines `$do_call` to make the call and `$assert_transferred` to check that the value
+	// arrived.
+	macro_rules! call_setup {
+		(
+			$do_call:ident, $assert_transferred:ident,
+			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr,
+			callee_exists: $callee_exists:expr
+		) => {
+			// An EIP-7702 delegated callee is the worst case for the account resolution.
+			let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+			let callee_addr = H160([0x42; 20]);
+			let callee = delegated_eoa::<T>(callee_addr, target.address)?;
+			if $callee_exists {
+				T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
+			}
+			assert_eq!(System::<T>::account_exists(&callee), $callee_exists);
+
+			let callee_bytes = callee.encode();
+			let callee_len = callee_bytes.len() as u32;
+
+			let value: BalanceOf<T> = $value.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
+			);
+			let value_bytes = evm_value.encode();
+
+			let deposit = default_deposit_limit::<T>();
+			let deposit_bytes = Into::<U256>::into(deposit).encode();
+			let deposit_len = deposit_bytes.len() as u32;
+
+			let mut setup = CallSetup::<T>::default();
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(caller_funding::<T>());
+			let caller_addr = setup.contract().address;
+			let caller_balance_before = Pallet::<T>::evm_balance(&caller_addr);
+			let callee_ed_paid = if $callee_exists {
+				U256::zero()
+			} else {
+				Pallet::<T>::convert_native_to_evm(Pallet::<T>::min_balance())
+			};
+
+			let (mut ext, _) = setup.ext();
+			// `CLONE_INPUT` clones the runtime's own input, so the input goes here.
+			let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![42; $input_len as usize]);
+			let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+
+			let mut $do_call = || {
+				runtime.bench_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
+					u64::MAX,                                     // ref_time_limit
+					u64::MAX,                                     // proof_size_limit
+					pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
+					pack_hi_lo(0, 0),                             // input len + data ptr
+					pack_hi_lo(0, SENTINEL),                      // output len + data ptr
+				)
+			};
+
+			let $assert_transferred = || {
+				assert!(System::<T>::account_exists(&callee), "{callee_addr:?} should exist");
+				assert_eq!(
+					Pallet::<T>::evm_balance(&callee_addr),
+					evm_value,
+					"{callee_addr:?} should hold {evm_value:?}"
+				);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&caller_addr),
+					caller_balance_before - evm_value - callee_ed_paid,
+					"{caller_addr:?} should pay only the value and the callee's ED"
+				);
+			};
+		};
+	}
+
+	// i: size of the input the call clones
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call(
-		t: Linear<0, 1>,
-		d: Linear<0, 1>,
-		i: Linear<0, { limits::code::BLOB_BYTES }>,
-	) -> Result<(), BenchmarkError> {
-		// An EIP-7702 delegated callee is the worst case for the account resolution in
-		// `new_frame`: the `AccountInfoOf` entry decodes the larger `DelegatedEOA` variant and
-		// the call still runs the target's code. (A callee whose delegation snapshot is empty
-		// costs a second read of the target but skips code load and execution entirely, so it
-		// is cheaper overall.)
-		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
-		let callee_addr = H160([0x42; 20]);
-		let callee = delegated_eoa::<T>(callee_addr, target.address)?;
-		// Keep the origin's budget the same as with a contract callee. A contract already exists
-		// in `System`, so `Stack::transfer` skips the "create the destination" arm; a fresh EOA
-		// does not, and that arm charges the destination's ED to the origin, leaving it nothing
-		// for `ensure_sufficient_dust` to burn into dust when `d == 1`.
-		T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
-
-		let callee_bytes = callee.encode();
-		let callee_len = callee_bytes.len() as u32;
-
-		let value: BalanceOf<T> = (1_000_000u32 * t).into();
-		let dust = 100u32 * d;
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-		let value_bytes = evm_value.encode();
-
-		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
-		let deposit_bytes = Into::<U256>::into(deposit).encode();
-		let deposit_len = deposit_bytes.len() as u32;
-
-		let mut setup = CallSetup::<T>::default();
-		setup.set_storage_deposit_limit(deposit);
-		// We benchmark the overhead of cloning the input. Not passing it to the contract.
-		// This is why we set the input here instead of passig it as pointer to the `bench_call`.
-		setup.set_data(vec![42; i as usize]);
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
-
-		let (mut ext, _) = setup.ext();
-		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
-		let before = Pallet::<T>::evm_balance(&callee_addr);
+	fn seal_call(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 0u32,
+			dust: 0u32,
+			input_len: i,
+			callee_exists: true
+		);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_call(
-				memory.as_mut_slice(),
-				pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
-				u64::MAX,                                     // ref_time_limit
-				u64::MAX,                                     // proof_size_limit
-				pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
-				pack_hi_lo(0, 0),                             // input len + data ptr
-				pack_hi_lo(0, SENTINEL),                      // output len + data ptr
-			);
+			result = do_call();
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
-		assert_eq!(
-			Pallet::<T>::evm_balance(&callee_addr),
-			before + evm_value,
-			"{callee_addr:?} balance should have grown by {evm_value:?}"
+		assert_transferred();
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32,
+			// Worst case: the transfer also has to create the callee's account.
+			callee_exists: false
 		);
 
+		let result;
+		#[block]
+		{
+			result = do_call();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_transferred();
 		Ok(())
 	}
 
@@ -2745,125 +2800,227 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// t: with or without some value to transfer
-	// d: with or without dust value to transfer
+	// Sets up an instantiate that sends `$value` plus `$dust` with an input of `$input_len` bytes.
+	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check that the value
+	// arrived.
+	macro_rules! seal_instantiate_setup {
+		(
+			$do_instantiate:ident, $assert_instantiated:ident,
+			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr
+		) => {
+			let code = VmBinaryModule::dummy();
+			let hash =
+				Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
+			let hash_bytes = hash.encode();
+
+			let value: BalanceOf<T> = $value.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
+			);
+			let value_bytes = evm_value.encode();
+			let value_len = value_bytes.len() as u32;
+
+			let deposit: BalanceOf<T> = BalanceOf::<T>::max_value();
+			let deposit_bytes = Into::<U256>::into(deposit).encode();
+			let deposit_len = deposit_bytes.len() as u32;
+
+			let mut setup = CallSetup::<T>::default();
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(caller_funding::<T>());
+
+			let account_id = &setup.contract().account_id.clone();
+			let (mut ext, _) = setup.ext();
+			let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+
+			let input = vec![42u8; $input_len as usize];
+			let input_len = hash_bytes.len() as u32 + input.len() as u32;
+			let salt = [42u8; 32];
+			let deployer = T::AddressMapper::to_address(&account_id);
+			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
+			let new_contract_addr = crate::address::create2(&deployer, &code.code, &input, &salt);
+			let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
+			let deposit_ptr = input_len;
+			let value_ptr = deposit_ptr + deposit_len;
+			let salt_ptr = value_ptr + value_len;
+
+			assert!(AccountInfoOf::<T>::get(&new_contract_addr).is_none());
+
+			let mut $do_instantiate = || {
+				runtime.bench_instantiate(
+					memory.as_mut_slice(),
+					u64::MAX,                           // ref_time_limit
+					u64::MAX,                           // proof_size_limit
+					pack_hi_lo(deposit_ptr, value_ptr), // deposit_ptr + value_ptr
+					pack_hi_lo(input_len, 0),           // input_data_len + input_data
+					pack_hi_lo(0, SENTINEL),            // output_len_ptr + output_ptr
+					pack_hi_lo(SENTINEL, salt_ptr),     // address_ptr + salt_ptr
+				)
+			};
+			let $assert_instantiated = || {
+				assert!(AccountInfo::<T>::load_contract(&new_contract_addr).is_some());
+				assert_eq!(
+					Pallet::<T>::evm_balance(&new_contract_addr),
+					evm_value,
+					"{new_contract_addr:?} balance should hold {evm_value:?}"
+				);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&deployer),
+					deployer_balance_before - evm_value,
+					"{deployer:?} should pay only the value"
+				);
+			};
+		};
+	}
+
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_instantiate(
-		t: Linear<0, 1>,
-		d: Linear<0, 1>,
-		i: Linear<0, { limits::CALLDATA_BYTES }>,
-	) -> Result<(), BenchmarkError> {
-		let code = VmBinaryModule::dummy();
-		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
-		let hash_bytes = hash.encode();
-
-		let value: BalanceOf<T> = (1_000_000u32 * t).into();
-		let dust = 100u32 * d;
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-		let value_bytes = evm_value.encode();
-		let value_len = value_bytes.len() as u32;
-
-		let deposit: BalanceOf<T> = BalanceOf::<T>::max_value();
-		let deposit_bytes = Into::<U256>::into(deposit).encode();
-		let deposit_len = deposit_bytes.len() as u32;
-
-		let mut setup = CallSetup::<T>::default();
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(value + 1u32.into() + (Pallet::<T>::min_balance() * 2u32.into()));
-
-		let account_id = &setup.contract().account_id.clone();
-		let (mut ext, _) = setup.ext();
-		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-
-		let input = vec![42u8; i as _];
-		let input_len = hash_bytes.len() as u32 + input.len() as u32;
-		let salt = [42u8; 32];
-		let deployer = T::AddressMapper::to_address(&account_id);
-		let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
-		let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
-
-		let mut offset = {
-			let mut current = 0u32;
-			move |after: u32| {
-				current += after;
-				current
-			}
-		};
-
-		assert!(AccountInfoOf::<T>::get(&addr).is_none());
+	fn seal_instantiate(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
+		seal_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 0u32,
+			dust: 0u32,
+			input_len: i
+		);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_instantiate(
-				memory.as_mut_slice(),
-				u64::MAX,                                           // ref_time_limit
-				u64::MAX,                                           // proof_size_limit
-				pack_hi_lo(offset(input_len), offset(deposit_len)), // deposit_ptr + value_ptr
-				pack_hi_lo(input_len, 0),                           // input_data_len + input_data
-				pack_hi_lo(0, SENTINEL),                            // output_len_ptr + output_ptr
-				pack_hi_lo(SENTINEL, offset(value_len)),            // address_ptr + salt_ptr
-			);
+			result = do_instantiate();
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
-		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
-
-		assert_eq!(
-			Pallet::<T>::evm_balance(&addr),
-			evm_value,
-			"{addr:?} balance should hold {evm_value:?}"
-		);
+		assert_instantiated();
 		Ok(())
 	}
 
-	// t: with or without some value to transfer
 	// d: with or without dust value to transfer
-	// i: size of the init code (max 49152 bytes per EIP-3860)
 	#[benchmark(pov_mode = Measured)]
-	fn evm_instantiate(
-		t: Linear<0, 1>,
-		d: Linear<0, 1>,
-		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
-	) -> Result<(), BenchmarkError> {
-		use crate::vm::evm::instructions::BENCH_INIT_CODE;
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(caller_funding::<T>());
-
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
-
-		let value = {
-			let value: BalanceOf<T> = (1_000_000u32 * t).into();
-			let dust = 100u32 * d;
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust))
-		};
-
-		let init_code = vec![BENCH_INIT_CODE; i as usize];
-		let _ = interpreter.memory.resize(0, init_code.len());
-		let salt = U256::from(42u64);
-		interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
-
-		// Setup stack for create instruction [value, offset, size, salt]
-		let _ = interpreter.stack.push(salt);
-		let _ = interpreter.stack.push(U256::from(init_code.len()));
-		let _ = interpreter.stack.push(U256::zero());
-		let _ = interpreter.stack.push(value);
+	fn seal_instantiate_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		seal_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32
+		);
 
 		let result;
 		#[block]
 		{
-			result = instructions::contract::create::<true, _>(&mut interpreter);
+			result = do_instantiate();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_instantiated();
+		Ok(())
+	}
+
+	// Sets up an instantiate that sends `$value` plus `$dust` with `$init_code_len` bytes of code.
+	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check that the value
+	// arrived.
+	macro_rules! evm_instantiate_setup {
+		(
+			$do_instantiate:ident, $assert_instantiated:ident,
+			value: $value:expr, dust: $dust:expr, init_code_len: $init_code_len:expr
+		) => {
+			use crate::vm::evm::instructions::BENCH_INIT_CODE;
+			let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(caller_funding::<T>());
+			let deployer = setup.contract().address;
+			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
+
+			let (mut ext, _) = setup.ext();
+			let mut interpreter =
+				Interpreter::new(Default::default(), Default::default(), &mut ext);
+
+			let value: BalanceOf<T> = $value.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
+			);
+
+			let init_code = vec![BENCH_INIT_CODE; $init_code_len as usize];
+			let _ = interpreter.memory.resize(0, init_code.len());
+			let salt = U256::from(42u64);
+			interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
+			let new_contract_addr =
+				crate::address::create2(&deployer, &init_code, &[], &salt.to_big_endian());
+
+			// Setup stack for create instruction [value, offset, size, salt]
+			let _ = interpreter.stack.push(salt);
+			let _ = interpreter.stack.push(U256::from(init_code.len()));
+			let _ = interpreter.stack.push(U256::zero());
+			let _ = interpreter.stack.push(evm_value);
+
+			let mut $do_instantiate =
+				|| instructions::contract::create::<true, _>(&mut interpreter);
+			let $assert_instantiated = || {
+				let new_contract = AccountInfo::<T>::load_contract(&new_contract_addr)
+					.expect("the create should deploy a contract");
+				assert_eq!(Pallet::<T>::code(&new_contract_addr).len(), MAX_CODE_SIZE);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&new_contract_addr),
+					evm_value,
+					"balance should hold {evm_value:?}"
+				);
+				let code_deposit = Pallet::<T>::convert_native_to_evm(
+					CodeInfoOf::<T>::get(new_contract.code_hash)
+						.expect("the create should store its runtime code")
+						.deposit(),
+				);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&deployer),
+					deployer_balance_before - evm_value - code_deposit,
+					"{deployer:?} should pay only the value and the code deposit"
+				);
+			};
+		};
+	}
+
+	// i: size of the init code
+	#[benchmark(pov_mode = Measured)]
+	fn evm_instantiate(
+		i: Linear<{ BENCH_MIN_EVM_INIT_CODE_LEN }, { MAX_INITCODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
+		evm_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 0u32,
+			dust: 0u32,
+			init_code_len: i
+		);
+
+		let result;
+		#[block]
+		{
+			result = do_instantiate();
 		}
 
 		assert!(result.is_continue());
-		let addr = interpreter.stack.top().unwrap().into_address();
-		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
-		assert_eq!(Pallet::<T>::code(&addr).len(), revm::primitives::eip170::MAX_CODE_SIZE);
-		assert_eq!(Pallet::<T>::evm_balance(&addr), value, "balance should hold {value:?}");
+		assert_instantiated();
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn evm_instantiate_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		evm_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			init_code_len: BENCH_MIN_EVM_INIT_CODE_LEN
+		);
+
+		let result;
+		#[block]
+		{
+			result = do_instantiate();
+		}
+
+		assert!(result.is_continue());
+		assert_instantiated();
 		Ok(())
 	}
 
