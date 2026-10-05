@@ -1151,4 +1151,9 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 			.saturating_add(T::DbWeight::get().writes(5))
 			.saturating_add(Weight::from_parts(0, 2591).saturating_mul(l.into()))
 	}
+	fn merge_staked() -> Weight {
+		Self::bond_extra()
+			.saturating_add(Self::bond_extra())
+			.saturating_add(Self::withdraw_unbonded_kill())
+	}
 }
