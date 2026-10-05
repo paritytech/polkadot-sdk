@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791191179419,
+  "lastUpdate": 1791198359979,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d58115bfbe914deea13b9aa69465be545a3a64eb",
-          "message": "Fix per-ancestor core assignment and add regression test (#11485)\n\n`get_our_core` was called with the leaf hash instead of the ancestor\nhash when computing core assignments in update_view. This caused all\nscheduling parent to get leaf's core.\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-27T10:39:51Z",
-          "tree_id": "6554b7f36ee46a258e8dc544e1775673b61c998f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d58115bfbe914deea13b9aa69465be545a3a64eb"
-        },
-        "date": 1774612731709,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.327210704966667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12254473913333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13600171329999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b64d01cf595d5bae0b6aa6fcee0b099ff81bac09",
+          "message": "pallet-bridge-parachains: preserve re-imported parachain heads (#13408)\n\nRe-importing a previously stored parachain head when the ring buffer\nwraps can prune the same hash immediately after inserting it, leaving\nthe best-head pointer without corresponding head data.\n\nThis patch skips self-pruning for that case, reports pruning only when\nan older hash is actually removed, and adds regression coverage for the\nwraparound sequence.\n\nNo API or storage migration is required.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-05T09:35:59Z",
+          "tree_id": "933fdff59bb60a310daf14b06864e94e4cafdeca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b64d01cf595d5bae0b6aa6fcee0b099ff81bac09"
+        },
+        "date": 1791198327918,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.717505932500002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13925604083333332,
             "unit": "seconds"
           }
         ]
