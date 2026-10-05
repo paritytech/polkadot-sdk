@@ -30,6 +30,8 @@
 //!   (staking slashes, transaction fees, dust removal, EVM gas rounding, etc.) and redirect funds
 //!   into the buffer account. Incoming funds are deactivated to exclude them from governance
 //!   voting.
+//! - **Buffer Draws**: Pays registered consumers out of the buffer through [`BufferDraw`], capped
+//!   per drip period. DAP deactivates every inflow, so it reactivates on outflow.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -55,13 +57,13 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
 		tokens::{Fortitude, Preservation},
-		Currency, Imbalance, OnUnbalanced, Time,
+		Currency, Defensive, Imbalance, OnUnbalanced, Time,
 	},
 	weights::WeightMeter,
 	PalletId,
 };
 use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, SaturatedConversion, Saturating};
-use sp_staking::budget::{BudgetKey, BudgetRecipientList, IssuanceCurve};
+use sp_staking::budget::{BudgetKey, BudgetRecipientList, IssuanceCurve, PaymentSource};
 
 pub use pallet::*;
 
@@ -72,12 +74,45 @@ const LOG_TARGET: &str = "runtime::dap";
 /// Maximum number of budget recipients.
 pub const MAX_BUDGET_RECIPIENTS: u32 = 16;
 
+/// Maximum number of registered draws on the buffer.
+pub const MAX_BUFFER_DRAWS: u32 = 16;
+
 /// Type alias for balance.
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// Type alias for the budget allocation map.
 pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_BUDGET_RECIPIENTS>>;
+
+/// Type alias for the registry of draws on the buffer.
+pub type BufferDrawMap<T> =
+	BoundedBTreeMap<BudgetKey, DrawBudget<BalanceOf<T>>, ConstU32<MAX_BUFFER_DRAWS>>;
+
+/// The spending budget of one registered draw on the DAP buffer.
+///
+/// Capped by an absolute `limit` per drip period rather than [`BudgetAllocation`]'s `Perbill`
+/// share: the buffer also holds burns and slashes, so a share of issuance would not bound it.
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Default,
+	PartialEq,
+	Eq,
+	Debug,
+)]
+pub struct DrawBudget<Balance> {
+	/// Maximum that may be drawn per drip period. Set by [`Config::BudgetOrigin`].
+	pub limit: Balance,
+	/// Amount already drawn during the drip period identified by `period`.
+	pub spent: Balance,
+	/// The [`LastIssuanceTimestamp`] `spent` is accounted against; a stale one reads as zero,
+	/// refreshing the budget without any drip resetting counters.
+	pub period: u64,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -87,7 +122,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -165,6 +200,22 @@ pub mod pallet {
 			/// Amount drained.
 			amount: BalanceOf<T>,
 		},
+		/// The per-drip-period draw budget of a buffer draw was set, updated or removed.
+		DrawBudgetUpdated {
+			/// The draw that was configured.
+			key: BudgetKey,
+			/// The new per-drip-period limit, or `None` if the draw was deregistered.
+			limit: Option<BalanceOf<T>>,
+		},
+		/// A registered draw was paid out of the buffer.
+		BufferDrawn {
+			/// The draw the payment was charged against.
+			key: BudgetKey,
+			/// Who was paid.
+			beneficiary: T::AccountId,
+			/// Amount paid.
+			amount: BalanceOf<T>,
+		},
 		/// An unexpected/defensive event was triggered.
 		Unexpected(UnexpectedKind),
 	}
@@ -197,12 +248,44 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type LastIssuanceTimestamp<T> = StorageValue<_, u64, ValueQuery>;
 
+	/// Registry of authorised draws, the single place buffer outflows are capped. Keys are
+	/// registered by [`Pallet::set_draw_budget`].
+	#[pallet::storage]
+	pub type BufferDraws<T: Config> = StorageValue<_, BufferDrawMap<T>, ValueQuery>;
+
+	/// Genesis buffer draws. Existing chains seed them with [`migrations::MigrateV2ToV3`].
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		/// Draws to register, as `(key, per-drip-period limit)`.
+		pub buffer_draws: Vec<(BudgetKey, BalanceOf<T>)>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			let mut draws = BufferDrawMap::<T>::new();
+			for (key, limit) in &self.buffer_draws {
+				draws
+					.try_insert(key.clone(), DrawBudget { limit: *limit, ..Default::default() })
+					.expect("more genesis buffer draws than MAX_BUFFER_DRAWS");
+			}
+			BufferDraws::<T>::put(draws);
+		}
+	}
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// A key in the budget allocation does not match any registered recipient.
 		UnknownBudgetKey,
 		/// Budget allocation percentages do not sum to exactly 100%.
 		BudgetNotExact,
+		/// No draw is registered under this key, so nothing may be paid on its behalf.
+		UnregisteredDraw,
+		/// The payment would take the draw over its budget for the current drip period.
+		DrawBudgetExceeded,
+		/// The buffer draw registry is full; deregister a draw before adding another.
+		TooManyDraws,
 	}
 
 	#[pallet::hooks]
@@ -310,6 +393,41 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Register a draw under `key` capped at `limit` per drip period, or deregister it with
+		/// `None`.
+		///
+		/// A new limit applies at once but keeps this period's spending, so it cannot refresh a
+		/// depleted budget early.
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::set_draw_budget())]
+		pub fn set_draw_budget(
+			origin: OriginFor<T>,
+			key: BudgetKey,
+			limit: Option<BalanceOf<T>>,
+		) -> DispatchResult {
+			T::BudgetOrigin::ensure_origin(origin)?;
+
+			BufferDraws::<T>::try_mutate(|draws| -> DispatchResult {
+				match limit {
+					Some(limit) => {
+						let spent_so_far = draws.get(&key).map(|d| (d.spent, d.period));
+						let (spent, period) = spent_so_far.unwrap_or((Zero::zero(), 0));
+						draws
+							.try_insert(key.clone(), DrawBudget { limit, spent, period })
+							.map_err(|_| Error::<T>::TooManyDraws)?;
+					},
+					None => {
+						draws.remove(&key);
+					},
+				}
+				Ok(())
+			})?;
+
+			Self::deposit_event(Event::DrawBudgetUpdated { key, limit });
+
+			Ok(())
+		}
 	}
 
 	#[pallet::view_functions]
@@ -337,6 +455,19 @@ pub mod pallet {
 		pub fn staging() -> T::AccountId {
 			Self::staging_account()
 		}
+
+		/// All registered buffer draws as `(key, per-period limit, still drawable this period)`.
+		pub fn buffer_draws() -> Vec<(BudgetKey, BalanceOf<T>, BalanceOf<T>)> {
+			let period = LastIssuanceTimestamp::<T>::get();
+
+			BufferDraws::<T>::get()
+				.into_iter()
+				.map(|(key, draw)| {
+					let remaining = draw.limit.saturating_sub(Self::spent_in(&draw, period));
+					(key, draw.limit, remaining)
+				})
+				.collect()
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -359,6 +490,81 @@ pub mod pallet {
 		/// Deactivate funds on buffer inflow.
 		pub(crate) fn deactivate_buffer_funds(amount: BalanceOf<T>) {
 			<T::Currency as Unbalanced<T::AccountId>>::deactivate(amount);
+		}
+
+		/// Reactivate funds on buffer outflow, mirroring [`Self::deactivate_buffer_funds`].
+		pub(crate) fn reactivate_buffer_funds(amount: BalanceOf<T>) {
+			<T::Currency as Unbalanced<T::AccountId>>::reactivate(amount);
+		}
+
+		/// What `draw` spent in `period`; zero once a drip has moved the period on.
+		pub(crate) fn spent_in(draw: &DrawBudget<BalanceOf<T>>, period: u64) -> BalanceOf<T> {
+			if draw.period == period {
+				draw.spent
+			} else {
+				Zero::zero()
+			}
+		}
+
+		/// Pay `amount` to `beneficiary` against the draw under `key`, and reactivate it.
+		///
+		/// The only way funds leave the buffer. All-or-nothing: on `Err` nothing changed.
+		pub fn pay_from_buffer(
+			key: &BudgetKey,
+			beneficiary: &T::AccountId,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			if amount.is_zero() {
+				return Ok(());
+			}
+
+			let period = LastIssuanceTimestamp::<T>::get();
+			let mut draw = BufferDraws::<T>::get().get(key).cloned().ok_or_else(|| {
+				log::warn!(target: LOG_TARGET, "Buffer draw refused: {key:?} is not registered");
+				Error::<T>::UnregisteredDraw
+			})?;
+
+			let spent = Self::spent_in(&draw, period);
+			let remaining = draw.limit.saturating_sub(spent);
+			if amount > remaining {
+				log::warn!(
+					target: LOG_TARGET,
+					"Buffer draw refused: {key:?} wants {amount:?} but only {remaining:?} is \
+					 left of its {:?} budget this period",
+					draw.limit
+				);
+				return Err(Error::<T>::DrawBudgetExceeded.into());
+			}
+
+			// Written back only after the transfer, so a failure does not consume budget.
+			T::Currency::transfer(
+				&Self::buffer_account(),
+				beneficiary,
+				amount,
+				Preservation::Preserve,
+			)?;
+			Self::reactivate_buffer_funds(amount);
+
+			draw.spent = spent.saturating_add(amount);
+			draw.period = period;
+			BufferDraws::<T>::mutate(|draws| {
+				let _ = draws
+					.try_insert(key.clone(), draw)
+					.defensive_proof("key is already present in the map; qed");
+			});
+
+			Self::deposit_event(Event::BufferDrawn {
+				key: key.clone(),
+				beneficiary: beneficiary.clone(),
+				amount,
+			});
+
+			log::debug!(
+				target: LOG_TARGET,
+				"Paid {amount:?} from the DAP buffer to {beneficiary:?} against draw {key:?}"
+			);
+
+			Ok(())
 		}
 
 		/// Core issuance drip logic, called from `on_initialize`.
@@ -467,7 +673,23 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[allow(dead_code)]
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-			Self::check_budget_allocation()
+			Self::check_budget_allocation()?;
+			Self::check_buffer_draws()
+		}
+
+		/// No [`BufferDraws`] entry may be accounted against a future drip period, which would
+		/// let it out-spend its budget once that period arrives.
+		fn check_buffer_draws() -> Result<(), sp_runtime::TryRuntimeError> {
+			let current_period = LastIssuanceTimestamp::<T>::get();
+
+			for (_key, draw) in BufferDraws::<T>::get() {
+				ensure!(
+					draw.period <= current_period,
+					"BufferDraws entry is accounted against a future drip period"
+				);
+			}
+
+			Ok(())
 		}
 
 		/// Checks that `BudgetAllocation` is consistent:
@@ -559,6 +781,47 @@ where
 			target: LOG_TARGET,
 			"💸 Deposited (legacy) {numeric_amount:?} to DAP staging account"
 		);
+	}
+}
+
+/// A registered draw on the DAP buffer, bound to the [`BudgetKey`] in `K`.
+///
+/// Give this to a pallet that needs paying out of the buffer instead of the buffer account
+/// itself; payments are capped by the draw's budget in [`BufferDraws`].
+///
+/// # Example
+/// ```ignore
+/// parameter_types! {
+///     pub SignedRewards: BudgetKey = BudgetKey::truncate_from(b"epmb_signed".to_vec());
+/// }
+///
+/// type RewardSource = pallet_dap::BufferDraw<Runtime, SignedRewards>;
+/// ```
+pub struct BufferDraw<T, K>(core::marker::PhantomData<(T, K)>);
+
+impl<T: Config, K: Get<BudgetKey>> PaymentSource<T::AccountId, BalanceOf<T>> for BufferDraw<T, K> {
+	fn pay(beneficiary: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+		Pallet::<T>::pay_from_buffer(&K::get(), beneficiary, amount)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_can_pay(amount: BalanceOf<T>) {
+		// The payout preserves the buffer, so it needs `amount` on top of the ED.
+		let buffer = Pallet::<T>::buffer_account();
+		let _ =
+			T::Currency::mint_into(&buffer, amount.saturating_add(T::Currency::minimum_balance()));
+		Pallet::<T>::deactivate_buffer_funds(amount);
+
+		let key = K::get();
+		let period = LastIssuanceTimestamp::<T>::get();
+		BufferDraws::<T>::mutate(|draws| {
+			let spent = draws
+				.get(&key)
+				.map(|draw| Pallet::<T>::spent_in(draw, period))
+				.unwrap_or_else(Zero::zero);
+			let limit = spent.saturating_add(amount);
+			let _ = draws.try_insert(key, DrawBudget { limit, spent, period });
+		});
 	}
 }
 

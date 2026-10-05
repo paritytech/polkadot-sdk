@@ -16,25 +16,34 @@
 // limitations under the License.
 
 use crate::{
-	signed::{Config, Invulnerables, Pallet, RewardSource, Submissions, MAX_UNPAID_REWARDS},
+	signed::{Config, Invulnerables, Pallet, Submissions, MAX_UNPAID_REWARDS},
 	types::PagedRawSolution,
 	unsigned::miner::OffchainWorkerMiner,
 	CurrentPhase, Phase, Round,
 };
 use frame_benchmarking::v2::*;
 use frame_election_provider_support::ElectionProvider;
-use frame_support::{
-	pallet_prelude::*,
-	traits::fungible::{Inspect, Mutate},
-};
+use frame_support::pallet_prelude::*;
 use frame_system::RawOrigin;
 use sp_npos_elections::ElectionScore;
-use sp_runtime::traits::{One, Saturating};
-use sp_std::boxed::Box;
+use sp_runtime::traits::One;
+use sp_staking::budget::PaymentSource;
+use sp_std::{boxed::Box, vec::Vec};
 
-#[benchmarks(where T: crate::Config + crate::verifier::Config + crate::unsigned::Config)]
+#[benchmarks(where
+	T: crate::Config + crate::verifier::Config + crate::unsigned::Config,
+	<T as frame_system::Config>::RuntimeEvent: TryInto<crate::signed::Event<T>>
+)]
 mod benchmarks {
 	use super::*;
+
+	/// The events this pallet has emitted so far.
+	fn signed_events_for<T: Config>() -> Vec<crate::signed::Event<T>>
+	where
+		<T as frame_system::Config>::RuntimeEvent: TryInto<crate::signed::Event<T>>,
+	{
+		frame_system::Pallet::<T>::read_events_for_pallet::<crate::signed::Event<T>>()
+	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn register_not_full() -> Result<(), BenchmarkError> {
@@ -196,26 +205,21 @@ mod benchmarks {
 		let prev_round = Round::<T>::get();
 		crate::Pallet::<T>::rotate_round();
 
-		let source_and_balance_before = if let Some(source) = T::RewardSource::account() {
-			let funds =
-				<T as Config>::MaxFeeRefund::get().saturating_add(T::Currency::minimum_balance());
-			T::Currency::mint_into(&source, funds)?;
-			Some((source.clone(), T::Currency::balance(&source)))
-		} else {
-			None
-		};
+		// Make the source able to pay, so we measure the payment and not the failure fallback.
+		T::RewardSource::ensure_can_pay(<T as Config>::MaxFeeRefund::get());
 
 		#[block]
 		{
 			Pallet::<T>::clear_old_round_data(RawOrigin::Signed(alice).into(), prev_round, p)?;
 		}
 
-		if let Some((source, balance_before)) = source_and_balance_before {
-			assert!(
-				T::Currency::balance(&source) < balance_before,
-				"fee refund must have transferred out of the configured RewardSource pot"
-			);
-		}
+		// Guard against silently measuring the failure fallback.
+		assert!(
+			!signed_events_for::<T>()
+				.iter()
+				.any(|e| matches!(e, crate::signed::Event::FeeRefundFailed(..))),
+			"fee refund must have been paid out of the configured RewardSource"
+		);
 		Ok(())
 	}
 
@@ -234,17 +238,8 @@ mod benchmarks {
 		}
 		let target_round = MAX_UNPAID_REWARDS - 1;
 
-		// The claim pays out of `RewardSource`, so it must be able to cover one entry and still
-		// hold ED afterwards, as the payout uses `Preservation::Preserve`. A `None` source mints
-		// and needs no funding.
-		let source_and_balance_before = if let Some(source) = T::RewardSource::account() {
-			let funds =
-				<T as Config>::RewardBase::get().saturating_add(T::Currency::minimum_balance());
-			T::Currency::mint_into(&source, funds)?;
-			Some((source.clone(), T::Currency::balance(&source)))
-		} else {
-			None
-		};
+		// A claim that cannot be paid fails outright, so make the source able to cover one entry.
+		T::RewardSource::ensure_can_pay(<T as Config>::RewardBase::get());
 
 		let caller = crate::Pallet::<T>::funded_account("caller", 0);
 
@@ -254,14 +249,6 @@ mod benchmarks {
 		}
 
 		assert_eq!(crate::signed::UnpaidRewards::<T>::get().len(), MAX_UNPAID_REWARDS as usize - 1);
-		// Guard against silently measuring the mint fallback instead of the real transfer: if a
-		// pot is configured, its balance must have dropped by the claimed amount.
-		if let Some((source, balance_before)) = source_and_balance_before {
-			assert!(
-				T::Currency::balance(&source) < balance_before,
-				"claim must have transferred out of the configured RewardSource pot"
-			);
-		}
 		Ok(())
 	}
 

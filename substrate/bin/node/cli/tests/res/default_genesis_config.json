@@ -128,5 +128,8 @@
   },
   "safeMode": {
     "enteredUntil": null
+  },
+  "dap": {
+    "bufferDraws": []
   }
 }

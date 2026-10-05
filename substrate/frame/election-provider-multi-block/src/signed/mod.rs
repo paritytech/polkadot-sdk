@@ -64,9 +64,7 @@ use frame_support::{
 	pallet_prelude::{StorageDoubleMap, ValueQuery, *},
 	traits::{
 		tokens::{
-			fungible::{
-				BalancedHold, Credit as FungibleCredit, Inspect, Mutate, MutateHold, Unbalanced,
-			},
+			fungible::{BalancedHold, Credit as FungibleCredit, Inspect, Mutate, MutateHold},
 			Imbalance, Precision, Preservation,
 		},
 		Defensive, DefensiveSaturating, EstimateCallFee, EstimateFee, OnUnbalanced,
@@ -81,6 +79,7 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	Perbill,
 };
+use sp_staking::budget::{BudgetKey, PaymentSource};
 use sp_std::prelude::*;
 
 /// Explore all weights
@@ -249,52 +248,44 @@ impl<Balance: From<u32> + Saturating, G: Get<Balance>> CalculatePageDeposit<Bala
 	}
 }
 
-/// Provides the account that reward payments and invulnerable fee refunds are drawn from.
-///
-/// `None` mints directly. `Some(account)` transfers from `account`, followed by a call to
-/// [`Self::paid`] for any bookkeeping the source needs to perform after a successful payout.
-pub trait RewardSource<AccountId, Balance> {
-	/// The pot account to draw the reward from, or `None` to mint directly.
-	fn account() -> Option<AccountId>;
+/// The key identifying this pallet's draw on a [`Config::RewardSource`] that keys draws, such as
+/// the DAP buffer. Declared here so every runtime registers the same key.
+pub struct RewardBudgetKey;
 
-	/// Called after `amount` has been successfully transferred out of the pot.
-	fn paid(amount: Balance);
-}
-
-/// A [`RewardSource`] drawing from the account in `P`, with no issuance reactivation.
-///
-/// Correct only for pots holding *active* funds. A pot holding deactivated issuance, such as a
-/// DAP buffer, must use a source that reactivates in [`RewardSource::paid`].
-pub struct ActivePot<P>(sp_std::marker::PhantomData<P>);
-
-impl<AccountId, Balance, P: Get<Option<AccountId>>> RewardSource<AccountId, Balance>
-	for ActivePot<P>
-{
-	fn account() -> Option<AccountId> {
-		P::get()
+impl Get<BudgetKey> for RewardBudgetKey {
+	fn get() -> BudgetKey {
+		BudgetKey::truncate_from(b"epmb_signed_rewards".to_vec())
 	}
-
-	fn paid(_amount: Balance) {}
 }
 
-/// A [`RewardSource`] drawing from the account in `P`, reactivating the paid amount in
-/// `Currency` afterwards.
+/// A [`PaymentSource`] paying out of the account in `P`, or minting when `P` is `None`.
 ///
-/// For pots holding previously-deactivated issuance, such as a DAP buffer.
-pub struct ReactivatingPot<P, Currency>(sp_std::marker::PhantomData<(P, Currency)>);
+/// Correct only for a pot of *active* funds. One holding deactivated issuance, such as the DAP
+/// buffer, must reactivate what it pays, so use the source it provides (`pallet_dap::BufferDraw`).
+pub struct ActivePot<P, Currency>(sp_std::marker::PhantomData<(P, Currency)>);
 
-impl<AccountId, Balance, P, Currency> RewardSource<AccountId, Balance>
-	for ReactivatingPot<P, Currency>
+impl<AccountId, Balance, P, Currency> PaymentSource<AccountId, Balance> for ActivePot<P, Currency>
 where
+	AccountId: Eq,
+	Balance: Saturating,
 	P: Get<Option<AccountId>>,
-	Currency: Unbalanced<AccountId, Balance = Balance>,
+	Currency: Mutate<AccountId, Balance = Balance>,
 {
-	fn account() -> Option<AccountId> {
-		P::get()
+	fn pay(beneficiary: &AccountId, amount: Balance) -> Result<(), DispatchError> {
+		match P::get() {
+			Some(pot) => {
+				Currency::transfer(&pot, beneficiary, amount, Preservation::Preserve).map(|_| ())
+			},
+			None => Currency::mint_into(beneficiary, amount).map(|_| ()),
+		}
 	}
 
-	fn paid(amount: Balance) {
-		Currency::reactivate(amount);
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_can_pay(amount: Balance) {
+		if let Some(pot) = P::get() {
+			// The payout preserves the pot, so it needs `amount` on top of the ED.
+			let _ = Currency::mint_into(&pot, amount.saturating_add(Currency::minimum_balance()));
+		}
 	}
 }
 
@@ -375,9 +366,9 @@ pub mod pallet {
 		/// Handler for slashed deposits. Use `()` to burn them, or redirect them elsewhere.
 		type Slash: OnUnbalanced<FungibleCredit<Self::AccountId, Self::Currency>>;
 
-		/// Source account for reward payments. `Some(pot)` transfers from that account; `None`
-		/// mints directly into the winner's account.
-		type RewardSource: RewardSource<Self::AccountId, BalanceOf<Self>>;
+		/// Where reward payments and invulnerable fee refunds come from; this pallet only asks
+		/// it to pay. Use [`ActivePot`] with `None` to mint instead.
+		type RewardSource: PaymentSource<Self::AccountId, BalanceOf<Self>>;
 
 		/// Ceiling on the transaction fee that is refunded to a submitter.
 		///
@@ -1099,7 +1090,7 @@ pub mod pallet {
 				.ok_or(Error::<T>::NoUnpaidReward)?;
 			let entry = unpaid[idx].clone();
 
-			Self::transfer_or_mint(&entry.who, entry.amount)
+			T::RewardSource::pay(&entry.who, entry.amount)
 				.map_err(|_| Error::<T>::PotStillDepleted)?;
 
 			unpaid.remove(idx);
@@ -1145,23 +1136,11 @@ impl<T: Config> Pallet<T> {
 		Invulnerables::<T>::get().contains(who)
 	}
 
-	/// Transfer `amount` from [`Config::RewardSource`] pot to `to`, or mint if `None`.
-	fn transfer_or_mint(to: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-		if let Some(source) = T::RewardSource::account() {
-			T::Currency::transfer(&source, to, amount, Preservation::Preserve).map_err(|_| ())?;
-			T::RewardSource::paid(amount);
-		} else {
-			let _r = T::Currency::mint_into(to, amount);
-			debug_assert!(_r.is_ok());
-		}
-		Ok(())
-	}
-
 	/// Pay the round's winner. On success emits `Rewarded`. On failure, always defers into
 	/// [`UnpaidRewards`] (`RewardPaymentDeferred`), evicting the oldest entry first
 	/// (`UnpaidRewardEvicted`) if it's already full.
 	fn pay_reward(round: u32, to: &T::AccountId, amount: BalanceOf<T>) {
-		if Self::transfer_or_mint(to, amount).is_ok() {
+		if T::RewardSource::pay(to, amount).is_ok() {
 			Self::deposit_event(Event::<T>::Rewarded(round, to.clone(), amount));
 			return;
 		}
@@ -1194,7 +1173,7 @@ impl<T: Config> Pallet<T> {
 	/// deferred: it is out of scope for [`UnpaidRewards`] (see its doc for why) and simply emits
 	/// `FeeRefundFailed`, never `Rewarded`.
 	fn refund_fee(round: u32, to: &T::AccountId, amount: BalanceOf<T>) {
-		if Self::transfer_or_mint(to, amount).is_err() {
+		if T::RewardSource::pay(to, amount).is_err() {
 			sublog!(
 				warn,
 				"signed",
