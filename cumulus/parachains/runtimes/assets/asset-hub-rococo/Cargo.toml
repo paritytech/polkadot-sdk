@@ -67,7 +67,7 @@ primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace 
 
 # Polkadot
 pallet-xcm = { workspace = true }
-pallet-xcm-benchmarks = { optional = true, workspace = true }
+pallet-xcm-benchmarks = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
 rococo-runtime-constants = { workspace = true }
@@ -237,7 +237,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-uniques/std",
 	"pallet-utility/std",
-	"pallet-xcm-benchmarks?/std",
+	"pallet-xcm-benchmarks/std",
 	"pallet-xcm-bridge-hub-router/std",
 	"pallet-xcm/std",
 	"parachain-info/std",

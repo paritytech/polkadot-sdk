@@ -25,6 +25,7 @@ mod v3;
 mod v4;
 mod v5;
 mod weight_info;
+mod weight_info_provider;
 
 #[proc_macro_derive(XcmWeightInfoTrait)]
 pub fn derive_xcm_weight_info(item: TokenStream) -> TokenStream {
@@ -94,4 +95,14 @@ pub fn derive_num_variants(input: TokenStream) -> TokenStream {
 	enum_variants::derive(input)
 		.unwrap_or_else(syn::Error::into_compile_error)
 		.into()
+}
+
+#[proc_macro]
+pub fn impl_xcm_generic_weight_info_provider(input: TokenStream) -> TokenStream {
+	weight_info_provider::impl_generic_provider(input)
+}
+
+#[proc_macro]
+pub fn impl_xcm_fungible_weight_info_provider(input: TokenStream) -> TokenStream {
+	weight_info_provider::impl_fungible_provider(input)
 }

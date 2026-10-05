@@ -38,9 +38,9 @@ pub mod pallet_transaction_payment;
 pub mod pallet_utility;
 pub mod pallet_verify_signature;
 pub mod pallet_xcm;
+pub mod pallet_xcm_benchmarks;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
-pub mod xcm;
 
 pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;
