@@ -366,3 +366,85 @@ fn delegate_call_guards() {
 		}
 	});
 }
+
+// A `transfer` or `send` receiver gets Ethereum's 2300 gas stipend, which pays for no state
+// change. A vested transfer does not go through contract storage, so the precompile checks the
+// stipend frame itself.
+#[test]
+fn vested_transfer_is_denied_in_the_receiver_of_a_send() {
+	use alloy_core::sol_types::{SolCall, SolConstructor};
+	use frame_support::weights::Weight;
+	use pallet_revive::{
+		Code, TransactionLimits, test_utils::builder::BareInstantiateBuilder,
+	};
+	use pallet_revive_fixtures::{CallingReceiver, FixtureType, StipendSender};
+
+	const LOCKED: u64 = 10_000;
+
+	// Returns whether the sender saw its call denied, and whether TARGET got a schedule.
+	let transfer_from_receiver = |gas_limit: u64| {
+		new_test_ext().execute_with(|| {
+			// ALICE pays the storage deposits of the two deployments.
+			CurrencyOf::<Test>::make_free_balance_be(&ALICE, 1_000_000_000_000_000);
+			let deploy = |name: &str, constructor: Vec<u8>, salt: [u8; 32]| {
+				let (code, _) =
+					pallet_revive_fixtures::compile_module_with_type(name, FixtureType::Solc)
+						.unwrap();
+				BareInstantiateBuilder::<Test>::bare_instantiate(
+					RuntimeOrigin::signed(ALICE),
+					Code::Upload(code),
+				)
+				.constructor_data(constructor)
+				.salt(Some(salt))
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: Weight::MAX,
+					deposit_limit: u64::MAX,
+				})
+				.build_and_unwrap_contract()
+			};
+
+			let vested_transfer = IVesting::vestedTransferCall {
+				target: target_alloy(),
+				locked: alloy_core::primitives::U256::from(LOCKED),
+				perBlock: alloy_core::primitives::U256::from(500u64),
+				startingBlock: alloy_core::primitives::U256::from(0u64),
+			};
+			let receiver = deploy(
+				"CallingReceiver",
+				CallingReceiver::constructorCall {
+					_target: precompile_address().0.into(),
+					_data: vested_transfer.abi_encode().into(),
+				}
+				.abi_encode(),
+				[1; 32],
+			);
+			CurrencyOf::<Test>::make_free_balance_be(&receiver.account_id, LOCKED * 10);
+			let sender = deploy(
+				"StipendSender",
+				StipendSender::constructorCall { _receiver: receiver.addr.0.into() }.abi_encode(),
+				[2; 32],
+			);
+
+			let result = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), sender.addr)
+				.data(StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode())
+				.build_and_unwrap_result();
+			let target_vesting =
+				<pallet_vesting::Pallet<Test> as VestingSchedule<u64>>::vesting_balance(&TARGET);
+			(bool::abi_decode(&result.data).unwrap(), target_vesting.is_some())
+		})
+	};
+
+	// The raised gas scale lets a call with an explicit gas limit pay for the transfer, so only
+	// the stipend check can deny the `send`.
+	GasScale::set(50_000_000);
+	assert_eq!(
+		transfer_from_receiver(2300),
+		(true, false),
+		"the receiver of a `send` should not make a vested transfer"
+	);
+	assert_eq!(
+		[transfer_from_receiver(2299), transfer_from_receiver(2301)],
+		[(false, true); 2],
+		"only a `send` denies a vested transfer"
+	);
+}

@@ -15459,6 +15459,7 @@ dependencies = [
  "frame-system",
  "pallet-balances",
  "pallet-revive",
+ "pallet-revive-fixtures",
  "pallet-timestamp",
  "pallet-vesting",
  "parity-scale-codec",
