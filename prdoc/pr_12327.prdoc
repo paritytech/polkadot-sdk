@@ -1,0 +1,14 @@
+title: '[RWF] pallet-nft-fractionalization: fractionalize accepts zero fractions'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Closes #12194
+
+    ## Summary
+
+    `fractionalize` accepted `fractions = 0`, which would place a deposit hold.
+
+    This PR adds an early `ensure!(!fractions.is_zero(), Error::ZeroFractions)` check in `fractionalize`, before any holds, locks, or storage writes occur, plus a regression test (`fractionalize_with_zero_fractions_should_fail`) verifying the call is rejected and no `NftToAsset` entry / NFT lock results.
+crates:
+- name: pallet-nft-fractionalization
+  bump: major
