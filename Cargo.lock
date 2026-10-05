@@ -13192,11 +13192,9 @@ dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
- "rand_chacha 0.3.1",
  "scale-info",
  "sp-api 26.0.0",
  "sp-arithmetic 23.0.0",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]

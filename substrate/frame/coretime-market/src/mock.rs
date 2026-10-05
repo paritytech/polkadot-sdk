@@ -19,21 +19,13 @@
 
 use crate::*;
 use fp_coretime::market::{CoreRangeProvider, SoldCoresRange, TimesliceProvider};
-use frame_support::{derive_impl, traits::Randomness};
-use sp_core::ConstU32;
+use frame_support::{derive_impl, parameter_types};
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-/// Test randomness derived from parent hash and subject.
-pub struct TestRandomness;
-impl Randomness<sp_core::H256, u64> for TestRandomness {
-	fn random(subject: &[u8]) -> (sp_core::H256, u64) {
-		let parent_hash = frame_system::Pallet::<Test>::parent_hash();
-		let mut seed = parent_hash.as_ref().to_vec();
-		seed.extend_from_slice(subject);
-		(sp_core::H256::from(sp_io::hashing::blake2_256(&seed)), 0)
-	}
+parameter_types! {
+	pub static MaxCores: u32 = 100;
 }
 
 frame_support::construct_runtime!(
@@ -136,9 +128,7 @@ impl crate::pallet::Config for Test {
 	type CoreRangeProvider = TestCoreRangeProvider;
 	type TimesliceProvider = TestTimesliceProvider;
 	type RenewalRights = TestRenewalRights;
-	type MaxBids = ConstU32<100>;
-	type MaxCores = ConstU32<100>;
-	type Randomness = TestRandomness;
+	type MaxCores = MaxCores;
 }
 
 pub fn new_config() -> ConfigRecord<u64, u64> {
