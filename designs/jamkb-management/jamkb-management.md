@@ -572,9 +572,10 @@ fn dispose_excess(source: ServiceId, amount: Balance, refund: bool);
 
 // ── Shared by every flow ───────────────────────────────────────────────────
 
-/// Cancels an allocation in `Approved`. Origin: the allocation's approver.
-/// The hold is released and the allocation moves to `Closed`.
-/// A `Delivering` allocation cannot be cancelled.
+/// Cancels an allocation in `Approved`. Origin: the allocation's approver, or
+/// any signed account once `expires_at` has passed. The hold is released and
+/// the allocation moves to `Closed`. A `Delivering` allocation cannot be
+/// cancelled.
 fn cancel_allocation(id: AllocationId);
 
 /// Resolves an operation. Origin: any signed account. Operation marked
@@ -915,3 +916,14 @@ account in it. The exact layout is to be defined.
 7. **Generic transport.** The parachain-system rework that pulls the pallet's
    upward messages and delivers the validation inputs does not exist yet
    (§3.4).
+8. **Pallet account and burn instead of holds.** A hold cannot take the last
+   `min_balance` units and keeps the account alive, so a holder cannot redeem
+   their full balance and close the account. One option is to move the units
+   for permanent releases and redemptions into a pallet account instead, burn
+   them on Confirmed, and return them on Failed. Leases would still use holds,
+   since those units must return to the approver.
+9. **Sufficiency.** Whether JAMKB is a sufficient asset, and its
+   `min_balance`, is undecided. A sufficient asset needs a `min_balance`
+   worth about the native existential deposit, which requires a price. If
+   JAMKB is non-sufficient and `min_balance` is 1, the pallet accounts must
+   be touched at `initialize`.
