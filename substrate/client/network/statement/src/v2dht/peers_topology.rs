@@ -18,8 +18,7 @@
 
 use super::peers_index::{Key, PeersIndex};
 use sc_network_types::PeerId;
-use sp_statement_store::Statement;
-pub use sp_statement_store::Topic;
+use sp_statement_store::{Statement, Topic};
 use std::{
 	cmp::Reverse,
 	collections::{HashMap, HashSet},
@@ -68,7 +67,7 @@ const MAX_KNOWN_PEERS: usize = 8192;
 ///
 /// Topic queries walk the sorted key indexes in increasing XOR distance, without sorting the full
 /// peer set.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PeersTopology {
 	local_peer: PeerId,
 	local_key: Key,
@@ -142,7 +141,7 @@ impl PeersTopology {
 		self.connected.remove(key, &peer);
 	}
 
-	#[allow(dead_code)]
+	#[cfg(test)]
 	fn is_connected(&self, peer: &PeerId) -> bool {
 		self.discovered.get(peer).is_some_and(|info| info.connected)
 	}
@@ -167,7 +166,7 @@ impl PeersTopology {
 	///
 	/// "Closest" is computed over the locally learned statement-protocol peers, not by querying
 	/// the network for the true global closest peers.
-	#[allow(dead_code)]
+	#[cfg(test)]
 	pub fn closest_known(&self, topic: Topic, limit: usize) -> Vec<PeerId> {
 		self.closest_known_keyed(topic, limit)
 			.into_iter()
