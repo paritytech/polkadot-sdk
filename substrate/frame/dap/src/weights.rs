@@ -71,8 +71,10 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_dap`.
 pub trait WeightInfo {
-	fn set_budget_allocation() -> Weight;
-	fn drip_issuance() -> Weight;
+	fn set_allocations() -> Weight;
+	fn drip_issuance(_n: u32) -> Weight;
+	fn on_idle_base() -> Weight;
+	fn on_idle_single_asset_drain() -> Weight;
 }
 
 /// Weights for `pallet_dap` using the Substrate node and recommended hardware.
@@ -80,7 +82,7 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Dap::BudgetAllocation` (r:0 w:1)
 	/// Proof: `Dap::BudgetAllocation` (`max_values`: Some(1), `max_size`: Some(593), added: 1088, mode: `MaxEncodedLen`)
-	fn set_budget_allocation() -> Weight {
+	fn set_allocations() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -92,7 +94,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Dap::LastIssuanceTimestamp` (r:1 w:1)
 	/// Proof: `Dap::LastIssuanceTimestamp` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	fn drip_issuance() -> Weight {
+	fn drip_issuance(_n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `241`
 		//  Estimated: `1493`
@@ -101,13 +103,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	fn on_idle_base() -> Weight {
+		Weight::zero()
+	}
+	fn on_idle_single_asset_drain() -> Weight{
+		Weight::zero()
+	}
 }
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
 	/// Storage: `Dap::BudgetAllocation` (r:0 w:1)
 	/// Proof: `Dap::BudgetAllocation` (`max_values`: Some(1), `max_size`: Some(593), added: 1088, mode: `MaxEncodedLen`)
-	fn set_budget_allocation() -> Weight {
+	fn set_allocations() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -119,7 +127,7 @@ impl WeightInfo for () {
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Dap::LastIssuanceTimestamp` (r:1 w:1)
 	/// Proof: `Dap::LastIssuanceTimestamp` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	fn drip_issuance() -> Weight {
+	fn drip_issuance(_n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `241`
 		//  Estimated: `1493`
@@ -127,5 +135,11 @@ impl WeightInfo for () {
 		Weight::from_parts(8_073_000, 1493)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn on_idle_base() -> Weight {
+		Weight::zero()
+	}
+	fn on_idle_single_asset_drain() -> Weight{
+		Weight::zero()
 	}
 }

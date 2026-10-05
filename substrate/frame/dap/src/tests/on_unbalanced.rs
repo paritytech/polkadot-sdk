@@ -29,6 +29,7 @@ use frame_support::{
 
 type DapPallet = crate::Pallet<Test>;
 type DapLegacy = crate::DapLegacyAdapter<Test, Balances>;
+type DapUnbalanced = crate::DapUnbalancedAdapter<Test, Balances>;
 
 #[test]
 #[should_panic(expected = "Failed to deposit slash to DAP staging account")]
@@ -51,7 +52,7 @@ fn on_unbalanced_panics_when_staging_not_funded_and_deposit_below_ed() {
 			Fortitude::Force,
 		)
 		.unwrap();
-		DapPallet::on_unbalanced(credit);
+		DapUnbalanced::on_unbalanced(credit);
 	});
 }
 
@@ -75,7 +76,7 @@ fn on_unbalanced_creates_staging_when_not_funded_and_deposit_at_least_ed() {
 			Fortitude::Force,
 		)
 		.unwrap();
-		DapPallet::on_unbalanced(credit);
+		DapUnbalanced::on_unbalanced(credit);
 
 		// Then: staging is created and funded
 		assert_eq!(Balances::free_balance(&staging), ed);
@@ -111,7 +112,7 @@ fn slash_to_dap_accumulates_to_staging_then_deactivates_on_idle() {
 				Fortitude::Force,
 			)
 			.unwrap();
-			DapPallet::on_unbalanced(credit);
+			DapUnbalanced::on_unbalanced(credit);
 		}
 
 		// Then: funds land in staging, not buffer.

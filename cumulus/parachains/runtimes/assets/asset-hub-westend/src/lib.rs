@@ -74,6 +74,7 @@ use frame_system::{
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20};
+use pallet_dap::DapUnbalancedAdapter;
 use pallet_nfts::PalletFeatures;
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
@@ -251,7 +252,7 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = Dap;
+	type DustRemoval = DapUnbalancedAdapter<Runtime, Balances>;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
@@ -282,7 +283,10 @@ pub type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, Dap>;
+	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<
+		Balances,
+		DapUnbalancedAdapter<Runtime, Balances>,
+	>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
@@ -730,7 +734,7 @@ impl pallet_recovery::Config for Runtime {
 	type SecurityDeposit = ConstU128<{ 10 * UNITS }>;
 	type MaxFriendsPerConfig = ConstU32<100>;
 	type WeightInfo = weights::pallet_recovery::WeightInfo<Runtime>;
-	type Slash = Dap;
+	type Slash = DapUnbalancedAdapter<Runtime, Balances>;
 }
 
 parameter_types! {
@@ -1421,7 +1425,7 @@ impl pallet_revive::Config for Runtime {
 	type DebugEnabled = ConstBool<{ cfg!(revive_debug) }>;
 	type AutoMap = ConstBool<true>;
 	type GasScale = ConstU32<1000>;
-	type OnBurn = Dap;
+	type OnBurn = DapUnbalancedAdapter<Runtime, Balances>;
 	type Deposit = pallet_revive::PGasDeposit<
 		Runtime,
 		Assets,

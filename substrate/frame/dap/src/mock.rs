@@ -18,7 +18,15 @@
 //! Test mock for the DAP pallet.
 
 use crate::{self as pallet_dap, Config};
-use frame_support::{derive_impl, parameter_types, PalletId};
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{
+		fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
+		AsEnsureOriginWithArg,
+	},
+	PalletId,
+};
+use frame_system::EnsureSigned;
 use sp_core::crypto::AccountId32;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
@@ -35,10 +43,15 @@ pub fn account_id(n: u64) -> AccountId {
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
+		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
+		Assets: pallet_assets,
 		Dap: pallet_dap,
 	}
 );
+
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+impl pallet_timestamp::Config for Test {}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -52,6 +65,15 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type ExistentialDeposit = ExistentialDeposit;
+}
+
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
+impl pallet_assets::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = u64;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 parameter_types! {
@@ -103,8 +125,18 @@ impl sp_staking::budget::BudgetRecipient<AccountId> for TestValidatorIncentiveRe
 	}
 }
 
+parameter_types! {
+	pub const NativeCurrencyAssetId: NativeOrWithId<u32> = NativeOrWithId::Native;
+}
+
+pub type NativeAndAssets =
+	UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
 impl Config for Test {
-	type Currency = Balances;
+	type Balance = u64;
+	type AssetKind = NativeOrWithId<u32>;
+	type Assets = NativeAndAssets;
+	type NativeCurrencyAssetId = NativeCurrencyAssetId;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = TestIssuanceCurve;
 	type BudgetRecipients = (Dap, TestStakerRecipient, TestValidatorIncentiveRecipient);
@@ -127,6 +159,11 @@ pub fn set_default_budget_allocation() {
 	map.try_insert(TestValidatorIncentiveRecipient::budget_key(), Perbill::from_percent(0))
 		.unwrap();
 	crate::BudgetAllocation::<Test>::put(map);
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub fn new_test_ext_bench() -> sp_io::TestExternalities {
+	new_test_ext_inner(true)
 }
 
 fn new_test_ext_inner(fund_buffer: bool) -> sp_io::TestExternalities {

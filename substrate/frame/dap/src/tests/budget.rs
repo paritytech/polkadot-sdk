@@ -22,23 +22,41 @@ use crate::{
 		account_id, assert_try_state_invalid, build_and_execute, set_default_budget_allocation,
 		Dap, RuntimeOrigin, System, Test,
 	},
-	BudgetAllocation, Error, Event,
+	tests::{asset_allocations, create_asset},
+	AssetAllocation, BudgetAllocation, Error, Event,
 };
-use frame_support::{assert_noop, assert_ok};
-use sp_runtime::Perbill;
+use frame_support::{assert_noop, assert_ok, traits::fungible::NativeOrWithId};
+use sp_runtime::{BoundedBTreeMap, Perbill};
 
 #[test]
 fn set_budget_allocation_works_with_root() {
 	build_and_execute(true, || {
 		System::set_block_number(1);
 
-		let allocs =
+		create_asset(10);
+
+		let budget_allocations =
 			budget_map(&[(b"buffer", 20), (b"staker_rewards", 60), (b"validator_incentive", 20)]);
+		let asset_allocations = asset_allocations(&[
+			(NativeOrWithId::Native, &[(b"buffer", 10), (b"staker_rewards", 60)]),
+			(NativeOrWithId::WithId(10), &[(b"validator_incentive", 1), (b"staker_rewards", 10)]),
+		]);
 
-		assert_ok!(Dap::set_budget_allocation(RuntimeOrigin::root(), allocs.clone()));
+		assert_ok!(Dap::set_allocations(
+			RuntimeOrigin::root(),
+			Some(budget_allocations.clone()),
+			Some(asset_allocations.clone())
+		));
 
-		assert_eq!(BudgetAllocation::<Test>::get(), allocs);
-		System::assert_has_event(Event::BudgetAllocationUpdated { allocations: allocs }.into());
+		assert_eq!(BudgetAllocation::<Test>::get(), budget_allocations);
+		assert_eq!(AssetAllocation::<Test>::get(), asset_allocations);
+
+		System::assert_has_event(
+			Event::BudgetAllocationUpdated { allocations: budget_allocations }.into(),
+		);
+		System::assert_has_event(
+			Event::AssetAllocationUpdated { allocations: asset_allocations }.into(),
+		);
 	});
 }
 
@@ -54,9 +72,55 @@ fn set_budget_allocation_rejects_unknown_key() {
 
 		// THEN: rejected.
 		assert_noop!(
-			Dap::set_budget_allocation(RuntimeOrigin::root(), allocs),
+			Dap::set_allocations(RuntimeOrigin::root(), Some(allocs), None),
 			Error::<Test>::UnknownBudgetKey
 		);
+	});
+}
+
+#[test]
+fn set_asset_allocation_rejects_unknown_key() {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
+		let allocations = asset_allocations(&[(NativeOrWithId::Native, &[(b"unknown", 10)])]);
+
+		assert_noop!(
+			Dap::set_allocations(RuntimeOrigin::root(), None, Some(allocations)),
+			Error::<Test>::UnknownBudgetKey
+		);
+	});
+}
+
+#[test]
+fn set_asset_allocation_rejects_zero_amounts() {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
+		let allocations = asset_allocations(&[(NativeOrWithId::Native, &[(b"buffer", 0)])]);
+
+		assert_noop!(
+			Dap::set_allocations(RuntimeOrigin::root(), None, Some(allocations)),
+			Error::<Test>::ZeroAssetDistribution
+		);
+	});
+}
+
+#[test]
+fn set_asset_allocation_rejects_nonexistent_assets() {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
+		let allocations = asset_allocations(&[(NativeOrWithId::WithId(10), &[(b"buffer", 10)])]);
+
+		assert_noop!(
+			Dap::set_allocations(RuntimeOrigin::root(), None, Some(allocations.clone())),
+			Error::<Test>::AssetDoesntExist
+		);
+
+		create_asset(10);
+
+		assert_ok!(Dap::set_allocations(RuntimeOrigin::root(), None, Some(allocations)));
 	});
 }
 
@@ -70,7 +134,7 @@ fn set_budget_allocation_rejects_over_100_percent() {
 
 		// THEN: rejected.
 		assert_noop!(
-			Dap::set_budget_allocation(RuntimeOrigin::root(), allocs),
+			Dap::set_allocations(RuntimeOrigin::root(), Some(allocs), None),
 			Error::<Test>::BudgetNotExact
 		);
 	});
@@ -86,7 +150,7 @@ fn set_budget_allocation_rejects_under_100_percent() {
 
 		// THEN: rejected.
 		assert_noop!(
-			Dap::set_budget_allocation(RuntimeOrigin::root(), allocs),
+			Dap::set_allocations(RuntimeOrigin::root(), Some(allocs), None),
 			Error::<Test>::BudgetNotExact
 		);
 	});
@@ -97,10 +161,8 @@ fn set_budget_allocation_requires_budget_origin() {
 	build_and_execute(true, || {
 		set_default_budget_allocation();
 
-		let allocs = budget_map(&[(b"staker_rewards", 80)]);
-
 		assert_noop!(
-			Dap::set_budget_allocation(RuntimeOrigin::signed(account_id(1)), allocs),
+			Dap::set_allocations(RuntimeOrigin::signed(account_id(1)), None, None),
 			sp_runtime::DispatchError::BadOrigin
 		);
 	});
@@ -136,5 +198,35 @@ fn try_state_detects_allocation_not_summing_to_100() {
 
 		// Restore valid state for post-test try_state.
 		set_default_budget_allocation();
+	});
+}
+
+#[test]
+fn try_state_detects_unknown_key_in_asset_allocation() {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
+		let allocations = asset_allocations(&[(NativeOrWithId::Native, &[(b"unknown", 10)])]);
+		AssetAllocation::<Test>::put(allocations);
+
+		assert_try_state_invalid();
+
+		// Restore valid state for post-test try_state.
+		AssetAllocation::<Test>::put(BoundedBTreeMap::new());
+	});
+}
+
+#[test]
+fn try_state_detects_zero_amount_in_asset_allocation() {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
+		let allocations = asset_allocations(&[(NativeOrWithId::Native, &[(b"buffer", 0)])]);
+		AssetAllocation::<Test>::put(allocations);
+
+		assert_try_state_invalid();
+
+		// Restore valid state for post-test try_state.
+		AssetAllocation::<Test>::put(BoundedBTreeMap::new());
 	});
 }

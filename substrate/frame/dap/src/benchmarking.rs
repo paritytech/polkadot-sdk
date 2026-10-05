@@ -18,11 +18,13 @@
 //! Benchmarks for pallet-dap.
 
 use super::*;
+use crate::SingleAssetAllocation;
 use frame_benchmarking::v2::*;
+use frame_support::{assert_ok, traits::fungibles::Create};
 use frame_system::RawOrigin;
 use sp_staking::budget::BudgetRecipientList;
 
-#[benchmarks(where T: pallet_timestamp::Config<Moment = u64>)]
+#[benchmarks(where T: pallet_timestamp::Config<Moment = u64>, AssetKindOf<T> : From<u32>)]
 mod benchmarks {
 	use super::*;
 
@@ -46,25 +48,109 @@ mod benchmarks {
 		allocations
 	}
 
-	#[benchmark]
-	fn set_budget_allocation() {
-		let allocations = build_even_allocation::<T>();
+	fn create_asset<T: Config>(asset: T::AssetKind) -> DispatchResult {
+		let caller: T::AccountId = whitelisted_caller();
+		T::Assets::create(asset, caller, false, T::Balance::one())
+	}
 
-		#[extrinsic_call]
-		_(RawOrigin::Root, allocations.clone());
+	fn create_full_asset_allocations<T>() -> AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>
+	where
+		T: Config,
+		AssetKindOf<T>: From<u32>,
+	{
+		create_asset_allocations::<T>(MAX_DISTRIBUTABLE_ASSETS)
+	}
 
-		assert_eq!(BudgetAllocation::<T>::get(), allocations);
+	/// Will attempt to create `count` assets with ids defined as `AssetKind::from(0)`,
+	/// `AssetKind::from(1)`, ..., `AssetKind::from(count - 1)`. If some assets couldn't be created,
+	/// they are skipped. It's done so because in some runtime configurations `Pallet::Assets` won't
+	/// be configured to the real `pallet-assets` and may not allow creating the assets.
+	fn create_asset_allocations<T>(count: u32) -> AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>
+	where
+		T: Config,
+		AssetKindOf<T>: From<u32>,
+	{
+		let mut allocations: AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>> =
+			BoundedBTreeMap::new();
+
+		let recipients = T::BudgetRecipients::recipients();
+		let mut single_asset_allocation = BoundedBTreeMap::new();
+		for (budget_key, _) in recipients {
+			assert_ok!(single_asset_allocation.try_insert(
+				budget_key,
+				SingleAssetAllocation { amount_per_ms: T::Balance::one() }
+			));
+		}
+
+		for asset_id in 0..count {
+			let asset_id: AssetKindOf<T> = asset_id.into();
+			if create_asset::<T>(asset_id.clone()).is_ok() {
+				assert_ok!(allocations.try_insert(asset_id, single_asset_allocation.clone()));
+			}
+		}
+
+		allocations
+	}
+
+	fn mint_to_staging<T: Config>(asset: AssetKindOf<T>, amount: u32) {
+		assert_ok!(T::Assets::mint_into(asset, &Pallet::<T>::staging_account(), amount.into()));
+	}
+
+	fn assert_has_event<T: Config>(generic_event: crate::Event<T>) {
+		let re: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
+		frame_system::Pallet::<T>::assert_has_event(re.into());
+	}
+
+	fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
+		let re: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
+		frame_system::Pallet::<T>::assert_last_event(re.into());
 	}
 
 	#[benchmark]
-	fn drip_issuance() {
-		let allocations = build_even_allocation::<T>();
-		BudgetAllocation::<T>::put(allocations);
+	fn set_allocations() {
+		let asset_allocations = create_full_asset_allocations::<T>();
+		let budget_allocations = build_even_allocation::<T>();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, Some(budget_allocations.clone()), Some(asset_allocations.clone()));
+
+		assert_has_event::<T>(Event::AssetAllocationUpdated { allocations: asset_allocations });
+		assert_has_event::<T>(Event::BudgetAllocationUpdated { allocations: budget_allocations });
+	}
+
+	#[benchmark]
+	fn drip_issuance(n: Linear<0, { MAX_DISTRIBUTABLE_ASSETS.into() }>) {
+		let budget_allocations = build_even_allocation::<T>();
+		let asset_allocations = create_asset_allocations::<T>(n);
+		assert_ok!(Pallet::<T>::set_allocations(
+			RawOrigin::Root.into(),
+			Some(budget_allocations),
+			Some(asset_allocations.clone()),
+		));
+
+		let recipients = T::BudgetRecipients::recipients();
+
+		// Mint ED.
+		for (_, recipient) in &recipients {
+			assert_ok!(T::Assets::mint_into(
+				T::NativeCurrencyAssetId::get(),
+				recipient,
+				T::Balance::from(100u32),
+			));
+		}
+
+		for i in asset_allocations.keys() {
+			mint_to_staging::<T>(i.clone(), 1_000_000_000);
+		}
+
+		// Trigger transfer from staging to buffer.
+		Pallet::<T>::on_idle(Default::default(), Weight::MAX);
 
 		// Set a timestamp so the drip fires.
 		let now: u64 = 1_000_000;
 		pallet_timestamp::Now::<T>::put(now);
-		let past = now.saturating_sub(T::IssuanceCadence::get() + 1);
+		let elapsed_millis = T::IssuanceCadence::get() + 1;
+		let past = now.saturating_sub(elapsed_millis);
 		LastIssuanceTimestamp::<T>::put(past);
 
 		#[block]
@@ -73,5 +159,72 @@ mod benchmarks {
 		}
 
 		assert!(LastIssuanceTimestamp::<T>::get() > past);
+
+		for i in asset_allocations.keys() {
+			assert_has_event::<T>(Event::AssetDistributed {
+				asset: i.clone(),
+				amount: (elapsed_millis as u32 * recipients.len() as u32).into(),
+				elapsed_millis,
+			});
+		}
 	}
+
+	#[benchmark]
+	fn on_idle_base() {
+		let allocations = create_full_asset_allocations::<T>();
+		assert_ok!(Pallet::<T>::set_allocations(RawOrigin::Root.into(), None, Some(allocations)));
+
+		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1);
+
+		#[block]
+		{
+			Pallet::<T>::on_idle(Default::default(), Weight::MAX);
+		}
+
+		assert_last_event::<T>(Event::StagingDrained {
+			amount: T::Balance::one(),
+			asset: T::NativeCurrencyAssetId::get(),
+		});
+	}
+
+	#[benchmark]
+	fn on_idle_single_asset_drain() -> Result<(), BenchmarkError> {
+		let allocations = create_full_asset_allocations::<T>();
+		assert_ok!(Pallet::<T>::set_allocations(
+			RawOrigin::Root.into(),
+			None,
+			Some(allocations.clone())
+		));
+
+		// Can't create any assets.
+		if allocations.is_empty() {
+			return Err(BenchmarkError::Weightless);
+		}
+
+		let asset = allocations.keys().next().expect("Checked to be non-empty");
+
+		mint_to_staging::<T>(T::NativeCurrencyAssetId::get(), 1);
+		mint_to_staging::<T>(asset.clone(), 100);
+
+		#[block]
+		{
+			Pallet::<T>::on_idle(Default::default(), Weight::MAX);
+		}
+
+		assert_has_event::<T>(Event::StagingDrained {
+			amount: T::Balance::from(99u32),
+			asset: asset.clone(),
+		});
+
+		assert_has_event::<T>(Event::StagingDrained {
+			amount: T::Balance::one(),
+			asset: T::NativeCurrencyAssetId::get(),
+		});
+
+		Ok(())
+	}
+
+	// Implements a test for each benchmark. Execute with:
+	// `cargo test -p pallet-dap --features runtime-benchmarks`.
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext_bench(), crate::mock::Test);
 }

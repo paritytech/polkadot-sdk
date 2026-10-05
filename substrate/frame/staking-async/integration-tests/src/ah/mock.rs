@@ -23,9 +23,13 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	sp_runtime::testing::TestXt,
-	traits::fungible::Mutate,
+	traits::{
+		fungible::{Mutate, NativeFromLeft, NativeOrWithId},
+		fungibles::EmptyFungibles,
+	},
 	weights::{Weight, WeightMeter},
 };
+use pallet_dap::DapUnbalancedAdapter;
 use pallet_election_provider_multi_block as multi_block;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{ActiveEra, CurrentEra, Forcing, PotAccountProvider};
@@ -447,7 +451,7 @@ impl multi_block::signed::Config for Runtime {
 	type MaxFeeRefund = multi_block::signed::FullSubmissionFee<Runtime, ConstU32<1>>;
 	type MaxSubmissions = MaxSubmissions;
 	type RewardBase = RewardBase;
-	type Slash = Dap;
+	type Slash = DapUnbalancedAdapter<Runtime, Balances>;
 	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
 	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
 }
@@ -490,7 +494,7 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type EventListeners = ();
 	type Reward = ();
-	type Slash = Dap;
+	type Slash = DapUnbalancedAdapter<Runtime, Balances>;
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxPruningItems = MaxPruningItems;
 
@@ -591,8 +595,23 @@ impl sp_staking::budget::IssuanceCurve<Balance> for OneTokenPerMillisecond {
 	}
 }
 
+type NativeAndEmptyAssets = frame_support::traits::fungible::UnionOf<
+	Balances,
+	EmptyFungibles<u32, Balance>,
+	NativeFromLeft,
+	NativeOrWithId<u32>,
+	AccountId,
+>;
+
+parameter_types! {
+	pub const NativeCurrencyAssetId: NativeOrWithId<u32> = NativeOrWithId::Native;
+}
+
 impl pallet_dap::Config for Runtime {
-	type Currency = Balances;
+	type Balance = Balance;
+	type Assets = NativeAndEmptyAssets;
+	type AssetKind = NativeOrWithId<u32>;
+	type NativeCurrencyAssetId = NativeCurrencyAssetId;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = OneTokenPerMillisecond;
 	type BudgetRecipients = (
