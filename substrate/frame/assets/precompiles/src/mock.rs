@@ -95,6 +95,7 @@ parameter_types! {
 	/// Test chain ID - use a distinct value to avoid masking chain ID handling bugs.
 	/// 31337 is commonly used for local development chains (Hardhat default).
 	pub const ChainId: u64 = 31337;
+	pub static GasScale: u32 = pallet_revive::config_preludes::GasScale::get();
 }
 
 impl permit::pallet::Config for Test {
@@ -109,6 +110,7 @@ impl pallet_revive::Config for Test {
 	type Currency = Balances;
 	type Precompiles =
 		(ERC20<Self, InlineIdConfig<0x0120>>, ERC20<Self, ForeignIdConfig<0x0220, Self>>);
+	type GasScale = GasScale;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

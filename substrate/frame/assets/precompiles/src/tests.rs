@@ -902,3 +902,98 @@ fn transfer_from_decrements_normally_after_max_approve(asset_index: u16) {
 		assert_eq!(Assets::balance(asset_id, &recipient), 10);
 	});
 }
+
+// A `transfer` or `send` receiver gets Ethereum's 2300 gas stipend, which cannot pay for an
+// ERC-20 transfer. The asset transfer does not go through contract storage, so the precompile
+// checks the stipend frame itself.
+#[test]
+fn transfer_is_denied_in_the_receiver_of_a_send() {
+	use alloy::sol_types::{SolConstructor, SolValue};
+	use pallet_revive_fixtures::{CallingReceiver, FixtureType, StipendSender};
+
+	const AMOUNT: u128 = 10;
+
+	// Returns whether the sender saw its call denied, and the assets `to` received.
+	let transfer_from_receiver = |gas_limit: u64| {
+		new_test_ext().execute_with(|| {
+			let asset_id = 0u32;
+			let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+			let owner = 123456789;
+			let to = 987654321;
+			Balances::make_free_balance_be(&owner, 1_000_000_000_000_000);
+			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+
+			let deploy = |name: &str, constructor: Vec<u8>, salt: [u8; 32]| {
+				let (mut code, _) =
+					pallet_revive_fixtures::compile_module_with_type(name, FixtureType::Solc)
+						.unwrap();
+				code.extend(constructor);
+				pallet_revive::Pallet::<Test>::bare_instantiate(
+					RuntimeOrigin::signed(owner),
+					0u32.into(),
+					TransactionLimits::WeightAndDeposit {
+						weight_limit: Weight::MAX,
+						deposit_limit: u128::MAX,
+					},
+					Code::Upload(code),
+					vec![],
+					Some(salt),
+					&ExecConfig::new_substrate_tx(),
+				)
+				.result
+				.unwrap()
+				.addr
+			};
+
+			let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+			let transfer = IERC20::transferCall { to: to_addr.0.into(), value: U256::from(AMOUNT) };
+			let receiver = deploy(
+				"CallingReceiver",
+				CallingReceiver::constructorCall {
+					_target: asset_addr.0.into(),
+					_data: transfer.abi_encode().into(),
+				}
+				.abi_encode(),
+				[1; 32],
+			);
+			let receiver_account =
+				<Test as pallet_revive::Config>::AddressMapper::to_account_id(&receiver);
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, receiver_account, 100));
+			let sender = deploy(
+				"StipendSender",
+				StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
+				[2; 32],
+			);
+
+			// With an unlimited deposit, an explicit gas limit buys the callee almost no weight.
+			let result = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(owner),
+				sender,
+				0u32.into(),
+				TransactionLimits::WeightAndDeposit {
+					weight_limit: pallet_revive::test_utils::WEIGHT_LIMIT,
+					deposit_limit: pallet_revive::test_utils::deposit_limit::<Test>(),
+				},
+				StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
+				&ExecConfig::new_substrate_tx(),
+			)
+			.result
+			.unwrap();
+			(bool::abi_decode(&result.data).unwrap(), Assets::balance(asset_id, to))
+		})
+	};
+
+	// The raised gas scale lets a call with an explicit gas limit pay for the transfer, so only
+	// the stipend check can deny the `send`.
+	crate::mock::GasScale::set(50_000_000);
+	assert_eq!(
+		transfer_from_receiver(2300),
+		(true, 0),
+		"the receiver of a `send` should not transfer assets"
+	);
+	assert_eq!(
+		[transfer_from_receiver(2299), transfer_from_receiver(2301)],
+		[(false, AMOUNT); 2],
+		"only a `send` denies transferring assets"
+	);
+}

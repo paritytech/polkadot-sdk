@@ -173,17 +173,23 @@ where
 		let asset_id = PrecompileConfig::AssetIdExtractor::asset_id_from_address(address)?.into();
 		let contract_addr = H160::from(*address);
 
-		match input {
-			// State-changing calls - check read-only
+		let changes_state = matches!(
+			input,
 			IERC20Calls::transfer(_) |
-			IERC20Calls::approve(_) |
-			IERC20Calls::transferFrom(_) |
-			IERC20Calls::permit(_)
-				if env.is_read_only() =>
-			{
-				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
-			},
+				IERC20Calls::approve(_) |
+				IERC20Calls::transferFrom(_) |
+				IERC20Calls::permit(_)
+		);
+		if changes_state {
+			if env.is_read_only() {
+				return Err(Error::Error(
+					pallet_revive::Error::<Self::T>::StateChangeDenied.into(),
+				));
+			}
+			env.ensure_not_stipend_frame()?;
+		}
 
+		match input {
 			// ERC20 functions
 			IERC20Calls::transfer(call) => Self::transfer(asset_id, call, env),
 			IERC20Calls::totalSupply(_) => Self::total_supply(asset_id, env),
