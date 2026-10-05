@@ -96,17 +96,6 @@ pub fn compress_strongly(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
 	compress_with_level(blob, bomb_limit, 22)
 }
 
-/// Compress a blob who's size is limited by `bomb_limit`.
-///
-/// If the blob's size is over the bomb limit, this will not compress the blob, as the decoder will
-/// not be able to be able to differentiate it from a compression bomb.
-#[deprecated(
-	note = "Will be removed after June 2026. Use compress_strongly, compress_weakly or compress_with_level instead"
-)]
-pub fn compress(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
-	compress_with_level(blob, bomb_limit, 3)
-}
-
 /// Compress a blob who's size is limited by `bomb_limit` with adjustable compression level.
 ///
 /// The levels are passed through to `zstd` and can be in range [1, 22] (weakest to strongest).
