@@ -31,11 +31,12 @@ use subxt::{
 	config::{
 		substrate::SubstrateConfig,
 		transaction_extensions::{
-			ChargeAssetTxPayment, ChargeTransactionPayment, CheckGenesis, CheckMetadataHash,
-			CheckMortality, CheckNonce, CheckSpecVersion, CheckTxVersion, VerifySignature,
+			ChargeAssetTxPayment, ChargeAssetTxPaymentParams, ChargeTransactionPayment,
+			ChargeTransactionPaymentParams, CheckGenesis, CheckMetadataHash, CheckMortality,
+			CheckMortalityParams, CheckNonce, CheckNonceParams, CheckSpecVersion, CheckTxVersion,
+			VerifySignature,
 		},
-		ClientState, Config, DefaultExtrinsicParamsBuilder, TransactionExtension,
-		TransactionExtensions,
+		ClientState, Config, TransactionExtension, TransactionExtensions,
 	},
 	dynamic::Value,
 	ext::{frame_decode, scale_value::value},
@@ -61,13 +62,8 @@ impl<T: Config> frame_decode::extrinsics::TransactionExtension<PortableRegistry>
 		self.0.encode_value_to(type_id, type_resolver, v)
 	}
 
-	fn encode_value_for_signer_payload_to(
-		&self,
-		type_id: u32,
-		type_resolver: &PortableRegistry,
-		v: &mut Vec<u8>,
-	) -> Result<(), frame_decode::extrinsics::TransactionExtensionError> {
-		self.0.encode_value_for_signer_payload_to(type_id, type_resolver, v)
+	fn is_authorization_extension(&self) -> bool {
+		self.0.is_authorization_extension()
 	}
 
 	fn encode_implicit_to(
@@ -201,11 +197,18 @@ fn build_params(
 	nonce: u64,
 ) -> <<CustomConfig as Config>::TransactionExtensions as TransactionExtensions<CustomConfig>>::Params
 {
-	let (a, b, c, d, e, f, g, h, i) = DefaultExtrinsicParamsBuilder::<CustomConfig>::new()
-		.immortal()
-		.nonce(nonce)
-		.build();
-	(a, b, c, d, e, f, g, h, i, ())
+	(
+		(),
+		(),
+		(),
+		CheckNonceParams::with_nonce(nonce),
+		(),
+		CheckMortalityParams::immortal(),
+		ChargeAssetTxPaymentParams::no_tip(),
+		ChargeTransactionPaymentParams::no_tip(),
+		(),
+		(),
+	)
 }
 
 /// Submits an extrinsic with an explicit nonce and waits for it to be finalized
