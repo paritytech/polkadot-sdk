@@ -6,13 +6,16 @@ mod util;
 use crate::Pallet as EthereumBeaconClient;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
-use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	fast_aggregate_verify,
 	merkle_proof::{generalized_index_length, subtree_index},
-	prepare_aggregate_pubkey, prepare_aggregate_signature, verify_merkle_branch, Fork,
+	prepare_aggregate_pubkey, prepare_aggregate_signature, verify_merkle_branch,
 };
-use snowbridge_pallet_ethereum_client_fixtures::*;
+use snowbridge_pallet_ethereum_client_fixtures::{
+	make_gloas_checkpoint as make_checkpoint,
+	make_gloas_finalized_header_update as make_finalized_header_update,
+	make_gloas_sync_committee_update as make_sync_committee_update,
+};
 use util::*;
 
 #[benchmarks]
@@ -111,22 +114,14 @@ mod benchmarks {
 		let update = make_sync_committee_update();
 		let block_root: H256 = update.finalized_header.hash_tree_root().unwrap();
 
-		let fork_versions = ForkVersions {
-			genesis: Fork { version: hex!("00000000"), epoch: 0 },
-			altair: Fork { version: hex!("01000000"), epoch: 0 },
-			bellatrix: Fork { version: hex!("02000000"), epoch: 0 },
-			capella: Fork { version: hex!("03000000"), epoch: 0 },
-			deneb: Fork { version: hex!("04000000"), epoch: 0 },
-			electra: Fork { version: hex!("05000000"), epoch: 80000000000 },
-			fulu: Fork { version: hex!("06000000"), epoch: 80000000001 },
-		};
 		let finalized_root_gindex = EthereumBeaconClient::<T>::finalized_root_gindex_at_slot(
 			update.attested_header.slot,
-			fork_versions,
+			T::ForkVersions::get(),
 		);
+		let verified;
 		#[block]
 		{
-			verify_merkle_branch(
+			verified = verify_merkle_branch(
 				block_root,
 				&update.finality_branch,
 				subtree_index(finalized_root_gindex),
@@ -134,6 +129,7 @@ mod benchmarks {
 				update.attested_header.state_root,
 			);
 		}
+		assert!(verified, "benchmark must measure a real verification, not a length rejection");
 
 		Ok(())
 	}
