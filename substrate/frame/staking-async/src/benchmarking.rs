@@ -132,30 +132,6 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 		crate::reward::EraRewardManager::<T>::create(planned_era, RewardKind::StakerRewards);
 	let _ = asset::mint_creating::<T>(&era_pot, total_payout);
 
-	// Set up validator incentive so payout benchmarks include the incentive transfer cost.
-	OptimumSelfStake::<T>::put(BalanceOf::<T>::from(30_000u64));
-	HardCapSelfStake::<T>::put(BalanceOf::<T>::from(100_000u64));
-	SelfStakeSlopeFactor::<T>::put(Perbill::from_percent(50));
-
-	let incentive_payout = total_payout / 10u32.into(); // 10% of total as incentive budget
-	let incentive_pot =
-		crate::reward::EraRewardManager::<T>::create(planned_era, RewardKind::ValidatorSelfStake);
-	let _ = asset::mint_creating::<T>(&incentive_pot, incentive_payout);
-	ErasValidatorIncentiveBudget::<T>::insert(planned_era, incentive_payout);
-
-	// Single-validator benchmark setup: sum == this validator's weight.
-	let incentive_weight = BalanceOf::<T>::from(100u64);
-	ErasValidatorIncentiveWeight::<T>::insert(planned_era, &v_stash, incentive_weight);
-	ErasSumValidatorIncentiveWeight::<T>::insert(planned_era, incentive_weight);
-	// Populate the weighted-points denominator so the (default) weighted-points payout path
-	// finds a non-zero share and exercises the incentive transfer. Single validator with
-	// `validator_points` points: sum == weight × points.
-	let validator_points = BalanceOf::<T>::from(10u64);
-	ErasSumWeightedPoints::<T>::insert(
-		planned_era,
-		incentive_weight.saturating_mul(validator_points),
-	);
-
 	Ok((v_stash, nominators, planned_era))
 }
 
@@ -740,14 +716,6 @@ mod benchmarks {
 
 		let caller = whitelisted_caller();
 		let balance_before = asset::stakeable_balance::<T>(&validator);
-		// Incentive pot is funded in the setup; track it to ensure the worst-case payout
-		// actually performs the validator-incentive transfer (and so the benchmark weight
-		// covers it).
-		let incentive_pot = crate::reward::EraRewardManager::<T>::create(
-			current_era,
-			RewardKind::ValidatorSelfStake,
-		);
-		let incentive_pot_before = asset::stakeable_balance::<T>(&incentive_pot);
 		let mut nominator_balances_before = Vec::new();
 		for (stash, _) in &nominators {
 			let balance = asset::stakeable_balance::<T>(stash);
@@ -761,11 +729,6 @@ mod benchmarks {
 		ensure!(
 			balance_before < balance_after,
 			"Balance of validator stash should have increased after payout.",
-		);
-		ensure!(
-			asset::stakeable_balance::<T>(&incentive_pot) < incentive_pot_before,
-			"Incentive pot should have decreased: the validator-incentive transfer must run \
-			 so its cost is captured by this benchmark.",
 		);
 		for ((stash, _), balance_before) in nominators.iter().zip(nominator_balances_before.iter())
 		{

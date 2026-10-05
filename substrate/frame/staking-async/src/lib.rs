@@ -211,6 +211,7 @@ mod tests;
 pub mod asset;
 pub mod election_size_tracker;
 pub mod ledger;
+pub mod maturation;
 pub mod migrations;
 mod pallet;
 pub mod reward;
@@ -242,6 +243,7 @@ pub use weights::WeightInfo;
 
 // public exports
 pub use ledger::{StakingLedger, UnlockChunk};
+pub use maturation::{IncentiveBucket, PeriodIndex};
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
 pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
@@ -630,6 +632,9 @@ pub enum RewardPot {
 /// Trait for generating reward pot account IDs.
 pub trait PotAccountProvider<AccountId> {
 	fn pot_account(pot: RewardPot) -> AccountId;
+
+	/// Whether `who` is one of the reward pot accounts this provider hands out.
+	fn is_pot_account(who: &AccountId) -> bool;
 }
 
 /// Seed-based pot account provider for production use.
@@ -654,6 +659,20 @@ where
 		};
 		S::get().into_sub_account_truncating(normalized)
 	}
+
+	fn is_pot_account(who: &AccountId) -> bool {
+		use sp_runtime::traits::AccountIdConversion;
+		// Round-trip so that only canonical pot accounts (in-range slots) match.
+		let Some((id, pot)) =
+			<frame_support::PalletId as AccountIdConversion<AccountId>>::try_from_sub_account::<
+				RewardPot,
+			>(who)
+		else {
+			return false;
+		};
+		id == S::get() &&
+			<Self as PotAccountProvider<AccountId>>::pot_account(pot).encode() == who.encode()
+	}
 }
 
 /// Sequential pot account provider for testing.
@@ -666,7 +685,7 @@ pub struct SequentialTest;
 #[cfg(feature = "std")]
 impl<AccountId> PotAccountProvider<AccountId> for SequentialTest
 where
-	AccountId: From<u64>,
+	AccountId: From<u64> + PartialEq,
 {
 	fn pot_account(pot: RewardPot) -> AccountId {
 		match pot {
@@ -679,6 +698,15 @@ where
 				AccountId::from(100_000 + (pot_slot(era) as u64 * 10) + 1)
 			},
 		}
+	}
+
+	fn is_pot_account(who: &AccountId) -> bool {
+		*who == AccountId::from(200_000u64) ||
+			*who == AccountId::from(200_001u64) ||
+			(0..POT_POOL_SIZE).any(|slot| {
+				*who == AccountId::from(100_000 + slot as u64 * 10) ||
+					*who == AccountId::from(100_000 + slot as u64 * 10 + 1)
+			})
 	}
 }
 

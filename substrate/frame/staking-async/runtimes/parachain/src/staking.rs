@@ -422,6 +422,8 @@ parameter_types! {
 	pub const RelaySessionDuration: BlockNumber = 10;
 	// 2 eras for unbonding (12 hours).
 	pub const BondingDuration: sp_staking::EraIndex = 2;
+	// 13 bonding periods ≈ 1 year, matching Polkadot's vested-payout window.
+	pub const VestingBondingPeriods: u32 = 13;
 	// 1 era in which slashes can be cancelled (6 hours).
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
 	// Nominators can unbond faster (2 eras) when not slashable.
@@ -447,6 +449,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
+	type VestingBondingPeriods = VestingBondingPeriods;
 	type SlashDeferDuration = SlashDeferDuration;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;

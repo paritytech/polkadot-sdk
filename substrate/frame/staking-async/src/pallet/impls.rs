@@ -24,9 +24,10 @@ use crate::{
 	session_rotation::{self, Eras, Rotator},
 	slashing::OffenceRecord,
 	weights::WeightInfo,
-	BalanceOf, EraRewardPoints, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf,
-	Nominations, NominationsQuota, PositiveImbalanceOf, PotAccountProvider, RewardDestination,
-	RewardKind, RewardPoint, RewardPot, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
+	BalanceOf, EraRewardPoints, Exposure, Forcing, IncentiveBucket, LedgerIntegrityState,
+	MaxNominationsOf, Nominations, NominationsQuota, PeriodIndex, PositiveImbalanceOf,
+	PotAccountProvider, RewardDestination, RewardKind, RewardPoint, RewardPot, SnapshotStatus,
+	StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -37,9 +38,12 @@ use frame_support::{
 	defensive,
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
+	storage::with_storage_layer,
 	traits::{
-		fungible::Mutate as FunMutate, tokens::Preservation, Defensive, DefensiveSaturating, Get,
-		Imbalance, InspectLockableCurrency, LockableCurrency, OnUnbalanced,
+		fungible::{hold::Mutate as FunHoldMutate, Mutate as FunMutate},
+		tokens::{Precision, Preservation},
+		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
+		OnUnbalanced,
 	},
 	weights::Weight,
 	StorageDoubleMap,
@@ -437,17 +441,6 @@ impl<T: Config> Pallet<T> {
 			next: Eras::<T>::get_next_claimable_page(era, &stash),
 		});
 
-		// Pay validator incentive bonus from the separate incentive pot.
-		// Emits `ValidatorIncentivePaid` event inside `transfer_validator_incentive`.
-		if let Some(incentive) = Self::calculate_validator_incentive_for_page(
-			era,
-			&stash,
-			page_stake_part,
-			&era_reward_points,
-		) {
-			Self::transfer_validator_incentive(era, &stash, incentive);
-		}
-
 		// Determine whether to use dap payout or legacy path.
 		let use_dap_payout =
 			DisableMintingGuard::<T>::get().is_some_and(|guard_era| era >= guard_era);
@@ -675,10 +668,7 @@ impl<T: Config> Pallet<T> {
 		maybe_imbalance.map(|imbalance| (imbalance, dest))
 	}
 
-	/// Calculate the validator incentive amount for a single page.
-	///
-	/// Computes the validator's slice of the era incentive budget for one payout page:
-	/// `share × budget × page_stake_part`.
+	/// Calculate a validator's full-era incentive share: `share × budget`.
 	///
 	/// The share formula is the weighted-points share
 	/// `(weight_stash · ep_stash) / Σ_v(weight_v · ep_v)`, with the denominator read from
@@ -688,10 +678,9 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns `None` if the validator has no incentive weight, no era points, or the
 	/// computed amount rounds to zero.
-	fn calculate_validator_incentive_for_page(
+	fn calculate_validator_incentive(
 		era: EraIndex,
 		stash: &T::AccountId,
-		page_stake_part: Perbill,
 		era_reward_points: &EraRewardPoints<T>,
 	) -> Option<BalanceOf<T>> {
 		let era_incentive_budget = Eras::<T>::get_validator_incentive_budget(era);
@@ -708,10 +697,8 @@ impl<T: Config> Pallet<T> {
 		// Branch on the cutoff: legacy formula for eras whose denominator was never
 		// maintained, new weighted-points formula otherwise.
 		let share_part = if Eras::<T>::uses_weighted_points(era) {
-			// This validator has non-zero weight (checked above) and reached this point only
-			// with non-zero reward points (gated by the caller), so it must have contributed
-			// to the denominator. A zero denominator with a live budget is therefore a storage
-			// inconsistency and is surfaced rather than silently paying nothing.
+			// A zero denominator with a live budget is a storage inconsistency; surface it
+			// rather than silently paying nothing.
 			let sum_weighted_points = ErasSumWeightedPoints::<T>::get(era);
 			if sum_weighted_points.is_zero() {
 				log!(warn, "Sum of weighted points is zero but budget exists for era {}", era);
@@ -747,59 +734,391 @@ impl<T: Config> Pallet<T> {
 			return None;
 		}
 
-		let validator_total_incentive = share_part.mul_floor(era_incentive_budget);
-		let validator_incentive_for_page = page_stake_part.mul_floor(validator_total_incentive);
-
-		if validator_incentive_for_page.is_zero() {
+		let validator_incentive = share_part.mul_floor(era_incentive_budget);
+		if validator_incentive.is_zero() {
 			return None;
 		}
 
-		Some(validator_incentive_for_page)
+		Some(validator_incentive)
 	}
 
-	/// Transfer validator incentive from era pot to the validator's payout account.
-	///
-	/// This is a direct liquid transfer. Future PRs may introduce vesting via a trait.
-	fn transfer_validator_incentive(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
-		let Some(dest) = Self::payee(Stash(stash.clone())) else {
-			Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
-				era,
-				stash: stash.clone(),
-			}));
+	/// Auto-pay each elected validator's earned `era` incentive to their [`RewardDestination`]
+	/// account, once at era-end. `Staked` auto-bonds into self-stake ([`BondedIncentiveBuckets`]);
+	/// `Stash`/`Account(x)` become an idle [`HoldReason::ValidatorIncentive`] hold
+	/// ([`IdleIncentiveBuckets`]), releasing whatever has already matured. Each delivery is atomic:
+	/// on failure the funds stay in the pot.
+	pub(crate) fn auto_pay_incentive(era: EraIndex) {
+		if Eras::<T>::get_validator_incentive_budget(era).is_zero() {
 			return;
-		};
-		let Some(payout_account) = Self::payout_account_for_dest(stash, &dest) else {
-			// Destination is `None`; intentional opt-out.
-			return;
-		};
-
-		let incentive_pot = T::RewardPots::pot_account(crate::RewardPot::Era(
-			era,
-			crate::RewardKind::ValidatorSelfStake,
-		));
-
-		match T::Currency::transfer(
-			&incentive_pot,
-			&payout_account,
-			amount,
-			Preservation::Expendable,
-		) {
-			Ok(_) => {
-				Self::deposit_event(Event::<T>::ValidatorIncentivePaid {
-					era,
-					validator_stash: stash.clone(),
-					dest,
-					amount,
-				});
-			},
-			Err(e) => {
-				log!(warn, "Failed to transfer liquid incentive: {:?}", e);
-				Self::deposit_event(Event::<T>::Unexpected(
-					UnexpectedKind::ValidatorIncentiveTransferFailed { era },
-				));
-				defensive!("Validator incentive liquid transfer failed");
-			},
 		}
+
+		let era_reward_points = Eras::<T>::get_reward_points(era);
+		let incentive_pot =
+			T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::ValidatorSelfStake));
+		let period = era.checked_div(T::BondingDuration::get()).unwrap_or(0);
+
+		for stash in ErasValidatorIncentiveWeight::<T>::iter_key_prefix(era) {
+			let Some(amount) = Self::calculate_validator_incentive(era, &stash, &era_reward_points)
+			else {
+				continue;
+			};
+
+			let Some(dest) = Self::payee(Stash(stash.clone())) else {
+				Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
+					era,
+					stash: stash.clone(),
+				}));
+				continue;
+			};
+			let Some(account) = Self::payout_account_for_dest(&stash, &dest) else {
+				// Destination is `None`; intentional opt-out.
+				continue;
+			};
+
+			// A pot as payee would lock pot funds under a hold and starve other payouts.
+			if T::RewardPots::is_pot_account(&account) {
+				log!(
+					warn,
+					"Incentive payee for era {:?}, stash {:?} is a pot; skipped",
+					era,
+					stash
+				);
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorIncentiveHoldFailed { era },
+				));
+				continue;
+			}
+
+			let is_staked = matches!(dest, RewardDestination::Staked);
+			let mut transfer_failed = false;
+			let delivered = with_storage_layer(|| -> Result<BalanceOf<T>, DispatchError> {
+				T::Currency::transfer(&incentive_pot, &account, amount, Preservation::Expendable)
+					.map_err(|e| {
+					transfer_failed = true;
+					e
+				})?;
+
+				if is_staked {
+					// `account == stash` here (see `payout_account_for_dest`).
+					let mut ledger = Self::ledger(Stash(account.clone()))?;
+					ledger.active =
+						ledger.active.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
+					ledger.total =
+						ledger.total.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
+					ledger.update()?;
+
+					BondedIncentiveBuckets::<T>::try_mutate_exists(
+						&account,
+						|maybe| -> Result<(), DispatchError> {
+							let mut buckets = maybe.take().unwrap_or_default();
+							Self::prune_matured_bonded_incentive(era, &mut buckets);
+							if let Some(bucket) = buckets.get_mut(&period) {
+								bucket.merge(amount);
+							} else if buckets
+								.try_insert(period, IncentiveBucket::new(amount))
+								.is_err()
+							{
+								defensive!("BondedIncentiveBuckets overflow");
+								return Err(Error::<T>::TooManyIncentiveBuckets.into());
+							}
+							*maybe = Some(buckets);
+							Ok(())
+						},
+					)?;
+					Ok(Zero::zero())
+				} else {
+					T::Currency::hold(&HoldReason::ValidatorIncentive.into(), &account, amount)?;
+
+					IdleIncentiveBuckets::<T>::try_mutate_exists(
+						&account,
+						|maybe| -> Result<BalanceOf<T>, DispatchError> {
+							let mut buckets = maybe.take().unwrap_or_default();
+							let mut released = BalanceOf::<T>::zero();
+							if let Some(bucket) = buckets.get_mut(&period) {
+								bucket.merge(amount);
+							} else if buckets
+								.try_insert(period, IncentiveBucket::new(amount))
+								.is_err()
+							{
+								// Full: free up matured buckets first, then retry.
+								released = Self::release_matured_idle_incentive(
+									&account,
+									era,
+									&mut buckets,
+								);
+								if buckets.try_insert(period, IncentiveBucket::new(amount)).is_err()
+								{
+									defensive!("IdleIncentiveBuckets overflow");
+									return Err(Error::<T>::TooManyIncentiveBuckets.into());
+								}
+							}
+							// Release what this delivery itself has already matured.
+							released = released.saturating_add(
+								Self::release_matured_idle_incentive(&account, era, &mut buckets),
+							);
+							*maybe = (!buckets.is_empty()).then_some(buckets);
+							Ok(released)
+						},
+					)
+				}
+			});
+
+			match delivered {
+				Ok(released) => {
+					Self::deposit_event(Event::<T>::ValidatorIncentivePaid {
+						era,
+						validator_stash: stash,
+						dest,
+						amount,
+					});
+					if !released.is_zero() {
+						Self::deposit_event(Event::<T>::ValidatorIncentiveReleased {
+							who: account,
+							amount: released,
+						});
+					}
+				},
+				Err(e) => {
+					log!(
+						warn,
+						"Failed to deliver incentive for era {:?}, stash {:?}: {:?}",
+						era,
+						stash,
+						e
+					);
+					let kind = if transfer_failed {
+						UnexpectedKind::ValidatorIncentiveTransferFailed { era }
+					} else {
+						UnexpectedKind::ValidatorIncentiveHoldFailed { era }
+					};
+					Self::deposit_event(Event::<T>::Unexpected(kind));
+				},
+			}
+		}
+	}
+
+	/// Release matured idle incentive to `free` for `account`'s buckets in one call, pruning
+	/// exhausted ones. Returns the amount released (zero on failure, leaving buckets untouched).
+	pub(crate) fn release_matured_idle_incentive(
+		account: &T::AccountId,
+		current_era: EraIndex,
+		buckets: &mut BoundedBTreeMap<
+			PeriodIndex,
+			IncentiveBucket<BalanceOf<T>>,
+			MaxIncentiveBuckets<T>,
+		>,
+	) -> BalanceOf<T> {
+		let vesting_periods = T::VestingBondingPeriods::get();
+		let bonding_duration = T::BondingDuration::get();
+
+		let mut total_releasable = BalanceOf::<T>::zero();
+		let mut per_bucket = Vec::new();
+		for (period, bucket) in buckets.iter() {
+			let releasable =
+				bucket.releasable_at(*period, current_era, vesting_periods, bonding_duration);
+			if !releasable.is_zero() {
+				total_releasable = total_releasable.saturating_add(releasable);
+				per_bucket.push((*period, releasable));
+			}
+		}
+
+		if !total_releasable.is_zero() {
+			if let Err(e) = T::Currency::release(
+				&HoldReason::ValidatorIncentive.into(),
+				account,
+				total_releasable,
+				Precision::Exact,
+			) {
+				log!(warn, "Failed to release matured incentive for {:?}: {:?}", account, e);
+				return Zero::zero();
+			}
+			for (period, releasable) in per_bucket {
+				if let Some(bucket) = buckets.get_mut(&period) {
+					bucket.released = bucket.released.saturating_add(releasable);
+				}
+			}
+		}
+
+		let exhausted: Vec<PeriodIndex> = buckets
+			.iter()
+			.filter(|(_, bucket)| bucket.is_exhausted())
+			.map(|(period, _)| *period)
+			.collect();
+		for period in exhausted {
+			buckets.remove(&period);
+		}
+		total_releasable
+	}
+
+	/// Prune `account`'s bonded incentive buckets that are fully matured or fully slashed.
+	pub(crate) fn prune_matured_bonded_incentive(
+		current_era: EraIndex,
+		buckets: &mut BoundedBTreeMap<
+			PeriodIndex,
+			IncentiveBucket<BalanceOf<T>>,
+			MaxIncentiveBuckets<T>,
+		>,
+	) {
+		let vesting_periods = T::VestingBondingPeriods::get();
+		let bonding_duration = T::BondingDuration::get();
+		let exhausted: Vec<PeriodIndex> = buckets
+			.iter()
+			.filter(|(period, bucket)| {
+				bucket.total.is_zero() ||
+					bucket
+						.restricted_at(**period, current_era, vesting_periods, bonding_duration)
+						.is_zero()
+			})
+			.map(|(period, _)| *period)
+			.collect();
+		for period in exhausted {
+			buckets.remove(&period);
+		}
+	}
+
+	/// Sum of `account`'s bonded buckets' still-restricted (unmatured) amount at the active era;
+	/// the floor [`Pallet::unbond`] enforces on top of `ledger.active`.
+	pub(crate) fn still_restricted(account: &T::AccountId) -> BalanceOf<T> {
+		let current_era = Rotator::<T>::active_era();
+		let vesting_periods = T::VestingBondingPeriods::get();
+		let bonding_duration = T::BondingDuration::get();
+		BondedIncentiveBuckets::<T>::get(account).iter().fold(
+			BalanceOf::<T>::zero(),
+			|acc, (period, bucket)| {
+				acc.saturating_add(bucket.restricted_at(
+					*period,
+					current_era,
+					vesting_periods,
+					bonding_duration,
+				))
+			},
+		)
+	}
+
+	/// Scale `stash`'s bonded incentive buckets by `new_active / old_active`, mirroring a slash's
+	/// reduction of `active` stake; prunes buckets scaled to zero. Idle incentive is untouched.
+	pub(crate) fn scale_bonded_incentive_buckets(
+		stash: &T::AccountId,
+		old_active: BalanceOf<T>,
+		new_active: BalanceOf<T>,
+	) {
+		if !BondedIncentiveBuckets::<T>::contains_key(stash) {
+			return;
+		}
+		let ratio = (!old_active.is_zero()).then(|| Perbill::from_rational(new_active, old_active));
+		BondedIncentiveBuckets::<T>::mutate_exists(stash, |maybe| {
+			let mut buckets = maybe.take().unwrap_or_default();
+			let mut exhausted = Vec::new();
+			for (period, bucket) in buckets.iter_mut() {
+				match ratio {
+					Some(r) => {
+						bucket.total = r.mul_floor(bucket.total);
+						bucket.released = r.mul_floor(bucket.released);
+					},
+					None => {
+						bucket.total = Zero::zero();
+						bucket.released = Zero::zero();
+					},
+				}
+				if bucket.total.is_zero() {
+					exhausted.push(*period);
+				}
+			}
+			for period in exhausted {
+				buckets.remove(&period);
+			}
+			*maybe = (!buckets.is_empty()).then_some(buckets);
+		});
+	}
+
+	/// Release matured idle incentive, then draw `amount` of the remaining idle incentive into
+	/// bonded buckets (ascending period order, keeping each source bucket's period).
+	///
+	/// Each source bucket is split proportionally on `total` and `released`, so the bonded slice
+	/// keeps the source's vesting schedule. Moves no currency; the caller moves `amount` from
+	/// the `ValidatorIncentive` hold into stake.
+	pub(crate) fn do_bond_incentive(
+		stash: &T::AccountId,
+		current_era: EraIndex,
+		amount: BalanceOf<T>,
+	) -> DispatchResult {
+		IdleIncentiveBuckets::<T>::mutate_exists(stash, |maybe| {
+			let mut idle = maybe.take().unwrap_or_default();
+			let _ = Self::release_matured_idle_incentive(stash, current_era, &mut idle);
+			*maybe = (!idle.is_empty()).then_some(idle);
+		});
+
+		// `(period, total, released)` slices drawn from the idle buckets.
+		let drawn = IdleIncentiveBuckets::<T>::try_mutate_exists(
+			stash,
+			|maybe| -> Result<Vec<(PeriodIndex, BalanceOf<T>, BalanceOf<T>)>, Error<T>> {
+				let mut idle = maybe.take().unwrap_or_default();
+				let available = idle.values().fold(BalanceOf::<T>::zero(), |acc, bucket| {
+					acc.saturating_add(bucket.total.saturating_sub(bucket.released))
+				});
+				ensure!(amount <= available, Error::<T>::InsufficientIdleIncentive);
+
+				let mut remaining = amount;
+				let mut drawn = Vec::new();
+				let mut exhausted = Vec::new();
+				for (period, bucket) in idle.iter_mut() {
+					if remaining.is_zero() {
+						break;
+					}
+					let held = bucket.total.saturating_sub(bucket.released);
+					let take = remaining.min(held);
+					if take.is_zero() {
+						continue;
+					}
+					let take_total = Perbill::from_rational(take, held)
+						.mul_floor(bucket.total)
+						.max(take)
+						.min(take.saturating_add(bucket.released))
+						.min(bucket.total);
+					let take_released = take_total.saturating_sub(take);
+					bucket.total = bucket.total.saturating_sub(take_total);
+					bucket.released = bucket.released.saturating_sub(take_released);
+					remaining = remaining.saturating_sub(take);
+					drawn.push((*period, take_total, take_released));
+					if bucket.is_exhausted() {
+						exhausted.push(*period);
+					}
+				}
+				for period in exhausted {
+					idle.remove(&period);
+				}
+				*maybe = (!idle.is_empty()).then_some(idle);
+				Ok(drawn)
+			},
+		)?;
+
+		// Prune matured buckets first so regular bonding never hits the cap; overflow here is a
+		// hard error (retryable, blocks nothing) since untracked restriction must not happen.
+		BondedIncentiveBuckets::<T>::try_mutate_exists(stash, |maybe| -> DispatchResult {
+			let mut bonded = maybe.take().unwrap_or_default();
+			Self::prune_matured_bonded_incentive(current_era, &mut bonded);
+			for (period, total, released) in drawn {
+				if let Some(bucket) = bonded.get_mut(&period) {
+					bucket.absorb(total, released);
+				} else {
+					let mut bucket = IncentiveBucket::new(BalanceOf::<T>::zero());
+					bucket.absorb(total, released);
+					bonded
+						.try_insert(period, bucket)
+						.map_err(|_| Error::<T>::TooManyIncentiveBuckets)?;
+				}
+			}
+			*maybe = (!bonded.is_empty()).then_some(bonded);
+			Ok(())
+		})?;
+
+		T::Currency::release(
+			&HoldReason::ValidatorIncentive.into(),
+			stash,
+			amount,
+			Precision::Exact,
+		)?;
+		Ok(())
 	}
 
 	/// Chill a stash account.
@@ -829,6 +1148,10 @@ impl<T: Config> Pallet<T> {
 
 		// Clean up validator history tracking.
 		LastValidatorEra::<T>::remove(&stash);
+
+		// Bonded buckets are meaningless without a ledger (this also runs on `force_unstake`).
+		// `IdleIncentiveBuckets` is left alone: it backs a separate hold that outlives the ledger.
+		BondedIncentiveBuckets::<T>::remove(&stash);
 
 		Ok(())
 	}
@@ -2117,7 +2440,40 @@ impl<T: Config> Pallet<T> {
 		Self::check_count()?;
 		Self::check_slash_health()?;
 		Self::check_reward_mode_consistency()?;
+		Self::check_idle_incentive_buckets()?;
+		Self::check_bonded_incentive_buckets()?;
 
+		Ok(())
+	}
+
+	/// Invariants:
+	/// * For every account with idle incentive buckets, its `ValidatorIncentive` hold equals the
+	///   sum of each bucket's still-unmatured amount (`total - released`).
+	fn check_idle_incentive_buckets() -> Result<(), TryRuntimeError> {
+		for (account, buckets) in IdleIncentiveBuckets::<T>::iter() {
+			let unmatured = buckets.values().fold(BalanceOf::<T>::zero(), |acc, bucket| {
+				acc.saturating_add(bucket.total.saturating_sub(bucket.released))
+			});
+			ensure!(
+				asset::incentive_on_hold::<T>(&account) == unmatured,
+				"ValidatorIncentive hold does not match sum of idle bucket (total - released)"
+			);
+		}
+		Ok(())
+	}
+
+	/// Invariant: bonded incentive is mixed into the `Staking` hold with ordinary stake, so
+	/// there's no exact hold equality — only that `still_restricted` never exceeds `active`.
+	fn check_bonded_incentive_buckets() -> Result<(), TryRuntimeError> {
+		for (account, _) in BondedIncentiveBuckets::<T>::iter() {
+			let active = Self::ledger(Stash(account.clone()))
+				.map(|l| l.active)
+				.map_err(|_| "bonded incentive bucket without a ledger")?;
+			ensure!(
+				Self::still_restricted(&account) <= active,
+				"still_restricted exceeds ledger active stake"
+			);
+		}
 		Ok(())
 	}
 

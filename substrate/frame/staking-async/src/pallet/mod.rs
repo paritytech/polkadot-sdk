@@ -19,10 +19,10 @@
 
 use crate::{
 	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
-	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
+	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing, IncentiveBucket,
 	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	PeriodIndex, PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash,
+	UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -39,7 +39,7 @@ use frame_support::{
 		Nothing, OnUnbalanced,
 	},
 	weights::Weight,
-	BoundedBTreeSet, BoundedVec,
+	BoundedBTreeMap, BoundedBTreeSet, BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 pub use impls::*;
@@ -244,6 +244,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type BondingDuration: Get<EraIndex>;
 
+		/// Length of the validator incentive vesting window, in [`Config::BondingDuration`]
+		/// periods (13 ≈ 1 year on Polkadot). Must be non-zero.
+		///
+		/// Changing this or [`Config::BondingDuration`] on a live chain re-times (and may
+		/// invalidate) existing incentive buckets, so it needs a migration.
+		#[pallet::constant]
+		type VestingBondingPeriods: Get<u32>;
+
 		/// Number of eras nominators must wait to unbond when they are not slashable.
 		///
 		/// This duration is used for nominators when [`AreNominatorsSlashable`] is `false`.
@@ -441,6 +449,9 @@ pub mod pallet {
 		/// Funds on stake by a nominator or a validator.
 		#[codec(index = 0)]
 		Staking,
+		/// Validator self-stake incentive that has been delivered but is still vesting.
+		#[codec(index = 1)]
+		ValidatorIncentive,
 	}
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -455,6 +466,7 @@ pub mod pallet {
 		parameter_types! {
 			pub const SessionsPerEra: SessionIndex = 3;
 			pub const BondingDuration: EraIndex = 3;
+			pub const VestingBondingPeriods: u32 = 4;
 			pub const NominatorFastUnbondDuration: EraIndex = 2;
 			pub const MaxPruningItems: u32 = 100;
 		}
@@ -475,6 +487,7 @@ pub mod pallet {
 			type DisableMinting = ConstBool<false>;
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
+			type VestingBondingPeriods = VestingBondingPeriods;
 			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 			type PlanningEraOffset = ConstU32<1>;
 			type SlashDeferDuration = ();
@@ -599,6 +612,47 @@ pub mod pallet {
 	pub type ErasSumWeightedPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
 
+	/// Per-account cap on live idle/bonded incentive bucket entries:
+	/// [`Config::VestingBondingPeriods`] + 1 headroom for lazy pruning.
+	pub struct MaxIncentiveBuckets<T>(core::marker::PhantomData<T>);
+	impl<T: Config> Get<u32> for MaxIncentiveBuckets<T> {
+		fn get() -> u32 {
+			T::VestingBondingPeriods::get().saturating_add(1)
+		}
+	}
+
+	/// Idle (not-bonded) validator incentive, delivered but still vesting, held under
+	/// [`HoldReason::ValidatorIncentive`].
+	///
+	/// Keyed by recipient account → per bonding-period ([`crate::maturation::PeriodIndex`])
+	/// [`IncentiveBucket`]. Each bucket matures over `VestingBondingPeriods × BondingDuration` eras
+	/// (see [`crate::maturation::matured_fraction`]) and is pruned once fully released. See
+	/// [`BondedIncentiveBuckets`] for the bonded counterpart.
+	#[pallet::storage]
+	pub type IdleIncentiveBuckets<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		BoundedBTreeMap<PeriodIndex, IncentiveBucket<BalanceOf<T>>, MaxIncentiveBuckets<T>>,
+		ValueQuery,
+	>;
+
+	/// Validator incentive bonded into self-stake via [`Pallet::bond_incentive`] or auto-bonded
+	/// by [`RewardDestination::Staked`], keyed the same way as [`IdleIncentiveBuckets`].
+	///
+	/// A bucket's `total` is the amount bonded for that period; it only shrinks by slashing (or
+	/// when pruned once matured). `released` is the portion already vested at bond time. The
+	/// still-restricted amount is `total - max(released, matured fraction of total)` (see
+	/// [`IncentiveBucket::restricted_at`]); this is what [`Pallet::unbond`] forbids withdrawing.
+	#[pallet::storage]
+	pub type BondedIncentiveBuckets<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		BoundedBTreeMap<PeriodIndex, IncentiveBucket<BalanceOf<T>>, MaxIncentiveBuckets<T>>,
+		ValueQuery,
+	>;
+
 	/// Cutoff era from which the validator self-stake incentive switches to the
 	/// weighted-points formula.
 	///
@@ -611,7 +665,7 @@ pub mod pallet {
 	/// the rationale for the cutoff.
 	///
 	/// TODO(staking-async): remove this storage item, the legacy stake-only branch in
-	/// [`crate::Pallet::calculate_validator_incentive_for_page`], the
+	/// [`crate::Pallet::calculate_validator_incentive`], the
 	/// [`session_rotation::Eras::uses_weighted_points`] cutoff helper, and the
 	/// [`crate::migrations::SetWeightedPointsFormulaStartEra`] migration once
 	/// [`Config::HistoryDepth`] eras have elapsed since the upgrade — i.e. once the cutoff
@@ -1463,6 +1517,16 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
+		/// Matured idle incentive was released to `who`'s free balance.
+		ValidatorIncentiveReleased {
+			who: T::AccountId,
+			amount: BalanceOf<T>,
+		},
+		/// Idle incentive was bonded into self-stake.
+		IncentiveBonded {
+			stash: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1486,6 +1550,8 @@ pub mod pallet {
 		ValidatorIncentiveWeightMismatch { era: EraIndex },
 		/// Validator incentive transfer from era pot failed.
 		ValidatorIncentiveTransferFailed { era: EraIndex },
+		/// Holding or bonding a validator's incentive failed; the funds stayed in the era pot.
+		ValidatorIncentiveHoldFailed { era: EraIndex },
 	}
 
 	#[pallet::error]
@@ -1577,6 +1643,17 @@ pub mod pallet {
 		InvalidInactivityProof(InvalidInactivityProofError),
 		/// Cannot set [`ChillInactiveThreshold`] to the provided value.
 		InvalidChillInactiveThreshold,
+		/// `target` has no idle incentive buckets to release.
+		NoIncentiveToRelease,
+		/// Staking is not active; there is no current era.
+		NoActiveEra,
+		/// Not enough unmatured idle incentive to bond the requested amount.
+		InsufficientIdleIncentive,
+		/// Cannot unbond: the amount overlaps still-restricted (unvested) bonded incentive.
+		IncentiveStillRestricted,
+		/// `BondedIncentiveBuckets` is full even after pruning; should be unreachable given the
+		/// `VestingBondingPeriods + 1` bound.
+		TooManyIncentiveBuckets,
 	}
 
 	#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo, PalletError)]
@@ -1797,6 +1874,11 @@ pub mod pallet {
 				T::NominatorFastUnbondDuration::get(),
 				T::BondingDuration::get(),
 			);
+			assert!(
+				T::VestingBondingPeriods::get() > 0,
+				"VestingBondingPeriods must be greater than zero."
+			);
+
 			// Ensure MaxPruningItems is reasonable (minimum 100 for efficiency)
 			assert!(
 				T::MaxPruningItems::get() >= 100,
@@ -1951,7 +2033,6 @@ pub mod pallet {
 			let mut ledger = Self::ledger(Controller(controller))?;
 			let mut value = value.min(ledger.active);
 			let stash = ledger.stash.clone();
-
 			// If unbonding all active stake, chill the stash first to avoid `InsufficientBond`
 			// errors. This matches the behavior of pallet-staking.
 			let chill_weight = if value >= ledger.active {
@@ -1974,6 +2055,13 @@ pub mod pallet {
 					value += ledger.active;
 					ledger.active = Zero::zero();
 				}
+
+				// Forbid unbonding still-restricted bonded incentive (checked after the dust
+				// sweep). TODO: not yet in the `unbond` weight (deferred benchmark).
+				ensure!(
+					ledger.active >= Self::still_restricted(&stash),
+					Error::<T>::IncentiveStillRestricted
+				);
 
 				let is_nominator = Nominators::<T>::contains_key(&stash);
 
@@ -3268,6 +3356,83 @@ pub mod pallet {
 			} else {
 				Err(Error::<T>::BadTarget.into())
 			}
+		}
+
+		/// Release `target`'s matured idle incentive from hold to `free`, pruning empty buckets.
+		///
+		/// Permissionless: anyone may call this for any `target`, e.g. a bot, or a validator who
+		/// has left the active set and is no longer covered by auto-pay.
+		#[pallet::call_index(36)]
+		// TODO: benchmark release_incentive (placeholder weight)
+		#[pallet::weight(T::DbWeight::get().reads_writes(
+			2,
+			(T::VestingBondingPeriods::get() as u64).saturating_add(2),
+		))]
+		pub fn release_incentive(origin: OriginFor<T>, target: T::AccountId) -> DispatchResult {
+			ensure_signed(origin)?;
+
+			ensure!(
+				IdleIncentiveBuckets::<T>::contains_key(&target),
+				Error::<T>::NoIncentiveToRelease
+			);
+			let current_era =
+				ActiveEra::<T>::get().map(|a| a.index).ok_or(Error::<T>::NoActiveEra)?;
+
+			let amount = IdleIncentiveBuckets::<T>::mutate_exists(&target, |maybe| {
+				let mut buckets = maybe.take().unwrap_or_default();
+				let amount =
+					Self::release_matured_idle_incentive(&target, current_era, &mut buckets);
+				*maybe = (!buckets.is_empty()).then_some(buckets);
+				amount
+			});
+
+			if !amount.is_zero() {
+				Self::deposit_event(Event::<T>::ValidatorIncentiveReleased { who: target, amount });
+			}
+
+			Ok(())
+		}
+
+		/// Bond `amount` of the caller's still-unmatured idle incentive into self-stake.
+		///
+		/// The drawn amount keeps its remaining vesting restriction in a bonded bucket (see
+		/// [`BondedIncentiveBuckets`]), which blocks [`Call::unbond`] until it matures.
+		///
+		/// The dispatch origin must be _Signed_ by the stash.
+		#[pallet::call_index(37)]
+		// TODO: benchmark bond_incentive (placeholder weight)
+		#[pallet::weight(T::DbWeight::get().reads_writes(
+			3,
+			(T::VestingBondingPeriods::get() as u64).saturating_add(3),
+		))]
+		pub fn bond_incentive(
+			origin: OriginFor<T>,
+			#[pallet::compact] amount: BalanceOf<T>,
+		) -> DispatchResult {
+			let stash = ensure_signed(origin)?;
+			// A zero-amount bond is a pure no-op: skip it before `do_bond_incentive` can release
+			// any matured idle incentive as a side effect.
+			if amount.is_zero() {
+				return Ok(());
+			}
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
+
+			let current_era =
+				ActiveEra::<T>::get().map(|a| a.index).ok_or(Error::<T>::NoActiveEra)?;
+			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
+
+			Self::do_bond_incentive(&stash, current_era, amount)?;
+
+			ledger.active = ledger.active.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
+			ledger.total = ledger.total.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
+			ledger.update()?;
+			if T::VoterList::contains(&stash) {
+				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash));
+			}
+
+			Self::deposit_event(Event::<T>::IncentiveBonded { stash, amount });
+
+			Ok(())
 		}
 	}
 
