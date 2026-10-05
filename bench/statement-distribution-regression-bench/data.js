@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790951869008,
+  "lastUpdate": 1791191330673,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "monica@parity.io",
-            "name": "Monica Jin",
-            "username": "mokita-j"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d36f3b04b0cd268adb905e54382e2f63c3022499",
-          "message": "[pallet-revive] Add PVM fuel tracing (#11481)\n\nAdd **`pvm_fuel`** trace steps to PVM execution traces, recording pvm\nfuel consumption between syscalls and after the execution loop exits.\n\nSeparate synthetic trace steps from the real syscall list:\n`list_syscalls()` contains syscalls contracts can actually import, while\nnew `list_trace_ops()` / `lookup_trace_op_index()` include both real\nsyscalls and synthetic steps like `pvm_fuel`.\n\n## Integration\n\nCode using `list_syscalls()` for **trace** serialization should switch\nto `list_trace_ops()` / `lookup_trace_op_index()`. `list_syscalls()` and\n`lookup_syscall_index()` are unchanged for **real syscalls**.\n\n## Review Notes\n- Proc-macro wraps `sync_from_executor` with `enter_ecall` / `exit_step`\ntracing hooks for `pvm_fuel`\n- PreparedCall::call adds a final `pvm_fuel` trace after the execution\nloop exits\n  - PVM JSON trace fixtures updated to include `pvm_fuel` steps\n \n**Note**: evm-test-suite pvm snapshot needs to be updated with the\n`pvm_fuel` entries.\n[#143](https://github.com/paritytech/evm-test-suite/pull/143)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-25T15:19:45Z",
-          "tree_id": "c39794365e0ef220a2a73af008f1feee9dc7d43f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d36f3b04b0cd268adb905e54382e2f63c3022499"
-        },
-        "date": 1774456807403,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.06800000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08438693455399995,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038374231056000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08912197875999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "04e1036fbd94148da0a630296c1b7ba413af087f",
+          "message": "[pallet-revive] Report precompile code in prestate tracer (#12806)\n\nThe prestate tracer resolved code only through `PristineCode`, so\n`debug_traceTransaction` with `prestateTracer` reported no `code` for\nprecompile addresses while `eth_getCode` and\n`EXTCODESIZE`/`EXTCODEHASH`/`EXTCODECOPY` served the code stub. The\ntracer now reports the same bytes `eth_getCode` returns for builtin and\nruntime precompiles (`0x60006000fd` by default). Primitive precompiles\n(`0x01`..`0x09`) have an empty stub and still report no code. No\nmigration needed.\n\nThe `EXTCODECOPY` consistency fix this PR originally targeted landed on\nmaster via #12229; the remaining `exec.rs` change is a refactor\nconsolidating the precompile/mock/delegation code resolution into a\nsingle `virtual_code` helper, plus tests pinning the `EXTCODECOPY`\nbehavior.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-05T07:31:34Z",
+          "tree_id": "7a6d61058fa1cec4817f7fdee16987a6107bb1b6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/04e1036fbd94148da0a630296c1b7ba413af087f"
+        },
+        "date": 1791191302511,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.114,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03854281068200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08414124939399993,
             "unit": "seconds"
           }
         ]
