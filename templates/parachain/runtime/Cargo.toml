@@ -45,6 +45,7 @@ polkadot-sdk = { workspace = true, default-features = false, features = [
 	"staging-xcm-builder",
 	"staging-xcm-executor",
 
+	"assets-common",
 	"cumulus-pallet-aura-ext",
 	"cumulus-pallet-session-benchmarking",
 	"cumulus-pallet-weight-reclaim",

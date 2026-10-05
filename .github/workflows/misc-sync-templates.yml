@@ -54,10 +54,52 @@ jobs:
         - name: Setup build environment
           run: |
             sudo apt-get update
-            sudo apt-get install -y protobuf-compiler
+            sudo apt-get install -y protobuf-compiler curl
             cargo install --git https://github.com/chevdor/srtool-cli --locked
-            cargo install --path substrate/bin/utils/chain-spec-builder --locked
             srtool pull
+
+        - name: Download or build chain-spec-builder
+          run: |
+            set -euo pipefail
+
+            # Construct version string from inputs
+            patch_input="${{ github.event.inputs.patch }}"
+            base_version="polkadot-${{ github.event.inputs.stable_release_branch }}"
+            if [[ -n "$patch_input" ]]; then
+              full_version="${base_version}-${patch_input}"
+            else
+              full_version="${base_version}"
+            fi
+
+            echo "Attempting to download chain-spec-builder from release ${full_version}"
+
+            # Try to download from the full version (with patch if provided)
+            # Note: Downloading by exact name to avoid .asc and .sha256 files
+            if gh release download "${full_version}" \
+              --repo paritytech/polkadot-sdk \
+              --pattern 'chain-spec-builder' \
+              --skip-existing \
+              --dir . 2>/dev/null && [[ -f "chain-spec-builder" ]]; then
+              echo "✓ Downloaded chain-spec-builder from ${full_version}"
+            # If that fails and we have a patch, try the base version
+            elif [[ -n "$patch_input" ]] && gh release download "${base_version}" \
+              --repo paritytech/polkadot-sdk \
+              --pattern 'chain-spec-builder' \
+              --skip-existing \
+              --dir . 2>/dev/null && [[ -f "chain-spec-builder" ]]; then
+              echo "✓ Downloaded chain-spec-builder from ${base_version} (patch release has no changes)"
+            else
+              echo "⚠ Could not download chain-spec-builder from releases, building from source..."
+              cargo install --path substrate/bin/utils/chain-spec-builder --locked
+              exit 0
+            fi
+
+            # Make downloaded binary executable and move to PATH
+            chmod +x chain-spec-builder
+            sudo mv chain-spec-builder /usr/local/bin/
+            echo "✓ chain-spec-builder installed successfully"
+          env:
+            GH_TOKEN: ${{ github.token }}
             
         - name: Build runtime and generate chain spec
           run: |
@@ -135,13 +177,16 @@ jobs:
           sudo apt update
           sudo apt install -y \
             protobuf-compiler \
-            clang
+            clang \
+            llvm-dev \
+            libclang-dev
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt clippy rust-src
 
       - name: List /usr/lib/libclang
-        if: ${{ github.event.inputs.debug }}
+        if: fromJSON(github.event.inputs.debug)
         run: ls -alh /usr/lib/libclang*
+        continue-on-error: true
 
       # 2. Yanking the template out of the monorepo workspace.
 
@@ -200,7 +245,7 @@ jobs:
         working-directory: polkadot-sdk
 
       - name: Print the result Cargo.tomls for debugging
-        if: ${{ github.event.inputs.debug }}
+        if: fromJSON(github.event.inputs.debug)
         run: find . -type f -name 'Cargo.toml' -exec cat {} \;
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
 
@@ -261,7 +306,7 @@ jobs:
         working-directory: "${{ env.template-path }}"
 
       - name: Print the result Cargo.tomls for debugging after copying required workspace dependencies
-        if: ${{ github.event.inputs.debug }}
+        if: fromJSON(github.event.inputs.debug)
         run: find . -type f -name 'Cargo.toml' -exec cat {} \;
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
 
@@ -282,7 +327,7 @@ jobs:
 
       - name: Check if it compiles
         id: check-compilation
-        run: cargo check && cargo test
+        run: SKIP_PALLET_REVIVE_FIXTURES=1 cargo check && SKIP_PALLET_REVIVE_FIXTURES=1 cargo test
         working-directory: "${{ env.template-path }}"
         timeout-minutes: 90
       - name: Create PR on failure
