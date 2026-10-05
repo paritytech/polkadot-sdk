@@ -22,13 +22,13 @@ use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_election_provider_support::{bounds::DataProviderBounds, IndexAssignment};
 use frame_support::{
 	assert_ok,
-	traits::{Hooks, TryCollect},
+	traits::{Authorize, Hooks, TryCollect},
 	BoundedVec,
 };
 use frame_system::RawOrigin;
 use rand::{prelude::SliceRandom, rngs::SmallRng, SeedableRng};
 use sp_arithmetic::{per_things::Percent, traits::One};
-use sp_runtime::InnerOf;
+use sp_runtime::{transaction_validity::TransactionSource, InnerOf};
 
 use crate::{unsigned::IndexAssignmentOf, *};
 
@@ -436,9 +436,50 @@ mod benchmarks {
 		CurrentPhase::<T>::put(Phase::Unsigned((true, 1_u32.into())));
 
 		#[extrinsic_call]
-		_(RawOrigin::None, Box::new(raw_solution), witness);
+		_(RawOrigin::Authorized, Box::new(raw_solution), witness);
 
 		assert!(QueuedSolution::<T>::get().is_some());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn authorize_submit_unsigned(
+		// Number of assignments, i.e. `solution.len()`.
+		a: Linear<
+			{ T::BenchmarkingConfig::ACTIVE_VOTERS[0] },
+			{ T::BenchmarkingConfig::ACTIVE_VOTERS[1] },
+		>,
+		// Number of desired targets. Must be a subset of the snapshot targets.
+		d: Linear<
+			{ T::BenchmarkingConfig::DESIRED_TARGETS[0] },
+			{ T::BenchmarkingConfig::DESIRED_TARGETS[1] },
+		>,
+	) -> Result<(), BenchmarkError> {
+		let v = T::BenchmarkingConfig::VOTERS[1];
+		let t = T::BenchmarkingConfig::TARGETS[1];
+		let witness = SolutionOrSnapshotSize { voters: v, targets: t };
+		let raw_solution = solution_with_size::<T>(witness, a, d)?;
+
+		CurrentPhase::<T>::put(Phase::Unsigned((true, 1_u32.into())));
+
+		// Queue a weaker solution first. The score comparison then has to decode a stored
+		// `ReadySolution`, which is the common case during the unsigned phase.
+		let mut queued =
+			Pallet::<T>::feasibility_check(raw_solution.clone(), ElectionCompute::Unsigned)
+				.map_err(|_| "feasibility check failed in benchmark setup")?;
+		queued.score = Default::default();
+		QueuedSolution::<T>::put(queued);
+
+		let call = Call::<T>::submit_unsigned { raw_solution: Box::new(raw_solution), witness };
+
+		#[block]
+		{
+			// `External` is rejected before any work happens, so it would measure nothing.
+			call.authorize(TransactionSource::InBlock)
+				.expect("submit_unsigned declares an authorize callback; qed")
+				.expect("authorization succeeds in the benchmark state; qed");
+		}
 
 		Ok(())
 	}
