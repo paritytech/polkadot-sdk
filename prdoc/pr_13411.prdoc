@@ -5,4 +5,4 @@ doc:
     when updating the `last_processed_block`
 crates:
 - name: cumulus-pallet-parachain-system
-  bump: major
+  bump: patch
