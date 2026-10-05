@@ -142,7 +142,6 @@ impl pallet_treasury::Config for Runtime {
 	// `BurnDestination = Dap` so burned funds flow to the DAP buffer instead of being destroyed.
 	type Burn = ();
 	type BurnDestination = ();
-	type MaxApprovals = MaxApprovals;
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type SpendFunds = ();
 	type SpendOrigin = TreasurySpender;

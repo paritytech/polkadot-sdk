@@ -26,10 +26,10 @@ use frame_benchmarking::{
 	v2::*,
 };
 use frame_support::{
-	assert_err, assert_ok, ensure,
+	assert_err, assert_ok,
 	traits::{
 		tokens::{ConversionFromAssetBalance, PaymentStatus},
-		EnsureOrigin, OnInitialize,
+		EnsureOrigin,
 	},
 };
 use frame_system::RawOrigin;
@@ -59,43 +59,6 @@ where
 
 const SEED: u32 = 0;
 
-// Create the pre-requisite information needed to create a treasury `spend_local`.
-fn setup_proposal<T: Config<I>, I: 'static>(
-	u: u32,
-) -> (T::AccountId, BalanceOf<T, I>, AccountIdLookupOf<T>) {
-	let caller = account("caller", u, SEED);
-	let value: BalanceOf<T, I> = T::Currency::minimum_balance() * 100u32.into();
-	let _ = T::Currency::make_free_balance_be(&caller, value);
-	let beneficiary = account("beneficiary", u, SEED);
-	let beneficiary_lookup = T::Lookup::unlookup(beneficiary);
-	(caller, value, beneficiary_lookup)
-}
-
-// Create proposals that are approved for use in `on_initialize`.
-fn create_approved_proposals<T: Config<I>, I: 'static>(n: u32) -> Result<(), &'static str> {
-	let spender = T::SpendOrigin::try_successful_origin();
-
-	for i in 0..n {
-		let (_, value, lookup) = setup_proposal::<T, I>(i);
-
-		#[allow(deprecated)]
-		if let Ok(origin) = &spender {
-			Treasury::<T, I>::spend_local(origin.clone(), value, lookup)?;
-		}
-	}
-
-	if spender.is_ok() {
-		ensure!(Approvals::<T, I>::get().len() == n as usize, "Not all approved");
-	}
-	Ok(())
-}
-
-fn setup_pot_account<T: Config<I>, I: 'static>() {
-	let pot_account = Treasury::<T, I>::account_id();
-	let value = T::Currency::minimum_balance().saturating_mul(1_000_000_000u32.into());
-	let _ = T::Currency::make_free_balance_be(&pot_account, value);
-}
-
 fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
@@ -113,71 +76,6 @@ fn create_spend_arguments<T: Config<I>, I: 'static>(
 #[instance_benchmarks]
 mod benchmarks {
 	use super::*;
-
-	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
-	/// a successful origin, in which case `spend` is un-callable and can use weight=0.
-	#[benchmark]
-	fn spend_local() -> Result<(), BenchmarkError> {
-		let (_, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
-		let origin =
-			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let beneficiary = T::Lookup::lookup(beneficiary_lookup.clone()).unwrap();
-
-		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, value, beneficiary_lookup);
-
-		assert_last_event::<T, I>(
-			Event::SpendApproved { proposal_index: 0, amount: value, beneficiary }.into(),
-		);
-		Ok(())
-	}
-
-	#[benchmark]
-	fn remove_approval() -> Result<(), BenchmarkError> {
-		let (spend_exists, proposal_id) =
-			if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-				let (_, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
-				#[allow(deprecated)]
-				Treasury::<T, _>::spend_local(origin, value, beneficiary_lookup)?;
-				let proposal_id = ProposalCount::<T, _>::get() - 1;
-
-				(true, proposal_id)
-			} else {
-				(false, 0)
-			};
-
-		let reject_origin =
-			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-
-		#[block]
-		{
-			#[allow(deprecated)]
-			let res = Treasury::<T, _>::remove_approval(reject_origin as T::RuntimeOrigin, proposal_id);
-
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, Error::<T, _>::ProposalNotApproved);
-			}
-		}
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn on_initialize_proposals(
-		p: Linear<0, { T::MaxApprovals::get() - 1 }>,
-	) -> Result<(), BenchmarkError> {
-		setup_pot_account::<T, _>();
-		create_approved_proposals::<T, _>(p)?;
-
-		#[block]
-		{
-			Treasury::<T, _>::on_initialize(0u32.into());
-		}
-
-		Ok(())
-	}
 
 	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
 	/// a successful origin, in which case `spend` is un-callable and can use weight=0.
