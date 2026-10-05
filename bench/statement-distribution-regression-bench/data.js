@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791198504746,
+  "lastUpdate": 1791216160382,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "af5c0145f3c9c5b925c1a2013ad8f0d02a30b649",
-          "message": "Add a call to `.unvalidated()` for all eth-rpc interactions (#11468)\n\n# Description\n\nThis PR updates the `eth-rpc` so that all interactions with subxt are\nunvalidated. This change was made to allow us to use any `eth-rpc`\nversion with any version of pallet revive given that there's no actual\ninterface differences in the runtime functions that we called. Before\nthis change, we would get a lot of metadata mismatch errors for slightly\nolder versions of revive. Our assumption is that this happened due to us\nadding more runtime functions into pallet-revive's runtime API which\nlead to the hash of the metadata being different, thus to the metadata\nmismatch.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-26T07:39:10Z",
-          "tree_id": "5d64f75170fc2f7dc7da51c1587d965d19720aab",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/af5c0145f3c9c5b925c1a2013ad8f0d02a30b649"
-        },
-        "date": 1774515600548,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.08800000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03824936026599998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0851529592679999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.09009773948599997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1d6f4582400a935a10a71280575a5e9d4be2325c",
+          "message": "statement-store: drop a peer's affinity filter when its substream closes (#13354)\n\n# Description\n\nA peer's affinity filter now goes away when its statement substream\ncloses, not when block sync reports the peer gone. The filter arrives\nover the statement substream, and the two lifetimes are independent, so\nthe stored filters drifted from the connected set:\n\n- A peer that peer steering dialed outside the sync set never produced a\nsync disconnect, so its filter stayed after its substream closed, and\nthe map grew for the node's lifetime.\n- A peer that block sync dropped while its statement substream stayed\nopen lost its filter although it was still connected, so it stopped\nreceiving statements on its advertised topics until it sent the filter\nagain.\n\n# Integration\n\nNo changes needed. The change is internal to sc-network-statement and\naffects only the v2 DHT path.\n\n# Review Notes\n\nA reconnecting peer sends its filter again once the substream reopens,\nso dropping it on close loses nothing.",
+          "timestamp": "2026-10-05T13:27:44Z",
+          "tree_id": "06e0f4f4180177398dd0ea622de662918366d6bd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1d6f4582400a935a10a71280575a5e9d4be2325c"
+        },
+        "date": 1791216128783,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.19799999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03838564934799999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08731054079199996,
             "unit": "seconds"
           }
         ]
