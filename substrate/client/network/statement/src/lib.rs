@@ -1571,9 +1571,6 @@ where
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
-				if v2dht_enabled() {
-					self.v2dht.on_peer_disconnected(remote);
-				}
 				if self.deferred_peers.remove(&remote) {
 					return;
 				}

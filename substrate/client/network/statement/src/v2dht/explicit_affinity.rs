@@ -163,8 +163,8 @@ impl ExplicitAffinity {
 		self.peers.insert(peer, filter);
 	}
 
-	/// Drop a peer's stored filter once it disconnects.
-	pub(crate) fn on_peer_disconnected(&mut self, peer: PeerId) {
+	/// Drop a peer's stored filter once its statement substream closes.
+	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
 		self.peers.remove(&peer);
 	}
 
@@ -387,12 +387,12 @@ mod tests {
 	}
 
 	#[test]
-	fn on_peer_disconnected_drops_the_filter() {
+	fn on_substream_closed_drops_the_filter() {
 		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		let peer = PeerId::random();
 		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
-		affinity.on_peer_disconnected(peer);
+		affinity.on_substream_closed(peer);
 		assert!(!affinity.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
 	}
 
