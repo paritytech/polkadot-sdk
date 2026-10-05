@@ -277,7 +277,7 @@ fn evm_call_stipend_prevents_send_reentrancy() {
 }
 
 #[test]
-fn evm_call_stipend_denies_reentry_by_rule_not_by_gas() {
+fn evm_call_stipend_allows_reentry_from_a_value_transfer_or_send() {
 	// On PVM the stipend alone cannot pay for the reentrant call.
 	let (probe_code, _) = compile_module_with_type("ReentrancyProbe", FixtureType::Solc).unwrap();
 	let (code, _) = compile_module_with_type("StipendSender", FixtureType::Solc).unwrap();
@@ -304,19 +304,19 @@ fn evm_call_stipend_denies_reentry_by_rule_not_by_gas() {
 			"the stipend should be enough for reentry"
 		);
 		assert!(
-			run(StipendSender::transferToReceiverCall {}.abi_encode()).did_revert(),
-			"a value `transfer` should not reenter"
+			!run(StipendSender::transferToReceiverCall {}.abi_encode()).did_revert(),
+			"a value `transfer` should let the receiver call back into the sender"
 		);
 		assert!(
-			denied(StipendSender::isSendDeniedCall {}.abi_encode()),
-			"a value `send` should not reenter"
+			!denied(StipendSender::isSendDeniedCall {}.abi_encode()),
+			"a value `send` should let the receiver call back into the sender"
 		);
 	});
 }
 
 #[test_case(FixtureType::Solc;   "solc")]
 #[test_case(FixtureType::Resolc; "resolc")]
-fn evm_call_stipend_reentrancy_rule_applies_only_to_transfer_and_send(fixture_type: FixtureType) {
+fn evm_call_stipend_allows_reentry_from_every_call_shape(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
 	let (probe_code, _) = compile_module_with_type("ReentrancyProbe", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
@@ -359,14 +359,14 @@ fn evm_call_stipend_reentrancy_rule_applies_only_to_transfer_and_send(fixture_ty
 					run(0, StipendSender::isSendDeniedCall {}.abi_encode());
 				(value_call_denied, static_call_denied, zero_value_send_denied)
 			});
-		assert!(!value_call_denied, "not a `send`, so it may reenter");
-		assert!(!static_call_denied, "a static call is not a `send`, so it may reenter");
-		assert!(zero_value_send_denied, "a zero-value `send` should not reenter");
+		assert!(!value_call_denied, "a value call may reenter");
+		assert!(!static_call_denied, "a static call may reenter");
+		assert!(!zero_value_send_denied, "a zero-value `send` may reenter");
 	});
 }
 
 #[test]
-fn evm_call_stipend_reentrancy_rule_does_not_weaken_strict() {
+fn evm_call_stipend_keeps_strict_reentrancy() {
 	// The fixture calls `call_evm` with empty flags, so the caller asks for `Strict`.
 	let (code, _) = compile_module("call_with_gas").unwrap();
 	ExtBuilder::default().build().execute_with(|| {
@@ -789,7 +789,12 @@ fn stipend_check_applies_under_strict_reentrancy(fixture_type: FixtureType) {
 
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
-	["WritingReceiver", "PrecompileClearingReceiver", "PrecompileTakingReceiver"]
+	[
+		"WritingReceiver",
+		"PrecompileClearingReceiver",
+		"PrecompileTakingReceiver",
+		"ReentrantWritingReceiver"
+	]
 )]
 fn stipend_check_denies_writes_with_out_of_gas(fixture_type: FixtureType, receiver_fixture: &str) {
 	let (receiver_code, _) = compile_module_with_type(receiver_fixture, fixture_type).unwrap();

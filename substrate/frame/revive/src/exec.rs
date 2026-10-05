@@ -134,14 +134,6 @@ pub enum ReentrancyProtection {
 	/// Activate strict reentrancy protection. The direct callee and none of its own recursive
 	/// callees must be the calling contract.
 	Strict,
-	/// Activate reentrancy protection where the direct callee can be the same contract as the
-	/// caller but none of the recursive callees of the callee must be the caller.
-	///
-	/// This is used for calls that transfer value but restrict gas so that the callee only has a
-	/// stipend gas amount. In Ethereum that is not sufficient for the callee to make another call.
-	/// However, due to gas scale differences that guarantee does not automatically hold in revive
-	/// and we enforce it explicitly here.
-	AllowNext,
 }
 
 /// The protections a caller sets for its callee.
@@ -2406,10 +2398,6 @@ where
 
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
-			}
-
-			if protections.reentrancy == ReentrancyProtection::AllowNext {
-				self.top_frame_mut().allows_reentry = false;
 			}
 
 			// We ignore instantiate frames in our search for a cached contract.

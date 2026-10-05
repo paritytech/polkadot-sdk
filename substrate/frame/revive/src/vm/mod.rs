@@ -26,8 +26,7 @@ pub use runtime_costs::{RuntimeCosts, StorageAccessKind, TransferAccessKind};
 
 use crate::{
 	AccountIdOf, BalanceOf, CallProtections, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig,
-	ExecError, HoldReason, LOG_TARGET, Pallet, PristineCode, ReentrancyProtection, StorageDeposit,
-	Weight,
+	ExecError, HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
 	access_list::{Access, CodeLoadItems, CodeLoadWarmth, Summarized},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
@@ -187,9 +186,9 @@ impl StipendAndProtections {
 	/// Solidity's `transfer` and `send` cap the callee at the stipend. For a zero value solc passes
 	/// `gas_limit = 2300` explicitly; when value moves it passes 0 and relies on the stipend the
 	/// EVM grants any call that moves value. We use a heuristic to detect both patterns. Such a
-	/// call gets the stipend and `AllowNext` reentrancy protection, because the fixed 2300 is
-	/// tailored to Ethereum's gas scale. Its callee also cannot write persistent storage, as
-	/// EIP-2200 specifies.
+	/// call gets the stipend, because the fixed 2300 is tailored to Ethereum's gas scale. Its
+	/// callee, and every frame the callee creates, cannot write persistent storage, move value,
+	/// or create or terminate contracts, none of which the stipend pays for on Ethereum.
 	pub fn new(value: U256, gas_limit: Option<u64>) -> Self {
 		use revm::interpreter::gas::CALL_STIPEND;
 		let moves_value = !value.is_zero();
@@ -206,11 +205,7 @@ impl StipendAndProtections {
 	/// The protections the call shape sets for the callee.
 	pub fn protections(&self) -> CallProtections {
 		if self.is_transfer_or_send {
-			CallProtections {
-				reentrancy: ReentrancyProtection::AllowNext,
-				stipend_frame: true,
-				..Default::default()
-			}
+			CallProtections { stipend_frame: true, ..Default::default() }
 		} else {
 			CallProtections::default()
 		}

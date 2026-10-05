@@ -196,9 +196,9 @@ contract StipendTest {
         require(complexReceiver.counter() == counterBefore + 1, "ComplexReceiver counter not incremented");
     }
 
-    // Test that the transfer stipend prevents reentrancy. The attacker's receive()
-    // tries to call back into attemptTransfer() to drain more ETH, but the stipend
-    // starves that call, so it drains nothing: the attacker receives only `amount`.
+    // Test that the receiver of a `transfer` cannot drain the sender. The attacker's
+    // receive() calls back into attemptTransfer() to drain more ETH, but a frame entered
+    // through `transfer` cannot move value, so the attacker receives only `amount`.
     function testTransferReentrancy() public payable {
         uint256 amount = msg.value / 4;
         uint256 attackerBefore = address(reentrancyAttacker).balance;
@@ -215,7 +215,7 @@ contract StipendTest {
         );
     }
 
-    // Test that the send stipend prevents reentrancy.
+    // Test that the receiver of a `send` cannot drain the sender.
     function testSendReentrancy() public payable {
         uint256 amount = msg.value / 4;
         uint256 attackerBefore = address(reentrancyAttacker).balance;
@@ -249,10 +249,28 @@ contract ReentrancyProbe {
 }
 
 /**
+ * @title BumpableCounter
+ * @dev Stores a `counter`, and `bump` adds one to it.
+ */
+abstract contract BumpableCounter {
+    uint256 public counter;
+
+    function bump() external {
+        counter += 1;
+    }
+
+    function counterSlot() internal pure returns (bytes32 slot) {
+        assembly {
+            slot := counter.slot
+        }
+    }
+}
+
+/**
  * @title StipendSender
  * @dev Calls the receiver in each call form that the stipend rule checks.
  */
-contract StipendSender {
+contract StipendSender is BumpableCounter {
     address payable immutable receiver;
 
     constructor(address payable _receiver) {
@@ -330,24 +348,6 @@ contract WarmWriteSender {
 }
 
 /**
- * @title BumpableCounter
- * @dev Stores a `counter`, and `bump` adds one to it.
- */
-abstract contract BumpableCounter {
-    uint256 public counter;
-
-    function bump() external {
-        counter += 1;
-    }
-
-    function counterSlot() internal pure returns (bytes32 slot) {
-        assembly {
-            slot := counter.slot
-        }
-    }
-}
-
-/**
  * @title StorageHelpers
  * @dev Storage helpers shared by the receivers.
  */
@@ -391,6 +391,16 @@ library StorageHelpers {
 contract WritingReceiver is BumpableCounter {
     receive() external payable {
         counter += 1;
+    }
+}
+
+/**
+ * @title ReentrantWritingReceiver
+ * @dev Calls back into the sender to increment its `counter` on receiving value.
+ */
+contract ReentrantWritingReceiver {
+    receive() external payable {
+        BumpableCounter(msg.sender).bump();
     }
 }
 

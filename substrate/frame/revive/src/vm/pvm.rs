@@ -707,9 +707,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					self.charge_gas(RuntimeCosts::CallTransferSurcharge(transfer))?;
 				}
 
-				// The flags may tighten the reentrancy protection to `Strict`, but never weaken it.
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
-					protections.reentrancy
+					ReentrancyProtection::AllowReentry
 				} else {
 					ReentrancyProtection::Strict
 				};
