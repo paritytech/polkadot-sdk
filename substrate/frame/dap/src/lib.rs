@@ -197,6 +197,49 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type LastIssuanceTimestamp<T> = StorageValue<_, u64, ValueQuery>;
 
+	/// Genesis configuration for pallet-dap.
+	///
+	/// Seeds `BudgetAllocation` with a starting distribution so chains can
+	/// launch with DAP already configured. Keys must reference registered
+	/// `BudgetRecipients` and values must sum to exactly 100%.
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		/// Initial `(BudgetKey, Perbill)` entries. Empty leaves allocation unset,
+		/// matching the dormant state on existing chains.
+		pub budget_allocation: Vec<(BudgetKey, Perbill)>,
+		#[serde(skip)]
+		#[allow(missing_docs)]
+		pub _phantom: core::marker::PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			if self.budget_allocation.is_empty() {
+				return;
+			}
+
+			let mut map: BudgetAllocationMap = Default::default();
+
+			for (key, share) in &self.budget_allocation {
+				// `try_insert` succeeds on duplicate keys by silently overwriting;
+				// pre-check makes duplicate genesis input an explicit error.
+				assert!(
+					!map.contains_key(key),
+					"genesis budget_allocation contains duplicate BudgetKey"
+				);
+				map.try_insert(key.clone(), *share)
+					.expect("genesis budget_allocation exceeds MAX_BUDGET_RECIPIENTS; qed");
+			}
+
+			Pallet::<T>::validate_budget_allocation(&map)
+				.expect("genesis budget_allocation is invalid; see error for details");
+
+			BudgetAllocation::<T>::put(map);
+		}
+	}
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// A key in the budget allocation does not match any registered recipient.
@@ -294,16 +337,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::BudgetOrigin::ensure_origin(origin)?;
 
-			// Validate all keys are registered recipients.
-			let registered: Vec<_> =
-				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
-			for key in new_allocations.keys() {
-				ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
-			}
-
-			// Validate sum == 100%. Use u64 to avoid overflow when summing deconstructed Perbills.
-			let total_parts: u64 = new_allocations.values().map(|p| p.deconstruct() as u64).sum();
-			ensure!(total_parts == Perbill::one().deconstruct() as u64, Error::<T>::BudgetNotExact);
+			Self::validate_budget_allocation(&new_allocations)?;
 
 			BudgetAllocation::<T>::put(new_allocations.clone());
 			Self::deposit_event(Event::BudgetAllocationUpdated { allocations: new_allocations });
@@ -359,6 +393,29 @@ pub mod pallet {
 		/// Deactivate funds on buffer inflow.
 		pub(crate) fn deactivate_buffer_funds(amount: BalanceOf<T>) {
 			<T::Currency as Unbalanced<T::AccountId>>::deactivate(amount);
+		}
+
+		/// Validate a candidate `BudgetAllocationMap`:
+		/// - every key must be a registered `BudgetRecipient`,
+		/// - perbills must sum to exactly 100%.
+		pub(crate) fn validate_budget_allocation(
+			map: &BudgetAllocationMap,
+		) -> Result<(), Error<T>> {
+			let registered: Vec<BudgetKey> =
+				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
+
+			for key in map.keys() {
+				ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
+			}
+
+			// `u64` avoids overflow when summing deconstructed Perbills.
+			let total_parts: u64 = map.values().map(|p| p.deconstruct() as u64).sum();
+			ensure!(
+				total_parts == Perbill::one().deconstruct() as u64,
+				Error::<T>::BudgetNotExact
+			);
+
+			Ok(())
 		}
 
 		/// Core issuance drip logic, called from `on_initialize`.
@@ -470,31 +527,14 @@ pub mod pallet {
 			Self::check_budget_allocation()
 		}
 
-		/// Checks that `BudgetAllocation` is consistent:
-		/// - Every key in `BudgetAllocation` must be a registered recipient.
-		/// - Allocation percentages must sum to exactly 100%.
+		/// Checks that `BudgetAllocation` is consistent — non-empty, every key
+		/// registered, percentages sum to 100%.
 		fn check_budget_allocation() -> Result<(), sp_runtime::TryRuntimeError> {
 			let allocation = BudgetAllocation::<T>::get();
 
 			ensure!(!allocation.is_empty(), "BudgetAllocation is empty");
-
-			let registered: Vec<BudgetKey> =
-				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
-
-			// Every allocation key must be a registered recipient.
-			for key in allocation.keys() {
-				ensure!(
-					registered.contains(key),
-					"BudgetAllocation contains key not in BudgetRecipients"
-				);
-			}
-
-			// Allocation must sum to exactly 100%.
-			let total_parts: u64 = allocation.values().map(|p| p.deconstruct() as u64).sum();
-			ensure!(
-				total_parts == Perbill::one().deconstruct() as u64,
-				"BudgetAllocation does not sum to 100%"
-			);
+			Self::validate_budget_allocation(&allocation)
+				.map_err(|_| "BudgetAllocation is not consistent with registered recipients")?;
 
 			Ok(())
 		}
@@ -562,11 +602,14 @@ where
 	}
 }
 
+/// Canonical budget key for the DAP buffer recipient.
+pub const BUFFER_BUDGET_KEY: &[u8] = b"buffer";
+
 /// DAP exposes its buffer as a budget recipient so it can receive an explicit
 /// allocation share (in addition to the implicit remainder).
 impl<T: Config> sp_staking::budget::BudgetRecipient<T::AccountId> for Pallet<T> {
 	fn budget_key() -> BudgetKey {
-		BudgetKey::truncate_from(b"buffer".to_vec())
+		BudgetKey::truncate_from(BUFFER_BUDGET_KEY.to_vec())
 	}
 
 	fn pot_account() -> T::AccountId {

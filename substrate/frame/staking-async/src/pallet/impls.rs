@@ -899,6 +899,47 @@ impl<T: Config> Pallet<T> {
 			SnapshotStatus::Consumed => Box::new(vec![].into_iter()),
 		};
 
+		// Front-load self-votes for every registered validator on the first
+		// page. Without this, heavy nominators can push validator self-votes
+		// out of the snapshot, leaving elected validators with `exposure.own = 0`
+		// at payout time. Validators coming through `VoterList` below are
+		// skipped to avoid double-emission.
+		if matches!(status, SnapshotStatus::Waiting) {
+			for (validator, _prefs) in Validators::<T>::iter() {
+				if all_voters.len() >= page_len_prediction as usize {
+					break;
+				}
+
+				let weight = weight_of(&validator);
+
+				if weight.is_zero() {
+					continue;
+				}
+
+				let self_vote = (
+					validator.clone(),
+					weight,
+					vec![validator.clone()]
+						.try_into()
+						.expect("`MaxVotesPerVoter` must be greater than or equal to 1"),
+				);
+
+				if voters_size_tracker.try_register_voter(&self_vote, &bounds).is_err() {
+					// Snapshot budget exhausted by validator self-votes alone.
+					// Nominators get no room on this page; later pages continue
+					// nominator iteration from `VoterList` (validators there are
+					// skipped since they were already emitted here).
+					Self::deposit_event(Event::<T>::SnapshotVotersSizeExceeded {
+						size: voters_size_tracker.size as u32,
+					});
+					break;
+				}
+
+				all_voters.push(self_vote);
+				validators_taken.saturating_inc();
+			}
+		}
+
 		while all_voters.len() < page_len_prediction as usize &&
 			voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * page_len_prediction as u32)
 		{
@@ -941,24 +982,10 @@ impl<T: Config> Pallet<T> {
 				min_active_stake =
 					if voter_weight < min_active_stake { voter_weight } else { min_active_stake };
 			} else if Validators::<T>::contains_key(&voter) {
-				// if this voter is a validator:
-				let self_vote = (
-					voter.clone(),
-					voter_weight,
-					vec![voter.clone()]
-						.try_into()
-						.expect("`MaxVotesPerVoter` must be greater than or equal to 1"),
-				);
-
-				if voters_size_tracker.try_register_voter(&self_vote, &bounds).is_err() {
-					// no more space left for the election snapshot, stop iterating.
-					Self::deposit_event(Event::<T>::SnapshotVotersSizeExceeded {
-						size: voters_size_tracker.size as u32,
-					});
-					break;
-				}
-				all_voters.push(self_vote);
-				validators_taken.saturating_inc();
+				// Validator self-votes are emitted up-front on page 0 (see the
+				// pre-loop block above) so they survive voter-snapshot bounds
+				// unconditionally. Skip here to avoid double-emission.
+				continue;
 			} else {
 				// this can only happen if: 1. there a bug in the bags-list (or whatever is the
 				// sorted list) logic and the state of the two pallets is no longer compatible, or
