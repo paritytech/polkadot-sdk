@@ -174,3 +174,42 @@ mod tests {
 		serde_json::to_value(&info).unwrap();
 	}
 }
+
+/// The fees held for one payment of the transaction being applied.
+///
+/// Pots are queued in payment order in `TxPaymentCredit`.
+#[derive(Encode, Decode, TypeInfo)]
+pub(crate) enum Pot<AccountId, Credit> {
+	/// Opened by a deposit made before any inclusion fee was withdrawn (e.g. the storage deposit
+	/// of an Ethereum transaction). The inclusion fee of the next payment claims it.
+	Unclaimed(Credit),
+	/// The fees of a payment made by the signer.
+	Signer(AccountId, Credit),
+}
+
+impl<AccountId, Credit> Pot<AccountId, Credit> {
+	pub fn credit(&self) -> &Credit {
+		match self {
+			Self::Unclaimed(credit) | Self::Signer(_, credit) => credit,
+		}
+	}
+
+	pub fn credit_mut(&mut self) -> &mut Credit {
+		match self {
+			Self::Unclaimed(credit) | Self::Signer(_, credit) => credit,
+		}
+	}
+
+	pub fn into_credit(self) -> Credit {
+		match self {
+			Self::Unclaimed(credit) | Self::Signer(_, credit) => credit,
+		}
+	}
+
+	pub fn is_signer(&self, who: &AccountId) -> bool
+	where
+		AccountId: PartialEq,
+	{
+		matches!(self, Self::Signer(signer, _) if signer == who)
+	}
+}

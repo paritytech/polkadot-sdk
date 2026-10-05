@@ -557,6 +557,148 @@ fn refund_does_not_recreate_account() {
 }
 
 #[test]
+fn fees_are_settled_in_payment_order() {
+	// Several payments withdrawn in order and settled later in the same order, as happens when
+	// one transaction applies several inner transactions: every settlement refunds its own payer.
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			let info = info_from_weight(Weight::from_parts(100, 0));
+			let len = 10;
+			let full_fee = 5 + 10 + 100;
+
+			// Account 2 pays twice, account 1 pays once in between.
+			let (pre_a, _) =
+				Ext::from(0).validate_and_prepare(Some(2).into(), CALL, &info, len, 0).unwrap();
+			let (pre_b, _) =
+				Ext::from(0).validate_and_prepare(Some(1).into(), CALL, &info, len, 0).unwrap();
+			let (pre_c, _) =
+				Ext::from(0).validate_and_prepare(Some(2).into(), CALL, &info, len, 0).unwrap();
+			assert_eq!(Balances::free_balance(2), 2000 - 2 * full_fee);
+			assert_eq!(Balances::free_balance(1), 1000 - full_fee);
+			assert_eq!(TxPaymentCredit::<Runtime>::get().len(), 3);
+
+			// Settle in the same order with different actual weights: each payer gets back
+			// exactly the unspent part of their own payment.
+			Ext::post_dispatch(
+				pre_a,
+				&info,
+				&mut post_info_from_weight(Weight::from_parts(50, 0)),
+				len,
+				&Ok(()),
+			)
+			.unwrap();
+			assert_eq!(Balances::free_balance(2), 2000 - 2 * full_fee + 50);
+			assert_eq!(Balances::free_balance(1), 1000 - full_fee);
+			Ext::post_dispatch(
+				pre_b,
+				&info,
+				&mut post_info_from_weight(Weight::from_parts(20, 0)),
+				len,
+				&Ok(()),
+			)
+			.unwrap();
+			assert_eq!(Balances::free_balance(1), 1000 - full_fee + 80);
+			Ext::post_dispatch(
+				pre_c,
+				&info,
+				&mut post_info_from_weight(Weight::from_parts(100, 0)),
+				len,
+				&Ok(()),
+			)
+			.unwrap();
+			assert_eq!(Balances::free_balance(2), 2000 - 2 * full_fee + 50);
+			assert!(TxPaymentCredit::<Runtime>::get().is_empty());
+		});
+}
+
+#[test]
+fn zero_fee_payments_have_a_pot() {
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			let free = DispatchInfo {
+				call_weight: Weight::from_parts(100, 0),
+				extension_weight: Weight::zero(),
+				class: DispatchClass::Normal,
+				pays_fee: Pays::No,
+			};
+			let info = info_from_weight(Weight::from_parts(100, 0));
+			let len = 10;
+			let full_fee = 5 + 10 + 100;
+
+			// Account 1 pays nothing, account 2 pays a fee.
+			let (pre_1, _) =
+				Ext::from(0).validate_and_prepare(Some(1).into(), CALL, &free, len, 0).unwrap();
+			let (pre_2, _) =
+				Ext::from(0).validate_and_prepare(Some(2).into(), CALL, &info, len, 0).unwrap();
+			assert_eq!(Balances::free_balance(1), 1000);
+			assert_eq!(TxPaymentCredit::<Runtime>::get().len(), 2);
+
+			Ext::post_dispatch(pre_1, &free, &mut default_post_info(), len, &Ok(())).unwrap();
+			Ext::post_dispatch(
+				pre_2,
+				&info,
+				&mut post_info_from_weight(Weight::from_parts(50, 0)),
+				len,
+				&Ok(()),
+			)
+			.unwrap();
+			assert_eq!(Balances::free_balance(1), 1000);
+			assert_eq!(Balances::free_balance(2), 2000 - full_fee + 50);
+			assert!(TxPaymentCredit::<Runtime>::get().is_empty());
+		});
+}
+
+#[test]
+fn settling_fees_out_of_payment_order_is_an_error() {
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			let info = info_from_weight(Weight::from_parts(100, 0));
+			let len = 10;
+			let full_fee = 5 + 10 + 100;
+
+			let (pre_1, _) =
+				Ext::from(0).validate_and_prepare(Some(1).into(), CALL, &info, len, 0).unwrap();
+			let (pre_2, _) =
+				Ext::from(0).validate_and_prepare(Some(2).into(), CALL, &info, len, 0).unwrap();
+
+			// Account 2 paid last but settles first.
+			assert_eq!(
+				Ext::post_dispatch(
+					pre_2,
+					&info,
+					&mut post_info_from_weight(Weight::from_parts(30, 0)),
+					len,
+					&Ok(()),
+				),
+				Err(InvalidTransaction::Payment.into())
+			);
+			assert_eq!(Balances::free_balance(2), 2000 - full_fee);
+			assert_eq!(Balances::free_balance(1), 1000 - full_fee);
+			assert_eq!(TxPaymentCredit::<Runtime>::get().len(), 2);
+
+			Ext::post_dispatch(
+				pre_1,
+				&info,
+				&mut post_info_from_weight(Weight::from_parts(90, 0)),
+				len,
+				&Ok(()),
+			)
+			.unwrap();
+			assert_eq!(Balances::free_balance(1), 1000 - full_fee + 10);
+			assert_eq!(TxPaymentCredit::<Runtime>::get().len(), 1);
+		});
+}
+
+#[test]
 fn actual_weight_higher_than_max_refunds_nothing() {
 	ExtBuilder::default()
 		.balance_factor(10)

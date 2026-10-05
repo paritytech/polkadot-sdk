@@ -16,7 +16,7 @@
 // limitations under the License.
 
 /// ! Traits and default implementation for paying transaction fees.
-use crate::{Config, Pallet, TxPaymentCredit, LOG_TARGET};
+use crate::{Config, Pallet, LOG_TARGET};
 
 use codec::{DecodeWithMemTracking, FullCodec, MaxEncodedLen};
 use core::marker::PhantomData;
@@ -126,6 +126,8 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		if fee_with_tip.is_zero() {
+			// Every payment has a pot, so that settlements are in sync with payments.
+			<Pallet<T>>::push_txfee(who, Imbalance::zero());
 			return Ok(None);
 		}
 
@@ -140,7 +142,7 @@ where
 
 		let (tip_credit, inclusion_fee) = credit.split(tip);
 
-		<Pallet<T>>::deposit_txfee(inclusion_fee);
+		<Pallet<T>>::push_txfee(who, inclusion_fee);
 
 		Ok(Some(tip_credit))
 	}
@@ -172,9 +174,7 @@ where
 	) -> Result<(), TransactionValidityError> {
 		let corrected_fee = corrected_fee_with_tip.saturating_sub(tip);
 
-		let remaining_credit = <TxPaymentCredit<T>>::take()
-			.map(|stored_credit| stored_credit.into_inner())
-			.unwrap_or_default();
+		let remaining_credit = <Pallet<T>>::pop_txfee(who)?.unwrap_or_default();
 
 		// If pallets take away too much it makes the transaction invalid. They need to make
 		// sure that this does not happen. We do not invalide the transaction because we already
