@@ -242,7 +242,7 @@ fn percentiles(mut values: Vec<f64>) -> [f64; 4] {
 	values.sort_by(f64::total_cmp);
 	let at = |q: f64| {
 		let rank = (q * values.len() as f64).ceil() as usize;
-		values[rank.clamp(1, values.len()) - 1]
+		values[rank - 1]
 	};
 	[at(0.5), at(0.9), at(0.99), values[values.len() - 1]]
 }
