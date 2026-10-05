@@ -20,7 +20,7 @@
 use super::{LayoutV1 as Layout, MemoryDB};
 use codec::{Decode, Encode, Input, Output};
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
-use sp_storage::{well_known_keys, ChildType, PrefixedStorageKey};
+use sp_core::storage::{well_known_keys, ChildType, PrefixedStorageKey};
 use std::collections::{hash_map::Entry, HashMap};
 use trie_db::{
 	node::{decode_hash, Node, NodeHandle, Value},
