@@ -4,7 +4,10 @@
 
 use crate::service::FullClient;
 
-use runtime::{AccountId, Balance, BalancesCall, SystemCall};
+use runtime::interface::{
+	AccountId, Balance, BalancesCall, BlockHashCount, Runtime, RuntimeCall, Signature, SignedExtra,
+	SignedPayload, SystemCall, UncheckedExtrinsic, VERSION,
+};
 use sc_cli::Result;
 use sc_client_api::BlockBackend;
 use solochain_template_runtime as runtime;
@@ -46,7 +49,7 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
 			SystemCall::remark { remark: vec![] }.into(),
 			nonce,
 		)
-		.into();
+			.into();
 
 		Ok(extrinsic)
 	}
@@ -86,7 +89,7 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 				.into(),
 			nonce,
 		)
-		.into();
+			.into();
 
 		Ok(extrinsic)
 	}
@@ -98,42 +101,39 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 pub fn create_benchmark_extrinsic(
 	client: &FullClient,
 	sender: sp_core::sr25519::Pair,
-	call: runtime::RuntimeCall,
+	call: RuntimeCall,
 	nonce: u32,
 ) -> runtime::UncheckedExtrinsic {
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 	let best_hash = client.chain_info().best_hash;
 	let best_block = client.chain_info().best_number;
 
-	let period = runtime::configs::BlockHashCount::get()
-		.checked_next_power_of_two()
-		.map(|c| c / 2)
-		.unwrap_or(2) as u64;
-	let tx_ext: runtime::TxExtension = (
-		frame_system::AuthorizeCall::<runtime::Runtime>::new(),
-		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
-		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
-		frame_system::CheckTxVersion::<runtime::Runtime>::new(),
-		frame_system::CheckGenesis::<runtime::Runtime>::new(),
-		frame_system::CheckEra::<runtime::Runtime>::from(sp_runtime::generic::Era::mortal(
+	let period =
+		BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
+	(
+		frame_system::CheckNonZeroSender::<Runtime>::new(),
+		frame_system::CheckSpecVersion::<Runtime>::new(),
+		frame_system::CheckTxVersion::<Runtime>::new(),
+		frame_system::CheckGenesis::<Runtime>::new(),
+		frame_system::CheckEra::<Runtime>::from(sp_runtime::generic::Era::mortal(
 			period,
 			best_block.saturated_into(),
 		)),
-		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
-		frame_system::CheckWeight::<runtime::Runtime>::new(),
-		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
+		frame_system::CheckNonce::<Runtime>::from(nonce),
+		frame_system::CheckWeight::<Runtime>::new(),
+		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
 		frame_system::WeightReclaim::<runtime::Runtime>::new(),
 	);
 
-	let raw_payload = runtime::SignedPayload::from_raw(
+	let raw_payload = SignedPayload::from_raw(
 		call.clone(),
 		tx_ext.clone(),
 		(
 			(),
 			(),
-			runtime::VERSION.spec_version,
-			runtime::VERSION.transaction_version,
+			VERSION.spec_version,
+			VERSION.transaction_version,
 			genesis_hash,
 			best_hash,
 			(),
@@ -145,10 +145,10 @@ pub fn create_benchmark_extrinsic(
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
 
-	runtime::UncheckedExtrinsic::new_signed(
+	UncheckedExtrinsic::new_signed(
 		call,
 		sp_runtime::AccountId32::from(sender.public()).into(),
-		runtime::Signature::Sr25519(signature),
+		Signature::Sr25519(signature),
 		tx_ext,
 	)
 }
@@ -165,3 +165,4 @@ pub fn inherent_benchmark_data() -> Result<InherentData> {
 		.map_err(|e| format!("creating inherent data: {e:?}"))?;
 	Ok(inherent_data)
 }
+
