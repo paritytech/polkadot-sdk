@@ -1184,6 +1184,7 @@ pub mod pallet {
 			data: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_non_contract_if_signed(&origin)?;
+			Self::ensure_signed_origin_owns_address(&origin)?;
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -1227,6 +1228,7 @@ pub mod pallet {
 			salt: Option<[u8; 32]>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_non_contract_if_signed(&origin)?;
+			Self::ensure_signed_origin_owns_address(&origin)?;
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
 				origin,
@@ -1294,6 +1296,7 @@ pub mod pallet {
 			salt: Option<[u8; 32]>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_non_contract_if_signed(&origin)?;
+			Self::ensure_signed_origin_owns_address(&origin)?;
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
@@ -1735,6 +1738,11 @@ pub mod pallet {
 		/// Every `AccountId32` can control its corresponding fallback account. The fallback account
 		/// is the `AccountId20` with the last 12 bytes set to `0xEE`. This is essentially a
 		/// recovery function in case an `AccountId20` was used without creating a mapping first.
+		///
+		/// Once the caller is mapped, the fallback account is no longer the account behind the
+		/// shared address, and [`Self::call`], [`Self::instantiate`] and
+		/// [`Self::instantiate_with_code`] reject it. Its funds can still be recovered through
+		/// calls to other pallets, such as a balance transfer.
 		#[pallet::call_index(9)]
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
@@ -2966,6 +2974,27 @@ impl<T: Config> Pallet<T> {
 			Err(DispatchError::BadOrigin)
 		} else {
 			Ok(())
+		}
+	}
+
+	/// Ensure that a signed origin is the account behind its own address.
+	///
+	/// Once a native account is mapped, its fallback account shares the address but not the
+	/// nonce or balance the EVM attributes to it. Acting as that address would feed a second
+	/// nonce into CREATE1 and pay with funds that address does not own.
+	fn ensure_signed_origin_owns_address(origin: &OriginFor<T>) -> DispatchResult {
+		let Some(account_id) = origin.as_signer() else { return Ok(()) };
+		let address = T::AddressMapper::to_address(account_id);
+		if &T::AddressMapper::to_account_id(&address) == account_id {
+			Ok(())
+		} else if T::AddressMapper::is_eth_derived(account_id) {
+			log::debug!(
+				target: crate::LOG_TARGET,
+				"reject tx as {address:?} is mapped to another account than {account_id:?}",
+			);
+			Err(DispatchError::BadOrigin)
+		} else {
+			Err(<Error<T>>::AccountUnmapped.into())
 		}
 	}
 }
