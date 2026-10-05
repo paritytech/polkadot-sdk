@@ -23,7 +23,7 @@
 #![warn(missing_docs)]
 
 use smallvec::SmallVec;
-use std::fmt;
+use std::{collections::HashSet, fmt};
 
 pub use polkadot_primitives::{Block, BlockNumber, Hash};
 
@@ -93,8 +93,8 @@ impl PartialEq for ActiveLeavesUpdate {
 	/// Instead, it means equality when `activated` and `deactivated` are considered as sets.
 	fn eq(&self, other: &Self) -> bool {
 		self.activated.as_ref().map(|a| a.hash) == other.activated.as_ref().map(|a| a.hash) &&
-			self.deactivated.len() == other.deactivated.len() &&
-			self.deactivated.iter().all(|a| other.deactivated.contains(a))
+			self.deactivated.iter().collect::<HashSet<_>>() ==
+				other.deactivated.iter().collect::<HashSet<_>>()
 	}
 }
 
@@ -116,4 +116,37 @@ pub enum OverseerSignal {
 	BlockFinalized(Hash, BlockNumber),
 	/// Conclude the work of the `Overseer` and all `Subsystem`s.
 	Conclude,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn leaves_update(deactivated: &[Hash]) -> ActiveLeavesUpdate {
+		ActiveLeavesUpdate { activated: None, deactivated: deactivated.into() }
+	}
+
+	#[test]
+	fn eq_is_symmetric_with_duplicate_deactivated_hashes() {
+		let h1 = Hash::repeat_byte(0x01);
+		let h2 = Hash::repeat_byte(0x02);
+
+		let dup = leaves_update(&[h1, h1]);
+		let distinct = leaves_update(&[h1, h2]);
+
+		assert_eq!(dup == distinct, distinct == dup, "PartialEq symmetry violated");
+		assert_ne!(dup, distinct);
+	}
+
+	#[test]
+	fn eq_treats_deactivated_as_a_set() {
+		let h1 = Hash::repeat_byte(0x01);
+		let h2 = Hash::repeat_byte(0x02);
+
+		let a = leaves_update(&[h1, h2, h1]);
+		let b = leaves_update(&[h2, h1]);
+
+		assert_eq!(a, b);
+		assert_eq!(b, a);
+	}
 }
