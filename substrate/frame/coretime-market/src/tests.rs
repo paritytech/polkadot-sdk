@@ -19,8 +19,8 @@
 
 use crate::{
 	mock::*,
-	pallet::{Bids, Configuration, SaleInfo},
-	BidDisplacement, Event, InitData, SalePhase,
+	pallet::{Assignments, Bids, Configuration, SaleInfo},
+	AssignmentSource, Event, InitData, SalePhase,
 };
 use fp_coretime::{
 	market::{AdjustBidResult, Market, OrderResult, RenewalOrderResult, TickAction},
@@ -64,6 +64,13 @@ fn place_bid(
 	price_limit: u64,
 ) -> Result<OrderResult<u64, u64, u32>, Error> {
 	<CoretimeMarket as Market<u64, u64, u64>>::place_order(block_number, &who, price_limit)
+}
+
+fn auction_wins(who: u64) -> usize {
+	Assignments::<Test>::get()
+		.iter()
+		.filter(|a| a.who == who && matches!(a.source, AssignmentSource::Auction { .. }))
+		.count()
 }
 
 fn place_renewal(
@@ -112,9 +119,7 @@ fn configure_works() {
 #[test]
 fn configure_rejects_invalid() {
 	TestExt::new().execute_with(|| {
-		let configure = |config| {
-			<CoretimeMarket as Market<u64, u64, u64>>::configure(config)
-		};
+		let configure = |config| <CoretimeMarket as Market<u64, u64, u64>>::configure(config);
 
 		let mut config = new_config();
 		config.market_period = 0;
@@ -316,9 +321,7 @@ fn lower_bid_rejected_when_full() {
 fn adjust_bid_raise_works() {
 	TestExt::new().execute_with(|| {
 		start_sales(100);
-		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else {
-			panic!()
-		};
+		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else { panic!() };
 
 		let result = adjust_bid(0, id, 1, Some(180)).unwrap();
 		match result {
@@ -635,23 +638,6 @@ fn double_renewal_prevented() {
 }
 
 #[test]
-fn displacement_fails_when_pending_actions_full() {
-	TestExt::new().execute_with(|| {
-		let sale = setup_renewal_phase(&[(1, 200), (2, 150)]);
-
-		// Pre-fill PendingRenewalActions to capacity.
-		crate::pallet::PendingDisplacements::<Test>::put(sp_runtime::BoundedVec::truncate_from(
-			(0..100u64)
-				.map(|i| BidDisplacement { who: i, refund: 50 })
-				.collect::<alloc::vec::Vec<_>>(),
-		));
-
-		TestRenewalRights::set(3, sale.region_begin, 1);
-		assert_noop!(place_renewal(25, 3, 0, sale.region_begin), Error::TooManyBids);
-	});
-}
-
-#[test]
 fn multiple_renewal_rights_respected() {
 	TestExt::new().execute_with(|| {
 		let sale = setup_renewal_phase(&[]);
@@ -724,23 +710,26 @@ fn no_displacement_when_not_oversubscribed() {
 }
 
 #[test]
-fn quotas_cleared_between_sales() {
+fn renewals_do_not_carry_over_between_sales() {
 	TestExt::new().execute_with(|| {
-		TestRenewalRights::set(1, FIRST_REGION_BEGIN, 2);
 		start_sales(100);
-		place_bid(0, 1, 200).unwrap();
 		tick(20);
 
 		let sale = SaleInfo::<Test>::get().unwrap();
-		let quota = crate::pallet::Quotas::<Test>::get(1);
-		assert_eq!(quota.auction_wins, 1);
+		TestRenewalRights::set(1, sale.region_begin, 1);
+		assert_ok!(place_renewal(25, 1, 0, sale.region_begin));
+		assert_noop!(place_renewal(25, 1, 0, sale.region_begin), Error::Unavailable);
 
 		tick(30);
+		assert!(Assignments::<Test>::get().is_empty());
 		tick_with_ts(35, sale.region_begin);
+		tick(55);
 
-		let quota = crate::pallet::Quotas::<Test>::get(1);
-		assert_eq!(quota.auction_wins, 0);
-		assert_eq!(quota.renewals_used, 0);
+		// The renewal of the previous sale does not count against the rights of this one.
+		let next_sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(next_sale.phase, SalePhase::Renewal);
+		TestRenewalRights::set(1, next_sale.region_begin, 1);
+		assert_ok!(place_renewal(55, 1, 0, next_sale.region_begin));
 	});
 }
 
@@ -973,14 +962,14 @@ fn displaced_auction_win_stops_counting_against_tenant_protection() {
 		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Renewal));
 		let sale = SaleInfo::<Test>::get().unwrap();
 
-		assert_eq!(crate::pallet::Quotas::<Test>::get(1).auction_wins, 2);
+		assert_eq!(auction_wins(1), 2);
 
 		// User 2 renews and displaces one of user 1's unprotected auction wins.
 		TestRenewalRights::set(2, sale.region_begin, 1);
 		assert_ok!(place_renewal(25, 2, 0, sale.region_begin));
 
 		// User 1 now has 1 active auction win left, matching their 1 renewal right.
-		assert_eq!(crate::pallet::Quotas::<Test>::get(1).auction_wins, 1);
+		assert_eq!(auction_wins(1), 1);
 
 		// User 3 cannot displace user 1's remaining protected auction win.
 		TestRenewalRights::set(3, sale.region_begin, 1);

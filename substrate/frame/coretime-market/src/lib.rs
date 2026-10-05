@@ -137,6 +137,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxBids: Get<BidId>;
 
+		/// Maximum number of cores offered in a single sale.
+		#[pallet::constant]
+		type MaxCores: Get<u32>;
+
 		/// Source of randomness for shuffling equal-price bids at settlement.
 		///
 		/// Must not be predictable or influenceable by bidders, otherwise they can bias
@@ -287,26 +291,13 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextBidId<T: Config> = StorageValue<_, BidId, ValueQuery>;
 
-	/// Auction winners after settlement. May be displaced by renewers during the Renewal phase.
+	/// Cores assigned in the current sale.
+	///
+	/// Filled with auction winners at settlement, extended or taken over by renewals during the
+	/// Renewal phase, and drained at sale finalization.
 	#[pallet::storage]
-	pub type Allocations<T: Config> = StorageValue<
-		_,
-		BoundedVec<AllocationRecord<T::AccountId, BalanceOf<T>>, T::MaxBids>,
-		ValueQuery,
-	>;
-
-	/// Per-account quota tracking: auction wins and renewals used this sale.
-	#[pallet::storage]
-	pub type Quotas<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, AccountQuota, ValueQuery>;
-
-	/// Actions accumulated during the Renewal phase, resolved at sale finalization.
-	#[pallet::storage]
-	pub type PendingDisplacements<T: Config> = StorageValue<
-		_,
-		BoundedVec<BidDisplacement<T::AccountId, BalanceOf<T>>, T::MaxBids>,
-		ValueQuery,
-	>;
+	pub type Assignments<T: Config> =
+		StorageValue<_, BoundedVec<AssignmentOf<T>, T::MaxCores>, ValueQuery>;
 }
 
 impl<T: Config> Pallet<T> {
@@ -387,7 +378,6 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			ideal_cores_sold: 0,
 			cores_offered: 0,
 			cores_sold: 0,
-			renewal_count: 0,
 			phase: SalePhase::Settlement, // Dummy — rotate_sale will create the real one.
 		};
 
@@ -450,76 +440,65 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		ensure!(sale.phase == SalePhase::Renewal, Error::<T>::WrongPhase);
 		ensure!(renewal.when == sale.region_begin, Error::<T>::Unavailable);
 
-		// RFC-17: auction wins count against renewal quota.
-		// remaining = total_rights - auction_wins - renewals_already_used
-		let total_rights = T::RenewalRights::renewal_rights_count(who, sale.region_begin);
-		let quota = Quotas::<T>::get(who);
-		let remaining = total_rights
-			.saturating_sub(quota.auction_wins)
-			.saturating_sub(quota.renewals_used);
-		ensure!(remaining > 0, Error::<T>::Unavailable);
+		// RFC-17: auction wins count against renewal rights.
+		let mut assignments = Assignments::<T>::get();
+		let rights = T::RenewalRights::renewal_rights_count(who, sale.region_begin);
+		ensure!(cores_assigned_to::<T>(&assignments, who) < rights, Error::<T>::Unavailable);
 
 		// TODO: Put `clearing_price` into `SalePhase::Renewal` to have the guarantee that it will
 		// be present.
 		let clearing = sale.clearing_price.defensive_unwrap_or(sale.reserve_price);
 
-		let allocations = Allocations::<T>::get();
-		// Use cores_sold from settlement (not Allocations len, which shrinks
-		// after displacement) to determine if the auction was oversubscribed.
+		// Use cores_sold from settlement (not the assignment count, which grows with renewals)
+		// to determine if the auction was oversubscribed.
 		let oversubscribed = sale.cores_sold == sale.cores_offered;
 
 		let penalty = if oversubscribed { config.penalty * clearing } else { Zero::zero() };
 		let renewal_price = clearing.saturating_add(penalty);
 
-		let allocated_count = (allocations.len() as u16).saturating_add(sale.renewal_count as u16);
-
-		let core = if allocated_count < sale.cores_offered {
-			// Unallocated core available: direct renewal.
-			sale.first_core.saturating_add(allocated_count)
+		let core = if assignments.len() < sale.cores_offered as usize {
+			// Unassigned core available: direct renewal.
+			let core = sale.first_core.saturating_add(assignments.len() as CoreIndex);
+			assignments
+				.try_push(Assignment {
+					core,
+					who: who.clone(),
+					source: AssignmentSource::Renewal { displaced: None },
+				})
+				.map_err(|_| Error::<T>::Unavailable)?;
+			core
 		} else if oversubscribed {
-			// All cores allocated: displace the lowest-priced winner whose renewal
-			// rights are fully consumed by auction wins.
-			let mut allocations = allocations;
-
-			let displace_idx = allocations
+			// All cores assigned: take over the core of the lowest-priced auction winner who
+			// holds more cores than renewal rights.
+			let (idx, bid_id) = assignments
 				.iter()
 				.enumerate()
-				.filter(|(_, a)| {
-					let rights = T::RenewalRights::renewal_rights_count(&a.who, sale.region_begin);
-					let wins = Quotas::<T>::get(&a.who).auction_wins;
-					rights < wins
+				.filter_map(|(i, a)| match a.source {
+					AssignmentSource::Auction { bid_id, bid_price } => {
+						Some((i, a, bid_id, bid_price))
+					},
+					AssignmentSource::Renewal { .. } => None,
 				})
-				.min_by_key(|(_, a)| a.bid_price)
-				.map(|(i, _)| i)
+				.filter(|(_, a, ..)| {
+					cores_assigned_to::<T>(&assignments, &a.who) >
+						T::RenewalRights::renewal_rights_count(&a.who, sale.region_begin)
+				})
+				.min_by_key(|(.., bid_price)| *bid_price)
+				.map(|(i, _, bid_id, _)| (i, bid_id))
 				.ok_or(Error::<T>::Unavailable)?;
 
-			let displaced = allocations.remove(displace_idx);
-			let core = displaced.core;
-			let refund = clearing;
+			let assignment = &mut assignments[idx];
+			let displaced = core::mem::replace(&mut assignment.who, who.clone());
+			assignment.source = AssignmentSource::Renewal { displaced: Some(displaced.clone()) };
 
-			PendingDisplacements::<T>::try_mutate(|displacements| {
-				displacements
-					.try_push(BidDisplacement { who: displaced.who.clone(), refund })
-					.map_err(|_| Error::<T>::TooManyBids)
-			})?;
-
-			Quotas::<T>::mutate(&displaced.who, |quota| quota.auction_wins.saturating_dec());
-			Self::deposit_event(Event::BidDisplaced {
-				who: displaced.who,
-				bid_id: displaced.bid_id,
-				refund,
-			});
-			Allocations::<T>::put(allocations);
-
-			core
+			Self::deposit_event(Event::BidDisplaced { who: displaced, bid_id, refund: clearing });
+			assignment.core
 		} else {
 			return Err(Error::<T>::Unavailable);
 		};
 
+		Assignments::<T>::put(assignments);
 		let region_id = RegionId { begin: sale.region_begin, core, mask: CoreMask::complete() };
-
-		SaleInfo::<T>::mutate_extant(|sale| sale.renewal_count.saturating_inc());
-		Quotas::<T>::mutate(who, |quota| quota.renewals_used.saturating_inc());
 
 		Self::deposit_event(Event::RenewalExercised {
 			who: who.clone(),
@@ -628,7 +607,6 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 
 					let mut finalize_actions = finalize_sale::<T>(&sale);
 					Self::set_phase(SalePhase::Settlement);
-					let _ = Quotas::<T>::clear(u32::MAX, None);
 
 					Self::deposit_event(Event::PhaseTransitioned {
 						from: SalePhase::Renewal,
@@ -706,6 +684,11 @@ fn descending_price<T: Config>(
 	Ok(sale.opening_price.saturating_sub(descent))
 }
 
+/// Number of cores assigned to `who` in the current sale, through the auction or renewals.
+fn cores_assigned_to<T: Config>(assignments: &[AssignmentOf<T>], who: &T::AccountId) -> u32 {
+	assignments.iter().filter(|a| a.who == *who).count().saturated_into()
+}
+
 /// Fisher-Yates shuffle of the sub-slice of bids that tie at the clearing price.
 fn shuffle_marginal_bids<T: Config>(
 	bids: &mut [BidRecord<T::AccountId, BalanceOf<T>>],
@@ -764,28 +747,26 @@ fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>>
 		actions.push(TickAction::Refund { amount: bid.price, who: bid.who.clone() });
 	}
 
-	// Process winners: refund excess, track auction wins, build allocations.
-	let allocations: Vec<_> = winners
+	// Process winners: refund excess, assign cores.
+	let assignments: Vec<_> = winners
 		.into_iter()
 		.map(|(i, bid)| {
 			let excess = bid.price.saturating_sub(clearing_price);
 			if !excess.is_zero() {
 				actions.push(TickAction::Refund { amount: excess, who: bid.who.clone() });
 			}
-			Quotas::<T>::mutate(&bid.who, |q| q.auction_wins.saturating_inc());
-			AllocationRecord {
+			Assignment {
+				core: sale.first_core.saturating_add(i as CoreIndex),
 				who: bid.who,
-				bid_price: bid.price,
-				bid_id: bid.bid_id,
-				core: sale.first_core.saturating_add(i as u16),
+				source: AssignmentSource::Auction { bid_id: bid.bid_id, bid_price: bid.price },
 			}
 		})
 		.collect();
 
-	let winner_count = allocations.len() as u32;
-	Allocations::<T>::put(
-		BoundedVec::try_from(allocations)
-			.expect("Auction winner count cannot exceed bid count; qed"),
+	let winner_count = assignments.len() as u32;
+	Assignments::<T>::put(
+		BoundedVec::try_from(assignments)
+			.expect("winners never exceed cores_offered, which is capped at MaxCores; qed"),
 	);
 
 	let mut updated_sale = sale.clone();
@@ -803,36 +784,41 @@ fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>>
 /// Issues regions for auction winners, refunds displaced bids, and updates
 /// cores_sold to the final number of occupied cores.
 fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> {
-	let mut actions = vec![];
-	let allocations = Allocations::<T>::take();
-	let count = allocations.len() as u32;
+	let assignments = Assignments::<T>::take();
+	let cores_sold: CoreIndex = assignments.len().saturated_into();
 	let clearing_price = sale.clearing_price.unwrap_or(sale.reserve_price);
 
-	for alloc in allocations.into_iter() {
-		let region_id =
-			RegionId { begin: sale.region_begin, core: alloc.core, mask: CoreMask::complete() };
-
-		actions.push(TickAction::SellRegion {
-			owner: alloc.who,
-			paid: clearing_price,
-			region_id,
-			region_end: sale.region_end,
-		});
+	let mut actions = Vec::with_capacity(assignments.len());
+	let mut regions_issued = 0u32;
+	for assignment in assignments {
+		match assignment.source {
+			AssignmentSource::Auction { .. } => {
+				let region_id = RegionId {
+					begin: sale.region_begin,
+					core: assignment.core,
+					mask: CoreMask::complete(),
+				};
+				actions.push(TickAction::SellRegion {
+					owner: assignment.who,
+					paid: clearing_price,
+					region_id,
+					region_end: sale.region_end,
+				});
+				regions_issued.saturating_inc();
+			},
+			AssignmentSource::Renewal { displaced: Some(who) } => {
+				actions.push(TickAction::Refund { who, amount: clearing_price })
+			},
+			AssignmentSource::Renewal { displaced: None } => {},
+		}
 	}
 
-	for displacement in PendingDisplacements::<T>::take() {
-		actions.push(TickAction::Refund { who: displacement.who, amount: displacement.refund });
-	}
-
-	let remaining_auction_wins: CoreIndex = count.saturated_into();
-	let renewals: CoreIndex = sale.renewal_count.saturated_into();
-	let cores_sold = remaining_auction_wins.saturating_add(renewals);
 	debug_assert!(cores_sold <= sale.cores_offered);
 	SaleInfo::<T>::mutate_extant(|sale| {
 		sale.cores_sold = cores_sold;
 	});
 
-	Pallet::<T>::deposit_event(Event::SaleFinalized { regions_issued: count });
+	Pallet::<T>::deposit_event(Event::SaleFinalized { regions_issued });
 
 	actions
 }
@@ -904,7 +890,9 @@ fn rotate_sale<T: Config>(
 
 	let max_possible_sales = range.to.saturating_sub(range.from);
 	let limit_cores_offered = config.limit_cores_offered.unwrap_or(CoreIndex::max_value());
-	let cores_offered = limit_cores_offered.min(max_possible_sales);
+	let cores_offered = limit_cores_offered
+		.min(max_possible_sales)
+		.min(T::MaxCores::get().saturated_into());
 	let ideal_cores_sold = (config.ideal_bulk_proportion * cores_offered as u32) as u16;
 
 	let region_begin = old_sale.region_end;
@@ -925,7 +913,6 @@ fn rotate_sale<T: Config>(
 		ideal_cores_sold,
 		cores_offered,
 		cores_sold: 0,
-		renewal_count: 0,
 		phase: SalePhase::Market,
 	}
 }

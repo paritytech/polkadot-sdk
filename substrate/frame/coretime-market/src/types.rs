@@ -27,6 +27,7 @@ pub(crate) type BalanceOf<T> = <T as crate::Config>::Balance;
 pub(crate) type RelayBlockNumberOf<T> = <T as crate::Config>::RelayBlockNumber;
 pub(crate) type ConfigRecordOf<T> = ConfigRecord<RelayBlockNumberOf<T>, BalanceOf<T>>;
 pub(crate) type SaleInfoRecordOf<T> = SaleInfoRecord<BalanceOf<T>, RelayBlockNumberOf<T>>;
+pub(crate) type AssignmentOf<T> = Assignment<<T as frame_system::Config>::AccountId, BalanceOf<T>>;
 pub(crate) type TickActionOf<T> =
 	TickAction<<T as frame_system::Config>::AccountId, BalanceOf<T>, RelayBlockNumberOf<T>>;
 
@@ -78,8 +79,6 @@ pub struct SaleInfoRecord<Balance, BlockNumber> {
 	pub first_core: CoreIndex,
 	/// Number of cores which have been sold; never more than cores_offered.
 	pub cores_sold: CoreIndex,
-	/// Number of renewals exercised in the current Renewal phase.
-	pub renewal_count: u32,
 	/// The current phase of this sale cycle.
 	pub phase: SalePhase,
 }
@@ -192,49 +191,34 @@ pub struct BidRecord<AccountId, Balance> {
 	pub price: Balance,
 }
 
-/// Record of an auction winner after settlement.
+/// A core assigned to an account in the current sale.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
-pub struct AllocationRecord<AccountId, Balance> {
-	/// The winning bidder.
-	pub who: AccountId,
-	/// The original bid price (used for displacement priority — lowest bid displaced first).
-	pub bid_price: Balance,
-	/// The unique bid ID.
-	pub bid_id: BidId,
-	/// The core index assigned to this allocation.
+pub struct Assignment<AccountId, Balance> {
+	/// The assigned core.
 	pub core: CoreIndex,
-}
-
-/// Per-account tracking of how many cores were acquired through each path in a sale.
-/// Used to enforce the RFC-17 rule: auction wins + renewals ≤ total renewal rights.
-#[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	Default,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
-)]
-pub struct AccountQuota {
-	/// Number of cores won in the auction.
-	pub auction_wins: u32,
-	/// Number of renewals exercised during the Renewal phase.
-	pub renewals_used: u32,
-}
-
-/// Representation of a bid that was displaced during the renewal phase that will resolve to
-/// `TickAction::Refund` at the finalization.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct BidDisplacement<AccountId, Balance> {
-	/// The bidder account.
+	/// The account the core is assigned to.
 	pub who: AccountId,
-	/// Remaining locked amount (the clearing price). Excess was already refunded at
-	/// auction settlement.
-	pub refund: Balance,
+	/// How the core was acquired.
+	pub source: AssignmentSource<AccountId, Balance>,
+}
+
+/// How a core in the current sale was acquired.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum AssignmentSource<AccountId, Balance> {
+	/// Won in the auction. Can be displaced by a renewer during the Renewal phase.
+	Auction {
+		/// The winning bid.
+		bid_id: BidId,
+		/// The original bid price. The lowest-priced winner is displaced first.
+		bid_price: Balance,
+	},
+	/// Renewed during the Renewal phase.
+	Renewal {
+		/// The auction winner this renewal displaced, refunded at sale finalization.
+		displaced: Option<AccountId>,
+	},
 }

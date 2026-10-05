@@ -137,6 +137,7 @@ impl crate::pallet::Config for Test {
 	type TimesliceProvider = TestTimesliceProvider;
 	type RenewalRights = TestRenewalRights;
 	type MaxBids = ConstU32<100>;
+	type MaxCores = ConstU32<100>;
 	type Randomness = TestRandomness;
 }
 

@@ -2532,6 +2532,7 @@ impl pallet_coretime_market::Config for Runtime {
 	type TimesliceProvider = MarketTimeslices;
 	type RenewalRights = MarketRenewalRights;
 	type MaxBids = ConstU32<100>;
+	type MaxCores = ConstU32<100>;
 	type Randomness = RandomnessCollectiveFlip;
 }
 

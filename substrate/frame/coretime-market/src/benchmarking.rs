@@ -19,7 +19,7 @@
 
 use super::*;
 use fp_coretime::{
-	market::{CoreRangeProvider, Market, TimesliceProvider},
+	market::{Market, TimesliceProvider},
 	PotentialRenewalId,
 };
 use frame_benchmarking::v2::*;
@@ -50,7 +50,14 @@ fn setup_sale<T: Config>() -> Result<(), BenchmarkError> {
 	Pallet::<T>::configure(config).map_err(|_| BenchmarkError::Weightless)?;
 	let init = InitData { reserve_price: 100u32.into() };
 	Pallet::<T>::start_sales(0u32.into(), init).map_err(|_| BenchmarkError::Weightless)?;
+	// Offer as many cores as can be won in the auction, independent of the runtime's core range.
+	SaleInfo::<T>::mutate_extant(|sale| sale.cores_offered = max_cores::<T>());
 	Ok(())
+}
+
+/// The largest number of cores a sale can offer and fill through the auction.
+fn max_cores<T: Config>() -> CoreIndex {
+	T::MaxCores::get().min(T::MaxBids::get()).saturated_into()
 }
 
 fn fill_bids<T: Config>(n: u32) -> Result<(), BenchmarkError> {
@@ -141,7 +148,7 @@ mod benches {
 	fn place_renewal_order() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
 
-		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap();
+		let cores = max_cores::<T>();
 		fill_bids::<T>(cores as u32)?;
 
 		advance_to_renewal::<T>()?;
@@ -247,7 +254,7 @@ mod benches {
 	fn sale_phase_transition_to_settlement() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
 
-		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap();
+		let cores = max_cores::<T>();
 		fill_bids::<T>(cores as u32)?;
 
 		advance_to_renewal::<T>()?;
