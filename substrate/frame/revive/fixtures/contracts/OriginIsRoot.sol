@@ -58,6 +58,14 @@ contract OriginIsRoot {
 		return abi.decode(ret, (bool));
 	}
 
+	/// Delegate-call `data` into `_impl` and decode the returned `bool`. Passing the calldata of
+	/// another `delegate*` function chains a second delegate call.
+	function delegateBool(address _impl, bytes calldata data) external returns (bool) {
+		(bool ok, bytes memory ret) = _impl.delegatecall(data);
+		require(ok, "delegate failed");
+		return abi.decode(ret, (bool));
+	}
+
 	/// Directly invoke `callerIsOrigin()` on the System precompile.
 	function callerIsOrigin() external view returns (bool) {
 		return ISystem(SYSTEM_ADDR).callerIsOrigin();

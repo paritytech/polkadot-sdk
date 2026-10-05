@@ -1963,6 +1963,23 @@ where
 		core::iter::once(&self.first_frame).chain(&self.frames).rev()
 	}
 
+	/// The caller of the frame `depth` frames below the top one.
+	///
+	/// A delegate frame runs as the delegating contract, so its caller is the one recorded in
+	/// its [`DelegateInfo`]. Any other frame is called by the frame below it, or by the origin
+	/// if it is the first frame.
+	fn caller_at(&self, depth: usize) -> Origin<T> {
+		let Some(frame) = self.frames().nth(depth) else { return self.origin.clone() };
+		if let Some(DelegateInfo { caller, .. }) = &frame.delegate {
+			caller.clone()
+		} else {
+			self.frames()
+				.nth(depth + 1)
+				.map(|f| Origin::from_account_id(f.account_id.clone()))
+				.unwrap_or(self.origin.clone())
+		}
+	}
+
 	/// Same as `frames` but with a mutable reference as iterator item.
 	fn frames_mut(&mut self) -> impl Iterator<Item = &mut Frame<T>> {
 		core::iter::once(&mut self.first_frame).chain(&mut self.frames).rev()
@@ -2446,28 +2463,11 @@ where
 			return mock_caller;
 		}
 
-		if let Some(DelegateInfo { caller, .. }) = &self.top_frame().delegate {
-			caller.clone()
-		} else {
-			self.frames()
-				.nth(1)
-				.map(|f| Origin::from_account_id(f.account_id.clone()))
-				.unwrap_or(self.origin.clone())
-		}
+		self.caller_at(0)
 	}
 
 	fn caller_of_caller(&self) -> Origin<T> {
-		// The caller of the top frame's caller, resolved the same way `caller` resolves the
-		// caller of the top frame: a delegate frame keeps the caller of the contract it runs as.
-		let Some(caller_frame) = self.frames().nth(1) else { return self.origin.clone() };
-		if let Some(DelegateInfo { caller, .. }) = &caller_frame.delegate {
-			caller.clone()
-		} else {
-			self.frames()
-				.nth(2)
-				.map(|f| Origin::from_account_id(f.account_id.clone()))
-				.unwrap_or(self.origin.clone())
-		}
+		self.caller_at(1)
 	}
 
 	fn origin(&self) -> &Origin<T> {
