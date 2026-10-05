@@ -484,6 +484,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::NonTransfer => !matches!(
 				c,
 				RuntimeCall::Balances { .. } |
+				// `transfer_assets`, `teleport_assets` and friends move assets to another chain,
+				// and `execute` can express the same thing as raw XCM.
+				RuntimeCall::PolkadotXcm(..) |
 				// `request_judgement` puts up a deposit to transfer to a registrar
 				RuntimeCall::Identity(pallet_identity::Call::request_judgement { .. })
 			),

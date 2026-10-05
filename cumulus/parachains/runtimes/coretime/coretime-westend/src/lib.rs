@@ -510,6 +510,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::NonTransfer => !matches!(
 				c,
 				RuntimeCall::Balances { .. } |
+				// `transfer_assets`, `teleport_assets` and friends move assets to another chain,
+				// and `execute` can express the same thing as raw XCM.
+				RuntimeCall::PolkadotXcm(..) |
 				// `purchase`, `renew`, `transfer` and `purchase_credit` are pretty self explanatory.
 				RuntimeCall::Broker(pallet_broker::Call::purchase { .. }) |
 				RuntimeCall::Broker(pallet_broker::Call::renew { .. }) |
