@@ -181,11 +181,10 @@ where
 				IERC20Calls::permit(_)
 		);
 		if changes_state {
-			if env.is_read_only() {
-				return Err(Error::Error(
-					pallet_revive::Error::<Self::T>::StateChangeDenied.into(),
-				));
-			}
+			frame_support::ensure!(
+				!env.is_read_only(),
+				pallet_revive::Error::<Self::T>::StateChangeDenied
+			);
 			env.ensure_not_stipend_frame()?;
 		}
 

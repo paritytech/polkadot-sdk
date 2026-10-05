@@ -757,3 +757,105 @@ fn delegatecall_is_rejected() {
 		);
 	});
 }
+
+// A `transfer` or `send` receiver gets Ethereum's 2300 gas stipend, which cannot pay for a swap.
+// The swap does not go through contract storage, so the precompile checks the stipend frame
+// itself.
+#[test]
+fn swap_is_denied_in_the_receiver_of_a_send() {
+	use alloy::sol_types::{SolConstructor, SolValue};
+	use pallet_revive_fixtures::{CallingReceiver, FixtureType, StipendSender};
+
+	const AMOUNT_IN: u64 = 100;
+	const RECEIVER_ASSETS: u64 = 1_000;
+
+	// Returns whether the sender saw its call denied, and the assets the receiver swapped away.
+	let swap_from_receiver = |gas_limit: u64| {
+		new_test_ext().execute_with(|| {
+			let provider = 1u64;
+			setup_pool(provider, 10_000, 10_000);
+
+			let deploy = |name: &str, constructor: Vec<u8>, salt: [u8; 32]| {
+				let (mut code, _) =
+					pallet_revive_fixtures::compile_module_with_type(name, FixtureType::Solc)
+						.unwrap();
+				code.extend(constructor);
+				pallet_revive::Pallet::<Test>::bare_instantiate(
+					RuntimeOrigin::signed(FIXTURE_DEPLOYER),
+					0u64.into(),
+					TransactionLimits::WeightAndDeposit {
+						weight_limit: Weight::MAX,
+						deposit_limit: u64::MAX,
+					},
+					Code::Upload(code),
+					vec![],
+					Some(salt),
+					&ExecConfig::new_substrate_tx(),
+				)
+				.result
+				.unwrap()
+				.addr
+			};
+
+			let swap = IAssetConversion::swapExactTokensForTokensCall {
+				path: vec![encode_asset(1).into(), encode_native().into()],
+				amountIn: U256::from(AMOUNT_IN),
+				amountOutMin: U256::from(1),
+				sendTo: account_addr(&3u64),
+				keepAlive: false,
+			};
+			let receiver = deploy(
+				"CallingReceiver",
+				CallingReceiver::constructorCall {
+					_target: precompile_address().0.into(),
+					_data: swap.abi_encode().into(),
+				}
+				.abi_encode(),
+				[1; 32],
+			);
+			let receiver_account =
+				<Test as pallet_revive::Config>::AddressMapper::to_account_id(&receiver);
+			assert_ok!(Assets::mint(
+				RuntimeOrigin::signed(provider),
+				1,
+				receiver_account,
+				RECEIVER_ASSETS
+			));
+			let sender = deploy(
+				"StipendSender",
+				StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
+				[2; 32],
+			);
+
+			// With an unlimited deposit, an explicit gas limit buys the callee almost no weight.
+			let result = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(FIXTURE_DEPLOYER),
+				sender,
+				0u64.into(),
+				TransactionLimits::WeightAndDeposit {
+					weight_limit: pallet_revive::test_utils::WEIGHT_LIMIT,
+					deposit_limit: pallet_revive::test_utils::deposit_limit::<Test>(),
+				},
+				StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
+				&ExecConfig::new_substrate_tx(),
+			)
+			.result
+			.unwrap();
+			let assets_left = <NativeAndAssets as Inspect<u64>>::balance(
+				NativeOrWithId::WithId(1),
+				&receiver_account,
+			);
+			(bool::abi_decode(&result.data).unwrap(), RECEIVER_ASSETS - assets_left)
+		})
+	};
+
+	// The raised gas scale lets a call with an explicit gas limit pay for the swap, so only the
+	// stipend check can deny the `send`.
+	crate::mock::GasScale::set(50_000_000);
+	assert_eq!(swap_from_receiver(2300), (true, 0), "the receiver of a `send` should not swap");
+	assert_eq!(
+		[swap_from_receiver(2299), swap_from_receiver(2301)],
+		[(false, AMOUNT_IN); 2],
+		"only a `send` denies swapping"
+	);
+}
