@@ -279,7 +279,7 @@ fn account_rotation_benches(c: &mut Criterion, store: &Arc<Store>) {
 	let keypairs: Vec<_> = (0..ACCOUNTS).map(account_keypair).collect();
 	// Rotating submits target fixture accounts, so they cannot be swept up by the sacrificial
 	// `remove_by` cleanup; collect their hashes and remove them one by one instead.
-	let added = std::sync::Mutex::new(Vec::new());
+	let mut added = Vec::new();
 
 	let mut g = c.benchmark_group("full4m_account_rotation");
 	g.sample_size(10);
@@ -299,7 +299,7 @@ fn account_rotation_benches(c: &mut Criterion, store: &Arc<Store>) {
 						)
 					})
 					.collect();
-				added.lock().unwrap().extend(batch.iter().map(|s| s.hash()));
+				added.extend(batch.iter().map(|s| s.hash()));
 				batch
 			},
 			|statements| {
@@ -328,7 +328,7 @@ fn account_rotation_benches(c: &mut Criterion, store: &Arc<Store>) {
 						)
 					})
 					.collect();
-				added.lock().unwrap().extend(batch.iter().map(|s| s.hash()));
+				added.extend(batch.iter().map(|s| s.hash()));
 				batch
 			},
 			|statements| {
@@ -373,7 +373,6 @@ fn account_rotation_benches(c: &mut Criterion, store: &Arc<Store>) {
 	g.finish();
 
 	// Put the fixture accounts back exactly as they were.
-	let added = added.into_inner().expect("no panics while collecting; qed");
 	let started = Instant::now();
 	for hash in &added {
 		store.remove(hash).expect("remove succeeds");
@@ -403,7 +402,7 @@ fn eviction_bench(c: &mut Criterion, dir: &std::path::Path) {
 	let db = dir.join("db");
 	let store = Arc::new(open_store_retry(&db, TestClient::capped(per_account() as u32)));
 	let acc0 = account_keypair(0);
-	let added = std::sync::Mutex::new(Vec::new());
+	let mut added = Vec::new();
 
 	let mut g = c.benchmark_group("full4m_evict");
 	g.sample_size(10);
@@ -416,7 +415,7 @@ fn eviction_bench(c: &mut Criterion, dir: &std::path::Path) {
 				let batch: Vec<_> = (0..TOTAL_OPS as u64)
 					.map(|k| create_statement(base + k, &[], STATEMENT_DATA_SIZE, expiry, &acc0))
 					.collect();
-				added.lock().unwrap().extend(batch.iter().map(|s| s.hash()));
+				added.extend(batch.iter().map(|s| s.hash()));
 				batch
 			},
 			|statements| submit_concurrently(&store, statements),
@@ -425,7 +424,6 @@ fn eviction_bench(c: &mut Criterion, dir: &std::path::Path) {
 	});
 	g.finish();
 
-	let added = added.into_inner().expect("no panics while collecting; qed");
 	restore_account0(&store, &added);
 	drop(Arc::try_unwrap(store).ok().expect("all eviction bench references dropped"));
 }

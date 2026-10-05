@@ -73,7 +73,7 @@ fn timed_loop<S>(
 /// The sample at quantile `q` of `sorted`, by the nearest-rank rule.
 fn quantile(sorted: &[f64], q: f64) -> f64 {
 	let rank = (q * sorted.len() as f64).ceil() as usize;
-	sorted[rank.clamp(1, sorted.len()) - 1]
+	sorted[rank - 1]
 }
 
 fn summary(label: &str, sorted: &[f64], scale: f64, unit: &str) -> String {
