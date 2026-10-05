@@ -71,6 +71,15 @@ fn generate_unscrupulous_account<T: Config<I>, I: 'static>(index: u32) -> T::Acc
 	funded_account::<T, I>("unscrupulous", index)
 }
 
+/// Hash identifying a motion in the underlying collective, see
+/// `pallet_collective::Pallet::proposal_hash`.
+fn proposal_hash<T: Config<I>, I: 'static>(
+	proposal: &<T as Config<I>>::Proposal,
+	threshold: u32,
+) -> T::Hash {
+	T::Hashing::hash_of(&(proposal, threshold))
+}
+
 fn set_members<T: Config<I>, I: 'static>() {
 	let fellows: BoundedVec<_, T::MaxMembersCount> =
 		BoundedVec::try_from(vec![fellow::<T, I>(1), fellow::<T, I>(2)]).unwrap();
@@ -135,7 +144,7 @@ mod benchmarks {
 			bytes_in_storage,
 		);
 
-		let proposal_hash = T::Hashing::hash_of(&proposal);
+		let proposal_hash = proposal_hash::<T, I>(&proposal, threshold);
 		assert_eq!(T::ProposalProvider::proposal_of(proposal_hash), Some(proposal));
 		Ok(())
 	}
@@ -169,7 +178,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				b,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = proposal_hash::<T, I>(&proposal, threshold);
 		}
 
 		let index = p - 1;
@@ -235,7 +244,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = proposal_hash::<T, I>(&proposal, threshold);
 			assert_eq!(T::ProposalProvider::proposal_of(last_hash), Some(proposal));
 		}
 
@@ -306,7 +315,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = proposal_hash::<T, I>(&proposal, threshold);
 			assert_eq!(T::ProposalProvider::proposal_of(last_hash), Some(proposal));
 		}
 
@@ -383,7 +392,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = proposal_hash::<T, I>(&proposal, threshold);
 			assert_eq!(T::ProposalProvider::proposal_of(last_hash), Some(proposal));
 		}
 
@@ -450,7 +459,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = proposal_hash::<T, I>(&proposal, threshold);
 			assert_eq!(T::ProposalProvider::proposal_of(last_hash), Some(proposal));
 		}
 
