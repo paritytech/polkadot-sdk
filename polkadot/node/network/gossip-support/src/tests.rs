@@ -1238,6 +1238,46 @@ fn test_log_output() {
 	);
 }
 
+// A duplicate `PeerConnected` notification for an already-connected peer must not
+// orphan the peer's previous authority ids in `connected_authorities`.
+#[test]
+fn handle_connect_disconnect_cleans_up_stale_authorities_on_duplicate_connect() {
+	let mock_authority_discovery =
+		MockAuthorityDiscovery::new(PAST_PRESENT_FUTURE_AUTHORITIES.clone());
+	let mut state = make_subsystem_with_authority_discovery(mock_authority_discovery);
+
+	let peer_id = PeerId::random();
+	let alice: AuthorityDiscoveryId = Sr25519Keyring::Alice.public().into();
+	let bob: AuthorityDiscoveryId = Sr25519Keyring::Bob.public().into();
+
+	// First connection notification: peer is authenticated as `alice`.
+	state.handle_connect_disconnect(NetworkBridgeEvent::PeerConnected(
+		peer_id,
+		ObservedRole::Authority,
+		ValidationVersion::V3.into(),
+		Some(HashSet::from([alice.clone()])),
+	));
+
+	assert_eq!(state.connected_peers.get(&peer_id), Some(&HashSet::from([alice.clone()])));
+	assert_eq!(state.connected_authorities.get(&alice), Some(&peer_id));
+
+	// Duplicate connection notification for the same peer, now authenticated as `bob`.
+	state.handle_connect_disconnect(NetworkBridgeEvent::PeerConnected(
+		peer_id,
+		ObservedRole::Authority,
+		ValidationVersion::V3.into(),
+		Some(HashSet::from([bob.clone()])),
+	));
+
+	// The peer's authority set was replaced.
+	assert_eq!(state.connected_peers.get(&peer_id), Some(&HashSet::from([bob.clone()])));
+	// `connected_authorities` should reflect the new mapping.
+	assert_eq!(state.connected_authorities.get(&bob), Some(&peer_id));
+	// And the stale entry for `alice` is not left orphaned.
+	assert_eq!(state.connected_authorities.get(&alice), None);
+	assert_eq!(state.connected_authorities.len(), 1);
+}
+
 #[test]
 fn issues_a_connection_request_when_last_request_was_mostly_unresolved() {
 	let hash = Hash::repeat_byte(0xAA);
