@@ -479,7 +479,7 @@ fn max_deposits_work_nested() {
 		bytes: 100,
 		items: 100,
 		bytes_deposit: 100,
-		items_deposit: 100,
+		items_deposit: 200,
 		immutable_data_len: 0,
 	});
 	nested1.absorb(nested2a, &BOB, Some(&mut nested2a_info));
@@ -511,15 +511,15 @@ fn max_deposits_work_nested() {
 		bytes: 100,
 		items: 100,
 		bytes_deposit: 100,
-		items_deposit: 100,
+		items_deposit: 200,
 		immutable_data_len: 0,
 	});
 	nested1.absorb(nested2b, &BOB, Some(&mut nested2b_info));
-	assert_eq!(nested1.consumed(), Deposit::Refund(3));
+	assert_eq!(nested1.consumed(), Deposit::Refund(13));
 	assert_eq!(nested1.max_charged(), Deposit::Charge(47));
 
 	meter.absorb(nested1, &ALICE, None);
-	assert_eq!(meter.consumed(), Deposit::Refund(3));
+	assert_eq!(meter.consumed(), Deposit::Refund(13));
 	assert_eq!(meter.max_charged(), Deposit::Charge(47));
 }
 
@@ -532,4 +532,80 @@ fn max_deposits_work_for_reverts() {
 
 	meter.absorb_only_max_charged(nested1);
 	assert_eq!(meter.max_charged(), Deposit::Charge(10));
+}
+
+#[test]
+fn replacing_storage_after_rate_change_is_netted() {
+	crate::tests::DepositPerByte::set(10);
+	let mut info = new_info(StorageInfo { bytes: 100, bytes_deposit: 100, ..Default::default() });
+
+	let diff = Diff { bytes_added: 100, bytes_removed: 100, ..Default::default() };
+	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Charge(0));
+	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (100, 100));
+
+	// Only the net addition is priced at the new rate.
+	let diff = Diff { bytes_added: 30, bytes_removed: 20, ..Default::default() };
+	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Charge(100));
+	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (110, 200));
+}
+
+#[test]
+fn storage_added_and_removed_in_same_diff_is_free() {
+	crate::tests::DepositPerByte::set(10);
+	let diff = Diff { bytes_added: 80, bytes_removed: 80, items_added: 1, items_removed: 1 };
+
+	let mut info = new_info(StorageInfo::default());
+	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Charge(0));
+	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (0, 0));
+
+	let mut info = new_info(StorageInfo {
+		bytes: 1000,
+		items: 10,
+		bytes_deposit: 1000,
+		items_deposit: 10,
+		..Default::default()
+	});
+	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Charge(0));
+	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (1000, 1000));
+	assert_eq!((info.storage_items, info.storage_item_deposit), (10, 10));
+}
+
+#[test]
+fn netting_is_unchanged_without_rate_change() {
+	let mut info = new_info(StorageInfo {
+		bytes: 100,
+		items: 10,
+		bytes_deposit: 100,
+		items_deposit: 20,
+		..Default::default()
+	});
+
+	let diff = Diff { bytes_added: 30, bytes_removed: 50, items_added: 1, items_removed: 3 };
+	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Refund(24));
+	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (80, 80));
+	assert_eq!((info.storage_items, info.storage_item_deposit), (8, 16));
+}
+
+#[test]
+fn partial_refund_is_exact() {
+	// `FixedU128` represents 1/3 as slightly less than a third and refunded 0 here.
+	let mut info = new_info(StorageInfo { bytes: 3, bytes_deposit: 3, ..Default::default() });
+
+	let diff = Diff { bytes_removed: 1, ..Default::default() };
+	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Refund(1));
+	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (2, 2));
+}
+
+#[test]
+fn partial_refund_rounds_down() {
+	let mut info = new_info(StorageInfo { bytes: 3, bytes_deposit: 10, ..Default::default() });
+
+	let diff = Diff { bytes_removed: 1, ..Default::default() };
+	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Refund(3));
+	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (2, 7));
+
+	// The unit kept back above is returned once the last byte goes.
+	let diff = Diff { bytes_removed: 2, ..Default::default() };
+	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Refund(7));
+	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (0, 0));
 }

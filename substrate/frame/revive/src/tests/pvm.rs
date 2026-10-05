@@ -977,9 +977,7 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 			<Test as Config>::Currency::total_balance(&contract.account_id),
 			get_contract(&contract.addr).total_deposit() + min_balance,
 		);
-		// + 1 because due to fixed point arithmetic we can sometimes refund
-		// one unit to little
-		assert_eq!(get_contract(&contract.addr).extra_deposit(), 16 + 32 + 2 + 1);
+		assert_eq!(get_contract(&contract.addr).extra_deposit(), 16 + 32 + 2);
 	});
 }
 
@@ -2440,8 +2438,7 @@ fn storage_deposit_works() {
 
 		// Remove more storage (but also add some)
 		assert_ok!(builder::call(addr).data((10u32, 20u32).encode()).build());
-		// -1 for numeric instability
-		let refunded0 = 90 - 10 - 1;
+		let refunded0 = 90 - 10;
 		deposit -= refunded0;
 		assert_eq!(get_contract(&addr).total_deposit(), deposit);
 

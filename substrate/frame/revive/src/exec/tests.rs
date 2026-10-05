@@ -1508,8 +1508,7 @@ fn in_memory_changes_not_discarded() {
 fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 	// Exercises a banked refund: self-reenter, `charge_storage` a removal (no cache reload),
 	// self-reenter again. The second bank fires on an invalidated frame; `load()` reloads so
-	// the removal's pro-rata refund is applied. 30 bytes (not 1) so the refund doesn't round
-	// to 0.
+	// the removal's pro-rata refund is applied.
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		if ctx.input_data[0] == 0 {
 			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false).unwrap();
@@ -1555,9 +1554,9 @@ fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 		));
 		meter.execute_postponed_deposits(&origin, &exec_config).unwrap();
 
-		// K1 = 35 bytes → deposit 37; 30-byte removal refunds floor(30/35 * 35) = 29 → net 8.
+		// K1 = 35 bytes → deposit 37; 30-byte removal refunds 30/35 of 35 = 30 → net 7.
 		let charged = min_balance * 1000 - get_balance(&ALICE);
-		assert_eq!(charged, 8, "banked removal refund not applied: expected net deposit 8");
+		assert_eq!(charged, 7, "banked removal refund not applied: expected net deposit 7");
 	});
 }
 
