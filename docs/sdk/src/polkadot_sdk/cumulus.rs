@@ -108,7 +108,7 @@ mod tests {
 				type DisabledValidators = ();
 				type MaxAuthorities = ConstU32<100_000>;
 				type AllowMultipleBlocksPerSlot = ConstBool<false>;
-				type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
+				type SlotDuration = ConstU64<6000>;
 			}
 
 			#[docify::export(timestamp)]
