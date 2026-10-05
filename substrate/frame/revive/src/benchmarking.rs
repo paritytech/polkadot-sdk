@@ -3525,8 +3525,8 @@ mod benchmarks {
 	///
 	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
 	/// * A product that fills every limb, since the top and lowest bits of both operands are set.
-	/// * A shift of the modulus and the product before the division, since the top bits of the
-	///   modulus are clear.
+	/// * A multiply-subtract over all divisor limbs instead of all but the top two, since the top
+	///   bits of the modulus are clear and division requires a nonzero normalization shift.
 	/// * A branch misprediction on how many times the division loops, since the size of the modulus
 	///   is pseudo-random.
 	/// * A branch misprediction on each adjustment of the modulus's reciprocal, since whether it
