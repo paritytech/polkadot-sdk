@@ -1,0 +1,10 @@
+title: '[Pallet-Session] Fix incorrect block author lookup during era/session transitions'
+doc:
+- audience: Runtime Dev
+  description: |-
+    resolves https://github.com/paritytech/polkadot-sdk/issues/4923
+
+    This PR fixes block-author reward misallocation during session transitions in FRAME Session Pallet for BABE-based PoS chains by introducing a transient `CurrentBlockValidators` snapshot of the pre-rotation validator set, ensuring `FindAccountFromAuthorIndex` resolves authors against the correct (old) validator set during transition blocks before falling back to the updated `Validators`, with the snapshot safely cleared in `on_finalize` and validated through comprehensive tests.
+crates:
+- name: pallet-session
+  bump: patch
