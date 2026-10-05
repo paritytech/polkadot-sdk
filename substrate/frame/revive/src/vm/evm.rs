@@ -81,22 +81,27 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 			Self::Div => per_opcode(T::WeightInfo::evm_div_opcode)
 				.max(per_opcode(T::WeightInfo::evm_div_opcode_one_limb_variant))
 				.max(per_opcode(T::WeightInfo::evm_div_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_fixed_knuth_variant))
 				.saturating_sub(pop),
 			Self::SDiv => per_opcode(T::WeightInfo::evm_sdiv_opcode)
 				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_one_limb_variant))
 				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_fixed_knuth_variant))
 				.saturating_sub(pop),
 			Self::Mod => per_opcode(T::WeightInfo::evm_mod_opcode)
 				.max(per_opcode(T::WeightInfo::evm_mod_opcode_one_limb_variant))
 				.max(per_opcode(T::WeightInfo::evm_mod_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_fixed_knuth_variant))
 				.saturating_sub(pop),
 			Self::SMod => per_opcode(T::WeightInfo::evm_smod_opcode)
 				.max(per_opcode(T::WeightInfo::evm_smod_opcode_one_limb_variant))
 				.max(per_opcode(T::WeightInfo::evm_smod_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_fixed_knuth_variant))
 				.saturating_sub(pop),
 			Self::AddMod => per_opcode(T::WeightInfo::evm_addmod_opcode)
 				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_one_limb_variant))
 				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_fixed_knuth_variant))
 				.saturating_sub(pop),
 			Self::MulMod => per_opcode(T::WeightInfo::evm_mulmod_opcode).saturating_sub(pop),
 		}

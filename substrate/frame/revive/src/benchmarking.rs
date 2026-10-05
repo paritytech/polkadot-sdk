@@ -167,9 +167,22 @@ mod knuth_division_operands {
 		[divisor, numerator]
 	}
 
+	pub fn fixed_signed_operands(rng: &mut impl Rng, magnitude: U256) -> [U256; 2] {
+		// Consume the divisor draw to match the baseline's pseudo-random sign sequence.
+		let _ = rng.gen_range(0..DENOMINATORS.len() as u32);
+		let divisor =
+			if rng.gen_bool(0.5) { magnitude } else { U256::zero().overflowing_sub(magnitude).0 };
+		[divisor, NUMERATOR]
+	}
+
 	/// 2^255 as an unsigned value, or -2^255 as a signed one, so signed and unsigned divisions
 	/// divide the same magnitudes.
 	pub const NUMERATOR: U256 = U256([0, 0, 0, 1 << 63]);
+	pub const DIV_FIXED_DIVISOR: U256 = U256([0x05f0_ac84_84d2_a8f7, 0x1, 0, 0]);
+	pub const SDIV_FIXED_DIVISOR: U256 = U256([0x16d5_ec4a_0e7b_8cdb, 0x1, 0, 0]);
+	pub const MOD_FIXED_DIVISOR: U256 = U256([0x0007_f84c_6624_4131, 0x1, 0, 0]);
+	pub const SMOD_FIXED_DIVISOR: U256 = U256([0x5141_1d54_0d50_9ec1, 0x1, 0, 0]);
+	pub const ADDMOD_FIXED_DIVISOR: U256 = MOD_FIXED_DIVISOR;
 
 	/// Two distinct divisors per pattern, with correction counts listed in limb order 2, 1, 0.
 	pub const DENOMINATORS: [U256; 34] = [
@@ -183,20 +196,20 @@ mod knuth_division_operands {
 		U256([0x2806_4b94_70ef_f3d9, 0x1, 0, 0]),
 		U256([0x61d1_c4c6_195a_2d43, 0x1, 0, 0]),
 		// Corrections: 0, 1, 1.
-		U256([0x16d5_ec4a_0e7b_8cdb, 0x1, 0, 0]),
+		SDIV_FIXED_DIVISOR,
 		U256([0x3ef8_7550_1dce_eb99, 0x1, 0, 0]),
 		// Corrections: 1, 0, 0.
 		U256([0xce1e_8ac2_290c_265f, 0x1, 0, 0]),
 		U256([0xd736_05ee_66e1_a76b, 0x1, 0, 0]),
 		// Corrections: 1, 0, 1.
 		U256([0xeb2b_fb00_8fa9_e0f7, 0x1, 0, 0]),
-		U256([0x5141_1d54_0d50_9ec1, 0x1, 0, 0]),
+		SMOD_FIXED_DIVISOR,
 		// Corrections: 1, 1, 0.
 		U256([0x500c_237e_4578_d88b, 0x1, 0, 0]),
 		U256([0x0164_a34e_0b1c_a4fd, 0x1, 0, 0]),
 		// Corrections: 1, 1, 1.
-		U256([0x0007_f84c_6624_4131, 0x1, 0, 0]),
-		U256([0x05f0_ac84_84d2_a8f7, 0x1, 0, 0]),
+		MOD_FIXED_DIVISOR,
+		DIV_FIXED_DIVISOR,
 		// Corrections: 0, 0, 2.
 		U256([0x3db2_354e_f8e8_6ca5, 0x96aa_3b25, 0, 0]),
 		U256([0x2848_08be_ea22_56a3, 0x9339_ddd9, 0, 0]),
@@ -3508,6 +3521,30 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `DIV` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::{DIV_FIXED_DIVISOR, NUMERATOR};
+
+		let operands = (0..r).flat_map(|_| [DIV_FIXED_DIVISOR, NUMERATOR]);
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `SDIV` op-codes.
 	///
 	/// # Added Overheads
@@ -3591,6 +3628,32 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `SDIV` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::{SDIV_FIXED_DIVISOR, fixed_signed_operands};
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| fixed_signed_operands(&mut rng, SDIV_FIXED_DIVISOR));
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `MOD` op-codes.
 	///
 	/// # Added Overheads
@@ -3651,6 +3714,30 @@ mod benchmarks {
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| mixed_division_operands::unsigned_operands(&mut rng));
 
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `MOD` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::{MOD_FIXED_DIVISOR, NUMERATOR};
+
+		let operands = (0..r).flat_map(|_| [MOD_FIXED_DIVISOR, NUMERATOR]);
 		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3749,6 +3836,32 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `SMOD` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::{SMOD_FIXED_DIVISOR, fixed_signed_operands};
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| fixed_signed_operands(&mut rng, SMOD_FIXED_DIVISOR));
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `ADDMOD` op-codes.
 	///
 	/// # Added Overheads
@@ -3823,6 +3936,30 @@ mod benchmarks {
 			[modulus, numerator, numerator]
 		});
 
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use knuth_division_operands::{ADDMOD_FIXED_DIVISOR, NUMERATOR};
+
+		let operands = (0..r).flat_map(|_| [ADDMOD_FIXED_DIVISOR, NUMERATOR, NUMERATOR]);
 		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
