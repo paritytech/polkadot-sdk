@@ -754,7 +754,8 @@ mod electable_stashes {
 
 	#[test]
 	fn add_electable_stashes_work() {
-		ExtBuilder::default().try_state(false).build_and_execute(|| {
+		ExtBuilder::default().build_and_execute(|| {
+			let max_validator_set_before = MaxValidatorSet::get();
 			MaxValidatorSet::set(5);
 			assert_eq!(MaxValidatorSet::get(), 5);
 			assert!(ElectableStashes::<Test>::get().is_empty());
@@ -772,12 +773,17 @@ mod electable_stashes {
 				ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
 				vec![1, 2, 3, 4]
 			);
+
+			// Restore valid state so build_and_execute post-check passes.
+			MaxValidatorSet::set(max_validator_set_before);
+			ElectableStashes::<Test>::kill();
 		})
 	}
 
 	#[test]
 	fn add_electable_stashes_overflow_works() {
-		ExtBuilder::default().try_state(false).build_and_execute(|| {
+		ExtBuilder::default().build_and_execute(|| {
+			let max_validator_set_before = MaxValidatorSet::get();
 			MaxValidatorSet::set(5);
 			assert_eq!(MaxValidatorSet::get(), 5);
 			assert!(ElectableStashes::<Test>::get().is_empty());
@@ -797,6 +803,10 @@ mod electable_stashes {
 				ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
 				vec![1, 2, 3, 4, 5]
 			);
+
+			// Restore valid state so build_and_execute post-check passes.
+			MaxValidatorSet::set(max_validator_set_before);
+			ElectableStashes::<Test>::kill();
 		})
 	}
 
@@ -804,7 +814,8 @@ mod electable_stashes {
 	fn overflow_electable_stashes_no_exposures_work() {
 		// ensures exposures are stored only for the electable stashes that fit within the
 		// electable stashes bounds in case of overflow.
-		ExtBuilder::default().try_state(false).build_and_execute(|| {
+		ExtBuilder::default().build_and_execute(|| {
+			let max_validator_set_before = MaxValidatorSet::get();
 			MaxValidatorSet::set(2);
 			assert!(ElectableStashes::<Test>::get().is_empty());
 
@@ -832,6 +843,10 @@ mod electable_stashes {
 			assert!(exposure_exists(2, 1));
 			assert!(!exposure_exists(3, 1));
 			assert!(!exposure_exists(4, 1));
+
+			// Restore valid state so build_and_execute post-check passes.
+			MaxValidatorSet::set(max_validator_set_before);
+			ElectableStashes::<Test>::kill();
 		})
 	}
 }
