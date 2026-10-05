@@ -590,6 +590,9 @@ pub mod pallet {
 							// Continue to change child-bounty status below.
 						},
 					};
+					ChildrenCuratorFees::<T>::mutate(parent_bounty_id, |value| {
+						*value = value.saturating_sub(child_bounty.fee)
+					});
 					// Move the child-bounty state to Added.
 					child_bounty.status = ChildBountyStatus::Added;
 					Ok(())
@@ -643,7 +646,7 @@ pub mod pallet {
 						);
 						// Move the child-bounty state to pending payout.
 						child_bounty.status = ChildBountyStatus::PendingPayout {
-							curator: signer,
+							curator: curator.clone(),
 							beneficiary: beneficiary.clone(),
 							unlock_at: Self::treasury_block_number() +
 								T::BountyDepositPayoutDelay::get(),
