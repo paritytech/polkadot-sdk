@@ -1,0 +1,9 @@
+title: Add Try State for Timestamp Pallet
+doc:
+- audience: Runtime Dev
+  description: 'Advances #239'
+crates:
+- name: pallet-whitelist
+  bump: patch
+- name: pallet-timestamp
+  bump: patch
