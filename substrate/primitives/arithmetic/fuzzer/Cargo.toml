@@ -40,9 +40,42 @@ path = "src/multiply_by_rational_with_rounding.rs"
 name = "fixed_point"
 path = "src/fixed_point.rs"
 
+[[bin]]
+name = "checked_mul_by_rational"
+path = "src/checked_mul_by_rational.rs"
+
+[[bin]]
+name = "per_thing_checked_from_rational"
+path = "src/per_thing_checked_from_rational.rs"
+
+[[bin]]
+name = "fixed_checked_ops"
+path = "src/fixed_checked_ops.rs"
+
+[[bin]]
+name = "per_thing_checked_arith"
+path = "src/per_thing_checked_arith.rs"
+
+[[bin]]
+name = "fixed_utils"
+path = "src/fixed_utils.rs"
+
+[[bin]]
+name = "fixed_to_perbill"
+path = "src/fixed_to_perbill.rs"
+
+[[bin]]
+name = "fixed_to_perthing"
+path = "src/fixed_to_perthing.rs"
+
+[[bin]]
+name = "fixed_rounding_ops"
+path = "src/fixed_rounding_ops.rs"
+
 [dependencies]
 arbitrary = { workspace = true }
 fraction = { workspace = true }
 honggfuzz = { workspace = true }
 num-bigint = { workspace = true }
+num-traits = { workspace = true }
 sp-arithmetic = { workspace = true, default-features = true }
