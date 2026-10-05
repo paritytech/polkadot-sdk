@@ -1,0 +1,12 @@
+title: 'pallet-broker: do not consume unsettled timeslices in claim_revenue'
+doc:
+- audience: Runtime User
+  description: |-
+    `claim_revenue` advanced a pool contribution past a timeslice before checking whether its
+    revenue could be paid out, so claiming before a timeslice was settled lost that timeslice's
+    payout. It now stops at the first timeslice whose revenue has not yet been reported, or which
+    has not yet been committed, and keeps the remaining contribution so the claim can be retried.
+    A history entry missing at or before the last committed timeslice is still treated as dropped.
+crates:
+- name: pallet-broker
+  bump: patch

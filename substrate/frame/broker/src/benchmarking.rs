@@ -568,9 +568,11 @@ mod benches {
 			&caller.clone(),
 			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 		);
+		let payout_per_timeslice: BalanceOf<T> = 200_000_000u32.into();
+		let total_payout = payout_per_timeslice.saturating_mul(m.into());
 		T::Currency::set_balance(
 			&Broker::<T>::account_id(),
-			T::Currency::minimum_balance().saturating_add(200_000_000u32.into()),
+			T::Currency::minimum_balance().saturating_add(total_payout),
 		);
 
 		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
@@ -583,23 +585,28 @@ mod benches {
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		let revenue = 10_000_000u32.into();
-		InstaPoolHistory::<T>::insert(
-			region.begin,
-			InstaPoolHistoryRecord {
-				private_contributions: 4u32.into(),
-				system_contributions: 3u32.into(),
-				maybe_payout: Some(revenue),
-			},
-		);
+		let claimed = region.begin..region.begin.saturating_add(m);
+		for timeslice in claimed.clone() {
+			InstaPoolHistory::<T>::insert(
+				timeslice,
+				InstaPoolHistoryRecord {
+					private_contributions: 4u32.into(),
+					system_contributions: 3u32.into(),
+					maybe_payout: Some(revenue),
+				},
+			);
+		}
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region, m);
 
-		assert!(InstaPoolHistory::<T>::get(region.begin).is_none());
+		for timeslice in claimed {
+			assert!(InstaPoolHistory::<T>::get(timeslice).is_none());
+		}
 		assert_last_event::<T>(
 			Event::RevenueClaimPaid {
 				who: recipient,
-				amount: 200_000_000u32.into(),
+				amount: total_payout,
 				next: if m < new_config_record::<T>().region_length {
 					Some(RegionId {
 						begin: region.begin.saturating_add(m),
