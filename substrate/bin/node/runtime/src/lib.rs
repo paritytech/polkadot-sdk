@@ -2482,6 +2482,60 @@ impl pallet_broker::Config for Runtime {
 	type MinimumCreditPurchase = MinimumCreditPurchase;
 }
 
+pub struct MarketCoreRange;
+impl fp_coretime::market::CoreRangeProvider for MarketCoreRange {
+	fn core_range() -> Option<fp_coretime::market::SoldCoresRange> {
+		Some(fp_coretime::market::SoldCoresRange { from: 0, to: 10 })
+	}
+}
+
+pub struct MarketTimeslices;
+impl fp_coretime::market::TimesliceProvider for MarketTimeslices {
+	fn next_timeslice_to_commit() -> Option<fp_coretime::Timeslice> {
+		None
+	}
+	fn latest_timeslice_ready_to_commit() -> Option<fp_coretime::Timeslice> {
+		cfg!(feature = "runtime-benchmarks").then_some(0)
+	}
+}
+
+pub struct MarketRenewalRights;
+impl pallet_coretime_market::RenewalRightsProvider<AccountId> for MarketRenewalRights {
+	fn renewal_rights_count(who: &AccountId, when: fp_coretime::Timeslice) -> u32 {
+		#[cfg(feature = "runtime-benchmarks")]
+		{
+			use codec::Encode;
+			let key = (b"coretime-market/bench-rights", who, when).encode();
+			sp_io::storage::get(&key)
+				.and_then(|v| u32::decode(&mut &v[..]).ok())
+				.unwrap_or(0)
+		}
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		{
+			let _ = (who, when);
+			0
+		}
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_rights_count(who: &AccountId, when: fp_coretime::Timeslice, count: u32) {
+		use codec::Encode;
+		let key = (b"coretime-market/bench-rights", who, when).encode();
+		sp_io::storage::set(&key, &count.encode());
+	}
+}
+
+impl pallet_coretime_market::Config for Runtime {
+	type Balance = Balance;
+	type RelayBlockNumber = BlockNumber;
+	type WeightInfo = ();
+	type CoreRangeProvider = MarketCoreRange;
+	type TimesliceProvider = MarketTimeslices;
+	type RenewalRights = MarketRenewalRights;
+	type MaxBids = ConstU32<100>;
+	type MaxCores = ConstU32<100>;
+	type Randomness = RandomnessCollectiveFlip;
+}
+
 parameter_types! {
 	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 }
@@ -3074,6 +3128,9 @@ mod runtime {
 
 	#[runtime::pallet_index(97)]
 	pub type OnDemand = pallet_on_demand_para::Pallet<Runtime>;
+
+  #[runtime::pallet_index(98)]
+  pub type CoretimeMarket = pallet_coretime_market::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3385,6 +3442,7 @@ mod benches {
 		[pallet_child_bounties, ChildBounties]
 		[pallet_collective, Council]
 		[pallet_conviction_voting, ConvictionVoting]
+		[pallet_coretime_market, CoretimeMarket]
 		[pallet_contracts, Contracts]
 		[pallet_revive, Revive]
 		[pallet_core_fellowship, CoreFellowship]
