@@ -29,6 +29,10 @@
 //!   derived from that estimate using [`PriceParameters`].
 //! - Orders accepted within a block are accumulated in [`PendingBatch`] and forwarded to the Relay
 //!   chain in one go on finalization, via [`QueueOnDemandOrders`].
+//! - The spot prices paid are collected in the pallet's pot and booked as [`Revenue`] against the
+//!   timeslice the order was placed in. `pallet-broker` claims the revenue of each timeslice once
+//!   it has ended through [`fp_coretime::revenue::OnDemandRevenue`], and pays it out to the
+//!   contributors to the Instantaneous Coretime Pool.
 //!
 //!   NOTE: It is important to make sure that this pallet is ordered before `ParachainSystem` in the
 //!   runtime - otherwise the messages will not be sent in the block in which they are created,
@@ -51,13 +55,16 @@ mod mock;
 mod tests;
 
 use alloc::vec::Vec;
-use fp_coretime::TaskId;
+use fp_coretime::{TaskId, Timeslice};
 use frame_support::traits::EnsureOrigin;
 use sp_runtime::traits::BlockNumberProvider;
 
 pub use types::*;
 pub use weightinfo_extension::WeightInfoExt;
 pub use weights::WeightInfo;
+
+/// The logging target of this pallet.
+const LOG_TARGET: &str = "runtime::on-demand";
 
 /// The default maximum number of outstanding on-demand orders beyond which new orders will be
 /// rejected.
@@ -89,15 +96,25 @@ pub trait QueueOnDemandOrders<RelayBlockNumber> {
 	/// Each entry is the parachain the order was placed for and the Relay-chain block number it was
 	/// ordered at.
 	fn queue_batch(batch: Vec<(TaskId, RelayBlockNumber)>);
+
+	/// Make sure that the batches queued afterwards reach the Relay chain.
+	///
+	/// Used to set up the benchmarks, so that they measure a successful delivery.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery();
 }
 
 impl<RelayBlockNumber> QueueOnDemandOrders<RelayBlockNumber> for () {
 	fn queue_batch(_batch: Vec<(TaskId, RelayBlockNumber)>) {}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery() {}
 }
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use fp_coretime::revenue::OnDemandRevenue;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{
@@ -107,7 +124,7 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_arithmetic::traits::{SaturatedConversion, Saturating};
+	use sp_arithmetic::traits::{SaturatedConversion, Saturating, Zero};
 	use sp_runtime::traits::AccountIdConversion;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -148,6 +165,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxBatchSize: Get<u32>;
 
+		/// The number of Relay-chain blocks in a timeslice.
+		///
+		/// Revenue is booked against the timeslice an order was placed in, so this must match the
+		/// `TimeslicePeriod` of the `pallet-broker` instance claiming it.
+		#[pallet::constant]
+		type TimeslicePeriod: Get<RelayBlockNumberOf<Self>>;
+
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -169,6 +193,14 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Revenue from on-demand sales which has not been claimed yet, by the timeslice the orders
+	/// were placed in.
+	///
+	/// The funds themselves sit in the pallet's pot until they are claimed through
+	/// [`OnDemandRevenue::claim_revenue`].
+	#[pallet::storage]
+	pub type Revenue<T: Config> = StorageMap<_, Twox64Concat, Timeslice, BalanceOf<T>, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -180,6 +212,22 @@ pub mod pallet {
 			spot_price: BalanceOf<T>,
 			/// The account that placed and paid for the order.
 			ordered_by: T::AccountId,
+		},
+		/// Revenue from on-demand sales was claimed and paid out to `beneficiary`.
+		RevenueClaimed {
+			/// The timeslice the orders the revenue came from were placed in.
+			when: Timeslice,
+			/// The amount that was paid out.
+			amount: BalanceOf<T>,
+			/// The account the revenue was paid out to.
+			beneficiary: T::AccountId,
+		},
+		/// The funds in pot were unexpectedly too low to handle a revenue claim.
+		UnexpectedLowFunds {
+			/// The amount that was being claimed.
+			amount_to_claim: BalanceOf<T>,
+			/// The claimable amount in the pot.
+			claimable: BalanceOf<T>,
 		},
 	}
 
@@ -307,8 +355,11 @@ pub mod pallet {
 
 			ensure!(spot_price <= max_amount, Error::<T>::SpotPriceHigherThanMaxAmount);
 
-			// Charge the sending account the spot price.
+			// Charge the sending account the spot price. The funds stay in the pot until the
+			// revenue they represent is claimed.
 			T::Currency::transfer(&who, &Self::account_id(), spot_price, Preserve)?;
+			let when: Timeslice = (now / T::TimeslicePeriod::get()).saturated_into();
+			Revenue::<T>::mutate(when, |revenue| revenue.saturating_accrue(spot_price));
 
 			// Add the order to the batch that gets sent to the Relay chain on finalization.
 			PendingBatch::<T>::try_mutate(|batch| {
@@ -326,6 +377,55 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::OrderPlaced { para_id, spot_price, ordered_by: who });
 
 			Ok(())
+		}
+	}
+
+	impl<T: Config> OnDemandRevenue<BalanceOf<T>, T::AccountId> for Pallet<T> {
+		fn claim_revenue(when: Timeslice, beneficiary: &T::AccountId) -> BalanceOf<T> {
+			let claimable = Revenue::<T>::take(when);
+			if claimable.is_zero() {
+				return Zero::zero();
+			}
+
+			let pot = Self::account_id();
+			// The pot is kept alive so that the (possibly sub-existential) payments for individual
+			// orders keep working. If the pot was never endowed, this holds back one existential
+			// deposit out of the very first claim.
+			let reducible = T::Currency::reducible_balance(&pot, Preserve, Polite);
+			let amount = claimable.min(reducible);
+			if amount < claimable {
+				log::error!(
+					target: LOG_TARGET,
+					"The pot holds less than the {claimable:?} of revenue booked for timeslice \
+					 {when}; paying out {amount:?} instead.",
+				);
+				Self::deposit_event(Event::<T>::UnexpectedLowFunds {
+					amount_to_claim: amount,
+					claimable,
+				});
+			}
+
+			if let Err(err) = T::Currency::transfer(&pot, beneficiary, amount, Preserve) {
+				// Every timeslice is claimed only once, so carry the revenue over to the next one
+				// for the payout to be retried.
+				log::error!(target: LOG_TARGET, "Paying out {amount:?} of revenue failed: {err:?}");
+				Revenue::<T>::mutate(when.saturating_add(1), |next| {
+					next.saturating_accrue(claimable)
+				});
+				return Zero::zero();
+			}
+
+			Self::deposit_event(Event::<T>::RevenueClaimed {
+				when,
+				amount,
+				beneficiary: beneficiary.clone(),
+			});
+
+			amount
+		}
+
+		fn claim_revenue_weight() -> Weight {
+			<T as Config>::WeightInfo::claim_revenue()
 		}
 	}
 }

@@ -126,17 +126,16 @@ fn drop_history_works() {
 			assert_ok!(Broker::do_pool(region, Some(1), 1, Final));
 			assert_ok!(Broker::do_purchase_credit(2, 50, 2));
 			advance_to(6);
-			// In the stable state with no pending payouts, we expect to see 3 items in
-			// InstaPoolHistory here since there is a latency of 1 timeslice (for generating the
-			// revenue report), the forward notice period (equivalent to another timeslice) and a
-			// block between the revenue report being requested and the response being processed.
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
+			// In the stable state with no pending payouts, we expect to see 2 items in
+			// InstaPoolHistory here since there is a latency of 1 timeslice (for collecting the
+			// revenue) and the forward notice period (equivalent to another timeslice).
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 2);
 			advance_to(7);
-			// One block later, the most recent report will have been processed, so the effective
-			// queue drops to 2 items.
+			// The revenue is claimed and processed in the same block it is collected in, so
+			// nothing else arrives in between two timeslices.
 			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 2);
 			advance_to(8);
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 2);
 			assert_ok!(TestCoretimeProvider::spend_instantaneous(2, 10));
 			advance_to(10);
 			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
@@ -147,30 +146,30 @@ fn drop_history_works() {
 			advance_to(14);
 			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 5);
 			advance_to(16);
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 6);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 5);
 			advance_to(17);
 			assert_noop!(Broker::do_drop_history(u32::MAX), Error::<Test>::StillValid);
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::StillValid);
 			advance_to(18);
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 6);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 5);
 			// Block 18 is 8 blocks ()= 4 timeslices = contribution timeout) after first region.
 			// Its revenue should now be droppable.
 			assert_ok!(Broker::do_drop_history(region.begin));
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 5);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 4);
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::NoHistory);
 			advance_to(19);
 			region.begin += 1;
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::StillValid);
 			advance_to(20);
 			assert_ok!(Broker::do_drop_history(region.begin));
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 4);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::NoHistory);
 			advance_to(21);
 			region.begin += 1;
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::StillValid);
 			advance_to(22);
 			assert_ok!(Broker::do_drop_history(region.begin));
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 2);
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::NoHistory);
 		});
 }
@@ -699,9 +698,11 @@ fn instapool_payouts_work() {
 		assert_eq!(revenue(), 100);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
-		advance_to(11);
-		// Should get revenue amount 10 from RC, from which 6 is system payout (goes to account0
-		// instantly) and the rest is private (kept in the pot until claimed)
+		// The revenue is claimed from the local market and distributed in the same block, so there
+		// is nothing to wait for beyond the timeslice it belongs to.
+		advance_to(10);
+		// Should get revenue amount 10 from the market, from which 6 is system payout (goes to
+		// account0 instantly) and the rest is private (kept in the pot until claimed)
 		assert_eq!(pot(), 4);
 		assert_eq!(revenue(), 106);
 

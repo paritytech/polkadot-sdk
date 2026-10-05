@@ -850,7 +850,9 @@ mod benches {
 
 		#[block]
 		{
-			Broker::<T>::process_revenue();
+			let (when, revenue) =
+				Broker::<T>::take_revenue_report(None).expect("a revenue report was put in; qed");
+			Broker::<T>::process_revenue_amount(when, revenue);
 		}
 
 		assert_last_event::<T>(
@@ -938,7 +940,6 @@ mod benches {
 		let mut status = Status::<T>::get().expect("Sale has started.");
 		let sale = SaleInfo::<T>::get().expect("Sale has started.");
 		Broker::<T>::process_core_count(&mut status);
-		Broker::<T>::process_revenue();
 		status.last_committed_timeslice = config.region_length;
 
 		#[block]

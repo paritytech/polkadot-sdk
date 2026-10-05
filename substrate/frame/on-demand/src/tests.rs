@@ -18,13 +18,28 @@
 //! Tests for the on-demand pallet.
 
 use crate::{
-	mock::*, Error, Event, PendingBatch, PriceConfig, PriceParameters, QueueState,
+	mock::*, Error, Event, PendingBatch, PriceConfig, PriceParameters, QueueState, Revenue,
 	DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP,
 };
-use frame_support::{assert_noop, assert_ok, dispatch::Pays, traits::fungible::Inspect};
+use fp_coretime::revenue::OnDemandRevenue;
+use frame_support::{
+	assert_noop, assert_ok,
+	dispatch::Pays,
+	traits::fungible::{Inspect, Mutate},
+};
 use sp_runtime::{traits::BadOrigin, Perbill};
 
 const ALICE: u64 = 1;
+const BOB: u64 = 2;
+
+/// Place an order at Relay-chain block `relay_block_number`, returning the spot price paid.
+fn place_order_at(relay_block_number: u32) -> u64 {
+	set_relay_block_number(relay_block_number);
+	let before = Balances::balance(&ALICE);
+	let max_amount = DEFAULT_BASE_FEE as u64 * 10;
+	assert_ok!(OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, max_amount));
+	before - Balances::balance(&ALICE)
+}
 
 fn set_order_cap(order_cap: u32) {
 	let mut config = PriceConfig::<Test>::get();
@@ -55,7 +70,10 @@ fn place_order_charges_spot_price_and_batches_the_order() {
 
 		// The spot price of the first order is the base fee, and it went to the pallet's pot.
 		assert_eq!(Balances::balance(&ALICE), before - DEFAULT_BASE_FEE as u64);
-		assert_eq!(Balances::balance(&OnDemand::account_id()), DEFAULT_BASE_FEE as u64);
+		assert_eq!(
+			Balances::balance(&OnDemand::account_id()),
+			EXISTENTIAL_DEPOSIT + DEFAULT_BASE_FEE as u64
+		);
 
 		// The order is pending, waiting to be forwarded to the Relay chain.
 		let batch = PendingBatch::<Test>::get();
@@ -227,5 +245,118 @@ fn configure_works() {
 		assert_eq!(Balances::balance(&ALICE), before - 2_000);
 		assert_ok!(OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, 2_200));
 		assert_eq!(Balances::balance(&ALICE), before - 2_000 - 2_200);
+	});
+}
+
+/// Claim the revenue of timeslice `when` for `BOB`.
+fn claim(when: u32) -> u64 {
+	<OnDemand as OnDemandRevenue<_, _>>::claim_revenue(when, &BOB)
+}
+
+#[test]
+fn revenue_is_booked_against_the_timeslice_of_the_order() {
+	new_test_ext().execute_with(|| {
+		// The first and last Relay-chain blocks of timeslice 0, and the first one of timeslice 1.
+		let first = place_order_at(0);
+		let second = place_order_at(TIMESLICE_PERIOD - 1);
+		let third = place_order_at(TIMESLICE_PERIOD);
+
+		assert_eq!(
+			Revenue::<Test>::iter().collect::<std::collections::BTreeMap<_, _>>(),
+			[(0, first + second), (1, third)].into(),
+		);
+	});
+}
+
+#[test]
+fn claim_revenue_pays_out_only_the_revenue_of_the_given_timeslice() {
+	new_test_ext().execute_with(|| {
+		let early = place_order_at(0) + place_order_at(TIMESLICE_PERIOD - 1);
+		let late = place_order_at(TIMESLICE_PERIOD);
+
+		let beneficiary_before = Balances::balance(&BOB);
+
+		assert_eq!(claim(0), early);
+		assert_eq!(Balances::balance(&BOB), beneficiary_before + early);
+		assert!(!Revenue::<Test>::contains_key(0));
+		assert_eq!(Revenue::<Test>::get(1), late);
+		assert!(on_demand_events().contains(&Event::RevenueClaimed {
+			when: 0,
+			amount: early,
+			beneficiary: BOB,
+		}));
+
+		// A timeslice is only paid out once.
+		assert_eq!(claim(0), 0);
+
+		assert_eq!(claim(1), late);
+		assert_eq!(Balances::balance(&BOB), beneficiary_before + early + late);
+		assert_eq!(Revenue::<Test>::iter().count(), 0);
+	});
+}
+
+#[test]
+fn revenue_of_later_timeslices_stays_booked_while_earlier_ones_are_claimed() {
+	new_test_ext().execute_with(|| {
+		// The claimer lags behind: orders are placed in timeslices 5 and 6 before it gets to
+		// claim timeslices 3 and 4, in which nothing was ordered.
+		let in_5 = place_order_at(5 * TIMESLICE_PERIOD);
+		let in_6 = place_order_at(6 * TIMESLICE_PERIOD);
+
+		assert_eq!(claim(3), 0);
+		assert_eq!(claim(4), 0);
+		assert_eq!(Revenue::<Test>::get(5), in_5);
+		assert_eq!(Revenue::<Test>::get(6), in_6);
+
+		assert_eq!(claim(5), in_5);
+		assert_eq!(claim(6), in_6);
+	});
+}
+
+#[test]
+fn claiming_revenue_keeps_the_pot_alive() {
+	new_test_ext().execute_with(|| {
+		let pot = OnDemand::account_id();
+		let revenue = place_order_at(0);
+		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT + revenue);
+
+		// The whole revenue is paid out, but the pot is left with its existential deposit.
+		assert_eq!(claim(0), revenue);
+		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT);
+	});
+}
+
+#[test]
+fn claiming_revenue_from_an_unendowed_pot_holds_back_one_existential_deposit() {
+	new_test_ext().execute_with(|| {
+		let pot = OnDemand::account_id();
+		// Take away the endowment, so that the pot holds nothing but the revenue of the orders.
+		Balances::set_balance(&pot, 0);
+
+		let revenue = place_order_at(0);
+		assert_eq!(Balances::balance(&pot), revenue);
+
+		// The existential deposit is held back, once, to keep the pot from being reaped.
+		assert_eq!(claim(0), revenue - EXISTENTIAL_DEPOSIT);
+		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT);
+
+		// From then on the full revenue of every order is paid out.
+		let revenue = place_order_at(TIMESLICE_PERIOD);
+		assert_eq!(claim(1), revenue);
+		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT);
+	});
+}
+
+#[test]
+fn claiming_revenue_with_nothing_to_claim_is_a_no_op() {
+	new_test_ext().execute_with(|| {
+		let revenue = place_order_at(TIMESLICE_PERIOD);
+		let before = Balances::balance(&BOB);
+
+		// Nothing was ordered in timeslice 0.
+		assert_eq!(claim(0), 0);
+		assert_eq!(Balances::balance(&BOB), before);
+		assert_eq!(Revenue::<Test>::get(1), revenue);
+		assert!(!on_demand_events().iter().any(|e| matches!(e, Event::RevenueClaimed { .. })));
 	});
 }

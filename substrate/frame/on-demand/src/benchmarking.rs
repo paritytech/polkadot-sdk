@@ -20,6 +20,7 @@
 use super::*;
 
 use crate::{Pallet as OnDemand, DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP};
+use fp_coretime::revenue::OnDemandRevenue;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	pallet_prelude::*,
@@ -71,6 +72,8 @@ mod benches {
 		);
 		// Store minimum balance in the pallet's account, so that small transfers to it don't fail
 		T::Currency::set_balance(&OnDemand::<T>::account_id(), T::Currency::minimum_balance());
+		// Orders can only be placed while the pool has some cores
+		T::PoolCapacityProvider::ensure_pool_cores(1);
 
 		let _ = OnDemand::<T>::on_initialize(current_block);
 
@@ -133,6 +136,8 @@ mod benches {
 		);
 		// Store minimum balance in the pallet's account, so that small transfers to it don't fail
 		T::Currency::set_balance(&OnDemand::<T>::account_id(), T::Currency::minimum_balance());
+		// Orders can only be placed while the pool has some cores
+		T::PoolCapacityProvider::ensure_pool_cores(1);
 
 		// Pre-populate InflightTransactions with n transactions of fixed size
 		if n > 0 {
@@ -149,11 +154,40 @@ mod benches {
 			}
 		}
 
+		// Measure sending the batch, not failing to send it
+		T::OrderQueue::ensure_successful_delivery();
+
 		#[block]
 		{
 			// Measure only the finalization cost with n transactions of fixed size
 			let _ = OnDemand::<T>::on_finalize(current_block);
 		}
+
+		Ok(())
+	}
+
+	/// Benchmark claiming the revenue accumulated from on-demand sales.
+	#[benchmark]
+	fn claim_revenue() -> Result<(), BenchmarkError> {
+		let revenue = BalanceOf::<T>::from(DEFAULT_BASE_FEE);
+
+		// The pot holds the accumulated revenue on top of its existential deposit.
+		T::Currency::set_balance(
+			&OnDemand::<T>::account_id(),
+			T::Currency::minimum_balance().saturating_add(revenue),
+		);
+		let beneficiary: T::AccountId = account("beneficiary", 0, 0);
+		T::Currency::set_balance(&beneficiary, T::Currency::minimum_balance());
+		let when = 0;
+		Revenue::<T>::insert(when, revenue);
+
+		#[block]
+		{
+			<OnDemand<T> as OnDemandRevenue<_, _>>::claim_revenue(when, &beneficiary);
+		}
+
+		assert!(!Revenue::<T>::contains_key(when));
+		assert_eq!(T::Currency::balance(&beneficiary), T::Currency::minimum_balance() + revenue);
 
 		Ok(())
 	}

@@ -132,6 +132,32 @@ impl CoretimeInterface for TestCoretimeProvider {
 	}
 }
 
+/// Stands in for the on-demand Coretime market living on this chain, such as
+/// `pallet-on-demand-para`.
+pub struct TestLocalRevenue;
+impl OnDemandRevenue<u64, u64> for TestLocalRevenue {
+	fn claim_revenue(when: Timeslice, beneficiary: &u64) -> u64 {
+		assert_eq!(*beneficiary, Broker::account_id(), "Revenue is paid into the broker pot");
+
+		let period = <<Test as crate::Config>::TimeslicePeriod as Get<u64>>::get();
+		let mut total = 0;
+		CoretimeSpending::mutate(|s| {
+			s.retain(|(n, a)| {
+				if *n as u64 / period == when as u64 {
+					total += a;
+					false
+				} else {
+					true
+				}
+			})
+		});
+		// The market holds the revenue on this chain, so paying it out is a transfer rather than a
+		// teleport. `mint_to_pot` stands in for the transfer out of the market's pot.
+		mint_to_pot(total);
+		total
+	}
+}
+
 impl TestCoretimeProvider {
 	pub fn spend_instantaneous(who: u64, price: u64) -> Result<(), &'static str> {
 		let mut c = CoretimeCredit::get();
@@ -209,6 +235,7 @@ impl crate::Config for Test {
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = TestCoretimeProvider;
+	type OnDemandRevenue = TestLocalRevenue;
 	type ConvertBalance = Identity;
 	type WeightInfo = ();
 	type PalletId = TestBrokerId;

@@ -2472,6 +2472,7 @@ impl pallet_broker::Config for Runtime {
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = CoretimeProvider;
+	type OnDemandRevenue = OnDemand;
 	type ConvertBalance = traits::Identity;
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
@@ -2495,6 +2496,11 @@ impl pallet_on_demand_para::PoolCapacityProvider for OnDemandPoolCapacity {
 	fn pool_cores() -> u32 {
 		1
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_pool_cores(cores: u32) {
+		assert!(cores <= Self::pool_cores(), "the on-demand pool has a fixed size");
+	}
 }
 
 impl pallet_on_demand_para::Config for Runtime {
@@ -2507,6 +2513,7 @@ impl pallet_on_demand_para::Config for Runtime {
 	// Orders are dropped instead of being forwarded to a Relay chain.
 	type OrderQueue = ();
 	type MaxBatchSize = ConstU32<1000>;
+	type TimeslicePeriod = <Runtime as pallet_broker::Config>::TimeslicePeriod;
 	type PalletId = OnDemandPalletId;
 }
 

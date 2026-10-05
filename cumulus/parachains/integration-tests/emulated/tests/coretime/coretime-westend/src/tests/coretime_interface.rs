@@ -25,11 +25,10 @@ use westend_system_emulated_network::westend_emulated_chain::westend_runtime::{
 
 #[test]
 fn transact_hardcoded_weights_are_sane() {
-	// There are three transacts with hardcoded weights sent from the Coretime Chain to the Relay
+	// There are two transacts with hardcoded weights sent from the Coretime Chain to the Relay
 	// Chain across the CoretimeInterface which are triggered at various points in the sales cycle.
 	// - Request core count - triggered directly by `start_sales` or `request_core_count`
 	//   extrinsics.
-	// - Request revenue info - triggered when each timeslice is committed.
 	// - Assign core - triggered when an entry is encountered in the workplan for the next
 	//   timeslice.
 
@@ -170,7 +169,7 @@ fn transact_hardcoded_weights_are_sane() {
 		);
 	});
 
-	// In this block we trigger request revenue.
+	// In this block the on-demand revenue for the first timeslice is claimed locally.
 	CoretimeWestend::execute_with(|| {
 		// Hooks don't run in emulated tests - workaround.
 		<CoretimeWestend as CoretimeWestendPallet>::Broker::on_initialize(
@@ -180,15 +179,16 @@ fn transact_hardcoded_weights_are_sane() {
 		assert_expected_events!(
 			CoretimeWestend,
 			vec![
-				CoretimeEvent::ParachainSystem(
-					cumulus_pallet_parachain_system::Event::UpwardMessageSent { .. }
+				// Zero revenue in first timeslice so history is immediately dropped.
+				CoretimeEvent::Broker(
+					pallet_broker::Event::HistoryDropped { when: 0, revenue: 0 }
 				) => {},
 			]
 		);
 	});
 
-	// Check that the assign_core and request_revenue_info_at messages were processed successfully.
-	// This will fail if the weights are misconfigured.
+	// Check that the assign_core message was processed successfully. This will fail if the weights
+	// are misconfigured.
 	Westend::execute_with(|| {
 		Westend::assert_ump_queue_processed(true, Some(CoretimeWestend::para_id()), None);
 
@@ -198,32 +198,8 @@ fn transact_hardcoded_weights_are_sane() {
 				RelayEvent::MessageQueue(
 					pallet_message_queue::Event::Processed { success: true, .. }
 				) => {},
-				RelayEvent::MessageQueue(
-					pallet_message_queue::Event::Processed { success: true, .. }
-				) => {},
 				RelayEvent::Coretime(
 					polkadot_runtime_parachains::coretime::Event::CoreAssigned { .. }
-				) => {},
-			]
-		);
-	});
-
-	// Here we receive and process the notify_revenue XCM with zero revenue.
-	CoretimeWestend::execute_with(|| {
-		// Hooks don't run in emulated tests - workaround.
-		<CoretimeWestend as CoretimeWestendPallet>::Broker::on_initialize(
-			<CoretimeWestend as Chain>::System::block_number(),
-		);
-
-		assert_expected_events!(
-			CoretimeWestend,
-			vec![
-				CoretimeEvent::MessageQueue(
-					pallet_message_queue::Event::Processed { success: true, .. }
-				) => {},
-				// Zero revenue in first timeslice so history is immediately dropped.
-				CoretimeEvent::Broker(
-					pallet_broker::Event::HistoryDropped { when: 0, revenue: 0 }
 				) => {},
 			]
 		);
