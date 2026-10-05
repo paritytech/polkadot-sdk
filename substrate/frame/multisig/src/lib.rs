@@ -60,6 +60,9 @@ pub use weights::WeightInfo;
 /// Re-export all pallet items.
 pub use pallet::*;
 
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
+
 /// The log target of this pallet.
 pub const LOG_TARGET: &'static str = "runtime::multisig";
 
@@ -292,7 +295,14 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>> for Pallet<T> {}
+	impl<T: Config> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(
+			_n: frame_system::pallet_prelude::BlockNumberFor<T>,
+		) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -812,6 +822,42 @@ impl<T: Config> Pallet<T> {
 	/// The deposit is calculated as `DepositBase + DepositFactor * threshold`.
 	pub fn deposit(threshold: u16) -> BalanceOf<T> {
 		T::DepositBase::get() + T::DepositFactor::get() * threshold.into()
+	}
+}
+
+#[cfg(feature = "try-runtime")]
+impl<T: Config> Pallet<T> {
+	/// Invariants that must hold before and after every state transition of this pallet.
+	///
+	/// Deposits are checked via the total reserved per depositor, not against `Deposit*` params,
+	/// which go stale until poked when changed.
+	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+		use alloc::collections::btree_map::BTreeMap;
+
+		let mut reserved_by_depositor: BTreeMap<T::AccountId, BalanceOf<T>> = BTreeMap::new();
+		for (_id, _call_hash, m) in Multisigs::<T>::iter() {
+			ensure!(!m.approvals.is_empty(), "Multisig must have at least one approval");
+			ensure!(
+				m.approvals.windows(2).all(|w| w[0] < w[1]),
+				"Multisig approvals must be strictly sorted and duplicate-free"
+			);
+			ensure!(
+				m.approvals.contains(&m.depositor),
+				"Multisig depositor must be among the approvals"
+			);
+
+			let entry = reserved_by_depositor.entry(m.depositor).or_default();
+			*entry = entry.saturating_add(m.deposit);
+		}
+
+		for (depositor, reserved) in reserved_by_depositor {
+			ensure!(
+				T::Currency::reserved_balance(&depositor) >= reserved,
+				"Depositor's reserved balance must cover its multisig deposits"
+			);
+		}
+
+		Ok(())
 	}
 }
 
