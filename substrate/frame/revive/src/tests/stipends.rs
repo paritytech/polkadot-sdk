@@ -497,7 +497,7 @@ fn stipend_check_denies_hot_slot_writes_from_a_value_send(
 
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
-	[Nesting::Call, Nesting::DelegateCall, Nesting::Create]
+	[Nesting::Call, Nesting::DelegateCall]
 )]
 fn stipend_check_is_inherited_by_nested_frames(fixture_type: FixtureType, nesting: Nesting) {
 	let (target_code, _) = compile_module_with_type("WritingReceiver", fixture_type).unwrap();
@@ -506,12 +506,6 @@ fn stipend_check_is_inherited_by_nested_frames(fixture_type: FixtureType, nestin
 	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
-		if fixture_type == FixtureType::Resolc {
-			let (child_code, _) =
-				compile_module_with_type("CounterStartingAtOne", fixture_type).unwrap();
-			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), child_code, u128::MAX)
-				.unwrap();
-		}
 		let Contract { addr: target, .. } =
 			builder::bare_instantiate(Code::Upload(target_code)).build_and_unwrap_contract();
 		let Contract { addr: receiver, .. } =

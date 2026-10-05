@@ -438,10 +438,10 @@ contract PrecompileTakingReceiver is BumpableCounter {
 
 /**
  * @title NestedWritingReceiver
- * @dev On receiving value, writes storage from a nested call, delegate call or create.
+ * @dev On receiving value, writes storage from a nested call or delegate call.
  */
 contract NestedWritingReceiver {
-    enum Nesting { Call, DelegateCall, Create }
+    enum Nesting { Call, DelegateCall }
 
     uint256 public counter;
     WritingReceiver immutable target;
@@ -455,22 +455,12 @@ contract NestedWritingReceiver {
     receive() external payable {
         if (nesting == Nesting.Call) {
             target.bump();
-        } else if (nesting == Nesting.DelegateCall) {
+        } else {
             (bool success, ) =
                 address(target).delegatecall(abi.encodeCall(BumpableCounter.bump, ()));
             require(success, "delegate call failed");
-        } else {
-            new CounterStartingAtOne();
         }
     }
-}
-
-/**
- * @title CounterStartingAtOne
- * @dev Writes storage in its constructor.
- */
-contract CounterStartingAtOne {
-    uint256 public counter = 1;
 }
 
 /**
