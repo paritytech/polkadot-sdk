@@ -28,7 +28,8 @@
 //!    are never perturbed);
 //! 3. sacrificial-account cleanup (`remove_by`), restoring exact fixture counts;
 //! 4. eviction: the store is reopened with a per-account allowance of exactly the fixture
-//!    per-account count, so every submit by a fixture account evicts one statement;
+//!    per-account count, so every submit by a fixture account evicts one statement, and account 0
+//!    is restored to its fixture statements afterwards;
 //! 5. index load: timed open/close cycles over the 4M-statement DB (startup cost).
 //!
 //! Uses only the public `StatementStore` API, so the same file compiles and runs against any
@@ -278,7 +279,7 @@ fn account_rotation_benches(c: &mut Criterion, store: &Arc<Store>) {
 	let keypairs: Vec<_> = (0..ACCOUNTS).map(account_keypair).collect();
 	// Rotating submits target fixture accounts, so they cannot be swept up by the sacrificial
 	// `remove_by` cleanup; collect their hashes and remove them one by one instead.
-	let added = std::sync::Mutex::new(Vec::new());
+	let mut added = Vec::new();
 
 	let mut g = c.benchmark_group("full4m_account_rotation");
 	g.sample_size(10);
@@ -298,7 +299,7 @@ fn account_rotation_benches(c: &mut Criterion, store: &Arc<Store>) {
 						)
 					})
 					.collect();
-				added.lock().unwrap().extend(batch.iter().map(|s| s.hash()));
+				added.extend(batch.iter().map(|s| s.hash()));
 				batch
 			},
 			|statements| {
@@ -327,7 +328,7 @@ fn account_rotation_benches(c: &mut Criterion, store: &Arc<Store>) {
 						)
 					})
 					.collect();
-				added.lock().unwrap().extend(batch.iter().map(|s| s.hash()));
+				added.extend(batch.iter().map(|s| s.hash()));
 				batch
 			},
 			|statements| {
@@ -372,7 +373,6 @@ fn account_rotation_benches(c: &mut Criterion, store: &Arc<Store>) {
 	g.finish();
 
 	// Put the fixture accounts back exactly as they were.
-	let added = added.into_inner().expect("no panics while collecting; qed");
 	let started = Instant::now();
 	for hash in &added {
 		store.remove(hash).expect("remove succeeds");
@@ -402,6 +402,7 @@ fn eviction_bench(c: &mut Criterion, dir: &std::path::Path) {
 	let db = dir.join("db");
 	let store = Arc::new(open_store_retry(&db, TestClient::capped(per_account() as u32)));
 	let acc0 = account_keypair(0);
+	let mut added = Vec::new();
 
 	let mut g = c.benchmark_group("full4m_evict");
 	g.sample_size(10);
@@ -411,9 +412,11 @@ fn eviction_bench(c: &mut Criterion, dir: &std::path::Path) {
 			|| {
 				let expiry = EVICT_EXPIRY.fetch_add(1, Ordering::Relaxed);
 				let base = fresh_id_base();
-				(0..TOTAL_OPS as u64)
+				let batch: Vec<_> = (0..TOTAL_OPS as u64)
 					.map(|k| create_statement(base + k, &[], STATEMENT_DATA_SIZE, expiry, &acc0))
-					.collect::<Vec<_>>()
+					.collect();
+				added.extend(batch.iter().map(|s| s.hash()));
+				batch
 			},
 			|statements| submit_concurrently(&store, statements),
 			BatchSize::LargeInput,
@@ -421,7 +424,32 @@ fn eviction_bench(c: &mut Criterion, dir: &std::path::Path) {
 	});
 	g.finish();
 
+	restore_account0(&store, &added);
 	drop(Arc::try_unwrap(store).ok().expect("all eviction bench references dropped"));
+}
+
+/// Puts account 0 back exactly as the fixture built it: removes what the eviction bench added,
+/// then resubmits the fixture statements that it evicted.
+fn restore_account0(store: &Store, added: &[sp_statement_store::Hash]) {
+	let started = Instant::now();
+	for hash in added {
+		store.remove(hash).expect("remove succeeds");
+	}
+	let keypairs: Vec<_> = (0..ACCOUNTS).map(account_keypair).collect();
+	let mut restored = 0;
+	for i in (0..n_statements() as u64).step_by(ACCOUNTS) {
+		let statement = fixture_statement(i, &keypairs);
+		if !store.has_statement(&statement.hash()) {
+			let result = store.submit(statement, StatementSource::Local);
+			assert!(matches!(result, SubmitResult::New), "restore rejected: {:?}", result);
+			restored += 1;
+		}
+	}
+	eprintln!(
+		"eviction cleanup: {} fixture statements restored in {:.1}s",
+		restored,
+		started.elapsed().as_secs_f64()
+	);
 }
 
 fn index_load(dir: &std::path::Path) {
@@ -450,15 +478,18 @@ fn main() {
 	let drained = store.take_recent_statements().expect("take_recent_statements works").len();
 	println!("FULL4M_META drained_recent={}", drained);
 
-	// Result-set sizes; asserted only on a fresh build (eviction-bench reruns can erode a few
-	// account-0 members of the bounded set).
+	// Result-set sizes. Every run restores the fixture after its write phases, so a reused
+	// fixture that fails here was changed outside this bench and has to be rebuilt.
 	let bounded = snapshot_len(&store, &t01());
 	let diverse = snapshot_len(&store, &[diverse_topic()]);
 	println!("FULL4M_META subscribe_bounded={} subscribe_diverse={}", bounded, diverse);
-	if built.is_some() {
-		assert_eq!(bounded, 100);
-		assert_eq!(diverse, DIVERSE_TOPIC_MATCHES);
-	}
+	assert_eq!(bounded, 100, "fixture drifted, delete {} and rebuild it", dir.display());
+	assert_eq!(
+		diverse,
+		DIVERSE_TOPIC_MATCHES,
+		"fixture drifted, delete {} and rebuild it",
+		dir.display()
+	);
 
 	let store = Arc::new(store);
 	let mut c = Criterion::default().configure_from_args();
