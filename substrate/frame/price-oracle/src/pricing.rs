@@ -130,7 +130,7 @@ fn fill_price(side: &[crate::schema::Level], size: Price) -> Result<Price, Healt
 /// Aggregate market quotes into one quote per pair.
 ///
 /// Every market gets one vote. A pair's votes are the prices of the markets quoting it directly,
-/// plus, for every `(source, rate)` in `conversions(pair)`, the prices of the `source` markets
+/// plus, for every `(source, rate)` in `cross_rates(pair)`, the prices of the `source` markets
 /// multiplied by the median of the direct `rate` prices. The price of a pair is the median of
 /// its votes.
 ///
@@ -139,7 +139,7 @@ fn fill_price(side: &[crate::schema::Level], size: Price) -> Result<Price, Healt
 pub fn aggregate(
 	markets: Vec<Quote>,
 	pairs: &[PairId],
-	conversions: impl Fn(PairId) -> Vec<(PairId, PairId)>,
+	cross_rates: impl Fn(PairId) -> Vec<(PairId, PairId)>,
 	quorum: impl Fn(PairId) -> u32,
 ) -> Vec<Quote> {
 	// Direct votes per pair, one per market.
@@ -158,7 +158,7 @@ pub fn aggregate(
 	let mut quotes = Vec::new();
 	for &pair in pairs {
 		let mut votes: Vec<Price> = direct.get(&pair).cloned().unwrap_or_default();
-		for (source, rate) in conversions(pair) {
+		for (source, rate) in cross_rates(pair) {
 			let (Some(sources), Some(rate)) = (direct.get(&source), direct_median(rate)) else {
 				continue;
 			};
@@ -472,7 +472,7 @@ mod aggregate_tests {
 	const USDT_USD: PairId = PairId(3);
 	const PAIRS: &[PairId] = &[DOT_USDT, DOT_USD, USDT_USD];
 
-	fn conversions(pair: PairId) -> Vec<(PairId, PairId)> {
+	fn cross_rates(pair: PairId) -> Vec<(PairId, PairId)> {
 		if pair == DOT_USD {
 			vec![(DOT_USDT, USDT_USD)]
 		} else {
@@ -497,7 +497,7 @@ mod aggregate_tests {
 		let quotes = aggregate(
 			vec![q(DOT_USDT, "4.0"), q(DOT_USDT, "4.2"), q(DOT_USDT, "9")],
 			PAIRS,
-			conversions,
+			cross_rates,
 			no_quorum,
 		);
 		assert_eq!(quote(&quotes, DOT_USDT), Some(p("4.2")));
@@ -516,7 +516,7 @@ mod aggregate_tests {
 				q(USDT_USD, "0.5"),
 			],
 			PAIRS,
-			conversions,
+			cross_rates,
 			no_quorum,
 		);
 		// Pool: 4.0 * 0.5, 4.0 * 0.5, 5.0 -> median 2.0.
@@ -525,9 +525,9 @@ mod aggregate_tests {
 	}
 
 	#[test]
-	fn no_rate_means_no_conversion() {
+	fn no_rate_means_no_cross_rate() {
 		let quotes =
-			aggregate(vec![q(DOT_USDT, "4.0"), q(DOT_USD, "5.0")], PAIRS, conversions, no_quorum);
+			aggregate(vec![q(DOT_USDT, "4.0"), q(DOT_USD, "5.0")], PAIRS, cross_rates, no_quorum);
 		// Only the direct DOT/USD vote remains.
 		assert_eq!(quote(&quotes, DOT_USD), Some(p("5.0")));
 	}
@@ -537,7 +537,7 @@ mod aggregate_tests {
 		let quotes = aggregate(
 			vec![q(DOT_USDT, "4.0"), q(DOT_USDT, "9.0"), q(DOT_USDT, "5.0")],
 			PAIRS,
-			conversions,
+			cross_rates,
 			no_quorum,
 		);
 		// Votes: 4.0, 5.0, 9.0 -> 5.0.
@@ -549,7 +549,7 @@ mod aggregate_tests {
 		let quotes = aggregate(
 			vec![q(DOT_USDT, "4.0"), q(DOT_USD, "7.0"), q(USDT_USD, "1.0")],
 			PAIRS,
-			conversions,
+			cross_rates,
 			no_quorum,
 		);
 		// Votes: 7.0 direct, 4.0 * 1.0 converted -> 5.5.
@@ -570,16 +570,16 @@ mod aggregate_tests {
 	fn converted_votes_count_towards_quorum() {
 		let markets = vec![q(DOT_USDT, "4.0"), q(DOT_USD, "5.0"), q(USDT_USD, "1.0")];
 		let quorum = |pair| if pair == DOT_USD { 2 } else { 1 };
-		let quotes = aggregate(markets, PAIRS, conversions, quorum);
+		let quotes = aggregate(markets, PAIRS, cross_rates, quorum);
 		// Votes: 5.0 direct, 4.0 * 1.0 converted -> 4.5.
 		assert_eq!(quote(&quotes, DOT_USD), Some(p("4.5")));
 	}
 
 	#[test]
-	fn rate_below_quorum_means_no_conversion() {
+	fn rate_below_quorum_means_no_cross_rate() {
 		let markets = vec![q(DOT_USDT, "4.0"), q(DOT_USD, "5.0"), q(USDT_USD, "1.0")];
 		let quorum = |pair| if pair == USDT_USD { 2 } else { 1 };
-		let quotes = aggregate(markets, PAIRS, conversions, quorum);
+		let quotes = aggregate(markets, PAIRS, cross_rates, quorum);
 		// USDT/USD has 1 of 2 votes, so only the direct DOT/USD vote remains.
 		assert_eq!(quote(&quotes, DOT_USD), Some(p("5.0")));
 		assert_eq!(quote(&quotes, USDT_USD), None);
@@ -587,7 +587,7 @@ mod aggregate_tests {
 
 	#[test]
 	fn unknown_pairs_are_not_reported() {
-		let quotes = aggregate(vec![q(PairId(99), "1")], PAIRS, conversions, no_quorum);
+		let quotes = aggregate(vec![q(PairId(99), "1")], PAIRS, cross_rates, no_quorum);
 		assert!(quotes.is_empty());
 	}
 }
