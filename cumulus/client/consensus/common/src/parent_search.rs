@@ -56,7 +56,9 @@ impl ParentSearchParams {
 		}
 	}
 
-	fn scheduling_parent(&self) -> &RelayHash {
+	/// The relay block the search is anchored at: the scheduling parent for V3, the relay parent
+	/// for V2.
+	pub fn scheduling_parent(&self) -> &RelayHash {
 		match self {
 			ParentSearchParams::V2 { scheduling_parent } => scheduling_parent,
 			ParentSearchParams::V3 { scheduling_parent } => scheduling_parent,
@@ -287,6 +289,132 @@ async fn has_ancestor_relay_parent_info<Block: BlockT>(
 	Ok(maybe_info.is_some())
 }
 
+/// The para state a parent search starts from at its relay-chain anchor.
+pub struct SearchStart<Block: BlockT> {
+	/// The included header at the search's relay-chain anchor.
+	pub included_header: Block::Header,
+	/// The pending-availability block, when one exists. Always locally known: an unknown pending
+	/// block aborts the search instead.
+	pub pending_header: Option<Block::Header>,
+}
+
+impl<Block: BlockT> SearchStart<Block> {
+	/// The block the search starts from: the pending block when present, the included one
+	/// otherwise. Valid by construction — included is on-chain state and pending is already
+	/// backed — so only descendants need validity checks.
+	pub fn start_header(&self) -> &Block::Header {
+		self.pending_header.as_ref().unwrap_or(&self.included_header)
+	}
+}
+
+/// Resolve the block a parent search anchored at `scheduling_parent` starts from: the pending
+/// block when one exists and is locally known, the included block otherwise.
+///
+/// `None` when the included block is unknown, or a pending block exists but is not locally known.
+pub async fn search_start_block<Block: BlockT>(
+	relay_client: &impl RelayChainInterface,
+	backend: &impl Backend<Block>,
+	scheduling_parent: RelayHash,
+	para_id: ParaId,
+) -> RelayChainResult<Option<SearchStart<Block>>> {
+	let Some((included_header, included_hash)) =
+		fetch_included_from_relay_chain(relay_client, backend, scheduling_parent, para_id).await?
+	else {
+		return Ok(None);
+	};
+
+	// Fetch the pending block if one exists. `OccupiedCoreAssumption::Included` enacts the
+	// candidate pending availability before it is returned to us.
+	let maybe_pending = fetch_pvd_header::<Block>(
+		relay_client,
+		scheduling_parent,
+		para_id,
+		OccupiedCoreAssumption::Included,
+	)
+	.await?
+	.filter(|header| header.hash() != included_hash);
+
+	let pending_header = match maybe_pending {
+		Some(header) => {
+			// If the pending block is not locally known, we can't proceed.
+			let Some(header) = get_para_header(backend, header.hash()) else {
+				return Ok(None);
+			};
+			Some(header)
+		},
+		None => None,
+	};
+
+	Ok(Some(SearchStart { included_header, pending_header }))
+}
+
+/// The per-block validity rule of a parent search, with the context it needs prepared once from
+/// the search's [`ParentSearchParams`].
+enum ParentValidityCheck {
+	/// V2 requires a block's relay parent within the relay parent's allowed ancestry.
+	V2 { rp_ancestry: Vec<(RelayHash, RelayHash)> },
+	/// V3 requires a block to be backable at the scheduling parent.
+	V3 { scheduling_parent: RelayHash },
+}
+
+impl ParentValidityCheck {
+	async fn new(
+		relay_client: &impl RelayChainInterface,
+		params: &ParentSearchParams,
+	) -> RelayChainResult<Self> {
+		Ok(match params {
+			ParentSearchParams::V2 { scheduling_parent: relay_parent } => {
+				let ancestry_lookback = relay_client
+					.scheduling_lookahead(*relay_parent)
+					.await
+					.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
+					.saturating_sub(1) as usize;
+				let rp_ancestry =
+					build_relay_parent_ancestry(relay_client, *relay_parent, ancestry_lookback)
+						.await?;
+
+				Self::V2 { rp_ancestry }
+			},
+			ParentSearchParams::V3 { scheduling_parent } => {
+				Self::V3 { scheduling_parent: *scheduling_parent }
+			},
+		})
+	}
+
+	async fn is_valid<Block: BlockT>(
+		&self,
+		relay_client: &impl RelayChainInterface,
+		header: &Block::Header,
+	) -> RelayChainResult<bool> {
+		match self {
+			Self::V2 { rp_ancestry } => {
+				Ok(is_relay_parent_in_ancestry::<Block>(header, rp_ancestry))
+			},
+			Self::V3 { scheduling_parent } => {
+				has_ancestor_relay_parent_info::<Block>(relay_client, *scheduling_parent, header)
+					.await
+			},
+		}
+	}
+}
+
+/// Check one block as a build parent under `params`' context: V2 requires its relay parent within
+/// the scheduling parent's allowed ancestry, V3 requires it to be backable at the scheduling
+/// parent.
+///
+/// [`find_parent_for_building`] applies the same rule while searching; this is for re-checking an
+/// already-found parent after the context it was found under changed.
+pub async fn is_parent_valid_for_params<Block: BlockT>(
+	relay_client: &impl RelayChainInterface,
+	params: &ParentSearchParams,
+	header: &Block::Header,
+) -> RelayChainResult<bool> {
+	ParentValidityCheck::new(relay_client, params)
+		.await?
+		.is_valid::<Block>(relay_client, header)
+		.await
+}
+
 /// Find the best parent block to build on.
 ///
 /// This accepts a relay-chain block to be used as an anchor and searches for the best
@@ -310,75 +438,24 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	);
 
 	let scheduling_parent = *params.scheduling_parent();
-	let Some((included_header, included_hash)) =
-		fetch_included_from_relay_chain(relay_client, backend, scheduling_parent, para_id).await?
+	let Some(start) = search_start_block(relay_client, backend, scheduling_parent, para_id).await?
 	else {
 		return Ok(None);
 	};
+	let start_header = start.start_header().clone();
+	let start_hash = start_header.hash();
+	let included_header = start.included_header;
 
-	// Fetch the pending block if one exists.
-	let maybe_pending = {
-		// Fetch the most recent pending header from the relay chain. We use
-		// `OccupiedCoreAssumption::Included` so the candidate pending availability gets enacted
-		// before being returned to us.
-		let maybe_header = fetch_pvd_header::<Block>(
-			relay_client,
-			scheduling_parent,
-			para_id,
-			OccupiedCoreAssumption::Included,
-		)
-		.await?
-		.filter(|header| header.hash() != included_hash);
+	let check = ParentValidityCheck::new(relay_client, &params).await?;
 
-		// If the pending block is not locally known, we can't proceed.
-		if let Some(header) = maybe_header {
-			let hash = header.hash();
-			let Some(header) = get_para_header(backend, hash) else {
-				return Ok(None);
-			};
-			Some((header, hash))
-		} else {
-			None
-		}
-	};
-	// Determine the starting point for the search.
-	let (start_header, start_hash) =
-		maybe_pending.unwrap_or((included_header.clone(), included_hash));
-
-	let best_parent_header = match params {
-		ParentSearchParams::V2 { scheduling_parent: relay_parent } => {
-			let ancestry_lookback = relay_client
-				.scheduling_lookahead(relay_parent)
-				.await
-				.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
-				.saturating_sub(1) as usize;
-			// Build up the ancestry record of the relay chain to compare against.
-			let rp_ancestry =
-				build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
-
-			// Search for the deepest valid parent starting from the pending/included block.
-			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
-				let is_valid = is_relay_parent_in_ancestry::<Block>(header, &rp_ancestry);
-				async move { is_valid }
-			})
-			.await
-		},
-		ParentSearchParams::V3 { scheduling_parent } => {
-			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
-				let header = header.clone();
-				async move {
-					has_ancestor_relay_parent_info::<Block>(
-						relay_client,
-						scheduling_parent,
-						&header,
-					)
-					.await
-					.unwrap_or(false)
-				}
-			})
-			.await
-		},
-	};
+	// Search for the deepest valid parent starting from the pending/included block.
+	let best_parent_header =
+		find_deepest_valid_parent(backend, start_header, start_hash, |header| {
+			let header = header.clone();
+			let check = &check;
+			async move { check.is_valid::<Block>(relay_client, &header).await.unwrap_or(false) }
+		})
+		.await;
 
 	Ok(Some(ParentSearchResult { included_at_scheduling: included_header, best_parent_header }))
 }
