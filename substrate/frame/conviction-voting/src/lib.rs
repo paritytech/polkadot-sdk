@@ -419,8 +419,31 @@ pub mod pallet {
 			Self::try_remove_vote(&target, index, Some(class), scope)?;
 			Ok(())
 		}
-	}
-}
+
+		/// Remove empty voting entries for a given account and class.
+		///
+		/// When all votes are removed and locks expire, empty `VotingFor` and `ClassLocksFor`
+		/// entries may remain in storage. This call removes them, freeing storage space.
+		/// It can be called by any signed origin for any account whose votes are already
+		/// empty — it is a no-op if there are still active votes.
+		///
+		/// - `who`: The account to clean up empty votes for.
+		/// - `class`: The class of polls to clean up.
+		///
+		/// Weight: `O(1)` — reads and conditionally writes `VotingFor` and `ClassLocksFor`.
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::cleanup_empty_votes())]
+		pub fn cleanup_empty_votes(
+			origin: OriginFor<T>,
+			who: AccountIdLookupOf<T>,
+			class: ClassOf<T, I>,
+		) -> DispatchResult {
+			ensure_signed(origin)?;
+			let who = T::Lookup::lookup(who)?;
+			Self::remove_empty_entries(&who, &class);
+			Ok(())
+		}
+		}
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Actually enact a vote, if legit.
@@ -758,5 +781,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				WithdrawReasons::except(WithdrawReasons::RESERVE),
 			);
 		}
+		// If the VotingFor entry is now empty after rejigging, remove it to prevent
+		// storage bloat from zero-value entries.
+		if VotingFor::<T, I>::get(who, class).is_empty() {
+			VotingFor::<T, I>::remove(who, class);
+		}
 	}
+
+		/// Remove empty `VotingFor` entries for an account and class.
+		///
+		/// If the `VotingFor` entry has no active votes, no delegations, and no prior
+		/// locks, it is removed from storage. The corresponding lock state is also refreshed.
+		fn remove_empty_entries(who: &T::AccountId, class: &ClassOf<T, I>) {
+			let is_empty = VotingFor::<T, I>::get(who, class).is_empty();
+			if is_empty {
+				VotingFor::<T, I>::remove(who, class);
+			}
+			// Refresh locks to match the (possibly removed) voting state.
+			Self::update_lock(class, who);
+		}
 }
