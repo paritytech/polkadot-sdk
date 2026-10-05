@@ -1426,6 +1426,33 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	{}
 }
 
+/// Ensure the origin is `Authorized`, i.e. a call authorized by [`AuthorizeCall`].
+pub struct EnsureAuthorized<AccountId>(core::marker::PhantomData<AccountId>);
+impl<O: OriginTrait<AccountId = AccountId>, AccountId> EnsureOrigin<O>
+	for EnsureAuthorized<AccountId>
+{
+	type Success = ();
+	fn try_origin(o: O) -> Result<Self::Success, O> {
+		match o.as_system_ref() {
+			Some(RawOrigin::Authorized) => Ok(()),
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<O, ()> {
+		let mut o = O::none();
+		o.set_caller(O::PalletsOrigin::from(RawOrigin::Authorized));
+		Ok(o)
+	}
+}
+
+impl_ensure_origin_with_arg_ignoring_arg! {
+	impl< { O: OriginTrait<AccountId = AccountId>, AccountId, T } >
+		EnsureOriginWithArg<O, T> for EnsureAuthorized<AccountId>
+	{}
+}
+
 /// Always fail.
 pub struct EnsureNever<Success>(core::marker::PhantomData<Success>);
 impl<O, Success> EnsureOrigin<O> for EnsureNever<Success> {
