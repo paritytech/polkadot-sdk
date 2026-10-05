@@ -329,14 +329,27 @@ fn full_native_block_import_works() {
 	let weight_refund = Weight::zero();
 	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
-	let transfer_weight = default_transfer_call().get_dispatch_info().call_weight.saturating_add(
-		<Runtime as frame_system::Config>::BlockWeights::get()
-			.get(DispatchClass::Normal)
-			.base_extrinsic,
-	);
+	let time1 = 42 * 1000u64;
+	let timestamp_encoded_len = sign(CheckedExtrinsic {
+		format: sp_runtime::generic::ExtrinsicFormat::Bare,
+		function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time1 }),
+	})
+	.encode()
+	.len() as u64;
+	let transfer_encoded_len = xt().encode().len() as u64;
+	let transfer_weight = default_transfer_call()
+		.get_dispatch_info()
+		.call_weight
+		.saturating_add_proof_size(transfer_encoded_len)
+		.saturating_add(
+			<Runtime as frame_system::Config>::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.base_extrinsic,
+		);
 	let timestamp_weight = pallet_timestamp::Call::set::<Runtime> { now: Default::default() }
 		.get_dispatch_info()
 		.call_weight
+		.saturating_add_proof_size(timestamp_encoded_len)
 		.saturating_add(
 			<Runtime as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Mandatory)

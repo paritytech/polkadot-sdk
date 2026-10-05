@@ -88,7 +88,7 @@ fn basic_refund() {
 
 		// Should add 500 + 150 (len) to weight.
 		let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
-		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+		assert_ok!(CheckWeight::<Test>::do_prepare(&info, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
 			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
@@ -105,7 +105,7 @@ fn basic_refund() {
 			&Ok(()),
 		));
 
-		assert_eq!(get_storage_weight().total().proof_size(), 1250);
+		assert_eq!(get_storage_weight().total().proof_size(), 1100);
 	})
 }
 
@@ -129,7 +129,7 @@ fn underestimating_refund() {
 		};
 
 		let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
-		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+		assert_ok!(CheckWeight::<Test>::do_prepare(&info, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
 			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
@@ -146,7 +146,7 @@ fn underestimating_refund() {
 			&Ok(())
 		));
 
-		assert_eq!(get_storage_weight().total().proof_size(), 1250);
+		assert_eq!(get_storage_weight().total().proof_size(), 1100);
 	})
 }
 
@@ -168,7 +168,7 @@ fn sets_to_node_storage_proof_if_higher() {
 			let post_info = PostDispatchInfo::default();
 
 			let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
-			assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+			assert_ok!(CheckWeight::<Test>::do_prepare(&info, next_len));
 
 			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
 				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
@@ -209,9 +209,9 @@ fn sets_to_node_storage_proof_if_higher() {
 			let post_info = PostDispatchInfo::default();
 
 			// After this pre_dispatch, the BlockWeight proof size will be
-			// 85 (initial) + 100 (benched) + 150 (tx length) = 335
+			// 85 (initial) + 100 (benched) = 185
 			let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
-			assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+			assert_ok!(CheckWeight::<Test>::do_prepare(&info, next_len));
 
 			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
 				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
@@ -226,7 +226,7 @@ fn sets_to_node_storage_proof_if_higher() {
 				&Ok(())
 			));
 
-			// First we will reclaim 95, which leaves us with 240 BlockWeight. This is lower
+			// First we will reclaim 95, which leaves us with 90 BlockWeight. This is lower
 			// than 180 (proof size hf) + 150 (length), so we expect it to be set to 330.
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 				pre,
@@ -255,9 +255,9 @@ fn does_nothing_without_extension() {
 		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
 		let post_info = PostDispatchInfo::default();
 
-		// Adds 500 + 150 (len) weight
+		// Adds 500 weight
 		let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
-		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+		assert_ok!(CheckWeight::<Test>::do_prepare(&info, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
 			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
@@ -273,7 +273,7 @@ fn does_nothing_without_extension() {
 			&Ok(()),
 		));
 
-		assert_eq!(get_storage_weight().total().proof_size(), 1650);
+		assert_eq!(get_storage_weight().total().proof_size(), 1500);
 	})
 }
 
@@ -288,9 +288,9 @@ fn negative_refund_is_added_to_weight() {
 		let info = DispatchInfo { call_weight: Weight::from_parts(0, 100), ..Default::default() };
 		let post_info = PostDispatchInfo::default();
 
-		// Weight added should be 100 + 150 (len)
+		// Weight added should be 100
 		let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
-		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+		assert_ok!(CheckWeight::<Test>::do_prepare(&info, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
 			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
@@ -309,7 +309,7 @@ fn negative_refund_is_added_to_weight() {
 
 		assert_eq!(
 			get_storage_weight().total().proof_size(),
-			1100 + LEN as u64 + info.total_weight().proof_size()
+			1100 + info.total_weight().proof_size()
 		);
 	})
 }
@@ -324,7 +324,7 @@ fn test_zero_proof_size() {
 		let post_info = PostDispatchInfo::default();
 
 		let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
-		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+		assert_ok!(CheckWeight::<Test>::do_prepare(&info, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
 			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
@@ -356,18 +356,18 @@ fn test_larger_pre_dispatch_proof_size() {
 		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
 		let post_info = PostDispatchInfo::default();
 
-		// Adds 500 + 150 (len) weight, total weight is 1950
+		// Adds 500 weight, total weight is 1800
 		let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
-		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+		assert_ok!(CheckWeight::<Test>::do_prepare(&info, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
 			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		assert_eq!(pre, Some(300));
 
-		// Refund 500 unspent weight according to `post_info`, total weight is now 1650
+		// CheckWeight: no unspent weight (post_info is None), total weight stays 1800
 		assert_ok!(CheckWeight::<Test>::post_dispatch_details((), &info, &post_info, 0, &Ok(()),));
-		// Recorded proof size is negative -200, total weight is now 1450
+		// StorageWeightReclaim: consumed=0, benchmarked=500, reduces by 500, total weight now 1300
 		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
@@ -376,7 +376,7 @@ fn test_larger_pre_dispatch_proof_size() {
 			&Ok(()),
 		));
 
-		assert_eq!(get_storage_weight().total().proof_size(), 1450);
+		assert_eq!(get_storage_weight().total().proof_size(), 1300);
 	});
 }
 
@@ -397,9 +397,9 @@ fn test_incorporates_check_weight_unspent_weight() {
 			pays_fee: Default::default(),
 		};
 
-		// Should add 300 + 150 (len) of weight
+		// Should add 300 of weight
 		let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
-		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+		assert_ok!(CheckWeight::<Test>::do_prepare(&info, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
 			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
@@ -418,7 +418,7 @@ fn test_incorporates_check_weight_unspent_weight() {
 		));
 
 		// Reclaimed 100
-		assert_eq!(get_storage_weight().total().proof_size(), 1350);
+		assert_eq!(get_storage_weight().total().proof_size(), 1200);
 	})
 }
 
@@ -438,9 +438,9 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 			pays_fee: Default::default(),
 		};
 
-		// Adds 50 + 150 (len) weight, total weight 1200
+		// Adds 50 weight, total weight 1050
 		let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
-		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+		assert_ok!(CheckWeight::<Test>::do_prepare(&info, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
 			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
@@ -449,9 +449,9 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 
 		// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
 		// we always need to call `post_dispatch` to verify that they interoperate correctly.
-		// Refunds unspent 25 weight according to `post_info`, 1175
+		// Refunds unspent 25 weight according to `post_info`, 1025
 		assert_ok!(CheckWeight::<Test>::post_dispatch_details((), &info, &post_info, 0, &Ok(()),));
-		// Adds 200 - 25 (unspent) == 175 weight, total weight 1350
+		// Adds 200 - 25 (unspent) == 175 weight, total weight 1200
 		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
@@ -460,7 +460,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 			&Ok(()),
 		));
 
-		assert_eq!(get_storage_weight().total().proof_size(), 1350);
+		assert_eq!(get_storage_weight().total().proof_size(), 1200);
 	})
 }
 
@@ -480,12 +480,12 @@ fn test_nothing_relcaimed() {
 			pays_fee: Default::default(),
 		};
 
-		// Adds benchmarked weight 100 + 150 (len), total weight is now 250
+		// Adds benchmarked weight 100, total weight is now 100
 		let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
-		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+		assert_ok!(CheckWeight::<Test>::do_prepare(&info, next_len));
 
-		// Weight should go up by 150 len + 100 proof size weight, total weight 250
-		assert_eq!(get_storage_weight().total().proof_size(), 250);
+		// Weight should go up by 100 proof size weight, total weight 100
+		assert_eq!(get_storage_weight().total().proof_size(), 100);
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
 			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
@@ -495,11 +495,12 @@ fn test_nothing_relcaimed() {
 
 		// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 		// we always need to call `post_dispatch` to verify that they interoperate correctly.
-		// Nothing to refund, unspent is 0, total weight 250
+		// Nothing to refund, unspent is 0 (proof_size unspent saturates), total weight 100
 		assert_ok!(CheckWeight::<Test>::post_dispatch_details((), &info, &post_info, LEN, &Ok(())));
 		// `setup_test_externalities` proof recorder value: 200, so this means the extrinsic
 		// actually used 100 proof size.
-		// Nothing to refund or add, weight matches proof recorder
+		// Nothing to refund or add, weight matches proof recorder.
+		// Node-side PoV check: 100 (proof) + 150 (block_size) = 250, corrects block weight to 250.
 		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
@@ -508,8 +509,7 @@ fn test_nothing_relcaimed() {
 			&Ok(())
 		));
 
-		// Check block len weight was not reclaimed:
-		// 100 weight + 150 extrinsic len == 250 proof size
+		// Node-side PoV size correction: 100 proof + 150 block_size = 250
 		assert_eq!(get_storage_weight().total().proof_size(), 250);
 	})
 }
@@ -531,16 +531,16 @@ fn test_incorporates_check_weight_unspent_weight_reverse_order() {
 			pays_fee: Default::default(),
 		};
 
-		// Adds 300 + 150 (len) weight, total weight 1450
+		// Adds 300 weight, total weight 1300
 		let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
-		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+		assert_ok!(CheckWeight::<Test>::do_prepare(&info, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
 			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		assert_eq!(pre, Some(100));
 
-		// This refunds 100 - 50(unspent), total weight is now 1400
+		// This refunds 50 (benchmarked - consumed), total weight is now 1250
 		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
@@ -553,8 +553,8 @@ fn test_incorporates_check_weight_unspent_weight_reverse_order() {
 		// we always need to call `post_dispatch` to verify that they interoperate correctly.
 		assert_ok!(CheckWeight::<Test>::post_dispatch_details((), &info, &post_info, 0, &Ok(()),));
 
-		// Above call refunds 50 (unspent), total weight is 1350 now
-		assert_eq!(get_storage_weight().total().proof_size(), 1350);
+		// Above call refunds 50 (unspent), total weight is 1200 now
+		assert_eq!(get_storage_weight().total().proof_size(), 1200);
 	})
 }
 
@@ -574,16 +574,16 @@ fn test_incorporates_check_weight_unspent_weight_on_negative_reverse_order() {
 			pays_fee: Default::default(),
 		};
 
-		// Adds 50 + 150 (len) weight, total weight is 1200
+		// Adds 50 weight, total weight is 1050
 		let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
-		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+		assert_ok!(CheckWeight::<Test>::do_prepare(&info, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
 			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		assert_eq!(pre, Some(100));
 
-		// Adds additional 150 weight recorded
+		// Accrues 175 (consumed 200 - benchmarked 25), total weight is now 1225
 		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
@@ -596,7 +596,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative_reverse_order() {
 		// we always need to call `post_dispatch` to verify that they interoperate correctly.
 		assert_ok!(CheckWeight::<Test>::post_dispatch_details((), &info, &post_info, 0, &Ok(()),));
 
-		assert_eq!(get_storage_weight().total().proof_size(), 1350);
+		assert_eq!(get_storage_weight().total().proof_size(), 1200);
 	})
 }
 

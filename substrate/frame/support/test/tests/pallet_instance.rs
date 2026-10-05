@@ -364,6 +364,7 @@ fn call_expand() {
 	assert_eq!(
 		call_foo.get_dispatch_info(),
 		DispatchInfo {
+			length_weight: Default::default(),
 			call_weight: Weight::from_parts(3, 0),
 			extension_weight: Default::default(),
 			class: DispatchClass::Normal,
@@ -377,6 +378,7 @@ fn call_expand() {
 	assert_eq!(
 		call_foo.get_dispatch_info(),
 		DispatchInfo {
+			length_weight: Default::default(),
 			call_weight: Weight::from_parts(3, 0),
 			extension_weight: Default::default(),
 			class: DispatchClass::Normal,
