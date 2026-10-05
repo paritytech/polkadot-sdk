@@ -49,7 +49,7 @@ It currently only supports pallet benchmarking, since the other commands still r
 
 ## Installation
 
-Installing from local source repository:
+Installing from local source repository (you must have the Polkadot SDK folder open for this to work):
 
 ```sh
 cargo install --locked --path substrate/utils/frame/omni-bencher --profile=production
