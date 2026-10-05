@@ -1236,7 +1236,7 @@ rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/
 rococo-runtime = { path = "polkadot/runtime/rococo" }
 rococo-runtime-constants = { path = "polkadot/runtime/rococo/constants", default-features = false }
 rococo-westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/rococo-westend-system" }
-rpassword = { version = "7.0.0" }
+rpassword = { version = "7.5.0" }
 rstest = { version = "0.18.2" }
 rustc-hash = { version = "1.1.0" }
 rustc-hex = { version = "2.1.0", default-features = false }
