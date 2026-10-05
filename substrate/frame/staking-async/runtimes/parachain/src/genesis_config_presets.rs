@@ -69,6 +69,7 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig { balances },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
+		dap: DapConfig { budget_allocation: Some(crate::staking::initial_dap_budget()) },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: STAKING_ASYNC_PARA_ED * 16,

@@ -527,6 +527,34 @@ impl pallet_dap::Config for Runtime {
 	type WeightInfo = ();
 }
 
+/// Initial `BudgetAllocation` applied by the genesis presets: the DAP buffer takes 15%, staker
+/// rewards 85% and the validator incentive 0%, matching the split `MigrateV1ToV2` seeded on
+/// existing chains.
+pub fn initial_dap_budget() -> pallet_dap::BudgetAllocationMap {
+	use sp_runtime::Perbill;
+	use sp_staking::budget::BudgetRecipient;
+
+	type StakerRewards = pallet_staking_async::StakerRewardRecipient<
+		pallet_staking_async::Seed<StakingPotsPalletId>,
+	>;
+	type ValidatorIncentive = pallet_staking_async::ValidatorIncentiveRecipient<
+		pallet_staking_async::Seed<StakingPotsPalletId>,
+	>;
+
+	let entries = [
+		(pallet_dap::Pallet::<Runtime>::budget_key(), 15),
+		(<StakerRewards as BudgetRecipient<AccountId>>::budget_key(), 85),
+		(<ValidatorIncentive as BudgetRecipient<AccountId>>::budget_key(), 0),
+	];
+
+	let mut budget = pallet_dap::BudgetAllocationMap::new();
+	for (key, percent) in entries {
+		// Only three entries are inserted, well within `MAX_BUDGET_RECIPIENTS`. qed
+		budget.try_insert(key, Perbill::from_percent(percent)).unwrap();
+	}
+	budget
+}
+
 parameter_types! {
 	pub StakingXcmDestination: Location = Location::parent();
 }

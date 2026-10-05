@@ -58,6 +58,7 @@ fn asset_hub_westend_genesis(
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig { balances },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
+		dap: DapConfig { budget_allocation: Some(crate::staking::initial_dap_budget()) },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: ASSET_HUB_WESTEND_ED * 16,
