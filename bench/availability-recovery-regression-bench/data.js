@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791198359979,
+  "lastUpdate": 1791216030170,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "jfanatiker@gmx.at",
-            "name": "eskimor",
-            "username": "eskimor"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ff555bbd5b397e9984a42c34a799de8e5449f19f",
-          "message": "Collation Generation - ready for old relay parents (#11456)\n\n@iulianbarbu Haven't checked. Let me know if this is conflicting with\nany changes already done.\n\nFixes: https://github.com/paritytech/polkadot-sdk/issues/11423\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-27T12:58:37Z",
-          "tree_id": "1674e3c57f535775e8e3ec35a19c024d1264fb7d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ff555bbd5b397e9984a42c34a799de8e5449f19f"
-        },
-        "date": 1774621228334,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.28539080666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12366932686666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13925604083333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1d6f4582400a935a10a71280575a5e9d4be2325c",
+          "message": "statement-store: drop a peer's affinity filter when its substream closes (#13354)\n\n# Description\n\nA peer's affinity filter now goes away when its statement substream\ncloses, not when block sync reports the peer gone. The filter arrives\nover the statement substream, and the two lifetimes are independent, so\nthe stored filters drifted from the connected set:\n\n- A peer that peer steering dialed outside the sync set never produced a\nsync disconnect, so its filter stayed after its substream closed, and\nthe map grew for the node's lifetime.\n- A peer that block sync dropped while its statement substream stayed\nopen lost its filter although it was still connected, so it stopped\nreceiving statements on its advertised topics until it sent the filter\nagain.\n\n# Integration\n\nNo changes needed. The change is internal to sc-network-statement and\naffects only the v2 DHT path.\n\n# Review Notes\n\nA reconnecting peer sends its filter again once the substream reopens,\nso dropping it on close loses nothing.",
+          "timestamp": "2026-10-05T13:27:44Z",
+          "tree_id": "06e0f4f4180177398dd0ea622de662918366d6bd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1d6f4582400a935a10a71280575a5e9d4be2325c"
+        },
+        "date": 1791215997995,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.655823314433336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1406149946,
             "unit": "seconds"
           }
         ]
