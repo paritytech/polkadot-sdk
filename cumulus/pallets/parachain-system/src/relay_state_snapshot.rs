@@ -193,43 +193,26 @@ impl RelayChainStateProof {
 		)
 		.map_err(Error::DmqMqcHead)?;
 
-		let relay_dispatch_queue_remaining_capacity = read_optional_entry::<
+		// The `relay_dispatch_queue_remaining_capacity` entry is only written by the relay chain
+		// once a parachain has enqueued its first upward message. For a parachain that has never
+		// sent an upward message the entry is absent, in which case the queue is empty and the
+		// full capacity configured by the host is still available.
+		//
+		// A `Decode` or `Proof` error is potentially the result of meddling by a malicious
+		// collator, so we reject the block in those cases by propagating the error.
+		let relay_dispatch_queue_remaining_capacity = read_entry::<
 			RelayDispatchQueueRemainingCapacity,
 			_,
 		>(
 			&self.trie_backend,
 			&relay_chain::well_known_keys::relay_dispatch_queue_remaining_capacity(self.para_id)
 				.key,
-		);
-
-		// TODO paritytech/polkadot#6283: Remove all usages of `relay_dispatch_queue_size`
-		//
-		// When the relay chain and all parachains support
-		// `relay_dispatch_queue_remaining_capacity`, this code here needs to be removed and above
-		// needs to be changed to `read_entry` that returns an error if
-		// `relay_dispatch_queue_remaining_capacity` can not be found/decoded.
-		//
-		// For now we just fallback to the old dispatch queue size on `ReadEntryErr::Absent`.
-		// `ReadEntryErr::Decode` and `ReadEntryErr::Proof` are potentially subject to meddling
-		// by malicious collators, so we reject the block in those cases.
-		let relay_dispatch_queue_remaining_capacity = match relay_dispatch_queue_remaining_capacity
-		{
-			Ok(Some(r)) => r,
-			Ok(None) => {
-				let res = read_entry::<(u32, u32), _>(
-					&self.trie_backend,
-					#[allow(deprecated)]
-					&relay_chain::well_known_keys::relay_dispatch_queue_size(self.para_id),
-					Some((0, 0)),
-				)
-				.map_err(Error::RelayDispatchQueueRemainingCapacity)?;
-
-				let remaining_count = host_config.max_upward_queue_count.saturating_sub(res.0);
-				let remaining_size = host_config.max_upward_queue_size.saturating_sub(res.1);
-				RelayDispatchQueueRemainingCapacity { remaining_count, remaining_size }
-			},
-			Err(e) => return Err(Error::RelayDispatchQueueRemainingCapacity(e)),
-		};
+			Some(RelayDispatchQueueRemainingCapacity {
+				remaining_count: host_config.max_upward_queue_count,
+				remaining_size: host_config.max_upward_queue_size,
+			}),
+		)
+		.map_err(Error::RelayDispatchQueueRemainingCapacity)?;
 
 		let ingress_channel_index: Vec<ParaId> = read_entry(
 			&self.trie_backend,

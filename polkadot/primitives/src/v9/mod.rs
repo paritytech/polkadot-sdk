@@ -283,34 +283,6 @@ pub mod well_known_keys {
 		})
 	}
 
-	/// The upward message dispatch queue for the given para id.
-	///
-	/// The storage entry stores a tuple of two values:
-	///
-	/// - `count: u32`, the number of messages currently in the queue for given para,
-	/// - `total_size: u32`, the total size of all messages in the queue.
-	#[deprecated = "Use `relay_dispatch_queue_remaining_capacity` instead"]
-	pub fn relay_dispatch_queue_size(para_id: Id) -> Vec<u8> {
-		let prefix = hex!["f5207f03cfdce586301014700e2c2593fad157e461d71fd4c1f936839a5f1f3e"];
-
-		para_id.using_encoded(|para_id: &[u8]| {
-			prefix
-				.as_ref()
-				.iter()
-				.chain(twox_64(para_id).iter())
-				.chain(para_id.iter())
-				.cloned()
-				.collect()
-		})
-	}
-
-	/// Type safe version of `relay_dispatch_queue_size`.
-	#[deprecated = "Use `relay_dispatch_queue_remaining_capacity` instead"]
-	pub fn relay_dispatch_queue_size_typed(para: Id) -> WellKnownKey<(u32, u32)> {
-		#[allow(deprecated)]
-		relay_dispatch_queue_size(para).into()
-	}
-
 	/// The upward message dispatch queue remaining capacity for the given para id.
 	///
 	/// The storage entry stores a tuple of two values:
