@@ -44,6 +44,8 @@
 //!     final state of the chain at the end of the previous block. This can be configured via
 //!     [`Config::FeeMultiplierUpdate`]
 //!   - How the fees are paid via [`Config::OnChargeTransaction`].
+//!   - A refundable anti-spam surcharge on `Operational` transactions via
+//!     [`Config::OperationalFeeSurcharge`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -345,6 +347,7 @@ pub mod pallet {
 			type RuntimeEvent = ();
 			type FeeMultiplierUpdate = ();
 			type OperationalFeeMultiplier = ();
+			type OperationalFeeSurcharge = ();
 			type WeightInfo = ();
 		}
 	}
@@ -399,6 +402,12 @@ pub mod pallet {
 		/// transactions.
 		#[pallet::constant]
 		type OperationalFeeMultiplier: Get<u8>;
+
+		/// Refundable anti-spam surcharge on `Operational` transactions: `OperationalFeeSurcharge *
+		/// inclusion_fee` (tip excluded), charged upfront and refunded on dispatch success. `0`
+		/// (default) disables it.
+		#[pallet::constant]
+		type OperationalFeeSurcharge: Get<u32>;
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
@@ -687,6 +696,26 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Refundable surcharge for a transaction (see [`Config::OperationalFeeSurcharge`]):
+	/// `OperationalFeeSurcharge * inclusion_fee`, or `Zero` unless the transaction is
+	/// `Operational`, pays a fee, and the surcharge is enabled.
+	pub fn compute_operational_surcharge(
+		len: u32,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+	) -> BalanceOf<T>
+	where
+		T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	{
+		let multiplier = T::OperationalFeeSurcharge::get();
+		if multiplier == 0 || info.class != DispatchClass::Operational || info.pays_fee == Pays::No
+		{
+			return Zero::zero();
+		}
+		// Tip excluded from the refundable part.
+		let base_fee = Self::compute_fee(len, info, Zero::zero());
+		base_fee.saturating_mul(multiplier.into())
+	}
+
 	/// Compute the length portion of a fee by invoking the configured `LengthToFee` impl.
 	pub fn length_to_fee(length: u32) -> BalanceOf<T> {
 		T::LengthToFee::weight_to_fee(&Weight::from_parts(length as u64, 0))
@@ -835,24 +864,28 @@ where
 		.map(|liquidity_info| (fee_with_tip, liquidity_info))
 	}
 
+	/// Check the payer can afford the fee plus any operational surcharge. Returns the fee (used for
+	/// priority) and the refundable surcharge (see [`Config::OperationalFeeSurcharge`]).
 	fn can_withdraw_fee(
 		&self,
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-	) -> Result<BalanceOf<T>, TransactionValidityError> {
+	) -> Result<(BalanceOf<T>, BalanceOf<T>), TransactionValidityError> {
 		let tip = self.0;
 		let fee_with_tip = Pallet::<T>::compute_fee(len as u32, info, tip);
+		let surcharge = Pallet::<T>::compute_operational_surcharge(len as u32, info);
+		let total_with_tip = fee_with_tip.saturating_add(surcharge);
 
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::can_withdraw_fee(
 			who,
 			call,
 			info,
-			fee_with_tip,
+			total_with_tip,
 			tip,
 		)?;
-		Ok(fee_with_tip)
+		Ok((fee_with_tip, surcharge))
 	}
 
 	/// Get an appropriate priority for a transaction with the given `DispatchInfo`, encoded length
@@ -949,8 +982,10 @@ pub enum Val<T: Config> {
 		tip: BalanceOf<T>,
 		// who paid the fee
 		who: T::AccountId,
-		// transaction fee
+		// transaction fee (including tip)
 		fee_with_tip: BalanceOf<T>,
+		// refundable surcharge, kept on failure
+		surcharge: BalanceOf<T>,
 	},
 	NoCharge,
 }
@@ -965,6 +1000,8 @@ pub enum Pre<T: Config> {
 		// implementation defined type that is passed into the post charge function
 		liquidity_info:
 			<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+		// refundable surcharge, kept on failure
+		surcharge: BalanceOf<T>,
 	},
 	NoCharge {
 		// weight initially estimated by the extension, to be refunded
@@ -976,8 +1013,12 @@ impl<T: Config> core::fmt::Debug for Pre<T> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match self {
-			Pre::Charge { tip, who, liquidity_info: _ } => {
-				write!(f, "Charge {{ tip: {:?}, who: {:?}, imbalance: <stripped> }}", tip, who)
+			Pre::Charge { tip, who, liquidity_info: _, surcharge } => {
+				write!(
+					f,
+					"Charge {{ tip: {:?}, who: {:?}, imbalance: <stripped>, surcharge: {:?} }}",
+					tip, who, surcharge
+				)
 			},
 			Pre::NoCharge { refund } => write!(f, "NoCharge {{ refund: {:?} }}", refund),
 		}
@@ -1018,14 +1059,15 @@ where
 		let Ok(who) = frame_system::ensure_signed(origin.clone()) else {
 			return Ok((ValidTransaction::default(), Val::NoCharge, origin));
 		};
-		let fee_with_tip = self.can_withdraw_fee(&who, call, info, len)?;
+		let (fee_with_tip, surcharge) = self.can_withdraw_fee(&who, call, info, len)?;
 		let tip = self.0;
 		Ok((
 			ValidTransaction {
+				// Surcharge excluded from priority.
 				priority: Self::get_priority(info, len, tip, fee_with_tip),
 				..Default::default()
 			},
-			Val::Charge { tip: self.0, who, fee_with_tip },
+			Val::Charge { tip: self.0, who, fee_with_tip, surcharge },
 			origin,
 		))
 	}
@@ -1039,11 +1081,12 @@ where
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		match val {
-			Val::Charge { tip, who, fee_with_tip } => {
-				// Mutating call to `withdraw_fee` to actually charge for the transaction.
-				let (_fee_with_tip, liquidity_info) =
-					self.withdraw_fee(&who, call, info, fee_with_tip)?;
-				Ok(Pre::Charge { tip, who, liquidity_info })
+			Val::Charge { tip, who, fee_with_tip, surcharge } => {
+				// Charge fee plus surcharge; surcharge refunded on dispatch success.
+				let total_with_tip = fee_with_tip.saturating_add(surcharge);
+				let (_total_with_tip, liquidity_info) =
+					self.withdraw_fee(&who, call, info, total_with_tip)?;
+				Ok(Pre::Charge { tip, who, liquidity_info, surcharge })
 			},
 			Val::NoCharge => Ok(Pre::NoCharge { refund: self.weight(call) }),
 		}
@@ -1054,17 +1097,26 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		_result: &DispatchResult,
+		result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		let (tip, who, liquidity_info) = match pre {
-			Pre::Charge { tip, who, liquidity_info } => (tip, who, liquidity_info),
+		let (tip, who, liquidity_info, surcharge) = match pre {
+			Pre::Charge { tip, who, liquidity_info, surcharge } => {
+				(tip, who, liquidity_info, surcharge)
+			},
 			Pre::NoCharge { refund } => {
 				// No-op: Refund everything
 				return Ok(refund);
 			},
 		};
-		let actual_fee_with_tip =
-			Pallet::<T>::compute_actual_fee(len as u32, info, &post_info, tip);
+		// Refund the surcharge on success, keep it on failure.
+		let actual_fee_with_tip = {
+			let corrected = Pallet::<T>::compute_actual_fee(len as u32, info, &post_info, tip);
+			if result.is_err() {
+				corrected.saturating_add(surcharge)
+			} else {
+				corrected
+			}
+		};
 		T::OnChargeTransaction::correct_and_deposit_fee(
 			&who,
 			info,

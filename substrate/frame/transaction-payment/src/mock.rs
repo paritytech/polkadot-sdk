@@ -64,6 +64,7 @@ parameter_types! {
 	pub static WeightToFee: u64 = 1;
 	pub static TransactionByteFee: u64 = 1;
 	pub static OperationalFeeMultiplier: u8 = 5;
+	pub static OperationalFeeSurcharge: u32 = 0;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -132,6 +133,7 @@ impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
+	type OperationalFeeSurcharge = OperationalFeeSurcharge;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
 	type FeeMultiplierUpdate = ();

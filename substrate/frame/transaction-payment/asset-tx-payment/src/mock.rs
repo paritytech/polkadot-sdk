@@ -120,6 +120,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
 	type OperationalFeeMultiplier = ConstU8<5>;
+	type OperationalFeeSurcharge = ();
 	type WeightInfo = MockTxPaymentWeights;
 }
 
