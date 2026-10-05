@@ -202,6 +202,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxSubAccounts: Get<u32>;
 
+		/// The maximum size of raw identity data values.
+		/// Defaults to 32 for backwards compatibility.
+		#[pallet::constant]
+		type MaxRawSize: Get<u32>;
+
 		/// Structure holding information about an identity.
 		type IdentityInformation: IdentityInformationProvider;
 
@@ -283,8 +288,13 @@ pub mod pallet {
 	/// The super-identity of an alternative "sub" identity together with its name, within that
 	/// context. If the account is not some other account's sub-identity, then just `None`.
 	#[pallet::storage]
-	pub type SuperOf<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, (T::AccountId, Data), OptionQuery>;
+	pub type SuperOf<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		(T::AccountId, Data<T::MaxRawSize>),
+		OptionQuery,
+	>;
 
 	/// Alternative "sub" identities of this account.
 	///
@@ -622,7 +632,7 @@ pub mod pallet {
 		)]
 		pub fn set_subs(
 			origin: OriginFor<T>,
-			subs: Vec<(T::AccountId, Data)>,
+			subs: Vec<(T::AccountId, Data<T::MaxRawSize>)>,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
 			ensure!(IdentityOf::<T>::contains_key(&sender), Error::<T>::NotFound);
@@ -1029,7 +1039,7 @@ pub mod pallet {
 		pub fn add_sub(
 			origin: OriginFor<T>,
 			sub: AccountIdLookupOf<T>,
-			data: Data,
+			data: Data<T::MaxRawSize>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 			let sub = T::Lookup::lookup(sub)?;
@@ -1065,7 +1075,7 @@ pub mod pallet {
 		pub fn rename_sub(
 			origin: OriginFor<T>,
 			sub: AccountIdLookupOf<T>,
-			data: Data,
+			data: Data<T::MaxRawSize>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 			let sub = T::Lookup::lookup(sub)?;
@@ -1449,7 +1459,7 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
 	/// Get the subs of an account.
-	pub fn subs(who: &T::AccountId) -> Vec<(T::AccountId, Data)> {
+	pub fn subs(who: &T::AccountId) -> Vec<(T::AccountId, Data<T::MaxRawSize>)> {
 		SubsOf::<T>::get(who)
 			.1
 			.into_iter()
@@ -1488,7 +1498,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Calculate the deposit required for an identity.
 	fn calculate_identity_deposit(info: &T::IdentityInformation) -> BalanceOf<T> {
-		let bytes = info.encoded_size() as u32;
+		let bytes = Encode::encoded_size(info) as u32;
 		let byte_deposit = T::ByteDeposit::get().saturating_mul(BalanceOf::<T>::from(bytes));
 		T::BasicDeposit::get().saturating_add(byte_deposit)
 	}
@@ -1621,7 +1631,7 @@ impl<T: Config> Pallet<T> {
 		// identity
 		let id = IdentityOf::<T>::take(&who).ok_or(Error::<T>::NoIdentity)?;
 		let registrars = id.judgements.len() as u32;
-		let encoded_byte_size = id.info.encoded_size() as u32;
+		let encoded_byte_size = Encode::encoded_size(&id.info) as u32;
 
 		// subs
 		let (subs_deposit, sub_ids) = SubsOf::<T>::take(&who);
@@ -1655,7 +1665,7 @@ impl<T: Config> Pallet<T> {
 			|identity_of| -> Result<BalanceOf<T>, DispatchError> {
 				let reg = identity_of.as_mut().ok_or(Error::<T>::NoIdentity)?;
 				// Calculate what deposit should be
-				let encoded_byte_size = reg.info.encoded_size() as u32;
+				let encoded_byte_size = Encode::encoded_size(&reg.info) as u32;
 				let byte_deposit =
 					T::ByteDeposit::get().saturating_mul(BalanceOf::<T>::from(encoded_byte_size));
 				let new_id_deposit = T::BasicDeposit::get().saturating_add(byte_deposit);
@@ -1709,7 +1719,7 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
 	pub fn set_subs_no_deposit(
 		who: &T::AccountId,
-		subs: Vec<(T::AccountId, Data)>,
+		subs: Vec<(T::AccountId, Data<T::MaxRawSize>)>,
 	) -> DispatchResult {
 		let mut sub_accounts = BoundedVec::<T::AccountId, T::MaxSubAccounts>::default();
 		for (sub, name) in subs {
