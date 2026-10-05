@@ -33,17 +33,19 @@ use frame_support::{
 	dispatch::GetDispatchInfo,
 	parameter_types,
 	traits::{
-		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
+		Currency, ProcessMessage, ProcessMessageError, ReservableCurrency, ValidatorSet,
+		ValidatorSetWithIdentification,
 	},
 	weights::{Weight, WeightMeter},
 	PalletId,
 };
 use frame_support_test::TestRandomness;
 use frame_system::{limits, EnsureRoot};
+use hrmp_primitives::{ChannelId, DepositAction, DepositProvider, DepositRole};
 use polkadot_primitives::{
 	slashing::DisputesTimeSlot, AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash,
-	DisputeOffenceKind, Moment, SessionIndex, UpwardMessage, ValidationCode, ValidatorId,
-	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
+	DisputeOffenceKind, HrmpChannelId, Moment, SessionIndex, UpwardMessage, ValidationCode,
+	ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 use sp_core::{crypto::KeyTypeId, ConstU32, H256};
 use sp_io::TestExternalities;
@@ -54,7 +56,7 @@ use sp_runtime::{
 };
 use sp_staking::offence::OffenceError;
 use std::{
-	cell::RefCell,
+	cell::{Cell, RefCell},
 	collections::{btree_map::BTreeMap, HashMap},
 };
 use xcm::{
@@ -295,10 +297,74 @@ impl crate::hrmp::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<u64>;
 	type Currency = pallet_balances::Pallet<Test>;
-	type DepositProvider = crate::hrmp::LocalDepositProvider<Test>;
+	type DepositProvider = MockDepositProvider;
 	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	type VersionWrapper = TestUsesOnlyStoredVersionWrapper;
 	type WeightInfo = crate::hrmp::TestWeightInfo;
+}
+
+thread_local! {
+	static DEFER_DEPOSITS: Cell<bool> = const { Cell::new(false) };
+	static PENDING_DEPOSITS: RefCell<Vec<(ChannelId, Balance, DepositRole, DepositAction)>> =
+		const { RefCell::new(Vec::new()) };
+}
+
+/// [`hrmp::LocalDepositProvider`], or one on another chain after [`Self::defer`].
+pub struct MockDepositProvider;
+
+impl MockDepositProvider {
+	/// Hold deposit results back until [`Self::deliver`].
+	pub fn defer() {
+		DEFER_DEPOSITS.with(|d| d.set(true));
+	}
+
+	/// Reports every held deposit, giving it back when the report fails.
+	pub fn deliver() -> Vec<DispatchResult> {
+		PENDING_DEPOSITS
+			.with(|p| p.take())
+			.into_iter()
+			.map(|(channel_id, amount, role, action)| {
+				let id = HrmpChannelId {
+					sender: channel_id.sender.into(),
+					recipient: channel_id.recipient.into(),
+				};
+				Hrmp::on_deposit_result(&id, amount, role, action).inspect_err(|_| {
+					assert_ok!(Self::refund(channel_id, amount, role));
+				})
+			})
+			.collect()
+	}
+}
+
+impl DepositProvider for MockDepositProvider {
+	fn deposit(
+		channel_id: ChannelId,
+		amount: Balance,
+		role: DepositRole,
+		action: DepositAction,
+	) -> DispatchResult {
+		if !DEFER_DEPOSITS.with(|d| d.get()) {
+			return hrmp::LocalDepositProvider::<Test>::deposit(channel_id, amount, role, action);
+		}
+		PENDING_DEPOSITS.with(|p| {
+			let mut pending = p.borrow_mut();
+			ensure!(
+				!pending.iter().any(|(c, _, r, _)| *c == channel_id && *r == role),
+				DispatchError::Other("DepositPending")
+			);
+			let para = match role {
+				DepositRole::Sender => channel_id.sender,
+				DepositRole::Recipient => channel_id.recipient,
+			};
+			Balances::reserve(&ParaId::from(para).into_account_truncating(), amount)?;
+			pending.push((channel_id, amount, role, action));
+			Ok(())
+		})
+	}
+
+	fn refund(channel_id: ChannelId, amount: Balance, role: DepositRole) -> DispatchResult {
+		hrmp::LocalDepositProvider::<Test>::refund(channel_id, amount, role)
+	}
 }
 
 impl crate::disputes::Config for Test {

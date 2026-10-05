@@ -135,23 +135,6 @@ pub enum DepositRole {
 	Recipient,
 }
 
-/// Outcome of a deposit, reported back to the pallet that asked for it.
-#[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	Copy,
-	Eq,
-	PartialEq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
-)]
-pub enum DepositResult {
-	Successful,
-	NotSuccessful,
-}
 
 /// Data the pallet that asked for a deposit needs to finish that call.
 #[derive(

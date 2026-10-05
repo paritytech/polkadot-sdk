@@ -186,12 +186,15 @@ impl<T: Config> DepositProvider for LocalDepositProvider<T> {
 		role: DepositRole,
 		action: DepositAction,
 	) -> DispatchResult {
-		T::Currency::reserve(&Self::account(&channel_id, role), amount.unique_saturated_into())?;
+		let account = Self::account(&channel_id, role);
+		T::Currency::reserve(&account, amount.unique_saturated_into())?;
 		let channel_id = HrmpChannelId {
 			sender: channel_id.sender.into(),
 			recipient: channel_id.recipient.into(),
 		};
-		Pallet::<T>::on_deposit_result(&channel_id, amount, role, action)
+		Pallet::<T>::on_deposit_result(&channel_id, amount, role, action).inspect_err(|_| {
+			T::Currency::unreserve(&account, amount.unique_saturated_into());
+		})
 	}
 
 	fn refund(channel_id: ChannelId, amount: Balance, role: DepositRole) -> DispatchResult {
@@ -304,7 +307,7 @@ pub mod pallet {
 		/// The origin that can perform "force" actions on channels.
 		type ChannelManager: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
-		/// An interface for reserving deposits for opening channels.
+		/// Holds channel deposits when [`Config::DepositProvider`] is [`LocalDepositProvider`].
 		///
 		/// NOTE that this Currency instance will be charged with the amounts defined in the
 		/// `Configuration` pallet. Specifically, that means that the `Balance` of the `Currency`
@@ -1435,22 +1438,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		let channel_id = HrmpChannelId { sender: origin, recipient };
-		ensure!(
-			HrmpOpenChannelRequests::<T>::get(&channel_id).is_none(),
-			Error::<T>::OpenHrmpChannelAlreadyRequested,
-		);
-		ensure!(
-			HrmpChannels::<T>::get(&channel_id).is_none(),
-			Error::<T>::OpenHrmpChannelAlreadyExists,
-		);
-
-		let egress_cnt = HrmpEgressChannelsIndex::<T>::decode_len(&origin).unwrap_or(0) as u32;
-		let open_req_cnt = HrmpOpenChannelRequestCount::<T>::get(&origin);
-		let channel_num_limit = config.hrmp_max_parachain_outbound_channels;
-		ensure!(
-			egress_cnt + open_req_cnt < channel_num_limit,
-			Error::<T>::OpenHrmpChannelLimitExceeded,
-		);
+		Self::ensure_can_init_open_channel(&channel_id, &config)?;
 
 		Self::request_deposit(
 			&channel_id,
@@ -1470,20 +1458,8 @@ impl<T: Config> Pallet<T> {
 	/// intended for calling directly from other pallets rather than dispatched.
 	pub fn accept_open_channel(origin: ParaId, sender: ParaId) -> DispatchResult {
 		let channel_id = HrmpChannelId { sender, recipient: origin };
-		let channel_req = HrmpOpenChannelRequests::<T>::get(&channel_id)
-			.ok_or(Error::<T>::AcceptHrmpChannelDoesntExist)?;
-		ensure!(!channel_req.confirmed, Error::<T>::AcceptHrmpChannelAlreadyConfirmed);
-
-		// check if by accepting this open channel request, this parachain would exceed the
-		// number of inbound channels.
 		let config = configuration::ActiveConfig::<T>::get();
-		let channel_num_limit = config.hrmp_max_parachain_inbound_channels;
-		let ingress_cnt = HrmpIngressChannelsIndex::<T>::decode_len(&origin).unwrap_or(0) as u32;
-		let accepted_cnt = HrmpAcceptedChannelRequestCount::<T>::get(&origin);
-		ensure!(
-			ingress_cnt + accepted_cnt < channel_num_limit,
-			Error::<T>::AcceptHrmpChannelLimitExceeded,
-		);
+		Self::ensure_can_accept_open_channel(&channel_id, &config)?;
 
 		Self::request_deposit(
 			&channel_id,
@@ -1493,7 +1469,8 @@ impl<T: Config> Pallet<T> {
 		)
 	}
 
-	/// Finishes the call that asked for a deposit once `amount` is taken.
+	/// Finishes the call that asked for a deposit once `amount` is taken. On `Err` nothing is
+	/// written and the provider must give `amount` back.
 	pub fn on_deposit_result(
 		channel_id: &HrmpChannelId,
 		amount: Balance,
@@ -1571,6 +1548,51 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Checks that may no longer hold by the time a deposit is taken, so they run again then.
+	fn ensure_can_init_open_channel(
+		channel_id: &HrmpChannelId,
+		config: &HostConfiguration<BlockNumberFor<T>>,
+	) -> DispatchResult {
+		ensure!(
+			HrmpOpenChannelRequests::<T>::get(channel_id).is_none(),
+			Error::<T>::OpenHrmpChannelAlreadyRequested,
+		);
+		ensure!(
+			HrmpChannels::<T>::get(channel_id).is_none(),
+			Error::<T>::OpenHrmpChannelAlreadyExists,
+		);
+
+		let sender = channel_id.sender;
+		let egress_cnt = HrmpEgressChannelsIndex::<T>::decode_len(&sender).unwrap_or(0) as u32;
+		let open_req_cnt = HrmpOpenChannelRequestCount::<T>::get(&sender);
+		ensure!(
+			egress_cnt + open_req_cnt < config.hrmp_max_parachain_outbound_channels,
+			Error::<T>::OpenHrmpChannelLimitExceeded,
+		);
+		Ok(())
+	}
+
+	/// [`Self::ensure_can_init_open_channel`] for accepting. Returns the request.
+	fn ensure_can_accept_open_channel(
+		channel_id: &HrmpChannelId,
+		config: &HostConfiguration<BlockNumberFor<T>>,
+	) -> Result<HrmpOpenChannelRequest, DispatchError> {
+		let channel_req = HrmpOpenChannelRequests::<T>::get(channel_id)
+			.ok_or(Error::<T>::AcceptHrmpChannelDoesntExist)?;
+		ensure!(!channel_req.confirmed, Error::<T>::AcceptHrmpChannelAlreadyConfirmed);
+
+		// check if by accepting this open channel request, this parachain would exceed the
+		// number of inbound channels.
+		let recipient = channel_id.recipient;
+		let ingress_cnt = HrmpIngressChannelsIndex::<T>::decode_len(&recipient).unwrap_or(0) as u32;
+		let accepted_cnt = HrmpAcceptedChannelRequestCount::<T>::get(&recipient);
+		ensure!(
+			ingress_cnt + accepted_cnt < config.hrmp_max_parachain_inbound_channels,
+			Error::<T>::AcceptHrmpChannelLimitExceeded,
+		);
+		Ok(channel_req)
+	}
+
 	fn do_init_open_channel(
 		channel_id: &HrmpChannelId,
 		sender_deposit: Balance,
@@ -1580,6 +1602,11 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let config = configuration::ActiveConfig::<T>::get();
 		let (sender, recipient) = (channel_id.sender, channel_id.recipient);
+		ensure!(
+			paras::Pallet::<T>::is_valid_para(recipient),
+			Error::<T>::OpenHrmpChannelInvalidRecipient,
+		);
+		Self::ensure_can_init_open_channel(channel_id, &config)?;
 
 		HrmpOpenChannelRequestCount::<T>::mutate(&sender, |count| *count += 1);
 		HrmpOpenChannelRequests::<T>::insert(
@@ -1619,15 +1646,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn do_accept_open_channel(channel_id: &HrmpChannelId) -> DispatchResult {
-		let mut channel_req = HrmpOpenChannelRequests::<T>::get(channel_id)
-			.ok_or(Error::<T>::AcceptHrmpChannelDoesntExist)?;
+		let config = configuration::ActiveConfig::<T>::get();
+		let mut channel_req = Self::ensure_can_accept_open_channel(channel_id, &config)?;
 		let (sender, recipient) = (channel_id.sender, channel_id.recipient);
 
 		channel_req.confirmed = true;
 		HrmpOpenChannelRequests::<T>::insert(channel_id, channel_req);
 		HrmpAcceptedChannelRequestCount::<T>::mutate(&recipient, |count| *count += 1);
 
-		let config = configuration::ActiveConfig::<T>::get();
 		Self::send_to_para(
 			"accept_open_channel",
 			&config,
