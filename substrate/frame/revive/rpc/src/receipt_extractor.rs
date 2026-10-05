@@ -78,7 +78,7 @@ fn decode_revive_event(
 				return Some(ReviveEvent::Log(Log {
 					address: evt.contract,
 					topics: evt.topics,
-					data: Some(evt.data.into()),
+					data: evt.data.into(),
 					block_number,
 					transaction_hash,
 					transaction_index: transaction_index.into(),
@@ -864,7 +864,7 @@ mod tests {
 		let log = &logs[&5][0];
 		assert_eq!(log.address, contract);
 		assert_eq!(log.topics, topics);
-		assert_eq!(log.data.as_ref().unwrap().0, data);
+		assert_eq!(log.data.0, data);
 		assert_eq!(log.block_hash, eth_block_hash);
 		assert_eq!(log.block_number, eth_block_number);
 		assert_eq!(log.transaction_hash, tx_hash);
