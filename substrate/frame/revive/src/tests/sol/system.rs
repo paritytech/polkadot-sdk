@@ -539,8 +539,8 @@ fn caller_is_root_through_delegate_call(fixture_type: FixtureType) {
 }
 
 /// Through a delegate call followed by a regular call: root -> contract -> delegatecall ->
-/// regular call -> target. The caller of `target` is the contract, so `callerIsRoot` must not
-/// hold, whatever delegate frames sit below it.
+/// regular call -> target. The caller of `target` is the contract, so `callerIsRoot` is false,
+/// even though root called the contract.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn caller_is_root_does_not_cross_regular_call_after_delegate_call(fixture_type: FixtureType) {
@@ -579,7 +579,8 @@ fn caller_is_root_does_not_cross_regular_call_after_delegate_call(fixture_type: 
 
 /// Through two chained delegate calls: root -> proxy -> delegatecall -> implementation ->
 /// delegatecall -> library. Each delegate frame keeps the caller of the contract it runs as, so
-/// `callerIsRoot` holds in the library, and a regular call the library makes still does not.
+/// `callerIsRoot` holds in the library. A contract the library calls with a regular call sees
+/// the proxy as its caller, so `callerIsRoot` is false there.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn caller_is_root_through_chained_delegate_calls(fixture_type: FixtureType) {
@@ -675,8 +676,8 @@ fn caller_is_origin_through_delegate_call(fixture_type: FixtureType) {
 }
 
 /// Through a delegate call followed by a regular call: origin -> contract -> delegatecall ->
-/// regular call -> target. The caller of `target` is the contract, so `callerIsOrigin` must not
-/// hold, whatever delegate frames sit below it.
+/// regular call -> target. The caller of `target` is the contract, so `callerIsOrigin` is false,
+/// even though the origin called the contract.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn caller_is_origin_does_not_cross_regular_call_after_delegate_call(fixture_type: FixtureType) {
