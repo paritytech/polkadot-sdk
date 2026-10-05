@@ -1275,7 +1275,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1125 id=1125 data-nosnippet>1125</a>	</span><span class="kw">let </span>core_index =
 <a href=#1126 id=1126 data-nosnippet>1126</a>		sp_state.group_rotation_info.core_for_group(<span class="kw-2">*</span>group_index, sp_state.n_cores <span class="kw">as _</span>);
 <a href=#1127 id=1127 data-nosnippet>1127</a>
-<a href=#1128 id=1128 data-nosnippet>1128</a>	<span class="kw">if </span>core_index.<span class="number">0 </span>&gt; sp_state.n_cores {
+<a href=#1128 id=1128 data-nosnippet>1128</a>	<span class="kw">if </span>core_index.<span class="number">0 </span>&gt;= sp_state.n_cores {
 <a href=#1129 id=1129 data-nosnippet>1129</a>		<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="question-mark">?</span>core_index, n_cores = sp_state.n_cores, <span class="string">"Invalid CoreIndex"</span>);
 <a href=#1130 id=1130 data-nosnippet>1130</a>		<span class="kw">return </span><span class="prelude-val">None</span>;
 <a href=#1131 id=1131 data-nosnippet>1131</a>	}
