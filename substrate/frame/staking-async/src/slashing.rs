@@ -43,15 +43,19 @@
 use crate::{
 	asset, log, session_rotation::Eras, BalanceOf, Config, ErasStakersOverview,
 	NegativeImbalanceOf, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
-	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, WeightInfo,
+	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, UnexpectedKind,
+	WeightInfo,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced};
+use frame_support::{
+	storage::{with_transaction, TransactionOutcome},
+	traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced},
+};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	Debug, WeakBoundedVec, Weight,
+	Debug, DispatchError, WeakBoundedVec, Weight,
 };
 use sp_staking::{EraIndex, StakingInterface};
 
@@ -594,28 +598,58 @@ pub fn do_slash<T: Config>(
 			Err(_) => return, // nothing to do.
 		};
 
-	let value = ledger.slash(value, asset::existential_deposit::<T>(), offence_era);
-	if value.is_zero() {
-		// nothing to do
-		return;
-	}
-
-	// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
-	if !Pallet::<T>::is_virtual_staker(stash) {
-		let (imbalance, missing) = asset::slash::<T>(stash, value);
-		slashed_imbalance.subsume(imbalance);
-
-		if !missing.is_zero() {
-			// deduct overslash from the reward payout
-			*reward_payout = reward_payout.saturating_sub(missing);
+	// `ledger.slash()` notifies the listeners while `ledger.update()` commits the slash on the
+	// staking side, so both must share a transaction: `update()` may roll its write back and the
+	// listeners must not stay committed to a slash that staking never applied.
+	let outcome = with_transaction(|| {
+		let value = ledger.slash(value, asset::existential_deposit::<T>(), offence_era);
+		if value.is_zero() {
+			// nothing was slashed, so there is no ledger update to make.
+			return TransactionOutcome::Commit(Ok(None));
 		}
+
+		// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
+		let (imbalance, missing) = if Pallet::<T>::is_virtual_staker(stash) {
+			(NegativeImbalanceOf::<T>::zero(), Zero::zero())
+		} else {
+			asset::slash::<T>(stash, value)
+		};
+
+		// `update_slashed` does not enforce the stake bookkeeping of the ledger, so that a stash
+		// whose ledger is already inconsistent does not become unslashable.
+		match ledger.update_slashed() {
+			Ok(()) => TransactionOutcome::Commit(Ok(Some((value, imbalance, missing)))),
+			Err(e) => TransactionOutcome::Rollback(Err(DispatchError::from(e))),
+		}
+	});
+
+	let (value, imbalance, missing) = match outcome {
+		Ok(Some(slashed)) => slashed,
+		// nothing to do.
+		Ok(None) => return,
+		Err(e) => {
+			// the bond is in a bad state: slash, ledger update and listener notifications were all
+			// rolled back. Report it so that the ledger can be repaired via `restore_ledger`.
+			log!(
+				warn,
+				"do_slash: failed to update ledger of {:?}: {:?}; slash rolled back.",
+				stash,
+				e
+			);
+			<Pallet<T>>::deposit_event(super::Event::<T>::Unexpected(
+				UnexpectedKind::BadLedgerState { era: offence_era, stash: stash.clone() },
+			));
+			return;
+		},
+	};
+
+	slashed_imbalance.subsume(imbalance);
+	if !missing.is_zero() {
+		// deduct overslash from the reward payout
+		*reward_payout = reward_payout.saturating_sub(missing);
 	}
 
-	let _ = ledger
-		.update()
-		.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
-
-	// trigger the event
+	// the stash was actually slashed, trigger the event.
 	<Pallet<T>>::deposit_event(super::Event::<T>::Slashed { staker: stash.clone(), amount: value });
 }
 

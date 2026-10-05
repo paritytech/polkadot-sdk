@@ -2279,3 +2279,76 @@ fn old_offences_rejected_with_zero_slash_defer_duration() {
 		assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&4));
 	});
 }
+
+#[test]
+fn slash_applies_to_ledger_with_inconsistent_stake() {
+	// A ledger whose stake bookkeeping is broken must not make its stash unslashable.
+	ExtBuilder::default().nominate(false).try_state(false).build_and_execute(|| {
+		// break the bookkeeping of 11: `total != active + sum(unlocking)`.
+		let mut corrupt = Ledger::<T>::get(11).unwrap();
+		corrupt.active -= 100;
+		Ledger::<T>::insert(11, corrupt);
+		assert_eq!(
+			Staking::ledger(StakingAccount::Stash(11)).unwrap().update(),
+			Err(Error::<T>::BadState)
+		);
+
+		let staked_before = asset::staked::<T>(&11);
+
+		add_slash(11);
+		Session::roll_next();
+
+		// the slash is applied as usual.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::OffenceReported {
+					offence_era: 1,
+					validator: 11,
+					fraction: Perbill::from_percent(10)
+				},
+				Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
+				Event::Slashed { staker: 11, amount: 100 },
+			]
+		);
+		assert_eq!(asset::staked::<T>(&11), staked_before - 100);
+
+		// the ledger is slashed, carrying its pre-existing mismatch forward.
+		let ledger = Ledger::<T>::get(11).unwrap();
+		assert_eq!(ledger.total, 900);
+		assert_eq!(ledger.active, 800);
+	});
+}
+
+#[test]
+fn slash_is_rolled_back_if_the_ledger_cannot_be_updated() {
+	// The balance slash, the ledger update and the `on_slash` notification of the listeners share
+	// one transaction: either all of them are committed, or none of them is.
+	ExtBuilder::default().nominate(false).try_state(false).build_and_execute(|| {
+		// the stash lost the funds backing its stake, so re-holding the post slash stake fails.
+		let ledger_before = Ledger::<T>::get(11).unwrap();
+		asset::set_stakeable_balance::<T>(&11, 50);
+		let balance_before = asset::total_balance::<T>(&11);
+
+		add_slash(11);
+		Session::roll_next();
+
+		// no `Slashed` event, the bad ledger is reported instead.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::OffenceReported {
+					offence_era: 1,
+					validator: 11,
+					fraction: Perbill::from_percent(10)
+				},
+				Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
+				Event::Unexpected(UnexpectedKind::BadLedgerState { era: 1, stash: 11 }),
+			]
+		);
+
+		// nothing was slashed, neither the ledger nor the balance.
+		assert_eq!(Ledger::<T>::get(11).unwrap(), ledger_before);
+		assert_eq!(asset::total_balance::<T>(&11), balance_before);
+	});
+}

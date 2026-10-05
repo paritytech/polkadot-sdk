@@ -1032,6 +1032,47 @@ mod hold_migration {
 			);
 		});
 	}
+
+	#[test]
+	fn migrate_currency_force_withdraw_exceeds_active_drains_unlocking() {
+		// When force_withdraw > active the excess must be drained from unlocking chunks
+		// so that total == active + sum(unlocking) after migration.
+		ExtBuilder::default()
+			.existential_deposit(1)
+			.has_stakers(false)
+			.build_and_execute(|| {
+				let alice = 300;
+				// Bond alice with a small active stake and one unlocking chunk.
+				let _ = asset::set_stakeable_balance::<Test>(&alice, 1000);
+				assert_ok!(Staking::bond(
+					RuntimeOrigin::signed(alice),
+					500,
+					RewardDestination::Staked
+				));
+				assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 400));
+				// alice now has active=100, unlocking=[400], total=500.
+				let ledger = Staking::ledger(StakingAccount::Stash(alice)).unwrap();
+				assert_eq!(ledger.active, 100);
+				assert_eq!(ledger.total, 500);
+
+				// Migrate to old currency so migrate_currency can be called.
+				testing_utils::migrate_to_old_currency::<Test>(alice);
+
+				// Force alice to have less free balance than staked so force_withdraw fires.
+				// set_stakeable_balance(50) leaves free_to_stake == 50, so force_withdraw = 450.
+				let _ = asset::set_stakeable_balance::<Test>(&alice, 50);
+
+				// force_withdraw = 500 - 50 = 450 which exceeds active (100).
+				assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(alice), alice));
+
+				let ledger = Staking::ledger(StakingAccount::Stash(alice)).unwrap();
+				// total == active + sum(unlocking): invariant must hold.
+				let real_total: Balance =
+					ledger.active + ledger.unlocking.iter().map(|c| c.value).sum::<Balance>();
+				assert_eq!(real_total, ledger.total);
+				assert_eq!(ledger.total, 50);
+			});
+	}
 }
 
 // #[test]
