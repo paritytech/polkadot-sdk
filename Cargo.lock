@@ -12560,6 +12560,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-assets-forwarder"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+]
+
+[[package]]
 name = "pallet-assets-freezer"
 version = "0.1.0"
 dependencies = [
@@ -17753,6 +17771,7 @@ dependencies = [
  "pallet-asset-rewards",
  "pallet-asset-tx-payment",
  "pallet-assets",
+ "pallet-assets-forwarder",
  "pallet-assets-freezer",
  "pallet-assets-holder",
  "pallet-assets-precompiles",
