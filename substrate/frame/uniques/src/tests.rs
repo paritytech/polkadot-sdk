@@ -634,6 +634,47 @@ fn force_item_status_should_work() {
 }
 
 #[test]
+fn force_item_status_repatriates_deposit_on_owner_change() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+
+		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
+		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
+		assert_ok!(Uniques::set_collection_metadata(
+			RuntimeOrigin::signed(1),
+			0,
+			bvec![0; 20],
+			false
+		));
+		assert_ok!(Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 42, bvec![0; 20], false));
+
+		// The collection owner (account 1) holds the whole deposit.
+		let total_deposit = Balances::reserved_balance(1);
+		assert!(total_deposit > 0);
+		assert_eq!(Balances::reserved_balance(2), 0);
+		assert_eq!(CollectionAccount::<Test>::get(1, 0), Some(()));
+		assert_eq!(CollectionAccount::<Test>::get(2, 0), None);
+
+		// Force the collection ownership over to account 2.
+		assert_ok!(Uniques::force_item_status(RuntimeOrigin::root(), 0, 2, 2, 2, 2, false, false));
+
+		// The deposit moves with the ownership instead of being stranded on account 1.
+		assert_eq!(Balances::reserved_balance(1), 0);
+		assert_eq!(Balances::reserved_balance(2), total_deposit);
+		assert_eq!(CollectionAccount::<Test>::get(1, 0), None);
+		assert_eq!(CollectionAccount::<Test>::get(2, 0), Some(()));
+
+		// Destroying the collection unreserves the deposit from the current owner,
+		// leaving no funds stranded.
+		let w = Collection::<Test>::get(0).unwrap().destroy_witness();
+		assert_ok!(Uniques::destroy(RuntimeOrigin::signed(2), 0, w));
+		assert_eq!(Balances::reserved_balance(1), 0);
+		assert_eq!(Balances::reserved_balance(2), 0);
+	});
+}
+
+#[test]
 fn burn_works() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&1, 100);
