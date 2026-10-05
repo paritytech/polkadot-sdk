@@ -143,7 +143,7 @@ pub mod pallet {
 	use super::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -197,11 +197,6 @@ pub mod pallet {
 		Canceled { index: BountyIndex, child_index: BountyIndex },
 	}
 
-	/// DEPRECATED: Replaced with `ParentTotalChildBounties` storage item keeping dedicated counts
-	/// for each parent bounty. Number of total child bounties. Will be removed in May 2025.
-	#[pallet::storage]
-	pub type ChildBountyCount<T: Config> = StorageValue<_, BountyIndex, ValueQuery>;
-
 	/// Number of active child bounties per parent bounty.
 	/// Map of parent bounty index to number of child bounties.
 	#[pallet::storage]
@@ -239,7 +234,7 @@ pub mod pallet {
 
 	/// The mapping of the child bounty ids from storage version `V0` to the new `V1` version.
 	///
-	/// The `V0` ids based on total child bounty count [`ChildBountyCount`]`. The `V1` version ids
+	/// The `V0` ids were based on a single total child-bounty count. The `V1` version ids are
 	/// based on the child bounty count per parent bounty [`ParentTotalChildBounties`].
 	/// The item intended solely for client convenience and not used in the pallet's core logic.
 	#[pallet::storage]

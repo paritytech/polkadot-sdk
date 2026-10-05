@@ -1,0 +1,12 @@
+title: Migrate child-bounties storage from v1 to v2
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    This is part of #11561. `ChildBountyCount` is unused once child-bounty ids are tracked per parent, so this change removes it with a storage migration. `pallet-child-bounties` moves from storage version 1 to 2, and `MigrateV1ToV2` deletes the old value.
+crates:
+- name: rococo-runtime
+  bump: major
+- name: pallet-child-bounties
+  bump: major

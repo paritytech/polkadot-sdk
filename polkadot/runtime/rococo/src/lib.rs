@@ -1737,6 +1737,7 @@ pub mod migrations {
         pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
         pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, pallet_referenda::Instance2>,
         pallet_child_bounties::migration::MigrateV0ToV1<Runtime, BalanceTransferAllowDeath>,
+        pallet_child_bounties::migration::MigrateV1ToV2<Runtime>,
 
         // Unlock & unreserve Gov1 funds
 

@@ -26,7 +26,7 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		ConstU32, ConstU64, OnInitialize,
+		ConstU32, ConstU64, OnInitialize, OnRuntimeUpgrade,
 	},
 	weights::Weight,
 	PalletId,
@@ -1681,5 +1681,36 @@ fn max_active_child_bounty_count_is_strictly_enforced() {
 			b"child-4".to_vec()
 		));
 		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 2);
+	});
+}
+
+#[test]
+fn child_bounty_count_removed_on_upgrade() {
+	use frame_support::traits::StorageVersion;
+
+	new_test_ext().execute_with(|| {
+		StorageVersion::new(1).put::<ChildBounties>();
+		migration::v2::ChildBountyCount::<Test>::put(7);
+		assert!(migration::v2::ChildBountyCount::<Test>::exists());
+
+		migration::MigrateV1ToV2::<Test>::on_runtime_upgrade();
+
+		assert!(!migration::v2::ChildBountyCount::<Test>::exists());
+		assert_eq!(StorageVersion::get::<ChildBounties>(), StorageVersion::new(2));
+	});
+}
+
+#[test]
+fn child_bounty_count_kept_when_storage_version_is_not_1() {
+	use frame_support::traits::StorageVersion;
+
+	new_test_ext().execute_with(|| {
+		StorageVersion::new(0).put::<ChildBounties>();
+		migration::v2::ChildBountyCount::<Test>::put(7);
+
+		migration::MigrateV1ToV2::<Test>::on_runtime_upgrade();
+
+		assert!(migration::v2::ChildBountyCount::<Test>::exists());
+		assert_eq!(StorageVersion::get::<ChildBounties>(), StorageVersion::new(0));
 	});
 }
