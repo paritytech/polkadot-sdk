@@ -1215,7 +1215,7 @@ mod tests {
 	#[test]
 	fn every_supported_metadata_method_updates_capabilities() {
 		// Arrange
-		let metadata_bytes: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/revive_chain.scale"));
+		let metadata_bytes: &[u8] = include_bytes!("../../revive_chain.scale");
 		let metadata = Metadata::decode(&mut &metadata_bytes[..]).unwrap();
 		let revive_api = metadata.runtime_api_trait_by_name("ReviveApi").unwrap();
 		let methods = revive_api.methods().filter(|method| {

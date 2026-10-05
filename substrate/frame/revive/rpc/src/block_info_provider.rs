@@ -328,7 +328,7 @@ pub mod test {
 
 	/// A config carrying the generated runtime metadata for every block.
 	pub(crate) fn chain_config() -> SrcChainConfig {
-		let metadata_bytes: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/revive_chain.scale"));
+		let metadata_bytes: &[u8] = include_bytes!("../revive_chain.scale");
 		let metadata = Metadata::decode(&mut &metadata_bytes[..]).unwrap();
 		PolkadotConfigBuilder::new()
 			.set_metadata_for_spec_versions(std::iter::once((0u32, metadata.into())))

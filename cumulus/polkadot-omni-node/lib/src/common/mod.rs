@@ -21,6 +21,8 @@
 pub(crate) mod aura;
 pub mod chain_spec;
 pub mod command;
+#[cfg(feature = "experimental-eth-rpc-in-node")]
+pub mod eth_rpc;
 pub mod rpc;
 pub mod runtime;
 pub mod spec;
@@ -147,6 +149,11 @@ pub struct NodeExtraArgs {
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	/// `None` disables HOP.
 	pub hop: Option<sc_hop::HopParams>,
+
+	/// Options for the embedded Ethereum JSON-RPC server.
+	/// `None` leaves it off, which is what `--eth-rpc` switches on.
+	#[cfg(feature = "experimental-eth-rpc-in-node")]
+	pub eth_rpc: Option<eth_rpc::EthRpcParams>,
 }
 
 /// Maximum safety margin, in blocks, subtracted from the runtime's transaction-storage

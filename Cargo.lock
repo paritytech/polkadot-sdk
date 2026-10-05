@@ -17322,6 +17322,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "nix 0.29.0",
+ "pallet-revive-eth-rpc",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
