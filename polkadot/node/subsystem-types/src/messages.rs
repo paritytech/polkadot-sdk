@@ -892,6 +892,9 @@ pub enum RuntimeApiRequest {
 		Hash,
 		RuntimeApiSender<Option<RelayParentInfo<Hash, BlockNumber>>>,
 	),
+	/// Get the executor parameters that will be in effect at the next session.
+	/// `V17`
+	SessionExecutorParamsForNextSession(RuntimeApiSender<Option<ExecutorParams>>),
 }
 
 impl RuntimeApiRequest {
@@ -953,6 +956,9 @@ impl RuntimeApiRequest {
 
 	/// `AncestorRelayParentInfo`
 	pub const ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT: u32 = 16;
+
+	/// `SessionExecutorParamsForNextSession`
+	pub const SESSION_EXECUTOR_PARAMS_FOR_NEXT_SESSION_RUNTIME_REQUIREMENT: u32 = 17;
 }
 
 /// A message to the Runtime API subsystem.

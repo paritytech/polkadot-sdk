@@ -34,8 +34,8 @@ use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
 	CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset,
-	CommittedCandidateReceiptError, CoreIndex, CoreSelector, GroupIndex, HeadData, Id as ParaId,
-	MutateDescriptorV2, NodeFeatures, OccupiedCoreAssumption, SessionInfo, UMPSignal,
+	CommittedCandidateReceiptError, CoreIndex, CoreSelector, ExecutorParam, GroupIndex, HeadData,
+	Id as ParaId, MutateDescriptorV2, NodeFeatures, OccupiedCoreAssumption, SessionInfo, UMPSignal,
 	UpwardMessage, ValidatorId, DEFAULT_SCHEDULING_LOOKAHEAD, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::{
@@ -1659,6 +1659,7 @@ fn precheck_properly_classifies_outcomes() {
 #[derive(Default, Clone)]
 struct MockHeadsUp {
 	heads_up_call_count: Arc<AtomicUsize>,
+	heads_up_calls: Arc<std::sync::Mutex<Vec<Vec<PvfPrepData>>>>,
 }
 
 #[async_trait]
@@ -1676,8 +1677,9 @@ impl ValidationBackend for MockHeadsUp {
 		unreachable!()
 	}
 
-	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
+	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		let _ = self.heads_up_call_count.fetch_add(1, Ordering::SeqCst);
+		self.heads_up_calls.lock().unwrap().push(active_pvfs);
 		Ok(())
 	}
 
@@ -1812,6 +1814,11 @@ fn maybe_prepare_validation_golden_path() {
 	let update = dummy_active_leaves_update(activated_hash);
 	let mut state = State::default();
 
+	// Distinguishable executor params so we can verify they reach `PvfPrepData`,
+	// and not the default ones that the fallback path would surface.
+	let next_session_params = ExecutorParams::from(&[ExecutorParam::MaxMemoryPages(2048)][..]);
+	let expected_params = next_session_params.clone();
+
 	let check_fut =
 		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update, &mut state);
 
@@ -1849,16 +1856,8 @@ fn maybe_prepare_validation_golden_path() {
 
 		assert_matches!(
 			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
-				let _ = tx.send(Ok(1));
-			}
-		);
-
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
-				assert_eq!(index, 1);
-				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParamsForNextSession(tx))) => {
+				let _ = tx.send(Ok(Some(next_session_params)));
 			}
 		);
 
@@ -1892,6 +1891,248 @@ fn maybe_prepare_validation_golden_path() {
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
 	assert!(state.session_index.is_some());
 	assert!(state.pvf_prep.is_next_session_authority);
+
+	// Regression check for #5505: the precompiled PVF must be built with the
+	// next-session executor params returned by the runtime, not the defaults.
+	let calls = backend.heads_up_calls.lock().unwrap();
+	let prepared = calls.first().expect("heads_up was invoked once");
+	let pvf = prepared.first().expect("one PVF was queued for preparation");
+	assert_eq!(*pvf.executor_params(), expected_params);
+}
+
+// Verifies the graceful fallback for nodes running against a runtime that does not
+// yet implement v17: when `SessionExecutorParamsForNextSession` returns
+// `NotSupported`, the helper falls back to the v13 `SessionExecutorParams` path
+// and the PVF is still queued for preparation with the params returned there.
+#[test]
+fn maybe_prepare_validation_falls_back_when_runtime_does_not_support_v17() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let mut backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = State::default();
+
+	// Distinguishable params returned by the v13 fallback path; we'll assert
+	// they reach `PvfPrepData` exactly.
+	let fallback_params = ExecutorParams::from(&[ExecutorParam::MaxMemoryPages(1024)][..]);
+	let expected_params = fallback_params.clone();
+
+	let check_fut =
+		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update, &mut state);
+
+	let test_fut = async move {
+		assert_new_active_leaf_messages(&mut ctx_handle, 1).await;
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, tx))) => {
+				let _ = tx.send(Ok(NodeFeatures::new()));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::Authorities(tx))) => {
+				let _ = tx.send(Ok(vec![Sr25519Keyring::Alice.public().into()]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::CandidateEvents(tx))) => {
+				let _ = tx.send(Ok(vec![dummy_candidate_backed(activated_hash, dummy_hash().into())]));
+			}
+		);
+
+		// New v17 API: pretend the runtime does not implement it.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParamsForNextSession(tx))) => {
+				let _ = tx.send(Err(RuntimeApiError::NotSupported {
+					runtime_api_name: "session_executor_params_for_next_session",
+				}));
+			}
+		);
+
+		// Helper falls back through executor_params_at_relay_parent: first
+		// SessionIndexForChild, then SessionExecutorParams keyed by that session.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(fallback_params)));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
+				assert_eq!(hash, dummy_hash().into());
+				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeBombLimit(session, tx))) => {
+				assert_eq!(session, 1);
+				let _ = tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
+	assert!(state.session_index.is_some());
+	assert!(state.pvf_prep.is_next_session_authority);
+
+	// The fallback path must still feed the precompiled PVF with the params it
+	// received from the v13 API — not defaults, not nothing.
+	let calls = backend.heads_up_calls.lock().unwrap();
+	let prepared = calls.first().expect("heads_up was invoked once");
+	let pvf = prepared.first().expect("one PVF was queued for preparation");
+	assert_eq!(*pvf.executor_params(), expected_params);
+}
+
+// Defensive fallback: even though the runtime impl always returns `Some`, a
+// future runtime regression could break that contract. The helper must treat
+// an unexpected `Ok(None)` the same as `NotSupported` and fall through to the
+// v13 path, otherwise the whole precompilation would silently be skipped.
+#[test]
+fn maybe_prepare_validation_falls_back_when_runtime_returns_none_for_next_session() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let mut backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = State::default();
+
+	let fallback_params = ExecutorParams::from(&[ExecutorParam::MaxMemoryPages(512)][..]);
+	let expected_params = fallback_params.clone();
+
+	let check_fut =
+		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update, &mut state);
+
+	let test_fut = async move {
+		assert_new_active_leaf_messages(&mut ctx_handle, 1).await;
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, tx))) => {
+				let _ = tx.send(Ok(NodeFeatures::new()));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::Authorities(tx))) => {
+				let _ = tx.send(Ok(vec![Sr25519Keyring::Alice.public().into()]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::CandidateEvents(tx))) => {
+				let _ = tx.send(Ok(vec![dummy_candidate_backed(activated_hash, dummy_hash().into())]));
+			}
+		);
+
+		// Runtime answers `Ok(None)` against its own contract — the helper
+		// must still fall through to the v13 path instead of bailing.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParamsForNextSession(tx))) => {
+				let _ = tx.send(Ok(None));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(fallback_params)));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
+				assert_eq!(hash, dummy_hash().into());
+				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeBombLimit(session, tx))) => {
+				assert_eq!(session, 1);
+				let _ = tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
+	assert!(state.session_index.is_some());
+	assert!(state.pvf_prep.is_next_session_authority);
+
+	let calls = backend.heads_up_calls.lock().unwrap();
+	let prepared = calls.first().expect("heads_up was invoked once");
+	let pvf = prepared.first().expect("one PVF was queued for preparation");
+	assert_eq!(*pvf.executor_params(), expected_params);
 }
 
 #[test]
@@ -2016,6 +2257,11 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_but_a_valida
 		..Default::default()
 	};
 
+	// Distinguishable params so we also assert here that the next-session API
+	// value flows into the resulting PvfPrepData.
+	let next_session_params = ExecutorParams::from(&[ExecutorParam::MaxMemoryPages(4096)][..]);
+	let expected_params = next_session_params.clone();
+
 	let check_fut =
 		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update, &mut state);
 
@@ -2031,16 +2277,8 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_but_a_valida
 
 		assert_matches!(
 			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
-				let _ = tx.send(Ok(1));
-			}
-		);
-
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
-				assert_eq!(index, 1);
-				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParamsForNextSession(tx))) => {
+				let _ = tx.send(Ok(Some(next_session_params)));
 			}
 		);
 
@@ -2074,6 +2312,11 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_but_a_valida
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
 	assert!(state.session_index.is_some());
 	assert!(state.pvf_prep.is_next_session_authority);
+
+	let calls = backend.heads_up_calls.lock().unwrap();
+	let prepared = calls.first().expect("heads_up was invoked once");
+	let pvf = prepared.first().expect("one PVF was queued for preparation");
+	assert_eq!(*pvf.executor_params(), expected_params);
 }
 
 #[test]
@@ -2228,15 +2471,7 @@ fn maybe_prepare_validation_prepares_a_limited_number_of_pvfs() {
 
 		assert_matches!(
 			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
-				let _ = tx.send(Ok(1));
-			}
-		);
-
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
-				assert_eq!(index, 1);
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParamsForNextSession(tx))) => {
 				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
@@ -2318,15 +2553,7 @@ fn maybe_prepare_validation_does_not_prepare_already_prepared_pvfs() {
 
 		assert_matches!(
 			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
-				let _ = tx.send(Ok(1));
-			}
-		);
-
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
-				assert_eq!(index, 1);
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParamsForNextSession(tx))) => {
 				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
