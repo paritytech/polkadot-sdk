@@ -1,0 +1,21 @@
+title: 'sc-keystore: fix panic and filename overflow in BLS381 paired-key generation'
+
+doc:
+- audience: Node Dev
+  description: |
+    Fixes two defects in filesystem-backed `LocalKeystore` when generating BLS381 /
+    ECDSA_BLS381 paired keys:
+
+    - `ecdsa_bls381_generate_new` no longer panics when called with `seed = None`; the
+      generated seed is now looked up through `key_phrase_by_type`, which handles the
+      on-disk path.
+    - BLS key filenames that would exceed the 255-byte filesystem limit fall back to a
+      hashed filename (`hex(key_type || blake2_256(public_key))` with a `.hashed` suffix).
+      As such a name no longer carries the public key, the body of such a file is a JSON
+      object `{"public_key": <hex>, "phrase": <phrase>}` instead of the bare JSON-encoded
+      phrase. Short keys keep the plain filename and body, so existing keystores and the
+      tooling that writes them are unaffected.
+
+crates:
+- name: sc-keystore
+  bump: patch
