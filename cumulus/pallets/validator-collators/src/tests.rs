@@ -77,7 +77,7 @@ fn calls_reject_wrong_origin() {
 }
 
 #[test]
-fn set_with_era_not_newer_than_stored_is_rejected() {
+fn set_is_checked_against_the_stored_era_and_max_validators() {
 	new_test_ext().execute_with(|| {
 		// GIVEN a stored set for era 5
 		initialize_to_block(1);
@@ -92,6 +92,16 @@ fn set_with_era_not_newer_than_stored_is_rejected() {
 			Some(EraValidatorSet { era: 5, validators: bounded(vec![10, 11]) })
 		);
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
+		// WHEN a newer set has one account more than MaxValidators
+		// THEN it fails with TooManyValidators and storage is unchanged
+		assert_noop!(
+			ValidatorCollators::receive_validator_set(6, 100..151),
+			Error::<Test>::TooManyValidators
+		);
+		// WHEN a newer list has MaxValidators accounts plus one listed twice
+		// THEN it fits once merged and is stored with MaxValidators accounts
+		assert_ok!(ValidatorCollators::receive_validator_set(6, (100..150).chain([100])));
+		System::assert_last_event(Event::ValidatorSetReceived { era: 6, count: 50 }.into());
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }

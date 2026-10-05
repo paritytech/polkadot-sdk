@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, weights::WeightInfo, Error, Event};
+use crate::{mock::*, weights::WeightInfo, Event};
 use frame_support::{assert_err, assert_ok};
 use pallet_validator_collators::{
 	Error as ReceiverError, PendingRotation, RotationState, ValidatorSet,
@@ -88,11 +88,14 @@ fn rejected_set_is_reported_and_neither_stored_nor_sent() {
 		let too_many = (100..151).collect::<Vec<u64>>();
 		assert_err!(
 			ValidatorSetAnnouncer::announce(2, &too_many),
-			Error::<Test>::TooManyValidators
+			ReceiverError::<Test>::TooManyValidators
 		);
 		System::assert_last_event(
-			Event::AnnouncementRejected { era: 2, error: Error::<Test>::TooManyValidators.into() }
-				.into(),
+			Event::AnnouncementRejected {
+				era: 2,
+				error: ReceiverError::<Test>::TooManyValidators.into(),
+			}
+			.into(),
 		);
 		assert_eq!(stored(), Some((1, vec![10])));
 		assert_eq!(Sent::get(), sent);

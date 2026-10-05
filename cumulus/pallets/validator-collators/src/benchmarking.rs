@@ -40,12 +40,12 @@ mod benchmarks {
 			)
 			.map_err(|_| BenchmarkError::Stop("the set exceeds MaxValidators"))
 		};
-		Pallet::<T>::receive_validator_set(0, set("stored", T::MaxValidators::get())?)?;
+		Pallet::<T>::do_receive_validator_set(0, set("stored", T::MaxValidators::get())?)?;
 		let validators = set("validator", n)?;
 
 		#[block]
 		{
-			Pallet::<T>::receive_validator_set(1, validators)?;
+			Pallet::<T>::do_receive_validator_set(1, validators)?;
 		}
 
 		assert_eq!(

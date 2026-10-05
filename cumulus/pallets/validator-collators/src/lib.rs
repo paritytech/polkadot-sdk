@@ -24,8 +24,8 @@
 //! The announcing chain sends the active validator set of each era, tagged with the era index of
 //! `pallet-staking-async`.
 //! This pallet stores the latest set, received through `set_validators` from [`Config::SetOrigin`]
-//! or from another pallet through [`Pallet::receive_validator_set`], and rejects a set whose era
-//! is not newer than the stored one.
+//! or from another pallet through [`Pallet::receive_validator_set`]. It rejects a set whose era
+//! is not newer than the stored one, or that has more validators than [`Config::MaxValidators`].
 //!
 //! The pallet is a [`pallet_session::SessionManager`]. At every session rotation it returns the
 //! stored validators that have registered local session keys, checked with
@@ -81,7 +81,7 @@ const LOG_TARGET: &str = "runtime::validator-collators";
 #[frame_support::pallet]
 pub mod pallet {
 	pub use crate::weights::WeightInfo;
-	use alloc::vec::Vec;
+	use alloc::{collections::BTreeSet, vec::Vec};
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{EnsureOrigin, ValidatorRegistration},
@@ -195,6 +195,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The era of the set is not newer than the era of the stored set.
 		StaleEra,
+		/// The set has more validators than [`Config::MaxValidators`].
+		TooManyValidators,
 	}
 
 	#[pallet::hooks]
@@ -224,7 +226,7 @@ pub mod pallet {
 			validators: BoundedBTreeSet<T::AccountId, T::MaxValidators>,
 		) -> DispatchResult {
 			T::SetOrigin::ensure_origin(origin)?;
-			Self::receive_validator_set(era, validators)
+			Self::do_receive_validator_set(era, validators)
 		}
 
 		/// Set the maximum number of validators returned as collators.
@@ -240,7 +242,20 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Store the validator set of `era` and schedule the rotations that bring it into force.
+		///
+		/// An account listed more than once is kept once, and the set is checked against
+		/// [`Config::MaxValidators`] after that.
 		pub fn receive_validator_set(
+			era: EraIndex,
+			validators: impl IntoIterator<Item = T::AccountId>,
+		) -> DispatchResult {
+			let validators =
+				BoundedBTreeSet::try_from(validators.into_iter().collect::<BTreeSet<_>>())
+					.map_err(|_| Error::<T>::TooManyValidators)?;
+			Self::do_receive_validator_set(era, validators)
+		}
+
+		pub(crate) fn do_receive_validator_set(
 			era: EraIndex,
 			validators: BoundedBTreeSet<T::AccountId, T::MaxValidators>,
 		) -> DispatchResult {

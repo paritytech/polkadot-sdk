@@ -87,8 +87,8 @@ pub mod weights;
 pub mod pallet {
 	pub use crate::weights::WeightInfo;
 	use crate::{DestinationOf, SendValidatorSet};
-	use alloc::{collections::BTreeSet, vec::Vec};
-	use frame_support::{pallet_prelude::*, BoundedBTreeSet};
+	use alloc::vec::Vec;
+	use frame_support::pallet_prelude::*;
 	use sp_staking::EraIndex;
 
 	#[pallet::pallet]
@@ -125,18 +125,16 @@ pub mod pallet {
 		AnnouncementRejected { era: EraIndex, error: DispatchError },
 	}
 
-	#[pallet::error]
-	pub enum Error<T> {
-		/// An announced set has more validators than the receiver's `MaxValidators`.
-		TooManyValidators,
-	}
-
 	impl<T: Config> Pallet<T> {
 		/// Store the validator set of `era` locally and send it once to every destination.
 		///
 		/// A rejected set is reported with [`Event::AnnouncementRejected`] and not sent.
 		pub fn announce(era: EraIndex, validators: &[T::AccountId]) -> DispatchResult {
-			Self::store(era, validators).inspect_err(|&error| {
+			pallet_validator_collators::Pallet::<T>::receive_validator_set(
+				era,
+				validators.iter().cloned(),
+			)
+			.inspect_err(|&error| {
 				Self::deposit_event(Event::AnnouncementRejected { era, error });
 			})?;
 			for destination in T::Destinations::get() {
@@ -151,13 +149,6 @@ pub mod pallet {
 			<T as Config>::WeightInfo::announce(validators).saturating_add(
 				<T as Config>::WeightInfo::send_announcement(validators).saturating_mul(sends),
 			)
-		}
-
-		pub(crate) fn store(era: EraIndex, validators: &[T::AccountId]) -> DispatchResult {
-			let validators =
-				BoundedBTreeSet::try_from(validators.iter().cloned().collect::<BTreeSet<_>>())
-					.map_err(|_| Error::<T>::TooManyValidators)?;
-			pallet_validator_collators::Pallet::<T>::receive_validator_set(era, validators)
 		}
 
 		pub(crate) fn send_to(

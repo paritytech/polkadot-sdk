@@ -35,12 +35,15 @@ mod benchmarks {
 		let stored = (0..T::MaxValidators::get())
 			.map(|i| account("stored", i, 0))
 			.collect::<Vec<_>>();
-		Pallet::<T>::store(0, &stored)?;
+		pallet_validator_collators::Pallet::<T>::receive_validator_set(0, stored)?;
 		let validators = (0..n).map(|i| account("validator", i, 0)).collect::<Vec<T::AccountId>>();
 
 		#[block]
 		{
-			Pallet::<T>::store(1, &validators)?;
+			pallet_validator_collators::Pallet::<T>::receive_validator_set(
+				1,
+				validators.iter().cloned(),
+			)?;
 		}
 
 		assert_eq!(ValidatorSet::<T>::get().map(|set| set.era), Some(1));
