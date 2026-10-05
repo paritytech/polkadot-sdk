@@ -305,11 +305,9 @@ pub enum ChainSyncMode {
 	},
 }
 
-impl ChainSyncMode {
-	/// Returns the base block attributes required for this sync mode.
-	pub fn required_block_attributes() -> BlockAttributes {
-		BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
-	}
+/// Returns the base block attributes required for chain sync.
+fn required_block_attributes() -> BlockAttributes {
+	BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
 }
 
 /// Which block bodies gap sync downloads while backfilling the block history below a
@@ -2051,7 +2049,7 @@ where
 		&self,
 		finalized_number: NumberFor<B>,
 	) -> (BlockAttributes, Option<NumberFor<B>>) {
-		let attrs = ChainSyncMode::required_block_attributes();
+		let attrs = required_block_attributes();
 		match self.gap_sync_body_policy {
 			GapSyncBodyPolicy::HeadersOnly => (attrs & !BlockAttributes::BODY, None),
 			GapSyncBodyPolicy::All => (attrs, None),
@@ -2144,7 +2142,7 @@ where
 					&id,
 					peer,
 					blocks,
-					ChainSyncMode::required_block_attributes(),
+					required_block_attributes(),
 					max_parallel,
 					max_blocks_per_request,
 					last_finalized,
@@ -2165,7 +2163,7 @@ where
 					fork_targets,
 					best_queued,
 					last_finalized,
-					ChainSyncMode::required_block_attributes(),
+					required_block_attributes(),
 					|hash| {
 						if queue_blocks.contains(hash) {
 							BlockStatus::Queued
