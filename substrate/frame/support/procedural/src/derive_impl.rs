@@ -56,6 +56,24 @@ fn is_runtime_type(item: &syn::ImplItemType) -> bool {
 		false
 	})
 }
+
+/// Whether the attribute is `#[pallet::no_default]`.
+pub(crate) fn is_no_default_attr(attr: &syn::Attribute) -> bool {
+	let segments = &attr.path().segments;
+	segments.len() == 2 && segments[0].ident == "pallet" && segments[1].ident == "no_default"
+}
+
+/// Whether the impl item is marked `#[pallet::no_default]` (not copied into deriving impls).
+fn is_no_default(item: &ImplItem) -> bool {
+	let attrs = match item {
+		ImplItem::Const(item) => &item.attrs,
+		ImplItem::Fn(item) => &item.attrs,
+		ImplItem::Type(item) => &item.attrs,
+		ImplItem::Macro(item) => &item.attrs,
+		_ => return false,
+	};
+	attrs.iter().any(is_no_default_attr)
+}
 pub struct DeriveImplAttrArgs {
 	pub default_impl_path: Path,
 	pub generics: Option<AngleBracketedGenericArguments>,
@@ -176,6 +194,10 @@ fn combine_impls(
 		.collect();
 	let mut final_impl = local_impl;
 	let extended_items = foreign_impl.items.into_iter().filter_map(|item| {
+		if is_no_default(&item) {
+			// `#[pallet::no_default]` items are not copied; the deriving impl must set them.
+			return None;
+		}
 		if let Some(ident) = impl_item_ident(&item) {
 			if existing_local_keys.contains(&ident) {
 				// do not copy colliding items that have an ident
