@@ -11,6 +11,8 @@ message Request {
 		RemoteReadRequest remote_read_request = 2;
 		RemoteReadChildRequest remote_read_child_request = 4;
 		// Note: ids 3 and 5 were used in the past. It would be preferable to not re-use them.
+		// Note: id 6 is used by the (currently unimplemented) RFC-0009's RemoteReadRequestV2.
+		RemoteReadExtrinsicsRequest remote_read_extrinsics_request = 7;
 	}
 }
 
@@ -20,6 +22,7 @@ message Response {
 		RemoteCallResponse remote_call_response = 1;
 		RemoteReadResponse remote_read_response = 2;
 		// Note: ids 3 and 4 were used in the past. It would be preferable to not re-use them.
+		RemoteReadExtrinsicsResponse remote_read_extrinsics_response = 5;
 	}
 }
 
@@ -53,6 +56,36 @@ message RemoteReadResponse {
 	// Read proof. If missing, indicates that the remote couldn't answer, for example because
 	// the block is pruned.
 	optional bytes proof = 2;
+}
+
+// Remote read request for a block's extrinsics-trie leaves.
+message RemoteReadExtrinsicsRequest {
+	// Hash of the block whose extrinsics-trie leaves are requested.
+	required bytes block = 1;
+}
+
+// Remote read response carrying every leaf of a block's extrinsics trie,
+// in order, letting the requester reconstruct the trie root itself.
+message RemoteReadExtrinsicsResponse {
+	// Absent if the block is unknown, pruned, or the payload would exceed
+	// the maximum response size.
+	optional ExtrinsicsLeaves extrinsics = 1;
+}
+
+message ExtrinsicsLeaves {
+	// One entry per extrinsic in the block, in the order they appear in
+	// the body. May be empty, for a block with no extrinsics.
+	repeated ExtrinsicLeaf leaves = 1;
+}
+
+message ExtrinsicLeaf {
+	oneof value {
+		// The full SCALE-encoded extrinsic, sent whenever its encoded
+		// length is below the extrinsics trie's inline-value threshold.
+		bytes raw = 1;
+		// The hash of the SCALE-encoded extrinsic, sent otherwise.
+		bytes hash = 2;
+	}
 }
 
 // Remote storage read child request.

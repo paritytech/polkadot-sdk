@@ -106,10 +106,12 @@ more details.
 requests for information about blocks. Each request is the encoding of a `BlockRequest` and
 each response is the encoding of a `BlockResponse`, as defined in the `api.v1.proto` file in
 this source tree.
-- **`/<protocol-id>/light/2`** is a request-response protocol (see below) that lets one perform
-light-client-related requests for information about the state. Each request is the encoding of
-a `light::Request` and each response is the encoding of a `light::Response`, as defined in the
-`light.v1.proto` file in this source tree.
+- **`/<protocol-id>/light/3`** is a request-response protocol (see below) that lets one perform
+light-client-related requests for information about the state and about the extrinsics included
+in a block. Each request is the encoding of a `light::Request` and each response is the encoding
+of a `light::Response`, as defined in the `light.v1.proto` file in this source tree.
+`/<protocol-id>/light/2` is also accepted as a fallback for peers that don't know about the
+`RemoteReadExtrinsicsRequest` request type introduced in `/light/3`.
 - **`/<protocol-id>/transactions/1`** is a notifications protocol (see below) where
 transactions are pushed to other nodes. The handshake is empty on both sides. The message
 format is a SCALE-encoded list of transactions, where each transaction is an opaque list of
