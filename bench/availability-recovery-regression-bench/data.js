@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791220871603,
+  "lastUpdate": 1791223391893,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "109702797+DTSmth@users.noreply.github.com",
-            "name": "David Smith",
-            "username": "DTSmth"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b34296a7f1d66e036157228929cf6f3040c0bb20",
-          "message": "doc: add link to multi-block migration example. Resolves a TODO by ad… (#11542)\n\n…ding a documentation link from the single-block migrations pallet to\nthe multi-block migrations example pallet.\n\n\n\n✄\n-----------------------------------------------------------------------------\n\n# Description\n\n﻿Resolves a documentation TODO in\n`pallet-example-single-block-migrations` by adding\n a link to the `pallet-example-mbm` documentation.\n\nThe TODO requested linking to the multi-block migration example from the\nwarning\n about single-block migrations potentially exceeding block weight limits\n\n## Integration\n\n﻿N/A - documentation only change, no crate API changes\n\n## Review Notes\n\n﻿ Uses external URL (matching repo convention) since pallet-example-mbm\nis not a dependency of this crate.\n\n\n✄\n-----------------------------------------------------------------------------",
-          "timestamp": "2026-03-29T14:57:09Z",
-          "tree_id": "9e13a0bb2528c8d47d9eedd94f90e54e2ed3c1c2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b34296a7f1d66e036157228929cf6f3040c0bb20"
-        },
-        "date": 1774800939392,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 310410.23333333334,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 4.166666666666666,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.196448503400001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1256039927333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.802615958100002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "828b9d54038520f680d8f2887aac018f1e404d98",
+          "message": "statement-store: restore the full-store fixture and report percentiles in the benchmarks (#13371)\n\nThe full-store benchmark restores its fixture after the eviction phase,\nso a reused fixture matches a fresh build and its size checks run on\nevery start. The add_filter benchmark reports the median and p90 instead\nof the mean. The enforce_limits benchmark gives the expiry backlog a\n20-second margin and waits by the clock until it expires, so a slow disk\nno longer makes it fail.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13135.",
+          "timestamp": "2026-10-05T15:20:35Z",
+          "tree_id": "d3837b9315f44115cbcdcc3d545701e38a3a4403",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/828b9d54038520f680d8f2887aac018f1e404d98"
+        },
+        "date": 1791223359604,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13861894503333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.778433290133332,
             "unit": "seconds"
           }
         ]
