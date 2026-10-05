@@ -17,40 +17,101 @@
 use inflector::Inflector;
 use quote::format_ident;
 
+fn generic_ident_is_taken(generics: &syn::Generics, ident: &syn::Ident) -> bool {
+	generics.params.iter().any(|param| match param {
+		syn::GenericParam::Type(param) => param.ident == *ident,
+		syn::GenericParam::Const(param) => param.ident == *ident,
+		syn::GenericParam::Lifetime(_) => false,
+	})
+}
+
+fn weight_info_provider_ident(generics: &syn::Generics) -> syn::Ident {
+	let mut index = 0;
+	loop {
+		let ident = if index == 0 { format_ident!("W") } else { format_ident!("W{index}") };
+		if !generic_ident_is_taken(generics, &ident) {
+			return ident;
+		}
+		index += 1;
+	}
+}
+
 pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let input: syn::DeriveInput = match syn::parse(item) {
 		Ok(input) => input,
 		Err(e) => return e.into_compile_error().into(),
 	};
 
-	let syn::DeriveInput { generics, data, .. } = input;
+	let syn::DeriveInput { ident, generics, data, .. } = input;
 
 	match data {
 		syn::Data::Enum(syn::DataEnum { variants, .. }) => {
-			let methods = variants.into_iter().map(|syn::Variant { ident, fields, .. }| {
-				let snake_cased_ident = format_ident!("{}", ident.to_string().to_snake_case());
-				let ref_fields =
-					fields.into_iter().enumerate().map(|(idx, syn::Field { ident, ty, .. })| {
-						let field_name = ident.unwrap_or_else(|| format_ident!("_{}", idx));
-						let field_ty = match ty {
-							syn::Type::Reference(r) => {
-								// If the type is already a reference, do nothing
-								quote::quote!(#r)
-							},
-							t => {
-								// Otherwise, make it a reference
-								quote::quote!(&#t)
-							},
-						};
+			let weight_info_provider = weight_info_provider_ident(&generics);
+			let (_, ty_generics, _) = generics.split_for_impl();
 
-						quote::quote!(#field_name: #field_ty,)
-					});
-				quote::quote!(fn #snake_cased_ident( #(#ref_fields)* ) -> Weight;)
-			});
+			let mut implementation_generics = generics.clone();
+			implementation_generics.params.push(syn::parse_quote!(#weight_info_provider));
+			implementation_generics
+				.make_where_clause()
+				.predicates
+				.push(syn::parse_quote!(#weight_info_provider: XcmWeightInfo #ty_generics));
+			let (impl_generics, _, implementation_where_clause) =
+				implementation_generics.split_for_impl();
+
+			let (methods, match_arms): (Vec<_>, Vec<_>) = variants
+				.into_iter()
+				.map(|syn::Variant { ident: variant_ident, fields, .. }| {
+					let method_ident =
+						format_ident!("{}", variant_ident.to_string().to_snake_case());
+					let field_idents = fields
+						.iter()
+						.enumerate()
+						.map(|(index, field)| {
+							field.ident.clone().unwrap_or_else(|| format_ident!("_{index}"))
+						})
+						.collect::<Vec<_>>();
+					let method_parameters =
+						fields.iter().zip(&field_idents).map(|(field, ident)| {
+							let ty = match &field.ty {
+								syn::Type::Reference(reference) => quote::quote!(#reference),
+								ty => quote::quote!(&#ty),
+							};
+							quote::quote!(#ident: #ty,)
+						});
+					let method =
+						quote::quote!(fn #method_ident( #(#method_parameters)* ) -> Weight;);
+					let match_arm = match fields {
+						syn::Fields::Unit => quote::quote!(
+							#ident::#variant_ident =>
+								#weight_info_provider::#method_ident(),
+						),
+						syn::Fields::Unnamed(_) => quote::quote!(
+							#ident::#variant_ident( #(#field_idents),* ) =>
+								#weight_info_provider::#method_ident( #(#field_idents),* ),
+						),
+						syn::Fields::Named(_) => quote::quote!(
+							#ident::#variant_ident { #(#field_idents),* } =>
+								#weight_info_provider::#method_ident( #(#field_idents),* ),
+						),
+					};
+
+					(method, match_arm)
+				})
+				.unzip();
 
 			let res = quote::quote! {
 				pub trait XcmWeightInfo #generics {
 					#(#methods)*
+				}
+
+				impl #impl_generics GetWeight<#weight_info_provider> for #ident #ty_generics
+				#implementation_where_clause
+				{
+					fn weight(&self) -> Weight {
+						match self {
+							#(#match_arms)*
+						}
+					}
 				}
 			};
 			res.into()
