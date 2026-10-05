@@ -61,6 +61,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 use log;
 
+#[cfg(any(feature = "try-runtime", test))]
+use frame::deps::sp_runtime::TryRuntimeError;
 use frame::prelude::*;
 
 pub use sp_mmr_primitives::{
@@ -239,6 +241,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
+
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			let leaves = NumberOfLeaves::<T, I>::get();
 			let peaks_before = NodesUtils::new(leaves).number_of_peaks();
@@ -469,5 +476,59 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Returns the hash of a node in the MMR, if one exists.
 	pub fn mmr_peak(node_index: NodeIndex) -> Option<HashOf<T, I>> {
 		Nodes::<T, I>::get(node_index)
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+		Self::try_state_nodes_are_peaks()?;
+		Self::try_state_number_of_peaks()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * On-chain we keep only the peaks of the MMR; every other inner node and leaf is pruned and
+	///   lives in the offchain DB. The node indices in `Nodes` must therefore be exactly the peak
+	///   positions implied by `NumberOfLeaves`. A missing peak cannot be recovered when the next
+	///   root is computed, and a leftover one is a node that should have been pruned.
+	fn try_state_nodes_are_peaks() -> Result<(), TryRuntimeError> {
+		let leaves = NumberOfLeaves::<T, I>::get();
+
+		// `get_peaks` always yields a position, so an empty MMR has to be handled separately.
+		let expected = if leaves == 0 {
+			alloc::collections::BTreeSet::new()
+		} else {
+			let size = NodesUtils::new(leaves).size();
+			primitives::mmr_lib::helper::get_peaks(size)
+				.into_iter()
+				.collect::<alloc::collections::BTreeSet<_>>()
+		};
+
+		let stored = Nodes::<T, I>::iter_keys().collect::<alloc::collections::BTreeSet<_>>();
+
+		ensure!(stored == expected, "`Nodes` must hold exactly the peaks of the MMR");
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * The number of stored peaks must agree with `NodesUtils::number_of_peaks`, which is what
+	///   `on_initialize` charges weight against before and after appending a leaf.
+	fn try_state_number_of_peaks() -> Result<(), TryRuntimeError> {
+		let leaves = NumberOfLeaves::<T, I>::get();
+
+		ensure!(
+			Nodes::<T, I>::iter_keys().count() as u64 == NodesUtils::new(leaves).number_of_peaks(),
+			"the number of stored nodes must match the number of peaks of the MMR"
+		);
+
+		Ok(())
 	}
 }
