@@ -980,6 +980,120 @@ fn too_many_unconfirmed_statements_are_considered_spam() {
 	});
 }
 
+
+#[test]
+fn spam_slot_cap_is_bypassed_via_multi_validator_batch() {
+	test_harness(|mut test_state, mut virtual_overseer| {
+		Box::pin(async move {
+			let session = 1;
+
+			test_state.handle_resume_sync(&mut virtual_overseer, session).await;
+
+			let candidate_receipt1 = make_valid_candidate_receipt();
+			let candidate_hash1 = candidate_receipt1.hash();
+			let candidate_receipt2 = make_invalid_candidate_receipt();
+			let candidate_hash2 = candidate_receipt2.hash();
+
+			test_state
+				.activate_leaf_at_session(&mut virtual_overseer, session, 1, Vec::new())
+				.await;
+
+			// Step 1: exhaust `ValidatorIndex(1)`'s single spam slot (`MAX_SPAM_VOTES == 1` in
+			// test config) on an unrelated, unconfirmed candidate.
+			let (valid_vote1, invalid_vote1) = generate_opposing_votes_pair(
+				&test_state,
+				ValidatorIndex(3),
+				ValidatorIndex(1),
+				candidate_hash1,
+				session,
+				VoteType::Backing,
+			)
+			.await;
+
+			virtual_overseer
+				.send(FromOrchestra::Communication {
+					msg: DisputeCoordinatorMessage::ImportStatements {
+						candidate_receipt: candidate_receipt1.clone(),
+						session,
+						statements: vec![
+							(valid_vote1, ValidatorIndex(3)),
+							(invalid_vote1, ValidatorIndex(1)),
+						],
+						pending_confirmation: None,
+					},
+				})
+				.await;
+
+			handle_disabled_validators_queries(&mut virtual_overseer, Vec::new()).await;
+			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash1, HashMap::new())
+				.await;
+
+			// Step 2: a brand new, unrelated unconfirmed candidate. Pair `ValidatorIndex(1)`'s
+			// (already-capped) invalid vote with a *fresh* invalid vote from
+			// `ValidatorIndex(2)` in the SAME `ImportStatements` call
+			let (valid_vote2, invalid_vote2) = generate_opposing_votes_pair(
+				&test_state,
+				ValidatorIndex(3),
+				ValidatorIndex(1),
+				candidate_hash2,
+				session,
+				VoteType::Backing,
+			)
+			.await;
+			let invalid_vote2_from_fresh_validator = test_state
+				.issue_explicit_statement_with_index(ValidatorIndex(2), candidate_hash2, session, false);
+
+			let (pending_confirmation, confirmation_rx) = oneshot::channel();
+			virtual_overseer
+				.send(FromOrchestra::Communication {
+					msg: DisputeCoordinatorMessage::ImportStatements {
+						candidate_receipt: candidate_receipt2.clone(),
+						session,
+						statements: vec![
+							(valid_vote2, ValidatorIndex(3)),
+							(invalid_vote2, ValidatorIndex(1)),
+							(invalid_vote2_from_fresh_validator, ValidatorIndex(2)),
+						],
+						pending_confirmation: Some(pending_confirmation),
+					},
+				})
+				.await;
+
+			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash2, HashMap::new())
+				.await;
+
+			// This import should not be accepted -- But it is because `ValidatorIndex(1)`'s already-capped vote is
+			// persisted along with it -- purely because `ValidatorIndex(2)` had spare spam-slot
+			// capacity.
+			assert_matches!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
+
+			let (tx, rx) = oneshot::channel();
+			virtual_overseer
+				.send(FromOrchestra::Communication {
+					msg: DisputeCoordinatorMessage::QueryCandidateVotes(
+						vec![(session, candidate_hash2)],
+						tx,
+					),
+				})
+				.await;
+
+			let (_, _, votes) = rx.await.unwrap().get(0).unwrap().clone();
+			// Both invalid votes -- including `ValidatorIndex(1)`'s, which should have been
+			// rejected as spam -- are durably recorded and feed into this candidate's dispute
+			// threshold accounting.
+			assert_eq!(votes.invalid.len(), 2);
+			assert!(votes.invalid.contains_key(&ValidatorIndex(1)));
+
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+
+			// No more messages expected:
+			assert!(virtual_overseer.try_recv().await.is_none());
+
+			test_state
+		})
+	});
+}
+
 #[test]
 fn approval_vote_import_works() {
 	test_harness(|mut test_state, mut virtual_overseer| {

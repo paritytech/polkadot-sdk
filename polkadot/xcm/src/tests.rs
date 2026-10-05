@@ -253,6 +253,29 @@ fn encode_decode_versioned_assets_v5() {
 	assert_eq!(assets, decoded);
 }
 
+// Regression check: does the version round trip that `pallet_xcm::claim_assets` relies on
+// (see `drop_assets`/`claim_assets` in `pallet-xcm/src/lib.rs`) actually preserve identity
+// for `NetworkId::Westend`? It should, for a trap recorded pre-v5 to ever be reclaimable
+// after a runtime's pallet-xcm "latest" version moves to v5. As of this check, it does not.
+#[test]
+fn network_id_v4_to_v5_round_trip_does_not_preserve_named_testnets() {
+	let location_v4 = v4::Location::new(2, [v4::Junction::GlobalConsensus(v4::NetworkId::Westend)]);
+	let asset_v4: v4::Asset = (location_v4, 1_000u128).into();
+
+	let trapped_at_v4 = VersionedAssets::V4(v4::Assets::from(vec![asset_v4]));
+	let trapped_encoding = trapped_at_v4.encode();
+
+	let as_latest_v5 = trapped_at_v4.clone().into_version(5).expect("v4 -> v5 must succeed");
+	let reconstructed_v4 = as_latest_v5.into_version(4).expect("v5 -> v4 must succeed");
+	let reconstructed_encoding = reconstructed_v4.encode();
+
+	assert_eq!(
+		reconstructed_encoding, trapped_encoding,
+		"v4 -> v5 -> v4 round trip through NetworkId::Westend does not reproduce the \
+		 original v4 encoding"
+	);
+}
+
 #[test]
 fn encode_decode_versioned_xcm_v3() {
 	let xcm = VersionedXcm::V3(v3::Xcm::<()>::new());
