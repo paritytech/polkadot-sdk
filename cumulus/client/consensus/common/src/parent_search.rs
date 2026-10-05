@@ -64,13 +64,33 @@ impl ParentSearchParams {
 	}
 }
 
-/// A potential parent block returned from [`find_parent_for_building`]
+/// A potential parent block returned from [`find_parent_for_building`].
 #[derive(PartialEq, Clone)]
 pub struct ParentSearchResult<Block: BlockT> {
-	/// The header of the included block (confirmed on relay chain) at the scheduling parent.
+	/// Included head at the scheduling parent.
 	pub included_at_scheduling: Block::Header,
-	/// The header of the best parent block to build on.
+	/// Block to build on.
 	pub best_parent_header: Block::Header,
+	/// V3 resubmittable segment, oldest first; empty for V2.
+	pub resubmittable_segment: Vec<Block::Header>,
+}
+
+/// Walk the best parent (and its resubmittable segment) back to the first ancestor passing
+/// `filter_parent`, or to the included head. Pure: the segment already holds the ancestry up to the
+/// best parent, so no backend access is needed.
+pub(crate) fn trim_best_parent_to_filter<Block: BlockT>(
+	mut result: ParentSearchResult<Block>,
+	filter_parent: impl Fn(&Block::Header) -> bool,
+) -> ParentSearchResult<Block> {
+	while !filter_parent(&result.best_parent_header) && !result.resubmittable_segment.is_empty() {
+		result.resubmittable_segment.pop();
+		result.best_parent_header = result
+			.resubmittable_segment
+			.last()
+			.cloned()
+			.unwrap_or_else(|| result.included_at_scheduling.clone());
+	}
+	result
 }
 
 impl<B: BlockT> std::fmt::Debug for ParentSearchResult<B> {
@@ -79,6 +99,7 @@ impl<B: BlockT> std::fmt::Debug for ParentSearchResult<B> {
 			.field("included_at_scheduling_number", &self.included_at_scheduling.number())
 			.field("best_parent_hash", &self.best_parent_header.hash())
 			.field("best_parent_number", &self.best_parent_header.number())
+			.field("resubmittable_segment_len", &self.resubmittable_segment.len())
 			.finish()
 	}
 }
@@ -239,6 +260,26 @@ async fn find_deepest_valid_parent<Block: BlockT, Fut: Future<Output = bool>>(
 	best
 }
 
+/// The chain from `best` back to `start_hash` (exclusive), oldest first.
+fn reconstruct_resubmittable_segment<Block: BlockT>(
+	backend: &impl Backend<Block>,
+	best: &Block::Header,
+	start_hash: Block::Hash,
+) -> Vec<Block::Header> {
+	let mut ancestry = Vec::new();
+	let mut current = best.clone();
+	while current.hash() != start_hash {
+		let parent_hash = *current.parent_hash();
+		ancestry.push(current);
+		match backend.blockchain().header(parent_hash) {
+			Ok(Some(parent)) => current = parent,
+			_ => break,
+		}
+	}
+	ancestry.reverse();
+	ancestry
+}
+
 async fn get_relay_parent<Block: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	header: &Block::Header,
@@ -301,6 +342,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	backend: &impl Backend<Block>,
 	para_id: ParaId,
 	params: ParentSearchParams,
+	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> RelayChainResult<Option<ParentSearchResult<Block>>> {
 	tracing::trace!(
 		target: LOG_TARGET,
@@ -345,7 +387,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	let (start_header, start_hash) =
 		maybe_pending.unwrap_or((included_header.clone(), included_hash));
 
-	let best_parent_header = match params {
+	let result = match params {
 		ParentSearchParams::V2 { scheduling_parent: relay_parent } => {
 			let ancestry_lookback = relay_client
 				.scheduling_lookahead(relay_parent)
@@ -356,29 +398,49 @@ pub async fn find_parent_for_building<Block: BlockT>(
 			let rp_ancestry =
 				build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
 
-			// Search for the deepest valid parent starting from the pending/included block.
-			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
-				let is_valid = is_relay_parent_in_ancestry::<Block>(header, &rp_ancestry);
-				async move { is_valid }
-			})
-			.await
+			// V2 has no resubmittable segment.
+			let best_parent_header =
+				find_deepest_valid_parent(backend, start_header, start_hash, |header| {
+					let is_valid = is_relay_parent_in_ancestry::<Block>(header, &rp_ancestry);
+					async move { is_valid }
+				})
+				.await;
+
+			ParentSearchResult {
+				included_at_scheduling: included_header,
+				best_parent_header,
+				resubmittable_segment: Vec::new(),
+			}
 		},
 		ParentSearchParams::V3 { scheduling_parent } => {
-			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
-				let header = header.clone();
-				async move {
-					has_ancestor_relay_parent_info::<Block>(
-						relay_client,
-						scheduling_parent,
-						&header,
-					)
-					.await
-					.unwrap_or(false)
-				}
-			})
-			.await
+			let best_parent_header =
+				find_deepest_valid_parent(backend, start_header, start_hash, |header| {
+					let header = header.clone();
+					async move {
+						has_ancestor_relay_parent_info::<Block>(
+							relay_client,
+							scheduling_parent,
+							&header,
+						)
+						.await
+						.unwrap_or(false)
+					}
+				})
+				.await;
+
+			// V3 also carries the resubmittable segment.
+			let resubmittable_segment =
+				reconstruct_resubmittable_segment(backend, &best_parent_header, start_hash);
+
+			ParentSearchResult {
+				included_at_scheduling: included_header,
+				best_parent_header,
+				resubmittable_segment,
+			}
 		},
 	};
 
-	Ok(Some(ParentSearchResult { included_at_scheduling: included_header, best_parent_header }))
+	// Trim the best parent (and its segment) back to the first ancestor passing the filter, so the
+	// returned result is the final parent to build on.
+	Ok(Some(trim_best_parent_to_filter(result, filter_parent)))
 }

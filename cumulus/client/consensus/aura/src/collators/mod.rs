@@ -33,12 +33,10 @@ use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
 };
-use sc_client_api::HeaderBackend;
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_core::Pair;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::Header;
 use sp_timestamp::Timestamp;
 
 pub mod lookahead;
@@ -244,11 +242,15 @@ async fn find_parent<Block>(
 where
 	Block: BlockT,
 {
-	let mut result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
+	// The best parent may be a middle block in a bundle; `find_parent_for_building` trims it (and
+	// the resubmittable segment) back to the first block passing the filter, so the segment ends on
+	// a bundle-ender.
+	let result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
 		relay_client,
 		para_backend,
 		para_id,
 		params.clone(),
+		filter_parent,
 	)
 	.await
 	{
@@ -271,26 +273,6 @@ where
 			return None;
 		},
 	};
-
-	// If the best parent doesn't pass the filter (e.g. it's a middle block in a bundle),
-	// walk backwards towards the included block until we find one that does.
-	// This avoids falling all the way back to the included block when there are valid
-	// last-in-core ancestors closer to the chain tip.
-	while !filter_parent(&result.best_parent_header) {
-		let parent_hash = *result.best_parent_header.parent_hash();
-		match para_backend.blockchain().header(parent_hash) {
-			Ok(Some(header)) => {
-				result.best_parent_header = header;
-				if parent_hash == result.included_at_scheduling.hash() {
-					break;
-				}
-			},
-			_ => {
-				result.best_parent_header = result.included_at_scheduling.clone();
-				break;
-			},
-		}
-	}
 
 	Some(result)
 }
