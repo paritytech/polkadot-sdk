@@ -519,7 +519,7 @@ dependencies = [
  "alloy-rlp",
  "alloy-serde",
  "alloy-sol-types",
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "serde",
  "serde_json",
  "serde_with",
@@ -683,7 +683,7 @@ checksum = "e8597d36d546e1dab822345ad563243ec3920e199322cb554ce56c8ef1a1e2e7"
 dependencies = [
  "alloy-json-rpc",
  "alloy-transport",
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "reqwest 0.13.2",
  "serde_json",
  "tower 0.5.3",
@@ -10919,9 +10919,8 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.15.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75a2c94e6b822a70bf38263b39c26ce3bffbdd78795d7da8de134d1f0cb3f7ea"
+version = "0.15.2"
+source = "git+https://github.com/paritytech/litep2p?branch=denzelpenzel/kad-local-provider-tracking#6c4e2dff76b4a93ae96ffc2a19bbac6e0a7141c4"
 dependencies = [
  "async-trait",
  "bs58",
@@ -19276,7 +19275,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
- "heck 0.5.0",
+ "heck 0.4.1",
  "itertools 0.13.0",
  "log",
  "multimap",
@@ -19296,8 +19295,8 @@ version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac6c3320f9abac597dcbc668774ef006702672474aad53c6d596b62e487b40b1"
 dependencies = [
- "heck 0.5.0",
- "itertools 0.14.0",
+ "heck 0.4.1",
+ "itertools 0.13.0",
  "log",
  "multimap",
  "once_cell",
@@ -19343,7 +19342,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -19356,7 +19355,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9120690fafc389a67ba3803df527d0ec9cbbc9cc45e4cc20b332996dfb672425"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -22005,7 +22004,7 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
- "litep2p 0.15.3",
+ "litep2p 0.15.2",
  "log",
  "mockall",
  "multistream-select",
@@ -22107,7 +22106,7 @@ dependencies = [
  "bytes",
  "cid",
  "futures",
- "litep2p 0.15.3",
+ "litep2p 0.15.2",
  "log",
  "proptest",
  "rand 0.8.5",
@@ -22327,7 +22326,7 @@ dependencies = [
  "ed25519-dalek",
  "libp2p-identity",
  "libp2p-kad",
- "litep2p 0.15.3",
+ "litep2p 0.15.2",
  "log",
  "multiaddr",
  "multihash",
