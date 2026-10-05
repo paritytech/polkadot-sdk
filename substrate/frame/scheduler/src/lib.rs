@@ -1247,16 +1247,14 @@ impl<T: Config> Pallet<T> {
 
 		let mut incomplete_since = now + One::one();
 		let mut when = IncompleteSince::<T>::take().unwrap_or(now);
-		let mut is_first = true; // first task from the first agenda.
 
 		let max_items = T::MaxScheduledPerBlock::get();
 		let mut count_down = max;
 		let service_agenda_base_weight = T::WeightInfo::service_agenda_base(max_items);
 		while count_down > 0 && when <= now && weight.can_consume(service_agenda_base_weight) {
-			if !Self::service_agenda(weight, is_first, now, when, u32::MAX) {
+			if !Self::service_agenda(weight, now, when, u32::MAX) {
 				incomplete_since = incomplete_since.min(when);
 			}
-			is_first = false;
 			when.saturating_inc();
 			count_down.saturating_dec();
 		}
@@ -1277,7 +1275,6 @@ impl<T: Config> Pallet<T> {
 	/// later block.
 	fn service_agenda(
 		weight: &mut WeightMeter,
-		mut is_first: bool,
 		now: BlockNumberFor<T>,
 		when: BlockNumberFor<T>,
 		max: u32,
@@ -1300,6 +1297,10 @@ impl<T: Config> Pallet<T> {
 		let mut postponed = (ordered.len() as u32).saturating_sub(max);
 		// Items which we don't know can ever be executed.
 		let mut dropped = 0;
+		// The most weight a task of this agenda can get in any block.
+		let max_task_weight = T::MaximumWeight::get()
+			.saturating_sub(T::WeightInfo::service_agendas_base())
+			.saturating_sub(T::WeightInfo::service_agenda_base(ordered.len() as u32));
 
 		for (agenda_index, _) in ordered.into_iter().take(max as usize) {
 			let Some(task) = agenda[agenda_index as usize].take() else { continue };
@@ -1313,7 +1314,7 @@ impl<T: Config> Pallet<T> {
 				agenda[agenda_index as usize] = Some(task);
 				break;
 			}
-			let result = Self::service_task(weight, now, when, agenda_index, is_first, task);
+			let result = Self::service_task(weight, now, when, agenda_index, max_task_weight, task);
 			agenda[agenda_index as usize] = match result {
 				Err((Unavailable, slot)) => {
 					dropped += 1;
@@ -1323,10 +1324,7 @@ impl<T: Config> Pallet<T> {
 					postponed += 1;
 					slot
 				},
-				Ok(()) => {
-					is_first = false;
-					None
-				},
+				Ok(()) => None,
 			};
 		}
 		if postponed > 0 || dropped > 0 {
@@ -1344,12 +1342,14 @@ impl<T: Config> Pallet<T> {
 	/// - removing and potentially replacing the `Lookup` entry for the task.
 	/// - realizing the task's call which can include a preimage lookup.
 	/// - Rescheduling the task for execution in a later agenda if periodic.
+	///
+	/// A task that needs more than `max_task_weight` is permanently overweight.
 	fn service_task(
 		weight: &mut WeightMeter,
 		now: BlockNumberFor<T>,
 		when: BlockNumberFor<T>,
 		agenda_index: u32,
-		is_first: bool,
+		max_task_weight: Weight,
 		mut task: ScheduledOf<T>,
 	) -> Result<(), (ServiceTaskError, Option<ScheduledOf<T>>)> {
 		if let Some(ref id) = task.maybe_id {
@@ -1379,14 +1379,17 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
-		let _ = weight.try_consume(T::WeightInfo::service_task(
+		let service_weight = T::WeightInfo::service_task(
 			lookup_len.map(|x| x as usize),
 			task.maybe_id.is_some(),
 			task.maybe_periodic.is_some(),
-		));
+		);
+		let _ = weight.try_consume(service_weight);
 
 		match Self::execute_dispatch(weight, task.origin.clone(), call) {
-			Err(()) if is_first => {
+			Err(dispatch_weight)
+				if !service_weight.saturating_add(dispatch_weight).all_lte(max_task_weight) =>
+			{
 				T::Preimages::drop(&task.call);
 				Self::deposit_event(Event::PermanentlyOverweight {
 					task: (when, agenda_index),
@@ -1394,7 +1397,7 @@ impl<T: Config> Pallet<T> {
 				});
 				Err((Unavailable, Some(task)))
 			},
-			Err(()) => Err((Overweight, Some(task))),
+			Err(_) => Err((Overweight, Some(task))),
 			Ok(result) => {
 				let failed = result.is_err();
 				let maybe_retry_config = Retries::<T>::take((when, agenda_index));
@@ -1449,12 +1452,12 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: Only the weight for this function will be counted (origin lookup, dispatch and the
 	/// call itself).
 	///
-	/// Returns an error if the call is overweight.
+	/// Returns the weight the dispatch needs as an error if the call is overweight.
 	fn execute_dispatch(
 		weight: &mut WeightMeter,
 		origin: T::PalletsOrigin,
 		call: <T as Config>::RuntimeCall,
-	) -> Result<DispatchResult, ()> {
+	) -> Result<DispatchResult, Weight> {
 		let base_weight = match origin.as_system_ref() {
 			Some(&RawOrigin::Signed(_)) => T::WeightInfo::execute_dispatch_signed(),
 			_ => T::WeightInfo::execute_dispatch_unsigned(),
@@ -1464,7 +1467,7 @@ impl<T: Config> Pallet<T> {
 		let max_weight = base_weight.saturating_add(call_weight);
 
 		if !weight.can_consume(max_weight) {
-			return Err(());
+			return Err(max_weight);
 		}
 
 		let dispatch_origin = origin.into();
