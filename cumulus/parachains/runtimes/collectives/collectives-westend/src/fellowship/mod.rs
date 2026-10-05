@@ -335,6 +335,8 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 		AssetRate,
 	>;
 	type PayoutPeriod = ConstU32<{ 30 * DAYS }>;
+	type MaxQueuedSpends = ConstU32<100>;
+	type OrderExpirationPeriod = ConstU32<{ 3 * DAYS }>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments<
 		sp_core::ConstU8<1>,
