@@ -1,0 +1,16 @@
+title: 'HRMP: Scaffold'
+doc:
+- audience: Runtime Dev
+  description: Scaffold of HRMP pallets for relay and para side. Abstractly explaining
+    how HRMP flows from para/relay should work.
+crates:
+- name: polkadot-runtime-parachains
+  bump: major
+- name: polkadot-sdk-frame
+  bump: major
+- name: pallet-hrmp-para
+  bump: major
+- name: hrmp-primitives
+  bump: major
+- name: pallet-hrmp-relay
+  bump: major
