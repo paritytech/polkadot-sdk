@@ -492,6 +492,25 @@ contract ValueForwardingReceiver {
 }
 
 /**
+ * @title CallingReceiver
+ * @dev Calls `target` with `data` on receiving a call, failing unless the call succeeds.
+ */
+contract CallingReceiver {
+    address immutable target;
+    bytes data;
+
+    constructor(address _target, bytes memory _data) payable {
+        target = _target;
+        data = _data;
+    }
+
+    receive() external payable {
+        (bool success, ) = target.call(data);
+        require(success, "call failed");
+    }
+}
+
+/**
  * @title CreatingReceiver
  * @dev Creates a contract with `CREATE` or `CREATE2` on receiving a call.
  */

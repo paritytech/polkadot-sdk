@@ -211,6 +211,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::is_read_only")
 	}
 
+	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError> {
+		panic!("MockExt::ensure_not_stipend_frame")
+	}
+
 	fn is_delegate_call(&self) -> bool {
 		panic!("MockExt::is_delegate_call")
 	}
@@ -316,9 +320,5 @@ impl<T: Config> BuiltinPrecompileExt for MockExt<T> {
 
 	fn warmth_of<A: Access>(&self, _access: A) -> Summarized<A::Warmth> {
 		panic!("MockExt::warmth_of")
-	}
-
-	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError> {
-		panic!("MockExt::ensure_not_stipend_frame")
 	}
 }

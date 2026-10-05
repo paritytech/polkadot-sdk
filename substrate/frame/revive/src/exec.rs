@@ -346,10 +346,6 @@ pub trait BuiltinPrecompileExt: PrecompileExt {
 	fn slot_access(&self, key: &Key, op: StorageOp) -> StorageItems {
 		StorageItems::new(self.address(), key, op)
 	}
-
-	/// Returns an `OutOfGas` error if the current frame is the receiver of a `transfer` or `send`,
-	/// or was created by one.
-	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError>;
 }
 
 /// Environment functions which are available to pre-compiles with `HAS_CONTRACT_INFO = true`.
@@ -542,6 +538,10 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
+
+	/// Returns an `OutOfGas` error if the current frame is the receiver of a `transfer` or `send`,
+	/// or was created by one.
+	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError>;
 
 	/// Check if running as a delegate call.
 	fn is_delegate_call(&self) -> bool;
@@ -2278,15 +2278,6 @@ where
 	fn warmth_of<A: Access>(&self, access: A) -> Summarized<A::Warmth> {
 		self.access_list.warmth_of_summarized(access)
 	}
-
-	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError> {
-		if self.top_frame().stipend_frame {
-			// On Ethereum, the 2300 gas stipend cannot pay for a storage write, a value transfer,
-			// or creating or terminating a contract.
-			return Err(Error::<T>::OutOfGas.into());
-		}
-		Ok(())
-	}
 }
 
 impl<'a, T, E> PrecompileWithInfoExt for Stack<'a, T, E>
@@ -2750,6 +2741,15 @@ where
 
 	fn is_read_only(&self) -> bool {
 		self.top_frame().read_only
+	}
+
+	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError> {
+		if self.top_frame().stipend_frame {
+			// On Ethereum, the 2300 gas stipend cannot pay for a storage write, a value transfer,
+			// or creating or terminating a contract.
+			return Err(Error::<T>::OutOfGas.into());
+		}
+		Ok(())
 	}
 
 	fn is_delegate_call(&self) -> bool {
