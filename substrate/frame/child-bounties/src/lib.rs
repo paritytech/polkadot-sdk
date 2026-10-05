@@ -195,6 +195,10 @@ pub mod pallet {
 		},
 		/// A child-bounty is cancelled.
 		Canceled { index: BountyIndex, child_index: BountyIndex },
+		/// A child-bounty curator is proposed.
+		CuratorProposed { index: BountyIndex, child_index: BountyIndex, curator: T::AccountId },
+		/// A child-bounty curator is accepted.
+		CuratorAccepted { index: BountyIndex, child_index: BountyIndex, curator: T::AccountId },
 	}
 
 	/// DEPRECATED: Replaced with `ParentTotalChildBounties` storage item keeping dedicated counts
@@ -394,12 +398,21 @@ pub mod pallet {
 					child_bounty.fee = fee;
 
 					// Update the child-bounty state.
-					child_bounty.status =
-						ChildBountyStatus::CuratorProposed { curator: child_bounty_curator };
+					child_bounty.status = ChildBountyStatus::CuratorProposed {
+						curator: child_bounty_curator.clone(),
+					};
+
+					Self::deposit_event(Event::<T>::CuratorProposed {
+						index: parent_bounty_id,
+						child_index: child_bounty_id,
+						curator: child_bounty_curator,
+					});
 
 					Ok(())
 				},
-			)
+			)?;
+
+			Ok(())
 		}
 
 		/// Accept the curator role for the child-bounty.
@@ -461,7 +474,15 @@ pub mod pallet {
 						Err(BountiesError::<T>::UnexpectedStatus.into())
 					}
 				},
-			)
+			)?;
+
+			Self::deposit_event(Event::<T>::CuratorAccepted {
+				index: parent_bounty_id,
+				child_index: child_bounty_id,
+				curator: signer,
+			});
+
+			Ok(())
 		}
 
 		/// Unassign curator from a child-bounty.
@@ -976,7 +997,7 @@ impl<T: Config> pallet_bounties::ChildBountyManager<BalanceOf<T>> for Pallet<T> 
 
 	/// Returns cumulative child bounty curator fees for `bounty_id` also removing the associated
 	/// storage item. This function is assumed to be called when parent bounty is claimed.
-	fn children_curator_fees(bounty_id: pallet_bounties::BountyIndex) -> BalanceOf<T> {
+	fn take_children_curator_fees(bounty_id: pallet_bounties::BountyIndex) -> BalanceOf<T> {
 		// This is asked for when the parent bounty is being claimed. No use of
 		// keeping it in state after that. Hence removing.
 		let children_fee_total = ChildrenCuratorFees::<T>::get(bounty_id);
