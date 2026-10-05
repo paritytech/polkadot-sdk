@@ -1,0 +1,10 @@
+title: try state hook for pallet derivatives
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR introduces try state hook into the Derivatives Pallet. It also defines the invariants that holds for the pallet.
+
+    Part of: https://github.com/paritytech/polkadot-sdk/issues/239
+crates:
+- name: pallet-derivatives
+  bump: major
