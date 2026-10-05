@@ -32,10 +32,10 @@ const PARTIAL_STATE_KEYS: &[u8] = b"partial_state_keys";
 /// Tracking makes `import_partial_state` idempotent, preventing double increment if reference
 /// counting database is used.
 ///
-/// In the beginnning, state root hash is only piece of information known.
-/// When node with that hash is received, this node can be decoded to learn it's children node
-/// hashes. This class stores list of not yet received nodes, starting from root node.
-/// When node is received, it is removed from that list, and it's children are added to that list.
+/// In the beginning, state root hash is only piece of information known.
+/// When node with that hash is received, this node can be decoded to learn its children node
+/// hashes. This struct stores list of not yet received nodes, starting from root node.
+/// When node is received, it is removed from that list, and its children are added to that list.
 /// `import_partial_state` behaves like recursive coroutine, traversing trie, and waiting for nodes
 /// to be received.
 pub struct PartialStateTracking<H: Hasher>

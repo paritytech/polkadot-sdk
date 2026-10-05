@@ -54,10 +54,10 @@ pub struct PrefixedTrieNode<H: Hasher> {
 
 /// Traverse trie nodes asynchronously.
 ///
-/// In the beginnning, state root hash is only piece of information known.
-/// When node with that hash is received, this node can be decoded to learn it's children node
-/// hashes. This class stores list of not yet received nodes, starting from root node.
-/// When node is received, it is removed from that list, and it's children are added to that list.
+/// In the beginning, state root hash is only piece of information known.
+/// When node with that hash is received, this node can be decoded to learn its children node
+/// hashes. This struct stores list of not yet received nodes, starting from root node.
+/// When node is received, it is removed from that list, and its children are added to that list.
 /// `PartialStatePrefixer::import` behaves like recursive coroutine, traversing trie, and waiting
 /// for nodes to be received.
 ///
@@ -95,7 +95,7 @@ impl<H: Hasher> PartialStatePrefixer<H> {
 			// database prepends child storage name to prefix,
 			// compact encoded proof doesn't.
 			if let Some(encoded) = partial_state.nodes.get(&info.hash, EMPTY_PREFIX) {
-				// node received, traverse it's children
+				// node received, traverse its children
 				nodes_queue.extend(info.children(&encoded)?);
 				// write this node to db
 				result.push(PrefixedTrieNode {

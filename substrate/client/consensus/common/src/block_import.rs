@@ -133,7 +133,7 @@ pub enum StorageChanges<Block: BlockT> {
 ///
 /// NOTE: this was used to carry the downloaded key-values, which the import turned into a trie in
 /// memory. That path went away with `--sync fast-unsafe`. The marker keeps the shape of
-/// of certain public api. Once the `fast-unsafe` deprecation period is over,
+/// certain public api. Once the `fast-unsafe` deprecation period is over,
 /// this marker should be removed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ImportedState;
