@@ -20,6 +20,7 @@ name = "eth-rpc"
 path = "src/main.rs"
 
 [dependencies]
+alloy-primitives = { workspace = true, default-features = true }
 alloy-rpc-types = { workspace = true, default-features = true, features = [
 	"trace",
 ] }
@@ -36,6 +37,7 @@ log = { workspace = true }
 pallet-revive = { workspace = true, default-features = true }
 pallet-revive-types = { workspace = true, features = ["std"] }
 prometheus-endpoint = { workspace = true, default-features = true }
+rand = { workspace = true, features = ["std", "std_rng"] }
 rlp = { workspace = true }
 sc-cli = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
@@ -64,7 +66,6 @@ tokio-stream = { workspace = true }
 
 [dev-dependencies]
 alloy-network = { workspace = true, default-features = true }
-alloy-primitives = { workspace = true, default-features = true }
 alloy-provider = { workspace = true, default-features = true, features = [
 	"debug-api",
 	"reqwest",

@@ -59,6 +59,9 @@ pub use fee_history_provider::*;
 mod receipt_extractor;
 pub use receipt_extractor::*;
 
+mod filters;
+pub use filters::*;
+
 mod apis;
 pub use apis::*;
 
@@ -80,16 +83,26 @@ pub struct EthRpcServerImpl {
 
 	/// When true, estimate_gas uses Pending block if no block is specified.
 	use_pending_for_estimate_gas: bool,
+
+	/// Registry backing the polling filter API (`eth_newFilter`, `eth_newBlockFilter`,
+	/// `eth_getFilterChanges`, `eth_getFilterLogs`, `eth_uninstallFilter`). It drains the same
+	/// block and log broadcast channels that `eth_subscribe` consumes, so the two APIs share one
+	/// event source.
+	filter_registry: FilterManager,
 }
 
 impl EthRpcServerImpl {
 	/// Creates a new [`EthRpcServerImpl`].
-	pub fn new(client: client::Client) -> Self {
+	///
+	/// `filter_registry` is passed in rather than created here so the caller can share it with the
+	/// background task that sweeps expired filters.
+	pub fn new(client: client::Client, filter_registry: FilterManager) -> Self {
 		Self {
 			client,
 			accounts: vec![],
 			allow_unprotected_txs: false,
 			use_pending_for_estimate_gas: false,
+			filter_registry,
 		}
 	}
 
@@ -136,6 +149,12 @@ pub enum EthRpcError {
 	/// Received an invalid transaction
 	#[error("Invalid transaction {0:?}")]
 	TransactionTypeNotSupported(Byte),
+	/// No filter is registered under the given id (it is unknown or has expired).
+	#[error("filter not found")]
+	FilterNotFound,
+	/// The maximum number of concurrently installed filters has been reached.
+	#[error("filter limit reached")]
+	TooManyFilters,
 	/// The requested `eth_feeHistory` reward percentiles are invalid.
 	#[error("{0}")]
 	InvalidRewardPercentiles(String),
@@ -154,6 +173,8 @@ impl From<EthRpcError> for ErrorObjectOwned {
 			EthRpcError::InvalidSignature |
 			EthRpcError::AccountNotFound(_) |
 			EthRpcError::InvalidTransaction |
+			EthRpcError::FilterNotFound |
+			EthRpcError::TooManyFilters |
 			EthRpcError::InvalidRewardPercentiles(_) |
 			EthRpcError::TransactionTypeNotSupported(_) => CALL_EXECUTION_FAILED_CODE,
 		};
@@ -466,6 +487,37 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(FilterResults::Logs(logs))
 	}
 
+	async fn new_filter(&self, filter: Filter) -> RpcResult<FilterId> {
+		// The filter subscribes to the shared log channel now, so it reports logs from blocks
+		// imported after installation, matching go-ethereum. Its `fromBlock`/`toBlock` only bound
+		// the historical replay served by `eth_getFilterLogs`.
+		Ok(self.filter_registry.install_logs(filter).map_err(|_| EthRpcError::TooManyFilters)?)
+	}
+
+	async fn new_block_filter(&self) -> RpcResult<FilterId> {
+		// The subscription starts at the current channel head, so only blocks imported after this
+		// point are reported — no manual head bookkeeping.
+		Ok(self.filter_registry.install_block().map_err(|_| EthRpcError::TooManyFilters)?)
+	}
+
+	async fn get_filter_changes(&self, filter_id: FilterId) -> RpcResult<FilterResults> {
+		self.filter_registry
+			.poll_changes(&filter_id)
+			.ok_or_else(|| EthRpcError::FilterNotFound.into())
+	}
+
+	async fn get_filter_logs(&self, filter_id: FilterId) -> RpcResult<Vec<Log>> {
+		// `eth_getFilterLogs` replays the filter's whole range, exactly as `eth_getLogs` would, so
+		// it reuses the same range resolution rather than the streamed changes.
+		let filter =
+			self.filter_registry.logs_filter(&filter_id).ok_or(EthRpcError::FilterNotFound)?;
+		Ok(self.client.logs(Some(filter)).await?)
+	}
+
+	async fn uninstall_filter(&self, filter_id: FilterId) -> RpcResult<bool> {
+		Ok(self.filter_registry.remove(&filter_id))
+	}
+
 	async fn get_storage_at(
 		&self,
 		address: H160,
@@ -691,6 +743,8 @@ mod error_codes_tests {
 				EthRpcError::TransactionTypeNotSupported(Byte::from(0x7eu8)),
 				CALL_EXECUTION_FAILED_CODE,
 			),
+			(EthRpcError::FilterNotFound, CALL_EXECUTION_FAILED_CODE),
+			(EthRpcError::TooManyFilters, CALL_EXECUTION_FAILED_CODE),
 		];
 
 		for (err, expected_code) in cases {
