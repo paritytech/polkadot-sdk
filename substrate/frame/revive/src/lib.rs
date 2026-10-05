@@ -549,7 +549,7 @@ pub mod pallet {
 		InputForwarded = 0x0E,
 		/// The amount of topics passed to `seal_deposit_events` exceeds the limit.
 		TooManyTopics = 0x0F,
-		/// A contract with the same AccountId already exists.
+		/// The contract address collides with an account that has a nonce, code or a delegation.
 		DuplicateContract = 0x12,
 		/// A contract self destructed in its constructor.
 		///
@@ -917,11 +917,14 @@ pub mod pallet {
 						};
 
 						let code_hash = *blob.code_hash();
-						let Ok(info) = <ContractInfo<T>>::new(&address, 0u32.into(), code_hash)
-							.inspect_err(|err| {
-								log::error!(target: LOG_TARGET, "Failed to create ContractInfo for {address:?}: {err:?}");
-							})
-						else {
+						let Ok(info) = <ContractInfo<T>>::new_without_collision_check(
+							&address,
+							0u32.into(),
+							code_hash,
+						)
+						.inspect_err(|err| {
+							log::error!(target: LOG_TARGET, "Failed to create ContractInfo for {address:?}: {err:?}");
+						}) else {
 							continue;
 						};
 
