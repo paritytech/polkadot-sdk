@@ -38,6 +38,20 @@ zombienet-sdk = { workspace = true }
 zombie-metadata = []
 zombie-ci = []
 
+# The cross-parachain source-discovery E2E (a standalone target, dynamic subxt
+# calls — no codegen/metadata needed). Gated behind `zombie-ci` like the rest.
+[[test]]
+name = "source_discovery"
+path = "tests/source_discovery.rs"
+required-features = ["zombie-ci"]
+
+# Capability-scoped source discovery: proves `--spec-msg-serve` collators are resolved under the
+# capability key and non-serving collators of the same source are filtered out.
+[[test]]
+name = "source_capability_discovery"
+path = "tests/source_capability_discovery.rs"
+required-features = ["zombie-ci"]
+
 [build-dependencies]
 sc-executor = { workspace = true, default-features = true }
 sc-runtime-utilities = { workspace = true, default-features = true }

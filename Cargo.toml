@@ -78,6 +78,7 @@ members = [
 	"cumulus/client/relay-chain-streams",
 	"cumulus/client/resubmission-store",
 	"cumulus/client/service",
+	"cumulus/client/source-discovery",
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
@@ -85,6 +86,7 @@ members = [
 	"cumulus/pallets/parachain-system/proc-macro",
 	"cumulus/pallets/session-benchmarking",
 	"cumulus/pallets/solo-to-para",
+	"cumulus/pallets/source-discovery",
 	"cumulus/pallets/weight-reclaim",
 	"cumulus/pallets/xcm",
 	"cumulus/pallets/xcmp-queue",
@@ -142,6 +144,7 @@ members = [
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",
 	"cumulus/primitives/proof-size-hostfunction",
+	"cumulus/primitives/source-discovery",
 	"cumulus/primitives/storage-weight-reclaim",
 	"cumulus/primitives/timestamp",
 	"cumulus/primitives/utility",
@@ -788,10 +791,12 @@ cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-fe
 cumulus-client-proof-size-recording = { path = "cumulus/client/proof-size-recording", default-features = false }
 cumulus-client-resubmission-store = { path = "cumulus/client/resubmission-store", default-features = false }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
+cumulus-client-source-discovery = { path = "cumulus/client/source-discovery", default-features = false }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false }
 cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false }
 cumulus-pallet-parachain-system-proc-macro = { path = "cumulus/pallets/parachain-system/proc-macro", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "cumulus/pallets/session-benchmarking", default-features = false }
+cumulus-pallet-source-discovery = { path = "cumulus/pallets/source-discovery", default-features = false }
 cumulus-pallet-weight-reclaim = { path = "cumulus/pallets/weight-reclaim", default-features = false }
 cumulus-pallet-xcm = { path = "cumulus/pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "cumulus/pallets/xcmp-queue", default-features = false }
@@ -799,6 +804,7 @@ cumulus-primitives-aura = { path = "cumulus/primitives/aura", default-features =
 cumulus-primitives-core = { path = "cumulus/primitives/core", default-features = false }
 cumulus-primitives-parachain-inherent = { path = "cumulus/primitives/parachain-inherent", default-features = false }
 cumulus-primitives-proof-size-hostfunction = { path = "cumulus/primitives/proof-size-hostfunction", default-features = false }
+cumulus-primitives-source-discovery = { path = "cumulus/primitives/source-discovery", default-features = false }
 cumulus-primitives-storage-weight-reclaim = { path = "cumulus/primitives/storage-weight-reclaim", default-features = false }
 cumulus-primitives-utility = { path = "cumulus/primitives/utility", default-features = false }
 cumulus-relay-chain-inprocess-interface = { path = "cumulus/client/relay-chain-inprocess-interface", default-features = false }
