@@ -346,29 +346,36 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#196 id=196 data-nosnippet>196</a>	</span><span class="kw">pub const </span>SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 <a href=#197 id=197 data-nosnippet>197</a>}
 <a href=#198 id=198 data-nosnippet>198</a>
-<a href=#199 id=199 data-nosnippet>199</a><span class="doccomment">/// DAP-related constants, shared across all Westend system parachain runtimes.
-<a href=#200 id=200 data-nosnippet>200</a></span><span class="kw">pub mod </span>dap {
-<a href=#201 id=201 data-nosnippet>201</a>	<span class="kw">pub use </span>westend_runtime_constants::system_parachain::dap::<span class="kw-2">*</span>;
-<a href=#202 id=202 data-nosnippet>202</a>}
-<a href=#203 id=203 data-nosnippet>203</a>
-<a href=#204 id=204 data-nosnippet>204</a><span class="doccomment">/// Accumulate-and-forward constants, shared across all Westend system parachain runtimes.
-<a href=#205 id=205 data-nosnippet>205</a></span><span class="kw">pub mod </span>accumulate_forward {
-<a href=#206 id=206 data-nosnippet>206</a>	<span class="kw">pub use </span>westend_runtime_constants::system_parachain::accumulate_forward::<span class="kw-2">*</span>;
-<a href=#207 id=207 data-nosnippet>207</a>}
-<a href=#208 id=208 data-nosnippet>208</a>
-<a href=#209 id=209 data-nosnippet>209</a><span class="kw">pub mod </span>locations {
-<a href=#210 id=210 data-nosnippet>210</a>	<span class="kw">use </span>frame_support::parameter_types;
-<a href=#211 id=211 data-nosnippet>211</a>	<span class="kw">pub use </span>westend_runtime_constants::system_parachain::{AssetHubParaId, PeopleParaId};
-<a href=#212 id=212 data-nosnippet>212</a>	<span class="kw">use </span>xcm::latest::prelude::{Location, Parachain};
-<a href=#213 id=213 data-nosnippet>213</a>
-<a href=#214 id=214 data-nosnippet>214</a>	<span class="macro">parameter_types!</span> {
-<a href=#215 id=215 data-nosnippet>215</a>		<span class="kw">pub </span>AssetHubLocation: Location = Location::new(<span class="number">1</span>, Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID));
-<a href=#216 id=216 data-nosnippet>216</a>		<span class="kw">pub </span>PeopleLocation: Location = Location::new(<span class="number">1</span>, Parachain(westend_runtime_constants::system_parachain::PEOPLE_ID));
-<a href=#217 id=217 data-nosnippet>217</a>	}
-<a href=#218 id=218 data-nosnippet>218</a>
-<a href=#219 id=219 data-nosnippet>219</a>	<span class="doccomment">/// The governance on the AssetHub.
-<a href=#220 id=220 data-nosnippet>220</a>	</span><span class="kw">pub type </span>GovernanceLocation = AssetHubLocation;
-<a href=#221 id=221 data-nosnippet>221</a>}
+<a href=#199 id=199 data-nosnippet>199</a><span class="doccomment">/// Staking constants, shared across all Westend system parachain runtimes.
+<a href=#200 id=200 data-nosnippet>200</a></span><span class="kw">pub mod </span>staking {
+<a href=#201 id=201 data-nosnippet>201</a>	<span class="doccomment">/// Maximum number of validators elected by Asset Hub, and so the bound of the validator set
+<a href=#202 id=202 data-nosnippet>202</a>	/// that system chains accept from it.
+<a href=#203 id=203 data-nosnippet>203</a>	</span><span class="kw">pub const </span>MAX_VALIDATOR_SET: u32 = <span class="number">1000</span>;
+<a href=#204 id=204 data-nosnippet>204</a>}
+<a href=#205 id=205 data-nosnippet>205</a>
+<a href=#206 id=206 data-nosnippet>206</a><span class="doccomment">/// DAP-related constants, shared across all Westend system parachain runtimes.
+<a href=#207 id=207 data-nosnippet>207</a></span><span class="kw">pub mod </span>dap {
+<a href=#208 id=208 data-nosnippet>208</a>	<span class="kw">pub use </span>westend_runtime_constants::system_parachain::dap::<span class="kw-2">*</span>;
+<a href=#209 id=209 data-nosnippet>209</a>}
+<a href=#210 id=210 data-nosnippet>210</a>
+<a href=#211 id=211 data-nosnippet>211</a><span class="doccomment">/// Accumulate-and-forward constants, shared across all Westend system parachain runtimes.
+<a href=#212 id=212 data-nosnippet>212</a></span><span class="kw">pub mod </span>accumulate_forward {
+<a href=#213 id=213 data-nosnippet>213</a>	<span class="kw">pub use </span>westend_runtime_constants::system_parachain::accumulate_forward::<span class="kw-2">*</span>;
+<a href=#214 id=214 data-nosnippet>214</a>}
+<a href=#215 id=215 data-nosnippet>215</a>
+<a href=#216 id=216 data-nosnippet>216</a><span class="kw">pub mod </span>locations {
+<a href=#217 id=217 data-nosnippet>217</a>	<span class="kw">use </span>frame_support::parameter_types;
+<a href=#218 id=218 data-nosnippet>218</a>	<span class="kw">pub use </span>westend_runtime_constants::system_parachain::{AssetHubParaId, PeopleParaId};
+<a href=#219 id=219 data-nosnippet>219</a>	<span class="kw">use </span>xcm::latest::prelude::{Location, Parachain};
+<a href=#220 id=220 data-nosnippet>220</a>
+<a href=#221 id=221 data-nosnippet>221</a>	<span class="macro">parameter_types!</span> {
+<a href=#222 id=222 data-nosnippet>222</a>		<span class="kw">pub </span>AssetHubLocation: Location = Location::new(<span class="number">1</span>, Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID));
+<a href=#223 id=223 data-nosnippet>223</a>		<span class="kw">pub </span>PeopleLocation: Location = Location::new(<span class="number">1</span>, Parachain(westend_runtime_constants::system_parachain::PEOPLE_ID));
+<a href=#224 id=224 data-nosnippet>224</a>	}
+<a href=#225 id=225 data-nosnippet>225</a>
+<a href=#226 id=226 data-nosnippet>226</a>	<span class="doccomment">/// The governance on the AssetHub.
+<a href=#227 id=227 data-nosnippet>227</a>	</span><span class="kw">pub type </span>GovernanceLocation = AssetHubLocation;
+<a href=#228 id=228 data-nosnippet>228</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","RotationState"],"mod":["pallet","weights"],"struct":["EraValidatorSet","Pallet"],"trait":["Config","WeightInfo"],"type":["MaxCollators","Module","PendingRotation","ValidatorSet"]};

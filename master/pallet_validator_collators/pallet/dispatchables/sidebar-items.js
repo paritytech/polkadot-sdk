@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["set_max_collators","set_validators"]};

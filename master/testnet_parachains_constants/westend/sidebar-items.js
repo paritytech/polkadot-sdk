@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["account","accumulate_forward","consensus","currency","dap","fee","locations","snowbridge","time","xcm_version"]};
+window.SIDEBAR_ITEMS = {"mod":["account","accumulate_forward","consensus","currency","dap","fee","locations","snowbridge","staking","time","xcm_version"]};
