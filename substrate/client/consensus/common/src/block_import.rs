@@ -131,9 +131,9 @@ pub enum StorageChanges<Block: BlockT> {
 /// at a time, before the block itself is imported. Importing the block executes nothing and
 /// computes no state: it checks that the state is complete and marks it as available.
 ///
-/// NOTE: this was used to carry the downloaded key-values, which the import turned into a trie in memory.
-/// That path went away with `--sync fast-unsafe`. The marker keeps the shape of 
-/// of certain public api. Once the `fast-unsafe` deprecation period is over, 
+/// NOTE: this was used to carry the downloaded key-values, which the import turned into a trie in
+/// memory. That path went away with `--sync fast-unsafe`. The marker keeps the shape of
+/// of certain public api. Once the `fast-unsafe` deprecation period is over,
 /// this marker should be removed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ImportedState;
