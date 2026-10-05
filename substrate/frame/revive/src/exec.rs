@@ -152,7 +152,8 @@ pub struct CallProtections {
 	/// Whether the callee and every frame it creates cannot change state.
 	pub read_only: bool,
 	/// Whether the callee is the receiver of a `transfer` or `send`. Such a callee, and every
-	/// frame it creates, cannot write persistent contract storage, move value, or create contracts.
+	/// frame it creates, cannot write persistent contract storage, move value, or create or
+	/// terminate contracts.
 	pub stipend_frame: bool,
 }
 
@@ -730,7 +731,7 @@ struct Frame<T: Config> {
 	/// If `true` subsequent calls cannot modify storage.
 	read_only: bool,
 	/// If `true` this frame is the receiver of a `transfer` or `send`, or was created by one, and
-	/// cannot write persistent contract storage, move value, or create contracts.
+	/// cannot write persistent contract storage, move value, or create or terminate contracts.
 	stipend_frame: bool,
 	/// The delegate call info of the currently executing frame which was spawned by
 	/// `delegate_call`.
@@ -2196,6 +2197,7 @@ where
 	}
 
 	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+		self.ensure_not_stipend_frame()?;
 		if_tracing(|tracer| {
 			let addr = T::AddressMapper::to_address(self.account_id());
 			tracer.terminate(
@@ -2288,7 +2290,7 @@ where
 	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError> {
 		if self.top_frame().stipend_frame {
 			// On Ethereum, the 2300 gas stipend cannot pay for a storage write, a value transfer,
-			// or a contract creation.
+			// or creating or terminating a contract.
 			return Err(Error::<T>::OutOfGas.into());
 		}
 		Ok(())
@@ -2812,6 +2814,7 @@ where
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
 		ensure!(self.top_frame().delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
+		self.ensure_not_stipend_frame()?;
 		let parent = self.frames_mut().nth(1).ok_or_else(|| Error::<T>::ContractNotFound)?;
 		ensure!(parent.entry_point == ExportedFunction::Call, Error::<T>::TerminatedInConstructor);
 		ensure!(parent.delegate.is_none(), Error::<T>::PrecompileDelegateDenied);

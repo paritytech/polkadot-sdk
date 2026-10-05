@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@revive/IStorage.sol";
+import "@revive/ISystem.sol";
 
 /**
  * @title DoNothingReceiver
@@ -498,6 +499,31 @@ contract CreatingReceiver {
             new DoNothingReceiver();
         } else {
             new DoNothingReceiver{salt: bytes32(0)}();
+        }
+    }
+}
+
+/**
+ * @title TerminatingReceiver
+ * @dev Terminates itself with `SELFDESTRUCT` or through the system precompile on receiving a call.
+ */
+contract TerminatingReceiver {
+    enum Termination { SelfDestruct, SystemPrecompile }
+
+    Termination immutable termination;
+    address payable immutable beneficiary;
+
+    constructor(Termination _termination, address payable _beneficiary) payable {
+        termination = _termination;
+        beneficiary = _beneficiary;
+    }
+
+    receive() external payable {
+        if (termination == Termination.SelfDestruct) {
+            selfdestruct(beneficiary);
+        } else {
+            (bool success, ) = SYSTEM_ADDR.call(abi.encodeCall(ISystem.terminate, (beneficiary)));
+            require(success, "terminate failed");
         }
     }
 }

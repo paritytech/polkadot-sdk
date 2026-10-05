@@ -29,9 +29,10 @@ use alloy_core::{
 use codec::Encode;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
-	BumpableCounter, CreatingReceiver, CreatingReceiver::Creation, FixtureType, NestedWritingReceiver, NestedWritingReceiver::Nesting,
-	StipendSender, StipendTest, ValueForwardingReceiver, WarmWriteSender, compile_module,
-	compile_module_with_type,
+	BumpableCounter, CreatingReceiver, CreatingReceiver::Creation, FixtureType,
+	NestedWritingReceiver, NestedWritingReceiver::Nesting, StipendSender, StipendTest,
+	TerminatingReceiver, TerminatingReceiver::Termination, ValueForwardingReceiver,
+	WarmWriteSender, compile_module, compile_module_with_type,
 };
 use sp_core::H160;
 use test_case::{test_case, test_matrix};
@@ -651,7 +652,8 @@ fn stipend_check_denies_creating_contracts(fixture_type: FixtureType, creation: 
 			let Contract { addr: sender, .. } =
 				builder::bare_instantiate(Code::Upload(sender_code.clone()))
 					.constructor_data(
-						StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
+						StipendSender::constructorCall { _receiver: receiver.0.into() }
+							.abi_encode(),
 					)
 					.build_and_unwrap_contract();
 
@@ -680,6 +682,76 @@ fn stipend_check_denies_creating_contracts(fixture_type: FixtureType, creation: 
 		[(None, true), (None, true)],
 		"only a `send` denies creating a contract"
 	);
+}
+
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[Termination::SelfDestruct, Termination::SystemPrecompile]
+)]
+fn stipend_check_denies_terminating_contracts(fixture_type: FixtureType, termination: Termination) {
+	let (receiver_code, _) = compile_module_with_type("TerminatingReceiver", fixture_type).unwrap();
+	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
+
+	// Returns the innermost frame's error, the value the beneficiary received, and the receiver's
+	// balance before the call. Each call runs on fresh state, because a successful termination
+	// moves the receiver's balance.
+	let terminate = |gas_limit: u64| {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+			let _ = <Test as Config>::Currency::set_balance(&BOB, 10_000_000_000_000);
+			let Contract { addr: receiver, .. } =
+				builder::bare_instantiate(Code::Upload(receiver_code.clone()))
+					.native_value(1_000)
+					.constructor_data(
+						TerminatingReceiver::constructorCall {
+							_termination: termination,
+							_beneficiary: BOB_ADDR.0.into(),
+						}
+						.abi_encode(),
+					)
+					.build_and_unwrap_contract();
+			let Contract { addr: sender, .. } =
+				builder::bare_instantiate(Code::Upload(sender_code.clone()))
+					.constructor_data(
+						StipendSender::constructorCall { _receiver: receiver.0.into() }
+							.abi_encode(),
+					)
+					.build_and_unwrap_contract();
+			let receiver_balance = Pallet::<Test>::evm_balance(&receiver);
+			let balance_before = Pallet::<Test>::evm_balance(&BOB_ADDR);
+
+			let mut tracer = CallTracer::new(Default::default());
+			trace(&mut tracer, || {
+				builder::bare_call(sender)
+					.data(
+						StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
+					)
+					.build_and_unwrap_result()
+			});
+			let mut call_trace = tracer.collect_trace().unwrap();
+			while let Some(nested) = call_trace.calls.pop() {
+				call_trace = nested;
+			}
+			let received = Pallet::<Test>::evm_balance(&BOB_ADDR) - balance_before;
+			(call_trace.error, received, receiver_balance)
+		})
+	};
+
+	let (with_2300_gas, with_other_gas) =
+		with_gas_scale(50_000_000, || (terminate(2300), [terminate(2299), terminate(2301)]));
+	let (error, received, _) = with_2300_gas;
+	assert_eq!(
+		(error.as_deref(), received.is_zero()),
+		(Some("OutOfGas"), true),
+		"the receiver of a `send` should not terminate"
+	);
+	for (error, received, receiver_balance) in with_other_gas {
+		assert_eq!(
+			(error, received),
+			(None, receiver_balance),
+			"only a `send` denies terminating a contract"
+		);
+	}
 }
 
 #[test_case(FixtureType::Solc;   "solc")]
