@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791220919610,
+  "lastUpdate": 1791223439704,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3e8d20ea96360fe1edde4229719b41925101a4f9",
-          "message": "[Release|CI] - Support releasing crates to staging.crates.io (#11461)\n\nhttps://github.com/paritytech/release-engineering/issues/290",
-          "timestamp": "2026-03-29T10:59:36Z",
-          "tree_id": "0aff0cf08b785bdfe0f0c01e2b8ec53dca89a0ef",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3e8d20ea96360fe1edde4229719b41925101a4f9"
-        },
-        "date": 1774786931166,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009782886973333316,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006713103573333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023591314140000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14145313868666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009990287039999973,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "828b9d54038520f680d8f2887aac018f1e404d98",
+          "message": "statement-store: restore the full-store fixture and report percentiles in the benchmarks (#13371)\n\nThe full-store benchmark restores its fixture after the eviction phase,\nso a reused fixture matches a fresh build and its size checks run on\nevery start. The add_filter benchmark reports the median and p90 instead\nof the mean. The enforce_limits benchmark gives the expiry backlog a\n20-second margin and waits by the clock until it expires, so a slow disk\nno longer makes it fail.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13135.",
+          "timestamp": "2026-10-05T15:20:35Z",
+          "tree_id": "d3837b9315f44115cbcdcc3d545701e38a3a4403",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/828b9d54038520f680d8f2887aac018f1e404d98"
+        },
+        "date": 1791223407979,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02532907816666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01019845321999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007878551886666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1455799054933334,
             "unit": "seconds"
           }
         ]
