@@ -166,7 +166,7 @@ and the parachain has already made the manager pay for them. If the blob matches
 onboarded and the outcome is reported back to the parachain.</li>
 </ol>
 <p>A registration authorization never times out here. The parachain sends
-[<code>MessageToRelayV1::CancelRegistration</code>] when the manager gives up, this pallet drops the entry
+<a href="../registrar_primitives/enum.MessageToRelayV1.html#variant.CancelRegistration" title="variant registrar_primitives::MessageToRelayV1::CancelRegistration"><code>MessageToRelayV1::CancelRegistration</code></a> when the manager gives up, this pallet drops the entry
 and confirms, and the parachain releases the deposit. So the relay chain runs no per-block
 sweep, and whoever wants the deposit back pays for the round trip. No deposit is taken here.</p>
 <p>Code upgrade authorizations do lapse instead: no deposit is at stake, and their validity

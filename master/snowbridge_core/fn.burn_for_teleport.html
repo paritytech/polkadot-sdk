@@ -149,9 +149,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
 </style>
 
 <script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">burn_for_teleport</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../snowbridge_core/index.html">snowbridge_<wbr>core</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">snowbridge_core</a></div><h1>Function <span class="fn">burn_<wbr>for_<wbr>teleport</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/snowbridge_core/lib.rs.html#192-201">Source</a> </span></div><pre class="rust item-decl"><code>pub fn burn_for_teleport&lt;AssetTransactor&gt;(
-    origin: &amp;Location,
-    fee: &amp;Asset,
-) -&gt; Result<div class="where">where
+    origin: &amp;<a class="struct" href="../staging_xcm/v5/location/struct.Location.html" title="struct staging_xcm::v5::location::Location">Location</a>,
+    fee: &amp;<a class="struct" href="../staging_xcm/v5/asset/struct.Asset.html" title="struct staging_xcm::v5::asset::Asset">Asset</a>,
+) -&gt; <a class="type" href="../staging_xcm/v5/traits/type.Result.html" title="type staging_xcm::v5::traits::Result">Result</a><div class="where">where
     AssetTransactor: TransactAsset,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Helper function that validates <code>fee</code> can be burned, then withdraws it from <code>origin</code> and burns
 it.
 Note: Make sure this is called from a transactional storage context so that side-effects

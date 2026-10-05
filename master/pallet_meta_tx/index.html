@@ -254,12 +254,12 @@ execute the target call on behalf of the signer while covering the fees.</p>
 	});
 }</code></pre></div><h3 id="low-level--implementation-details"><a class="doc-anchor" href="#low-level--implementation-details">§</a>Low-Level / Implementation Details</h3>
 <p>The structure of a meta transaction is identical to the
-<a href="sp_runtime::generic::Preamble::General"><code>General</code></a> transaction.
+<a href="../sp_runtime/generic/unchecked_extrinsic/enum.Preamble.html#variant.General" title="variant sp_runtime::generic::unchecked_extrinsic::Preamble::General"><code>General</code></a> transaction.
 It contains the target call along with a configurable set of extensions and its associated
 version. Typically, these extensions include type like
 <code>pallet_verify_signature::VerifySignature</code>, which provides the signer address
 and the signature of the payload, encompassing the call and the meta-transaction’s
-configurations, such as its mortality.  The extensions follow the same [<code>TransactionExtension</code>]
+configurations, such as its mortality.  The extensions follow the same <a href="../sp_runtime/traits/transaction_extension/trait.TransactionExtension.html" title="trait sp_runtime::traits::transaction_extension::TransactionExtension"><code>TransactionExtension</code></a>
 contract, and common types such as [<code>frame_system::CheckGenesis</code>],
 [<code>frame_system::CheckMortality</code>], [<code>frame_system::CheckNonce</code>], etc., are applicable in the
 context of meta transactions. Check the <code>mock</code> setup for the example.</p>

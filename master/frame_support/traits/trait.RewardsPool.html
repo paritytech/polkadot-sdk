@@ -167,17 +167,17 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
         admin: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;AccountId</a>,
         pool_id: Self::<a class="associatedtype" href="trait.RewardsPool.html#associatedtype.PoolId" title="type frame_support::traits::RewardsPool::PoolId">PoolId</a>,
         new_reward_rate_per_block: Self::<a class="associatedtype" href="trait.RewardsPool.html#associatedtype.Balance" title="type frame_support::traits::RewardsPool::Balance">Balance</a>,
-    ) -&gt; DispatchResult;
+    ) -&gt; <a class="type" href="../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.set_pool_admin" class="fn">set_pool_admin</a>(
         admin: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;AccountId</a>,
         pool_id: Self::<a class="associatedtype" href="trait.RewardsPool.html#associatedtype.PoolId" title="type frame_support::traits::RewardsPool::PoolId">PoolId</a>,
         new_admin: AccountId,
-    ) -&gt; DispatchResult;
+    ) -&gt; <a class="type" href="../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.set_pool_expiry_block" class="fn">set_pool_expiry_block</a>(
         admin: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;AccountId</a>,
         pool_id: Self::<a class="associatedtype" href="trait.RewardsPool.html#associatedtype.PoolId" title="type frame_support::traits::RewardsPool::PoolId">PoolId</a>,
         new_expiry: <a class="enum" href="schedule/enum.DispatchTime.html" title="enum frame_support::traits::schedule::DispatchTime">DispatchTime</a>&lt;Self::<a class="associatedtype" href="trait.RewardsPool.html#associatedtype.BlockNumber" title="type frame_support::traits::RewardsPool::BlockNumber">BlockNumber</a>&gt;,
-    ) -&gt; DispatchResult;
+    ) -&gt; <a class="type" href="../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A trait for managing a rewards pool.</p>
 </div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><section id="associatedtype.AssetId" class="method"><a class="src rightside" href="../../src/frame_support/traits/rewards.rs.html#25">Source</a><h4 class="code-header">type <a href="#associatedtype.AssetId" class="associatedtype">AssetId</a></h4></section><section id="associatedtype.BlockNumber" class="method"><a class="src rightside" href="../../src/frame_support/traits/rewards.rs.html#26">Source</a><h4 class="code-header">type <a href="#associatedtype.BlockNumber" class="associatedtype">BlockNumber</a></h4></section><section id="associatedtype.PoolId" class="method"><a class="src rightside" href="../../src/frame_support/traits/rewards.rs.html#27">Source</a><h4 class="code-header">type <a href="#associatedtype.PoolId" class="associatedtype">PoolId</a></h4></section><section id="associatedtype.Balance" class="method"><a class="src rightside" href="../../src/frame_support/traits/rewards.rs.html#28">Source</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a></h4></section></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.create_pool" class="method"><a class="src rightside" href="../../src/frame_support/traits/rewards.rs.html#41-48">Source</a><h4 class="code-header">fn <a href="#tymethod.create_pool" class="fn">create_pool</a>(
     creator: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;AccountId</a>,
@@ -202,20 +202,20 @@ receive the unutilized reward tokens back after the pool completion.</li>
     admin: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;AccountId</a>,
     pool_id: Self::<a class="associatedtype" href="trait.RewardsPool.html#associatedtype.PoolId" title="type frame_support::traits::RewardsPool::PoolId">PoolId</a>,
     new_reward_rate_per_block: Self::<a class="associatedtype" href="trait.RewardsPool.html#associatedtype.Balance" title="type frame_support::traits::RewardsPool::Balance">Balance</a>,
-) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Modify a pool reward rate.</p>
+) -&gt; <a class="type" href="../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Modify a pool reward rate.</p>
 <p>The reward rate can only be increased.</p>
 <p>Only the pool admin may perform this operation.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_pool_admin" class="method"><a class="src rightside" href="../../src/frame_support/traits/rewards.rs.html#64-68">Source</a><h4 class="code-header">fn <a href="#tymethod.set_pool_admin" class="fn">set_pool_admin</a>(
     admin: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;AccountId</a>,
     pool_id: Self::<a class="associatedtype" href="trait.RewardsPool.html#associatedtype.PoolId" title="type frame_support::traits::RewardsPool::PoolId">PoolId</a>,
     new_admin: AccountId,
-) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Modify a pool admin.</p>
+) -&gt; <a class="type" href="../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Modify a pool admin.</p>
 <p>Only the pool admin may perform this operation.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_pool_expiry_block" class="method"><a class="src rightside" href="../../src/frame_support/traits/rewards.rs.html#75-79">Source</a><h4 class="code-header">fn <a href="#tymethod.set_pool_expiry_block" class="fn">set_pool_expiry_block</a>(
     admin: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;AccountId</a>,
     pool_id: Self::<a class="associatedtype" href="trait.RewardsPool.html#associatedtype.PoolId" title="type frame_support::traits::RewardsPool::PoolId">PoolId</a>,
     new_expiry: <a class="enum" href="schedule/enum.DispatchTime.html" title="enum frame_support::traits::schedule::DispatchTime">DispatchTime</a>&lt;Self::<a class="associatedtype" href="trait.RewardsPool.html#associatedtype.BlockNumber" title="type frame_support::traits::RewardsPool::BlockNumber">BlockNumber</a>&gt;,
-) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Set when the pool should expire.</p>
+) -&gt; <a class="type" href="../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Set when the pool should expire.</p>
 <p>The expiry block can only be extended.</p>
 <p>Only the pool admin may perform this operation.</p>
 </div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.93.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/frame_support/traits/rewards/trait.RewardsPool.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
