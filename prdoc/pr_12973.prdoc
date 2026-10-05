@@ -1,0 +1,25 @@
+title: 'Migrate `pallet-babe` from the deprecated `ValidateUnsigned` trait to `#[pallet::authorize]`'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-babe` no longer uses the deprecated `ValidateUnsigned` trait and the
+    `#[pallet::validate_unsigned]` attribute. The validation of `report_equivocation_unsigned` moved
+    to a `#[pallet::authorize]` callback.
+
+    The validation semantics do not change. The callback accepts only `TransactionSource::Local` and
+    `TransactionSource::InBlock`, it checks the evidence, and it builds the same transaction validity
+    as before.
+
+    Two changes affect a runtime that includes this pallet. The `EquivocationReportSystem` bound
+    changed from `CreateBare<Call<T>>` to `CreateAuthorizedTransaction<Call<T>>`, and the runtime
+    must put `frame_system::AuthorizeCall` in its transaction extension pipeline.
+    `report_equivocation_unsigned` now needs an authorized origin.
+
+crates:
+- name: pallet-babe
+  bump: major
+- name: sp-consensus-babe
+  bump: patch
+- name: pallet-staking-async-rc-runtime
+  bump: major
