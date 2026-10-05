@@ -40,7 +40,32 @@ pub struct BlockOutputPayload {
 }
 
 impl From<BlockOutputPayload> for BlockOutputPayloadV1 {
+	/// The block as committed: `transactions` is the list `transactions_root` hashes, the
+	/// block's synthetic transaction included when it has one.
 	fn from(value: BlockOutputPayload) -> Self {
 		Self { block: value.block.into() }
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::evm::HashesOrTransactionInfos;
+	use sp_core::H256;
+
+	#[test]
+	fn v1_lists_every_committed_hash() {
+		let committed = vec![H256::from([0x11; 32]), H256::from([0x22; 32])];
+		let block = Block {
+			transactions: HashesOrTransactionInfos::Hashes(committed.clone()),
+			..Default::default()
+		};
+
+		let v1 = BlockOutputPayloadV1::from(BlockOutputPayload { block });
+
+		let HashesOrTransactionInfosV1::Hashes(hashes) = v1.block.transactions else {
+			panic!("the runtime commits transaction hashes");
+		};
+		assert_eq!(hashes, committed);
 	}
 }

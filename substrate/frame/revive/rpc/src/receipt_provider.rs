@@ -795,7 +795,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			separated.push_unseparated(")");
 		}
 
-		qb.push(" LIMIT ").push_bind(MAX_LOG_RESULTS as i64);
+		qb.push(" ORDER BY block_number, log_index LIMIT ")
+			.push_bind(MAX_LOG_RESULTS as i64);
 
 		let logs = qb.build().try_map(parse_log_row).fetch_all(&self.db_ctx.pool).await?;
 
@@ -2013,6 +2014,49 @@ mod tests {
 		// Wrong ethereum hash returns empty
 		let logs = provider.logs_by_block_number(42, H256::from([0xDD; 32])).await?;
 		assert!(logs.is_empty());
+
+		Ok(())
+	}
+
+	// A block-range filter walks the (block_number, address, topics) index, which without the
+	// ORDER BY hands each block's logs back in address order.
+	#[sqlx::test]
+	async fn filtered_logs_come_back_in_block_and_log_index_order(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let tx_hash = H256::from([0xBB; 32]);
+
+		let log = |block_number: u64, log_index: u64, address: u8| Log {
+			block_hash: H256::from([block_number as u8; 32]),
+			block_number: U256::from(block_number),
+			transaction_hash: tx_hash,
+			log_index: U256::from(log_index),
+			address: H160::from([address; 20]),
+			..Default::default()
+		};
+		let insert = |logs: Vec<Log>| async {
+			let block_number = logs[0].block_number.as_u64();
+			let ethereum_hash = logs[0].block_hash;
+			let block = MockBlockInfo { hash: ethereum_hash, number: block_number };
+			let receipts = vec![(
+				TransactionSigned::default(),
+				ReceiptInfo {
+					transaction_hash: tx_hash,
+					block_hash: ethereum_hash,
+					logs,
+					..Default::default()
+				},
+			)];
+			provider.insert(&block, &receipts, &ethereum_hash).await
+		};
+		// The later block goes in first and holds the lowest address.
+		insert(vec![log(2, 0, 0x00)]).await?;
+		insert(vec![log(1, 0, 0x02), log(1, 1, 0x01)]).await?;
+
+		let resolve = mock_resolve_block_number_with_latest(2);
+		let found = provider.logs(Some(Filter::new().from_block(1).to_block(2)), &resolve).await?;
+		assert_eq!(found, vec![log(1, 0, 0x02), log(1, 1, 0x01), log(2, 0, 0x00)]);
 
 		Ok(())
 	}

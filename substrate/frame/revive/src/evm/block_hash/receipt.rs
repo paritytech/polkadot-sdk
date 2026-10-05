@@ -19,6 +19,8 @@
 
 use alloc::vec::Vec;
 use alloy_core::rlp;
+use codec::{Decode, Encode, MaxEncodedLen};
+use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 use sp_crypto_hashing::keccak_256;
 
@@ -62,10 +64,43 @@ pub struct AccumulateReceipt {
 	pub bloom: LogsBloom,
 }
 
+/// What an ethereum transaction has committed to its receipt so far: how much of the
+/// [`AccumulateReceipt`] encoding, and the bloom over exactly those logs.
+///
+/// Kept in storage while the transaction runs, so that it rolls back with whatever storage layer
+/// rolls back: a contract frame, or a `batch_all` around a plain call whose balance change was
+/// mirrored as a log. The accumulated RLP is one log after another and the bloom is monotone, so
+/// the receipt at any layer is the encoding cut back to this length and this bloom.
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CommittedReceiptLogs {
+	/// The length of the encoding the committed logs take up.
+	pub encoded_len: u32,
+	/// The bloom over the committed logs.
+	pub bloom: [u8; BLOOM_SIZE_BYTES],
+}
+
+impl Default for CommittedReceiptLogs {
+	fn default() -> Self {
+		Self { encoded_len: 0, bloom: [0u8; BLOOM_SIZE_BYTES] }
+	}
+}
+
 impl AccumulateReceipt {
 	/// Constructs a new [`AccumulateReceipt`].
 	pub const fn new() -> Self {
 		Self { encoding: Vec::new(), bloom: LogsBloom::new() }
+	}
+
+	/// Cut the accumulator back to what `committed` covers, dropping every log a rolled-back
+	/// layer left behind.
+	pub fn reset_to(&mut self, committed: &CommittedReceiptLogs) {
+		self.encoding.truncate(committed.encoded_len as usize);
+		self.bloom = LogsBloom { bloom: committed.bloom };
+	}
+
+	/// What the accumulator holds, as the value to commit.
+	pub fn committed(&self) -> CommittedReceiptLogs {
+		CommittedReceiptLogs { encoded_len: self.encoding.len() as u32, bloom: self.bloom.bloom }
 	}
 
 	/// Add the log into the accumulated receipt.

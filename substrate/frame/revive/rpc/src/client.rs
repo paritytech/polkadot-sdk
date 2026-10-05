@@ -406,13 +406,6 @@ fn known_first_evm_block_for_chain(chain_id: u64) -> Option<u64> {
 	}
 }
 
-/// Fetch the chain ID from the substrate chain.
-async fn chain_id(api: &OnlineClient<SrcChainConfig>) -> Result<u64, ClientError> {
-	let query = subxt_client::constants().revive().chain_id().unvalidated();
-	let at_block = api.at_current_block().await?;
-	at_block.constants().entry(query).map_err(|err| err.into())
-}
-
 /// Fetch the max block weight from the substrate chain.
 async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, ClientError> {
 	let query = subxt_client::constants().system().block_weights().unvalidated();
@@ -474,11 +467,11 @@ impl Client {
 		is_archive: bool,
 		subscription_gap_queue: SubscriptionGapQueue,
 		runtime_api_provider: VersionAwareRuntimeApiProvider,
+		chain_id: u64,
 	) -> Result<Self, ClientError> {
-		let (chain_id, max_block_weight, automine) =
-			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
-				Ok(get_automine(&rpc_client).await)
-			},)?;
+		let (max_block_weight, automine) = tokio::try_join!(max_block_weight(&api), async {
+			Ok(get_automine(&rpc_client).await)
+		},)?;
 
 		// Compute the very first capabilities so that the provider's cache has an anchor which
 		// the subscriptions grow forward and the backfill grows backward.

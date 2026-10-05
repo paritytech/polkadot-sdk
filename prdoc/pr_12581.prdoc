@@ -1,0 +1,187 @@
+title: 'pallet-assets: mirror balance changes as ERC-20 Transfer logs via AssetsCallback'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `AssetsCallback` gains infallible balance-change hooks (`issued`, `transferred`, `burned`,
+    `deposited`, `withdrawn`) fired next to the matching pallet-assets events on every path:
+    extrinsics, the `fungibles` traits (incl. XCM asset transactors) and the `Balanced` imbalance
+    paths. `fungibles::Mutate::shelve` and `restore` have no pallet-assets event of their own and
+    fire `burned` and `issued`, since they move total supply like a burn and a mint do; likewise
+    the dust a transfer burns (`TransferFlags::burn_dust`) fires `burned` with no event of its
+    own. The trait gains a third generic parameter `Balance`; any hand-written
+    `impl AssetsCallback<Id, Acct>` must add it. Genesis asset creation now fires `created` too, so
+    a `CallbackHandle` seeds genesis assets like runtime-created ones; a failure there panics
+    genesis construction.
+
+    On a runtime wiring a log-mirroring `CallbackHandle`, every balance-changing operation deposits
+    an additional `pallet_revive::Event::ContractEmitted` right after the pallet-assets event, so
+    per-extrinsic event count and ordering change for substrate-side consumers. Code asserting on
+    the last emitted event (e.g. `assert_last_event`) must assert presence instead.
+
+    `pallet_revive::Pallet::emit_contract_log_outside_frame` is exposed for runtime components that
+    mirror non-contract activity as EVM logs from outside any contract call frame, with a matching
+    `Tracing::log_event_outside_frame` hook so tracing such a log no longer panics. The in-frame
+    `log_event` (the `LOG` opcode) keeps its active-frame invariant as a debug assertion.
+
+    A new `Erc20TransferLogsCallback` in `pallet-assets-precompiles` mirrors the balance changes as
+    canonical ERC-20 `Transfer` logs at the asset's precompile address. The `ERC20` precompile no
+    longer emits its own `Transfer` log for a non-zero transfer, so wire this callback as the
+    instance's `CallbackHandle` to keep precompile transfers logged; a zero-value transfer moves
+    no balance and stays self-emitted, as ERC-20 requires. Asset Hub Westend wires the callback
+    for the trust-backed and pool instances (inline-id) and for foreign assets (via
+    `ForeignIdConfig` and the asset-index map). The kitchensink runtime wires only the
+    foreign-asset index-map callback and no mirror, so its non-zero precompile transfers emit no
+    `Transfer` log.
+
+    A log emitted with no ethereum transaction open — a mirror from a plain extrinsic or an XCM
+    balance change — has no receipt to attach to, so it is buffered per block and flushed in
+    `on_finalize` as one synthetic transaction, entering the block's `logs_bloom`, `receipts_root`
+    and transaction trie. Such a block therefore holds one more transaction than it has real
+    ethereum transactions; eth-rpc rebuilds the same payload from block number and chain id to
+    recover its hash and serves those logs against it. `eth_receipt_data_versioned` is bumped to
+    version 2, reporting that transaction separately: its gas entry plus the event index of each
+    log the block committed to it. A consumer rebuilding those logs from block events must select
+    by those indices, since the block's `ContractEmitted` events are a superset of what the header
+    commits to, and number them after every other log of the block: eth-rpc gives them a
+    `logIndex` from the block's event count on, and `eth_getLogs` now orders its results by block
+    number and `logIndex`, so the synthetic transaction's logs come last as its `transactionIndex`
+    is. Before, the order of a filtered query's results was unspecified. `eth_block` lists the
+    synthetic transaction's hash in every version, since
+    `transactions` is the list the header commits to; an eth-rpc on receipt data version 1 sees
+    that hash with no receipt to serve for it. The new `Config` item `MaxOutsideFrameLogs` bounds
+    the buffer as a backstop; a log arriving past the cap is not buffered, so the bloom omits it
+    while its `ContractEmitted` still stands. Zero turns the buffer off, leaving such logs
+    substrate-only as they were before.
+
+    Contract logs emitted outside an ethereum transaction (`Revive::call`, an XCM `Transact` into
+    a contract) do not use the buffer and stay substrate-only, as before. Only pallet mirrors and
+    the precompile's zero-value `Transfer` do, so every buffered log is priced at the weight of
+    the operation that produced it: a pallet-assets `transfer()` or `mint()`, a precompile
+    transfer driven from a contract, or the hold operation that settles a contract's storage
+    deposit, which on Asset Hub Westend is mirrored once per contract whose net deposit changed
+    in the call and is the highest-volume producer once the buffer is on. The cheap route into
+    the buffer, a raw `LOG` at a few hundred gas, is closed.
+
+    The ethereum receipt now follows storage rollback. What a transaction has committed to its
+    receipt is kept in storage while it runs, so a log is dropped from the receipt together with
+    the state change that produced it, whichever layer rolled back: a contract frame that
+    reverted, a `batch_all`, `proxy` or `force_batch` around a plain call whose balance change was
+    mirrored, or the whole dispatch failing after its frames at fee settlement, which commits a
+    receipt with no logs and an empty bloom. Before, such logs stayed in the receipt,
+    `receipts_root` and `logs_bloom` while the state and events that produced them rolled back.
+    `seal_deposit_event` is now benchmarked inside an ethereum transaction, where the log is
+    RLP-encoded and accrued into the receipt's bloom. Every `eth_transact` always did that work,
+    but the benchmark emitted its log outside a transaction and never measured it. Its fixed part
+    doubles (5.7 to 12.3 µs on dev, 6.9 to 15.0 µs on Asset Hub Westend) and its per-byte part
+    rises by 16% on dev and 53% on Asset Hub Westend; the storage round trip for the committed
+    state is a small share of that. Every gas estimate for a log-emitting call rises with it.
+
+    The cap is a backstop no block can reach. Buffering a log registers at least its encoded bytes
+    as proof size, unchecked, whatever produced it — an assets extrinsic, a storage deposit settled
+    by a contract frame, an XCM fee swap, a batch. That is an admission charge rather than a cost:
+    the buffer is written and taken within the block, so the drain reads it from the overlay and
+    the proof holds one absence lookup for the key, nothing per entry. The charge binds all the
+    same, since it lands in `BlockWeight` and proof-size reclaim only swaps out an extrinsic's own
+    weight. The smallest entry, an address with no topics and no data, is 26 bytes, so Asset Hub
+    Westend's 10 MiB proof budget admits about 403,000 of them against the 524,288 it wires once
+    enabled; its runtime tests pin that bound against the value. The bound is not exact: an
+    unchecked registration can overshoot `max_block` from `on_initialize` and from a block's last
+    extrinsic, and ref_time runs out long before either. A runtime with an unbounded proof budget
+    has no such bound and should size its cap from ref_time, or leave the buffer off.
+
+    Asset Hub Westend ships with the buffer off (`MaxOutsideFrameLogs = 0`): a mirrored balance
+    change with no ethereum transaction open is a `ContractEmitted` event and nothing else, so a
+    block's transaction list is what any eth-rpc can serve. Receipts of new blocks still change in
+    two ways. Logs of reverted frames and of failed transactions leave the receipt, `receipts_root`
+    and `logs_bloom`. An asset balance change dispatched through `eth_substrate_call` now puts its
+    mirrored `Transfer` on the ethereum receipt. Past blocks are unaffected and no migration is
+    needed. Turning the buffer on is a separate runtime upgrade, wiring
+    `OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED`, after every eth-rpc serving the chain reads receipt
+    data version 2.
+
+    Follow-up: a buffered log's share of the `on_finalize` drain is registered on the block rather
+    than charged to the emitter, which is why contract frames are kept out of the buffer. A
+    follow-up PR charges the drain to the emitting frame's weight and lets contract logs in.
+
+    Rollout to a live Asset Hub (e.g. Polkadot) needs care beyond wiring the callback:
+      - Atomic cutover: removing the precompile self-emit and wiring the callback must ship in the
+        same runtime upgrade, else a block range emits zero or duplicate `Transfer` logs.
+      - eth-rpc goes first. Release the eth-rpc that reads receipt data version 2, announce it as
+        the minimum version, allow an upgrade window, then enable the buffer in a runtime upgrade
+        of its own. Runtime and eth-rpc upgrade independently before that point: with the buffer
+        off, both versions list one hash per receipt entry. After the buffer is on, an eth-rpc on
+        version 1 is unsupported: for a block with mirrored logs it lists the synthetic
+        transaction's hash in `eth_getBlockByNumber` but returns null for its receipt and
+        transaction, reports one fewer in `eth_getBlockTransactionCountByNumber`, and serves none
+        of the mirrored logs. Its receipt indexing does not break, since version 1 of the receipt
+        data has one entry per ethereum transaction as before.
+      - Weights: the mirror's cost lands in the weights of every pallet that moves assets, so a
+        runtime wiring it must re-run `/cmd bench` for those pallets, not only for pallet-assets.
+        That includes the XCM fee instructions where a swap trader moves assets, once their
+        benchmark exercises the swap; Asset Hub Westend's does in a separate PR. The benchmarks
+        measure against the configured cap, so the buffer's append is in those weights only once
+        they ran with it on; the upgrade that turns the buffer on re-runs them.
+      - Foreign asset-index mappings must exist before a mirror can resolve a token address. The
+        creation callback establishes them, genesis assets included; assets predating the callback
+        wiring need the index-map migration to backfill them.
+      - Asset destruction has no mirror: ERC-20 has no equivalent concept, and firing a burn log
+        per holder would emit an unbounded number of events for one destruction. Log consumers
+        must drop a token's balances once the asset is destroyed, or an inline id later reused by
+        `force_create` will inherit them.
+      - Genesis-seeded balances have no mirror either: genesis creation fires `created`, but the
+        accounts it endows are credited with no `Issued` event or `issued`/`deposited` callback.
+        Log consumers must seed genesis balances from storage and apply logs on top.
+      - Same-account holds are kept out of the projection: `ERC20::balanceOf` now reports
+        `fungibles::Inspect::total_balance` (free plus held), so a hold or release moves balance
+        within one account without moving `balanceOf` and needs no log. The hold paths that move
+        value between accounts — `transfer_on_hold`, `transfer_and_hold`, `burn_held` — do move
+        it, and run through pallet-assets' `Unbalanced` impl, below the `Mutate` impl the balance
+        hooks hang off. `pallet-assets-holder` therefore reports them itself, firing `transferred`
+        and `burned` from `done_transfer_on_hold` and `done_burn_held`; on Asset Hub Westend these
+        are the paths `pallet_revive`'s `PGasDeposit` drives for every contract storage deposit
+        and refund paid in PGAS (a payer without PGAS pays in the native asset, with no mirror).
+        A runtime pairing the mirror with a different `Holder` implementation must report
+        the same three paths, or balance moves through them with no `Transfer` log.
+- audience: Node Operator
+  description: |-
+    Upgrade eth-rpc before the chain turns the outside-of-frame log buffer on. This release reads
+    receipt data version 2, which carries the synthetic transaction holding a block's mirrored
+    logs. An older eth-rpc on a chain with the buffer on lists that transaction's hash in a block
+    but returns null for its receipt and transaction, reports one fewer in
+    `eth_getBlockTransactionCountByNumber` and serves none of the mirrored logs. With the buffer
+    off, as Asset Hub Westend ships it, old and new eth-rpc serve the same blocks. `eth_getLogs`
+    now returns logs ordered by block number and `logIndex`; before, the order of a filtered
+    query's results was unspecified. No database migration.
+- audience: Node Dev
+  description: |-
+    `pallet-revive-eth-rpc`: `ReceiptExtractor::new` and `new_with_custom_address_recovery` take
+    the chain's EVM chain id as a second argument, which the extractor needs to rebuild the
+    synthetic transaction that carries a block's outside-of-frame logs, and are plain functions
+    now, neither `async` nor fallible.
+- audience: Runtime User
+  description: |-
+    Ethereum receipts no longer carry the logs of reverted frames or of failed transactions;
+    they, `receipts_root` and `logs_bloom` now follow the state that produced the logs. Gas
+    estimates for calls that emit logs go up, since a `LOG` is now priced as it runs inside an
+    ethereum transaction. `eth_getLogs` returns logs ordered by block number and `logIndex`. On
+    a chain wiring the mirror, such as Asset Hub Westend, an asset balance change dispatched
+    through `eth_substrate_call` shows up as an ERC-20 `Transfer` log on its receipt.
+crates:
+- name: pallet-assets
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive-types
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: pallet-assets-precompiles
+  bump: major
+- name: pallet-assets-holder
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: penpal-runtime
+  bump: minor

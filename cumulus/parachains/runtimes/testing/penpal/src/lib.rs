@@ -793,6 +793,9 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<false>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = ();
+	// Buffer off: no assets mirror is wired, so nothing here emits a log outside an ethereum
+	// transaction.
+	type MaxOutsideFrameLogs = ConstU32<0>;
 	type Deposit = ();
 }
 
