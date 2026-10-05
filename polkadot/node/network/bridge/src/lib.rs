@@ -28,7 +28,7 @@ use parking_lot::Mutex;
 use sp_consensus::SyncOracle;
 
 use polkadot_node_network_protocol::{
-	peer_set::{PeerSet, ProtocolVersion},
+	peer_set::{CollationVersion, PeerSet, ProtocolVersion, ValidationVersion},
 	PeerId, UnifiedReputationChange as Rep, View,
 };
 
@@ -38,6 +38,7 @@ use polkadot_node_network_protocol::{
 pub use polkadot_node_network_protocol::peer_set::{peer_sets_info, IsAuthority};
 
 use std::{collections::HashMap, sync::Arc};
+use strum::IntoEnumIterator;
 
 mod validator_discovery;
 
@@ -83,6 +84,18 @@ pub(crate) enum WireMessage<M> {
 	ViewUpdate(View),
 }
 
+// Every protocol version this node knows how to label, for a given peer-set.
+//
+// `note_peers_count` publishes a sample for all of them on every re-report, so that a
+// version whose peers have all disconnected reads as zero instead of keeping its last
+// non-zero value for the lifetime.
+fn all_known_versions(peer_set: PeerSet) -> Vec<ProtocolVersion> {
+	match peer_set {
+		PeerSet::Validation => ValidationVersion::iter().map(Into::into).collect(),
+		PeerSet::Collation => CollationVersion::iter().map(Into::into).collect(),
+	}
+}
+
 #[derive(Debug)]
 pub(crate) struct PeerData {
 	/// The Latest view sent by the peer.
@@ -117,16 +130,195 @@ fn note_peers_count(metrics: &Metrics, shared: &Shared) {
 	let validation_stats = count_peers_by_version(&guard.validation_peers);
 	let collation_stats = count_peers_by_version(&guard.collation_peers);
 
-	for (version, count) in validation_stats {
-		metrics.note_peer_count(PeerSet::Validation, version, count)
-	}
+	note_peer_set_count(metrics, PeerSet::Validation, &validation_stats);
+	note_peer_set_count(metrics, PeerSet::Collation, &collation_stats);
+}
 
-	for (version, count) in collation_stats {
-		metrics.note_peer_count(PeerSet::Collation, version, count)
+fn note_peer_set_count(
+	metrics: &Metrics,
+	peer_set: PeerSet,
+	stats: &HashMap<ProtocolVersion, usize>,
+) {
+	for version in all_known_versions(peer_set) {
+		metrics.note_peer_count(peer_set, version, stats.get(&version).copied().unwrap_or(0));
 	}
 }
 
 pub(crate) enum Mode {
 	Syncing(Box<dyn SyncOracle + Send>),
 	Active,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use polkadot_node_metrics::metrics::{prometheus::Registry, Metrics as MetricsTrait};
+
+	fn registered_metrics() -> (Registry, Metrics) {
+		let registry = Registry::new();
+		let metrics = <Metrics as MetricsTrait>::try_register(&registry)
+			.expect("registering the network bridge metrics must succeed; qed");
+
+		(registry, metrics)
+	}
+
+	// Reads the `polkadot_parachain_peer_count` gauge family back out of `registry`.
+	fn gather_peer_counts(registry: &Registry) -> HashMap<String, u64> {
+		let mut counts = HashMap::new();
+		for family in registry.gather() {
+			if family.get_name() != "polkadot_parachain_peer_count" {
+				continue;
+			}
+
+			for metric in family.get_metric() {
+				let label = metric
+					.get_label()
+					.iter()
+					.find(|pair| pair.get_name() == "protocol")
+					.expect("peer count samples carry a protocol label; qed")
+					.get_value()
+					.to_string();
+
+				counts.insert(label, metric.get_gauge().get_value() as u64);
+			}
+		}
+		counts
+	}
+
+	fn peer_on(version: ProtocolVersion) -> (PeerId, PeerData) {
+		(PeerId::random(), PeerData { view: View::default(), version })
+	}
+
+	// The zero-fill reads a version's absence from `count_peers_by_version` as "no peers",
+	// so the histogram it produces must stay an exact partition with no empty buckets.
+	#[test]
+	fn count_peers_by_version_is_an_exact_partition() {
+		let mut peers = HashMap::new();
+		for _ in 0..3 {
+			let (id, data) = peer_on(CollationVersion::V2.into());
+			peers.insert(id, data);
+		}
+		let (id, data) = peer_on(CollationVersion::V4.into());
+		peers.insert(id, data);
+
+		let histogram = count_peers_by_version(&peers);
+
+		assert_eq!(histogram.get(&CollationVersion::V2.into()), Some(&3));
+		assert_eq!(histogram.get(&CollationVersion::V4.into()), Some(&1));
+		assert_eq!(histogram.len(), 2, "only the versions actually present may appear");
+		assert_eq!(
+			histogram.values().sum::<usize>(),
+			peers.len(),
+			"the per-version counts must sum to the number of tracked peers",
+		);
+		assert!(histogram.values().all(|count| *count > 0), "no version bucket may be empty");
+		assert!(count_peers_by_version(&HashMap::new()).is_empty());
+	}
+
+	// `note_peer_set_count` labels every version `all_known_versions` yields, so a version
+	// without a label would publish an `<internal error>` sample on every node.
+	#[test]
+	fn every_known_version_has_a_protocol_label() {
+		for peer_set in [PeerSet::Validation, PeerSet::Collation] {
+			for version in all_known_versions(peer_set) {
+				assert!(
+					peer_set.get_protocol_label(version).is_some(),
+					"{:?} version {} has no protocol label",
+					peer_set,
+					version,
+				);
+			}
+		}
+	}
+
+	// gauge children retain their last value, so a version bucket that  empties has to
+	// be re-published as zero.
+	#[test]
+	fn note_peers_count_zeroes_emptied_version_buckets() {
+		let shared = Shared::default();
+		{
+			let mut guard = shared.0.lock();
+			for _ in 0..2 {
+				let (id, data) = peer_on(ValidationVersion::V3.into());
+				guard.validation_peers.insert(id, data);
+			}
+			for version in [CollationVersion::V1, CollationVersion::V2] {
+				let (id, data) = peer_on(version.into());
+				guard.collation_peers.insert(id, data);
+			}
+		}
+
+		let (registry, metrics) = registered_metrics();
+
+		note_peers_count(&metrics, &shared);
+		assert_eq!(
+			gather_peer_counts(&registry),
+			HashMap::from([
+				("validation/3".to_string(), 2),
+				("collation/1".to_string(), 1),
+				("collation/2".to_string(), 1),
+				("collation/3".to_string(), 0),
+				("collation/4".to_string(), 0),
+			]),
+			"the first publish must cover every known version, zero-filling the empty ones",
+		);
+
+		// Empty the `collation/1` bucket outright, and shrink `validation/3` to one peer, so
+		// that a bucket which merely changes cannot be confused with one that empties.
+		{
+			let mut guard = shared.0.lock();
+			guard
+				.collation_peers
+				.retain(|_, peer| peer.version != CollationVersion::V1.into());
+			let surplus: Vec<PeerId> = guard.validation_peers.keys().skip(1).cloned().collect();
+			for peer in surplus {
+				guard.validation_peers.remove(&peer);
+			}
+		}
+
+		note_peers_count(&metrics, &shared);
+		assert_eq!(
+			gather_peer_counts(&registry),
+			HashMap::from([
+				("validation/3".to_string(), 1),
+				("collation/1".to_string(), 0),
+				("collation/2".to_string(), 1),
+				("collation/3".to_string(), 0),
+				("collation/4".to_string(), 0),
+			]),
+			"an emptied version bucket must be re-published as zero, not left stale",
+		);
+	}
+
+	// A node with no peers at all now publishes an explicit zero per known version.
+	// Five labels: one validation, four collation.
+	#[test]
+	fn note_peers_count_publishes_zeroes_when_no_peers_are_connected() {
+		let (registry, metrics) = registered_metrics();
+
+		note_peers_count(&metrics, &Shared::default());
+
+		let counts = gather_peer_counts(&registry);
+		assert_eq!(counts.len(), 5);
+		assert!(counts.values().all(|count| *count == 0));
+	}
+
+	// The gauges are `set`, never accumulated, so re-publishing unchanged state is a no-op.
+	#[test]
+	fn note_peers_count_is_idempotent_over_unchanged_state() {
+		let shared = Shared::default();
+		{
+			let mut guard = shared.0.lock();
+			let (id, data) = peer_on(CollationVersion::V3.into());
+			guard.collation_peers.insert(id, data);
+		}
+
+		let (registry, metrics) = registered_metrics();
+
+		note_peers_count(&metrics, &shared);
+		let first = gather_peer_counts(&registry);
+		note_peers_count(&metrics, &shared);
+
+		assert_eq!(gather_peer_counts(&registry), first);
+	}
 }
