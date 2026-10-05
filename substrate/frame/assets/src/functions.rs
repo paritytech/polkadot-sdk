@@ -332,7 +332,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		burn_dust: bool,
 	) -> Result<(T::Balance, Option<T::Balance>), DispatchError> {
 		let (credit, maybe_burn) = match (burn_dust, debit.checked_sub(&amount)) {
-			(true, Some(dust)) => (amount, Some(dust)),
+			(true, Some(dust)) if !dust.is_zero() => (amount, Some(dust)),
 			_ => (debit, None),
 		};
 		Self::can_increase(id, dest, credit, false).into_result()?;

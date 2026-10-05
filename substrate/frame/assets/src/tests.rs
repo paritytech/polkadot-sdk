@@ -2253,6 +2253,12 @@ fn balance_change_callbacks_fire_on_a_transfer_that_burns_dust() {
 		assert_eq!(Assets::balance(asset, dest), 95);
 		assert_eq!(Assets::total_supply(asset), 95);
 		assert!(AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED).is_empty());
+
+		// A transfer that leaves no dust burns nothing, `burn_dust` or not.
+		assert_ok!(Assets::do_transfer(asset, &dest, &source, 50, None, f));
+		assert_eq!(Assets::balance(asset, dest), 45);
+		assert_eq!(Assets::total_supply(asset), 95);
+		assert!(AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED).is_empty());
 	});
 }
 
