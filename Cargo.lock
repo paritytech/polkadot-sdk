@@ -17619,6 +17619,7 @@ dependencies = [
  "frame-support-test",
  "frame-system",
  "hex-literal",
+ "hrmp-primitives",
  "impl-trait-for-tuples",
  "log",
  "pallet-authority-discovery",

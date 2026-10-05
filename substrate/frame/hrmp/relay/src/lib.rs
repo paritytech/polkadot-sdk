@@ -19,7 +19,8 @@
 //!
 //! Relay half of HRMP channel management. Runs on the relay chain, applying channel operations
 //! received from a parachain (`pallet-hrmp-para`) to the relay's legacy `hrmp` routing table and
-//! reporting back.
+//! reporting back. It is also that legacy pallet's `DepositProvider`, with the deposits held by
+//! `pallet-hrmp-para`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -41,5 +42,5 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	// - TODO: Extrinsic to accept the messages from the para.
+	// - TODO: Extrinsics that communicates with para to take and release deposits.
 }

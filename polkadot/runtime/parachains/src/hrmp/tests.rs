@@ -22,8 +22,8 @@ use super::*;
 use crate::{
 	mock::{
 		deregister_parachain, new_test_ext, register_parachain, register_parachain_with_balance,
-		Dmp, Hrmp, MockGenesisConfig, Paras, ParasShared, RuntimeEvent as MockEvent, RuntimeOrigin,
-		System, Test, TestUsesOnlyStoredVersionWrapper,
+		Dmp, Hrmp, MockDepositProvider, MockGenesisConfig, Paras, ParasShared,
+		RuntimeEvent as MockEvent, RuntimeOrigin, System, Test, TestUsesOnlyStoredVersionWrapper,
 	},
 	shared,
 };
@@ -453,6 +453,169 @@ fn poke_deposits_works() {
 			<Test as Config>::Currency::reserved_balance(&para_b.into_account_truncating()),
 			0
 		);
+	});
+}
+
+fn insert_channel_without_deposits(channel_id: &HrmpChannelId) {
+	let config = configuration::ActiveConfig::<Test>::get();
+	HrmpChannels::<Test>::insert(
+		channel_id,
+		HrmpChannel {
+			sender_deposit: 0,
+			recipient_deposit: 0,
+			max_capacity: config.hrmp_channel_max_capacity,
+			max_total_size: config.hrmp_channel_max_total_size,
+			max_message_size: config.hrmp_channel_max_message_size,
+			msg_count: 0,
+			total_size: 0,
+			mqc_head: None,
+		},
+	);
+}
+
+#[test]
+fn poke_deposits_increase_works() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 110);
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+		insert_channel_without_deposits(&channel_id);
+
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b));
+
+		let channel = HrmpChannels::<Test>::get(&channel_id).unwrap();
+		assert_eq!((channel.sender_deposit, channel.recipient_deposit), (20, 15));
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_a.into_account_truncating()),
+			20
+		);
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_b.into_account_truncating()),
+			15
+		);
+	});
+}
+
+#[test]
+fn poke_deposits_increase_without_balance_fails() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 0);
+		insert_channel_without_deposits(&HrmpChannelId { sender: para_a, recipient: para_b });
+
+		// The sender's deposit is taken first and must be rolled back too.
+		assert_noop!(
+			Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b),
+			pallet_balances::Error::<Test, _>::InsufficientBalance
+		);
+	});
+}
+
+#[test]
+fn init_open_channel_refused_while_deposit_pending() {
+	let para_a = 2001.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 1000);
+		register_parachain_with_balance(para_b, 1000);
+		run_to_block(5, Some(vec![4, 5]));
+		MockDepositProvider::defer();
+
+		assert_ok!(Hrmp::init_open_channel(para_a, para_b, 2, 8));
+		assert_noop!(
+			Hrmp::init_open_channel(para_a, para_b, 2, 8),
+			DispatchError::Other("DepositPending")
+		);
+		assert_eq!(MockDepositProvider::deliver(), vec![Ok(())]);
+
+		assert_ok!(Hrmp::accept_open_channel(para_b, para_a));
+		assert_eq!(MockDepositProvider::deliver(), vec![Ok(())]);
+		assert_eq!(HrmpOpenChannelRequestsList::<Test>::get().len(), 1);
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		run_to_block(6, Some(vec![6]));
+		assert!(channel_exists(para_a, para_b));
+	});
+}
+
+#[test]
+fn duplicate_deposit_result_is_rejected() {
+	let para_a = 2001.into();
+	let para_b = 2003.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 0;
+	genesis.hrmp_recipient_deposit = 0;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain(para_a);
+		register_parachain(para_b);
+		run_to_block(5, Some(vec![4, 5]));
+
+		// A provider that fails to refuse the second deposit reports twice.
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+		let init = DepositAction::InitOpenChannel {
+			max_capacity: 2,
+			max_message_size: 8,
+			max_total_size: 16,
+		};
+		assert_ok!(Hrmp::on_deposit_result(&channel_id, 0, DepositRole::Sender, init.clone()));
+		assert_noop!(
+			Hrmp::on_deposit_result(&channel_id, 0, DepositRole::Sender, init),
+			Error::<Test>::OpenHrmpChannelAlreadyRequested
+		);
+
+		let accept = DepositAction::AcceptOpenChannel;
+		assert_ok!(Hrmp::on_deposit_result(&channel_id, 0, DepositRole::Recipient, accept.clone()));
+		assert_noop!(
+			Hrmp::on_deposit_result(&channel_id, 0, DepositRole::Recipient, accept),
+			Error::<Test>::AcceptHrmpChannelAlreadyConfirmed
+		);
+		assert_eq!(HrmpOpenChannelRequestsList::<Test>::get().len(), 1);
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		run_to_block(6, Some(vec![6]));
+		assert!(channel_exists(para_a, para_b));
+	});
+}
+
+#[test]
+fn accept_deposit_given_back_when_request_cancelled_meanwhile() {
+	let para_a = 2001.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 1000);
+		register_parachain_with_balance(para_b, 1000);
+		run_to_block(5, Some(vec![4, 5]));
+
+		assert_ok!(Hrmp::init_open_channel(para_a, para_b, 2, 8));
+		MockDepositProvider::defer();
+		assert_ok!(Hrmp::accept_open_channel(para_b, para_a));
+		let recipient_reserved =
+			|| <Test as Config>::Currency::reserved_balance(&para_b.into_account_truncating());
+		assert_eq!(recipient_reserved(), 100);
+
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+		assert_ok!(Hrmp::cancel_open_request(para_a, channel_id));
+		assert_eq!(
+			MockDepositProvider::deliver(),
+			vec![Err(Error::<Test>::AcceptHrmpChannelDoesntExist.into())]
+		);
+		assert_eq!(recipient_reserved(), 0);
+		Hrmp::assert_storage_consistency_exhaustive();
 	});
 }
 

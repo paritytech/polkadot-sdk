@@ -36,6 +36,7 @@ sp-tracing = { optional = true, workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+hrmp-primitives = { workspace = true }
 pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-babe = { workspace = true }
@@ -87,6 +88,7 @@ std = [
 	"frame-election-provider-support?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"hrmp-primitives/std",
 	"log/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",

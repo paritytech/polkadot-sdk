@@ -30,6 +30,9 @@ use scale_info::TypeInfo;
 /// A parachain id.
 pub type ParaId = u32;
 
+/// A balance, as the relay chain counts it.
+pub type Balance = u128;
+
 /// One end of a channel, in the order the relay chain names them.
 #[derive(
 	Encode,
@@ -112,4 +115,57 @@ impl ReceiveMigratedChannels for () {
 	fn receive_channel(_: MigratedChannel) -> sp_runtime::DispatchResult {
 		Err(sp_runtime::DispatchError::Unavailable)
 	}
+}
+
+/// Which side of a channel a deposit is taken from.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub enum DepositRole {
+	Sender,
+	Recipient,
+}
+
+/// Data the pallet that asked for a deposit needs to finish that call.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum DepositAction {
+	InitOpenChannel {
+		max_capacity: u32,
+		max_message_size: u32,
+		max_total_size: u32,
+	},
+	AcceptOpenChannel,
+	/// Raise the role's recorded deposit to `new_deposit`.
+	PokeChannelDeposits {
+		new_deposit: Balance,
+	},
+}
+
+/// Takes and gives back HRMP channel deposits, reporting takes to the pallet that asked.
+pub trait DepositProvider {
+	/// Take `amount` from `role`'s side of `channel_id`.
+	fn deposit(
+		channel_id: ChannelId,
+		amount: Balance,
+		role: DepositRole,
+		action: DepositAction,
+	) -> sp_runtime::DispatchResult;
+
+	/// Give `amount` back to `role`'s side of `channel_id`.
+	fn refund(
+		channel_id: ChannelId,
+		amount: Balance,
+		role: DepositRole,
+	) -> sp_runtime::DispatchResult;
 }

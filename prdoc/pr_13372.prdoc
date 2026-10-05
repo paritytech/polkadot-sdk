@@ -1,0 +1,32 @@
+title: 'HRMP: New Deposit Flow'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The relay chain HRMP pallet now takes and gives back channel deposits through a new
+    `DepositProvider` trait from `hrmp-primitives`, set as `hrmp::Config::DepositProvider`.
+    `init_open_channel`, `accept_open_channel` and `poke_channel_deposits` run their checks and
+    request the deposit. Storage is written and events are emitted only when the provider reports
+    back through `on_deposit_result`, so a provider on another chain can finish the call later.
+    Refunds on cancel, close, offboarding and a lowered poke go through `DepositProvider::refund`.
+    Cancel and poke fail with its error; session-change close and offboarding only log it.
+
+    `LocalDepositProvider` reserves and unreserves through `Config::Currency` and reports success
+    in the same call, so existing runtimes behave as before. This is a breaking change for
+    `polkadot-runtime-parachains`: every runtime must now set `type DepositProvider`, and
+    `LocalDepositProvider<Runtime>` works as a drop-in.
+
+    Its covering and preparing for integration of taking deposits on the hrmp-para pallet (CT or AH).
+    Right now its just integrating DepositProvider into hrmp.
+crates:
+- name: hrmp-primitives
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: major
+- name: westend-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: pallet-hrmp-relay
+  bump: none
+- name: polkadot-sdk-frame
+  bump: none
