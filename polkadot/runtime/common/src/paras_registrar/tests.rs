@@ -35,9 +35,9 @@ fn end_to_end_scenario_works() {
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
 
-		// first para is not yet registered
-		assert!(!Parachains::is_parathread(para_id));
-		// We register the Para ID
+		// Para is not yet registered.
+		assert!(!Parachains::is_parachain(para_id));
+		// Register the Para ID.
 		let validation_code = test_validation_code(32);
 		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
 		assert_ok!(mock::Registrar::register(
@@ -49,25 +49,16 @@ fn end_to_end_scenario_works() {
 		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
 
 		run_to_session(START_SESSION_INDEX + 2);
-		// It is now a parathread (on-demand parachain).
-		assert!(Parachains::is_parathread(para_id));
-		assert!(!Parachains::is_parachain(para_id));
-		// Some other external process will elevate on-demand to lease holding parachain
-		assert_ok!(mock::Registrar::make_parachain(para_id));
-		run_to_session(START_SESSION_INDEX + 4);
-		// It is now a lease holding parachain.
-		assert!(!Parachains::is_parathread(para_id));
+		// Every registered para is now a parachain.
 		assert!(Parachains::is_parachain(para_id));
-		// Turn it back into a parathread (on-demand parachain)
+		// make_parachain is a no-op — already a parachain.
+		assert_ok!(mock::Registrar::make_parachain(para_id));
+		// make_parathread is a no-op — all paras remain parachains.
 		assert_ok!(mock::Registrar::make_parathread(para_id));
-		run_to_session(START_SESSION_INDEX + 6);
-		assert!(Parachains::is_parathread(para_id));
-		assert!(!Parachains::is_parachain(para_id));
-		// Deregister it
+		// Deregister it — parachains can be deregistered.
 		assert_ok!(mock::Registrar::deregister(RuntimeOrigin::root(), para_id,));
-		run_to_session(START_SESSION_INDEX + 8);
-		// It is nothing
-		assert!(!Parachains::is_parathread(para_id));
+		run_to_session(START_SESSION_INDEX + 4);
+		// It is gone.
 		assert!(!Parachains::is_parachain(para_id));
 	});
 }
@@ -79,7 +70,7 @@ fn register_works() {
 		run_to_session(START_SESSION_INDEX);
 
 		let para_id = LOWEST_PUBLIC_ID;
-		assert!(!Parachains::is_parathread(para_id));
+		assert!(!Parachains::is_parachain(para_id));
 
 		let validation_code = test_validation_code(32);
 		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
@@ -93,7 +84,7 @@ fn register_works() {
 		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
 
 		run_to_session(START_SESSION_INDEX + 2);
-		assert!(Parachains::is_parathread(para_id));
+		assert!(Parachains::is_parachain(para_id));
 		// Even though the registered validation code has a smaller size than the maximum the
 		// para manager's deposit is reserved as though they registered the maximum-sized code.
 		// Consequently, they can upgrade their code to the maximum size at any point without
@@ -115,7 +106,7 @@ fn schedule_code_upgrade_validates_code() {
 		run_to_session(START_SESSION_INDEX);
 
 		let para_id = LOWEST_PUBLIC_ID;
-		assert!(!Parachains::is_parathread(para_id));
+		assert!(!Parachains::is_parachain(para_id));
 
 		let validation_code = test_validation_code(32);
 		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
@@ -129,7 +120,7 @@ fn schedule_code_upgrade_validates_code() {
 		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
 
 		run_to_session(START_SESSION_INDEX + 2);
-		assert!(Parachains::is_parathread(para_id));
+		assert!(Parachains::is_parachain(para_id));
 
 		let new_code = test_validation_code(0);
 		assert_noop!(
@@ -241,7 +232,7 @@ fn deregister_works() {
 		run_to_session(START_SESSION_INDEX);
 
 		let para_id = LOWEST_PUBLIC_ID;
-		assert!(!Parachains::is_parathread(para_id));
+		assert!(!Parachains::is_parachain(para_id));
 
 		let validation_code = test_validation_code(32);
 		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
@@ -254,7 +245,7 @@ fn deregister_works() {
 		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
 
 		run_to_session(START_SESSION_INDEX + 2);
-		assert!(Parachains::is_parathread(para_id));
+		assert!(Parachains::is_parachain(para_id));
 		assert_ok!(mock::Registrar::deregister(RuntimeOrigin::root(), para_id,));
 		run_to_session(START_SESSION_INDEX + 4);
 		assert!(paras::Pallet::<Test>::lifecycle(para_id).is_none());
@@ -269,7 +260,7 @@ fn deregister_handles_basic_errors() {
 		run_to_session(START_SESSION_INDEX);
 
 		let para_id = LOWEST_PUBLIC_ID;
-		assert!(!Parachains::is_parathread(para_id));
+		assert!(!Parachains::is_parachain(para_id));
 
 		let validation_code = test_validation_code(32);
 		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
@@ -282,16 +273,11 @@ fn deregister_handles_basic_errors() {
 		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
 
 		run_to_session(START_SESSION_INDEX + 2);
-		assert!(Parachains::is_parathread(para_id));
-		// Owner check
+		assert!(Parachains::is_parachain(para_id));
+		// Owner check: non-owner cannot deregister.
 		assert_noop!(mock::Registrar::deregister(RuntimeOrigin::signed(2), para_id,), BadOrigin);
-		assert_ok!(mock::Registrar::make_parachain(para_id));
-		run_to_session(START_SESSION_INDEX + 4);
-		// Cant directly deregister parachain
-		assert_noop!(
-			mock::Registrar::deregister(RuntimeOrigin::root(), para_id,),
-			Error::<Test>::NotParathread
-		);
+		// Parachains can now be deregistered directly.
+		assert_ok!(mock::Registrar::deregister(RuntimeOrigin::root(), para_id,));
 	});
 }
 
@@ -335,14 +321,11 @@ fn swap_works() {
 
 		run_to_session(START_SESSION_INDEX + 4);
 
-		// Roles are as we expect
+		// Both are parachains.
 		assert!(Parachains::is_parachain(para_1));
-		assert!(!Parachains::is_parathread(para_1));
-		assert!(!Parachains::is_parachain(para_2));
-		assert!(Parachains::is_parathread(para_2));
+		assert!(Parachains::is_parachain(para_2));
 
-		// Both paras initiate a swap
-		// Swap between parachain and parathread
+		// Both paras initiate a swap.
 		assert_ok!(mock::Registrar::swap(para_origin(para_1), para_1, para_2,));
 		assert_ok!(mock::Registrar::swap(para_origin(para_2), para_2, para_1,));
 		System::assert_last_event(RuntimeEvent::Registrar(paras_registrar::Event::Swapped {
@@ -352,30 +335,15 @@ fn swap_works() {
 
 		run_to_session(START_SESSION_INDEX + 6);
 
-		// Roles are swapped
-		assert!(!Parachains::is_parachain(para_1));
-		assert!(Parachains::is_parathread(para_1));
+		// Both remain parachains after swap.
+		assert!(Parachains::is_parachain(para_1));
 		assert!(Parachains::is_parachain(para_2));
-		assert!(!Parachains::is_parathread(para_2));
 
-		// Data is swapped
+		// Data is swapped.
 		assert_eq!(SwapData::get().get(&para_1).unwrap(), &1337);
 		assert_eq!(SwapData::get().get(&para_2).unwrap(), &69);
 
-		// Both paras initiate a swap
-		// Swap between parathread and parachain
-		assert_ok!(mock::Registrar::swap(para_origin(para_1), para_1, para_2,));
-		assert_ok!(mock::Registrar::swap(para_origin(para_2), para_2, para_1,));
-		System::assert_last_event(RuntimeEvent::Registrar(paras_registrar::Event::Swapped {
-			para_id: para_2,
-			other_id: para_1,
-		}));
-
-		// Data is swapped
-		assert_eq!(SwapData::get().get(&para_1).unwrap(), &69);
-		assert_eq!(SwapData::get().get(&para_2).unwrap(), &1337);
-
-		// Parachain to parachain swap
+		// Register a third parachain and swap with para_1.
 		let para_3 = LOWEST_PUBLIC_ID + 2;
 		let validation_code = test_validation_code(max_code_size() as usize);
 		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(3)));
@@ -389,24 +357,16 @@ fn swap_works() {
 
 		run_to_session(START_SESSION_INDEX + 8);
 
-		// Upgrade para 3 into a parachain
-		assert_ok!(mock::Registrar::make_parachain(para_3));
-
 		// Set some mock swap data.
 		let mut swap_data = SwapData::get();
 		swap_data.insert(para_3, 777);
 		SwapData::set(swap_data);
 
-		run_to_session(START_SESSION_INDEX + 10);
-
-		// Both are parachains
+		// Both are parachains.
 		assert!(Parachains::is_parachain(para_3));
-		assert!(!Parachains::is_parathread(para_3));
 		assert!(Parachains::is_parachain(para_1));
-		assert!(!Parachains::is_parathread(para_1));
 
-		// Both paras initiate a swap
-		// Swap between parachain and parachain
+		// Both paras initiate a swap — parachain to parachain.
 		assert_ok!(mock::Registrar::swap(para_origin(para_1), para_1, para_3,));
 		assert_ok!(mock::Registrar::swap(para_origin(para_3), para_3, para_1,));
 		System::assert_last_event(RuntimeEvent::Registrar(paras_registrar::Event::Swapped {
@@ -414,8 +374,8 @@ fn swap_works() {
 			other_id: para_1,
 		}));
 
-		// Data is swapped
-		assert_eq!(SwapData::get().get(&para_3).unwrap(), &69);
+		// Data is swapped.
+		assert_eq!(SwapData::get().get(&para_3).unwrap(), &1337);
 		assert_eq!(SwapData::get().get(&para_1).unwrap(), &777);
 	});
 }
@@ -468,8 +428,8 @@ fn swap_handles_bad_states() {
 		let para_2 = LOWEST_PUBLIC_ID + 1;
 
 		// paras are not yet registered
-		assert!(!Parachains::is_parathread(para_1));
-		assert!(!Parachains::is_parathread(para_2));
+		assert!(!Parachains::is_parachain(para_1));
+		assert!(!Parachains::is_parachain(para_2));
 
 		// Cannot even start a swap
 		assert_noop!(
@@ -495,7 +455,7 @@ fn swap_handles_bad_states() {
 		));
 		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
 
-		// Cannot swap
+		// During onboarding paras cannot swap yet.
 		assert_ok!(mock::Registrar::swap(RuntimeOrigin::root(), para_1, para_2));
 		assert_noop!(
 			mock::Registrar::swap(RuntimeOrigin::root(), para_2, para_1),
@@ -504,44 +464,11 @@ fn swap_handles_bad_states() {
 
 		run_to_session(START_SESSION_INDEX + 2);
 
-		// They are now parathreads (on-demand parachains).
-		assert!(Parachains::is_parathread(para_1));
-		assert!(Parachains::is_parathread(para_2));
-
-		// Cannot swap
-		assert_ok!(mock::Registrar::swap(RuntimeOrigin::root(), para_1, para_2));
-		assert_noop!(
-			mock::Registrar::swap(RuntimeOrigin::root(), para_2, para_1),
-			Error::<Test>::CannotSwap
-		);
-
-		// Some other external process will elevate one on-demand
-		// parachain to a lease holding parachain
-		assert_ok!(mock::Registrar::make_parachain(para_1));
-
-		// Cannot swap
-		assert_ok!(mock::Registrar::swap(RuntimeOrigin::root(), para_1, para_2));
-		assert_noop!(
-			mock::Registrar::swap(RuntimeOrigin::root(), para_2, para_1),
-			Error::<Test>::CannotSwap
-		);
-
-		run_to_session(START_SESSION_INDEX + 3);
-
-		// Cannot swap
-		assert_ok!(mock::Registrar::swap(RuntimeOrigin::root(), para_1, para_2));
-		assert_noop!(
-			mock::Registrar::swap(RuntimeOrigin::root(), para_2, para_1),
-			Error::<Test>::CannotSwap
-		);
-
-		run_to_session(START_SESSION_INDEX + 4);
-
-		// It is now a lease holding parachain.
+		// They are now parachains.
 		assert!(Parachains::is_parachain(para_1));
-		assert!(Parachains::is_parathread(para_2));
+		assert!(Parachains::is_parachain(para_2));
 
-		// Swap works here.
+		// Swap works when both are stable parachains.
 		assert_ok!(mock::Registrar::swap(RuntimeOrigin::root(), para_1, para_2));
 		assert_ok!(mock::Registrar::swap(RuntimeOrigin::root(), para_2, para_1));
 		assert!(System::events().iter().any(|r| matches!(
@@ -549,40 +476,21 @@ fn swap_handles_bad_states() {
 			RuntimeEvent::Registrar(paras_registrar::Event::Swapped { .. })
 		)));
 
-		run_to_session(START_SESSION_INDEX + 5);
+		run_to_session(START_SESSION_INDEX + 4);
 
-		// Cannot swap
-		assert_ok!(mock::Registrar::swap(RuntimeOrigin::root(), para_1, para_2));
-		assert_noop!(
-			mock::Registrar::swap(RuntimeOrigin::root(), para_2, para_1),
-			Error::<Test>::CannotSwap
-		);
-
-		run_to_session(START_SESSION_INDEX + 6);
-
-		// Swap worked!
+		// Swap completed; both still parachains.
+		assert!(Parachains::is_parachain(para_1));
 		assert!(Parachains::is_parachain(para_2));
-		assert!(Parachains::is_parathread(para_1));
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::Registrar(paras_registrar::Event::Swapped { .. })
-		)));
 
-		// Something starts to downgrade a para
-		assert_ok!(mock::Registrar::make_parathread(para_2));
-
-		run_to_session(START_SESSION_INDEX + 7);
-
-		// Cannot swap
+		// A para that is offboarding is no longer a stable parachain and cannot be swapped.
+		assert_ok!(mock::Registrar::deregister(RuntimeOrigin::root(), para_2));
 		assert_ok!(mock::Registrar::swap(RuntimeOrigin::root(), para_1, para_2));
 		assert_noop!(
 			mock::Registrar::swap(RuntimeOrigin::root(), para_2, para_1),
 			Error::<Test>::CannotSwap
 		);
 
-		run_to_session(START_SESSION_INDEX + 8);
-
-		assert!(Parachains::is_parathread(para_1));
-		assert!(Parachains::is_parathread(para_2));
+		// make_parathread is a no-op — all paras remain parachains.
+		assert_ok!(mock::Registrar::make_parathread(para_1));
 	});
 }

@@ -25,7 +25,6 @@ use polkadot_primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
 	configuration, dmp, hrmp,
 	paras::{self, AssignCoretime, ParaGenesisArgs, ParaKind},
-	ParaLifecycle,
 };
 
 #[frame_support::pallet]
@@ -54,14 +53,6 @@ pub mod pallet {
 		Unroutable,
 		/// Could not schedule para cleanup.
 		CouldntCleanup,
-		/// Not a parathread (on-demand parachain).
-		NotParathread,
-		/// Not a lease holding parachain.
-		NotParachain,
-		/// Cannot upgrade on-demand parachain to lease holding parachain.
-		CannotUpgrade,
-		/// Cannot downgrade lease holding parachain to on-demand.
-		CannotDowngrade,
 		/// There are more cores than supported by the runtime.
 		TooManyCores,
 	}
@@ -85,6 +76,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
+			// Assign a core only for lease-holding parachains; on-demand paras skip this
+			// so on-demand testing works without a running coretime chain.
 			let assign_coretime = genesis.para_kind == ParaKind::Parachain;
 
 			polkadot_runtime_parachains::schedule_para_initialize::<T>(id, genesis)
@@ -104,42 +97,6 @@ pub mod pallet {
 			ensure_root(origin)?;
 			polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
 				.map_err(|_| Error::<T>::CouldntCleanup)?;
-			Ok(())
-		}
-
-		/// Upgrade a parathread (on-demand parachain) to a lease holding parachain
-		#[pallet::call_index(2)]
-		#[pallet::weight((1_000, DispatchClass::Operational))]
-		pub fn sudo_schedule_parathread_upgrade(
-			origin: OriginFor<T>,
-			id: ParaId,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			// Para backend should think this is a parathread (on-demand parachain)...
-			ensure!(
-				paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parathread),
-				Error::<T>::NotParathread,
-			);
-			polkadot_runtime_parachains::schedule_parathread_upgrade::<T>(id)
-				.map_err(|_| Error::<T>::CannotUpgrade)?;
-			Ok(())
-		}
-
-		/// Downgrade a lease holding parachain to an on-demand parachain
-		#[pallet::call_index(3)]
-		#[pallet::weight((1_000, DispatchClass::Operational))]
-		pub fn sudo_schedule_parachain_downgrade(
-			origin: OriginFor<T>,
-			id: ParaId,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			// Para backend should think this is a parachain...
-			ensure!(
-				paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parachain),
-				Error::<T>::NotParachain,
-			);
-			polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(id)
-				.map_err(|_| Error::<T>::CannotDowngrade)?;
 			Ok(())
 		}
 
