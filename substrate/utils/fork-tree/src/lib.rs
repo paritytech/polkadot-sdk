@@ -447,7 +447,9 @@ where
 	fn finalize_root_at(&mut self, position: usize) -> V {
 		let node = self.roots.swap_remove(position);
 		self.roots = node.children;
-		self.best_finalized_number = Some(node.number);
+		if self.best_finalized_number.as_ref().is_none_or(|best| node.number > *best) {
+			self.best_finalized_number = Some(node.number);
+		}
 		node.data
 	}
 
@@ -842,7 +844,7 @@ impl<H, N, V> Iterator for RemovedIterator<H, N, V> {
 mod test {
 	use crate::FilterAction;
 
-	use super::{Error, FinalizationResult, ForkTree};
+	use super::{Error, FinalizationResult, ForkTree, Node};
 
 	#[derive(Debug, PartialEq)]
 	struct TestError;
@@ -987,6 +989,25 @@ mod test {
 			// all the other forks have been pruned
 			assert!(tree.roots.len() == 1);
 		}
+	}
+
+	#[test]
+	fn finalize_root_does_not_lower_best_finalized_number() {
+		let (mut tree, ..) = test_fork_tree();
+
+		// finalizing "A" then "B" advances `best_finalized_number` to 20.
+		tree.finalize_root(&"A");
+		tree.finalize_root(&"B");
+		assert_eq!(tree.best_finalized_number, Some(20));
+
+		// Push a stale root with a lower number than the current `best_finalized_number`.
+		tree.roots
+			.push(Node { hash: "STALE", number: 5, data: 0, children: Vec::new() });
+
+		tree.finalize_root(&"STALE");
+
+		// Assert that `best_finalized_number` is not updated.
+		assert_eq!(tree.best_finalized_number, Some(20));
 	}
 
 	#[test]
