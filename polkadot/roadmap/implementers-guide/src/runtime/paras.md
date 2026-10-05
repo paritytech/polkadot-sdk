@@ -208,9 +208,9 @@ UpcomingUpgrades: Vec<(ParaId, BlockNumberFor<T>)>;
 ActionsQueue: map SessionIndex => Vec<ParaId>;
 /// Upcoming paras instantiation arguments.
 ///
-/// NOTE that after PVF pre-checking is enabled the para genesis arg will have it's code set
-/// to empty. Instead, the code will be saved into the storage right away via `CodeByHash`.
-UpcomingParasGenesis: map ParaId => Option<ParaGenesisArgs>;
+/// The validation code is not stored here; `schedule_para_initialize` inserts it eagerly via
+/// `CurrentCodeHash` and `CodeByHash`.
+UpcomingParasGenesis: map ParaId => Option<UpcomingParaGenesis>;
 /// The number of references on the validation code in `CodeByHash` storage.
 CodeByHashRefs: map ValidationCodeHash => u32;
 /// Validation code stored by its hash.
