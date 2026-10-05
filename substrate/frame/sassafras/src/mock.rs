@@ -43,9 +43,11 @@ const LOG_TARGET: &str = "sassafras::tests";
 const EPOCH_LENGTH: u32 = 10;
 const MAX_AUTHORITIES: u32 = 100;
 
+type TxExtension = frame_system::AuthorizeCall<Test>;
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type Block = frame_system::mocking::MockBlock<Test>;
+	type Block = frame_system::mocking::MockBlock<Test, (), TxExtension>;
 }
 
 impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
@@ -53,15 +55,28 @@ where
 	RuntimeCall: From<C>,
 {
 	type RuntimeCall = RuntimeCall;
-	type Extrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+	type Extrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test, (), TxExtension>;
 }
 
-impl<C> frame_system::offchain::CreateBare<C> for Test
+impl<C> frame_system::offchain::CreateTransaction<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-		frame_system::mocking::MockUncheckedExtrinsic::<Test>::new_bare(call)
+	type Extension = TxExtension;
+
+	fn create_transaction(call: RuntimeCall, extension: Self::Extension) -> Self::Extrinsic {
+		frame_system::mocking::MockUncheckedExtrinsic::<Test, (), TxExtension>::new_transaction(
+			call, extension,
+		)
+	}
+}
+
+impl<C> frame_system::offchain::CreateAuthorizedTransaction<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_extension() -> Self::Extension {
+		TxExtension::new()
 	}
 }
 
