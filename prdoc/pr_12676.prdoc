@@ -1,0 +1,31 @@
+title: 'spec-msg: add primitives'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds the primitives for Speculative Messaging v0.5. The byte formats are in
+    `docs/speculative-messaging-encoding-spec.md`.
+
+    Relay-visible, in `polkadot-primitives::v9`:
+    - `StreamsRoot` and `RequiresSet`. A `RequiresSet` is non-empty by construction.
+    - New `UMPSignal::Provides` and `UMPSignal::Requires` variants, read through
+      `CandidateUMPSignals`. `MAX_UMP_SIGNALS = 4` bounds `ump_signals()`: at most one
+      signal of each variant.
+
+    Parachain-side, in the new `cumulus-primitives-spec-messaging` crate: `StreamId`, the
+    stream MMR, the `StreamsRoot` trie, lifts and `requires` synthesis, the message fetch
+    protocol and its verifiers, channel and flow-control state, the messaging inherent data,
+    and the `ProvideUmpSignals` runtime hook.
+
+    Nothing emits the new signals yet. `validate_block` in `cumulus-pallet-parachain-system`
+    panics if a parachain emits one, until a follow-up forwards them.
+crates:
+- name: polkadot-primitives
+  bump: major
+- name: cumulus-primitives-spec-messaging
+  bump: patch
+- name: cumulus-pallet-parachain-system
+  bump: patch
+- name: polkadot-primitives-test-helpers
+  bump: patch
+- name: polkadot-sdk
+  bump: minor
