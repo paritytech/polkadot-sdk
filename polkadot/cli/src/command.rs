@@ -70,9 +70,9 @@ fn get_invulnerable_ah_collators(
 		"12D3KooWSEJ4xgQYFFcM6j9yVqdeVqaQAVkeEp6yv37HuF2W2Low",
 		"12D3KooWDKCVBr59zEK8vG6PomxDdbMMvULYEAWmtqwWmngMf8Qq",
 		"12D3KooWT3XMzDWrmv7ah85aBRpWc3e8sUaeg2oJwzSpS53V61DY",
-		"12D3KooWLo5prRCchbZR6cGayQmks3stuC7ccgSJVh3ZdGkbcLFR",
-		"12D3KooWJQGQ4kQ3MxDJr8CZpmVkW6k1CHiAo8ZEZ681C3XQTtBG",
-		"12D3KooWNvw7LjmzRhUeGJy9mPEZ1uE8ADpjik1DPEuNmmfEeYco",
+		"12D3KooWJPpBfakATuU2peQEQrWZzh1AfK1tg53HVfqdm2u9UXtC",
+		"12D3KooWD5Pg1TmXy9A8E19Z2jCyhtCur1xzN484GdktLFxMGvWJ",
+		"12D3KooWJWyDixpTzobEYDUXyFTJMAkoWHSvQCFLH39prefD1giM",
 	];
 
 	let invulnerables = if chain_spec.is_kusama() {

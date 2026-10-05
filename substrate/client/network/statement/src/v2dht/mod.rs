@@ -22,7 +22,7 @@ mod explicit_affinity;
 mod metrics;
 mod peer_steering;
 mod peers_index;
-pub mod peers_topology;
+pub(crate) mod peers_topology;
 
 pub(crate) use metrics::V2DhtMetrics;
 
@@ -268,19 +268,7 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.take_local_filter_if_changed()
 	}
 
-	// === Peer-set events ===
-
-	pub(crate) fn on_peer_connected(&mut self, peer: PeerId) {
-		// TODO: we may need it for the topology, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_peer_connected {peer} (stub)");
-	}
-
 	// === Notification-substream events ===
-
-	pub(crate) fn on_validate_inbound_substream(&mut self, peer: PeerId) {
-		// TODO: we may need it for the peer steering, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_validate_inbound_substream {peer} (stub)");
-	}
 
 	pub(crate) fn on_substream_opened(&mut self, peer: PeerId) {
 		self.peers_topology.on_substream_opened(peer);
@@ -306,11 +294,6 @@ impl V2DhtOrchestrator {
 
 	// === Forward decision ===
 
-	/// Whether the peer is a DHT routing target for the topic.
-	pub(crate) fn peer_is_dht_target_for_topic(&self, peer: PeerId, topic: Topic) -> bool {
-		self.peers_topology.routing_targets(topic).contains(&peer)
-	}
-
 	/// Whether `peer` is a DHT routing target for a statement.
 	///
 	/// Checking a topic scans the connected peers, so the answer is cached per topic for the
@@ -322,7 +305,7 @@ impl V2DhtOrchestrator {
 				*topics
 					.borrow_mut()
 					.entry(*topic)
-					.or_insert_with(|| self.peer_is_dht_target_for_topic(peer, *topic))
+					.or_insert_with(|| self.peers_topology.routing_targets(*topic).contains(&peer))
 			})
 		}
 	}
@@ -379,11 +362,6 @@ impl V2DhtOrchestrator {
 		}
 
 		statements_by_peer.into_iter().collect()
-	}
-
-	pub(crate) async fn on_initial_sync(&mut self) {
-		// TODO: We need to know what to propagate
-		log::trace!(target: LOG_TARGET, "v2dht: on_initial_sync (stub)");
 	}
 
 	/// Recompute the peers needed to cover the node's topics and hand them to peer steering.
