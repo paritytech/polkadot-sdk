@@ -28,7 +28,6 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSigned, EnsureSignedBy};
-use pallet_balances::{BalanceLock, Error as BalancesError};
 use sp_runtime::{
 	traits::{BadOrigin, BlakeTwo256, Hash},
 	BuildStorage, Perbill,
@@ -112,6 +111,10 @@ impl pallet_scheduler::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 }
 parameter_types! {
 	pub static PreimageByteDeposit: u64 = 0;
@@ -137,6 +140,9 @@ impl SortedMembers<u64> for OneToFive {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Self>;
+	type OldCurrency = pallet_balances::Pallet<Self>;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type EnactmentPeriod = ConstU64<2>;
 	type LaunchPeriod = ConstU64<2>;
 	type VotingPeriod = ConstU64<2>;
@@ -155,7 +161,6 @@ impl Config for Test {
 	type CancelProposalOrigin = EnsureRoot<u64>;
 	type VetoOrigin = EnsureSignedBy<OneToFive, u64>;
 	type CooloffPeriod = ConstU64<2>;
-	type Slash = ();
 	type InstantOrigin = EnsureSignedBy<Six, u64>;
 	type InstantAllowed = InstantAllowed;
 	type Scheduler = Scheduler;
