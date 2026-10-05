@@ -252,6 +252,30 @@ benchmarks_instance_pallet! {
 		assert_matches!(VotingFor::<T, I>::get(&caller, &class), Voting::Casting(_));
 	}
 
+	cleanup_empty_storage {
+		let caller = funded_account::<T, I>("caller", 0);
+		let target = funded_account::<T, I>("target", 0);
+		let target_lookup = T::Lookup::unlookup(target.clone());
+		whitelist_account!(caller);
+
+		let (class, _) = fill_voting::<T, I>();
+
+		// Insert an empty VotingFor entry directly to simulate legacy state.
+		// After the PR's automatic cleanup, operations no longer leave empty entries;
+		// benchmarking requires direct storage injection to set up worst-case state.
+		VotingFor::<T, I>::insert(&target, &class, VotingOf::<T, I>::default());
+
+		// Also inject a zero-balance ClassLocksFor entry to benchmark the full cleanup path.
+		ClassLocksFor::<T, I>::mutate(&target, |locks| {
+			let _ = locks.try_push((class.clone(), Zero::zero()));
+		});
+	}: _(RawOrigin::Signed(caller), target_lookup, class.clone())
+	verify {
+		assert!(!VotingFor::<T, I>::contains_key(&target, &class));
+		// The zero-balance lock entry must have been pruned by the cleanup as well.
+		assert!(!ClassLocksFor::<T, I>::get(&target).iter().any(|(c, _)| c == &class));
+	}
+
 	unlock {
 		let caller = funded_account::<T, I>("caller", 0);
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
