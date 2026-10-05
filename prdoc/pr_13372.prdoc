@@ -26,3 +26,7 @@ crates:
   bump: minor
 - name: rococo-runtime
   bump: minor
+- name: pallet-hrmp-relay
+  bump: none
+- name: polkadot-sdk-frame
+  bump: none
