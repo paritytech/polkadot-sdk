@@ -135,7 +135,6 @@ pub enum DepositRole {
 	Recipient,
 }
 
-
 /// Data the pallet that asked for a deposit needs to finish that call.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
