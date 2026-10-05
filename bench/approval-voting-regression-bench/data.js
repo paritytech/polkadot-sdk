@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791223487360,
+  "lastUpdate": 1791241064313,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "109702797+DTSmth@users.noreply.github.com",
-            "name": "David Smith",
-            "username": "DTSmth"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b34296a7f1d66e036157228929cf6f3040c0bb20",
-          "message": "doc: add link to multi-block migration example. Resolves a TODO by ad… (#11542)\n\n…ding a documentation link from the single-block migrations pallet to\nthe multi-block migrations example pallet.\n\n\n\n✄\n-----------------------------------------------------------------------------\n\n# Description\n\n﻿Resolves a documentation TODO in\n`pallet-example-single-block-migrations` by adding\n a link to the `pallet-example-mbm` documentation.\n\nThe TODO requested linking to the multi-block migration example from the\nwarning\n about single-block migrations potentially exceeding block weight limits\n\n## Integration\n\n﻿N/A - documentation only change, no crate API changes\n\n## Review Notes\n\n﻿ Uses external URL (matching repo convention) since pallet-example-mbm\nis not a dependency of this crate.\n\n\n✄\n-----------------------------------------------------------------------------",
-          "timestamp": "2026-03-29T14:57:09Z",
-          "tree_id": "9e13a0bb2528c8d47d9eedd94f90e54e2ed3c1c2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b34296a7f1d66e036157228929cf6f3040c0bb20"
-        },
-        "date": 1774801000884,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63630.780000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4933040037199916,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7403262637499437,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002445902,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000025215289999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8219619266200007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000025215289999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7404227704099995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.431468506982858,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.328413617179933,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7437508891599998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.782867517659999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002445902,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00578024586,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.806448211630001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0cc91a64db63688ad67ddac8fb2a122c213549a1",
+          "message": "backing: reject out-of-bounds core indices (#13385)\n\nReject candidate statements whose resolved core index equals `n_cores`,\nsince valid indices are `0..n_cores-1`. Add regression coverage for the\nzero-rotation path where `core_for_group` returns the caller-supplied\ngroup index.\n\nNo API or storage changes are required.",
+          "timestamp": "2026-10-05T21:12:16Z",
+          "tree_id": "92abd684dc2401d426c1d0d153035b43882aacc3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0cc91a64db63688ad67ddac8fb2a122c213549a1"
+        },
+        "date": 1791241036312,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63570.780000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7839411077299983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.76397064016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021763939999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.262128820430002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7777525792599981,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000017835130000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8037619291900002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7642554184200003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3625662975600044,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.4479362243428096,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000017835130000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005880848109999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021763939999999996,
             "unit": "seconds"
           }
         ]
