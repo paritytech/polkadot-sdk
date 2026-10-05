@@ -1528,6 +1528,8 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// The balance work of `System.terminate`: the storage deposit refund when it is called and
+	/// the teardown at the end of the call stack.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
@@ -1556,8 +1558,6 @@ mod benchmarks {
 		let contract_account = &instance.account_id;
 		let origin = &ExecOrigin::from_account_id(caller);
 		let beneficiary_clone = beneficiary.clone();
-		let trie_id = instance.info()?.trie_id.clone();
-		let code_hash = instance.info()?.code_hash;
 		let only_if_same_tx = false;
 
 		let result;
@@ -1569,8 +1569,6 @@ mod benchmarks {
 				contract_account,
 				&origin,
 				beneficiary_clone,
-				trie_id,
-				code_hash,
 				only_if_same_tx,
 			);
 		}

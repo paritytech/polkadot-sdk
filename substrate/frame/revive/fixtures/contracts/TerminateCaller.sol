@@ -18,6 +18,23 @@ contract TerminateCaller {
         return address(inner);
     }
 
+    function createAndTerminate(uint value, uint8 method, address beneficiary) external returns (address) {
+        inner = new Terminate{value: value}(true, method, beneficiary);
+        inner.terminate(method, beneficiary);
+        return address(inner);
+    }
+
+    function createAndTerminateThenSelfdestruct(uint value, address beneficiary, bool viaDelegateCall) external returns (address) {
+        inner = new Terminate{value: value}(true, 0, beneficiary);
+        inner.terminateThenSelfdestruct(beneficiary, viaDelegateCall);
+        return address(inner);
+    }
+
+    function createAndSelfdestructInConstructor(uint value, address beneficiary) external returns (address) {
+        // 2 is `Terminate.METHOD_SYSCALL`: the constructor runs `SELFDESTRUCT`.
+        return address(new Terminate{value: value}(false, 2, beneficiary));
+    }
+
     function sendFundsAfterTerminateAndCreate(uint value, uint8 method, address beneficiary) external returns (address) {
         inner = new Terminate(true, method, beneficiary);
         inner.terminate(method, beneficiary);
