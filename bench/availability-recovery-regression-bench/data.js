@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790951724612,
+  "lastUpdate": 1791191179419,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marios@parity.io",
-            "name": "Marios",
-            "username": "mchristou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f4a82c9be7127ea4a92802c3033e252f8db287bd",
-          "message": "add scheduling tests for v3 descriptor with v2 collators (#11333)\n\n## Description:\n\n  Zombienet SDK tests (polkadot/zombienet-sdk-tests/tests/scheduling/):\n- v3_dynamic_enablement: relay chain starts with V2, enables V3 on the\nfly mid-session via governance.\nVerifies block production continues and descriptors are correctly\ndetected after the feature flip\n- v3_rolling_upgrade: mixed V2/V3 validator fleet using async backing.\nVerifies the network keeps producing blocks during a rolling upgrade\nwhere only some validators support V3\n\n  Unit tests:\n- paras_inherent/tests.rs: V1 descriptor accepted by V3-capable runtime,\nverifies candidates reach PendingAvailability\n- collator-protocol/validator_side/tests/prospective_parachains.rs: V3\ncapable validator correctly detects and handles a V1 descriptor received\nover the wire\n- configuration/tests.rs: max_relay_parent_session_age returns 0 after\nv13 migration\n- backing/src/tests/mod.rs: V3 capable validator fully backs a V1\ncandidate\n- statement-distribution/src/v2/tests/cluster.rs: V1 backed statement is\ndistributed to a V3-capable cluster peer and accepted via the V3 wire\nprotocol\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>",
-          "timestamp": "2026-03-26T10:25:53Z",
-          "tree_id": "c07180f8fe20dd7fff0cebed220f8b4a3fee4b7c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f4a82c9be7127ea4a92802c3033e252f8db287bd"
-        },
-        "date": 1774525632728,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12757834296666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.24407666566667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14049879793333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "04e1036fbd94148da0a630296c1b7ba413af087f",
+          "message": "[pallet-revive] Report precompile code in prestate tracer (#12806)\n\nThe prestate tracer resolved code only through `PristineCode`, so\n`debug_traceTransaction` with `prestateTracer` reported no `code` for\nprecompile addresses while `eth_getCode` and\n`EXTCODESIZE`/`EXTCODEHASH`/`EXTCODECOPY` served the code stub. The\ntracer now reports the same bytes `eth_getCode` returns for builtin and\nruntime precompiles (`0x60006000fd` by default). Primitive precompiles\n(`0x01`..`0x09`) have an empty stub and still report no code. No\nmigration needed.\n\nThe `EXTCODECOPY` consistency fix this PR originally targeted landed on\nmaster via #12229; the remaining `exec.rs` change is a refactor\nconsolidating the precompile/mock/delegation code resolution into a\nsingle `virtual_code` helper, plus tests pinning the `EXTCODECOPY`\nbehavior.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-05T07:31:34Z",
+          "tree_id": "7a6d61058fa1cec4817f7fdee16987a6107bb1b6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/04e1036fbd94148da0a630296c1b7ba413af087f"
+        },
+        "date": 1791191150998,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.762229774266668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13600171329999997,
             "unit": "seconds"
           }
         ]
