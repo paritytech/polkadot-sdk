@@ -151,9 +151,9 @@ fn a_registration_travels_from_the_parachain_to_the_relay_chain_and_onboards_a_p
 	});
 
 	let blob = request_registration(ALICE, para_id, head_len, code_len);
-	let expected_deposit = para::PER_BYTE * (head_len as u128 + code_len as u128);
+	let expected_deposit = para::PER_BYTE * (head_len as u128 + MAX_CODE_SIZE as u128);
 
-	// The parachain is holding for head data plus the declared code length, and is waiting.
+	// The parachain is holding for head data plus a full-sized code, and is waiting.
 	RegistrarPara::execute_with(|| {
 		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT + expected_deposit);
 		assert!(matches!(para_state(para_id), Some(RegistrationState::Pending { .. })));
@@ -283,7 +283,10 @@ fn a_manager_who_gives_up_drives_the_cancellation_and_gets_the_deposit_back() {
 		));
 
 		// The deposit is still held: the relay chain has not answered yet.
-		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT + para::PER_BYTE * (32 + 64));
+		assert_eq!(
+			para_held(&ALICE),
+			para::PARA_DEPOSIT + para::PER_BYTE * (32 + MAX_CODE_SIZE as u128)
+		);
 	});
 
 	// The relay chain drops the authorization, so the code can no longer be pushed through.
@@ -325,7 +328,7 @@ fn the_relay_chain_refuses_a_blob_that_is_not_the_one_that_was_paid_for() {
 		assert_ne!(hash_of(&impostor), hash_of(&blob));
 		assert!(submit_code(para_id, impostor).is_err());
 
-		// Right bytes but truncated: the manager would have underpaid.
+		// Right bytes but truncated: the length check catches it.
 		assert!(submit_code(para_id, blob[..code_len - 1].to_vec()).is_err());
 
 		// Still waiting for the real thing, and nothing was onboarded.

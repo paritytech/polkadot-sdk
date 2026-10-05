@@ -29,7 +29,7 @@ fn funded_manager<T: Config>() -> T::AccountId {
 	T::ReservationConsideration::ensure_successful(&who, Footprint::from_parts(1, 0));
 	T::RegistrationConsideration::ensure_successful(
 		&who,
-		Pallet::<T>::registration_footprint(T::MaxHeadDataSize::get(), T::MaxCodeSize::get()),
+		Pallet::<T>::registration_footprint(T::MaxHeadDataSize::get()),
 	);
 	who
 }
