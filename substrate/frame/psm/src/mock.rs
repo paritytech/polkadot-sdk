@@ -48,6 +48,9 @@ pub const USDX_ASSET_ID: u32 = 10;
 pub const DAI_MOCK_ASSET_ID: u32 = 11;
 pub const UNSUPPORTED_ASSET_ID: u32 = 99;
 
+pub const ALL_EXTERNAL_ASSETS: &[u32] =
+	&[USDC_ASSET_ID, USDT_ASSET_ID, USDX_ASSET_ID, DAI_MOCK_ASSET_ID];
+
 // internal unit (6 decimals)
 pub const INTERNAL_UNIT: u128 = 1_000_000;
 /// USDX has 2 decimals — fewer than internal.
@@ -391,4 +394,124 @@ pub fn get_asset_balance(asset_id: u32, account: AccountId) -> u128 {
 
 pub fn psm_account() -> AccountId {
 	crate::Pallet::<Test>::psm_account(&INTERNAL_ASSET_ID)
+}
+
+#[cfg(feature = "fuzzing")]
+pub mod fuzz_helpers {
+	use super::*;
+
+	/// Install the fuzzer's PSM instance. Mirrors `install_test_psm`, with a
+	/// caller-chosen `max_debt` and account(1) as the deposit holder.
+	pub fn install_fuzzer_psm(max_debt: u128) {
+		let owner = AccountId::new([1; 32]);
+		let internal_decimals = <Assets as frame_support::traits::fungibles::metadata::Inspect<
+			AccountId,
+		>>::decimals(INTERNAL_ASSET_ID);
+		let full_admin: OriginCaller = frame_system::RawOrigin::<AccountId>::Root.into();
+		let emergency_admin: OriginCaller =
+			frame_system::RawOrigin::<AccountId>::Signed(EMERGENCY_ACCOUNT).into();
+		crate::Psm::<Test>::insert(
+			INTERNAL_ASSET_ID,
+			crate::PsmInfo::<Test> {
+				fee_destination: INSURANCE_FUND,
+				max_debt,
+				min_swap_amount: 100 * INTERNAL_UNIT,
+				internal_decimals,
+				external_count: 2,
+			},
+		);
+		let ticket = <Test as crate::Config>::Consideration::new(
+			&owner,
+			crate::Pallet::<Test>::psm_creation_footprint(),
+		)
+		.expect("account(1) is funded; consideration succeeds");
+		crate::PsmAdmin::<Test>::insert(
+			INTERNAL_ASSET_ID,
+			crate::PsmAdminInfo::<Test> {
+				full_admin,
+				emergency_admin,
+				deposit: Some((owner, ticket)),
+			},
+		);
+		frame_system::Pallet::<Test>::inc_providers(&crate::Pallet::<Test>::psm_account(
+			&INTERNAL_ASSET_ID,
+		));
+		frame_system::Pallet::<Test>::inc_providers(&INSURANCE_FUND);
+
+		for (asset, weight, decimals) in [
+			(USDC_ASSET_ID, Permill::from_percent(60), 6u8),
+			(USDT_ASSET_ID, Permill::from_percent(40), 6u8),
+		] {
+			crate::ExternalAssets::<Test>::insert(
+				INTERNAL_ASSET_ID,
+				asset,
+				crate::ExternalAssetInfo {
+					status: crate::CircuitBreakerLevel::AllEnabled,
+					decimals,
+				},
+			);
+			crate::MintingFee::<Test>::insert(INTERNAL_ASSET_ID, asset, Permill::from_percent(1));
+			crate::RedemptionFee::<Test>::insert(
+				INTERNAL_ASSET_ID,
+				asset,
+				Permill::from_percent(1),
+			);
+			crate::AssetCeilingWeight::<Test>::insert(INTERNAL_ASSET_ID, asset, weight);
+		}
+	}
+
+	// The fuzzer drives the single PSM instance that the mock installs, keyed
+	// by INTERNAL_ASSET_ID. These wrappers fix that key, so the fuzz targets
+	// keep their single-asset call sites.
+
+	pub fn max_psm_debt() -> u128 {
+		Psm::max_psm_debt(&INTERNAL_ASSET_ID)
+	}
+
+	pub fn max_asset_debt(asset_id: u32) -> u128 {
+		match crate::Psm::<Test>::get(INTERNAL_ASSET_ID) {
+			Some(info) => Psm::max_asset_debt(&INTERNAL_ASSET_ID, &asset_id, &info),
+			None => 0,
+		}
+	}
+
+	pub fn total_psm_debt() -> u128 {
+		Psm::total_psm_debt(&INTERNAL_ASSET_ID)
+	}
+
+	pub fn get_reserve(asset_id: u32) -> u128 {
+		Psm::get_reserve(&INTERNAL_ASSET_ID, &asset_id)
+	}
+
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Psm::do_try_state()
+	}
+
+	pub fn is_approved_asset(asset_id: u32) -> bool {
+		Psm::is_approved_asset(&INTERNAL_ASSET_ID, &asset_id)
+	}
+
+	pub fn minting_fee(asset_id: u32) -> Permill {
+		crate::MintingFee::<Test>::get(INTERNAL_ASSET_ID, asset_id)
+	}
+
+	pub fn redemption_fee(asset_id: u32) -> Permill {
+		crate::RedemptionFee::<Test>::get(INTERNAL_ASSET_ID, asset_id)
+	}
+
+	pub fn asset_ceiling_weight(asset_id: u32) -> Permill {
+		crate::AssetCeilingWeight::<Test>::get(INTERNAL_ASSET_ID, asset_id)
+	}
+
+	pub fn max_debt() -> u128 {
+		crate::Psm::<Test>::get(INTERNAL_ASSET_ID)
+			.map(|p| p.max_debt)
+			.unwrap_or_default()
+	}
+
+	pub fn approved_assets() -> Vec<u32> {
+		crate::ExternalAssets::<Test>::iter_prefix(INTERNAL_ASSET_ID)
+			.map(|(id, _)| id)
+			.collect()
+	}
 }
