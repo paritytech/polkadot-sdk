@@ -14,12 +14,15 @@ doc:
     in the same call, so existing runtimes behave as before. This is a breaking change for
     `polkadot-runtime-parachains`: every runtime must now set `type DepositProvider`, and
     `LocalDepositProvider<Runtime>` works as a drop-in.
+
+    Its covering and preparing for integration of taking deposits on the hrmp-para pallet (CT or AH).
+    Right now its just integrating DepositProvider into hrmp.
 crates:
 - name: hrmp-primitives
   bump: minor
 - name: polkadot-runtime-parachains
   bump: major
 - name: westend-runtime
-  bump: patch
+  bump: minor
 - name: rococo-runtime
-  bump: patch
+  bump: minor
