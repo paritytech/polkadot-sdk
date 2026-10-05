@@ -50,14 +50,14 @@ fn setup_sale<T: Config>() -> Result<(), BenchmarkError> {
 	Pallet::<T>::configure(config).map_err(|_| BenchmarkError::Weightless)?;
 	let init = InitData { reserve_price: 100u32.into() };
 	Pallet::<T>::start_sales(0u32.into(), init).map_err(|_| BenchmarkError::Weightless)?;
-	// Offer the maximum number of cores, independent of the runtime's core range.
+	// Offer as many cores as can be won in the auction, independent of the runtime's core range.
 	SaleInfo::<T>::mutate_extant(|sale| sale.cores_offered = max_cores::<T>());
 	Ok(())
 }
 
-/// The largest number of cores a sale can offer.
+/// The largest number of cores a sale can offer and fill through the auction.
 fn max_cores<T: Config>() -> CoreIndex {
-	T::MaxCores::get().saturated_into()
+	T::MaxCores::get().min(T::MaxBids::get()).saturated_into()
 }
 
 fn fill_bids<T: Config>(n: u32) -> Result<(), BenchmarkError> {
@@ -123,7 +123,7 @@ mod benches {
 	#[benchmark]
 	fn place_order() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
-		fill_bids::<T>(max_cores::<T>() as u32)?;
+		fill_bids::<T>(T::MaxBids::get())?;
 
 		let caller: T::AccountId = account("caller", 0, SEED);
 
@@ -175,7 +175,7 @@ mod benches {
 	#[benchmark]
 	fn adjust_bid() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
-		let max = max_cores::<T>() as u32;
+		let max = T::MaxBids::get();
 		// Pick the last-inserted bidder — they hold the lowest price and their bid
 		// will shift across the whole sorted vec when raised (worst-case cost).
 		let caller: T::AccountId = account("bidder", max - 1, SEED);
@@ -223,8 +223,12 @@ mod benches {
 	fn sale_phase_transition_to_renewal() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
 
-		// A full book of distinct prices: every winner but the lowest gets an excess refund.
-		fill_bids::<T>(max_cores::<T>() as u32)?;
+		for i in 0..T::MaxBids::get() {
+			let who: T::AccountId = account("bidder", i, SEED);
+			// Equal bids will result in the worst-case scenario for marginal bids shuffle.
+			let price: u32 = 200u32;
+			assert_ok!(Pallet::<T>::place_order(0u32.into(), &who, price.into()));
+		}
 
 		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
 		let config = pallet::Configuration::<T>::get().ok_or(BenchmarkError::Weightless)?;

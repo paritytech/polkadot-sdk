@@ -54,8 +54,8 @@ pub use types::*;
 
 mod types;
 
-pub mod weights;
-pub use weights::WeightInfo;
+mod weights;
+use weights::*;
 
 pub mod runtime_api;
 
@@ -69,6 +69,7 @@ mod tests;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
+use codec::Decode;
 use fp_coretime::{
 	market::{
 		AdjustBidResult, CoreRangeProvider, Market, OrderResult, RenewalOrderResult, SalesStarted,
@@ -78,12 +79,17 @@ use fp_coretime::{
 };
 use frame_support::{
 	ensure,
-	traits::{tokens::Balance as BalanceT, Defensive, DefensiveTruncateFrom, Get},
+	traits::{tokens::Balance as BalanceT, Defensive, Get, Randomness},
 	weights::WeightMeter,
+};
+use frame_system::pallet_prelude::BlockNumberFor;
+use rand_chacha::{
+	rand_core::{RngCore, SeedableRng},
+	ChaChaRng,
 };
 use sp_arithmetic::{FixedPointNumber, Perbill};
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, SaturatedConversion, Saturating, Zero},
+	traits::{AtLeast32BitUnsigned, SaturatedConversion, Saturating, TrailingZeroInput, Zero},
 	BoundedVec, FixedPointOperand, FixedU64,
 };
 
@@ -127,11 +133,19 @@ pub mod pallet {
 		/// Provider of renewal rights information from the broker pallet.
 		type RenewalRights: RenewalRightsProvider<Self::AccountId>;
 
+		/// Maximum number of bids that can be placed in a single sale.
+		#[pallet::constant]
+		type MaxBids: Get<BidId>;
+
 		/// Maximum number of cores offered in a single sale.
-		///
-		/// Lowering it requires a migration of [`Bids`] and [`Assignments`].
 		#[pallet::constant]
 		type MaxCores: Get<u32>;
+
+		/// Source of randomness for shuffling equal-price bids at settlement.
+		///
+		/// Must not be predictable or influenceable by bidders, otherwise they can bias
+		/// selection among bids that tie at the clearing price.
+		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 	}
 
 	#[pallet::event]
@@ -266,12 +280,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SaleInfo<T> = StorageValue<_, SaleInfoRecordOf<T>, OptionQuery>;
 
-	/// Currently winning bids during the Market phase, sorted by price descending.
+	/// Active bids during the Market phase, sorted by price descending.
 	///
-	/// Holds at most one bid per offered core. Once full, a strictly higher bid evicts the lowest.
+	/// If the book is full, a strictly higher bid replaces the lowest bid.
 	#[pallet::storage]
 	pub type Bids<T: Config> =
-		StorageValue<_, BoundedVec<BidRecord<T::AccountId, BalanceOf<T>>, T::MaxCores>, ValueQuery>;
+		StorageValue<_, BoundedVec<BidRecord<T::AccountId, BalanceOf<T>>, T::MaxBids>, ValueQuery>;
 
 	/// Next bid identifier. Incremented for each accepted bid.
 	#[pallet::storage]
@@ -301,32 +315,28 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Insert `price` into the price-descending bid book holding up to `capacity` bids.
+	/// Insert `price` into the price-descending bid book.
 	///
-	/// If the book is full, the lowest bid is evicted only when `price` is strictly higher.
+	/// If the book is full, the lowest bid is dropped only when `price` is strictly higher.
 	fn insert_bid(
 		who: &T::AccountId,
 		price: BalanceOf<T>,
-		capacity: usize,
 	) -> Result<(BidId, Option<BidRecord<T::AccountId, BalanceOf<T>>>), Error<T>> {
 		let mut bids = Bids::<T>::get();
-		let evicted = if bids.len() >= capacity {
-			let lowest = bids.last().ok_or(Error::<T>::Unavailable)?;
+		if bids.is_full() {
+			let lowest = bids.last().ok_or(Error::<T>::TooManyBids)?;
 			ensure!(price > lowest.price, Error::<T>::BidTooLow);
-			bids.pop()
-		} else {
-			None
-		};
+		}
 
 		let bid_id = NextBidId::<T>::get();
-		// Equal-priced bids keep arrival order, so the latest one is evicted first.
-		let pos = bids.partition_point(|b| b.price >= price);
-		bids.try_insert(pos, BidRecord { bid_id, who: who.clone(), price })
+		let pos = bids.partition_point(|b| b.price > price);
+		let replaced = bids
+			.force_insert_keep_left(pos, BidRecord { bid_id, who: who.clone(), price })
 			.map_err(|_| Error::<T>::TooManyBids)?;
 		NextBidId::<T>::put(bid_id.saturating_add(1));
 		Bids::<T>::put(bids);
 
-		Ok((bid_id, evicted))
+		Ok((bid_id, replaced))
 	}
 }
 
@@ -402,8 +412,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		let current_price = descending_price::<T>(block_number, &sale)?;
 		let bid_price = price_limit.min(current_price);
 
-		let capacity = (sale.cores_offered as usize).min(T::MaxCores::get() as usize);
-		let (bid_id, replaced) = Self::insert_bid(who, bid_price, capacity)?;
+		let (bid_id, replaced) = Self::insert_bid(who, bid_price)?;
 
 		if let Some(ref bid) = replaced {
 			Self::deposit_event(Event::BidEvicted {
@@ -531,7 +540,9 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		let mut record = bids.remove(idx);
 		record.price = new_price;
 		let new_pos = bids.partition_point(|b| b.price > new_price);
-		bids.try_insert(new_pos, record).map_err(|_| Error::<T>::TooManyBids)?;
+		// Re-insert cannot fail — we just removed one element.
+		bids.try_insert(new_pos, record)
+			.expect("just removed one element; capacity cannot be exceeded; qed");
 		Bids::<T>::put(bids);
 
 		Self::deposit_event(Event::BidRaised {
@@ -678,26 +689,67 @@ fn cores_assigned_to<T: Config>(assignments: &[AssignmentOf<T>], who: &T::Accoun
 	assignments.iter().filter(|a| a.who == *who).count().saturated_into()
 }
 
+/// Fisher-Yates shuffle of the sub-slice of bids that tie at the clearing price.
+fn shuffle_marginal_bids<T: Config>(
+	bids: &mut [BidRecord<T::AccountId, BalanceOf<T>>],
+	clearing_price: BalanceOf<T>,
+) {
+	let start = bids.partition_point(|b| b.price > clearing_price);
+	let end = bids.partition_point(|b| b.price >= clearing_price);
+
+	if end.saturating_sub(start) <= 1 {
+		return;
+	}
+
+	let slice = &mut bids[start..end];
+	let n = slice.len();
+
+	let (seed, _) = T::Randomness::random(b"coretime-market/shuffle");
+	let seed = <[u8; 32]>::decode(&mut TrailingZeroInput::new(seed.as_ref()))
+		.expect("input is padded with zeroes; qed");
+	let mut rng = ChaChaRng::from_seed(seed);
+
+	for i in (1..n).rev() {
+		let j = (rng.next_u32() as usize) % (i + 1);
+		slice.swap(i, j);
+	}
+}
+
 /// Settle the auction at the end of the Market phase.
 ///
-/// The bid book holds at most one bid per offered core, so every bid in it wins. Determines the
-/// clearing price, assigns cores in bid order and refunds what winners bid above the clearing
-/// price.
+/// Bids are already sorted by price descending in storage. Determines the clearing price,
+/// shuffles marginal bids for fair selection, then splits into winners and losers.
 fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> {
-	let bids = Bids::<T>::take();
+	let mut bids: Vec<_> = Bids::<T>::take().into_inner();
 	NextBidId::<T>::kill();
-	let capacity = (sale.cores_offered as usize).min(T::MaxCores::get() as usize);
+	let k = sale.cores_offered as usize;
+	let reserve = sale.reserve_price;
 
-	// Clearing price: the lowest bid of a full book, otherwise the reserve.
-	let clearing_price = match bids.last() {
-		Some(lowest) if bids.len() >= capacity => lowest.price,
-		_ => sale.reserve_price,
-	};
+	// Clearing price: the Kth highest bid, floored at reserve. Falls back to reserve
+	// when fewer than K bids are placed.
+	let clearing_price = bids
+		.get(k.saturating_sub(1))
+		.filter(|_| k > 0)
+		.map(|b| b.price.max(reserve))
+		.unwrap_or(reserve);
 
-	let mut actions = Vec::with_capacity(bids.len());
-	let assignments: Vec<_> = bids
+	shuffle_marginal_bids::<T>(&mut bids, clearing_price);
+
+	let (winners, losers): (Vec<_>, Vec<_>) = bids
 		.into_iter()
 		.enumerate()
+		.partition(|(i, bid)| *i < k && bid.price >= clearing_price);
+
+	let mut actions = Vec::with_capacity(winners.len() + losers.len());
+
+	// Refund losers in full.
+	for (_, bid) in &losers {
+		actions.push(TickAction::Refund { amount: bid.price, who: bid.who.clone() });
+	}
+
+	// Process winners: refund excess, assign cores.
+	let assignments: Vec<_> = winners
+		.into_iter()
 		.map(|(i, bid)| {
 			let excess = bid.price.saturating_sub(clearing_price);
 			if !excess.is_zero() {
@@ -712,7 +764,10 @@ fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>>
 		.collect();
 
 	let winner_count = assignments.len() as u32;
-	Assignments::<T>::put(BoundedVec::defensive_truncate_from(assignments));
+	Assignments::<T>::put(
+		BoundedVec::try_from(assignments)
+			.expect("winners never exceed cores_offered, which is capped at MaxCores; qed"),
+	);
 
 	let mut updated_sale = sale.clone();
 	updated_sale.cores_sold = winner_count as u16;

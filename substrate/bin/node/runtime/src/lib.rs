@@ -2527,11 +2527,13 @@ impl pallet_coretime_market::RenewalRightsProvider<AccountId> for MarketRenewalR
 impl pallet_coretime_market::Config for Runtime {
 	type Balance = Balance;
 	type RelayBlockNumber = BlockNumber;
-	type WeightInfo = pallet_coretime_market::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = ();
 	type CoreRangeProvider = MarketCoreRange;
 	type TimesliceProvider = MarketTimeslices;
 	type RenewalRights = MarketRenewalRights;
+	type MaxBids = ConstU32<100>;
 	type MaxCores = ConstU32<100>;
+	type Randomness = RandomnessCollectiveFlip;
 }
 
 parameter_types! {
@@ -3127,8 +3129,8 @@ mod runtime {
 	#[runtime::pallet_index(97)]
 	pub type OnDemand = pallet_on_demand_para::Pallet<Runtime>;
 
-	#[runtime::pallet_index(98)]
-	pub type CoretimeMarket = pallet_coretime_market::Pallet<Runtime>;
+  #[runtime::pallet_index(98)]
+  pub type CoretimeMarket = pallet_coretime_market::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.

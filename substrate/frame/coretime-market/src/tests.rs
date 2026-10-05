@@ -263,15 +263,16 @@ fn bid_below_reserve_fails_without_filling_bid_slot() {
 }
 
 #[test]
-fn bid_book_holds_one_bid_per_core() {
+fn max_bids_limit_enforced() {
 	TestExt::new().execute_with(|| {
+		// MaxBids = 100 in mock config.
 		start_sales(100);
-		place_bid(0, 1, 200).unwrap();
-		place_bid(0, 2, 200).unwrap();
+		for i in 0..100u64 {
+			place_bid(0, i + 1, 200).unwrap();
+		}
 
-		// Equal-price bid cannot enter a book that already holds a bid per offered core.
-		assert_noop!(place_bid(0, 3, 200), Error::BidTooLow);
-		assert_eq!(Bids::<Test>::get().len(), DEFAULT_CORE_COUNT as usize);
+		// Equal-price 101st bid cannot enter a full book.
+		assert_noop!(place_bid(0, 101, 200), Error::BidTooLow);
 	});
 }
 
@@ -279,27 +280,27 @@ fn bid_book_holds_one_bid_per_core() {
 fn higher_bid_evicts_lowest_when_full() {
 	TestExt::new().execute_with(|| {
 		start_sales(100);
-		place_bid(0, 1, 100).unwrap();
-		place_bid(0, 2, 100).unwrap();
+		for i in 0..100u64 {
+			place_bid(0, i + 1, 100).unwrap();
+		}
 
-		// The latest of the equal-priced lowest bids is evicted.
-		let result = place_bid(0, 3, 200).unwrap();
+		let result = place_bid(0, 101, 200).unwrap();
 		match result {
 			OrderResult::BidPlaced { id, bid_price, evicted } => {
-				assert_eq!(id, 2);
+				assert_eq!(id, 100);
 				assert_eq!(bid_price, 200);
-				assert_eq!(evicted, Some((2, 100)));
+				assert_eq!(evicted, Some((1, 100)));
 			},
 			_ => panic!("Expected BidPlaced"),
 		}
 
 		let bids = Bids::<Test>::get();
-		assert_eq!(bids.len(), 2);
-		assert!(bids.iter().any(|b| b.who == 3 && b.price == 200));
-		assert!(!bids.iter().any(|b| b.who == 2));
+		assert_eq!(bids.len(), 100);
+		assert!(bids.iter().any(|b| b.who == 101 && b.price == 200));
+		assert!(!bids.iter().any(|b| b.who == 1));
 		assert!(market_events()
 			.iter()
-			.any(|e| matches!(e, Event::BidEvicted { who: 2, bid_id: 1, refund: 100 })));
+			.any(|e| matches!(e, Event::BidEvicted { who: 1, bid_id: 0, refund: 100 })));
 	});
 }
 
@@ -307,11 +308,12 @@ fn higher_bid_evicts_lowest_when_full() {
 fn lower_bid_rejected_when_full() {
 	TestExt::new().execute_with(|| {
 		start_sales(100);
-		place_bid(0, 1, 200).unwrap();
-		place_bid(0, 2, 200).unwrap();
+		for i in 0..100u64 {
+			place_bid(0, i + 1, 200).unwrap();
+		}
 
-		assert_noop!(place_bid(0, 3, 150), Error::BidTooLow);
-		assert_eq!(Bids::<Test>::get().len(), 2);
+		assert_noop!(place_bid(0, 101, 150), Error::BidTooLow);
+		assert_eq!(Bids::<Test>::get().len(), 100);
 	});
 }
 
@@ -502,40 +504,23 @@ fn settlement_refunds_excess_to_winners() {
 }
 
 #[test]
-fn outbid_bidder_is_refunded_on_eviction_not_settlement() {
+fn losers_get_full_refund() {
 	TestExt::new().execute_with(|| {
-		// 2 cores. User 1 is outbid by user 3 and refunded in full right away.
+		// 2 cores. 3 bids: 300, 200, 150. User 3 loses.
+		TestCoreRangeProvider::set(0, 2);
 		start_sales(100);
-		place_bid(0, 1, 150).unwrap();
-		place_bid(0, 2, 160).unwrap();
-		let OrderResult::BidPlaced { evicted, .. } = place_bid(0, 3, 200).unwrap() else {
-			panic!()
-		};
-		assert_eq!(evicted, Some((1, 150)));
-
+		place_bid(0, 1, 300).unwrap();
+		place_bid(0, 2, 200).unwrap();
+		place_bid(0, 3, 150).unwrap();
 		let actions = tick(20);
-		assert!(!actions.iter().any(|a| matches!(a, TickAction::Refund { who: 1, .. })));
-	});
-}
 
-#[test]
-fn sale_respects_lowered_max_cores() {
-	TestExt::new().execute_with(|| {
-		TestCoreRangeProvider::set(0, 3);
-		start_sales(100);
-
-		// A runtime upgrade lowers the bound below the live sale's `cores_offered`.
-		MaxCores::set(2);
-		place_bid(0, 1, 200).unwrap();
-		place_bid(0, 2, 160).unwrap();
-		let OrderResult::BidPlaced { evicted, .. } = place_bid(0, 3, 180).unwrap() else {
-			panic!()
-		};
-		assert_eq!(evicted, Some((2, 160)));
-
-		tick(20);
-		let winners: Vec<_> = Assignments::<Test>::get().iter().map(|a| a.who).collect();
-		assert_eq!(winners, vec![1, 3]);
+		let refund_3 = actions
+			.iter()
+			.find(|a| matches!(a, TickAction::Refund { who, .. } if *who == 3));
+		match refund_3 {
+			Some(TickAction::Refund { amount, .. }) => assert_eq!(*amount, 150),
+			_ => panic!("Expected full refund for losing user 3"),
+		}
 	});
 }
 
@@ -545,14 +530,14 @@ fn highest_bidders_win_not_first_bidders() {
 		start_sales(100);
 		place_bid(0, 1, 100).unwrap(); // lowest
 		place_bid(0, 2, 150).unwrap(); // mid
-		let OrderResult::BidPlaced { evicted, .. } = place_bid(0, 3, 200).unwrap() else {
-			panic!()
-		};
-		assert_eq!(evicted, Some((1, 100)), "User 1 (lowest) should be outbid");
+		place_bid(0, 3, 200).unwrap(); // highest
 
-		tick(20);
-		let winners: Vec<_> = Assignments::<Test>::get().iter().map(|a| a.who).collect();
-		assert_eq!(winners, vec![3, 2]);
+		let actions = tick(20);
+
+		let refund_1 = actions.iter().find(
+			|a| matches!(a, TickAction::Refund { who, amount } if *who == 1 && *amount == 100),
+		);
+		assert!(refund_1.is_some(), "User 1 (lowest) should lose");
 
 		let sale = SaleInfo::<Test>::get().unwrap();
 		assert_eq!(sale.cores_sold, 2);
