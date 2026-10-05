@@ -46,11 +46,13 @@ impl MemoryKeystore {
 		Self::default()
 	}
 
+	/// The pair stored under `public`, if its secret URI parses and derives `public`.
+	///
+	/// `insert` stores whatever it is given, so like `LocalKeystore` this checks the URI on lookup.
 	fn pair<T: Pair>(&self, key_type: KeyTypeId, public: &T::Public) -> Option<T> {
 		self.keys.read().get(&key_type).and_then(|inner| {
-			inner
-				.get(public.as_slice())
-				.map(|s| T::from_string(s, None).expect("seed slice is valid"))
+			let pair = T::from_string(inner.get(public.as_slice())?, None).ok()?;
+			(pair.public().as_slice() == public.as_slice()).then_some(pair)
 		})
 	}
 
@@ -61,7 +63,7 @@ impl MemoryKeystore {
 			.map(|keys| {
 				keys.iter()
 					.filter_map(|(raw_pubkey, s)| {
-						let pair = T::from_string(s, None).expect("seed slice is valid");
+						let pair = T::from_string(s, None).ok()?;
 						let pubkey = pair.public();
 						(pubkey.as_slice() == raw_pubkey).then_some(pubkey)
 					})
@@ -445,6 +447,75 @@ mod tests {
 		let public_keys = store.sr25519_public_keys(SR25519);
 
 		assert!(public_keys.contains(&key_pair.public().into()));
+	}
+
+	#[test]
+	fn mismatched_secret_uri_signs_nothing() {
+		let store = MemoryKeystore::new();
+		let alice = sr25519::Pair::from_string("//Alice", None).unwrap();
+		let bob = sr25519::Pair::from_string("//Bob", None).unwrap();
+
+		// Alice's public key stored with Bob's secret URI.
+		store.insert(SR25519, "//Bob", alice.public().as_ref()).unwrap();
+
+		assert_eq!(store.sr25519_sign(SR25519, &alice.public(), b"msg").unwrap(), None);
+		assert_eq!(
+			store
+				.sign_with(SR25519, sr25519::CRYPTO_ID, alice.public().as_slice(), b"msg")
+				.unwrap(),
+			None
+		);
+		let data = sr25519::vrf::VrfInput::new(b"Test", &[(b"one", &1_u64.to_le_bytes())])
+			.into_sign_data();
+		assert!(store.sr25519_vrf_sign(SR25519, &alice.public(), &data).unwrap().is_none());
+		let input = sr25519::vrf::VrfInput::new(b"Test", &[(b"one", &1_u64.to_le_bytes())]);
+		assert!(store
+			.sr25519_vrf_pre_output(SR25519, &alice.public(), &input)
+			.unwrap()
+			.is_none());
+		assert!(store.sr25519_public_keys(SR25519).is_empty());
+		// Bob's key was never stored under his own public key.
+		assert_eq!(store.sr25519_sign(SR25519, &bob.public(), b"msg").unwrap(), None);
+
+		// Stored under the right public key, the same URI signs as before.
+		store.insert(SR25519, "//Bob", bob.public().as_ref()).unwrap();
+		let sig = store.sr25519_sign(SR25519, &bob.public(), b"msg").unwrap().unwrap();
+		assert!(sr25519::Pair::verify(&sig, b"msg", &bob.public()));
+		assert_eq!(store.sr25519_public_keys(SR25519), vec![bob.public()]);
+	}
+
+	#[test]
+	fn unparseable_secret_uri_does_not_panic() {
+		let store = MemoryKeystore::new();
+		let sr = sr25519::Pair::from_string("//Alice", None).unwrap();
+		let ed = ed25519::Pair::from_string("//Alice", None).unwrap();
+		let ec = ecdsa::Pair::from_string("//Alice", None).unwrap();
+		let bad = "not a valid secret uri";
+		assert!(sr25519::Pair::from_string(bad, None).is_err());
+
+		store.insert(SR25519, bad, sr.public().as_ref()).unwrap();
+		store.insert(ED25519, bad, ed.public().as_ref()).unwrap();
+		store.insert(ECDSA, bad, ec.public().as_ref()).unwrap();
+
+		assert_eq!(store.sr25519_sign(SR25519, &sr.public(), b"msg").unwrap(), None);
+		let data = sr25519::vrf::VrfInput::new(b"Test", &[(b"one", &1_u64.to_le_bytes())])
+			.into_sign_data();
+		assert!(store.sr25519_vrf_sign(SR25519, &sr.public(), &data).unwrap().is_none());
+		let input = sr25519::vrf::VrfInput::new(b"Test", &[(b"one", &1_u64.to_le_bytes())]);
+		assert!(store.sr25519_vrf_pre_output(SR25519, &sr.public(), &input).unwrap().is_none());
+		assert_eq!(store.ed25519_sign(ED25519, &ed.public(), b"msg").unwrap(), None);
+		assert_eq!(store.ecdsa_sign(ECDSA, &ec.public(), b"msg").unwrap(), None);
+		assert_eq!(store.ecdsa_sign_prehashed(ECDSA, &ec.public(), &[0u8; 32]).unwrap(), None);
+		assert_eq!(
+			store
+				.sign_with(ED25519, ed25519::CRYPTO_ID, ed.public().as_slice(), b"msg")
+				.unwrap(),
+			None
+		);
+
+		assert!(store.sr25519_public_keys(SR25519).is_empty());
+		assert!(store.ed25519_public_keys(ED25519).is_empty());
+		assert!(store.ecdsa_public_keys(ECDSA).is_empty());
 	}
 
 	#[test]
