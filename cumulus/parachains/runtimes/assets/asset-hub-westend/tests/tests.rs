@@ -1975,6 +1975,103 @@ fn non_existent_erc20_will_error() {
 	});
 }
 
+/// Runs `withdraw_asset` + `deposit_asset` over the trust-backed assets ERC-20 precompile,
+/// through `xcm_config::ERC20Transactor`
+fn erc20_precompile_xcm_round_trip(
+	min_balance: u128,
+	minted: u128,
+	declared: u128,
+) -> (bool, u128, u128) {
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
+	let initial_wnd_amount = 100_000_000_000_000_000u128;
+	let asset_id: AssetIdForTrustBackedAssets = 1;
+
+	// Trust-backed assets precompile address: asset id in bytes [0..4], the 0x0120 prefix in
+	// bytes [16..18]. See `InlineAssetIdExtractor` and `AddressMatcher::Prefix`.
+	let mut erc20_address = [0u8; 20];
+	erc20_address[0..4].copy_from_slice(&asset_id.to_be_bytes());
+	erc20_address[16..18].copy_from_slice(&0x0120u16.to_be_bytes());
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life and fund everyone involved. The checking account
+		// is the origin of the `deposit_asset` half of the round trip, so it needs WND too.
+		for who in [
+			&revive_account,
+			&sender,
+			&beneficiary,
+			&asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get(),
+		] {
+			assert_ok!(Balances::mint_into(who, initial_wnd_amount));
+		}
+
+		assert_ok!(Assets::force_create(
+			RuntimeHelper::root_origin(),
+			asset_id.into(),
+			sender.clone().into(),
+			true,
+			min_balance,
+		));
+		assert_ok!(Assets::mint(
+			RuntimeHelper::origin_of(sender.clone()),
+			asset_id.into(),
+			sender.clone().into(),
+			minted,
+		));
+
+		let wnd_amount_for_fees = 10_000_000_000_000u128;
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((AccountKey20 { key: erc20_address, network: None }, declared))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.build();
+		let outcome = PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(600_000_000_000, 15 * 1024 * 1024),
+		);
+
+		(
+			outcome.is_ok(),
+			Assets::balance(asset_id, &sender),
+			Assets::balance(asset_id, &beneficiary),
+		)
+	})
+}
+
+/// The `pallet-assets` ERC-20 precompile is reachable from XCM, not just from contracts:
+/// `ERC20Matcher` accepts any local `AccountKey20`, and `xcm_config::ERC20Transactor`
+/// implements `withdraw_asset` / `deposit_asset` as `IERC20::transfer` calls through
+/// `pallet_revive::bare_call`.
+#[test]
+fn erc20_precompile_xcm_transfer_is_exact() {
+	let (succeeded, sender_balance, beneficiary_balance) =
+		erc20_precompile_xcm_round_trip(10, 100, 95);
+
+	assert!(
+		!succeeded,
+		"a dust-producing transfer must revert, failing the whole XCM rather than sweeping \
+		 the remainder into the holding register",
+	);
+	assert_eq!(sender_balance, 100);
+	assert_eq!(beneficiary_balance, 0);
+}
+
+/// `erc20_precompile_xcm_transfer_is_exact`: the same XCM with an amount that
+/// leaves the sender at exactly `min_balance` never enters the dust window, so it must
+/// succeed and move exactly what was declared.
+#[test]
+fn erc20_precompile_xcm_transfer_outside_dust_window_succeeds() {
+	let (succeeded, sender_balance, beneficiary_balance) =
+		erc20_precompile_xcm_round_trip(10, 100, 90);
+
+	assert!(succeeded, "an XCM leaving the sender at exactly min_balance must succeed");
+	assert_eq!(sender_balance, 10);
+	assert_eq!(beneficiary_balance, 90);
+}
+
 #[test]
 fn smart_contract_not_erc20_will_error() {
 	let sender: AccountId = ALICE.into();

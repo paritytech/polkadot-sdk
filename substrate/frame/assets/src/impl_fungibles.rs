@@ -88,6 +88,49 @@ impl<T: Config<I>, I: 'static> fungibles::Inspect<<T as SystemConfig>::AccountId
 }
 
 impl<T: Config<I>, I: 'static> fungibles::Mutate<<T as SystemConfig>::AccountId> for Pallet<T, I> {
+	/// Route generic transfers through `do_transfer` rather than the provided default.
+	///
+	/// The default pairs a `decrease_balance` with an `increase_balance` and credits `dest` the
+	/// amount it asked for, discarding the amount actually taken from `source`. Because this
+	/// pallet debits a sub-`min_balance` remainder along with the requested amount, those two can
+	/// differ, and the shortfall is removed from `source` without ever being credited or deducted
+	/// from `Asset::supply` — leaving total issuance above the sum of all balances.
+	///
+	/// `do_transfer` debits and credits in one step against the same figure and keeps supply
+	/// consistent, so deferring to it removes the discrepancy at its source. It also emits
+	/// `Transferred` itself, which is why `done_transfer` is not invoked here.
+	fn transfer(
+		asset: Self::AssetId,
+		source: &<T as SystemConfig>::AccountId,
+		dest: &<T as SystemConfig>::AccountId,
+		amount: Self::Balance,
+		preservation: Preservation,
+	) -> Result<Self::Balance, DispatchError> {
+		let _extra = <Self as fungibles::Inspect<<T as SystemConfig>::AccountId>>::can_withdraw(
+			asset.clone(),
+			source,
+			amount,
+		)
+		.into_result(preservation != Expendable)?;
+		<Self as fungibles::Inspect<<T as SystemConfig>::AccountId>>::can_deposit(
+			asset.clone(),
+			dest,
+			amount,
+			Provenance::Extant,
+		)
+		.into_result()?;
+		if source == dest {
+			return Ok(amount);
+		}
+
+		let f = TransferFlags {
+			keep_alive: preservation != Expendable,
+			best_effort: false,
+			burn_dust: false,
+		};
+		Self::do_transfer(asset, source, dest, amount, None, f)
+	}
+
 	fn done_mint_into(
 		asset_id: Self::AssetId,
 		beneficiary: &<T as SystemConfig>::AccountId,

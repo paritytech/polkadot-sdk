@@ -21,6 +21,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
+use codec::Decode;
 use core::marker::PhantomData;
 use ethereum_standards::{
 	IERC20,
@@ -36,7 +37,10 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
-use sp_runtime::traits::{UniqueSaturatedInto, Zero};
+use sp_runtime::{
+	traits::{UniqueSaturatedInto, Zero},
+	DispatchError,
+};
 
 pub mod foreign_assets;
 pub mod migration;
@@ -165,10 +169,11 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		frame_support::ensure!(
-			!env.is_delegate_call(),
-			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
-		);
+		if env.is_delegate_call() {
+			return Err(Error::try_to_revert::<Self::T>(
+				pallet_revive::Error::<Self::T>::PrecompileDelegateDenied.into(),
+			));
+		}
 
 		let asset_id = PrecompileConfig::AssetIdExtractor::asset_id_from_address(address)?.into();
 		let contract_addr = H160::from(*address);
@@ -181,7 +186,7 @@ where
 			IERC20Calls::permit(_)
 				if env.is_read_only() =>
 			{
-				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
+				Err(Error::Revert(Revert { reason: ERR_STATE_CHANGE_DENIED.into() }))
 			},
 
 			// ERC20 functions
@@ -209,6 +214,9 @@ where
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
+const ERR_WOULD_SWEEP_REMAINDER: &str = "Transfer would leave sender below minimum balance";
+const ERR_STATE_CHANGE_DENIED: &str = "cannot modify state in a static call";
+const ERR_UNEXPECTED: &str = "Unexpected error";
 
 impl<Runtime, PrecompileConfig, Instance: 'static> ERC20<Runtime, PrecompileConfig, Instance>
 where
@@ -246,6 +254,67 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
+	/// Every pallet or token failure of a state-changing call is a Solidity revert.
+	/// `Error::Error` comes from the blanket `From<DispatchError>`; only charging
+	/// failures should reach it.
+	fn revert_dispatch(e: DispatchError) -> Error {
+		Error::Revert(Revert { reason: Self::dispatch_reason(e).into() })
+	}
+
+	fn dispatch_reason(e: DispatchError) -> &'static str {
+		match e {
+			DispatchError::Token(token) => token.into(),
+			DispatchError::Module(module) => match Self::decode_pallet_error(e) {
+				Some(err) => Self::pallet_reason(err),
+				None => module.message.unwrap_or(ERR_UNEXPECTED),
+			},
+			_ => ERR_UNEXPECTED,
+		}
+	}
+
+	fn decode_pallet_error(e: DispatchError) -> Option<pallet_assets::Error<Runtime, Instance>> {
+		use frame_support::traits::PalletInfoAccess;
+		let DispatchError::Module(module) = e else { return None };
+		let index = <pallet_assets::Pallet<Runtime, Instance> as PalletInfoAccess>::index() as u8;
+		if module.index != index {
+			return None;
+		}
+		pallet_assets::Error::<Runtime, Instance>::decode(&mut &module.error[..]).ok()
+	}
+
+	fn pallet_reason(err: pallet_assets::Error<Runtime, Instance>) -> &'static str {
+		use pallet_assets::Error::*;
+		match err {
+			BalanceLow => "Balance too low",
+			NoAccount => "Account does not exist",
+			NoPermission => "No permission",
+			Unknown => "Unknown asset",
+			Frozen => "Account is frozen",
+			InUse => "Asset id is already in use",
+			BadWitness => "Invalid witness",
+			MinBalanceZero => "Minimum balance must be non-zero",
+			UnavailableConsumer => "Cannot take another consumer reference",
+			BadMetadata => "Invalid metadata",
+			Unapproved => "No approval for this transfer",
+			WouldDie => "Account would be reaped",
+			AlreadyExists => "Asset account already exists",
+			NoDeposit => "No deposit for this asset account",
+			WouldBurn => "Operation would burn funds",
+			LiveAsset => "Asset is live",
+			AssetNotLive => "Asset is not live",
+			IncorrectStatus => "Asset status is not the expected status",
+			NotFrozen => "Asset is not frozen",
+			CallbackFailed => "Callback failed",
+			BadAssetId => "Asset id is not the required id",
+			AssetIdAllocationFailed => "Asset id allocation failed",
+			ContainsFreezes => "Asset accounts contain freezes",
+			ContainsHolds => "Asset accounts contain holds",
+			TooManyReserves => "Too many reserves",
+			IncompleteDepositTransfer => "Asset deposit could not be fully moved",
+			WouldSweepDust => ERR_WOULD_SWEEP_REMAINDER,
+		}
+	}
+
 	/// Deposit an event to the runtime.
 	fn deposit_event(env: &mut impl Ext<T = Runtime>, event: IERC20Events) -> Result<(), Error> {
 		let (topics, data) = event.into_log_data().split();
@@ -270,16 +339,14 @@ where
 		let dest = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(
 			&call.to.into_array().into(),
 		);
+		let source = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from);
+		let value = Self::to_balance(call.value)?;
 
 		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
-			asset_id,
-			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from),
-			&dest,
-			Self::to_balance(call.value)?,
-			None,
-			f,
-		)?;
+			asset_id, &source, &dest, value, None, f,
+		)
+		.map_err(Self::revert_dispatch)?;
 
 		Self::deposit_event(
 			env,
@@ -386,7 +453,8 @@ where
 					&asset_id,
 					&owner_account,
 					&spender_account,
-				)?;
+				)
+				.map_err(Self::revert_dispatch)?;
 				actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
 					.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval());
 			} else {
@@ -404,7 +472,8 @@ where
 					&asset_id,
 					&owner_account,
 					&spender_account,
-				)?;
+				)
+				.map_err(Self::revert_dispatch)?;
 				actual_weight = worst_case;
 			} else {
 				actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
@@ -415,7 +484,8 @@ where
 				&owner_account,
 				&spender_account,
 				new_amount,
-			)?;
+			)
+			.map_err(Self::revert_dispatch)?;
 		}
 		env.adjust_gas(charged, actual_weight);
 
@@ -448,13 +518,15 @@ where
 		let to = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&to);
 
 		let approval_amount = Self::to_balance(call.value)?;
+
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
 			asset_id,
 			&from,
 			&spender,
 			&to,
 			approval_amount,
-		)?;
+		)
+		.map_err(Self::revert_dispatch)?;
 
 		Self::deposit_event(
 			env,
@@ -556,7 +628,8 @@ where
 							&asset_id,
 							&owner_account,
 							&spender_account,
-						)?;
+						)
+						.map_err(Self::revert_dispatch)?;
 						actual_weight = use_permit_weight
 							.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance())
 							.saturating_add(
@@ -574,7 +647,8 @@ where
 							&asset_id,
 							&owner_account,
 							&spender_account,
-						)?;
+						)
+						.map_err(Self::revert_dispatch)?;
 						actual_weight = worst_case;
 					} else {
 						// set new approval
@@ -589,7 +663,8 @@ where
 						&owner_account,
 						&spender_account,
 						new_amount,
-					)?;
+					)
+					.map_err(Self::revert_dispatch)?;
 				}
 
 				// Emit Approval event

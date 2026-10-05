@@ -3102,3 +3102,147 @@ fn per_pool_fee_is_applied_to_swaps() {
 		assert_eq!(balance(user, token_1), with_pool_fee + ed);
 	});
 }
+
+#[test]
+fn swap_exact_tokens_for_tokens_takes_exactly_amount_in() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+
+		// An `ed` above 1 gives asset 2 a window of balances that no account may hold, which is
+		// what tempts the fungible into sweeping a remainder out along with the swap input.
+		let ed = 100;
+		create_tokens_with_ed(user, vec![token_2.clone()], ed);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			user,
+			20000 + get_native_ed()
+		));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			10000,
+			200,
+			1,
+			1,
+			user,
+		));
+		assert_eq!(balance(user, token_2.clone()), 800);
+
+		// Swapping 750 leaves 50 the user may not keep, so an expendable withdrawal would hand
+		// the pool all 800 while pricing the output on 750 — 50 paid in for nothing.
+		assert_noop!(
+			AssetConversion::swap_exact_tokens_for_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_2.clone(), token_1.clone()],
+				750,
+				1,
+				user,
+				false,
+			),
+			DispatchError::Token(TokenError::BelowMinimum)
+		);
+		assert_eq!(balance(user, token_2.clone()), 800);
+
+		// A remainder the user can hold is swapped for exactly what was named.
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(user),
+			bvec![token_2.clone(), token_1.clone()],
+			700,
+			1,
+			user,
+			false,
+		));
+		assert_eq!(balance(user, token_2.clone()), 100);
+
+		// So is spending the balance down to nothing.
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(user),
+			bvec![token_2.clone(), token_1.clone()],
+			100,
+			1,
+			user,
+			false,
+		));
+		assert_eq!(balance(user, token_2.clone()), 0);
+	});
+}
+
+#[test]
+fn swap_tokens_for_exact_tokens_takes_exactly_amount_in() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+
+		let ed = 100;
+		create_tokens_with_ed(user, vec![token_2.clone()], ed);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			user,
+			20000 + get_native_ed()
+		));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			10000,
+			200,
+			1,
+			1,
+			user,
+		));
+		assert_eq!(balance(user, token_2.clone()), 800);
+
+		// Ask for an output that would require 750 of token_2 — the same dust window as
+		// `swap_exact_tokens_for_tokens_takes_exactly_amount_in`. The quoted input is what
+		// `withdraw` sees, so the same surplus would otherwise be donated to the pool.
+		let amount_out = AssetConversion::quote_price_exact_tokens_for_tokens(
+			token_2.clone(),
+			token_1.clone(),
+			750,
+			true,
+		)
+		.expect("quote");
+		let quoted_in = AssetConversion::quote_price_tokens_for_exact_tokens(
+			token_2.clone(),
+			token_1.clone(),
+			amount_out,
+			true,
+		)
+		.expect("reverse quote");
+		assert!(
+			quoted_in > 700 && quoted_in < 800,
+			"quoted input {quoted_in} must stay in the dust window against balance 800 / ed 100",
+		);
+
+		assert_noop!(
+			AssetConversion::swap_tokens_for_exact_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_2.clone(), token_1.clone()],
+				amount_out,
+				800,
+				user,
+				false,
+			),
+			DispatchError::Token(TokenError::BelowMinimum)
+		);
+		assert_eq!(balance(user, token_2.clone()), 800);
+	});
+}

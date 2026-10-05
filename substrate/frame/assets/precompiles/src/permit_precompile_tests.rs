@@ -199,37 +199,6 @@ fn permit_sign_and_call(
 	assert!(!result.result.unwrap().did_revert(), "permit call reverted");
 }
 
-/// Asserts a permit submission trapped with `Err(DispatchError::Module(_))`
-/// matching the given pallet error variant. Use for the
-/// `Error::Error(DispatchError)` trap path; for clean reverts use
-/// `assert_permit_reverted_with`.
-///
-/// Strict equality against the lifted `DispatchError` ensures unrelated
-/// failure modes (out-of-gas, panics, weight exhaustion, a different
-/// pallet error) cannot silently keep the test green if the failure
-/// surface changes.
-fn assert_permit_dispatch_err<E>(
-	result: pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u128>,
-	expected: E,
-) where
-	E: Into<sp_runtime::DispatchError>,
-{
-	use sp_runtime::DispatchError;
-	let expected: DispatchError = expected.into();
-	let actual = match result.result {
-		Err(e) => e,
-		Ok(v) => {
-			panic!("permit expected to trap with {:?}; call returned Ok({:?})", expected, v)
-		},
-	};
-	assert!(
-		matches!(actual, DispatchError::Module(_)),
-		"expected DispatchError::Module(...), got {:?}",
-		actual,
-	);
-	assert_eq!(actual, expected);
-}
-
 /// Asserts the call cleanly reverted (not trapped) and that the revert
 /// reason contains `expected_substring`.
 ///
@@ -616,7 +585,7 @@ fn permit_rollback_does_not_increment_nonce() {
 			r,
 			s,
 		);
-		assert_permit_dispatch_err(result, pallet_assets::Error::<Test>::AssetNotLive);
+		assert_permit_reverted_with(result, "Asset is not live");
 
 		assert_eq!(
 			permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
@@ -679,7 +648,7 @@ fn permit_rollback_preserves_prior_allowance() {
 			r,
 			s,
 		);
-		assert_permit_dispatch_err(result, pallet_assets::Error::<Test>::AssetNotLive);
+		assert_permit_reverted_with(result, "Asset is not live");
 
 		assert_eq!(
 			Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
@@ -796,8 +765,9 @@ fn permit_saturates_just_above_balance_max() {
 }
 
 /// If the owner can't afford the `ApprovalDeposit`, `do_approve_transfer`
-/// returns a `DispatchError` (Error::Error → trap). Distinct failure
-/// path from the revert-based `to_balance` test.
+/// returns `pallet_balances::Error::InsufficientBalance`. The precompile
+/// reverts with that module error's name. Distinct failure path from the
+/// revert-based `to_balance` test.
 #[test]
 fn permit_rejects_when_owner_lacks_deposit_balance() {
 	use frame_support::traits::fungibles::approvals::Inspect;
@@ -820,7 +790,7 @@ fn permit_rejects_when_owner_lacks_deposit_balance() {
 			r,
 			s,
 		);
-		assert_permit_dispatch_err(result, pallet_balances::Error::<Test>::InsufficientBalance);
+		assert_permit_reverted_with(result, "InsufficientBalance");
 		assert_eq!(
 			permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
 			U256::zero(),
@@ -1065,16 +1035,16 @@ fn permit_rejects_recovery_failure() {
 /// `env.is_read_only()`) is what guards this.
 ///
 /// The test passes a *valid* signature so the post-call state acts as
-/// the regression pin: with the dispatcher check active, the call is
-/// rejected via `StateChangeDenied`, the writes never run, and
-/// nonce/allowance stay at 0. With the check removed, the precompile
-/// would proceed past `use_permit` and `do_approve_transfer` (both go
-/// through frame_support storage writes that bypass pallet-revive's
-/// host-call read-only gating), and nonce would advance to 1. So a
-/// regression that drops `IERC20Calls::permit(_)` from the read-only
-/// match arm flips this test, even though the outer `success=false`
-/// boolean alone would not (an empty trap and a clean revert both
-/// surface as `success=false`).
+/// the regression pin: with the dispatcher check active, the call reverts
+/// with `ERR_STATE_CHANGE_DENIED`, the writes never run, and nonce/allowance
+/// stay at 0. With the check removed, the precompile would proceed past
+/// `use_permit` and `do_approve_transfer` (both go through frame_support
+/// storage writes that bypass pallet-revive's host-call read-only gating),
+/// and nonce would advance to 1. So a regression that drops
+/// `IERC20Calls::permit(_)` from the read-only match arm flips this test,
+/// even though the outer `success=false` boolean alone would not (an empty
+/// trap and a clean revert both surface as `success=false`). The decoded
+/// reason is what distinguishes the two.
 #[test]
 fn permit_staticcall_is_rejected() {
 	use frame_support::traits::fungibles::approvals::Inspect;
@@ -1145,6 +1115,9 @@ fn permit_staticcall_is_rejected() {
 		let ret = ICaller::staticCallCall::abi_decode_returns(&result.data)
 			.expect("return must decode as (bool, bytes)");
 		assert!(!ret.success, "STATICCALL to permit() must be rejected");
+		use alloy::sol_types::{Revert, SolError};
+		let decoded = Revert::abi_decode(&ret.output).expect("Error(string) revert");
+		assert_eq!(decoded.reason, super::ERR_STATE_CHANGE_DENIED);
 		// Regression pin: if the dispatcher's read-only check were
 		// dropped, these would both move (nonce → 1, allowance → 100).
 		assert_eq!(

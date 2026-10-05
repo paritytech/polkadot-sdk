@@ -287,6 +287,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// `best_effort` is `true`) together with an optional value indicating the argument which must
 	/// be passed into the `melted` function of the `T::Freezer` if `Some`.
 	///
+	/// NOTE: the returned debit may exceed `amount` by up to the minimum balance less one, when
+	/// debiting `amount` exactly would strand a remainder too small to keep the account alive.
+	/// Silently assuming `amount` was debited loses track of the difference.
+	///
 	/// If no valid debit can be made then return an `Err`.
 	pub(super) fn prep_debit(
 		id: T::AssetId,
@@ -664,6 +668,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// Figure out the debit and credit, together with side-effects.
 		let debit = Self::prep_debit(id.clone(), source, amount, f.into())?;
+
+		ensure!(source == dest || f.best_effort || debit == amount, Error::<T, I>::WouldSweepDust);
+
 		let (credit, maybe_burn) = Self::prep_credit(id.clone(), dest, amount, debit, f.burn_dust)?;
 
 		let mut source_account =
