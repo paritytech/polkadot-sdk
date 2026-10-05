@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'Westend Coretime: remove chunking of the assignments vector'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Removes the chunking mechanism in the way coretime assignments are being reported
+      to the Relay Chain, reducing the number of XCM messages that will be sent when
+      there are more than 28 assignments.
+
+crates:
+  - name: coretime-westend-runtime
+    bump: patch
