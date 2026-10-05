@@ -66,8 +66,13 @@ parameter_types! {
 	pub const BlockExecutionWeight: Weight = Weight::from_parts(constants::WEIGHT_REF_TIME_PER_NANOS, 0)
 		.saturating_mul(5_000_000);
 	/// Executing a NO-OP `System::remarks` Extrinsic.
+	///
+	/// `ExtrinsicBaseWeight` no longer includes signature-verification weight (it is charged
+	/// separately via `SignatureWeight`), so it is subtracted here to match the runtimes'
+	/// regenerated weight files.
 	pub const ExtrinsicBaseWeight: Weight = Weight::from_parts(constants::WEIGHT_REF_TIME_PER_NANOS, 0)
-		.saturating_mul(125_000);
+		.saturating_mul(125_000)
+		.saturating_sub(Weight::from_parts(constants::WEIGHT_REF_TIME_PER_NANOS, 0).saturating_mul(42_814));
 
 	/// Weight limit of the Cumulus-based bridge hub blocks.
 	pub BlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
