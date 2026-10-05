@@ -235,6 +235,28 @@ pub mod test_utils {
 		buffer
 	}
 
+	/// Dispatch `call` as a signed substrate transaction of `signer`, running the transaction
+	/// extensions around it.
+	pub fn dispatch_signed_tx(
+		signer: &AccountIdOf<Test>,
+		call: super::RuntimeCall,
+	) -> frame_support::dispatch::DispatchResultWithPostInfo {
+		use frame_support::dispatch::GetDispatchInfo;
+		use sp_runtime::traits::DispatchTransaction;
+
+		let nonce = frame_system::Pallet::<Test>::account_nonce(signer);
+		let extension: super::SignedExtra = (
+			frame_system::CheckNonce::from(nonce),
+			super::ChargeTransactionPayment::from(0),
+			Default::default(),
+		);
+		let info = call.get_dispatch_info();
+		let len = call.encoded_size();
+		extension
+			.dispatch_transaction(super::RuntimeOrigin::signed(signer.clone()), call, &info, len, 0)
+			.unwrap()
+	}
+
 	pub fn set_balance_with_dust(address: &H160, value: BalanceWithDust<BalanceOf<Test>>) {
 		use frame_support::traits::Currency;
 		let ed = <Test as Config>::Currency::minimum_balance();
