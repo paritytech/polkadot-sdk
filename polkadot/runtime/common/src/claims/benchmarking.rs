@@ -22,7 +22,7 @@ use crate::claims::Call;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
-	traits::{Currency, UnfilteredDispatchable},
+	traits::{Authorize, Currency, UnfilteredDispatchable},
 };
 use frame_system::RawOrigin;
 use k256::ecdsa::SigningKey;
@@ -83,10 +83,7 @@ fn create_claim_attest<T: Config>(input: u32) -> DispatchResult {
 mod benchmarks {
 	use super::*;
 
-	#[allow(deprecated)]
-	use sp_runtime::traits::ValidateUnsigned;
-
-	// Benchmark `claim` including `validate_unsigned` logic.
+	// Benchmark `claim` including the authorization logic.
 	#[benchmark]
 	fn claim() -> Result<(), BenchmarkError> {
 		let c = MAX_CLAIMS;
@@ -117,10 +114,10 @@ mod benchmarks {
 		{
 			let call = <Call<T> as Decode>::decode(&mut &*call_enc)
 				.expect("call is encoded above, encoding must be correct");
-			#[allow(deprecated)]
-			super::Pallet::<T>::validate_unsigned(source, &call)
+			call.authorize(source)
+				.expect("the call declares an authorize callback; qed")
 				.map_err(|e| -> &'static str { e.into() })?;
-			call.dispatch_bypass_filter(RawOrigin::None.into())?;
+			call.dispatch_bypass_filter(RawOrigin::Authorized.into())?;
 		}
 
 		assert_eq!(Claims::<T>::get(eth_address), None);
@@ -146,7 +143,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Benchmark `claim_attest` including `validate_unsigned` logic.
+	// Benchmark `claim_attest` including the authorization logic.
 	#[benchmark]
 	fn claim_attest() -> Result<(), BenchmarkError> {
 		let c = MAX_CLAIMS;
@@ -183,10 +180,10 @@ mod benchmarks {
 		{
 			let call = <Call<T> as Decode>::decode(&mut &*call_enc)
 				.expect("call is encoded above, encoding must be correct");
-			#[allow(deprecated)]
-			super::Pallet::<T>::validate_unsigned(source, &call)
+			call.authorize(source)
+				.expect("the call declares an authorize callback; qed")
 				.map_err(|e| -> &'static str { e.into() })?;
-			call.dispatch_bypass_filter(RawOrigin::None.into())?;
+			call.dispatch_bypass_filter(RawOrigin::Authorized.into())?;
 		}
 
 		assert_eq!(Claims::<T>::get(eth_address), None);
