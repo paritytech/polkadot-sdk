@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791223439704,
+  "lastUpdate": 1791241012306,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "109702797+DTSmth@users.noreply.github.com",
-            "name": "David Smith",
-            "username": "DTSmth"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b34296a7f1d66e036157228929cf6f3040c0bb20",
-          "message": "doc: add link to multi-block migration example. Resolves a TODO by ad… (#11542)\n\n…ding a documentation link from the single-block migrations pallet to\nthe multi-block migrations example pallet.\n\n\n\n✄\n-----------------------------------------------------------------------------\n\n# Description\n\n﻿Resolves a documentation TODO in\n`pallet-example-single-block-migrations` by adding\n a link to the `pallet-example-mbm` documentation.\n\nThe TODO requested linking to the multi-block migration example from the\nwarning\n about single-block migrations potentially exceeding block weight limits\n\n## Integration\n\n﻿N/A - documentation only change, no crate API changes\n\n## Review Notes\n\n﻿ Uses external URL (matching repo convention) since pallet-example-mbm\nis not a dependency of this crate.\n\n\n✄\n-----------------------------------------------------------------------------",
-          "timestamp": "2026-03-29T14:57:09Z",
-          "tree_id": "9e13a0bb2528c8d47d9eedd94f90e54e2ed3c1c2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b34296a7f1d66e036157228929cf6f3040c0bb20"
-        },
-        "date": 1774800970265,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02392303752666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1432252493333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0070224425733333325,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009908630719999983,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1455799054933334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0cc91a64db63688ad67ddac8fb2a122c213549a1",
+          "message": "backing: reject out-of-bounds core indices (#13385)\n\nReject candidate statements whose resolved core index equals `n_cores`,\nsince valid indices are `0..n_cores-1`. Add regression coverage for the\nzero-rotation path where `core_for_group` returns the caller-supplied\ngroup index.\n\nNo API or storage changes are required.",
+          "timestamp": "2026-10-05T21:12:16Z",
+          "tree_id": "92abd684dc2401d426c1d0d153035b43882aacc3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0cc91a64db63688ad67ddac8fb2a122c213549a1"
+        },
+        "date": 1791240984497,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1472786778133334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02559812972666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010076961459999976,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007632943673333333,
             "unit": "seconds"
           }
         ]
