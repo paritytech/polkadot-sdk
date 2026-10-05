@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791216160382,
+  "lastUpdate": 1791221015530,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e8ad708d0c69e053458f3b89b20f3f1833e0e203",
-          "message": "[Penpal] cleanup XCM config setup regarding assets (#10726)\n\nCloses #7314 by implementing all the subtasks mentioned in\nhttps://github.com/paritytech/polkadot-sdk/issues/7314#issuecomment-2792437373.\n\n## Changes\nEssentially, the main driver of all changes is that we adjust the Penpal\nruntime as follows:\n* Make the native token the base token for buying weight (before it was\na hybrid set up, probably not 100% intentional).\n* Merge the `Assets` and the `ForeignAssets` pallet into one pallet\ncalled `Assets`, as the local assets can also be identified with a\nlocation starting with `parents: 0`.\n* Give the pallet-asset-conversion a genesis config so that we can\neasily set up pools at genesis instead of redundantly calling the setup\nmacro with the same args.\n\n\n### Test Changes\nI tried to keep the changes minimal in the tests in order to not harm\nany previously established invariants. Hence, in most cases I just did:\n\n* Add a PEN<>WND pool in order to be able to pay xcm execution fees in\nWND\n* Replaced the Penpal's teleportable asset with it's new location based\nversion.\n* In very few cases, I switched from WND to PEN to make the tests\neasier, when I was sure that no invariants would be harmed.\n* The rest should only be renamings.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2026-03-26T09:15:46Z",
-          "tree_id": "0bf1df960c712ba73727cb542412ff9a662ac660",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e8ad708d0c69e053458f3b89b20f3f1833e0e203"
-        },
-        "date": 1774521768120,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.04399999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08028330642999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038006854328000016,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08731054079199996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4076925754b91bcd6da9f714a614cce7f292c38b",
+          "message": "Validators as system chain collators: AH announces the era's set to itself and PC (#13332)\n\n## TL;DR\nEvery validator in the active set that registers session keys on Asset\nHub or People becomes a collator there, next to the existing\ninvulnerables and bonded candidates. The collator set switches within a\nfew blocks of the relay chain activating a new era.\n\nRelated issue: https://github.com/paritytech/metanode-issues/issues/1\nDesign document\n[here](https://github.com/paritytech/metanode/blob/main/designs/collator-selection.md)\n\n## Changes\n\n- **`pallet-validator-collators`** (**initially on AH and PC, in the\nfuture on every system chain**): stores the validator set received for\nan era and acts as a second session manager. At every rotation it\nreturns the received validators that registered local keys, up to an\noptional governance cap (unlimited by default). On a new set it forces\ntwo rotations, queue then enact, while periodic rotations continue.\n`UnionSessionManager`, added to `pallet-session`, combines it with\n`pallet-collator-selection`.\n- **`pallet-validator-set-announcer`** (**Asset Hub only**): `announce`\nstores the era's set through the local `pallet-validator-collators` and,\nif the receiver accepts it, sends it once to each configured system\nchain through a runtime-provided sender, reporting each send with\n`AnnouncementSent` or `AnnouncementFailed { destination, era }`. A set\nthe receiver rejects is reported with `AnnouncementRejected` and not\nsent. It holds no storage and does not retry, since every HRMP enqueue\nerror persists for the era and the next era sends the full set again.\n- **`pallet-staking-async`**: new `OnEraStart` hook, called at era start\nwith the new era's validators. The set is kept in `NextEraValidators`\nwhen it is handed to the relay chain and taken at era start. An era\nwhose set was handed to the relay chain before the hook was enabled has\nno copy and is not announced, and receivers keep their invulnerables and\ncandidates for it. A `()` hook keeps no copy and costs nothing.\n- **Asset Hub Westend**: wires both pallets, the union session manager\nand the hook. The announcer sends the set to People as an unpaid\n`Transact`.\n- **People Westend**: wires the receiver and accepts the set only from\nthe Asset Hub sibling origin.\n\n## Flow\n\n```mermaid\nsequenceDiagram\n    participant AHS as Asset Hub staking\n    participant RC as Relay chain\n    participant AHA as Asset Hub announcer\n    participant AHV as Asset Hub validator-collators\n    participant PCV as People validator-collators\n\n    Note over AHS: Era N starts, election for N+1\n    AHS->>AHS: Election completes, keep copy in NextEraValidators\n    AHS->>RC: Validator set for N+1 (after session 4 report)\n    RC->>RC: Queue at next session, activate at the one after\n    RC->>AHS: Session report with activation timestamp\n    AHS->>AHS: start_era(N+1), take the copy\n    AHS->>AHA: OnEraStart(N+1, validators) calls announce\n    AHA->>AHV: receive_validator_set: store set, force two rotations\n    AHA->>PCV: set_validators(N+1, validators) via XCM, retried until sent\n    PCV->>PCV: Store set, force two rotations\n    Note over AHV,PCV: Collators = invulnerables + bonded candidates + validators with local keys\n```\n\n## Collator set composition\n\nAt every rotation the collator set is the union of what the two session\nmanagers return, each applying its own rule. `pallet-collator-selection`\nreturns every invulnerable plus the top bonded candidates up to its\ndesired count, as today. `pallet-validator-collators` returns every\nreceived validator with registered keys, or, once governance sets a cap,\nthat many of them (a random draw replaces the current truncation in a\nfollow-up). The combinator only concatenates and deduplicates, keeping\nthe collator-selection entry when an account appears on both sides. The\nintended end state is that governance lowers the desired candidates and\nremoves the invulnerables, leaving the validator side.\n\nTwo forced rotations are needed because `pallet-session` queues a set at\none rotation and enacts it at the next. Periodic rotations continue,\nsince they are how rotated session keys take effect. Sending is retried\nevery block only while the message cannot leave Asset Hub. Once\ndelivered, a message that People cannot apply, for example because\nPeople runs an older runtime, is consumed there and not reported back,\nso the next attempt is the next era's announcement. The full set is sent\nevery era, so any single failure heals in the worst case at the next\nera.\n\n## Testing\n\nSee\n[here](https://github.com/paritytech/polkadot-sdk/pull/13332#issuecomment-5915888241)\n\n## Fellowship Runtime  integration\n\n- Aura writes the full authority list into the block header at every\nchange of the set, and the relay chain rejects head data above a limit\nhard-coded in its backing constraints, 20 KiB. That allows about 630\nauthorities per chain, invulnerables and candidates included. Polkadot's\n600 fit, Kusama's 700 do not. Until active set is reduced, initial\nruntime configuration and governance **must** keep the union below the\nlimit via `MaxCollators` cap on those chains. The cap is applied\n**before** `pallet-session builds` the list, so the session validators\nand Aura's authorities stay the same set. The digest stays as it is,\nsince smoldot clients (and maybe not only them...) follow authority\nchanges through it (see #13360). Truncating Aura's own list is not an\noption, since the runtime would then announce a different set from the\nsession validators.\n- A runtime must configure `pallet-collator-selection`'s `KickThreshold`\nto exceed a full Aura round of the merged collator list\n([`Config::MaxValidators`] plus the invulnerables and candidates), times\nthe blocks the chain produces per Aura slot. Otherwise bonded candidates\nare kicked as stale between their slots.\n\nSee\n[here](https://github.com/paritytech/polkadot-sdk/pull/13332#issuecomment-5915888241)\nfor additional tests we need to add in the runtime PR.\n\n## Upgrading\n\nThe two chains can be upgraded in either order. People collates with\nvalidators from the first era whose set Asset Hub handed to the relay\nchain after its upgrade, which is at the latest the second era boundary\nafter both chains are upgraded. Until then each chain keeps its\ninvulnerables and candidates.\n\n## Notes\n\n- **Until the production filter lands**, a validator that registers keys\nbut runs no collator is in the Aura rotation and its slots produce no\nblock. Nothing evicts it in this PR, which is why the production filter\nis the first follow-up.\n- HRMP message size. The set is sent in one XCM message, about 19 KB at\n600 validators and 32 KB at 1,000. A channel's limits are fixed when it\nis opened, and the live Asset Hub to People channel allows 102,400\nbytes. If that channel were reopened with a smaller limit, the send\nwould fail and Asset Hub would report `AnnouncementFailed` every era.\nPeople would keep the last set it stored, so it keeps producing blocks,\nbut with the previous era's validators. Splitting the set across several\nmessages would be the follow-up if that ever becomes realistic.\n\n## Checklist\n\n- [x] Benchmarks and generated weights for the 2 new pallets \n- [X] Re-benchmark `rc_on_session_report` in staking-async with the\nera-start path.\n- [x] https://github.com/paritytech/polkadot-sdk/issues/13360 - the\nshort term fix is not a blocker for rollout on Kusama (we can set\n`MaxCollators` in the new pallet lower than 600 or so and we are good to\ngo)\n\n\n## Follow-ups (separate PRs), in order\n\n1. **Production filter.** Drop a validator that authors no block within\na block window, re-include it after a configurable ban, keep a minimum\nnumber of collators.\n2. **Block counting and era points.** Count blocks per author and era,\nreport them to Asset Hub once per session, and add the staking entry\npoint that credits them, with a claim gate so late reports land before\npayouts.\n3. **Random draw under a cap.** Replace the truncation (`TODO` in\n`new_session`) with a draw among validators with keys, a configurable\nredraw period and advance notice.\n4. An additional safety net could be to bound the merged collator list\nin the runtime to what a session-change header can carry, instead of\nrelying solely on the cap being set. We could enforce also a\n`try-runtime` constraint in `pallet-aura-ext` checking that the stored\nauthority list fits the head-data limit.\n5. **Relay-chain offence propagation** to collator sets, only if a need\nis established so maybe/probably never :smile:\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-05T13:36:13Z",
+          "tree_id": "370e1ffafc74b255ef4433be5c60aefe9b6345b0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4076925754b91bcd6da9f714a614cce7f292c38b"
+        },
+        "date": 1791220983451,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.112,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08629243591399996,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03885171056,
             "unit": "seconds"
           }
         ]
