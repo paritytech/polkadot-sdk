@@ -610,6 +610,9 @@ pub enum RewardKind {
 	/// Pot for validator self-stake incentive.
 	#[codec(index = 1)]
 	ValidatorSelfStake,
+	/// Pot for validator operational expenses payouts.
+	#[codec(index = 2)]
+	OperationalExpenses,
 }
 
 /// Identifies a reward pot account.
@@ -672,11 +675,15 @@ where
 		match pot {
 			RewardPot::General(RewardKind::StakerRewards) => AccountId::from(200_000u64),
 			RewardPot::General(RewardKind::ValidatorSelfStake) => AccountId::from(200_001u64),
+			RewardPot::General(RewardKind::OperationalExpenses) => AccountId::from(200_002u64),
 			RewardPot::Era(era, RewardKind::StakerRewards) => {
 				AccountId::from(100_000 + (pot_slot(era) as u64 * 10))
 			},
 			RewardPot::Era(era, RewardKind::ValidatorSelfStake) => {
 				AccountId::from(100_000 + (pot_slot(era) as u64 * 10) + 1)
+			},
+			RewardPot::Era(era, RewardKind::OperationalExpenses) => {
+				AccountId::from(100_000 + (pot_slot(era) as u64 * 10) + 2)
 			},
 		}
 	}
