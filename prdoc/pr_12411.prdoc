@@ -1,0 +1,28 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "pallet-assets: allow a privileged origin to declare ED-independent (persistent) accounts"
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Adds the ability for `ForceOrigin` to mark an asset-account as *persistent*. A persistent
+      account exists independent of the existential deposit: it is never reaped for holding a
+      balance below the asset's `min_balance`. This is useful for system accounts such as pallet
+      pots that must keep existing even when emptied, without resorting to minting dust to keep
+      them alive.
+
+      New extrinsics:
+      - `force_set_persistent(id, who)`: marks `who` as persistent, creating the asset-account if it
+        does not exist yet. Accounts backed by a deposit (`DepositHeld`/`DepositFrom`) are rejected.
+      - `force_unset_persistent(id, who)`: removes the persistent mark. A zero-balance account is
+        reaped, an account holding at least `min_balance` is demoted to a regular existence reason,
+        and a non-zero sub-minimal balance is rejected (it would have to be burned).
+
+      A new `ExistenceReason::Persistent` variant is added to model this state, together with the
+      `AccountPersistenceSet`/`AccountPersistenceRemoved` events and the `AlreadyPersistent`,
+      `NotPersistent` and `AccountHasDeposit` errors.
+
+crates:
+  - name: pallet-assets
+    bump: major

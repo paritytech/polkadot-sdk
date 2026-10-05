@@ -104,6 +104,8 @@ pub trait WeightInfo {
 	fn refund() -> Weight;
 	fn refund_other() -> Weight;
 	fn block() -> Weight;
+	fn force_set_persistent() -> Weight;
+	fn force_unset_persistent() -> Weight;
 	fn transfer_all() -> Weight;
 	fn total_issuance() -> Weight;
 	fn balance() -> Weight;
@@ -590,6 +592,36 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(21_116_000, 3675)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:1 w:1)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn force_set_persistent() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `612`
+		//  Estimated: `3675`
+		// Minimum execution time: 33_977_000 picoseconds.
+		Weight::from_parts(34_979_000, 3675)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:1 w:1)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn force_unset_persistent() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `612`
+		//  Estimated: `3675`
+		// Minimum execution time: 33_977_000 picoseconds.
+		Weight::from_parts(34_979_000, 3675)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
@@ -1138,6 +1170,36 @@ impl WeightInfo for () {
 		Weight::from_parts(21_116_000, 3675)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:1 w:1)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn force_set_persistent() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `612`
+		//  Estimated: `3675`
+		// Minimum execution time: 33_977_000 picoseconds.
+		Weight::from_parts(34_979_000, 3675)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:1 w:1)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn force_unset_persistent() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `612`
+		//  Estimated: `3675`
+		// Minimum execution time: 33_977_000 picoseconds.
+		Weight::from_parts(34_979_000, 3675)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
