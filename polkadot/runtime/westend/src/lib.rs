@@ -1368,6 +1368,8 @@ impl pallet_migrations::Config for Runtime {
 	type Migrations = (
 		pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>,
 		parachains_dmp::migration::MigrateV0ToV1<Runtime>,
+		// Sorts and deduplicates the `Proxies` map, which `binary_search` needs.
+		pallet_proxy::migrations::MigrateV0ToV1<Runtime>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]

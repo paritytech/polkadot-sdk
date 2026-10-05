@@ -18,6 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["max-encoded-len"], workspace = true }
 frame = { workspace = true, features = ["runtime"] }
+log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
@@ -29,6 +30,7 @@ default = ["std"]
 std = [
 	"codec/std",
 	"frame/std",
+	"log/std",
 	"scale-info/std",
 ]
 runtime-benchmarks = [
@@ -41,3 +43,6 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-utility/try-runtime",
 ]
+# Promotes the `try_state` deposit-amount checks (5 and 11) from a warning to a hard error.
+# See `Pallet::do_try_state` for the reasoning.
+fuzzing = []
