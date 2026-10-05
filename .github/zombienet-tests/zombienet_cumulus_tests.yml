@@ -175,3 +175,11 @@
   test-filter: "zombie_ci::statement_store::integration_v2_dht::late_joiner_receives_backlog"
   runner-type: "default"
   cumulus-image: "test-parachain"
+
+- job-name: "zombienet-cumulus-0039-validator_collators"
+  test-filter: "zombie_ci::validator_collators::flow::validator_collators_on_asset_hub_and_people"
+  cumulus-image: "polkadot-parachain-debug"
+
+- job-name: "zombienet-cumulus-0040-validator_collators_scale"
+  test-filter: "zombie_ci::validator_collators::scale::rotation_to_a_polkadot_sized_authority_list_on_asset_hub_and_people"
+  cumulus-image: "polkadot-parachain-debug"

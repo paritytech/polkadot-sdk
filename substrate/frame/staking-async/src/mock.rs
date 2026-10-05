@@ -237,6 +237,21 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	}
 }
 
+parameter_types! {
+	pub static StartedEras: Vec<(EraIndex, Vec<AccountId>)> = Vec::new();
+}
+
+pub struct EraStartMock;
+impl crate::OnEraStart<AccountId> for EraStartMock {
+	fn on_era_start(era: EraIndex, validators: &[AccountId]) {
+		StartedEras::mutate(|eras| eras.push((era, validators.to_vec())));
+	}
+
+	fn weight(_validators: u32) -> Weight {
+		Weight::zero()
+	}
+}
+
 pub struct MockedRestrictList;
 impl Contains<AccountId> for MockedRestrictList {
 	fn contains(who: &AccountId) -> bool {
@@ -562,6 +577,7 @@ impl Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type WeightInfo = ();
 	type IsValidatorInactive = ();
+	type OnEraStart = EraStartMock;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;

@@ -895,6 +895,40 @@ fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
 	)
 }
 
+/// Opens an HRMP channel from `sender` to `recipient` with
+/// `Sudo::sudo(Hrmp::force_open_hrmp_channel)` and waits `timeout_secs` for its finalization.
+/// The channel opens at the next relay chain session change.
+pub async fn open_hrmp_channel<S: Signer<PolkadotConfig>>(
+	client: &OnlineClient<PolkadotConfig>,
+	sender: u32,
+	recipient: u32,
+	max_capacity: u32,
+	max_message_size: u32,
+	signer: &S,
+	timeout_secs: u64,
+) -> Result<(), anyhow::Error> {
+	let call = zombienet_sdk::subxt::tx::dynamic(
+		"Sudo",
+		"sudo",
+		vec![value! {
+			Hrmp(force_open_hrmp_channel {
+				sender: sender,
+				recipient: recipient,
+				max_capacity: max_capacity,
+				max_message_size: max_message_size
+			})
+		}],
+	);
+	submit_extrinsic_and_wait_for_finalization_success_with_timeout(
+		client,
+		&call,
+		signer,
+		timeout_secs,
+	)
+	.await
+	.map_err(|e| anyhow!("opening HRMP channel {sender} to {recipient}: {e}"))
+}
+
 /// Creates a runtime upgrade call using `Sudo::sudo(System::set_code_without_checks)`.
 ///
 /// The `wasm_binary` should be the WASM runtime binary to upgrade to.
