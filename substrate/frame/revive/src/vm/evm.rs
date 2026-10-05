@@ -36,7 +36,7 @@ mod interpreter;
 pub use interpreter::{Halt, Interpreter};
 
 mod ext_bytecode;
-use ext_bytecode::ExtBytecode;
+pub use ext_bytecode::ExtBytecode;
 
 mod memory;
 mod stack;
@@ -56,8 +56,153 @@ pub struct EVMGas(pub u64);
 
 impl<T: Config> Token<T> for EVMGas {
 	fn weight(&self) -> Weight {
-		let base_cost = T::WeightInfo::evm_opcode(1).saturating_sub(T::WeightInfo::evm_opcode(0));
+		let base_cost = T::WeightInfo::evm_jumpdest_opcode(1)
+			.saturating_sub(T::WeightInfo::evm_jumpdest_opcode(0));
 		base_cost.saturating_mul(self.0)
+	}
+}
+
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+enum EvmOpcodeCosts {
+	// Control Opcodes
+	Jump,
+	Jumpi,
+	JumpDest,
+	Pc,
+
+	// Stack Opcodes
+	Push,
+	Pop,
+	Dup,
+	Swap,
+
+	// Block Info Opcodes
+	ChainId,
+	Difficulty,
+
+	// System Opcodes
+	CodeSize,
+	CallDataSize,
+	ReturnDataSize,
+	CallDataLoad,
+
+	// Memory Opcodes
+	MLoad,
+	MSize,
+	MStore,
+	MStore8,
+	MCopy { len: u32 },
+
+	// Bitwise Opcodes
+	Lt,
+	Gt,
+	Eq,
+	IsZero,
+	And,
+	Or,
+	Xor,
+	Not,
+	Byte,
+	Clz,
+	Slt,
+	Sgt,
+	Shl,
+	Shr,
+	Sar,
+
+	// Arithmetic Opcodes
+	AddMod,
+	Div,
+	Add,
+	Sub,
+	Mul,
+	SDiv,
+	Mod,
+	SMod,
+	MulMod,
+	Exp { exponent_bits: u32 },
+	SignExtend,
+}
+
+impl<T: Config> Token<T> for EvmOpcodeCosts {
+	fn weight(&self) -> Weight {
+		let per_opcode = |weight_fn: fn(u32) -> Weight| weight_fn(1).saturating_sub(weight_fn(0));
+		match self {
+			Self::Jump => per_opcode(T::WeightInfo::evm_jump_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::JumpDest)),
+			Self::Jumpi => per_opcode(T::WeightInfo::evm_jumpi_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::JumpDest)),
+			Self::JumpDest => per_opcode(T::WeightInfo::evm_jumpdest_opcode),
+			Self::Pc => per_opcode(T::WeightInfo::evm_pc_opcode),
+			Self::Push => per_opcode(T::WeightInfo::evm_push_opcode),
+			Self::Pop => per_opcode(T::WeightInfo::evm_pop_opcode),
+			Self::Dup => per_opcode(T::WeightInfo::evm_dup_opcode),
+			Self::Swap => per_opcode(T::WeightInfo::evm_swap_opcode),
+			Self::ChainId => per_opcode(T::WeightInfo::evm_chainid_opcode),
+			Self::Difficulty => per_opcode(T::WeightInfo::evm_difficulty_opcode),
+			Self::CodeSize => per_opcode(T::WeightInfo::evm_codesize_opcode),
+			Self::CallDataSize => per_opcode(T::WeightInfo::evm_calldatasize_opcode),
+			Self::ReturnDataSize => per_opcode(T::WeightInfo::evm_returndatasize_opcode),
+			Self::CallDataLoad => per_opcode(T::WeightInfo::evm_calldataload_opcode),
+			Self::MLoad => per_opcode(T::WeightInfo::evm_mload_opcode),
+			Self::MSize => per_opcode(T::WeightInfo::evm_msize_opcode),
+			Self::MStore => per_opcode(T::WeightInfo::evm_mstore_opcode),
+			Self::MStore8 => per_opcode(T::WeightInfo::evm_mstore8_opcode),
+			Self::MCopy { len } => {
+				// The fixed cost covers the first 64 bytes, so shorter copies pay nothing more.
+				let extra_bytes = len.saturating_sub(64);
+				per_opcode(T::WeightInfo::evm_mcopy_opcode).saturating_add(
+					T::WeightInfo::evm_mcopy_per_byte(extra_bytes)
+						.saturating_sub(T::WeightInfo::evm_mcopy_per_byte(0)),
+				)
+			},
+			Self::Lt => per_opcode(T::WeightInfo::evm_lt_opcode),
+			Self::Gt => per_opcode(T::WeightInfo::evm_gt_opcode),
+			Self::Eq => per_opcode(T::WeightInfo::evm_eq_opcode),
+			Self::IsZero => per_opcode(T::WeightInfo::evm_iszero_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::And => per_opcode(T::WeightInfo::evm_and_opcode),
+			Self::Or => per_opcode(T::WeightInfo::evm_or_opcode),
+			Self::Xor => per_opcode(T::WeightInfo::evm_xor_opcode),
+			Self::Not => per_opcode(T::WeightInfo::evm_not_opcode),
+			Self::Byte => per_opcode(T::WeightInfo::evm_byte_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Clz => per_opcode(T::WeightInfo::evm_clz_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Slt => per_opcode(T::WeightInfo::evm_slt_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Sgt => per_opcode(T::WeightInfo::evm_sgt_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Shl => per_opcode(T::WeightInfo::evm_shl_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Shr => per_opcode(T::WeightInfo::evm_shr_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Sar => per_opcode(T::WeightInfo::evm_sar_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::AddMod => per_opcode(T::WeightInfo::evm_addmod_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Div => per_opcode(T::WeightInfo::evm_div_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Add => per_opcode(T::WeightInfo::evm_add_opcode),
+			Self::Sub => per_opcode(T::WeightInfo::evm_sub_opcode),
+			Self::Mul => per_opcode(T::WeightInfo::evm_mul_opcode),
+			Self::SDiv => per_opcode(T::WeightInfo::evm_sdiv_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Mod => per_opcode(T::WeightInfo::evm_mod_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::SMod => per_opcode(T::WeightInfo::evm_smod_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::MulMod => per_opcode(T::WeightInfo::evm_mulmod_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+			Self::Exp { exponent_bits: 0 } => per_opcode(T::WeightInfo::evm_exp_zero_opcode),
+			Self::Exp { exponent_bits } => per_opcode(T::WeightInfo::evm_exp_opcode)
+				.saturating_add(
+					T::WeightInfo::evm_exp_per_bit(exponent_bits.saturating_sub(1))
+						.saturating_sub(T::WeightInfo::evm_exp_per_bit(0)),
+				),
+			Self::SignExtend => per_opcode(T::WeightInfo::evm_signextend_opcode)
+				.saturating_sub(Token::<T>::weight(&Self::Pop)),
+		}
 	}
 }
 
@@ -161,7 +306,7 @@ pub fn call<E: Ext>(bytecode: Bytecode, ext: &mut E, input: Vec<u8>) -> ExecResu
 	halt.into()
 }
 
-fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infallible> {
+pub fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infallible> {
 	loop {
 		let opcode = interpreter.bytecode.opcode();
 		interpreter.bytecode.relative_jump(1);
