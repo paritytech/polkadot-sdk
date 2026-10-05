@@ -1,0 +1,16 @@
+title: 'delegated-staking: properly migrate existing delegations'
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Add a migration to fix issue #8353 as introduced by #4822 where the
+      withdrawal of all delegated stake could lead to the reaping of the
+      staker account.
+      This issue only effects chains that have been using delgated staking
+      and the associated pallet before the inclusion of #4822 and only such
+      chains should run the included `IncProviderMigration`. Running this
+      migration on a chain that only used delegated staking past #4822 will
+      lead to the opposite effect, where any delegated staker will never be
+      reaped, even below the existential deposit.
+crates:
+- name: pallet-delegated-staking
+  bump: patch
