@@ -158,7 +158,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
         amount: Balance,
         duration: Self::<a class="associatedtype" href="trait.VestedPayout.html#associatedtype.BlockNumber" title="type frame_support::traits::tokens::VestedPayout::BlockNumber">BlockNumber</a>,
         start_at: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.VestedPayout.html#associatedtype.BlockNumber" title="type frame_support::traits::tokens::VestedPayout::BlockNumber">BlockNumber</a>&gt;,
-    ) -&gt; <a class="type" href="../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
+    ) -&gt; DispatchResult;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Transfer <code>amount</code> from <code>source</code> to <code>dest</code> and apply a linear vesting schedule that completes
 within at most <code>duration</code> blocks starting from the current block.</p>
 <p>The per-block unlock rate is rounded up so that vesting never exceeds <code>duration</code> blocks.</p>
@@ -176,7 +176,7 @@ chooses which currency mechanism to use internally, and callers do not need to p
     amount: Balance,
     duration: Self::<a class="associatedtype" href="trait.VestedPayout.html#associatedtype.BlockNumber" title="type frame_support::traits::tokens::VestedPayout::BlockNumber">BlockNumber</a>,
     start_at: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.VestedPayout.html#associatedtype.BlockNumber" title="type frame_support::traits::tokens::VestedPayout::BlockNumber">BlockNumber</a>&gt;,
-) -&gt; <a class="type" href="../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Transfer <code>amount</code> from <code>source</code> to <code>dest</code>, locked under a linear vesting schedule
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Transfer <code>amount</code> from <code>source</code> to <code>dest</code>, locked under a linear vesting schedule
 that completes within at most <code>duration</code> blocks.</p>
 <p>If <code>start_at</code> is <code>Some</code>, the vesting schedule begins at that block number;
 otherwise it begins at the current block.</p>

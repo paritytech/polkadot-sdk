@@ -313,8 +313,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#163 id=163 data-nosnippet>163</a>		<span class="self">self</span>.peers.insert(peer, filter);
 <a href=#164 id=164 data-nosnippet>164</a>	}
 <a href=#165 id=165 data-nosnippet>165</a>
-<a href=#166 id=166 data-nosnippet>166</a>	<span class="doccomment">/// Drop a peer's stored filter once it disconnects.
-<a href=#167 id=167 data-nosnippet>167</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_peer_disconnected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: PeerId) {
+<a href=#166 id=166 data-nosnippet>166</a>	<span class="doccomment">/// Drop a peer's stored filter once its statement substream closes.
+<a href=#167 id=167 data-nosnippet>167</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_substream_closed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: PeerId) {
 <a href=#168 id=168 data-nosnippet>168</a>		<span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer);
 <a href=#169 id=169 data-nosnippet>169</a>	}
 <a href=#170 id=170 data-nosnippet>170</a>
@@ -537,12 +537,12 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#387 id=387 data-nosnippet>387</a>	}
 <a href=#388 id=388 data-nosnippet>388</a>
 <a href=#389 id=389 data-nosnippet>389</a>	<span class="attr">#[test]
-<a href=#390 id=390 data-nosnippet>390</a>	</span><span class="kw">fn </span>on_peer_disconnected_drops_the_filter() {
+<a href=#390 id=390 data-nosnippet>390</a>	</span><span class="kw">fn </span>on_substream_closed_drops_the_filter() {
 <a href=#391 id=391 data-nosnippet>391</a>		<span class="kw">let </span><span class="kw-2">mut </span>affinity = ExplicitAffinity::new(<span class="kw-2">&amp;</span>[], <span class="prelude-val">None</span>, DEFAULT_BLOOM_FALSE_POS_RATE);
 <a href=#392 id=392 data-nosnippet>392</a>		<span class="kw">let </span>peer = PeerId::random();
 <a href=#393 id=393 data-nosnippet>393</a>		affinity.on_peer_filter_update(peer, filter_over(<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)]));
 <a href=#394 id=394 data-nosnippet>394</a>
-<a href=#395 id=395 data-nosnippet>395</a>		affinity.on_peer_disconnected(peer);
+<a href=#395 id=395 data-nosnippet>395</a>		affinity.on_substream_closed(peer);
 <a href=#396 id=396 data-nosnippet>396</a>		<span class="macro">assert!</span>(!affinity.peer_has_explicit_affinity(peer, <span class="kw-2">&amp;</span>statement_on(topic(<span class="number">1</span>))));
 <a href=#397 id=397 data-nosnippet>397</a>	}
 <a href=#398 id=398 data-nosnippet>398</a>
