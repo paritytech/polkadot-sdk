@@ -2417,15 +2417,16 @@ where
 	}
 
 	fn caller_of_caller(&self) -> Origin<T> {
-		// fetch top frame of top frame
-		let caller_of_caller_frame = match self.frames().nth(2) {
-			None => return self.origin.clone(),
-			Some(frame) => frame,
-		};
-		if let Some(DelegateInfo { caller, .. }) = &caller_of_caller_frame.delegate {
+		// The caller of the top frame's caller, resolved the same way `caller` resolves the
+		// caller of the top frame: a delegate frame keeps the caller of the contract it runs as.
+		let Some(caller_frame) = self.frames().nth(1) else { return self.origin.clone() };
+		if let Some(DelegateInfo { caller, .. }) = &caller_frame.delegate {
 			caller.clone()
 		} else {
-			Origin::from_account_id(caller_of_caller_frame.account_id.clone())
+			self.frames()
+				.nth(2)
+				.map(|f| Origin::from_account_id(f.account_id.clone()))
+				.unwrap_or(self.origin.clone())
 		}
 	}
 

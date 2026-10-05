@@ -38,4 +38,52 @@ contract OriginIsRoot {
 		require(ok, "delegate originIsRoot failed");
 		return abi.decode(ret, (bool));
 	}
+
+	/// Delegate-call into `impl.callerIsRoot()`, the same shape as an upgradeable proxy
+	/// dispatching into its implementation.
+	function delegateCallerIsRoot(address _impl) external returns (bool) {
+		(bool ok, bytes memory ret) =
+			_impl.delegatecall(abi.encodeWithSelector(this.callerIsRoot.selector));
+		require(ok, "delegate callerIsRoot failed");
+		return abi.decode(ret, (bool));
+	}
+
+	/// Delegate-call into `lib.callCallerIsRoot(target)`: the delegated code runs as this
+	/// contract and makes a regular call into `target.callerIsRoot()`, so the caller that
+	/// `target` sees is this contract.
+	function delegateThenCallCallerIsRoot(address lib, address target) external returns (bool) {
+		(bool ok, bytes memory ret) =
+			lib.delegatecall(abi.encodeWithSelector(this.callCallerIsRoot.selector, target));
+		require(ok, "delegate callCallerIsRoot failed");
+		return abi.decode(ret, (bool));
+	}
+
+	/// Directly invoke `callerIsOrigin()` on the System precompile.
+	function callerIsOrigin() external view returns (bool) {
+		return ISystem(SYSTEM_ADDR).callerIsOrigin();
+	}
+
+	/// Regular contract call into `target.callerIsOrigin()`.
+	function callCallerIsOrigin(address target) external view returns (bool) {
+		return OriginIsRoot(target).callerIsOrigin();
+	}
+
+	/// Delegate-call into `impl.callerIsOrigin()`, the same shape as an upgradeable proxy
+	/// dispatching into its implementation.
+	function delegateCallerIsOrigin(address _impl) external returns (bool) {
+		(bool ok, bytes memory ret) =
+			_impl.delegatecall(abi.encodeWithSelector(this.callerIsOrigin.selector));
+		require(ok, "delegate callerIsOrigin failed");
+		return abi.decode(ret, (bool));
+	}
+
+	/// Delegate-call into `lib.callCallerIsOrigin(target)`: the delegated code runs as this
+	/// contract and makes a regular call into `target.callerIsOrigin()`, so the caller that
+	/// `target` sees is this contract.
+	function delegateThenCallCallerIsOrigin(address lib, address target) external returns (bool) {
+		(bool ok, bytes memory ret) =
+			lib.delegatecall(abi.encodeWithSelector(this.callCallerIsOrigin.selector, target));
+		require(ok, "delegate callCallerIsOrigin failed");
+		return abi.decode(ret, (bool));
+	}
 }
