@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791198408207,
+  "lastUpdate": 1791216073104,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d58115bfbe914deea13b9aa69465be545a3a64eb",
-          "message": "Fix per-ancestor core assignment and add regression test (#11485)\n\n`get_our_core` was called with the leaf hash instead of the ancestor\nhash when computing core assignments in update_view. This caused all\nscheduling parent to get leaf's core.\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-27T10:39:51Z",
-          "tree_id": "6554b7f36ee46a258e8dc544e1775673b61c998f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d58115bfbe914deea13b9aa69465be545a3a64eb"
-        },
-        "date": 1774612760828,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006817428693333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14282736021333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009676624773333318,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02371946240666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1462132829666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1d6f4582400a935a10a71280575a5e9d4be2325c",
+          "message": "statement-store: drop a peer's affinity filter when its substream closes (#13354)\n\n# Description\n\nA peer's affinity filter now goes away when its statement substream\ncloses, not when block sync reports the peer gone. The filter arrives\nover the statement substream, and the two lifetimes are independent, so\nthe stored filters drifted from the connected set:\n\n- A peer that peer steering dialed outside the sync set never produced a\nsync disconnect, so its filter stayed after its substream closed, and\nthe map grew for the node's lifetime.\n- A peer that block sync dropped while its statement substream stayed\nopen lost its filter although it was still connected, so it stopped\nreceiving statements on its advertised topics until it sent the filter\nagain.\n\n# Integration\n\nNo changes needed. The change is internal to sc-network-statement and\naffects only the v2 DHT path.\n\n# Review Notes\n\nA reconnecting peer sends its filter again once the substream reopens,\nso dropping it on close loses nothing.",
+          "timestamp": "2026-10-05T13:27:44Z",
+          "tree_id": "06e0f4f4180177398dd0ea622de662918366d6bd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1d6f4582400a935a10a71280575a5e9d4be2325c"
+        },
+        "date": 1791216041486,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025190247493333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007418374333333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00984068813999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14571749628666666,
             "unit": "seconds"
           }
         ]
