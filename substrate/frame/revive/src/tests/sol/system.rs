@@ -615,7 +615,7 @@ fn caller_is_root_through_chained_delegate_calls(fixture_type: FixtureType) {
 			.data(chained.clone())
 			.build_and_unwrap_result();
 		assert!(
-			OriginIsRootFixture::delegateBoolCall::abi_decode_returns(&root_result.data).unwrap()
+			OriginIsRootFixture::delegateBoolCall::abi_decode_returns(&root_result.data).unwrap(),
 		);
 
 		let signed_result = builder::bare_call(proxy).data(chained).build_and_unwrap_result();

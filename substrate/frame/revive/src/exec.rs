@@ -1963,11 +1963,16 @@ where
 		core::iter::once(&self.first_frame).chain(&self.frames).rev()
 	}
 
-	/// The caller of the frame `depth` frames below the top one.
+	/// Same as `frames` but with a mutable reference as iterator item.
+	fn frames_mut(&mut self) -> impl Iterator<Item = &mut Frame<T>> {
+		core::iter::once(&mut self.first_frame).chain(&mut self.frames).rev()
+	}
+
+	/// Caller of the frame at `depth`, counting from the top frame.
 	///
 	/// A delegate frame runs as the delegating contract, so its caller is the one recorded in
 	/// its [`DelegateInfo`]. Any other frame is called by the frame below it, or by the origin
-	/// if it is the first frame.
+	/// when it is the first frame.
 	fn caller_at(&self, depth: usize) -> Origin<T> {
 		let Some(frame) = self.frames().nth(depth) else { return self.origin.clone() };
 		if let Some(DelegateInfo { caller, .. }) = &frame.delegate {
@@ -1978,11 +1983,6 @@ where
 				.map(|f| Origin::from_account_id(f.account_id.clone()))
 				.unwrap_or(self.origin.clone())
 		}
-	}
-
-	/// Same as `frames` but with a mutable reference as iterator item.
-	fn frames_mut(&mut self) -> impl Iterator<Item = &mut Frame<T>> {
-		core::iter::once(&mut self.first_frame).chain(&mut self.frames).rev()
 	}
 
 	/// Returns whether the specified contract allows to be reentered right now.
