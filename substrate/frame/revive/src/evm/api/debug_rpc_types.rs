@@ -51,6 +51,16 @@ impl From<TracerTypeV1> for TracerType {
 	}
 }
 
+impl From<TracerTypeV2> for TracerType {
+	fn from(value: TracerTypeV2) -> Self {
+		match value {
+			TracerTypeV2::CallTracer(config) => Self::CallTracer(config.map(Into::into)),
+			TracerTypeV2::PrestateTracer(config) => Self::PrestateTracer(config.map(Into::into)),
+			TracerTypeV2::ExecutionTracer(config) => Self::ExecutionTracer(config.map(Into::into)),
+		}
+	}
+}
+
 /// The configuration for the call tracer.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CallTracerConfig {
@@ -120,6 +130,9 @@ pub struct ExecutionTracerConfig {
 	/// Whether to disable syscall details capture, including arguments and return value (PVM only)
 	pub disable_syscall_details: bool,
 
+	/// Number of steps to skip before capturing starts.
+	pub step_offset: u64,
+
 	/// Limit number of steps captured
 	pub limit: Option<u64>,
 
@@ -135,6 +148,7 @@ impl Default for ExecutionTracerConfig {
 			disable_storage: false,
 			enable_return_data: false,
 			disable_syscall_details: false,
+			step_offset: 0,
 			limit: None,
 			memory_word_limit: 16,
 		}
@@ -149,6 +163,22 @@ impl From<ExecutionTracerConfigV1> for ExecutionTracerConfig {
 			disable_storage: value.disable_storage,
 			enable_return_data: value.enable_return_data,
 			disable_syscall_details: value.disable_syscall_details,
+			step_offset: 0,
+			limit: value.limit,
+			memory_word_limit: value.memory_word_limit,
+		}
+	}
+}
+
+impl From<ExecutionTracerConfigV2> for ExecutionTracerConfig {
+	fn from(value: ExecutionTracerConfigV2) -> Self {
+		Self {
+			enable_memory: value.enable_memory,
+			disable_stack: value.disable_stack,
+			disable_storage: value.disable_storage,
+			enable_return_data: value.enable_return_data,
+			disable_syscall_details: value.disable_syscall_details,
+			step_offset: value.step_offset,
 			limit: value.limit,
 			memory_word_limit: value.memory_word_limit,
 		}
@@ -363,6 +393,14 @@ pub struct ExecutionStep {
 	/// The kind of execution step (EVM opcode or PVM syscall).
 	pub kind: ExecutionStepKind,
 }
+
+/// What one [`ExecutionStep`] occupies in the runtime, where the `Vec` they are collected into
+/// must stay under `MAX_POSSIBLE_ALLOCATION`. Clients size their trace windows from it, so
+/// growing the struct only means updating this, on the one target that can check it.
+pub const RUNTIME_STEP_BYTES: usize = 112;
+
+#[cfg(target_arch = "wasm32")]
+const _: () = assert!(core::mem::size_of::<ExecutionStep>() == RUNTIME_STEP_BYTES);
 
 impl From<ExecutionStep> for ExecutionStepV1 {
 	fn from(value: ExecutionStep) -> Self {
