@@ -1,4 +1,4 @@
-title: 'statement-store: measure gossip latency between nodes in the zombienet benchmark'
+title: 'statement-store: measure delivery latency between nodes in the zombienet benchmark'
 doc:
 - audience: Node Dev
   description: |-
