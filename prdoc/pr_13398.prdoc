@@ -1,0 +1,10 @@
+title: Bump litep2p to 0.16.0
+doc:
+- audience: Node Dev
+  description: |-
+    Bump litep2p to 0.16.0 (Kademlia client-server mode, local provider record fixes).
+    The litep2p backend handles the new `KademliaEvent::PeersDiscovered` by reporting
+    the peers through `Event::PeerRoutingTableUpdate` as before.
+crates:
+- name: sc-network
+  bump: patch
