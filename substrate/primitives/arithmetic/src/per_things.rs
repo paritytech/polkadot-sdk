@@ -633,7 +633,7 @@ macro_rules! implement_per_thing {
 			fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 				if $max == <$type>::max_value() {
 					// Not a power of ten: show as N/D and approx %
-					let pc = (self.0 as f64) / (self.0 as f64) * 100f64;
+					let pc = (self.0 as f64) / ($max as f64) * 100f64;
 					write!(fmt, "{:.2}% ({}/{})", pc, self.0, $max)
 				} else {
 					// A power of ten: calculate exact percent
