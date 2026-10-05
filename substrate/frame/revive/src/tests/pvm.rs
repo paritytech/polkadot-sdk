@@ -622,7 +622,13 @@ fn transient_storage_limit_in_call() {
 fn deploy_and_call_other_contract() {
 	let (caller_binary, _caller_code_hash) = compile_module("caller_contract").unwrap();
 	let (callee_binary, callee_code_hash) = compile_module("return_with_data").unwrap();
-	let code_load_weight = crate::vm::code_load_weight(callee_binary.len() as u32);
+	let code_load_weight = crate::vm::code_load_weight(
+		callee_binary.len() as u32,
+		crate::vm::BytecodeType::Pvm,
+		crate::access_list::Summarized::all_cold(crate::access_list::CodeLoadItems {
+			hash: callee_code_hash,
+		}),
+	);
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
