@@ -73,11 +73,21 @@ impl AssetsCallback<AssetId, AccountId> for AssetsCallbackHandle {
 			Ok(())
 		}
 	}
+
+	fn owner_changed(_id: &AssetId, old: &AccountId, new: &AccountId) -> Result<(), ()> {
+		if Self::should_err() {
+			Err(())
+		} else {
+			storage::set(Self::OWNER_CHANGED.as_bytes(), &(old, new).encode());
+			Ok(())
+		}
+	}
 }
 
 impl AssetsCallbackHandle {
 	pub const CREATED: &'static str = "asset_created";
 	pub const DESTROYED: &'static str = "asset_destroyed";
+	pub const OWNER_CHANGED: &'static str = "asset_owner_changed";
 
 	const RETURN_ERROR: &'static str = "return_error";
 

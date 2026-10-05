@@ -1119,6 +1119,24 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.collect::<Vec<_>>()
 	}
 
+	/// Set the owner of `id` to `new` and inform [`Config::CallbackHandle`].
+	///
+	/// Every owner write must go through this function, so that a new transfer
+	/// mechanism inherits the callback. Do not assign the `owner` field directly.
+	pub(crate) fn do_update_owner(
+		id: &T::AssetId,
+		current: &mut T::AccountId,
+		new: T::AccountId,
+	) -> DispatchResult {
+		if *current == new {
+			return Ok(());
+		}
+		let old = core::mem::replace(current, new);
+		T::CallbackHandle::owner_changed(id, &old, current)
+			.map_err(|_| Error::<T, I>::CallbackFailed)?;
+		Ok(())
+	}
+
 	/// Reset the team for the asset with the given `id`.
 	///
 	/// ### Parameters
@@ -1135,7 +1153,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		freezer: T::AccountId,
 	) -> DispatchResult {
 		let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		d.owner = owner;
+		Self::do_update_owner(&id, &mut d.owner, owner)?;
 		d.admin = admin;
 		d.issuer = issuer;
 		d.freezer = freezer;
