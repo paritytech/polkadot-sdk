@@ -1,39 +1,94 @@
-title: Fix ETH RPC Log Filtering Logic
+title: Fix ETH RPC log filtering
 doc:
-- audience: Runtime Dev
+- audience: [Node Dev, Node Operator]
   description: |-
-    This PR fixes and consolidates all of the logic we had around log filtering
-    with the introduction of a new `Filter` type.
+    The Ethereum RPC server now uses the same filter types and matching rules
+    for `eth_getLogs` and log subscriptions. RPC consumers should check their
+    block-range defaults and topic filters before upgrading.
 
-    The primary behavioral changes clients can observe now are as follows:
+    Historical log queries
+    ----------------------
+    Missing or `null` block-range bounds now default to `latest`. A filter with
+    only `toBlock` previously selected `earliest..toBlock`; it now selects
+    `latest..toBlock`. On a chain past block 16, `{"toBlock":"0x10"}` fails
+    with "Failed to filter logs: invalid block range params". To retain the
+    historical query, specify the lower bound:
 
-    - Log subscriptions now accept block filtering options
-      - Block ranges are both inclusive.
-      - Block ranges are validated and an error is returned if they're invalid.
-      - Block ranges don't fetch logs from past blocks.
-      - Block hashes are not permitted for the block options and return an error
-        for invalid arguments.
-      - The `safe`, `finalized`, and `pending` tags are invalid options for
-        subscriptions but permitted for `eth_getLogs`.
-    - In block options, missing or `null` block range bounds now default to
-      the `latest` tag.
-    - On topic filtering:
-      - We now preserve wildcard positions at the end of the filter.
-      - A wildcard topic filter means "a topic must be present at this position
-        but it can be anything".
-    - Missing, `null`, or empty address and topic filters are treated as
-      wildcards. Filters accept up to 1,000 distinct addresses, four topic
-      positions, and 1,000 distinct topic alternatives per position.
-    - `eth_getLogs` now returns an error for an unknown `blockHash` instead of
-      returning `[]`. The `pending` tag is also rejected.
-      A block hash cannot be combined with a non-null `fromBlock` or `toBlock`,
-      and malformed block hashes are rejected instead of falling back to a
-      range filter.
-    - `eth_getLogs` results are now ordered by block number and log index before
-      the existing result limit is applied.
-    - The `data` field is now always included in log responses. Logs with no
-      data return `"0x"`, including older database entries where the data was
-      stored as `NULL`.
+    ```json
+    {"fromBlock":"earliest","toBlock":"0x10"}
+    ```
+
+    Both range endpoints are inclusive. `safe` and `finalized` are supported
+    by `eth_getLogs`. `pending` is rejected in either bound with "Failed to
+    filter logs: pending logs are not supported". Reversed ranges and ranges
+    extending beyond the latest block are rejected.
+
+    An unknown `blockHash` now returns "Failed to filter logs: unknown block"
+    instead of `[]`. A block hash cannot be combined with a non-null
+    `fromBlock` or `toBlock`. Malformed block hashes are rejected instead of
+    falling back to a range filter.
+
+    Results are ordered by block number and log index before the existing
+    result limit is applied. Database and upstream failures return a generic
+    "Failed to filter logs" response; their details remain in the server logs.
+
+    Log subscriptions and response data
+    -----------------------------------
+    Log subscriptions now apply inclusive block ranges to future notifications.
+    They do not fetch historical logs. Subscriptions reject `blockHash` and the
+    `safe`, `finalized`, and `pending` tags with an invalid-params error.
+    Rejecting `blockHash` deliberately differs from geth, which accepts the
+    parameter and ignores its hash. Use `eth_getLogs` for a specific block hash.
+
+    Trailing wildcard topic positions are preserved. Every specified position
+    requires the log to have a topic at that index, even if its filter is a
+    wildcard. Missing, `null`, or empty address and topic filters are wildcards.
+    A `null` topic alternative makes its entire position a wildcard. Filters
+    accept up to 1,000 distinct addresses, four topic positions, and 1,000
+    distinct topic alternatives per position.
+
+    The `data` field is always present in log responses. Empty data is `"0x"`,
+    including older database entries whose data was stored as `NULL`.
+
+    Rust library migration
+    ----------------------
+    `pallet-revive-eth-rpc` has a major version bump. Its exported `Filter` and
+    `FilterBlockOption` are now crate-owned types instead of Alloy re-exports.
+    Update imports and construct filters through their public fields or JSON
+    deserialization. The builder methods are only available in the crate's tests.
+    Replace `Filter::new().from_block(0u64).to_block(16u64)` with:
+
+    ```rust
+    use pallet_revive_eth_rpc::{BlockNumberOrTag, Filter, FilterBlockOption};
+
+    let filter = Filter {
+        block_option: FilterBlockOption::Range {
+            from_block: BlockNumberOrTag::Number(0),
+            to_block: BlockNumberOrTag::Number(16),
+        },
+        ..Filter::default()
+    };
+    ```
+
+    `Log.data` is `Bytes` instead of `Option<Bytes>`. Remove `Some` and `None`
+    handling and use empty bytes for logs without a payload.
+
+    `LogsSubscriptionFilter` and `BoundedOneOrMany` are removed. Use `Filter`
+    for subscriptions and its bounded `addresses` and `topics` fields. Convert
+    address and topic sets with `try_into()` and handle limit errors, or
+    deserialize the JSON filter into `Filter`.
+
+    `SubscriptionOptions::LogsOptions { address, topics }` is now
+    `SubscriptionOptions::LogsOptions(filter)`. `SubscriptionParameters::Logs`
+    now contains a `Filter` instead of a `LogsSubscriptionFilter`.
+
+    `ClientError::LogFilterFailed` no longer implements conversion from
+    `anyhow::Error`. Construct that variant explicitly when propagating a log
+    query error. Filter validation errors have typed `FilterError` variants so
+    their messages can be exposed without disclosing backend error details.
+
+    No database migration or coordinated runtime upgrade is required. Existing
+    database entries remain readable.
 
 crates:
 - name: pallet-revive-eth-rpc

@@ -154,6 +154,8 @@ pub enum FilterBlockOption {
 impl FilterBlockOption {
 	pub fn is_valid_for_subscription(&self) -> bool {
 		match self {
+			// Geth accepts and ignores blockHash in log subscriptions. We reject it so clients
+			// do not receive future logs when they asked for a specific block.
 			Self::AtBlock { .. } => false,
 			Self::Range {
 				from_block: BlockNumberOrTag::Latest,
@@ -294,6 +296,14 @@ pub enum FilterError {
 	ExceedMaxAddresses,
 	#[error("exceed max topics")]
 	ExceedMaxTopics,
+	#[error("unknown block")]
+	UnknownBlock,
+	#[error("pending logs are not supported")]
+	PendingLogsUnsupported,
+	#[error("invalid block range params")]
+	InvalidBlockRange,
+	#[error("block range extends into the future")]
+	BlockRangeFuture,
 }
 
 #[cfg(test)]
@@ -307,7 +317,7 @@ mod tests {
 		// Arrange
 		let range = |from_block, to_block| FilterBlockOption::Range { from_block, to_block };
 		let cases = [
-			(FilterBlockOption::AtBlock { block_hash: H256::repeat_byte(1) }, true),
+			(FilterBlockOption::AtBlock { block_hash: H256::repeat_byte(1) }, false),
 			(range(Latest, Latest), true),
 			(range(Earliest, Latest), true),
 			(range(Number(10), Latest), true),
@@ -369,8 +379,8 @@ mod tests {
 			(range(Earliest, Latest), u64::MAX, Open),
 			(range(Latest, Latest), 0, Open),
 			(range(Latest, Latest), u64::MAX, Open),
-			(at_block, 0, Open),
-			(at_block, u64::MAX, Open),
+			(at_block, 0, Closed),
+			(at_block, u64::MAX, Closed),
 		];
 
 		// Act
@@ -527,7 +537,7 @@ mod tests {
 	}
 
 	#[test]
-	fn trailing_empty_array_position_requires_the_log_to_have_a_third_topic() {
+	fn trailing_wildcard_requires_a_topic_at_that_position() {
 		// Arrange
 		let event_signature = H256::repeat_byte(0xab);
 		let second_topic = H256::repeat_byte(0xcd);

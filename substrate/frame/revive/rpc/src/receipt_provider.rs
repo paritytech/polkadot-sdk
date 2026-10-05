@@ -16,8 +16,8 @@
 // limitations under the License.
 use crate::{
 	Address, BlockInfoProvider, BlockNumberOrTag, Bytes, ChainMetadata, ClientError, Filter,
-	FilterBlockOption, Log, ReceiptExtractor, ReceiptInfo, SubxtBlockInfoProvider, SyncLabel,
-	SyncStateKey,
+	FilterBlockOption, FilterError, Log, ReceiptExtractor, ReceiptInfo, SubxtBlockInfoProvider,
+	SyncLabel, SyncStateKey,
 	block_sync::SyncCheckpoint,
 	client::{SubstrateBlock, SubstrateBlockNumber},
 };
@@ -163,7 +163,8 @@ macro_rules! upsert_sync_label {
 			ON CONFLICT(label) DO UPDATE
 				SET block_number = excluded.block_number, block_hash = excluded.block_hash
 			WHERE sync_state.block_number " +
-				$op + " excluded.block_number
+				$op +
+				" excluded.block_number
 			",
 			label_str,
 			block_number,
@@ -733,7 +734,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		match filter.block_option {
 			FilterBlockOption::AtBlock { block_hash } => {
 				if self.get_substrate_hash(&block_hash).await.is_none() {
-					anyhow::bail!("unknown block");
+					anyhow::bail!(FilterError::UnknownBlock);
 				}
 				qb.push(" AND block_hash = ").push_bind(block_hash.as_bytes().to_vec());
 			},
@@ -741,7 +742,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				if matches!(from_block, BlockNumberOrTag::Pending) ||
 					matches!(to_block, BlockNumberOrTag::Pending)
 				{
-					anyhow::bail!("pending logs are not supported");
+					anyhow::bail!(FilterError::PendingLogsUnsupported);
 				}
 
 				let from_block = resolve_block_number(from_block).await?;
@@ -752,10 +753,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				let latest_block = U256::from(self.block_provider.latest_block_number().await);
 
 				if from_block > to_block {
-					anyhow::bail!("invalid block range params");
+					anyhow::bail!(FilterError::InvalidBlockRange);
 				}
 				if to_block > latest_block {
-					anyhow::bail!("block range extends into the future");
+					anyhow::bail!(FilterError::BlockRangeFuture);
 				}
 
 				qb.push(" AND block_number BETWEEN ")

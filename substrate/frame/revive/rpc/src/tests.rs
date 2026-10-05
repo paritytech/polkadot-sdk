@@ -1896,8 +1896,7 @@ async fn test_subscribe_logs_no_event_transaction_ignored() -> anyhow::Result<()
 	Ok(())
 }
 
-/// Verify that calling `eth_subscribe("newHeads")` with `LogsOptions`
-/// returns an error, since `newHeads` does not accept filter options.
+/// Reject filter options on header subscriptions and block hashes on log subscriptions.
 async fn test_subscribe_with_invalid_params_rejected() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -1914,6 +1913,15 @@ async fn test_subscribe_with_invalid_params_rejected() -> anyhow::Result<()> {
 
 	// Assert
 	assert!(result.is_err(), "newHeads with LogsOptions should be rejected");
+
+	let options =
+		SubscriptionOptions::LogsOptions(Filter::new().at_block_hash(H256::repeat_byte(1)));
+	let result = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await;
+	let Err(ClientError::Call(error)) = result else {
+		panic!("Expected an invalid-params rejection for blockHash log subscriptions");
+	};
+	assert_eq!(error.code(), jsonrpsee::types::error::INVALID_PARAMS_CODE);
+	assert_eq!(error.message(), "Invalid subscription parameters");
 
 	Ok(())
 }
