@@ -15,10 +15,14 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Version 3 of the Cross-Consensus Message format data structures.
+//!
+//! WARNING: DEPRECATED, please use version 4 or 5.
 
 use super::v4::{
-	Instruction as NewInstruction, PalletInfo as NewPalletInfo,
-	QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
+	Instruction as NewInstruction, MaybeErrorCode as NewMaybeErrorCode,
+	OriginKind as NewOriginKind, PalletInfo as NewPalletInfo,
+	QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse,
+	WeightLimit as NewWeightLimit, Xcm as NewXcm,
 };
 use crate::{utils::decode_xcm_instructions, DoubleEncoded};
 use alloc::{vec, vec::Vec};
@@ -57,6 +61,7 @@ pub const VERSION: super::Version = 3;
 /// An identifier for a query.
 pub type QueryId = u64;
 
+/// DEPRECATED. Please use XCMv4 or XCMv5 instead.
 #[derive(Default, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
@@ -297,6 +302,18 @@ impl Default for MaybeErrorCode {
 	}
 }
 
+impl From<NewMaybeErrorCode> for MaybeErrorCode {
+	fn from(new: NewMaybeErrorCode) -> Self {
+		match new {
+			NewMaybeErrorCode::Success => MaybeErrorCode::Success,
+			NewMaybeErrorCode::Error(error) => error.to_vec().into(),
+			NewMaybeErrorCode::TruncatedError(error) => {
+				MaybeErrorCode::TruncatedError(BoundedVec::truncate_from(error.into_inner()))
+			},
+		}
+	}
+}
+
 /// Response data to a query.
 #[derive(
 	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
@@ -407,6 +424,15 @@ impl From<WeightLimit> for Option<Weight> {
 	}
 }
 
+impl From<NewWeightLimit> for WeightLimit {
+	fn from(new: NewWeightLimit) -> Self {
+		match new {
+			NewWeightLimit::Unlimited => Self::Unlimited,
+			NewWeightLimit::Limited(w) => Self::Limited(w),
+		}
+	}
+}
+
 /// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
@@ -430,6 +456,17 @@ pub enum OriginKind {
 	/// encoded directly in the dispatch origin unchanged. For Cumulus/Frame chains, this will be
 	/// the `pallet_xcm::Origin::Xcm` type.
 	Xcm,
+}
+
+impl From<NewOriginKind> for OriginKind {
+	fn from(new: NewOriginKind) -> Self {
+		match new {
+			NewOriginKind::Native => Self::Native,
+			NewOriginKind::SovereignAccount => Self::SovereignAccount,
+			NewOriginKind::Superuser => Self::Superuser,
+			NewOriginKind::Xcm => Self::Xcm,
+		}
+	}
 }
 
 /// Contextual data pertaining to a specific list of XCM instructions.
@@ -1367,8 +1404,10 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			HrmpChannelClosing { initiator, sender, recipient } => {
 				Self::HrmpChannelClosing { initiator, sender, recipient }
 			},
-			Transact { origin_kind, require_weight_at_most, call } => {
-				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
+			Transact { origin_kind, require_weight_at_most, call } => Self::Transact {
+				origin_kind: origin_kind.into(),
+				require_weight_at_most,
+				call: call.into(),
 			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
@@ -1440,7 +1479,9 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 				Self::ExpectOrigin(maybe_origin.map(|origin| origin.try_into()).transpose()?)
 			},
 			ExpectError(maybe_error) => Self::ExpectError(maybe_error),
-			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
+			ExpectTransactStatus(maybe_error_code) => {
+				Self::ExpectTransactStatus(maybe_error_code.into())
+			},
 			QueryPallet { module_name, response_info } => {
 				Self::QueryPallet { module_name, response_info: response_info.try_into()? }
 			},
@@ -1474,7 +1515,7 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			ClearTopic => Self::ClearTopic,
 			AliasOrigin(location) => Self::AliasOrigin(location.try_into()?),
 			UnpaidExecution { weight_limit, check_origin } => Self::UnpaidExecution {
-				weight_limit,
+				weight_limit: weight_limit.into(),
 				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
 			},
 		})

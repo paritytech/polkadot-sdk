@@ -1,0 +1,29 @@
+title: Deprecates XCM V3
+doc:
+  - audience: Runtime Dev
+    description: |
+      XCMv3 has been deprecated. It will be removed when XCMv6 is released.
+      Use version 4 or 5 instead.
+      Deprecates XCM V3 issue: https://github.com/paritytech/polkadot-sdk/issues/7807
+
+      ## Review Notes
+      - Deprecates XCM V3
+      - Move types from V3 to V4 and write conversions
+      - Move V3 to V4 in tests
+
+  - audience: Runtime User
+    description: |
+      XCMv3 has been deprecated. It will be removed when XCMv6 is released.
+      Use version 4 or 5 instead.
+
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: minor
+- name: pallet-xcm
+  bump: minor
+- name: xcm-procedural
+  bump: minor
+- name: staging-xcm
+  bump: minor
+- name: staging-xcm-builder
+  bump: minor
