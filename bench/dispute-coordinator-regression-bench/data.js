@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791223583933,
+  "lastUpdate": 1791241168389,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marios@parity.io",
-            "name": "Marios",
-            "username": "mchristou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f4a82c9be7127ea4a92802c3033e252f8db287bd",
-          "message": "add scheduling tests for v3 descriptor with v2 collators (#11333)\n\n## Description:\n\n  Zombienet SDK tests (polkadot/zombienet-sdk-tests/tests/scheduling/):\n- v3_dynamic_enablement: relay chain starts with V2, enables V3 on the\nfly mid-session via governance.\nVerifies block production continues and descriptors are correctly\ndetected after the feature flip\n- v3_rolling_upgrade: mixed V2/V3 validator fleet using async backing.\nVerifies the network keeps producing blocks during a rolling upgrade\nwhere only some validators support V3\n\n  Unit tests:\n- paras_inherent/tests.rs: V1 descriptor accepted by V3-capable runtime,\nverifies candidates reach PendingAvailability\n- collator-protocol/validator_side/tests/prospective_parachains.rs: V3\ncapable validator correctly detects and handles a V1 descriptor received\nover the wire\n- configuration/tests.rs: max_relay_parent_session_age returns 0 after\nv13 migration\n- backing/src/tests/mod.rs: V3 capable validator fully backs a V1\ncandidate\n- statement-distribution/src/v2/tests/cluster.rs: V1 backed statement is\ndistributed to a V3-capable cluster peer and accepted via the V3 wire\nprotocol\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>",
-          "timestamp": "2026-03-26T10:25:53Z",
-          "tree_id": "c07180f8fe20dd7fff0cebed220f8b4a3fee4b7c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f4a82c9be7127ea4a92802c3033e252f8db287bd"
-        },
-        "date": 1774525751549,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00264980818,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009675214939999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010033075269999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009440989139999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0cc91a64db63688ad67ddac8fb2a122c213549a1",
+          "message": "backing: reject out-of-bounds core indices (#13385)\n\nReject candidate statements whose resolved core index equals `n_cores`,\nsince valid indices are `0..n_cores-1`. Add regression coverage for the\nzero-rotation path where `core_for_group` returns the caller-supplied\ngroup index.\n\nNo API or storage changes are required.",
+          "timestamp": "2026-10-05T21:12:16Z",
+          "tree_id": "92abd684dc2401d426c1d0d153035b43882aacc3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0cc91a64db63688ad67ddac8fb2a122c213549a1"
+        },
+        "date": 1791241140569,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010370627380000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009415794279999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00251645892,
             "unit": "seconds"
           }
         ]
