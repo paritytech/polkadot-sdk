@@ -1,0 +1,25 @@
+[package]
+name = "pallet-psm-quint-mbt"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+pallet-psm = { path = "..", features = ["fuzzing"] }
+pallet-psm-fuzz = { path = "../fuzz" }
+pallet-assets = { path = "../../assets" }
+pallet-balances = { path = "../../balances" }
+frame-support = { path = "../../support" }
+frame-system = { path = "../../system" }
+sp-runtime = { path = "../../../primitives/runtime" }
+sp-io = { path = "../../../primitives/io" }
+
+quint-connect = "0.1.1"
+itf = "0.4"
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+
+[features]
+inject-debt-understatement-bug = []
