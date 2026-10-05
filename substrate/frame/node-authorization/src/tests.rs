@@ -23,7 +23,7 @@ use frame::testing_prelude::*;
 
 #[test]
 fn add_well_known_node_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			NodeAuthorization::add_well_known_node(RuntimeOrigin::signed(2), test_node(15), 15),
 			BadOrigin
@@ -64,7 +64,7 @@ fn add_well_known_node_works() {
 
 #[test]
 fn remove_well_known_node_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			NodeAuthorization::remove_well_known_node(RuntimeOrigin::signed(3), test_node(20)),
 			BadOrigin
@@ -102,7 +102,7 @@ fn remove_well_known_node_works() {
 
 #[test]
 fn swap_well_known_node_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			NodeAuthorization::swap_well_known_node(
 				RuntimeOrigin::signed(4),
@@ -180,7 +180,7 @@ fn swap_well_known_node_works() {
 
 #[test]
 fn reset_well_known_nodes_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			NodeAuthorization::reset_well_known_nodes(
 				RuntimeOrigin::signed(3),
@@ -217,7 +217,7 @@ fn reset_well_known_nodes_works() {
 
 #[test]
 fn claim_node_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			NodeAuthorization::claim_node(RuntimeOrigin::signed(1), PeerId(vec![1, 2, 3])),
 			Error::<Test>::PeerIdTooLong
@@ -234,7 +234,7 @@ fn claim_node_works() {
 
 #[test]
 fn remove_claim_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			NodeAuthorization::remove_claim(RuntimeOrigin::signed(15), PeerId(vec![1, 2, 3])),
 			Error::<Test>::PeerIdTooLong
@@ -267,7 +267,7 @@ fn remove_claim_works() {
 
 #[test]
 fn transfer_node_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			NodeAuthorization::transfer_node(RuntimeOrigin::signed(15), PeerId(vec![1, 2, 3]), 10),
 			Error::<Test>::PeerIdTooLong
@@ -289,7 +289,7 @@ fn transfer_node_works() {
 
 #[test]
 fn add_connections_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			NodeAuthorization::add_connections(
 				RuntimeOrigin::signed(15),
@@ -330,7 +330,7 @@ fn add_connections_works() {
 
 #[test]
 fn remove_connections_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			NodeAuthorization::remove_connections(
 				RuntimeOrigin::signed(15),
@@ -375,7 +375,7 @@ fn remove_connections_works() {
 
 #[test]
 fn get_authorized_nodes_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		AdditionalConnections::<Test>::insert(
 			test_node(20),
 			BTreeSet::from_iter(vec![test_node(5), test_node(15), test_node(25)]),
