@@ -1,0 +1,14 @@
+title: '[RWF] pallet-alliance: Fix members overlapping'
+doc:
+- audience: Runtime Dev
+  description: "Closes #12188.\n## Summary\n`init_members` allowed the same account\
+    \ to be passed in both the `fellows` and `allies` lists, leaving the Alliance\
+    \ initialized with an account holding both roles simultaneously. This violates\
+    \ the pallet's documented invariant that Fellow and Ally member sets are mutually\
+    \ exclusive (enforced by `try-state` and by the normal `join_alliance`/`nominate_ally`\
+    \ paths via `AlreadyMember`).\n\n## Fix\nAfter sorting both bounded vectors, `init_members`\
+    \ now checks that no account in `allies` is already present in `fellows`, returning\
+    \ `Error::AlreadyMember` if so \u2014 before any storage writes occur."
+crates:
+- name: pallet-alliance
+  bump: major
