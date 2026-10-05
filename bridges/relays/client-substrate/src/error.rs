@@ -90,6 +90,14 @@ pub enum Error {
 		/// Underlying error.
 		error: Box<Error>,
 	},
+	/// The chain does not know which header hash corresponds to the given header number.
+	#[error("Cannot find header hash by number {number} of {chain}.")]
+	UnknownHeaderHashByNumber {
+		/// Name of the chain where the error has happened.
+		chain: String,
+		/// Number of the header we've tried to read.
+		number: String,
+	},
 	/// Failed to read header by hash from given chain.
 	#[error("Failed to read header {hash} of {chain}: {error:?}.")]
 	FailedToReadHeaderByHash {
@@ -294,6 +302,11 @@ impl Error {
 			number: format!("{number}"),
 			error: e.boxed(),
 		}
+	}
+
+	/// Constructs `UnknownHeaderHashByNumber` variant.
+	pub fn unknown_header_hash_by_number<C: Chain>(number: BlockNumberOf<C>) -> Self {
+		Error::UnknownHeaderHashByNumber { chain: C::NAME.into(), number: format!("{number}") }
 	}
 
 	/// Constructs `FailedToReadHeaderByHash` variant.
