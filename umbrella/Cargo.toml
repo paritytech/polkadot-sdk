@@ -314,6 +314,7 @@ runtime-benchmarks = [
 	"pallet-message-queue?/runtime-benchmarks",
 	"pallet-meta-tx?/runtime-benchmarks",
 	"pallet-migrations?/runtime-benchmarks",
+	"pallet-mixnet?/runtime-benchmarks",
 	"pallet-mmr?/runtime-benchmarks",
 	"pallet-multi-asset-bounties?/runtime-benchmarks",
 	"pallet-multisig?/runtime-benchmarks",

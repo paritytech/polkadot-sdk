@@ -23,6 +23,13 @@
 
 extern crate alloc;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+#[cfg(test)]
+mod tests;
+pub mod weights;
+pub use weights::*;
+
 pub use pallet::*;
 
 use alloc::vec::Vec;
@@ -30,7 +37,7 @@ use core::cmp::Ordering;
 use frame::{
 	deps::{
 		sp_io::{self, MultiRemovalResults},
-		sp_runtime,
+		sp_runtime::{self, transaction_validity::TransactionValidityWithRefund},
 	},
 	prelude::*,
 };
@@ -178,8 +185,15 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	/// # Requirements
+	///
+	/// This pallet requires `frame_system::AuthorizeCall` to be included in the runtime's
+	/// transaction extension pipeline.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + CreateBare<Call<Self>> {
+	pub trait Config: frame_system::Config + CreateAuthorizedTransaction<Call<Self>> {
+		/// Weight functions for this pallet.
+		type WeightInfo: WeightInfo;
+
 		/// The maximum number of authorities per session.
 		#[pallet::constant]
 		type MaxAuthorities: Get<AuthorityIndex>;
@@ -221,7 +235,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type NumRegisterEndSlackBlocks: Get<BlockNumberFor<Self>>;
 
-		/// Priority of unsigned transactions used to register mixnodes.
+		/// Priority of authorized transactions used to register mixnodes.
 		#[pallet::constant]
 		type RegistrationPriority: Get<TransactionPriority>;
 
@@ -280,58 +294,32 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Register a mixnode for the following session.
 		#[pallet::call_index(0)]
-		#[pallet::weight(1)] // TODO
-		pub fn register(
-			origin: OriginFor<T>,
-			registration: RegistrationFor<T>,
-			_signature: AuthoritySignature,
-		) -> DispatchResult {
-			ensure_none(origin)?;
-
-			// Checked by ValidateUnsigned
-			debug_assert_eq!(registration.session_index, CurrentSessionIndex::<T>::get());
-			debug_assert!(registration.authority_index < T::MaxAuthorities::get());
-
-			Mixnodes::<T>::insert(
-				// Registering for the _following_ session
-				registration.session_index + 1,
-				registration.authority_index,
-				registration.mixnode,
-			);
-
-			Ok(())
-		}
-	}
-
-	#[allow(deprecated)]
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			let Self::Call::register { registration, signature } = call else {
-				return InvalidTransaction::Call.into();
-			};
-
+		#[pallet::weight(T::WeightInfo::register())]
+		#[pallet::weight_of_authorize(T::WeightInfo::authorize_register())]
+		#[pallet::authorize(|
+			_source: TransactionSource,
+			registration: &RegistrationFor<T>,
+			signature: &AuthoritySignature,
+		| -> TransactionValidityWithRefund {
 			// Check session index matches
 			match registration.session_index.cmp(&CurrentSessionIndex::<T>::get()) {
-				Ordering::Greater => return InvalidTransaction::Future.into(),
-				Ordering::Less => return InvalidTransaction::Stale.into(),
+				Ordering::Greater => return Err(InvalidTransaction::Future.into()),
+				Ordering::Less => return Err(InvalidTransaction::Stale.into()),
 				Ordering::Equal => (),
 			}
 
 			// Check authority index is valid
 			if registration.authority_index >= T::MaxAuthorities::get() {
-				return InvalidTransaction::BadProof.into();
+				return Err(InvalidTransaction::BadProof.into());
 			}
 			let Some(authority_id) = NextAuthorityIds::<T>::get(registration.authority_index)
 			else {
-				return InvalidTransaction::BadProof.into();
+				return Err(InvalidTransaction::BadProof.into());
 			};
 
 			// Check the authority hasn't registered a mixnode yet
-			if Self::already_registered(registration.session_index, registration.authority_index) {
-				return InvalidTransaction::Stale.into();
+			if Pallet::<T>::already_registered(registration.session_index, registration.authority_index) {
+				return Err(InvalidTransaction::Stale.into());
 			}
 
 			// Check signature. Note that we don't use regular signed transactions for registration
@@ -341,7 +329,7 @@ pub mod pallet {
 				authority_id.verify(&encoded_registration, signature)
 			});
 			if !signature_ok {
-				return InvalidTransaction::BadProof.into();
+				return Err(InvalidTransaction::BadProof.into());
 			}
 
 			ValidTransaction::with_tag_prefix("MixnetRegistration")
@@ -359,6 +347,27 @@ pub mod pallet {
 						.unwrap_or(64_u64),
 				)
 				.build()
+				.map(|v| (v, /* no refund */ Weight::zero()))
+		})]
+		pub fn register(
+			origin: OriginFor<T>,
+			registration: RegistrationFor<T>,
+			_signature: AuthoritySignature,
+		) -> DispatchResult {
+			ensure_authorized(origin)?;
+
+			// Checked by authorize
+			debug_assert_eq!(registration.session_index, CurrentSessionIndex::<T>::get());
+			debug_assert!(registration.authority_index < T::MaxAuthorities::get());
+
+			Mixnodes::<T>::insert(
+				// Registering for the _following_ session
+				registration.session_index + 1,
+				registration.authority_index,
+				registration.mixnode,
+			);
+
+			Ok(())
 		}
 	}
 }
@@ -533,7 +542,7 @@ impl<T: Config> Pallet<T> {
 			return false;
 		};
 		let call = Call::register { registration, signature };
-		let xt = T::create_bare(call.into());
+		let xt = T::create_authorized_transaction(call.into());
 		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(()) => true,
 			Err(()) => {
