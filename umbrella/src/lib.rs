@@ -644,6 +644,14 @@ pub use pallet_pgas_allowance;
 #[cfg(feature = "pallet-preimage")]
 pub use pallet_preimage;
 
+/// FRAME pallet aggregating signed price reports of oracle nodes into on-chain prices.
+#[cfg(feature = "pallet-price-oracle")]
+pub use pallet_price_oracle;
+
+/// Market definitions of well-known exchanges for pallet-price-oracle.
+#[cfg(feature = "pallet-price-oracle-venues")]
+pub use pallet_price_oracle_venues;
+
 /// FRAME proxying pallet.
 #[cfg(feature = "pallet-proxy")]
 pub use pallet_proxy;
@@ -1216,6 +1224,10 @@ pub use sc_network_types;
 #[cfg(feature = "sc-offchain")]
 pub use sc_offchain;
 
+/// Price oracle node service: fetches, signs, gossips and provides price reports.
+#[cfg(feature = "sc-price-oracle")]
+pub use sc_price_oracle;
+
 /// Basic metrics for block production.
 #[cfg(feature = "sc-proposer-metrics")]
 pub use sc_proposer_metrics;
@@ -1449,6 +1461,10 @@ pub use sp_offchain;
 /// Custom panic hook with bug report link.
 #[cfg(feature = "sp-panic-handler")]
 pub use sp_panic_handler;
+
+/// Substrate primitives for the price oracle: report types, inherent and runtime APIs.
+#[cfg(feature = "sp-price-oracle")]
+pub use sp_price_oracle;
 
 /// Substrate RPC primitives and utilities.
 #[cfg(feature = "sp-rpc")]

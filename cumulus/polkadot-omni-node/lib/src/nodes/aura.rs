@@ -18,6 +18,7 @@ use crate::{
 	cli::{AuthoringPolicy, DevSealMode},
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
+		price_oracle::{PriceOracle, PriceOracleNetwork, PriceOracleRuntimeApi},
 		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
 		spec::{
 			BaseNodeSpec, BuildImportQueue, ClientBlockImport, DynNodeSpec, InitBlockImport,
@@ -158,6 +159,7 @@ where
 /// Uses the lookahead collator to support async backing.
 ///
 /// Start an aura powered parachain node. Some system chains use this.
+
 pub(crate) struct AuraNode<Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport>(
 	pub PhantomData<(Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport)>,
 );
@@ -226,6 +228,7 @@ where
 			ref storage_monitor,
 			ref hop,
 			collator_reserved_slots: _,
+			price_oracle,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).
@@ -240,6 +243,9 @@ where
 		}
 		if max_pov_percentage.is_some() {
 			log::warn!("`--max-pov-percentage` has no effect in dev mode (no PoVs are produced).");
+		}
+		if price_oracle {
+			log::warn!("`--enable-price-oracle` has no effect in dev mode.");
 		}
 
 		let PartialComponents {
@@ -590,6 +596,7 @@ where
 	Block: NodeBlock,
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
+		+ PriceOracleRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
 		+ TargetBlockRate<Block>
@@ -688,7 +695,9 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	> for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + TargetBlockRate<Block>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
+		+ PriceOracleRuntimeApi<Block, AuraId>
+		+ TargetBlockRate<Block>,
 	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
@@ -720,6 +729,7 @@ where
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
+		price_oracle: Option<PriceOracleNetwork<Block>>,
 		block_import_handle: SlotBasedBlockImportHandle<Block>,
 	) -> Result<(), Error> {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
@@ -732,27 +742,35 @@ where
 
 		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
+		let oracle = PriceOracle::<AuraId>::start(
+			price_oracle,
+			client.clone(),
+			keystore.clone(),
+			task_manager,
+		);
+
 		let client_for_aura = client.clone();
 		let client_clone = client.clone();
 		let params = SlotBasedParams {
 			create_inherent_data_providers: move |parent, ()| {
 				let client_clone = client_clone.clone();
+				let oracle = oracle.clone();
 				async move {
 					let has_tx_storage_api = client_clone
 						.runtime_api()
 						.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent, |v| v >= 1)
 						.unwrap_or(false);
-					if has_tx_storage_api {
-						let storage_proof =
-							sp_transaction_storage_proof::registration::new_data_provider(
-								&*client_clone,
-								&parent,
-								client_clone.runtime_api().retention_period(parent)?,
-							)?;
-						Ok(vec![storage_proof])
+					let storage_proof = if has_tx_storage_api {
+						vec![sp_transaction_storage_proof::registration::new_data_provider(
+							&*client_clone,
+							&parent,
+							client_clone.runtime_api().retention_period(parent)?,
+						)?]
 					} else {
-						Ok(vec![])
-					}
+						vec![]
+					};
+					let oracle = oracle.inherent_data_provider(&*client_clone, parent);
+					Ok((storage_proof, oracle))
 				}
 			},
 			block_import,
@@ -889,6 +907,7 @@ where
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
+		_price_oracle: Option<PriceOracleNetwork<Block>>,
 		_: (),
 	) -> Result<(), Error> {
 		let proposer = sc_basic_authorship::ProposerFactory::new(

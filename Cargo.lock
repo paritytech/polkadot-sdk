@@ -1943,6 +1943,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-pgas-allowance",
  "pallet-preimage",
+ "pallet-price-oracle",
  "pallet-proxy",
  "pallet-psm",
  "pallet-recovery",
@@ -1999,6 +2000,7 @@ dependencies = [
  "sp-keyring",
  "sp-npos-elections",
  "sp-offchain",
+ "sp-price-oracle",
  "sp-runtime 31.0.1",
  "sp-session",
  "sp-staking",
@@ -14261,6 +14263,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-price-oracle"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "serde_json",
+ "sp-inherents 26.0.0",
+ "sp-price-oracle",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
+name = "pallet-price-oracle-venues"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "pallet-price-oracle",
+ "sc-price-oracle",
+ "sp-price-oracle",
+ "sp-runtime 31.0.1",
+ "tokio",
+]
+
+[[package]]
 name = "pallet-proxy"
 version = "28.0.0"
 dependencies = [
@@ -17345,6 +17376,7 @@ dependencies = [
  "sc-network-statement",
  "sc-network-sync",
  "sc-offchain",
+ "sc-price-oracle",
  "sc-rpc",
  "sc-rpc-spec-v2",
  "sc-runtime-utilities",
@@ -17372,6 +17404,7 @@ dependencies = [
  "sp-inherents 26.0.0",
  "sp-keystore 0.34.0",
  "sp-offchain",
+ "sp-price-oracle",
  "sp-runtime 31.0.1",
  "sp-session",
  "sp-statement-store",
@@ -17826,6 +17859,8 @@ dependencies = [
  "pallet-people",
  "pallet-pgas-allowance",
  "pallet-preimage",
+ "pallet-price-oracle",
+ "pallet-price-oracle-venues",
  "pallet-proxy",
  "pallet-psm",
  "pallet-ranked-collective",
@@ -17964,6 +17999,7 @@ dependencies = [
  "sc-network-transactions",
  "sc-network-types 0.10.0",
  "sc-offchain",
+ "sc-price-oracle",
  "sc-proposer-metrics",
  "sc-rpc",
  "sc-rpc-api",
@@ -18022,6 +18058,7 @@ dependencies = [
  "sp-npos-elections",
  "sp-offchain",
  "sp-panic-handler 13.0.0",
+ "sp-price-oracle",
  "sp-rpc",
  "sp-runtime 31.0.1",
  "sp-runtime-interface 24.0.0",
@@ -22403,6 +22440,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-price-oracle"
+version = "0.1.0"
+dependencies = [
+ "array-bytes 6.2.2",
+ "bytes",
+ "futures",
+ "http-body-util",
+ "hyper 1.6.0",
+ "hyper-rustls 0.27.3",
+ "hyper-util",
+ "log",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "rustls 0.23.31",
+ "sc-keystore",
+ "sc-network 0.34.0",
+ "sc-network-gossip",
+ "sc-network-types 0.10.0",
+ "sp-api 26.0.0",
+ "sp-application-crypto 30.0.0",
+ "sp-blockchain 28.0.0",
+ "sp-consensus 0.32.0",
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
+ "sp-price-oracle",
+ "sp-runtime 31.0.1",
+ "substrate-prometheus-endpoint 0.17.0",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "sc-proposer-metrics"
 version = "0.17.0"
 dependencies = [
@@ -25814,6 +25884,21 @@ checksum = "c8b52e69a577cbfdea62bfaf16f59eb884422ce98f78b5cd8d9bf668776bced1"
 dependencies = [
  "backtrace",
  "regex",
+]
+
+[[package]]
+name = "sp-price-oracle"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api 26.0.0",
+ "sp-arithmetic 23.0.0",
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-inherents 26.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]

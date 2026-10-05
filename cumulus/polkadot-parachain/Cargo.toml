@@ -35,6 +35,7 @@ parachains-common = { workspace = true, default-features = true }
 penpal-runtime = { workspace = true }
 people-westend-runtime = { workspace = true }
 polkadot-omni-node-lib = { features = [
+	"price-oracle",
 	"rococo-native",
 	"westend-native",
 ], workspace = true }

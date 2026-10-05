@@ -16,9 +16,10 @@
 
 use crate::{
 	chain_spec::Extensions,
-	cli::DevSealMode,
+	cli::{AuthoringPolicy, DevSealMode},
 	common::{
 		command::NodeCommandRunner,
+		price_oracle::PriceOracleNetwork,
 		rpc::BuildRpcExtensions,
 		statement_store::{build_statement_store, new_statement_handler_proto},
 		types::{
@@ -112,6 +113,7 @@ where
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
+		price_oracle: Option<PriceOracleNetwork<Block>>,
 		block_import_extra_return_value: BIAuxiliaryData,
 	) -> Result<(), sc_service::Error>;
 }
@@ -441,6 +443,28 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					(proto, config)
 				});
 
+			let slot_based = node_extra_args.authoring_policy == AuthoringPolicy::SlotBased;
+			if node_extra_args.price_oracle && !validator {
+				log::warn!(
+					"`--enable-price-oracle` has no effect on a node that is not a collator."
+				);
+			} else if node_extra_args.price_oracle && !slot_based {
+				log::warn!("`--enable-price-oracle` requires `--authoring slot-based`.");
+			}
+			#[cfg(feature = "price-oracle")]
+			let price_oracle_protocol =
+				(node_extra_args.price_oracle && validator && slot_based).then(|| {
+					let (config, notification_service, protocol_name) =
+						sc_price_oracle::peers_set_config::<Self::Block, Net>(
+							client.chain_info().genesis_hash,
+							parachain_config.chain_spec.fork_id(),
+							metrics.clone(),
+							Arc::clone(&net_config.peer_store_handle()),
+						);
+					net_config.add_notification_protocol(config);
+					(notification_service, protocol_name)
+				});
+
 			let (network, system_rpc_tx, tx_handler_controller, sync_service, bitswap_handle) =
 				build_network(BuildNetworkParams {
 					parachain_config: &parachain_config,
@@ -463,6 +487,19 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			if let Some(handle) = bitswap_handle {
 				let _ = bitswap_slot.set(Arc::new(handle));
 			}
+
+			#[cfg(feature = "price-oracle")]
+			let price_oracle = price_oracle_protocol.map(|(notification_service, protocol_name)| {
+				PriceOracleNetwork {
+					notification_service,
+					protocol_name,
+					network: network.clone(),
+					sync_service: sync_service.clone(),
+					prometheus_registry: prometheus_registry.clone(),
+				}
+			});
+			#[cfg(not(feature = "price-oracle"))]
+			let price_oracle: Option<PriceOracleNetwork<Self::Block>> = None;
 
 			let peer_id = relay_chain_network.local_peer_id();
 
@@ -691,6 +728,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					announce_block,
 					backend.clone(),
 					node_extra_args,
+					price_oracle,
 					block_import_auxiliary_data,
 				)?;
 			}
