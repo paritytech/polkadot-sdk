@@ -62,32 +62,6 @@ impl Default for BlockLength {
 }
 
 impl BlockLength {
-	/// Create new `BlockLength` with `max` for every class.
-	#[deprecated(
-		note = "Use `BlockLength::builder().max(value).build()` instead. Will be removed after July 2026."
-	)]
-	pub fn max(max: u32) -> Self {
-		Self { max: PerDispatchClass::new(|_| max), max_header_size: None }
-	}
-
-	/// Create new `BlockLength` with `max` for `Operational` & `Mandatory`
-	/// and `normal * max` for `Normal`.
-	#[deprecated(
-		note = "Use `BlockLength::builder().normal_ratio(value, ratio).build()` instead. Will be removed after July 2026."
-	)]
-	pub fn max_with_normal_ratio(max: u32, normal: Perbill) -> Self {
-		Self {
-			max: PerDispatchClass::new(|class| {
-				if class == DispatchClass::Normal {
-					normal * max
-				} else {
-					max
-				}
-			}),
-			max_header_size: None,
-		}
-	}
-
 	/// Returns a builder to build a [`BlockLength`].
 	pub fn builder() -> BlockLengthBuilder {
 		BlockLengthBuilder { length: Default::default() }
@@ -115,6 +89,14 @@ impl BlockLengthBuilder {
 	/// Set max block length for all classes.
 	pub fn max_length(mut self, max: u32) -> Self {
 		self.length.max = PerDispatchClass::new(|_| max);
+		self
+	}
+
+	/// Set `max` for `Operational` and `Mandatory`, and `ratio * max` for `Normal`.
+	pub fn normal_ratio(mut self, max: u32, ratio: Perbill) -> Self {
+		self.length.max = PerDispatchClass::new(|class| {
+			if class == DispatchClass::Normal { ratio * max } else { max }
+		});
 		self
 	}
 
@@ -515,5 +497,14 @@ mod tests {
 	#[test]
 	fn default_weights_are_valid() {
 		BlockWeights::default().validate().unwrap();
+	}
+
+	#[test]
+	fn normal_ratio_limits_the_normal_class() {
+		let length = BlockLength::builder().normal_ratio(1_000, Perbill::from_percent(75)).build();
+		assert_eq!(*length.max.get(DispatchClass::Normal), 750);
+		assert_eq!(*length.max.get(DispatchClass::Operational), 1_000);
+		assert_eq!(*length.max.get(DispatchClass::Mandatory), 1_000);
+		assert!(length.max_header_size.is_none());
 	}
 }
