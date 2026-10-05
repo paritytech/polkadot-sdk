@@ -273,6 +273,9 @@ pub enum FailureReason {
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
+	/// The relay chain will not drop this para: it is not an on-demand parathread.
+	#[codec(index = 4)]
+	NotDeregisterable,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.
