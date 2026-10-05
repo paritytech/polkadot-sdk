@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791191280522,
+  "lastUpdate": 1791198456504,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marios@parity.io",
-            "name": "Marios",
-            "username": "mchristou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f4a82c9be7127ea4a92802c3033e252f8db287bd",
-          "message": "add scheduling tests for v3 descriptor with v2 collators (#11333)\n\n## Description:\n\n  Zombienet SDK tests (polkadot/zombienet-sdk-tests/tests/scheduling/):\n- v3_dynamic_enablement: relay chain starts with V2, enables V3 on the\nfly mid-session via governance.\nVerifies block production continues and descriptors are correctly\ndetected after the feature flip\n- v3_rolling_upgrade: mixed V2/V3 validator fleet using async backing.\nVerifies the network keeps producing blocks during a rolling upgrade\nwhere only some validators support V3\n\n  Unit tests:\n- paras_inherent/tests.rs: V1 descriptor accepted by V3-capable runtime,\nverifies candidates reach PendingAvailability\n- collator-protocol/validator_side/tests/prospective_parachains.rs: V3\ncapable validator correctly detects and handles a V1 descriptor received\nover the wire\n- configuration/tests.rs: max_relay_parent_session_age returns 0 after\nv13 migration\n- backing/src/tests/mod.rs: V3 capable validator fully backs a V1\ncandidate\n- statement-distribution/src/v2/tests/cluster.rs: V1 backed statement is\ndistributed to a V3-capable cluster peer and accepted via the V3 wire\nprotocol\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>",
-          "timestamp": "2026-03-26T10:25:53Z",
-          "tree_id": "c07180f8fe20dd7fff0cebed220f8b4a3fee4b7c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f4a82c9be7127ea4a92802c3033e252f8db287bd"
-        },
-        "date": 1774525692219,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63629.35,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52937.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005186181730000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002022171,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.296036058899933,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8191263819200008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.402864867089991,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7463943798999374,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.508858404832921,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.820736322779999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002022171,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7486380232400007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000326547,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.753089902240002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000326547,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.000018472179999999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b64d01cf595d5bae0b6aa6fcee0b099ff81bac09",
+          "message": "pallet-bridge-parachains: preserve re-imported parachain heads (#13408)\n\nRe-importing a previously stored parachain head when the ring buffer\nwraps can prune the same hash immediately after inserting it, leaving\nthe best-head pointer without corresponding head data.\n\nThis patch skips self-pruning for that case, reports pruning only when\nan older hash is actually removed, and adds regression coverage for the\nwraparound sequence.\n\nNo API or storage migration is required.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-05T09:35:59Z",
+          "tree_id": "933fdff59bb60a310daf14b06864e94e4cafdeca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b64d01cf595d5bae0b6aa6fcee0b099ff81bac09"
+        },
+        "date": 1791198424598,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63568.69,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52945,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001748189,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001891846,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001891846,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7782082784999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.81520604413,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.370244190380009,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.818873234409999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.32373840617998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.407308083772611,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005301808319999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7604995017999723,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7754053486400005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001748189,
             "unit": "seconds"
           }
         ]
