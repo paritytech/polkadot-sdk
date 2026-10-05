@@ -1,0 +1,18 @@
+title: 'Fix `paras_inherent::enter_backed_candidate_code_upgrade` benchmark for small block lengths'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The `enter_backed_candidate_code_upgrade` benchmark built a candidate carrying a code upgrade
+    of `max_code_size` bytes. The paras inherent caps its proof size at the maximum block length
+    and the proof size of a backed candidate is its encoded size, so such a candidate does not fit
+    into the block on runtimes whose block length leaves no room for the rest of the candidate,
+    for example when `max_code_size` equals `MAX_CODE_SIZE` (5 MiB) and the block length is 5 MiB
+    as well. The candidate was then dropped by `apply_weight_limit` and the benchmark failed with
+    `InherentDataFilteredDuringExecution`.
+
+    The benchmark now caps the code upgrade at the largest one that can actually be included in a
+    block and asserts that the candidate fits, so the failure mode is a clear assertion instead of
+    a filtered inherent.
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
