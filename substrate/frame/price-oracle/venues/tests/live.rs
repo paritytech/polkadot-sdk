@@ -23,8 +23,9 @@
 
 use futures::{channel::mpsc, StreamExt};
 use pallet_price_oracle::{
+	order_book::{HealthLimits, OrderBookParams, OrderBookPricing},
 	parse_market,
-	pricing::{self, parse_decimal, PairSettings},
+	pricing::{self, parse_decimal},
 	registry::StoredMarket,
 };
 use pallet_price_oracle_venues as venues;
@@ -48,33 +49,32 @@ fn p(s: &str) -> Price {
 	parse_decimal(s).unwrap()
 }
 
-fn settings() -> PairSettings {
-	PairSettings {
+fn limits() -> HealthLimits {
+	HealthLimits {
 		max_spread: Permill::from_percent(1),
 		max_trade_age_ms: 5 * 60 * 1_000,
 		impact_size: p("10000"),
-		quorum: 1,
 	}
 }
 
 /// One market per constructor in [`pallet_price_oracle_venues`].
-fn markets() -> Vec<(&'static str, StoredMarket)> {
+fn markets() -> Vec<(&'static str, StoredMarket<OrderBookParams>)> {
 	[
-		("binance_spot", venues::binance_spot(VenueId(0), PAIR, "DOTUSDT")),
-		("binance_perp", venues::binance_perp(VenueId(1), PAIR, "DOTUSDT")),
-		("okx_spot", venues::okx_spot(VenueId(2), PAIR, "DOT-USDT")),
-		("okx_perp", venues::okx_perp(VenueId(3), PAIR, "DOT-USDT-SWAP", p("1"))),
-		("bybit_spot", venues::bybit_spot(VenueId(4), PAIR, "DOTUSDT")),
-		("bybit_perp", venues::bybit_perp(VenueId(5), PAIR, "DOTUSDT")),
-		("mexc_spot", venues::mexc_spot(VenueId(6), PAIR, "DOTUSDT")),
-		("mexc_perp", venues::mexc_perp(VenueId(7), PAIR, "DOT_USDT", p("0.1"))),
-		("kucoin_spot", venues::kucoin_spot(VenueId(8), PAIR, "DOT-USDT")),
-		("kucoin_perp", venues::kucoin_perp(VenueId(9), PAIR, "DOTUSDTM", p("1"))),
-		("gate_spot", venues::gate_spot(VenueId(10), PAIR, "DOT_USDT")),
-		("gate_perp", venues::gate_perp(VenueId(11), PAIR, "DOT_USDT", p("1"))),
-		("bitget_perp", venues::bitget_perp(VenueId(12), PAIR, "DOTUSDT")),
-		("coinbase_spot", venues::coinbase_spot(VenueId(13), PAIR, "DOT-USD")),
-		("kraken_perp", venues::kraken_perp(VenueId(14), PAIR, "PF_DOTUSD")),
+		("binance_spot", venues::binance_spot(VenueId(0), PAIR, "DOTUSDT", limits())),
+		("binance_perp", venues::binance_perp(VenueId(1), PAIR, "DOTUSDT", limits())),
+		("okx_spot", venues::okx_spot(VenueId(2), PAIR, "DOT-USDT", limits())),
+		("okx_perp", venues::okx_perp(VenueId(3), PAIR, "DOT-USDT-SWAP", p("1"), limits())),
+		("bybit_spot", venues::bybit_spot(VenueId(4), PAIR, "DOTUSDT", limits())),
+		("bybit_perp", venues::bybit_perp(VenueId(5), PAIR, "DOTUSDT", limits())),
+		("mexc_spot", venues::mexc_spot(VenueId(6), PAIR, "DOTUSDT", limits())),
+		("mexc_perp", venues::mexc_perp(VenueId(7), PAIR, "DOT_USDT", p("0.1"), limits())),
+		("kucoin_spot", venues::kucoin_spot(VenueId(8), PAIR, "DOT-USDT", limits())),
+		("kucoin_perp", venues::kucoin_perp(VenueId(9), PAIR, "DOTUSDTM", p("1"), limits())),
+		("gate_spot", venues::gate_spot(VenueId(10), PAIR, "DOT_USDT", limits())),
+		("gate_perp", venues::gate_perp(VenueId(11), PAIR, "DOT_USDT", p("1"), limits())),
+		("bitget_perp", venues::bitget_perp(VenueId(12), PAIR, "DOTUSDT", limits())),
+		("coinbase_spot", venues::coinbase_spot(VenueId(13), PAIR, "DOT-USD", limits())),
+		("kraken_perp", venues::kraken_perp(VenueId(14), PAIR, "PF_DOTUSD", limits())),
 	]
 	.into_iter()
 	.map(|(name, market)| (name, market.unwrap()))
@@ -110,7 +110,7 @@ async fn venues_are_fetched_and_priced() {
 	let mut missing = Vec::new();
 	fetched.into_iter().for_each(|r| {
 		let (name, market) = &stored[r.market.0 as usize];
-		match parse_market(market, &settings(), r.responses, now) {
+		match parse_market::<OrderBookPricing>(market, r.responses, now) {
 			Ok(price) => prices.push(Quote { pair: market.pair, price }),
 			Err(e) => missing.push((*name, String::from_utf8_lossy(&e.0).into_owned())),
 		}
@@ -121,7 +121,7 @@ async fn venues_are_fetched_and_priced() {
 
 	let n = prices.len();
 	let m = stored.len();
-	let quotes = pricing::aggregate(prices, &[PAIR], |_| Vec::new(), |_| settings().quorum);
+	let quotes = pricing::aggregate(prices, &[PAIR], |_| Vec::new(), |_| 1);
 	match quotes.first() {
 		Some(q) => println!("{n}/{m} priced  {price}", price = q.price),
 		None => println!("{n}/{m} priced"),

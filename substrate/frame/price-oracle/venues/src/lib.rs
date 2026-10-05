@@ -21,7 +21,9 @@
 //! [`Pallet::set_market`](pallet_price_oracle::Pallet::set_market), with an order book query and
 //! a recent trades query. The definitions are generic over the asset pair. The venue and pair are
 //! those the runtime assigns, and the symbol names any pair the exchange lists, in the exchange's
-//! own convention.
+//! own convention. The markets are priced by
+//! [`OrderBookPricing`](pallet_price_oracle::order_book::OrderBookPricing), with the health
+//! limits the runtime chooses.
 //!
 //! Each definition is tested against a sample response of the exchange. A definition is `None`
 //! only if one of its values does not fit the bounds of the registry.
@@ -32,8 +34,11 @@ extern crate alloc;
 
 use alloc::{format, vec::Vec};
 use pallet_price_oracle::{
+	order_book::{
+		schema::{LevelLayout, Path, PathStep, ResponseSchema, TimeFormat},
+		HealthLimits, OrderBookParams,
+	},
 	registry::{MaxParamName, MaxParamValue, StoredMarket, StoredQuery, StoredRequest},
-	schema::{LevelLayout, Path, PathStep, ResponseSchema, TimeFormat},
 };
 use sp_price_oracle::{
 	market::{Method, QueryTag, VenueId},
@@ -65,13 +70,23 @@ const TRADES_LIMIT: &str = "1";
 const ARRAY: LevelLayout = LevelLayout::Array { price: 0, amount: 1 };
 
 /// The Binance spot market of `symbol`.
-pub fn binance_spot(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredMarket> {
-	binance(venue, pair, "api.binance.com", "/api/v3", symbol)
+pub fn binance_spot(
+	venue: VenueId,
+	pair: PairId,
+	symbol: &str,
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
+	binance(venue, pair, "api.binance.com", "/api/v3", symbol, limits)
 }
 
 /// The Binance USDⓈ-M perpetual of `symbol`. Sizes are in the base asset.
-pub fn binance_perp(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredMarket> {
-	binance(venue, pair, "fapi.binance.com", "/fapi/v1", symbol)
+pub fn binance_perp(
+	venue: VenueId,
+	pair: PairId,
+	symbol: &str,
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
+	binance(venue, pair, "fapi.binance.com", "/fapi/v1", symbol, limits)
 }
 
 /// The book is `{"bids": [[price, qty], ..], "asks": [..]}` and the trades are
@@ -82,11 +97,13 @@ fn binance(
 	host: &str,
 	prefix: &str,
 	symbol: &str,
-) -> Option<StoredMarket> {
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
 	market(
 		venue,
 		pair,
 		Price::one(),
+		limits,
 		book(
 			request(
 				host,
@@ -113,8 +130,13 @@ fn binance(
 }
 
 /// The OKX spot market of `inst_id`.
-pub fn okx_spot(venue: VenueId, pair: PairId, inst_id: &str) -> Option<StoredMarket> {
-	okx(venue, pair, inst_id, Price::one())
+pub fn okx_spot(
+	venue: VenueId,
+	pair: PairId,
+	inst_id: &str,
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
+	okx(venue, pair, inst_id, Price::one(), limits)
 }
 
 /// The OKX perpetual swap of `inst_id`. Sizes are in contracts of `contract_size` base units,
@@ -124,18 +146,26 @@ pub fn okx_perp(
 	pair: PairId,
 	inst_id: &str,
 	contract_size: Price,
-) -> Option<StoredMarket> {
-	okx(venue, pair, inst_id, contract_size)
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
+	okx(venue, pair, inst_id, contract_size, limits)
 }
 
 /// The book is `{"data": [{"bids": [[price, size, ..], ..], "asks": [..]}]}` and the trades
 /// are `{"data": [{"ts": "ms", ..}, ..]}`.
-fn okx(venue: VenueId, pair: PairId, inst_id: &str, contract_size: Price) -> Option<StoredMarket> {
+fn okx(
+	venue: VenueId,
+	pair: PairId,
+	inst_id: &str,
+	contract_size: Price,
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
 	const HOST: &str = "www.okx.com";
 	market(
 		venue,
 		pair,
 		contract_size,
+		limits,
 		book(
 			request(
 				HOST,
@@ -162,23 +192,40 @@ fn okx(venue: VenueId, pair: PairId, inst_id: &str, contract_size: Price) -> Opt
 }
 
 /// The Bybit spot market of `symbol`.
-pub fn bybit_spot(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredMarket> {
-	bybit(venue, pair, "spot", symbol)
+pub fn bybit_spot(
+	venue: VenueId,
+	pair: PairId,
+	symbol: &str,
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
+	bybit(venue, pair, "spot", symbol, limits)
 }
 
 /// The Bybit USDT perpetual of `symbol`. Sizes are in the base asset.
-pub fn bybit_perp(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredMarket> {
-	bybit(venue, pair, "linear", symbol)
+pub fn bybit_perp(
+	venue: VenueId,
+	pair: PairId,
+	symbol: &str,
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
+	bybit(venue, pair, "linear", symbol, limits)
 }
 
 /// The book is `{"result": {"b": [[price, size], ..], "a": [..]}}` and the trades are
 /// `{"result": {"list": [{"time": "ms", ..}, ..]}}`.
-fn bybit(venue: VenueId, pair: PairId, category: &str, symbol: &str) -> Option<StoredMarket> {
+fn bybit(
+	venue: VenueId,
+	pair: PairId,
+	category: &str,
+	symbol: &str,
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
 	const HOST: &str = "api.bybit.com";
 	market(
 		venue,
 		pair,
 		Price::one(),
+		limits,
 		book(
 			request(
 				HOST,
@@ -208,12 +255,18 @@ fn bybit(venue: VenueId, pair: PairId, category: &str, symbol: &str) -> Option<S
 ///
 /// The book is `{"bids": [[price, qty], ..], "asks": [..]}` and the trades are
 /// `[{"time": ms, ..}, ..]`.
-pub fn mexc_spot(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredMarket> {
+pub fn mexc_spot(
+	venue: VenueId,
+	pair: PairId,
+	symbol: &str,
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
 	const HOST: &str = "api.mexc.com";
 	market(
 		venue,
 		pair,
 		Price::one(),
+		limits,
 		book(
 			request(
 				HOST,
@@ -249,12 +302,14 @@ pub fn mexc_perp(
 	pair: PairId,
 	symbol: &str,
 	contract_size: Price,
-) -> Option<StoredMarket> {
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
 	const HOST: &str = "contract.mexc.com";
 	market(
 		venue,
 		pair,
 		contract_size,
+		limits,
 		book(
 			request(
 				HOST,
@@ -284,12 +339,18 @@ pub fn mexc_perp(
 ///
 /// The book is `{"data": {"bids": [[price, size], ..], "asks": [..]}}` and the ticker is
 /// `{"data": {"time": ms, ..}}`.
-pub fn kucoin_spot(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredMarket> {
+pub fn kucoin_spot(
+	venue: VenueId,
+	pair: PairId,
+	symbol: &str,
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
 	const HOST: &str = "api.kucoin.com";
 	market(
 		venue,
 		pair,
 		Price::one(),
+		limits,
 		book(
 			request(
 				HOST,
@@ -325,12 +386,14 @@ pub fn kucoin_perp(
 	pair: PairId,
 	symbol: &str,
 	contract_size: Price,
-) -> Option<StoredMarket> {
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
 	const HOST: &str = "api-futures.kucoin.com";
 	market(
 		venue,
 		pair,
 		contract_size,
+		limits,
 		book(
 			request(HOST, "/api/v1/level2/depth100", &[("symbol", symbol)], MAX_BOOK_BYTES)?,
 			&[PathStep::key("data")?, PathStep::key("bids")?],
@@ -350,12 +413,18 @@ pub fn kucoin_perp(
 ///
 /// The book is `{"bids": [[price, amount], ..], "asks": [..]}` and the trades are
 /// `[{"create_time_ms": "ms", ..}, ..]`.
-pub fn gate_spot(venue: VenueId, pair: PairId, currency_pair: &str) -> Option<StoredMarket> {
+pub fn gate_spot(
+	venue: VenueId,
+	pair: PairId,
+	currency_pair: &str,
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
 	const HOST: &str = "api.gateio.ws";
 	market(
 		venue,
 		pair,
 		Price::one(),
+		limits,
 		book(
 			request(
 				HOST,
@@ -391,12 +460,14 @@ pub fn gate_perp(
 	pair: PairId,
 	contract: &str,
 	contract_size: Price,
-) -> Option<StoredMarket> {
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
 	const HOST: &str = "api.gateio.ws";
 	market(
 		venue,
 		pair,
 		contract_size,
+		limits,
 		book(
 			request(
 				HOST,
@@ -426,13 +497,19 @@ pub fn gate_perp(
 ///
 /// The book is `{"data": {"bids": [[price, size], ..], "asks": [..]}}` and the trades are
 /// `{"data": [{"ts": "ms", ..}, ..]}`.
-pub fn bitget_perp(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredMarket> {
+pub fn bitget_perp(
+	venue: VenueId,
+	pair: PairId,
+	symbol: &str,
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
 	const HOST: &str = "api.bitget.com";
 	let product = ("productType", "USDT-FUTURES");
 	market(
 		venue,
 		pair,
 		Price::one(),
+		limits,
 		book(
 			request(
 				HOST,
@@ -462,12 +539,18 @@ pub fn bitget_perp(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredM
 ///
 /// The book is `{"pricebook": {"bids": [{"price": .., "size": ..}, ..], "asks": [..]}}` and
 /// the trades are `{"trades": [{"time": iso8601, ..}, ..]}`.
-pub fn coinbase_spot(venue: VenueId, pair: PairId, product_id: &str) -> Option<StoredMarket> {
+pub fn coinbase_spot(
+	venue: VenueId,
+	pair: PairId,
+	product_id: &str,
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
 	const HOST: &str = "api.coinbase.com";
 	market(
 		venue,
 		pair,
 		Price::one(),
+		limits,
 		book(
 			request(
 				HOST,
@@ -498,12 +581,18 @@ pub fn coinbase_spot(venue: VenueId, pair: PairId, product_id: &str) -> Option<S
 ///
 /// The book is `{"orderBook": {"bids": [[price, size], ..], "asks": [..]}}` and the ticker,
 /// with the last trade, is `{"ticker": {"lastTime": iso8601, ..}}`.
-pub fn kraken_perp(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredMarket> {
+pub fn kraken_perp(
+	venue: VenueId,
+	pair: PairId,
+	symbol: &str,
+	limits: HealthLimits,
+) -> Option<StoredMarket<OrderBookParams>> {
 	const HOST: &str = "futures.kraken.com";
 	market(
 		venue,
 		pair,
 		Price::one(),
+		limits,
 		book(
 			request(HOST, "/derivatives/api/v3/orderbook", &[("symbol", symbol)], MAX_BOOK_BYTES)?,
 			&[PathStep::key("orderBook")?, PathStep::key("bids")?],
@@ -558,47 +647,50 @@ fn request(
 	})
 }
 
-/// Build the order book query of a market.
+/// Build the order book request of a market, with the schema to read its response.
 fn book(
 	request: StoredRequest,
 	bids: &[PathStep],
 	asks: &[PathStep],
 	layout: LevelLayout,
-) -> Option<StoredQuery> {
-	let schema = ResponseSchema::OrderBook { bids: path(bids)?, asks: path(asks)?, layout };
-	Some(StoredQuery { tag: BOOK, request, schema })
+) -> Option<(StoredRequest, ResponseSchema)> {
+	Some((request, ResponseSchema::OrderBook { bids: path(bids)?, asks: path(asks)?, layout }))
 }
 
-/// Build the trades query of a market.
+/// Build the trades request of a market, with the schema to read its response.
 fn trades(
 	request: StoredRequest,
 	rows: &[PathStep],
 	time: &[PathStep],
 	format: TimeFormat,
-) -> Option<StoredQuery> {
-	let schema = ResponseSchema::Trades { trades: path(rows)?, time: path(time)?, format };
-	Some(StoredQuery { tag: TRADES, request, schema })
+) -> Option<(StoredRequest, ResponseSchema)> {
+	Some((request, ResponseSchema::Trades { trades: path(rows)?, time: path(time)?, format }))
 }
 
-/// Assemble an active market from its two queries.
+/// Assemble an active market from its order book and trades requests.
 fn market(
 	venue: VenueId,
 	pair: PairId,
 	contract_size: Price,
-	book: StoredQuery,
-	trades: StoredQuery,
-) -> Option<StoredMarket> {
-	let queries = alloc::vec![book, trades].try_into().ok()?;
-	Some(StoredMarket { venue, pair, queries, contract_size, active: true })
+	limits: HealthLimits,
+	(book, book_schema): (StoredRequest, ResponseSchema),
+	(trades, trades_schema): (StoredRequest, ResponseSchema),
+) -> Option<StoredMarket<OrderBookParams>> {
+	let queries = alloc::vec![
+		StoredQuery { tag: BOOK, request: book },
+		StoredQuery { tag: TRADES, request: trades },
+	]
+	.try_into()
+	.ok()?;
+	let schemas = alloc::vec![(BOOK, book_schema), (TRADES, trades_schema)].try_into().ok()?;
+	let pricing = OrderBookParams { schemas, contract_size, limits };
+	Some(StoredMarket { venue, pair, queries, pricing, active: true })
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use pallet_price_oracle::{
-		parse_market,
-		pricing::{parse_decimal, PairSettings},
-	};
+	use pallet_price_oracle::{order_book::OrderBookPricing, pricing::parse_decimal};
 	use sp_price_oracle::runtime_api::ParseError;
 	use sp_runtime::Permill;
 
@@ -620,13 +712,20 @@ mod tests {
 		parse_decimal(s).unwrap()
 	}
 
-	fn settings() -> PairSettings {
-		PairSettings {
+	fn limits() -> HealthLimits {
+		HealthLimits {
 			max_spread: Permill::from_percent(1),
 			max_trade_age_ms: MAX_TRADE_AGE_MS,
 			impact_size: p("5000"),
-			quorum: 1,
 		}
+	}
+
+	fn parse_market(
+		market: &StoredMarket<OrderBookParams>,
+		responses: Vec<(QueryTag, Vec<u8>)>,
+		now_ms: u64,
+	) -> Result<Price, ParseError> {
+		pallet_price_oracle::parse_market::<OrderBookPricing>(market, responses, now_ms)
 	}
 
 	/// The recorded responses of a market, tagged for `parse_market`.
@@ -636,111 +735,111 @@ mod tests {
 
 	/// Price `market` from its recorded responses. The price must be near 1 USDT, and the
 	/// market must turn stale once the recorded trade is older than allowed.
-	fn assert_prices(market: &StoredMarket, book: &[u8], trades: &[u8]) {
-		let price = parse_market(market, &settings(), responses(book, trades), NOW_MS).unwrap();
+	fn assert_prices(market: &StoredMarket<OrderBookParams>, book: &[u8], trades: &[u8]) {
+		let price = parse_market(market, responses(book, trades), NOW_MS).unwrap();
 		assert!(price > p("0.95") && price < p("1.05"), "unexpected price {price:?}");
 
 		let later = NOW_MS + MAX_TRADE_AGE_MS as u64 + 1;
-		let stale = parse_market(market, &settings(), responses(book, trades), later);
-		assert_eq!(stale, Err(ParseError(b"StaleTrades".to_vec())));
+		let stale = parse_market(market, responses(book, trades), later);
+		assert_eq!(stale, Err(ParseError(b"Unhealthy(StaleTrades)".to_vec())));
 	}
 
 	#[test]
 	fn binance_spot_fixture() {
-		let market = binance_spot(VENUE, PAIR, "DOTUSDT").unwrap();
+		let market = binance_spot(VENUE, PAIR, "DOTUSDT", limits()).unwrap();
 		assert_prices(&market, fixture!("binance_spot_book"), fixture!("binance_spot_trades"));
 	}
 
 	#[test]
 	fn binance_perp_fixture() {
-		let market = binance_perp(VENUE, PAIR, "DOTUSDT").unwrap();
+		let market = binance_perp(VENUE, PAIR, "DOTUSDT", limits()).unwrap();
 		assert_prices(&market, fixture!("binance_perp_book"), fixture!("binance_perp_trades"));
 	}
 
 	#[test]
 	fn okx_spot_fixture() {
-		let market = okx_spot(VENUE, PAIR, "DOT-USDT").unwrap();
+		let market = okx_spot(VENUE, PAIR, "DOT-USDT", limits()).unwrap();
 		assert_prices(&market, fixture!("okx_spot_book"), fixture!("okx_spot_trades"));
 	}
 
 	#[test]
 	fn okx_perp_fixture() {
-		let market = okx_perp(VENUE, PAIR, "DOT-USDT-SWAP", p("1")).unwrap();
+		let market = okx_perp(VENUE, PAIR, "DOT-USDT-SWAP", p("1"), limits()).unwrap();
 		assert_prices(&market, fixture!("okx_perp_book"), fixture!("okx_perp_trades"));
 	}
 
 	#[test]
 	fn bybit_spot_fixture() {
-		let market = bybit_spot(VENUE, PAIR, "DOTUSDT").unwrap();
+		let market = bybit_spot(VENUE, PAIR, "DOTUSDT", limits()).unwrap();
 		assert_prices(&market, fixture!("bybit_spot_book"), fixture!("bybit_spot_trades"));
 	}
 
 	#[test]
 	fn bybit_perp_fixture() {
-		let market = bybit_perp(VENUE, PAIR, "DOTUSDT").unwrap();
+		let market = bybit_perp(VENUE, PAIR, "DOTUSDT", limits()).unwrap();
 		assert_prices(&market, fixture!("bybit_perp_book"), fixture!("bybit_perp_trades"));
 	}
 
 	#[test]
 	fn mexc_spot_fixture() {
-		let market = mexc_spot(VENUE, PAIR, "DOTUSDT").unwrap();
+		let market = mexc_spot(VENUE, PAIR, "DOTUSDT", limits()).unwrap();
 		assert_prices(&market, fixture!("mexc_spot_book"), fixture!("mexc_spot_trades"));
 	}
 
 	#[test]
 	fn mexc_perp_fixture() {
-		let market = mexc_perp(VENUE, PAIR, "DOT_USDT", p("0.1")).unwrap();
+		let market = mexc_perp(VENUE, PAIR, "DOT_USDT", p("0.1"), limits()).unwrap();
 		assert_prices(&market, fixture!("mexc_perp_book"), fixture!("mexc_perp_trades"));
 	}
 
 	#[test]
 	fn kucoin_spot_fixture() {
-		let market = kucoin_spot(VENUE, PAIR, "DOT-USDT").unwrap();
+		let market = kucoin_spot(VENUE, PAIR, "DOT-USDT", limits()).unwrap();
 		assert_prices(&market, fixture!("kucoin_spot_book"), fixture!("kucoin_spot_trades"));
 	}
 
 	#[test]
 	fn kucoin_perp_fixture() {
-		let market = kucoin_perp(VENUE, PAIR, "DOTUSDTM", p("1")).unwrap();
+		let market = kucoin_perp(VENUE, PAIR, "DOTUSDTM", p("1"), limits()).unwrap();
 		assert_prices(&market, fixture!("kucoin_perp_book"), fixture!("kucoin_perp_trades"));
 	}
 
 	#[test]
 	fn gate_spot_fixture() {
-		let market = gate_spot(VENUE, PAIR, "DOT_USDT").unwrap();
+		let market = gate_spot(VENUE, PAIR, "DOT_USDT", limits()).unwrap();
 		assert_prices(&market, fixture!("gate_spot_book"), fixture!("gate_spot_trades"));
 	}
 
 	#[test]
 	fn gate_perp_fixture() {
-		let market = gate_perp(VENUE, PAIR, "DOT_USDT", p("1")).unwrap();
+		let market = gate_perp(VENUE, PAIR, "DOT_USDT", p("1"), limits()).unwrap();
 		assert_prices(&market, fixture!("gate_perp_book"), fixture!("gate_perp_trades"));
 	}
 
 	#[test]
 	fn bitget_perp_fixture() {
-		let market = bitget_perp(VENUE, PAIR, "DOTUSDT").unwrap();
+		let market = bitget_perp(VENUE, PAIR, "DOTUSDT", limits()).unwrap();
 		assert_prices(&market, fixture!("bitget_perp_book"), fixture!("bitget_perp_trades"));
 	}
 
 	#[test]
 	fn coinbase_spot_fixture() {
-		let market = coinbase_spot(VENUE, PAIR, "DOT-USD").unwrap();
+		let market = coinbase_spot(VENUE, PAIR, "DOT-USD", limits()).unwrap();
 		assert_prices(&market, fixture!("coinbase_spot_book"), fixture!("coinbase_spot_trades"));
 	}
 
 	#[test]
 	fn kraken_perp_fixture() {
-		let market = kraken_perp(VENUE, PAIR, "PF_DOTUSD").unwrap();
+		let market = kraken_perp(VENUE, PAIR, "PF_DOTUSD", limits()).unwrap();
 		assert_prices(&market, fixture!("kraken_perp_book"), fixture!("kraken_perp_trades"));
 	}
 
 	#[test]
 	fn oversized_response_is_rejected() {
-		let mut market = binance_spot(VENUE, PAIR, "DOTUSDT").unwrap();
+		let mut market = binance_spot(VENUE, PAIR, "DOTUSDT", limits()).unwrap();
 		market.queries[0].request.max_response_bytes = 16;
 		let responses = responses(fixture!("binance_spot_book"), fixture!("binance_spot_trades"));
-		let rejected = parse_market(&market, &settings(), responses, NOW_MS);
+		let rejected = parse_market(&market, responses, NOW_MS);
 		assert_eq!(rejected, Err(ParseError(b"response too large".to_vec())));
 	}
 
@@ -748,10 +847,10 @@ mod tests {
 	fn contract_size_scales_the_book() {
 		// At a thousandth of a unit per contract the recorded book holds a few hundred USDT, too
 		// thin for 5000 USDT of impact size.
-		let mut market = binance_spot(VENUE, PAIR, "DOTUSDT").unwrap();
-		market.contract_size = p("0.001");
+		let mut market = binance_spot(VENUE, PAIR, "DOTUSDT", limits()).unwrap();
+		market.pricing.contract_size = p("0.001");
 		let responses = responses(fixture!("binance_spot_book"), fixture!("binance_spot_trades"));
-		let thin = parse_market(&market, &settings(), responses, NOW_MS);
-		assert_eq!(thin, Err(ParseError(b"BookTooThin".to_vec())));
+		let thin = parse_market(&market, responses, NOW_MS);
+		assert_eq!(thin, Err(ParseError(b"Unhealthy(BookTooThin)".to_vec())));
 	}
 }

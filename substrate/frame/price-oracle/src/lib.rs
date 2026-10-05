@@ -20,9 +20,9 @@
 
 extern crate alloc;
 
+pub mod order_book;
 pub mod pricing;
 pub mod registry;
-pub mod schema;
 pub mod signers;
 pub mod weights;
 
@@ -40,7 +40,7 @@ use sp_price_oracle::{
 	Anchor, PairId, Price, Quote, SignedPriceReport,
 };
 use sp_runtime::{
-	traits::{BlockNumberProvider, CheckedMul, SaturatedConversion, Zero},
+	traits::{BlockNumberProvider, SaturatedConversion},
 	RuntimeAppPublic,
 };
 
@@ -51,10 +51,13 @@ pub type SignedPriceReportOf<T> =
 	SignedPriceReport<<T as Config>::SignerId, <T as Config>::SignerSignature>;
 
 pub use pallet::*;
-pub use pricing::PairSettings;
+pub use pricing::MarketPricing;
 pub use registry::{StoredMarket, Venue};
 pub use signers::Signers;
 pub use weights::WeightInfo;
+
+/// A stored market, with the pricing parameters of [`Config::MarketPricing`].
+pub type StoredMarketOf<T> = StoredMarket<<<T as Config>::MarketPricing as MarketPricing>::Params>;
 
 /// Block number of [`Config::BlockNumberProvider`].
 pub type ProvidedBlockNumberOf<T> =
@@ -155,6 +158,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxSigners: Get<u32>;
 
+		/// How markets are priced.
+		type MarketPricing: MarketPricing;
+
 		/// Maximum number of cross rates of a pair.
 		#[pallet::constant]
 		type MaxCrossRates: Get<u32>;
@@ -206,9 +212,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Paused<T: Config> = StorageValue<_, Pause, ValueQuery>;
 
-	/// Registered pairs and their health limits.
+	/// Registered pairs, with the number of market votes each needs to be priced.
 	#[pallet::storage]
-	pub type Settings<T: Config> = StorageMap<_, Twox64Concat, PairId, PairSettings, OptionQuery>;
+	pub type Pairs<T: Config> = StorageMap<_, Twox64Concat, PairId, u32, OptionQuery>;
 
 	/// Other ways to price a pair, as `(source, rate)` such that `pair = source * rate`.
 	///
@@ -228,7 +234,8 @@ pub mod pallet {
 
 	/// Registered markets.
 	#[pallet::storage]
-	pub type Markets<T: Config> = StorageMap<_, Twox64Concat, MarketId, StoredMarket, OptionQuery>;
+	pub type Markets<T: Config> =
+		StorageMap<_, Twox64Concat, MarketId, StoredMarketOf<T>, OptionQuery>;
 
 	/// Whether the inherent has been processed in the current block.
 	#[pallet::storage]
@@ -253,8 +260,8 @@ pub mod pallet {
 		MarketSet { id: MarketId },
 		/// A market was removed.
 		MarketRemoved { id: MarketId },
-		/// The health limits of a pair were set.
-		PairSettingsSet { pair: PairId },
+		/// A pair was added or updated.
+		PairSet { pair: PairId },
 		/// The cross rates of a pair were set.
 		CrossRatesSet { pair: PairId },
 		/// A pair was removed.
@@ -380,34 +387,27 @@ pub mod pallet {
 		pub fn set_market(
 			origin: OriginFor<T>,
 			id: MarketId,
-			market: StoredMarket,
+			market: StoredMarketOf<T>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			ensure!(Venues::<T>::contains_key(market.venue), Error::<T>::UnknownVenue);
-			ensure!(Settings::<T>::contains_key(market.pair), Error::<T>::UnknownPair);
-			ensure!(!market.contract_size.is_zero(), Error::<T>::InvalidParameters);
+			ensure!(Pairs::<T>::contains_key(market.pair), Error::<T>::UnknownPair);
+			ensure!(T::MarketPricing::validate(&market.pricing), Error::<T>::InvalidParameters);
 			Markets::<T>::insert(id, market);
 			Self::deposit_event(Event::MarketSet { id });
 			Ok(())
 		}
 
-		/// Register a pair or update its health limits.
+		/// Add or update a pair. `quorum` is the number of market votes it needs to be priced.
 		///
-		/// `impact_size` and `quorum` must be non-zero.
+		/// `quorum` must be non-zero.
 		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::set_pair_settings())]
-		pub fn set_pair_settings(
-			origin: OriginFor<T>,
-			pair: PairId,
-			settings: PairSettings,
-		) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::set_pair())]
+		pub fn set_pair(origin: OriginFor<T>, pair: PairId, quorum: u32) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			ensure!(
-				!settings.impact_size.is_zero() && settings.quorum >= 1,
-				Error::<T>::InvalidParameters
-			);
-			Settings::<T>::insert(pair, settings);
-			Self::deposit_event(Event::PairSettingsSet { pair });
+			ensure!(quorum >= 1, Error::<T>::InvalidParameters);
+			Pairs::<T>::insert(pair, quorum);
+			Self::deposit_event(Event::PairSet { pair });
 			Ok(())
 		}
 
@@ -433,10 +433,10 @@ pub mod pallet {
 			cross_rates: BoundedVec<(PairId, PairId), T::MaxCrossRates>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			ensure!(Settings::<T>::contains_key(pair), Error::<T>::UnknownPair);
+			ensure!(Pairs::<T>::contains_key(pair), Error::<T>::UnknownPair);
 			for (source, rate) in cross_rates.iter() {
-				ensure!(Settings::<T>::contains_key(source), Error::<T>::UnknownPair);
-				ensure!(Settings::<T>::contains_key(rate), Error::<T>::UnknownPair);
+				ensure!(Pairs::<T>::contains_key(source), Error::<T>::UnknownPair);
+				ensure!(Pairs::<T>::contains_key(rate), Error::<T>::UnknownPair);
 			}
 			CrossRates::<T>::insert(pair, cross_rates);
 			Self::deposit_event(Event::CrossRatesSet { pair });
@@ -450,7 +450,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::remove_pair())]
 		pub fn remove_pair(origin: OriginFor<T>, pair: PairId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			ensure!(Settings::<T>::contains_key(pair), Error::<T>::UnknownPair);
+			ensure!(Pairs::<T>::contains_key(pair), Error::<T>::UnknownPair);
 			ensure!(!Markets::<T>::iter_values().any(|m| m.pair == pair), Error::<T>::PairInUse);
 			ensure!(
 				!CrossRates::<T>::iter_values()
@@ -458,7 +458,7 @@ pub mod pallet {
 					.any(|(source, rate)| source == pair || rate == pair),
 				Error::<T>::PairInUse
 			);
-			Settings::<T>::remove(pair);
+			Pairs::<T>::remove(pair);
 			CrossRates::<T>::remove(pair);
 			Votes::<T>::remove(pair);
 			Prices::<T>::remove(pair);
@@ -530,9 +530,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<Price, ParseError> {
 		let err = |s: &str| ParseError(s.as_bytes().to_vec());
 		let market = Markets::<T>::get(id).ok_or_else(|| err("unknown market"))?;
-		let settings =
-			Settings::<T>::get(market.pair).ok_or_else(|| err("pair has no settings"))?;
-		crate::parse_market(&market, &settings, responses, now_ms)
+		crate::parse_market::<T::MarketPricing>(&market, responses, now_ms)
 	}
 
 	/// Anchor of the latest vote on chain, per signer. Lets block authors skip reports that are
@@ -558,54 +556,34 @@ impl<T: Config> Pallet<T> {
 			.into_iter()
 			.filter_map(|(id, price)| Some(Quote { pair: Markets::<T>::get(id)?.pair, price }))
 			.collect();
-		let pairs: Vec<PairId> = Settings::<T>::iter_keys().collect();
+		let pairs: Vec<PairId> = Pairs::<T>::iter_keys().collect();
 		let cross_rates = |pair| CrossRates::<T>::get(pair).into_inner();
-		let quorum = |pair| Settings::<T>::get(pair).map_or(u32::MAX, |s| s.quorum);
+		let quorum = |pair| Pairs::<T>::get(pair).unwrap_or(u32::MAX);
 		pricing::aggregate(markets, &pairs, cross_rates, quorum)
 	}
 }
 
 /// Price `market` from the responses to its queries, at the node's time `now_ms`.
 ///
-/// Needs one order book and one trades response among the market's queries. A response larger
-/// than its query allows is rejected.
-pub fn parse_market(
-	market: &StoredMarket,
-	settings: &PairSettings,
+/// Rejects responses to unknown queries and responses larger than their query allows. The rest is
+/// up to `P`.
+pub fn parse_market<P: MarketPricing>(
+	market: &StoredMarket<P::Params>,
 	responses: Vec<(QueryTag, Vec<u8>)>,
 	now_ms: u64,
 ) -> Result<Price, ParseError> {
-	use schema::Parsed;
 	let err = |s: &str| ParseError(s.as_bytes().to_vec());
 
-	let mut book = None;
-	let mut latest_trade_ms = None;
-	for (tag, body) in responses {
-		let Some(query) = market.queries.iter().find(|q| q.tag == tag) else {
+	for (tag, body) in &responses {
+		let Some(query) = market.queries.iter().find(|q| q.tag == *tag) else {
 			return Err(err("unknown query tag"));
 		};
 		if body.len() > query.request.max_response_bytes as usize {
 			return Err(err("response too large"));
 		}
-		match query.schema.read(&body) {
-			Ok(Parsed::OrderBook(mut b)) => {
-				// Bring amounts quoted in contracts to base asset units.
-				for level in b.bids.iter_mut().chain(b.asks.iter_mut()) {
-					level.amount = level
-						.amount
-						.checked_mul(&market.contract_size)
-						.ok_or_else(|| err("amount overflow"))?;
-				}
-				book = Some(b);
-			},
-			Ok(Parsed::LatestTradeMs(t)) => latest_trade_ms = Some(t),
-			Err(e) => return Err(ParseError(alloc::format!("{e:?}").into_bytes())),
-		}
 	}
-	let book = book.ok_or_else(|| err("no order book"))?;
-	let latest_trade_ms = latest_trade_ms.ok_or_else(|| err("no trades"))?;
 
-	pricing::price_market(&book, latest_trade_ms, now_ms, settings)
+	P::price(&market.pricing, &responses, now_ms)
 		.map_err(|e| ParseError(alloc::format!("{e:?}").into_bytes()))
 }
 
@@ -670,7 +648,7 @@ impl<T: Config> Pallet<T> {
 		for report in reports {
 			let anchor = report.report.anchor;
 			for quote in report.report.quotes {
-				if !Settings::<T>::contains_key(quote.pair) {
+				if !Pairs::<T>::contains_key(quote.pair) {
 					continue;
 				}
 				let pair_votes = votes.entry(quote.pair).or_default();

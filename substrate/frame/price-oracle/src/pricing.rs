@@ -14,117 +14,35 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! Price arithmetic of the pallet: reading decimals, pricing order books, and aggregating
+//! Price arithmetic of the pallet: how markets are priced, reading decimals, and aggregating
 //! market prices into pair prices.
 
-use crate::schema::OrderBook;
 use alloc::{collections::BTreeMap, vec::Vec};
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
-use sp_price_oracle::{PairId, Price, Quote};
-use sp_runtime::{
-	traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero},
-	Permill,
-};
+use codec::MaxEncodedLen;
+use core::fmt::Debug;
+use frame_support::Parameter;
+use sp_price_oracle::{market::QueryTag, PairId, Price, Quote};
+use sp_runtime::traits::{CheckedMul, Member, Zero};
 
-/// Health limits applied to the markets of one pair.
-#[derive(
-	Clone,
-	Copy,
-	PartialEq,
-	Eq,
-	Debug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-)]
-pub struct PairSettings {
-	/// A book whose spread relative to its mid exceeds this is rejected.
-	pub max_spread: Permill,
-	/// A market whose latest trade is older than this is rejected.
-	pub max_trade_age_ms: u32,
-	/// Quote asset amount priced against each side of a book to obtain its impact mid.
-	pub impact_size: Price,
-	/// Minimum number of market votes for the pair to have a price.
-	pub quorum: u32,
-}
+/// How markets are priced.
+pub trait MarketPricing {
+	/// The pricing parameters, stored with each market.
+	type Params: Member + Parameter + MaxEncodedLen;
 
-/// Why a market could not be priced.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum HealthError {
-	/// The best bid is not below the best ask.
-	CrossedBook,
-	/// The spread exceeds [`PairSettings::max_spread`].
-	SpreadTooWide,
-	/// The latest trade is older than [`PairSettings::max_trade_age_ms`].
-	StaleTrades,
-	/// A side of the book cannot fill [`PairSettings::impact_size`].
-	BookTooThin,
-	/// Arithmetic overflow.
-	Overflow,
-}
+	/// Why a market could not be priced.
+	type Error: Debug;
 
-/// Price a market from its order book and the time of its latest trade.
-pub fn price_market(
-	book: &OrderBook,
-	latest_trade_ms: u64,
-	now_ms: u64,
-	settings: &PairSettings,
-) -> Result<Price, HealthError> {
-	let (Some(best_bid), Some(best_ask)) = (book.bids.first(), book.asks.first()) else {
-		return Err(HealthError::BookTooThin);
-	};
-	if best_bid.price >= best_ask.price {
-		return Err(HealthError::CrossedBook);
+	/// Whether `params` are valid. Checked when a market is set.
+	fn validate(_params: &Self::Params) -> bool {
+		true
 	}
-	// spread / mid <= max_spread  <=>  2 * (ask - bid) <= max_spread * (ask + bid)
-	let spread2 = best_ask
-		.price
-		.checked_sub(&best_bid.price)
-		.and_then(|d| d.checked_mul(&Price::from_u32(2)))
-		.ok_or(HealthError::Overflow)?;
-	let sum = best_ask.price.checked_add(&best_bid.price).ok_or(HealthError::Overflow)?;
-	let allowed = Price::from_inner(settings.max_spread.mul_floor(sum.into_inner()));
-	if spread2 > allowed {
-		return Err(HealthError::SpreadTooWide);
-	}
-	if now_ms.saturating_sub(latest_trade_ms) > settings.max_trade_age_ms as u64 {
-		return Err(HealthError::StaleTrades);
-	}
-	impact_mid(book, settings.impact_size)
-}
 
-/// The impact mid of a book: the mean of the prices at which `size` quote units are bought
-/// from the asks and sold into the bids.
-pub fn impact_mid(book: &OrderBook, size: Price) -> Result<Price, HealthError> {
-	let ask = fill_price(&book.asks, size)?;
-	let bid = fill_price(&book.bids, size)?;
-	let mut both = [ask, bid];
-	median(&mut both).ok_or(HealthError::Overflow)
-}
-
-/// The average price at which `size` quote units are filled against `side`, walking the levels
-/// in order. `None` if the side cannot fill `size`.
-fn fill_price(side: &[crate::schema::Level], size: Price) -> Result<Price, HealthError> {
-	let mut remaining = size;
-	let mut received = Price::zero();
-	for level in side {
-		let cost = level.price.checked_mul(&level.amount).ok_or(HealthError::Overflow)?;
-		if cost >= remaining {
-			let partial = remaining.checked_div(&level.price).ok_or(HealthError::Overflow)?;
-			received = received.checked_add(&partial).ok_or(HealthError::Overflow)?;
-			remaining = Price::zero();
-			break;
-		}
-		received = received.checked_add(&level.amount).ok_or(HealthError::Overflow)?;
-		remaining = remaining.checked_sub(&cost).ok_or(HealthError::Overflow)?;
-	}
-	if !remaining.is_zero() || received.is_zero() {
-		return Err(HealthError::BookTooThin);
-	}
-	size.checked_div(&received).ok_or(HealthError::Overflow)
+	/// Price a market from the responses to its queries, at the node's time `now_ms`.
+	fn price(
+		params: &Self::Params,
+		responses: &[(QueryTag, Vec<u8>)],
+		now_ms: u64,
+	) -> Result<Price, Self::Error>;
 }
 
 /// Aggregate market quotes into one quote per pair.
@@ -383,83 +301,6 @@ mod median_tests {
 			median(&mut [Price::from_inner(u128::MAX), Price::from_inner(u128::MAX)]),
 			Some(Price::from_inner(u128::MAX))
 		);
-	}
-}
-
-#[cfg(test)]
-mod price_market_tests {
-	use super::*;
-	use crate::schema::Level;
-
-	fn p(s: &str) -> Price {
-		parse_decimal(s).unwrap()
-	}
-	fn level(price: &str, amount: &str) -> Level {
-		Level { price: p(price), amount: p(amount) }
-	}
-	fn settings() -> PairSettings {
-		PairSettings {
-			max_spread: Permill::from_parts(5_000), // 0.5%
-			max_trade_age_ms: 300_000,
-			impact_size: p("10000"),
-			quorum: 1,
-		}
-	}
-	/// Bids 4.00 x 1000, 3.99 x 5000; asks 4.02 x 1000, 4.03 x 5000.
-	fn book() -> OrderBook {
-		OrderBook {
-			bids: vec![level("4.00", "1000"), level("3.99", "5000")],
-			asks: vec![level("4.02", "1000"), level("4.03", "5000")],
-		}
-	}
-
-	#[test]
-	fn fill_price_walks_levels() {
-		// 10000 quote into asks: 1000 @ 4.02 = 4020, remaining 5980 @ 4.03 = 1483.87 units.
-		let received = p("1000") + p("5980").checked_div(&p("4.03")).unwrap();
-		assert_eq!(fill_price(&book().asks, p("10000")).unwrap(), p("10000") / received);
-		// Exactly one level.
-		assert_eq!(fill_price(&book().asks, p("4020")).unwrap(), p("4.02"));
-		// Too thin.
-		assert_eq!(fill_price(&book().asks, p("100000")), Err(HealthError::BookTooThin));
-		assert_eq!(fill_price(&[], p("1")), Err(HealthError::BookTooThin));
-	}
-
-	#[test]
-	fn impact_mid_is_mean_of_both_fills() {
-		let ask = fill_price(&book().asks, p("10000")).unwrap();
-		let bid = fill_price(&book().bids, p("10000")).unwrap();
-		assert_eq!(impact_mid(&book(), p("10000")).unwrap(), median(&mut [ask, bid]).unwrap());
-	}
-
-	#[test]
-	fn healthy_market_is_priced() {
-		assert!(price_market(&book(), 1_000_000, 1_000_000 + 60_000, &settings()).is_ok());
-	}
-
-	#[test]
-	fn health_checks_reject() {
-		let s = settings();
-		let now = 1_000_000;
-		// Crossed.
-		let mut b = book();
-		b.bids[0].price = p("4.02");
-		assert_eq!(price_market(&b, now, now, &s), Err(HealthError::CrossedBook));
-		// Spread 4.00 / 4.03: 2 * 0.03 = 0.06 > 0.005 * 8.03 = 0.04015.
-		let mut b = book();
-		b.asks[0].price = p("4.03");
-		assert_eq!(price_market(&b, now, now, &s), Err(HealthError::SpreadTooWide));
-		// Spread 4.00 / 4.02 passes: 0.04 <= 0.005 * 8.02 = 0.0401.
-		assert!(price_market(&book(), now, now, &s).is_ok());
-		// Stale trades.
-		assert_eq!(price_market(&book(), now, now + 300_001, &s), Err(HealthError::StaleTrades));
-		// Thin.
-		let thin = PairSettings { impact_size: p("1000000"), ..s };
-		assert_eq!(price_market(&book(), now, now, &thin), Err(HealthError::BookTooThin));
-		// Empty side.
-		let mut b = book();
-		b.asks.clear();
-		assert_eq!(price_market(&b, now, now, &s), Err(HealthError::BookTooThin));
 	}
 }
 
