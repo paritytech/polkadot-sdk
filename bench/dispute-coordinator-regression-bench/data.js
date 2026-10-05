@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791191382384,
+  "lastUpdate": 1791198553173,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a60abddb213ad35d7648ab9ca158c1de8cb75c98",
-          "message": "Expose ECC host functions (#11334)\n\nChanges:\n- Expose host functions for `BLS12-381`, `Ed-on-BLS12-381-Bandersnatch`,\n`Pallas`, `Vesta` for parachains\n- Add new executor param `EnabledHostFunction` that can be used to\nenable host function usage.\n\nThese were ratified in [RFC\n163](https://github.com/polkadot-fellows/RFCs/pull/163). The missing\nPasta curves will be added later\nhttps://github.com/paritytech/polkadot-sdk/pull/11035. We will use these\non the people chain only.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Davide Galassi <davxy@datawok.net>",
-          "timestamp": "2026-03-25T20:19:07Z",
-          "tree_id": "9cc973886416a77569a2f7e5bc7a71d084a2221f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a60abddb213ad35d7648ab9ca158c1de8cb75c98"
-        },
-        "date": 1774474856732,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026264433199999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010567224570000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009709344419999983,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010906488639999982,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b64d01cf595d5bae0b6aa6fcee0b099ff81bac09",
+          "message": "pallet-bridge-parachains: preserve re-imported parachain heads (#13408)\n\nRe-importing a previously stored parachain head when the ring buffer\nwraps can prune the same hash immediately after inserting it, leaving\nthe best-head pointer without corresponding head data.\n\nThis patch skips self-pruning for that case, reports pruning only when\nan older hash is actually removed, and adds regression coverage for the\nwraparound sequence.\n\nNo API or storage migration is required.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-05T09:35:59Z",
+          "tree_id": "933fdff59bb60a310daf14b06864e94e4cafdeca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b64d01cf595d5bae0b6aa6fcee0b099ff81bac09"
+        },
+        "date": 1791198520965,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010619088849999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0024767604900000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00936946453999999,
             "unit": "seconds"
           }
         ]
