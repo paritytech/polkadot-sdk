@@ -643,6 +643,65 @@ fn remove_unscrupulous_items_works() {
 }
 
 #[test]
+fn announce_maintains_sorted_order() {
+	build_and_execute(|| {
+		// Create CIDs that would be out of order if appended
+		let cid_alpha = {
+			let result = sp_crypto_hashing::sha2_256(b"announcement_alpha");
+			Cid::new_v0(result)
+		};
+		let cid_beta = {
+			let result = sp_crypto_hashing::sha2_256(b"announcement_beta");
+			Cid::new_v0(result)
+		};
+		let cid_gamma = {
+			let result = sp_crypto_hashing::sha2_256(b"announcement_gamma");
+			Cid::new_v0(result)
+		};
+
+		// Add announcements in non-sorted order
+		assert_ok!(Alliance::announce(RuntimeOrigin::signed(3), cid_beta.clone()));
+		assert_ok!(Alliance::announce(RuntimeOrigin::signed(3), cid_alpha.clone()));
+		assert_ok!(Alliance::announce(RuntimeOrigin::signed(3), cid_gamma.clone()));
+
+		let announcements = alliance::Announcements::<Test>::get();
+		// Verify they are sorted
+		let mut sorted_announcements = announcements.clone();
+		sorted_announcements.sort();
+		assert_eq!(announcements, sorted_announcements);
+
+		// Verify we can remove any announcement
+		assert_ok!(Alliance::remove_announcement(RuntimeOrigin::signed(3), cid_beta.clone()));
+		assert_eq!(alliance::Announcements::<Test>::get().len(), 2);
+		assert!(!alliance::Announcements::<Test>::get().contains(&cid_beta));
+	});
+}
+
+#[test]
+fn kick_retiring_member_removes_from_retiring_members() {
+	build_and_execute(|| {
+		// Manually add account 3 as a fellow (since we're in test mode)
+		let members: frame_support::BoundedVec<u64, MaxMembers> = vec![1, 2, 3].try_into().unwrap();
+		alliance::Members::<Test>::insert(MemberRole::Fellow, members);
+		<DepositOf<Test, ()>>::insert(3, 25);
+		assert!(Alliance::is_member_of(&3, MemberRole::Fellow));
+
+		// Give retirement notice
+		assert_ok!(Alliance::give_retirement_notice(RuntimeOrigin::signed(3)));
+		assert!(Alliance::is_member_of(&3, MemberRole::Retiring));
+		assert!(alliance::RetiringMembers::<Test>::get(&3).is_some());
+
+		// Kick the retiring member
+		assert_ok!(Alliance::kick_member(RuntimeOrigin::signed(2), 3));
+
+		// Verify the member is completely removed
+		assert!(!Alliance::is_member(&3));
+		assert!(!alliance::RetiringMembers::<Test>::contains_key(&3));
+		assert_eq!(<DepositOf<Test, ()>>::get(3), None);
+	});
+}
+
+#[test]
 fn weights_sane() {
 	let info = crate::Call::<Test>::join_alliance {}.get_dispatch_info();
 	assert_eq!(<() as crate::WeightInfo>::join_alliance(), info.call_weight);
