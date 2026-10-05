@@ -1,0 +1,22 @@
+title: 'sp-arithmetic: reject nonzero targets for empty normalization input'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Normalizing an empty input to a nonzero sum previously returned an empty vector, even though
+    the result could not have the requested sum. It now returns an error. An empty input with a
+    zero target still returns an empty vector. The assignment normalization documentation in
+    `sp-npos-elections` now describes the corresponding error case for empty distributions.
+    Phragmen elections skip normalization for voters without elected edges, so voters who only
+    approved losing candidates and elections with no seats still succeed.
+    The benchmarking solver omits voters with no selected winner from its assignments, so their
+    positive stake does not reach downstream normalization. The multi-phase miner drops
+    assignments emptied by backer-limit trimming before normalization.
+crates:
+- name: sp-arithmetic
+  bump: patch
+- name: sp-npos-elections
+  bump: patch
+- name: frame-election-provider-support
+  bump: patch
+- name: pallet-election-provider-multi-phase
+  bump: patch
