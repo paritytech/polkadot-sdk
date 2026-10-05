@@ -14,10 +14,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! Prices markets from their order book and the time of their latest trade.
+//! Order book pricing.
 //!
-//! The responses are read with a [`ResponseSchema`] per query. The price of a market is the impact
-//! mid of its book, rejected if the book or the latest trade fails its [`HealthLimits`].
+//! The price of a market is the [impact mid](impact_mid) of its order book. Markets that fail
+//! their [`HealthLimits`] are not priced.
 
 pub mod schema;
 
@@ -33,15 +33,15 @@ use sp_runtime::{
 	FixedU128, Permill,
 };
 
-/// Prices a market at the impact mid of its order book. See [`impact_mid`].
+/// Prices markets from their order book. See the [module docs](self).
 pub struct OrderBookPricing;
 
-/// Parameters of [`OrderBookPricing`], stored with each market.
+/// The pricing parameters of a market.
 #[derive(
 	Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
 )]
 pub struct OrderBookParams {
-	/// How to read the response of each query.
+	/// How to read the response of each query, by query tag.
 	pub schemas: BoundedVec<(QueryTag, ResponseSchema), MaxQueries>,
 	/// The amount of the base asset that one unit of a level's amount represents. One for spot
 	/// markets and for derivatives sized in the base asset. Only instruments whose amount is a
@@ -52,7 +52,7 @@ pub struct OrderBookParams {
 	pub limits: HealthLimits,
 }
 
-/// The limits a market must pass to be priced by [`OrderBookPricing`].
+/// The limits a market must pass to be priced.
 #[derive(
 	Clone,
 	Copy,
@@ -77,15 +77,15 @@ pub struct HealthLimits {
 /// Why a market could not be priced by [`OrderBookPricing`].
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Error {
-	/// A response has no schema.
+	/// There is no schema for a response.
 	UnknownQuery,
 	/// A response could not be read.
 	Schema(ResponseSchemaError),
-	/// An amount overflowed when scaled by the contract size.
+	/// Scaling the book by the contract size overflowed.
 	Overflow,
-	/// No order book among the responses.
+	/// There is no order book response.
 	NoOrderBook,
-	/// No trades among the responses.
+	/// There is no trades response.
 	NoTrades,
 	/// The market failed a health check.
 	Unhealthy(HealthError),
@@ -114,7 +114,7 @@ impl MarketPricing for OrderBookPricing {
 		!params.contract_size.is_zero() && !params.limits.impact_size.is_zero()
 	}
 
-	/// Needs one order book and one trades response among the responses.
+	/// Needs an order book and a trades response.
 	fn price(
 		params: &OrderBookParams,
 		responses: &[(QueryTag, Vec<u8>)],
@@ -128,7 +128,7 @@ impl MarketPricing for OrderBookPricing {
 			};
 			match schema.read(body).map_err(Error::Schema)? {
 				Parsed::OrderBook(mut b) => {
-					// Bring amounts quoted in contracts to base asset units.
+					// Convert amounts from contracts to base asset units.
 					for level in b.bids.iter_mut().chain(b.asks.iter_mut()) {
 						level.amount = level
 							.amount
@@ -146,7 +146,7 @@ impl MarketPricing for OrderBookPricing {
 	}
 }
 
-/// Price a market from its order book and the time of its latest trade.
+/// Price a market from its order book, if it passes `limits`.
 pub fn price_market(
 	book: &OrderBook,
 	latest_trade_ms: u64,
@@ -176,8 +176,8 @@ pub fn price_market(
 	impact_mid(book, limits.impact_size)
 }
 
-/// The impact mid of a book: the mean of the prices at which `size` quote units are bought
-/// from the asks and sold into the bids.
+/// The average of the prices at which `size` quote units are bought from the asks and sold into
+/// the bids.
 pub fn impact_mid(book: &OrderBook, size: Price) -> Result<Price, HealthError> {
 	let ask = fill_price(&book.asks, size)?;
 	let bid = fill_price(&book.bids, size)?;
@@ -186,7 +186,7 @@ pub fn impact_mid(book: &OrderBook, size: Price) -> Result<Price, HealthError> {
 }
 
 /// The average price at which `size` quote units are filled against `side`, walking the levels
-/// in order. `None` if the side cannot fill `size`.
+/// in order. Fails with [`HealthError::BookTooThin`] if the side cannot fill `size`.
 fn fill_price(side: &[Level], size: Price) -> Result<Price, HealthError> {
 	let mut remaining = size;
 	let mut received = Price::zero();
@@ -210,7 +210,7 @@ fn fill_price(side: &[Level], size: Price) -> Result<Price, HealthError> {
 #[cfg(test)]
 mod price_market_tests {
 	use super::*;
-	use crate::schema::Level;
+	use crate::pricing::parse_decimal;
 
 	fn p(s: &str) -> Price {
 		parse_decimal(s).unwrap()
@@ -218,12 +218,11 @@ mod price_market_tests {
 	fn level(price: &str, amount: &str) -> Level {
 		Level { price: p(price), amount: p(amount) }
 	}
-	fn settings() -> PairSettings {
-		PairSettings {
+	fn limits() -> HealthLimits {
+		HealthLimits {
+			impact_size: p("10000"),
 			max_spread: Permill::from_parts(5_000), // 0.5%
 			max_trade_age_ms: 300_000,
-			impact_size: p("10000"),
-			quorum: 1,
 		}
 	}
 	/// Bids 4.00 x 1000, 3.99 x 5000; asks 4.02 x 1000, 4.03 x 5000.
@@ -255,12 +254,12 @@ mod price_market_tests {
 
 	#[test]
 	fn healthy_market_is_priced() {
-		assert!(price_market(&book(), 1_000_000, 1_000_000 + 60_000, &settings()).is_ok());
+		assert!(price_market(&book(), 1_000_000, 1_000_000 + 60_000, &limits()).is_ok());
 	}
 
 	#[test]
 	fn health_checks_reject() {
-		let s = settings();
+		let s = limits();
 		let now = 1_000_000;
 		// Crossed.
 		let mut b = book();
@@ -275,11 +274,124 @@ mod price_market_tests {
 		// Stale trades.
 		assert_eq!(price_market(&book(), now, now + 300_001, &s), Err(HealthError::StaleTrades));
 		// Thin.
-		let thin = PairSettings { impact_size: p("1000000"), ..s };
+		let thin = HealthLimits { impact_size: p("1000000"), ..s };
 		assert_eq!(price_market(&book(), now, now, &thin), Err(HealthError::BookTooThin));
 		// Empty side.
 		let mut b = book();
 		b.asks.clear();
 		assert_eq!(price_market(&b, now, now, &s), Err(HealthError::BookTooThin));
+	}
+}
+
+#[cfg(test)]
+mod order_book_pricing_tests {
+	use super::*;
+	use crate::pricing::parse_decimal;
+	use schema::{LevelLayout, PathStep, TimeFormat};
+
+	const BOOK: QueryTag = QueryTag(0);
+	const TRADES: QueryTag = QueryTag(1);
+	const NOW_MS: u64 = 1_000_000;
+	/// Bids 4.00 x 1000, 3.99 x 5000; asks 4.02 x 1000, 4.03 x 5000.
+	const BOOK_JSON: &[u8] = br#"{
+		"bids": [["4.00", "1000"], ["3.99", "5000"]],
+		"asks": [["4.02", "1000"], ["4.03", "5000"]]
+	}"#;
+	/// One trade at `NOW_MS`.
+	const TRADES_JSON: &[u8] = br#"[{"time": 1000000}]"#;
+
+	fn p(s: &str) -> Price {
+		parse_decimal(s).unwrap()
+	}
+
+	fn params() -> OrderBookParams {
+		let key = |k| PathStep::key(k).unwrap();
+		let book = ResponseSchema::OrderBook {
+			bids: vec![key("bids")].try_into().unwrap(),
+			asks: vec![key("asks")].try_into().unwrap(),
+			layout: LevelLayout::Array { price: 0, amount: 1 },
+		};
+		let trades = ResponseSchema::Trades {
+			trades: Default::default(),
+			time: vec![key("time")].try_into().unwrap(),
+			format: TimeFormat::Millis,
+		};
+		OrderBookParams {
+			schemas: vec![(BOOK, book), (TRADES, trades)].try_into().unwrap(),
+			contract_size: p("1"),
+			limits: HealthLimits {
+				impact_size: p("10000"),
+				max_spread: Permill::from_parts(5_000), // 0.5%
+				max_trade_age_ms: 300_000,
+			},
+		}
+	}
+
+	fn price(
+		params: &OrderBookParams,
+		responses: &[(QueryTag, &[u8])],
+		now_ms: u64,
+	) -> Result<Price, Error> {
+		let responses: Vec<_> = responses.iter().map(|(tag, body)| (*tag, body.to_vec())).collect();
+		OrderBookPricing::price(params, &responses, now_ms)
+	}
+
+	#[test]
+	fn prices_the_impact_mid_of_the_book() {
+		let Ok(Parsed::OrderBook(book)) = params().schemas[0].1.read(BOOK_JSON) else {
+			panic!("the book fixture is readable")
+		};
+		assert_eq!(
+			price(&params(), &[(BOOK, BOOK_JSON), (TRADES, TRADES_JSON)], NOW_MS),
+			impact_mid(&book, p("10000")).map_err(Error::Unhealthy),
+		);
+	}
+
+	#[test]
+	fn needs_a_book_and_trades() {
+		assert_eq!(price(&params(), &[(TRADES, TRADES_JSON)], NOW_MS), Err(Error::NoOrderBook));
+		assert_eq!(price(&params(), &[(BOOK, BOOK_JSON)], NOW_MS), Err(Error::NoTrades));
+	}
+
+	#[test]
+	fn rejects_responses_it_cannot_read() {
+		assert_eq!(price(&params(), &[(QueryTag(9), BOOK_JSON)], NOW_MS), Err(Error::UnknownQuery));
+		assert_eq!(
+			price(&params(), &[(BOOK, b"not json")], NOW_MS),
+			Err(Error::Schema(ResponseSchemaError::NotJson)),
+		);
+	}
+
+	#[test]
+	fn contract_size_scales_the_book() {
+		// At a thousandth of a unit per contract each side holds about 24 USDT, too thin for 10000.
+		let mut params = params();
+		params.contract_size = p("0.001");
+		assert_eq!(
+			price(&params, &[(BOOK, BOOK_JSON), (TRADES, TRADES_JSON)], NOW_MS),
+			Err(Error::Unhealthy(HealthError::BookTooThin)),
+		);
+	}
+
+	#[test]
+	fn applies_the_health_limits() {
+		let later = NOW_MS + 300_001;
+		assert_eq!(
+			price(&params(), &[(BOOK, BOOK_JSON), (TRADES, TRADES_JSON)], later),
+			Err(Error::Unhealthy(HealthError::StaleTrades)),
+		);
+	}
+
+	#[test]
+	fn validate_rejects_zero_sizes() {
+		assert!(OrderBookPricing::validate(&params()));
+
+		let mut invalid = params();
+		invalid.contract_size = Zero::zero();
+		assert!(!OrderBookPricing::validate(&invalid));
+
+		let mut invalid = params();
+		invalid.limits.impact_size = Zero::zero();
+		assert!(!OrderBookPricing::validate(&invalid));
 	}
 }

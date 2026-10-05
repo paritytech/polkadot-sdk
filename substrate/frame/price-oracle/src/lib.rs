@@ -56,7 +56,7 @@ pub use registry::{StoredMarket, Venue};
 pub use signers::Signers;
 pub use weights::WeightInfo;
 
-/// A stored market of the runtime, with the parameters of [`Config::MarketPricing`].
+/// A stored market, with the pricing parameters of [`Config::MarketPricing`].
 pub type StoredMarketOf<T> = StoredMarket<<<T as Config>::MarketPricing as MarketPricing>::Params>;
 
 /// Block number of [`Config::BlockNumberProvider`].
@@ -565,8 +565,8 @@ impl<T: Config> Pallet<T> {
 
 /// Price `market` from the responses to its queries, at the node's time `now_ms`.
 ///
-/// A response to an unknown query, or larger than its query allows, is rejected. The rest is up to
-/// the pricing method `P`.
+/// Rejects responses to unknown queries and responses larger than their query allows. The rest is
+/// up to `P`.
 pub fn parse_market<P: MarketPricing>(
 	market: &StoredMarket<P::Params>,
 	responses: Vec<(QueryTag, Vec<u8>)>,

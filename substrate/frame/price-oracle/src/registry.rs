@@ -93,7 +93,7 @@ pub struct StoredMarket<PricingParams> {
 	pub venue: VenueId,
 	pub pair: PairId,
 	pub queries: BoundedVec<StoredQuery, MaxQueries>,
-	/// How the market is priced. See [`crate::MarketPricing`].
+	/// The pricing parameters of the market. See [`crate::MarketPricing`].
 	pub pricing: PricingParams,
 	/// Inactive markets are kept in storage but not served to the nodes.
 	pub active: bool,

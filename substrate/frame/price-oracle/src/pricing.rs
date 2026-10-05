@@ -26,13 +26,13 @@ use sp_runtime::traits::{CheckedMul, Member, Zero};
 
 /// How markets are priced.
 pub trait MarketPricing {
-	/// Stored with each market, e.g. how to read its responses.
+	/// The pricing parameters, stored with each market.
 	type Params: Member + Parameter + MaxEncodedLen;
 
 	/// Why a market could not be priced.
 	type Error: Debug;
 
-	/// Whether `params` can be stored with a market.
+	/// Whether `params` are valid. Checked when a market is set.
 	fn validate(_params: &Self::Params) -> bool {
 		true
 	}
