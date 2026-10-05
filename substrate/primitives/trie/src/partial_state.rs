@@ -219,8 +219,8 @@ impl<H: Hasher> Clone for TrieNodeInfo<H> {
 	fn clone(&self) -> Self {
 		Self {
 			trie_prefix: self.trie_prefix.clone(),
-			hash: self.hash.clone(),
-			is_detached_value: self.is_detached_value.clone(),
+			hash: self.hash,
+			is_detached_value: self.is_detached_value,
 			child_trie_key: self.child_trie_key.clone(),
 		}
 	}
