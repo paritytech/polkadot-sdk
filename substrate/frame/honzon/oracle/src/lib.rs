@@ -91,6 +91,8 @@ use sp_runtime::{
 	traits::{AccountIdConversion, Member},
 	Debug, DispatchResult,
 };
+#[cfg(any(feature = "try-runtime", test))]
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{prelude::*, vec};
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -308,6 +310,11 @@ pub mod pallet {
 			// cleanup for next block
 			<HasDispatched<T, I>>::kill();
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::view_functions]
@@ -426,6 +433,76 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			T::OnNewData::on_new_data(&who, key, value);
 		}
 		Self::deposit_event(Event::NewFeedData { sender: who, values });
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_raw_values_feeders()?;
+		Self::try_state_has_dispatched()?;
+		Self::try_state_timestamps()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Every account holding data in `RawValues` must be allowed to feed data, i.e. it is either
+	///   an oracle member or the pallet account (used when values are fed by root). The data of a
+	///   member is cleared in `change_members_sorted` when it leaves the oracle.
+	fn try_state_raw_values_feeders() -> Result<(), sp_runtime::TryRuntimeError> {
+		let members = T::Members::sorted_members().into_iter().collect::<BTreeSet<_>>();
+		let pallet_account = Self::get_pallet_account();
+
+		for (who, _, _) in RawValues::<T, I>::iter() {
+			ensure!(
+				who == pallet_account || members.contains(&who),
+				"`RawValues` must only hold data of oracle members or of the pallet account"
+			);
+		}
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * The number of accounts that have fed data in the current block must not exceed
+	///   `MaxHasDispatchedSize`.
+	fn try_state_has_dispatched() -> Result<(), sp_runtime::TryRuntimeError> {
+		ensure!(
+			HasDispatched::<T, I>::get().len() as u32 <= T::MaxHasDispatchedSize::get(),
+			"`HasDispatched` must not hold more accounts than `MaxHasDispatchedSize`"
+		);
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * No value can be timestamped in the future, both in `RawValues` and in `Values`, since
+	///   values are timestamped with the time of the block they were fed in.
+	fn try_state_timestamps() -> Result<(), sp_runtime::TryRuntimeError> {
+		let now = T::Time::now();
+
+		for (_, _, timestamped) in RawValues::<T, I>::iter() {
+			ensure!(
+				timestamped.timestamp <= now,
+				"`RawValues` must not hold a value timestamped in the future"
+			);
+		}
+
+		for (_, timestamped) in Values::<T, I>::iter() {
+			ensure!(
+				timestamped.timestamp <= now,
+				"`Values` must not hold a value timestamped in the future"
+			);
+		}
+
+		Ok(())
 	}
 }
 
