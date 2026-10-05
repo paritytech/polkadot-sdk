@@ -41,44 +41,57 @@ use crate::{exec::Key, limits};
 /// memory cost.
 pub const MAX_INLINE_KEY_LEN: usize = 36;
 
-/// Maximum number of distinct entries tracked in the access list within a
-/// single transaction.
+/// Maximum number of distinct entries tracked in the access list within a single transaction.
 ///
-/// Bounds the working memory `AccessList` can allocate per transaction.
-/// EIP-2929 does not specify a structural cap; Ethereum relies on gas to
-/// implicitly bound growth.
-///
-/// Memory grows discontinuously due to the runtime allocator (sc-allocator)
-/// rounding allocations up to power-of-2 size classes.
-///
-/// All figures below are approximate order-of-magnitude estimates; every slot
-/// includes an upgrade. The Ethereum-gas column shows the EIP-2929 cost of
-/// filling the map to that size via cold SLOADs (2 100 gas each).
-///
-/// | Entries | Fix/Inline (Best) | VarLong (Worst) |     Gas (Ethereum) |
-/// |---------|-------------------|-----------------|--------------------|
-/// |       1 |      ~1.5 KB      |     ~1.8 KB     |          2.1 k gas |
-/// |       2 |      ~1.5 KB      |     ~2.2 KB     |          4.2 k gas |
-/// |       8 |      ~2.3 KB      |     ~5.3 KB     |         16.8 k gas |
-/// |      32 |      ~11 KB       |      ~23 KB     |         67.2 k gas |
-/// |     128 |      ~45 KB       |      ~96 KB     |          269 k gas |
-/// |   2 048 |      ~730 KB      |     ~1.5 MB     |          4.3 M gas |
-///
-/// Set ~2× above the current PoV-reachable ceiling as a backstop: each
-/// cold access charges ~10 KB `proof_size`, capping a transaction
-/// (~7.5 MiB PoV) at ~770 cold touches.
-pub const MAX_ACCESS_LIST_ENTRIES: usize = 2_048;
+/// Bounds the working memory `AccessList` can allocate per transaction. EIP-2929 does not specify
+/// a cap and Ethereum relies on gas to implicitly bound growth.
+pub const MAX_ACCESS_LIST_ENTRIES: usize = 4_096;
 
-/// Worst-case per-entry memory in the `BTreeMap` + journals, measured
-/// against sc-allocator (8-byte headers, power-of-2 buckets). `Slot::Fix` and
-/// `Slot::VarInline` measure ~366 B; `Slot::VarLong` ~502 B. An entry in the
-/// `upgrades` journal adds up to ~200 B on top. Rounded up to 768 for
-/// headroom.
-const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 768;
+// Worst-case memory per access list entry, measured with a list filled to the cap, counting what
+// the runtime allocator (sc-allocator) hands out: every allocation is rounded up to a power-of-2
+// size class plus an 8-byte header.
+//
+// An entry is 64 B and is kept in `accessed`, in `journal` and, once written, in `upgrades`. A
+// storage slot with a key longer than `MAX_INLINE_KEY_LEN` keeps the key on the heap, so each
+// container also holds its own copy: 128 B in a 136 B block. An address entry has no key copy.
+// Per entry:
+//
+// | container  | entry | key | slot total | address total |
+// |------------|-------|-----|------------|---------------|
+// | `accessed` |  ~171 | 136 |       ~307 |          ~171 |
+// | `journal`  |  ~128 | 136 |       ~264 |          ~128 |
+// | `upgrades` |  ~128 | 136 |       ~264 |          ~128 |
+// |            |       |     |       ~835 |          ~427 |
+//
+// In `accessed`, ~171 B is an entry's share of a ~1 KiB `BTreeMap` node, taken at about half full
+// (~6 of 11 AccessEntries). In a journal, ~128 B is the 64 B AccessEntry copy doubled: a `Vec`
+// grows by moving to a buffer twice the size, and the buffers it frees add up to about one final
+// buffer. The allocator keeps each for requests of the same size, which the list does not make.
+
+/// Worst-case memory of a storage slot entry: the slot total above, rounded up.
+const SLOT_ENTRY_BYTES: usize = 1_024;
+
+/// Worst-case memory of an address or code entry, or a storage slot with an inline key: the
+/// address total above, rounded up.
+const ADDRESS_ENTRY_BYTES: usize = 512;
+
+const _: () = assert!(
+	core::mem::size_of::<AccessEntry>() == 64 &&
+		limits::STORAGE_KEY_BYTES == 128 &&
+		MAX_ACCESS_LIST_ENTRIES.is_power_of_two(),
+	"the memory usage table above is based on these sizes and requires remeasuring",
+);
+
+/// Storage slot entries that fit into a block's PoV.
+///
+/// Set ~1.3× above the current PoV-reachable ceiling: each cold slot access charges ~10 KB
+/// `proof_size`, capping a transaction (~7.5 MiB PoV) at ~770 cold slots.
+pub const MAX_SLOT_ENTRIES: usize = 1_024;
 
 /// Worst-case total memory the access list can hold per transaction.
-pub const MAX_ACCESS_LIST_BYTES: u32 =
-	MAX_ACCESS_LIST_ENTRIES.saturating_mul(MAX_ACCESS_LIST_ENTRY_BYTES) as u32;
+pub const MAX_ACCESS_LIST_BYTES: u32 = (MAX_SLOT_ENTRIES * SLOT_ENTRY_BYTES +
+	(MAX_ACCESS_LIST_ENTRIES - MAX_SLOT_ENTRIES) * ADDRESS_ENTRY_BYTES)
+	as u32;
 
 /// A contract's storage key, in the form the access list keeps it.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]

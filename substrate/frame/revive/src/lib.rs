@@ -1095,6 +1095,29 @@ pub mod pallet {
 				max_events_size / 1024,
 			);
 
+			// The access list memory is sized for `MAX_SLOT_ENTRIES` storage slots: the proof a
+			// cold SLOAD is charged limits how many a transaction can include. A proof limit
+			// above `PVFMemory` is a placeholder, since no PoV can be larger than that.
+			if max_block_weight.proof_size() <= max_pvf_mem {
+				let cold_slot_read =
+					<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::GetStorage {
+						len: 0,
+						kind: StorageAccessKind::Persistent(StorageItems::summarize_single(
+							Warmth::cold_non_revertible(),
+							StorageOp::Read,
+						)),
+					});
+				let max_slot_entries = max_block_weight
+					.proof_size()
+					.checked_div(cold_slot_read.proof_size())
+					.unwrap_or(u64::MAX);
+				assert!(
+					max_slot_entries <= crate::access_list::MAX_SLOT_ENTRIES as u64,
+					"A transaction can include {max_slot_entries} storage slot entries in the access list, which is sized for {}",
+					crate::access_list::MAX_SLOT_ENTRIES
+				);
+			}
+
 			// Check that the configured memory limits fit into runtime memory.
 			//
 			// Dynamic allocations are not available, yet. Hence they are not taken into
