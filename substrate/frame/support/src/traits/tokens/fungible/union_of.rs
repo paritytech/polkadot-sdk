@@ -254,7 +254,8 @@ impl<
 		Criterion: Convert<AssetKind, Either<(), Right::AssetId>>,
 		AssetKind: AssetId,
 		AccountId,
-	> fungibles::metadata::Mutate<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+	> fungibles::metadata::Mutate<AccountId>
+	for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
 {
 	fn set(
 		asset: Self::AssetId,
