@@ -1,0 +1,15 @@
+title: Clarify that scheduler priority never bypasses `MaximumWeight`
+doc:
+  - audience: Runtime Dev
+    description: |
+      The documentation of `frame_support::traits::schedule::HARD_DEADLINE` stated that tasks of
+      this priority or lower run in the block they ask for even if that exceeds the scheduler's
+      `MaximumWeight`. `pallet-scheduler` has not behaved like that since the bounded scheduler
+      rewrite: priority only orders the tasks of an agenda and a task that does not fit is
+      postponed. The doc comment now describes the actual behaviour, and a regression test covers
+      tasks of `HIGHEST_PRIORITY` and `HARD_DEADLINE` exceeding the weight limit.
+crates:
+  - name: frame-support
+    bump: none
+  - name: pallet-scheduler
+    bump: none
