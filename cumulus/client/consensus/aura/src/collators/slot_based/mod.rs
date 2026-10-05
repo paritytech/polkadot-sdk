@@ -106,6 +106,7 @@ mod collation_task;
 mod message;
 mod relay_chain_data_cache;
 mod resubmission;
+mod resubmittable_segment;
 mod scheduling;
 mod slot_timer;
 
