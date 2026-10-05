@@ -45,8 +45,7 @@ doc:
     commits to, and number them after every other log of the block: eth-rpc gives them a
     `logIndex` from the block's event count on, and `eth_getLogs` now orders its results by block
     number and `logIndex`, so the synthetic transaction's logs come last as its `transactionIndex`
-    is. Before, a filtered query returned the logs of a block in the order of its
-    `(block_number, address, topics)` index. `eth_block` lists the
+    is. Before, the order of a filtered query's results was unspecified. `eth_block` lists the
     synthetic transaction's hash in every version, since
     `transactions` is the list the header commits to; an eth-rpc on receipt data version 1 sees
     that hash with no receipt to serve for it. The new `Config` item `MaxOutsideFrameLogs` bounds
@@ -151,15 +150,22 @@ doc:
     but returns null for its receipt and transaction, reports one fewer in
     `eth_getBlockTransactionCountByNumber` and serves none of the mirrored logs. With the buffer
     off, as Asset Hub Westend ships it, old and new eth-rpc serve the same blocks. `eth_getLogs`
-    now returns logs ordered by block number and `logIndex`; before, a filtered query returned a
-    block's logs in the order of its `(block_number, address, topics)` index. No database
-    migration.
+    now returns logs ordered by block number and `logIndex`; before, the order of a filtered
+    query's results was unspecified. No database migration.
 - audience: Node Dev
   description: |-
     `pallet-revive-eth-rpc`: `ReceiptExtractor::new` and `new_with_custom_address_recovery` take
     the chain's EVM chain id as a second argument, which the extractor needs to rebuild the
     synthetic transaction that carries a block's outside-of-frame logs, and are plain functions
     now, neither `async` nor fallible.
+- audience: Runtime User
+  description: |-
+    Ethereum receipts no longer carry the logs of reverted frames or of failed transactions;
+    they, `receipts_root` and `logs_bloom` now follow the state that produced the logs. Gas
+    estimates for calls that emit logs go up, since a `LOG` is now priced as it runs inside an
+    ethereum transaction. `eth_getLogs` returns logs ordered by block number and `logIndex`. On
+    a chain wiring the mirror, such as Asset Hub Westend, an asset balance change dispatched
+    through `eth_substrate_call` shows up as an ERC-20 `Transfer` log on its receipt.
 crates:
 - name: pallet-assets
   bump: major
