@@ -46,6 +46,12 @@ pub const BLOCK_HASH_COUNT: u32 = 256;
 // that are needed to construct the final transaction receipt.
 environmental!(receipt: AccumulateReceipt);
 
+#[derive(Clone, Copy)]
+pub(crate) struct ReceiptCheckpoint {
+	encoding_len: usize,
+	bloom: LogsBloom,
+}
+
 /// Result of an Ethereum context call execution.
 pub(crate) struct EthereumCallResult {
 	/// Receipt gas information.
@@ -124,6 +130,22 @@ impl EthereumCallResult {
 pub fn capture_ethereum_log(contract: &H160, data: &[u8], topics: &[H256]) {
 	receipt::with(|receipt| {
 		receipt.add_log(contract, data, topics);
+	});
+}
+
+/// Return a checkpoint for the current transaction receipt.
+pub(crate) fn checkpoint_ethereum_receipt() -> Option<ReceiptCheckpoint> {
+	receipt::with(|receipt| ReceiptCheckpoint {
+		encoding_len: receipt.encoding.len(),
+		bloom: receipt.bloom,
+	})
+}
+
+/// Restore the current transaction receipt to a previous checkpoint.
+pub(crate) fn rollback_ethereum_receipt(checkpoint: ReceiptCheckpoint) {
+	receipt::with(|receipt| {
+		receipt.encoding.truncate(checkpoint.encoding_len);
+		receipt.bloom = checkpoint.bloom;
 	});
 }
 
