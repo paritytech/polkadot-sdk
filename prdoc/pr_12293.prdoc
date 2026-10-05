@@ -1,0 +1,33 @@
+title: Add optional header pruning
+
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    Adds an opt-in `--enable-header-pruning` node flag. When used together with a numeric
+    `--blocks-pruning N`, the headers (and their key-lookup entries) of pruned finalized blocks
+    are removed from the database as well, instead of being kept forever. This bounds the
+    otherwise unbounded, monotonic header-chain growth on fully-pruned validator/authoring nodes.
+
+    Headers required for warp sync (blocks retained by a `PruningFilter`, e.g. GRANDPA authority
+    set changes) and pinned blocks are never pruned. The flag is a no-op in archive modes.
+
+    NOTE: a node started with `--enable-header-pruning` can no longer answer queries for pruned
+    historical headers and must not be used as an archive or full-sync source.
+
+    For downstream code constructing the affected structs directly, new fields default to `false`
+    (previous behavior, headers kept):
+    - `sc_client_db::DatabaseSettings` gains a `header_pruning: bool` field.
+    - `sc_service::Configuration` gains a `header_pruning: bool` field.
+    - `sc_cli::PruningParams` gains an `enable_header_pruning: bool` field.
+    - `sc_cli::CliConfiguration` gains a `header_pruning()` method (default impl reads it from
+      `PruningParams`).
+
+crates:
+- name: sc-client-db
+  bump: major
+- name: sc-service
+  bump: major
+- name: sc-cli
+  bump: major
+- name: frame-benchmarking-cli
+  bump: patch
