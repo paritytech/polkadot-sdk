@@ -144,8 +144,9 @@ impl<W: WeightInfo> OnFinalizeBlockParts for W {
 	}
 
 	fn per_outside_frame_log(data_len: u32) -> Weight {
-		// Both benchmarks are `pov_mode = Measured`, so the marginals carry the proof size of the
-		// buffer take: per log, and per byte of the value it reads back.
+		// Ref time only: `OutsideFrameLogs` is whitelisted, so the take adds no proof size to
+		// either marginal. A log's proof charge is its entry's bytes, registered where it is
+		// buffered.
 		let per_log_cost = W::outside_frame_log(1).saturating_sub(W::outside_frame_log(0));
 
 		let data_cost = if data_len > 0 {

@@ -3966,9 +3966,10 @@ mod benchmarks {
 	/// Benchmark the `on_finalize` drain of `n` buffered outside-of-frame logs: taking the buffer
 	/// and folding each log into the synthetic transaction's receipt (RLP + bloom).
 	///
-	/// `pov_mode = Measured` so the marginal carries the per-log proof size, which a constant
-	/// estimate cannot infer. See `OnFinalizeBlockParts::per_outside_frame_log` for why the insert
-	/// is out of scope here.
+	/// `pov_mode = Measured` because the block builder's storage is unbounded. The buffer itself is
+	/// whitelisted, so the marginal carries no proof size; a log's proof charge is its entry's
+	/// bytes, registered where it is buffered. The append is in the emitting pallet's weight, see
+	/// `buffer_outside_frame_log`.
 	///
 	/// Each log uses a representative ERC-20 `Transfer` payload: three 32-byte topics and a 32-byte
 	/// data word.
