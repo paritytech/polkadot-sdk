@@ -183,10 +183,20 @@ pub trait WeightInfo {
 	fn evm_opcode(r: u32, ) -> Weight;
 	fn evm_pop_opcode(r: u32, ) -> Weight;
 	fn evm_div_opcode(r: u32, ) -> Weight;
+	fn evm_div_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_div_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_sdiv_opcode(r: u32, ) -> Weight;
+	fn evm_sdiv_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_sdiv_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_mod_opcode(r: u32, ) -> Weight;
+	fn evm_mod_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_mod_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_smod_opcode(r: u32, ) -> Weight;
+	fn evm_smod_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_smod_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_addmod_opcode(r: u32, ) -> Weight;
+	fn evm_addmod_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_addmod_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_mulmod_opcode(r: u32, ) -> Weight;
 	fn instr(r: u32, ) -> Weight;
 	fn instr_empty_loop(r: u32, ) -> Weight;
@@ -1624,6 +1634,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(415_186, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
 	fn evm_sdiv_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1632,6 +1654,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(1_168_680, 0)
 			// Standard Error: 237
 			.saturating_add(Weight::from_parts(463_029, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_mod_opcode(r: u32, ) -> Weight {
@@ -1644,6 +1678,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(418_090, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
 	fn evm_smod_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1652,6 +1698,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(1_069_460, 0)
 			// Standard Error: 333
 			.saturating_add(Weight::from_parts(425_369, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_addmod_opcode(r: u32, ) -> Weight {
@@ -1662,6 +1720,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(1_610_508, 0)
 			// Standard Error: 461
 			.saturating_add(Weight::from_parts(822_807, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_addmod_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_addmod_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_mulmod_opcode(r: u32, ) -> Weight {
@@ -3312,6 +3382,18 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(415_186, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
 	fn evm_sdiv_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3320,6 +3402,18 @@ impl WeightInfo for () {
 		Weight::from_parts(1_168_680, 0)
 			// Standard Error: 237
 			.saturating_add(Weight::from_parts(463_029, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_mod_opcode(r: u32, ) -> Weight {
@@ -3332,6 +3426,18 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(418_090, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
 	fn evm_smod_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3340,6 +3446,18 @@ impl WeightInfo for () {
 		Weight::from_parts(1_069_460, 0)
 			// Standard Error: 333
 			.saturating_add(Weight::from_parts(425_369, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_addmod_opcode(r: u32, ) -> Weight {
@@ -3350,6 +3468,18 @@ impl WeightInfo for () {
 		Weight::from_parts(1_610_508, 0)
 			// Standard Error: 461
 			.saturating_add(Weight::from_parts(822_807, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_addmod_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_addmod_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_mulmod_opcode(r: u32, ) -> Weight {

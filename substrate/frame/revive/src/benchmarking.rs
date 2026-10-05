@@ -227,6 +227,82 @@ mod knuth_division_operands {
 	];
 }
 
+/// Operands covering all eight correction patterns in the one-limb division path.
+///
+/// `div_mod_small` divides one numerator limb at a time. The highest limb cannot require a
+/// correction. Each remaining limb can cause one correction in the 128-bit division helper. The
+/// patterns below are ordered by numerator limbs 2, 1, 0. The counts were checked with a
+/// source-level trace of Rust 1.93 `compiler_builtins` using the shared `2^255` numerator.
+///
+/// Each pattern has two distinct full-width divisors. Selecting a divisor pseudo-randomly varies
+/// the correction branches while preserving the signed minimum-numerator case.
+mod one_limb_division_operands {
+	use super::{Rng, U256};
+
+	pub fn unsigned_operands(rng: &mut impl Rng) -> [U256; 2] {
+		let denominator = DENOMINATORS[rng.gen_range(0..DENOMINATORS.len() as u32) as usize];
+		[denominator, NUMERATOR]
+	}
+
+	pub fn signed_operands(rng: &mut impl Rng) -> [U256; 2] {
+		let [magnitude, numerator] = unsigned_operands(rng);
+		let divisor =
+			if rng.gen_bool(0.5) { magnitude } else { U256::zero().overflowing_sub(magnitude).0 };
+		[divisor, numerator]
+	}
+
+	pub const NUMERATOR: U256 = super::knuth_division_operands::NUMERATOR;
+
+	/// Two distinct divisors per pattern, with correction counts listed in limb order 2, 1, 0.
+	pub const DENOMINATORS: [U256; 16] = [
+		// Corrections: 0, 0, 0.
+		U256([0xfff9_9928_4b39_14e9, 0, 0, 0]),
+		U256([0xfff7_2ef6_07d7_0402, 0, 0, 0]),
+		// Corrections: 0, 0, 1.
+		U256([0xfffc_adff_2ef2_7bf4, 0, 0, 0]),
+		U256([0xffc7_1287_6d60_c1f0, 0, 0, 0]),
+		// Corrections: 0, 1, 0.
+		U256([0xfff8_74b0_648f_da8a, 0, 0, 0]),
+		U256([0xfff7_1d06_39ab_3877, 0, 0, 0]),
+		// Corrections: 0, 1, 1.
+		U256([0xf974_5f46_74c9_5adf, 0, 0, 0]),
+		U256([0xf7e1_3204_7bd0_15af, 0, 0, 0]),
+		// Corrections: 1, 0, 0.
+		U256([0xfff7_ac60_75f1_501f, 0, 0, 0]),
+		U256([0xffe8_555d_5f54_a346, 0, 0, 0]),
+		// Corrections: 1, 0, 1.
+		U256([0xfe7a_ca58_4afc_ed70, 0, 0, 0]),
+		U256([0xfd2b_4905_64bd_9797, 0, 0, 0]),
+		// Corrections: 1, 1, 0.
+		U256([0xfcd0_0e3d_ccbd_7da4, 0, 0, 0]),
+		U256([0xee06_4d5d_bfab_b524, 0, 0, 0]),
+		// Corrections: 1, 1, 1.
+		U256([0xf42a_21ef_e080_fc89, 0, 0, 0]),
+		U256([0xf095_aea7_fc96_fbde, 0, 0, 0]),
+	];
+}
+
+/// Randomly chooses between the Knuth and one-limb correction-pattern operand sets.
+mod mixed_division_operands {
+	use super::{Rng, U256, knuth_division_operands, one_limb_division_operands};
+
+	pub fn unsigned_operands(rng: &mut impl Rng) -> [U256; 2] {
+		if rng.gen_bool(0.5) {
+			knuth_division_operands::unsigned_operands(rng)
+		} else {
+			one_limb_division_operands::unsigned_operands(rng)
+		}
+	}
+
+	pub fn signed_operands(rng: &mut impl Rng) -> [U256; 2] {
+		if rng.gen_bool(0.5) {
+			knuth_division_operands::signed_operands(rng)
+		} else {
+			one_limb_division_operands::signed_operands(rng)
+		}
+	}
+}
+
 #[benchmarks(
 	where
 		T: Config,
@@ -3384,6 +3460,54 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `DIV` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| one_limb_division_operands::unsigned_operands(&mut rng));
+
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `DIV` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| mixed_division_operands::unsigned_operands(&mut rng));
+
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `SDIV` op-codes.
 	///
 	/// # Added Overheads
@@ -3419,6 +3543,54 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `SDIV` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| one_limb_division_operands::signed_operands(&mut rng));
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SDIV` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| mixed_division_operands::signed_operands(&mut rng));
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `MOD` op-codes.
 	///
 	/// # Added Overheads
@@ -3430,6 +3602,54 @@ mod benchmarks {
 	fn evm_mod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| knuth_division_operands::unsigned_operands(&mut rng));
+
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `MOD` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| one_limb_division_operands::unsigned_operands(&mut rng));
+
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `MOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| mixed_division_operands::unsigned_operands(&mut rng));
 
 		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
@@ -3481,6 +3701,54 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `SMOD` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| one_limb_division_operands::signed_operands(&mut rng));
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SMOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| mixed_division_operands::signed_operands(&mut rng));
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `ADDMOD` op-codes.
 	///
 	/// # Added Overheads
@@ -3499,6 +3767,60 @@ mod benchmarks {
 		let operands = (0..r).flat_map(|_| {
 			let modulus = DENOMINATORS.choose(&mut rng).copied().unwrap();
 			[modulus, NUMERATOR, NUMERATOR]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let [modulus, numerator] = one_limb_division_operands::unsigned_operands(&mut rng);
+			[modulus, numerator, numerator]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let [modulus, numerator] = mixed_division_operands::unsigned_operands(&mut rng);
+			[modulus, numerator, numerator]
 		});
 
 		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());

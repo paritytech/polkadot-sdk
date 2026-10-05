@@ -78,11 +78,26 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 		// These op-codes are benchmarked in pairs with a `POP`, whose cost isn't theirs.
 		let pop = per_opcode(T::WeightInfo::evm_pop_opcode);
 		match self {
-			Self::Div => per_opcode(T::WeightInfo::evm_div_opcode).saturating_sub(pop),
-			Self::SDiv => per_opcode(T::WeightInfo::evm_sdiv_opcode).saturating_sub(pop),
-			Self::Mod => per_opcode(T::WeightInfo::evm_mod_opcode).saturating_sub(pop),
-			Self::SMod => per_opcode(T::WeightInfo::evm_smod_opcode).saturating_sub(pop),
-			Self::AddMod => per_opcode(T::WeightInfo::evm_addmod_opcode).saturating_sub(pop),
+			Self::Div => per_opcode(T::WeightInfo::evm_div_opcode)
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_mixed_variant))
+				.saturating_sub(pop),
+			Self::SDiv => per_opcode(T::WeightInfo::evm_sdiv_opcode)
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_mixed_variant))
+				.saturating_sub(pop),
+			Self::Mod => per_opcode(T::WeightInfo::evm_mod_opcode)
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_mixed_variant))
+				.saturating_sub(pop),
+			Self::SMod => per_opcode(T::WeightInfo::evm_smod_opcode)
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_mixed_variant))
+				.saturating_sub(pop),
+			Self::AddMod => per_opcode(T::WeightInfo::evm_addmod_opcode)
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_mixed_variant))
+				.saturating_sub(pop),
 			Self::MulMod => per_opcode(T::WeightInfo::evm_mulmod_opcode).saturating_sub(pop),
 		}
 	}
