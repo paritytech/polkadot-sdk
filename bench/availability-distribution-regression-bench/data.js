@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791191229209,
+  "lastUpdate": 1791198408207,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marios@parity.io",
-            "name": "Marios",
-            "username": "mchristou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f4a82c9be7127ea4a92802c3033e252f8db287bd",
-          "message": "add scheduling tests for v3 descriptor with v2 collators (#11333)\n\n## Description:\n\n  Zombienet SDK tests (polkadot/zombienet-sdk-tests/tests/scheduling/):\n- v3_dynamic_enablement: relay chain starts with V2, enables V3 on the\nfly mid-session via governance.\nVerifies block production continues and descriptors are correctly\ndetected after the feature flip\n- v3_rolling_upgrade: mixed V2/V3 validator fleet using async backing.\nVerifies the network keeps producing blocks during a rolling upgrade\nwhere only some validators support V3\n\n  Unit tests:\n- paras_inherent/tests.rs: V1 descriptor accepted by V3-capable runtime,\nverifies candidates reach PendingAvailability\n- collator-protocol/validator_side/tests/prospective_parachains.rs: V3\ncapable validator correctly detects and handles a V1 descriptor received\nover the wire\n- configuration/tests.rs: max_relay_parent_session_age returns 0 after\nv13 migration\n- backing/src/tests/mod.rs: V3 capable validator fully backs a V1\ncandidate\n- statement-distribution/src/v2/tests/cluster.rs: V1 backed statement is\ndistributed to a V3-capable cluster peer and accepted via the V3 wire\nprotocol\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>",
-          "timestamp": "2026-03-26T10:25:53Z",
-          "tree_id": "c07180f8fe20dd7fff0cebed220f8b4a3fee4b7c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f4a82c9be7127ea4a92802c3033e252f8db287bd"
-        },
-        "date": 1774525662635,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023706268839999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14369080675333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009945609113333307,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00702941718666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009793740906666633,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b64d01cf595d5bae0b6aa6fcee0b099ff81bac09",
+          "message": "pallet-bridge-parachains: preserve re-imported parachain heads (#13408)\n\nRe-importing a previously stored parachain head when the ring buffer\nwraps can prune the same hash immediately after inserting it, leaving\nthe best-head pointer without corresponding head data.\n\nThis patch skips self-pruning for that case, reports pruning only when\nan older hash is actually removed, and adds regression coverage for the\nwraparound sequence.\n\nNo API or storage migration is required.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-05T09:35:59Z",
+          "tree_id": "933fdff59bb60a310daf14b06864e94e4cafdeca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b64d01cf595d5bae0b6aa6fcee0b099ff81bac09"
+        },
+        "date": 1791198375990,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025194295240000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0073849616533333325,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009874211686666641,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1462132829666667,
             "unit": "seconds"
           }
         ]
