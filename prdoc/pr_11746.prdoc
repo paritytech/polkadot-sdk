@@ -1,0 +1,25 @@
+title: '[frame-support] Add on_non_genesis_integration hook for first-time pallet integration'
+doc:
+- audience: Runtime Dev
+  description: |-
+    resolves https://github.com/paritytech/polkadot-sdk/issues/2762
+
+    Adds a new `on_non_genesis_integration()` method to the `Hooks` trait in `frame-support`
+    that fires the first time a pallet is integrated into a runtime *after* genesis. The
+    hook is dispatched from a new auto-generated `AfterAllRuntimeMigrations` impl, which is
+    invoked by `frame-executive` *after* every `OnRuntimeUpgrade` migration has finished —
+    so the observable on-chain state is fully migrated when a freshly added pallet first
+    initialises itself. A pallet's on-chain storage version is still written ahead of
+    migrations (in `BeforeAllRuntimeMigrations`) so version-gated migrations see the
+    correct value.
+
+    The hook is **not** called at genesis: pallets that are part of the runtime from genesis
+    are expected to initialise themselves via their `GenesisConfig::build`. The default
+    implementation is a no-op, so existing pallets are unaffected.
+crates:
+- name: frame-support-procedural
+  bump: minor
+- name: frame-support
+  bump: minor
+- name: frame-executive
+  bump: minor

@@ -115,9 +115,9 @@ use frame_support::{
 	migrations::MultiStepMigrator,
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		BeforeAllRuntimeMigrations, ExecuteBlock, Get, IsInherent, OffchainWorker, OnFinalize,
-		OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents, PostTransactions,
-		PreInherents,
+		AfterAllRuntimeMigrations, BeforeAllRuntimeMigrations, ExecuteBlock, Get, IsInherent,
+		OffchainWorker, OnFinalize, OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents,
+		PostTransactions, PreInherents,
 	},
 	weights::{Weight, WeightMeter},
 	MAX_EXTRINSIC_DEPTH,
@@ -253,6 +253,7 @@ impl<
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
 			+ BeforeAllRuntimeMigrations
+			+ AfterAllRuntimeMigrations
 			+ OnInitializeWithWeightRegistration<System>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
@@ -300,6 +301,7 @@ impl<
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
 			+ BeforeAllRuntimeMigrations
+			+ AfterAllRuntimeMigrations
 			+ OnInitializeWithWeightRegistration<System>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
@@ -456,6 +458,11 @@ where
 				AllPalletsWithSystem,
 			) as OnRuntimeUpgrade>::try_on_runtime_upgrade(checks.pre_and_post())?;
 
+		// Dispatch `Hooks::on_non_genesis_integration` for any pallet that was newly added in
+		// this upgrade, now that every migration has finished.
+		let after_all_weight =
+			<AllPalletsWithSystem as AfterAllRuntimeMigrations>::after_all_runtime_migrations();
+
 		frame_system::LastRuntimeUpgrade::<System>::put(
 			frame_system::LastRuntimeUpgradeInfo::from(
 				<System::Version as frame_support::traits::Get<_>>::get(),
@@ -479,7 +486,9 @@ where
 			)?;
 		}
 
-		Ok(before_all_weight.saturating_add(try_on_runtime_upgrade_weight))
+		Ok(before_all_weight
+			.saturating_add(try_on_runtime_upgrade_weight)
+			.saturating_add(after_all_weight))
 	}
 
 	/// Logs the result of trying to decode the entire state.
@@ -561,6 +570,7 @@ impl<
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
 			+ BeforeAllRuntimeMigrations
+			+ AfterAllRuntimeMigrations
 			+ OnInitializeWithWeightRegistration<System>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
@@ -589,7 +599,15 @@ where
 			AllPalletsWithSystem,
 		) as OnRuntimeUpgrade>::on_runtime_upgrade();
 
-		before_all_weight.saturating_add(runtime_upgrade_weight)
+		// Dispatch `Hooks::on_non_genesis_integration` for any pallet that was newly added
+		// during this upgrade. Runs after every migration so the observable on-chain state is
+		// fully migrated when a freshly integrated pallet first initialises itself.
+		let after_all_weight =
+			<AllPalletsWithSystem as AfterAllRuntimeMigrations>::after_all_runtime_migrations();
+
+		before_all_weight
+			.saturating_add(runtime_upgrade_weight)
+			.saturating_add(after_all_weight)
 	}
 
 	/// Start the execution of a particular block.
