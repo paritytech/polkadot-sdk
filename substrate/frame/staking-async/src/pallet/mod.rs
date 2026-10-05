@@ -159,6 +159,15 @@ pub mod pallet {
 			+ Sync
 			+ MaxEncodedLen;
 
+		/// Validator expenses may be paid in a non-native currency, so it's configured separately.
+		#[pallet::no_default]
+		type ValidatorExpencesCurrency: FunHoldMutate<
+				Self::AccountId,
+				Reason = Self::RuntimeHoldReason,
+				Balance = Self::CurrencyBalance,
+			> + FunMutate<Self::AccountId, Balance = Self::CurrencyBalance>
+			+ FunHoldBalanced<Self::AccountId, Balance = Self::CurrencyBalance>;
+
 		/// Convert a balance into a number used for election calculation. This must fit into a
 		/// `u64` but is allowed to be sensibly lossy. The `u64` is used to communicate with the
 		/// [`frame_election_provider_support`] crate which accepts u64 numbers and does operations
@@ -753,10 +762,10 @@ pub mod pallet {
 		fn get() -> u32 {
 			let bonding_duration = T::BondingDuration::get();
 			bonding_duration.saturating_add(OFFENCE_QUEUE_ERAS_BOUND) // adding OFFENCE_QUEUE_ERAS_BOUND eras
-			                                                 // to add headroom to
-			                                                 // the bound for runtime upgrades that
-			                                                 // lower BondingDuration so we avoid
-			                                                 // the try_into trap.
+			                                              // to add headroom to
+			                                              // the bound for runtime upgrades that
+			                                              // lower BondingDuration so we avoid
+			                                              // the try_into trap.
 		}
 	}
 
@@ -919,6 +928,10 @@ pub mod pallet {
 	/// - in legacy mode it comes from `EraPayout`, with rewards minted on the fly.
 	#[pallet::storage]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+
+	#[pallet::storage]
+	pub type ErasValidatorExpensesReward<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
@@ -1463,6 +1476,13 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
+		/// The validator has been paid their self-stake incentive bonus.
+		ValidatorOperationalExpensesPaid {
+			era: EraIndex,
+			validator_stash: T::AccountId,
+			dest: RewardDestination<T::AccountId>,
+			amount: BalanceOf<T>,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1486,6 +1506,8 @@ pub mod pallet {
 		ValidatorIncentiveWeightMismatch { era: EraIndex },
 		/// Validator incentive transfer from era pot failed.
 		ValidatorIncentiveTransferFailed { era: EraIndex },
+		/// Validator operational expenses reward from era pot failed.
+		ValidatorOperationalExpensesTransferFailed { era: EraIndex },
 	}
 
 	#[pallet::error]
@@ -1695,6 +1717,7 @@ pub mod pallet {
 					ErasTotalStake::<T>::remove(era);
 					ErasNominatorsSlashable::<T>::remove(era);
 					ErasValidatorIncentiveBudget::<T>::remove(era);
+					ErasValidatorExpensesReward::<T>::remove(era);
 					ErasSumValidatorIncentiveWeight::<T>::remove(era);
 					ErasSumWeightedPoints::<T>::remove(era);
 					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
@@ -3296,6 +3319,8 @@ pub mod pallet {
 			crate::reward::EraRewardAllocation {
 				staker_rewards: ErasValidatorReward::<T>::get(era).unwrap_or_else(Zero::zero),
 				validator_incentive: ErasValidatorIncentiveBudget::<T>::get(era),
+				operational_expenses: ErasValidatorExpensesReward::<T>::get(era)
+					.unwrap_or_else(Zero::zero),
 			}
 		}
 	}

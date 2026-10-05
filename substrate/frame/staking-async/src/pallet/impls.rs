@@ -365,6 +365,12 @@ impl<T: Config> Pallet<T> {
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		})?;
 
+		let operatonal_expenses_payout =
+			Eras::<T>::get_validator_expenses_reward(era).ok_or_else(|| {
+				Error::<T>::InvalidEraToReward
+					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+			})?;
+
 		let account = StakingAccount::Stash(validator_stash.clone());
 		let ledger = Self::ledger(account.clone()).or_else(|_| {
 			if StakingLedger::<T>::is_bonded(account) {
@@ -410,6 +416,9 @@ impl<T: Config> Pallet<T> {
 		// This is how much validator + nominators are entitled to.
 		let validator_total_payout = validator_total_reward_part.mul_floor(era_payout);
 
+		let validator_operational_expenses_payout =
+			validator_total_reward_part.mul_floor(operatonal_expenses_payout);
+
 		let validator_commission = Eras::<T>::get_validator_commission(era, &ledger.stash);
 
 		// Use the overview's own-stake (not the page's, which is zeroed on pages > 0)
@@ -430,6 +439,9 @@ impl<T: Config> Pallet<T> {
 		let validator_staker_payout_for_page =
 			page_stake_part.mul_floor(reward_split.validator_payout);
 
+		let validator_operational_expenses_payout_for_page =
+			page_stake_part.mul_floor(validator_operational_expenses_payout);
+
 		Self::deposit_event(Event::<T>::PayoutStarted {
 			era_index: era,
 			validator_stash: stash.clone(),
@@ -447,6 +459,12 @@ impl<T: Config> Pallet<T> {
 		) {
 			Self::transfer_validator_incentive(era, &stash, incentive);
 		}
+
+		Self::transfer_validator_expenses(
+			era,
+			&stash,
+			validator_operational_expenses_payout_for_page,
+		);
 
 		// Determine whether to use dap payout or legacy path.
 		let use_dap_payout =
@@ -798,6 +816,49 @@ impl<T: Config> Pallet<T> {
 					UnexpectedKind::ValidatorIncentiveTransferFailed { era },
 				));
 				defensive!("Validator incentive liquid transfer failed");
+			},
+		}
+	}
+
+	// TODO: Is the logic correct?
+	fn transfer_validator_expenses(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
+		let Some(dest) = Self::payee(Stash(stash.clone())) else {
+			Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
+				era,
+				stash: stash.clone(),
+			}));
+			return;
+		};
+		let Some(payout_account) = Self::payout_account_for_dest(stash, &dest) else {
+			// Destination is `None`; intentional opt-out.
+			return;
+		};
+
+		let pot = T::RewardPots::pot_account(crate::RewardPot::Era(
+			era,
+			crate::RewardKind::OperationalExpenses,
+		));
+
+		match T::ValidatorExpencesCurrency::transfer(
+			&pot,
+			&payout_account,
+			amount,
+			Preservation::Expendable,
+		) {
+			Ok(_) => {
+				Self::deposit_event(Event::<T>::ValidatorOperationalExpensesPaid {
+					era,
+					validator_stash: stash.clone(),
+					dest,
+					amount,
+				});
+			},
+			Err(e) => {
+				log!(warn, "Failed to transfer operational expenses reward: {:?}", e);
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorOperationalExpensesTransferFailed { era },
+				));
+				defensive!("Validator operational expenses reward transfer failed");
 			},
 		}
 	}
