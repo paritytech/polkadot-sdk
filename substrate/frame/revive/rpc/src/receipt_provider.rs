@@ -163,8 +163,7 @@ macro_rules! upsert_sync_label {
 			ON CONFLICT(label) DO UPDATE
 				SET block_number = excluded.block_number, block_hash = excluded.block_hash
 			WHERE sync_state.block_number " +
-				$op +
-				" excluded.block_number
+				$op + " excluded.block_number
 			",
 			label_str,
 			block_number,
