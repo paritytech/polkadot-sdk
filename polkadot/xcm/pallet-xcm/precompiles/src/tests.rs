@@ -899,3 +899,124 @@ fn execute_decode_charge_is_not_refunded() {
 		});
 	});
 }
+
+// A `transfer` or `send` receiver gets Ethereum's 2300 gas stipend, which pays for no state
+// change. An XCM `execute` does not go through contract storage, so the precompile checks the
+// stipend frame itself.
+#[test]
+fn execute_is_denied_in_the_receiver_of_a_send() {
+	use codec::Encode;
+	use pallet_revive::{precompiles::alloy::sol_types::SolConstructor, AddressMapper};
+	use pallet_revive_fixtures::{CallingReceiver, FixtureType, StipendSender};
+
+	let xcm_precompile_addr = H160::from(
+		hex::const_decode_to_array(b"00000000000000000000000000000000000A0000").unwrap(),
+	);
+
+	// Returns whether the sender saw its call denied, and the value CHARLIE received.
+	let execute_from_receiver = |gas_limit: u64| {
+		// ALICE also pays the storage deposits of the two deployments.
+		let balances =
+			vec![(ALICE, 1_000_000_000_000_000), (CHARLIE, CUSTOM_INITIAL_BALANCE)];
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let deploy = |name: &str, constructor: Vec<u8>, salt: [u8; 32]| {
+				let (mut code, _) =
+					pallet_revive_fixtures::compile_module_with_type(name, FixtureType::Solc)
+						.unwrap();
+				code.extend(constructor);
+				pallet_revive::Pallet::<Test>::bare_instantiate(
+					RuntimeOrigin::signed(ALICE),
+					U256::zero(),
+					TransactionLimits::WeightAndDeposit {
+						weight_limit: Weight::MAX,
+						deposit_limit: u128::MAX,
+					},
+					Code::Upload(code),
+					vec![],
+					Some(salt),
+					&ExecConfig::new_substrate_tx(),
+				)
+				.result
+				.unwrap()
+				.addr
+			};
+
+			let dest: Location = Junction::AccountId32 { network: None, id: CHARLIE.into() }.into();
+			let message: VersionedXcm<RuntimeCall> = VersionedXcm::from(Xcm(vec![
+				WithdrawAsset((Here, SEND_AMOUNT).into()),
+				buy_execution((Here, SEND_AMOUNT)),
+				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
+			]));
+			let weigh = IXcm::IXcmCalls::weighMessage(weighMessageCall {
+				message: message.encode().into(),
+			});
+			let weight_result = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(ALICE),
+				xcm_precompile_addr,
+				U256::zero(),
+				TransactionLimits::WeightAndDeposit {
+					weight_limit: Weight::MAX,
+					deposit_limit: u128::MAX,
+				},
+				weigh.abi_encode(),
+				&ExecConfig::new_substrate_tx(),
+			)
+			.result
+			.unwrap();
+			let weight = IXcm::Weight::abi_decode(&weight_result.data[..]).unwrap();
+
+			let execute = IXcm::executeCall { message: message.encode().into(), weight };
+			let receiver = deploy(
+				"CallingReceiver",
+				CallingReceiver::constructorCall {
+					_target: xcm_precompile_addr.0.into(),
+					_data: execute.abi_encode().into(),
+				}
+				.abi_encode(),
+				[1; 32],
+			);
+			let receiver_account =
+				<Test as pallet_revive::Config>::AddressMapper::to_account_id(&receiver);
+			Balances::make_free_balance_be(&receiver_account, CUSTOM_INITIAL_BALANCE);
+			let sender = deploy(
+				"StipendSender",
+				StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
+				[2; 32],
+			);
+			let balance_before = Balances::total_balance(&CHARLIE);
+
+			// With an unlimited deposit, an explicit gas limit buys the callee almost no weight.
+			let result = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(ALICE),
+				sender,
+				U256::zero(),
+				TransactionLimits::WeightAndDeposit {
+					weight_limit: pallet_revive::test_utils::WEIGHT_LIMIT,
+					deposit_limit: pallet_revive::test_utils::deposit_limit::<Test>(),
+				},
+				StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
+				&ExecConfig::new_substrate_tx(),
+			)
+			.result
+			.unwrap();
+			(
+				bool::abi_decode(&result.data).unwrap(),
+				Balances::total_balance(&CHARLIE) - balance_before,
+			)
+		})
+	};
+
+	// The raised gas scale lets a call with an explicit gas limit pay for the execution, so only
+	// the stipend check can deny the `send`.
+	crate::mock::GasScale::set(50_000_000);
+	assert_eq!(
+		execute_from_receiver(2300),
+		(true, 0),
+		"the receiver of a `send` should not execute XCM"
+	);
+	assert_eq!(
+		[execute_from_receiver(2299), execute_from_receiver(2301)],
+		[(false, SEND_AMOUNT); 2],
+		"only a `send` denies executing XCM"
+	);
+}
