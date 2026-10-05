@@ -73,6 +73,7 @@ fn error_label(err: &HopError) -> &'static str {
 		HopError::RateLimited { .. } => "rate_limited",
 		HopError::MissingDataDir => "missing_data_dir",
 		HopError::Db(_) => "db",
+		HopError::InvalidConfig(_) => "invalid_config",
 	}
 }
 
