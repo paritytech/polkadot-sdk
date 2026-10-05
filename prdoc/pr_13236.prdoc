@@ -1,0 +1,11 @@
+title: Remove dead referenda from the track queue
+doc:
+- audience: Runtime Dev
+  description: |-
+    Cancel and kill now remove a queued referendum from its track queue. The queue
+    drain in one_fewer_deciding now persists the drained queue, which also cleans
+    entries a chain carries from before this change. The try_state check now
+    requires every queue entry to be an ongoing referendum on its own track.
+crates:
+- name: pallet-referenda
+  bump: patch
