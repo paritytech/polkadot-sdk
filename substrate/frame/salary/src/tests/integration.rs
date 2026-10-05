@@ -148,6 +148,15 @@ fn assert_last_event(generic_event: <Test as Config>::RuntimeEvent) {
 	assert_eq!(event, &system_event.into());
 }
 
+/// Run the given closure in a fresh test externality and assert that all of the pallet's
+/// invariants hold afterwards.
+fn test(f: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		f();
+		Salary::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
 fn promote_n_times(acc: u64, r: u16) {
 	for _ in 0..r {
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), acc));
@@ -156,7 +165,7 @@ fn promote_n_times(acc: u64, r: u16) {
 
 #[test]
 fn swap_simple_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		for i in 0u16..9 {
 			let acc = i as u64;
 
@@ -174,7 +183,7 @@ fn swap_simple_works() {
 
 #[test]
 fn swap_exhaustive_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let root_add = hypothetically!({
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 			assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
@@ -207,7 +216,7 @@ fn swap_exhaustive_works() {
 
 #[test]
 fn swap_bad_noops() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 0));
 		promote_n_times(0, 0);
 		assert_ok!(Salary::init(RuntimeOrigin::signed(0)));

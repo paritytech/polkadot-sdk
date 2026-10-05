@@ -155,6 +155,15 @@ pub fn new_test_ext() -> TestState {
 	ext
 }
 
+/// Run the given closure in a fresh test externality and assert that all of the pallet's
+/// invariants hold afterwards.
+fn test(f: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		f();
+		Salary::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
 fn next_block() {
 	System::set_block_number(System::block_number() + 1);
 }
@@ -168,7 +177,7 @@ fn run_to(n: u64) {
 
 #[test]
 fn basic_stuff() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		assert!(Salary::last_active(&0).is_err());
 		assert_eq!(Salary::status(), None);
 	});
@@ -176,7 +185,7 @@ fn basic_stuff() {
 
 #[test]
 fn can_start() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		assert_eq!(
 			Salary::status(),
@@ -193,7 +202,7 @@ fn can_start() {
 
 #[test]
 fn bump_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		run_to(4);
 		assert_noop!(Salary::bump(RuntimeOrigin::signed(1)), Error::<Test>::NotYet);
@@ -232,7 +241,7 @@ fn bump_works() {
 
 #[test]
 fn induct_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 
 		assert_noop!(Salary::induct(RuntimeOrigin::signed(1)), Error::<Test>::NotMember);
@@ -246,7 +255,7 @@ fn induct_works() {
 
 #[test]
 fn unregistered_payment_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		set_rank(1, 1);
 		assert_noop!(Salary::induct(RuntimeOrigin::signed(1)), Error::<Test>::NotStarted);
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
@@ -279,7 +288,7 @@ fn unregistered_payment_works() {
 
 #[test]
 fn retry_payment_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		set_rank(1, 1);
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
@@ -320,7 +329,7 @@ fn retry_payment_works() {
 
 #[test]
 fn retry_registered_payment_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		set_rank(1, 1);
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
@@ -350,7 +359,7 @@ fn retry_registered_payment_works() {
 
 #[test]
 fn retry_payment_later_is_not_allowed() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		set_rank(1, 1);
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
@@ -389,7 +398,7 @@ fn retry_payment_later_is_not_allowed() {
 
 #[test]
 fn retry_payment_later_without_bump_is_allowed() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		set_rank(1, 1);
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
@@ -416,7 +425,7 @@ fn retry_payment_later_without_bump_is_allowed() {
 
 #[test]
 fn retry_payment_to_other_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		set_rank(1, 1);
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
@@ -454,7 +463,7 @@ fn retry_payment_to_other_works() {
 
 #[test]
 fn registered_payment_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		set_rank(1, 1);
 		assert_noop!(Salary::induct(RuntimeOrigin::signed(1)), Error::<Test>::NotStarted);
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
@@ -489,7 +498,7 @@ fn registered_payment_works() {
 
 #[test]
 fn zero_payment_fails() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		set_rank(1, 0);
 		assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
@@ -501,7 +510,7 @@ fn zero_payment_fails() {
 
 #[test]
 fn unregistered_bankruptcy_fails_gracefully() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		set_rank(1, 2);
 		set_rank(2, 6);
@@ -525,7 +534,7 @@ fn unregistered_bankruptcy_fails_gracefully() {
 
 #[test]
 fn registered_bankruptcy_fails_gracefully() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		set_rank(1, 2);
 		set_rank(2, 6);
@@ -554,7 +563,7 @@ fn registered_bankruptcy_fails_gracefully() {
 
 #[test]
 fn mixed_bankruptcy_fails_gracefully() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		set_rank(1, 2);
 		set_rank(2, 6);
@@ -582,7 +591,7 @@ fn mixed_bankruptcy_fails_gracefully() {
 
 #[test]
 fn other_mixed_bankruptcy_fails_gracefully() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		set_rank(1, 2);
 		set_rank(2, 6);
@@ -610,7 +619,7 @@ fn other_mixed_bankruptcy_fails_gracefully() {
 
 #[test]
 fn stale_registration_from_previous_cycle_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		set_rank(1, 1);
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
@@ -633,5 +642,49 @@ fn stale_registration_from_previous_cycle_works() {
 		// Should get paid from the unregistered pool
 		assert_eq!(paid(1), 1);
 		assert_eq!(Salary::status().unwrap().total_unregistered_paid, 1);
+	});
+}
+
+// These tests corrupt storage on purpose, so they bypass the `test` wrapper (whose own
+// `do_try_state` would trip) and assert the check rejects the inconsistent state.
+
+#[test]
+fn try_state_catches_orphan_claimant() {
+	new_test_ext().execute_with(|| {
+		// A claimant without a started system is inconsistent; `init` restores consistency.
+		Claimant::<Test>::insert(1, ClaimantStatus { last_active: 0, status: ClaimState::Nothing });
+		assert!(Salary::do_try_state().is_err());
+
+		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+		assert_ok!(Salary::do_try_state());
+	});
+}
+
+#[test]
+fn try_state_catches_overspent_budget() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+		assert_ok!(Salary::do_try_state());
+
+		// Spend more on unregistered payouts than the cycle budget allows.
+		Status::<Test>::mutate(|s| {
+			let s = s.as_mut().unwrap();
+			s.total_unregistered_paid = s.budget + 1;
+		});
+		assert!(Salary::do_try_state().is_err());
+	});
+}
+
+#[test]
+fn try_state_catches_future_last_active() {
+	new_test_ext().execute_with(|| {
+		set_rank(1, 1);
+		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+		assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
+		assert_ok!(Salary::do_try_state());
+
+		// Mark the claimant active in a cycle that has not started yet.
+		Claimant::<Test>::mutate(1, |c| c.as_mut().unwrap().last_active = 5);
+		assert!(Salary::do_try_state().is_err());
 	});
 }
