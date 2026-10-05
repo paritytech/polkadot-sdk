@@ -1174,6 +1174,37 @@ fn motions_reproposing_disapproved_works() {
 }
 
 #[test]
+fn motions_reproposing_disapproved_releases_previous_cost() {
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = make_proposal(42);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash: H256 = proposal.blake2_256().into();
+		let deposit = <CollectiveMajorityDeposit as Convert<u32, u64>>::convert(0);
+		let proposer_balance = Balances::balance(&1);
+
+		assert_ok!(CollectiveMajority::propose(
+			RuntimeOrigin::signed(1),
+			3,
+			Box::new(proposal.clone()),
+			proposal_len
+		));
+		assert_eq!(Balances::balance(&1), proposer_balance - deposit);
+
+		assert_ok!(CollectiveMajority::disapprove_proposal(RuntimeOrigin::root(), hash));
+		assert!(CostOf::<Test, Instance2>::get(hash).is_some());
+
+		assert_ok!(CollectiveMajority::propose(
+			RuntimeOrigin::signed(2),
+			3,
+			Box::new(proposal),
+			proposal_len
+		));
+		assert_eq!(Balances::balance(&1), proposer_balance);
+		assert_eq!(CostOf::<Test, Instance2>::get(hash).map(|(who, _)| who), Some(2));
+	});
+}
+
+#[test]
 fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {});
