@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791240009311,
+  "lastUpdate": 1791274359873,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -234431,6 +234431,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2283785549,
             "range": "± 42503449",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b367ff86414eeb8c73975934bc7594ba551a21a4",
+          "message": "[CI] Resolve the RPM signing GPG wrapper path from $GITHUB_WORKSPACE (#13401)\n\nResolves paritytech/release-engineering#307 (part of\nparitytech/release-engineering#305).\n\n## Fix\n\n`rpmmacros` becomes a template using `${GITHUB_WORKSPACE}`, rendered at\nruntime when the workflow\nwrites `$HOME/.rpmmacros`. No hardcoded `/home/runner/work/...` path\nremains.\n\nTwo guards close the silent-failure window, since the point of the bug\nis that it does not announce\nitself:\n\n- **Before signing**, assert `rpm --eval '%{__gpg}'` resolves to the\nexecutable wrapper. A missing\nor wrong `$GITHUB_WORKSPACE` now fails the job instead of the signature.\n- **After `rpm --addsign`**, import the signing key into a throwaway\nrpmdb and require\n`rpm --checksig` to report `signatures OK`. An unsigned package reports\n`digests OK` *without*\n`signatures`, so this one check catches both a missing and a bad\nsignature. The throwaway rpmdb\n  (`--dbpath`) avoids the system one, which the runner cannot write.\n\n## Verification\n\nThe exact workflow logic was run end to end locally (rpm 4.20, a real\nGPG key standing in for the\nKMS wrapper), with the workspace at\n`.../work/release-engineering/release-engineering` — a repo\n**not** named `polkadot-sdk`:\n\n```\nGuard passed: %__gpg -> .../release-engineering/release-engineering/.github/scripts/release/pgpkms-gpg-wrapper.sh\n    Header V4 RSA/SHA256 Signature, key ID 21d434da: OK\n    Header SHA256 digest: OK\n    Payload SHA256 digest: OK\nE2E RESULT: PASS (built, signed and verified from a repo named 'release-engineering')\n```\n\nNegative tests both behave as intended:\n\n| case | result |\n|---|---|\n| wrapper not executable | guard fails the job |\n| `rpm --delsign`'d package | `digests OK` (no `signatures`) → gate\nrejects |\n\nOne thing that testing caught: gating on `%{SIGPGP:pgpsig}` does **not**\nwork — on modern rpm a\nheader-only signature lands in `RSAHEADER`, so `SIGPGP` is empty even\nfor a correctly signed\npackage. `rpm --checksig` is version-agnostic, so the gate uses that\ninstead.\n\n## Related, not fixed here\n\n`pgpkms-gpg-wrapper.sh` hardcodes `/home/runner/.local/bin/pgpkms`. That\none survives the migration\n(it is a home path, not repo-named) but would break on any self-hosted\nor container runner. The\nworkflow already computes `PGPKMS_RPMSIGN_PATH` via `which`, so it is\nworth a follow-up issue —\nleft out of scope here.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-10-06T06:55:53Z",
+          "tree_id": "d984415efa5b61e7cf0f8da0b6e2e6e15fe33d21",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b367ff86414eeb8c73975934bc7594ba551a21a4"
+        },
+        "date": 1791274328499,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4392578,
+            "range": "± 10502",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 289291,
+            "range": "± 2178",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4542833,
+            "range": "± 28621",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 363168,
+            "range": "± 3250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5140725,
+            "range": "± 17992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 887919,
+            "range": "± 4898",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10688591,
+            "range": "± 49921",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4826088,
+            "range": "± 59909",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45098459,
+            "range": "± 365099",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40788680,
+            "range": "± 383896",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 389358658,
+            "range": "± 4618067",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 322746318,
+            "range": "± 3002834",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2699181622,
+            "range": "± 16738925",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2457344271,
+            "range": "± 16922000",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3342749,
+            "range": "± 26578",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1861687,
+            "range": "± 9153",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3440869,
+            "range": "± 9815",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1913439,
+            "range": "± 5157",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3881172,
+            "range": "± 15711",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2239481,
+            "range": "± 9967",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7880714,
+            "range": "± 63734",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5340877,
+            "range": "± 42089",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 36956663,
+            "range": "± 162638",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36991260,
+            "range": "± 605993",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 331902918,
+            "range": "± 3111185",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 287836783,
+            "range": "± 2294679",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2554622868,
+            "range": "± 33778113",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2306670972,
+            "range": "± 116970672",
             "unit": "ns/iter"
           }
         ]
