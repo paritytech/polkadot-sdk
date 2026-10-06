@@ -32,12 +32,12 @@ use alloc::{
 	collections::{BTreeMap, BTreeSet},
 	vec::Vec,
 };
-use codec::{DecodeAll, Encode};
+use codec::{Decode, DecodeAll, Encode};
 use cumulus_primitives_spec_messaging::{
-	leaf_hash, streams_root::streams_root, ChannelId, ConsumeItem, ConsumedStream,
+	leaf_hash, streams_root::streams_root, ChannelId, ChannelPhase, ConsumeItem, ConsumedStream,
 	ConsumptionRecord, InChannelState, Interval, MessagePosition, MessagingInherentData,
-	MmrFrontier, OutChannelState, Payload, ProvideConsumptionRecord, SpecMsgKind, StreamId, StreamsRoot,
-	INHERENT_IDENTIFIER, LEAF_VERSION, SPMS_ENGINE_ID,
+	MmrFrontier, OutChannelState, Payload, ProvideConsumptionRecord, Register, SpecMsgKind, SpecMsgSignal,
+	StreamId, StreamsRoot, WindowGrant, INHERENT_IDENTIFIER, LEAF_VERSION, SPMS_ENGINE_ID,
 };
 use frame_support::{ensure, pallet_prelude::Weight, traits::Get, BoundedVec};
 use polkadot_core_primitives::Hash;
@@ -52,6 +52,41 @@ const LOG_TARGET: &str = "runtime::spec-msg";
 mod mock;
 #[cfg(test)]
 mod tests;
+
+/// The channel protocol version this implementation announces, in every `OpenChannel` signal and
+/// every published register. `0` gates nothing yet.
+pub const PROTOCOL_VERSION: u8 = 0;
+
+/// Sender-side credit bookkeeping of one outbound channel, kept next to [`OutChannels`] so the
+/// stored view stays exactly the runtime-API type.
+#[derive(Clone, Encode, Decode, scale_info::TypeInfo, Debug, Default, Eq, PartialEq)]
+pub struct OutChannelMeta {
+	/// Stream position of the oldest in-flight (sent, unconfirmed) message, `sizes[0]`.
+	pub base: MessagePosition,
+	/// Encoded leaf sizes of the in-flight messages, oldest first. Every leaf on the data stream
+	/// counts, `Data` and `Signal` alike. The length is the in-flight message count.
+	pub sizes: Vec<u32>,
+	/// Sum of `sizes`.
+	pub bytes: u64,
+}
+
+impl OutChannelMeta {
+	/// Account one appended leaf of `size` encoded bytes.
+	fn account_send(&mut self, size: u32) {
+		self.sizes.push(size);
+		self.bytes = self.bytes.saturating_add(u64::from(size));
+	}
+
+	/// Release everything below the peer's watermark `up_to`. A watermark past what was sent
+	/// releases everything sent, and no more: `base` never moves past the next unsent position.
+	fn confirm(&mut self, up_to: MessagePosition) {
+		let confirmed = up_to.0.saturating_sub(self.base.0).min(self.sizes.len() as u64);
+		for size in self.sizes.drain(..confirmed as usize) {
+			self.bytes = self.bytes.saturating_sub(u64::from(size));
+		}
+		self.base.0 = self.base.0.saturating_add(confirmed);
+	}
+}
 
 /// Sink for consumed `Data` payloads. `()` drops them; the real handler lands with the XCM layer.
 pub trait OnSpecMsgData {
@@ -101,6 +136,15 @@ pub mod pallet {
 
 		/// Sink for consumed `Data` payloads.
 		type DataHandler: OnSpecMsgData;
+
+		/// Origin allowed to open an outbound channel.
+		type OpenChannelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Origin allowed to accept an inbound channel.
+		type AcceptChannelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// The send-window credit every published register grants.
+		type DefaultWindowGrant: Get<WindowGrant>;
 	}
 
 	/// Per-stream outbound MMR frontiers; reflects state as of the previous block.
@@ -138,6 +182,23 @@ pub mod pallet {
 	pub type InboundHighwater<T: Config> =
 		StorageMap<_, Twox64Concat, (ParaId, StreamId), u64, OptionQuery>;
 
+	/// Sender side, per outbound channel. The phase is a view: `Opening` until the peer's register
+	/// is first read, which is the acceptance. Entries are never removed.
+	#[pallet::storage]
+	pub type OutChannels<T: Config> =
+		StorageMap<_, Twox64Concat, ChannelId, OutChannelState, OptionQuery>;
+
+	/// Credit bookkeeping per outbound channel: the in-flight messages behind the credit gate.
+	#[pallet::storage]
+	pub type OutChannelsMeta<T: Config> =
+		StorageMap<_, Twox64Concat, ChannelId, OutChannelMeta, ValueQuery>;
+
+	/// Receiver side, per inbound channel (`peer` = the channel's sender). An entry is the
+	/// acceptance; [`Pallet::consumed_streams`] lists the live ones. Entries are never removed.
+	#[pallet::storage]
+	pub type InChannels<T: Config> =
+		StorageMap<_, Twox64Concat, ChannelId, InChannelState, OptionQuery>;
+
 	/// This block's consumption intervals; grouped/sorted by [`Pallet::consumption_record`],
 	/// cleared next block. Bounded by [`Config::MaxTouchedStreams`].
 	#[pallet::storage]
@@ -171,6 +232,18 @@ pub mod pallet {
 		RootCommitted,
 		/// `enact_messages` already ran this block.
 		AlreadyEnacted,
+		/// A channel to this chain itself.
+		ChannelToSelf,
+		/// The outbound channel already exists.
+		AlreadyOpen,
+		/// The inbound channel is already accepted.
+		AlreadyAccepted,
+		/// The outbound channel is not `Open`: unknown, not yet accepted, or closed.
+		ChannelNotOpen,
+		/// The send would exceed the peer's granted window.
+		NoCredit,
+		/// A register read is not exactly one leaf, or does not decode as a [`Register`].
+		BadRegister,
 	}
 
 	#[pallet::hooks]
@@ -247,6 +320,75 @@ pub mod pallet {
 					"Consumed {count} payloads from {source:?} on {stream:?}",
 				);
 			}
+			Ok(())
+		}
+
+		/// Open the outbound channel `(recipient, domain, num)`: append the `OpenChannel` signal
+		/// to its data stream. That leaf is the only one sendable without credit. The channel
+		/// stays `Opening` until the recipient accepts and its register is read; until then,
+		/// nothing else can be sent.
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+		pub fn open_channel(
+			origin: OriginFor<T>,
+			recipient: ParaId,
+			domain: u8,
+			num: u16,
+		) -> DispatchResult {
+			T::OpenChannelOrigin::ensure_origin(origin)?;
+			ensure!(recipient != T::SelfParaId::get(), Error::<T>::ChannelToSelf);
+			let channel = ChannelId { peer: recipient, domain, num };
+			ensure!(!OutChannels::<T>::contains_key(channel), Error::<T>::AlreadyOpen);
+
+			// Anchor the in-flight window at the stream's next position: the `OpenChannel` leaf
+			// appended below is its first message.
+			let stream = Self::outbound_stream(&channel);
+			let next = OutboundFrontier::<T>::get(stream)
+				.leaf_count()
+				.saturating_add(OutboundMessages::<T>::decode_len(stream).unwrap_or(0) as u64);
+			OutChannelsMeta::<T>::mutate(channel, |meta| meta.base = MessagePosition(next));
+
+			Self::send_signal(&channel, SpecMsgSignal::OpenChannel { version: PROTOCOL_VERSION })?;
+			OutChannels::<T>::insert(
+				channel,
+				OutChannelState {
+					closed_by_us: false,
+					announced_version: PROTOCOL_VERSION,
+					register: None,
+				},
+			);
+			Ok(())
+		}
+
+		/// Accept the inbound channel `(sender, domain, num)`. Its data stream joins
+		/// [`Pallet::consumed_streams`], and the initial register is published on our `Ack`
+		/// stream: the acceptance as the sender sees it. Either order works; accepting first is
+		/// pre-authorization. Rejecting is never accepting, which costs nothing.
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+		pub fn accept_open_channel(
+			origin: OriginFor<T>,
+			sender: ParaId,
+			domain: u8,
+			num: u16,
+		) -> DispatchResult {
+			T::AcceptChannelOrigin::ensure_origin(origin)?;
+			ensure!(sender != T::SelfParaId::get(), Error::<T>::ChannelToSelf);
+			let channel = ChannelId { peer: sender, domain, num };
+			ensure!(!InChannels::<T>::contains_key(channel), Error::<T>::AlreadyAccepted);
+
+			let mut state = InChannelState {
+				published: Register {
+					version: PROTOCOL_VERSION,
+					up_to: MessagePosition(0),
+					grant: WindowGrant::default(),
+					closed: false,
+				},
+				peer_version: 0,
+				suspended: false,
+			};
+			Self::publish_register(&channel, &mut state)?;
+			InChannels::<T>::insert(channel, state);
 			Ok(())
 		}
 	}
@@ -385,18 +527,23 @@ impl<T: Config> Pallet<T> {
 		messages
 	}
 
-	/// Append `payloads` onto the stream's stored [`InboundFrontier`] and record the [`Interval`].
-	/// Order/count need no check — a deviation yields an endpoint no lift can bind.
+	/// Append `payloads` onto the stream's stored [`InboundFrontier`], record the [`Interval`], and
+	/// republish the channel's register with the new watermark. Only streams of an accepted, live
+	/// inbound channel are consumed. Order/count need no check — a deviation yields an endpoint no
+	/// lift can bind.
 	fn consume_channel_item(
 		touched: &mut BTreeSet<(ParaId, StreamId)>,
 		source: ParaId,
 		stream: StreamId,
 		payloads: Vec<Payload>,
 	) -> Result<(), Error<T>> {
-		let StreamId::Channel { recipient, .. } = stream else {
+		let StreamId::Channel { recipient, domain, num } = stream else {
 			return Err(Error::<T>::UnknownStream);
 		};
 		ensure!(recipient == T::SelfParaId::get(), Error::<T>::UnknownStream);
+		let channel = ChannelId { peer: source, domain, num };
+		let mut state = InChannels::<T>::get(channel).ok_or(Error::<T>::UnknownStream)?;
+		ensure!(!state.suspended && !state.published.closed, Error::<T>::UnknownStream);
 		Self::check_touch(touched, source, stream, &payloads)?;
 
 		let mut frontier = InboundFrontier::<T>::get((source, stream));
@@ -406,14 +553,24 @@ impl<T: Config> Pallet<T> {
 			frontier
 				.try_append(leaf_hash(LEAF_VERSION, payload))
 				.map_err(|_| Error::<T>::BadFrontier)?;
-			// Route `Data`; signals are the channel layer's. A non-`SpecMsgKind` payload is a valid
-			// leaf regardless, so it is consumed-and-dropped.
-			if let Ok(SpecMsgKind::Data(data)) = SpecMsgKind::decode_all(&mut &payload[..]) {
-				T::DataHandler::on_data(source, stream, position, data);
+			// Route `Data`, apply signals. A non-`SpecMsgKind` payload is a valid leaf regardless,
+			// so it is consumed-and-dropped.
+			match SpecMsgKind::decode_all(&mut &payload[..]) {
+				Ok(SpecMsgKind::Data(data)) => {
+					T::DataHandler::on_data(source, stream, position, data)
+				},
+				Ok(SpecMsgKind::Signal(signal)) => Self::apply_signal(&mut state, signal),
+				Err(_) => {},
 			}
 		}
 		InboundFrontier::<T>::insert((source, stream), &frontier);
 		ConsumptionOutbox::<T>::append((source, stream, Interval { start, end: frontier }));
+
+		// Consumption moved the watermark: publish it, so the sender regains credit and can prune.
+		// A stream is consumed at most once per block, so this is at most one publish per channel
+		// per block.
+		Self::publish_register(&channel, &mut state)?;
+		InChannels::<T>::insert(channel, state);
 		Ok(())
 	}
 
@@ -429,6 +586,21 @@ impl<T: Config> Pallet<T> {
 		payloads: Vec<Payload>,
 	) -> Result<(), Error<T>> {
 		ensure!(*gaps < T::MaxContextGaps::get(), Error::<T>::TooManyGaps);
+		// A read of the peer's `Ack` stream is a register read: it must target one of our
+		// outbound channels (in any phase: a closed channel's watermark still reports consumption)
+		// and be exactly one decodable `Register` leaf, the head.
+		let register_read = match stream {
+			StreamId::Ack { recipient, domain, num } => {
+				ensure!(recipient == T::SelfParaId::get(), Error::<T>::UnknownStream);
+				let channel = ChannelId { peer: source, domain, num };
+				ensure!(OutChannels::<T>::contains_key(channel), Error::<T>::UnknownStream);
+				let [leaf] = payloads.as_slice() else { return Err(Error::<T>::BadRegister) };
+				let register =
+					Register::decode_all(&mut &leaf[..]).map_err(|_| Error::<T>::BadRegister)?;
+				Some((channel, register))
+			},
+			_ => None,
+		};
 		Self::check_touch(touched, source, stream, &payloads)?;
 
 		if let Some(highwater) = InboundHighwater::<T>::get((source, stream)) {
@@ -450,6 +622,11 @@ impl<T: Config> Pallet<T> {
 		);
 		ConsumptionOutbox::<T>::append((source, stream, Interval { start, end: frontier }));
 		*gaps += 1;
+		// The highwater above orders reads by position, so this register is newer than any read
+		// before it.
+		if let Some((channel, register)) = register_read {
+			Self::apply_register_read(&channel, register);
+		}
 		Ok(())
 	}
 
@@ -497,20 +674,141 @@ impl<T: Config> Pallet<T> {
 		record
 	}
 
-	/// The inbound streams the node should fetch, per source, with their fetch cursors. Empty until
-	/// the channel layer: the wanted streams are the open inbound channels.
+	/// The inbound streams the node should fetch, per source in [`StreamId`] order, with their
+	/// fetch cursors: every accepted channel that is neither suspended nor closed.
 	pub fn consumed_streams() -> BTreeMap<ParaId, Vec<ConsumedStream>> {
-		BTreeMap::new()
+		let mut grouped = BTreeMap::<ParaId, BTreeMap<StreamId, ConsumedStream>>::new();
+		for (channel, state) in InChannels::<T>::iter() {
+			if state.suspended || state.published.closed {
+				continue;
+			}
+			let stream = Self::inbound_stream(&channel);
+			let cursor =
+				MessagePosition(InboundFrontier::<T>::get((channel.peer, stream)).leaf_count());
+			if let Some(consumed) = ConsumedStream::project(&stream, cursor) {
+				grouped.entry(channel.peer).or_default().insert(stream, consumed);
+			}
+		}
+		grouped
+			.into_iter()
+			.map(|(source, streams)| (source, streams.into_values().collect()))
+			.collect()
 	}
 
-	/// Outbound channel views. Empty until the channel layer lands.
+	/// Outbound channel views.
 	pub fn out_channels() -> BTreeMap<ChannelId, OutChannelState> {
-		BTreeMap::new()
+		OutChannels::<T>::iter().collect()
 	}
 
-	/// Inbound channel views. Empty until the channel layer lands.
+	/// Inbound channel views.
 	pub fn in_channels() -> BTreeMap<ChannelId, InChannelState> {
-		BTreeMap::new()
+		InChannels::<T>::iter().collect()
+	}
+
+	/// The data stream of an outbound channel: our key space, addressed to the peer.
+	pub fn outbound_stream(channel: &ChannelId) -> StreamId {
+		StreamId::Channel { recipient: channel.peer, domain: channel.domain, num: channel.num }
+	}
+
+	/// The data stream of an inbound channel: the peer's key space, addressed to us.
+	pub fn inbound_stream(channel: &ChannelId) -> StreamId {
+		StreamId::Channel {
+			recipient: T::SelfParaId::get(),
+			domain: channel.domain,
+			num: channel.num,
+		}
+	}
+
+	/// The `Ack` stream we publish an inbound channel's register on: our key space, addressed to
+	/// the channel's sender.
+	pub fn ack_stream(channel: &ChannelId) -> StreamId {
+		StreamId::Ack { recipient: channel.peer, domain: channel.domain, num: channel.num }
+	}
+
+	/// Send `data` on an outbound channel as a [`SpecMsgKind::Data`] leaf, returning its position.
+	/// The channel must be `Open` with credit left in the peer's granted window. On error, nothing
+	/// changes.
+	pub fn send(channel: ChannelId, data: Vec<u8>) -> Result<MessagePosition, Error<T>> {
+		let state = OutChannels::<T>::get(channel).ok_or(Error::<T>::ChannelNotOpen)?;
+		ensure!(state.phase() == ChannelPhase::Open, Error::<T>::ChannelNotOpen);
+		Self::ensure_credit(&channel, &state)?;
+		let payload = SpecMsgKind::Data(data).encode();
+		let size = payload.len() as u32;
+		let position = Self::append_to_stream(Self::outbound_stream(&channel), payload)?;
+		OutChannelsMeta::<T>::mutate(channel, |meta| meta.account_send(size));
+		Ok(position)
+	}
+
+	/// Append a lifecycle signal to an outbound channel's data stream. Signals count against the
+	/// window like any message; gating is the caller's (`OpenChannel` is exempt).
+	fn send_signal(
+		channel: &ChannelId,
+		signal: SpecMsgSignal,
+	) -> Result<MessagePosition, Error<T>> {
+		let payload = SpecMsgKind::Signal(signal).encode();
+		let size = payload.len() as u32;
+		let position = Self::append_to_stream(Self::outbound_stream(channel), payload)?;
+		OutChannelsMeta::<T>::mutate(channel, |meta| meta.account_send(size));
+		Ok(position)
+	}
+
+	/// The credit gate: in-flight count and bytes must both be below the peer's grant. The grant
+	/// is advice; honoring it protects our archive and surfaces backpressure to the caller.
+	fn ensure_credit(channel: &ChannelId, state: &OutChannelState) -> Result<(), Error<T>> {
+		let grant = state.register.map(|register| register.grant).unwrap_or_default();
+		let meta = OutChannelsMeta::<T>::get(channel);
+		ensure!((meta.sizes.len() as u64) < u64::from(grant.max_messages), Error::<T>::NoCredit);
+		ensure!(meta.bytes < grant.max_bytes, Error::<T>::NoCredit);
+		Ok(())
+	}
+
+	/// Publish an inbound channel's register on our `Ack` stream: the consumption watermark, the
+	/// grant (zero while suspended or closed), and the closed flag. Updates `state.published`; the
+	/// caller stores `state`.
+	fn publish_register(channel: &ChannelId, state: &mut InChannelState) -> Result<(), Error<T>> {
+		let stream = Self::inbound_stream(channel);
+		let up_to = MessagePosition(InboundFrontier::<T>::get((channel.peer, stream)).leaf_count());
+		let grant = if state.suspended || state.published.closed {
+			WindowGrant::default()
+		} else {
+			T::DefaultWindowGrant::get()
+		};
+		let register =
+			Register { version: PROTOCOL_VERSION, up_to, grant, closed: state.published.closed };
+		Self::append_to_stream(Self::ack_stream(channel), register.encode())?;
+		state.published = register;
+		Ok(())
+	}
+
+	/// Apply a lifecycle signal consumed from an inbound channel. `CloseChannel` needs nothing
+	/// here: the sender stops, and the republish after this consumption reports the final
+	/// watermark.
+	fn apply_signal(state: &mut InChannelState, signal: SpecMsgSignal) {
+		match signal {
+			// A (re)open announces the sender's version as is; a lower value after a reopen is a
+			// genuine downgrade.
+			SpecMsgSignal::OpenChannel { version } => state.peer_version = version,
+			// Mid-channel raises are monotonic; a lower value is ignored.
+			SpecMsgSignal::Upgrade { version } => {
+				state.peer_version = state.peer_version.max(version)
+			},
+			SpecMsgSignal::CloseChannel => {},
+		}
+	}
+
+	/// Apply a register read to its outbound channel: refresh the grant and release the in-flight
+	/// messages below the watermark. A register whose watermark or version goes backwards breaks
+	/// the protocol and is ignored; the previous read stands.
+	fn apply_register_read(channel: &ChannelId, register: Register) {
+		let Some(mut state) = OutChannels::<T>::get(channel) else { return };
+		if let Some(previous) = state.register {
+			if register.up_to < previous.up_to || register.version < previous.version {
+				return;
+			}
+		}
+		OutChannelsMeta::<T>::mutate(channel, |meta| meta.confirm(register.up_to));
+		state.register = Some(register);
+		OutChannels::<T>::insert(channel, state);
 	}
 }
 

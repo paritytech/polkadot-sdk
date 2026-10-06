@@ -354,6 +354,16 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ConsumptionRecordSource = SpecMessaging;
 }
 
+parameter_types! {
+	/// Large enough never to trigger in tests. `max_message_size` matches `MaxMsgLen`.
+	pub const SpecMsgWindowGrant: cumulus_primitives_spec_messaging::WindowGrant =
+		cumulus_primitives_spec_messaging::WindowGrant {
+			max_messages: 1024,
+			max_bytes: 8 * 1024 * 1024,
+			max_message_size: 100 * 1024,
+		};
+}
+
 impl cumulus_pallet_spec_messaging::Config for Runtime {
 	type SelfParaId = ParachainInfo;
 	type MaxMsgLen = ConstU32<{ 100 * 1024 }>;
@@ -361,6 +371,10 @@ impl cumulus_pallet_spec_messaging::Config for Runtime {
 	type MaxTouchedStreams = ConstU32<128>;
 	type MaxContextGaps = ConstU32<64>;
 	type DataHandler = ();
+	// Channel lifecycle is governance-driven on the test chain.
+	type OpenChannelOrigin = EnsureRoot<AccountId>;
+	type AcceptChannelOrigin = EnsureRoot<AccountId>;
+	type DefaultWindowGrant = SpecMsgWindowGrant;
 }
 
 impl parachain_info::Config for Runtime {}

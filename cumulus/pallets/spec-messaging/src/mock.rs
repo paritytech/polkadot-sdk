@@ -14,7 +14,9 @@
 // limitations under the License.
 
 use crate as cumulus_pallet_spec_messaging;
+use cumulus_primitives_spec_messaging::WindowGrant;
 use frame_support::{derive_impl, parameter_types};
+use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::BuildStorage;
 
@@ -41,6 +43,9 @@ parameter_types! {
 	pub const MaxTouchedStreams: u32 = 8;
 	pub const MaxContextGaps: u32 = 4;
 	pub SelfParaId: ParaId = ParaId::from(SELF_PARA);
+	/// Small, so tests reach the credit gate.
+	pub const TestGrant: WindowGrant =
+		WindowGrant { max_messages: 4, max_bytes: 4096, max_message_size: 1024 };
 }
 
 impl cumulus_pallet_spec_messaging::Config for Test {
@@ -50,6 +55,9 @@ impl cumulus_pallet_spec_messaging::Config for Test {
 	type MaxTouchedStreams = MaxTouchedStreams;
 	type MaxContextGaps = MaxContextGaps;
 	type DataHandler = ();
+	type OpenChannelOrigin = EnsureRoot<u64>;
+	type AcceptChannelOrigin = EnsureRoot<u64>;
+	type DefaultWindowGrant = TestGrant;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
