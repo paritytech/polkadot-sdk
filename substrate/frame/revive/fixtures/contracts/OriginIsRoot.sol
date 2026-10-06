@@ -67,28 +67,10 @@ contract OriginIsRoot {
 		return abi.decode(ret, (bool));
 	}
 
-	/// Delegate-call into `lib.callCallerIsRoot(target)`: the delegated code runs as this
-	/// contract and makes a regular call into `target.callerIsRoot()`, so the caller that
-	/// `target` sees is this contract.
-	function delegateThenCallCallerIsRoot(address lib, address target) external returns (bool) {
-		(bool ok, bytes memory ret) =
-			lib.delegatecall(abi.encodeWithSelector(this.callCallerIsRoot.selector, target));
-		require(ok, "delegate callCallerIsRoot failed");
-		return abi.decode(ret, (bool));
-	}
-
-	/// Delegate-call into `lib.callCallerIsOrigin(target)`: the delegated code runs as this
-	/// contract and makes a regular call into `target.callerIsOrigin()`, so the caller that
-	/// `target` sees is this contract.
-	function delegateThenCallCallerIsOrigin(address lib, address target) external returns (bool) {
-		(bool ok, bytes memory ret) =
-			lib.delegatecall(abi.encodeWithSelector(this.callCallerIsOrigin.selector, target));
-		require(ok, "delegate callCallerIsOrigin failed");
-		return abi.decode(ret, (bool));
-	}
-
-	/// Delegate-call `data` into `_impl` and decode the returned `bool`. Passing the calldata of
-	/// another `delegate*` function chains a second delegate call.
+	/// Delegate-call `data` into `_impl` and decode the returned `bool`. The delegated code runs
+	/// as this contract: the calldata of a `call*` function makes it call `target` with a regular
+	/// call, so `target` sees this contract as its caller, and the calldata of another `delegate*`
+	/// function chains a second delegate call.
 	function delegateBool(address _impl, bytes calldata data) external returns (bool) {
 		(bool ok, bytes memory ret) = _impl.delegatecall(data);
 		require(ok, "delegate failed");

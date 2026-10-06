@@ -561,19 +561,16 @@ fn caller_is_root_does_not_cross_regular_call_after_delegate_call(fixture_type: 
 		let result = builder::bare_call(caller)
 			.origin(RuntimeOrigin::root())
 			.data(
-				OriginIsRootFixture::delegateThenCallCallerIsRootCall {
-					lib: lib.0.into(),
-					target: target.0.into(),
+				OriginIsRootFixture::delegateBoolCall {
+					_impl: lib.0.into(),
+					data: OriginIsRootFixture::callCallerIsRootCall { target: target.0.into() }
+						.abi_encode()
+						.into(),
 				}
 				.abi_encode(),
 			)
 			.build_and_unwrap_result();
-		assert!(
-			!OriginIsRootFixture::delegateThenCallCallerIsRootCall::abi_decode_returns(
-				&result.data
-			)
-			.unwrap(),
-		);
+		assert!(!OriginIsRootFixture::delegateBoolCall::abi_decode_returns(&result.data).unwrap());
 	});
 }
 
@@ -629,9 +626,11 @@ fn caller_is_root_through_chained_delegate_calls(fixture_type: FixtureType) {
 		// target.callerIsRoot()
 		let chained_then_call = OriginIsRootFixture::delegateBoolCall {
 			_impl: implementation.0.into(),
-			data: OriginIsRootFixture::delegateThenCallCallerIsRootCall {
-				lib: library.0.into(),
-				target: target.0.into(),
+			data: OriginIsRootFixture::delegateBoolCall {
+				_impl: library.0.into(),
+				data: OriginIsRootFixture::callCallerIsRootCall { target: target.0.into() }
+					.abi_encode()
+					.into(),
 			}
 			.abi_encode()
 			.into(),
@@ -697,18 +696,15 @@ fn caller_is_origin_does_not_cross_regular_call_after_delegate_call(fixture_type
 
 		let result = builder::bare_call(caller)
 			.data(
-				OriginIsRootFixture::delegateThenCallCallerIsOriginCall {
-					lib: lib.0.into(),
-					target: target.0.into(),
+				OriginIsRootFixture::delegateBoolCall {
+					_impl: lib.0.into(),
+					data: OriginIsRootFixture::callCallerIsOriginCall { target: target.0.into() }
+						.abi_encode()
+						.into(),
 				}
 				.abi_encode(),
 			)
 			.build_and_unwrap_result();
-		assert!(
-			!OriginIsRootFixture::delegateThenCallCallerIsOriginCall::abi_decode_returns(
-				&result.data
-			)
-			.unwrap(),
-		);
+		assert!(!OriginIsRootFixture::delegateBoolCall::abi_decode_returns(&result.data).unwrap());
 	});
 }
