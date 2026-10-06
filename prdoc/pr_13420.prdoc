@@ -14,9 +14,9 @@ doc:
 
     The pallet implements `cumulus_pallet_parachain_system::OnSystemEvent` and caches the relay
     chain `ONE_EPOCH_AGO_RANDOMNESS` in the new `EpochRandomness` storage item. Runtimes using the
-    pallet must wire it as `OnSystemEvent` of `cumulus-pallet-parachain-system`. A relay
-    chain state proof that cannot be read, including one that lacks the trie nodes of the
-    randomness key, is logged and leaves the cache unchanged.
+    pallet must include it in the `OnSystemEvent` of `cumulus-pallet-parachain-system`, alone or
+    in a tuple with other handlers. A relay chain state proof that cannot be read, including one
+    that lacks the trie nodes of the randomness key, is logged and leaves the cache unchanged.
 
     Asset Hub Westend and People Westend wire the pallet as `OnSystemEvent`.
 crates:

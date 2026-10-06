@@ -456,6 +456,35 @@ fn cap_change_redraws_from_the_stored_seed_and_forces_two_rotations() {
 }
 
 #[test]
+fn validator_registering_keys_after_the_draw_waits_for_the_next_draw() {
+	new_test_ext().execute_with(|| {
+		// GIVEN a set of 10, 11 and 12 drawn under a cap of 3 at block 2, while 12 has no keys
+		initialize_to_block(1);
+		set_keys(10);
+		set_keys(11);
+		set_cap(Some(3));
+		assert_ok!(receive(1, vec![10, 11, 12]));
+		initialize_to_block(3);
+		let drawn_without_12 = drawn();
+		assert_eq!(drawn_without_12.len(), 2);
+		assert!(!drawn_without_12.contains(&12));
+		// WHEN 12 registers keys and the periodic rotations at blocks 10 and 20 happen
+		set_keys(12);
+		initialize_to_block(20);
+		// THEN 12 is not drawn and does not collate
+		assert_eq!(drawn(), drawn_without_12);
+		assert!(!Session::validators().contains(&12));
+		// WHEN the cap is set again, which forces two rotations and a redraw
+		set_cap(Some(3));
+		initialize_to_block(22);
+		// THEN 12 is drawn and collates
+		assert!(drawn().contains(&12));
+		assert!(Session::validators().contains(&12));
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
 fn cap_without_a_stored_set_draws_nothing_and_forces_no_rotation() {
 	new_test_ext().execute_with(|| {
 		// GIVEN no stored set

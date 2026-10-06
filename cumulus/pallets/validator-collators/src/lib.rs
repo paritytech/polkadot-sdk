@@ -38,15 +38,20 @@
 //! stores them in [`Collators`] and returns those with registered keys until the next draw. The
 //! draw shuffles the whole set with a seed made of the genesis hash, the era and the relay chain
 //! epoch randomness cached in [`EpochRandomness`], then keeps the first validators with registered
-//! keys up to the cap. Every validator with keys has the same chance to be drawn in each era. A
-//! validator that registers keys after the draw waits for the next set or for a cap change.
+//! keys up to the cap. Every validator with keys has the same chance to be drawn in each era. The
+//! draw uses the latest epoch randomness the chain has cached. A block whose proof lacks the trie
+//! nodes of the randomness key leaves the cache unchanged, so a draw uses the previous epoch value
+//! only when every block since the epoch change omits them. The seed includes the genesis hash, so
+//! each chain draws independently from the same set. A validator that registers keys after the draw
+//! waits for the next set or for a cap change.
 //!
-//! The pallet implements [`cumulus_pallet_parachain_system::OnSystemEvent`], which the runtime
-//! wires into `cumulus-pallet-parachain-system` to keep [`EpochRandomness`] up to date from the
-//! relay chain state proof. The draw runs in the session rotation, before the block's own proof is
-//! processed, so it uses the value cached by the previous block.
+//! The pallet implements [`cumulus_pallet_parachain_system::OnSystemEvent`]. The runtime must
+//! include it in the `OnSystemEvent` of `cumulus-pallet-parachain-system`, alone or in a tuple
+//! with other handlers, to keep [`EpochRandomness`] up to date from the relay chain state proof.
+//! The draw runs in the session rotation, before the block's own proof is processed, so it uses
+//! the value cached by the previous block.
 //! A proof that cannot be read logs an error and leaves the cache unchanged.
-//! Without the wiring, every draw uses a zero randomness value and logs an error.
+//! Without this wiring, every draw uses a zero randomness value and logs an error.
 //!
 //! The stored set is the one staking elected for the era. The relay chain enacts only the elected
 //! validators with relay-chain session keys, and each system chain returns only those with keys
@@ -379,11 +384,14 @@ pub mod pallet {
 				.map_or_else(|| Self::fresh_seed(era), |drawn| drawn.seed);
 			let mut order: Vec<_> = validators.into_iter().collect();
 			order.shuffle(&mut ChaCha20Rng::from_seed(seed));
-			order.retain(T::ValidatorRegistration::is_registered);
-			order.truncate(cap as usize);
-			Self::deposit_event(Event::CollatorsDrawn { era, validators: order.clone() });
+			let drawn: Vec<_> = order
+				.into_iter()
+				.filter(T::ValidatorRegistration::is_registered)
+				.take(cap as usize)
+				.collect();
+			Self::deposit_event(Event::CollatorsDrawn { era, validators: drawn.clone() });
 			// At most the length of the set, which is bounded by `MaxValidators`.
-			let validators = BoundedVec::truncate_from(order);
+			let validators = BoundedVec::truncate_from(drawn);
 			Collators::<T>::put(DrawnCollators { era, seed, validators: validators.clone() });
 			validators
 		}
