@@ -214,6 +214,19 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
 
           . ./.github/scripts/common/lib.sh
+
+          # Tags here cannot be moved or deleted (ruleset 2508254 has no bypass
+          # actors), so refuse to burn the name on an unexpected commit.
+          last_rc=$(get_latest_rc_tag "$REL_TAG" polkadot)
+          if [ -z "$last_rc" ]; then
+            echo "::error::no rc tag found for ${REL_TAG}"
+            exit 1
+          fi
+          if [ "$(git rev-list -n1 "$last_rc")" != "$(git rev-parse HEAD)" ]; then
+            echo "::error::HEAD is not ${last_rc}, refusing to tag ${REL_TAG}"
+            exit 1
+          fi
+
           import_gpg_keys
 
           git config --global gpg.program "$(command -v pgpkms-git)"
