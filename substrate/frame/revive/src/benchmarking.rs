@@ -152,6 +152,11 @@ fn setup_stack<E: Ext>(interpreter: &mut Interpreter<E>, values: impl IntoIterat
 /// denominator also makes the `u128` divisions behind the estimates take as many steps as any we
 /// found with its pattern. Correcting a limb twice needs a second denominator limb above one, which
 /// shortens the division behind the first estimate.
+///
+/// The fixed divisors are the denominators that measured slowest for each op-code. The slowest one
+/// depends on the op-code: `SDIV` and `SMOD` measured slowest with different patterns than `DIV`
+/// and `MOD`. After updating `uint` or the Rust toolchain, search for the denominators again and
+/// measure which one is slowest for each op-code.
 mod knuth_division_operands {
 	use super::{Rng, U256};
 
@@ -178,10 +183,15 @@ mod knuth_division_operands {
 	/// 2^255 as an unsigned value, or -2^255 as a signed one, so signed and unsigned divisions
 	/// divide the same magnitudes.
 	pub const NUMERATOR: U256 = U256([0, 0, 0, 1 << 63]);
+	/// The denominator that measured slowest for `DIV`.
 	pub const DIV_FIXED_DIVISOR: U256 = U256([0x05f0_ac84_84d2_a8f7, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `SDIV`.
 	pub const SDIV_FIXED_DIVISOR: U256 = U256([0x16d5_ec4a_0e7b_8cdb, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `MOD`.
 	pub const MOD_FIXED_DIVISOR: U256 = U256([0x0007_f84c_6624_4131, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `SMOD`.
 	pub const SMOD_FIXED_DIVISOR: U256 = U256([0x5141_1d54_0d50_9ec1, 0x1, 0, 0]);
+	/// `ADDMOD` reuses the divisor of `MOD`.
 	pub const ADDMOD_FIXED_DIVISOR: U256 = MOD_FIXED_DIVISOR;
 
 	/// Two distinct divisors per pattern, with correction counts listed in limb order 2, 1, 0.
