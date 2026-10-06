@@ -268,12 +268,6 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.take_local_filter_if_changed()
 	}
 
-	// === Peer-set events ===
-
-	pub(crate) fn on_peer_disconnected(&mut self, peer: PeerId) {
-		self.explicit_affinity.on_peer_disconnected(peer);
-	}
-
 	// === Notification-substream events ===
 
 	pub(crate) fn on_substream_opened(&mut self, peer: PeerId) {
@@ -288,6 +282,8 @@ impl V2DhtOrchestrator {
 	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
 		self.peers_topology.on_substream_closed(peer);
 		self.peer_steering.on_substream_closed(peer);
+		// The filter arrived over this substream, so it lives exactly as long.
+		self.explicit_affinity.on_substream_closed(peer);
 		self.report_topology_size();
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_closed {peer}");
 	}
@@ -704,12 +700,13 @@ mod tests {
 	}
 
 	#[test]
-	fn on_peer_disconnected_drops_the_filter() {
+	fn substream_close_drops_the_filter() {
 		let mut orchestrator = orchestrator();
 		let peer = PeerId::random();
+		orchestrator.on_substream_opened(peer);
 		orchestrator.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
-		orchestrator.on_peer_disconnected(peer);
+		orchestrator.on_substream_closed(peer);
 
 		assert!(!orchestrator
 			.explicit_affinity

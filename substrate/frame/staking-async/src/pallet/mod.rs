@@ -68,7 +68,7 @@ pub mod pallet {
 	use super::*;
 	use crate::{
 		session_rotation::{self, Eras, Rotator},
-		IsValidatorInactive, PagedExposureMetadata, SnapshotStatus,
+		IsValidatorInactive, OnEraStart, PagedExposureMetadata, SnapshotStatus,
 	};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
@@ -433,6 +433,10 @@ pub mod pallet {
 		/// This check is used by `chill_inactive` extrinsic to check which
 		/// validators can be chilled.
 		type IsValidatorInactive: IsValidatorInactive<Self::AccountId>;
+
+		/// Notified with the validators of each era when it becomes active.
+		#[pallet::no_default_bounds]
+		type OnEraStart: OnEraStart<Self::AccountId>;
 	}
 
 	/// A reason for placing a hold on funds.
@@ -488,6 +492,7 @@ pub mod pallet {
 			type Filter = Nothing;
 			type WeightInfo = ();
 			type IsValidatorInactive = ();
+			type OnEraStart = ();
 		}
 	}
 
@@ -1072,6 +1077,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ElectableStashes<T: Config> =
 		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
+
+	/// The validators elected for the planned era, kept from the moment its election completes
+	/// until the era starts, for [`Config::OnEraStart`].
+	///
+	/// Only written when [`OnEraStart::enabled`] is true, and removed at the start of its era
+	/// whether or not the hook is still enabled. An era whose election completed before the hook
+	/// was enabled has no copy and is not notified.
+	#[pallet::storage]
+	pub type NextEraValidators<T: Config> =
+		StorageValue<_, (EraIndex, BoundedVec<T::AccountId, T::MaxValidatorSet>), OptionQuery>;
 
 	/// Tracks the current step of era pruning process for each era being lazily pruned.
 	#[pallet::storage]

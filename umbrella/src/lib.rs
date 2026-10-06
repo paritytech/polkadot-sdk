@@ -805,6 +805,14 @@ pub use pallet_uniques;
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
 
+/// Pallet that selects the relay-chain validators with registered keys as collators.
+#[cfg(feature = "pallet-validator-collators")]
+pub use pallet_validator_collators;
+
+/// Pallet that announces each era's validator set to other system chains.
+#[cfg(feature = "pallet-validator-set-announcer")]
+pub use pallet_validator_set_announcer;
+
 /// FRAME verify signature pallet.
 #[cfg(feature = "pallet-verify-signature")]
 pub use pallet_verify_signature;
