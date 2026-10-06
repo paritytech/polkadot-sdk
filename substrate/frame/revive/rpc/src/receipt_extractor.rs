@@ -17,7 +17,7 @@
 use crate::{
 	ClientError, H160, LOG_TARGET, Log, ReceiptGasInfoV1, ReceiptInfo,
 	client::{
-		SubstrateBlock, SubstrateBlockNumber,
+		SubstrateBlock, SubstrateBlockNumber, storage_api::StorageApi,
 		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
 	},
 	subxt_client::{
@@ -243,29 +243,29 @@ impl ReceiptExtractor {
 		runtime_api_provider: VersionAwareRuntimeApiProvider,
 		recover_eth_address_fn: RecoverEthAddressFn,
 	) -> Result<Self, ClientError> {
-		let provider = runtime_api_provider.clone();
+		let api = runtime_api_provider.online_client().clone();
 		let fetch_eth_block_hash = Arc::new(move |substrate_block_hash, substrate_block_number| {
-			let provider = provider.clone();
+			let api = api.clone();
 
 			let fut = async move {
-				let runtime_api = provider
+				let at_block = api
 					.at_block_hash_and_number(substrate_block_hash, substrate_block_number)
 					.await
 					.inspect_err(|err| {
 						log::debug!(
 							target: LOG_TARGET,
-							"Failed to access the runtime API at block #{substrate_block_number} \
-							({substrate_block_hash:?}) for an eth_block_hash query: {err:?}"
+							"Failed to resolve block #{substrate_block_number} \
+							({substrate_block_hash:?}) for an eth_block_hash storage read: {err:?}"
 						);
 					})
 					.ok()?;
-				runtime_api
-					.eth_block_hash(U256::from(substrate_block_number))?
+				StorageApi::new(at_block)
+					.eth_block_hash(U256::from(substrate_block_number))
 					.await
 					.inspect_err(|err| {
 						log::debug!(
 							target: LOG_TARGET,
-							"Failed to query eth_block_hash at block #{substrate_block_number} \
+							"Failed to read eth_block_hash at block #{substrate_block_number} \
 							({substrate_block_hash:?}): {err:?}"
 						);
 					})
@@ -276,30 +276,16 @@ impl ReceiptExtractor {
 			Box::pin(fut) as Pin<Box<_>>
 		});
 
-		let provider = runtime_api_provider;
 		let fetch_receipt_data = Arc::new(move |at_block: SubstrateBlock| {
-			let provider = provider.clone();
-
 			let fut = async move {
 				let block_hash = at_block.block_hash();
-				let runtime_api = provider
-					.at_resolved_block(at_block)
+				StorageApi::new(at_block)
+					.eth_receipt_data()
 					.await
 					.inspect_err(|err| {
 						log::debug!(
 							target: LOG_TARGET,
-							"Failed to access the runtime API at block {block_hash:?} for an \
-							eth_receipt_data query: {err:?}"
-						);
-					})
-					.ok()?;
-				runtime_api
-					.eth_receipt_data()?
-					.await
-					.inspect_err(|err| {
-						log::debug!(
-							target: LOG_TARGET,
-							"Failed to query eth_receipt_data at block {block_hash:?}: {err:?}"
+							"Failed to read eth_receipt_data at block {block_hash:?}: {err:?}"
 						);
 					})
 					.ok()
@@ -785,11 +771,11 @@ mod tests {
 	use codec::{Compact, Encode};
 	use frame_system::EventRecord;
 	use revive_dev_runtime::{Runtime, RuntimeEvent};
-	use subxt::{PolkadotConfig, client::OfflineClient, events::Events};
+	use subxt::{client::OfflineClient, events::Events};
 
 	/// An offline client carrying the generated runtime metadata for every block.
-	fn offline_client() -> OfflineClient<PolkadotConfig> {
-		OfflineClient::<PolkadotConfig>::new_with_config(chain_config())
+	fn offline_client() -> OfflineClient<SrcChainConfig> {
+		OfflineClient::<SrcChainConfig>::new_with_config(chain_config())
 	}
 
 	/// Build `Events` by SCALE-encoding revive events against the generated runtime metadata.
