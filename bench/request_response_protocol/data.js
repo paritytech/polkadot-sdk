@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791277035518,
+  "lastUpdate": 1791297500003,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -131435,6 +131435,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2712352402,
             "range": "± 17500831",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b76182dd335abcc07b0ff876d4889416a4c08ab7",
+          "message": "[pallet-assets] balance-change callbacks (#12581)\n\n## What\n\n- **pallet-assets**: extend the existing `AssetsCallback`\n(`CallbackHandle`, paritytech/substrate#12307) with infallible\nbalance-change observers — `issued` / `transferred` / `burned` /\n`deposited` / `withdrawn`. Unlike `created`/`destroyed` they never fail\n— fired after the state change, exactly where the corresponding `Issued`\n/ `Transferred` / `Burned` / `Deposited` / `Withdrawn` event is emitted,\non every path: extrinsics, the `fungibles` traits (incl. XCM asset\ntransactors), the `fungibles::Balanced` imbalance paths, delegated\ntransfers, and deposit-refund burns.\n- **pallet-revive**: new\n`Pallet::emit_contract_log_outside_frame(contract, topics, data)` — emit\nan EVM log attributed to an address from outside any contract call frame\n(traced, receipt-captured inside an ethereum context, deposited as\n`ContractEmitted`). Contract execution keeps its own in-frame emission\npath (`Ext::deposit_event`); the two differ only in the tracer hook. The\ncall tracer gains a matching `Tracing::log_event_outside_frame` hook, so\ntracing a block containing such a log attaches it to the active frame if\nthere is one and skips it otherwise; the in-frame `log_event` (the `LOG`\nopcode) keeps its active-frame invariant.\n- **pallet-assets-precompiles**: `Erc20TransferLogsCallback`, an\n`AssetsCallback` implementation for runtimes to wire as\n`CallbackHandle`, translating balance changes into canonical ERC-20\n`Transfer` logs at the asset's precompile token address. Mint/deposit =\n`Transfer(0x0, owner)`, burn/withdraw = `Transfer(owner, 0x0)`. Log\nbytes built from the same `IERC20` ABI the precompile uses — identical\nby construction. Works for inline-id assets (address derived from the\n`u32` id) and foreign assets (`Location` ids, resolved through the\nforeign asset-index map; assets predating the wiring are backfilled by\nthe index-map migration).\n- The `ERC20` precompile no longer emits its own `Transfer` log from\n`transfer()` / `transferFrom()`; the callback is now the single source.\nWire `Erc20TransferLogsCallback` as the instance's `CallbackHandle` to\nkeep precompile-mediated transfers logged. Zero-value transfers stay\nEIP-20 compliant: they are a no-op in pallet-assets and fire no\ncallback, so the precompile invokes the callback itself to emit the\nrequired `Transfer` log.\n- **asset-hub-westend**: wired for all three instances — trust-backed\nand pool assets (inline-id) and foreign assets (via `ForeignIdConfig`).\nThe mirrored-log cost is part of the pallet-assets weights, which are\nbenchmarked against the runtime with the callback wired.\n\n## Why\n\nAssets on Asset Hub are real ERC-20 tokens (callable precompile per\nasset), but only precompile-mediated transfers emitted `Transfer` logs.\nTransfers via plain extrinsics or XCM — the majority — were invisible to\nEVM tooling, so any indexer/wallet reconstructing balances from logs is\nwrong. This puts the logs on-chain at the source instead of synthesizing\nthem off-chain in eth-rpc. Groundwork for paritytech/contract-issues#61.\n\n## Breaking change\n\n`AssetsCallback<AssetId, AccountId>` gains a third generic parameter\n`Balance` (pallet-assets `bump: major`). The new methods have default\nno-op implementations, so any hand-written `impl AssetsCallback<Id,\nAcct>` only needs the signature update (add the `Balance` param);\nimplementations wired only as `CallbackHandle` need no change beyond a\nrecompile.\n\nNote for downstream runtimes: because the precompile no longer\nself-emits, upgrading pallet-assets-precompiles without wiring\n`Erc20TransferLogsCallback` silently stops `Transfer` logs for\nprecompile-mediated transfers.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-06T10:53:01Z",
+          "tree_id": "c88e2ef6ce57e8cbde5838293fe4958994b0adca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b76182dd335abcc07b0ff876d4889416a4c08ab7"
+        },
+        "date": 1791297468232,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20313020,
+            "range": "± 343313",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20588010,
+            "range": "± 404176",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22226326,
+            "range": "± 402521",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26551245,
+            "range": "± 244919",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61998846,
+            "range": "± 1351132",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 375812043,
+            "range": "± 3961471",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2738522303,
+            "range": "± 174280320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17136854,
+            "range": "± 136822",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17504762,
+            "range": "± 171142",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17710717,
+            "range": "± 476660",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22099240,
+            "range": "± 258531",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61087774,
+            "range": "± 975339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 365464951,
+            "range": "± 3733074",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2749410543,
+            "range": "± 42696530",
             "unit": "ns/iter"
           }
         ]
