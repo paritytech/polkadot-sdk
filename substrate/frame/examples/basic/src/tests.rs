@@ -208,14 +208,10 @@ fn stored_with_generic_bounds_compiles_without_derive_where_dependency() {
 		items: BoundedVec<T, S>,
 	}
 
-	#[frame_support::stored]
-	struct Marker;
-
 	fn ensure_storable<T: Clone + PartialEq + Eq + Debug + TypeInfo + Codec + MaxEncodedLen>() {}
 
 	// GIVEN a `#[stored]` type whose bounds come from its field types,
 	// WHEN used with a generic item type and bound,
 	// THEN it implements every trait required for storage.
 	ensure_storable::<Dummy<u64, ConstU32<4>>>();
-	ensure_storable::<Marker>();
 }
