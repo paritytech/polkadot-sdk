@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791240061042,
+  "lastUpdate": 1791274407486,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -131219,6 +131219,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2728364584,
             "range": "± 17031417",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b367ff86414eeb8c73975934bc7594ba551a21a4",
+          "message": "[CI] Resolve the RPM signing GPG wrapper path from $GITHUB_WORKSPACE (#13401)\n\nResolves paritytech/release-engineering#307 (part of\nparitytech/release-engineering#305).\n\n## Fix\n\n`rpmmacros` becomes a template using `${GITHUB_WORKSPACE}`, rendered at\nruntime when the workflow\nwrites `$HOME/.rpmmacros`. No hardcoded `/home/runner/work/...` path\nremains.\n\nTwo guards close the silent-failure window, since the point of the bug\nis that it does not announce\nitself:\n\n- **Before signing**, assert `rpm --eval '%{__gpg}'` resolves to the\nexecutable wrapper. A missing\nor wrong `$GITHUB_WORKSPACE` now fails the job instead of the signature.\n- **After `rpm --addsign`**, import the signing key into a throwaway\nrpmdb and require\n`rpm --checksig` to report `signatures OK`. An unsigned package reports\n`digests OK` *without*\n`signatures`, so this one check catches both a missing and a bad\nsignature. The throwaway rpmdb\n  (`--dbpath`) avoids the system one, which the runner cannot write.\n\n## Verification\n\nThe exact workflow logic was run end to end locally (rpm 4.20, a real\nGPG key standing in for the\nKMS wrapper), with the workspace at\n`.../work/release-engineering/release-engineering` — a repo\n**not** named `polkadot-sdk`:\n\n```\nGuard passed: %__gpg -> .../release-engineering/release-engineering/.github/scripts/release/pgpkms-gpg-wrapper.sh\n    Header V4 RSA/SHA256 Signature, key ID 21d434da: OK\n    Header SHA256 digest: OK\n    Payload SHA256 digest: OK\nE2E RESULT: PASS (built, signed and verified from a repo named 'release-engineering')\n```\n\nNegative tests both behave as intended:\n\n| case | result |\n|---|---|\n| wrapper not executable | guard fails the job |\n| `rpm --delsign`'d package | `digests OK` (no `signatures`) → gate\nrejects |\n\nOne thing that testing caught: gating on `%{SIGPGP:pgpsig}` does **not**\nwork — on modern rpm a\nheader-only signature lands in `RSAHEADER`, so `SIGPGP` is empty even\nfor a correctly signed\npackage. `rpm --checksig` is version-agnostic, so the gate uses that\ninstead.\n\n## Related, not fixed here\n\n`pgpkms-gpg-wrapper.sh` hardcodes `/home/runner/.local/bin/pgpkms`. That\none survives the migration\n(it is a home path, not repo-named) but would break on any self-hosted\nor container runner. The\nworkflow already computes `PGPKMS_RPMSIGN_PATH` via `which`, so it is\nworth a follow-up issue —\nleft out of scope here.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-10-06T06:55:53Z",
+          "tree_id": "d984415efa5b61e7cf0f8da0b6e2e6e15fe33d21",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b367ff86414eeb8c73975934bc7594ba551a21a4"
+        },
+        "date": 1791274376361,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20544137,
+            "range": "± 323854",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20820009,
+            "range": "± 186560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22401704,
+            "range": "± 209399",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27072005,
+            "range": "± 230299",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63037415,
+            "range": "± 723464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 402315612,
+            "range": "± 15781108",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2744150913,
+            "range": "± 99407929",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17794162,
+            "range": "± 164726",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18543842,
+            "range": "± 310966",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18266972,
+            "range": "± 130723",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22892288,
+            "range": "± 239751",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62834510,
+            "range": "± 874241",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 367466638,
+            "range": "± 4199165",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2765228119,
+            "range": "± 36839469",
             "unit": "ns/iter"
           }
         ]
