@@ -22,6 +22,9 @@ doc:
       grows rather than drops.
     - `seal_instantiate` and `evm_instantiate` also measure a read of the new address's
       `OriginalAccount` entry.
+    - `access_list_touch_hot_full` now touches a read-paid entry with a read, so it no longer
+      measures an upgrade; `access_list_touch_hot_upgrade` measures that.
+    - The benchmarks that fill the access list now fill it to 4,096 entries.
 
     Code outside the pallet that uses `pallet_revive::precompiles`:
     - `Ext` no longer has `touch_storage_access` and `peek_storage_access`.
@@ -45,6 +48,9 @@ doc:
       variants; it should charge the cold price from `WeightInfo` instead, for example
       `env.charge(T::WeightInfo::seal_call(transfer, dust, 0))`, or `seal_delegate_call()` for a
       delegate call.
+
+    `ContractBlob::store_code` now returns `Option<BalanceOf<T>>`: the deposit collected for newly
+    stored code, or `None` when the code was already stored.
 
     The access list holds up to 4,096 entries per transaction (was 2,048). The memory budgeted
     for its worst case, which `integrity_test` counts against `RuntimeMemory`, grows from 1.5 MiB

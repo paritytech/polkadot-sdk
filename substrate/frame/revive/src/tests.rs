@@ -21,7 +21,7 @@ mod eip7702;
 mod eth_estimate_gas;
 mod pallet_dummy;
 mod precompiles;
-pub use precompiles::{INoInfo, NoInfo, WithInfo};
+pub use precompiles::{INoInfo, IWithInfo, NoInfo, WithInfo};
 mod pvm;
 mod sol;
 mod stipends;

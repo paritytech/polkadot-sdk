@@ -490,11 +490,6 @@ impl CallItems {
 			CodeLoadItems::new(H256::zero()).entry_count()
 	}
 
-	/// Returns how many entries a transfer touches.
-	pub fn transfer_entries() -> u32 {
-		TransferItems { from: H160::repeat_byte(1), to: H160::zero(), dust: false }.entry_count()
-	}
-
 	/// Returns how many entries a delegate call touches, the target's account info plus its code.
 	pub fn delegate_entries() -> u32 {
 		Self::Delegate { target: H160::zero() }.entry_count() +
@@ -686,10 +681,10 @@ pub struct AccessListMetrics {
 /// A reverting frame rolls back every entry it touched, regardless of whether
 /// the touch happened before or after its charge:
 ///
-/// - Storage opcodes and calls touch before charging: their charge fails only on out-of-gas, which
-///   reverts the whole frame, so the rollback removes the frame's insertions (and downgrades any
-///   `Read` to `Write` upgrades) and never leaves an entry warm with its cold cost unpaid.
-/// - Code loads touch after charging: the entry is already paid, so a revert just drops it.
+/// - An access that touches before charging: its charge fails only on out-of-gas, which reverts the
+///   whole frame, so the rollback removes the frame's insertions (and downgrades any `Read` to
+///   `Write` upgrades) and never leaves an entry warm with its cold cost unpaid.
+/// - An access that touches after charging: the entry is already paid, so a revert just drops it.
 
 #[derive(Default)]
 pub struct AccessList {

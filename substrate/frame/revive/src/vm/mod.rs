@@ -133,7 +133,7 @@ impl CodeLoadToken {
 	fn flat_cost<T: Config>(warmth: Summarized<CodeLoadWarmth>) -> Weight {
 		let summary = warmth.summary();
 		// The `code_load` bench only reads, so a cold write still owes its re-hash.
-		let cold_writes =
+		let cold_writes_weight =
 			RuntimeCosts::deferred_write_cost::<T>().saturating_mul(summary.cold_writes().into());
 		runtime_costs::weight_from_warmth_summary::<T>(
 			summary,
@@ -141,7 +141,7 @@ impl CodeLoadToken {
 			// Nothing on top of the base hot access.
 			Weight::zero,
 		)
-		.saturating_add(cold_writes)
+		.saturating_add(cold_writes_weight)
 	}
 
 	/// Computes the cost of the code's bytes at the blob's warmth, plus PVM compilation.

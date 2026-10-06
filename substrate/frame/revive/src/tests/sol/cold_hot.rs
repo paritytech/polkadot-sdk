@@ -15,14 +15,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Which state entries the access list finds cold or hot, on both vms.
+//! Which state entries the access list finds cold or hot, on both VMs.
 
 use crate::{
 	AccountInfo, BalanceOf, Code, Config, Weight,
-	access_list::{Access, AccessListMetrics, CallItems, CodeLoadItems, InstantiateItems},
+	access_list::{
+		Access, AccessListMetrics, CallItems, CodeLoadItems, InstantiateItems, TransferItems,
+	},
 	limits,
+	precompiles::Precompile,
 	test_utils::{ALICE, ALICE_ADDR, DJANGO_ADDR, EVE_ADDR, builder::Contract},
-	tests::{ExtBuilder, RuntimeOrigin, Test, access_list_metrics_of, builder},
+	tests::{
+		ExtBuilder, INoInfo, IWithInfo, NoInfo, RuntimeOrigin, Test, WithInfo,
+		access_list_metrics_of, builder,
+	},
 };
 use alloy_core::{
 	primitives::Address,
@@ -36,6 +42,29 @@ use pallet_revive_fixtures::{
 use pretty_assertions::assert_eq;
 use sp_core::{H160, H256};
 use test_case::test_case;
+
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn a_storage_write_after_a_read_is_hot(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Counter", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let metrics_of = |data: Vec<u8>| {
+			access_list_metrics_of(|| {
+				builder::bare_call(addr).data(data).build_and_unwrap_result();
+			})
+		};
+
+		let write_only = metrics_of(Counter::setNumberCall { newNumber: 1 }.abi_encode());
+		let read_then_write = metrics_of(Counter::incrementCall {}.abi_encode());
+
+		assert_eq!(read_then_write.cold, write_only.cold, "the slot is touched cold exactly once");
+		assert_eq!(read_then_write.hot, write_only.hot + 1, "the read warms the slot");
+	});
+}
 
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
@@ -53,7 +82,7 @@ fn call_and_delegate_reuse_target_warmth(caller_type: FixtureType, target_type: 
 			.salt(Some([2; 32]))
 			.build_and_unwrap_contract();
 
-		let noop_call = Caller::dataCall {}.abi_encode();
+		let data_call = Caller::dataCall {}.abi_encode();
 		let plain = |data: Vec<u8>| {
 			Caller::normalCall {
 				_callee: target.0.into(),
@@ -67,7 +96,11 @@ fn call_and_delegate_reuse_target_warmth(caller_type: FixtureType, target_type: 
 			Caller::delegateCall { _callee: target.0.into(), _data: data.into(), _gas: u64::MAX }
 				.abi_encode()
 		};
-		let run = |call: Vec<u8>| {
+		let static_call = |data: Vec<u8>| {
+			Caller::staticCallCall { _callee: target.0.into(), _data: data.into(), _gas: u64::MAX }
+				.abi_encode()
+		};
+		let metrics_of = |call: Vec<u8>| {
 			access_list_metrics_of(|| {
 				builder::bare_call(caller).data(call).build_and_unwrap_result();
 			})
@@ -78,12 +111,15 @@ fn call_and_delegate_reuse_target_warmth(caller_type: FixtureType, target_type: 
 		// The address mapping, which a plain call reads and a delegate call skips.
 		let mapping_entry = 1;
 
-		let plain_only = run(plain(noop_call.clone()));
-		let plain_then_plain = run(plain(plain(noop_call.clone())));
-		let plain_then_delegate = run(plain(delegate(noop_call.clone())));
-		let delegate_only = run(delegate(noop_call.clone()));
-		let delegate_then_delegate = run(delegate(delegate(noop_call.clone())));
-		let delegate_then_plain = run(delegate(plain(noop_call)));
+		let plain_only = metrics_of(plain(data_call.clone()));
+		let plain_then_plain = metrics_of(plain(plain(data_call.clone())));
+		let plain_then_delegate = metrics_of(plain(delegate(data_call.clone())));
+		let delegate_only = metrics_of(delegate(data_call.clone()));
+		let delegate_then_delegate = metrics_of(delegate(delegate(data_call.clone())));
+		let delegate_then_plain = metrics_of(delegate(plain(data_call.clone())));
+		let static_only = metrics_of(static_call(data_call));
+
+		assert_eq!(static_only, plain_only, "a static call touches what a plain call touches");
 
 		assert_eq!(delegate_only.cold, plain_only.cold - mapping_entry);
 		assert_eq!(plain_then_plain.cold, plain_only.cold);
@@ -105,9 +141,9 @@ fn call_past_the_depth_limit_pays_by_target_warmth(fixture_type: FixtureType) {
 	// The two VMs differ once the depth limit denies a call, though both charge the same for it:
 	// EVM keeps the frame running, so its touch stays, while PVM traps the frame and its touch is
 	// rolled back.
-	let target_entries = CallItems::new(H160::zero(), false).entry_count();
+	let call_entries = CallItems::new(H160::zero(), false).entry_count();
 	let entries_kept_after_denial =
-		if fixture_type == FixtureType::Resolc { 0 } else { target_entries as usize };
+		if fixture_type == FixtureType::Resolc { 0 } else { call_entries as usize };
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } =
@@ -135,13 +171,13 @@ fn call_past_the_depth_limit_pays_by_target_warmth(fixture_type: FixtureType) {
 
 		assert_eq!(
 			final_call_denied_warm.hot,
-			final_call_allowed.hot + target_entries,
+			final_call_allowed.hot + call_entries,
 			"a denied call pays hot for a target already in the list: its mapping and account info",
 		);
 		assert_eq!(final_call_denied_warm.cold, final_call_allowed.cold);
 		assert_eq!(
 			final_call_denied.cold,
-			final_call_allowed.cold + target_entries,
+			final_call_allowed.cold + call_entries,
 			"a denied call pays cold for the same two entries when the target is not in the list",
 		);
 		assert_eq!(final_call_denied.hot, final_call_allowed.hot);
@@ -153,8 +189,7 @@ fn call_past_the_depth_limit_pays_by_target_warmth(fixture_type: FixtureType) {
 #[test_case(FixtureType::Resolc; "pvm")]
 fn a_chained_delegation_call_warms_the_target_it_checks(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
-		let (caller_addr, [reverter_addr]) =
-			deploy_call_each_with_reverting_targets::<1>(fixture_type);
+		let (caller_addr, [reverter_addr]) = deploy_call_each_and_targets::<1>(fixture_type);
 		// DJANGO -> EVE -> ALICE: a call to DJANGO traps after reading EVE's account info.
 		AccountInfo::<Test>::set_delegation(&EVE_ADDR, Some(ALICE_ADDR), &ALICE).unwrap();
 		AccountInfo::<Test>::set_delegation(&DJANGO_ADDR, Some(EVE_ADDR), &ALICE).unwrap();
@@ -190,118 +225,65 @@ fn a_chained_delegation_call_warms_the_target_it_checks(fixture_type: FixtureTyp
 
 #[test_case(FixtureType::Solc;   "evm")]
 #[test_case(FixtureType::Resolc; "pvm")]
-fn value_transfer_warms_the_account(fixture_type: FixtureType) {
+fn a_call_to_a_precompile_warms_nothing(fixture_type: FixtureType) {
 	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr: caller, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
-		// Fund the caller so it can forward value.
 		let _ = crate::Pallet::<Test>::set_evm_balance(&caller, 100_000_000_000u128.into());
 
-		let eoa = H160::from([0xfe; 20]);
-		let call_with_value = |value: u64| {
-			access_list_metrics_of(|| {
+		let identity = INoInfo::identityCall { number: 1 }.abi_encode();
+		let dummy = IWithInfo::dummyCall {}.abi_encode();
+		let no_info = NoInfo::<Test>::MATCHER.base_address();
+		let with_info = WithInfo::<Test>::MATCHER.base_address();
+		// The caller's call entries and code, the only entries the transaction warms.
+		let caller_entries = CallItems::plain_entries();
+
+		for (case, precompile, data, value) in [
+			("no contract info", no_info, identity.clone(), 0),
+			("contract info", with_info, dummy, 0),
+			("value transfer", no_info, identity, 1_000_000),
+		] {
+			let metrics = access_list_metrics_of(|| {
 				builder::bare_call(caller)
 					.data(
 						Caller::normalCall {
-							_callee: eoa.0.into(),
+							_callee: precompile.into(),
 							_value: value,
-							_data: Vec::<u8>::new().into(),
+							_data: data.into(),
 							_gas: u64::MAX,
 						}
 						.abi_encode(),
 					)
 					.build_and_unwrap_result();
-			})
-		};
-
-		let zero_value = call_with_value(0);
-		let with_value = call_with_value(1_000_000);
-
-		let value_transfer_only = CallItems::transfer_entries();
-		let extra_cold = with_value.cold - zero_value.cold;
-		let extra_hot = with_value.hot - zero_value.hot;
-
-		assert_eq!(extra_hot, 2, "the sender's and the callee's account info are hot");
-		assert_eq!(
-			extra_cold,
-			value_transfer_only - extra_hot,
-			"the rest of the value-transfer entries are newly touched",
-		);
+			});
+			assert_eq!(
+				metrics,
+				AccessListMetrics { size: caller_entries as usize, cold: caller_entries, hot: 0 },
+				"{case}",
+			);
+		}
 	});
-}
-
-#[test_case(FixtureType::Solc;   "evm")]
-#[test_case(FixtureType::Resolc; "pvm")]
-fn storage_reread_is_hot(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("Counter", fixture_type).unwrap();
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-
-		let metrics_after = |data: Vec<u8>| {
-			access_list_metrics_of(|| {
-				builder::bare_call(addr).data(data).build_and_unwrap_result();
-			})
-		};
-
-		let write_only = metrics_after(Counter::setNumberCall { newNumber: 1 }.abi_encode());
-		let read_then_write = metrics_after(Counter::incrementCall {}.abi_encode());
-
-		assert_eq!(read_then_write.cold, write_only.cold, "the slot is touched cold exactly once");
-		assert_eq!(read_then_write.hot, write_only.hot + 1, "the read should have warmed the slot");
-	});
-}
-
-fn deploy_call_each_with_reverting_targets<const N: usize>(
-	fixture_type: FixtureType,
-) -> (H160, [H160; N]) {
-	let (caller_code, _) = compile_module_with_type("CallEach", fixture_type).unwrap();
-	let (target_code, _) = compile_module_with_type("CallThenRevert", fixture_type).unwrap();
-	let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-	let caller = builder::bare_instantiate(Code::Upload(caller_code))
-		.build_and_unwrap_contract()
-		.addr;
-	let targets = core::array::from_fn(|index| {
-		builder::bare_instantiate(Code::Upload(target_code.clone()))
-			.salt(Some([index as u8 + 1; 32]))
-			.build_and_unwrap_contract()
-			.addr
-	});
-	(caller, targets)
-}
-
-/// Makes `calls` from `caller` in one transaction and returns its access-list metrics.
-fn access_list_metrics_of_calls(caller: H160, calls: &[(H160, Vec<u8>)]) -> AccessListMetrics {
-	let targets = calls.iter().map(|(target, _)| target.0.into()).collect();
-	let data = calls.iter().map(|(_, data)| data.clone().into()).collect();
-	access_list_metrics_of(|| {
-		builder::bare_call(caller)
-			.data(CallEach::callEachCall { targets, data }.abi_encode())
-			.build_and_unwrap_result();
-	})
 }
 
 #[test_case(FixtureType::Solc;   "evm")]
 #[test_case(FixtureType::Resolc; "pvm")]
 fn callee_revert_drops_only_its_own_touches(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
-		let (caller, [reverter, inner]) =
-			deploy_call_each_with_reverting_targets::<2>(fixture_type);
+		let (caller, [reverter, inner]) = deploy_call_each_and_targets::<2>(fixture_type);
 		let call_inner_then_revert =
 			CallThenRevert::callThenRevertCall { target: inner.0.into() }.abi_encode();
-		let call_items_count = CallItems::new(H160::zero(), false).entry_count();
-		let code_load_count = CodeLoadItems::new(H256::zero()).entry_count();
+		let call_entries = CallItems::new(H160::zero(), false).entry_count();
+		let code_entries = CodeLoadItems::new(H256::zero()).entry_count();
 
 		let no_revert = access_list_metrics_of_calls(caller, &[(reverter, Vec::new())]);
 		let revert =
 			access_list_metrics_of_calls(caller, &[(reverter, call_inner_then_revert.clone())]);
-		assert_eq!(revert.cold - no_revert.cold, call_items_count, "`inner`'s entries are cold");
+		assert_eq!(revert.cold - no_revert.cold, call_entries, "`inner`'s entries are cold");
 		assert_eq!(
 			revert.hot - no_revert.hot,
-			code_load_count,
+			code_entries,
 			"`inner`'s code is hot, shared with the callee",
 		);
 		assert_eq!(revert.size, no_revert.size, "the revert removes `inner`'s entries");
@@ -326,7 +308,7 @@ fn callee_revert_drops_only_its_own_touches(fixture_type: FixtureType) {
 #[test_case(FixtureType::Resolc; "pvm")]
 fn shared_code_is_hot_for_the_second_contract(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
-		let (caller, [first, second]) = deploy_call_each_with_reverting_targets::<2>(fixture_type);
+		let (caller, [first, second]) = deploy_call_each_and_targets::<2>(fixture_type);
 
 		let first_only = access_list_metrics_of_calls(caller, &[(first, Vec::new())]);
 		let both =
@@ -345,25 +327,47 @@ fn shared_code_is_hot_for_the_second_contract(fixture_type: FixtureType) {
 	});
 }
 
-fn deploy_factory(fixture_type: FixtureType) -> H160 {
-	let (factory_code, _) = compile_module_with_type("Factory", fixture_type).unwrap();
-	let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
-	if fixture_type == FixtureType::Resolc {
-		for child in ["ReceivingChild", "RevertingChild"] {
-			let (child_code, _) = compile_module_with_type(child, fixture_type).unwrap();
-			crate::Pallet::<Test>::upload_code(
-				RuntimeOrigin::signed(ALICE.clone()),
-				child_code,
-				<BalanceOf<Test>>::MAX,
-			)
-			.unwrap();
-		}
-	}
-	let factory = builder::bare_instantiate(Code::Upload(factory_code))
-		.build_and_unwrap_contract()
-		.addr;
-	let _ = crate::Pallet::<Test>::set_evm_balance(&factory, 100_000_000_000u128.into());
-	factory
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn a_value_transfer_finds_both_account_infos_hot(fixture_type: FixtureType) {
+	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr: caller, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+		let _ = crate::Pallet::<Test>::set_evm_balance(&caller, 100_000_000_000u128.into());
+
+		let eoa = H160::from([0xfe; 20]);
+		let call_with_value = |value: u64| {
+			access_list_metrics_of(|| {
+				builder::bare_call(caller)
+					.data(
+						Caller::normalCall {
+							_callee: eoa.0.into(),
+							_value: value,
+							_data: Vec::<u8>::new().into(),
+							_gas: u64::MAX,
+						}
+						.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			})
+		};
+
+		let zero_value = call_with_value(0);
+		let with_value = call_with_value(1_000_000);
+
+		let transfer_entries = TransferItems { from: caller, to: eoa, dust: false }.entry_count();
+		let extra_cold = with_value.cold - zero_value.cold;
+		let extra_hot = with_value.hot - zero_value.hot;
+
+		assert_eq!(extra_hot, 2, "the sender's and the callee's account info are hot");
+		assert_eq!(
+			extra_cold,
+			transfer_entries - extra_hot,
+			"the rest of the value-transfer entries are newly touched",
+		);
+	});
 }
 
 #[test_case(FixtureType::Solc;   "evm")]
@@ -389,8 +393,7 @@ fn a_contract_creation_warms_the_new_contract(fixture_type: FixtureType) {
 		let created_size = size_after(Factory::createCall {}.abi_encode());
 		let failed_size = size_after(Factory::createRevertingCall {}.abi_encode());
 
-		let actual_extra_entries = created_size - failed_size;
-		assert_eq!(actual_extra_entries, expected_extra_entries);
+		assert_eq!(created_size - failed_size, expected_extra_entries);
 	});
 }
 
@@ -398,9 +401,6 @@ fn a_contract_creation_warms_the_new_contract(fixture_type: FixtureType) {
 #[test_case(FixtureType::Resolc; "pvm")]
 fn a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
-		let expected_extra_entries =
-			InstantiateItems { address: H160::zero(), creator: H160::zero() }.entry_count()
-				as usize;
 		let expected_failed_extra_entries = if fixture_type == FixtureType::Resolc {
 			// The caller loads the code by hash in its own frame, so the revert does not drop it.
 			CodeLoadItems::new(H256::zero()).entry_count() as usize
@@ -415,16 +415,10 @@ fn a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType)
 			})
 			.size
 		};
-		// Stores `ReceivingChild`'s code, so the successful contract creation below stores nothing.
-		builder::bare_call(factory)
-			.data(Factory::createCall {}.abi_encode())
-			.build_and_unwrap_result();
 
 		let noop_size = size_after(Factory::noopCall {}.abi_encode());
-		let created_size = size_after(Factory::createCall {}.abi_encode());
 		let failed_size = size_after(Factory::createRevertingCall {}.abi_encode());
 
-		assert_eq!(created_size - failed_size, expected_extra_entries);
 		assert_eq!(failed_size - noop_size, expected_failed_extra_entries);
 	});
 }
@@ -432,11 +426,10 @@ fn a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType)
 #[test]
 fn newly_stored_code_is_hot_for_the_next_call() {
 	ExtBuilder::default().build().execute_with(|| {
-		// The child's AccountInfo and address mapping, both warmed by the contract creation.
-		let created_entries = 2;
-		let code_load = CodeLoadItems::new(H256::zero()).entry_count();
-		let stores_the_code_expected_hot = code_load + created_entries;
-		let finds_the_code_stored_expected_hot = created_entries;
+		let call_entries = CallItems::new(H160::zero(), false).entry_count();
+		let code_entries = CodeLoadItems::new(H256::zero()).entry_count();
+		let stores_the_code_expected_hot = code_entries + call_entries;
+		let finds_the_code_stored_expected_hot = call_entries;
 
 		let factory = deploy_factory(FixtureType::Solc);
 		let create_then_call = || {
@@ -453,7 +446,6 @@ fn newly_stored_code_is_hot_for_the_next_call() {
 		let stores_the_code = create_then_call();
 		let finds_the_code_stored = create_then_call();
 
-		// Both find the child's entries hot; only the first stores and warms the code.
 		assert_eq!(stores_the_code.hot, stores_the_code_expected_hot);
 		assert_eq!(finds_the_code_stored.hot, finds_the_code_stored_expected_hot);
 		assert_eq!(
@@ -465,7 +457,7 @@ fn newly_stored_code_is_hot_for_the_next_call() {
 
 #[test_case(FixtureType::Solc;   "evm")]
 #[test_case(FixtureType::Resolc; "pvm")]
-fn a_created_contract_is_warm_for_the_rest_of_the_transaction(fixture_type: FixtureType) {
+fn a_created_contract_is_hot_for_the_rest_of_the_transaction(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let (expected_child_call_cold, expected_child_call_hot) =
 			if fixture_type == FixtureType::Resolc {
@@ -498,15 +490,10 @@ fn a_created_contract_is_warm_for_the_rest_of_the_transaction(fixture_type: Fixt
 		let zero_value_call = create_then_call(0);
 		let value_call = create_then_call(1_000_000);
 
-		let actual_child_call_cold = zero_value_call.cold - create_only.cold;
-		let actual_child_call_hot = zero_value_call.hot - create_only.hot;
-		let actual_transfer_cold = value_call.cold - zero_value_call.cold;
-		let actual_transfer_hot = value_call.hot - zero_value_call.hot;
-
-		assert_eq!(actual_child_call_cold, expected_child_call_cold);
-		assert_eq!(actual_child_call_hot, expected_child_call_hot);
-		assert_eq!(actual_transfer_cold, expected_transfer_cold);
-		assert_eq!(actual_transfer_hot, expected_transfer_hot);
+		assert_eq!(zero_value_call.cold - create_only.cold, expected_child_call_cold);
+		assert_eq!(zero_value_call.hot - create_only.hot, expected_child_call_hot);
+		assert_eq!(value_call.cold - zero_value_call.cold, expected_transfer_cold);
+		assert_eq!(value_call.hot - zero_value_call.hot, expected_transfer_hot);
 	});
 }
 
@@ -539,6 +526,10 @@ fn a_call_to_a_created_contract_is_charged_hot(fixture_type: FixtureType) {
 
 	let (call_child_weight, _) = with_fresh_factory(&|factory_addr| {
 		invoke_factory(factory_addr, Factory::createCall {}.abi_encode());
+		assert!(
+			AccountInfo::<Test>::load_contract(&child_addr).is_some(),
+			"the cold run calls the same child",
+		);
 		let call_child = Factory::callChildCall { child: child_addr.0.into() }.abi_encode();
 		(invoke_factory(factory_addr, call_child).weight_consumed, None)
 	});
@@ -555,4 +546,52 @@ fn a_call_to_a_created_contract_is_charged_hot(fixture_type: FixtureType) {
 		cold_call_weight.ref_time() >= hot_call_weight.ref_time() + 100_000_000,
 		"cold {cold_call_weight:?} should cost at least 100M more ref time than hot {hot_call_weight:?}",
 	);
+}
+
+fn deploy_call_each_and_targets<const N: usize>(fixture_type: FixtureType) -> (H160, [H160; N]) {
+	let (caller_code, _) = compile_module_with_type("CallEach", fixture_type).unwrap();
+	let (target_code, _) = compile_module_with_type("CallThenRevert", fixture_type).unwrap();
+	let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+	let caller = builder::bare_instantiate(Code::Upload(caller_code))
+		.build_and_unwrap_contract()
+		.addr;
+	let targets = core::array::from_fn(|index| {
+		builder::bare_instantiate(Code::Upload(target_code.clone()))
+			.salt(Some([index as u8 + 1; 32]))
+			.build_and_unwrap_contract()
+			.addr
+	});
+	(caller, targets)
+}
+
+/// Makes `calls` from `caller` in one transaction and returns its access-list metrics.
+fn access_list_metrics_of_calls(caller: H160, calls: &[(H160, Vec<u8>)]) -> AccessListMetrics {
+	let targets = calls.iter().map(|(target, _)| target.0.into()).collect();
+	let data = calls.iter().map(|(_, data)| data.clone().into()).collect();
+	access_list_metrics_of(|| {
+		builder::bare_call(caller)
+			.data(CallEach::callEachCall { targets, data }.abi_encode())
+			.build_and_unwrap_result();
+	})
+}
+
+fn deploy_factory(fixture_type: FixtureType) -> H160 {
+	let (factory_code, _) = compile_module_with_type("Factory", fixture_type).unwrap();
+	let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+	if fixture_type == FixtureType::Resolc {
+		for child in ["ReceivingChild", "RevertingChild"] {
+			let (child_code, _) = compile_module_with_type(child, fixture_type).unwrap();
+			crate::Pallet::<Test>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				child_code,
+				<BalanceOf<Test>>::MAX,
+			)
+			.unwrap();
+		}
+	}
+	let factory = builder::bare_instantiate(Code::Upload(factory_code))
+		.build_and_unwrap_contract()
+		.addr;
+	let _ = crate::Pallet::<Test>::set_evm_balance(&factory, 100_000_000_000u128.into());
+	factory
 }

@@ -485,20 +485,23 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let max_size = limits::STORAGE_BYTES;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let access = self.ext.slot_access(&key, StorageOp::Write);
 		let cost =
 			|kind| RuntimeCosts::SetStorage { new_bytes: value_len, old_bytes: max_size, kind };
 
 		if value_len > max_size {
 			// Nothing is accessed on this failure, so the slot stays cold and owes no rollback.
 			let access_kind = StorageAccessKind::new(transient, || {
-				self.ext.warmth_of(access).to_non_revertible()
+				self.ext
+					.warmth_of(self.ext.slot_access(&key, StorageOp::Write))
+					.to_non_revertible()
 			});
 			self.charge_gas(cost(access_kind))?;
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let access_kind = StorageAccessKind::new(transient, || self.ext.warm(access));
+		let access_kind = StorageAccessKind::new(transient, || {
+			self.ext.warm(self.ext.slot_access(&key, StorageOp::Write))
+		});
 		let charged = self.charge_gas(cost(access_kind))?;
 		let value = match value {
 			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
