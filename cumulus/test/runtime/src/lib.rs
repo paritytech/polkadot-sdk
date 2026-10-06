@@ -350,7 +350,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<{ relay_parent_offset() }>;
-	type ReservedCores = ConstU32<0>;
+	type ReservedCores = ConstU32<{ reserved_cores() }>;
 	type SchedulingSignatureVerifier = NoVerification;
 }
 

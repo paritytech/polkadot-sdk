@@ -390,6 +390,13 @@ impl SubstrateCli for TestCollatorCli {
 					Some(ParaId::from(2800)),
 				)
 			},
+			"elastic-scaling-v3-headroom" => {
+				tracing::info!("Using elastic scaling V3 chain spec with segment headroom.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::elastic_scaling_v3_headroom::WASM_BINARY,
+					Some(ParaId::from(2800)),
+				)
+			},
 			path => {
 				let chain_spec: sc_chain_spec::GenericChainSpec =
 					sc_chain_spec::GenericChainSpec::from_json_file(path.into())?;
