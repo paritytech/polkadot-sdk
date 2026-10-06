@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791304494661,
+  "lastUpdate": 1791311440466,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "129a48aa9f17a3d5ccbcb8cb4167dd505165d35f",
-          "message": "[Staking] Add issuance and budget traits in prep for Budget Split (#11513)\n\n# Overview\n\nMoves `EraPayout` trait to `sp-staking` and adds new traits for\nissuance, budget distribution, and reward calculation.\n\nExtracted changes from the main PR: #10844 \nAlso see: https://github.com/paritytech/polkadot-sdk/pull/11512\n\n## Changes\n\n### sp-staking\n- `EraPayout`: moved from `pallet-staking` and `pallet-staking-async` to\n`sp-staking`, eliminating the duplicate definitions.\n- `budget` module: stake independent traits:\n- `IssuanceCurve`: successor to `EraPayout`, computes issuance from\ntotal supply + elapsed time (no staking state dependency).\n- `BudgetRecipient` / `BudgetRecipientList`: register pot accounts for\ninflation distribution. Runtime wires as a tuple.\n  - `BudgetKey`: bounded identifier for budget categories.\n- `StakerRewardCalculator`: trait for calculating validator incentive\nweights and staker reward splits.\n\n### pallet-staking / pallet-staking-async\n- Removed local `EraPayout` definitions, re-exported from `sp-staking`.\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
-          "timestamp": "2026-03-31T17:06:21Z",
-          "tree_id": "77fcec156172d697a4fc3bc828044f351b8d78fa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/129a48aa9f17a3d5ccbcb8cb4167dd505165d35f"
-        },
-        "date": 1774984861863,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12293932716666671,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.1619062827,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.015106667366666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "eebfe319ab7db7d8c9b8041fa1a219349d7c3be0",
+          "message": "Bump litep2p to 0.16.0 (#13398)\n\n## Summary\n\nBumps `litep2p` from 0.15.3 to 0.16.0 ([release\nnotes](https://github.com/paritytech/litep2p/releases/tag/v0.16.0)).\n\n0.16.0 adds the client-server mode for Kademlia (paritytech/litep2p#611)\nand fixes the panics around local provider records in the Kademlia\nmemory store (paritytech/litep2p#666)",
+          "timestamp": "2026-10-06T16:16:12Z",
+          "tree_id": "797cbc2c7d625bbf6e8718f37c959d6d17fbcc6d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/eebfe319ab7db7d8c9b8041fa1a219349d7c3be0"
+        },
+        "date": 1791311408680,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.965100136033335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13974210286666666,
             "unit": "seconds"
           }
         ]
