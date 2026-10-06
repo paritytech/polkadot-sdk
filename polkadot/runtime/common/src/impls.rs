@@ -378,7 +378,6 @@ mod tests {
 
 	parameter_types! {
 		pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
-		pub const MaxApprovals: u32 = 100;
 		pub TreasuryAccount: AccountId = Treasury::account_id();
 	}
 
@@ -391,7 +390,6 @@ mod tests {
 		type BurnDestination = ();
 		type PalletId = TreasuryPalletId;
 		type SpendFunds = ();
-		type MaxApprovals = MaxApprovals;
 		type WeightInfo = ();
 		type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
 		type AssetKind = ();
