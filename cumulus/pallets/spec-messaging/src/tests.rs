@@ -715,3 +715,183 @@ fn register_reads_must_target_an_outbound_channel_and_decode() {
 		);
 	});
 }
+
+/// Open [`out_channel`] and read the peer's first register, so the channel is `Open`.
+fn open_and_accepted() {
+	open_out_channel();
+	assert_ok!(SpecMessaging::enact_messages(
+		RuntimeOrigin::none(),
+		read_register(0, register(0, TestGrant::get()))
+	));
+}
+
+#[test]
+fn close_channel_sends_the_signal_and_reopen_resumes() {
+	new_test_ext().execute_with(|| {
+		// Closing needs an `Open` channel.
+		open_out_channel();
+		assert_err!(
+			SpecMessaging::close_channel(RuntimeOrigin::root(), peer(), 0, 0),
+			Error::<Test>::ChannelNotOpen
+		);
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			read_register(0, register(0, TestGrant::get()))
+		));
+		roll_one_block();
+
+		assert_ok!(SpecMessaging::close_channel(RuntimeOrigin::root(), peer(), 0, 0));
+		assert_eq!(
+			sent_on(SpecMessaging::outbound_stream(&out_channel())),
+			vec![SpecMsgKind::Signal(SpecMsgSignal::CloseChannel).encode()]
+		);
+		let state = OutChannels::<Test>::get(out_channel()).expect("opened");
+		assert_eq!(state.phase(), ChannelPhase::Closed);
+		assert_err!(SpecMessaging::send(out_channel(), vec![1]), Error::<Test>::ChannelNotOpen);
+		assert_err!(
+			SpecMessaging::close_channel(RuntimeOrigin::root(), peer(), 0, 0),
+			Error::<Test>::AlreadyClosed
+		);
+		roll_one_block();
+
+		// After our own close the peer's register still stands: reopening is `Open` at once.
+		assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), peer(), 0, 0));
+		assert_eq!(
+			OutChannels::<Test>::get(out_channel()).expect("opened").phase(),
+			ChannelPhase::Open
+		);
+		assert_ok!(SpecMessaging::send(out_channel(), vec![1]));
+	});
+}
+
+#[test]
+fn a_closed_register_closes_the_outbound_channel() {
+	new_test_ext().execute_with(|| {
+		open_and_accepted();
+		roll_one_block();
+		let closed = Register { closed: true, ..register(1, WindowGrant::default()) };
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(1, closed)));
+		assert_eq!(
+			OutChannels::<Test>::get(out_channel()).expect("opened").phase(),
+			ChannelPhase::Closed
+		);
+		assert_err!(SpecMessaging::send(out_channel(), vec![1]), Error::<Test>::ChannelNotOpen);
+	});
+}
+
+#[test]
+fn receiver_close_publishes_a_closed_register_and_reaccept_resumes() {
+	new_test_ext().execute_with(|| {
+		accept(0);
+		let channel = ChannelId { peer: src(), domain: 0, num: 0 };
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			inherent(vec![(
+				src(),
+				stream(0),
+				ConsumeItem::Channel { payloads: vec![data_payload(b"a")] }
+			)]),
+		));
+		roll_one_block();
+
+		assert_ok!(SpecMessaging::close_inbound_channel(RuntimeOrigin::root(), src(), 0, 0));
+		let closed = Register { closed: true, ..register(1, WindowGrant::default()) };
+		assert_eq!(InChannels::<Test>::get(channel).expect("accepted").published, closed);
+		assert_eq!(sent_on(SpecMessaging::ack_stream(&channel)), vec![closed.encode()]);
+		assert!(SpecMessaging::consumed_streams().is_empty());
+		assert_err!(
+			SpecMessaging::enact_messages(
+				RuntimeOrigin::none(),
+				inherent(vec![(
+					src(),
+					stream(0),
+					ConsumeItem::Channel { payloads: vec![data_payload(b"b")] }
+				)]),
+			),
+			Error::<Test>::UnknownStream
+		);
+		assert_err!(
+			SpecMessaging::close_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
+			Error::<Test>::AlreadyClosed
+		);
+		roll_one_block();
+
+		// Re-accepting resumes from the kept frontier.
+		accept(0);
+		assert_eq!(
+			InChannels::<Test>::get(channel).expect("accepted").published,
+			register(1, TestGrant::get())
+		);
+		assert_eq!(
+			SpecMessaging::consumed_streams(),
+			BTreeMap::from([(
+				src(),
+				vec![ConsumedStream::Channel { domain: 0, num: 0, from: MessagePosition(1) }]
+			)])
+		);
+	});
+}
+
+#[test]
+fn suspend_pauses_consumption_and_resume_restores_the_grant() {
+	new_test_ext().execute_with(|| {
+		accept(0);
+		let channel = ChannelId { peer: src(), domain: 0, num: 0 };
+		assert!(
+			SpecMessaging::suspend_inbound_channel(RuntimeOrigin::signed(1), src(), 0, 0).is_err()
+		);
+
+		assert_ok!(SpecMessaging::suspend_inbound_channel(RuntimeOrigin::root(), src(), 0, 0));
+		let state = InChannels::<Test>::get(channel).expect("accepted");
+		assert!(state.suspended);
+		assert_eq!(state.published, register(0, WindowGrant::default()));
+		assert!(SpecMessaging::consumed_streams().is_empty());
+		assert_err!(
+			SpecMessaging::enact_messages(
+				RuntimeOrigin::none(),
+				inherent(vec![(
+					src(),
+					stream(0),
+					ConsumeItem::Channel { payloads: vec![data_payload(b"a")] }
+				)]),
+			),
+			Error::<Test>::UnknownStream
+		);
+		assert_err!(
+			SpecMessaging::suspend_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
+			Error::<Test>::AlreadySuspended
+		);
+
+		assert_ok!(SpecMessaging::resume_inbound_channel(RuntimeOrigin::root(), src(), 0, 0));
+		let state = InChannels::<Test>::get(channel).expect("accepted");
+		assert!(!state.suspended);
+		assert_eq!(state.published, register(0, TestGrant::get()));
+		assert_eq!(SpecMessaging::consumed_streams().len(), 1);
+		assert_err!(
+			SpecMessaging::resume_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
+			Error::<Test>::NotSuspended
+		);
+	});
+}
+
+#[test]
+fn lifecycle_calls_need_a_known_channel() {
+	new_test_ext().execute_with(|| {
+		assert_err!(
+			SpecMessaging::close_channel(RuntimeOrigin::root(), peer(), 0, 0),
+			Error::<Test>::UnknownChannel
+		);
+		assert_err!(
+			SpecMessaging::close_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
+			Error::<Test>::UnknownChannel
+		);
+		assert_err!(
+			SpecMessaging::suspend_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
+			Error::<Test>::UnknownChannel
+		);
+		assert_err!(
+			SpecMessaging::resume_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
+			Error::<Test>::UnknownChannel
+		);
+	});
+}

@@ -140,8 +140,15 @@ pub mod pallet {
 		/// Origin allowed to open an outbound channel.
 		type OpenChannelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Origin allowed to accept an inbound channel.
+		/// Origin allowed to accept an inbound channel, and to close it.
+		///
+		/// Must be a privileged origin: an acceptance creates state that is kept forever (the
+		/// channel entry and two frontiers), and this pallet does not price it. A chain that
+		/// lets unprivileged accounts accept must add a deposit first.
 		type AcceptChannelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Origin allowed to suspend and resume an inbound channel.
+		type ChannelManagementOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The send-window credit every published register grants.
 		type DefaultWindowGrant: Get<WindowGrant>;
@@ -244,6 +251,14 @@ pub mod pallet {
 		NoCredit,
 		/// A register read is not exactly one leaf, or does not decode as a [`Register`].
 		BadRegister,
+		/// No such channel.
+		UnknownChannel,
+		/// The channel is already closed from this side.
+		AlreadyClosed,
+		/// The inbound channel is already suspended.
+		AlreadySuspended,
+		/// The inbound channel is not suspended.
+		NotSuspended,
 	}
 
 	#[pallet::hooks]
@@ -327,6 +342,11 @@ pub mod pallet {
 		/// to its data stream. That leaf is the only one sendable without credit. The channel
 		/// stays `Opening` until the recipient accepts and its register is read; until then,
 		/// nothing else can be sent.
+		///
+		/// Reopening a `Closed` channel appends the signal at the current position; frontiers are
+		/// eternal, so the unconfirmed tail stays deliverable. After our own close, the peer's
+		/// register still stands and the channel is `Open` again at once. After the peer's close,
+		/// it stays `Closed` until the peer re-accepts and that register is read.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
 		pub fn open_channel(
@@ -338,15 +358,21 @@ pub mod pallet {
 			T::OpenChannelOrigin::ensure_origin(origin)?;
 			ensure!(recipient != T::SelfParaId::get(), Error::<T>::ChannelToSelf);
 			let channel = ChannelId { peer: recipient, domain, num };
-			ensure!(!OutChannels::<T>::contains_key(channel), Error::<T>::AlreadyOpen);
-
-			// Anchor the in-flight window at the stream's next position: the `OpenChannel` leaf
-			// appended below is its first message.
-			let stream = Self::outbound_stream(&channel);
-			let next = OutboundFrontier::<T>::get(stream)
-				.leaf_count()
-				.saturating_add(OutboundMessages::<T>::decode_len(stream).unwrap_or(0) as u64);
-			OutChannelsMeta::<T>::mutate(channel, |meta| meta.base = MessagePosition(next));
+			let previous = OutChannels::<T>::get(channel);
+			match &previous {
+				Some(state) => {
+					ensure!(state.phase() == ChannelPhase::Closed, Error::<T>::AlreadyOpen)
+				},
+				None => {
+					// First open: anchor the in-flight window at the stream's next position. The
+					// `OpenChannel` leaf appended below is its first message.
+					let stream = Self::outbound_stream(&channel);
+					let next = OutboundFrontier::<T>::get(stream).leaf_count().saturating_add(
+						OutboundMessages::<T>::decode_len(stream).unwrap_or(0) as u64,
+					);
+					OutChannelsMeta::<T>::mutate(channel, |meta| meta.base = MessagePosition(next));
+				},
+			}
 
 			Self::send_signal(&channel, SpecMsgSignal::OpenChannel { version: PROTOCOL_VERSION })?;
 			OutChannels::<T>::insert(
@@ -354,16 +380,19 @@ pub mod pallet {
 				OutChannelState {
 					closed_by_us: false,
 					announced_version: PROTOCOL_VERSION,
-					register: None,
+					// The last register survives a reopen: after our close it still carries live
+					// credit; after the peer's close it keeps the channel `Closed` until a fresh
+					// register is read.
+					register: previous.and_then(|state| state.register),
 				},
 			);
 			Ok(())
 		}
 
-		/// Accept the inbound channel `(sender, domain, num)`. Its data stream joins
-		/// [`Pallet::consumed_streams`], and the initial register is published on our `Ack`
-		/// stream: the acceptance as the sender sees it. Either order works; accepting first is
-		/// pre-authorization. Rejecting is never accepting, which costs nothing.
+		/// Accept the inbound channel `(sender, domain, num)`, or re-accept it after we closed it.
+		/// Its data stream joins [`Pallet::consumed_streams`], and a register is published on our
+		/// `Ack` stream: the acceptance as the sender sees it. Either order works; accepting first
+		/// is pre-authorization. Rejecting is never accepting, which costs nothing.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
 		pub fn accept_open_channel(
@@ -375,18 +404,110 @@ pub mod pallet {
 			T::AcceptChannelOrigin::ensure_origin(origin)?;
 			ensure!(sender != T::SelfParaId::get(), Error::<T>::ChannelToSelf);
 			let channel = ChannelId { peer: sender, domain, num };
-			ensure!(!InChannels::<T>::contains_key(channel), Error::<T>::AlreadyAccepted);
-
-			let mut state = InChannelState {
-				published: Register {
-					version: PROTOCOL_VERSION,
-					up_to: MessagePosition(0),
-					grant: WindowGrant::default(),
-					closed: false,
+			let mut state = match InChannels::<T>::get(channel) {
+				// Only a channel we closed can be accepted again.
+				Some(mut state) => {
+					ensure!(state.published.closed, Error::<T>::AlreadyAccepted);
+					state.published.closed = false;
+					state
 				},
-				peer_version: 0,
-				suspended: false,
+				None => InChannelState {
+					published: Register {
+						version: PROTOCOL_VERSION,
+						up_to: MessagePosition(0),
+						grant: WindowGrant::default(),
+						closed: false,
+					},
+					peer_version: 0,
+					suspended: false,
+				},
 			};
+			Self::publish_register(&channel, &mut state)?;
+			InChannels::<T>::insert(channel, state);
+			Ok(())
+		}
+
+		/// Close our side of the outbound channel: append `CloseChannel` and stop sending. The
+		/// signal is an ordinary message, so it needs an `Open` channel and credit. Closing is
+		/// advisory and safe at any time; [`Pallet::open_channel`] reopens over the same stream.
+		/// With no credit left, just stop sending: abandonment needs no signal.
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+		pub fn close_channel(
+			origin: OriginFor<T>,
+			recipient: ParaId,
+			domain: u8,
+			num: u16,
+		) -> DispatchResult {
+			T::OpenChannelOrigin::ensure_origin(origin)?;
+			let channel = ChannelId { peer: recipient, domain, num };
+			let mut state = OutChannels::<T>::get(channel).ok_or(Error::<T>::UnknownChannel)?;
+			ensure!(!state.closed_by_us, Error::<T>::AlreadyClosed);
+			ensure!(state.phase() == ChannelPhase::Open, Error::<T>::ChannelNotOpen);
+			Self::ensure_credit(&channel, &state)?;
+			Self::send_signal(&channel, SpecMsgSignal::CloseChannel)?;
+			state.closed_by_us = true;
+			OutChannels::<T>::insert(channel, state);
+			Ok(())
+		}
+
+		/// Close the inbound channel from our side: publish a register with `closed` set (no
+		/// grant; `up_to` still reports what we consumed) and stop consuming it. The frontier is
+		/// kept, so [`Pallet::accept_open_channel`] later resumes where consumption stopped.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+		pub fn close_inbound_channel(
+			origin: OriginFor<T>,
+			sender: ParaId,
+			domain: u8,
+			num: u16,
+		) -> DispatchResult {
+			T::AcceptChannelOrigin::ensure_origin(origin)?;
+			let channel = ChannelId { peer: sender, domain, num };
+			let mut state = InChannels::<T>::get(channel).ok_or(Error::<T>::UnknownChannel)?;
+			ensure!(!state.published.closed, Error::<T>::AlreadyClosed);
+			state.published.closed = true;
+			Self::publish_register(&channel, &mut state)?;
+			InChannels::<T>::insert(channel, state);
+			Ok(())
+		}
+
+		/// Suspend the inbound channel: a pause, not a close. Consumption is refused,
+		/// [`Pallet::consumed_streams`] omits the stream, and the published register grants
+		/// zero. All state stays.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+		pub fn suspend_inbound_channel(
+			origin: OriginFor<T>,
+			sender: ParaId,
+			domain: u8,
+			num: u16,
+		) -> DispatchResult {
+			T::ChannelManagementOrigin::ensure_origin(origin)?;
+			let channel = ChannelId { peer: sender, domain, num };
+			let mut state = InChannels::<T>::get(channel).ok_or(Error::<T>::UnknownChannel)?;
+			ensure!(!state.suspended, Error::<T>::AlreadySuspended);
+			state.suspended = true;
+			Self::publish_register(&channel, &mut state)?;
+			InChannels::<T>::insert(channel, state);
+			Ok(())
+		}
+
+		/// Resume a suspended inbound channel: republish a real grant. Consumption restarts from
+		/// the kept frontier.
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+		pub fn resume_inbound_channel(
+			origin: OriginFor<T>,
+			sender: ParaId,
+			domain: u8,
+			num: u16,
+		) -> DispatchResult {
+			T::ChannelManagementOrigin::ensure_origin(origin)?;
+			let channel = ChannelId { peer: sender, domain, num };
+			let mut state = InChannels::<T>::get(channel).ok_or(Error::<T>::UnknownChannel)?;
+			ensure!(state.suspended, Error::<T>::NotSuspended);
+			state.suspended = false;
 			Self::publish_register(&channel, &mut state)?;
 			InChannels::<T>::insert(channel, state);
 			Ok(())
