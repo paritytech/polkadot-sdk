@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791241012306,
+  "lastUpdate": 1791277560286,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "89aa25d825603d0f34764ff02ae3ab6b8d8826c9",
-          "message": "Allow multiple transaction extension version in `UncheckedExtrinsic` type. (#7035)\n\nThis PR enhance `UncheckedExtrinsic` type with a new optional generic:\n`ExtensionOtherVersion`.\nThis generic defaults to `InvalidVersion` meaning there is not other\nversion than the regular version 0. This is the same behavior as before\nthis PR.\n\n# New feature\n\nTo use this new feature, you can use the new types `TxExtLineAtVers` and\n`MultiVersion` to define a transaction extension with multiple version:\n\n```rust\npub type TransactionExtensionV0 = ();\npub type TransactionExtensionV4 = ();\npub type TransactionExtensionV7 = ();\n\npub type OtherVersions = MultiVersion<\n\tTxExtLineAtVers<4, TransactionExtensionV4>;\n\tTxExtLineAtVers<7, TransactionExtensionV7>;\n>;\n\npub type UncheckedExtrinsic = generic::UncheckedExtrinsic<\n\tAccountId,\n\tRuntimeCall,\n\tUintAuthorityId,\n\tTransactionExtensionV0, // The version 0, same as before\n\tOtherVersions, // The other versions.\n>;\n```\n\n# Breaking change\n\nThe types `Preamble`, `CheckedExtrinsic` and `ExtrinsicFormat` also have\nthis new optional generic. Their type definition also have changed a\nbit, the `General` variant was 2 fields, the version and the extension,\nit is now only one field, the extension, and the version can be retrieve\nby calling `extension.version()`\n\nThe type inference for those types may fail because of this PR, to\nupdate the code, write some partial type: `UncheckedExtrinsic<_, _, _,\n_>`, `Preamble<_, _, _>`, `ExtrinsicFormat<_, _> and\n`CheckedExtrinsic<_, _, _>`.\n\n# Alternative implementation\n\nThis PR breaks the types a bit, I think it is very minimal and fine, but\nif this is annoying we can still keep the old types and write new types\nsuch as `UncheckedExtrinsicV2`, `CheckedExtrinsicV2` etc..\n\n---------\n\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-03-30T06:10:24Z",
-          "tree_id": "0006b7d8f2df75079f6592705f27ef0dfff3d9d1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/89aa25d825603d0f34764ff02ae3ab6b8d8826c9"
-        },
-        "date": 1774855710787,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006915884853333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02416119637333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14778644414000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.01001679684666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007632943673333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dae26eec1256dbf3a30c1df276bb96ea848c2d14",
+          "message": "pallet-multi-asset-bounties: net parent refunds after child payouts (#13409)\n\nClosing a parent bounty after a child payout has settled currently\nrefunds the parent’s gross value, including funds already paid out\nthrough the child bounty.\n\nThis patch applies the existing net-payout calculation to parent refunds\nand adds regression coverage for closing a parent after a settled child\npayout.\n\nNo API or storage migration is required.",
+          "timestamp": "2026-10-06T07:29:46Z",
+          "tree_id": "436e600dacc4f4ea3ce6d11e505253ce3be63793",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dae26eec1256dbf3a30c1df276bb96ea848c2d14"
+        },
+        "date": 1791277528968,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14511745548000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025393926626666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007533680840000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00987113789999997,
             "unit": "seconds"
           }
         ]
