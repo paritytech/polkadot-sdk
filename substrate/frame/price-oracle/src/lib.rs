@@ -514,7 +514,7 @@ impl<T: Config> Pallet<T> {
 	pub fn active_markets() -> Vec<Market> {
 		Markets::<T>::iter()
 			.filter(|(_, m)| m.active)
-			.map(|(id, m)| m.to_wire(id))
+			.map(|(id, m)| m.to_wire::<T::MarketPricing>(id))
 			.collect()
 	}
 
@@ -574,8 +574,9 @@ pub fn parse_market<P: MarketPricing>(
 ) -> Result<Price, ParseError> {
 	let err = |s: &str| ParseError(s.as_bytes().to_vec());
 
+	let queries = P::queries(&market.pricing);
 	for (tag, body) in &responses {
-		let Some(query) = market.queries.iter().find(|q| q.tag == *tag) else {
+		let Some(query) = queries.iter().find(|q| q.tag == *tag) else {
 			return Err(err("unknown query tag"));
 		};
 		if body.len() > query.request.max_response_bytes as usize {

@@ -21,7 +21,11 @@
 
 pub mod schema;
 
-use crate::{pricing::median, registry::MaxQueries, MarketPricing};
+use crate::{
+	pricing::median,
+	registry::{MaxQueries, StoredQuery},
+	MarketPricing,
+};
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::BoundedVec;
@@ -41,8 +45,8 @@ pub struct OrderBookPricing;
 	Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
 )]
 pub struct OrderBookParams {
-	/// How to read the response of each query, by query tag.
-	pub schemas: BoundedVec<(QueryTag, ResponseSchema), MaxQueries>,
+	/// The queries to fetch, each with the schema to read its response.
+	pub queries: BoundedVec<(StoredQuery, ResponseSchema), MaxQueries>,
 	/// The amount of the base asset that one unit of a level's amount represents. One for spot
 	/// markets and for derivatives sized in the base asset. Only instruments whose amount is a
 	/// fixed quantity of the base asset can be configured; inverse contracts, sized in the quote
@@ -114,6 +118,10 @@ impl MarketPricing for OrderBookPricing {
 		!params.contract_size.is_zero() && !params.limits.impact_size.is_zero()
 	}
 
+	fn queries(params: &OrderBookParams) -> Vec<StoredQuery> {
+		params.queries.iter().map(|(query, _)| query.clone()).collect()
+	}
+
 	/// Needs an order book and a trades response.
 	fn price(
 		params: &OrderBookParams,
@@ -123,7 +131,8 @@ impl MarketPricing for OrderBookPricing {
 		let mut book = None;
 		let mut latest_trade_ms = None;
 		for (tag, body) in responses {
-			let Some((_, schema)) = params.schemas.iter().find(|(t, _)| t == tag) else {
+			let Some((_, schema)) = params.queries.iter().find(|(query, _)| query.tag == *tag)
+			else {
 				return Err(Error::UnknownQuery);
 			};
 			match schema.read(body).map_err(Error::Schema)? {
@@ -286,8 +295,9 @@ mod price_market_tests {
 #[cfg(test)]
 mod order_book_pricing_tests {
 	use super::*;
-	use crate::pricing::parse_decimal;
+	use crate::{pricing::parse_decimal, registry::StoredRequest};
 	use schema::{LevelLayout, PathStep, TimeFormat};
+	use sp_price_oracle::market::Method;
 
 	const BOOK: QueryTag = QueryTag(0);
 	const TRADES: QueryTag = QueryTag(1);
@@ -304,6 +314,21 @@ mod order_book_pricing_tests {
 		parse_decimal(s).unwrap()
 	}
 
+	/// A query with `tag`. Its request is never sent.
+	fn query(tag: QueryTag) -> StoredQuery {
+		let request = StoredRequest {
+			method: Method::Get,
+			host: Default::default(),
+			path: Default::default(),
+			query: Default::default(),
+			headers: Default::default(),
+			body: Default::default(),
+			timeout_ms: 1_000,
+			max_response_bytes: 1_024,
+		};
+		StoredQuery { tag, request }
+	}
+
 	fn params() -> OrderBookParams {
 		let key = |k| PathStep::key(k).unwrap();
 		let book = ResponseSchema::OrderBook {
@@ -317,7 +342,7 @@ mod order_book_pricing_tests {
 			format: TimeFormat::Millis,
 		};
 		OrderBookParams {
-			schemas: vec![(BOOK, book), (TRADES, trades)].try_into().unwrap(),
+			queries: vec![(query(BOOK), book), (query(TRADES), trades)].try_into().unwrap(),
 			contract_size: p("1"),
 			limits: HealthLimits {
 				impact_size: p("10000"),
@@ -338,7 +363,7 @@ mod order_book_pricing_tests {
 
 	#[test]
 	fn prices_the_impact_mid_of_the_book() {
-		let Ok(Parsed::OrderBook(book)) = params().schemas[0].1.read(BOOK_JSON) else {
+		let Ok(Parsed::OrderBook(book)) = params().queries[0].1.read(BOOK_JSON) else {
 			panic!("the book fixture is readable")
 		};
 		assert_eq!(

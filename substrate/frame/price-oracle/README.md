@@ -86,7 +86,7 @@ set_pair(DOT_USDT, 3)                               // needs 3 market votes
 set_pair(USDT_USD, 2)
 set_pair(DOT_USD, 3)
 set_cross_rates(DOT_USD, [(DOT_USDT, USDT_USD)])    // DOT/USD = DOT/USDT * USDT/USD
-set_market(0, StoredMarket { venue: BINANCE, pair: DOT_USDT, queries, pricing, active: true })
+set_market(0, StoredMarket { venue: BINANCE, pair: DOT_USDT, pricing, active: true })
 set_parameters(Parameters { report_window, quorum, tick_interval_ms })
 ```
 
@@ -95,10 +95,10 @@ no market quotes it and no cross rate uses it.
 
 ## Pricing a market
 
-The pricing method is a type implementing `MarketPricing`. It gets the responses to a market's
-queries and the parameters stored with the market, and returns a price or an error. Before
-calling it, the pallet only checks that each response belongs to one of the market's queries and
-is not larger than the query allows.
+The pricing method is a type implementing `MarketPricing`. From the parameters stored with a
+market, it defines the queries to fetch, and prices the market from their responses. Before
+pricing, the pallet only checks that each response belongs to one of the market's queries and is
+not larger than the query allows.
 
 ```ignore
 impl pallet_price_oracle::Config for Runtime {

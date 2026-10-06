@@ -677,14 +677,13 @@ fn market(
 	(trades, trades_schema): (StoredRequest, ResponseSchema),
 ) -> Option<StoredMarket<OrderBookParams>> {
 	let queries = alloc::vec![
-		StoredQuery { tag: BOOK, request: book },
-		StoredQuery { tag: TRADES, request: trades },
+		(StoredQuery { tag: BOOK, request: book }, book_schema),
+		(StoredQuery { tag: TRADES, request: trades }, trades_schema),
 	]
 	.try_into()
 	.ok()?;
-	let schemas = alloc::vec![(BOOK, book_schema), (TRADES, trades_schema)].try_into().ok()?;
-	let pricing = OrderBookParams { schemas, contract_size, limits };
-	Some(StoredMarket { venue, pair, queries, pricing, active: true })
+	let pricing = OrderBookParams { queries, contract_size, limits };
+	Some(StoredMarket { venue, pair, pricing, active: true })
 }
 
 #[cfg(test)]
@@ -837,7 +836,7 @@ mod tests {
 	#[test]
 	fn oversized_response_is_rejected() {
 		let mut market = binance_spot(VENUE, PAIR, "DOTUSDT", limits()).unwrap();
-		market.queries[0].request.max_response_bytes = 16;
+		market.pricing.queries[0].0.request.max_response_bytes = 16;
 		let responses = responses(fixture!("binance_spot_book"), fixture!("binance_spot_trades"));
 		let rejected = parse_market(&market, responses, NOW_MS);
 		assert_eq!(rejected, Err(ParseError(b"response too large".to_vec())));

@@ -21,6 +21,7 @@
 //! Bounds are constants of this module: they are enforced on admin input only, and raising one
 //! is a runtime upgrade with no effect on the nodes, which receive unbounded wire types.
 
+use crate::MarketPricing;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{traits::ConstU32, BoundedVec};
@@ -92,7 +93,6 @@ pub struct StoredQuery {
 pub struct StoredMarket<PricingParams> {
 	pub venue: VenueId,
 	pub pair: PairId,
-	pub queries: BoundedVec<StoredQuery, MaxQueries>,
 	/// The pricing parameters of the market. See [`crate::MarketPricing`].
 	pub pricing: PricingParams,
 	/// Inactive markets are kept in storage but not served to the nodes.
@@ -132,13 +132,14 @@ impl From<StoredQuery> for Query {
 }
 
 impl<PricingParams> StoredMarket<PricingParams> {
-	/// The wire form of this market, as served to the oracle nodes.
-	pub fn to_wire(self, id: MarketId) -> Market {
+	/// The wire form of this market, as served to the oracle nodes, with the queries of the
+	/// pricing method `P`.
+	pub fn to_wire<P: MarketPricing<Params = PricingParams>>(self, id: MarketId) -> Market {
 		Market {
 			id,
 			venue: self.venue,
 			pair: self.pair,
-			queries: self.queries.into_inner().into_iter().map(Into::into).collect::<Vec<_>>(),
+			queries: P::queries(&self.pricing).into_iter().map(Into::into).collect::<Vec<_>>(),
 		}
 	}
 }

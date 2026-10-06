@@ -17,6 +17,7 @@
 //! Price arithmetic of the pallet: how markets are priced, reading decimals, and aggregating
 //! market prices into pair prices.
 
+use crate::registry::StoredQuery;
 use alloc::{collections::BTreeMap, vec::Vec};
 use codec::MaxEncodedLen;
 use core::fmt::Debug;
@@ -36,6 +37,9 @@ pub trait MarketPricing {
 	fn validate(_params: &Self::Params) -> bool {
 		true
 	}
+
+	/// The queries to fetch for a market.
+	fn queries(params: &Self::Params) -> Vec<StoredQuery>;
 
 	/// Price a market from the responses to its queries, at the node's time `now_ms`.
 	fn price(

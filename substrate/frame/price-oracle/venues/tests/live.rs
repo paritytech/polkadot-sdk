@@ -96,7 +96,7 @@ async fn venues_are_fetched_and_priced() {
 	let wire: Vec<_> = stored
 		.iter()
 		.enumerate()
-		.map(|(i, (_, market))| market.clone().to_wire(MarketId(i as u32)))
+		.map(|(i, (_, market))| market.clone().to_wire::<OrderBookPricing>(MarketId(i as u32)))
 		.collect();
 	let started = Instant::now();
 	let deadline = started + Duration::from_secs(2);
