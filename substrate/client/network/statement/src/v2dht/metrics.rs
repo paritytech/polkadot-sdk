@@ -20,7 +20,6 @@
 
 use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
 
-#[derive(Clone)]
 pub(crate) struct V2DhtMetrics {
 	/// Statement-store peers known to the topology, including peers without confirmed protocol
 	/// support.
