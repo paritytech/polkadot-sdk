@@ -50,32 +50,24 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_dap`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_dap::WeightInfo for WeightInfo<T> {
-	/// Storage: `Dap::BudgetAllocation` (r:0 w:1)
-	/// Proof: `Dap::BudgetAllocation` (`max_values`: Some(1), `max_size`: Some(593), added: 1088, mode: `MaxEncodedLen`)
-	fn set_budget_allocation() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 9_602_000 picoseconds.
+	fn set_allocations() -> Weight {
+		
 		Weight::from_parts(10_498_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `Timestamp::Now` (r:1 w:0)
-	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `Dap::LastIssuanceTimestamp` (r:1 w:1)
-	/// Proof: `Dap::LastIssuanceTimestamp` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `Dap::BudgetAllocation` (r:1 w:0)
-	/// Proof: `Dap::BudgetAllocation` (`max_values`: Some(1), `max_size`: Some(593), added: 1088, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:3 w:3)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `Revive::OriginalAccount` (r:2 w:2)
-	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
-	fn drip_issuance() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `6762`
-		//  Estimated: `8799`
-		// Minimum execution time: 116_865_000 picoseconds.
+	fn on_idle_base() -> Weight {
+		Weight::from_parts(10_498_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	fn on_idle_single_asset_drain() -> Weight {
+		Weight::from_parts(10_498_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	
+	fn drip_issuance(_n: u32) -> Weight {
 		Weight::from_parts(126_788_000, 0)
 			.saturating_add(Weight::from_parts(0, 8799))
 			.saturating_add(T::DbWeight::get().reads(8))
