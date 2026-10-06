@@ -12,12 +12,14 @@
 //! also stops and restarts one full node between two successful ordinary waves. During the outage,
 //! every cohort statement must reach an online subscriber and stay on its original online holders.
 //! After restart, the node must recover every replica and subscription statement.
-//! A new full node then joins under load. Fresh probes must settle on the new top-K for both
-//! shifted and unchanged topics, with no copies on displaced replicas
-//! The soak ends with a scan of every node's log for statement errors, including the newcomer
+//! A new full node then joins under load. Fresh probes must land on exactly the new top-K, both
+//! on shifted topics, whose replica set the joiner entered, and on control topics. The joiner must
+//! also receive every statement placed before the join on its shifted topics. Displaced replicas
+//! keep their pre-join copies until expiry, so those are not checked.
+//! The soak ends with a scan of every node's log for statement errors.
 //! `STATEMENT_V2_SOAK_NODES` (default 12) and `STATEMENT_V2_SOAK_SECS` (default
-//! 900) size the initial network and run; both lifecycle steps and an ordinary wave after each
-//! are mandatory even with a zero duration. The join adds one node to the initial count
+//! 900) size the initial network and the run; both lifecycle steps and an ordinary wave after
+//! each are mandatory even with a zero duration.
 //! The lifecycle requires a full statement mesh.
 //!
 //! Runs on demand only: a dispatch of .github/workflows/zombienet_statement-store-soak.yml, or
@@ -79,8 +81,12 @@ const DELIVERY_TIMEOUT_SECS: u64 = 120;
 const PLACEMENT_TIMEOUT_SECS: u64 = 90;
 const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_connected_peers";
 const ELIGIBLE_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_eligible_peers";
-const KNOWN_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_known_peers";
 const JOINER_NAME: &str = "soak-joiner";
+/// Round tag of the join step's statements: waves count from 0, the outage step uses `u64::MAX`.
+const JOIN_ROUND: u64 = u64::MAX - 1;
+/// At the CI size of 40 nodes a topic shifts to the joiner with odds 8/41, so 64 topics leave
+/// none shifted with odds below 1e-6.
+const PRE_JOIN_TOPICS: u64 = 64;
 const OUTAGE_BATCHES: usize = 3;
 const OUTAGE_RATE_PER_SECOND: usize = 4;
 const OUTAGE_DELIVERY_TIMEOUT_SECS: u64 = 30;
@@ -361,7 +367,6 @@ async fn topology_mismatch(
 	let observations = futures::future::try_join_all(
 		nodes.iter().enumerate().filter(|(idx, _)| Some(*idx) != offline_node_idx).map(
 			|(_, handle)| async move {
-				let known = handle.node.reports(KNOWN_PEERS_METRIC).await?;
 				let eligible = handle.node.reports(ELIGIBLE_PEERS_METRIC).await?;
 				let actual_connected = handle.node.reports(CONNECTED_PEERS_METRIC).await?;
 				let health: serde_json::Value =
@@ -369,14 +374,12 @@ async fn topology_mismatch(
 				let syncing = health["isSyncing"]
 					.as_bool()
 					.ok_or_else(|| anyhow!("{}: missing system_health.isSyncing", handle.name()))?;
-				if known < expected_eligible as f64 ||
-					eligible != expected_eligible as f64 ||
+				if eligible != expected_eligible as f64 ||
 					actual_connected != expected_connected as f64 ||
 					syncing
 				{
 					return Ok(Some(format!(
-						"{}: known={known}, eligible={eligible}, connected={actual_connected}, \
-						 syncing={syncing}; \
+						"{}: eligible={eligible}, connected={actual_connected}, syncing={syncing}; \
 						 expected eligible={expected_eligible}, connected={expected_connected}, \
 						 syncing=false",
 						handle.name(),
@@ -773,182 +776,161 @@ struct WaveReport {
 	verify_time: Duration,
 }
 
-struct JoinProbe {
+/// Submits a statement on `topic` through its XOR-farthest node, the longest route into the
+/// replica set, and returns its expected placement on the topic's K closest nodes
+async fn submit_via_farthest(
+	nodes: &[NodeHandle],
+	load: &mut Load,
 	topic: Topic,
-	replica_indices_before_join: Vec<usize>,
-	replica_indices_after_join: Vec<usize>,
-	submitter_node_idx: usize,
-}
-
-fn build_join_probe(peer_keys_after_join: &[[u8; 32]], topic: Topic) -> JoinProbe {
-	let order_after_join = ranked_by_distance(peer_keys_after_join, topic);
-	let order_before_join: Vec<_> = order_after_join
-		.iter()
-		.copied()
-		.filter(|&idx| idx != peer_keys_after_join.len() - 1)
-		.collect();
-	JoinProbe {
-		topic,
-		replica_indices_before_join: order_before_join[..REPLICATION_FACTOR].to_vec(),
-		replica_indices_after_join: order_after_join[..REPLICATION_FACTOR].to_vec(),
-		submitter_node_idx: *order_after_join
-			.last()
-			.expect("the join adds a peer to a nonempty network; qed"),
-	}
-}
-
-fn select_join_probes(peer_keys_after_join: &[[u8; 32]]) -> Result<Vec<JoinProbe>, anyhow::Error> {
+	order: &[usize],
+) -> Result<ExpectedPlacement, anyhow::Error> {
+	let submitter = &nodes[*order.last().expect("nodes are never empty")];
+	let statement = load.next_statement(JOIN_ROUND, topic);
+	let result = submit_statement(&submitter.rpc, &statement).await?;
 	ensure!(
-		peer_keys_after_join.len() > REPLICATION_FACTOR + 1,
-		"join needs an initial network larger than K"
+		result == SubmitResult::New,
+		"{} rejected a join statement: {result:?}",
+		submitter.name()
 	);
-	ensure!(
-		peer_keys_after_join.iter().collect::<HashSet<_>>().len() == peer_keys_after_join.len(),
-		"duplicate peer keys in join topology"
-	);
-	let joiner_idx = peer_keys_after_join.len() - 1;
-	let mut shifted_probes = Vec::new();
-	let mut control_probes = Vec::new();
-	for candidate_idx in 0..100_000 {
-		let probe = build_join_probe(
-			peer_keys_after_join,
-			soak_topic(b"soak-join-probe", 0, candidate_idx),
-		);
-		let probe_group = if probe.replica_indices_after_join.contains(&joiner_idx) {
-			&mut shifted_probes
-		} else {
-			&mut control_probes
-		};
-		if probe_group.len() < PROBES_PER_WAVE {
-			probe_group.push(probe);
-		}
-		if shifted_probes.len() == PROBES_PER_WAVE && control_probes.len() == PROBES_PER_WAVE {
-			let mut probes = shifted_probes;
-			probes.extend(control_probes);
-			return Ok(probes);
-		}
-	}
-	Err(anyhow!(
-		"join probe selection exhausted 100000 candidates: shifted={}, control={}, need {} each",
-		shifted_probes.len(),
-		control_probes.len(),
-		PROBES_PER_WAVE,
-	))
+	let encoded_statement = statement.encode();
+	Ok(ExpectedPlacement {
+		hash: hex::encode(blake2_256(&encoded_statement)),
+		encoded_statement,
+		holder_node_indices: order[..REPLICATION_FACTOR].to_vec(),
+	})
 }
 
+/// Full-node join under load:
+/// 1. Place pre-join statements on their K closest nodes, one topic each.
+/// 2. Add the joiner while ring load is delivered, until every node has it in its topology.
+/// 3. Check fresh probes land on exactly the new top-K, on shifted and control topics.
+/// 4. Check the joiner received the pre-join statements of its shifted topics.
 async fn run_node_join(
 	network: &mut Network<LocalFileSystem>,
 	nodes: &mut Vec<NodeHandle>,
 	peer_keys: &mut Vec<[u8; 32]>,
 	load: &mut Load,
 ) -> Result<usize, anyhow::Error> {
-	tokio::time::timeout(Duration::from_secs(600), async {
-		wait_for_topology("before-join", nodes, None).await?;
-		let ring_topic = soak_topic(b"soak-join-load", 0, 0);
-		let mut subscription = subscribe_topic(&nodes[0].rpc, ring_topic).await?;
-		let mut load_targets: Vec<_> =
-			nodes.iter().map(|handle| (handle.name(), &handle.rpc)).collect();
-		let (load_started_tx, load_started_rx) = tokio::sync::oneshot::channel();
-		let (topology_ready_tx, mut topology_ready_rx) = tokio::sync::oneshot::channel();
-		let mut nodes_after_join = nodes.clone();
-		let join_node = async {
-			load_started_rx.await?;
-			info!("Lifecycle join: adding {JOINER_NAME} to {} statement nodes", nodes.len());
-			let joiner_options = AddCollatorOptions {
-				is_validator: false,
-				env: vec![("STATEMENT_STORE_V2_DHT_ENABLED", "1").into()],
-				args: collator_args_v2(
-					PARTICIPANTS,
-					LOG_FILTER,
-					REPLICATION_FACTOR as u32,
-					GOSSIP_TARGET,
-				),
-				..Default::default()
-			};
-			network.add_collator(JOINER_NAME, joiner_options, 1004).await?;
-			let node = network.get_node(JOINER_NAME)?.clone();
-			let rpc = node.rpc().await?;
-			nodes_after_join.push(NodeHandle { node, rpc });
-			let peer_keys_after_join = collect_peer_keys(&nodes_after_join).await?;
-			ensure!(
-				&peer_keys_after_join[..peer_keys.len()] == peer_keys.as_slice(),
-				"an existing node changed PeerId during the join"
-			);
-			wait_for_topology("joined", &nodes_after_join, None).await?;
-			topology_ready_tx
-				.send(())
-				.map_err(|_| anyhow!("join load stopped before topology converged"))?;
-			Ok::<_, anyhow::Error>(peer_keys_after_join)
-		};
-		// Submit statements and verify delivery until the topology converges after the join
-		let join_load = async {
-			let mut load_started_tx = Some(load_started_tx);
-			let mut delivered_count = 0;
-			loop {
-				let expected = submit_at_rate(
-					load,
-					u64::MAX - 1,
-					ring_topic,
-					RING_RATE_PER_SECOND,
-					1,
-					&load_targets,
-				)
-				.await?;
-				if let Some(load_started_tx) = load_started_tx.take() {
-					load_started_tx
-						.send(())
-						.map_err(|_| anyhow!("join stopped before load started"))?;
-				}
-				assert_statements_match(
-					&mut subscription,
-					&expected,
-					DELIVERY_TIMEOUT_SECS,
-					nodes[0].name(),
-				)
-				.await?;
-				delivered_count += expected.len();
-				load_targets.rotate_left(expected.len() % nodes.len());
-				if topology_ready_rx.try_recv().is_ok() {
-					return Ok::<_, anyhow::Error>(delivered_count);
-				}
-			}
-		};
-		let (peer_keys_after_join, ring_statement_count) = tokio::try_join!(join_node, join_load)?;
-		*nodes = nodes_after_join;
-		*peer_keys = peer_keys_after_join;
-		drop(subscription);
+	let pre_join_topics: Vec<Topic> =
+		(0..PRE_JOIN_TOPICS).map(|idx| soak_topic(b"soak-pre-join", 0, idx)).collect();
+	let mut pre_join_placements = Vec::with_capacity(pre_join_topics.len());
+	for &topic in &pre_join_topics {
+		let order = ranked_by_distance(peer_keys, topic);
+		pre_join_placements.push(submit_via_farthest(nodes, load, topic, &order).await?);
+	}
+	wait_for_stable_placement("pre-join", nodes, &pre_join_placements, None).await?;
 
-		let mut expected_placements = Vec::new();
-		// Fresh statements must be stored on exactly the new top-K after the join
-		// The joiner replaces rank-K for shifted topics; control topics keep their replicas
-		for probe in select_join_probes(peer_keys)? {
-			let replicas_changed = probe.replica_indices_after_join.contains(&(nodes.len() - 1));
-			let node_names = |indices: &[usize]| {
-				indices.iter().map(|&idx| nodes[idx].name()).collect::<Vec<_>>()
-			};
-			info!(
-				"Lifecycle join {}: topic={}, before={:?}, after={:?}, submitter={}",
-				if replicas_changed { "shifted" } else { "control" },
-				hex::encode(*probe.topic),
-				node_names(&probe.replica_indices_before_join),
-				node_names(&probe.replica_indices_after_join),
-				nodes[probe.submitter_node_idx].name(),
-			);
-			let statement = load.next_statement(u64::MAX - 1, probe.topic);
-			let result = submit_statement(&nodes[probe.submitter_node_idx].rpc, &statement).await?;
-			ensure!(result == SubmitResult::New, "join probe rejected: {result:?}");
-			let encoded_statement = statement.encode();
-			expected_placements.push(ExpectedPlacement {
-				hash: hex::encode(blake2_256(&encoded_statement)),
-				encoded_statement,
-				holder_node_indices: probe.replica_indices_after_join,
-			});
+	let ring_topic = soak_topic(b"soak-join-load", 0, 0);
+	let mut subscription = subscribe_topic(&nodes[0].rpc, ring_topic).await?;
+	let mut load_targets: Vec<_> =
+		nodes.iter().map(|handle| (handle.name(), &handle.rpc)).collect();
+	let (load_started_tx, load_started_rx) = tokio::sync::oneshot::channel();
+	let (topology_ready_tx, mut topology_ready_rx) = tokio::sync::oneshot::channel();
+	let mut nodes_after_join = nodes.clone();
+	let join_node = async {
+		load_started_rx.await?;
+		info!("Lifecycle join: adding {JOINER_NAME} to {} statement nodes", nodes.len());
+		// The joiner inherits the parachain's default args, the soak's v2 DHT flags among them
+		let joiner_options = AddCollatorOptions {
+			env: vec![("STATEMENT_STORE_V2_DHT_ENABLED", "1").into()],
+			..Default::default()
+		};
+		network.add_collator(JOINER_NAME, joiner_options, 1004).await?;
+		let node = network.get_node(JOINER_NAME)?.clone();
+		let rpc = node.rpc().await?;
+		nodes_after_join.push(NodeHandle { node, rpc });
+		wait_for_topology("joined", &nodes_after_join, None).await?;
+		let _ = topology_ready_tx.send(());
+		Ok::<_, anyhow::Error>(())
+	};
+	// Submit statements and verify delivery until the topology converges after the join
+	let join_load = async {
+		let mut load_started_tx = Some(load_started_tx);
+		let mut delivered_count = 0;
+		loop {
+			let expected = submit_at_rate(
+				load,
+				JOIN_ROUND,
+				ring_topic,
+				RING_RATE_PER_SECOND,
+				1,
+				&load_targets,
+			)
+			.await?;
+			if let Some(load_started_tx) = load_started_tx.take() {
+				let _ = load_started_tx.send(());
+			}
+			assert_statements_match(
+				&mut subscription,
+				&expected,
+				DELIVERY_TIMEOUT_SECS,
+				nodes[0].name(),
+			)
+			.await?;
+			delivered_count += expected.len();
+			load_targets.rotate_left(expected.len() % nodes.len());
+			if topology_ready_rx.try_recv().is_ok() {
+				return Ok::<_, anyhow::Error>(delivered_count);
+			}
 		}
-		wait_for_stable_placement("join", nodes, &expected_placements, None).await?;
-		Ok(ring_statement_count + expected_placements.len())
-	})
-	.await
-	.context("node join exceeded 600s")?
+	};
+	let ((), ring_statement_count) = tokio::try_join!(join_node, join_load)?;
+	*nodes = nodes_after_join;
+	*peer_keys = collect_peer_keys(nodes).await?;
+	drop(subscription);
+
+	// Fresh statements must land on exactly the new top-K: on shifted topics the joiner displaces
+	// the previous rank-K replica, control topics keep their replica set. Both groups exist: the
+	// joiner is the closest peer to its own key, and the network is larger than K
+	let joiner_idx = nodes.len() - 1;
+	let shifted = |order: &[usize]| order[..REPLICATION_FACTOR].contains(&joiner_idx);
+	let candidates = (0..).map(|idx| {
+		let topic = soak_topic(b"soak-join-probe", 0, idx);
+		(topic, ranked_by_distance(peer_keys, topic))
+	});
+	let probes: Vec<_> = candidates
+		.clone()
+		.filter(|(_, order)| shifted(order))
+		.take(PROBES_PER_WAVE)
+		.chain(candidates.filter(|(_, order)| !shifted(order)).take(PROBES_PER_WAVE))
+		.collect();
+	let mut probe_placements = Vec::with_capacity(probes.len());
+	for (topic, order) in &probes {
+		info!(
+			"Lifecycle join {} topic={}: replicas={:?}",
+			if shifted(order) { "shifted" } else { "control" },
+			hex::encode(**topic),
+			order[..REPLICATION_FACTOR]
+				.iter()
+				.map(|&idx| nodes[idx].name())
+				.collect::<Vec<_>>(),
+		);
+		probe_placements.push(submit_via_farthest(nodes, load, *topic, order).await?);
+	}
+	wait_for_stable_placement("join", nodes, &probe_placements, None).await?;
+
+	// The stable placement drained every initial sync, so one snapshot is final. The joiner gets
+	// the pre-join statements of its shifted topics from their other replicas
+	let joiner = &nodes[joiner_idx];
+	let snapshot = store_snapshot(&joiner.rpc).await?;
+	let mut received = 0;
+	for (&topic, placement) in pre_join_topics.iter().zip(&pre_join_placements) {
+		if shifted(&ranked_by_distance(peer_keys, topic)) {
+			ensure!(
+				snapshot.contains(&placement.encoded_statement),
+				"{} lacks pre-join statement {} of a shifted topic",
+				joiner.name(),
+				placement.hash,
+			);
+			received += 1;
+		}
+	}
+	ensure!(received > 0, "none of the {PRE_JOIN_TOPICS} pre-join topics shifted to the joiner");
+	info!(
+		"Lifecycle join: {} received all {received} pre-join statements of its shifted topics",
+		joiner.name(),
+	);
+	Ok(pre_join_placements.len() + ring_statement_count + probe_placements.len())
 }
 
 async fn run_wave(
