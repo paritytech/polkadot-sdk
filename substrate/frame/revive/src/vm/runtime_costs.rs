@@ -835,7 +835,7 @@ mod tests {
 				cold_weight.ref_time() > hot_weight.ref_time(),
 				"{call_kind}: cold={cold_weight:?} hot={hot_weight:?}",
 			);
-			assert_eq!(hot_weight.proof_size(), 0, "{call_kind}: a warm call doesn't pay proof");
+			assert_eq!(hot_weight.proof_size(), 0, "{call_kind}");
 			assert!(cold_weight.proof_size() > 0, "{call_kind}: cold={cold_weight:?}");
 		}
 	}
