@@ -34,7 +34,6 @@ pub mod bench;
 
 mod children;
 mod parity_db;
-mod partial_state;
 mod pinned_blocks_cache;
 mod record_stats_state;
 mod stats;
@@ -55,7 +54,6 @@ use std::{
 };
 
 use crate::{
-	partial_state::PartialStateTrackingFor,
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
@@ -95,7 +93,10 @@ use sp_state_machine::{
 	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
 	StorageValue, UsageInfo as StateUsageInfo,
 };
-use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB};
+use sp_trie::{
+	cache::SharedTrieCache, partial_state::PartialStateWalkers, prefixed_key, MemoryDB,
+	MerkleValue, PrefixedMemoryDB,
+};
 use utils::BLOCK_GAP_CURRENT_VERSION;
 
 // Re-export the Database trait so that one can pass an implementation of it.
@@ -1104,7 +1105,6 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 struct StorageDb<Block: BlockT> {
 	pub db: Arc<dyn Database<DbHash>>,
 	pub state_db: StateDb<Block::Hash, Vec<u8>, StateMetaDb>,
-	partial_state_tracking: PartialStateTrackingFor<Block>,
 	prefix_keys: bool,
 }
 
@@ -1233,6 +1233,9 @@ pub struct Backend<Block: BlockT> {
 	io_stats: FrozenForDuration<(kvdb::IoStats, StateUsageInfo)>,
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
+	/// One walker per block whose state is being synced, in memory only: built from `STATE` on
+	/// the block's first chunk, dropped when a chunk fails, forgotten once the block is imported.
+	partial_state_walkers: Mutex<PartialStateWalkers<HashingFor<Block>>>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
 	pruning_filters: Vec<Arc<dyn PruningFilter>>,
 }
@@ -1382,7 +1385,7 @@ impl<Block: BlockT> Backend<Block> {
 		let map_e = sp_blockchain::Error::from_state_db;
 
 		let (state_db_init_commit_set, state_db) = StateDb::open(
-			state_meta_db.clone(),
+			state_meta_db,
 			requested_state_pruning,
 			!db.supports_ref_counting(),
 			should_init,
@@ -1395,14 +1398,8 @@ impl<Block: BlockT> Backend<Block> {
 		let is_archive_pruning = state_pruning_used.is_archive();
 		let blockchain = BlockchainDb::new(db.clone())?;
 
-		let partial_state_tracking = PartialStateTrackingFor::<Block>::new(state_meta_db)?;
-
-		let storage_db = StorageDb {
-			db: db.clone(),
-			state_db,
-			partial_state_tracking,
-			prefix_keys: !db.supports_ref_counting(),
-		};
+		let storage_db =
+			StorageDb { db: db.clone(), state_db, prefix_keys: !db.supports_ref_counting() };
 
 		let offchain_storage = offchain::LocalStorage::new(db.clone());
 
@@ -1433,6 +1430,7 @@ impl<Block: BlockT> Backend<Block> {
 			state_usage: Arc::new(StateUsageStats::new()),
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
+			partial_state_walkers: Default::default(),
 			shared_trie_cache,
 			pruning_filters: config.pruning_filters.clone(),
 		};
@@ -1767,12 +1765,6 @@ impl<Block: BlockT> Backend<Block> {
 			}
 
 			let finalized = if operation.commit_state {
-				if operation.reset_storage {
-					let commit =
-						self.storage.partial_state_tracking.remove_completed_partial_state(&hash);
-					apply_state_commit(&mut transaction, commit);
-				}
-
 				let mut changeset: sc_state_db::ChangeSet<Vec<u8>> =
 					sc_state_db::ChangeSet::default();
 				let mut ops: u64 = 0;
@@ -2072,6 +2064,10 @@ impl<Block: BlockT> Backend<Block> {
 
 		if let Some((header, hash)) = imported {
 			trace!(target: "db", "DB Commit done {hash:?}");
+			if operation.reset_storage {
+				// The state-synced block is in; its walker, which lives in memory only, is done.
+				self.partial_state_walkers.lock().remove(&hash);
+			}
 			let header_metadata = CachedHeaderMetadata::from(&header);
 			self.blockchain.insert_header_metadata(header_metadata.hash, header_metadata);
 			cache_header(&mut self.blockchain.header_cache.lock(), hash, Some(header));
@@ -2928,22 +2924,35 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		&self,
 		partial_state: PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()> {
-		self.storage.partial_state_tracking.import_partial_state(
-			partial_state,
-			// Each node is keyed exactly as `StorageDb::get` will look it up.
-			|hash, prefix| self.storage.state_key(hash, prefix).into_owned(),
-			|commit| {
-				let (ops, bytes) =
-					commit.data.inserted.iter().fold((0u64, 0u64), |(ops, bytes), (key, value)| {
-						(ops + 1, bytes + (key.len() + value.len()) as u64)
-					});
-				let mut transaction = Transaction::new();
-				apply_state_commit(&mut transaction, commit);
-				self.storage.db.commit(transaction)?;
-				self.state_usage.tally_writes_nodes(ops, bytes);
-				Ok(())
-			},
-		)
+		// The new nodes of this chunk go straight into `STATE`, bypassing state-db: they belong
+		// to no imported block until the target block is imported with the state complete.
+		let block_hash = partial_state.block_hash;
+		let mut walkers = self.partial_state_walkers.lock();
+		let nodes = walkers
+			// Read and written under the key `StorageDb::get` looks nodes up by.
+			.import(partial_state, |hash, prefix| {
+				self.storage.db.get(columns::STATE, &self.storage.state_key(hash, prefix))
+			})
+			.map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
+		if nodes.is_empty() {
+			return Ok(());
+		}
+
+		let mut transaction = Transaction::new();
+		let (mut ops, mut bytes) = (0u64, 0u64);
+		for node in nodes {
+			let key = self.storage.state_key(&node.hash, node.prefix.as_prefix());
+			ops += 1;
+			bytes += (key.len() + node.encoded.len()) as u64;
+			transaction.set_from_vec(columns::STATE, &key, node.encoded);
+		}
+		if let Err(e) = self.storage.db.commit(transaction) {
+			// The walker is past nodes that never landed: drop it, the next chunk rebuilds it.
+			walkers.remove(&block_hash);
+			return Err(e.into());
+		}
+		self.state_usage.tally_writes_nodes(ops, bytes);
+		Ok(())
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> sp_blockchain::Result<()> {
@@ -6365,13 +6374,14 @@ pub(crate) mod tests {
 			})
 			.unwrap();
 
-		complete_partial_state(&backend, &header);
+		complete_partial_state(&backend, &header).unwrap();
 		assert_eq!(state_pairs(&backend, &header), expected_key_values);
 	}
 
-	/// A chunk whose commit fails must be accepted again: the tracker restores its worklist, so
-	/// the retry writes the nodes the failed commit lost. Without the rollback the retry finds
-	/// nothing awaited, writes nothing, reports success, and the state is incomplete.
+	/// A chunk whose commit fails must be accepted again: the walker is dropped and rebuilt from
+	/// the database, so the retry writes the nodes the failed commit lost. If the walker survived
+	/// the failure, the retry would find nothing awaited, write nothing, report success, and leave
+	/// the state incomplete.
 	#[test]
 	fn import_partial_state_retries_after_failed_commit() {
 		let expected_key_values =
@@ -6384,9 +6394,10 @@ pub(crate) mod tests {
 			nodes: partial_state.clone(),
 		};
 
-		let db = Arc::new(FailingDb {
+		let db = Arc::new(ObservingDb {
 			inner: sp_database::as_database(kvdb_memorydb::create(crate::utils::NUM_COLUMNS)),
 			fail_next_commit: AtomicBool::new(false),
+			state_writes: Default::default(),
 		});
 		let backend = Backend::<Block>::new_test_with_tx_storage_source(
 			BlocksPruning::Some(10),
@@ -6405,7 +6416,54 @@ pub(crate) mod tests {
 
 		backend.import_partial_state(chunk()).unwrap();
 
-		complete_partial_state(&backend, &header);
+		complete_partial_state(&backend, &header).unwrap();
+		assert_eq!(state_pairs(&backend, &header), expected_key_values);
+	}
+
+	/// A sync resumed after a restart must not write again what the database already holds: on
+	/// parity-db a second write of a node raises its reference count for good. Nothing about the
+	/// walker is persisted; it is rebuilt from the `STATE` column, so only the missing nodes are
+	/// written.
+	#[test]
+	fn resumed_partial_state_writes_only_the_missing_nodes() {
+		let expected_key_values =
+			vec![(vec![0u8; 40], vec![0u8; 1]), (vec![1u8; 40], vec![1u8; 1])];
+		let (nodes, header) = partial_state_chunk(&expected_key_values);
+		let node_count = nodes.clone().drain().len();
+		let chunk = |nodes| PartialState {
+			block_hash: header.hash(),
+			block_number: header.number,
+			state_root: header.state_root,
+			nodes,
+		};
+		let mut root_only = MemoryDB::default();
+		root_only.insert(EMPTY_PREFIX, &nodes.get(&header.state_root, EMPTY_PREFIX).unwrap());
+
+		let db = Arc::new(ObservingDb {
+			inner: sp_database::as_database(kvdb_memorydb::create(crate::utils::NUM_COLUMNS)),
+			fail_next_commit: AtomicBool::new(false),
+			state_writes: Default::default(),
+		});
+		let backend = Backend::<Block>::new_test_with_tx_storage_source(
+			BlocksPruning::Some(10),
+			10,
+			DatabaseSource::Custom { db: db.clone(), require_create_flag: true },
+			Default::default(),
+		);
+		backend.import_partial_state(chunk(root_only)).unwrap();
+		assert_eq!(db.state_writes.lock().len(), 1, "the root was written");
+
+		// Restart: a fresh backend on the same database, no walker in memory.
+		drop(backend);
+		let backend = reopen_backend(db.clone(), BlocksPruning::Some(10));
+		backend.import_partial_state(chunk(nodes)).unwrap();
+		let mut writes = db.state_writes.lock().clone();
+		assert_eq!(writes.len(), node_count, "every node was written across the restart");
+		writes.sort();
+		writes.dedup();
+		assert_eq!(writes.len(), node_count, "no node was written twice");
+
+		complete_partial_state(&backend, &header).unwrap();
 		assert_eq!(state_pairs(&backend, &header), expected_key_values);
 	}
 
@@ -6435,13 +6493,13 @@ pub(crate) mod tests {
 		(nodes, header)
 	}
 
-	/// Imports `header` as the block whose state was delivered through `import_partial_state`.
-	fn complete_partial_state(backend: &Backend<Block>, header: &Header) {
-		let mut op = backend.begin_operation().unwrap();
-		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)
-			.unwrap();
+	/// Imports `header` as the block whose state was delivered through `import_partial_state`,
+	/// returning the outcome of the block's commit.
+	fn complete_partial_state(backend: &Backend<Block>, header: &Header) -> ClientResult<()> {
+		let mut op = backend.begin_operation()?;
+		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)?;
 		op.set_partial_state_completed();
-		backend.commit_operation(op).unwrap();
+		backend.commit_operation(op)
 	}
 
 	fn state_pairs(backend: &Backend<Block>, header: &Header) -> Vec<(Vec<u8>, Vec<u8>)> {
@@ -6454,18 +6512,27 @@ pub(crate) mod tests {
 			.collect()
 	}
 
-	/// Delegates to an in-memory database and fails one `commit` while armed.
-	struct FailingDb {
+	/// Delegates to an in-memory database. Fails one `commit` while armed, and records the key of
+	/// every write to the `STATE` column.
+	struct ObservingDb {
 		inner: Arc<dyn Database<DbHash>>,
 		fail_next_commit: AtomicBool,
+		state_writes: Mutex<Vec<Vec<u8>>>,
 	}
 
-	impl Database<DbHash> for FailingDb {
+	impl Database<DbHash> for ObservingDb {
 		fn commit(&self, transaction: Transaction<DbHash>) -> sp_database::error::Result<()> {
 			if self.fail_next_commit.swap(false, Ordering::SeqCst) {
 				return Err(sp_database::error::DatabaseError(Box::new(std::io::Error::other(
 					"injected commit failure",
 				))));
+			}
+			for change in &transaction.0 {
+				if let sp_database::Change::Set(col, key, _) = change {
+					if *col == columns::STATE {
+						self.state_writes.lock().push(key.clone());
+					}
+				}
 			}
 			self.inner.commit(transaction)
 		}

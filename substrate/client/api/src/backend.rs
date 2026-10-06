@@ -718,9 +718,9 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// Inject partial state into the database.
 	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to
 	/// database. After downloading all trie nodes it calls `set_partial_state_completed` to mark
-	/// completely downloaded state. Block hash is passed to remember partial state belonging to
-	/// that block, to avoid inserting node second time (may break reference counting),
-	/// and to allow cleaning up incomplete partial state for that block.
+	/// completely downloaded state. The block hash identifies the state being synced: the backend
+	/// keeps one walker per block in memory and rebuilds it from the database when needed, so a
+	/// node is never inserted twice (which would break reference counting).
 	fn import_partial_state(
 		&self,
 		partial_state: PartialStateFor<Block>,

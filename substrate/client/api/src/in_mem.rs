@@ -32,7 +32,7 @@ use sp_state_machine::{
 	Backend as StateBackend, BackendTransaction, ChildStorageCollection, InMemoryBackend,
 	IndexOperation, StorageCollection, TrieBackendBuilder,
 };
-use sp_trie::{partial_state::PartialStatePrefixerPerBlock, HashDBT, PrefixedMemoryDB};
+use sp_trie::{partial_state::PartialStateWalkers, HashDBT, PrefixedMemoryDB};
 use std::{
 	collections::{HashMap, HashSet},
 	ptr,
@@ -623,7 +623,7 @@ pub struct Backend<Block: BlockT> {
 	blockchain: Blockchain<Block>,
 	import_lock: RwLock<()>,
 	pinned_blocks: RwLock<HashMap<Block::Hash, i64>>,
-	partial_state_tracking: RwLock<PartialStatePrefixerPerBlock<HashingFor<Block>>>,
+	partial_state_walkers: RwLock<PartialStateWalkers<HashingFor<Block>>>,
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -638,7 +638,7 @@ impl<Block: BlockT> Backend<Block> {
 			blockchain: Blockchain::new(),
 			import_lock: Default::default(),
 			pinned_blocks: Default::default(),
-			partial_state_tracking: Default::default(),
+			partial_state_walkers: Default::default(),
 		}
 	}
 
@@ -811,10 +811,11 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		&self,
 		partial_state: PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()> {
+		// The node store doubles as the storage a dropped walker is rebuilt from.
 		let nodes = self
-			.partial_state_tracking
+			.partial_state_walkers
 			.write()
-			.import(partial_state)
+			.import(partial_state, |hash, prefix| self.state_db.read().get(hash, prefix))
 			.map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
 		let mut state_db = self.state_db.write();
 		for node in nodes {
