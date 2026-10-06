@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791311595546,
+  "lastUpdate": 1791320008225,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "553958721eb67709a3aabaff9319ed8c7c9b9142",
-          "message": "Fix test-frame-ui: update .stderr snapshots after #7035 (#11570)\n\nPR #7035 added new TypeInfo implementors, pushing rustc past its\ndiagnostic threshold for emitting `consider using --verbose` on the\nTypeInfo/StorageEntryMetadataBuilder error.",
-          "timestamp": "2026-03-31T09:55:47Z",
-          "tree_id": "1c65564b56cc30e43afa385f110a1ad063fedab7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/553958721eb67709a3aabaff9319ed8c7c9b9142"
-        },
-        "date": 1774955807905,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.07599999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08644687547599993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03879415939399999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038675301024,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "109dca166987ae4e689fa1c215eb3c509e6bbc7a",
+          "message": "statement-store: v2 soak step, a replica goes offline and returns (#13378)\n\nPart of #13162, implements #13178.\n\nAdds a replica outage/recovery step to `statement_store_v2_dht_soak`:\nstop a node, continue publishing, then restart it with the same database\nand node key.\n\nChecks delivery and placement during the outage, replica recovery and\nsubscription replay after restart. Post-restart cleanup of non-affine\nstatements is not asserted due to a known race.\n\nThe soak workflow now sets `ZOMBIE_SPAWN_CONCURRENCY=20`: with all nodes\nspawned at once, the cluster apiserver dropped connections and two runs\ndied mid-spawn (35 and 39 of 43 nodes up).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-06T18:41:48Z",
+          "tree_id": "cfbd3994fa53917851512a03c736afc129b380d2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/109dca166987ae4e689fa1c215eb3c509e6bbc7a"
+        },
+        "date": 1791319975919,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.11199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038621092412000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0924726551599999,
             "unit": "seconds"
           }
         ]
