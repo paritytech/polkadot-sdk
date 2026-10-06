@@ -3269,8 +3269,8 @@ mod speculative_provides_window {
 				ParaInclusion::requires_satisfied(&requires(&[(1, 0xA), (3, 0xB)])),
 				Err((ParaId::from(3), sr(0xB))),
 			);
-			// Empty requires → trivially satisfied.
-			assert!(ParaInclusion::requires_satisfied(&requires(&[])).is_ok());
+			// No empty case: a `RequiresSet` is non-empty by construction. A candidate that
+			// requires nothing carries no `Requires` signal, so `paras_inherent` never calls this.
 		});
 	}
 

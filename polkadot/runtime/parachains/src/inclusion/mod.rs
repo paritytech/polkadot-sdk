@@ -974,7 +974,7 @@ impl<T: Config> Pallet<T> {
 	/// source's window; otherwise `Err` with the first unmatched `(source, root)`, so the caller
 	/// can log exactly why the candidate was dropped.
 	pub(crate) fn requires_satisfied(requires: &RequiresSet) -> Result<(), (ParaId, StreamsRoot)> {
-		// Does one `RecentProvides` read per required source (≤ `MAX_SOURCES_PER_BLOCK` = 128).
+		// Does one `RecentProvides` read per required source (≤ `MAX_COMMITMENT_ENTRIES` = 256).
 		for (source, expected) in requires.iter() {
 			if !Self::provides_contains(*source, expected) {
 				return Err((*source, *expected));
