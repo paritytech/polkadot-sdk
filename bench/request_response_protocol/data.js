@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791297500003,
+  "lastUpdate": 1791303728561,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -131543,6 +131543,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2749410543,
             "range": "± 42696530",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c0195bbec8cc00310f7f1b575a48a3697a95e197",
+          "message": "[CI] Upstream release build-script fixes from release-automation (#13416)\n\nFirst step of paritytech/release-engineering#314. `release-automation`\nforks these scripts and has fixed a few things we haven't — pulling them\nback here so that fork can eventually be deleted. Nothing is removed\nfrom `release-automation` yet, that's a follow-up there.\n\n- `build-linux-release.sh`: enable `set -e`. It's been commented out\nsince #5963, so a failed `cargo build` still exits 0 and leaves half an\nartifacts dir behind.\n- `build-linux-release.sh`: cross build via `TARGET`. No-op when unset,\nqemu for aarch64, exits 1 on an unknown triple. This is the only reason\nrelease-automation keeps its own copy of the build scripts.\n- `build-deb.sh`: `$PRODUCT_` parses as an undefined variable, so the\nglob was really `target/debian/*_amd64.deb`.\n- `release_lib.sh`: `sort -u` the runtime list (same 11 paths today) and\nnote why `docs` is filtered out.\n\nNot included: `build-macos-release.sh` also has `set -e` commented out,\nbut turning it on there would break the build — `VERSION=$(git tag -l\n--contains HEAD | grep -E \"^v.*\")` exits 1 when HEAD has no legacy `v*`\ntag. release-automation solved that by taking the version from the\nbinary instead, which is a behaviour change worth deciding separately.",
+          "timestamp": "2026-10-06T12:52:13Z",
+          "tree_id": "4eb9b270426a4dffdffb34c9600f71eae8717d38",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c0195bbec8cc00310f7f1b575a48a3697a95e197"
+        },
+        "date": 1791303693747,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19802607,
+            "range": "± 277797",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19541618,
+            "range": "± 197459",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20907003,
+            "range": "± 126588",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25454979,
+            "range": "± 254642",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56723905,
+            "range": "± 462736",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 340802237,
+            "range": "± 7411992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2502031566,
+            "range": "± 27960789",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16987374,
+            "range": "± 211433",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17128454,
+            "range": "± 354726",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17641914,
+            "range": "± 384889",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22346067,
+            "range": "± 211364",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59072341,
+            "range": "± 425947",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 340774354,
+            "range": "± 4035090",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2668056025,
+            "range": "± 33736599",
             "unit": "ns/iter"
           }
         ]
