@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791304687969,
+  "lastUpdate": 1791311646955,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "109702797+DTSmth@users.noreply.github.com",
-            "name": "David Smith",
-            "username": "DTSmth"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b34296a7f1d66e036157228929cf6f3040c0bb20",
-          "message": "doc: add link to multi-block migration example. Resolves a TODO by ad… (#11542)\n\n…ding a documentation link from the single-block migrations pallet to\nthe multi-block migrations example pallet.\n\n\n\n✄\n-----------------------------------------------------------------------------\n\n# Description\n\n﻿Resolves a documentation TODO in\n`pallet-example-single-block-migrations` by adding\n a link to the `pallet-example-mbm` documentation.\n\nThe TODO requested linking to the multi-block migration example from the\nwarning\n about single-block migrations potentially exceeding block weight limits\n\n## Integration\n\n﻿N/A - documentation only change, no crate API changes\n\n## Review Notes\n\n﻿ Uses external URL (matching repo convention) since pallet-example-mbm\nis not a dependency of this crate.\n\n\n✄\n-----------------------------------------------------------------------------",
-          "timestamp": "2026-03-29T14:57:09Z",
-          "tree_id": "9e13a0bb2528c8d47d9eedd94f90e54e2ed3c1c2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b34296a7f1d66e036157228929cf6f3040c0bb20"
-        },
-        "date": 1774801063345,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00264219823,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009278071779999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00953063769999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00251930279,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "eebfe319ab7db7d8c9b8041fa1a219349d7c3be0",
+          "message": "Bump litep2p to 0.16.0 (#13398)\n\n## Summary\n\nBumps `litep2p` from 0.15.3 to 0.16.0 ([release\nnotes](https://github.com/paritytech/litep2p/releases/tag/v0.16.0)).\n\n0.16.0 adds the client-server mode for Kademlia (paritytech/litep2p#611)\nand fixes the panics around local provider records in the Kademlia\nmemory store (paritytech/litep2p#666)",
+          "timestamp": "2026-10-06T16:16:12Z",
+          "tree_id": "797cbc2c7d625bbf6e8718f37c959d6d17fbcc6d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/eebfe319ab7db7d8c9b8041fa1a219349d7c3be0"
+        },
+        "date": 1791311615200,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010310258609999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002450930610000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009241372849999988,
             "unit": "seconds"
           }
         ]
