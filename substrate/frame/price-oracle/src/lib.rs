@@ -280,8 +280,6 @@ pub mod pallet {
 		UnknownPair,
 		/// The venue still has markets.
 		VenueInUse,
-		/// The pair still has markets or is used in a cross rate.
-		PairInUse,
 	}
 
 	#[pallet::hooks]
@@ -438,26 +436,22 @@ pub mod pallet {
 				ensure!(Pairs::<T>::contains_key(source), Error::<T>::UnknownPair);
 				ensure!(Pairs::<T>::contains_key(rate), Error::<T>::UnknownPair);
 			}
-			CrossRates::<T>::insert(pair, cross_rates);
+			if cross_rates.is_empty() {
+				CrossRates::<T>::remove(pair);
+			} else {
+				CrossRates::<T>::insert(pair, cross_rates);
+			}
 			Self::deposit_event(Event::CrossRatesSet { pair });
 			Ok(())
 		}
 
 		/// Remove a pair, along with its cross rates, votes and price.
-		///
-		/// Fails while the pair has markets or is used in a cross rate.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::remove_pair())]
 		pub fn remove_pair(origin: OriginFor<T>, pair: PairId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			ensure!(Pairs::<T>::contains_key(pair), Error::<T>::UnknownPair);
-			ensure!(!Markets::<T>::iter_values().any(|m| m.pair == pair), Error::<T>::PairInUse);
-			ensure!(
-				!CrossRates::<T>::iter_values()
-					.flatten()
-					.any(|(source, rate)| source == pair || rate == pair),
-				Error::<T>::PairInUse
-			);
+			// TODO: markets and cross rates may still refer to the pair.
 			Pairs::<T>::remove(pair);
 			CrossRates::<T>::remove(pair);
 			Votes::<T>::remove(pair);

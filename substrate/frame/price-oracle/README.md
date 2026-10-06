@@ -90,8 +90,7 @@ set_market(0, StoredMarket { venue: BINANCE, pair: DOT_USDT, pricing, active: tr
 set_parameters(Parameters { report_window, quorum, tick_interval_ms })
 ```
 
-Nothing is reported or published until the parameters are set. A pair can only be removed once
-no market quotes it and no cross rate uses it.
+Nothing is reported or published until the parameters are set.
 
 ## Pricing a market
 
