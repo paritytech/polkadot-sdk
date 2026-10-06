@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791274407486,
+  "lastUpdate": 1791277035518,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -131327,6 +131327,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2765228119,
             "range": "± 36839469",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dae26eec1256dbf3a30c1df276bb96ea848c2d14",
+          "message": "pallet-multi-asset-bounties: net parent refunds after child payouts (#13409)\n\nClosing a parent bounty after a child payout has settled currently\nrefunds the parent’s gross value, including funds already paid out\nthrough the child bounty.\n\nThis patch applies the existing net-payout calculation to parent refunds\nand adds regression coverage for closing a parent after a settled child\npayout.\n\nNo API or storage migration is required.",
+          "timestamp": "2026-10-06T07:29:46Z",
+          "tree_id": "436e600dacc4f4ea3ce6d11e505253ce3be63793",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dae26eec1256dbf3a30c1df276bb96ea848c2d14"
+        },
+        "date": 1791277002055,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19681676,
+            "range": "± 168854",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19895773,
+            "range": "± 157667",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22411085,
+            "range": "± 189920",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27278410,
+            "range": "± 423316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61613397,
+            "range": "± 1170049",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 349801435,
+            "range": "± 9273775",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2723363532,
+            "range": "± 157477907",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17194450,
+            "range": "± 141275",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17533236,
+            "range": "± 161949",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17890021,
+            "range": "± 130682",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22598205,
+            "range": "± 195287",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62818671,
+            "range": "± 539662",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 370259044,
+            "range": "± 5858265",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2712352402,
+            "range": "± 17500831",
             "unit": "ns/iter"
           }
         ]
