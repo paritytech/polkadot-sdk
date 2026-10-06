@@ -397,21 +397,38 @@ mod tests {
 	use subxt::rpcs::UserError;
 
 	/// What a node answers when the window it was asked for trapped the allocator.
-	fn too_large() -> ClientError {
+	fn too_large() -> UserError {
 		execution_failed(
-			"Execution aborted due to trap: host code panicked while being called by the \
-			 runtime: Failed to allocate memory: \"Allocator ran out of space\"",
+			"Client error: Execution failed: Execution aborted due to trap: host code panicked \
+			 while being called by the runtime: Failed to allocate memory: \"Allocator ran out \
+			 of space\"",
 		)
 	}
 
-	fn execution_failed(message: &str) -> ClientError {
+	fn execution_failed(message: &str) -> UserError {
 		const EXECUTION_ERROR: i32 = 4003;
 
-		ClientError::RpcError(subxt::rpcs::Error::User(UserError {
-			code: EXECUTION_ERROR,
-			message: message.to_string(),
-			data: None,
-		}))
+		UserError { code: EXECUTION_ERROR, message: message.to_string(), data: None }
+	}
+
+	/// How a refusal reaches `trace_tx` on a node that records calls.
+	fn as_rpc_error(user: UserError) -> ClientError {
+		ClientError::RpcError(subxt::rpcs::Error::User(user))
+	}
+
+	/// How one reaches `trace_call`, and `trace_tx` without a recorder: subxt wraps what `call`
+	/// returns.
+	fn as_runtime_api_error(user: UserError) -> ClientError {
+		use subxt::error::{BackendError, RpcError, RuntimeApiError};
+
+		ClientError::SubxtError(subxt::Error::RuntimeApiError(RuntimeApiError::CannotCallApi(
+			BackendError::Rpc(RpcError::ClientError(subxt::rpcs::Error::User(user))),
+		)))
+	}
+
+	/// Every shape a refusal arrives in, named so a failure says which one broke.
+	fn nestings() -> [(&'static str, fn(UserError) -> ClientError); 2] {
+		[("rpc", as_rpc_error), ("runtime api", as_runtime_api_error)]
 	}
 
 	fn json_bytes_of(trace: &ExecutionTraceV1) -> u64 {
@@ -419,12 +436,12 @@ mod tests {
 	}
 
 	/// What a node answers when the window it built is past its own response limit.
-	fn oversized_response() -> ClientError {
-		ClientError::RpcError(subxt::rpcs::Error::User(UserError {
+	fn oversized_response() -> UserError {
+		UserError {
 			code: jsonrpsee::types::error::OVERSIZED_RESPONSE_CODE,
 			message: "Response is too big".to_string(),
 			data: None,
-		}))
+		}
 	}
 
 	/// Uniform steps, so a test can price a trace.
@@ -629,13 +646,46 @@ mod tests {
 
 	#[tokio::test]
 	async fn a_failed_window_is_retried_smaller() {
-		let (_, asked, result) =
-			walk_on(sc_cli::RPC_DEFAULT_MAX_RESPONSE_SIZE_MB * 1024 * 1024, |_| Err(too_large()))
+		for (nesting, wrap) in nestings() {
+			let (_, asked, result) =
+				walk_on(sc_cli::RPC_DEFAULT_MAX_RESPONSE_SIZE_MB * 1024 * 1024, |_| {
+					Err(wrap(too_large()))
+				})
 				.await;
 
-		result.expect_err("the retries run out and the error is returned");
-		assert_eq!(asked.len(), MAX_CONSECUTIVE_FAILURES as usize, "budget: {asked:?}");
-		assert!(asked.windows(2).all(|p| p[1] == p[0] / 2), "not halving: {asked:?}");
+			result.expect_err("the retries run out and the error is returned");
+			assert_eq!(
+				asked.len(),
+				MAX_CONSECUTIVE_FAILURES as usize,
+				"{nesting}: budget: {asked:?}",
+			);
+			assert!(
+				asked.windows(2).all(|p| p[1] == p[0] / 2),
+				"{nesting}: not halving: {asked:?}"
+			);
+		}
+	}
+
+	#[tokio::test]
+	async fn an_execution_failure_that_is_not_the_allocator_is_asked_once() {
+		// 4003 is the catch-all for every client error `state_call` returns, so most say nothing
+		// about the window's size and asking again only repeats the failure.
+		const UNRELATED: &str = "Client error: UnknownBlock: State already discarded for 0x00";
+
+		for (nesting, wrap) in nestings() {
+			let (_, asked, result) =
+				walk_on(sc_cli::RPC_DEFAULT_MAX_RESPONSE_SIZE_MB * 1024 * 1024, |_| {
+					Err(wrap(execution_failed(UNRELATED)))
+				})
+				.await;
+
+			result.expect_err("a failure of its own has nothing to narrow");
+			assert_eq!(
+				asked.len(),
+				1,
+				"{nesting}: asked again for a window the node never refused: {asked:?}",
+			);
+		}
 	}
 
 	#[tokio::test]
@@ -648,14 +698,14 @@ mod tests {
 		let total = first_window(max) + 40_000;
 
 		// A trapped replay and a response the node cannot return are both narrowed.
-		for refuse in [too_large as fn() -> ClientError, oversized_response] {
+		for refuse in [too_large as fn() -> UserError, oversized_response] {
 			let (collected, asked, result) = walk_on(max, |window| {
 				(window.limit <= SERVES)
 					.then(|| {
 						let left = total - window.step_offset.min(total);
 						canned_trace(left.min(window.limit) as usize)
 					})
-					.ok_or_else(refuse)
+					.ok_or_else(|| as_rpc_error(refuse()))
 			})
 			.await;
 
