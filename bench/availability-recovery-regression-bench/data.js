@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791277513513,
+  "lastUpdate": 1791297408800,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d43b8f9b464c90bb7d8cb7d8abf393fdd3a1b1ae",
-          "message": "Version bumps and prdocs reoirdering from stable2603 (#11572)\n\nThis PR merges regular version bumps and prdocs reordering from release\nbranch stable2603 back to master plus a fix for umbrella crate version\nin crates publishing pipeline to aligne it with the stable version\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-03-31T12:24:15Z",
-          "tree_id": "64f11ea397a87df819a7750257757b65184fd40f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d43b8f9b464c90bb7d8cb7d8abf393fdd3a1b1ae"
-        },
-        "date": 1774965251353,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.334907977700002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12891593536666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13939318070000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b76182dd335abcc07b0ff876d4889416a4c08ab7",
+          "message": "[pallet-assets] balance-change callbacks (#12581)\n\n## What\n\n- **pallet-assets**: extend the existing `AssetsCallback`\n(`CallbackHandle`, paritytech/substrate#12307) with infallible\nbalance-change observers — `issued` / `transferred` / `burned` /\n`deposited` / `withdrawn`. Unlike `created`/`destroyed` they never fail\n— fired after the state change, exactly where the corresponding `Issued`\n/ `Transferred` / `Burned` / `Deposited` / `Withdrawn` event is emitted,\non every path: extrinsics, the `fungibles` traits (incl. XCM asset\ntransactors), the `fungibles::Balanced` imbalance paths, delegated\ntransfers, and deposit-refund burns.\n- **pallet-revive**: new\n`Pallet::emit_contract_log_outside_frame(contract, topics, data)` — emit\nan EVM log attributed to an address from outside any contract call frame\n(traced, receipt-captured inside an ethereum context, deposited as\n`ContractEmitted`). Contract execution keeps its own in-frame emission\npath (`Ext::deposit_event`); the two differ only in the tracer hook. The\ncall tracer gains a matching `Tracing::log_event_outside_frame` hook, so\ntracing a block containing such a log attaches it to the active frame if\nthere is one and skips it otherwise; the in-frame `log_event` (the `LOG`\nopcode) keeps its active-frame invariant.\n- **pallet-assets-precompiles**: `Erc20TransferLogsCallback`, an\n`AssetsCallback` implementation for runtimes to wire as\n`CallbackHandle`, translating balance changes into canonical ERC-20\n`Transfer` logs at the asset's precompile token address. Mint/deposit =\n`Transfer(0x0, owner)`, burn/withdraw = `Transfer(owner, 0x0)`. Log\nbytes built from the same `IERC20` ABI the precompile uses — identical\nby construction. Works for inline-id assets (address derived from the\n`u32` id) and foreign assets (`Location` ids, resolved through the\nforeign asset-index map; assets predating the wiring are backfilled by\nthe index-map migration).\n- The `ERC20` precompile no longer emits its own `Transfer` log from\n`transfer()` / `transferFrom()`; the callback is now the single source.\nWire `Erc20TransferLogsCallback` as the instance's `CallbackHandle` to\nkeep precompile-mediated transfers logged. Zero-value transfers stay\nEIP-20 compliant: they are a no-op in pallet-assets and fire no\ncallback, so the precompile invokes the callback itself to emit the\nrequired `Transfer` log.\n- **asset-hub-westend**: wired for all three instances — trust-backed\nand pool assets (inline-id) and foreign assets (via `ForeignIdConfig`).\nThe mirrored-log cost is part of the pallet-assets weights, which are\nbenchmarked against the runtime with the callback wired.\n\n## Why\n\nAssets on Asset Hub are real ERC-20 tokens (callable precompile per\nasset), but only precompile-mediated transfers emitted `Transfer` logs.\nTransfers via plain extrinsics or XCM — the majority — were invisible to\nEVM tooling, so any indexer/wallet reconstructing balances from logs is\nwrong. This puts the logs on-chain at the source instead of synthesizing\nthem off-chain in eth-rpc. Groundwork for paritytech/contract-issues#61.\n\n## Breaking change\n\n`AssetsCallback<AssetId, AccountId>` gains a third generic parameter\n`Balance` (pallet-assets `bump: major`). The new methods have default\nno-op implementations, so any hand-written `impl AssetsCallback<Id,\nAcct>` only needs the signature update (add the `Balance` param);\nimplementations wired only as `CallbackHandle` need no change beyond a\nrecompile.\n\nNote for downstream runtimes: because the precompile no longer\nself-emits, upgrading pallet-assets-precompiles without wiring\n`Erc20TransferLogsCallback` silently stops `Transfer` logs for\nprecompile-mediated transfers.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-06T10:53:01Z",
+          "tree_id": "c88e2ef6ce57e8cbde5838293fe4958994b0adca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b76182dd335abcc07b0ff876d4889416a4c08ab7"
+        },
+        "date": 1791297380071,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.672826371800001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13946415286666664,
             "unit": "seconds"
           }
         ]
