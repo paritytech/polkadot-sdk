@@ -488,15 +488,13 @@ mod tests {
 				load_warmth_at(Warmth::cold_non_revertible()),
 			);
 			let hot = code_load_weight(code_len, code_type, load_warmth_at(Warmth::read_paid()));
-			assert!(
-				cold.ref_time() > hot.ref_time(),
-				"expected cold > hot ref_time for {code_type:?}: cold={cold:?} hot={hot:?}",
-			);
+			assert!(cold.ref_time() > hot.ref_time(), "{code_type:?}: cold={cold:?} hot={hot:?}");
 			assert_eq!(hot.proof_size(), 0, "a hot blob is already in the proof: {hot:?}");
 			let both_reads_proof = <Test as Config>::WeightInfo::code_load().proof_size();
 			assert!(
 				cold.proof_size() >= both_reads_proof + u64::from(code_len),
-				"a cold load proves both reads and the blob's {code_len} bytes: {cold:?}",
+				"a cold load proves both reads and the blob's {code_len} bytes: \
+				 cold={cold:?} both_reads_proof={both_reads_proof}",
 			);
 			let hot_info_cold_blob = code_load_weight(
 				code_len,
@@ -506,7 +504,7 @@ mod tests {
 			assert!(
 				hot_info_cold_blob.proof_size() >= both_reads_proof + u64::from(code_len),
 				"a cold blob walks its trie path even when the info is hot: \
-				 {hot_info_cold_blob:?}",
+				 {hot_info_cold_blob:?} both_reads_proof={both_reads_proof}",
 			);
 
 			let twice_as_long = code_load_weight(
@@ -531,9 +529,10 @@ mod tests {
 				bytes_of(load_warmth_at(hot_blob)),
 				"the code info's warmth does not price the bytes: only the blob is read by length",
 			);
+			let hot_blob_bytes = bytes_of(load_warmth_at(hot_blob));
 			assert!(
-				bytes_of(load_warmth_at(hot_blob)).ref_time() > 0,
-				"a hot blob still pays for its bytes: {code_type:?}",
+				hot_blob_bytes.ref_time() > 0,
+				"a hot blob still pays for its bytes: {code_type:?}: {hot_blob_bytes:?}",
 			);
 			let empty_blob = Token::<Test>::weight(&CodeLoadToken::Blob {
 				warmth: load_warmth_at(hot_blob),

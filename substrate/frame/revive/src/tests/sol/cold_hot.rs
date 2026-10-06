@@ -18,7 +18,7 @@
 //! Which state entries the access list finds cold or hot, on both VMs.
 
 use crate::{
-	AccountInfo, BalanceOf, Code, Config, Weight,
+	AccountInfo, BalanceOf, Code, Config, Weight, WeightInfo,
 	access_list::{
 		Access, AccessListMetrics, CallItems, CodeLoadItems, InstantiateItems, TransferItems,
 	},
@@ -204,7 +204,7 @@ fn a_chained_delegation_call_warms_the_target_it_checks(fixture_type: FixtureTyp
 		let django_only = access_list_metrics_of_calls(caller_addr, &[django_call.clone()]);
 		let django_then_django =
 			access_list_metrics_of_calls(caller_addr, &[django_call.clone(), django_call.clone()]);
-		assert_eq!(django_then_django.cold, django_only.cold, "the second call adds nothing cold");
+		assert_eq!(django_then_django.cold, django_only.cold);
 		assert_eq!(
 			django_then_django.hot, django_call_entries,
 			"the caller reads DJANGO's and EVE's entries before DJANGO would run, so they stay hot",
@@ -292,10 +292,7 @@ fn callee_revert_drops_only_its_own_touches(fixture_type: FixtureType) {
 			caller,
 			&[(reverter, call_inner_then_revert), (reverter, Vec::new())],
 		);
-		assert_eq!(
-			revert_then_reverter.cold, revert.cold,
-			"the second call to the callee adds nothing cold",
-		);
+		assert_eq!(revert_then_reverter.cold, revert.cold);
 		assert_eq!(
 			revert_then_reverter.hot - revert.hot,
 			CallItems::plain_entries(),
@@ -539,12 +536,15 @@ fn a_call_to_a_created_contract_is_charged_hot(fixture_type: FixtureType) {
 
 	assert!(
 		hot_call_weight.all_lt(cold_call_weight),
-		"hot {hot_call_weight:?} should cost less than cold {cold_call_weight:?}",
+		"hot={hot_call_weight:?} cold={cold_call_weight:?}",
 	);
 	assert_eq!(hot_call_weight.proof_size(), 0);
+
+	let hot_bench_saving = <Test as Config>::WeightInfo::seal_call(0, 0, 0)
+		.saturating_sub(<Test as Config>::WeightInfo::seal_call_hot());
 	assert!(
-		cold_call_weight.ref_time() >= hot_call_weight.ref_time() + 100_000_000,
-		"cold {cold_call_weight:?} should cost at least 100M more ref time than hot {hot_call_weight:?}",
+		cold_call_weight.ref_time() >= hot_call_weight.ref_time() + hot_bench_saving.ref_time(),
+		"cold={cold_call_weight:?} hot={hot_call_weight:?} hot_bench_saving={hot_bench_saving:?}",
 	);
 }
 

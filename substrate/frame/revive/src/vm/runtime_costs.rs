@@ -625,19 +625,17 @@ mod tests {
 			("hot storage overlay", overlay_overhead),
 		];
 		for (overhead_name, overhead) in derived_overheads {
-			assert!(
-				overhead.ref_time() > 0,
-				"{overhead_name} must stay above zero, or its benches inverted and it is no longer \
-				 charged",
-			);
+			assert!(overhead.ref_time() > 0, "{overhead_name}: {overhead:?}");
 		}
 
-		assert_eq!(overlay_overhead.proof_size(), 0, "the overlay probe adds nothing to the proof");
+		assert_eq!(overlay_overhead.proof_size(), 0);
 
+		let transfer_hot = <Test as Config>::WeightInfo::seal_call_transfer_hot(0);
+		let call_hot = <Test as Config>::WeightInfo::seal_call_hot();
 		assert!(
-			<Test as Config>::WeightInfo::seal_call_transfer_hot(0).ref_time() >
-				<Test as Config>::WeightInfo::seal_call_hot().ref_time(),
-			"a hot transfer must measure above the hot call it contains, or it is charged nothing",
+			transfer_hot.ref_time() > call_hot.ref_time(),
+			"a hot transfer pays the gap between these benches: \
+			 transfer={transfer_hot:?} call={call_hot:?}",
 		);
 	}
 
@@ -737,7 +735,7 @@ mod tests {
 			deferred_write.ref_time() > 0 && deferred_write.ref_time() < db.writes(1).ref_time(),
 			"the deferred write is only part of a write: {deferred_write:?}",
 		);
-		assert_eq!(deferred_write.proof_size(), 0, "the deferred write adds nothing to the proof");
+		assert_eq!(deferred_write.proof_size(), 0);
 
 		let surcharge_of = |warmth| {
 			RuntimeCosts::write_surcharge::<Test>(
@@ -818,14 +816,15 @@ mod tests {
 			)))
 		};
 
+		let (plain_hot, delegate_hot) = (plain_call_weight(hot), delegate_call_weight(hot));
 		assert!(
-			plain_call_weight(hot).ref_time() > delegate_call_weight(hot).ref_time(),
-			"a plain call also reads the callee's address mapping and writes back its account info, \
-			 so it costs more than a delegate call even when hot",
+			plain_hot.ref_time() > delegate_hot.ref_time(),
+			"plain={plain_hot:?} delegate={delegate_hot:?}",
 		);
+		let (plain_cold, delegate_cold) = (plain_call_weight(cold), delegate_call_weight(cold));
 		assert!(
-			plain_call_weight(cold).proof_size() > delegate_call_weight(cold).proof_size(),
-			"a cold plain call also proves the callee's address mapping, so it adds more proof",
+			plain_cold.proof_size() > delegate_cold.proof_size(),
+			"plain={plain_cold:?} delegate={delegate_cold:?}",
 		);
 
 		for (call_kind, cold_weight, hot_weight) in [
@@ -834,11 +833,10 @@ mod tests {
 		] {
 			assert!(
 				cold_weight.ref_time() > hot_weight.ref_time(),
-				"{call_kind}: a warm call costs less than a cold one: \
-				 cold={cold_weight:?} hot={hot_weight:?}",
+				"{call_kind}: cold={cold_weight:?} hot={hot_weight:?}",
 			);
 			assert_eq!(hot_weight.proof_size(), 0, "{call_kind}: a warm call doesn't pay proof");
-			assert!(cold_weight.proof_size() > 0, "{call_kind}: a cold call pays proof");
+			assert!(cold_weight.proof_size() > 0, "{call_kind}: cold={cold_weight:?}");
 		}
 	}
 
@@ -856,7 +854,7 @@ mod tests {
 
 		assert!(
 			cold_weight.ref_time() > hot_weight.ref_time(),
-			"a warm read costs less: cold={cold_weight:?} hot={hot_weight:?}",
+			"cold={cold_weight:?} hot={hot_weight:?}",
 		);
 		assert_eq!(hot_weight.proof_size(), 0);
 		assert!(cold_weight.proof_size() > 0);
@@ -881,24 +879,28 @@ mod tests {
 			("cold", Some(Warmth::cold_non_revertible())),
 			("untracked (precompile)", None),
 		] {
+			let (with_dust, without_dust) = (weight_of(true, warmth), weight_of(false, warmth));
 			assert!(
-				weight_of(true, warmth).ref_time() > weight_of(false, warmth).ref_time(),
-				"{case}: a transfer carrying dust costs more than one without",
+				with_dust.ref_time() > without_dust.ref_time(),
+				"{case}: with_dust={with_dust:?} without_dust={without_dust:?}",
 			);
 		}
 
 		for dust in [false, true] {
+			let cold_weight = weight_of(dust, Some(Warmth::cold_non_revertible()));
+			let hot_weight = weight_of(dust, Some(write_paid));
 			assert!(
-				weight_of(dust, Some(Warmth::cold_non_revertible())).ref_time() >
-					weight_of(dust, Some(write_paid)).ref_time(),
-				"dust={dust}: a transfer between hot accounts costs less than one between cold accounts",
+				cold_weight.ref_time() > hot_weight.ref_time(),
+				"dust={dust}: cold={cold_weight:?} hot={hot_weight:?}",
 			);
 		}
 
+		let untracked = weight_of(false, None);
+		let tracked_cold = weight_of(false, Some(Warmth::cold_non_revertible()));
 		assert!(
-			weight_of(false, None).ref_time() <
-				weight_of(false, Some(Warmth::cold_non_revertible())).ref_time(),
-			"untracked state pays the bench alone, with no access-list overhead on top",
+			untracked.ref_time() < tracked_cold.ref_time(),
+			"untracked state pays the bench alone, with no access-list overhead on top: \
+			 untracked={untracked:?} tracked_cold={tracked_cold:?}",
 		);
 	}
 
