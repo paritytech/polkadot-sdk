@@ -22,7 +22,7 @@ use crate::{
 	Pallet as Contracts,
 	access_list::{
 		AccessEntry, AccessList, CallItems, CodeLoadItems, KeyFamily, MAX_ACCESS_LIST_ENTRIES,
-		StorageOp, Summarized, TransferItems,
+		StorageOp, TransferItems,
 	},
 	call_builder::{
 		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit,
@@ -780,11 +780,7 @@ mod benchmarks {
 		let blob;
 		#[block]
 		{
-			blob = ContractBlob::<T>::from_storage(
-				code_hash,
-				&mut meter,
-				Summarized::all_cold(CodeLoadItems::new(code_hash)),
-			);
+			blob = ContractBlob::<T>::from_storage(code_hash, &mut meter);
 		}
 		assert!(blob.is_ok(), "an existing contract must load");
 		Ok(())

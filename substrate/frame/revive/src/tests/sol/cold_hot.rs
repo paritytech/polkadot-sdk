@@ -100,7 +100,7 @@ fn call_and_delegate_reuse_target_warmth(caller_type: FixtureType, target_type: 
 
 #[test_case(FixtureType::Solc;   "evm")]
 #[test_case(FixtureType::Resolc; "pvm")]
-fn a_denied_call_still_touches_its_target(fixture_type: FixtureType) {
+fn call_past_the_depth_limit_pays_by_target_warmth(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("Recurse", fixture_type).unwrap();
 	// The two VMs differ once the depth limit denies a call, though both charge the same for it:
 	// EVM keeps the frame running, so its touch stays, while PVM traps the frame and its touch is
@@ -113,6 +113,8 @@ fn a_denied_call_still_touches_its_target(fixture_type: FixtureType) {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
+		// The innermost frame already sits at the depth limit, so the call it makes to
+		// `final_target` is denied. The zero address stands for making no such call at all.
 		let recurse_to_the_limit_then_call = |final_target: H160| {
 			access_list_metrics_of(|| {
 				builder::bare_call(addr)
@@ -128,9 +130,21 @@ fn a_denied_call_still_touches_its_target(fixture_type: FixtureType) {
 		};
 
 		let final_call_allowed = recurse_to_the_limit_then_call(H160::zero());
+		let final_call_denied_warm = recurse_to_the_limit_then_call(addr);
 		let final_call_denied = recurse_to_the_limit_then_call(H160::from_low_u64_be(0xdead));
 
-		assert_eq!(final_call_denied.cold, final_call_allowed.cold + target_entries);
+		assert_eq!(
+			final_call_denied_warm.hot,
+			final_call_allowed.hot + target_entries,
+			"a denied call pays hot for a target already in the list: its mapping and account info",
+		);
+		assert_eq!(final_call_denied_warm.cold, final_call_allowed.cold);
+		assert_eq!(
+			final_call_denied.cold,
+			final_call_allowed.cold + target_entries,
+			"a denied call pays cold for the same two entries when the target is not in the list",
+		);
+		assert_eq!(final_call_denied.hot, final_call_allowed.hot);
 		assert_eq!(final_call_denied.size, final_call_allowed.size + entries_kept_after_denial);
 	});
 }
@@ -176,56 +190,6 @@ fn a_chained_delegation_call_warms_the_target_it_checks(fixture_type: FixtureTyp
 
 #[test_case(FixtureType::Solc;   "evm")]
 #[test_case(FixtureType::Resolc; "pvm")]
-fn call_past_the_depth_limit_pays_by_target_warmth(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("Recurse", fixture_type).unwrap();
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-
-		// The innermost frame already sits at the depth limit, so the call it makes to
-		// `final_target` is denied. The zero address stands for making no such call at all.
-		let recurse_to_the_limit_then_call = |final_target: H160| {
-			access_list_metrics_of(|| {
-				builder::bare_call(addr)
-					.data(
-						Recurse::recurseCall {
-							callsLeft: limits::CALL_STACK_DEPTH,
-							finalTarget: final_target.0.into(),
-						}
-						.abi_encode(),
-					)
-					.build_and_unwrap_result();
-			})
-		};
-
-		let final_call_allowed = recurse_to_the_limit_then_call(H160::zero());
-		let warm_target = recurse_to_the_limit_then_call(addr);
-		let cold_target = recurse_to_the_limit_then_call(H160::from_low_u64_be(0xdead));
-
-		assert_eq!(
-			warm_target.hot - final_call_allowed.hot,
-			2,
-			"a denied call pays hot for a target already in the list: its mapping and account info",
-		);
-		assert_eq!(
-			warm_target.cold, final_call_allowed.cold,
-			"a target already in the list costs the denied call nothing cold",
-		);
-		assert_eq!(
-			cold_target.cold - final_call_allowed.cold,
-			2,
-			"a denied call pays cold for the same two entries when the target is not in the list",
-		);
-		assert_eq!(
-			cold_target.hot, final_call_allowed.hot,
-			"a target outside the list costs the denied call nothing hot",
-		);
-	});
-}
-
-#[test_case(FixtureType::Solc;   "evm")]
-#[test_case(FixtureType::Resolc; "pvm")]
 fn value_transfer_warms_the_account(fixture_type: FixtureType) {
 	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
@@ -259,7 +223,7 @@ fn value_transfer_warms_the_account(fixture_type: FixtureType) {
 		let extra_cold = with_value.cold - zero_value.cold;
 		let extra_hot = with_value.hot - zero_value.hot;
 
-		assert_eq!(extra_hot, 2, "the sender's account, and the callee's account info are hot");
+		assert_eq!(extra_hot, 2, "the sender's and the callee's account info are hot");
 		assert_eq!(
 			extra_cold,
 			value_transfer_only - extra_hot,

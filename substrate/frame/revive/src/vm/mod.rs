@@ -27,7 +27,7 @@ pub use runtime_costs::{RuntimeCosts, StorageAccessKind, TransferAccessKind};
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
-	access_list::{CodeLoadWarmth, Summarized},
+	access_list::{CodeLoadItems, CodeLoadWarmth, Summarized},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
@@ -373,6 +373,17 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
+	) -> Result<Self, DispatchError> {
+		Self::from_storage_with_warmth(
+			code_hash,
+			meter,
+			Summarized::all_cold(CodeLoadItems::new(code_hash)),
+		)
+	}
+
+	fn from_storage_with_warmth<S: State>(
+		code_hash: H256,
+		meter: &mut ResourceMeter<T, S>,
 		warmth: Summarized<CodeLoadWarmth>,
 	) -> Result<Self, DispatchError> {
 		meter.charge_weight_token(CodeLoadToken::Flat(warmth))?;
@@ -619,7 +630,7 @@ mod tests {
 			};
 
 			let mut meter = new_meter(Weight::MAX);
-			let loaded = ContractBlob::<Test>::from_storage(stored, &mut meter, cold)
+			let loaded = ContractBlob::<Test>::from_storage_with_warmth(stored, &mut meter, cold)
 				.expect("the load fits");
 			assert_eq!(loaded.code(), &code[..], "the blob read back is the stored one");
 			assert_eq!(
@@ -631,7 +642,8 @@ mod tests {
 			let flat_cost = Token::<Test>::weight(&CodeLoadToken::Flat(cold));
 			let mut meter = new_meter(flat_cost);
 			assert_eq!(
-				ContractBlob::<Test>::from_storage(blob_missing, &mut meter, cold).map(|_| ()),
+				ContractBlob::<Test>::from_storage_with_warmth(blob_missing, &mut meter, cold)
+					.map(|_| ()),
 				Err(Error::<Test>::OutOfGas.into()),
 				"with weight for the two reads only, the blob's charge fails before the blob is read",
 			);
@@ -639,7 +651,8 @@ mod tests {
 
 			let mut meter = new_meter(Weight::zero());
 			assert_eq!(
-				ContractBlob::<Test>::from_storage(stored, &mut meter, cold).map(|_| ()),
+				ContractBlob::<Test>::from_storage_with_warmth(stored, &mut meter, cold)
+					.map(|_| ()),
 				Err(Error::<Test>::OutOfGas.into()),
 				"with no weight at all, the load pays for its reads before making the first",
 			);

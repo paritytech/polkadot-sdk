@@ -1932,7 +1932,7 @@ impl<T: Config> Pallet<T> {
 				},
 				Code::Existing(code_hash) => {
 					// A root instantiate has no access list yet, so its blob is billed cold.
-					let executable = ContractBlob::from_storage(
+					let executable = ContractBlob::from_storage_with_warmth(
 						code_hash,
 						&mut transaction_meter,
 						Summarized::all_cold(CodeLoadItems::with_info_op(

@@ -599,12 +599,21 @@ pub trait Executable<T: Config>: Sized {
 	/// Load the executable from storage.
 	///
 	/// # Note
-	/// Charges the code load from the weight meter.
+	/// Charges size base load weight from the weight meter.
 	fn from_storage<S: State>(
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
-		warmth: Summarized<CodeLoadWarmth>,
 	) -> Result<Self, DispatchError>;
+
+	/// Load the executable from storage, charging the code load at the code's `warmth`.
+	#[doc(hidden)]
+	fn from_storage_with_warmth<S: State>(
+		code_hash: H256,
+		meter: &mut ResourceMeter<T, S>,
+		_warmth: Summarized<CodeLoadWarmth>,
+	) -> Result<Self, DispatchError> {
+		Self::from_storage(code_hash, meter)
+	}
 
 	/// Load the executable from EVM bytecode
 	fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError>;
@@ -1113,7 +1122,7 @@ where
 		code_load_items: access_list::CodeLoadItems,
 	) -> Result<E, DispatchError> {
 		let warmth = access_list.warmth_of_summarized(code_load_items);
-		let executable = E::from_storage(code_load_items.hash, meter, warmth)?;
+		let executable = E::from_storage_with_warmth(code_load_items.hash, meter, warmth)?;
 		access_list.warm(code_load_items);
 		Ok(executable)
 	}

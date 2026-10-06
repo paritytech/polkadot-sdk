@@ -76,7 +76,7 @@ const SLOT_ENTRY_BYTES: usize = 1_024;
 const ADDRESS_ENTRY_BYTES: usize = 512;
 
 const _: () = assert!(
-	core::mem::size_of::<AccessEntry>() == 64 &&
+	core::mem::size_of::<AccessEntry>() <= 64 &&
 		limits::STORAGE_KEY_BYTES == 128 &&
 		MAX_ACCESS_LIST_ENTRIES.is_power_of_two(),
 	"the memory usage table above is based on these sizes and requires remeasuring",

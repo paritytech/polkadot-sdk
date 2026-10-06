@@ -145,7 +145,6 @@ impl Executable<Test> for MockExecutable {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		_meter: &mut ResourceMeter<Test, S>,
-		_warmth: Summarized<CodeLoadWarmth>,
 	) -> Result<Self, DispatchError> {
 		Loader::mutate(|loader| {
 			loader.map.get(&code_hash).cloned().ok_or(Error::<Test>::CodeNotFound.into())
@@ -215,17 +214,6 @@ fn delegated_to(address: H160, target: H160) -> crate::storage::AccountInfo<Test
 		},
 		dust: 0,
 	}
-}
-
-fn from_storage_cold<S: crate::metering::State>(
-	code_hash: H256,
-	meter: &mut crate::metering::ResourceMeter<Test, S>,
-) -> Result<MockExecutable, sp_runtime::DispatchError> {
-	MockExecutable::from_storage(
-		code_hash,
-		meter,
-		Summarized::all_cold(CodeLoadItems::new(code_hash)),
-	)
 }
 
 #[test]
@@ -649,7 +637,7 @@ fn input_data_to_instantiate() {
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 					.unwrap();
 
-			let executable = from_storage_cold(input_data_ch, &mut meter).unwrap();
+			let executable = MockExecutable::from_storage(input_data_ch, &mut meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
 
 			let result = MockStack::run_instantiate(
@@ -1120,7 +1108,7 @@ fn refuse_instantiate_with_value_below_existential_deposit() {
 
 	ExtBuilder::default().existential_deposit(15).build().execute_with(|| {
 		let mut meter = TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, 0).unwrap();
-		let executable = from_storage_cold(dummy_ch, &mut meter).unwrap();
+		let executable = MockExecutable::from_storage(dummy_ch, &mut meter).unwrap();
 
 		assert_matches!(
 			MockStack::run_instantiate(
@@ -1152,7 +1140,7 @@ fn instantiation_work_with_success_output() {
 			set_balance(&ALICE, min_balance * 1000);
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, min_balance * 100).unwrap();
-			let executable = from_storage_cold(dummy_ch, &mut meter).unwrap();
+			let executable = MockExecutable::from_storage(dummy_ch, &mut meter).unwrap();
 
 			let instantiated_contract_address = assert_matches!(
 				MockStack::run_instantiate(
@@ -1201,7 +1189,7 @@ fn instantiation_fails_with_failing_output() {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, min_balance * 100).unwrap();
-			let executable = from_storage_cold(dummy_ch, &mut meter).unwrap();
+			let executable = MockExecutable::from_storage(dummy_ch, &mut meter).unwrap();
 			set_balance(&ALICE, min_balance * 1000);
 
 			let instantiated_contract_address = assert_matches!(
@@ -1444,7 +1432,7 @@ fn termination_from_instantiate_succeeds() {
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 					.unwrap();
-			let executable = from_storage_cold(terminate_ch, &mut meter).unwrap();
+			let executable = MockExecutable::from_storage(terminate_ch, &mut meter).unwrap();
 			set_balance(&ALICE, 10_000);
 
 			let result = MockStack::run_instantiate(
@@ -1630,7 +1618,7 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 					.unwrap();
-			let executable = from_storage_cold(code, &mut meter).unwrap();
+			let executable = MockExecutable::from_storage(code, &mut meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
 
 			let result = MockStack::run_instantiate(
@@ -1892,7 +1880,8 @@ fn minimum_balance_must_return_converted_balance() {
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 					.unwrap();
-			let succ_fail_executable = from_storage_cold(succ_fail_code, &mut meter).unwrap();
+			let succ_fail_executable =
+				MockExecutable::from_storage(succ_fail_code, &mut meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
 
 			assert_ok!(MockStack::run_instantiate(
@@ -1974,10 +1963,13 @@ fn nonce() {
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 					.unwrap();
-			let fail_executable = from_storage_cold(fail_code, &mut meter).unwrap();
-			let success_executable = from_storage_cold(success_code, &mut meter).unwrap();
-			let succ_fail_executable = from_storage_cold(succ_fail_code, &mut meter).unwrap();
-			let succ_succ_executable = from_storage_cold(succ_succ_code, &mut meter).unwrap();
+			let fail_executable = MockExecutable::from_storage(fail_code, &mut meter).unwrap();
+			let success_executable =
+				MockExecutable::from_storage(success_code, &mut meter).unwrap();
+			let succ_fail_executable =
+				MockExecutable::from_storage(succ_fail_code, &mut meter).unwrap();
+			let succ_succ_executable =
+				MockExecutable::from_storage(succ_succ_code, &mut meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
 			set_balance(&BOB, min_balance * 10_000);
 
@@ -3024,7 +3016,7 @@ fn immutable_data_set_overrides() {
 
 			let addr = MockStack::run_instantiate(
 				ALICE,
-				from_storage_cold(hash, &mut meter).unwrap(),
+				MockExecutable::from_storage(hash, &mut meter).unwrap(),
 				&mut meter,
 				U256::zero(),
 				vec![],
