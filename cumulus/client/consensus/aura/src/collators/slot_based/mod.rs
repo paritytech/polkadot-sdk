@@ -82,8 +82,8 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
 use polkadot_primitives::{
-	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, PersistedValidationData,
-	ValidationCodeHash,
+	CollatorPair, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
+	PersistedValidationData, ValidationCodeHash,
 };
 use sc_client_api::{
 	backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, BlockchainEvents,
@@ -303,19 +303,24 @@ enum CollatorMessage<Block: BlockT> {
 	/// V3 collations are submitted as segments; the block builder currently emits 1-length
 	/// segments, and the resubmission path will produce multi-entry ones.
 	Segment(CollatorSegmentMessage<Block>),
+	/// Hedged sibling header chains for the `Segment` sent immediately before, on `core_index`.
+	Hedges {
+		/// Core of the segment these hedges rebuild.
+		core_index: CoreIndex,
+		/// One header chain per hedged sibling scheduling parent, best first.
+		header_chains: Vec<Vec<RelayHeader>>,
+	},
 }
 
 /// Segment message sent from the block builder for V3/V4 candidates. Routed to
 /// `CollationGenerationMessage::SubmitSegment` by the collation task.
 ///
 /// The collation task prepends the resubmitted unincluded segment (hydrated from
-/// `unincluded_headers`) to the freshly-built `bundle`, submits it once for `scheduling_proof`,
-/// then re-hydrates from the same headers for each `hedged_proofs` entry.
+/// `unincluded_headers`) to the freshly-built `bundle` and submits it for `scheduling_proof`. A
+/// following [`CollatorMessage::Hedges`] re-submits the same headers under each sibling's chain.
 struct CollatorSegmentMessage<Block: BlockT> {
-	/// Proof for the chosen scheduling parent; submitted first.
+	/// Proof for the chosen scheduling parent.
 	pub scheduling_proof: SchedulingProof,
-	/// One proof per hedged sibling scheduling parent, submitted after the chosen one.
-	pub hedged_proofs: Vec<SchedulingProof>,
 	/// Target core for the whole segment submission.
 	pub core_index: CoreIndex,
 	/// This core's slice of the prior unincluded segment, as bare headers. Hydrated into

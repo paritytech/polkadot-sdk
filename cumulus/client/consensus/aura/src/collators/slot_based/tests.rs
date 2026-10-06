@@ -17,9 +17,8 @@
 
 use super::{
 	block_builder_task::{
-		assemble_core_submission, determine_cores, memoized_hedge_chains,
-		offset_relay_parent_find_descendants, resolve_hedge_contenders, HedgeContext, HedgeMemo,
-		V3HeaderChains, MAX_HEDGED_SIBLINGS,
+		assemble_core_submission, determine_cores, offset_relay_parent_find_descendants,
+		resolve_hedge_chains, HedgeContext, MAX_HEDGED_SIBLINGS,
 	},
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 	scheduling::SchedulingInfo,
@@ -735,24 +734,13 @@ fn hedge_setup(
 ) {
 	let mut cache = RelayChainDataCache::new(TestRelayClient::new(Default::default()), 1.into());
 	cache.set_test_data(base.clone(), vec![], v3_node_features());
-	let (scheduling_info, tx) = with_import_stream();
+	let (mut scheduling_info, tx) = with_import_stream();
 	for header in imports {
 		cache.set_test_data(header.clone(), HEDGE_CORES.to_vec(), v3_node_features());
 		tx.unbounded_send(header.clone()).expect("receiver is alive; qed");
 	}
+	scheduling_info.drain_imports();
 	(cache, scheduling_info, tx)
-}
-
-/// One core's hedge evaluation, as the block builder runs it.
-async fn sp_hedge_chains(
-	cache: &mut RelayChainDataCache<TestRelayClient>,
-	scheduling_info: &mut SchedulingInfo<TestRelayClient>,
-	memo: &mut HedgeMemo,
-	max_siblings: usize,
-	cx: HedgeContext<'_>,
-) -> Vec<(RelayHash, Vec<RelayHeader>)> {
-	resolve_hedge_contenders(cache, scheduling_info, memo, max_siblings, &cx).await;
-	memoized_hedge_chains(scheduling_info, memo, max_siblings, &cx)
 }
 
 fn hedge_context<'a>(
@@ -775,43 +763,31 @@ fn hedge_context<'a>(
 	}
 }
 
-/// Hedging is off outside V3, at `relay_parent_offset == 0` (where the scheduling parent *is* the
-/// relay parent), and on a segment long enough to leave the per-core rebuild budget at zero. The
-/// last case pins the fixture down, so the others cannot pass vacuously.
+/// Hedging is off outside V3 and at `relay_parent_offset == 0` (where the scheduling parent *is*
+/// the relay parent). The last case pins the fixture down, so the others cannot pass vacuously.
 #[tokio::test]
 async fn sp_hedge_chains_respects_its_gates() {
 	let (base, chosen) = hedge_base_and_chosen();
 	let mut sibling = chosen.clone();
 	sibling.state_root = [7u8; 32].into();
 
-	for (v3_enabled, offset, max_siblings, expected) in [
-		(false, 1, MAX_HEDGED_SIBLINGS, 0),
-		(true, 0, MAX_HEDGED_SIBLINGS, 0),
-		(true, 1, 0, 0),
-		(true, 1, MAX_HEDGED_SIBLINGS, 1),
-	] {
+	for (v3_enabled, offset, expected) in [(false, 1, 0), (true, 0, 0), (true, 1, 1)] {
 		let (mut cache, mut scheduling_info, _tx) = hedge_setup(&base, &[sibling.clone()]);
-		let hedged = sp_hedge_chains(
+		let hedged = resolve_hedge_chains(
 			&mut cache,
 			&mut scheduling_info,
-			&mut HedgeMemo::default(),
-			max_siblings,
-			hedge_context(&chosen, base.hash(), v3_enabled, offset),
+			&hedge_context(&chosen, base.hash(), v3_enabled, offset),
 		)
 		.await;
 
-		assert_eq!(hedged.len(), expected, "v3={v3_enabled} offset={offset} budget={max_siblings}");
+		assert_eq!(hedged.len(), expected, "v3={v3_enabled} offset={offset}");
 	}
 }
 
-/// One slot's worth of hedge evaluation on a shared memo: a sibling that only lands mid-slot is
-/// picked up by the next core, an already-resolved one costs nothing to re-evaluate, and once
-/// contenders outnumber the budget the cap keeps the primaries, which sort first.
+/// Once siblings outnumber `MAX_HEDGED_SIBLINGS` the cap keeps the primaries, in hash order.
 #[tokio::test]
-async fn sp_hedge_chains_tracks_arrivals_and_caps_contenders() {
+async fn sp_hedge_chains_caps_siblings() {
 	let (base, chosen) = hedge_base_and_chosen();
-	let mut late = chosen.clone();
-	late.state_root = [7u8; 32].into();
 	let mut primaries: Vec<RelayHeader> = (0..=MAX_HEDGED_SIBLINGS as u8)
 		.map(|i| {
 			let mut header =
@@ -821,41 +797,13 @@ async fn sp_hedge_chains_tracks_arrivals_and_caps_contenders() {
 		})
 		.collect();
 
-	let (mut cache, mut scheduling_info, tx) = hedge_setup(&base, &[]);
-	for header in std::iter::once(&late).chain(primaries.iter()) {
-		cache.set_test_data(header.clone(), HEDGE_CORES.to_vec(), v3_node_features());
-	}
-	let mut memo = HedgeMemo::default();
-	let resolve = async |cache: &mut RelayChainDataCache<TestRelayClient>,
-	                     info: &mut SchedulingInfo<TestRelayClient>,
-	                     memo: &mut HedgeMemo| {
-		sp_hedge_chains(
-			cache,
-			info,
-			memo,
-			MAX_HEDGED_SIBLINGS,
-			hedge_context(&chosen, base.hash(), true, 1),
-		)
-		.await
-	};
-
-	// Nothing imported yet: no siblings, and no resolution budget spent.
-	assert!(resolve(&mut cache, &mut scheduling_info, &mut memo).await.is_empty());
-	assert!(memo.is_empty());
-
-	// A sibling landing mid-slot is hedged by the next core, and stays memoised for the one after.
-	tx.unbounded_send(late.clone()).expect("receiver is alive; qed");
-	let second = resolve(&mut cache, &mut scheduling_info, &mut memo).await;
-	assert_eq!(second.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![late.hash()]);
-	assert_eq!(memo.len(), 1);
-	assert_eq!(resolve(&mut cache, &mut scheduling_info, &mut memo).await, second);
-	assert_eq!(memo.len(), 1);
-
-	// More contenders than the budget: the cap keeps the primaries, in hash order.
-	for header in &primaries {
-		tx.unbounded_send(header.clone()).expect("receiver is alive; qed");
-	}
-	let capped = resolve(&mut cache, &mut scheduling_info, &mut memo).await;
+	let (mut cache, mut scheduling_info, _tx) = hedge_setup(&base, &primaries);
+	let capped = resolve_hedge_chains(
+		&mut cache,
+		&mut scheduling_info,
+		&hedge_context(&chosen, base.hash(), true, 1),
+	)
+	.await;
 	primaries.sort_by_key(|header| header.hash());
 	assert_eq!(
 		capped.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
@@ -863,12 +811,11 @@ async fn sp_hedge_chains_tracks_arrivals_and_caps_contenders() {
 	);
 }
 
-/// The end-to-end hedge path: a sibling seen only on the import stream (a loser never becomes
-/// new-best) becomes one extra scheduling proof over the same entries, sharing the chosen parent's
-/// signature. Two same-height headers are dropped instead: one on a different base, one whose
-/// claim queue assigns the para to another core.
+/// A sibling seen only on the import stream (a loser never becomes new-best) is the only one
+/// accepted as a hedge; two same-height headers are dropped instead: one on a different base, one
+/// whose claim queue assigns the para to another core. The chosen proof is assembled as a segment.
 #[tokio::test]
-async fn import_stream_sibling_becomes_extra_scheduling_proof() {
+async fn import_stream_sibling_is_accepted_as_hedge() {
 	let (base, chosen) = hedge_base_and_chosen();
 	let other_base = relay_header_with_slot(HEDGE_BASE_NUMBER, [1u8; 32].into(), 100);
 	let mut sibling = chosen.clone();
@@ -882,12 +829,10 @@ async fn import_stream_sibling_becomes_extra_scheduling_proof() {
 	cache.set_test_data(other_base, vec![], v3_node_features());
 	cache.set_test_data(reassigned, vec![CoreIndex(1)], v3_node_features());
 
-	let hedged = sp_hedge_chains(
+	let hedged = resolve_hedge_chains(
 		&mut cache,
 		&mut scheduling_info,
-		&mut HedgeMemo::default(),
-		MAX_HEDGED_SIBLINGS,
-		hedge_context(&chosen, base.hash(), true, 1),
+		&hedge_context(&chosen, base.hash(), true, 1),
 	)
 	.await;
 	assert_eq!(hedged.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![sibling.hash()]);
@@ -916,10 +861,7 @@ async fn import_stream_sibling_becomes_extra_scheduling_proof() {
 	);
 	let message = assemble_core_submission::<Block, AuraAuthorityPair>(
 		// At `relay_parent_offset == 1` a header chain is just the scheduling parent itself.
-		Some(V3HeaderChains {
-			chosen: vec![chosen.clone()],
-			hedged: hedged.into_iter().map(|(_, chain)| chain).collect(),
-		}),
+		Some(vec![chosen.clone()]),
 		vec![unincluded],
 		None,
 		&core_info,
@@ -935,14 +877,5 @@ async fn import_stream_sibling_becomes_extra_scheduling_proof() {
 		panic!("V3 submissions are assembled as segments");
 	};
 	assert_eq!(segment.scheduling_proof.scheduling_parent(), chosen.hash());
-	assert_eq!(
-		segment.hedged_proofs.iter().map(|p| p.scheduling_parent()).collect::<Vec<_>>(),
-		vec![sibling.hash()],
-	);
 	assert_eq!(segment.scheduling_proof.internal_scheduling_parent_header.hash(), base.hash());
-	// The signed payload does not depend on the header chain, so it is signed once and shared.
-	assert_eq!(
-		segment.scheduling_proof.signed_scheduling_info,
-		segment.hedged_proofs[0].signed_scheduling_info,
-	);
 }

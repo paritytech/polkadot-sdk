@@ -27,7 +27,9 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CandidateDescriptorVersion, CollatorPair, CoreIndex, Id as ParaId};
+use polkadot_primitives::{
+	CandidateDescriptorVersion, CollatorPair, CoreIndex, Header as RelayHeader, Id as ParaId,
+};
 
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
@@ -54,15 +56,53 @@ struct Hedge<Block: BlockT> {
 	fresh: usize,
 }
 
-/// A segment submitted for `core_index` supersedes that core's queued hedges, bounding the queue
-/// by the core count; its own hedges go to the back.
-fn queue_hedges<Block: BlockT>(
-	pending: &mut VecDeque<Hedge<Block>>,
+/// The last submitted segment, kept so a following `Hedges` message can rebuild it.
+struct SubmittedSegment<Block: BlockT> {
 	core_index: CoreIndex,
-	hedges: Vec<Hedge<Block>>,
+	headers: Vec<Block::Header>,
+	/// The chosen proof; hedges share its signed payload and differ only in the header chain.
+	proof: SchedulingProof,
+	resubmitted: usize,
+	fresh: usize,
+}
+
+/// Hedged rebuilds of `last` under each sibling chain; empty unless `last` is on `core_index`.
+fn hedges_for<Block: BlockT>(
+	last: Option<SubmittedSegment<Block>>,
+	core_index: CoreIndex,
+	header_chains: Vec<Vec<RelayHeader>>,
+) -> Vec<Hedge<Block>> {
+	let Some(last) = last.filter(|last| last.core_index == core_index) else {
+		tracing::debug!(
+			target: LOG_TARGET,
+			?core_index,
+			"Dropping hedges without a matching segment.",
+		);
+		return Vec::new();
+	};
+
+	header_chains
+		.into_iter()
+		.map(|header_chain| Hedge {
+			core_index,
+			headers: last.headers.clone(),
+			proof: SchedulingProof { header_chain, ..last.proof.clone() },
+			resubmitted: last.resubmitted,
+			fresh: last.fresh,
+		})
+		.collect()
+}
+
+/// Remember a handled message's segment; a new segment supersedes its core's queued hedges.
+fn record_submission<Block: BlockT>(
+	pending: &mut VecDeque<Hedge<Block>>,
+	last_segment: &mut Option<SubmittedSegment<Block>>,
+	submitted: Option<SubmittedSegment<Block>>,
 ) {
-	pending.retain(|hedge| hedge.core_index != core_index);
-	pending.extend(hedges);
+	if let Some(segment) = &submitted {
+		pending.retain(|hedge| hedge.core_index != segment.core_index);
+	}
+	*last_segment = submitted;
 }
 
 /// Next unit of work: a ready message always wins over a queued hedged rebuild.
@@ -160,11 +200,16 @@ pub async fn run_collation_task<Block, RClient, CS, Backend, CHP>(
 	// Hedged rebuilds deferred behind their segment's main submission; served only when no new
 	// message is waiting, so main submissions for other cores always go first.
 	let mut pending: VecDeque<Hedge<Block>> = VecDeque::new();
+	// `Hedges` always directly follows its `Segment`, so only the last message's segment is kept.
+	let mut last_segment: Option<SubmittedSegment<Block>> = None;
 
 	while let Some(work) = next_work(&mut collator_receiver, &mut pending).await {
 		match work {
+			Work::Message(CollatorMessage::Hedges { core_index, header_chains }) => {
+				pending.extend(hedges_for(last_segment.take(), core_index, header_chains));
+			},
 			Work::Message(message) => {
-				if let Some((core_index, hedges)) = message
+				let submitted = message
 					.handle(
 						&collator_service,
 						&mut overseer_handle,
@@ -174,10 +219,8 @@ pub async fn run_collation_task<Block, RClient, CS, Backend, CHP>(
 						&code_hash_provider,
 						&resubmission_store,
 					)
-					.await
-				{
-					queue_hedges(&mut pending, core_index, hedges);
-				}
+					.await;
+				record_submission(&mut pending, &mut last_segment, submitted);
 			},
 			Work::Hedge(Hedge { core_index, headers, proof, resubmitted, fresh }) => {
 				// Store rows are written at import unless the session lookup failed; a block
@@ -300,8 +343,8 @@ impl<Block: BlockT> CollatorMessage<Block> {
 	/// subsystem via [`CollationGenerationMessage::SubmitSegment`]: a single collation becomes a
 	/// one-element V2 segment, a segment is submitted as V3.
 	///
-	/// The chosen scheduling parent's proof is submitted immediately; returns `Some` only for a V3
-	/// segment that got that far, with its core and hedged rebuilds for the caller to queue.
+	/// Returns `Some` only for a V3 segment that got submitted, so a following `Hedges` message can
+	/// rebuild it. `Hedges` itself is handled by the caller, not here.
 	async fn handle<RClient, Backend, CHP>(
 		self,
 		collator_service: &impl CollatorServiceInterface<Block>,
@@ -311,7 +354,7 @@ impl<Block: BlockT> CollatorMessage<Block> {
 		para_backend: &Backend,
 		code_hash_provider: &CHP,
 		resubmission_store: &ResubmissionStore<Block, Backend>,
-	) -> Option<(CoreIndex, Vec<Hedge<Block>>)>
+	) -> Option<SubmittedSegment<Block>>
 	where
 		RClient: RelayChainInterface + Clone + 'static,
 		Backend: sc_client_api::Backend<Block>,
@@ -348,7 +391,6 @@ impl<Block: BlockT> CollatorMessage<Block> {
 			},
 			CollatorMessage::Segment(CollatorSegmentMessage {
 				scheduling_proof,
-				hedged_proofs,
 				core_index,
 				unincluded_headers,
 				bundle,
@@ -378,18 +420,14 @@ impl<Block: BlockT> CollatorMessage<Block> {
 				}
 
 				// Hedges keep only the headers; the entries move into the main submission.
-				let headers: Vec<_> = if hedged_proofs.is_empty() {
-					Vec::new()
-				} else {
-					all_entries
-						.iter()
-						.flat_map(|e| e.blocks.iter().map(|b| b.header().clone()))
-						.collect()
-				};
+				let headers: Vec<_> = all_entries
+					.iter()
+					.flat_map(|e| e.blocks.iter().map(|b| b.header().clone()))
+					.collect();
 
 				submit_segment(
 					all_entries,
-					scheduling_proof,
+					scheduling_proof.clone(),
 					core_index,
 					false,
 					resubmitted,
@@ -401,17 +439,16 @@ impl<Block: BlockT> CollatorMessage<Block> {
 				)
 				.await;
 
-				let hedges = hedged_proofs
-					.into_iter()
-					.map(|proof| Hedge {
-						core_index,
-						headers: headers.clone(),
-						proof,
-						resubmitted,
-						fresh,
-					})
-					.collect();
-				Some((core_index, hedges))
+				Some(SubmittedSegment {
+					core_index,
+					headers,
+					proof: scheduling_proof,
+					resubmitted,
+					fresh,
+				})
+			},
+			CollatorMessage::Hedges { .. } => {
+				unreachable!("`Hedges` is matched by the run loop before `handle`; qed")
 			},
 		}
 	}
@@ -555,8 +592,9 @@ async fn build_collation<Block: BlockT, RClient: RelayChainInterface + Clone + '
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use cumulus_primitives_core::SchedulingInfoPayload;
 	use cumulus_test_client::runtime::Block;
-	use polkadot_primitives::Header as RelayHeader;
+	use polkadot_primitives::CoreSelector;
 	use std::time::Duration;
 
 	/// A header distinguished only by its block number.
@@ -581,7 +619,15 @@ mod tests {
 				extrinsics_root: Default::default(),
 				digest: Default::default(),
 			},
-			signed_scheduling_info: None,
+			signed_scheduling_info: Some(SignedSchedulingInfo {
+				payload: SchedulingInfoPayload::new(
+					CoreSelector(1),
+					2,
+					Default::default(),
+					Default::default(),
+				),
+				signature: [7; 64],
+			}),
 		}
 	}
 
@@ -598,7 +644,6 @@ mod tests {
 	fn segment_message(core_index: CoreIndex) -> CollatorMessage<Block> {
 		CollatorMessage::Segment(CollatorSegmentMessage {
 			scheduling_proof: scheduling_proof(0),
-			hedged_proofs: vec![],
 			core_index,
 			unincluded_headers: vec![],
 			bundle: None,
@@ -662,26 +707,63 @@ mod tests {
 		drop(tx);
 	}
 
-	/// A new segment for a core drops that core's queued hedges but leaves other cores untouched.
+	/// A `Hedges` message rebuilds the last segment once per chain, keeping the chosen proof's
+	/// other fields; without a segment on the same core it yields nothing.
 	#[test]
-	fn newer_segment_drops_stale_hedges() {
-		let mut pending = VecDeque::from([hedge(CoreIndex(0), 1), hedge(CoreIndex(1), 2)]);
-		let queued = |pending: &VecDeque<Hedge<Block>>| {
-			pending
-				.iter()
-				.map(|hedge| (hedge.core_index, hedge.proof.clone()))
-				.collect::<Vec<_>>()
+	fn follow_up_hedges_rebuild_the_last_segment() {
+		let last = || SubmittedSegment::<Block> {
+			core_index: CoreIndex(0),
+			headers: vec![header(100), header(101)],
+			proof: scheduling_proof(7),
+			resubmitted: 1,
+			fresh: 1,
 		};
+		let chains = vec![vec![scheduling_proof(8).internal_scheduling_parent_header], vec![]];
 
-		// Core 0's new segment replaces its queued hedges and goes to the back.
-		queue_hedges(&mut pending, CoreIndex(0), vec![hedge(CoreIndex(0), 3)]);
-		assert_eq!(
-			queued(&pending),
-			vec![(CoreIndex(1), scheduling_proof(2)), (CoreIndex(0), scheduling_proof(3))]
-		);
+		let hedges = hedges_for(Some(last()), CoreIndex(0), chains.clone());
+		assert_eq!(hedges.len(), 2);
+		for (hedge, chain) in hedges.iter().zip(&chains) {
+			assert_eq!(&hedge.proof.header_chain, chain);
+			assert_eq!(
+				hedge.proof.internal_scheduling_parent_header,
+				scheduling_proof(7).internal_scheduling_parent_header
+			);
+			assert_eq!(
+				hedge.proof.signed_scheduling_info,
+				scheduling_proof(7).signed_scheduling_info
+			);
+			assert_eq!(hedge.headers, vec![header(100), header(101)]);
+			assert_eq!((hedge.core_index, hedge.resubmitted, hedge.fresh), (CoreIndex(0), 1, 1));
+		}
 
-		// An unhedged segment for core 1 still supersedes core 1's queued hedges.
-		queue_hedges(&mut pending, CoreIndex(1), vec![]);
-		assert_eq!(queued(&pending), vec![(CoreIndex(0), scheduling_proof(3))]);
+		assert!(hedges_for(Some(last()), CoreIndex(1), chains.clone()).is_empty());
+		assert!(hedges_for::<Block>(None, CoreIndex(0), chains).is_empty());
+	}
+
+	/// Drives the run loop's bookkeeping: hedges follow their own segment and are superseded by
+	/// the next one; a message in between orphans them.
+	#[test]
+	fn run_loop_bookkeeping() {
+		let segment = |core| SubmittedSegment::<Block> {
+			core_index: core,
+			headers: vec![header(100)],
+			proof: scheduling_proof(7),
+			resubmitted: 0,
+			fresh: 1,
+		};
+		let (mut pending, mut last) = (VecDeque::new(), None);
+
+		record_submission(&mut pending, &mut last, Some(segment(CoreIndex(0))));
+		pending.extend(hedges_for(last.take(), CoreIndex(0), vec![vec![], vec![]]));
+		assert_eq!(pending.len(), 2);
+		// Another core's segment leaves core 0's hedges queued.
+		record_submission(&mut pending, &mut last, Some(segment(CoreIndex(1))));
+		assert_eq!(pending.iter().filter(|h| h.core_index == CoreIndex(0)).count(), 2);
+		record_submission(&mut pending, &mut last, Some(segment(CoreIndex(0))));
+		assert!(pending.is_empty());
+
+		record_submission(&mut pending, &mut last, None);
+		pending.extend(hedges_for(last.take(), CoreIndex(0), vec![vec![]]));
+		assert!(pending.is_empty());
 	}
 }
