@@ -1924,286 +1924,287 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1774 id=1774 data-nosnippet>1774</a>			),
 <a href=#1775 id=1775 data-nosnippet>1775</a>		};
 <a href=#1776 id=1776 data-nosnippet>1776</a>
-<a href=#1777 id=1777 data-nosnippet>1777</a>		<span class="kw">let </span>id = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Paymaster::pay(<span class="kw-2">&amp;</span>source, <span class="kw-2">&amp;</span>beneficiary, asset_kind, value)
-<a href=#1778 id=1778 data-nosnippet>1778</a>			.map_err(|<span class="kw">_</span>| Error::&lt;T, I&gt;::RefundError)<span class="question-mark">?</span>;
-<a href=#1779 id=1779 data-nosnippet>1779</a>
-<a href=#1780 id=1780 data-nosnippet>1780</a>		<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::Paid {
-<a href=#1781 id=1781 data-nosnippet>1781</a>			index: parent_bounty_id,
-<a href=#1782 id=1782 data-nosnippet>1782</a>			child_index: child_bounty_id,
-<a href=#1783 id=1783 data-nosnippet>1783</a>			payment_id: id,
-<a href=#1784 id=1784 data-nosnippet>1784</a>		});
-<a href=#1785 id=1785 data-nosnippet>1785</a>
-<a href=#1786 id=1786 data-nosnippet>1786</a>		<span class="prelude-val">Ok</span>(PaymentState::Attempted { id })
-<a href=#1787 id=1787 data-nosnippet>1787</a>	}
-<a href=#1788 id=1788 data-nosnippet>1788</a>
-<a href=#1789 id=1789 data-nosnippet>1789</a>	<span class="doccomment">/// Queries the status of the refund payment from the child-/bounty account/location to the
-<a href=#1790 id=1790 data-nosnippet>1790</a>	/// funding source and returns a new payment status.
-<a href=#1791 id=1791 data-nosnippet>1791</a>	</span><span class="kw">fn </span>do_check_refund_payment_status(
-<a href=#1792 id=1792 data-nosnippet>1792</a>		parent_bounty_id: BountyIndex,
-<a href=#1793 id=1793 data-nosnippet>1793</a>		child_bounty_id: <span class="prelude-ty">Option</span>&lt;BountyIndex&gt;,
-<a href=#1794 id=1794 data-nosnippet>1794</a>		payment_status: PaymentState&lt;PaymentIdOf&lt;T, I&gt;&gt;,
-<a href=#1795 id=1795 data-nosnippet>1795</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;PaymentState&lt;PaymentIdOf&lt;T, I&gt;&gt;, DispatchError&gt; {
-<a href=#1796 id=1796 data-nosnippet>1796</a>		<span class="kw">let </span>payment_id = payment_status.get_attempt_id().ok_or(Error::&lt;T, I&gt;::UnexpectedStatus)<span class="question-mark">?</span>;
-<a href=#1797 id=1797 data-nosnippet>1797</a>
-<a href=#1798 id=1798 data-nosnippet>1798</a>		<span class="kw">match </span>&lt;T <span class="kw">as </span>pallet::Config&lt;I&gt;&gt;::Paymaster::check_payment(payment_id) {
-<a href=#1799 id=1799 data-nosnippet>1799</a>			PaymentStatus::Success =&gt; {
-<a href=#1800 id=1800 data-nosnippet>1800</a>				<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::BountyRefundProcessed {
-<a href=#1801 id=1801 data-nosnippet>1801</a>					index: parent_bounty_id,
-<a href=#1802 id=1802 data-nosnippet>1802</a>					child_index: child_bounty_id,
-<a href=#1803 id=1803 data-nosnippet>1803</a>				});
-<a href=#1804 id=1804 data-nosnippet>1804</a>				<span class="prelude-val">Ok</span>(PaymentState::Succeeded)
-<a href=#1805 id=1805 data-nosnippet>1805</a>			},
-<a href=#1806 id=1806 data-nosnippet>1806</a>			PaymentStatus::InProgress | PaymentStatus::Unknown =&gt;
-<a href=#1807 id=1807 data-nosnippet>1807</a>			<span class="comment">// nothing new to report
-<a href=#1808 id=1808 data-nosnippet>1808</a>			</span>{
-<a href=#1809 id=1809 data-nosnippet>1809</a>				<span class="prelude-val">Err</span>(Error::&lt;T, I&gt;::RefundInconclusive.into())
-<a href=#1810 id=1810 data-nosnippet>1810</a>			},
-<a href=#1811 id=1811 data-nosnippet>1811</a>			PaymentStatus::Failure =&gt; {
-<a href=#1812 id=1812 data-nosnippet>1812</a>				<span class="comment">// assume payment has failed, allow user to retry
-<a href=#1813 id=1813 data-nosnippet>1813</a>				</span><span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::PaymentFailed {
-<a href=#1814 id=1814 data-nosnippet>1814</a>					index: parent_bounty_id,
-<a href=#1815 id=1815 data-nosnippet>1815</a>					child_index: child_bounty_id,
-<a href=#1816 id=1816 data-nosnippet>1816</a>					payment_id,
-<a href=#1817 id=1817 data-nosnippet>1817</a>				});
-<a href=#1818 id=1818 data-nosnippet>1818</a>				<span class="prelude-val">Ok</span>(PaymentState::Failed)
-<a href=#1819 id=1819 data-nosnippet>1819</a>			},
-<a href=#1820 id=1820 data-nosnippet>1820</a>		}
-<a href=#1821 id=1821 data-nosnippet>1821</a>	}
-<a href=#1822 id=1822 data-nosnippet>1822</a>
-<a href=#1823 id=1823 data-nosnippet>1823</a>	<span class="doccomment">/// Initializes payment from the child-/bounty to the beneficiary account/location.
-<a href=#1824 id=1824 data-nosnippet>1824</a>	</span><span class="kw">fn </span>do_process_payout_payment(
-<a href=#1825 id=1825 data-nosnippet>1825</a>		parent_bounty_id: BountyIndex,
-<a href=#1826 id=1826 data-nosnippet>1826</a>		child_bounty_id: <span class="prelude-ty">Option</span>&lt;BountyIndex&gt;,
-<a href=#1827 id=1827 data-nosnippet>1827</a>		asset_kind: T::AssetKind,
-<a href=#1828 id=1828 data-nosnippet>1828</a>		value: T::Balance,
-<a href=#1829 id=1829 data-nosnippet>1829</a>		beneficiary: T::Beneficiary,
-<a href=#1830 id=1830 data-nosnippet>1830</a>		payment_status: <span class="prelude-ty">Option</span>&lt;PaymentState&lt;PaymentIdOf&lt;T, I&gt;&gt;&gt;,
-<a href=#1831 id=1831 data-nosnippet>1831</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;PaymentState&lt;PaymentIdOf&lt;T, I&gt;&gt;, DispatchError&gt; {
-<a href=#1832 id=1832 data-nosnippet>1832</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(payment_status) = payment_status {
-<a href=#1833 id=1833 data-nosnippet>1833</a>			<span class="macro">ensure!</span>(payment_status.is_pending_or_failed(), Error::&lt;T, I&gt;::UnexpectedStatus);
-<a href=#1834 id=1834 data-nosnippet>1834</a>		}
-<a href=#1835 id=1835 data-nosnippet>1835</a>
-<a href=#1836 id=1836 data-nosnippet>1836</a>		<span class="kw">let </span>payout = <span class="self">Self</span>::calculate_payout(parent_bounty_id, child_bounty_id, value);
-<a href=#1837 id=1837 data-nosnippet>1837</a>
-<a href=#1838 id=1838 data-nosnippet>1838</a>		<span class="kw">let </span>source = <span class="kw">match </span>child_bounty_id {
-<a href=#1839 id=1839 data-nosnippet>1839</a>			<span class="prelude-val">None </span>=&gt; <span class="self">Self</span>::bounty_account(parent_bounty_id, asset_kind.clone())<span class="question-mark">?</span>,
-<a href=#1840 id=1840 data-nosnippet>1840</a>			<span class="prelude-val">Some</span>(child_bounty_id) =&gt; {
-<a href=#1841 id=1841 data-nosnippet>1841</a>				<span class="self">Self</span>::child_bounty_account(parent_bounty_id, child_bounty_id, asset_kind.clone())<span class="question-mark">?
-<a href=#1842 id=1842 data-nosnippet>1842</a>			</span>},
-<a href=#1843 id=1843 data-nosnippet>1843</a>		};
-<a href=#1844 id=1844 data-nosnippet>1844</a>
-<a href=#1845 id=1845 data-nosnippet>1845</a>		<span class="kw">let </span>id = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Paymaster::pay(<span class="kw-2">&amp;</span>source, <span class="kw-2">&amp;</span>beneficiary, asset_kind, payout)
-<a href=#1846 id=1846 data-nosnippet>1846</a>			.map_err(|<span class="kw">_</span>| Error::&lt;T, I&gt;::PayoutError)<span class="question-mark">?</span>;
-<a href=#1847 id=1847 data-nosnippet>1847</a>
-<a href=#1848 id=1848 data-nosnippet>1848</a>		<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::Paid {
-<a href=#1849 id=1849 data-nosnippet>1849</a>			index: parent_bounty_id,
-<a href=#1850 id=1850 data-nosnippet>1850</a>			child_index: child_bounty_id,
-<a href=#1851 id=1851 data-nosnippet>1851</a>			payment_id: id,
-<a href=#1852 id=1852 data-nosnippet>1852</a>		});
-<a href=#1853 id=1853 data-nosnippet>1853</a>
-<a href=#1854 id=1854 data-nosnippet>1854</a>		<span class="prelude-val">Ok</span>(PaymentState::Attempted { id })
-<a href=#1855 id=1855 data-nosnippet>1855</a>	}
-<a href=#1856 id=1856 data-nosnippet>1856</a>
-<a href=#1857 id=1857 data-nosnippet>1857</a>	<span class="doccomment">/// Queries the status of the payment from the child-/bounty to the beneficiary account/location
-<a href=#1858 id=1858 data-nosnippet>1858</a>	/// and returns a new payment status.
-<a href=#1859 id=1859 data-nosnippet>1859</a>	</span><span class="kw">fn </span>do_check_payout_payment_status(
-<a href=#1860 id=1860 data-nosnippet>1860</a>		parent_bounty_id: BountyIndex,
-<a href=#1861 id=1861 data-nosnippet>1861</a>		child_bounty_id: <span class="prelude-ty">Option</span>&lt;BountyIndex&gt;,
-<a href=#1862 id=1862 data-nosnippet>1862</a>		asset_kind: T::AssetKind,
-<a href=#1863 id=1863 data-nosnippet>1863</a>		value: T::Balance,
-<a href=#1864 id=1864 data-nosnippet>1864</a>		beneficiary: T::Beneficiary,
-<a href=#1865 id=1865 data-nosnippet>1865</a>		payment_status: PaymentState&lt;PaymentIdOf&lt;T, I&gt;&gt;,
-<a href=#1866 id=1866 data-nosnippet>1866</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;PaymentState&lt;PaymentIdOf&lt;T, I&gt;&gt;, DispatchError&gt; {
-<a href=#1867 id=1867 data-nosnippet>1867</a>		<span class="kw">let </span>payment_id = payment_status.get_attempt_id().ok_or(Error::&lt;T, I&gt;::UnexpectedStatus)<span class="question-mark">?</span>;
-<a href=#1868 id=1868 data-nosnippet>1868</a>
-<a href=#1869 id=1869 data-nosnippet>1869</a>		<span class="kw">match </span>&lt;T <span class="kw">as </span>pallet::Config&lt;I&gt;&gt;::Paymaster::check_payment(payment_id) {
-<a href=#1870 id=1870 data-nosnippet>1870</a>			PaymentStatus::Success =&gt; {
-<a href=#1871 id=1871 data-nosnippet>1871</a>				<span class="kw">let </span>payout = <span class="self">Self</span>::calculate_payout(parent_bounty_id, child_bounty_id, value);
-<a href=#1872 id=1872 data-nosnippet>1872</a>
-<a href=#1873 id=1873 data-nosnippet>1873</a>				<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::BountyPayoutProcessed {
-<a href=#1874 id=1874 data-nosnippet>1874</a>					index: parent_bounty_id,
-<a href=#1875 id=1875 data-nosnippet>1875</a>					child_index: child_bounty_id,
-<a href=#1876 id=1876 data-nosnippet>1876</a>					asset_kind: asset_kind.clone(),
-<a href=#1877 id=1877 data-nosnippet>1877</a>					value: payout,
-<a href=#1878 id=1878 data-nosnippet>1878</a>					beneficiary,
-<a href=#1879 id=1879 data-nosnippet>1879</a>				});
-<a href=#1880 id=1880 data-nosnippet>1880</a>
-<a href=#1881 id=1881 data-nosnippet>1881</a>				<span class="prelude-val">Ok</span>(PaymentState::Succeeded)
-<a href=#1882 id=1882 data-nosnippet>1882</a>			},
-<a href=#1883 id=1883 data-nosnippet>1883</a>			PaymentStatus::InProgress | PaymentStatus::Unknown =&gt;
-<a href=#1884 id=1884 data-nosnippet>1884</a>			<span class="comment">// nothing new to report
-<a href=#1885 id=1885 data-nosnippet>1885</a>			</span>{
-<a href=#1886 id=1886 data-nosnippet>1886</a>				<span class="prelude-val">Err</span>(Error::&lt;T, I&gt;::PayoutInconclusive.into())
-<a href=#1887 id=1887 data-nosnippet>1887</a>			},
-<a href=#1888 id=1888 data-nosnippet>1888</a>			PaymentStatus::Failure =&gt; {
-<a href=#1889 id=1889 data-nosnippet>1889</a>				<span class="comment">// assume payment has failed, allow user to retry
-<a href=#1890 id=1890 data-nosnippet>1890</a>				</span><span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::PaymentFailed {
-<a href=#1891 id=1891 data-nosnippet>1891</a>					index: parent_bounty_id,
-<a href=#1892 id=1892 data-nosnippet>1892</a>					child_index: child_bounty_id,
-<a href=#1893 id=1893 data-nosnippet>1893</a>					payment_id,
-<a href=#1894 id=1894 data-nosnippet>1894</a>				});
-<a href=#1895 id=1895 data-nosnippet>1895</a>				<span class="prelude-val">Ok</span>(PaymentState::Failed)
-<a href=#1896 id=1896 data-nosnippet>1896</a>			},
-<a href=#1897 id=1897 data-nosnippet>1897</a>		}
-<a href=#1898 id=1898 data-nosnippet>1898</a>	}
-<a href=#1899 id=1899 data-nosnippet>1899</a>}
-<a href=#1900 id=1900 data-nosnippet>1900</a>
-<a href=#1901 id=1901 data-nosnippet>1901</a><span class="doccomment">/// Type implementing curator deposit as a percentage of the child-/bounty value.
-<a href=#1902 id=1902 data-nosnippet>1902</a>///
-<a href=#1903 id=1903 data-nosnippet>1903</a>/// It implements `Convert` trait and can be used with types like `HoldConsideration` implementing
-<a href=#1904 id=1904 data-nosnippet>1904</a>/// `Consideration` trait.
-<a href=#1905 id=1905 data-nosnippet>1905</a></span><span class="kw">pub struct </span>CuratorDepositAmount&lt;Mult, Min, Max, Balance&gt;(PhantomData&lt;(Mult, Min, Max, Balance)&gt;);
-<a href=#1906 id=1906 data-nosnippet>1906</a><span class="kw">impl</span>&lt;Mult, Min, Max, Balance&gt; Convert&lt;Balance, Balance&gt;
-<a href=#1907 id=1907 data-nosnippet>1907</a>	<span class="kw">for </span>CuratorDepositAmount&lt;Mult, Min, Max, Balance&gt;
-<a href=#1908 id=1908 data-nosnippet>1908</a><span class="kw">where
-<a href=#1909 id=1909 data-nosnippet>1909</a>	</span>Balance: frame_support::traits::tokens::Balance,
-<a href=#1910 id=1910 data-nosnippet>1910</a>	Min: Get&lt;<span class="prelude-ty">Option</span>&lt;Balance&gt;&gt;,
-<a href=#1911 id=1911 data-nosnippet>1911</a>	Max: Get&lt;<span class="prelude-ty">Option</span>&lt;Balance&gt;&gt;,
-<a href=#1912 id=1912 data-nosnippet>1912</a>	Mult: Get&lt;Permill&gt;,
-<a href=#1913 id=1913 data-nosnippet>1913</a>{
-<a href=#1914 id=1914 data-nosnippet>1914</a>	<span class="kw">fn </span>convert(value: Balance) -&gt; Balance {
-<a href=#1915 id=1915 data-nosnippet>1915</a>		<span class="kw">let </span><span class="kw-2">mut </span>deposit = Mult::get().mul_floor(value);
-<a href=#1916 id=1916 data-nosnippet>1916</a>
-<a href=#1917 id=1917 data-nosnippet>1917</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(min) = Min::get() {
-<a href=#1918 id=1918 data-nosnippet>1918</a>			<span class="kw">if </span>deposit &lt; min {
-<a href=#1919 id=1919 data-nosnippet>1919</a>				deposit = min;
-<a href=#1920 id=1920 data-nosnippet>1920</a>			}
-<a href=#1921 id=1921 data-nosnippet>1921</a>		}
-<a href=#1922 id=1922 data-nosnippet>1922</a>
-<a href=#1923 id=1923 data-nosnippet>1923</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(max) = Max::get() {
-<a href=#1924 id=1924 data-nosnippet>1924</a>			<span class="kw">if </span>deposit &gt; max {
-<a href=#1925 id=1925 data-nosnippet>1925</a>				deposit = max;
-<a href=#1926 id=1926 data-nosnippet>1926</a>			}
-<a href=#1927 id=1927 data-nosnippet>1927</a>		}
-<a href=#1928 id=1928 data-nosnippet>1928</a>
-<a href=#1929 id=1929 data-nosnippet>1929</a>		deposit
-<a href=#1930 id=1930 data-nosnippet>1930</a>	}
-<a href=#1931 id=1931 data-nosnippet>1931</a>}
-<a href=#1932 id=1932 data-nosnippet>1932</a>
-<a href=#1933 id=1933 data-nosnippet>1933</a><span class="doccomment">/// Derives the funding `AccountId` from the `PalletId` and converts it into the
-<a href=#1934 id=1934 data-nosnippet>1934</a>/// bounty `Beneficiary`, used as the source of bounty funds.
-<a href=#1935 id=1935 data-nosnippet>1935</a>///
-<a href=#1936 id=1936 data-nosnippet>1936</a>/// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
-<a href=#1937 id=1937 data-nosnippet>1937</a>/// # Type Parameters
-<a href=#1938 id=1938 data-nosnippet>1938</a>/// - `Id`: The pallet ID getter
-<a href=#1939 id=1939 data-nosnippet>1939</a>/// - `T`: The pallet configuration
-<a href=#1940 id=1940 data-nosnippet>1940</a>/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
-<a href=#1941 id=1941 data-nosnippet>1941</a>///   same.
-<a href=#1942 id=1942 data-nosnippet>1942</a>/// - `I`: Instance parameter (default: `()`)
-<a href=#1943 id=1943 data-nosnippet>1943</a></span><span class="kw">pub struct </span>PalletIdAsFundingSource&lt;Id, T, C, I = ()&gt;(PhantomData&lt;(Id, T, C, I)&gt;);
-<a href=#1944 id=1944 data-nosnippet>1944</a><span class="kw">impl</span>&lt;Id, T, C, I&gt; TryConvert&lt;T::AssetKind, T::Beneficiary&gt; <span class="kw">for </span>PalletIdAsFundingSource&lt;Id, T, C, I&gt;
-<a href=#1945 id=1945 data-nosnippet>1945</a><span class="kw">where
-<a href=#1946 id=1946 data-nosnippet>1946</a>	</span>Id: Get&lt;PalletId&gt;,
-<a href=#1947 id=1947 data-nosnippet>1947</a>	T: <span class="kw">crate</span>::Config&lt;I&gt;,
-<a href=#1948 id=1948 data-nosnippet>1948</a>	C: Convert&lt;T::AccountId, T::Beneficiary&gt;,
-<a href=#1949 id=1949 data-nosnippet>1949</a>{
-<a href=#1950 id=1950 data-nosnippet>1950</a>	<span class="kw">fn </span>try_convert(_asset_kind: T::AssetKind) -&gt; <span class="prelude-ty">Result</span>&lt;T::Beneficiary, T::AssetKind&gt; {
-<a href=#1951 id=1951 data-nosnippet>1951</a>		<span class="kw">let </span>account: T::AccountId = Id::get().into_account_truncating();
-<a href=#1952 id=1952 data-nosnippet>1952</a>		<span class="prelude-val">Ok</span>(C::convert(account))
-<a href=#1953 id=1953 data-nosnippet>1953</a>	}
-<a href=#1954 id=1954 data-nosnippet>1954</a>}
-<a href=#1955 id=1955 data-nosnippet>1955</a>
-<a href=#1956 id=1956 data-nosnippet>1956</a><span class="doccomment">/// Standard 3-byte prefix for bounty account derivation.
-<a href=#1957 id=1957 data-nosnippet>1957</a>///
-<a href=#1958 id=1958 data-nosnippet>1958</a>/// Returns `b"mbt"` (multi-asset bounty). Use this type when configuring
-<a href=#1959 id=1959 data-nosnippet>1959</a>/// [`BountySourceFromPalletId`] unless your runtime requires a custom prefix.
-<a href=#1960 id=1960 data-nosnippet>1960</a></span><span class="kw">pub struct </span>BountyAccountPrefix;
-<a href=#1961 id=1961 data-nosnippet>1961</a><span class="kw">impl </span>Get&lt;[u8; <span class="number">3</span>]&gt; <span class="kw">for </span>BountyAccountPrefix {
-<a href=#1962 id=1962 data-nosnippet>1962</a>	<span class="kw">fn </span>get() -&gt; [u8; <span class="number">3</span>] {
-<a href=#1963 id=1963 data-nosnippet>1963</a>		<span class="kw-2">*</span><span class="string">b"mbt"
-<a href=#1964 id=1964 data-nosnippet>1964</a>	</span>}
-<a href=#1965 id=1965 data-nosnippet>1965</a>}
-<a href=#1966 id=1966 data-nosnippet>1966</a>
-<a href=#1967 id=1967 data-nosnippet>1967</a><span class="doccomment">/// Standard 3-byte prefix for child-bounty account derivation.
-<a href=#1968 id=1968 data-nosnippet>1968</a>///
-<a href=#1969 id=1969 data-nosnippet>1969</a>/// Returns `b"mcb"` (multi-asset child bounty). Use this type when configuring
-<a href=#1970 id=1970 data-nosnippet>1970</a>/// [`ChildBountySourceFromPalletId`] unless your runtime requires a custom prefix.
-<a href=#1971 id=1971 data-nosnippet>1971</a></span><span class="kw">pub struct </span>ChildBountyAccountPrefix;
-<a href=#1972 id=1972 data-nosnippet>1972</a><span class="kw">impl </span>Get&lt;[u8; <span class="number">3</span>]&gt; <span class="kw">for </span>ChildBountyAccountPrefix {
-<a href=#1973 id=1973 data-nosnippet>1973</a>	<span class="kw">fn </span>get() -&gt; [u8; <span class="number">3</span>] {
-<a href=#1974 id=1974 data-nosnippet>1974</a>		<span class="kw-2">*</span><span class="string">b"mcb"
-<a href=#1975 id=1975 data-nosnippet>1975</a>	</span>}
-<a href=#1976 id=1976 data-nosnippet>1976</a>}
-<a href=#1977 id=1977 data-nosnippet>1977</a>
-<a href=#1978 id=1978 data-nosnippet>1978</a><span class="doccomment">/// Derives a bounty `AccountId` from the `PalletId` and the `BountyIndex`,
-<a href=#1979 id=1979 data-nosnippet>1979</a>/// then converts it into the corresponding bounty `Beneficiary`.
-<a href=#1980 id=1980 data-nosnippet>1980</a>///
-<a href=#1981 id=1981 data-nosnippet>1981</a>/// The account is derived using a fixed-size 3-byte prefix (e.g. `b"mbt"` for multi-asset bounty).
-<a href=#1982 id=1982 data-nosnippet>1982</a>/// The prefix is supplied via the `Prefix` type parameter, which must implement `Get&lt;[u8; 3]&gt;`.
-<a href=#1983 id=1983 data-nosnippet>1983</a>/// This ensures the encoded sub-account seed has a predictable size and avoids truncation issues.
-<a href=#1984 id=1984 data-nosnippet>1984</a>///
-<a href=#1985 id=1985 data-nosnippet>1985</a>/// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
-<a href=#1986 id=1986 data-nosnippet>1986</a>///
-<a href=#1987 id=1987 data-nosnippet>1987</a>/// # Type Parameters
-<a href=#1988 id=1988 data-nosnippet>1988</a>/// - `Id`: The pallet ID getter
-<a href=#1989 id=1989 data-nosnippet>1989</a>/// - `Prefix`: Getter for the 3-byte account prefix (e.g. [`BountyAccountPrefix`]). Must implement
-<a href=#1990 id=1990 data-nosnippet>1990</a>///   `Get&lt;[u8; 3]&gt;`. Fixed at 3 bytes to guarantee predictable seed size and avoid truncation of
-<a href=#1991 id=1991 data-nosnippet>1991</a>///   the bounty index.
-<a href=#1992 id=1992 data-nosnippet>1992</a>/// - `T`: The pallet configuration
-<a href=#1993 id=1993 data-nosnippet>1993</a>/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
-<a href=#1994 id=1994 data-nosnippet>1994</a>///   same.
-<a href=#1995 id=1995 data-nosnippet>1995</a>/// - `I`: Instance parameter (default: `()`)
-<a href=#1996 id=1996 data-nosnippet>1996</a></span><span class="kw">pub struct </span>BountySourceFromPalletId&lt;Id, Prefix, T, C, I = ()&gt;(PhantomData&lt;(Id, Prefix, T, C, I)&gt;);
-<a href=#1997 id=1997 data-nosnippet>1997</a><span class="kw">impl</span>&lt;Id, Prefix, T, C, I&gt; TryConvert&lt;(BountyIndex, T::AssetKind), T::Beneficiary&gt;
-<a href=#1998 id=1998 data-nosnippet>1998</a>	<span class="kw">for </span>BountySourceFromPalletId&lt;Id, Prefix, T, C, I&gt;
-<a href=#1999 id=1999 data-nosnippet>1999</a><span class="kw">where
-<a href=#2000 id=2000 data-nosnippet>2000</a>	</span>Id: Get&lt;PalletId&gt;,
-<a href=#2001 id=2001 data-nosnippet>2001</a>	Prefix: Get&lt;[u8; <span class="number">3</span>]&gt;,
-<a href=#2002 id=2002 data-nosnippet>2002</a>	T: <span class="kw">crate</span>::Config&lt;I&gt;,
-<a href=#2003 id=2003 data-nosnippet>2003</a>	C: Convert&lt;T::AccountId, T::Beneficiary&gt;,
-<a href=#2004 id=2004 data-nosnippet>2004</a>{
-<a href=#2005 id=2005 data-nosnippet>2005</a>	<span class="kw">fn </span>try_convert(
-<a href=#2006 id=2006 data-nosnippet>2006</a>		(parent_bounty_id, _asset_kind): (BountyIndex, T::AssetKind),
-<a href=#2007 id=2007 data-nosnippet>2007</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;T::Beneficiary, (BountyIndex, T::AssetKind)&gt; {
-<a href=#2008 id=2008 data-nosnippet>2008</a>		<span class="kw">let </span>account: T::AccountId =
-<a href=#2009 id=2009 data-nosnippet>2009</a>			Id::get().into_sub_account_truncating((Prefix::get(), parent_bounty_id));
-<a href=#2010 id=2010 data-nosnippet>2010</a>		<span class="prelude-val">Ok</span>(C::convert(account))
-<a href=#2011 id=2011 data-nosnippet>2011</a>	}
-<a href=#2012 id=2012 data-nosnippet>2012</a>}
-<a href=#2013 id=2013 data-nosnippet>2013</a>
-<a href=#2014 id=2014 data-nosnippet>2014</a><span class="doccomment">/// Derives a child-bounty `AccountId` from the `PalletId`, the parent index,
-<a href=#2015 id=2015 data-nosnippet>2015</a>/// and the child index, then converts it into the child-bounty `Beneficiary`.
-<a href=#2016 id=2016 data-nosnippet>2016</a>///
-<a href=#2017 id=2017 data-nosnippet>2017</a>/// The account is derived using a fixed-size 3-byte prefix (e.g. `b"mcb"` for multi-asset child
-<a href=#2018 id=2018 data-nosnippet>2018</a>/// bounty). The prefix is supplied via the `Prefix` type parameter, which must implement
-<a href=#2019 id=2019 data-nosnippet>2019</a>/// `Get&lt;[u8; 3]&gt;`. Using a different prefix from the parent bounty ensures distinct account IDs
-<a href=#2020 id=2020 data-nosnippet>2020</a>/// when parent and child indices coincide.
-<a href=#2021 id=2021 data-nosnippet>2021</a>///
-<a href=#2022 id=2022 data-nosnippet>2022</a>/// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
-<a href=#2023 id=2023 data-nosnippet>2023</a>///
-<a href=#2024 id=2024 data-nosnippet>2024</a>/// # Type Parameters
-<a href=#2025 id=2025 data-nosnippet>2025</a>/// - `Id`: The pallet ID getter
-<a href=#2026 id=2026 data-nosnippet>2026</a>/// - `Prefix`: Getter for the 3-byte account prefix (e.g. [`ChildBountyAccountPrefix`]). Must
-<a href=#2027 id=2027 data-nosnippet>2027</a>///   implement `Get&lt;[u8; 3]&gt;`. Fixed at 3 bytes to guarantee predictable seed size and avoid
-<a href=#2028 id=2028 data-nosnippet>2028</a>///   truncation of the bounty indices.
-<a href=#2029 id=2029 data-nosnippet>2029</a>/// - `T`: The pallet configuration
-<a href=#2030 id=2030 data-nosnippet>2030</a>/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
-<a href=#2031 id=2031 data-nosnippet>2031</a>///   same.
-<a href=#2032 id=2032 data-nosnippet>2032</a>/// - `I`: Instance parameter (default: `()`)
-<a href=#2033 id=2033 data-nosnippet>2033</a></span><span class="kw">pub struct </span>ChildBountySourceFromPalletId&lt;Id, Prefix, T, C, I = ()&gt;(
-<a href=#2034 id=2034 data-nosnippet>2034</a>	PhantomData&lt;(Id, Prefix, T, C, I)&gt;,
-<a href=#2035 id=2035 data-nosnippet>2035</a>);
-<a href=#2036 id=2036 data-nosnippet>2036</a><span class="kw">impl</span>&lt;Id, Prefix, T, C, I&gt; TryConvert&lt;(BountyIndex, BountyIndex, T::AssetKind), T::Beneficiary&gt;
-<a href=#2037 id=2037 data-nosnippet>2037</a>	<span class="kw">for </span>ChildBountySourceFromPalletId&lt;Id, Prefix, T, C, I&gt;
-<a href=#2038 id=2038 data-nosnippet>2038</a><span class="kw">where
-<a href=#2039 id=2039 data-nosnippet>2039</a>	</span>Id: Get&lt;PalletId&gt;,
-<a href=#2040 id=2040 data-nosnippet>2040</a>	Prefix: Get&lt;[u8; <span class="number">3</span>]&gt;,
-<a href=#2041 id=2041 data-nosnippet>2041</a>	T: <span class="kw">crate</span>::Config&lt;I&gt;,
-<a href=#2042 id=2042 data-nosnippet>2042</a>	C: Convert&lt;T::AccountId, T::Beneficiary&gt;,
-<a href=#2043 id=2043 data-nosnippet>2043</a>{
-<a href=#2044 id=2044 data-nosnippet>2044</a>	<span class="kw">fn </span>try_convert(
-<a href=#2045 id=2045 data-nosnippet>2045</a>		(parent_bounty_id, child_bounty_id, _asset_kind): (BountyIndex, BountyIndex, T::AssetKind),
-<a href=#2046 id=2046 data-nosnippet>2046</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;T::Beneficiary, (BountyIndex, BountyIndex, T::AssetKind)&gt; {
-<a href=#2047 id=2047 data-nosnippet>2047</a>		<span class="comment">// The prefix is distinct from the bounty prefix so AccountIds differ when parent and
-<a href=#2048 id=2048 data-nosnippet>2048</a>		// child index are the same.
-<a href=#2049 id=2049 data-nosnippet>2049</a>		</span><span class="kw">let </span>account: T::AccountId = Id::get().into_sub_account_truncating((
-<a href=#2050 id=2050 data-nosnippet>2050</a>			Prefix::get(),
-<a href=#2051 id=2051 data-nosnippet>2051</a>			parent_bounty_id,
-<a href=#2052 id=2052 data-nosnippet>2052</a>			child_bounty_id,
-<a href=#2053 id=2053 data-nosnippet>2053</a>		));
-<a href=#2054 id=2054 data-nosnippet>2054</a>		<span class="prelude-val">Ok</span>(C::convert(account))
-<a href=#2055 id=2055 data-nosnippet>2055</a>	}
-<a href=#2056 id=2056 data-nosnippet>2056</a>}
+<a href=#1777 id=1777 data-nosnippet>1777</a>		<span class="kw">let </span>refund = <span class="self">Self</span>::calculate_payout(parent_bounty_id, child_bounty_id, value);
+<a href=#1778 id=1778 data-nosnippet>1778</a>		<span class="kw">let </span>id = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Paymaster::pay(<span class="kw-2">&amp;</span>source, <span class="kw-2">&amp;</span>beneficiary, asset_kind, refund)
+<a href=#1779 id=1779 data-nosnippet>1779</a>			.map_err(|<span class="kw">_</span>| Error::&lt;T, I&gt;::RefundError)<span class="question-mark">?</span>;
+<a href=#1780 id=1780 data-nosnippet>1780</a>
+<a href=#1781 id=1781 data-nosnippet>1781</a>		<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::Paid {
+<a href=#1782 id=1782 data-nosnippet>1782</a>			index: parent_bounty_id,
+<a href=#1783 id=1783 data-nosnippet>1783</a>			child_index: child_bounty_id,
+<a href=#1784 id=1784 data-nosnippet>1784</a>			payment_id: id,
+<a href=#1785 id=1785 data-nosnippet>1785</a>		});
+<a href=#1786 id=1786 data-nosnippet>1786</a>
+<a href=#1787 id=1787 data-nosnippet>1787</a>		<span class="prelude-val">Ok</span>(PaymentState::Attempted { id })
+<a href=#1788 id=1788 data-nosnippet>1788</a>	}
+<a href=#1789 id=1789 data-nosnippet>1789</a>
+<a href=#1790 id=1790 data-nosnippet>1790</a>	<span class="doccomment">/// Queries the status of the refund payment from the child-/bounty account/location to the
+<a href=#1791 id=1791 data-nosnippet>1791</a>	/// funding source and returns a new payment status.
+<a href=#1792 id=1792 data-nosnippet>1792</a>	</span><span class="kw">fn </span>do_check_refund_payment_status(
+<a href=#1793 id=1793 data-nosnippet>1793</a>		parent_bounty_id: BountyIndex,
+<a href=#1794 id=1794 data-nosnippet>1794</a>		child_bounty_id: <span class="prelude-ty">Option</span>&lt;BountyIndex&gt;,
+<a href=#1795 id=1795 data-nosnippet>1795</a>		payment_status: PaymentState&lt;PaymentIdOf&lt;T, I&gt;&gt;,
+<a href=#1796 id=1796 data-nosnippet>1796</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;PaymentState&lt;PaymentIdOf&lt;T, I&gt;&gt;, DispatchError&gt; {
+<a href=#1797 id=1797 data-nosnippet>1797</a>		<span class="kw">let </span>payment_id = payment_status.get_attempt_id().ok_or(Error::&lt;T, I&gt;::UnexpectedStatus)<span class="question-mark">?</span>;
+<a href=#1798 id=1798 data-nosnippet>1798</a>
+<a href=#1799 id=1799 data-nosnippet>1799</a>		<span class="kw">match </span>&lt;T <span class="kw">as </span>pallet::Config&lt;I&gt;&gt;::Paymaster::check_payment(payment_id) {
+<a href=#1800 id=1800 data-nosnippet>1800</a>			PaymentStatus::Success =&gt; {
+<a href=#1801 id=1801 data-nosnippet>1801</a>				<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::BountyRefundProcessed {
+<a href=#1802 id=1802 data-nosnippet>1802</a>					index: parent_bounty_id,
+<a href=#1803 id=1803 data-nosnippet>1803</a>					child_index: child_bounty_id,
+<a href=#1804 id=1804 data-nosnippet>1804</a>				});
+<a href=#1805 id=1805 data-nosnippet>1805</a>				<span class="prelude-val">Ok</span>(PaymentState::Succeeded)
+<a href=#1806 id=1806 data-nosnippet>1806</a>			},
+<a href=#1807 id=1807 data-nosnippet>1807</a>			PaymentStatus::InProgress | PaymentStatus::Unknown =&gt;
+<a href=#1808 id=1808 data-nosnippet>1808</a>			<span class="comment">// nothing new to report
+<a href=#1809 id=1809 data-nosnippet>1809</a>			</span>{
+<a href=#1810 id=1810 data-nosnippet>1810</a>				<span class="prelude-val">Err</span>(Error::&lt;T, I&gt;::RefundInconclusive.into())
+<a href=#1811 id=1811 data-nosnippet>1811</a>			},
+<a href=#1812 id=1812 data-nosnippet>1812</a>			PaymentStatus::Failure =&gt; {
+<a href=#1813 id=1813 data-nosnippet>1813</a>				<span class="comment">// assume payment has failed, allow user to retry
+<a href=#1814 id=1814 data-nosnippet>1814</a>				</span><span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::PaymentFailed {
+<a href=#1815 id=1815 data-nosnippet>1815</a>					index: parent_bounty_id,
+<a href=#1816 id=1816 data-nosnippet>1816</a>					child_index: child_bounty_id,
+<a href=#1817 id=1817 data-nosnippet>1817</a>					payment_id,
+<a href=#1818 id=1818 data-nosnippet>1818</a>				});
+<a href=#1819 id=1819 data-nosnippet>1819</a>				<span class="prelude-val">Ok</span>(PaymentState::Failed)
+<a href=#1820 id=1820 data-nosnippet>1820</a>			},
+<a href=#1821 id=1821 data-nosnippet>1821</a>		}
+<a href=#1822 id=1822 data-nosnippet>1822</a>	}
+<a href=#1823 id=1823 data-nosnippet>1823</a>
+<a href=#1824 id=1824 data-nosnippet>1824</a>	<span class="doccomment">/// Initializes payment from the child-/bounty to the beneficiary account/location.
+<a href=#1825 id=1825 data-nosnippet>1825</a>	</span><span class="kw">fn </span>do_process_payout_payment(
+<a href=#1826 id=1826 data-nosnippet>1826</a>		parent_bounty_id: BountyIndex,
+<a href=#1827 id=1827 data-nosnippet>1827</a>		child_bounty_id: <span class="prelude-ty">Option</span>&lt;BountyIndex&gt;,
+<a href=#1828 id=1828 data-nosnippet>1828</a>		asset_kind: T::AssetKind,
+<a href=#1829 id=1829 data-nosnippet>1829</a>		value: T::Balance,
+<a href=#1830 id=1830 data-nosnippet>1830</a>		beneficiary: T::Beneficiary,
+<a href=#1831 id=1831 data-nosnippet>1831</a>		payment_status: <span class="prelude-ty">Option</span>&lt;PaymentState&lt;PaymentIdOf&lt;T, I&gt;&gt;&gt;,
+<a href=#1832 id=1832 data-nosnippet>1832</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;PaymentState&lt;PaymentIdOf&lt;T, I&gt;&gt;, DispatchError&gt; {
+<a href=#1833 id=1833 data-nosnippet>1833</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(payment_status) = payment_status {
+<a href=#1834 id=1834 data-nosnippet>1834</a>			<span class="macro">ensure!</span>(payment_status.is_pending_or_failed(), Error::&lt;T, I&gt;::UnexpectedStatus);
+<a href=#1835 id=1835 data-nosnippet>1835</a>		}
+<a href=#1836 id=1836 data-nosnippet>1836</a>
+<a href=#1837 id=1837 data-nosnippet>1837</a>		<span class="kw">let </span>payout = <span class="self">Self</span>::calculate_payout(parent_bounty_id, child_bounty_id, value);
+<a href=#1838 id=1838 data-nosnippet>1838</a>
+<a href=#1839 id=1839 data-nosnippet>1839</a>		<span class="kw">let </span>source = <span class="kw">match </span>child_bounty_id {
+<a href=#1840 id=1840 data-nosnippet>1840</a>			<span class="prelude-val">None </span>=&gt; <span class="self">Self</span>::bounty_account(parent_bounty_id, asset_kind.clone())<span class="question-mark">?</span>,
+<a href=#1841 id=1841 data-nosnippet>1841</a>			<span class="prelude-val">Some</span>(child_bounty_id) =&gt; {
+<a href=#1842 id=1842 data-nosnippet>1842</a>				<span class="self">Self</span>::child_bounty_account(parent_bounty_id, child_bounty_id, asset_kind.clone())<span class="question-mark">?
+<a href=#1843 id=1843 data-nosnippet>1843</a>			</span>},
+<a href=#1844 id=1844 data-nosnippet>1844</a>		};
+<a href=#1845 id=1845 data-nosnippet>1845</a>
+<a href=#1846 id=1846 data-nosnippet>1846</a>		<span class="kw">let </span>id = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Paymaster::pay(<span class="kw-2">&amp;</span>source, <span class="kw-2">&amp;</span>beneficiary, asset_kind, payout)
+<a href=#1847 id=1847 data-nosnippet>1847</a>			.map_err(|<span class="kw">_</span>| Error::&lt;T, I&gt;::PayoutError)<span class="question-mark">?</span>;
+<a href=#1848 id=1848 data-nosnippet>1848</a>
+<a href=#1849 id=1849 data-nosnippet>1849</a>		<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::Paid {
+<a href=#1850 id=1850 data-nosnippet>1850</a>			index: parent_bounty_id,
+<a href=#1851 id=1851 data-nosnippet>1851</a>			child_index: child_bounty_id,
+<a href=#1852 id=1852 data-nosnippet>1852</a>			payment_id: id,
+<a href=#1853 id=1853 data-nosnippet>1853</a>		});
+<a href=#1854 id=1854 data-nosnippet>1854</a>
+<a href=#1855 id=1855 data-nosnippet>1855</a>		<span class="prelude-val">Ok</span>(PaymentState::Attempted { id })
+<a href=#1856 id=1856 data-nosnippet>1856</a>	}
+<a href=#1857 id=1857 data-nosnippet>1857</a>
+<a href=#1858 id=1858 data-nosnippet>1858</a>	<span class="doccomment">/// Queries the status of the payment from the child-/bounty to the beneficiary account/location
+<a href=#1859 id=1859 data-nosnippet>1859</a>	/// and returns a new payment status.
+<a href=#1860 id=1860 data-nosnippet>1860</a>	</span><span class="kw">fn </span>do_check_payout_payment_status(
+<a href=#1861 id=1861 data-nosnippet>1861</a>		parent_bounty_id: BountyIndex,
+<a href=#1862 id=1862 data-nosnippet>1862</a>		child_bounty_id: <span class="prelude-ty">Option</span>&lt;BountyIndex&gt;,
+<a href=#1863 id=1863 data-nosnippet>1863</a>		asset_kind: T::AssetKind,
+<a href=#1864 id=1864 data-nosnippet>1864</a>		value: T::Balance,
+<a href=#1865 id=1865 data-nosnippet>1865</a>		beneficiary: T::Beneficiary,
+<a href=#1866 id=1866 data-nosnippet>1866</a>		payment_status: PaymentState&lt;PaymentIdOf&lt;T, I&gt;&gt;,
+<a href=#1867 id=1867 data-nosnippet>1867</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;PaymentState&lt;PaymentIdOf&lt;T, I&gt;&gt;, DispatchError&gt; {
+<a href=#1868 id=1868 data-nosnippet>1868</a>		<span class="kw">let </span>payment_id = payment_status.get_attempt_id().ok_or(Error::&lt;T, I&gt;::UnexpectedStatus)<span class="question-mark">?</span>;
+<a href=#1869 id=1869 data-nosnippet>1869</a>
+<a href=#1870 id=1870 data-nosnippet>1870</a>		<span class="kw">match </span>&lt;T <span class="kw">as </span>pallet::Config&lt;I&gt;&gt;::Paymaster::check_payment(payment_id) {
+<a href=#1871 id=1871 data-nosnippet>1871</a>			PaymentStatus::Success =&gt; {
+<a href=#1872 id=1872 data-nosnippet>1872</a>				<span class="kw">let </span>payout = <span class="self">Self</span>::calculate_payout(parent_bounty_id, child_bounty_id, value);
+<a href=#1873 id=1873 data-nosnippet>1873</a>
+<a href=#1874 id=1874 data-nosnippet>1874</a>				<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::BountyPayoutProcessed {
+<a href=#1875 id=1875 data-nosnippet>1875</a>					index: parent_bounty_id,
+<a href=#1876 id=1876 data-nosnippet>1876</a>					child_index: child_bounty_id,
+<a href=#1877 id=1877 data-nosnippet>1877</a>					asset_kind: asset_kind.clone(),
+<a href=#1878 id=1878 data-nosnippet>1878</a>					value: payout,
+<a href=#1879 id=1879 data-nosnippet>1879</a>					beneficiary,
+<a href=#1880 id=1880 data-nosnippet>1880</a>				});
+<a href=#1881 id=1881 data-nosnippet>1881</a>
+<a href=#1882 id=1882 data-nosnippet>1882</a>				<span class="prelude-val">Ok</span>(PaymentState::Succeeded)
+<a href=#1883 id=1883 data-nosnippet>1883</a>			},
+<a href=#1884 id=1884 data-nosnippet>1884</a>			PaymentStatus::InProgress | PaymentStatus::Unknown =&gt;
+<a href=#1885 id=1885 data-nosnippet>1885</a>			<span class="comment">// nothing new to report
+<a href=#1886 id=1886 data-nosnippet>1886</a>			</span>{
+<a href=#1887 id=1887 data-nosnippet>1887</a>				<span class="prelude-val">Err</span>(Error::&lt;T, I&gt;::PayoutInconclusive.into())
+<a href=#1888 id=1888 data-nosnippet>1888</a>			},
+<a href=#1889 id=1889 data-nosnippet>1889</a>			PaymentStatus::Failure =&gt; {
+<a href=#1890 id=1890 data-nosnippet>1890</a>				<span class="comment">// assume payment has failed, allow user to retry
+<a href=#1891 id=1891 data-nosnippet>1891</a>				</span><span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::PaymentFailed {
+<a href=#1892 id=1892 data-nosnippet>1892</a>					index: parent_bounty_id,
+<a href=#1893 id=1893 data-nosnippet>1893</a>					child_index: child_bounty_id,
+<a href=#1894 id=1894 data-nosnippet>1894</a>					payment_id,
+<a href=#1895 id=1895 data-nosnippet>1895</a>				});
+<a href=#1896 id=1896 data-nosnippet>1896</a>				<span class="prelude-val">Ok</span>(PaymentState::Failed)
+<a href=#1897 id=1897 data-nosnippet>1897</a>			},
+<a href=#1898 id=1898 data-nosnippet>1898</a>		}
+<a href=#1899 id=1899 data-nosnippet>1899</a>	}
+<a href=#1900 id=1900 data-nosnippet>1900</a>}
+<a href=#1901 id=1901 data-nosnippet>1901</a>
+<a href=#1902 id=1902 data-nosnippet>1902</a><span class="doccomment">/// Type implementing curator deposit as a percentage of the child-/bounty value.
+<a href=#1903 id=1903 data-nosnippet>1903</a>///
+<a href=#1904 id=1904 data-nosnippet>1904</a>/// It implements `Convert` trait and can be used with types like `HoldConsideration` implementing
+<a href=#1905 id=1905 data-nosnippet>1905</a>/// `Consideration` trait.
+<a href=#1906 id=1906 data-nosnippet>1906</a></span><span class="kw">pub struct </span>CuratorDepositAmount&lt;Mult, Min, Max, Balance&gt;(PhantomData&lt;(Mult, Min, Max, Balance)&gt;);
+<a href=#1907 id=1907 data-nosnippet>1907</a><span class="kw">impl</span>&lt;Mult, Min, Max, Balance&gt; Convert&lt;Balance, Balance&gt;
+<a href=#1908 id=1908 data-nosnippet>1908</a>	<span class="kw">for </span>CuratorDepositAmount&lt;Mult, Min, Max, Balance&gt;
+<a href=#1909 id=1909 data-nosnippet>1909</a><span class="kw">where
+<a href=#1910 id=1910 data-nosnippet>1910</a>	</span>Balance: frame_support::traits::tokens::Balance,
+<a href=#1911 id=1911 data-nosnippet>1911</a>	Min: Get&lt;<span class="prelude-ty">Option</span>&lt;Balance&gt;&gt;,
+<a href=#1912 id=1912 data-nosnippet>1912</a>	Max: Get&lt;<span class="prelude-ty">Option</span>&lt;Balance&gt;&gt;,
+<a href=#1913 id=1913 data-nosnippet>1913</a>	Mult: Get&lt;Permill&gt;,
+<a href=#1914 id=1914 data-nosnippet>1914</a>{
+<a href=#1915 id=1915 data-nosnippet>1915</a>	<span class="kw">fn </span>convert(value: Balance) -&gt; Balance {
+<a href=#1916 id=1916 data-nosnippet>1916</a>		<span class="kw">let </span><span class="kw-2">mut </span>deposit = Mult::get().mul_floor(value);
+<a href=#1917 id=1917 data-nosnippet>1917</a>
+<a href=#1918 id=1918 data-nosnippet>1918</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(min) = Min::get() {
+<a href=#1919 id=1919 data-nosnippet>1919</a>			<span class="kw">if </span>deposit &lt; min {
+<a href=#1920 id=1920 data-nosnippet>1920</a>				deposit = min;
+<a href=#1921 id=1921 data-nosnippet>1921</a>			}
+<a href=#1922 id=1922 data-nosnippet>1922</a>		}
+<a href=#1923 id=1923 data-nosnippet>1923</a>
+<a href=#1924 id=1924 data-nosnippet>1924</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(max) = Max::get() {
+<a href=#1925 id=1925 data-nosnippet>1925</a>			<span class="kw">if </span>deposit &gt; max {
+<a href=#1926 id=1926 data-nosnippet>1926</a>				deposit = max;
+<a href=#1927 id=1927 data-nosnippet>1927</a>			}
+<a href=#1928 id=1928 data-nosnippet>1928</a>		}
+<a href=#1929 id=1929 data-nosnippet>1929</a>
+<a href=#1930 id=1930 data-nosnippet>1930</a>		deposit
+<a href=#1931 id=1931 data-nosnippet>1931</a>	}
+<a href=#1932 id=1932 data-nosnippet>1932</a>}
+<a href=#1933 id=1933 data-nosnippet>1933</a>
+<a href=#1934 id=1934 data-nosnippet>1934</a><span class="doccomment">/// Derives the funding `AccountId` from the `PalletId` and converts it into the
+<a href=#1935 id=1935 data-nosnippet>1935</a>/// bounty `Beneficiary`, used as the source of bounty funds.
+<a href=#1936 id=1936 data-nosnippet>1936</a>///
+<a href=#1937 id=1937 data-nosnippet>1937</a>/// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
+<a href=#1938 id=1938 data-nosnippet>1938</a>/// # Type Parameters
+<a href=#1939 id=1939 data-nosnippet>1939</a>/// - `Id`: The pallet ID getter
+<a href=#1940 id=1940 data-nosnippet>1940</a>/// - `T`: The pallet configuration
+<a href=#1941 id=1941 data-nosnippet>1941</a>/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
+<a href=#1942 id=1942 data-nosnippet>1942</a>///   same.
+<a href=#1943 id=1943 data-nosnippet>1943</a>/// - `I`: Instance parameter (default: `()`)
+<a href=#1944 id=1944 data-nosnippet>1944</a></span><span class="kw">pub struct </span>PalletIdAsFundingSource&lt;Id, T, C, I = ()&gt;(PhantomData&lt;(Id, T, C, I)&gt;);
+<a href=#1945 id=1945 data-nosnippet>1945</a><span class="kw">impl</span>&lt;Id, T, C, I&gt; TryConvert&lt;T::AssetKind, T::Beneficiary&gt; <span class="kw">for </span>PalletIdAsFundingSource&lt;Id, T, C, I&gt;
+<a href=#1946 id=1946 data-nosnippet>1946</a><span class="kw">where
+<a href=#1947 id=1947 data-nosnippet>1947</a>	</span>Id: Get&lt;PalletId&gt;,
+<a href=#1948 id=1948 data-nosnippet>1948</a>	T: <span class="kw">crate</span>::Config&lt;I&gt;,
+<a href=#1949 id=1949 data-nosnippet>1949</a>	C: Convert&lt;T::AccountId, T::Beneficiary&gt;,
+<a href=#1950 id=1950 data-nosnippet>1950</a>{
+<a href=#1951 id=1951 data-nosnippet>1951</a>	<span class="kw">fn </span>try_convert(_asset_kind: T::AssetKind) -&gt; <span class="prelude-ty">Result</span>&lt;T::Beneficiary, T::AssetKind&gt; {
+<a href=#1952 id=1952 data-nosnippet>1952</a>		<span class="kw">let </span>account: T::AccountId = Id::get().into_account_truncating();
+<a href=#1953 id=1953 data-nosnippet>1953</a>		<span class="prelude-val">Ok</span>(C::convert(account))
+<a href=#1954 id=1954 data-nosnippet>1954</a>	}
+<a href=#1955 id=1955 data-nosnippet>1955</a>}
+<a href=#1956 id=1956 data-nosnippet>1956</a>
+<a href=#1957 id=1957 data-nosnippet>1957</a><span class="doccomment">/// Standard 3-byte prefix for bounty account derivation.
+<a href=#1958 id=1958 data-nosnippet>1958</a>///
+<a href=#1959 id=1959 data-nosnippet>1959</a>/// Returns `b"mbt"` (multi-asset bounty). Use this type when configuring
+<a href=#1960 id=1960 data-nosnippet>1960</a>/// [`BountySourceFromPalletId`] unless your runtime requires a custom prefix.
+<a href=#1961 id=1961 data-nosnippet>1961</a></span><span class="kw">pub struct </span>BountyAccountPrefix;
+<a href=#1962 id=1962 data-nosnippet>1962</a><span class="kw">impl </span>Get&lt;[u8; <span class="number">3</span>]&gt; <span class="kw">for </span>BountyAccountPrefix {
+<a href=#1963 id=1963 data-nosnippet>1963</a>	<span class="kw">fn </span>get() -&gt; [u8; <span class="number">3</span>] {
+<a href=#1964 id=1964 data-nosnippet>1964</a>		<span class="kw-2">*</span><span class="string">b"mbt"
+<a href=#1965 id=1965 data-nosnippet>1965</a>	</span>}
+<a href=#1966 id=1966 data-nosnippet>1966</a>}
+<a href=#1967 id=1967 data-nosnippet>1967</a>
+<a href=#1968 id=1968 data-nosnippet>1968</a><span class="doccomment">/// Standard 3-byte prefix for child-bounty account derivation.
+<a href=#1969 id=1969 data-nosnippet>1969</a>///
+<a href=#1970 id=1970 data-nosnippet>1970</a>/// Returns `b"mcb"` (multi-asset child bounty). Use this type when configuring
+<a href=#1971 id=1971 data-nosnippet>1971</a>/// [`ChildBountySourceFromPalletId`] unless your runtime requires a custom prefix.
+<a href=#1972 id=1972 data-nosnippet>1972</a></span><span class="kw">pub struct </span>ChildBountyAccountPrefix;
+<a href=#1973 id=1973 data-nosnippet>1973</a><span class="kw">impl </span>Get&lt;[u8; <span class="number">3</span>]&gt; <span class="kw">for </span>ChildBountyAccountPrefix {
+<a href=#1974 id=1974 data-nosnippet>1974</a>	<span class="kw">fn </span>get() -&gt; [u8; <span class="number">3</span>] {
+<a href=#1975 id=1975 data-nosnippet>1975</a>		<span class="kw-2">*</span><span class="string">b"mcb"
+<a href=#1976 id=1976 data-nosnippet>1976</a>	</span>}
+<a href=#1977 id=1977 data-nosnippet>1977</a>}
+<a href=#1978 id=1978 data-nosnippet>1978</a>
+<a href=#1979 id=1979 data-nosnippet>1979</a><span class="doccomment">/// Derives a bounty `AccountId` from the `PalletId` and the `BountyIndex`,
+<a href=#1980 id=1980 data-nosnippet>1980</a>/// then converts it into the corresponding bounty `Beneficiary`.
+<a href=#1981 id=1981 data-nosnippet>1981</a>///
+<a href=#1982 id=1982 data-nosnippet>1982</a>/// The account is derived using a fixed-size 3-byte prefix (e.g. `b"mbt"` for multi-asset bounty).
+<a href=#1983 id=1983 data-nosnippet>1983</a>/// The prefix is supplied via the `Prefix` type parameter, which must implement `Get&lt;[u8; 3]&gt;`.
+<a href=#1984 id=1984 data-nosnippet>1984</a>/// This ensures the encoded sub-account seed has a predictable size and avoids truncation issues.
+<a href=#1985 id=1985 data-nosnippet>1985</a>///
+<a href=#1986 id=1986 data-nosnippet>1986</a>/// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
+<a href=#1987 id=1987 data-nosnippet>1987</a>///
+<a href=#1988 id=1988 data-nosnippet>1988</a>/// # Type Parameters
+<a href=#1989 id=1989 data-nosnippet>1989</a>/// - `Id`: The pallet ID getter
+<a href=#1990 id=1990 data-nosnippet>1990</a>/// - `Prefix`: Getter for the 3-byte account prefix (e.g. [`BountyAccountPrefix`]). Must implement
+<a href=#1991 id=1991 data-nosnippet>1991</a>///   `Get&lt;[u8; 3]&gt;`. Fixed at 3 bytes to guarantee predictable seed size and avoid truncation of
+<a href=#1992 id=1992 data-nosnippet>1992</a>///   the bounty index.
+<a href=#1993 id=1993 data-nosnippet>1993</a>/// - `T`: The pallet configuration
+<a href=#1994 id=1994 data-nosnippet>1994</a>/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
+<a href=#1995 id=1995 data-nosnippet>1995</a>///   same.
+<a href=#1996 id=1996 data-nosnippet>1996</a>/// - `I`: Instance parameter (default: `()`)
+<a href=#1997 id=1997 data-nosnippet>1997</a></span><span class="kw">pub struct </span>BountySourceFromPalletId&lt;Id, Prefix, T, C, I = ()&gt;(PhantomData&lt;(Id, Prefix, T, C, I)&gt;);
+<a href=#1998 id=1998 data-nosnippet>1998</a><span class="kw">impl</span>&lt;Id, Prefix, T, C, I&gt; TryConvert&lt;(BountyIndex, T::AssetKind), T::Beneficiary&gt;
+<a href=#1999 id=1999 data-nosnippet>1999</a>	<span class="kw">for </span>BountySourceFromPalletId&lt;Id, Prefix, T, C, I&gt;
+<a href=#2000 id=2000 data-nosnippet>2000</a><span class="kw">where
+<a href=#2001 id=2001 data-nosnippet>2001</a>	</span>Id: Get&lt;PalletId&gt;,
+<a href=#2002 id=2002 data-nosnippet>2002</a>	Prefix: Get&lt;[u8; <span class="number">3</span>]&gt;,
+<a href=#2003 id=2003 data-nosnippet>2003</a>	T: <span class="kw">crate</span>::Config&lt;I&gt;,
+<a href=#2004 id=2004 data-nosnippet>2004</a>	C: Convert&lt;T::AccountId, T::Beneficiary&gt;,
+<a href=#2005 id=2005 data-nosnippet>2005</a>{
+<a href=#2006 id=2006 data-nosnippet>2006</a>	<span class="kw">fn </span>try_convert(
+<a href=#2007 id=2007 data-nosnippet>2007</a>		(parent_bounty_id, _asset_kind): (BountyIndex, T::AssetKind),
+<a href=#2008 id=2008 data-nosnippet>2008</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;T::Beneficiary, (BountyIndex, T::AssetKind)&gt; {
+<a href=#2009 id=2009 data-nosnippet>2009</a>		<span class="kw">let </span>account: T::AccountId =
+<a href=#2010 id=2010 data-nosnippet>2010</a>			Id::get().into_sub_account_truncating((Prefix::get(), parent_bounty_id));
+<a href=#2011 id=2011 data-nosnippet>2011</a>		<span class="prelude-val">Ok</span>(C::convert(account))
+<a href=#2012 id=2012 data-nosnippet>2012</a>	}
+<a href=#2013 id=2013 data-nosnippet>2013</a>}
+<a href=#2014 id=2014 data-nosnippet>2014</a>
+<a href=#2015 id=2015 data-nosnippet>2015</a><span class="doccomment">/// Derives a child-bounty `AccountId` from the `PalletId`, the parent index,
+<a href=#2016 id=2016 data-nosnippet>2016</a>/// and the child index, then converts it into the child-bounty `Beneficiary`.
+<a href=#2017 id=2017 data-nosnippet>2017</a>///
+<a href=#2018 id=2018 data-nosnippet>2018</a>/// The account is derived using a fixed-size 3-byte prefix (e.g. `b"mcb"` for multi-asset child
+<a href=#2019 id=2019 data-nosnippet>2019</a>/// bounty). The prefix is supplied via the `Prefix` type parameter, which must implement
+<a href=#2020 id=2020 data-nosnippet>2020</a>/// `Get&lt;[u8; 3]&gt;`. Using a different prefix from the parent bounty ensures distinct account IDs
+<a href=#2021 id=2021 data-nosnippet>2021</a>/// when parent and child indices coincide.
+<a href=#2022 id=2022 data-nosnippet>2022</a>///
+<a href=#2023 id=2023 data-nosnippet>2023</a>/// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
+<a href=#2024 id=2024 data-nosnippet>2024</a>///
+<a href=#2025 id=2025 data-nosnippet>2025</a>/// # Type Parameters
+<a href=#2026 id=2026 data-nosnippet>2026</a>/// - `Id`: The pallet ID getter
+<a href=#2027 id=2027 data-nosnippet>2027</a>/// - `Prefix`: Getter for the 3-byte account prefix (e.g. [`ChildBountyAccountPrefix`]). Must
+<a href=#2028 id=2028 data-nosnippet>2028</a>///   implement `Get&lt;[u8; 3]&gt;`. Fixed at 3 bytes to guarantee predictable seed size and avoid
+<a href=#2029 id=2029 data-nosnippet>2029</a>///   truncation of the bounty indices.
+<a href=#2030 id=2030 data-nosnippet>2030</a>/// - `T`: The pallet configuration
+<a href=#2031 id=2031 data-nosnippet>2031</a>/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
+<a href=#2032 id=2032 data-nosnippet>2032</a>///   same.
+<a href=#2033 id=2033 data-nosnippet>2033</a>/// - `I`: Instance parameter (default: `()`)
+<a href=#2034 id=2034 data-nosnippet>2034</a></span><span class="kw">pub struct </span>ChildBountySourceFromPalletId&lt;Id, Prefix, T, C, I = ()&gt;(
+<a href=#2035 id=2035 data-nosnippet>2035</a>	PhantomData&lt;(Id, Prefix, T, C, I)&gt;,
+<a href=#2036 id=2036 data-nosnippet>2036</a>);
+<a href=#2037 id=2037 data-nosnippet>2037</a><span class="kw">impl</span>&lt;Id, Prefix, T, C, I&gt; TryConvert&lt;(BountyIndex, BountyIndex, T::AssetKind), T::Beneficiary&gt;
+<a href=#2038 id=2038 data-nosnippet>2038</a>	<span class="kw">for </span>ChildBountySourceFromPalletId&lt;Id, Prefix, T, C, I&gt;
+<a href=#2039 id=2039 data-nosnippet>2039</a><span class="kw">where
+<a href=#2040 id=2040 data-nosnippet>2040</a>	</span>Id: Get&lt;PalletId&gt;,
+<a href=#2041 id=2041 data-nosnippet>2041</a>	Prefix: Get&lt;[u8; <span class="number">3</span>]&gt;,
+<a href=#2042 id=2042 data-nosnippet>2042</a>	T: <span class="kw">crate</span>::Config&lt;I&gt;,
+<a href=#2043 id=2043 data-nosnippet>2043</a>	C: Convert&lt;T::AccountId, T::Beneficiary&gt;,
+<a href=#2044 id=2044 data-nosnippet>2044</a>{
+<a href=#2045 id=2045 data-nosnippet>2045</a>	<span class="kw">fn </span>try_convert(
+<a href=#2046 id=2046 data-nosnippet>2046</a>		(parent_bounty_id, child_bounty_id, _asset_kind): (BountyIndex, BountyIndex, T::AssetKind),
+<a href=#2047 id=2047 data-nosnippet>2047</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;T::Beneficiary, (BountyIndex, BountyIndex, T::AssetKind)&gt; {
+<a href=#2048 id=2048 data-nosnippet>2048</a>		<span class="comment">// The prefix is distinct from the bounty prefix so AccountIds differ when parent and
+<a href=#2049 id=2049 data-nosnippet>2049</a>		// child index are the same.
+<a href=#2050 id=2050 data-nosnippet>2050</a>		</span><span class="kw">let </span>account: T::AccountId = Id::get().into_sub_account_truncating((
+<a href=#2051 id=2051 data-nosnippet>2051</a>			Prefix::get(),
+<a href=#2052 id=2052 data-nosnippet>2052</a>			parent_bounty_id,
+<a href=#2053 id=2053 data-nosnippet>2053</a>			child_bounty_id,
+<a href=#2054 id=2054 data-nosnippet>2054</a>		));
+<a href=#2055 id=2055 data-nosnippet>2055</a>		<span class="prelude-val">Ok</span>(C::convert(account))
+<a href=#2056 id=2056 data-nosnippet>2056</a>	}
+<a href=#2057 id=2057 data-nosnippet>2057</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
