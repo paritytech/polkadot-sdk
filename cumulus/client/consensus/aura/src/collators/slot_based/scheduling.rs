@@ -40,8 +40,9 @@ use std::{
 	time::Duration,
 };
 
-/// Relay heights kept in the imported-header buffer; the surplus is slack for late arrivals.
-const RECENT_IMPORT_HEIGHTS: usize = 10;
+/// Relay heights kept in the imported-header buffer; only `chosen.number` and the height above
+/// are read, so 4 also covers a header one above best arriving in the same drain.
+const RECENT_IMPORT_HEIGHTS: usize = 4;
 
 /// Headers buffered per relay height, so a fork-spammed height cannot grow the dedup scan.
 const MAX_IMPORTS_PER_HEIGHT: usize = 8;
@@ -144,13 +145,20 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		while let Some(Some(header)) = self.import_notifications.next().now_or_never() {
 			let hash = header.hash();
 			let at_height = self.recent_imports.entry(header.number).or_default();
-			if at_height.len() >= MAX_IMPORTS_PER_HEIGHT {
+			if at_height.iter().any(|known| known.hash == hash) {
 				continue;
 			}
-			if !at_height.iter().any(|known| known.hash == hash) {
-				let claim = Self::babe_claim(&header);
-				at_height.push(ImportedHeader { hash, header, claim });
+			if at_height.len() >= MAX_IMPORTS_PER_HEIGHT {
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					number = header.number,
+					?hash,
+					"Per-height import cap reached; skipping relay header."
+				);
+				continue;
 			}
+			let claim = Self::babe_claim(&header);
+			at_height.push(ImportedHeader { hash, header, claim });
 		}
 
 		while self.recent_imports.len() > RECENT_IMPORT_HEIGHTS {

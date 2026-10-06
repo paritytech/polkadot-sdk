@@ -17,19 +17,17 @@
 
 use super::{
 	block_builder_task::{
-		assemble_core_submission, determine_cores, offset_relay_parent_find_descendants,
-		resolve_hedge_chains, HedgeContext, MAX_HEDGED_SIBLINGS,
+		determine_cores, offset_relay_parent_find_descendants, resolve_hedge_chains, HedgeContext,
+		MAX_HEDGED_SIBLINGS,
 	},
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 	scheduling::SchedulingInfo,
-	CollatorMessage,
 };
 use async_trait::async_trait;
 use codec::Encode;
 use cumulus_primitives_aura::Slot;
-use cumulus_primitives_core::{ClaimQueueOffset, CoreInfo, CoreSelector};
+use cumulus_primitives_core::CoreSelector;
 use cumulus_relay_chain_interface::*;
-use cumulus_test_client::runtime::Block;
 use futures::Stream;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
@@ -40,12 +38,7 @@ use polkadot_primitives::{
 use sc_consensus_babe::{
 	AuthorityId, ConsensusLog as BabeConsensusLog, NextEpochDescriptor, BABE_ENGINE_ID,
 };
-use sc_network_types::PeerId;
-use sp_consensus_aura::sr25519::{
-	AuthorityId as AuraAuthorityId, AuthorityPair as AuraAuthorityPair,
-};
 use sp_core::sr25519;
-use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::{generic::BlockId, traits::Header};
 use sp_version::RuntimeVersion;
 use std::{
@@ -813,7 +806,7 @@ async fn sp_hedge_chains_caps_siblings() {
 
 /// A sibling seen only on the import stream (a loser never becomes new-best) is the only one
 /// accepted as a hedge; two same-height headers are dropped instead: one on a different base, one
-/// whose claim queue assigns the para to another core. The chosen proof is assembled as a segment.
+/// whose claim queue assigns the para to another core.
 #[tokio::test]
 async fn import_stream_sibling_is_accepted_as_hedge() {
 	let (base, chosen) = hedge_base_and_chosen();
@@ -836,46 +829,4 @@ async fn import_stream_sibling_is_accepted_as_hedge() {
 	)
 	.await;
 	assert_eq!(hedged.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![sibling.hash()]);
-
-	let keystore: KeystorePtr = Arc::new(sp_keystore::testing::MemoryKeystore::new());
-	let author_pub = AuraAuthorityId::from(
-		Keystore::sr25519_generate_new(
-			&*keystore,
-			sp_application_crypto::key_types::AURA,
-			Some(&sp_keyring::Sr25519Keyring::Alice.to_seed()),
-		)
-		.expect("can insert key into MemoryKeystore; qed"),
-	);
-	let core_info = CoreInfo {
-		selector: CoreSelector(0),
-		claim_queue_offset: ClaimQueueOffset(0),
-		number_of_cores: 1.into(),
-	};
-	// A bare para header in the unincluded bucket is what makes the submission non-empty.
-	let unincluded = Header::new(
-		1,
-		Default::default(),
-		Default::default(),
-		Default::default(),
-		Default::default(),
-	);
-	let message = assemble_core_submission::<Block, AuraAuthorityPair>(
-		// At `relay_parent_offset == 1` a header chain is just the scheduling parent itself.
-		Some(vec![chosen.clone()]),
-		vec![unincluded],
-		None,
-		&core_info,
-		CoreIndex(0),
-		&base,
-		&author_pub,
-		PeerId::random(),
-		&keystore,
-	)
-	.expect("one resubmitted header is enough to submit; qed");
-
-	let CollatorMessage::Segment(segment) = message else {
-		panic!("V3 submissions are assembled as segments");
-	};
-	assert_eq!(segment.scheduling_proof.scheduling_parent(), chosen.hash());
-	assert_eq!(segment.scheduling_proof.internal_scheduling_parent_header.hash(), base.hash());
 }

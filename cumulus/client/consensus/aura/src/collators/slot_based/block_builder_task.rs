@@ -17,7 +17,6 @@
 
 use super::{
 	resubmission::{resolve_session, sign_v3_scheduling_info},
-	unincluded_segment::count_bundles,
 	CollatorMessage, CollatorSegmentEntry, CollatorSegmentMessage,
 };
 use crate::{
@@ -81,25 +80,13 @@ use std::{
 	time::{Duration, Instant},
 };
 
-/// Ceiling on hedged sibling scheduling parents, lowered further per core by the caller. Each one
-/// costs a whole extra submission per scheduled core, and the chosen parent plus its siblings must
-/// stay inside the network bridge's `MAX_VIEW_HEADS` or `distribute_segment` drops them.
+/// Ceiling on hedged sibling scheduling parents; the collation task lowers it per segment length.
+/// Each costs a whole extra submission per scheduled core, and the chosen parent plus its siblings
+/// must stay inside the network bridge's `MAX_VIEW_HEADS` or `distribute_segment` drops them.
 pub(crate) const MAX_HEDGED_SIBLINGS: usize = 2;
 
 /// Siblings resolved per core, bounding the round trips a forked relay height can force.
 const MAX_SIBLINGS_RESOLVED: usize = MAX_HEDGED_SIBLINGS + 2;
-
-/// Extra PoV builds one core may spend on hedging: a sibling rebuilds the whole segment, so a
-/// long backlog buys fewer siblings, and past this length none at all.
-pub(crate) const MAX_HEDGED_REBUILDS_PER_CORE: usize = 6;
-
-/// Hedged siblings a core submitting `entries` PoVs can afford (0 when there is nothing).
-pub(crate) fn hedge_budget(entries: usize) -> usize {
-	MAX_HEDGED_REBUILDS_PER_CORE
-		.checked_div(entries)
-		.unwrap_or_default()
-		.min(MAX_HEDGED_SIBLINGS)
-}
 
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
@@ -796,7 +783,8 @@ pub(crate) struct HedgeContext<'a> {
 impl<'a> HedgeContext<'a> {
 	fn new<Block: BlockT, Pub>(
 		cx: &'a SlotContext<Block, Pub>,
-		cores: &'a Cores,
+		claim_queue_offset: u32,
+		core_indices: &'a [CoreIndex],
 		para_id: ParaId,
 		production_slot: Slot,
 	) -> Self {
@@ -807,8 +795,8 @@ impl<'a> HedgeContext<'a> {
 			scheduling_parent_header: &cx.scheduling_parent_header,
 			relay_parent_hash: cx.relay_parent_hash,
 			para_id,
-			claim_queue_offset: cores.claim_queue_offset.0 as u32,
-			core_indices: cores.core_indices(),
+			claim_queue_offset,
+			core_indices,
 			production_slot,
 		}
 	}
@@ -835,13 +823,11 @@ where
 	let sibling_count = siblings.len();
 
 	let mut chains = Vec::new();
-	let mut resolved = 0;
-	for sibling in siblings {
+	for (resolved, sibling) in siblings.into_iter().enumerate() {
 		if chains.len() >= MAX_HEDGED_SIBLINGS || resolved >= MAX_SIBLINGS_RESOLVED {
 			break;
 		}
 		let sp_sibling = sibling.hash();
-		resolved += 1;
 		if let Some(chain) =
 			resolve_hedge_sibling(relay_chain_data_cache, sibling, cx, sp_sibling).await
 		{
@@ -1044,6 +1030,22 @@ where
 			let mut pov_parent_header = cx.initial_parent_header.clone();
 			let mut pov_parent_hash = cx.initial_parent_hash;
 
+			let core_indices = cores.core_indices().to_vec();
+			let hedge_ctx = HedgeContext::new(
+				&cx,
+				cores.claim_queue_offset.0 as u32,
+				&core_indices,
+				para_id,
+				slot_time.slot(),
+			);
+			// Overlaps the builds; each core's deadline bounds the wait before its hedges go out.
+			let resolve = future::maybe_done(resolve_hedge_chains(
+				&mut env.relay_chain_data_cache,
+				&mut env.scheduling_info,
+				&hedge_ctx,
+			));
+			futures::pin_mut!(resolve);
+
 			for blocks_per_core in blocks_per_cores {
 				let core_info = cores.core_info();
 				let this_core_index = cores.core_index();
@@ -1063,9 +1065,6 @@ where
 
 				let unincluded_headers =
 					per_selector_unincluded_headers.remove(&bucket_idx).unwrap_or_default();
-				let resubmitted_povs = count_bundles(&unincluded_headers);
-
-				let hedge_ctx = HedgeContext::new(&cx, &cores, para_id, slot_time.slot());
 
 				// Time the core build so we can pace after submitting (send early, then sleep).
 				let core_start = Instant::now();
@@ -1098,14 +1097,7 @@ where
 						para_slot: cx.para_slot.slot,
 						para_client: &*env.para_client,
 					});
-					// Overlaps the build, bounded by this core's deadline; the chosen segment is
-					// sent first.
-					let resolve = future::maybe_done(resolve_hedge_chains(
-						&mut env.relay_chain_data_cache,
-						&mut env.scheduling_info,
-						&hedge_ctx,
-					));
-					futures::pin_mut!(build, resolve);
+					futures::pin_mut!(build);
 
 					let built = match future::select(build, resolve.as_mut()).await {
 						future::Either::Left((built, _)) => built,
@@ -1127,7 +1119,6 @@ where
 					// V3: this core's resubmitted bucket plus the freshly-built bundle (or the
 					// bucket alone); V2: a single collation, only when a fresh block was built.
 					let bundle = built.map(|BuiltCollation { entry, .. }| entry);
-					let entries = resubmitted_povs + usize::from(bundle.is_some());
 
 					let submission = assemble_core_submission::<Block, P>(
 						v3_header_chain,
@@ -1160,13 +1151,12 @@ where
 						),
 					}
 
-					let budget = hedge_budget(entries);
-					if is_segment && budget > 0 {
-						// Hedging only spends this core's own slice.
+					if is_segment {
+						// Hedging only spends this core's own slice; later cores re-read the
+						// output.
 						let deadline = tokio::time::Instant::from_std(core_start + time_for_core);
 						let _ = tokio::time::timeout_at(deadline, resolve.as_mut()).await;
-						let mut hedges = resolve.as_mut().take_output().unwrap_or_default();
-						hedges.truncate(budget);
+						let hedges = resolve.as_mut().output_mut().cloned().unwrap_or_default();
 						if !hedges.is_empty() {
 							let header_chains =
 								hedges.into_iter().map(|(_, chain)| chain).collect();
@@ -2172,22 +2162,6 @@ mod block_production_schedule_tests {
 					total_blocks,
 					is_last_core
 				);
-			}
-		}
-	}
-
-	mod hedge_budget_tests {
-		use super::*;
-
-		/// A core gets no hedges without entries or past its backlog allowance, and never exceeds
-		/// its rebuild allowance.
-		#[test]
-		fn budget_stays_within_rebuild_allowance() {
-			assert_eq!(hedge_budget(0), 0);
-			assert_eq!(hedge_budget(1), MAX_HEDGED_SIBLINGS);
-			assert_eq!(hedge_budget(MAX_HEDGED_REBUILDS_PER_CORE + 1), 0);
-			for entries in 0..=(MAX_HEDGED_REBUILDS_PER_CORE + 2) {
-				assert!(entries * hedge_budget(entries) <= MAX_HEDGED_REBUILDS_PER_CORE);
 			}
 		}
 	}
