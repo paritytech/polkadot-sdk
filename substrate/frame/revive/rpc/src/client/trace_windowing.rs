@@ -795,10 +795,11 @@ mod tests {
 			})
 		};
 
-		let (_, _, result) = walk_on(max, heterogeneous).await;
+		let (_, asked, result) = walk_on(max, heterogeneous).await;
 		let Err(ClientError::TraceTooLarge { fits }) = result else {
 			panic!("a trace this long cannot be returned whole: {result:?}");
 		};
+		assert!(asked.is_empty(), "the first window already overflows the response: {asked:?}");
 
 		// Ask for exactly what the refusal named, the way a caller does.
 		let collected = collect_windows(

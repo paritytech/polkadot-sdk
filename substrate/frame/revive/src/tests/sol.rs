@@ -1585,7 +1585,7 @@ fn truncation_does_not_alter_the_steps_it_keeps() {
 		let steps = full.struct_logs.len() as u64;
 		assert!(steps > 8, "{fixture_type:?}: expected a multi-step trace, got {steps}");
 		assert!(
-			full.struct_logs.iter().any(|step| step.depth > 0),
+			full.struct_logs.iter().any(|step| step.depth > 1),
 			"{fixture_type:?}: the fixture must make a nested call for this to be a real test",
 		);
 
@@ -1680,7 +1680,7 @@ fn windows_of_an_execution_rebuild_the_whole_trace() {
 			let steps = full.struct_logs.len() as u64;
 			assert!(steps > 8, "{name}: expected a multi-step trace, got {steps}");
 			assert!(
-				full.struct_logs.iter().any(|step| step.depth > 0),
+				full.struct_logs.iter().any(|step| step.depth > 1),
 				"{name}: the fixture must make a nested call for this to be a real test",
 			);
 
