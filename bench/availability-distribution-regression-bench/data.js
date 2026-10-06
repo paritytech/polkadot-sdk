@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791304542638,
+  "lastUpdate": 1791311494559,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "de0a245168da894e24d974fadf6bdf803e3ac219",
-          "message": "Raise offence queue eras bound limit (#11435)\n\nFixes a bug where **OffenceQueueEras** bound (BondingDuration) was\nincorrect when `SlashDeferDuration=0`. The oldest reportable offence era\nformula allowed more eras than the bound could hold.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
-          "timestamp": "2026-03-31T14:39:48Z",
-          "tree_id": "8813c2e41507f49572675266dad5b29263109969",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/de0a245168da894e24d974fadf6bdf803e3ac219"
-        },
-        "date": 1774982463014,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023713819173333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009821228339999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006799911446666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1462789280066667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.00987594840666663,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "eebfe319ab7db7d8c9b8041fa1a219349d7c3be0",
+          "message": "Bump litep2p to 0.16.0 (#13398)\n\n## Summary\n\nBumps `litep2p` from 0.15.3 to 0.16.0 ([release\nnotes](https://github.com/paritytech/litep2p/releases/tag/v0.16.0)).\n\n0.16.0 adds the client-server mode for Kademlia (paritytech/litep2p#611)\nand fixes the panics around local provider records in the Kademlia\nmemory store (paritytech/litep2p#666)",
+          "timestamp": "2026-10-06T16:16:12Z",
+          "tree_id": "797cbc2c7d625bbf6e8718f37c959d6d17fbcc6d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/eebfe319ab7db7d8c9b8041fa1a219349d7c3be0"
+        },
+        "date": 1791311462532,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025204723126666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007488974806666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009890629406666646,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1457298829533333,
             "unit": "seconds"
           }
         ]
