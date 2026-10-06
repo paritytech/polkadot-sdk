@@ -159,6 +159,8 @@ pub enum RejectionReason {
 	},
 	/// The global statement store is full and cannot accept new statements.
 	StoreFull,
+	/// The size limit of the retention track the statement would be kept on is reached.
+	TrackFull,
 	/// Account has no allowance set.
 	NoAllowance,
 }
@@ -171,6 +173,7 @@ impl RejectionReason {
 			RejectionReason::ChannelPriorityTooLow { .. } => "channel_priority_too_low",
 			RejectionReason::AccountFull { .. } => "account_full",
 			RejectionReason::StoreFull => "store_full",
+			RejectionReason::TrackFull => "track_full",
 			RejectionReason::NoAllowance => "no_allowance",
 		}
 	}
@@ -274,7 +277,10 @@ impl From<RejectionReason> for SubmitRejectionReason {
 			RejectionReason::AccountFull { submitted_expiry, min_expiry } => {
 				SubmitRejectionReason::AccountFull { submitted_expiry, min_expiry }
 			},
-			RejectionReason::StoreFull => SubmitRejectionReason::StoreFull,
+			// The RPC spec knows no tracks: a full track is a full store to the submitter.
+			RejectionReason::StoreFull | RejectionReason::TrackFull => {
+				SubmitRejectionReason::StoreFull
+			},
 			RejectionReason::NoAllowance => SubmitRejectionReason::NoAllowance,
 		}
 	}
@@ -381,16 +387,29 @@ pub enum FilterDecision {
 	Abort,
 }
 
+/// A batch of statements read from the admission journal by
+/// [`StatementStore::admitted_statements`].
+#[derive(Debug)]
+pub struct AdmittedBatch {
+	/// The taken statements, oldest admission first.
+	pub statements: Vec<(Hash, Statement)>,
+	/// Admission sequence number to resume the walk from.
+	pub cursor: u64,
+	/// Whether the walk reached the watermark; always equals `cursor >= watermark`.
+	pub done: bool,
+}
+
 /// Statement store API.
 pub trait StatementStore: Send + Sync {
 	/// Return all statements.
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>>;
 
-	/// Return recent statements and clear the internal index.
+	/// Return recent statements with their admission sequence numbers, oldest admission
+	/// first, and clear the internal index.
 	///
 	/// This consumes and clears the recently received statements,
 	/// allowing new statements to be collected from this point forward.
-	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>>;
+	fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>>;
 
 	/// Get statement by hash.
 	fn statement(&self, hash: &Hash) -> Result<Option<Statement>>;
@@ -400,9 +419,6 @@ pub trait StatementStore: Send + Sync {
 	/// Fast index check without accessing the DB.
 	fn has_statement(&self, hash: &Hash) -> bool;
 
-	/// Return all statement hashes.
-	fn statement_hashes(&self) -> Vec<Hash>;
-
 	/// Fetch statements by their hashes with a filter callback.
 	///
 	/// The callback receives (hash, encoded_bytes, decoded_statement) and returns:
@@ -410,12 +426,44 @@ pub trait StatementStore: Send + Sync {
 	/// - `Take`: include this statement in the result, continue to next
 	/// - `Abort`: stop iteration, return collected statements so far
 	///
-	/// Returns (statements, number_of_hashes_processed).
+	/// Returns (statements, number_of_hashes_processed). A hash absent from the store or whose
+	/// statement fails to decode counts as processed without reaching the callback, the hash an
+	/// `Abort` stopped on does not.
 	fn statements_by_hashes(
 		&self,
 		hashes: &[Hash],
 		filter: &mut dyn FnMut(&Hash, &[u8], &Statement) -> FilterDecision,
 	) -> Result<(Vec<(Hash, Statement)>, usize)>;
+
+	/// One past the newest assigned admission sequence number.
+	///
+	/// Every statement currently in the store was admitted below this boundary, so it
+	/// serves as the watermark for a subsequent [`Self::admitted_statements`] walk.
+	fn admission_watermark(&self) -> Result<u64>;
+
+	/// Walk the admission journal from `cursor` (inclusive) towards `watermark`
+	/// (exclusive), collecting statements through a filter callback.
+	///
+	/// The callback receives (hash, encoded_bytes, decoded_statement) and returns:
+	/// - `Skip`: leave this statement out of the batch, continue to next
+	/// - `Take`: include this statement in the batch, continue to next
+	/// - `Abort`: stop the walk before this statement
+	///
+	/// Sequence numbers whose statement has left the store are passed over. The returned
+	/// cursor sits after every visited statement except an `Abort`ed one, which the next
+	/// walk revisits first.
+	///
+	/// A call visits at most `scan_limit` journal entries, passed-over ones included, so
+	/// its cost stays bounded even when the filter takes nothing. `scan_limit` must be
+	/// positive: a walk that visits no entries cannot advance the cursor. A walk stopped
+	/// by the limit returns a partial cursor to resume from, exactly like an `Abort`.
+	fn admitted_statements(
+		&self,
+		cursor: u64,
+		watermark: u64,
+		scan_limit: usize,
+		filter: &mut dyn FnMut(&Hash, &[u8], &Statement) -> FilterDecision,
+	) -> Result<AdmittedBatch>;
 
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
 	/// field.
@@ -455,4 +503,11 @@ pub trait StatementStore: Send + Sync {
 
 	/// Remove all statements authored by `who`.
 	fn remove_by(&self, who: [u8; 32]) -> Result<()>;
+
+	/// Topics across all live statement subscriptions, for advertising topic affinity.
+	///
+	/// Defaults to empty for stores without a subscription manager.
+	fn subscription_topics(&self) -> HashSet<Topic> {
+		HashSet::new()
+	}
 }

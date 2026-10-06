@@ -172,7 +172,7 @@ pub struct RunCmd {
 	#[arg(
 		long,
 		hide = true,
-		// to support `--experimental-collator-protocol=[on|off]` and
+		// to support `--experimental-collator-protocol=[true|false]` and
 		// just `--experimental-collator-protocol`
 		num_args = 0..=1,
 		// otherwise the parameter becomes greedy and consumes the first value after it,

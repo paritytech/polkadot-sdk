@@ -583,6 +583,10 @@ impl<T: Config> Pallet<T> {
 	// Attempts to recover the Ethereum address from a message signature signed by using
 	// the Ethereum RPC's `personal_sign` and `eth_sign`.
 	fn eth_recover(s: &EcdsaSignature, what: &[u8], extra: &[u8]) -> Option<EthereumAddress> {
+		// Reject high-S signatures (EIP-2 / BIP-62 malleability protection)
+		if !sp_core::ecdsa::is_signature_normalized(&s.0) {
+			return None;
+		}
 		let msg = keccak_256(&Self::ethereum_signable_message(what, extra));
 		let mut res = EthereumAddress::default();
 		res.0
@@ -721,28 +725,27 @@ where
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 mod secp_utils {
 	use super::*;
+	use k256::ecdsa::SigningKey;
 
-	pub fn public(secret: &libsecp256k1::SecretKey) -> libsecp256k1::PublicKey {
-		libsecp256k1::PublicKey::from_secret_key(secret)
-	}
-	pub fn eth(secret: &libsecp256k1::SecretKey) -> EthereumAddress {
+	pub fn eth(secret: &SigningKey) -> EthereumAddress {
+		let vk = secret.verifying_key();
+		let uncompressed = vk.to_encoded_point(false);
 		let mut res = EthereumAddress::default();
-		res.0.copy_from_slice(&keccak_256(&public(secret).serialize()[1..65])[12..]);
+		res.0.copy_from_slice(&keccak_256(&uncompressed.as_bytes()[1..])[12..]);
 		res
 	}
-	pub fn sig<T: Config>(
-		secret: &libsecp256k1::SecretKey,
-		what: &[u8],
-		extra: &[u8],
-	) -> EcdsaSignature {
+	pub fn sig<T: Config>(secret: &SigningKey, what: &[u8], extra: &[u8]) -> EcdsaSignature {
 		let msg = keccak_256(&super::Pallet::<T>::ethereum_signable_message(
 			&to_ascii_hex(what)[..],
 			extra,
 		));
-		let (sig, recovery_id) = libsecp256k1::sign(&libsecp256k1::Message::parse(&msg), secret);
+
+		let (signature, recovery_id) = secret
+			.sign_prehash_recoverable(&msg)
+			.expect("Signing can't fail with a 32-byte hash. qed.");
 		let mut r = [0u8; 65];
-		r[0..64].copy_from_slice(&sig.serialize()[..]);
-		r[64] = recovery_id.serialize();
+		r[0..64].copy_from_slice(&signature.to_bytes());
+		r[64] = recovery_id.to_byte();
 		EcdsaSignature(r)
 	}
 }

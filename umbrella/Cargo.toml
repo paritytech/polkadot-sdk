@@ -23,7 +23,6 @@ std = [
 	"bridge-hub-test-utils?/std",
 	"bridge-runtime-common?/std",
 	"cumulus-pallet-aura-ext?/std",
-	"cumulus-pallet-dmp-queue?/std",
 	"cumulus-pallet-parachain-system-proc-macro?/std",
 	"cumulus-pallet-parachain-system?/std",
 	"cumulus-pallet-session-benchmarking?/std",
@@ -125,6 +124,7 @@ std = [
 	"pallet-nomination-pools?/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences?/std",
+	"pallet-on-demand-para?/std",
 	"pallet-oracle-runtime-api?/std",
 	"pallet-oracle?/std",
 	"pallet-origin-restriction?/std",
@@ -145,7 +145,6 @@ std = [
 	"pallet-root-testing?/std",
 	"pallet-safe-mode?/std",
 	"pallet-salary?/std",
-	"pallet-scarcity?/std",
 	"pallet-scheduler?/std",
 	"pallet-session-benchmarking?/std",
 	"pallet-session?/std",
@@ -169,6 +168,8 @@ std = [
 	"pallet-tx-pause?/std",
 	"pallet-uniques?/std",
 	"pallet-utility?/std",
+	"pallet-validator-collators?/std",
+	"pallet-validator-set-announcer?/std",
 	"pallet-verify-signature?/std",
 	"pallet-vesting-precompiles?/std",
 	"pallet-vesting?/std",
@@ -250,7 +251,6 @@ runtime-benchmarks = [
 	"assets-common?/runtime-benchmarks",
 	"bridge-hub-common?/runtime-benchmarks",
 	"bridge-runtime-common?/runtime-benchmarks",
-	"cumulus-pallet-dmp-queue?/runtime-benchmarks",
 	"cumulus-pallet-parachain-system?/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking?/runtime-benchmarks",
 	"cumulus-pallet-weight-reclaim?/runtime-benchmarks",
@@ -326,6 +326,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools?/runtime-benchmarks",
 	"pallet-offences-benchmarking?/runtime-benchmarks",
 	"pallet-offences?/runtime-benchmarks",
+	"pallet-on-demand-para?/runtime-benchmarks",
 	"pallet-oracle?/runtime-benchmarks",
 	"pallet-origin-restriction?/runtime-benchmarks",
 	"pallet-paged-list?/runtime-benchmarks",
@@ -343,7 +344,6 @@ runtime-benchmarks = [
 	"pallet-root-offences?/runtime-benchmarks",
 	"pallet-safe-mode?/runtime-benchmarks",
 	"pallet-salary?/runtime-benchmarks",
-	"pallet-scarcity?/runtime-benchmarks",
 	"pallet-scheduler?/runtime-benchmarks",
 	"pallet-session-benchmarking?/runtime-benchmarks",
 	"pallet-session?/runtime-benchmarks",
@@ -362,6 +362,8 @@ runtime-benchmarks = [
 	"pallet-tx-pause?/runtime-benchmarks",
 	"pallet-uniques?/runtime-benchmarks",
 	"pallet-utility?/runtime-benchmarks",
+	"pallet-validator-collators?/runtime-benchmarks",
+	"pallet-validator-set-announcer?/runtime-benchmarks",
 	"pallet-verify-signature?/runtime-benchmarks",
 	"pallet-vesting-precompiles?/runtime-benchmarks",
 	"pallet-vesting?/runtime-benchmarks",
@@ -397,7 +399,6 @@ try-runtime = [
 	"assets-common?/try-runtime",
 	"bridge-hub-test-utils?/try-runtime",
 	"cumulus-pallet-aura-ext?/try-runtime",
-	"cumulus-pallet-dmp-queue?/try-runtime",
 	"cumulus-pallet-parachain-system?/try-runtime",
 	"cumulus-pallet-solo-to-para?/try-runtime",
 	"cumulus-pallet-weight-reclaim?/try-runtime",
@@ -478,6 +479,7 @@ try-runtime = [
 	"pallet-node-authorization?/try-runtime",
 	"pallet-nomination-pools?/try-runtime",
 	"pallet-offences?/try-runtime",
+	"pallet-on-demand-para?/try-runtime",
 	"pallet-oracle?/try-runtime",
 	"pallet-origin-restriction?/try-runtime",
 	"pallet-paged-list?/try-runtime",
@@ -496,7 +498,6 @@ try-runtime = [
 	"pallet-root-testing?/try-runtime",
 	"pallet-safe-mode?/try-runtime",
 	"pallet-salary?/try-runtime",
-	"pallet-scarcity?/try-runtime",
 	"pallet-scheduler?/try-runtime",
 	"pallet-session?/try-runtime",
 	"pallet-skip-feeless-payment?/try-runtime",
@@ -515,6 +516,8 @@ try-runtime = [
 	"pallet-tx-pause?/try-runtime",
 	"pallet-uniques?/try-runtime",
 	"pallet-utility?/try-runtime",
+	"pallet-validator-collators?/try-runtime",
+	"pallet-validator-set-announcer?/try-runtime",
 	"pallet-verify-signature?/try-runtime",
 	"pallet-vesting-precompiles?/try-runtime",
 	"pallet-vesting?/try-runtime",
@@ -598,7 +601,6 @@ runtime-full = [
 	"bridge-hub-common",
 	"bridge-runtime-common",
 	"cumulus-pallet-aura-ext",
-	"cumulus-pallet-dmp-queue",
 	"cumulus-pallet-parachain-system",
 	"cumulus-pallet-parachain-system-proc-macro",
 	"cumulus-pallet-session-benchmarking",
@@ -702,6 +704,7 @@ runtime-full = [
 	"pallet-nomination-pools-runtime-api",
 	"pallet-offences",
 	"pallet-offences-benchmarking",
+	"pallet-on-demand-para",
 	"pallet-oracle",
 	"pallet-oracle-runtime-api",
 	"pallet-origin-restriction",
@@ -724,7 +727,6 @@ runtime-full = [
 	"pallet-root-testing",
 	"pallet-safe-mode",
 	"pallet-salary",
-	"pallet-scarcity",
 	"pallet-scheduler",
 	"pallet-session",
 	"pallet-session-benchmarking",
@@ -749,6 +751,8 @@ runtime-full = [
 	"pallet-tx-pause",
 	"pallet-uniques",
 	"pallet-utility",
+	"pallet-validator-collators",
+	"pallet-validator-set-announcer",
 	"pallet-verify-signature",
 	"pallet-vesting",
 	"pallet-vesting-precompiles",
@@ -1137,11 +1141,6 @@ path = "../bridges/bin/runtime-common"
 default-features = false
 optional = true
 path = "../cumulus/pallets/aura-ext"
-
-[dependencies.cumulus-pallet-dmp-queue]
-default-features = false
-optional = true
-path = "../cumulus/pallets/dmp-queue"
 
 [dependencies.cumulus-pallet-parachain-system]
 default-features = false
@@ -1658,6 +1657,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/offences/benchmarking"
 
+[dependencies.pallet-on-demand-para]
+default-features = false
+optional = true
+path = "../substrate/frame/on-demand"
+
 [dependencies.pallet-oracle]
 default-features = false
 optional = true
@@ -1767,11 +1771,6 @@ path = "../substrate/frame/safe-mode"
 default-features = false
 optional = true
 path = "../substrate/frame/salary"
-
-[dependencies.pallet-scarcity]
-default-features = false
-optional = true
-path = "../substrate/frame/scarcity"
 
 [dependencies.pallet-scheduler]
 default-features = false
@@ -1892,6 +1891,16 @@ path = "../substrate/frame/uniques"
 default-features = false
 optional = true
 path = "../substrate/frame/utility"
+
+[dependencies.pallet-validator-collators]
+default-features = false
+optional = true
+path = "../cumulus/pallets/validator-collators"
+
+[dependencies.pallet-validator-set-announcer]
+default-features = false
+optional = true
+path = "../cumulus/pallets/validator-set-announcer"
 
 [dependencies.pallet-verify-signature]
 default-features = false

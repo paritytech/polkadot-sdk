@@ -116,7 +116,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_id(PARA_ID)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("relay-parent-offset")
+				.with_chain("relay-parent-offset-2")
 				.with_collator(|n| {
 					n.with_name(names[0])
 						.validator(true)

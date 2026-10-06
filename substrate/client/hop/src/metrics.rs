@@ -72,6 +72,7 @@ fn error_label(err: &HopError) -> &'static str {
 		HopError::DuplicateRecipient => "duplicate_recipient",
 		HopError::RateLimited { .. } => "rate_limited",
 		HopError::MissingDataDir => "missing_data_dir",
+		HopError::Db(_) => "db",
 	}
 }
 

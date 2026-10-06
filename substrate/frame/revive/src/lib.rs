@@ -54,21 +54,24 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	access_list::{StorageAccessKind, Warmth},
+	access_list::Warmth,
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
-		StateOverrideSet, TYPE_EIP1559, Tracer, TracerType, block_hash::EthereumBlockBuilderIR,
-		block_storage, fees::InfoT as FeeInfo, runtime::SetWeightLimit,
+		StateOverrideSet, TYPE_EIP1559, TYPE_EIP7702, Tracer, TracerType,
+		block_hash::{CommittedReceiptLogs, EthereumBlockBuilderIR},
+		block_storage,
+		fees::InfoT as FeeInfo,
+		runtime::SetWeightLimit,
 	},
 	exec::{AccountIdOf, ExecError, Stack as ExecStack},
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{CodeInfo, RuntimeCosts, pvm::extract_code_and_data},
+	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, pvm::extract_code_and_data},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use environmental::*;
 use frame_support::{
 	BoundedVec,
@@ -105,7 +108,10 @@ pub use crate::{
 	address::{AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2},
 	debug::DebugSettings,
 	deposit_payment::{Deposit, PGasDeposit},
-	evm::{Address as EthAddress, Block as EthBlock, block_hash::ReceiptGasInfo},
+	evm::{
+		Address as EthAddress, Block as EthBlock,
+		block_hash::{OutsideFrameLog, ReceiptGasInfo, SyntheticTransactionInfo},
+	},
 	exec::{
 		CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin,
 		ReentrancyProtection,
@@ -141,6 +147,11 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 type CallOf<T> = <T as Config>::RuntimeCall;
+
+/// Topics of a contract log, bounded to the limit the `LOG` opcode enforces.
+pub type ContractLogTopics = BoundedVec<H256, ConstU32<{ limits::NUM_EVENT_TOPICS }>>;
+/// Data payload of a contract log, bounded to the limit the `LOG` opcode enforces.
+pub type ContractLogData = BoundedVec<u8, ConstU32<{ limits::EVENT_BYTES }>>;
 
 /// Used as a sentinel value when reading and writing contract memory.
 ///
@@ -397,6 +408,15 @@ pub mod pallet {
 		#[pallet::constant]
 		#[pallet::no_default_bounds]
 		type GasScale: Get<u32>;
+
+		/// Maximum number of logs that may be buffered outside any ethereum transaction within a
+		/// single block, for the block's synthetic transaction.
+		///
+		/// Each log's drain is charged where it is emitted, so this bounds the buffer's size, not
+		/// its cost. Zero disables the buffer; a log arriving past a non-zero cap is likewise not
+		/// buffered, so the block's bloom omits it while its `ContractEmitted` still stands.
+		#[pallet::constant]
+		type MaxOutsideFrameLogs: Get<u32>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -483,6 +503,7 @@ pub mod pallet {
 			type AutoMap = ConstBool<false>;
 			type GasScale = GasScale;
 			type OnBurn = ();
+			type MaxOutsideFrameLogs = ConstU32<1024>;
 		}
 	}
 
@@ -662,6 +683,9 @@ pub mod pallet {
 		/// [`NativeDepositOf`] entries from a previously terminated contract that the deletion
 		/// queue has not yet drained.
 		PendingDepositCleanup = 0x43,
+		/// `seal_terminate` was invoked on an EIP-7702 delegated EOA. Delegated accounts
+		/// cannot be torn down via the contract-termination path.
+		CannotTerminateDelegatedAccount = 0x44,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -790,6 +814,28 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub(crate) type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
 
+	/// What the block committed to its synthetic transaction, if it has one.
+	///
+	/// Separate from [`ReceiptInfoData`] rather than a field alongside it, so that item's encoding
+	/// is unchanged: a runtime upgrade enacts mid-block, and a runtime API call at the enacting
+	/// block reads what the previous runtime wrote.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	type SyntheticReceiptInfo<T: Config> = StorageValue<_, SyntheticTransactionInfo, OptionQuery>;
+
+	/// What the open ethereum transaction has committed to its receipt, see
+	/// `block_storage::capture_into_receipt`. Taken when the transaction's receipt is built, so it
+	/// is empty between transactions.
+	///
+	/// Whitelisted like `frame_system::Events`: read and written on every log, yet never in a
+	/// block's pre-state, so a block pays one absence lookup for it however many logs it holds.
+	/// Without the whitelist the benchmark bills each `LOG` for that lookup as if it were the
+	/// first access of the block.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub(crate) type ReceiptLogsCommitted<T: Config> =
+		StorageValue<_, CommittedReceiptLogs, ValueQuery>;
+
 	/// Incremental ethereum block builder.
 	#[pallet::storage]
 	#[pallet::unbounded]
@@ -804,6 +850,26 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub(crate) type EthBlockBuilderFirstValues<T: Config> =
 		StorageValue<_, Option<(Vec<u8>, Vec<u8>)>, ValueQuery>;
+
+	/// Logs emitted during the block outside of any ethereum transaction (e.g. by pallet-assets
+	/// balance-change callbacks on non-`eth_transact` paths), in emission order.
+	///
+	/// One value grown with `append`, like `frame_system::Events`: buffering a log extends the
+	/// encoding in place at the cost of that log's bytes. Written and taken within one block, so
+	/// it is never in the pre-state and the proof holds one absence lookup for the key, nothing
+	/// per entry. Drained in `on_finalize` and flushed
+	/// as a single synthetic transaction receipt, so the logs enter the block's `logs_bloom`,
+	/// `receipts_root` and transaction trie.
+	///
+	/// Whitelisted like `frame_system::Events` and for the same reason: a block pays that one
+	/// lookup however many logs it buffers, so counting it in every producer's benchmark would
+	/// bill each mirrored balance change for a database access the block makes once.
+	///
+	/// NOTE: unbounded; accumulated across the block and consumed in `on_finalize`.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	#[pallet::whitelist_storage]
+	type OutsideFrameLogs<T: Config> = StorageValue<_, Vec<OutsideFrameLog>, ValueQuery>;
 
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]
@@ -942,7 +1008,7 @@ pub mod pallet {
 			}
 
 			// Build genesis block
-			block_storage::on_finalize_build_eth_block::<T>(
+			Pallet::<T>::finalize_eth_block(
 				// Make sure to use the block number from storage instead of the hardcoded 0.
 				// This enables testing tools like anvil to customise the genesis block number.
 				frame_system::Pallet::<T>::block_number(),
@@ -951,6 +1017,156 @@ pub mod pallet {
 			// Set debug settings.
 			if let Some(settings) = self.debug_settings.as_ref() {
 				settings.write_to_storage::<T>()
+			}
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// What the block committed to its synthetic transaction, if it has one.
+		pub fn eth_synthetic_transaction() -> Option<SyntheticTransactionInfo> {
+			SyntheticReceiptInfo::<T>::get()
+		}
+
+		/// Emit an EVM log attributed to `contract` from outside any contract call frame: traced
+		/// via the outside-frame hook, captured into the current ethereum receipt — or buffered
+		/// for the block's synthetic transaction when outside an ethereum transaction — and
+		/// deposited as [`Event::ContractEmitted`]. For log-mirroring runtime components. Contract
+		/// execution keeps its own in-frame path (`Ext::deposit_event`), which captures into an
+		/// open receipt only: a contract log emitted outside an ethereum transaction stays a
+		/// substrate-only event, see `block_storage::capture_frame_log`.
+		///
+		/// `topics` and `data` are bounded to the limits the `LOG` opcode enforces, so
+		/// [`Event::ContractEmitted`] keeps its documented topic cap on either path.
+		///
+		/// Not for an `on_finalize` that `construct_runtime!` orders after this pallet's: the
+		/// block's buffer is drained by then, and a log arriving after the drain is not buffered,
+		/// its event standing with no receipt. `on_initialize` and `on_idle` run before any
+		/// `on_finalize` and are safe.
+		pub fn emit_contract_log_outside_frame(
+			contract: H160,
+			topics: ContractLogTopics,
+			data: ContractLogData,
+		) {
+			if_tracing(|tracer| {
+				let log_index = frame_system::Pallet::<T>::event_count();
+				tracer.log_event_outside_frame(contract, &topics, &data, log_index);
+			});
+
+			if !block_storage::capture_into_receipt::<T>(&contract, &data, &topics) {
+				Self::buffer_outside_frame_log(&contract, &topics, &data);
+			}
+
+			Self::deposit_event(Event::ContractEmitted {
+				contract,
+				data: data.into_inner(),
+				topics: topics.into_inner(),
+			});
+		}
+
+		/// Drop what the block has buffered so far, so that a benchmark measures only the logs it
+		/// sets up itself.
+		#[cfg(feature = "runtime-benchmarks")]
+		pub fn clear_outside_frame_logs() {
+			OutsideFrameLogs::<T>::kill();
+		}
+
+		/// Buffer a log for the block's synthetic transaction regardless of `MaxOutsideFrameLogs`,
+		/// and without the first-log check and weight registration, so a benchmark of the drain
+		/// measures exactly the entries it sets up.
+		#[cfg(feature = "runtime-benchmarks")]
+		pub fn bench_buffer_outside_frame_log(contract: H160, topics: Vec<H256>, data: Vec<u8>) {
+			OutsideFrameLogs::<T>::append(OutsideFrameLog {
+				event_index: frame_system::Pallet::<T>::event_count(),
+				contract,
+				topics,
+				data,
+			});
+		}
+
+		/// Buffer a log emitted outside any ethereum transaction for the block's synthetic
+		/// transaction. A log the buffer cannot take, because it is off or full, stays a
+		/// substrate-only event.
+		fn buffer_outside_frame_log(contract: &H160, topics: &[H256], data: &[u8]) {
+			let cap = T::MaxOutsideFrameLogs::get();
+			if cap.is_zero() {
+				return;
+			}
+			let index = OutsideFrameLogs::<T>::decode_len().unwrap_or(0) as u32;
+			if index >= cap {
+				// The block then commits a bloom that omits this log while its event still stands.
+				log::warn!(
+					target: LOG_TARGET,
+					"outside-of-frame log buffer full ({index} logs); log for {contract:?} stays substrate-only",
+				);
+				return;
+			}
+
+			// The drain has run once the block's hash is stored. A log arriving after it, from an
+			// `on_finalize` ordered after this pallet's, is not buffered: committed a block late,
+			// its event index would point at an unrelated event. Only the first log needs the
+			// check, since a first log before the drain puts every later one before it too. Every
+			// mirroring extrinsic's benchmark starts from an empty buffer and so carries this
+			// read, though in a block only the first log performs it.
+			if index.is_zero() &&
+				BlockHash::<T>::contains_key(frame_system::Pallet::<T>::block_number())
+			{
+				log::warn!(
+					target: LOG_TARGET,
+					"outside-of-frame log for {contract:?} emitted after the block's drain stays substrate-only",
+				);
+				return;
+			}
+
+			// The index the `ContractEmitted` deposited right after this lands at, which is how
+			// the serving layer picks the buffered logs out of the block's events.
+			let entry = OutsideFrameLog {
+				event_index: frame_system::Pallet::<T>::event_count(),
+				contract: *contract,
+				topics: topics.to_vec(),
+				data: data.to_vec(),
+			};
+			let entry_bytes = Weight::from_parts(0, entry.encoded_size() as u64);
+			OutsideFrameLogs::<T>::append(entry);
+
+			// This log's share of the `on_finalize` drain, charged to the block that emitted it,
+			// since `on_initialize` reserves only the fixed part of `on_finalize`. The append
+			// itself is measured by the emitting pallet's own benchmark.
+			//
+			// The floor at the entry's bytes is an admission charge, not a cost the drain pays:
+			// the buffer is written and taken within one block, so it is never in the pre-state
+			// and the drain reads it from the overlay, not the proof. The charge still binds,
+			// because an unchecked registration lands in `BlockWeight` and proof-size reclaim
+			// only swaps out the extrinsic's own weight. That gives the buffer a bound in proof
+			// bytes per entry without a per-producer weight.
+			frame_system::Pallet::<T>::register_extra_weight_unchecked(
+				T::WeightInfo::per_outside_frame_log(data.len() as u32).max(entry_bytes),
+				DispatchClass::Normal,
+			);
+
+			// The first buffered log is also what makes `on_finalize` build the synthetic
+			// transaction at all. That step is one extra transaction's worth of work — keccak over
+			// the payload, receipt encoding, the trie builders — and no per-transaction charge
+			// covers it, since the synthetic transaction goes through no extrinsic.
+			if index.is_zero() {
+				frame_system::Pallet::<T>::register_extra_weight_unchecked(
+					T::WeightInfo::on_finalize_block_per_tx(
+						block_storage::SYNTHETIC_LOG_TX_MAX_LEN,
+					),
+					DispatchClass::Normal,
+				);
+			}
+		}
+
+		/// Build the ethereum block from what the block did and store it, the buffered
+		/// outside-of-frame logs flushed as its synthetic transaction.
+		fn finalize_eth_block(block_number: BlockNumberFor<T>) {
+			let outside_frame_logs = OutsideFrameLogs::<T>::take();
+			if let Some(synthetic) =
+				block_storage::on_finalize_build_eth_block::<T>(block_number, outside_frame_logs)
+			{
+				// Only when there is one: `on_initialize` cleared it, so a block with no mirrored
+				// logs — the common case — writes nothing here.
+				SyntheticReceiptInfo::<T>::put(synthetic);
 			}
 		}
 	}
@@ -966,16 +1182,19 @@ pub mod pallet {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			// Kill related ethereum block storage items.
 			block_storage::on_initialize::<T>();
+			SyntheticReceiptInfo::<T>::kill();
 
 			// Warm up the pallet account.
 			System::<T>::account_exists(&Pallet::<T>::account_id());
-			// Account for the fixed part of the costs incurred in `on_finalize`.
+			// Only the fixed part of `on_finalize`. Everything that scales with what the block
+			// actually did is charged as it happens: per transaction and per event through the gas
+			// meter, per outside-of-frame log — plus the one synthetic transaction those logs are
+			// flushed as — at the emit site.
 			<T as Config>::WeightInfo::on_finalize_block_fixed()
 		}
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {
-			// Build the ethereum block and place it in storage.
-			block_storage::on_finalize_build_eth_block::<T>(block_number);
+			Self::finalize_eth_block(block_number);
 		}
 
 		fn integrity_test() {
@@ -1330,8 +1549,8 @@ pub mod pallet {
 		/// * `transaction_encoded`: The RLP encoding of the signed Ethereum transaction,
 		///   represented as [crate::evm::TransactionSigned], provided by the Ethereum wallet. This
 		///   is used for building the Ethereum transaction root.
-		/// * effective_gas_price: the price of a unit of gas
-		/// * encoded len: the byte code size of the `eth_transact` extrinsic
+		/// * `effective_gas_price`: the price of a unit of gas
+		/// * `encoded_len`: the byte code size of the `eth_transact` extrinsic
 		///
 		/// Calling this dispatchable ensures that the origin's nonce is bumped only once,
 		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
@@ -1381,6 +1600,7 @@ pub mod pallet {
 						eth_gas_limit: eth_gas_limit.saturated_into(),
 						weight_limit,
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
+						authorization_deposit: Default::default(),
 					},
 					Code::Upload(code),
 					data,
@@ -1413,13 +1633,15 @@ pub mod pallet {
 		/// * `transaction_encoded`: The RLP encoding of the signed Ethereum transaction,
 		///   represented as [crate::evm::TransactionSigned], provided by the Ethereum wallet. This
 		///   is used for building the Ethereum transaction root.
-		/// * effective_gas_price: the price of a unit of gas
-		/// * encoded len: the byte code size of the `eth_transact` extrinsic
+		/// * `effective_gas_price`: the price of a unit of gas
+		/// * `encoded_len`: the byte code size of the `eth_transact` extrinsic
+		/// * `authorization_list`: EIP-7702 authorization tuples to process before execution
 		#[pallet::call_index(11)]
 		#[pallet::weight(
 			T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())
 			.saturating_add(*weight_limit)
 			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
+			.saturating_add(evm::eip7702::worst_case_authorization_weight::<T>(authorization_list.len() as u32))
 		)]
 		pub fn eth_call(
 			origin: OriginFor<T>,
@@ -1431,6 +1653,7 @@ pub mod pallet {
 			transaction_encoded: Vec<u8>,
 			effective_gas_price: U256,
 			encoded_len: u32,
+			authorization_list: Vec<evm::AuthorizationListEntry>,
 		) -> DispatchResultWithPostInfo {
 			let signer = Self::ensure_eth_signed(origin)?;
 			let origin = OriginFor::<T>::signed(signer.clone());
@@ -1445,14 +1668,24 @@ pub mod pallet {
 				transaction_encoded: transaction_encoded.clone(),
 				effective_gas_price,
 				encoded_len,
+				authorization_list: authorization_list.clone(),
 			}
 			.into();
 			let info = T::FeeInfo::dispatch_info(&call);
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
+			let exec_config =
+				ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_info.total_weight());
+			let auth_result = evm::eip7702::process_authorizations::<T>(
+				&authorization_list,
+				&signer,
+				&exec_config,
+			);
+			let extra_weight = base_info.total_weight().saturating_sub(auth_result.weight_refund);
+			let base_call_weight = base_info.call_weight.saturating_sub(auth_result.weight_refund);
+
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-				let extra_weight = base_info.total_weight();
 				let output = Self::bare_call(
 					origin,
 					dest,
@@ -1461,6 +1694,7 @@ pub mod pallet {
 						eth_gas_limit: eth_gas_limit.saturated_into(),
 						weight_limit,
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
+						authorization_deposit: auth_result.deposit,
 					},
 					data,
 					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
@@ -1469,7 +1703,7 @@ pub mod pallet {
 				block_storage::EthereumCallResult::new::<T>(
 					signer,
 					output,
-					base_info.call_weight,
+					base_call_weight,
 					encoded_len,
 					&info,
 					effective_gas_price,
@@ -2056,6 +2290,10 @@ impl<T: Config> Pallet<T> {
 		low = first_dry_run_result.eth_gas;
 		high = gas_limit;
 
+		// TODO: each iteration re-runs `process_authorizations`, which re-recovers every
+		// authority via `ecdsa_recover`. The recovered addresses are invariant across iterations
+		// (they're a function of the signatures, not gas) — cache them once outside the loop and
+		// thread them into `dry_run_eth_transact` to save N * iterations ECDSA recoveries.
 		while low + U256::one() < high {
 			log::trace!(target: LOG_TARGET, "eth_estimate_gas estimation iteration with low={low} high={high}");
 			let error_ratio = high
@@ -2118,13 +2356,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns true when a value transfer can target `address` without triggering any code
-	/// execution: it is neither the runtime pallets address, a precompile, nor a contract.
+	/// execution: it is neither the runtime pallets address, a precompile, a contract, nor an
+	/// EIP-7702 delegated EOA (a transfer to one executes the delegate's code).
 	fn address_runs_no_code(address: &H160) -> bool {
-		// TODO(eip-7702): also reject delegated (authorized) destinations once EIP-7702
-		// delegations land, since a transfer to one executes the delegate's code.
 		*address != RUNTIME_PALLETS_ADDR &&
 			!exec::is_precompile::<T, ContractBlob<T>>(address) &&
-			!<AccountInfo<T>>::is_contract(address)
+			!<AccountInfo<T>>::is_contract(address) &&
+			!<AccountInfo<T>>::is_delegated(address)
 	}
 
 	/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.
@@ -2166,7 +2404,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// # Parameters
 	///
-	/// - `tx`: The Ethereum transaction to simulate.
+	/// - `tx`: The Ethereum transaction to simulate. Must carry a `from` address when its
+	///   `authorization_list` is non-empty, since the authorization deposits are charged to it.
 	/// - `timestamp_override`: An optional timestamp to report to the contract instead of the
 	///   current one.
 	/// - `perform_balance_checks`: Whether the origin's balance is checked to cover the fees and
@@ -2183,6 +2422,17 @@ impl<T: Config> Pallet<T> {
 		CallOf<T>: SetWeightLimit,
 	{
 		log::debug!(target: LOG_TARGET, "dry_run_eth_transact: {tx:?}");
+
+		// The authorization deposits are charged to `tx.from`. Defaulting a missing `from` to the
+		// zero address would charge an unfunded account, so every authorization would be rolled
+		// back post-validation and silently dropped from the estimate.
+		if !tx.authorization_list.is_empty() && tx.from.is_none() {
+			return Err(EthTransactError::Message(
+				"a transaction with an authorization list requires a `from` address: \
+				 the authorization deposits are charged to it"
+					.into(),
+			));
+		}
 
 		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
 		Self::prepare_dry_run(&origin);
@@ -2221,10 +2471,13 @@ impl<T: Config> Pallet<T> {
 			tx.gas = Some(Self::evm_block_gas_limit());
 		}
 		if tx.r#type.is_none() {
-			tx.r#type = Some(TYPE_EIP1559.into());
+			tx.r#type = Some(
+				if tx.authorization_list.is_empty() { TYPE_EIP1559 } else { TYPE_EIP7702 }.into(),
+			);
 		}
 
 		// Store values before moving the tx
+		let authorization_list = tx.authorization_list.clone();
 		let value = tx.value.unwrap_or_default();
 		let input = tx.input.clone().to_vec();
 		let from = tx.from;
@@ -2240,10 +2493,7 @@ impl<T: Config> Pallet<T> {
 		// in those cases we skip the check that the caller has enough balance
 		// to pay for the fees
 		let base_info = T::FeeInfo::base_dispatch_info(&mut call_info.call);
-		let base_weight = base_info.total_weight();
-		let exec_config =
-			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
-				.with_dry_run(timestamp_override);
+		let mut base_weight = base_info.total_weight();
 
 		// emulate transaction behavior
 		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
@@ -2269,10 +2519,24 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
+		let exec_config =
+			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight);
+		let auth_result =
+			evm::eip7702::process_authorizations::<T>(&authorization_list, &origin, &exec_config);
+		base_weight = base_weight.saturating_sub(auth_result.weight_refund);
+		let actual_auth_deposit = auth_result.deposit;
+		let worst_case_auth_deposit = Self::worst_case_delegation_deposit()
+			.saturating_mul(authorization_list.len().saturated_into());
+
+		let exec_config =
+			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
+				.with_dry_run(timestamp_override);
+
 		let transaction_limits = TransactionLimits::EthereumGas {
 			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
 			weight_limit: Self::evm_max_extrinsic_weight(),
 			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
+			authorization_deposit: actual_auth_deposit,
 		};
 
 		// Dry run the call
@@ -2371,6 +2635,11 @@ impl<T: Config> Pallet<T> {
 				}
 			},
 		};
+
+		// Ensure max_storage_deposit covers worst-case authorization cost for pool validation.
+		// The meter already includes the actual auth deposit; this bumps it to worst case
+		// so that the gas estimate produces a transaction that passes pool validation.
+		dry_run.max_storage_deposit = dry_run.max_storage_deposit.max(worst_case_auth_deposit);
 
 		// replace the weight passed in the transaction with the dry_run result
 		call_info.call.set_weight_limit(dry_run.weight_required);
@@ -2626,6 +2895,7 @@ impl<T: Config> Pallet<T> {
 	/// # Warning
 	///
 	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
+	/// Immutables belong to deployed contracts only — do not target delegated EOAs.
 	pub fn set_immutables(address: H160, data: ImmutableData) -> Result<(), ContractAccessError> {
 		AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
 		<ImmutableDataOf<T>>::insert(address, data);
@@ -2724,15 +2994,24 @@ impl<T: Config> Pallet<T> {
 	/// Returns the code at `address`.
 	///
 	/// This takes pre-compiles into account.
+	/// For EIP-7702 delegated accounts, returns the delegation indicator (0xef0100 || target).
 	pub fn code(address: &H160) -> Vec<u8> {
 		use precompiles::{All, Precompiles};
 		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
 			return code.into();
 		}
-		AccountInfo::<T>::load_contract(&address)
-			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
-			.map(|code| code.into())
-			.unwrap_or_default()
+
+		let Some(info) = <AccountInfoOf<T>>::get(address) else { return Vec::new() };
+
+		match info.account_type {
+			AccountType::Contract(contract) => <PristineCode<T>>::get(contract.code_hash)
+				.map(|code| code.into())
+				.unwrap_or_default(),
+			AccountType::DelegatedEOA { delegate_target: Some(target), .. } => {
+				AccountInfo::<T>::delegation_indicator(&target).to_vec()
+			},
+			AccountType::EOA | AccountType::DelegatedEOA { .. } => Vec::new(),
+		}
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
@@ -2794,7 +3073,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// `dst` is usually the transaction origin and `from` a contract or
 	/// the pallets own account.
-	fn refund_deposit(
+	pub(crate) fn refund_deposit(
 		hold_reason: HoldReason,
 		from: &T::AccountId,
 		dst: deposit_payment::Funds<T::AccountId>,
@@ -2847,6 +3126,19 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime", test))]
 	fn min_balance() -> BalanceOf<T> {
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
+	}
+
+	/// Worst-case storage deposit for a single EIP-7702 authorization.
+	///
+	/// Assumes a new account delegating to a contract with the maximum code size.
+	pub(crate) fn worst_case_delegation_deposit() -> BalanceOf<T> {
+		let ed = <T as Config>::Currency::minimum_balance();
+		let contract_deposit = T::DepositPerByte::get()
+			.saturating_mul((<ContractInfo<T>>::max_encoded_len() as u32).into())
+			.saturating_add(T::DepositPerItem::get());
+		let max_code_deposit = vm::calculate_code_deposit::<T>(limits::code::BLOB_BYTES);
+		let code_lockup = T::CodeHashLockupDepositPercent::get().mul_ceil(max_code_deposit);
+		ed.saturating_add(contract_deposit).saturating_add(code_lockup)
 	}
 
 	/// Deposit a pallet revive event.
@@ -2927,7 +3219,10 @@ sp_api::decl_runtime_apis! {
 		///
 		/// # Note
 		///
-		/// Each entry corresponds to the appropriate Ethereum transaction in the current block.
+		/// Each entry corresponds to the appropriate Ethereum transaction in the current block. A
+		/// block may also carry a synthetic transaction for the logs emitted outside any ethereum
+		/// transaction; it has no entry here, and only `eth_receipt_data_versioned` at version 2
+		/// or above reports it.
 		#[deprecated(note = "Use the versioned equivalent `eth_receipt_data_versioned` if available on your runtime")]
 		fn eth_receipt_data() -> Vec<ReceiptGasInfoV1>;
 
@@ -3662,7 +3957,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					ReviveRuntimeApiVersionDeclarations::new()
 						.insert("eth_block_versioned", 1)
 						.insert("eth_block_hash_versioned", 1)
-						.insert("eth_receipt_data_versioned", 1)
+						.insert("eth_receipt_data_versioned", 2)
 						.insert("block_gas_limit_versioned", 1)
 						.insert("max_extrinsic_weight_in_gas_versioned", 1)
 						.insert("balance_versioned", 1)
@@ -3745,10 +4040,15 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 							ReceiptDataInputPayload::from(payload),
 							Box::new(|output| ReceiptDataVersionedOutputPayload::V1(output.into())),
 						),
+						ReceiptDataVersionedInputPayload::V2(payload) => (
+							ReceiptDataInputPayload::from(payload),
+							Box::new(|output| ReceiptDataVersionedOutputPayload::V2(output.into())),
+						),
 					};
 
 					let output = ReceiptDataOutputPayload {
-						receipt_data: $crate::Pallet::<Self>::eth_receipt_data()
+						receipt_data: $crate::Pallet::<Self>::eth_receipt_data(),
+						synthetic: $crate::Pallet::<Self>::eth_synthetic_transaction(),
 					};
 					output_wrapper(output)
 				}

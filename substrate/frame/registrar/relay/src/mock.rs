@@ -112,6 +112,33 @@ impl ParachainRegistrar for MockRegistrar {
 		Onboarded::mutate(|v| v.push((para_id, manager, genesis_head, validation_code)));
 		Ok(())
 	}
+
+	fn deregister(_para_id: ParaId) -> sp_runtime::DispatchResult {
+		// TODO(ahm-v2): record the deregistration in the mock.
+		Ok(())
+	}
+
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): check the head data length in the mock.
+		Ok(())
+	}
+
+	fn set_current_head(_para_id: ParaId, _head: Vec<u8>) {
+		// TODO(ahm-v2): record the head update in the mock.
+	}
+
+	fn check_code_upgrade(_para_id: ParaId, _code_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): check the code upgrade in the mock.
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(
+		_para_id: ParaId,
+		_validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		// TODO(ahm-v2): record the scheduled code upgrade in the mock.
+		Ok(())
+	}
 }
 
 /// A [`SendToPara`] that records instead of sending, and can be made to fail.

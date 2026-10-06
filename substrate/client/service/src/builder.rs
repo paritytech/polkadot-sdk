@@ -60,6 +60,7 @@ use sc_network_sync::{
 	service::network::{NetworkServiceHandle, NetworkServiceProvider},
 	state_request_handler::StateRequestHandler,
 	strategy::{
+		chain_sync::{GapSyncBodyPolicy, GapSyncBodyPolicyProvider},
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 		SyncingStrategy,
 	},
@@ -92,7 +93,7 @@ use sp_consensus::block_validation::{
 };
 use sp_core::traits::{CodeExecutor, SpawnNamed};
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
+use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 use std::{
 	str::FromStr,
@@ -445,8 +446,35 @@ where
 	)
 }
 
-/// Parameters to pass into `build`.
-pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool, TRpc, Backend> {
+/// The client capabilities every service entry point relies on.
+///
+/// It is blanket implemented, so every full client qualifies. Having it as a single bound keeps
+/// the client bounds readable at [`build_network`], [`build_network_advanced`], [`spawn_tasks`]
+/// and [`gen_rpc_module`], each of which adds only the few capabilities it genuinely needs on top.
+pub trait ClientForService<Block: BlockT>:
+	ProvideRuntimeApi<Block>
+	+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+	+ HeaderBackend<Block>
+	+ BlockBackend<Block>
+	+ ProofProvider<Block>
+	+ BlockchainEvents<Block>
+	+ 'static
+{
+}
+
+impl<Block: BlockT, T> ClientForService<Block> for T where
+	T: ProvideRuntimeApi<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ HeaderBackend<Block>
+		+ BlockBackend<Block>
+		+ ProofProvider<Block>
+		+ BlockchainEvents<Block>
+		+ 'static
+{
+}
+
+/// Parameters to pass into [`spawn_tasks`].
+pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool: ?Sized, TRpc, Backend> {
 	/// The service configuration.
 	pub config: Configuration,
 	/// A shared client returned by `new_full_parts`.
@@ -497,29 +525,20 @@ pub fn spawn_tasks<TBl, TBackend, TExPool, TRpc, TCl>(
 	}: SpawnTasksParams<TBl, TCl, TExPool, TRpc, TBackend>,
 ) -> Result<RpcHandlers, Error>
 where
-	TCl: ProvideRuntimeApi<TBl>
-		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
+	TCl: ClientForService<TBl>
 		+ Chain<TBl>
-		+ BlockBackend<TBl>
-		+ BlockIdTo<TBl, Error = sp_blockchain::Error>
-		+ ProofProvider<TBl>
-		+ HeaderBackend<TBl>
-		+ BlockchainEvents<TBl>
 		+ ExecutorProvider<TBl>
 		+ UsageProvider<TBl>
 		+ StorageProvider<TBl, TBackend>
-		+ CallApiAt<TBl>
-		+ Send
-		+ 'static,
-	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_api::Metadata<TBl>
-		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<TBl>
-		+ sp_session::SessionKeys<TBl>
-		+ sp_api::ApiExt<TBl>,
+		+ CallApiAt<TBl>,
+	<TCl as ProvideRuntimeApi<TBl>>::Api:
+		sp_api::Metadata<TBl> + sp_session::SessionKeys<TBl> + sp_api::ApiExt<TBl>,
 	TBl: BlockT,
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
 	TBackend: 'static + sc_client_api::backend::Backend<TBl> + Send,
-	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
+	TExPool:
+		MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + ?Sized + 'static,
 {
 	let chain_info = client.usage_info().chain;
 
@@ -702,7 +721,7 @@ pub async fn propagate_transaction_notifications<Block, ExPool>(
 	telemetry: Option<TelemetryHandle>,
 ) where
 	Block: BlockT,
-	ExPool: MaintainedTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash>,
+	ExPool: MaintainedTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized,
 {
 	const TELEMETRY_INTERVAL: Duration = Duration::from_secs(1);
 
@@ -786,7 +805,7 @@ where
 }
 
 /// Parameters for [`gen_rpc_module`].
-pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool> {
+pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool: ?Sized> {
 	/// The handle to spawn tasks on the RPC runtime.
 	pub spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
 	/// Access to the client.
@@ -843,23 +862,16 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
-	TCl: ProvideRuntimeApi<TBl>
-		+ BlockchainEvents<TBl>
-		+ HeaderBackend<TBl>
-		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
+	TCl: ClientForService<TBl>
 		+ ExecutorProvider<TBl>
 		+ CallApiAt<TBl>
-		+ ProofProvider<TBl>
-		+ StorageProvider<TBl, TBackend>
-		+ BlockBackend<TBl>
-		+ Send
-		+ Sync
-		+ 'static,
+		+ StorageProvider<TBl, TBackend>,
 	TBackend: sc_client_api::backend::Backend<TBl> + 'static,
 	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_session::SessionKeys<TBl> + sp_api::Metadata<TBl>,
-	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
+	TExPool:
+		MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + ?Sized + 'static,
 {
 	let system_info = sc_rpc::system::SystemInfo {
 		chain_name: chain_spec.name().into(),
@@ -977,7 +989,7 @@ where
 }
 
 /// Parameters to pass into [`build_network`].
-pub struct BuildNetworkParams<'a, Block, Net, TxPool, IQ, Client>
+pub struct BuildNetworkParams<'a, Block, Net, TxPool: ?Sized, IQ, Client>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
@@ -1007,6 +1019,10 @@ where
 	pub block_relay: Option<BlockRelayParams<Block, Net>>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Which block bodies gap sync downloads after warp sync. `None` derives the
+	/// default from the block pruning configuration, see
+	/// [`default_gap_sync_body_policy`].
+	pub gap_sync_body_policy: Option<GapSyncBodyPolicyProvider>,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
@@ -1024,16 +1040,8 @@ pub fn build_network<Block, Net, TxPool, IQ, Client>(
 >
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ Chain<Block>
-		+ BlockBackend<Block>
-		+ BlockIdTo<Block, Error = sp_blockchain::Error>
-		+ ProofProvider<Block>
-		+ HeaderBackend<Block>
-		+ BlockchainEvents<Block>
-		+ 'static,
-	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static,
+	Client: ClientForService<Block> + Chain<Block>,
+	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized + 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
@@ -1049,6 +1057,7 @@ where
 		warp_sync_config,
 		block_relay,
 		metrics,
+		gap_sync_body_policy,
 	} = params;
 
 	let block_announce_validator = if let Some(f) = block_announce_validator_builder {
@@ -1086,6 +1095,8 @@ where
 		),
 	};
 
+	let gap_sync_body_policy =
+		gap_sync_body_policy.unwrap_or_else(|| default_gap_sync_body_policy(config.blocks_pruning));
 	let syncing_strategy = build_polkadot_syncing_strategy(
 		protocol_id.clone(),
 		fork_id,
@@ -1095,7 +1106,7 @@ where
 		client.clone(),
 		&spawn_handle,
 		metrics_registry,
-		config.blocks_pruning.is_archive(),
+		gap_sync_body_policy,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1113,7 +1124,9 @@ where
 		net_config.peer_store_handle(),
 	)?;
 
-	spawn_handle.spawn_blocking("syncing", None, syncing_engine.run());
+	// The syncing engine is spawned as an essential task: a node that can no longer
+	// sync is better shut down than kept running.
+	spawn_essential_handle.spawn_blocking("syncing", None, syncing_engine.run());
 
 	build_network_advanced(BuildNetworkAdvancedParams {
 		role: config.role,
@@ -1136,7 +1149,7 @@ where
 }
 
 /// Parameters to pass into [`build_network_advanced`].
-pub struct BuildNetworkAdvancedParams<'a, Block, Net, TxPool, IQ, Client>
+pub struct BuildNetworkAdvancedParams<'a, Block, Net, TxPool: ?Sized, IQ, Client>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
@@ -1192,16 +1205,8 @@ pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
 >
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ Chain<Block>
-		+ BlockBackend<Block>
-		+ BlockIdTo<Block, Error = sp_blockchain::Error>
-		+ ProofProvider<Block>
-		+ HeaderBackend<Block>
-		+ BlockchainEvents<Block>
-		+ 'static,
-	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static,
+	Client: ClientForService<Block> + Chain<Block>,
+	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized + 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
@@ -1400,13 +1405,16 @@ where
 	pub num_peers_hint: usize,
 	/// A handle for spawning tasks.
 	pub spawn_handle: &'a SpawnTaskHandle,
+	/// A handle for spawning essential tasks. Used for the syncing engine itself.
+	pub spawn_essential_handle: &'a SpawnEssentialTaskHandle,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
-	/// Whether to archive blocks. When `true`, gap sync requests bodies to maintain complete
-	/// block history.
-	pub archive_blocks: bool,
+	/// Resolves the gap sync body policy when a `ChainSync` instance is created. Use
+	/// [`default_gap_sync_body_policy`] unless the node opts into storage-chain body
+	/// recovery.
+	pub gap_sync_body_policy: GapSyncBodyPolicyProvider,
 }
 
 /// Build default syncing engine using [`build_default_block_downloader`] and
@@ -1437,9 +1445,10 @@ where
 		import_queue_service,
 		num_peers_hint,
 		spawn_handle,
+		spawn_essential_handle,
 		metrics_registry,
 		metrics,
-		archive_blocks,
+		gap_sync_body_policy,
 	} = config;
 
 	let block_downloader = build_default_block_downloader(
@@ -1460,7 +1469,7 @@ where
 		client.clone(),
 		spawn_handle,
 		metrics_registry,
-		archive_blocks,
+		gap_sync_body_policy,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1478,7 +1487,9 @@ where
 		net_config.peer_store_handle(),
 	)?;
 
-	spawn_handle.spawn_blocking("syncing", None, syncing_engine.run());
+	// The syncing engine is spawned as an essential task: a node that can no longer
+	// sync is better shut down than kept running.
+	spawn_essential_handle.spawn_blocking("syncing", None, syncing_engine.run());
 
 	Ok((sync_service, block_announce_config))
 }
@@ -1518,6 +1529,21 @@ where
 	downloader
 }
 
+/// The default gap sync body policy provider, derived from the block pruning
+/// configuration: archive nodes backfill the whole gap with bodies, pruned nodes
+/// headers and justifications only.
+///
+/// Storage-chain nodes install their own provider instead, via
+/// [`BuildNetworkParams::gap_sync_body_policy`].
+pub fn default_gap_sync_body_policy(blocks_pruning: BlocksPruning) -> GapSyncBodyPolicyProvider {
+	Arc::new(move || {
+		Ok(blocks_pruning
+			.is_archive()
+			.then_some(GapSyncBodyPolicy::All)
+			.unwrap_or(GapSyncBodyPolicy::HeadersOnly))
+	})
+}
+
 /// Build standard polkadot syncing strategy
 pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	protocol_id: ProtocolId,
@@ -1528,7 +1554,7 @@ pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
 	metrics_registry: Option<&Registry>,
-	archive_blocks: bool,
+	gap_sync_body_policy: GapSyncBodyPolicyProvider,
 ) -> Result<Box<dyn SyncingStrategy<Block>>, Error>
 where
 	Block: BlockT,
@@ -1598,7 +1624,7 @@ where
 		metrics_registry: metrics_registry.cloned(),
 		state_request_protocol_name,
 		block_downloader,
-		archive_blocks,
+		gap_sync_body_policy,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,
