@@ -342,17 +342,10 @@ pub mod env {
 				stipend_and_protections.protections(),
 			)
 		};
-		let flags = CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?;
-		// A read-only call is never a `transfer` or `send`.
-		let protections = if flags.contains(CallFlags::READ_ONLY) {
-			CallProtections::default()
-		} else {
-			protections
-		};
 
 		self.call(
 			memory,
-			flags,
+			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::Call { value_ptr, protections },
 			callee,
 			&resources,

@@ -17,7 +17,7 @@
 
 use crate::{
 	Code, Config, Error, Pallet,
-	evm::CallTracer,
+	evm::{CallTrace, CallTracer},
 	test_utils::{ALICE, BOB, BOB_ADDR, builder::Contract},
 	tests::{ExtBuilder, GasScale, RuntimeOrigin, Test, builder},
 	tracing::trace,
@@ -48,6 +48,25 @@ fn with_gas_scale<R>(scale: u32, test: impl FnOnce() -> R) -> R {
 	let _restore = RestoreGasScale(GasScale::get());
 	GasScale::set(scale);
 	test()
+}
+
+/// Calls `isCallWithGasDenied(gas_limit)` on `sender` and returns the call trace.
+fn trace_call_with_gas(sender: H160, gas_limit: u64) -> CallTrace {
+	let mut tracer = CallTracer::new(Default::default());
+	trace(&mut tracer, || {
+		builder::bare_call(sender)
+			.data(StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode())
+			.build_and_unwrap_result()
+	});
+	tracer.collect_trace().unwrap()
+}
+
+/// Returns the innermost frame of `call_trace`.
+fn innermost_frame(mut call_trace: CallTrace) -> CallTrace {
+	while let Some(nested) = call_trace.calls.pop() {
+		call_trace = nested;
+	}
+	call_trace
 }
 
 #[test]
@@ -574,8 +593,11 @@ fn stipend_check_denies_moving_value(fixture_type: FixtureType, beneficiary: Ben
 			builder::bare_instantiate(Code::Upload(receiver_code))
 				.native_value(1_000)
 				.constructor_data(
-					ValueForwardingReceiver::constructorCall { _beneficiary: beneficiary.0.into() }
-						.abi_encode(),
+					ValueForwardingReceiver::constructorCall {
+						_beneficiary: beneficiary.0.into(),
+						_amount: U256::from(FORWARDED_VALUE),
+					}
+					.abi_encode(),
 				)
 				.build_and_unwrap_contract();
 		let Contract { addr: sender, .. } = builder::bare_instantiate(Code::Upload(sender_code))
@@ -587,15 +609,7 @@ fn stipend_check_denies_moving_value(fixture_type: FixtureType, beneficiary: Ben
 		// Returns the receiver's error and the value the beneficiary received.
 		let forward = |gas_limit: u64| {
 			let balance_before = Pallet::<Test>::evm_balance(&beneficiary);
-			let mut tracer = CallTracer::new(Default::default());
-			trace(&mut tracer, || {
-				builder::bare_call(sender)
-					.data(
-						StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
-					)
-					.build_and_unwrap_result()
-			});
-			let receiver_trace = tracer.collect_trace().unwrap().calls.pop().unwrap();
+			let receiver_trace = trace_call_with_gas(sender, gas_limit).calls.pop().unwrap();
 			let received = Pallet::<Test>::evm_balance(&beneficiary) - balance_before;
 			(receiver_trace.error, received.as_u64())
 		};
@@ -651,15 +665,7 @@ fn stipend_check_denies_creating_contracts(fixture_type: FixtureType, creation: 
 					)
 					.build_and_unwrap_contract();
 
-			let mut tracer = CallTracer::new(Default::default());
-			trace(&mut tracer, || {
-				builder::bare_call(sender)
-					.data(
-						StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
-					)
-					.build_and_unwrap_result()
-			});
-			let receiver_trace = tracer.collect_trace().unwrap().calls.pop().unwrap();
+			let receiver_trace = trace_call_with_gas(sender, gas_limit).calls.pop().unwrap();
 			(receiver_trace.error, !receiver_trace.calls.is_empty())
 		})
 	};
@@ -714,18 +720,7 @@ fn stipend_check_denies_terminating_contracts(fixture_type: FixtureType, termina
 			let receiver_balance = Pallet::<Test>::evm_balance(&receiver);
 			let balance_before = Pallet::<Test>::evm_balance(&BOB_ADDR);
 
-			let mut tracer = CallTracer::new(Default::default());
-			trace(&mut tracer, || {
-				builder::bare_call(sender)
-					.data(
-						StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
-					)
-					.build_and_unwrap_result()
-			});
-			let mut call_trace = tracer.collect_trace().unwrap();
-			while let Some(nested) = call_trace.calls.pop() {
-				call_trace = nested;
-			}
+			let call_trace = innermost_frame(trace_call_with_gas(sender, gas_limit));
 			let received = Pallet::<Test>::evm_balance(&BOB_ADDR) - balance_before;
 			(call_trace.error, received, receiver_balance)
 		})
@@ -805,22 +800,8 @@ fn stipend_check_denies_writes_with_out_of_gas(fixture_type: FixtureType, receiv
 			.build_and_unwrap_contract();
 
 		let write_error = |gas_limit: u64| {
-			let mut tracer = CallTracer::new(Default::default());
-			with_gas_scale(20_000_000, || {
-				trace(&mut tracer, || {
-					builder::bare_call(sender)
-						.data(
-							StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }
-								.abi_encode(),
-						)
-						.build_and_unwrap_result()
-				})
-			});
-			let mut call_trace = tracer.collect_trace().unwrap();
-			while let Some(nested) = call_trace.calls.pop() {
-				call_trace = nested;
-			}
-			call_trace.error
+			let call_trace = with_gas_scale(20_000_000, || trace_call_with_gas(sender, gas_limit));
+			innermost_frame(call_trace).error
 		};
 
 		assert_eq!(write_error(2300).as_deref(), Some("OutOfGas"));

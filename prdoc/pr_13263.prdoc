@@ -7,15 +7,16 @@ doc:
     terminating a contract. In revive, only the stipend's weight limited these operations.
     The pallet now limits the callee to what the stipend pays for on Ethereum, for every call with
     that shape: an EVM `CALL`, or a PolkaVM `call_evm` without `READ_ONLY`, that moves value with a
-    gas limit of 0, or moves no value with a gas limit of exactly 2300. The receiver, and every
-    contract it calls, fails with `OutOfGas` when it:
-    - writes persistent contract storage (`SSTORE`, the PolkaVM storage host functions, and
+    gas limit of 0, or moves no value with a gas limit of exactly 2300. In the receiver, and in
+    every contract it calls, these operations fail with `OutOfGas`:
+    - persistent contract storage writes (`SSTORE`, the PolkaVM storage host functions, and
       `clearStorage` and `takeStorage` of the storage precompile),
-    - transfers value,
-    - creates a contract (`CREATE`, `CREATE2`, PolkaVM `instantiate`),
-    - terminates a contract (`SELFDESTRUCT`, PolkaVM `terminate`, `terminate` of the system
+    - value transfers,
+    - contract creation (`CREATE`, `CREATE2`, PolkaVM `instantiate`),
+    - contract termination (`SELFDESTRUCT`, PolkaVM `terminate`, `terminate` of the system
       precompile),
-    - calls a state-changing function of the assets, asset-conversion, XCM or vesting precompile.
+    - calls to a state-changing function of the assets, asset-conversion, XCM or vesting
+      precompile.
 
     The contract that attempts such an operation halts on the EVM or traps on PolkaVM, and its
     caller sees a failed call. On Ethereum, the operation runs out of gas, with the same result.

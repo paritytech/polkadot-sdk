@@ -909,9 +909,7 @@ fn execute_is_denied_in_the_receiver_of_a_send() {
 	use pallet_revive::{precompiles::alloy::sol_types::SolConstructor, AddressMapper};
 	use pallet_revive_fixtures::{CallingReceiver, FixtureType, StipendSender};
 
-	let xcm_precompile_addr = H160::from(
-		hex::const_decode_to_array(b"00000000000000000000000000000000000A0000").unwrap(),
-	);
+	let xcm_precompile_addr = xcm_precompile_address();
 
 	// Returns whether the sender saw its call denied, and the value CHARLIE received.
 	let execute_from_receiver = |gas_limit: u64| {

@@ -465,18 +465,19 @@ contract NestedWritingReceiver {
 
 /**
  * @title ValueForwardingReceiver
- * @dev Moves value to `beneficiary` on receiving a call, failing unless the transfer succeeds.
+ * @dev Moves `amount` to `beneficiary` on receiving a call, failing unless the transfer succeeds.
  */
 contract ValueForwardingReceiver {
-    uint256 constant FORWARDED_VALUE = 1_000_000;
     address payable immutable beneficiary;
+    uint256 immutable amount;
 
-    constructor(address payable _beneficiary) payable {
+    constructor(address payable _beneficiary, uint256 _amount) payable {
         beneficiary = _beneficiary;
+        amount = _amount;
     }
 
     receive() external payable {
-        (bool success, ) = beneficiary.call{value: FORWARDED_VALUE}("");
+        (bool success, ) = beneficiary.call{value: amount}("");
         require(success, "value transfer failed");
     }
 }

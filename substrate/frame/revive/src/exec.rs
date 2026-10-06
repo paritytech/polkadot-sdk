@@ -127,9 +127,10 @@ impl Key {
 /// This needs to be specifed when a contract makes a message call. This way the calling contract
 /// can specify the level of re-entrancy protection while the callee (and it's recursive callees) is
 /// executing.
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub enum ReentrancyProtection {
 	/// Don't activate reentrancy protection
+	#[default]
 	AllowReentry,
 	/// Activate strict reentrancy protection. The direct callee and none of its own recursive
 	/// callees must be the calling contract.
@@ -137,7 +138,7 @@ pub enum ReentrancyProtection {
 }
 
 /// The protections a caller sets for its callee.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct CallProtections {
 	/// The reentrancy protection to enforce on the callee.
 	pub reentrancy: ReentrancyProtection,
@@ -147,16 +148,6 @@ pub struct CallProtections {
 	/// frame it creates, cannot write persistent contract storage, move value, or create or
 	/// terminate contracts.
 	pub stipend_frame: bool,
-}
-
-impl Default for CallProtections {
-	fn default() -> Self {
-		Self {
-			reentrancy: ReentrancyProtection::AllowReentry,
-			read_only: false,
-			stipend_frame: false,
-		}
-	}
 }
 
 impl CallProtections {

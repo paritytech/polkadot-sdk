@@ -131,7 +131,7 @@ pub trait HostFn: private::Sealed {
 	/// a gas of 2300) limits the callee to what the stipend pays for on Ethereum. The callee, and
 	/// any contract it calls, fails with `OutOfGas` when it writes persistent storage, transfers
 	/// value, or creates or terminates a contract. Transient storage still works. A call with
-	/// [`CallFlags::READ_ONLY`] is never treated as such a call.
+	/// [`CallFlags::READ_ONLY`] and a gas of 2300 still gets the stipend, but not these limits.
 	///
 	/// If gas is `u64::MAX`, the call will run with uncapped limits.
 	fn call_evm(
