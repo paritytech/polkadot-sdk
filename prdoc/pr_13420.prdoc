@@ -1,0 +1,30 @@
+title: 'pallet-validator-collators: random draw of validator collators under a cap'
+doc:
+- audience: Runtime Dev
+  description: |-
+    When `MaxCollators` is set, `pallet-validator-collators` draws the validators at random at the
+    first of the two forced rotations after a set arrives. The draw shuffles the whole set with a
+    seed made of the genesis hash, the era and the relay chain epoch randomness, keeps the
+    validators with registered keys and truncates to the cap. The drawn list and its seed are
+    stored in the new `Collators` storage item and reported in the new `CollatorsDrawn` event.
+    Without a cap every validator with registered keys is returned.
+
+    Changing the cap while a set is stored forces two session rotations. The first redraws the
+    list, with the stored seed when one belongs to the era. Removing the cap clears the drawn list.
+
+    The pallet implements `cumulus_pallet_parachain_system::OnSystemEvent` and caches the relay
+    chain `ONE_EPOCH_AGO_RANDOMNESS` in the new `EpochRandomness` storage item. Runtimes using the
+    pallet must wire it as `OnSystemEvent` of `cumulus-pallet-parachain-system`. A relay
+    chain state proof that cannot be read, including one that lacks the trie nodes of the
+    randomness key, is logged and leaves the cache unchanged.
+
+    Asset Hub Westend and People Westend wire the pallet as `OnSystemEvent`.
+crates:
+- name: pallet-validator-collators
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: people-westend-integration-tests
+  bump: none
