@@ -40,6 +40,7 @@ use core::{cmp, fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
 	Blake2_128Concat, BoundedVec, DebugNoBound, StorageHasher,
 	crypto::ecdsa::ECDSAExt,
+	defensive,
 	dispatch::DispatchResult,
 	ensure,
 	storage::{TransactionOutcome, with_transaction},
@@ -1983,7 +1984,7 @@ where
 			});
 			ContractInfo::<T>::queue_for_deletion(info.trie_id, contract_account.clone());
 		} else {
-			log::debug!(target: LOG_TARGET, "Terminating {contract_address:?}: no contract info");
+			defensive!("Terminated contract has no contract info", contract_address);
 		}
 		AccountInfoOf::<T>::remove(contract_address);
 		ImmutableDataOf::<T>::remove(contract_address);
@@ -2031,7 +2032,10 @@ where
 			match f() {
 				Ok(value) => TransactionOutcome::Commit(Ok(Some(value))),
 				Err(e) => {
-					log::debug!(target: LOG_TARGET, "Terminating {contract_address:?}: failed to {step}: {e:?}");
+					log::debug!(
+						target: LOG_TARGET,
+						"Terminating {contract_address:?}: failed to {step}: {e:?}",
+					);
 					TransactionOutcome::Rollback(Ok(None))
 				},
 			}
