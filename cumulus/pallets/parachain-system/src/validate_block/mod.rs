@@ -24,10 +24,6 @@ pub mod implementation;
 #[doc(hidden)]
 pub mod scheduling;
 
-#[cfg(any(test, not(feature = "std")))]
-#[doc(hidden)]
-pub mod spec_messaging;
-
 #[cfg(test)]
 mod tests;
 

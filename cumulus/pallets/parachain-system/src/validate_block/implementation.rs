@@ -16,9 +16,7 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{
-	scheduling, spec_messaging, trie_cache, trie_recorder, MemoryOptimizedValidationParams,
-};
+use super::{scheduling, trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
 use codec::Encode;
 use cumulus_primitives_core::{
@@ -26,8 +24,8 @@ use cumulus_primitives_core::{
 		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, MAX_HEAD_DATA_SIZE,
 		UMP_SEPARATOR,
 	},
-	CumulusDigestItem, ParachainBlockData, PersistedValidationData, SchedulingSignals,
-	SignedSchedulingInfo, VerifySchedulingSignature,
+	ump_signal_tail, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
+	SchedulingSignals, SignedSchedulingInfo, SpecMessagingSignals, VerifySchedulingSignature,
 };
 use cumulus_primitives_spec_messaging::ProvideUmpSignals;
 use frame_support::{
@@ -380,35 +378,25 @@ where
 
 	// A `signed_scheduling_info` overrides the block's emitted *scheduling* signals wholesale —
 	// they are ignored, not merged.
-	let scheduling_tail = match scheduling_override_inputs.as_ref() {
+	let scheduling_signals = match scheduling_override_inputs.as_ref() {
 		Some((signed_info, _)) => SchedulingSignals::from_scheduling_info(signed_info),
 		None => SchedulingSignals::from_block_signals(&upward_message_signals),
-	}
-	.into_ump_messages();
+	};
 
 	// The speculative-messaging pass runs on both paths (the override replaces only the
 	// scheduling signals): take the bundle's `Provides` and synthesize `Requires` from the
-	// consumption records and the PoV-carried lifts. Any lift failure panics, invalidating the
+	// consumption records and the PoV-carried lifts. Any failure panics, invalidating the
 	// candidate.
-	let spec_msg_signals = spec_messaging::SpecMessagingSignals::build(
-		&upward_message_signals,
-		&consumption_records,
-		lifts.as_ref(),
-	);
+	let spec_msg_signals =
+		SpecMessagingSignals::build(&upward_message_signals, &consumption_records, lifts.as_ref())
+			.unwrap_or_else(|error| panic!("{}", error));
 
-	// One `UMP_SEPARATOR` heads the whole tail: `SelectCore`, `ApprovedPeer`, then `Provides`,
-	// `Requires`. `into_ump_messages` already starts with it unless the scheduling part is empty.
-	if scheduling_tail.is_empty() && !spec_msg_signals.is_empty() {
-		upward_messages
-			.try_push(UMP_SEPARATOR)
-			.expect("UMPSignals does not fit in UMPMessages");
-	}
-	for message in scheduling_tail {
+	// The same assembly the collator uses, so the two tails can't drift.
+	for message in ump_signal_tail(scheduling_signals, spec_msg_signals) {
 		upward_messages
 			.try_push(message)
 			.expect("UMPSignals does not fit in UMPMessages");
 	}
-	spec_msg_signals.emit_into(&mut upward_messages);
 
 	horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
 
