@@ -13,5 +13,6 @@ doc:
     statement and its re-opened subscription must receive the whole subscription backlog. Its
     admissions by retention reason are logged; the absence of the non-replica statements on the
     returned node is not asserted yet because of a known startup race in the node. The lifecycle
-    needs a full statement mesh.
+    needs a full statement mesh. The soak workflow spawns the network 20 nodes at a time: with
+    all nodes spawned at once, the cluster apiserver dropped connections mid-spawn.
 crates: []
