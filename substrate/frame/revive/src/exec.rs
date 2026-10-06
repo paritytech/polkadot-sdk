@@ -1094,7 +1094,6 @@ where
 		origin: &Origin<T>,
 		value: U256,
 	) -> AccessList {
-		// TODO: fail the `call` and `eth_call` benches if they whitelist these entries.
 		let mut access_list = AccessList::new();
 		let FrameArgs::Call { dest, delegated_call: None, .. } = args else { return access_list };
 		let address = T::AddressMapper::to_address(dest);

@@ -94,8 +94,8 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 				*interpreter.ext.last_frame_output_mut() = Default::default();
 				// EIP-2929 warms a created address. It is safe to do the same, since the new
 				// entries are in the storage overlay.
-				let creator = interpreter.ext.address();
-				let warmth = interpreter.ext.warm(InstantiateItems { address, creator });
+				let deployer = interpreter.ext.address();
+				let warmth = interpreter.ext.warm(InstantiateItems { address, deployer });
 				interpreter
 					.ext
 					.charge_or_halt(RuntimeCosts::AccessListRegistration(warmth.summary()))?;

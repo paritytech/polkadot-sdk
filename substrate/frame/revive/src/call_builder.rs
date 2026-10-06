@@ -233,29 +233,21 @@ pub fn caller_funding<T: Config>() -> BalanceOf<T> {
 	BalanceOf::<T>::max_value() / 10_000u32.into()
 }
 
-/// Whitelists the storage key behind one access-list entry.
+/// Returns the storage key behind one access-list entry.
 #[cfg(feature = "runtime-benchmarks")]
-fn whitelist_entry<T: Config>(entry: &AccessEntry) {
-	use frame_benchmarking::benchmarking::add_to_whitelist;
+fn storage_key_of<T: Config>(entry: &AccessEntry) -> Option<Vec<u8>> {
 	match entry {
-		AccessEntry::Account { address } => add_to_whitelist(
-			frame_system::Account::<T>::hashed_key_for(&T::AddressMapper::to_account_id(address))
-				.into(),
-		),
+		AccessEntry::Account { address } => Some(frame_system::Account::<T>::hashed_key_for(
+			&T::AddressMapper::to_account_id(address),
+		)),
 		AccessEntry::OriginalAccount { address } => {
-			add_to_whitelist(crate::OriginalAccount::<T>::hashed_key_for(address).into())
+			Some(crate::OriginalAccount::<T>::hashed_key_for(address))
 		},
-		AccessEntry::AccountInfo { address } => {
-			add_to_whitelist(AccountInfoOf::<T>::hashed_key_for(address).into())
-		},
-		AccessEntry::CodeInfo { hash } => {
-			add_to_whitelist(CodeInfoOf::<T>::hashed_key_for(hash).into())
-		},
-		AccessEntry::CodeBlob { hash } => {
-			add_to_whitelist(PristineCode::<T>::hashed_key_for(hash).into())
-		},
+		AccessEntry::AccountInfo { address } => Some(AccountInfoOf::<T>::hashed_key_for(address)),
+		AccessEntry::CodeInfo { hash } => Some(CodeInfoOf::<T>::hashed_key_for(hash)),
+		AccessEntry::CodeBlob { hash } => Some(PristineCode::<T>::hashed_key_for(hash)),
 		// Child-trie slots have no fixed key here; benches whitelist them ad hoc.
-		AccessEntry::Storage(_) => {},
+		AccessEntry::Storage(_) => None,
 	}
 }
 
@@ -263,7 +255,27 @@ fn whitelist_entry<T: Config>(entry: &AccessEntry) {
 #[cfg(feature = "runtime-benchmarks")]
 pub fn whitelist_access<T: Config>(access: impl Access) {
 	access.expand(|entry, _op| {
-		whitelist_entry::<T>(&entry);
+		if let Some(key) = storage_key_of::<T>(&entry) {
+			frame_benchmarking::benchmarking::add_to_whitelist(key.into());
+		}
+		Warmth::cold_non_revertible()
+	});
+}
+
+/// Asserts that no entry the access reads is whitelisted, except those listed in `except`.
+#[cfg(feature = "runtime-benchmarks")]
+pub fn assert_not_whitelisted<T: Config>(access: impl Access, except: &[AccessEntry]) {
+	let whitelist = frame_benchmarking::benchmarking::get_whitelist();
+	access.expand(|entry, _op| {
+		let whitelisted = storage_key_of::<T>(&entry).is_some_and(|key| {
+			whitelist
+				.iter()
+				.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key)
+		});
+		assert!(
+			!whitelisted || except.contains(&entry),
+			"{entry:?} is whitelisted, so the benchmark does not measure its read",
+		);
 		Warmth::cold_non_revertible()
 	});
 }

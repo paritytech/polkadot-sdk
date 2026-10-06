@@ -574,7 +574,7 @@ impl Access for TransferItems {
 #[derive(Clone, Copy, Debug)]
 pub struct InstantiateItems {
 	pub address: H160,
-	pub creator: H160,
+	pub deployer: H160,
 }
 
 impl Access for InstantiateItems {
@@ -587,7 +587,7 @@ impl Access for InstantiateItems {
 		// Not read by the instantiate, since a new address has no mapping. The instantiate
 		// benches read it, so a call finding it hot is paid for.
 		visit(AccessEntry::OriginalAccount { address: self.address }, StorageOp::Read);
-		visit(AccessEntry::Account { address: self.creator }, StorageOp::Write);
+		visit(AccessEntry::Account { address: self.deployer }, StorageOp::Write);
 	}
 }
 

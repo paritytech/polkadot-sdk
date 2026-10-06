@@ -379,7 +379,7 @@ fn a_contract_creation_warms_the_new_contract(fixture_type: FixtureType) {
 		let code_entries =
 			if stores_code { CodeLoadItems::new(H256::zero()).entry_count() } else { 0 };
 		let expected_extra_entries =
-			(InstantiateItems { address: H160::zero(), creator: H160::zero() }.entry_count() +
+			(InstantiateItems { address: H160::zero(), deployer: H160::zero() }.entry_count() +
 				code_entries) as usize;
 
 		let factory = deploy_factory(fixture_type);
@@ -467,7 +467,7 @@ fn a_created_contract_is_hot_for_the_rest_of_the_transaction(fixture_type: Fixtu
 				// The code is already stored, so CREATE never reads it and it stays cold.
 				(2, 2) // cold: CodeInfo, CodeBlob; hot: OriginalAccount, AccountInfo
 			};
-		let expected_transfer_cold = 0; // the create already wrote the creator's Account
+		let expected_transfer_cold = 0; // the create already wrote the deployer's Account
 		let expected_transfer_hot = 4; // both parties' Account and AccountInfo
 
 		let factory = deploy_factory(fixture_type);

@@ -21,12 +21,12 @@
 use crate::{
 	Pallet as Contracts,
 	access_list::{
-		AccessEntry, AccessList, CallItems, CodeLoadItems, KeyFamily, MAX_ACCESS_LIST_ENTRIES,
-		StorageOp, TransferItems,
+		AccessEntry, AccessList, CallItems, CodeLoadItems, InstantiateItems, KeyFamily,
+		MAX_ACCESS_LIST_ENTRIES, StorageOp, TransferItems,
 	},
 	call_builder::{
-		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit,
-		whitelist_access,
+		CallSetup, Contract, VmBinaryModule, assert_not_whitelisted, caller_funding,
+		default_deposit_limit, whitelist_access,
 	},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
@@ -112,6 +112,27 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	let pallet_account = Pallet::<T>::account_id();
 	whitelist_account!(pallet_account);
 	pallet_account
+}
+
+/// Asserts that the bench measures every entry marked hot before the transaction's first call
+/// runs.
+fn assert_first_call_items_not_whitelisted<T: Config>(contract: &Contract<T>, dust: bool) {
+	let caller = T::AddressMapper::to_address(&contract.caller);
+	assert_not_whitelisted::<T>(CallItems::new(contract.address, false), &[]);
+	// Every signed transaction already reads and writes the signer's account, for nonce and fee.
+	assert_not_whitelisted::<T>(
+		TransferItems { from: caller, to: contract.address, dust },
+		&[AccessEntry::Account { address: caller }],
+	);
+}
+
+/// Asserts that the bench measures every entry an instantiation marks hot.
+fn assert_instantiate_items_not_whitelisted<T: Config>(address: H160, deployer: H160) {
+	// The call into the deployer already reads its account.
+	assert_not_whitelisted::<T>(
+		InstantiateItems { address, deployer },
+		&[AccessEntry::Account { address: deployer }],
+	);
 }
 
 /// Delegate `address` to `target` (EIP-7702) without going through signature recovery.
@@ -826,6 +847,8 @@ mod benchmarks {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let before = T::Currency::balance(&instance.account_id);
 		let storage_deposit = default_deposit_limit::<T>();
+		assert_first_call_items_not_whitelisted(&instance, false);
+
 		#[extrinsic_call]
 		_(origin, instance.address, value, Weight::MAX, storage_deposit, data);
 		let deposit = T::Currency::balance_on_hold(
@@ -876,6 +899,7 @@ mod benchmarks {
 
 		let origin = Origin::EthTransaction(instance.caller.clone());
 		let before = Pallet::<T>::evm_balance(&instance.address);
+		assert_first_call_items_not_whitelisted(&instance, dust != 0);
 
 		#[extrinsic_call]
 		_(
@@ -3054,6 +3078,7 @@ mod benchmarks {
 		};
 
 		assert!(AccountInfoOf::<T>::get(&addr).is_none());
+		assert_instantiate_items_not_whitelisted::<T>(addr, deployer);
 
 		let result;
 		#[block]
@@ -3117,6 +3142,7 @@ mod benchmarks {
 		let _ = interpreter.stack.push(U256::from(init_code.len()));
 		let _ = interpreter.stack.push(U256::zero());
 		let _ = interpreter.stack.push(value);
+		assert_instantiate_items_not_whitelisted::<T>(addr, deployer);
 
 		let result;
 		#[block]
@@ -3128,7 +3154,9 @@ mod benchmarks {
 
 		assert!(result.is_continue());
 		let addr = interpreter.stack.top().unwrap().into_address();
-		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
+		let child = AccountInfo::<T>::load_contract(&addr).expect("the create stores the child");
+		// The stored code starts warm, so only this bench pays for its entries.
+		assert_not_whitelisted::<T>(CodeLoadItems::new(child.code_hash), &[]);
 		assert_eq!(Pallet::<T>::code(&addr).len(), revm::primitives::eip170::MAX_CODE_SIZE);
 		assert_eq!(Pallet::<T>::evm_balance(&addr), value, "balance should hold {value:?}");
 		Ok(())
