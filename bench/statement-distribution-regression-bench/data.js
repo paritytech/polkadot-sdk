@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791297572803,
+  "lastUpdate": 1791304639664,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "109702797+DTSmth@users.noreply.github.com",
-            "name": "David Smith",
-            "username": "DTSmth"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b34296a7f1d66e036157228929cf6f3040c0bb20",
-          "message": "doc: add link to multi-block migration example. Resolves a TODO by ad… (#11542)\n\n…ding a documentation link from the single-block migrations pallet to\nthe multi-block migrations example pallet.\n\n\n\n✄\n-----------------------------------------------------------------------------\n\n# Description\n\n﻿Resolves a documentation TODO in\n`pallet-example-single-block-migrations` by adding\n a link to the `pallet-example-mbm` documentation.\n\nThe TODO requested linking to the multi-block migration example from the\nwarning\n about single-block migrations potentially exceeding block weight limits\n\n## Integration\n\n﻿N/A - documentation only change, no crate API changes\n\n## Review Notes\n\n﻿ Uses external URL (matching repo convention) since pallet-example-mbm\nis not a dependency of this crate.\n\n\n✄\n-----------------------------------------------------------------------------",
-          "timestamp": "2026-03-29T14:57:09Z",
-          "tree_id": "9e13a0bb2528c8d47d9eedd94f90e54e2ed3c1c2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b34296a7f1d66e036157228929cf6f3040c0bb20"
-        },
-        "date": 1774801031936,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.07,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038265928188000016,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08627711045799996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08169274281999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c0195bbec8cc00310f7f1b575a48a3697a95e197",
+          "message": "[CI] Upstream release build-script fixes from release-automation (#13416)\n\nFirst step of paritytech/release-engineering#314. `release-automation`\nforks these scripts and has fixed a few things we haven't — pulling them\nback here so that fork can eventually be deleted. Nothing is removed\nfrom `release-automation` yet, that's a follow-up there.\n\n- `build-linux-release.sh`: enable `set -e`. It's been commented out\nsince #5963, so a failed `cargo build` still exits 0 and leaves half an\nartifacts dir behind.\n- `build-linux-release.sh`: cross build via `TARGET`. No-op when unset,\nqemu for aarch64, exits 1 on an unknown triple. This is the only reason\nrelease-automation keeps its own copy of the build scripts.\n- `build-deb.sh`: `$PRODUCT_` parses as an undefined variable, so the\nglob was really `target/debian/*_amd64.deb`.\n- `release_lib.sh`: `sort -u` the runtime list (same 11 paths today) and\nnote why `docs` is filtered out.\n\nNot included: `build-macos-release.sh` also has `set -e` commented out,\nbut turning it on there would break the build — `VERSION=$(git tag -l\n--contains HEAD | grep -E \"^v.*\")` exits 1 when HEAD has no legacy `v*`\ntag. release-automation solved that by taking the version from the\nbinary instead, which is a behaviour change worth deciding separately.",
+          "timestamp": "2026-10-06T12:52:13Z",
+          "tree_id": "4eb9b270426a4dffdffb34c9600f71eae8717d38",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c0195bbec8cc00310f7f1b575a48a3697a95e197"
+        },
+        "date": 1791304606756,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.13,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08450848444999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038374827958,
             "unit": "seconds"
           }
         ]
