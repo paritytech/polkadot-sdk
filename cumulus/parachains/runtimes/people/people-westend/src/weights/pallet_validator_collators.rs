@@ -67,15 +67,34 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:0)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006), added: 32501, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::MaxCollators` (r:0 w:1)
 	/// Proof: `ValidatorCollators::MaxCollators` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
+	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::Collators` (r:0 w:1)
+	/// Proof: `ValidatorCollators::Collators` (`max_values`: Some(1), `max_size`: Some(32038), added: 32533, mode: `MaxEncodedLen`)
 	fn set_max_collators() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 5_086_000 picoseconds.
-		Weight::from_parts(5_653_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
+		//  Measured:  `94`
+		//  Estimated: `33491`
+		// Minimum execution time: 5_099_000 picoseconds.
+		Weight::from_parts(5_500_000, 0)
+			.saturating_add(Weight::from_parts(0, 33491))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	/// Storage: `ValidatorCollators::EpochRandomness` (r:1 w:1)
+	/// Proof: `ValidatorCollators::EpochRandomness` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	fn on_relay_state_proof() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `60`
+		//  Estimated: `1517`
+		// Minimum execution time: 2_485_000 picoseconds.
+		Weight::from_parts(2_696_000, 0)
+			.saturating_add(Weight::from_parts(0, 1517))
+			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }
