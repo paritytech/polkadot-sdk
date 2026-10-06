@@ -62,7 +62,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `ValidatorCollators::Collators` (`max_values`: Some(1), `max_size`: Some(32038),
 	/// added: 32533, mode: `MaxEncodedLen`)
 	fn set_max_collators() -> Weight {
-		Weight::from_parts(5_500_000, 33_491)
+		Weight::from_parts(10_935_000, 33_491)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -70,7 +70,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `ValidatorCollators::EpochRandomness` (`max_values`: Some(1), `max_size`: Some(32),
 	/// added: 527, mode: `MaxEncodedLen`)
 	fn on_relay_state_proof() -> Weight {
-		Weight::from_parts(2_696_000, 1_517)
+		Weight::from_parts(4_748_000, 1_517)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -104,7 +104,7 @@ impl WeightInfo for () {
 	/// Proof: `ValidatorCollators::Collators` (`max_values`: Some(1), `max_size`: Some(32038),
 	/// added: 32533, mode: `MaxEncodedLen`)
 	fn set_max_collators() -> Weight {
-		Weight::from_parts(5_500_000, 33_491)
+		Weight::from_parts(10_935_000, 33_491)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
@@ -112,7 +112,7 @@ impl WeightInfo for () {
 	/// Proof: `ValidatorCollators::EpochRandomness` (`max_values`: Some(1), `max_size`: Some(32),
 	/// added: 527, mode: `MaxEncodedLen`)
 	fn on_relay_state_proof() -> Weight {
-		Weight::from_parts(2_696_000, 1_517)
+		Weight::from_parts(4_748_000, 1_517)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
