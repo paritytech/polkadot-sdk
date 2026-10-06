@@ -85,6 +85,8 @@ members = [
 	"cumulus/pallets/parachain-system/proc-macro",
 	"cumulus/pallets/session-benchmarking",
 	"cumulus/pallets/solo-to-para",
+	"cumulus/pallets/validator-collators",
+	"cumulus/pallets/validator-set-announcer",
 	"cumulus/pallets/weight-reclaim",
 	"cumulus/pallets/xcm",
 	"cumulus/pallets/xcmp-queue",
@@ -420,6 +422,7 @@ members = [
 	"substrate/frame/nomination-pools/test-delegate-stake",
 	"substrate/frame/offences",
 	"substrate/frame/offences/benchmarking",
+	"substrate/frame/on-demand",
 	"substrate/frame/origin-restriction",
 	"substrate/frame/paged-list",
 	"substrate/frame/paged-list/fuzzer",
@@ -933,7 +936,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.15.1", features = ["rsa", "webrtc", "websocket"] }
+litep2p = { version = "0.15.3", features = ["rsa", "webrtc", "websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
@@ -1054,6 +1057,7 @@ pallet-nomination-pools-benchmarking = { path = "substrate/frame/nomination-pool
 pallet-nomination-pools-runtime-api = { path = "substrate/frame/nomination-pools/runtime-api", default-features = false }
 pallet-offences = { path = "substrate/frame/offences", default-features = false }
 pallet-offences-benchmarking = { path = "substrate/frame/offences/benchmarking", default-features = false }
+pallet-on-demand-para = { path = "substrate/frame/on-demand", default-features = false }
 pallet-paged-list = { path = "substrate/frame/paged-list", default-features = false }
 pallet-parachain-template = { path = "templates/parachain/pallets/template", default-features = false }
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false }
@@ -1103,6 +1107,8 @@ pallet-transaction-storage = { path = "substrate/frame/transaction-storage", def
 pallet-treasury = { path = "substrate/frame/treasury", default-features = false }
 pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
+pallet-validator-collators = { path = "cumulus/pallets/validator-collators", default-features = false }
+pallet-validator-set-announcer = { path = "cumulus/pallets/validator-set-announcer", default-features = false }
 pallet-verify-signature = { path = "substrate/frame/verify-signature", default-features = false }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false }
 pallet-vesting-precompiles = { path = "substrate/frame/vesting/precompiles", default-features = false }

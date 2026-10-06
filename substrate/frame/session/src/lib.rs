@@ -118,7 +118,7 @@ pub mod weights;
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 use codec::{Decode, MaxEncodedLen};
 use core::{
 	marker::PhantomData,
@@ -285,6 +285,55 @@ impl<A> SessionManager<A> for () {
 	}
 	fn start_session(_: SessionIndex) {}
 	fn end_session(_: SessionIndex) {}
+}
+
+/// A session manager that returns the union of the sets of `A` and `B`.
+///
+/// Both managers are expected to return their full current set at every rotation. `None` from one
+/// side means that side contributes nothing this time. The result is `None` only when both sides
+/// return `None`. When only one side returns a set, that set is returned unchanged. When both do,
+/// the result is `A`'s set followed by `B`'s set, keeping the first occurrence of every account.
+pub struct UnionSessionManager<A, B>(PhantomData<(A, B)>);
+
+impl<A, B> UnionSessionManager<A, B> {
+	fn union<ValidatorId: Clone + Ord>(
+		a: Option<Vec<ValidatorId>>,
+		b: Option<Vec<ValidatorId>>,
+	) -> Option<Vec<ValidatorId>> {
+		match (a, b) {
+			(Some(a), Some(b)) => {
+				let mut seen = BTreeSet::new();
+				Some(a.into_iter().chain(b).filter(|id| seen.insert(id.clone())).collect())
+			},
+			(a, None) => a,
+			(None, b) => b,
+		}
+	}
+}
+
+impl<ValidatorId, A, B> SessionManager<ValidatorId> for UnionSessionManager<A, B>
+where
+	ValidatorId: Clone + Ord,
+	A: SessionManager<ValidatorId>,
+	B: SessionManager<ValidatorId>,
+{
+	fn new_session(new_index: SessionIndex) -> Option<Vec<ValidatorId>> {
+		Self::union(A::new_session(new_index), B::new_session(new_index))
+	}
+
+	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<ValidatorId>> {
+		Self::union(A::new_session_genesis(new_index), B::new_session_genesis(new_index))
+	}
+
+	fn start_session(start_index: SessionIndex) {
+		A::start_session(start_index);
+		B::start_session(start_index);
+	}
+
+	fn end_session(end_index: SessionIndex) {
+		A::end_session(end_index);
+		B::end_session(end_index);
+	}
 }
 
 /// Handler for session life cycle events.
@@ -731,20 +780,13 @@ pub mod pallet {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	impl<T: Config> Pallet<T> {
-		/// Mint enough funds into `who`, such that they can pay the session key setting deposit.
+		/// Mint the session key setting deposit into `who`, on top of any existing balance.
 		///
 		/// Meant to be used if any pallet's benchmarking code wishes to set session keys, and wants
-		/// to make sure it will succeed.
+		/// to make sure it will succeed without consuming funds `who` holds for other purposes.
 		pub fn ensure_can_pay_key_deposit(who: &T::AccountId) -> Result<(), DispatchError> {
-			use frame_support::traits::tokens::{Fortitude, Preservation};
-			let deposit = T::KeyDeposit::get();
-			let has = T::Currency::reducible_balance(who, Preservation::Protect, Fortitude::Force);
-			if let Some(deficit) = deposit.checked_sub(&has) {
-				T::Currency::mint_into(who, deficit.max(T::Currency::minimum_balance()))
-					.map(|_inc| ())
-			} else {
-				Ok(())
-			}
+			let amount = T::KeyDeposit::get().max(T::Currency::minimum_balance());
+			T::Currency::mint_into(who, amount).map(|_inc| ())
 		}
 	}
 }

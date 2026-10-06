@@ -25,8 +25,10 @@
 //! ## Propagation
 //!
 //! - During major chain synchronization, statement gossip is paused so peers prioritize downloading
-//!   blocks; it resumes automatically once the node is fully synced (peers are reconnected to
-//!   recover statements missed while syncing).
+//!   blocks; it resumes automatically once the node is fully synced. Without the v2 DHT path a peer
+//!   is reconnected to recover statements missed while syncing; with it, the node re-advertises its
+//!   affinity filter after `MAJOR_SYNC_SETTLE_PERIOD` and v2 peers replay them. A v1 peer cannot
+//!   replay on request, so it is reconnected on either path.
 //! - A propagation loop runs every second (`config::PROPAGATE_TIMEOUT`): it takes all statements
 //!   added since the previous round and queues their hashes to a per-peer outbox. Each peer has at
 //!   most one propagation chunk in flight at a time. When its send slot is free, statements are
@@ -82,6 +84,11 @@
 //! propagation ticks. While initial syncs are pending, propagation parks
 //! `config::INITIAL_SYNC_RESERVED_BYTES` early: refills reclaim freed bytes synchronously,
 //! while the timer-driven sync bursts would otherwise always find the budget full.
+//!
+//! A peer disconnects us once we exceed its statement rate limit. Each peer carries a mirror of
+//! that quota on the send side. Propagation charges it per chunk and sends regardless, while an
+//! initial sync charges it per statement as the chunk is fetched and cuts the chunk where the
+//! quota runs out, so a peer draws its backlog at the rate it accepts, however often it asks.
 //!
 //! ## Topic affinity and light nodes
 //!
@@ -204,6 +211,10 @@ enum StatementMessage {
 
 /// Codec variant index for `StatementMessage::Statements`, kept in sync with `#[codec(index)]`.
 const STATEMENTS_VARIANT_INDEX: u8 = 0;
+
+/// Codec variant index for `StatementMessage::ExplicitTopicAffinity`, kept in sync with
+/// `#[codec(index)]`.
+const AFFINITY_VARIANT_INDEX: u8 = 1;
 
 impl StatementMessage {
 	/// Encode a slice of statement references as a `StatementMessage::Statements`
@@ -667,6 +678,7 @@ impl StatementHandlerPrototype {
 			bloom_seed,
 			replication_factor,
 			gossip_target,
+			..
 		} = v2dht_config.unwrap_or_default();
 		affinity_topics.extend(affinity_topics_file.into_iter().flat_map(|file| file.0));
 		let mut v2dht = V2DhtOrchestrator::new(
@@ -807,6 +819,7 @@ pub struct StatementHandler<
 	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
 	/// Set to `true` when an incoming statement is dropped because `is_major_syncing()` is true
+	/// and only a reconnect can recover it: any peer without the v2 DHT path, a v1 peer with it
 	dropped_statements_during_sync: bool,
 	/// Peer scheduled for forced disconnect+reconnect to recover statements missed during sync
 	sync_recovery_peer: Option<PeerId>,
@@ -879,10 +892,13 @@ impl PeerRateLimiter {
 #[derive(Debug)]
 pub struct Peer {
 	/// Rate limiter for statement flooding protection.
-	rate_limiter: PeerRateLimiter,
+	statement_rate_limiter: PeerRateLimiter,
 	/// Rate limiter for `ExplicitTopicAffinity` updates, kept apart from the statement bucket
 	/// so a statement burst cannot reject a filter change.
 	affinity_rate_limiter: PeerRateLimiter,
+	/// Mirror of the peer's statement rate limit. The limit is not negotiated, so the mirror
+	/// assumes our quota.
+	send_budget: PeerRateLimiter,
 	/// Protocol version negotiated with this peer.
 	protocol_version: PeerProtocolVersion,
 	/// Topic affinity filter received from a v2 peer.
@@ -1020,6 +1036,11 @@ fn fetch_admitted_chunk(
 			if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
 				return FilterDecision::Abort;
 			}
+			// The cursor stays on the aborted statement, so a later burst resumes here once the
+			// peer's quota has room again.
+			if peer_data.send_budget.is_flooding(1) {
+				return FilterDecision::Abort;
+			}
 			accumulated_size += encoded.len();
 			FilterDecision::Take
 		},
@@ -1119,8 +1140,9 @@ impl Peer {
 	#[cfg(any(test, feature = "test-helpers"))]
 	pub fn new_for_testing(statements_per_second: NonZeroU32, burst: NonZeroU32) -> Self {
 		Self {
-			rate_limiter: PeerRateLimiter::new(statements_per_second, burst),
+			statement_rate_limiter: PeerRateLimiter::new(statements_per_second, burst),
 			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+			send_budget: PeerRateLimiter::new(statements_per_second, burst),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
@@ -1279,9 +1301,6 @@ where
 					}
 				}
 				_ = &mut self.initial_sync_timeout => {
-					if v2dht_enabled() {
-						self.v2dht.on_initial_sync().await;
-					}
 					self.process_initial_sync_burst();
 					self.initial_sync_timeout =
 						Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse());
@@ -1291,8 +1310,10 @@ where
 						// Advertise this node's filter changes before serving peers their backlog.
 						let topics = self.statement_store.subscription_topics();
 						self.v2dht.set_rpc_subscription_topics(&topics);
-						if let Some(filter) = self.v2dht.take_local_filter_if_changed() {
-							self.broadcast_local_filter(filter).await;
+						if self.v2dht.major_sync_settled() {
+							if let Some(filter) = self.v2dht.take_local_filter_if_changed() {
+								self.broadcast_local_filter(filter).await;
+							}
 						}
 
 						self.v2dht.on_pending_affinities();
@@ -1314,13 +1335,13 @@ where
 				},
 			}
 
-			if !self.sync.is_major_syncing() {
+			if self.sync.is_major_syncing() {
 				if v2dht_enabled() {
-					self.v2dht.on_major_sync_end();
-				} else {
-					self.drain_deferred_peers();
-					self.start_sync_recovery();
+					self.v2dht.on_major_sync();
 				}
+			} else {
+				self.drain_deferred_peers();
+				self.start_sync_recovery();
 			}
 		}
 	}
@@ -1377,6 +1398,11 @@ where
 			.filter(|(_, peer)| peer.protocol_version != PeerProtocolVersion::V1)
 			.map(|(peer_id, _)| *peer_id)
 			.collect();
+		log::debug!(
+			target: LOG_TARGET,
+			"Advertising the local affinity filter to {} peers",
+			peers.len(),
+		);
 		for peer in peers {
 			self.send_notification(&peer, encoded.clone()).await;
 		}
@@ -1449,7 +1475,12 @@ where
 	/// Pick one connected peer, remove it from the reserved set (forcing a disconnect), and
 	/// schedule it for re-adding after `SYNC_RECOVERY_READD_DELAY`. When the peer reconnects it
 	/// performs a fresh initial sync, delivering any statements that were dropped while the
-	/// `is_major_syncing` guard was active
+	/// `is_major_syncing` guard was active.
+	///
+	/// With the v2 DHT path on, only a v1 peer's drop leads here, so only a v1 peer is picked. Its
+	/// set keeps non-reserved slots open, so leaving the reserved set alone keeps the peer
+	/// connected; the substream is closed explicitly afterwards, as litep2p ignores a disconnect
+	/// of a reserved peer.
 	fn start_sync_recovery(&mut self) {
 		if !self.dropped_statements_during_sync {
 			return;
@@ -1460,7 +1491,15 @@ where
 			return;
 		}
 
-		let Some(&peer_id) = self.peers.keys().choose(&mut rand::thread_rng()) else {
+		let Some(&peer_id) = self
+			.peers
+			.iter()
+			.filter(|(_, peer)| {
+				!v2dht_enabled() || peer.protocol_version == PeerProtocolVersion::V1
+			})
+			.map(|(peer_id, _)| peer_id)
+			.choose(&mut rand::thread_rng())
+		else {
 			return;
 		};
 
@@ -1475,6 +1514,9 @@ where
 		) {
 			log::warn!(target: LOG_TARGET, "Failed to remove peer {peer_id} for sync recovery: {err}");
 			return;
+		}
+		if v2dht_enabled() {
+			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
 		}
 
 		self.sync_recovery_peer = Some(peer_id);
@@ -1510,9 +1552,6 @@ where
 	fn handle_sync_event(&mut self, event: SyncEvent) {
 		match event {
 			SyncEvent::PeerConnected { peer_id: remote, roles: _ } => {
-				if v2dht_enabled() {
-					self.v2dht.on_peer_connected(remote);
-				}
 				if self.sync.is_major_syncing() {
 					log::trace!(
 						target: LOG_TARGET,
@@ -1532,9 +1571,6 @@ where
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
-				if v2dht_enabled() {
-					self.v2dht.on_peer_disconnected(remote);
-				}
 				if self.deferred_peers.remove(&remote) {
 					return;
 				}
@@ -1549,6 +1585,18 @@ where
 		}
 	}
 
+	/// Whether a notification received while major-syncing may be processed. Statement data
+	/// needs current chain state, so only a v2 affinity control passes, and only with the v2 DHT
+	/// path on. The SCALE variant tag is peeked, so a dropped batch is never decoded; a v1
+	/// payload carries no tag, its first byte belongs to the batch length.
+	fn allowed_during_major_sync(&self, peer: &PeerId, notification: &[u8]) -> bool {
+		v2dht_enabled() &&
+			self.peers.get(peer).is_some_and(|peer_data| {
+				peer_data.protocol_version == PeerProtocolVersion::V2 &&
+					notification.starts_with(&[AFFINITY_VARIANT_INDEX])
+			})
+	}
+
 	/// Dispatch a notification-protocol event for the statement protocol:
 	///
 	/// - Validates inbound substreams by peer role.
@@ -1561,9 +1609,6 @@ where
 	async fn handle_notification_event(&mut self, event: NotificationEvent) {
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
-				if v2dht_enabled() {
-					self.v2dht.on_validate_inbound_substream(peer)
-				}
 				// Only accept peers whose role can be determined
 				let result = self
 					.network
@@ -1596,18 +1641,19 @@ where
 					target: LOG_TARGET,
 					"Peer {peer} connected with statement protocol {protocol_version:?}, role={peer_role:?}"
 				);
+				let burst = NonZeroU32::new(
+					self.statements_per_second.get() * config::STATEMENTS_BURST_COEFFICIENT,
+				)
+				.expect("burst capacity is nonzero");
 				let _was_in = self.peers.insert(
 					peer,
 					Peer {
-						rate_limiter: PeerRateLimiter::new(
+						statement_rate_limiter: PeerRateLimiter::new(
 							self.statements_per_second,
-							NonZeroU32::new(
-								self.statements_per_second.get() *
-									config::STATEMENTS_BURST_COEFFICIENT,
-							)
-							.expect("burst capacity is nonzero"),
+							burst,
 						),
 						affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+						send_budget: PeerRateLimiter::new(self.statements_per_second, burst),
 						protocol_version,
 						topic_affinity: None,
 						is_light,
@@ -1675,12 +1721,21 @@ where
 				});
 
 				// Accept statements only when node is not major syncing
-				if self.sync.is_major_syncing() {
+				if self.sync.is_major_syncing() &&
+					!self.allowed_during_major_sync(&peer, notification.as_ref())
+				{
 					log::trace!(
 						target: LOG_TARGET,
 						"{peer}: Ignoring statements while major syncing or offline"
 					);
-					self.dropped_statements_during_sync = true;
+					// With the v2 DHT path on, a v2 peer replays on the re-advertised filter; a v1
+					// peer has no such request and is reconnected once the sync ends.
+					let from_v1_peer = self.peers.get(&peer).is_some_and(|peer_data| {
+						peer_data.protocol_version == PeerProtocolVersion::V1
+					});
+					if !v2dht_enabled() || from_v1_peer {
+						self.dropped_statements_during_sync = true;
+					}
 					return;
 				}
 
@@ -1786,7 +1841,7 @@ where
 		});
 
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
-			if peer.rate_limiter.is_flooding(statements.len()) {
+			if peer.statement_rate_limiter.is_flooding(statements.len()) {
 				log::warn!(
 					target: LOG_TARGET,
 					"Peer {} exceeded statement rate limit ({} statements/sec). Disconnecting.",
@@ -2178,6 +2233,7 @@ where
 			let chunk_id = self.occupy_send_slot(who);
 			let in_flight = self.propagation_in_flight_bytes.saturating_add(bytes_sent);
 			self.set_propagation_in_flight_bytes(in_flight);
+			self.charge_send_budget(&who, statement_count);
 			let sent_latency =
 				self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
 			self.pending_sends.push(Box::pin(async move {
@@ -2495,6 +2551,13 @@ where
 		}
 	}
 
+	/// Propagation never waits, so a chunk past the quota goes out uncharged.
+	fn charge_send_budget(&self, peer: &PeerId, statements: usize) {
+		if let Some(peer_data) = self.peers.get(peer) {
+			peer_data.send_budget.is_flooding(statements);
+		}
+	}
+
 	/// Occupy the peer's send slot with a fresh chunk id and return the id.
 	fn occupy_send_slot(&mut self, peer: PeerId) -> u64 {
 		let chunk_id = self.next_chunk_id;
@@ -2672,6 +2735,15 @@ mod tests {
 
 	/// Default seed used for bloom filters in tests.
 	const BLOOM_SEED: u128 = 0x5EED_5EED_5EED_5EED;
+
+	fn default_statement_limiter() -> PeerRateLimiter {
+		PeerRateLimiter::new(
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT)
+				.expect("burst capacity is nonzero"),
+		)
+	}
 
 	fn new_live_statement() -> Statement {
 		let mut statement = sp_statement_store::Statement::new();
@@ -3276,15 +3348,9 @@ mod tests {
 			peers.insert(
 				peer_id,
 				Peer {
-					rate_limiter: PeerRateLimiter::new(
-						NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-							.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-						NonZeroU32::new(
-							DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-						)
-						.expect("burst capacity is nonzero"),
-					),
+					statement_rate_limiter: default_statement_limiter(),
 					affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+					send_budget: default_statement_limiter(),
 					protocol_version: PeerProtocolVersion::V1,
 					topic_affinity: None,
 					is_light: false,
@@ -3987,6 +4053,33 @@ mod tests {
 			"Expected ANY_STATEMENT, ANY_STATEMENT_REFUND, DUPLICATE_STATEMENT reputation change, but got: {:?}",
 			reports
 		);
+	}
+
+	#[tokio::test]
+	async fn targets_charge_the_peer_send_budget() {
+		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+		let clock = FakeRelativeClock::default();
+		handler.peers.get_mut(&peer_id).expect("peer is connected").send_budget =
+			PeerRateLimiter::with_clock(
+				NonZeroU32::new(1).expect("nonzero"),
+				NonZeroU32::new(10).expect("nonzero"),
+				&clock,
+			);
+		let statements: Vec<_> = (0..10u8)
+			.map(|seed| {
+				let mut statement = new_live_statement();
+				statement.set_plain_data(vec![seed]);
+				statement_store.insert(statement.clone());
+				(seed as u64, statement.hash(), statement)
+			})
+			.collect();
+		let indices: Vec<usize> = (0..statements.len()).collect();
+
+		handler.queue_statements_for_targets(&statements, vec![(peer_id, indices)]);
+		handler.flush_pending_sends().await;
+		assert!(handler.peers[&peer_id].send_budget.is_flooding(1), "the chunk drained the burst");
 	}
 
 	#[tokio::test]
@@ -5052,6 +5145,69 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn initial_sync_waits_for_the_peer_rate_limit() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(2);
+		let throttled = peer_ids[0];
+		let served = peer_ids[1];
+		let hashes: Vec<_> = (0..20u8)
+			.map(|i| {
+				let mut statement = new_live_statement();
+				statement.set_plain_data(vec![i]);
+				let hash = statement.hash();
+				statement_store.insert(statement);
+				hash
+			})
+			.collect();
+		handler.schedule_initial_sync_for_peer(throttled);
+		handler.schedule_initial_sync_for_peer(served);
+
+		// One statement per second with a burst of ten, drained by a propagation chunk.
+		let clock = FakeRelativeClock::default();
+		handler.peers.get_mut(&throttled).expect("peer is connected").send_budget =
+			PeerRateLimiter::with_clock(
+				NonZeroU32::new(1).expect("nonzero"),
+				NonZeroU32::new(10).expect("nonzero"),
+				&clock,
+			);
+		handler
+			.propagation_outboxes
+			.insert(throttled, VecDeque::from(hashes[..10].to_vec()));
+		handler.try_send_next_chunk(throttled);
+		handler.flush_pending_sends().await;
+		assert!(handler.peers[&throttled].send_budget.is_flooding(1), "propagation charged");
+
+		// The throttled peer heads the queue: its fetch stops at the first statement and the
+		// following burst serves its neighbour.
+		handler.process_initial_sync_burst();
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(get_peer_hashes(&sent, served), hashes);
+		let mut expected = hashes[..10].to_vec();
+		assert_eq!(get_peer_hashes(&sent, throttled), expected, "the propagation chunk alone");
+		assert!(handler.initial_sync_peer_queue.contains(&throttled), "a skipped turn is kept");
+
+		// Ten seconds refill ten statements, so the chunk carries half the backlog.
+		clock.advance(Duration::from_secs(10));
+		handler.process_initial_sync_burst();
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+		let sent = notification_service.get_sent_notifications();
+		expected.extend_from_slice(&hashes[..10]);
+		assert_eq!(get_peer_hashes(&sent, throttled), expected);
+
+		// The fetch resumes at the statement the quota stopped it on.
+		clock.advance(Duration::from_secs(10));
+		handler.process_initial_sync_burst();
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+		let sent = notification_service.get_sent_notifications();
+		expected.extend_from_slice(&hashes[10..]);
+		assert_eq!(get_peer_hashes(&sent, throttled), expected);
+	}
+
+	#[tokio::test]
 	async fn test_initial_sync_burst_multiple_peers_round_robin() {
 		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
 
@@ -5531,7 +5687,7 @@ mod tests {
 
 		let clock = FakeRelativeClock::default();
 		for peer in handler.peers.values_mut() {
-			peer.rate_limiter =
+			peer.statement_rate_limiter =
 				PeerRateLimiter::with_clock(statements_per_second(), burst(), &clock);
 		}
 
@@ -6350,14 +6506,9 @@ mod tests {
 		let make_peer = |is_light: bool, version: PeerProtocolVersion, has_affinity: bool| {
 			let topic_affinity = has_affinity.then(|| AffinityFilter::new(BLOOM_SEED, 0.01, 10));
 			Peer {
-				rate_limiter: PeerRateLimiter::new(
-					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
-					NonZeroU32::new(
-						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-					)
-					.expect("nonzero"),
-				),
+				statement_rate_limiter: default_statement_limiter(),
 				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+				send_budget: default_statement_limiter(),
 				protocol_version: version,
 				topic_affinity,
 				is_light,
@@ -6626,14 +6777,9 @@ mod tests {
 		handler.peers.insert(
 			peer_id,
 			Peer {
-				rate_limiter: PeerRateLimiter::new(
-					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).unwrap(),
-					NonZeroU32::new(
-						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-					)
-					.unwrap(),
-				),
+				statement_rate_limiter: default_statement_limiter(),
 				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+				send_budget: default_statement_limiter(),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
@@ -7197,15 +7343,9 @@ mod tests {
 		peers.insert(
 			connected_peer,
 			Peer {
-				rate_limiter: PeerRateLimiter::new(
-					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-						.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-					NonZeroU32::new(
-						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-					)
-					.expect("burst capacity is nonzero"),
-				),
+				statement_rate_limiter: default_statement_limiter(),
 				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+				send_budget: default_statement_limiter(),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
@@ -7316,15 +7456,9 @@ mod tests {
 	#[tokio::test]
 	async fn sync_recovery_gated_by_dropped_statements_flag() {
 		let make_peer = || Peer {
-			rate_limiter: PeerRateLimiter::new(
-				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-				NonZeroU32::new(
-					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-				)
-				.expect("burst capacity is nonzero"),
-			),
+			statement_rate_limiter: default_statement_limiter(),
 			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+			send_budget: default_statement_limiter(),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
@@ -7427,15 +7561,9 @@ mod tests {
 		store.insert(live.clone());
 
 		let peer = Peer {
-			rate_limiter: PeerRateLimiter::new(
-				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-				NonZeroU32::new(
-					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-				)
-				.expect("burst capacity is nonzero"),
-			),
+			statement_rate_limiter: default_statement_limiter(),
 			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+			send_budget: default_statement_limiter(),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
@@ -7495,15 +7623,9 @@ mod tests {
 		store.insert(statement);
 
 		let peer = Peer {
-			rate_limiter: PeerRateLimiter::new(
-				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-				NonZeroU32::new(
-					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-				)
-				.expect("burst capacity is nonzero"),
-			),
+			statement_rate_limiter: default_statement_limiter(),
 			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+			send_budget: default_statement_limiter(),
 			protocol_version: PeerProtocolVersion::V2,
 			topic_affinity: Some(filter_over(&[topic(9)])),
 			is_light: false,
@@ -7590,5 +7712,34 @@ mod tests {
 			vec![hash],
 			"an orchestrator target receives the statement despite its explicit filter"
 		);
+	}
+
+	#[tokio::test]
+	async fn affinity_is_dropped_during_major_sync_with_gate_off() {
+		assert!(!v2dht_enabled(), "this case pins the gate-off path");
+		let (mut handler, _store, _network, _notifications) = build_handler_no_peers();
+		let peer = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		handler.sync.major_syncing.store(true, Ordering::Relaxed);
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		filter.insert(&[0xAA; 32]);
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer,
+				notification: StatementMessage::ExplicitTopicAffinity(filter).encode().into(),
+			})
+			.await;
+
+		let peer_data = handler.peers.get(&peer).expect("the substream is open");
+		assert!(peer_data.pending_topic_affinity.is_none());
+		assert!(handler.dropped_statements_during_sync);
 	}
 }
