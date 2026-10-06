@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791240961037,
+  "lastUpdate": 1791277513513,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "553958721eb67709a3aabaff9319ed8c7c9b9142",
-          "message": "Fix test-frame-ui: update .stderr snapshots after #7035 (#11570)\n\nPR #7035 added new TypeInfo implementors, pushing rustc past its\ndiagnostic threshold for emitting `consider using --verbose` on the\nTypeInfo/StorageEntryMetadataBuilder error.",
-          "timestamp": "2026-03-31T09:55:47Z",
-          "tree_id": "1c65564b56cc30e43afa385f110a1ad063fedab7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/553958721eb67709a3aabaff9319ed8c7c9b9142"
-        },
-        "date": 1774955692174,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12535888843333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.312741607866672,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.623411173233333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dae26eec1256dbf3a30c1df276bb96ea848c2d14",
+          "message": "pallet-multi-asset-bounties: net parent refunds after child payouts (#13409)\n\nClosing a parent bounty after a child payout has settled currently\nrefunds the parent’s gross value, including funds already paid out\nthrough the child bounty.\n\nThis patch applies the existing net-payout calculation to parent refunds\nand adds regression coverage for closing a parent after a settled child\npayout.\n\nNo API or storage migration is required.",
+          "timestamp": "2026-10-06T07:29:46Z",
+          "tree_id": "436e600dacc4f4ea3ce6d11e505253ce3be63793",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dae26eec1256dbf3a30c1df276bb96ea848c2d14"
+        },
+        "date": 1791277481845,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.537667956366668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13939318070000004,
             "unit": "seconds"
           }
         ]
