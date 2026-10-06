@@ -67,3 +67,5 @@ crates:
   bump: patch
 - name: pallet-revive-fixtures
   bump: major
+- name: asset-hub-westend-runtime
+  bump: patch
