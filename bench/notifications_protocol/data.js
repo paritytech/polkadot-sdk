@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791297451030,
+  "lastUpdate": 1791303677728,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -235007,6 +235007,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2915803599,
             "range": "± 108796311",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c0195bbec8cc00310f7f1b575a48a3697a95e197",
+          "message": "[CI] Upstream release build-script fixes from release-automation (#13416)\n\nFirst step of paritytech/release-engineering#314. `release-automation`\nforks these scripts and has fixed a few things we haven't — pulling them\nback here so that fork can eventually be deleted. Nothing is removed\nfrom `release-automation` yet, that's a follow-up there.\n\n- `build-linux-release.sh`: enable `set -e`. It's been commented out\nsince #5963, so a failed `cargo build` still exits 0 and leaves half an\nartifacts dir behind.\n- `build-linux-release.sh`: cross build via `TARGET`. No-op when unset,\nqemu for aarch64, exits 1 on an unknown triple. This is the only reason\nrelease-automation keeps its own copy of the build scripts.\n- `build-deb.sh`: `$PRODUCT_` parses as an undefined variable, so the\nglob was really `target/debian/*_amd64.deb`.\n- `release_lib.sh`: `sort -u` the runtime list (same 11 paths today) and\nnote why `docs` is filtered out.\n\nNot included: `build-macos-release.sh` also has `set -e` commented out,\nbut turning it on there would break the build — `VERSION=$(git tag -l\n--contains HEAD | grep -E \"^v.*\")` exits 1 when HEAD has no legacy `v*`\ntag. release-automation solved that by taking the version from the\nbinary instead, which is a behaviour change worth deciding separately.",
+          "timestamp": "2026-10-06T12:52:13Z",
+          "tree_id": "4eb9b270426a4dffdffb34c9600f71eae8717d38",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c0195bbec8cc00310f7f1b575a48a3697a95e197"
+        },
+        "date": 1791303642305,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 5282403,
+            "range": "± 123233",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 341952,
+            "range": "± 2968",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 5701648,
+            "range": "± 181343",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 409757,
+            "range": "± 5555",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 6584776,
+            "range": "± 193472",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 915351,
+            "range": "± 11090",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11219247,
+            "range": "± 89136",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5027015,
+            "range": "± 112324",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46480881,
+            "range": "± 618284",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 41008329,
+            "range": "± 312310",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 403784259,
+            "range": "± 3666502",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 322546478,
+            "range": "± 3441483",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2783743423,
+            "range": "± 18890364",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2506196921,
+            "range": "± 25170899",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3555753,
+            "range": "± 41918",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1911106,
+            "range": "± 12413",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3672940,
+            "range": "± 63016",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1980083,
+            "range": "± 10484",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4294776,
+            "range": "± 54550",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2348179,
+            "range": "± 23636",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8293202,
+            "range": "± 91935",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5497900,
+            "range": "± 63570",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38576744,
+            "range": "± 298772",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 38953756,
+            "range": "± 568744",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 328248032,
+            "range": "± 4993199",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 283852212,
+            "range": "± 4325387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2478865008,
+            "range": "± 24280201",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2598191835,
+            "range": "± 83208120",
             "unit": "ns/iter"
           }
         ]
