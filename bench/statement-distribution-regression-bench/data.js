@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791241116986,
+  "lastUpdate": 1791277654409,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "jfanatiker@gmx.at",
-            "name": "eskimor",
-            "username": "eskimor"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ff555bbd5b397e9984a42c34a799de8e5449f19f",
-          "message": "Collation Generation - ready for old relay parents (#11456)\n\n@iulianbarbu Haven't checked. Let me know if this is conflicting with\nany changes already done.\n\nFixes: https://github.com/paritytech/polkadot-sdk/issues/11423\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-27T12:58:37Z",
-          "tree_id": "1674e3c57f535775e8e3ec35a19c024d1264fb7d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ff555bbd5b397e9984a42c34a799de8e5449f19f"
-        },
-        "date": 1774621321384,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.066,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038180441619999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07939881244599997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08966994375799989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dae26eec1256dbf3a30c1df276bb96ea848c2d14",
+          "message": "pallet-multi-asset-bounties: net parent refunds after child payouts (#13409)\n\nClosing a parent bounty after a child payout has settled currently\nrefunds the parent’s gross value, including funds already paid out\nthrough the child bounty.\n\nThis patch applies the existing net-payout calculation to parent refunds\nand adds regression coverage for closing a parent after a settled child\npayout.\n\nNo API or storage migration is required.",
+          "timestamp": "2026-10-06T07:29:46Z",
+          "tree_id": "436e600dacc4f4ea3ce6d11e505253ce3be63793",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dae26eec1256dbf3a30c1df276bb96ea848c2d14"
+        },
+        "date": 1791277622900,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.112,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08480741282799999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038863625164000014,
             "unit": "seconds"
           }
         ]
