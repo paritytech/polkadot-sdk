@@ -24,21 +24,27 @@ doc:
 crates:
 - name: pallet-validator-collators
   bump: major
+  validate: false
 - name: pallet-validator-set-announcer
   bump: major
+  validate: false
 # `OnEraStart` is a new required config item and `NextEraValidators` is new storage.
 - name: pallet-staking-async
   bump: major
+  validate: false
 # `build_transact_xcm` takes an `OriginKind`.
 - name: pallet-staking-async-rc-client
   bump: major
+  validate: false
 - name: pallet-session
   bump: minor
 # Adding the pallets changes the runtimes' public `PalletInstancesInfo` type.
 - name: asset-hub-westend-runtime
   bump: major
+  validate: false
 - name: people-westend-runtime
   bump: major
+  validate: false
 - name: testnet-parachains-constants
   bump: minor
 - name: pallet-staking-async-parachain-runtime
