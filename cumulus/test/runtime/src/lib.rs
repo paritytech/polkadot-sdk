@@ -894,6 +894,37 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::SpecMsgApi<Block> for Runtime {
+		fn outbound_messages() -> Vec<(cumulus_primitives_spec_messaging::StreamId, Vec<Vec<u8>>)> {
+			SpecMessaging::outbound_messages()
+		}
+
+		fn consumed_streams() -> alloc::collections::BTreeMap<
+			ParaId,
+			Vec<cumulus_primitives_spec_messaging::ConsumedStream>,
+		> {
+			SpecMessaging::consumed_streams()
+		}
+
+		fn out_channels() -> alloc::collections::BTreeMap<
+			cumulus_primitives_spec_messaging::ChannelId,
+			cumulus_primitives_spec_messaging::OutChannelState,
+		> {
+			SpecMessaging::out_channels()
+		}
+
+		fn in_channels() -> alloc::collections::BTreeMap<
+			cumulus_primitives_spec_messaging::ChannelId,
+			cumulus_primitives_spec_messaging::InChannelState,
+		> {
+			SpecMessaging::in_channels()
+		}
+
+		fn consumption_record() -> cumulus_primitives_spec_messaging::ConsumptionRecord {
+			SpecMessaging::consumption_record()
+		}
+	}
+
 	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
 		// Return the current authority set in authoring (session/validator-index) order,
 		fn authorities() -> Vec<AuthorityDiscoveryId> {

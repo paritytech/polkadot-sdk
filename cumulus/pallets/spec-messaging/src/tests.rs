@@ -348,3 +348,21 @@ fn empty_inherent_consumes_nothing() {
 		assert_eq!(SpecMessaging::consumption_record(), ConsumptionRecord::default());
 	});
 }
+
+#[test]
+fn channel_layer_views_are_empty_until_it_lands() {
+	new_test_ext().execute_with(|| {
+		// Consume once, so `InboundFrontier` holds a key: the views still must not derive the
+		// wanted streams from it.
+		let item = ConsumeItem::Channel { payloads: vec![data_payload(b"a")] };
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			inherent(vec![(src(), stream(0), item)])
+		));
+		assert!(InboundFrontier::<Test>::contains_key((src(), stream(0))));
+
+		assert!(SpecMessaging::consumed_streams().is_empty());
+		assert!(SpecMessaging::out_channels().is_empty());
+		assert!(SpecMessaging::in_channels().is_empty());
+	});
+}

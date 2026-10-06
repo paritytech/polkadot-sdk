@@ -35,9 +35,10 @@ use alloc::{
 };
 use codec::{DecodeAll, Encode};
 use cumulus_primitives_spec_messaging::{
-	leaf_hash, streams_root::streams_root, ConsumeItem, ConsumptionRecord, Interval,
-	MessagePosition, MessagingInherentData, MmrFrontier, Payload, ProvideConsumptionRecord, SpecMsgKind,
-	StreamId, StreamsRoot, INHERENT_IDENTIFIER, LEAF_VERSION, SPMS_ENGINE_ID,
+	leaf_hash, streams_root::streams_root, ChannelId, ConsumeItem, ConsumedStream,
+	ConsumptionRecord, InChannelState, Interval, MessagePosition, MessagingInherentData,
+	MmrFrontier, OutChannelState, Payload, ProvideConsumptionRecord, SpecMsgKind, StreamId, StreamsRoot,
+	INHERENT_IDENTIFIER, LEAF_VERSION, SPMS_ENGINE_ID,
 };
 use frame_support::{ensure, pallet_prelude::Weight, traits::Get, BoundedVec};
 use polkadot_core_primitives::Hash;
@@ -410,6 +411,26 @@ impl<T: Config> Pallet<T> {
 			record.entries.entry(source).or_default().insert(stream, interval);
 		}
 		record
+	}
+
+	/// The inbound streams the node should fetch, per source, with their fetch cursors.
+	///
+	/// Empty until the channel layer lands: the wanted streams are the open, unsuspended inbound
+	/// channels, and this pallet has no channel state yet. [`InboundFrontier`] cannot stand in for
+	/// it, because it only holds streams consumed at least once, so a new channel would never be
+	/// fetched.
+	pub fn consumed_streams() -> BTreeMap<ParaId, Vec<ConsumedStream>> {
+		BTreeMap::new()
+	}
+
+	/// Outbound channel views. Empty until the channel layer lands.
+	pub fn out_channels() -> BTreeMap<ChannelId, OutChannelState> {
+		BTreeMap::new()
+	}
+
+	/// Inbound channel views. Empty until the channel layer lands.
+	pub fn in_channels() -> BTreeMap<ChannelId, InChannelState> {
+		BTreeMap::new()
 	}
 }
 
