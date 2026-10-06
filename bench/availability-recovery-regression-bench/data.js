@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791297408800,
+  "lastUpdate": 1791304494661,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "de0a245168da894e24d974fadf6bdf803e3ac219",
-          "message": "Raise offence queue eras bound limit (#11435)\n\nFixes a bug where **OffenceQueueEras** bound (BondingDuration) was\nincorrect when `SlashDeferDuration=0`. The oldest reportable offence era\nformula allowed more eras than the bound could hold.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
-          "timestamp": "2026-03-31T14:39:48Z",
-          "tree_id": "8813c2e41507f49572675266dad5b29263109969",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/de0a245168da894e24d974fadf6bdf803e3ac219"
-        },
-        "date": 1774982433043,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12807351816666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.372548953866666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13946415286666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c0195bbec8cc00310f7f1b575a48a3697a95e197",
+          "message": "[CI] Upstream release build-script fixes from release-automation (#13416)\n\nFirst step of paritytech/release-engineering#314. `release-automation`\nforks these scripts and has fixed a few things we haven't — pulling them\nback here so that fork can eventually be deleted. Nothing is removed\nfrom `release-automation` yet, that's a follow-up there.\n\n- `build-linux-release.sh`: enable `set -e`. It's been commented out\nsince #5963, so a failed `cargo build` still exits 0 and leaves half an\nartifacts dir behind.\n- `build-linux-release.sh`: cross build via `TARGET`. No-op when unset,\nqemu for aarch64, exits 1 on an unknown triple. This is the only reason\nrelease-automation keeps its own copy of the build scripts.\n- `build-deb.sh`: `$PRODUCT_` parses as an undefined variable, so the\nglob was really `target/debian/*_amd64.deb`.\n- `release_lib.sh`: `sort -u` the runtime list (same 11 paths today) and\nnote why `docs` is filtered out.\n\nNot included: `build-macos-release.sh` also has `set -e` commented out,\nbut turning it on there would break the build — `VERSION=$(git tag -l\n--contains HEAD | grep -E \"^v.*\")` exits 1 when HEAD has no legacy `v*`\ntag. release-automation solved that by taking the version from the\nbinary instead, which is a behaviour change worth deciding separately.",
+          "timestamp": "2026-10-06T12:52:13Z",
+          "tree_id": "4eb9b270426a4dffdffb34c9600f71eae8717d38",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c0195bbec8cc00310f7f1b575a48a3697a95e197"
+        },
+        "date": 1791304461366,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14261605983333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.015106667366666,
             "unit": "seconds"
           }
         ]
