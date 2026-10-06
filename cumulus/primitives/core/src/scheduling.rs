@@ -113,8 +113,8 @@ impl SchedulingSignals {
 
 	/// Build the tail from a verified `SignedSchedulingInfo`, replacing the block's own
 	/// *scheduling* signals wholesale. The speculative-messaging signals are not part of this tail;
-	/// `validate_block` builds them in its own pass on both paths. Each new `UMPSignal` variant must
-	/// be classified in `every_ump_signal_is_classified`.
+	/// `validate_block` builds them in its own pass on both paths. Each new `UMPSignal` variant
+	/// must be classified in `every_ump_signal_is_classified`.
 	pub fn from_scheduling_info(signed_info: &SignedSchedulingInfo) -> Self {
 		let payload = &signed_info.payload;
 		Self {

@@ -1782,7 +1782,7 @@ impl<T: Config> Pallet<T> {
 	/// Send the pending ump signals.
 	///
 	/// Signal order (`SelectCore`, `ApprovedPeer`, `Provides`) must match the `validate_block`
-	/// wrapper's re-assembly (`SchedulingSignals::into_ump_messages`, then `Provides`): the
+	/// wrapper's re-assembly (`cumulus_primitives_core::ump_signal_tail`): the
 	/// node-side commitments and the wrapper's output must be byte-identical.
 	fn send_ump_signals(core_info: Option<CoreInfo>) {
 		let mut ump_signals = PendingUpwardSignals::<T>::take();
