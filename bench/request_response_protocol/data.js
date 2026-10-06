@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791310284732,
+  "lastUpdate": 1791317469037,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -131759,6 +131759,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2593675328,
             "range": "± 9255226",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "109dca166987ae4e689fa1c215eb3c509e6bbc7a",
+          "message": "statement-store: v2 soak step, a replica goes offline and returns (#13378)\n\nPart of #13162, implements #13178.\n\nAdds a replica outage/recovery step to `statement_store_v2_dht_soak`:\nstop a node, continue publishing, then restart it with the same database\nand node key.\n\nChecks delivery and placement during the outage, replica recovery and\nsubscription replay after restart. Post-restart cleanup of non-affine\nstatements is not asserted due to a known race.\n\nThe soak workflow now sets `ZOMBIE_SPAWN_CONCURRENCY=20`: with all nodes\nspawned at once, the cluster apiserver dropped connections and two runs\ndied mid-spawn (35 and 39 of 43 nodes up).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-06T18:41:48Z",
+          "tree_id": "cfbd3994fa53917851512a03c736afc129b380d2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/109dca166987ae4e689fa1c215eb3c509e6bbc7a"
+        },
+        "date": 1791317434944,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20232319,
+            "range": "± 79381",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20372809,
+            "range": "± 115464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21601229,
+            "range": "± 112894",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26479066,
+            "range": "± 289885",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59165761,
+            "range": "± 465009",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 367658509,
+            "range": "± 9447537",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2550504246,
+            "range": "± 23769046",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17422353,
+            "range": "± 214920",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17534449,
+            "range": "± 130673",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17878078,
+            "range": "± 217106",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22519890,
+            "range": "± 141527",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63035602,
+            "range": "± 1601139",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 381949963,
+            "range": "± 7504116",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2747775785,
+            "range": "± 43138725",
             "unit": "ns/iter"
           }
         ]
