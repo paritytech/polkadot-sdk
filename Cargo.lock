@@ -7762,7 +7762,6 @@ dependencies = [
 name = "frame-support-test"
 version = "3.0.0"
 dependencies = [
- "derive-where",
  "frame-benchmarking",
  "frame-executive",
  "frame-metadata 23.0.1",

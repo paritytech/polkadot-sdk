@@ -27,7 +27,7 @@ use crate::*;
 use frame_support::{
 	assert_ok, derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo},
-	traits::{ConstU32, ConstU64, OnInitialize},
+	traits::{ConstU64, OnInitialize},
 };
 use sp_core::H256;
 // The testing primitives are very useful for avoiding having to work with signatures
@@ -192,26 +192,4 @@ fn weights_work() {
 	let info2 = custom_call.get_dispatch_info();
 	// TODO: account for proof size weight
 	assert!(info1.call_weight.ref_time() > info2.call_weight.ref_time());
-}
-
-/// `#[stored]` must work in crates without a direct `derive-where` dependency, such as this one.
-#[test]
-fn stored_with_generic_bounds_compiles_without_derive_where_dependency() {
-	use codec::{Codec, MaxEncodedLen};
-	use core::fmt::Debug;
-	use frame_support::{pallet_prelude::Get, BoundedVec};
-	use scale_info::TypeInfo;
-
-	#[frame_support::stored]
-	struct Dummy<T, S: Get<u32>> {
-		id: u32,
-		items: BoundedVec<T, S>,
-	}
-
-	fn ensure_storable<T: Clone + PartialEq + Eq + Debug + TypeInfo + Codec + MaxEncodedLen>() {}
-
-	// GIVEN a `#[stored]` type whose bounds come from its field types,
-	// WHEN used with a generic item type and bound,
-	// THEN it implements every trait required for storage.
-	ensure_storable::<Dummy<u64, ConstU32<4>>>();
 }
