@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Emits a log and then either returns or reverts, from its own frame or from a sub-call, so a test can watch where the log ends up."><title>pallet_revive_fixtures::Emitter - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_revive_fixtures" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module Emitter</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_revive_fixtures/index.html">pallet_<wbr>revive_<wbr>fixtures</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module Emitter</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate pallet_<wbr>revive_<wbr>fixtures</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">pallet_revive_fixtures</a></div><h1>Module <span>Emitter</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_revive_fixtures/__w/polkadot-sdk/polkadot-sdk/target/debug/build/pallet-revive-fixtures-1076d3d72853407c/out/fixture_location.rs.html#33">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Emits a log and then either returns or reverts, from its own frame or from a sub-call, so a
+test can watch where the log ends up.</p>
+<div class="example-wrap"><pre class="language-solidity"><code>contract Emitter {
+    event Emitted(uint64 value);
+    event Doomed(uint64 value);
+    function emitValue(uint64 value) public { &lt;stmts&gt; }
+    function emitThenRevert(uint64 value) public { &lt;stmts&gt; }
+    function emitAndCallReverting(uint64 kept, uint64 dropped) public { &lt;stmts&gt; }
+    uint64 public touched;
+    function touchAndEmitDoomed(uint64 value) public { &lt;stmts&gt; }
+    function callThenRevert(uint64 dropped) public { &lt;stmts&gt; }
+    function emitAndCallRevertingChain(uint64 kept, uint64 dropped) public { &lt;stmts&gt; }
+}</code></pre></div></div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Doomed.html" title="struct pallet_revive_fixtures::Emitter::Doomed">Doomed</a></dt><dd>Event with signature <code>Doomed(uint64)</code> and selector <code>0xf0b64d02938c2fa8290e17848a6d251c552e3826b2cff708d027204a5fc3ea37</code>.</dd><dt><a class="struct" href="struct.Emitted.html" title="struct pallet_revive_fixtures::Emitter::Emitted">Emitted</a></dt><dd>Event with signature <code>Emitted(uint64)</code> and selector <code>0x1f9d89c2bde0988a2dfe04704519295e9aa89d9a5a8de429a327943d9726cdf5</code>.</dd><dt><a class="struct" href="struct.callThenRevertCall.html" title="struct pallet_revive_fixtures::Emitter::callThenRevertCall">call<wbr>Then<wbr>Revert<wbr>Call</a></dt><dd>Lets a sub-call write storage, emit <code>dropped</code> and return, emits <code>dropped</code> itself, then
+reverts, taking the sub-call’s committed storage and log down with its own frame.
+Function with signature <code>callThenRevert(uint64)</code> and selector <code>0x915280ba</code>.</dd><dt><a class="struct" href="struct.callThenRevertReturn.html" title="struct pallet_revive_fixtures::Emitter::callThenRevertReturn">call<wbr>Then<wbr>Revert<wbr>Return</a></dt><dd>Lets a sub-call write storage, emit <code>dropped</code> and return, emits <code>dropped</code> itself, then
+reverts, taking the sub-call’s committed storage and log down with its own frame.
+Container type for the return parameters of the <a href="struct.callThenRevertCall.html" title="struct pallet_revive_fixtures::Emitter::callThenRevertCall"><code>callThenRevert(uint64)</code></a> function.</dd><dt><a class="struct" href="struct.emitAndCallRevertingCall.html" title="struct pallet_revive_fixtures::Emitter::emitAndCallRevertingCall">emit<wbr>AndCall<wbr>Reverting<wbr>Call</a></dt><dd>Emits <code>kept</code>, then lets a sub-call emit <code>dropped</code> and revert, swallowing the revert.
+Function with signature <code>emitAndCallReverting(uint64,uint64)</code> and selector <code>0x43adfd96</code>.</dd><dt><a class="struct" href="struct.emitAndCallRevertingChainCall.html" title="struct pallet_revive_fixtures::Emitter::emitAndCallRevertingChainCall">emit<wbr>AndCall<wbr>Reverting<wbr>Chain<wbr>Call</a></dt><dd>Emits <code>kept</code>, then lets a sub-call commit a nested log and revert, swallowing the revert.
+Function with signature <code>emitAndCallRevertingChain(uint64,uint64)</code> and selector <code>0x1aba4ec7</code>.</dd><dt><a class="struct" href="struct.emitAndCallRevertingChainReturn.html" title="struct pallet_revive_fixtures::Emitter::emitAndCallRevertingChainReturn">emit<wbr>AndCall<wbr>Reverting<wbr>Chain<wbr>Return</a></dt><dd>Emits <code>kept</code>, then lets a sub-call commit a nested log and revert, swallowing the revert.
+Container type for the return parameters of the <a href="struct.emitAndCallRevertingChainCall.html" title="struct pallet_revive_fixtures::Emitter::emitAndCallRevertingChainCall"><code>emitAndCallRevertingChain(uint64,uint64)</code></a> function.</dd><dt><a class="struct" href="struct.emitAndCallRevertingReturn.html" title="struct pallet_revive_fixtures::Emitter::emitAndCallRevertingReturn">emit<wbr>AndCall<wbr>Reverting<wbr>Return</a></dt><dd>Emits <code>kept</code>, then lets a sub-call emit <code>dropped</code> and revert, swallowing the revert.
+Container type for the return parameters of the <a href="struct.emitAndCallRevertingCall.html" title="struct pallet_revive_fixtures::Emitter::emitAndCallRevertingCall"><code>emitAndCallReverting(uint64,uint64)</code></a> function.</dd><dt><a class="struct" href="struct.emitThenRevertCall.html" title="struct pallet_revive_fixtures::Emitter::emitThenRevertCall">emit<wbr>Then<wbr>Revert<wbr>Call</a></dt><dd>Function with signature <code>emitThenRevert(uint64)</code> and selector <code>0xd14e86d3</code>.</dd><dt><a class="struct" href="struct.emitThenRevertReturn.html" title="struct pallet_revive_fixtures::Emitter::emitThenRevertReturn">emit<wbr>Then<wbr>Revert<wbr>Return</a></dt><dd>Container type for the return parameters of the <a href="struct.emitThenRevertCall.html" title="struct pallet_revive_fixtures::Emitter::emitThenRevertCall"><code>emitThenRevert(uint64)</code></a> function.</dd><dt><a class="struct" href="struct.emitValueCall.html" title="struct pallet_revive_fixtures::Emitter::emitValueCall">emit<wbr>Value<wbr>Call</a></dt><dd>Function with signature <code>emitValue(uint64)</code> and selector <code>0x440d83f4</code>.</dd><dt><a class="struct" href="struct.emitValueReturn.html" title="struct pallet_revive_fixtures::Emitter::emitValueReturn">emit<wbr>Value<wbr>Return</a></dt><dd>Container type for the return parameters of the <a href="struct.emitValueCall.html" title="struct pallet_revive_fixtures::Emitter::emitValueCall"><code>emitValue(uint64)</code></a> function.</dd><dt><a class="struct" href="struct.touchAndEmitDoomedCall.html" title="struct pallet_revive_fixtures::Emitter::touchAndEmitDoomedCall">touch<wbr>AndEmit<wbr>Doomed<wbr>Call</a></dt><dd>Writes storage and emits <code>value</code>, then returns.
+Function with signature <code>touchAndEmitDoomed(uint64)</code> and selector <code>0x8b0435f0</code>.</dd><dt><a class="struct" href="struct.touchAndEmitDoomedReturn.html" title="struct pallet_revive_fixtures::Emitter::touchAndEmitDoomedReturn">touch<wbr>AndEmit<wbr>Doomed<wbr>Return</a></dt><dd>Writes storage and emits <code>value</code>, then returns.
+Container type for the return parameters of the <a href="struct.touchAndEmitDoomedCall.html" title="struct pallet_revive_fixtures::Emitter::touchAndEmitDoomedCall"><code>touchAndEmitDoomed(uint64)</code></a> function.</dd><dt><a class="struct" href="struct.touchedCall.html" title="struct pallet_revive_fixtures::Emitter::touchedCall">touched<wbr>Call</a></dt><dd>Function with signature <code>touched()</code> and selector <code>0x5ffc85df</code>.</dd><dt><a class="struct" href="struct.touchedReturn.html" title="struct pallet_revive_fixtures::Emitter::touchedReturn">touched<wbr>Return</a></dt><dd>Container type for the return parameters of the <a href="struct.touchedCall.html" title="struct pallet_revive_fixtures::Emitter::touchedCall"><code>touched()</code></a> function.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.EmitterCalls.html" title="enum pallet_revive_fixtures::Emitter::EmitterCalls">Emitter<wbr>Calls</a></dt><dd>Container for all the <a href="index.html" title="mod pallet_revive_fixtures::Emitter"><code>Emitter</code></a> function calls.</dd><dt><a class="enum" href="enum.EmitterEvents.html" title="enum pallet_revive_fixtures::Emitter::EmitterEvents">Emitter<wbr>Events</a></dt><dd>Container for all the <a href="index.html" title="mod pallet_revive_fixtures::Emitter"><code>Emitter</code></a> events.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -170,7 +170,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#20 id=20 data-nosnippet>20</a>
 <a href=#21 id=21 data-nosnippet>21</a></span><span class="kw">mod </span>receipt;
 <a href=#22 id=22 data-nosnippet>22</a><span class="kw">use </span>pallet_revive_types::runtime_api::<span class="kw-2">*</span>;
-<a href=#23 id=23 data-nosnippet>23</a><span class="kw">pub use </span>receipt::{AccumulateReceipt, LogsBloom};
+<a href=#23 id=23 data-nosnippet>23</a><span class="kw">pub use </span>receipt::{AccumulateReceipt, CommittedReceiptLogs, LogsBloom};
 <a href=#24 id=24 data-nosnippet>24</a>
 <a href=#25 id=25 data-nosnippet>25</a><span class="kw">mod </span>hash_builder;
 <a href=#26 id=26 data-nosnippet>26</a><span class="kw">pub use </span>hash_builder::{BuilderPhase, IncrementalHashBuilder, IncrementalHashBuilderIR};
@@ -183,13 +183,13 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>alloc::vec::Vec;
 <a href=#34 id=34 data-nosnippet>34</a><span class="kw">use </span>alloy_core::primitives::{B256, bytes::BufMut};
 <a href=#35 id=35 data-nosnippet>35</a>
-<a href=#36 id=36 data-nosnippet>36</a><span class="kw">use </span>codec::{Decode, Encode};
+<a href=#36 id=36 data-nosnippet>36</a><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <a href=#37 id=37 data-nosnippet>37</a><span class="kw">use </span>scale_info::TypeInfo;
-<a href=#38 id=38 data-nosnippet>38</a><span class="kw">use </span>sp_core::{H256, U256};
+<a href=#38 id=38 data-nosnippet>38</a><span class="kw">use </span>sp_core::{H160, H256, U256};
 <a href=#39 id=39 data-nosnippet>39</a>
 <a href=#40 id=40 data-nosnippet>40</a><span class="doccomment">/// Details needed to reconstruct the receipt info in the RPC
 <a href=#41 id=41 data-nosnippet>41</a>/// layer without losing accuracy.
-<a href=#42 id=42 data-nosnippet>42</a></span><span class="attr">#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+<a href=#42 id=42 data-nosnippet>42</a></span><span class="attr">#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
 <a href=#43 id=43 data-nosnippet>43</a></span><span class="kw">pub struct </span>ReceiptGasInfo {
 <a href=#44 id=44 data-nosnippet>44</a>	<span class="doccomment">/// The amount of gas used for this specific transaction alone.
 <a href=#45 id=45 data-nosnippet>45</a>	</span><span class="kw">pub </span>gas_used: U256,
@@ -204,52 +204,87 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#54 id=54 data-nosnippet>54</a>	}
 <a href=#55 id=55 data-nosnippet>55</a>}
 <a href=#56 id=56 data-nosnippet>56</a>
-<a href=#57 id=57 data-nosnippet>57</a><span class="kw">impl </span>Block {
-<a href=#58 id=58 data-nosnippet>58</a>	<span class="doccomment">/// Compute the trie root using the `(rlp(index), encoded(item))` pairs.
-<a href=#59 id=59 data-nosnippet>59</a>	</span><span class="kw">pub fn </span>compute_trie_root(items: <span class="kw-2">&amp;</span>[Vec&lt;u8&gt;]) -&gt; B256 {
-<a href=#60 id=60 data-nosnippet>60</a>		alloy_consensus::proofs::ordered_trie_root_with_encoder(items, |item, buf| {
-<a href=#61 id=61 data-nosnippet>61</a>			buf.put_slice(item)
-<a href=#62 id=62 data-nosnippet>62</a>		})
-<a href=#63 id=63 data-nosnippet>63</a>	}
-<a href=#64 id=64 data-nosnippet>64</a>
-<a href=#65 id=65 data-nosnippet>65</a>	<span class="doccomment">/// Compute the ETH header hash.
-<a href=#66 id=66 data-nosnippet>66</a>	</span><span class="kw">pub fn </span>header_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; H256 {
-<a href=#67 id=67 data-nosnippet>67</a>		<span class="comment">// Note: Cap the gas limit to u64::MAX.
-<a href=#68 id=68 data-nosnippet>68</a>		// In practice, it should be impossible to fill a u64::MAX gas limit
-<a href=#69 id=69 data-nosnippet>69</a>		// of an either Ethereum or Substrate block.
-<a href=#70 id=70 data-nosnippet>70</a>		</span><span class="kw">let </span>gas_limit = <span class="self">self</span>.gas_limit.try_into().unwrap_or(u64::MAX);
-<a href=#71 id=71 data-nosnippet>71</a>
-<a href=#72 id=72 data-nosnippet>72</a>		<span class="kw">let </span>alloy_header = alloy_consensus::Header {
-<a href=#73 id=73 data-nosnippet>73</a>			state_root: <span class="self">self</span>.state_root.<span class="number">0</span>.into(),
-<a href=#74 id=74 data-nosnippet>74</a>			transactions_root: <span class="self">self</span>.transactions_root.<span class="number">0</span>.into(),
-<a href=#75 id=75 data-nosnippet>75</a>			receipts_root: <span class="self">self</span>.receipts_root.<span class="number">0</span>.into(),
-<a href=#76 id=76 data-nosnippet>76</a>
-<a href=#77 id=77 data-nosnippet>77</a>			parent_hash: <span class="self">self</span>.parent_hash.<span class="number">0</span>.into(),
-<a href=#78 id=78 data-nosnippet>78</a>			beneficiary: <span class="self">self</span>.miner.<span class="number">0</span>.into(),
-<a href=#79 id=79 data-nosnippet>79</a>			number: <span class="self">self</span>.number.as_u64(),
-<a href=#80 id=80 data-nosnippet>80</a>			logs_bloom: <span class="self">self</span>.logs_bloom.<span class="number">0</span>.into(),
-<a href=#81 id=81 data-nosnippet>81</a>			gas_limit,
-<a href=#82 id=82 data-nosnippet>82</a>			gas_used: <span class="self">self</span>.gas_used.as_u64(),
-<a href=#83 id=83 data-nosnippet>83</a>			timestamp: <span class="self">self</span>.timestamp.as_u64(),
-<a href=#84 id=84 data-nosnippet>84</a>
-<a href=#85 id=85 data-nosnippet>85</a>			ommers_hash: <span class="self">self</span>.sha_3_uncles.<span class="number">0</span>.into(),
-<a href=#86 id=86 data-nosnippet>86</a>			extra_data: <span class="self">self</span>.extra_data.clone().<span class="number">0</span>.into(),
-<a href=#87 id=87 data-nosnippet>87</a>			mix_hash: <span class="self">self</span>.mix_hash.<span class="number">0</span>.into(),
-<a href=#88 id=88 data-nosnippet>88</a>			nonce: <span class="self">self</span>.nonce.<span class="number">0</span>.into(),
-<a href=#89 id=89 data-nosnippet>89</a>
-<a href=#90 id=90 data-nosnippet>90</a>			base_fee_per_gas: <span class="prelude-val">Some</span>(<span class="self">self</span>.base_fee_per_gas.as_u64()),
-<a href=#91 id=91 data-nosnippet>91</a>			withdrawals_root: <span class="prelude-val">Some</span>(<span class="self">self</span>.withdrawals_root.<span class="number">0</span>.into()),
-<a href=#92 id=92 data-nosnippet>92</a>			blob_gas_used: <span class="prelude-val">Some</span>(<span class="self">self</span>.blob_gas_used.as_u64()),
-<a href=#93 id=93 data-nosnippet>93</a>			excess_blob_gas: <span class="prelude-val">Some</span>(<span class="self">self</span>.excess_blob_gas.as_u64()),
-<a href=#94 id=94 data-nosnippet>94</a>			parent_beacon_block_root: <span class="self">self</span>.parent_beacon_block_root.map(|root| root.<span class="number">0</span>.into()),
-<a href=#95 id=95 data-nosnippet>95</a>			requests_hash: <span class="self">self</span>.requests_hash.map(|hash| hash.<span class="number">0</span>.into()),
-<a href=#96 id=96 data-nosnippet>96</a>
-<a href=#97 id=97 data-nosnippet>97</a>			..Default::default()
-<a href=#98 id=98 data-nosnippet>98</a>		};
+<a href=#57 id=57 data-nosnippet>57</a><span class="doccomment">/// What the block committed to its synthetic transaction, the one carrying the logs emitted
+<a href=#58 id=58 data-nosnippet>58</a>/// outside any ethereum transaction.
+<a href=#59 id=59 data-nosnippet>59</a></span><span class="attr">#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+<a href=#60 id=60 data-nosnippet>60</a></span><span class="kw">pub struct </span>SyntheticTransactionInfo {
+<a href=#61 id=61 data-nosnippet>61</a>	<span class="doccomment">/// Its receipt gas entry. Kept out of [`crate::ReceiptInfoData`] because the
+<a href=#62 id=62 data-nosnippet>62</a>	/// `eth_receipt_data` runtime API is versioned on exactly that split: V1 promises one entry
+<a href=#63 id=63 data-nosnippet>63</a>	/// per ethereum transaction.
+<a href=#64 id=64 data-nosnippet>64</a>	</span><span class="kw">pub </span>gas_info: ReceiptGasInfo,
+<a href=#65 id=65 data-nosnippet>65</a>
+<a href=#66 id=66 data-nosnippet>66</a>	<span class="doccomment">/// The `frame_system` event index of each log that went into it, in receipt order. These are
+<a href=#67 id=67 data-nosnippet>67</a>	/// the logs the block's `logs_bloom` and `receipts_root` commit to, which is what lets the
+<a href=#68 id=68 data-nosnippet>68</a>	/// serving layer pick them out of the block's `ContractEmitted` events: a contract log outside
+<a href=#69 id=69 data-nosnippet>69</a>	/// an ethereum transaction and a log past the buffer's cap are deposited but not buffered.
+<a href=#70 id=70 data-nosnippet>70</a>	</span><span class="kw">pub </span>log_event_indices: Vec&lt;u32&gt;,
+<a href=#71 id=71 data-nosnippet>71</a>}
+<a href=#72 id=72 data-nosnippet>72</a>
+<a href=#73 id=73 data-nosnippet>73</a><span class="kw">impl </span>From&lt;SyntheticTransactionInfo&gt; <span class="kw">for </span>SyntheticTransactionV1 {
+<a href=#74 id=74 data-nosnippet>74</a>	<span class="kw">fn </span>from(value: SyntheticTransactionInfo) -&gt; <span class="self">Self </span>{
+<a href=#75 id=75 data-nosnippet>75</a>		<span class="self">Self </span>{ gas_info: value.gas_info.into(), log_event_indices: value.log_event_indices }
+<a href=#76 id=76 data-nosnippet>76</a>	}
+<a href=#77 id=77 data-nosnippet>77</a>}
+<a href=#78 id=78 data-nosnippet>78</a>
+<a href=#79 id=79 data-nosnippet>79</a><span class="doccomment">/// A log buffered for the block's synthetic transaction.
+<a href=#80 id=80 data-nosnippet>80</a></span><span class="attr">#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
+<a href=#81 id=81 data-nosnippet>81</a></span><span class="kw">pub struct </span>OutsideFrameLog {
+<a href=#82 id=82 data-nosnippet>82</a>	<span class="doccomment">/// The `frame_system` event index of its [`crate::Event::ContractEmitted`].
+<a href=#83 id=83 data-nosnippet>83</a>	</span><span class="kw">pub </span>event_index: u32,
+<a href=#84 id=84 data-nosnippet>84</a>	<span class="doccomment">/// The address the log is attributed to.
+<a href=#85 id=85 data-nosnippet>85</a>	</span><span class="kw">pub </span>contract: H160,
+<a href=#86 id=86 data-nosnippet>86</a>	<span class="doccomment">/// The log's topics.
+<a href=#87 id=87 data-nosnippet>87</a>	</span><span class="kw">pub </span>topics: Vec&lt;H256&gt;,
+<a href=#88 id=88 data-nosnippet>88</a>	<span class="doccomment">/// The log's data.
+<a href=#89 id=89 data-nosnippet>89</a>	</span><span class="kw">pub </span>data: Vec&lt;u8&gt;,
+<a href=#90 id=90 data-nosnippet>90</a>}
+<a href=#91 id=91 data-nosnippet>91</a>
+<a href=#92 id=92 data-nosnippet>92</a><span class="kw">impl </span>Block {
+<a href=#93 id=93 data-nosnippet>93</a>	<span class="doccomment">/// Compute the trie root using the `(rlp(index), encoded(item))` pairs.
+<a href=#94 id=94 data-nosnippet>94</a>	</span><span class="kw">pub fn </span>compute_trie_root(items: <span class="kw-2">&amp;</span>[Vec&lt;u8&gt;]) -&gt; B256 {
+<a href=#95 id=95 data-nosnippet>95</a>		alloy_consensus::proofs::ordered_trie_root_with_encoder(items, |item, buf| {
+<a href=#96 id=96 data-nosnippet>96</a>			buf.put_slice(item)
+<a href=#97 id=97 data-nosnippet>97</a>		})
+<a href=#98 id=98 data-nosnippet>98</a>	}
 <a href=#99 id=99 data-nosnippet>99</a>
-<a href=#100 id=100 data-nosnippet>100</a>		alloy_header.hash_slow().<span class="number">0</span>.into()
-<a href=#101 id=101 data-nosnippet>101</a>	}
-<a href=#102 id=102 data-nosnippet>102</a>}
+<a href=#100 id=100 data-nosnippet>100</a>	<span class="doccomment">/// Compute the ETH header hash.
+<a href=#101 id=101 data-nosnippet>101</a>	</span><span class="kw">pub fn </span>header_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; H256 {
+<a href=#102 id=102 data-nosnippet>102</a>		<span class="comment">// Note: Cap the gas limit to u64::MAX.
+<a href=#103 id=103 data-nosnippet>103</a>		// In practice, it should be impossible to fill a u64::MAX gas limit
+<a href=#104 id=104 data-nosnippet>104</a>		// of an either Ethereum or Substrate block.
+<a href=#105 id=105 data-nosnippet>105</a>		</span><span class="kw">let </span>gas_limit = <span class="self">self</span>.gas_limit.try_into().unwrap_or(u64::MAX);
+<a href=#106 id=106 data-nosnippet>106</a>
+<a href=#107 id=107 data-nosnippet>107</a>		<span class="kw">let </span>alloy_header = alloy_consensus::Header {
+<a href=#108 id=108 data-nosnippet>108</a>			state_root: <span class="self">self</span>.state_root.<span class="number">0</span>.into(),
+<a href=#109 id=109 data-nosnippet>109</a>			transactions_root: <span class="self">self</span>.transactions_root.<span class="number">0</span>.into(),
+<a href=#110 id=110 data-nosnippet>110</a>			receipts_root: <span class="self">self</span>.receipts_root.<span class="number">0</span>.into(),
+<a href=#111 id=111 data-nosnippet>111</a>
+<a href=#112 id=112 data-nosnippet>112</a>			parent_hash: <span class="self">self</span>.parent_hash.<span class="number">0</span>.into(),
+<a href=#113 id=113 data-nosnippet>113</a>			beneficiary: <span class="self">self</span>.miner.<span class="number">0</span>.into(),
+<a href=#114 id=114 data-nosnippet>114</a>			number: <span class="self">self</span>.number.as_u64(),
+<a href=#115 id=115 data-nosnippet>115</a>			logs_bloom: <span class="self">self</span>.logs_bloom.<span class="number">0</span>.into(),
+<a href=#116 id=116 data-nosnippet>116</a>			gas_limit,
+<a href=#117 id=117 data-nosnippet>117</a>			gas_used: <span class="self">self</span>.gas_used.as_u64(),
+<a href=#118 id=118 data-nosnippet>118</a>			timestamp: <span class="self">self</span>.timestamp.as_u64(),
+<a href=#119 id=119 data-nosnippet>119</a>
+<a href=#120 id=120 data-nosnippet>120</a>			ommers_hash: <span class="self">self</span>.sha_3_uncles.<span class="number">0</span>.into(),
+<a href=#121 id=121 data-nosnippet>121</a>			extra_data: <span class="self">self</span>.extra_data.clone().<span class="number">0</span>.into(),
+<a href=#122 id=122 data-nosnippet>122</a>			mix_hash: <span class="self">self</span>.mix_hash.<span class="number">0</span>.into(),
+<a href=#123 id=123 data-nosnippet>123</a>			nonce: <span class="self">self</span>.nonce.<span class="number">0</span>.into(),
+<a href=#124 id=124 data-nosnippet>124</a>
+<a href=#125 id=125 data-nosnippet>125</a>			base_fee_per_gas: <span class="prelude-val">Some</span>(<span class="self">self</span>.base_fee_per_gas.as_u64()),
+<a href=#126 id=126 data-nosnippet>126</a>			withdrawals_root: <span class="prelude-val">Some</span>(<span class="self">self</span>.withdrawals_root.<span class="number">0</span>.into()),
+<a href=#127 id=127 data-nosnippet>127</a>			blob_gas_used: <span class="prelude-val">Some</span>(<span class="self">self</span>.blob_gas_used.as_u64()),
+<a href=#128 id=128 data-nosnippet>128</a>			excess_blob_gas: <span class="prelude-val">Some</span>(<span class="self">self</span>.excess_blob_gas.as_u64()),
+<a href=#129 id=129 data-nosnippet>129</a>			parent_beacon_block_root: <span class="self">self</span>.parent_beacon_block_root.map(|root| root.<span class="number">0</span>.into()),
+<a href=#130 id=130 data-nosnippet>130</a>			requests_hash: <span class="self">self</span>.requests_hash.map(|hash| hash.<span class="number">0</span>.into()),
+<a href=#131 id=131 data-nosnippet>131</a>
+<a href=#132 id=132 data-nosnippet>132</a>			..Default::default()
+<a href=#133 id=133 data-nosnippet>133</a>		};
+<a href=#134 id=134 data-nosnippet>134</a>
+<a href=#135 id=135 data-nosnippet>135</a>		alloy_header.hash_slow().<span class="number">0</span>.into()
+<a href=#136 id=136 data-nosnippet>136</a>	}
+<a href=#137 id=137 data-nosnippet>137</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

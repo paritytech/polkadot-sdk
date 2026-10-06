@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["block_builder","hash_builder"]};
+window.SIDEBAR_ITEMS = {"mod":["block_builder","hash_builder","receipt"],"struct":["OutsideFrameLog","SyntheticTransactionInfo"]};

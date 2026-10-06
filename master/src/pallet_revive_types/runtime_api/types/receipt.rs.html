@@ -165,15 +165,32 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#15 id=15 data-nosnippet>15</a>// See the License for the specific language governing permissions and
 <a href=#16 id=16 data-nosnippet>16</a>// limitations under the License.
 <a href=#17 id=17 data-nosnippet>17</a>
-<a href=#18 id=18 data-nosnippet>18</a></span><span class="kw">use </span>codec::{Decode, Encode};
-<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>scale_info::TypeInfo;
-<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>sp_core::U256;
-<a href=#21 id=21 data-nosnippet>21</a>
-<a href=#22 id=22 data-nosnippet>22</a><span class="attr">#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
-<a href=#23 id=23 data-nosnippet>23</a></span><span class="kw">pub struct </span>ReceiptGasInfoV1 {
-<a href=#24 id=24 data-nosnippet>24</a>	<span class="kw">pub </span>gas_used: U256,
-<a href=#25 id=25 data-nosnippet>25</a>	<span class="kw">pub </span>effective_gas_price: U256,
-<a href=#26 id=26 data-nosnippet>26</a>}
+<a href=#18 id=18 data-nosnippet>18</a></span><span class="kw">use </span>alloc::vec::Vec;
+<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>codec::{Decode, Encode};
+<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>scale_info::TypeInfo;
+<a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>sp_core::U256;
+<a href=#22 id=22 data-nosnippet>22</a>
+<a href=#23 id=23 data-nosnippet>23</a><span class="attr">#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+<a href=#24 id=24 data-nosnippet>24</a></span><span class="kw">pub struct </span>ReceiptGasInfoV1 {
+<a href=#25 id=25 data-nosnippet>25</a>	<span class="kw">pub </span>gas_used: U256,
+<a href=#26 id=26 data-nosnippet>26</a>	<span class="kw">pub </span>effective_gas_price: U256,
+<a href=#27 id=27 data-nosnippet>27</a>}
+<a href=#28 id=28 data-nosnippet>28</a>
+<a href=#29 id=29 data-nosnippet>29</a><span class="doccomment">/// What a block committed to its synthetic transaction, the one carrying the logs emitted outside
+<a href=#30 id=30 data-nosnippet>30</a>/// any ethereum transaction.
+<a href=#31 id=31 data-nosnippet>31</a></span><span class="attr">#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+<a href=#32 id=32 data-nosnippet>32</a></span><span class="kw">pub struct </span>SyntheticTransactionV1 {
+<a href=#33 id=33 data-nosnippet>33</a>	<span class="doccomment">/// Its receipt gas entry.
+<a href=#34 id=34 data-nosnippet>34</a>	</span><span class="kw">pub </span>gas_info: ReceiptGasInfoV1,
+<a href=#35 id=35 data-nosnippet>35</a>	<span class="doccomment">/// The `frame_system` event index of each log that went into it, in receipt order.
+<a href=#36 id=36 data-nosnippet>36</a>	///
+<a href=#37 id=37 data-nosnippet>37</a>	/// These are the logs the block's `logs_bloom` and `receipts_root` commit to. A consumer that
+<a href=#38 id=38 data-nosnippet>38</a>	/// rebuilds them from block events must select by these indices: the block's `ContractEmitted`
+<a href=#39 id=39 data-nosnippet>39</a>	/// events hold more than the header accounts for, since a contract log outside an ethereum
+<a href=#40 id=40 data-nosnippet>40</a>	/// transaction is deposited but not buffered, and a runtime bounds the buffer and deposits the
+<a href=#41 id=41 data-nosnippet>41</a>	/// event whether or not the log fitted.
+<a href=#42 id=42 data-nosnippet>42</a>	</span><span class="kw">pub </span>log_event_indices: Vec&lt;u32&gt;,
+<a href=#43 id=43 data-nosnippet>43</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

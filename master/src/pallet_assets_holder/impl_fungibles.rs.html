@@ -173,7 +173,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#23 id=23 data-nosnippet>23</a>		DepositConsequence, Fortitude, Precision, Preservation, Provenance, WithdrawConsequence,
 <a href=#24 id=24 data-nosnippet>24</a>	},
 <a href=#25 id=25 data-nosnippet>25</a>};
-<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>pallet_assets::BalanceOnHold;
+<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>pallet_assets::{AssetsCallback, BalanceOnHold};
 <a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>sp_runtime::{
 <a href=#28 id=28 data-nosnippet>28</a>	traits::{CheckedAdd, CheckedSub, Zero},
 <a href=#29 id=29 data-nosnippet>29</a>	ArithmeticError,
@@ -435,13 +435,29 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#285 id=285 data-nosnippet>285</a>		amount: <span class="self">Self</span>::Balance,
 <a href=#286 id=286 data-nosnippet>286</a>	) {
 <a href=#287 id=287 data-nosnippet>287</a>		<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::Burned {
-<a href=#288 id=288 data-nosnippet>288</a>			asset_id,
+<a href=#288 id=288 data-nosnippet>288</a>			asset_id: asset_id.clone(),
 <a href=#289 id=289 data-nosnippet>289</a>			who: who.clone(),
 <a href=#290 id=290 data-nosnippet>290</a>			reason: <span class="kw-2">*</span>reason,
 <a href=#291 id=291 data-nosnippet>291</a>			amount,
 <a href=#292 id=292 data-nosnippet>292</a>		});
-<a href=#293 id=293 data-nosnippet>293</a>	}
-<a href=#294 id=294 data-nosnippet>294</a>}
+<a href=#293 id=293 data-nosnippet>293</a>		&lt;T <span class="kw">as </span>pallet_assets::Config&lt;I&gt;&gt;::CallbackHandle::burned(<span class="kw-2">&amp;</span>asset_id, who, amount);
+<a href=#294 id=294 data-nosnippet>294</a>	}
+<a href=#295 id=295 data-nosnippet>295</a>
+<a href=#296 id=296 data-nosnippet>296</a>	<span class="comment">// Reaches pallet-assets through `Unbalanced`, below the `Mutate` impl the balance-change
+<a href=#297 id=297 data-nosnippet>297</a>	// callbacks hang off, so it reports here instead. Also covers `transfer_and_hold`, which calls
+<a href=#298 id=298 data-nosnippet>298</a>	// this hook rather than `done_transfer_and_hold`.
+<a href=#299 id=299 data-nosnippet>299</a>	</span><span class="kw">fn </span>done_transfer_on_hold(
+<a href=#300 id=300 data-nosnippet>300</a>		asset_id: <span class="self">Self</span>::AssetId,
+<a href=#301 id=301 data-nosnippet>301</a>		_reason: <span class="kw-2">&amp;</span><span class="self">Self</span>::Reason,
+<a href=#302 id=302 data-nosnippet>302</a>		source: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#303 id=303 data-nosnippet>303</a>		dest: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#304 id=304 data-nosnippet>304</a>		amount: <span class="self">Self</span>::Balance,
+<a href=#305 id=305 data-nosnippet>305</a>	) {
+<a href=#306 id=306 data-nosnippet>306</a>		&lt;T <span class="kw">as </span>pallet_assets::Config&lt;I&gt;&gt;::CallbackHandle::transferred(
+<a href=#307 id=307 data-nosnippet>307</a>			<span class="kw-2">&amp;</span>asset_id, source, dest, amount,
+<a href=#308 id=308 data-nosnippet>308</a>		);
+<a href=#309 id=309 data-nosnippet>309</a>	}
+<a href=#310 id=310 data-nosnippet>310</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

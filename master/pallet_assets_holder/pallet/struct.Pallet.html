@@ -214,7 +214,7 @@ holds or if it cannot be made to exist (e.g. there is no provider reference). <a
     who: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::Balance,
 ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>Check to see if some <code>amount</code> of funds of <code>who</code> may be placed on hold for the given
-<code>reason</code>. Reasons why this may not be true: <a>Read more</a></div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-IntegrityTest-for-Pallet%3CT,+I%3E" class="impl"><a class="src rightside" href="../../src/pallet_assets_holder/lib.rs.html#143">Source</a><a href="#impl-IntegrityTest-for-Pallet%3CT,+I%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait pallet_assets_holder::pallet::Config">Config</a>&lt;I&gt;, I: 'static&gt; IntegrityTest for <a class="struct" href="struct.Pallet.html" title="struct pallet_assets_holder::pallet::Pallet">Pallet</a>&lt;T, I&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.integrity_test-1" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets_holder/lib.rs.html#143">Source</a><a href="#method.integrity_test-1" class="anchor">§</a><h4 class="code-header">fn <a class="fn">integrity_test</a>()</h4></section></summary><div class='docblock'>See [<code>Hooks::integrity_test</code>].</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-MutateHold%3C%3CT+as+Config%3E::AccountId%3E-for-Pallet%3CT,+I%3E" class="impl"><a class="src rightside" href="../../src/pallet_assets_holder/impl_fungibles.rs.html#252-294">Source</a><a href="#impl-MutateHold%3C%3CT+as+Config%3E::AccountId%3E-for-Pallet%3CT,+I%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait pallet_assets_holder::pallet::Config">Config</a>&lt;I&gt;, I: 'static&gt; Mutate&lt;&lt;T as Config&gt;::AccountId&gt; for <a class="struct" href="struct.Pallet.html" title="struct pallet_assets_holder::pallet::Pallet">Pallet</a>&lt;T, I&gt;</h3></section></summary><div class="impl-items"><section id="method.done_hold" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets_holder/impl_fungibles.rs.html#253-265">Source</a><a href="#method.done_hold" class="anchor">§</a><h4 class="code-header">fn <a class="fn">done_hold</a>(
+<code>reason</code>. Reasons why this may not be true: <a>Read more</a></div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-IntegrityTest-for-Pallet%3CT,+I%3E" class="impl"><a class="src rightside" href="../../src/pallet_assets_holder/lib.rs.html#143">Source</a><a href="#impl-IntegrityTest-for-Pallet%3CT,+I%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait pallet_assets_holder::pallet::Config">Config</a>&lt;I&gt;, I: 'static&gt; IntegrityTest for <a class="struct" href="struct.Pallet.html" title="struct pallet_assets_holder::pallet::Pallet">Pallet</a>&lt;T, I&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.integrity_test-1" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets_holder/lib.rs.html#143">Source</a><a href="#method.integrity_test-1" class="anchor">§</a><h4 class="code-header">fn <a class="fn">integrity_test</a>()</h4></section></summary><div class='docblock'>See [<code>Hooks::integrity_test</code>].</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-MutateHold%3C%3CT+as+Config%3E::AccountId%3E-for-Pallet%3CT,+I%3E" class="impl"><a class="src rightside" href="../../src/pallet_assets_holder/impl_fungibles.rs.html#252-310">Source</a><a href="#impl-MutateHold%3C%3CT+as+Config%3E::AccountId%3E-for-Pallet%3CT,+I%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait pallet_assets_holder::pallet::Config">Config</a>&lt;I&gt;, I: 'static&gt; Mutate&lt;&lt;T as Config&gt;::AccountId&gt; for <a class="struct" href="struct.Pallet.html" title="struct pallet_assets_holder::pallet::Pallet">Pallet</a>&lt;T, I&gt;</h3></section></summary><div class="impl-items"><section id="method.done_hold" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets_holder/impl_fungibles.rs.html#253-265">Source</a><a href="#method.done_hold" class="anchor">§</a><h4 class="code-header">fn <a class="fn">done_hold</a>(
     asset_id: Self::AssetId,
     reason: &amp;Self::Reason,
     who: &amp;T::AccountId,
@@ -224,10 +224,16 @@ holds or if it cannot be made to exist (e.g. there is no provider reference). <a
     reason: &amp;Self::Reason,
     who: &amp;T::AccountId,
     amount: Self::Balance,
-)</h4></section><section id="method.done_burn_held" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets_holder/impl_fungibles.rs.html#281-293">Source</a><a href="#method.done_burn_held" class="anchor">§</a><h4 class="code-header">fn <a class="fn">done_burn_held</a>(
+)</h4></section><section id="method.done_burn_held" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets_holder/impl_fungibles.rs.html#281-294">Source</a><a href="#method.done_burn_held" class="anchor">§</a><h4 class="code-header">fn <a class="fn">done_burn_held</a>(
     asset_id: Self::AssetId,
     reason: &amp;Self::Reason,
     who: &amp;T::AccountId,
+    amount: Self::Balance,
+)</h4></section><section id="method.done_transfer_on_hold" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets_holder/impl_fungibles.rs.html#299-309">Source</a><a href="#method.done_transfer_on_hold" class="anchor">§</a><h4 class="code-header">fn <a class="fn">done_transfer_on_hold</a>(
+    asset_id: Self::AssetId,
+    _reason: &amp;Self::Reason,
+    source: &amp;T::AccountId,
+    dest: &amp;T::AccountId,
     amount: Self::Balance,
 )</h4></section><details class="toggle method-toggle" open><summary><section id="method.hold" class="method trait-impl"><a href="#method.hold" class="anchor">§</a><h4 class="code-header">fn <a class="fn">hold</a>(
     asset: Self::AssetId,
@@ -276,13 +282,7 @@ zero. <a>Read more</a></div></details><details class="toggle method-toggle" open
     force: Fortitude,
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::Balance, DispatchError&gt;</h4></section></summary><div class='docblock'>Transfer some <code>amount</code> of free balance from <code>source</code> to become owned by <code>dest</code> but on hold
 for <code>reason</code>.
-for <code>reason</code>. <a>Read more</a></div></details><section id="method.done_transfer_on_hold" class="method trait-impl"><a href="#method.done_transfer_on_hold" class="anchor">§</a><h4 class="code-header">fn <a class="fn">done_transfer_on_hold</a>(
-    _asset: Self::AssetId,
-    _reason: &amp;Self::Reason,
-    _source: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;AccountId</a>,
-    _dest: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;AccountId</a>,
-    _amount: Self::Balance,
-)</h4></section><section id="method.done_transfer_and_hold" class="method trait-impl"><a href="#method.done_transfer_and_hold" class="anchor">§</a><h4 class="code-header">fn <a class="fn">done_transfer_and_hold</a>(
+for <code>reason</code>. <a>Read more</a></div></details><section id="method.done_transfer_and_hold" class="method trait-impl"><a href="#method.done_transfer_and_hold" class="anchor">§</a><h4 class="code-header">fn <a class="fn">done_transfer_and_hold</a>(
     _asset: Self::AssetId,
     _reason: &amp;Self::Reason,
     _source: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;AccountId</a>,
