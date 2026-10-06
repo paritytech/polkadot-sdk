@@ -800,320 +800,327 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#650 id=650 data-nosnippet>650</a>					peers: peers.into_iter().collect(),
 <a href=#651 id=651 data-nosnippet>651</a>				}));
 <a href=#652 id=652 data-nosnippet>652</a>			},
-<a href=#653 id=653 data-nosnippet>653</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::GetRecordSuccess { query_id })) =&gt; {
-<a href=#654 id=654 data-nosnippet>654</a>				<span class="macro">log::trace!</span>(
-<a href=#655 id=655 data-nosnippet>655</a>					target: LOG_TARGET,
-<a href=#656 id=656 data-nosnippet>656</a>					<span class="string">"`GET_RECORD` succeeded for {query_id:?}"</span>,
-<a href=#657 id=657 data-nosnippet>657</a>				);
-<a href=#658 id=658 data-nosnippet>658</a>
-<a href=#659 id=659 data-nosnippet>659</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::GetRecordSuccess { query_id }));
-<a href=#660 id=660 data-nosnippet>660</a>			},
-<a href=#661 id=661 data-nosnippet>661</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::GetRecordPartialResult { query_id, record })) =&gt; {
-<a href=#662 id=662 data-nosnippet>662</a>				<span class="macro">log::trace!</span>(
-<a href=#663 id=663 data-nosnippet>663</a>					target: LOG_TARGET,
-<a href=#664 id=664 data-nosnippet>664</a>					<span class="string">"`GET_RECORD` intermediary succeeded for {query_id:?}: {record:?}"</span>,
-<a href=#665 id=665 data-nosnippet>665</a>				);
-<a href=#666 id=666 data-nosnippet>666</a>
-<a href=#667 id=667 data-nosnippet>667</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::GetRecordPartialResult {
-<a href=#668 id=668 data-nosnippet>668</a>					query_id,
-<a href=#669 id=669 data-nosnippet>669</a>					record,
-<a href=#670 id=670 data-nosnippet>670</a>				}));
-<a href=#671 id=671 data-nosnippet>671</a>			},
-<a href=#672 id=672 data-nosnippet>672</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::PutRecordSuccess { query_id, key: <span class="kw">_ </span>})) =&gt; {
-<a href=#673 id=673 data-nosnippet>673</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::PutRecordSuccess { query_id }))
-<a href=#674 id=674 data-nosnippet>674</a>			},
-<a href=#675 id=675 data-nosnippet>675</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::QueryFailed { query_id })) =&gt; {
-<a href=#676 id=676 data-nosnippet>676</a>				<span class="kw">match </span>this.random_walk_query_id == <span class="prelude-val">Some</span>(query_id) {
-<a href=#677 id=677 data-nosnippet>677</a>					<span class="bool-val">true </span>=&gt; {
-<a href=#678 id=678 data-nosnippet>678</a>						this.random_walk_query_id = <span class="prelude-val">None</span>;
-<a href=#679 id=679 data-nosnippet>679</a>						this.duration_to_next_find_query =
-<a href=#680 id=680 data-nosnippet>680</a>							cmp::min(this.duration_to_next_find_query * <span class="number">2</span>, Duration::from_secs(<span class="number">60</span>));
-<a href=#681 id=681 data-nosnippet>681</a>						this.next_kad_query = <span class="prelude-val">Some</span>(Delay::new(this.duration_to_next_find_query));
-<a href=#682 id=682 data-nosnippet>682</a>					},
-<a href=#683 id=683 data-nosnippet>683</a>					<span class="bool-val">false </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::QueryFailed { query_id })),
-<a href=#684 id=684 data-nosnippet>684</a>				}
-<a href=#685 id=685 data-nosnippet>685</a>			},
-<a href=#686 id=686 data-nosnippet>686</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::IncomingRecord { record })) =&gt; {
-<a href=#687 id=687 data-nosnippet>687</a>				<span class="macro">log::trace!</span>(
-<a href=#688 id=688 data-nosnippet>688</a>					target: LOG_TARGET,
-<a href=#689 id=689 data-nosnippet>689</a>					<span class="string">"incoming `PUT_RECORD` request with key {:?} from publisher {:?}"</span>,
-<a href=#690 id=690 data-nosnippet>690</a>					record.key,
-<a href=#691 id=691 data-nosnippet>691</a>					record.publisher,
-<a href=#692 id=692 data-nosnippet>692</a>				);
-<a href=#693 id=693 data-nosnippet>693</a>
-<a href=#694 id=694 data-nosnippet>694</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::IncomingRecord { record }));
-<a href=#695 id=695 data-nosnippet>695</a>			},
-<a href=#696 id=696 data-nosnippet>696</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::GetProvidersSuccess {
-<a href=#697 id=697 data-nosnippet>697</a>				provided_key,
-<a href=#698 id=698 data-nosnippet>698</a>				providers,
-<a href=#699 id=699 data-nosnippet>699</a>				query_id,
-<a href=#700 id=700 data-nosnippet>700</a>			})) =&gt; {
-<a href=#701 id=701 data-nosnippet>701</a>				<span class="macro">log::trace!</span>(
-<a href=#702 id=702 data-nosnippet>702</a>					target: LOG_TARGET,
-<a href=#703 id=703 data-nosnippet>703</a>					<span class="string">"`GET_PROVIDERS` for {query_id:?} with {provided_key:?} yielded {providers:?}"</span>,
-<a href=#704 id=704 data-nosnippet>704</a>				);
-<a href=#705 id=705 data-nosnippet>705</a>
-<a href=#706 id=706 data-nosnippet>706</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::GetProvidersSuccess {
-<a href=#707 id=707 data-nosnippet>707</a>					query_id,
-<a href=#708 id=708 data-nosnippet>708</a>					providers,
-<a href=#709 id=709 data-nosnippet>709</a>				}));
-<a href=#710 id=710 data-nosnippet>710</a>			},
-<a href=#711 id=711 data-nosnippet>711</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::AddProviderSuccess { query_id, provided_key })) =&gt; {
-<a href=#712 id=712 data-nosnippet>712</a>				<span class="macro">log::trace!</span>(
-<a href=#713 id=713 data-nosnippet>713</a>					target: LOG_TARGET,
-<a href=#714 id=714 data-nosnippet>714</a>					<span class="string">"`ADD_PROVIDER` for {query_id:?} with {provided_key:?} succeeded"</span>,
-<a href=#715 id=715 data-nosnippet>715</a>				);
-<a href=#716 id=716 data-nosnippet>716</a>
-<a href=#717 id=717 data-nosnippet>717</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::AddProviderSuccess {
-<a href=#718 id=718 data-nosnippet>718</a>					query_id,
-<a href=#719 id=719 data-nosnippet>719</a>					provided_key,
-<a href=#720 id=720 data-nosnippet>720</a>				}));
-<a href=#721 id=721 data-nosnippet>721</a>			},
-<a href=#722 id=722 data-nosnippet>722</a>			<span class="comment">// We do not validate incoming providers.
-<a href=#723 id=723 data-nosnippet>723</a>			</span>Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::IncomingProvider { .. })) =&gt; {},
-<a href=#724 id=724 data-nosnippet>724</a>		}
-<a href=#725 id=725 data-nosnippet>725</a>
-<a href=#726 id=726 data-nosnippet>726</a>		<span class="kw">match </span>Pin::new(<span class="kw-2">&amp;mut </span>this.identify_event_stream).poll_next(cx) {
-<a href=#727 id=727 data-nosnippet>727</a>			Poll::Pending =&gt; {},
-<a href=#728 id=728 data-nosnippet>728</a>			Poll::Ready(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">None</span>),
-<a href=#729 id=729 data-nosnippet>729</a>			Poll::Ready(<span class="prelude-val">Some</span>(IdentifyEvent::PeerIdentified {
-<a href=#730 id=730 data-nosnippet>730</a>				peer,
-<a href=#731 id=731 data-nosnippet>731</a>				listen_addresses,
-<a href=#732 id=732 data-nosnippet>732</a>				supported_protocols,
-<a href=#733 id=733 data-nosnippet>733</a>				observed_address,
-<a href=#734 id=734 data-nosnippet>734</a>				..
-<a href=#735 id=735 data-nosnippet>735</a>			})) =&gt; {
-<a href=#736 id=736 data-nosnippet>736</a>				<span class="kw">let </span>observed_address =
-<a href=#737 id=737 data-nosnippet>737</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(Protocol::P2p(peer_id)) = observed_address.iter().last() {
-<a href=#738 id=738 data-nosnippet>738</a>						<span class="kw">if </span><span class="macro">peer_id !</span>= this.local_peer_id.into() {
-<a href=#739 id=739 data-nosnippet>739</a>							<span class="macro">log::warn!</span>(
-<a href=#740 id=740 data-nosnippet>740</a>								target: LOG_TARGET,
-<a href=#741 id=741 data-nosnippet>741</a>								<span class="string">"Discovered external address for a peer that is not us: {observed_address}"</span>,
-<a href=#742 id=742 data-nosnippet>742</a>							);
-<a href=#743 id=743 data-nosnippet>743</a>							<span class="prelude-val">None
-<a href=#744 id=744 data-nosnippet>744</a>						</span>} <span class="kw">else </span>{
-<a href=#745 id=745 data-nosnippet>745</a>							<span class="prelude-val">Some</span>(observed_address)
-<a href=#746 id=746 data-nosnippet>746</a>						}
-<a href=#747 id=747 data-nosnippet>747</a>					} <span class="kw">else </span>{
-<a href=#748 id=748 data-nosnippet>748</a>						<span class="prelude-val">Some</span>(observed_address.with(Protocol::P2p(this.local_peer_id.into())))
-<a href=#749 id=749 data-nosnippet>749</a>					};
-<a href=#750 id=750 data-nosnippet>750</a>
-<a href=#751 id=751 data-nosnippet>751</a>				<span class="comment">// Ensure that an external address with a different peer ID does not have
-<a href=#752 id=752 data-nosnippet>752</a>				// side effects of evicting other external addresses via `ExternalAddressExpired`.
-<a href=#753 id=753 data-nosnippet>753</a>				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(observed_address) = observed_address {
-<a href=#754 id=754 data-nosnippet>754</a>					<span class="kw">let </span>(is_new, expired_address) =
-<a href=#755 id=755 data-nosnippet>755</a>						this.is_new_external_address(<span class="kw-2">&amp;</span>observed_address, peer);
-<a href=#756 id=756 data-nosnippet>756</a>
-<a href=#757 id=757 data-nosnippet>757</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(expired_address) = expired_address {
-<a href=#758 id=758 data-nosnippet>758</a>						<span class="macro">log::trace!</span>(
-<a href=#759 id=759 data-nosnippet>759</a>							target: LOG_TARGET,
-<a href=#760 id=760 data-nosnippet>760</a>							<span class="string">"Removing expired external address expired={expired_address} is_new={is_new} observed={observed_address}"</span>,
-<a href=#761 id=761 data-nosnippet>761</a>						);
-<a href=#762 id=762 data-nosnippet>762</a>
-<a href=#763 id=763 data-nosnippet>763</a>						this.pending_events.push_back(DiscoveryEvent::ExternalAddressExpired {
-<a href=#764 id=764 data-nosnippet>764</a>							address: expired_address,
-<a href=#765 id=765 data-nosnippet>765</a>						});
-<a href=#766 id=766 data-nosnippet>766</a>					}
-<a href=#767 id=767 data-nosnippet>767</a>
-<a href=#768 id=768 data-nosnippet>768</a>					<span class="kw">if </span>is_new {
-<a href=#769 id=769 data-nosnippet>769</a>						this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
-<a href=#770 id=770 data-nosnippet>770</a>							address: observed_address.clone(),
-<a href=#771 id=771 data-nosnippet>771</a>						});
-<a href=#772 id=772 data-nosnippet>772</a>					}
-<a href=#773 id=773 data-nosnippet>773</a>				}
+<a href=#653 id=653 data-nosnippet>653</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::PeersDiscovered { peers })) =&gt; {
+<a href=#654 id=654 data-nosnippet>654</a>				<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"discovered {} peers"</span>, peers.len());
+<a href=#655 id=655 data-nosnippet>655</a>
+<a href=#656 id=656 data-nosnippet>656</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::RoutingTableUpdate {
+<a href=#657 id=657 data-nosnippet>657</a>					peers: peers.into_iter().collect(),
+<a href=#658 id=658 data-nosnippet>658</a>				}));
+<a href=#659 id=659 data-nosnippet>659</a>			},
+<a href=#660 id=660 data-nosnippet>660</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::GetRecordSuccess { query_id })) =&gt; {
+<a href=#661 id=661 data-nosnippet>661</a>				<span class="macro">log::trace!</span>(
+<a href=#662 id=662 data-nosnippet>662</a>					target: LOG_TARGET,
+<a href=#663 id=663 data-nosnippet>663</a>					<span class="string">"`GET_RECORD` succeeded for {query_id:?}"</span>,
+<a href=#664 id=664 data-nosnippet>664</a>				);
+<a href=#665 id=665 data-nosnippet>665</a>
+<a href=#666 id=666 data-nosnippet>666</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::GetRecordSuccess { query_id }));
+<a href=#667 id=667 data-nosnippet>667</a>			},
+<a href=#668 id=668 data-nosnippet>668</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::GetRecordPartialResult { query_id, record })) =&gt; {
+<a href=#669 id=669 data-nosnippet>669</a>				<span class="macro">log::trace!</span>(
+<a href=#670 id=670 data-nosnippet>670</a>					target: LOG_TARGET,
+<a href=#671 id=671 data-nosnippet>671</a>					<span class="string">"`GET_RECORD` intermediary succeeded for {query_id:?}: {record:?}"</span>,
+<a href=#672 id=672 data-nosnippet>672</a>				);
+<a href=#673 id=673 data-nosnippet>673</a>
+<a href=#674 id=674 data-nosnippet>674</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::GetRecordPartialResult {
+<a href=#675 id=675 data-nosnippet>675</a>					query_id,
+<a href=#676 id=676 data-nosnippet>676</a>					record,
+<a href=#677 id=677 data-nosnippet>677</a>				}));
+<a href=#678 id=678 data-nosnippet>678</a>			},
+<a href=#679 id=679 data-nosnippet>679</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::PutRecordSuccess { query_id, key: <span class="kw">_ </span>})) =&gt; {
+<a href=#680 id=680 data-nosnippet>680</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::PutRecordSuccess { query_id }))
+<a href=#681 id=681 data-nosnippet>681</a>			},
+<a href=#682 id=682 data-nosnippet>682</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::QueryFailed { query_id })) =&gt; {
+<a href=#683 id=683 data-nosnippet>683</a>				<span class="kw">match </span>this.random_walk_query_id == <span class="prelude-val">Some</span>(query_id) {
+<a href=#684 id=684 data-nosnippet>684</a>					<span class="bool-val">true </span>=&gt; {
+<a href=#685 id=685 data-nosnippet>685</a>						this.random_walk_query_id = <span class="prelude-val">None</span>;
+<a href=#686 id=686 data-nosnippet>686</a>						this.duration_to_next_find_query =
+<a href=#687 id=687 data-nosnippet>687</a>							cmp::min(this.duration_to_next_find_query * <span class="number">2</span>, Duration::from_secs(<span class="number">60</span>));
+<a href=#688 id=688 data-nosnippet>688</a>						this.next_kad_query = <span class="prelude-val">Some</span>(Delay::new(this.duration_to_next_find_query));
+<a href=#689 id=689 data-nosnippet>689</a>					},
+<a href=#690 id=690 data-nosnippet>690</a>					<span class="bool-val">false </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::QueryFailed { query_id })),
+<a href=#691 id=691 data-nosnippet>691</a>				}
+<a href=#692 id=692 data-nosnippet>692</a>			},
+<a href=#693 id=693 data-nosnippet>693</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::IncomingRecord { record })) =&gt; {
+<a href=#694 id=694 data-nosnippet>694</a>				<span class="macro">log::trace!</span>(
+<a href=#695 id=695 data-nosnippet>695</a>					target: LOG_TARGET,
+<a href=#696 id=696 data-nosnippet>696</a>					<span class="string">"incoming `PUT_RECORD` request with key {:?} from publisher {:?}"</span>,
+<a href=#697 id=697 data-nosnippet>697</a>					record.key,
+<a href=#698 id=698 data-nosnippet>698</a>					record.publisher,
+<a href=#699 id=699 data-nosnippet>699</a>				);
+<a href=#700 id=700 data-nosnippet>700</a>
+<a href=#701 id=701 data-nosnippet>701</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::IncomingRecord { record }));
+<a href=#702 id=702 data-nosnippet>702</a>			},
+<a href=#703 id=703 data-nosnippet>703</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::GetProvidersSuccess {
+<a href=#704 id=704 data-nosnippet>704</a>				provided_key,
+<a href=#705 id=705 data-nosnippet>705</a>				providers,
+<a href=#706 id=706 data-nosnippet>706</a>				query_id,
+<a href=#707 id=707 data-nosnippet>707</a>			})) =&gt; {
+<a href=#708 id=708 data-nosnippet>708</a>				<span class="macro">log::trace!</span>(
+<a href=#709 id=709 data-nosnippet>709</a>					target: LOG_TARGET,
+<a href=#710 id=710 data-nosnippet>710</a>					<span class="string">"`GET_PROVIDERS` for {query_id:?} with {provided_key:?} yielded {providers:?}"</span>,
+<a href=#711 id=711 data-nosnippet>711</a>				);
+<a href=#712 id=712 data-nosnippet>712</a>
+<a href=#713 id=713 data-nosnippet>713</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::GetProvidersSuccess {
+<a href=#714 id=714 data-nosnippet>714</a>					query_id,
+<a href=#715 id=715 data-nosnippet>715</a>					providers,
+<a href=#716 id=716 data-nosnippet>716</a>				}));
+<a href=#717 id=717 data-nosnippet>717</a>			},
+<a href=#718 id=718 data-nosnippet>718</a>			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::AddProviderSuccess { query_id, provided_key })) =&gt; {
+<a href=#719 id=719 data-nosnippet>719</a>				<span class="macro">log::trace!</span>(
+<a href=#720 id=720 data-nosnippet>720</a>					target: LOG_TARGET,
+<a href=#721 id=721 data-nosnippet>721</a>					<span class="string">"`ADD_PROVIDER` for {query_id:?} with {provided_key:?} succeeded"</span>,
+<a href=#722 id=722 data-nosnippet>722</a>				);
+<a href=#723 id=723 data-nosnippet>723</a>
+<a href=#724 id=724 data-nosnippet>724</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::AddProviderSuccess {
+<a href=#725 id=725 data-nosnippet>725</a>					query_id,
+<a href=#726 id=726 data-nosnippet>726</a>					provided_key,
+<a href=#727 id=727 data-nosnippet>727</a>				}));
+<a href=#728 id=728 data-nosnippet>728</a>			},
+<a href=#729 id=729 data-nosnippet>729</a>			<span class="comment">// We do not validate incoming providers.
+<a href=#730 id=730 data-nosnippet>730</a>			</span>Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::IncomingProvider { .. })) =&gt; {},
+<a href=#731 id=731 data-nosnippet>731</a>		}
+<a href=#732 id=732 data-nosnippet>732</a>
+<a href=#733 id=733 data-nosnippet>733</a>		<span class="kw">match </span>Pin::new(<span class="kw-2">&amp;mut </span>this.identify_event_stream).poll_next(cx) {
+<a href=#734 id=734 data-nosnippet>734</a>			Poll::Pending =&gt; {},
+<a href=#735 id=735 data-nosnippet>735</a>			Poll::Ready(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">None</span>),
+<a href=#736 id=736 data-nosnippet>736</a>			Poll::Ready(<span class="prelude-val">Some</span>(IdentifyEvent::PeerIdentified {
+<a href=#737 id=737 data-nosnippet>737</a>				peer,
+<a href=#738 id=738 data-nosnippet>738</a>				listen_addresses,
+<a href=#739 id=739 data-nosnippet>739</a>				supported_protocols,
+<a href=#740 id=740 data-nosnippet>740</a>				observed_address,
+<a href=#741 id=741 data-nosnippet>741</a>				..
+<a href=#742 id=742 data-nosnippet>742</a>			})) =&gt; {
+<a href=#743 id=743 data-nosnippet>743</a>				<span class="kw">let </span>observed_address =
+<a href=#744 id=744 data-nosnippet>744</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(Protocol::P2p(peer_id)) = observed_address.iter().last() {
+<a href=#745 id=745 data-nosnippet>745</a>						<span class="kw">if </span><span class="macro">peer_id !</span>= this.local_peer_id.into() {
+<a href=#746 id=746 data-nosnippet>746</a>							<span class="macro">log::warn!</span>(
+<a href=#747 id=747 data-nosnippet>747</a>								target: LOG_TARGET,
+<a href=#748 id=748 data-nosnippet>748</a>								<span class="string">"Discovered external address for a peer that is not us: {observed_address}"</span>,
+<a href=#749 id=749 data-nosnippet>749</a>							);
+<a href=#750 id=750 data-nosnippet>750</a>							<span class="prelude-val">None
+<a href=#751 id=751 data-nosnippet>751</a>						</span>} <span class="kw">else </span>{
+<a href=#752 id=752 data-nosnippet>752</a>							<span class="prelude-val">Some</span>(observed_address)
+<a href=#753 id=753 data-nosnippet>753</a>						}
+<a href=#754 id=754 data-nosnippet>754</a>					} <span class="kw">else </span>{
+<a href=#755 id=755 data-nosnippet>755</a>						<span class="prelude-val">Some</span>(observed_address.with(Protocol::P2p(this.local_peer_id.into())))
+<a href=#756 id=756 data-nosnippet>756</a>					};
+<a href=#757 id=757 data-nosnippet>757</a>
+<a href=#758 id=758 data-nosnippet>758</a>				<span class="comment">// Ensure that an external address with a different peer ID does not have
+<a href=#759 id=759 data-nosnippet>759</a>				// side effects of evicting other external addresses via `ExternalAddressExpired`.
+<a href=#760 id=760 data-nosnippet>760</a>				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(observed_address) = observed_address {
+<a href=#761 id=761 data-nosnippet>761</a>					<span class="kw">let </span>(is_new, expired_address) =
+<a href=#762 id=762 data-nosnippet>762</a>						this.is_new_external_address(<span class="kw-2">&amp;</span>observed_address, peer);
+<a href=#763 id=763 data-nosnippet>763</a>
+<a href=#764 id=764 data-nosnippet>764</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(expired_address) = expired_address {
+<a href=#765 id=765 data-nosnippet>765</a>						<span class="macro">log::trace!</span>(
+<a href=#766 id=766 data-nosnippet>766</a>							target: LOG_TARGET,
+<a href=#767 id=767 data-nosnippet>767</a>							<span class="string">"Removing expired external address expired={expired_address} is_new={is_new} observed={observed_address}"</span>,
+<a href=#768 id=768 data-nosnippet>768</a>						);
+<a href=#769 id=769 data-nosnippet>769</a>
+<a href=#770 id=770 data-nosnippet>770</a>						this.pending_events.push_back(DiscoveryEvent::ExternalAddressExpired {
+<a href=#771 id=771 data-nosnippet>771</a>							address: expired_address,
+<a href=#772 id=772 data-nosnippet>772</a>						});
+<a href=#773 id=773 data-nosnippet>773</a>					}
 <a href=#774 id=774 data-nosnippet>774</a>
-<a href=#775 id=775 data-nosnippet>775</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::Identified {
-<a href=#776 id=776 data-nosnippet>776</a>					peer,
-<a href=#777 id=777 data-nosnippet>777</a>					listen_addresses,
-<a href=#778 id=778 data-nosnippet>778</a>					supported_protocols,
-<a href=#779 id=779 data-nosnippet>779</a>				}));
-<a href=#780 id=780 data-nosnippet>780</a>			},
-<a href=#781 id=781 data-nosnippet>781</a>		}
-<a href=#782 id=782 data-nosnippet>782</a>
-<a href=#783 id=783 data-nosnippet>783</a>		<span class="kw">match </span>Pin::new(<span class="kw-2">&amp;mut </span>this.ping_event_stream).poll_next(cx) {
-<a href=#784 id=784 data-nosnippet>784</a>			Poll::Pending =&gt; {},
-<a href=#785 id=785 data-nosnippet>785</a>			Poll::Ready(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">None</span>),
-<a href=#786 id=786 data-nosnippet>786</a>			Poll::Ready(<span class="prelude-val">Some</span>(PingEvent::Ping { peer, ping })) =&gt; {
-<a href=#787 id=787 data-nosnippet>787</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::Ping { peer, rtt: ping }))
-<a href=#788 id=788 data-nosnippet>788</a>			},
-<a href=#789 id=789 data-nosnippet>789</a>		}
-<a href=#790 id=790 data-nosnippet>790</a>
-<a href=#791 id=791 data-nosnippet>791</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>mdns_event_stream) = <span class="kw-2">&amp;mut </span>this.mdns_event_stream {
-<a href=#792 id=792 data-nosnippet>792</a>			<span class="kw">match </span>Pin::new(mdns_event_stream).poll_next(cx) {
-<a href=#793 id=793 data-nosnippet>793</a>				Poll::Pending =&gt; {},
-<a href=#794 id=794 data-nosnippet>794</a>				Poll::Ready(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">None</span>),
-<a href=#795 id=795 data-nosnippet>795</a>				Poll::Ready(<span class="prelude-val">Some</span>(MdnsEvent::Discovered(addresses))) =&gt; {
-<a href=#796 id=796 data-nosnippet>796</a>					<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::Discovered { addresses }))
-<a href=#797 id=797 data-nosnippet>797</a>				},
-<a href=#798 id=798 data-nosnippet>798</a>			}
-<a href=#799 id=799 data-nosnippet>799</a>		}
-<a href=#800 id=800 data-nosnippet>800</a>
-<a href=#801 id=801 data-nosnippet>801</a>		Poll::Pending
-<a href=#802 id=802 data-nosnippet>802</a>	}
-<a href=#803 id=803 data-nosnippet>803</a>}
-<a href=#804 id=804 data-nosnippet>804</a>
-<a href=#805 id=805 data-nosnippet>805</a><span class="attr">#[cfg(test)]
-<a href=#806 id=806 data-nosnippet>806</a></span><span class="kw">mod </span>tests {
-<a href=#807 id=807 data-nosnippet>807</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#808 id=808 data-nosnippet>808</a>
-<a href=#809 id=809 data-nosnippet>809</a>	<span class="kw">use </span>std::sync::atomic::AtomicU32;
-<a href=#810 id=810 data-nosnippet>810</a>
-<a href=#811 id=811 data-nosnippet>811</a>	<span class="kw">use crate</span>::{
-<a href=#812 id=812 data-nosnippet>812</a>		config::ProtocolId,
-<a href=#813 id=813 data-nosnippet>813</a>		peer_store::{PeerStore, PeerStoreProvider},
-<a href=#814 id=814 data-nosnippet>814</a>	};
-<a href=#815 id=815 data-nosnippet>815</a>	<span class="kw">use </span>futures::{stream::FuturesUnordered, StreamExt};
-<a href=#816 id=816 data-nosnippet>816</a>	<span class="kw">use </span>sp_core::H256;
-<a href=#817 id=817 data-nosnippet>817</a>	<span class="kw">use </span>sp_tracing::tracing_subscriber;
-<a href=#818 id=818 data-nosnippet>818</a>
-<a href=#819 id=819 data-nosnippet>819</a>	<span class="kw">use </span>litep2p::{
-<a href=#820 id=820 data-nosnippet>820</a>		config::ConfigBuilder <span class="kw">as </span>Litep2pConfigBuilder, transport::tcp::config::Config <span class="kw">as </span>TcpConfig,
-<a href=#821 id=821 data-nosnippet>821</a>		Litep2p,
-<a href=#822 id=822 data-nosnippet>822</a>	};
-<a href=#823 id=823 data-nosnippet>823</a>
-<a href=#824 id=824 data-nosnippet>824</a>	<span class="attr">#[tokio::test]
-<a href=#825 id=825 data-nosnippet>825</a>	</span><span class="kw">async fn </span>litep2p_discovery_works() {
-<a href=#826 id=826 data-nosnippet>826</a>		<span class="kw">let _ </span>= tracing_subscriber::fmt()
-<a href=#827 id=827 data-nosnippet>827</a>			.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-<a href=#828 id=828 data-nosnippet>828</a>			.try_init();
-<a href=#829 id=829 data-nosnippet>829</a>
-<a href=#830 id=830 data-nosnippet>830</a>		<span class="kw">let </span><span class="kw-2">mut </span>known_peers = HashMap::new();
-<a href=#831 id=831 data-nosnippet>831</a>		<span class="kw">let </span>genesis_hash = H256::from_low_u64_be(<span class="number">1</span>);
-<a href=#832 id=832 data-nosnippet>832</a>		<span class="kw">let </span>fork_id = <span class="prelude-val">Some</span>(<span class="string">"test-fork-id"</span>);
-<a href=#833 id=833 data-nosnippet>833</a>		<span class="kw">let </span>protocol_id = ProtocolId::from(<span class="string">"dot"</span>);
-<a href=#834 id=834 data-nosnippet>834</a>
-<a href=#835 id=835 data-nosnippet>835</a>		<span class="comment">// Build backends such that the first peer is known to all other peers.
-<a href=#836 id=836 data-nosnippet>836</a>		</span><span class="kw">let </span>backends = (<span class="number">0</span>..<span class="number">10</span>)
-<a href=#837 id=837 data-nosnippet>837</a>			.map(|i| {
-<a href=#838 id=838 data-nosnippet>838</a>				<span class="kw">let </span>keypair = litep2p::crypto::ed25519::Keypair::generate();
-<a href=#839 id=839 data-nosnippet>839</a>				<span class="kw">let </span>peer_id: PeerId = keypair.public().to_peer_id().into();
-<a href=#840 id=840 data-nosnippet>840</a>
-<a href=#841 id=841 data-nosnippet>841</a>				<span class="kw">let </span>listen_addresses = Arc::new(RwLock::new(HashSet::new()));
-<a href=#842 id=842 data-nosnippet>842</a>
-<a href=#843 id=843 data-nosnippet>843</a>				<span class="kw">let </span>peer_store = PeerStore::new(<span class="macro">vec!</span>[], <span class="prelude-val">None</span>);
-<a href=#844 id=844 data-nosnippet>844</a>				<span class="kw">let </span>peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt; = Arc::new(peer_store.handle());
-<a href=#845 id=845 data-nosnippet>845</a>
-<a href=#846 id=846 data-nosnippet>846</a>				<span class="kw">let </span>(discovery, ping_config, identify_config, kademlia_config, _mdns) =
-<a href=#847 id=847 data-nosnippet>847</a>					Discovery::new(
-<a href=#848 id=848 data-nosnippet>848</a>						peer_id,
-<a href=#849 id=849 data-nosnippet>849</a>						<span class="kw-2">&amp;</span>NetworkConfiguration::new_local(),
-<a href=#850 id=850 data-nosnippet>850</a>						genesis_hash,
-<a href=#851 id=851 data-nosnippet>851</a>						fork_id,
-<a href=#852 id=852 data-nosnippet>852</a>						<span class="kw-2">&amp;</span>protocol_id,
-<a href=#853 id=853 data-nosnippet>853</a>						known_peers.clone(),
-<a href=#854 id=854 data-nosnippet>854</a>						listen_addresses.clone(),
-<a href=#855 id=855 data-nosnippet>855</a>						peer_store_handle,
-<a href=#856 id=856 data-nosnippet>856</a>					);
-<a href=#857 id=857 data-nosnippet>857</a>
-<a href=#858 id=858 data-nosnippet>858</a>				<span class="kw">let </span>config = Litep2pConfigBuilder::new()
-<a href=#859 id=859 data-nosnippet>859</a>					.with_keypair(keypair)
-<a href=#860 id=860 data-nosnippet>860</a>					.with_tcp(TcpConfig {
-<a href=#861 id=861 data-nosnippet>861</a>						listen_addresses: <span class="macro">vec!</span>[<span class="string">"/ip6/::1/tcp/0"</span>.parse().unwrap()],
-<a href=#862 id=862 data-nosnippet>862</a>						..Default::default()
-<a href=#863 id=863 data-nosnippet>863</a>					})
-<a href=#864 id=864 data-nosnippet>864</a>					.with_libp2p_ping(ping_config)
-<a href=#865 id=865 data-nosnippet>865</a>					.with_libp2p_identify(identify_config)
-<a href=#866 id=866 data-nosnippet>866</a>					.with_libp2p_kademlia(kademlia_config)
-<a href=#867 id=867 data-nosnippet>867</a>					.build();
-<a href=#868 id=868 data-nosnippet>868</a>
-<a href=#869 id=869 data-nosnippet>869</a>				<span class="kw">let </span><span class="kw-2">mut </span>litep2p = Litep2p::new(config).unwrap();
-<a href=#870 id=870 data-nosnippet>870</a>
-<a href=#871 id=871 data-nosnippet>871</a>				<span class="kw">let </span>addresses = litep2p.listen_addresses().cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#872 id=872 data-nosnippet>872</a>				<span class="comment">// Propagate addresses to discovery.
-<a href=#873 id=873 data-nosnippet>873</a>				</span>addresses.iter().for_each(|address| {
-<a href=#874 id=874 data-nosnippet>874</a>					listen_addresses.write().insert(address.clone());
-<a href=#875 id=875 data-nosnippet>875</a>				});
-<a href=#876 id=876 data-nosnippet>876</a>
-<a href=#877 id=877 data-nosnippet>877</a>				<span class="comment">// Except the first peer, all other peers know the first peer addresses.
-<a href=#878 id=878 data-nosnippet>878</a>				</span><span class="kw">if </span>i == <span class="number">0 </span>{
-<a href=#879 id=879 data-nosnippet>879</a>					<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"First peer is {peer_id:?} with addresses {addresses:?}"</span>);
-<a href=#880 id=880 data-nosnippet>880</a>					known_peers.insert(peer_id, addresses.clone());
-<a href=#881 id=881 data-nosnippet>881</a>				} <span class="kw">else </span>{
-<a href=#882 id=882 data-nosnippet>882</a>					<span class="kw">let </span>(peer, addresses) = known_peers.iter().next().unwrap();
+<a href=#775 id=775 data-nosnippet>775</a>					<span class="kw">if </span>is_new {
+<a href=#776 id=776 data-nosnippet>776</a>						this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
+<a href=#777 id=777 data-nosnippet>777</a>							address: observed_address.clone(),
+<a href=#778 id=778 data-nosnippet>778</a>						});
+<a href=#779 id=779 data-nosnippet>779</a>					}
+<a href=#780 id=780 data-nosnippet>780</a>				}
+<a href=#781 id=781 data-nosnippet>781</a>
+<a href=#782 id=782 data-nosnippet>782</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::Identified {
+<a href=#783 id=783 data-nosnippet>783</a>					peer,
+<a href=#784 id=784 data-nosnippet>784</a>					listen_addresses,
+<a href=#785 id=785 data-nosnippet>785</a>					supported_protocols,
+<a href=#786 id=786 data-nosnippet>786</a>				}));
+<a href=#787 id=787 data-nosnippet>787</a>			},
+<a href=#788 id=788 data-nosnippet>788</a>		}
+<a href=#789 id=789 data-nosnippet>789</a>
+<a href=#790 id=790 data-nosnippet>790</a>		<span class="kw">match </span>Pin::new(<span class="kw-2">&amp;mut </span>this.ping_event_stream).poll_next(cx) {
+<a href=#791 id=791 data-nosnippet>791</a>			Poll::Pending =&gt; {},
+<a href=#792 id=792 data-nosnippet>792</a>			Poll::Ready(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">None</span>),
+<a href=#793 id=793 data-nosnippet>793</a>			Poll::Ready(<span class="prelude-val">Some</span>(PingEvent::Ping { peer, ping })) =&gt; {
+<a href=#794 id=794 data-nosnippet>794</a>				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::Ping { peer, rtt: ping }))
+<a href=#795 id=795 data-nosnippet>795</a>			},
+<a href=#796 id=796 data-nosnippet>796</a>		}
+<a href=#797 id=797 data-nosnippet>797</a>
+<a href=#798 id=798 data-nosnippet>798</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>mdns_event_stream) = <span class="kw-2">&amp;mut </span>this.mdns_event_stream {
+<a href=#799 id=799 data-nosnippet>799</a>			<span class="kw">match </span>Pin::new(mdns_event_stream).poll_next(cx) {
+<a href=#800 id=800 data-nosnippet>800</a>				Poll::Pending =&gt; {},
+<a href=#801 id=801 data-nosnippet>801</a>				Poll::Ready(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">None</span>),
+<a href=#802 id=802 data-nosnippet>802</a>				Poll::Ready(<span class="prelude-val">Some</span>(MdnsEvent::Discovered(addresses))) =&gt; {
+<a href=#803 id=803 data-nosnippet>803</a>					<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::Discovered { addresses }))
+<a href=#804 id=804 data-nosnippet>804</a>				},
+<a href=#805 id=805 data-nosnippet>805</a>			}
+<a href=#806 id=806 data-nosnippet>806</a>		}
+<a href=#807 id=807 data-nosnippet>807</a>
+<a href=#808 id=808 data-nosnippet>808</a>		Poll::Pending
+<a href=#809 id=809 data-nosnippet>809</a>	}
+<a href=#810 id=810 data-nosnippet>810</a>}
+<a href=#811 id=811 data-nosnippet>811</a>
+<a href=#812 id=812 data-nosnippet>812</a><span class="attr">#[cfg(test)]
+<a href=#813 id=813 data-nosnippet>813</a></span><span class="kw">mod </span>tests {
+<a href=#814 id=814 data-nosnippet>814</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#815 id=815 data-nosnippet>815</a>
+<a href=#816 id=816 data-nosnippet>816</a>	<span class="kw">use </span>std::sync::atomic::AtomicU32;
+<a href=#817 id=817 data-nosnippet>817</a>
+<a href=#818 id=818 data-nosnippet>818</a>	<span class="kw">use crate</span>::{
+<a href=#819 id=819 data-nosnippet>819</a>		config::ProtocolId,
+<a href=#820 id=820 data-nosnippet>820</a>		peer_store::{PeerStore, PeerStoreProvider},
+<a href=#821 id=821 data-nosnippet>821</a>	};
+<a href=#822 id=822 data-nosnippet>822</a>	<span class="kw">use </span>futures::{stream::FuturesUnordered, StreamExt};
+<a href=#823 id=823 data-nosnippet>823</a>	<span class="kw">use </span>sp_core::H256;
+<a href=#824 id=824 data-nosnippet>824</a>	<span class="kw">use </span>sp_tracing::tracing_subscriber;
+<a href=#825 id=825 data-nosnippet>825</a>
+<a href=#826 id=826 data-nosnippet>826</a>	<span class="kw">use </span>litep2p::{
+<a href=#827 id=827 data-nosnippet>827</a>		config::ConfigBuilder <span class="kw">as </span>Litep2pConfigBuilder, transport::tcp::config::Config <span class="kw">as </span>TcpConfig,
+<a href=#828 id=828 data-nosnippet>828</a>		Litep2p,
+<a href=#829 id=829 data-nosnippet>829</a>	};
+<a href=#830 id=830 data-nosnippet>830</a>
+<a href=#831 id=831 data-nosnippet>831</a>	<span class="attr">#[tokio::test]
+<a href=#832 id=832 data-nosnippet>832</a>	</span><span class="kw">async fn </span>litep2p_discovery_works() {
+<a href=#833 id=833 data-nosnippet>833</a>		<span class="kw">let _ </span>= tracing_subscriber::fmt()
+<a href=#834 id=834 data-nosnippet>834</a>			.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+<a href=#835 id=835 data-nosnippet>835</a>			.try_init();
+<a href=#836 id=836 data-nosnippet>836</a>
+<a href=#837 id=837 data-nosnippet>837</a>		<span class="kw">let </span><span class="kw-2">mut </span>known_peers = HashMap::new();
+<a href=#838 id=838 data-nosnippet>838</a>		<span class="kw">let </span>genesis_hash = H256::from_low_u64_be(<span class="number">1</span>);
+<a href=#839 id=839 data-nosnippet>839</a>		<span class="kw">let </span>fork_id = <span class="prelude-val">Some</span>(<span class="string">"test-fork-id"</span>);
+<a href=#840 id=840 data-nosnippet>840</a>		<span class="kw">let </span>protocol_id = ProtocolId::from(<span class="string">"dot"</span>);
+<a href=#841 id=841 data-nosnippet>841</a>
+<a href=#842 id=842 data-nosnippet>842</a>		<span class="comment">// Build backends such that the first peer is known to all other peers.
+<a href=#843 id=843 data-nosnippet>843</a>		</span><span class="kw">let </span>backends = (<span class="number">0</span>..<span class="number">10</span>)
+<a href=#844 id=844 data-nosnippet>844</a>			.map(|i| {
+<a href=#845 id=845 data-nosnippet>845</a>				<span class="kw">let </span>keypair = litep2p::crypto::ed25519::Keypair::generate();
+<a href=#846 id=846 data-nosnippet>846</a>				<span class="kw">let </span>peer_id: PeerId = keypair.public().to_peer_id().into();
+<a href=#847 id=847 data-nosnippet>847</a>
+<a href=#848 id=848 data-nosnippet>848</a>				<span class="kw">let </span>listen_addresses = Arc::new(RwLock::new(HashSet::new()));
+<a href=#849 id=849 data-nosnippet>849</a>
+<a href=#850 id=850 data-nosnippet>850</a>				<span class="kw">let </span>peer_store = PeerStore::new(<span class="macro">vec!</span>[], <span class="prelude-val">None</span>);
+<a href=#851 id=851 data-nosnippet>851</a>				<span class="kw">let </span>peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt; = Arc::new(peer_store.handle());
+<a href=#852 id=852 data-nosnippet>852</a>
+<a href=#853 id=853 data-nosnippet>853</a>				<span class="kw">let </span>(discovery, ping_config, identify_config, kademlia_config, _mdns) =
+<a href=#854 id=854 data-nosnippet>854</a>					Discovery::new(
+<a href=#855 id=855 data-nosnippet>855</a>						peer_id,
+<a href=#856 id=856 data-nosnippet>856</a>						<span class="kw-2">&amp;</span>NetworkConfiguration::new_local(),
+<a href=#857 id=857 data-nosnippet>857</a>						genesis_hash,
+<a href=#858 id=858 data-nosnippet>858</a>						fork_id,
+<a href=#859 id=859 data-nosnippet>859</a>						<span class="kw-2">&amp;</span>protocol_id,
+<a href=#860 id=860 data-nosnippet>860</a>						known_peers.clone(),
+<a href=#861 id=861 data-nosnippet>861</a>						listen_addresses.clone(),
+<a href=#862 id=862 data-nosnippet>862</a>						peer_store_handle,
+<a href=#863 id=863 data-nosnippet>863</a>					);
+<a href=#864 id=864 data-nosnippet>864</a>
+<a href=#865 id=865 data-nosnippet>865</a>				<span class="kw">let </span>config = Litep2pConfigBuilder::new()
+<a href=#866 id=866 data-nosnippet>866</a>					.with_keypair(keypair)
+<a href=#867 id=867 data-nosnippet>867</a>					.with_tcp(TcpConfig {
+<a href=#868 id=868 data-nosnippet>868</a>						listen_addresses: <span class="macro">vec!</span>[<span class="string">"/ip6/::1/tcp/0"</span>.parse().unwrap()],
+<a href=#869 id=869 data-nosnippet>869</a>						..Default::default()
+<a href=#870 id=870 data-nosnippet>870</a>					})
+<a href=#871 id=871 data-nosnippet>871</a>					.with_libp2p_ping(ping_config)
+<a href=#872 id=872 data-nosnippet>872</a>					.with_libp2p_identify(identify_config)
+<a href=#873 id=873 data-nosnippet>873</a>					.with_libp2p_kademlia(kademlia_config)
+<a href=#874 id=874 data-nosnippet>874</a>					.build();
+<a href=#875 id=875 data-nosnippet>875</a>
+<a href=#876 id=876 data-nosnippet>876</a>				<span class="kw">let </span><span class="kw-2">mut </span>litep2p = Litep2p::new(config).unwrap();
+<a href=#877 id=877 data-nosnippet>877</a>
+<a href=#878 id=878 data-nosnippet>878</a>				<span class="kw">let </span>addresses = litep2p.listen_addresses().cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#879 id=879 data-nosnippet>879</a>				<span class="comment">// Propagate addresses to discovery.
+<a href=#880 id=880 data-nosnippet>880</a>				</span>addresses.iter().for_each(|address| {
+<a href=#881 id=881 data-nosnippet>881</a>					listen_addresses.write().insert(address.clone());
+<a href=#882 id=882 data-nosnippet>882</a>				});
 <a href=#883 id=883 data-nosnippet>883</a>
-<a href=#884 id=884 data-nosnippet>884</a>					<span class="kw">let </span>result = litep2p.add_known_address(<span class="kw-2">*</span>peer, addresses.into_iter().cloned());
-<a href=#885 id=885 data-nosnippet>885</a>
-<a href=#886 id=886 data-nosnippet>886</a>					<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?}: Adding known peer {peer:?} with addresses {addresses:?} result={result:?}"</span>);
-<a href=#887 id=887 data-nosnippet>887</a>
-<a href=#888 id=888 data-nosnippet>888</a>				}
-<a href=#889 id=889 data-nosnippet>889</a>
-<a href=#890 id=890 data-nosnippet>890</a>				(peer_id, litep2p, discovery)
-<a href=#891 id=891 data-nosnippet>891</a>			})
-<a href=#892 id=892 data-nosnippet>892</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#893 id=893 data-nosnippet>893</a>
-<a href=#894 id=894 data-nosnippet>894</a>		<span class="kw">let </span>total_peers = backends.len() <span class="kw">as </span>u32;
-<a href=#895 id=895 data-nosnippet>895</a>		<span class="kw">let </span>remaining_peers =
-<a href=#896 id=896 data-nosnippet>896</a>			backends.iter().map(|(peer_id, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>peer_id).collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#897 id=897 data-nosnippet>897</a>
-<a href=#898 id=898 data-nosnippet>898</a>		<span class="kw">let </span>first_peer = <span class="kw-2">*</span>known_peers.iter().next().unwrap().<span class="number">0</span>;
-<a href=#899 id=899 data-nosnippet>899</a>
-<a href=#900 id=900 data-nosnippet>900</a>		<span class="comment">// Each backend must discover the whole network.
-<a href=#901 id=901 data-nosnippet>901</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>futures = FuturesUnordered::new();
-<a href=#902 id=902 data-nosnippet>902</a>		<span class="kw">let </span>num_finished = Arc::new(AtomicU32::new(<span class="number">0</span>));
-<a href=#903 id=903 data-nosnippet>903</a>
-<a href=#904 id=904 data-nosnippet>904</a>		<span class="kw">for </span>(peer_id, <span class="kw-2">mut </span>litep2p, <span class="kw-2">mut </span>discovery) <span class="kw">in </span>backends {
-<a href=#905 id=905 data-nosnippet>905</a>			<span class="comment">// Remove the local peer id from the set.
-<a href=#906 id=906 data-nosnippet>906</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>remaining_peers = remaining_peers.clone();
-<a href=#907 id=907 data-nosnippet>907</a>			remaining_peers.remove(<span class="kw-2">&amp;</span>peer_id);
-<a href=#908 id=908 data-nosnippet>908</a>
-<a href=#909 id=909 data-nosnippet>909</a>			<span class="kw">let </span>num_finished = num_finished.clone();
+<a href=#884 id=884 data-nosnippet>884</a>				<span class="comment">// Except the first peer, all other peers know the first peer addresses.
+<a href=#885 id=885 data-nosnippet>885</a>				</span><span class="kw">if </span>i == <span class="number">0 </span>{
+<a href=#886 id=886 data-nosnippet>886</a>					<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"First peer is {peer_id:?} with addresses {addresses:?}"</span>);
+<a href=#887 id=887 data-nosnippet>887</a>					known_peers.insert(peer_id, addresses.clone());
+<a href=#888 id=888 data-nosnippet>888</a>				} <span class="kw">else </span>{
+<a href=#889 id=889 data-nosnippet>889</a>					<span class="kw">let </span>(peer, addresses) = known_peers.iter().next().unwrap();
+<a href=#890 id=890 data-nosnippet>890</a>
+<a href=#891 id=891 data-nosnippet>891</a>					<span class="kw">let </span>result = litep2p.add_known_address(<span class="kw-2">*</span>peer, addresses.into_iter().cloned());
+<a href=#892 id=892 data-nosnippet>892</a>
+<a href=#893 id=893 data-nosnippet>893</a>					<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?}: Adding known peer {peer:?} with addresses {addresses:?} result={result:?}"</span>);
+<a href=#894 id=894 data-nosnippet>894</a>
+<a href=#895 id=895 data-nosnippet>895</a>				}
+<a href=#896 id=896 data-nosnippet>896</a>
+<a href=#897 id=897 data-nosnippet>897</a>				(peer_id, litep2p, discovery)
+<a href=#898 id=898 data-nosnippet>898</a>			})
+<a href=#899 id=899 data-nosnippet>899</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#900 id=900 data-nosnippet>900</a>
+<a href=#901 id=901 data-nosnippet>901</a>		<span class="kw">let </span>total_peers = backends.len() <span class="kw">as </span>u32;
+<a href=#902 id=902 data-nosnippet>902</a>		<span class="kw">let </span>remaining_peers =
+<a href=#903 id=903 data-nosnippet>903</a>			backends.iter().map(|(peer_id, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>peer_id).collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#904 id=904 data-nosnippet>904</a>
+<a href=#905 id=905 data-nosnippet>905</a>		<span class="kw">let </span>first_peer = <span class="kw-2">*</span>known_peers.iter().next().unwrap().<span class="number">0</span>;
+<a href=#906 id=906 data-nosnippet>906</a>
+<a href=#907 id=907 data-nosnippet>907</a>		<span class="comment">// Each backend must discover the whole network.
+<a href=#908 id=908 data-nosnippet>908</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>futures = FuturesUnordered::new();
+<a href=#909 id=909 data-nosnippet>909</a>		<span class="kw">let </span>num_finished = Arc::new(AtomicU32::new(<span class="number">0</span>));
 <a href=#910 id=910 data-nosnippet>910</a>
-<a href=#911 id=911 data-nosnippet>911</a>			<span class="kw">let </span>future = <span class="kw">async move </span>{
-<a href=#912 id=912 data-nosnippet>912</a>				<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} starting loop"</span>);
-<a href=#913 id=913 data-nosnippet>913</a>
-<a href=#914 id=914 data-nosnippet>914</a>				<span class="kw">if </span><span class="macro">peer_id !</span>= first_peer {
-<a href=#915 id=915 data-nosnippet>915</a>					<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} dialing {first_peer:?}"</span>);
-<a href=#916 id=916 data-nosnippet>916</a>					litep2p.dial(<span class="kw-2">&amp;</span>first_peer).<span class="kw">await</span>.unwrap();
-<a href=#917 id=917 data-nosnippet>917</a>				}
-<a href=#918 id=918 data-nosnippet>918</a>
-<a href=#919 id=919 data-nosnippet>919</a>				<span class="kw">loop </span>{
-<a href=#920 id=920 data-nosnippet>920</a>					<span class="comment">// We need to keep the network alive until all peers are discovered.
-<a href=#921 id=921 data-nosnippet>921</a>					</span><span class="kw">if </span>num_finished.load(std::sync::atomic::Ordering::Relaxed) == total_peers {
-<a href=#922 id=922 data-nosnippet>922</a>						<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} all peers discovered"</span>);
-<a href=#923 id=923 data-nosnippet>923</a>						<span class="kw">break</span>;
-<a href=#924 id=924 data-nosnippet>924</a>					}
+<a href=#911 id=911 data-nosnippet>911</a>		<span class="kw">for </span>(peer_id, <span class="kw-2">mut </span>litep2p, <span class="kw-2">mut </span>discovery) <span class="kw">in </span>backends {
+<a href=#912 id=912 data-nosnippet>912</a>			<span class="comment">// Remove the local peer id from the set.
+<a href=#913 id=913 data-nosnippet>913</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>remaining_peers = remaining_peers.clone();
+<a href=#914 id=914 data-nosnippet>914</a>			remaining_peers.remove(<span class="kw-2">&amp;</span>peer_id);
+<a href=#915 id=915 data-nosnippet>915</a>
+<a href=#916 id=916 data-nosnippet>916</a>			<span class="kw">let </span>num_finished = num_finished.clone();
+<a href=#917 id=917 data-nosnippet>917</a>
+<a href=#918 id=918 data-nosnippet>918</a>			<span class="kw">let </span>future = <span class="kw">async move </span>{
+<a href=#919 id=919 data-nosnippet>919</a>				<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} starting loop"</span>);
+<a href=#920 id=920 data-nosnippet>920</a>
+<a href=#921 id=921 data-nosnippet>921</a>				<span class="kw">if </span><span class="macro">peer_id !</span>= first_peer {
+<a href=#922 id=922 data-nosnippet>922</a>					<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} dialing {first_peer:?}"</span>);
+<a href=#923 id=923 data-nosnippet>923</a>					litep2p.dial(<span class="kw-2">&amp;</span>first_peer).<span class="kw">await</span>.unwrap();
+<a href=#924 id=924 data-nosnippet>924</a>				}
 <a href=#925 id=925 data-nosnippet>925</a>
-<a href=#926 id=926 data-nosnippet>926</a>					<span class="macro">tokio::select!</span> {
-<a href=#927 id=927 data-nosnippet>927</a>						<span class="comment">// Drive litep2p backend forward.
-<a href=#928 id=928 data-nosnippet>928</a>						</span>event = litep2p.next_event() =&gt; {
-<a href=#929 id=929 data-nosnippet>929</a>							<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} Litep2p event: {event:?}"</span>);
-<a href=#930 id=930 data-nosnippet>930</a>						},
-<a href=#931 id=931 data-nosnippet>931</a>
-<a href=#932 id=932 data-nosnippet>932</a>						<span class="comment">// Detect discovery events.
-<a href=#933 id=933 data-nosnippet>933</a>						</span>event = discovery.next() =&gt; {
-<a href=#934 id=934 data-nosnippet>934</a>							<span class="kw">match </span>event.unwrap() {
-<a href=#935 id=935 data-nosnippet>935</a>								<span class="comment">// We have discovered the peer via kademlia and established
-<a href=#936 id=936 data-nosnippet>936</a>								// a connection on the identify protocol.
-<a href=#937 id=937 data-nosnippet>937</a>								</span>DiscoveryEvent::Identified { peer, .. } =&gt; {
-<a href=#938 id=938 data-nosnippet>938</a>									<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} Peer {peer} identified"</span>);
-<a href=#939 id=939 data-nosnippet>939</a>
-<a href=#940 id=940 data-nosnippet>940</a>									remaining_peers.remove(<span class="kw-2">&amp;</span>peer);
-<a href=#941 id=941 data-nosnippet>941</a>
-<a href=#942 id=942 data-nosnippet>942</a>									<span class="kw">if </span>remaining_peers.is_empty() {
-<a href=#943 id=943 data-nosnippet>943</a>										<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} All peers discovered"</span>);
-<a href=#944 id=944 data-nosnippet>944</a>
-<a href=#945 id=945 data-nosnippet>945</a>										num_finished.fetch_add(<span class="number">1</span>, std::sync::atomic::Ordering::AcqRel);
-<a href=#946 id=946 data-nosnippet>946</a>									}
-<a href=#947 id=947 data-nosnippet>947</a>								},
+<a href=#926 id=926 data-nosnippet>926</a>				<span class="kw">loop </span>{
+<a href=#927 id=927 data-nosnippet>927</a>					<span class="comment">// We need to keep the network alive until all peers are discovered.
+<a href=#928 id=928 data-nosnippet>928</a>					</span><span class="kw">if </span>num_finished.load(std::sync::atomic::Ordering::Relaxed) == total_peers {
+<a href=#929 id=929 data-nosnippet>929</a>						<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} all peers discovered"</span>);
+<a href=#930 id=930 data-nosnippet>930</a>						<span class="kw">break</span>;
+<a href=#931 id=931 data-nosnippet>931</a>					}
+<a href=#932 id=932 data-nosnippet>932</a>
+<a href=#933 id=933 data-nosnippet>933</a>					<span class="macro">tokio::select!</span> {
+<a href=#934 id=934 data-nosnippet>934</a>						<span class="comment">// Drive litep2p backend forward.
+<a href=#935 id=935 data-nosnippet>935</a>						</span>event = litep2p.next_event() =&gt; {
+<a href=#936 id=936 data-nosnippet>936</a>							<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} Litep2p event: {event:?}"</span>);
+<a href=#937 id=937 data-nosnippet>937</a>						},
+<a href=#938 id=938 data-nosnippet>938</a>
+<a href=#939 id=939 data-nosnippet>939</a>						<span class="comment">// Detect discovery events.
+<a href=#940 id=940 data-nosnippet>940</a>						</span>event = discovery.next() =&gt; {
+<a href=#941 id=941 data-nosnippet>941</a>							<span class="kw">match </span>event.unwrap() {
+<a href=#942 id=942 data-nosnippet>942</a>								<span class="comment">// We have discovered the peer via kademlia and established
+<a href=#943 id=943 data-nosnippet>943</a>								// a connection on the identify protocol.
+<a href=#944 id=944 data-nosnippet>944</a>								</span>DiscoveryEvent::Identified { peer, .. } =&gt; {
+<a href=#945 id=945 data-nosnippet>945</a>									<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} Peer {peer} identified"</span>);
+<a href=#946 id=946 data-nosnippet>946</a>
+<a href=#947 id=947 data-nosnippet>947</a>									remaining_peers.remove(<span class="kw-2">&amp;</span>peer);
 <a href=#948 id=948 data-nosnippet>948</a>
-<a href=#949 id=949 data-nosnippet>949</a>								event =&gt; {
-<a href=#950 id=950 data-nosnippet>950</a>									<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} Discovery event: {event:?}"</span>);
-<a href=#951 id=951 data-nosnippet>951</a>								}
-<a href=#952 id=952 data-nosnippet>952</a>							}
-<a href=#953 id=953 data-nosnippet>953</a>						}
-<a href=#954 id=954 data-nosnippet>954</a>					}
-<a href=#955 id=955 data-nosnippet>955</a>				}
-<a href=#956 id=956 data-nosnippet>956</a>			};
-<a href=#957 id=957 data-nosnippet>957</a>
-<a href=#958 id=958 data-nosnippet>958</a>			futures.push(future);
-<a href=#959 id=959 data-nosnippet>959</a>		}
-<a href=#960 id=960 data-nosnippet>960</a>
-<a href=#961 id=961 data-nosnippet>961</a>		<span class="comment">// Futures will exit when all peers are discovered.
-<a href=#962 id=962 data-nosnippet>962</a>		</span>tokio::time::timeout(Duration::from_secs(<span class="number">60</span>), futures.next())
-<a href=#963 id=963 data-nosnippet>963</a>			.<span class="kw">await
-<a href=#964 id=964 data-nosnippet>964</a>			</span>.expect(<span class="string">"All peers should finish within 60 seconds"</span>);
-<a href=#965 id=965 data-nosnippet>965</a>	}
-<a href=#966 id=966 data-nosnippet>966</a>}
+<a href=#949 id=949 data-nosnippet>949</a>									<span class="kw">if </span>remaining_peers.is_empty() {
+<a href=#950 id=950 data-nosnippet>950</a>										<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} All peers discovered"</span>);
+<a href=#951 id=951 data-nosnippet>951</a>
+<a href=#952 id=952 data-nosnippet>952</a>										num_finished.fetch_add(<span class="number">1</span>, std::sync::atomic::Ordering::AcqRel);
+<a href=#953 id=953 data-nosnippet>953</a>									}
+<a href=#954 id=954 data-nosnippet>954</a>								},
+<a href=#955 id=955 data-nosnippet>955</a>
+<a href=#956 id=956 data-nosnippet>956</a>								event =&gt; {
+<a href=#957 id=957 data-nosnippet>957</a>									<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} Discovery event: {event:?}"</span>);
+<a href=#958 id=958 data-nosnippet>958</a>								}
+<a href=#959 id=959 data-nosnippet>959</a>							}
+<a href=#960 id=960 data-nosnippet>960</a>						}
+<a href=#961 id=961 data-nosnippet>961</a>					}
+<a href=#962 id=962 data-nosnippet>962</a>				}
+<a href=#963 id=963 data-nosnippet>963</a>			};
+<a href=#964 id=964 data-nosnippet>964</a>
+<a href=#965 id=965 data-nosnippet>965</a>			futures.push(future);
+<a href=#966 id=966 data-nosnippet>966</a>		}
+<a href=#967 id=967 data-nosnippet>967</a>
+<a href=#968 id=968 data-nosnippet>968</a>		<span class="comment">// Futures will exit when all peers are discovered.
+<a href=#969 id=969 data-nosnippet>969</a>		</span>tokio::time::timeout(Duration::from_secs(<span class="number">60</span>), futures.next())
+<a href=#970 id=970 data-nosnippet>970</a>			.<span class="kw">await
+<a href=#971 id=971 data-nosnippet>971</a>			</span>.expect(<span class="string">"All peers should finish within 60 seconds"</span>);
+<a href=#972 id=972 data-nosnippet>972</a>	}
+<a href=#973 id=973 data-nosnippet>973</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
