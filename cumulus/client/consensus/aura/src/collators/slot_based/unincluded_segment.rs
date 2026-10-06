@@ -96,6 +96,28 @@ where
 	PersistedValidationData::decode(&mut &raw[..]).map_err(|_| HydrateError::ValidationDataMissing)
 }
 
+fn bundle_index<H: HeaderT>(header: &H) -> Option<u8> {
+	CumulusDigestItem::find_block_bundle_info(header.digest()).map(|info| info.index)
+}
+
+fn continues_bundle(prev: Option<u8>, index: Option<u8>) -> bool {
+	matches!((prev, index), (Some(prev), Some(idx)) if prev.checked_add(1) == Some(idx))
+}
+
+/// The number of PoVs [`hydrate_segment`] would rebuild from `headers` (oldest first).
+pub(super) fn count_bundles<H: HeaderT>(headers: &[H]) -> usize {
+	let mut prev = None;
+	headers
+		.iter()
+		.filter(|header| {
+			let index = bundle_index(*header);
+			let starts = !continues_bundle(prev, index);
+			prev = index;
+			starts
+		})
+		.count()
+}
+
 /// Hydrate a list of unincluded-segment headers (oldest first) into [`CollatorSegmentEntry`]s.
 ///
 /// Headers are first regrouped into the original PoV bundles they were built in — a bundle is a run
@@ -129,13 +151,8 @@ where
 	let mut current: Vec<Block::Header> = Vec::new();
 	let mut prev_index: Option<u8> = None;
 	for header in headers {
-		let index =
-			CumulusDigestItem::find_block_bundle_info(header.digest()).map(|info| info.index);
-		let continues = match (prev_index, index) {
-			(Some(prev), Some(idx)) => prev.checked_add(1) == Some(idx),
-			_ => false,
-		};
-		if !continues && !current.is_empty() {
+		let index = bundle_index(&header);
+		if !continues_bundle(prev_index, index) && !current.is_empty() {
 			bundles.push(core::mem::take(&mut current));
 		}
 		prev_index = index;
@@ -263,4 +280,41 @@ where
 		validation_code_hash,
 		validation_data,
 	})
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use cumulus_primitives_core::BlockBundleInfo;
+	use cumulus_test_client::runtime::Header;
+
+	#[test]
+	fn count_bundles_matches_hydrate_grouping() {
+		let count = |indices: &[Option<u8>]| {
+			let headers: Vec<Header> = indices
+				.iter()
+				.map(|index| {
+					let mut header = Header::new(
+						1,
+						Default::default(),
+						Default::default(),
+						Default::default(),
+						Default::default(),
+					);
+					if let Some(index) = index {
+						header.digest.push(
+							BlockBundleInfo { index: *index, is_last: false }.to_digest_item(),
+						);
+					}
+					header
+				})
+				.collect();
+			count_bundles(&headers)
+		};
+		assert_eq!(count(&[]), 0);
+		assert_eq!(count(&[Some(0), Some(1), Some(2), Some(0), Some(1)]), 2);
+		assert_eq!(count(&[None, None]), 2);
+		// A truncated bundle, a full one, then a gap in the indices.
+		assert_eq!(count(&[Some(0), Some(0), Some(1), Some(3)]), 3);
+	}
 }

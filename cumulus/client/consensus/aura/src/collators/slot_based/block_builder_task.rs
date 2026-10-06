@@ -17,6 +17,7 @@
 
 use super::{
 	resubmission::{resolve_session, sign_v3_scheduling_info},
+	unincluded_segment::count_bundles,
 	CollatorMessage, CollatorSegmentEntry, CollatorSegmentMessage,
 };
 use crate::{
@@ -47,7 +48,7 @@ use cumulus_primitives_core::{
 	TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
-use futures::prelude::*;
+use futures::{future::FusedFuture, prelude::*};
 use polkadot_primitives::{
 	ApprovedPeerId, Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId,
 };
@@ -92,7 +93,10 @@ const MAX_HEDGE_CONTENDERS: usize = MAX_HEDGED_SIBLINGS + 2;
 /// long backlog buys fewer siblings, and past this length none at all.
 pub(crate) const MAX_HEDGED_REBUILDS_PER_CORE: usize = 6;
 
-/// Hedged siblings a core submitting `entries` entries can afford (0 when there is nothing).
+/// Longest a resubmit-only core waits for hedge resolution its early-returning build cut short.
+const HEDGE_RESOLVE_GRACE: Duration = Duration::from_millis(500);
+
+/// Hedged siblings a core submitting `entries` PoVs can afford (0 when there is nothing).
 pub(crate) fn hedge_budget(entries: usize) -> usize {
 	MAX_HEDGED_REBUILDS_PER_CORE
 		.checked_div(entries)
@@ -898,29 +902,12 @@ where
 			?sp,
 			sp_number,
 			contenders = contender_count,
-			submitted = chains.len(),
+			submitted = ?chains.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
 			"SP hedge: siblings",
 		);
 	}
 
 	chains
-}
-
-/// Test-only helper: `resolve_hedge_contenders` followed by `memoized_hedge_chains` in one call.
-#[cfg(test)]
-pub(crate) async fn sp_hedge_chains<RelayClient>(
-	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
-	scheduling_info: &mut SchedulingInfo<RelayClient>,
-	resolved: &mut HedgeMemo,
-	max_siblings: usize,
-	cx: HedgeContext<'_>,
-) -> Vec<(RelayHash, Vec<RelayHeader>)>
-where
-	RelayClient: RelayChainInterface + 'static,
-{
-	resolve_hedge_contenders(relay_chain_data_cache, scheduling_info, resolved, max_siblings, &cx)
-		.await;
-	memoized_hedge_chains(scheduling_info, resolved, max_siblings, &cx)
 }
 
 /// Resolve one contender: `Some(header_chain)` if it can carry the slot's blocks.
@@ -1126,6 +1113,7 @@ where
 
 				let unincluded_headers =
 					per_selector_unincluded_headers.remove(&bucket_idx).unwrap_or_default();
+				let resubmitted_povs = count_bundles(&unincluded_headers);
 
 				let hedge_ctx = HedgeContext::new(&cx, &cores, para_id, slot_time.slot());
 
@@ -1165,19 +1153,28 @@ where
 						&mut env.relay_chain_data_cache,
 						&mut env.scheduling_info,
 						&mut hedge_memo,
-						hedge_budget(unincluded_headers.len().max(1)),
+						hedge_budget(resubmitted_povs.max(1)),
 						&hedge_ctx,
 					)
 					.fuse();
 					let build = build.fuse();
 					futures::pin_mut!(build, resolve_hedges);
 
-					loop {
+					let built = loop {
 						futures::select_biased! {
 							built = build => break built,
 							() = resolve_hedges => {},
 						}
+					};
+					// A resubmit-only build returns early and unpaced; let resolution finish.
+					if matches!(built, Ok(None)) &&
+						resubmitted_povs > 0 &&
+						!resolve_hedges.is_terminated()
+					{
+						let grace = time_for_core.min(HEDGE_RESOLVE_GRACE);
+						let _ = tokio::time::timeout(grace, resolve_hedges).await;
 					}
+					built
 				};
 				let built = match built {
 					Ok(built) => built,
@@ -1196,12 +1193,10 @@ where
 				// alone); V2: a single collation, only when a fresh block was built.
 				let bundle = built.map(|BuiltCollation { entry, .. }| entry);
 
-				let entries = unincluded_headers.len() + usize::from(bundle.is_some());
-				let budget = hedge_budget(entries);
 				let hedge_chains = memoized_hedge_chains(
 					&mut env.scheduling_info,
 					&hedge_memo,
-					budget,
+					hedge_budget(resubmitted_povs + usize::from(bundle.is_some())),
 					&hedge_ctx,
 				);
 
@@ -1209,16 +1204,6 @@ where
 					chosen,
 					hedged: hedge_chains.iter().map(|(_, chain)| chain.clone()).collect(),
 				});
-
-				if !hedge_chains.is_empty() {
-					tracing::debug!(
-						target: LOG_TARGET,
-						core_index = ?this_core_index,
-						entries,
-						siblings = ?hedge_chains.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
-						"SP hedge: core hedged across siblings",
-					);
-				}
 
 				let submission = assemble_core_submission::<Block, P>(
 					v3_header_chains,
@@ -1242,14 +1227,12 @@ where
 							return;
 						}
 					},
-					None => {
-						tracing::debug!(
-							target: LOG_TARGET,
-							core_index = ?this_core_index,
-							has_fresh,
-							"Nothing to submit for this core.",
-						);
-					},
+					None => tracing::debug!(
+						target: LOG_TARGET,
+						core_index = ?this_core_index,
+						has_fresh,
+						"Nothing to submit for this core.",
+					),
 				}
 
 				// Pace only when a fresh block was built (nothing to pace on resubmit-only).
