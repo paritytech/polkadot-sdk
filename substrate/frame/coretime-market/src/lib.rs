@@ -54,8 +54,8 @@ pub use types::*;
 
 mod types;
 
-mod weights;
-use weights::*;
+pub mod weights;
+pub use weights::WeightInfo;
 
 pub mod runtime_api;
 
@@ -79,7 +79,7 @@ use fp_coretime::{
 };
 use frame_support::{
 	ensure,
-	traits::{tokens::Balance as BalanceT, Defensive, Get, Randomness},
+	traits::{tokens::Balance as BalanceT, Defensive, DefensiveTruncateFrom, Get, Randomness},
 	weights::WeightMeter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -149,7 +149,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A new bid was placed during the Market phase.
 		BidPlaced {
-			/// Who have placed the bid.
+			/// Who placed the bid.
 			who: T::AccountId,
 			/// Id of the bid that was placed.
 			bid_id: BidId,
@@ -185,7 +185,7 @@ pub mod pallet {
 		},
 		/// Regions have been issued to auction winners at the end of the Renewal phase.
 		SaleFinalized {
-			/// How much regions were issued.
+			/// How many regions were issued.
 			regions_issued: u32,
 		},
 		/// A renewal right was exercised during the Renewal phase.
@@ -561,9 +561,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		let mut record = bids.remove(idx);
 		record.price = new_price;
 		let new_pos = bids.partition_point(|b| b.price > new_price);
-		// Re-insert cannot fail — we just removed one element.
-		bids.try_insert(new_pos, record)
-			.expect("just removed one element; capacity cannot be exceeded; qed");
+		bids.try_insert(new_pos, record).map_err(|_| Error::<T>::TooManyBids)?;
 		Bids::<T>::put(bids);
 
 		Self::deposit_event(Event::BidRaised {
@@ -727,11 +725,11 @@ fn shuffle_marginal_bids<T: Config>(
 
 	let (seed, _) = T::Randomness::random(b"coretime-market/shuffle");
 	let seed = <[u8; 32]>::decode(&mut TrailingZeroInput::new(seed.as_ref()))
-		.expect("input is padded with zeroes; qed");
+		.defensive_unwrap_or_default();
 	let mut rng = ChaChaRng::from_seed(seed);
 
 	for i in (1..n).rev() {
-		let j = (rng.next_u32() as usize) % (i + 1);
+		let j = (rng.next_u64() % (i as u64 + 1)) as usize;
 		slice.swap(i, j);
 	}
 }
@@ -787,10 +785,7 @@ fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>>
 		.collect();
 
 	let winner_count = allocations.len() as u32;
-	Allocations::<T>::put(
-		BoundedVec::try_from(allocations)
-			.expect("Auction winner count cannot exceed bid count; qed"),
-	);
+	Allocations::<T>::put(BoundedVec::defensive_truncate_from(allocations));
 
 	let mut updated_sale = sale.clone();
 	updated_sale.cores_sold = winner_count as u16;

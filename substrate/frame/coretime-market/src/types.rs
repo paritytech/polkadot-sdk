@@ -25,7 +25,7 @@ use sp_arithmetic::Perbill;
 
 pub(crate) type BalanceOf<T> = <T as crate::Config>::Balance;
 pub(crate) type RelayBlockNumberOf<T> = <T as crate::Config>::RelayBlockNumber;
-pub(crate) type ConfigRecordOf<T> = ConfigRecord<RelayBlockNumberOf<T>, BalanceOf<T>>;
+pub(crate) type ConfigRecordOf<T> = ConfigRecord<BalanceOf<T>, RelayBlockNumberOf<T>>;
 pub(crate) type SaleInfoRecordOf<T> = SaleInfoRecord<BalanceOf<T>, RelayBlockNumberOf<T>>;
 pub(crate) type TickActionOf<T> =
 	TickAction<<T as frame_system::Config>::AccountId, BalanceOf<T>, RelayBlockNumberOf<T>>;
@@ -102,7 +102,7 @@ impl<Balance: Clone, BlockNumber: Clone> SaleInfoRecord<Balance, BlockNumber> {
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
-pub struct ConfigRecord<BlockNumber, Balance> {
+pub struct ConfigRecord<Balance, BlockNumber> {
 	/// The number of Relay-chain blocks in advance which scheduling should be fixed and the
 	/// `Coretime::assign` API used to inform the Relay-chain.
 	pub advance_notice: BlockNumber,
@@ -135,7 +135,7 @@ pub struct ConfigRecord<BlockNumber, Balance> {
 	pub min_increment: Balance,
 }
 
-impl<BlockNumber, Balance> ConfigRecord<BlockNumber, Balance>
+impl<Balance, BlockNumber> ConfigRecord<Balance, BlockNumber>
 where
 	BlockNumber: sp_arithmetic::traits::Zero,
 {

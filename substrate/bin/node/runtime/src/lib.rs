@@ -2527,7 +2527,7 @@ impl pallet_coretime_market::RenewalRightsProvider<AccountId> for MarketRenewalR
 impl pallet_coretime_market::Config for Runtime {
 	type Balance = Balance;
 	type RelayBlockNumber = BlockNumber;
-	type WeightInfo = ();
+	type WeightInfo = pallet_coretime_market::weights::SubstrateWeight<Runtime>;
 	type CoreRangeProvider = MarketCoreRange;
 	type TimesliceProvider = MarketTimeslices;
 	type RenewalRights = MarketRenewalRights;
