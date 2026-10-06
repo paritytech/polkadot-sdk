@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791304591005,
+  "lastUpdate": 1791311545144,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "de0a245168da894e24d974fadf6bdf803e3ac219",
-          "message": "Raise offence queue eras bound limit (#11435)\n\nFixes a bug where **OffenceQueueEras** bound (BondingDuration) was\nincorrect when `SlashDeferDuration=0`. The oldest reportable offence era\nformula allowed more eras than the bound could hold.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
-          "timestamp": "2026-03-31T14:39:48Z",
-          "tree_id": "8813c2e41507f49572675266dad5b29263109969",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/de0a245168da894e24d974fadf6bdf803e3ac219"
-        },
-        "date": 1774982493919,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52939,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63619.780000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000022845160000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.129411102239931,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.745469763949999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.79626028572,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002509533,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002509533,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005240424279999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.705063914200003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7434879175699375,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000022845160000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.439235997699991,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.407144457833228,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6946527988200004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.72375219855,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "eebfe319ab7db7d8c9b8041fa1a219349d7c3be0",
+          "message": "Bump litep2p to 0.16.0 (#13398)\n\n## Summary\n\nBumps `litep2p` from 0.15.3 to 0.16.0 ([release\nnotes](https://github.com/paritytech/litep2p/releases/tag/v0.16.0)).\n\n0.16.0 adds the client-server mode for Kademlia (paritytech/litep2p#611)\nand fixes the panics around local provider records in the Kademlia\nmemory store (paritytech/litep2p#666)",
+          "timestamp": "2026-10-06T16:16:12Z",
+          "tree_id": "797cbc2c7d625bbf6e8718f37c959d6d17fbcc6d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/eebfe319ab7db7d8c9b8041fa1a219349d7c3be0"
+        },
+        "date": 1791311513231,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63568.469999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.346716377019959,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.818024465069999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001884465,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002197619,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7835392927200004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.500251707922709,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8110586714999609,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3273447954899993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.78566771868,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8154985796100007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002197619,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001884465,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005582853950000003,
             "unit": "seconds"
           }
         ]
