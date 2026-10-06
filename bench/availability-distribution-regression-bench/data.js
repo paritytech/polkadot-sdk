@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791297465327,
+  "lastUpdate": 1791304542638,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d43b8f9b464c90bb7d8cb7d8abf393fdd3a1b1ae",
-          "message": "Version bumps and prdocs reoirdering from stable2603 (#11572)\n\nThis PR merges regular version bumps and prdocs reordering from release\nbranch stable2603 back to master plus a fix for umbrella crate version\nin crates publishing pipeline to aligne it with the stable version\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-03-31T12:24:15Z",
-          "tree_id": "64f11ea397a87df819a7750257757b65184fd40f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d43b8f9b464c90bb7d8cb7d8abf393fdd3a1b1ae"
-        },
-        "date": 1774965289800,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007160864306666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023767358573333345,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14621932533333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009937799299999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007677752340000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c0195bbec8cc00310f7f1b575a48a3697a95e197",
+          "message": "[CI] Upstream release build-script fixes from release-automation (#13416)\n\nFirst step of paritytech/release-engineering#314. `release-automation`\nforks these scripts and has fixed a few things we haven't — pulling them\nback here so that fork can eventually be deleted. Nothing is removed\nfrom `release-automation` yet, that's a follow-up there.\n\n- `build-linux-release.sh`: enable `set -e`. It's been commented out\nsince #5963, so a failed `cargo build` still exits 0 and leaves half an\nartifacts dir behind.\n- `build-linux-release.sh`: cross build via `TARGET`. No-op when unset,\nqemu for aarch64, exits 1 on an unknown triple. This is the only reason\nrelease-automation keeps its own copy of the build scripts.\n- `build-deb.sh`: `$PRODUCT_` parses as an undefined variable, so the\nglob was really `target/debian/*_amd64.deb`.\n- `release_lib.sh`: `sort -u` the runtime list (same 11 paths today) and\nnote why `docs` is filtered out.\n\nNot included: `build-macos-release.sh` also has `set -e` commented out,\nbut turning it on there would break the build — `VERSION=$(git tag -l\n--contains HEAD | grep -E \"^v.*\")` exits 1 when HEAD has no legacy `v*`\ntag. release-automation solved that by taking the version from the\nbinary instead, which is a behaviour change worth deciding separately.",
+          "timestamp": "2026-10-06T12:52:13Z",
+          "tree_id": "4eb9b270426a4dffdffb34c9600f71eae8717d38",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c0195bbec8cc00310f7f1b575a48a3697a95e197"
+        },
+        "date": 1791304510183,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02514859314666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14541221099333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007580855879999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00987594840666663,
             "unit": "seconds"
           }
         ]
