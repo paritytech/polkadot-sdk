@@ -436,7 +436,11 @@ pub mod pallet {
 				ensure!(Settings::<T>::contains_key(source), Error::<T>::UnknownPair);
 				ensure!(Settings::<T>::contains_key(rate), Error::<T>::UnknownPair);
 			}
-			CrossRates::<T>::insert(pair, cross_rates);
+			if cross_rates.is_empty() {
+				CrossRates::<T>::remove(pair);
+			} else {
+				CrossRates::<T>::insert(pair, cross_rates);
+			}
 			Self::deposit_event(Event::CrossRatesSet { pair });
 			Ok(())
 		}
