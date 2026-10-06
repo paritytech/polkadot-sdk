@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791241168389,
+  "lastUpdate": 1791277700896,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d58115bfbe914deea13b9aa69465be545a3a64eb",
-          "message": "Fix per-ancestor core assignment and add regression test (#11485)\n\n`get_our_core` was called with the leaf hash instead of the ancestor\nhash when computing core assignments in update_view. This caused all\nscheduling parent to get leaf's core.\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-27T10:39:51Z",
-          "tree_id": "6554b7f36ee46a258e8dc544e1775673b61c998f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d58115bfbe914deea13b9aa69465be545a3a64eb"
-        },
-        "date": 1774612850197,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009593423840000014,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026022188800000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009357503089999967,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00251645892,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dae26eec1256dbf3a30c1df276bb96ea848c2d14",
+          "message": "pallet-multi-asset-bounties: net parent refunds after child payouts (#13409)\n\nClosing a parent bounty after a child payout has settled currently\nrefunds the parent’s gross value, including funds already paid out\nthrough the child bounty.\n\nThis patch applies the existing net-payout calculation to parent refunds\nand adds regression coverage for closing a parent after a settled child\npayout.\n\nNo API or storage migration is required.",
+          "timestamp": "2026-10-06T07:29:46Z",
+          "tree_id": "436e600dacc4f4ea3ce6d11e505253ce3be63793",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dae26eec1256dbf3a30c1df276bb96ea848c2d14"
+        },
+        "date": 1791277669530,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009345244439999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010409075889999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00248762385,
             "unit": "seconds"
           }
         ]
