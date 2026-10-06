@@ -538,8 +538,9 @@ fn relay_randomness_cache_follows_the_proof() {
 		let hook = |proof: &RelayChainStateProof| {
 			<ValidatorCollators as OnSystemEvent>::on_relay_state_proof(proof);
 		};
-		// GIVEN proofs with a new value, the key provably absent, an undecodable value, and
-		// the value without its trie nodes, each checked for what it yields
+		// GIVEN proofs with a new value, the key provably absent, an undecodable value, and the
+		// value without its trie nodes, each asserted to yield its read result first so the hook
+		// checks below cover every branch
 		let new_value = relay_state_proof(&[(key, [2u8; 32].encode())], &[key]);
 		let absent = relay_state_proof(&[(other, vec![1; 40])], &[key]);
 		let undecodable = relay_state_proof(&[(key, vec![1; 31])], &[key]);
@@ -555,16 +556,14 @@ fn relay_randomness_cache_follows_the_proof() {
 		hook(&new_value);
 		assert_eq!(EpochRandomness::<Test>::get(), Some([2; 32]));
 
-		// WHEN the proof carries the cached value THEN the cache is not rewritten. The stored
-		// bytes carry a trailing byte that decoding ignores and a rewrite would drop.
+		// WHEN the proof carries the cached value THEN the cache is not rewritten
 		let storage_key = EpochRandomness::<Test>::hashed_key();
 		let stored = [[2u8; 32].as_slice(), &[0]].concat();
 		frame_support::storage::unhashed::put_raw(&storage_key, &stored);
 		hook(&new_value);
 		assert_eq!(frame_support::storage::unhashed::get_raw(&storage_key), Some(stored));
 
-		// WHEN the value is absent, does not decode, or lacks its trie nodes THEN the hook does
-		// not panic and the cache is kept
+		// WHEN the value is absent, does not decode, or lacks its trie nodes THEN the cache is kept
 		EpochRandomness::<Test>::put([2; 32]);
 		hook(&absent);
 		hook(&undecodable);
