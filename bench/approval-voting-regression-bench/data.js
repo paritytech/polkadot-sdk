@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791241064313,
+  "lastUpdate": 1791277607483,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "89aa25d825603d0f34764ff02ae3ab6b8d8826c9",
-          "message": "Allow multiple transaction extension version in `UncheckedExtrinsic` type. (#7035)\n\nThis PR enhance `UncheckedExtrinsic` type with a new optional generic:\n`ExtensionOtherVersion`.\nThis generic defaults to `InvalidVersion` meaning there is not other\nversion than the regular version 0. This is the same behavior as before\nthis PR.\n\n# New feature\n\nTo use this new feature, you can use the new types `TxExtLineAtVers` and\n`MultiVersion` to define a transaction extension with multiple version:\n\n```rust\npub type TransactionExtensionV0 = ();\npub type TransactionExtensionV4 = ();\npub type TransactionExtensionV7 = ();\n\npub type OtherVersions = MultiVersion<\n\tTxExtLineAtVers<4, TransactionExtensionV4>;\n\tTxExtLineAtVers<7, TransactionExtensionV7>;\n>;\n\npub type UncheckedExtrinsic = generic::UncheckedExtrinsic<\n\tAccountId,\n\tRuntimeCall,\n\tUintAuthorityId,\n\tTransactionExtensionV0, // The version 0, same as before\n\tOtherVersions, // The other versions.\n>;\n```\n\n# Breaking change\n\nThe types `Preamble`, `CheckedExtrinsic` and `ExtrinsicFormat` also have\nthis new optional generic. Their type definition also have changed a\nbit, the `General` variant was 2 fields, the version and the extension,\nit is now only one field, the extension, and the version can be retrieve\nby calling `extension.version()`\n\nThe type inference for those types may fail because of this PR, to\nupdate the code, write some partial type: `UncheckedExtrinsic<_, _, _,\n_>`, `Preamble<_, _, _>`, `ExtrinsicFormat<_, _> and\n`CheckedExtrinsic<_, _, _>`.\n\n# Alternative implementation\n\nThis PR breaks the types a bit, I think it is very minimal and fine, but\nif this is annoying we can still keep the old types and write new types\nsuch as `UncheckedExtrinsicV2`, `CheckedExtrinsicV2` etc..\n\n---------\n\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-03-30T06:10:24Z",
-          "tree_id": "0006b7d8f2df75079f6592705f27ef0dfff3d9d1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/89aa25d825603d0f34764ff02ae3ab6b8d8826c9"
-        },
-        "date": 1774855804004,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63622.490000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52937,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4060348179700037,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.21206051645998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00595556027,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020554079999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.7757908073200004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020554079999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.0000193306,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7024639671699995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.768452058669998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.0000193306,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.79219506681,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7611682382499783,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.620186531463078,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.000021763939999999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dae26eec1256dbf3a30c1df276bb96ea848c2d14",
+          "message": "pallet-multi-asset-bounties: net parent refunds after child payouts (#13409)\n\nClosing a parent bounty after a child payout has settled currently\nrefunds the parent’s gross value, including funds already paid out\nthrough the child bounty.\n\nThis patch applies the existing net-payout calculation to parent refunds\nand adds regression coverage for closing a parent after a settled child\npayout.\n\nNo API or storage migration is required.",
+          "timestamp": "2026-10-06T07:29:46Z",
+          "tree_id": "436e600dacc4f4ea3ce6d11e505253ce3be63793",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dae26eec1256dbf3a30c1df276bb96ea848c2d14"
+        },
+        "date": 1791277575475,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63568.12999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8097338505599976,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7984225970499996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002237681,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8147572701699994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3691193203799985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7780167468599983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000022501810000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.671584363652798,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8417001005599793,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002237681,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000022501810000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005416630809999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.417166516389972,
             "unit": "seconds"
           }
         ]
