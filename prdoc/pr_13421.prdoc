@@ -2,9 +2,9 @@ title: 'frame-support: make `#[stored]` work in crates without a direct `derive-
 doc:
 - audience: Runtime Dev
   description: |-
-    `#[frame_support::stored]` resolves `derive_where` through the `frame_support::derive_where`
-    re-export, so it works on generic types in crates that do not depend on `derive-where`
-    directly.
+    `#[frame_support::stored]` passes `crate = frame_support::derive_where` to `derive_where`, so
+    the code it generates uses the `frame-support` re-export and compiles in crates that do not
+    depend on `derive-where` directly.
 crates:
 - name: frame-support-procedural
   bump: patch
