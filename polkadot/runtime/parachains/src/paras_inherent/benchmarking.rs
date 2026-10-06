@@ -24,21 +24,21 @@ use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
 use polkadot_primitives::{
-	node_features::FeatureIndex, v9::MAX_SOURCES_PER_BLOCK, CommittedCandidateReceiptV2,
+	node_features::FeatureIndex, v9::MAX_COMMITMENT_ENTRIES, CommittedCandidateReceiptV2,
 	GroupIndex, Hash, RequiresSet, StreamsRoot, UMPSignal,
 };
 
 use crate::builder::{BenchBuilder, CandidateDescriptorVersionConfig};
 
-/// A worst-case speculative-messaging `Requires` set — `MAX_SOURCES_PER_BLOCK` entries — for the
+/// A worst-case speculative-messaging `Requires` set — `MAX_COMMITMENT_ENTRIES` entries — for the
 /// backed-candidate benchmark. The provides window must be seeded with these exact entries so the
 /// injected `Requires` matches and the candidate stays admitted.
 fn bench_requires_set() -> RequiresSet {
 	RequiresSet::try_from_iter(
-		(0..MAX_SOURCES_PER_BLOCK)
+		(0..MAX_COMMITMENT_ENTRIES)
 			.map(|i| (ParaId::from(i), StreamsRoot(Hash::from_low_u64_be(i as u64)))),
 	)
-	.expect("MAX_SOURCES_PER_BLOCK entries fit the bound; qed")
+	.expect("MAX_COMMITMENT_ENTRIES entries fit the bound; qed")
 }
 
 /// Candidate modifier: append a worst-case `Requires` UMP signal so
