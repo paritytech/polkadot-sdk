@@ -184,11 +184,6 @@ pub mod pallet {
 	pub type InboundFrontier<T: Config> =
 		StorageMap<_, Twox64Concat, (ParaId, StreamId), MmrFrontier, ValueQuery>;
 
-	/// Replay guard for inclusion-discipline streams: the next read's `base` must exceed this.
-	#[pallet::storage]
-	pub type InboundHighwater<T: Config> =
-		StorageMap<_, Twox64Concat, (ParaId, StreamId), u64, OptionQuery>;
-
 	/// Sender side, per outbound channel. The phase is a view: `Opening` until the peer's register
 	/// is first read, which is the acceptance. Entries are never removed.
 	#[pallet::storage]
@@ -233,8 +228,6 @@ pub mod pallet {
 		/// An `Events` item's `(start_peaks, base)` is not a valid frontier, or an item's payloads
 		/// would carry a frontier past `MAX_MMR_LEAF_COUNT`.
 		BadFrontier,
-		/// An `Events` item's `base` does not exceed the highwater (a replay).
-		Replay,
 		/// This block's `StreamsRoot` is already committed; a later send could not be served.
 		RootCommitted,
 		/// `enact_messages` already ran this block.
@@ -695,8 +688,17 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Rebuild the frontier from `(start_peaks, base)`, guard replay via the highwater, append
-	/// `payloads`, and record the [`Interval`]. The hints are unproven; a lie binds no lift.
+	/// Consume a register read: one `Register` leaf at the head of the peer's `Ack` stream for one
+	/// of our outbound channels (in any phase: a closed channel's watermark still reports
+	/// consumption). Rebuild the frontier from `(start_peaks, base)`, record the [`Interval`], and
+	/// apply the register. The hints are unproven; a lie binds no lift.
+	///
+	/// Reads keep no position state: the register's own monotonic fields order successive reads
+	/// (see [`Self::apply_register_read`]), so re-reading an unchanged head is harmless.
+	///
+	/// Register reads are the only `Events` items this pallet consumes. Any other stream is
+	/// undeclared and invalidates the block; broadcast subscriptions, with their highwater replay
+	/// guard, come later.
 	fn consume_events_item(
 		touched: &mut BTreeSet<(ParaId, StreamId)>,
 		gaps: &mut u32,
@@ -707,47 +709,27 @@ impl<T: Config> Pallet<T> {
 		payloads: Vec<Payload>,
 	) -> Result<(), Error<T>> {
 		ensure!(*gaps < T::MaxContextGaps::get(), Error::<T>::TooManyGaps);
-		// A read of the peer's `Ack` stream is a register read: it must target one of our
-		// outbound channels (in any phase: a closed channel's watermark still reports consumption)
-		// and be exactly one decodable `Register` leaf, the head.
-		let register_read = match stream {
-			StreamId::Ack { recipient, domain, num } => {
-				ensure!(recipient == T::SelfParaId::get(), Error::<T>::UnknownStream);
-				let channel = ChannelId { peer: source, domain, num };
-				ensure!(OutChannels::<T>::contains_key(channel), Error::<T>::UnknownStream);
-				let [leaf] = payloads.as_slice() else { return Err(Error::<T>::BadRegister) };
-				let register =
-					Register::decode_all(&mut &leaf[..]).map_err(|_| Error::<T>::BadRegister)?;
-				Some((channel, register))
-			},
-			_ => None,
+		let StreamId::Ack { recipient, domain, num } = stream else {
+			return Err(Error::<T>::UnknownStream);
 		};
+		ensure!(recipient == T::SelfParaId::get(), Error::<T>::UnknownStream);
+		let channel = ChannelId { peer: source, domain, num };
+		ensure!(OutChannels::<T>::contains_key(channel), Error::<T>::UnknownStream);
+		let [leaf] = payloads.as_slice() else { return Err(Error::<T>::BadRegister) };
+		let register = Register::decode_all(&mut &leaf[..]).map_err(|_| Error::<T>::BadRegister)?;
 		Self::check_touch(touched, source, stream, &payloads)?;
 
-		if let Some(highwater) = InboundHighwater::<T>::get((source, stream)) {
-			ensure!(base.0 > highwater, Error::<T>::Replay);
-		}
 		let mut frontier =
 			MmrFrontier::from_parts(start_peaks, base.0).ok_or(Error::<T>::BadFrontier)?;
 		let start = frontier.root();
 		// The hints can put the frontier at the ceiling: a frontier past it would not decode, and
 		// would read back as an empty record.
-		for payload in &payloads {
-			frontier
-				.try_append(leaf_hash(LEAF_VERSION, payload))
-				.map_err(|_| Error::<T>::BadFrontier)?;
-		}
-		InboundHighwater::<T>::insert(
-			(source, stream),
-			base.0.saturating_add(payloads.len() as u64).saturating_sub(1),
-		);
+		frontier
+			.try_append(leaf_hash(LEAF_VERSION, leaf))
+			.map_err(|_| Error::<T>::BadFrontier)?;
 		ConsumptionOutbox::<T>::append((source, stream, Interval { start, end: frontier }));
 		*gaps += 1;
-		// The highwater above orders reads by position, so this register is newer than any read
-		// before it.
-		if let Some((channel, register)) = register_read {
-			Self::apply_register_read(&channel, register);
-		}
+		Self::apply_register_read(&channel, register);
 		Ok(())
 	}
 
@@ -920,6 +902,10 @@ impl<T: Config> Pallet<T> {
 	/// Apply a register read to its outbound channel: refresh the grant and release the in-flight
 	/// messages below the watermark. A register whose watermark or version goes backwards breaks
 	/// the protocol and is ignored; the previous read stands.
+	///
+	/// These monotonic fields are the only ordering of reads. An older register with the same
+	/// watermark and version can still replace the grant; at worst that throttles wrongly for a
+	/// while, which the next read corrects (design § Flow Control, trust tiers).
 	fn apply_register_read(channel: &ChannelId, register: Register) {
 		let Some(mut state) = OutChannels::<T>::get(channel) else { return };
 		if let Some(previous) = state.register {

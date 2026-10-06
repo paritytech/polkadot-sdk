@@ -370,41 +370,27 @@ fn too_many_touched_streams_is_rejected() {
 }
 
 #[test]
-fn events_item_rebuilds_frontier_and_guards_replay() {
+fn events_items_other_than_register_reads_are_undeclared() {
 	new_test_ext().execute_with(|| {
-		let (a, s) = (src(), stream(0));
-		// First inclusion read at base 0: empty start_peaks, one payload.
-		let reg = data_payload(b"reg");
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			inherent(vec![(
-				a,
-				s,
-				ConsumeItem::Events {
-					base: MessagePosition(0),
-					start_peaks: Default::default(),
-					payloads: vec![reg.clone()],
-				},
-			)]),
-		));
-		// Highwater set; a replay at the same base is rejected.
-		assert_eq!(InboundHighwater::<Test>::get((a, s)), Some(0));
-		roll_one_block();
-		assert_err!(
-			SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				inherent(vec![(
-					a,
-					s,
-					ConsumeItem::Events {
-						base: MessagePosition(0),
-						start_peaks: Default::default(),
-						payloads: vec![reg],
-					},
-				)]),
-			),
-			Error::<Test>::Replay
-		);
+		accept(0);
+		let broadcast = StreamId::Broadcast { domain: 0, subdomain: 0, num: 0 };
+		for s in [stream(0), broadcast] {
+			assert_err!(
+				SpecMessaging::enact_messages(
+					RuntimeOrigin::none(),
+					inherent(vec![(
+						src(),
+						s,
+						ConsumeItem::Events {
+							base: MessagePosition(0),
+							start_peaks: Default::default(),
+							payloads: vec![data_payload(b"x")],
+						},
+					)]),
+				),
+				Error::<Test>::UnknownStream
+			);
+		}
 	});
 }
 
@@ -449,29 +435,17 @@ fn an_undecodable_consumption_record_never_reads_as_empty() {
 #[test]
 fn a_second_enact_in_one_block_is_rejected() {
 	new_test_ext().execute_with(|| {
-		let (a, s) = (src(), stream(0));
-		let read = |payload: &[u8]| {
-			inherent(vec![(
-				a,
-				s,
-				ConsumeItem::Events {
-					base: MessagePosition(0),
-					start_peaks: Default::default(),
-					payloads: vec![data_payload(payload)],
-				},
-			)])
-		};
-		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read(b"forged")));
+		open_out_channel();
+		roll_one_block();
+		let forged = Register { version: u8::MAX, ..register(1000, TestGrant::get()) };
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(0, forged)));
 		// The record keeps one interval per stream: a second read of the same stream would
 		// replace the first, and the lift would then bind only the second.
-		let mut second = read(b"genuine");
-		if let ConsumeItem::Events { base, start_peaks, .. } = &mut second.items[0].2 {
-			*base = MessagePosition(1);
-			*start_peaks =
-				BoundedVec::truncate_from(vec![leaf_hash(LEAF_VERSION, &data_payload(b"forged"))]);
-		}
 		assert_err!(
-			SpecMessaging::enact_messages(RuntimeOrigin::none(), second),
+			SpecMessaging::enact_messages(
+				RuntimeOrigin::none(),
+				read_register(1, register(0, TestGrant::get()))
+			),
 			Error::<Test>::AlreadyEnacted
 		);
 	});
@@ -701,7 +675,7 @@ fn register_reads_must_target_an_outbound_channel_and_decode() {
 			inherent(vec![(
 				peer(),
 				peer_ack(),
-				ConsumeItem::Events { base: MessagePosition(0), start_peaks: vec![], payloads },
+				ConsumeItem::Events { base: MessagePosition(0), start_peaks: Default::default(), payloads },
 			)])
 		};
 		assert_err!(
@@ -893,5 +867,27 @@ fn lifecycle_calls_need_a_known_channel() {
 			SpecMessaging::resume_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
 			Error::<Test>::UnknownChannel
 		);
+	});
+}
+
+#[test]
+fn rereading_an_unchanged_register_head_is_harmless() {
+	new_test_ext().execute_with(|| {
+		open_and_accepted();
+		roll_one_block();
+
+		// Reads keep no position state: the same head again is accepted and changes nothing.
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			read_register(0, register(0, TestGrant::get()))
+		));
+		let state = OutChannels::<Test>::get(out_channel()).expect("opened");
+		assert_eq!(state.register, Some(register(0, TestGrant::get())));
+
+		// The read is still recorded: the rebuilt frontier plus the register leaf.
+		let record = SpecMessaging::consumption_record();
+		let interval = record.entries.get(&peer()).and_then(|m| m.get(&peer_ack())).expect("read");
+		assert_eq!(interval.start, MmrFrontier::new().root());
+		assert_eq!(interval.end.leaf_count(), 1);
 	});
 }
