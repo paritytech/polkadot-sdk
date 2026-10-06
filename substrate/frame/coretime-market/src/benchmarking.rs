@@ -19,7 +19,7 @@
 
 use super::*;
 use fp_coretime::{
-	market::{CoreRangeProvider, Market, TimesliceProvider},
+	market::{Market, TimesliceProvider},
 	PotentialRenewalId,
 };
 use frame_benchmarking::v2::*;
@@ -51,6 +51,11 @@ fn setup_sale<T: Config>() -> Result<(), BenchmarkError> {
 	let init = InitData { reserve_price: 100u32.into() };
 	Pallet::<T>::start_sales(0u32.into(), init).map_err(|_| BenchmarkError::Weightless)?;
 	Ok(())
+}
+
+/// Make the current sale offer `cores` cores, independent of the runtime's core range.
+fn set_cores_offered<T: Config>(cores: u32) {
+	SaleInfo::<T>::mutate_extant(|sale| sale.cores_offered = cores.saturated_into());
 }
 
 fn fill_bids<T: Config>(n: u32) -> Result<(), BenchmarkError> {
@@ -141,8 +146,10 @@ mod benches {
 	fn place_renewal_order() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
 
-		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap();
-		fill_bids::<T>(cores as u32)?;
+		// Worst case: a full book of winners, all displaceable, so displacement scans
+		// `MaxBids` allocations.
+		set_cores_offered::<T>(T::MaxBids::get());
+		fill_bids::<T>(T::MaxBids::get())?;
 
 		advance_to_renewal::<T>()?;
 
@@ -213,8 +220,9 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn sale_phase_transition_to_renewal() -> Result<(), BenchmarkError> {
+	fn sale_phase_transition_to_renewal(c: Linear<1, 100>) -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
+		set_cores_offered::<T>(c);
 
 		for i in 0..T::MaxBids::get() {
 			let who: T::AccountId = account("bidder", i, SEED);
@@ -244,18 +252,21 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn sale_phase_transition_to_settlement() -> Result<(), BenchmarkError> {
+	fn sale_phase_transition_to_settlement(c: Linear<1, 100>) -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
 
-		let cores = T::CoreRangeProvider::core_range().map(|r| r.to - r.from).unwrap();
-		fill_bids::<T>(cores as u32)?;
+		// Worst case: `c` winners all displaced by `c` distinct renewers, leaving `2c` quotas
+		// to clear.
+		let cores = c.min(T::MaxBids::get());
+		set_cores_offered::<T>(cores);
+		fill_bids::<T>(cores)?;
 
 		advance_to_renewal::<T>()?;
 
 		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
 		let config = pallet::Configuration::<T>::get().ok_or(BenchmarkError::Weightless)?;
 
-		for i in 0..(cores as u32) {
+		for i in 0..cores {
 			let renewer: T::AccountId = account("renewer", i, SEED);
 			T::RenewalRights::set_rights_count(&renewer, sale.region_begin, 1);
 
@@ -265,6 +276,8 @@ mod benches {
 				PotentialRenewalId { core: 0, when: sale.region_begin }
 			));
 		}
+
+		assert_eq!(pallet::Quotas::<T>::iter_keys().count() as u32, 2 * cores);
 
 		let market_end = sale.sale_start.saturating_add(config.market_period);
 		let renewal_end = market_end.saturating_add(config.renewal_period);

@@ -77,8 +77,8 @@ pub trait WeightInfo {
 	fn place_renewal_order() -> Weight;
 	fn adjust_bid() -> Weight;
 	fn tick_base() -> Weight;
-	fn sale_phase_transition_to_renewal() -> Weight;
-	fn sale_phase_transition_to_settlement() -> Weight;
+	fn sale_phase_transition_to_renewal(c: u32, ) -> Weight;
+	fn sale_phase_transition_to_settlement(c: u32, ) -> Weight;
 	fn sale_phase_transition_to_market() -> Weight;
 }
 
@@ -203,14 +203,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `CoretimeMarket::Quotas` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
 	/// Storage: `CoretimeMarket::Allocations` (r:0 w:1)
 	/// Proof: `CoretimeMarket::Allocations` (`max_values`: Some(1), `max_size`: Some(5402), added: 5897, mode: `MaxEncodedLen`)
-	fn sale_phase_transition_to_renewal() -> Weight {
+	/// The range of component `c` is `[1, 100]`.
+	fn sale_phase_transition_to_renewal(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `5501`
-		//  Estimated: `26300`
+		//  Estimated: `990 + c * (2531 ±0)`
 		// Minimum execution time: 55_388_000 picoseconds.
-		Weight::from_parts(59_798_000, 26300)
-			.saturating_add(T::DbWeight::get().reads(14_u64))
-			.saturating_add(T::DbWeight::get().writes(13_u64))
+		Weight::from_parts(59_798_000, 990)
+			.saturating_add(Weight::from_parts(0, 2531).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(c.into())))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(c.into())))
 	}
 	/// Storage: `CoretimeMarket::Configuration` (r:1 w:0)
 	/// Proof: `CoretimeMarket::Configuration` (`max_values`: Some(1), `max_size`: Some(91), added: 586, mode: `MaxEncodedLen`)
@@ -222,14 +226,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `CoretimeMarket::PendingDisplacements` (`max_values`: Some(1), `max_size`: Some(4802), added: 5297, mode: `MaxEncodedLen`)
 	/// Storage: `CoretimeMarket::Quotas` (r:20 w:20)
 	/// Proof: `CoretimeMarket::Quotas` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
-	fn sale_phase_transition_to_settlement() -> Weight {
+	/// The range of component `c` is `[1, 100]`.
+	fn sale_phase_transition_to_settlement(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1995`
-		//  Estimated: `51610`
+		//  Estimated: `990 + c * (5062 ±0)`
 		// Minimum execution time: 42_223_000 picoseconds.
-		Weight::from_parts(44_928_000, 51610)
-			.saturating_add(T::DbWeight::get().reads(24_u64))
-			.saturating_add(T::DbWeight::get().writes(23_u64))
+		Weight::from_parts(44_928_000, 990)
+			.saturating_add(Weight::from_parts(0, 5062).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(c.into())))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(c.into())))
 	}
 	/// Storage: `CoretimeMarket::Configuration` (r:1 w:0)
 	/// Proof: `CoretimeMarket::Configuration` (`max_values`: Some(1), `max_size`: Some(91), added: 586, mode: `MaxEncodedLen`)
@@ -366,14 +374,18 @@ impl WeightInfo for () {
 	/// Proof: `CoretimeMarket::Quotas` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
 	/// Storage: `CoretimeMarket::Allocations` (r:0 w:1)
 	/// Proof: `CoretimeMarket::Allocations` (`max_values`: Some(1), `max_size`: Some(5402), added: 5897, mode: `MaxEncodedLen`)
-	fn sale_phase_transition_to_renewal() -> Weight {
+	/// The range of component `c` is `[1, 100]`.
+	fn sale_phase_transition_to_renewal(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `5501`
-		//  Estimated: `26300`
+		//  Estimated: `990 + c * (2531 ±0)`
 		// Minimum execution time: 55_388_000 picoseconds.
-		Weight::from_parts(59_798_000, 26300)
-			.saturating_add(RocksDbWeight::get().reads(14_u64))
-			.saturating_add(RocksDbWeight::get().writes(13_u64))
+		Weight::from_parts(59_798_000, 990)
+			.saturating_add(Weight::from_parts(0, 2531).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(c.into())))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(c.into())))
 	}
 	/// Storage: `CoretimeMarket::Configuration` (r:1 w:0)
 	/// Proof: `CoretimeMarket::Configuration` (`max_values`: Some(1), `max_size`: Some(91), added: 586, mode: `MaxEncodedLen`)
@@ -385,14 +397,18 @@ impl WeightInfo for () {
 	/// Proof: `CoretimeMarket::PendingDisplacements` (`max_values`: Some(1), `max_size`: Some(4802), added: 5297, mode: `MaxEncodedLen`)
 	/// Storage: `CoretimeMarket::Quotas` (r:20 w:20)
 	/// Proof: `CoretimeMarket::Quotas` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
-	fn sale_phase_transition_to_settlement() -> Weight {
+	/// The range of component `c` is `[1, 100]`.
+	fn sale_phase_transition_to_settlement(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1995`
-		//  Estimated: `51610`
+		//  Estimated: `990 + c * (5062 ±0)`
 		// Minimum execution time: 42_223_000 picoseconds.
-		Weight::from_parts(44_928_000, 51610)
-			.saturating_add(RocksDbWeight::get().reads(24_u64))
-			.saturating_add(RocksDbWeight::get().writes(23_u64))
+		Weight::from_parts(44_928_000, 990)
+			.saturating_add(Weight::from_parts(0, 5062).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(c.into())))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+			.saturating_add(RocksDbWeight::get().writes((2_u64).saturating_mul(c.into())))
 	}
 	/// Storage: `CoretimeMarket::Configuration` (r:1 w:0)
 	/// Proof: `CoretimeMarket::Configuration` (`max_values`: Some(1), `max_size`: Some(91), added: 586, mode: `MaxEncodedLen`)

@@ -596,8 +596,10 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 				let market_end = sale.sale_start.saturating_add(config.market_period);
 
 				if block_number >= market_end {
+					// At most one winner per offered core, and no more than the bid book holds.
+					let max_winners = u32::from(sale.cores_offered).min(T::MaxBids::get());
 					weight_meter.consume(
-						T::WeightInfo::sale_phase_transition_to_renewal()
+						T::WeightInfo::sale_phase_transition_to_renewal(max_winners)
 							.saturating_sub(T::WeightInfo::tick_base()),
 					);
 
@@ -622,8 +624,10 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 
 				if block_number >= renewal_end {
 					weight_meter.consume(
-						T::WeightInfo::sale_phase_transition_to_settlement()
-							.saturating_sub(T::WeightInfo::tick_base()),
+						T::WeightInfo::sale_phase_transition_to_settlement(
+							sale.cores_offered.into(),
+						)
+						.saturating_sub(T::WeightInfo::tick_base()),
 					);
 
 					let mut finalize_actions = finalize_sale::<T>(&sale);

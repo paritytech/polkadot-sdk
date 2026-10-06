@@ -3128,8 +3128,8 @@ mod runtime {
 	#[runtime::pallet_index(97)]
 	pub type OnDemand = pallet_on_demand_para::Pallet<Runtime>;
 
-  #[runtime::pallet_index(98)]
-  pub type CoretimeMarket = pallet_coretime_market::Pallet<Runtime>;
+	#[runtime::pallet_index(98)]
+	pub type CoretimeMarket = pallet_coretime_market::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.

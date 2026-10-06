@@ -112,9 +112,7 @@ fn configure_works() {
 #[test]
 fn configure_rejects_invalid() {
 	TestExt::new().execute_with(|| {
-		let configure = |config| {
-			<CoretimeMarket as Market<u64, u64, u64>>::configure(config)
-		};
+		let configure = |config| <CoretimeMarket as Market<u64, u64, u64>>::configure(config);
 
 		let mut config = new_config();
 		config.market_period = 0;
@@ -316,9 +314,7 @@ fn lower_bid_rejected_when_full() {
 fn adjust_bid_raise_works() {
 	TestExt::new().execute_with(|| {
 		start_sales(100);
-		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else {
-			panic!()
-		};
+		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else { panic!() };
 
 		let result = adjust_bid(0, id, 1, Some(180)).unwrap();
 		match result {
