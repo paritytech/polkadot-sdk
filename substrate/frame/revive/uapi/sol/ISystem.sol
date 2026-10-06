@@ -31,7 +31,7 @@ interface ISystem {
 	/// function returning `true` implies that the contract is being called by the origin.
 	///
 	/// A return value of `true` indicates that this contract is being called by a root origin,
-	/// and `false` indicates that the caller is a signed origin.
+	/// and `false` indicates that the caller is a signed origin or another contract.
 	function callerIsRoot() external view returns (bool);
 
 	/// Checks whether the origin of the whole call stack is root.
