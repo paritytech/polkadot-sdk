@@ -1946,13 +1946,16 @@ where
 			)
 		});
 
-		// ED was minted when the account was brought into existence. Burn it if the account can
-		// be reaped, which is when everything left on it after the burn is free and can be
-		// withdrawn down to zero. A lock, freeze or hold, or a consumer or provider another pallet
-		// placed, keeps the account alive and rolls the burn back. The burn is also skipped if it
-		// would leave a non-zero amount below the ED, which the reaping would remove as dust. This
-		// happens when the sweep above failed. The ED is then kept and the account stays in place
-		// as a plain account. A contract deployed to the same address later takes it over.
+		// ED was minted when the account was brought into existence. Burn it if everything left
+		// on the account after the burn is free and can be withdrawn down to zero. A lock, freeze
+		// or hold rolls the burn back, and so does a consumer another pallet placed while the
+		// account has no other provider. A provider or sufficient reference another pallet placed
+		// does not roll it back: the burn goes through and the account stays alive on that
+		// reference. The burn is also skipped if it would leave a non-zero amount below the ED,
+		// for example after a failed sweep or under a hold smaller than the ED. Left free, such
+		// an amount would be removed as dust. Whenever the burn does not happen, the ED is kept
+		// and the account stays in place as a plain account. A contract deployed to the same
+		// address later takes it over.
 		Self::best_effort(&contract_address, "burn the existential deposit", || {
 			let ed = T::Currency::minimum_balance();
 			let rest = T::Currency::total_balance(contract_account).saturating_sub(ed);

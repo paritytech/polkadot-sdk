@@ -22,8 +22,10 @@ doc:
     ED is burned. This only holds as far as the balance covers the locks and freezes on the
     account: under a lock or freeze larger than the balance nothing is forwarded and the late
     funds stay on the account. If the transfer fails, the funds stay on the account as well, and
-    the contract is deleted anyway. The ED is only burned when the account can actually be reaped.
-    Under an encumbrance the ED stays on the account.
+    the contract is deleted anyway. The ED is only burned when nothing but free balance is left on
+    the account afterwards. Under an encumbrance the ED stays on the account. A provider or
+    sufficient reference from another pallet, for example a sufficient asset the contract holds,
+    does not keep the ED: it is burned and the account stays alive on that reference.
 
     A `SELFDESTRUCT` run after `System.terminate`, in the same frame or in a later one, no longer
     cancels the termination: the contract is deleted and its deposit is refunded once.
