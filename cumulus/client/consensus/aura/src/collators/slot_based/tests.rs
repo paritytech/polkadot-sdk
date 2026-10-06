@@ -17,8 +17,9 @@
 
 use super::{
 	block_builder_task::{
-		assemble_core_submission, determine_cores, offset_relay_parent_find_descendants,
-		sp_hedge_chains, HedgeContext, HedgeMemo, V3HeaderChains, MAX_HEDGED_SIBLINGS,
+		assemble_core_submission, determine_cores, memoized_hedge_chains,
+		offset_relay_parent_find_descendants, resolve_hedge_contenders, HedgeContext, HedgeMemo,
+		V3HeaderChains, MAX_HEDGED_SIBLINGS,
 	},
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 	scheduling::SchedulingInfo,
@@ -300,8 +301,6 @@ pub struct TestRelayClient {
 	headers: HashMap<RelayHash, RelayHeader>,
 	best_hash: Arc<Mutex<Option<RelayHash>>>,
 	best_notifications: Arc<Mutex<Option<Pin<Box<dyn Stream<Item = RelayHeader> + Send + Sync>>>>>,
-	import_notifications:
-		Arc<Mutex<Option<Pin<Box<dyn Stream<Item = RelayHeader> + Send + Sync>>>>>,
 }
 
 impl TestRelayClient {
@@ -310,7 +309,6 @@ impl TestRelayClient {
 			headers,
 			best_hash: Default::default(),
 			best_notifications: Arc::new(Mutex::new(None)),
-			import_notifications: Arc::new(Mutex::new(None)),
 		}
 	}
 
@@ -319,7 +317,6 @@ impl TestRelayClient {
 			headers,
 			best_hash: Arc::new(Mutex::new(Some(best_hash))),
 			best_notifications: Arc::new(Mutex::new(None)),
-			import_notifications: Arc::new(Mutex::new(None)),
 		}
 	}
 
@@ -332,13 +329,6 @@ impl TestRelayClient {
 		best_notifications: Pin<Box<dyn Stream<Item = RelayHeader> + Send + Sync>>,
 	) {
 		*self.best_notifications.lock().unwrap() = Some(best_notifications);
-	}
-
-	pub fn set_import_notifications(
-		&mut self,
-		import_notifications: Pin<Box<dyn Stream<Item = RelayHeader> + Send + Sync>>,
-	) {
-		*self.import_notifications.lock().unwrap() = Some(import_notifications);
 	}
 }
 
@@ -426,11 +416,8 @@ impl RelayChainInterface for TestRelayClient {
 	async fn import_notification_stream(
 		&self,
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
-		// Unset unless a test installs one: siblings only matter to the hedging tests.
-		match self.import_notifications.lock().unwrap().take() {
-			Some(import_notifications) => Ok(import_notifications),
-			None => Ok(Box::pin(futures::stream::empty())),
-		}
+		// Tests needing imports install a stream with `with_import_stream` instead.
+		Ok(Box::pin(futures::stream::empty()))
 	}
 
 	async fn finality_notification_stream(
@@ -674,26 +661,17 @@ pub fn relay_header_primary_with_slot(
 ) -> RelayHeader {
 	use codec::Decode;
 	use sc_consensus_babe::{CompatibleDigestItem, PreDigest, PrimaryPreDigest};
-	use sp_core::sr25519::vrf::{VrfPreOutput, VrfProof, VrfSignature};
+	use sp_core::sr25519::vrf::VrfSignature;
 	use sp_runtime::DigestItem;
 
-	let vrf_signature = VrfSignature {
-		pre_output: VrfPreOutput::decode(&mut [0u8; 32].as_slice()).expect("valid preout; qed"),
-		proof: VrfProof::decode(&mut [0u8; 64].as_slice()).expect("valid proof; qed"),
-	};
-
-	let mut digest = sp_runtime::generic::Digest::default();
-	digest.push(<DigestItem as CompatibleDigestItem>::babe_pre_digest(PreDigest::Primary(
-		PrimaryPreDigest { authority_index: 0, slot: slot.into(), vrf_signature },
-	)));
-
-	RelayHeader {
-		parent_hash,
-		number,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest,
-	}
+	let vrf_signature =
+		VrfSignature::decode(&mut [0u8; 96].as_slice()).expect("any 96 bytes decode; qed");
+	let mut header = relay_header_with_slot(number, parent_hash, slot);
+	header.digest.logs =
+		vec![<DigestItem as CompatibleDigestItem>::babe_pre_digest(PreDigest::Primary(
+			PrimaryPreDigest { authority_index: 0, slot: slot.into(), vrf_signature },
+		))];
+	header
 }
 
 /// Create a relay header with a BABE pre-digest containing the given slot.
@@ -735,40 +713,46 @@ fn hedge_base_and_chosen() -> (RelayHeader, RelayHeader) {
 	(base, chosen)
 }
 
-/// Wire a [`SchedulingInfo`] to an import stream carrying `imports`, the way the block builder
-/// does. `base` and `extra_cached` seed the relay data cache; imports are cached on
-/// [`HEDGE_CORES`]. The returned sender keeps the stream open for a later arrival.
-async fn hedge_setup(
+/// A [`SchedulingInfo`] wired to an import stream, with the sender that feeds it.
+pub fn with_import_stream(
+) -> (SchedulingInfo<TestRelayClient>, futures::channel::mpsc::UnboundedSender<RelayHeader>) {
+	let mut scheduling_info = SchedulingInfo::new(Duration::from_secs(6), Duration::ZERO);
+	let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+	let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> = Box::pin(rx);
+	scheduling_info.import_notifications = futures::StreamExt::fuse(stream);
+	(scheduling_info, tx)
+}
+
+/// A relay data cache holding `base` and the `imports` (assigned [`HEDGE_CORES`]), plus a
+/// [`SchedulingInfo`] whose import stream already carries `imports` and stays open.
+fn hedge_setup(
 	base: &RelayHeader,
-	extra_cached: &[RelayHeader],
 	imports: &[RelayHeader],
 ) -> (
 	RelayChainDataCache<TestRelayClient>,
 	SchedulingInfo<TestRelayClient>,
 	futures::channel::mpsc::UnboundedSender<RelayHeader>,
 ) {
-	let mut client = TestRelayClient::new(Default::default());
-	client.set_best_hash(Some(base.hash()));
-	client.set_best_notifications(Box::pin(futures::stream::empty()));
-	let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-	client.set_import_notifications(Box::pin(rx));
-
-	let mut cache = RelayChainDataCache::new(client.clone(), 1.into());
-	for header in extra_cached.iter().chain(std::iter::once(base)) {
-		cache.set_test_data(header.clone(), vec![], v3_node_features());
-	}
+	let mut cache = RelayChainDataCache::new(TestRelayClient::new(Default::default()), 1.into());
+	cache.set_test_data(base.clone(), vec![], v3_node_features());
+	let (scheduling_info, tx) = with_import_stream();
 	for header in imports {
 		cache.set_test_data(header.clone(), HEDGE_CORES.to_vec(), v3_node_features());
-	}
-
-	let mut scheduling_info = SchedulingInfo::new(Duration::from_secs(6), Duration::ZERO);
-	scheduling_info.ensure_initialized(&client, &mut cache).await;
-
-	for header in imports {
 		tx.unbounded_send(header.clone()).expect("receiver is alive; qed");
 	}
-
 	(cache, scheduling_info, tx)
+}
+
+/// One core's hedge evaluation, as the block builder runs it.
+async fn sp_hedge_chains(
+	cache: &mut RelayChainDataCache<TestRelayClient>,
+	scheduling_info: &mut SchedulingInfo<TestRelayClient>,
+	memo: &mut HedgeMemo,
+	max_siblings: usize,
+	cx: HedgeContext<'_>,
+) -> Vec<(RelayHash, Vec<RelayHeader>)> {
+	resolve_hedge_contenders(cache, scheduling_info, memo, max_siblings, &cx).await;
+	memoized_hedge_chains(scheduling_info, memo, max_siblings, &cx)
 }
 
 fn hedge_context<'a>(
@@ -806,8 +790,7 @@ async fn sp_hedge_chains_respects_its_gates() {
 		(true, 1, 0, 0),
 		(true, 1, MAX_HEDGED_SIBLINGS, 1),
 	] {
-		let (mut cache, mut scheduling_info, _tx) =
-			hedge_setup(&base, &[], &[sibling.clone()]).await;
+		let (mut cache, mut scheduling_info, _tx) = hedge_setup(&base, &[sibling.clone()]);
 		let hedged = sp_hedge_chains(
 			&mut cache,
 			&mut scheduling_info,
@@ -838,7 +821,7 @@ async fn sp_hedge_chains_tracks_arrivals_and_caps_contenders() {
 		})
 		.collect();
 
-	let (mut cache, mut scheduling_info, tx) = hedge_setup(&base, &[], &[]).await;
+	let (mut cache, mut scheduling_info, tx) = hedge_setup(&base, &[]);
 	for header in std::iter::once(&late).chain(primaries.iter()) {
 		cache.set_test_data(header.clone(), HEDGE_CORES.to_vec(), v3_node_features());
 	}
@@ -895,7 +878,8 @@ async fn import_stream_sibling_becomes_extra_scheduling_proof() {
 	reassigned.state_root = [8u8; 32].into();
 
 	let (mut cache, mut scheduling_info, _tx) =
-		hedge_setup(&base, &[other_base], &[sibling.clone(), forked, reassigned.clone()]).await;
+		hedge_setup(&base, &[sibling.clone(), forked, reassigned.clone()]);
+	cache.set_test_data(other_base, vec![], v3_node_features());
 	cache.set_test_data(reassigned, vec![CoreIndex(1)], v3_node_features());
 
 	let hedged = sp_hedge_chains(

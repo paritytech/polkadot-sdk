@@ -103,11 +103,9 @@ fn get_current_relay_slot(slot_offset: Duration, relay_chain_slot_duration: Dura
 pub(crate) struct SchedulingInfo<RelayClient> {
 	best_notifications: Fuse<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>>,
 	/// All imported heads, including losing siblings that never reach `best_notifications`.
-	import_notifications: Fuse<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>>,
+	pub(super) import_notifications: Fuse<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>>,
 	/// Imported headers by relay height, pruned to [`RECENT_IMPORT_HEIGHTS`] heights.
 	recent_imports: BTreeMap<RelayBlockNumber, Vec<ImportedHeader>>,
-	/// Backoff for the import stream: (next retry attempt, consecutive failures so far).
-	import_retry: Option<(tokio::time::Instant, u32)>,
 	relay_slot_duration: Duration,
 	slot_offset: Duration,
 	maybe_best_relay_header: Option<RelayHeader>,
@@ -134,7 +132,6 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 			best_notifications: terminated_stream(),
 			import_notifications: terminated_stream(),
 			recent_imports: Default::default(),
-			import_retry: None,
 			relay_slot_duration: relay_chain_slot_duration,
 			slot_offset,
 			maybe_best_relay_header: None,
@@ -241,53 +238,9 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		relay_chain_data_cache.get_by_hash(best_relay_hash).await.map_err(|_| ())
 	}
 
-	/// `true` if the best stream is terminated, or the import stream is terminated and its
-	/// backoff (if any) has elapsed.
+	/// `true` if either notification stream is terminated.
 	fn should_reinit(&self) -> bool {
-		self.best_notifications.is_terminated() ||
-			(self.import_notifications.is_terminated() &&
-				self.import_retry.is_none_or(|(next, _)| next <= tokio::time::Instant::now()))
-	}
-
-	/// Re-subscribe the import stream, backing off exponentially on failure. `warn_on_recovery`
-	/// flags an import-only outage, during which hedging was blind.
-	async fn resubscribe_import_stream(
-		&mut self,
-		relay_client: &RelayClient,
-		warn_on_recovery: bool,
-	) {
-		match relay_client.import_notification_stream().await {
-			Ok(import_notifications) => {
-				self.import_notifications = import_notifications.fuse();
-				self.import_retry = None;
-				if warn_on_recovery {
-					tracing::warn!(
-						target: crate::LOG_TARGET,
-						"Import notification stream recovered; SP-fork hedging was blind until now."
-					);
-				}
-			},
-			Err(err) => {
-				let failures = self.import_retry.map_or(1, |(_, failures)| failures + 1);
-				let backoff =
-					self.relay_slot_duration * 2u32.pow(failures.saturating_sub(1).min(4));
-				self.import_retry = Some((tokio::time::Instant::now() + backoff, failures));
-				if failures == 1 {
-					tracing::error!(
-						target: crate::LOG_TARGET,
-						?err,
-						"Failed to reset the relay chain import notification stream."
-					);
-				} else {
-					tracing::debug!(
-						target: crate::LOG_TARGET,
-						?err,
-						failures,
-						"Still failing to reset the relay chain import notification stream."
-					);
-				}
-			},
-		}
+		self.best_notifications.is_terminated() || self.import_notifications.is_terminated()
 	}
 
 	pub async fn ensure_initialized<'a>(
@@ -319,7 +272,15 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		}
 
 		if self.import_notifications.is_terminated() {
-			self.resubscribe_import_stream(relay_client, import_only_reinit).await;
+			match relay_client.import_notification_stream().await {
+				Ok(import_notifications) => self.import_notifications = import_notifications.fuse(),
+				Err(err) => tracing::warn!(
+					target: crate::LOG_TARGET,
+					?err,
+					"Failed to reset the relay chain import notification stream; SP-fork hedging \
+					is blind until it recovers."
+				),
+			}
 		}
 
 		// An import-only reinit keeps the carried-over leaf, so the best-block fetch is skipped.
@@ -627,20 +588,6 @@ mod tests {
 		import_only_info.maybe_best_relay_header = Some(best_header.clone());
 		import_only_info.ensure_initialized(&client, &mut cache).await;
 		assert_eq!(import_only_info.maybe_best_relay_header.as_ref(), Some(&best_header));
-
-		// The backoff written on failure gates `should_reinit`: a pending retry instant blocks
-		// it, an elapsed one allows it, independent of the (still live) best stream.
-		let (retry_tx, retry_rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-		let retry_stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> = Box::pin(retry_rx);
-		import_only_info.import_notifications = retry_stream.fuse();
-		retry_tx.close_channel();
-		import_only_info.drain_imports();
-		import_only_info.import_retry =
-			Some((tokio::time::Instant::now() + Duration::from_secs(60), 1));
-		assert_eq!(import_only_info.should_reinit(), false);
-		import_only_info.import_retry =
-			Some((tokio::time::Instant::now() - Duration::from_secs(1), 1));
-		assert_eq!(import_only_info.should_reinit(), true);
 	}
 
 	/// Test the original bug scenario: relay block propagation exceeds `slot_offset`,
@@ -845,8 +792,7 @@ mod tests {
 		assert_eq!(result, Some((headers[2].clone(), true)));
 
 		// add session change digest at header 3
-		let mut node_features = NodeFeatures::from_vec(vec![0; 5]);
-		node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+		let node_features = tests::v3_node_features();
 		headers[3].digest.push(babe_epoch_change_digest_item());
 		cache.set_test_data(headers[3].clone(), vec![], node_features.clone());
 		headers[4].parent_hash = headers[3].hash();
@@ -894,9 +840,7 @@ mod tests {
 	fn build_v3_chain_with_slots(
 		slots: &[u64],
 	) -> (TestRelayClient, RelayChainDataCache<TestRelayClient>, Vec<RelayHeader>) {
-		let mut node_features = NodeFeatures::from_vec(vec![0; 5]);
-		node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
-
+		let node_features = tests::v3_node_features();
 		let mut headers: Vec<RelayHeader> = vec![];
 		for (i, slot) in slots.iter().enumerate() {
 			let parent_hash = headers.last().map(|h| h.hash()).unwrap_or_default();
@@ -1013,22 +957,11 @@ mod tests {
 		}
 	}
 
-	/// A [`SchedulingInfo`] wired to an import stream, with the sender that feeds it.
-	fn with_import_stream(
-	) -> (SchedulingInfo<TestRelayClient>, futures::channel::mpsc::UnboundedSender<RelayHeader>) {
-		let mut scheduling_info =
-			SchedulingInfo::<TestRelayClient>::new(RELAY_SLOT_DURATION, Duration::ZERO);
-		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-		let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> = Box::pin(rx);
-		scheduling_info.import_notifications = stream.fuse();
-		(scheduling_info, tx)
-	}
-
 	/// The import buffer records every imported head, deduplicates by hash, excludes the chosen
 	/// parent, and stays bounded in both heights and headers per height.
 	#[tokio::test]
 	async fn import_buffer_records_siblings_and_stays_bounded() {
-		let (mut scheduling_info, tx) = with_import_stream();
+		let (mut scheduling_info, tx) = tests::with_import_stream();
 
 		// One header per height, then a same-height sibling of the last one and a duplicate.
 		let heights = 1..=(RECENT_IMPORT_HEIGHTS as u32 + 1);
@@ -1069,7 +1002,7 @@ mod tests {
 	/// child at `production_slot`. Weight-filtered within a parent; extended, primary, hash order.
 	#[tokio::test]
 	async fn siblings_are_filtered_by_weight_and_imported_children() {
-		let (mut scheduling_info, tx) = with_import_stream();
+		let (mut scheduling_info, tx) = tests::with_import_stream();
 		let production_slot = Slot::from(10);
 		// The only slot a leaf twin may claim: `production_slot` - 1.
 		let leaf_slot = 9;
