@@ -33,8 +33,8 @@ block author ──▶ process_reports ──filter, vote, median──▶ Price
 ## Vocabulary
 
 - **Pair**: two assets whose exchange rate is priced, such as DOT/USD. The price is in quote
-  asset units per one base asset unit. The set of pairs is defined by the runtime, identified on
-  the wire by a `PairId`.
+  asset units per one base asset unit. Pairs are registered by governance and identified by a
+  `PairId`.
 - **Venue**: an exchange the oracle fetches from, such as Binance.
 - **Market**: one pair traded on one venue, such as DOT/USDT on Binance spot. A market carries
   the queries needed to price it and the contract size of the instrument.
@@ -93,10 +93,9 @@ or different queries and limits, is a runtime upgrade.
 
 ## Aggregating markets into pairs
 
-Every priced market is one vote for its pair. A pair may also be derived from other pairs: the
-runtime's `Pairs::conversions` lists `(source, rate)` entries, and each contributes the prices of
-the `source` markets multiplied by the median price of `rate`. DOT/USD, for example, pools its
-direct markets with DOT/USDT markets converted by USDT/USD. A rate is taken from its direct
+Every priced market is one vote for its pair. A pair can also be priced from two other pairs.
+For example, DOT/USD can be priced as DOT/USDT * USDT/USD, so each DOT/USDT market also counts
+as a DOT/USD vote, multiplied by the USDT/USD price. That USDT/USD price comes from USDT/USD
 markets only. A pair is reported with the median of its votes if it has at least the market
 `quorum` of its `PairSettings`, and is left out of the report otherwise.
 
