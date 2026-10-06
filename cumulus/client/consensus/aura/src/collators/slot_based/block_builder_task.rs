@@ -218,19 +218,12 @@ async fn derive_relay_context<RelayClient>(
 	scheduling_info: &mut SchedulingInfo<RelayClient>,
 	params: SchedulingParams,
 	slot: &Slot,
-	wait_deadline: tokio::time::Instant,
 ) -> Option<RelayContext>
 where
 	RelayClient: RelayChainInterface + 'static,
 {
 	let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
-		.wait_for_scheduling_parent(
-			relay_chain_data_cache,
-			params.v3_enabled,
-			*slot,
-			params.relay_parent_offset,
-			wait_deadline,
-		)
+		.wait_for_scheduling_parent(relay_chain_data_cache, params.v3_enabled, *slot)
 		.await
 	else {
 		tracing::warn!(target: LOG_TARGET, "Unable to fetch the scheduling parent hash.");
@@ -401,11 +394,7 @@ where
 	/// context from the para best head in order to run the parent search, and the second
 	/// re-derives it from the chosen parent whenever the two disagree, keeping the parent the
 	/// first phase settled on.
-	async fn building_prerequisites(
-		&mut self,
-		slot: Slot,
-		wait_deadline: tokio::time::Instant,
-	) -> Option<BuildingPrerequisites<Block>> {
+	async fn building_prerequisites(&mut self, slot: Slot) -> Option<BuildingPrerequisites<Block>> {
 		let best_hash = self.para_client.info().best_hash;
 		let best_params = scheduling_params_at(&*self.para_client, best_hash);
 
@@ -420,7 +409,6 @@ where
 			&mut self.scheduling_info,
 			best_params,
 			&slot,
-			wait_deadline,
 		)
 		.await?;
 
@@ -474,7 +462,6 @@ where
 			&mut self.scheduling_info,
 			build_params,
 			&slot,
-			wait_deadline,
 		)
 		.await?;
 
@@ -490,11 +477,7 @@ where
 
 	/// Resolve everything needed to author in the current slot, up to a successful slot claim.
 	/// Returns `None` when this slot should be skipped.
-	async fn prepare_slot(
-		&mut self,
-		slot: Slot,
-		wait_deadline: tokio::time::Instant,
-	) -> Option<SlotContext<Block, P::Public>> {
+	async fn prepare_slot(&mut self, slot: Slot) -> Option<SlotContext<Block, P::Public>> {
 		// The relay chain context and the parent to build on. Reads the scheduling parameters from
 		// the runtime that will execute the block, so unlike a plain read at the para best head
 		// this stays correct when a runtime upgrade rides in on an unincluded candidate.
@@ -505,7 +488,7 @@ where
 			max_relay_parent_session_age,
 			relay_parent_data,
 			parent_search_result,
-		} = self.building_prerequisites(slot, wait_deadline).await?;
+		} = self.building_prerequisites(slot).await?;
 
 		// Set after the derive: a context re-derived from the build parent's runtime can flip
 		// `v3_enabled`, and the timer offset must follow the final value.
@@ -773,11 +756,9 @@ pub(crate) struct HedgeContext<'a> {
 	pub scheduling_parent_header: &'a RelayHeader,
 	pub relay_parent_hash: RelayHash,
 	pub para_id: ParaId,
-	/// Cores the slot was planned on; a sibling that disagrees cannot carry the submission.
 	pub claim_queue_offset: u32,
+	/// Cores the slot was planned on; a sibling that disagrees cannot carry the submission.
 	pub core_indices: &'a [CoreIndex],
-	/// The relay slot in progress; a sibling is only a valid scheduling parent relative to it.
-	pub production_slot: Slot,
 }
 
 impl<'a> HedgeContext<'a> {
@@ -786,7 +767,6 @@ impl<'a> HedgeContext<'a> {
 		claim_queue_offset: u32,
 		core_indices: &'a [CoreIndex],
 		para_id: ParaId,
-		production_slot: Slot,
 	) -> Self {
 		Self {
 			v3_enabled: cx.v3_enabled,
@@ -797,19 +777,18 @@ impl<'a> HedgeContext<'a> {
 			para_id,
 			claim_queue_offset,
 			core_indices,
-			production_slot,
 		}
 	}
 }
 
-/// Header chains of the siblings the slot's blocks can also be advertised under, best first, up
-/// to `MAX_HEDGED_SIBLINGS` accepted and `MAX_SIBLINGS_RESOLVED` resolved. Empty unless V3 at
-/// `relay_parent_offset >= 1`.
+/// Header chains of the `siblings` (from [`SchedulingInfo::siblings_at`], best first) the slot's
+/// blocks can also be advertised under, up to `MAX_HEDGED_SIBLINGS` accepted and
+/// `MAX_SIBLINGS_RESOLVED` resolved. Empty unless V3 at `relay_parent_offset >= 1`.
 pub(crate) async fn resolve_hedge_chains<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
-	scheduling_info: &mut SchedulingInfo<RelayClient>,
+	siblings: Vec<RelayHeader>,
 	cx: &HedgeContext<'_>,
-) -> Vec<(RelayHash, Vec<RelayHeader>)>
+) -> Vec<Vec<RelayHeader>>
 where
 	RelayClient: RelayChainInterface + 'static,
 {
@@ -819,7 +798,6 @@ where
 
 	let sp = cx.scheduling_parent_header.hash();
 	let sp_number = cx.scheduling_parent_header.number;
-	let siblings = scheduling_info.siblings_at(cx.scheduling_parent_header, cx.production_slot);
 	let sibling_count = siblings.len();
 
 	let mut chains = Vec::new();
@@ -827,21 +805,19 @@ where
 		if chains.len() >= MAX_HEDGED_SIBLINGS || resolved >= MAX_SIBLINGS_RESOLVED {
 			break;
 		}
-		let sp_sibling = sibling.hash();
-		if let Some(chain) =
-			resolve_hedge_sibling(relay_chain_data_cache, sibling, cx, sp_sibling).await
-		{
-			chains.push((sp_sibling, chain));
+		if let Some(chain) = resolve_hedge_sibling(relay_chain_data_cache, sibling, cx).await {
+			chains.push(chain);
 		}
 	}
 
 	if sibling_count > 0 {
+		let submitted: Vec<_> = chains.iter().filter_map(|c| c.first()).map(|h| h.hash()).collect();
 		tracing::debug!(
 			target: LOG_TARGET,
 			?sp,
 			sp_number,
 			siblings = sibling_count,
-			submitted = ?chains.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+			?submitted,
 			"SP hedge: siblings",
 		);
 	}
@@ -854,11 +830,11 @@ async fn resolve_hedge_sibling<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	sibling: RelayHeader,
 	cx: &HedgeContext<'_>,
-	sp_sibling: RelayHash,
 ) -> Option<Vec<RelayHeader>>
 where
 	RelayClient: RelayChainInterface + 'static,
 {
+	let sp_sibling = sibling.hash();
 	// The collator protocol drops a submission for a core the sibling does not assign us.
 	let same_cores =
 		determine_cores(relay_chain_data_cache, &sibling, cx.para_id, cx.claim_queue_offset)
@@ -1001,11 +977,7 @@ where
 				tracing::error!(target: LOG_TARGET, "Unable to wait for next slot.");
 				return;
 			};
-			// Bounds the V3 scheduling-parent wait at `relay_parent_offset >= 1`: the same relay
-			// block propagation allowance V2 grants the current-slot block.
-			let sp_wait_deadline = slot_time.instant_into_slot(env.slot_offset);
-
-			let Some(cx) = env.prepare_slot(slot_time.slot(), sp_wait_deadline).await else {
+			let Some(cx) = env.prepare_slot(slot_time.slot()).await else {
 				continue;
 			};
 
@@ -1031,17 +1003,14 @@ where
 			let mut pov_parent_hash = cx.initial_parent_hash;
 
 			let core_indices = cores.core_indices().to_vec();
-			let hedge_ctx = HedgeContext::new(
-				&cx,
-				cores.claim_queue_offset.0 as u32,
-				&core_indices,
-				para_id,
-				slot_time.slot(),
-			);
+			let hedge_ctx =
+				HedgeContext::new(&cx, cores.claim_queue_offset.0 as u32, &core_indices, para_id);
+			let siblings =
+				env.scheduling_info.siblings_at(&cx.scheduling_parent_header, slot_time.slot());
 			// Overlaps the builds; each core's deadline bounds the wait before its hedges go out.
 			let resolve = future::maybe_done(resolve_hedge_chains(
 				&mut env.relay_chain_data_cache,
-				&mut env.scheduling_info,
+				siblings,
 				&hedge_ctx,
 			));
 			futures::pin_mut!(resolve);
@@ -1153,13 +1122,18 @@ where
 
 					if is_segment {
 						// Hedging only spends this core's own slice; later cores re-read the
-						// output.
-						let deadline = tokio::time::Instant::from_std(core_start + time_for_core);
-						let _ = tokio::time::timeout_at(deadline, resolve.as_mut()).await;
-						let hedges = resolve.as_mut().output_mut().cloned().unwrap_or_default();
-						if !hedges.is_empty() {
-							let header_chains =
-								hedges.into_iter().map(|(_, chain)| chain).collect();
+						// output. A resubmit-only core has no pacing sleep to absorb a wait, so
+						// it only polls.
+						if has_fresh {
+							let deadline =
+								tokio::time::Instant::from_std(core_start + time_for_core);
+							let _ = tokio::time::timeout_at(deadline, resolve.as_mut()).await;
+						} else {
+							let _ = resolve.as_mut().now_or_never();
+						}
+						let header_chains =
+							resolve.as_mut().output_mut().cloned().unwrap_or_default();
+						if !header_chains.is_empty() {
 							let hedges = CollatorMessage::Hedges {
 								core_index: this_core_index,
 								header_chains,
@@ -1196,7 +1170,7 @@ where
 /// fresh bundle. V2: a single collation, only if a block was built.
 ///
 /// [`SchedulingProof`]: cumulus_primitives_core::SchedulingProof
-pub(crate) fn assemble_core_submission<Block, P>(
+fn assemble_core_submission<Block, P>(
 	v3_header_chain: Option<Vec<RelayHeader>>,
 	unincluded_headers: Vec<Block::Header>,
 	bundle: Option<CollatorSegmentEntry<Block>>,

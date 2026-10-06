@@ -82,7 +82,7 @@ fn hedges_for<Block: BlockT>(
 		tracing::debug!(
 			target: LOG_TARGET,
 			?core_index,
-			"Dropping hedges without a matching segment.",
+			"Dropping hedges without a hedgeable segment.",
 		);
 		return Vec::new();
 	};
@@ -400,7 +400,7 @@ async fn handle_collation<Block: BlockT>(
 		.await;
 }
 
-/// Submit a V3 segment; `Some` only if it sent something, so a following `Hedges` can rebuild it.
+/// Submit a V3 segment; `Some` only if it sent something a following `Hedges` could rebuild.
 async fn handle_segment<Block, Backend, CHP>(
 	segment: CollatorSegmentMessage<Block>,
 	collator_service: &impl CollatorServiceInterface<Block>,
@@ -442,13 +442,18 @@ where
 		return None;
 	}
 
-	// Hedges keep only the headers; the entries move into the main submission.
-	let headers: Vec<_> = all_entries
-		.iter()
-		.flat_map(|e| e.blocks.iter().map(|b| b.header().clone()))
-		.collect();
+	// Hedges keep only the headers; the entries move into the main submission. Skipped when no
+	// hedge can follow: offset 0 (empty chain, nothing to swap) or no budget for the backlog.
+	let hedgeable =
+		!scheduling_proof.header_chain.is_empty() && hedge_budget(resubmitted + fresh) > 0;
+	let headers: Option<Vec<_>> = hedgeable.then(|| {
+		all_entries
+			.iter()
+			.flat_map(|e| e.blocks.iter().map(|b| b.header().clone()))
+			.collect()
+	});
 
-	submit_segment(
+	let sent = submit_segment(
 		all_entries,
 		scheduling_proof.clone(),
 		core_index,
@@ -460,10 +465,11 @@ where
 		relay_client,
 		export_pov,
 	)
-	.await
-	.then_some(SegmentSubmission {
+	.await;
+
+	Some(SegmentSubmission {
 		core_index,
-		headers,
+		headers: headers.filter(|_| sent)?,
 		proof: scheduling_proof,
 		resubmitted,
 		fresh,

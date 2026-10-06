@@ -93,9 +93,9 @@ fn get_current_relay_slot(slot_offset: Duration, relay_chain_slot_duration: Dura
 ///   not, we wait for it before building, so we don't end up using the previous slot's
 ///   relay block past our own slot. See
 ///   <https://github.com/paritytech/polkadot-sdk/pull/11453>.
-/// - **V3**: build on the *last finished* slot's relay block. No offset hack. At
-///   `relay_parent_offset >= 1`, waits for a best from the previous relay slot until a per-slot
-///   deadline, then falls back to the best available. At `0` it never waits, as before.
+/// - **V3**: build on the *last finished* slot's relay block. No offset hack, no waiting: the relay
+///   block had a full slot to propagate, which is what slots are for. Matches the low-latency v2
+///   design.
 ///
 /// Owns the relay chain new-best notification stream so [`Self::wait_for_scheduling_parent`]
 /// can block for a fresh leaf. Initial state is a terminated empty stream. The caller
@@ -331,15 +331,11 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 	///
 	/// Returns `Some((header, v3_used))`, or `None` on relay client error, a session
 	/// boundary, or a terminated notification stream.
-	///
-	/// `wait_deadline` bounds the V3 wait at `relay_parent_offset >= 1`; ignored otherwise.
 	pub async fn wait_for_scheduling_parent(
 		&mut self,
 		relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 		v3_enabled_on_para: bool,
 		production_slot: Slot,
-		relay_parent_offset: u32,
-		wait_deadline: tokio::time::Instant,
 	) -> Option<(RelayHeader, bool)> {
 		let mut maybe_best_relay_header = self.maybe_best_relay_header.take();
 		let (best_relay_slot, best_relay_header_data) = loop {
@@ -360,24 +356,8 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 
 			let v3_enabled = Self::is_v3_enabled(v3_enabled_on_para, Some(&best_relay_header_data));
 			if v3_enabled {
-				// Offset 0 keeps the pre-hedging no-wait behaviour. Offset >= 1 waits for a P-1
-				// best until `wait_deadline`, then falls back to the current best plus walk-back.
-				if relay_parent_offset == 0 {
-					break (best_relay_slot, best_relay_header_data);
-				}
-				let required_slot = Slot::from((*production_slot).saturating_sub(1));
-				if best_relay_slot < required_slot {
-					match tokio::time::timeout_at(wait_deadline, self.best_notifications.next())
-						.await
-					{
-						Ok(Some(header)) => {
-							maybe_best_relay_header = Some(header);
-							continue;
-						},
-						Ok(None) => return None,
-						Err(_) => break (best_relay_slot, best_relay_header_data),
-					}
-				}
+				// For scheduling v3 we don't need to loop since we need to return a
+				// scheduling parent associated with a finished slot.
 				break (best_relay_slot, best_relay_header_data);
 			}
 
@@ -432,11 +412,6 @@ mod tests {
 	/// how far into that slot we are (0..6000).
 	fn now_at(relay_slot: u64, ms_into_slot: u64) -> Duration {
 		Duration::from_millis(relay_slot * 6000 + ms_into_slot)
-	}
-
-	/// A `wait_deadline` that never elapses within a test's lifetime.
-	fn far_deadline() -> tokio::time::Instant {
-		tokio::time::Instant::now() + Duration::from_secs(60)
 	}
 
 	#[test]
@@ -567,13 +542,7 @@ mod tests {
 
 		tx.close_channel();
 		scheduling_info
-			.wait_for_scheduling_parent(
-				&mut cache,
-				false,
-				Slot::from(PRODUCTION_SLOT),
-				0,
-				far_deadline(),
-			)
+			.wait_for_scheduling_parent(&mut cache, false, Slot::from(PRODUCTION_SLOT))
 			.await;
 		assert_eq!(scheduling_info.should_reinit(), true);
 
@@ -621,13 +590,7 @@ mod tests {
 
 		let mut handle = tokio::spawn(async move {
 			scheduling_info
-				.wait_for_scheduling_parent(
-					&mut cache,
-					false,
-					Slot::from(current_slot),
-					0,
-					far_deadline(),
-				)
+				.wait_for_scheduling_parent(&mut cache, false, Slot::from(current_slot))
 				.await
 		});
 
@@ -674,57 +637,12 @@ mod tests {
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 		let result = tokio::time::timeout(
 			Duration::from_millis(300),
-			scheduling_info.wait_for_scheduling_parent(
-				&mut cache,
-				false,
-				Slot::from(current_slot),
-				0,
-				far_deadline(),
-			),
+			scheduling_info.wait_for_scheduling_parent(&mut cache, false, Slot::from(current_slot)),
 		)
 		.await
 		.expect("Should return immediately, not timeout");
 
 		assert_eq!(result, Some((headers[4].clone(), false)));
-	}
-
-	/// At `relay_parent_offset >= 1`, hedging covers a losing pick, so the wait only settles once
-	/// a finished-height best arrives; a view a whole slot behind still blocks (with a far deadline
-	/// so this exercises the wait, not the fallback).
-	#[tokio::test]
-	async fn v3_blocks_until_the_scheduling_parent_is_settled() {
-		let (mut client, mut cache, headers) =
-			build_v3_chain_with_slots(&[PRODUCTION_SLOT - 2, PRODUCTION_SLOT - 1, PRODUCTION_SLOT]);
-		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-		client.set_best_hash(None);
-		client.set_best_notifications(Box::pin(rx));
-		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::ZERO);
-		scheduling_info.ensure_initialized(&client, &mut cache).await;
-
-		let mut handle = tokio::spawn(async move {
-			scheduling_info
-				.wait_for_scheduling_parent(
-					&mut cache,
-					true,
-					Slot::from(PRODUCTION_SLOT),
-					1,
-					far_deadline(),
-				)
-				.await
-		});
-
-		tx.unbounded_send(headers[0].clone()).unwrap();
-		assert!(
-			tokio::time::timeout(Duration::from_millis(300), &mut handle).await.is_err(),
-			"the claim must not settle yet"
-		);
-
-		tx.unbounded_send(headers[1].clone()).unwrap();
-		let result = tokio::time::timeout(Duration::from_secs(2), handle)
-			.await
-			.expect("must settle, not hang")
-			.expect("must not panic");
-		assert_eq!(result, Some((headers[1].clone(), true)));
 	}
 
 	#[tokio::test]
@@ -743,13 +661,7 @@ mod tests {
 
 		let mut handle = tokio::spawn(async move {
 			scheduling_info
-				.wait_for_scheduling_parent(
-					&mut cache,
-					true,
-					Slot::from(PRODUCTION_SLOT),
-					1,
-					far_deadline(),
-				)
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
 				.await
 		});
 
@@ -786,13 +698,7 @@ mod tests {
 		tx.unbounded_send(headers[3].clone()).unwrap();
 		let result = tokio::time::timeout(Duration::from_millis(300), async {
 			scheduling_info
-				.wait_for_scheduling_parent(
-					&mut cache,
-					true,
-					Slot::from(PRODUCTION_SLOT),
-					1,
-					far_deadline(),
-				)
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
 				.await
 		})
 		.await
@@ -810,13 +716,7 @@ mod tests {
 		tx.unbounded_send(headers[3].clone()).unwrap();
 		let result = tokio::time::timeout(Duration::from_millis(300), async {
 			scheduling_info
-				.wait_for_scheduling_parent(
-					&mut cache,
-					true,
-					Slot::from(PRODUCTION_SLOT),
-					1,
-					far_deadline(),
-				)
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
 				.await
 		})
 		.await
@@ -828,13 +728,7 @@ mod tests {
 		tx.unbounded_send(headers[4].clone()).unwrap();
 		let result = tokio::time::timeout(Duration::from_millis(300), async {
 			scheduling_info
-				.wait_for_scheduling_parent(
-					&mut cache,
-					true,
-					Slot::from(PRODUCTION_SLOT),
-					1,
-					far_deadline(),
-				)
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
 				.await
 		})
 		.await
@@ -863,106 +757,6 @@ mod tests {
 		}
 
 		(client, cache, headers)
-	}
-
-	/// The V3 wait for a fresher block at `relay_parent_offset >= 1` is bounded by `wait_deadline`,
-	/// so an empty relay slot (P-1 missing) falls back to the current best instead of hanging; at
-	/// offset 0 there is no wait regardless of the deadline.
-	#[tokio::test]
-	async fn v3_scheduling_parent_wait_is_bounded() {
-		// (a) short deadline, no further notification: falls back to the current best.
-		{
-			let (mut client, mut cache, headers) =
-				build_v3_chain_with_slots(&[PRODUCTION_SLOT - 2, PRODUCTION_SLOT]);
-			let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-			client.set_best_hash(None);
-			client.set_best_notifications(Box::pin(rx));
-			let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::ZERO);
-			scheduling_info.ensure_initialized(&client, &mut cache).await;
-			tx.unbounded_send(headers[0].clone()).unwrap();
-
-			let deadline = tokio::time::Instant::now() + Duration::from_millis(300);
-			let mut handle = tokio::spawn(async move {
-				scheduling_info
-					.wait_for_scheduling_parent(
-						&mut cache,
-						true,
-						Slot::from(PRODUCTION_SLOT),
-						1,
-						deadline,
-					)
-					.await
-			});
-			assert!(
-				tokio::time::timeout(Duration::from_millis(100), &mut handle).await.is_err(),
-				"must still be waiting for a fresher block"
-			);
-			let result = tokio::time::timeout(Duration::from_secs(2), handle)
-				.await
-				.expect("must settle after the deadline, not hang")
-				.expect("must not panic");
-			assert_eq!(result, Some((headers[0].clone(), true)));
-		}
-
-		// (b) far deadline, a fresher block arrives: walks back from it to the current best.
-		{
-			let (mut client, mut cache, headers) =
-				build_v3_chain_with_slots(&[PRODUCTION_SLOT - 2, PRODUCTION_SLOT]);
-			let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-			client.set_best_hash(None);
-			client.set_best_notifications(Box::pin(rx));
-			let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::ZERO);
-			scheduling_info.ensure_initialized(&client, &mut cache).await;
-			tx.unbounded_send(headers[0].clone()).unwrap();
-
-			let mut handle = tokio::spawn(async move {
-				scheduling_info
-					.wait_for_scheduling_parent(
-						&mut cache,
-						true,
-						Slot::from(PRODUCTION_SLOT),
-						1,
-						far_deadline(),
-					)
-					.await
-			});
-			assert!(
-				tokio::time::timeout(Duration::from_millis(200), &mut handle).await.is_err(),
-				"must wait for a fresher block"
-			);
-			tx.unbounded_send(headers[1].clone()).unwrap();
-			let result = tokio::time::timeout(Duration::from_millis(300), handle)
-				.await
-				.expect("must settle, not hang")
-				.expect("must not panic");
-			assert_eq!(result, Some((headers[0].clone(), true)));
-		}
-
-		// (c) offset 0: never waits, regardless of the deadline.
-		{
-			let (mut client, mut cache, headers) =
-				build_v3_chain_with_slots(&[PRODUCTION_SLOT - 2, PRODUCTION_SLOT]);
-			let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-			client.set_best_hash(None);
-			client.set_best_notifications(Box::pin(rx));
-			let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::ZERO);
-			scheduling_info.ensure_initialized(&client, &mut cache).await;
-			tx.unbounded_send(headers[0].clone()).unwrap();
-
-			let result = tokio::time::timeout(
-				Duration::from_millis(300),
-				scheduling_info.wait_for_scheduling_parent(
-					&mut cache,
-					true,
-					Slot::from(PRODUCTION_SLOT),
-					0,
-					far_deadline(),
-				),
-			)
-			.await
-			.expect("must return immediately, not timeout");
-			assert_eq!(result, Some((headers[0].clone(), true)));
-		}
 	}
 
 	/// The import buffer records every imported head, deduplicates by hash, excludes the chosen
@@ -1125,8 +919,6 @@ mod tests {
 				&mut cache,
 				true,
 				Slot::from(PRODUCTION_SLOT),
-				1,
-				far_deadline(),
 			),
 		)
 		.await

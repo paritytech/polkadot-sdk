@@ -751,10 +751,11 @@ fn hedge_context<'a>(
 		para_id: ParaId::from(1),
 		claim_queue_offset: 0,
 		core_indices: &HEDGE_CORES,
-		// `hedge_base_and_chosen` puts `chosen` at BABE slot 101.
-		production_slot: Slot::from(102),
 	}
 }
+
+/// `hedge_base_and_chosen` puts `chosen` at BABE slot 101.
+const HEDGE_PRODUCTION_SLOT: u64 = 102;
 
 /// Hedging is off outside V3 and at `relay_parent_offset == 0` (where the scheduling parent *is*
 /// the relay parent). The last case pins the fixture down, so the others cannot pass vacuously.
@@ -765,10 +766,10 @@ async fn sp_hedge_chains_respects_its_gates() {
 	sibling.state_root = [7u8; 32].into();
 
 	for (v3_enabled, offset, expected) in [(false, 1, 0), (true, 0, 0), (true, 1, 1)] {
-		let (mut cache, mut scheduling_info, _tx) = hedge_setup(&base, &[sibling.clone()]);
+		let (mut cache, scheduling_info, _tx) = hedge_setup(&base, &[sibling.clone()]);
 		let hedged = resolve_hedge_chains(
 			&mut cache,
-			&mut scheduling_info,
+			scheduling_info.siblings_at(&chosen, Slot::from(HEDGE_PRODUCTION_SLOT)),
 			&hedge_context(&chosen, base.hash(), v3_enabled, offset),
 		)
 		.await;
@@ -790,16 +791,16 @@ async fn sp_hedge_chains_caps_siblings() {
 		})
 		.collect();
 
-	let (mut cache, mut scheduling_info, _tx) = hedge_setup(&base, &primaries);
+	let (mut cache, scheduling_info, _tx) = hedge_setup(&base, &primaries);
 	let capped = resolve_hedge_chains(
 		&mut cache,
-		&mut scheduling_info,
+		scheduling_info.siblings_at(&chosen, Slot::from(HEDGE_PRODUCTION_SLOT)),
 		&hedge_context(&chosen, base.hash(), true, 1),
 	)
 	.await;
 	primaries.sort_by_key(|header| header.hash());
 	assert_eq!(
-		capped.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+		capped.iter().map(|chain| chain[0].hash()).collect::<Vec<_>>(),
 		primaries.iter().take(MAX_HEDGED_SIBLINGS).map(|h| h.hash()).collect::<Vec<_>>(),
 	);
 }
@@ -817,16 +818,19 @@ async fn import_stream_sibling_is_accepted_as_hedge() {
 	let mut reassigned = chosen.clone();
 	reassigned.state_root = [8u8; 32].into();
 
-	let (mut cache, mut scheduling_info, _tx) =
+	let (mut cache, scheduling_info, _tx) =
 		hedge_setup(&base, &[sibling.clone(), forked, reassigned.clone()]);
 	cache.set_test_data(other_base, vec![], v3_node_features());
 	cache.set_test_data(reassigned, vec![CoreIndex(1)], v3_node_features());
 
 	let hedged = resolve_hedge_chains(
 		&mut cache,
-		&mut scheduling_info,
+		scheduling_info.siblings_at(&chosen, Slot::from(HEDGE_PRODUCTION_SLOT)),
 		&hedge_context(&chosen, base.hash(), true, 1),
 	)
 	.await;
-	assert_eq!(hedged.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![sibling.hash()]);
+	assert_eq!(
+		hedged.iter().map(|chain| chain[0].hash()).collect::<Vec<_>>(),
+		vec![sibling.hash()]
+	);
 }
