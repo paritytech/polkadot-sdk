@@ -173,8 +173,8 @@ struct Anchor {
 /// The fixed JAMKB supply, minted at `initialize`.
 const CAP: Balance;
 
-type AllocationId = u64;
-type OperationId = u64;
+type AllocationId = u64;              // assigned from 1;
+type OperationId = u64;               // assigned from 1;
 
 /// A JAM service index.
 type ServiceId = u32;
@@ -460,7 +460,8 @@ fn grant(beneficiary: AccountId, amount: Balance);
 
 /// Approves a permanent release to `target`. Origin: governance (Root).
 /// Records `Allocation{mode: Permanent, state: Approved}` and holds `amount`
-/// on custody (§3.3). Rejected when `target` is the Parachain Service.
+/// on custody (§3.3). `valid_from` `None` means the current block. Rejected
+/// when `target` is the Parachain Service.
 fn approve_release(target: ServiceId, amount: Balance,
                    valid_from: Option<BlockNumber>, valid_for: BlockNumber);
 
@@ -479,8 +480,9 @@ fn redeem(amount: Balance, target: ServiceId);
 /// Offers a lease of `amount` to `target` for `duration`. Origin: a token
 /// holder or governance. Records `Allocation{mode: Lease, state: Approved}`
 /// and holds `amount` on the approver's account, or on custody when the
-/// approver is governance (§3.3). Rejected if the target has no service
-/// account or is the Parachain Service.
+/// approver is governance (§3.3). `valid_from` `None` means the current
+/// block. Rejected if the target has no service account or is the Parachain
+/// Service.
 fn offer_lease(target: ServiceId, amount: Balance, duration: BlockNumber,
                valid_from: Option<BlockNumber>, valid_for: BlockNumber);
 
@@ -591,10 +593,50 @@ Contracts reach the pallet through a precompile at a fixed address. It
 exposes the calls open to a signed account and returns the new allocation or
 operation id, since a contract cannot read events. It also exposes the reads a
 contract needs. Each function runs the pallet call of the same name with the
-caller as origin.
+caller as origin. A function that returns an `opId` records an operation
+whose outcome is applied by `settle`. A failed call reverts with the pallet
+error name as the reason.
 
 ```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+address constant JAMKB_ADDR = 0x0000000000000000000000000000000000000903;
+
 interface IJamkb {
+    enum AllocationState { Approved, Delivering, Delivered, Reclaiming, Closed }
+    enum AllocationMode { Lease, Permanent }
+    enum OperationKind {
+        Delivery, Increase, Redemption, Reclaim, Freeze, Unfreeze, Cleanup,
+        Forget, Eject, Unsupervise, Refund
+    }
+    enum OperationState { Requested, Submitted, Confirmed, Failed }
+
+    struct Allocation {
+        uint64 id;
+        AllocationState state;
+        AllocationMode mode;
+        uint32 target;
+        uint128 amount;
+        address approver;      // address(0) for governance
+        uint32 deliveredAt;    // 0: not delivered
+        uint32 duration;       // 0 for Permanent
+        uint32 validFrom;
+        uint32 expiresAt;
+    }
+
+    struct Operation {
+        uint64 id;
+        OperationKind kind;
+        OperationState state;
+        uint64 allocationId;   // 0 when the operation has none
+        uint32 target;         // the payload's target, else the allocation's
+                               // target, else the refund's source
+        uint128 amount;        // the payload's amount, additional or leased,
+                               // else 0
+        uint32 submittedAt;    // 0: not yet sent
+    }
+
     // -- Permanent release --
     function executeRelease(uint64 allocationId) external returns (uint64 opId);
     function redeem(uint128 amount, uint32 target) external returns (uint64 opId);
@@ -626,25 +668,16 @@ interface IJamkb {
 
     // -- Shared --
     function cancelAllocation(uint64 allocationId) external;
-    function settle(uint64 opId) external;
+    /// Returns the operation's state after the call.
+    function settle(uint64 opId) external returns (OperationState state);
 
-    // -- Reads --
-    /// state: 0 Approved, 1 Delivering, 2 Delivered, 3 Reclaiming, 4 Closed.
-    /// mode: 0 Lease, 1 Permanent. `approver` is address(0) for governance.
-    function allocation(uint64 allocationId) external view
-        returns (uint8 state, uint8 mode, uint32 target, uint128 amount,
-                 address approver, uint32 deliveredAt, uint32 duration,
-                 uint32 validFrom, uint32 expiresAt);
-    /// kind: the `OperationPayload` variant index. state: 0 Requested,
-    /// 1 Submitted, 2 Confirmed, 3 Failed. `allocationId` is 0 when the
-    /// operation has none.
-    function operation(uint64 opId) external view
-        returns (uint8 kind, uint8 state, uint64 allocationId, uint32 target,
-                 uint128 amount, uint32 submittedAt);
-    function claimable(address beneficiary) external view returns (uint128);
+    // -- Reads. allocation() and operation() revert for an unknown id. --
+    function allocation(uint64 allocationId) external view returns (Allocation memory);
+    function operation(uint64 opId) external view returns (Operation memory);
+    function claimableOf(address beneficiary) external view returns (uint128);
     function serviceAccount(uint32 target) external view returns (address);
     function isFrozen(uint32 target) external view returns (bool);
-    function leases(uint32 target) external view returns (uint64[] memory allocationIds);
+    function leasesOf(uint32 target) external view returns (uint64[] memory allocationIds);
     function gracePeriod() external view returns (uint32);
     function maxLeasesPerTarget() external view returns (uint32);
     function recoveryDeposit() external view returns (uint128);
