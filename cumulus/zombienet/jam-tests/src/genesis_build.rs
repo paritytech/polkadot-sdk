@@ -185,9 +185,12 @@ pub fn polkavm_env() -> Vec<(&'static str, &'static str)> {
 /// The environment of a JAM node. Its refine runs the parachain service, and on the interpreter
 /// one package takes about a whole six-second slot, so a para on two cores never gets its
 /// packages reported in time. The recompiler is used whenever its Linux sandbox can start, which
-/// needs `vm.unprivileged_userfaultfd = 1`.
+/// needs `vm.unprivileged_userfaultfd = 1`, or in the generic sandbox when the run sets
+/// `POLKAVM_SANDBOX=generic` (only for a polkajam built with polkavm's `generic-sandbox`).
 pub fn jam_node_env() -> Vec<(&'static str, &'static str)> {
-	let backend = if userfaultfd_available() {
+	let generic_sandbox =
+		std::env::var("POLKAVM_SANDBOX").is_ok_and(|sandbox| sandbox == "generic");
+	let backend = if userfaultfd_available() || generic_sandbox {
 		"compiler"
 	} else {
 		log::warn!(
@@ -196,7 +199,12 @@ pub fn jam_node_env() -> Vec<(&'static str, &'static str)> {
 		);
 		"interpreter"
 	};
-	vec![("POLKAVM_BACKEND", backend), ("POLKAVM_ALLOW_INSECURE", "1"), ("RUST_LOG", "debug")]
+	let mut env =
+		vec![("POLKAVM_BACKEND", backend), ("POLKAVM_ALLOW_INSECURE", "1"), ("RUST_LOG", "debug")];
+	if generic_sandbox {
+		env.extend([("POLKAVM_SANDBOX", "generic"), ("POLKAVM_ALLOW_EXPERIMENTAL", "1")]);
+	}
+	env
 }
 
 fn userfaultfd_available() -> bool {

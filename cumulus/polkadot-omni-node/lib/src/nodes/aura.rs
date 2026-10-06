@@ -49,8 +49,7 @@ use cumulus_client_consensus_aura::{
 use cumulus_client_consensus_common as consensus_common;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_jam_work_package_recovery::{
-	ImportBlocksSink, JamWorkPackageRecovery, RecoveredBlock, RecoveryDelayRange,
-	RpcBundleRecovery, WorkReportNotification,
+	ImportBlocksSink, JamWorkPackageRecovery, RecoveredBlock, RecoveryDelayRange, RpcBundleRecovery,
 };
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_primitives_core::{
@@ -867,8 +866,6 @@ where
 				);
 				let recovery_delay_range =
 					RecoveryDelayRange { min: para_slot_ms / 2, max: para_slot_ms };
-				let (work_report_tx, work_report_rx) =
-					futures::channel::mpsc::channel::<WorkReportNotification<Block>>(64);
 				// The same ledger the collation task writes: the recovered bundle holds the
 				// author's own signed package, so its hash is authentic and can be recorded.
 				let wp_hash_ledger = jam::hash_ledger::WpHashLedger::new(client.clone());
@@ -880,7 +877,10 @@ where
 							format!("recording the recovered work-package hash: {error}")
 						})
 					}),
-					work_report_rx,
+					Box::new((*jam).clone()),
+					Box::new((*jam).clone()),
+					jam_params.service_id,
+					para_id.into(),
 				);
 				let block_status_fn = {
 					let client = client.clone();
@@ -890,20 +890,37 @@ where
 				};
 				let import_notifications =
 					client.import_notification_stream().map(|n| n.hash).boxed();
-				let finality_notifications =
-					client.finality_notification_stream().map(|n| *n.header.number()).boxed();
+				// Bundles are only served to JAM validators, so recovery may need its own endpoint.
+				let bundle_source = if jam_params.recovery_rpc_urls == jam_params.rpc_urls {
+					(*jam).clone()
+				} else {
+					match JamRpcInterface::new(jam_params.recovery_rpc_urls.clone()).await {
+						Ok((recovery_jam, recovery_worker)) => {
+							spawn_essential.spawn_essential(
+								"jam-recovery-rpc-worker",
+								Some("jam"),
+								Box::pin(recovery_worker),
+							);
+							recovery_jam
+						},
+						Err(error) => {
+							log::error!(
+								"Unable to connect to any JAM recovery RPC url: {error}; recovering \
+								 through `--jam-rpc-urls` instead."
+							);
+							(*jam).clone()
+						},
+					}
+				};
 				spawn_essential.spawn(
 					"cumulus-jam-wp-recovery",
 					None,
 					Box::pin(recovery.run(
-						Box::new(RpcBundleRecovery::new((*jam).clone())),
+						Box::new(RpcBundleRecovery::new(bundle_source)),
 						block_status_fn,
 						import_notifications,
-						finality_notifications,
 					)),
 				);
-				let _work_report_tx = work_report_tx;
-
 				let Some(jam_authorizer) = jam_authorizer else {
 					// Essential task: park forever, returning would shut the node down.
 					return futures::future::pending::<()>().await;

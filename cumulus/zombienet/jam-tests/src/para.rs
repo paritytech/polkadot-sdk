@@ -57,6 +57,8 @@ pub struct Para {
 	/// its name by zombienet — see [`chain_spec::account_of`] — so a name is all the harness
 	/// needs to know which key a running collator will hold.
 	pub collators: Vec<String>,
+	/// Para full nodes: spawned next to the collators, but not part of the AURA set.
+	pub full_nodes: Vec<String>,
 	/// The PolkaVM runtime blob this para validates with *and* its collators execute. `None`
 	/// means the run's default, [`Binaries::runtime_wasm`](crate::env::Binaries::runtime_wasm)
 	/// from `RUNTIME_WASM` — the one blob every para shared before a para could choose its own.
@@ -75,6 +77,7 @@ impl Para {
 			core,
 			also_cores: Vec::new(),
 			collators: collators.iter().map(|name| name.to_string()).collect(),
+			full_nodes: Vec::new(),
 			runtime: None,
 		}
 	}
@@ -87,8 +90,15 @@ impl Para {
 			core: 0,
 			also_cores: Vec::new(),
 			collators: (0..count).map(chain_spec::dev_name).collect(),
+			full_nodes: Vec::new(),
 			runtime: None,
 		}
+	}
+
+	/// Also run the full nodes `names` for this para.
+	pub fn with_full_nodes(mut self, names: &[&str]) -> Self {
+		self.full_nodes.extend(names.iter().map(|name| name.to_string()));
+		self
 	}
 
 	/// Validate this para with `runtime` — its JAM validation code and the blob its collators

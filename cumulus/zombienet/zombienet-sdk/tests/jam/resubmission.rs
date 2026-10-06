@@ -152,6 +152,7 @@ async fn spawn_proxied_network(
 						.contains(name)
 						.then(|| format!("ws://127.0.0.1:{proxy_port}")),
 					p2p_port: Some(free_port()?),
+					args: Vec::new(),
 				},
 			))
 		})
@@ -159,6 +160,7 @@ async fn spawn_proxied_network(
 	let options = SpawnOptions {
 		cores: TINY_CORES,
 		ordinary_rpc_port: Some(jam_or_port),
+		validator_rpc_ports: Vec::new(),
 		collators: collator_options,
 		ready_timeout: Duration::from_secs(120),
 	};

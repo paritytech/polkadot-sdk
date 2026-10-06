@@ -205,6 +205,15 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = 1)]
 	pub jam_slot_duration: u32,
 
+	/// EXPERIMENTAL (JAM): JAM node JSON-RPC endpoints work-package recovery goes through.
+	///
+	/// Recovering a bundle needs a JAM validator: validators serve bundle shards only to other
+	/// validators. Defaults to `--jam-rpc-urls`.
+	///
+	/// TODO: Remove once https://github.com/zdave-parity/jam-np/issues/20 is solved.
+	#[arg(long, value_name = "URL", num_args = 1..)]
+	pub jam_recovery_rpc_urls: Vec<url::Url>,
+
 	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
 	///
 	/// Use slot-based collator which can handle elastic scaling.
@@ -300,6 +309,8 @@ pub struct Cli<Config: CliConfig> {
 pub struct JamNodeParams {
 	/// The JAM node JSON-RPC endpoints.
 	pub rpc_urls: Vec<url::Url>,
+	/// The JAM node JSON-RPC endpoints work-package recovery goes through.
+	pub recovery_rpc_urls: Vec<url::Url>,
 	/// Id of the parachain service on the JAM chain.
 	pub service_id: u32,
 	/// The AURA authorizer blob whose hash the para's cores run.
@@ -379,6 +390,11 @@ impl<Config: CliConfig> Cli<Config> {
 		};
 		Ok(Some(JamNodeParams {
 			rpc_urls: self.run.jam_rpc_urls.clone(),
+			recovery_rpc_urls: if self.jam_recovery_rpc_urls.is_empty() {
+				self.run.jam_rpc_urls.clone()
+			} else {
+				self.jam_recovery_rpc_urls.clone()
+			},
 			service_id,
 			authorizer_blob,
 			slot_duration: self.jam_slot_duration,

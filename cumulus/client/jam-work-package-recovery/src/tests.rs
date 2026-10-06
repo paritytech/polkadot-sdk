@@ -5,17 +5,21 @@
 use crate::{
 	bundle_decode::decode_bundle,
 	state_machine::{
-		ImportBlocksSink, JamWorkPackageRecovery, RecoveredBlock, WorkReportNotification,
+		decode_reported_head, ImportBlocksSink, JamWorkPackageRecovery, PendingReport,
+		RecoveredBlock,
 	},
 	RecoveryDelayRange, RecoveryQueue,
 };
 use codec::Encode;
-use cumulus_jam_interface::{WorkPackageHash, WorkReportHash};
+use cumulus_jam_interface::{
+	BlockDesc, HeaderHash, JamChainSource, JamStateSource, ServiceId, WorkPackageHash, WorkReport,
+	WorkReportHash,
+};
 use cumulus_primitives_core::{ParachainBlockData, SchedulingProof};
 use jam_std_common::{build_encoded_bundle, hash_raw};
 use jam_types::{
-	Authorization, Authorizer, CodeHash, Encode as _, ExtrinsicSpec, RefineContext, WorkItem,
-	WorkPackage, WorkPayload,
+	Authorization, Authorizer, CodeHash, Encode as _, ExtrinsicSpec, RefineContext, WorkDigest,
+	WorkItem, WorkOutput, WorkPackage, WorkPayload,
 };
 use parachain_service_core::{candidate::ParachainCandidate, types::ValidationCodeHash};
 use sp_consensus::BlockStatus;
@@ -78,6 +82,106 @@ impl ImportBlocksSink<TestBlock> for MockImportSink {
 	}
 }
 
+/// Stub `JamChainSource` that panics on every call — tests never reach the chain source
+/// because they insert pending reports and trigger recovery directly.
+struct StubChainSource;
+
+#[async_trait::async_trait]
+impl JamChainSource for StubChainSource {
+	async fn best_block(&self) -> cumulus_jam_interface::Result<BlockDesc> {
+		unimplemented!("stub")
+	}
+	async fn finalized_block(&self) -> cumulus_jam_interface::Result<BlockDesc> {
+		unimplemented!("stub")
+	}
+	async fn best_block_stream(
+		&self,
+	) -> cumulus_jam_interface::Result<cumulus_jam_interface::BoxStream<'static, BlockDesc>> {
+		unimplemented!("stub")
+	}
+	async fn finalized_block_stream(
+		&self,
+	) -> cumulus_jam_interface::Result<cumulus_jam_interface::BoxStream<'static, BlockDesc>> {
+		unimplemented!("stub")
+	}
+	async fn parent(&self, _: HeaderHash) -> cumulus_jam_interface::Result<BlockDesc> {
+		unimplemented!("stub")
+	}
+	async fn state_root(
+		&self,
+		_: HeaderHash,
+	) -> cumulus_jam_interface::Result<cumulus_jam_interface::StateRootHash> {
+		unimplemented!("stub")
+	}
+	async fn beefy_root(
+		&self,
+		_: HeaderHash,
+	) -> cumulus_jam_interface::Result<cumulus_jam_interface::MmrPeakHash> {
+		unimplemented!("stub")
+	}
+	async fn parameters(
+		&self,
+	) -> cumulus_jam_interface::Result<cumulus_jam_interface::VersionedParameters> {
+		unimplemented!("stub")
+	}
+}
+
+/// Stub `JamStateSource` — same reasoning as `StubChainSource`.
+struct StubStateSource;
+
+#[async_trait::async_trait]
+impl JamStateSource for StubStateSource {
+	async fn state_value(
+		&self,
+		_: HeaderHash,
+		_: cumulus_jam_interface::StorageKey,
+	) -> cumulus_jam_interface::Result<Option<Vec<u8>>> {
+		unimplemented!("stub")
+	}
+	async fn state_value_stream(
+		&self,
+		_: cumulus_jam_interface::StorageKey,
+		_: bool,
+	) -> cumulus_jam_interface::Result<
+		cumulus_jam_interface::BoxStream<
+			'static,
+			cumulus_jam_interface::ChainSubUpdate<Option<Vec<u8>>>,
+		>,
+	> {
+		unimplemented!("stub")
+	}
+	async fn state_proof(
+		&self,
+		_: HeaderHash,
+		_: cumulus_jam_interface::StorageKey,
+		_: cumulus_jam_interface::StorageKey,
+		_: u32,
+	) -> cumulus_jam_interface::Result<cumulus_jam_interface::RangeProof> {
+		unimplemented!("stub")
+	}
+	async fn service_value(
+		&self,
+		_: HeaderHash,
+		_: cumulus_jam_interface::ServiceId,
+		_: &[u8],
+	) -> cumulus_jam_interface::Result<Option<Vec<u8>>> {
+		unimplemented!("stub")
+	}
+	async fn service_value_stream(
+		&self,
+		_: cumulus_jam_interface::ServiceId,
+		_: &[u8],
+		_: bool,
+	) -> cumulus_jam_interface::Result<
+		cumulus_jam_interface::BoxStream<
+			'static,
+			cumulus_jam_interface::ChainSubUpdate<Option<Vec<u8>>>,
+		>,
+	> {
+		unimplemented!("stub")
+	}
+}
+
 fn make_test_sm(
 	imported: Arc<std::sync::Mutex<Vec<TestHash>>>,
 ) -> JamWorkPackageRecovery<TestBlock> {
@@ -88,13 +192,62 @@ fn make_test_sm_with_recorder(
 	imported: Arc<std::sync::Mutex<Vec<TestHash>>>,
 	on_recovered: Box<dyn Fn(TestHash, WorkPackageHash) -> Result<(), String> + Send + Sync>,
 ) -> JamWorkPackageRecovery<TestBlock> {
-	let (_, rx) = futures::channel::mpsc::channel(10);
 	JamWorkPackageRecovery::new(
 		RecoveryDelayRange { min: Duration::ZERO, max: Duration::ZERO },
 		Box::new(MockImportSink { imported }),
 		on_recovered,
-		rx,
+		Box::new(StubChainSource),
+		Box::new(StubStateSource),
+		SERVICE_ID,
+		PARA_ID,
 	)
+}
+
+const SERVICE_ID: ServiceId = 7;
+const PARA_ID: u32 = 2000;
+
+/// Insert a pending report directly into the state machine — the test equivalent of what
+/// `discover_work_reports` does at runtime.
+fn insert_pending(sm: &mut JamWorkPackageRecovery<TestBlock>, report_hash: WorkReportHash) {
+	sm.outstanding
+		.insert(report_hash, PendingReport { assurance_epoch: 0, block_hash: Default::default() });
+	sm.recovery_queue.push_recovery(report_hash);
+}
+
+/// The refine output the parachain service produces for a block of `para_id` with `head`:
+/// `ParachainWorkDigest::Ok { para_id, validation_code, parent_head_hash, head_data, .. }`.
+fn refine_output(para_id: u32, head: TestHash) -> Vec<u8> {
+	// Upward messages and the lookup-anchor slot follow the head; the decoder ignores them.
+	Encode::encode(&(0u8, para_id, [1u8; 32], [2u8; 32], head.encode(), Vec::<u8>::new(), 5u32))
+}
+
+/// A report as JAM availability holds it, refined by `service` with `output`.
+fn report_with(byte: u8, service: ServiceId, output: Vec<u8>) -> WorkReport {
+	let digest = WorkDigest {
+		service,
+		code_hash: Default::default(),
+		payload_hash: Default::default(),
+		accumulate_gas: 0,
+		result: Ok(WorkOutput(output)),
+		refine_load: Default::default(),
+	};
+	WorkReport {
+		package_spec: jam_std_common::WorkPackageSpec {
+			hash: WorkPackageHash::from([byte; 32]),
+			len: 0,
+			erasure_root: Default::default(),
+			erasure_shards: Default::default(),
+			exports_root: Default::default(),
+			exports_count: 0,
+		},
+		context: make_refine_context(),
+		core_index: 0,
+		authorizer_hash: Default::default(),
+		auth_gas_used: 0,
+		auth_output: Default::default(),
+		sr_lookup: Default::default(),
+		results: vec![digest].try_into().expect("a single digest always fits; qed"),
+	}
 }
 
 /// Collect the `(block_hash, work_package_hash)` pairs the recovery engine reports.
@@ -274,6 +427,7 @@ fn short_bundle_returns_error() {
 }
 
 // ── state-machine tests (5-8) ──────────────────────────────────────────────────
+
 /// Recovery success with known parent → block forwarded to the import sink.
 #[test]
 fn recovery_success_imports_block() {
@@ -285,11 +439,7 @@ fn recovery_success_imports_block() {
 	let mut sm = make_test_sm(imported.clone());
 	let hash = WorkReportHash::from([1u8; 32]);
 
-	sm.handle_work_report(WorkReportNotification {
-		report_hash: hash,
-		assurance_epoch: 0,
-		block_number: 1u64,
-	});
+	insert_pending(&mut sm, hash);
 	sm.handle_recovered_inner(hash, Ok(Some(bundle)), |_| BlockStatus::InChainWithState);
 
 	let guard = imported.lock().unwrap();
@@ -304,11 +454,7 @@ fn recovery_failure_retries_once_then_drops() {
 	let mut sm = make_test_sm(imported.clone());
 	let hash = WorkReportHash::from([2u8; 32]);
 
-	sm.handle_work_report(WorkReportNotification {
-		report_hash: hash,
-		assurance_epoch: 0,
-		block_number: 1u64,
-	});
+	insert_pending(&mut sm, hash);
 
 	// First failure: enters retry set, stays in outstanding.
 	sm.handle_recovered_inner(hash, Ok(None), |_| BlockStatus::Unknown);
@@ -338,11 +484,7 @@ fn parent_ordering_child_waits_then_imports_when_parent_arrives() {
 	let mut sm = make_test_sm(imported.clone());
 	let hash = WorkReportHash::from([3u8; 32]);
 
-	sm.handle_work_report(WorkReportNotification {
-		report_hash: hash,
-		assurance_epoch: 0,
-		block_number: 1u64,
-	});
+	insert_pending(&mut sm, hash);
 	// Parent unknown → deferred.
 	sm.handle_recovered_inner(hash, Ok(Some(bundle)), |_| BlockStatus::Unknown);
 	assert!(
@@ -358,35 +500,51 @@ fn parent_ordering_child_waits_then_imports_when_parent_arrives() {
 	assert_eq!(guard[0], block.hash());
 }
 
-/// Outstanding entries at or below the finalized height are discarded.
+/// A refine output of our para yields its id and head; one that is not an `Ok` digest does not.
 #[test]
-fn finalization_discards_candidates_at_or_below_height() {
+fn reported_head_decodes_the_parachain_digest() {
+	let head = TestHash::repeat_byte(0xab);
+	assert_eq!(
+		decode_reported_head::<TestHash>(&refine_output(PARA_ID, head)),
+		Some((PARA_ID, head))
+	);
+
+	let mut err_digest = refine_output(PARA_ID, head);
+	err_digest[0] = 1;
+	assert_eq!(decode_reported_head::<TestHash>(&err_digest), None);
+	assert_eq!(decode_reported_head::<TestHash>(&[0u8; 10]), None);
+}
+
+/// Only a report of our para whose block is unknown is scheduled, keyed by the report's own
+/// hash — the key JAM's `recoverBundle` looks the report up by.
+#[test]
+fn observe_report_schedules_only_unknown_blocks_of_our_para() {
 	let imported = Arc::new(std::sync::Mutex::new(vec![]));
 	let mut sm = make_test_sm(imported);
-	let hash_low = WorkReportHash::from([4u8; 32]);
-	let hash_high = WorkReportHash::from([5u8; 32]);
+	let unknown = TestHash::repeat_byte(1);
+	let known = TestHash::repeat_byte(2);
+	let status = |hash: TestHash| {
+		if hash == known {
+			BlockStatus::InChainWithState
+		} else {
+			BlockStatus::Unknown
+		}
+	};
 
-	sm.handle_work_report(WorkReportNotification {
-		report_hash: hash_low,
-		assurance_epoch: 0,
-		block_number: 5u64,
-	});
-	sm.handle_work_report(WorkReportNotification {
-		report_hash: hash_high,
-		assurance_epoch: 0,
-		block_number: 10u64,
-	});
+	let ours = report_with(1, SERVICE_ID, refine_output(PARA_ID, unknown));
+	let already_known = report_with(2, SERVICE_ID, refine_output(PARA_ID, known));
+	let other_para = report_with(3, SERVICE_ID, refine_output(PARA_ID + 1, unknown));
+	let other_service = report_with(4, SERVICE_ID + 1, refine_output(PARA_ID, unknown));
+	for report in [&ours, &already_known, &other_para, &other_service] {
+		sm.observe_report(report, 3, &status);
+	}
+	// Seen again in the next JAM block: not scheduled twice.
+	sm.observe_report(&ours, 3, &status);
 
-	sm.handle_finalized(7u64);
-
-	assert!(
-		!sm.outstanding.contains_key(&hash_low),
-		"height-5 candidate must be discarded at finalization 7"
-	);
-	assert!(
-		sm.outstanding.contains_key(&hash_high),
-		"height-10 candidate must survive finalization 7"
-	);
+	assert_eq!(sm.outstanding.len(), 1, "only our unknown block is scheduled");
+	let pending = sm.outstanding.get(&ours.hash()).expect("keyed by the report hash");
+	assert_eq!(pending.block_hash, unknown);
+	assert_eq!(pending.assurance_epoch, 3);
 }
 
 // ── recovered-hash recording tests (9-10) ──────────────────────────────────────
@@ -406,11 +564,7 @@ fn recovery_records_hash_in_ledger() {
 	let mut sm = make_test_sm_with_recorder(imported, hash_recorder(recorded.clone()));
 	let hash = WorkReportHash::from([6u8; 32]);
 
-	sm.handle_work_report(WorkReportNotification {
-		report_hash: hash,
-		assurance_epoch: 0,
-		block_number: 1u64,
-	});
+	insert_pending(&mut sm, hash);
 	sm.handle_recovered_inner(hash, Ok(Some(bundle)), |_| BlockStatus::InChainWithState);
 
 	let guard = recorded.lock().expect("mutex not poisoned; qed");
@@ -427,21 +581,13 @@ fn recovery_without_package_bytes_records_nothing() {
 	let mut sm = make_test_sm_with_recorder(imported, hash_recorder(recorded.clone()));
 
 	let missing = WorkReportHash::from([7u8; 32]);
-	sm.handle_work_report(WorkReportNotification {
-		report_hash: missing,
-		assurance_epoch: 0,
-		block_number: 1u64,
-	});
+	insert_pending(&mut sm, missing);
 	// Not in the DA layer yet: one retry, then dropped.
 	sm.handle_recovered_inner(missing, Ok(None), |_| BlockStatus::Unknown);
 	sm.handle_recovered_inner(missing, Ok(None), |_| BlockStatus::Unknown);
 
 	let garbage = WorkReportHash::from([8u8; 32]);
-	sm.handle_work_report(WorkReportNotification {
-		report_hash: garbage,
-		assurance_epoch: 0,
-		block_number: 1u64,
-	});
+	insert_pending(&mut sm, garbage);
 	sm.handle_recovered_inner(garbage, Ok(Some(vec![0xffu8; 10])), |_| BlockStatus::Unknown);
 
 	assert!(
@@ -470,11 +616,7 @@ fn recovery_continues_when_recording_fails() {
 	);
 	let hash = WorkReportHash::from([9u8; 32]);
 
-	sm.handle_work_report(WorkReportNotification {
-		report_hash: hash,
-		assurance_epoch: 0,
-		block_number: 1u64,
-	});
+	insert_pending(&mut sm, hash);
 	sm.handle_recovered_inner(hash, Ok(Some(bundle)), |_| BlockStatus::InChainWithState);
 
 	assert_eq!(
@@ -485,4 +627,38 @@ fn recovery_continues_when_recording_fails() {
 	let guard = imported.lock().expect("mutex not poisoned; qed");
 	assert_eq!(guard.len(), 1, "the block must be imported despite the failed write");
 	assert_eq!(guard[0], block.hash());
+}
+
+/// When a parent block is imported from outside the recovery engine (e.g. by the node's import
+/// pipeline), `handle_imported` drains every child that was waiting for that parent and imports
+/// them in sequence. This is the JAM equivalent of pov-recovery's import-while-recovering
+/// scenario: an unrelated import unblocks a pending recovery chain.
+#[test]
+fn import_drains_waiting_children() {
+	let parent_header = TestHeader::new_from_number(0);
+	let parent_hash = parent_header.hash();
+
+	let mut child_header = TestHeader::new_from_number(1);
+	child_header.parent_hash = parent_hash;
+	let child = TestBlock { header: child_header, extrinsics: vec![] };
+	let bundle = make_bundle_bytes(vec![child.clone()], vec![None], parent_header);
+
+	let imported = Arc::new(std::sync::Mutex::new(vec![]));
+	let mut sm = make_test_sm(imported.clone());
+
+	let hash = WorkReportHash::from([10u8; 32]);
+	insert_pending(&mut sm, hash);
+
+	// Recovery returns a block whose parent is unknown — deferred.
+	sm.handle_recovered_inner(hash, Ok(Some(bundle)), |_| BlockStatus::Unknown);
+	assert!(sm.waiting_for_parent.contains_key(&parent_hash), "child must wait for unknown parent");
+	assert_eq!(imported.lock().expect("mutex not poisoned; qed").len(), 0, "nothing imported yet");
+
+	// Parent arrives via import notification — drains the waiting child.
+	sm.handle_imported(parent_hash);
+
+	let guard = imported.lock().expect("mutex not poisoned; qed");
+	assert_eq!(guard.len(), 1, "deferred child must be imported after parent arrives");
+	assert_eq!(guard[0], child.hash(), "imported block must be the deferred child");
+	assert!(!sm.waiting_for_parent.contains_key(&parent_hash), "waiting entry must be drained");
 }

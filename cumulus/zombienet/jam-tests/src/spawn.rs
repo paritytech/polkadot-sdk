@@ -28,8 +28,13 @@ pub struct SpawnOptions {
 	pub cores: u16,
 	/// The ordinary node's RPC port, `None` lets zombienet pick one.
 	pub ordinary_rpc_port: Option<u16>,
-	/// Per-collator choices, keyed by collator name. A collator absent from the map takes the
-	/// defaults: `DEFAULT_JAM_RPC_URL` and a random p2p port.
+	/// RPC ports for the validators, by validator index; a validator without one serves no RPC.
+	///
+	/// polkajam only lets validators fetch bundle shards from each other, so a para node that
+	/// recovers work packages points its `--jam-recovery-rpc-urls` at a validator.
+	pub validator_rpc_ports: Vec<u16>,
+	/// Per-node choices, keyed by collator or full-node name. A node absent from the map takes
+	/// the defaults: `DEFAULT_JAM_RPC_URL`, a random p2p port and no extra arguments.
 	pub collators: HashMap<String, CollatorOptions>,
 	/// How long [`JamRpc::wait_ready`] may take before the spawn fails.
 	pub ready_timeout: Duration,
@@ -38,7 +43,13 @@ pub struct SpawnOptions {
 impl SpawnOptions {
 	/// The defaults for a network with `cores` cores: no pinned ports and no collator options.
 	pub fn new(cores: u16) -> Self {
-		Self { cores, ordinary_rpc_port: None, collators: HashMap::new(), ready_timeout: DEADLINE }
+		Self {
+			cores,
+			ordinary_rpc_port: None,
+			validator_rpc_ports: Vec::new(),
+			collators: HashMap::new(),
+			ready_timeout: DEADLINE,
+		}
 	}
 }
 
@@ -51,6 +62,8 @@ pub struct CollatorOptions {
 	/// A fixed p2p port. Pinning it also emits `--public-addr` for that port, so authority
 	/// discovery hands the collator's own loopback address back to its peers.
 	pub p2p_port: Option<u16>,
+	/// Arguments appended to the node's command line.
+	pub args: Vec<Arg>,
 }
 
 /// Spawn the JAM network `paras` describes, with `options` choosing the topology and the
@@ -101,10 +114,24 @@ pub async fn spawn(
 			_ => jam,
 		};
 		let jam = jam.with_genesis_overrides(genesis_overrides);
-		let jam = jam.with_validator(|node| node.with_name("jam0").with_env(jam_node_env()));
+		let validator_args = |index: usize| -> Vec<Arg> {
+			options
+				.validator_rpc_ports
+				.get(index)
+				.map(|port| {
+					// A validator serves no RPC unless asked to with `--rpc`.
+					vec!["--rpc".into(), Arg::Option("--rpc-port".into(), port.to_string())]
+				})
+				.unwrap_or_default()
+		};
+		let jam = jam.with_validator(|node| {
+			node.with_name("jam0").with_env(jam_node_env()).with_args(validator_args(0))
+		});
 		let jam = (1..validators).fold(jam, |jam, index| {
 			jam.with_validator(|node| {
-				node.with_name(&format!("jam{index}")).with_env(jam_node_env())
+				node.with_name(&format!("jam{index}"))
+					.with_env(jam_node_env())
+					.with_args(validator_args(index))
 			})
 		});
 		match options.ordinary_rpc_port {
@@ -133,8 +160,16 @@ pub async fn spawn(
 					.with_chain_spec_path(spec.clone())
 					.with_default_command(omni_node.as_str());
 				let first = collators.first().expect("a para names at least one collator; qed");
+				let extra_args = |name: &str| {
+					options
+						.collators
+						.get(name)
+						.map(|options| options.args.clone())
+						.unwrap_or_default()
+				};
 				let p = p.with_collator(|node| {
 					let mut args = collator_args(&authorizer_blob, &jam_rpc_url_overrides, first);
+					args.extend(extra_args(first));
 					let node = node.with_name(first.as_str()).with_env(polkavm_env());
 					let node =
 						match options.collators.get(first).and_then(|options| options.p2p_port) {
@@ -146,10 +181,11 @@ pub async fn spawn(
 						};
 					node.with_args(args)
 				});
-				collators[1..].iter().fold(p, |p, name| {
+				let p = collators[1..].iter().fold(p, |p, name| {
 					p.with_collator(|node| {
 						let mut args =
 							collator_args(&authorizer_blob, &jam_rpc_url_overrides, name);
+						args.extend(extra_args(name));
 						let node = node.with_name(name.as_str()).with_env(polkavm_env());
 						let node = match options
 							.collators
@@ -163,6 +199,19 @@ pub async fn spawn(
 							None => node,
 						};
 						node.with_args(args)
+					})
+				});
+				para.full_nodes.iter().fold(p, |p, name| {
+					// Neither a session key nor an invulnerable: the genesis must stay the one
+					// `genesis.rs` exported the head from and hashed the collator set of.
+					p.with_fullnode(|node| {
+						let mut args =
+							collator_args(&authorizer_blob, &jam_rpc_url_overrides, name);
+						args.extend(extra_args(name));
+						node.with_name(name.as_str())
+							.invulnerable(false)
+							.with_env(polkavm_env())
+							.with_args(args)
 					})
 				})
 			})

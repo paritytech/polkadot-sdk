@@ -142,6 +142,7 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 		SpawnOptions {
 			cores: TINY_CORES,
 			ordinary_rpc_port: None,
+			validator_rpc_ports: Vec::new(),
 			collators: HashMap::new(),
 			ready_timeout: Duration::from_secs(120),
 		},

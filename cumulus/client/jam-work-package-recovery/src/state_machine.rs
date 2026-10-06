@@ -18,18 +18,23 @@
 //! JAM work-package recovery state machine.
 //!
 //! Follows pov-recovery's architecture adapted for JAM: keyed by `WorkReportHash` rather than
-//! a relay-chain candidate hash, driven by a work-report notification channel.  The node wiring
-//! (todo 9) connects the notification streams from `sc-client-api`; this module is standalone.
+//! a relay-chain candidate hash. On every JAM best block the engine reads the availability
+//! assignments (state key C(10)), picks the reports refined for our para and schedules the
+//! recovery of every one whose block is not known locally.
 
 use crate::{
 	bundle_decode::{bundle_work_package_hash, decode_bundle},
 	JamBundleRecovery, RecoveryDelayRange, RecoveryQueue,
 };
-use cumulus_jam_interface::{EpochIndex, WorkPackageHash, WorkReportHash};
-use futures::{channel::mpsc::Receiver, FutureExt, Stream, StreamExt};
+use codec::{Decode, DecodeAll};
+use cumulus_jam_interface::{
+	EpochIndex, HeaderHash, JamChainSource, JamStateSource, ServiceId, Slot, VersionedParameters,
+	WorkPackageHash, WorkReport, WorkReportHash,
+};
+use futures::{FutureExt, Stream, StreamExt};
 use sp_additional_data::AdditionalData;
 use sp_consensus::BlockStatus;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 const LOG_TARGET: &str = "cumulus-jam-work-package-recovery";
@@ -62,37 +67,50 @@ pub trait ImportBlocksSink<Block: BlockT>: Send {
 pub type RecoveredHashFn<Block> =
 	Box<dyn Fn(<Block as BlockT>::Hash, WorkPackageHash) -> Result<(), String> + Send + Sync>;
 
-/// A work-report seen on the JAM chain that this node does not yet have locally.
-pub struct WorkReportNotification<Block: BlockT> {
-	/// Hash identifying the work report in the JAM DA layer.
-	pub report_hash: WorkReportHash,
-	/// Epoch in which the report was assured. Required by `recover_bundle`.
-	pub assurance_epoch: EpochIndex,
-	/// Expected parachain block number — used for finalization cleanup.
-	pub block_number: NumberFor<Block>,
+pub(crate) struct PendingReport<Block: BlockT> {
+	pub(crate) assurance_epoch: EpochIndex,
+	/// The para block the report carries, read from its refine output.
+	pub(crate) block_hash: Block::Hash,
 }
 
-pub(crate) struct PendingReport<Block: BlockT> {
-	assurance_epoch: EpochIndex,
-	block_number: NumberFor<Block>,
-	waiting_recovery: bool,
+/// The para id and head (the block's header hash) a parachain-service refine output carries.
+///
+/// The output is the SCALE-encoded `ParachainWorkDigest`; only its `Ok` variant (index 0) names
+/// a head: `para_id`, the validation code hash, the parent head hash, then the head data.
+pub(crate) fn decode_reported_head<Hash: Decode>(output: &[u8]) -> Option<(u32, Hash)> {
+	let mut input = output;
+	if u8::decode(&mut input).ok()? != 0 {
+		return None;
+	}
+	let para_id = u32::decode(&mut input).ok()?;
+	let _validation_code = <[u8; 32]>::decode(&mut input).ok()?;
+	let _parent_head_hash = <[u8; 32]>::decode(&mut input).ok()?;
+	let head_data = Vec::<u8>::decode(&mut input).ok()?;
+	Some((para_id, Hash::decode_all(&mut &head_data[..]).ok()?))
 }
 
 /// JAM work-package recovery state machine.
 ///
-/// For each work report observed on the JAM chain whose blocks are not yet local, this engine
-/// schedules randomised DA-layer bundle recovery, decodes the recovered bundle into parachain
-/// blocks, and imports them in parent-first order.  A single retry is attempted before a
-/// candidate is discarded.
+/// Reads the availability assignments of every new JAM best block to discover the work reports
+/// of our para. For each one whose block is not yet local, the engine schedules randomised
+/// DA-layer bundle recovery, decodes the recovered bundle into parachain blocks, and imports
+/// them in parent-first order. A single retry is attempted before a candidate is discarded.
 pub struct JamWorkPackageRecovery<Block: BlockT> {
 	pub(crate) outstanding: HashMap<WorkReportHash, PendingReport<Block>>,
-	recovery_queue: RecoveryQueue,
+	pub(crate) recovery_queue: RecoveryQueue,
 	/// Blocks that arrived but whose parent is not yet known; keyed by the missing parent hash.
 	pub(crate) waiting_for_parent: HashMap<Block::Hash, Vec<(Block, Option<AdditionalData>)>>,
 	pub(crate) reports_in_retry: HashSet<WorkReportHash>,
 	import_sink: Box<dyn ImportBlocksSink<Block>>,
 	on_recovered: RecoveredHashFn<Block>,
-	work_report_rx: Receiver<WorkReportNotification<Block>>,
+	jam_chain: Box<dyn JamChainSource>,
+	jam_state: Box<dyn JamStateSource>,
+	/// The parachain service whose reports carry our blocks.
+	service_id: ServiceId,
+	/// Our para; the service refines every para hosted by it.
+	para_id: u32,
+	/// The JAM epoch length, read once from the chain parameters.
+	epoch_period: Option<Slot>,
 }
 
 impl<Block: BlockT> JamWorkPackageRecovery<Block> {
@@ -101,7 +119,10 @@ impl<Block: BlockT> JamWorkPackageRecovery<Block> {
 		recovery_delay_range: RecoveryDelayRange,
 		import_sink: Box<dyn ImportBlocksSink<Block>>,
 		on_recovered: RecoveredHashFn<Block>,
-		work_report_rx: Receiver<WorkReportNotification<Block>>,
+		jam_chain: Box<dyn JamChainSource>,
+		jam_state: Box<dyn JamStateSource>,
+		service_id: ServiceId,
+		para_id: u32,
 	) -> Self {
 		Self {
 			outstanding: HashMap::new(),
@@ -110,30 +131,78 @@ impl<Block: BlockT> JamWorkPackageRecovery<Block> {
 			reports_in_retry: HashSet::new(),
 			import_sink,
 			on_recovered,
-			work_report_rx,
+			jam_chain,
+			jam_state,
+			service_id,
+			para_id,
+			epoch_period: None,
 		}
 	}
 
-	/// Observe a new work report; schedule its bundle for randomised recovery.
-	pub(crate) fn handle_work_report(&mut self, notif: WorkReportNotification<Block>) {
-		if self.outstanding.contains_key(&notif.report_hash) {
+	async fn epoch_period(&mut self) -> cumulus_jam_interface::Result<Slot> {
+		if let Some(epoch_period) = self.epoch_period {
+			return Ok(epoch_period);
+		}
+		let epoch_period = match self.jam_chain.parameters().await? {
+			VersionedParameters::V1(parameters) => parameters.epoch_period,
+		};
+		self.epoch_period = Some(epoch_period);
+		Ok(epoch_period)
+	}
+
+	/// Schedule recovery for the reports of our para JAM holds in availability at `at`.
+	pub(crate) async fn discover_work_reports(
+		&mut self,
+		at: HeaderHash,
+		block_status: &impl Fn(Block::Hash) -> BlockStatus,
+	) -> cumulus_jam_interface::Result<()> {
+		let epoch_period = self.epoch_period().await?;
+		let availability = self.jam_state.availability(at).await?;
+		for assignment in availability.iter().flatten() {
+			let assurance_epoch = assignment.guarantee.slot / epoch_period;
+			self.observe_report(assignment.report(), assurance_epoch, block_status);
+		}
+		Ok(())
+	}
+
+	/// Schedule the recovery of `report` if it carries a block of our para that is not known.
+	pub(crate) fn observe_report(
+		&mut self,
+		report: &WorkReport,
+		assurance_epoch: EpochIndex,
+		block_status: &impl Fn(Block::Hash) -> BlockStatus,
+	) {
+		let Some(output) = report
+			.results
+			.iter()
+			.find(|digest| digest.service == self.service_id)
+			.and_then(|digest| digest.result.as_ref().ok())
+		else {
+			return;
+		};
+		let Some((para_id, block_hash)) = decode_reported_head::<Block::Hash>(&output.0) else {
+			return;
+		};
+		if para_id != self.para_id {
 			return;
 		}
+		let report_hash = report.hash();
+		if self.outstanding.contains_key(&report_hash) ||
+			block_status(block_hash) != BlockStatus::Unknown
+		{
+			return;
+		}
+
 		tracing::debug!(
 			target: LOG_TARGET,
-			report_hash = ?notif.report_hash,
-			block_number = ?notif.block_number,
-			"Scheduling work-report for bundle recovery",
+			?report_hash,
+			?block_hash,
+			assurance_epoch,
+			"Scheduling recovery of a work-report whose block is not known locally",
 		);
-		self.outstanding.insert(
-			notif.report_hash,
-			PendingReport {
-				assurance_epoch: notif.assurance_epoch,
-				block_number: notif.block_number,
-				waiting_recovery: true,
-			},
-		);
-		self.recovery_queue.push_recovery(notif.report_hash);
+		self.outstanding
+			.insert(report_hash, PendingReport { assurance_epoch, block_hash });
+		self.recovery_queue.push_recovery(report_hash);
 	}
 
 	/// Handle a bundle recovery result.
@@ -147,24 +216,21 @@ impl<Block: BlockT> JamWorkPackageRecovery<Block> {
 		block_status_fn: impl Fn(Block::Hash) -> BlockStatus,
 	) {
 		let bytes = match result {
-			Err(e) => {
-				tracing::warn!(target: LOG_TARGET, ?report_hash, "Bundle recovery error: {e}; dropping");
-				self.outstanding.remove(&report_hash);
-				return;
-			},
-			Ok(None) => {
+			Ok(Some(b)) => b,
+			Ok(None) | Err(_) => {
+				if let Err(error) = &result {
+					tracing::debug!(target: LOG_TARGET, ?report_hash, "Bundle recovery error: {error}");
+				}
 				if self.reports_in_retry.insert(report_hash) {
 					tracing::debug!(target: LOG_TARGET, ?report_hash, "Bundle not available; retrying once");
 					self.recovery_queue.push_recovery(report_hash);
-					return;
 				} else {
 					tracing::warn!(target: LOG_TARGET, ?report_hash, "Bundle still unavailable; dropping");
 					self.reports_in_retry.remove(&report_hash);
 					self.outstanding.remove(&report_hash);
-					return;
 				}
+				return;
 			},
-			Ok(Some(b)) => b,
 		};
 
 		self.reports_in_retry.remove(&report_hash);
@@ -246,13 +312,12 @@ impl<Block: BlockT> JamWorkPackageRecovery<Block> {
 			recovered.push(RecoveredBlock { hash, header, body, additional_data });
 		}
 
-		tracing::debug!(target: LOG_TARGET, count = recovered.len(), "Importing recovered blocks");
+		tracing::debug!(
+			target: LOG_TARGET,
+			blocks = ?recovered.iter().map(|b| b.hash).collect::<Vec<_>>(),
+			"Importing blocks retrieved using JAM work-package recovery",
+		);
 		self.import_sink.import_blocks(recovered);
-	}
-
-	/// Discard outstanding reports at or below the finalized parachain block number.
-	pub(crate) fn handle_finalized(&mut self, finalized_number: NumberFor<Block>) {
-		self.outstanding.retain(|_, r| r.block_number > finalized_number);
 	}
 
 	/// A block was imported; drain any children that were waiting for it.
@@ -270,22 +335,44 @@ impl<Block: BlockT> JamWorkPackageRecovery<Block> {
 
 	/// Run the recovery engine until an input stream ends.
 	///
-	/// The caller (todo 9) connects the substrate notification streams from `sc-client-api`
-	/// and provides a `block_status` closure backed by `BlockBackend::block_status`.
+	/// Follows `best_block_stream` from the JAM chain source to discover new work reports, and
+	/// the substrate import notifications to drain blocks waiting for their parent.
 	pub async fn run(
 		mut self,
 		mut bundle_recovery: Box<dyn JamBundleRecovery>,
 		block_status: impl Fn(Block::Hash) -> BlockStatus,
 		import_notifications: impl Stream<Item = Block::Hash> + Unpin,
-		finality_notifications: impl Stream<Item = NumberFor<Block>> + Unpin,
 	) {
+		let best_block_stream = match self.jam_chain.best_block_stream().await {
+			Ok(s) => s.fuse(),
+			Err(e) => {
+				tracing::error!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Unable to open JAM best-block stream",
+				);
+				return;
+			},
+		};
+
 		let mut import_notifs = import_notifications.fuse();
-		let mut finality_notifs = finality_notifications.fuse();
+		futures::pin_mut!(best_block_stream);
 		loop {
 			let recover_hash = futures::select! {
-				notif = self.work_report_rx.next() => {
-					match notif {
-						Some(n) => { self.handle_work_report(n); None },
+				jam_block = best_block_stream.next() => {
+					match jam_block {
+						Some(b) => {
+							if let Err(e) =
+								self.discover_work_reports(b.header_hash, &block_status).await
+							{
+								tracing::warn!(
+									target: LOG_TARGET,
+									jam_hash = ?b.header_hash,
+									"discover_work_reports failed: {e:?}",
+								);
+							}
+							None
+						},
 						None => return,
 					}
 				},
@@ -296,19 +383,24 @@ impl<Block: BlockT> JamWorkPackageRecovery<Block> {
 						None => return,
 					}
 				},
-				n = finality_notifs.next() => {
-					match n {
-						Some(n) => { self.handle_finalized(n); None },
-						None => return,
-					}
-				},
 			};
 
 			if let Some(hash) = recover_hash {
-				let epoch = match self.outstanding.get(&hash) {
-					Some(r) if r.waiting_recovery => r.assurance_epoch,
-					_ => continue,
+				let (epoch, block_hash) = match self.outstanding.get(&hash) {
+					Some(r) => (r.assurance_epoch, r.block_hash),
+					None => continue,
 				};
+				if block_status(block_hash) != BlockStatus::Unknown {
+					tracing::debug!(
+						target: LOG_TARGET,
+						?hash,
+						?block_hash,
+						"Block already known; skipping recovery",
+					);
+					self.outstanding.remove(&hash);
+					self.reports_in_retry.remove(&hash);
+					continue;
+				}
 				tracing::debug!(target: LOG_TARGET, ?hash, "Issuing bundle recovery");
 				let result = bundle_recovery.recover_bundle(hash, epoch).await;
 				self.handle_recovered_inner(hash, result, &block_status);
