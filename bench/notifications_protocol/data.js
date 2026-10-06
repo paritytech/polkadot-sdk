@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791276984852,
+  "lastUpdate": 1791297451030,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -234815,6 +234815,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2495857184,
             "range": "± 53230737",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b76182dd335abcc07b0ff876d4889416a4c08ab7",
+          "message": "[pallet-assets] balance-change callbacks (#12581)\n\n## What\n\n- **pallet-assets**: extend the existing `AssetsCallback`\n(`CallbackHandle`, paritytech/substrate#12307) with infallible\nbalance-change observers — `issued` / `transferred` / `burned` /\n`deposited` / `withdrawn`. Unlike `created`/`destroyed` they never fail\n— fired after the state change, exactly where the corresponding `Issued`\n/ `Transferred` / `Burned` / `Deposited` / `Withdrawn` event is emitted,\non every path: extrinsics, the `fungibles` traits (incl. XCM asset\ntransactors), the `fungibles::Balanced` imbalance paths, delegated\ntransfers, and deposit-refund burns.\n- **pallet-revive**: new\n`Pallet::emit_contract_log_outside_frame(contract, topics, data)` — emit\nan EVM log attributed to an address from outside any contract call frame\n(traced, receipt-captured inside an ethereum context, deposited as\n`ContractEmitted`). Contract execution keeps its own in-frame emission\npath (`Ext::deposit_event`); the two differ only in the tracer hook. The\ncall tracer gains a matching `Tracing::log_event_outside_frame` hook, so\ntracing a block containing such a log attaches it to the active frame if\nthere is one and skips it otherwise; the in-frame `log_event` (the `LOG`\nopcode) keeps its active-frame invariant.\n- **pallet-assets-precompiles**: `Erc20TransferLogsCallback`, an\n`AssetsCallback` implementation for runtimes to wire as\n`CallbackHandle`, translating balance changes into canonical ERC-20\n`Transfer` logs at the asset's precompile token address. Mint/deposit =\n`Transfer(0x0, owner)`, burn/withdraw = `Transfer(owner, 0x0)`. Log\nbytes built from the same `IERC20` ABI the precompile uses — identical\nby construction. Works for inline-id assets (address derived from the\n`u32` id) and foreign assets (`Location` ids, resolved through the\nforeign asset-index map; assets predating the wiring are backfilled by\nthe index-map migration).\n- The `ERC20` precompile no longer emits its own `Transfer` log from\n`transfer()` / `transferFrom()`; the callback is now the single source.\nWire `Erc20TransferLogsCallback` as the instance's `CallbackHandle` to\nkeep precompile-mediated transfers logged. Zero-value transfers stay\nEIP-20 compliant: they are a no-op in pallet-assets and fire no\ncallback, so the precompile invokes the callback itself to emit the\nrequired `Transfer` log.\n- **asset-hub-westend**: wired for all three instances — trust-backed\nand pool assets (inline-id) and foreign assets (via `ForeignIdConfig`).\nThe mirrored-log cost is part of the pallet-assets weights, which are\nbenchmarked against the runtime with the callback wired.\n\n## Why\n\nAssets on Asset Hub are real ERC-20 tokens (callable precompile per\nasset), but only precompile-mediated transfers emitted `Transfer` logs.\nTransfers via plain extrinsics or XCM — the majority — were invisible to\nEVM tooling, so any indexer/wallet reconstructing balances from logs is\nwrong. This puts the logs on-chain at the source instead of synthesizing\nthem off-chain in eth-rpc. Groundwork for paritytech/contract-issues#61.\n\n## Breaking change\n\n`AssetsCallback<AssetId, AccountId>` gains a third generic parameter\n`Balance` (pallet-assets `bump: major`). The new methods have default\nno-op implementations, so any hand-written `impl AssetsCallback<Id,\nAcct>` only needs the signature update (add the `Balance` param);\nimplementations wired only as `CallbackHandle` need no change beyond a\nrecompile.\n\nNote for downstream runtimes: because the precompile no longer\nself-emits, upgrading pallet-assets-precompiles without wiring\n`Erc20TransferLogsCallback` silently stops `Transfer` logs for\nprecompile-mediated transfers.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-06T10:53:01Z",
+          "tree_id": "c88e2ef6ce57e8cbde5838293fe4958994b0adca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b76182dd335abcc07b0ff876d4889416a4c08ab7"
+        },
+        "date": 1791297419077,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4539460,
+            "range": "± 14393",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 291849,
+            "range": "± 2131",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4371359,
+            "range": "± 28620",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 361887,
+            "range": "± 2852",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5404364,
+            "range": "± 21277",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 896443,
+            "range": "± 122714",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 12981763,
+            "range": "± 111036",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5803278,
+            "range": "± 49325",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 53395544,
+            "range": "± 1095216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 46477696,
+            "range": "± 340323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 429975894,
+            "range": "± 2037639",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 356596400,
+            "range": "± 2073942",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 3165688972,
+            "range": "± 13365456",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2841094260,
+            "range": "± 13976134",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 4394368,
+            "range": "± 51069",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 2280069,
+            "range": "± 27868",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 4550426,
+            "range": "± 51557",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2341823,
+            "range": "± 12019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 5204026,
+            "range": "± 32098",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2724551,
+            "range": "± 30571",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 9972394,
+            "range": "± 47417",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 6417024,
+            "range": "± 56214",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 45123912,
+            "range": "± 260216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 43351716,
+            "range": "± 619468",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 389090327,
+            "range": "± 5585768",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 345903370,
+            "range": "± 15419240",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 3428691672,
+            "range": "± 141652206",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2915803599,
+            "range": "± 108796311",
             "unit": "ns/iter"
           }
         ]
