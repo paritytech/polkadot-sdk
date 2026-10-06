@@ -19,7 +19,7 @@
 
 use crate::{
 	AccountInfo, BalanceOf, Code, Config, Weight,
-	access_list::{Access, AccessListMetrics, CallItems, CodeLoadItems, CreateItems},
+	access_list::{Access, AccessListMetrics, CallItems, CodeLoadItems, InstantiateItems},
 	limits,
 	test_utils::{ALICE, ALICE_ADDR, DJANGO_ADDR, EVE_ADDR, builder::Contract},
 	tests::{ExtBuilder, RuntimeOrigin, Test, access_list_metrics_of, builder},
@@ -374,9 +374,9 @@ fn a_contract_creation_warms_the_new_contract(fixture_type: FixtureType) {
 		let stores_code = matches!(fixture_type, FixtureType::Solc);
 		let code_entries =
 			if stores_code { CodeLoadItems::new(H256::zero()).entry_count() } else { 0 };
-		let expected_extra_entries = (CreateItems { address: H160::zero(), creator: H160::zero() }
-			.entry_count() +
-			code_entries) as usize;
+		let expected_extra_entries =
+			(InstantiateItems { address: H160::zero(), creator: H160::zero() }.entry_count() +
+				code_entries) as usize;
 
 		let factory = deploy_factory(fixture_type);
 		let size_after = |data: Vec<u8>| {
@@ -399,7 +399,8 @@ fn a_contract_creation_warms_the_new_contract(fixture_type: FixtureType) {
 fn a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let expected_extra_entries =
-			CreateItems { address: H160::zero(), creator: H160::zero() }.entry_count() as usize;
+			InstantiateItems { address: H160::zero(), creator: H160::zero() }.entry_count()
+				as usize;
 		let expected_failed_extra_entries = if fixture_type == FixtureType::Resolc {
 			// The caller loads the code by hash in its own frame, so the revert does not drop it.
 			CodeLoadItems::new(H256::zero()).entry_count() as usize

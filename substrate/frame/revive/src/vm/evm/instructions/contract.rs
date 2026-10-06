@@ -20,7 +20,7 @@ mod call_helpers;
 use super::utility::IntoAddress;
 use crate::{
 	Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, ReentrancyProtection, U256,
-	access_list::CreateItems,
+	access_list::InstantiateItems,
 	exec::CallResources,
 	vm::{
 		Ext, RuntimeCosts,
@@ -95,7 +95,7 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 				// EIP-2929 warms a created address. It is safe to do the same, since the new
 				// entries are in the storage overlay.
 				let creator = interpreter.ext.address();
-				let warmth = interpreter.ext.warm(CreateItems { address, creator });
+				let warmth = interpreter.ext.warm(InstantiateItems { address, creator });
 				interpreter
 					.ext
 					.charge_or_halt(RuntimeCosts::AccessListRegistration(warmth.summary()))?;

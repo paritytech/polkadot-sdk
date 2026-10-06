@@ -577,12 +577,12 @@ impl Access for TransferItems {
 
 /// An instantiate's access: the new contract's account and info, and the deployer's nonce.
 #[derive(Clone, Copy, Debug)]
-pub struct CreateItems {
+pub struct InstantiateItems {
 	pub address: H160,
 	pub creator: H160,
 }
 
-impl Access for CreateItems {
+impl Access for InstantiateItems {
 	type Warmth = ();
 	const KEY_FAMILY: KeyFamily = KeyFamily::Address;
 

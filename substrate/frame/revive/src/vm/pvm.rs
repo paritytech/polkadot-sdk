@@ -22,7 +22,7 @@ pub mod env;
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	StorageAccessKind,
-	access_list::{CallItems, CreateItems, StorageOp, TransferItems},
+	access_list::{CallItems, InstantiateItems, StorageOp, TransferItems},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
@@ -808,7 +808,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					// EIP-2929 warms a created address. It is safe to do the same, since the new
 					// entries are in the storage overlay.
 					let warmth =
-						self.ext.warm(CreateItems { address, creator: self.ext.address() });
+						self.ext.warm(InstantiateItems { address, creator: self.ext.address() });
 					self.charge_gas(RuntimeCosts::AccessListRegistration(warmth.summary()))?;
 					self.write_fixed_sandbox_output(
 						memory,
