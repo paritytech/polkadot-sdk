@@ -94,9 +94,6 @@ jobs:
       asset_upload_url: ${{ steps.create-release.outputs.upload_url }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
       - name: Generate content write token for the release automation
         id: generate_write_token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -105,6 +102,12 @@ jobs:
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
             owner: paritytech
             repositories: polkadot-sdk
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ steps.generate_write_token.outputs.token }}
 
       - name: Download runtimes artifacts
         if: ${{ inputs.no_runtimes == false && inputs.crates_only == false }}
@@ -191,6 +194,37 @@ jobs:
             scripts/release/CHANGELOG.md
             scripts/release/changelog.json
             **/*-srtool-digest.json
+
+      - name: Create signed release tag
+        env:
+          PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
+          PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        run: |
+          # Without this, `gh release create` makes the tag itself when the draft
+          # is published, and that tag is lightweight and unsigned.
+          if git rev-parse -q --verify "refs/tags/${REL_TAG}" >/dev/null; then
+            echo "Tag ${REL_TAG} already exists, leaving it alone"
+            exit 0
+          fi
+
+          pip install git+https://github.com/paritytech-release/pgpkms.git@dc30e487d47f53d069831a4306377a3ec32638ae
+          export PATH="$HOME/.local/bin:$PATH"
+
+          . ./.github/scripts/common/lib.sh
+          import_gpg_keys
+
+          git config --global gpg.program "$(command -v pgpkms-git)"
+          git config --global user.name "ParityReleases"
+          git config --global user.email "release-team@parity.io"
+          git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
+
+          git tag -s "${REL_TAG}" -m "Polkadot release ${REL_TAG}"
+          git push origin "${REL_TAG}"
+
+          git tag -v "${REL_TAG}"
 
       - name: Create draft release
         id: create-release
