@@ -384,7 +384,7 @@ fn vested_transfer_is_denied_in_the_receiver_of_a_send() {
 		new_test_ext().execute_with(|| {
 			// ALICE pays the storage deposits of the two deployments.
 			CurrencyOf::<Test>::make_free_balance_be(&ALICE, 1_000_000_000_000_000);
-			let deploy = |name: &str, constructor: Vec<u8>, salt: [u8; 32]| {
+			let deploy = |name: &str, constructor: Vec<u8>| {
 				let (code, _) =
 					pallet_revive_fixtures::compile_module_with_type(name, FixtureType::Solc)
 						.unwrap();
@@ -393,7 +393,6 @@ fn vested_transfer_is_denied_in_the_receiver_of_a_send() {
 					Code::Upload(code),
 				)
 				.constructor_data(constructor)
-				.salt(Some(salt))
 				.transaction_limits(TransactionLimits::WeightAndDeposit {
 					weight_limit: Weight::MAX,
 					deposit_limit: u64::MAX,
@@ -414,13 +413,11 @@ fn vested_transfer_is_denied_in_the_receiver_of_a_send() {
 					_data: vested_transfer.abi_encode().into(),
 				}
 				.abi_encode(),
-				[1; 32],
 			);
 			CurrencyOf::<Test>::make_free_balance_be(&receiver.account_id, LOCKED * 10);
 			let sender = deploy(
 				"StipendSender",
 				StipendSender::constructorCall { _receiver: receiver.addr.0.into() }.abi_encode(),
-				[2; 32],
 			);
 
 			let result =

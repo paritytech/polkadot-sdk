@@ -183,6 +183,8 @@ pub struct StipendAndProtections {
 }
 
 impl StipendAndProtections {
+	/// Classifies a call from its `value` and `gas_limit`.
+	///
 	/// Solidity's `transfer` and `send` cap the callee at the stipend. For a zero value solc passes
 	/// `gas_limit = 2300` explicitly; when value moves it passes 0 and relies on the stipend the
 	/// EVM grants any call that moves value. We use a heuristic to detect both patterns. Such a
@@ -197,12 +199,17 @@ impl StipendAndProtections {
 		Self { moves_value, is_transfer_or_send }
 	}
 
-	/// Whether to add the call stipend.
+	/// Returns whether the call stipend should be added.
 	pub fn add_stipend(&self) -> bool {
 		self.moves_value || self.is_transfer_or_send
 	}
 
-	/// The protections the call shape sets for the callee.
+	/// Returns whether the call has the shape of a `transfer` or `send`.
+	pub fn is_transfer_or_send(&self) -> bool {
+		self.is_transfer_or_send
+	}
+
+	/// Returns the protections the call shape sets for the callee.
 	pub fn protections(&self) -> CallProtections {
 		CallProtections { stipend_frame: self.is_transfer_or_send, ..Default::default() }
 	}

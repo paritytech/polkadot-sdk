@@ -901,8 +901,7 @@ fn execute_decode_charge_is_not_refunded() {
 }
 
 // A `transfer` or `send` receiver gets Ethereum's 2300 gas stipend, which pays for no state
-// change. An XCM `execute` does not go through contract storage, so the precompile checks the
-// stipend frame itself.
+// change.
 #[test]
 fn execute_is_denied_in_the_receiver_of_a_send() {
 	use codec::Encode;

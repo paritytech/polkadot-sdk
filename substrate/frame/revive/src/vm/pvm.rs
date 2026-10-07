@@ -274,7 +274,7 @@ macro_rules! charge_gas {
 /// The kind of call that should be performed.
 enum CallType {
 	/// Execute another instantiated contract
-	Call { value_ptr: u32, protections: CallProtections },
+	Call { value_ptr: u32, stipend_frame: bool },
 	/// Execute another contract code in the context (storage, account ID, value) of the caller
 	/// contract
 	DelegateCall,
@@ -684,7 +684,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.reset_interpreter_cache();
 
 		let call_outcome = match call_type {
-			CallType::Call { protections, .. } => {
+			CallType::Call { stipend_frame, .. } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
 				if value > 0u32.into() {
 					// If the call value is non-zero and state change is not allowed, issue an
@@ -722,7 +722,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						reentrancy,
 						read_only,
 						// A read-only call is never a `transfer` or `send`.
-						stipend_frame: protections.stipend_frame && !read_only,
+						stipend_frame: stipend_frame && !read_only,
 					},
 				)
 			},
