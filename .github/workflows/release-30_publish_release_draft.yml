@@ -215,17 +215,22 @@ jobs:
 
           . ./.github/scripts/common/lib.sh
 
-          # Tags here cannot be moved or deleted (ruleset 2508254 has no bypass
-          # actors), so refuse to burn the name on an unexpected commit.
-          last_rc=$(get_latest_rc_tag "$REL_TAG" polkadot)
-          if [ -z "$last_rc" ]; then
-            echo "::error::no rc tag found for ${REL_TAG}"
-            exit 1
-          fi
-          if [ "$(git rev-list -n1 "$last_rc")" != "$(git rev-parse HEAD)" ]; then
-            echo "::error::HEAD is not ${last_rc}, refusing to tag ${REL_TAG}"
-            exit 1
-          fi
+          # Final tags cannot be moved or deleted later (ruleset 2508254 has no
+          # bypass actors), so only tag the commit the last rc was cut from.
+          case "$REL_TAG" in
+            *-rc[0-9]*) ;;
+            *)
+              last_rc=$(get_latest_rc_tag "$REL_TAG" polkadot)
+              if [ -z "$last_rc" ]; then
+                echo "::error::no rc tag found for ${REL_TAG}"
+                exit 1
+              fi
+              if [ "$(git rev-list -n1 "$last_rc")" != "$(git rev-parse HEAD)" ]; then
+                echo "::error::HEAD is not ${last_rc}, refusing to tag ${REL_TAG}"
+                exit 1
+              fi
+              ;;
+          esac
 
           import_gpg_keys
 
