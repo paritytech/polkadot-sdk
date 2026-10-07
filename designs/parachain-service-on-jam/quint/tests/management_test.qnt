@@ -6,6 +6,7 @@ module management_test {
   import state.* from "../state"
   import state_balance.* from "../state_balance"
   import management.* from "../management"
+  import accumulate.* from "../accumulate"
   import code_upgrades.* from "../code_upgrades"
   import state_vars.* from "../state_vars"
   import main.* from "../main"
@@ -105,7 +106,7 @@ module management_test {
       assert(held.paraInfo(target).usedStateBalance == before + preimageFootprint(len)),
       assert(forced.state.paraInfo(target).usedStateBalance == before),
       assert(not(forced.state.preimageRegistry.keys().contains((h, len)))),
-      assert(forced.jamForget == Set(h)),
+      assert(forced.preimageOps == List(Forgotten((target, h, len)))),
       init
     }
   }
@@ -153,7 +154,7 @@ module management_test {
       // Nothing at all changed: code, balance and registry slot all stand.
       assert(forced.state == activeCodeState),
       assert(forced.state.preimageRegistry.keys().contains((h, FixedCodeLen))),
-      assert(forced.jamForget == Set()),
+      assert(forced.preimageOps == List()),
       assert(forced.logs == List(
         CanNotRemoveCode({ hash: h, len: FixedCodeLen }))),
       init
@@ -257,7 +258,7 @@ module management_test {
       assert(setCode.state == frozen and setCode.logs == List()),
       assert(setCode.jamSolicit == Set() and setCode.jamForget == Set()),
       assert(solicit.state == frozen and solicit.logs == List()),
-      assert(solicit.jamSolicit == Set()),
+      assert(solicit.preimageOps == List()),
       assert(setKv.state == frozen and setKv.logs == List()),
       assert(removeKv.state == frozen and removeKv.logs == List()),
       // Clean-up itself still completes.

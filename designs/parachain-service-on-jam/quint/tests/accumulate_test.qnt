@@ -220,13 +220,13 @@ module accumulate_test {
     all {
       assert(Set(own, byCoretime).forall(out => and {
         out.state == held,
-        out.jamForget == Set(),
+        out.preimageOps == List(),
         out.logs == List(CanNotRemoveCode({ hash: ownCode, len: len }))
       })),
       assert(held.hasReferencer(ownCode, len, ah)),
       // Controls: both are released as usual.
       assert(not(other.state.hasReferencer(otherCode, len, ah))),
-      assert(other.jamForget == Set(otherCode)),
+      assert(other.preimageOps == List(Forgotten((ah, otherCode, len)))),
       assert(not(otherLen.state.hasReferencer(ownCode, 100, ah))),
       assert(otherLen.state.hasReferencer(ownCode, len, ah)),
       assert(otherLen.logs == List()),

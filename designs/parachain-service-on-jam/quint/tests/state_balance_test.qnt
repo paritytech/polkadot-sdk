@@ -46,6 +46,8 @@ module state_balance_test {
         not(svc.preimageRegistry.keys().contains((soliciteeHash, soliciteeLen))),
         // usedStateBalance stayed at the cap.
         svc.paraInfo(para).usedStateBalance == cap,
+        // The rejected solicit is not recorded in the ghost history.
+        not(solicitedSet.contains((para, soliciteeHash, soliciteeLen))),
         // Accumulate log carries InsufficientStateBalance(FromSolicit(...)) for this block.
         svc.paraLog(para).foldl(false, (found, pair) =>
           found or (pair._1 == now and match pair._2 {

@@ -218,8 +218,8 @@ module support {
   pure def accOverWith(
     s: ParachainServiceState, fs: ForeignServices
   ): AccumulateOutcome = {
-    state: s, jamDesignate: List(), jamSolicit: Set(),
-    jamForget: Set(), jamAssigns: List(), logs: List(), foreign: fs
+    state: s, jamDesignate: List(), preimageOps: List(),
+    jamAssigns: List(), logs: List(), foreign: fs
   }
 
   pure def accOver(s: ParachainServiceState): AccumulateOutcome =

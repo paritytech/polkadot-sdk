@@ -13,6 +13,21 @@ module accumulate {
   import head_commitment.* from "./head_commitment"
   import foreign_services.* from "./foreign_services"
 
+  /// A parachain preimage reference a `Solicit` / `Forget` message actually
+  /// added / released.
+  type PreimageOp =
+  | Solicited((ParaId, Hash, int))
+  | Forgotten((ParaId, Hash, int))
+
+  /// Applies `ops` in order to a set of solicited `(para, hash, len)`.
+  pure def applyPreimageOps(
+    s: Set[(ParaId, Hash, int)], ops: List[PreimageOp]
+  ): Set[(ParaId, Hash, int)] =
+    ops.foldl(s, (acc, op) => match op {
+      | Solicited(t) => acc.union(Set(t))
+      | Forgotten(t) => acc.exclude(Set(t))
+    })
+
   /// Per-work-package accumulate outcome.
   type AccumulateOutcome = {
     state: ParachainServiceState,
@@ -20,9 +35,8 @@ module accumulate {
     // overwrites `stagingset`, so when several work packages in one block
     // designate, the last one wins rather than the vectors merging.
     jamDesignate: List[ValidatorKey],
-    // Hashes for which JAM `solicit` / `forget` should be invoked.
-    jamSolicit: Set[Hash],
-    jamForget: Set[Hash],
+    // Solicits / forgets that took effect, in message order.
+    preimageOps: List[PreimageOp],
     // JAM `assign` calls that took effect while replaying upward messages (a
     // rejected call is only logged).
     jamAssigns: List[AssignCall],
@@ -102,8 +116,7 @@ module accumulate {
         {
           state: d.state,
           jamDesignate: acc.jamDesignate,
-          jamSolicit: acc.jamSolicit.union(optionToSet(d.jamSolicit)),
-          jamForget: acc.jamForget.union(optionToSet(d.jamForget)),
+          preimageOps: acc.preimageOps,
           jamAssigns: acc.jamAssigns,
           logs: acc.logs.appendOption(d.log),
           foreign: acc.foreign
@@ -123,8 +136,11 @@ module accumulate {
         {
           state: d.state,
           jamDesignate: acc.jamDesignate,
-          jamSolicit: acc.jamSolicit.union(optionToSet(d.jamSolicit)),
-          jamForget: acc.jamForget,
+          // A rejected solicit (`InsufficientStateBalance`) is not recorded.
+          preimageOps:
+            if (d.log == None)
+              acc.preimageOps.append(Solicited((target, payload.hash, payload.len)))
+            else acc.preimageOps,
           jamAssigns: acc.jamAssigns,
           logs: acc.logs.appendOption(d.log),
           foreign: acc.foreign
@@ -175,8 +191,7 @@ module accumulate {
           {
             state: d.state,
             jamDesignate: acc.jamDesignate,
-            jamSolicit: acc.jamSolicit,
-            jamForget: acc.jamForget.union(optionToSet(d.jamForget)),
+            preimageOps: acc.preimageOps.append(Forgotten((target, payload.hash, payload.len))),
             jamAssigns: acc.jamAssigns,
             logs: acc.logs.appendOption(d.log),
             foreign: acc.foreign
@@ -193,8 +208,7 @@ module accumulate {
         state: o.state,
         jamDesignate:
         if (o.designate == List()) acc.jamDesignate else o.designate,
-        jamSolicit: acc.jamSolicit,
-        jamForget: acc.jamForget,
+        preimageOps: acc.preimageOps,
         jamAssigns: acc.jamAssigns,
         logs: acc.logs.appendOption(o.log),
         foreign: acc.foreign
@@ -206,8 +220,7 @@ module accumulate {
       {
         state: o.state,
         jamDesignate: acc.jamDesignate,
-        jamSolicit: acc.jamSolicit,
-        jamForget: acc.jamForget,
+        preimageOps: acc.preimageOps,
         jamAssigns: acc.jamAssigns,
         logs: acc.logs.concat(o.logs),
         foreign: acc.foreign
@@ -223,8 +236,7 @@ module accumulate {
       {
         state: o.state,
         jamDesignate: acc.jamDesignate,
-        jamSolicit: acc.jamSolicit.union(o.jamSolicit),
-        jamForget: acc.jamForget.union(o.jamForget),
+        preimageOps: acc.preimageOps,
         jamAssigns: acc.jamAssigns,
         logs: acc.logs.concat(o.logs),
         foreign: acc.foreign
@@ -234,8 +246,7 @@ module accumulate {
       {
         state: o.state,
         jamDesignate: acc.jamDesignate,
-        jamSolicit: acc.jamSolicit,
-        jamForget: acc.jamForget.union(o.jamForget),
+        preimageOps: acc.preimageOps,
         jamAssigns: acc.jamAssigns,
         logs: acc.logs.concat(o.logs),
         foreign: acc.foreign
@@ -483,36 +494,18 @@ module accumulate {
               val baseAcc = {
                 state: pre.state,
                 jamDesignate: prevDesignate,
-                jamSolicit: pre.jamSolicit,
-                jamForget: pre.jamForget,
+                preimageOps: List(),
                 jamAssigns: List(),
                 logs: pre.logs,
                 foreign: foreign
               }
               val acc = ok.upwardMessages.foldl(baseAcc, (a, m) =>
                 applyUpwardMessage(a, ok.paraId, codeLen, now, ok.lookupAnchor, m))
-              // `Solicit` is always for the caller itself; `Forget` names its
-              // target, so a Coretime-driven forget clears the TARGET's entry.
-              val newSolicited = ok.upwardMessages.foldl(solicited, (s, m) => match m {
-                // Records the TARGET, so a Coretime-delegated solicit lands on
-                // the para actually charged. A Service target is not in our
-                // registry at all.
-                | Solicit(p) => match p.target {
-                  | Parachain(target) => s.union(Set((target, p.hash, p.len)))
-                  | Service(_) => s
-                }
-                | Forget(p) => match p.target {
-                  | Parachain(target) => s.exclude(Set((target, p.hash, p.len)))
-                  // Not our store, so the ghost set is untouched.
-                  | Service(_) => s
-                }
-                | _ => s
-              })
               // The lookup-anchor prune already ran inside `accumulateOkPrefix`,
               // ahead of every effect of this candidate.
               {
                 state: acc.state.appendAccumulateLogs(ok.paraId, now, acc.logs),
-                solicited: newSolicited,
+                solicited: applyPreimageOps(solicited, acc.preimageOps),
                 jamDesignate: acc.jamDesignate,
                 jamAssigns: acc.jamAssigns,
                 logPruned: Some((ok.paraId, ok.lookupAnchor)),

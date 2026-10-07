@@ -88,8 +88,8 @@ module refine_test {
     val h = { vchBytes: 1 }.asPreimage()   // coretime's ACTIVE code hash
     val otherLen = 999                    // != FixedCodeLen
     val baseAcc: AccumulateOutcome = {
-      state: initialState, jamDesignate: List(), jamSolicit: Set(),
-      jamForget: Set(), jamAssigns: List(), logs: List(), foreign: Map()
+      state: initialState, jamDesignate: List(), preimageOps: List(),
+      jamAssigns: List(), logs: List(), foreign: Map()
     }
     val pi0 = initialState.paraInfo(para)
     // 1. Solicit at the code's OWN len: already the active code, so this
