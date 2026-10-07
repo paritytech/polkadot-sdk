@@ -131,8 +131,8 @@ checking account.
 `pallet-jamkb` manages JAMKB on Asset Hub and executes asynchronous
 cross-system operations through `pallet-parachain-system`.
 
-It keeps JAMKB in four keyless accounts derived from its `PalletId`. Units
-move between these accounts via transfers.
+It keeps JAMKB in four keyless accounts derived from its `PalletId`,
+`py/jamkb`. Units move between these accounts via transfers.
 
 | Account     | Derivation                             | Balance                         |
 |-------------|----------------------------------------|---------------------------------|
@@ -162,13 +162,9 @@ with `attest(anchor)`; the pallet stores the anchor. Until attested, every call
 except `initialize` and `attest` is rejected.
 
 ```rust
-/// A JAM block reference. The attestation sets the block whose state the
-/// balances were checked against. The pallet records it and does not
-/// verify it.
-struct Anchor {
-    timeslot: Timeslot,
-    header_hash: Hash,
-}
+/// The header hash of the JAM block whose state the balances were checked
+/// against. The pallet records it and does not verify it.
+type Anchor = Hash;
 
 /// The fixed JAMKB supply, minted at `initialize`.
 const CAP: Balance;
@@ -187,7 +183,7 @@ const GRACE_PERIOD: BlockNumber;
 const MAX_LEASES_PER_TARGET: u32;
 
 /// The recovery deposit (§4.3): a hold on the caller's native balance per
-/// operation.
+/// `cleanup_storage` page.
 const RECOVERY_DEPOSIT: Balance;
 /// `RECOVERY_DEPOSIT_PER_KEY` per key of a `cleanup_storage` page.
 const RECOVERY_DEPOSIT_PER_KEY: Balance;
@@ -329,12 +325,11 @@ enum OperationPayload {
     /// A preimage release (`forget_preimage`, §4.3).
     /// One `Forget { target: Service(target), hash, len }`.
     ///
-    /// Confirmed: the deposit is released.
+    /// Confirmed and Failed: no further state change.
     Forget {
         target: ServiceId,
         hash: Hash,
         len: u32,
-        deposit: (AccountId, Balance),
     },
     /// An ejection (`eject_target`, §4.3).
     /// One `EjectService { service: target }`; it fails `NotEmpty` until the
@@ -342,16 +337,12 @@ enum OperationPayload {
     ///
     /// Confirmed: every accepted lease on the target moves to `Closed` and
     /// its hold is released; the target's `FrozenTargets` and
-    /// `ServiceAccounts` entries are removed; the deposit is released. The
-    /// amount above `leased` is booked as excess (`Excess`).
+    /// `ServiceAccounts` entries are removed. The amount above the leases is
+    /// booked as excess (`Excess`).
     ///
-    /// Assumes the Parachain Service provides the balance credited to it.
-    /// The Parachain Service design does not.
+    /// Needs the Parachain Service to report the balance it credits (§7).
     Eject {
         target: ServiceId,
-        leased: Balance,              // the sum of the target's leases'
-                                      // amounts at the call (§4.1)
-        deposit: (AccountId, Balance),
     },
     /// A release from supervision (`unsupervise`, §4.3).
     /// One `SetServiceSupervisor { service: target, new_supervisor: target }`.
@@ -536,21 +527,18 @@ fn unfreeze_target(target: ServiceId);
 fn cleanup_storage(target: ServiceId, keys: BoundedVec<Key, MAX_KEYS_PER_PAGE>);
 
 /// Releases a solicited preimage of the target. Origin: the target's service
-/// account or governance, with `RECOVERY_DEPOSIT`. Legal while a lease on the
-/// target is `Reclaiming` and the target is recorded frozen. A provided
-/// preimage is expunged by a second call more than `C_expungeperiod`
-/// timeslots after the first (Parachain Service design §6.1). Records a
-/// `Forget` operation.
+/// account or governance. Legal while a lease on the target is `Reclaiming`
+/// and the target is recorded frozen. A provided preimage is expunged by a
+/// second call more than `C_expungeperiod` timeslots after the first
+/// (Parachain Service design §6.1). Records a `Forget` operation.
 fn forget_preimage(target: ServiceId, hash: Hash, len: u32);
 
 /// Destroys the emptied target, crediting its balances to the Parachain
-/// Service. Origin: the target's service account, or
-/// governance, with `RECOVERY_DEPOSIT`. Legal while a lease on the target is
-/// `Reclaiming`. Rejected while a lease on the target has an unsettled
-/// operation (§5.1). Records an `Eject` operation with `leased` = the sum of
-/// the target's leases' amounts. While the `Eject` is unsettled,
-/// `accept_lease`, `increase_lease`, `extend_lease`, `reclaim` and
-/// `close_lease` on the target are rejected.
+/// Service. Origin: the target's service account or governance. Legal while
+/// a lease on the target is `Reclaiming`. Rejected while a lease on the
+/// target has an unsettled operation (§5.1). Records an `Eject` operation.
+/// While the `Eject` is unsettled, `accept_lease`, `increase_lease`,
+/// `extend_lease`, `reclaim` and `close_lease` on the target are rejected.
 fn eject_target(target: ServiceId);
 
 /// Releases the supervised target to itself. Origin: the target's service
@@ -589,13 +577,13 @@ fn settle(op_id: OperationId);
 
 #### 3.2.1 pallet-jamkb precompile
 
-Contracts reach the pallet through a precompile at a fixed address. It
-exposes the calls open to a signed account and returns the new allocation or
-operation id, since a contract cannot read events. It also exposes the reads a
-contract needs. Each function runs the pallet call of the same name with the
-caller as origin. A function that returns an `opId` records an operation
-whose outcome is applied by `settle`. A failed call reverts with the pallet
-error name as the reason.
+Contracts access the pallet through a precompile at a fixed address. It
+exposes the calls and the reads a contract needs. Each function runs the
+pallet call of the same name with the caller as origin. Because contracts
+cannot read events, a function returns the new allocation id or operation
+id. A function that returns an `opId` has recorded an operation whose outcome
+is applied later by `settle`. On failure the call reverts with the pallet
+error name.
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -632,8 +620,7 @@ interface IJamkb {
         uint64 allocationId;   // 0 when the operation has none
         uint32 target;         // the payload's target, else the allocation's
                                // target, else the refund's source
-        uint128 amount;        // the payload's amount, additional or leased,
-                               // else 0
+        uint128 amount;        // the payload's amount or additional, else 0
         uint32 submittedAt;    // 0: not yet sent
     }
 
@@ -736,6 +723,12 @@ It also accepts the messages `pallet-jamkb` queues and sends them through
 
 ## 4. Allocation Protocols
 
+This section shows the end-to-end protocol only. Origins, validity rules and
+immediate local effects are defined in the call reference in §3.2.
+Unless stated otherwise, once a call records an operation, the generic
+transport in §3.4 later sends the queued message and `settle` resolves the
+outcome.
+
 ### 4.1 Lease (Supervisor-Managed Allocation)
 
 A lease is a token transfer to the target service's supervisor balance.
@@ -743,21 +736,17 @@ Precondition: the Parachain Service is the target's effective supervisor, and
 the target has a service account (§3.2).
 
 ```
-Phase 1: Offer        Any token holder or governance calls
-                      `offer_lease(target, amount, duration, ..)`.
-                      `amount` is held on the approver's account.
-Phase 2: Accept       The target's service account calls `accept_lease(id)`.
-                      The pallet queues a TransferOut crediting the target's
+Phase 1: Offer        `offer_lease(target, amount, duration, ..)` records the
+                      lease offer.
+Phase 2: Accept       `accept_lease(id)` starts delivery to the target's
                       supervisor balance.
-Phase 3: Submit       pallet-parachain-system sends the TransferOut via
-                      `send_upward_message` (§3.4).
-Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet.
+Phase 3: Confirm      `settle(op_id)` resolves the operation.
                       The output:
                       Confirmed: the credit sits on the target's supervisor
                       balance; the units stay held, backing the lease;
                       the allocation moves to Delivered.
-                      Failed: JAM rejected the transfer; the allocation is
-                      back to Approved; the hold stays.
+                      Failed: JAM rejected the transfer; the allocation
+                      returns to Approved.
 ```
 
 ### 4.2 Permanent Release
@@ -774,20 +763,17 @@ the adapter sells the units on the Hub, and the buyer releases them.
 Governance releases units from DAO custody.
 
 ```
-Phase 1: Approve      Governance calls `approve_release(target, amount, ..)`;
-                      `amount` is held on custody.
-Phase 2: Execute      Any signed account calls `execute_release(id)`.
-                      The pallet queues a TransferOut crediting the target's
+Phase 1: Approve      `approve_release(target, amount, ..)` records the
+                      release allocation.
+Phase 2: Execute      `execute_release(id)` starts delivery to the target's
                       regular balance.
-Phase 3: Submit       pallet-parachain-system sends the TransferOut via
-                      `send_upward_message` (§3.4).
-Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet.
+Phase 3: Confirm      `settle(op_id)` resolves the operation.
                       The output:
                       Confirmed: the credit sits on the target's regular
                       balance, outside DAO control; the units move to the
                       `released` account; the allocation moves to Delivered.
-                      Failed: JAM rejected the transfer; the allocation is
-                      back to Approved; the hold stays.
+                      Failed: JAM rejected the transfer; the allocation
+                      returns to Approved.
 ```
 
 #### 4.2.2 Holder-initiated Release
@@ -796,17 +782,14 @@ Any holder of spendable units may release their own units to a JAM service,
 bypassing governance:
 
 ```
-Phase 1: Redeem       Holder calls `redeem(amount, target)`. The pallet
-                      places a hold on the holder's units (§3.3) and
-                      queues a TransferOut crediting the target's regular
-                      balance.
-Phase 2: Submit       pallet-parachain-system sends the TransferOut via
-                      `send_upward_message` (§3.4).
-Phase 3: Confirm      Any party can call `settle(op_id)` on the pallet.
+Phase 1: Redeem       `redeem(amount, target)` starts delivery to the
+                      target's regular balance.
+Phase 2: Confirm      `settle(op_id)` resolves the operation.
                       The output:
                       Confirmed: the credit sits on the target's regular
                       balance; the units move to the `released` account.
-                      Failed: JAM rejected the transfer; the hold is released.
+                      Failed: JAM rejected the transfer; the pallet undoes the
+                      redemption.
 ```
 
 ### 4.3 Lease Return
@@ -816,47 +799,40 @@ Full return, cooperative (the standard end of a lease).
 ```
 Phase 1: Shrink       Target deletes its own state until its residual footprint
                       is covered by its own balance.
-Phase 2: Reclaim      Any signed account past the lease end and GRACE_PERIOD,
-                      or the target's service account at any time, calls
-                      `reclaim`; the pallet queues a TransferOut debiting the
-                      target's supervisor balance by the requested amount. A
-                      partial amount is legal.
-Phase 3: Submit       pallet-parachain-system sends the TransferOut via
-                      `send_upward_message` (§3.4). It fails if, after the
-                      debit, balance + supervisor_balance < the threshold
-                      balance.
-Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet.
+Phase 2: Reclaim      `reclaim` starts a return from the target's supervisor
+                      balance back to the Parachain Service. The return may
+                      be partial.
+Phase 3: Confirm      `settle(op_id)` resolves the operation.
                       The output:
                       Confirmed: `amount` is released from the hold; a
                       fully returned lease moves to Closed. Once the target
                       has no accepted lease, `unsupervise` may be called.
-                      Failed: JAM rejected the transfer; see `Reclaim`.
+                      Failed: JAM rejected the transfer, for example because
+                      the target would fall below its threshold balance; see
+                      `Reclaim`.
 ```
 
 Non-cooperative return (`Reclaiming`):
 
 Supervision gives the pallet full power over the target, including cleaning
-its state and ejecting it. `cleanup_storage`, `forget_preimage` and
-`eject_target` are bonded with a deposit (§3.2). For a governance-approved
-lease, governance may fund the work as a treasury bounty:
+its state and ejecting it. `cleanup_storage` is bonded with a deposit (§3.2).
+For a governance-approved lease, governance may fund the work as a treasury
+bounty:
 
 ```
-Phase 1: Freeze       Any signed account calls `freeze_target`.
-Phase 2: Cleanup      Any signed account calls `cleanup_storage` pages.
+Phase 1: Freeze       `freeze_target` stops the target from growing further.
+Phase 2: Cleanup      `cleanup_storage` removes storage in pages.
                       Then one of:
                       (a) RESTORE: once the target's own balance covers its
                           reduced footprint, the leased balance returns via
-                          the cooperative flow above; any signed account
-                          calls `unfreeze_target`; `unsupervise` ends the
-                          enforced cleanup, leaving the target
-                          self-supervised.
+                          the cooperative flow above; `unfreeze_target` and
+                          `unsupervise` end the enforced cleanup, leaving
+                          the target self-supervised.
                       (b) TERMINATE: continue below.
-Phase 3: Forget       Governance discards the code preimage:
-                      `forget_preimage`.
-Phase 4: Eject        Governance calls `eject_target`.
-Phase 5: Confirm      The eject settles by a `settle(op_id)` call on the
-                      pallet; the holds of the target's leases are
-                      released; the leases move to Closed.
+Phase 3: Forget       `forget_preimage` discards the code preimage.
+Phase 4: Eject        `eject_target` removes the target.
+Phase 5: Confirm      `settle(op_id)` resolves the eject; the holds of the
+                      target's leases are released; the leases move to Closed.
 ```
 
 - Storage keys are not recoverable from JAM state. They are tracked from the
@@ -878,9 +854,8 @@ Phase 2: Book         pallet-jamkb moves the amount from `released`
                       the beneficiary's Asset Hub account (`Custodial`).
                       Missing or malformed memo: into the `excess` account,
                       recorded with its source (`Excess`).
-Phase 3: Claim        Any signed account calls `claim(beneficiary)`; the
-                      pallet moves the units from the `custodial` account to
-                      the beneficiary.
+Phase 3: Claim        `claim(beneficiary)` moves the units from the
+                      `custodial` account to the beneficiary.
 ```
 
 ---
@@ -960,3 +935,7 @@ account in it. The exact layout is to be defined.
    worth about the native existential deposit, which requires a price. If
    JAMKB is non-sufficient and `min_balance` is 1, the pallet accounts must
    be touched at `initialize`.
+10. **Service lifecycle in another pallet.** Service accounts, service creation
+    and upgrade, supervisor hand-over, forget and eject concern the service,
+    not the token, and belong with the pallet that registers JAM services.
+    They should probably leave this document.
