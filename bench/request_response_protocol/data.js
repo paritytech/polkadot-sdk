@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791343013695,
+  "lastUpdate": 1791371358030,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -131975,6 +131975,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2696740835,
             "range": "± 23527445",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "67c1257ee07d73005956d1b98de3eff616a72097",
+          "message": "Cleanup: Remove unused INDEXED_BODY attribute (#13399)\n\nIn our substrate backend, there has been a `SyncMode::LightState` which\nheld a `storage_chain_mode` flag which was supposed to sync storage\nchains. However, this has been unused for years and is also not in use\nin the current storage chain syncing solution. This is because the\noriginal design had the problem that Blocks on storage chains can hold\nmore than 16MB of data (including renewals) and it is not reasonable or\npossible to fetch them in one go with the block request. The mechanism\nhas been superseeded by a blockimport which fetches this data based on\ninfo from the runtime, see #12242.\n\nThis cleans up the never-used leftovers from the previous approach.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-07T09:50:20Z",
+          "tree_id": "2fb3c49a279940aa947b602f7a208a1c480852a6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/67c1257ee07d73005956d1b98de3eff616a72097"
+        },
+        "date": 1791371329948,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20401696,
+            "range": "± 249267",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20148418,
+            "range": "± 172682",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21694062,
+            "range": "± 241967",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26398082,
+            "range": "± 173549",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60525946,
+            "range": "± 581198",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 356135773,
+            "range": "± 4732244",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2514640463,
+            "range": "± 148176443",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16896837,
+            "range": "± 194340",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17060582,
+            "range": "± 218787",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17570531,
+            "range": "± 261320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21852057,
+            "range": "± 127267",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61817970,
+            "range": "± 1028803",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 360081392,
+            "range": "± 4522824",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2710866754,
+            "range": "± 23308506",
             "unit": "ns/iter"
           }
         ]
