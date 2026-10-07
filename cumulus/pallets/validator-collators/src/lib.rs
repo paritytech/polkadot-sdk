@@ -33,19 +33,20 @@
 //! `pallet-collator-selection` through [`pallet_session::UnionSessionManager`], so invulnerables
 //! and candidates keep collating next to the validators.
 //!
-//! [`MaxCollators`] optionally caps how many validators are returned. Under a cap the pallet draws
-//! the validators at random at the first forced rotation after a set arrives or the cap changes,
-//! stores them in [`Collators`] and returns those with registered keys until the next draw. The
-//! draw shuffles the whole set with a seed made of the genesis hash, the era and the relay chain
-//! epoch randomness cached in [`EpochRandomness`], then keeps the first validators with registered
-//! keys up to the cap. Every validator with keys has the same chance to be drawn in each era. The
-//! draw uses the latest epoch randomness the chain has cached. A block whose proof lacks the trie
-//! nodes of the randomness key leaves the cache unchanged, so a draw uses the previous epoch value
-//! only when every block since the epoch change omits them. The seed includes the genesis hash, so
-//! each chain draws independently from the same set. A validator that registers keys after the draw
-//! waits for the next set or for a cap change. Each set, so each era, gets a new draw, which is
-//! enacted at the second forced rotation with no notice, so a validator with keys must already run
-//! a synced collator node to collate when drawn.
+//! [`MaxCollators`] optionally caps how many validators are returned. Governance can start with a
+//! low cap and raise it in steps, or lower it again, to roll out validator collators gradually.
+//! Under a cap the pallet draws the validators at random at the first forced rotation after a set
+//! arrives or the cap changes, stores them in [`Collators`] and returns those with registered keys
+//! until the next draw. The draw shuffles the whole set with a seed made of the genesis hash, the
+//! era and the relay chain epoch randomness cached in [`EpochRandomness`], then keeps the first
+//! validators with registered keys up to the cap. Every validator with keys has the same chance to
+//! be drawn in each era. The draw uses the latest epoch randomness the chain has cached. A block
+//! whose proof lacks the trie nodes of the randomness key leaves the cache unchanged, so a draw
+//! uses the previous epoch value only when every block since the epoch change omits them. The seed
+//! includes the genesis hash, so each chain draws independently from the same set. A validator that
+//! registers keys after the draw waits for the next set or for a cap change. Each set, so each era,
+//! gets a new draw, which is enacted at the second forced rotation with no notice, so a validator
+//! with keys must already run a synced collator node to collate when drawn.
 //!
 //! The pallet implements [`cumulus_pallet_parachain_system::OnSystemEvent`]. The runtime must
 //! include it in the `OnSystemEvent` of `cumulus-pallet-parachain-system`, alone or in a tuple
@@ -81,11 +82,12 @@
 //! - Dropping validators that author no blocks for a session, judged among the drawn validators
 //!   under a cap.
 //! - (Only if a need is established) Propagating relay-chain offences to the collator set.
-//! - Under a cap, decide the redraw period and notice. Options: redraw every few eras or sessions,
-//!   keep a drawn validator for several eras while it stays in the active set, and announce the
-//!   drawn validators before they collate so they can sync a node. Open points: the time a node
-//!   needs to sync, and refilling the place of a drawn validator that leaves the active set, which
-//!   needs notice too.
+//! - Under a cap, revisit the redraw period and notice once operators have run collators. A draw
+//!   per era without notice is the first step, with operators expected to run a synced collator
+//!   node all the time. Options: redraw every few eras or sessions, keep a drawn validator for
+//!   several eras while it stays in the active set, and announce the drawn validators before they
+//!   collate so they can sync a node. Open points: the time a node needs to sync, and refilling the
+//!   place of a drawn validator that leaves the active set, which needs notice too.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
