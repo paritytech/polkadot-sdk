@@ -176,42 +176,48 @@ impl<T: Config> Token<T> for CodeLoadToken {
 	}
 }
 
-/// Whether a call moves value and has the shape of Solidity's `transfer` or `send`.
+/// The stipend and protections a call gets from its value, gas limit and read-only flag.
 pub struct StipendAndProtections {
 	moves_value: bool,
-	is_transfer_or_send: bool,
+	has_transfer_or_send_shape: bool,
+	read_only: bool,
 }
 
 impl StipendAndProtections {
-	/// Classifies a call from its `value` and `gas_limit`.
+	/// Classifies a call from its `value`, `gas_limit` and whether it is `read_only`.
 	///
 	/// Solidity's `transfer` and `send` cap the callee at the stipend. For a zero value solc passes
 	/// `gas_limit = 2300` explicitly; when value moves it passes 0 and relies on the stipend the
 	/// EVM grants any call that moves value. We use a heuristic to detect both patterns. Such a
 	/// call gets the stipend, because the fixed 2300 is tailored to Ethereum's gas scale. Its
 	/// callee, and every frame the callee creates, cannot write persistent storage, move value,
-	/// or create or terminate contracts, none of which the stipend pays for on Ethereum.
-	pub fn new(value: U256, gas_limit: Option<u64>) -> Self {
+	/// or create or terminate contracts, none of which the stipend pays for on Ethereum. A
+	/// read-only call is never a `transfer` or `send`, but still gets the stipend at 2300 gas.
+	pub fn new(value: U256, gas_limit: Option<u64>, read_only: bool) -> Self {
 		use revm::interpreter::gas::CALL_STIPEND;
 		let moves_value = !value.is_zero();
-		let is_transfer_or_send =
+		let has_transfer_or_send_shape =
 			matches!((moves_value, gas_limit), (false, Some(CALL_STIPEND)) | (true, Some(0)));
-		Self { moves_value, is_transfer_or_send }
+		Self { moves_value, has_transfer_or_send_shape, read_only }
 	}
 
 	/// Returns whether the call stipend should be added.
 	pub fn add_stipend(&self) -> bool {
-		self.moves_value || self.is_transfer_or_send
+		self.moves_value || self.has_transfer_or_send_shape
 	}
 
-	/// Returns whether the call has the shape of a `transfer` or `send`.
+	/// Returns whether the call is a `transfer` or `send`.
 	pub fn is_transfer_or_send(&self) -> bool {
-		self.is_transfer_or_send
+		self.has_transfer_or_send_shape && !self.read_only
 	}
 
-	/// Returns the protections the call shape sets for the callee.
+	/// Returns the protections the call sets for the callee.
 	pub fn protections(&self) -> CallProtections {
-		CallProtections { stipend_limited: self.is_transfer_or_send, ..Default::default() }
+		CallProtections {
+			read_only: self.read_only,
+			stipend_limited: self.is_transfer_or_send(),
+			..Default::default()
+		}
 	}
 }
 

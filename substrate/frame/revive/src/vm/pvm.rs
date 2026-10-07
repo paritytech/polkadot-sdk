@@ -718,12 +718,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					&callee,
 					value,
 					input_data,
-					CallProtections {
-						reentrancy,
-						read_only,
-						// A read-only call is never a `transfer` or `send`.
-						stipend_limited: stipend_limited && !read_only,
-					},
+					CallProtections { reentrancy, read_only, stipend_limited },
 				)
 			},
 			CallType::DelegateCall => {
