@@ -307,7 +307,7 @@ pub mod env {
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::Call { value_ptr, stipend_frame: false },
+			CallType::Call { value_ptr, stipend_limited: false },
 			callee_ptr,
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			input_data_ptr,
@@ -331,7 +331,7 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-		let (resources, stipend_frame) = if gas == u64::MAX {
+		let (resources, stipend_limited) = if gas == u64::MAX {
 			(CallResources::NoLimits, false)
 		} else {
 			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
@@ -346,7 +346,7 @@ pub mod env {
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::Call { value_ptr, stipend_frame },
+			CallType::Call { value_ptr, stipend_limited },
 			callee,
 			&resources,
 			input_data_ptr,

@@ -367,9 +367,7 @@ fn delegate_call_guards() {
 	});
 }
 
-// A `transfer` or `send` receiver gets Ethereum's 2300 gas stipend, which pays for no state
-// change. A vested transfer does not go through contract storage, so the precompile checks the
-// stipend frame itself.
+// A stipend-limited frame cannot transfer vested funds: on Ethereum, the stipend cannot pay for it.
 #[test]
 fn vested_transfer_is_denied_in_the_receiver_of_a_send() {
 	use alloy_core::sol_types::{SolCall, SolConstructor};

@@ -274,7 +274,7 @@ macro_rules! charge_gas {
 /// The kind of call that should be performed.
 enum CallType {
 	/// Execute another instantiated contract
-	Call { value_ptr: u32, stipend_frame: bool },
+	Call { value_ptr: u32, stipend_limited: bool },
 	/// Execute another contract code in the context (storage, account ID, value) of the caller
 	/// contract
 	DelegateCall,
@@ -478,7 +478,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		if !transient {
-			self.ext.ensure_not_stipend_frame()?;
+			self.ext.ensure_not_stipend_limited()?;
 		}
 
 		let value_len = match &value {
@@ -534,7 +534,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		if !transient {
-			self.ext.ensure_not_stipend_frame()?;
+			self.ext.ensure_not_stipend_limited()?;
 		}
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
@@ -684,7 +684,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.reset_interpreter_cache();
 
 		let call_outcome = match call_type {
-			CallType::Call { stipend_frame, .. } => {
+			CallType::Call { stipend_limited, .. } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
 				if value > 0u32.into() {
 					// If the call value is non-zero and state change is not allowed, issue an
@@ -722,7 +722,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						reentrancy,
 						read_only,
 						// A read-only call is never a `transfer` or `send`.
-						stipend_frame: stipend_frame && !read_only,
+						stipend_limited: stipend_limited && !read_only,
 					},
 				)
 			},

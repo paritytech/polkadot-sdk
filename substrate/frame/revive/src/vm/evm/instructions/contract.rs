@@ -77,7 +77,7 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 		None
 	};
 
-	if let Err(err) = interpreter.ext.ensure_not_stipend_frame() {
+	if let Err(err) = interpreter.ext.ensure_not_stipend_limited() {
 		return ControlFlow::Break(Halt::Err(err));
 	}
 	let call_result = interpreter.ext.instantiate(
@@ -122,7 +122,7 @@ pub fn call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
-	if has_transfer && let Err(err) = interpreter.ext.ensure_not_stipend_frame() {
+	if has_transfer && let Err(err) = interpreter.ext.ensure_not_stipend_limited() {
 		return ControlFlow::Break(Halt::Err(err));
 	}
 	let scheme = CallScheme::Call;

@@ -31,11 +31,10 @@ doc:
   description: |-
     `PrecompileExt::call` (exported as `pallet_revive::precompiles::Ext`) takes a `CallProtections`
     argument in place of its reentrancy protection and `read_only` arguments. The struct carries
-    the reentrancy protection, `read_only`, and `stipend_frame`, which marks the callee as the
-    receiver of a `transfer()` or `send()`. A precompile that passed
-    `ReentrancyProtection::AllowReentry` and `false` now passes `CallProtections::default()`. Set
-    any other reentrancy level on the `reentrancy` field, and a read-only call on the `read_only`
-    field:
+    the reentrancy protection, `read_only`, and `stipend_limited`, which is set for the receiver of
+    a `transfer()` or `send()`. A precompile that passed `ReentrancyProtection::AllowReentry` and
+    `false` now passes `CallProtections::default()`. Set any other reentrancy level on the
+    `reentrancy` field, and a read-only call on the `read_only` field:
     ```rust
     // Before
     env.call(&resources, &to, value, input, ReentrancyProtection::Strict, true)?;
@@ -48,13 +47,13 @@ doc:
     env.call(&resources, &to, value, input, protections)?;
     ```
 
-    `ReentrancyProtection::AllowNext` is removed and replaced by `stipend_frame`.
+    `ReentrancyProtection::AllowNext` is removed and replaced by `stipend_limited`.
 
-    In a stipend frame, `PrecompileExt::set_storage`, `PrecompileExt::terminate_caller`,
+    In a stipend-limited frame, `PrecompileExt::set_storage`, `PrecompileExt::terminate_caller`,
     `PrecompileWithInfoExt::instantiate` and a value transfer through `PrecompileExt::call` return
     `OutOfGas`. A runtime precompile that changes state by calling into another pallet, for example
-    to move balances or assets, must call the new `PrecompileExt::ensure_not_stipend_frame` first.
-    The assets, asset-conversion, XCM and vesting precompiles do so.
+    to move balances or assets, must call the new `PrecompileExt::ensure_not_stipend_limited`
+    first. The assets, asset-conversion, XCM and vesting precompiles do so.
 
     `integrity_test` checks that a block cannot write more contract storage than a validator has
     memory for. It scaled a write's weight by the memory that write uses before dividing the block

@@ -900,8 +900,7 @@ fn execute_decode_charge_is_not_refunded() {
 	});
 }
 
-// A `transfer` or `send` receiver gets Ethereum's 2300 gas stipend, which pays for no state
-// change.
+// A stipend-limited frame cannot execute XCM: on Ethereum, the stipend cannot pay for it.
 #[test]
 fn execute_is_denied_in_the_receiver_of_a_send() {
 	use codec::Encode;

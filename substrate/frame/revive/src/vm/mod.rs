@@ -211,7 +211,7 @@ impl StipendAndProtections {
 
 	/// Returns the protections the call shape sets for the callee.
 	pub fn protections(&self) -> CallProtections {
-		CallProtections { stipend_frame: self.is_transfer_or_send, ..Default::default() }
+		CallProtections { stipend_limited: self.is_transfer_or_send, ..Default::default() }
 	}
 }
 

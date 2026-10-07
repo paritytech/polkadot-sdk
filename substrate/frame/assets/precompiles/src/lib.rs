@@ -185,7 +185,7 @@ where
 				!env.is_read_only(),
 				pallet_revive::Error::<Self::T>::StateChangeDenied
 			);
-			env.ensure_not_stipend_frame()?;
+			env.ensure_not_stipend_limited()?;
 		}
 
 		match input {

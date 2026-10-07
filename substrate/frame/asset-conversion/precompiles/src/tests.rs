@@ -758,9 +758,7 @@ fn delegatecall_is_rejected() {
 	});
 }
 
-// A `transfer` or `send` receiver gets Ethereum's 2300 gas stipend, which cannot pay for a swap.
-// The swap does not go through contract storage, so the precompile checks the stipend frame
-// itself.
+// A stipend-limited frame cannot swap: on Ethereum, the stipend cannot pay for it.
 #[test]
 fn swap_is_denied_in_the_receiver_of_a_send() {
 	use alloy::sol_types::{SolConstructor, SolValue};

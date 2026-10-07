@@ -165,7 +165,7 @@ fn store_helper<'ext, E: Ext>(
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 	let [index, value] = interpreter.stack.popn()?;
-	if !transient && let Err(err) = interpreter.ext.ensure_not_stipend_frame() {
+	if !transient && let Err(err) = interpreter.ext.ensure_not_stipend_limited() {
 		return ControlFlow::Break(Halt::Err(err));
 	}
 	let key = Key::Fix(index.to_big_endian());

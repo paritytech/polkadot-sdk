@@ -211,8 +211,8 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::is_read_only")
 	}
 
-	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError> {
-		panic!("MockExt::ensure_not_stipend_frame")
+	fn ensure_not_stipend_limited(&self) -> Result<(), DispatchError> {
+		panic!("MockExt::ensure_not_stipend_limited")
 	}
 
 	fn is_delegate_call(&self) -> bool {

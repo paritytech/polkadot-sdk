@@ -903,9 +903,7 @@ fn transfer_from_decrements_normally_after_max_approve(asset_index: u16) {
 	});
 }
 
-// A `transfer` or `send` receiver gets Ethereum's 2300 gas stipend, which cannot pay for an
-// ERC-20 transfer. The asset transfer does not go through contract storage, so the precompile
-// checks the stipend frame itself.
+// A stipend-limited frame cannot transfer assets: on Ethereum, the stipend cannot pay for it.
 #[test]
 fn transfer_is_denied_in_the_receiver_of_a_send() {
 	use alloy::sol_types::{SolConstructor, SolValue};

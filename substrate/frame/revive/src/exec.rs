@@ -144,10 +144,10 @@ pub struct CallProtections {
 	pub reentrancy: ReentrancyProtection,
 	/// Whether the callee and every frame it creates cannot change state.
 	pub read_only: bool,
-	/// Whether the callee is the receiver of a `transfer` or `send`. Such a callee, and every
-	/// frame it creates, cannot write persistent contract storage, move value, or create or
-	/// terminate contracts.
-	pub stipend_frame: bool,
+	/// Whether the callee is limited to what the stipend pays for on Ethereum, as the receiver of a
+	/// `transfer` or `send` is. Such a callee, and every frame it creates, cannot write persistent
+	/// contract storage, move value, or create or terminate contracts.
+	pub stipend_limited: bool,
 }
 
 impl CallProtections {
@@ -156,7 +156,7 @@ impl CallProtections {
 	fn inherit<T: Config>(self, caller: &Frame<T>) -> Self {
 		Self {
 			read_only: self.read_only || caller.read_only,
-			stipend_frame: self.stipend_frame || caller.stipend_frame,
+			stipend_limited: self.stipend_limited || caller.stipend_limited,
 			..self
 		}
 	}
@@ -532,7 +532,7 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns an `OutOfGas` error if the current frame is the receiver of a `transfer` or `send`,
 	/// or was created by one.
-	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError>;
+	fn ensure_not_stipend_limited(&self) -> Result<(), DispatchError>;
 
 	/// Check if running as a delegate call.
 	fn is_delegate_call(&self) -> bool;
@@ -715,7 +715,7 @@ struct Frame<T: Config> {
 	read_only: bool,
 	/// If `true` this frame is the receiver of a `transfer` or `send`, or was created by one, and
 	/// cannot write persistent contract storage, move value, or create or terminate contracts.
-	stipend_frame: bool,
+	stipend_limited: bool,
 	/// The delegate call info of the currently executing frame which was spawned by
 	/// `delegate_call`.
 	delegate: Option<DelegateInfo<T>>,
@@ -1330,7 +1330,7 @@ where
 			frame_meter: meter.new_nested(call_resources)?,
 			allows_reentry: true,
 			read_only: protections.read_only,
-			stipend_frame: protections.stipend_frame,
+			stipend_limited: protections.stipend_limited,
 			last_frame_output: Default::default(),
 			contracts_created: Default::default(),
 			contracts_to_be_destroyed: Default::default(),
@@ -2180,7 +2180,7 @@ where
 	}
 
 	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
-		self.ensure_not_stipend_frame()?;
+		self.ensure_not_stipend_limited()?;
 		if_tracing(|tracer| {
 			let addr = T::AddressMapper::to_address(self.account_id());
 			tracer.terminate(
@@ -2287,7 +2287,7 @@ where
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
-		self.ensure_not_stipend_frame()?;
+		self.ensure_not_stipend_limited()?;
 
 		let sender = self.top_frame().account_id.clone();
 		let executable = {
@@ -2357,7 +2357,7 @@ where
 
 		// Checks the caller's frame, not the callee's, so a `transfer` or `send` still moves value.
 		if !value.is_zero() {
-			self.ensure_not_stipend_frame()?;
+			self.ensure_not_stipend_limited()?;
 		}
 
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
@@ -2734,8 +2734,8 @@ where
 		self.top_frame().read_only
 	}
 
-	fn ensure_not_stipend_frame(&self) -> Result<(), DispatchError> {
-		if self.top_frame().stipend_frame {
+	fn ensure_not_stipend_limited(&self) -> Result<(), DispatchError> {
+		if self.top_frame().stipend_limited {
 			// On Ethereum, the 2300 gas stipend cannot pay for a storage write, a value transfer,
 			// or creating or terminating a contract.
 			return Err(Error::<T>::OutOfGas.into());
@@ -2793,7 +2793,7 @@ where
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
 		ensure!(self.top_frame().delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
-		self.ensure_not_stipend_frame()?;
+		self.ensure_not_stipend_limited()?;
 		let parent = self.frames_mut().nth(1).ok_or_else(|| Error::<T>::ContractNotFound)?;
 		ensure!(parent.entry_point == ExportedFunction::Call, Error::<T>::TerminatedInConstructor);
 		ensure!(parent.delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
@@ -2861,7 +2861,7 @@ where
 	) -> Result<WriteOutcome, DispatchError> {
 		assert!(self.has_contract_info());
 		// Covers runtime precompiles
-		self.ensure_not_stipend_frame()?;
+		self.ensure_not_stipend_limited()?;
 		let frame = self.top_frame_mut();
 		frame.contract_info.get(&frame.account_id).write(
 			key.into(),

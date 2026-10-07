@@ -53,7 +53,7 @@ fn ensure_mutable<T: Config>(env: &impl Ext<T = T>) -> Result<(), Error> {
 	if env.is_delegate_call() {
 		return Err(pallet_revive::Error::<T>::PrecompileDelegateDenied.into());
 	}
-	env.ensure_not_stipend_frame()?;
+	env.ensure_not_stipend_limited()?;
 	Ok(())
 }
 
