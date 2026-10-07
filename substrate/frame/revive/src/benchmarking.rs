@@ -140,6 +140,20 @@ fn setup_stack<E: Ext>(interpreter: &mut Interpreter<E>, values: impl IntoIterat
 		.for_each(|value| interpreter.stack.push(value).continue_value().unwrap());
 }
 
+/// Pairs a pseudo-randomly chosen denominator with the shared `2^255` numerator.
+fn unsigned_division_operands(rng: &mut impl Rng, denominators: &[U256]) -> [U256; 2] {
+	let denominator = denominators.choose(rng).copied().unwrap();
+	[denominator, knuth_division_operands::NUMERATOR]
+}
+
+/// Like [`unsigned_division_operands`], but negates the divisor pseudo-randomly.
+fn signed_division_operands(rng: &mut impl Rng, denominators: &[U256]) -> [U256; 2] {
+	let [magnitude, numerator] = unsigned_division_operands(rng, denominators);
+	let divisor =
+		if rng.gen_bool(0.5) { magnitude } else { U256::zero().overflowing_sub(magnitude).0 };
+	[divisor, numerator]
+}
+
 /// Operands covering all 17 correction patterns possible when dividing `2^255` by two-limb
 /// divisors.
 ///
@@ -152,20 +166,13 @@ fn setup_stack<E: Ext>(interpreter: &mut Interpreter<E>, values: impl IntoIterat
 /// denominator also makes the `u128` divisions behind the estimates take as many steps as any we
 /// found with its pattern. Correcting a limb twice needs a second denominator limb above one, which
 /// shortens the division behind the first estimate.
+///
+/// The fixed divisors are the denominators that measured slowest for each op-code. The slowest one
+/// depends on the op-code: `SDIV` and `SMOD` measured slowest with different patterns than `DIV`
+/// and `MOD`. After updating `uint` or the Rust toolchain, search for the denominators again and
+/// measure which one is slowest for each op-code.
 mod knuth_division_operands {
 	use super::{Rng, U256};
-
-	pub fn unsigned_operands(rng: &mut impl Rng) -> [U256; 2] {
-		let denominator = DENOMINATORS[rng.gen_range(0..DENOMINATORS.len() as u32) as usize];
-		[denominator, NUMERATOR]
-	}
-
-	pub fn signed_operands(rng: &mut impl Rng) -> [U256; 2] {
-		let [magnitude, numerator] = unsigned_operands(rng);
-		let divisor =
-			if rng.gen_bool(0.5) { magnitude } else { U256::zero().overflowing_sub(magnitude).0 };
-		[divisor, numerator]
-	}
 
 	pub fn fixed_signed_operands(rng: &mut impl Rng, magnitude: U256) -> [U256; 2] {
 		// Consume the divisor draw to match the baseline's pseudo-random sign sequence.
@@ -178,10 +185,15 @@ mod knuth_division_operands {
 	/// 2^255 as an unsigned value, or -2^255 as a signed one, so signed and unsigned divisions
 	/// divide the same magnitudes.
 	pub const NUMERATOR: U256 = U256([0, 0, 0, 1 << 63]);
+	/// The denominator that measured slowest for `DIV`.
 	pub const DIV_FIXED_DIVISOR: U256 = U256([0x05f0_ac84_84d2_a8f7, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `SDIV`.
 	pub const SDIV_FIXED_DIVISOR: U256 = U256([0x16d5_ec4a_0e7b_8cdb, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `MOD`.
 	pub const MOD_FIXED_DIVISOR: U256 = U256([0x0007_f84c_6624_4131, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `SMOD`.
 	pub const SMOD_FIXED_DIVISOR: U256 = U256([0x5141_1d54_0d50_9ec1, 0x1, 0, 0]);
+	/// `ADDMOD` reuses the divisor of `MOD`.
 	pub const ADDMOD_FIXED_DIVISOR: U256 = MOD_FIXED_DIVISOR;
 
 	/// Two distinct divisors per pattern, with correction counts listed in limb order 2, 1, 0.
@@ -250,21 +262,7 @@ mod knuth_division_operands {
 /// Each pattern has two distinct full-width divisors. Selecting a divisor pseudo-randomly varies
 /// the correction branches while preserving the signed minimum-numerator case.
 mod one_limb_division_operands {
-	use super::{Rng, U256};
-
-	pub fn unsigned_operands(rng: &mut impl Rng) -> [U256; 2] {
-		let denominator = DENOMINATORS[rng.gen_range(0..DENOMINATORS.len() as u32) as usize];
-		[denominator, NUMERATOR]
-	}
-
-	pub fn signed_operands(rng: &mut impl Rng) -> [U256; 2] {
-		let [magnitude, numerator] = unsigned_operands(rng);
-		let divisor =
-			if rng.gen_bool(0.5) { magnitude } else { U256::zero().overflowing_sub(magnitude).0 };
-		[divisor, numerator]
-	}
-
-	pub const NUMERATOR: U256 = super::knuth_division_operands::NUMERATOR;
+	use super::U256;
 
 	/// Two distinct divisors per pattern, with correction counts listed in limb order 2, 1, 0.
 	pub const DENOMINATORS: [U256; 16] = [
@@ -297,21 +295,26 @@ mod one_limb_division_operands {
 
 /// Randomly chooses between the Knuth and one-limb correction-pattern operand sets.
 mod mixed_division_operands {
-	use super::{Rng, U256, knuth_division_operands, one_limb_division_operands};
+	use super::{
+		Rng, U256, knuth_division_operands, one_limb_division_operands, signed_division_operands,
+		unsigned_division_operands,
+	};
 
 	pub fn unsigned_operands(rng: &mut impl Rng) -> [U256; 2] {
-		if rng.gen_bool(0.5) {
-			knuth_division_operands::unsigned_operands(rng)
-		} else {
-			one_limb_division_operands::unsigned_operands(rng)
-		}
+		let denominators = denominators(rng);
+		unsigned_division_operands(rng, denominators)
 	}
 
 	pub fn signed_operands(rng: &mut impl Rng) -> [U256; 2] {
+		let denominators = denominators(rng);
+		signed_division_operands(rng, denominators)
+	}
+
+	fn denominators(rng: &mut impl Rng) -> &'static [U256] {
 		if rng.gen_bool(0.5) {
-			knuth_division_operands::signed_operands(rng)
+			&knuth_division_operands::DENOMINATORS
 		} else {
-			one_limb_division_operands::signed_operands(rng)
+			&one_limb_division_operands::DENOMINATORS
 		}
 	}
 }
@@ -3457,8 +3460,10 @@ mod benchmarks {
 	///   the divisor is picked at random from [`knuth_division_operands`].
 	#[benchmark(pov_mode = Measured)]
 	fn evm_div_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
 		let mut rng = Pcg64::seed_from_u64(1337);
-		let operands = (0..r).flat_map(|_| knuth_division_operands::unsigned_operands(&mut rng));
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
 
 		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
@@ -3481,8 +3486,10 @@ mod benchmarks {
 	/// Benchmarks `r` EVM `DIV` op-codes with pseudo-random one-limb correction patterns.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_div_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
 		let mut rng = Pcg64::seed_from_u64(1337);
-		let operands = (0..r).flat_map(|_| one_limb_division_operands::unsigned_operands(&mut rng));
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
 
 		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
@@ -3564,8 +3571,10 @@ mod benchmarks {
 	///   divisor's sign is pseudo-random.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sdiv_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
 		let mut rng = Pcg64::seed_from_u64(1337);
-		let operands = (0..r).flat_map(|_| knuth_division_operands::signed_operands(&mut rng));
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
 
 		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
@@ -3588,8 +3597,10 @@ mod benchmarks {
 	/// Benchmarks `r` EVM `SDIV` op-codes with pseudo-random one-limb correction patterns.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sdiv_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
 		let mut rng = Pcg64::seed_from_u64(1337);
-		let operands = (0..r).flat_map(|_| one_limb_division_operands::signed_operands(&mut rng));
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
 
 		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
@@ -3668,8 +3679,10 @@ mod benchmarks {
 	///   the divisor is picked at random from [`knuth_division_operands`].
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
 		let mut rng = Pcg64::seed_from_u64(1337);
-		let operands = (0..r).flat_map(|_| knuth_division_operands::unsigned_operands(&mut rng));
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
 
 		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
@@ -3692,8 +3705,10 @@ mod benchmarks {
 	/// Benchmarks `r` EVM `MOD` op-codes with pseudo-random one-limb correction patterns.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
 		let mut rng = Pcg64::seed_from_u64(1337);
-		let operands = (0..r).flat_map(|_| one_limb_division_operands::unsigned_operands(&mut rng));
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
 
 		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
@@ -3772,8 +3787,10 @@ mod benchmarks {
 	/// * A branch misprediction on whether the divisor is negated, since its sign is pseudo-random.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_smod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
 		let mut rng = Pcg64::seed_from_u64(1337);
-		let operands = (0..r).flat_map(|_| knuth_division_operands::signed_operands(&mut rng));
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
 
 		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
@@ -3796,8 +3813,10 @@ mod benchmarks {
 	/// Benchmarks `r` EVM `SMOD` op-codes with pseudo-random one-limb correction patterns.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_smod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
 		let mut rng = Pcg64::seed_from_u64(1337);
-		let operands = (0..r).flat_map(|_| one_limb_division_operands::signed_operands(&mut rng));
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
 
 		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
@@ -3879,12 +3898,12 @@ mod benchmarks {
 	///   depends on the modulus picked.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_addmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
-		use knuth_division_operands::{DENOMINATORS, NUMERATOR};
+		use knuth_division_operands::DENOMINATORS;
 
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| {
-			let modulus = DENOMINATORS.choose(&mut rng).copied().unwrap();
-			[modulus, NUMERATOR, NUMERATOR]
+			let [modulus, numerator] = unsigned_division_operands(&mut rng, &DENOMINATORS);
+			[modulus, numerator, numerator]
 		});
 
 		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
@@ -3908,9 +3927,11 @@ mod benchmarks {
 	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random one-limb correction patterns.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_addmod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| {
-			let [modulus, numerator] = one_limb_division_operands::unsigned_operands(&mut rng);
+			let [modulus, numerator] = unsigned_division_operands(&mut rng, &DENOMINATORS);
 			[modulus, numerator, numerator]
 		});
 
