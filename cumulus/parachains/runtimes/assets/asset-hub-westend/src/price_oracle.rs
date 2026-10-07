@@ -42,6 +42,7 @@ impl pallet_price_oracle::Config for Runtime {
 	type SignerSignature = sp_consensus_aura::sr25519::AuthoritySignature;
 	type Signers = Collators;
 	type MaxSigners = ConstU32<600>;
+	type MarketPricing = pallet_price_oracle::order_book::OrderBookPricing;
 	type MaxCrossRates = ConstU32<4>;
 	type AnchorProvider = System;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;

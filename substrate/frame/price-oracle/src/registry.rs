@@ -14,13 +14,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 //! Storage types of venues and markets, and their conversion to the wire types served to the
 //! oracle nodes.
 //!
 //! Bounds are constants of this module: they are enforced on admin input only, and raising one
 //! is a runtime upgrade with no effect on the nodes, which receive unbounded wire types.
 
-use crate::schema::ResponseSchema;
+use crate::MarketPricing;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{traits::ConstU32, BoundedVec};
@@ -29,7 +30,6 @@ use sp_price_oracle::{
 	market::{Header, Market, MarketId, Method, Query, QueryTag, Request, VenueId},
 	PairId,
 };
-use sp_runtime::FixedU128;
 
 pub type MaxVenueName = ConstU32<32>;
 pub type MaxHost = ConstU32<128>;
@@ -84,23 +84,17 @@ pub struct StoredRequest {
 pub struct StoredQuery {
 	pub tag: QueryTag,
 	pub request: StoredRequest,
-	/// How to read the response.
-	pub schema: ResponseSchema,
 }
 
 /// A stored market.
 #[derive(
 	Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
 )]
-pub struct StoredMarket {
+pub struct StoredMarket<PricingParams> {
 	pub venue: VenueId,
 	pub pair: PairId,
-	pub queries: BoundedVec<StoredQuery, MaxQueries>,
-	/// The amount of the base asset that one unit of a level's amount represents. One for spot
-	/// markets and for derivatives sized in the base asset. Only instruments whose amount is a
-	/// fixed quantity of the base asset can be configured; inverse contracts, sized in the quote
-	/// currency, cannot.
-	pub contract_size: FixedU128,
+	/// The pricing parameters of the market. See [`crate::MarketPricing`].
+	pub pricing: PricingParams,
 	/// Inactive markets are kept in storage but not served to the nodes.
 	pub active: bool,
 }
@@ -137,14 +131,15 @@ impl From<StoredQuery> for Query {
 	}
 }
 
-impl StoredMarket {
-	/// The wire form of this market, as served to the oracle nodes.
-	pub fn to_wire(self, id: MarketId) -> Market {
+impl<PricingParams> StoredMarket<PricingParams> {
+	/// The wire form of this market, as served to the oracle nodes, with the queries of the
+	/// pricing method `P`.
+	pub fn to_wire<P: MarketPricing<Params = PricingParams>>(self, id: MarketId) -> Market {
 		Market {
 			id,
 			venue: self.venue,
 			pair: self.pair,
-			queries: self.queries.into_inner().into_iter().map(Into::into).collect::<Vec<_>>(),
+			queries: P::queries(&self.pricing).into_iter().map(Into::into).collect::<Vec<_>>(),
 		}
 	}
 }
