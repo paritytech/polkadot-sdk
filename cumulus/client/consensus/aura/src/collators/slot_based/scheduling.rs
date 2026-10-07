@@ -184,32 +184,30 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 			return Vec::new();
 		};
 		let extended = self.extended_heads_at(chosen.number, production_slot);
+		let is_extended = |entry: &ImportedHeader| extended.contains(&entry.hash);
+		// Leaf case; checked, as the slot comes from an untrusted header.
+		let is_previous_slot = |entry: &ImportedHeader| {
+			entry
+				.claim
+				.is_some_and(|(slot, _)| slot.checked_add(1) == Some(*production_slot))
+		};
 		let outweighed = |entry: &ImportedHeader| {
 			entry.header.parent_hash() == chosen_parent &&
 				chosen_is_primary &&
 				!entry.is_primary() &&
-				!extended.contains(&entry.hash)
+				!is_extended(entry)
 		};
-		let mut siblings: Vec<&ImportedHeader> =
-			self.recent_imports
-				.get(&chosen.number)
-				.map(|headers| {
-					headers
-						.iter()
-						.filter(|entry| entry.hash != chosen_hash)
-						.filter(|entry| {
-							// Checked: slot comes from an untrusted header.
-							entry.claim.is_some_and(|(slot, _)| {
-								slot.checked_add(1) == Some(*production_slot)
-							}) || extended.contains(&entry.hash)
-						})
-						.filter(|entry| !outweighed(entry))
-						.collect()
-				})
-				.unwrap_or_default();
-		siblings.sort_by_key(|entry| {
-			(!extended.contains(&entry.hash), !entry.is_primary(), entry.hash)
-		});
+
+		let mut siblings: Vec<&ImportedHeader> = self
+			.recent_imports
+			.get(&chosen.number)
+			.into_iter()
+			.flatten()
+			.filter(|entry| entry.hash != chosen_hash)
+			.filter(|entry| is_previous_slot(entry) || is_extended(entry))
+			.filter(|entry| !outweighed(entry))
+			.collect();
+		siblings.sort_by_key(|entry| (!is_extended(entry), !entry.is_primary(), entry.hash));
 		siblings.into_iter().map(|entry| entry.header.clone()).collect()
 	}
 
@@ -222,14 +220,11 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 	) -> HashSet<RelayHash> {
 		self.recent_imports
 			.get(&number.saturating_add(1))
-			.map(|headers| {
-				headers
-					.iter()
-					.filter(|entry| entry.claim.map(|(slot, _)| slot) == Some(production_slot))
-					.map(|entry| *entry.header.parent_hash())
-					.collect()
-			})
-			.unwrap_or_default()
+			.into_iter()
+			.flatten()
+			.filter(|entry| entry.claim.map(|(slot, _)| slot) == Some(production_slot))
+			.map(|entry| *entry.header.parent_hash())
+			.collect()
 	}
 
 	/// The header's BABE slot and primary claim, which outweighs a secondary one in that slot.

@@ -761,26 +761,6 @@ pub(crate) struct HedgeContext<'a> {
 	pub core_indices: &'a [CoreIndex],
 }
 
-impl<'a> HedgeContext<'a> {
-	fn new<Block: BlockT, Pub>(
-		cx: &'a SlotContext<Block, Pub>,
-		claim_queue_offset: u32,
-		core_indices: &'a [CoreIndex],
-		para_id: ParaId,
-	) -> Self {
-		Self {
-			v3_enabled: cx.v3_enabled,
-			relay_parent_offset: cx.relay_parent_offset,
-			max_relay_parent_session_age: cx.max_relay_parent_session_age,
-			scheduling_parent_header: &cx.scheduling_parent_header,
-			relay_parent_hash: cx.relay_parent_hash,
-			para_id,
-			claim_queue_offset,
-			core_indices,
-		}
-	}
-}
-
 /// Header chains of the `siblings` (from [`SchedulingInfo::siblings_at`], best first) the slot's
 /// blocks can also be advertised under, up to `MAX_HEDGED_SIBLINGS` accepted and
 /// `MAX_SIBLINGS_RESOLVED` resolved. Empty unless V3 at `relay_parent_offset >= 1`.
@@ -1003,8 +983,16 @@ where
 			let mut pov_parent_hash = cx.initial_parent_hash;
 
 			let core_indices = cores.core_indices().to_vec();
-			let hedge_ctx =
-				HedgeContext::new(&cx, cores.claim_queue_offset.0 as u32, &core_indices, para_id);
+			let hedge_ctx = HedgeContext {
+				v3_enabled: cx.v3_enabled,
+				relay_parent_offset: cx.relay_parent_offset,
+				max_relay_parent_session_age: cx.max_relay_parent_session_age,
+				scheduling_parent_header: &cx.scheduling_parent_header,
+				relay_parent_hash: cx.relay_parent_hash,
+				para_id,
+				claim_queue_offset: cores.claim_queue_offset.0 as u32,
+				core_indices: &core_indices,
+			};
 			let siblings =
 				env.scheduling_info.siblings_at(&cx.scheduling_parent_header, slot_time.slot());
 			// Overlaps the builds; each core's deadline bounds the wait before its hedges go out.
