@@ -41,7 +41,7 @@ use frame_support::{
 };
 use frame_support_test::TestRandomness;
 use frame_system::{limits, EnsureRoot};
-use hrmp_primitives::{ChannelId, DepositAction, DepositProvider, DepositRole};
+use hrmp_primitives::{ChannelDeposits, ChannelId, DepositAction, OnDepositSet};
 use polkadot_primitives::{
 	slashing::DisputesTimeSlot, AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash,
 	DisputeOffenceKind, HrmpChannelId, Moment, SessionIndex, UpwardMessage, ValidationCode,
@@ -305,7 +305,9 @@ impl crate::hrmp::Config for Test {
 
 thread_local! {
 	static DEFER_DEPOSITS: Cell<bool> = const { Cell::new(false) };
-	static PENDING_DEPOSITS: RefCell<Vec<(ChannelId, Balance, DepositRole, DepositAction)>> =
+	static HELD_DEPOSITS: RefCell<Vec<(ChannelId, Balance, Balance)>> =
+		const { RefCell::new(Vec::new()) };
+	static PENDING_DEPOSITS: RefCell<Vec<(ChannelId, DepositAction)>> =
 		const { RefCell::new(Vec::new()) };
 }
 
@@ -313,57 +315,80 @@ thread_local! {
 pub struct MockDepositProvider;
 
 impl MockDepositProvider {
-	/// Hold deposit results back until [`Self::deliver`].
+	/// Hold deposit reports back until [`Self::deliver`].
 	pub fn defer() {
 		DEFER_DEPOSITS.with(|d| d.set(true));
 	}
 
-	/// Reports every held deposit, giving it back when the report fails.
-	pub fn deliver() -> Vec<DispatchResult> {
-		PENDING_DEPOSITS
-			.with(|p| p.take())
-			.into_iter()
-			.map(|(channel_id, amount, role, action)| {
-				let id = HrmpChannelId {
+	/// Reports every held deposit.
+	pub fn deliver() {
+		for (channel_id, action) in PENDING_DEPOSITS.with(|p| p.take()) {
+			Hrmp::on_deposit_set(channel_id, action);
+		}
+	}
+
+	/// What this provider holds, starting from what the local one held.
+	fn held(channel_id: &ChannelId) -> (Balance, Balance) {
+		HELD_DEPOSITS
+			.with(|h| h.borrow().iter().find(|(c, ..)| c == channel_id).map(|&(_, s, r)| (s, r)))
+			.unwrap_or_else(|| {
+				Hrmp::recorded_deposits(&HrmpChannelId {
 					sender: channel_id.sender.into(),
 					recipient: channel_id.recipient.into(),
-				};
-				Hrmp::on_deposit_result(&id, amount, role, action).inspect_err(|_| {
-					assert_ok!(Self::refund(channel_id, amount, role));
 				})
 			})
-			.collect()
+	}
+
+	fn set_held(channel_id: ChannelId, (sender, recipient): (Balance, Balance)) {
+		HELD_DEPOSITS.with(|h| {
+			let mut held = h.borrow_mut();
+			held.retain(|(c, ..)| *c != channel_id);
+			held.push((channel_id, sender, recipient));
+		});
 	}
 }
 
-impl DepositProvider for MockDepositProvider {
-	fn deposit(
-		channel_id: ChannelId,
-		amount: Balance,
-		role: DepositRole,
-		action: DepositAction,
-	) -> DispatchResult {
+impl ChannelDeposits for MockDepositProvider {
+	type OnDepositSet = Hrmp;
+
+	fn try_set_deposit(channel_id: ChannelId, action: DepositAction) -> DispatchResult {
 		if !DEFER_DEPOSITS.with(|d| d.get()) {
-			return hrmp::LocalDepositProvider::<Test>::deposit(channel_id, amount, role, action);
+			return hrmp::LocalDepositProvider::<Test>::try_set_deposit(channel_id, action);
 		}
+		let id = HrmpChannelId {
+			sender: channel_id.sender.into(),
+			recipient: channel_id.recipient.into(),
+		};
 		PENDING_DEPOSITS.with(|p| {
 			let mut pending = p.borrow_mut();
+			let (sender, recipient) = hrmp::target_deposits::<Test>(&id, &action);
+			let overlaps = |other: &DepositAction| {
+				let (other_sender, other_recipient) = hrmp::target_deposits::<Test>(&id, other);
+				(sender.is_some() && other_sender.is_some()) ||
+					(recipient.is_some() && other_recipient.is_some())
+			};
 			ensure!(
-				!pending.iter().any(|(c, _, r, _)| *c == channel_id && *r == role),
+				!pending.iter().any(|(c, a)| *c == channel_id && overlaps(a)),
 				DispatchError::Other("DepositPending")
 			);
-			let para = match role {
-				DepositRole::Sender => channel_id.sender,
-				DepositRole::Recipient => channel_id.recipient,
-			};
-			Balances::reserve(&ParaId::from(para).into_account_truncating(), amount)?;
-			pending.push((channel_id, amount, role, action));
+			let mut held = Self::held(&channel_id);
+			for (para, current, amount) in [
+				(channel_id.sender, &mut held.0, sender),
+				(channel_id.recipient, &mut held.1, recipient),
+			] {
+				let Some(amount) = amount else { continue };
+				let account = ParaId::from(para).into_account_truncating();
+				if amount > *current {
+					Balances::reserve(&account, amount - *current)?;
+				} else {
+					Balances::unreserve(&account, *current - amount);
+				}
+				*current = amount;
+			}
+			Self::set_held(channel_id, held);
+			pending.push((channel_id, action));
 			Ok(())
 		})
-	}
-
-	fn refund(channel_id: ChannelId, amount: Balance, role: DepositRole) -> DispatchResult {
-		hrmp::LocalDepositProvider::<Test>::refund(channel_id, amount, role)
 	}
 }
 

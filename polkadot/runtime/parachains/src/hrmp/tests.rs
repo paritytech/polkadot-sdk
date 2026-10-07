@@ -539,10 +539,10 @@ fn init_open_channel_refused_while_deposit_pending() {
 			Hrmp::init_open_channel(para_a, para_b, 2, 8),
 			DispatchError::Other("DepositPending")
 		);
-		assert_eq!(MockDepositProvider::deliver(), vec![Ok(())]);
+		MockDepositProvider::deliver();
 
 		assert_ok!(Hrmp::accept_open_channel(para_b, para_a));
-		assert_eq!(MockDepositProvider::deliver(), vec![Ok(())]);
+		MockDepositProvider::deliver();
 		assert_eq!(HrmpOpenChannelRequestsList::<Test>::get().len(), 1);
 		Hrmp::assert_storage_consistency_exhaustive();
 
@@ -565,25 +565,20 @@ fn duplicate_deposit_result_is_rejected() {
 		run_to_block(5, Some(vec![4, 5]));
 
 		// A provider that fails to refuse the second deposit reports twice.
-		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+		let channel_id = ChannelId { sender: para_a.into(), recipient: para_b.into() };
 		let init = DepositAction::InitOpenChannel {
 			max_capacity: 2,
 			max_message_size: 8,
 			max_total_size: 16,
 		};
-		assert_ok!(Hrmp::on_deposit_result(&channel_id, 0, DepositRole::Sender, init.clone()));
-		assert_noop!(
-			Hrmp::on_deposit_result(&channel_id, 0, DepositRole::Sender, init),
-			Error::<Test>::OpenHrmpChannelAlreadyRequested
-		);
+		Hrmp::on_deposit_set(channel_id, init.clone());
+		Hrmp::on_deposit_set(channel_id, init);
 
 		let accept = DepositAction::AcceptOpenChannel;
-		assert_ok!(Hrmp::on_deposit_result(&channel_id, 0, DepositRole::Recipient, accept.clone()));
-		assert_noop!(
-			Hrmp::on_deposit_result(&channel_id, 0, DepositRole::Recipient, accept),
-			Error::<Test>::AcceptHrmpChannelAlreadyConfirmed
-		);
+		Hrmp::on_deposit_set(channel_id, accept.clone());
+		Hrmp::on_deposit_set(channel_id, accept);
 		assert_eq!(HrmpOpenChannelRequestsList::<Test>::get().len(), 1);
+		assert_eq!(HrmpAcceptedChannelRequestCount::<Test>::get(para_b), 1);
 		Hrmp::assert_storage_consistency_exhaustive();
 
 		run_to_block(6, Some(vec![6]));
@@ -592,7 +587,32 @@ fn duplicate_deposit_result_is_rejected() {
 }
 
 #[test]
-fn accept_deposit_given_back_when_request_cancelled_meanwhile() {
+fn cancel_refused_while_accept_pending() {
+	let para_a = 2001.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 1000);
+		register_parachain_with_balance(para_b, 1000);
+		run_to_block(5, Some(vec![4, 5]));
+
+		assert_ok!(Hrmp::init_open_channel(para_a, para_b, 2, 8));
+		MockDepositProvider::defer();
+		assert_ok!(Hrmp::accept_open_channel(para_b, para_a));
+
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+		assert_noop!(
+			Hrmp::cancel_open_request(para_a, channel_id.clone()),
+			DispatchError::Other("DepositPending")
+		);
+		MockDepositProvider::deliver();
+		assert!(HrmpOpenChannelRequests::<Test>::get(&channel_id).unwrap().confirmed);
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn accept_deposit_given_back_when_sender_offboarded_meanwhile() {
 	let para_a = 2001.into();
 	let para_b = 2003.into();
 
@@ -608,13 +628,108 @@ fn accept_deposit_given_back_when_request_cancelled_meanwhile() {
 			|| <Test as Config>::Currency::reserved_balance(&para_b.into_account_truncating());
 		assert_eq!(recipient_reserved(), 100);
 
-		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
-		assert_ok!(Hrmp::cancel_open_request(para_a, channel_id));
-		assert_eq!(
-			MockDepositProvider::deliver(),
-			vec![Err(Error::<Test>::AcceptHrmpChannelDoesntExist.into())]
-		);
+		deregister_parachain(para_a);
+		run_to_block(7, Some(vec![6, 7]));
+		assert!(!Paras::is_valid_para(para_a));
+		MockDepositProvider::deliver();
 		assert_eq!(recipient_reserved(), 0);
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn close_put_off_while_poke_pending() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 100);
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+		insert_channel_without_deposits(&channel_id);
+		let reserved = |para: ParaId| {
+			<Test as Config>::Currency::reserved_balance(&para.into_account_truncating())
+		};
+
+		MockDepositProvider::defer();
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b));
+		assert_ok!(Hrmp::close_channel(para_a, channel_id));
+
+		// The deposits can't be given back while the poke is pending, so the close waits.
+		run_to_block(6, Some(vec![6]));
+		assert!(channel_exists(para_a, para_b));
+		MockDepositProvider::deliver();
+		assert_eq!((reserved(para_a), reserved(para_b)), (20, 15));
+
+		// The channel closes only once its deposits are back.
+		run_to_block(7, Some(vec![7]));
+		assert!(channel_exists(para_a, para_b));
+		MockDepositProvider::deliver();
+		assert!(!channel_exists(para_a, para_b));
+		assert_eq!((reserved(para_a), reserved(para_b)), (0, 0));
+	});
+}
+
+#[test]
+fn offboarding_close_put_off_while_poke_pending() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 100);
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+		insert_channel_without_deposits(&channel_id);
+		HrmpEgressChannelsIndex::<Test>::insert(para_a, vec![para_b]);
+		HrmpIngressChannelsIndex::<Test>::insert(para_b, vec![para_a]);
+		let reserved = |para: ParaId| {
+			<Test as Config>::Currency::reserved_balance(&para.into_account_truncating())
+		};
+
+		MockDepositProvider::defer();
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b));
+
+		// The deposits can't be given back while the poke is pending, so the close is requested.
+		assert_ok!(Hrmp::force_clean_hrmp(RuntimeOrigin::root(), para_a, 0, 1));
+		assert!(channel_exists(para_a, para_b));
+		assert!(HrmpCloseChannelRequests::<Test>::contains_key(&channel_id));
+		MockDepositProvider::deliver();
+		assert_eq!((reserved(para_a), reserved(para_b)), (20, 15));
+
+		run_to_block(6, Some(vec![6]));
+		MockDepositProvider::deliver();
+		assert!(!channel_exists(para_a, para_b));
+		assert_eq!((reserved(para_a), reserved(para_b)), (0, 0));
+	});
+}
+
+#[test]
+fn recipient_offboarding_frees_sender_request_slot() {
+	let para_a = 2001.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 1000);
+		register_parachain_with_balance(para_b, 1000);
+		run_to_block(5, Some(vec![4, 5]));
+
+		assert_ok!(Hrmp::init_open_channel(para_a, para_b, 2, 8));
+		assert_eq!(HrmpOpenChannelRequestCount::<Test>::get(para_a), 1);
+
+		deregister_parachain(para_b);
+		run_to_block(7, Some(vec![6, 7]));
+		assert!(!Paras::is_valid_para(para_b));
+		assert_eq!(HrmpOpenChannelRequestCount::<Test>::get(para_a), 0);
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_a.into_account_truncating()),
+			0
+		);
 		Hrmp::assert_storage_consistency_exhaustive();
 	});
 }
