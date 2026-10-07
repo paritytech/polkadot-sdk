@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791343891822,
+  "lastUpdate": 1791372322398,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0d6888a1cd4c7c864d05d843a72fccbb5f7a3fea",
-          "message": "Implement Budget Distribution logic in pallet-dap (#11527)\n\nStacked on #11513. \nExtracted from #10844.\n\n## Overview\n\nAdds issuance drip and budget distribution to `pallet-dap`. DAP becomes\na generic inflation engine: it mints new tokens on a configurable\ncadence and distributes them to registered budget recipients.\n\nNo runtime behavior change: the existing chain configuration continues\nto mint via `EraPayout` trait in staking. DAP can be configured as a\nnoop (cadence = 0 or empty budget).\n\n## Changes\n\n### pallet-dap\n- **Issuance drip**: `drip_issuance()` runs in `on_initialize`. Computes\nmint amount via `IssuanceCurve` (total issuance + elapsed time) and\ndistributes to `BudgetRecipient`s per a governance-updatable\n`BudgetAllocation` map that must sum to 100%.\n- **Safety guards**: `MaxElapsedPerDrip` ceiling prevents over-minting\nif the chain stalls. First-block initialization skips drip to avoid\nminting for an unknown period.\n- **Buffer accounting**: buffer's share is deactivated on inflow (mint +\n`OnUnbalanced` slashes).\n- **`set_budget_allocation`** extrinsic (root-only): validates keys\nmatch registered recipients and percentages sum to exactly 100%.\n- **`BudgetRecipient` impl**: DAP exposes its buffer as a recipient\n(key: `\"buffer\"`).\n- **Migration**: `MigrateV1ToV2` seeds `LastIssuanceTimestamp` and\n`BudgetAllocation` for existing chains. Not wired up in WAH or other\nruntimes yet.\n\n## TODOs\n- [x] Wire benchmark weights.\n\n## In Later PR\n- Revert [these\nchanges](https://github.com/paritytech/polkadot-sdk/pull/11527/changes/9b388b2da70c3a0dead7eb2cf2f29a3c9e89e714)\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
-          "timestamp": "2026-03-31T22:18:21Z",
-          "tree_id": "aa3ab20259e0f73f39d5dc8171a4210390383f6b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0d6888a1cd4c7c864d05d843a72fccbb5f7a3fea"
-        },
-        "date": 1775000374345,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006881011720000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009709672773333318,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02376644046,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14131317862666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010043493506666647,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "67c1257ee07d73005956d1b98de3eff616a72097",
+          "message": "Cleanup: Remove unused INDEXED_BODY attribute (#13399)\n\nIn our substrate backend, there has been a `SyncMode::LightState` which\nheld a `storage_chain_mode` flag which was supposed to sync storage\nchains. However, this has been unused for years and is also not in use\nin the current storage chain syncing solution. This is because the\noriginal design had the problem that Blocks on storage chains can hold\nmore than 16MB of data (including renewals) and it is not reasonable or\npossible to fetch them in one go with the block request. The mechanism\nhas been superseeded by a blockimport which fetches this data based on\ninfo from the runtime, see #12242.\n\nThis cleans up the never-used leftovers from the previous approach.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-07T09:50:20Z",
+          "tree_id": "2fb3c49a279940aa947b602f7a208a1c480852a6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/67c1257ee07d73005956d1b98de3eff616a72097"
+        },
+        "date": 1791372289472,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0073782100666666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025223128679999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1452597409400001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009737905073333313,
             "unit": "seconds"
           }
         ]
