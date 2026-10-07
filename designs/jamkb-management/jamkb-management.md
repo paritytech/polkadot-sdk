@@ -63,7 +63,7 @@ manages distribution on behalf of the DAO.
 Example flow for governance permanent release, from approval through settlement.
 
 ```
-━━ Asset Hub block B — execution ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━ Asset Hub block B: execution ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Governance (Root)
    │  approve_release(target, amount): the units are held on custody
@@ -78,7 +78,7 @@ pallet-parachain-system
    │  pulls the send queue, calls the Parachain Service's
    │  send_upward_message(TransferOut{..})
 
-━━ B's work report — Accumulate, on-chain on JAM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━ B's work report: Accumulate, on-chain on JAM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Parachain Service
    │  transfer its balance → target's regular balance
@@ -86,7 +86,7 @@ Parachain Service
    │  parachain_log
    │  records B's header as Asset Hub's para head
 
-━━ Asset Hub block C — a later block, its lookup-anchor at or past B's accumulation ━
+━━ Asset Hub block C: a later block, its lookup-anchor at or past B's accumulation ━
 
 pallet-parachain-system
    │  delivers the verified validation inputs (para head, complete
@@ -104,7 +104,7 @@ pallet-jamkb
    │    Approved
    │  - the para head is B or a descendant of B → Confirmed, the units
    │    move to the `released` account
-   │  - the para head is not yet at B → the operation stays pending
+   │  - the para head is not yet at B → the operation stays Submitted
 ```
 
 ---
@@ -262,7 +262,7 @@ enum OperationPayload {
     ///
     /// Confirmed: the allocation moves to `Delivered` and `delivered_at` is
     /// set to the operation's `submitted_at`; for a release, the held units
-    /// move to the `released` account.
+    /// move from custody to the `released` account.
     Delivery {
         allocation: AllocationId,
         amount: Balance,              // the units locked for the transfer
@@ -404,9 +404,10 @@ enum Event {
     OperationConfirmed { id: OperationId },
     /// `error` carries the Parachain Service failure.
     OperationFailed { id: OperationId, error: FailureReason },
-    /// An amount was booked (§4.4): custodial for a named beneficiary, or
-    /// excess.
-    ReturnBooked { source: ServiceId, amount: Balance, class: ReturnClass },
+    /// An amount was booked (§4.4): custodial for `beneficiary`, or excess
+    /// when `beneficiary` is `None`.
+    ReturnBooked { source: ServiceId, amount: Balance, class: ReturnClass,
+                   beneficiary: Option<AccountId> },
     /// A beneficiary's custodial balance was claimed.
     Claimed { beneficiary: AccountId, amount: Balance },
     TargetFrozen { target: ServiceId },
@@ -479,9 +480,8 @@ fn offer_lease(target: ServiceId, amount: Balance, duration: BlockNumber,
 
 /// Accepts an offered lease. Origin: the target's service account
 /// (`ServiceAccounts`). Legal while the allocation is `Approved`. Rejected
-/// while the target has `MAX_LEASES_PER_TARGET` accepted leases or an
-/// unsettled `Eject` operation. Moves the allocation to `Delivering` and
-/// records a `Delivery` operation.
+/// while the target has `MAX_LEASES_PER_TARGET` accepted leases. Moves the
+/// allocation to `Delivering` and records a `Delivery` operation.
 fn accept_lease(id: AllocationId);
 
 /// Raises a lease's `amount` by `additional` funds. Origin: the lease's approver.
@@ -563,7 +563,7 @@ fn dispose_excess(source: ServiceId, amount: Balance, refund: bool);
 // ── Shared by every flow ───────────────────────────────────────────────────
 
 /// Cancels an allocation in `Approved`. Origin: the allocation's approver, or
-/// any signed account once `expires_at` has passed. The hold is released and
+/// any signed account from `expires_at` on. The hold is released and
 /// the allocation moves to `Closed`. A `Delivering` allocation cannot be
 /// cancelled.
 fn cancel_allocation(id: AllocationId);
