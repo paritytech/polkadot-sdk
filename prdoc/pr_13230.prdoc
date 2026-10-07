@@ -36,9 +36,6 @@ doc:
     smaller than the approval; a transfer to the owner itself moves nothing and is charged the
     requested amount.
 
-    The assets ERC-20 precompile's `Transfer` log now reports the amount that moved for
-    `transfer` and the amount charged for `transferFrom`, rather than the requested `value`.
-
 - audience: Runtime User
   description: |-
     An approved transfer that would leave the owner holding a non-zero balance below the asset's
@@ -51,6 +48,4 @@ crates:
 - name: frame-support
   bump: minor
 - name: pallet-assets
-  bump: patch
-- name: pallet-assets-precompiles
   bump: patch
