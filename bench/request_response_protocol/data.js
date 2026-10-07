@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791376404260,
+  "lastUpdate": 1791383427413,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -132191,6 +132191,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2567171404,
             "range": "± 16301955",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d60f31e3a61c0fc01a483c17bfbb00dd9e86240e",
+          "message": "frame-support: make `#[stored]` work in crates without a direct `derive-where` dependency' (#13421)\n\n## The problem\nToday `#[frame_support::stored]` on a generic type fails in any crate\nthat depends on `frame-support` but not directly on `derive-where`:\n\n```\nerror[E0433]: cannot find `derive_where` in the crate root\nerror: cannot find attribute `derive_where` in this scope\n```\n\nThe macro emits `#[frame_support::derive_where::derive_where(..)]`, but\n`derive_where` itself expands to `::derive_where::...` paths unless\ngiven a `crate` option.\nThe existing tests did not catch this because `frame-support-test`\ndepends on `derive-where` directly e.g.\n\n[`test_stored_struct_implements_required_traits`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/support/test/tests/stored.rs#L72),\n[`test_stored_enum_implements_required_traits`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/support/test/tests/stored.rs#L78),\n[`test_derive_where_not_needed_storable`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/support/test/tests/stored.rs#L86),\n[`test_no_generics_storable`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/support/test/tests/stored.rs#L94),\n[`no_skip_type_params`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/support/test/tests/stored.rs#L100).\n\n## Solution\n\n`#[stored]` already calls `derive_where` through the `frame-support`\nre-export. The problem is the code `derive_where` generates: it roots\nits helper paths at `::derive_where` unless told otherwise with a `crate\n= ...` option.\n\nBefore:\n```rust\n// emitted by #[stored]\n#[frame_support::derive_where::derive_where(Clone, Eq, PartialEq, Debug; ...)]\nstruct Foo<T, S: Get<u32>> { items: BoundedVec<T, S> }\n\n// then emitted by derive_where\n#[derive(::derive_where::DeriveWhere)]      // needs a direct `derive-where` dependency\n#[::derive_where::derive_where_visited]\n```\n\nAfter:\n```rust\n// emitted by #[stored]\n#[frame_support::derive_where::derive_where(Clone, Eq, PartialEq, Debug; ...)]\n#[derive_where(crate = frame_support::derive_where)]\nstruct Foo<T, S: Get<u32>> { items: BoundedVec<T, S> }\n\n// then emitted by derive_where\n#[derive(frame_support::derive_where::DeriveWhere)]      // resolves through the re-export\n#[frame_support::derive_where::derive_where_visited]\n```\n\nThe `crate` attribute must follow the `derive_where` call, since an\nattribute macro only sees the attributes below it.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-10-07T12:57:46Z",
+          "tree_id": "1b6c5edcb10667f69eaca8e0b22c4591c3c222e0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d60f31e3a61c0fc01a483c17bfbb00dd9e86240e"
+        },
+        "date": 1791383394496,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21007060,
+            "range": "± 215349",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21362862,
+            "range": "± 232617",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22576023,
+            "range": "± 180927",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27353785,
+            "range": "± 213087",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63636861,
+            "range": "± 989515",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 377792560,
+            "range": "± 7517559",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2969002189,
+            "range": "± 33001808",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17761127,
+            "range": "± 177481",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18098307,
+            "range": "± 213865",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18493289,
+            "range": "± 326433",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23357186,
+            "range": "± 216845",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64184984,
+            "range": "± 961605",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 384223164,
+            "range": "± 2802798",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2857457047,
+            "range": "± 24894956",
             "unit": "ns/iter"
           }
         ]
