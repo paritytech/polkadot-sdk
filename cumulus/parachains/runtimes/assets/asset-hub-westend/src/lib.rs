@@ -73,7 +73,9 @@ use frame_system::{
 	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
-use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20};
+use pallet_assets_precompiles::{
+	Erc20TransferLogsCallback, ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20,
+};
 use pallet_nfts::PalletFeatures;
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
@@ -326,7 +328,11 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
-	type CallbackHandle = ();
+	type CallbackHandle = Erc20TransferLogsCallback<
+		Runtime,
+		InlineIdConfig<{ TRUST_BACKED_ASSETS_PRECOMPILE }>,
+		TrustBackedAssetsInstance,
+	>;
 	type AssetIdAllocator = pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>;
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = ConstU32<1000>;
@@ -382,7 +388,11 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type Freezer = PoolAssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_pool::WeightInfo<Runtime>;
-	type CallbackHandle = ();
+	type CallbackHandle = Erc20TransferLogsCallback<
+		Runtime,
+		InlineIdConfig<{ POOL_ASSETS_PRECOMPILE }>,
+		PoolAssetsInstance,
+	>;
 	type AssetIdAllocator = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
@@ -610,7 +620,7 @@ impl pallet_assets_precompiles::PermitConfig for Runtime {
 }
 
 /// Precompile address identifiers (embedded at bytes [16..18] of the H160 address).
-const TRUST_BACKED_ASSETS_PRECOMPILE: u16 = 0x0120;
+pub const TRUST_BACKED_ASSETS_PRECOMPILE: u16 = 0x0120;
 const FOREIGN_ASSETS_PRECOMPILE: u16 = 0x0220;
 const POOL_ASSETS_PRECOMPILE: u16 = 0x0320;
 const ASSET_CONVERSION_PRECOMPILE: u16 = 0x0420;
@@ -647,7 +657,14 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Freezer = ForeignAssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_foreign::WeightInfo<Runtime>;
-	type CallbackHandle = (ForeignAssetId<Runtime, ForeignAssetsInstance>,);
+	type CallbackHandle = (
+		ForeignAssetId<Runtime, ForeignAssetsInstance>,
+		Erc20TransferLogsCallback<
+			Runtime,
+			ForeignIdConfig<{ FOREIGN_ASSETS_PRECOMPILE }, Runtime, ForeignAssetsInstance>,
+			ForeignAssetsInstance,
+		>,
+	);
 	type AssetIdAllocator = ();
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
@@ -1399,6 +1416,22 @@ parameter_types! {
 	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
 }
 
+/// The `MaxOutsideFrameLogs` to wire once every eth-rpc serving this chain reads receipt data V2.
+///
+/// A storage backstop above what any block can buffer. Buffering a log registers at least its
+/// encoded bytes as proof size, unchecked, whatever produced it. That is an admission charge
+/// rather than a cost: the buffer lives and dies within the block, so the drain reads it from the
+/// overlay and the proof holds one absence lookup for the key, nothing per entry. The charge
+/// binds all the same, since it lands in
+/// `BlockWeight` and proof-size reclaim only swaps out an extrinsic's own weight. The smallest
+/// entry, an address with no topics and no data, is 26 bytes, so a 10 MiB proof budget admits
+/// about 403_000 of them, below this cap. The runtime tests pin that bound against this value.
+///
+/// The bound is not exact. An unchecked registration can overshoot `max_block` from
+/// `on_initialize` and from the last extrinsic of a block, and `ref_time` runs out long before
+/// either the proof budget or this cap does.
+pub const OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED: u32 = 524_288;
+
 impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
 	type Balance = Balance;
@@ -1439,6 +1472,12 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<true>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = Dap;
+	// Off until every eth-rpc serving this chain reads receipt data V2: an older one lists the
+	// synthetic transaction's hash in a block without a receipt to serve for it. A later runtime
+	// upgrade turns the buffer on with `OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED` and re-runs the
+	// benchmarks of every pallet that mirrors, since the append is only in their weights once
+	// they measure with the buffer on.
+	type MaxOutsideFrameLogs = ConstU32<0>;
 	type Deposit = pallet_revive::PGasDeposit<
 		Runtime,
 		Assets,
