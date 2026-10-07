@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791376354221,
+  "lastUpdate": 1791383376606,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -236159,6 +236159,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2264927484,
             "range": "± 35180702",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d60f31e3a61c0fc01a483c17bfbb00dd9e86240e",
+          "message": "frame-support: make `#[stored]` work in crates without a direct `derive-where` dependency' (#13421)\n\n## The problem\nToday `#[frame_support::stored]` on a generic type fails in any crate\nthat depends on `frame-support` but not directly on `derive-where`:\n\n```\nerror[E0433]: cannot find `derive_where` in the crate root\nerror: cannot find attribute `derive_where` in this scope\n```\n\nThe macro emits `#[frame_support::derive_where::derive_where(..)]`, but\n`derive_where` itself expands to `::derive_where::...` paths unless\ngiven a `crate` option.\nThe existing tests did not catch this because `frame-support-test`\ndepends on `derive-where` directly e.g.\n\n[`test_stored_struct_implements_required_traits`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/support/test/tests/stored.rs#L72),\n[`test_stored_enum_implements_required_traits`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/support/test/tests/stored.rs#L78),\n[`test_derive_where_not_needed_storable`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/support/test/tests/stored.rs#L86),\n[`test_no_generics_storable`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/support/test/tests/stored.rs#L94),\n[`no_skip_type_params`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/support/test/tests/stored.rs#L100).\n\n## Solution\n\n`#[stored]` already calls `derive_where` through the `frame-support`\nre-export. The problem is the code `derive_where` generates: it roots\nits helper paths at `::derive_where` unless told otherwise with a `crate\n= ...` option.\n\nBefore:\n```rust\n// emitted by #[stored]\n#[frame_support::derive_where::derive_where(Clone, Eq, PartialEq, Debug; ...)]\nstruct Foo<T, S: Get<u32>> { items: BoundedVec<T, S> }\n\n// then emitted by derive_where\n#[derive(::derive_where::DeriveWhere)]      // needs a direct `derive-where` dependency\n#[::derive_where::derive_where_visited]\n```\n\nAfter:\n```rust\n// emitted by #[stored]\n#[frame_support::derive_where::derive_where(Clone, Eq, PartialEq, Debug; ...)]\n#[derive_where(crate = frame_support::derive_where)]\nstruct Foo<T, S: Get<u32>> { items: BoundedVec<T, S> }\n\n// then emitted by derive_where\n#[derive(frame_support::derive_where::DeriveWhere)]      // resolves through the re-export\n#[frame_support::derive_where::derive_where_visited]\n```\n\nThe `crate` attribute must follow the `derive_where` call, since an\nattribute macro only sees the attributes below it.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-10-07T12:57:46Z",
+          "tree_id": "1b6c5edcb10667f69eaca8e0b22c4591c3c222e0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d60f31e3a61c0fc01a483c17bfbb00dd9e86240e"
+        },
+        "date": 1791383343287,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4627538,
+            "range": "± 28136",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 296781,
+            "range": "± 2313",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4474237,
+            "range": "± 48654",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 363553,
+            "range": "± 2405",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5571647,
+            "range": "± 32019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 895510,
+            "range": "± 6071",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10768181,
+            "range": "± 59746",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4793088,
+            "range": "± 59250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 43434021,
+            "range": "± 248188",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38244084,
+            "range": "± 370524",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 370120210,
+            "range": "± 2586176",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 309873823,
+            "range": "± 2535558",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2636844285,
+            "range": "± 9870670",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2403652047,
+            "range": "± 16357108",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3327292,
+            "range": "± 17195",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1863647,
+            "range": "± 10311",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3413610,
+            "range": "± 24526",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1981368,
+            "range": "± 12792",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4296953,
+            "range": "± 57161",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2260466,
+            "range": "± 18431",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8113541,
+            "range": "± 52799",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5245386,
+            "range": "± 40342",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38065702,
+            "range": "± 339162",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 35730824,
+            "range": "± 269343",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 311390342,
+            "range": "± 1500857",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 274981631,
+            "range": "± 1250721",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2503843582,
+            "range": "± 26886641",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2445670554,
+            "range": "± 46953759",
             "unit": "ns/iter"
           }
         ]
