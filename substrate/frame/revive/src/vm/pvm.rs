@@ -637,12 +637,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let callee = memory.read_h160(callee_ptr)?;
-		let value = match &call_type {
-			CallType::Call { value_ptr } => memory.read_u256(*value_ptr)?,
-			CallType::DelegateCall => U256::zero(),
-		};
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
-		let dust_transfer = Pallet::<E::T>::has_dust(value);
 		match &precompile {
 			Some(precompile) if precompile.has_contract_info() => {
 				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?;
@@ -681,8 +676,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.reset_interpreter_cache();
 
 		let call_outcome = match call_type {
-			CallType::Call { .. } => {
+			CallType::Call { value_ptr } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
+				let value = memory.read_u256(value_ptr)?;
 				if value > 0u32.into() {
 					// If the call value is non-zero and state change is not allowed, issue an
 					// error.
@@ -690,8 +686,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						return Err(Error::<E::T>::StateChangeDenied.into());
 					}
 
-					// A precompile's account state is untracked, so its transfer has no warmth
-					// and pays cold.
+					let dust_transfer = Pallet::<E::T>::has_dust(value);
+					// A precompile's account state is untracked, so its transfer pays cold.
 					let transfer = if precompile.is_none() {
 						TransferAccessKind::Tracked(self.ext.warm(TransferItems {
 							from: self.ext.address(),

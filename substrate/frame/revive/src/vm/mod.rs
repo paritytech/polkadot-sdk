@@ -27,7 +27,7 @@ pub use runtime_costs::{RuntimeCosts, StorageAccessKind, TransferAccessKind};
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
-	access_list::{CodeLoadItems, CodeLoadWarmth, Summarized},
+	access_list::{CodeLoadItems, CodeLoadWarmth, Summarized, Warmth},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
@@ -124,7 +124,7 @@ impl ExportedFunction {
 #[derive(Clone, Copy)]
 enum CodeLoadToken {
 	Flat(Summarized<CodeLoadWarmth>),
-	Blob { warmth: Summarized<CodeLoadWarmth>, code_len: u32, code_type: BytecodeType },
+	Blob { warmth: Warmth, code_len: u32, code_type: BytecodeType },
 }
 
 impl CodeLoadToken {
@@ -145,12 +145,8 @@ impl CodeLoadToken {
 	}
 
 	/// Computes the cost of the code's bytes at the blob's warmth, plus PVM compilation.
-	fn blob<T: Config>(
-		warmth: Summarized<CodeLoadWarmth>,
-		code_len: u32,
-		code_type: BytecodeType,
-	) -> Weight {
-		let per_byte: fn(u32) -> Weight = match (code_type, warmth.entries().blob.is_hot()) {
+	fn blob<T: Config>(warmth: Warmth, code_len: u32, code_type: BytecodeType) -> Weight {
+		let per_byte: fn(u32) -> Weight = match (code_type, warmth.is_hot()) {
 			(BytecodeType::Pvm, false) => T::WeightInfo::call_with_pvm_code_per_byte,
 			(BytecodeType::Pvm, true) => T::WeightInfo::call_with_pvm_code_per_byte_hot,
 			(BytecodeType::Evm, false) => T::WeightInfo::call_with_evm_code_per_byte,
@@ -189,8 +185,11 @@ pub fn code_load_weight(
 	warmth: Summarized<CodeLoadWarmth>,
 ) -> Weight {
 	let flat_cost = Token::<crate::tests::Test>::weight(&CodeLoadToken::Flat(warmth));
-	let blob_cost =
-		Token::<crate::tests::Test>::weight(&CodeLoadToken::Blob { warmth, code_len, code_type });
+	let blob_cost = Token::<crate::tests::Test>::weight(&CodeLoadToken::Blob {
+		warmth: warmth.entries().blob,
+		code_len,
+		code_type,
+	});
 	flat_cost.saturating_add(blob_cost)
 }
 
@@ -389,7 +388,7 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		meter.charge_weight_token(CodeLoadToken::Flat(warmth))?;
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		meter.charge_weight_token(CodeLoadToken::Blob {
-			warmth,
+			warmth: warmth.entries().blob,
 			code_len: code_info.code_len,
 			code_type: code_info.code_type,
 		})?;
@@ -464,7 +463,7 @@ pub(crate) fn exec_error_into_return_code<E: Ext>(
 mod tests {
 	use super::*;
 	use crate::{
-		access_list::{CodeLoadItems, StorageOp, Warmth},
+		access_list::{Access, CodeLoadItems, StorageOp, Warmth},
 		metering::TransactionMeter,
 		test_utils::ALICE,
 		tests::{ExtBuilder, Test},
@@ -524,18 +523,13 @@ mod tests {
 					.saturating_sub(code_load_weight(0, code_type, load))
 			};
 			let hot_blob = Warmth::read_paid();
-			assert_eq!(
-				bytes_of(load_warmth(Warmth::cold_non_revertible(), hot_blob)),
-				bytes_of(load_warmth_at(hot_blob)),
-				"the code info's warmth does not price the bytes: only the blob is read by length",
-			);
 			let hot_blob_bytes = bytes_of(load_warmth_at(hot_blob));
 			assert!(
 				hot_blob_bytes.ref_time() > 0,
 				"a hot blob still pays for its bytes: {code_type:?}: {hot_blob_bytes:?}",
 			);
 			let empty_blob = Token::<Test>::weight(&CodeLoadToken::Blob {
-				warmth: load_warmth_at(hot_blob),
+				warmth: hot_blob,
 				code_len: 0,
 				code_type,
 			});
@@ -559,7 +553,7 @@ mod tests {
 		assert_eq!(
 			empty_blob(load_warmth_at(Warmth::cold_revertible()))
 				.saturating_sub(empty_blob(load_warmth_at(Warmth::cold_non_revertible()))),
-			rollback.saturating_mul(2),
+			rollback.saturating_mul(CodeLoadItems::new(H256::zero()).entry_count().into()),
 			"one rollback prepay per code entry",
 		);
 	}

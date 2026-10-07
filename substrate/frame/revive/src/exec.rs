@@ -1097,7 +1097,7 @@ where
 		let mut access_list = AccessList::new();
 		let FrameArgs::Call { dest, delegated_call: None, .. } = args else { return access_list };
 		let address = T::AddressMapper::to_address(dest);
-		if <AllPrecompiles<T>>::get::<Self>(address.as_fixed_bytes()).is_some() {
+		if is_precompile::<T, E>(&address) {
 			return access_list;
 		}
 		access_list.warm(CallItems::new(address, false));

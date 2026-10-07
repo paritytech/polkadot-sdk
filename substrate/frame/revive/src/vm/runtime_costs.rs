@@ -249,24 +249,6 @@ impl RuntimeCosts {
 	}
 }
 
-impl Summarized<CallWarmth> {
-	/// Computes the call cost from the warmth of the entries it reads.
-	pub fn weight<T: Config>(self) -> Weight {
-		match self.entries() {
-			CallWarmth::Plain { .. } => weight_from_warmth_summary::<T>(
-				self.summary(),
-				|| T::WeightInfo::seal_call(0, 0, 0),
-				T::WeightInfo::seal_call_hot,
-			),
-			CallWarmth::Delegate { .. } => weight_from_warmth_summary::<T>(
-				self.summary(),
-				T::WeightInfo::seal_delegate_call,
-				T::WeightInfo::seal_delegate_call_hot,
-			),
-		}
-	}
-}
-
 /// Computes the overhead the access list adds to an access.
 pub fn access_list_overhead<T: Config>(summary: WarmthSummary) -> Weight {
 	let [cold_full, cold_base, hot_full, hot_base]: [fn() -> Weight; 4] = match summary.key() {
@@ -384,16 +366,6 @@ pub enum TransferAccessKind {
 	Untracked { dust: bool },
 }
 
-impl TransferAccessKind {
-	/// Returns whether the transfer moves dust.
-	fn moves_dust(&self) -> bool {
-		match self {
-			Self::Tracked(transfer) => transfer.moves_dust(),
-			Self::Untracked { dust } => *dust,
-		}
-	}
-}
-
 impl<T: Config> Token<T> for RuntimeCosts {
 	fn influence_lowest_weight_limit(&self) -> bool {
 		true
@@ -477,7 +449,18 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| T::WeightInfo::take_storage_hot(len),
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
-			CallBase(warmth) => warmth.weight::<T>(),
+			CallBase(warmth) => match warmth.entries() {
+				CallWarmth::Plain { .. } => weight_from_warmth_summary::<T>(
+					warmth.summary(),
+					|| T::WeightInfo::seal_call(0, 0, 0),
+					T::WeightInfo::seal_call_hot,
+				),
+				CallWarmth::Delegate { .. } => weight_from_warmth_summary::<T>(
+					warmth.summary(),
+					T::WeightInfo::seal_delegate_call,
+					T::WeightInfo::seal_delegate_call_hot,
+				),
+			},
 			AccountInfoRead(warmth) => weight_from_warmth_summary::<T>(
 				warmth.summary(),
 				T::WeightInfo::account_info_read,
@@ -487,18 +470,19 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
-			CallTransferSurcharge(transfer) => {
-				let dust = u32::from(transfer.moves_dust());
-				let cold = || cost_args!(seal_call, 1, dust, 0);
-				match transfer {
-					TransferAccessKind::Untracked { .. } => cold(),
-					TransferAccessKind::Tracked(warmth) => {
-						weight_from_warmth_summary::<T>(warmth.summary(), cold, || {
-							T::WeightInfo::seal_call_transfer_hot(dust)
-								.saturating_sub(T::WeightInfo::seal_call_hot())
-						})
+			CallTransferSurcharge(TransferAccessKind::Untracked { dust }) => {
+				cost_args!(seal_call, 1, dust.into(), 0)
+			},
+			CallTransferSurcharge(TransferAccessKind::Tracked(warmth)) => {
+				let dust = u32::from(warmth.entries().dust);
+				weight_from_warmth_summary::<T>(
+					warmth.summary(),
+					|| cost_args!(seal_call, 1, dust, 0),
+					|| {
+						T::WeightInfo::seal_call_transfer_hot(dust)
+							.saturating_sub(T::WeightInfo::seal_call_hot())
 					},
-				}
+				)
 			},
 			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
 			Instantiate { input_data_len, balance_transfer, dust_transfer } => {
@@ -550,8 +534,7 @@ mod tests {
 	use super::*;
 	use crate::{
 		access_list::{
-			Access, AccessList, CallItems, MAX_ACCESS_LIST_ENTRIES, StorageItems, StorageOp,
-			TransferItems,
+			AccessList, CallItems, MAX_ACCESS_LIST_ENTRIES, StorageItems, StorageOp, TransferItems,
 		},
 		exec::Key,
 		tests::Test,
@@ -769,7 +752,7 @@ mod tests {
 
 		let surcharge_of = |warmth| {
 			RuntimeCosts::write_surcharge::<Test>(
-				WarmthSummary::new(StorageItems::KEY_FAMILY).count(warmth, StorageOp::Write),
+				StorageItems::summarize_single(warmth, StorageOp::Write).summary(),
 			)
 		};
 

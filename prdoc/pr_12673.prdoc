@@ -52,8 +52,8 @@ doc:
     The access list holds up to 4,096 entries per transaction (was 2,048). The memory budgeted
     for its worst case, which `integrity_test` counts against `RuntimeMemory`, grows from 1.5 MiB
     to 2.5 MiB, so a runtime close to its memory limit can now fail that check. `integrity_test`
-    now also checks that the normal-class block proof limit allows at most `MAX_SLOT_ENTRIES`
-    cold storage slots per transaction, unless that limit is above `PVFMemory`.
+    now also checks that the normal-class block proof limit allows at most 1,024 cold storage
+    slots per transaction, unless that limit is above `PVFMemory`.
 
     No storage migration is needed.
 - audience: Runtime User

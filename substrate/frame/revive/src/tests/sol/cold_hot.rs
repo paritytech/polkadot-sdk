@@ -35,10 +35,7 @@ use crate::{
 	},
 	vm::RuntimeCosts,
 };
-use alloy_core::{
-	primitives::Address,
-	sol_types::{SolCall, SolValue},
-};
+use alloy_core::sol_types::SolCall;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
 	CallEach, CallThenRevert, Caller, Counter, Factory, FixtureType, Recurse,
@@ -57,11 +54,7 @@ fn a_storage_write_after_a_read_is_hot(fixture_type: FixtureType) {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let metrics_of = |data: Vec<u8>| {
-			access_list_metrics_of(|| {
-				builder::bare_call(addr).data(data).build_and_unwrap_result();
-			})
-		};
+		let metrics_of = |data: Vec<u8>| access_list_metrics_of_call(addr, data);
 
 		let write_only = metrics_of(Counter::setNumberCall { newNumber: 1 }.abi_encode());
 		let read_then_write = metrics_of(Counter::incrementCall {}.abi_encode());
@@ -105,14 +98,10 @@ fn call_and_delegate_reuse_target_warmth(caller_type: FixtureType, target_type: 
 			Caller::staticCallCall { _callee: target.0.into(), _data: data.into(), _gas: u64::MAX }
 				.abi_encode()
 		};
-		let metrics_of = |call: Vec<u8>| {
-			access_list_metrics_of(|| {
-				builder::bare_call(caller).data(call).build_and_unwrap_result();
-			})
-		};
+		let metrics_of = |call: Vec<u8>| access_list_metrics_of_call(caller, call);
 
-		let plain_entries = CallItems::plain_entries();
-		let delegate_entries = CallItems::delegate_entries();
+		let plain_entries = CallItems::plain_entry_count();
+		let delegate_entries = CallItems::delegate_entry_count();
 		// The address mapping, which a plain call reads and a delegate call skips.
 		let mapping_entry = 1;
 
@@ -157,17 +146,14 @@ fn call_past_the_depth_limit_pays_by_target_warmth(fixture_type: FixtureType) {
 		// The innermost frame already sits at the depth limit, so the call it makes to
 		// `final_target` is denied. The zero address stands for making no such call at all.
 		let recurse_to_the_limit_then_call = |final_target: H160| {
-			access_list_metrics_of(|| {
-				builder::bare_call(addr)
-					.data(
-						Recurse::recurseCall {
-							callsLeft: limits::CALL_STACK_DEPTH,
-							finalTarget: final_target.0.into(),
-						}
-						.abi_encode(),
-					)
-					.build_and_unwrap_result();
-			})
+			access_list_metrics_of_call(
+				addr,
+				Recurse::recurseCall {
+					callsLeft: limits::CALL_STACK_DEPTH,
+					finalTarget: final_target.0.into(),
+				}
+				.abi_encode(),
+			)
 		};
 
 		let final_call_allowed = recurse_to_the_limit_then_call(H160::zero());
@@ -243,26 +229,23 @@ fn a_call_to_a_precompile_warms_nothing(fixture_type: FixtureType) {
 		let no_info = NoInfo::<Test>::MATCHER.base_address();
 		let with_info = WithInfo::<Test>::MATCHER.base_address();
 		// The caller's call entries and code, the only entries the transaction warms.
-		let caller_entries = CallItems::plain_entries();
+		let caller_entries = CallItems::plain_entry_count();
 
 		for (case, precompile, data, value) in [
 			("no contract info", no_info, identity.clone(), 0),
 			("contract info", with_info, dummy, 0),
 			("value transfer", no_info, identity, 1_000_000),
 		] {
-			let metrics = access_list_metrics_of(|| {
-				builder::bare_call(caller)
-					.data(
-						Caller::normalCall {
-							_callee: precompile.into(),
-							_value: value,
-							_data: data.into(),
-							_gas: u64::MAX,
-						}
-						.abi_encode(),
-					)
-					.build_and_unwrap_result();
-			});
+			let metrics = access_list_metrics_of_call(
+				caller,
+				Caller::normalCall {
+					_callee: precompile.into(),
+					_value: value,
+					_data: data.into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			);
 			assert_eq!(
 				metrics,
 				AccessListMetrics { size: caller_entries as usize, cold: caller_entries, hot: 0 },
@@ -300,7 +283,7 @@ fn callee_revert_drops_only_its_own_touches(fixture_type: FixtureType) {
 		assert_eq!(revert_then_reverter.cold, revert.cold);
 		assert_eq!(
 			revert_then_reverter.hot - revert.hot,
-			CallItems::plain_entries(),
+			CallItems::plain_entry_count(),
 			"the second call to the callee is all hot",
 		);
 	});
@@ -341,19 +324,16 @@ fn a_value_transfer_finds_both_account_infos_hot(fixture_type: FixtureType) {
 
 		let eoa = H160::from([0xfe; 20]);
 		let call_with_value = |value: u64| {
-			access_list_metrics_of(|| {
-				builder::bare_call(caller)
-					.data(
-						Caller::normalCall {
-							_callee: eoa.0.into(),
-							_value: value,
-							_data: Vec::<u8>::new().into(),
-							_gas: u64::MAX,
-						}
-						.abi_encode(),
-					)
-					.build_and_unwrap_result();
-			})
+			access_list_metrics_of_call(
+				caller,
+				Caller::normalCall {
+					_callee: eoa.0.into(),
+					_value: value,
+					_data: Vec::<u8>::new().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
 		};
 
 		let zero_value = call_with_value(0);
@@ -385,12 +365,7 @@ fn a_contract_creation_warms_the_new_contract(fixture_type: FixtureType) {
 				code_entries) as usize;
 
 		let factory = deploy_factory(fixture_type);
-		let size_after = |data: Vec<u8>| {
-			access_list_metrics_of(|| {
-				builder::bare_call(factory).data(data).build_and_unwrap_result();
-			})
-			.size
-		};
+		let size_after = |data: Vec<u8>| access_list_metrics_of_call(factory, data).size;
 
 		let created_size = size_after(Factory::createCall {}.abi_encode());
 		let failed_size = size_after(Factory::createRevertingCall {}.abi_encode());
@@ -435,7 +410,11 @@ fn a_contract_creation_pays_for_registering_its_entries(fixture_type: FixtureTyp
 			.unwrap();
 			let consumed = ext.frame_meter().weight_consumed().saturating_sub(before);
 			let child: H160 =
-				Address::abi_decode(&ext.last_frame_output().data).unwrap().0.0.into();
+				Factory::createCall::abi_decode_returns(&ext.last_frame_output().data)
+					.unwrap()
+					.0
+					.0
+					.into();
 			let code_hash = AccountInfo::<Test>::load_contract(&child)
 				.expect("the factory creates it")
 				.code_hash;
@@ -482,12 +461,7 @@ fn a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType)
 		};
 
 		let factory = deploy_factory(fixture_type);
-		let size_after = |data: Vec<u8>| {
-			access_list_metrics_of(|| {
-				builder::bare_call(factory).data(data).build_and_unwrap_result();
-			})
-			.size
-		};
+		let size_after = |data: Vec<u8>| access_list_metrics_of_call(factory, data).size;
 
 		let noop_size = size_after(Factory::noopCall {}.abi_encode());
 		let failed_size = size_after(Factory::createRevertingCall {}.abi_encode());
@@ -506,14 +480,10 @@ fn newly_stored_code_is_hot_for_the_next_call() {
 
 		let factory = deploy_factory(FixtureType::Solc);
 		let create_then_call = || {
-			access_list_metrics_of(|| {
-				builder::bare_call(factory)
-					.data(
-						Factory::createThenCallCall { value: 0u64.try_into().unwrap() }
-							.abi_encode(),
-					)
-					.build_and_unwrap_result();
-			})
+			access_list_metrics_of_call(
+				factory,
+				Factory::createThenCallCall { value: 0u64.try_into().unwrap() }.abi_encode(),
+			)
 		};
 
 		let stores_the_code = create_then_call();
@@ -544,11 +514,7 @@ fn a_created_contract_is_hot_for_the_rest_of_the_transaction(fixture_type: Fixtu
 		let expected_transfer_hot = 4; // both parties' Account and AccountInfo
 
 		let factory = deploy_factory(fixture_type);
-		let metrics_of = |data: Vec<u8>| {
-			access_list_metrics_of(|| {
-				builder::bare_call(factory).data(data).build_and_unwrap_result();
-			})
-		};
+		let metrics_of = |data: Vec<u8>| access_list_metrics_of_call(factory, data);
 		let create_then_call = |value: u64| {
 			metrics_of(
 				Factory::createThenCallCall { value: value.try_into().unwrap() }.abi_encode(),
@@ -573,28 +539,24 @@ fn a_created_contract_is_hot_for_the_rest_of_the_transaction(fixture_type: Fixtu
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn a_call_to_a_created_contract_is_charged_hot(fixture_type: FixtureType) {
-	let with_fresh_factory = |run: &dyn Fn(H160) -> Weight| {
+	let with_new_factory = |run: &dyn Fn(H160) -> Weight| {
 		ExtBuilder::default().build().execute_with(|| run(deploy_factory(fixture_type)))
 	};
 	let invoke_factory =
 		|factory_addr: H160, data: Vec<u8>| builder::bare_call(factory_addr).data(data).build();
 
-	let create_weight = with_fresh_factory(&|factory_addr| {
-		invoke_factory(factory_addr, Factory::createCall {}.abi_encode()).weight_consumed
-	});
-	let create_then_call_weight = with_fresh_factory(&|factory_addr| {
-		invoke_factory(
-			factory_addr,
-			Factory::createThenCallCall { value: 0u64.try_into().unwrap() }.abi_encode(),
-		)
-		.weight_consumed
-	});
-	let noop_weight = with_fresh_factory(&|factory_addr| {
-		invoke_factory(factory_addr, Factory::noopCall {}.abi_encode()).weight_consumed
-	});
-	let call_child_weight = with_fresh_factory(&|factory_addr| {
+	let new_factory_call_weight = |data: Vec<u8>| {
+		with_new_factory(&|factory_addr| invoke_factory(factory_addr, data.clone()).weight_consumed)
+	};
+
+	let create_weight = new_factory_call_weight(Factory::createCall {}.abi_encode());
+	let create_then_call_weight = new_factory_call_weight(
+		Factory::createThenCallCall { value: 0u64.try_into().unwrap() }.abi_encode(),
+	);
+	let noop_weight = new_factory_call_weight(Factory::noopCall {}.abi_encode());
+	let call_child_weight = with_new_factory(&|factory_addr| {
 		let create = invoke_factory(factory_addr, Factory::createCall {}.abi_encode());
-		let child = Address::abi_decode(&create.result.unwrap().data).unwrap();
+		let child = Factory::createCall::abi_decode_returns(&create.result.unwrap().data).unwrap();
 		invoke_factory(factory_addr, Factory::callChildCall { child }.abi_encode()).weight_consumed
 	});
 
@@ -631,15 +593,18 @@ fn deploy_call_each_and_targets<const N: usize>(fixture_type: FixtureType) -> (H
 	(caller, targets)
 }
 
+/// Calls `contract` with `data` in one transaction and returns its access-list metrics.
+fn access_list_metrics_of_call(contract: H160, data: Vec<u8>) -> AccessListMetrics {
+	access_list_metrics_of(|| {
+		builder::bare_call(contract).data(data).build_and_unwrap_result();
+	})
+}
+
 /// Makes `calls` from `caller` in one transaction and returns its access-list metrics.
 fn access_list_metrics_of_calls(caller: H160, calls: &[(H160, Vec<u8>)]) -> AccessListMetrics {
 	let targets = calls.iter().map(|(target, _)| target.0.into()).collect();
 	let data = calls.iter().map(|(_, data)| data.clone().into()).collect();
-	access_list_metrics_of(|| {
-		builder::bare_call(caller)
-			.data(CallEach::callEachCall { targets, data }.abi_encode())
-			.build_and_unwrap_result();
-	})
+	access_list_metrics_of_call(caller, CallEach::callEachCall { targets, data }.abi_encode())
 }
 
 fn deploy_factory(fixture_type: FixtureType) -> H160 {

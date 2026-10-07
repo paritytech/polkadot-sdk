@@ -3462,7 +3462,7 @@ fn cold_hot_child_upgrade_follows_the_frame_outcome() {
 fn cold_hot_3level_commit_then_revert_drops_committed() {
 	// root → A → grandchild. Grandchild commits a touch into A; A then reverts,
 	// dropping it. The next grandchild call must see the slot cold again.
-	let django_code_hash = MockLoader::insert(Call, |ctx, _| {
+	let grandchild_code_hash = MockLoader::insert(Call, |ctx, _| {
 		let key = Key::Fix([99; 32]);
 		assert!(
 			is_cold_touch(ctx.ext, &key),
@@ -3483,7 +3483,7 @@ fn cold_hot_3level_commit_then_revert_drops_committed() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&DJANGO, django_code_hash);
+		place_contract(&DJANGO, grandchild_code_hash);
 		place_contract(&BOB, a_code_hash);
 		place_contract(&CHARLIE, root_code_hash);
 		run_root_call(CHARLIE_ADDR, vec![]);
@@ -3622,10 +3622,7 @@ fn cold_hot_code_entries_warm_only_when_code_is_loaded() {
 fn cold_hot_a_load_warms_both_code_entries() {
 	let dummy_code_hash = MockLoader::insert(Constructor, |_, _| exec_success());
 	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
-		let own_hash = MockLoader::code_hashes()
-			.into_iter()
-			.find(|hash| *hash != dummy_code_hash)
-			.unwrap();
+		let own_hash = *ctx.ext.own_code_hash();
 		assert_eq!(
 			ctx.ext.warmth_of(CodeLoadItems::new(own_hash)).entries(),
 			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },

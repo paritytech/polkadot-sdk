@@ -202,12 +202,12 @@ impl Warmth {
 		}
 	}
 
-	/// Returns a cold warmth whose touch stays in the list if the frame reverts.
+	/// Builds a cold warmth whose touch stays in the list if the frame reverts.
 	pub fn cold_non_revertible() -> Self {
 		Self::Cold { revertible: false }
 	}
 
-	/// Returns a cold warmth whose touch is dropped if the frame reverts.
+	/// Builds a cold warmth whose touch is dropped if the frame reverts.
 	pub fn cold_revertible() -> Self {
 		Self::Cold { revertible: true }
 	}
@@ -220,13 +220,13 @@ impl Warmth {
 		}
 	}
 
-	/// Returns a hot warmth that has paid for a read.
+	/// Builds a hot warmth that has paid for a read.
 	#[cfg(test)]
 	pub fn read_paid() -> Self {
 		Self::Hot { charged: StorageOp::Read }
 	}
 
-	/// Returns a hot warmth that has paid for a write.
+	/// Builds a hot warmth that has paid for a write.
 	#[cfg(test)]
 	pub fn write_paid() -> Self {
 		Self::Hot { charged: StorageOp::Write }
@@ -551,13 +551,13 @@ impl CallItems {
 #[cfg(test)]
 impl CallItems {
 	/// Returns how many entries a plain call to a contract touches, its own plus the callee's code.
-	pub fn plain_entries() -> u32 {
+	pub fn plain_entry_count() -> u32 {
 		Self::Plain { target: H160::zero() }.entry_count() +
 			CodeLoadItems::new(H256::zero()).entry_count()
 	}
 
 	/// Returns how many entries a delegate call touches, the target's account info plus its code.
-	pub fn delegate_entries() -> u32 {
+	pub fn delegate_entry_count() -> u32 {
 		Self::Delegate { target: H160::zero() }.entry_count() +
 			CodeLoadItems::new(H256::zero()).entry_count()
 	}
@@ -594,13 +594,6 @@ pub struct TransferWarmth {
 	pub receiver_account_info: Warmth,
 	pub sender_account_info: Warmth,
 	pub dust: bool,
-}
-
-impl Summarized<TransferWarmth> {
-	/// Returns whether the transfer moves dust.
-	pub fn moves_dust(&self) -> bool {
-		self.entries.dust
-	}
 }
 
 /// The value transfer a call performs.
@@ -1201,30 +1194,33 @@ mod tests {
 			}
 		}
 
-		/// Lists the same entry three times: as a read, a write, then a read.
+		/// Lists the same entry once per operation, in order.
 		#[derive(Clone)]
-		struct SameEntryReadWriteRead(AccessEntry);
+		struct SameEntry(AccessEntry, &'static [StorageOp]);
 
-		impl Access for SameEntryReadWriteRead {
-			type Warmth = [Warmth; 3];
+		impl Access for SameEntry {
+			type Warmth = Vec<Warmth>;
 			const KEY_FAMILY: KeyFamily = KeyFamily::Address;
 
 			fn expand(
 				self,
 				mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth,
-			) -> [Warmth; 3] {
-				[
-					visit(self.0.clone(), StorageOp::Read),
-					visit(self.0.clone(), StorageOp::Write),
-					visit(self.0, StorageOp::Read),
-				]
+			) -> Vec<Warmth> {
+				self.1.iter().map(|op| visit(self.0.clone(), *op)).collect()
 			}
 		}
 
 		let contract = H160::from_low_u64_be(0xcafe);
 		// A self-transfer lists the contract's account and account info twice.
 		agree("a self-transfer", TransferItems { from: contract, to: contract, dust: false });
-		agree("same entry", SameEntryReadWriteRead(AccessEntry::Account { address: contract }));
+		let account = AccessEntry::Account { address: contract };
+		agree(
+			"same entry",
+			SameEntry(
+				account,
+				&[StorageOp::Read, StorageOp::Write, StorageOp::Read, StorageOp::Read],
+			),
+		);
 	}
 
 	#[test]

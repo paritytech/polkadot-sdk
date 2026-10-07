@@ -615,9 +615,6 @@ mod benchmarks {
 		($do_call:ident, $module:expr) => {
 			hot_call_setup!($do_call, _transferred, $module, 0, 0);
 		};
-		($do_call:ident, $module:expr, $t:expr, $d:expr) => {
-			hot_call_setup!($do_call, _transferred, $module, $t, $d);
-		};
 		($do_call:ident, $assert_transferred:ident, $module:expr, $t:expr, $d:expr) => {
 			hot_call_setup!(@setup runtime, memory, callee_len, deposit_len,
 				$assert_transferred, $module, false, $t, $d);
@@ -665,7 +662,8 @@ mod benchmarks {
 			let native: BalanceOf<T> = (1_000_000u32 * $t).into();
 			let dust = 100u32 * $d;
 			let value = BalanceWithDust::new_unchecked::<T>(native, dust);
-			let value_bytes = Pallet::<T>::convert_native_to_evm(value).encode();
+			let evm_value = Pallet::<T>::convert_native_to_evm(value);
+			let value_bytes = evm_value.encode();
 
 			let deposit: BalanceOf<T> = (u32::MAX - 100).into();
 			let deposit_bytes = Into::<U256>::into(deposit).encode();
@@ -699,7 +697,6 @@ mod benchmarks {
 			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 
-			let evm_value = Pallet::<T>::convert_native_to_evm(value);
 			let before = Pallet::<T>::evm_balance(&callee_addr);
 			let $assert_transferred = || {
 				assert!(!evm_value.is_zero(), "the bench has no transfer to measure");
@@ -997,11 +994,9 @@ mod benchmarks {
 	fn code_load() -> Result<(), BenchmarkError> {
 		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 		let code_hash = contract.info()?.code_hash;
-		let mut meter = TransactionMeter::<T>::new(TransactionLimits::WeightAndDeposit {
-			weight_limit: Weight::MAX,
-			deposit_limit: BalanceOf::<T>::max_value(),
-		})
-		.map_err(|_| BenchmarkError::Stop("could not build the meter"))?;
+		let mut meter =
+			TransactionMeter::<T>::new_from_limits(Weight::MAX, BalanceOf::<T>::max_value())
+				.map_err(|_| BenchmarkError::Stop("could not build the meter"))?;
 		let blob;
 		#[block]
 		{
