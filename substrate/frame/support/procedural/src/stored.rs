@@ -216,7 +216,7 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 			#frame_support::__private::codec::MaxEncodedLen,
 		)]
 	};
-	input.attrs.insert(0, codec_derive_attr);
+	input.attrs.push(codec_derive_attr);
 
 	Ok(quote! {
 		#input
