@@ -194,6 +194,14 @@ impl Warmth {
 		matches!(self, Self::Hot { charged } if !charged.covers(op))
 	}
 
+	/// Builds the warmth of an entry recorded with `op`, or of a new one if `None`.
+	fn from_op(op: Option<StorageOp>, list_full: bool, in_nested_frame: bool) -> Self {
+		match op {
+			Some(charged) => Self::Hot { charged },
+			None => Self::Cold { revertible: in_nested_frame && !list_full },
+		}
+	}
+
 	/// Returns a cold warmth whose touch stays in the list if the frame reverts.
 	pub fn cold_non_revertible() -> Self {
 		Self::Cold { revertible: false }
@@ -432,6 +440,9 @@ impl AccessEntry {
 		}
 	}
 }
+
+/// The most entries a single access has: a transfer and an instantiate have four.
+const MAX_ENTRIES_PER_ACCESS: usize = 4;
 
 /// A group of state items that warm and price together.
 pub trait Access {
@@ -774,45 +785,57 @@ impl AccessList {
 
 	/// Reports the warmth [`Self::touch`] would return, without recording it.
 	fn peek(&self, entry: &AccessEntry) -> Warmth {
-		match self.accessed.get(entry) {
-			Some(charged) => Warmth::Hot { charged: *charged },
-			None if self.is_full() => Warmth::Cold { revertible: false },
-			None => Warmth::Cold { revertible: self.in_nested_frame() },
+		Warmth::from_op(self.accessed.get(entry).copied(), self.is_full(), self.in_nested_frame())
+	}
+
+	/// Returns the entry's operation after `new_op`, or `None` for a new entry in a full list.
+	fn storage_op_after(
+		current_op: Option<StorageOp>,
+		new_op: StorageOp,
+		list_full: bool,
+	) -> Option<StorageOp> {
+		match current_op {
+			Some(current_op) if current_op.covers(new_op) => Some(current_op),
+			Some(_) => Some(new_op),
+			None if list_full => None,
+			None => Some(new_op),
 		}
 	}
 
 	/// Registers the entry, returning the warmth it had **before** this call.
-	/// `op` is the operation being performed on the slot.
+	/// `new_op` is the operation being performed on the entry.
 	///
 	/// Past [`MAX_ACCESS_LIST_ENTRIES`], new entries are billed cold without
 	/// being journaled; previously-hot slots continue to bill hot.
-	pub fn touch(&mut self, access_entry: AccessEntry, op: StorageOp) -> Warmth {
-		let at_cap = self.is_full();
+	pub fn touch(&mut self, access_entry: AccessEntry, new_op: StorageOp) -> Warmth {
+		let list_full = self.is_full();
 		match self.accessed.entry(access_entry) {
 			Entry::Occupied(mut tree_entry) => {
 				self.hot_count = self.hot_count.saturating_add(1);
-				let prev_charged = *tree_entry.get();
-				if !prev_charged.covers(op) {
+				let current_op = *tree_entry.get();
+				let storage_op_after = Self::storage_op_after(Some(current_op), new_op, list_full);
+				if let Some(upgraded) = storage_op_after &&
+					upgraded != current_op
+				{
 					// Defensive: one upgrade per tracked entry, so the journal
 					// cannot fill. If it does, later writes just pay the surcharge again.
 					let journaled = self.upgrades.try_push(tree_entry.key().clone());
 					defensive_assert!(journaled.is_ok(), "at most one upgrade per tracked entry");
 					if journaled.is_ok() {
-						*tree_entry.get_mut() = StorageOp::Write;
+						*tree_entry.get_mut() = upgraded;
 					}
 				}
-				Warmth::Hot { charged: prev_charged }
+				Warmth::Hot { charged: current_op }
 			},
 			Entry::Vacant(tree_entry) => {
 				self.cold_count = self.cold_count.saturating_add(1);
-				if at_cap {
-					return Warmth::Cold { revertible: false };
+				if let Some(inserted) = Self::storage_op_after(None, new_op, list_full) {
+					self.journal.try_push(tree_entry.key().clone()).expect(
+						"journal grows in lockstep with accessed and shares its bound; qed",
+					);
+					tree_entry.insert(inserted);
 				}
-				self.journal
-					.try_push(tree_entry.key().clone())
-					.expect("journal grows in lockstep with accessed and shares its bound; qed");
-				tree_entry.insert(op);
-				Warmth::Cold { revertible: self.in_nested_frame() }
+				Warmth::from_op(None, list_full, self.in_nested_frame())
 			},
 		}
 	}
@@ -840,16 +863,30 @@ impl AccessList {
 	}
 
 	/// Reports what [`Self::warm_summarized`] would return, without recording anything.
-	// TODO: an entry named twice reads cold twice here, while warming reads it cold then hot.
 	pub fn warmth_of_summarized<A: Access>(&self, access: A) -> Summarized<A::Warmth> {
-		let mut free_slots = MAX_ACCESS_LIST_ENTRIES.saturating_sub(self.accessed.len());
-		Summarized::from_access(access, |entry, _op| match self.peek(&entry) {
-			Warmth::Cold { .. } => {
-				let revertible = self.in_nested_frame() && free_slots > 0;
-				free_slots = free_slots.saturating_sub(1);
-				Warmth::Cold { revertible }
-			},
-			hot => hot,
+		let in_nested_frame = self.in_nested_frame();
+		let mut visited: [Option<(AccessEntry, Option<StorageOp>)>; MAX_ENTRIES_PER_ACCESS] =
+			[const { None }; MAX_ENTRIES_PER_ACCESS];
+		let mut new_entries_count = 0;
+		Summarized::from_access(access, |access_entry, new_op| {
+			let list_full = self.accessed.len() + new_entries_count >= MAX_ACCESS_LIST_ENTRIES;
+			let entry_seat = visited
+				.iter_mut()
+				.find(|seat| seat.as_ref().is_none_or(|(seen, _)| *seen == access_entry));
+			defensive_assert!(
+				entry_seat.is_some(),
+				"an access has at most MAX_ENTRIES_PER_ACCESS entries"
+			);
+			let current_op = match entry_seat.as_deref() {
+				Some(Some((_, seat_op))) => *seat_op,
+				Some(None) | None => self.accessed.get(&access_entry).copied(),
+			};
+			let storage_op_after = Self::storage_op_after(current_op, new_op, list_full);
+			new_entries_count += usize::from(current_op.is_none() && storage_op_after.is_some());
+			if let Some(entry_seat) = entry_seat {
+				*entry_seat = Some((access_entry, storage_op_after));
+			}
+			Warmth::from_op(current_op, list_full, in_nested_frame)
 		})
 	}
 
@@ -1087,6 +1124,71 @@ mod tests {
 			Warmth::read_paid(),
 			"an at-cap upgrade rolls back with its frame"
 		);
+	}
+
+	#[test]
+	fn warmth_of_agrees_with_warm() {
+		fn agree<A: Access + Clone>(access_kind: &str, access: A)
+		where
+			A::Warmth: PartialEq + core::fmt::Debug,
+		{
+			for (list_state, entries_before) in [
+				("almost at the cap", MAX_ACCESS_LIST_ENTRIES - 2),
+				("at the cap", MAX_ACCESS_LIST_ENTRIES),
+			] {
+				let mut al = AccessList::new();
+				al.fill_to(entries_before, KeyFamily::Slot);
+				assert_eq!(
+					al.warmth_of_summarized(access.clone()),
+					al.warm_summarized(access.clone()),
+					"{access_kind}, {list_state}"
+				);
+			}
+		}
+
+		/// Lists the same entry three times: as a read, a write, then a read.
+		#[derive(Clone)]
+		struct SameEntryReadWriteRead(AccessEntry);
+
+		impl Access for SameEntryReadWriteRead {
+			type Warmth = [Warmth; 3];
+			const KEY_FAMILY: KeyFamily = KeyFamily::Address;
+
+			fn expand(
+				self,
+				mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth,
+			) -> [Warmth; 3] {
+				[
+					visit(self.0.clone(), StorageOp::Read),
+					visit(self.0.clone(), StorageOp::Write),
+					visit(self.0, StorageOp::Read),
+				]
+			}
+		}
+
+		let contract = H160::from_low_u64_be(0xcafe);
+		// A self-transfer lists the contract's account and account info twice.
+		agree("a self-transfer", TransferItems { from: contract, to: contract, dust: false });
+		agree("same entry", SameEntryReadWriteRead(AccessEntry::Account { address: contract }));
+	}
+
+	#[test]
+	#[should_panic(expected = "an access has at most MAX_ENTRIES_PER_ACCESS entries")]
+	fn warmth_of_an_access_with_too_many_entries_fails_loudly() {
+		struct TooManyEntries;
+
+		impl Access for TooManyEntries {
+			type Warmth = ();
+			const KEY_FAMILY: KeyFamily = KeyFamily::Address;
+
+			fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) {
+				for index in 0..=MAX_ENTRIES_PER_ACCESS {
+					visit(AccessEntry::with_index(index, KeyFamily::Address), StorageOp::Read);
+				}
+			}
+		}
+
+		AccessList::new().warmth_of_summarized(TooManyEntries);
 	}
 
 	#[test]
