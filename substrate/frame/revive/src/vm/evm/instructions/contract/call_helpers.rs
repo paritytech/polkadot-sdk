@@ -66,7 +66,6 @@ pub fn charge_call_gas<'a, E: Ext>(
 ) -> ControlFlow<Halt, ()> {
 	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 
-	let dust_transfer = Pallet::<E::T>::has_dust(value);
 	match &precompile {
 		Some(precompile) => {
 			// Base cost depending on contract info
@@ -97,6 +96,7 @@ pub fn charge_call_gas<'a, E: Ext>(
 	};
 
 	if !value.is_zero() {
+		let dust_transfer = Pallet::<E::T>::has_dust(value);
 		// A precompile's account state is untracked, so its transfer has no warmth and pays cold.
 		let transfer = if precompile.is_none() {
 			TransferAccessKind::Tracked(interpreter.ext.warm(TransferItems {

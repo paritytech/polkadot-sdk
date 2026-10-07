@@ -16,11 +16,11 @@
 // limitations under the License.
 
 use crate::{
-	evm::{CallTrace, CallTracer},
-	test_utils::{self, builder::Contract, ALICE, BOB, BOB_ADDR},
-	tests::{builder, ExtBuilder, GasScale, RuntimeOrigin, Test},
-	tracing::trace,
 	AccountInfo, Code, Config, Error, Pallet,
+	evm::{CallTrace, CallTracer},
+	test_utils::{self, ALICE, BOB, BOB_ADDR, builder::Contract},
+	tests::{ExtBuilder, GasScale, RuntimeOrigin, Test, builder},
+	tracing::trace,
 };
 use alloy_core::{
 	primitives::U256,
@@ -29,10 +29,10 @@ use alloy_core::{
 use codec::Encode;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
-	compile_module, compile_module_with_type, BumpableCounter, CreatingReceiver,
-	CreatingReceiver::Creation, FixtureType, NestedWritingReceiver, NestedWritingReceiver::Nesting,
-	StipendSender, StipendTest, TerminatingReceiver, TerminatingReceiver::Termination,
-	ValueForwardingReceiver, WarmWriteSender,
+	BumpableCounter, CreatingReceiver, CreatingReceiver::Creation, FixtureType,
+	NestedWritingReceiver, NestedWritingReceiver::Nesting, StipendSender, StipendTest,
+	TerminatingReceiver, TerminatingReceiver::Termination, ValueForwardingReceiver,
+	WarmWriteSender, compile_module, compile_module_with_type,
 };
 use sp_core::H160;
 use test_case::{test_case, test_matrix};

@@ -621,12 +621,21 @@ pub trait Executable<T: Config>: Sized {
 	/// Load the executable from storage.
 	///
 	/// # Note
-	/// Charges the code load from the weight meter.
+	/// Charges size base load weight from the weight meter.
 	fn from_storage<S: State>(
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
-		warmth: Summarized<CodeLoadWarmth>,
 	) -> Result<Self, DispatchError>;
+
+	/// Load the executable from storage, charging the code load at the code's `warmth`.
+	#[doc(hidden)]
+	fn from_storage_with_warmth<S: State>(
+		code_hash: H256,
+		meter: &mut ResourceMeter<T, S>,
+		_warmth: Summarized<CodeLoadWarmth>,
+	) -> Result<Self, DispatchError> {
+		Self::from_storage(code_hash, meter)
+	}
 
 	/// Load the executable from EVM bytecode
 	fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError>;
@@ -1110,11 +1119,10 @@ where
 		origin: &Origin<T>,
 		value: U256,
 	) -> AccessList {
-		// TODO: fail the `call` and `eth_call` benches if they whitelist these entries.
 		let mut access_list = AccessList::new();
 		let FrameArgs::Call { dest, delegated_call: None, .. } = args else { return access_list };
 		let address = T::AddressMapper::to_address(dest);
-		if <AllPrecompiles<T>>::get::<Self>(address.as_fixed_bytes()).is_some() {
+		if is_precompile::<T, E>(&address) {
 			return access_list;
 		}
 		access_list.warm(CallItems::new(address, false));
@@ -1135,12 +1143,11 @@ where
 	fn load_code<S: State>(
 		access_list: &mut AccessList,
 		meter: &mut ResourceMeter<T, S>,
-		code_hash: H256,
+		code_load_items: access_list::CodeLoadItems,
 	) -> Result<E, DispatchError> {
-		let code_load = access_list::CodeLoadItems { hash: code_hash };
-		let executable =
-			E::from_storage(code_hash, meter, access_list.warmth_of_summarized(code_load))?;
-		access_list.warm(code_load);
+		let warmth = access_list.warmth_of_summarized(code_load_items);
+		let executable = E::from_storage_with_warmth(code_load_items.hash, meter, warmth)?;
+		access_list.warm(code_load_items);
 		Ok(executable)
 	}
 
@@ -1153,10 +1160,18 @@ where
 	/// delegated, the spec resolves one hop, retrieves the target's indicator bytes
 	/// `0xef0100 || ..`, and traps on the leading `0xef` invalid opcode. Otherwise the
 	/// resolved code is genuinely empty and the call falls through to the transfer path.
-	fn fail_if_chained_delegation(target: Option<H160>) -> Result<(), ExecError> {
-		if let Some(target) = target &&
-			AccountInfo::<T>::is_delegated(&target)
-		{
+	fn ensure_not_chained_delegation<S: State>(
+		access_list: &mut AccessList,
+		meter: &mut ResourceMeter<T, S>,
+		target: Option<H160>,
+	) -> Result<(), ExecError> {
+		let Some(target) = target else { return Ok(()) };
+		access_list.charge_and_warm(
+			access_list::AccessEntry::AccountInfo { address: target },
+			StorageOp::Read,
+			|warmth| meter.charge_weight_token(RuntimeCosts::AccountInfoRead(warmth)),
+		)?;
+		if AccountInfo::<T>::is_delegated(&target) {
 			return Err(ExecError {
 				error: <Error<T>>::ContractTrapped.into(),
 				origin: ErrorOrigin::Callee,
@@ -1204,7 +1219,7 @@ where
 						if let Some(info) = info {
 							CachedContract::Cached(info)
 						} else {
-							Self::fail_if_chained_delegation(target)?;
+							Self::ensure_not_chained_delegation(access_list, meter, target)?;
 							return Ok(None);
 						}
 					},
@@ -1246,11 +1261,15 @@ where
 						let (info, target) =
 							AccountInfo::<T>::load_contract_with_delegation(&delegated_call.callee);
 						let Some(info) = info else {
-							Self::fail_if_chained_delegation(target)?;
+							Self::ensure_not_chained_delegation(access_list, meter, target)?;
 							return Ok(None);
 						};
 						delegate_code_target = target;
-						let executable = Self::load_code(access_list, meter, info.code_hash)?;
+						let executable = Self::load_code(
+							access_list,
+							meter,
+							access_list::CodeLoadItems::new(info.code_hash),
+						)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				} else if let Some(precompile) = precompile {
@@ -1263,7 +1282,11 @@ where
 						.as_contract()
 						.expect("When not a precompile the contract was loaded above; qed")
 						.code_hash;
-					let executable = Self::load_code(access_list, meter, code_hash)?;
+					let executable = Self::load_code(
+						access_list,
+						meter,
+						access_list::CodeLoadItems::new(code_hash),
+					)?;
 					ExecutableOrPrecompile::Executable(executable)
 				};
 
@@ -1621,10 +1644,16 @@ where
 					};
 
 					if module.store_code(&self.exec_config, &mut frame.frame_meter)?.is_some() {
-						// EIP-2929 warms a created address. It is safe to warm its code too, since
-						// `Create` paid for the new code and it is in the storage overlay.
-						self.access_list
-							.warm(access_list::CodeLoadItems { hash: *module.code_hash() });
+						// New code is in the storage overlay, so its entries can be warm.
+						let warmth = self.access_list.warm_summarized(
+							access_list::CodeLoadItems::with_info_op(
+								*module.code_hash(),
+								StorageOp::Write,
+							),
+						);
+						frame.frame_meter.charge_weight_token(
+							RuntimeCosts::AccessListRegistration(warmth.summary()),
+						)?;
 					}
 					code_deposit = module.code_info().deposit();
 
@@ -2132,6 +2161,46 @@ where
 			f(&self.transient_storage)
 		}
 	}
+
+	/// Resolves where the code reported for `address` comes from, with a single
+	/// `AccountInfoOf` read.
+	///
+	/// Single source of truth for `code_hash`, `code_size` and `copy_code_slice`, which
+	/// must all resolve code from the same sources in the same priority order.
+	fn code_source(&self, address: &H160) -> Option<CodeSource<'_>> {
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
+			self.exec_config
+				.mock_handler
+				.as_ref()
+				.and_then(|handler| handler.mocked_code(*address))
+		}) {
+			return Some(CodeSource::Virtual(code));
+		}
+
+		let (contract, target) = <AccountInfo<T>>::load_contract_with_delegation(address);
+
+		// EIP-7702: delegated EOAs return `0xef0100 || target` as their code.
+		//
+		// PVM caveat: resolc lowers CODESIZE to the `code_size` host function, so inside
+		// a delegated EOA's execution CODESIZE reports 23 instead of the size of the
+		// target's PVM blob. Fixing that needs a separate host function and a matching
+		// resolc change; tracked as a follow-up.
+		if let Some(target) = target {
+			return Some(CodeSource::Indicator(<AccountInfo<T>>::delegation_indicator(&target)));
+		}
+
+		contract.map(|contract| CodeSource::Contract(contract.code_hash))
+	}
+}
+
+/// Where the code reported for an address comes from.
+enum CodeSource<'a> {
+	/// A precompile's code stub or mocked code. Never stored in `PristineCode`.
+	Virtual(&'a [u8]),
+	/// The EIP-7702 delegation indicator `0xef0100 || target`.
+	Indicator([u8; 23]),
+	/// The code hash of a deployed contract whose code is stored in `PristineCode`.
+	Contract(H256),
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -2304,7 +2373,7 @@ where
 					let executable = Self::load_code(
 						&mut self.access_list,
 						&mut top_frame_mut!(self).frame_meter,
-						*hash,
+						access_list::CodeLoadItems::with_info_op(*hash, StorageOp::Write),
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
@@ -2555,59 +2624,26 @@ where
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
-		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
-			self.exec_config
-				.mock_handler
-				.as_ref()
-				.and_then(|handler| handler.mocked_code(*address))
-		}) {
-			return sp_io::hashing::keccak_256(code).into();
+		match self.code_source(address) {
+			Some(CodeSource::Virtual(code)) => sp_io::hashing::keccak_256(code).into(),
+			Some(CodeSource::Indicator(indicator)) => sp_io::hashing::keccak_256(&indicator).into(),
+			Some(CodeSource::Contract(code_hash)) => code_hash,
+			None if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) => {
+				EMPTY_CODE_HASH
+			},
+			None => H256::zero(),
 		}
-
-		// EIP-7702: delegated EOAs return keccak256(0xef0100 || target). This is the
-		// EXTCODEHASH path; CODEHASH (self) uses the separate `own_code_hash` host
-		// function and is therefore unaffected.
-		if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
-			let indicator = <AccountInfo<T>>::delegation_indicator(&target);
-			return sp_io::hashing::keccak_256(&indicator).into();
-		}
-
-		<AccountInfo<T>>::load_contract(&address)
-			.map(|contract| contract.code_hash)
-			.unwrap_or_else(|| {
-				if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) {
-					return EMPTY_CODE_HASH;
-				}
-				H256::zero()
-			})
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
-		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
-			self.exec_config
-				.mock_handler
-				.as_ref()
-				.and_then(|handler| handler.mocked_code(*address))
-		}) {
-			return code.len() as u64;
+		match self.code_source(address) {
+			Some(CodeSource::Virtual(code)) => code.len() as u64,
+			Some(CodeSource::Indicator(indicator)) => indicator.len() as u64,
+			Some(CodeSource::Contract(code_hash)) => {
+				CodeInfoOf::<T>::get(code_hash).map(|info| info.code_len()).unwrap_or_default()
+			},
+			None => 0,
 		}
-
-		// EIP-7702: delegated EOAs return the delegation indicator size (23 bytes).
-		//
-		// PVM caveat: on PolkaVM, EXTCODESIZE and CODESIZE both lower to this
-		// host function, so this branch is reached for both. It is spec-correct
-		// for EXTCODESIZE but wrong for CODESIZE inside a delegated EOA's
-		// execution — the executing code there is the target's PVM blob, whose
-		// size is not 23. Spec-correct CODESIZE requires a separate host
-		// function and a matching resolc change; tracked as a follow-up.
-		if <AccountInfo<T>>::is_delegated(address) {
-			return 23;
-		}
-
-		<AccountInfo<T>>::load_contract(&address)
-			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
-			.map(|info| info.code_len())
-			.unwrap_or_default()
 	}
 
 	fn caller_is_origin(&self, use_caller_of_caller: bool) -> bool {
@@ -2657,8 +2693,7 @@ where
 			tracer.log_event(contract, &topics, &data, log_index);
 		});
 
-		// Capture the log only if it is generated by an Ethereum transaction.
-		block_storage::capture_ethereum_log(&contract, &data, &topics);
+		block_storage::capture_frame_log::<T>(&contract, &data, &topics);
 
 		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
 	}
@@ -2753,39 +2788,27 @@ where
 	}
 
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize) {
-		let len = buf.len();
-		if len == 0 {
+		fn copy_padded(buf: &mut [u8], code: &[u8], code_offset: usize) {
+			let code = code.get(code_offset..).unwrap_or_default();
+			let len = buf.len().min(code.len());
+			buf[..len].copy_from_slice(&code[..len]);
+			buf[len..].fill(0);
+		}
+
+		if buf.is_empty() {
 			return;
 		}
 
-		let code = if let Some(code) =
-			<AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
-				self.exec_config
-					.mock_handler
-					.as_ref()
-					.and_then(|handler| handler.mocked_code(*address))
-			}) {
-			code.to_vec()
-		} else if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
-			// EIP-7702: delegated EOAs return 0xef0100 || target as their code.
-			//
-			// PVM caveat: on PolkaVM, EXTCODECOPY and CODECOPY both lower to this
-			// host function, so this branch is reached for both. It is spec-correct
-			// for EXTCODECOPY but wrong for CODECOPY inside a delegated EOA's
-			// execution — the executing code there is the target's PVM blob, not
-			// the 23-byte indicator. Spec-correct CODECOPY requires a separate
-			// host function and a matching resolc change; tracked as a follow-up.
-			<AccountInfo<T>>::delegation_indicator(&target).to_vec()
-		} else {
-			let code_hash = self.code_hash(address);
-			crate::PristineCode::<T>::get(&code_hash).unwrap_or_default()
-		};
-
-		let copy_len = len.min(code.len().saturating_sub(code_offset));
-		if copy_len > 0 {
-			buf[..copy_len].copy_from_slice(&code[code_offset..code_offset + copy_len]);
+		match self.code_source(address) {
+			Some(CodeSource::Virtual(code)) => copy_padded(buf, code, code_offset),
+			Some(CodeSource::Indicator(indicator)) => copy_padded(buf, &indicator, code_offset),
+			Some(CodeSource::Contract(code_hash)) => copy_padded(
+				buf,
+				&crate::PristineCode::<T>::get(&code_hash).unwrap_or_default(),
+				code_offset,
+			),
+			None => buf.fill(0),
 		}
-		buf[copy_len..].fill(0);
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {

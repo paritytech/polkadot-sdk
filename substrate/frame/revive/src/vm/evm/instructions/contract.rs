@@ -20,7 +20,7 @@ mod call_helpers;
 use super::utility::IntoAddress;
 use crate::{
 	Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, U256,
-	access_list::CreateItems,
+	access_list::InstantiateItems,
 	exec::CallResources,
 	vm::{
 		Ext, RuntimeCosts, StipendAndProtections,
@@ -52,8 +52,6 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 		init_code_len: len as u32,
 		balance_transfer: Pallet::<E::T>::has_balance(value),
 		dust_transfer: Pallet::<E::T>::has_dust(value),
-		// TODO: `true` pays for the code warm in `Stack::run`, tied to it only by convention.
-		warming_summary: CreateItems::warming_summary(true),
 	})?;
 
 	let mut code = Vec::new();
@@ -97,9 +95,13 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 			} else {
 				// Otherwise clear it. Note that RETURN opcode should abort.
 				*interpreter.ext.last_frame_output_mut() = Default::default();
-				// EIP-2929 warms a created address. It is safe to do the same, since `Create` paid
-				// for the new entries and they are in the storage overlay.
-				interpreter.ext.warm(CreateItems { address });
+				// EIP-2929 warms a created address. It is safe to do the same, since the new
+				// entries are in the storage overlay.
+				let deployer = interpreter.ext.address();
+				let warmth = interpreter.ext.warm(InstantiateItems { address, deployer });
+				interpreter
+					.ext
+					.charge_or_halt(RuntimeCosts::AccessListRegistration(warmth.summary()))?;
 				interpreter.stack.push(address)
 			}
 		},

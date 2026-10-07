@@ -41,44 +41,57 @@ use crate::{exec::Key, limits};
 /// memory cost.
 pub const MAX_INLINE_KEY_LEN: usize = 36;
 
-/// Maximum number of distinct entries tracked in the access list within a
-/// single transaction.
+/// Maximum number of distinct entries tracked in the access list within a single transaction.
 ///
-/// Bounds the working memory `AccessList` can allocate per transaction.
-/// EIP-2929 does not specify a structural cap; Ethereum relies on gas to
-/// implicitly bound growth.
-///
-/// Memory grows discontinuously due to the runtime allocator (sc-allocator)
-/// rounding allocations up to power-of-2 size classes.
-///
-/// All figures below are approximate order-of-magnitude estimates; every slot
-/// includes an upgrade. The Ethereum-gas column shows the EIP-2929 cost of
-/// filling the map to that size via cold SLOADs (2 100 gas each).
-///
-/// | Entries | Fix/Inline (Best) | VarLong (Worst) |     Gas (Ethereum) |
-/// |---------|-------------------|-----------------|--------------------|
-/// |       1 |      ~1.5 KB      |     ~1.8 KB     |          2.1 k gas |
-/// |       2 |      ~1.5 KB      |     ~2.2 KB     |          4.2 k gas |
-/// |       8 |      ~2.3 KB      |     ~5.3 KB     |         16.8 k gas |
-/// |      32 |      ~11 KB       |      ~23 KB     |         67.2 k gas |
-/// |     128 |      ~45 KB       |      ~96 KB     |          269 k gas |
-/// |   2 048 |      ~730 KB      |     ~1.5 MB     |          4.3 M gas |
-///
-/// Set ~2× above the current PoV-reachable ceiling as a backstop: each
-/// cold access charges ~10 KB `proof_size`, capping a transaction
-/// (~7.5 MiB PoV) at ~770 cold touches.
-pub const MAX_ACCESS_LIST_ENTRIES: usize = 2_048;
+/// Bounds the working memory `AccessList` can allocate per transaction. EIP-2929 does not specify
+/// a cap and Ethereum relies on gas to implicitly bound growth.
+pub const MAX_ACCESS_LIST_ENTRIES: usize = 4_096;
 
-/// Worst-case per-entry memory in the `BTreeMap` + journals, measured
-/// against sc-allocator (8-byte headers, power-of-2 buckets). `Slot::Fix` and
-/// `Slot::VarInline` measure ~366 B; `Slot::VarLong` ~502 B. An entry in the
-/// `upgrades` journal adds up to ~200 B on top. Rounded up to 768 for
-/// headroom.
-const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 768;
+// Worst-case memory per access list entry, measured with a list filled to the cap, counting what
+// the runtime allocator (sc-allocator) hands out: every allocation is rounded up to a power-of-2
+// size class plus an 8-byte header.
+//
+// An entry is 64 B and is kept in `accessed`, in `journal` and, once written, in `upgrades`. A
+// storage slot with a key longer than `MAX_INLINE_KEY_LEN` keeps the key on the heap, so each
+// container also holds its own copy: 128 B in a 136 B block. An address entry has no key copy.
+// Per entry:
+//
+// | container  | entry | key | slot total | address total |
+// |------------|-------|-----|------------|---------------|
+// | `accessed` |  ~171 | 136 |       ~307 |          ~171 |
+// | `journal`  |  ~128 | 136 |       ~264 |          ~128 |
+// | `upgrades` |  ~128 | 136 |       ~264 |          ~128 |
+// |            |       |     |       ~835 |          ~427 |
+//
+// In `accessed`, ~171 B is an entry's share of a ~1 KiB `BTreeMap` node, taken at about half full
+// (~6 of 11 AccessEntries). In a journal, ~128 B is the 64 B AccessEntry copy doubled: a `Vec`
+// grows by moving to a buffer twice the size, and the buffers it frees add up to about one final
+// buffer. The allocator keeps each for requests of the same size, which the list does not make.
+
+/// Worst-case memory of a storage slot entry: the slot total above, rounded up.
+const SLOT_ENTRY_BYTES: usize = 1_024;
+
+/// Worst-case memory of an address or code entry, or a storage slot with an inline key: the
+/// address total above, rounded up.
+const ADDRESS_ENTRY_BYTES: usize = 512;
+
+const _: () = assert!(
+	core::mem::size_of::<AccessEntry>() <= 64 &&
+		limits::STORAGE_KEY_BYTES == 128 &&
+		MAX_ACCESS_LIST_ENTRIES.is_power_of_two(),
+	"the memory usage table above is based on these sizes and requires remeasuring",
+);
+
+/// Storage slot entries that fit into a block's PoV.
+///
+/// Set ~1.3× above the current PoV-reachable ceiling: each cold slot access charges ~10 KB
+/// `proof_size`, capping a transaction (~7.5 MiB PoV) at ~770 cold slots.
+pub const MAX_SLOT_ENTRIES: usize = 1_024;
 
 /// Worst-case total memory the access list can hold per transaction.
-pub const MAX_ACCESS_LIST_BYTES: u32 =
-	MAX_ACCESS_LIST_ENTRIES.saturating_mul(MAX_ACCESS_LIST_ENTRY_BYTES) as u32;
+pub const MAX_ACCESS_LIST_BYTES: u32 = (MAX_SLOT_ENTRIES * SLOT_ENTRY_BYTES +
+	(MAX_ACCESS_LIST_ENTRIES - MAX_SLOT_ENTRIES) * ADDRESS_ENTRY_BYTES)
+	as u32;
 
 /// A contract's storage key, in the form the access list keeps it.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
@@ -115,8 +128,8 @@ impl From<&Key> for Slot {
 /// A slot inside one contract's storage.
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct ContractSlot {
-	pub slot: Slot,
-	pub address: H160,
+	slot: Slot,
+	address: H160,
 }
 
 impl Ord for ContractSlot {
@@ -181,12 +194,20 @@ impl Warmth {
 		matches!(self, Self::Hot { charged } if !charged.covers(op))
 	}
 
-	/// Returns a cold warmth whose touch stays in the list if the frame reverts.
+	/// Builds the warmth of an entry recorded with `op`, or of a new one if `None`.
+	fn from_op(op: Option<StorageOp>, list_full: bool, in_nested_frame: bool) -> Self {
+		match op {
+			Some(charged) => Self::Hot { charged },
+			None => Self::Cold { revertible: in_nested_frame && !list_full },
+		}
+	}
+
+	/// Builds a cold warmth whose touch stays in the list if the frame reverts.
 	pub fn cold_non_revertible() -> Self {
 		Self::Cold { revertible: false }
 	}
 
-	/// Returns a cold warmth whose touch is dropped if the frame reverts.
+	/// Builds a cold warmth whose touch is dropped if the frame reverts.
 	pub fn cold_revertible() -> Self {
 		Self::Cold { revertible: true }
 	}
@@ -199,13 +220,13 @@ impl Warmth {
 		}
 	}
 
-	/// Returns a hot warmth that has paid for a read.
+	/// Builds a hot warmth that has paid for a read.
 	#[cfg(test)]
 	pub fn read_paid() -> Self {
 		Self::Hot { charged: StorageOp::Read }
 	}
 
-	/// Returns a hot warmth that has paid for a write.
+	/// Builds a hot warmth that has paid for a write.
 	#[cfg(test)]
 	pub fn write_paid() -> Self {
 		Self::Hot { charged: StorageOp::Write }
@@ -213,19 +234,33 @@ impl Warmth {
 }
 
 /// An access's entries counted by warmth.
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct WarmthSummary {
+	/// The family of the access's keys.
+	key: KeyFamily,
 	/// How many entries in total.
 	total: u32,
 	/// How many are cold.
 	cold: u32,
 	/// How many of the cold ones roll back with the frame.
 	cold_revertible: u32,
+	/// How many of the cold ones are writes.
+	cold_writes: u32,
 	/// How many are written after paying only for a read.
 	upgrades: u32,
 }
 
 impl WarmthSummary {
+	/// Builds a summary with nothing counted yet, for an access with keys of the given family.
+	pub fn new(key: KeyFamily) -> Self {
+		Self { key, total: 0, cold: 0, cold_revertible: 0, cold_writes: 0, upgrades: 0 }
+	}
+
+	/// Returns the family of the access's keys.
+	pub fn key(&self) -> KeyFamily {
+		self.key
+	}
+
 	/// Counts one entry, at the operation performed on it.
 	pub fn count(mut self, warmth: Warmth, op: StorageOp) -> Self {
 		self.total = self.total.saturating_add(1);
@@ -233,6 +268,8 @@ impl WarmthSummary {
 			Warmth::Cold { revertible } => {
 				self.cold = self.cold.saturating_add(1);
 				self.cold_revertible = self.cold_revertible.saturating_add(u32::from(revertible));
+				self.cold_writes =
+					self.cold_writes.saturating_add(u32::from(op == StorageOp::Write));
 			},
 			Warmth::Hot { .. } => {
 				self.upgrades = self.upgrades.saturating_add(u32::from(warmth.owes_upgrade(op)))
@@ -256,6 +293,11 @@ impl WarmthSummary {
 		self.cold_revertible
 	}
 
+	/// Returns how many of the cold entries are writes.
+	pub fn cold_writes(&self) -> u32 {
+		self.cold_writes
+	}
+
 	/// Returns how many entries are written after paying only for a read.
 	pub fn upgrades(&self) -> u32 {
 		self.upgrades
@@ -272,7 +314,7 @@ impl WarmthSummary {
 	}
 
 	/// Returns the same counts with no entry rolling back with the frame.
-	pub fn non_revertible(self) -> Self {
+	fn non_revertible(self) -> Self {
 		Self { cold_revertible: 0, ..self }
 	}
 }
@@ -310,7 +352,7 @@ impl<W> Summarized<W> {
 		access: A,
 		mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth,
 	) -> Self {
-		let mut summary = WarmthSummary::default();
+		let mut summary = WarmthSummary::new(A::KEY_FAMILY);
 		let entries = access.expand(|entry, op| {
 			let warmth = visit(entry, op);
 			summary = summary.count(warmth, op);
@@ -338,9 +380,9 @@ impl<W> Summarized<W> {
 }
 
 impl Summarized<Warmth> {
-	/// Builds the warmth of a single entry, at the operation performed on it.
-	pub fn new_single(warmth: Warmth, op: StorageOp) -> Self {
-		Self { entries: warmth, summary: WarmthSummary::default().count(warmth, op) }
+	/// Builds the warmth of one entry of the given key family, at the operation performed on it.
+	pub fn from_warmth(key: KeyFamily, warmth: Warmth, op: StorageOp) -> Self {
+		Self { entries: warmth, summary: WarmthSummary::new(key).count(warmth, op) }
 	}
 
 	/// Returns the same warmth with the rollback dropped, for a peek that touched nothing.
@@ -366,6 +408,20 @@ pub enum AccessEntry {
 	Storage(ContractSlot),
 }
 
+impl AccessEntry {
+	/// Returns the family the entry's key belongs to.
+	fn key_family(&self) -> KeyFamily {
+		match self {
+			Self::Storage(_) => KeyFamily::Slot,
+			Self::Account { .. } |
+			Self::OriginalAccount { .. } |
+			Self::AccountInfo { .. } |
+			Self::CodeInfo { .. } |
+			Self::CodeBlob { .. } => KeyFamily::Address,
+		}
+	}
+}
+
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 impl AccessEntry {
 	/// Builds the `i`-th entry of `key`'s family. Only the trailing bytes carry `i`, so a
@@ -384,6 +440,64 @@ impl AccessEntry {
 		}
 	}
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+impl AccessEntry {
+	/// Returns the storage key behind the entry.
+	pub fn storage_key<T: crate::Config>(&self) -> Option<Vec<u8>> {
+		match self {
+			Self::Account { address } => Some(frame_system::Account::<T>::hashed_key_for(
+				&<T::AddressMapper as crate::AddressMapper<T>>::to_account_id(address),
+			)),
+			Self::OriginalAccount { address } => {
+				Some(crate::OriginalAccount::<T>::hashed_key_for(address))
+			},
+			Self::AccountInfo { address } => {
+				Some(crate::AccountInfoOf::<T>::hashed_key_for(address))
+			},
+			Self::CodeInfo { hash } => Some(crate::CodeInfoOf::<T>::hashed_key_for(hash)),
+			Self::CodeBlob { hash } => Some(crate::PristineCode::<T>::hashed_key_for(hash)),
+			// Child-trie slots have no fixed key here.
+			Self::Storage(_) => None,
+		}
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking {
+	use super::{Access, AccessEntry, Warmth};
+	use crate::Config;
+
+	/// Whitelists every entry the access reads.
+	pub fn whitelist_access<T: Config>(access: impl Access) {
+		access.expand(|entry, _op| {
+			if let Some(key) = entry.storage_key::<T>() {
+				frame_benchmarking::benchmarking::add_to_whitelist(key.into());
+			}
+			Warmth::cold_non_revertible()
+		});
+	}
+
+	/// Asserts that no entry the access reads is whitelisted, except those listed in `except`.
+	pub fn assert_not_whitelisted<T: Config>(access: impl Access, except: &[AccessEntry]) {
+		let whitelist = frame_benchmarking::benchmarking::get_whitelist();
+		access.expand(|entry, _op| {
+			let whitelisted = entry.storage_key::<T>().is_some_and(|key| {
+				whitelist
+					.iter()
+					.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key)
+			});
+			assert!(
+				!whitelisted || except.contains(&entry),
+				"{entry:?} is whitelisted, so the benchmark does not measure its read",
+			);
+			Warmth::cold_non_revertible()
+		});
+	}
+}
+
+/// The most entries a single access has: a transfer and an instantiate have four.
+const MAX_ENTRIES_PER_ACCESS: usize = 4;
 
 /// A group of state items that warm and price together.
 pub trait Access {
@@ -437,20 +551,15 @@ impl CallItems {
 #[cfg(test)]
 impl CallItems {
 	/// Returns how many entries a plain call to a contract touches, its own plus the callee's code.
-	pub fn plain_entries() -> u32 {
+	pub fn plain_entry_count() -> u32 {
 		Self::Plain { target: H160::zero() }.entry_count() +
-			CodeLoadItems { hash: H256::zero() }.entry_count()
-	}
-
-	/// Returns how many entries a transfer touches.
-	pub fn transfer_entries() -> u32 {
-		TransferItems { from: H160::repeat_byte(1), to: H160::zero(), dust: false }.entry_count()
+			CodeLoadItems::new(H256::zero()).entry_count()
 	}
 
 	/// Returns how many entries a delegate call touches, the target's account info plus its code.
-	pub fn delegate_entries() -> u32 {
+	pub fn delegate_entry_count() -> u32 {
 		Self::Delegate { target: H160::zero() }.entry_count() +
-			CodeLoadItems { hash: H256::zero() }.entry_count()
+			CodeLoadItems::new(H256::zero()).entry_count()
 	}
 }
 
@@ -487,13 +596,6 @@ pub struct TransferWarmth {
 	pub dust: bool,
 }
 
-impl Summarized<TransferWarmth> {
-	/// Returns whether the transfer moves dust.
-	pub fn moves_dust(&self) -> bool {
-		self.entries.dust
-	}
-}
-
 /// The value transfer a call performs.
 #[derive(Clone, Copy, Debug)]
 pub struct TransferItems {
@@ -527,36 +629,24 @@ impl Access for TransferItems {
 	}
 }
 
-/// A create writes the account and the account info at `address`.
+/// An instantiate's access: the new contract's account and info, and the deployer's nonce.
 #[derive(Clone, Copy, Debug)]
-pub struct CreateItems {
+pub struct InstantiateItems {
 	pub address: H160,
+	pub deployer: H160,
 }
 
-impl Access for CreateItems {
+impl Access for InstantiateItems {
 	type Warmth = ();
 	const KEY_FAMILY: KeyFamily = KeyFamily::Address;
 
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) {
 		visit(AccessEntry::Account { address: self.address }, StorageOp::Write);
 		visit(AccessEntry::AccountInfo { address: self.address }, StorageOp::Write);
-	}
-}
-
-impl CreateItems {
-	/// Returns the summary of the entries a contract creation warms. Each is cold, since the new
-	/// contract and its code do not exist yet, and revertible, the costlier variant.
-	pub fn warming_summary(stores_code: bool) -> WarmthSummary {
-		let mut summary = WarmthSummary::default();
-		let mut count = |_entry: AccessEntry, op: StorageOp| {
-			summary = summary.count(Warmth::cold_revertible(), op);
-			Warmth::cold_revertible()
-		};
-		CreateItems { address: H160::zero() }.expand(&mut count);
-		if stores_code {
-			CodeLoadItems { hash: H256::zero() }.expand(&mut count);
-		}
-		summary
+		// Not read by the instantiate, since a new address has no mapping. The instantiate
+		// benches read it, so a call finding it hot is paid for.
+		visit(AccessEntry::OriginalAccount { address: self.address }, StorageOp::Read);
+		visit(AccessEntry::Account { address: self.deployer }, StorageOp::Write);
 	}
 }
 
@@ -569,10 +659,24 @@ pub struct CodeLoadWarmth {
 	pub blob: Warmth,
 }
 
-/// A code load reads the info and the blob at `hash`.
+/// A code load reads the blob at `hash` and performs `info_op` on its info.
 #[derive(Clone, Copy, Debug)]
 pub struct CodeLoadItems {
 	pub hash: H256,
+	/// `Write` for an instantiate, which bumps the refcount.
+	info_op: StorageOp,
+}
+
+impl CodeLoadItems {
+	/// Builds the items a code load touches when it only reads the info.
+	pub fn new(hash: H256) -> Self {
+		Self::with_info_op(hash, StorageOp::Read)
+	}
+
+	/// Builds the items a code load touches, with `info_op` on the info.
+	pub fn with_info_op(hash: H256, info_op: StorageOp) -> Self {
+		Self { hash, info_op }
+	}
 }
 
 impl Access for CodeLoadItems {
@@ -581,7 +685,7 @@ impl Access for CodeLoadItems {
 
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CodeLoadWarmth {
 		CodeLoadWarmth {
-			info: visit(AccessEntry::CodeInfo { hash: self.hash }, StorageOp::Read),
+			info: visit(AccessEntry::CodeInfo { hash: self.hash }, self.info_op),
 			blob: visit(AccessEntry::CodeBlob { hash: self.hash }, StorageOp::Read),
 		}
 	}
@@ -598,6 +702,11 @@ impl StorageItems {
 	/// Builds the items `op` touches on `address`'s storage slot `key`.
 	pub fn new(address: H160, key: &Key, op: StorageOp) -> Self {
 		Self { key: ContractSlot { slot: key.into(), address }, op }
+	}
+
+	/// Counts one slot's warmth, at the operation performed on it.
+	pub fn summarize_single(warmth: Warmth, op: StorageOp) -> Summarized<Warmth> {
+		Summarized::from_warmth(Self::KEY_FAMILY, warmth, op)
 	}
 }
 
@@ -631,10 +740,10 @@ pub struct AccessListMetrics {
 /// A reverting frame rolls back every entry it touched, regardless of whether
 /// the touch happened before or after its charge:
 ///
-/// - Storage opcodes and calls touch before charging: their charge fails only on out-of-gas, which
-///   reverts the whole frame, so the rollback removes the frame's insertions (and downgrades any
-///   `Read` to `Write` upgrades) and never leaves an entry warm with its cold cost unpaid.
-/// - Code loads touch after charging: the entry is already paid, so a revert just drops it.
+/// - An access that touches before charging: its charge fails only on out-of-gas, which reverts the
+///   whole frame, so the rollback removes the frame's insertions (and downgrades any `Read` to
+///   `Write` upgrades) and never leaves an entry warm with its cold cost unpaid.
+/// - An access that touches after charging: the entry is already paid, so a revert just drops it.
 
 #[derive(Default)]
 pub struct AccessList {
@@ -724,47 +833,70 @@ impl AccessList {
 
 	/// Reports the warmth [`Self::touch`] would return, without recording it.
 	fn peek(&self, entry: &AccessEntry) -> Warmth {
-		match self.accessed.get(entry) {
-			Some(charged) => Warmth::Hot { charged: *charged },
-			None if self.is_full() => Warmth::Cold { revertible: false },
-			None => Warmth::Cold { revertible: self.in_nested_frame() },
+		Warmth::from_op(self.accessed.get(entry).copied(), self.is_full(), self.in_nested_frame())
+	}
+
+	/// Returns the entry's operation after `new_op`, or `None` for a new entry in a full list.
+	fn storage_op_after(
+		current_op: Option<StorageOp>,
+		new_op: StorageOp,
+		list_full: bool,
+	) -> Option<StorageOp> {
+		match current_op {
+			Some(current_op) if current_op.covers(new_op) => Some(current_op),
+			Some(_) => Some(new_op),
+			None if list_full => None,
+			None => Some(new_op),
 		}
 	}
 
 	/// Registers the entry, returning the warmth it had **before** this call.
-	/// `op` is the operation being performed on the slot.
+	/// `new_op` is the operation being performed on the entry.
 	///
 	/// Past [`MAX_ACCESS_LIST_ENTRIES`], new entries are billed cold without
 	/// being journaled; previously-hot slots continue to bill hot.
-	pub fn touch(&mut self, access_entry: AccessEntry, op: StorageOp) -> Warmth {
-		let at_cap = self.is_full();
+	pub fn touch(&mut self, access_entry: AccessEntry, new_op: StorageOp) -> Warmth {
+		let list_full = self.is_full();
 		match self.accessed.entry(access_entry) {
 			Entry::Occupied(mut tree_entry) => {
 				self.hot_count = self.hot_count.saturating_add(1);
-				let prev_charged = *tree_entry.get();
-				if !prev_charged.covers(op) {
+				let current_op = *tree_entry.get();
+				let storage_op_after = Self::storage_op_after(Some(current_op), new_op, list_full);
+				if let Some(upgraded) = storage_op_after &&
+					upgraded != current_op
+				{
 					// Defensive: one upgrade per tracked entry, so the journal
 					// cannot fill. If it does, later writes just pay the surcharge again.
 					let journaled = self.upgrades.try_push(tree_entry.key().clone());
 					defensive_assert!(journaled.is_ok(), "at most one upgrade per tracked entry");
 					if journaled.is_ok() {
-						*tree_entry.get_mut() = StorageOp::Write;
+						*tree_entry.get_mut() = upgraded;
 					}
 				}
-				Warmth::Hot { charged: prev_charged }
+				Warmth::Hot { charged: current_op }
 			},
 			Entry::Vacant(tree_entry) => {
 				self.cold_count = self.cold_count.saturating_add(1);
-				if at_cap {
-					return Warmth::Cold { revertible: false };
+				if let Some(inserted) = Self::storage_op_after(None, new_op, list_full) {
+					self.journal.try_push(tree_entry.key().clone()).expect(
+						"journal grows in lockstep with accessed and shares its bound; qed",
+					);
+					tree_entry.insert(inserted);
 				}
-				self.journal
-					.try_push(tree_entry.key().clone())
-					.expect("journal grows in lockstep with accessed and shares its bound; qed");
-				tree_entry.insert(op);
-				Warmth::Cold { revertible: self.in_nested_frame() }
+				Warmth::from_op(None, list_full, self.in_nested_frame())
 			},
 		}
+	}
+
+	/// Charges the entry at its warmth and registers it; a failed charge leaves it unmodified.
+	pub fn charge_and_warm<C, E>(
+		&mut self,
+		entry: AccessEntry,
+		op: StorageOp,
+		charge: impl FnOnce(Summarized<Warmth>) -> Result<C, E>,
+	) -> Result<Warmth, E> {
+		charge(Summarized::from_warmth(entry.key_family(), self.peek(&entry), op))?;
+		Ok(self.touch(entry, op))
 	}
 
 	/// Warms every entry the access touches, returning the warmth each had
@@ -779,16 +911,30 @@ impl AccessList {
 	}
 
 	/// Reports what [`Self::warm_summarized`] would return, without recording anything.
-	// TODO: an entry named twice reads cold twice here, while warming reads it cold then hot.
 	pub fn warmth_of_summarized<A: Access>(&self, access: A) -> Summarized<A::Warmth> {
-		let mut free_slots = MAX_ACCESS_LIST_ENTRIES.saturating_sub(self.accessed.len());
-		Summarized::from_access(access, |entry, _op| match self.peek(&entry) {
-			Warmth::Cold { .. } => {
-				let revertible = self.in_nested_frame() && free_slots > 0;
-				free_slots = free_slots.saturating_sub(1);
-				Warmth::Cold { revertible }
-			},
-			hot => hot,
+		let in_nested_frame = self.in_nested_frame();
+		let mut visited: [Option<(AccessEntry, Option<StorageOp>)>; MAX_ENTRIES_PER_ACCESS] =
+			[const { None }; MAX_ENTRIES_PER_ACCESS];
+		let mut new_entries_count = 0;
+		Summarized::from_access(access, |access_entry, new_op| {
+			let list_full = self.accessed.len() + new_entries_count >= MAX_ACCESS_LIST_ENTRIES;
+			let entry_seat = visited
+				.iter_mut()
+				.find(|seat| seat.as_ref().is_none_or(|(seen, _)| *seen == access_entry));
+			defensive_assert!(
+				entry_seat.is_some(),
+				"an access has at most MAX_ENTRIES_PER_ACCESS entries"
+			);
+			let current_op = match entry_seat.as_deref() {
+				Some(Some((_, seat_op))) => *seat_op,
+				Some(None) | None => self.accessed.get(&access_entry).copied(),
+			};
+			let storage_op_after = Self::storage_op_after(current_op, new_op, list_full);
+			new_entries_count += usize::from(current_op.is_none() && storage_op_after.is_some());
+			if let Some(entry_seat) = entry_seat {
+				*entry_seat = Some((access_entry, storage_op_after));
+			}
+			Warmth::from_op(current_op, list_full, in_nested_frame)
 		})
 	}
 
@@ -802,14 +948,6 @@ impl AccessList {
 		AccessListMetrics { size: self.accessed.len(), cold: self.cold_count, hot: self.hot_count }
 	}
 
-	/// Builds an access list holding entries `0..entries` of the given `key` family.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn with_entries(entries: usize, key: KeyFamily) -> Self {
-		let mut list = Self::new();
-		list.fill_to(entries, key);
-		list
-	}
-
 	/// Adds fresh entries of `key`'s family until the list holds `target_size` of them.
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn fill_to(&mut self, target_size: usize, key: KeyFamily) {
@@ -821,9 +959,18 @@ impl AccessList {
 		}
 		assert_eq!(self.metrics().size, target_size, "the map reached the requested size");
 	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl AccessList {
+	/// Builds an access list holding entries `0..entries` of the given `key` family.
+	pub fn with_entries(entries: usize, key: KeyFamily) -> Self {
+		let mut list = Self::new();
+		list.fill_to(entries, key);
+		list
+	}
 
 	/// Returns the first entry in key order.
-	#[cfg(feature = "runtime-benchmarks")]
 	pub fn first(&self) -> AccessEntry {
 		self.accessed
 			.keys()
@@ -833,7 +980,6 @@ impl AccessList {
 	}
 
 	/// Returns the last entry in key order.
-	#[cfg(feature = "runtime-benchmarks")]
 	pub fn last(&self) -> AccessEntry {
 		self.accessed
 			.keys()
@@ -1019,7 +1165,81 @@ mod tests {
 		// The rolled-back entry is gone, so at the cap it reads like any untracked one.
 		agree(&mut al, reverted, StorageOp::Write, Warmth::cold_non_revertible());
 		// A tracked read-paid slot still upgrades at the cap.
-		agree(&mut al, upgraded_at_cap, StorageOp::Write, Warmth::read_paid());
+		agree(&mut al, upgraded_at_cap.clone(), StorageOp::Write, Warmth::read_paid());
+		al.rollback_frame();
+		assert_eq!(
+			al.peek(&upgraded_at_cap),
+			Warmth::read_paid(),
+			"an at-cap upgrade rolls back with its frame"
+		);
+	}
+
+	#[test]
+	fn warmth_of_agrees_with_warm() {
+		fn agree<A: Access + Clone>(access_kind: &str, access: A)
+		where
+			A::Warmth: PartialEq + core::fmt::Debug,
+		{
+			for (list_state, entries_before) in [
+				("almost at the cap", MAX_ACCESS_LIST_ENTRIES - 2),
+				("at the cap", MAX_ACCESS_LIST_ENTRIES),
+			] {
+				let mut al = AccessList::new();
+				al.fill_to(entries_before, KeyFamily::Slot);
+				assert_eq!(
+					al.warmth_of_summarized(access.clone()),
+					al.warm_summarized(access.clone()),
+					"{access_kind}, {list_state}"
+				);
+			}
+		}
+
+		/// Lists the same entry once per operation, in order.
+		#[derive(Clone)]
+		struct SameEntry(AccessEntry, &'static [StorageOp]);
+
+		impl Access for SameEntry {
+			type Warmth = Vec<Warmth>;
+			const KEY_FAMILY: KeyFamily = KeyFamily::Address;
+
+			fn expand(
+				self,
+				mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth,
+			) -> Vec<Warmth> {
+				self.1.iter().map(|op| visit(self.0.clone(), *op)).collect()
+			}
+		}
+
+		let contract = H160::from_low_u64_be(0xcafe);
+		// A self-transfer lists the contract's account and account info twice.
+		agree("a self-transfer", TransferItems { from: contract, to: contract, dust: false });
+		let account = AccessEntry::Account { address: contract };
+		agree(
+			"same entry",
+			SameEntry(
+				account,
+				&[StorageOp::Read, StorageOp::Write, StorageOp::Read, StorageOp::Read],
+			),
+		);
+	}
+
+	#[test]
+	#[should_panic(expected = "an access has at most MAX_ENTRIES_PER_ACCESS entries")]
+	fn warmth_of_an_access_with_too_many_entries_fails_loudly() {
+		struct TooManyEntries;
+
+		impl Access for TooManyEntries {
+			type Warmth = ();
+			const KEY_FAMILY: KeyFamily = KeyFamily::Address;
+
+			fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) {
+				for index in 0..=MAX_ENTRIES_PER_ACCESS {
+					visit(AccessEntry::with_index(index, KeyFamily::Address), StorageOp::Read);
+				}
+			}
+		}
+
+		AccessList::new().warmth_of_summarized(TooManyEntries);
 	}
 
 	#[test]
@@ -1166,7 +1386,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			recorded(CodeLoadItems { hash: H256::zero() }).entries,
+			recorded(CodeLoadItems::new(H256::zero())).entries,
 			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
 		);
 
@@ -1206,8 +1426,8 @@ mod tests {
 				recorded(CallItems::Delegate { target }).summary.total,
 			),
 			(
-				CodeLoadItems { hash: H256::zero() }.entry_count(),
-				recorded(CodeLoadItems { hash: H256::zero() }).summary.total,
+				CodeLoadItems::new(H256::zero()).entry_count(),
+				recorded(CodeLoadItems::new(H256::zero())).summary.total,
 			),
 			(transfer(true).entry_count(), recorded(transfer(true)).summary.total),
 		] {

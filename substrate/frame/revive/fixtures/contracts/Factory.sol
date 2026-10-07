@@ -8,12 +8,18 @@ pragma solidity ^0.8.19;
 contract Factory {
     function noop() external {}
 
-    function create() external {
-        new ReceivingChild();
+    function create() external returns (address child) {
+        child = address(new ReceivingChild());
     }
 
-    function createThenCall(uint256 value) external {
-        address(new ReceivingChild()).call{value: value}("");
+    function createThenCall(uint256 value) external returns (address child) {
+        child = address(new ReceivingChild());
+        child.call{value: value}("");
+    }
+
+    function callChild(address child) external returns (address) {
+        child.call{value: 0}("");
+        return child;
     }
 
     function createReverting() external {

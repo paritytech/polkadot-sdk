@@ -1432,7 +1432,13 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	}
 
 	fn weigh_on_relay_session_report(report: &rc_client::SessionReport<Self::AccountId>) -> Weight {
+		let era_start = if report.activation_timestamp.is_some() && !report.leftover {
+			session_rotation::Rotator::<T>::notify_era_start_max_weight()
+		} else {
+			Weight::zero()
+		};
 		T::WeightInfo::rc_on_session_report(report.validator_points.len() as u32)
+			.saturating_add(era_start)
 	}
 
 	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
