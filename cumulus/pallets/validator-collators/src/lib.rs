@@ -43,7 +43,9 @@
 //! nodes of the randomness key leaves the cache unchanged, so a draw uses the previous epoch value
 //! only when every block since the epoch change omits them. The seed includes the genesis hash, so
 //! each chain draws independently from the same set. A validator that registers keys after the draw
-//! waits for the next set or for a cap change.
+//! waits for the next set or for a cap change. Each set, so each era, gets a new draw, which is
+//! enacted at the second forced rotation with no notice, so a validator with keys must already run
+//! a synced collator node to collate when drawn.
 //!
 //! The pallet implements [`cumulus_pallet_parachain_system::OnSystemEvent`]. The runtime must
 //! include it in the `OnSystemEvent` of `cumulus-pallet-parachain-system`, alone or in a tuple
@@ -79,6 +81,11 @@
 //! - Dropping validators that author no blocks for a session, judged among the drawn validators
 //!   under a cap.
 //! - (Only if a need is established) Propagating relay-chain offences to the collator set.
+//! - Under a cap, decide the redraw period and notice. Options: redraw every few eras or sessions,
+//!   keep a drawn validator for several eras while it stays in the active set, and announce the
+//!   drawn validators before they collate so they can sync a node. Open points: the time a node
+//!   needs to sync, and refilling the place of a drawn validator that leaves the active set, which
+//!   needs notice too.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
