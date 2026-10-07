@@ -174,11 +174,11 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#24 id=24 data-nosnippet>24</a>	Error, U256,
 <a href=#25 id=25 data-nosnippet>25</a>	vm::{
 <a href=#26 id=26 data-nosnippet>26</a>		Ext,
-<a href=#27 id=27 data-nosnippet>27</a>		evm::{EVMGas, Interpreter, interpreter::Halt},
+<a href=#27 id=27 data-nosnippet>27</a>		evm::{EVMGas, EvmOpcodeCosts, Interpreter, interpreter::Halt},
 <a href=#28 id=28 data-nosnippet>28</a>	},
 <a href=#29 id=29 data-nosnippet>29</a>};
 <a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>core::ops::ControlFlow;
-<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>revm::interpreter::gas::{EXP, LOW, MID, VERYLOW};
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>revm::interpreter::gas::{EXP, LOW, VERYLOW};
 <a href=#32 id=32 data-nosnippet>32</a>
 <a href=#33 id=33 data-nosnippet>33</a><span class="doccomment">/// Implements the ADD instruction - adds two values from stack.
 <a href=#34 id=34 data-nosnippet>34</a></span><span class="kw">pub fn </span>add&lt;E: Ext&gt;(interpreter: <span class="kw-2">&amp;mut </span>Interpreter&lt;E&gt;) -&gt; ControlFlow&lt;Halt&gt; {
@@ -206,7 +206,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#56 id=56 data-nosnippet>56</a>
 <a href=#57 id=57 data-nosnippet>57</a><span class="doccomment">/// Implements the DIV instruction - divides two values from stack.
 <a href=#58 id=58 data-nosnippet>58</a></span><span class="kw">pub fn </span>div&lt;E: Ext&gt;(interpreter: <span class="kw-2">&amp;mut </span>Interpreter&lt;E&gt;) -&gt; ControlFlow&lt;Halt&gt; {
-<a href=#59 id=59 data-nosnippet>59</a>	interpreter.ext.charge_or_halt(EVMGas(LOW))<span class="question-mark">?</span>;
+<a href=#59 id=59 data-nosnippet>59</a>	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Div)<span class="question-mark">?</span>;
 <a href=#60 id=60 data-nosnippet>60</a>	<span class="kw">let </span>([op1], op2) = interpreter.stack.popn_top()<span class="question-mark">?</span>;
 <a href=#61 id=61 data-nosnippet>61</a>	<span class="kw">if </span>!op2.is_zero() {
 <a href=#62 id=62 data-nosnippet>62</a>		<span class="kw-2">*</span>op2 = op1 / <span class="kw-2">*</span>op2;
@@ -218,7 +218,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#68 id=68 data-nosnippet>68</a>///
 <a href=#69 id=69 data-nosnippet>69</a>/// Performs signed division of two values from stack.
 <a href=#70 id=70 data-nosnippet>70</a></span><span class="kw">pub fn </span>sdiv&lt;E: Ext&gt;(interpreter: <span class="kw-2">&amp;mut </span>Interpreter&lt;E&gt;) -&gt; ControlFlow&lt;Halt&gt; {
-<a href=#71 id=71 data-nosnippet>71</a>	interpreter.ext.charge_or_halt(EVMGas(LOW))<span class="question-mark">?</span>;
+<a href=#71 id=71 data-nosnippet>71</a>	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SDiv)<span class="question-mark">?</span>;
 <a href=#72 id=72 data-nosnippet>72</a>	<span class="kw">let </span>([op1], op2) = interpreter.stack.popn_top()<span class="question-mark">?</span>;
 <a href=#73 id=73 data-nosnippet>73</a>	<span class="kw-2">*</span>op2 = i256_div(op1, <span class="kw-2">*</span>op2);
 <a href=#74 id=74 data-nosnippet>74</a>	ControlFlow::Continue(())
@@ -227,7 +227,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#77 id=77 data-nosnippet>77</a>///
 <a href=#78 id=78 data-nosnippet>78</a>/// Pops two values from stack and pushes the remainder of their division.
 <a href=#79 id=79 data-nosnippet>79</a></span><span class="kw">pub fn </span>rem&lt;E: Ext&gt;(interpreter: <span class="kw-2">&amp;mut </span>Interpreter&lt;E&gt;) -&gt; ControlFlow&lt;Halt&gt; {
-<a href=#80 id=80 data-nosnippet>80</a>	interpreter.ext.charge_or_halt(EVMGas(LOW))<span class="question-mark">?</span>;
+<a href=#80 id=80 data-nosnippet>80</a>	interpreter.ext.charge_or_halt(EvmOpcodeCosts::Mod)<span class="question-mark">?</span>;
 <a href=#81 id=81 data-nosnippet>81</a>	<span class="kw">let </span>([op1], op2) = interpreter.stack.popn_top()<span class="question-mark">?</span>;
 <a href=#82 id=82 data-nosnippet>82</a>	<span class="kw">if </span>!op2.is_zero() {
 <a href=#83 id=83 data-nosnippet>83</a>		<span class="kw-2">*</span>op2 = op1 % <span class="kw-2">*</span>op2;
@@ -239,7 +239,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#89 id=89 data-nosnippet>89</a>///
 <a href=#90 id=90 data-nosnippet>90</a>/// Performs signed modulo of two values from stack.
 <a href=#91 id=91 data-nosnippet>91</a></span><span class="kw">pub fn </span>smod&lt;E: Ext&gt;(interpreter: <span class="kw-2">&amp;mut </span>Interpreter&lt;E&gt;) -&gt; ControlFlow&lt;Halt&gt; {
-<a href=#92 id=92 data-nosnippet>92</a>	interpreter.ext.charge_or_halt(EVMGas(LOW))<span class="question-mark">?</span>;
+<a href=#92 id=92 data-nosnippet>92</a>	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SMod)<span class="question-mark">?</span>;
 <a href=#93 id=93 data-nosnippet>93</a>	<span class="kw">let </span>([op1], op2) = interpreter.stack.popn_top()<span class="question-mark">?</span>;
 <a href=#94 id=94 data-nosnippet>94</a>	<span class="kw-2">*</span>op2 = i256_mod(op1, <span class="kw-2">*</span>op2);
 <a href=#95 id=95 data-nosnippet>95</a>	ControlFlow::Continue(())
@@ -249,7 +249,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#99 id=99 data-nosnippet>99</a>///
 <a href=#100 id=100 data-nosnippet>100</a>/// Pops three values from stack and pushes (a + b) % n.
 <a href=#101 id=101 data-nosnippet>101</a></span><span class="kw">pub fn </span>addmod&lt;E: Ext&gt;(interpreter: <span class="kw-2">&amp;mut </span>Interpreter&lt;E&gt;) -&gt; ControlFlow&lt;Halt&gt; {
-<a href=#102 id=102 data-nosnippet>102</a>	interpreter.ext.charge_or_halt(EVMGas(MID))<span class="question-mark">?</span>;
+<a href=#102 id=102 data-nosnippet>102</a>	interpreter.ext.charge_or_halt(EvmOpcodeCosts::AddMod)<span class="question-mark">?</span>;
 <a href=#103 id=103 data-nosnippet>103</a>	<span class="kw">let </span>([op1, op2], op3) = interpreter.stack.popn_top()<span class="question-mark">?</span>;
 <a href=#104 id=104 data-nosnippet>104</a>	<span class="kw-2">*</span>op3 = op1.add_mod(op2, <span class="kw-2">*</span>op3);
 <a href=#105 id=105 data-nosnippet>105</a>	ControlFlow::Continue(())
@@ -259,7 +259,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#109 id=109 data-nosnippet>109</a>///
 <a href=#110 id=110 data-nosnippet>110</a>/// Pops three values from stack and pushes (a * b) % n.
 <a href=#111 id=111 data-nosnippet>111</a></span><span class="kw">pub fn </span>mulmod&lt;E: Ext&gt;(interpreter: <span class="kw-2">&amp;mut </span>Interpreter&lt;E&gt;) -&gt; ControlFlow&lt;Halt&gt; {
-<a href=#112 id=112 data-nosnippet>112</a>	interpreter.ext.charge_or_halt(EVMGas(MID))<span class="question-mark">?</span>;
+<a href=#112 id=112 data-nosnippet>112</a>	interpreter.ext.charge_or_halt(EvmOpcodeCosts::MulMod)<span class="question-mark">?</span>;
 <a href=#113 id=113 data-nosnippet>113</a>	<span class="kw">let </span>([op1, op2], op3) = interpreter.stack.popn_top()<span class="question-mark">?</span>;
 <a href=#114 id=114 data-nosnippet>114</a>	<span class="kw-2">*</span>op3 = op1.mul_mod(op2, <span class="kw-2">*</span>op3);
 <a href=#115 id=115 data-nosnippet>115</a>	ControlFlow::Continue(())
