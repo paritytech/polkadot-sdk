@@ -1509,8 +1509,20 @@ impl<T: Config> Pallet<T> {
 				last_processed_msg.reverse_idx += 1;
 			}
 		}
+<<<<<<< HEAD
 		if last_processed_msg.sent_at > 0 && last_processed_msg.reverse_idx == 0 {
 			last_processed_block = last_processed_msg.sent_at;
+=======
+		match unprocessed_messages.iter().chain(hashed_messages).next() {
+			Some((_, first_unprocessed_msg)) => {
+				if first_unprocessed_msg.sent_at > last_processed_msg.sent_at() {
+					last_processed_block = last_processed_block.max(last_processed_msg.sent_at());
+				}
+			},
+			None => {
+				last_processed_block = last_processed_block.max(last_processed_msg.sent_at());
+			},
+>>>>>>> 8233444 ([XCMP/HRMP] fix `last_processed_block` update (#13411))
 		}
 		LastProcessedHrmpMessage::<T>::put(&last_processed_msg);
 		Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);
