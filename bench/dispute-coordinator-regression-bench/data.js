@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791320057104,
+  "lastUpdate": 1791344041959,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "553958721eb67709a3aabaff9319ed8c7c9b9142",
-          "message": "Fix test-frame-ui: update .stderr snapshots after #7035 (#11570)\n\nPR #7035 added new TypeInfo implementors, pushing rustc past its\ndiagnostic threshold for emitting `consider using --verbose` on the\nTypeInfo/StorageEntryMetadataBuilder error.",
-          "timestamp": "2026-03-31T09:55:47Z",
-          "tree_id": "1c65564b56cc30e43afa385f110a1ad063fedab7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/553958721eb67709a3aabaff9319ed8c7c9b9142"
-        },
-        "date": 1774955854236,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026107093500000013,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009536278939999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009290486109999985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010949991889999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9f3a6b0001b9071444e43a30abd192f11d65d462",
+          "message": "Benchmarking some EVM arithmetic opcodes (#13400)\n\n# Description\n\nAs agreed, we're experimenting with the arithmetic op-codes first to try\nout charging EVM op-codes from their own benchmarks. This PR benchmarks\n`DIV`, `SDIV`, `MOD`, `SMOD`, `ADDMOD` and `MULMOD` and charges them\nfrom those benchmarks. All other op-codes keep their current charges.\n\n## Integration\n\n`pallet_revive::WeightInfo` gains 21 new methods. Runtimes with their\nown `WeightInfo` implementation need to generate them by running the\n`pallet_revive` benchmarks.\n\n## Review Notes\n\nEach op-code is benchmarked in pairs with a `POP`, and `evm_pop_opcode`\nis subtracted to get its charge. The divisors come from\n`knuth_division_operands`, which covers every correction pattern of the\ndivision algorithm.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-07T01:58:12Z",
+          "tree_id": "3ff2e08452b89fcbb6ce8f13268dd35977386447",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9f3a6b0001b9071444e43a30abd192f11d65d462"
+        },
+        "date": 1791344008041,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00257729658,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010110392469999991,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009181143779999991,
             "unit": "seconds"
           }
         ]
