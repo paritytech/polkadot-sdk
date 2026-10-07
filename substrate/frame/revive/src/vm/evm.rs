@@ -173,7 +173,9 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 					// There is no `PUSH` op-code past `PUSH32`.
 					_ => return Weight::MAX,
 				};
-				per_opcode(weight_fn).max(per_opcode(T::WeightInfo::evm_push_opcode))
+				per_opcode(weight_fn)
+					.saturating_sub(Token::<T>::weight(&Self::JumpDest).saturating_div(2))
+					.max(per_opcode(T::WeightInfo::evm_push_opcode))
 			},
 			Self::Pop => per_opcode(T::WeightInfo::evm_pop_opcode),
 			Self::Dup { depth } => {

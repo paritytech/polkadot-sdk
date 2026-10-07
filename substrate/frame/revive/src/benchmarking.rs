@@ -140,6 +140,19 @@ fn setup_stack<E: Ext>(interpreter: &mut Interpreter<E>, values: impl IntoIterat
 	}
 }
 
+/// Returns `r` copies of `instruction`, each preceded by a `JUMPDEST` or not at pseudo-random, so
+/// the interpreter can't predict which handler it dispatches to next.
+fn code_with_pseudo_random_jumpdest(rng: &mut impl Rng, instruction: &[u8], r: u32) -> Vec<u8> {
+	(0..r)
+		.flat_map(|_| {
+			rng.gen_bool(0.5)
+				.then_some(JUMPDEST)
+				.into_iter()
+				.chain(instruction.iter().copied())
+		})
+		.collect()
+}
+
 /// Returns the operands of `r` pairs of `SLT` or `SGT` and `POP` op-codes, in the order they are
 /// pushed onto the stack.
 fn signed_comparison_operands(r: u32) -> Vec<U256> {
@@ -3765,15 +3778,26 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH0` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push0_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = Bytecode::new_raw(vec![PUSH0; r as usize].into());
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &[PUSH0], r);
+
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
 
 		evict_caches();
 		let result;
@@ -3789,12 +3813,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH1` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push1_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH1][..], &[u8::MAX; 1]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH1].as_slice(), [u8::MAX; 1].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3815,12 +3849,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH2` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push2_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH2][..], &[u8::MAX; 2]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH2].as_slice(), [u8::MAX; 2].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3841,12 +3885,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH3` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push3_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH3][..], &[u8::MAX; 3]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH3].as_slice(), [u8::MAX; 3].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3867,12 +3921,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH4` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push4_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH4][..], &[u8::MAX; 4]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH4].as_slice(), [u8::MAX; 4].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3893,12 +3957,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH5` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push5_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH5][..], &[u8::MAX; 5]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH5].as_slice(), [u8::MAX; 5].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3919,12 +3993,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH6` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push6_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH6][..], &[u8::MAX; 6]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH6].as_slice(), [u8::MAX; 6].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3945,12 +4029,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH7` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push7_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH7][..], &[u8::MAX; 7]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH7].as_slice(), [u8::MAX; 7].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3971,12 +4065,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH8` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push8_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH8][..], &[u8::MAX; 8]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH8].as_slice(), [u8::MAX; 8].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3997,12 +4101,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH9` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push9_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH9][..], &[u8::MAX; 9]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH9].as_slice(), [u8::MAX; 9].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4023,12 +4137,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH10` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push10_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH10][..], &[u8::MAX; 10]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH10].as_slice(), [u8::MAX; 10].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4049,12 +4173,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH11` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push11_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH11][..], &[u8::MAX; 11]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH11].as_slice(), [u8::MAX; 11].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4075,12 +4209,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH12` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push12_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH12][..], &[u8::MAX; 12]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH12].as_slice(), [u8::MAX; 12].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4101,12 +4245,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH13` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push13_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH13][..], &[u8::MAX; 13]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH13].as_slice(), [u8::MAX; 13].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4127,12 +4281,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH14` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push14_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH14][..], &[u8::MAX; 14]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH14].as_slice(), [u8::MAX; 14].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4153,12 +4317,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH15` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push15_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH15][..], &[u8::MAX; 15]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH15].as_slice(), [u8::MAX; 15].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4179,12 +4353,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH16` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push16_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH16][..], &[u8::MAX; 16]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH16].as_slice(), [u8::MAX; 16].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4205,12 +4389,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH17` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push17_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH17][..], &[u8::MAX; 17]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH17].as_slice(), [u8::MAX; 17].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4231,12 +4425,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH18` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push18_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH18][..], &[u8::MAX; 18]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH18].as_slice(), [u8::MAX; 18].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4257,12 +4461,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH19` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push19_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH19][..], &[u8::MAX; 19]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH19].as_slice(), [u8::MAX; 19].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4283,12 +4497,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH20` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push20_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH20][..], &[u8::MAX; 20]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH20].as_slice(), [u8::MAX; 20].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4309,12 +4533,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH21` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push21_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH21][..], &[u8::MAX; 21]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH21].as_slice(), [u8::MAX; 21].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4335,12 +4569,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH22` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push22_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH22][..], &[u8::MAX; 22]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH22].as_slice(), [u8::MAX; 22].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4361,12 +4605,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH23` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push23_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH23][..], &[u8::MAX; 23]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH23].as_slice(), [u8::MAX; 23].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4387,12 +4641,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH24` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push24_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH24][..], &[u8::MAX; 24]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH24].as_slice(), [u8::MAX; 24].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4413,12 +4677,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH25` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push25_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH25][..], &[u8::MAX; 25]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH25].as_slice(), [u8::MAX; 25].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4439,12 +4713,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH26` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push26_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH26][..], &[u8::MAX; 26]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH26].as_slice(), [u8::MAX; 26].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4465,12 +4749,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH27` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push27_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH27][..], &[u8::MAX; 27]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH27].as_slice(), [u8::MAX; 27].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4491,12 +4785,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH28` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push28_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH28][..], &[u8::MAX; 28]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH28].as_slice(), [u8::MAX; 28].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4517,12 +4821,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH29` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push29_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH29][..], &[u8::MAX; 29]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH29].as_slice(), [u8::MAX; 29].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4543,12 +4857,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH30` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push30_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH30][..], &[u8::MAX; 30]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH30].as_slice(), [u8::MAX; 30].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4569,12 +4893,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH31` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push31_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH31][..], &[u8::MAX; 31]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH31].as_slice(), [u8::MAX; 31].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4595,12 +4929,22 @@ mod benchmarks {
 
 	/// Benchmarks `r` EVM `PUSH32` op-codes.
 	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * The `JUMPDEST`s, which are pseudo-randomly inserted before the push op-codes.
+	/// * A misprediction of the handler the interpreter dispatches to, since the `JUMPDEST`s are
+	///   pseudo-random.
+	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_push32_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = [&[PUSH32][..], &[u8::MAX; 32]].concat().repeat(r as usize);
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let instruction = [[PUSH32].as_slice(), [u8::MAX; 32].as_slice()].concat();
+		let code = code_with_pseudo_random_jumpdest(&mut rng, &instruction, r);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
