@@ -19,7 +19,7 @@
 //! operations used in parachain consensus/authoring.
 
 use cumulus_primitives_core::{
-	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof,
+	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof, SchedulingSignals,
 };
 
 use polkadot_primitives::UMP_SEPARATOR;
@@ -291,6 +291,11 @@ where
 		// Sort by recipient as required by the relay chain rules.
 		horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
 
+		// Capture the signed scheduling info before `scheduling_proof` is moved; the tail below is
+		// rebuilt from it.
+		let signed_scheduling_info =
+			scheduling_proof.as_ref().and_then(|p| p.signed_scheduling_info.clone());
+
 		let block_data = ParachainBlockData::<Block>::new(blocks, compact_proof, scheduling_proof);
 
 		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
@@ -310,10 +315,19 @@ where
 			}),
 		});
 
-		// If we got some signals, push them now.
-		if !upward_message_signals.is_empty() {
-			upward_messages.push(UMP_SEPARATOR);
-			upward_messages.extend(upward_message_signals.into_iter());
+		// Emit the scheduling-signal tail. A signed scheduling info (resubmission) replaces the
+		// block's own signals wholesale, via the same `SchedulingSignals::from_scheduling_info` the
+		// PVF applies, so the two can't drift; otherwise the block's signals pass through
+		// unchanged.
+		match signed_scheduling_info {
+			Some(signed_info) => upward_messages
+				.extend(SchedulingSignals::from_scheduling_info(&signed_info).into_ump_messages()),
+			None => {
+				if !upward_message_signals.is_empty() {
+					upward_messages.push(UMP_SEPARATOR);
+					upward_messages.extend(upward_message_signals.into_iter());
+				}
+			},
 		}
 
 		let upward_messages = upward_messages
