@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791372322398,
+  "lastUpdate": 1791377245588,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c69795dad68821aaa780e160f6defcf0683e0aa4",
-          "message": "Westend: Support Meta Transactions (#11469)\n\nSupport **Meta Transactions** via `meta-tx` pallet for next **Westend**\nruntimes:\n- Asset Hub\n- Coretime\n- People\n- Collectives\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-01T09:06:17Z",
-          "tree_id": "34eb3e0461c66f9c28f7142bb3d9b3d388d8b620",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c69795dad68821aaa780e160f6defcf0683e0aa4"
-        },
-        "date": 1775039462491,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02367192520666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14175055835333344,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007136607153333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010054747606666647,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009737905073333313,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "82334446236fc5e8a3216fa78bc8a00c2c6f1d10",
+          "message": "[XCMP/HRMP] fix `last_processed_block` update (#13411)\n\nWe need to take into consideration the unprocessed messages as well when\nupdating the `last_processed_block`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-07T11:12:57Z",
+          "tree_id": "19885659bb1bfa9966263a563f933217aa7800ea",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/82334446236fc5e8a3216fa78bc8a00c2c6f1d10"
+        },
+        "date": 1791377212596,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14657219278666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025270241200000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009728302053333315,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00774636388,
             "unit": "seconds"
           }
         ]
