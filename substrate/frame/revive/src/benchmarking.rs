@@ -3763,6 +3763,862 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), r as usize);
 	}
 
+	/// Benchmarks `r` EVM `PUSH0` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push0_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![PUSH0; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH1` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push1_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH1][..], &[u8::MAX; 1]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH2` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push2_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH2][..], &[u8::MAX; 2]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH3` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push3_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH3][..], &[u8::MAX; 3]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH4` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push4_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH4][..], &[u8::MAX; 4]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH5` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push5_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH5][..], &[u8::MAX; 5]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH6` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push6_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH6][..], &[u8::MAX; 6]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH7` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push7_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH7][..], &[u8::MAX; 7]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH8` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push8_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH8][..], &[u8::MAX; 8]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH9` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push9_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH9][..], &[u8::MAX; 9]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH10` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push10_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH10][..], &[u8::MAX; 10]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH11` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push11_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH11][..], &[u8::MAX; 11]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH12` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push12_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH12][..], &[u8::MAX; 12]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH13` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push13_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH13][..], &[u8::MAX; 13]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH14` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push14_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH14][..], &[u8::MAX; 14]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH15` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push15_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH15][..], &[u8::MAX; 15]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH16` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push16_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH16][..], &[u8::MAX; 16]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH17` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push17_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH17][..], &[u8::MAX; 17]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH18` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push18_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH18][..], &[u8::MAX; 18]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH19` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push19_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH19][..], &[u8::MAX; 19]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH20` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push20_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH20][..], &[u8::MAX; 20]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH21` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push21_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH21][..], &[u8::MAX; 21]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH22` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push22_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH22][..], &[u8::MAX; 22]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH23` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push23_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH23][..], &[u8::MAX; 23]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH24` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push24_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH24][..], &[u8::MAX; 24]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH25` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push25_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH25][..], &[u8::MAX; 25]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH26` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push26_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH26][..], &[u8::MAX; 26]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH27` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push27_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH27][..], &[u8::MAX; 27]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH28` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push28_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH28][..], &[u8::MAX; 28]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH29` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push29_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH29][..], &[u8::MAX; 29]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH30` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push30_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH30][..], &[u8::MAX; 30]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH31` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push31_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH31][..], &[u8::MAX; 31]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
+	/// Benchmarks `r` EVM `PUSH32` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push32_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = [&[PUSH32][..], &[u8::MAX; 32]].concat().repeat(r as usize);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+	}
+
 	/// Benchmarks `r` EVM `POP` op-codes.
 	///
 	/// # Subtraction Safety
@@ -3823,6 +4679,406 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 16 + r as usize);
 	}
 
+	/// Benchmarks `r` EVM `DUP1` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup1_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![DUP1; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 1]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP2` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup2_opcode(r: Linear<0, { EVM_STACK_LIMIT - 2 }>) {
+		let code = Bytecode::new_raw(vec![DUP2; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 2]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 2 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP3` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup3_opcode(r: Linear<0, { EVM_STACK_LIMIT - 3 }>) {
+		let code = Bytecode::new_raw(vec![DUP3; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 3]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 3 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP4` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup4_opcode(r: Linear<0, { EVM_STACK_LIMIT - 4 }>) {
+		let code = Bytecode::new_raw(vec![DUP4; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 4]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 4 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP5` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup5_opcode(r: Linear<0, { EVM_STACK_LIMIT - 5 }>) {
+		let code = Bytecode::new_raw(vec![DUP5; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 5]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 5 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP6` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup6_opcode(r: Linear<0, { EVM_STACK_LIMIT - 6 }>) {
+		let code = Bytecode::new_raw(vec![DUP6; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 6]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 6 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP7` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup7_opcode(r: Linear<0, { EVM_STACK_LIMIT - 7 }>) {
+		let code = Bytecode::new_raw(vec![DUP7; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 7]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 7 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP8` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup8_opcode(r: Linear<0, { EVM_STACK_LIMIT - 8 }>) {
+		let code = Bytecode::new_raw(vec![DUP8; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 8]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 8 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP9` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup9_opcode(r: Linear<0, { EVM_STACK_LIMIT - 9 }>) {
+		let code = Bytecode::new_raw(vec![DUP9; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 9]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 9 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP10` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup10_opcode(r: Linear<0, { EVM_STACK_LIMIT - 10 }>) {
+		let code = Bytecode::new_raw(vec![DUP10; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 10]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 10 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP11` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup11_opcode(r: Linear<0, { EVM_STACK_LIMIT - 11 }>) {
+		let code = Bytecode::new_raw(vec![DUP11; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 11]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 11 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP12` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup12_opcode(r: Linear<0, { EVM_STACK_LIMIT - 12 }>) {
+		let code = Bytecode::new_raw(vec![DUP12; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 12]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 12 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP13` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup13_opcode(r: Linear<0, { EVM_STACK_LIMIT - 13 }>) {
+		let code = Bytecode::new_raw(vec![DUP13; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 13]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 13 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP14` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup14_opcode(r: Linear<0, { EVM_STACK_LIMIT - 14 }>) {
+		let code = Bytecode::new_raw(vec![DUP14; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 14]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 14 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP15` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup15_opcode(r: Linear<0, { EVM_STACK_LIMIT - 15 }>) {
+		let code = Bytecode::new_raw(vec![DUP15; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 15]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 15 + r as usize);
+	}
+
+	/// Benchmarks `r` EVM `DUP16` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup16_opcode(r: Linear<0, { EVM_STACK_LIMIT - 16 }>) {
+		let code = Bytecode::new_raw(vec![DUP16; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 16]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 16 + r as usize);
+	}
+
 	/// Benchmarks `r` EVM `SWAP1` to `SWAP16` op-codes.
 	///
 	/// # Added Overheads
@@ -3844,6 +5100,406 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 17]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmarks `r` EVM `SWAP1` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap1_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP1; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 2]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 2);
+	}
+
+	/// Benchmarks `r` EVM `SWAP2` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap2_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP2; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 3]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 3);
+	}
+
+	/// Benchmarks `r` EVM `SWAP3` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap3_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP3; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 4]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 4);
+	}
+
+	/// Benchmarks `r` EVM `SWAP4` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap4_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP4; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 5]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 5);
+	}
+
+	/// Benchmarks `r` EVM `SWAP5` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap5_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP5; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 6]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 6);
+	}
+
+	/// Benchmarks `r` EVM `SWAP6` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap6_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP6; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 7]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 7);
+	}
+
+	/// Benchmarks `r` EVM `SWAP7` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap7_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP7; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 8]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 8);
+	}
+
+	/// Benchmarks `r` EVM `SWAP8` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap8_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP8; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 9]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 9);
+	}
+
+	/// Benchmarks `r` EVM `SWAP9` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap9_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP9; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 10]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 10);
+	}
+
+	/// Benchmarks `r` EVM `SWAP10` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap10_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP10; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 11]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 11);
+	}
+
+	/// Benchmarks `r` EVM `SWAP11` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap11_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP11; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 12]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 12);
+	}
+
+	/// Benchmarks `r` EVM `SWAP12` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap12_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP12; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 13]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 13);
+	}
+
+	/// Benchmarks `r` EVM `SWAP13` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap13_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP13; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 14]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 14);
+	}
+
+	/// Benchmarks `r` EVM `SWAP14` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap14_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP14; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 15]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 15);
+	}
+
+	/// Benchmarks `r` EVM `SWAP15` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap15_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP15; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; 16]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 16);
+	}
+
+	/// Benchmarks `r` EVM `SWAP16` op-codes.
+	///
+	/// # Subtraction Safety
+	///
+	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap16_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![SWAP16; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 		setup_stack(&mut interpreter, vec![U256::MAX; 17]);
 
 		evict_caches();

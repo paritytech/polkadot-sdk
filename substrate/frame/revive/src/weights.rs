@@ -185,9 +185,74 @@ pub trait WeightInfo {
 	fn evm_jumpi_opcode(r: u32, ) -> Weight;
 	fn evm_pc_opcode(r: u32, ) -> Weight;
 	fn evm_push_opcode(r: u32, ) -> Weight;
+	fn evm_push0_opcode(r: u32, ) -> Weight;
+	fn evm_push1_opcode(r: u32, ) -> Weight;
+	fn evm_push2_opcode(r: u32, ) -> Weight;
+	fn evm_push3_opcode(r: u32, ) -> Weight;
+	fn evm_push4_opcode(r: u32, ) -> Weight;
+	fn evm_push5_opcode(r: u32, ) -> Weight;
+	fn evm_push6_opcode(r: u32, ) -> Weight;
+	fn evm_push7_opcode(r: u32, ) -> Weight;
+	fn evm_push8_opcode(r: u32, ) -> Weight;
+	fn evm_push9_opcode(r: u32, ) -> Weight;
+	fn evm_push10_opcode(r: u32, ) -> Weight;
+	fn evm_push11_opcode(r: u32, ) -> Weight;
+	fn evm_push12_opcode(r: u32, ) -> Weight;
+	fn evm_push13_opcode(r: u32, ) -> Weight;
+	fn evm_push14_opcode(r: u32, ) -> Weight;
+	fn evm_push15_opcode(r: u32, ) -> Weight;
+	fn evm_push16_opcode(r: u32, ) -> Weight;
+	fn evm_push17_opcode(r: u32, ) -> Weight;
+	fn evm_push18_opcode(r: u32, ) -> Weight;
+	fn evm_push19_opcode(r: u32, ) -> Weight;
+	fn evm_push20_opcode(r: u32, ) -> Weight;
+	fn evm_push21_opcode(r: u32, ) -> Weight;
+	fn evm_push22_opcode(r: u32, ) -> Weight;
+	fn evm_push23_opcode(r: u32, ) -> Weight;
+	fn evm_push24_opcode(r: u32, ) -> Weight;
+	fn evm_push25_opcode(r: u32, ) -> Weight;
+	fn evm_push26_opcode(r: u32, ) -> Weight;
+	fn evm_push27_opcode(r: u32, ) -> Weight;
+	fn evm_push28_opcode(r: u32, ) -> Weight;
+	fn evm_push29_opcode(r: u32, ) -> Weight;
+	fn evm_push30_opcode(r: u32, ) -> Weight;
+	fn evm_push31_opcode(r: u32, ) -> Weight;
+	fn evm_push32_opcode(r: u32, ) -> Weight;
 	fn evm_pop_opcode(r: u32, ) -> Weight;
 	fn evm_dup_opcode(r: u32, ) -> Weight;
+	fn evm_dup1_opcode(r: u32, ) -> Weight;
+	fn evm_dup2_opcode(r: u32, ) -> Weight;
+	fn evm_dup3_opcode(r: u32, ) -> Weight;
+	fn evm_dup4_opcode(r: u32, ) -> Weight;
+	fn evm_dup5_opcode(r: u32, ) -> Weight;
+	fn evm_dup6_opcode(r: u32, ) -> Weight;
+	fn evm_dup7_opcode(r: u32, ) -> Weight;
+	fn evm_dup8_opcode(r: u32, ) -> Weight;
+	fn evm_dup9_opcode(r: u32, ) -> Weight;
+	fn evm_dup10_opcode(r: u32, ) -> Weight;
+	fn evm_dup11_opcode(r: u32, ) -> Weight;
+	fn evm_dup12_opcode(r: u32, ) -> Weight;
+	fn evm_dup13_opcode(r: u32, ) -> Weight;
+	fn evm_dup14_opcode(r: u32, ) -> Weight;
+	fn evm_dup15_opcode(r: u32, ) -> Weight;
+	fn evm_dup16_opcode(r: u32, ) -> Weight;
 	fn evm_swap_opcode(r: u32, ) -> Weight;
+	fn evm_swap1_opcode(r: u32, ) -> Weight;
+	fn evm_swap2_opcode(r: u32, ) -> Weight;
+	fn evm_swap3_opcode(r: u32, ) -> Weight;
+	fn evm_swap4_opcode(r: u32, ) -> Weight;
+	fn evm_swap5_opcode(r: u32, ) -> Weight;
+	fn evm_swap6_opcode(r: u32, ) -> Weight;
+	fn evm_swap7_opcode(r: u32, ) -> Weight;
+	fn evm_swap8_opcode(r: u32, ) -> Weight;
+	fn evm_swap9_opcode(r: u32, ) -> Weight;
+	fn evm_swap10_opcode(r: u32, ) -> Weight;
+	fn evm_swap11_opcode(r: u32, ) -> Weight;
+	fn evm_swap12_opcode(r: u32, ) -> Weight;
+	fn evm_swap13_opcode(r: u32, ) -> Weight;
+	fn evm_swap14_opcode(r: u32, ) -> Weight;
+	fn evm_swap15_opcode(r: u32, ) -> Weight;
+	fn evm_swap16_opcode(r: u32, ) -> Weight;
 	fn evm_chainid_opcode(r: u32, ) -> Weight;
 	fn evm_difficulty_opcode(r: u32, ) -> Weight;
 	fn evm_codesize_opcode(r: u32, ) -> Weight;
@@ -1702,6 +1767,336 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push0_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push1_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push2_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push3_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push4_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push5_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push6_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push7_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push8_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push9_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push10_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push11_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push12_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push13_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push14_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push15_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push16_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push17_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push18_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push19_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push20_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push21_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push22_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push23_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push24_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push25_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push26_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push27_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push28_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push29_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push30_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push31_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push32_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
 	fn evm_pop_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1721,8 +2116,328 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 53
 			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
 	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup1_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup2_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup3_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup4_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup5_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup6_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup7_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup8_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup9_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup10_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup11_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup12_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup13_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup14_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup15_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup16_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
 	/// The range of component `r` is `[0, 49152]`.
 	fn evm_swap_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap1_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap2_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap3_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap4_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap5_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap6_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap7_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap8_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap9_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap10_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap11_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap12_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap13_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap14_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap15_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap16_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -4002,6 +4717,336 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push0_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push1_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push2_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push3_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push4_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push5_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push6_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push7_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push8_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push9_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push10_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push11_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push12_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push13_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push14_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push15_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push16_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push17_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push18_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push19_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push20_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push21_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push22_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push23_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push24_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push25_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push26_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push27_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push28_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push29_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push30_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push31_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_push32_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 364_000 picoseconds.
+		Weight::from_parts(3_339_398, 0)
+			// Standard Error: 61
+			.saturating_add(Weight::from_parts(34_790, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
 	fn evm_pop_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -4021,8 +5066,328 @@ impl WeightInfo for () {
 			// Standard Error: 53
 			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
 	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup1_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup2_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup3_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup4_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup5_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup6_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup7_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup8_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup9_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup10_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup11_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup12_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup13_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup14_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup15_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1008]`.
+	fn evm_dup16_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 429_000 picoseconds.
+		Weight::from_parts(2_656_640, 0)
+			// Standard Error: 53
+			.saturating_add(Weight::from_parts(33_168, 0).saturating_mul(r.into()))
+	}
 	/// The range of component `r` is `[0, 49152]`.
 	fn evm_swap_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap1_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap2_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap3_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap4_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap5_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap6_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap7_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap8_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap9_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap10_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap11_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap12_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap13_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap14_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap15_opcode(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 448_000 picoseconds.
+		Weight::from_parts(1_220_667, 0)
+			// Standard Error: 4
+			.saturating_add(Weight::from_parts(24_203, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_swap16_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
