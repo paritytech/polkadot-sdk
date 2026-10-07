@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791383427413,
+  "lastUpdate": 1791391264758,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -132299,6 +132299,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2857457047,
             "range": "± 24894956",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "giuseppe.re@parity.io",
+            "name": "Giuseppe Re",
+            "username": "re-gius"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "44c8a8a1feeb52446e1f2ac0915bee1aede7a339",
+          "message": "pallet-revive: fix callerIsRoot and callerIsOrigin across delegate calls (#13413)\n\nCloses #13412.\n\nWhen the call path included a delegate call, `callerIsRoot()` and\n`callerIsOrigin()` looked at the wrong contract to find who called the\ncontract asking. They now find the caller the same way `msg.sender`\ndoes, so both methods return what `ISystem.sol` documents:\n\n| Call path | Contract calling `callerIsRoot()` | Its real caller |\nBefore | After |\n|---|---|---|---|---|\n| Root calls proxy `P`, which delegatecalls its implementation | The\nimplementation, running as `P` | Root | `false` | `true` |\n| Root calls `A`, which delegatecalls a library that calls `B` | `B` |\n`A` | `true` | `false` |\n\nCall paths without delegate calls are unchanged. Contracts behind a\nproxy that use `originIsRoot()` only because `callerIsRoot()` returned\n`false` can now switch to `callerIsRoot()`.\n\nTests cover both call shapes for each method, on Solc and Resolc. They\nfail without the fix, and the full pallet-revive suite passes with it.",
+          "timestamp": "2026-10-07T14:15:02Z",
+          "tree_id": "cb8e6e24d218ff1550cc5c2a6f852c77eef303b2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/44c8a8a1feeb52446e1f2ac0915bee1aede7a339"
+        },
+        "date": 1791391234054,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19434829,
+            "range": "± 114627",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19531387,
+            "range": "± 107991",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20997132,
+            "range": "± 80448",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25723827,
+            "range": "± 145512",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56679864,
+            "range": "± 333783",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 340715630,
+            "range": "± 4227278",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2540988602,
+            "range": "± 46338036",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16293943,
+            "range": "± 195705",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16459887,
+            "range": "± 116361",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17124384,
+            "range": "± 194351",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21460165,
+            "range": "± 114727",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 57550295,
+            "range": "± 745981",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 328890079,
+            "range": "± 4084156",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2572643189,
+            "range": "± 35997250",
             "unit": "ns/iter"
           }
         ]
