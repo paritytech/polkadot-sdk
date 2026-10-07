@@ -204,7 +204,7 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 				derive_where_crate_attr,
 			]
 		};
-	input.attrs.splice(0..0, derive_where_attrs);
+	input.attrs.extend(derive_where_attrs);
 
 	// Add codec derives
 	let codec_derive_attr: syn::Attribute = syn::parse_quote! {
