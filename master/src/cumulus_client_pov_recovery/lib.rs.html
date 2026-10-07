@@ -669,148 +669,147 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#519 id=519 data-nosnippet>519</a>				origin: <span class="prelude-val">None</span>,
 <a href=#520 id=520 data-nosnippet>520</a>				skip_execution: <span class="bool-val">false</span>,
 <a href=#521 id=521 data-nosnippet>521</a>				state: <span class="prelude-val">None</span>,
-<a href=#522 id=522 data-nosnippet>522</a>				indexed_body: <span class="prelude-val">None</span>,
-<a href=#523 id=523 data-nosnippet>523</a>			});
-<a href=#524 id=524 data-nosnippet>524</a>
-<a href=#525 id=525 data-nosnippet>525</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(waiting) = <span class="self">self</span>.waiting_for_parent.remove(<span class="kw-2">&amp;</span>block_hash) {
-<a href=#526 id=526 data-nosnippet>526</a>				blocks.extend(waiting);
-<a href=#527 id=527 data-nosnippet>527</a>			}
-<a href=#528 id=528 data-nosnippet>528</a>		}
-<a href=#529 id=529 data-nosnippet>529</a>
-<a href=#530 id=530 data-nosnippet>530</a>		<span class="self">self</span>.parachain_import_queue
-<a href=#531 id=531 data-nosnippet>531</a>			<span class="comment">// Use `ConsensusBroadcast` to inform the import pipeline that this blocks needs to be
-<a href=#532 id=532 data-nosnippet>532</a>			// imported.
-<a href=#533 id=533 data-nosnippet>533</a>			</span>.import_blocks(BlockOrigin::ConsensusBroadcast, incoming_blocks);
-<a href=#534 id=534 data-nosnippet>534</a>	}
-<a href=#535 id=535 data-nosnippet>535</a>
-<a href=#536 id=536 data-nosnippet>536</a>	<span class="doccomment">/// Attempts an explicit recovery of one or more blocks.
-<a href=#537 id=537 data-nosnippet>537</a>	</span><span class="kw">pub fn </span>recover(<span class="kw-2">&amp;mut </span><span class="self">self</span>, req: RecoveryRequest&lt;Block&gt;) {
-<a href=#538 id=538 data-nosnippet>538</a>		<span class="kw">let </span>RecoveryRequest { <span class="kw-2">mut </span>hash, kind } = req;
-<a href=#539 id=539 data-nosnippet>539</a>		<span class="kw">let </span><span class="kw-2">mut </span>to_recover = Vec::new();
-<a href=#540 id=540 data-nosnippet>540</a>
-<a href=#541 id=541 data-nosnippet>541</a>		<span class="kw">loop </span>{
-<a href=#542 id=542 data-nosnippet>542</a>			<span class="kw">let </span>candidate = <span class="kw">match </span><span class="self">self</span>.candidates.get_mut(<span class="kw-2">&amp;</span>hash) {
-<a href=#543 id=543 data-nosnippet>543</a>				<span class="prelude-val">Some</span>(candidate) =&gt; candidate,
-<a href=#544 id=544 data-nosnippet>544</a>				<span class="prelude-val">None </span>=&gt; {
-<a href=#545 id=545 data-nosnippet>545</a>					<span class="macro">tracing::debug!</span>(
-<a href=#546 id=546 data-nosnippet>546</a>						target: LOG_TARGET,
-<a href=#547 id=547 data-nosnippet>547</a>						block_hash = <span class="question-mark">?</span>hash,
-<a href=#548 id=548 data-nosnippet>548</a>						<span class="string">"Could not recover. Block was never announced as candidate"
-<a href=#549 id=549 data-nosnippet>549</a>					</span>);
-<a href=#550 id=550 data-nosnippet>550</a>					<span class="kw">return</span>;
-<a href=#551 id=551 data-nosnippet>551</a>				},
-<a href=#552 id=552 data-nosnippet>552</a>			};
-<a href=#553 id=553 data-nosnippet>553</a>
-<a href=#554 id=554 data-nosnippet>554</a>			<span class="kw">match </span><span class="self">self</span>.parachain_client.block_status(hash) {
-<a href=#555 id=555 data-nosnippet>555</a>				<span class="prelude-val">Ok</span>(BlockStatus::Unknown) <span class="kw">if </span>!candidate.waiting_recovery =&gt; {
-<a href=#556 id=556 data-nosnippet>556</a>					candidate.waiting_recovery = <span class="bool-val">true</span>;
-<a href=#557 id=557 data-nosnippet>557</a>					to_recover.push(hash);
-<a href=#558 id=558 data-nosnippet>558</a>				},
-<a href=#559 id=559 data-nosnippet>559</a>				<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="kw">break</span>,
-<a href=#560 id=560 data-nosnippet>560</a>				<span class="prelude-val">Err</span>(e) =&gt; {
-<a href=#561 id=561 data-nosnippet>561</a>					<span class="macro">tracing::error!</span>(
-<a href=#562 id=562 data-nosnippet>562</a>						target: LOG_TARGET,
-<a href=#563 id=563 data-nosnippet>563</a>						error = <span class="question-mark">?</span>e,
-<a href=#564 id=564 data-nosnippet>564</a>						block_hash = <span class="question-mark">?</span>hash,
-<a href=#565 id=565 data-nosnippet>565</a>						<span class="string">"Failed to get block status"</span>,
-<a href=#566 id=566 data-nosnippet>566</a>					);
-<a href=#567 id=567 data-nosnippet>567</a>					<span class="kw">for </span>hash <span class="kw">in </span>to_recover {
-<a href=#568 id=568 data-nosnippet>568</a>						<span class="self">self</span>.clear_waiting_recovery(<span class="kw-2">&amp;</span>hash);
-<a href=#569 id=569 data-nosnippet>569</a>					}
-<a href=#570 id=570 data-nosnippet>570</a>					<span class="kw">return</span>;
-<a href=#571 id=571 data-nosnippet>571</a>				},
-<a href=#572 id=572 data-nosnippet>572</a>			}
-<a href=#573 id=573 data-nosnippet>573</a>
-<a href=#574 id=574 data-nosnippet>574</a>			<span class="kw">if </span>kind == RecoveryKind::Simple {
-<a href=#575 id=575 data-nosnippet>575</a>				<span class="kw">break</span>;
-<a href=#576 id=576 data-nosnippet>576</a>			}
-<a href=#577 id=577 data-nosnippet>577</a>
-<a href=#578 id=578 data-nosnippet>578</a>			hash = candidate.parent_hash;
-<a href=#579 id=579 data-nosnippet>579</a>		}
-<a href=#580 id=580 data-nosnippet>580</a>
-<a href=#581 id=581 data-nosnippet>581</a>		<span class="kw">for </span>hash <span class="kw">in </span>to_recover.into_iter().rev() {
-<a href=#582 id=582 data-nosnippet>582</a>			<span class="self">self</span>.candidate_recovery_queue.push_recovery(hash);
-<a href=#583 id=583 data-nosnippet>583</a>		}
-<a href=#584 id=584 data-nosnippet>584</a>	}
-<a href=#585 id=585 data-nosnippet>585</a>
-<a href=#586 id=586 data-nosnippet>586</a>	<span class="doccomment">/// Run the pov-recovery.
-<a href=#587 id=587 data-nosnippet>587</a>	</span><span class="kw">pub async fn </span>run(<span class="kw-2">mut </span><span class="self">self</span>) {
-<a href=#588 id=588 data-nosnippet>588</a>		<span class="kw">let </span><span class="kw-2">mut </span>imported_blocks = <span class="self">self</span>.parachain_client.import_notification_stream().fuse();
-<a href=#589 id=589 data-nosnippet>589</a>		<span class="kw">let </span><span class="kw-2">mut </span>finalized_blocks = <span class="self">self</span>.parachain_client.finality_notification_stream().fuse();
-<a href=#590 id=590 data-nosnippet>590</a>		<span class="kw">let </span>pending_candidates = <span class="kw">match </span>pending_candidates(
-<a href=#591 id=591 data-nosnippet>591</a>			<span class="self">self</span>.relay_chain_interface.clone(),
-<a href=#592 id=592 data-nosnippet>592</a>			<span class="self">self</span>.para_id,
-<a href=#593 id=593 data-nosnippet>593</a>			<span class="self">self</span>.parachain_sync_service.clone(),
-<a href=#594 id=594 data-nosnippet>594</a>		)
-<a href=#595 id=595 data-nosnippet>595</a>		.<span class="kw">await
-<a href=#596 id=596 data-nosnippet>596</a>		</span>{
-<a href=#597 id=597 data-nosnippet>597</a>			<span class="prelude-val">Ok</span>(pending_candidates_stream) =&gt; pending_candidates_stream.fuse(),
-<a href=#598 id=598 data-nosnippet>598</a>			<span class="prelude-val">Err</span>(err) =&gt; {
-<a href=#599 id=599 data-nosnippet>599</a>				<span class="macro">tracing::error!</span>(target: LOG_TARGET, error = <span class="question-mark">?</span>err, <span class="string">"Unable to retrieve pending candidate stream."</span>);
-<a href=#600 id=600 data-nosnippet>600</a>				<span class="kw">return</span>;
-<a href=#601 id=601 data-nosnippet>601</a>			},
-<a href=#602 id=602 data-nosnippet>602</a>		};
-<a href=#603 id=603 data-nosnippet>603</a>
-<a href=#604 id=604 data-nosnippet>604</a>		<span class="macro">futures::pin_mut!</span>(pending_candidates);
-<a href=#605 id=605 data-nosnippet>605</a>		<span class="kw">loop </span>{
-<a href=#606 id=606 data-nosnippet>606</a>			<span class="macro">select!</span> {
-<a href=#607 id=607 data-nosnippet>607</a>				next_pending_candidates = pending_candidates.next() =&gt; {
-<a href=#608 id=608 data-nosnippet>608</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>((candidates, session_index, <span class="kw">_</span>)) = next_pending_candidates {
-<a href=#609 id=609 data-nosnippet>609</a>						<span class="kw">for </span>candidate <span class="kw">in </span>candidates {
-<a href=#610 id=610 data-nosnippet>610</a>							<span class="self">self</span>.handle_pending_candidate(candidate, session_index);
-<a href=#611 id=611 data-nosnippet>611</a>						}
-<a href=#612 id=612 data-nosnippet>612</a>					} <span class="kw">else </span>{
-<a href=#613 id=613 data-nosnippet>613</a>						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">"Pending candidates stream ended"</span>);
-<a href=#614 id=614 data-nosnippet>614</a>						<span class="kw">return</span>;
-<a href=#615 id=615 data-nosnippet>615</a>					}
-<a href=#616 id=616 data-nosnippet>616</a>				},
-<a href=#617 id=617 data-nosnippet>617</a>				recovery_req = <span class="self">self</span>.recovery_chan_rx.next() =&gt; {
-<a href=#618 id=618 data-nosnippet>618</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(req) = recovery_req {
-<a href=#619 id=619 data-nosnippet>619</a>						<span class="self">self</span>.recover(req);
-<a href=#620 id=620 data-nosnippet>620</a>					} <span class="kw">else </span>{
-<a href=#621 id=621 data-nosnippet>621</a>						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">"Recovery channel stream ended"</span>);
-<a href=#622 id=622 data-nosnippet>622</a>						<span class="kw">return</span>;
-<a href=#623 id=623 data-nosnippet>623</a>					}
-<a href=#624 id=624 data-nosnippet>624</a>				},
-<a href=#625 id=625 data-nosnippet>625</a>				imported = imported_blocks.next() =&gt; {
-<a href=#626 id=626 data-nosnippet>626</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(imported) = imported {
-<a href=#627 id=627 data-nosnippet>627</a>						<span class="self">self</span>.clear_waiting_recovery(<span class="kw-2">&amp;</span>imported.hash);
-<a href=#628 id=628 data-nosnippet>628</a>
-<a href=#629 id=629 data-nosnippet>629</a>						<span class="comment">// We need to double check that no blocks are waiting for this block.
-<a href=#630 id=630 data-nosnippet>630</a>						// Can happen when a waiting child block is queued to wait for parent while the parent block is still
-<a href=#631 id=631 data-nosnippet>631</a>						// in the import queue.
-<a href=#632 id=632 data-nosnippet>632</a>						</span><span class="kw">if let </span><span class="prelude-val">Some</span>(waiting_blocks) = <span class="self">self</span>.waiting_for_parent.remove(<span class="kw-2">&amp;</span>imported.hash) {
-<a href=#633 id=633 data-nosnippet>633</a>							<span class="kw">for </span>block <span class="kw">in </span>waiting_blocks {
-<a href=#634 id=634 data-nosnippet>634</a>								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>block.hash(), resolved_parent = <span class="question-mark">?</span>imported.hash, <span class="string">"Found new waiting child block during import, queuing."</span>);
-<a href=#635 id=635 data-nosnippet>635</a>								<span class="self">self</span>.import_blocks(std::iter::once(block));
-<a href=#636 id=636 data-nosnippet>636</a>							}
-<a href=#637 id=637 data-nosnippet>637</a>						};
-<a href=#638 id=638 data-nosnippet>638</a>
-<a href=#639 id=639 data-nosnippet>639</a>					} <span class="kw">else </span>{
-<a href=#640 id=640 data-nosnippet>640</a>						<span class="macro">tracing::debug!</span>(target: LOG_TARGET,	<span class="string">"Imported blocks stream ended"</span>);
-<a href=#641 id=641 data-nosnippet>641</a>						<span class="kw">return</span>;
-<a href=#642 id=642 data-nosnippet>642</a>					}
-<a href=#643 id=643 data-nosnippet>643</a>				},
-<a href=#644 id=644 data-nosnippet>644</a>				finalized = finalized_blocks.next() =&gt; {
-<a href=#645 id=645 data-nosnippet>645</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(finalized) = finalized {
-<a href=#646 id=646 data-nosnippet>646</a>						<span class="self">self</span>.handle_block_finalized(<span class="kw-2">*</span>finalized.header.number());
-<a href=#647 id=647 data-nosnippet>647</a>					} <span class="kw">else </span>{
-<a href=#648 id=648 data-nosnippet>648</a>						<span class="macro">tracing::debug!</span>(target: LOG_TARGET,	<span class="string">"Finalized blocks stream ended"</span>);
-<a href=#649 id=649 data-nosnippet>649</a>						<span class="kw">return</span>;
-<a href=#650 id=650 data-nosnippet>650</a>					}
-<a href=#651 id=651 data-nosnippet>651</a>				},
-<a href=#652 id=652 data-nosnippet>652</a>				next_to_recover = <span class="self">self</span>.candidate_recovery_queue.next_recovery().fuse() =&gt; {
-<a href=#653 id=653 data-nosnippet>653</a>						<span class="self">self</span>.recover_candidate(next_to_recover).<span class="kw">await</span>;
-<a href=#654 id=654 data-nosnippet>654</a>				},
-<a href=#655 id=655 data-nosnippet>655</a>				(block_hash, pov) =
-<a href=#656 id=656 data-nosnippet>656</a>					<span class="self">self</span>.active_candidate_recovery.wait_for_recovery().fuse() =&gt;
-<a href=#657 id=657 data-nosnippet>657</a>				{
-<a href=#658 id=658 data-nosnippet>658</a>					<span class="self">self</span>.handle_candidate_recovered(block_hash, pov.as_deref()).<span class="kw">await</span>;
-<a href=#659 id=659 data-nosnippet>659</a>				},
-<a href=#660 id=660 data-nosnippet>660</a>			}
-<a href=#661 id=661 data-nosnippet>661</a>		}
-<a href=#662 id=662 data-nosnippet>662</a>	}
-<a href=#663 id=663 data-nosnippet>663</a>}
+<a href=#522 id=522 data-nosnippet>522</a>			});
+<a href=#523 id=523 data-nosnippet>523</a>
+<a href=#524 id=524 data-nosnippet>524</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(waiting) = <span class="self">self</span>.waiting_for_parent.remove(<span class="kw-2">&amp;</span>block_hash) {
+<a href=#525 id=525 data-nosnippet>525</a>				blocks.extend(waiting);
+<a href=#526 id=526 data-nosnippet>526</a>			}
+<a href=#527 id=527 data-nosnippet>527</a>		}
+<a href=#528 id=528 data-nosnippet>528</a>
+<a href=#529 id=529 data-nosnippet>529</a>		<span class="self">self</span>.parachain_import_queue
+<a href=#530 id=530 data-nosnippet>530</a>			<span class="comment">// Use `ConsensusBroadcast` to inform the import pipeline that this blocks needs to be
+<a href=#531 id=531 data-nosnippet>531</a>			// imported.
+<a href=#532 id=532 data-nosnippet>532</a>			</span>.import_blocks(BlockOrigin::ConsensusBroadcast, incoming_blocks);
+<a href=#533 id=533 data-nosnippet>533</a>	}
+<a href=#534 id=534 data-nosnippet>534</a>
+<a href=#535 id=535 data-nosnippet>535</a>	<span class="doccomment">/// Attempts an explicit recovery of one or more blocks.
+<a href=#536 id=536 data-nosnippet>536</a>	</span><span class="kw">pub fn </span>recover(<span class="kw-2">&amp;mut </span><span class="self">self</span>, req: RecoveryRequest&lt;Block&gt;) {
+<a href=#537 id=537 data-nosnippet>537</a>		<span class="kw">let </span>RecoveryRequest { <span class="kw-2">mut </span>hash, kind } = req;
+<a href=#538 id=538 data-nosnippet>538</a>		<span class="kw">let </span><span class="kw-2">mut </span>to_recover = Vec::new();
+<a href=#539 id=539 data-nosnippet>539</a>
+<a href=#540 id=540 data-nosnippet>540</a>		<span class="kw">loop </span>{
+<a href=#541 id=541 data-nosnippet>541</a>			<span class="kw">let </span>candidate = <span class="kw">match </span><span class="self">self</span>.candidates.get_mut(<span class="kw-2">&amp;</span>hash) {
+<a href=#542 id=542 data-nosnippet>542</a>				<span class="prelude-val">Some</span>(candidate) =&gt; candidate,
+<a href=#543 id=543 data-nosnippet>543</a>				<span class="prelude-val">None </span>=&gt; {
+<a href=#544 id=544 data-nosnippet>544</a>					<span class="macro">tracing::debug!</span>(
+<a href=#545 id=545 data-nosnippet>545</a>						target: LOG_TARGET,
+<a href=#546 id=546 data-nosnippet>546</a>						block_hash = <span class="question-mark">?</span>hash,
+<a href=#547 id=547 data-nosnippet>547</a>						<span class="string">"Could not recover. Block was never announced as candidate"
+<a href=#548 id=548 data-nosnippet>548</a>					</span>);
+<a href=#549 id=549 data-nosnippet>549</a>					<span class="kw">return</span>;
+<a href=#550 id=550 data-nosnippet>550</a>				},
+<a href=#551 id=551 data-nosnippet>551</a>			};
+<a href=#552 id=552 data-nosnippet>552</a>
+<a href=#553 id=553 data-nosnippet>553</a>			<span class="kw">match </span><span class="self">self</span>.parachain_client.block_status(hash) {
+<a href=#554 id=554 data-nosnippet>554</a>				<span class="prelude-val">Ok</span>(BlockStatus::Unknown) <span class="kw">if </span>!candidate.waiting_recovery =&gt; {
+<a href=#555 id=555 data-nosnippet>555</a>					candidate.waiting_recovery = <span class="bool-val">true</span>;
+<a href=#556 id=556 data-nosnippet>556</a>					to_recover.push(hash);
+<a href=#557 id=557 data-nosnippet>557</a>				},
+<a href=#558 id=558 data-nosnippet>558</a>				<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="kw">break</span>,
+<a href=#559 id=559 data-nosnippet>559</a>				<span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#560 id=560 data-nosnippet>560</a>					<span class="macro">tracing::error!</span>(
+<a href=#561 id=561 data-nosnippet>561</a>						target: LOG_TARGET,
+<a href=#562 id=562 data-nosnippet>562</a>						error = <span class="question-mark">?</span>e,
+<a href=#563 id=563 data-nosnippet>563</a>						block_hash = <span class="question-mark">?</span>hash,
+<a href=#564 id=564 data-nosnippet>564</a>						<span class="string">"Failed to get block status"</span>,
+<a href=#565 id=565 data-nosnippet>565</a>					);
+<a href=#566 id=566 data-nosnippet>566</a>					<span class="kw">for </span>hash <span class="kw">in </span>to_recover {
+<a href=#567 id=567 data-nosnippet>567</a>						<span class="self">self</span>.clear_waiting_recovery(<span class="kw-2">&amp;</span>hash);
+<a href=#568 id=568 data-nosnippet>568</a>					}
+<a href=#569 id=569 data-nosnippet>569</a>					<span class="kw">return</span>;
+<a href=#570 id=570 data-nosnippet>570</a>				},
+<a href=#571 id=571 data-nosnippet>571</a>			}
+<a href=#572 id=572 data-nosnippet>572</a>
+<a href=#573 id=573 data-nosnippet>573</a>			<span class="kw">if </span>kind == RecoveryKind::Simple {
+<a href=#574 id=574 data-nosnippet>574</a>				<span class="kw">break</span>;
+<a href=#575 id=575 data-nosnippet>575</a>			}
+<a href=#576 id=576 data-nosnippet>576</a>
+<a href=#577 id=577 data-nosnippet>577</a>			hash = candidate.parent_hash;
+<a href=#578 id=578 data-nosnippet>578</a>		}
+<a href=#579 id=579 data-nosnippet>579</a>
+<a href=#580 id=580 data-nosnippet>580</a>		<span class="kw">for </span>hash <span class="kw">in </span>to_recover.into_iter().rev() {
+<a href=#581 id=581 data-nosnippet>581</a>			<span class="self">self</span>.candidate_recovery_queue.push_recovery(hash);
+<a href=#582 id=582 data-nosnippet>582</a>		}
+<a href=#583 id=583 data-nosnippet>583</a>	}
+<a href=#584 id=584 data-nosnippet>584</a>
+<a href=#585 id=585 data-nosnippet>585</a>	<span class="doccomment">/// Run the pov-recovery.
+<a href=#586 id=586 data-nosnippet>586</a>	</span><span class="kw">pub async fn </span>run(<span class="kw-2">mut </span><span class="self">self</span>) {
+<a href=#587 id=587 data-nosnippet>587</a>		<span class="kw">let </span><span class="kw-2">mut </span>imported_blocks = <span class="self">self</span>.parachain_client.import_notification_stream().fuse();
+<a href=#588 id=588 data-nosnippet>588</a>		<span class="kw">let </span><span class="kw-2">mut </span>finalized_blocks = <span class="self">self</span>.parachain_client.finality_notification_stream().fuse();
+<a href=#589 id=589 data-nosnippet>589</a>		<span class="kw">let </span>pending_candidates = <span class="kw">match </span>pending_candidates(
+<a href=#590 id=590 data-nosnippet>590</a>			<span class="self">self</span>.relay_chain_interface.clone(),
+<a href=#591 id=591 data-nosnippet>591</a>			<span class="self">self</span>.para_id,
+<a href=#592 id=592 data-nosnippet>592</a>			<span class="self">self</span>.parachain_sync_service.clone(),
+<a href=#593 id=593 data-nosnippet>593</a>		)
+<a href=#594 id=594 data-nosnippet>594</a>		.<span class="kw">await
+<a href=#595 id=595 data-nosnippet>595</a>		</span>{
+<a href=#596 id=596 data-nosnippet>596</a>			<span class="prelude-val">Ok</span>(pending_candidates_stream) =&gt; pending_candidates_stream.fuse(),
+<a href=#597 id=597 data-nosnippet>597</a>			<span class="prelude-val">Err</span>(err) =&gt; {
+<a href=#598 id=598 data-nosnippet>598</a>				<span class="macro">tracing::error!</span>(target: LOG_TARGET, error = <span class="question-mark">?</span>err, <span class="string">"Unable to retrieve pending candidate stream."</span>);
+<a href=#599 id=599 data-nosnippet>599</a>				<span class="kw">return</span>;
+<a href=#600 id=600 data-nosnippet>600</a>			},
+<a href=#601 id=601 data-nosnippet>601</a>		};
+<a href=#602 id=602 data-nosnippet>602</a>
+<a href=#603 id=603 data-nosnippet>603</a>		<span class="macro">futures::pin_mut!</span>(pending_candidates);
+<a href=#604 id=604 data-nosnippet>604</a>		<span class="kw">loop </span>{
+<a href=#605 id=605 data-nosnippet>605</a>			<span class="macro">select!</span> {
+<a href=#606 id=606 data-nosnippet>606</a>				next_pending_candidates = pending_candidates.next() =&gt; {
+<a href=#607 id=607 data-nosnippet>607</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>((candidates, session_index, <span class="kw">_</span>)) = next_pending_candidates {
+<a href=#608 id=608 data-nosnippet>608</a>						<span class="kw">for </span>candidate <span class="kw">in </span>candidates {
+<a href=#609 id=609 data-nosnippet>609</a>							<span class="self">self</span>.handle_pending_candidate(candidate, session_index);
+<a href=#610 id=610 data-nosnippet>610</a>						}
+<a href=#611 id=611 data-nosnippet>611</a>					} <span class="kw">else </span>{
+<a href=#612 id=612 data-nosnippet>612</a>						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">"Pending candidates stream ended"</span>);
+<a href=#613 id=613 data-nosnippet>613</a>						<span class="kw">return</span>;
+<a href=#614 id=614 data-nosnippet>614</a>					}
+<a href=#615 id=615 data-nosnippet>615</a>				},
+<a href=#616 id=616 data-nosnippet>616</a>				recovery_req = <span class="self">self</span>.recovery_chan_rx.next() =&gt; {
+<a href=#617 id=617 data-nosnippet>617</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(req) = recovery_req {
+<a href=#618 id=618 data-nosnippet>618</a>						<span class="self">self</span>.recover(req);
+<a href=#619 id=619 data-nosnippet>619</a>					} <span class="kw">else </span>{
+<a href=#620 id=620 data-nosnippet>620</a>						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">"Recovery channel stream ended"</span>);
+<a href=#621 id=621 data-nosnippet>621</a>						<span class="kw">return</span>;
+<a href=#622 id=622 data-nosnippet>622</a>					}
+<a href=#623 id=623 data-nosnippet>623</a>				},
+<a href=#624 id=624 data-nosnippet>624</a>				imported = imported_blocks.next() =&gt; {
+<a href=#625 id=625 data-nosnippet>625</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(imported) = imported {
+<a href=#626 id=626 data-nosnippet>626</a>						<span class="self">self</span>.clear_waiting_recovery(<span class="kw-2">&amp;</span>imported.hash);
+<a href=#627 id=627 data-nosnippet>627</a>
+<a href=#628 id=628 data-nosnippet>628</a>						<span class="comment">// We need to double check that no blocks are waiting for this block.
+<a href=#629 id=629 data-nosnippet>629</a>						// Can happen when a waiting child block is queued to wait for parent while the parent block is still
+<a href=#630 id=630 data-nosnippet>630</a>						// in the import queue.
+<a href=#631 id=631 data-nosnippet>631</a>						</span><span class="kw">if let </span><span class="prelude-val">Some</span>(waiting_blocks) = <span class="self">self</span>.waiting_for_parent.remove(<span class="kw-2">&amp;</span>imported.hash) {
+<a href=#632 id=632 data-nosnippet>632</a>							<span class="kw">for </span>block <span class="kw">in </span>waiting_blocks {
+<a href=#633 id=633 data-nosnippet>633</a>								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>block.hash(), resolved_parent = <span class="question-mark">?</span>imported.hash, <span class="string">"Found new waiting child block during import, queuing."</span>);
+<a href=#634 id=634 data-nosnippet>634</a>								<span class="self">self</span>.import_blocks(std::iter::once(block));
+<a href=#635 id=635 data-nosnippet>635</a>							}
+<a href=#636 id=636 data-nosnippet>636</a>						};
+<a href=#637 id=637 data-nosnippet>637</a>
+<a href=#638 id=638 data-nosnippet>638</a>					} <span class="kw">else </span>{
+<a href=#639 id=639 data-nosnippet>639</a>						<span class="macro">tracing::debug!</span>(target: LOG_TARGET,	<span class="string">"Imported blocks stream ended"</span>);
+<a href=#640 id=640 data-nosnippet>640</a>						<span class="kw">return</span>;
+<a href=#641 id=641 data-nosnippet>641</a>					}
+<a href=#642 id=642 data-nosnippet>642</a>				},
+<a href=#643 id=643 data-nosnippet>643</a>				finalized = finalized_blocks.next() =&gt; {
+<a href=#644 id=644 data-nosnippet>644</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(finalized) = finalized {
+<a href=#645 id=645 data-nosnippet>645</a>						<span class="self">self</span>.handle_block_finalized(<span class="kw-2">*</span>finalized.header.number());
+<a href=#646 id=646 data-nosnippet>646</a>					} <span class="kw">else </span>{
+<a href=#647 id=647 data-nosnippet>647</a>						<span class="macro">tracing::debug!</span>(target: LOG_TARGET,	<span class="string">"Finalized blocks stream ended"</span>);
+<a href=#648 id=648 data-nosnippet>648</a>						<span class="kw">return</span>;
+<a href=#649 id=649 data-nosnippet>649</a>					}
+<a href=#650 id=650 data-nosnippet>650</a>				},
+<a href=#651 id=651 data-nosnippet>651</a>				next_to_recover = <span class="self">self</span>.candidate_recovery_queue.next_recovery().fuse() =&gt; {
+<a href=#652 id=652 data-nosnippet>652</a>						<span class="self">self</span>.recover_candidate(next_to_recover).<span class="kw">await</span>;
+<a href=#653 id=653 data-nosnippet>653</a>				},
+<a href=#654 id=654 data-nosnippet>654</a>				(block_hash, pov) =
+<a href=#655 id=655 data-nosnippet>655</a>					<span class="self">self</span>.active_candidate_recovery.wait_for_recovery().fuse() =&gt;
+<a href=#656 id=656 data-nosnippet>656</a>				{
+<a href=#657 id=657 data-nosnippet>657</a>					<span class="self">self</span>.handle_candidate_recovered(block_hash, pov.as_deref()).<span class="kw">await</span>;
+<a href=#658 id=658 data-nosnippet>658</a>				},
+<a href=#659 id=659 data-nosnippet>659</a>			}
+<a href=#660 id=660 data-nosnippet>660</a>		}
+<a href=#661 id=661 data-nosnippet>661</a>	}
+<a href=#662 id=662 data-nosnippet>662</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

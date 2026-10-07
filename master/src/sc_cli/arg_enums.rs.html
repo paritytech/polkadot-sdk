@@ -454,38 +454,32 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#304 id=304 data-nosnippet>304</a>	<span class="kw">fn </span>into(<span class="self">self</span>) -&gt; sc_network::config::SyncMode {
 <a href=#305 id=305 data-nosnippet>305</a>		<span class="kw">match </span><span class="self">self </span>{
 <a href=#306 id=306 data-nosnippet>306</a>			SyncMode::Full =&gt; sc_network::config::SyncMode::Full,
-<a href=#307 id=307 data-nosnippet>307</a>			SyncMode::Fast =&gt; sc_network::config::SyncMode::LightState {
-<a href=#308 id=308 data-nosnippet>308</a>				skip_proofs: <span class="bool-val">false</span>,
-<a href=#309 id=309 data-nosnippet>309</a>				storage_chain_mode: <span class="bool-val">false</span>,
-<a href=#310 id=310 data-nosnippet>310</a>			},
-<a href=#311 id=311 data-nosnippet>311</a>			SyncMode::FastUnsafe =&gt; sc_network::config::SyncMode::LightState {
-<a href=#312 id=312 data-nosnippet>312</a>				skip_proofs: <span class="bool-val">true</span>,
-<a href=#313 id=313 data-nosnippet>313</a>				storage_chain_mode: <span class="bool-val">false</span>,
-<a href=#314 id=314 data-nosnippet>314</a>			},
-<a href=#315 id=315 data-nosnippet>315</a>			SyncMode::Warp =&gt; sc_network::config::SyncMode::Warp,
-<a href=#316 id=316 data-nosnippet>316</a>		}
-<a href=#317 id=317 data-nosnippet>317</a>	}
-<a href=#318 id=318 data-nosnippet>318</a>}
-<a href=#319 id=319 data-nosnippet>319</a>
-<a href=#320 id=320 data-nosnippet>320</a><span class="doccomment">/// Network backend type.
-<a href=#321 id=321 data-nosnippet>321</a></span><span class="attr">#[derive(Debug, Clone, Copy, ValueEnum, PartialEq)]
-<a href=#322 id=322 data-nosnippet>322</a>#[value(rename_all = <span class="string">"lower"</span>)]
-<a href=#323 id=323 data-nosnippet>323</a></span><span class="kw">pub enum </span>NetworkBackendType {
-<a href=#324 id=324 data-nosnippet>324</a>	<span class="doccomment">/// Use libp2p for P2P networking.
-<a href=#325 id=325 data-nosnippet>325</a>	</span>Libp2p,
-<a href=#326 id=326 data-nosnippet>326</a>
-<a href=#327 id=327 data-nosnippet>327</a>	<span class="doccomment">/// Use litep2p for P2P networking.
-<a href=#328 id=328 data-nosnippet>328</a>	</span>Litep2p,
-<a href=#329 id=329 data-nosnippet>329</a>}
-<a href=#330 id=330 data-nosnippet>330</a>
-<a href=#331 id=331 data-nosnippet>331</a><span class="kw">impl </span>Into&lt;sc_network::config::NetworkBackendType&gt; <span class="kw">for </span>NetworkBackendType {
-<a href=#332 id=332 data-nosnippet>332</a>	<span class="kw">fn </span>into(<span class="self">self</span>) -&gt; sc_network::config::NetworkBackendType {
-<a href=#333 id=333 data-nosnippet>333</a>		<span class="kw">match </span><span class="self">self </span>{
-<a href=#334 id=334 data-nosnippet>334</a>			<span class="self">Self</span>::Libp2p =&gt; sc_network::config::NetworkBackendType::Libp2p,
-<a href=#335 id=335 data-nosnippet>335</a>			<span class="self">Self</span>::Litep2p =&gt; sc_network::config::NetworkBackendType::Litep2p,
-<a href=#336 id=336 data-nosnippet>336</a>		}
-<a href=#337 id=337 data-nosnippet>337</a>	}
-<a href=#338 id=338 data-nosnippet>338</a>}
+<a href=#307 id=307 data-nosnippet>307</a>			SyncMode::Fast =&gt; sc_network::config::SyncMode::LightState { skip_proofs: <span class="bool-val">false </span>},
+<a href=#308 id=308 data-nosnippet>308</a>			SyncMode::FastUnsafe =&gt; sc_network::config::SyncMode::LightState { skip_proofs: <span class="bool-val">true </span>},
+<a href=#309 id=309 data-nosnippet>309</a>			SyncMode::Warp =&gt; sc_network::config::SyncMode::Warp,
+<a href=#310 id=310 data-nosnippet>310</a>		}
+<a href=#311 id=311 data-nosnippet>311</a>	}
+<a href=#312 id=312 data-nosnippet>312</a>}
+<a href=#313 id=313 data-nosnippet>313</a>
+<a href=#314 id=314 data-nosnippet>314</a><span class="doccomment">/// Network backend type.
+<a href=#315 id=315 data-nosnippet>315</a></span><span class="attr">#[derive(Debug, Clone, Copy, ValueEnum, PartialEq)]
+<a href=#316 id=316 data-nosnippet>316</a>#[value(rename_all = <span class="string">"lower"</span>)]
+<a href=#317 id=317 data-nosnippet>317</a></span><span class="kw">pub enum </span>NetworkBackendType {
+<a href=#318 id=318 data-nosnippet>318</a>	<span class="doccomment">/// Use libp2p for P2P networking.
+<a href=#319 id=319 data-nosnippet>319</a>	</span>Libp2p,
+<a href=#320 id=320 data-nosnippet>320</a>
+<a href=#321 id=321 data-nosnippet>321</a>	<span class="doccomment">/// Use litep2p for P2P networking.
+<a href=#322 id=322 data-nosnippet>322</a>	</span>Litep2p,
+<a href=#323 id=323 data-nosnippet>323</a>}
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a><span class="kw">impl </span>Into&lt;sc_network::config::NetworkBackendType&gt; <span class="kw">for </span>NetworkBackendType {
+<a href=#326 id=326 data-nosnippet>326</a>	<span class="kw">fn </span>into(<span class="self">self</span>) -&gt; sc_network::config::NetworkBackendType {
+<a href=#327 id=327 data-nosnippet>327</a>		<span class="kw">match </span><span class="self">self </span>{
+<a href=#328 id=328 data-nosnippet>328</a>			<span class="self">Self</span>::Libp2p =&gt; sc_network::config::NetworkBackendType::Libp2p,
+<a href=#329 id=329 data-nosnippet>329</a>			<span class="self">Self</span>::Litep2p =&gt; sc_network::config::NetworkBackendType::Litep2p,
+<a href=#330 id=330 data-nosnippet>330</a>		}
+<a href=#331 id=331 data-nosnippet>331</a>	}
+<a href=#332 id=332 data-nosnippet>332</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

@@ -507,405 +507,394 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#357 id=357 data-nosnippet>357</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockResponse, HandleRequestError&gt; {
 <a href=#358 id=358 data-nosnippet>358</a>		<span class="kw">let </span>get_header = attributes.contains(BlockAttributes::HEADER);
 <a href=#359 id=359 data-nosnippet>359</a>		<span class="kw">let </span>get_body = attributes.contains(BlockAttributes::BODY);
-<a href=#360 id=360 data-nosnippet>360</a>		<span class="kw">let </span>get_indexed_body = attributes.contains(BlockAttributes::INDEXED_BODY);
-<a href=#361 id=361 data-nosnippet>361</a>		<span class="kw">let </span>get_justification = attributes.contains(BlockAttributes::JUSTIFICATION);
-<a href=#362 id=362 data-nosnippet>362</a>
-<a href=#363 id=363 data-nosnippet>363</a>		<span class="kw">let </span><span class="kw-2">mut </span>blocks = Vec::new();
-<a href=#364 id=364 data-nosnippet>364</a>
-<a href=#365 id=365 data-nosnippet>365</a>		<span class="kw">let </span><span class="kw-2">mut </span>total_size: usize = <span class="number">0</span>;
-<a href=#366 id=366 data-nosnippet>366</a>
-<a href=#367 id=367 data-nosnippet>367</a>		<span class="kw">let </span>client_header_from_block_id =
-<a href=#368 id=368 data-nosnippet>368</a>			|block_id: BlockId&lt;B&gt;| -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;B::Header&gt;, HandleRequestError&gt; {
-<a href=#369 id=369 data-nosnippet>369</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = <span class="self">self</span>.client.block_hash_from_id(<span class="kw-2">&amp;</span>block_id)<span class="question-mark">? </span>{
-<a href=#370 id=370 data-nosnippet>370</a>					<span class="kw">return </span><span class="self">self</span>.client.header(hash).map_err(Into::into);
-<a href=#371 id=371 data-nosnippet>371</a>				}
-<a href=#372 id=372 data-nosnippet>372</a>				<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-<a href=#373 id=373 data-nosnippet>373</a>			};
-<a href=#374 id=374 data-nosnippet>374</a>
-<a href=#375 id=375 data-nosnippet>375</a>		<span class="kw">while let </span><span class="prelude-val">Some</span>(header) = client_header_from_block_id(block_id).unwrap_or_default() {
-<a href=#376 id=376 data-nosnippet>376</a>			<span class="kw">let </span>number = <span class="kw-2">*</span>header.number();
-<a href=#377 id=377 data-nosnippet>377</a>			<span class="kw">let </span>hash = header.hash();
-<a href=#378 id=378 data-nosnippet>378</a>			<span class="kw">let </span>parent_hash = <span class="kw-2">*</span>header.parent_hash();
-<a href=#379 id=379 data-nosnippet>379</a>			<span class="kw">let </span>justifications =
-<a href=#380 id=380 data-nosnippet>380</a>				<span class="kw">if </span>get_justification { <span class="self">self</span>.client.justifications(hash)<span class="question-mark">? </span>} <span class="kw">else </span>{ <span class="prelude-val">None </span>};
-<a href=#381 id=381 data-nosnippet>381</a>
-<a href=#382 id=382 data-nosnippet>382</a>			<span class="kw">let </span>(justifications, justification, is_empty_justification) =
-<a href=#383 id=383 data-nosnippet>383</a>				<span class="kw">if </span>support_multiple_justifications {
-<a href=#384 id=384 data-nosnippet>384</a>					<span class="kw">let </span>justifications = <span class="kw">match </span>justifications {
-<a href=#385 id=385 data-nosnippet>385</a>						<span class="prelude-val">Some</span>(v) =&gt; v.encode(),
-<a href=#386 id=386 data-nosnippet>386</a>						<span class="prelude-val">None </span>=&gt; Vec::new(),
-<a href=#387 id=387 data-nosnippet>387</a>					};
-<a href=#388 id=388 data-nosnippet>388</a>					(justifications, Vec::new(), <span class="bool-val">false</span>)
-<a href=#389 id=389 data-nosnippet>389</a>				} <span class="kw">else </span>{
-<a href=#390 id=390 data-nosnippet>390</a>					<span class="comment">// For now we keep compatibility by selecting precisely the GRANDPA one, and not
-<a href=#391 id=391 data-nosnippet>391</a>					// just the first one. When sending we could have just taken the first one,
-<a href=#392 id=392 data-nosnippet>392</a>					// since we don't expect there to be any other kind currently, but when
-<a href=#393 id=393 data-nosnippet>393</a>					// receiving we need to add the engine ID tag.
-<a href=#394 id=394 data-nosnippet>394</a>					// The ID tag is hardcoded here to avoid depending on the GRANDPA crate, and
-<a href=#395 id=395 data-nosnippet>395</a>					// will be removed once we remove the backwards compatibility.
-<a href=#396 id=396 data-nosnippet>396</a>					// See: https://github.com/paritytech/substrate/issues/8172
-<a href=#397 id=397 data-nosnippet>397</a>					</span><span class="kw">let </span>justification =
-<a href=#398 id=398 data-nosnippet>398</a>						justifications.and_then(|just| just.into_justification(<span class="kw-2">*</span><span class="string">b"FRNK"</span>));
-<a href=#399 id=399 data-nosnippet>399</a>
-<a href=#400 id=400 data-nosnippet>400</a>					<span class="kw">let </span>is_empty_justification =
-<a href=#401 id=401 data-nosnippet>401</a>						justification.as_ref().map(|j| j.is_empty()).unwrap_or(<span class="bool-val">false</span>);
-<a href=#402 id=402 data-nosnippet>402</a>
-<a href=#403 id=403 data-nosnippet>403</a>					<span class="kw">let </span>justification = justification.unwrap_or_default();
-<a href=#404 id=404 data-nosnippet>404</a>
-<a href=#405 id=405 data-nosnippet>405</a>					(Vec::new(), justification, is_empty_justification)
-<a href=#406 id=406 data-nosnippet>406</a>				};
-<a href=#407 id=407 data-nosnippet>407</a>
-<a href=#408 id=408 data-nosnippet>408</a>			<span class="kw">let </span>body = <span class="kw">if </span>get_body {
-<a href=#409 id=409 data-nosnippet>409</a>				<span class="kw">match </span><span class="self">self</span>.client.block_body(hash)<span class="question-mark">? </span>{
-<a href=#410 id=410 data-nosnippet>410</a>					<span class="prelude-val">Some</span>(<span class="kw-2">mut </span>extrinsics) =&gt; {
-<a href=#411 id=411 data-nosnippet>411</a>						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect()
-<a href=#412 id=412 data-nosnippet>412</a>					},
-<a href=#413 id=413 data-nosnippet>413</a>					<span class="prelude-val">None </span>=&gt; {
-<a href=#414 id=414 data-nosnippet>414</a>						<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"Missing data for block request."</span>);
-<a href=#415 id=415 data-nosnippet>415</a>						<span class="kw">break</span>;
-<a href=#416 id=416 data-nosnippet>416</a>					},
-<a href=#417 id=417 data-nosnippet>417</a>				}
-<a href=#418 id=418 data-nosnippet>418</a>			} <span class="kw">else </span>{
-<a href=#419 id=419 data-nosnippet>419</a>				Vec::new()
-<a href=#420 id=420 data-nosnippet>420</a>			};
-<a href=#421 id=421 data-nosnippet>421</a>
-<a href=#422 id=422 data-nosnippet>422</a>			<span class="kw">let </span>indexed_body = <span class="kw">if </span>get_indexed_body {
-<a href=#423 id=423 data-nosnippet>423</a>				<span class="kw">match </span><span class="self">self</span>.client.block_indexed_body(hash)<span class="question-mark">? </span>{
-<a href=#424 id=424 data-nosnippet>424</a>					<span class="prelude-val">Some</span>(transactions) =&gt; transactions,
-<a href=#425 id=425 data-nosnippet>425</a>					<span class="prelude-val">None </span>=&gt; {
-<a href=#426 id=426 data-nosnippet>426</a>						<span class="macro">log::trace!</span>(
-<a href=#427 id=427 data-nosnippet>427</a>							target: LOG_TARGET,
-<a href=#428 id=428 data-nosnippet>428</a>							<span class="string">"Missing indexed block data for block request."
-<a href=#429 id=429 data-nosnippet>429</a>						</span>);
-<a href=#430 id=430 data-nosnippet>430</a>						<span class="comment">// If the indexed body is missing we still continue returning headers.
-<a href=#431 id=431 data-nosnippet>431</a>						// Ideally `None` should distinguish a missing body from the empty body,
-<a href=#432 id=432 data-nosnippet>432</a>						// but the current protobuf based protocol does not allow it.
-<a href=#433 id=433 data-nosnippet>433</a>						</span>Vec::new()
-<a href=#434 id=434 data-nosnippet>434</a>					},
-<a href=#435 id=435 data-nosnippet>435</a>				}
-<a href=#436 id=436 data-nosnippet>436</a>			} <span class="kw">else </span>{
-<a href=#437 id=437 data-nosnippet>437</a>				Vec::new()
-<a href=#438 id=438 data-nosnippet>438</a>			};
-<a href=#439 id=439 data-nosnippet>439</a>
-<a href=#440 id=440 data-nosnippet>440</a>			<span class="kw">let </span>block_data = <span class="kw">crate</span>::schema::v1::BlockData {
-<a href=#441 id=441 data-nosnippet>441</a>				hash: hash.encode(),
-<a href=#442 id=442 data-nosnippet>442</a>				header: <span class="kw">if </span>get_header { header.encode() } <span class="kw">else </span>{ Vec::new() },
-<a href=#443 id=443 data-nosnippet>443</a>				body,
-<a href=#444 id=444 data-nosnippet>444</a>				receipt: Vec::new(),
-<a href=#445 id=445 data-nosnippet>445</a>				message_queue: Vec::new(),
-<a href=#446 id=446 data-nosnippet>446</a>				justification,
-<a href=#447 id=447 data-nosnippet>447</a>				is_empty_justification,
-<a href=#448 id=448 data-nosnippet>448</a>				justifications,
-<a href=#449 id=449 data-nosnippet>449</a>				indexed_body,
-<a href=#450 id=450 data-nosnippet>450</a>			};
-<a href=#451 id=451 data-nosnippet>451</a>
-<a href=#452 id=452 data-nosnippet>452</a>			<span class="kw">let </span>new_total_size = total_size + block_data.encoded_len();
-<a href=#453 id=453 data-nosnippet>453</a>
-<a href=#454 id=454 data-nosnippet>454</a>			<span class="comment">// Reserve 20 KiB for protocol overhead (length prefixes of `BlockData` + the final
-<a href=#455 id=455 data-nosnippet>455</a>			// encoding in `BlockResponse`)
-<a href=#456 id=456 data-nosnippet>456</a>			</span><span class="kw">if </span>new_total_size &gt; (MAX_RESPONSE_SIZE <span class="kw">as </span>usize - <span class="number">20 </span>* <span class="number">1024</span>) {
-<a href=#457 id=457 data-nosnippet>457</a>				<span class="kw">if </span>blocks.is_empty() {
-<a href=#458 id=458 data-nosnippet>458</a>					<span class="macro">log::error!</span>(
-<a href=#459 id=459 data-nosnippet>459</a>						target: LOG_TARGET,
-<a href=#460 id=460 data-nosnippet>460</a>						<span class="string">"Single block response is bigger than the max allowed response size! This is a bug!"
-<a href=#461 id=461 data-nosnippet>461</a>					</span>);
-<a href=#462 id=462 data-nosnippet>462</a>				}
-<a href=#463 id=463 data-nosnippet>463</a>
-<a href=#464 id=464 data-nosnippet>464</a>				<span class="kw">break</span>;
-<a href=#465 id=465 data-nosnippet>465</a>			}
-<a href=#466 id=466 data-nosnippet>466</a>
-<a href=#467 id=467 data-nosnippet>467</a>			total_size = new_total_size;
-<a href=#468 id=468 data-nosnippet>468</a>
-<a href=#469 id=469 data-nosnippet>469</a>			blocks.push(block_data);
-<a href=#470 id=470 data-nosnippet>470</a>
-<a href=#471 id=471 data-nosnippet>471</a>			<span class="kw">if </span>blocks.len() &gt;= max_blocks <span class="kw">as </span>usize {
-<a href=#472 id=472 data-nosnippet>472</a>				<span class="kw">break</span>;
-<a href=#473 id=473 data-nosnippet>473</a>			}
-<a href=#474 id=474 data-nosnippet>474</a>
-<a href=#475 id=475 data-nosnippet>475</a>			<span class="kw">match </span>direction {
-<a href=#476 id=476 data-nosnippet>476</a>				Direction::Ascending =&gt; block_id = BlockId::Number(number + One::one()),
-<a href=#477 id=477 data-nosnippet>477</a>				Direction::Descending =&gt; {
-<a href=#478 id=478 data-nosnippet>478</a>					<span class="kw">if </span>number.is_zero() {
-<a href=#479 id=479 data-nosnippet>479</a>						<span class="kw">break</span>;
-<a href=#480 id=480 data-nosnippet>480</a>					}
-<a href=#481 id=481 data-nosnippet>481</a>					block_id = BlockId::Hash(parent_hash)
-<a href=#482 id=482 data-nosnippet>482</a>				},
-<a href=#483 id=483 data-nosnippet>483</a>			}
-<a href=#484 id=484 data-nosnippet>484</a>		}
-<a href=#485 id=485 data-nosnippet>485</a>
-<a href=#486 id=486 data-nosnippet>486</a>		<span class="prelude-val">Ok</span>(BlockResponse { blocks })
-<a href=#487 id=487 data-nosnippet>487</a>	}
-<a href=#488 id=488 data-nosnippet>488</a>}
-<a href=#489 id=489 data-nosnippet>489</a>
-<a href=#490 id=490 data-nosnippet>490</a><span class="attr">#[async_trait::async_trait]
-<a href=#491 id=491 data-nosnippet>491</a></span><span class="kw">impl</span>&lt;B, Client&gt; BlockServer&lt;B&gt; <span class="kw">for </span>BlockRequestHandler&lt;B, Client&gt;
-<a href=#492 id=492 data-nosnippet>492</a><span class="kw">where
-<a href=#493 id=493 data-nosnippet>493</a>	</span>B: BlockT,
-<a href=#494 id=494 data-nosnippet>494</a>	Client: HeaderBackend&lt;B&gt; + BlockBackend&lt;B&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#495 id=495 data-nosnippet>495</a>{
-<a href=#496 id=496 data-nosnippet>496</a>	<span class="kw">async fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#497 id=497 data-nosnippet>497</a>		<span class="self">self</span>.process_requests().<span class="kw">await</span>;
-<a href=#498 id=498 data-nosnippet>498</a>	}
-<a href=#499 id=499 data-nosnippet>499</a>}
-<a href=#500 id=500 data-nosnippet>500</a>
-<a href=#501 id=501 data-nosnippet>501</a><span class="attr">#[derive(Debug, thiserror::Error)]
-<a href=#502 id=502 data-nosnippet>502</a></span><span class="kw">enum </span>HandleRequestError {
-<a href=#503 id=503 data-nosnippet>503</a>	<span class="attr">#[error(<span class="string">"Failed to decode request: {0}."</span>)]
-<a href=#504 id=504 data-nosnippet>504</a>	</span>DecodeProto(<span class="attr">#[from] </span>prost::DecodeError),
-<a href=#505 id=505 data-nosnippet>505</a>	<span class="attr">#[error(<span class="string">"Failed to encode response: {0}."</span>)]
-<a href=#506 id=506 data-nosnippet>506</a>	</span>EncodeProto(<span class="attr">#[from] </span>prost::EncodeError),
-<a href=#507 id=507 data-nosnippet>507</a>	<span class="attr">#[error(<span class="string">"Failed to decode block hash: {0}."</span>)]
-<a href=#508 id=508 data-nosnippet>508</a>	</span>DecodeScale(<span class="attr">#[from] </span>codec::Error),
-<a href=#509 id=509 data-nosnippet>509</a>	<span class="attr">#[error(<span class="string">"Missing `BlockRequest::from_block` field."</span>)]
-<a href=#510 id=510 data-nosnippet>510</a>	</span>MissingFromField,
-<a href=#511 id=511 data-nosnippet>511</a>	<span class="attr">#[error(<span class="string">"Failed to parse BlockRequest::direction."</span>)]
-<a href=#512 id=512 data-nosnippet>512</a>	</span>ParseDirection,
-<a href=#513 id=513 data-nosnippet>513</a>	<span class="attr">#[error(transparent)]
-<a href=#514 id=514 data-nosnippet>514</a>	</span>Client(<span class="attr">#[from] </span>sp_blockchain::Error),
-<a href=#515 id=515 data-nosnippet>515</a>	<span class="attr">#[error(<span class="string">"Failed to send response."</span>)]
-<a href=#516 id=516 data-nosnippet>516</a>	</span>SendResponse,
-<a href=#517 id=517 data-nosnippet>517</a>}
-<a href=#518 id=518 data-nosnippet>518</a>
-<a href=#519 id=519 data-nosnippet>519</a><span class="doccomment">/// The full block downloader implementation of [`BlockDownloader].
-<a href=#520 id=520 data-nosnippet>520</a></span><span class="attr">#[derive(Debug)]
-<a href=#521 id=521 data-nosnippet>521</a></span><span class="kw">pub struct </span>FullBlockDownloader {
-<a href=#522 id=522 data-nosnippet>522</a>	protocol_name: ProtocolName,
-<a href=#523 id=523 data-nosnippet>523</a>	network: NetworkServiceHandle,
-<a href=#524 id=524 data-nosnippet>524</a>}
-<a href=#525 id=525 data-nosnippet>525</a>
-<a href=#526 id=526 data-nosnippet>526</a><span class="kw">impl </span>FullBlockDownloader {
-<a href=#527 id=527 data-nosnippet>527</a>	<span class="kw">fn </span>new(protocol_name: ProtocolName, network: NetworkServiceHandle) -&gt; <span class="self">Self </span>{
-<a href=#528 id=528 data-nosnippet>528</a>		<span class="self">Self </span>{ protocol_name, network }
-<a href=#529 id=529 data-nosnippet>529</a>	}
-<a href=#530 id=530 data-nosnippet>530</a>
-<a href=#531 id=531 data-nosnippet>531</a>	<span class="doccomment">/// Extracts the blocks from the response schema.
-<a href=#532 id=532 data-nosnippet>532</a>	</span><span class="kw">fn </span>blocks_from_schema&lt;B: BlockT&gt;(
-<a href=#533 id=533 data-nosnippet>533</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#534 id=534 data-nosnippet>534</a>		request: <span class="kw-2">&amp;</span>BlockRequest&lt;B&gt;,
-<a href=#535 id=535 data-nosnippet>535</a>		response: BlockResponseSchema,
-<a href=#536 id=536 data-nosnippet>536</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BlockData&lt;B&gt;&gt;, String&gt; {
-<a href=#537 id=537 data-nosnippet>537</a>		response
-<a href=#538 id=538 data-nosnippet>538</a>			.blocks
-<a href=#539 id=539 data-nosnippet>539</a>			.into_iter()
-<a href=#540 id=540 data-nosnippet>540</a>			.map(|block_data| {
-<a href=#541 id=541 data-nosnippet>541</a>				<span class="prelude-val">Ok</span>(BlockData::&lt;B&gt; {
-<a href=#542 id=542 data-nosnippet>542</a>					hash: Decode::decode(<span class="kw-2">&amp;mut </span>block_data.hash.as_ref())<span class="question-mark">?</span>,
-<a href=#543 id=543 data-nosnippet>543</a>					header: <span class="kw">if </span>!block_data.header.is_empty() {
-<a href=#544 id=544 data-nosnippet>544</a>						<span class="prelude-val">Some</span>(Decode::decode(<span class="kw-2">&amp;mut </span>block_data.header.as_ref())<span class="question-mark">?</span>)
-<a href=#545 id=545 data-nosnippet>545</a>					} <span class="kw">else </span>{
-<a href=#546 id=546 data-nosnippet>546</a>						<span class="prelude-val">None
-<a href=#547 id=547 data-nosnippet>547</a>					</span>},
-<a href=#548 id=548 data-nosnippet>548</a>					body: <span class="kw">if </span>request.fields.contains(BlockAttributes::BODY) {
-<a href=#549 id=549 data-nosnippet>549</a>						<span class="prelude-val">Some</span>(
-<a href=#550 id=550 data-nosnippet>550</a>							block_data
-<a href=#551 id=551 data-nosnippet>551</a>								.body
-<a href=#552 id=552 data-nosnippet>552</a>								.iter()
-<a href=#553 id=553 data-nosnippet>553</a>								.map(|body| Decode::decode(<span class="kw-2">&amp;mut </span>body.as_ref()))
-<a href=#554 id=554 data-nosnippet>554</a>								.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>,
-<a href=#555 id=555 data-nosnippet>555</a>						)
-<a href=#556 id=556 data-nosnippet>556</a>					} <span class="kw">else </span>{
-<a href=#557 id=557 data-nosnippet>557</a>						<span class="prelude-val">None
-<a href=#558 id=558 data-nosnippet>558</a>					</span>},
-<a href=#559 id=559 data-nosnippet>559</a>					indexed_body: <span class="kw">if </span>request.fields.contains(BlockAttributes::INDEXED_BODY) {
-<a href=#560 id=560 data-nosnippet>560</a>						<span class="prelude-val">Some</span>(block_data.indexed_body)
-<a href=#561 id=561 data-nosnippet>561</a>					} <span class="kw">else </span>{
-<a href=#562 id=562 data-nosnippet>562</a>						<span class="prelude-val">None
-<a href=#563 id=563 data-nosnippet>563</a>					</span>},
-<a href=#564 id=564 data-nosnippet>564</a>					receipt: <span class="kw">if </span>!block_data.receipt.is_empty() {
-<a href=#565 id=565 data-nosnippet>565</a>						<span class="prelude-val">Some</span>(block_data.receipt)
-<a href=#566 id=566 data-nosnippet>566</a>					} <span class="kw">else </span>{
-<a href=#567 id=567 data-nosnippet>567</a>						<span class="prelude-val">None
-<a href=#568 id=568 data-nosnippet>568</a>					</span>},
-<a href=#569 id=569 data-nosnippet>569</a>					message_queue: <span class="kw">if </span>!block_data.message_queue.is_empty() {
-<a href=#570 id=570 data-nosnippet>570</a>						<span class="prelude-val">Some</span>(block_data.message_queue)
-<a href=#571 id=571 data-nosnippet>571</a>					} <span class="kw">else </span>{
-<a href=#572 id=572 data-nosnippet>572</a>						<span class="prelude-val">None
-<a href=#573 id=573 data-nosnippet>573</a>					</span>},
-<a href=#574 id=574 data-nosnippet>574</a>					justification: <span class="kw">if </span>!block_data.justification.is_empty() {
-<a href=#575 id=575 data-nosnippet>575</a>						<span class="prelude-val">Some</span>(block_data.justification)
-<a href=#576 id=576 data-nosnippet>576</a>					} <span class="kw">else if </span>block_data.is_empty_justification {
-<a href=#577 id=577 data-nosnippet>577</a>						<span class="prelude-val">Some</span>(Vec::new())
-<a href=#578 id=578 data-nosnippet>578</a>					} <span class="kw">else </span>{
-<a href=#579 id=579 data-nosnippet>579</a>						<span class="prelude-val">None
-<a href=#580 id=580 data-nosnippet>580</a>					</span>},
-<a href=#581 id=581 data-nosnippet>581</a>					justifications: <span class="kw">if </span>!block_data.justifications.is_empty() {
-<a href=#582 id=582 data-nosnippet>582</a>						<span class="prelude-val">Some</span>(DecodeAll::decode_all(<span class="kw-2">&amp;mut </span>block_data.justifications.as_ref())<span class="question-mark">?</span>)
-<a href=#583 id=583 data-nosnippet>583</a>					} <span class="kw">else </span>{
-<a href=#584 id=584 data-nosnippet>584</a>						<span class="prelude-val">None
-<a href=#585 id=585 data-nosnippet>585</a>					</span>},
-<a href=#586 id=586 data-nosnippet>586</a>				})
-<a href=#587 id=587 data-nosnippet>587</a>			})
-<a href=#588 id=588 data-nosnippet>588</a>			.collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
-<a href=#589 id=589 data-nosnippet>589</a>			.map_err(|error: codec::Error| error.to_string())
-<a href=#590 id=590 data-nosnippet>590</a>	}
-<a href=#591 id=591 data-nosnippet>591</a>}
-<a href=#592 id=592 data-nosnippet>592</a>
-<a href=#593 id=593 data-nosnippet>593</a><span class="attr">#[async_trait::async_trait]
-<a href=#594 id=594 data-nosnippet>594</a></span><span class="kw">impl</span>&lt;B: BlockT&gt; BlockDownloader&lt;B&gt; <span class="kw">for </span>FullBlockDownloader {
-<a href=#595 id=595 data-nosnippet>595</a>	<span class="kw">fn </span>protocol_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ProtocolName {
-<a href=#596 id=596 data-nosnippet>596</a>		<span class="kw-2">&amp;</span><span class="self">self</span>.protocol_name
-<a href=#597 id=597 data-nosnippet>597</a>	}
-<a href=#598 id=598 data-nosnippet>598</a>
-<a href=#599 id=599 data-nosnippet>599</a>	<span class="kw">async fn </span>download_blocks(
-<a href=#600 id=600 data-nosnippet>600</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#601 id=601 data-nosnippet>601</a>		who: PeerId,
-<a href=#602 id=602 data-nosnippet>602</a>		request: BlockRequest&lt;B&gt;,
-<a href=#603 id=603 data-nosnippet>603</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;, oneshot::Canceled&gt; {
-<a href=#604 id=604 data-nosnippet>604</a>		<span class="comment">// Build the request protobuf.
-<a href=#605 id=605 data-nosnippet>605</a>		</span><span class="kw">let </span>bytes = BlockRequestSchema {
-<a href=#606 id=606 data-nosnippet>606</a>			fields: request.fields.to_be_u32(),
-<a href=#607 id=607 data-nosnippet>607</a>			from_block: <span class="kw">match </span>request.from {
-<a href=#608 id=608 data-nosnippet>608</a>				FromBlock::Hash(h) =&gt; <span class="prelude-val">Some</span>(FromBlockSchema::Hash(h.encode())),
-<a href=#609 id=609 data-nosnippet>609</a>				FromBlock::Number(n) =&gt; <span class="prelude-val">Some</span>(FromBlockSchema::Number(n.encode())),
-<a href=#610 id=610 data-nosnippet>610</a>			},
-<a href=#611 id=611 data-nosnippet>611</a>			direction: request.direction <span class="kw">as </span>i32,
-<a href=#612 id=612 data-nosnippet>612</a>			max_blocks: request.max.unwrap_or(<span class="number">0</span>),
-<a href=#613 id=613 data-nosnippet>613</a>			support_multiple_justifications: <span class="bool-val">true</span>,
-<a href=#614 id=614 data-nosnippet>614</a>		}
-<a href=#615 id=615 data-nosnippet>615</a>		.encode_to_vec();
-<a href=#616 id=616 data-nosnippet>616</a>
-<a href=#617 id=617 data-nosnippet>617</a>		<span class="kw">let </span>(tx, rx) = oneshot::channel();
-<a href=#618 id=618 data-nosnippet>618</a>		<span class="self">self</span>.network.start_request(
-<a href=#619 id=619 data-nosnippet>619</a>			who,
-<a href=#620 id=620 data-nosnippet>620</a>			<span class="self">self</span>.protocol_name.clone(),
-<a href=#621 id=621 data-nosnippet>621</a>			bytes,
-<a href=#622 id=622 data-nosnippet>622</a>			tx,
-<a href=#623 id=623 data-nosnippet>623</a>			IfDisconnected::ImmediateError,
-<a href=#624 id=624 data-nosnippet>624</a>		);
-<a href=#625 id=625 data-nosnippet>625</a>		rx.<span class="kw">await
-<a href=#626 id=626 data-nosnippet>626</a>	</span>}
-<a href=#627 id=627 data-nosnippet>627</a>
-<a href=#628 id=628 data-nosnippet>628</a>	<span class="kw">fn </span>block_response_into_blocks(
-<a href=#629 id=629 data-nosnippet>629</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#630 id=630 data-nosnippet>630</a>		request: <span class="kw-2">&amp;</span>BlockRequest&lt;B&gt;,
-<a href=#631 id=631 data-nosnippet>631</a>		response: Vec&lt;u8&gt;,
-<a href=#632 id=632 data-nosnippet>632</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BlockData&lt;B&gt;&gt;, BlockResponseError&gt; {
-<a href=#633 id=633 data-nosnippet>633</a>		<span class="comment">// Decode the response protobuf
-<a href=#634 id=634 data-nosnippet>634</a>		</span><span class="kw">let </span>response_schema = BlockResponseSchema::decode(response.as_slice())
-<a href=#635 id=635 data-nosnippet>635</a>			.map_err(|error| BlockResponseError::DecodeFailed(error.to_string()))<span class="question-mark">?</span>;
-<a href=#636 id=636 data-nosnippet>636</a>
-<a href=#637 id=637 data-nosnippet>637</a>		<span class="comment">// Extract the block data from the protobuf
-<a href=#638 id=638 data-nosnippet>638</a>		</span><span class="self">self</span>.blocks_from_schema::&lt;B&gt;(request, response_schema)
-<a href=#639 id=639 data-nosnippet>639</a>			.map_err(|error| BlockResponseError::ExtractionFailed(error.to_string()))
-<a href=#640 id=640 data-nosnippet>640</a>	}
-<a href=#641 id=641 data-nosnippet>641</a>}
-<a href=#642 id=642 data-nosnippet>642</a>
-<a href=#643 id=643 data-nosnippet>643</a><span class="attr">#[cfg(test)]
-<a href=#644 id=644 data-nosnippet>644</a></span><span class="kw">mod </span>tests {
-<a href=#645 id=645 data-nosnippet>645</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#646 id=646 data-nosnippet>646</a>	<span class="kw">use </span>futures::executor::block_on;
-<a href=#647 id=647 data-nosnippet>647</a>	<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
-<a href=#648 id=648 data-nosnippet>648</a>	<span class="kw">use </span>sp_consensus::BlockOrigin;
-<a href=#649 id=649 data-nosnippet>649</a>	<span class="kw">use </span>substrate_test_runtime_client::{
-<a href=#650 id=650 data-nosnippet>650</a>		runtime::Block, ClientBlockImportExt, DefaultTestClientBuilderExt, TestClient,
-<a href=#651 id=651 data-nosnippet>651</a>		TestClientBuilder, TestClientBuilderExt,
-<a href=#652 id=652 data-nosnippet>652</a>	};
-<a href=#653 id=653 data-nosnippet>653</a>
-<a href=#654 id=654 data-nosnippet>654</a>	<span class="kw">fn </span>test_handler() -&gt; BlockRequestHandler&lt;Block, TestClient&gt; {
-<a href=#655 id=655 data-nosnippet>655</a>		<span class="kw">let </span>client = Arc::new(TestClientBuilder::new().build());
-<a href=#656 id=656 data-nosnippet>656</a>
-<a href=#657 id=657 data-nosnippet>657</a>		<span class="kw">let </span>block = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
-<a href=#658 id=658 data-nosnippet>658</a>			.on_parent_block(client.chain_info().genesis_hash)
-<a href=#659 id=659 data-nosnippet>659</a>			.with_parent_block_number(<span class="number">0</span>)
-<a href=#660 id=660 data-nosnippet>660</a>			.build()
-<a href=#661 id=661 data-nosnippet>661</a>			.unwrap()
-<a href=#662 id=662 data-nosnippet>662</a>			.build()
-<a href=#663 id=663 data-nosnippet>663</a>			.unwrap()
-<a href=#664 id=664 data-nosnippet>664</a>			.block;
-<a href=#665 id=665 data-nosnippet>665</a>		block_on(client.import(BlockOrigin::Own, block)).unwrap();
-<a href=#666 id=666 data-nosnippet>666</a>
-<a href=#667 id=667 data-nosnippet>667</a>		<span class="kw">let </span>(_tx, request_receiver) = async_channel::bounded(<span class="number">1</span>);
-<a href=#668 id=668 data-nosnippet>668</a>		BlockRequestHandler {
-<a href=#669 id=669 data-nosnippet>669</a>			client,
-<a href=#670 id=670 data-nosnippet>670</a>			request_receiver,
-<a href=#671 id=671 data-nosnippet>671</a>			seen_requests: LruMap::new(ByLength::new(<span class="number">16</span>)),
-<a href=#672 id=672 data-nosnippet>672</a>		}
-<a href=#673 id=673 data-nosnippet>673</a>	}
-<a href=#674 id=674 data-nosnippet>674</a>
-<a href=#675 id=675 data-nosnippet>675</a>	<span class="kw">fn </span>make_request(attributes: BlockAttributes) -&gt; Vec&lt;u8&gt; {
-<a href=#676 id=676 data-nosnippet>676</a>		BlockRequestSchema {
-<a href=#677 id=677 data-nosnippet>677</a>			fields: attributes.to_be_u32(),
-<a href=#678 id=678 data-nosnippet>678</a>			from_block: <span class="prelude-val">Some</span>(FromBlockSchema::Number(Encode::encode(<span class="kw-2">&amp;</span><span class="number">1u64</span>))),
-<a href=#679 id=679 data-nosnippet>679</a>			direction: Direction::Ascending <span class="kw">as </span>i32,
-<a href=#680 id=680 data-nosnippet>680</a>			max_blocks: <span class="number">1</span>,
-<a href=#681 id=681 data-nosnippet>681</a>			support_multiple_justifications: <span class="bool-val">true</span>,
-<a href=#682 id=682 data-nosnippet>682</a>		}
-<a href=#683 id=683 data-nosnippet>683</a>		.encode_to_vec()
-<a href=#684 id=684 data-nosnippet>684</a>	}
-<a href=#685 id=685 data-nosnippet>685</a>
-<a href=#686 id=686 data-nosnippet>686</a>	<span class="kw">fn </span>send_request(
-<a href=#687 id=687 data-nosnippet>687</a>		handler: <span class="kw-2">&amp;mut </span>BlockRequestHandler&lt;Block, TestClient&gt;,
-<a href=#688 id=688 data-nosnippet>688</a>		peer: <span class="kw-2">&amp;</span>PeerId,
-<a href=#689 id=689 data-nosnippet>689</a>		attributes: BlockAttributes,
-<a href=#690 id=690 data-nosnippet>690</a>	) -&gt; OutgoingResponse {
-<a href=#691 id=691 data-nosnippet>691</a>		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = oneshot::channel();
-<a href=#692 id=692 data-nosnippet>692</a>		handler.handle_request(make_request(attributes), tx, peer).unwrap();
-<a href=#693 id=693 data-nosnippet>693</a>		rx.try_recv().unwrap().unwrap()
-<a href=#694 id=694 data-nosnippet>694</a>	}
-<a href=#695 id=695 data-nosnippet>695</a>
-<a href=#696 id=696 data-nosnippet>696</a>	<span class="attr">#[test]
-<a href=#697 id=697 data-nosnippet>697</a>	</span><span class="kw">fn </span>same_request_limit_resets_after_window() {
-<a href=#698 id=698 data-nosnippet>698</a>		<span class="kw">let </span><span class="kw-2">mut </span>handler = test_handler();
-<a href=#699 id=699 data-nosnippet>699</a>		<span class="kw">let </span>peer = PeerId::random();
-<a href=#700 id=700 data-nosnippet>700</a>		<span class="kw">let </span>attributes = BlockAttributes::HEADER | BlockAttributes::BODY;
-<a href=#701 id=701 data-nosnippet>701</a>
-<a href=#702 id=702 data-nosnippet>702</a>		<span class="kw">for _ in </span><span class="number">0</span>..MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {
-<a href=#703 id=703 data-nosnippet>703</a>			<span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
-<a href=#704 id=704 data-nosnippet>704</a>			<span class="macro">assert!</span>(response.result.is_ok());
-<a href=#705 id=705 data-nosnippet>705</a>			<span class="macro">assert!</span>(response.reputation_changes.is_empty());
-<a href=#706 id=706 data-nosnippet>706</a>		}
+<a href=#360 id=360 data-nosnippet>360</a>		<span class="kw">let </span>get_justification = attributes.contains(BlockAttributes::JUSTIFICATION);
+<a href=#361 id=361 data-nosnippet>361</a>
+<a href=#362 id=362 data-nosnippet>362</a>		<span class="kw">let </span><span class="kw-2">mut </span>blocks = Vec::new();
+<a href=#363 id=363 data-nosnippet>363</a>
+<a href=#364 id=364 data-nosnippet>364</a>		<span class="kw">let </span><span class="kw-2">mut </span>total_size: usize = <span class="number">0</span>;
+<a href=#365 id=365 data-nosnippet>365</a>
+<a href=#366 id=366 data-nosnippet>366</a>		<span class="kw">let </span>client_header_from_block_id =
+<a href=#367 id=367 data-nosnippet>367</a>			|block_id: BlockId&lt;B&gt;| -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;B::Header&gt;, HandleRequestError&gt; {
+<a href=#368 id=368 data-nosnippet>368</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = <span class="self">self</span>.client.block_hash_from_id(<span class="kw-2">&amp;</span>block_id)<span class="question-mark">? </span>{
+<a href=#369 id=369 data-nosnippet>369</a>					<span class="kw">return </span><span class="self">self</span>.client.header(hash).map_err(Into::into);
+<a href=#370 id=370 data-nosnippet>370</a>				}
+<a href=#371 id=371 data-nosnippet>371</a>				<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+<a href=#372 id=372 data-nosnippet>372</a>			};
+<a href=#373 id=373 data-nosnippet>373</a>
+<a href=#374 id=374 data-nosnippet>374</a>		<span class="kw">while let </span><span class="prelude-val">Some</span>(header) = client_header_from_block_id(block_id).unwrap_or_default() {
+<a href=#375 id=375 data-nosnippet>375</a>			<span class="kw">let </span>number = <span class="kw-2">*</span>header.number();
+<a href=#376 id=376 data-nosnippet>376</a>			<span class="kw">let </span>hash = header.hash();
+<a href=#377 id=377 data-nosnippet>377</a>			<span class="kw">let </span>parent_hash = <span class="kw-2">*</span>header.parent_hash();
+<a href=#378 id=378 data-nosnippet>378</a>			<span class="kw">let </span>justifications =
+<a href=#379 id=379 data-nosnippet>379</a>				<span class="kw">if </span>get_justification { <span class="self">self</span>.client.justifications(hash)<span class="question-mark">? </span>} <span class="kw">else </span>{ <span class="prelude-val">None </span>};
+<a href=#380 id=380 data-nosnippet>380</a>
+<a href=#381 id=381 data-nosnippet>381</a>			<span class="kw">let </span>(justifications, justification, is_empty_justification) =
+<a href=#382 id=382 data-nosnippet>382</a>				<span class="kw">if </span>support_multiple_justifications {
+<a href=#383 id=383 data-nosnippet>383</a>					<span class="kw">let </span>justifications = <span class="kw">match </span>justifications {
+<a href=#384 id=384 data-nosnippet>384</a>						<span class="prelude-val">Some</span>(v) =&gt; v.encode(),
+<a href=#385 id=385 data-nosnippet>385</a>						<span class="prelude-val">None </span>=&gt; Vec::new(),
+<a href=#386 id=386 data-nosnippet>386</a>					};
+<a href=#387 id=387 data-nosnippet>387</a>					(justifications, Vec::new(), <span class="bool-val">false</span>)
+<a href=#388 id=388 data-nosnippet>388</a>				} <span class="kw">else </span>{
+<a href=#389 id=389 data-nosnippet>389</a>					<span class="comment">// For now we keep compatibility by selecting precisely the GRANDPA one, and not
+<a href=#390 id=390 data-nosnippet>390</a>					// just the first one. When sending we could have just taken the first one,
+<a href=#391 id=391 data-nosnippet>391</a>					// since we don't expect there to be any other kind currently, but when
+<a href=#392 id=392 data-nosnippet>392</a>					// receiving we need to add the engine ID tag.
+<a href=#393 id=393 data-nosnippet>393</a>					// The ID tag is hardcoded here to avoid depending on the GRANDPA crate, and
+<a href=#394 id=394 data-nosnippet>394</a>					// will be removed once we remove the backwards compatibility.
+<a href=#395 id=395 data-nosnippet>395</a>					// See: https://github.com/paritytech/substrate/issues/8172
+<a href=#396 id=396 data-nosnippet>396</a>					</span><span class="kw">let </span>justification =
+<a href=#397 id=397 data-nosnippet>397</a>						justifications.and_then(|just| just.into_justification(<span class="kw-2">*</span><span class="string">b"FRNK"</span>));
+<a href=#398 id=398 data-nosnippet>398</a>
+<a href=#399 id=399 data-nosnippet>399</a>					<span class="kw">let </span>is_empty_justification =
+<a href=#400 id=400 data-nosnippet>400</a>						justification.as_ref().map(|j| j.is_empty()).unwrap_or(<span class="bool-val">false</span>);
+<a href=#401 id=401 data-nosnippet>401</a>
+<a href=#402 id=402 data-nosnippet>402</a>					<span class="kw">let </span>justification = justification.unwrap_or_default();
+<a href=#403 id=403 data-nosnippet>403</a>
+<a href=#404 id=404 data-nosnippet>404</a>					(Vec::new(), justification, is_empty_justification)
+<a href=#405 id=405 data-nosnippet>405</a>				};
+<a href=#406 id=406 data-nosnippet>406</a>
+<a href=#407 id=407 data-nosnippet>407</a>			<span class="kw">let </span>body = <span class="kw">if </span>get_body {
+<a href=#408 id=408 data-nosnippet>408</a>				<span class="kw">match </span><span class="self">self</span>.client.block_body(hash)<span class="question-mark">? </span>{
+<a href=#409 id=409 data-nosnippet>409</a>					<span class="prelude-val">Some</span>(<span class="kw-2">mut </span>extrinsics) =&gt; {
+<a href=#410 id=410 data-nosnippet>410</a>						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect()
+<a href=#411 id=411 data-nosnippet>411</a>					},
+<a href=#412 id=412 data-nosnippet>412</a>					<span class="prelude-val">None </span>=&gt; {
+<a href=#413 id=413 data-nosnippet>413</a>						<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"Missing data for block request."</span>);
+<a href=#414 id=414 data-nosnippet>414</a>						<span class="kw">break</span>;
+<a href=#415 id=415 data-nosnippet>415</a>					},
+<a href=#416 id=416 data-nosnippet>416</a>				}
+<a href=#417 id=417 data-nosnippet>417</a>			} <span class="kw">else </span>{
+<a href=#418 id=418 data-nosnippet>418</a>				Vec::new()
+<a href=#419 id=419 data-nosnippet>419</a>			};
+<a href=#420 id=420 data-nosnippet>420</a>
+<a href=#421 id=421 data-nosnippet>421</a>			<span class="kw">let </span>block_data = <span class="kw">crate</span>::schema::v1::BlockData {
+<a href=#422 id=422 data-nosnippet>422</a>				hash: hash.encode(),
+<a href=#423 id=423 data-nosnippet>423</a>				header: <span class="kw">if </span>get_header { header.encode() } <span class="kw">else </span>{ Vec::new() },
+<a href=#424 id=424 data-nosnippet>424</a>				body,
+<a href=#425 id=425 data-nosnippet>425</a>				receipt: Vec::new(),
+<a href=#426 id=426 data-nosnippet>426</a>				message_queue: Vec::new(),
+<a href=#427 id=427 data-nosnippet>427</a>				justification,
+<a href=#428 id=428 data-nosnippet>428</a>				is_empty_justification,
+<a href=#429 id=429 data-nosnippet>429</a>				justifications,
+<a href=#430 id=430 data-nosnippet>430</a>			};
+<a href=#431 id=431 data-nosnippet>431</a>
+<a href=#432 id=432 data-nosnippet>432</a>			<span class="kw">let </span>new_total_size = total_size + block_data.encoded_len();
+<a href=#433 id=433 data-nosnippet>433</a>
+<a href=#434 id=434 data-nosnippet>434</a>			<span class="comment">// Reserve 20 KiB for protocol overhead (length prefixes of `BlockData` + the final
+<a href=#435 id=435 data-nosnippet>435</a>			// encoding in `BlockResponse`)
+<a href=#436 id=436 data-nosnippet>436</a>			</span><span class="kw">if </span>new_total_size &gt; (MAX_RESPONSE_SIZE <span class="kw">as </span>usize - <span class="number">20 </span>* <span class="number">1024</span>) {
+<a href=#437 id=437 data-nosnippet>437</a>				<span class="kw">if </span>blocks.is_empty() {
+<a href=#438 id=438 data-nosnippet>438</a>					<span class="macro">log::error!</span>(
+<a href=#439 id=439 data-nosnippet>439</a>						target: LOG_TARGET,
+<a href=#440 id=440 data-nosnippet>440</a>						<span class="string">"Single block response is bigger than the max allowed response size! This is a bug!"
+<a href=#441 id=441 data-nosnippet>441</a>					</span>);
+<a href=#442 id=442 data-nosnippet>442</a>				}
+<a href=#443 id=443 data-nosnippet>443</a>
+<a href=#444 id=444 data-nosnippet>444</a>				<span class="kw">break</span>;
+<a href=#445 id=445 data-nosnippet>445</a>			}
+<a href=#446 id=446 data-nosnippet>446</a>
+<a href=#447 id=447 data-nosnippet>447</a>			total_size = new_total_size;
+<a href=#448 id=448 data-nosnippet>448</a>
+<a href=#449 id=449 data-nosnippet>449</a>			blocks.push(block_data);
+<a href=#450 id=450 data-nosnippet>450</a>
+<a href=#451 id=451 data-nosnippet>451</a>			<span class="kw">if </span>blocks.len() &gt;= max_blocks <span class="kw">as </span>usize {
+<a href=#452 id=452 data-nosnippet>452</a>				<span class="kw">break</span>;
+<a href=#453 id=453 data-nosnippet>453</a>			}
+<a href=#454 id=454 data-nosnippet>454</a>
+<a href=#455 id=455 data-nosnippet>455</a>			<span class="kw">match </span>direction {
+<a href=#456 id=456 data-nosnippet>456</a>				Direction::Ascending =&gt; block_id = BlockId::Number(number + One::one()),
+<a href=#457 id=457 data-nosnippet>457</a>				Direction::Descending =&gt; {
+<a href=#458 id=458 data-nosnippet>458</a>					<span class="kw">if </span>number.is_zero() {
+<a href=#459 id=459 data-nosnippet>459</a>						<span class="kw">break</span>;
+<a href=#460 id=460 data-nosnippet>460</a>					}
+<a href=#461 id=461 data-nosnippet>461</a>					block_id = BlockId::Hash(parent_hash)
+<a href=#462 id=462 data-nosnippet>462</a>				},
+<a href=#463 id=463 data-nosnippet>463</a>			}
+<a href=#464 id=464 data-nosnippet>464</a>		}
+<a href=#465 id=465 data-nosnippet>465</a>
+<a href=#466 id=466 data-nosnippet>466</a>		<span class="prelude-val">Ok</span>(BlockResponse { blocks })
+<a href=#467 id=467 data-nosnippet>467</a>	}
+<a href=#468 id=468 data-nosnippet>468</a>}
+<a href=#469 id=469 data-nosnippet>469</a>
+<a href=#470 id=470 data-nosnippet>470</a><span class="attr">#[async_trait::async_trait]
+<a href=#471 id=471 data-nosnippet>471</a></span><span class="kw">impl</span>&lt;B, Client&gt; BlockServer&lt;B&gt; <span class="kw">for </span>BlockRequestHandler&lt;B, Client&gt;
+<a href=#472 id=472 data-nosnippet>472</a><span class="kw">where
+<a href=#473 id=473 data-nosnippet>473</a>	</span>B: BlockT,
+<a href=#474 id=474 data-nosnippet>474</a>	Client: HeaderBackend&lt;B&gt; + BlockBackend&lt;B&gt; + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#475 id=475 data-nosnippet>475</a>{
+<a href=#476 id=476 data-nosnippet>476</a>	<span class="kw">async fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#477 id=477 data-nosnippet>477</a>		<span class="self">self</span>.process_requests().<span class="kw">await</span>;
+<a href=#478 id=478 data-nosnippet>478</a>	}
+<a href=#479 id=479 data-nosnippet>479</a>}
+<a href=#480 id=480 data-nosnippet>480</a>
+<a href=#481 id=481 data-nosnippet>481</a><span class="attr">#[derive(Debug, thiserror::Error)]
+<a href=#482 id=482 data-nosnippet>482</a></span><span class="kw">enum </span>HandleRequestError {
+<a href=#483 id=483 data-nosnippet>483</a>	<span class="attr">#[error(<span class="string">"Failed to decode request: {0}."</span>)]
+<a href=#484 id=484 data-nosnippet>484</a>	</span>DecodeProto(<span class="attr">#[from] </span>prost::DecodeError),
+<a href=#485 id=485 data-nosnippet>485</a>	<span class="attr">#[error(<span class="string">"Failed to encode response: {0}."</span>)]
+<a href=#486 id=486 data-nosnippet>486</a>	</span>EncodeProto(<span class="attr">#[from] </span>prost::EncodeError),
+<a href=#487 id=487 data-nosnippet>487</a>	<span class="attr">#[error(<span class="string">"Failed to decode block hash: {0}."</span>)]
+<a href=#488 id=488 data-nosnippet>488</a>	</span>DecodeScale(<span class="attr">#[from] </span>codec::Error),
+<a href=#489 id=489 data-nosnippet>489</a>	<span class="attr">#[error(<span class="string">"Missing `BlockRequest::from_block` field."</span>)]
+<a href=#490 id=490 data-nosnippet>490</a>	</span>MissingFromField,
+<a href=#491 id=491 data-nosnippet>491</a>	<span class="attr">#[error(<span class="string">"Failed to parse BlockRequest::direction."</span>)]
+<a href=#492 id=492 data-nosnippet>492</a>	</span>ParseDirection,
+<a href=#493 id=493 data-nosnippet>493</a>	<span class="attr">#[error(transparent)]
+<a href=#494 id=494 data-nosnippet>494</a>	</span>Client(<span class="attr">#[from] </span>sp_blockchain::Error),
+<a href=#495 id=495 data-nosnippet>495</a>	<span class="attr">#[error(<span class="string">"Failed to send response."</span>)]
+<a href=#496 id=496 data-nosnippet>496</a>	</span>SendResponse,
+<a href=#497 id=497 data-nosnippet>497</a>}
+<a href=#498 id=498 data-nosnippet>498</a>
+<a href=#499 id=499 data-nosnippet>499</a><span class="doccomment">/// The full block downloader implementation of [`BlockDownloader].
+<a href=#500 id=500 data-nosnippet>500</a></span><span class="attr">#[derive(Debug)]
+<a href=#501 id=501 data-nosnippet>501</a></span><span class="kw">pub struct </span>FullBlockDownloader {
+<a href=#502 id=502 data-nosnippet>502</a>	protocol_name: ProtocolName,
+<a href=#503 id=503 data-nosnippet>503</a>	network: NetworkServiceHandle,
+<a href=#504 id=504 data-nosnippet>504</a>}
+<a href=#505 id=505 data-nosnippet>505</a>
+<a href=#506 id=506 data-nosnippet>506</a><span class="kw">impl </span>FullBlockDownloader {
+<a href=#507 id=507 data-nosnippet>507</a>	<span class="kw">fn </span>new(protocol_name: ProtocolName, network: NetworkServiceHandle) -&gt; <span class="self">Self </span>{
+<a href=#508 id=508 data-nosnippet>508</a>		<span class="self">Self </span>{ protocol_name, network }
+<a href=#509 id=509 data-nosnippet>509</a>	}
+<a href=#510 id=510 data-nosnippet>510</a>
+<a href=#511 id=511 data-nosnippet>511</a>	<span class="doccomment">/// Extracts the blocks from the response schema.
+<a href=#512 id=512 data-nosnippet>512</a>	</span><span class="kw">fn </span>blocks_from_schema&lt;B: BlockT&gt;(
+<a href=#513 id=513 data-nosnippet>513</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#514 id=514 data-nosnippet>514</a>		request: <span class="kw-2">&amp;</span>BlockRequest&lt;B&gt;,
+<a href=#515 id=515 data-nosnippet>515</a>		response: BlockResponseSchema,
+<a href=#516 id=516 data-nosnippet>516</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BlockData&lt;B&gt;&gt;, String&gt; {
+<a href=#517 id=517 data-nosnippet>517</a>		response
+<a href=#518 id=518 data-nosnippet>518</a>			.blocks
+<a href=#519 id=519 data-nosnippet>519</a>			.into_iter()
+<a href=#520 id=520 data-nosnippet>520</a>			.map(|block_data| {
+<a href=#521 id=521 data-nosnippet>521</a>				<span class="prelude-val">Ok</span>(BlockData::&lt;B&gt; {
+<a href=#522 id=522 data-nosnippet>522</a>					hash: Decode::decode(<span class="kw-2">&amp;mut </span>block_data.hash.as_ref())<span class="question-mark">?</span>,
+<a href=#523 id=523 data-nosnippet>523</a>					header: <span class="kw">if </span>!block_data.header.is_empty() {
+<a href=#524 id=524 data-nosnippet>524</a>						<span class="prelude-val">Some</span>(Decode::decode(<span class="kw-2">&amp;mut </span>block_data.header.as_ref())<span class="question-mark">?</span>)
+<a href=#525 id=525 data-nosnippet>525</a>					} <span class="kw">else </span>{
+<a href=#526 id=526 data-nosnippet>526</a>						<span class="prelude-val">None
+<a href=#527 id=527 data-nosnippet>527</a>					</span>},
+<a href=#528 id=528 data-nosnippet>528</a>					body: <span class="kw">if </span>request.fields.contains(BlockAttributes::BODY) {
+<a href=#529 id=529 data-nosnippet>529</a>						<span class="prelude-val">Some</span>(
+<a href=#530 id=530 data-nosnippet>530</a>							block_data
+<a href=#531 id=531 data-nosnippet>531</a>								.body
+<a href=#532 id=532 data-nosnippet>532</a>								.iter()
+<a href=#533 id=533 data-nosnippet>533</a>								.map(|body| Decode::decode(<span class="kw-2">&amp;mut </span>body.as_ref()))
+<a href=#534 id=534 data-nosnippet>534</a>								.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>,
+<a href=#535 id=535 data-nosnippet>535</a>						)
+<a href=#536 id=536 data-nosnippet>536</a>					} <span class="kw">else </span>{
+<a href=#537 id=537 data-nosnippet>537</a>						<span class="prelude-val">None
+<a href=#538 id=538 data-nosnippet>538</a>					</span>},
+<a href=#539 id=539 data-nosnippet>539</a>					receipt: <span class="kw">if </span>!block_data.receipt.is_empty() {
+<a href=#540 id=540 data-nosnippet>540</a>						<span class="prelude-val">Some</span>(block_data.receipt)
+<a href=#541 id=541 data-nosnippet>541</a>					} <span class="kw">else </span>{
+<a href=#542 id=542 data-nosnippet>542</a>						<span class="prelude-val">None
+<a href=#543 id=543 data-nosnippet>543</a>					</span>},
+<a href=#544 id=544 data-nosnippet>544</a>					message_queue: <span class="kw">if </span>!block_data.message_queue.is_empty() {
+<a href=#545 id=545 data-nosnippet>545</a>						<span class="prelude-val">Some</span>(block_data.message_queue)
+<a href=#546 id=546 data-nosnippet>546</a>					} <span class="kw">else </span>{
+<a href=#547 id=547 data-nosnippet>547</a>						<span class="prelude-val">None
+<a href=#548 id=548 data-nosnippet>548</a>					</span>},
+<a href=#549 id=549 data-nosnippet>549</a>					justification: <span class="kw">if </span>!block_data.justification.is_empty() {
+<a href=#550 id=550 data-nosnippet>550</a>						<span class="prelude-val">Some</span>(block_data.justification)
+<a href=#551 id=551 data-nosnippet>551</a>					} <span class="kw">else if </span>block_data.is_empty_justification {
+<a href=#552 id=552 data-nosnippet>552</a>						<span class="prelude-val">Some</span>(Vec::new())
+<a href=#553 id=553 data-nosnippet>553</a>					} <span class="kw">else </span>{
+<a href=#554 id=554 data-nosnippet>554</a>						<span class="prelude-val">None
+<a href=#555 id=555 data-nosnippet>555</a>					</span>},
+<a href=#556 id=556 data-nosnippet>556</a>					justifications: <span class="kw">if </span>!block_data.justifications.is_empty() {
+<a href=#557 id=557 data-nosnippet>557</a>						<span class="prelude-val">Some</span>(DecodeAll::decode_all(<span class="kw-2">&amp;mut </span>block_data.justifications.as_ref())<span class="question-mark">?</span>)
+<a href=#558 id=558 data-nosnippet>558</a>					} <span class="kw">else </span>{
+<a href=#559 id=559 data-nosnippet>559</a>						<span class="prelude-val">None
+<a href=#560 id=560 data-nosnippet>560</a>					</span>},
+<a href=#561 id=561 data-nosnippet>561</a>				})
+<a href=#562 id=562 data-nosnippet>562</a>			})
+<a href=#563 id=563 data-nosnippet>563</a>			.collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
+<a href=#564 id=564 data-nosnippet>564</a>			.map_err(|error: codec::Error| error.to_string())
+<a href=#565 id=565 data-nosnippet>565</a>	}
+<a href=#566 id=566 data-nosnippet>566</a>}
+<a href=#567 id=567 data-nosnippet>567</a>
+<a href=#568 id=568 data-nosnippet>568</a><span class="attr">#[async_trait::async_trait]
+<a href=#569 id=569 data-nosnippet>569</a></span><span class="kw">impl</span>&lt;B: BlockT&gt; BlockDownloader&lt;B&gt; <span class="kw">for </span>FullBlockDownloader {
+<a href=#570 id=570 data-nosnippet>570</a>	<span class="kw">fn </span>protocol_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ProtocolName {
+<a href=#571 id=571 data-nosnippet>571</a>		<span class="kw-2">&amp;</span><span class="self">self</span>.protocol_name
+<a href=#572 id=572 data-nosnippet>572</a>	}
+<a href=#573 id=573 data-nosnippet>573</a>
+<a href=#574 id=574 data-nosnippet>574</a>	<span class="kw">async fn </span>download_blocks(
+<a href=#575 id=575 data-nosnippet>575</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#576 id=576 data-nosnippet>576</a>		who: PeerId,
+<a href=#577 id=577 data-nosnippet>577</a>		request: BlockRequest&lt;B&gt;,
+<a href=#578 id=578 data-nosnippet>578</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;, oneshot::Canceled&gt; {
+<a href=#579 id=579 data-nosnippet>579</a>		<span class="comment">// Build the request protobuf.
+<a href=#580 id=580 data-nosnippet>580</a>		</span><span class="kw">let </span>bytes = BlockRequestSchema {
+<a href=#581 id=581 data-nosnippet>581</a>			fields: request.fields.to_be_u32(),
+<a href=#582 id=582 data-nosnippet>582</a>			from_block: <span class="kw">match </span>request.from {
+<a href=#583 id=583 data-nosnippet>583</a>				FromBlock::Hash(h) =&gt; <span class="prelude-val">Some</span>(FromBlockSchema::Hash(h.encode())),
+<a href=#584 id=584 data-nosnippet>584</a>				FromBlock::Number(n) =&gt; <span class="prelude-val">Some</span>(FromBlockSchema::Number(n.encode())),
+<a href=#585 id=585 data-nosnippet>585</a>			},
+<a href=#586 id=586 data-nosnippet>586</a>			direction: request.direction <span class="kw">as </span>i32,
+<a href=#587 id=587 data-nosnippet>587</a>			max_blocks: request.max.unwrap_or(<span class="number">0</span>),
+<a href=#588 id=588 data-nosnippet>588</a>			support_multiple_justifications: <span class="bool-val">true</span>,
+<a href=#589 id=589 data-nosnippet>589</a>		}
+<a href=#590 id=590 data-nosnippet>590</a>		.encode_to_vec();
+<a href=#591 id=591 data-nosnippet>591</a>
+<a href=#592 id=592 data-nosnippet>592</a>		<span class="kw">let </span>(tx, rx) = oneshot::channel();
+<a href=#593 id=593 data-nosnippet>593</a>		<span class="self">self</span>.network.start_request(
+<a href=#594 id=594 data-nosnippet>594</a>			who,
+<a href=#595 id=595 data-nosnippet>595</a>			<span class="self">self</span>.protocol_name.clone(),
+<a href=#596 id=596 data-nosnippet>596</a>			bytes,
+<a href=#597 id=597 data-nosnippet>597</a>			tx,
+<a href=#598 id=598 data-nosnippet>598</a>			IfDisconnected::ImmediateError,
+<a href=#599 id=599 data-nosnippet>599</a>		);
+<a href=#600 id=600 data-nosnippet>600</a>		rx.<span class="kw">await
+<a href=#601 id=601 data-nosnippet>601</a>	</span>}
+<a href=#602 id=602 data-nosnippet>602</a>
+<a href=#603 id=603 data-nosnippet>603</a>	<span class="kw">fn </span>block_response_into_blocks(
+<a href=#604 id=604 data-nosnippet>604</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#605 id=605 data-nosnippet>605</a>		request: <span class="kw-2">&amp;</span>BlockRequest&lt;B&gt;,
+<a href=#606 id=606 data-nosnippet>606</a>		response: Vec&lt;u8&gt;,
+<a href=#607 id=607 data-nosnippet>607</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BlockData&lt;B&gt;&gt;, BlockResponseError&gt; {
+<a href=#608 id=608 data-nosnippet>608</a>		<span class="comment">// Decode the response protobuf
+<a href=#609 id=609 data-nosnippet>609</a>		</span><span class="kw">let </span>response_schema = BlockResponseSchema::decode(response.as_slice())
+<a href=#610 id=610 data-nosnippet>610</a>			.map_err(|error| BlockResponseError::DecodeFailed(error.to_string()))<span class="question-mark">?</span>;
+<a href=#611 id=611 data-nosnippet>611</a>
+<a href=#612 id=612 data-nosnippet>612</a>		<span class="comment">// Extract the block data from the protobuf
+<a href=#613 id=613 data-nosnippet>613</a>		</span><span class="self">self</span>.blocks_from_schema::&lt;B&gt;(request, response_schema)
+<a href=#614 id=614 data-nosnippet>614</a>			.map_err(|error| BlockResponseError::ExtractionFailed(error.to_string()))
+<a href=#615 id=615 data-nosnippet>615</a>	}
+<a href=#616 id=616 data-nosnippet>616</a>}
+<a href=#617 id=617 data-nosnippet>617</a>
+<a href=#618 id=618 data-nosnippet>618</a><span class="attr">#[cfg(test)]
+<a href=#619 id=619 data-nosnippet>619</a></span><span class="kw">mod </span>tests {
+<a href=#620 id=620 data-nosnippet>620</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#621 id=621 data-nosnippet>621</a>	<span class="kw">use </span>futures::executor::block_on;
+<a href=#622 id=622 data-nosnippet>622</a>	<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
+<a href=#623 id=623 data-nosnippet>623</a>	<span class="kw">use </span>sp_consensus::BlockOrigin;
+<a href=#624 id=624 data-nosnippet>624</a>	<span class="kw">use </span>substrate_test_runtime_client::{
+<a href=#625 id=625 data-nosnippet>625</a>		runtime::Block, ClientBlockImportExt, DefaultTestClientBuilderExt, TestClient,
+<a href=#626 id=626 data-nosnippet>626</a>		TestClientBuilder, TestClientBuilderExt,
+<a href=#627 id=627 data-nosnippet>627</a>	};
+<a href=#628 id=628 data-nosnippet>628</a>
+<a href=#629 id=629 data-nosnippet>629</a>	<span class="kw">fn </span>test_handler() -&gt; BlockRequestHandler&lt;Block, TestClient&gt; {
+<a href=#630 id=630 data-nosnippet>630</a>		<span class="kw">let </span>client = Arc::new(TestClientBuilder::new().build());
+<a href=#631 id=631 data-nosnippet>631</a>
+<a href=#632 id=632 data-nosnippet>632</a>		<span class="kw">let </span>block = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
+<a href=#633 id=633 data-nosnippet>633</a>			.on_parent_block(client.chain_info().genesis_hash)
+<a href=#634 id=634 data-nosnippet>634</a>			.with_parent_block_number(<span class="number">0</span>)
+<a href=#635 id=635 data-nosnippet>635</a>			.build()
+<a href=#636 id=636 data-nosnippet>636</a>			.unwrap()
+<a href=#637 id=637 data-nosnippet>637</a>			.build()
+<a href=#638 id=638 data-nosnippet>638</a>			.unwrap()
+<a href=#639 id=639 data-nosnippet>639</a>			.block;
+<a href=#640 id=640 data-nosnippet>640</a>		block_on(client.import(BlockOrigin::Own, block)).unwrap();
+<a href=#641 id=641 data-nosnippet>641</a>
+<a href=#642 id=642 data-nosnippet>642</a>		<span class="kw">let </span>(_tx, request_receiver) = async_channel::bounded(<span class="number">1</span>);
+<a href=#643 id=643 data-nosnippet>643</a>		BlockRequestHandler {
+<a href=#644 id=644 data-nosnippet>644</a>			client,
+<a href=#645 id=645 data-nosnippet>645</a>			request_receiver,
+<a href=#646 id=646 data-nosnippet>646</a>			seen_requests: LruMap::new(ByLength::new(<span class="number">16</span>)),
+<a href=#647 id=647 data-nosnippet>647</a>		}
+<a href=#648 id=648 data-nosnippet>648</a>	}
+<a href=#649 id=649 data-nosnippet>649</a>
+<a href=#650 id=650 data-nosnippet>650</a>	<span class="kw">fn </span>make_request(attributes: BlockAttributes) -&gt; Vec&lt;u8&gt; {
+<a href=#651 id=651 data-nosnippet>651</a>		BlockRequestSchema {
+<a href=#652 id=652 data-nosnippet>652</a>			fields: attributes.to_be_u32(),
+<a href=#653 id=653 data-nosnippet>653</a>			from_block: <span class="prelude-val">Some</span>(FromBlockSchema::Number(Encode::encode(<span class="kw-2">&amp;</span><span class="number">1u64</span>))),
+<a href=#654 id=654 data-nosnippet>654</a>			direction: Direction::Ascending <span class="kw">as </span>i32,
+<a href=#655 id=655 data-nosnippet>655</a>			max_blocks: <span class="number">1</span>,
+<a href=#656 id=656 data-nosnippet>656</a>			support_multiple_justifications: <span class="bool-val">true</span>,
+<a href=#657 id=657 data-nosnippet>657</a>		}
+<a href=#658 id=658 data-nosnippet>658</a>		.encode_to_vec()
+<a href=#659 id=659 data-nosnippet>659</a>	}
+<a href=#660 id=660 data-nosnippet>660</a>
+<a href=#661 id=661 data-nosnippet>661</a>	<span class="kw">fn </span>send_request(
+<a href=#662 id=662 data-nosnippet>662</a>		handler: <span class="kw-2">&amp;mut </span>BlockRequestHandler&lt;Block, TestClient&gt;,
+<a href=#663 id=663 data-nosnippet>663</a>		peer: <span class="kw-2">&amp;</span>PeerId,
+<a href=#664 id=664 data-nosnippet>664</a>		attributes: BlockAttributes,
+<a href=#665 id=665 data-nosnippet>665</a>	) -&gt; OutgoingResponse {
+<a href=#666 id=666 data-nosnippet>666</a>		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = oneshot::channel();
+<a href=#667 id=667 data-nosnippet>667</a>		handler.handle_request(make_request(attributes), tx, peer).unwrap();
+<a href=#668 id=668 data-nosnippet>668</a>		rx.try_recv().unwrap().unwrap()
+<a href=#669 id=669 data-nosnippet>669</a>	}
+<a href=#670 id=670 data-nosnippet>670</a>
+<a href=#671 id=671 data-nosnippet>671</a>	<span class="attr">#[test]
+<a href=#672 id=672 data-nosnippet>672</a>	</span><span class="kw">fn </span>same_request_limit_resets_after_window() {
+<a href=#673 id=673 data-nosnippet>673</a>		<span class="kw">let </span><span class="kw-2">mut </span>handler = test_handler();
+<a href=#674 id=674 data-nosnippet>674</a>		<span class="kw">let </span>peer = PeerId::random();
+<a href=#675 id=675 data-nosnippet>675</a>		<span class="kw">let </span>attributes = BlockAttributes::HEADER | BlockAttributes::BODY;
+<a href=#676 id=676 data-nosnippet>676</a>
+<a href=#677 id=677 data-nosnippet>677</a>		<span class="kw">for _ in </span><span class="number">0</span>..MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {
+<a href=#678 id=678 data-nosnippet>678</a>			<span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
+<a href=#679 id=679 data-nosnippet>679</a>			<span class="macro">assert!</span>(response.result.is_ok());
+<a href=#680 id=680 data-nosnippet>680</a>			<span class="macro">assert!</span>(response.reputation_changes.is_empty());
+<a href=#681 id=681 data-nosnippet>681</a>		}
+<a href=#682 id=682 data-nosnippet>682</a>
+<a href=#683 id=683 data-nosnippet>683</a>		<span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
+<a href=#684 id=684 data-nosnippet>684</a>		<span class="macro">assert!</span>(response.result.is_err());
+<a href=#685 id=685 data-nosnippet>685</a>		<span class="macro">assert_eq!</span>(response.reputation_changes, <span class="macro">vec!</span>[rep::SAME_REQUEST]);
+<a href=#686 id=686 data-nosnippet>686</a>		<span class="macro">assert!</span>(rep::SAME_REQUEST.value &gt; i32::MIN);
+<a href=#687 id=687 data-nosnippet>687</a>
+<a href=#688 id=688 data-nosnippet>688</a>		<span class="comment">// Expire the window without sleeping.
+<a href=#689 id=689 data-nosnippet>689</a>		</span><span class="kw">let </span>key = SeenRequestsKey::&lt;Block&gt; {
+<a href=#690 id=690 data-nosnippet>690</a>			peer,
+<a href=#691 id=691 data-nosnippet>691</a>			from: BlockId::Number(<span class="number">1</span>),
+<a href=#692 id=692 data-nosnippet>692</a>			max_blocks: <span class="number">1</span>,
+<a href=#693 id=693 data-nosnippet>693</a>			direction: Direction::Ascending,
+<a href=#694 id=694 data-nosnippet>694</a>			attributes,
+<a href=#695 id=695 data-nosnippet>695</a>			support_multiple_justifications: <span class="bool-val">true</span>,
+<a href=#696 id=696 data-nosnippet>696</a>		};
+<a href=#697 id=697 data-nosnippet>697</a>		<span class="kw">match </span>handler.seen_requests.get(<span class="kw-2">&amp;</span>key) {
+<a href=#698 id=698 data-nosnippet>698</a>			<span class="prelude-val">Some</span>(SeenRequestsValue::Fulfilled { since, .. }) =&gt; {
+<a href=#699 id=699 data-nosnippet>699</a>				<span class="kw-2">*</span>since = Instant::now() - SAME_REQUEST_WINDOW - Duration::from_secs(<span class="number">1</span>)
+<a href=#700 id=700 data-nosnippet>700</a>			},
+<a href=#701 id=701 data-nosnippet>701</a>			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"entry must be in the fulfilled state"</span>),
+<a href=#702 id=702 data-nosnippet>702</a>		}
+<a href=#703 id=703 data-nosnippet>703</a>
+<a href=#704 id=704 data-nosnippet>704</a>		<span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
+<a href=#705 id=705 data-nosnippet>705</a>		<span class="macro">assert!</span>(response.result.is_ok());
+<a href=#706 id=706 data-nosnippet>706</a>		<span class="macro">assert!</span>(response.reputation_changes.is_empty());
 <a href=#707 id=707 data-nosnippet>707</a>
-<a href=#708 id=708 data-nosnippet>708</a>		<span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
-<a href=#709 id=709 data-nosnippet>709</a>		<span class="macro">assert!</span>(response.result.is_err());
-<a href=#710 id=710 data-nosnippet>710</a>		<span class="macro">assert_eq!</span>(response.reputation_changes, <span class="macro">vec!</span>[rep::SAME_REQUEST]);
-<a href=#711 id=711 data-nosnippet>711</a>		<span class="macro">assert!</span>(rep::SAME_REQUEST.value &gt; i32::MIN);
-<a href=#712 id=712 data-nosnippet>712</a>
-<a href=#713 id=713 data-nosnippet>713</a>		<span class="comment">// Expire the window without sleeping.
-<a href=#714 id=714 data-nosnippet>714</a>		</span><span class="kw">let </span>key = SeenRequestsKey::&lt;Block&gt; {
-<a href=#715 id=715 data-nosnippet>715</a>			peer,
-<a href=#716 id=716 data-nosnippet>716</a>			from: BlockId::Number(<span class="number">1</span>),
-<a href=#717 id=717 data-nosnippet>717</a>			max_blocks: <span class="number">1</span>,
-<a href=#718 id=718 data-nosnippet>718</a>			direction: Direction::Ascending,
-<a href=#719 id=719 data-nosnippet>719</a>			attributes,
-<a href=#720 id=720 data-nosnippet>720</a>			support_multiple_justifications: <span class="bool-val">true</span>,
-<a href=#721 id=721 data-nosnippet>721</a>		};
-<a href=#722 id=722 data-nosnippet>722</a>		<span class="kw">match </span>handler.seen_requests.get(<span class="kw-2">&amp;</span>key) {
-<a href=#723 id=723 data-nosnippet>723</a>			<span class="prelude-val">Some</span>(SeenRequestsValue::Fulfilled { since, .. }) =&gt; {
-<a href=#724 id=724 data-nosnippet>724</a>				<span class="kw-2">*</span>since = Instant::now() - SAME_REQUEST_WINDOW - Duration::from_secs(<span class="number">1</span>)
-<a href=#725 id=725 data-nosnippet>725</a>			},
-<a href=#726 id=726 data-nosnippet>726</a>			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"entry must be in the fulfilled state"</span>),
+<a href=#708 id=708 data-nosnippet>708</a>		<span class="comment">// The new window has the same limit.
+<a href=#709 id=709 data-nosnippet>709</a>		</span><span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
+<a href=#710 id=710 data-nosnippet>710</a>		<span class="macro">assert!</span>(response.result.is_ok());
+<a href=#711 id=711 data-nosnippet>711</a>		<span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
+<a href=#712 id=712 data-nosnippet>712</a>		<span class="macro">assert!</span>(response.result.is_err());
+<a href=#713 id=713 data-nosnippet>713</a>		<span class="macro">assert_eq!</span>(response.reputation_changes, <span class="macro">vec!</span>[rep::SAME_REQUEST]);
+<a href=#714 id=714 data-nosnippet>714</a>	}
+<a href=#715 id=715 data-nosnippet>715</a>
+<a href=#716 id=716 data-nosnippet>716</a>	<span class="attr">#[test]
+<a href=#717 id=717 data-nosnippet>717</a>	</span><span class="kw">fn </span>same_small_request_answered_but_penalized() {
+<a href=#718 id=718 data-nosnippet>718</a>		<span class="kw">let </span><span class="kw-2">mut </span>handler = test_handler();
+<a href=#719 id=719 data-nosnippet>719</a>		<span class="kw">let </span>peer = PeerId::random();
+<a href=#720 id=720 data-nosnippet>720</a>		<span class="comment">// Header-only requests remain answerable after the limit.
+<a href=#721 id=721 data-nosnippet>721</a>		</span><span class="kw">let </span>attributes = BlockAttributes::HEADER;
+<a href=#722 id=722 data-nosnippet>722</a>
+<a href=#723 id=723 data-nosnippet>723</a>		<span class="kw">for _ in </span><span class="number">0</span>..MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {
+<a href=#724 id=724 data-nosnippet>724</a>			<span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
+<a href=#725 id=725 data-nosnippet>725</a>			<span class="macro">assert!</span>(response.result.is_ok());
+<a href=#726 id=726 data-nosnippet>726</a>			<span class="macro">assert!</span>(response.reputation_changes.is_empty());
 <a href=#727 id=727 data-nosnippet>727</a>		}
 <a href=#728 id=728 data-nosnippet>728</a>
 <a href=#729 id=729 data-nosnippet>729</a>		<span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
 <a href=#730 id=730 data-nosnippet>730</a>		<span class="macro">assert!</span>(response.result.is_ok());
-<a href=#731 id=731 data-nosnippet>731</a>		<span class="macro">assert!</span>(response.reputation_changes.is_empty());
-<a href=#732 id=732 data-nosnippet>732</a>
-<a href=#733 id=733 data-nosnippet>733</a>		<span class="comment">// The new window has the same limit.
-<a href=#734 id=734 data-nosnippet>734</a>		</span><span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
-<a href=#735 id=735 data-nosnippet>735</a>		<span class="macro">assert!</span>(response.result.is_ok());
-<a href=#736 id=736 data-nosnippet>736</a>		<span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
-<a href=#737 id=737 data-nosnippet>737</a>		<span class="macro">assert!</span>(response.result.is_err());
-<a href=#738 id=738 data-nosnippet>738</a>		<span class="macro">assert_eq!</span>(response.reputation_changes, <span class="macro">vec!</span>[rep::SAME_REQUEST]);
-<a href=#739 id=739 data-nosnippet>739</a>	}
-<a href=#740 id=740 data-nosnippet>740</a>
-<a href=#741 id=741 data-nosnippet>741</a>	<span class="attr">#[test]
-<a href=#742 id=742 data-nosnippet>742</a>	</span><span class="kw">fn </span>same_small_request_answered_but_penalized() {
-<a href=#743 id=743 data-nosnippet>743</a>		<span class="kw">let </span><span class="kw-2">mut </span>handler = test_handler();
-<a href=#744 id=744 data-nosnippet>744</a>		<span class="kw">let </span>peer = PeerId::random();
-<a href=#745 id=745 data-nosnippet>745</a>		<span class="comment">// Header-only requests remain answerable after the limit.
-<a href=#746 id=746 data-nosnippet>746</a>		</span><span class="kw">let </span>attributes = BlockAttributes::HEADER;
-<a href=#747 id=747 data-nosnippet>747</a>
-<a href=#748 id=748 data-nosnippet>748</a>		<span class="kw">for _ in </span><span class="number">0</span>..MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {
-<a href=#749 id=749 data-nosnippet>749</a>			<span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
-<a href=#750 id=750 data-nosnippet>750</a>			<span class="macro">assert!</span>(response.result.is_ok());
-<a href=#751 id=751 data-nosnippet>751</a>			<span class="macro">assert!</span>(response.reputation_changes.is_empty());
-<a href=#752 id=752 data-nosnippet>752</a>		}
-<a href=#753 id=753 data-nosnippet>753</a>
-<a href=#754 id=754 data-nosnippet>754</a>		<span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
-<a href=#755 id=755 data-nosnippet>755</a>		<span class="macro">assert!</span>(response.result.is_ok());
-<a href=#756 id=756 data-nosnippet>756</a>		<span class="macro">assert_eq!</span>(response.reputation_changes, <span class="macro">vec!</span>[rep::SAME_SMALL_REQUEST]);
-<a href=#757 id=757 data-nosnippet>757</a>	}
-<a href=#758 id=758 data-nosnippet>758</a>}
+<a href=#731 id=731 data-nosnippet>731</a>		<span class="macro">assert_eq!</span>(response.reputation_changes, <span class="macro">vec!</span>[rep::SAME_SMALL_REQUEST]);
+<a href=#732 id=732 data-nosnippet>732</a>	}
+<a href=#733 id=733 data-nosnippet>733</a>
+<a href=#734 id=734 data-nosnippet>734</a>	<span class="attr">#[test]
+<a href=#735 id=735 data-nosnippet>735</a>	</span><span class="kw">fn </span>deprecated_indexed_body_attribute_is_ignored() {
+<a href=#736 id=736 data-nosnippet>736</a>		<span class="kw">let </span><span class="kw-2">mut </span>handler = test_handler();
+<a href=#737 id=737 data-nosnippet>737</a>		<span class="kw">let </span>peer = PeerId::random();
+<a href=#738 id=738 data-nosnippet>738</a>		<span class="comment">// Older peers may still set the removed indexed-body bit. The request must
+<a href=#739 id=739 data-nosnippet>739</a>		// decode and be answered, with the bit ignored.
+<a href=#740 id=740 data-nosnippet>740</a>		</span><span class="kw">let </span>attributes = BlockAttributes::HEADER | BlockAttributes::DEPRECATED_INDEXED_BODY;
+<a href=#741 id=741 data-nosnippet>741</a>		<span class="kw">let </span>response = send_request(<span class="kw-2">&amp;mut </span>handler, <span class="kw-2">&amp;</span>peer, attributes);
+<a href=#742 id=742 data-nosnippet>742</a>		<span class="macro">assert!</span>(response.result.is_ok());
+<a href=#743 id=743 data-nosnippet>743</a>		<span class="kw">let </span>decoded = BlockResponseSchema::decode(<span class="kw-2">&amp;</span>response.result.unwrap()[..]).unwrap();
+<a href=#744 id=744 data-nosnippet>744</a>		<span class="macro">assert_eq!</span>(decoded.blocks.len(), <span class="number">1</span>);
+<a href=#745 id=745 data-nosnippet>745</a>		<span class="macro">assert!</span>(!decoded.blocks[<span class="number">0</span>].header.is_empty());
+<a href=#746 id=746 data-nosnippet>746</a>	}
+<a href=#747 id=747 data-nosnippet>747</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
