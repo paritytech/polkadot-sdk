@@ -118,7 +118,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{EnsureOrigin, ValidatorRegistration},
-		BoundedBTreeSet, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
+		BoundedBTreeSet,
 	};
 	use frame_system::pallet_prelude::*;
 	use pallet_session::{SessionManager, ShouldEndSession};
@@ -128,22 +128,8 @@ pub mod pallet {
 	use sp_staking::{EraIndex, SessionIndex};
 
 	/// A validator set received for an era.
-	#[derive(
-		CloneNoBound,
-		EqNoBound,
-		PartialEqNoBound,
-		Encode,
-		Decode,
-		DebugNoBound,
-		TypeInfo,
-		MaxEncodedLen,
-	)]
-	#[scale_info(skip_type_params(MaxValidators))]
-	pub struct EraValidatorSet<AccountId, MaxValidators>
-	where
-		AccountId: Clone + Ord + core::fmt::Debug,
-		MaxValidators: Get<u32>,
-	{
+	#[frame_support::stored]
+	pub struct EraValidatorSet<AccountId, MaxValidators: Get<u32>> {
 		/// The era the set belongs to.
 		pub era: EraIndex,
 		/// The validator stashes of that era.
@@ -152,22 +138,8 @@ pub mod pallet {
 
 	/// The validators drawn under [`MaxCollators`], with the era and the seed they were drawn
 	/// with.
-	#[derive(
-		CloneNoBound,
-		EqNoBound,
-		PartialEqNoBound,
-		Encode,
-		Decode,
-		DebugNoBound,
-		TypeInfo,
-		MaxEncodedLen,
-	)]
-	#[scale_info(skip_type_params(MaxValidators))]
-	pub struct DrawnCollators<AccountId, MaxValidators>
-	where
-		AccountId: Clone + Eq + core::fmt::Debug,
-		MaxValidators: Get<u32>,
-	{
+	#[frame_support::stored]
+	pub struct DrawnCollators<AccountId, MaxValidators: Get<u32>> {
 		/// The era of the set the validators were drawn from.
 		pub era: EraIndex,
 		/// The seed of the shuffle, fixed for that era.
