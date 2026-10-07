@@ -59,6 +59,7 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
+			#[api_version(3)]
 			impl cumulus_primitives_core::RelayParentOffsetApi<$block> for $runtime {
 				fn relay_parent_offset() -> u32 {
 					unimplemented!()

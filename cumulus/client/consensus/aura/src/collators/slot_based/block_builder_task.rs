@@ -1870,7 +1870,8 @@ mod cores_tests {
 		c.set_cores_used(9);
 		assert_eq!(c.cores_used(), 4);
 		// Velocity 6 on 4 cores with one reserved: three two-block bundles.
-		c.set_cores_used(6.min(4 - 1));
+		let (velocity, assigned, reserved) = (6u32, 4u32, 1u32);
+		c.set_cores_used(velocity.min(assigned - reserved));
 		assert_eq!(c.cores_used(), 3);
 	}
 
