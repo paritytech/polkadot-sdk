@@ -1,0 +1,32 @@
+title: 'statement-store: enforce allowance against best and finalized blocks'
+doc:
+- audience:
+  - Node Dev
+  - Node Operator
+  description: |-
+    # Description
+
+    In this PR, we prevent allowance enforcement from evicting statements that fit the allowance at either the best or the finalized block. Submission already uses the best block, so checking only finalized state could evict a newly accepted statement while an allowance increase was still awaiting finality. The eviction also banned the statement from peer re-admission.
+
+    Fixes #13394.
+
+    ## Integration
+
+    This is a patch-level fix in `sc-statement-store` for node developers and operators. It requires no configuration changes or database migration. An unfinalized allowance decrease takes effect for maintenance eviction once neither allowance accommodates the account's stored statements.
+
+    ## Review Notes
+
+    The finalized allowance keeps its existing summary fast path. Accounts exceeding it are checked against the best allowance before any eviction. Both the initial check and the eviction loop require the remaining statements to fit at least one complete allowance, including its count and total data size limits. Missing allowances count as zero; a storage read error skips enforcement for that account.
+
+    The regression test covers both an unfinalized increase and an unfinalized decrease, checking that enforcement evicts only the lowest-priority excess statement and stops at the more permissive allowance.
+
+    Import-time refusals on lagging peers, existing eviction bans, and retry or reconciliation of gossip delivery are outside the scope of this fix.
+
+    ## Validation
+
+    - `SKIP_WASM_BUILD=1 cargo test -p sc-statement-store --lib --locked --offline`: 114 passed.
+    - `cargo +nightly fmt -p sc-statement-store -- --check`: passed.
+    - `git diff --check origin/master...HEAD`: passed.
+crates:
+- name: sc-statement-store
+  bump: patch
