@@ -629,8 +629,7 @@ where
 			},
 			Some(sc_consensus::StorageChanges::Import(ImportedState)) => {
 				let state_root = *import_headers.post().state_root();
-				self.backend.check_have_complete_state(state_root)?;
-				operation.op.set_partial_state_completed();
+				self.backend.complete_partial_state(&mut operation.op, state_root)?;
 				None
 			},
 			None => None,

@@ -1030,11 +1030,6 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		Ok(root)
 	}
 
-	fn set_partial_state_completed(&mut self) {
-		self.commit_state = true;
-		self.reset_storage = true;
-	}
-
 	fn set_genesis_state(
 		&mut self,
 		storage: Storage,
@@ -2874,11 +2869,6 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		}
 	}
 
-	fn check_have_complete_state(&self, state_root: Block::Hash) -> sp_blockchain::Result<()> {
-		let state = DbStateBuilder::new(self.storage.clone(), state_root).build();
-		sc_client_api::partial_state::check_have_complete_state(state)
-	}
-
 	fn have_state_at(&self, hash: Block::Hash, number: NumberFor<Block>) -> bool {
 		if self.is_archive {
 			match self.blockchain.header_metadata(hash) {
@@ -2952,6 +2942,20 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			return Err(e.into());
 		}
 		self.state_usage.tally_writes_nodes(ops, bytes);
+		Ok(())
+	}
+
+	fn complete_partial_state(
+		&self,
+		operation: &mut Self::BlockImportOperation,
+		state_root: Block::Hash,
+	) -> sp_blockchain::Result<()> {
+		let state = DbStateBuilder::new(self.storage.clone(), state_root).build();
+		sc_client_api::partial_state::check_state_complete(state)?;
+		// Committed like a state import with no changes: the block is recorded as having state,
+		// and `reset_storage` has the commit drop the block's walker.
+		operation.commit_state = true;
+		operation.reset_storage = true;
 		Ok(())
 	}
 
@@ -6374,7 +6378,7 @@ pub(crate) mod tests {
 			})
 			.unwrap();
 
-		complete_partial_state(&backend, &header).unwrap();
+		import_synced_block(&backend, &header).unwrap();
 		assert_eq!(state_pairs(&backend, &header), expected_key_values);
 	}
 
@@ -6416,7 +6420,7 @@ pub(crate) mod tests {
 
 		backend.import_partial_state(chunk()).unwrap();
 
-		complete_partial_state(&backend, &header).unwrap();
+		import_synced_block(&backend, &header).unwrap();
 		assert_eq!(state_pairs(&backend, &header), expected_key_values);
 	}
 
@@ -6463,7 +6467,7 @@ pub(crate) mod tests {
 		writes.dedup();
 		assert_eq!(writes.len(), node_count, "no node was written twice");
 
-		complete_partial_state(&backend, &header).unwrap();
+		import_synced_block(&backend, &header).unwrap();
 		assert_eq!(state_pairs(&backend, &header), expected_key_values);
 	}
 
@@ -6495,10 +6499,10 @@ pub(crate) mod tests {
 
 	/// Imports `header` as the block whose state was delivered through `import_partial_state`,
 	/// returning the outcome of the block's commit.
-	fn complete_partial_state(backend: &Backend<Block>, header: &Header) -> ClientResult<()> {
+	fn import_synced_block(backend: &Backend<Block>, header: &Header) -> ClientResult<()> {
 		let mut op = backend.begin_operation()?;
 		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)?;
-		op.set_partial_state_completed();
+		backend.complete_partial_state(&mut op, header.state_root)?;
 		backend.commit_operation(op)
 	}
 

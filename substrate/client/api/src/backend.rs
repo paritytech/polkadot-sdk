@@ -227,13 +227,6 @@ pub trait BlockImportOperation<Block: BlockT> {
 		state_version: StateVersion,
 	) -> sp_blockchain::Result<Block::Hash>;
 
-	/// Mark block state as present.
-	/// Used when complete state is available after series of `import_partial_state` calls.
-	/// `sc-client-db` expects blocks with state to be marked.
-	/// Otherwise it complains that state is not found.
-	/// Also removes list of partial state node keys from database (used for write deduplication).
-	fn set_partial_state_completed(&mut self);
-
 	/// Set storage changes.
 	fn update_storage(
 		&mut self,
@@ -666,9 +659,6 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 		trie_cache_context: TrieCacheContext,
 	) -> sp_blockchain::Result<Self::State>;
 
-	/// Checks that database has all state trie nodes for given state root.
-	fn check_have_complete_state(&self, state_root: Block::Hash) -> sp_blockchain::Result<()>;
-
 	/// Attempts to revert the chain by `n` blocks. If `revert_finalized` is set it will attempt to
 	/// revert past any finalized block, this is unsafe and can potentially leave the node in an
 	/// inconsistent state. All blocks higher than the best block are also reverted and not counting
@@ -717,13 +707,26 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Inject partial state into the database.
 	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to
-	/// database. After downloading all trie nodes it calls `set_partial_state_completed` to mark
-	/// completely downloaded state. The block hash identifies the state being synced: the backend
-	/// keeps one walker per block in memory and rebuilds it from the database when needed, so a
-	/// node is never inserted twice (which would break reference counting).
+	/// database. Once every chunk is written, the block import calls `complete_partial_state`.
+	/// The block hash identifies the state being synced: the backend keeps one walker per block in
+	/// memory and rebuilds it from the database when needed, so a node is never inserted twice
+	/// (which would break reference counting).
 	fn import_partial_state(
 		&self,
 		partial_state: PartialStateFor<Block>,
+	) -> sp_blockchain::Result<()>;
+
+	/// Finishes a state sync: checks that the database holds every node of the state trie at
+	/// `state_root`, child tries included, then notes on `operation` that the block being imported
+	/// already has that state, so the import executes nothing and writes no storage changes.
+	///
+	/// Fails on the first missing node and leaves `operation` untouched. A state that never
+	/// completes is never marked: its nodes stay in the database for a later sync of the same
+	/// block to reuse.
+	fn complete_partial_state(
+		&self,
+		operation: &mut Self::BlockImportOperation,
+		state_root: Block::Hash,
 	) -> sp_blockchain::Result<()>;
 }
 

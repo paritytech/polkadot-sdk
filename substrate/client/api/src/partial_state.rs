@@ -27,8 +27,9 @@ use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 ///
 /// State sync calls this once per state response, before it moves its download cursor. The
 /// block itself is not imported: the nodes stay invisible to `state_at` until the block is
-/// imported with `ImportedState`, which checks that the state is complete and marks it
-/// present. A chunk is the nodes of one verified range proof, see `sp_trie::partial_state`.
+/// imported with `ImportedState`, when `Backend::complete_partial_state` checks that the state
+/// is complete and marks it present. A chunk is the nodes of one verified range proof, see
+/// `sp_trie::partial_state`.
 /// Nodes already written, or not awaited by the target's walker, are ignored, so the same chunk
 /// may be submitted again after an `Err`.
 pub trait PartialStateImport<Block: BlockT> {
@@ -39,8 +40,8 @@ pub trait PartialStateImport<Block: BlockT> {
 	) -> sp_blockchain::Result<()>;
 }
 
-/// Checks that database has all state trie nodes for given state root.
-pub fn check_have_complete_state<H, B>(state: B) -> sp_blockchain::Result<()>
+/// Walks the whole state trie of `state`, child tries included; errors on the first missing node.
+pub fn check_state_complete<H, B>(state: B) -> sp_blockchain::Result<()>
 where
 	H: Hasher,
 	B: Backend<H>,

@@ -560,12 +560,6 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		self.apply_storage(storage, true, state_version)
 	}
 
-	fn set_partial_state_completed(&mut self) {
-		// Don't need to do anything,
-		// because in-memory backend doesn't mark blocks with state
-		// like `sc-client-db` backend does.
-	}
-
 	fn insert_aux<I>(&mut self, ops: I) -> sp_blockchain::Result<()>
 	where
 		I: IntoIterator<Item = (Vec<u8>, Option<Vec<u8>>)>,
@@ -782,11 +776,6 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		Ok(TrieBackendBuilder::new(self.state_db.read().clone(), *header.state_root()).build())
 	}
 
-	fn check_have_complete_state(&self, state_root: Block::Hash) -> sp_blockchain::Result<()> {
-		let state = TrieBackendBuilder::new(self.state_db.read().clone(), state_root).build();
-		crate::partial_state::check_have_complete_state(state)
-	}
-
 	fn revert(
 		&self,
 		_n: NumberFor<Block>,
@@ -822,6 +811,15 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 			state_db.emplace(node.hash, node.prefix.as_prefix(), node.encoded);
 		}
 		Ok(())
+	}
+
+	fn complete_partial_state(
+		&self,
+		_operation: &mut Self::BlockImportOperation,
+		state_root: Block::Hash,
+	) -> sp_blockchain::Result<()> {
+		let state = TrieBackendBuilder::new(self.state_db.read().clone(), state_root).build();
+		crate::partial_state::check_state_complete(state)
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> blockchain::Result<()> {
@@ -973,7 +971,7 @@ mod tests {
 		let mut op = backend.begin_operation().unwrap();
 		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)
 			.unwrap();
-		op.set_partial_state_completed();
+		backend.complete_partial_state(&mut op, header.state_root).unwrap();
 		backend.commit_operation(op).unwrap();
 
 		let key_values: Vec<_> = backend
