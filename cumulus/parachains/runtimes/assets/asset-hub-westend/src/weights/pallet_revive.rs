@@ -2019,6 +2019,39 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 426
 			.saturating_add(Weight::from_parts(849_846, 0).saturating_mul(r.into()))
 	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_addmod_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 472_000 picoseconds.
+		Weight::from_parts(2_084_657, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 284
+			.saturating_add(Weight::from_parts(455_061, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_addmod_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 493_000 picoseconds.
+		Weight::from_parts(3_773_421, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 377
+			.saturating_add(Weight::from_parts(689_633, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_addmod_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 488_000 picoseconds.
+		Weight::from_parts(1_493_604, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 438
+			.saturating_add(Weight::from_parts(858_534, 0).saturating_mul(r.into()))
+	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_div_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -2029,6 +2062,39 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			// Standard Error: 228
 			.saturating_add(Weight::from_parts(427_886, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 491_000 picoseconds.
+		Weight::from_parts(1_660_381, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 137
+			.saturating_add(Weight::from_parts(244_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 473_000 picoseconds.
+		Weight::from_parts(3_380_714, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 247
+			.saturating_add(Weight::from_parts(352_290, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 456_000 picoseconds.
+		Weight::from_parts(1_750_239, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 235
+			.saturating_add(Weight::from_parts(428_269, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 1023]`.
 	fn evm_add_opcode(r: u32, ) -> Weight {
@@ -2075,6 +2141,39 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(473_415, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 460_000 picoseconds.
+		Weight::from_parts(1_743_447, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 134
+			.saturating_add(Weight::from_parts(292_216, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 455_000 picoseconds.
+		Weight::from_parts(2_634_237, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 181
+			.saturating_add(Weight::from_parts(395_557, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 476_000 picoseconds.
+		Weight::from_parts(1_563_599, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 238
+			.saturating_add(Weight::from_parts(474_451, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
 	fn evm_mod_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -2086,6 +2185,39 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(424_380, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 490_000 picoseconds.
+		Weight::from_parts(1_570_925, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 138
+			.saturating_add(Weight::from_parts(241_828, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 494_000 picoseconds.
+		Weight::from_parts(3_587_605, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 246
+			.saturating_add(Weight::from_parts(350_570, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 497_000 picoseconds.
+		Weight::from_parts(1_107_474, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 247
+			.saturating_add(Weight::from_parts(427_677, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
 	fn evm_smod_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -2095,6 +2227,39 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			// Standard Error: 226
 			.saturating_add(Weight::from_parts(431_287, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_one_limb_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 465_000 picoseconds.
+		Weight::from_parts(1_460_052, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 153
+			.saturating_add(Weight::from_parts(250_187, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_mixed_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 498_000 picoseconds.
+		Weight::from_parts(2_746_828, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 226
+			.saturating_add(Weight::from_parts(349_804, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode_fixed_knuth_variant(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 477_000 picoseconds.
+		Weight::from_parts(1_383_121, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 225
+			.saturating_add(Weight::from_parts(433_734, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_mulmod_opcode(r: u32, ) -> Weight {
@@ -2408,5 +2573,59 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 5680))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(5))
+	}
+	/// Storage: `Revive::EthBlockBuilderIR` (r:1 w:1)
+	/// Proof: `Revive::EthBlockBuilderIR` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::BlockHash` (r:1 w:1)
+	/// Proof: `Revive::BlockHash` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `Measured`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+	/// Storage: `Revive::EthBlockBuilderFirstValues` (r:0 w:1)
+	/// Proof: `Revive::EthBlockBuilderFirstValues` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::EthereumBlock` (r:0 w:1)
+	/// Proof: `Revive::EthereumBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::SyntheticReceiptInfo` (r:0 w:1)
+	/// Proof: `Revive::SyntheticReceiptInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::ReceiptInfoData` (r:0 w:1)
+	/// Proof: `Revive::ReceiptInfoData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// The range of component `n` is `[0, 100]`.
+	fn outside_frame_log(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `127`
+		//  Estimated: `3592`
+		// Minimum execution time: 27_606_000 picoseconds.
+		Weight::from_parts(46_536_756, 0)
+			.saturating_add(Weight::from_parts(0, 3592))
+			// Standard Error: 2_480
+			.saturating_add(Weight::from_parts(4_427_897, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(6))
+	}
+	/// Storage: `Revive::EthBlockBuilderIR` (r:1 w:1)
+	/// Proof: `Revive::EthBlockBuilderIR` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::BlockHash` (r:1 w:1)
+	/// Proof: `Revive::BlockHash` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `Measured`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+	/// Storage: `Revive::EthBlockBuilderFirstValues` (r:0 w:1)
+	/// Proof: `Revive::EthBlockBuilderFirstValues` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::EthereumBlock` (r:0 w:1)
+	/// Proof: `Revive::EthereumBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::SyntheticReceiptInfo` (r:0 w:1)
+	/// Proof: `Revive::SyntheticReceiptInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::ReceiptInfoData` (r:0 w:1)
+	/// Proof: `Revive::ReceiptInfoData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// The range of component `d` is `[0, 65536]`.
+	fn outside_frame_log_data(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `127`
+		//  Estimated: `3592`
+		// Minimum execution time: 48_654_000 picoseconds.
+		Weight::from_parts(36_933_799, 0)
+			.saturating_add(Weight::from_parts(0, 3592))
+			// Standard Error: 10
+			.saturating_add(Weight::from_parts(7_922, 0).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(6))
 	}
 }

@@ -62,6 +62,7 @@ impl<T: Config> Token<T> for EVMGas {
 	}
 }
 
+/// The cost of an EVM op-code that is charged from its own benchmark rather than in [`EVMGas`].
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
 enum EvmOpcodeCosts {
 	// Control Opcodes
@@ -180,17 +181,32 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 			Self::Sar => per_opcode(T::WeightInfo::evm_sar_opcode)
 				.saturating_sub(Token::<T>::weight(&Self::Pop)),
 			Self::AddMod => per_opcode(T::WeightInfo::evm_addmod_opcode)
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_fixed_knuth_variant))
 				.saturating_sub(Token::<T>::weight(&Self::Pop)),
 			Self::Div => per_opcode(T::WeightInfo::evm_div_opcode)
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_fixed_knuth_variant))
 				.saturating_sub(Token::<T>::weight(&Self::Pop)),
 			Self::Add => per_opcode(T::WeightInfo::evm_add_opcode),
 			Self::Sub => per_opcode(T::WeightInfo::evm_sub_opcode),
 			Self::Mul => per_opcode(T::WeightInfo::evm_mul_opcode),
 			Self::SDiv => per_opcode(T::WeightInfo::evm_sdiv_opcode)
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_fixed_knuth_variant))
 				.saturating_sub(Token::<T>::weight(&Self::Pop)),
 			Self::Mod => per_opcode(T::WeightInfo::evm_mod_opcode)
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_fixed_knuth_variant))
 				.saturating_sub(Token::<T>::weight(&Self::Pop)),
 			Self::SMod => per_opcode(T::WeightInfo::evm_smod_opcode)
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_fixed_knuth_variant))
 				.saturating_sub(Token::<T>::weight(&Self::Pop)),
 			Self::MulMod => per_opcode(T::WeightInfo::evm_mulmod_opcode)
 				.saturating_sub(Token::<T>::weight(&Self::Pop)),
