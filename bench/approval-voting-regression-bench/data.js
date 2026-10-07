@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791343941291,
+  "lastUpdate": 1791372370846,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0d6888a1cd4c7c864d05d843a72fccbb5f7a3fea",
-          "message": "Implement Budget Distribution logic in pallet-dap (#11527)\n\nStacked on #11513. \nExtracted from #10844.\n\n## Overview\n\nAdds issuance drip and budget distribution to `pallet-dap`. DAP becomes\na generic inflation engine: it mints new tokens on a configurable\ncadence and distributes them to registered budget recipients.\n\nNo runtime behavior change: the existing chain configuration continues\nto mint via `EraPayout` trait in staking. DAP can be configured as a\nnoop (cadence = 0 or empty budget).\n\n## Changes\n\n### pallet-dap\n- **Issuance drip**: `drip_issuance()` runs in `on_initialize`. Computes\nmint amount via `IssuanceCurve` (total issuance + elapsed time) and\ndistributes to `BudgetRecipient`s per a governance-updatable\n`BudgetAllocation` map that must sum to 100%.\n- **Safety guards**: `MaxElapsedPerDrip` ceiling prevents over-minting\nif the chain stalls. First-block initialization skips drip to avoid\nminting for an unknown period.\n- **Buffer accounting**: buffer's share is deactivated on inflow (mint +\n`OnUnbalanced` slashes).\n- **`set_budget_allocation`** extrinsic (root-only): validates keys\nmatch registered recipients and percentages sum to exactly 100%.\n- **`BudgetRecipient` impl**: DAP exposes its buffer as a recipient\n(key: `\"buffer\"`).\n- **Migration**: `MigrateV1ToV2` seeds `LastIssuanceTimestamp` and\n`BudgetAllocation` for existing chains. Not wired up in WAH or other\nruntimes yet.\n\n## TODOs\n- [x] Wire benchmark weights.\n\n## In Later PR\n- Revert [these\nchanges](https://github.com/paritytech/polkadot-sdk/pull/11527/changes/9b388b2da70c3a0dead7eb2cf2f29a3c9e89e714)\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
-          "timestamp": "2026-03-31T22:18:21Z",
-          "tree_id": "aa3ab20259e0f73f39d5dc8171a4210390383f6b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0d6888a1cd4c7c864d05d843a72fccbb5f7a3fea"
-        },
-        "date": 1775000403407,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63628.420000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.456619478659956,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8114363237299993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4398227178999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020592550000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8278075047299562,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020592550000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.590392531733161,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002246922,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002246922,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.852272440810002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.789945545300001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7293348984299994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006000047759999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.8454251458700006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "67c1257ee07d73005956d1b98de3eff616a72097",
+          "message": "Cleanup: Remove unused INDEXED_BODY attribute (#13399)\n\nIn our substrate backend, there has been a `SyncMode::LightState` which\nheld a `storage_chain_mode` flag which was supposed to sync storage\nchains. However, this has been unused for years and is also not in use\nin the current storage chain syncing solution. This is because the\noriginal design had the problem that Blocks on storage chains can hold\nmore than 16MB of data (including renewals) and it is not reasonable or\npossible to fetch them in one go with the block request. The mechanism\nhas been superseeded by a blockimport which fetches this data based on\ninfo from the runtime, see #12242.\n\nThis cleans up the never-used leftovers from the previous approach.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-07T09:50:20Z",
+          "tree_id": "2fb3c49a279940aa947b602f7a208a1c480852a6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/67c1257ee07d73005956d1b98de3eff616a72097"
+        },
+        "date": 1791372338320,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63558.43999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8520317607099996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3306800826600003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.480922371769992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005637079070000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002359146,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.675906283862755,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.795908396990001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.8101555001799996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8532566152099885,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002359146,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8332529369500024,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020402369999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020402369999999998,
             "unit": "seconds"
           }
         ]
