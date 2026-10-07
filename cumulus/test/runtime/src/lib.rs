@@ -350,6 +350,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<{ relay_parent_offset() }>;
+	type ReservedCores = ConstU32<{ reserved_cores() }>;
 	type SchedulingSignatureVerifier = NoVerification;
 }
 
@@ -738,6 +739,7 @@ impl_runtime_apis! {
 		}
 	}
 
+	#[api_version(3)]
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			relay_parent_offset()
@@ -745,6 +747,10 @@ impl_runtime_apis! {
 
 		fn max_claim_queue_offset() -> u8 {
 			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+
+		fn reserved_cores() -> u32 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::reserved_cores()
 		}
 	}
 

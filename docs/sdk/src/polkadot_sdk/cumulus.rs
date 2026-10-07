@@ -93,6 +93,7 @@ mod tests {
 				type WeightInfo = ();
 				type DmpQueue = frame::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
 				type RelayParentOffset = ConstU32<0>;
+				type ReservedCores = ConstU32<0>;
 				type SchedulingSignatureVerifier = ();
 			}
 

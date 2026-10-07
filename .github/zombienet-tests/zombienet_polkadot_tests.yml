@@ -281,6 +281,12 @@
     OLD_PARACHAIN_COMMAND: "polkadot-parachain-old"
     OLD_PARACHAIN_IMAGE: "docker.io/parity/polkadot-parachain:stable2603"
 
+- job-name: "zombienet-polkadot-v4-resubmit-spare-core"
+  test-filter: "functional::v4_resubmit_spare_core::v4_resubmit_spare_core"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
 #
 # EXPERIMENTAL COLLATOR PROTOCOL JOBS
 #

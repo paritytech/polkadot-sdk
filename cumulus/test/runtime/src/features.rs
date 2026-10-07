@@ -61,6 +61,14 @@ pub(crate) const fn block_processing_velocity() -> u32 {
 	1
 }
 
+pub(crate) const fn reserved_cores() -> u32 {
+	if cfg!(feature = "reserved-cores-1") {
+		return 1;
+	}
+
+	0
+}
+
 pub(crate) const fn unincluded_segment_capacity() -> u32 {
 	if cfg!(feature = "sync-backing") {
 		return 1;
@@ -77,5 +85,8 @@ pub(crate) const fn unincluded_segment_capacity() -> u32 {
 	// With `relay_parent_offset() = N`, the collator builds on relay tip `R - N` while the
 	// chain is at `R`, so the buffer must additionally absorb `N * velocity` parablocks worth
 	// of in-flight blocks between the relay parent and the relay tip.
-	block_processing_velocity() * (3 + relay_parent_offset())
+	// `segment-headroom` adds the two relay blocks after a session change in which nothing gets
+	// backed, so block production continues through them and the spare core drains the backlog.
+	let headroom = if cfg!(feature = "segment-headroom") { 2 } else { 0 };
+	block_processing_velocity() * (3 + headroom + relay_parent_offset())
 }
