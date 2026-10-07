@@ -1317,10 +1317,7 @@ pub mod pallet {
 				let cold_slot_read =
 					<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::GetStorage {
 						len: 0,
-						kind: StorageAccessKind::Persistent(StorageItems::summarize_single(
-							Warmth::cold_non_revertible(),
-							StorageOp::Read,
-						)),
+						kind: StorageAccessKind::persistent_cold(),
 					});
 				let max_slot_entries = max_block_weight
 					.proof_size()

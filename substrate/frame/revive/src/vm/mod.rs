@@ -134,7 +134,7 @@ impl CodeLoadToken {
 		let summary = warmth.summary();
 		// The `code_load` bench only reads, so a cold write still owes its re-hash.
 		let cold_writes_weight =
-			RuntimeCosts::deferred_write_cost::<T>().saturating_mul(summary.cold_writes().into());
+			runtime_costs::deferred_write_cost::<T>().saturating_mul(summary.cold_writes().into());
 		runtime_costs::weight_from_warmth_summary::<T>(
 			summary,
 			T::WeightInfo::code_load,
@@ -581,9 +581,9 @@ mod tests {
 				blob,
 			))
 		};
-		let rehash_weight = RuntimeCosts::deferred_write_cost::<Test>();
+		let rehash_weight = runtime_costs::deferred_write_cost::<Test>();
 		let rehash_and_upgrade_weight =
-			rehash_weight.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<Test>());
+			rehash_weight.saturating_add(runtime_costs::access_list_upgrade_overhead::<Test>());
 
 		assert_eq!(
 			owed_for_the_info_write(Warmth::cold_non_revertible(), Warmth::cold_non_revertible()),

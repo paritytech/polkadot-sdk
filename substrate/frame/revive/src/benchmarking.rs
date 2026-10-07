@@ -23,11 +23,9 @@ use crate::{
 	access_list::{
 		AccessEntry, AccessList, CallItems, CodeLoadItems, InstantiateItems, KeyFamily,
 		MAX_ACCESS_LIST_ENTRIES, StorageOp, TransferItems,
+		benchmarking::{assert_not_whitelisted, whitelist_access},
 	},
-	call_builder::{
-		CallSetup, Contract, VmBinaryModule, assert_not_whitelisted, caller_funding,
-		default_deposit_limit, whitelist_access,
-	},
+	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
 		block_hash::EthereumBlockBuilder, block_storage,
@@ -118,6 +116,12 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	let pallet_account = Pallet::<T>::account_id();
 	whitelist_account!(pallet_account);
 	pallet_account
+}
+
+/// Whitelists the contract's code keys.
+fn whitelist_code<T: Config>(contract: &Contract<T>) -> Result<(), &'static str> {
+	whitelist_access::<T>(CodeLoadItems::new(contract.info()?.code_hash));
+	Ok(())
 }
 
 /// Asserts that the bench measures every entry marked hot before the transaction's first call
@@ -624,8 +628,8 @@ mod benchmarks {
 					u64::MAX,                                         // ref_time_limit
 					u64::MAX,                                         // proof_size_limit
 					pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_ptr
-					pack_hi_lo(0, 0),                                 // input_data_len + input_data_ptr
-					pack_hi_lo(0, SENTINEL),                          // output_len_ptr + output_ptr (skip)
+					pack_hi_lo(0, 0),                                 // input len + input ptr
+					pack_hi_lo(0, SENTINEL),                          // output ptrs (skipped)
 				)
 			};
 		};
@@ -639,8 +643,8 @@ mod benchmarks {
 					u64::MAX,                // ref_time_limit
 					u64::MAX,                // proof_size_limit
 					callee_len,              // deposit_ptr
-					pack_hi_lo(0, 0),        // input_data_len + input_data_ptr
-					pack_hi_lo(0, SENTINEL), // output_len_ptr + output_ptr (skip)
+					pack_hi_lo(0, 0),        // input len + input ptr
+					pack_hi_lo(0, SENTINEL), // output ptrs (skipped)
 				)
 			};
 		};
@@ -1042,7 +1046,7 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 		// The callee's code read is priced by `code_load`.
-		instance.whitelist_code()?;
+		whitelist_code(&instance)?;
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let before = T::Currency::balance(&instance.account_id);
@@ -1081,7 +1085,7 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 		// The callee's code read is priced by `code_load`.
-		instance.whitelist_code()?;
+		whitelist_code(&instance)?;
 
 		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
 		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
@@ -3033,7 +3037,7 @@ mod benchmarks {
 		T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
 
 		// The code read is priced by `code_load`.
-		target.whitelist_code()?;
+		whitelist_code(&target)?;
 
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
@@ -3185,7 +3189,7 @@ mod benchmarks {
 		let address = delegated_eoa::<T>(H160([0x43; 20]), target.address)?;
 
 		// The code read is priced by `code_load`.
-		target.whitelist_code()?;
+		whitelist_code(&target)?;
 
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;

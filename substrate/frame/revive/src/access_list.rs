@@ -128,8 +128,8 @@ impl From<&Key> for Slot {
 /// A slot inside one contract's storage.
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct ContractSlot {
-	pub slot: Slot,
-	pub address: H160,
+	slot: Slot,
+	address: H160,
 }
 
 impl Ord for ContractSlot {
@@ -314,7 +314,7 @@ impl WarmthSummary {
 	}
 
 	/// Returns the same counts with no entry rolling back with the frame.
-	pub fn non_revertible(self) -> Self {
+	fn non_revertible(self) -> Self {
 		Self { cold_revertible: 0, ..self }
 	}
 }
@@ -410,7 +410,7 @@ pub enum AccessEntry {
 
 impl AccessEntry {
 	/// Returns the family the entry's key belongs to.
-	pub fn key_family(&self) -> KeyFamily {
+	fn key_family(&self) -> KeyFamily {
 		match self {
 			Self::Storage(_) => KeyFamily::Slot,
 			Self::Account { .. } |
@@ -438,6 +438,61 @@ impl AccessEntry {
 			},
 			KeyFamily::Address => Self::CodeInfo { hash: H256::from_low_u64_be(i as u64) },
 		}
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl AccessEntry {
+	/// Returns the storage key behind the entry.
+	pub fn storage_key<T: crate::Config>(&self) -> Option<Vec<u8>> {
+		match self {
+			Self::Account { address } => Some(frame_system::Account::<T>::hashed_key_for(
+				&<T::AddressMapper as crate::AddressMapper<T>>::to_account_id(address),
+			)),
+			Self::OriginalAccount { address } => {
+				Some(crate::OriginalAccount::<T>::hashed_key_for(address))
+			},
+			Self::AccountInfo { address } => {
+				Some(crate::AccountInfoOf::<T>::hashed_key_for(address))
+			},
+			Self::CodeInfo { hash } => Some(crate::CodeInfoOf::<T>::hashed_key_for(hash)),
+			Self::CodeBlob { hash } => Some(crate::PristineCode::<T>::hashed_key_for(hash)),
+			// Child-trie slots have no fixed key here.
+			Self::Storage(_) => None,
+		}
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking {
+	use super::{Access, AccessEntry, Warmth};
+	use crate::Config;
+
+	/// Whitelists every entry the access reads.
+	pub fn whitelist_access<T: Config>(access: impl Access) {
+		access.expand(|entry, _op| {
+			if let Some(key) = entry.storage_key::<T>() {
+				frame_benchmarking::benchmarking::add_to_whitelist(key.into());
+			}
+			Warmth::cold_non_revertible()
+		});
+	}
+
+	/// Asserts that no entry the access reads is whitelisted, except those listed in `except`.
+	pub fn assert_not_whitelisted<T: Config>(access: impl Access, except: &[AccessEntry]) {
+		let whitelist = frame_benchmarking::benchmarking::get_whitelist();
+		access.expand(|entry, _op| {
+			let whitelisted = entry.storage_key::<T>().is_some_and(|key| {
+				whitelist
+					.iter()
+					.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key)
+			});
+			assert!(
+				!whitelisted || except.contains(&entry),
+				"{entry:?} is whitelisted, so the benchmark does not measure its read",
+			);
+			Warmth::cold_non_revertible()
+		});
 	}
 }
 
@@ -616,7 +671,7 @@ pub struct CodeLoadWarmth {
 pub struct CodeLoadItems {
 	pub hash: H256,
 	/// `Write` for an instantiate, which bumps the refcount.
-	pub info_op: StorageOp,
+	info_op: StorageOp,
 }
 
 impl CodeLoadItems {
@@ -900,14 +955,6 @@ impl AccessList {
 		AccessListMetrics { size: self.accessed.len(), cold: self.cold_count, hot: self.hot_count }
 	}
 
-	/// Builds an access list holding entries `0..entries` of the given `key` family.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn with_entries(entries: usize, key: KeyFamily) -> Self {
-		let mut list = Self::new();
-		list.fill_to(entries, key);
-		list
-	}
-
 	/// Adds fresh entries of `key`'s family until the list holds `target_size` of them.
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn fill_to(&mut self, target_size: usize, key: KeyFamily) {
@@ -919,9 +966,18 @@ impl AccessList {
 		}
 		assert_eq!(self.metrics().size, target_size, "the map reached the requested size");
 	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl AccessList {
+	/// Builds an access list holding entries `0..entries` of the given `key` family.
+	pub fn with_entries(entries: usize, key: KeyFamily) -> Self {
+		let mut list = Self::new();
+		list.fill_to(entries, key);
+		list
+	}
 
 	/// Returns the first entry in key order.
-	#[cfg(feature = "runtime-benchmarks")]
 	pub fn first(&self) -> AccessEntry {
 		self.accessed
 			.keys()
@@ -931,7 +987,6 @@ impl AccessList {
 	}
 
 	/// Returns the last entry in key order.
-	#[cfg(feature = "runtime-benchmarks")]
 	pub fn last(&self) -> AccessEntry {
 		self.accessed
 			.keys()

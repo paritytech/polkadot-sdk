@@ -27,18 +27,15 @@ doc:
     - The benchmarks that fill the access list now fill it to 4,096 entries.
 
     Code outside the pallet that uses `pallet_revive::precompiles`:
-    - `Ext` no longer has `touch_storage_access` and `peek_storage_access`.
-      `StorageAccessKind::Persistent` now holds a `Summarized<Warmth>` in place of a `Warmth`, and
-      `Summarized` and `KeyFamily` are newly exported. Code that charged a storage access should
-      charge the cold price, for example:
+    - `Ext` no longer has `touch_storage_access` and `peek_storage_access`, and
+      `StorageAccessKind::Persistent` no longer holds a plain `Warmth`, so `StorageAccessKind::new`
+      no longer takes one either. Code that charged a storage access should charge the cold price
+      with the new `StorageAccessKind::persistent_cold`, or use `StorageAccessKind::Transient` for
+      transient storage, for example:
       ```rust
       env.frame_meter_mut().charge_weight_token(RuntimeCosts::GetStorage {
           len,
-          kind: StorageAccessKind::Persistent(Summarized::from_warmth(
-              KeyFamily::Slot,
-              Warmth::cold_non_revertible(),
-              StorageOp::Read,
-          )),
+          kind: StorageAccessKind::persistent_cold(),
       })?;
       ```
     - In `RuntimeCosts`, `DelegateCallBase` is removed, `CallBase` takes the warmth of the call's
