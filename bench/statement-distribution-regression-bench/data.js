@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791320008225,
+  "lastUpdate": 1791343991648,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d43b8f9b464c90bb7d8cb7d8abf393fdd3a1b1ae",
-          "message": "Version bumps and prdocs reoirdering from stable2603 (#11572)\n\nThis PR merges regular version bumps and prdocs reordering from release\nbranch stable2603 back to master plus a fix for umbrella crate version\nin crates publishing pipeline to aligne it with the stable version\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-03-31T12:24:15Z",
-          "tree_id": "64f11ea397a87df819a7750257757b65184fd40f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d43b8f9b464c90bb7d8cb7d8abf393fdd3a1b1ae"
-        },
-        "date": 1774965357604,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.09000000000003,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0819529685219999,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038674604018,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0924726551599999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9f3a6b0001b9071444e43a30abd192f11d65d462",
+          "message": "Benchmarking some EVM arithmetic opcodes (#13400)\n\n# Description\n\nAs agreed, we're experimenting with the arithmetic op-codes first to try\nout charging EVM op-codes from their own benchmarks. This PR benchmarks\n`DIV`, `SDIV`, `MOD`, `SMOD`, `ADDMOD` and `MULMOD` and charges them\nfrom those benchmarks. All other op-codes keep their current charges.\n\n## Integration\n\n`pallet_revive::WeightInfo` gains 21 new methods. Runtimes with their\nown `WeightInfo` implementation need to generate them by running the\n`pallet_revive` benchmarks.\n\n## Review Notes\n\nEach op-code is benchmarked in pairs with a `POP`, and `evm_pop_opcode`\nis subtracted to get its charge. The divisors come from\n`knuth_division_operands`, which covers every correction pattern of the\ndivision algorithm.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-07T01:58:12Z",
+          "tree_id": "3ff2e08452b89fcbb6ce8f13268dd35977386447",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9f3a6b0001b9071444e43a30abd192f11d65d462"
+        },
+        "date": 1791343958511,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08481773937399988,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03875650601600001,
             "unit": "seconds"
           }
         ]
