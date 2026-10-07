@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791343842728,
+  "lastUpdate": 1791372272272,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c69795dad68821aaa780e160f6defcf0683e0aa4",
-          "message": "Westend: Support Meta Transactions (#11469)\n\nSupport **Meta Transactions** via `meta-tx` pallet for next **Westend**\nruntimes:\n- Asset Hub\n- Coretime\n- People\n- Collectives\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-01T09:06:17Z",
-          "tree_id": "34eb3e0461c66f9c28f7142bb3d9b3d388d8b620",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c69795dad68821aaa780e160f6defcf0683e0aa4"
-        },
-        "date": 1775039432772,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12657735539999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.304799352366667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.139657420799997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "67c1257ee07d73005956d1b98de3eff616a72097",
+          "message": "Cleanup: Remove unused INDEXED_BODY attribute (#13399)\n\nIn our substrate backend, there has been a `SyncMode::LightState` which\nheld a `storage_chain_mode` flag which was supposed to sync storage\nchains. However, this has been unused for years and is also not in use\nin the current storage chain syncing solution. This is because the\noriginal design had the problem that Blocks on storage chains can hold\nmore than 16MB of data (including renewals) and it is not reasonable or\npossible to fetch them in one go with the block request. The mechanism\nhas been superseeded by a blockimport which fetches this data based on\ninfo from the runtime, see #12242.\n\nThis cleans up the never-used leftovers from the previous approach.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-07T09:50:20Z",
+          "tree_id": "2fb3c49a279940aa947b602f7a208a1c480852a6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/67c1257ee07d73005956d1b98de3eff616a72097"
+        },
+        "date": 1791372239444,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.879941986466669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14125072846666667,
             "unit": "seconds"
           }
         ]
