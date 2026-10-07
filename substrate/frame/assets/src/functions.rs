@@ -1037,17 +1037,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// holding a non-zero remainder below the asset's minimum balance. A transfer to `owner`
 	/// itself moves nothing and is charged `amount`.
 	/// Will unreserve the deposit from `owner` if the charge spends the approval in full.
-	///
-	/// Returns the charge.
 	pub fn do_transfer_approved(
 		id: T::AssetId,
 		owner: &T::AccountId,
 		delegate: &T::AccountId,
 		destination: &T::AccountId,
 		amount: T::Balance,
-	) -> Result<T::Balance, DispatchError> {
+	) -> DispatchResult {
 		let mut owner_died: Option<DeadConsequence> = None;
-		let mut charge = amount;
 
 		let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
@@ -1070,7 +1067,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					f,
 					|debit| {
 						// A self-transfer moves nothing, so only the request is charged.
-						charge = if owner == destination { amount } else { debit };
+						let charge = if owner == destination { amount } else { debit };
 						remaining = approved
 							.amount
 							.checked_sub(&charge)
@@ -1100,7 +1097,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			T::Freezer::died(id.clone(), owner);
 			T::Holder::died(id, owner);
 		}
-		Ok(charge)
+		Ok(())
 	}
 
 	/// Do set metadata

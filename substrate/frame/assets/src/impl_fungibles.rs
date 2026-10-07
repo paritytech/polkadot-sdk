@@ -368,7 +368,7 @@ impl<T: Config<I>, I: 'static> fungibles::approvals::Mutate<<T as SystemConfig>:
 		dest: &<T as SystemConfig>::AccountId,
 		amount: T::Balance,
 	) -> DispatchResult {
-		Self::do_transfer_approved(asset, owner, delegate, dest, amount).map(|_| ())
+		Self::do_transfer_approved(asset, owner, delegate, dest, amount)
 	}
 }
 

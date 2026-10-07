@@ -1759,7 +1759,7 @@ pub mod pallet {
 			let owner = T::Lookup::lookup(owner)?;
 			let destination = T::Lookup::lookup(destination)?;
 			let id: T::AssetId = id.into();
-			Self::do_transfer_approved(id, &owner, &delegate, &destination, amount).map(|_| ())
+			Self::do_transfer_approved(id, &owner, &delegate, &destination, amount)
 		}
 
 		/// Create an asset account for non-provider assets.
