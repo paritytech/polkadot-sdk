@@ -40,6 +40,15 @@ contract OriginIsRoot {
 		return OriginIsRoot(target).callerIsOrigin();
 	}
 
+	/// Regular call to `target` with arbitrary `data`, decoding the returned `bool`. `target`
+	/// sees this contract as its caller, so passing the calldata of a `delegate*` function puts
+	/// a regular call in front of a delegate call.
+	function forward(address target, bytes calldata data) external returns (bool) {
+		(bool ok, bytes memory ret) = target.call(data);
+		require(ok, "forward failed");
+		return abi.decode(ret, (bool));
+	}
+
 	/// Delegate-call into `impl.originIsRoot()`, the same shape as an upgradeable proxy
 	/// dispatching into its implementation.
 	function delegateOriginIsRoot(address _impl) external returns (bool) {
@@ -67,13 +76,13 @@ contract OriginIsRoot {
 		return abi.decode(ret, (bool));
 	}
 
-	/// Delegate-call `data` into `_impl` and decode the returned `bool`. The delegated code runs
-	/// as this contract: the calldata of a `call*` function makes it call `target` with a regular
-	/// call, so `target` sees this contract as its caller, and the calldata of another `delegate*`
-	/// function chains a second delegate call.
-	function delegateBool(address _impl, bytes calldata data) external returns (bool) {
+	/// Delegate-call `_impl` with arbitrary `data`, decoding the returned `bool`. The delegated
+	/// code runs as this contract: the calldata of a `call*` function makes it call `target` with
+	/// a regular call, so `target` sees this contract as its caller, and the calldata of a
+	/// `delegate*` function chains a second delegate call.
+	function forwardDelegate(address _impl, bytes calldata data) external returns (bool) {
 		(bool ok, bytes memory ret) = _impl.delegatecall(data);
-		require(ok, "delegate failed");
+		require(ok, "forward delegate failed");
 		return abi.decode(ret, (bool));
 	}
 }
