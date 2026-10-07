@@ -74,7 +74,7 @@ pub trait WeightInfo {
 	fn configure() -> Weight;
 	fn place_order() -> Weight;
 	fn on_finalize_with_orders(n: u32, ) -> Weight;
-	fn claim_revenue() -> Weight;
+	fn claim_revenue(n: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_on_demand_para` using the Substrate node and recommended hardware.
@@ -97,7 +97,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `OnDemand::PriceConfig` (r:1 w:0)
 	/// Proof: `OnDemand::PriceConfig` (`max_values`: Some(1), `max_size`: Some(28), added: 523, mode: `MaxEncodedLen`)
 	/// Storage: `OnDemand::Revenue` (r:1 w:1)
-	/// Proof: `OnDemand::Revenue` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
+	/// Proof: `OnDemand::Revenue` (`max_values`: Some(1), `max_size`: Some(401), added: 896, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn place_order() -> Weight {
@@ -125,15 +125,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(0, 8).saturating_mul(n.into()))
 	}
 	/// Storage: `OnDemand::Revenue` (r:1 w:1)
-	/// Proof: `OnDemand::Revenue` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
+	/// Proof: `OnDemand::Revenue` (`max_values`: Some(1), `max_size`: Some(401), added: 896, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn claim_revenue() -> Weight {
+	/// The range of component `n` is `[0, 20]`.
+	fn claim_revenue(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `103`
+		//  Measured:  `103 + n * (20 ±0)`
 		//  Estimated: `6196`
-		// Minimum execution time: 50_000_000 picoseconds.
-		Weight::from_parts(50_000_000, 6196)
+		// Minimum execution time: 30_000_000 picoseconds.
+		Weight::from_parts(30_000_000, 6196)
+			// Standard Error: 1_000
+			.saturating_add(Weight::from_parts(1_000_000, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -158,7 +161,7 @@ impl WeightInfo for () {
 	/// Storage: `OnDemand::PriceConfig` (r:1 w:0)
 	/// Proof: `OnDemand::PriceConfig` (`max_values`: Some(1), `max_size`: Some(28), added: 523, mode: `MaxEncodedLen`)
 	/// Storage: `OnDemand::Revenue` (r:1 w:1)
-	/// Proof: `OnDemand::Revenue` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
+	/// Proof: `OnDemand::Revenue` (`max_values`: Some(1), `max_size`: Some(401), added: 896, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn place_order() -> Weight {
@@ -186,15 +189,18 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(0, 8).saturating_mul(n.into()))
 	}
 	/// Storage: `OnDemand::Revenue` (r:1 w:1)
-	/// Proof: `OnDemand::Revenue` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
+	/// Proof: `OnDemand::Revenue` (`max_values`: Some(1), `max_size`: Some(401), added: 896, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn claim_revenue() -> Weight {
+	/// The range of component `n` is `[0, 20]`.
+	fn claim_revenue(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `103`
+		//  Measured:  `103 + n * (20 ±0)`
 		//  Estimated: `6196`
-		// Minimum execution time: 50_000_000 picoseconds.
-		Weight::from_parts(50_000_000, 6196)
+		// Minimum execution time: 30_000_000 picoseconds.
+		Weight::from_parts(30_000_000, 6196)
+			// Standard Error: 1_000
+			.saturating_add(Weight::from_parts(1_000_000, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}

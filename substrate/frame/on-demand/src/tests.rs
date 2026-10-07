@@ -18,8 +18,8 @@
 //! Tests for the on-demand pallet.
 
 use crate::{
-	mock::*, Error, Event, PendingBatch, PriceConfig, PriceParameters, QueueState, Revenue,
-	DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP,
+	mock::*, weights::WeightInfo, Error, Event, PendingBatch, PriceConfig, PriceParameters,
+	QueueState, Revenue, DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP,
 };
 use fp_coretime::revenue::OnDemandRevenue;
 use frame_support::{
@@ -248,9 +248,19 @@ fn configure_works() {
 	});
 }
 
-/// Claim the revenue of timeslice `when` for `BOB`.
-fn claim(when: u32) -> u64 {
-	<OnDemand as OnDemandRevenue<_, _>>::claim_revenue(when, &BOB)
+/// Claim the revenue of timeslice `up_to` and every earlier one for `BOB`.
+fn claim(up_to: u32) -> Vec<(u32, u64)> {
+	let result = <OnDemand as OnDemandRevenue<_, _>>::claim_revenue(up_to, &BOB);
+	assert_eq!(result.paid.last().map(|&(when, _)| when), Some(up_to), "`up_to` is settled");
+	result.paid
+}
+
+/// The unclaimed revenue, as `(timeslice, amount)`, newest first.
+fn unclaimed() -> Vec<(u32, u64)> {
+	Revenue::<Test>::get()
+		.iter()
+		.map(|record| (record.when, record.amount))
+		.collect()
 }
 
 #[test]
@@ -261,55 +271,104 @@ fn revenue_is_booked_against_the_timeslice_of_the_order() {
 		let second = place_order_at(TIMESLICE_PERIOD - 1);
 		let third = place_order_at(TIMESLICE_PERIOD);
 
+		assert_eq!(unclaimed(), vec![(1, third), (0, first + second)]);
+	});
+}
+
+#[test]
+fn claim_revenue_pays_out_the_given_and_all_earlier_timeslices() {
+	new_test_ext().execute_with(|| {
+		let in_0 = place_order_at(0);
+		let in_2 = place_order_at(2 * TIMESLICE_PERIOD);
+		let in_3 = place_order_at(3 * TIMESLICE_PERIOD);
+
+		let beneficiary_before = Balances::balance(&BOB);
+
+		// Timeslices 0 and 2 are claimed, oldest first, and timeslice 3 stays booked.
+		assert_eq!(claim(2), vec![(0, in_0), (2, in_2)]);
+		assert_eq!(Balances::balance(&BOB), beneficiary_before + in_0 + in_2);
+		assert_eq!(unclaimed(), vec![(3, in_3)]);
+		let events = on_demand_events();
+		for (when, amount) in [(0, in_0), (2, in_2)] {
+			assert!(events.contains(&Event::RevenueClaimed { when, amount, beneficiary: BOB }));
+		}
+
+		// A timeslice is only paid out once; it is still listed, as it is settled.
+		assert_eq!(claim(2), vec![(2, 0)]);
+
+		assert_eq!(claim(3), vec![(3, in_3)]);
+		assert_eq!(Balances::balance(&BOB), beneficiary_before + in_0 + in_2 + in_3);
+		assert!(unclaimed().is_empty());
+	});
+}
+
+#[test]
+fn the_oldest_unclaimed_revenue_is_merged_into_the_next_oldest_once_the_history_is_full() {
+	new_test_ext().execute_with(|| {
+		let revenue: Vec<_> = (0..=MAX_UNCLAIMED_TIMESLICES)
+			.map(|when| place_order_at(when * TIMESLICE_PERIOD))
+			.collect();
+
+		// One timeslice too many has unclaimed revenue, so that of timeslice 0 is kept with
+		// timeslice 1's. Nothing is lost.
+		let mut expected: Vec<_> = (2..=MAX_UNCLAIMED_TIMESLICES)
+			.rev()
+			.map(|when| (when, revenue[when as usize]))
+			.collect();
+		expected.push((1, revenue[0] + revenue[1]));
+		assert_eq!(unclaimed(), expected);
+
+		expected.reverse();
+		assert_eq!(claim(MAX_UNCLAIMED_TIMESLICES), expected);
+	});
+}
+
+#[test]
+fn revenue_for_an_earlier_timeslice_is_booked_against_that_timeslice() {
+	new_test_ext().execute_with(|| {
+		let in_0 = place_order_at(0);
+		let in_2 = place_order_at(2 * TIMESLICE_PERIOD);
+		let more_in_0 = place_order_at(0);
+		let in_1 = place_order_at(TIMESLICE_PERIOD);
+
+		assert_eq!(unclaimed(), vec![(2, in_2), (1, in_1), (0, in_0 + more_in_0)]);
+	});
+}
+
+#[test]
+fn revenue_for_an_earlier_timeslice_is_merged_correctly_into_a_full_history() {
+	new_test_ext().execute_with(|| {
+		// Fill the history with timeslices 2, 4, 6.
+		let mut revenue: Vec<_> = (1..=MAX_UNCLAIMED_TIMESLICES)
+			.map(|i| place_order_at(2 * i * TIMESLICE_PERIOD))
+			.collect();
+		revenue.reverse();
+
+		// Timeslice 3 takes the place of timeslice 2, which is merged into it.
+		let in_3 = place_order_at(3 * TIMESLICE_PERIOD);
+		assert_eq!(unclaimed(), vec![(6, revenue[0]), (4, revenue[1]), (3, in_3 + revenue[2])]);
+
+		// Timeslice 1 is older than any timeslice kept apart, so it is merged into the oldest.
+		let in_1 = place_order_at(TIMESLICE_PERIOD);
 		assert_eq!(
-			Revenue::<Test>::iter().collect::<std::collections::BTreeMap<_, _>>(),
-			[(0, first + second), (1, third)].into(),
+			unclaimed(),
+			vec![(6, revenue[0]), (4, revenue[1]), (3, in_3 + revenue[2] + in_1)]
 		);
 	});
 }
 
 #[test]
-fn claim_revenue_pays_out_only_the_revenue_of_the_given_timeslice() {
+fn the_weight_of_a_claim_depends_on_the_number_of_timeslices_claimed() {
 	new_test_ext().execute_with(|| {
-		let early = place_order_at(0) + place_order_at(TIMESLICE_PERIOD - 1);
-		let late = place_order_at(TIMESLICE_PERIOD);
+		place_order_at(0);
+		place_order_at(TIMESLICE_PERIOD);
+		place_order_at(2 * TIMESLICE_PERIOD);
 
-		let beneficiary_before = Balances::balance(&BOB);
-
-		assert_eq!(claim(0), early);
-		assert_eq!(Balances::balance(&BOB), beneficiary_before + early);
-		assert!(!Revenue::<Test>::contains_key(0));
-		assert_eq!(Revenue::<Test>::get(1), late);
-		assert!(on_demand_events().contains(&Event::RevenueClaimed {
-			when: 0,
-			amount: early,
-			beneficiary: BOB,
-		}));
-
-		// A timeslice is only paid out once.
-		assert_eq!(claim(0), 0);
-
-		assert_eq!(claim(1), late);
-		assert_eq!(Balances::balance(&BOB), beneficiary_before + early + late);
-		assert_eq!(Revenue::<Test>::iter().count(), 0);
-	});
-}
-
-#[test]
-fn revenue_of_later_timeslices_stays_booked_while_earlier_ones_are_claimed() {
-	new_test_ext().execute_with(|| {
-		// The claimer lags behind: orders are placed in timeslices 5 and 6 before it gets to
-		// claim timeslices 3 and 4, in which nothing was ordered.
-		let in_5 = place_order_at(5 * TIMESLICE_PERIOD);
-		let in_6 = place_order_at(6 * TIMESLICE_PERIOD);
-
-		assert_eq!(claim(3), 0);
-		assert_eq!(claim(4), 0);
-		assert_eq!(Revenue::<Test>::get(5), in_5);
-		assert_eq!(Revenue::<Test>::get(6), in_6);
-
-		assert_eq!(claim(5), in_5);
-		assert_eq!(claim(6), in_6);
+		let result = <OnDemand as OnDemandRevenue<_, _>>::claim_revenue(1, &BOB);
+		assert_eq!(result.weight, <() as WeightInfo>::claim_revenue(2));
+		let result = <OnDemand as OnDemandRevenue<_, _>>::claim_revenue(1, &BOB);
+		assert_eq!(result.weight, <() as WeightInfo>::claim_revenue(0));
+		assert!(<() as WeightInfo>::claim_revenue(0).any_lt(<() as WeightInfo>::claim_revenue(2)));
 	});
 }
 
@@ -321,13 +380,48 @@ fn claiming_revenue_keeps_the_pot_alive() {
 		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT + revenue);
 
 		// The whole revenue is paid out, but the pot is left with its existential deposit.
-		assert_eq!(claim(0), revenue);
+		assert_eq!(claim(0), vec![(0, revenue)]);
 		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT);
 	});
 }
 
 #[test]
-fn claiming_revenue_from_an_unendowed_pot_holds_back_one_existential_deposit() {
+fn only_revenue_which_can_be_paid_in_full_is_claimed_oldest_first() {
+	new_test_ext().execute_with(|| {
+		let pot = OnDemand::account_id();
+		let in_0 = place_order_at(0);
+		let in_1 = place_order_at(TIMESLICE_PERIOD);
+		let in_2 = place_order_at(2 * TIMESLICE_PERIOD);
+
+		// Something went wrong, and the pot is short of the revenue of timeslice 2 by one unit.
+		let shortfall = 1;
+		Balances::set_balance(&pot, EXISTENTIAL_DEPOSIT + in_0 + in_1 + in_2 - shortfall);
+
+		// Timeslices 0 and 1 are paid out in full, timeslice 2 not at all.
+		let result = <OnDemand as OnDemandRevenue<_, _>>::claim_revenue(2, &BOB);
+		assert_eq!(result.paid, vec![(0, in_0), (1, in_1)]);
+		assert_eq!(unclaimed(), vec![(2, in_2)]);
+		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT + in_2 - shortfall);
+		assert!(on_demand_events().contains(&Event::UnexpectedLowFunds {
+			amount_to_claim: in_0 + in_1 + in_2,
+			claimable: in_0 + in_1 + in_2 - shortfall,
+		}));
+
+		// Claiming again does not help until the pot has been topped up.
+		let result = <OnDemand as OnDemandRevenue<_, _>>::claim_revenue(2, &BOB);
+		assert_eq!(result.paid, vec![]);
+		assert_eq!(unclaimed(), vec![(2, in_2)]);
+
+		// Once it has, the revenue of timeslice 2 is claimed along with that of a later one.
+		Balances::set_balance(&pot, Balances::balance(&pot) + shortfall);
+		let in_3 = place_order_at(3 * TIMESLICE_PERIOD);
+		assert_eq!(claim(3), vec![(2, in_2), (3, in_3)]);
+		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT);
+	});
+}
+
+#[test]
+fn an_unendowed_pot_holds_back_the_revenue_it_cannot_pay_out_while_staying_alive() {
 	new_test_ext().execute_with(|| {
 		let pot = OnDemand::account_id();
 		// Take away the endowment, so that the pot holds nothing but the revenue of the orders.
@@ -336,13 +430,14 @@ fn claiming_revenue_from_an_unendowed_pot_holds_back_one_existential_deposit() {
 		let revenue = place_order_at(0);
 		assert_eq!(Balances::balance(&pot), revenue);
 
-		// The existential deposit is held back, once, to keep the pot from being reaped.
-		assert_eq!(claim(0), revenue - EXISTENTIAL_DEPOSIT);
-		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT);
+		// Paying out the revenue would reap the pot, so it is not paid out.
+		let result = <OnDemand as OnDemandRevenue<_, _>>::claim_revenue(0, &BOB);
+		assert_eq!(result.paid, vec![]);
+		assert_eq!(unclaimed(), vec![(0, revenue)]);
 
-		// From then on the full revenue of every order is paid out.
-		let revenue = place_order_at(TIMESLICE_PERIOD);
-		assert_eq!(claim(1), revenue);
+		// Endowing the pot fixes it.
+		Balances::set_balance(&pot, EXISTENTIAL_DEPOSIT + revenue);
+		assert_eq!(claim(0), vec![(0, revenue)]);
 		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT);
 	});
 }
@@ -353,10 +448,10 @@ fn claiming_revenue_with_nothing_to_claim_is_a_no_op() {
 		let revenue = place_order_at(TIMESLICE_PERIOD);
 		let before = Balances::balance(&BOB);
 
-		// Nothing was ordered in timeslice 0.
-		assert_eq!(claim(0), 0);
+		// Nothing was ordered in timeslice 0, but it is settled, so it is listed with nothing paid.
+		assert_eq!(claim(0), vec![(0, 0)]);
 		assert_eq!(Balances::balance(&BOB), before);
-		assert_eq!(Revenue::<Test>::get(1), revenue);
+		assert_eq!(unclaimed(), vec![(1, revenue)]);
 		assert!(!on_demand_events().iter().any(|e| matches!(e, Event::RevenueClaimed { .. })));
 	});
 }

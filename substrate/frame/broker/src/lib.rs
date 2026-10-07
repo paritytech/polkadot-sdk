@@ -45,8 +45,10 @@ pub use weights::WeightInfo;
 pub use adapt_price::*;
 pub use coretime_interface::*;
 pub use fp_coretime::{
-	market, revenue::OnDemandRevenue, CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId,
-	RegionId, TaskId, Timeslice, CORE_MASK_BITS,
+	market,
+	revenue::{OnDemandRevenue, RevenueClaim},
+	CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
+	CORE_MASK_BITS,
 };
 pub use types::*;
 
@@ -101,7 +103,8 @@ pub mod pallet {
 		/// the Instantaneous Coretime Pool. Expected to live on the same chain as this pallet, so
 		/// the revenue can be claimed directly.
 		///
-		/// The revenue of each timeslice is claimed once that timeslice has ended.
+		/// The revenue of each timeslice is claimed once that timeslice has ended, along with that
+		/// of any earlier timeslice which could not be paid out before.
 		type OnDemandRevenue: OnDemandRevenue<BalanceOf<Self>, Self::AccountId>;
 
 		/// The algorithm to determine the next price on the basis of market performance.

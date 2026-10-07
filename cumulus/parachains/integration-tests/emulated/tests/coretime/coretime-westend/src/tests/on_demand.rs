@@ -152,8 +152,8 @@ fn build_block<R>(claims: &mut Claims, f: impl FnOnce() -> R) -> R {
 		let r = f();
 
 		let broker_account = Broker::account_id();
-		let mut claimed = None;
-		let mut attributed_to = None;
+		let mut claimed = Claims::new();
+		let mut attributed_to = Vec::new();
 		for record in <CoretimeWestend as Chain>::System::events() {
 			match record.event {
 				CoretimeEvent::OnDemand(pallet_on_demand_para::Event::RevenueClaimed {
@@ -162,20 +162,19 @@ fn build_block<R>(claims: &mut Claims, f: impl FnOnce() -> R) -> R {
 					beneficiary,
 				}) => {
 					assert_eq!(beneficiary, broker_account);
-					assert!(claimed.is_none(), "at most one timeslice is claimed per block");
-					claimed = Some((when, amount));
+					claimed.push((when, amount));
 				},
 				CoretimeEvent::Broker(
 					pallet_broker::Event::ClaimsReady { when, .. } |
 					pallet_broker::Event::HistoryDropped { when, .. },
-				) => attributed_to = Some(when),
+				) => attributed_to.push(when),
 				_ => {},
 			}
 		}
-		if let Some((when, amount)) = claimed {
-			assert_eq!(attributed_to, Some(when), "the broker attributes the revenue to {when}");
-			claims.push((when, amount));
+		for &(when, _) in &claimed {
+			assert!(attributed_to.contains(&when), "the broker attributes the revenue to {when}");
 		}
+		claims.extend(claimed);
 
 		r
 	})

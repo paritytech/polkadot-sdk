@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use alloc::{vec, vec::Vec};
+use alloc::{collections::BTreeMap, vec, vec::Vec};
 use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
 use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 use sp_runtime::traits::{BlockNumberProvider, ConvertBack, MaybeConvert};
@@ -31,7 +31,7 @@ impl<T: Config> Pallet<T> {
 	/// - Rotate the sale period
 	/// - Initialize an instantaneous core pool historical revenue record
 	/// - Claim the on-demand revenue of the timeslice which has just ended
-	/// - Distribute the revenue of one timeslice, claimed or reported by the Relay chain
+	/// - Distribute the revenue claimed or reported by the Relay chain, per timeslice
 	pub(crate) fn do_tick() -> Weight {
 		let mut meter = WeightMeter::new();
 		meter.consume(T::WeightInfo::do_tick_base());
@@ -66,30 +66,43 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		// The on-demand revenue to distribute in this block, and the timeslice it was earned in.
-		let mut revenue = None;
+		// The on-demand revenue to distribute in this block, by the timeslice it was earned in.
+		let mut revenue = BTreeMap::<Timeslice, BalanceOf<T>>::new();
 
 		let current_timeslice = Self::current_timeslice();
 		if status.last_timeslice < current_timeslice {
-			// The timeslice `status.last_timeslice` has just ended, so claim its on-demand revenue.
+			// The timeslice `status.last_timeslice` has just ended, so claim its on-demand revenue,
+			// along with that of any earlier timeslice which could not be paid out before.
 			let ended_timeslice = status.last_timeslice;
 			status.last_timeslice.saturating_inc();
-			let claimed = T::OnDemandRevenue::claim_revenue(ended_timeslice, &Self::account_id());
-			meter.consume(T::OnDemandRevenue::claim_revenue_weight());
-			revenue = Some((ended_timeslice, claimed));
+			let claim = T::OnDemandRevenue::claim_revenue(ended_timeslice, &Self::account_id());
+			meter.consume(claim.weight);
+			// The timeslices listed are settled, and since the revenue is paid out oldest first, so
+			// is every older one. The revenue of any later timeslice stays booked, and is claimed
+			// along with a later timeslice; until then, its history is kept for it to be
+			// distributed by.
+			if !claim.paid.iter().any(|&(when, _)| when == ended_timeslice) {
+				log::warn!(
+					target: "pallet_broker::process_revenue",
+					"Not all on-demand revenue up to timeslice {ended_timeslice} could be claimed",
+				);
+			}
+			let newest_settled = claim.paid.iter().map(|&(when, _)| when).max();
+			for (when, amount) in claim.paid {
+				revenue.entry(when).or_insert_with(Zero::zero).saturating_accrue(amount);
+			}
+			if let Some(newest_settled) = newest_settled {
+				Self::settle_older_timeslices(newest_settled, &mut revenue, &mut meter);
+			}
 			T::Coretime::on_new_timeslice(status.last_timeslice);
 			meter.consume(T::WeightInfo::on_new_timeslice());
 		}
 
-		// Only one timeslice's revenue is distributed per block, so a revenue report from the
-		// Relay chain is merged with the revenue claimed above if it is for the same timeslice,
-		// and otherwise left in the inbox for a later block.
-		if let Some((when, reported)) = Self::take_revenue_report(revenue.map(|(when, _)| when)) {
-			let claimed = revenue.map_or_else(Zero::zero, |(_, claimed)| claimed);
-			revenue = Some((when, claimed.saturating_add(reported)));
+		if let Some((when, reported)) = Self::take_revenue_report() {
+			revenue.entry(when).or_insert_with(Zero::zero).saturating_accrue(reported);
 		}
 
-		if let Some((when, amount)) = revenue {
+		for (when, amount) in revenue {
 			Self::process_revenue_amount(when, amount);
 			meter.consume(T::WeightInfo::process_revenue());
 		}
@@ -97,6 +110,31 @@ impl<T: Config> Pallet<T> {
 		Status::<T>::put(&status);
 
 		meter.consumed()
+	}
+
+	/// Mark the timeslices older than `newest_settled` whose revenue is still awaited as settled,
+	/// adding them to `revenue` without any revenue unless they are already in it.
+	///
+	/// These are the timeslices for which the claimed revenue was not listed, either because
+	/// they had none, or because their revenue was merged into a later timeslice. The revenue of
+	/// the timeslices still awaiting it forms an unbroken run of history records without a
+	/// payout, which ends at the first record which is missing or has a payout.
+	pub(crate) fn settle_older_timeslices(
+		newest_settled: Timeslice,
+		revenue: &mut BTreeMap<Timeslice, BalanceOf<T>>,
+		meter: &mut WeightMeter,
+	) {
+		let mut when = newest_settled;
+		while let Some(older) = when.checked_sub(1) {
+			when = older;
+			meter.consume(T::DbWeight::get().reads(1));
+			match InstaPoolHistory::<T>::get(when) {
+				Some(InstaPoolHistoryRecord { maybe_payout: None, .. }) => {
+					revenue.entry(when).or_insert_with(Zero::zero);
+				},
+				_ => break,
+			}
+		}
 	}
 
 	pub(crate) fn process_core_count(status: &mut StatusRecord) -> bool {
@@ -110,18 +148,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Take the revenue report from the Relay chain out of the inbox, returning the revenue and
 	/// the timeslice it was earned in.
-	///
-	/// If `only_for` is given, a report for any other timeslice is left in the inbox.
-	pub(crate) fn take_revenue_report(
-		only_for: Option<Timeslice>,
-	) -> Option<(Timeslice, BalanceOf<T>)> {
-		let OnDemandRevenueRecord { until, amount } = RevenueInbox::<T>::get()?;
+	pub(crate) fn take_revenue_report() -> Option<(Timeslice, BalanceOf<T>)> {
+		let OnDemandRevenueRecord { until, amount } = RevenueInbox::<T>::take()?;
 		let when: Timeslice =
 			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
-		if only_for.is_some_and(|only_for| only_for != when) {
-			return None;
-		}
-		RevenueInbox::<T>::kill();
 
 		let revenue = T::ConvertBalance::convert_back(amount.clone());
 		log::debug!(

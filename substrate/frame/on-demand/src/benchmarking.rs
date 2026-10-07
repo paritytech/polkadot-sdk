@@ -166,28 +166,43 @@ mod benches {
 		Ok(())
 	}
 
-	/// Benchmark claiming the revenue accumulated from on-demand sales.
+	/// Benchmark claiming the revenue accumulated from on-demand sales of `n` timeslices.
+	///
+	/// The revenue history is always full, so the timeslices which are not claimed are still read
+	/// and written back.
 	#[benchmark]
-	fn claim_revenue() -> Result<(), BenchmarkError> {
-		let revenue = BalanceOf::<T>::from(DEFAULT_BASE_FEE);
+	fn claim_revenue(
+		n: Linear<0, { T::MaxUnclaimedTimeslices::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let timeslices = T::MaxUnclaimedTimeslices::get();
+		let per_timeslice = BalanceOf::<T>::from(DEFAULT_BASE_FEE);
+		let total = per_timeslice.saturating_mul(timeslices.into());
+		let claimed = per_timeslice.saturating_mul(n.into());
 
 		// The pot holds the accumulated revenue on top of its existential deposit.
 		T::Currency::set_balance(
 			&OnDemand::<T>::account_id(),
-			T::Currency::minimum_balance().saturating_add(revenue),
+			T::Currency::minimum_balance().saturating_add(total),
 		);
 		let beneficiary: T::AccountId = account("beneficiary", 0, 0);
 		T::Currency::set_balance(&beneficiary, T::Currency::minimum_balance());
-		let when = 0;
-		Revenue::<T>::insert(when, revenue);
+
+		// Timeslices `1..=timeslices`, newest first, of which `1..=n` are claimed.
+		let revenue: Vec<RevenueRecordOf<T>> = (1..=timeslices)
+			.rev()
+			.map(|when| RevenueRecord { when, amount: per_timeslice })
+			.collect();
+		Revenue::<T>::put(
+			BoundedVec::try_from(revenue).expect("bounded by MaxUnclaimedTimeslices; qed"),
+		);
 
 		#[block]
 		{
-			<OnDemand<T> as OnDemandRevenue<_, _>>::claim_revenue(when, &beneficiary);
+			<OnDemand<T> as OnDemandRevenue<_, _>>::claim_revenue(n, &beneficiary);
 		}
 
-		assert!(!Revenue::<T>::contains_key(when));
-		assert_eq!(T::Currency::balance(&beneficiary), T::Currency::minimum_balance() + revenue);
+		assert_eq!(Revenue::<T>::get().len() as u32, timeslices - n);
+		assert_eq!(T::Currency::balance(&beneficiary), T::Currency::minimum_balance() + claimed);
 
 		Ok(())
 	}

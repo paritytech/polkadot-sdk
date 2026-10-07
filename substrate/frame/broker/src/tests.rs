@@ -717,6 +717,162 @@ fn instapool_payouts_work() {
 	});
 }
 
+/// Pool a whole core in the Instantaneous Coretime Pool, and spend `10` on it in timeslice 4.
+fn setup_instapool_revenue() {
+	let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
+	assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
+	assert_ok!(Broker::do_start_sales(100, 2));
+	advance_to(2);
+	let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+	assert_ok!(Broker::do_pool(region, None, 2, Final));
+	assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+	advance_to(8);
+	assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+	advance_to(9);
+}
+
+/// Put a revenue report from the Relay chain into the inbox, along with the funds backing it.
+fn report_revenue(until: u64, amount: u64) {
+	mint_to_pot(amount);
+	RevenueInbox::<Test>::put(OnDemandRevenueRecord { until, amount });
+}
+
+#[test]
+fn reported_revenue_for_the_ending_timeslice_is_merged_with_the_claimed_revenue() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		setup_instapool_revenue();
+		// The Relay chain reports revenue for timeslice 4 as well.
+		report_revenue(10, 10);
+
+		// Timeslice 4 ends, and the revenue from both sources is distributed in one go.
+		System::reset_events();
+		advance_to(10);
+		assert!(RevenueInbox::<Test>::get().is_none());
+		System::assert_has_event(
+			Event::ClaimsReady { when: 4, system_payout: 13, private_payout: 7 }.into(),
+		);
+		assert_eq!(pot(), 7);
+	});
+}
+
+/// Whether the broker emitted an event distributing the revenue of timeslice `when`.
+fn revenue_distributed_for(when: Timeslice) -> bool {
+	System::events().iter().any(|record| {
+		matches!(
+			record.event,
+			RuntimeEvent::Broker(
+				Event::ClaimsReady { when: w, .. } | Event::HistoryDropped { when: w, .. }
+			) if w == when
+		)
+	})
+}
+
+#[test]
+fn reported_revenue_for_another_timeslice_is_distributed_separately() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		setup_instapool_revenue();
+		// The Relay chain reports revenue for timeslice 3.
+		report_revenue(8, 10);
+
+		// Timeslice 4 ends. Its claimed revenue and the reported revenue of timeslice 3 are both
+		// distributed, each for its own timeslice.
+		System::reset_events();
+		advance_to(10);
+		assert!(RevenueInbox::<Test>::get().is_none());
+		System::assert_has_event(
+			Event::ClaimsReady { when: 4, system_payout: 6, private_payout: 4 }.into(),
+		);
+		assert!(revenue_distributed_for(3));
+	});
+}
+
+#[test]
+fn revenue_which_fails_to_be_claimed_is_distributed_for_its_timeslice_later() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		setup_instapool_revenue();
+
+		// Timeslice 4 ends, but the market cannot pay out its revenue.
+		RevenueClaimFunds::set(Some(0));
+		System::reset_events();
+		advance_to(10);
+		assert!(!revenue_distributed_for(4));
+		// Its history is kept, for the revenue to be distributed by once it is claimed.
+		assert_eq!(InstaPoolHistory::<Test>::get(4).map(|r| r.maybe_payout), Some(None));
+
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		RevenueClaimFunds::set(None);
+
+		// Timeslice 5 ends, and the revenue of both timeslices is claimed and distributed, each
+		// for its own timeslice.
+		System::reset_events();
+		advance_to(12);
+		System::assert_has_event(
+			Event::ClaimsReady { when: 4, system_payout: 6, private_payout: 4 }.into(),
+		);
+		assert!(revenue_distributed_for(5));
+		assert!(CoretimeSpending::get().is_empty());
+	});
+}
+
+#[test]
+fn revenue_which_is_partially_claimed_is_distributed_for_its_timeslices() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		setup_instapool_revenue();
+
+		// Timeslice 4 ends, but the market cannot pay out its revenue.
+		RevenueClaimFunds::set(Some(0));
+		advance_to(10);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 7));
+
+		// Timeslice 5 ends, and the market can pay out the revenue of timeslice 4, but not that
+		// of timeslice 5 on top of it.
+		RevenueClaimFunds::set(Some(15));
+		System::reset_events();
+		advance_to(12);
+		System::assert_has_event(
+			Event::ClaimsReady { when: 4, system_payout: 6, private_payout: 4 }.into(),
+		);
+		assert!(!revenue_distributed_for(5));
+		assert!(InstaPoolHistory::<Test>::get(5).is_some());
+
+		// Once the market can pay again, the revenue of timeslice 5 is distributed for it.
+		RevenueClaimFunds::set(None);
+		System::reset_events();
+		advance_to(14);
+		assert!(revenue_distributed_for(5));
+		assert!(CoretimeSpending::get().is_empty());
+	});
+}
+
+#[test]
+fn timeslices_older_than_a_settled_one_are_settled_too() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		setup_instapool_revenue();
+
+		// Timeslices 4 and 5 end, but the market cannot pay out the revenue of timeslice 4, so
+		// neither of them is settled. Nothing is ordered in timeslice 5.
+		RevenueClaimFunds::set(Some(0));
+		advance_to(12);
+		assert!(InstaPoolHistory::<Test>::get(4).is_some());
+		assert!(InstaPoolHistory::<Test>::get(5).is_some());
+
+		// Timeslice 6 ends, and the market pays out the revenue of timeslices 4 and 6 (which had
+		// none). Timeslice 5 is not listed, but as it is older than timeslice 6, it is settled.
+		RevenueClaimFunds::set(None);
+		System::reset_events();
+		advance_to(14);
+		System::assert_has_event(
+			Event::ClaimsReady { when: 4, system_payout: 6, private_payout: 4 }.into(),
+		);
+		assert!(revenue_distributed_for(5));
+		assert!(revenue_distributed_for(6));
+		assert!(InstaPoolHistory::<Test>::get(5).is_none());
+		assert!(InstaPoolHistory::<Test>::get(6).is_none());
+		// The walk back stops at the first timeslice which was settled before.
+		assert!(!revenue_distributed_for(3));
+	});
+}
+
 #[test]
 fn instapool_partial_core_payouts_work() {
 	TestExt::new().endow(1, 1000).execute_with(|| {

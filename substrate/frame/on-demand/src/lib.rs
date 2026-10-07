@@ -31,8 +31,9 @@
 //!   chain in one go on finalization, via [`QueueOnDemandOrders`].
 //! - The spot prices paid are collected in the pallet's pot and booked as [`Revenue`] against the
 //!   timeslice the order was placed in. `pallet-broker` claims the revenue of each timeslice once
-//!   it has ended through [`fp_coretime::revenue::OnDemandRevenue`], and pays it out to the
-//!   contributors to the Instantaneous Coretime Pool.
+//!   it has ended, along with that of any earlier timeslice which could not be paid out before,
+//!   through [`fp_coretime::revenue::OnDemandRevenue`], and pays it out to the contributors to the
+//!   Instantaneous Coretime Pool.
 //!
 //!   NOTE: It is important to make sure that this pallet is ordered before `ParachainSystem` in the
 //!   runtime - otherwise the messages will not be sent in the block in which they are created,
@@ -114,7 +115,7 @@ impl<RelayBlockNumber> QueueOnDemandOrders<RelayBlockNumber> for () {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use fp_coretime::revenue::OnDemandRevenue;
+	use fp_coretime::revenue::{OnDemandRevenue, RevenueClaim};
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{
@@ -172,6 +173,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type TimeslicePeriod: Get<RelayBlockNumberOf<Self>>;
 
+		/// The maximum number of timeslices whose unclaimed revenue is kept apart.
+		///
+		/// Normally only the revenue of the current timeslice and of the one which has just ended
+		/// is unclaimed, but more builds up while the revenue cannot be paid out. Once this many
+		/// timeslices have unclaimed revenue, the revenue of the oldest one is merged into the
+		/// next oldest one, so it is never lost, but is attributed to a later timeslice.
+		#[pallet::constant]
+		type MaxUnclaimedTimeslices: Get<u32>;
+
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -194,12 +204,13 @@ pub mod pallet {
 	>;
 
 	/// Revenue from on-demand sales which has not been claimed yet, by the timeslice the orders
-	/// were placed in.
+	/// were placed in, newest first.
 	///
 	/// The funds themselves sit in the pallet's pot until they are claimed through
 	/// [`OnDemandRevenue::claim_revenue`].
 	#[pallet::storage]
-	pub type Revenue<T: Config> = StorageMap<_, Twox64Concat, Timeslice, BalanceOf<T>, ValueQuery>;
+	pub type Revenue<T: Config> =
+		StorageValue<_, BoundedVec<RevenueRecordOf<T>, T::MaxUnclaimedTimeslices>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -222,7 +233,9 @@ pub mod pallet {
 			/// The account the revenue was paid out to.
 			beneficiary: T::AccountId,
 		},
-		/// The funds in pot were unexpectedly too low to handle a revenue claim.
+		/// The funds in pot were unexpectedly too low to handle a revenue claim. The revenue of
+		/// the oldest timeslices was paid out as far as the funds allowed; the rest stays booked
+		/// until the pot is topped up.
 		UnexpectedLowFunds {
 			/// The amount that was being claimed.
 			amount_to_claim: BalanceOf<T>,
@@ -254,6 +267,13 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			T::WeightInfo::on_finalize_block_fixed()
+		}
+
+		fn integrity_test() {
+			assert!(
+				T::MaxUnclaimedTimeslices::get() > 0,
+				"`MaxUnclaimedTimeslices` must allow for the revenue of at least one timeslice"
+			);
 		}
 
 		fn on_finalize(_now: BlockNumberFor<T>) {
@@ -359,7 +379,7 @@ pub mod pallet {
 			// revenue they represent is claimed.
 			T::Currency::transfer(&who, &Self::account_id(), spot_price, Preserve)?;
 			let when: Timeslice = (now / T::TimeslicePeriod::get()).saturated_into();
-			Revenue::<T>::mutate(when, |revenue| revenue.saturating_accrue(spot_price));
+			Self::book_revenue(when, spot_price);
 
 			// Add the order to the batch that gets sent to the Relay chain on finalization.
 			PendingBatch::<T>::try_mutate(|batch| {
@@ -378,54 +398,135 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Book `amount` of revenue against timeslice `when`.
+		fn book_revenue(when: Timeslice, amount: BalanceOf<T>) {
+			Revenue::<T>::mutate(|revenue| {
+				// The records are newest first, so this is where the record for `when` either is,
+				// or belongs.
+				let index = revenue.iter().position(|record| record.when <= when);
+				if let Some(record) =
+					index.and_then(|index| revenue.get_mut(index)).filter(|r| r.when == when)
+				{
+					record.amount.saturating_accrue(amount);
+					return;
+				}
+
+				let index = index.unwrap_or(revenue.len());
+				let overdue = if revenue.is_full() && index == revenue.len() {
+					// `when` is older than every timeslice kept apart, so it is the one which is
+					// overdue.
+					RevenueRecord { when, amount }
+				} else {
+					match revenue.force_insert_keep_left(index, RevenueRecord { when, amount }) {
+						Ok(None) => return,
+						Ok(Some(overdue)) => overdue,
+						// Only possible with `MaxUnclaimedTimeslices` set to zero, which the
+						// integrity test rules out.
+						Err(_) => {
+							frame_support::defensive!("Revenue could not be booked");
+							return;
+						},
+					}
+				};
+
+				// The revenue of the oldest timeslice has not been claimed for too long; keep it
+				// with the next oldest one.
+				log::warn!(
+					target: LOG_TARGET,
+					"Unclaimed revenue of timeslice {} merged into a later timeslice",
+					overdue.when,
+				);
+				// We just ensured that we couldn't insert the overdue amount because the revenue
+				// vec was full, so it can't be empty, so there will always be a last entry. qed
+				let oldest = revenue.last_mut().unwrap();
+				oldest.amount.saturating_accrue(overdue.amount);
+			});
+		}
 	}
 
 	impl<T: Config> OnDemandRevenue<BalanceOf<T>, T::AccountId> for Pallet<T> {
-		fn claim_revenue(when: Timeslice, beneficiary: &T::AccountId) -> BalanceOf<T> {
-			let claimable = Revenue::<T>::take(when);
-			if claimable.is_zero() {
-				return Zero::zero();
-			}
+		fn claim_revenue(
+			up_to: Timeslice,
+			beneficiary: &T::AccountId,
+		) -> RevenueClaim<BalanceOf<T>> {
+			let (paid, claimable) = Self::do_claim_revenue(up_to, beneficiary);
+			RevenueClaim { paid, weight: <T as Config>::WeightInfo::claim_revenue(claimable) }
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Implements [`OnDemandRevenue::claim_revenue`], returning the paid out revenue and the
+		/// number of timeslices whose revenue was claimable.
+		fn do_claim_revenue(
+			up_to: Timeslice,
+			beneficiary: &T::AccountId,
+		) -> (Vec<(Timeslice, BalanceOf<T>)>, u32) {
+			let mut revenue = Revenue::<T>::get();
+			// The records are newest first, so the claimable ones are at the end.
+			let claimable = revenue.iter().filter(|record| record.when <= up_to).count() as u32;
 
 			let pot = Self::account_id();
 			// The pot is kept alive so that the (possibly sub-existential) payments for individual
-			// orders keep working. If the pot was never endowed, this holds back one existential
-			// deposit out of the very first claim.
+			// orders keep working.
 			let reducible = T::Currency::reducible_balance(&pot, Preserve, Polite);
-			let amount = claimable.min(reducible);
-			if amount < claimable {
+
+			// Take the revenue of as many timeslices as can be paid out in full, oldest first.
+			let mut total = BalanceOf::<T>::zero();
+			let mut paid = Vec::new();
+			while let Some(oldest) = revenue.last().filter(|record| record.when <= up_to) {
+				let with_oldest = total.saturating_add(oldest.amount);
+				if with_oldest > reducible {
+					break;
+				}
+				total = with_oldest;
+				paid.push((oldest.when, oldest.amount));
+				revenue.pop();
+			}
+
+			let complete = revenue.last().map_or(true, |record| record.when > up_to);
+			if complete && paid.last().map_or(true, |&(when, _)| when != up_to) {
+				// Everything up to `up_to` was paid out, so it is settled even without revenue.
+				paid.push((up_to, Zero::zero()));
+			}
+			if !complete {
+				// Some revenue can only be paid out once the pot has been topped up.
+				let booked = revenue
+					.iter()
+					.filter(|record| record.when <= up_to)
+					.fold(total, |booked, record| booked.saturating_add(record.amount));
 				log::error!(
 					target: LOG_TARGET,
-					"The pot holds less than the {claimable:?} of revenue booked for timeslice \
-					 {when}; paying out {amount:?} instead.",
+					"The pot holds less than the {booked:?} of revenue booked up to timeslice \
+					 {up_to}; paying out {total:?} instead.",
 				);
 				Self::deposit_event(Event::<T>::UnexpectedLowFunds {
-					amount_to_claim: amount,
-					claimable,
+					amount_to_claim: booked,
+					claimable: reducible,
 				});
 			}
 
-			if let Err(err) = T::Currency::transfer(&pot, beneficiary, amount, Preserve) {
-				// Every timeslice is claimed only once, so carry the revenue over to the next one
-				// for the payout to be retried.
-				log::error!(target: LOG_TARGET, "Paying out {amount:?} of revenue failed: {err:?}");
-				Revenue::<T>::mutate(when.saturating_add(1), |next| {
-					next.saturating_accrue(claimable)
-				});
-				return Zero::zero();
+			if !total.is_zero() {
+				if let Err(err) = T::Currency::transfer(&pot, beneficiary, total, Preserve) {
+					// The revenue stays booked, to be claimed along with a later timeslice.
+					log::error!(
+						target: LOG_TARGET,
+						"Paying out {total:?} of revenue failed: {err:?}",
+					);
+					return (Vec::new(), claimable);
+				}
 			}
 
-			Self::deposit_event(Event::<T>::RevenueClaimed {
-				when,
-				amount,
-				beneficiary: beneficiary.clone(),
-			});
+			Revenue::<T>::put(revenue);
+			for &(when, amount) in paid.iter().filter(|(_, amount)| !amount.is_zero()) {
+				Self::deposit_event(Event::<T>::RevenueClaimed {
+					when,
+					amount,
+					beneficiary: beneficiary.clone(),
+				});
+			}
 
-			amount
-		}
-
-		fn claim_revenue_weight() -> Weight {
-			<T as Config>::WeightInfo::claim_revenue()
+			(paid, claimable)
 		}
 	}
 }

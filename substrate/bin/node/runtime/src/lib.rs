@@ -2514,6 +2514,7 @@ impl pallet_on_demand_para::Config for Runtime {
 	type OrderQueue = ();
 	type MaxBatchSize = ConstU32<1000>;
 	type TimeslicePeriod = <Runtime as pallet_broker::Config>::TimeslicePeriod;
+	type MaxUnclaimedTimeslices = ConstU32<5>;
 	type PalletId = OnDemandPalletId;
 }
 

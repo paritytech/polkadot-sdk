@@ -133,6 +133,7 @@ impl Config for Test {
 	type OrderQueue = RecordingOrderQueue;
 	type MaxBatchSize = ConstU32<1000>;
 	type TimeslicePeriod = ConstU32<TIMESLICE_PERIOD>;
+	type MaxUnclaimedTimeslices = ConstU32<MAX_UNCLAIMED_TIMESLICES>;
 	type PalletId = OnDemandPalletId;
 }
 
@@ -156,6 +157,9 @@ pub fn advance_block() {
 
 /// The number of Relay-chain blocks in a timeslice.
 pub const TIMESLICE_PERIOD: u32 = 10;
+
+/// The maximum number of timeslices whose unclaimed revenue is kept apart.
+pub const MAX_UNCLAIMED_TIMESLICES: u32 = 3;
 
 /// The default balance for test accounts.
 pub const DEFAULT_ACCOUNT_BALANCE: u64 = DEFAULT_BASE_FEE as u64 * 1000;

@@ -851,7 +851,7 @@ mod benches {
 		#[block]
 		{
 			let (when, revenue) =
-				Broker::<T>::take_revenue_report(None).expect("a revenue report was put in; qed");
+				Broker::<T>::take_revenue_report().expect("a revenue report was put in; qed");
 			Broker::<T>::process_revenue_amount(when, revenue);
 		}
 
