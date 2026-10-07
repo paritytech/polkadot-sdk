@@ -27,7 +27,7 @@ use codec::{Decode, Encode};
 use core::{fmt, marker::PhantomData, mem};
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
-use hrmp_primitives::{ChannelDeposits, ChannelId, DepositAction, OnDepositSet};
+use hrmp_primitives::{ChannelDeposits, ChannelId, DepositAction, Deposits, OnDepositSet};
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
 use polkadot_primitives::{
 	Balance, Hash, HrmpChannelId, Id as ParaId, InboundHrmpMessage, OutboundHrmpMessage,
@@ -168,13 +168,12 @@ pub struct HrmpChannel {
 pub struct LocalDepositProvider<T>(PhantomData<T>);
 
 impl<T: Config> LocalDepositProvider<T> {
-	/// Reserves or unreserves the difference between the recorded deposits and what `action` sets.
-	fn reserve_difference(channel_id: &HrmpChannelId, action: &DepositAction) -> DispatchResult {
-		let (sender, recipient) = target_deposits::<T>(channel_id, action);
+	/// Reserves or unreserves the difference between the recorded deposits and `deposits`.
+	fn reserve_difference(channel_id: &HrmpChannelId, deposits: Deposits) -> DispatchResult {
 		let (held_sender, held_recipient) = Pallet::<T>::recorded_deposits(channel_id);
 		for (para, current, amount) in [
-			(channel_id.sender, held_sender, sender),
-			(channel_id.recipient, held_recipient, recipient),
+			(channel_id.sender, held_sender, deposits.sender),
+			(channel_id.recipient, held_recipient, deposits.recipient),
 		] {
 			let Some(amount) = amount else { continue };
 			let account: T::AccountId = para.into_account_truncating();
@@ -191,11 +190,15 @@ impl<T: Config> LocalDepositProvider<T> {
 impl<T: Config> ChannelDeposits for LocalDepositProvider<T> {
 	type OnDepositSet = Pallet<T>;
 
-	fn try_set_deposit(channel_id: ChannelId, action: DepositAction) -> DispatchResult {
+	fn try_set_deposit(
+		channel_id: ChannelId,
+		deposits: Deposits,
+		action: DepositAction,
+	) -> DispatchResult {
 		let id = from_primitive(&channel_id);
-		Self::reserve_difference(&id, &action)?;
+		Self::reserve_difference(&id, deposits)?;
 		// Synchronous, so an error reverts the reserve with the call instead of a give-back.
-		Pallet::<T>::finish_deposit_action(&id, action)
+		Pallet::<T>::finish_deposit_action(&id, deposits, action)
 	}
 }
 
@@ -207,24 +210,8 @@ fn to_primitive(id: &HrmpChannelId) -> ChannelId {
 	ChannelId { sender: id.sender.into(), recipient: id.recipient.into() }
 }
 
-/// What each side holds once `action` is done on `channel_id`; `None` if left alone.
-pub(crate) fn target_deposits<T: Config>(
-	channel_id: &HrmpChannelId,
-	action: &DepositAction,
-) -> (Option<Balance>, Option<Balance>) {
-	let (sender, recipient) = Pallet::<T>::deposits_for(channel_id);
-	match action {
-		DepositAction::InitOpenChannel { .. } => (Some(sender), None),
-		DepositAction::AcceptOpenChannel => (None, Some(recipient)),
-		DepositAction::PokeChannelDeposits => (Some(sender), Some(recipient)),
-		DepositAction::CloseChannel => (Some(0), Some(0)),
-		DepositAction::CancelOpenRequest { sender, recipient } |
-		DepositAction::Release { sender, recipient } => (sender.then_some(0), recipient.then_some(0)),
-	}
-}
-
 impl<T: Config> OnDepositSet for Pallet<T> {
-	fn on_deposit_set(channel_id: ChannelId, action: DepositAction) -> Weight {
+	fn on_deposit_set(channel_id: ChannelId, deposits: Deposits, action: DepositAction) -> Weight {
 		let id = from_primitive(&channel_id);
 		// Bounded by the call that asked for the deposit.
 		let weight = match action {
@@ -245,7 +232,7 @@ impl<T: Config> OnDepositSet for Pallet<T> {
 			DepositAction::CloseChannel => <T as Config>::WeightInfo::force_process_hrmp_close(1),
 			DepositAction::Release { .. } => Weight::zero(),
 		};
-		if let Err(e) = Self::finish_deposit_action(&id, action.clone()) {
+		if let Err(e) = Self::finish_deposit_action(&id, deposits, action.clone()) {
 			log::warn!(
 				target: "runtime::hrmp",
 				"giving back deposit of {id:?} for {action:?}: {e:?}"
@@ -1018,7 +1005,8 @@ impl<T: Config> Pallet<T> {
 			let recipient = req_data.confirmed && !outgoing.contains(&req_id.recipient);
 			let action = DepositAction::CancelOpenRequest { sender, recipient };
 			if !sender && !recipient {
-				Self::on_deposit_set(to_primitive(&req_id), action);
+				let deposits = Self::target_deposits(&req_id, &action);
+				Self::on_deposit_set(to_primitive(&req_id), deposits, action);
 				continue;
 			}
 			Self::set_deposit_or_log(&req_id, action);
@@ -1472,7 +1460,8 @@ impl<T: Config> Pallet<T> {
 			max_total_size: config.hrmp_channel_max_total_size,
 		};
 		if Self::is_system_channel(&channel_id) {
-			Self::on_deposit_set(to_primitive(&channel_id), action);
+			let deposits = Self::target_deposits(&channel_id, &action);
+			Self::on_deposit_set(to_primitive(&channel_id), deposits, action);
 			return Ok(());
 		}
 		Self::set_deposit(&channel_id, action)
@@ -1487,26 +1476,34 @@ impl<T: Config> Pallet<T> {
 		let config = configuration::ActiveConfig::<T>::get();
 		Self::ensure_can_accept_open_channel(&channel_id, &config)?;
 
+		let action = DepositAction::AcceptOpenChannel;
 		if Self::is_system_channel(&channel_id) {
-			Self::on_deposit_set(to_primitive(&channel_id), DepositAction::AcceptOpenChannel);
+			let deposits = Self::target_deposits(&channel_id, &action);
+			Self::on_deposit_set(to_primitive(&channel_id), deposits, action);
 			return Ok(());
 		}
-		Self::set_deposit(&channel_id, DepositAction::AcceptOpenChannel)
+		Self::set_deposit(&channel_id, action)
 	}
 
 	/// Finishes the call that asked for deposits once they are set.
-	fn finish_deposit_action(channel_id: &HrmpChannelId, action: DepositAction) -> DispatchResult {
+	fn finish_deposit_action(
+		channel_id: &HrmpChannelId,
+		deposits: Deposits,
+		action: DepositAction,
+	) -> DispatchResult {
 		match action {
 			DepositAction::InitOpenChannel { max_capacity, max_message_size, max_total_size } => {
 				Self::do_init_open_channel(
 					channel_id,
+					// Left alone means still nothing held.
+					deposits.sender.unwrap_or_default(),
 					max_capacity,
 					max_message_size,
 					max_total_size,
 				)
 			},
 			DepositAction::AcceptOpenChannel => Self::do_accept_open_channel(channel_id),
-			DepositAction::PokeChannelDeposits => Self::sync_channel_deposits(channel_id),
+			DepositAction::PokeChannelDeposits => Self::sync_channel_deposits(channel_id, deposits),
 			DepositAction::CancelOpenRequest { .. } => Self::do_cancel_open_request(channel_id),
 			DepositAction::CloseChannel => {
 				Self::close_hrmp_channel(channel_id);
@@ -1518,7 +1515,22 @@ impl<T: Config> Pallet<T> {
 
 	/// Asks [`Config::DepositProvider`] to set the deposits `action` names.
 	fn set_deposit(channel_id: &HrmpChannelId, action: DepositAction) -> DispatchResult {
-		T::DepositProvider::try_set_deposit(to_primitive(channel_id), action)
+		let deposits = Self::target_deposits(channel_id, &action);
+		T::DepositProvider::try_set_deposit(to_primitive(channel_id), deposits, action)
+	}
+
+	/// What each side holds once `action` is done on `channel_id`, priced from the active config.
+	fn target_deposits(channel_id: &HrmpChannelId, action: &DepositAction) -> Deposits {
+		let (sender, recipient) = Self::deposits_for(channel_id);
+		let (sender, recipient) = match action {
+			DepositAction::InitOpenChannel { .. } => (Some(sender), None),
+			DepositAction::AcceptOpenChannel => (None, Some(recipient)),
+			DepositAction::PokeChannelDeposits => (Some(sender), Some(recipient)),
+			DepositAction::CloseChannel => (Some(0), Some(0)),
+			DepositAction::CancelOpenRequest { sender, recipient } |
+			DepositAction::Release { sender, recipient } => (sender.then_some(0), recipient.then_some(0)),
+		};
+		Deposits { sender, recipient }
 	}
 
 	/// [`Self::set_deposit`] for paths that have nowhere to send an error.
@@ -1621,6 +1633,7 @@ impl<T: Config> Pallet<T> {
 
 	fn do_init_open_channel(
 		channel_id: &HrmpChannelId,
+		sender_deposit: Balance,
 		max_capacity: u32,
 		max_message_size: u32,
 		max_total_size: u32,
@@ -1639,7 +1652,7 @@ impl<T: Config> Pallet<T> {
 			HrmpOpenChannelRequest {
 				confirmed: false,
 				_age: 0,
-				sender_deposit: Self::deposits_for(channel_id).0,
+				sender_deposit,
 				max_capacity,
 				max_message_size,
 				max_total_size,
@@ -1693,12 +1706,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn sync_channel_deposits(channel_id: &HrmpChannelId) -> DispatchResult {
-		let (sender_deposit, recipient_deposit) = Self::deposits_for(channel_id);
+	fn sync_channel_deposits(channel_id: &HrmpChannelId, deposits: Deposits) -> DispatchResult {
 		HrmpChannels::<T>::try_mutate(channel_id, |channel| -> DispatchResult {
 			let channel = channel.as_mut().ok_or(Error::<T>::OpenHrmpChannelDoesntExist)?;
-			channel.sender_deposit = sender_deposit;
-			channel.recipient_deposit = recipient_deposit;
+			channel.sender_deposit = deposits.sender.unwrap_or(channel.sender_deposit);
+			channel.recipient_deposit = deposits.recipient.unwrap_or(channel.recipient_deposit);
 			Ok(())
 		})
 	}

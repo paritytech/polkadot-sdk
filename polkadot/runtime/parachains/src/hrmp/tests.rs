@@ -571,18 +571,70 @@ fn duplicate_deposit_result_is_rejected() {
 			max_message_size: 8,
 			max_total_size: 16,
 		};
-		Hrmp::on_deposit_set(channel_id, init.clone());
-		Hrmp::on_deposit_set(channel_id, init);
+		let sender_deposit = Deposits { sender: Some(0), recipient: None };
+		Hrmp::on_deposit_set(channel_id, sender_deposit, init.clone());
+		Hrmp::on_deposit_set(channel_id, sender_deposit, init);
 
 		let accept = DepositAction::AcceptOpenChannel;
-		Hrmp::on_deposit_set(channel_id, accept.clone());
-		Hrmp::on_deposit_set(channel_id, accept);
+		let recipient_deposit = Deposits { sender: None, recipient: Some(0) };
+		Hrmp::on_deposit_set(channel_id, recipient_deposit, accept.clone());
+		Hrmp::on_deposit_set(channel_id, recipient_deposit, accept);
 		assert_eq!(HrmpOpenChannelRequestsList::<Test>::get().len(), 1);
 		assert_eq!(HrmpAcceptedChannelRequestCount::<Test>::get(para_b), 1);
 		Hrmp::assert_storage_consistency_exhaustive();
 
 		run_to_block(6, Some(vec![6]));
 		assert!(channel_exists(para_a, para_b));
+	});
+}
+
+#[test]
+fn init_records_deposit_taken_when_config_changes_meanwhile() {
+	let para_a = 2001.into();
+	let para_b = 2003.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 100);
+		run_to_block(5, Some(vec![4, 5]));
+
+		MockDepositProvider::defer();
+		assert_ok!(Hrmp::init_open_channel(para_a, para_b, 2, 8));
+		configuration::ActiveConfig::<Test>::mutate(|c| c.hrmp_sender_deposit = 50);
+		MockDepositProvider::deliver();
+
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+		let request = HrmpOpenChannelRequests::<Test>::get(&channel_id).unwrap();
+		assert_eq!(request.sender_deposit, 20);
+	});
+}
+
+#[test]
+fn poke_records_deposits_set_when_config_changes_meanwhile() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 100);
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+		insert_channel_without_deposits(&channel_id);
+
+		MockDepositProvider::defer();
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b));
+		configuration::ActiveConfig::<Test>::mutate(|c| {
+			c.hrmp_sender_deposit = 50;
+			c.hrmp_recipient_deposit = 40;
+		});
+		MockDepositProvider::deliver();
+
+		let channel = HrmpChannels::<Test>::get(&channel_id).unwrap();
+		assert_eq!((channel.sender_deposit, channel.recipient_deposit), (20, 15));
 	});
 }
 

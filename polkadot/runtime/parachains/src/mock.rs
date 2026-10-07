@@ -41,7 +41,7 @@ use frame_support::{
 };
 use frame_support_test::TestRandomness;
 use frame_system::{limits, EnsureRoot};
-use hrmp_primitives::{ChannelDeposits, ChannelId, DepositAction, OnDepositSet};
+use hrmp_primitives::{ChannelDeposits, ChannelId, DepositAction, Deposits, OnDepositSet};
 use polkadot_primitives::{
 	slashing::DisputesTimeSlot, AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash,
 	DisputeOffenceKind, HrmpChannelId, Moment, SessionIndex, UpwardMessage, ValidationCode,
@@ -307,7 +307,7 @@ thread_local! {
 	static DEFER_DEPOSITS: Cell<bool> = const { Cell::new(false) };
 	static HELD_DEPOSITS: RefCell<Vec<(ChannelId, Balance, Balance)>> =
 		const { RefCell::new(Vec::new()) };
-	static PENDING_DEPOSITS: RefCell<Vec<(ChannelId, DepositAction)>> =
+	static PENDING_DEPOSITS: RefCell<Vec<(ChannelId, Deposits, DepositAction)>> =
 		const { RefCell::new(Vec::new()) };
 }
 
@@ -322,8 +322,8 @@ impl MockDepositProvider {
 
 	/// Reports every held deposit.
 	pub fn deliver() {
-		for (channel_id, action) in PENDING_DEPOSITS.with(|p| p.take()) {
-			Hrmp::on_deposit_set(channel_id, action);
+		for (channel_id, deposits, action) in PENDING_DEPOSITS.with(|p| p.take()) {
+			Hrmp::on_deposit_set(channel_id, deposits, action);
 		}
 	}
 
@@ -351,30 +351,30 @@ impl MockDepositProvider {
 impl ChannelDeposits for MockDepositProvider {
 	type OnDepositSet = Hrmp;
 
-	fn try_set_deposit(channel_id: ChannelId, action: DepositAction) -> DispatchResult {
+	fn try_set_deposit(
+		channel_id: ChannelId,
+		deposits: Deposits,
+		action: DepositAction,
+	) -> DispatchResult {
 		if !DEFER_DEPOSITS.with(|d| d.get()) {
-			return hrmp::LocalDepositProvider::<Test>::try_set_deposit(channel_id, action);
+			return hrmp::LocalDepositProvider::<Test>::try_set_deposit(
+				channel_id, deposits, action,
+			);
 		}
-		let id = HrmpChannelId {
-			sender: channel_id.sender.into(),
-			recipient: channel_id.recipient.into(),
-		};
 		PENDING_DEPOSITS.with(|p| {
 			let mut pending = p.borrow_mut();
-			let (sender, recipient) = hrmp::target_deposits::<Test>(&id, &action);
-			let overlaps = |other: &DepositAction| {
-				let (other_sender, other_recipient) = hrmp::target_deposits::<Test>(&id, other);
-				(sender.is_some() && other_sender.is_some()) ||
-					(recipient.is_some() && other_recipient.is_some())
+			let overlaps = |other: &Deposits| {
+				(deposits.sender.is_some() && other.sender.is_some()) ||
+					(deposits.recipient.is_some() && other.recipient.is_some())
 			};
 			ensure!(
-				!pending.iter().any(|(c, a)| *c == channel_id && overlaps(a)),
+				!pending.iter().any(|(c, d, _)| *c == channel_id && overlaps(d)),
 				DispatchError::Other("DepositPending")
 			);
 			let mut held = Self::held(&channel_id);
 			for (para, current, amount) in [
-				(channel_id.sender, &mut held.0, sender),
-				(channel_id.recipient, &mut held.1, recipient),
+				(channel_id.sender, &mut held.0, deposits.sender),
+				(channel_id.recipient, &mut held.1, deposits.recipient),
 			] {
 				let Some(amount) = amount else { continue };
 				let account = ParaId::from(para).into_account_truncating();
@@ -386,7 +386,7 @@ impl ChannelDeposits for MockDepositProvider {
 				*current = amount;
 			}
 			Self::set_held(channel_id, held);
-			pending.push((channel_id, action));
+			pending.push((channel_id, deposits, action));
 			Ok(())
 		})
 	}

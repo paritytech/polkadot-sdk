@@ -4,9 +4,10 @@ doc:
   description: |-
     The relay chain HRMP pallet now sets channel deposits through the new `ChannelDeposits` and
     `OnDepositSet` traits from `hrmp-primitives`, set as `hrmp::Config::DepositProvider`. Each call
-    asks the provider with a `DepositAction` saying which sides to set. The provider prices and
-    tracks the deposits and reports back through `on_deposit_set`, where the call finishes, so a
-    provider on another chain can finish it later. Init and accept on system channels skip it.
+    asks the provider with a `DepositAction` and the `Deposits` each side should hold, priced from
+    the active config. The provider sets and tracks the deposits and reports back through
+    `on_deposit_set` with the same `Deposits`, where the call finishes and records what was set, so
+    a provider on another chain can finish it later. Init and accept on system channels skip it.
     Dropping an open request on offboarding now also frees the sender's request slot.
 
     `LocalDepositProvider` reserves and unreserves through `Config::Currency` and finishes in the
