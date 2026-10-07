@@ -31,6 +31,7 @@ sp-runtime = { workspace = true }
 
 [dev-dependencies]
 pallet-revive-fixtures = { workspace = true }
+test-case = { workspace = true }
 
 [features]
 default = ["std"]

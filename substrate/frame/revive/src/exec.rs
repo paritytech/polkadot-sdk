@@ -144,9 +144,8 @@ pub struct CallProtections {
 	pub reentrancy: ReentrancyProtection,
 	/// Whether the callee and every frame it creates cannot change state.
 	pub read_only: bool,
-	/// Whether the callee is limited to what the stipend pays for on Ethereum, as the receiver of a
-	/// `transfer` or `send` is. Such a callee, and every frame it creates, cannot write persistent
-	/// contract storage, move value, or create or terminate contracts.
+	/// Whether the callee and every frame it creates cannot write persistent storage, move value,
+	/// or create or terminate contracts. Set for calls shaped like a `transfer` or `send`.
 	pub stipend_limited: bool,
 }
 
@@ -530,8 +529,8 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
 
-	/// Returns an `OutOfGas` error if the current frame is the receiver of a `transfer` or `send`,
-	/// or was created by one.
+	/// Returns an `OutOfGas` error if a call shaped like a `transfer` or `send` led to the
+	/// current frame.
 	fn ensure_not_stipend_limited(&self) -> Result<(), DispatchError>;
 
 	/// Check if running as a delegate call.
@@ -713,8 +712,8 @@ struct Frame<T: Config> {
 	allows_reentry: bool,
 	/// If `true` subsequent calls cannot modify storage.
 	read_only: bool,
-	/// If `true` this frame is the receiver of a `transfer` or `send`, or was created by one, and
-	/// cannot write persistent contract storage, move value, or create or terminate contracts.
+	/// If `true` this frame and every frame it creates cannot write persistent storage, move
+	/// value, or create or terminate contracts.
 	stipend_limited: bool,
 	/// The delegate call info of the currently executing frame which was spawned by
 	/// `delegate_call`.
@@ -2736,8 +2735,6 @@ where
 
 	fn ensure_not_stipend_limited(&self) -> Result<(), DispatchError> {
 		if self.top_frame().stipend_limited {
-			// On Ethereum, the 2300 gas stipend cannot pay for a storage write, a value transfer,
-			// or creating or terminating a contract.
 			return Err(Error::<T>::OutOfGas.into());
 		}
 		Ok(())

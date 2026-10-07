@@ -758,102 +758,271 @@ fn delegatecall_is_rejected() {
 	});
 }
 
-// A stipend-limited frame cannot swap: on Ethereum, the stipend cannot pay for it.
-#[test]
-fn swap_is_denied_in_the_receiver_of_a_send() {
-	use alloy::sol_types::{SolConstructor, SolValue};
-	use pallet_revive_fixtures::{CallingReceiver, FixtureType, StipendSender};
+mod stipend_limited_frame {
+	use super::*;
+	use crate::mock::{Balances, GasScale, PoolAssets};
+	use pallet_revive::test_utils::with_parameter;
+	use pallet_revive_fixtures::FixtureType;
+	use test_case::test_case;
 
-	const AMOUNT_IN: u64 = 100;
-	const RECEIVER_ASSETS: u64 = 1_000;
+	/// Provides the pool's initial liquidity, and owns asset 1.
+	const LIQUIDITY_PROVIDER: u64 = 1;
+	/// Receives what the precompile calls under test pay out.
+	const PAYOUT_RECIPIENT: u64 = 3;
+	/// The native and asset 1 balance that `fund_account` gives an account.
+	const FUNDING_AMOUNT: u64 = 10_000;
+	/// The amount of each asset the pool is created with.
+	const POOL_RESERVE: u64 = 10_000;
+	/// The amount of asset 1 each swap exchanges.
+	const SWAP_AMOUNT: u64 = 100;
+	/// The amount of each asset added as liquidity.
+	const LIQUIDITY_AMOUNT: u64 = 1_000;
+	const POOL: (NativeOrWithId<u32>, NativeOrWithId<u32>) =
+		(NativeOrWithId::Native, NativeOrWithId::WithId(1));
 
-	// Returns whether the sender saw its call denied, and the assets the receiver swapped away.
-	let swap_from_receiver = |gas_limit: u64| {
+	/// Funds `account` with native and asset 1 from the provider.
+	fn fund_account(account: u64) {
+		assert_ok!(Balances::transfer_allow_death(
+			RuntimeOrigin::signed(LIQUIDITY_PROVIDER),
+			account,
+			FUNDING_AMOUNT
+		));
+		assert_ok!(Assets::mint(
+			RuntimeOrigin::signed(LIQUIDITY_PROVIDER),
+			1,
+			account,
+			FUNDING_AMOUNT
+		));
+	}
+
+	/// Creates the pool with `POOL_RESERVE` of each asset, and funds `account`.
+	fn setup_pool_and_fund_account(account: u64) {
+		setup_pool(LIQUIDITY_PROVIDER, POOL_RESERVE, POOL_RESERVE);
+		fund_account(account);
+	}
+
+	/// Returns the pool's liquidity tokens that `account` holds.
+	fn liquidity_token_balance(account: u64) -> u64 {
+		let pool = pallet_asset_conversion::Pools::<Test>::get(POOL).expect("pool must exist");
+		PoolAssets::balance(pool.lp_token, account)
+	}
+
+	/// Lets a call with an explicit gas limit pay for the operation under test, so only the stipend
+	/// check can deny it.
+	const RAISED_GAS_SCALE: u32 = 50_000_000;
+
+	/// Calls the asset conversion pre-compile with `call` from a `CallingReceiver` reached with
+	/// `gas_limit`, after `setup` prepares the receiver's account. Returns whether the call was
+	/// denied and what `read_state` reads from the receiver's account.
+	fn call_precompile_via_receiver<R>(
+		fixture_type: FixtureType,
+		gas_limit: u64,
+		call: &impl SolCall,
+		setup: impl FnOnce(u64),
+		read_state: impl FnOnce(u64) -> R,
+	) -> (bool, R) {
+		use alloy::sol_types::{SolConstructor, SolValue};
+		use pallet_revive::test_utils::builder::{BareCallBuilder, BareInstantiateBuilder};
+		use pallet_revive_fixtures::{CallingReceiver, StipendSender};
+
 		new_test_ext().execute_with(|| {
-			let provider = 1u64;
-			setup_pool(provider, 10_000, 10_000);
-
-			let deploy = |name: &str, constructor: Vec<u8>, salt: [u8; 32]| {
-				let (mut code, _) =
-					pallet_revive_fixtures::compile_module_with_type(name, FixtureType::Solc)
-						.unwrap();
-				code.extend(constructor);
-				pallet_revive::Pallet::<Test>::bare_instantiate(
+			let deploy = |name: &str, constructor: Vec<u8>| {
+				let (code, _) =
+					pallet_revive_fixtures::compile_module_with_type(name, fixture_type).unwrap();
+				BareInstantiateBuilder::<Test>::bare_instantiate(
 					RuntimeOrigin::signed(FIXTURE_DEPLOYER),
-					0u64.into(),
-					TransactionLimits::WeightAndDeposit {
-						weight_limit: Weight::MAX,
-						deposit_limit: u64::MAX,
-					},
 					Code::Upload(code),
-					vec![],
-					Some(salt),
-					&ExecConfig::new_substrate_tx(),
 				)
-				.result
-				.unwrap()
-				.addr
-			};
-
-			let swap = IAssetConversion::swapExactTokensForTokensCall {
-				path: vec![encode_asset(1).into(), encode_native().into()],
-				amountIn: U256::from(AMOUNT_IN),
-				amountOutMin: U256::from(1),
-				sendTo: account_addr(&3u64),
-				keepAlive: false,
+				.constructor_data(constructor)
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: Weight::MAX,
+					deposit_limit: u64::MAX,
+				})
+				.build_and_unwrap_contract()
 			};
 			let receiver = deploy(
 				"CallingReceiver",
 				CallingReceiver::constructorCall {
 					_target: precompile_address().0.into(),
-					_data: swap.abi_encode().into(),
+					_data: call.abi_encode().into(),
 				}
 				.abi_encode(),
-				[1; 32],
 			);
-			let receiver_account =
-				<Test as pallet_revive::Config>::AddressMapper::to_account_id(&receiver);
-			assert_ok!(Assets::mint(
-				RuntimeOrigin::signed(provider),
-				1,
-				receiver_account,
-				RECEIVER_ASSETS
-			));
 			let sender = deploy(
 				"StipendSender",
-				StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
-				[2; 32],
+				StipendSender::constructorCall { _receiver: receiver.addr.0.into() }.abi_encode(),
 			);
-
-			// With an unlimited deposit, an explicit gas limit buys the callee almost no weight.
-			let result = pallet_revive::Pallet::<Test>::bare_call(
+			setup(receiver.account_id);
+			let result = BareCallBuilder::<Test>::bare_call(
 				RuntimeOrigin::signed(FIXTURE_DEPLOYER),
-				sender,
-				0u64.into(),
-				TransactionLimits::WeightAndDeposit {
-					weight_limit: pallet_revive::test_utils::WEIGHT_LIMIT,
-					deposit_limit: pallet_revive::test_utils::deposit_limit::<Test>(),
-				},
-				StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
-				&ExecConfig::new_substrate_tx(),
+				sender.addr,
 			)
-			.result
-			.unwrap();
-			let assets_left = <NativeAndAssets as Inspect<u64>>::balance(
-				NativeOrWithId::WithId(1),
-				&receiver_account,
-			);
-			(bool::abi_decode(&result.data).unwrap(), RECEIVER_ASSETS - assets_left)
+			.data(StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode())
+			.build_and_unwrap_result();
+			(bool::abi_decode(&result.data).unwrap(), read_state(receiver.account_id))
 		})
-	};
+	}
 
-	// The raised gas scale lets a call with an explicit gas limit pay for the swap, so only the
-	// stipend check can deny the `send`.
-	crate::mock::GasScale::set(50_000_000);
-	assert_eq!(swap_from_receiver(2300), (true, 0), "the receiver of a `send` should not swap");
-	assert_eq!(
-		[swap_from_receiver(2299), swap_from_receiver(2301)],
-		[(false, AMOUNT_IN); 2],
-		"only a `send` denies swapping"
-	);
+	#[test_case(FixtureType::Solc; "solc")]
+	#[test_case(FixtureType::Resolc; "resolc")]
+	fn swap_exact_tokens_for_tokens_is_denied(fixture_type: FixtureType) {
+		let swap = IAssetConversion::swapExactTokensForTokensCall {
+			path: vec![encode_asset(1).into(), encode_native().into()],
+			amountIn: U256::from(SWAP_AMOUNT),
+			amountOutMin: U256::from(1),
+			sendTo: account_addr(&PAYOUT_RECIPIENT),
+			keepAlive: false,
+		};
+		let [denied, below, above] =
+			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
+				[2300, 2299, 2301].map(|gas_limit| {
+					call_precompile_via_receiver(
+						fixture_type,
+						gas_limit,
+						&swap,
+						setup_pool_and_fund_account,
+						|receiver| Assets::balance(1, receiver),
+					)
+				})
+			});
+		assert_eq!(denied, (true, FUNDING_AMOUNT), "the receiver of a `send` should not swap");
+		assert_eq!(
+			[below, above],
+			[(false, FUNDING_AMOUNT - SWAP_AMOUNT); 2],
+			"only a `send` denies swapping"
+		);
+	}
+
+	#[test_case(FixtureType::Solc; "solc")]
+	#[test_case(FixtureType::Resolc; "resolc")]
+	fn swap_tokens_for_exact_tokens_is_denied(fixture_type: FixtureType) {
+		let swap = IAssetConversion::swapTokensForExactTokensCall {
+			path: vec![encode_native().into(), encode_asset(1).into()],
+			amountOut: U256::from(SWAP_AMOUNT),
+			amountInMax: U256::from(1_000),
+			sendTo: account_addr(&PAYOUT_RECIPIENT),
+			keepAlive: false,
+		};
+		let [denied, below, above] =
+			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
+				[2300, 2299, 2301].map(|gas_limit| {
+					call_precompile_via_receiver(
+						fixture_type,
+						gas_limit,
+						&swap,
+						setup_pool_and_fund_account,
+						|_| Assets::balance(1, PAYOUT_RECIPIENT),
+					)
+				})
+			});
+		assert_eq!(denied, (true, 0), "the receiver of a `send` should not swap");
+		assert_eq!([below, above], [(false, SWAP_AMOUNT); 2], "only a `send` denies swapping");
+	}
+
+	#[test_case(FixtureType::Solc; "solc")]
+	#[test_case(FixtureType::Resolc; "resolc")]
+	fn create_pool_is_denied(fixture_type: FixtureType) {
+		let create_pool = IAssetConversion::createPoolCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+		};
+		let [denied, below, above] =
+			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
+				[2300, 2299, 2301].map(|gas_limit| {
+					call_precompile_via_receiver(
+						fixture_type,
+						gas_limit,
+						&create_pool,
+						|receiver| {
+							assert_ok!(Assets::force_create(
+								RuntimeOrigin::root(),
+								1,
+								LIQUIDITY_PROVIDER,
+								true,
+								1
+							));
+							fund_account(receiver);
+						},
+						|_| pallet_asset_conversion::Pools::<Test>::contains_key(POOL),
+					)
+				})
+			});
+		assert_eq!(denied, (true, false), "the receiver of a `send` should not create a pool");
+		assert_eq!([below, above], [(false, true); 2], "only a `send` denies creating a pool");
+	}
+
+	#[test_case(FixtureType::Solc; "solc")]
+	#[test_case(FixtureType::Resolc; "resolc")]
+	fn add_liquidity_is_denied(fixture_type: FixtureType) {
+		let add_liquidity = IAssetConversion::addLiquidityCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			amount1Desired: U256::from(LIQUIDITY_AMOUNT),
+			amount2Desired: U256::from(LIQUIDITY_AMOUNT),
+			amount1Min: U256::from(0),
+			amount2Min: U256::from(0),
+			mintTo: account_addr(&PAYOUT_RECIPIENT),
+		};
+		let [denied, below, above] =
+			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
+				[2300, 2299, 2301].map(|gas_limit| {
+					call_precompile_via_receiver(
+						fixture_type,
+						gas_limit,
+						&add_liquidity,
+						setup_pool_and_fund_account,
+						|_| liquidity_token_balance(PAYOUT_RECIPIENT),
+					)
+				})
+			});
+		assert_eq!(denied, (true, 0), "the receiver of a `send` should not add liquidity");
+		assert_eq!(
+			[below, above],
+			[(false, LIQUIDITY_AMOUNT); 2],
+			"only a `send` denies adding liquidity"
+		);
+	}
+
+	#[test_case(FixtureType::Solc; "solc")]
+	#[test_case(FixtureType::Resolc; "resolc")]
+	fn remove_liquidity_is_denied(fixture_type: FixtureType) {
+		let remove_liquidity = IAssetConversion::removeLiquidityCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			lpTokenBurn: U256::from(LIQUIDITY_AMOUNT),
+			amount1MinReceive: U256::from(1),
+			amount2MinReceive: U256::from(1),
+			withdrawTo: account_addr(&PAYOUT_RECIPIENT),
+		};
+		let [denied, below, above] =
+			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
+				[2300, 2299, 2301].map(|gas_limit| {
+					call_precompile_via_receiver(
+						fixture_type,
+						gas_limit,
+						&remove_liquidity,
+						|receiver| {
+							setup_pool(LIQUIDITY_PROVIDER, POOL_RESERVE, POOL_RESERVE);
+							assert_ok!(AssetConversionPallet::add_liquidity(
+								RuntimeOrigin::signed(LIQUIDITY_PROVIDER),
+								Box::new(NativeOrWithId::Native),
+								Box::new(NativeOrWithId::WithId(1)),
+								LIQUIDITY_AMOUNT,
+								LIQUIDITY_AMOUNT,
+								0,
+								0,
+								receiver,
+							));
+						},
+						liquidity_token_balance,
+					)
+				})
+			});
+		assert_eq!(
+			denied,
+			(true, LIQUIDITY_AMOUNT),
+			"the receiver of a `send` should not remove liquidity"
+		);
+		assert_eq!([below, above], [(false, 0); 2], "only a `send` denies removing liquidity");
+	}
 }

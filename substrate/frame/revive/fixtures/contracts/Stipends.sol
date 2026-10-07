@@ -199,7 +199,7 @@ contract StipendTest {
     // Test that the receiver of a `transfer` cannot drain the sender. The attacker's
     // receive() calls back into attemptTransfer() to drain more ETH, but a frame entered
     // through `transfer` cannot move value, so the attacker receives only `amount`.
-    function testTransferReentrancy() public payable {
+    function testTransferReentrantDrain() public payable {
         uint256 amount = msg.value / 4;
         uint256 attackerBefore = address(reentrancyAttacker).balance;
         uint256 selfBefore = address(this).balance;
@@ -216,7 +216,7 @@ contract StipendTest {
     }
 
     // Test that the receiver of a `send` cannot drain the sender.
-    function testSendReentrancy() public payable {
+    function testSendReentrantDrain() public payable {
         uint256 amount = msg.value / 4;
         uint256 attackerBefore = address(reentrancyAttacker).balance;
         uint256 selfBefore = address(this).balance;
@@ -345,6 +345,16 @@ contract WarmWriteSender {
             address(receiver).delegatecall{gas: gasLimit}(abi.encodeCall(receiver.counter, ()));
         return !ok;
     }
+
+    function isWarmDelegateWriteDenied(
+        BumpableCounter receiver,
+        uint64 gasLimit
+    ) public returns (bool) {
+        counter += 1;
+        (bool ok, ) =
+            address(receiver).delegatecall{gas: gasLimit}(abi.encodeCall(receiver.bump, ()));
+        return !ok;
+    }
 }
 
 /**
@@ -465,7 +475,7 @@ contract NestedWritingReceiver {
 
 /**
  * @title ValueForwardingReceiver
- * @dev Moves `amount` to `beneficiary` on receiving a call, failing unless the transfer succeeds.
+ * @dev Moves `amount` to `beneficiary` on receiving a call.
  */
 contract ValueForwardingReceiver {
     address payable immutable beneficiary;
@@ -477,8 +487,7 @@ contract ValueForwardingReceiver {
     }
 
     receive() external payable {
-        (bool success, ) = beneficiary.call{value: amount}("");
-        require(success, "value transfer failed");
+        beneficiary.call{value: amount}("");
     }
 }
 
@@ -490,7 +499,7 @@ contract CallingReceiver {
     address immutable target;
     bytes data;
 
-    constructor(address _target, bytes memory _data) payable {
+    constructor(address _target, bytes memory _data) {
         target = _target;
         data = _data;
     }

@@ -2088,8 +2088,9 @@ fn set_storage_works() {
 }
 
 #[test]
-fn set_storage_is_denied_in_a_stipend_limited_frame() {
-	let charlie_ch = MockLoader::insert(Call, |ctx, _| {
+fn state_changes_are_denied_in_a_stipend_limited_frame() {
+	let dummy_ch = MockLoader::insert(Constructor, |_, _| exec_success());
+	let charlie_ch = MockLoader::insert(Call, move |ctx, _| {
 		assert_eq!(
 			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1]), false),
 			Err(Error::<Test>::OutOfGas.into()),
@@ -2099,6 +2100,28 @@ fn set_storage_is_denied_in_a_stipend_limited_frame() {
 			ctx.ext.set_transient_storage(&Key::Fix([1; 32]), Some(vec![1]), false),
 			Ok(WriteOutcome::New),
 			"the callee should still write transient storage"
+		);
+		assert_eq!(
+			ctx.ext.call(
+				&Default::default(),
+				&ALICE_ADDR,
+				U256::one(),
+				vec![],
+				CallProtections::default()
+			),
+			Err(Error::<Test>::OutOfGas.into()),
+			"the callee should not move value"
+		);
+		assert_eq!(
+			ctx.ext.instantiate(
+				&Default::default(),
+				Code::Existing(dummy_ch),
+				U256::zero(),
+				vec![],
+				Some(&[0; 32])
+			),
+			Err(Error::<Test>::OutOfGas.into()),
+			"the callee should not create a contract"
 		);
 		exec_success()
 	});

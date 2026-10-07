@@ -29,8 +29,10 @@ use pallet_revive::{
 		},
 		H160,
 	},
+	test_utils::builder::{BareInstantiateBuilder, Contract},
 	Code, ExecConfig, TransactionLimits, U256,
 };
+use pallet_revive_fixtures::FixtureType;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::{prelude::*, v3, v4};
@@ -763,26 +765,7 @@ fn delegatecall_is_rejected() {
 			hex::const_decode_to_array(b"00000000000000000000000000000000000A0000").unwrap(),
 		);
 
-		let (init_code, _) = pallet_revive_fixtures::compile_module_with_type(
-			"Caller",
-			pallet_revive_fixtures::FixtureType::Solc,
-		)
-		.expect("Caller fixture must be compiled");
-		let caller_addr = pallet_revive::Pallet::<Test>::bare_instantiate(
-			RuntimeOrigin::signed(ALICE),
-			0u32.into(),
-			TransactionLimits::WeightAndDeposit {
-				weight_limit: Weight::MAX,
-				deposit_limit: u128::MAX,
-			},
-			Code::Upload(init_code),
-			vec![],
-			None,
-			&ExecConfig::new_substrate_tx(),
-		)
-		.result
-		.expect("Caller deployment must succeed")
-		.addr;
+		let caller_addr = deploy_fixture("Caller", FixtureType::Solc, Vec::new()).addr;
 
 		let calldata = ICaller::delegateCall {
 			callee: alloy::primitives::Address::from(xcm_precompile_addr.0),
@@ -833,6 +816,25 @@ fn one_big_instruction() -> Xcm<()> {
 
 fn xcm_precompile_address() -> H160 {
 	H160::from(hex::const_decode_to_array(b"00000000000000000000000000000000000A0000").unwrap())
+}
+
+/// Deploys the `name` fixture from ALICE with `constructor_data` as its constructor input.
+fn deploy_fixture(
+	name: &str,
+	fixture_type: FixtureType,
+	constructor_data: Vec<u8>,
+) -> Contract<Test> {
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(name, fixture_type).unwrap();
+	BareInstantiateBuilder::<Test>::bare_instantiate(
+		RuntimeOrigin::signed(ALICE),
+		Code::Upload(code),
+	)
+	.constructor_data(constructor_data)
+	.transaction_limits(TransactionLimits::WeightAndDeposit {
+		weight_limit: Weight::MAX,
+		deposit_limit: u128::MAX,
+	})
+	.build_and_unwrap_contract()
 }
 
 fn precompile_weight_consumed(calldata: Vec<u8>) -> Weight {
@@ -900,118 +902,117 @@ fn execute_decode_charge_is_not_refunded() {
 	});
 }
 
-// A stipend-limited frame cannot execute XCM: on Ethereum, the stipend cannot pay for it.
-#[test]
-fn execute_is_denied_in_the_receiver_of_a_send() {
-	use codec::Encode;
-	use pallet_revive::{precompiles::alloy::sol_types::SolConstructor, AddressMapper};
-	use pallet_revive_fixtures::{CallingReceiver, FixtureType, StipendSender};
+mod stipend_limited_frame {
+	use super::*;
+	use test_case::test_case;
 
-	let xcm_precompile_addr = xcm_precompile_address();
+	/// Lets a call with an explicit gas limit pay for the operation under test, so only the stipend
+	/// check can deny it.
+	const RAISED_GAS_SCALE: u32 = 50_000_000;
 
-	// Returns whether the sender saw its call denied, and the value CHARLIE received.
-	let execute_from_receiver = |gas_limit: u64| {
+	/// Calls the XCM pre-compile with `call` from a funded `CallingReceiver` reached with
+	/// `gas_limit`. Returns whether the call was denied and what `read_state` reads from the
+	/// receiver's account.
+	fn call_precompile_via_receiver<R>(
+		fixture_type: FixtureType,
+		gas_limit: u64,
+		call: &IXcm::IXcmCalls,
+		read_state: impl FnOnce(&AccountId) -> R,
+	) -> (bool, R) {
+		use pallet_revive::{
+			precompiles::alloy::sol_types::SolConstructor, test_utils::builder::BareCallBuilder,
+		};
+		use pallet_revive_fixtures::{CallingReceiver, StipendSender};
+
 		// ALICE also pays the storage deposits of the two deployments.
-		let balances = vec![(ALICE, 1_000_000_000_000_000), (CHARLIE, CUSTOM_INITIAL_BALANCE)];
-		new_test_ext_with_balances(balances).execute_with(|| {
-			let deploy = |name: &str, constructor: Vec<u8>, salt: [u8; 32]| {
-				let (mut code, _) =
-					pallet_revive_fixtures::compile_module_with_type(name, FixtureType::Solc)
-						.unwrap();
-				code.extend(constructor);
-				pallet_revive::Pallet::<Test>::bare_instantiate(
-					RuntimeOrigin::signed(ALICE),
-					U256::zero(),
-					TransactionLimits::WeightAndDeposit {
-						weight_limit: Weight::MAX,
-						deposit_limit: u128::MAX,
-					},
-					Code::Upload(code),
-					vec![],
-					Some(salt),
-					&ExecConfig::new_substrate_tx(),
-				)
-				.result
-				.unwrap()
-				.addr
-			};
-
-			let dest: Location = Junction::AccountId32 { network: None, id: CHARLIE.into() }.into();
-			let message: VersionedXcm<RuntimeCall> = VersionedXcm::from(Xcm(vec![
-				WithdrawAsset((Here, SEND_AMOUNT).into()),
-				buy_execution((Here, SEND_AMOUNT)),
-				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
-			]));
-			let weigh = IXcm::IXcmCalls::weighMessage(weighMessageCall {
-				message: message.encode().into(),
-			});
-			let weight_result = pallet_revive::Pallet::<Test>::bare_call(
-				RuntimeOrigin::signed(ALICE),
-				xcm_precompile_addr,
-				U256::zero(),
-				TransactionLimits::WeightAndDeposit {
-					weight_limit: Weight::MAX,
-					deposit_limit: u128::MAX,
-				},
-				weigh.abi_encode(),
-				&ExecConfig::new_substrate_tx(),
-			)
-			.result
-			.unwrap();
-			let weight = IXcm::Weight::abi_decode(&weight_result.data[..]).unwrap();
-
-			let execute = IXcm::executeCall { message: message.encode().into(), weight };
-			let receiver = deploy(
+		new_test_ext_with_balances(vec![(ALICE, 1_000_000_000_000_000)]).execute_with(|| {
+			let receiver = deploy_fixture(
 				"CallingReceiver",
+				fixture_type,
 				CallingReceiver::constructorCall {
-					_target: xcm_precompile_addr.0.into(),
-					_data: execute.abi_encode().into(),
+					_target: xcm_precompile_address().0.into(),
+					_data: call.abi_encode().into(),
 				}
 				.abi_encode(),
-				[1; 32],
 			);
-			let receiver_account =
-				<Test as pallet_revive::Config>::AddressMapper::to_account_id(&receiver);
-			Balances::make_free_balance_be(&receiver_account, CUSTOM_INITIAL_BALANCE);
-			let sender = deploy(
+			let sender = deploy_fixture(
 				"StipendSender",
-				StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
-				[2; 32],
+				fixture_type,
+				StipendSender::constructorCall { _receiver: receiver.addr.0.into() }.abi_encode(),
 			);
-			let balance_before = Balances::total_balance(&CHARLIE);
+			Balances::make_free_balance_be(&receiver.account_id, CUSTOM_INITIAL_BALANCE);
+			// Sent messages are kept per thread, not per externalities.
+			SENT_XCM.with(|sent| sent.borrow_mut().clear());
 
-			// With an unlimited deposit, an explicit gas limit buys the callee almost no weight.
-			let result = pallet_revive::Pallet::<Test>::bare_call(
-				RuntimeOrigin::signed(ALICE),
-				sender,
-				U256::zero(),
-				TransactionLimits::WeightAndDeposit {
-					weight_limit: pallet_revive::test_utils::WEIGHT_LIMIT,
-					deposit_limit: pallet_revive::test_utils::deposit_limit::<Test>(),
-				},
-				StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
-				&ExecConfig::new_substrate_tx(),
-			)
-			.result
-			.unwrap();
-			(
-				bool::abi_decode(&result.data).unwrap(),
-				Balances::total_balance(&CHARLIE) - balance_before,
-			)
+			let result =
+				BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), sender.addr)
+					.data(
+						StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			(bool::abi_decode(&result.data).unwrap(), read_state(&receiver.account_id))
 		})
-	};
+	}
 
-	// The raised gas scale lets a call with an explicit gas limit pay for the execution, so only
-	// the stipend check can deny the `send`.
-	crate::mock::GasScale::set(50_000_000);
-	assert_eq!(
-		execute_from_receiver(2300),
-		(true, 0),
-		"the receiver of a `send` should not execute XCM"
-	);
-	assert_eq!(
-		[execute_from_receiver(2299), execute_from_receiver(2301)],
-		[(false, SEND_AMOUNT); 2],
-		"only a `send` denies executing XCM"
-	);
+	// A stipend-limited frame cannot change persistent state, so it cannot execute XCM.
+	#[test_case(FixtureType::Solc; "solc")]
+	#[test_case(FixtureType::Resolc; "resolc")]
+	fn execute_is_denied(fixture_type: FixtureType) {
+		use codec::Encode;
+		use pallet_revive::test_utils::with_parameter;
+
+		let message = VersionedXcm::from(Xcm::<()>(vec![
+			WithdrawAsset((Here, SEND_AMOUNT).into()),
+			buy_execution((Here, SEND_AMOUNT)),
+			DepositAsset {
+				assets: AllCounted(1).into(),
+				beneficiary: Junction::AccountId32 { network: None, id: BOB.into() }.into(),
+			},
+		]));
+		let weight = XcmPallet::query_xcm_weight(message.clone()).unwrap();
+		let execute = IXcm::IXcmCalls::execute(IXcm::executeCall {
+			message: message.encode().into(),
+			weight: IXcm::Weight { refTime: weight.ref_time(), proofSize: weight.proof_size() },
+		});
+
+		let [denied, below, above] =
+			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
+				[2300, 2299, 2301].map(|gas_limit| {
+					call_precompile_via_receiver(fixture_type, gas_limit, &execute, |_| {
+						Balances::total_balance(&BOB)
+					})
+				})
+			});
+		assert_eq!(denied, (true, 0), "the receiver of a `send` should not execute XCM");
+		assert_eq!([below, above], [(false, SEND_AMOUNT); 2], "only a `send` denies executing XCM");
+	}
+
+	// A stipend-limited frame cannot change persistent state, so it cannot send XCM.
+	#[test_case(FixtureType::Solc; "solc")]
+	#[test_case(FixtureType::Resolc; "resolc")]
+	fn send_is_denied(fixture_type: FixtureType) {
+		use codec::Encode;
+		use pallet_revive::test_utils::with_parameter;
+
+		let message = Xcm(vec![ClearOrigin]);
+		let send = IXcm::IXcmCalls::send(IXcm::sendCall {
+			destination: VersionedLocation::from(RelayLocation::get()).encode().into(),
+			message: VersionedXcm::<()>::from(message.clone()).encode().into(),
+		});
+		let sent_by = |account: &AccountId| {
+			let origin = Junction::AccountId32 { network: None, id: account.clone().into() };
+			Xcm([DescendOrigin(origin.into())].into_iter().chain(message.0.clone()).collect())
+		};
+
+		let [denied, below, above] =
+			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
+				[2300, 2299, 2301].map(|gas_limit| {
+					call_precompile_via_receiver(fixture_type, gas_limit, &send, |receiver| {
+						sent_xcm() == vec![(RelayLocation::get(), sent_by(receiver))]
+					})
+				})
+			});
+		assert_eq!(denied, (true, false), "the receiver of a `send` should not send XCM");
+		assert_eq!([below, above], [(false, true); 2], "only a `send` denies sending XCM");
+	}
 }

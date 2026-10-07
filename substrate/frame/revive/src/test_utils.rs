@@ -78,3 +78,27 @@ pub const ETH_GAS_LIMIT: u64 = 100_000_000_000;
 pub fn deposit_limit<T: Config>() -> BalanceOf<T> {
 	10_000_000u32.into()
 }
+
+/// Runs `test` with a `parameter_types!` static set to `value`, and restores the previous value
+/// when `test` ends, whether it returns or panics.
+///
+/// `get` and `set` are the static's functions, for example `GasScale::get` and `GasScale::set`.
+pub fn with_parameter<T: Clone, R>(
+	get: fn() -> T,
+	set: fn(T),
+	value: T,
+	test: impl FnOnce() -> R,
+) -> R {
+	struct RestoreParameter<T: Clone> {
+		set: fn(T),
+		previous: T,
+	}
+	impl<T: Clone> Drop for RestoreParameter<T> {
+		fn drop(&mut self) {
+			(self.set)(self.previous.clone());
+		}
+	}
+	let _restore = RestoreParameter { set, previous: get() };
+	set(value);
+	test()
+}

@@ -16,11 +16,11 @@
 // limitations under the License.
 
 use crate::{
-	Code, Config, Error, Pallet,
 	evm::{CallTrace, CallTracer},
-	test_utils::{ALICE, BOB, BOB_ADDR, builder::Contract},
-	tests::{ExtBuilder, GasScale, RuntimeOrigin, Test, builder},
+	test_utils::{self, builder::Contract, ALICE, BOB, BOB_ADDR},
+	tests::{builder, ExtBuilder, GasScale, RuntimeOrigin, Test},
 	tracing::trace,
+	AccountInfo, Code, Config, Error, Pallet,
 };
 use alloy_core::{
 	primitives::U256,
@@ -29,25 +29,17 @@ use alloy_core::{
 use codec::Encode;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
-	BumpableCounter, CreatingReceiver, CreatingReceiver::Creation, FixtureType,
-	NestedWritingReceiver, NestedWritingReceiver::Nesting, StipendSender, StipendTest,
-	TerminatingReceiver, TerminatingReceiver::Termination, ValueForwardingReceiver,
-	WarmWriteSender, compile_module, compile_module_with_type,
+	compile_module, compile_module_with_type, BumpableCounter, CreatingReceiver,
+	CreatingReceiver::Creation, FixtureType, NestedWritingReceiver, NestedWritingReceiver::Nesting,
+	StipendSender, StipendTest, TerminatingReceiver, TerminatingReceiver::Termination,
+	ValueForwardingReceiver, WarmWriteSender,
 };
 use sp_core::H160;
 use test_case::{test_case, test_matrix};
 
-/// Runs `test` under the given gas scale, then restores the default scale.
+/// Runs `test` under the given gas scale, then restores the previous scale.
 fn with_gas_scale<R>(scale: u32, test: impl FnOnce() -> R) -> R {
-	struct RestoreGasScale(u32);
-	impl Drop for RestoreGasScale {
-		fn drop(&mut self) {
-			GasScale::set(self.0);
-		}
-	}
-	let _restore = RestoreGasScale(GasScale::get());
-	GasScale::set(scale);
-	test()
+	test_utils::with_parameter(GasScale::get, GasScale::set, scale, test)
 }
 
 /// Calls `isCallWithGasDenied(gas_limit)` on `sender` and returns the call trace.
@@ -222,6 +214,13 @@ fn evm_call_stipend_is_added_to_static_and_delegate_calls(sender_type: FixtureTy
 			};
 			is_denied(warm_sender, call.abi_encode(), 0)
 		};
+		let delegate_write_denied = |gas_limit: u64| {
+			let call = WarmWriteSender::isWarmDelegateWriteDeniedCall {
+				receiver: writing_receiver,
+				gasLimit: gas_limit,
+			};
+			is_denied(warm_sender, call.abi_encode(), 0)
+		};
 
 		assert!(!value_call_denied(1), "the stipend should be enough for an empty receive");
 		assert!(
@@ -239,8 +238,12 @@ fn evm_call_stipend_is_added_to_static_and_delegate_calls(sender_type: FixtureTy
 				!delegate_read_denied(2300),
 				"an EVM delegate call with a gas limit of 2300 gets the stipend"
 			);
+			assert!(
+				!delegate_write_denied(2300),
+				"an EVM delegate call with a gas limit of 2300 is not stipend-limited"
+			);
 		} else {
-			assert!(delegate_read_denied(2300), "a PolkaVM delegate call gets no stipend");
+			assert!(delegate_read_denied(2300), "a PVM delegate call gets no stipend");
 		}
 		assert_eq!(
 			[delegate_read_denied(2299), delegate_read_denied(2301)],
@@ -256,7 +259,7 @@ fn evm_call_stipend_is_added_to_static_and_delegate_calls(sender_type: FixtureTy
 }
 
 #[test]
-fn evm_call_stipend_prevents_transfer_reentrancy() {
+fn receiver_of_a_transfer_cannot_drain_the_sender() {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -267,7 +270,7 @@ fn evm_call_stipend_prevents_transfer_reentrancy() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
-			.data(StipendTest::testTransferReentrancyCall {}.abi_encode())
+			.data(StipendTest::testTransferReentrantDrainCall {}.abi_encode())
 			.evm_value(1_000_000_u128.into())
 			.build();
 
@@ -276,7 +279,7 @@ fn evm_call_stipend_prevents_transfer_reentrancy() {
 }
 
 #[test]
-fn evm_call_stipend_prevents_send_reentrancy() {
+fn receiver_of_a_send_cannot_drain_the_sender() {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -287,7 +290,7 @@ fn evm_call_stipend_prevents_send_reentrancy() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
-			.data(StipendTest::testSendReentrancyCall {}.abi_encode())
+			.data(StipendTest::testSendReentrantDrainCall {}.abi_encode())
 			.evm_value(1_000_000_u128.into())
 			.build();
 
@@ -322,14 +325,8 @@ fn evm_call_stipend_allows_reentry_from_a_value_transfer_or_send() {
 			!denied(StipendSender::isCallWithGasDeniedCall { gasLimit: 1 }.abi_encode()),
 			"the stipend should be enough for reentry"
 		);
-		assert!(
-			!run(StipendSender::transferToReceiverCall {}.abi_encode()).did_revert(),
-			"a value `transfer` should let the receiver call back into the sender"
-		);
-		assert!(
-			!denied(StipendSender::isSendDeniedCall {}.abi_encode()),
-			"a value `send` should let the receiver call back into the sender"
-		);
+		assert!(!run(StipendSender::transferToReceiverCall {}.abi_encode()).did_revert());
+		assert!(!denied(StipendSender::isSendDeniedCall {}.abi_encode()));
 	});
 }
 
@@ -509,8 +506,7 @@ fn stipend_check_denies_hot_slot_writes_from_a_value_send(
 
 	assert_eq!(
 		call_warm_write_sender(fixture_type, receiver_fixture, 1_000_000, WarmWrite::BySend),
-		(true, U256::from(1)),
-		"a value `send` denies storage writes"
+		(true, U256::from(1))
 	);
 }
 
@@ -569,7 +565,6 @@ enum Beneficiary {
 	[Beneficiary::AccountWithoutCode, Beneficiary::Contract]
 )]
 fn stipend_check_denies_moving_value(fixture_type: FixtureType, beneficiary: Beneficiary) {
-	// The value `ValueForwardingReceiver` sends on each call.
 	const FORWARDED_VALUE: u64 = 1_000_000;
 	let (receiver_code, _) =
 		compile_module_with_type("ValueForwardingReceiver", fixture_type).unwrap();
@@ -607,19 +602,20 @@ fn stipend_check_denies_moving_value(fixture_type: FixtureType, beneficiary: Ben
 			.build_and_unwrap_contract();
 
 		// Returns the receiver's error and the value the beneficiary received.
-		let forward = |gas_limit: u64| {
+		let forward_with_gas = |gas_limit: u64| {
 			let balance_before = Pallet::<Test>::evm_balance(&beneficiary);
 			let receiver_trace = trace_call_with_gas(sender, gas_limit).calls.pop().unwrap();
 			let received = Pallet::<Test>::evm_balance(&beneficiary) - balance_before;
 			(receiver_trace.error, received.as_u64())
 		};
 
-		let (with_2300_gas, with_other_gas) =
-			with_gas_scale(50_000_000, || (forward(2300), [forward(2299), forward(2301)]));
+		let (with_2300_gas, with_other_gas) = with_gas_scale(50_000_000, || {
+			(forward_with_gas(2300), [forward_with_gas(2299), forward_with_gas(2301)])
+		});
 		assert_eq!(
 			with_2300_gas,
 			(Some("OutOfGas".into()), 0),
-			"the receiver of a `send` should halt when it moves value"
+			"the receiver of a `send` should not move value"
 		);
 		assert_eq!(
 			with_other_gas,
@@ -638,8 +634,7 @@ fn stipend_check_denies_creating_contracts(fixture_type: FixtureType, creation: 
 	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
 	let (child_code, _) = compile_module_with_type("DoNothingReceiver", fixture_type).unwrap();
 
-	// Returns the receiver's error and whether it created a contract. Each call runs on fresh
-	// state, because a second `CREATE2` with the same salt would collide.
+	// Returns the receiver's error and whether the contract it creates exists.
 	let create = |gas_limit: u64| {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
@@ -666,7 +661,11 @@ fn stipend_check_denies_creating_contracts(fixture_type: FixtureType, creation: 
 					.build_and_unwrap_contract();
 
 			let receiver_trace = trace_call_with_gas(sender, gas_limit).calls.pop().unwrap();
-			(receiver_trace.error, !receiver_trace.calls.is_empty())
+			let created = receiver_trace
+				.calls
+				.first()
+				.is_some_and(|creation| AccountInfo::<Test>::is_contract(&creation.to));
+			(receiver_trace.error, created)
 		})
 	};
 
@@ -675,7 +674,7 @@ fn stipend_check_denies_creating_contracts(fixture_type: FixtureType, creation: 
 	assert_eq!(
 		with_2300_gas,
 		(Some("OutOfGas".into()), false),
-		"the receiver of a `send` should halt when it creates a contract"
+		"the receiver of a `send` should not create a contract"
 	);
 	assert_eq!(
 		with_other_gas,
@@ -693,8 +692,7 @@ fn stipend_check_denies_terminating_contracts(fixture_type: FixtureType, termina
 	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
 
 	// Returns the innermost frame's error, the value the beneficiary received, and the receiver's
-	// balance before the call. Each call runs on fresh state, because a successful termination
-	// moves the receiver's balance.
+	// balance before the call.
 	let terminate = |gas_limit: u64| {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
