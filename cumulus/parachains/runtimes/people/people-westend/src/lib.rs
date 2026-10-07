@@ -35,8 +35,8 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything, InstanceFilter,
-		TransformOrigin,
+		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, Everything,
+		InstanceFilter, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -67,7 +67,8 @@ use sp_runtime::{
 pub use sp_runtime::{MultiAddress, Perbill, Percent, Permill};
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
-	accumulate_forward::*, consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
+	accumulate_forward::*, consensus::*, currency::*, dap::*, fee::WeightToFee,
+	locations::AssetHubLocation, time::*,
 };
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{prelude::*, Version as XcmVersion};
@@ -247,8 +248,6 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 	type DoneSlashHandler = ();
 }
 
@@ -377,9 +376,10 @@ impl pallet_session::Config for Runtime {
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	// we don't have stash and controller, thus we don't need the convert as well.
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
-	type ShouldEndSession = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
+	type ShouldEndSession = ValidatorCollators;
 	type NextSessionRotation = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
-	type SessionManager = CollatorSelection;
+	type SessionManager =
+		pallet_session::UnionSessionManager<CollatorSelection, ValidatorCollators>;
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
@@ -424,6 +424,16 @@ impl pallet_collator_selection::Config for Runtime {
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;
 	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
+}
+
+impl pallet_validator_collators::Config for Runtime {
+	type SetOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureXcm<Equals<AssetHubLocation>>>;
+	type UpdateOrigin = CollatorSelectionUpdateOrigin;
+	type ValidatorRegistration = Session;
+	type MaxValidators =
+		ConstU32<{ testnet_parachains_constants::westend::staking::MAX_VALIDATOR_SET }>;
+	type PeriodicSession = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
+	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -659,6 +669,7 @@ construct_runtime!(
 		Session: pallet_session = 22,
 		Aura: pallet_aura = 23,
 		AuraExt: cumulus_pallet_aura_ext = 24,
+		ValidatorCollators: pallet_validator_collators = 25,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
@@ -706,6 +717,7 @@ mod benches {
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_collator_selection, CollatorSelection]
+		[pallet_validator_collators, ValidatorCollators]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		[pallet_xcm_benchmarks::fungible, XcmBalances]

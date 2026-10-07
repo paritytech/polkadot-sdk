@@ -102,7 +102,7 @@ where
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: Arc<TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>>,
+		transaction_pool: Arc<TransactionPoolHandle<Block>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
@@ -287,16 +287,14 @@ pub(crate) trait BaseNodeSpec {
 			telemetry
 		});
 
-		let transaction_pool = Arc::from(
-			sc_transaction_pool::Builder::new(
-				task_manager.spawn_essential_handle(),
-				client.clone(),
-				config.role.is_authority().into(),
-			)
-			.with_options(config.transaction_pool.clone())
-			.with_prometheus(config.prometheus_registry())
-			.build(),
-		);
+		let transaction_pool = sc_transaction_pool::Builder::new(
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+			config.role.is_authority().into(),
+		)
+		.with_options(config.transaction_pool.clone())
+		.with_prometheus(config.prometheus_registry())
+		.build();
 
 		let bitswap_slot: BitswapHandleSlot = Arc::new(OnceLock::new());
 
@@ -341,7 +339,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	type BuildRpcExtensions: BuildRpcExtensions<
 		ParachainClient<Self::Block, Self::RuntimeApi>,
 		ParachainBackend<Self::Block>,
-		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
+		TransactionPoolHandle<Self::Block>,
 		Store,
 	>;
 
