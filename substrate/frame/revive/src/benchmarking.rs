@@ -114,19 +114,6 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
-<<<<<<< HEAD
-=======
-/// Delegate `address` to `target` (EIP-7702) without going through signature recovery.
-///
-/// Returns the account id the `seal_call` family expects in guest memory: `address` is never
-/// mapped, so it resolves to its fallback account whose first 20 encoded bytes are `address`.
-fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId, BenchmarkError> {
-	let account_id = T::AddressMapper::to_fallback_account_id(&address);
-	AccountInfo::<T>::set_delegation(&address, Some(target), &account_id)
-		.map_err(|_| "set_delegation failed")?;
-	Ok(account_id)
-}
-
 /// Pushes the data a benchmark set up out of the L1 and L2 caches by writing unrelated memory.
 ///
 /// Writes 8 MiB, which is larger than the L2 cache of the reference hardware.
@@ -321,7 +308,6 @@ mod mixed_division_operands {
 	}
 }
 
->>>>>>> 9f3a6b0 (Benchmarking some EVM arithmetic opcodes (#13400))
 #[benchmarks(
 	where
 		T: Config,
