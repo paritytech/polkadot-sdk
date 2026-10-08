@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791454422530,
+  "lastUpdate": 1791457505662,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5c97c0f72ec9ac3a9d807bc03b6f8e0ecde3a3c9",
-          "message": "[Penpal] fix genesis presets - assign proper ED to accounts (#11575)\n\nPenpal had values below the ED for initializing asset balances for some\naccounts. This has not been detected as no unit tests actually use the\npresets. This PR fixes the invalid values, and it also adds some unit\ntests for validating that the presets build at least.\n\nCloses #11558.\n\n---------\n\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-01T23:06:59Z",
-          "tree_id": "565b491296861ae00fc1f0485cf9dfeef10c6e24",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5c97c0f72ec9ac3a9d807bc03b6f8e0ecde3a3c9"
-        },
-        "date": 1775089579808,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.295930757699997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13275462629999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13073332836666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shlavik@gmail.com",
+            "name": "Viacheslav",
+            "username": "llblab"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "db46f6f939f68b8b84ddd531e77dbe8771dc4a73",
+          "message": "sp-api: write back `transaction_depth` after `execute_in_transaction` (#13439)\n\n# Description\n\nFixes #13438\n\n`ApiExt::execute_in_transaction` in the generated client-side\n`RuntimeApiImpl` incremented `transaction_depth` but discarded the\nresult of `checked_sub(1)`, so the counter never returned to zero. Every\nlater plain runtime API call on the same instance then skipped its own\ntransaction, and overlay writes of a call returning `ApiError` were kept\ninstead of rolled back.\n\nThis PR assigns the decremented value back and adds a regression test.\n\n## Integration\n\nNo action required by downstream projects. The change is confined to the\nnative client side (the code is generated inside `std_enabled!`); the\nWasm runtime is unchanged.\n\nBehaviour change to be aware of: on an API instance that has already\ncompleted an `execute_in_transaction` scope, a plain runtime API call\nthat returns `Err(ApiError)` now has its overlay changes rolled back, as\ndocumented for `ProvideRuntimeApi::runtime_api`. Code that relied on\nthose changes persisting after an error would see a difference; no such\ncode is known in-tree.\n\n## Review Notes\n\n```diff\n *std::cell::RefCell::borrow_mut(&self.transaction_depth) += 1;\n let res = call(self);\n-std::cell::RefCell::borrow_mut(&self.transaction_depth)\n-    .checked_sub(1)\n-    .expect(\"Transactions are opened and closed together; qed\");\n+{\n+    let mut depth = std::cell::RefCell::borrow_mut(&self.transaction_depth);\n+    *depth = depth\n+        .checked_sub(1)\n+        .expect(\"Transactions are opened and closed together; qed\");\n+}\n```\n\n- The counter was introduced in paritytech/substrate#14447, replacing a\n`commit_on_success` boolean that was reset after the closure. This\nrestores that behaviour for the counter.\n- The real overlay / recorder / extension transactions were always\nbalanced; only the logical counter was stale. `sc-block-builder` is\nunaffected in practice because a failing `finalize_block` consumes the\nbuilder.\n- The borrow is scoped so it is released before\n`commit_or_rollback_transaction`.\n- Behaviour on unwind is unchanged and out of scope.\n\nNew test `auto_transaction_is_restored_after_execute_in_transaction` in\n`sp-api-test` makes a failing plain call after an explicit scope (commit\nand rollback, with a nested scope) and asserts that no storage changes\nremain. Run with `cargo test -p sp-api-test --test runtime_calls`:\n\n- Without the fix: the new test fails at\n`assert!(changes.main_storage_changes.is_empty())`.\n- With the fix: all 11 tests in the file pass.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling\nrequirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)\nof this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-08T09:25:02Z",
+          "tree_id": "76c9f4f8b88a47f5c9d14f26901f16c968a87133",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/db46f6f939f68b8b84ddd531e77dbe8771dc4a73"
+        },
+        "date": 1791457472286,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.9731046882,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13682851156666667,
             "unit": "seconds"
           }
         ]
