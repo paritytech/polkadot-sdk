@@ -240,7 +240,7 @@ pub struct Discovery {
 	pending_events: VecDeque<DiscoveryEvent>,
 
 	/// Allow non-global addresses in the DHT.
-	allow_non_global_addresses: bool,
+	allow_non_globals_in_dht: bool,
 
 	/// Allow dialing private IP addresses discovered via DHT and mDNS.
 	allow_private_ip: bool,
@@ -354,7 +354,7 @@ impl Discovery {
 				pending_events: VecDeque::new(),
 				duration_to_next_find_query: Duration::from_secs(1),
 				address_confirmations: LruMap::new(ByLength::new(MAX_EXTERNAL_ADDRESSES)),
-				allow_non_global_addresses: config.allow_non_globals_in_dht,
+				allow_non_globals_in_dht: config.allow_non_globals_in_dht,
 				allow_private_ip,
 				public_addresses: config.public_addresses.iter().cloned().map(Into::into).collect(),
 				next_kad_query: Some(Delay::new(KADEMLIA_QUERY_INTERVAL)),
@@ -393,29 +393,20 @@ impl Discovery {
 			return;
 		}
 
+		// Self-reported addresses are both advertised in the DHT and dialed by Kademlia.
+		let allow_non_global = self.allow_non_globals_in_dht && self.allow_private_ip;
+
 		let addresses = addresses
 			.into_iter()
-			.filter_map(|address| {
-				if !self.allow_non_global_addresses && !Discovery::can_add_to_dht(&address) {
+			.filter(|address| {
+				let allowed = allow_non_global || Discovery::can_add_to_dht(address);
+				if !allowed {
 					log::trace!(
 						target: LOG_TARGET,
 						"ignoring self-reported non-global address {address} from {peer}."
 					);
-
-					return None;
 				}
-
-				// Kademlia dials the addresses of routing table peers.
-				if !self.allow_private_ip && Discovery::is_private_ip(&address) {
-					log::trace!(
-						target: LOG_TARGET,
-						"ignoring self-reported private address {address} from {peer}."
-					);
-
-					return None;
-				}
-
-				Some(address)
+				allowed
 			})
 			.collect();
 
@@ -542,15 +533,6 @@ impl Discovery {
 		ip.is_global()
 	}
 
-	/// Is `address` a non-global IP address.
-	fn is_private_ip(address: &Multiaddr) -> bool {
-		match address.iter().next() {
-			Some(Protocol::Ip4(ip)) => !IpNetwork::from(ip).is_global(),
-			Some(Protocol::Ip6(ip)) => !IpNetwork::from(ip).is_global(),
-			_ => false,
-		}
-	}
-
 	/// Check if `address` can be considered a new external address.
 	///
 	/// If this address replaces an older address, the expired address is returned.
@@ -561,7 +543,7 @@ impl Discovery {
 	) -> (bool, Option<Multiaddr>) {
 		log::trace!(target: LOG_TARGET, "verify new external address: {address}");
 
-		if !self.allow_non_global_addresses && !Discovery::can_add_to_dht(&address) {
+		if !self.allow_non_globals_in_dht && !Discovery::can_add_to_dht(&address) {
 			log::trace!(
 				target: LOG_TARGET,
 				"ignoring externally reported non-global address {address} from {peer}."
@@ -835,7 +817,7 @@ impl Stream for Discovery {
 				Poll::Ready(None) => return Poll::Ready(None),
 				Poll::Ready(Some(MdnsEvent::Discovered(mut addresses))) => {
 					if !this.allow_private_ip {
-						addresses.retain(|address| !Discovery::is_private_ip(address));
+						addresses.retain(Discovery::can_add_to_dht);
 					}
 
 					return Poll::Ready(Some(DiscoveryEvent::Discovered { addresses }));
@@ -865,18 +847,6 @@ mod tests {
 		config::ConfigBuilder as Litep2pConfigBuilder, transport::tcp::config::Config as TcpConfig,
 		Litep2p,
 	};
-
-	#[test]
-	fn is_private_ip() {
-		for address in ["/ip4/10.0.0.1/tcp/30333", "/ip4/127.0.0.1/tcp/30333", "/ip6/fd00::1/tcp/1"]
-		{
-			assert!(Discovery::is_private_ip(&address.parse().unwrap()), "{address}");
-		}
-
-		for address in ["/ip4/8.8.8.8/tcp/30333", "/dns/example.com/tcp/30333"] {
-			assert!(!Discovery::is_private_ip(&address.parse().unwrap()), "{address}");
-		}
-	}
 
 	#[tokio::test]
 	async fn litep2p_discovery_works() {
@@ -991,12 +961,20 @@ mod tests {
 							match event.unwrap() {
 								// We have discovered the peer via kademlia and established
 								// a connection on the identify protocol.
-								DiscoveryEvent::Identified { peer, listen_addresses, supported_protocols } => {
+								DiscoveryEvent::Identified {
+									peer,
+									listen_addresses,
+									supported_protocols,
+								} => {
 									log::info!(target: LOG_TARGET, "{peer_id:?} Peer {peer} identified");
 
 									// Populate the routing table as the network backend does.
 									discovery
-										.add_self_reported_address(peer, supported_protocols, listen_addresses)
+										.add_self_reported_address(
+											peer,
+											supported_protocols,
+											listen_addresses,
+										)
 										.await;
 
 									remaining_peers.remove(&peer);
