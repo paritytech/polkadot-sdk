@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791454511633,
+  "lastUpdate": 1791456624006,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -236927,6 +236927,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2453387982,
             "range": "± 43561215",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shlavik@gmail.com",
+            "name": "Viacheslav",
+            "username": "llblab"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "db46f6f939f68b8b84ddd531e77dbe8771dc4a73",
+          "message": "sp-api: write back `transaction_depth` after `execute_in_transaction` (#13439)\n\n# Description\n\nFixes #13438\n\n`ApiExt::execute_in_transaction` in the generated client-side\n`RuntimeApiImpl` incremented `transaction_depth` but discarded the\nresult of `checked_sub(1)`, so the counter never returned to zero. Every\nlater plain runtime API call on the same instance then skipped its own\ntransaction, and overlay writes of a call returning `ApiError` were kept\ninstead of rolled back.\n\nThis PR assigns the decremented value back and adds a regression test.\n\n## Integration\n\nNo action required by downstream projects. The change is confined to the\nnative client side (the code is generated inside `std_enabled!`); the\nWasm runtime is unchanged.\n\nBehaviour change to be aware of: on an API instance that has already\ncompleted an `execute_in_transaction` scope, a plain runtime API call\nthat returns `Err(ApiError)` now has its overlay changes rolled back, as\ndocumented for `ProvideRuntimeApi::runtime_api`. Code that relied on\nthose changes persisting after an error would see a difference; no such\ncode is known in-tree.\n\n## Review Notes\n\n```diff\n *std::cell::RefCell::borrow_mut(&self.transaction_depth) += 1;\n let res = call(self);\n-std::cell::RefCell::borrow_mut(&self.transaction_depth)\n-    .checked_sub(1)\n-    .expect(\"Transactions are opened and closed together; qed\");\n+{\n+    let mut depth = std::cell::RefCell::borrow_mut(&self.transaction_depth);\n+    *depth = depth\n+        .checked_sub(1)\n+        .expect(\"Transactions are opened and closed together; qed\");\n+}\n```\n\n- The counter was introduced in paritytech/substrate#14447, replacing a\n`commit_on_success` boolean that was reset after the closure. This\nrestores that behaviour for the counter.\n- The real overlay / recorder / extension transactions were always\nbalanced; only the logical counter was stale. `sc-block-builder` is\nunaffected in practice because a failing `finalize_block` consumes the\nbuilder.\n- The borrow is scoped so it is released before\n`commit_or_rollback_transaction`.\n- Behaviour on unwind is unchanged and out of scope.\n\nNew test `auto_transaction_is_restored_after_execute_in_transaction` in\n`sp-api-test` makes a failing plain call after an explicit scope (commit\nand rollback, with a nested scope) and asserts that no storage changes\nremain. Run with `cargo test -p sp-api-test --test runtime_calls`:\n\n- Without the fix: the new test fails at\n`assert!(changes.main_storage_changes.is_empty())`.\n- With the fix: all 11 tests in the file pass.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling\nrequirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)\nof this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-08T09:25:02Z",
+          "tree_id": "76c9f4f8b88a47f5c9d14f26901f16c968a87133",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/db46f6f939f68b8b84ddd531e77dbe8771dc4a73"
+        },
+        "date": 1791456593856,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4487920,
+            "range": "± 29221",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 282751,
+            "range": "± 2549",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4365552,
+            "range": "± 50078",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 376451,
+            "range": "± 18433",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5367998,
+            "range": "± 97290",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 873567,
+            "range": "± 5475",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10626239,
+            "range": "± 67768",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4776069,
+            "range": "± 84653",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 44474482,
+            "range": "± 571526",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40080556,
+            "range": "± 411037",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 396203049,
+            "range": "± 4797975",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 322606120,
+            "range": "± 2878623",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2690037538,
+            "range": "± 16632589",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2481323635,
+            "range": "± 21498543",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3371612,
+            "range": "± 30435",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1863461,
+            "range": "± 11122",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3549133,
+            "range": "± 28028",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1942618,
+            "range": "± 11117",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4032152,
+            "range": "± 29730",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2306836,
+            "range": "± 14279",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8326940,
+            "range": "± 97012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5540406,
+            "range": "± 48080",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38953482,
+            "range": "± 424926",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 39022640,
+            "range": "± 529389",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 346701170,
+            "range": "± 3788670",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 299958517,
+            "range": "± 3354857",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2664498114,
+            "range": "± 41003840",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2583104671,
+            "range": "± 58408733",
             "unit": "ns/iter"
           }
         ]
