@@ -16,12 +16,12 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{configuration, disputes, initializer, paras, shared};
+use crate::{configuration, disputes, inclusion, initializer, paras, shared};
 use alloc::vec::Vec;
 use frame_system::pallet_prelude::BlockNumberFor;
 
 use polkadot_primitives::{
-	slashing, vstaging::RelayParentInfo, CandidateHash, Id as ParaId, SessionIndex,
+	slashing, vstaging::RelayParentInfo, CandidateHash, Id as ParaId, SessionIndex, StreamsRoot,
 };
 
 /// Implementation of `para_ids` runtime API
@@ -49,4 +49,9 @@ pub fn ancestor_relay_parent_info<T: shared::Config>(
 	relay_parent: T::Hash,
 ) -> Option<RelayParentInfo<T::Hash, BlockNumberFor<T>>> {
 	shared::Pallet::<T>::get_relay_parent_info(session_index, relay_parent)
+}
+
+/// Implementation of `newest_included_provides` runtime API.
+pub fn newest_included_provides<T: inclusion::Config>(para_id: ParaId) -> Option<StreamsRoot> {
+	inclusion::Pallet::<T>::newest_provides(para_id)
 }

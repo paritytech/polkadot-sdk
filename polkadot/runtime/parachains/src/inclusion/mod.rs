@@ -969,6 +969,12 @@ impl<T: Config> Pallet<T> {
 		RecentProvides::<T>::get(source).iter().rev().any(|committed| committed == root)
 	}
 
+	/// The newest entry of `source`'s provides window: its latest `StreamsRoot` committed in an
+	/// included candidate, if any.
+	pub(crate) fn newest_provides(source: ParaId) -> Option<StreamsRoot> {
+		RecentProvides::<T>::get(source).last().copied()
+	}
+
 	/// Match `requires` against the relay-side provides windows — the check a receiver candidate
 	/// must pass to be included. `Ok(())` if every `(source, StreamsRoot)` is present in that
 	/// source's window; otherwise `Err` with the first unmatched `(source, root)`, so the caller
