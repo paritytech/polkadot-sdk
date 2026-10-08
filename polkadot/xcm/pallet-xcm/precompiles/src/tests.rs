@@ -904,10 +904,12 @@ fn execute_decode_charge_is_not_refunded() {
 
 mod stipend_limited_frame {
 	use super::*;
+	use codec::Encode;
+	use pallet_revive::test_utils::with_parameter;
 	use test_case::test_case;
 
-	/// Lets a call with an explicit gas limit pay for the operation under test, so only the stipend
-	/// check can deny it.
+	/// A gas scale high enough that 2300 gas pays for the operation under test, so only the
+	/// stipend check can deny it.
 	const RAISED_GAS_SCALE: u32 = 50_000_000;
 
 	/// Calls the XCM pre-compile with `call` from a funded `CallingReceiver` reached with
@@ -958,8 +960,6 @@ mod stipend_limited_frame {
 	#[test_case(FixtureType::Solc; "solc")]
 	#[test_case(FixtureType::Resolc; "resolc")]
 	fn execute_is_denied(fixture_type: FixtureType) {
-		use codec::Encode;
-		use pallet_revive::test_utils::with_parameter;
 
 		let message = VersionedXcm::from(Xcm::<()>(vec![
 			WithdrawAsset((Here, SEND_AMOUNT).into()),
@@ -975,7 +975,7 @@ mod stipend_limited_frame {
 			weight: IXcm::Weight { refTime: weight.ref_time(), proofSize: weight.proof_size() },
 		});
 
-		let [denied, below, above] =
+		let [with_2300_gas, with_2299_gas, with_2301_gas] =
 			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
 				[2300, 2299, 2301].map(|gas_limit| {
 					call_precompile_via_receiver(fixture_type, gas_limit, &execute, |_| {
@@ -983,16 +983,18 @@ mod stipend_limited_frame {
 					})
 				})
 			});
-		assert_eq!(denied, (true, 0), "the receiver of a `send` should not execute XCM");
-		assert_eq!([below, above], [(false, SEND_AMOUNT); 2], "only a `send` denies executing XCM");
+		assert_eq!(with_2300_gas, (true, 0), "the receiver of a `send` should not execute XCM");
+		assert_eq!(
+			[with_2299_gas, with_2301_gas],
+			[(false, SEND_AMOUNT); 2],
+			"only a `send` denies executing XCM"
+		);
 	}
 
 	// A stipend-limited frame cannot change persistent state, so it cannot send XCM.
 	#[test_case(FixtureType::Solc; "solc")]
 	#[test_case(FixtureType::Resolc; "resolc")]
 	fn send_is_denied(fixture_type: FixtureType) {
-		use codec::Encode;
-		use pallet_revive::test_utils::with_parameter;
 
 		let message = Xcm(vec![ClearOrigin]);
 		let send = IXcm::IXcmCalls::send(IXcm::sendCall {
@@ -1004,7 +1006,7 @@ mod stipend_limited_frame {
 			Xcm([DescendOrigin(origin.into())].into_iter().chain(message.0.clone()).collect())
 		};
 
-		let [denied, below, above] =
+		let [with_2300_gas, with_2299_gas, with_2301_gas] =
 			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
 				[2300, 2299, 2301].map(|gas_limit| {
 					call_precompile_via_receiver(fixture_type, gas_limit, &send, |receiver| {
@@ -1012,7 +1014,11 @@ mod stipend_limited_frame {
 					})
 				})
 			});
-		assert_eq!(denied, (true, false), "the receiver of a `send` should not send XCM");
-		assert_eq!([below, above], [(false, true); 2], "only a `send` denies sending XCM");
+		assert_eq!(with_2300_gas, (true, false), "the receiver of a `send` should not send XCM");
+		assert_eq!(
+			[with_2299_gas, with_2301_gas],
+			[(false, true); 2],
+			"only a `send` denies sending XCM"
+		);
 	}
 }

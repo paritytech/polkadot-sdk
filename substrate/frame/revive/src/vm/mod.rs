@@ -26,7 +26,8 @@ pub use runtime_costs::{RuntimeCosts, StorageAccessKind, TransferAccessKind};
 
 use crate::{
 	AccountIdOf, BalanceOf, CallProtections, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig,
-	ExecError, HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
+	ExecError, HoldReason, LOG_TARGET, Pallet, PristineCode, ReentrancyProtection, StorageDeposit,
+	Weight,
 	access_list::{CodeLoadItems, CodeLoadWarmth, Summarized, Warmth},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
@@ -215,9 +216,9 @@ impl StipendAndProtections {
 	/// Returns the protections the call sets for the callee.
 	pub fn protections(&self) -> CallProtections {
 		CallProtections {
+			reentrancy: ReentrancyProtection::AllowReentry,
 			read_only: self.read_only,
 			stipend_limited: self.is_transfer_or_send(),
-			..Default::default()
 		}
 	}
 }

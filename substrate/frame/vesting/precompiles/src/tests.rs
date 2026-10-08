@@ -384,8 +384,8 @@ mod stipend_limited_frame {
 
 	const SCHEDULE_AMOUNT: u64 = 10_000;
 
-	/// Lets a call with an explicit gas limit pay for the operation under test, so only the stipend
-	/// check can deny it.
+	/// A gas scale high enough that 2300 gas pays for the operation under test, so only the
+	/// stipend check can deny it.
 	const RAISED_GAS_SCALE: u32 = 50_000_000;
 
 	/// Calls the vesting pre-compile with `call` from a `CallingReceiver` reached with `gas_limit`,
@@ -457,7 +457,7 @@ mod stipend_limited_frame {
 	#[test_case(FixtureType::Solc; "solc")]
 	#[test_case(FixtureType::Resolc; "resolc")]
 	fn vest_is_denied(fixture_type: FixtureType) {
-		let [denied, below, above] =
+		let [with_2300_gas, with_2299_gas, with_2301_gas] =
 			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
 				[2300, 2299, 2301].map(|gas_limit| {
 					call_precompile_via_receiver(
@@ -469,14 +469,18 @@ mod stipend_limited_frame {
 					)
 				})
 			});
-		assert_eq!(denied, (true, true), "the receiver of a `send` should not vest");
-		assert_eq!([below, above], [(false, false); 2], "only a `send` denies vesting");
+		assert_eq!(with_2300_gas, (true, true), "the receiver of a `send` should not vest");
+		assert_eq!(
+			[with_2299_gas, with_2301_gas],
+			[(false, false); 2],
+			"only a `send` denies vesting"
+		);
 	}
 
 	#[test_case(FixtureType::Solc; "solc")]
 	#[test_case(FixtureType::Resolc; "resolc")]
 	fn vest_other_is_denied(fixture_type: FixtureType) {
-		let [denied, below, above] =
+		let [with_2300_gas, with_2299_gas, with_2301_gas] =
 			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
 				[2300, 2299, 2301].map(|gas_limit| {
 					call_precompile_via_receiver(
@@ -489,12 +493,12 @@ mod stipend_limited_frame {
 				})
 			});
 		assert_eq!(
-			denied,
+			with_2300_gas,
 			(true, true),
 			"the receiver of a `send` should not vest another account"
 		);
 		assert_eq!(
-			[below, above],
+			[with_2299_gas, with_2301_gas],
 			[(false, false); 2],
 			"only a `send` denies vesting another account"
 		);
@@ -509,7 +513,7 @@ mod stipend_limited_frame {
 			perBlock: alloy_core::primitives::U256::from(500u64),
 			startingBlock: alloy_core::primitives::U256::from(0u64),
 		};
-		let [denied, below, above] =
+		let [with_2300_gas, with_2299_gas, with_2301_gas] =
 			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
 				[2300, 2299, 2301].map(|gas_limit| {
 					call_precompile_via_receiver(
@@ -527,10 +531,14 @@ mod stipend_limited_frame {
 				})
 			});
 		assert_eq!(
-			denied,
+			with_2300_gas,
 			(true, false),
 			"the receiver of a `send` should not make a vested transfer"
 		);
-		assert_eq!([below, above], [(false, true); 2], "only a `send` denies a vested transfer");
+		assert_eq!(
+			[with_2299_gas, with_2301_gas],
+			[(false, true); 2],
+			"only a `send` denies a vested transfer"
+		);
 	}
 }

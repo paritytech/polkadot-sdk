@@ -117,7 +117,7 @@ impl<T: Config> Precompile for NoInfo<T> {
 					&env.address(),
 					0.into(),
 					vec![42; *inputLen as usize],
-					CallProtections::default(),
+					CallProtections::none(),
 				)?;
 				Ok(Vec::new())
 			},

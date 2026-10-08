@@ -204,11 +204,8 @@ fn run_call<'a, E: Ext>(
 	value: U256,
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
-	let stipend_and_protections = StipendAndProtections::new(
-		value,
-		gas_limit.try_into().ok(),
-		scheme == CallScheme::StaticCall,
-	);
+	let stipend_and_protections =
+		StipendAndProtections::new(value, gas_limit.try_into().ok(), scheme.is_static_call());
 	let call_resources =
 		CallResources::from_ethereum_gas(gas_limit, stipend_and_protections.add_stipend());
 	let call_result = match scheme {

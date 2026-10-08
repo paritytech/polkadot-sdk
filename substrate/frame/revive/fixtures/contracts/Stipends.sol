@@ -336,23 +336,13 @@ contract WarmWriteSender {
         return !ok;
     }
 
-    function isWarmDelegateReadDenied(
+    function isWarmDelegateCallDenied(
         BumpableCounter receiver,
-        uint64 gasLimit
+        uint64 gasLimit,
+        bytes calldata data
     ) public returns (bool) {
         counter += 1;
-        (bool ok, ) =
-            address(receiver).delegatecall{gas: gasLimit}(abi.encodeCall(receiver.counter, ()));
-        return !ok;
-    }
-
-    function isWarmDelegateWriteDenied(
-        BumpableCounter receiver,
-        uint64 gasLimit
-    ) public returns (bool) {
-        counter += 1;
-        (bool ok, ) =
-            address(receiver).delegatecall{gas: gasLimit}(abi.encodeCall(receiver.bump, ()));
+        (bool ok, ) = address(receiver).delegatecall{gas: gasLimit}(data);
         return !ok;
     }
 }

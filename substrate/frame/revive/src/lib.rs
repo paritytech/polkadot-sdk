@@ -1348,8 +1348,7 @@ pub mod pallet {
 			);
 
 			// We can use storage to store items using the available block ref_time with the
-			// `set_storage` host function. The cheapest cold write is the worst case here: it is
-			// the one a block fits most of.
+			// `set_storage` host function. Each write is priced as a cold write without rollback.
 			let max_storage_size = max_block_weight
 				.checked_div_per_component(&<RuntimeCosts as WeightToken<T>>::weight(
 					&RuntimeCosts::SetStorage {

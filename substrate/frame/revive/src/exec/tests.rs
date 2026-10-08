@@ -668,7 +668,7 @@ fn max_depth() {
 			&BOB_ADDR,
 			U256::zero(),
 			vec![],
-			CallProtections::default(),
+			CallProtections::none(),
 		);
 
 		ReachedBottom::mutate(|reached_bottom| {
@@ -728,7 +728,7 @@ fn caller_returns_proper_values() {
 				&CHARLIE_ADDR,
 				U256::zero(),
 				vec![],
-				CallProtections::default(),
+				CallProtections::none(),
 			),
 			Ok(_)
 		);
@@ -789,7 +789,7 @@ fn origin_returns_proper_values() {
 				&CHARLIE_ADDR,
 				U256::zero(),
 				vec![],
-				CallProtections::default(),
+				CallProtections::none(),
 			),
 			Ok(_)
 		);
@@ -939,7 +939,7 @@ fn caller_is_origin_returns_proper_values() {
 				&CHARLIE_ADDR,
 				U256::zero(),
 				vec![],
-				CallProtections::default(),
+				CallProtections::none(),
 			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
@@ -1030,7 +1030,7 @@ fn root_caller_succeeds_with_consecutive_calls() {
 				&CHARLIE_ADDR,
 				U256::zero(),
 				vec![],
-				CallProtections::default(),
+				CallProtections::none(),
 			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
@@ -1066,7 +1066,7 @@ fn address_returns_proper_values() {
 				&CHARLIE_ADDR,
 				U256::zero(),
 				vec![],
-				CallProtections::default(),
+				CallProtections::none(),
 			),
 			Ok(_)
 		);
@@ -1292,7 +1292,7 @@ fn reentrant_instantiate_at_same_address_is_rejected() {
 				&BOB_ADDR,
 				U256::zero(),
 				vec![],
-				CallProtections::default(),
+				CallProtections::none(),
 			)
 			.unwrap();
 		exec_success()
@@ -1468,7 +1468,7 @@ fn in_memory_changes_not_discarded() {
 						&CHARLIE_ADDR,
 						U256::zero(),
 						vec![],
-						CallProtections::default(),
+						CallProtections::none(),
 					)
 					.map(|_| ctx.ext.last_frame_output().clone()),
 				exec_trapped()
@@ -1485,7 +1485,7 @@ fn in_memory_changes_not_discarded() {
 					&BOB_ADDR,
 					U256::zero(),
 					vec![99],
-					CallProtections::default(),
+					CallProtections::none(),
 				)
 				.is_ok()
 		);
@@ -1525,7 +1525,7 @@ fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 				&BOB_ADDR,
 				U256::zero(),
 				vec![1],
-				CallProtections::default(),
+				CallProtections::none(),
 			));
 			ctx.ext
 				.charge_storage(&Diff { bytes_removed: 30, ..Default::default() })
@@ -1535,7 +1535,7 @@ fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 				&BOB_ADDR,
 				U256::zero(),
 				vec![1],
-				CallProtections::default(),
+				CallProtections::none(),
 			));
 		}
 		exec_success()
@@ -1581,7 +1581,7 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 			&addr,
 			(balance - 1).into(),
 			vec![],
-			CallProtections::default(),
+			CallProtections::none(),
 		));
 
 		// Should also work with call data set as it is ignored when no
@@ -1591,7 +1591,7 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 			&addr,
 			1u32.into(),
 			vec![1, 2, 3, 4],
-			CallProtections::default(),
+			CallProtections::none(),
 		));
 		exec_success()
 	});
@@ -1635,7 +1635,7 @@ fn cannot_send_more_balance_than_available_to_self() {
 				&addr,
 				(balance + 1).into(),
 				vec![],
-				CallProtections::default(),
+				CallProtections::none(),
 			),
 			<Error<Test>>::TransferFailed,
 		);
@@ -1674,7 +1674,11 @@ fn call_reentry_direct_recursion() {
 				&dest,
 				U256::zero(),
 				vec![],
-				CallProtections { reentrancy: ReentrancyProtection::Strict, ..Default::default() },
+				CallProtections {
+					reentrancy: ReentrancyProtection::Strict,
+					read_only: false,
+					stipend_limited: false,
+				},
 			)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
@@ -1725,7 +1729,8 @@ fn call_deny_reentry() {
 					vec![],
 					CallProtections {
 						reentrancy: ReentrancyProtection::Strict,
-						..Default::default()
+						read_only: false,
+						stipend_limited: false,
 					},
 				)
 				.map(|_| ctx.ext.last_frame_output().clone())
@@ -1737,7 +1742,7 @@ fn call_deny_reentry() {
 	// call BOB with input set to '1'
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		ctx.ext
-			.call(&Default::default(), &BOB_ADDR, U256::zero(), vec![1], CallProtections::default())
+			.call(&Default::default(), &BOB_ADDR, U256::zero(), vec![1], CallProtections::none())
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
 
@@ -1784,7 +1789,8 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 							vec![],
 							CallProtections {
 								reentrancy: ReentrancyProtection::Strict,
-								..Default::default()
+								read_only: false,
+								stipend_limited: false,
 							},
 						)
 						.map_err(|e| e.error),
@@ -1798,7 +1804,7 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 						&CHARLIE_ADDR,
 						U256::zero(),
 						vec![],
-						CallProtections::default(),
+						CallProtections::none(),
 					)
 					.map(|_| ctx.ext.last_frame_output().clone())
 			},
@@ -1808,7 +1814,7 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		ctx.ext
-			.call(&Default::default(), &BOB_ADDR, U256::zero(), vec![1], CallProtections::default())
+			.call(&Default::default(), &BOB_ADDR, U256::zero(), vec![1], CallProtections::none())
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
 
@@ -1915,7 +1921,11 @@ fn nonce() {
 				&addr,
 				U256::zero(),
 				vec![],
-				CallProtections { reentrancy: ReentrancyProtection::Strict, ..Default::default() },
+				CallProtections {
+					reentrancy: ReentrancyProtection::Strict,
+					read_only: false,
+					stipend_limited: false,
+				},
 			)
 			.unwrap();
 
@@ -2062,7 +2072,7 @@ fn set_storage_works() {
 }
 
 #[test]
-fn state_changes_are_denied_in_a_stipend_limited_frame() {
+fn persistent_state_changes_are_denied_in_a_stipend_limited_frame() {
 	let dummy_ch = MockLoader::insert(Constructor, |_, _| exec_success());
 	let charlie_ch = MockLoader::insert(Call, move |ctx, _| {
 		assert_eq!(
@@ -2077,18 +2087,18 @@ fn state_changes_are_denied_in_a_stipend_limited_frame() {
 		);
 		assert_eq!(
 			ctx.ext.call(
-				&Default::default(),
+				&CallResources::NoLimits,
 				&ALICE_ADDR,
 				U256::one(),
 				vec![],
-				CallProtections::default()
+				CallProtections::none()
 			),
 			Err(Error::<Test>::OutOfGas.into()),
 			"the callee should not move value"
 		);
 		assert_eq!(
 			ctx.ext.instantiate(
-				&Default::default(),
+				&CallResources::NoLimits,
 				Code::Existing(dummy_ch),
 				U256::zero(),
 				vec![],
@@ -2101,30 +2111,23 @@ fn state_changes_are_denied_in_a_stipend_limited_frame() {
 	});
 	let bob_ch = MockLoader::insert(Call, |ctx, _| {
 		assert_ok!(ctx.ext.call(
-			&Default::default(),
+			&CallResources::NoLimits,
 			&CHARLIE_ADDR,
 			U256::zero(),
 			vec![],
-			CallProtections { stipend_limited: true, ..Default::default() },
+			CallProtections {
+				reentrancy: ReentrancyProtection::AllowReentry,
+				read_only: false,
+				stipend_limited: true,
+			},
 		));
 		exec_success()
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		let mut meter =
-			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
-				.unwrap();
-		set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
 		place_contract(&BOB, bob_ch);
 		place_contract(&CHARLIE, charlie_ch);
-		assert_ok!(MockStack::run_call(
-			Origin::from_account_id(ALICE),
-			BOB_ADDR,
-			&mut meter,
-			U256::zero(),
-			vec![],
-			&ExecConfig::new_substrate_tx(),
-		));
+		run_root_call(BOB_ADDR, vec![]);
 	});
 }
 
@@ -2494,7 +2497,7 @@ fn get_transient_storage_works() {
 						&CHARLIE_ADDR,
 						U256::zero(),
 						vec![],
-						CallProtections::default(),
+						CallProtections::none(),
 					)
 					.map(|_| ctx.ext.last_frame_output().clone()),
 				exec_success()
@@ -2522,7 +2525,7 @@ fn get_transient_storage_works() {
 					&BOB_ADDR,
 					U256::zero(),
 					vec![99],
-					CallProtections::default(),
+					CallProtections::none(),
 				)
 				.is_ok()
 		);
@@ -2603,7 +2606,7 @@ fn rollback_transient_storage_works() {
 						&CHARLIE_ADDR,
 						U256::zero(),
 						vec![],
-						CallProtections::default(),
+						CallProtections::none(),
 					)
 					.map(|_| ctx.ext.last_frame_output().clone()),
 				exec_trapped()
@@ -2627,7 +2630,7 @@ fn rollback_transient_storage_works() {
 					&BOB_ADDR,
 					U256::zero(),
 					vec![99],
-					CallProtections::default(),
+					CallProtections::none(),
 				)
 				.is_ok()
 		);
@@ -2714,7 +2717,7 @@ fn last_frame_output_works_on_instantiate() {
 					&address,
 					Pallet::<Test>::convert_native_to_evm(1),
 					vec![],
-					CallProtections::default(),
+					CallProtections::none(),
 				)
 				.unwrap();
 			assert_eq!(ctx.ext.last_frame_output(), &Default::default());
@@ -2781,7 +2784,7 @@ fn last_frame_output_works_on_nested_call() {
 					&CHARLIE_ADDR,
 					U256::zero(),
 					vec![],
-					CallProtections::default(),
+					CallProtections::none(),
 				)
 				.unwrap();
 			assert_eq!(
@@ -2806,7 +2809,7 @@ fn last_frame_output_works_on_nested_call() {
 					&BOB_ADDR,
 					U256::zero(),
 					vec![99],
-					CallProtections::default(),
+					CallProtections::none(),
 				)
 				.is_ok()
 		);
@@ -2850,7 +2853,7 @@ fn last_frame_output_is_always_reset() {
 				&H160::zero(),
 				U256::max_value(),
 				vec![],
-				CallProtections::default(),
+				CallProtections::none(),
 			),
 			Err(Error::<Test>::BalanceConversionFailed.into())
 		);
@@ -2970,7 +2973,7 @@ fn correct_immutable_data_in_delegate_call() {
 					&CHARLIE_ADDR,
 					U256::zero(),
 					vec![],
-					CallProtections::default(),
+					CallProtections::none(),
 				)
 				.map(|_| ctx.ext.last_frame_output().data.clone()),
 			Ok(vec![2]),
@@ -3274,7 +3277,7 @@ fn run_root_call_with_value(contract_addr: H160, input: Vec<u8>, value: U256) {
 fn run_child_call<E: Ext>(ext: &mut E, to: &H160, input: Vec<u8>) -> Result<(), ExecError> {
 	// Mirror the interpreter: warm the zero-value plain target, then call it.
 	ext.warm(CallItems::new(*to, false));
-	ext.call(&CallResources::NoLimits, to, U256::zero(), input, CallProtections::default())
+	ext.call(&CallResources::NoLimits, to, U256::zero(), input, CallProtections::none())
 }
 
 #[test]
@@ -3667,7 +3670,7 @@ fn cold_hot_a_load_warms_both_code_entries() {
 		assert_eq!(
 			ctx.ext.warmth_of(CodeLoadItems::new(dummy_code_hash)).entries(),
 			CodeLoadWarmth { info: Warmth::write_paid(), blob: Warmth::read_paid() },
-			"an instantiate warms the code it loads, and pays for its refcount write to the code info",
+			"an instantiate warms the code it loads, and pays for the code info refcount write",
 		);
 		exec_success()
 	});
@@ -3711,7 +3714,7 @@ fn cold_hot_a_chained_delegation_warms_the_target_it_reads() {
 				&DJANGO_ADDR,
 				U256::zero(),
 				vec![],
-				CallProtections::default(),
+				CallProtections::none(),
 			);
 
 			assert_err!(call_django.map_err(|e| e.error), <Error<Test>>::ContractTrapped);
@@ -3733,7 +3736,7 @@ fn cold_hot_a_chained_delegation_warms_the_target_it_reads() {
 				&BOB_ADDR,
 				U256::zero(),
 				vec![],
-				CallProtections::default(),
+				CallProtections::none(),
 			)?;
 			exec_success()
 		});
@@ -3772,7 +3775,7 @@ fn cold_hot_a_precompile_call_warms_nothing() {
 					&H160(precompile),
 					U256::zero(),
 					vec![],
-					CallProtections::default(),
+					CallProtections::none(),
 				),
 				Ok(_)
 			);

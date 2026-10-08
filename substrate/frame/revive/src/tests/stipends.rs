@@ -17,7 +17,7 @@
 
 use crate::{
 	AccountInfo, Code, Config, Error, Pallet,
-	evm::{CallTrace, CallTracer},
+	evm::{CallTrace, CallTracer, fees::InfoT},
 	test_utils::{self, ALICE, BOB, BOB_ADDR, builder::Contract},
 	tests::{ExtBuilder, GasScale, RuntimeOrigin, Test, builder},
 	tracing::trace,
@@ -27,7 +27,10 @@ use alloy_core::{
 	sol_types::{SolCall, SolConstructor, SolValue},
 };
 use codec::Encode;
-use frame_support::traits::fungible::Mutate;
+use frame_support::{
+	assert_ok,
+	traits::fungible::{Balanced, Mutate},
+};
 use pallet_revive_fixtures::{
 	BumpableCounter, CreatingReceiver, CreatingReceiver::Creation, FixtureType,
 	NestedWritingReceiver, NestedWritingReceiver::Nesting, StipendSender, StipendTest,
@@ -59,6 +62,17 @@ fn innermost_frame(mut call_trace: CallTrace) -> CallTrace {
 		call_trace = nested;
 	}
 	call_trace
+}
+
+/// Deploys a `StipendSender` of `fixture_type` that targets `receiver`, and returns its address.
+fn deploy_stipend_sender(fixture_type: FixtureType, receiver: H160) -> H160 {
+	let (code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
+	builder::bare_instantiate(Code::Upload(code))
+		.constructor_data(
+			StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
+		)
+		.build_and_unwrap_contract()
+		.addr
 }
 
 #[test]
@@ -168,7 +182,6 @@ fn evm_call_stipend_is_added_to_static_and_delegate_calls(sender_type: FixtureTy
 		compile_module_with_type("DoNothingReceiver", FixtureType::Solc).unwrap();
 	let (writing_receiver_code, _) =
 		compile_module_with_type("WritingReceiver", FixtureType::Solc).unwrap();
-	let (stipend_sender_code, _) = compile_module_with_type("StipendSender", sender_type).unwrap();
 	let (warm_sender_code, _) = compile_module_with_type("WarmWriteSender", sender_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
@@ -178,13 +191,7 @@ fn evm_call_stipend_is_added_to_static_and_delegate_calls(sender_type: FixtureTy
 		let Contract { addr: writing_receiver, .. } =
 			builder::bare_instantiate(Code::Upload(writing_receiver_code))
 				.build_and_unwrap_contract();
-		let Contract { addr: stipend_sender, .. } =
-			builder::bare_instantiate(Code::Upload(stipend_sender_code))
-				.constructor_data(
-					StipendSender::constructorCall { _receiver: empty_receiver.0.into() }
-						.abi_encode(),
-				)
-				.build_and_unwrap_contract();
+		let stipend_sender = deploy_stipend_sender(sender_type, empty_receiver);
 		let Contract { addr: warm_sender, .. } =
 			builder::bare_instantiate(Code::Upload(warm_sender_code)).build_and_unwrap_contract();
 		let writing_receiver = writing_receiver.0.into();
@@ -207,19 +214,19 @@ fn evm_call_stipend_is_added_to_static_and_delegate_calls(sender_type: FixtureTy
 			};
 			is_denied(warm_sender, call.abi_encode(), 0)
 		};
-		let delegate_read_denied = |gas_limit: u64| {
-			let call = WarmWriteSender::isWarmDelegateReadDeniedCall {
+		let delegate_call_denied = |gas_limit: u64, data: Vec<u8>| {
+			let call = WarmWriteSender::isWarmDelegateCallDeniedCall {
 				receiver: writing_receiver,
 				gasLimit: gas_limit,
+				data: data.into(),
 			};
 			is_denied(warm_sender, call.abi_encode(), 0)
 		};
+		let delegate_read_denied = |gas_limit: u64| {
+			delegate_call_denied(gas_limit, BumpableCounter::counterCall {}.abi_encode())
+		};
 		let delegate_write_denied = |gas_limit: u64| {
-			let call = WarmWriteSender::isWarmDelegateWriteDeniedCall {
-				receiver: writing_receiver,
-				gasLimit: gas_limit,
-			};
-			is_denied(warm_sender, call.abi_encode(), 0)
+			delegate_call_denied(gas_limit, BumpableCounter::bumpCall {}.abi_encode())
 		};
 
 		assert!(!value_call_denied(1), "the stipend should be enough for an empty receive");
@@ -302,16 +309,11 @@ fn receiver_of_a_send_cannot_drain_the_sender() {
 fn evm_call_stipend_allows_reentry_from_a_value_transfer_or_send() {
 	// On PVM the stipend alone cannot pay for the reentrant call.
 	let (probe_code, _) = compile_module_with_type("ReentrancyProbe", FixtureType::Solc).unwrap();
-	let (code, _) = compile_module_with_type("StipendSender", FixtureType::Solc).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
 		let Contract { addr: probe, .. } =
 			builder::bare_instantiate(Code::Upload(probe_code)).build_and_unwrap_contract();
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.constructor_data(
-				StipendSender::constructorCall { _receiver: probe.0.into() }.abi_encode(),
-			)
-			.build_and_unwrap_contract();
+		let addr = deploy_stipend_sender(FixtureType::Solc, probe);
 
 		let run = |call: Vec<u8>| {
 			builder::bare_call(addr)
@@ -333,17 +335,12 @@ fn evm_call_stipend_allows_reentry_from_a_value_transfer_or_send() {
 #[test_case(FixtureType::Solc;   "solc")]
 #[test_case(FixtureType::Resolc; "resolc")]
 fn evm_call_stipend_allows_reentry_from_every_call_shape(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
 	let (probe_code, _) = compile_module_with_type("ReentrancyProbe", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
 		let Contract { addr: probe, .. } =
 			builder::bare_instantiate(Code::Upload(probe_code)).build_and_unwrap_contract();
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.constructor_data(
-				StipendSender::constructorCall { _receiver: probe.0.into() }.abi_encode(),
-			)
-			.build_and_unwrap_contract();
+		let addr = deploy_stipend_sender(fixture_type, probe);
 
 		let value = 1_000_000_u128;
 		let run = |evm_value: u128, call: Vec<u8>| {
@@ -410,12 +407,20 @@ enum WarmWrite {
 	ByCallWithGas(u64),
 }
 
+/// The execution mode of the transaction that calls `WarmWriteSender`.
+#[derive(Clone, Copy)]
+enum ExecutionMode {
+	Substrate,
+	Ethereum,
+}
+
 /// Returns whether a `WarmWriteSender` call to a fresh receiver was denied, and its counter.
 fn call_warm_write_sender(
 	fixture_type: FixtureType,
 	receiver_fixture: &str,
 	value: u128,
 	warm_write: WarmWrite,
+	execution_mode: ExecutionMode,
 ) -> (bool, U256) {
 	let (receiver_code, _) = compile_module_with_type(receiver_fixture, fixture_type).unwrap();
 	let (sender_code, _) = compile_module_with_type("WarmWriteSender", fixture_type).unwrap();
@@ -436,10 +441,22 @@ fn call_warm_write_sender(
 			}
 			.abi_encode(),
 		};
-		let result = builder::bare_call(sender)
-			.data(call_data)
-			.evm_value(value.into())
-			.build_and_unwrap_result();
+		let mut tracer = CallTracer::new(Default::default());
+		trace(&mut tracer, || match execution_mode {
+			ExecutionMode::Substrate => {
+				builder::bare_call(sender)
+					.data(call_data)
+					.evm_value(value.into())
+					.build_and_unwrap_result();
+			},
+			ExecutionMode::Ethereum => {
+				<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
+					1_000_000_000_000,
+				));
+				assert_ok!(builder::eth_call(sender).data(call_data).value(value.into()).build());
+			},
+		});
+		let denied = bool::abi_decode(&tracer.collect_trace().unwrap().output.0).unwrap();
 		let sender_counter = builder::bare_call(sender)
 			.data(WarmWriteSender::counterCall {}.abi_encode())
 			.build_and_unwrap_result();
@@ -448,10 +465,10 @@ fn call_warm_write_sender(
 			U256::from(1),
 			"the sender should write after the call, since only the receiver is denied writes"
 		);
-		let counter = builder::bare_call(receiver)
+		let receiver_counter = builder::bare_call(receiver)
 			.data(BumpableCounter::counterCall {}.abi_encode())
 			.build_and_unwrap_result();
-		(bool::abi_decode(&result.data).unwrap(), U256::abi_decode(&counter.data).unwrap())
+		(denied, U256::abi_decode(&receiver_counter.data).unwrap())
 	})
 }
 
@@ -468,14 +485,19 @@ fn stipend_check_denies_hot_slot_writes_from_a_zero_value_send(
 	fixture_type: FixtureType,
 	(receiver_fixture, counter_after_write): (&str, u64),
 ) {
+	let call = |warm_write| {
+		call_warm_write_sender(
+			fixture_type,
+			receiver_fixture,
+			0,
+			warm_write,
+			ExecutionMode::Substrate,
+		)
+	};
 	let (with_other_gas, send_result) = with_gas_scale(20_000_000, || {
-		let with_other_gas = [2299, 2301].map(|gas_limit| {
-			let warm_write = WarmWrite::ByCallWithGas(gas_limit);
-			call_warm_write_sender(fixture_type, receiver_fixture, 0, warm_write)
-		});
-		let send_result =
-			call_warm_write_sender(fixture_type, receiver_fixture, 0, WarmWrite::BySend);
-		(with_other_gas, send_result)
+		let with_other_gas =
+			[2299, 2301].map(|gas_limit| call(WarmWrite::ByCallWithGas(gas_limit)));
+		(with_other_gas, call(WarmWrite::BySend))
 	});
 	assert_eq!(
 		with_other_gas,
@@ -486,28 +508,29 @@ fn stipend_check_denies_hot_slot_writes_from_a_zero_value_send(
 }
 
 // These receivers' writes fit in the stipend, so only the check can deny them.
-#[test_case(FixtureType::Solc,   "WritingReceiver",  2; "solc, writing")]
-#[test_case(FixtureType::Solc,   "ClearingReceiver", 0; "solc, clearing")]
+#[test_matrix(
+	[("WritingReceiver", 2), ("ClearingReceiver", 0)],
+	[ExecutionMode::Substrate, ExecutionMode::Ethereum]
+)]
 fn stipend_check_denies_hot_slot_writes_from_a_value_send(
-	fixture_type: FixtureType,
-	receiver_fixture: &str,
-	counter_after_write: u64,
+	(receiver_fixture, counter_after_write): (&str, u64),
+	execution_mode: ExecutionMode,
 ) {
-	assert_eq!(
+	let call = |warm_write| {
 		call_warm_write_sender(
-			fixture_type,
+			FixtureType::Solc,
 			receiver_fixture,
 			1_000_000,
-			WarmWrite::ByCallWithGas(1)
-		),
+			warm_write,
+			execution_mode,
+		)
+	};
+	assert_eq!(
+		call(WarmWrite::ByCallWithGas(1)),
 		(false, U256::from(counter_after_write)),
 		"the write should fit in the stipend"
 	);
-
-	assert_eq!(
-		call_warm_write_sender(fixture_type, receiver_fixture, 1_000_000, WarmWrite::BySend),
-		(true, U256::from(1))
-	);
+	assert_eq!(call(WarmWrite::BySend), (true, U256::from(1)));
 }
 
 #[test_matrix(
@@ -518,7 +541,6 @@ fn stipend_check_is_inherited_by_nested_frames(fixture_type: FixtureType, nestin
 	let (target_code, _) = compile_module_with_type("WritingReceiver", fixture_type).unwrap();
 	let (receiver_code, _) =
 		compile_module_with_type("NestedWritingReceiver", fixture_type).unwrap();
-	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
 		let Contract { addr: target, .. } =
@@ -533,11 +555,7 @@ fn stipend_check_is_inherited_by_nested_frames(fixture_type: FixtureType, nestin
 					.abi_encode(),
 				)
 				.build_and_unwrap_contract();
-		let Contract { addr: sender, .. } = builder::bare_instantiate(Code::Upload(sender_code))
-			.constructor_data(
-				StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
-			)
-			.build_and_unwrap_contract();
+		let sender = deploy_stipend_sender(fixture_type, receiver);
 
 		let is_denied = |gas_limit: u64| {
 			let result = builder::bare_call(sender)
@@ -554,7 +572,6 @@ fn stipend_check_is_inherited_by_nested_frames(fixture_type: FixtureType, nestin
 }
 
 /// Where `ValueForwardingReceiver` sends value.
-#[derive(Clone, Copy, Debug)]
 enum Beneficiary {
 	AccountWithoutCode,
 	Contract,
@@ -568,7 +585,6 @@ fn stipend_check_denies_moving_value(fixture_type: FixtureType, beneficiary: Ben
 	const FORWARDED_VALUE: u64 = 1_000_000;
 	let (receiver_code, _) =
 		compile_module_with_type("ValueForwardingReceiver", fixture_type).unwrap();
-	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
 	let (contract_code, _) =
 		compile_module_with_type("DoNothingReceiver", FixtureType::Solc).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
@@ -595,11 +611,7 @@ fn stipend_check_denies_moving_value(fixture_type: FixtureType, beneficiary: Ben
 					.abi_encode(),
 				)
 				.build_and_unwrap_contract();
-		let Contract { addr: sender, .. } = builder::bare_instantiate(Code::Upload(sender_code))
-			.constructor_data(
-				StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
-			)
-			.build_and_unwrap_contract();
+		let sender = deploy_stipend_sender(fixture_type, receiver);
 
 		// Returns the receiver's error and the value the beneficiary received.
 		let forward_with_gas = |gas_limit: u64| {
@@ -631,7 +643,6 @@ fn stipend_check_denies_moving_value(fixture_type: FixtureType, beneficiary: Ben
 )]
 fn stipend_check_denies_creating_contracts(fixture_type: FixtureType, creation: Creation) {
 	let (receiver_code, _) = compile_module_with_type("CreatingReceiver", fixture_type).unwrap();
-	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
 	let (child_code, _) = compile_module_with_type("DoNothingReceiver", fixture_type).unwrap();
 
 	// Returns the receiver's error and whether the contract it creates exists.
@@ -652,13 +663,7 @@ fn stipend_check_denies_creating_contracts(fixture_type: FixtureType, creation: 
 						CreatingReceiver::constructorCall { _creation: creation }.abi_encode(),
 					)
 					.build_and_unwrap_contract();
-			let Contract { addr: sender, .. } =
-				builder::bare_instantiate(Code::Upload(sender_code.clone()))
-					.constructor_data(
-						StipendSender::constructorCall { _receiver: receiver.0.into() }
-							.abi_encode(),
-					)
-					.build_and_unwrap_contract();
+			let sender = deploy_stipend_sender(fixture_type, receiver);
 
 			let receiver_trace = trace_call_with_gas(sender, gas_limit).calls.pop().unwrap();
 			let created = receiver_trace
@@ -689,7 +694,6 @@ fn stipend_check_denies_creating_contracts(fixture_type: FixtureType, creation: 
 )]
 fn stipend_check_denies_terminating_contracts(fixture_type: FixtureType, termination: Termination) {
 	let (receiver_code, _) = compile_module_with_type("TerminatingReceiver", fixture_type).unwrap();
-	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
 
 	// Returns the innermost frame's error, the value the beneficiary received, and the receiver's
 	// balance before the call.
@@ -708,13 +712,7 @@ fn stipend_check_denies_terminating_contracts(fixture_type: FixtureType, termina
 						.abi_encode(),
 					)
 					.build_and_unwrap_contract();
-			let Contract { addr: sender, .. } =
-				builder::bare_instantiate(Code::Upload(sender_code.clone()))
-					.constructor_data(
-						StipendSender::constructorCall { _receiver: receiver.0.into() }
-							.abi_encode(),
-					)
-					.build_and_unwrap_contract();
+			let sender = deploy_stipend_sender(fixture_type, receiver);
 			let receiver_balance = Pallet::<Test>::evm_balance(&receiver);
 			let balance_before = Pallet::<Test>::evm_balance(&BOB_ADDR);
 
@@ -785,17 +783,12 @@ fn stipend_check_applies_under_strict_reentrancy(fixture_type: FixtureType) {
 )]
 fn stipend_check_denies_writes_with_out_of_gas(fixture_type: FixtureType, receiver_fixture: &str) {
 	let (receiver_code, _) = compile_module_with_type(receiver_fixture, fixture_type).unwrap();
-	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
 
 		let Contract { addr: receiver, .. } =
 			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
-		let Contract { addr: sender, .. } = builder::bare_instantiate(Code::Upload(sender_code))
-			.constructor_data(
-				StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
-			)
-			.build_and_unwrap_contract();
+		let sender = deploy_stipend_sender(fixture_type, receiver);
 
 		let write_error = |gas_limit: u64| {
 			let call_trace = with_gas_scale(20_000_000, || trace_call_with_gas(sender, gas_limit));
@@ -827,7 +820,8 @@ fn stipend_check_ignores_calls_with_an_explicit_gas_limit(
 			fixture_type,
 			receiver_fixture,
 			value,
-			WarmWrite::ByCallWithGas(10_000_000_000)
+			WarmWrite::ByCallWithGas(10_000_000_000),
+			ExecutionMode::Substrate,
 		),
 		(false, U256::from(counter_after_write))
 	);
@@ -847,16 +841,11 @@ fn stipend_check_allows_transient_storage_writes(
 	receiver_fixture: &str,
 ) {
 	let (receiver_code, _) = compile_module_with_type(receiver_fixture, fixture_type).unwrap();
-	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
 		let Contract { addr: receiver, .. } =
 			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
-		let Contract { addr: sender, .. } = builder::bare_instantiate(Code::Upload(sender_code))
-			.constructor_data(
-				StipendSender::constructorCall { _receiver: receiver.0.into() }.abi_encode(),
-			)
-			.build_and_unwrap_contract();
+		let sender = deploy_stipend_sender(fixture_type, receiver);
 
 		let result = with_gas_scale(20_000_000, || {
 			builder::bare_call(sender)

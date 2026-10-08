@@ -1224,7 +1224,7 @@ mod stipend_limited_frame {
 		use frame_support::traits::fungibles::approvals::Inspect;
 
 		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
-		let [denied, below, above] =
+		let [with_2300_gas, with_2299_gas, with_2301_gas] =
 			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
 				[2300, 2299, 2301].map(|gas_limit| {
 					call_precompile_via_receiver(
@@ -1251,7 +1251,11 @@ mod stipend_limited_frame {
 					)
 				})
 			});
-		assert_eq!(denied, (true, 0), "the receiver of a `send` should not submit a permit");
-		assert_eq!([below, above], [(false, AMOUNT); 2], "only a `send` denies the permit");
+		assert_eq!(with_2300_gas, (true, 0), "the receiver of a `send` should not submit a permit");
+		assert_eq!(
+			[with_2299_gas, with_2301_gas],
+			[(false, AMOUNT); 2],
+			"only a `send` denies the permit"
+		);
 	}
 }

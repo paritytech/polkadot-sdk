@@ -33,7 +33,7 @@ doc:
     argument in place of its reentrancy protection and `read_only` arguments. The struct carries
     the reentrancy protection, `read_only`, and `stipend_limited`, which is set for calls shaped
     like a `transfer()` or `send()`. A precompile that passed `ReentrancyProtection::AllowReentry`
-    and `false` now passes `CallProtections::default()`. Set any other reentrancy level on the
+    and `false` now passes `CallProtections::none()`. Set any other reentrancy level on the
     `reentrancy` field, and a read-only call on the `read_only` field:
     ```rust
     // Before
@@ -42,7 +42,7 @@ doc:
     let protections = CallProtections {
         reentrancy: ReentrancyProtection::Strict,
         read_only: true,
-        ..Default::default()
+        stipend_limited: false,
     };
     env.call(&resources, &to, value, input, protections)?;
     ```
@@ -59,7 +59,7 @@ doc:
     memory for. It scaled a write's weight by the memory that write uses before dividing the block
     weight by it, so the storage term came out near zero and the check could not fail on it. It now
     computes how many writes fit the block weight before multiplying by the memory each one uses,
-    and prices each write as a cold write without rollback, the cheapest write a block can hold.
+    and prices each write as a cold write without rollback.
 crates:
 - name: pallet-revive
   bump: major

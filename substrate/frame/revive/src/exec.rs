@@ -127,10 +127,9 @@ impl Key {
 /// This needs to be specifed when a contract makes a message call. This way the calling contract
 /// can specify the level of re-entrancy protection while the callee (and it's recursive callees) is
 /// executing.
-#[derive(Copy, Clone, PartialEq, Debug, Default)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum ReentrancyProtection {
 	/// Don't activate reentrancy protection
-	#[default]
 	AllowReentry,
 	/// Activate strict reentrancy protection. The direct callee and none of its own recursive
 	/// callees must be the calling contract.
@@ -138,7 +137,7 @@ pub enum ReentrancyProtection {
 }
 
 /// The protections a caller sets for its callee.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 pub struct CallProtections {
 	/// The reentrancy protection to enforce on the callee.
 	pub reentrancy: ReentrancyProtection,
@@ -150,13 +149,22 @@ pub struct CallProtections {
 }
 
 impl CallProtections {
+	/// Builds an empty `CallProtections`.
+	pub fn none() -> Self {
+		Self {
+			reentrancy: ReentrancyProtection::AllowReentry,
+			read_only: false,
+			stipend_limited: false,
+		}
+	}
+
 	/// Combines the provided protections with the restrictions the caller runs under, which the
 	/// callee cannot lift.
 	fn inherit<T: Config>(self, caller: &Frame<T>) -> Self {
 		Self {
+			reentrancy: self.reentrancy,
 			read_only: self.read_only || caller.read_only,
 			stipend_limited: self.stipend_limited || caller.stipend_limited,
-			..self
 		}
 	}
 }
@@ -1075,7 +1083,7 @@ where
 			value,
 			transaction_meter,
 			&CallResources::NoLimits,
-			CallProtections::default(),
+			CallProtections::none(),
 			true,
 			input_data,
 			exec_config,
@@ -2237,7 +2245,7 @@ where
 			},
 			value,
 			call_resources,
-			CallProtections::default().inherit(self.top_frame()),
+			CallProtections::none().inherit(self.top_frame()),
 			&input_data,
 		)? {
 			self.run(executable, input_data)
@@ -2388,7 +2396,7 @@ where
 				},
 				value,
 				call_resources,
-				CallProtections::default().inherit(self.top_frame()),
+				CallProtections::none().inherit(self.top_frame()),
 				&input_data,
 			)?
 		};
@@ -2769,9 +2777,7 @@ where
 	}
 
 	fn ensure_not_stipend_limited(&self) -> Result<(), DispatchError> {
-		if self.top_frame().stipend_limited {
-			return Err(Error::<T>::OutOfGas.into());
-		}
+		ensure!(!self.top_frame().stipend_limited, Error::<T>::OutOfGas);
 		Ok(())
 	}
 

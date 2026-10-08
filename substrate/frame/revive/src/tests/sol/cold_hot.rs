@@ -404,7 +404,7 @@ fn a_contract_creation_pays_for_registering_its_entries(fixture_type: FixtureTyp
 				&factory,
 				U256::zero(),
 				Factory::createCall {}.abi_encode(),
-				CallProtections::default(),
+				CallProtections::none(),
 			)
 			.unwrap();
 			let consumed = ext.frame_meter().weight_consumed().saturating_sub(before);

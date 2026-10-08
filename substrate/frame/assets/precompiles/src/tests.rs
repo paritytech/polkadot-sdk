@@ -1129,8 +1129,8 @@ pub mod stipend_limited_frame {
 	pub const AMOUNT: u128 = 10;
 	const OWNER: u64 = 123456789;
 
-	/// Lets a call with an explicit gas limit pay for the operation under test, so only the stipend
-	/// check can deny it.
+	/// A gas scale high enough that 2300 gas pays for the operation under test, so only the
+	/// stipend check can deny it.
 	pub const RAISED_GAS_SCALE: u32 = 50_000_000;
 
 	/// Calls the asset pre-compile with `data` from a `CallingReceiver` reached with `gas_limit`.
@@ -1219,7 +1219,7 @@ pub mod stipend_limited_frame {
 	#[test_case(FixtureType::Solc; "solc")]
 	#[test_case(FixtureType::Resolc; "resolc")]
 	fn transfer_is_denied(fixture_type: FixtureType) {
-		let [denied, below, above] =
+		let [with_2300_gas, with_2299_gas, with_2301_gas] =
 			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
 				[2300, 2299, 2301].map(|gas_limit| {
 					call_precompile_via_receiver(
@@ -1232,8 +1232,12 @@ pub mod stipend_limited_frame {
 					)
 				})
 			});
-		assert_eq!(denied, (true, 0), "the receiver of a `send` should not transfer assets");
-		assert_eq!([below, above], [(false, AMOUNT); 2], "only a `send` denies the transfer");
+		assert_eq!(with_2300_gas, (true, 0), "the receiver of a `send` should not transfer assets");
+		assert_eq!(
+			[with_2299_gas, with_2301_gas],
+			[(false, AMOUNT); 2],
+			"only a `send` denies the transfer"
+		);
 	}
 
 	#[test_case(FixtureType::Solc; "solc")]
@@ -1241,7 +1245,7 @@ pub mod stipend_limited_frame {
 	fn approve_is_denied(fixture_type: FixtureType) {
 		use frame_support::traits::fungibles::approvals::Inspect;
 
-		let [denied, below, above] =
+		let [with_2300_gas, with_2299_gas, with_2301_gas] =
 			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
 				[2300, 2299, 2301].map(|gas_limit| {
 					call_precompile_via_receiver(
@@ -1254,14 +1258,22 @@ pub mod stipend_limited_frame {
 					)
 				})
 			});
-		assert_eq!(denied, (true, 0), "the receiver of a `send` should not approve a spender");
-		assert_eq!([below, above], [(false, AMOUNT); 2], "only a `send` denies the approval");
+		assert_eq!(
+			with_2300_gas,
+			(true, 0),
+			"the receiver of a `send` should not approve a spender"
+		);
+		assert_eq!(
+			[with_2299_gas, with_2301_gas],
+			[(false, AMOUNT); 2],
+			"only a `send` denies the approval"
+		);
 	}
 
 	#[test_case(FixtureType::Solc; "solc")]
 	#[test_case(FixtureType::Resolc; "resolc")]
 	fn transfer_from_is_denied(fixture_type: FixtureType) {
-		let [denied, below, above] =
+		let [with_2300_gas, with_2299_gas, with_2301_gas] =
 			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
 				[2300, 2299, 2301].map(|gas_limit| {
 					call_precompile_via_receiver(
@@ -1278,9 +1290,13 @@ pub mod stipend_limited_frame {
 					)
 				})
 			});
-		assert_eq!(denied, (true, 0), "the receiver of a `send` should not spend an allowance");
 		assert_eq!(
-			[below, above],
+			with_2300_gas,
+			(true, 0),
+			"the receiver of a `send` should not spend an allowance"
+		);
+		assert_eq!(
+			[with_2299_gas, with_2301_gas],
 			[(false, AMOUNT); 2],
 			"only a `send` denies spending an allowance"
 		);
