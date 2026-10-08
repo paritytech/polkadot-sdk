@@ -493,9 +493,9 @@ fn cap_without_a_stored_set_draws_nothing_and_forces_no_rotation() {
 }
 
 #[test]
-fn capped_set_without_cached_randomness_draws_with_a_zero_value() {
+fn capped_set_draws_with_a_zero_value_without_cache_or_with_the_key_absent() {
 	new_test_ext().execute_with(|| {
-		// GIVEN no randomness is cached yet, as on a relay chain before its first epoch change
+		// GIVEN a runtime without the `OnSystemEvent` wiring, so no randomness is cached
 		RelayEpochRandomness::set(None);
 		initialize_to_block(1);
 		set_keys(10);
@@ -512,13 +512,17 @@ fn capped_set_without_cached_randomness_draws_with_a_zero_value() {
 			ValidatorCollators::do_try_state(),
 			Err("collators are drawn without a cached relay chain epoch randomness".into())
 		);
-		// WHEN a value is cached at block 3 and the next set is drawn at block 4
-		RelayEpochRandomness::set(Some([9; 32]));
+		// WHEN the wiring processes a proof showing the key absent at block 3 and the next set is
+		// drawn at block 4
 		initialize_to_block(3);
+		on_relay_state_proof(&relay_state_proof(
+			&[(OTHER_KEY, vec![1; 40])],
+			&[ONE_EPOCH_AGO_RANDOMNESS],
+		));
 		assert_ok!(receive(2, vec![10, 11]));
 		initialize_to_block(4);
-		// THEN the draw uses it
-		assert_eq!(drawn(), reference_draw(expected_seed(2, [9; 32]), &[10, 11], 1));
+		// THEN the draw uses the cached zero value and try-state holds
+		assert_eq!(drawn(), reference_draw(expected_seed(2, [0; 32]), &[10, 11], 1));
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
@@ -561,10 +565,10 @@ fn relay_randomness_cache_follows_the_proof() {
 		on_relay_state_proof(&new_value);
 		assert_eq!(frame_support::storage::unhashed::get_raw(&storage_key), Some(stored));
 
-		// WHEN the proof shows the key absent THEN the cache is kept without a panic
+		// WHEN the proof shows the key absent THEN the relay chain's default zero value is cached
 		EpochRandomness::<Test>::put([2; 32]);
 		on_relay_state_proof(&absent);
-		assert_eq!(EpochRandomness::<Test>::get(), Some([2; 32]));
+		assert_eq!(EpochRandomness::<Test>::get(), Some([0; 32]));
 	});
 }
 

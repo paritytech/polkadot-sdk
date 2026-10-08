@@ -56,8 +56,8 @@
 //! The draw runs in the session rotation, before the block's own proof is processed, so it uses
 //! the value cached by the previous block.
 //! A block whose proof lacks the trie nodes of the randomness key, or holds a value that does not
-//! decode, is invalid. A proof that shows the key absent, as on a relay chain before its first
-//! epoch change, leaves the cache unchanged.
+//! decode, is invalid. A proof that shows the key absent, as before the relay chain's first epoch
+//! change, caches the zero value a draw without randomness uses.
 //! Without the `OnSystemEvent` wiring, every draw uses a zero randomness value and logs an error.
 //!
 //! The stored set is the one staking elected for the era. The relay chain enacts only the elected
@@ -405,10 +405,9 @@ pub mod pallet {
 				!Collators::<T>::exists() || Collators::<T>::get().is_some(),
 				"the drawn collators do not decode"
 			);
-			// With the pallet wired as `OnSystemEvent`, a draw follows a block whose
-			// `on_relay_state_proof` cached the randomness, and the cache is never removed, so this
-			// holds whatever rotation is pending. It fails for a draw on a relay chain before its
-			// first epoch change, whose proofs show the key absent.
+			// With the pallet wired as `OnSystemEvent`, `on_relay_state_proof` caches a value in
+			// every block's inherent and the cache is never removed. So this holds for every draw
+			// after the first block that runs the pallet, and flags a runtime without that wiring.
 			ensure!(
 				!Collators::<T>::exists() || EpochRandomness::<T>::exists(),
 				"collators are drawn without a cached relay chain epoch randomness"
@@ -492,30 +491,33 @@ pub mod pallet {
 
 		/// Caches the relay chain randomness of one epoch ago in [`EpochRandomness`].
 		///
-		/// A proof that shows the key absent logs a warning and leaves the cache unchanged. A
-		/// proof that lacks the trie nodes of the key, or holds a value that does not decode,
-		/// panics and so makes the block invalid.
+		/// A proof that shows the key absent caches a zero value. A proof that lacks the trie nodes
+		/// of the key, or holds a value that does not decode, panics and so makes the block
+		/// invalid.
 		fn on_relay_state_proof(relay_state_proof: &RelayChainStateProof) -> Weight {
-			match relay_state_proof
+			let randomness = match relay_state_proof
 				.read_entry::<[u8; 32]>(well_known_keys::ONE_EPOCH_AGO_RANDOMNESS, None)
 			{
-				Ok(randomness) => {
-					if EpochRandomness::<T>::get() != Some(randomness) {
-						EpochRandomness::<T>::put(randomness);
-					}
-				},
-				Err(RelayProofError::ReadEntry(error)) => match error {
-					ReadEntryErr::Absent => log::warn!(
+				Ok(randomness) => randomness,
+				// No randomness on the relay chain, as before its first epoch change, is cached as
+				// the zero value a draw without randomness uses.
+				Err(RelayProofError::ReadEntry(ReadEntryErr::Absent)) => {
+					log::debug!(
 						target: crate::LOG_TARGET,
-						"the relay chain state proof shows no epoch randomness, keeping the cache"
-					),
-					ReadEntryErr::Proof | ReadEntryErr::Decode => panic!(
-						"Invalid relay chain epoch randomness in the relay chain state proof: \
-						 {error:?}"
-					),
+						"the relay chain state proof shows no epoch randomness, caching a zero value"
+					);
+					[0; 32]
 				},
+				Err(RelayProofError::ReadEntry(
+					error @ (ReadEntryErr::Proof | ReadEntryErr::Decode),
+				)) => panic!(
+					"Invalid relay chain epoch randomness in the relay chain state proof: {error:?}"
+				),
 				// `read_entry` returns only `ReadEntry` errors.
 				Err(error) => panic!("Invalid relay chain state proof: {error:?}"),
+			};
+			if EpochRandomness::<T>::get() != Some(randomness) {
+				EpochRandomness::<T>::put(randomness);
 			}
 			T::WeightInfo::on_relay_state_proof()
 		}

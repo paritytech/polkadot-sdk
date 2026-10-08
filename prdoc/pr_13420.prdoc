@@ -19,7 +19,8 @@ doc:
     in a tuple with other handlers, and should return the keys of `Pallet::relay_keys_to_prove`
     from `cumulus_primitives_core::KeyToIncludeInRelayProof`. A relay chain state proof that lacks
     the trie nodes of the randomness key, or holds a value that does not decode, makes the block
-    invalid. A proof that shows the key absent leaves the cache unchanged.
+    invalid. A proof that shows the key absent, as before the relay chain's first epoch change,
+    caches the zero value a draw without randomness uses.
 
     Asset Hub Westend and People Westend wire the pallet as `OnSystemEvent` and implement
     `KeyToIncludeInRelayProof` with its keys.
