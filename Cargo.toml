@@ -80,7 +80,6 @@ members = [
 	"cumulus/client/resubmission-store",
 	"cumulus/client/service",
 	"cumulus/jam/interface",
-	"cumulus/jam/package-sync",
 	"cumulus/jam/rpc-interface",
 	"cumulus/jam/state-reader",
 	"cumulus/pallets/ah-ops",
@@ -801,7 +800,6 @@ cumulus-client-proof-size-recording = { path = "cumulus/client/proof-size-record
 cumulus-client-resubmission-store = { path = "cumulus/client/resubmission-store", default-features = false }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
 cumulus-jam-interface = { path = "cumulus/jam/interface", default-features = false }
-cumulus-jam-package-sync = { path = "cumulus/jam/package-sync" }
 cumulus-jam-rpc-interface = { path = "cumulus/jam/rpc-interface", default-features = false }
 cumulus-jam-state-reader = { path = "cumulus/jam/state-reader", default-features = false }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false }
