@@ -2434,7 +2434,8 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 
 	let runtime_api_provider =
 		VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone(), max_response_size);
-	let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone()).await?;
+	let chain_id = crate::chain_id(&api).await?;
+	let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone(), chain_id);
 	let receipt_provider = ReceiptProvider::new(
 		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
 		block_provider.clone(),
@@ -2453,6 +2454,7 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		true,
 		subscription_gap_queue,
 		runtime_api_provider,
+		chain_id,
 	)
 	.await?;
 	Ok((client, gap_fill_rx))
