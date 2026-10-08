@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791449495854,
+  "lastUpdate": 1791454732814,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8b53323246a87eb2249742b90ba0963057051eac",
-          "message": "bump zombienet version to v0.4.9 (#11569)\n\nThis version move the internal monitor to a diff log target, eliminating\nthe current spam of tracing logs.\n\nThx!\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-03-31T19:26:58Z",
-          "tree_id": "b2f4156f1fee8976b2c4b5530015871afd44e644",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8b53323246a87eb2249742b90ba0963057051eac"
-        },
-        "date": 1774990127904,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002662895579999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00938315603999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009916599059999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025647304699999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d17f024230ae3a73d2bded1fd6d2f1b64d646861",
+          "message": "statement-store: v2 soak step, node joining shifts the replica layout (#13422)\n\nIn this PR, we extend the v2 DHT soak with a full node joining an active\nnetwork. Statements are first placed on their K closest nodes. Load\nstarts before the newcomer is spawned and continues until all nodes\nlearn the new peer and the topology converges.\n\nFresh probes submitted through the XOR-farthest node must land on\nexactly the new top-K. For shifted topics, the newcomer holds the\nstatements and the displaced replica does not; control topics keep their\nreplica set. The newcomer must also receive every pre-join statement of\nits shifted topics. The displaced replicas' pre-join copies are not\nchecked: persistent statements stay until they expire. The join and a\nsubsequent ordinary wave are mandatory, including with a zero soak\nduration.\n\nCloses #13185. Part of #13162.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-08T08:25:58Z",
+          "tree_id": "1fdf03bd96411ed3c0ef1356506a192635085529",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d17f024230ae3a73d2bded1fd6d2f1b64d646861"
+        },
+        "date": 1791454699378,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002593005180000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00932519995999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010318320129999984,
             "unit": "seconds"
           }
         ]
