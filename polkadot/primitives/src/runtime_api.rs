@@ -121,7 +121,7 @@ use crate::{
 	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
 	DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures, OccupiedCoreAssumption,
 	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	StreamsRoot, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use alloc::{
@@ -343,5 +343,12 @@ sp_api::decl_runtime_apis! {
 			session_index: SessionIndex,
 			relay_parent: Hash,
 		) -> Option<RelayParentInfo<Hash, BlockNumber>>;
+
+		/***** Added in v17 *****/
+		/// The newest `StreamsRoot` the para committed in an included candidate: the head of its
+		/// speculative-messaging provides window. `None` if it never provided, or its window was
+		/// cleared (offboarding, a dispute freeze). Receivers fetch and target lifts under it.
+		#[api_version(17)]
+		fn newest_included_provides(para_id: ppp::Id) -> Option<StreamsRoot>;
 	}
 }

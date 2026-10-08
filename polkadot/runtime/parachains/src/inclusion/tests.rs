@@ -3275,6 +3275,28 @@ mod speculative_provides_window {
 	}
 
 	#[test]
+	fn newest_included_provides_is_the_window_head() {
+		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
+			use crate::runtime_api_impl::vstaging::newest_included_provides;
+			let source = ParaId::from(1000);
+			// Never provided.
+			assert_eq!(newest_included_provides::<Test>(source), None);
+
+			// The newest entry wins, including after the window trims.
+			for i in 0..MAX_PROVIDES_WINDOW_SIZE + 3 {
+				ParaInclusion::record_provides(source, sr(i as u8));
+				assert_eq!(newest_included_provides::<Test>(source), Some(sr(i as u8)));
+			}
+			// Other sources are independent.
+			assert_eq!(newest_included_provides::<Test>(ParaId::from(1001)), None);
+
+			// A cleared window (freeze) reports nothing again.
+			ParaInclusion::clear_provides();
+			assert_eq!(newest_included_provides::<Test>(source), None);
+		});
+	}
+
+	#[test]
 	fn offboarding_clears_provides_window() {
 		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
 			let (staying, leaving) = (ParaId::from(1), ParaId::from(2));
