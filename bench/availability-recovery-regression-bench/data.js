@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791449285689,
+  "lastUpdate": 1791454422530,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "59c40532e76f62b7d77cbb71d6309714e1aab744",
-          "message": "[Release|CI/CD] Fixes for release flows (#11578)\n\nThis PR backports few fixes for soem release flows, that were made in\nstable2603 branch. In particular:\n- Fixed resume check in Crates Publish flow\n- Fixed missing llvm path on macos builds\n- Fixed scrtipt that reverts path deps in Cargo.toml files\n- Bumped parity-publish version\n- Fixed check if the post-crates-release branch exists in Crateds\nPublish flow\n\n---------\n\nCo-authored-by: BDevParity <bruno.devic@parity.io>",
-          "timestamp": "2026-04-01T18:29:31Z",
-          "tree_id": "efd0685650449864c3503bc9cf26911d9bf846d0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/59c40532e76f62b7d77cbb71d6309714e1aab744"
-        },
-        "date": 1775072968835,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.1648533993,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.131130754,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14085416990000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d17f024230ae3a73d2bded1fd6d2f1b64d646861",
+          "message": "statement-store: v2 soak step, node joining shifts the replica layout (#13422)\n\nIn this PR, we extend the v2 DHT soak with a full node joining an active\nnetwork. Statements are first placed on their K closest nodes. Load\nstarts before the newcomer is spawned and continues until all nodes\nlearn the new peer and the topology converges.\n\nFresh probes submitted through the XOR-farthest node must land on\nexactly the new top-K. For shifted topics, the newcomer holds the\nstatements and the displaced replica does not; control topics keep their\nreplica set. The newcomer must also receive every pre-join statement of\nits shifted topics. The displaced replicas' pre-join copies are not\nchecked: persistent statements stay until they expire. The join and a\nsubsequent ordinary wave are mandatory, including with a zero soak\nduration.\n\nCloses #13185. Part of #13162.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-08T08:25:58Z",
+          "tree_id": "1fdf03bd96411ed3c0ef1356506a192635085529",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d17f024230ae3a73d2bded1fd6d2f1b64d646861"
+        },
+        "date": 1791454388636,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.130341298800001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13073332836666668,
             "unit": "seconds"
           }
         ]
