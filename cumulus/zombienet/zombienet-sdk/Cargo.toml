@@ -35,6 +35,7 @@ sc-executor = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true, default-features = true }
 frame-support = { workspace = true }
 cumulus-primitives-core = { workspace = true }
+cumulus-primitives-spec-messaging = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-transaction-storage-proof = { workspace = true, default-features = true }

@@ -12,6 +12,7 @@ mod parachain_runtime_upgrade_slot_duration_18s;
 mod pov_recovery;
 mod rpc_collator_build_blocks;
 mod runtime_upgrade;
+mod spec_msg;
 mod statement_store;
 mod storage_chain;
 mod sync_blocks;
