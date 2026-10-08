@@ -38,8 +38,10 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		fungible::Mutate as FunMutate, tokens::Preservation, Defensive, DefensiveSaturating, Get,
-		Imbalance, InspectLockableCurrency, LockableCurrency, OnUnbalanced,
+		fungible::{Inspect as FunInspect, Mutate as FunMutate},
+		tokens::Preservation,
+		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
+		OnUnbalanced,
 	},
 	weights::Weight,
 	StorageDoubleMap,
@@ -834,6 +836,11 @@ impl<T: Config> Pallet<T> {
 			return;
 		};
 
+		if amount < <T::ValidatorExpencesCurrency as FunInspect<T::AccountId>>::minimum_balance() {
+			// TODO
+			return;
+		}
+
 		let pot = T::RewardPots::pot_account(crate::RewardPot::Era(
 			era,
 			crate::RewardKind::OperationalExpenses,
@@ -858,7 +865,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::<T>::Unexpected(
 					UnexpectedKind::ValidatorOperationalExpensesTransferFailed { era },
 				));
-				defensive!("Validator operational expenses reward transfer failed");
+				defensive!("Validator operational expenses reward transfer failed", e);
 			},
 		}
 	}

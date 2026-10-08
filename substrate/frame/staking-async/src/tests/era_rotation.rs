@@ -442,6 +442,10 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 						"ErasValidatorIncentiveBudget should be empty after completing SingleEntryCleanups step"
 					);
 					assert!(
+						!crate::ErasValidatorExpensesReward::<T>::contains_key(1),
+						"ErasValidatorExpensesReward should be empty after completing SingleEntryCleanups step"
+					);
+					assert!(
 						!crate::ErasSumValidatorIncentiveWeight::<T>::contains_key(1),
 						"ErasSumValidatorIncentiveWeight should be empty after completing SingleEntryCleanups step"
 					);

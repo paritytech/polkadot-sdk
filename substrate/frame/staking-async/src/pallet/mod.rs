@@ -33,7 +33,7 @@ use frame_support::{
 	traits::{
 		fungible::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
-			Mutate, Mutate as FunMutate,
+			Inspect as FunInspect, Mutate, Mutate as FunMutate,
 		},
 		Contains, Defensive, DefensiveSaturating, EnsureOrigin, Get, InspectLockableCurrency,
 		Nothing, OnUnbalanced,
@@ -161,12 +161,8 @@ pub mod pallet {
 
 		/// Validator expenses may be paid in a non-native currency, so it's configured separately.
 		#[pallet::no_default]
-		type ValidatorExpencesCurrency: FunHoldMutate<
-				Self::AccountId,
-				Reason = Self::RuntimeHoldReason,
-				Balance = Self::CurrencyBalance,
-			> + FunMutate<Self::AccountId, Balance = Self::CurrencyBalance>
-			+ FunHoldBalanced<Self::AccountId, Balance = Self::CurrencyBalance>;
+		type ValidatorExpencesCurrency: FunInspect<Self::AccountId>
+			+ FunMutate<Self::AccountId, Balance = Self::CurrencyBalance>;
 
 		/// Convert a balance into a number used for election calculation. This must fit into a
 		/// `u64` but is allowed to be sensibly lossy. The `u64` is used to communicate with the

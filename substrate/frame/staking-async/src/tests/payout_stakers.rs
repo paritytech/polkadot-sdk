@@ -17,7 +17,13 @@
 
 use super::*;
 use crate::{session_rotation::Eras, RewardKind, RewardPot};
-use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo};
+use frame_support::{
+	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
+	traits::{
+		fungible::Mutate,
+		tokens::{Fortitude, Preservation},
+	},
+};
 use sp_runtime::{bounded_btree_map, traits::Dispatchable};
 
 #[test]
@@ -1787,5 +1793,77 @@ fn legacy_payout_ignores_pot_account_existence() {
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator, era));
 		let minted = pallet_balances::TotalIssuance::<Test>::get() - pre_issuance;
 		assert_eq!(minted, expected_stakers);
+	});
+}
+
+fn mint_operational_expenses_asset(to: AccountId, amount: Balance) {
+	use frame_support::traits::fungibles::Mutate;
+	assert_ok!(Assets::mint_into(ValidatorExpensesAssetId::get(), &to, amount));
+}
+
+fn operational_expenses_asset_balance(account: AccountId) -> Balance {
+	use frame_support::traits::fungibles::Inspect;
+	Assets::reducible_balance(
+		ValidatorExpensesAssetId::get(),
+		&account,
+		Preservation::Expendable,
+		Fortitude::Polite,
+	)
+}
+
+#[test]
+fn validator_operational_expenses_paid_out() {
+	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+		bond_validator(11, 1000);
+		bond_validator(12, 1000);
+
+		let general_pot: AccountId =
+			SequentialTest::pot_account(RewardPot::General(RewardKind::OperationalExpenses));
+		let era_pot =
+			|era| SequentialTest::pot_account(RewardPot::Era(era, RewardKind::OperationalExpenses));
+
+		const MIN_AMOUNT: Balance = 1;
+
+		Session::roll_until_active_era(2);
+
+		Balances::set_balance(&general_pot, ExistentialDeposit::get());
+		mint_operational_expenses_asset(general_pot, MIN_AMOUNT + 150);
+		Staking::reward_by_ids(vec![(11, 2), (12, 3)]);
+
+		Session::roll_until_active_era(3);
+		assert_eq!(operational_expenses_asset_balance(general_pot), MIN_AMOUNT);
+		assert_eq!(operational_expenses_asset_balance(era_pot(2)), 150);
+
+		Session::roll_until_active_era(4);
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0));
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 12, 2, 0));
+		assert_eq!(operational_expenses_asset_balance(general_pot), MIN_AMOUNT);
+		assert_eq!(operational_expenses_asset_balance(era_pot(2)), 0);
+		assert_eq!(operational_expenses_asset_balance(11), 60);
+		assert_eq!(operational_expenses_asset_balance(12), 90);
+		System::assert_has_event(
+			Event::<Test>::ValidatorOperationalExpensesPaid {
+				era: 2,
+				validator_stash: 11,
+				dest: RewardDestination::Stash,
+				amount: 60,
+			}
+			.into(),
+		);
+		System::assert_has_event(
+			Event::<Test>::ValidatorOperationalExpensesPaid {
+				era: 2,
+				validator_stash: 12,
+				dest: RewardDestination::Stash,
+				amount: 90,
+			}
+			.into(),
+		);
+
+		// No payouts when the general pot is empty.
+		Staking::reward_by_ids(vec![(11, 1)]);
+		Session::roll_until_active_era(6);
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 4, 0));
+		assert_eq!(operational_expenses_asset_balance(11), 60);
 	});
 }
