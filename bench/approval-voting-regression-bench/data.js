@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791454577256,
+  "lastUpdate": 1791457605139,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "59c40532e76f62b7d77cbb71d6309714e1aab744",
-          "message": "[Release|CI/CD] Fixes for release flows (#11578)\n\nThis PR backports few fixes for soem release flows, that were made in\nstable2603 branch. In particular:\n- Fixed resume check in Crates Publish flow\n- Fixed missing llvm path on macos builds\n- Fixed scrtipt that reverts path deps in Cargo.toml files\n- Bumped parity-publish version\n- Fixed check if the post-crates-release branch exists in Crateds\nPublish flow\n\n---------\n\nCo-authored-by: BDevParity <bruno.devic@parity.io>",
-          "timestamp": "2026-04-01T18:29:31Z",
-          "tree_id": "efd0685650449864c3503bc9cf26911d9bf846d0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/59c40532e76f62b7d77cbb71d6309714e1aab744"
-        },
-        "date": 1775073030686,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63627.369999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52938.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4512572711699927,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002242866,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8362152563299987,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7618684316200017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7353709615299678,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.214745818192687,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002242866,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005328028619999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9023162500899975,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002396617,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.80567798417,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.498034183529958,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002396617,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.281461897249965,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shlavik@gmail.com",
+            "name": "Viacheslav",
+            "username": "llblab"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "db46f6f939f68b8b84ddd531e77dbe8771dc4a73",
+          "message": "sp-api: write back `transaction_depth` after `execute_in_transaction` (#13439)\n\n# Description\n\nFixes #13438\n\n`ApiExt::execute_in_transaction` in the generated client-side\n`RuntimeApiImpl` incremented `transaction_depth` but discarded the\nresult of `checked_sub(1)`, so the counter never returned to zero. Every\nlater plain runtime API call on the same instance then skipped its own\ntransaction, and overlay writes of a call returning `ApiError` were kept\ninstead of rolled back.\n\nThis PR assigns the decremented value back and adds a regression test.\n\n## Integration\n\nNo action required by downstream projects. The change is confined to the\nnative client side (the code is generated inside `std_enabled!`); the\nWasm runtime is unchanged.\n\nBehaviour change to be aware of: on an API instance that has already\ncompleted an `execute_in_transaction` scope, a plain runtime API call\nthat returns `Err(ApiError)` now has its overlay changes rolled back, as\ndocumented for `ProvideRuntimeApi::runtime_api`. Code that relied on\nthose changes persisting after an error would see a difference; no such\ncode is known in-tree.\n\n## Review Notes\n\n```diff\n *std::cell::RefCell::borrow_mut(&self.transaction_depth) += 1;\n let res = call(self);\n-std::cell::RefCell::borrow_mut(&self.transaction_depth)\n-    .checked_sub(1)\n-    .expect(\"Transactions are opened and closed together; qed\");\n+{\n+    let mut depth = std::cell::RefCell::borrow_mut(&self.transaction_depth);\n+    *depth = depth\n+        .checked_sub(1)\n+        .expect(\"Transactions are opened and closed together; qed\");\n+}\n```\n\n- The counter was introduced in paritytech/substrate#14447, replacing a\n`commit_on_success` boolean that was reset after the closure. This\nrestores that behaviour for the counter.\n- The real overlay / recorder / extension transactions were always\nbalanced; only the logical counter was stale. `sc-block-builder` is\nunaffected in practice because a failing `finalize_block` consumes the\nbuilder.\n- The borrow is scoped so it is released before\n`commit_or_rollback_transaction`.\n- Behaviour on unwind is unchanged and out of scope.\n\nNew test `auto_transaction_is_restored_after_execute_in_transaction` in\n`sp-api-test` makes a failing plain call after an explicit scope (commit\nand rollback, with a nested scope) and asserts that no storage changes\nremain. Run with `cargo test -p sp-api-test --test runtime_calls`:\n\n- Without the fix: the new test fails at\n`assert!(changes.main_storage_changes.is_empty())`.\n- With the fix: all 11 tests in the file pass.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling\nrequirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)\nof this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-08T09:25:02Z",
+          "tree_id": "76c9f4f8b88a47f5c9d14f26901f16c968a87133",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/db46f6f939f68b8b84ddd531e77dbe8771dc4a73"
+        },
+        "date": 1791457572158,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63561.920000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.77049710362,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.0000201766,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001783502,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.0000201766,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001783502,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005274809199999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3195187265300055,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7682830682300024,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7939392407999535,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8152855524500007,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.248323154642686,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.270358405729962,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7975599049000004,
             "unit": "seconds"
           }
         ]
