@@ -1,4 +1,4 @@
-FROM docker.io/parity/base-bin:latest
+FROM docker.io/paritytech/base-bin
 
 # This file builds the official eth-rpc release image by injecting the
 # pre-built, signed `eth-rpc` release artifact into the base image.
