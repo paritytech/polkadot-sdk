@@ -1,8 +1,25 @@
-title: 'pallet-revive: benchmark the EVM `JUMPI` opcode'
+title: 'Update EVM Opcode Benchmarking and Weights'
 doc:
 - audience: Runtime Dev
   description: |-
-    WIP
+    Replace JUMPDEST-based estimates for selected EVM opcodes with
+    weights derived from their own benchmarks. Add charges for memory
+    expansion and for copying RETURN/REVERT output from EVM memory.
+
+    Regenerate pallet-revive weights for your runtime and update custom
+    WeightInfo implementations with the new benchmark methods. Update
+    exhaustive matches on RuntimeCosts for the new memory cost variants.
+
+    No storage migration is required.
+- audience: Runtime User
+  description: |-
+    EVM execution charges change. Some opcode charges decrease, while
+    memory expansion and RETURN/REVERT output copying now incur
+    additional charges.
+
+    Existing contracts do not need migration or redeployment. Re-estimate
+    gas limits after the runtime upgrade; calls using previous limits
+    may run out of gas.
 crates:
 - name: pallet-revive
   bump: major
