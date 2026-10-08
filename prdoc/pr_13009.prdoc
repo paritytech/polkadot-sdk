@@ -41,9 +41,9 @@ doc:
     pre-funded with the Existential Deposit.
 crates:
 - name: pallet-on-demand-para
-  bump: major
+  bump: patch
 - name: polkadot-runtime-parachains
-  bump: major
+  bump: minor
 - name: rococo-runtime
   bump: patch
 - name: westend-runtime
