@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791449392662,
+  "lastUpdate": 1791454577256,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e9e4769a189d7b7a830d31803385550701db8660",
-          "message": "Add statement store e2e integration tests (#11237)\n\n# Description\n\n#10783 \n\nE2E Integration Tests (zombienet-sdk)\n\nFunctional tests (statement_store)\n- statement_store_genesis_inject — submit + subscribe round-trip with\ngenesis-injected allowances, 2-node propagation with data\nintegrity verification\n- statement_store_sudo_allowance — sudo-based runtime allowance setting,\n8 concurrent multi-account submissions, 4-node fan-out propagation\n\n### Test Infrastructure\n- common.rs — shared helpers: create_test_statement, submit_statement,\nexpect_one_statement, expect_statements_unordered,\nsubscribe_topic, spawn_network, spawn_network_sudo\n- sc_statement_store::subxt_client — custom subxt config (CustomConfig)\nfor non-standard transaction extensions\n(VerifyMultiSignature, RestrictOrigins), set_allowances_via_sudo for\nruntime-configured networks\n- sc_statement_store::test_utils — shared keypair generation and\nallowance storage item builders (get_keypair,\ncreate_allowance_items, create_uniform_allowance_items)\n- CI matrix registration for all statement store test groups\n\n### What we cover in this PR\n\nTest(statement_store_sudo_allowance) cover the next options for #11534 :\n- Propagation under normal load: Zombienet tests to cover concurrent\nmulti-client corner cases and verify statements reach all real nodes,\nNOT including during major sync\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-01T13:11:28Z",
-          "tree_id": "f2122311adfab60536feedd50a4acfef7bd7226a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9e4769a189d7b7a830d31803385550701db8660"
-        },
-        "date": 1775053923309,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52940.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63620.249999999985,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.875631096479999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8817821197199986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.533356576469992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002414419,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 15.007496019489952,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000025016940000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9281944406200013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8377700336299565,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002414419,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00553549059,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.560196967353127,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.945226261980004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000025016940000000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.005154969770000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d17f024230ae3a73d2bded1fd6d2f1b64d646861",
+          "message": "statement-store: v2 soak step, node joining shifts the replica layout (#13422)\n\nIn this PR, we extend the v2 DHT soak with a full node joining an active\nnetwork. Statements are first placed on their K closest nodes. Load\nstarts before the newcomer is spawned and continues until all nodes\nlearn the new peer and the topology converges.\n\nFresh probes submitted through the XOR-farthest node must land on\nexactly the new top-K. For shifted topics, the newcomer holds the\nstatements and the displaced replica does not; control topics keep their\nreplica set. The newcomer must also receive every pre-join statement of\nits shifted topics. The displaced replicas' pre-join copies are not\nchecked: persistent statements stay until they expire. The join and a\nsubsequent ordinary wave are mandatory, including with a zero soak\nduration.\n\nCloses #13185. Part of #13162.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-08T08:25:58Z",
+          "tree_id": "1fdf03bd96411ed3c0ef1356506a192635085529",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d17f024230ae3a73d2bded1fd6d2f1b64d646861"
+        },
+        "date": 1791454542647,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63567.69999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7799865043800005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7898665621499686,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7750767682400026,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002045724,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7956625897999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001874778,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002045724,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8241369464800004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.311471407959996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001874778,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005261118239999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.331760222712755,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.281461897249965,
             "unit": "seconds"
           }
         ]
