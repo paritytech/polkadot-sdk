@@ -12,8 +12,9 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-sp-api.workspace = true
-sp-consensus-aura.workspace = true
+# Substrate
+sp-api = { workspace = true }
+sp-consensus-aura = { workspace = true }
 
 [features]
 default = ["std"]
