@@ -183,6 +183,17 @@ impl<T: Config> Memory<T> {
 		&self.data[offset..offset + size]
 	}
 
+	/// Allocate an output buffer and copy the given memory region into it.
+	///
+	/// The caller charges for copying first and ensures the region is exposed.
+	///
+	/// # Panics
+	///
+	/// Panics on out of bounds.
+	pub fn copy_out(&self, offset: usize, len: usize) -> Vec<u8> {
+		self.slice_len(offset, len).to_vec()
+	}
+
 	/// Copy data within memory from src to dst
 	///
 	/// # Panics

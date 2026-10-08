@@ -47,6 +47,8 @@ pub enum RuntimeCosts {
 	/// Weight of exposing zeroed EVM memory and, when needed, allocating a replacement buffer.
 	/// Both sizes are in 32-byte words. Zero allocation words means the existing buffer is kept.
 	EvmMemoryGrow { words: u32, allocation_words: u32 },
+	/// Weight of allocating and copying EVM output data, in bytes.
+	EvmMemoryCopyOut(u32),
 	/// Weight charged for executing the extcodecopy instruction.
 	ExtCodeCopy(u32),
 	/// Weight charged for copying data from the sandbox.
@@ -316,6 +318,13 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					T::WeightInfo::evm_memory_reallocate(allocation_words)
 				};
 				grow.saturating_add(allocate)
+			},
+			EvmMemoryCopyOut(len) => {
+				if len == 0 {
+					Weight::zero()
+				} else {
+					T::WeightInfo::evm_memory_copy_out(len)
+				}
 			},
 			// `extcodecopy` charges `CodeSize` separately; subtract it so its read isn't counted
 			// twice.

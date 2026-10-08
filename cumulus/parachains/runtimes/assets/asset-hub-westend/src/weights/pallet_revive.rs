@@ -1801,6 +1801,11 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(100_000, 0)
 			.saturating_add(Weight::from_parts(64_000, 0).saturating_mul(n.into()))
 	}
+	// Placeholder until the output-copy benchmark is run. Values are not measurements.
+	fn evm_memory_copy_out(n: u32) -> Weight {
+		Weight::from_parts(100_000, 0)
+			.saturating_add(Weight::from_parts(2_000, 0).saturating_mul(n.into()))
+	}
 	/// The range of component `r` is `[0, 255]`.
 	fn evm_mload_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:

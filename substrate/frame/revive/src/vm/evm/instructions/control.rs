@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	Error, U256,
+	Error, RuntimeCosts, U256,
 	vm::{
 		Ext,
 		evm::{
@@ -101,7 +101,8 @@ fn return_inner<E: Ext>(
 	if len != 0 {
 		let offset = as_usize_or_halt::<E::T>(offset)?;
 		interpreter.memory.resize(offset, len, interpreter.ext)?;
-		output = interpreter.memory.slice_len(offset, len).to_vec()
+		interpreter.ext.charge_or_halt(RuntimeCosts::EvmMemoryCopyOut(len as u32))?;
+		output = interpreter.memory.copy_out(offset, len);
 	}
 
 	ControlFlow::Break(halt(output))

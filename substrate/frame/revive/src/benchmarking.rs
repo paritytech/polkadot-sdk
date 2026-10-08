@@ -4222,6 +4222,33 @@ mod benchmarks {
 		assert!(memory.slice(0..initial_len).iter().all(|&byte| byte == 0xa5));
 	}
 
+	/// Benchmarks allocating and copying `n` bytes out of EVM memory for RETURN and REVERT.
+	///
+	/// Setup fills the entire memory limit with seeded pseudo-random bytes. Growth and data
+	/// initialization are outside the measured block; the output buffer is retained afterwards.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_memory_copy_out(n: Linear<0, { EVM_MEMORY_BYTES }>) {
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(Default::default(), Vec::new(), &mut ext);
+		let memory = &mut interpreter.memory;
+		memory
+			.resize(0, EVM_MEMORY_BYTES as usize, interpreter.ext)
+			.continue_value()
+			.expect("the memory limit fits the setup weight budget; qed");
+		Pcg64::seed_from_u64(1337).fill(memory.slice_mut(0, EVM_MEMORY_BYTES as usize));
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = core::hint::black_box(&*memory).copy_out(0, n as usize);
+		}
+
+		assert_eq!(result.len(), n as usize);
+		assert_eq!(result.as_slice(), memory.slice_len(0, n as usize));
+	}
+
 	/// Benchmarks `r` EVM `MLOAD` op-codes.
 	///
 	/// This uses a linked-list scheme similar to the one in [`evm_calldataload_opcode`].
