@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791377342752,
+  "lastUpdate": 1791449444040,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8b53323246a87eb2249742b90ba0963057051eac",
-          "message": "bump zombienet version to v0.4.9 (#11569)\n\nThis version move the internal monitor to a diff log target, eliminating\nthe current spam of tracing logs.\n\nThx!\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-03-31T19:26:58Z",
-          "tree_id": "b2f4156f1fee8976b2c4b5530015871afd44e644",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8b53323246a87eb2249742b90ba0963057051eac"
-        },
-        "date": 1774990096520,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.072,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03883897484799999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08637460754799994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038825764421999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "53361ece685597763642629f2042e21e6096d25b",
+          "message": "Switch eth-rpc image to the actual version of the base-bin (#13429)\n\nThis PR sets an newer version of the `base-bin` image as a ground base\nfor the `eth-rpc` container, making also arm weekly builds possible",
+          "timestamp": "2026-10-08T07:18:02Z",
+          "tree_id": "4efad4a6f22f6f7700af81273981844f19ff341d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/53361ece685597763642629f2042e21e6096d25b"
+        },
+        "date": 1791449416079,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.14599999999993,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038544774644,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08914491342599996,
             "unit": "seconds"
           }
         ]
