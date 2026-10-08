@@ -164,6 +164,8 @@ pub mod pallet {
 		BadFrontier,
 		/// An `Events` item's `base` does not exceed the highwater (a replay).
 		Replay,
+		/// This block's `StreamsRoot` is already committed; a later send could not be served.
+		RootCommitted,
 	}
 
 	#[pallet::hooks]
@@ -291,6 +293,9 @@ impl<T: Config> Pallet<T> {
 			payload.try_into().map_err(|_| Error::<T>::MessageTooBig)?;
 
 		Self::roll_over();
+		// Once the root is committed (`parachain-system` does so in its `on_finalize`), a send
+		// would show in `outbound_messages` but not in the root, and no node could serve it.
+		ensure!(!BlockStreamsRoot::<T>::exists(), Error::<T>::RootCommitted);
 		let index = OutboundMessages::<T>::decode_len(stream).unwrap_or(0) as u64;
 		OutboundMessages::<T>::try_append(stream, payload)
 			.map_err(|()| Error::<T>::TooManyMessages)?;

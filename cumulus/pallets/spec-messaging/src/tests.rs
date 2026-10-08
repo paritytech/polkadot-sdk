@@ -113,6 +113,27 @@ fn a_send_before_on_initialize_belongs_to_its_own_block() {
 }
 
 #[test]
+fn a_send_after_the_root_is_committed_is_rejected() {
+	new_test_ext().execute_with(|| {
+		let s = stream(0);
+		SpecMessaging::append_to_stream(s, b"a".to_vec()).unwrap();
+		let root = SpecMessaging::commit_streams_root();
+
+		// A pallet finalized after the commit sends: it fails, and the root and sends still agree.
+		assert_err!(
+			SpecMessaging::append_to_stream(s, b"b".to_vec()),
+			crate::Error::<Test>::RootCommitted
+		);
+		assert_eq!(root, Some(expected_root(&[(s, &[b"a"])])));
+		assert_eq!(SpecMessaging::outbound_messages(), vec![(s, vec![b"a".to_vec()])]);
+
+		// The next block sends again.
+		roll_one_block();
+		assert_ok!(SpecMessaging::append_to_stream(s, b"b".to_vec()));
+	});
+}
+
+#[test]
 fn caps_are_enforced() {
 	new_test_ext().execute_with(|| {
 		let s = stream(0);
