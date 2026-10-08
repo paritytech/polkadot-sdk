@@ -14259,8 +14259,8 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic 23.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
+ "sp-io 48.0.0",
+ "sp-runtime 48.0.0",
 ]
 
 [[package]]
