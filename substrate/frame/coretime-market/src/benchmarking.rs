@@ -146,8 +146,8 @@ mod benches {
 	fn place_renewal_order() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
 
-		// Worst case: a full book of winners, all displaceable, so displacement scans
-		// `MaxBids` allocations.
+		// Worst case: a full book of winners where only the highest-priced one is displaceable,
+		// so displacement scans all `MaxBids` allocations.
 		set_cores_offered::<T>(T::MaxBids::get());
 		fill_bids::<T>(T::MaxBids::get())?;
 
@@ -155,6 +155,11 @@ mod benches {
 
 		let region_begin =
 			pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?.region_begin;
+		let allocations = pallet::Allocations::<T>::get();
+		for allocation in allocations.iter().skip(1) {
+			T::RenewalRights::set_rights_count(&allocation.who, region_begin, 1);
+		}
+		let top = allocations.first().ok_or(BenchmarkError::Weightless)?.who.clone();
 		let caller: T::AccountId = account("renewer", 0, SEED);
 		T::RenewalRights::set_rights_count(&caller, region_begin, 1);
 		let renewal_id = PotentialRenewalId { core: 0, when: region_begin };
@@ -167,7 +172,7 @@ mod benches {
 
 		assert!(market_events::<T>()
 			.into_iter()
-			.any(|event| matches!(event, Event::BidDisplaced { .. })));
+			.any(|event| matches!(event, Event::BidDisplaced { who, .. } if who == top)));
 
 		Ok(())
 	}

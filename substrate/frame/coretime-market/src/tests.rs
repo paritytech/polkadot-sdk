@@ -862,6 +862,27 @@ fn displacement_works_when_oversubscribed() {
 }
 
 #[test]
+fn displacement_works_when_renewals_fill_remaining_cores() {
+	TestExt::new().execute_with(|| {
+		// 2 cores, 1 auction winner: not oversubscribed.
+		let sale = setup_renewal_phase(&[(1, 200)]);
+		let clearing = sale.clearing_price.unwrap();
+
+		// Renewer 2 takes the free core.
+		TestRenewalRights::set(2, sale.region_begin, 1);
+		assert_ok!(place_renewal(25, 2, 0, sale.region_begin));
+
+		// Renewer 3 displaces the auction winner, without penalty.
+		TestRenewalRights::set(3, sale.region_begin, 1);
+		match place_renewal(25, 3, 1, sale.region_begin).unwrap() {
+			RenewalOrderResult::Renewed { price, .. } => assert_eq!(price, clearing),
+			_ => panic!("Expected Renewed via displacement"),
+		}
+		assert!(market_events().iter().any(|e| matches!(e, Event::BidDisplaced { who: 1, .. })));
+	});
+}
+
+#[test]
 fn displacement_targets_lowest_non_tenant_bidder() {
 	TestExt::new().execute_with(|| {
 		let sale = setup_renewal_phase(&[(1, 200), (2, 150)]);

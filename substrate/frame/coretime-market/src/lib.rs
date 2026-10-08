@@ -26,8 +26,8 @@
 //!    descending price. Bids are binding and can only be raised, not cancelled.
 //!
 //! 2. **Renewal Phase**: Existing tenants with renewal rights can exercise them. If all cores are
-//!    allocated from the auction, renewers may displace the lowest non-renewer auction winner. A
-//!    penalty applies to all renewals when the market was oversubscribed.
+//!    allocated, renewers may displace the lowest non-renewer auction winner. A penalty applies to
+//!    all renewals when the market was oversubscribed.
 //!
 //! 3. **Settlement Phase**: No primary sales occur. The pallet waits until the next sale's region
 //!    begins before rotating into a new market cycle. Regions are issued at the transition from
@@ -45,6 +45,10 @@
 //! - **Lock-then-charge**: Funds are locked at bid time by the broker. At settlement, excess is
 //!   refunded via [`TickAction::Refund`]. Winners are charged the clearing price.
 //! - **Binding bids**: Bids cannot be cancelled, only raised.
+//! - **Bounded bid book**: Bids below the reserve price are rejected, since cores are never sold
+//!   below it. The book holds at most [`Config::MaxBids`] bids. Once full, a new bid must be
+//!   strictly higher than the lowest one, which is evicted and refunded. Filling the book therefore
+//!   cannot block further bidding.
 //! - **Displacement protection**: Auction winners with renewal rights cannot be displaced.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -56,8 +60,6 @@ mod types;
 
 pub mod weights;
 pub use weights::WeightInfo;
-
-pub mod runtime_api;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -79,7 +81,10 @@ use fp_coretime::{
 };
 use frame_support::{
 	ensure,
-	traits::{tokens::Balance as BalanceT, Defensive, DefensiveTruncateFrom, Get, Randomness},
+	traits::{
+		tokens::Balance as BalanceT, Defensive, DefensiveOption, DefensiveResult,
+		DefensiveTruncateFrom, Get, Randomness,
+	},
 	weights::WeightMeter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -268,6 +273,13 @@ pub mod pallet {
 		NotAllowed,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			assert!(!T::MaxBids::get().is_zero(), "`MaxBids` must be non-zero");
+		}
+	}
+
 	/// The market configuration.
 	#[pallet::storage]
 	pub type Configuration<T> = StorageValue<_, ConfigRecordOf<T>, OptionQuery>;
@@ -287,7 +299,8 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextBidId<T: Config> = StorageValue<_, BidId, ValueQuery>;
 
-	/// Auction winners after settlement. May be displaced by renewers during the Renewal phase.
+	/// Auction winners after settlement, sorted by bid price descending. May be displaced by
+	/// renewers during the Renewal phase.
 	#[pallet::storage]
 	pub type Allocations<T: Config> = StorageValue<
 		_,
@@ -307,21 +320,24 @@ pub mod pallet {
 		BoundedVec<BidDisplacement<T::AccountId, BalanceOf<T>>, T::MaxBids>,
 		ValueQuery,
 	>;
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Get the current price at a given relay block number, or `None` if no sale is active.
+		pub fn current_price(block_number: RelayBlockNumberOf<T>) -> Option<BalanceOf<T>> {
+			let sale = SaleInfo::<T>::get()?;
+			match sale.phase {
+				SalePhase::Market => descending_price::<T>(block_number, &sale).ok(),
+				SalePhase::Renewal | SalePhase::Settlement => sale.clearing_price,
+			}
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {
 	/// Set the current sale phase.
-	pub fn set_phase(phase: SalePhase) {
+	pub(crate) fn set_phase(phase: SalePhase) {
 		SaleInfo::<T>::mutate_extant(|sale| sale.phase = phase);
-	}
-
-	/// Get the current price at a given block number.
-	pub fn current_price(block_number: RelayBlockNumberOf<T>) -> Option<BalanceOf<T>> {
-		let sale = SaleInfo::<T>::get()?;
-		match sale.phase {
-			SalePhase::Market => descending_price::<T>(block_number, &sale).ok(),
-			SalePhase::Renewal | SalePhase::Settlement => sale.clearing_price,
-		}
 	}
 
 	/// Insert `price` into the price-descending bid book.
@@ -333,15 +349,18 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(BidId, Option<BidRecord<T::AccountId, BalanceOf<T>>>), Error<T>> {
 		let mut bids = Bids::<T>::get();
 		if bids.is_full() {
-			let lowest = bids.last().ok_or(Error::<T>::TooManyBids)?;
+			// A full book can only be empty if `MaxBids` is zero.
+			let lowest = bids.last().defensive_ok_or(Error::<T>::TooManyBids)?;
 			ensure!(price > lowest.price, Error::<T>::BidTooLow);
 		}
 
 		let bid_id = NextBidId::<T>::get();
 		let pos = bids.partition_point(|b| b.price > price);
+		// Cannot fail for a non-zero `MaxBids`: on a full book `price` beats the lowest bid, so
+		// `pos` is within bounds.
 		let replaced = bids
 			.force_insert_keep_left(pos, BidRecord { bid_id, who: who.clone(), price })
-			.map_err(|_| Error::<T>::TooManyBids)?;
+			.defensive_map_err(|_| Error::<T>::TooManyBids)?;
 		NextBidId::<T>::put(bid_id.saturating_add(1));
 		Bids::<T>::put(bids);
 
@@ -476,21 +495,19 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		let core = if allocated_count < sale.cores_offered {
 			// Unallocated core available: direct renewal.
 			sale.first_core.saturating_add(allocated_count)
-		} else if oversubscribed {
+		} else {
 			// All cores allocated: displace the lowest-priced winner whose renewal
 			// rights are fully consumed by auction wins.
 			let mut allocations = allocations;
 
+			// Allocations are sorted by price descending, so search from the lowest bid up.
 			let displace_idx = allocations
 				.iter()
-				.enumerate()
-				.filter(|(_, a)| {
+				.rposition(|a| {
 					let rights = T::RenewalRights::renewal_rights_count(&a.who, sale.region_begin);
 					let wins = Quotas::<T>::get(&a.who).auction_wins;
 					rights < wins
 				})
-				.min_by_key(|(_, a)| a.bid_price)
-				.map(|(i, _)| i)
 				.ok_or(Error::<T>::Unavailable)?;
 
 			let displaced = allocations.remove(displace_idx);
@@ -512,8 +529,6 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			Allocations::<T>::put(allocations);
 
 			core
-		} else {
-			return Err(Error::<T>::Unavailable);
 		};
 
 		let region_id = RegionId { begin: sale.region_begin, core, mask: CoreMask::complete() };

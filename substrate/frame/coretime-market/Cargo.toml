@@ -22,7 +22,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 rand_chacha = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-runtime = { workspace = true }
 
@@ -40,7 +39,6 @@ std = [
 	"frame-system/std",
 	"rand_chacha/std",
 	"scale-info/std",
-	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-runtime/std",
 ]
