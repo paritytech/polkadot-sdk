@@ -40,21 +40,25 @@
 //! until the next draw. The draw shuffles the whole set with a seed made of the genesis hash, the
 //! era and the relay chain epoch randomness cached in [`EpochRandomness`], then keeps the first
 //! validators with registered keys up to the cap. Every validator with keys has the same chance to
-//! be drawn in each era. The draw uses the latest epoch randomness the chain has cached. A block
-//! whose proof lacks the trie nodes of the randomness key leaves the cache unchanged, so a draw
-//! uses the previous epoch value only when every block since the epoch change omits them. The seed
-//! includes the genesis hash, so each chain draws independently from the same set. A validator that
-//! registers keys after the draw waits for the next set or for a cap change. Each set, so each era,
-//! gets a new draw, which is enacted at the second forced rotation with no notice, so a validator
-//! with keys must already run a synced collator node to collate when drawn.
+//! be drawn in each era. A cap change draws again from the stored set, so the drawn validators
+//! can change. Every draw takes its seed from the randomness cached at the time of the draw. The
+//! seed includes the genesis hash, so each chain draws independently from the same set. A
+//! validator that registers keys after the draw waits for the next set or for a cap change. Each
+//! set, so each era, gets a new draw, which is enacted at the second forced rotation with no
+//! notice, so a validator with keys must already run a synced collator node to collate when drawn.
 //!
 //! The pallet implements [`cumulus_pallet_parachain_system::OnSystemEvent`]. The runtime must
 //! include it in the `OnSystemEvent` of `cumulus-pallet-parachain-system`, alone or in a tuple
 //! with other handlers, to keep [`EpochRandomness`] up to date from the relay chain state proof.
+//! The runtime should also return the keys of [`Pallet::relay_keys_to_prove`] from
+//! [`KeyToIncludeInRelayProof`](cumulus_primitives_core::KeyToIncludeInRelayProof), so collators
+//! include the randomness key in the proof.
 //! The draw runs in the session rotation, before the block's own proof is processed, so it uses
 //! the value cached by the previous block.
-//! A proof that cannot be read logs an error and leaves the cache unchanged.
-//! Without this wiring, every draw uses a zero randomness value and logs an error.
+//! A block whose proof lacks the trie nodes of the randomness key, or holds a value that does not
+//! decode, is invalid. A proof that shows the key absent, as on a relay chain before its first
+//! epoch change, leaves the cache unchanged.
+//! Without the `OnSystemEvent` wiring, every draw uses a zero randomness value and logs an error.
 //!
 //! The stored set is the one staking elected for the era. The relay chain enacts only the elected
 //! validators with relay-chain session keys, and each system chain returns only those with keys
@@ -112,9 +116,14 @@ const LOG_TARGET: &str = "runtime::validator-collators";
 #[frame_support::pallet]
 pub mod pallet {
 	pub use crate::weights::WeightInfo;
-	use alloc::{collections::BTreeSet, vec::Vec};
-	use cumulus_pallet_parachain_system::{OnSystemEvent, RelayChainStateProof};
-	use cumulus_primitives_core::{relay_chain::well_known_keys, PersistedValidationData};
+	use alloc::{collections::BTreeSet, vec, vec::Vec};
+	use cumulus_pallet_parachain_system::{
+		relay_state_snapshot::{Error as RelayProofError, ReadEntryErr},
+		OnSystemEvent, RelayChainStateProof,
+	};
+	use cumulus_primitives_core::{
+		relay_chain::well_known_keys, PersistedValidationData, RelayStorageKey,
+	};
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{EnsureOrigin, ValidatorRegistration},
@@ -136,14 +145,11 @@ pub mod pallet {
 		pub validators: BoundedBTreeSet<AccountId, MaxValidators>,
 	}
 
-	/// The validators drawn under [`MaxCollators`], with the era and the seed they were drawn
-	/// with.
+	/// The validators drawn under [`MaxCollators`], with the era of the set they were drawn from.
 	#[frame_support::stored]
 	pub struct DrawnCollators<AccountId, MaxValidators: Get<u32>> {
 		/// The era of the set the validators were drawn from.
 		pub era: EraIndex,
-		/// The seed of the shuffle, fixed for that era.
-		pub seed: [u8; 32],
 		/// The drawn validators, in drawn order.
 		pub validators: BoundedVec<AccountId, MaxValidators>,
 	}
@@ -210,17 +216,16 @@ pub mod pallet {
 	///
 	/// Under a cap the validators are drawn at random, see [`Collators`].
 	///
-	/// A change with a stored set forces two rotations. The first redraws [`Collators`], with the
-	/// stored seed when one belongs to the era, so with unchanged keys a larger cap extends the
-	/// drawn list and a smaller one shortens it. The change is in force two blocks later. Removing
-	/// the cap returns every validator with registered keys.
+	/// A change with a stored set forces two rotations. The first draws [`Collators`] again from
+	/// the stored set, so the drawn validators can change. The change is in force two blocks
+	/// later. Removing the cap returns every validator with registered keys.
 	#[pallet::storage]
 	pub type MaxCollators<T: Config> = StorageValue<_, u32, OptionQuery>;
 
 	/// The validators drawn from the stored set under [`MaxCollators`].
 	///
-	/// Drawn at the first forced rotation after a set arrives or the cap changes, with the stored
-	/// seed when it belongs to the era of the stored set and with a fresh seed otherwise. Removed
+	/// Drawn at the first forced rotation after a set arrives or the cap changes, with a seed made
+	/// of the genesis hash, the era of the stored set and the cached [`EpochRandomness`]. Removed
 	/// when the cap is removed. At every rotation the pallet returns the drawn validators that
 	/// still have registered keys.
 	#[pallet::storage]
@@ -286,8 +291,8 @@ pub mod pallet {
 
 		/// Set the maximum number of validators returned as collators.
 		///
-		/// With a stored set, the change forces two rotations and the first redraws
-		/// [`Collators`]. `None` clears [`Collators`].
+		/// With a stored set, the change forces two rotations and the first draws [`Collators`]
+		/// again, so the drawn validators can change. `None` clears [`Collators`].
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_max_collators())]
 		pub fn set_max_collators(origin: OriginFor<T>, max: Option<u32>) -> DispatchResult {
@@ -334,9 +339,17 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// The seed of a new draw from the set of `era`, made of the genesis hash, the era and
+		/// The relay chain storage keys this pallet reads from the relay chain state proof.
+		///
+		/// A runtime returns them, next to the keys of other pallets, from
+		/// [`KeyToIncludeInRelayProof`](cumulus_primitives_core::KeyToIncludeInRelayProof).
+		pub fn relay_keys_to_prove() -> Vec<RelayStorageKey> {
+			vec![RelayStorageKey::Top(well_known_keys::ONE_EPOCH_AGO_RANDOMNESS.to_vec())]
+		}
+
+		/// The seed of a draw from the set of `era`, made of the genesis hash, the era and
 		/// [`EpochRandomness`], or a zero value when no randomness is cached.
-		pub(crate) fn fresh_seed(era: EraIndex) -> [u8; 32] {
+		pub(crate) fn draw_seed(era: EraIndex) -> [u8; 32] {
 			let randomness = EpochRandomness::<T>::get().unwrap_or_else(|| {
 				log::error!(
 					target: crate::LOG_TARGET,
@@ -351,20 +364,15 @@ pub mod pallet {
 		/// Draw up to `cap` validators with registered keys from `set` into [`Collators`] and
 		/// emit [`Event::CollatorsDrawn`].
 		///
-		/// The seed of [`Collators`] is reused when it belongs to the era of `set`, so a cap
-		/// change with unchanged keys takes a longer or shorter prefix of the same order. The
-		/// whole set is shuffled before the key filter, so the order depends only on the seed and
-		/// the set.
+		/// The whole set is shuffled before the key filter, so the order depends only on the seed
+		/// and the set.
 		fn draw_collators(
 			set: EraValidatorSet<T::AccountId, T::MaxValidators>,
 			cap: u32,
 		) -> BoundedVec<T::AccountId, T::MaxValidators> {
 			let EraValidatorSet { era, validators } = set;
-			let seed = Collators::<T>::get()
-				.filter(|drawn| drawn.era == era)
-				.map_or_else(|| Self::fresh_seed(era), |drawn| drawn.seed);
 			let mut order: Vec<_> = validators.into_iter().collect();
-			order.shuffle(&mut ChaCha20Rng::from_seed(seed));
+			order.shuffle(&mut ChaCha20Rng::from_seed(Self::draw_seed(era)));
 			let drawn: Vec<_> = order
 				.into_iter()
 				.filter(T::ValidatorRegistration::is_registered)
@@ -373,7 +381,7 @@ pub mod pallet {
 			Self::deposit_event(Event::CollatorsDrawn { era, validators: drawn.clone() });
 			// At most the length of the set, which is bounded by `MaxValidators`.
 			let validators = BoundedVec::truncate_from(drawn);
-			Collators::<T>::put(DrawnCollators { era, seed, validators: validators.clone() });
+			Collators::<T>::put(DrawnCollators { era, validators: validators.clone() });
 			validators
 		}
 
@@ -396,6 +404,14 @@ pub mod pallet {
 			ensure!(
 				!Collators::<T>::exists() || Collators::<T>::get().is_some(),
 				"the drawn collators do not decode"
+			);
+			// With the pallet wired as `OnSystemEvent`, a draw follows a block whose
+			// `on_relay_state_proof` cached the randomness, and the cache is never removed, so this
+			// holds whatever rotation is pending. It fails for a draw on a relay chain before its
+			// first epoch change, whose proofs show the key absent.
+			ensure!(
+				!Collators::<T>::exists() || EpochRandomness::<T>::exists(),
+				"collators are drawn without a cached relay chain epoch randomness"
 			);
 			// Until the first forced rotation the drawn collators may be missing or belong to a
 			// previous set or cap.
@@ -476,7 +492,9 @@ pub mod pallet {
 
 		/// Caches the relay chain randomness of one epoch ago in [`EpochRandomness`].
 		///
-		/// Any read error logs an error and leaves the cache unchanged.
+		/// A proof that shows the key absent logs a warning and leaves the cache unchanged. A
+		/// proof that lacks the trie nodes of the key, or holds a value that does not decode,
+		/// panics and so makes the block invalid.
 		fn on_relay_state_proof(relay_state_proof: &RelayChainStateProof) -> Weight {
 			match relay_state_proof
 				.read_entry::<[u8; 32]>(well_known_keys::ONE_EPOCH_AGO_RANDOMNESS, None)
@@ -486,10 +504,18 @@ pub mod pallet {
 						EpochRandomness::<T>::put(randomness);
 					}
 				},
-				Err(error) => log::error!(
-					target: crate::LOG_TARGET,
-					"no usable relay chain epoch randomness in the state proof: {error:?}"
-				),
+				Err(RelayProofError::ReadEntry(error)) => match error {
+					ReadEntryErr::Absent => log::warn!(
+						target: crate::LOG_TARGET,
+						"the relay chain state proof shows no epoch randomness, keeping the cache"
+					),
+					ReadEntryErr::Proof | ReadEntryErr::Decode => panic!(
+						"Invalid relay chain epoch randomness in the relay chain state proof: \
+						 {error:?}"
+					),
+				},
+				// `read_entry` returns only `ReadEntry` errors.
+				Err(error) => panic!("Invalid relay chain state proof: {error:?}"),
 			}
 			T::WeightInfo::on_relay_state_proof()
 		}

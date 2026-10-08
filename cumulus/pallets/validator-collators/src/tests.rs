@@ -379,7 +379,7 @@ fn each_new_set_is_drawn_with_the_seed_of_its_era() {
 }
 
 #[test]
-fn cap_change_redraws_from_the_stored_seed_and_forces_two_rotations() {
+fn cap_change_redraws_with_the_current_randomness_and_forces_two_rotations() {
 	new_test_ext().execute_with(|| {
 		// GIVEN six validators with keys and a set received at block 3 under a cap of 3
 		initialize_to_block(1);
@@ -391,10 +391,8 @@ fn cap_change_redraws_from_the_stored_seed_and_forces_two_rotations() {
 		// WHEN the first forced rotation happens at block 4
 		initialize_to_block(4);
 		// THEN it draws with the seed of era 1 and the value cached before the rotation
-		let seed = Collators::<Test>::get().unwrap().seed;
-		assert_eq!(seed, expected_seed(1, [7; 32]));
 		let three = drawn();
-		assert_eq!(three.len(), 3);
+		assert_eq!(three, reference_draw(expected_seed(1, [7; 32]), &set, 3));
 		initialize_to_block(5);
 		assert_eq!(returned(), Some(three.clone()));
 
@@ -409,48 +407,42 @@ fn cap_change_redraws_from_the_stored_seed_and_forces_two_rotations() {
 		let session = Session::current_index();
 		initialize_to_block(8);
 		assert_eq!(Session::current_index(), session + 2);
-		// AND the redraw at block 7 kept the stored seed and extended the same order
-		let five = drawn();
-		assert_eq!(Collators::<Test>::get().unwrap().seed, seed);
-		assert_eq!(five.len(), 5);
-		assert_eq!(five[..3], three[..]);
+		// AND the rotation at block 7 drew anew from the stored set with the current randomness
+		let five = reference_draw(expected_seed(1, [8; 32]), &set, 5);
+		assert_eq!(drawn(), five);
 		System::assert_has_event(Event::CollatorsDrawn { era: 1, validators: five.clone() }.into());
 		assert_eq!(
 			Session::validators(),
 			[1, 2].into_iter().chain(five.clone()).collect::<Vec<_>>()
 		);
 
-		// WHEN the cap is lowered to 2
-		set_cap(Some(2));
+		// WHEN the relay randomness changes again and the cap is lowered to 2 at block 9
+		RelayEpochRandomness::set(Some([9; 32]));
 		initialize_to_block(9);
-		// THEN the redraw keeps the first two of the same order
-		assert_eq!(drawn(), five[..2]);
+		set_cap(Some(2));
+		initialize_to_block(10);
+		// THEN the redraw at block 10 uses the randomness cached then
+		let two = reference_draw(expected_seed(1, [9; 32]), &set, 2);
+		assert_eq!(drawn(), two);
 
 		// WHEN a drawn validator purges its keys
-		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(five[0])));
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(two[0])));
 		// THEN it is no longer returned and its place stays empty until the next draw
-		assert_eq!(returned(), Some(vec![five[1]]));
+		assert_eq!(returned(), Some(vec![two[1]]));
 
 		// WHEN the cap is removed
 		set_cap(None);
 		// THEN nothing is drawn, two rotations follow and every validator with keys is returned
 		assert_eq!(Collators::<Test>::get(), None);
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
-		let all_with_keys = set.iter().copied().filter(|v| *v != five[0]).collect::<Vec<_>>();
+		let all_with_keys = set.iter().copied().filter(|v| *v != two[0]).collect::<Vec<_>>();
 		let session = Session::current_index();
-		initialize_to_block(11);
+		initialize_to_block(12);
 		assert_eq!(Session::current_index(), session + 2);
 		assert_eq!(
 			Session::validators(),
-			[1, 2].into_iter().chain(all_with_keys.clone()).collect::<Vec<_>>()
+			[1, 2].into_iter().chain(all_with_keys).collect::<Vec<_>>()
 		);
-
-		// WHEN a cap is set again in the same era
-		set_cap(Some(3));
-		initialize_to_block(12);
-		// THEN the redraw uses a fresh seed from the stored era and the cached randomness
-		assert_eq!(Collators::<Test>::get().unwrap().seed, expected_seed(1, [8; 32]));
-		assert_eq!(drawn(), reference_draw(expected_seed(1, [8; 32]), &set, 3));
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
@@ -503,7 +495,7 @@ fn cap_without_a_stored_set_draws_nothing_and_forces_no_rotation() {
 #[test]
 fn capped_set_without_cached_randomness_draws_with_a_zero_value() {
 	new_test_ext().execute_with(|| {
-		// GIVEN no relay chain state proof has been processed yet
+		// GIVEN no randomness is cached yet, as on a relay chain before its first epoch change
 		RelayEpochRandomness::set(None);
 		initialize_to_block(1);
 		set_keys(10);
@@ -514,61 +506,99 @@ fn capped_set_without_cached_randomness_draws_with_a_zero_value() {
 		assert_ok!(receive(1, vec![10, 11]));
 		initialize_to_block(2);
 		// THEN it is drawn with a zero randomness value instead of being skipped
-		assert_eq!(Collators::<Test>::get().unwrap().seed, expected_seed(1, [0; 32]));
-		assert_eq!(drawn().len(), 1);
+		assert_eq!(drawn(), reference_draw(expected_seed(1, [0; 32]), &[10, 11], 1));
+		// AND try-state flags drawn collators without a cached randomness
+		assert_eq!(
+			ValidatorCollators::do_try_state(),
+			Err("collators are drawn without a cached relay chain epoch randomness".into())
+		);
 		// WHEN a value is cached at block 3 and the next set is drawn at block 4
 		RelayEpochRandomness::set(Some([9; 32]));
 		initialize_to_block(3);
 		assert_ok!(receive(2, vec![10, 11]));
 		initialize_to_block(4);
 		// THEN the draw uses it
-		assert_eq!(Collators::<Test>::get().unwrap().seed, expected_seed(2, [9; 32]));
+		assert_eq!(drawn(), reference_draw(expected_seed(2, [9; 32]), &[10, 11], 1));
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
+}
+
+/// A key whose first nibble differs from the randomness key, so their trie nodes are distinct and
+/// the proof of one does not carry the other.
+const OTHER_KEY: &[u8] = &[0xff; 32];
+
+fn read_randomness(proof: &RelayChainStateProof) -> Result<[u8; 32], ProofError> {
+	proof.read_entry::<[u8; 32]>(ONE_EPOCH_AGO_RANDOMNESS, None)
+}
+
+fn on_relay_state_proof(proof: &RelayChainStateProof) {
+	<ValidatorCollators as OnSystemEvent>::on_relay_state_proof(proof);
 }
 
 #[test]
 fn relay_randomness_cache_follows_the_proof() {
 	new_test_ext().execute_with(|| {
 		let key = ONE_EPOCH_AGO_RANDOMNESS;
-		// A key whose first nibble differs from the randomness key, so their trie nodes are
-		// distinct and the proof of one does not carry the other.
-		let other: &[u8] = &[0xff; 32];
-		let read = |proof: &RelayChainStateProof| proof.read_entry::<[u8; 32]>(key, None);
-		let hook = |proof: &RelayChainStateProof| {
-			<ValidatorCollators as OnSystemEvent>::on_relay_state_proof(proof);
-		};
-		// GIVEN proofs with a new value, the key provably absent, an undecodable value, and the
-		// value without its trie nodes, each asserted to yield its read result first so the hook
-		// checks below cover every branch
+		// GIVEN a proof with a new value and a proof showing the key absent, each asserted to
+		// yield its read result first
 		let new_value = relay_state_proof(&[(key, [2u8; 32].encode())], &[key]);
-		let absent = relay_state_proof(&[(other, vec![1; 40])], &[key]);
-		let undecodable = relay_state_proof(&[(key, vec![1; 31])], &[key]);
-		let without_nodes =
-			relay_state_proof(&[(key, [3u8; 32].encode()), (other, vec![1; 40])], &[other]);
-		assert_eq!(read(&new_value).ok(), Some([2; 32]));
-		assert!(matches!(read(&absent), Err(ProofError::ReadEntry(ReadEntryErr::Absent))));
-		assert!(matches!(read(&undecodable), Err(ProofError::ReadEntry(ReadEntryErr::Decode))));
-		assert!(matches!(read(&without_nodes), Err(ProofError::ReadEntry(ReadEntryErr::Proof))));
+		let absent = relay_state_proof(&[(OTHER_KEY, vec![1; 40])], &[key]);
+		assert_eq!(read_randomness(&new_value).ok(), Some([2; 32]));
+		assert!(matches!(
+			read_randomness(&absent),
+			Err(ProofError::ReadEntry(ReadEntryErr::Absent))
+		));
 
 		// WHEN the proof carries a new value THEN it is cached
 		EpochRandomness::<Test>::put([1; 32]);
-		hook(&new_value);
+		on_relay_state_proof(&new_value);
 		assert_eq!(EpochRandomness::<Test>::get(), Some([2; 32]));
 
 		// WHEN the proof carries the cached value THEN the cache is not rewritten
 		let storage_key = EpochRandomness::<Test>::hashed_key();
 		let stored = [[2u8; 32].as_slice(), &[0]].concat();
 		frame_support::storage::unhashed::put_raw(&storage_key, &stored);
-		hook(&new_value);
+		on_relay_state_proof(&new_value);
 		assert_eq!(frame_support::storage::unhashed::get_raw(&storage_key), Some(stored));
 
-		// WHEN the value is absent, does not decode, or lacks its trie nodes THEN the cache is kept
+		// WHEN the proof shows the key absent THEN the cache is kept without a panic
 		EpochRandomness::<Test>::put([2; 32]);
-		hook(&absent);
-		hook(&undecodable);
-		hook(&without_nodes);
+		on_relay_state_proof(&absent);
 		assert_eq!(EpochRandomness::<Test>::get(), Some([2; 32]));
+	});
+}
+
+#[test]
+#[should_panic(
+	expected = "Invalid relay chain epoch randomness in the relay chain state proof: Proof"
+)]
+fn relay_proof_without_the_randomness_trie_nodes_makes_the_block_invalid() {
+	new_test_ext().execute_with(|| {
+		// GIVEN a proof that holds the randomness key in its trie but not the nodes to read it
+		let key = ONE_EPOCH_AGO_RANDOMNESS;
+		let proof =
+			relay_state_proof(&[(key, [3u8; 32].encode()), (OTHER_KEY, vec![1; 40])], &[OTHER_KEY]);
+		assert!(matches!(read_randomness(&proof), Err(ProofError::ReadEntry(ReadEntryErr::Proof))));
+		// WHEN the pallet processes it THEN it panics
+		on_relay_state_proof(&proof);
+	});
+}
+
+#[test]
+#[should_panic(
+	expected = "Invalid relay chain epoch randomness in the relay chain state proof: Decode"
+)]
+fn undecodable_relay_randomness_makes_the_block_invalid() {
+	new_test_ext().execute_with(|| {
+		// GIVEN a proof whose randomness value is too short to decode
+		let key = ONE_EPOCH_AGO_RANDOMNESS;
+		let proof = relay_state_proof(&[(key, vec![1; 31])], &[key]);
+		assert!(matches!(
+			read_randomness(&proof),
+			Err(ProofError::ReadEntry(ReadEntryErr::Decode))
+		));
+		// WHEN the pallet processes it THEN it panics
+		on_relay_state_proof(&proof);
 	});
 }
 
@@ -637,35 +667,39 @@ fn try_state_detects_a_stored_set_that_does_not_decode() {
 fn try_state_detects_drawn_collators_that_break_the_invariants() {
 	let drawn = |era: EraIndex, validators: Vec<u64>| DrawnCollators {
 		era,
-		seed: [0; 32],
 		validators: validators.try_into().unwrap(),
 	};
-	// (cap, drawn collators), checked after the forced rotations
+	// (cap, drawn collators, randomness cached), checked after the forced rotations
 	let cases = [
 		// drawn collators without a cap
-		(None, Some(drawn(1, vec![10]))),
+		(None, Some(drawn(1, vec![10])), true),
 		// a cap and a set without drawn collators
-		(Some(2), None),
+		(Some(2), None, true),
 		// drawn collators of another era
-		(Some(2), Some(drawn(0, vec![10]))),
+		(Some(2), Some(drawn(0, vec![10])), true),
 		// a drawn collator outside the set
-		(Some(2), Some(drawn(1, vec![12]))),
+		(Some(2), Some(drawn(1, vec![12])), true),
 		// a duplicate
-		(Some(2), Some(drawn(1, vec![10, 10]))),
+		(Some(2), Some(drawn(1, vec![10, 10])), true),
 		// more than the cap
-		(Some(1), Some(drawn(1, vec![10, 11]))),
+		(Some(1), Some(drawn(1, vec![10, 11])), true),
+		// drawn collators without a cached randomness
+		(Some(2), Some(drawn(1, vec![10])), false),
 	];
-	for (cap, collators) in cases {
+	for (cap, collators, cached) in cases {
 		new_test_ext().execute_with(|| {
 			// GIVEN a stored set of 10 and 11 brought into force, and a consistent state
 			assert_ok!(receive(1, vec![10, 11]));
 			initialize_to_block(2);
 			assert_ok!(ValidatorCollators::do_try_state());
-			// WHEN the cap and the drawn collators break an invariant
+			// WHEN the cap, the drawn collators and the cache break an invariant
 			MaxCollators::<Test>::set(cap);
 			Collators::<Test>::set(collators.clone());
+			if !cached {
+				EpochRandomness::<Test>::kill();
+			}
 			// THEN try_state fails
-			assert!(ValidatorCollators::do_try_state().is_err(), "{cap:?} {collators:?}");
+			assert!(ValidatorCollators::do_try_state().is_err(), "{cap:?} {collators:?} {cached}");
 		});
 	}
 }

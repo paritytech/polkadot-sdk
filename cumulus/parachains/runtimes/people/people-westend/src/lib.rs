@@ -1241,6 +1241,14 @@ impl_runtime_apis! {
 			BLOCK_PROCESSING_VELOCITY
 		}
 	}
+
+	impl cumulus_primitives_core::KeyToIncludeInRelayProof<Block> for Runtime {
+		fn keys_to_prove() -> cumulus_primitives_core::RelayProofRequest {
+			cumulus_primitives_core::RelayProofRequest {
+				keys: ValidatorCollators::relay_keys_to_prove(),
+			}
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {

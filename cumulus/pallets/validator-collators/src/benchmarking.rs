@@ -69,7 +69,7 @@ mod benchmarks {
 		.map_err(|_| BenchmarkError::Stop("the set exceeds MaxValidators"))?;
 		let drawn = BoundedVec::truncate_from(stored.iter().cloned().collect());
 		Pallet::<T>::do_receive_validator_set(0, stored)?;
-		Collators::<T>::put(DrawnCollators { era: 0, seed: [0; 32], validators: drawn });
+		Collators::<T>::put(DrawnCollators { era: 0, validators: drawn });
 
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, None);

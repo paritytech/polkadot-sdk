@@ -186,8 +186,8 @@ fn cap_on_people_draws_from_the_set_at_the_first_forced_rotation() {
 		Session::current_index()
 	});
 
-	// THEN the first forced rotation draws one of them with the randomness cached by the
-	// parachain-system hook, which is a zero value in the emulator's relay state proof
+	// THEN the first forced rotation draws one of them with the randomness the pallet cached as
+	// `OnSystemEvent`, which is a zero value in the emulator's relay state proof
 	let drawn = PeopleWestend::execute_with(|| {
 		assert_eq!(pallet_validator_collators::EpochRandomness::<Runtime>::get(), Some([0; 32]));
 		let drawn = pallet_validator_collators::Collators::<Runtime>::get()
@@ -215,4 +215,18 @@ fn cap_on_people_draws_from_the_set_at_the_first_forced_rotation() {
 		assert_eq!(Session::current_index(), session_before + 2);
 		assert_eq!(Session::validators(), expected);
 	});
+}
+
+#[test]
+fn asset_hub_caches_the_relay_epoch_randomness_from_the_next_block() {
+	type EpochRandomness =
+		pallet_validator_collators::EpochRandomness<<AssetHubWestend as Chain>::Runtime>;
+
+	// GIVEN Asset Hub has no cached relay chain epoch randomness
+	AssetHubWestend::execute_with(|| EpochRandomness::kill());
+
+	// WHEN the next block processes its relay chain state proof
+	// THEN the pallet, wired as `OnSystemEvent`, caches the randomness, which is a zero value in
+	// the emulator's relay state proof
+	AssetHubWestend::execute_with(|| assert_eq!(EpochRandomness::get(), Some([0; 32])));
 }
