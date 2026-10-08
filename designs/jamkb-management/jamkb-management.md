@@ -900,36 +900,37 @@ account in it. The exact layout is to be defined.
 
 ## 7. Open Issues
 
-1. **AH migration.** During the migration the pallet must mint the units and
-   allow allocating them to the system parachains. Other parachains will
-   probably start building blocks right after the migration, so they need JAMKB
-   granted immediately. How does that relate to the referendum, which allows
-   only selling JAMKB for DOT?
+1. **Launch distribution.** At launch the existing parachains receive the JAMKB
+   they need, system chains as a grant. The distribution contract comes later.
+   How a grant to non-system chains relates to the referendum, which allows
+   only selling JAMKB for DOT, is open.
 2. **Storage footprint cleanup.** The pallet does not know the value length of
    a deleted key, so it cannot reclaim what a cleanup page freed. The freeing
    and the reclaim must also be atomic, since concurrent reclaims race for the
    freed funds and the caller of the cleanup should be the one to get them
    back.
-3. **Freeze.** No Parachain Service message stops a service from taking more
-   state footprint.
-4. **Eject sweep.** `EjectService` credits the ejected service's balances to
+3. **Storage key removal.** `ServiceStoreError` has no variant for a key that
+   is not present, so `cleanup_storage` cannot tell whether keys were removed.
+   `settle` slashes the deposit on Failed.
+4. **Service Freeze.** No Parachain Service message stops a service from taking more
+   state footprint, so a target can allocate storage while a cleanup removes
+   it.
+5. **Eject sweep.** `EjectService` credits the ejected service's balances to
    the Parachain Service without reporting the amount, so Asset Hub is not
    aware of the incoming transfer. Needs the Parachain Service to report the
    swept balance.
-5. **Storage key removal.** `ServiceStoreError` has no variant for a key that
-   is not present, so `cleanup_storage` cannot tell whether keys were removed.
-   `settle` slashes the deposit on Failed.
 6. **Service accounts.** A mapping from JAM service to Asset Hub account is
-   needed, probably provided by another pallet.
-7. **Generic transport.** The parachain-system rework that pulls the pallet's
+   needed by the lease, for lease acceptance and early return, probably provided by
+   another pallet.
+7. **Generic transport.** The parachain-system rework that pulls the jamkb pallet's
    upward messages and delivers the validation inputs does not exist yet
    (§3.4).
 8. **Pallet account and burn instead of holds.** A hold cannot take the last
    `min_balance` units and keeps the account alive, so a holder cannot redeem
    their full balance and close the account. One option is to move the units
-   for permanent releases and redemptions into a pallet account instead, burn
-   them on Confirmed, and return them on Failed. Leases would still use holds,
-   since those units must return to the approver.
+   for permanent releases and redemptions into a pallet `in-flight` account
+   instead, burn them on Confirmed, and return them on Failed. Leases would
+   still use holds, since those units must return to the approver.
 9. **Sufficiency.** Whether JAMKB is a sufficient asset, and its
    `min_balance`, is undecided. A sufficient asset needs a `min_balance`
    worth about the native existential deposit, which requires a price. If
