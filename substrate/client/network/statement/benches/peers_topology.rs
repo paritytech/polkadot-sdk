@@ -26,9 +26,7 @@ use sc_network_types::PeerId;
 use sp_statement_store::{Statement, Topic};
 use std::num::NonZeroUsize;
 
-/// A node keeps tens to hundreds of statement peers connected.
 const CONNECTED_PEERS: [usize; 3] = [50, 200, 1000];
-/// Polkadot and Kusama count one to two thousand nodes.
 const KNOWN_PEERS: [usize; 3] = [512, 1024, 2048];
 const ROUTING_KNOWN_PEERS: usize = 2048;
 const TOPICS: usize = 64;
@@ -50,8 +48,6 @@ fn topics(rng: &mut StdRng) -> Vec<Topic> {
 	(0..TOPICS).map(|_| Topic(rng.gen())).collect()
 }
 
-/// A topology of `known` statement-protocol peers, the first `connected` of them with an open
-/// substream.
 fn topology(rng: &mut StdRng, known: usize, connected: usize) -> PeersTopology {
 	let config = PeersTopologyConfig {
 		replication_factor: nz(REPLICATION_FACTOR),
