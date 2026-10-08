@@ -16,7 +16,7 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	resubmission::{build_v3_scheduling_proof, resolve_session},
+	resubmission::{resolve_session, sign_v3_scheduling_info},
 	CollatorMessage, CollatorSegmentEntry, CollatorSegmentMessage,
 };
 use crate::{
@@ -43,7 +43,8 @@ use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi, SchedulingV3EnabledApi, TargetBlockRate,
+	PersistedValidationData, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
+	TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -78,6 +79,14 @@ use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
+
+/// Ceiling on hedged sibling scheduling parents; the collation task lowers it per segment length.
+/// Each costs a whole extra submission per scheduled core, and the chosen parent plus its siblings
+/// must stay inside the network bridge's `MAX_VIEW_HEADS` or `distribute_segment` drops them.
+pub(crate) const MAX_HEDGED_SIBLINGS: usize = 2;
+
+/// Siblings resolved per core, bounding the round trips a forked relay height can force.
+const MAX_SIBLINGS_RESOLVED: usize = MAX_HEDGED_SIBLINGS + 2;
 
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
@@ -184,10 +193,21 @@ struct BuildingPrerequisites<Block: BlockT> {
 	v3_enabled: bool,
 	/// Distance from the scheduling parent down to the relay parent.
 	relay_parent_offset: u32,
+	/// How many sessions the relay parent may lag the scheduling parent by.
+	max_relay_parent_session_age: u32,
 	/// The relay parent and the descendants linking it to the scheduling parent.
 	relay_parent_data: RelayParentData,
 	/// The parent to build on, plus the included header at the scheduling parent.
 	parent_search_result: consensus_common::ParentSearchResult<Block>,
+}
+
+/// The relay chain context implied by a [`SchedulingParams`]: the scheduling parent, whether V3
+/// applies to it, and the relay parent with its descendants.
+struct RelayContext {
+	scheduling_parent_header: RelayHeader,
+	v3_enabled: bool,
+	max_relay_parent_session_age: u32,
+	relay_parent_data: RelayParentData,
 }
 
 /// The relay chain context `params` imply: the scheduling parent, whether V3 applies to it, and the
@@ -198,7 +218,7 @@ async fn derive_relay_context<RelayClient>(
 	scheduling_info: &mut SchedulingInfo<RelayClient>,
 	params: SchedulingParams,
 	slot: &Slot,
-) -> Option<(RelayHeader, bool, RelayParentData)>
+) -> Option<RelayContext>
 where
 	RelayClient: RelayChainInterface + 'static,
 {
@@ -230,7 +250,12 @@ where
 		return None;
 	};
 
-	Some((scheduling_parent_header, v3_enabled, relay_parent_data))
+	Some(RelayContext {
+		scheduling_parent_header,
+		v3_enabled,
+		max_relay_parent_session_age,
+		relay_parent_data,
+	})
 }
 
 /// Fork from the included head once the relay parent of the parablock we'd build on lags the
@@ -311,6 +336,7 @@ struct SlotContext<Block: BlockT, Pub> {
 	v3_enabled: bool,
 	scheduling_parent_header: RelayHeader,
 	relay_parent_offset: u32,
+	max_relay_parent_session_age: u32,
 	relay_parent_data: RelayParentData,
 	relay_parent_header: RelayHeader,
 	relay_parent_hash: RelayHash,
@@ -372,7 +398,12 @@ where
 		let best_hash = self.para_client.info().best_hash;
 		let best_params = scheduling_params_at(&*self.para_client, best_hash);
 
-		let (scheduling_parent_header, v3_enabled, relay_parent_data) = derive_relay_context(
+		let RelayContext {
+			scheduling_parent_header,
+			v3_enabled,
+			max_relay_parent_session_age,
+			relay_parent_data,
+		} = derive_relay_context(
 			&self.relay_client,
 			&mut self.relay_chain_data_cache,
 			&mut self.scheduling_info,
@@ -406,6 +437,7 @@ where
 				scheduling_parent_header,
 				v3_enabled,
 				relay_parent_offset: best_params.relay_parent_offset,
+				max_relay_parent_session_age,
 				relay_parent_data,
 				parent_search_result,
 			});
@@ -419,7 +451,12 @@ where
 			context from the build parent.",
 		);
 
-		let (scheduling_parent_header, v3_enabled, relay_parent_data) = derive_relay_context(
+		let RelayContext {
+			scheduling_parent_header,
+			v3_enabled,
+			max_relay_parent_session_age,
+			relay_parent_data,
+		} = derive_relay_context(
 			&self.relay_client,
 			&mut self.relay_chain_data_cache,
 			&mut self.scheduling_info,
@@ -432,6 +469,7 @@ where
 			scheduling_parent_header,
 			v3_enabled,
 			relay_parent_offset: build_params.relay_parent_offset,
+			max_relay_parent_session_age,
 			relay_parent_data,
 			parent_search_result,
 		})
@@ -447,6 +485,7 @@ where
 			scheduling_parent_header,
 			v3_enabled,
 			relay_parent_offset,
+			max_relay_parent_session_age,
 			relay_parent_data,
 			parent_search_result,
 		} = self.building_prerequisites(slot).await?;
@@ -578,6 +617,7 @@ where
 			v3_enabled,
 			scheduling_parent_header,
 			relay_parent_offset,
+			max_relay_parent_session_age,
 			relay_parent_data,
 			relay_parent_header,
 			relay_parent_hash,
@@ -708,6 +748,107 @@ where
 	}
 }
 
+/// The slot inputs hedge resolution reads.
+pub(crate) struct HedgeContext<'a> {
+	pub v3_enabled: bool,
+	pub relay_parent_offset: u32,
+	pub max_relay_parent_session_age: u32,
+	pub scheduling_parent_header: &'a RelayHeader,
+	pub relay_parent_hash: RelayHash,
+	pub para_id: ParaId,
+	pub claim_queue_offset: u32,
+	/// Cores the slot was planned on; a sibling that disagrees cannot carry the submission.
+	pub core_indices: &'a [CoreIndex],
+}
+
+/// Header chains of the `siblings` (from [`SchedulingInfo::siblings_at`], best first) the slot's
+/// blocks can also be advertised under, up to `MAX_HEDGED_SIBLINGS` accepted and
+/// `MAX_SIBLINGS_RESOLVED` resolved. Empty unless V3 at `relay_parent_offset >= 1`.
+pub(crate) async fn resolve_hedge_chains<RelayClient>(
+	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
+	siblings: Vec<RelayHeader>,
+	cx: &HedgeContext<'_>,
+) -> Vec<Vec<RelayHeader>>
+where
+	RelayClient: RelayChainInterface + 'static,
+{
+	if !cx.v3_enabled || cx.relay_parent_offset == 0 {
+		return Vec::new();
+	}
+
+	let sp = cx.scheduling_parent_header.hash();
+	let sp_number = cx.scheduling_parent_header.number;
+	let sibling_count = siblings.len();
+
+	let mut chains = Vec::new();
+	for (resolved, sibling) in siblings.into_iter().enumerate() {
+		if chains.len() >= MAX_HEDGED_SIBLINGS || resolved >= MAX_SIBLINGS_RESOLVED {
+			break;
+		}
+		if let Some(chain) = resolve_hedge_sibling(relay_chain_data_cache, sibling, cx).await {
+			chains.push(chain);
+		}
+	}
+
+	if sibling_count > 0 {
+		let submitted: Vec<_> = chains.iter().filter_map(|c| c.first()).map(|h| h.hash()).collect();
+		tracing::debug!(
+			target: LOG_TARGET,
+			?sp,
+			sp_number,
+			siblings = sibling_count,
+			?submitted,
+			"SP hedge: siblings",
+		);
+	}
+
+	chains
+}
+
+/// Resolve one sibling: `Some(header_chain)` if it can carry the slot's blocks.
+async fn resolve_hedge_sibling<RelayClient>(
+	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
+	sibling: RelayHeader,
+	cx: &HedgeContext<'_>,
+) -> Option<Vec<RelayHeader>>
+where
+	RelayClient: RelayChainInterface + 'static,
+{
+	let sp_sibling = sibling.hash();
+	// The collator protocol drops a submission for a core the sibling does not assign us.
+	let same_cores =
+		determine_cores(relay_chain_data_cache, &sibling, cx.para_id, cx.claim_queue_offset)
+			.await
+			.ok()
+			.flatten()
+			.is_some_and(|cores| cores.core_indices().starts_with(cx.core_indices));
+	if !same_cores {
+		tracing::debug!(target: LOG_TARGET, ?sp_sibling, reason = "cores", "SP hedge: rejected");
+		return None;
+	}
+
+	// A sibling whose walk-back implies another relay parent cannot carry the executed blocks.
+	let descendants = match offset_relay_parent_find_descendants(
+		relay_chain_data_cache,
+		sibling,
+		cx.relay_parent_offset,
+		cx.max_relay_parent_session_age,
+	)
+	.await
+	{
+		Ok(Some(mut data)) if data.relay_parent().hash() == cx.relay_parent_hash => {
+			data.take_descendants()
+		},
+		_ => {
+			tracing::debug!(target: LOG_TARGET, ?sp_sibling, reason = "base", "SP hedge: rejected");
+			return None;
+		},
+	};
+
+	tracing::debug!(target: LOG_TARGET, ?sp_sibling, "SP hedge: sibling accepted");
+	Some(descendants.into_iter().rev().collect())
+}
+
 /// Run block-builder.
 pub fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>(
 	params: BuilderTaskParams<Block, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>,
@@ -816,8 +957,9 @@ where
 				tracing::error!(target: LOG_TARGET, "Unable to wait for next slot.");
 				return;
 			};
-
-			let Some(cx) = env.prepare_slot(slot_time.slot()).await else { continue };
+			let Some(cx) = env.prepare_slot(slot_time.slot()).await else {
+				continue;
+			};
 
 			// Informational; warns at genesis on a mismatch with on-chain data.
 			collator
@@ -840,6 +982,27 @@ where
 			let mut pov_parent_header = cx.initial_parent_header.clone();
 			let mut pov_parent_hash = cx.initial_parent_hash;
 
+			let core_indices = cores.core_indices().to_vec();
+			let hedge_ctx = HedgeContext {
+				v3_enabled: cx.v3_enabled,
+				relay_parent_offset: cx.relay_parent_offset,
+				max_relay_parent_session_age: cx.max_relay_parent_session_age,
+				scheduling_parent_header: &cx.scheduling_parent_header,
+				relay_parent_hash: cx.relay_parent_hash,
+				para_id,
+				claim_queue_offset: cores.claim_queue_offset.0 as u32,
+				core_indices: &core_indices,
+			};
+			let siblings =
+				env.scheduling_info.siblings_at(&cx.scheduling_parent_header, slot_time.slot());
+			// Overlaps the builds; each core's deadline bounds the wait before its hedges go out.
+			let resolve = future::maybe_done(resolve_hedge_chains(
+				&mut env.relay_chain_data_cache,
+				siblings,
+				&hedge_ctx,
+			));
+			futures::pin_mut!(resolve);
+
 			for blocks_per_core in blocks_per_cores {
 				let core_info = cores.core_info();
 				let this_core_index = cores.core_index();
@@ -857,83 +1020,125 @@ where
 					None
 				};
 
-				// Time the core build so we can pace after submitting (send early, then sleep).
-				let core_start = Instant::now();
-				let built = match build_collation_for_core(BuildCollationParams {
-					pov_parent_header: pov_parent_header.clone(),
-					pov_parent_hash,
-					relay_parent_header: &cx.relay_parent_header,
-					relay_parent_hash: cx.relay_parent_hash,
-					max_pov_size: cx.max_pov_size,
-					para_id,
-					relay_client: &env.relay_client,
-					code_hash_provider: &code_hash_provider,
-					slot_claim: &cx.slot_claim,
-					collator: &mut collator,
-					allowed_pov_size: cx.allowed_pov_size,
-					core_info: core_info.clone(),
-					core_index: this_core_index,
-					block_time,
-					blocks_per_core,
-					time_for_core,
-					is_last_core_in_parachain_slot: cores.is_last_core() &&
-						slot_time.is_parachain_slot_ending(cx.para_slot_duration.as_duration()),
-					collator_peer_id,
-					relay_parent_data: rp_data,
-					total_number_of_blocks: number_of_blocks,
-					included_hash_at_execution: cx.included_hash_at_execution,
-					relay_slot: cx.relay_slot,
-					para_slot: cx.para_slot.slot,
-					para_client: &*env.para_client,
-				})
-				.await
-				{
-					Ok(built) => built,
-					Err(()) => return,
-				};
-
-				let has_fresh = built.is_some();
-
-				// Chain the next core's PoV parent onto the freshly-built tip (if any).
-				if let Some(BuiltCollation { tip_header, .. }) = &built {
-					pov_parent_header = tip_header.clone();
-					pov_parent_hash = pov_parent_header.hash();
-				}
-
-				// V3: this core's resubmitted bucket plus the freshly-built bundle (or the bucket
-				// alone); V2: a single collation, only when a fresh block was built.
 				let unincluded_headers =
 					per_selector_unincluded_headers.remove(&bucket_idx).unwrap_or_default();
-				let bundle = built.map(|BuiltCollation { entry, .. }| entry);
-				let submission = assemble_core_submission::<Block, P>(
-					v3_header_chain,
-					unincluded_headers,
-					bundle,
-					&core_info,
-					this_core_index,
-					&cx.relay_parent_header,
-					cx.slot_claim.author_pub(),
-					collator_peer_id,
-					&env.keystore,
-				);
 
-				match submission {
-					Some(submission) => {
-						if collator_sender.unbounded_send(submission).is_err() {
-							tracing::error!(
-								target: LOG_TARGET,
-								"Unable to send collation to the collation task.",
-							);
-							return;
+				// Time the core build so we can pace after submitting (send early, then sleep).
+				let core_start = Instant::now();
+				let has_fresh = {
+					let build = build_collation_for_core(BuildCollationParams {
+						pov_parent_header: pov_parent_header.clone(),
+						pov_parent_hash,
+						relay_parent_header: &cx.relay_parent_header,
+						relay_parent_hash: cx.relay_parent_hash,
+						max_pov_size: cx.max_pov_size,
+						para_id,
+						relay_client: &env.relay_client,
+						code_hash_provider: &code_hash_provider,
+						slot_claim: &cx.slot_claim,
+						collator: &mut collator,
+						allowed_pov_size: cx.allowed_pov_size,
+						core_info: core_info.clone(),
+						core_index: this_core_index,
+						block_time,
+						blocks_per_core,
+						time_for_core,
+						is_last_core_in_parachain_slot: cores.is_last_core() &&
+							slot_time
+								.is_parachain_slot_ending(cx.para_slot_duration.as_duration()),
+						collator_peer_id,
+						relay_parent_data: rp_data,
+						total_number_of_blocks: number_of_blocks,
+						included_hash_at_execution: cx.included_hash_at_execution,
+						relay_slot: cx.relay_slot,
+						para_slot: cx.para_slot.slot,
+						para_client: &*env.para_client,
+					});
+					futures::pin_mut!(build);
+
+					let built = match future::select(build, resolve.as_mut()).await {
+						future::Either::Left((built, _)) => built,
+						future::Either::Right(((), build)) => build.await,
+					};
+					let built = match built {
+						Ok(built) => built,
+						Err(()) => return,
+					};
+
+					let has_fresh = built.is_some();
+
+					// Chain the next core's PoV parent onto the freshly-built tip (if any).
+					if let Some(BuiltCollation { tip_header, .. }) = &built {
+						pov_parent_header = tip_header.clone();
+						pov_parent_hash = pov_parent_header.hash();
+					}
+
+					// V3: this core's resubmitted bucket plus the freshly-built bundle (or the
+					// bucket alone); V2: a single collation, only when a fresh block was built.
+					let bundle = built.map(|BuiltCollation { entry, .. }| entry);
+
+					let submission = assemble_core_submission::<Block, P>(
+						v3_header_chain,
+						unincluded_headers,
+						bundle,
+						&core_info,
+						this_core_index,
+						&cx.relay_parent_header,
+						cx.slot_claim.author_pub(),
+						collator_peer_id,
+						&env.keystore,
+						Instant::now() + slot_time.time_left(),
+					);
+					let is_segment = matches!(submission, Some(CollatorMessage::Segment(_)));
+
+					match submission {
+						Some(submission) => {
+							if collator_sender.unbounded_send(submission).is_err() {
+								tracing::error!(
+									target: LOG_TARGET,
+									"Unable to send collation to the collation task.",
+								);
+								return;
+							}
+						},
+						None => tracing::debug!(
+							target: LOG_TARGET,
+							core_index = ?this_core_index,
+							has_fresh,
+							"Nothing to submit for this core.",
+						),
+					}
+
+					if is_segment {
+						// Hedging only spends this core's own slice; later cores re-read the
+						// output. A resubmit-only core has no pacing sleep to absorb a wait, so
+						// it only polls.
+						if has_fresh {
+							let deadline =
+								tokio::time::Instant::from_std(core_start + time_for_core);
+							let _ = tokio::time::timeout_at(deadline, resolve.as_mut()).await;
+						} else {
+							let _ = resolve.as_mut().now_or_never();
 						}
-					},
-					None => tracing::debug!(
-						target: LOG_TARGET,
-						core_index = ?this_core_index,
-						has_fresh,
-						"Nothing to submit for this core.",
-					),
-				}
+						let header_chains =
+							resolve.as_mut().output_mut().cloned().unwrap_or_default();
+						if !header_chains.is_empty() {
+							let hedges = CollatorMessage::Hedges {
+								core_index: this_core_index,
+								header_chains,
+							};
+							if collator_sender.unbounded_send(hedges).is_err() {
+								tracing::error!(
+									target: LOG_TARGET,
+									"Unable to send collation to the collation task.",
+								);
+								return;
+							}
+						}
+					}
+
+					has_fresh
+				};
 
 				// Pace only when a fresh block was built (nothing to pace on resubmit-only).
 				if has_fresh {
@@ -950,9 +1155,10 @@ where
 	}
 }
 
-/// Assemble one core's submission. V3: the resubmitted unincluded bucket plus the freshly-built
-/// bundle (or the bucket alone), under a scheduling proof signed only when there is something to
-/// submit. V2: a single collation, only when a fresh block was built.
+/// Assemble one core's submission. V3: a [`SchedulingProof`] over the resubmitted bucket plus the
+/// fresh bundle. V2: a single collation, only if a block was built.
+///
+/// [`SchedulingProof`]: cumulus_primitives_core::SchedulingProof
 fn assemble_core_submission<Block, P>(
 	v3_header_chain: Option<Vec<RelayHeader>>,
 	unincluded_headers: Vec<Block::Header>,
@@ -963,6 +1169,7 @@ fn assemble_core_submission<Block, P>(
 	author_pub: &P::Public,
 	collator_peer_id: PeerId,
 	keystore: &KeystorePtr,
+	valid_until: Instant,
 ) -> Option<CollatorMessage<Block>>
 where
 	Block: BlockT,
@@ -974,33 +1181,36 @@ where
 			if unincluded_headers.is_empty() && bundle.is_none() {
 				return None;
 			}
-			let scheduling_proof =
+			let signed =
 				ApprovedPeerId::try_from(collator_peer_id.to_bytes()).ok().and_then(|peer_id| {
-					build_v3_scheduling_proof::<P>(
-						header_chain,
-						relay_parent_header.clone(),
+					sign_v3_scheduling_info::<P>(
+						relay_parent_header.hash(),
 						core_info,
 						peer_id,
 						author_pub,
 						keystore,
 					)
 				});
-			match scheduling_proof {
-				Some(scheduling_proof) => Some(CollatorMessage::Segment(CollatorSegmentMessage {
-					scheduling_proof,
-					core_index,
-					unincluded_headers,
-					bundle,
-				})),
-				None => {
-					tracing::warn!(
-						target: LOG_TARGET,
-						?core_index,
-						"Skipping submission: cannot build signed V3 scheduling proof.",
-					);
-					None
+			let Some(signed) = signed else {
+				tracing::warn!(
+					target: LOG_TARGET,
+					?core_index,
+					"Skipping submission: cannot build signed V3 scheduling proof.",
+				);
+				return None;
+			};
+
+			Some(CollatorMessage::Segment(CollatorSegmentMessage {
+				scheduling_proof: SchedulingProof {
+					header_chain,
+					internal_scheduling_parent_header: relay_parent_header.clone(),
+					signed_scheduling_info: Some(signed),
 				},
-			}
+				core_index,
+				unincluded_headers,
+				bundle,
+				valid_until,
+			}))
 		},
 		None => bundle.map(|entry| CollatorMessage::Collation { core_index, entry }),
 	}

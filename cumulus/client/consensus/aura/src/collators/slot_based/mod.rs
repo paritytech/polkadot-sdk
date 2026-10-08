@@ -82,8 +82,8 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
 use polkadot_primitives::{
-	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, PersistedValidationData,
-	ValidationCodeHash,
+	CollatorPair, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
+	PersistedValidationData, ValidationCodeHash,
 };
 use sc_client_api::{
 	backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, BlockchainEvents,
@@ -298,22 +298,28 @@ enum CollatorMessage<Block: BlockT> {
 		/// The built collation payload. Submitted as a V2 collation (no scheduling proof).
 		entry: CollatorSegmentEntry<Block>,
 	},
-	/// A segment of collations sharing a scheduling parent and target core.
+	/// A segment of collations sharing target core, submitted once per hedged scheduling parent.
 	///
 	/// V3 collations are submitted as segments; the block builder currently emits 1-length
 	/// segments, and the resubmission path will produce multi-entry ones.
 	Segment(CollatorSegmentMessage<Block>),
+	/// Hedged sibling header chains for the `Segment` sent immediately before, on `core_index`.
+	Hedges {
+		/// Core of the segment these hedges rebuild.
+		core_index: CoreIndex,
+		/// One header chain per hedged sibling scheduling parent, best first.
+		header_chains: Vec<Vec<RelayHeader>>,
+	},
 }
 
 /// Segment message sent from the block builder for V3/V4 candidates. Routed to
 /// `CollationGenerationMessage::SubmitSegment` by the collation task.
 ///
 /// The collation task prepends the resubmitted unincluded segment (hydrated from
-/// `unincluded_headers`) to the freshly-built `bundle`, all sharing the same `scheduling_proof`.
+/// `unincluded_headers`) to the freshly-built `bundle` and submits it for `scheduling_proof`. A
+/// following [`CollatorMessage::Hedges`] re-submits the same headers under each sibling's chain.
 struct CollatorSegmentMessage<Block: BlockT> {
-	/// Scheduling proof shared by the whole segment. Segments are V3/V4-only, so this is always
-	/// present; the segment's scheduling parent is derived from
-	/// `scheduling_proof.scheduling_parent()`.
+	/// Proof for the chosen scheduling parent.
 	pub scheduling_proof: SchedulingProof,
 	/// Target core for the whole segment submission.
 	pub core_index: CoreIndex,
@@ -324,12 +330,13 @@ struct CollatorSegmentMessage<Block: BlockT> {
 	/// The freshly-built bundle for this core, if one was built this slot. Submitted last, after
 	/// the resubmitted entries.
 	pub bundle: Option<CollatorSegmentEntry<Block>>,
+	/// End of the production relay slot, after which validators reject its sibling hedges.
+	pub valid_until: std::time::Instant,
 }
 
 /// One entry of a [`CollatorSegmentMessage`]. Each entry produces one `SegmentCollation`
 /// (one PoV / one candidate on the relay chain), and may still bundle multiple parablocks
 /// inside its PoV via `build_multi_block_collation`.
-#[derive(Clone)]
 struct CollatorSegmentEntry<Block: BlockT> {
 	/// The hash of the relay chain block that provides the context for the parachain block(s).
 	pub relay_parent: RelayHash,
