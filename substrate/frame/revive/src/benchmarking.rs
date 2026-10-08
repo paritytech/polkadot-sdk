@@ -83,6 +83,13 @@ use sp_runtime::{generic::DigestItem, traits::Zero};
 /// but might make the results less precise.
 const API_BENCHMARK_RUNS: u32 = 1600;
 
+/// How far after its source the `evm_mcopy_per_byte` benchmark puts its destination.
+///
+/// It's just under a page, so every word the copy loads has the same lowest 12 address bits as the
+/// word it stored just before. It's also misaligned with the source, so `memmove` has to shift
+/// everything it copies.
+const MCOPY_DESTINATION_DISTANCE: u32 = 4091;
+
 macro_rules! memory(
 	($($bytes:expr,)*) => {{
 		vec![].iter()$(.chain($bytes.iter()))*.cloned().collect::<Vec<_>>()
@@ -4306,7 +4313,7 @@ mod benchmarks {
 		}
 	}
 
-	/// Benchmarks `r` EVM `MCOPY` op-codes that copy 64 bytes each.
+	/// Benchmarks `r` EVM `MCOPY` op-codes that copy up to 64 bytes each.
 	///
 	/// This is the fixed cost of an `MCOPY`, which covers copying its first 64 bytes. Longer copies
 	/// pay for every extra byte on top of it.
@@ -4314,30 +4321,35 @@ mod benchmarks {
 	/// # Added Overheads
 	///
 	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
-	/// * An L1 and L2 cache miss on each copy, since each copied region is on a cache line that
-	///   hasn't been accessed since the eviction.
-	/// * A second cache line accessed on each copy, since each copied region crosses into the next
-	///   line.
-	/// * A TLB miss on each copy, since each copied region is on a page that hasn't been accessed
-	///   since the eviction.
-	/// * A second TLB miss on each copy, since each copied region crosses into the next page.
+	/// * An L1 and L2 cache miss on the source and on the destination of each copy, since each of
+	///   them is on a cache line that hasn't been accessed since the eviction.
+	/// * A second cache line accessed by the source and by the destination of each copy, since each
+	///   of them crosses into the next line.
+	/// * A TLB miss on the source and on the destination of each copy, since each of them is on a
+	///   page that hasn't been accessed since the eviction.
+	/// * A second TLB miss on the source and on the destination of each copy, since each of them
+	///   crosses into the next page.
+	/// * A read of each destination line before the copy writes to it, since the line isn't in the
+	///   cache.
 	/// * No help from the pre-fetcher, since the pages are visited in a pseudo-random order.
-	/// * The slowest path of the runtime's `memmove`, which copies backward and rebuilds everything
-	///   it copies with shifts, since the destination starts just after the source and overlaps it.
+	/// * The path of the runtime's `memmove` that rebuilds everything it copies with shifts, since
+	///   the source and the destination are misaligned with each other.
+	/// * A branch misprediction on how `memmove` copies the bytes before and after its words, since
+	///   the alignments of the source and the destination and the length are pseudo-random.
 	///
 	/// # Subtraction Safety
 	///
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_mcopy_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 8192 - 1 }>) {
+	fn evm_mcopy_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 16384 - 1 }>) {
 		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
 		const PAGE_SIZE: usize = 4096;
-		const COPY_BYTES: usize = 64;
+		const MAX_COPY_BYTES: usize = 64;
 		const PAIR_SIZE: usize = 2 * PAGE_SIZE;
 		const PAIR_COUNT: usize = MEMORY_SIZE / PAIR_SIZE - 1;
-		// The source is centred on the boundary between the two pages of its pair, and the
-		// destination is one byte later, so both of them cross it.
-		const SOURCE_IN_PAIR: usize = PAGE_SIZE - COPY_BYTES / 2;
+		// Sources and destinations start up to three bytes after this, so each of them crosses the
+		// boundary between the two pages of its pair.
+		const REGION_IN_PAIR: usize = PAGE_SIZE - MAX_COPY_BYTES / 2;
 
 		let mut rng = Pcg64::seed_from_u64(1337);
 
@@ -4354,23 +4366,29 @@ mod benchmarks {
 		let address = interpreter.memory.slice(0..MEMORY_SIZE).as_ptr() as usize;
 		let first_page_start = address.next_multiple_of(PAGE_SIZE) - address;
 
-		let mut sources = (0..PAIR_COUNT)
+		let mut pair_starts = (0..PAIR_COUNT)
 			.map(|pair_index| pair_index * PAIR_SIZE)
 			.map(|pair_offset| pair_offset + first_page_start)
-			.map(|pair_start| pair_start + SOURCE_IN_PAIR)
 			.collect::<Vec<_>>();
-		sources.shuffle(&mut rng);
-		let sources = &sources[..r as usize];
-		setup_stack(
-			&mut interpreter,
-			sources.iter().flat_map(|&source| {
-				[U256::from(COPY_BYTES), U256::from(source), U256::from(source + 1)]
-			}),
-		);
+		pair_starts.shuffle(&mut rng);
+		// Each copy's source and destination are in different pairs, with different alignments.
+		let copies = pair_starts
+			.chunks_exact(2)
+			.take(r as usize)
+			.map(|pairs| {
+				let source_alignment = rng.gen_range(0..4);
+				let destination_alignment = (source_alignment + rng.gen_range(1..4)) % 4;
+				let len = rng.gen_range(MAX_COPY_BYTES - 3..=MAX_COPY_BYTES);
+				let source = pairs[0] + REGION_IN_PAIR + source_alignment;
+				let destination = pairs[1] + REGION_IN_PAIR + destination_alignment;
+				[len, source, destination]
+			})
+			.collect::<Vec<_>>();
+		setup_stack(&mut interpreter, copies.iter().flat_map(|copy| copy.map(U256::from)));
 		let mut expected = initial.clone();
-		for &source in sources {
-			expected[source + 1..source + 1 + COPY_BYTES]
-				.copy_from_slice(&initial[source..source + COPY_BYTES]);
+		for &[len, source, destination] in &copies {
+			expected[destination..destination + len]
+				.copy_from_slice(&initial[source..source + len]);
 		}
 
 		evict_caches();
@@ -4390,21 +4408,32 @@ mod benchmarks {
 	/// Benchmarks one EVM `MCOPY` op-code that copies `64 + n` bytes.
 	///
 	/// The first 64 bytes are covered by [`evm_mcopy_opcode`], so the slope of this benchmark is
-	/// the cost of every extra byte.
+	/// the cost of every extra byte. `n` starts where the copy overlaps its destination, since
+	/// `memmove` copies shorter ones forward.
 	///
 	/// # Added Overheads
 	///
 	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
 	/// * The slowest path of the runtime's `memmove`, which copies backward and rebuilds everything
-	///   it copies with shifts, since the destination starts just after the source and overlaps it.
+	///   it copies with shifts, since the destination starts after the source, overlaps it and is
+	///   misaligned with it.
+	/// * A false conflict between every load and the word stored just before it, since the
+	///   destination is just under a page after the source, so their addresses share the lowest 12
+	///   bits.
 	///
 	/// # Subtraction Safety
 	///
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_mcopy_per_byte(n: Linear<0, { EVM_MEMORY_BYTES - 65 }>) {
+	fn evm_mcopy_per_byte(
+		n: Linear<
+			{ MCOPY_DESTINATION_DISTANCE - 63 },
+			{ EVM_MEMORY_BYTES - MCOPY_DESTINATION_DISTANCE - 64 },
+		>,
+	) {
 		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
 		const BASE_COPY_BYTES: usize = 64;
+		const DESTINATION: usize = MCOPY_DESTINATION_DISTANCE as usize;
 
 		let len = n as usize + BASE_COPY_BYTES;
 		let code = Bytecode::new_raw(vec![MCOPY].into());
@@ -4414,7 +4443,7 @@ mod benchmarks {
 		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
 		let initial = (0u8..=255).cycle().take(MEMORY_SIZE).collect::<Vec<_>>();
 		interpreter.memory.set(0, &initial);
-		setup_stack(&mut interpreter, [U256::from(len), U256::zero(), U256::one()]);
+		setup_stack(&mut interpreter, [U256::from(len), U256::zero(), U256::from(DESTINATION)]);
 
 		evict_caches();
 		let result;
@@ -4427,9 +4456,12 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
 		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
-		assert_eq!(interpreter.memory.slice_len(0, 1), &initial[..1]);
-		assert_eq!(interpreter.memory.slice_len(1, len), &initial[..len]);
-		assert_eq!(interpreter.memory.slice(len + 1..MEMORY_SIZE), &initial[len + 1..]);
+		assert_eq!(interpreter.memory.slice_len(0, DESTINATION), &initial[..DESTINATION]);
+		assert_eq!(interpreter.memory.slice_len(DESTINATION, len), &initial[..len]);
+		assert_eq!(
+			interpreter.memory.slice(DESTINATION + len..MEMORY_SIZE),
+			&initial[DESTINATION + len..]
+		);
 	}
 
 	/// Benchmarks `r` EVM `LT` op-codes.
