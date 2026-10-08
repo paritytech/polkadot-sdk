@@ -2256,7 +2256,6 @@ where
 	}
 
 	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
-		self.ensure_not_stipend_limited()?;
 		if_tracing(|tracer| {
 			let addr = T::AddressMapper::to_address(self.account_id());
 			tracer.terminate(

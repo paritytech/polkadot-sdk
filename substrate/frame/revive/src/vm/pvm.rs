@@ -691,6 +691,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					if read_only || self.ext.is_read_only() {
 						return Err(Error::<E::T>::StateChangeDenied.into());
 					}
+					self.ext.ensure_not_stipend_limited()?;
 
 					let dust_transfer = Pallet::<E::T>::has_dust(value);
 					// A precompile's account state is untracked, so its transfer pays cold.

@@ -83,9 +83,6 @@ pub trait HostFn: private::Sealed {
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
-	/// Transferring value traps in the callee of a `transfer`, `send` or any call with that shape,
-	/// and in any contract that callee calls.
-	///
 	/// # Parameters
 	///
 	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
@@ -321,9 +318,6 @@ pub trait HostFn: private::Sealed {
 	///
 	/// This function creates an account and executes the constructor defined in the code specified
 	/// by the code hash.
-	///
-	/// Traps in the callee of a `transfer`, `send` or any call with that shape, and in any
-	/// contract that callee calls.
 	///
 	/// # Parameters
 	///

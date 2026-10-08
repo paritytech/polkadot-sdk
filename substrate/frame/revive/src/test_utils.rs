@@ -82,7 +82,8 @@ pub fn deposit_limit<T: Config>() -> BalanceOf<T> {
 /// Runs `test` with a `parameter_types!` static set to `value`, and restores the previous value
 /// when `test` ends, whether it returns or panics.
 ///
-/// `get` and `set` are the static's functions, for example `GasScale::get` and `GasScale::set`.
+/// `get` and `set` are the accessors `parameter_types!` generates for the static, for example
+/// `GasScale::get` and `GasScale::set`.
 pub fn with_parameter<T: Clone, R>(
 	get: fn() -> T,
 	set: fn(T),

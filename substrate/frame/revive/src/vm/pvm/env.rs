@@ -435,6 +435,7 @@ pub mod env {
 		output_data: u64,
 		address_and_salt: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		self.ext.ensure_not_stipend_limited()?;
 		let (deposit_ptr, value_ptr) = extract_hi_lo(deposit_and_value);
 		let (input_data_len, code_hash_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
@@ -958,6 +959,7 @@ pub mod env {
 	/// See [`pallet_revive_uapi::HostFn::terminate`].
 	#[mutating]
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
+		self.ext.ensure_not_stipend_limited()?;
 		let charged = self.charge_gas(RuntimeCosts::Terminate { code_removed: true })?;
 		let beneficiary = memory.read_h160(beneficiary_ptr)?;
 		if matches!(self.ext.terminate_if_same_tx(&beneficiary)?, crate::CodeRemoved::No) {

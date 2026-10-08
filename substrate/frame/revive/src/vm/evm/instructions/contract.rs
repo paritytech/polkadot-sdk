@@ -44,6 +44,9 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
+	if let Err(err) = interpreter.ext.ensure_not_stipend_limited() {
+		return ControlFlow::Break(Halt::Err(err));
+	}
 
 	let [value, code_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
@@ -75,9 +78,6 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 		None
 	};
 
-	if let Err(err) = interpreter.ext.ensure_not_stipend_limited() {
-		return ControlFlow::Break(Halt::Err(err));
-	}
 	let call_result = interpreter.ext.instantiate(
 		&CallResources::NoLimits,
 		Code::Upload(code),
@@ -123,10 +123,10 @@ pub fn call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() && has_transfer {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
-	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
 	if has_transfer && let Err(err) = interpreter.ext.ensure_not_stipend_limited() {
 		return ControlFlow::Break(Halt::Err(err));
 	}
+	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
 	let scheme = CallScheme::Call;
 	charge_call_gas(interpreter, to, scheme, input.len(), value)?;
 
