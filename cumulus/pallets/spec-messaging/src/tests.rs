@@ -86,6 +86,33 @@ fn append_positions_are_stable_in_a_block_and_advance_across_blocks() {
 }
 
 #[test]
+fn a_send_before_on_initialize_belongs_to_its_own_block() {
+	new_test_ext().execute_with(|| {
+		let s = stream(0);
+		SpecMessaging::append_to_stream(s, b"a".to_vec()).unwrap();
+		SpecMessaging::on_finalize(System::block_number());
+
+		// Block 2: a pallet ordered before this one sends from its `on_initialize`.
+		System::set_block_number(System::block_number() + 1);
+		assert_eq!(SpecMessaging::append_to_stream(s, b"b".to_vec()).unwrap(), MessagePosition(1));
+		SpecMessaging::on_initialize(System::block_number());
+		assert_eq!(SpecMessaging::append_to_stream(s, b"c".to_vec()).unwrap(), MessagePosition(2));
+
+		// Only block 1's send was drained; both of block 2's are its own, and its root covers
+		// exactly the leaves a node can rebuild from `outbound_messages`.
+		assert_eq!(OutboundFrontier::<Test>::get(s).leaf_count(), 1);
+		assert_eq!(
+			SpecMessaging::outbound_messages(),
+			vec![(s, vec![b"b".to_vec(), b"c".to_vec()])]
+		);
+		assert_eq!(
+			SpecMessaging::commit_streams_root(),
+			Some(expected_root(&[(s, &[b"a", b"b", b"c"])]))
+		);
+	});
+}
+
+#[test]
 fn caps_are_enforced() {
 	new_test_ext().execute_with(|| {
 		let s = stream(0);

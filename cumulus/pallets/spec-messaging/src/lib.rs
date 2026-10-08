@@ -121,6 +121,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type BlockStreamsRoot<T: Config> = StorageValue<_, StreamsRoot, OptionQuery>;
 
+	/// The block whose roll-over has run, with the number of sends it drained. See
+	/// [`Pallet::roll_over`].
+	#[pallet::storage]
+	pub type RolledOver<T: Config> = StorageValue<_, (BlockNumberFor<T>, u32), OptionQuery>;
+
 	/// Consumption frontier per consumed inbound stream `(source, stream)`.
 	#[pallet::storage]
 	pub type InboundFrontier<T: Config> =
@@ -164,20 +169,12 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			BlockStreamsRoot::<T>::kill();
-			ConsumptionOutbox::<T>::kill();
-
-			// Drain the previous block's sends into the frontiers. TODO: benchmark.
-			let mut weight = T::DbWeight::get().reads_writes(2, 2);
-			for (stream, messages) in OutboundMessages::<T>::drain() {
-				let mut frontier = OutboundFrontier::<T>::get(stream);
-				for payload in &messages {
-					frontier.append(leaf_hash(LEAF_VERSION, payload));
-				}
-				OutboundFrontier::<T>::insert(stream, frontier);
-				weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-			}
-			weight
+			// Usually the roll-over runs here. A pallet whose `on_initialize` runs first and sends
+			// has already run it; the drain is charged here either way. TODO: benchmark.
+			let drained = Self::roll_over();
+			T::DbWeight::get().reads_writes(3, 3).saturating_add(
+				T::DbWeight::get().reads_writes(2, 2).saturating_mul(drained.into()),
+			)
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
@@ -200,6 +197,7 @@ pub mod pallet {
 		#[pallet::weight((enact_weight::<T>(data), DispatchClass::Mandatory))]
 		pub fn enact_messages(origin: OriginFor<T>, data: MessagingInherentData) -> DispatchResult {
 			ensure_none(origin)?;
+			Self::roll_over();
 
 			let mut touched = BTreeSet::new();
 			let mut gaps = 0u32;
@@ -252,6 +250,37 @@ fn enact_weight<T: Config>(data: &MessagingInherentData) -> Weight {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Start this block's messaging state, once per block: forget the previous block's root and
+	/// consumption, and drain its sends into the frontiers. Returns the number of sends drained.
+	///
+	/// Everything that writes this block's state calls it first, so hook order does not matter. A
+	/// pallet ordered before this one may send from its own `on_initialize`, for example
+	/// `pallet-xcm` version discovery or `MessageQueue` replies. Draining in `on_initialize` alone
+	/// would then take that send for the previous block's: its leaf would enter the frontier while
+	/// its payload never appeared in [`Self::outbound_messages`], and no node could serve it.
+	pub fn roll_over() -> u32 {
+		let now = frame_system::Pallet::<T>::block_number();
+		if let Some((at, drained)) = RolledOver::<T>::get() {
+			if at == now {
+				return drained;
+			}
+		}
+
+		BlockStreamsRoot::<T>::kill();
+		ConsumptionOutbox::<T>::kill();
+		let mut drained = 0u32;
+		for (stream, messages) in OutboundMessages::<T>::drain() {
+			let mut frontier = OutboundFrontier::<T>::get(stream);
+			for payload in &messages {
+				frontier.append(leaf_hash(LEAF_VERSION, payload));
+				drained = drained.saturating_add(1);
+			}
+			OutboundFrontier::<T>::insert(stream, frontier);
+		}
+		RolledOver::<T>::put((now, drained));
+		drained
+	}
+
 	/// Append `payload` to `stream`'s outbound MMR, returning its stable position. Enforces only
 	/// the consensus hard caps.
 	pub fn append_to_stream(
@@ -261,6 +290,7 @@ impl<T: Config> Pallet<T> {
 		let payload: BoundedVec<u8, T::MaxMsgLen> =
 			payload.try_into().map_err(|_| Error::<T>::MessageTooBig)?;
 
+		Self::roll_over();
 		let index = OutboundMessages::<T>::decode_len(stream).unwrap_or(0) as u64;
 		OutboundMessages::<T>::try_append(stream, payload)
 			.map_err(|()| Error::<T>::TooManyMessages)?;
@@ -271,6 +301,7 @@ impl<T: Config> Pallet<T> {
 	/// Fold this block's sends into the [`StreamsRoot`], memoize it, and deposit the digest.
 	/// Idempotent; `None` on idle blocks so an unchanged root is never re-emitted.
 	pub fn commit_streams_root() -> Option<StreamsRoot> {
+		Self::roll_over();
 		if let Some(root) = BlockStreamsRoot::<T>::get() {
 			return Some(root);
 		}
