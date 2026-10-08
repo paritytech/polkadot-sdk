@@ -42,7 +42,7 @@ fn token(key: CollatorKey, proof: Vec<H256>) -> AuthToken {
 
 #[test]
 fn built_proofs_works() {
-	for size in 1..=5u32 {
+	for size in [1u32, 2, 3, 4, 5, 15, 16, 17] {
 		let keys = keys(size);
 		let (config, proofs) = config(&keys);
 		for index in 0..size {
@@ -73,4 +73,32 @@ fn nonmember_errors() {
 	let (config, proofs) = config(&keys);
 	let outsider = token([0xaa; 32], proofs[0].clone());
 	assert!(outsider.check_proof(&config, 0).is_err());
+}
+
+#[test]
+fn malformed_proof_errors() {
+	let keys = keys(3);
+	let (config, proofs) = config(&keys);
+	let mut token = token(keys[2], proofs[2].clone());
+	token.proof.pop();
+	assert!(token.check_proof(&config, 2).is_err());
+	token.proof = proofs[2].clone();
+	token.proof.push(H256::zero());
+	assert!(token.check_proof(&config, 2).is_err());
+	token.proof = proofs[2].clone();
+	token.proof[0] = H256::repeat_byte(1);
+	assert!(token.check_proof(&config, 2).is_err());
+}
+
+#[test]
+fn invalid_set_size_and_index_errors() {
+	let keys = keys(1);
+	let (mut config, proofs) = config(&keys);
+	let token = token(keys[0], proofs[0].clone());
+	assert!(token.check_proof(&config, 1).is_err());
+	config.collator_set_size = 0;
+	assert!(token.check_proof(&config, 0).is_err());
+	config.collator_set_size = u32::MAX;
+	let token = AuthToken { proof: vec![H256::zero(); 32], ..token };
+	assert!(token.check_proof(&config, 0).is_err());
 }

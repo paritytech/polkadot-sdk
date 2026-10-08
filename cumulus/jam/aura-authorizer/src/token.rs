@@ -22,7 +22,7 @@ use primitive_types::H256;
 
 use crate::{
 	config::AuthConfig,
-	merkle::{collator_leaf_hash, join, proof_depth},
+	merkle::{proof_depth, CollatorHasher},
 	signing::signable_work_package_hash,
 	AuthTrace,
 };
@@ -77,28 +77,29 @@ impl AuthToken {
 	/// - **Padding**: tree is zero-hash-padded to the next power of two.
 	/// - **Proof length**: ⌈log₂(collator_set_size)⌉.
 	///
-	/// Returns [`TokenError::BadCollatorSetProof`] for a wrong proof length or root.
-	/// The caller must provide a nonzero set size and an in-range `collator_index`.
+	/// Returns [`TokenError::BadCollatorSetProof`] for a wrong proof length or root,
+	/// an out-of-range index, or a set size outside `1..=2^31` (the SDK leaf-count limit).
 	pub fn check_proof(&self, config: &AuthConfig, collator_index: u32) -> Result<(), TokenError> {
 		if self.proof.len() != proof_depth(config.collator_set_size) {
 			return Err(TokenError::BadCollatorSetProof);
 		}
 
-		let mut current = collator_leaf_hash(&self.key);
-		for (level, sibling) in self.proof.iter().enumerate() {
-			let bit = (collator_index >> level) & 1;
-			current = if bit == 0 {
-				join(&current, &sibling.to_fixed_bytes())
-			} else {
-				join(&sibling.to_fixed_bytes(), &current)
-			};
+		let padded_size = config
+			.collator_set_size
+			.checked_next_power_of_two()
+			.ok_or(TokenError::BadCollatorSetProof)?;
+		if collator_index >= config.collator_set_size {
+			return Err(TokenError::BadCollatorSetProof);
 		}
-
-		if H256::from(current) == config.collator_set_root {
-			Ok(())
-		} else {
-			Err(TokenError::BadCollatorSetProof)
-		}
+		binary_merkle_tree::verify_proof::<CollatorHasher, _, _>(
+			&config.collator_set_root,
+			self.proof.iter().copied(),
+			padded_size,
+			collator_index,
+			binary_merkle_tree::Leaf::Value(&self.key),
+		)
+		.then_some(())
+		.ok_or(TokenError::BadCollatorSetProof)
 	}
 
 	/// Verify the signature over [`signable_work_package_hash`] using `S`.
