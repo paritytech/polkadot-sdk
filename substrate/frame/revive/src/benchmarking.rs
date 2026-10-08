@@ -195,7 +195,8 @@ struct EvmMixedOpcodes;
 impl EvmMixedOpcodes {
 	/// Cheap op-codes whose work doesn't depend on their operands, so in the mix each one does
 	/// exactly the work it's charged for. The repetitions make every block leave the stack as high
-	/// as it found it.
+	/// as it found it. Must match the mix in the weight of `EvmOpcodeCosts`, which derives the
+	/// charge.
 	const BLOCK: [(u8, usize, usize, usize); 14] = [
 		// (op-code, pops, pushes, repetitions)
 		(PC, 0, 1, 5),
