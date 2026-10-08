@@ -270,6 +270,7 @@ where
 				&config,
 				&metrics,
 				&mut net_config,
+				ss_config.v2dht.as_ref(),
 			);
 			(proto, ss_config.clone())
 		});

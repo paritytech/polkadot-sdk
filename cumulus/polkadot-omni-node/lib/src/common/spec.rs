@@ -437,6 +437,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						&parachain_config,
 						&metrics,
 						&mut net_config,
+						config.v2dht.as_ref(),
 					);
 					(proto, config)
 				});
