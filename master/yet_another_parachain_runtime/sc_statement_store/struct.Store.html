@@ -252,8 +252,10 @@ statement may be resubmitted (renewed) by <code>Chain</code> and <code>Local</co
 <li><strong>Allowance</strong> — read the account’s allowance (<code>StatementAllowance</code>: max count and size)
 directly from chain state at the best block (via the <code>statement_allowance_key</code> storage
 key — not a runtime call); reject with <code>SubmitResult::Rejected(NoAllowance)</code> if none is
-set. The best block is used for responsiveness; a statement accepted here may later be
-evicted when limits are enforced against the finalized block.</li>
+set. The best block is used for responsiveness. Limit enforcement takes the larger of the
+best and the finalized allowance, so a statement accepted here outlives the finality lag;
+it is evicted later if the allowance it relied on leaves the best chain or a lower
+allowance is finalized.</li>
 <li><strong>Constraint check &amp; eviction</strong> — check the account’s record, enforcing per-account
 limits (count, size, one statement per channel, higher priority replaces lower) and
 global limits (<a href="constant.DEFAULT_MAX_TOTAL_STATEMENTS.html" title="constant yet_another_parachain_runtime::sc_statement_store::DEFAULT_MAX_TOTAL_STATEMENTS"><code>DEFAULT_MAX_TOTAL_STATEMENTS</code></a>, <a href="constant.DEFAULT_MAX_TOTAL_SIZE.html" title="constant yet_another_parachain_runtime::sc_statement_store::DEFAULT_MAX_TOTAL_SIZE"><code>DEFAULT_MAX_TOTAL_SIZE</code></a>), evicting
