@@ -237,7 +237,7 @@ impl Warmth {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct WarmthSummary {
 	/// The family of the access's keys.
-	key: KeyFamily,
+	key_family: KeyFamily,
 	/// How many entries in total.
 	total: u32,
 	/// How many are cold.
@@ -252,13 +252,13 @@ pub struct WarmthSummary {
 
 impl WarmthSummary {
 	/// Builds a summary with nothing counted yet, for an access with keys of the given family.
-	pub fn new(key: KeyFamily) -> Self {
-		Self { key, total: 0, cold: 0, cold_revertible: 0, cold_writes: 0, upgrades: 0 }
+	pub fn new(key_family: KeyFamily) -> Self {
+		Self { key_family, total: 0, cold: 0, cold_revertible: 0, cold_writes: 0, upgrades: 0 }
 	}
 
 	/// Returns the family of the access's keys.
-	pub fn key(&self) -> KeyFamily {
-		self.key
+	pub fn key_family(&self) -> KeyFamily {
+		self.key_family
 	}
 
 	/// Counts one entry, at the operation performed on it.
@@ -381,8 +381,8 @@ impl<W> Summarized<W> {
 
 impl Summarized<Warmth> {
 	/// Builds the warmth of one entry of the given key family, at the operation performed on it.
-	pub fn from_warmth(key: KeyFamily, warmth: Warmth, op: StorageOp) -> Self {
-		Self { entries: warmth, summary: WarmthSummary::new(key).count(warmth, op) }
+	pub fn from_warmth(key_family: KeyFamily, warmth: Warmth, op: StorageOp) -> Self {
+		Self { entries: warmth, summary: WarmthSummary::new(key_family).count(warmth, op) }
 	}
 
 	/// Returns the same warmth with the rollback dropped, for a peek that touched nothing.
@@ -424,19 +424,19 @@ impl AccessEntry {
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 impl AccessEntry {
-	/// Builds the `i`-th entry of `key`'s family. Only the trailing bytes carry `i`, so a
+	/// Builds the `index`-th entry of `key_family`. Only the trailing bytes carry `index`, so a
 	/// comparison runs the whole shared prefix before it can decide.
-	pub fn with_index(i: usize, key: KeyFamily) -> Self {
-		match key {
+	pub fn with_index(index: usize, key_family: KeyFamily) -> Self {
+		match key_family {
 			KeyFamily::Slot => {
 				let slot = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
 					.expect("key fits STORAGE_KEY_BYTES bound; qed");
 				Self::Storage(ContractSlot {
 					slot: Slot::from(&slot),
-					address: H160::from_low_u64_be(i as u64),
+					address: H160::from_low_u64_be(index as u64),
 				})
 			},
-			KeyFamily::Address => Self::CodeInfo { hash: H256::from_low_u64_be(i as u64) },
+			KeyFamily::Address => Self::CodeInfo { hash: H256::from_low_u64_be(index as u64) },
 		}
 	}
 }
@@ -948,25 +948,25 @@ impl AccessList {
 		AccessListMetrics { size: self.accessed.len(), cold: self.cold_count, hot: self.hot_count }
 	}
 
-	/// Adds fresh entries of `key`'s family until the list holds `target_size` of them.
+	/// Adds fresh entries of `key_family` until the list holds `target_size` of them.
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
-	pub fn fill_to(&mut self, target_size: usize, key: KeyFamily) {
+	pub fn fill_to(&mut self, target_size: usize, key_family: KeyFamily) {
 		let already = self.metrics().size;
-		assert!(already <= target_size, "the map is already past the target");
-		for i in 0..target_size - already {
-			let entry = AccessEntry::with_index(i, key);
-			assert!(!self.touch(entry, StorageOp::Read).is_hot(), "fill entries must be new");
+		assert!(already <= target_size, "already={already} target_size={target_size}");
+		for index in 0..target_size - already {
+			let warmth = self.touch(AccessEntry::with_index(index, key_family), StorageOp::Read);
+			assert!(!warmth.is_hot(), "entry {index}: {warmth:?}");
 		}
-		assert_eq!(self.metrics().size, target_size, "the map reached the requested size");
+		assert_eq!(self.metrics().size, target_size);
 	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 impl AccessList {
-	/// Builds an access list holding entries `0..entries` of the given `key` family.
-	pub fn with_entries(entries: usize, key: KeyFamily) -> Self {
+	/// Builds an access list holding entries `0..entries` of `key_family`.
+	pub fn with_entries(entries: usize, key_family: KeyFamily) -> Self {
 		let mut list = Self::new();
-		list.fill_to(entries, key);
+		list.fill_to(entries, key_family);
 		list
 	}
 
@@ -1133,11 +1133,12 @@ mod tests {
 
 	#[test]
 	fn peek_agrees_with_touch() {
+		#[track_caller]
 		fn agree(al: &mut AccessList, entry: AccessEntry, op: StorageOp, expected: Warmth) {
 			let before = al.metrics();
-			assert_eq!(al.peek(&entry), expected, "peek must report like touch");
-			assert_eq!(al.metrics(), before, "peek must not mutate the list");
-			assert_eq!(al.touch(entry, op), expected, "touch must report like peek");
+			assert_eq!(al.peek(&entry), expected);
+			assert_eq!(al.metrics(), before);
+			assert_eq!(al.touch(entry, op), expected);
 		}
 
 		// Indices past the fill range, so the fill never hands out these entries itself.

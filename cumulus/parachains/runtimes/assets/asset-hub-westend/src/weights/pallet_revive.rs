@@ -1314,6 +1314,14 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(6_234_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
+	fn access_list_rollback_address_amortization() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 5_370_000 picoseconds.
+		Weight::from_parts(6_234_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
 	fn set_transient_storage_empty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`

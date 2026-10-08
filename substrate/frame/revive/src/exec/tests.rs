@@ -203,19 +203,6 @@ fn exec_trapped() -> ExecResult {
 	Err(ExecError { error: <Error<Test>>::ContractTrapped.into(), origin: ErrorOrigin::Callee })
 }
 
-/// The account info of an EOA at `address` that delegates to `target`.
-fn delegated_to(address: H160, target: H160) -> crate::storage::AccountInfo<Test> {
-	use crate::storage::{AccountInfo, AccountType, ContractInfo};
-	AccountInfo {
-		account_type: AccountType::DelegatedEOA {
-			delegate_target: Some(target),
-			contract_info: ContractInfo::<Test>::new_for_delegation(&address, H256::zero()),
-			payer: None,
-		},
-		dust: 0,
-	}
-}
-
 #[test]
 fn it_works() {
 	parameter_types! {
@@ -1789,8 +1776,6 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 	// frame. When frame creation fails (here: chained delegation traps in `new_frame`), the
 	// trailing reset must still run or the caller's frame stays at `false`, denying later
 	// cross-contract callbacks.
-	use crate::AccountInfoOf;
-
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		match ctx.input_data[0] {
 			0 => {
@@ -1844,8 +1829,10 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 
 		// DJANGO -> EVE -> any addr: a call to DJANGO is a chained delegation.
 		let eve_target = H160::from([0x99; 20]);
-		AccountInfoOf::<Test>::insert(EVE_ADDR, delegated_to(EVE_ADDR, eve_target));
-		AccountInfoOf::<Test>::insert(DJANGO_ADDR, delegated_to(DJANGO_ADDR, EVE_ADDR));
+		crate::storage::AccountInfo::<Test>::set_delegation(&EVE_ADDR, Some(eve_target), &ALICE)
+			.unwrap();
+		crate::storage::AccountInfo::<Test>::set_delegation(&DJANGO_ADDR, Some(EVE_ADDR), &ALICE)
+			.unwrap();
 
 		let origin = Origin::from_account_id(ALICE);
 		let mut meter = TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, 0).unwrap();
@@ -3660,7 +3647,7 @@ fn cold_hot_a_load_warms_both_code_entries() {
 
 #[test]
 fn cold_hot_a_chained_delegation_warms_the_target_it_reads() {
-	use crate::{AccountInfoOf, access_list::KeyFamily, vm::RuntimeCosts};
+	use crate::{access_list::KeyFamily, vm::RuntimeCosts};
 
 	fn account_info_warmth(ext: &MockStack, address: H160) -> Warmth {
 		match ext.warmth_of(CallItems::Delegate { target: address }).entries() {
@@ -3692,11 +3679,7 @@ fn cold_hot_a_chained_delegation_warms_the_target_it_reads() {
 			);
 
 			assert_err!(call_django.map_err(|e| e.error), <Error<Test>>::ContractTrapped);
-			assert_eq!(
-				account_info_warmth(ctx.ext, EVE_ADDR),
-				Warmth::read_paid(),
-				"{frame_type}: EVE's account info should be hot",
-			);
+			assert_eq!(account_info_warmth(ctx.ext, EVE_ADDR), Warmth::read_paid(), "{frame_type}",);
 			assert_eq!(
 				ctx.ext.frame_meter().weight_consumed().saturating_sub(weight_before),
 				expected_charge,
@@ -3720,8 +3703,18 @@ fn cold_hot_a_chained_delegation_warms_the_target_it_reads() {
 			place_contract(&BOB, code_bob);
 			place_contract(&CHARLIE, code_charlie);
 			// DJANGO -> EVE -> ALICE: a call to DJANGO is a chained delegation.
-			AccountInfoOf::<Test>::insert(EVE_ADDR, delegated_to(EVE_ADDR, ALICE_ADDR));
-			AccountInfoOf::<Test>::insert(DJANGO_ADDR, delegated_to(DJANGO_ADDR, EVE_ADDR));
+			crate::storage::AccountInfo::<Test>::set_delegation(
+				&EVE_ADDR,
+				Some(ALICE_ADDR),
+				&ALICE,
+			)
+			.unwrap();
+			crate::storage::AccountInfo::<Test>::set_delegation(
+				&DJANGO_ADDR,
+				Some(EVE_ADDR),
+				&ALICE,
+			)
+			.unwrap();
 
 			run_root_call(if nested { CHARLIE_ADDR } else { BOB_ADDR }, vec![]);
 		});

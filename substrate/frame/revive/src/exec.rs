@@ -606,6 +606,7 @@ pub trait Executable<T: Config>: Sized {
 	) -> Result<Self, DispatchError>;
 
 	/// Load the executable from storage, charging the code load at the code's `warmth`.
+	/// The default ignores `warmth` and calls [`Self::from_storage`].
 	#[doc(hidden)]
 	fn from_storage_with_warmth<S: State>(
 		code_hash: H256,
