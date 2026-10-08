@@ -960,7 +960,6 @@ mod stipend_limited_frame {
 	#[test_case(FixtureType::Solc; "solc")]
 	#[test_case(FixtureType::Resolc; "resolc")]
 	fn execute_is_denied(fixture_type: FixtureType) {
-
 		let message = VersionedXcm::from(Xcm::<()>(vec![
 			WithdrawAsset((Here, SEND_AMOUNT).into()),
 			buy_execution((Here, SEND_AMOUNT)),
@@ -995,7 +994,6 @@ mod stipend_limited_frame {
 	#[test_case(FixtureType::Solc; "solc")]
 	#[test_case(FixtureType::Resolc; "resolc")]
 	fn send_is_denied(fixture_type: FixtureType) {
-
 		let message = Xcm(vec![ClearOrigin]);
 		let send = IXcm::IXcmCalls::send(IXcm::sendCall {
 			destination: VersionedLocation::from(RelayLocation::get()).encode().into(),

@@ -260,7 +260,7 @@ fn evm_call_stipend_is_added_to_static_and_delegate_calls(sender_type: FixtureTy
 		assert_eq!(
 			[static_read_denied(10_000_000_000), delegate_read_denied(10_000_000_000)],
 			[false; 2],
-			"both work with enough gas"
+			"delegate and static work with enough gas"
 		);
 	});
 }

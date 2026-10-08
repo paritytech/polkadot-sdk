@@ -934,13 +934,7 @@ fn caller_is_origin_returns_proper_values() {
 		assert!(ctx.ext.caller_is_origin(false));
 		// BOB calls CHARLIE
 		ctx.ext
-			.call(
-				&Default::default(),
-				&CHARLIE_ADDR,
-				U256::zero(),
-				vec![],
-				CallProtections::none(),
-			)
+			.call(&Default::default(), &CHARLIE_ADDR, U256::zero(), vec![], CallProtections::none())
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
 
@@ -1025,13 +1019,7 @@ fn root_caller_succeeds_with_consecutive_calls() {
 		assert!(ctx.ext.caller_is_root(false));
 		// BOB calls CHARLIE.
 		ctx.ext
-			.call(
-				&Default::default(),
-				&CHARLIE_ADDR,
-				U256::zero(),
-				vec![],
-				CallProtections::none(),
-			)
+			.call(&Default::default(), &CHARLIE_ADDR, U256::zero(), vec![], CallProtections::none())
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
 
