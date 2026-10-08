@@ -660,6 +660,32 @@ fn a_regressing_register_is_ignored() {
 }
 
 #[test]
+fn a_register_read_starts_and_ends_at_its_context() {
+	new_test_ext().execute_with(|| {
+		open_out_channel();
+		let read_at = |base| {
+			assert_ok!(SpecMessaging::enact_messages(
+				RuntimeOrigin::none(),
+				read_register(base, register(0, TestGrant::get()))
+			));
+			let record = SpecMessaging::consumption_record();
+			roll_one_block();
+			record.entries[&peer()][&peer_ack()].clone()
+		};
+		let first = read_at(2);
+		assert_eq!(first.start, first.end.root(), "a read advances nothing");
+		assert_eq!(first.end.leaf_count(), 3, "the context includes the head leaf");
+
+		// Re-reading the same head in the next block of a bundle chains with no advance.
+		let again = read_at(2);
+		assert_eq!(
+			cumulus_primitives_spec_messaging::lift::stitch(&[first, again.clone()], &[]),
+			Ok(again.end)
+		);
+	});
+}
+
+#[test]
 fn register_reads_must_target_an_outbound_channel_and_decode() {
 	new_test_ext().execute_with(|| {
 		// No outbound channel to this peer yet.
@@ -885,11 +911,11 @@ fn rereading_an_unchanged_register_head_is_harmless() {
 		let state = OutChannels::<Test>::get(out_channel()).expect("opened");
 		assert_eq!(state.register, Some(register(0, TestGrant::get())));
 
-		// The read is still recorded: the rebuilt frontier plus the register leaf.
+		// The read is still recorded at its context: the rebuilt frontier plus the register leaf.
 		let record = SpecMessaging::consumption_record();
 		let interval = record.entries.get(&peer()).and_then(|m| m.get(&peer_ack())).expect("read");
-		assert_eq!(interval.start, MmrFrontier::new().root());
 		assert_eq!(interval.end.leaf_count(), 1);
+		assert_eq!(interval.start, interval.end.root());
 	});
 }
 
