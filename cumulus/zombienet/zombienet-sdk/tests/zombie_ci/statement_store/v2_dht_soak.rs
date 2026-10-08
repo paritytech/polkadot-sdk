@@ -20,8 +20,6 @@
 //! `STATEMENT_V2_SOAK_NODES` (default 12) and `STATEMENT_V2_SOAK_SECS` (default
 //! 900) size the initial network and the run; both lifecycle steps and an ordinary wave after
 //! each are mandatory even with a zero duration.
-//! The lifecycle needs every node to know all others, but connected to only `CONNECTED_PEER_FLOOR`
-//! of them: past that size the statement mesh is partial and statements reach replicas in hops.
 //!
 //! Runs on demand only: a dispatch of .github/workflows/zombienet_statement-store-soak.yml, or
 //! locally — against the cluster given a kubeconfig:
