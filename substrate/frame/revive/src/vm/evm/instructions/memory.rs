@@ -32,7 +32,7 @@ pub fn mload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.charge_or_halt(EvmOpcodeCosts::MLoad)?;
 	let ([], top) = interpreter.stack.popn_top()?;
 	let offset = as_usize_or_halt::<E::T>(*top)?;
-	interpreter.memory.resize(offset, 32)?;
+	interpreter.memory.resize(offset, 32, interpreter.ext)?;
 	*top = U256::from_big_endian(interpreter.memory.slice_len(offset, 32));
 	ControlFlow::Continue(())
 }
@@ -44,7 +44,7 @@ pub fn mstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.charge_or_halt(EvmOpcodeCosts::MStore)?;
 	let [offset, value] = interpreter.stack.popn()?;
 	let offset = as_usize_or_halt::<E::T>(offset)?;
-	interpreter.memory.resize(offset, 32)?;
+	interpreter.memory.resize(offset, 32, interpreter.ext)?;
 	interpreter.memory.set(offset, &value.to_big_endian());
 	ControlFlow::Continue(())
 }
@@ -56,7 +56,7 @@ pub fn mstore8<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.charge_or_halt(EvmOpcodeCosts::MStore8)?;
 	let [offset, value] = interpreter.stack.popn()?;
 	let offset = as_usize_or_halt::<E::T>(offset)?;
-	interpreter.memory.resize(offset, 1)?;
+	interpreter.memory.resize(offset, 1, interpreter.ext)?;
 	interpreter.memory.set(offset, &[value.byte(0)]);
 	ControlFlow::Continue(())
 }
@@ -87,7 +87,7 @@ pub fn mcopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let dst = as_usize_or_halt::<E::T>(dst)?;
 	let src = as_usize_or_halt::<E::T>(src)?;
 	// Resize memory
-	interpreter.memory.resize(max(dst, src), len)?;
+	interpreter.memory.resize(max(dst, src), len, interpreter.ext)?;
 	// Copy memory in place
 	interpreter.memory.copy(dst, src, len);
 	ControlFlow::Continue(())

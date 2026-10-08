@@ -3195,7 +3195,7 @@ mod benchmarks {
 		};
 
 		let init_code = vec![BENCH_INIT_CODE; i as usize];
-		let _ = interpreter.memory.resize(0, init_code.len());
+		let _ = interpreter.memory.resize(0, init_code.len(), interpreter.ext);
 		let salt = U256::from(42u64);
 		interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
 
@@ -4165,6 +4165,63 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.top(), Some(&END_OF_WALK));
 	}
 
+	/// Benchmarks `Memory::grow`, which only zeroes newly exposed bytes.
+	///
+	/// Setup grows past half the memory limit, obtaining the final capacity through the normal
+	/// resize path. `n` counts added 32-byte words; the measured growth cannot reallocate.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_memory_grow(n: Linear<1, { EVM_MEMORY_BYTES / 64 - 1 }>) {
+		const INITIAL_WORDS: u32 = EVM_MEMORY_BYTES / 64 + 1;
+		let initial_len = INITIAL_WORDS as usize * 32;
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(Default::default(), Vec::new(), &mut ext);
+		let memory = &mut interpreter.memory;
+		memory.resize(0, initial_len, interpreter.ext).continue_value().unwrap();
+		memory.slice_mut(0, initial_len).fill(0xa5);
+		let target_words = INITIAL_WORDS + n;
+		let target_len = target_words as usize * 32;
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = core::hint::black_box(&mut *memory).grow(target_words);
+		}
+
+		assert!(result.is_continue());
+		assert_eq!(memory.size(), target_len);
+		assert!(memory.slice(0..initial_len).iter().all(|&byte| byte == 0xa5));
+		assert!(memory.slice(initial_len..target_len).iter().all(|&byte| byte == 0));
+	}
+
+	/// Benchmarks `Memory::reallocate`: allocation, copying live bytes, and freeing the old buffer.
+	///
+	/// `n` counts requested capacity in 32-byte words. Production capacity at least doubles, so
+	/// setup fills half the replacement capacity to cover the largest production copy. The
+	/// measured operation preserves the logical size and does not zero newly exposed memory.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_memory_reallocate(n: Linear<256, { EVM_MEMORY_BYTES / 32 }>) {
+		let initial_len = (n / 2) as usize * 32;
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(Default::default(), Vec::new(), &mut ext);
+		let memory = &mut interpreter.memory;
+		memory.resize(0, initial_len, interpreter.ext).continue_value().unwrap();
+		memory.slice_mut(0, initial_len).fill(0xa5);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = core::hint::black_box(&mut *memory).reallocate(n);
+		}
+
+		assert!(result.is_continue());
+		assert_eq!(memory.size(), initial_len);
+		assert!(memory.slice(0..initial_len).iter().all(|&byte| byte == 0xa5));
+	}
+
 	/// Benchmarks `r` EVM `MLOAD` op-codes.
 	///
 	/// This uses a linked-list scheme similar to the one in [`evm_calldataload_opcode`].
@@ -4199,7 +4256,11 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+		interpreter
+			.memory
+			.resize(0, MEMORY_SIZE, interpreter.ext)
+			.continue_value()
+			.unwrap();
 		let memory = interpreter.memory.slice_mut(0, MEMORY_SIZE);
 
 		// The allocator only aligns to 8 bytes, so memory can start anywhere within a page. Words
@@ -4254,7 +4315,7 @@ mod benchmarks {
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 		interpreter
 			.memory
-			.resize(0, EVM_MEMORY_BYTES as usize)
+			.resize(0, EVM_MEMORY_BYTES as usize, interpreter.ext)
 			.continue_value()
 			.unwrap();
 
@@ -4302,7 +4363,11 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+		interpreter
+			.memory
+			.resize(0, MEMORY_SIZE, interpreter.ext)
+			.continue_value()
+			.unwrap();
 
 		// The allocator only aligns to 8 bytes, so memory can start anywhere within a page. Words
 		// are placed relative to real page boundaries, not to the start of memory.
@@ -4367,7 +4432,11 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+		interpreter
+			.memory
+			.resize(0, MEMORY_SIZE, interpreter.ext)
+			.continue_value()
+			.unwrap();
 
 		// The allocator only aligns to 8 bytes, so memory can start anywhere within a page. Bytes
 		// are placed relative to real page boundaries, not to the start of memory.
@@ -4448,7 +4517,11 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+		interpreter
+			.memory
+			.resize(0, MEMORY_SIZE, interpreter.ext)
+			.continue_value()
+			.unwrap();
 		let initial = (0u8..=255).cycle().take(MEMORY_SIZE).collect::<Vec<_>>();
 		interpreter.memory.set(0, &initial);
 
@@ -4531,7 +4604,11 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+		interpreter
+			.memory
+			.resize(0, MEMORY_SIZE, interpreter.ext)
+			.continue_value()
+			.unwrap();
 		let initial = (0u8..=255).cycle().take(MEMORY_SIZE).collect::<Vec<_>>();
 		interpreter.memory.set(0, &initial);
 		setup_stack(&mut interpreter, [U256::from(len), U256::zero(), U256::from(DESTINATION)]);
@@ -6238,6 +6315,13 @@ mod benchmarks {
 
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
+
+		// Memory growth is charged separately from the copy.
+		interpreter
+			.memory
+			.resize(0, n as usize, interpreter.ext)
+			.continue_value()
+			.unwrap();
 
 		// Setup stack for extcodecopy instruction: [address, dest_offset, offset, size]
 		let _ = interpreter.stack.push(U256::from(n));

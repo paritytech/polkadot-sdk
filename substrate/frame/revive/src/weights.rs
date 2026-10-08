@@ -196,6 +196,8 @@ pub trait WeightInfo {
 	fn evm_calldatasize_opcode(r: u32, ) -> Weight;
 	fn evm_returndatasize_opcode(r: u32, ) -> Weight;
 	fn evm_calldataload_opcode(r: u32, ) -> Weight;
+	fn evm_memory_grow(n: u32) -> Weight;
+	fn evm_memory_reallocate(n: u32) -> Weight;
 	fn evm_mload_opcode(r: u32, ) -> Weight;
 	fn evm_msize_opcode(r: u32, ) -> Weight;
 	fn evm_mstore_opcode(r: u32, ) -> Weight;
@@ -1798,6 +1800,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(837_143, 0)
 			// Standard Error: 150
 			.saturating_add(Weight::from_parts(66_172, 0).saturating_mul(r.into()))
+	}
+	// Placeholder until the memory growth benchmarks are run. Values are not measurements.
+	fn evm_memory_grow(n: u32) -> Weight {
+		Weight::from_parts(10_000, 0)
+			.saturating_add(Weight::from_parts(32_000, 0).saturating_mul(n.into()))
+	}
+	// Placeholder until the allocation/copy benchmark is run. Values are not measurements.
+	fn evm_memory_reallocate(n: u32) -> Weight {
+		Weight::from_parts(100_000, 0)
+			.saturating_add(Weight::from_parts(64_000, 0).saturating_mul(n.into()))
 	}
 	/// The range of component `r` is `[0, 255]`.
 	fn evm_mload_opcode(r: u32, ) -> Weight {
@@ -4114,6 +4126,16 @@ impl WeightInfo for () {
 		Weight::from_parts(837_143, 0)
 			// Standard Error: 150
 			.saturating_add(Weight::from_parts(66_172, 0).saturating_mul(r.into()))
+	}
+	// Placeholder until the memory growth benchmarks are run. Values are not measurements.
+	fn evm_memory_grow(n: u32) -> Weight {
+		Weight::from_parts(10_000, 0)
+			.saturating_add(Weight::from_parts(32_000, 0).saturating_mul(n.into()))
+	}
+	// Placeholder until the allocation/copy benchmark is run. Values are not measurements.
+	fn evm_memory_reallocate(n: u32) -> Weight {
+		Weight::from_parts(100_000, 0)
+			.saturating_add(Weight::from_parts(64_000, 0).saturating_mul(n.into()))
 	}
 	/// The range of component `r` is `[0, 255]`.
 	fn evm_mload_opcode(r: u32, ) -> Weight {
