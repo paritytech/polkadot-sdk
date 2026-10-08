@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791377194761,
+  "lastUpdate": 1791449285689,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e9e4769a189d7b7a830d31803385550701db8660",
-          "message": "Add statement store e2e integration tests (#11237)\n\n# Description\n\n#10783 \n\nE2E Integration Tests (zombienet-sdk)\n\nFunctional tests (statement_store)\n- statement_store_genesis_inject — submit + subscribe round-trip with\ngenesis-injected allowances, 2-node propagation with data\nintegrity verification\n- statement_store_sudo_allowance — sudo-based runtime allowance setting,\n8 concurrent multi-account submissions, 4-node fan-out propagation\n\n### Test Infrastructure\n- common.rs — shared helpers: create_test_statement, submit_statement,\nexpect_one_statement, expect_statements_unordered,\nsubscribe_topic, spawn_network, spawn_network_sudo\n- sc_statement_store::subxt_client — custom subxt config (CustomConfig)\nfor non-standard transaction extensions\n(VerifyMultiSignature, RestrictOrigins), set_allowances_via_sudo for\nruntime-configured networks\n- sc_statement_store::test_utils — shared keypair generation and\nallowance storage item builders (get_keypair,\ncreate_allowance_items, create_uniform_allowance_items)\n- CI matrix registration for all statement store test groups\n\n### What we cover in this PR\n\nTest(statement_store_sudo_allowance) cover the next options for #11534 :\n- Propagation under normal load: Zombienet tests to cover concurrent\nmulti-client corner cases and verify statements reach all real nodes,\nNOT including during major sync\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-01T13:11:28Z",
-          "tree_id": "f2122311adfab60536feedd50a4acfef7bd7226a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9e4769a189d7b7a830d31803385550701db8660"
-        },
-        "date": 1775053861897,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12635242096666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.132401734966665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.010741897233334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "53361ece685597763642629f2042e21e6096d25b",
+          "message": "Switch eth-rpc image to the actual version of the base-bin (#13429)\n\nThis PR sets an newer version of the `base-bin` image as a ground base\nfor the `eth-rpc` container, making also arm weekly builds possible",
+          "timestamp": "2026-10-08T07:18:02Z",
+          "tree_id": "4efad4a6f22f6f7700af81273981844f19ff341d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/53361ece685597763642629f2042e21e6096d25b"
+        },
+        "date": 1791449257035,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.110274931333329,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14085416990000002,
             "unit": "seconds"
           }
         ]
