@@ -6,9 +6,62 @@ doc:
     weights derived from their own benchmarks. Add charges for memory
     expansion and for copying RETURN/REVERT output from EVM memory.
 
-    Regenerate pallet-revive weights for your runtime and update custom
-    WeightInfo implementations with the new benchmark methods. Update
-    exhaustive matches on RuntimeCosts for the new memory cost variants.
+    The `evm_opcode` benchmark and WeightInfo method are renamed to
+    `evm_jumpdest_opcode`. Rename the method in custom WeightInfo
+    implementations and update its callers.
+
+    The following benchmarks and matching WeightInfo methods are added:
+
+    - `evm_jump_opcode`
+    - `evm_jumpi_opcode`
+    - `evm_jumpi_opcode_always_taken`
+    - `evm_jumpi_opcode_always_not_taken`
+    - `evm_pc_opcode`
+    - `evm_push_opcode`
+    - `evm_dup_opcode`
+    - `evm_swap_opcode`
+    - `evm_chainid_opcode`
+    - `evm_difficulty_opcode`
+    - `evm_codesize_opcode`
+    - `evm_calldatasize_opcode`
+    - `evm_returndatasize_opcode`
+    - `evm_calldataload_opcode`
+    - `evm_memory_grow`
+    - `evm_memory_reallocate`
+    - `evm_memory_copy_out`
+    - `evm_mload_opcode`
+    - `evm_msize_opcode`
+    - `evm_mstore_opcode`
+    - `evm_mstore8_opcode`
+    - `evm_mcopy_opcode`
+    - `evm_mcopy_per_byte`
+    - `evm_lt_opcode`
+    - `evm_gt_opcode`
+    - `evm_eq_opcode`
+    - `evm_iszero_opcode`
+    - `evm_and_opcode`
+    - `evm_or_opcode`
+    - `evm_xor_opcode`
+    - `evm_not_opcode`
+    - `evm_byte_opcode`
+    - `evm_clz_opcode`
+    - `evm_slt_opcode`
+    - `evm_sgt_opcode`
+    - `evm_shl_opcode`
+    - `evm_shr_opcode`
+    - `evm_sar_opcode`
+    - `evm_add_opcode`
+    - `evm_sub_opcode`
+    - `evm_mul_opcode`
+    - `evm_exp_zero_opcode`
+    - `evm_exp_opcode`
+    - `evm_exp_per_bit`
+    - `evm_signextend_opcode`
+    - `evm_dispatch_mix`
+
+    Regenerate pallet-revive weights for your runtime and implement these
+    methods in custom WeightInfo implementations. Update exhaustive
+    matches on RuntimeCosts for the new memory cost variants.
 
     No storage migration is required.
 - audience: Runtime User
