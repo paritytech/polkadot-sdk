@@ -169,7 +169,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 
 	/// Imported twins of `chosen` that could still displace it as scheduling parent, best first.
 	///
-	/// Mirrors `is_scheduling_parent_valid`: a twin is admitted iff its slot + 1 ==
+	/// Mirrors `is_scheduling_parent_valid`: a twin is admitted if its slot + 1 ==
 	/// `production_slot` (leaf case) or it has an imported child claiming `production_slot`
 	/// (non-leaf case). Within a parent a secondary loses to a primary `chosen` unless extended.
 	pub(crate) fn siblings_at(
@@ -890,6 +890,39 @@ mod tests {
 		scheduling_info.drain_imports();
 		let result = scheduling_info.siblings_at(&off_slot_wrong_child, production_slot);
 		assert!(!result.contains(&same_slot_as_chosen));
+	}
+
+	/// Regression for the stale scheduling parent: the V3 selection must depend only on the
+	/// production slot handed over by the slot timer, never on a second wall-clock read. With the
+	/// best block from the slot right before the production slot, that block is the scheduling
+	/// parent, whatever the wall clock says.
+	#[tokio::test]
+	async fn v3_uses_previous_slot_block_without_consulting_clock() {
+		let (mut client, mut cache, headers) =
+			build_v3_chain_with_slots(&[PRODUCTION_SLOT - 2, PRODUCTION_SLOT - 1]);
+
+		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(None);
+		client.set_best_notifications(Box::pin(rx));
+
+		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::from_secs(1));
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
+
+		// Best block: the previous slot's block, i.e. a finished slot relative to the production
+		// slot.
+		tx.unbounded_send(headers[1].clone()).unwrap();
+		let result = tokio::time::timeout(
+			Duration::from_millis(300),
+			scheduling_info.wait_for_scheduling_parent(
+				&mut cache,
+				true,
+				Slot::from(PRODUCTION_SLOT),
+			),
+		)
+		.await
+		.expect("Should return immediately, not timeout");
+
+		assert_eq!(result, Some((headers[1].clone(), true)));
 	}
 
 	/// The best block is from the production slot itself, so it has not had a full slot to

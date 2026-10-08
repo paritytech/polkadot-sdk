@@ -330,6 +330,8 @@ struct CollatorSegmentMessage<Block: BlockT> {
 	/// The freshly-built bundle for this core, if one was built this slot. Submitted last, after
 	/// the resubmitted entries.
 	pub bundle: Option<CollatorSegmentEntry<Block>>,
+	/// End of the production relay slot, after which validators reject its sibling hedges.
+	pub valid_until: std::time::Instant,
 }
 
 /// One entry of a [`CollatorSegmentMessage`]. Each entry produces one `SegmentCollation`

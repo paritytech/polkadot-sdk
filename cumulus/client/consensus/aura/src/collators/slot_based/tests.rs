@@ -685,24 +685,10 @@ pub fn relay_header_with_slot(number: u32, parent_hash: RelayHash, slot: u64) ->
 	}
 }
 
-/// Relay height of the shared relay parent the hedging tests fork on, one below the siblings.
-const HEDGE_BASE_NUMBER: u32 = 10;
-
-/// The single core the hedging tests plan their slot on; a sibling must agree on it.
-const HEDGE_CORES: [CoreIndex; 1] = [CoreIndex(0)];
-
 pub fn v3_node_features() -> NodeFeatures {
 	let mut node_features = NodeFeatures::from_vec(vec![0; 5]);
 	node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
 	node_features
-}
-
-/// The relay parent the hedging tests execute against, and the scheduling parent one block above
-/// it. Siblings of the latter are same-slot twins, the only class worth hedging.
-fn hedge_base_and_chosen() -> (RelayHeader, RelayHeader) {
-	let base = relay_header_with_slot(HEDGE_BASE_NUMBER, Default::default(), 100);
-	let chosen = relay_header_with_slot(HEDGE_BASE_NUMBER + 1, base.hash(), 101);
-	(base, chosen)
 }
 
 /// A [`SchedulingInfo`] wired to an import stream, with the sender that feeds it.
@@ -715,122 +701,81 @@ pub fn with_import_stream(
 	(scheduling_info, tx)
 }
 
-/// A relay data cache holding `base` and the `imports` (assigned [`HEDGE_CORES`]), plus a
-/// [`SchedulingInfo`] whose import stream already carries `imports` and stays open.
-fn hedge_setup(
-	base: &RelayHeader,
-	imports: &[RelayHeader],
-) -> (
-	RelayChainDataCache<TestRelayClient>,
-	SchedulingInfo<TestRelayClient>,
-	futures::channel::mpsc::UnboundedSender<RelayHeader>,
-) {
+/// The hedging fixture: relay parent `base` at slot 100, an unrelated `other_base` at the same
+/// height, and the chosen scheduling parent on `base` at slot 101.
+fn hedge_fixture() -> (RelayHeader, RelayHeader, RelayHeader) {
+	let base = relay_header_with_slot(10, Default::default(), 100);
+	let other_base = relay_header_with_slot(10, [1u8; 32].into(), 100);
+	let chosen = relay_header_with_slot(11, base.hash(), 101);
+	(base, other_base, chosen)
+}
+
+/// `chosen` with a distinct state root: a same-slot twin on the same base.
+fn twin(chosen: &RelayHeader, tag: u8) -> RelayHeader {
+	let mut header = chosen.clone();
+	header.state_root = [tag; 32].into();
+	header
+}
+
+/// Head of each chain `resolve_hedge_chains` accepts for a slot planned on core 0, with `imports`
+/// fed through the import stream, each assigned to its core.
+async fn hedged(
+	imports: &[(RelayHeader, CoreIndex)],
+	v3_enabled: bool,
+	relay_parent_offset: u32,
+) -> Vec<RelayHash> {
+	let (base, other_base, chosen) = hedge_fixture();
 	let mut cache = RelayChainDataCache::new(TestRelayClient::new(Default::default()), 1.into());
 	cache.set_test_data(base.clone(), vec![], v3_node_features());
+	cache.set_test_data(other_base, vec![], v3_node_features());
 	let (mut scheduling_info, tx) = with_import_stream();
-	for header in imports {
-		cache.set_test_data(header.clone(), HEDGE_CORES.to_vec(), v3_node_features());
+	for (header, core) in imports {
+		cache.set_test_data(header.clone(), vec![*core], v3_node_features());
 		tx.unbounded_send(header.clone()).expect("receiver is alive; qed");
 	}
 	scheduling_info.drain_imports();
-	(cache, scheduling_info, tx)
-}
 
-fn hedge_context<'a>(
-	scheduling_parent_header: &'a RelayHeader,
-	relay_parent_hash: RelayHash,
-	v3_enabled: bool,
-	relay_parent_offset: u32,
-) -> HedgeContext<'a> {
-	HedgeContext {
+	let cx = HedgeContext {
 		v3_enabled,
 		relay_parent_offset,
 		max_relay_parent_session_age: 0,
-		scheduling_parent_header,
-		relay_parent_hash,
+		scheduling_parent_header: &chosen,
+		relay_parent_hash: base.hash(),
 		para_id: ParaId::from(1),
 		claim_queue_offset: 0,
-		core_indices: &HEDGE_CORES,
-	}
+		core_indices: &[CoreIndex(0)],
+	};
+	resolve_hedge_chains(&mut cache, scheduling_info.siblings_at(&chosen, Slot::from(102)), &cx)
+		.await
+		.iter()
+		.map(|chain| chain[0].hash())
+		.collect()
 }
 
-/// `hedge_base_and_chosen` puts `chosen` at BABE slot 101.
-const HEDGE_PRODUCTION_SLOT: u64 = 102;
-
-/// Hedging is off outside V3 and at `relay_parent_offset == 0` (where the scheduling parent *is*
-/// the relay parent). The last case pins the fixture down, so the others cannot pass vacuously.
+/// Hedging is off outside V3 and at `relay_parent_offset == 0`. Only an imported twin on the same
+/// base and core is accepted, and the cap keeps the primaries in hash order.
 #[tokio::test]
-async fn sp_hedge_chains_respects_its_gates() {
-	let (base, chosen) = hedge_base_and_chosen();
-	let mut sibling = chosen.clone();
-	sibling.state_root = [7u8; 32].into();
+async fn sp_hedge_chains_filter_and_cap_siblings() {
+	let (base, other_base, chosen) = hedge_fixture();
+	let sibling = twin(&chosen, 7);
 
-	for (v3_enabled, offset, expected) in [(false, 1, 0), (true, 0, 0), (true, 1, 1)] {
-		let (mut cache, scheduling_info, _tx) = hedge_setup(&base, &[sibling.clone()]);
-		let hedged = resolve_hedge_chains(
-			&mut cache,
-			scheduling_info.siblings_at(&chosen, Slot::from(HEDGE_PRODUCTION_SLOT)),
-			&hedge_context(&chosen, base.hash(), v3_enabled, offset),
-		)
-		.await;
+	let single = [(sibling.clone(), CoreIndex(0))];
+	assert!(hedged(&single, false, 1).await.is_empty());
+	assert!(hedged(&single, true, 0).await.is_empty());
 
-		assert_eq!(hedged.len(), expected, "v3={v3_enabled} offset={offset}");
-	}
-}
+	let forked = relay_header_with_slot(11, other_base.hash(), 101);
+	let imports =
+		[(sibling.clone(), CoreIndex(0)), (forked, CoreIndex(0)), (twin(&chosen, 8), CoreIndex(1))];
+	assert_eq!(hedged(&imports, true, 1).await, vec![sibling.hash()]);
 
-/// Once siblings outnumber `MAX_HEDGED_SIBLINGS` the cap keeps the primaries, in hash order.
-#[tokio::test]
-async fn sp_hedge_chains_caps_siblings() {
-	let (base, chosen) = hedge_base_and_chosen();
 	let mut primaries: Vec<RelayHeader> = (0..=MAX_HEDGED_SIBLINGS as u8)
 		.map(|i| {
-			let mut header =
-				relay_header_primary_with_slot(HEDGE_BASE_NUMBER + 1, base.hash(), 101);
-			header.state_root = [i; 32].into();
-			header
+			let primary = relay_header_primary_with_slot(11, base.hash(), 101);
+			twin(&primary, i)
 		})
 		.collect();
-
-	let (mut cache, scheduling_info, _tx) = hedge_setup(&base, &primaries);
-	let capped = resolve_hedge_chains(
-		&mut cache,
-		scheduling_info.siblings_at(&chosen, Slot::from(HEDGE_PRODUCTION_SLOT)),
-		&hedge_context(&chosen, base.hash(), true, 1),
-	)
-	.await;
+	let imports: Vec<_> = primaries.iter().map(|h| (h.clone(), CoreIndex(0))).collect();
 	primaries.sort_by_key(|header| header.hash());
-	assert_eq!(
-		capped.iter().map(|chain| chain[0].hash()).collect::<Vec<_>>(),
-		primaries.iter().take(MAX_HEDGED_SIBLINGS).map(|h| h.hash()).collect::<Vec<_>>(),
-	);
-}
-
-/// A sibling seen only on the import stream (a loser never becomes new-best) is the only one
-/// accepted as a hedge; two same-height headers are dropped instead: one on a different base, one
-/// whose claim queue assigns the para to another core.
-#[tokio::test]
-async fn import_stream_sibling_is_accepted_as_hedge() {
-	let (base, chosen) = hedge_base_and_chosen();
-	let other_base = relay_header_with_slot(HEDGE_BASE_NUMBER, [1u8; 32].into(), 100);
-	let mut sibling = chosen.clone();
-	sibling.state_root = [7u8; 32].into();
-	let forked = relay_header_with_slot(HEDGE_BASE_NUMBER + 1, other_base.hash(), 101);
-	let mut reassigned = chosen.clone();
-	reassigned.state_root = [8u8; 32].into();
-
-	let (mut cache, scheduling_info, _tx) =
-		hedge_setup(&base, &[sibling.clone(), forked, reassigned.clone()]);
-	cache.set_test_data(other_base, vec![], v3_node_features());
-	cache.set_test_data(reassigned, vec![CoreIndex(1)], v3_node_features());
-
-	let hedged = resolve_hedge_chains(
-		&mut cache,
-		scheduling_info.siblings_at(&chosen, Slot::from(HEDGE_PRODUCTION_SLOT)),
-		&hedge_context(&chosen, base.hash(), true, 1),
-	)
-	.await;
-	assert_eq!(
-		hedged.iter().map(|chain| chain[0].hash()).collect::<Vec<_>>(),
-		vec![sibling.hash()]
-	);
+	let expected: Vec<_> = primaries.iter().take(MAX_HEDGED_SIBLINGS).map(|h| h.hash()).collect();
+	assert_eq!(hedged(&imports, true, 1).await, expected);
 }

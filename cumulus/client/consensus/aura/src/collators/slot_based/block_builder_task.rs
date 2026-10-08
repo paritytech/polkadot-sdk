@@ -1087,6 +1087,7 @@ where
 						cx.slot_claim.author_pub(),
 						collator_peer_id,
 						&env.keystore,
+						Instant::now() + slot_time.time_left(),
 					);
 					let is_segment = matches!(submission, Some(CollatorMessage::Segment(_)));
 
@@ -1168,6 +1169,7 @@ fn assemble_core_submission<Block, P>(
 	author_pub: &P::Public,
 	collator_peer_id: PeerId,
 	keystore: &KeystorePtr,
+	valid_until: Instant,
 ) -> Option<CollatorMessage<Block>>
 where
 	Block: BlockT,
@@ -1207,6 +1209,7 @@ where
 				core_index,
 				unincluded_headers,
 				bundle,
+				valid_until,
 			}))
 		},
 		None => bundle.map(|entry| CollatorMessage::Collation { core_index, entry }),

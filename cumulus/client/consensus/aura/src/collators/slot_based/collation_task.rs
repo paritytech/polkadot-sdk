@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{collections::VecDeque, path::PathBuf, sync::Arc};
+use std::{collections::VecDeque, path::PathBuf, sync::Arc, time::Instant};
 
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::ValidationCodeHashProvider;
@@ -69,6 +69,8 @@ struct SegmentSubmission<Block: BlockT> {
 	proof: SchedulingProof,
 	resubmitted: usize,
 	fresh: usize,
+	/// End of the production relay slot; a hedge is dropped unbuilt after it.
+	valid_until: Instant,
 }
 
 /// Hedged rebuilds of `last` under each sibling chain, within its budget; empty unless `last` is
@@ -96,6 +98,7 @@ fn hedges_for<Block: BlockT>(
 			proof: SchedulingProof { header_chain, ..last.proof.clone() },
 			resubmitted: last.resubmitted,
 			fresh: last.fresh,
+			valid_until: last.valid_until,
 		})
 		.collect()
 }
@@ -120,12 +123,23 @@ enum Work<Block: BlockT> {
 	Hedge(SegmentSubmission<Block>),
 }
 
-/// A ready message, else the oldest queued hedge; a hedge is never raced, so never cancelled.
-/// After `receiver` closes, every queued hedge is served before `None`.
+/// A ready message, else the oldest unexpired queued hedge; a hedge is never raced, so never
+/// cancelled. After `receiver` closes, every unexpired hedge is served before `None`.
 async fn next_work<Block: BlockT>(
 	receiver: &mut (impl FusedStream<Item = CollatorMessage<Block>> + Unpin),
 	pending: &mut VecDeque<SegmentSubmission<Block>>,
 ) -> Option<Work<Block>> {
+	let queued = pending.len();
+	let now = Instant::now();
+	pending.retain(|hedge| hedge.valid_until > now);
+	if pending.len() < queued {
+		tracing::debug!(
+			target: LOG_TARGET,
+			expired = queued - pending.len(),
+			"Dropping hedges past their relay slot.",
+		);
+	}
+
 	if pending.is_empty() {
 		return receiver.next().await.map(Work::Message);
 	}
@@ -244,7 +258,14 @@ pub async fn run_collation_task<Block, RClient, CS, Backend, CHP>(
 			Work::Message(CollatorMessage::Hedges { core_index, header_chains }) => {
 				pending.extend(hedges_for(last_segment.take(), core_index, header_chains));
 			},
-			Work::Hedge(SegmentSubmission { core_index, headers, proof, resubmitted, fresh }) => {
+			Work::Hedge(SegmentSubmission {
+				core_index,
+				headers,
+				proof,
+				resubmitted,
+				fresh,
+				..
+			}) => {
 				// Store rows are written at import unless the session lookup failed; a block
 				// without one is skipped here, though the main submission carried it.
 				let entries = super::unincluded_segment::hydrate_segment(
@@ -416,8 +437,13 @@ where
 	Backend: sc_client_api::Backend<Block>,
 	CHP: ValidationCodeHashProvider<Block::Hash>,
 {
-	let CollatorSegmentMessage { scheduling_proof, core_index, unincluded_headers, bundle } =
-		segment;
+	let CollatorSegmentMessage {
+		scheduling_proof,
+		core_index,
+		unincluded_headers,
+		bundle,
+		valid_until,
+	} = segment;
 	// Hydrated here (proof/body reads), off the block-production hot path, and prepended oldest
 	// first ahead of the fresh bundle.
 	let requested = unincluded_headers.len();
@@ -473,6 +499,7 @@ where
 		proof: scheduling_proof,
 		resubmitted,
 		fresh,
+		valid_until,
 	})
 }
 
@@ -653,14 +680,25 @@ mod tests {
 		}
 	}
 
-	fn hedge(core_index: CoreIndex, proof: u32) -> SegmentSubmission<Block> {
+	fn segment(
+		core_index: CoreIndex,
+		resubmitted: usize,
+		fresh: usize,
+	) -> SegmentSubmission<Block> {
 		SegmentSubmission {
 			core_index,
-			headers: vec![header(100)],
-			proof: scheduling_proof(proof),
-			resubmitted: 0,
-			fresh: 1,
+			headers: vec![header(100), header(101)],
+			proof: scheduling_proof(7),
+			resubmitted,
+			fresh,
+			valid_until: Instant::now() + Duration::from_secs(60),
 		}
+	}
+
+	fn queued(proof: u32, expired: bool) -> SegmentSubmission<Block> {
+		let segment = segment(CoreIndex(0), 0, 1);
+		let valid_until = if expired { Instant::now() } else { segment.valid_until };
+		SegmentSubmission { proof: scheduling_proof(proof), valid_until, ..segment }
 	}
 
 	fn segment_message(core_index: CoreIndex) -> CollatorMessage<Block> {
@@ -669,154 +707,96 @@ mod tests {
 			core_index,
 			unincluded_headers: vec![],
 			bundle: None,
+			valid_until: Instant::now(),
 		})
 	}
 
-	/// A ready message always wins over a queued hedge; once drained, hedges are served oldest
-	/// first until the queue is drained.
-	#[tokio::test]
-	async fn hedged_rebuilds_yield_to_new_messages() {
-		let mut pending = VecDeque::from([hedge(CoreIndex(0), 1), hedge(CoreIndex(0), 2)]);
-
-		let (tx, mut rx) = sc_utils::mpsc::tracing_unbounded("test", 16);
-		tx.unbounded_send(segment_message(CoreIndex(1)))
-			.expect("receiver is alive; qed");
-		drop(tx);
-
-		// The waiting message wins first.
-		match next_work(&mut rx, &mut pending).await.expect("message is queued; qed") {
-			Work::Message(CollatorMessage::Segment(segment)) => {
-				assert_eq!(segment.core_index, CoreIndex(1))
-			},
-			_ => panic!("expected the queued message"),
-		}
-
-		for expected in [1, 2] {
-			match next_work(&mut rx, &mut pending).await.expect("hedge queued; qed") {
-				Work::Hedge(served) => {
-					assert_eq!(served.proof, scheduling_proof(expected));
-					assert_eq!(served.headers, vec![header(100)]);
-				},
-				_ => panic!("expected a hedge"),
-			}
-		}
-
-		// Receiver closed and queue drained: nothing left.
-		assert!(next_work(&mut rx, &mut pending).await.is_none());
-	}
-
-	/// With the channel open, an idle receiver lets a queued hedge through, and a message sent
-	/// meanwhile still wins over the remaining hedges.
-	#[tokio::test]
-	async fn open_idle_channel_serves_hedges() {
-		let mut pending = VecDeque::from([hedge(CoreIndex(0), 1), hedge(CoreIndex(0), 2)]);
-		let (tx, mut rx) = sc_utils::mpsc::tracing_unbounded("test", 16);
-
-		let work = tokio::time::timeout(Duration::from_secs(5), next_work(&mut rx, &mut pending))
+	/// The next work as `("segment", core)` or `("hedge", proof)`; never blocks on a queued hedge.
+	async fn serve(
+		rx: &mut TracingUnboundedReceiver<CollatorMessage<Block>>,
+		pending: &mut VecDeque<SegmentSubmission<Block>>,
+	) -> Option<(&'static str, u32)> {
+		let work = tokio::time::timeout(Duration::from_secs(5), next_work(rx, pending))
 			.await
-			.expect("an idle open channel must not block a queued hedge");
-		assert!(matches!(
-			work,
-			Some(Work::Hedge(SegmentSubmission { core_index: CoreIndex(0), .. }))
-		));
+			.expect("next_work must not block");
+		match work? {
+			Work::Message(CollatorMessage::Segment(segment)) => {
+				Some(("segment", segment.core_index.0))
+			},
+			Work::Hedge(hedge) => {
+				Some(("hedge", hedge.proof.internal_scheduling_parent_header.number))
+			},
+			Work::Message(_) => panic!("only segments are sent"),
+		}
+	}
+
+	/// A ready message always wins; an idle open channel lets the oldest live hedge through, an
+	/// expired one is never served, and after close the remaining hedges drain before `None`.
+	#[tokio::test]
+	async fn next_work_serves_messages_then_live_hedges() {
+		let mut pending = VecDeque::from([queued(1, true), queued(2, false), queued(3, false)]);
+		let (tx, mut rx) = sc_utils::mpsc::tracing_unbounded("test", 16);
 
 		tx.unbounded_send(segment_message(CoreIndex(1)))
 			.expect("receiver is alive; qed");
-		match next_work(&mut rx, &mut pending).await {
-			Some(Work::Message(CollatorMessage::Segment(segment))) => {
-				assert_eq!(segment.core_index, CoreIndex(1))
-			},
-			_ => panic!("expected the message ahead of the last hedge"),
-		}
-		assert!(matches!(next_work(&mut rx, &mut pending).await, Some(Work::Hedge(_))));
+		assert_eq!(serve(&mut rx, &mut pending).await, Some(("segment", 1)));
+		assert_eq!(serve(&mut rx, &mut pending).await, Some(("hedge", 2)));
+		tx.unbounded_send(segment_message(CoreIndex(2)))
+			.expect("receiver is alive; qed");
+		assert_eq!(serve(&mut rx, &mut pending).await, Some(("segment", 2)));
 		drop(tx);
+		assert_eq!(serve(&mut rx, &mut pending).await, Some(("hedge", 3)));
+		assert_eq!(serve(&mut rx, &mut pending).await, None);
 	}
 
-	/// A `Hedges` message rebuilds the last segment once per chain, keeping the chosen proof's
-	/// other fields; without a segment on the same core it yields nothing.
+	/// Hedges rebuild their own core's last segment under each chain, within the backlog budget,
+	/// and the next segment for that core, sent or not, supersedes them.
 	#[test]
-	fn follow_up_hedges_rebuild_the_last_segment() {
-		let last = |resubmitted, fresh| SegmentSubmission::<Block> {
-			core_index: CoreIndex(0),
-			headers: vec![header(100), header(101)],
-			proof: scheduling_proof(7),
-			resubmitted,
-			fresh,
-		};
+	fn hedges_follow_their_segment() {
 		let chains = vec![vec![scheduling_proof(8).internal_scheduling_parent_header], vec![]];
-
-		let hedges = hedges_for(Some(last(1, 1)), CoreIndex(0), chains.clone());
+		let last = segment(CoreIndex(0), 1, 1);
+		let valid_until = last.valid_until;
+		let hedges = hedges_for(Some(last), CoreIndex(0), chains.clone());
 		assert_eq!(hedges.len(), 2);
 		for (hedge, chain) in hedges.iter().zip(&chains) {
-			assert_eq!(&hedge.proof.header_chain, chain);
-			assert_eq!(
-				hedge.proof.internal_scheduling_parent_header,
-				scheduling_proof(7).internal_scheduling_parent_header
-			);
-			assert_eq!(
-				hedge.proof.signed_scheduling_info,
-				scheduling_proof(7).signed_scheduling_info
-			);
+			let proof = SchedulingProof { header_chain: chain.clone(), ..scheduling_proof(7) };
+			assert_eq!(hedge.proof, proof);
 			assert_eq!(hedge.headers, vec![header(100), header(101)]);
 			assert_eq!((hedge.core_index, hedge.resubmitted, hedge.fresh), (CoreIndex(0), 1, 1));
+			assert_eq!(hedge.valid_until, valid_until);
 		}
+		assert!(hedges_for(Some(segment(CoreIndex(0), 1, 1)), CoreIndex(1), chains).is_empty());
 
-		// The hydrated entry count sets how many chains are kept.
-		for (entries, kept) in [(3, 2), (4, 1), (MAX_HEDGED_REBUILDS_PER_CORE + 1, 0)] {
-			let hedges = hedges_for(Some(last(entries - 1, 1)), CoreIndex(0), vec![vec![]; 3]);
-			assert_eq!(hedges.len(), kept);
+		for (entries, kept) in [
+			(0, 0),
+			(1, MAX_HEDGED_SIBLINGS),
+			(3, 2),
+			(4, 1),
+			(MAX_HEDGED_REBUILDS_PER_CORE + 1, 0),
+		] {
+			let last = Some(segment(CoreIndex(0), entries, 0));
+			assert_eq!(hedges_for(last, CoreIndex(0), vec![vec![]; 3]).len(), kept);
 		}
-
-		assert!(hedges_for(Some(last(1, 1)), CoreIndex(1), chains.clone()).is_empty());
-		assert!(hedges_for::<Block>(None, CoreIndex(0), chains).is_empty());
-	}
-
-	/// Drives the run loop's bookkeeping: hedges follow their own segment and are superseded by
-	/// the next one; a message in between orphans them.
-	#[test]
-	fn run_loop_bookkeeping() {
-		let segment = |core| SegmentSubmission::<Block> {
-			core_index: core,
-			headers: vec![header(100)],
-			proof: scheduling_proof(7),
-			resubmitted: 0,
-			fresh: 1,
-		};
-		let (mut pending, mut last) = (VecDeque::new(), None);
-
-		let record = |pending: &mut _, last: &mut _, core| {
-			record_submission(pending, last, Some(core), Some(segment(core)))
-		};
-
-		record(&mut pending, &mut last, CoreIndex(0));
-		pending.extend(hedges_for(last.take(), CoreIndex(0), vec![vec![], vec![]]));
-		assert_eq!(pending.len(), 2);
-		// Another core's segment leaves core 0's hedges queued.
-		record(&mut pending, &mut last, CoreIndex(1));
-		assert_eq!(pending.iter().filter(|h| h.core_index == CoreIndex(0)).count(), 2);
-		record(&mut pending, &mut last, CoreIndex(0));
-		assert!(pending.is_empty());
-
-		// A segment that sent nothing still supersedes its core's queued hedges.
-		record(&mut pending, &mut last, CoreIndex(0));
-		pending.extend(hedges_for(last.take(), CoreIndex(0), vec![vec![]]));
-		record_submission(&mut pending, &mut last, Some(CoreIndex(0)), None);
-		assert!(pending.is_empty());
-
-		record_submission(&mut pending, &mut last, None, None);
-		pending.extend(hedges_for(last.take(), CoreIndex(0), vec![vec![]]));
-		assert!(pending.is_empty());
-	}
-
-	/// A core gets no hedges without entries or past its backlog allowance, and never exceeds
-	/// its rebuild allowance.
-	#[test]
-	fn budget_stays_within_rebuild_allowance() {
-		assert_eq!(hedge_budget(0), 0);
-		assert_eq!(hedge_budget(1), MAX_HEDGED_SIBLINGS);
-		assert_eq!(hedge_budget(MAX_HEDGED_REBUILDS_PER_CORE + 1), 0);
 		for entries in 0..=(MAX_HEDGED_REBUILDS_PER_CORE + 2) {
 			assert!(entries * hedge_budget(entries) <= MAX_HEDGED_REBUILDS_PER_CORE);
 		}
+
+		let (mut pending, mut last) = (VecDeque::new(), None);
+		let record = |pending: &mut _, last: &mut _, core: CoreIndex, sent: bool| {
+			record_submission(pending, last, Some(core), sent.then(|| segment(core, 0, 1)))
+		};
+		record(&mut pending, &mut last, CoreIndex(0), true);
+		pending.extend(hedges_for(last.take(), CoreIndex(0), vec![vec![]; 2]));
+		// Another core's segment leaves core 0's hedges queued; core 0's next one, even unsent,
+		// drops them.
+		record(&mut pending, &mut last, CoreIndex(1), true);
+		assert_eq!(pending.len(), 2);
+		record(&mut pending, &mut last, CoreIndex(0), false);
+		assert!(pending.is_empty());
+
+		// A V2 collation in between leaves nothing to hedge.
+		record_submission(&mut pending, &mut last, None, None);
+		pending.extend(hedges_for(last.take(), CoreIndex(0), vec![vec![]]));
+		assert!(pending.is_empty());
 	}
 }
