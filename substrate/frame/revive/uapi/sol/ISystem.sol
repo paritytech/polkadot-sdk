@@ -56,6 +56,7 @@ interface ISystem {
 	function weightLeft() external view returns (uint64 refTime, uint64 proofSize);
 
 	/// Terminate the calling contract of this function and send balance to `beneficiary`.
+	/// If `beneficiary` is the calling contract itself, its balance is burned instead.
 	/// This will revert if:
 	/// - called from constructor
 	/// - called from static context

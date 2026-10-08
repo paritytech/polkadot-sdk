@@ -27,6 +27,17 @@ doc:
     sufficient reference from another pallet, for example a sufficient asset the contract holds,
     does not keep the ED: it is burned and the account stays alive on that reference.
 
+    A contract that names itself as the beneficiary, of `System.terminate` or of a `SELFDESTRUCT`
+    in the transaction that created it, has its balance burned at the end of the call stack, as a
+    `SELFDESTRUCT` to itself does in the EVM. This includes funds that arrive after the call. The
+    burned amount goes to the runtime's `OnBurn` handler, and the ED is burned after it, so the
+    account is reaped unless something pins funds on it. Before, a balance of at least the ED
+    stayed on the account of the deleted contract, and a smaller one was removed as dust. On its
+    own, a `SELFDESTRUCT` of a pre-existing contract that names itself still changes no balance.
+    A contract that is terminated more than once in a transaction, for example by
+    `System.terminate` and a `SELFDESTRUCT`, sends the funds that arrive afterwards to the
+    beneficiary it named last, or burns them if that is the contract itself.
+
     A `SELFDESTRUCT` run after `System.terminate`, in the same frame or in a later one, no longer
     cancels the termination: the contract is deleted and its deposit is refunded once.
 
@@ -40,11 +51,15 @@ doc:
     has its balance moved.
 
     `ISystem.sol` no longer lists balance locks as a reason for `terminate` to revert. It never
-    reverted for that reason.
+    reverted for that reason. It now says that naming the calling contract as the beneficiary
+    burns its balance.
 
 - audience: Runtime Dev
   description: |-
     No migration or configuration change is needed.
+
+    `Config::OnBurn` now also receives the balance of a contract that is terminated with itself
+    as the beneficiary, in addition to the gas rounding difference.
 
     `seal_terminate_logic` still measures one storage deposit refund and the teardown. The
     refund now runs when `System.terminate` is called instead of at the end of the call stack,

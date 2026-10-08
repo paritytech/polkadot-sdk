@@ -22,7 +22,7 @@ use crate::{
 	access_list::{AccessEntry, AccessList, StorageOp, Warmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
-	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
+	evm::{block_storage, burn_with_dust, fees::InfoT as _, transfer_with_dust},
 	limits,
 	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
@@ -1931,16 +1931,22 @@ where
 		// therefore gets all of the late funds only if the balance covers the lock or freeze. If
 		// it does not, for example with a lock larger than the whole balance, nothing is sent and
 		// the late funds stay on the account. If the transfer fails they stay as well.
+		//
+		// A contract that names itself as the beneficiary cannot send anything to it. Its balance
+		// is burned instead, as a `SELFDESTRUCT` to itself does in the EVM, so that the burn of
+		// the ED below can reap the account. Otherwise the balance would stay behind on the
+		// account of the deleted contract.
 		let origin = Self::termination_origin(origin);
-		let balance = <Contracts<T>>::convert_native_to_evm(
-			account_info.balance(contract_account, Preservation::Preserve),
-		);
+		let balance = account_info.balance(contract_account, Preservation::Preserve);
 		Self::best_effort(&contract_address, "send the remaining balance", || {
+			if args.beneficiary == *contract_account {
+				return burn_with_dust::<T>(contract_account, balance);
+			}
 			Self::transfer(
 				&origin,
 				contract_account,
 				&args.beneficiary,
-				balance,
+				<Contracts<T>>::convert_native_to_evm(balance),
 				Preservation::Preserve,
 				transaction_meter,
 				exec_config,

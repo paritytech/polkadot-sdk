@@ -53,6 +53,19 @@ contract Terminate {
 		}
 	}
 
+	/// Run `SELFDESTRUCT` in a delegate call to this contract, then terminate through the
+	/// pre-compile.
+	function selfdestructThenTerminate(address beneficiary) external {
+		bytes memory data = abi.encodeWithSelector(this.terminate.selector, METHOD_SYSCALL, beneficiary);
+		(bool success, bytes memory returnData) = address(this).delegatecall(data);
+		if (!success) {
+			assembly {
+				revert(add(returnData, 0x20), mload(returnData))
+			}
+		}
+		_terminate(METHOD_PRECOMPILE, beneficiary);
+	}
+
 	function indirectDelegateTerminate(address beneficiary) external {
 		bytes memory data = abi.encodeWithSelector(this.terminate.selector, METHOD_PRECOMPILE, beneficiary);
 		(bool success, bytes memory returnData) = address(this).delegatecall(data);

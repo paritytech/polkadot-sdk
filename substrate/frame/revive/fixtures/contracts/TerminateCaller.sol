@@ -49,6 +49,13 @@ contract TerminateCaller {
         require(success, "terminate reverted");
     }
 
+    function terminateTwiceAndSendFunds(address payable terminate_addr, uint value, uint8 method1, address beneficiary1, uint8 method2, address beneficiary2) external {
+        Terminate(terminate_addr).terminate(method1, beneficiary1);
+        Terminate(terminate_addr).terminate(method2, beneficiary2);
+        (bool success, ) = terminate_addr.call{value: value}("");
+        require(success, "sending funds failed");
+    }
+
     function revertAfterTerminate(address terminate_addr, uint8 method, address beneficiary) external {
         terminate_addr.call(abi.encodeWithSelector(Terminate.terminate.selector, method, beneficiary));
         revert("Deliberate revert");
