@@ -22,7 +22,6 @@ use crate::{
 	DEFAULT_ORDER_CAP, DEFAULT_PRICE_STEP,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use fp_coretime::TaskId;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{fungible::Inspect, tokens::Balance},
@@ -36,6 +35,8 @@ use sp_arithmetic::{
 use sp_runtime::DispatchError;
 
 pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as SConfig>::AccountId>>::Balance;
+
+pub type TaskId = u32;
 
 /// The parameters used for pricing on-demand orders.
 #[derive(

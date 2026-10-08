@@ -19,9 +19,8 @@
 
 use crate::{
 	self as pallet_on_demand_para, Config, DefaultPricingProvider, PoolCapacityProvider,
-	QueueOnDemandOrders, DEFAULT_BASE_FEE,
+	QueueOnDemandOrders, DEFAULT_BASE_FEE, TaskId
 };
-use fp_coretime::TaskId;
 use frame_support::{
 	derive_impl, ord_parameter_types,
 	pallet_prelude::*,
