@@ -14589,7 +14589,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-eth-rpc"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "alloy-network",
  "alloy-primitives",
