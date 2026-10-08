@@ -50,7 +50,8 @@ pub fn authorize<S: token::SignatureVerifier>(
 	package: &WorkPackage,
 	slot: Slot,
 ) -> Result<AuthTrace, AuthorizationError> {
-	authorize_hash::<S>(config, token, signable_work_package_hash(package), slot)
+	let wp_hash = signable_work_package_hash(package);
+	authorize_hash::<S>(config, token, wp_hash, slot)
 }
 
 /// Select the slot's collator and validate a token against an AURA signing hash.

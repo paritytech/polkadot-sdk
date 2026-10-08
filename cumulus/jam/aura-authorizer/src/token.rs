@@ -49,19 +49,19 @@ pub struct AuthToken {
 	pub signature: CollatorSignature,
 }
 
+/// Authorization token validation failed.
+#[derive(Debug)]
+pub enum TokenError {
+	BadCollatorSetProof,
+	BadCollatorSignature,
+}
+
 /// Signature verification for Collator keys.
 ///
 /// The authorizer code hash selects the scheme; keys and signatures have the same wire format.
 pub trait SignatureVerifier {
 	/// Whether `signature` is `key`'s signature over `payload`.
 	fn verify(key: &CollatorKey, signature: &CollatorSignature, payload: &[u8]) -> bool;
-}
-
-/// Authorization token validation failed.
-#[derive(Debug)]
-pub enum TokenError {
-	BadCollatorSetProof,
-	BadCollatorSignature,
 }
 
 impl AuthToken {
