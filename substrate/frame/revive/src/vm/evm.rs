@@ -134,6 +134,8 @@ impl EvmOpcodeCosts {
 			Self::Jump => per_opcode(T::WeightInfo::evm_jump_opcode)
 				.saturating_sub(Self::JumpDest.base_weight::<T>()),
 			Self::Jumpi => per_opcode(T::WeightInfo::evm_jumpi_opcode)
+				.max(per_opcode(T::WeightInfo::evm_jumpi_opcode_always_taken))
+				.max(per_opcode(T::WeightInfo::evm_jumpi_opcode_always_not_taken))
 				.saturating_sub(Self::JumpDest.base_weight::<T>()),
 			Self::JumpDest => per_opcode(T::WeightInfo::evm_jumpdest_opcode),
 			Self::Pc => per_opcode(T::WeightInfo::evm_pc_opcode),

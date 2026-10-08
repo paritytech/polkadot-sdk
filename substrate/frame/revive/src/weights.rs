@@ -183,6 +183,8 @@ pub trait WeightInfo {
 	fn evm_jumpdest_opcode(r: u32, ) -> Weight;
 	fn evm_jump_opcode(r: u32, ) -> Weight;
 	fn evm_jumpi_opcode(r: u32, ) -> Weight;
+	fn evm_jumpi_opcode_always_taken(r: u32, ) -> Weight;
+	fn evm_jumpi_opcode_always_not_taken(r: u32, ) -> Weight;
 	fn evm_pc_opcode(r: u32, ) -> Weight;
 	fn evm_push_opcode(r: u32, ) -> Weight;
 	fn evm_pop_opcode(r: u32, ) -> Weight;
@@ -1678,6 +1680,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(1_395_906, 0)
 			// Standard Error: 25
 			.saturating_add(Weight::from_parts(29_575, 0).saturating_mul(r.into()))
+	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_jumpi_opcode_always_taken(r: u32, ) -> Weight {
+		Self::evm_jumpi_opcode(r)
+	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_jumpi_opcode_always_not_taken(r: u32, ) -> Weight {
+		Self::evm_jumpi_opcode(r)
 	}
 	/// The range of component `r` is `[0, 1024]`.
 	fn evm_pc_opcode(r: u32, ) -> Weight {
@@ -3986,6 +3996,14 @@ impl WeightInfo for () {
 		Weight::from_parts(1_395_906, 0)
 			// Standard Error: 25
 			.saturating_add(Weight::from_parts(29_575, 0).saturating_mul(r.into()))
+	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_jumpi_opcode_always_taken(r: u32, ) -> Weight {
+		Self::evm_jumpi_opcode(r)
+	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_jumpi_opcode_always_not_taken(r: u32, ) -> Weight {
+		Self::evm_jumpi_opcode(r)
 	}
 	/// The range of component `r` is `[0, 1024]`.
 	fn evm_pc_opcode(r: u32, ) -> Weight {

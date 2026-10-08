@@ -1652,6 +1652,14 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 34
 			.saturating_add(Weight::from_parts(29_820, 0).saturating_mul(r.into()))
 	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_jumpi_opcode_always_taken(r: u32, ) -> Weight {
+		Self::evm_jumpi_opcode(r)
+	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_jumpi_opcode_always_not_taken(r: u32, ) -> Weight {
+		Self::evm_jumpi_opcode(r)
+	}
 	/// The range of component `r` is `[0, 1024]`.
 	fn evm_pc_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:

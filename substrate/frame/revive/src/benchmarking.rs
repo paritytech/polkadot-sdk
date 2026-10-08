@@ -3589,38 +3589,37 @@ mod benchmarks {
 	/// # Added Overheads
 	///
 	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
-	/// * An L1 and L2 cache miss on a destination's op-code the first time its cache line is read,
-	///   since the destinations are spread over the whole code.
+	/// * A cold destination read on each jump, since each destination is on a different 4 KiB page
+	///   from the entry point and every other destination.
 	/// * No help from the pre-fetcher, since the destinations are visited in a pseudo-random order.
 	///
 	/// # Subtraction Safety
 	///
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jump_opcode(r: Linear<1, EVM_STACK_LIMIT>) {
-		let code = [JUMP, JUMPDEST].repeat(MAX_INITCODE_SIZE / 2);
+	fn evm_jump_opcode(r: Linear<1, { MAX_INITCODE_SIZE as u32 / 4096 - 1 }>) {
+		const PAGE_SIZE: usize = 4096;
+		const PAGE_COUNT: usize = MAX_INITCODE_SIZE / PAGE_SIZE - 1;
 
-		let mut jumpdest_offsets = code
-			.iter()
-			.enumerate()
-			.filter_map(|(i, op)| (*op == JUMPDEST).then_some(i))
-			.collect::<Vec<_>>();
-		let last_jumpdest_offset =
-			jumpdest_offsets.pop().expect("there is at least 1 jumpdest; qed");
+		let code = Bytecode::new_raw([JUMP, JUMPDEST].repeat(MAX_INITCODE_SIZE / 2).into());
+		let last_jumpdest_offset = MAX_INITCODE_SIZE - 1;
 
-		let spacing = jumpdest_offsets.len() / r as usize;
-		let mut targets = jumpdest_offsets
-			.iter()
-			.step_by(spacing)
-			.take(r as usize - 1)
-			.copied()
+		// Analysis can reallocate the code, so use its final address. Skip pages that entry
+		// fallthrough can touch and reserve the last page for the terminal destination.
+		let address = code.bytecode_ptr() as usize;
+		let first_page_start = (address + 2 * PAGE_COUNT).next_multiple_of(PAGE_SIZE) - address;
+		let mut targets = (0..PAGE_COUNT - 1)
+			.map(|page_index| page_index * PAGE_SIZE + first_page_start)
+			// Odd offsets are JUMPDESTs; placing them mid-page keeps the next JUMP on that page.
+			.map(|page_start| (page_start + PAGE_SIZE / 2) | 1)
 			.collect::<Vec<_>>();
 		targets.shuffle(&mut Pcg64::seed_from_u64(1337));
+		targets.truncate(r as usize - 1);
 		targets.push(last_jumpdest_offset);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
-		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let bytecode = ExtBytecode::new(code);
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
 		setup_stack(&mut interpreter, targets.into_iter().rev().map(U256::from));
 
@@ -3643,8 +3642,8 @@ mod benchmarks {
 	///
 	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
 	/// * A branch misprediction on whether each jump is taken, since condition is pseudo-random.
-	/// * An L1 and L2 cache miss on each taken jump's destination op-code, since each destination
-	///   is on a cache line that hasn't been read since the eviction.
+	/// * A cold destination read on each taken jump, since each destination is on a different 4 KiB
+	///   page from the entry point and every other destination.
 	/// * No help from the pre-fetcher, since the destinations are visited in a pseudo-random order.
 	/// * No early exit from the zero check of a true condition, since its only nonzero word is the
 	///   last one checked.
@@ -3653,32 +3652,31 @@ mod benchmarks {
 	///
 	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_opcode(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
+	fn evm_jumpi_opcode(r: Linear<1, { MAX_INITCODE_SIZE as u32 / 4096 - 1 }>) {
+		const PAGE_SIZE: usize = 4096;
+		const PAGE_COUNT: usize = MAX_INITCODE_SIZE / PAGE_SIZE - 1;
+
 		let mut rng = Pcg64::seed_from_u64(1337);
 
-		let code = [JUMPI, JUMPDEST].repeat(MAX_INITCODE_SIZE / 2);
+		let code = Bytecode::new_raw([JUMPI, JUMPDEST].repeat(MAX_INITCODE_SIZE / 2).into());
+		let last_jumpdest_offset = MAX_INITCODE_SIZE - 1;
 
-		let mut jumpdest_offsets = code
-			.iter()
-			.enumerate()
-			.filter_map(|(i, op)| (*op == JUMPDEST).then_some(i))
-			.collect::<Vec<_>>();
-		let last_jumpdest_offset =
-			jumpdest_offsets.pop().expect("there is at least 1 jumpdest; qed");
-
-		let spacing = jumpdest_offsets.len() / r as usize;
-		let mut targets = jumpdest_offsets
-			.iter()
-			.step_by(spacing)
-			.take(r as usize - 1)
-			.copied()
+		// Analysis can reallocate the code, so use its final address. Skip pages that entry
+		// fallthrough can touch and reserve the last page for the terminal destination.
+		let address = code.bytecode_ptr() as usize;
+		let first_page_start = (address + 2 * PAGE_COUNT).next_multiple_of(PAGE_SIZE) - address;
+		let mut targets = (0..PAGE_COUNT - 1)
+			.map(|page_index| page_index * PAGE_SIZE + first_page_start)
+			// Odd offsets are JUMPDESTs; placing them mid-page keeps fallthrough on that page.
+			.map(|page_start| (page_start + PAGE_SIZE / 2) | 1)
 			.collect::<Vec<_>>();
 		targets.shuffle(&mut rng);
+		targets.truncate(r as usize - 1);
 		targets.push(last_jumpdest_offset);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
-		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let bytecode = ExtBytecode::new(code);
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
 		let operands = targets.into_iter().rev().flat_map(|target| {
 			// The last jump is always taken so that the code ends on the last `JUMPDEST`.
@@ -3704,6 +3702,99 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
 		assert_eq!(interpreter.bytecode.pc(), last_jumpdest_offset + 2);
+	}
+
+	/// Benchmarks `r` always-taken EVM `JUMPI` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A cold destination read on each jump, since each destination is on a different 4 KiB page
+	///   from the entry point and every other destination.
+	/// * No help from the pre-fetcher, since the destinations are visited in a pseudo-random order.
+	/// * No early exit from the zero check of a true condition, since its only nonzero word is the
+	///   last one checked.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_jumpi_opcode_always_taken(r: Linear<1, { MAX_INITCODE_SIZE as u32 / 4096 - 1 }>) {
+		const PAGE_SIZE: usize = 4096;
+		const PAGE_COUNT: usize = MAX_INITCODE_SIZE / PAGE_SIZE - 1;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+
+		let code = Bytecode::new_raw([JUMPI, JUMPDEST].repeat(MAX_INITCODE_SIZE / 2).into());
+		let last_jumpdest_offset = MAX_INITCODE_SIZE - 1;
+
+		// Analysis can reallocate the code, so use its final address. Skip pages that entry
+		// fallthrough can touch and reserve the last page for the terminal destination.
+		let address = code.bytecode_ptr() as usize;
+		let first_page_start = (address + 2 * PAGE_COUNT).next_multiple_of(PAGE_SIZE) - address;
+		let mut targets = (0..PAGE_COUNT - 1)
+			.map(|page_index| page_index * PAGE_SIZE + first_page_start)
+			// Odd offsets are JUMPDESTs; placing them mid-page keeps fallthrough on that page.
+			.map(|page_start| (page_start + PAGE_SIZE / 2) | 1)
+			.collect::<Vec<_>>();
+		targets.shuffle(&mut rng);
+		targets.truncate(r as usize - 1);
+		targets.push(last_jumpdest_offset);
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(code);
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+		let operands = targets.into_iter().rev().flat_map(|target| {
+			// A truthy value whose only nonzero limb is the last one checked.
+			let condition = U256([0, 0, 0, rng.gen_range(1u64..=u64::MAX)]);
+			[condition, U256::from(target)]
+		});
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), last_jumpdest_offset + 2);
+	}
+
+	/// Benchmarks `r` always-not-taken EVM `JUMPI` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * No early exit from the zero check, since all four limbs of the condition are zero.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_jumpi_opcode_always_not_taken(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
+		let code = Bytecode::new_raw([JUMPI, JUMPDEST].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		// An untaken jump must skip target validation, even for an invalid destination.
+		setup_stack(&mut interpreter, (0..r).flat_map(|_| [U256::zero(), U256::MAX]));
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), r as usize * 2 + 1);
 	}
 
 	/// Benchmarks `r` EVM `PC` op-codes.
