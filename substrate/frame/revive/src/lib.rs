@@ -1325,7 +1325,8 @@ pub mod pallet {
 					.unwrap_or(u64::MAX);
 				assert!(
 					max_slot_entries <= crate::access_list::MAX_SLOT_ENTRIES as u64,
-					"A transaction can include {max_slot_entries} storage slot entries in the access list, which is sized for {}",
+					"A transaction can include {max_slot_entries} storage slot entries in the \
+					 access list, which is sized for {}",
 					crate::access_list::MAX_SLOT_ENTRIES
 				);
 			}

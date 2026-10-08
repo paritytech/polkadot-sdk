@@ -138,7 +138,7 @@ fn assert_first_call_items_not_whitelisted<T: Config>(contract: &Contract<T>, du
 
 /// Asserts that the bench measures every entry an instantiation marks hot.
 fn assert_instantiate_items_not_whitelisted<T: Config>(address: H160, deployer: H160) {
-	// The call into the deployer already reads its account.
+	// `CallSetup` whitelists the deployer's account, so no instantiate bench measures it.
 	assert_not_whitelisted::<T>(
 		InstantiateItems { address, deployer },
 		&[AccessEntry::Account { address: deployer }],

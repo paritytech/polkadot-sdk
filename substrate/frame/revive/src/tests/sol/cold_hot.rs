@@ -470,15 +470,21 @@ fn a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType)
 	});
 }
 
-#[test]
-fn newly_stored_code_is_hot_for_the_next_call() {
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn newly_stored_code_is_hot_for_the_next_call(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let call_entries = CallItems::new(H160::zero(), false).entry_count();
 		let code_entries = CodeLoadItems::new(H256::zero()).entry_count();
-		let stores_the_code_expected_hot = code_entries + call_entries;
-		let finds_the_code_stored_expected_hot = call_entries;
+		let (first_expected_hot, second_expected_hot) = if fixture_type == FixtureType::Resolc {
+			// Instantiating from a code hash loads the code, which warms it, in both transactions.
+			(code_entries + call_entries, code_entries + call_entries)
+		} else {
+			// Only the first CREATE stores the code, which warms it.
+			(code_entries + call_entries, call_entries)
+		};
 
-		let factory = deploy_factory(FixtureType::Solc);
+		let factory = deploy_factory(fixture_type);
 		let create_then_call = || {
 			access_list_metrics_of_call(
 				factory,
@@ -486,15 +492,12 @@ fn newly_stored_code_is_hot_for_the_next_call() {
 			)
 		};
 
-		let stores_the_code = create_then_call();
-		let finds_the_code_stored = create_then_call();
+		let first = create_then_call();
+		let second = create_then_call();
 
-		assert_eq!(stores_the_code.hot, stores_the_code_expected_hot);
-		assert_eq!(finds_the_code_stored.hot, finds_the_code_stored_expected_hot);
-		assert_eq!(
-			stores_the_code.cold, finds_the_code_stored.cold,
-			"finding the code stored saves hot touches only",
-		);
+		assert_eq!(first.hot, first_expected_hot);
+		assert_eq!(second.hot, second_expected_hot);
+		assert_eq!(first.cold, second.cold);
 	});
 }
 

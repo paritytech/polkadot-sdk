@@ -250,7 +250,7 @@ impl RuntimeCosts {
 }
 
 /// Computes the overhead the access list adds to an access.
-pub fn access_list_overhead<T: Config>(summary: WarmthSummary) -> Weight {
+fn access_list_overhead<T: Config>(summary: WarmthSummary) -> Weight {
 	let [cold_full, cold_base, hot_full, hot_base, rollback]: [fn() -> Weight; 5] =
 		match summary.key_family() {
 			KeyFamily::Slot => [

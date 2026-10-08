@@ -523,7 +523,7 @@ mod tests {
 			};
 			let hot_blob = Warmth::read_paid();
 			let hot_blob_bytes = bytes_of(load_warmth_at(hot_blob));
-			assert!(hot_blob_bytes.ref_time() > 0, "{code_type:?}: {hot_blob_bytes:?}",);
+			assert!(hot_blob_bytes.ref_time() > 0, "{code_type:?}: {hot_blob_bytes:?}");
 			let empty_blob = Token::<Test>::weight(&CodeLoadToken::Blob {
 				warmth: hot_blob,
 				code_len: 0,

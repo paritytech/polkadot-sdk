@@ -489,7 +489,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			|kind| RuntimeCosts::SetStorage { new_bytes: value_len, old_bytes: max_size, kind };
 
 		if value_len > max_size {
-			// Nothing is accessed on this failure, so the slot stays cold and owes no rollback.
+			// The failing write leaves the access list unchanged, so it prepays no rollback.
 			let access_kind = StorageAccessKind::new(transient, || {
 				self.ext
 					.warmth_of(self.ext.slot_access(&key, StorageOp::Write))

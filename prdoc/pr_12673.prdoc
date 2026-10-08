@@ -39,8 +39,9 @@ doc:
           kind: StorageAccessKind::persistent_cold(),
       })?;
       ```
+    - `StorageOp` and `Warmth` are no longer re-exported.
     - In `RuntimeCosts`, `DelegateCallBase` is removed, `CallBase` takes the warmth of the call's
-      entries as a new parameter, `CallTransferSurcharge` takes a `TransferAccessKind` in place of
+      entries as a new parameter, `CallTransferSurcharge` takes the transfer's warmth in place of
       `dust_transfer`, and `AccountInfoRead` and `AccessListRegistration` are new. Code that
       charged `CallBase`, `DelegateCallBase` or `CallTransferSurcharge` can no longer build these
       variants; it should charge the cold price from `WeightInfo` instead, for example

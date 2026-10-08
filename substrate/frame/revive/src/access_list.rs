@@ -213,7 +213,7 @@ impl Warmth {
 	}
 
 	/// Returns this warmth with a cold touch made non-revertible.
-	pub fn to_non_revertible(self) -> Self {
+	fn to_non_revertible(self) -> Self {
 		match self {
 			Self::Hot { charged } => Self::Hot { charged },
 			Self::Cold { .. } => Self::Cold { revertible: false },
@@ -694,8 +694,8 @@ impl Access for CodeLoadItems {
 /// A read or write of one contract slot.
 #[derive(Clone, Debug)]
 pub struct StorageItems {
-	pub key: ContractSlot,
-	pub op: StorageOp,
+	key: ContractSlot,
+	op: StorageOp,
 }
 
 impl StorageItems {

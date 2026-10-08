@@ -3679,7 +3679,7 @@ fn cold_hot_a_chained_delegation_warms_the_target_it_reads() {
 			);
 
 			assert_err!(call_django.map_err(|e| e.error), <Error<Test>>::ContractTrapped);
-			assert_eq!(account_info_warmth(ctx.ext, EVE_ADDR), Warmth::read_paid(), "{frame_type}",);
+			assert_eq!(account_info_warmth(ctx.ext, EVE_ADDR), Warmth::read_paid(), "{frame_type}");
 			assert_eq!(
 				ctx.ext.frame_meter().weight_consumed().saturating_sub(weight_before),
 				expected_charge,
