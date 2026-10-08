@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791377391152,
+  "lastUpdate": 1791449495854,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "129a48aa9f17a3d5ccbcb8cb4167dd505165d35f",
-          "message": "[Staking] Add issuance and budget traits in prep for Budget Split (#11513)\n\n# Overview\n\nMoves `EraPayout` trait to `sp-staking` and adds new traits for\nissuance, budget distribution, and reward calculation.\n\nExtracted changes from the main PR: #10844 \nAlso see: https://github.com/paritytech/polkadot-sdk/pull/11512\n\n## Changes\n\n### sp-staking\n- `EraPayout`: moved from `pallet-staking` and `pallet-staking-async` to\n`sp-staking`, eliminating the duplicate definitions.\n- `budget` module: stake independent traits:\n- `IssuanceCurve`: successor to `EraPayout`, computes issuance from\ntotal supply + elapsed time (no staking state dependency).\n- `BudgetRecipient` / `BudgetRecipientList`: register pot accounts for\ninflation distribution. Runtime wires as a tuple.\n  - `BudgetKey`: bounded identifier for budget categories.\n- `StakerRewardCalculator`: trait for calculating validator incentive\nweights and staker reward splits.\n\n### pallet-staking / pallet-staking-async\n- Removed local `EraPayout` definitions, re-exported from `sp-staking`.\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
-          "timestamp": "2026-03-31T17:06:21Z",
-          "tree_id": "77fcec156172d697a4fc3bc828044f351b8d78fa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/129a48aa9f17a3d5ccbcb8cb4167dd505165d35f"
-        },
-        "date": 1774984980894,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009645942979999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00264111537,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009546209309999982,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009744090450000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "53361ece685597763642629f2042e21e6096d25b",
+          "message": "Switch eth-rpc image to the actual version of the base-bin (#13429)\n\nThis PR sets an newer version of the `base-bin` image as a ground base\nfor the `eth-rpc` container, making also arm weekly builds possible",
+          "timestamp": "2026-10-08T07:18:02Z",
+          "tree_id": "4efad4a6f22f6f7700af81273981844f19ff341d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/53361ece685597763642629f2042e21e6096d25b"
+        },
+        "date": 1791449468113,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009311954559999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010668803990000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025647304699999997,
             "unit": "seconds"
           }
         ]
