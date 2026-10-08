@@ -2150,32 +2150,33 @@ impl Store {
 		Ok(result)
 	}
 
-	/// Evicts the lowest-priority statements of `account` while it exceeds its allowance at both
-	/// the finalized and the best block, spending at most `budget` evictions. Checking the best
-	/// block too keeps what admission accepted while finality lags. Expired statements neither
-	/// count nor get evicted here; the expiry sweep reaps them.
+	/// Evicts the lowest-priority statements of `account` while it exceeds the larger of its
+	/// allowances at the finalized and the best block, spending at most `budget` evictions. Taking
+	/// the best block too keeps what admission accepted while finality lags. Expired statements
+	/// neither count nor get evicted here; the expiry sweep reaps them.
 	fn enforce_account_allowance(
 		&self,
 		account: &AccountId,
 		current_time: u64,
 		budget: &mut usize,
 	) {
-		let read_allowance = |block| match (self.read_allowance_fn)(account, block) {
-			Ok(Some(allowance)) => Some(allowance),
-			Ok(None) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"No allowance found for account {:?}, treating as zero allowance",
-					HexDisplay::from(account)
-				);
-				Some(StatementAllowance { max_count: 0, max_size: 0 })
-			},
-			Err(e) => {
-				log::error!(target: LOG_TARGET, "Error reading allowance: {:?}", e);
-				// Skip allowance enforcement for this account on error
-				None
-			},
-		};
+		let read_allowance =
+			|allowance_block| match (self.read_allowance_fn)(account, allowance_block) {
+				Ok(Some(allowance)) => Some(allowance),
+				Ok(None) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"No allowance found for account {:?}, treating as zero allowance",
+						HexDisplay::from(account)
+					);
+					Some(StatementAllowance { max_count: 0, max_size: 0 })
+				},
+				Err(e) => {
+					log::error!(target: LOG_TARGET, "Error reading allowance: {:?}", e);
+					// Skip allowance enforcement for this account on error
+					None
+				},
+			};
 		let fits = |allowance: &StatementAllowance, count: usize, size: usize| {
 			count <= allowance.max_count as usize && size <= allowance.max_size as usize
 		};
@@ -2211,24 +2212,26 @@ impl Store {
 		}
 		// The best block is read only for accounts already over their finalized allowance
 		let Some(best) = read_allowance(AllowanceBlock::Best) else { return };
-		let within =
-			|count: usize, size: usize| fits(&finalized, count, size) || fits(&best, count, size);
-		if within(remaining_count, remaining_size) {
+		let allowance = StatementAllowance {
+			max_count: finalized.max_count.max(best.max_count),
+			max_size: finalized.max_size.max(best.max_size),
+		};
+		if fits(&allowance, remaining_count, remaining_size) {
 			return;
 		}
 		log::debug!(
 			target: LOG_TARGET,
-			"Account {:?} exceeds allowance: count={}, size={}, finalized={:?}, best={:?}",
+			"Account {:?} exceeds allowance: count={}/{}, size={}/{}",
 			HexDisplay::from(account),
 			remaining_count,
+			allowance.max_count,
 			remaining_size,
-			finalized,
-			best
+			allowance.max_size
 		);
 
-		// Evict lowest priority statements until the rest fits the allowance at either block
+		// Evict lowest priority statements that exceed allowance
 		for (key, details) in &entries {
-			if within(remaining_count, remaining_size) || *budget == 0 {
+			if fits(&allowance, remaining_count, remaining_size) || *budget == 0 {
 				break;
 			}
 			if key.expiry < expiry_bound {
@@ -2994,10 +2997,10 @@ impl StatementStore for Store {
 	/// 5. **Allowance** — read the account's allowance (`StatementAllowance`: max count and size)
 	///    directly from chain state at the best block (via the `statement_allowance_key` storage
 	///    key — not a runtime call); reject with `SubmitResult::Rejected(NoAllowance)` if none is
-	///    set. The best block is used for responsiveness. Limit enforcement evicts only what fits
-	///    the allowance at neither the best nor the finalized block, so a statement accepted here
-	///    outlives the finality lag; it is evicted later if the allowance it relied on leaves the
-	///    best chain or a lower allowance is finalized.
+	///    set. The best block is used for responsiveness. Limit enforcement takes the larger of the
+	///    best and the finalized allowance, so a statement accepted here outlives the finality lag;
+	///    it is evicted later if the allowance it relied on leaves the best chain or a lower
+	///    allowance is finalized.
 	/// 6. **Constraint check & eviction** — check the account's record, enforcing per-account
 	///    limits (count, size, one statement per channel, higher priority replaces lower) and
 	///    global limits ([`DEFAULT_MAX_TOTAL_STATEMENTS`], [`DEFAULT_MAX_TOTAL_SIZE`]), evicting
@@ -6654,7 +6657,7 @@ mod tests {
 	}
 
 	#[test]
-	fn enforce_allowances_evicts_only_what_fits_neither_best_nor_finalized() {
+	fn enforce_allowances_takes_larger_of_best_and_finalized() {
 		// An increase not finalized yet, then a decrease not finalized yet
 		for (finalized, best) in [(2, 3), (3, 2)] {
 			let (mut store, _temp) = test_store();
