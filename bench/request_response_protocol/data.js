@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791448613644,
+  "lastUpdate": 1791454563948,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -132515,6 +132515,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2717937632,
             "range": "± 19972728",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d17f024230ae3a73d2bded1fd6d2f1b64d646861",
+          "message": "statement-store: v2 soak step, node joining shifts the replica layout (#13422)\n\nIn this PR, we extend the v2 DHT soak with a full node joining an active\nnetwork. Statements are first placed on their K closest nodes. Load\nstarts before the newcomer is spawned and continues until all nodes\nlearn the new peer and the topology converges.\n\nFresh probes submitted through the XOR-farthest node must land on\nexactly the new top-K. For shifted topics, the newcomer holds the\nstatements and the displaced replica does not; control topics keep their\nreplica set. The newcomer must also receive every pre-join statement of\nits shifted topics. The displaced replicas' pre-join copies are not\nchecked: persistent statements stay until they expire. The join and a\nsubsequent ordinary wave are mandatory, including with a zero soak\nduration.\n\nCloses #13185. Part of #13162.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-08T08:25:58Z",
+          "tree_id": "1fdf03bd96411ed3c0ef1356506a192635085529",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d17f024230ae3a73d2bded1fd6d2f1b64d646861"
+        },
+        "date": 1791454535804,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19645001,
+            "range": "± 168034",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19825952,
+            "range": "± 128018",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21494677,
+            "range": "± 238950",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26749354,
+            "range": "± 172712",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61130853,
+            "range": "± 696953",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 369918911,
+            "range": "± 7497141",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2779532424,
+            "range": "± 110410789",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16870455,
+            "range": "± 140751",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17987226,
+            "range": "± 305933",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17640723,
+            "range": "± 265873",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22180395,
+            "range": "± 238826",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63232342,
+            "range": "± 1350315",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 375616513,
+            "range": "± 4631785",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2736579368,
+            "range": "± 35463260",
             "unit": "ns/iter"
           }
         ]
