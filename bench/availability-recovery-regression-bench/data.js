@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791457505662,
+  "lastUpdate": 1791477185393,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "22591718+RomarQ@users.noreply.github.com",
-            "name": "Rodrigo Quelhas",
-            "username": "RomarQ"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e3865cf729c8193ec2f2de2df682a66583891d7b",
-          "message": "Deprecate `ValidateUnsigned` trait and `#[pallet::validate_unsigned]` attribute (#10150)\n\nPart of #2415\nCloses #2436\n\nRelated: #6325 #6326\n\n## Summary\n\nDeprecates the `ValidateUnsigned` trait and\n`#[pallet::validate_unsigned]` attribute in favor of the new\n`TransactionExtension` API. This is a non-breaking change that adds\ndeprecation warnings to guide users toward the modern transaction\nvalidation approach.\n\n## Motivation\n\nThe `ValidateUnsigned` trait was the legacy approach for validating\nunsigned transactions in FRAME pallets. The newer `TransactionExtension`\ntrait provides a more flexible and composable way to handle transaction\nvalidation, including both signed and unsigned transactions.\n\n## Changes\n\n### Deprecated APIs\n- ✅ Added `#[deprecated]` attribute to `ValidateUnsigned` trait\n- ✅ Added deprecation warning to `#[pallet::validate_unsigned]` macro\nattribute\n\n### Migration (Using `TransactionExtensions`)\n\n\nhttps://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/transaction_extensions\n\n## Impact\n\n- **Non-breaking:** Existing code continues to work with deprecation\nwarnings\n- **Compiler warnings:** Users will see deprecation notices guiding them\nto migrate\n- **Timeline:** Full removal planned for a future major release (TBD)\n\n## Review Notes\n\n- The `#[pallet::validate_unsigned]` deprecation warning might be\nredundant since it's always used together with `ValidateUnsigned`, but\nboth are included for completeness and clarity.\n\n## Follow-up Tasks\n\nThe following pallets and crates need to be migrated to\n`TransactionExtension` in subsequent PRs:\n\n**Runtime crates:**\n- [ ] `polkadot-runtime-common`\n- [ ] `polkadot-runtime-parachains`\n\n**FRAME pallets:**\n- [ ] `pallet-babe`\n- [ ] `pallet-beefy`\n- [ ] `pallet-election-provider-multi-block`\n- [ ] `pallet-grandpa`\n- [x] `pallet-im-online`\nhttps://github.com/paritytech/polkadot-sdk/pull/11235\n- [x] `pallet-mixnet`\nhttps://github.com/paritytech/polkadot-sdk/pull/11010\n\n**Core:**\n- [ ] `frame-executive`\n- [ ] `frame-system`\n\n**Examples:**\n- [x] `pallet-example-offchain-worker`\nhttps://github.com/paritytech/polkadot-sdk/pull/10716\n\n**Testing:**\n- [ ] `substrate-test-runtime`\n\n## Open Question\n\nShould we remove the `ValidateUnsigned` bound from the type parameter\n`V` in the `Applyable` trait?\n\n---------\n\nCo-authored-by: Guillaume Thiolliere <guillaume.thiolliere@parity.io>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-04-02T09:41:38Z",
-          "tree_id": "46a79bcb9f9f0bb652ba4f031e1aefea5c994454",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e3865cf729c8193ec2f2de2df682a66583891d7b"
-        },
-        "date": 1775132023562,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12860579603333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.280383632033336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13682851156666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e169b412d9559f6fbe74760df743abd181817683",
+          "message": "statement-store: enforce allowance against best and finalized blocks (#13437)\n\nIn this PR, we evict statements only when the account's usage exceeds\nboth the best-block and finalized-block allowances. This prevents\naccepted statements from being evicted and banned while an allowance\nincrease awaits finality.\n\nCloses #13394.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-08T14:26:07Z",
+          "tree_id": "c055e61682244605598f4e5d2780a4094262b156",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e169b412d9559f6fbe74760df743abd181817683"
+        },
+        "date": 1791477145121,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.925350715866665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14522308756666666,
             "unit": "seconds"
           }
         ]
