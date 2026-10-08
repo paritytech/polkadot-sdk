@@ -14,30 +14,74 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! Partial state: trie nodes of a block's state written to the database before the block itself
 //! is imported.
 
+use codec::{Decode, Encode};
 use hash_db::Hasher;
-use sp_runtime::traits::{Block as BlockT, PartialStateFor};
+use sp_runtime::{
+	traits::{Block as BlockT, PartialStateFor},
+	Justifications,
+};
 use sp_state_machine::{Backend, IterArgs};
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 
+/// The block whose state a state sync downloads: what the sync needs to import it once the state
+/// is complete, and what a restart needs to resume the download.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+pub struct PartialStateTarget<Block: BlockT> {
+	/// The header; its state root is the root the state is downloaded from.
+	pub header: Block::Header,
+	/// The body, when the sync has it (warp sync downloads it, fast sync does not).
+	pub body: Option<Vec<Block::Extrinsic>>,
+	/// The justifications, when the sync has them.
+	pub justifications: Option<Justifications>,
+}
+
+/// A state sync attempt that was begun and not completed, as the database recorded it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResumablePartialState<Block: BlockT> {
+	/// The block whose state was being downloaded.
+	pub target: PartialStateTarget<Block>,
+	/// Where the download continues: the cursor the last written chunk left, which is the start
+	/// of the next range request. Empty when no chunk was written.
+	pub cursor: Vec<Vec<u8>>,
+}
+
 /// Writes verified state trie nodes of a block that is being state-synced.
 ///
-/// State sync calls this once per state response, before it moves its download cursor. The
-/// block itself is not imported: the nodes stay invisible to `state_at` until the block is
-/// imported with `ImportedState`, when `Backend::complete_partial_state` checks that the state
-/// is complete and marks it present. A chunk is the nodes of one verified range proof, see
-/// `sp_trie::partial_state`.
-/// Nodes already written, or not awaited by the target's walker, are ignored, so the same chunk
-/// may be submitted again after an `Err`.
+/// An attempt is begun with `begin_partial_state`, advanced with one `import_partial_state` per
+/// state response, and completed by the import of the target block with `ImportedState`, when
+/// `Backend::complete_partial_state` checks that the state is complete and marks it present. The
+/// nodes stay invisible to `state_at` until then. A chunk is the nodes of one verified range
+/// proof, see `sp_trie::partial_state`; nodes already written, or not awaited by the target's
+/// walker, are ignored, so the same chunk may be submitted again after an `Err`.
+///
+/// The database records the attempt: its target once, and the cursor with every chunk. After a
+/// restart `resumable_partial_state` returns them, so the download can continue where it
+/// stopped. An attempt that is begun over, or whose state does not complete, is discarded by the
+/// database together with its nodes.
 pub trait PartialStateImport<Block: BlockT> {
-	/// Write the nodes of `partial_state`. On `Err` nothing of this call was persisted.
+	/// Record the target of a new attempt. A recorded attempt that was not completed is discarded
+	/// first. On `Err` the attempt must not start.
+	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()>;
+
+	/// Write the nodes of `partial_state` and `cursor`, where the download continues once they are
+	/// stored, in one transaction. On `Err` nothing of this call was persisted. The block must be
+	/// the recorded target.
 	fn import_partial_state(
 		&self,
 		partial_state: PartialStateFor<Block>,
+		cursor: &[Vec<u8>],
 	) -> sp_blockchain::Result<()>;
+
+	/// The attempt recorded by `begin_partial_state` and not completed, with the cursor its last
+	/// written chunk left. `None` when nothing is recorded.
+	fn resumable_partial_state(
+		&self,
+	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>>;
 }
 
 /// Walks the whole state trie of `state`, child tries included; errors on the first missing node.

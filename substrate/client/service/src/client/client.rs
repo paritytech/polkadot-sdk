@@ -1367,12 +1367,30 @@ where
 	E: CallExecutor<Block>,
 	Block: BlockT,
 {
+	fn begin_partial_state(
+		&self,
+		target: sc_client_api::partial_state::PartialStateTarget<Block>,
+	) -> sp_blockchain::Result<()> {
+		// Beginning over an earlier attempt empties the state column: no block import runs
+		// meanwhile.
+		let _import_lock = self.backend.get_import_lock().write();
+		self.backend.begin_partial_state(target)
+	}
+
 	fn import_partial_state(
 		&self,
 		partial_state: PartialStateFor<Block>,
+		cursor: &[Vec<u8>],
 	) -> sp_blockchain::Result<()> {
 		let _import_lock = self.backend.get_import_lock().write();
-		self.backend.import_partial_state(partial_state)
+		self.backend.import_partial_state(partial_state, cursor)
+	}
+
+	fn resumable_partial_state(
+		&self,
+	) -> sp_blockchain::Result<Option<sc_client_api::partial_state::ResumablePartialState<Block>>>
+	{
+		self.backend.resumable_partial_state()
 	}
 }
 

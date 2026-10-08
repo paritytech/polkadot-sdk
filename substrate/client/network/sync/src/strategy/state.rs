@@ -86,7 +86,8 @@ impl<B: BlockT> StateStrategy<B> {
 	/// Strategy key used by state sync.
 	pub const STRATEGY_KEY: StrategyKey = StrategyKey::new("State");
 
-	/// Create a new instance.
+	/// Create a new instance. Fails when the client cannot record the target, see
+	/// [`StateSync::new`].
 	pub fn new<Client>(
 		client: Arc<Client>,
 		target_header: B::Header,
@@ -94,29 +95,12 @@ impl<B: BlockT> StateStrategy<B> {
 		target_justifications: Option<Justifications>,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
 		protocol_name: ProtocolName,
-	) -> Self
+	) -> sp_blockchain::Result<Self>
 	where
 		Client: ProofProvider<B> + PartialStateImport<B> + Send + Sync + 'static,
 	{
-		let peers = initial_peers
-			.map(|(peer_id, best_number)| {
-				(peer_id, Peer { best_number, state: PeerState::Available })
-			})
-			.collect();
-		Self {
-			state_sync: Box::new(StateSync::new(
-				client,
-				target_header,
-				target_body,
-				target_justifications,
-			)),
-			peers,
-			disconnected_peers: DisconnectedPeers::new(),
-			actions: Vec::new(),
-			protocol_name,
-			succeeded: false,
-			aborted: false,
-		}
+		let state_sync = StateSync::new(client, target_header, target_body, target_justifications)?;
+		Ok(Self::new_with_provider(Box::new(state_sync), initial_peers, protocol_name))
 	}
 
 	/// Create a new instance with a custom state sync provider.
@@ -459,7 +443,8 @@ mod test {
 			None,
 			std::iter::empty(),
 			ProtocolName::Static(""),
-		);
+		)
+		.unwrap();
 
 		assert!(state_strategy
 			.schedule_next_peer(PeerState::DownloadingState, Zero::zero())
@@ -491,7 +476,8 @@ mod test {
 				None,
 				initial_peers,
 				ProtocolName::Static(""),
-			);
+			)
+			.unwrap();
 
 			let peer_id =
 				state_strategy.schedule_next_peer(PeerState::DownloadingState, Zero::zero());
@@ -524,7 +510,8 @@ mod test {
 				None,
 				initial_peers,
 				ProtocolName::Static(""),
-			);
+			)
+			.unwrap();
 
 			let peer_id = state_strategy.schedule_next_peer(PeerState::DownloadingState, 10);
 			assert!(*peers.get(&peer_id.unwrap()).unwrap() == 10);
@@ -557,7 +544,8 @@ mod test {
 			None,
 			initial_peers,
 			ProtocolName::Static(""),
-		);
+		)
+		.unwrap();
 
 		// Disconnecting a peer without an inflight request has no effect on persistent states.
 		state_strategy.remove_peer(&tenth_peer);
@@ -606,7 +594,8 @@ mod test {
 			None,
 			initial_peers,
 			ProtocolName::Static(""),
-		);
+		)
+		.unwrap();
 
 		let (_peer_id, request) = state_strategy.state_request().unwrap();
 		let hash = Hash::decode(&mut &*request.block).unwrap();
@@ -635,7 +624,8 @@ mod test {
 			None,
 			initial_peers,
 			ProtocolName::Static(""),
-		);
+		)
+		.unwrap();
 
 		// First request is sent.
 		assert!(state_strategy.state_request().is_some());

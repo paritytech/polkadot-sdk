@@ -36,7 +36,11 @@ use sp_state_machine::{
 use sp_storage::{ChildInfo, StorageData, StorageKey};
 pub use sp_trie::MerkleValue;
 
-use crate::{blockchain::Backend as BlockchainBackend, UsageInfo};
+use crate::{
+	blockchain::Backend as BlockchainBackend,
+	partial_state::{PartialStateTarget, ResumablePartialState},
+	UsageInfo,
+};
 
 pub use sp_state_machine::{Backend as StateBackend, BackendTransaction, KeyValueStates};
 
@@ -705,24 +709,38 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// Tells whether the backend requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
 
+	/// Record the target of a new state sync attempt, see
+	/// [`PartialStateImport::begin_partial_state`](crate::PartialStateImport::begin_partial_state).
+	/// A recorded attempt that was not completed is discarded first, records and nodes. An
+	/// attempt is only ever recorded while the database holds no block state; finding the two
+	/// together is an error.
+	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()>;
+
 	/// Inject partial state into the database.
 	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to
-	/// database. Once every chunk is written, the block import calls `complete_partial_state`.
-	/// The block hash identifies the state being synced: the backend keeps one walker per block in
-	/// memory and rebuilds it from the database when needed, so a node is never inserted twice
-	/// (which would break reference counting).
+	/// database, together with `cursor`, where the download continues once they are stored. Once
+	/// every chunk is written, the block import calls `complete_partial_state`. The block hash
+	/// identifies the state being synced and must be the recorded target: the backend keeps one
+	/// walker per block in memory and rebuilds it from the database when needed, so a node is
+	/// never inserted twice (which would break reference counting).
 	fn import_partial_state(
 		&self,
 		partial_state: PartialStateFor<Block>,
+		cursor: &[Vec<u8>],
 	) -> sp_blockchain::Result<()>;
+
+	/// The recorded state sync attempt that was not completed, see
+	/// [`PartialStateImport::resumable_partial_state`](crate::PartialStateImport::resumable_partial_state).
+	fn resumable_partial_state(
+		&self,
+	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>>;
 
 	/// Finishes a state sync: checks that the database holds every node of the state trie at
 	/// `state_root`, child tries included, then notes on `operation` that the block being imported
 	/// already has that state, so the import executes nothing and writes no storage changes.
 	///
-	/// Fails on the first missing node and leaves `operation` untouched. A state that never
-	/// completes is never marked: its nodes stay in the database for a later sync of the same
-	/// block to reuse.
+	/// Fails on the first missing node and leaves `operation` untouched; the attempt is then
+	/// discarded, since a state that did not complete once every chunk was written never will.
 	fn complete_partial_state(
 		&self,
 		operation: &mut Self::BlockImportOperation,

@@ -203,6 +203,10 @@ pub struct WarpSyncResult<B: BlockT> {
 	pub target_header: B::Header,
 	pub target_body: Option<Vec<B::Extrinsic>>,
 	pub target_justifications: Option<Justifications>,
+	/// The highest block of the warp proof handed to the import queue, if any: the last authority
+	/// set change below the target. Such headers are imported without state and are never
+	/// executed, so a state sync may not resume a target below one of them.
+	pub highest_proof_header: Option<NumberFor<B>>,
 }
 
 /// Warp sync state machine. Accumulates warp proofs and state.
@@ -218,6 +222,8 @@ pub struct WarpSync<B: BlockT> {
 	result: Option<WarpSyncResult<B>>,
 	/// Number of peers that need to be connected before warp sync is started.
 	min_peers_to_start_warp_sync: usize,
+	/// See [`WarpSyncResult::highest_proof_header`].
+	highest_proof_header: Option<NumberFor<B>>,
 }
 
 impl<B> WarpSync<B>
@@ -258,6 +264,7 @@ where
 				actions: vec![SyncingAction::Finished],
 				result: None,
 				min_peers_to_start_warp_sync,
+				highest_proof_header: None,
 			};
 		}
 
@@ -279,6 +286,7 @@ where
 			actions: Vec::new(),
 			result: None,
 			min_peers_to_start_warp_sync,
+			highest_proof_header: None,
 		}
 	}
 
@@ -429,10 +437,10 @@ where
 			Ok(VerificationResult::Partial(proofs)) => {
 				debug!(target: LOG_TARGET, "Verified partial proof");
 				self.total_proof_bytes += response.0.len() as u64;
-				self.actions.push(SyncingAction::ImportBlocks {
-					origin: BlockOrigin::WarpSync,
-					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
-				});
+				let blocks: Vec<_> = proofs.into_iter().map(proof_to_incoming_block).collect();
+				self.note_proof_headers(&blocks);
+				self.actions
+					.push(SyncingAction::ImportBlocks { origin: BlockOrigin::WarpSync, blocks });
 			},
 			Ok(VerificationResult::Complete(header, proofs)) => {
 				debug!(
@@ -464,12 +472,23 @@ where
 						}
 					})
 					.collect();
+				self.note_proof_headers(&incoming_blocks);
 				self.actions.push(SyncingAction::ImportBlocks {
 					origin: BlockOrigin::WarpSync,
 					blocks: incoming_blocks,
 				});
 			},
 		}
+	}
+
+	/// Remember the highest proof header handed to the import queue, see
+	/// [`WarpSyncResult::highest_proof_header`].
+	fn note_proof_headers(&mut self, blocks: &[IncomingBlock<B>]) {
+		let highest = blocks
+			.iter()
+			.filter_map(|block| block.header.as_ref().map(|h| *h.number()))
+			.max();
+		self.highest_proof_header = self.highest_proof_header.max(highest);
 	}
 
 	/// Process (target) block response.
@@ -548,6 +567,7 @@ where
 			target_header: header.clone(),
 			target_body: block.body,
 			target_justifications: block.justifications,
+			highest_proof_header: self.highest_proof_header,
 		});
 		self.phase = Phase::Complete;
 		self.actions.push(SyncingAction::Finished);

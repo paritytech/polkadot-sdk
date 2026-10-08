@@ -36,7 +36,7 @@ use crate::{
 	service::network::NetworkServiceHandle,
 	strategy::{
 		disconnected_peers::DisconnectedPeers,
-		state_sync::{ImportResult, StateSync, StateSyncProvider},
+		state_sync::{is_resumable, ImportResult, StateSync, StateSyncProvider},
 		warp::{WarpSyncPhase, WarpSyncProgress},
 		StrategyKey, SyncingAction, SyncingStrategy,
 	},
@@ -49,7 +49,10 @@ use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Counter, Gauge, PrometheusError, Registry, U64};
 use prost::Message;
-use sc_client_api::{blockchain::BlockGap, BlockBackend, PartialStateImport, ProofProvider};
+use sc_client_api::{
+	blockchain::BlockGap, partial_state::ResumablePartialState, BlockBackend, PartialStateImport,
+	ProofProvider,
+};
 use sc_consensus::{BlockImportError, BlockImportStatus, ImportedState, IncomingBlock};
 use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::{
@@ -2335,18 +2338,68 @@ where
 		}
 	}
 
+	/// The state sync attempt an earlier run of this node recorded, if its target is close enough
+	/// behind the newly finalized block `finalized_number` to resume, see
+	/// [`crate::strategy::state_sync::MAX_RESUME_DISTANCE`]. Otherwise `None`: the attempt is
+	/// discarded when the new one begins.
+	fn resumable_state_sync(
+		&self,
+		finalized_number: NumberFor<B>,
+	) -> Option<ResumablePartialState<B>> {
+		let resumable = match self.client.resumable_partial_state() {
+			Ok(resumable) => resumable?,
+			Err(e) => {
+				warn!(target: LOG_TARGET, "Failed to read the record of an earlier state sync: {e}");
+				return None;
+			},
+		};
+		let stored = *resumable.target.header.number();
+		if !is_resumable::<B>(stored, finalized_number) {
+			info!(
+				target: LOG_TARGET,
+				"The state sync of #{stored} interrupted earlier is too old to resume behind \
+				 #{finalized_number}, starting over.",
+			);
+			return None;
+		}
+		info!(
+			target: LOG_TARGET,
+			"Resuming the state sync of #{stored} ({}) interrupted earlier.",
+			resumable.target.header.hash(),
+		);
+		Some(resumable)
+	}
+
 	fn attempt_state_sync(&mut self, finalized_hash: B::Hash, finalized_number: NumberFor<B>) {
 		let mut heads: Vec<_> = self.peers.values().map(|peer| peer.best_number).collect();
 		heads.sort();
 		let median = heads[heads.len() / 2];
 		if finalized_number + STATE_SYNC_FINALITY_THRESHOLD.saturated_into() >= median {
 			if let Ok(Some(header)) = self.client.header(finalized_hash) {
-				log::debug!(
-					target: LOG_TARGET,
-					"Starting state sync for #{finalized_number} ({finalized_hash})",
-				);
-				self.state_sync = Some(StateSync::new(self.client.clone(), header, None, None));
-				self.allowed_requests.set_all();
+				let state_sync = match self.resumable_state_sync(finalized_number) {
+					Some(resumable) => Ok(StateSync::resume(
+						self.client.clone(),
+						resumable.target,
+						resumable.cursor,
+					)),
+					None => {
+						log::debug!(
+							target: LOG_TARGET,
+							"Starting state sync for #{finalized_number} ({finalized_hash})",
+						);
+						StateSync::new(self.client.clone(), header, None, None)
+					},
+				};
+				match state_sync {
+					Ok(state_sync) => {
+						self.state_sync = Some(state_sync);
+						self.allowed_requests.set_all();
+					},
+					Err(e) => log::error!(
+						target: LOG_TARGET,
+						"Failed to start state sync for #{finalized_number} ({finalized_hash}): {e}",
+					),
+				}
 			} else {
 				log::error!(
 					target: LOG_TARGET,

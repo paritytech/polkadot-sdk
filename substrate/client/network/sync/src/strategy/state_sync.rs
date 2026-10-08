@@ -24,7 +24,9 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use log::{debug, warn};
-use sc_client_api::{CompactProof, PartialStateImport, ProofProvider};
+use sc_client_api::{
+	partial_state::PartialStateTarget, CompactProof, PartialStateImport, ProofProvider,
+};
 use smallvec::SmallVec;
 use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor, PartialStateFor},
@@ -34,6 +36,18 @@ use std::{fmt, sync::Arc};
 
 /// Consecutive database write failures tolerated before state sync gives up on the target.
 const MAX_PARTIAL_STATE_WRITE_FAILURES: u32 = 3;
+
+/// How far behind the finalized head the target of an interrupted state sync may be for the
+/// download to resume after a restart: a quarter of the 256 blocks of state that peers keep by
+/// default (`sc_state_db::DEFAULT_MAX_BLOCK_CONSTRAINT`), so that the rest of the download has
+/// time before they prune the target. An older target is discarded and a new one is chosen.
+pub const MAX_RESUME_DISTANCE: u32 = 64;
+
+/// Whether the target of an interrupted state sync, at `stored`, is close enough behind the
+/// finalized head `head` to resume the download, see [`MAX_RESUME_DISTANCE`].
+pub fn is_resumable<B: BlockT>(stored: NumberFor<B>, head: NumberFor<B>) -> bool {
+	stored <= head && head - stored <= MAX_RESUME_DISTANCE.into()
+}
 
 /// Generic state sync provider. Used for mocking in tests.
 pub trait StateSyncProvider<B: BlockT>: Send + Sync {
@@ -155,17 +169,56 @@ where
 	B: BlockT,
 	Client: ProofProvider<B> + PartialStateImport<B> + Send + Sync + 'static,
 {
-	///  Create a new instance.
+	/// Create a new instance. The client records the target, so that a restart can resume the
+	/// download, and discards an earlier attempt that never completed. On `Err` nothing was
+	/// recorded and the state sync must not start.
 	pub fn new(
 		client: Arc<Client>,
 		target_header: B::Header,
 		target_body: Option<Vec<B::Extrinsic>>,
 		target_justifications: Option<Justifications>,
+	) -> sp_blockchain::Result<Self> {
+		client.begin_partial_state(PartialStateTarget {
+			header: target_header.clone(),
+			body: target_body.clone(),
+			justifications: target_justifications.clone(),
+		})?;
+		Ok(Self::with_cursor(
+			client,
+			target_header,
+			target_body,
+			target_justifications,
+			SmallVec::default(),
+		))
+	}
+
+	/// Continue the download of `target`, recorded by an earlier run, from `cursor`: the start
+	/// of the next range request. Nothing is recorded again.
+	pub fn resume(
+		client: Arc<Client>,
+		target: PartialStateTarget<B>,
+		cursor: Vec<Vec<u8>>,
+	) -> Self {
+		Self::with_cursor(
+			client,
+			target.header,
+			target.body,
+			target.justifications,
+			SmallVec::from_vec(cursor),
+		)
+	}
+
+	fn with_cursor(
+		client: Arc<Client>,
+		target_header: B::Header,
+		target_body: Option<Vec<B::Extrinsic>>,
+		target_justifications: Option<Justifications>,
+		last_key: SmallVec<[Vec<u8>; 2]>,
 	) -> Self {
 		Self {
 			client,
 			metadata: StateSyncMetadata {
-				last_key: SmallVec::default(),
+				last_key,
 				target_header,
 				target_body,
 				target_justifications,
@@ -214,15 +267,31 @@ where
 		};
 		debug!(target: LOG_TARGET, "Verified state response with {} keys", values.len());
 
+		// A response that is not the end of the range must move the cursor: an honest server
+		// includes at least one key after the start of the range, and any key moves it. One that
+		// does not (a range already received, an out-of-order range, a root-only proof) would
+		// otherwise be asked from the same peer again and again. Leaving a child trie with no key
+		// left moves the cursor too, up one level.
+		let complete = completed == 0;
+		let mut next_key = self.metadata.last_key.clone();
+		if !complete &&
+			(!values.update_last_key(completed, &mut next_key) ||
+				next_key == self.metadata.last_key)
+		{
+			debug!(target: LOG_TARGET, "State response makes no progress at depth {completed}");
+			return ImportResult::BadResponse;
+		}
+
 		// Write the chunk before moving the cursor: a chunk that never reached the database
-		// is asked for again, because `last_key` still points at its start.
+		// is asked for again, because `last_key` still points at its start. The next cursor is
+		// stored with the chunk, so that a restart continues from it.
 		let partial_state = PartialStateFor::<B> {
 			block_hash: self.metadata.target_hash(),
 			block_number: self.metadata.target_number(),
 			state_root: self.metadata.target_root(),
 			nodes,
 		};
-		if let Err(e) = self.client.import_partial_state(partial_state) {
+		if let Err(e) = self.client.import_partial_state(partial_state, &next_key) {
 			self.metadata.write_failures += 1;
 			warn!(
 				target: LOG_TARGET,
@@ -237,11 +306,7 @@ where
 			};
 		}
 		self.metadata.write_failures = 0;
-
-		let complete = completed == 0;
-		if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
-			debug!(target: LOG_TARGET, "Error updating key cursor, depth: {}", completed);
-		};
+		self.metadata.last_key = next_key;
 
 		self.metadata.imported_bytes += proof_size;
 		if complete {
@@ -288,11 +353,13 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sc_client_api::{ChildInfo, DecodedCompactProof, StorageProof};
+	use sc_client_api::{
+		partial_state::ResumablePartialState, ChildInfo, DecodedCompactProof, StorageProof,
+	};
 	use sp_runtime::traits::{HashingFor, Header as HeaderT};
 	use sp_state_machine::{KeyValueStates, KeyValueStorageLevel};
 	use std::sync::{
-		atomic::{AtomicUsize, Ordering},
+		atomic::{AtomicBool, AtomicUsize, Ordering},
 		Mutex,
 	};
 	use substrate_test_runtime_client::runtime::{Block, Header};
@@ -304,6 +371,12 @@ mod tests {
 		verified: Mutex<(Vec<KeyValueStorageLevel>, usize)>,
 		failing_writes: AtomicUsize,
 		writes: AtomicUsize,
+		/// The target `begin_partial_state` recorded, if any.
+		begun: Mutex<Option<PartialStateTarget<Block>>>,
+		/// Makes `begin_partial_state` fail.
+		fail_begin: AtomicBool,
+		/// The cursor passed with every successful write.
+		cursors: Mutex<Vec<Vec<Vec<u8>>>>,
 	}
 
 	impl StubClient {
@@ -316,6 +389,9 @@ mod tests {
 				verified: Mutex::new((key_values, completed)),
 				failing_writes: AtomicUsize::new(failing_writes),
 				writes: AtomicUsize::new(0),
+				begun: Mutex::new(None),
+				fail_begin: AtomicBool::new(false),
+				cursors: Mutex::new(Vec::new()),
 			})
 		}
 
@@ -382,9 +458,21 @@ mod tests {
 	}
 
 	impl PartialStateImport<Block> for StubClient {
+		fn begin_partial_state(
+			&self,
+			target: PartialStateTarget<Block>,
+		) -> sp_blockchain::Result<()> {
+			if self.fail_begin.load(Ordering::SeqCst) {
+				return Err(sp_blockchain::Error::Storage("injected begin failure".into()));
+			}
+			*self.begun.lock().unwrap() = Some(target);
+			Ok(())
+		}
+
 		fn import_partial_state(
 			&self,
 			partial_state: PartialStateFor<Block>,
+			cursor: &[Vec<u8>],
 		) -> sp_blockchain::Result<()> {
 			assert_eq!(partial_state.block_hash, header().hash());
 			let failing = self.failing_writes.load(Ordering::SeqCst);
@@ -393,7 +481,14 @@ mod tests {
 				return Err(sp_blockchain::Error::Storage("injected write failure".into()));
 			}
 			self.writes.fetch_add(1, Ordering::SeqCst);
+			self.cursors.lock().unwrap().push(cursor.to_vec());
 			Ok(())
+		}
+
+		fn resumable_partial_state(
+			&self,
+		) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>> {
+			Ok(None)
 		}
 	}
 
@@ -408,7 +503,16 @@ mod tests {
 	}
 
 	fn state_sync(client: Arc<StubClient>) -> StateSync<Block, StubClient> {
-		StateSync::new(client, header(), None, None)
+		StateSync::new(client, header(), None, None).expect("the stub records any target")
+	}
+
+	fn target() -> PartialStateTarget<Block> {
+		PartialStateTarget { header: header(), body: None, justifications: None }
+	}
+
+	/// A level of the range read that yielded no key.
+	fn level_without_keys() -> KeyValueStorageLevel {
+		KeyValueStorageLevel { state_root: vec![], parent_storage_keys: vec![], key_values: vec![] }
 	}
 
 	/// A response whose proof decodes (to an empty compact proof); the stub never reads it.
@@ -487,5 +591,93 @@ mod tests {
 		assert!(matches!(sync.import(response()), ImportResult::Import(_, _, _, _)));
 		assert!(sync.is_complete());
 		assert_eq!(client.writes(), 1);
+	}
+
+	#[test]
+	fn new_records_the_target_and_resume_does_not() {
+		let client = StubClient::new(vec![], 1, 0);
+		let sync = state_sync(client.clone());
+		let begun = client.begun.lock().unwrap().take().expect("the target was recorded");
+		assert_eq!(begun, target());
+		assert!(sync.next_request().start.is_empty());
+
+		let cursor = vec![vec![0x80], vec![0x01]];
+		let sync = StateSync::resume(client.clone(), begun, cursor.clone());
+		assert!(client.begun.lock().unwrap().is_none(), "nothing is recorded again");
+		assert_eq!(sync.next_request().start, cursor);
+		assert_eq!(sync.target_hash(), header().hash());
+		assert_eq!(sync.progress().percentage, 50);
+	}
+
+	#[test]
+	fn new_fails_when_the_target_cannot_be_recorded() {
+		let client = StubClient::new(vec![], 1, 0);
+		client.fail_begin.store(true, Ordering::SeqCst);
+		assert!(StateSync::new(client, header(), None, None).is_err());
+	}
+
+	#[test]
+	fn successful_write_passes_the_next_cursor_to_the_database() {
+		let client = StubClient::new(one_key_in_the_top_trie(), 1, 0);
+		let mut sync = state_sync(client.clone());
+
+		assert!(matches!(sync.import(response()), ImportResult::Continue));
+		assert_eq!(*client.cursors.lock().unwrap(), vec![vec![vec![0x80]]]);
+		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
+	}
+
+	/// Zero keys while the range is not exhausted: the cursor would stay where it is, and the same
+	/// peer would be asked forever.
+	#[test]
+	fn response_without_progress_is_bad_and_writes_nothing() {
+		let client = StubClient::new(vec![], 1, 0);
+		let mut sync = state_sync(client.clone());
+
+		assert!(matches!(sync.import(response()), ImportResult::BadResponse));
+		assert_eq!(client.writes(), 0);
+		assert!(sync.next_request().start.is_empty());
+	}
+
+	/// The stub answers the same key every time: the second response makes no progress.
+	#[test]
+	fn response_repeating_the_cursor_is_bad() {
+		let client = StubClient::new(one_key_in_the_top_trie(), 1, 0);
+		let mut sync = state_sync(client.clone());
+
+		assert!(matches!(sync.import(response()), ImportResult::Continue));
+		assert!(matches!(sync.import(response()), ImportResult::BadResponse));
+		assert_eq!(client.writes(), 1);
+		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
+	}
+
+	/// Stopped inside a child trie that yielded no key: the cursor cannot be updated.
+	#[test]
+	fn failed_cursor_update_is_bad() {
+		let client = StubClient::new(vec![level_without_keys(), level_without_keys()], 2, 0);
+		let mut sync = state_sync(client.clone());
+
+		assert!(matches!(sync.import(response()), ImportResult::BadResponse));
+		assert_eq!(client.writes(), 0);
+	}
+
+	/// Resumed inside a child trie, the response ends it without a key and stops at the top level:
+	/// the cursor shrinks to the child trie's key, which is progress.
+	#[test]
+	fn leaving_a_child_trie_without_keys_is_progress() {
+		let client = StubClient::new(vec![level_without_keys()], 1, 0);
+		let mut sync = StateSync::resume(client.clone(), target(), vec![vec![0x80], vec![0x01]]);
+
+		assert!(matches!(sync.import(response()), ImportResult::Continue));
+		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
+		assert_eq!(client.writes(), 1);
+	}
+
+	#[test]
+	fn is_resumable_within_the_distance_and_not_ahead() {
+		let distance = MAX_RESUME_DISTANCE as u64;
+		assert!(is_resumable::<Block>(100, 100));
+		assert!(is_resumable::<Block>(100, 100 + distance));
+		assert!(!is_resumable::<Block>(100, 101 + distance));
+		assert!(!is_resumable::<Block>(101, 100));
 	}
 }

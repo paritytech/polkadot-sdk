@@ -43,6 +43,7 @@ use crate::{
 	backend::{self, NewBlockState},
 	blockchain::{self, BlockStatus, HeaderBackend},
 	leaves::LeafSet,
+	partial_state::{PartialStateTarget, ResumablePartialState},
 	TrieCacheContext, UsageInfo,
 };
 
@@ -618,6 +619,9 @@ pub struct Backend<Block: BlockT> {
 	import_lock: RwLock<()>,
 	pinned_blocks: RwLock<HashMap<Block::Hash, i64>>,
 	partial_state_walkers: RwLock<PartialStateWalkers<HashingFor<Block>>>,
+	/// The state sync attempt begun and not completed, with its cursor. The node store is shared
+	/// by every block, so the nodes of an attempt that is begun over stay where they are.
+	partial_state: RwLock<Option<ResumablePartialState<Block>>>,
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -633,6 +637,7 @@ impl<Block: BlockT> Backend<Block> {
 			import_lock: Default::default(),
 			pinned_blocks: Default::default(),
 			partial_state_walkers: Default::default(),
+			partial_state: Default::default(),
 		}
 	}
 
@@ -796,10 +801,28 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		false
 	}
 
+	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()> {
+		let mut attempt = self.partial_state.write();
+		*self.partial_state_walkers.write() = Default::default();
+		*attempt = Some(ResumablePartialState { target, cursor: Vec::new() });
+		Ok(())
+	}
+
 	fn import_partial_state(
 		&self,
 		partial_state: PartialStateFor<Block>,
+		cursor: &[Vec<u8>],
 	) -> sp_blockchain::Result<()> {
+		let mut attempt = self.partial_state.write();
+		let Some(attempt) = attempt
+			.as_mut()
+			.filter(|attempt| attempt.target.header.hash() == partial_state.block_hash)
+		else {
+			return Err(sp_blockchain::Error::Storage(format!(
+				"state chunk of {:?} does not belong to the recorded state sync target",
+				partial_state.block_hash,
+			)));
+		};
 		// The node store doubles as the storage a dropped walker is rebuilt from.
 		let nodes = self
 			.partial_state_walkers
@@ -810,7 +833,14 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		for node in nodes {
 			state_db.emplace(node.hash, node.prefix.as_prefix(), node.encoded);
 		}
+		attempt.cursor = cursor.to_vec();
 		Ok(())
+	}
+
+	fn resumable_partial_state(
+		&self,
+	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>> {
+		Ok(self.partial_state.read().clone())
 	}
 
 	fn complete_partial_state(
@@ -819,7 +849,10 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		state_root: Block::Hash,
 	) -> sp_blockchain::Result<()> {
 		let state = TrieBackendBuilder::new(self.state_db.read().clone(), state_root).build();
-		crate::partial_state::check_state_complete(state)
+		let result = crate::partial_state::check_state_complete(state);
+		// Complete or not, the attempt is over. Its nodes stay: the store is shared.
+		*self.partial_state.write() = None;
+		result
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> blockchain::Result<()> {
@@ -960,13 +993,24 @@ mod tests {
 		};
 		let backend = super::Backend::<Block>::new();
 		backend
-			.import_partial_state(PartialState {
-				block_hash: header.hash(),
-				block_number: header.number,
-				state_root: header.state_root,
-				nodes: partial_state,
+			.begin_partial_state(crate::partial_state::PartialStateTarget {
+				header: header.clone(),
+				body: None,
+				justifications: None,
 			})
 			.unwrap();
+		backend
+			.import_partial_state(
+				PartialState {
+					block_hash: header.hash(),
+					block_number: header.number,
+					state_root: header.state_root,
+					nodes: partial_state,
+				},
+				&[],
+			)
+			.unwrap();
+		assert_eq!(backend.resumable_partial_state().unwrap().map(|r| r.cursor), Some(vec![]));
 
 		let mut op = backend.begin_operation().unwrap();
 		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)
