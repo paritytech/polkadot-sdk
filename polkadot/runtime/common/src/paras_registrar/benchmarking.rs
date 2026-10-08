@@ -22,7 +22,7 @@ use crate::traits::Registrar as RegistrarT;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use polkadot_primitives::{MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MIN_CODE_SIZE};
-use polkadot_runtime_parachains::{paras, shared, Origin as ParaOrigin};
+use polkadot_runtime_parachains::{configuration, paras, shared, Origin as ParaOrigin};
 use sp_runtime::traits::Bounded;
 
 use frame_benchmarking::v2::*;
@@ -186,6 +186,11 @@ mod benchmarks {
 	fn schedule_code_upgrade(
 		b: Linear<MIN_CODE_SIZE, MAX_CODE_SIZE>,
 	) -> Result<(), BenchmarkError> {
+		// The extrinsic validates the code length against the on-chain `max_code_size`, which a
+		// runtime may configure below `MAX_CODE_SIZE`. Raise it so that the largest sampled `b`
+		// is accepted, otherwise the benchmark fails with `InvalidCode` on those runtimes.
+		configuration::ActiveConfig::<T>::mutate(|config| config.max_code_size = MAX_CODE_SIZE);
+
 		let new_code = ValidationCode(vec![0; b as usize]);
 		let para_id = ParaId::from(1000);
 
