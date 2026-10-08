@@ -2151,9 +2151,10 @@ impl Store {
 	}
 
 	/// Evicts the lowest-priority statements of `account` while it exceeds the larger of its
-	/// allowances at the finalized and the best block, spending at most `budget` evictions. Taking
-	/// the best block too keeps what admission accepted while finality lags. Expired statements
-	/// neither count nor get evicted here; the expiry sweep reaps them.
+	/// allowances at the finalized and the best block, spending at most `budget` evictions.
+	/// Admission checks only the best block, so taking it here too keeps what admission accepted
+	/// while finality lags. Expired statements neither count nor get evicted here; the expiry
+	/// sweep reaps them.
 	fn enforce_account_allowance(
 		&self,
 		account: &AccountId,
@@ -6658,16 +6659,23 @@ mod tests {
 
 	#[test]
 	fn enforce_allowances_takes_larger_of_best_and_finalized() {
-		// An increase not finalized yet, then a decrease not finalized yet
-		for (finalized, best) in [(2, 3), (3, 2)] {
+		// (max_count, max_size) at the finalized and the best block: the count, then the size,
+		// raised and lowered in a best block not finalized yet
+		let cases = [
+			((2, 1000), (3, 1000)),
+			((3, 1000), (2, 1000)),
+			((4, 200), (4, 300)),
+			((4, 300), (4, 200)),
+		];
+		for (finalized, best) in cases {
 			let (mut store, _temp) = test_store();
 			store.set_time(0);
 			store.read_allowance_fn = Box::new(move |_who: &AccountId, block: AllowanceBlock| {
-				let max_count = match block {
+				let (max_count, max_size) = match block {
 					AllowanceBlock::Finalized => finalized,
 					AllowanceBlock::Best => best,
 				};
-				Ok(Some(StatementAllowance::new(max_count, 10_000)))
+				Ok(Some(StatementAllowance::new(max_count, max_size)))
 			});
 			let statements = [10, 20, 30, 40].map(|priority| statement(7, priority, None, 100));
 			for statement in &statements {

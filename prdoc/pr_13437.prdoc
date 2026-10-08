@@ -4,29 +4,10 @@ doc:
   - Node Dev
   - Node Operator
   description: |-
-    # Description
-
-    In this PR, allowance enforcement checks each account against the larger of its best-block and finalized-block allowances. Submission already uses the best block, so checking only finalized state could evict a newly accepted statement while an allowance increase was still awaiting finality. The eviction also banned the statement from peer re-admission.
-
-    Fixes #13394.
-
-    ## Integration
-
-    This is a patch-level fix in `sc-statement-store` for node developers and operators. It requires no configuration changes or database migration. An unfinalized allowance decrease takes effect for maintenance eviction once it is finalized.
-
-    ## Review Notes
-
-    The finalized allowance keeps its existing summary fast path. Only accounts exceeding it read the best allowance; the count and the size limit are each the larger of the two values, and eviction stops once the remaining statements fit them. Missing allowances count as zero; a storage read error skips enforcement for that account.
-
-    The regression test covers both an unfinalized increase and an unfinalized decrease, checking that enforcement evicts only the lowest-priority excess statement and stops at the larger allowance.
-
-    Import-time refusals on lagging peers, existing eviction bans, and retry or reconciliation of gossip delivery are outside the scope of this fix.
-
-    ## Validation
-
-    - `SKIP_WASM_BUILD=1 cargo test -p sc-statement-store --lib --locked --offline`: 114 passed.
-    - `cargo +nightly fmt -p sc-statement-store -- --check`: passed.
-    - `git diff --check origin/master...HEAD`: passed.
+    Allowance enforcement now checks each account against the larger of its best-block and
+    finalized-block allowances. Submission checks only the best block, so enforcing the finalized
+    allowance alone evicted, and banned for up to 48h, statements accepted after an allowance
+    increase that was not finalized yet.
 crates:
 - name: sc-statement-store
   bump: patch
