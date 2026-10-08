@@ -68,10 +68,17 @@ module main {
     prevSvc' = initialState,
     lastStepWorkResults' = List(),
     lastStepAssigns' = List(),
+    lastStepAssignBudget' = { flush: 0, end: 0 },
     lastHeadRoot' = None,
     foreignServices' = Map(),
     logPrunedBelow' = Map()
   }
+
+  /// Due-assign budgets a step picks from: none, one, or every due assign, both
+  /// for the always-accumulate allowance and for the gas left at the end.
+  pure val AssignBudgets: Set[AssignBudget] =
+    tuples(Set(0, 1, CoreCount), Set(0, 1, CoreCount))
+      .map(b => { flush: b._1, end: b._2 })
 
   // --- Step (a): refine + accumulate one work-report --------------------
 
@@ -256,9 +263,10 @@ module main {
       if (numPkgs == 0) List()
       else if (numPkgs == 1) List(wp1Wr)
       else List(wp1Wr, wp2Wr)
-    val blockOut = accumulateBlock(
+    nondet budget = oneOf(AssignBudgets)
+    val blockOut = accumulateBlockBudgeted(
       svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages,
-      foreignServices)
+      foreignServices, budget)
 
     // Fold each candidate's `(para, lookup-anchor)` into the ghost
     // `logPrunedBelow`; a later package for the same para wins.
@@ -273,6 +281,7 @@ module main {
       prevSvc' = svc,
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
+      lastStepAssignBudget' = budget,
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
       logPrunedBelow' = newLogPrunedBelow
@@ -282,6 +291,30 @@ module main {
   // --- Step (b): another service sends an OnTransfer into Asset Hub ----
   // One step is one accumulate invocation, so the transfers it carries share the
   // buckets it opens; a later step's arrivals can never reopen them (§5.1).
+
+  /// A transfer-only accumulate invocation at the current timeslot carrying `ts`.
+  /// Due assigns are flushed first, as in every invocation (§5.1), within
+  /// `budget`.
+  action incomingTransferInvocation(
+    ts: List[IncomingTransfer], budget: AssignBudget
+  ): bool = {
+    val out = accumulateTransfers(svc, now, ts, budget)
+    all {
+      svc' = out.state,
+      now' = now,
+      jamStagingSet' = jamStagingSet,
+      solicitedSet' = solicitedSet,
+      prevSvc' = svc,
+      lastStepWorkResults' = List(),
+      lastStepAssigns' = out.assigns,
+      lastStepAssignBudget' = budget,
+      // Touches no head, so the commitment is empty (checked by the invariant).
+      lastHeadRoot' = None,
+      foreignServices' = foreignServices,
+      logPrunedBelow' = logPrunedBelow
+    }
+  }
+
   action stepIncomingTransfer = {
     val senderPool: Set[ServiceId] = Set(MkServiceId(0), MkServiceId(3), MkServiceId(7))
     nondet senderId = oneOf(senderPool)
@@ -292,20 +325,9 @@ module main {
     // Batch sizes above one exercise the in-invocation packing.
     nondet extra = oneOf(Set(0, 1))
     val t = { source: senderId, amount: amount, toSupervisorBalance: toSup, memo: memo }
-    all {
-      svc' = applyIncomingTransfers(
-        svc, if (extra == 0) List(t) else List(t, { ...t, memo: memo + 1 })),
-      now' = now,
-      jamStagingSet' = jamStagingSet,
-      solicitedSet' = solicitedSet,
-      prevSvc' = svc,
-      lastStepWorkResults' = List(),
-      lastStepAssigns' = List(),
-      // Touches no head, so the commitment is empty (checked by the invariant).
-      lastHeadRoot' = None,
-      foreignServices' = foreignServices,
-      logPrunedBelow' = logPrunedBelow
-    }
+    nondet budget = oneOf(AssignBudgets)
+    incomingTransferInvocation(
+      if (extra == 0) List(t) else List(t, { ...t, memo: memo + 1 }), budget)
   }
 
   // Model JAM Phase 3: anyone submits a solicited preimage out-of-band, moving
@@ -323,6 +345,8 @@ module main {
       prevSvc' = svc,
       lastStepWorkResults' = List(),
       lastStepAssigns' = List(),
+      // Not an accumulate invocation, so no due assign is applied.
+      lastStepAssignBudget' = { flush: 0, end: 0 },
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
       foreignServices' = foreignServices,

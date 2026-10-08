@@ -46,6 +46,12 @@ module state_vars {
   /// of the protocol.
   var lastStepAssigns: List[AssignCall]
 
+  /// Ghost state: the due-assign budget of the last step, counted in assigns
+  /// rather than gas (see `AssignBudget`). Records the nondet choice so the
+  /// Rust harness can provide gas for exactly that many. Not part of the
+  /// protocol.
+  var lastStepAssignBudget: AssignBudget
+
   /// The 32-byte value `accumulate` returned for the last step: the head
   /// commitment of §5.5, or `None` when no head changed. Not ghost state: it
   /// is the service's actual accumulate output, but only the most recent one

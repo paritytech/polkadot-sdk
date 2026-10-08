@@ -1,7 +1,7 @@
 // Accumulate: on-chain integration (design §5.1).
 //
-// All always-accumulate work runs first (apply due authorizer queues, then
-// incoming transfers), then the block's work packages in order.
+// The always-accumulate work (apply due authorizer queues) runs first, then the
+// incoming transfers, then the block's work packages in order.
 module accumulate {
   import types.* from "./types"
   import messages.* from "./messages"
@@ -548,27 +548,44 @@ module accumulate {
 
   // ---- Always-accumulate (§5.1, general work) ---------------------------
 
-  /// Fire pending `assign`s that are due (§5.1). Gating reads ONLY the
-  /// dirty-core index; the much larger payload is read just for a core that is
-  /// actually due, and not-yet-due cores are retained unchanged. A stored
-  /// `assigner` of `None` resolves to this service, since JAM's `assign` always
-  /// writes one.
-  pure def applyAlwaysAccumulate(
+  /// The due core applied first: earliest due timeslot, then lowest core index,
+  /// so an assign carried over from an earlier block goes before newer ones.
+  pure def firstDueCore(s: ParachainServiceState, due: Set[CoreIndex]): CoreIndex =
+    due.fold(-1, (best, c) =>
+      if (best == -1) c
+      else {
+        val dc = s.pendingAssignCores.get(c)
+        val db = s.pendingAssignCores.get(best)
+        if (dc < db or (dc == db and c < best)) c else best
+      })
+
+  /// Fire up to `budget` pending `assign`s that are due (§5.1); `budget` is how
+  /// many fit into the gas available. Gating reads ONLY the dirty-core index;
+  /// the much larger payload is read just for a core that is actually fired.
+  /// Not-yet-due cores and due cores beyond the budget are retained unchanged.
+  /// A stored `assigner` of `None` resolves to this service, since JAM's
+  /// `assign` always writes one.
+  pure def applyDueAssigns(
     s: ParachainServiceState,
-    now: Timeslot
+    now: Timeslot,
+    budget: int
   ): {
     state: ParachainServiceState,
     assigns: List[AssignCall],
     // Logged against the Coretime chain, the only para that may `AssignCore`.
     logs: List[AccumulateLog]
   } = {
-    s.pendingAssignCores.keys().fold(
+    val due = s.pendingAssignCores.keys().filter(c => s.pendingAssignCores.get(c) <= now)
+    val n = if (budget < due.size()) budget else due.size()
+    // The cores to fire, in firing order, paired with the same cores as a set.
+    val fired = range(0, n).foldl((List(), Set()), (sel, _) => {
+      val c = firstDueCore(s, due.exclude(sel._2))
+      (sel._1.append(c), sel._2.union(Set(c)))
+    })._1
+    fired.foldl(
       { state: s, assigns: List(), logs: List() },
       (acc, c) => {
-        val dueAt = s.pendingAssignCores.get(c)
-        if (now < dueAt)
-          acc
-        else if (not(acc.state.isAssignerOf(c)))
+        if (not(acc.state.isAssignerOf(c)))
           // The core was handed away since this entry was cached, so JAM rejects
           // the `assign`: drop the entry and log the rejection (§7.1).
           { ...acc,
@@ -603,6 +620,16 @@ module accumulate {
       }
     )
   }
+
+  /// Fire every due `assign`, i.e. a flush whose budget covers all of them.
+  pure def applyAlwaysAccumulate(
+    s: ParachainServiceState,
+    now: Timeslot
+  ): {
+    state: ParachainServiceState,
+    assigns: List[AssignCall],
+    logs: List[AccumulateLog]
+  } = applyDueAssigns(s, now, CoreCount)
 
   /// §5.1: admit one transfer into `open`, the bucket the current accumulate
   /// invocation is filling (`None` before it has opened one). Returns the new
@@ -672,8 +699,66 @@ module accumulate {
     t: IncomingTransfer
   ): ParachainServiceState = applyIncomingTransfers(s, List(t))
 
+  /// §5.1: fire up to `budget` due `assign`s, logging rejections against the
+  /// Coretime chain, the only para that may `AssignCore`.
+  pure def flushDueAssigns(
+    s: ParachainServiceState,
+    now: Timeslot,
+    budget: int
+  ): { state: ParachainServiceState, assigns: List[AssignCall] } = {
+    val flushed = applyDueAssigns(s, now, budget)
+    {
+      state: flushed.state.appendAccumulateLogs(CoretimeParaId, now, flushed.logs),
+      assigns: flushed.assigns
+    }
+  }
+
+  /// An accumulate invocation carrying incoming transfers and no work reports
+  /// (§5.1). Due assigns are still flushed before the transfers are recorded,
+  /// and any left over after them while `budget.end` lasts.
+  pure def accumulateTransfers(
+    s: ParachainServiceState,
+    now: Timeslot,
+    ts: List[IncomingTransfer],
+    budget: AssignBudget
+  ): { state: ParachainServiceState, assigns: List[AssignCall] } = {
+    val flushed = flushDueAssigns(s, now, budget.flush)
+    val late = flushDueAssigns(applyIncomingTransfers(flushed.state, ts), now, budget.end)
+    { state: late.state, assigns: flushed.assigns.concat(late.assigns) }
+  }
+
   /// The full per-block Accumulate pipeline (§5.1): first run always-accumulate
   /// (flush due authorizer queues), then accumulate the block's work packages.
+  /// `budget.flush` due assigns fit into the always-accumulate allowance; any due
+  /// ones left over are fired after the work packages while `budget.end` lasts,
+  /// and otherwise carried over to the next block.
+  pure def accumulateBlockBudgeted(
+    state: ParachainServiceState,
+    now: Timeslot,
+    staging: List[ValidatorKey],
+    solicited: Set[(ParaId, Hash, int)],
+    codeLen: int,
+    packages: List[WorkResult],
+    foreign: ForeignServices,
+    budget: AssignBudget
+  ): BlockOutcome = {
+    val flushed = flushDueAssigns(state, now, budget.flush)
+    val acc =
+      accumulateAll(flushed.state, solicited, List(), codeLen, now, packages, foreign)
+    val late = flushDueAssigns(acc.state, now, budget.end)
+    {
+      state: late.state,
+      staging: if (acc.jamDesignate == List()) staging else acc.jamDesignate,
+      solicited: acc.solicited,
+      assigns: flushed.assigns.concat(acc.jamAssigns).concat(late.assigns),
+      logPruned: acc.logPruned,
+      results: packages,
+      headRoot: headCommitment(state, late.state),
+      foreign: acc.foreign
+    }
+  }
+
+  /// `accumulateBlockBudgeted` with an allowance covering every due assign.
   pure def accumulateBlock(
     state: ParachainServiceState,
     now: Timeslot,
@@ -682,23 +767,7 @@ module accumulate {
     codeLen: int,
     packages: List[WorkResult],
     foreign: ForeignServices
-  ): BlockOutcome = {
-    val flushed = applyAlwaysAccumulate(state, now)
-    // `AssignCore` is Coretime-chain only, so a queue of its that can no longer
-    // be applied is reported in its log.
-    val logged =
-      flushed.state.appendAccumulateLogs(CoretimeParaId, now, flushed.logs)
-    val acc =
-      accumulateAll(logged, solicited, List(), codeLen, now, packages, foreign)
-    {
-      state: acc.state,
-      staging: if (acc.jamDesignate == List()) staging else acc.jamDesignate,
-      solicited: acc.solicited,
-      assigns: flushed.assigns.concat(acc.jamAssigns),
-      logPruned: acc.logPruned,
-      results: packages,
-      headRoot: headCommitment(state, acc.state),
-      foreign: acc.foreign
-    }
-  }
+  ): BlockOutcome =
+    accumulateBlockBudgeted(
+      state, now, staging, solicited, codeLen, packages, foreign, FullAssignBudget)
 }

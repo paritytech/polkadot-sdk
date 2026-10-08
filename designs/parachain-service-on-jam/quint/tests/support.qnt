@@ -75,6 +75,7 @@ module support {
       prevSvc' = svc,
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
+      lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
       logPrunedBelow' =
@@ -98,6 +99,7 @@ module support {
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
+    lastStepAssignBudget' = lastStepAssignBudget,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
@@ -112,6 +114,7 @@ module support {
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
+    lastStepAssignBudget' = lastStepAssignBudget,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
@@ -126,6 +129,7 @@ module support {
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
+    lastStepAssignBudget' = lastStepAssignBudget,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = fs,
     logPrunedBelow' = logPrunedBelow
@@ -141,6 +145,7 @@ module support {
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
+    lastStepAssignBudget' = lastStepAssignBudget,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
@@ -208,6 +213,7 @@ module support {
       prevSvc' = svc,
       lastStepWorkResults' = List(wr),
       lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out.jamAssigns),
+      lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = headCommitment(svc, out.state),
       foreignServices' = out.foreign,
       logPrunedBelow' = logPrunedBelow

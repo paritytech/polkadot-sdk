@@ -99,6 +99,16 @@ module types {
   pure val ValidatorKeySize: int = 336
 
   pure val CoreCount: int = 341
+
+  /// Gas available to the due-assign flushes of one accumulate invocation
+  /// (§5.1). For abstraction reasons the model does not track gas: a budget
+  /// is the number of due assigns the gas pays for, whether JAM accepts or
+  /// rejects them. `flush` is what fits into the always-accumulate allowance,
+  /// `end` what fits into the gas left once the work packages are done.
+  type AssignBudget = { flush: int, end: int }
+
+  /// An always-accumulate allowance that pays for every due assign.
+  pure val FullAssignBudget: AssignBudget = { flush: CoreCount, end: 0 }
   /// Valid `stagingset` lengths (gray paper Safrole, eq. valcount): a multiple
   /// of 3, at least 6 and at most 1023.
   /// Quint's `.to` is inclusive, so the upper bound is `CoreCount` not

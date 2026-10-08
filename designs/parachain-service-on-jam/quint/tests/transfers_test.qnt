@@ -332,4 +332,36 @@ module transfers_test {
       init
     }
   }
+
+  /// §5.1: an invocation carrying only transfers still flushes due assigns
+  /// before recording them. A due rotation fires and is re-armed, a due entry on
+  /// a handed-away core is dropped and logged, and one not yet due is kept.
+  run transferOnlyInvocationFlushesDueAssignsTest = {
+    val three = List({ authBytes: 1 }, { authBytes: 2 }, { authBytes: 3 })
+    val armed = {
+      ...initialState,
+      pendingAssigns: Map(
+        3 -> { queue: three, assigner: None },
+        4 -> { queue: three, assigner: None },
+        5 -> { queue: three, assigner: None }),
+      pendingAssignCores: Map(3 -> 0, 4 -> 0, 5 -> 50),
+      jamCoreAssigners: initialState.jamCoreAssigners.put(4, MkServiceId(7))
+    }
+    val t = { source: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 0 }
+    init
+      .then(setSvc(armed))
+      .then(incomingTransferInvocation(List(t), FullAssignBudget))
+      .then(expectThat(all {
+        lastStepAssigns ==
+          List({ core: 3, assigner: ParachainServiceId, queue: assignQueueFor(three) }),
+        svc.pendingAssigns ==
+          Map(3 -> { queue: advanceAssignQueue(three), assigner: None },
+              5 -> { queue: three, assigner: None }),
+        svc.pendingAssignCores == Map(3 -> AuthorizerQueueLength, 5 -> 50),
+        svc.paraLog(CoretimeParaId) ==
+          pushLogEntry(armed.paraLog(CoretimeParaId),
+            (0, Accumulate(List(CoreNotAssignable({ core: 4 }))))),
+        svc.incomingTransfers.get(0) == List(t)
+      }))
+  }
 }

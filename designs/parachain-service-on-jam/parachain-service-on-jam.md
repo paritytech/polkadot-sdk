@@ -626,7 +626,9 @@ enum UpwardMessage {
         /// `None` keeps this service as the core's assigner. `Some(s)` hands the
         /// core to `s` and requires exactly `AUTH_QUEUE_SIZE` hashes. See §7.1.
         new_assigner: Option<ServiceId>,
-        /// Timeslot at which the queue should be applied.
+        /// Timeslot from which the queue should be applied. An already due `jam_slot`
+        /// (`jam_slot <= now`) is applied when this message is replayed. Otherwise the
+        /// queue is cached until it is due (§5.1), replacing any queue cached for `core`.
         jam_slot: Timeslot,
     },
     /// Append a chunk of upcoming validator keys to `staged_validator_keys`.
@@ -795,17 +797,16 @@ service storage.
 Accumulate for the Parachain Service covers the parachain-specific parts of what the
 relay chain's `enact_candidate` does today. JAM handles availability, approvals, and disputes
 natively (see §2). The work runs in three phases, in order: due authorizer-queue flushes,
-incoming-transfer processing, and per-work-package work. The first two form the
-always-accumulate work. Because always-accumulate runs *before* the work packages, a queue
-scheduled by a work package is normally applied in a later block's always-accumulate, once
-its `jam_slot` arrives. A queue whose `jam_slot` is already due (`jam_slot <= now`) when the
-scheduling message is processed is instead applied inline right away, since
-always-accumulate has already run.
+incoming-transfer processing, and per-work-package work.
 
-The always-accumulate phases must stay within the always-accumulate allowance, since every
-report's gas is budgeted for that report alone (see the gas gate under *Per-work-package
-work* below). Their cost must therefore be bounded and **benchmarked**, so that a block
-heavy in due assigns or incoming transfers cannot eat into report gas.
+Each phase is paid from its own gas, so none of them can eat into another's:
+
+- **Due assigns** are the only always-accumulate work, paid from the always-accumulate
+  allowance. Those that do not fit are deferred (see *Apply due assigns* below).
+- **Incoming transfers** each pay for their own processing with the gas they carry, at
+  least `min_memo_gas`.
+- **Work reports** each pay from their own declared gas limit (see the gas gate under
+  *Per-work-package work* below).
 
 #### Apply due assigns (before work packages)
 
@@ -821,6 +822,12 @@ Due timeslots are kept only in `pending_assign_cores`, so Accumulate reads a cor
 - If JAM rejects it because this service is no longer the core's assigner, the core is
   dropped from both maps and `AccumulateLog::CoreNotAssignable` is recorded in the
   Coretime chain's log.
+
+The cost of applying one due assign must be **benchmarked**, so the flush knows how many fit.
+The flush only applies as many due assigns as fit into the always-accumulate allowance,
+earliest due timeslot first and then lowest core index, so carried-over ones go before
+newer ones. If gas is left once the work packages are done, they are applied at the end
+of the invocation, otherwise they are carried over to the next block's flush.
 
 #### Incoming transfer processing
 

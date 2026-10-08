@@ -284,14 +284,13 @@ module invariants {
   val pending_authorizer_cores_consistent: bool =
     svc.pendingAssignCores.keys() == svc.pendingAssigns.keys()
 
-  /// Every cached assign is scheduled strictly in the future: a due entry is
-  /// never left cached; always-accumulate fires due entries at block start
-  /// (dropping them, or re-scheduling a rotating queue 80 blocks out), and an
-  /// `assign_core` whose `jamSlot` is already due is applied inline during
-  /// replay.
-  val pending_authorizer_apply_at_future: bool =
-    svc.pendingAssignCores.keys().forall(c =>
-      svc.pendingAssignCores.get(c) > now)
+  /// A core whose `assign` fired last step is not left due: firing drops its
+  /// entry or re-schedules a rotating queue 80 blocks out. A due entry may only
+  /// remain cached when the gas ran out before reaching it (§5.1).
+  val fired_assign_not_left_due: bool =
+    lastStepAssigns.foldl(true, (acc, a) =>
+      acc and (not(svc.pendingAssignCores.keys().contains(a.core)) or
+        svc.pendingAssignCores.get(a.core) > now))
 
   /// Every `assign` recorded last step targets a valid core index (< CoreCount).
   /// (A structural sanity check that the assign-recording is well-formed.)
@@ -384,7 +383,7 @@ module invariants {
     incoming_transfer_bucket_bounded,
     pending_authorizer_queue_bounded,
     pending_authorizer_cores_consistent,
-    pending_authorizer_apply_at_future,
+    fired_assign_not_left_due,
     assign_calls_well_formed,
     staged_validator_keys_bounded,
     accumulate_log_batch_nonempty,

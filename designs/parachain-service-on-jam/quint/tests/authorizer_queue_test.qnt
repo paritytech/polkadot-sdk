@@ -358,4 +358,38 @@ module authorizer_queue_test {
       init
     }
   }
+
+  /// §5.1: due assigns beyond the always-accumulate allowance stay cached. The
+  /// earliest due fire first, more fire after the work packages if gas is left,
+  /// and the rest are carried over to the next block.
+  run dueAssignsBeyondBudgetCarriedOverTest = {
+    val one = List({ authBytes: 1 })
+    val armed = {
+      ...initialState,
+      pendingAssigns: Map(
+        3 -> { queue: one, assigner: None },
+        4 -> { queue: one, assigner: None },
+        5 -> { queue: one, assigner: None },
+        6 -> { queue: one, assigner: None }),
+      pendingAssignCores: Map(3 -> 5, 4 -> 2, 5 -> 8, 6 -> 5)
+    }
+    pure def call(c: CoreIndex): AssignCall =
+      { core: c, assigner: ParachainServiceId, queue: assignQueueFor(one) }
+    val first = accumulateBlockBudgeted(
+      armed, 10, List(), Set(), FixedCodeLen, List(), Map(), { flush: 1, end: 2 })
+    val second = accumulateBlockBudgeted(
+      first.state, 11, List(), Set(), FixedCodeLen, List(), Map(), { flush: 1, end: 0 })
+    val everything = accumulateBlockBudgeted(
+      armed, 10, List(), Set(), FixedCodeLen, List(), Map(), FullAssignBudget)
+    all {
+      // A budget covering every due assign still fires them in order.
+      assert(everything.assigns == List(call(4), call(3), call(6), call(5))),
+      // Core 4 is due first; 3 and 6 tie on slot 5, so the lower index goes.
+      assert(first.assigns == List(call(4), call(3), call(6))),
+      assert(first.state.pendingAssignCores == Map(5 -> 8)),
+      assert(second.assigns == List(call(5))),
+      assert(second.state.pendingAssignCores == Map()),
+      init
+    }
+  }
 }
