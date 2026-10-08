@@ -5408,6 +5408,7 @@ dependencies = [
  "frame-system",
  "log",
  "parity-scale-codec",
+ "polkadot-ckb-merkle-mountain-range",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-primitives",

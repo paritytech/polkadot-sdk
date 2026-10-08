@@ -18,10 +18,11 @@ use codec::Encode;
 use cumulus_primitives_core::ParaId;
 use cumulus_primitives_spec_messaging::{
 	leaf_hash,
+	mmr::SpecMerge,
 	streams_root::{read_streams_root, streams_root},
-	ChannelId, ChannelPhase, ConsumeItem, ConsumedStream, ConsumptionRecord, MessagePosition,
-	MessagingInherentData, MmrFrontier, ProvideConsumptionRecord, Register, SpecMsgKind, SpecMsgSignal,
-	StreamId, StreamsRoot, WindowGrant, LEAF_VERSION,
+	ChannelId, ChannelPhase, ConsumeItem, ConsumedStream, ConsumptionRecord, Interval,
+	MMRExtensionProof, MessagePosition, MessagingInherentData, MmrFrontier, ProvideConsumptionRecord,
+	Register, SpecMsgKind, SpecMsgSignal, StreamId, StreamsRoot, WindowGrant, LEAF_VERSION,
 };
 use frame_support::{
 	assert_err, assert_ok,
@@ -889,5 +890,227 @@ fn rereading_an_unchanged_register_head_is_harmless() {
 		let interval = record.entries.get(&peer()).and_then(|m| m.get(&peer_ack())).expect("read");
 		assert_eq!(interval.start, MmrFrontier::new().root());
 		assert_eq!(interval.end.leaf_count(), 1);
+	});
+}
+
+/// The first `n` leaves of [`src`]'s channel `0`, as `Data` payloads.
+fn skip_payloads(n: usize) -> Vec<Vec<u8>> {
+	(0..n).map(|i| data_payload(&[i as u8])).collect()
+}
+
+/// The frontier over the first `n` leaves of `payloads`.
+fn frontier_over(payloads: &[Vec<u8>], n: usize) -> MmrFrontier {
+	let mut frontier = MmrFrontier::new();
+	for payload in &payloads[..n] {
+		frontier.append(leaf_hash(LEAF_VERSION, payload));
+	}
+	frontier
+}
+
+/// The `mmr_lib` extension proof from `k` to `n` leaves of `payloads` (`0 < k < n`).
+fn extension(payloads: &[Vec<u8>], k: usize, n: usize) -> MMRExtensionProof {
+	use mmr_lib::{
+		leaf_index_to_mmr_size,
+		util::{MemMMR, MemStore},
+	};
+	let store = MemStore::default();
+	let mut mmr = MemMMR::<_, SpecMerge>::new(0, &store);
+	for payload in &payloads[..n] {
+		mmr.push(leaf_hash(LEAF_VERSION, payload)).unwrap();
+	}
+	let proof = mmr.gen_ancestry_proof(leaf_index_to_mmr_size(k as u64 - 1)).unwrap();
+	MMRExtensionProof {
+		leaf_count: n as u64,
+		connecting_nodes: proof
+			.prev_peaks_proof
+			.proof_items()
+			.iter()
+			.map(|(_, h)| *h)
+			.collect::<Vec<_>>()
+			.try_into()
+			.expect("fits the bound; qed"),
+	}
+}
+
+/// Skip [`src`]'s channel `0` to `to` with `extension`.
+fn skip(to: &MmrFrontier, extension: MMRExtensionProof) -> sp_runtime::DispatchResult {
+	SpecMessaging::skip_inbound_stream(
+		RuntimeOrigin::root(),
+		src(),
+		0,
+		0,
+		to.peaks().to_vec(),
+		to.leaf_count(),
+		extension,
+	)
+}
+
+/// Consume the first `k` leaves of `payloads` on [`src`]'s channel `0`.
+fn consume_first(payloads: &[Vec<u8>], k: usize) {
+	let item = ConsumeItem::Channel { payloads: payloads[..k].to_vec() };
+	assert_ok!(SpecMessaging::enact_messages(
+		RuntimeOrigin::none(),
+		inherent(vec![(src(), stream(0), item)])
+	));
+}
+
+#[test]
+fn skip_moves_the_frontier_records_and_republishes() {
+	new_test_ext().execute_with(|| {
+		let payloads = skip_payloads(7);
+		accept(0);
+		consume_first(&payloads, 3);
+		roll_one_block();
+
+		let old = frontier_over(&payloads, 3);
+		let new = frontier_over(&payloads, 7);
+		assert_ok!(skip(&new, extension(&payloads, 3, 7)));
+
+		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), new);
+		let record = SpecMessaging::consumption_record();
+		assert_eq!(
+			record.entries[&src()][&stream(0)],
+			Interval { start: old.root(), end: new.clone() }
+		);
+		let channel = ChannelId { peer: src(), domain: 0, num: 0 };
+		let state = InChannels::<Test>::get(channel).unwrap();
+		assert_eq!(state.published.up_to, MessagePosition(7));
+		System::assert_last_event(
+			Event::StreamSkipped { channel, from: MessagePosition(3), to: MessagePosition(7) }
+				.into(),
+		);
+
+		// Consumption resumes from the new frontier.
+		roll_one_block();
+		let more = skip_payloads(8);
+		let item = ConsumeItem::Channel { payloads: more[7..].to_vec() };
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			inherent(vec![(src(), stream(0), item)])
+		));
+		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), frontier_over(&more, 8));
+	});
+}
+
+#[test]
+fn skip_from_the_empty_stream_takes_the_peaks_as_proof() {
+	new_test_ext().execute_with(|| {
+		let payloads = skip_payloads(5);
+		accept(0);
+		let new = frontier_over(&payloads, 5);
+		let extension = MMRExtensionProof {
+			leaf_count: 5,
+			connecting_nodes: new.peaks().to_vec().try_into().expect("fits the bound; qed"),
+		};
+		assert_ok!(skip(&new, extension));
+		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), new);
+	});
+}
+
+#[test]
+fn skip_rejects_bad_claims() {
+	new_test_ext().execute_with(|| {
+		let payloads = skip_payloads(7);
+		accept(0);
+		consume_first(&payloads, 3);
+		roll_one_block();
+		let new = frontier_over(&payloads, 7);
+		let good = extension(&payloads, 3, 7);
+
+		// Not governance.
+		assert_err!(
+			SpecMessaging::skip_inbound_stream(
+				RuntimeOrigin::signed(1),
+				src(),
+				0,
+				0,
+				new.peaks().to_vec(),
+				7,
+				good.clone()
+			),
+			sp_runtime::DispatchError::BadOrigin
+		);
+		// No such channel.
+		assert_err!(
+			SpecMessaging::skip_inbound_stream(
+				RuntimeOrigin::root(),
+				src(),
+				0,
+				1,
+				new.peaks().to_vec(),
+				7,
+				good.clone()
+			),
+			Error::<Test>::UnknownChannel
+		);
+		// Peaks that do not fit the leaf count.
+		assert_err!(
+			SpecMessaging::skip_inbound_stream(
+				RuntimeOrigin::root(),
+				src(),
+				0,
+				0,
+				new.peaks().to_vec(),
+				8,
+				good.clone()
+			),
+			Error::<Test>::BadFrontier
+		);
+		// Not forward: back to where we are.
+		let here = frontier_over(&payloads, 3);
+		assert_err!(skip(&here, MMRExtensionProof::identity()), Error::<Test>::BadExtension);
+		// The proof's leaf count differs from the claim.
+		assert_err!(skip(&new, extension(&payloads, 3, 6)), Error::<Test>::BadExtension);
+		// The proof does not extend our frontier: it starts from another one.
+		assert_err!(skip(&new, extension(&payloads, 2, 7)), Error::<Test>::BadExtension);
+		// The claimed peaks do not match the proven root: another history.
+		let mut forged = skip_payloads(7);
+		forged[6] = data_payload(b"forged");
+		assert_err!(
+			skip(&frontier_over(&forged, 7), extension(&payloads, 3, 7)),
+			Error::<Test>::BadExtension
+		);
+
+		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), here);
+		assert!(SpecMessaging::consumption_record().entries.is_empty());
+	});
+}
+
+#[test]
+fn skip_refuses_a_stream_consumed_this_block() {
+	new_test_ext().execute_with(|| {
+		let payloads = skip_payloads(7);
+		accept(0);
+		consume_first(&payloads, 3);
+		let new = frontier_over(&payloads, 7);
+		assert_err!(skip(&new, extension(&payloads, 3, 7)), Error::<Test>::StreamTouched);
+		roll_one_block();
+		assert_ok!(skip(&new, extension(&payloads, 3, 7)));
+		// And the inherent cannot follow a skip either: the skip is this block's interval.
+		assert_err!(
+			skip(&frontier_over(&skip_payloads(9), 9), extension(&skip_payloads(9), 7, 9)),
+			Error::<Test>::StreamTouched
+		);
+	});
+}
+
+#[test]
+fn an_undecodable_leaf_is_consumed_and_reported() {
+	new_test_ext().execute_with(|| {
+		accept(0);
+		let payloads = vec![data_payload(b"ok"), vec![0xff, 0xff]];
+		let item = ConsumeItem::Channel { payloads: payloads.clone() };
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			inherent(vec![(src(), stream(0), item)])
+		));
+		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), frontier_over(&payloads, 2));
+		System::assert_last_event(
+			Event::UndecodableLeaf {
+				channel: ChannelId { peer: src(), domain: 0, num: 0 },
+				position: MessagePosition(1),
+			}
+			.into(),
+		);
 	});
 }

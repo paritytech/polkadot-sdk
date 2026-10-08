@@ -35,9 +35,10 @@ use alloc::{
 use codec::{Decode, DecodeAll, Encode};
 use cumulus_primitives_spec_messaging::{
 	leaf_hash, streams_root::streams_root, ChannelId, ChannelPhase, ConsumeItem, ConsumedStream,
-	ConsumptionRecord, InChannelState, Interval, MessagePosition, MessagingInherentData,
-	MmrFrontier, OutChannelState, Payload, ProvideConsumptionRecord, Register, SpecMsgKind, SpecMsgSignal,
-	StreamId, StreamsRoot, WindowGrant, INHERENT_IDENTIFIER, LEAF_VERSION, SPMS_ENGINE_ID,
+	ConsumptionRecord, InChannelState, Interval, MMRExtensionProof, MessagePosition,
+	MessagingInherentData, MmrFrontier, OutChannelState, Payload, ProvideConsumptionRecord, Register,
+	SpecMsgKind, SpecMsgSignal, StreamId, StreamsRoot, WindowGrant, INHERENT_IDENTIFIER,
+	LEAF_VERSION, SPMS_ENGINE_ID,
 };
 use frame_support::{ensure, pallet_prelude::Weight, traits::Get, BoundedVec};
 use polkadot_core_primitives::Hash;
@@ -113,7 +114,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
 		/// This parachain's own id; consumed streams are addressed to it.
 		type SelfParaId: Get<ParaId>;
 
@@ -147,7 +148,8 @@ pub mod pallet {
 		/// lets unprivileged accounts accept must add a deposit first.
 		type AcceptChannelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Origin allowed to suspend and resume an inbound channel.
+		/// Origin allowed to suspend and resume an inbound channel, and to skip a stalled one
+		/// ahead ([`Pallet::skip_inbound_stream`]).
 		type ChannelManagementOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The send-window credit every published register grants.
@@ -208,6 +210,17 @@ pub mod pallet {
 	pub type ConsumptionOutbox<T: Config> =
 		StorageValue<_, Vec<(ParaId, StreamId, Interval)>, ValueQuery>;
 
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// Governance moved an inbound channel's consumption frontier ahead without consuming the
+		/// leaves in between: `from..to` were never delivered.
+		StreamSkipped { channel: ChannelId, from: MessagePosition, to: MessagePosition },
+		/// A consumed leaf did not decode as a `SpecMsgKind`. It is consumed anyway (it is a
+		/// valid leaf) and dropped.
+		UndecodableLeaf { channel: ChannelId, position: MessagePosition },
+	}
+
 	#[pallet::error]
 	#[derive(PartialEq, Eq)]
 	pub enum Error<T> {
@@ -225,8 +238,8 @@ pub mod pallet {
 		TooManyStreams,
 		/// [`Config::MaxContextGaps`] exhausted.
 		TooManyGaps,
-		/// An `Events` item's `(start_peaks, base)` is not a valid frontier, or an item's payloads
-		/// would carry a frontier past `MAX_MMR_LEAF_COUNT`.
+		/// An `Events` item's `(start_peaks, base)`, or a skip's claimed frontier, is not a valid
+		/// frontier, or an item's payloads would carry a frontier past `MAX_MMR_LEAF_COUNT`.
 		BadFrontier,
 		/// This block's `StreamsRoot` is already committed; a later send could not be served.
 		RootCommitted,
@@ -252,6 +265,11 @@ pub mod pallet {
 		AlreadySuspended,
 		/// The inbound channel is not suspended.
 		NotSuspended,
+		/// The stream was already consumed this block.
+		StreamTouched,
+		/// The claimed frontier is not ahead of ours, or the extension proof does not extend ours
+		/// to it.
+		BadExtension,
 	}
 
 	#[pallet::hooks]
@@ -505,6 +523,65 @@ pub mod pallet {
 			InChannels::<T>::insert(channel, state);
 			Ok(())
 		}
+
+		/// Stall recovery: move an inbound channel's consumption frontier to `(peaks,
+		/// leaf_count)` without consuming the leaves in between, for a stream whose next payloads
+		/// cannot be fetched. The skipped leaves are lost, signals included.
+		///
+		/// `extension` must extend our frontier to exactly the claimed one, so the skip only
+		/// moves forward along the sender's history, and fails here, not at the relay chain, on a
+		/// bad claim. The claimed peaks are bound to that root, not re-derived: a different peak
+		/// set with the same root is a hash collision. Like any consumption, the skip is recorded
+		/// as an [`Interval`], so this block's `Requires` must lift to a committed root that
+		/// contains the new frontier.
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(4, 4))]
+		pub fn skip_inbound_stream(
+			origin: OriginFor<T>,
+			sender: ParaId,
+			domain: u8,
+			num: u16,
+			peaks: Vec<Hash>,
+			leaf_count: u64,
+			extension: MMRExtensionProof,
+		) -> DispatchResult {
+			T::ChannelManagementOrigin::ensure_origin(origin)?;
+			let channel = ChannelId { peer: sender, domain, num };
+			let mut state = InChannels::<T>::get(channel).ok_or(Error::<T>::UnknownChannel)?;
+			let stream = Self::inbound_stream(&channel);
+			let outbox = ConsumptionOutbox::<T>::get();
+			// One interval per stream per block: the inherent ran first, so a stream it consumed
+			// is already here.
+			ensure!(
+				!outbox.iter().any(|(source, s, _)| *source == sender && *s == stream),
+				Error::<T>::StreamTouched
+			);
+			ensure!(
+				(outbox.len() as u32) < T::MaxTouchedStreams::get(),
+				Error::<T>::TooManyStreams
+			);
+
+			let new = MmrFrontier::from_parts(peaks, leaf_count).ok_or(Error::<T>::BadFrontier)?;
+			let old = InboundFrontier::<T>::get((sender, stream));
+			ensure!(
+				leaf_count > old.leaf_count() && extension.leaf_count == leaf_count,
+				Error::<T>::BadExtension
+			);
+			let root = extension.verify(&old).map_err(|_| Error::<T>::BadExtension)?;
+			ensure!(root == new.root(), Error::<T>::BadExtension);
+
+			let (from, to) = (MessagePosition(old.leaf_count()), MessagePosition(leaf_count));
+			InboundFrontier::<T>::insert((sender, stream), &new);
+			ConsumptionOutbox::<T>::append((
+				sender,
+				stream,
+				Interval { start: old.root(), end: new },
+			));
+			Self::publish_register(&channel, &mut state)?;
+			InChannels::<T>::insert(channel, state);
+			Self::deposit_event(Event::StreamSkipped { channel, from, to });
+			Ok(())
+		}
 	}
 
 	#[pallet::inherent]
@@ -668,13 +745,13 @@ impl<T: Config> Pallet<T> {
 				.try_append(leaf_hash(LEAF_VERSION, payload))
 				.map_err(|_| Error::<T>::BadFrontier)?;
 			// Route `Data`, apply signals. A non-`SpecMsgKind` payload is a valid leaf regardless,
-			// so it is consumed-and-dropped.
+			// so it is consumed, dropped and reported.
 			match SpecMsgKind::decode_all(&mut &payload[..]) {
 				Ok(SpecMsgKind::Data(data)) => {
 					T::DataHandler::on_data(source, stream, position, data)
 				},
 				Ok(SpecMsgKind::Signal(signal)) => Self::apply_signal(&mut state, signal),
-				Err(_) => {},
+				Err(_) => Self::deposit_event(Event::UndecodableLeaf { channel, position }),
 			}
 		}
 		InboundFrontier::<T>::insert((source, stream), &frontier);
