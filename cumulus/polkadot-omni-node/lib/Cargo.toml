@@ -33,7 +33,6 @@ url = { workspace = true }
 # is git deps behind a feature or a publish = false shim crate). The two interface
 # crates are this repo's own: parachain-service dropped its copies of them.
 jam-interface = { package = "cumulus-jam-interface", path = "../../jam/interface" }
-jam-package-sync = { package = "cumulus-jam-package-sync", path = "../../jam/package-sync" }
 jam-rpc-interface = { package = "cumulus-jam-rpc-interface", path = "../../jam/rpc-interface" }
 # The parachain-service sibling's consolidated core crate (types, storage keys, service id,
 # authorizer helpers). The aura/authorizer machinery the old `cumulus` facade re-exported now

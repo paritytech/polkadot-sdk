@@ -44,8 +44,8 @@
 #   `cumulus-zombienet-sdk-tests` under `--cfg jam`; their filter is fixed and the positional
 #   test filter is not used.
 #
-#   --suite resubmission runs `jam::resubmission` of `cumulus-zombienet-sdk-tests` — the
-#   dropping-proxy resend test.
+#   --suite resubmission runs `jam::resubmission` of `cumulus-zombienet-sdk-tests` — the two
+#   dropping-proxy tests that lose work packages and expect their blocks to land in new ones.
 
 set -euo pipefail
 

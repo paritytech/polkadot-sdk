@@ -31,6 +31,7 @@ use Debug;
 /// This is the execution time each PoV gets on a core on the relay chain.
 pub const REF_TIME_PER_CORE_IN_SECS: u64 = 2;
 
+pub mod jam_anchor_proof;
 pub mod parachain_block_data;
 pub mod scheduling;
 

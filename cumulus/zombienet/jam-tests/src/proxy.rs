@@ -1,15 +1,24 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! A JSON-RPC proxy in front of a JAM node that drops the first `submitWorkPackage` per distinct
-//! work-package hash and forwards every later submission byte-exact.
+//! A JSON-RPC proxy in front of a JAM node that drops `submitWorkPackage` calls according to a
+//! [`DropPolicy`] and forwards the rest byte-exact.
 //!
-//! The resubmission test points the collators at this proxy instead of at the JAM node, so the
-//! first submission never reaches a guarantor and the collator's resend does. It is a typed
-//! proxy: it implements jsonrpsee 0.26's `ClientT`/`SubscriptionClientT`, and polkajam's blanket
-//! `RpcClient`/`Node`/`RpcServer` impls turn that into the whole JIP-2 surface and a served
-//! `into_rpc()`, subscriptions included, with no hand-written RPC methods.
+//! The resubmission tests point collators at this proxy instead of at the JAM node.
+//! [`DropPolicy::Random`] drops a seeded random share of the submissions, so the parachain blocks
+//! a dropped package carried only land once a collator puts them into a new package;
+//! [`DropPolicy::Everything`] drops every submission. The proxy decodes each package's PoV to the
+//! parachain blocks it carries: a forwarded package carrying a block of an earlier dropped one is
+//! a [`Resubmission`], which a test awaits through [`ProxyServer::subscribe_resubmissions`].
+//!
+//! It is a typed proxy: it implements jsonrpsee 0.26's `ClientT`/`SubscriptionClientT`, and
+//! polkajam's blanket `RpcClient`/`Node`/`RpcServer` impls turn that into the whole JIP-2 surface
+//! and a served `into_rpc()`, subscriptions included, with no hand-written RPC methods. Only the
+//! node's `header` method, which that vendored surface predates, is registered on top and relayed
+//! raw.
 
+use codec::Decode;
+use cumulus_primitives_core::ParachainBlockData;
 use jam_std_common::{Node, RpcServer, VersionedParameters};
 use jam_types::{AnyBytes, CoreIndex, WorkPackageHash};
 use jsonrpsee_jam::{
@@ -17,13 +26,20 @@ use jsonrpsee_jam::{
 		client::{BatchResponse, ClientT, Error, Subscription, SubscriptionClientT},
 		params::BatchRequestBuilder,
 		traits::ToRpcParams,
-		DeserializeOwned, JsonRawValue,
+		DeserializeOwned, JsonRawValue, RpcResult,
 	},
 	server::{Server, ServerConfig, ServerHandle},
+	types::{
+		error::{INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE},
+		ErrorObject,
+	},
 	ws_client::{WsClient, WsClientBuilder},
 };
+use rand::{rngs::StdRng, Rng, SeedableRng};
+use sp_core::H256;
+use sp_runtime::{generic, traits::BlakeTwo256, OpaqueExtrinsic};
 use std::{
-	collections::{hash_map::Entry, HashMap},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	fmt,
 	sync::{
 		atomic::{AtomicU32, Ordering},
@@ -31,9 +47,14 @@ use std::{
 	},
 	time::{Duration, Instant},
 };
+use tokio::sync::watch;
 
 /// JAM RPC bodies carry whole work packages; 32 MiB clears the node's own limits by a wide margin.
 const MAX_RPC_BODY_BYTES: u32 = 32 * 1024 * 1024;
+
+/// The block type a PoV is decoded as to name its parachain blocks: `u32` numbers and BlakeTwo256
+/// hashes, as every para these tests run uses, and extrinsics the proxy never looks into.
+type OpaqueParaBlock = generic::Block<generic::Header<u32, BlakeTwo256>, OpaqueExtrinsic>;
 
 /// Pre-serialized JSON-RPC params, so a request can be forwarded byte-exact.
 #[derive(Debug)]
@@ -45,20 +66,22 @@ impl ToRpcParams for RawParams {
 	}
 }
 
-/// The decision [`Attempts::record`] makes for one work-package hash.
+/// The decision [`Attempts::record`] makes for one submission.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Verdict {
-	/// The first sighting: swallow the submission.
+	/// Swallow the submission; it never reaches the JAM node.
 	Drop,
-	/// A resubmission: forward it, carrying the attempt number.
+	/// Forward it, carrying how often its work-package hash has been submitted so far.
 	Forward { attempt: u32 },
 }
 
 /// How [`Attempts::record`] decides which submissions to drop.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DropPolicy {
-	/// Drop only the first sighting of each distinct work-package hash; forward every later one.
-	FirstSubmission,
+	/// Drop each submission independently with `probability`, drawn from an RNG seeded with
+	/// `seed`, so the same seed and the same order of submissions give the same verdicts. `0.0`
+	/// forwards every submission and `1.0` drops every one.
+	Random { probability: f64, seed: u64 },
 	/// Drop every sighting of every work-package hash; nothing is ever forwarded.
 	Everything,
 }
@@ -75,35 +98,70 @@ pub struct Attempt {
 	pub core: CoreIndex,
 	/// Length in bytes of the work package.
 	pub package_len: usize,
+	/// `(hash, number)` of every parachain block the package's PoV carries; empty if the PoV does
+	/// not decode.
+	pub blocks: Vec<([u8; 32], u32)>,
+}
+
+/// A forwarded submission carrying parachain blocks that an earlier, dropped submission carried.
+#[derive(Clone, Debug)]
+pub struct Resubmission {
+	/// The work-package hash of the forwarded submission.
+	pub wp_hash: [u8; 32],
+	/// `(hash, number)` of the previously dropped blocks among the ones it carries.
+	pub blocks: Vec<([u8; 32], u32)>,
+	/// When the proxy forwarded it.
+	pub at: Instant,
 }
 
 /// Per-hash submission bookkeeping, governed by a [`DropPolicy`].
 #[derive(Debug)]
 pub struct Attempts {
 	policy: DropPolicy,
+	/// The source of [`DropPolicy::Random`]'s draws.
+	rng: StdRng,
 	by_hash: HashMap<[u8; 32], Attempt>,
 	/// How many [`Self::record`] calls returned [`Verdict::Forward`].
 	forwarded: usize,
-}
-
-impl Default for Attempts {
-	fn default() -> Self {
-		Self::new(DropPolicy::FirstSubmission)
-	}
+	/// Hashes of the parachain blocks that dropped submissions carried.
+	dropped_blocks: HashSet<[u8; 32]>,
+	/// Every [`Resubmission`], oldest first.
+	resubmissions: Vec<Resubmission>,
+	/// Publishes `resubmissions.len()` whenever it grows.
+	resubmission_count: watch::Sender<usize>,
 }
 
 impl Attempts {
 	/// A ledger that applies `policy`.
 	pub fn new(policy: DropPolicy) -> Self {
-		Self { policy, by_hash: HashMap::new(), forwarded: 0 }
+		let seed = match policy {
+			DropPolicy::Random { seed, .. } => seed,
+			DropPolicy::Everything => 0,
+		};
+		Self {
+			policy,
+			rng: StdRng::seed_from_u64(seed),
+			by_hash: HashMap::new(),
+			forwarded: 0,
+			dropped_blocks: HashSet::new(),
+			resubmissions: Vec::new(),
+			resubmission_count: watch::Sender::new(0),
+		}
 	}
 
-	/// Record one submission of `hash` and return the verdict.
+	/// Record one submission of `hash`, whose PoV carries `blocks`, and return the verdict.
 	///
-	/// Under [`DropPolicy::FirstSubmission`] the first sighting of a hash is dropped and every
-	/// later one is forwarded; under [`DropPolicy::Everything`] every sighting is dropped. Either
-	/// way the sighting is counted in [`Attempt::count`].
-	pub fn record(&mut self, hash: [u8; 32], core: CoreIndex, package_len: usize) -> Verdict {
+	/// [`DropPolicy::Random`] draws once per call and [`DropPolicy::Everything`] drops every call;
+	/// either way the sighting is counted in [`Attempt::count`]. A dropped submission marks its
+	/// blocks as dropped, and a forwarded one carrying any dropped block is recorded as a
+	/// [`Resubmission`] of those blocks.
+	pub fn record(
+		&mut self,
+		hash: [u8; 32],
+		core: CoreIndex,
+		package_len: usize,
+		blocks: Vec<([u8; 32], u32)>,
+	) -> Verdict {
 		let now = Instant::now();
 		let count = match self.by_hash.entry(hash) {
 			Entry::Occupied(mut occupied) => {
@@ -120,18 +178,38 @@ impl Attempts {
 					last_seen: now,
 					core,
 					package_len,
+					blocks: blocks.clone(),
 				});
 				1
 			},
 		};
 
-		match self.policy {
-			DropPolicy::FirstSubmission if count >= 2 => {
-				self.forwarded += 1;
-				Verdict::Forward { attempt: count }
-			},
-			_ => Verdict::Drop,
+		let dropped = match self.policy {
+			DropPolicy::Random { probability, .. } => self.rng.gen::<f64>() < probability,
+			DropPolicy::Everything => true,
+		};
+		if dropped {
+			self.dropped_blocks.extend(blocks.into_iter().map(|(block_hash, _)| block_hash));
+			return Verdict::Drop;
 		}
+
+		self.forwarded += 1;
+		let resubmitted: Vec<([u8; 32], u32)> = blocks
+			.into_iter()
+			.filter(|(block_hash, _)| self.dropped_blocks.contains(block_hash))
+			.collect();
+		if !resubmitted.is_empty() {
+			log::info!(
+				"resubmission #{} wp_hash={:?} blocks={}",
+				self.resubmissions.len() + 1,
+				WorkPackageHash(hash),
+				format_blocks(&resubmitted),
+			);
+			self.resubmissions
+				.push(Resubmission { wp_hash: hash, blocks: resubmitted, at: now });
+			self.resubmission_count.send_replace(self.resubmissions.len());
+		}
+		Verdict::Forward { attempt: count }
 	}
 
 	/// How many [`Self::record`] calls returned [`Verdict::Forward`].
@@ -145,11 +223,47 @@ impl Attempts {
 		attempts.sort_by_key(|attempt| attempt.first_seen);
 		attempts
 	}
+
+	/// Every [`Resubmission`], oldest first.
+	pub fn resubmissions(&self) -> &[Resubmission] {
+		&self.resubmissions
+	}
+
+	/// How many [`Resubmission`]s were recorded.
+	pub fn resubmission_count(&self) -> usize {
+		self.resubmissions.len()
+	}
+
+	/// [`Self::resubmission_count`], updated whenever a [`Resubmission`] is recorded.
+	pub fn subscribe_resubmissions(&self) -> watch::Receiver<usize> {
+		self.resubmission_count.subscribe()
+	}
 }
 
-/// A JAM node client that swallows the first `submitWorkPackage` of every distinct package.
+/// `(hash, number)` of every parachain block in `pov`, the SCALE-encoded [`ParachainBlockData`] a
+/// collator submits as a package's first extrinsic; empty if `pov` does not decode as one.
+fn pov_blocks(pov: &[u8]) -> Vec<([u8; 32], u32)> {
+	let Ok(data) = ParachainBlockData::<OpaqueParaBlock>::decode(&mut &pov[..]) else {
+		return Vec::new();
+	};
+	data.blocks()
+		.iter()
+		.map(|block| (block.header.hash().into(), block.header.number))
+		.collect()
+}
+
+/// `[#number 0xhash, ...]`, for logs and [`ProxyServer::describe`].
+fn format_blocks(blocks: &[([u8; 32], u32)]) -> String {
+	let blocks: Vec<String> = blocks
+		.iter()
+		.map(|(hash, number)| format!("#{number} {:?}", H256::from(*hash)))
+		.collect();
+	format!("[{}]", blocks.join(", "))
+}
+
+/// A JAM node client that swallows `submitWorkPackage` calls as its [`Attempts`] ledger decides.
 pub struct DroppingProxy {
-	upstream: WsClient,
+	upstream: Arc<WsClient>,
 	attempts: Arc<Mutex<Attempts>>,
 	upstream_errors: Arc<AtomicU32>,
 	policy: DropPolicy,
@@ -180,7 +294,7 @@ impl ClientT for DroppingProxy {
 
 		let raw = params.to_rpc_params()?;
 		let json = raw.as_ref().map(|raw| raw.get()).unwrap_or("[]");
-		let Ok((core, package, _extrinsics)) =
+		let Ok((core, package, extrinsics)) =
 			serde_json::from_str::<(CoreIndex, AnyBytes, Vec<AnyBytes>)>(json)
 		else {
 			// An unparseable body is not a package we can reason about; forward it untouched.
@@ -189,26 +303,31 @@ impl ClientT for DroppingProxy {
 
 		let hash = jam_std_common::hash_raw(package.0.as_ref());
 		let package_len = package.0.len();
+		let blocks = extrinsics.first().map(|pov| pov_blocks(pov.0.as_ref())).unwrap_or_default();
+		let blocks_summary = format_blocks(&blocks);
 		// Bound first so the lock guard is dropped before the forward await below.
-		let verdict = self.attempts.lock().unwrap().record(hash, core, package_len);
+		let verdict = self.attempts.lock().unwrap().record(hash, core, package_len, blocks);
 		match verdict {
 			Verdict::Drop => {
 				log::info!(
-					"swallowed a submission wp_hash={:?} core={} package_len={} policy={:?}",
+					"swallowed a submission wp_hash={:?} core={} package_len={} blocks={} \
+					 policy={:?}",
 					WorkPackageHash(hash),
 					core,
 					package_len,
+					blocks_summary,
 					self.policy,
 				);
 				serde_json::from_str::<R>("null").map_err(Error::ParseError)
 			},
 			Verdict::Forward { attempt } => {
 				log::info!(
-					"forwarding attempt {} wp_hash={:?} core={} package_len={}",
+					"forwarding attempt {} wp_hash={:?} core={} package_len={} blocks={}",
 					attempt,
 					WorkPackageHash(hash),
 					core,
 					package_len,
+					blocks_summary,
 				);
 				let result = self.upstream.request::<R, _>(method, RawParams(raw)).await;
 				if result.is_err() {
@@ -282,6 +401,12 @@ impl ProxyServer {
 		listen_addr: &str,
 		timeout: Duration,
 	) -> anyhow::Result<Self> {
+		match policy {
+			DropPolicy::Random { probability, seed } => {
+				log::info!("proxy: dropping at random probability={probability} seed={seed}")
+			},
+			DropPolicy::Everything => log::info!("proxy: dropping every submission"),
+		}
 		let deadline = Instant::now() + timeout;
 		loop {
 			match Self::serve_once(policy, upstream_url, listen_addr).await {
@@ -318,10 +443,11 @@ impl ProxyServer {
 			.apply()
 			.map_err(|error| anyhow::anyhow!("Invalid JAM chain parameters: {error}"))?;
 
+		let upstream = Arc::new(upstream);
 		let attempts = Arc::new(Mutex::new(Attempts::new(policy)));
 		let upstream_errors = Arc::new(AtomicU32::new(0));
 		let proxy = DroppingProxy {
-			upstream,
+			upstream: upstream.clone(),
 			attempts: attempts.clone(),
 			upstream_errors: upstream_errors.clone(),
 			policy,
@@ -337,7 +463,14 @@ impl ProxyServer {
 			.build(listen_addr)
 			.await?;
 		let url = format!("ws://{}", server.local_addr()?);
-		let handle = server.start(proxy.into_rpc());
+		let mut module = proxy.into_rpc();
+		// The vendored `RpcServer` surface predates the node's `header` method.
+		module
+			.register_async_method("header", move |params, _, _| {
+				relay_header(upstream.clone(), params)
+			})
+			.map_err(|error| anyhow::anyhow!("Unable to register the `header` relay: {error}"))?;
+		let handle = server.start(module);
 
 		Ok(Self { url, handle: Some(handle), attempts, upstream_errors })
 	}
@@ -363,20 +496,42 @@ impl ProxyServer {
 		self.upstream_errors.load(Ordering::Relaxed)
 	}
 
+	/// Every forwarded submission that carried a previously dropped parachain block, oldest first.
+	pub fn resubmissions(&self) -> Vec<Resubmission> {
+		self.attempts.lock().unwrap().resubmissions().to_vec()
+	}
+
+	/// How many [`Self::resubmissions`] there are.
+	pub fn resubmission_count(&self) -> usize {
+		self.attempts.lock().unwrap().resubmission_count()
+	}
+
+	/// [`Self::resubmission_count`], updated on every new resubmission, so a test can await a count
+	/// instead of polling for it.
+	pub fn subscribe_resubmissions(&self) -> watch::Receiver<usize> {
+		self.attempts.lock().unwrap().subscribe_resubmissions()
+	}
+
 	/// A human-readable summary of what the proxy did, for test failure output.
 	pub fn describe(&self) -> String {
 		let attempts = self.snapshot();
 		if attempts.is_empty() {
 			return "proxy saw no submitWorkPackage submissions".to_string();
 		}
-		let mut summary = format!("proxy saw {} work package hash(es):", attempts.len());
+		let mut summary = format!(
+			"proxy saw {} work package hash(es) and {} resubmission(s):",
+			attempts.len(),
+			self.resubmission_count(),
+		);
 		for attempt in attempts {
 			summary.push_str(&format!(
-				"\n  wp_hash={:?} core={} submission_count={} package_len={} first_seen={:?} last_seen={:?}",
+				"\n  wp_hash={:?} core={} submission_count={} package_len={} blocks={} \
+				 first_seen={:?} last_seen={:?}",
 				WorkPackageHash(attempt.hash),
 				attempt.core,
 				attempt.count,
 				attempt.package_len,
+				format_blocks(&attempt.blocks),
 				attempt.first_seen,
 				attempt.last_seen,
 			));
@@ -401,15 +556,48 @@ impl Drop for ProxyServer {
 	}
 }
 
+/// Forward a `header` call to `upstream` with its params untouched and hand back the raw result.
+///
+/// An error the upstream answers with, such as "Method not found" from a node without `header`,
+/// reaches the caller unchanged.
+async fn relay_header(
+	upstream: Arc<WsClient>,
+	params: jsonrpsee_jam::types::Params<'static>,
+) -> RpcResult<Box<JsonRawValue>> {
+	let raw = params
+		.as_str()
+		.map(|json| JsonRawValue::from_string(json.to_owned()))
+		.transpose()
+		.map_err(|error| ErrorObject::owned(INVALID_PARAMS_CODE, error.to_string(), None::<()>))?;
+	upstream.request("header", RawParams(raw)).await.map_err(|error| match error {
+		Error::Call(error) => error,
+		error => ErrorObject::owned(INTERNAL_ERROR_CODE, error.to_string(), None::<()>),
+	})
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use codec::Encode;
+	use cumulus_primitives_core::SchedulingProof;
 	use jam_std_common::{BlockDesc, RpcClient};
 	use jam_types::{HeaderHash, ProtocolParameters};
 	use jsonrpsee_jam::{
-		core::RpcResult, rpc_params, ws_client::WsClientBuilder, RpcModule, SubscriptionMessage,
+		core::RpcResult, rpc_params, types::Params, ws_client::WsClientBuilder, RpcModule,
+		SubscriptionMessage,
 	};
 	use std::{sync::atomic::AtomicUsize, time::Duration};
+
+	/// Forwards every submission: no draw from `0.0..1.0` is below `0.0`.
+	const FORWARD_ALL: DropPolicy = DropPolicy::Random { probability: 0.0, seed: 0 };
+	/// How long a test waits for whatever it awaits.
+	const WAIT: Duration = Duration::from_secs(10);
+	/// The block the stub node serves a header for.
+	const KNOWN_HEADER: HeaderHash = HeaderHash([1u8; 32]);
+	/// The encoded header the stub node serves for [`KNOWN_HEADER`].
+	const STUB_HEADER: &[u8] = b"the encoded header";
+	/// The error code the stub node answers `header` with for any other block.
+	const BLOCK_UNAVAILABLE_CODE: i32 = 1;
 
 	fn test_server_config() -> ServerConfig {
 		ServerConfig::builder()
@@ -442,28 +630,112 @@ mod tests {
 		Ok(())
 	}
 
+	async fn stub_header(params: Params<'static>) -> RpcResult<AnyBytes> {
+		let hash: HeaderHash = params.one()?;
+		if hash != KNOWN_HEADER {
+			return Err(ErrorObject::owned(
+				BLOCK_UNAVAILABLE_CODE,
+				"block unavailable",
+				None::<()>,
+			));
+		}
+		Ok(AnyBytes(STUB_HEADER.to_vec().into()))
+	}
+
+	/// Parachain block `number` on top of `parent`, with an Aura digest and one opaque extrinsic.
+	fn para_block(number: u32, parent: [u8; 32]) -> OpaqueParaBlock {
+		let header = generic::Header {
+			parent_hash: parent.into(),
+			number,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: generic::Digest {
+				logs: vec![generic::DigestItem::PreRuntime(*b"aura", u64::from(number).encode())],
+			},
+		};
+		generic::Block {
+			header,
+			extrinsics: vec![OpaqueExtrinsic::from_blob(vec![number as u8; 4])],
+		}
+	}
+
+	/// `(hash, number)` of `block`, the way the proxy names parachain blocks.
+	fn block_id(block: &OpaqueParaBlock) -> ([u8; 32], u32) {
+		(block.header.hash().into(), block.header.number)
+	}
+
+	/// A PoV shaped like the collator's: a V4 [`ParachainBlockData`] carrying the parent header and
+	/// one additional-data slot per block.
+	fn pov(blocks: Vec<OpaqueParaBlock>) -> Vec<u8> {
+		let parent_header = para_block(0, [0u8; 32]).header.encode();
+		let additional_data = vec![None; blocks.len()];
+		ParachainBlockData::new_with_parent_header(
+			blocks,
+			// An empty `CompactProof`; the proxy never reads the proof.
+			Decode::decode(&mut &[0u8][..]).expect("an empty proof decodes"),
+			SchedulingProof::empty(),
+			additional_data,
+			parent_header,
+			Vec::new(),
+		)
+		.encode()
+	}
+
+	/// Submit the package `package`, whose PoV carries `blocks`, through `proxy`.
+	async fn submit(
+		proxy: &DroppingProxy,
+		package: &[u8],
+		blocks: Vec<OpaqueParaBlock>,
+	) -> Result<(), Error> {
+		let package = AnyBytes(package.to_vec().into());
+		let extrinsic = AnyBytes(pov(blocks).into());
+		proxy
+			.request("submitWorkPackage", rpc_params![0u16, package, vec![extrinsic]])
+			.await
+	}
+
+	/// The verdicts on `count` submissions of distinct packages under `policy`.
+	fn verdicts(policy: DropPolicy, count: u8) -> Vec<Verdict> {
+		let mut attempts = Attempts::new(policy);
+		(0..count).map(|i| attempts.record([i; 32], 0, 100, Vec::new())).collect()
+	}
+
 	#[test]
-	fn attempts_record_drops_first_and_forwards_the_rest() {
-		let mut attempts = Attempts::default();
-		let hash = [7u8; 32];
+	fn random_policy_at_probability_zero_forwards_everything() {
+		let mut attempts = Attempts::new(DropPolicy::Random { probability: 0.0, seed: 7 });
+		for i in 0..64u8 {
+			assert_eq!(
+				attempts.record([i; 32], 0, 100, Vec::new()),
+				Verdict::Forward { attempt: 1 }
+			);
+		}
+		assert_eq!(
+			attempts.record([0u8; 32], 0, 100, Vec::new()),
+			Verdict::Forward { attempt: 2 },
+			"a repeated hash counts its attempts"
+		);
+		assert_eq!(attempts.forwarded_count(), 65);
+	}
 
-		assert_eq!(attempts.record(hash, 0, 100), Verdict::Drop);
-		assert_eq!(attempts.record(hash, 0, 100), Verdict::Forward { attempt: 2 });
-		assert_eq!(attempts.record(hash, 0, 100), Verdict::Forward { attempt: 3 });
+	#[test]
+	fn random_policy_at_probability_one_drops_everything() {
+		let mut attempts = Attempts::new(DropPolicy::Random { probability: 1.0, seed: 7 });
+		for i in 0..64u8 {
+			assert_eq!(attempts.record([i; 32], 0, 100, Vec::new()), Verdict::Drop);
+		}
+		assert_eq!(attempts.forwarded_count(), 0);
+	}
 
-		let other = [9u8; 32];
-		assert_eq!(attempts.record(other, 1, 200), Verdict::Drop);
-		assert_eq!(attempts.record(other, 1, 200), Verdict::Forward { attempt: 2 });
-
-		let snapshot = attempts.snapshot();
-		assert_eq!(snapshot.len(), 2);
-		let first = snapshot.iter().find(|attempt| attempt.hash == hash).expect("first hash");
-		assert_eq!(first.count, 3);
-		assert_eq!(first.core, 0);
-		assert_eq!(first.package_len, 100);
-		let second = snapshot.iter().find(|attempt| attempt.hash == other).expect("second hash");
-		assert_eq!(second.count, 2);
-		assert_eq!(attempts.forwarded_count(), 3);
+	#[test]
+	fn random_policy_is_deterministic_for_a_fixed_seed() {
+		let policy = |seed| DropPolicy::Random { probability: 0.5, seed };
+		let seeded = verdicts(policy(42), 64);
+		assert_eq!(seeded, verdicts(policy(42), 64), "the same seed gives the same verdicts");
+		assert_ne!(seeded, verdicts(policy(43), 64), "another seed gives other verdicts");
+		assert!(
+			seeded.contains(&Verdict::Drop) && seeded.contains(&Verdict::Forward { attempt: 1 }),
+			"a coin flip per submission both drops and forwards: {seeded:?}"
+		);
 	}
 
 	#[test]
@@ -471,8 +743,8 @@ mod tests {
 		let mut attempts = Attempts::new(DropPolicy::Everything);
 		let hash = [11u8; 32];
 
-		assert_eq!(attempts.record(hash, 0, 100), Verdict::Drop);
-		assert_eq!(attempts.record(hash, 0, 100), Verdict::Drop);
+		assert_eq!(attempts.record(hash, 0, 100, Vec::new()), Verdict::Drop);
+		assert_eq!(attempts.record(hash, 0, 100, Vec::new()), Verdict::Drop);
 		assert_eq!(attempts.forwarded_count(), 0);
 
 		let snapshot = attempts.snapshot();
@@ -481,46 +753,159 @@ mod tests {
 		assert_eq!(snapshot[0].package_len, 100);
 	}
 
+	#[test]
+	fn a_forwarded_package_carrying_a_dropped_block_is_a_resubmission() {
+		let x = ([1u8; 32], 5);
+		let y = ([2u8; 32], 6);
+		let unrelated = ([3u8; 32], 7);
+		let mut attempts = Attempts::new(DropPolicy::Everything);
+		let mut count = attempts.subscribe_resubmissions();
+
+		assert_eq!(attempts.record([10u8; 32], 0, 100, vec![x]), Verdict::Drop);
+		attempts.policy = FORWARD_ALL;
+
+		assert_eq!(
+			attempts.record([11u8; 32], 0, 100, vec![unrelated]),
+			Verdict::Forward { attempt: 1 }
+		);
+		assert_eq!(attempts.resubmission_count(), 0, "a package without a dropped block is none");
+		assert!(!count.has_changed().expect("the ledger keeps the sender"));
+
+		assert_eq!(
+			attempts.record([12u8; 32], 1, 200, vec![x, y]),
+			Verdict::Forward { attempt: 1 }
+		);
+		assert_eq!(attempts.resubmission_count(), 1);
+		let resubmission = &attempts.resubmissions()[0];
+		assert_eq!(resubmission.wp_hash, [12u8; 32]);
+		assert_eq!(resubmission.blocks, vec![x], "only the dropped block counts as resubmitted");
+		assert!(count.has_changed().expect("the ledger keeps the sender"));
+		assert_eq!(*count.borrow_and_update(), 1);
+	}
+
+	#[test]
+	fn pov_blocks_names_every_block_of_a_pov() {
+		let first = para_block(7, [9u8; 32]);
+		let second = para_block(8, first.header.hash().into());
+		assert_eq!(
+			pov_blocks(&pov(vec![first.clone(), second.clone()])),
+			vec![block_id(&first), block_id(&second)]
+		);
+		assert_eq!(pov_blocks(b"not a pov"), Vec::new(), "an undecodable PoV names no block");
+	}
+
 	#[tokio::test]
-	async fn drops_the_first_submit_work_package_and_forwards_later_ones() {
+	async fn the_proxy_announces_a_resubmission_of_a_dropped_block() {
 		let calls = Arc::new(AtomicUsize::new(0));
 		let calls_in = calls.clone();
 		let mut module = RpcModule::new(());
+		module
+			.register_async_method("parameters", |_params, _ctx, _ext| stub_parameters())
+			.expect("registering parameters succeeds");
 		module
 			.register_async_method("submitWorkPackage", move |_params, _ctx, _ext| {
 				count_submission(calls_in.clone())
 			})
 			.expect("registering submitWorkPackage succeeds");
+		let (upstream_url, upstream_handle) = start_stub_server(module).await;
 
-		let (url, handle) = start_stub_server(module).await;
-		let upstream = WsClientBuilder::default().build(&url).await.expect("connect to stub");
+		let server = ProxyServer::serve(DropPolicy::Everything, &upstream_url, "127.0.0.1:0", WAIT)
+			.await
+			.expect("the proxy serves");
+		// Submit through a proxy client sharing the served ledger: the served `submitWorkPackage`
+		// first checks that the package decodes as a work package, which these are not.
+		let upstream =
+			WsClientBuilder::default().build(&upstream_url).await.expect("connect to stub");
 		let proxy = DroppingProxy {
-			upstream,
-			attempts: Arc::new(Mutex::new(Attempts::default())),
-			upstream_errors: Arc::new(AtomicU32::new(0)),
-			policy: DropPolicy::FirstSubmission,
+			upstream: Arc::new(upstream),
+			attempts: server.attempts.clone(),
+			upstream_errors: server.upstream_errors.clone(),
+			policy: DropPolicy::Everything,
 		};
+		let mut resubmissions = server.subscribe_resubmissions();
+		let announced = tokio::spawn(async move {
+			resubmissions.wait_for(|count| *count >= 1).await.map(|count| *count)
+		});
 
-		let package = || AnyBytes(b"the same package bytes".to_vec().into());
-		let submit = || {
-			proxy.request::<(), _>(
-				"submitWorkPackage",
-				rpc_params![0u16, package(), Vec::<AnyBytes>::new()],
-			)
-		};
-
-		submit().await.expect("the swallowed submission still answers successfully");
-		submit().await.expect("the resubmission is forwarded");
-
-		assert_eq!(calls.load(Ordering::SeqCst), 1, "the stub saw only the resubmission");
+		let block = para_block(3, [4u8; 32]);
+		submit(&proxy, b"package a", vec![block.clone()])
+			.await
+			.expect("the swallowed submission still answers successfully");
 		assert_eq!(
-			proxy.attempts.lock().unwrap().snapshot()[0].count,
-			2,
-			"the proxy tracked two submissions of the one hash"
+			calls.load(Ordering::SeqCst),
+			0,
+			"the dropped submission never reached the stub"
 		);
 
-		let _ = handle.stop();
-		handle.stopped().await;
+		server.attempts.lock().unwrap().policy = FORWARD_ALL;
+		submit(&proxy, b"package b", vec![block.clone()])
+			.await
+			.expect("the resubmission is forwarded");
+
+		let count = tokio::time::timeout(WAIT, announced)
+			.await
+			.expect("the resubmission is announced in time")
+			.expect("the waiter does not panic")
+			.expect("the ledger keeps the sender");
+		assert_eq!(count, 1);
+		assert_eq!(calls.load(Ordering::SeqCst), 1, "only the resubmission reached the stub");
+		assert_eq!(server.resubmission_count(), 1);
+		let resubmissions = server.resubmissions();
+		assert_eq!(resubmissions[0].wp_hash, jam_std_common::hash_raw(b"package b"));
+		assert_eq!(resubmissions[0].blocks, vec![block_id(&block)]);
+		assert_eq!(server.snapshot()[0].blocks, vec![block_id(&block)]);
+
+		drop(proxy);
+		tokio::time::timeout(WAIT, server.shutdown())
+			.await
+			.expect("the proxy shuts down");
+		let _ = upstream_handle.stop();
+		tokio::time::timeout(WAIT, upstream_handle.stopped())
+			.await
+			.expect("the stub shuts down");
+	}
+
+	#[tokio::test]
+	async fn relays_header_to_the_upstream() {
+		let mut module = RpcModule::new(());
+		module
+			.register_async_method("parameters", |_params, _ctx, _ext| stub_parameters())
+			.expect("registering parameters succeeds");
+		module
+			.register_async_method("header", |params, _ctx, _ext| stub_header(params))
+			.expect("registering header succeeds");
+		let (upstream_url, upstream_handle) = start_stub_server(module).await;
+		let proxy = ProxyServer::serve(DropPolicy::Everything, &upstream_url, "127.0.0.1:0", WAIT)
+			.await
+			.expect("the proxy serves");
+		let client = WsClientBuilder::default()
+			.build(proxy.url())
+			.await
+			.expect("connect to the proxy");
+
+		let header: AnyBytes = client
+			.request("header", rpc_params![KNOWN_HEADER])
+			.await
+			.expect("header relays");
+		assert_eq!(&header.0[..], STUB_HEADER);
+
+		let error = client
+			.request::<AnyBytes, _>("header", rpc_params![HeaderHash([2u8; 32])])
+			.await
+			.expect_err("the stub has no such block");
+		let Error::Call(error) = error else {
+			panic!("expected the stub's own error, got {error:?}");
+		};
+		assert_eq!(error.code(), BLOCK_UNAVAILABLE_CODE);
+
+		drop(client);
+		tokio::time::timeout(WAIT, proxy.shutdown())
+			.await
+			.expect("the proxy shuts down");
+		let _ = upstream_handle.stop();
+		tokio::time::timeout(WAIT, upstream_handle.stopped())
+			.await
+			.expect("the stub shuts down");
 	}
 
 	#[tokio::test]
@@ -554,7 +939,7 @@ mod tests {
 
 		let (upstream_url, upstream_handle) = start_stub_server(module).await;
 		let proxy = ProxyServer::serve(
-			DropPolicy::FirstSubmission,
+			DropPolicy::Everything,
 			&upstream_url,
 			"127.0.0.1:0",
 			Duration::from_secs(10),

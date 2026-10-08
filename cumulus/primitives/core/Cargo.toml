@@ -12,13 +12,14 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-sp-additional-data = { workspace = true, default-features = false }
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+sp-additional-data = { workspace = true, default-features = false }
 tracing = { workspace = true }
 
 # Substrate
 sp-api = { workspace = true }
+sp-crypto-hashing = { workspace = true }
 sp-runtime = { workspace = true }
 sp-trie = { workspace = true }
 
@@ -38,6 +39,7 @@ std = [
 	"scale-info/std",
 	"sp-additional-data/std",
 	"sp-api/std",
+	"sp-crypto-hashing/std",
 	"sp-runtime/std",
 	"sp-trie/std",
 	"tracing/std",

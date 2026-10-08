@@ -44,6 +44,22 @@
 //! relay-proof reader and `validate_validation_data` re-check are never armed, and the trie
 //! randomness seed is derived from the JAM refine context's `lookup_anchor` + block hashes
 //! instead of relay-parent state.
+//!
+//! # Which JAM anchors a block may name
+//!
+//! Every block carries a `JamParent` digest naming the JAM `anchor` and `lookup_anchor` (with
+//! their slots) it was built against; the runtime reads its slots from that digest, so this is
+//! where the digest is bound to something the JAM validators checked. Which anchors pass depends
+//! on the V4 `anchor_chain` the PoV carries:
+//!
+//! - empty (a package built at authoring time): every block's digest must equal the refine context
+//!   exactly, and every block's carried JAM state proof is verified against the context's
+//!   `state_root`;
+//! - non-empty (a package resubmitting blocks whose own package was lost): it holds the encoded JAM
+//!   headers from the context anchor back to the oldest anchor the blocks name, newest first.
+//!   [`verify_anchor_chain`] pins every header to its child's `parent` hash, so a block's anchors
+//!   are accepted when they are in the chain at the claimed slots, and its JAM state proof is
+//!   verified against its own anchor's posterior state root as the chain records it.
 
 use super::{
 	bytes::Bytes,
@@ -53,7 +69,9 @@ use super::{
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_jam_state_reader::{JamProofReader, JAM_PROOF_KEY};
-use cumulus_primitives_core::{CumulusDigestItem, ParachainBlockData};
+use cumulus_primitives_core::{
+	jam_anchor_proof::verify_anchor_chain, CumulusDigestItem, JamParent, ParachainBlockData,
+};
 use frame_support::traits::{ExecuteBlock, Get};
 use parachain_service_core::StateProof;
 use sp_additional_data::{hash_value, AdditionalData, AdditionalDataFinalizer};
@@ -74,6 +92,8 @@ const ERR_HEAD_DATA_MISSING: &[u8] = b"jam_validate_block:no-head-data";
 const ERR_JAM_PARENT_MISMATCH: &[u8] = b"jam_validate_block:jam-parent-mismatch";
 const ERR_JAM_PARENT_MISSING: &[u8] = b"jam_validate_block:jam-parent-missing";
 const ERR_NO_DIGEST_AT_ALL: &[u8] = b"jam_validate_block:no-digest-at-all";
+const ERR_ANCHOR_CHAIN_INVALID: &[u8] = b"jam_validate_block:anchor-chain-invalid";
+const ERR_JAM_PARENT_UNPROVEN: &[u8] = b"jam_validate_block:jam-parent-unproven-by-chain";
 
 /// The `AdditionalDataFinalizer` committing the carried JAM state proof under `JAM_PROOF_KEY`.
 ///
@@ -136,49 +156,41 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 	// 5. Seed the trie-hashmap randomness. The relay path seeds from
 	// `relay_parent_storage_root` + block hashes; JAM has no relay state, so the refine
 	// context's `lookup_anchor` (which the collator cannot find out ahead of time) plays the
-	// relay root's role. The same context carries the trusted state root of the anchor block —
-	// checked on-chain when the package is reported — which the core verifies the carried JAM
-	// state proof against. The shared `refine_context` wrapper aborts if the host does not serve
+	// relay root's role. The shared `refine_context` wrapper aborts if the host does not serve
 	// the context: a work package always carries one.
 	let context = host::refine_context();
 	let randomness_seed = build_jam_seed::<B>(*context.lookup_anchor, blocks);
-	let jam_anchor_state_root = *context.state_root;
 
-	// The collator asserts which JAM block this candidate is anchored to by carrying a
-	// `JamParent` digest in the header; this is where that assertion is checked against the real
-	// refine context. A collator naming an anchor, or a slot, other than the one this work package
-	// was actually refined against cannot produce a matching digest, so the claim is only ever as
-	// good as the context the JAM host serves here. The slots are checked too: the runtime reads
-	// them out of this digest instead of the collator-supplied refine context, so the refine check
-	// is what makes that source trustworthy.
-	let expected = (
-		cumulus_primitives_core::relay_chain::Hash::from(*context.anchor),
-		context.anchor_slot,
-		cumulus_primitives_core::relay_chain::Hash::from(*context.lookup_anchor),
-		context.lookup_anchor_slot,
+	// The collator asserts which JAM blocks each candidate block is anchored to by carrying a
+	// `JamParent` digest in its header; this is where that assertion is checked against the real
+	// refine context, so the claim is only ever as good as the context the JAM host serves here.
+	// The slots are checked too: the runtime reads them out of this digest instead of the
+	// collator-supplied refine context, so the refine check is what makes that source trustworthy.
+	// A package built at authoring time carries an empty anchor chain and every block must name
+	// the context exactly; a package resubmitting blocks whose own package was
+	// lost carries one, and every block's anchors must be proven by it instead. Either way each
+	// block gets the trusted JAM state root its carried JAM state proof is verified against: the
+	// context's, or its proven anchor's.
+	let context_anchors = JamParent {
+		anchor: cumulus_primitives_core::relay_chain::Hash::from(*context.anchor),
+		anchor_slot: context.anchor_slot,
+		lookup_anchor: cumulus_primitives_core::relay_chain::Hash::from(*context.lookup_anchor),
+		lookup_anchor_slot: context.lookup_anchor_slot,
+	};
+	let jam_proof_roots = derive_jam_proof_roots::<B>(
+		context_anchors,
+		*context.state_root,
+		blocks,
+		block_data.anchor_chain(),
 	);
-	let claimed = blocks
-		.iter()
-		.find_map(|block| CumulusDigestItem::find_jam_parent_info(block.header().digest()))
-		.map(|parent| {
-			(parent.anchor, parent.anchor_slot, parent.lookup_anchor, parent.lookup_anchor_slot)
-		});
-	if claimed.is_none() {
-		if blocks.iter().all(|block| block.header().digest().logs.is_empty()) {
-			host::report_error(ERR_NO_DIGEST_AT_ALL)
-		}
-		host::report_error(ERR_JAM_PARENT_MISSING)
-	}
-	if claimed != Some(expected) {
-		host::report_error(ERR_JAM_PARENT_MISMATCH)
-	}
 
 	// 6. Run the SAME validation core as the polkadot path. There is no V3 scheduling on JAM
 	// (`None` skips the signature-override hook) and no relay proof/validation-data re-check
-	// (`|_| {}`; `validate_validation_data` is relay-only). The trusted JAM anchor state root is
-	// sourced from the refine context, so the `on_execute` hook below can verify the carried
-	// `JAM_PROOF_KEY` proof. `BlockNumberProvider` reads (`JamSlotNumber`) take their slot from
-	// the block's own `JamParent` digest, checked above, so nothing is threaded through this core.
+	// (`|_| {}`; `validate_validation_data` is relay-only). Each block's trusted JAM anchor state
+	// root was derived above, so the `on_execute` hook below can verify the carried
+	// `JAM_PROOF_KEY` proof against it. `BlockNumberProvider` reads (`JamSlotNumber`) take their
+	// slot from the block's own `JamParent` digest, checked above, so nothing is threaded through
+	// this core.
 
 	// Everything the emission below needs must be read while the block-execution storage
 	// host-function overrides are still installed. `execute_blocks` restores them on return, so a
@@ -190,6 +202,9 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 	let upgrade_emit: core::cell::Cell<
 		Option<([u8; 32], u32, crate::jam::upgrade::EmitPhase, u32)>,
 	> = core::cell::Cell::new(None);
+	// `execute_blocks` runs the `on_execute` hook exactly once per block, in block order (one call
+	// per iteration of its block loop), so a counter pairs each call with its block's root.
+	let next_block = core::cell::Cell::new(0usize);
 	execute_blocks::<B, E, PSC>(
 		SharedValidationInputs::<B> {
 			block_data,
@@ -207,11 +222,16 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 		// Arm the JAM proof reader + finalizer from the carried `JAM_PROOF_KEY` entry for
 		// the duration of each block's execution, so `jam_state_read` and `finalize` are
 		// served from the proof that travels with the block. The carried root is *ignored* —
-		// reads verify against the trusted anchor root from the refine context, so a candidate
-		// that recorded its JAM reads against a different root fails at the first read. A
-		// malformed blob, or a proof that cannot authenticate a key, panics rather than serving
-		// `None`.
+		// reads verify against the trusted root derived for this block above (the refine
+		// context's state root, or its proven anchor's), so a candidate that recorded its JAM
+		// reads against a different root fails at the first read. A malformed blob, or a proof
+		// that cannot authenticate a key, panics rather than serving `None`.
 		&|additional_data: &Option<AdditionalData>, execute: &mut dyn FnMut()| {
+			let block_index = next_block.get();
+			next_block.set(block_index + 1);
+			let jam_anchor_state_root = *jam_proof_roots
+				.get(block_index)
+				.expect("one root was derived per block and the hook runs once per block; qed");
 			let Some((mut jam_reader, mut jam_finalizer)) = additional_data.as_ref().map(|map| {
 				let proof_bytes = map
 					.get(JAM_PROOF_KEY)
@@ -256,6 +276,66 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 		}
 		host::request_code_upgrade(hash, len, phase.into());
 	}
+}
+
+/// The JAM state root each block's carried JAM state proof is verified against, in block order.
+///
+/// Every block must carry a `JamParent` digest. With an empty `anchor_chain` (a package built at
+/// authoring time) the digest must equal `context` exactly and the root is `context_state_root`.
+/// Otherwise (a package resubmitting blocks whose own package was lost) the chain — the encoded
+/// JAM headers from the context anchor back to the oldest anchor the blocks name, newest first —
+/// is verified against the context by [`verify_anchor_chain`], which pins every
+/// header to its child's `parent` hash. A block's anchors then only have to be in the chain at the
+/// claimed slots, and its root is the posterior state root the chain records for its anchor.
+///
+/// Aborts the refine at the first block whose digest is missing, mismatching or unproven.
+fn derive_jam_proof_roots<B: BlockT>(
+	context: JamParent,
+	context_state_root: [u8; 32],
+	blocks: &[B::LazyBlock],
+	anchor_chain: &[Vec<u8>],
+) -> Vec<[u8; 32]> {
+	let proven = (!anchor_chain.is_empty()).then(|| {
+		let Ok(proven) = verify_anchor_chain(
+			context.anchor,
+			context.anchor_slot,
+			context_state_root.into(),
+			anchor_chain,
+		) else {
+			host::report_error(ERR_ANCHOR_CHAIN_INVALID)
+		};
+		proven
+	});
+
+	blocks
+		.iter()
+		.map(|block| {
+			let digest = block.header().digest();
+			let Some(claimed) = CumulusDigestItem::find_jam_parent_info(digest) else {
+				if digest.logs.is_empty() {
+					host::report_error(ERR_NO_DIGEST_AT_ALL)
+				}
+				host::report_error(ERR_JAM_PARENT_MISSING)
+			};
+
+			let Some(proven) = &proven else {
+				if claimed != context {
+					host::report_error(ERR_JAM_PARENT_MISMATCH)
+				}
+				return context_state_root;
+			};
+			let Ok(root) = proven.anchor(&claimed.anchor, claimed.anchor_slot) else {
+				host::report_error(ERR_JAM_PARENT_UNPROVEN)
+			};
+			if proven
+				.lookup_anchor(&claimed.lookup_anchor, claimed.lookup_anchor_slot)
+				.is_err()
+			{
+				host::report_error(ERR_JAM_PARENT_UNPROVEN)
+			}
+			root.0
+		})
+		.collect()
 }
 
 /// Build the trie-hashmap randomness seed from the JAM refine context's `lookup_anchor` plus

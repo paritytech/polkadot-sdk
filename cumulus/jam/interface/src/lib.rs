@@ -43,7 +43,7 @@ use jam_codec::DecodeAll;
 /// Follow the JAM chain.
 ///
 /// Backed by JIP-2: `bestBlock`, `finalizedBlock`, `subscribeBestBlock`,
-/// `subscribeFinalizedBlock`, `parent`, `stateRoot`, `beefyRoot`.
+/// `subscribeFinalizedBlock`, `parent`, `stateRoot`, `beefyRoot`; plus polkajam's `header`.
 #[async_trait::async_trait]
 pub trait JamChainSource: Send + Sync {
 	async fn best_block(&self) -> Result<BlockDesc>;
@@ -58,6 +58,9 @@ pub trait JamChainSource: Send + Sync {
 	async fn finalized_block_stream(&self) -> Result<BoxStream<'static, BlockDesc>>;
 
 	async fn parent(&self, header_hash: HeaderHash) -> Result<BlockDesc>;
+
+	/// The jam-codec encoding of the header of the given block.
+	async fn header(&self, header_hash: HeaderHash) -> Result<Vec<u8>>;
 
 	/// The posterior state root of the block with the given header hash.
 	async fn state_root(&self, header_hash: HeaderHash) -> Result<StateRootHash>;

@@ -26,7 +26,7 @@
 
 use super::{
 	package::pov_spec,
-	package_sync::{ImportedPov, ImportedPovs},
+	pov_store::{BlockPov, BlockPovs},
 	LOG_TARGET,
 };
 use codec::Decode;
@@ -61,15 +61,15 @@ fn jam_import_reader(map: &AdditionalData) -> Option<(JamProofReader, JamProofFi
 pub(crate) struct JamBlockImport<Block: BlockT, BI, Client> {
 	inner: BI,
 	client: Arc<Client>,
-	/// The import-recorded PoVs: the network import queue's instance records a proof for every
-	/// foreign block, so a later resubmission can rebuild the PoV. `None` on a non-JAM path.
-	imported: Option<ImportedPovs<Block>>,
+	/// The PoV store: the network import queue's instance records a proof for every block it
+	/// re-executes, so a later resubmission can rebuild the PoV. `None` on a non-JAM path.
+	imported: Option<BlockPovs<Block>>,
 	_block: PhantomData<Block>,
 }
 
 impl<Block: BlockT, BI, Client> JamBlockImport<Block, BI, Client> {
 	/// Create a new instance wrapping `inner`, recording PoVs into `imported` when present.
-	pub fn new(inner: BI, client: Arc<Client>, imported: Option<ImportedPovs<Block>>) -> Self {
+	pub fn new(inner: BI, client: Arc<Client>, imported: Option<BlockPovs<Block>>) -> Self {
 		Self { inner, client, imported, _block: PhantomData }
 	}
 }
@@ -238,11 +238,11 @@ where
 		Ok(())
 	}
 
-	/// Record the proof of an imported foreign block, so its PoV can be rebuilt on demand.
+	/// Record the proof of an imported block, so its PoV can be rebuilt on demand.
 	#[allow(clippy::too_many_arguments)]
 	fn record_imported_pov(
 		&self,
-		imported: &ImportedPovs<Block>,
+		imported: &BlockPovs<Block>,
 		proof: sp_api::StorageProof,
 		map: &AdditionalData,
 		jam_parent: cumulus_primitives_core::JamParent,
@@ -287,13 +287,16 @@ where
 				},
 			};
 		let header = params.post_header();
-		let block = Block::new(header.clone(), body.to_vec());
-		let spec = pov_spec(&[block], &compact_proof, &parent_header, map);
+		let number = *header.number();
+		let block = Block::new(header, body.to_vec());
+		let spec = pov_spec(std::slice::from_ref(&block), &compact_proof, &parent_header, map);
 		imported.insert(
 			block_hash,
-			ImportedPov {
+			BlockPov {
+				block,
+				parent_header,
 				parent_hash,
-				number: *header.number(),
+				number,
 				spec,
 				jam_parent,
 				compact_proof,

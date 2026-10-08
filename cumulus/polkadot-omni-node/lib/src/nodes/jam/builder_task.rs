@@ -51,8 +51,7 @@
 
 use super::{
 	authorizer::AuraAuthorizer, choose_lookup_anchor, jam_read, jam_slot_as_relay_slot,
-	jam_slot_at, scan_pools_at, AuthoringHold, DeadBlocks, JamCollatorMessage, PoolScan,
-	LOG_TARGET,
+	jam_slot_at, scan_pools_at, AuthoringHold, JamCollatorMessage, PoolScan, LOG_TARGET,
 };
 use crate::common::{
 	aura::{AuraIdT, AuraRuntimeApi},
@@ -87,11 +86,11 @@ use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
 use sp_externalities::Extensions;
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto};
+use sp_runtime::traits::{Header as HeaderT, UniqueSaturatedInto};
 use sp_timestamp::Timestamp;
 use sp_trie::proof_size_extension::ProofSizeExt;
 use std::{
-	collections::{HashSet, VecDeque},
+	collections::VecDeque,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -154,12 +153,9 @@ pub(crate) struct BuilderTaskParams<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
 	pub authorizer: Arc<AuraAuthorizer>,
 	pub jam: Arc<Jam>,
 	pub message_sender: mpsc::Sender<JamCollatorMessage<Block>>,
-	/// How many overdue work packages the collation task is holding; while non-zero the tick
-	/// authors nothing.
+	/// How many in-flight resubmission packages the collation task is holding; while non-zero
+	/// the tick authors nothing.
 	pub hold: AuthoringHold,
-	/// The blocks a lost foreign resubmission marked dead; the builder never authors on one or
-	/// any of its descendants.
-	pub dead: DeadBlocks<Block>,
 }
 
 /// What reading the accumulated para head did to the builder's view of it.
@@ -211,7 +207,6 @@ struct Descendant<Header> {
 fn local_descendants<Block: NodeBlock>(
 	backend: &ParachainBackend<Block>,
 	included: Block::Hash,
-	dead: &DeadBlocks<Block>,
 ) -> Vec<Descendant<Block::Header>> {
 	let blockchain = backend.blockchain();
 	let mut frontier = vec![included];
@@ -243,31 +238,7 @@ fn local_descendants<Block: NodeBlock>(
 		}
 		frontier = next;
 	}
-	prune_dead(descendants, dead)
-}
-
-/// Drop every dead block and everything under it from a breadth-first descendant list.
-///
-/// A descendant whose own hash is dead, or whose parent was just dropped, is dropped too — so a
-/// lost foreign block and its whole subtree never reach parent selection. The list has to be in
-/// breadth-first order (parents before children) for the parent check to see the drop, which is
-/// exactly what [`local_descendants`] produces.
-fn prune_dead<Block: BlockT>(
-	descendants: Vec<Descendant<Block::Header>>,
-	dead: &DeadBlocks<Block>,
-) -> Vec<Descendant<Block::Header>> {
-	let mut removed: HashSet<Block::Hash> = HashSet::new();
-	let mut kept = Vec::with_capacity(descendants.len());
-	for descendant in descendants {
-		let hash = descendant.header.hash();
-		let parent = *descendant.header.parent_hash();
-		if dead.contains(&hash) || removed.contains(&parent) {
-			removed.insert(hash);
-			continue;
-		}
-		kept.push(descendant);
-	}
-	kept
+	descendants
 }
 
 /// The block to author on, out of what the local database holds below the accumulated head.
@@ -798,7 +769,6 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		jam,
 		mut message_sender,
 		hold,
-		dead,
 	} = params;
 
 	let mut best_blocks = match jam.best_block_stream().await {
@@ -914,7 +884,6 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 			now,
 			&mut state,
 			&hold,
-			&dead,
 		)
 		.await
 		{
@@ -972,7 +941,6 @@ async fn run_tick<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	now: Timestamp,
 	state: &mut BuilderState<Block::Header>,
 	hold: &AuthoringHold,
-	dead: &DeadBlocks<Block>,
 ) -> Result<Vec<JamCollatorMessage<Block>>, String>
 where
 	Block: NodeBlock,
@@ -1099,15 +1067,15 @@ where
 	// package has not landed. `note_pool_scan`, `state.included` and `note_head` have already run
 	// and `last_claimed_slot` is untouched, so the stall clock keeps counting through held ticks
 	// and the re-root below fires once the hold lifts if the head is still stuck.
-	let overdue = hold.overdue();
-	if overdue > 0 {
+	let pending = hold.pending();
+	if pending > 0 {
 		tracing::info!(
 			target: LOG_TARGET,
-			overdue,
+			pending,
 			?para_slot,
 			stalled_for,
-			"Holding this parachain slot: an overdue work package is being resent instead of a new \
-			 block being built.",
+			"Holding this parachain slot: a lost block is being resubmitted in a new work package \
+			 instead of a new block being built.",
 		);
 		return Ok(Vec::new());
 	}
@@ -1138,7 +1106,7 @@ where
 	};
 	let included_hash = included_header.hash();
 
-	let descendants = local_descendants::<Block>(para_backend, included_hash, dead);
+	let descendants = local_descendants::<Block>(para_backend, included_hash);
 	// The branch a previous tick re-rooted onto, if its tip is still a block we hold.
 	let committed = state.rerooted.and_then(|reroot| {
 		let header = para_client.header(reroot.tip).ok().flatten()?;
@@ -1894,31 +1862,6 @@ mod tests {
 		let mut sibling = header.clone();
 		sibling.state_root = H256::repeat_byte(0xaa);
 		sibling
-	}
-
-	/// A dead block takes its whole subtree with it, and a sibling under another parent survives.
-	#[test]
-	fn prune_dead_drops_the_dead_subtree() {
-		let chain = chain(4);
-		let dead = DeadBlocks::<cumulus_test_runtime::Block>::new();
-		dead.mark(chain[0].hash(), 1u32);
-
-		let pruned = prune_dead(
-			descendants(&[
-				(&chain[0], 1),
-				(&chain[1], 2),
-				(&sibling(&chain[0]), 1),
-				(&sibling(&chain[1]), 2),
-			]),
-			&dead,
-		);
-
-		assert_eq!(pruned.len(), 1, "the dead block and its child are dropped");
-		assert_eq!(
-			pruned[0].header.hash(),
-			sibling(&chain[0]).hash(),
-			"the independent sibling survives",
-		);
 	}
 
 	/// Pipelining in one line: the collator extends the deepest block it holds rather than

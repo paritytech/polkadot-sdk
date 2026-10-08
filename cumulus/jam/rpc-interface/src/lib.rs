@@ -36,6 +36,8 @@ use cumulus_jam_interface::{
 };
 use futures::{channel::mpsc, future::Future, StreamExt};
 use jam_std_common::{Node, NodeExt};
+use jam_types::AnyBytes;
+use jsonrpsee_jam::{core::client::ClientT, rpc_params};
 use std::time::{Duration, Instant};
 use url::Url;
 use worker::WorkerMessage;
@@ -118,6 +120,14 @@ impl JamChainSource for JamRpcInterface {
 
 	async fn parent(&self, header_hash: HeaderHash) -> Result<BlockDesc> {
 		self.client.parent(header_hash).await
+	}
+
+	async fn header(&self, header_hash: HeaderHash) -> Result<Vec<u8>> {
+		// polkajam's `header` is not in the vendored `Node` trait, so this is a raw call; the node
+		// returns the jam-codec encoding of the header as base64 `AnyBytes`.
+		let encoded: AnyBytes =
+			ClientT::request(&self.client, "header", rpc_params![header_hash]).await?;
+		Ok(encoded.0.into())
 	}
 
 	async fn state_root(&self, header_hash: HeaderHash) -> Result<StateRootHash> {
@@ -364,4 +374,112 @@ where
 
 fn hex_of(bytes: &[u8]) -> String {
 	bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::worker::{SharedActiveClient, WorkerMessage};
+	use jam_types::base64::{engine::general_purpose::STANDARD, Engine};
+	use jsonrpsee_jam::{
+		core::client::{ClientBuilder, ReceivedMessage, TransportReceiverT, TransportSenderT},
+		ws_client::WsClient,
+	};
+	use serde_json::{json, value::RawValue, Value};
+	use std::sync::{Arc, Mutex, RwLock};
+	use tokio::sync::mpsc as tokio_mpsc;
+
+	/// Sending half of an in-memory jsonrpsee transport: records every request the client
+	/// sends and hands its id to [`MockReceiver`].
+	struct MockSender {
+		seen: Arc<Mutex<Vec<Value>>>,
+		ids: tokio_mpsc::UnboundedSender<Value>,
+	}
+
+	impl TransportSenderT for MockSender {
+		type Error = std::io::Error;
+
+		async fn send(&mut self, msg: String) -> std::result::Result<(), Self::Error> {
+			let request: Value = serde_json::from_str(&msg)?;
+			self.ids.send(request["id"].clone()).map_err(std::io::Error::other)?;
+			self.seen.lock().expect("test mutex").push(request);
+			Ok(())
+		}
+	}
+
+	/// Receiving half: answers every request with the same `body` (a `result` or an `error`
+	/// member), stamped with the request's id.
+	struct MockReceiver {
+		ids: tokio_mpsc::UnboundedReceiver<Value>,
+		body: Value,
+	}
+
+	impl TransportReceiverT for MockReceiver {
+		type Error = std::io::Error;
+
+		async fn receive(&mut self) -> std::result::Result<ReceivedMessage, Self::Error> {
+			let id =
+				self.ids.recv().await.ok_or_else(|| std::io::Error::other("transport closed"))?;
+			let mut response = self.body.clone();
+			response["jsonrpc"] = json!("2.0");
+			response["id"] = id;
+			Ok(ReceivedMessage::Text(response.to_string()))
+		}
+	}
+
+	/// A [`JamRpcInterface`] whose node is the in-memory transport above. A minimal stand-in for
+	/// the worker performs each raw request the way [`worker::JamRpcWorker`] does.
+	fn interface_answering(body: Value) -> (JamRpcInterface, Arc<Mutex<Vec<Value>>>) {
+		let seen = Arc::new(Mutex::new(Vec::new()));
+		let (ids_tx, ids_rx) = tokio_mpsc::unbounded_channel();
+		let node: Arc<WsClient> = Arc::new(ClientBuilder::default().build_with_tokio(
+			MockSender { seen: seen.clone(), ids: ids_tx },
+			MockReceiver { ids: ids_rx, body },
+		));
+
+		let (to_worker, mut from_client) = tokio_mpsc::channel(8);
+		let worker_node = node.clone();
+		tokio::spawn(async move {
+			while let Some(message) = from_client.recv().await {
+				let WorkerMessage::Request(method, params, reply) = message else { continue };
+				let response: std::result::Result<Box<RawValue>, _> =
+					ClientT::request(&*worker_node, &method, params).await;
+				let _ = reply.send(response);
+			}
+		});
+
+		let active: SharedActiveClient = Arc::new(RwLock::new(node));
+		(JamRpcInterface { client: JamRpcClient::new(to_worker, active) }, seen)
+	}
+
+	#[tokio::test]
+	async fn header_is_a_raw_call_returning_the_encoded_header() {
+		let encoded_header: Vec<u8> = (0u8..=255).cycle().take(133).collect();
+		let (interface, seen) =
+			interface_answering(json!({ "result": STANDARD.encode(&encoded_header) }));
+		let header_hash = HeaderHash([0x42; 32]);
+
+		let header = interface.header(header_hash).await.expect("header");
+
+		assert_eq!(header, encoded_header);
+		let seen = seen.lock().expect("test mutex");
+		assert_eq!(seen.len(), 1, "{seen:?}");
+		assert_eq!(seen[0]["method"], "header");
+		assert_eq!(seen[0]["params"], json!([STANDARD.encode(header_hash.0)]));
+	}
+
+	#[tokio::test]
+	async fn header_on_a_node_without_the_method_is_an_error() {
+		let (interface, _seen) = interface_answering(
+			json!({ "error": { "code": -32601, "message": "Method not found" } }),
+		);
+
+		let error = interface
+			.header(HeaderHash([0x42; 32]))
+			.await
+			.expect_err("nodes predating `header` reject the call");
+
+		assert!(matches!(error, Error::Other(_)), "{error:?}");
+		assert!(error.to_string().contains("Method not found"), "{error}");
+	}
 }

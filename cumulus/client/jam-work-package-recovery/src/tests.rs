@@ -107,6 +107,9 @@ impl JamChainSource for StubChainSource {
 	async fn parent(&self, _: HeaderHash) -> cumulus_jam_interface::Result<BlockDesc> {
 		unimplemented!("stub")
 	}
+	async fn header(&self, _: HeaderHash) -> cumulus_jam_interface::Result<Vec<u8>> {
+		unimplemented!("stub")
+	}
 	async fn state_root(
 		&self,
 		_: HeaderHash,
@@ -286,6 +289,7 @@ fn make_pov(
 		SchedulingProof::empty(),
 		additional_data,
 		parent_header.encode(),
+		Vec::new(),
 	)
 	.encode()
 }

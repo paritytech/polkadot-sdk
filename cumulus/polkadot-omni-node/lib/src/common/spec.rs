@@ -27,7 +27,7 @@ use crate::{
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	nodes::jam::{block_import::JamBlockImport, package_sync::ImportedPovs},
+	nodes::jam::{block_import::JamBlockImport, pov_store::BlockPovs},
 };
 use codec::Encode;
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
@@ -242,14 +242,14 @@ pub(crate) trait BaseNodeSpec {
 	/// Use this macro if you don't actually need the full service, but just the builder in order to
 	/// be able to perform chain operations.
 	///
-	/// On the JAM path (`jam` is `true`) the import queue is built over the
+	/// On the JAM path (`jam` is `Some`) the import queue is built over the
 	/// [`JamBlockImport`] re-execution wrapper: the queue `new_partial` builds is the one the
 	/// essential `basic-block-import-worker` runs over for the life of the node, so it must import
 	/// through the wrapper (task 12) — never a queue built here and rebuilt after, which would
 	/// orphan that worker by dropping its queue.
 	fn new_partial(
 		config: &Configuration,
-		jam: Option<ImportedPovs<Self::Block>>,
+		jam: Option<BlockPovs<Self::Block>>,
 	) -> sc_service::error::Result<
 		ParachainService<
 			Self::Block,
@@ -327,10 +327,10 @@ pub(crate) trait BaseNodeSpec {
 		// the life of the node, so on the JAM path it must be built over the `JamBlockImport`
 		// re-execution wrapper (task 12) — never built once and rebuilt after, which would orphan
 		// that worker by dropping its queue.
-		let import_queue = if let Some(imported_povs) = jam {
+		let import_queue = if let Some(block_povs) = jam {
 			Self::BuildImportQueue::build_import_queue(
 				client.clone(),
-				JamBlockImport::new(block_import.clone(), client.clone(), Some(imported_povs)),
+				JamBlockImport::new(block_import.clone(), client.clone(), Some(block_povs)),
 				config,
 				telemetry.as_ref().map(|telemetry| telemetry.handle()),
 				&task_manager,

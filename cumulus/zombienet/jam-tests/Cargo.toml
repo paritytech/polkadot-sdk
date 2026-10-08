@@ -11,10 +11,20 @@ publish = false
 anyhow = { workspace = true }
 array-bytes = { workspace = true }
 codec = { workspace = true, default-features = true }
+# The proxy decodes every submitted PoV to name the parachain blocks it carries.
+cumulus-primitives-core = { workspace = true, default-features = true }
 env_logger = { workspace = true }
 log = { workspace = true }
+rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true, features = ["raw_value"] }
-tokio = { workspace = true, features = ["macros", "process", "rt-multi-thread", "signal", "time"] }
+tokio = { workspace = true, features = [
+	"macros",
+	"process",
+	"rt-multi-thread",
+	"signal",
+	"sync",
+	"time",
+] }
 jsonrpsee = { workspace = true, features = ["ws-client"] }
 # The proxy speaks polkajam's jsonrpsee 0.26 surface; the harness keeps 0.24 for `JamRpc`.
 jsonrpsee-jam = { workspace = true, features = ["server", "ws-client"] }

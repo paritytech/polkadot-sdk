@@ -105,6 +105,11 @@ pub enum ParachainBlockData<Block> {
 		additional_data: Vec<Option<AdditionalData>>,
 		/// SCALE-encoded header of the block `blocks[0]` builds on. Untrusted.
 		parent_header: Vec<u8>,
+		/// Encoded JAM headers from the refine context's anchor back to the oldest anchor the
+		/// blocks name, newest first. Empty for a package built at authoring time, whose blocks
+		/// are anchored at the context itself; set when blocks whose package was lost are
+		/// resubmitted against a newer context. Untrusted: the PVF verifies it.
+		anchor_chain: Vec<Vec<u8>>,
 	},
 }
 
@@ -136,7 +141,14 @@ impl<Block: Encode> Encode for ParachainBlockData<Block> {
 				additional_data.encode_to(&mut res);
 				res
 			},
-			Self::V4 { blocks, proof, scheduling_proof, additional_data, parent_header } => {
+			Self::V4 {
+				blocks,
+				proof,
+				scheduling_proof,
+				additional_data,
+				parent_header,
+				anchor_chain,
+			} => {
 				let mut res = VERSIONED_PARACHAIN_BLOCK_DATA_PREFIX.to_vec();
 				4u8.encode_to(&mut res);
 				blocks.encode_to(&mut res);
@@ -144,6 +156,7 @@ impl<Block: Encode> Encode for ParachainBlockData<Block> {
 				scheduling_proof.encode_to(&mut res);
 				additional_data.encode_to(&mut res);
 				parent_header.encode_to(&mut res);
+				anchor_chain.encode_to(&mut res);
 				res
 			},
 		}
@@ -184,8 +197,16 @@ impl<Block: Decode> Decode for ParachainBlockData<Block> {
 					let scheduling_proof = crate::SchedulingProof::decode(input)?;
 					let additional_data = Vec::<Option<AdditionalData>>::decode(input)?;
 					let parent_header = Vec::<u8>::decode(input)?;
+					let anchor_chain = Vec::<Vec<u8>>::decode(input)?;
 
-					Ok(Self::V4 { blocks, proof, scheduling_proof, additional_data, parent_header })
+					Ok(Self::V4 {
+						blocks,
+						proof,
+						scheduling_proof,
+						additional_data,
+						parent_header,
+						anchor_chain,
+					})
 				},
 				_ => Err("Unknown `ParachainBlockData` version".into()),
 			}
@@ -212,7 +233,8 @@ impl<Block> ParachainBlockData<Block> {
 		}
 	}
 
-	/// Always produces [`Self::V4`], carrying the SCALE-encoded parent header of `blocks[0]`.
+	/// Always produces [`Self::V4`], carrying the SCALE-encoded parent header of `blocks[0]` and
+	/// the JAM `anchor_chain` (empty for a package built at authoring time).
 	/// Unlike [`Self::new_with_additional_data`], this never downgrades to V2/V3: JAM candidates
 	/// always require the parent header, so V4 is unconditional.
 	pub fn new_with_parent_header(
@@ -221,8 +243,9 @@ impl<Block> ParachainBlockData<Block> {
 		scheduling_proof: SchedulingProof,
 		additional_data: Vec<Option<AdditionalData>>,
 		parent_header: Vec<u8>,
+		anchor_chain: Vec<Vec<u8>>,
 	) -> Self {
-		Self::V4 { blocks, proof, scheduling_proof, additional_data, parent_header }
+		Self::V4 { blocks, proof, scheduling_proof, additional_data, parent_header, anchor_chain }
 	}
 
 	/// Creates a new instance of `Self` carrying additional data: [`Self::V3`] when
@@ -338,6 +361,14 @@ impl<Block> ParachainBlockData<Block> {
 		match self {
 			Self::V4 { parent_header, .. } => Some(parent_header),
 			_ => None,
+		}
+	}
+
+	/// Returns the JAM anchor chain if this is a V4 POV; empty slice otherwise.
+	pub fn anchor_chain(&self) -> &[Vec<u8>] {
+		match self {
+			Self::V4 { anchor_chain, .. } => anchor_chain,
+			_ => &[],
 		}
 	}
 }
@@ -729,6 +760,7 @@ mod tests {
 			scheduling_proof: SchedulingProof::empty(),
 			additional_data: vec![Some(additional.clone()), None],
 			parent_header: parent_header.clone(),
+			anchor_chain: vec![vec![7u8; 120], vec![8u8; 3]],
 		};
 
 		let encoded = v4.encode();
@@ -739,6 +771,7 @@ mod tests {
 		assert_eq!(v4.scheduling_proof(), decoded.scheduling_proof());
 		assert_eq!(v4.additional_data(), decoded.additional_data());
 		assert_eq!(decoded.parent_header(), Some(parent_header.as_slice()));
+		assert_eq!(decoded.anchor_chain(), v4.anchor_chain());
 	}
 
 	#[test]
@@ -770,6 +803,7 @@ mod tests {
 			scheduling_proof: SchedulingProof::empty(),
 			additional_data: vec![None],
 			parent_header: vec![0xabu8, 0xcd],
+			anchor_chain: vec![],
 		};
 		assert_eq!(v4.parent_header(), Some(&[0xabu8, 0xcd][..]));
 	}

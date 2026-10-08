@@ -30,26 +30,17 @@
 //!   remembers it — submits it, follows `workPackageStatus` for every package in flight, and
 //!   re-decides every package at each JAM block behind a pluggable [policy](resubmission);
 //!
-//! The collation task writes the [authoring hold](AuthoringHold) — how many packages it handed to
-//! a guarantor and then had to resend without seeing them on chain — and the builder reads it each
+//! The collation task writes the [authoring hold](AuthoringHold) and the builder reads it each
 //! tick: while it is non-zero the builder stands down, because a new block would only deepen a
 //! branch whose package has not landed yet.
 //!
-//! # Collator-to-collator package sync
+//! # The PoV store
 //!
-//! A collator that only *imports* a block cannot recompute its work-package hash, because the
-//! package carries the author's randomised signature. A request/response
-//! [protocol](package_sync) between collators, found through authority discovery, closes that gap:
-//! the info protocol syncs the `authorization`, the prerequisites and the author's PoV spec per
-//! block hash. The importer rebuilds the package,
-//! [verifies](authorizer::AuraAuthorizer::verify_token) the author's token, hashes it and keeps
-//! it. The import path records the storage proof those blocks re-executed with, in
-//! [ImportedPovs](package_sync::ImportedPovs), so the PoV is rebuilt locally from that proof.
-//!
-//! A verified foreign package is resubmitted when β does not name it, exactly as this collator's
-//! own packages are: the [resubmission policy](resubmission) is shared, and the hold counts
-//! foreign packages too. A foreign package that is given up on has its block recorded in
-//! [`DeadBlocks`], and the builder never authors on a dead block or any of its descendants.
+//! A work package carries its author's randomised signature, so it cannot be recomputed, not even
+//! by its author: a block whose package was lost can only travel again in a new package. That
+//! takes the block's PoV, and so the storage proof the block executes with. The
+//! [PoV store](pov_store::BlockPovs) keeps it per block: the import path records it for every
+//! block it re-executes, the collation task for every block this collator authored.
 //!
 //! Heads following reuses `cumulus_client_consensus_common::run_parachain_consensus` with
 //! streams built from the parachain service's per-para state entry: `ParaInfo.head_data` holds
@@ -61,7 +52,7 @@ pub(crate) mod builder_task;
 pub(crate) mod collation_task;
 pub(crate) mod hash_ledger;
 pub(crate) mod package;
-pub(crate) mod package_sync;
+pub(crate) mod pov_store;
 pub(crate) mod resubmission;
 
 use crate::common::{
@@ -82,16 +73,15 @@ use sc_client_api::{Backend as _, BlockchainEvents, StorageProvider};
 use sp_additional_data::AdditionalData;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::ProposeArgs;
-use sp_runtime::traits::{Block as BlockT, NumberFor};
+use sp_runtime::traits::Block as BlockT;
 use sp_timestamp::Timestamp;
 use std::{
-	collections::HashMap,
 	fmt::Debug,
 	future::Future,
 	pin::Pin,
 	sync::{
 		atomic::{AtomicUsize, Ordering},
-		Arc, Mutex,
+		Arc,
 	},
 	time::Instant,
 };
@@ -100,8 +90,8 @@ pub(crate) const LOG_TARGET: &str = "jam-collator";
 
 pub(crate) const JAM_SLOT_DURATION_MS: u64 = 6000;
 
-/// Count of packages that were handed to a guarantor at least once, resent at least once, and
-/// not yet seen on chain. Written by the collation task, read by the builder at tick time.
+/// How many in-flight resubmission packages the builder has to wait for before it authors again.
+/// Written by the collation task, read by the builder at tick time.
 #[derive(Clone)]
 pub(crate) struct AuthoringHold(Arc<AtomicUsize>);
 
@@ -110,53 +100,12 @@ impl AuthoringHold {
 		Self(Arc::new(AtomicUsize::new(0)))
 	}
 
-	pub(crate) fn set_overdue(&self, n: usize) {
+	pub(crate) fn set_pending(&self, n: usize) {
 		self.0.store(n, Ordering::Relaxed);
 	}
 
-	pub(crate) fn overdue(&self) -> usize {
+	pub(crate) fn pending(&self) -> usize {
 		self.0.load(Ordering::Relaxed)
-	}
-}
-
-/// Parachain blocks a foreign resubmission gave up on, with the height they sit at.
-///
-/// A lost foreign work package leaves a parachain block nothing will accumulate, and every block
-/// authored on top of it inherits that. The builder reads this to exclude a dead block and its
-/// subtree from parent selection, so it never deepens a branch already known to be lost.
-#[derive(Clone)]
-pub(crate) struct DeadBlocks<Block: BlockT>(Arc<Mutex<HashMap<Block::Hash, NumberFor<Block>>>>);
-
-impl<Block: BlockT> DeadBlocks<Block> {
-	pub(crate) fn new() -> Self {
-		Self(Arc::new(Mutex::new(HashMap::new())))
-	}
-
-	/// A poisoned lock must not take the collator down: the worst a lost entry costs is one
-	/// stale parent candidate, and the stall re-root is the backstop.
-	fn map(&self) -> std::sync::MutexGuard<'_, HashMap<Block::Hash, NumberFor<Block>>> {
-		self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
-	}
-
-	/// Record `hash` as dead at `number`.
-	pub(crate) fn mark(&self, hash: Block::Hash, number: NumberFor<Block>) {
-		self.map().insert(hash, number);
-	}
-
-	/// Whether `hash` is a dead block.
-	pub(crate) fn contains(&self, hash: &Block::Hash) -> bool {
-		self.map().contains_key(hash)
-	}
-
-	/// Drop every entry at or below `number`: the para head has moved past them, so nothing will
-	/// ever be authored on them again.
-	pub(crate) fn prune_up_to(&self, number: NumberFor<Block>) {
-		self.map().retain(|_, dead_number| *dead_number > number);
-	}
-
-	/// A copy of the dead set, for a pure helper to filter a descendant list with.
-	pub(crate) fn snapshot(&self) -> HashMap<Block::Hash, NumberFor<Block>> {
-		self.map().clone()
 	}
 }
 
@@ -430,7 +379,10 @@ where
 
 /// Whether a lookup anchor this old would still be inside polkajam's window when the package
 /// carrying it is reported, rather than expiring in flight.
-fn lookup_anchor_survives_reporting(anchor_slot: JamSlot, lookup_anchor_slot: JamSlot) -> bool {
+pub(crate) fn lookup_anchor_survives_reporting(
+	anchor_slot: JamSlot,
+	lookup_anchor_slot: JamSlot,
+) -> bool {
 	anchor_slot.saturating_sub(lookup_anchor_slot) <=
 		MAX_LOOKUP_ANCHOR_AGE.saturating_sub(LOOKUP_ANCHOR_SAFETY_MARGIN)
 }
@@ -645,7 +597,8 @@ pub(crate) fn head_hash_of<Hash: Decode>(para_info: &[u8]) -> Result<Hash, Strin
 }
 
 /// Stream of para-head hashes for heads following: every change of the para's `ParaInfo` entry
-/// in the parachain service's state yields the new head's header hash.
+/// in the parachain service's state yields the new head's header hash together with the slot of
+/// the JAM block whose state changed it.
 ///
 /// Absent values (para not registered yet) and undecodable values are dropped, matching the
 /// relay-chain streams' behavior of dropping absent heads.
@@ -654,7 +607,7 @@ pub(crate) async fn para_head_stream<Hash: Decode + Debug + Send + 'static>(
 	parachain_service: ServiceId,
 	para_id: u32,
 	finalized: bool,
-) -> jam_interface::Result<impl Stream<Item = Hash> + Send> {
+) -> jam_interface::Result<impl Stream<Item = (Hash, JamSlot)> + Send> {
 	let key = para_info_key(para_id.into());
 	let stream = jam.service_value_stream(parachain_service, &key, finalized).await?;
 	Ok(stream.filter_map(move |update| {
@@ -670,7 +623,7 @@ pub(crate) async fn para_head_stream<Hash: Decode + Debug + Send + 'static>(
 						?head,
 						"Para head changed in JAM state.",
 					);
-					Some(head)
+					Some((head, update.slot))
 				},
 				Err(error) => {
 					tracing::warn!(
@@ -697,26 +650,28 @@ pub(crate) async fn para_head_stream<Hash: Decode + Debug + Send + 'static>(
 }
 
 /// Resolve head hashes to headers: a head whose header `lookup` finds is yielded at once, any
-/// other waits until its block is imported.
+/// other waits until its block is imported. Whatever `Extra` travels with a head (the JAM slot
+/// it changed at) comes out beside its header.
 ///
 /// A newer head replaces the one waiting, so only the latest head is reported. The stream ends
 /// when `heads` ends.
-pub(crate) fn resolve_heads<Hash, Header>(
-	heads: impl Stream<Item = Hash> + Send + Unpin + 'static,
+pub(crate) fn resolve_heads<Hash, Header, Extra>(
+	heads: impl Stream<Item = (Hash, Extra)> + Send + Unpin + 'static,
 	imports: impl Stream<Item = (Hash, Header)> + Send + Unpin + 'static,
 	lookup: impl Fn(&Hash) -> Option<Header> + Send + 'static,
-) -> impl Stream<Item = Header> + Send
+) -> impl Stream<Item = (Header, Extra)> + Send
 where
 	Hash: PartialEq + Send + 'static,
 	Header: Send + 'static,
+	Extra: Send + 'static,
 {
-	enum Event<Hash, Header> {
-		Head(Option<Hash>),
+	enum Event<Hash, Header, Extra> {
+		Head(Option<(Hash, Extra)>),
 		Import(Option<(Hash, Header)>),
 	}
 
 	futures::stream::unfold(
-		(heads.fuse(), imports.fuse(), lookup, None::<Hash>),
+		(heads.fuse(), imports.fuse(), lookup, None::<(Hash, Extra)>),
 		|(mut heads, mut imports, lookup, mut pending)| async move {
 			loop {
 				let event = futures::select! {
@@ -725,14 +680,19 @@ where
 				};
 				match event {
 					Event::Head(head) => {
-						let head = head?;
+						let (head, extra) = head?;
 						match lookup(&head) {
-							Some(header) => return Some((header, (heads, imports, lookup, None))),
-							None => pending = Some(head),
+							Some(header) => {
+								return Some(((header, extra), (heads, imports, lookup, None)))
+							},
+							None => pending = Some((head, extra)),
 						}
 					},
-					Event::Import(Some((hash, header))) if pending.as_ref() == Some(&hash) => {
-						return Some((header, (heads, imports, lookup, None)))
+					Event::Import(Some((hash, header)))
+						if pending.as_ref().is_some_and(|(waiting, _)| *waiting == hash) =>
+					{
+						let (_, extra) = pending.take().expect("checked just above; qed");
+						return Some(((header, extra), (heads, imports, lookup, None)));
 					},
 					Event::Import(_) => {},
 				}
@@ -742,14 +702,14 @@ where
 }
 
 /// The para's head headers, resolved from the head hashes in JAM state through the local
-/// database; see [`resolve_heads`].
+/// database, each with the slot of the JAM block that made it the head; see [`resolve_heads`].
 pub(crate) async fn para_header_stream<Block, Client>(
 	jam: &(impl JamStateSource + 'static),
 	client: Arc<Client>,
 	parachain_service: ServiceId,
 	para_id: u32,
 	finalized: bool,
-) -> jam_interface::Result<impl Stream<Item = Block::Header> + Send>
+) -> jam_interface::Result<impl Stream<Item = (Block::Header, JamSlot)> + Send>
 where
 	Block: BlockT,
 	Client: HeaderBackend<Block> + BlockchainEvents<Block> + Send + Sync + 'static,
@@ -813,7 +773,34 @@ mod tests {
 		let lookup = move |hash: &H256| {
 			known.iter().find(|(known, _)| known == hash).map(|(_, header)| *header)
 		};
-		(heads_tx, imports_tx, Box::pin(resolve_heads(heads_rx, imports_rx, lookup)))
+		let heads = heads_rx.map(|hash| (hash, ()));
+		let resolved = resolve_heads(heads, imports_rx, lookup).map(|(header, ())| header);
+		(heads_tx, imports_tx, Box::pin(resolved))
+	}
+
+	/// What travels with a head comes out beside its header, whether the header was known at
+	/// once or had to be imported first.
+	#[test]
+	fn the_heads_extra_travels_with_its_header() {
+		let (a, b) = (H256::repeat_byte(1), H256::repeat_byte(2));
+		let (heads, heads_rx) = mpsc::unbounded::<(H256, u32)>();
+		let (imports, imports_rx) = mpsc::unbounded::<(H256, &'static str)>();
+		let lookup = move |hash: &H256| (*hash == a).then_some("a");
+		let mut resolved = Box::pin(resolve_heads(heads_rx, imports_rx, lookup));
+
+		heads
+			.unbounded_send((a, 10))
+			.expect("the resolver holds the receiving end; qed");
+		assert_eq!(resolved.next().now_or_never(), Some(Some(("a", 10))));
+
+		heads
+			.unbounded_send((b, 11))
+			.expect("the resolver holds the receiving end; qed");
+		assert_eq!(resolved.next().now_or_never(), None, "b waits for its import");
+		imports
+			.unbounded_send((b, "b"))
+			.expect("the resolver holds the receiving end; qed");
+		assert_eq!(resolved.next().now_or_never(), Some(Some(("b", 11))));
 	}
 
 	#[test]
@@ -1066,16 +1053,16 @@ mod tests {
 	/// The collation task is the sole writer and the builder reads the latest value at tick time;
 	/// clones must share the one counter.
 	#[test]
-	fn the_authoring_hold_tracks_the_overdue_count() {
+	fn the_authoring_hold_tracks_the_pending_count() {
 		let hold = AuthoringHold::new();
-		assert_eq!(hold.overdue(), 0);
+		assert_eq!(hold.pending(), 0);
 
-		hold.set_overdue(3);
-		assert_eq!(hold.overdue(), 3);
-		assert_eq!(hold.clone().overdue(), 3, "clones share the counter");
+		hold.set_pending(3);
+		assert_eq!(hold.pending(), 3);
+		assert_eq!(hold.clone().pending(), 3, "clones share the counter");
 
-		hold.set_overdue(0);
-		assert_eq!(hold.overdue(), 0);
+		hold.set_pending(0);
+		assert_eq!(hold.pending(), 0);
 	}
 
 	/// The wall-clock-driven builder derives its JAM slot from the clock and its timestamp from
@@ -1107,26 +1094,5 @@ mod tests {
 	#[test]
 	fn no_jam_state_reader_proves_every_key_absent() {
 		assert_eq!(NoJamStateReader.read(&[0xAB; 31]), None);
-	}
-
-	/// The dead-block set marks, prunes and snapshots by height; clones share the one set.
-	#[test]
-	fn dead_blocks_mark_prune_and_snapshot() {
-		use cumulus_test_runtime::Block as TestBlock;
-		use sp_core::H256;
-
-		let dead = DeadBlocks::<TestBlock>::new();
-		let low = H256::repeat_byte(1);
-		let high = H256::repeat_byte(2);
-		dead.mark(low, 3u32);
-		dead.mark(high, 9u32);
-
-		assert!(dead.contains(&low));
-		assert_eq!(dead.snapshot().len(), 2);
-		assert_eq!(dead.clone().snapshot().len(), 2, "clones share the set");
-
-		dead.prune_up_to(3u32);
-		assert!(!dead.contains(&low), "an entry at the pruned height goes");
-		assert!(dead.contains(&high), "a higher entry stays");
 	}
 }

@@ -17,104 +17,136 @@
 
 #![cfg(feature = "jam")]
 
-//! A collator whose first work-package submission never reaches JAM must resend the identical
-//! package and still move the head.
+//! Parachain blocks whose work packages never reach JAM must still land, through new packages a
+//! collator builds and signs itself.
 //!
-//! The test pins the JAM ordinary node's RPC port, pre-allocates a second port for
-//! [`ProxyServer`], and starts the proxy before the network so `alice`'s `--jam-rpc-urls` can name
-//! it before `spawn_fn` builds the whole network in one call. The proxy swallows the first
-//! `submitWorkPackage` of every distinct work-package hash and forwards every later one
-//! byte-exact. If the collator gives up instead of resending, or re-signs the package so its hash
-//! changes, the head never reaches the target; if it resends identically, it does. Completion is
-//! the collator's **finalized** parachain height, not a log line: a parachain block only finalizes
-//! after JAM accumulated the work package that produced it, which is exactly the proof that a
-//! package was resubmitted to JAM. The proxy's own ledger is the witness that the first submission
-//! was really dropped.
+//! Both tests pin the JAM ordinary node's RPC port, pre-allocate a second port for
+//! [`ProxyServer`], and start the proxy before the network so a collator's `--jam-rpc-urls` can
+//! name it before `spawn_fn` builds the whole network in one call. The proxy swallows
+//! `submitWorkPackage` calls as its [`DropPolicy`] decides and forwards the rest byte-exact; its
+//! ledger records which parachain blocks every dropped and every forwarded package carried.
 //!
-//! [`another_collator_resends_a_lost_package`] has two collators authoring, but only one behind a
-//! proxy running [`DropPolicy::Everything`]: the other has to learn the proxied collator's
-//! packages over the collator sync protocol and resubmit them. Its completion is `bob`'s finalized
-//! height while the proxy ledger stays empty, and it additionally requires a finalized block
-//! authored by the *other* collator — with alice's submissions all dropped, only a resubmission
-//! through `bob` can put one there.
+//! A lost block is recovered by whichever collator owns the current round-robin turn: it puts
+//! the same block into a fresh work package, one block per package, signed by itself and carrying
+//! a chain of JAM headers that proves the anchors the block was built against. Nothing is resent
+//! byte-identically and no collator asks another for its signature. To the proxy a resubmission
+//! is therefore a *forwarded* package carrying a block that an earlier, *dropped* package carried,
+//! and it announces each one through [`ProxyServer::subscribe_resubmissions`].
+//!
+//! [`resends_make_the_head_advance`] drops a seeded random share of one collator's submissions
+//! and only ends once [`MIN_RESUBMISSIONS`] resubmissions were observed and the blocks they
+//! carried are in the collator's **finalized** chain. A parachain block only finalizes after JAM
+//! accumulated the work package that carried it, so a finalized resubmitted block is the proof
+//! that the new package reached JAM and was accepted; a log line cannot prove that, the node
+//! emits it on its own schedule.
+//!
+//! [`another_collator_resends_a_lost_package`] has two collators authoring, but only alice behind
+//! a proxy running [`DropPolicy::Everything`]: she builds and gossips her blocks, so bob imports
+//! them, but none of her packages is ever delivered. There is no package sync between collators,
+//! so only bob's own new packages, signed by bob and carrying a JAM header chain proving the old
+//! anchors, can land her blocks. Its completion is bob's finalized height while the proxy
+//! forwarded nothing, plus a finalized block authored by alice.
 
 use anyhow::{anyhow, Context};
 use codec::Decode;
 use cumulus_jam_zombienet_tests::{
 	network::free_port,
-	para::{Para, JAM_SLOT, TINY_CORES},
-	proxy::{DropPolicy, ProxyServer},
+	para::{Para, TINY_CORES},
+	proxy::{DropPolicy, ProxyServer, Resubmission},
 	spawn::{spawn, CollatorOptions, JamNetwork, SpawnOptions},
 };
 use cumulus_zombienet_sdk_helpers::{
 	jam::{DigestItem, JamHeader},
 	ParaConfig,
 };
-use std::{collections::HashMap, path::PathBuf, time::Duration};
+use std::{collections::HashMap, env::VarError, path::PathBuf, time::Duration};
 use tokio::time::Instant;
-use zombienet_sdk::subxt::OnlineClient;
+use zombienet_sdk::subxt::{blocks::Block, utils::H256, OnlineClient};
 
-/// The finalized parachain height the run has to reach. Every block needs its package reported to
-/// JAM, and every reported package had its first submission dropped, so reaching this is only
-/// possible through resends.
+/// A parachain block as a collator's subxt client hands it out.
+type ParaBlock = Block<ParaConfig, OnlineClient<ParaConfig>>;
+
+/// The share of alice's submissions [`resends_make_the_head_advance`] drops.
+const DROP_PROBABILITY: f64 = 0.3;
+/// Names the seed of the random drops so a run can be replayed; unset draws a fresh one.
+const DROP_SEED_ENV: &str = "JAM_TEST_DROP_SEED";
+/// How many resubmissions [`resends_make_the_head_advance`] has to observe, and how many of the
+/// blocks they carried have to end up finalized.
+const MIN_RESUBMISSIONS: usize = 10;
+/// How long observing [`MIN_RESUBMISSIONS`] resubmissions and finalizing their blocks may take.
+/// Loose, but a collator that never rebuilds a lost block has to time out here rather than pass.
+const RESUBMISSION_BUDGET: Duration = Duration::from_secs(20 * 60);
+
+/// The finalized parachain height bob has to reach in [`another_collator_resends_a_lost_package`].
+/// Alice authors every other block and none of her packages arrives, so bob's chain cannot get
+/// this far unless he lands her blocks himself.
 const HEAD_TARGET: u64 = 5;
-/// Loose, but a collator that never resends has to time out here rather than pass.
+/// Loose, but a collator that never rebuilds another collator's lost blocks has to time out here
+/// rather than pass.
 const HEAD_BUDGET: Duration = Duration::from_secs(10 * 60);
 
-/// One collator behind a proxy that drops the first submission of every package; the head can
-/// only reach the target by resending.
+/// One collator behind a proxy that drops a random share of its submissions. The blocks a dropped
+/// package carried only land once the collator rebuilds them into new packages, and the run only
+/// ends after [`MIN_RESUBMISSIONS`] of them are finalized.
 #[tokio::test(flavor = "multi_thread")]
 async fn resends_make_the_head_advance() -> Result<(), anyhow::Error> {
 	const TEST: &str = "resends_make_the_head_advance";
-	let (jam, proxy) =
-		spawn_proxied_network(TEST, &["alice"], &["alice"], DropPolicy::FirstSubmission, None)
-			.await?;
-	let result = resend_then_advance(&jam, &proxy).await;
+	init_logging();
+	let seed = drop_seed()?;
+	log::info!(
+		"{TEST}: dropping submissions with probability {DROP_PROBABILITY}, seed {seed}; replay \
+		 with {DROP_SEED_ENV}={seed}"
+	);
+	let (jam, proxy) = spawn_proxied_network(
+		TEST,
+		&["alice"],
+		&["alice"],
+		DropPolicy::Random { probability: DROP_PROBABILITY, seed },
+		None,
+	)
+	.await?;
+	let result = resubmissions_then_finalize(&jam, &proxy).await;
 	let result = result.map_err(|error| anyhow!("{error}\n\n{}", proxy.describe()));
 	proxy.shutdown().await;
 	jam.finish(result).await
 }
 
 /// Two collators authoring; only alice is behind a proxy that drops **every** submission it sees,
-/// while bob talks to JAM directly. The head can only advance if bob learns alice's packages over
-/// the collator sync protocol and resubmits them.
+/// while bob talks to JAM directly. Alice's blocks reach bob by gossip but never reach JAM, so the
+/// head can only advance if bob rebuilds them into packages of his own.
 #[tokio::test(flavor = "multi_thread")]
 async fn another_collator_resends_a_lost_package() -> Result<(), anyhow::Error> {
 	const TEST: &str = "another_collator_resends_a_lost_package";
-	let runtime = authority_discovery_runtime()?;
-	let (jam, proxy) = spawn_proxied_network(
-		TEST,
-		&["alice", "bob"],
-		&["alice"],
-		DropPolicy::Everything,
-		Some(runtime),
-	)
-	.await?;
+	let (jam, proxy) =
+		spawn_proxied_network(TEST, &["alice", "bob"], &["alice"], DropPolicy::Everything, None)
+			.await?;
 	let result = foreign_resend_then_advance(&jam, &proxy).await;
 	let result = result.map_err(|error| anyhow!("{error}\n\n{}", proxy.describe()));
 	proxy.shutdown().await;
 	jam.finish(result).await
 }
 
-/// Writes the `with_authority_discovery` runtime flavor to a file the harness freezes into the
-/// para's validation code.
-///
-/// The cross-collator sync finds its peers through `AuthorityDiscoveryApi`, which the parachain
-/// template behind `RUNTIME_WASM` does not implement.
-fn authority_discovery_runtime() -> Result<PathBuf, anyhow::Error> {
-	use cumulus_test_runtime::with_authority_discovery::{WASM_BINARY, WASM_FILE_NAME};
+/// Route `log` output to stderr at `info` unless `RUST_LOG` says otherwise; a repeated call is a
+/// no-op.
+fn init_logging() {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+}
 
-	let bytes = WASM_BINARY
-		.ok_or_else(|| anyhow!("the `with_authority_discovery` runtime flavor was not built"))?;
-	let dir = std::env::temp_dir().join(format!("cumulus-jam-resubmission-{}", std::process::id()));
-	std::fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
-	let path = dir.join(format!("{WASM_FILE_NAME}.polkavm"));
-	std::fs::write(&path, bytes).with_context(|| format!("writing {}", path.display()))?;
-	Ok(path)
+/// The seed of [`DropPolicy::Random`]: `JAM_TEST_DROP_SEED` if set, else a fresh random one.
+fn drop_seed() -> anyhow::Result<u64> {
+	match std::env::var(DROP_SEED_ENV) {
+		Ok(seed) => seed
+			.parse()
+			.with_context(|| format!("parsing {DROP_SEED_ENV}={seed:?} as a u64")),
+		Err(VarError::NotPresent) => Ok(rand::random()),
+		Err(error) => Err(error).with_context(|| format!("reading {DROP_SEED_ENV}")),
+	}
 }
 
 /// Spawn the tiny JAM network with `collators` authoring para 0, the ones named in `proxied`
-/// pointing their `--jam-rpc-urls` at a proxy applying `policy`.
+/// pointing their `--jam-rpc-urls` at a proxy applying `policy`; the others talk to JAM directly.
 ///
 /// `runtime` is the PolkaVM blob para 0 validates with *and* its collators execute; `None` keeps
 /// the run's default ([`Binaries::runtime_wasm`](cumulus_jam_zombienet_tests::env::Binaries)).
@@ -125,9 +157,7 @@ async fn spawn_proxied_network(
 	policy: DropPolicy,
 	runtime: Option<PathBuf>,
 ) -> anyhow::Result<(JamNetwork, ProxyServer)> {
-	let _ = env_logger::try_init_from_env(
-		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-	);
+	init_logging();
 
 	let jam_or_port = free_port()?;
 	let proxy_port = free_port()?;
@@ -138,10 +168,9 @@ async fn spawn_proxied_network(
 	}
 	let paras = vec![para];
 
-	// Authority discovery publishes only addresses the node considers external; a bare listening
-	// socket is not one, so with no `--public-addr` the AD worker publishes nothing and the
-	// collators can never resolve each other. Pin each collator's p2p port and name it as a
-	// public address, so the loopback socket the other collator dials is what AD hands back.
+	// Pin each collator's p2p port and announce it as a public address, so collators sharing
+	// this host find each other over a known loopback socket: a lost block can only be rebuilt
+	// by a collator that imported it.
 	let collator_options: HashMap<String, CollatorOptions> = collators
 		.iter()
 		.map(|name| -> anyhow::Result<(String, CollatorOptions)> {
@@ -184,18 +213,19 @@ async fn spawn_proxied_network(
 	Ok((jam, proxy))
 }
 
-/// Wait until `client`'s collator has **finalized** block number `target`.
+/// Wait until `client`'s collator has **finalized** block number `target` and return the first
+/// finalized block at or above it.
 ///
 /// A parachain block only finalizes after JAM has accumulated and reported the work package that
-/// produced it, so a finalized height is the objective proof that a package was resubmitted to
-/// JAM. A log line cannot prove that: the node emits it on its own schedule, independent of
-/// whether the package ever reached a guarantor. The error names the last finalized height, so a
-/// stuck run says whether the chain stalled or merely fell behind.
+/// carried it, so a finalized height is the objective proof that a package reached JAM. A log
+/// line cannot prove that: the node emits it on its own schedule, independent of whether the
+/// package ever reached a guarantor. The error names the last finalized height, so a stuck run
+/// says whether the chain stalled or merely fell behind.
 async fn wait_for_finalized_height(
 	client: &OnlineClient<ParaConfig>,
 	target: u64,
 	budget: Duration,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<ParaBlock> {
 	let deadline = Instant::now() + budget;
 	let mut finalized = client.blocks().subscribe_finalized().await?;
 	let mut last = 0u64;
@@ -213,54 +243,50 @@ async fn wait_for_finalized_height(
 		last = u64::from(block.number());
 		log::info!("collator finalized height: {last} (target #{target})");
 		if last >= target {
-			return Ok(());
+			return Ok(block);
 		}
 	}
 }
 
-/// Wait for alice's own finalized parachain height to prove the resend reached JAM, then check the
-/// proxy ledger shows every package had to be submitted at least twice.
-async fn resend_then_advance(jam: &JamNetwork, proxy: &ProxyServer) -> anyhow::Result<()> {
-	// How long after its first submission a package may still have been submitted only once. A
-	// collator resends at anchor+2, one JAM_SLOT at a time, so anything older than this that was
-	// never submitted twice is a package the collator abandoned instead of resending.
-	let resend_grace = JAM_SLOT * 4;
-
+/// Wait until the proxy saw [`MIN_RESUBMISSIONS`] resubmissions, then until alice finalized the
+/// highest block they carried, and require at least [`MIN_RESUBMISSIONS`] of the resubmitted
+/// blocks in her finalized chain: a new package the proxy forwarded but JAM never accumulated
+/// leaves its block unfinalized and fails here.
+async fn resubmissions_then_finalize(jam: &JamNetwork, proxy: &ProxyServer) -> anyhow::Result<()> {
+	let deadline = Instant::now() + RESUBMISSION_BUDGET;
 	let alice_client = jam.collator_client("alice").await?;
-	wait_for_finalized_height(&alice_client, HEAD_TARGET, HEAD_BUDGET).await?;
 
-	let attempts = proxy.snapshot();
-	anyhow::ensure!(
-		!attempts.is_empty(),
-		"the head reached {HEAD_TARGET}, but the proxy saw no submitWorkPackage at all: alice is \
-		 talking to the network directly, not through the proxy"
+	let resubmitted = await_resubmitted_blocks(proxy, deadline).await?;
+	let (Some(low), Some(high)) =
+		(resubmitted.values().min().copied(), resubmitted.values().max().copied())
+	else {
+		anyhow::bail!("the proxy announced resubmissions that carried no block");
+	};
+	log::info!(
+		"the resubmitted blocks span #{low}..=#{high}; waiting for alice to finalize #{high}"
 	);
+	let head = wait_for_finalized_height(
+		&alice_client,
+		u64::from(high),
+		deadline.saturating_duration_since(Instant::now()),
+	)
+	.await?;
 
-	let forwarded: Vec<String> = attempts
+	let landed = finalized_among(&alice_client, &head, &resubmitted, low).await?;
+	let mut missing: Vec<(u32, H256)> = resubmitted
 		.iter()
-		.filter(|attempt| attempt.count >= 2)
-		.map(|attempt| hex::encode(&attempt.hash[..8]))
+		.filter(|(hash, _)| !landed.contains(hash))
+		.map(|(hash, number)| (*number, *hash))
 		.collect();
+	missing.sort();
 	anyhow::ensure!(
-		forwarded.len() as u64 >= HEAD_TARGET,
-		"the head reached {HEAD_TARGET} through the proxy, but the proxy forwarded only {} \
-		 distinct work package(s); every accumulated head's package must have been submitted at \
-		 least twice",
-		forwarded.len()
+		landed.len() >= MIN_RESUBMISSIONS,
+		"only {} of the {} resubmitted block(s) landed in alice's finalized chain between #{low} \
+		 and #{}; {MIN_RESUBMISSIONS} are required. Not in it: {missing:?}",
+		landed.len(),
+		resubmitted.len(),
+		head.number(),
 	);
-
-	for attempt in &attempts {
-		if attempt.count == 1 {
-			let age = attempt.first_seen.elapsed();
-			anyhow::ensure!(
-				age < resend_grace,
-				"the proxy saw work package 0x{}… once and never again {age:?} after its first \
-				 submission; the collator must resend the identical bytes, not re-sign a new \
-				 package",
-				hex::encode(&attempt.hash[..8]),
-			);
-		}
-	}
 
 	anyhow::ensure!(
 		proxy.upstream_errors() == 0,
@@ -271,9 +297,73 @@ async fn resend_then_advance(jam: &JamNetwork, proxy: &ProxyServer) -> anyhow::R
 	Ok(())
 }
 
-/// Wait for `bob`'s finalized parachain height while alice's submissions all stay dropped: only
-/// bob resubmitting alice's packages can finalize a block, and the proxy ledger proves alice never
-/// delivered.
+/// Wait until the proxy's resubmissions carry at least [`MIN_RESUBMISSIONS`] distinct blocks and
+/// return those blocks as hash to number.
+///
+/// The proxy announces every resubmission over a `watch` channel, so this awaits notifications
+/// rather than polling. A block resubmitted twice is one block, so if the resubmissions seen so
+/// far repeat one, the wait goes on until the next announcement.
+async fn await_resubmitted_blocks(
+	proxy: &ProxyServer,
+	deadline: Instant,
+) -> anyhow::Result<HashMap<H256, u32>> {
+	let mut announced = proxy.subscribe_resubmissions();
+	let mut needed = MIN_RESUBMISSIONS;
+	loop {
+		let count = tokio::time::timeout_at(deadline, announced.wait_for(|count| *count >= needed))
+			.await
+			.map_err(|_| {
+				let seen = proxy.resubmissions();
+				anyhow!(
+					"within {RESUBMISSION_BUDGET:?} the proxy saw {} resubmission(s) carrying {} \
+					 distinct block(s); {MIN_RESUBMISSIONS} distinct are required",
+					seen.len(),
+					resubmitted_blocks(&seen).len(),
+				)
+			})?
+			.map(|count| *count)
+			.map_err(|_| anyhow!("the proxy stopped counting resubmissions"))?;
+		let blocks = resubmitted_blocks(&proxy.resubmissions());
+		log::info!("{count} resubmission(s) carried {} distinct block(s)", blocks.len());
+		if blocks.len() >= MIN_RESUBMISSIONS {
+			return Ok(blocks);
+		}
+		needed = count + 1;
+	}
+}
+
+/// The distinct blocks `resubmissions` carried, as hash to number.
+fn resubmitted_blocks(resubmissions: &[Resubmission]) -> HashMap<H256, u32> {
+	resubmissions
+		.iter()
+		.flat_map(|resubmission| resubmission.blocks.iter())
+		.map(|(hash, number)| (H256::from(*hash), *number))
+		.collect()
+}
+
+/// Walk `client`'s finalized chain back from `head` to block number `low` and return which of
+/// `blocks` (hash to number) are in it.
+async fn finalized_among(
+	client: &OnlineClient<ParaConfig>,
+	head: &ParaBlock,
+	blocks: &HashMap<H256, u32>,
+	low: u32,
+) -> anyhow::Result<Vec<H256>> {
+	let mut landed = Vec::new();
+	let mut hash = head.hash();
+	let mut header = head.header().clone();
+	while header.number >= low {
+		if blocks.contains_key(&hash) {
+			landed.push(hash);
+		}
+		hash = header.parent_hash;
+		header = client.blocks().at(hash).await?.header().clone();
+	}
+	Ok(landed)
+}
+
+/// Wait for bob's finalized parachain height while alice's submissions all stay dropped: only
+/// bob's own new packages can land her blocks, and the proxy ledger proves she never delivered.
 async fn foreign_resend_then_advance(jam: &JamNetwork, proxy: &ProxyServer) -> anyhow::Result<()> {
 	let bob_client = jam.collator_client("bob").await?;
 	wait_for_finalized_height(&bob_client, HEAD_TARGET, HEAD_BUDGET).await?;
@@ -324,8 +414,8 @@ fn aura_author_index(header: &JamHeader, authorities: u64) -> anyhow::Result<u64
 /// Walk back from `client`'s finalized head and require at least two distinct block authors.
 ///
 /// In this two-collator test alice's submissions all stay dropped, so an alice-authored finalized
-/// block can only be there because bob resubmitted its package; bob's own re-rooted blocks are all
-/// his. Two distinct authors therefore prove a foreign resubmission happened, with no log line.
+/// block can only be there because bob rebuilt it into a package of his own; bob's own blocks are
+/// all his. Two distinct authors therefore prove a foreign resubmission happened, with no log line.
 async fn assert_foreign_author_finalized(
 	client: &OnlineClient<ParaConfig>,
 	authorities: u64,

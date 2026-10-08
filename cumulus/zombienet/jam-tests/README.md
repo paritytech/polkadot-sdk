@@ -146,7 +146,7 @@ spawns the same six-validator network plus collators.
 | `JAM_GENSPEC_BIN` | the polkajam build that runs `gen-spec`, when it is not `JAM_NODE_BIN` |
 | `PARACHAIN_SERVICE_BLOB` | the real parachain-service `.jam` blob, which genesis creates the service from |
 | `AUTHORIZER_BLOB` | `parachain-authorizer-sr25519.jam`, the AURA authorizer the cores run |
-| `RUNTIME_WASM` | the PolkaVM build of the parachain runtime (`PVM\0` magic), the para's JAM validation code *and* the runtime the collators execute. The name is misleading (it is not WASM); a future rename to `RUNTIME_PVF` is deferred. **Must be built with `--cfg jam`** for the `JamParent` digest assertion to pass — `run.sh` builds it through the wasm-builder's channel (`SUBSTRATE_RUNTIME_TARGET=riscv WASM_BUILD_RUSTFLAGS="--cfg jam" cargo build -p parachain-template-runtime`). Without the cfg the runtime never deposits the digest and the assertion fails for a configuration reason rather than a code reason. The collator-to-collator sync test needs a runtime that implements `AuthorityDiscoveryApi` and carries `audi` keys, which the template does not; that test selects the `cumulus-test-runtime` built with `--features with-authority-discovery` through `Para::with_runtime` instead; see "The runtime the sync test needs". |
+| `RUNTIME_WASM` | the PolkaVM build of the parachain runtime (`PVM\0` magic), the para's JAM validation code *and* the runtime the collators execute. The name is misleading (it is not WASM); a future rename to `RUNTIME_PVF` is deferred. **Must be built with `--cfg jam`** for the `JamParent` digest assertion to pass — `run.sh` builds it through the wasm-builder's channel (`SUBSTRATE_RUNTIME_TARGET=riscv WASM_BUILD_RUSTFLAGS="--cfg jam" cargo build -p parachain-template-runtime`). Without the cfg the runtime never deposits the digest and the assertion fails for a configuration reason rather than a code reason. |
 | `PARASIM_TOOL_BIN` | optional: the `parasim-tool` CLI, required only by the dynamic-core tests, which move cores mid-run |
 | `BOOTSTRAP_SERVICE_BLOB` | optional: polkajam's `jam-bootstrap-service.jam` (`cargo-jam-build -p jam-bootstrap-service` in polkajam), registered at genesis as service 0 with the null authorizer; required only by the dynamic-core tests, whose `parasim-tool` bootstrap lane runs through it |
 | `OMNI_NODE_BIN`, `RELAY_NODE_BIN` | override the `target/release` defaults |
@@ -239,77 +239,74 @@ use `cumulus/scripts/jam-collator-demo.sh` instead.
 
 ## Losing submissions on purpose
 
-The resubmission test lives in `cumulus-zombienet-sdk-tests` (`tests/jam/resubmission.rs`) and
-reuses this crate's `src/proxy.rs`. It proves the collator resends a work package that never
-reached a guarantor. It pins the ordinary JAM node's RPC port and pre-allocates a second port for
-the proxy, starts `ProxyServer::serve(policy, upstream, listen, timeout)` before the single-call
-network spawn, and points `alice` at the proxy's URL through the collator's `--jam-rpc-urls`
+The resubmission tests live in `cumulus-zombienet-sdk-tests` (`tests/jam/resubmission.rs`) and
+reuse this crate's `src/proxy.rs`. They prove that a parachain block whose work package never
+reached a guarantor still lands, through a new package a collator builds and signs itself. Each
+test pins the ordinary JAM node's RPC port and pre-allocates a second port for the proxy, starts
+`ProxyServer::serve(policy, upstream, listen, timeout)` before the single-call network spawn, and
+points `alice` at the proxy's URL through the collator's `--jam-rpc-urls`
 (`CollatorOptions::jam_rpc_url` in `SpawnOptions`).
 
-The proxy drops the **first** `submitWorkPackage` of every distinct work-package hash and forwards
-every later one byte-exact. So the first submission of every package is lost, and the only way a
-package can be reported is a later, identical resend. The test waits for the accumulated head to
-reach five and asserts from three independent witnesses:
+The proxy swallows `submitWorkPackage` calls as its `DropPolicy` decides and forwards every other
+one byte-exact. Before deciding it decodes the package's PoV and records which parachain blocks
+the package carried, so its ledger can tell a **resubmission** from a fresh package: a forwarded
+package carrying a block that an earlier, dropped package carried. A lost block comes back under a
+new work-package hash, not as a resend of the old bytes, so the block it carries is the only thing
+that identifies a resubmission. The proxy announces each one over a `watch` channel
+(`ProxyServer::subscribe_resubmissions`), which is what the tests await instead of polling.
 
-* the proxy's ledger: every accumulated package's hash was submitted at least twice, and no
-  forwarded submission was rejected upstream;
-* the collator's log: it resends each forwarded package, holds its parachain slot at least once,
-  and authors at most one block between a package's resend and its appearance;
-* the accumulated head itself, which the other two cannot fake.
+A lost block is recovered by whichever collator owns the current round-robin turn: once the
+accumulated head has stalled, it puts each block the head is missing into a fresh work package,
+one block per package, signed by itself, and chains the packages of one round through their
+`prerequisites`. The package carries a chain of JAM headers, fetched through the node's `header`
+RPC, that proves the block's anchor and lookup anchor against the package's own refine context,
+and the PVF checks that chain before it accepts the block. The collator fetches those headers over
+the same `--jam-rpc-urls` endpoint it submits through, so the proxy relays `header` upstream as
+well; the vendored RPC surface predates the method, so `serve` registers the relay by hand, and
+an upstream error (say, "Method not found" from an older node) reaches the collator unchanged.
+Each new package is logged at `jam-collator` as
+`Resubmitting a parachain block in a new work package.` with `wp_hash`, `block_hash`,
+`block_number`, `anchor`, `lookup_anchor`, `headers` (how many the chain has), `core` and
+`prerequisite`, followed by `The work package appeared on chain in a JAM block.` once JAM reported
+it.
 
-Run it with:
+`resends_make_the_head_advance` runs one collator behind a proxy with
+`DropPolicy::Random { probability: 0.3, seed }`: every submission is dropped with that
+probability, from a generator seeded by `JAM_TEST_DROP_SEED` if set and a fresh random seed
+otherwise. The seed is logged at the start (`replay with JAM_TEST_DROP_SEED=<seed>`), so a failing
+run can be replayed with the same drops. The test waits until the proxy's resubmissions carry at
+least ten distinct blocks, then until `alice` has finalized the highest of them, and requires at
+least ten of those blocks in her finalized chain; no forwarded submission may be rejected
+upstream. It has twenty minutes for that, so a collator that never rebuilds a lost block times out
+rather than passes. The finalized chain is the witness because a parachain block only finalizes
+after JAM accumulated the package that carried it, which no log line can prove.
 
-```sh
-cumulus/zombienet/jam-tests/run.sh --suite resubmission
-```
-
-The test greps the collator's log for the node's stable resubmission lines, matching a package by
-the 16-hex-character prefix of its work-package hash (`WorkPackageHash`'s `Debug` prints `0x`, the
-first eight bytes, then `...`):
-
-* `Resending the identical work package; it has not appeared on chain.`
-* `The work package appeared on chain in a JAM block.`
-* `Holding this parachain slot: an overdue work package is being resent instead of a new block being built.`
-
-A failure attaches `ProxyServer::describe()` — one line per hash the proxy saw, with its submission
-count and package length — to the assertion message. A hash seen once and never again, older than
-four JAM slots, is the signature of a collator that re-signs instead of resending identical bytes.
+A failure attaches `ProxyServer::describe()` — one line per hash the proxy saw, with its
+submission count, package length and the blocks it carried, plus the resubmission count — to the
+assertion message.
 
 The proxy holds one upstream connection and never reconnects. That is deliberate: the test's node
 runs for the whole test and never restarts, so a dropped upstream is a failure to report, not a
 state to recover from.
 
-### Syncing packages between collators
+### Landing another collator's blocks
 
-A second test in `tests/jam/resubmission.rs`, `another_collator_resends_a_lost_package`, covers the
-case where the author itself can never deliver. Two collators (`alice`, `bob`) author for the para,
-but only `alice` is pointed at a proxy running `DropPolicy::Everything`, which drops every
-`submitWorkPackage` it sees. `bob` talks to the JAM node directly. `alice`'s packages therefore
-never reach a guarantor through her, yet the head still advances because `bob` learns them over the
-collator-to-collator sync protocol and resubmits them.
+The second test, `another_collator_resends_a_lost_package`, covers the case where the author
+itself can never deliver. Two collators (`alice`, `bob`) author for the para, but only `alice` is
+pointed at a proxy running `DropPolicy::Everything`, which drops every `submitWorkPackage` it
+sees; `bob` talks to the JAM node directly. `alice` still builds and gossips her blocks, so `bob`
+imports them, but none of her packages reaches a guarantor. Collators exchange no packages and
+no signatures: `bob` lands her blocks the way he lands his own lost ones, by rebuilding them into
+packages of his own on his turn. That is why the harness pins every collator's p2p port and
+announces it as a public address — a lost block can only be rebuilt by a collator that imported
+it, so the collators have to find each other over loopback.
 
-That protocol is two request/response protocols, both scoped to the chain's genesis and fork id:
-
-* **`jam-package-info`**: request `{ block_hash }`, answer `Unknown` or `Known(PackageInfo)`. The
-  `PackageInfo` carries the author's `authorization` (the randomised `AuthToken` that only its
-  author can produce), the `prerequisites`, and the author's PoV `ExtrinsicSpec { hash, len }`. The
-  receiving node rebuilds the `WorkPackage` from local state plus that information, verifies the
-  author's token and signature, hashes it, and keeps it in memory.
-* **`jam-package-pov`**: request `{ block_hash }`, answer `Unknown` or `Known(Vec<u8>)`. It is used
-  on demand when the locally rebuilt PoV bytes do not match the author's spec.
-
-Peers are found through authority discovery: `AuraPeerTargets` maps the block's Aura slot to the
-authority set, author first and self excluded, then resolves each authority to a peer id through
-the authority-discovery service. A response that does not verify is dropped and the next peer is
-asked.
-
-The test greps two logs. `bob`'s log has to carry at least one
-`Resending another collator's work package; it has not appeared on chain.` line for a hash the
-proxy saw, and at least one `Verified another collator's work package.` line. `alice`'s log has
-the existing `The work package appeared on chain in a JAM block.` marker for hashes the proxy saw,
-so her packages landed although she never delivered them. If `bob`'s log contains the warning
-`does not match the author's PoV spec` (the local rebuild disagreed with the author's spec, so the
-author's spec wins), it must be followed by a `Fetched another collator's PoV.` line.
+The test waits for `bob` to finalize block #5, which his chain cannot reach without `alice`'s
+blocks, then checks that the proxy forwarded nothing, saw at least one submission (so `alice`
+really went through it) and had no upstream rejection. Finally the last finalized blocks have to
+name two distinct Aura authors: an `alice`-authored block in `bob`'s finalized chain can only be
+there because `bob` resubmitted it. No log is grepped. The test runs on the parachain template
+like every other one; it needs no authority discovery and no runtime of its own.
 
 Run both resubmission tests with:
 
@@ -317,33 +314,12 @@ Run both resubmission tests with:
 cumulus/zombienet/jam-tests/run.sh --suite resubmission
 ```
 
-The ordinary `resends_make_the_head_advance` test stays. It covers the single-collator case, where
-the author still holds the package bytes and resends them byte-exact. The two-collator test covers
-the harder case, where the author cannot deliver at all and a peer has to reconstruct the package.
-
-### The runtime the sync test needs
-
-The cross-collator protocol needs `AuthorityDiscoveryApi` plus `audi` keys, and the parachain
-template has no authority discovery. The sync test therefore runs the `cumulus-test-runtime`
-`with_authority_discovery` flavor the test crate embeds, written to a file and handed to
-`Para::with_runtime`. A standalone build of the same runtime is:
-
-```sh
-SUBSTRATE_RUNTIME_TARGET=riscv WASM_BUILD_RUSTFLAGS="--cfg jam" \
-	cargo build --release -p cumulus-test-runtime --features with-authority-discovery
-```
-
-The build lands at
-`target/release/rbuild/cumulus-test-runtime/cumulus-test-runtime-blob.polkavm`. `Para::with_runtime`
-selects it per para, so the sync test picks the test runtime while the other tests keep the
-template.
-
 ### Collator arguments
 
-The JAM collators now start with `--allow-private-ip`, because authority discovery drops loopback
-and private addresses otherwise, and the test's nodes all talk over loopback. The collator's log
-filter also includes `jam-package-sync=debug`, so the sync protocol's activity is visible in
-`alice.log` and `bob.log`.
+The JAM collators start with `--allow-private-ip`, because authority discovery drops loopback and
+private addresses otherwise, and the test's nodes all talk over loopback. Their log filter is
+`jam-collator=debug,jam-rpc-interface=debug`, so a resubmission round and the `header` fetches it
+makes are visible in `alice.log` and `bob.log`.
 
 ## Layout
 
@@ -359,7 +335,7 @@ filter also includes `jam-package-sync=debug`, so the sync protocol's activity i
 | `src/para_head.rs` | reads the parachain head JAM accumulated, off the JAM node's RPC |
 | `src/control.rs` | the `parasim-tool` control lane: assign or park a core mid-run |
 | `src/rpc.rs` | the JAM node and collator RPC clients |
-| `src/proxy.rs` | the dropping JSON-RPC proxy: swallows `submitWorkPackage` calls according to its `DropPolicy`. `FirstSubmission` (the default) drops the first submission of every distinct package and forwards the rest byte-exact; `Everything` drops every submission. It counts what it forwarded for `forwarded_count()`; also used by `cumulus-zombienet-sdk-tests`'s `tests/jam/resubmission.rs` |
+| `src/proxy.rs` | the dropping JSON-RPC proxy: swallows `submitWorkPackage` calls according to its `DropPolicy` — `Random { probability, seed }` drops each submission with that probability from a seeded generator, `Everything` drops them all — forwards the rest byte-exact and relays `header` upstream. Its ledger records the parachain blocks every package carried, which is how it names resubmissions (forwarded packages carrying a block a dropped package carried) and announces them through `subscribe_resubmissions()`; also used by `cumulus-zombienet-sdk-tests`'s `tests/jam/resubmission.rs` |
 | `demo.sh` | shell entry point for the demo |
 
 The JAM integration tests are no longer in this crate. They live in `cumulus-zombienet-sdk-tests`
