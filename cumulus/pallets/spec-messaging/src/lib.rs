@@ -141,11 +141,8 @@ pub mod pallet {
 		/// Origin allowed to open an outbound channel.
 		type OpenChannelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Origin allowed to accept an inbound channel, and to close it.
-		///
-		/// Must be a privileged origin: an acceptance creates state that is kept forever (the
-		/// channel entry and two frontiers), and this pallet does not price it. A chain that
-		/// lets unprivileged accounts accept must add a deposit first.
+		/// Origin allowed to accept and close an inbound channel. Must be privileged: acceptance
+		/// creates permanent state this pallet does not price.
 		type AcceptChannelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Origin allowed to suspend and resume an inbound channel, and to skip a stalled one
@@ -349,15 +346,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Open the outbound channel `(recipient, domain, num)`: append the `OpenChannel` signal
-		/// to its data stream. That leaf is the only one sendable without credit. The channel
-		/// stays `Opening` until the recipient accepts and its register is read; until then,
-		/// nothing else can be sent.
-		///
-		/// Reopening a `Closed` channel appends the signal at the current position; frontiers are
-		/// eternal, so the unconfirmed tail stays deliverable. After our own close, the peer's
-		/// register still stands and the channel is `Open` again at once. After the peer's close,
-		/// it stays `Closed` until the peer re-accepts and that register is read.
+		/// Open the outbound channel `(recipient, domain, num)` by appending `OpenChannel`, the
+		/// only leaf sendable without credit. It stays `Opening` until the recipient's register
+		/// is read. A reopen after our own close is `Open` at once; after the peer's close it
+		/// waits for a new register.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
 		pub fn open_channel(
@@ -524,16 +516,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Stall recovery: move an inbound channel's consumption frontier to `(peaks,
-		/// leaf_count)` without consuming the leaves in between, for a stream whose next payloads
-		/// cannot be fetched. The skipped leaves are lost, signals included.
-		///
-		/// `extension` must extend our frontier to exactly the claimed one, so the skip only
-		/// moves forward along the sender's history, and fails here, not at the relay chain, on a
-		/// bad claim. The claimed peaks are bound to that root, not re-derived: a different peak
-		/// set with the same root is a hash collision. Like any consumption, the skip is recorded
-		/// as an [`Interval`], so this block's `Requires` must lift to a committed root that
-		/// contains the new frontier.
+		/// Stall recovery: move an inbound frontier to `(peaks, leaf_count)` past payloads that
+		/// cannot be fetched; the skipped leaves are lost. `extension` must extend our frontier to
+		/// exactly that root, so a skip only moves forward and a bad claim fails here. Recorded as
+		/// an [`Interval`] like any consumption.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(4, 4))]
 		pub fn skip_inbound_stream(
@@ -765,17 +751,10 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Consume a register read: one `Register` leaf at the head of the peer's `Ack` stream for one
-	/// of our outbound channels (in any phase: a closed channel's watermark still reports
-	/// consumption). Rebuild the frontier from `(start_peaks, base)`, record the [`Interval`], and
-	/// apply the register. The hints are unproven; a lie binds no lift.
-	///
-	/// Reads keep no position state: the register's own monotonic fields order successive reads
-	/// (see [`Self::apply_register_read`]), so re-reading an unchanged head is harmless.
-	///
-	/// Register reads are the only `Events` items this pallet consumes. Any other stream is
-	/// undeclared and invalidates the block; broadcast subscriptions, with their highwater replay
-	/// guard, come later.
+	/// Consume a register read: the head `Register` of the peer's `Ack` stream for one of our
+	/// outbound channels, in any phase. Rebuild the frontier from the unproven hints (a lie binds
+	/// no lift), record the [`Interval`] and apply the register. No position state is kept. Any
+	/// other `Events` stream invalidates the block.
 	fn consume_events_item(
 		touched: &mut BTreeSet<(ParaId, StreamId)>,
 		gaps: &mut u32,
@@ -979,13 +958,10 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Apply a register read to its outbound channel: refresh the grant and release the in-flight
-	/// messages below the watermark. A register whose watermark or version goes backwards breaks
-	/// the protocol and is ignored; the previous read stands.
-	///
-	/// These monotonic fields are the only ordering of reads. An older register with the same
-	/// watermark and version can still replace the grant; at worst that throttles wrongly for a
-	/// while, which the next read corrects (design § Flow Control, trust tiers).
+	/// Apply a register read: refresh the grant and release in-flight messages below the
+	/// watermark. A register whose watermark or version goes backwards is ignored; these monotonic
+	/// fields are the only ordering of reads, so an older grant can briefly win until the next
+	/// read.
 	fn apply_register_read(channel: &ChannelId, register: Register) {
 		let Some(mut state) = OutChannels::<T>::get(channel) else { return };
 		if let Some(previous) = state.register {
