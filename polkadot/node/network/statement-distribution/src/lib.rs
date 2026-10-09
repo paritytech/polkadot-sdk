@@ -84,9 +84,10 @@ enum MuxedMessage {
 	Responder(Option<v2::ResponderMessage>),
 	/// Messages from answered requests.
 	Response(v2::UnhandledResponse),
-	/// Message that a request is ready to be retried. This just acts as a signal that we should
-	/// dispatch all pending requests again.
-	RetryRequest(()),
+	/// At least one pending request became dispatchable (either a retry
+	/// after `REQUEST_RETRY_DELAY` elapsed, or a parallel slot fetch after
+	/// `PARALLEL_FETCH_THRESHOLD` elapsed).
+	DispatchSignal(()),
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix = self::overseer)]
@@ -102,13 +103,13 @@ impl MuxedMessage {
 		let from_orchestra = ctx.recv().fuse();
 		let from_responder = from_responder.next();
 		let receive_response = v2::receive_response(response_manager).fuse();
-		let retry_request = v2::next_retry(request_manager).fuse();
-		futures::pin_mut!(from_orchestra, from_responder, receive_response, retry_request,);
+		let dispatch_signal = v2::next_dispatch_signal(request_manager).fuse();
+		futures::pin_mut!(from_orchestra, from_responder, receive_response, dispatch_signal,);
 		futures::select! {
 			msg = from_orchestra => MuxedMessage::Subsystem(msg.map_err(FatalError::SubsystemReceive)),
 			msg = from_responder => MuxedMessage::Responder(msg),
 			msg = receive_response => MuxedMessage::Response(msg),
-			msg = retry_request => MuxedMessage::RetryRequest(msg),
+			msg = dispatch_signal => MuxedMessage::DispatchSignal(msg),
 		}
 	}
 }
@@ -194,14 +195,15 @@ impl StatementDistributionSubsystem {
 					)
 					.await;
 				},
-				MuxedMessage::RetryRequest(()) => {
-					// A pending request is ready to retry. This is only a signal to call
-					// `dispatch_requests` again.
+				MuxedMessage::DispatchSignal(()) => {
+					// A pending request became dispatchable (retry after `REQUEST_RETRY_DELAY`,
+					// or parallel second-slot fetch after `PARALLEL_FETCH_THRESHOLD`). This is
+					// only a signal to call `dispatch_requests` again.
 					()
 				},
 			};
 
-			v2::dispatch_requests(&mut ctx, &mut state).await;
+			v2::dispatch_requests(&mut ctx, &mut state, &self.metrics).await;
 		}
 		Ok(())
 	}
