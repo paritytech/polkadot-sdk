@@ -16,6 +16,7 @@
 // limitations under the License.
 
 //! Published JAM work-package signing and the version-adapter entry points.
+
 use cumulus_aura_authorizer::{
 	authorize, authorize_hash, build_collator_proofs, hash_signing_payload,
 	signable_work_package_hash, AuthConfig, AuthToken, AuthorizationError, SignatureVerifier,
@@ -46,6 +47,7 @@ fn published_package_and_adapter_works() {
 		},
 		items: Default::default(),
 	};
+
 	let payload = JamEncode::encode(&(
 		&package.auth_code_host,
 		&package.authorizer.code_hash,
@@ -55,9 +57,11 @@ fn published_package_and_adapter_works() {
 	));
 	let hash = signable_work_package_hash(&package);
 	let mut expected = WORK_PACKAGE_SIGN_CTX.to_vec();
+
 	expected.extend_from_slice(&payload);
 	assert_eq!(hash.as_bytes(), &sp_crypto_hashing::blake2_256(&expected));
 	assert_eq!(hash, hash_signing_payload(&payload));
+
 	let (root, _) = build_collator_proofs(&[[7; 32]]).expect("valid test collator set");
 	let config = AuthConfig {
 		para_ids: vec![],
@@ -66,12 +70,14 @@ fn published_package_and_adapter_works() {
 		collator_set_size: 1,
 		slot_duration: 1,
 	};
+
 	let mut token = AuthToken { proof: vec![], key: [7; 32], signature: [0; 64] };
 	token.signature[..32].copy_from_slice(hash.as_bytes());
 	assert_eq!(
 		authorize::<Verifier>(&config, &token, &package, 0).unwrap(),
 		authorize_hash::<Verifier>(&config, &token, hash, 0).unwrap()
 	);
+
 	assert!(matches!(
 		authorize_hash::<Verifier>(&config, &token, hash_signing_payload(b"different package"), 0),
 		Err(AuthorizationError::BadToken(TokenError::BadCollatorSignature))

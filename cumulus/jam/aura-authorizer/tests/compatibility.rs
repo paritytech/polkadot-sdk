@@ -16,6 +16,7 @@
 // limitations under the License.
 
 //! Fixed protocol vectors for SCALE encoding and the zero-padded Merkle tree.
+
 use codec::Encode;
 use cumulus_aura_authorizer::{build_collator_proofs, AuthConfig, AuthToken, AuthTrace, ParaId};
 use primitive_types::H256;
@@ -24,6 +25,7 @@ use primitive_types::H256;
 fn padded_tree_vector_works() {
 	let (root, proofs) =
 		build_collator_proofs(&[[1; 32], [2; 32], [3; 32]]).expect("valid test collator set");
+
 	assert_eq!(
 		root,
 		H256::from([
@@ -31,6 +33,7 @@ fn padded_tree_vector_works() {
 			244, 235, 59, 193, 124, 86, 112, 220, 83, 111, 50, 97, 27, 205
 		])
 	);
+
 	assert_eq!(
 		proofs[2],
 		vec![
@@ -52,10 +55,12 @@ fn scale_wire_vectors_works() {
 		collator_set_size: 3,
 		slot_duration: 2,
 	};
+
 	let mut expected = vec![4, 232, 3, 0, 0, 57, 5, 0, 0];
 	expected.extend_from_slice(&[0; 32]);
 	expected.extend_from_slice(&[3, 0, 0, 0, 2, 0, 0, 0]);
 	assert_eq!(config.encode(), expected);
+
 	let token = AuthToken { proof: vec![H256::repeat_byte(7)], key: [8; 32], signature: [9; 64] };
 	let mut expected = vec![4];
 	expected.extend_from_slice(&[7; 32]);

@@ -75,26 +75,34 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn expected_collator_index_boundaries_works() {
-		let mut config = AuthConfig {
-			para_ids: Vec::new(),
-			parachain_service: 1,
-			collator_set_root: H256::zero(),
-			collator_set_size: 1,
-			slot_duration: 1,
-		};
+	fn expected_collator_index_works() {
 		for (size, duration, slot, expected) in [
-			(1, 1, Slot::MAX, 0),
-			(3, Slot::MAX, Slot::MAX - 1, 0),
-			(3, Slot::MAX, Slot::MAX, 1),
-			(u32::MAX, 1, Slot::MAX - 1, u32::MAX - 1),
-			(u32::MAX, 1, Slot::MAX, 0),
+			// good cases
+			(1, 1, Slot::MAX, Some(0)),
+			(3, Slot::MAX, Slot::MAX - 1, Some(0)),
+			(3, Slot::MAX, Slot::MAX, Some(1)),
+			(u32::MAX, 1, Slot::MAX - 1, Some(u32::MAX - 1)),
+			(u32::MAX, 1, Slot::MAX, Some(0)),
+			// bad cases
+			(0, 1, 0, None),
+			(0, Slot::MAX, Slot::MAX, None),
+			(1, 0, 0, None),
+			(u32::MAX, 0, Slot::MAX, None),
+			(0, 0, 0, None),
+			(0, 0, Slot::MAX, None),
 		] {
-			config.collator_set_size = size;
-			config.slot_duration = duration;
+			let config = AuthConfig {
+				para_ids: Vec::new(),
+				parachain_service: 1,
+				collator_set_root: H256::zero(),
+				collator_set_size: size,
+				slot_duration: duration,
+			};
+
 			assert_eq!(
-				config.expected_collator_index(slot).expect("nonzero configuration"),
-				expected
+				config.expected_collator_index(slot).ok(),
+				expected,
+				"set size {size}, slot duration {duration}, slot {slot}"
 			);
 		}
 	}

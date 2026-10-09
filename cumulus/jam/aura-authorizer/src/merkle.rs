@@ -52,6 +52,7 @@ fn padded_leaf_count(size: usize) -> Result<u32, CollatorProofError> {
 	if size == 0 {
 		return Err(CollatorProofError::EmptySet);
 	}
+
 	u32::try_from(size)
 		.ok()
 		.and_then(u32::checked_next_power_of_two)
@@ -68,7 +69,7 @@ pub fn build_collator_proofs(
 ) -> Result<(H256, Vec<Vec<H256>>), CollatorProofError> {
 	let padded_size = padded_leaf_count(keys.len())?;
 
-	let mut leaves: Vec<H256> = keys.iter().map(|key| H256::from(blake2_256(key))).collect();
+	let mut leaves: Vec<_> = keys.iter().map(|key| blake2_256(key)).map(Into::into).collect();
 	leaves.resize(padded_size as usize, H256::zero());
 
 	let mut root = H256::zero();
@@ -82,6 +83,7 @@ pub fn build_collator_proofs(
 			proof.proof
 		})
 		.collect();
+
 	Ok((root, proofs))
 }
 

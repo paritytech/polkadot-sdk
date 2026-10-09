@@ -65,7 +65,7 @@ pub trait SignatureVerifier {
 }
 
 impl AuthToken {
-	/// Verify that `key` sits at leaf `collator_index` of the collator-set tree.
+	/// Verify that `key` sits at zero-based leaf index `collator_index` of the collator-set tree.
 	///
 	/// Proof format:
 	///
@@ -74,11 +74,16 @@ impl AuthToken {
 	/// - **Sibling ordering**: LSB-first from `collator_index`; bit = 0 means the current node is
 	///   the left child (proof sibling is right), bit = 1 means the current node is the right child
 	///   (proof sibling is left).
-	/// - **Padding**: tree is zero-hash-padded to the next power of two.
+	/// - **Padding**: append zero-valued 32-byte leaf hashes to reach the next power of two, then
+	///   hash parent nodes normally.
 	/// - **Proof length**: ⌈log₂(collator_set_size)⌉.
 	///
+	/// The configured root is assumed to use this padding convention; this method verifies
+	/// the supplied membership proof without independently validating all padding leaves.
+	///
 	/// Returns [`TokenError::BadCollatorSetProof`] for a wrong proof length or root,
-	/// an out-of-range index, or a set size outside `1..=2^31` (the SDK leaf-count limit).
+	/// an out-of-range index, or a set size outside `1..=2^31`. The upper limit ensures that
+	/// the power-of-two padded leaf count fits in the SDK's `u32` leaf-count parameter.
 	pub fn check_proof(&self, config: &AuthConfig, collator_index: u32) -> Result<(), TokenError> {
 		if self.proof.len() != proof_len(config.collator_set_size) {
 			return Err(TokenError::BadCollatorSetProof);
@@ -147,15 +152,18 @@ mod tests {
 	fn check_signature_changed_arguments_errors() {
 		let (_, token, package) = fixture();
 		let hash = signable_work_package_hash(&package);
+
 		for field in 0..4 {
 			let mut forged = token.clone();
 			let mut payload = hash;
+
 			match field {
 				0 => forged.key[0] ^= 1,
 				1 => forged.signature[0] ^= 1,
 				2 => forged.signature[63] ^= 1,
 				_ => payload.0[0] ^= 1,
 			}
+
 			assert!(matches!(
 				forged.check_signature::<Verifier>(payload),
 				Err(TokenError::BadCollatorSignature)
@@ -166,6 +174,7 @@ mod tests {
 	#[test]
 	fn try_into_trace_works() {
 		let (config, token, package) = fixture();
+
 		assert_eq!(
 			token.try_into_trace::<Verifier>(&config, &package, 1).expect("valid token"),
 			AuthTrace { author_key: token.key }
@@ -176,6 +185,7 @@ mod tests {
 	fn try_into_trace_bad_proof_errors() {
 		let (config, mut token, package) = fixture();
 		token.proof.clear();
+
 		assert!(matches!(
 			token.try_into_trace::<NeverVerify>(&config, &package, 1),
 			Err(TokenError::BadCollatorSetProof)
@@ -186,6 +196,7 @@ mod tests {
 	fn try_into_trace_bad_signature_errors() {
 		let (config, mut token, package) = fixture();
 		token.signature[0] ^= 1;
+
 		assert!(matches!(
 			token.try_into_trace::<Verifier>(&config, &package, 1),
 			Err(TokenError::BadCollatorSignature)
@@ -196,6 +207,7 @@ mod tests {
 	fn try_into_trace_changed_package_errors() {
 		let (config, token, mut package) = fixture();
 		package.auth_code_host += 1;
+
 		assert!(matches!(
 			token.try_into_trace::<Verifier>(&config, &package, 1),
 			Err(TokenError::BadCollatorSignature)
@@ -206,9 +218,11 @@ mod tests {
 	fn check_proof_maximum_supported_size_works() {
 		let (mut config, mut token, _) = fixture();
 		config.collator_set_size = 1u32 << 31;
+
 		let index = config.collator_set_size - 1;
 		token.proof = alloc::vec![H256::zero(); 31];
 		let mut current = sp_crypto_hashing::blake2_256(&token.key);
+
 		// The rightmost leaf takes the right branch at every level.
 		for sibling in &token.proof {
 			let mut pair = [0; 64];
@@ -216,7 +230,9 @@ mod tests {
 			pair[32..].copy_from_slice(&current);
 			current = sp_crypto_hashing::blake2_256(&pair);
 		}
+
 		config.collator_set_root = H256::from(current);
+
 		assert!(token.check_proof(&config, index).is_ok());
 		assert!(matches!(
 			token.check_proof(&config, index - 1),
@@ -227,8 +243,10 @@ mod tests {
 	#[test]
 	fn check_proof_first_unsupported_size_errors() {
 		let (mut config, mut token, _) = fixture();
+
 		config.collator_set_size = (1u32 << 31) + 1;
 		token.proof = alloc::vec![H256::zero(); 32];
+
 		assert!(matches!(token.check_proof(&config, 0), Err(TokenError::BadCollatorSetProof)));
 	}
 }

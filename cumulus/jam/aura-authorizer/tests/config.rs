@@ -33,9 +33,11 @@ fn config(collator_set_size: u32, slot_duration: u32) -> AuthConfig {
 #[test]
 fn round_robin_works() {
 	let config = config(3, 2);
+
 	for (slot, expected) in [(0, 0), (1, 0), (2, 1), (4, 2), (5, 2), (6, 0)] {
 		assert_eq!(config.expected_collator_index(slot).unwrap(), expected);
 	}
+
 	assert_eq!(config.expected_collator_index(Slot::MAX).unwrap(), (Slot::MAX / 2) % 3);
 }
 

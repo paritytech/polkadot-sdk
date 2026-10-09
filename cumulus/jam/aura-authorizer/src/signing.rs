@@ -84,6 +84,7 @@ mod tests {
 	fn signable_work_package_hash_signed_fields_works() {
 		let (_, _, package) = crate::tests::fixture();
 		let original = signable_work_package_hash(&package);
+
 		let mutations: [(&str, fn(&mut WorkPackage)); 10] = [
 			("code host", |p| p.auth_code_host += 1),
 			("authorizer code", |p| p.authorizer.code_hash.0[0] ^= 1),
@@ -113,9 +114,11 @@ mod tests {
 				.expect("one work item fits");
 			}),
 		];
+
 		for (field, mutate) in mutations {
 			let mut changed = package.clone();
 			mutate(&mut changed);
+
 			assert_ne!(signable_work_package_hash(&changed), original, "unsigned field: {field}");
 		}
 	}
@@ -124,13 +127,16 @@ mod tests {
 	fn signable_work_package_hash_excludes_authorization_works() {
 		let (_, _, mut package) = crate::tests::fixture();
 		let original = signable_work_package_hash(&package);
+
 		package.authorization = vec![1, 2, 3].try_into().expect("three bytes fit");
+
 		assert_eq!(signable_work_package_hash(&package), original);
 	}
 
 	#[test]
 	fn signable_work_package_hash_item_fields_works() {
 		let (_, _, mut package) = crate::tests::fixture();
+
 		let item = jam_types::WorkItem {
 			service: 1,
 			code_hash: Default::default(),
@@ -141,8 +147,10 @@ mod tests {
 			import_segments: Default::default(),
 			extrinsics: Default::default(),
 		};
+
 		package.items = vec![item.clone()].try_into().expect("one work item fits");
 		let original = signable_work_package_hash(&package);
+
 		let mutations: [(&str, fn(&mut jam_types::WorkItem)); 8] = [
 			("service", |i| i.service += 1),
 			("code hash", |i| i.code_hash.0[0] ^= 1),
@@ -164,21 +172,27 @@ mod tests {
 					.expect("one extrinsic fits");
 			}),
 		];
+
 		for (field, mutate) in mutations {
 			let mut changed = item.clone();
 			mutate(&mut changed);
 			package.items = vec![changed].try_into().expect("one work item fits");
+
 			assert_ne!(
 				signable_work_package_hash(&package),
 				original,
 				"unsigned item field: {field}"
 			);
 		}
+
 		let mut second = item.clone();
 		second.service += 1;
+
 		package.items = vec![item.clone(), second.clone()].try_into().expect("two work items fit");
 		let ordered = signable_work_package_hash(&package);
+
 		package.items = vec![second, item].try_into().expect("two work items fit");
+
 		assert_ne!(signable_work_package_hash(&package), ordered);
 	}
 }
