@@ -59,6 +59,35 @@ doc:
     - `evm_signextend_opcode`
     - `evm_dispatch_mix`
 
+    Below, `slope(f)` is `f(1) - f(0)` for a WeightInfo method `f`. An
+    op-code charged from its own benchmark pays the benchmark's slope.
+    `JUMP` and `JUMPI` subtract `slope(evm_jumpdest_opcode)`, and the
+    op-codes benchmarked in pairs with a `POP` subtract
+    `slope(evm_pop_opcode)`. `JUMPI` uses the largest slope of its three
+    benchmarks. Every op-code except `PUSH`, `DUP` and `SWAP` also pays a
+    dispatch charge: `slope(evm_dispatch_mix)` minus the charges of the 80
+    op-codes in one block of that benchmark, divided by 80.
+
+    These charges depend on the size of an operand:
+
+    - `EXP` with a zero exponent: `slope(evm_exp_zero_opcode)`, plus the
+      dispatch charge.
+    - `EXP` with an exponent of `L >= 1` bits: `slope(evm_exp_opcode) +
+      slope(evm_exp_per_bit) * (L - 1)`, plus the dispatch charge.
+    - `MCOPY` of `len` bytes: `slope(evm_mcopy_opcode) +
+      slope(evm_mcopy_per_byte) * max(len - 64, 0)`, plus the dispatch
+      charge. A zero-length copy pays the fixed part too.
+    - Memory growth from `current` to `target` bytes, with `target`
+      rounded up to a multiple of 32:
+      `evm_memory_grow((target - current) / 32)`. When `target` exceeds
+      the capacity of the memory buffer, the capacity becomes `target`
+      rounded up to a power of two, and the growth also pays
+      `evm_memory_reallocate(capacity / 32)`. The buffer starts at 4 KiB.
+      Every op-code whose memory range ends past the current memory size
+      pays this, including the input and output ranges of calls.
+    - `RETURN` and `REVERT` with `len > 0` bytes of output:
+      `evm_memory_copy_out(len)`.
+
     Regenerate pallet-revive weights for your runtime and implement these
     methods in custom WeightInfo implementations. Update exhaustive
     matches on RuntimeCosts for the new memory cost variants.
@@ -66,9 +95,63 @@ doc:
     No storage migration is required.
 - audience: Runtime User
   description: |-
-    EVM execution charges change. Some opcode charges decrease, while
-    memory expansion and RETURN/REVERT output copying now incur
-    additional charges.
+    The EVM op-codes below are charged from their own benchmarks, so each
+    of them costs a different amount than before. Growing EVM memory and
+    copying RETURN/REVERT output now have their own charges too.
+
+    On Asset Hub Westend these op-codes cost the following ref time. None
+    of them uses proof size.
+
+    | Op-code | Ref time (ns) |
+    |---|---|
+    | `ADD` | 32.4 |
+    | `SUB` | 32.3 |
+    | `MUL` | 60.0 |
+    | `SIGNEXTEND` | 38.6 |
+    | `LT` | 29.8 |
+    | `GT` | 30.0 |
+    | `SLT` | 38.4 |
+    | `SGT` | 39.3 |
+    | `EQ` | 54.0 |
+    | `ISZERO` | 27.7 |
+    | `AND` | 24.9 |
+    | `OR` | 24.4 |
+    | `XOR` | 25.2 |
+    | `NOT` | 20.5 |
+    | `BYTE` | 28.9 |
+    | `SHL` | 39.1 |
+    | `SHR` | 38.0 |
+    | `SAR` | 45.1 |
+    | `CLZ` | 29.4 |
+    | `CALLDATALOAD` | 76.8 |
+    | `CALLDATASIZE` | 27.1 |
+    | `CODESIZE` | 27.3 |
+    | `RETURNDATASIZE` | 27.8 |
+    | `DIFFICULTY` (`PREVRANDAO`) | 27.1 |
+    | `CHAINID` | 26.9 |
+    | `POP` | 18.7 |
+    | `MLOAD` | 58.1 |
+    | `MSTORE` | 50.0 |
+    | `MSTORE8` | 46.8 |
+    | `MSIZE` | 26.9 |
+    | `JUMP` | 39.7 |
+    | `JUMPI` | 65.1 |
+    | `PC` | 27.8 |
+    | `JUMPDEST` | 17.7 |
+    | `PUSH0` to `PUSH32` | 34.6 |
+    | `DUP1` to `DUP16` | 33.5 |
+    | `SWAP1` to `SWAP16` | 24.1 |
+
+    These depend on their operands:
+
+    - `EXP`: 48.8 ns with a zero exponent. Otherwise 94.7 ns, plus 59.4 ns
+      for each exponent bit after the first, so a 256-bit exponent costs
+      15.25 µs.
+    - `MCOPY`: 138.4 ns, plus 0.366 ns for each byte after the first 64.
+    - Memory growth: 636.4 ns, plus 2.993 ns for each new 32-byte word.
+      Growing past the capacity of the memory buffer adds 798.7 ns, plus
+      2.390 ns for each 32-byte word of the new capacity.
+    - `RETURN` and `REVERT`: TODO, fill in from the next weights run.
 
     Existing contracts do not need migration or redeployment. Re-estimate
     gas limits after the runtime upgrade; calls using previous limits
