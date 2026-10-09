@@ -425,8 +425,7 @@ impl<T: Config> Pallet<T> {
 			all_weight_after
 		};
 
-		// Whether the chain was already frozen before importing this block's disputes — used below
-		// to detect a fresh freeze transition for the speculative-messaging provides window.
+		// To detect a fresh freeze below.
 		let was_frozen = T::DisputesHandler::is_frozen();
 
 		// Note that `process_checked_multi_dispute_data` will iterate and import each
@@ -444,14 +443,11 @@ impl<T: Config> Pallet<T> {
 
 		set_scrapable_on_chain_disputes::<T>(current_session, checked_disputes_sets.clone());
 
-		// Speculative messaging: on a *freeze* transition — a concluded-invalid dispute against a
-		// finalized candidate the node can't revert — clear the whole provides window. Otherwise
-		// the invalid sender's `StreamsRoot` survives `force_unfreeze` (no rollback) and a later
-		// `requires` could match it. The fork-revert path needs nothing here: the node's
-		// state-revert unwinds the writes with the abandoned branch (see
-		// `inclusion::RecentProvides`).
+		// A fresh freeze clears the provides windows (see `clear_provides`).
+		let mut checked_disputes_sets_consumed_weight = checked_disputes_sets_consumed_weight;
 		if !was_frozen && T::DisputesHandler::is_frozen() {
-			inclusion::Pallet::<T>::clear_provides();
+			checked_disputes_sets_consumed_weight = checked_disputes_sets_consumed_weight
+				.saturating_add(inclusion::Pallet::<T>::clear_provides());
 		}
 
 		if T::DisputesHandler::is_frozen() {
@@ -1136,9 +1132,8 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 			continue;
 		}
 
-		// Speculative messaging: drop a candidate whose `requires` are not in the relay-side
-		// provides window. Dropping here breaks the para's chain, so descendants are dropped by
-		// `filter_unchained_candidates` below (same as the other pre-chain filters).
+		// Drop a candidate whose `Requires` miss the provides windows; its descendants follow in
+		// `filter_unchained_candidates`.
 		if !check_speculative_messaging::<T>(&candidate) {
 			continue;
 		}
@@ -1185,13 +1180,8 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	backed_candidates_with_core
 }
 
-/// Speculative-messaging admission check for one candidate. Returns `true` to keep the candidate:
-/// drop it if its `Requires` set is not fully present in the relay-side provides window (every
-/// `(source, StreamsRoot)` must be in that source's `RecentProvides`); otherwise keep it. A
-/// malformed UMP-signal set is treated as no speculative signals (rejected separately by
-/// `check_descriptor_version_and_signals`).
-///
-/// Matches the *stored* window only (inclusion tier) — not co-arriving same-relay-block senders.
+/// Whether to keep a candidate: every root its `Requires` names must be in the stored provides
+/// windows (inclusion tier). Malformed signals are rejected elsewhere.
 fn check_speculative_messaging<T: crate::inclusion::Config>(
 	candidate: &BackedCandidate<T::Hash>,
 ) -> bool {
