@@ -19,11 +19,10 @@
 //! per block, emitted as the `Provides` UMP signal ([`ProvideConsumptionRecord`]) and an
 //! [`SPMS_ENGINE_ID`] digest. Receiver: consumes fetched inbound payloads through
 //! [`Call::enact_messages`] by recomputation into [`InboundFrontier`], writing the block's
-//! [`ConsumptionRecord`]. The inherent carries no proofs (design §10); the PoV lift binds the
-//! endpoint.
+//! [`ConsumptionRecord`]. The inherent carries no proofs; the PoV lift binds the endpoint.
 //!
-//! Lifecycle: sends/consumption of block `N` are staged this block; `on_finalize` folds the
-//! [`StreamsRoot`]; `on_initialize` of `N+1` drains sends into the frontiers and clears transients.
+//! Lifecycle: block `N` stages its sends and consumption; `on_finalize` folds the [`StreamsRoot`];
+//! the first spec-msg action of `N+1` ([`Pallet::roll_over`]) drains the sends and clears the rest.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -252,14 +251,9 @@ fn enact_weight<T: Config>(data: &MessagingInherentData) -> Weight {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Start this block's messaging state, once per block: forget the previous block's root and
-	/// consumption, and drain its sends into the frontiers. Returns the number of sends drained.
-	///
-	/// Everything that writes this block's state calls it first, so hook order does not matter. A
-	/// pallet ordered before this one may send from its own `on_initialize`, for example
-	/// `pallet-xcm` version discovery or `MessageQueue` replies. Draining in `on_initialize` alone
-	/// would then take that send for the previous block's: its leaf would enter the frontier while
-	/// its payload never appeared in [`Self::outbound_messages`], and no node could serve it.
+	/// Start this block's messaging state once: forget the previous block's root and consumption,
+	/// and drain its sends. Returns the number drained. Everything that writes this block's state
+	/// calls it first, so a send from an earlier pallet's `on_initialize` stays this block's.
 	pub fn roll_over() -> u32 {
 		let now = frame_system::Pallet::<T>::block_number();
 		if let Some((at, drained)) = RolledOver::<T>::get() {
@@ -449,12 +443,8 @@ impl<T: Config> Pallet<T> {
 		record
 	}
 
-	/// The inbound streams the node should fetch, per source, with their fetch cursors.
-	///
-	/// Empty until the channel layer lands: the wanted streams are the open, unsuspended inbound
-	/// channels, and this pallet has no channel state yet. [`InboundFrontier`] cannot stand in for
-	/// it, because it only holds streams consumed at least once, so a new channel would never be
-	/// fetched.
+	/// The inbound streams the node should fetch, per source, with their fetch cursors. Empty until
+	/// the channel layer: the wanted streams are the open inbound channels.
 	pub fn consumed_streams() -> BTreeMap<ParaId, Vec<ConsumedStream>> {
 		BTreeMap::new()
 	}
