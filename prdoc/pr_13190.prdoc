@@ -14,8 +14,6 @@ doc:
 
     - `evm_jump_opcode`
     - `evm_jumpi_opcode`
-    - `evm_jumpi_opcode_always_taken`
-    - `evm_jumpi_opcode_always_not_taken`
     - `evm_pc_opcode`
     - `evm_push_opcode`
     - `evm_dup_opcode`
@@ -63,10 +61,10 @@ doc:
     op-code charged from its own benchmark pays the benchmark's slope.
     `JUMP` and `JUMPI` subtract `slope(evm_jumpdest_opcode)`, and the
     op-codes benchmarked in pairs with a `POP` subtract
-    `slope(evm_pop_opcode)`. `JUMPI` uses the largest slope of its three
-    benchmarks. Every op-code except `PUSH`, `DUP` and `SWAP` also pays a
-    dispatch charge: `slope(evm_dispatch_mix)` minus the charges of the 80
-    op-codes in one block of that benchmark, divided by 80.
+    `slope(evm_pop_opcode)`. Every op-code except `PUSH`, `DUP` and `SWAP`
+    also pays a dispatch charge: `slope(evm_dispatch_mix)` minus the
+    charges of the 80 op-codes in one block of that benchmark, divided by
+    80.
 
     These charges depend on the size of an operand:
 
