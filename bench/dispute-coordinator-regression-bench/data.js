@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791477440497,
+  "lastUpdate": 1791560902777,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dhiraj@parity.io",
-            "name": "Dhiraj Sah",
-            "username": "dhirajs0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2a4ca43f680cecf3a26666c02bd1c7c0199b6d09",
-          "message": "Align Tally::approval() with VoteTally trait semantics (#11567)\n\n# Description\n\nAligns `Tally::approval()` in `pallet-conviction-voting` with the\n`VoteTally` trait semantics by\nreturning `Perbill::zero()` when no aye or nay votes have been cast.\nThis makes the production\nimplementation consistent with the existing behavior in the\n`pallet-referenda` test mock\n(`substrate/frame/referenda/src/mock.rs:263-269`).\n\nAdditionally, the `VoteTally::approval()` trait doc in `frame-support`\nis updated to explicitly\ndocument the expected return value when no votes have been cast,\npreventing future implementors\nfrom diverging on this behavior.\n\n## Integration\n\nDownstream projects that implement `VoteTally::approval()` should ensure\nthey handle the case where\nno votes have been cast (i.e. `ayes + nays == 0`) by returning\n`Perbill::zero()`, as now documented\nin the trait definition.\n\nNo breaking changes to the public API. The `Tally` struct and its fields\nremain unchanged.\n\n## Review Notes\n\nTwo changes:\n\n**1. Trait documentation**\n(`substrate/frame/support/src/traits/voting.rs`):\n\n```diff\n-    /// Returns the approval ratio (positive to total votes) for the tally.\n+    /// Returns the approval ratio (positive to total votes) for the tally and returns 0% (`Perbill::zero()`)\n+    /// if no votes have been cast (i.e. `ayes + nays == 0`).\n     fn approval(&self, class: Class) -> Perbill;\n```\n\n**2. Implementation fix**\n(`substrate/frame/conviction-voting/src/types.rs`):\n\n```diff\n fn approval(&self, _: Class) -> Perbill {\n-    Perbill::from_rational(self.ayes, self.ayes.saturating_add(self.nays))\n+    let total = self.ayes.saturating_add(self.nays);\n+    if total.is_zero() {\n+        Perbill::zero()\n+    } else {\n+        Perbill::from_rational(self.ayes, total)\n+    }\n }\n```\n\nA new test `empty_tally_approval_is_zero` is added covering four\nscenarios:\n\n| Scenario    | ayes | nays | Expected approval |\n|-------------|------|------|-------------------|\n| No votes    | 0    | 0    | 0%                |\n| Only ayes   | 10   | 0    | 100%              |\n| Only nays   | 0    | 10   | 0%                |\n| Mixed votes | 3    | 7    | 30%               |\n\nAll 25 existing `pallet-conviction-voting` tests continue to pass with\nno regressions.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-01T10:57:22Z",
-          "tree_id": "34567f947af7cc6c402f49df0a0ee60c9a921fb2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2a4ca43f680cecf3a26666c02bd1c7c0199b6d09"
-        },
-        "date": 1775046743368,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026891413300000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009475094789999975,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010344311139999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010731953129999987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "05ddbee5c062d49c8a2a072c529a2fc80aad243e",
+          "message": "pallet-validator-collators: random draw of validator collators under a cap (#13420)\n\nWhen `MaxCollators` is set, `pallet-validator-collators` draws the\nvalidators at random at the first of the two forced rotations after a\nset arrives. The draw shuffles the whole set with a seed made of the\ngenesis hash, the era and the relay chain epoch randomness, keeps the\nvalidators with registered keys and truncates to the cap. The drawn list\nand its era are stored in the new `Collators` storage item and reported\nin the new `CollatorsDrawn` event. Without a cap every validator with\nregistered keys is returned.\n\nChanging the cap while a set is stored forces two session rotations. The\nfirst draws the list anew from the stored set, with the randomness\ncached at that time, so the drawn validators can change. Removing the\ncap clears the drawn list.\n\nThe pallet implements `cumulus_pallet_parachain_system::OnSystemEvent`\nand caches the relay chain `ONE_EPOCH_AGO_RANDOMNESS` in the new\n`EpochRandomness` storage item (similar to People Polkadot's\n`relay-randomness` pallet).\nRuntimes using the pallet must wire it as `OnSystemEvent` of\n`cumulus-pallet-parachain-system`, and should return the keys of\n`Pallet::relay_keys_to_prove` from\n`cumulus_primitives_core::KeyToIncludeInRelayProof`.\nA relay chain state proof that lacks the trie nodes of the randomness\nkey, or holds a value that does not decode, makes the block invalid, so\na block author cannot omit the key to keep an older value. A proof that\nshows the key absent, as on a relay chain before its first epoch change,\ncaches a zero value, the default of BABE's randomness storage.\n\nAsset Hub Westend and People Westend wire the pallet as `OnSystemEvent`\nand implement `KeyToIncludeInRelayProof` with its keys.\n\nUnder a cap the list is **redrawn for every new set, so every era**, and\napplies with no notice: **drawn validators must already run a synced\ncollator node**.\n\n## Why this is the first step\n\nThe cap lets governance roll out validator collators gradually: start\nwith a low cap and raise it in steps, monitoring in between, up to no\ncap. Lowering it again goes back to fewer collators if something breaks.\nEach cap change is a new draw.\n\nRedraw period, a slot kept for several eras and advance notice are\ndeferred until operators have run collators and given feedback. See\nhttps://github.com/paritytech/metanode/issues/22.\n\n## Notes\n\n- Panics: `on_relay_state_proof`, the pallet's `OnSystemEvent` handler,\n_panics_ on a relay chain state proof without the trie nodes of the\nrandomness key or with an undecodable value, which makes the block\ninvalid, as parachain-system does for other required relay proof data\n(e.g. People on Polkadot via individuality's `relay-randomness` pallet).\nHonest collators include the key in their fixed key list and through\n`KeyToIncludeInRelayProof`.\n- Try-state: drawn collators imply a cached randomness, which flags a\nruntime without the `OnSystemEvent` wiring. Since an absent key caches\nzero, the cache exists from the first block on a wired chain, so this\nholds in every state.\n- Storage: `Collators` and `EpochRandomness` are new in this PR, so no\nmigration is needed. `Collators` is bounded by `MaxValidators`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: DenzelPenzel <15388928+DenzelPenzel@users.noreply.github.com>\nCo-authored-by: Omar <OmarAbdulla7@hotmail.com>\nCo-authored-by: Egor_P <egor@parity.io>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Viacheslav <shlavik@gmail.com>\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-09T14:14:41Z",
+          "tree_id": "b983dd39dd9dcaef53011142a688462ad54a0ae8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/05ddbee5c062d49c8a2a072c529a2fc80aad243e"
+        },
+        "date": 1791560874027,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0024745738899999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009229119389999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009859161739999994,
             "unit": "seconds"
           }
         ]
