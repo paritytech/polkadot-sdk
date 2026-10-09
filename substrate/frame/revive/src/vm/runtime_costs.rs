@@ -295,7 +295,8 @@ pub fn deferred_write_cost<T: Config>() -> Weight {
 /// Computes the cost of an access from the warmth of its entries.
 ///
 /// Each bench measures the whole access, so the hot one applies only when every entry is hot. The
-/// access list's own costs come on top, entry by entry.
+/// access list's own costs come on top for every entry accessed, plus the write surcharge for every
+/// read-paid entry the access writes.
 pub fn weight_from_warmth_summary<T: Config>(
 	summary: WarmthSummary,
 	cold: impl FnOnce() -> Weight,

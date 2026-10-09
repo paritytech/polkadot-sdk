@@ -19,13 +19,13 @@ doc:
     `pallet_revive` weights must regenerate them:
     - `call`, `eth_call`, `seal_call`, `seal_delegate_call`, `instantiate` and `seal_instantiate`
       no longer measure the code reads, which `code_load` charges separately. Their weights drop,
-      but a cold call or instantiation now also pays `code_load`, so its total weight probably
-      grows rather than drops.
+      but a cold call or instantiation now also pays `code_load`.
     - `seal_instantiate` and `evm_instantiate` also measure a read of the new address's
       `OriginalAccount` entry.
     - `access_list_touch_hot_full` now touches a read-paid entry with a read, so it no longer
       measures an upgrade; `access_list_touch_hot_upgrade` measures that.
-    - The benchmarks that fill the access list now fill it to 4,096 entries.
+    - Since the access list grew from 2,048 to 4,096 entries, the benchmarks that fill it now go
+      up to 4,096.
 
     Code outside the pallet that uses `pallet_revive::precompiles`:
     - `Ext` no longer has `touch_storage_access` and `peek_storage_access`, and

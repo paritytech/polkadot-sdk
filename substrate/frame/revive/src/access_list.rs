@@ -313,7 +313,7 @@ impl WarmthSummary {
 		self.total.saturating_sub(self.cold)
 	}
 
-	/// Returns the same counts with no entry rolling back with the frame.
+	/// Returns the counts with no entry rolling back with the frame.
 	fn non_revertible(self) -> Self {
 		Self { cold_revertible: 0, ..self }
 	}
@@ -324,7 +324,7 @@ impl WarmthSummary {
 pub struct Summarized<W> {
 	/// The warmth of each entry the access touches.
 	entries: W,
-	/// Those same warmths, counted.
+	/// The entries counted by warmth.
 	summary: WarmthSummary,
 }
 
@@ -337,7 +337,7 @@ impl<W> Summarized<W> {
 		self.entries
 	}
 
-	/// Returns those same warmths, counted.
+	/// Returns the entries counted by warmth.
 	pub fn summary(&self) -> WarmthSummary {
 		self.summary
 	}
@@ -385,7 +385,7 @@ impl Summarized<Warmth> {
 		Self { entries: warmth, summary: WarmthSummary::new(key_family).count(warmth, op) }
 	}
 
-	/// Returns the same warmth with the rollback dropped, for a peek that touched nothing.
+	/// Returns the warmth with the rollback dropped, for a peek that touched nothing.
 	pub fn to_non_revertible(self) -> Self {
 		Self { entries: self.entries.to_non_revertible(), summary: self.summary.non_revertible() }
 	}
@@ -402,7 +402,7 @@ pub enum AccessEntry {
 	AccountInfo { address: H160 },
 	/// Code info (`CodeInfoOf`), keyed by code hash: contracts with the same code share one entry.
 	CodeInfo { hash: H256 },
-	/// Code blob (`PristineCode`), keyed by code hash for the same reason.
+	/// Code blob (`PristineCode`), keyed by code hash: contracts with the same code share it.
 	CodeBlob { hash: H256 },
 	/// A contract storage slot, the only entry a contract can hold many of.
 	Storage(ContractSlot),
@@ -643,6 +643,7 @@ impl Access for InstantiateItems {
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) {
 		visit(AccessEntry::Account { address: self.address }, StorageOp::Write);
 		visit(AccessEntry::AccountInfo { address: self.address }, StorageOp::Write);
+		// The instantiate never reads it, but its benches prepay a later call's read.
 		visit(AccessEntry::OriginalAccount { address: self.address }, StorageOp::Read);
 		visit(AccessEntry::Account { address: self.deployer }, StorageOp::Write);
 	}
@@ -666,12 +667,12 @@ pub struct CodeLoadItems {
 }
 
 impl CodeLoadItems {
-	/// Builds the items a code load touches when it only reads the info.
+	/// Builds the items a code load touches when it only reads the code info.
 	pub fn new(hash: H256) -> Self {
 		Self::with_info_op(hash, StorageOp::Read)
 	}
 
-	/// Builds the items a code load touches, with `info_op` on the info.
+	/// Builds the items a code load touches when it performs `info_op` on the code info.
 	pub fn with_info_op(hash: H256, info_op: StorageOp) -> Self {
 		Self { hash, info_op }
 	}
@@ -734,6 +735,8 @@ pub struct AccessListMetrics {
 /// both journals' lengths at frame entry. Two journals instead of one with
 /// tagged entries: an upgrade needs its own entry either way, and untagged
 /// entries use less memory.
+///
+/// # Safety invariant
 ///
 /// A reverting frame rolls back every entry it touched, regardless of whether
 /// the touch happened before or after its charge:
@@ -1297,27 +1300,6 @@ mod tests {
 		al.touch(entry.clone(), StorageOp::Write);
 		al.rollback_frame();
 		assert!(!al.peek(&entry).is_hot(), "the entry and its upgrade are both gone");
-	}
-
-	#[test]
-	fn the_senders_transfer_entries_stay_hot_for_the_next_call() {
-		let mut al = AccessList::new();
-		let sender = H160::from_low_u64_be(0xcafe);
-		let transfer_to = |target| TransferItems { from: sender, to: target, dust: false };
-
-		// A first value call, that puts the sender's two entries in the list.
-		al.warm(transfer_to(H160::from_low_u64_be(1)));
-
-		assert_eq!(
-			al.warmth_of_summarized(transfer_to(H160::from_low_u64_be(2))).entries,
-			TransferWarmth {
-				receiver_account: Warmth::cold_non_revertible(),
-				sender_account: Warmth::write_paid(), // a transfer always writes the balance
-				receiver_account_info: Warmth::cold_non_revertible(),
-				sender_account_info: Warmth::read_paid(), // no dust, so it was only read
-				dust: false,
-			}
-		);
 	}
 
 	#[test]

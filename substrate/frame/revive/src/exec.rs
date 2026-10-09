@@ -606,7 +606,7 @@ pub trait Executable<T: Config>: Sized {
 	) -> Result<Self, DispatchError>;
 
 	/// Load the executable from storage, charging the code load at the code's `warmth`.
-	/// The default ignores `warmth` and calls [`Self::from_storage`].
+	/// The default implementation ignores `warmth` and calls [`Self::from_storage`].
 	#[doc(hidden)]
 	fn from_storage_with_warmth<S: State>(
 		code_hash: H256,
@@ -1231,7 +1231,7 @@ where
 				// in case of delegate the executable is not the one at `address`
 				let executable = if let Some(delegated_call) = &delegated_call {
 					if let Some(precompile) =
-						<AllPrecompiles<T>>::get::<Self>(delegated_call.callee.as_fixed_bytes())
+						<AllPrecompiles<T>>::get(delegated_call.callee.as_fixed_bytes())
 					{
 						ExecutableOrPrecompile::Precompile {
 							instance: precompile,
@@ -1623,7 +1623,7 @@ where
 					};
 
 					if module.store_code(&self.exec_config, &mut frame.frame_meter)?.is_some() {
-						// New code is in the storage overlay, so its entries can be warm.
+						// New code is in the storage overlay, so its entries can be warmed.
 						let warmth = self.access_list.warm_summarized(
 							access_list::CodeLoadItems::with_info_op(
 								*module.code_hash(),

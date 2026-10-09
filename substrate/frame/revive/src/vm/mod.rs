@@ -145,7 +145,7 @@ impl CodeLoadToken {
 	}
 
 	/// Computes the cost of the code's bytes at the blob's warmth, plus PVM compilation.
-	fn blob<T: Config>(warmth: Warmth, code_len: u32, code_type: BytecodeType) -> Weight {
+	fn blob_cost<T: Config>(warmth: Warmth, code_len: u32, code_type: BytecodeType) -> Weight {
 		let per_byte: fn(u32) -> Weight = match (code_type, warmth.is_hot()) {
 			(BytecodeType::Pvm, false) => T::WeightInfo::call_with_pvm_code_per_byte,
 			(BytecodeType::Pvm, true) => T::WeightInfo::call_with_pvm_code_per_byte_hot,
@@ -171,7 +171,7 @@ impl<T: Config> Token<T> for CodeLoadToken {
 		match *self {
 			Self::Flat(warmth) => Self::flat_cost::<T>(warmth),
 			Self::Blob { warmth, code_len, code_type } => {
-				Self::blob::<T>(warmth, code_len, code_type)
+				Self::blob_cost::<T>(warmth, code_len, code_type)
 			},
 		}
 	}

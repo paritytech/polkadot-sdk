@@ -648,7 +648,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			None => {
 				let warmth = self
 					.ext
-					.warm(CallItems::new(callee, matches!(&call_type, CallType::DelegateCall)));
+					.warm(CallItems::new(callee, matches!(call_type, CallType::DelegateCall)));
 				self.charge_gas(RuntimeCosts::CallBase(warmth))?;
 			},
 		};
@@ -804,7 +804,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		) {
 			Ok(address) => {
 				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
-					// EIP-2929 warms these; each is in the overlay or prepaid by the benchmark.
+					// EIP-2929 warms the new contract, whose entries are in the overlay or prepaid.
 					let warmth =
 						self.ext.warm(InstantiateItems { address, deployer: self.ext.address() });
 					self.charge_gas(RuntimeCosts::AccessListRegistration(warmth.summary()))?;

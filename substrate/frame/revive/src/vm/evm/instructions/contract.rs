@@ -92,7 +92,7 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 			} else {
 				// Otherwise clear it. Note that RETURN opcode should abort.
 				*interpreter.ext.last_frame_output_mut() = Default::default();
-				// EIP-2929 warms these; each is in the overlay or prepaid by the benchmark.
+				// EIP-2929 warms the new contract, whose entries are in the overlay or prepaid.
 				let deployer = interpreter.ext.address();
 				let warmth = interpreter.ext.warm(InstantiateItems { address, deployer });
 				interpreter
