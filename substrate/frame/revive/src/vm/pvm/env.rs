@@ -339,7 +339,10 @@ pub mod env {
 			let read_only = CallFlags::from_bits_truncate(flags).contains(CallFlags::READ_ONLY);
 			let stipend_and_protections = StipendAndProtections::new(value, Some(gas), read_only);
 			(
-				CallResources::from_ethereum_gas(gas.into(), stipend_and_protections.add_stipend()),
+				CallResources::from_ethereum_gas(
+					gas.into(),
+					stipend_and_protections.gets_stipend(),
+				),
 				stipend_and_protections.is_transfer_or_send(),
 			)
 		};

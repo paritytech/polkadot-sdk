@@ -120,16 +120,15 @@ pub trait HostFn: private::Sealed {
 
 	/// Same as [HostFn::call] but receives the one-dimensional EVM gas argument.
 	///
-	/// Adds a call stipend when value is transferred, and when no value is transferred but the
-	/// gas is 2300. The stipend is enough weight to run 2300 gas worth of EVM opcodes and emit one
-	/// event.
-	///
 	/// A call shaped like Solidity's `transfer` or `send` (value with a gas of 0, or no value with
-	/// a gas of 2300) limits the callee to what the stipend pays for on Ethereum: the callee, and
-	/// any contract it calls, cannot write persistent storage, transfer value, or create or
-	/// terminate a contract. Such an operation is denied with an out-of-gas error, matching how it
-	/// fails on Ethereum. Transient storage still works. A call with [`CallFlags::READ_ONLY`] and
-	/// a gas of 2300 still gets the stipend, but not these limits.
+	/// a gas of 2300) gets a call stipend: enough weight to run 2300 gas worth of EVM opcodes and
+	/// emit one event. It also limits the callee to what the stipend pays for on Ethereum: the
+	/// callee, and any contract it calls, cannot write persistent storage, transfer value, or
+	/// create or terminate a contract. Such an operation is denied with an out-of-gas error,
+	/// matching how it fails on Ethereum. Transient storage still works.
+	///
+	/// Any other call that transfers value, and a [`CallFlags::READ_ONLY`] call with a gas of 2300,
+	/// also get the stipend, but the above limits do not apply.
 	///
 	/// If gas is `u64::MAX`, the call will run with uncapped limits.
 	fn call_evm(

@@ -63,7 +63,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		_to: &H160,
 		_value: U256,
 		_input_data: Vec<u8>,
-		_protections: CallProtections,
+		_call_protections: CallProtections,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::call")
 	}

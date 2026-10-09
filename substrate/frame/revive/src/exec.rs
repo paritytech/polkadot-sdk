@@ -396,7 +396,7 @@ pub trait PrecompileExt: sealing::Sealed {
 		to: &H160,
 		value: U256,
 		input_data: Vec<u8>,
-		protections: CallProtections,
+		call_protections: CallProtections,
 	) -> Result<(), ExecError>;
 
 	/// Returns the transient storage entry of the executing account for the given `key`.
@@ -537,8 +537,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
 
-	/// Returns an `OutOfGas` error if a call shaped like a `transfer` or `send` led to the
-	/// current frame.
+	/// Returns `OutOfGas` if the current frame is stipend-limited.
 	fn ensure_not_stipend_limited(&self) -> Result<(), DispatchError>;
 
 	/// Check if running as a delegate call.
@@ -590,7 +589,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
 	/// the storage entry is deleted.
 	///
-	/// Returns an `OutOfGas` error when storage writes are denied.
+	/// Returns `OutOfGas` if the current frame is stipend-limited.
 	fn set_storage(
 		&mut self,
 		key: &Key,
@@ -1197,7 +1196,7 @@ where
 		value_transferred: U256,
 		meter: &mut ResourceMeter<T, S>,
 		call_resources: &CallResources<T>,
-		protections: CallProtections,
+		call_protections: CallProtections,
 		origin_is_caller: bool,
 		input_data: &[u8],
 		exec_config: &ExecConfig<T>,
@@ -1359,8 +1358,8 @@ where
 			code_address,
 			frame_meter: meter.new_nested(call_resources)?,
 			allows_reentry: true,
-			read_only: protections.read_only,
-			stipend_limited: protections.stipend_limited,
+			read_only: call_protections.read_only,
+			stipend_limited: call_protections.stipend_limited,
 			last_frame_output: Default::default(),
 			contracts_created: Default::default(),
 			contracts_to_be_destroyed: Default::default(),
@@ -1375,7 +1374,7 @@ where
 		frame_args: FrameArgs<T, E>,
 		value_transferred: U256,
 		call_resources: &CallResources<T>,
-		protections: CallProtections,
+		call_protections: CallProtections,
 		input_data: &[u8],
 	) -> Result<Option<ExecutableOrPrecompile<T, E, Self>>, ExecError> {
 		if self.frames.len() as u32 == limits::CALL_STACK_DEPTH {
@@ -1411,7 +1410,7 @@ where
 			value_transferred,
 			meter,
 			call_resources,
-			protections,
+			call_protections,
 			false,
 			input_data,
 			self.exec_config,
@@ -2424,7 +2423,7 @@ where
 		dest_addr: &H160,
 		value: U256,
 		input_data: Vec<u8>,
-		protections: CallProtections,
+		call_protections: CallProtections,
 	) -> Result<(), ExecError> {
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for balance transfers or when creating the frame fails.
@@ -2439,12 +2438,12 @@ where
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
 
-		if protections.reentrancy == ReentrancyProtection::Strict {
+		if call_protections.reentrancy == ReentrancyProtection::Strict {
 			self.top_frame_mut().allows_reentry = false;
 		}
 
 		let try_call = || {
-			let protections = protections.inherit(self.top_frame());
+			let call_protections = call_protections.inherit(self.top_frame());
 
 			// We can skip the stateful lookup for pre-compiles.
 			let dest = if <AllPrecompiles<T>>::get::<Self>(dest_addr.as_fixed_bytes()).is_some() {
@@ -2480,7 +2479,7 @@ where
 				FrameArgs::Call { dest: dest.clone(), cached_info, delegated_call: None },
 				value,
 				call_resources,
-				protections,
+				call_protections,
 				&input_data,
 			)? {
 				self.run(executable, input_data)
@@ -2491,7 +2490,7 @@ where
 						T::AddressMapper::to_address(&dest),
 						None,
 						false,
-						protections.read_only,
+						call_protections.read_only,
 						value,
 						&input_data,
 						Default::default(),
@@ -2506,9 +2505,9 @@ where
 					}) {
 					*self.last_frame_output_mut() = mock_answer.clone();
 					Ok(mock_answer)
-				} else if protections.read_only && value.is_zero() {
+				} else if call_protections.read_only && value.is_zero() {
 					Ok(Default::default())
-				} else if protections.read_only {
+				} else if call_protections.read_only {
 					Err(Error::<T>::StateChangeDenied.into())
 				} else {
 					let account_id = self.account_id().clone();
