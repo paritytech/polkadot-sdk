@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791477249604,
+  "lastUpdate": 1791560743018,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "22591718+RomarQ@users.noreply.github.com",
-            "name": "Rodrigo Quelhas",
-            "username": "RomarQ"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e3865cf729c8193ec2f2de2df682a66583891d7b",
-          "message": "Deprecate `ValidateUnsigned` trait and `#[pallet::validate_unsigned]` attribute (#10150)\n\nPart of #2415\nCloses #2436\n\nRelated: #6325 #6326\n\n## Summary\n\nDeprecates the `ValidateUnsigned` trait and\n`#[pallet::validate_unsigned]` attribute in favor of the new\n`TransactionExtension` API. This is a non-breaking change that adds\ndeprecation warnings to guide users toward the modern transaction\nvalidation approach.\n\n## Motivation\n\nThe `ValidateUnsigned` trait was the legacy approach for validating\nunsigned transactions in FRAME pallets. The newer `TransactionExtension`\ntrait provides a more flexible and composable way to handle transaction\nvalidation, including both signed and unsigned transactions.\n\n## Changes\n\n### Deprecated APIs\n- ✅ Added `#[deprecated]` attribute to `ValidateUnsigned` trait\n- ✅ Added deprecation warning to `#[pallet::validate_unsigned]` macro\nattribute\n\n### Migration (Using `TransactionExtensions`)\n\n\nhttps://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/transaction_extensions\n\n## Impact\n\n- **Non-breaking:** Existing code continues to work with deprecation\nwarnings\n- **Compiler warnings:** Users will see deprecation notices guiding them\nto migrate\n- **Timeline:** Full removal planned for a future major release (TBD)\n\n## Review Notes\n\n- The `#[pallet::validate_unsigned]` deprecation warning might be\nredundant since it's always used together with `ValidateUnsigned`, but\nboth are included for completeness and clarity.\n\n## Follow-up Tasks\n\nThe following pallets and crates need to be migrated to\n`TransactionExtension` in subsequent PRs:\n\n**Runtime crates:**\n- [ ] `polkadot-runtime-common`\n- [ ] `polkadot-runtime-parachains`\n\n**FRAME pallets:**\n- [ ] `pallet-babe`\n- [ ] `pallet-beefy`\n- [ ] `pallet-election-provider-multi-block`\n- [ ] `pallet-grandpa`\n- [x] `pallet-im-online`\nhttps://github.com/paritytech/polkadot-sdk/pull/11235\n- [x] `pallet-mixnet`\nhttps://github.com/paritytech/polkadot-sdk/pull/11010\n\n**Core:**\n- [ ] `frame-executive`\n- [ ] `frame-system`\n\n**Examples:**\n- [x] `pallet-example-offchain-worker`\nhttps://github.com/paritytech/polkadot-sdk/pull/10716\n\n**Testing:**\n- [ ] `substrate-test-runtime`\n\n## Open Question\n\nShould we remove the `ValidateUnsigned` bound from the type parameter\n`V` in the `Applyable` trait?\n\n---------\n\nCo-authored-by: Guillaume Thiolliere <guillaume.thiolliere@parity.io>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-04-02T09:41:38Z",
-          "tree_id": "46a79bcb9f9f0bb652ba4f031e1aefea5c994454",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e3865cf729c8193ec2f2de2df682a66583891d7b"
-        },
-        "date": 1775132054077,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023993959433333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14889417581333328,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009743304179999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007007285486666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02526470822,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "05ddbee5c062d49c8a2a072c529a2fc80aad243e",
+          "message": "pallet-validator-collators: random draw of validator collators under a cap (#13420)\n\nWhen `MaxCollators` is set, `pallet-validator-collators` draws the\nvalidators at random at the first of the two forced rotations after a\nset arrives. The draw shuffles the whole set with a seed made of the\ngenesis hash, the era and the relay chain epoch randomness, keeps the\nvalidators with registered keys and truncates to the cap. The drawn list\nand its era are stored in the new `Collators` storage item and reported\nin the new `CollatorsDrawn` event. Without a cap every validator with\nregistered keys is returned.\n\nChanging the cap while a set is stored forces two session rotations. The\nfirst draws the list anew from the stored set, with the randomness\ncached at that time, so the drawn validators can change. Removing the\ncap clears the drawn list.\n\nThe pallet implements `cumulus_pallet_parachain_system::OnSystemEvent`\nand caches the relay chain `ONE_EPOCH_AGO_RANDOMNESS` in the new\n`EpochRandomness` storage item (similar to People Polkadot's\n`relay-randomness` pallet).\nRuntimes using the pallet must wire it as `OnSystemEvent` of\n`cumulus-pallet-parachain-system`, and should return the keys of\n`Pallet::relay_keys_to_prove` from\n`cumulus_primitives_core::KeyToIncludeInRelayProof`.\nA relay chain state proof that lacks the trie nodes of the randomness\nkey, or holds a value that does not decode, makes the block invalid, so\na block author cannot omit the key to keep an older value. A proof that\nshows the key absent, as on a relay chain before its first epoch change,\ncaches a zero value, the default of BABE's randomness storage.\n\nAsset Hub Westend and People Westend wire the pallet as `OnSystemEvent`\nand implement `KeyToIncludeInRelayProof` with its keys.\n\nUnder a cap the list is **redrawn for every new set, so every era**, and\napplies with no notice: **drawn validators must already run a synced\ncollator node**.\n\n## Why this is the first step\n\nThe cap lets governance roll out validator collators gradually: start\nwith a low cap and raise it in steps, monitoring in between, up to no\ncap. Lowering it again goes back to fewer collators if something breaks.\nEach cap change is a new draw.\n\nRedraw period, a slot kept for several eras and advance notice are\ndeferred until operators have run collators and given feedback. See\nhttps://github.com/paritytech/metanode/issues/22.\n\n## Notes\n\n- Panics: `on_relay_state_proof`, the pallet's `OnSystemEvent` handler,\n_panics_ on a relay chain state proof without the trie nodes of the\nrandomness key or with an undecodable value, which makes the block\ninvalid, as parachain-system does for other required relay proof data\n(e.g. People on Polkadot via individuality's `relay-randomness` pallet).\nHonest collators include the key in their fixed key list and through\n`KeyToIncludeInRelayProof`.\n- Try-state: drawn collators imply a cached randomness, which flags a\nruntime without the `OnSystemEvent` wiring. Since an absent key caches\nzero, the cache exists from the first block on a wired chain, so this\nholds in every state.\n- Storage: `Collators` and `EpochRandomness` are new in this PR, so no\nmigration is needed. `Collators` is bounded by `MaxValidators`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: DenzelPenzel <15388928+DenzelPenzel@users.noreply.github.com>\nCo-authored-by: Omar <OmarAbdulla7@hotmail.com>\nCo-authored-by: Egor_P <egor@parity.io>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Viacheslav <shlavik@gmail.com>\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-09T14:14:41Z",
+          "tree_id": "b983dd39dd9dcaef53011142a688462ad54a0ae8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/05ddbee5c062d49c8a2a072c529a2fc80aad243e"
+        },
+        "date": 1791560712154,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00974922085333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14617496000000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025388404353333324,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007638957926666667,
             "unit": "seconds"
           }
         ]
