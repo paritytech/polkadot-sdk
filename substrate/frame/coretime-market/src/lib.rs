@@ -838,6 +838,24 @@ fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> 
 	actions
 }
 
+/// Upper bound on the number of Taylor series terms in [`exp_taylor`]. For realistic exponents
+/// (`K * deviation` with K of a few units), terms drop below `FixedU64` precision well before this.
+const EXP_TAYLOR_MAX_TERMS: u64 = 30;
+
+/// Taylor series approximation of `e^x`.
+fn exp_taylor(x: FixedU64) -> FixedU64 {
+	let mut sum = FixedU64::from(1);
+	let mut term = FixedU64::from(1);
+	for n in 1..EXP_TAYLOR_MAX_TERMS {
+		term = term.saturating_mul(x) / FixedU64::saturating_from_integer(n);
+		if term.into_inner() == 0 {
+			break;
+		}
+		sum = sum.saturating_add(term);
+	}
+	sum
+}
+
 /// Compute the new reserve price per RFC-17's exponential adjustment.
 fn adjust_reserve_price<T: Config>(
 	old_sale: &SaleInfoRecordOf<T>,
@@ -859,30 +877,17 @@ fn adjust_reserve_price<T: Config>(
 		(target - consumption_rate, false)
 	};
 
-	let dev = FixedU64::from_rational(deviation.deconstruct() as u128, 1_000_000_000);
-	let exponent = k.saturating_mul(dev);
-
-	let x = exponent;
-	let mut sum = FixedU64::from(1);
-	let mut term = FixedU64::from(1);
-	for n in 1..30u64 {
-		term = term.saturating_mul(x) / FixedU64::saturating_from_integer(n);
-		if term.into_inner() == 0 {
-			break;
-		}
-		sum = sum.saturating_add(term);
-	}
+	let dev = FixedU64::from_perbill(deviation);
+	let exp = exp_taylor(k.saturating_mul(dev));
 	let exp_approx = if positive {
-		sum
+		exp
 	} else {
-		FixedU64::saturating_from_rational(FixedU64::from(1).into_inner(), sum.into_inner())
+		FixedU64::saturating_from_rational(FixedU64::from(1).into_inner(), exp.into_inner())
 	};
 
-	let mut price_candidate = exp_approx.saturating_mul_int(old_sale.reserve_price);
-
-	if price_candidate < config.min_reserve_price {
-		price_candidate = config.min_reserve_price;
-	}
+	let mut price_candidate = exp_approx
+		.saturating_mul_int(old_sale.reserve_price)
+		.max(config.min_reserve_price);
 
 	if consumption_rate == Perbill::one() {
 		let increase = price_candidate.saturating_sub(old_sale.reserve_price);

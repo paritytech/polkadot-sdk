@@ -104,9 +104,6 @@ impl<Balance: Clone, BlockNumber: Clone> SaleInfoRecord<Balance, BlockNumber> {
 	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct ConfigRecord<Balance, BlockNumber> {
-	/// The number of Relay-chain blocks in advance which scheduling should be fixed and the
-	/// `Coretime::assign` API used to inform the Relay-chain.
-	pub advance_notice: BlockNumber,
 	/// The length in blocks of the Market (auction) phase.
 	pub market_period: BlockNumber,
 	/// The length in blocks of the Renewal phase.
@@ -120,8 +117,6 @@ pub struct ConfigRecord<Balance, BlockNumber> {
 	pub limit_cores_offered: Option<CoreIndex>,
 	/// Penalty applied to every renewal when the market is oversubscribed.
 	pub penalty: Perbill,
-	/// The duration by which rewards for contributions to the InstaPool must be collected.
-	pub contribution_timeout: Timeslice,
 	/// Multiplier applied to the reserve price to derive the opening price.
 	pub price_multiplier: u32,
 	/// Minimum opening price floor.

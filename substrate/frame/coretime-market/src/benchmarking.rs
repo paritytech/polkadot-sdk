@@ -28,14 +28,12 @@ const SEED: u32 = 0;
 
 fn default_config<T: Config>() -> ConfigRecordOf<T> {
 	ConfigRecord {
-		advance_notice: 2u32.into(),
 		market_period: 20u32.into(),
 		renewal_period: 10u32.into(),
 		ideal_bulk_proportion: sp_arithmetic::Perbill::from_percent(100),
 		limit_cores_offered: None,
 		region_length: 3,
 		penalty: sp_arithmetic::Perbill::from_percent(30),
-		contribution_timeout: 5,
 		price_multiplier: 2,
 		min_opening_price: 10u32.into(),
 		target_consumption_rate: sp_arithmetic::Perbill::from_percent(90),

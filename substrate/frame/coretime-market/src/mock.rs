@@ -142,14 +142,12 @@ impl crate::pallet::Config for Test {
 
 pub fn new_config() -> ConfigRecord<u64, u64> {
 	ConfigRecord {
-		advance_notice: 2,
 		market_period: 20,
 		renewal_period: 10,
 		ideal_bulk_proportion: sp_arithmetic::Perbill::from_percent(100),
 		limit_cores_offered: None,
 		region_length: 3,
 		penalty: sp_arithmetic::Perbill::from_percent(30),
-		contribution_timeout: 5,
 		price_multiplier: 2,
 		min_opening_price: 10,
 		target_consumption_rate: sp_arithmetic::Perbill::from_percent(90),
