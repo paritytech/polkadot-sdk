@@ -16,7 +16,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::{inclusion, ParaId};
+use crate::{inclusion, inclusion::MAX_PROVIDES_WINDOW_SIZE, ParaId};
 use alloc::collections::btree_map::BTreeMap;
 use codec::Encode;
 use core::cmp::{max, min};
@@ -30,9 +30,8 @@ use polkadot_primitives::{
 
 use crate::builder::{BenchBuilder, CandidateDescriptorVersionConfig};
 
-/// A worst-case speculative-messaging `Requires` set — `MAX_COMMITMENT_ENTRIES` entries — for the
-/// backed-candidate benchmark. The provides window must be seeded with these exact entries so the
-/// injected `Requires` matches and the candidate stays admitted.
+/// A worst-case `Requires` set (`MAX_COMMITMENT_ENTRIES` sources) for the backed-candidate
+/// benchmark. Seed the windows with [`seed_provides_windows`] so the candidate stays admitted.
 fn bench_requires_set() -> RequiresSet {
 	RequiresSet::try_from_iter(
 		(0..MAX_COMMITMENT_ENTRIES)
@@ -41,9 +40,19 @@ fn bench_requires_set() -> RequiresSet {
 	.expect("MAX_COMMITMENT_ENTRIES entries fit the bound; qed")
 }
 
-/// Candidate modifier: append a worst-case `Requires` UMP signal so
-/// `enter_backed_candidates_variable` captures the per-candidate `requires`-match read cost (one
-/// `RecentProvides` read per source).
+/// Candidate modifier: append the worst-case `Requires` signal.
+/// Fill every required source's window, with its required root as the oldest entry: each match
+/// then decodes a full window and scans all of it.
+fn seed_provides_windows<T: inclusion::Config>() {
+	for (source, root) in bench_requires_set().iter() {
+		inclusion::Pallet::<T>::record_provides(*source, *root);
+		for filler in 1..MAX_PROVIDES_WINDOW_SIZE {
+			let filler = StreamsRoot(Hash::from_low_u64_be(u64::MAX - filler as u64));
+			inclusion::Pallet::<T>::record_provides(*source, filler);
+		}
+	}
+}
+
 fn add_requires_signal<H>(
 	mut candidate: CommittedCandidateReceiptV2<H>,
 ) -> CommittedCandidateReceiptV2<H> {
@@ -167,10 +176,7 @@ mod benchmarks {
 			true,
 		)
 		.unwrap();
-		// Speculative messaging: make the backed candidate carry a worst-case `Requires` set (via
-		// the candidate modifier) against a fully-seeded provides window, so this benchmark
-		// captures the per-candidate `requires`-match read cost. Processing is unconditional (no
-		// feature gate).
+		// The backed candidate carries a worst-case `Requires` set against full provides windows.
 		let cores_with_backed: BTreeMap<_, _> = vec![(0, v)] // The backed candidate will have `v` validity votes.
 			.into_iter()
 			.collect();
@@ -181,10 +187,7 @@ mod benchmarks {
 			.set_candidate_modifier(Some(add_requires_signal::<T::Hash>))
 			.build();
 
-		// Seed the provides window so the injected `Requires` matches (candidate stays admitted).
-		for (source, root) in bench_requires_set().iter() {
-			inclusion::Pallet::<T>::record_provides(*source, *root);
-		}
+		seed_provides_windows::<T>();
 
 		let mut benchmark = scenario.data.clone();
 
