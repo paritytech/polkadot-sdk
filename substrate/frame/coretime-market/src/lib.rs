@@ -572,10 +572,10 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		// RFC-17: bid price cannot be higher than the current auction price.
 		ensure!(new_price <= current_price, Error::<T>::BidTooHigh);
 
-		let mut record = bids.remove(idx);
-		record.price = new_price;
+		// A raised bid can only move towards the front of the book, so move it in place.
 		let new_pos = bids.partition_point(|b| b.price > new_price);
-		bids.try_insert(new_pos, record).map_err(|_| Error::<T>::TooManyBids)?;
+		bids[idx].price = new_price;
+		bids.slide(idx, new_pos);
 		Bids::<T>::put(bids);
 
 		Self::deposit_event(Event::BidRaised {
@@ -594,13 +594,11 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 	) -> Vec<TickActionOf<T>> {
 		weight_meter.consume(T::WeightInfo::tick_base());
 
-		let mut actions: Vec<TickActionOf<T>> = vec![];
-
 		let Some(config) = Configuration::<T>::get() else {
-			return actions;
+			return vec![];
 		};
 		let Some(sale) = SaleInfo::<T>::get() else {
-			return actions;
+			return vec![];
 		};
 
 		match sale.phase {
@@ -615,7 +613,8 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 							.saturating_sub(T::WeightInfo::tick_base()),
 					);
 
-					let mut settlement_actions = settle_auction::<T>(&sale);
+					let (after_timeslice, next_renewal_at) = (sale.region_begin, sale.region_end);
+					let mut actions = settle_auction::<T>(sale);
 					Self::set_phase(SalePhase::Renewal);
 
 					Self::deposit_event(Event::PhaseTransitioned {
@@ -623,11 +622,11 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 						to: SalePhase::Renewal,
 					});
 
-					actions.append(&mut settlement_actions);
-					actions.push(TickAction::ProcessAutoRenewals {
-						after_timeslice: sale.region_begin,
-						next_renewal_at: sale.region_end,
-					});
+					actions
+						.push(TickAction::ProcessAutoRenewals { after_timeslice, next_renewal_at });
+					actions
+				} else {
+					vec![]
 				}
 			},
 			SalePhase::Renewal => {
@@ -642,7 +641,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 						.saturating_sub(T::WeightInfo::tick_base()),
 					);
 
-					let mut finalize_actions = finalize_sale::<T>(&sale);
+					let actions = finalize_sale::<T>(&sale);
 					Self::set_phase(SalePhase::Settlement);
 					let _ = Quotas::<T>::clear(u32::MAX, None);
 
@@ -651,7 +650,9 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 						to: SalePhase::Settlement,
 					});
 
-					actions.append(&mut finalize_actions);
+					actions
+				} else {
+					vec![]
 				}
 			},
 			SalePhase::Settlement => {
@@ -663,7 +664,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 					);
 
 					let Some(range) = Self::CoreRangeProvider::core_range() else {
-						return actions;
+						return vec![];
 					};
 
 					let new_sale = rotate_sale::<T>(&sale, &config, &range, block_number);
@@ -684,15 +685,15 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 						ideal_cores_sold: new_sale.ideal_cores_sold,
 						cores_offered: new_sale.cores_offered,
 					});
-					actions.push(TickAction::SaleRotated {
+					vec![TickAction::SaleRotated {
 						old_sale: sale.to_market_sale_info(),
 						new_sale: new_sale.to_market_sale_info(),
-					});
+					}]
+				} else {
+					vec![]
 				}
 			},
 		}
-
-		actions
 	}
 }
 
@@ -752,7 +753,7 @@ fn shuffle_marginal_bids<T: Config>(
 ///
 /// Bids are already sorted by price descending in storage. Determines the clearing price,
 /// shuffles marginal bids for fair selection, then splits into winners and losers.
-fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> {
+fn settle_auction<T: Config>(mut sale: SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> {
 	let mut bids: Vec<_> = Bids::<T>::take().into_inner();
 	NextBidId::<T>::kill();
 	let k = sale.cores_offered as usize;
@@ -801,10 +802,9 @@ fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>>
 	let winner_count = allocations.len() as u32;
 	Allocations::<T>::put(BoundedVec::defensive_truncate_from(allocations));
 
-	let mut updated_sale = sale.clone();
-	updated_sale.cores_sold = winner_count as u16;
-	updated_sale.clearing_price = Some(clearing_price);
-	SaleInfo::<T>::put(updated_sale);
+	sale.cores_sold = winner_count as u16;
+	sale.clearing_price = Some(clearing_price);
+	SaleInfo::<T>::put(sale);
 
 	Pallet::<T>::deposit_event(Event::AuctionSettled { clearing_price, winners: winner_count });
 

@@ -331,6 +331,21 @@ fn adjust_bid_raise_works() {
 }
 
 #[test]
+fn adjust_bid_raise_keeps_book_sorted() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		place_bid(0, 1, 200).unwrap();
+		place_bid(0, 2, 170).unwrap();
+		let OrderResult::BidPlaced { id, .. } = place_bid(0, 3, 150).unwrap() else { panic!() };
+
+		assert_ok!(adjust_bid(0, id, 3, Some(180)));
+
+		let book: Vec<_> = Bids::<Test>::get().iter().map(|b| (b.who, b.price)).collect();
+		assert_eq!(book, vec![(1, 200), (3, 180), (2, 170)]);
+	});
+}
+
+#[test]
 fn adjust_bid_withdraw_not_allowed() {
 	TestExt::new().execute_with(|| {
 		start_sales(100);
