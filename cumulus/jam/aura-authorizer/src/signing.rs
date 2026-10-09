@@ -51,3 +51,134 @@ pub fn hash_signing_payload(payload: &[u8]) -> H256 {
 
 	H256::from(blake2_256(&signable))
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use alloc::vec;
+
+	#[test]
+	fn hash_signing_payload_vectors_works() {
+		// Generated independently with Python hashlib.blake2b, digest_size=32.
+		for (payload, expected) in [
+			(
+				&b""[..],
+				[
+					92, 48, 36, 169, 96, 170, 208, 175, 233, 209, 68, 13, 243, 6, 61, 5, 71, 14,
+					62, 229, 8, 46, 35, 108, 118, 228, 45, 206, 124, 197, 222, 7,
+				],
+			),
+			(
+				&b"aura test payload"[..],
+				[
+					207, 253, 53, 34, 162, 129, 199, 102, 172, 226, 162, 199, 31, 95, 152, 172,
+					210, 82, 208, 135, 33, 102, 203, 221, 252, 107, 165, 253, 201, 128, 186, 160,
+				],
+			),
+		] {
+			assert_eq!(hash_signing_payload(payload), H256::from(expected));
+		}
+	}
+
+	#[test]
+	fn signable_work_package_hash_signed_fields_works() {
+		let (_, _, package) = crate::tests::fixture();
+		let original = signable_work_package_hash(&package);
+		let mutations: [(&str, fn(&mut WorkPackage)); 10] = [
+			("code host", |p| p.auth_code_host += 1),
+			("authorizer code", |p| p.authorizer.code_hash.0[0] ^= 1),
+			("authorizer config", |p| {
+				p.authorizer.config = vec![1].try_into().expect("one byte fits")
+			}),
+			("anchor", |p| p.context.anchor.0[0] ^= 1),
+			("state root", |p| p.context.state_root.0[0] ^= 1),
+			("beefy root", |p| p.context.beefy_root.0[0] ^= 1),
+			("lookup anchor", |p| p.context.lookup_anchor.0[0] ^= 1),
+			("lookup slot", |p| p.context.lookup_anchor_slot += 1),
+			("prerequisites", |p| {
+				p.context.prerequisites.insert([1; 32].into());
+			}),
+			("work items", |p| {
+				p.items = vec![jam_types::WorkItem {
+					service: 1,
+					code_hash: Default::default(),
+					refine_gas_limit: 1,
+					accumulate_gas_limit: 1,
+					export_count: 0,
+					payload: Default::default(),
+					import_segments: Default::default(),
+					extrinsics: Default::default(),
+				}]
+				.try_into()
+				.expect("one work item fits");
+			}),
+		];
+		for (field, mutate) in mutations {
+			let mut changed = package.clone();
+			mutate(&mut changed);
+			assert_ne!(signable_work_package_hash(&changed), original, "unsigned field: {field}");
+		}
+	}
+
+	#[test]
+	fn signable_work_package_hash_excludes_authorization_works() {
+		let (_, _, mut package) = crate::tests::fixture();
+		let original = signable_work_package_hash(&package);
+		package.authorization = vec![1, 2, 3].try_into().expect("three bytes fit");
+		assert_eq!(signable_work_package_hash(&package), original);
+	}
+
+	#[test]
+	fn signable_work_package_hash_item_fields_works() {
+		let (_, _, mut package) = crate::tests::fixture();
+		let item = jam_types::WorkItem {
+			service: 1,
+			code_hash: Default::default(),
+			refine_gas_limit: 1,
+			accumulate_gas_limit: 1,
+			export_count: 0,
+			payload: Default::default(),
+			import_segments: Default::default(),
+			extrinsics: Default::default(),
+		};
+		package.items = vec![item.clone()].try_into().expect("one work item fits");
+		let original = signable_work_package_hash(&package);
+		let mutations: [(&str, fn(&mut jam_types::WorkItem)); 8] = [
+			("service", |i| i.service += 1),
+			("code hash", |i| i.code_hash.0[0] ^= 1),
+			("refine gas", |i| i.refine_gas_limit += 1),
+			("accumulate gas", |i| i.accumulate_gas_limit += 1),
+			("export count", |i| i.export_count += 1),
+			("payload", |i| i.payload = vec![1].try_into().expect("one byte fits")),
+			("imports", |i| {
+				i.import_segments = vec![jam_types::ImportSpec {
+					root: jam_types::RootIdentifier::Direct(Default::default()),
+					index: 1,
+				}]
+				.try_into()
+				.expect("one import fits");
+			}),
+			("extrinsics", |i| {
+				i.extrinsics = vec![jam_types::ExtrinsicSpec { hash: Default::default(), len: 1 }]
+					.try_into()
+					.expect("one extrinsic fits");
+			}),
+		];
+		for (field, mutate) in mutations {
+			let mut changed = item.clone();
+			mutate(&mut changed);
+			package.items = vec![changed].try_into().expect("one work item fits");
+			assert_ne!(
+				signable_work_package_hash(&package),
+				original,
+				"unsigned item field: {field}"
+			);
+		}
+		let mut second = item.clone();
+		second.service += 1;
+		package.items = vec![item.clone(), second.clone()].try_into().expect("two work items fit");
+		let ordered = signable_work_package_hash(&package);
+		package.items = vec![second, item].try_into().expect("two work items fit");
+		assert_ne!(signable_work_package_hash(&package), ordered);
+	}
+}

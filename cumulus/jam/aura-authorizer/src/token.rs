@@ -22,7 +22,7 @@ use primitive_types::H256;
 
 use crate::{
 	config::AuthConfig,
-	merkle::{proof_depth, CollatorHasher},
+	merkle::{proof_len, CollatorHasher},
 	signing::signable_work_package_hash,
 	AuthTrace,
 };
@@ -80,7 +80,11 @@ impl AuthToken {
 	/// Returns [`TokenError::BadCollatorSetProof`] for a wrong proof length or root,
 	/// an out-of-range index, or a set size outside `1..=2^31` (the SDK leaf-count limit).
 	pub fn check_proof(&self, config: &AuthConfig, collator_index: u32) -> Result<(), TokenError> {
-		if self.proof.len() != proof_depth(config.collator_set_size) {
+		if self.proof.len() != proof_len(config.collator_set_size) {
+			return Err(TokenError::BadCollatorSetProof);
+		}
+
+		if collator_index >= config.collator_set_size {
 			return Err(TokenError::BadCollatorSetProof);
 		}
 
@@ -88,9 +92,7 @@ impl AuthToken {
 			.collator_set_size
 			.checked_next_power_of_two()
 			.ok_or(TokenError::BadCollatorSetProof)?;
-		if collator_index >= config.collator_set_size {
-			return Err(TokenError::BadCollatorSetProof);
-		}
+
 		binary_merkle_tree::verify_proof::<CollatorHasher, _, _>(
 			&config.collator_set_root,
 			self.proof.iter().copied(),
@@ -127,5 +129,106 @@ impl AuthToken {
 		self.check_signature::<S>(wp_hash)?;
 
 		Ok(AuthTrace { author_key: self.key })
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::tests::{fixture, NeverVerify, Verifier};
+
+	#[test]
+	fn check_signature_arguments_works() {
+		let (_, token, package) = fixture();
+		assert!(token.check_signature::<Verifier>(signable_work_package_hash(&package)).is_ok());
+	}
+
+	#[test]
+	fn check_signature_changed_arguments_errors() {
+		let (_, token, package) = fixture();
+		let hash = signable_work_package_hash(&package);
+		for field in 0..4 {
+			let mut forged = token.clone();
+			let mut payload = hash;
+			match field {
+				0 => forged.key[0] ^= 1,
+				1 => forged.signature[0] ^= 1,
+				2 => forged.signature[63] ^= 1,
+				_ => payload.0[0] ^= 1,
+			}
+			assert!(matches!(
+				forged.check_signature::<Verifier>(payload),
+				Err(TokenError::BadCollatorSignature)
+			));
+		}
+	}
+
+	#[test]
+	fn try_into_trace_works() {
+		let (config, token, package) = fixture();
+		assert_eq!(
+			token.try_into_trace::<Verifier>(&config, &package, 1).expect("valid token"),
+			AuthTrace { author_key: token.key }
+		);
+	}
+
+	#[test]
+	fn try_into_trace_bad_proof_errors() {
+		let (config, mut token, package) = fixture();
+		token.proof.clear();
+		assert!(matches!(
+			token.try_into_trace::<NeverVerify>(&config, &package, 1),
+			Err(TokenError::BadCollatorSetProof)
+		));
+	}
+
+	#[test]
+	fn try_into_trace_bad_signature_errors() {
+		let (config, mut token, package) = fixture();
+		token.signature[0] ^= 1;
+		assert!(matches!(
+			token.try_into_trace::<Verifier>(&config, &package, 1),
+			Err(TokenError::BadCollatorSignature)
+		));
+	}
+
+	#[test]
+	fn try_into_trace_changed_package_errors() {
+		let (config, token, mut package) = fixture();
+		package.auth_code_host += 1;
+		assert!(matches!(
+			token.try_into_trace::<Verifier>(&config, &package, 1),
+			Err(TokenError::BadCollatorSignature)
+		));
+	}
+
+	#[test]
+	fn check_proof_maximum_supported_size_works() {
+		let (mut config, mut token, _) = fixture();
+		config.collator_set_size = 1u32 << 31;
+		let index = config.collator_set_size - 1;
+		token.proof = alloc::vec![H256::zero(); 31];
+		let mut current = sp_crypto_hashing::blake2_256(&token.key);
+		// The rightmost leaf takes the right branch at every level.
+		for sibling in &token.proof {
+			let mut pair = [0; 64];
+			pair[..32].copy_from_slice(sibling.as_bytes());
+			pair[32..].copy_from_slice(&current);
+			current = sp_crypto_hashing::blake2_256(&pair);
+		}
+		config.collator_set_root = H256::from(current);
+		assert!(token.check_proof(&config, index).is_ok());
+		assert!(matches!(
+			token.check_proof(&config, index - 1),
+			Err(TokenError::BadCollatorSetProof)
+		));
+	}
+
+	#[test]
+	fn check_proof_first_unsupported_size_errors() {
+		let (mut config, mut token, _) = fixture();
+		config.collator_set_size = (1u32 << 31) + 1;
+		token.proof = alloc::vec![H256::zero(); 32];
+		assert!(matches!(token.check_proof(&config, 0), Err(TokenError::BadCollatorSetProof)));
 	}
 }

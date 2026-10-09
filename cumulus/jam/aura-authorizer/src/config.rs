@@ -26,13 +26,13 @@ use primitive_types::H256;
 /// Describes the collator set authorized to author work items, and the AURA slot-to-collator
 /// mapping used to check which collator is expected to author a given work package.
 ///
-/// The encoding is consensus critical since the Parachain Service's Refine relies on it.
+/// The encoding is consensus critical for the Parachain Service. Please don't change it.
 #[derive(Debug, Encode, Decode)]
 pub struct AuthConfig {
 	/// Authoritative `ParaId` for each work item, in item order.
 	pub para_ids: Vec<ParaId>,
 
-	/// The JAM service every work item must target.
+	/// The JAM service that every work item must target.
 	///
 	/// Prevents para-specific coretime being spent on other services.
 	pub parachain_service: ServiceId,
@@ -51,7 +51,7 @@ pub struct AuthConfig {
 	pub slot_duration: u32,
 }
 
-/// AURA configuration cannot select a collator.
+/// AURA auth config is invalid for a specific reason.
 #[derive(Debug)]
 pub enum ConfigError {
 	ZeroCollatorSetSize,
@@ -67,5 +67,35 @@ impl AuthConfig {
 		round
 			.checked_rem(self.collator_set_size)
 			.ok_or(ConfigError::ZeroCollatorSetSize)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn expected_collator_index_boundaries_works() {
+		let mut config = AuthConfig {
+			para_ids: Vec::new(),
+			parachain_service: 1,
+			collator_set_root: H256::zero(),
+			collator_set_size: 1,
+			slot_duration: 1,
+		};
+		for (size, duration, slot, expected) in [
+			(1, 1, Slot::MAX, 0),
+			(3, Slot::MAX, Slot::MAX - 1, 0),
+			(3, Slot::MAX, Slot::MAX, 1),
+			(u32::MAX, 1, Slot::MAX - 1, u32::MAX - 1),
+			(u32::MAX, 1, Slot::MAX, 0),
+		] {
+			config.collator_set_size = size;
+			config.slot_duration = duration;
+			assert_eq!(
+				config.expected_collator_index(slot).expect("nonzero configuration"),
+				expected
+			);
+		}
 	}
 }

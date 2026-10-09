@@ -17,7 +17,7 @@
 
 //! Published JAM work-package signing and the version-adapter entry points.
 use cumulus_aura_authorizer::{
-	authorize, authorize_hash, build_collator_tree, hash_signing_payload,
+	authorize, authorize_hash, build_collator_proofs, hash_signing_payload,
 	signable_work_package_hash, AuthConfig, AuthToken, AuthorizationError, SignatureVerifier,
 	TokenError, WORK_PACKAGE_SIGN_CTX,
 };
@@ -58,7 +58,7 @@ fn published_package_and_adapter_works() {
 	expected.extend_from_slice(&payload);
 	assert_eq!(hash.as_bytes(), &sp_crypto_hashing::blake2_256(&expected));
 	assert_eq!(hash, hash_signing_payload(&payload));
-	let (root, _) = build_collator_tree(&[[7; 32]]);
+	let (root, _) = build_collator_proofs(&[[7; 32]]).expect("valid test collator set");
 	let config = AuthConfig {
 		para_ids: vec![],
 		parachain_service: 1,

@@ -17,7 +17,7 @@
 
 //! Collator membership proofs, including padded trees and invalid membership.
 
-use cumulus_aura_authorizer::{build_collator_tree, AuthConfig, AuthToken, CollatorKey, ParaId};
+use cumulus_aura_authorizer::{build_collator_proofs, AuthConfig, AuthToken, CollatorKey, ParaId};
 use primitive_types::H256;
 
 fn keys(count: u32) -> Vec<CollatorKey> {
@@ -25,7 +25,7 @@ fn keys(count: u32) -> Vec<CollatorKey> {
 }
 
 fn config(keys: &[CollatorKey]) -> (AuthConfig, Vec<Vec<H256>>) {
-	let (collator_set_root, proofs) = build_collator_tree(keys);
+	let (collator_set_root, proofs) = build_collator_proofs(keys).expect("valid test collator set");
 	let config = AuthConfig {
 		para_ids: vec![ParaId::new(0)],
 		parachain_service: 1337,
@@ -100,5 +100,65 @@ fn invalid_set_size_and_index_errors() {
 	assert!(token.check_proof(&config, 0).is_err());
 	config.collator_set_size = u32::MAX;
 	let token = AuthToken { proof: vec![H256::zero(); 32], ..token };
+	assert!(token.check_proof(&config, 0).is_err());
+}
+
+#[test]
+fn aliased_index_errors() {
+	let keys = keys(4);
+	let (config, proofs) = config(&keys);
+	let token = token(keys[1], proofs[1].clone());
+	assert!(token.check_proof(&config, 1).is_ok());
+	// These indices have the same low two bits as the valid index.
+	for index in [5, 9, (1u32 << 31) | 1] {
+		assert!(token.check_proof(&config, index).is_err(), "accepted at index {index}");
+	}
+}
+
+#[test]
+fn populated_padding_leaf_errors() {
+	let keys = keys(4);
+	let (mut config, proofs) = config(&keys);
+	let token = token(keys[3], proofs[3].clone());
+	assert!(token.check_proof(&config, 3).is_ok());
+	// Even a cryptographically valid proof cannot authorize a leaf outside the declared set.
+	// The padded width and proof length remain four and two respectively.
+	config.collator_set_size = 3;
+	assert!(token.check_proof(&config, 3).is_err());
+}
+
+#[test]
+fn tampered_siblings_errors() {
+	let keys = keys(8);
+	let (config, proofs) = config(&keys);
+	for (index, proof) in proofs.iter().enumerate() {
+		assert!(token(keys[index], proof.clone()).check_proof(&config, index as u32).is_ok());
+		for level in 0..proof.len() {
+			let mut forged = token(keys[index], proof.clone());
+			forged.proof[level].0[0] ^= 1;
+			assert!(
+				forged.check_proof(&config, index as u32).is_err(),
+				"accepted mutated sibling at index {index}, level {level}"
+			);
+		}
+		for level in 1..proof.len() {
+			let mut forged = token(keys[index], proof.clone());
+			forged.proof.swap(0, level);
+			assert!(forged.check_proof(&config, index as u32).is_err());
+			let mut forged = token(keys[index], proof.clone());
+			forged.proof[level] = forged.proof[0];
+			assert!(forged.check_proof(&config, index as u32).is_err());
+		}
+	}
+}
+
+#[test]
+fn empty_proof_matching_root_errors() {
+	let keys = keys(1);
+	let (mut config, proofs) = config(&keys);
+	let token = token(keys[0], proofs[0].clone());
+	assert!(token.check_proof(&config, 0).is_ok());
+	// Root equality alone must not allow an empty proof for a multi-leaf tree.
+	config.collator_set_size = 2;
 	assert!(token.check_proof(&config, 0).is_err());
 }

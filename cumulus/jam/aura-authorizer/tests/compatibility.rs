@@ -17,12 +17,13 @@
 
 //! Fixed protocol vectors for SCALE encoding and the zero-padded Merkle tree.
 use codec::Encode;
-use cumulus_aura_authorizer::{build_collator_tree, AuthConfig, AuthToken, AuthTrace, ParaId};
+use cumulus_aura_authorizer::{build_collator_proofs, AuthConfig, AuthToken, AuthTrace, ParaId};
 use primitive_types::H256;
 
 #[test]
 fn padded_tree_vector_works() {
-	let (root, proofs) = build_collator_tree(&[[1; 32], [2; 32], [3; 32]]);
+	let (root, proofs) =
+		build_collator_proofs(&[[1; 32], [2; 32], [3; 32]]).expect("valid test collator set");
 	assert_eq!(
 		root,
 		H256::from([
