@@ -101,20 +101,16 @@ impl SchedulingSignals {
 						panic!("Parachain emitted more than one `ApprovedPeer` UMP signal");
 					}
 				},
-				// The speculative-messaging class is parsed by its own pass
-				// (`validate_block`'s `SpecMessagingSignals`), which also runs under a
-				// `signed_scheduling_info` override; the "blocks never emit `Requires`"
-				// rejection lives there.
+				// Parsed by `SpecMessagingSignals` instead.
 				UMPSignal::Provides(_) | UMPSignal::Requires(_) => {},
 			}
 		}
 		signals
 	}
 
-	/// Build the tail from a verified `SignedSchedulingInfo`, replacing the block's own
-	/// *scheduling* signals wholesale. The speculative-messaging signals are not part of this tail;
-	/// `validate_block` builds them in its own pass on both paths. Each new `UMPSignal` variant
-	/// must be classified in `every_ump_signal_is_classified`.
+	/// Build the tail from a verified `SignedSchedulingInfo`, replacing the block's *scheduling*
+	/// signals wholesale. Classify each new `UMPSignal` in
+	/// `every_ump_signal_is_classified`.
 	pub fn from_scheduling_info(signed_info: &SignedSchedulingInfo) -> Self {
 		let payload = &signed_info.payload;
 		Self {

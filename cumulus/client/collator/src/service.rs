@@ -37,11 +37,8 @@ use std::sync::Arc;
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
 
-/// The candidate's UMP signal tail, byte-identical to what `validate_block` emits.
-///
-/// Runs the same speculative-messaging checks as `validate_block`, so a candidate it would reject
-/// is never submitted. Consumption records and lifts are not sourced node-side yet, so no
-/// `Requires` is synthesized here; `validate_block` rejects a consuming candidate either way.
+/// The candidate's UMP signal tail, byte-identical to `validate_block`'s, with the same checks so a
+/// rejected candidate is never submitted. No records or lifts are sourced yet, so no `Requires`.
 fn collation_ump_signals(
 	signed_scheduling_info: Option<&SignedSchedulingInfo>,
 	upward_message_signals: Vec<Vec<u8>>,
