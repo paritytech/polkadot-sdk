@@ -156,6 +156,7 @@ impl frame_system::Config for Runtime {
 	type Version = Version;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
+	type DbWeight = RocksDbWeight;
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
@@ -479,6 +480,16 @@ impl_runtime_apis! {
 			let storage_info = AllPalletsWithSystem::storage_info();
 
 			(list, storage_info)
+		}
+
+		fn runtime_block_limits() -> frame_benchmarking::RuntimeBlockLimits {
+			use frame_support::dispatch::DispatchClass;
+			let max_extrinsic_weight = RuntimeBlockWeights::get()
+				.per_class
+				.get(DispatchClass::Normal)
+				.max_extrinsic;
+			let db_weight = <Self as frame_system::Config>::DbWeight::get();
+			frame_benchmarking::RuntimeBlockLimits::new(max_extrinsic_weight, db_weight)
 		}
 
 		#[allow(non_local_definitions)]

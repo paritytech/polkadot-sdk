@@ -17,7 +17,7 @@
 
 use super::{
 	types::{ComponentRange, ComponentRangeMap},
-	writer, ListOutput, PalletCmd, LOG_TARGET,
+	writer, ListOutput, PalletCmd, SanityWeightCheck, LOG_TARGET,
 };
 use crate::{
 	pallet::{types::FetchedCode, GenesisBuilderPolicy},
@@ -30,7 +30,7 @@ use clap::{error::ErrorKind, CommandFactory};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_benchmarking::{
 	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,
-	BenchmarkResult, BenchmarkSelector,
+	BenchmarkResult, BenchmarkSelector, RuntimeBlockLimits,
 };
 use frame_support::traits::StorageInfo;
 use linked_hash_map::LinkedHashMap;
@@ -367,6 +367,30 @@ impl PalletCmd {
 			return Ok(());
 		}
 
+		// Fetch the runtime block limits used by the sanity weight check. Done after the `--list`
+		// short-circuit so that listing benchmarks does not pay for an extra runtime API call on
+		// v2 runtimes. Older runtimes on `Benchmark` API v2 do not expose `runtime_block_limits`;
+		// in that case the CLI uses a default which `sanity_weight_check` interprets as "skip
+		// with a warning". Genuine failures (panic, codec error, OOM) when calling the v3 method
+		// are surfaced rather than swallowed.
+		let runtime_block_limits: RuntimeBlockLimits = if benchmark_api_version >= 3 {
+			Self::exec_state_machine(
+				StateMachine::new(
+					state,
+					&mut Default::default(),
+					&executor,
+					"Benchmark_runtime_block_limits",
+					&[],
+					&mut Self::build_extensions(executor.clone(), state.recorder()),
+					&runtime_code,
+					CallContext::Offchain,
+				),
+				"Could not call `Benchmark_runtime_block_limits` runtime api.",
+			)?
+		} else {
+			RuntimeBlockLimits::default()
+		};
+
 		// Run the benchmarks
 		let mut batches = Vec::new();
 		let mut batches_db = Vec::new();
@@ -607,7 +631,7 @@ impl PalletCmd {
 		// Combine all of the benchmark results, so that benchmarks of the same pallet/function
 		// are together.
 		let batches = combine_batches(batches, batches_db);
-		self.output(&batches, &storage_info, &component_ranges, pov_modes)
+		self.output(&batches, &storage_info, &component_ranges, pov_modes, &runtime_block_limits)
 	}
 
 	fn select_benchmarks_to_run(&self, list: Vec<BenchmarkList>) -> Result<Vec<SelectedBenchmark>> {
@@ -787,23 +811,45 @@ impl PalletCmd {
 		storage_info: &[StorageInfo],
 		component_ranges: &ComponentRangeMap,
 		pov_modes: PovModesMap,
+		runtime_block_limits: &RuntimeBlockLimits,
 	) -> Result<()> {
 		// Jsonify the result and write it to a file or stdout if desired.
-		if !self.jsonify(&batches)? && !self.quiet {
+		let json_to_stdout = self.jsonify(&batches)?;
+		if !json_to_stdout && !self.quiet {
 			// Print the summary only if `jsonify` did not write to stdout.
 			self.print_summary(&batches, &storage_info, pov_modes.clone())
 		}
 
-		// Create the weights.rs file.
+		// Create the weights.rs file. The sanity weight check runs *after* the file is written so
+		// that the failing weights are still persisted for inspection.
 		if let Some(output_path) = &self.output {
 			writer::write_results(
 				&batches,
 				&storage_info,
 				&component_ranges,
-				pov_modes,
+				pov_modes.clone(),
 				self.default_pov_mode,
 				output_path,
 				self,
+			)?;
+		}
+
+		// The sanity weight check is intended as a guardrail when generating weight files. If no
+		// `--output` was provided the user is doing exploratory work (e.g. inspecting JSON), so
+		// running the check would produce a hard error on a config they did not intend to ship.
+		// Suppress the sanity check's stdout output when JSON has already been written there or
+		// `--quiet` is set; the check still runs and still returns `Err` on `Error` mode, just
+		// without polluting machine-readable output.
+		if self.output.is_some() {
+			writer::sanity_weight_check(
+				&batches,
+				&storage_info,
+				&component_ranges,
+				pov_modes,
+				self,
+				runtime_block_limits,
+				self.sanity_weight_check,
+				json_to_stdout || self.quiet,
 			)?;
 		}
 
@@ -845,7 +891,19 @@ impl PalletCmd {
 			})
 			.collect();
 
-		self.output(batches, &[], &component_ranges, Default::default())
+		// Re-analysis from a JSON file has no access to runtime metadata, so the sanity weight
+		// check cannot run — there are no real `RuntimeBlockLimits` to compare against. Emit a
+		// distinct warning so users see why the check did not fire (separate from the API v2
+		// fallback path) and proceed with default limits which `sanity_weight_check` skips.
+		if self.sanity_weight_check != SanityWeightCheck::Ignore {
+			log::warn!(
+				target: LOG_TARGET,
+				"Skipping sanity weight check: re-analysing benchmark results from JSON has no \
+				access to live runtime metadata. Re-run against the runtime directly to enable \
+				the check.",
+			);
+		}
+		self.output(batches, &[], &component_ranges, Default::default(), &Default::default())
 	}
 
 	/// Jsonifies the passed batches and writes them to stdout or into a file.
