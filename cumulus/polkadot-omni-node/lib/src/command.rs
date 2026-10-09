@@ -31,12 +31,10 @@ use crate::{
 	runtime::BlockNumber,
 };
 use clap::{CommandFactory, FromArgMatches};
-#[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
 use sc_cli::{Result, SubstrateCli};
-#[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
 
 /// Structure that can be used in order to provide customizers for different functionalities of the
@@ -228,7 +226,6 @@ where
 		Some(Subcommand::Benchmark(cmd)) => {
 			// Switch on the concrete benchmark sub-command-
 			match cmd {
-				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Pallet(cmd) => {
 					let chain = cmd
 						.shared_params
@@ -280,8 +277,8 @@ where
 				},
 				#[allow(unreachable_patterns)]
 				_ => Err("Benchmarking sub-command unsupported or compilation feature missing. \
-					Make sure to compile omni-node with --features=runtime-benchmarks \
-					to enable all supported benchmarks."
+					Storage benchmarks require the binary to be compiled with \
+					--features=runtime-benchmarks."
 					.into()),
 			}
 		},
