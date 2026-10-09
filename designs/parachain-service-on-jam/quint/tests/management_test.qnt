@@ -129,7 +129,7 @@ module management_test {
       assert(first.state.paraInfo(target).usedStateBalance
         == before + preimageFootprint(len)),
       assert(isUnrequested(first.state.preimageStatus.get((h, len)))),
-      assert(first.logs == List(ForgetAgainAt({ hash: h, len: len, due: due }))),
+      assert(first.logs == List(ForgetAgainAt({ target: Parachain(target), hash: h, len: len, due: due }))),
       assert(second.state.paraInfo(target).usedStateBalance == before),
       assert(not(second.state.preimageRegistry.keys().contains((h, len)))),
       init
@@ -331,9 +331,13 @@ module management_test {
       // One ForgetAgainAt per code: the pick-one bug would have kept only one.
       assert(c.logs.length() == 2),
       assert(c.logs.select(e =>
-        e == ForgetAgainAt({ hash: hA.asPreimage(), len: lenA, due: nowT + ExpungePeriod })).length() == 1),
+        e == ForgetAgainAt({
+          target: Parachain(para), hash: hA.asPreimage(), len: lenA, due: nowT + ExpungePeriod
+        })).length() == 1),
       assert(c.logs.select(e =>
-        e == ForgetAgainAt({ hash: hB.asPreimage(), len: lenB, due: nowT + ExpungePeriod })).length() == 1),
+        e == ForgetAgainAt({
+          target: Parachain(para), hash: hB.asPreimage(), len: lenB, due: nowT + ExpungePeriod
+        })).length() == 1),
       init
     }
   }

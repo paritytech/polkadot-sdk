@@ -69,20 +69,11 @@ module messages {
   | FromSolicit({ hash: Hash, len: int })
   | FromSetKV({ keyHash: KvKeyHash })
 
-  /// What a `forget` acts on: a parachain's share of this service's own store,
-  /// or a supervised service's store.
+  /// Whose preimage a `solicit` or `forget` acts on: a registered parachain, or a
+  /// supervised service.
   type Target =
   | Parachain(ParaId)
   | Service(ServiceId)
-
-  /// Why a `forget` or `remove_service_storage` against a supervised service's
-  /// store failed.
-  type ServiceStoreError =
-  | StoreUnknownService
-  | StoreNotSupervised
-  // `forget` naming a preimage the target never requested: JAM's transition
-  // has no clause for an absent request, so it returns HUH.
-  | StoreNotRequested
 
   /// Why a `Service`-targeted `solicit` failed.
   type ServiceSolicitError =
@@ -180,9 +171,13 @@ module messages {
   | TransferFailed({ id: int, error: TransferError })
   // A `forget` removed the last referencer without expunging the preimage;
   // the caller must `forget(hash, len)` again after `due` to free it. See §6.1.
-  | ForgetAgainAt({ hash: Hash, len: int, due: Timeslot })
+  | ForgetAgainAt({ target: Target, hash: Hash, len: int, due: Timeslot })
   // Failures of the supervised-service operations, one per operation.
-  | ServiceStoreFailed({ service: ServiceId, error: ServiceStoreError })
+  // A `Service`-targeted forget named a preimage the service never requested.
+  | ServiceForgetNotRequested({ service: ServiceId, hash: Hash, len: int })
+  // A remove_service_storage named a key the service does not hold; `keyHash`
+  // is the hash of that `key`.
+  | ServiceKeyNotFound({ service: ServiceId, keyHash: KvKeyHash })
   | ServiceSolicitFailed({ service: ServiceId, error: ServiceSolicitError })
   | ServiceEjectFailed({ service: ServiceId, error: ServiceEjectError })
   // An eject succeeded; `credited` is what JAM moved to our regular balance.

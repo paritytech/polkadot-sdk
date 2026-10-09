@@ -105,7 +105,7 @@ module state_balance_test {
       assert(atDue.state.preimageRegistry.keys().contains((h, 512))),
       assert(atDue.retained),
       assert(atDue.jamForget == None),
-      assert(atDue.log == Some(ForgetAgainAt({ hash: h, len: 512, due: ExpungePeriod }))),
+      assert(atDue.log == Some(ForgetAgainAt({ target: Parachain(para), hash: h, len: 512, due: ExpungePeriod }))),
       // now == due + 1 -> expunged.
       assert(not(pastDue.state.preimageRegistry.keys().contains((h, 512)))),
       assert(not(pastDue.state.preimageStatus.keys().contains((h, 512)))),
@@ -175,7 +175,7 @@ module state_balance_test {
       assert(d5.state.preimageRegistry.keys().contains((h, 512))),
       assert(d5.retained),
       assert(d5.jamForget == None),
-      assert(d5.log == Some(ForgetAgainAt({ hash: h, len: 512, due: 10 + ExpungePeriod }))),
+      assert(d5.log == Some(ForgetAgainAt({ target: Parachain(p2), hash: h, len: 512, due: 10 + ExpungePeriod }))),
       // Status is unchanged (still Rerequested(10)).
       assert(d5.state.preimageStatus.get((h, 512)) == Rerequested(10)),
       init
@@ -259,12 +259,12 @@ module state_balance_test {
       assert(first.state == d3.state),
       assert(first.jamForget == None),
       assert(first.retained),
-      assert(first.log == Some(ForgetAgainAt({ hash: h, len: 512, due: 10 + ExpungePeriod }))),
+      assert(first.log == Some(ForgetAgainAt({ target: Parachain(p2), hash: h, len: 512, due: 10 + ExpungePeriod }))),
       assert(second.state.preimageStatus.get((h, 512)) == Unrequested(t2)),
       assert(second.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
       assert(second.jamForget == Some(h)),
       assert(second.retained),
-      assert(second.log == Some(ForgetAgainAt({ hash: h, len: 512, due: t2 + ExpungePeriod }))),
+      assert(second.log == Some(ForgetAgainAt({ target: Parachain(p2), hash: h, len: 512, due: t2 + ExpungePeriod }))),
       assert(not(third.state.preimageRegistry.keys().contains((h, 512)))),
       assert(not(third.state.preimageStatus.keys().contains((h, 512)))),
       assert(third.jamForget == Some(h)),

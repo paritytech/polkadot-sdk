@@ -374,13 +374,16 @@ module state {
     | CoreNotAssignable(_) => 2
     // id Compact<u64> + TransferError tag 1.
     | TransferFailed(p) => compactLen(p.id) + 1
-    // hash 32 + Compact<u32> len + due (Timeslot, fixed u32).
-    | ForgetAgainAt(p) => 32 + compactLen(p.len) + 4
-    // service 4 + error tag 1, for each of the four failure entries.
-    | ServiceStoreFailed(_) => 5
+    // Target (1 tag + 4 id) + hash 32 + Compact<u32> len + due (Timeslot, fixed u32).
+    | ForgetAgainAt(p) => 5 + 32 + compactLen(p.len) + 4
+    // service 4 + error tag 1, for each of the three failure entries.
     | ServiceSolicitFailed(_) => 5
     | ServiceEjectFailed(_) => 5
     | ServiceSupervisorFailed(_) => 5
+    // service 4 + hash 32 + Compact<u32> len.
+    | ServiceForgetNotRequested(p) => 36 + compactLen(p.len)
+    // service 4 + key hash 32.
+    | ServiceKeyNotFound(_) => 36
     // service 4 + Compact<Balance> credited.
     | ServiceEjected(p) => 4 + compactLen(p.credited)
     // id Compact<u64> + result (1 tag, + 4 when Created).

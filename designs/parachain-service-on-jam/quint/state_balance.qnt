@@ -295,7 +295,7 @@ module state_balance {
               jamSolicit: None,
               jamForget: Some(h),
               retained: true,
-              log: Some(ForgetAgainAt({ hash: h, len: len, due: now + ExpungePeriod }))
+              log: Some(ForgetAgainAt({ target: Parachain(para_id), hash: h, len: len, due: now + ExpungePeriod }))
             }
           | Unrequested(since) =>
             // Second forget: expunge only once strictly past the turnaround
@@ -307,7 +307,7 @@ module state_balance {
               jamSolicit: None,
               jamForget: None,
               retained: true,
-              log: Some(ForgetAgainAt({ hash: h, len: len, due: due }))
+              log: Some(ForgetAgainAt({ target: Parachain(para_id), hash: h, len: len, due: due }))
             }
           | Rerequested(since) =>
             // Rescued preimage. JAM gates `forget` against the ORIGINAL
@@ -320,13 +320,13 @@ module state_balance {
               jamSolicit: None,
               jamForget: Some(h),
               retained: true,
-              log: Some(ForgetAgainAt({ hash: h, len: len, due: now + ExpungePeriod }))
+              log: Some(ForgetAgainAt({ target: Parachain(para_id), hash: h, len: len, due: now + ExpungePeriod }))
             } else {
               state: s,
               jamSolicit: None,
               jamForget: None,
               retained: true,
-              log: Some(ForgetAgainAt({ hash: h, len: len, due: due }))
+              log: Some(ForgetAgainAt({ target: Parachain(para_id), hash: h, len: len, due: due }))
             }
         }
       }

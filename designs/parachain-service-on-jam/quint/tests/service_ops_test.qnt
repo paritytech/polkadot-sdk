@@ -92,9 +92,8 @@ module service_ops_test {
   run opsRefuseUnknownServiceTest = {
     init.then(expectThat(all {
       logsOf(Map(), forgetIt, 0)
-        == List(ServiceStoreFailed({ service: victim, error: StoreUnknownService })),
-      logsOf(Map(), removeIt, 0)
-        == List(ServiceStoreFailed({ service: victim, error: StoreUnknownService })),
+        == List(),
+      logsOf(Map(), removeIt, 0) == List(),
       logsOf(Map(), solicitIt, 0)
         == List(ServiceSolicitFailed({ service: victim, error: SolicitUnknownService })),
       logsOf(Map(), ejectIt, 0)
@@ -109,9 +108,10 @@ module service_ops_test {
     init.then(expectThat(all {
       not(supervisedByUs(theirs, victim)),
       logsOf(theirs, forgetIt, 0)
-        == List(ServiceStoreFailed({ service: victim, error: StoreNotSupervised })),
+        == List(),
       logsOf(theirs, solicitIt, 0)
         == List(ServiceSolicitFailed({ service: victim, error: SolicitNotSupervised })),
+      logsOf(theirs, removeIt, 0) == List(),
       logsOf(theirs, ejectIt, 0)
         == List(ServiceEjectFailed({ service: victim, error: EjectNotSupervised })),
     }))
@@ -127,7 +127,7 @@ module service_ops_test {
     init.then(expectThat(all {
       effectiveSupervisor(stale, victim) == victim,
       logsOf(stale, forgetIt, 0)
-        == List(ServiceStoreFailed({ service: victim, error: StoreNotSupervised })),
+        == List(),
     }))
   }
 
@@ -155,16 +155,17 @@ module service_ops_test {
     }))
   }
 
-  /// Removing a storage key shrinks the store and is idempotent.
-  run removeStorageIsIdempotentTest = {
+  /// Removing a storage key shrinks the store; a missing key is reported.
+  run removeStorageReportsMissingKeyTest = {
     val withStorage: ForeignServices =
       Map(victim -> supervised(Map(), Map(someKey -> List(), List(3) -> List()), 0))
     init.then(expectThat(all {
       after(withStorage, removeIt, 0).get(victim).storage.keys() == Set(List(3)),
       logsOf(withStorage, removeIt, 0) == List(),
-      // Absent key: still no log, still no change.
+      // Absent key: no change, and it is reported.
       after(emptyOurs, removeIt, 0).get(victim).storage == Map(),
-      logsOf(emptyOurs, removeIt, 0) == List(),
+      logsOf(emptyOurs, removeIt, 0)
+        == List(ServiceKeyNotFound({ service: victim, keyHash: listHash(someKey) })),
     }))
   }
 
@@ -176,11 +177,13 @@ module service_ops_test {
     init.then(expectThat(all {
       // First forget only unrequests, and says when to return.
       logsOf(provided, forgetIt, 10)
-        == List(ForgetAgainAt({ hash: someHash, len: someLen, due: 10 + ExpungePeriod })),
+        == List(ForgetAgainAt({
+          target: Service(victim), hash: someHash, len: someLen, due: 10 + ExpungePeriod })),
       once.get(victim).requests.get((someHash, someLen)) == Unrequested(10),
       // Too early: nothing happens and the ORIGINAL deadline is reported.
       logsOf(once, forgetIt, 11)
-        == List(ForgetAgainAt({ hash: someHash, len: someLen, due: 10 + ExpungePeriod })),
+        == List(ForgetAgainAt({
+          target: Service(victim), hash: someHash, len: someLen, due: 10 + ExpungePeriod })),
       after(once, forgetIt, 11) == once,
       // Past the deadline: the request is gone.
       logsOf(once, forgetIt, 11 + ExpungePeriod) == List(),
@@ -188,9 +191,9 @@ module service_ops_test {
       // A never-provided request needs only one step.
       logsOf(Map(victim -> supervised(Map((someHash, someLen) -> Unprovided), Map(), 0)),
         forgetIt, 10) == List(),
-      // Naming a request the target never made is refused.
+      // Naming a request the target never made is reported.
       logsOf(emptyOurs, forgetIt, 10)
-        == List(ServiceStoreFailed({ service: victim, error: StoreNotRequested })),
+        == List(ServiceForgetNotRequested({ service: victim, hash: someHash, len: someLen })),
     }))
   }
 

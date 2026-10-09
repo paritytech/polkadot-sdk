@@ -314,10 +314,12 @@ enum AccumulateLog {
     TransferFailed { id: Compact<u64>, error: TransferError },
     /// A `forget` left the preimage in place. `Forget` it again after `due`.
     /// See §6.1.
-    ForgetAgainAt { hash: Hash, len: Compact<u32>, due: Timeslot },
-    /// A `Forget` or `RemoveServiceStorage` on a supervised service's store
-    /// failed.
-    ServiceStoreFailed { service: ServiceId, error: ServiceStoreError },
+    ForgetAgainAt { target: Target, hash: Hash, len: Compact<u32>, due: Timeslot },
+    /// A `Service`-targeted `Forget` named a preimage the service never requested.
+    ServiceForgetNotRequested { service: ServiceId, hash: Hash, len: Compact<u32> },
+    /// A `RemoveServiceStorage` named a key the service does not hold. `key_hash`
+    /// is the hash of that `key`.
+    ServiceKeyNotFound { service: ServiceId, key_hash: Hash },
     /// A `Service`-targeted `Solicit` failed.
     ServiceSolicitFailed { service: ServiceId, error: ServiceSolicitError },
     /// An `EjectService` failed.
@@ -334,22 +336,11 @@ enum AccumulateLog {
     TooMuchStateHeld,
 }
 
-/// What a `Forget` acts on: a registered parachain's share of this service's
-/// own store, or a supervised service's store.
+/// Whose preimage a `Solicit` or `Forget` acts on: a registered parachain, or a
+/// supervised service.
 enum Target {
     Parachain(ParaId),
     Service(ServiceId),
-}
-
-/// Why a `Forget` or `RemoveServiceStorage` against a supervised service's
-/// store failed.
-enum ServiceStoreError {
-    /// The named service does not exist.
-    UnknownService,
-    /// The Parachain Service is not its effective supervisor.
-    NotSupervised,
-    /// A `Forget` naming a preimage the target never requested.
-    NotRequested,
 }
 
 /// Why a `Service`-targeted `Solicit` failed.
@@ -1244,7 +1235,7 @@ refunds its footprint right away. Removing the last referencer of an *available*
 takes **two steps**. A JAM `forget` does not delete it but marks the request unavailable. Only a **second** `forget`, no earlier than
 `C_expungeperiod = 19 200` timeslots (~32 h) later, expunges it. The service keeps no
 bookkeeping for this. When a `forget` removes the last referencer without expunging the
-preimage, Accumulate appends an `AccumulateLog::ForgetAgainAt { hash, len, due }`, where
+preimage, Accumulate appends an `AccumulateLog::ForgetAgainAt { target, hash, len, due }`, where
 `due = now + C_expungeperiod`, to the log of the parachain that emitted the `Forget`
 (§5.1). The last referencer stays in `referencers` and is still charged the full
 footprint. That parachain emits `Forget { target: Parachain(para_id), hash, len }` again

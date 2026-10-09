@@ -108,66 +108,59 @@ module foreign_services {
 
   // --- forget / remove_service_storage ------------------------------------
 
-  /// Shared guard for the two store operations: it must exist and we must
-  /// supervise it.
-  pure def storeGuard(fs: ForeignServices, s: ServiceId): Option[ServiceStoreError] =
-  if (not(fs.keys().contains(s))) Some(StoreUnknownService)
-  else if (effectiveSupervisor(fs, s) != ParachainServiceId) Some(StoreNotSupervised)
-  else None
-
   /// A `Service`-targeted `forget`. The two-step expunge of 6.1 applies here
   /// unchanged, so an available preimage is only unrequested and must be
-  /// forgotten again after the expunge period.
+  /// forgotten again after the expunge period. An unknown or unsupervised
+  /// service is a silent no-op; a preimage the service never requested is
+  /// reported.
   pure def foreignForget(
     fs: ForeignServices, s: ServiceId, h: Hash, len: int, now: Timeslot
-  ): ForeignOutcome =
-  match storeGuard(fs, s) {
-    | Some(e) => unchanged(fs, ServiceStoreFailed({ service: s, error: e }))
-    | None => {
+  ): ForeignOutcome = {
+    val key = (h, len)
+    if (not(supervisedByUs(fs, s)))
+      { services: fs, log: None }
+    else if (not(fs.get(s).requests.keys().contains(key)))
+      unchanged(fs, ServiceForgetNotRequested({ service: s, hash: h, len: len }))
+    else {
       val f = fs.get(s)
-      val key = (h, len)
-      if (not(f.requests.keys().contains(key)))
-        // Absent: the gray paper's `forget` has no case for it and refuses.
-        unchanged(fs, ServiceStoreFailed({ service: s, error: StoreNotRequested }))
-      else {
-        val dropped = { services: fs.put(s, { ...f, requests: f.requests.mapRemove(key) }),
-                        log: None }
-        match f.requests.get(key) {
-          // Never provided, so one step frees it.
-          | Unprovided => dropped
-          // Available: unrequest only, and say when to come back.
-          | Provided =>
-            { services: fs.put(s, { ...f, requests: f.requests.put(key, Unrequested(now)) }),
-              log: Some(ForgetAgainAt({ hash: h, len: len, due: (now + ExpungePeriod) })) }
-          | Unrequested(since) =>
-            if (now > (since + ExpungePeriod)) dropped
-            else { services: fs,
-                   log: Some(ForgetAgainAt({ hash: h, len: len, due: (since + ExpungePeriod) })) }
-          // Rescued: gated on the ORIGINAL unrequest slot, and never expunges
-          // here; past the period it unrequests again on a fresh clock.
-          | Rerequested(since) =>
-            if (now > (since + ExpungePeriod))
-              { services: fs.put(s, { ...f, requests: f.requests.put(key, Unrequested(now)) }),
-                log: Some(ForgetAgainAt({ hash: h, len: len, due: (now + ExpungePeriod) })) }
-            else { services: fs,
-                   log: Some(ForgetAgainAt({ hash: h, len: len, due: (since + ExpungePeriod) })) }
-        }
+      pure def again(due: Timeslot): Option[AccumulateLog] =
+        Some(ForgetAgainAt({ target: Service(s), hash: h, len: len, due: due }))
+      val dropped = { services: fs.put(s, { ...f, requests: f.requests.mapRemove(key) }),
+                      log: None }
+      val unrequested =
+        { services: fs.put(s, { ...f, requests: f.requests.put(key, Unrequested(now)) }),
+          log: again(now + ExpungePeriod) }
+      match f.requests.get(key) {
+        // Never provided, so one step frees it.
+        | Unprovided => dropped
+        // Available: unrequest only, and say when to come back.
+        | Provided => unrequested
+        | Unrequested(since) =>
+          if (now > (since + ExpungePeriod)) dropped
+          else { services: fs, log: again(since + ExpungePeriod) }
+        // Rescued: gated on the ORIGINAL unrequest slot, and never expunges
+        // here; past the period it unrequests again on a fresh clock.
+        | Rerequested(since) =>
+          if (now > (since + ExpungePeriod)) unrequested
+          else { services: fs, log: again(since + ExpungePeriod) }
       }
     }
   }
 
-  /// Deleting one storage key. Idempotent, and it only ever shrinks the
-  /// footprint, so it has no affordability failure.
+  /// Deleting one storage key. It only ever shrinks the footprint, so it has no
+  /// affordability failure. An unknown or unsupervised service is a silent
+  /// no-op; a missing key is reported.
   pure def foreignRemoveStorage(
     fs: ForeignServices, s: ServiceId, key: List[int]
   ): ForeignOutcome =
-  match storeGuard(fs, s) {
-    | Some(e) => unchanged(fs, ServiceStoreFailed({ service: s, error: e }))
-    | None => {
+    if (not(supervisedByUs(fs, s)))
+      { services: fs, log: None }
+    else if (not(fs.get(s).storage.keys().contains(key)))
+      unchanged(fs, ServiceKeyNotFound({ service: s, keyHash: listHash(key) }))
+    else {
       val f = fs.get(s)
       { services: fs.put(s, { ...f, storage: f.storage.mapRemove(key) }), log: None }
     }
-  }
 
   // --- solicit -------------------------------------------------------------
 
