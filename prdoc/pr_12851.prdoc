@@ -1,0 +1,12 @@
+title: '[RWF] messages-relay: Fix MessageRaceLimits Overflow'
+doc:
+- audience: Node Dev
+  description: |-
+    Closes #12721
+
+    ## Problem
+    `MessageRaceLimits::decide` calculates `best_target_nonce + 1` without checked arithmetic.
+
+    ## Solution
+    Add checked arithmetic.
+crates: []
