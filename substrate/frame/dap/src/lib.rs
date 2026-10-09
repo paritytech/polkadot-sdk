@@ -89,7 +89,7 @@ const LOG_TARGET: &str = "runtime::dap";
 pub const MAX_BUDGET_RECIPIENTS: u32 = 16;
 
 /// Maximum number of assets that can be distributed.
-pub const MAX_DISTRIBUTABLE_ASSETS: u32 = 8;
+pub const MAX_DISTRIBUTABLE_ASSETS: u32 = 1;
 
 /// Type alias for balance.
 pub type BalanceOf<T> = <T as Config>::Balance;
