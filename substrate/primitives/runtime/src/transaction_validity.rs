@@ -252,6 +252,8 @@ impl From<UnknownTransaction> for TransactionValidity {
 /// For instance we can disallow specific kinds of transactions if they were not produced
 /// by our local node (for instance off-chain workers).
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo, Hash)]
+#[cfg_attr(feature = "std", derive(strum::AsRefStr))]
+#[cfg_attr(feature = "std", strum(serialize_all = "snake_case"))]
 pub enum TransactionSource {
 	/// Transaction is already included in block.
 	///
