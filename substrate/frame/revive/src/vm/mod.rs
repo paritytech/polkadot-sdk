@@ -25,8 +25,9 @@ mod runtime_costs;
 pub use runtime_costs::{RuntimeCosts, StorageAccessKind, TransferAccessKind};
 
 use crate::{
-	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
-	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
+	AccountIdOf, BalanceOf, CallProtections, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig,
+	ExecError, HoldReason, LOG_TARGET, Pallet, PristineCode, ReentrancyProtection, StorageDeposit,
+	Weight,
 	access_list::{CodeLoadItems, CodeLoadWarmth, Summarized, Warmth},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
@@ -38,7 +39,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::DispatchResult;
 use pallet_revive_uapi::ReturnErrorCode;
-use sp_core::{Get, H256};
+use sp_core::{Get, H256, U256};
 use sp_runtime::{DispatchError, Saturating, traits::BadOrigin};
 
 /// Validated Vm module ready for execution.
@@ -456,6 +457,51 @@ pub(crate) fn exec_error_into_return_code<E: Ext>(
 		(err, Callee) if err == out_of_gas || err == out_of_deposit => Ok(OutOfResources),
 		(_, Callee) => Ok(CalleeTrapped),
 		(err, _) => Err(err),
+	}
+}
+
+/// The stipend and protections a call gets from its value, gas limit and read-only flag.
+pub struct StipendAndProtections {
+	moves_value: bool,
+	has_transfer_or_send_shape: bool,
+	read_only: bool,
+}
+
+impl StipendAndProtections {
+	/// Builds a call's stipend and protections from its `value`, `gas_limit` and `read_only` flag.
+	///
+	/// Solidity's `transfer` and `send` cap the callee at the stipend. For a zero value solc passes
+	/// `gas_limit = 2300` explicitly; when value moves it passes 0 and relies on the stipend the
+	/// EVM grants any call that moves value. We use a heuristic to detect both patterns. Such a
+	/// call gets the stipend, because the fixed 2300 is tailored to Ethereum's gas scale. Its
+	/// callee, and every frame the callee creates, cannot write persistent storage, move value,
+	/// or create or terminate contracts, none of which the stipend pays for on Ethereum. A
+	/// read-only call is never a `transfer` or `send`, but still gets the stipend at 2300 gas.
+	pub fn new(value: U256, gas_limit: Option<u64>, read_only: bool) -> Self {
+		use revm::interpreter::gas::CALL_STIPEND;
+		let moves_value = !value.is_zero();
+		let has_transfer_or_send_shape =
+			matches!((moves_value, gas_limit), (false, Some(CALL_STIPEND)) | (true, Some(0)));
+		Self { moves_value, has_transfer_or_send_shape, read_only }
+	}
+
+	/// Returns whether the call gets the stipend.
+	pub fn gets_stipend(&self) -> bool {
+		self.moves_value || self.has_transfer_or_send_shape
+	}
+
+	/// Returns whether the call is a `transfer` or `send`.
+	pub fn is_transfer_or_send(&self) -> bool {
+		self.has_transfer_or_send_shape && !self.read_only
+	}
+
+	/// Returns the protections the call sets for the callee.
+	pub fn protections(&self) -> CallProtections {
+		CallProtections {
+			reentrancy: ReentrancyProtection::AllowReentry,
+			read_only: self.read_only,
+			stipend_limited: self.is_transfer_or_send(),
+		}
 	}
 }
 

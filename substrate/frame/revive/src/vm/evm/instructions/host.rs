@@ -164,7 +164,9 @@ fn store_helper<'ext, E: Ext>(
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
-
+	if !transient && let Err(err) = interpreter.ext.ensure_not_stipend_limited() {
+		return ControlFlow::Break(Halt::Err(err));
+	}
 	let [index, value] = interpreter.stack.popn()?;
 	let key = Key::Fix(index.to_big_endian());
 
@@ -293,6 +295,9 @@ pub fn log<'ext, const N: usize, E: Ext>(
 pub fn selfdestruct<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
+	}
+	if let Err(err) = interpreter.ext.ensure_not_stipend_limited() {
+		return ControlFlow::Break(Halt::Err(err));
 	}
 	let [beneficiary] = interpreter.stack.popn()?;
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::Terminate { code_removed: true })?;
