@@ -44,6 +44,7 @@ crates:
   bump: patch
 - name: polkadot-runtime-parachains
   bump: minor
+  validate: false
 - name: rococo-runtime
   bump: patch
 - name: westend-runtime
