@@ -33,13 +33,19 @@ doc:
     and reports it with `notify_revenue`, so the payouts are ready one block earlier than
     they used to be.
 
-    The market is assumed to always be local, so `pallet-broker` no longer calls
-    `CoretimeInterface::request_revenue_info_at`. The `notify_revenue` extrinsic and
-    the `RevenueInbox` storage item it fills are left in place for now and will be
-    removed in a follow-up. A report in `RevenueInbox` for a timeslice whose revenue is
-    also claimed in the same block is merged with the claimed revenue.
+    Whether `pallet-broker` claims the revenue locally is decided by its new
+    `ClaimRevenueLocally` config item. If it is `false`, `pallet-broker` behaves as
+    before: it requests the revenue from the Relay Chain with
+    `CoretimeInterface::request_revenue_info_at` and distributes what the Relay Chain
+    reports with `notify_revenue`. If it is `true`, it only claims the revenue locally,
+    makes no requests to the Relay Chain, and ignores the `RevenueInbox`. Runtimes
+    which keep requesting the revenue from the Relay Chain can set `OnDemandRevenue` to
+    `()`.
 
-    `pallet-on-demand` is also wired into the coretime-westend runtime.
+    `pallet-on-demand` is also wired into the coretime-westend runtime. Its broker keeps
+    requesting the revenue from the Relay Chain for now: `ClaimRevenueLocally` is a
+    storage parameter which defaults to `false`, so that claiming locally can be switched
+    on without a runtime upgrade.
 
     With the `runtime-benchmarks` feature enabled, `PoolCapacityProvider` has a new
     `ensure_pool_cores` method, which the benchmarks use to make sure the pool is not

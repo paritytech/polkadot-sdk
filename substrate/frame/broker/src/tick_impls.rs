@@ -30,8 +30,8 @@ impl<T: Config> Pallet<T> {
 	/// - Commit a timeslice
 	/// - Rotate the sale period
 	/// - Initialize an instantaneous core pool historical revenue record
-	/// - Claim the on-demand revenue of the timeslice which has just ended
-	/// - Distribute the revenue claimed or reported by the Relay chain, per timeslice
+	/// - Claim the on-demand revenue of the timeslice which has just ended and distribute it, or
+	///   request it from the Relay chain and distribute it once it is reported back
 	pub(crate) fn do_tick() -> Weight {
 		let mut meter = WeightMeter::new();
 		meter.consume(T::WeightInfo::do_tick_base());
@@ -43,6 +43,14 @@ impl<T: Config> Pallet<T> {
 
 		if Self::process_core_count(&mut status) {
 			meter.consume(T::WeightInfo::process_core_count(status.core_count.into()));
+		}
+
+		let claim_revenue_locally = T::ClaimRevenueLocally::get();
+		if !claim_revenue_locally {
+			if let Some((when, revenue)) = Self::take_revenue_report() {
+				Self::process_revenue_amount(when, revenue);
+				meter.consume(T::WeightInfo::process_revenue());
+			}
 		}
 
 		if let Some(commit_timeslice) = Self::next_timeslice_to_commit(&config, &status) {
@@ -66,50 +74,55 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		// The on-demand revenue to distribute in this block, by the timeslice it was earned in.
-		let mut revenue = BTreeMap::<Timeslice, BalanceOf<T>>::new();
-
 		let current_timeslice = Self::current_timeslice();
 		if status.last_timeslice < current_timeslice {
-			// The timeslice `status.last_timeslice` has just ended, so claim its on-demand revenue,
-			// along with that of any earlier timeslice which could not be paid out before.
 			let ended_timeslice = status.last_timeslice;
 			status.last_timeslice.saturating_inc();
-			let claim = T::OnDemandRevenue::claim_revenue(ended_timeslice, &Self::account_id());
-			meter.consume(claim.weight);
-			// The timeslices listed are settled, and since the revenue is paid out oldest first, so
-			// is every older one. The revenue of any later timeslice stays booked, and is claimed
-			// along with a later timeslice; until then, its history is kept for it to be
-			// distributed by.
-			if !claim.paid.iter().any(|&(when, _)| when == ended_timeslice) {
-				log::warn!(
-					target: "pallet_broker::process_revenue",
-					"Not all on-demand revenue up to timeslice {ended_timeslice} could be claimed",
-				);
-			}
-			let newest_settled = claim.paid.iter().map(|&(when, _)| when).max();
-			for (when, amount) in claim.paid {
-				revenue.entry(when).or_insert_with(Zero::zero).saturating_accrue(amount);
-			}
-			if let Some(newest_settled) = newest_settled {
-				Self::settle_older_timeslices(newest_settled, &mut revenue, &mut meter);
+			if claim_revenue_locally {
+				Self::claim_local_revenue(ended_timeslice, &mut meter);
+			} else {
+				let rc_block = T::TimeslicePeriod::get() * status.last_timeslice.into();
+				T::Coretime::request_revenue_info_at(rc_block);
+				meter.consume(T::WeightInfo::request_revenue_info_at());
 			}
 			T::Coretime::on_new_timeslice(status.last_timeslice);
 			meter.consume(T::WeightInfo::on_new_timeslice());
 		}
 
-		if let Some((when, reported)) = Self::take_revenue_report() {
-			revenue.entry(when).or_insert_with(Zero::zero).saturating_accrue(reported);
+		Status::<T>::put(&status);
+
+		meter.consumed()
+	}
+
+	/// Claim the on-demand revenue of `ended_timeslice`, which has just ended, along with that of
+	/// any earlier timeslice which could not be paid out before, and distribute it.
+	pub(crate) fn claim_local_revenue(ended_timeslice: Timeslice, meter: &mut WeightMeter) {
+		let claim = T::OnDemandRevenue::claim_revenue(ended_timeslice, &Self::account_id());
+		meter.consume(claim.weight);
+
+		// The timeslices listed are settled, and since the revenue is paid out oldest first, so
+		// is every older one. The revenue of any later timeslice stays booked, and is claimed
+		// along with a later timeslice; until then, its history is kept for it to be distributed
+		// by.
+		if !claim.paid.iter().any(|&(when, _)| when == ended_timeslice) {
+			log::warn!(
+				target: "pallet_broker::process_revenue",
+				"Not all on-demand revenue up to timeslice {ended_timeslice} could be claimed",
+			);
+		}
+		let mut revenue = BTreeMap::<Timeslice, BalanceOf<T>>::new();
+		let newest_settled = claim.paid.iter().map(|&(when, _)| when).max();
+		for (when, amount) in claim.paid {
+			revenue.entry(when).or_insert_with(Zero::zero).saturating_accrue(amount);
+		}
+		if let Some(newest_settled) = newest_settled {
+			Self::settle_older_timeslices(newest_settled, &mut revenue, meter);
 		}
 
 		for (when, amount) in revenue {
 			Self::process_revenue_amount(when, amount);
 			meter.consume(T::WeightInfo::process_revenue());
 		}
-
-		Status::<T>::put(&status);
-
-		meter.consumed()
 	}
 
 	/// Mark the timeslices older than `newest_settled` whose revenue is still awaited as settled,

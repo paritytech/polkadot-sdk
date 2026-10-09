@@ -68,6 +68,10 @@ parameter_types! {
 	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 	pub const MinimumCreditPurchase: Balance = UNITS / 10;
 	pub const MinimumEndPrice: Balance = UNITS;
+	/// Whether the broker claims the revenue from on-demand sales from `OnDemand` on this chain,
+	/// rather than requesting it from the Relay chain. Kept in storage so that it can be switched
+	/// on without a runtime upgrade, once on-demand Coretime is sold on this chain.
+	pub storage ClaimRevenueLocally: bool = false;
 }
 
 /// Type that implements the `CoretimeInterface` for the allocation of Coretime. Meant to operate
@@ -321,6 +325,7 @@ impl pallet_broker::Config for Runtime {
 	type MaxReservedCores = ConstU32<50>;
 	type Coretime = CoretimeAllocator;
 	type OnDemandRevenue = OnDemand;
+	type ClaimRevenueLocally = ClaimRevenueLocally;
 	type ConvertBalance = sp_runtime::traits::Identity;
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
 	type PalletId = BrokerPalletId;

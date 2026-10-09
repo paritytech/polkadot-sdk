@@ -19,7 +19,7 @@ use frame_support::assert_noop;
 use pallet_broker::{
 	ConfigRecord, CoreAssignment, CoreMask, ScheduleItem, Timeslice, CORE_MASK_BITS,
 };
-use pallet_on_demand_para::{PendingBatch, PriceConfig, PriceParameters};
+use pallet_on_demand_para::{PendingBatch, PriceConfig, PriceParameters, Revenue, RevenueRecord};
 use polkadot_runtime_parachains::on_demand;
 use sp_runtime::{traits::BlockNumberProvider, Perbill};
 use westend_runtime_constants::system_parachain::coretime::TIMESLICE_PERIOD;
@@ -66,13 +66,20 @@ fn price_config() -> PriceParameters<Balance> {
 
 /// Reserve a whole core for the Instantaneous Coretime Pool, start sales, and configure the
 /// on-demand pallet.
-fn configure_pool_and_on_demand(price_config: PriceParameters<Balance>) {
+///
+/// `claim_revenue_locally` decides whether the broker claims the on-demand revenue from the
+/// on-demand pallet, or requests it from the Relay chain.
+fn configure_pool_and_on_demand(
+	price_config: PriceParameters<Balance>,
+	claim_revenue_locally: bool,
+) {
 	let sender = CoretimeWestendSender::get();
 	let pot = CoretimeWestend::ext_wrapper(OnDemand::account_id);
 
 	Westend::execute_with(|| {
 		Dmp::make_parachain_reachable(CoretimeWestend::para_id());
 	});
+	CoretimeWestend::ext_wrapper(|| ClaimRevenueLocally::set(&claim_revenue_locally));
 
 	CoretimeWestend::execute_with(|| {
 		let root = <CoretimeWestend as Chain>::RuntimeOrigin::root();
@@ -221,7 +228,7 @@ fn on_demand_orders_reach_relay() {
 	let sender = CoretimeWestendSender::get();
 	let pot = CoretimeWestend::ext_wrapper(OnDemand::account_id);
 
-	configure_pool_and_on_demand(price_config);
+	configure_pool_and_on_demand(price_config, true);
 
 	// The pool only gets its core once the reserved schedule becomes active.
 	CoretimeWestend::execute_with(|| {
@@ -342,7 +349,7 @@ fn on_demand_orders_reach_relay() {
 #[test]
 fn on_demand_revenue_is_attributed_to_its_timeslice_when_the_chain_skips_one() {
 	let para_id = 2000;
-	configure_pool_and_on_demand(price_config());
+	configure_pool_and_on_demand(price_config(), true);
 	wait_for_pool();
 
 	let mut claims = Claims::new();
@@ -365,7 +372,7 @@ fn on_demand_revenue_is_attributed_to_its_timeslice_when_the_chain_skips_one() {
 #[test]
 fn on_demand_revenue_is_attributed_to_its_timeslice_when_catching_up_crosses_a_boundary() {
 	let para_id = 2000;
-	configure_pool_and_on_demand(price_config());
+	configure_pool_and_on_demand(price_config(), true);
 	wait_for_pool();
 
 	let mut claims = Claims::new();
@@ -385,4 +392,48 @@ fn on_demand_revenue_is_attributed_to_its_timeslice_when_catching_up_crosses_a_b
 
 	// Each order's revenue is attributed to the timeslice it was placed in.
 	assert_eq!(claims, vec![(first_ts, first), (second_ts, second), (third_ts, third)]);
+}
+
+#[test]
+fn on_demand_revenue_stays_booked_while_the_revenue_is_requested_from_the_relay_chain() {
+	type CoretimeEvent = <CoretimeWestend as Chain>::RuntimeEvent;
+
+	configure_pool_and_on_demand(price_config(), false);
+	wait_for_pool();
+	let pot = CoretimeWestend::ext_wrapper(OnDemand::account_id);
+
+	let mut claims = Claims::new();
+	let (revenue, ordered_in) = place_order_in_new_block(&mut claims, 2000);
+
+	// Run until the broker has distributed the revenue of the order's timeslice, which it
+	// requests from the Relay chain once the timeslice has ended.
+	let mut distributed = false;
+	let mut blocks = 0;
+	while !distributed {
+		assert!(blocks < TIMESLICE_PERIOD * 3, "the Relay chain never reported the revenue");
+		build_block(&mut claims, || {
+			distributed = <CoretimeWestend as Chain>::System::events().iter().any(|record| {
+				matches!(
+					record.event,
+					CoretimeEvent::Broker(
+						pallet_broker::Event::ClaimsReady { when, .. } |
+						pallet_broker::Event::HistoryDropped { when, .. }
+					) if when == ordered_in
+				)
+			});
+		});
+		// Process the revenue request, and send the report back.
+		Westend::execute_with(|| {});
+		blocks += 1;
+	}
+
+	// The revenue of the order placed on this chain was not claimed; it stays booked in the pot.
+	assert!(claims.is_empty());
+	CoretimeWestend::ext_wrapper(|| {
+		assert_eq!(
+			Revenue::<CoretimeRuntime>::get().into_inner(),
+			vec![RevenueRecord { when: ordered_in, amount: revenue }]
+		);
+		assert_eq!(Balances::free_balance(&pot), CORETIME_WESTEND_ED + revenue);
+	});
 }

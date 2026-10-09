@@ -51,3 +51,10 @@ pub trait OnDemandRevenue<Balance, AccountId> {
 	/// paid out first.
 	fn claim_revenue(up_to: Timeslice, beneficiary: &AccountId) -> RevenueClaim<Balance>;
 }
+
+/// No on-demand Coretime market on this chain, for a broker which gets its revenue from elsewhere.
+impl<Balance, AccountId> OnDemandRevenue<Balance, AccountId> for () {
+	fn claim_revenue(_up_to: Timeslice, _beneficiary: &AccountId) -> RevenueClaim<Balance> {
+		RevenueClaim { paid: Vec::new(), weight: Weight::zero() }
+	}
+}

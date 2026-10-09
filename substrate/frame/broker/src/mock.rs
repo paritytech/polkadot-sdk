@@ -74,6 +74,9 @@ parameter_types! {
 	pub static CoretimeInPool: CoreMaskBitCount = 0;
 	/// The funds the on-demand market can pay revenue out of, or `None` for unlimited funds.
 	pub static RevenueClaimFunds: Option<u64> = None;
+	/// Whether the revenue is claimed from `TestLocalRevenue`, rather than requested from
+	/// `TestCoretimeProvider`.
+	pub static ClaimRevenueLocally: bool = true;
 }
 
 pub struct TestCoretimeProvider;
@@ -256,6 +259,7 @@ impl crate::Config for Test {
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = TestCoretimeProvider;
 	type OnDemandRevenue = TestLocalRevenue;
+	type ClaimRevenueLocally = ClaimRevenueLocally;
 	type ConvertBalance = Identity;
 	type WeightInfo = ();
 	type PalletId = TestBrokerId;

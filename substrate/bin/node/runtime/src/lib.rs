@@ -2473,6 +2473,7 @@ impl pallet_broker::Config for Runtime {
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = CoretimeProvider;
 	type OnDemandRevenue = OnDemand;
+	type ClaimRevenueLocally = ConstBool<true>;
 	type ConvertBalance = traits::Identity;
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
