@@ -80,12 +80,11 @@ pub fn build_collator_proofs(
 		let parents = leaves
 			.chunks_exact(2)
 			.map(|pair| {
-				let mut input = [0; 64];
-				input[..32].copy_from_slice(pair[0].as_bytes());
-				input[32..].copy_from_slice(pair[1].as_bytes());
-				H256::from(blake2_256(&input))
+				let input = [pair[0].0, pair[1].0];
+				H256::from(blake2_256(input.as_flattened()))
 			})
 			.collect();
+
 		levels.push(leaves);
 		leaves = parents;
 	}
@@ -117,6 +116,7 @@ mod tests {
 					key
 				})
 				.collect();
+
 			let (root, proofs) = super::build_collator_proofs(&keys).expect("valid collator set");
 			let mut leaves: alloc::vec::Vec<_> = keys
 				.iter()
@@ -129,6 +129,7 @@ mod tests {
 					leaves.iter().copied(),
 					index as u32,
 				);
+
 				assert_eq!(root, expected.root, "set size {size}, index {index}");
 				assert_eq!(*proof, expected.proof, "set size {size}, index {index}");
 			}
