@@ -10,6 +10,7 @@ module management_test {
   import code_upgrades.* from "../code_upgrades"
   import state_vars.* from "../state_vars"
   import main.* from "../main"
+  import invariants.* from "../invariants"
   import support.* from "./support"
 
   /// Full Coretime lifecycle for a new para:
@@ -335,5 +336,52 @@ module management_test {
         e == ForgetAgainAt({ hash: hB.asPreimage(), len: lenB, due: nowT + ExpungePeriod })).length() == 1),
       init
     }
+  }
+
+  /// A deregistering para whose codes were rescued by another para
+  /// no longer references them, so both code-reference invariants must exempt
+  /// it. Regression for the unconditional checks that rejected this valid
+  /// rescue state: A's retained record still names both codes, but B is now
+  /// their sole referencer.
+  run rescueOfDeregisteringParaCodeRefsInvariantsTest = {
+    val paraA = MkParaId(5)
+    val paraB = MkParaId(6)
+    val cA: ValidationCodeHash = { vchBytes: 0xA5 }
+    val cB: ValidationCodeHash = { vchBytes: 0xB5 }
+    val lenA = 100
+    val lenB = 200
+    val bal = BaselineFootprint + preimageFootprint(lenA) + preimageFootprint(lenB)
+    // A holds an active and an announced code, both provided to JAM.
+    val s0 = parachainSetStateBalance(initialState, paraA, bal).state
+    val s1 = parachainSetValidationCode(s0, paraA, cA, lenA, 0).state
+    val s2 = solicitedAndProvided(s1, paraA, cB, lenB)
+    val s3 = announceCodeUpgrade(s2, paraA, cB, lenB, 0).state
+    val s4 = markProvided(s3, cA.asPreimage(), lenA)
+    // Clean-up forgets both codes; each takes the two-step path, so A stays
+    // deregistering with both codes `Unrequested` and A retained as the ghost.
+    val clean = parachainCleanUp(s4, paraA, 0)
+    // B rescues both codes: A is refunded and dropped from the referencer
+    // sets, but its retained record still names both codes.
+    val s5 = parachainSetStateBalance(clean.state, paraB, bal).state
+    val s6 = parachainSetValidationCode(s5, paraB, cA, lenA, 0).state
+    val s7 = solicitedAndProvided(s6, paraB, cB, lenB)
+    init
+      .then(setSvc(s7))
+      .then(expectThat(all {
+        // A is still pending cleanup, with both codes in its record...
+        svc.paraInfo(paraA).isDeregistering,
+        svc.paraInfo(paraA).validationCode == Some({ hash: cA, len: lenA }),
+        svc.paraInfo(paraA).announcedUpgrade == Some({ hash: cB, len: lenB }),
+        // ...but it no longer references either: B rescued both.
+        not(svc.hasReferencer(cA.asPreimage(), lenA, paraA)),
+        not(svc.hasReferencer(cB.asPreimage(), lenB, paraA)),
+        svc.hasReferencer(cA.asPreimage(), lenA, paraB),
+        svc.hasReferencer(cB.asPreimage(), lenB, paraB),
+        // A was refunded both footprints on rescue.
+        svc.paraInfo(paraA).usedStateBalance == baselineFor(paraA),
+        // Both code-reference invariants must accept this state.
+        validation_code_in_registry,
+        announced_code_in_registry
+      }))
   }
 }

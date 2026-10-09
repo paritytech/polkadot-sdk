@@ -86,10 +86,14 @@ module invariants {
   /// referencer in `preimage_registry`. `None` is a freshly-registered para
   /// between `parachain_set_state_balance` and the first
   /// `parachain_set_validation_code` in the registration sequence (see §6.2).
+  /// A deregistering para (§6.4) is exempt: clean-up already forgot its
+  /// codes, and a rescue by another para drops it as referencer while its
+  /// retained record still names them.
   val validation_code_in_registry: bool =
   svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
-      match pi.validationCode {
+      if (pi.isDeregistering) true
+      else match pi.validationCode {
         | None => true
         | Some(vc) => svc.hasReferencer(vc.hash.asPreimage(), vc.len, para_id)
       }
@@ -97,11 +101,13 @@ module invariants {
 
   /// Every live parachain's announced-upgrade code (when present) is also
   /// a referencer in `preimage_registry`, same lifecycle as any other
-  /// solicited preimage (§5.2).
+  /// solicited preimage (§5.2). Deregistering paras are exempt for the same
+  /// reason as in `validation_code_in_registry`.
   val announced_code_in_registry: bool =
   svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
-      match pi.announcedUpgrade {
+      if (pi.isDeregistering) true
+      else match pi.announcedUpgrade {
         | None => true
         | Some(announced) =>
           svc.hasReferencer(
