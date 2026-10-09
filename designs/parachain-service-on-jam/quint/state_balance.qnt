@@ -176,10 +176,11 @@ module state_balance {
         | None => s.preimageStatus
       }
     if (s.hasReferencer(h, len, para_id)) {
-      // Already a referencer: idempotent, needs no extra state balance
-      // (footprint already charged). But if the request is `Unrequested` (the
-      // retained para re-soliciting its own code in limbo), the service still
-      // must fire JAM `solicit` to rescue it, else the para cannot look it up.
+      // The para already references this preimage and already pays for it, so
+      // nothing changes. One exception: the para forgot the preimage, but it is
+      // still listed as referencer until the second forget expunges it. If it
+      // solicits the preimage again in that window, we must call JAM `solicit`
+      // to make the preimage available again.
       if (isRescue)
         { state: { ...s, preimageStatus: rescuedStatus },
           jamSolicit: Some(h), jamForget: None, retained: false, log: None }
