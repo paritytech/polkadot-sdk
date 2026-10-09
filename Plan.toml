@@ -4331,7 +4331,7 @@ to = "3.0.0"
 # substrate/frame/revive/rpc
 name = "pallet-revive-eth-rpc"
 from = "0.21.0"
-to = "0.22.0"
+to = "0.23.0"
 bump = "major"
 reason = "changed"
 

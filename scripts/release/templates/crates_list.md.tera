@@ -159,6 +159,6 @@ The following crates were updated to the corresponding versions:
 - polkadot-omni-node-lib@0.22.0
 - polkadot-omni-node@0.22.0
 - polkadot-sdk@2606.5.0
-- pallet-revive-eth-rpc@0.22.0
+- pallet-revive-eth-rpc@0.23.0
 
 </details>
