@@ -322,6 +322,9 @@ enum AccumulateLog {
     ServiceSolicitFailed { service: ServiceId, error: ServiceSolicitError },
     /// An `EjectService` failed.
     ServiceEjectFailed { service: ServiceId, error: ServiceEjectError },
+    /// An `EjectService` succeeded. `credited` is the amount of regular plus
+    /// supervisor balance that got credited back.
+    ServiceEjected { service: ServiceId, credited: Compact<Balance> },
     /// A `SetServiceSupervisor` failed.
     ServiceSupervisorFailed { service: ServiceId, error: ServiceSupervisorError },
     /// Outcome of the `CreateService` with this `id`.
@@ -570,7 +573,7 @@ enum UpwardMessage {
     /// store and is **Asset Hub only**.
     Solicit { target: Target, hash: Hash, len: Compact<u32> },
     /// Destroy an empty supervised service, crediting its balances to this
-    /// service. **Asset Hub only.**
+    /// service. The amount is reported in `ServiceEjected`. **Asset Hub only.**
     EjectService { service: ServiceId },
     /// Hand a supervised service to another supervisor, or to itself to set it
     /// free. **Asset Hub only.**

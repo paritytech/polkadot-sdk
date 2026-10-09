@@ -203,7 +203,7 @@ module foreign_services {
   // --- eject ---------------------------------------------------------------
 
   /// Destroying an empty supervised service. Both its balances come to this
-  /// service's regular balance.
+  /// service's regular balance, and the amount is reported in `ServiceEjected`.
   pure def foreignEject(
     s: ParachainServiceState, fs: ForeignServices, target: ServiceId, now: Timeslot
   ): FundedOutcome = {
@@ -219,9 +219,10 @@ module foreign_services {
         { state: s, services: fs, log: Some(ServiceEjectFailed({ service: target, error: e })) }
       | None => {
         val a = fs.get(target).account
-        { state: { ...s, jamAccount: s.jamAccount.credit(a.balance + a.supervisorBalance, false) },
+        val credited = a.balance + a.supervisorBalance
+        { state: { ...s, jamAccount: s.jamAccount.credit(credited, false) },
           services: fs.mapRemove(target),
-          log: None }
+          log: Some(ServiceEjected({ service: target, credited: credited })) }
       }
     }
   }

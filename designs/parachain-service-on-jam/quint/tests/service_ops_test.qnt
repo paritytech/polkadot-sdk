@@ -145,8 +145,9 @@ module service_ops_test {
       // Empty, but created in this very timeslot.
       logsOf(emptyOurs, ejectIt, 0)
         == List(ServiceEjectFailed({ service: victim, error: CreatedThisSlot })),
-      // Empty and older: gone.
-      logsOf(emptyOurs, ejectIt, 10) == List(),
+      // Empty and older: gone, and the credited amount is reported.
+      logsOf(emptyOurs, ejectIt, 10)
+        == List(ServiceEjected({ service: victim, credited: 1000000 })),
       after(emptyOurs, ejectIt, 10).keys() == Set(),
       // Naming ourselves is refused outright.
       logsOf(emptyOurs, EjectService({ service: ParachainServiceId }), 10)
@@ -304,12 +305,13 @@ module service_ops_test {
   }
 
   /// Ejecting a service moves both its balances into this service's regular
-  /// balance.
+  /// balance, and reports the amount to Asset Hub.
   run ejectCreditsBothBalancesTest = {
     val out = replayForeign(funded(300, 200), AssetHubParaId, 10, ejectIt)
     init.then(expectThat(all {
       out.foreign == Map(),
       out.state.jamAccount.balance == initialState.jamAccount.balance + 500,
+      out.logs == List(ServiceEjected({ service: victim, credited: 500 })),
     }))
   }
 

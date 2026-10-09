@@ -185,6 +185,8 @@ module messages {
   | ServiceStoreFailed({ service: ServiceId, error: ServiceStoreError })
   | ServiceSolicitFailed({ service: ServiceId, error: ServiceSolicitError })
   | ServiceEjectFailed({ service: ServiceId, error: ServiceEjectError })
+  // An eject succeeded; `credited` is what JAM moved to our regular balance.
+  | ServiceEjected({ service: ServiceId, credited: Balance })
   | ServiceSupervisorFailed({ service: ServiceId, error: ServiceSupervisorError })
   // Announces a CreateService outcome to Asset Hub. `id` is the caller-supplied
   // identifier from the CreateService, echoed back so Asset Hub can match the

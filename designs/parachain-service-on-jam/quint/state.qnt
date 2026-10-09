@@ -381,6 +381,8 @@ module state {
     | ServiceSolicitFailed(_) => 5
     | ServiceEjectFailed(_) => 5
     | ServiceSupervisorFailed(_) => 5
+    // service 4 + Compact<Balance> credited.
+    | ServiceEjected(p) => 4 + compactLen(p.credited)
     // id Compact<u64> + result (1 tag, + 4 when Created).
     | ServiceCreation(p) => compactLen(p.id) + 1 + creationPayload(p.result)
     | TooMuchStateHeld => 0
