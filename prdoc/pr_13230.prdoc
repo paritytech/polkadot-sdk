@@ -14,17 +14,17 @@ doc:
     or deducted from the supply, since neither `Unbalanced` method adjusts it — leaving total
     issuance permanently above the sum of all balances. Both defaults now take the figure
     `decrease_balance` returned for the credit, the return value and the `Transferred` event,
-    the last of which is what indexers read. This is inert for implementors whose
-    `decrease_balance` returns exactly `amount` and disposes of dust separately, which includes
-    `pallet-balances`; it reaches those that fold the promotion into the return value, which
-    in-tree means `pallet-assets` and the `ItemOf` and `UnionOf` adapters over it. Both defaults
-    also debit with `Exact` instead of `BestEffort`, so a `decrease_balance` that cannot take the
-    full `amount` fails the transfer rather than moving less.
+    the last of which is what indexers read. Both defaults also debit with `Exact` instead of
+    `BestEffort`, so a `decrease_balance` that cannot take the full `amount` fails the transfer
+    rather than moving less.
 
-    `Unbalanced::decrease_balance` already documented that its return may exceed `amount` by up to
-    `minimum_balance() - 1`. It now also states that the excess must still be in the system and
-    must not have been passed to `handle_dust`, since a caller crediting the return value would
-    otherwise issue it a second time.
+    Porting notes. An `Unbalanced::decrease_balance` implementation must do one of two things with
+    a sub-minimum remainder, never both: return exactly `amount` and pass the remainder to
+    `handle_dust`, as `pallet-balances` does, or fold it into the return value and keep it in the
+    system, as `pallet-assets` and the `ItemOf` and `UnionOf` adapters over it do. A caller
+    crediting the return value would otherwise issue the remainder a second time. On the calling
+    side, `Mutate::transfer` and `done_transfer` can now report more than `amount`, by up to
+    `minimum_balance() - 1`; callers that book the requested figure should read the returned one.
 
     `do_transfer_approved` measured the approval against the requested amount and then moved the
     promoted debit, so a delegate could move up to `min_balance - 1` more than it was approved
@@ -44,8 +44,14 @@ doc:
     less the minimum; a larger request moves the owner's whole balance and needs an approval
     covering it, and spends that whole balance out of the approval.
 
+    The same applies to the ERC-20 `transferFrom` of the assets precompile: a call whose value is
+    within both the allowance and the owner's balance now reverts when the owner's remainder would
+    fall below the asset's minimum and the allowance does not cover the whole balance.
+
 crates:
 - name: frame-support
-  bump: minor
+  bump: patch
 - name: pallet-assets
+  bump: patch
+- name: asset-hub-westend-runtime
   bump: patch
