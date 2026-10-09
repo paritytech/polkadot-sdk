@@ -34,6 +34,16 @@ state up to what its balance covers. Asset Hub maintains a 1:1 representation of
 that token and provides the management layer for distribution, leasing, release,
 and return.
 
+### Motivation
+
+The DAO distributes JAMKB, but not on JAM directly. JAM has no user accounts
+or transactions, and a service balance moves only through the service's own
+code. So JAMKB is represented on Asset Hub. There, the DAO can distribute it
+by referendum or through contracts that automate distribution. The managing
+pallet is exposed to contracts through a precompile, which also lets
+them lease and redeem. That allows a secondary market to form around the
+asset.
+
 ### Scope
 
 This document covers:
@@ -578,12 +588,12 @@ fn settle(op_id: OperationId);
 #### 3.2.1 pallet-jamkb precompile
 
 Contracts access the pallet through a precompile at a fixed address. It
-exposes the calls and the reads a contract needs. Each function runs the
-pallet call of the same name with the caller as origin. Because contracts
-cannot read events, a function returns the new allocation id or operation
-id. A function that returns an `opId` has recorded an operation whose outcome
-is applied later by `settle`. On failure the call reverts with the pallet
-error name.
+exposes the calls and reads a contract needs. Each precompile function calls
+the internal pallet method that holds the logic shared with the dispatchable
+of the same name. The call origin is the account that calls the precompile.
+The precompile returns the new allocation id, or the operation id that
+`settle` resolves later. On failure the call reverts with the pallet error
+name.
 
 ```solidity
 // SPDX-License-Identifier: MIT
