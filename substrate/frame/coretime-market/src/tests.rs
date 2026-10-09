@@ -997,7 +997,10 @@ fn displaced_auction_win_stops_counting_against_tenant_protection() {
 		assert_ok!(place_renewal(25, 2, 0, sale.region_begin));
 
 		// User 1 now has 1 active auction win left, matching their 1 renewal right.
-		assert_eq!(crate::pallet::Quotas::<Test>::get(1).auction_wins, 1);
+		let quota = crate::pallet::Quotas::<Test>::get(1);
+		assert_eq!(quota.auction_wins, 2);
+		assert_eq!(quota.displacements, 1);
+		assert_eq!(quota.retained_auction_wins(), 1);
 
 		// User 3 cannot displace user 1's remaining protected auction win.
 		TestRenewalRights::set(3, sale.region_begin, 1);

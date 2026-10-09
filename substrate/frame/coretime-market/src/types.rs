@@ -224,8 +224,17 @@ pub struct AllocationRecord<AccountId, Balance> {
 pub struct AccountQuota {
 	/// Number of cores won in the auction.
 	pub auction_wins: u32,
+	/// Number of auction wins lost to renewers during the Renewal phase.
+	pub displacements: u32,
 	/// Number of renewals exercised during the Renewal phase.
 	pub renewals_used: u32,
+}
+
+impl AccountQuota {
+	/// Auction wins kept after displacement by renewers.
+	pub fn retained_auction_wins(&self) -> u32 {
+		self.auction_wins.saturating_sub(self.displacements)
+	}
 }
 
 /// Representation of a bid that was displaced during the renewal phase that will resolve to

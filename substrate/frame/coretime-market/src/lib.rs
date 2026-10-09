@@ -470,11 +470,11 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		ensure!(renewal.when == sale.region_begin, Error::<T>::Unavailable);
 
 		// RFC-17: auction wins count against renewal quota.
-		// remaining = total_rights - auction_wins - renewals_already_used
+		// remaining = total_rights - retained_auction_wins - renewals_already_used
 		let total_rights = T::RenewalRights::renewal_rights_count(who, sale.region_begin);
 		let quota = Quotas::<T>::get(who);
 		let remaining = total_rights
-			.saturating_sub(quota.auction_wins)
+			.saturating_sub(quota.retained_auction_wins())
 			.saturating_sub(quota.renewals_used);
 		ensure!(remaining > 0, Error::<T>::Unavailable);
 
@@ -505,8 +505,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 				.iter()
 				.rposition(|a| {
 					let rights = T::RenewalRights::renewal_rights_count(&a.who, sale.region_begin);
-					let wins = Quotas::<T>::get(&a.who).auction_wins;
-					rights < wins
+					rights < Quotas::<T>::get(&a.who).retained_auction_wins()
 				})
 				.ok_or(Error::<T>::Unavailable)?;
 
@@ -520,7 +519,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 					.map_err(|_| Error::<T>::TooManyBids)
 			})?;
 
-			Quotas::<T>::mutate(&displaced.who, |quota| quota.auction_wins.saturating_dec());
+			Quotas::<T>::mutate(&displaced.who, |quota| quota.displacements.saturating_inc());
 			Self::deposit_event(Event::BidDisplaced {
 				who: displaced.who,
 				bid_id: displaced.bid_id,
