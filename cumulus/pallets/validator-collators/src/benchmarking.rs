@@ -22,10 +22,11 @@ use super::*;
 #[allow(unused)]
 use crate::Pallet as ValidatorCollators;
 use alloc::collections::BTreeSet;
+use cumulus_pallet_parachain_system::OnSystemEvent;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
 	traits::{EnsureOrigin, Get},
-	BoundedBTreeSet,
+	BoundedBTreeSet, BoundedVec,
 };
 
 #[benchmarks]
@@ -56,16 +57,41 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Worst case: removing the cap with a stored set and drawn collators.
 	#[benchmark]
 	fn set_max_collators() -> Result<(), BenchmarkError> {
 		let origin =
 			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let max = T::MaxValidators::get();
+		let stored = BoundedBTreeSet::try_from(
+			(0..max).map(|i| account("stored", i, 0)).collect::<BTreeSet<_>>(),
+		)
+		.map_err(|_| BenchmarkError::Stop("the set exceeds MaxValidators"))?;
+		let drawn = BoundedVec::truncate_from(stored.iter().cloned().collect());
+		Pallet::<T>::do_receive_validator_set(0, stored)?;
+		Collators::<T>::put(DrawnCollators { era: 0, validators: drawn });
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, Some(1));
+		_(origin as T::RuntimeOrigin, None);
 
-		assert_eq!(MaxCollators::<T>::get(), Some(1));
+		assert_eq!(MaxCollators::<T>::get(), None);
+		assert!(!Collators::<T>::exists());
+		assert_eq!(PendingRotation::<T>::get(), RotationState::AwaitingQueue);
 		Ok(())
+	}
+
+	/// The relay chain epoch randomness changes, so the cache is written.
+	#[benchmark]
+	fn on_relay_state_proof() {
+		EpochRandomness::<T>::put([1; 32]);
+		let proof = crate::relay_proof::with_epoch_randomness([2; 32]);
+
+		#[block]
+		{
+			<Pallet<T> as OnSystemEvent>::on_relay_state_proof(&proof);
+		}
+
+		assert_eq!(EpochRandomness::<T>::get(), Some([2; 32]));
 	}
 
 	impl_benchmark_test_suite!(ValidatorCollators, crate::mock::new_test_ext(), crate::mock::Test);

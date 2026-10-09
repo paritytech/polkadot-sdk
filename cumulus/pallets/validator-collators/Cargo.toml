@@ -17,8 +17,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-primitives-core = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-session = { workspace = true }
@@ -26,6 +30,7 @@ sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
+sp-trie = { optional = true, workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
@@ -33,10 +38,13 @@ pallet-collator-selection = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
@@ -45,19 +53,26 @@ runtime-benchmarks = [
 	"pallet-session/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"sp-trie",
 ]
 std = [
 	"codec/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-primitives-core/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
 	"pallet-session/std",
+	"rand/std",
+	"rand_chacha/std",
 	"scale-info/std",
 	"sp-runtime/std",
 	"sp-staking/std",
+	"sp-trie?/std",
 ]
 try-runtime = [
+	"cumulus-pallet-parachain-system/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",

@@ -155,3 +155,78 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 		);
 	});
 }
+
+#[test]
+fn cap_on_people_draws_from_the_set_at_the_first_forced_rotation() {
+	type Runtime = <PeopleWestend as Chain>::Runtime;
+	type RuntimeOrigin = <PeopleWestend as Chain>::RuntimeOrigin;
+	type ValidatorCollators = pallet_validator_collators::Pallet<Runtime>;
+	type Session = pallet_session::Pallet<Runtime>;
+	let alice = Sr25519Keyring::Alice.to_account_id();
+	let bob = Sr25519Keyring::Bob.to_account_id();
+
+	// GIVEN Alice and Bob registered collator keys and a cap of 1 set by root
+	PeopleWestend::execute_with(|| {
+		register_keys_on_people(&alice);
+		register_keys_on_people(&bob);
+		assert_ok!(ValidatorCollators::set_max_collators(RuntimeOrigin::root(), Some(1)));
+	});
+
+	// WHEN a set with both arrives
+	let session_before = PeopleWestend::execute_with(|| {
+		assert_ok!(ValidatorCollators::set_validators(
+			RuntimeOrigin::root(),
+			1,
+			[alice.clone(), bob.clone()]
+				.into_iter()
+				.collect::<std::collections::BTreeSet<_>>()
+				.try_into()
+				.unwrap(),
+		));
+		Session::current_index()
+	});
+
+	// THEN the first forced rotation draws one of them with the randomness the pallet cached as
+	// `OnSystemEvent`, which is a zero value in the emulator's relay state proof
+	let drawn = PeopleWestend::execute_with(|| {
+		assert_eq!(pallet_validator_collators::EpochRandomness::<Runtime>::get(), Some([0; 32]));
+		let drawn = pallet_validator_collators::Collators::<Runtime>::get()
+			.map(|drawn| drawn.validators.into_inner())
+			.unwrap_or_default();
+		assert_eq!(drawn.len(), 1);
+		assert!(drawn[0] == alice || drawn[0] == bob);
+		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			PeopleWestend,
+			vec![
+				RuntimeEvent::ValidatorCollators(
+					pallet_validator_collators::Event::CollatorsDrawn { era: 1, validators }
+				) => { validators: *validators == drawn, },
+			]
+		);
+		drawn
+	});
+
+	// AND after the second forced rotation only the drawn validator collates next to the
+	// invulnerables
+	PeopleWestend::execute_with(|| {
+		let expected =
+			invulnerables().into_iter().map(|(who, _)| who).chain(drawn).collect::<Vec<_>>();
+		assert_eq!(Session::current_index(), session_before + 2);
+		assert_eq!(Session::validators(), expected);
+	});
+}
+
+#[test]
+fn asset_hub_caches_the_relay_epoch_randomness_from_the_next_block() {
+	type EpochRandomness =
+		pallet_validator_collators::EpochRandomness<<AssetHubWestend as Chain>::Runtime>;
+
+	// GIVEN Asset Hub has no cached relay chain epoch randomness
+	AssetHubWestend::execute_with(|| EpochRandomness::kill());
+
+	// WHEN the next block processes its relay chain state proof
+	// THEN the pallet, wired as `OnSystemEvent`, caches the randomness, which is a zero value in
+	// the emulator's relay state proof
+	AssetHubWestend::execute_with(|| assert_eq!(EpochRandomness::get(), Some([0; 32])));
+}

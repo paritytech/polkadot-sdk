@@ -15550,6 +15550,8 @@ dependencies = [
 name = "pallet-validator-collators"
 version = "0.1.0"
 dependencies = [
+ "cumulus-pallet-parachain-system",
+ "cumulus-primitives-core",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -15558,11 +15560,14 @@ dependencies = [
  "pallet-collator-selection",
  "pallet-session",
  "parity-scale-codec",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "scale-info",
  "sp-io 49.0.0",
  "sp-runtime 49.0.0",
  "sp-staking",
  "sp-tracing 16.0.0",
+ "sp-trie 47.0.0",
 ]
 
 [[package]]
