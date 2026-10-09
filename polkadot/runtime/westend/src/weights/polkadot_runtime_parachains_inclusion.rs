@@ -51,16 +51,18 @@ use core::marker::PhantomData;
 /// Weight functions for `polkadot_runtime_parachains::inclusion`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> polkadot_runtime_parachains::inclusion::WeightInfo for WeightInfo<T> {
+	// Measured locally (10 steps, 1 repeat) after the speculative-messaging benchmark change;
+	// regenerate with `/cmd bench`.
 	/// Storage: `ParasShared::CurrentSessionIndex` (r:1 w:0)
 	/// Proof: `ParasShared::CurrentSessionIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `ParaSessionInfo::AccountKeys` (r:1 w:0)
 	/// Proof: `ParaSessionInfo::AccountKeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Session::Validators` (r:1 w:0)
 	/// Proof: `Session::Validators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Staking::ActiveEra` (r:1 w:0)
-	/// Proof: `Staking::ActiveEra` (`max_values`: Some(1), `max_size`: Some(13), added: 508, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::ErasRewardPoints` (r:1 w:1)
-	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `StakingAhClient::Mode` (r:1 w:0)
+	/// Proof: `StakingAhClient::Mode` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `StakingAhClient::ValidatorPoints` (r:1 w:1)
+	/// Proof: `StakingAhClient::ValidatorPoints` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	/// Storage: `Paras::FutureCodeHash` (r:1 w:1)
 	/// Proof: `Paras::FutureCodeHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Paras::CurrentCodeHash` (r:1 w:0)
@@ -77,13 +79,15 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::inclusion::WeightInfo
 	/// Proof: `Paras::PvfActiveVoteList` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Paras::CodeByHashRefs` (r:1 w:1)
 	/// Proof: `Paras::CodeByHashRefs` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Dmp::DownwardMessageQueues` (r:1 w:1)
-	/// Proof: `Dmp::DownwardMessageQueues` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Dmp::DownwardMessageQueueMeta` (r:1 w:0)
+	/// Proof: `Dmp::DownwardMessageQueueMeta` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x63f78c98723ddc9073523ef3beefda0ca95dac46c07a40d91506e7637ec4ba57` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x63f78c98723ddc9073523ef3beefda0ca95dac46c07a40d91506e7637ec4ba57` (r:1 w:0)
 	/// Storage: `Dmp::DeliveryFeeFactor` (r:1 w:1)
 	/// Proof: `Dmp::DeliveryFeeFactor` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `MessageQueue::BookStateFor` (r:1 w:1)
 	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(55), added: 2530, mode: `MaxEncodedLen`)
-	/// Storage: `MessageQueue::Pages` (r:1 w:2)
+	/// Storage: `MessageQueue::Pages` (r:1 w:3)
 	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(131122), added: 133597, mode: `MaxEncodedLen`)
 	/// Storage: `Hrmp::HrmpChannelDigests` (r:3 w:3)
 	/// Proof: `Hrmp::HrmpChannelDigests` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -91,6 +95,8 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::inclusion::WeightInfo
 	/// Proof: `Hrmp::HrmpChannels` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Hrmp::HrmpChannelContents` (r:2 w:2)
 	/// Proof: `Hrmp::HrmpChannelContents` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `ParaInclusion::RecentProvides` (r:1 w:1)
+	/// Proof: `ParaInclusion::RecentProvides` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Paras::FutureCodeUpgrades` (r:1 w:0)
 	/// Proof: `Paras::FutureCodeUpgrades` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0x3a72656c61795f64697370617463685f71756575655f72656d61696e696e675f` (r:0 w:1)
@@ -112,27 +118,25 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::inclusion::WeightInfo
 	/// The range of component `c` is `[0, 1]`.
 	fn enact_candidate(u: u32, h: u32, c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1447 + c * (15992 ±0) + h * (92 ±0) + u * (131259 ±0)`
-		//  Estimated: `134587 + c * (25419 ±939) + h * (29985 ±511) + u * (82828 ±511)`
-		// Minimum execution time: 1_208_571_000 picoseconds.
-		Weight::from_parts(156_323_556, 0)
-			.saturating_add(Weight::from_parts(0, 134587))
-			// Standard Error: 1_121_931
-			.saturating_add(Weight::from_parts(529_418_705, 0).saturating_mul(u.into()))
-			// Standard Error: 1_121_931
-			.saturating_add(Weight::from_parts(527_179_667, 0).saturating_mul(h.into()))
-			// Standard Error: 1_859_173
-			.saturating_add(Weight::from_parts(45_652_413, 0).saturating_mul(c.into()))
-			.saturating_add(T::DbWeight::get().reads(8))
+		//  Measured:  `4941 + c * (15992 ±0) + h * (74 ±0) + u * (65629 ±0)`
+		//  Estimated: `27240 + c * (15992 ±0) + h * (4412 ±0) + u * (65630 ±0)`
+		// Minimum execution time: 854_000_000 picoseconds.
+		Weight::from_parts(854_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 27240))
+			// Standard Error: 116_862_648
+			.saturating_add(Weight::from_parts(233_807_692, 0).saturating_mul(u.into()))
+			// Standard Error: 116_862_648
+			.saturating_add(Weight::from_parts(361_307_692, 0).saturating_mul(h.into()))
+			.saturating_add(T::DbWeight::get().reads(11))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(u.into())))
 			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(h.into())))
-			.saturating_add(T::DbWeight::get().reads((9_u64).saturating_mul(c.into())))
-			.saturating_add(T::DbWeight::get().writes(6))
+			.saturating_add(T::DbWeight::get().reads((8_u64).saturating_mul(c.into())))
+			.saturating_add(T::DbWeight::get().writes(8))
 			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(u.into())))
-			.saturating_add(T::DbWeight::get().writes((4_u64).saturating_mul(h.into())))
-			.saturating_add(T::DbWeight::get().writes((8_u64).saturating_mul(c.into())))
-			.saturating_add(Weight::from_parts(0, 25419).saturating_mul(c.into()))
-			.saturating_add(Weight::from_parts(0, 29985).saturating_mul(h.into()))
-			.saturating_add(Weight::from_parts(0, 82828).saturating_mul(u.into()))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(h.into())))
+			.saturating_add(T::DbWeight::get().writes((7_u64).saturating_mul(c.into())))
+			.saturating_add(Weight::from_parts(0, 15992).saturating_mul(c.into()))
+			.saturating_add(Weight::from_parts(0, 4412).saturating_mul(h.into()))
+			.saturating_add(Weight::from_parts(0, 65630).saturating_mul(u.into()))
 	}
 }

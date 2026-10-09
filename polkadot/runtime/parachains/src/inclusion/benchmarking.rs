@@ -31,6 +31,14 @@ use crate::{
 	initializer, HeadData, ValidationCode,
 };
 
+/// A distinct `StreamsRoot` per `n`. `H256::from_low_u64_be` is std-only, and benchmarks build for
+/// the wasm runtime too.
+fn root(n: u64) -> StreamsRoot {
+	let mut bytes = [0u8; 32];
+	bytes[24..].copy_from_slice(&n.to_be_bytes());
+	StreamsRoot(Hash::from(bytes))
+}
+
 fn create_candidate_commitments<T: crate::hrmp::pallet::Config>(
 	para_id: ParaId,
 	head_data: HeadData,
@@ -123,9 +131,9 @@ mod benchmarks {
 		commitments.upward_messages.force_push(UMP_SEPARATOR);
 		commitments
 			.upward_messages
-			.force_push(UMPSignal::Provides(StreamsRoot(Hash::from_low_u64_be(u64::MAX))).encode());
+			.force_push(UMPSignal::Provides(root(u64::MAX)).encode());
 		for i in 0..MAX_PROVIDES_WINDOW_SIZE {
-			Pallet::<T>::record_provides(para, StreamsRoot(Hash::from_low_u64_be(i as u64)));
+			Pallet::<T>::record_provides(para, root(i as u64));
 		}
 		let backers = bitvec![u8, Lsb0; 1; backing_group_size as usize];
 		let availability_votes = bitvec![u8, Lsb0; 1; n_validators as usize];

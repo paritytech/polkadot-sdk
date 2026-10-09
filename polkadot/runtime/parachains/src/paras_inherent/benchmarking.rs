@@ -30,12 +30,19 @@ use polkadot_primitives::{
 
 use crate::builder::{BenchBuilder, CandidateDescriptorVersionConfig};
 
+/// A distinct `StreamsRoot` per `n`. `H256::from_low_u64_be` is std-only, and benchmarks build for
+/// the wasm runtime too.
+fn root(n: u64) -> StreamsRoot {
+	let mut bytes = [0u8; 32];
+	bytes[24..].copy_from_slice(&n.to_be_bytes());
+	StreamsRoot(Hash::from(bytes))
+}
+
 /// A worst-case `Requires` set (`MAX_COMMITMENT_ENTRIES` sources) for the backed-candidate
 /// benchmark. Seed the windows with [`seed_provides_windows`] so the candidate stays admitted.
 fn bench_requires_set() -> RequiresSet {
 	RequiresSet::try_from_iter(
-		(0..MAX_COMMITMENT_ENTRIES)
-			.map(|i| (ParaId::from(i), StreamsRoot(Hash::from_low_u64_be(i as u64)))),
+		(0..MAX_COMMITMENT_ENTRIES).map(|i| (ParaId::from(i), root(i as u64))),
 	)
 	.expect("MAX_COMMITMENT_ENTRIES entries fit the bound; qed")
 }
@@ -44,12 +51,15 @@ fn bench_requires_set() -> RequiresSet {
 /// Fill every required source's window, with its required root as the oldest entry: each match
 /// then decodes a full window and scans all of it.
 fn seed_provides_windows<T: inclusion::Config>() {
-	for (source, root) in bench_requires_set().iter() {
-		inclusion::Pallet::<T>::record_provides(*source, *root);
-		for filler in 1..MAX_PROVIDES_WINDOW_SIZE {
-			let filler = StreamsRoot(Hash::from_low_u64_be(u64::MAX - filler as u64));
-			inclusion::Pallet::<T>::record_provides(*source, filler);
-		}
+	for (source, required) in bench_requires_set().iter() {
+		let window: Vec<_> = core::iter::once(*required)
+			.chain((1..MAX_PROVIDES_WINDOW_SIZE).map(|filler| root(u64::MAX - filler as u64)))
+			.collect();
+		let window: frame_support::BoundedVec<
+			_,
+			frame_support::traits::ConstU32<MAX_PROVIDES_WINDOW_SIZE>,
+		> = window.try_into().expect("exactly MAX_PROVIDES_WINDOW_SIZE roots; qed");
+		inclusion::RecentProvides::<T>::insert(*source, window);
 	}
 }
 
