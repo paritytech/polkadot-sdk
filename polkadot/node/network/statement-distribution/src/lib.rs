@@ -201,7 +201,7 @@ impl StatementDistributionSubsystem {
 				},
 			};
 
-			v2::dispatch_requests(&mut ctx, &mut state).await;
+			v2::dispatch_requests(&mut ctx, &mut state, &self.metrics).await;
 		}
 		Ok(())
 	}
