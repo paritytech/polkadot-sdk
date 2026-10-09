@@ -383,10 +383,7 @@ where
 		None => SchedulingSignals::from_block_signals(&upward_message_signals),
 	};
 
-	// The speculative-messaging pass runs on both paths (the override replaces only the
-	// scheduling signals): take the bundle's `Provides` and synthesize `Requires` from the
-	// consumption records and the PoV-carried lifts. Any failure panics, invalidating the
-	// candidate.
+	// On both paths: pass `Provides` through and synthesize `Requires`; any failure invalidates.
 	let spec_msg_signals =
 		SpecMessagingSignals::build(&upward_message_signals, &consumption_records, lifts.as_ref())
 			.unwrap_or_else(|error| panic!("{}", error));

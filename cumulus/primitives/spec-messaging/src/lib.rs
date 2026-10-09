@@ -67,17 +67,11 @@ pub use streams_root::{
 	TreeError, TreeRootEntry,
 };
 
-/// Hooks `cumulus-pallet-parachain-system` uses to source the speculative-messaging parts of a
-/// candidate's UMP signal tail, without depending on the messaging pallet. Implemented by the
-/// messaging pallet; `()` emits nothing, for a chain that does not participate.
-///
-/// There is no requires-side emission hook: blocks never emit `Requires`. The `validate_block`
-/// wrapper synthesizes it from [`ConsumptionRecord`]s and the PoV-carried lifts.
+/// How `parachain-system` sources the speculative-messaging signals without depending on the
+/// messaging pallet. `()` emits nothing. There is no `Requires` hook: blocks never emit it.
 pub trait ProvideUmpSignals {
-	/// The block's `StreamsRoot`, to be emitted as the `Provides` UMP signal, or `None` if no
-	/// stream was touched. An unchanged root must not be re-emitted; it would push a duplicate
-	/// into the relay chain's window. The same computation deposits the [`SPMS_ENGINE_ID`]
-	/// digest. Typed as the root, not the signal: a block can only ever say `Provides`.
+	/// The block's `StreamsRoot` for `Provides`, or `None` if no stream was touched (an unchanged
+	/// root would duplicate a window entry). Also deposits the [`SPMS_ENGINE_ID`] digest.
 	fn provides_root() -> Option<StreamsRoot>;
 
 	/// The block's consumption record: what the messaging inherent did. Called by the

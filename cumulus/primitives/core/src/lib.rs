@@ -752,13 +752,8 @@ sp_api::decl_runtime_apis! {
 		fn keys_to_prove() -> RelayProofRequest;
 	}
 
-	/// The speculative-messaging node/runtime boundary (design v0.5, Runtime API): everything a
-	/// collator authors and serves by. Collators never read messaging storage directly; anything
-	/// they need and cannot find here is a missing API. Inputs flow back only through the
-	/// messaging inherent.
-	///
-	/// Absent on runtimes that predate or do not participate in speculative messaging; node call
-	/// sites gate on the API version and keep the spec-msg subsystems idle when it is missing.
+	/// The speculative-messaging node/runtime boundary: everything a collator authors and serves
+	/// by. Absent on runtimes without speculative messaging; nodes stay idle then.
 	pub trait SpecMsgApi {
 		/// This block's sends, per stream, in canonical `StreamId` order with payloads in send
 		/// order. What a collator appends to its archive. Empty for an idle block.
