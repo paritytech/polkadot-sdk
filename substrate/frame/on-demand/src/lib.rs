@@ -238,9 +238,11 @@ pub mod pallet {
 		/// until the pot is topped up.
 		UnexpectedLowFunds {
 			/// The amount that was being claimed.
-			amount_to_claim: BalanceOf<T>,
+			attempted_to_claim: BalanceOf<T>,
 			/// The claimable amount in the pot.
 			claimable: BalanceOf<T>,
+			/// The amount that was actually paid out.
+			paid_out: BalanceOf<T>,
 		},
 	}
 
@@ -501,8 +503,9 @@ pub mod pallet {
 					 {up_to}; paying out {total:?} instead.",
 				);
 				Self::deposit_event(Event::<T>::UnexpectedLowFunds {
-					amount_to_claim: booked,
+					attempted_to_claim: booked,
 					claimable: reducible,
+					paid_out: total,
 				});
 			}
 

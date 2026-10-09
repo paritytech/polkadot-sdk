@@ -403,8 +403,9 @@ fn only_revenue_which_can_be_paid_in_full_is_claimed_oldest_first() {
 		assert_eq!(unclaimed(), vec![(2, in_2)]);
 		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT + in_2 - shortfall);
 		assert!(on_demand_events().contains(&Event::UnexpectedLowFunds {
-			amount_to_claim: in_0 + in_1 + in_2,
+			attempted_to_claim: in_0 + in_1 + in_2,
 			claimable: in_0 + in_1 + in_2 - shortfall,
+			paid_out: in_0 + in_1,
 		}));
 
 		// Claiming again does not help until the pot has been topped up.

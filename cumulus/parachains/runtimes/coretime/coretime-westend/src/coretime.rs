@@ -274,7 +274,12 @@ pub struct BrokerPoolCapacity;
 impl PoolCapacityProvider for BrokerPoolCapacity {
 	fn pool_cores() -> u32 {
 		pallet_broker::Status::<Runtime>::get().map_or(0, |status| {
-			status.private_pool_size.saturating_add(status.system_pool_size) / CORE_MASK_BITS as u32
+			// Adds CORE_MASK_BITS-1 to round up
+			status
+				.private_pool_size
+				.saturating_add(status.system_pool_size)
+				.saturating_add(CORE_MASK_BITS as u32 - 1) /
+				CORE_MASK_BITS as u32
 		})
 	}
 
