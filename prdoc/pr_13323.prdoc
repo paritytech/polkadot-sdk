@@ -1,0 +1,19 @@
+title: 'cumulus: fix best parent selection when the build parent re-derives the relay chain context'
+doc:
+- audience: Node Dev
+  description: |
+    When the build parent's scheduling params disagree with the para best head's, the
+    slot-based collator re-derives the relay chain context from the parent — but kept the
+    parent found under the old context unconditionally, even when it is invalid under the
+    new one (V2: relay parent outside the allowed ancestry after a relay chain fork, V3: no
+    longer backable at the new scheduling parent). The re-derivation now re-validates the
+    parent under the new context and falls back to the pending/included block when the
+    check fails; the included-header snapshot likewise follows the settled context.
+    `cumulus-client-consensus-common` exposes the pieces the re-check needs:
+    `search_start_block` and `is_parent_valid_for_params`, sharing the parent search's own
+    validity rule.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-client-consensus-common
+  bump: minor
