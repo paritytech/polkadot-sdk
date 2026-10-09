@@ -229,6 +229,9 @@ where
 					info,
 				)
 			},
+			SessionExecutorParamsForNextSession(relay_parent, executor_params) => self
+				.requests_cache
+				.cache_session_executor_params_for_next_session(relay_parent, executor_params),
 		}
 	}
 
@@ -470,6 +473,17 @@ where
 						queried_relay_parent,
 						sender,
 					))
+				}
+			},
+			Request::SessionExecutorParamsForNextSession(sender) => {
+				if let Some(value) =
+					self.requests_cache.session_executor_params_for_next_session(&relay_parent)
+				{
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value.clone()));
+					None
+				} else {
+					Some(Request::SessionExecutorParamsForNextSession(sender))
 				}
 			},
 		}
@@ -831,6 +845,12 @@ where
 			UnappliedSlashesV2,
 			unapplied_slashes_v2(),
 			ver = Request::UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT,
+			sender
+		),
+		Request::SessionExecutorParamsForNextSession(sender) => query!(
+			SessionExecutorParamsForNextSession,
+			session_executor_params_for_next_session(),
+			ver = Request::SESSION_EXECUTOR_PARAMS_FOR_NEXT_SESSION_RUNTIME_REQUIREMENT,
 			sender
 		),
 	}
