@@ -14,20 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The speculative-messaging part of a candidate's UMP signal tail, and the assembly of the whole
-//! tail.
+//! The speculative-messaging part of a candidate's UMP signal tail.
 //!
-//! Blocks emit `Provides` (once per PoV, buffered by the pallet until the last block) and never
-//! `Requires`. [`SpecMessagingSignals::build`] takes the `Provides` through under the usual rule,
-//! at most one of each signal, and synthesizes the candidate's `Requires` from the blocks'
-//! consumption records and the PoV-carried lifts: one code path for steady state, partial
-//! consumption, resubmission and bundles.
-//!
-//! Single source of truth shared by the collator and the PVF (`validate_block`), like
-//! [`SchedulingSignals`]: both assemble the tail with [`ump_signal_tail`], so their commitments
-//! can't drift. The PVF panics on any [`SpecMessagingError`], invalidating the candidate; the
-//! collator skips the collation instead. Neither has relay state, so neither judges staleness;
-//! window matching stays relay-side at inclusion.
+//! Blocks emit at most one `Provides` per PoV and never `Requires`. [`SpecMessagingSignals::build`]
+//! passes `Provides` through and synthesizes `Requires` from the consumption records and the PoV
+//! lifts. The collator and the PVF both assemble the tail with [`ump_signal_tail`], so they cannot
+//! drift; the PVF panics on a [`SpecMessagingError`], the collator skips the collation.
 
 use crate::scheduling::SchedulingSignals;
 use alloc::vec::Vec;
@@ -128,10 +120,8 @@ pub fn ump_signal_tail(
 	tail
 }
 
-/// The candidate's `Provides`, from the encoded `UMPSignal`s the PoV's blocks emitted. The pallet
-/// emits it once per PoV, on the last block, so a second one is a bug, like any other repeated
-/// signal. Runs on every candidate, so the "blocks never emit `Requires`" rule lives here rather
-/// than in the scheduling parse, which a `signed_scheduling_info` skips.
+/// The candidate's `Provides` from the blocks' signals; a second one, or any `Requires`, is an
+/// error. Runs on every candidate, unlike the scheduling parse an override skips.
 fn parse_provides(raw: &[Vec<u8>]) -> Result<Option<StreamsRoot>, SpecMessagingError> {
 	let mut provides = None;
 	for bytes in raw {

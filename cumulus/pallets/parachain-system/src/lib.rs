@@ -331,11 +331,8 @@ pub mod pallet {
 		/// The `RelayParentOffset` config continues to define the header chain length.
 		type SchedulingSignatureVerifier: cumulus_primitives_core::VerifySchedulingSignature;
 
-		/// Source of the speculative-messaging parts of the UMP signal tail. `on_finalize` buffers
-		/// the block's root and emits it as one `Provides` on the last block of the PoV; the
-		/// `validate_block` wrapper reads each block's consumption record through this hook to
-		/// synthesize `Requires` from the PoV-carried lifts. Wire to the messaging pallet; `()`
-		/// while the chain does not participate.
+		/// Source of the speculative-messaging signals: one `Provides` per PoV, and the consumption
+		/// records `validate_block` turns into `Requires`. `()` if the chain does not participate.
 		type UmpSignalSource: ProvideUmpSignals;
 	}
 
@@ -1779,11 +1776,8 @@ impl<T: Config> Pallet<T> {
 		CustomValidationHeadData::<T>::put(head_data);
 	}
 
-	/// Send the pending ump signals.
-	///
-	/// Signal order (`SelectCore`, `ApprovedPeer`, `Provides`) must match the `validate_block`
-	/// wrapper's re-assembly (`cumulus_primitives_core::ump_signal_tail`): the
-	/// node-side commitments and the wrapper's output must be byte-identical.
+	/// Send the pending UMP signals, in `ump_signal_tail`'s order (`SelectCore`, `ApprovedPeer`,
+	/// `Provides`): the collator's commitments must match `validate_block`'s byte for byte.
 	fn send_ump_signals(core_info: Option<CoreInfo>) {
 		let mut ump_signals = PendingUpwardSignals::<T>::take();
 
