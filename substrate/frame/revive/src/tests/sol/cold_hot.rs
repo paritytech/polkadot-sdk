@@ -18,8 +18,8 @@
 //! Which state entries the access list finds cold or hot, on both VMs.
 
 use crate::{
-	AccountInfo, BalanceOf, CallProtections, CallResources, Code, Config, Weight, WeightInfo,
-	WeightToken,
+	AccountInfo, BalanceOf, CallProtections, CallResources, Code, Config, ExecConfig, Weight,
+	WeightInfo, WeightToken,
 	access_list::{
 		Access, AccessListMetrics, CallItems, CodeLoadItems, InstantiateItems, KeyFamily,
 		StorageOp, TransferItems, Warmth, WarmthSummary,
@@ -36,9 +36,9 @@ use crate::{
 	vm::RuntimeCosts,
 };
 use alloy_core::sol_types::SolCall;
-use frame_support::traits::fungible::Mutate;
+use frame_support::{assert_ok, traits::fungible::Mutate};
 use pallet_revive_fixtures::{
-	CallEach, CallThenRevert, Caller, Counter, Factory, FixtureType, Recurse,
+	CallEach, CallThenRevert, Caller, Counter, Factory, FixtureType, Recurse, SendBack,
 	compile_module_with_type,
 };
 use pretty_assertions::assert_eq;
@@ -173,6 +173,82 @@ fn call_past_the_depth_limit_pays_by_target_warmth(fixture_type: FixtureType) {
 		);
 		assert_eq!(final_call_denied.hot, final_call_allowed.hot);
 		assert_eq!(final_call_denied.size, final_call_allowed.size + entries_kept_after_denial);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn a_call_back_into_the_target_is_hot_only_after_call_or_eth_call(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Recurse", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let call_back_once =
+			Recurse::recurseCall { callsLeft: 1, finalTarget: H160::zero().0.into() }.abi_encode();
+		let call_entries = CallItems::new(addr, false).entry_count();
+
+		let bare_call = access_list_metrics_of(|| {
+			builder::bare_call(addr).data(call_back_once.clone()).build_and_unwrap_result();
+		});
+		let call = access_list_metrics_of(|| {
+			assert_ok!(builder::call(addr).data(call_back_once.clone()).build());
+		});
+		let eth_call = access_list_metrics_of(|| {
+			assert_ok!(builder::eth_call(addr).data(call_back_once).build());
+		});
+
+		assert_eq!(call.hot, bare_call.hot + call_entries);
+		assert_eq!(
+			call.cold, bare_call.cold,
+			"both add the target's entries once: call up front, bare_call at the call back",
+		);
+		assert_eq!(eth_call, call);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn a_transfer_back_to_the_sender_is_hot_only_after_call_or_eth_call(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("SendBack", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let _ = crate::Pallet::<Test>::set_evm_balance(&addr, 100_000_000_000u128.into());
+		let root_value: BalanceOf<Test> = 1_000;
+		let access_list_metrics_of_transfer = |run: &dyn Fn(Vec<u8>)| {
+			let send_back = |amount| SendBack::sendBackCall { amount }.abi_encode();
+			let without_value = access_list_metrics_of(|| run(send_back(0)));
+			let with_value = access_list_metrics_of(|| run(send_back(1_000_000)));
+			AccessListMetrics {
+				size: with_value.size - without_value.size,
+				cold: with_value.cold - without_value.cold,
+				hot: with_value.hot - without_value.hot,
+			}
+		};
+		let bare_call = access_list_metrics_of_transfer(&|data| {
+			let result = builder::bare_call(addr)
+				.native_value(root_value)
+				.data(data)
+				.build_and_unwrap_result();
+			assert!(!result.did_revert());
+		});
+		let call = access_list_metrics_of_transfer(&|data| {
+			assert_ok!(builder::call(addr).value(root_value).data(data).build());
+		});
+		let eth_call = access_list_metrics_of_transfer(&|data| {
+			let value = crate::Pallet::<Test>::convert_native_to_evm(root_value);
+			assert_ok!(builder::eth_call(addr).value(value).data(data).build());
+		});
+
+		assert_eq!(
+			call.hot,
+			bare_call.hot + bare_call.cold,
+			"call adds both parties' entries up front, so the transfer back finds them all hot",
+		);
+		assert_eq!(bare_call.hot, 1, "only ALICE's account info, which the call itself accessed");
+		assert_eq!(eth_call, call);
 	});
 }
 
@@ -469,15 +545,21 @@ fn a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType)
 	});
 }
 
-#[test]
-fn newly_stored_code_is_hot_for_the_next_call() {
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn newly_stored_code_is_hot_for_the_next_call(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let call_entries = CallItems::new(H160::zero(), false).entry_count();
 		let code_entries = CodeLoadItems::new(H256::zero()).entry_count();
-		let stores_the_code_expected_hot = code_entries + call_entries;
-		let finds_the_code_stored_expected_hot = call_entries;
+		let (first_expected_hot, second_expected_hot) = if fixture_type == FixtureType::Resolc {
+			// Instantiating from a code hash loads the code, which warms it, in both transactions.
+			(code_entries + call_entries, code_entries + call_entries)
+		} else {
+			// Only the first CREATE stores the code, which warms it.
+			(code_entries + call_entries, call_entries)
+		};
 
-		let factory = deploy_factory(FixtureType::Solc);
+		let factory = deploy_factory(fixture_type);
 		let create_then_call = || {
 			access_list_metrics_of_call(
 				factory,
@@ -485,15 +567,12 @@ fn newly_stored_code_is_hot_for_the_next_call() {
 			)
 		};
 
-		let stores_the_code = create_then_call();
-		let finds_the_code_stored = create_then_call();
+		let first = create_then_call();
+		let second = create_then_call();
 
-		assert_eq!(stores_the_code.hot, stores_the_code_expected_hot);
-		assert_eq!(finds_the_code_stored.hot, finds_the_code_stored_expected_hot);
-		assert_eq!(
-			stores_the_code.cold, finds_the_code_stored.cold,
-			"finding the code stored saves hot touches only",
-		);
+		assert_eq!(first.hot, first_expected_hot);
+		assert_eq!(second.hot, second_expected_hot);
+		assert_eq!(first.cold, second.cold);
 	});
 }
 
@@ -592,10 +671,14 @@ fn deploy_call_each_and_targets<const N: usize>(fixture_type: FixtureType) -> (H
 	(caller, targets)
 }
 
-/// Calls `contract` with `data` in one transaction and returns its access-list metrics.
+/// Calls `contract` with `data` and [`ExecConfig::first_frame_reads_paid`] set, and returns the
+/// call's access-list metrics.
 fn access_list_metrics_of_call(contract: H160, data: Vec<u8>) -> AccessListMetrics {
 	access_list_metrics_of(|| {
-		builder::bare_call(contract).data(data).build_and_unwrap_result();
+		builder::bare_call(contract)
+			.data(data)
+			.exec_config(ExecConfig::new_substrate_tx().with_first_frame_reads_paid())
+			.build_and_unwrap_result();
 	})
 }
 

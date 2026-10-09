@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	AccountInfo, Code, Config, Error, Pallet,
+	AccountInfo, Code, Config, Error, ExecConfig, Pallet,
 	evm::{CallTrace, CallTracer, fees::InfoT},
 	test_utils::{self, ALICE, BOB, BOB_ADDR, builder::Contract},
 	tests::{ExtBuilder, GasScale, RuntimeOrigin, Test, builder},
@@ -299,6 +299,7 @@ fn receiver_of_a_send_cannot_drain_the_sender() {
 		let result = builder::bare_call(addr)
 			.data(StipendTest::testSendReentrantDrainCall {}.abi_encode())
 			.evm_value(1_000_000_u128.into())
+			.exec_config(ExecConfig::new_substrate_tx().with_first_frame_reads_paid())
 			.build();
 
 		assert!(!result.result.unwrap().did_revert());
@@ -319,6 +320,7 @@ fn evm_call_stipend_allows_reentry_from_a_value_transfer_or_send() {
 			builder::bare_call(addr)
 				.data(call)
 				.evm_value(1_000_000.into())
+				.exec_config(ExecConfig::new_substrate_tx().with_first_frame_reads_paid())
 				.build_and_unwrap_result()
 		};
 		let denied = |call: Vec<u8>| bool::abi_decode(&run(call).data).unwrap();

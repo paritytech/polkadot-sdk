@@ -213,7 +213,7 @@ impl Warmth {
 	}
 
 	/// Returns this warmth with a cold touch made non-revertible.
-	pub fn to_non_revertible(self) -> Self {
+	fn to_non_revertible(self) -> Self {
 		match self {
 			Self::Hot { charged } => Self::Hot { charged },
 			Self::Cold { .. } => Self::Cold { revertible: false },
@@ -237,7 +237,7 @@ impl Warmth {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct WarmthSummary {
 	/// The family of the access's keys.
-	key: KeyFamily,
+	key_family: KeyFamily,
 	/// How many entries in total.
 	total: u32,
 	/// How many are cold.
@@ -252,13 +252,13 @@ pub struct WarmthSummary {
 
 impl WarmthSummary {
 	/// Builds a summary with nothing counted yet, for an access with keys of the given family.
-	pub fn new(key: KeyFamily) -> Self {
-		Self { key, total: 0, cold: 0, cold_revertible: 0, cold_writes: 0, upgrades: 0 }
+	pub fn new(key_family: KeyFamily) -> Self {
+		Self { key_family, total: 0, cold: 0, cold_revertible: 0, cold_writes: 0, upgrades: 0 }
 	}
 
 	/// Returns the family of the access's keys.
-	pub fn key(&self) -> KeyFamily {
-		self.key
+	pub fn key_family(&self) -> KeyFamily {
+		self.key_family
 	}
 
 	/// Counts one entry, at the operation performed on it.
@@ -313,7 +313,7 @@ impl WarmthSummary {
 		self.total.saturating_sub(self.cold)
 	}
 
-	/// Returns the same counts with no entry rolling back with the frame.
+	/// Returns the counts with no entry rolling back with the frame.
 	fn non_revertible(self) -> Self {
 		Self { cold_revertible: 0, ..self }
 	}
@@ -324,7 +324,7 @@ impl WarmthSummary {
 pub struct Summarized<W> {
 	/// The warmth of each entry the access touches.
 	entries: W,
-	/// Those same warmths, counted.
+	/// The entries counted by warmth.
 	summary: WarmthSummary,
 }
 
@@ -337,7 +337,7 @@ impl<W> Summarized<W> {
 		self.entries
 	}
 
-	/// Returns those same warmths, counted.
+	/// Returns the entries counted by warmth.
 	pub fn summary(&self) -> WarmthSummary {
 		self.summary
 	}
@@ -381,11 +381,11 @@ impl<W> Summarized<W> {
 
 impl Summarized<Warmth> {
 	/// Builds the warmth of one entry of the given key family, at the operation performed on it.
-	pub fn from_warmth(key: KeyFamily, warmth: Warmth, op: StorageOp) -> Self {
-		Self { entries: warmth, summary: WarmthSummary::new(key).count(warmth, op) }
+	pub fn from_warmth(key_family: KeyFamily, warmth: Warmth, op: StorageOp) -> Self {
+		Self { entries: warmth, summary: WarmthSummary::new(key_family).count(warmth, op) }
 	}
 
-	/// Returns the same warmth with the rollback dropped, for a peek that touched nothing.
+	/// Returns the warmth with the rollback dropped, for a peek that touched nothing.
 	pub fn to_non_revertible(self) -> Self {
 		Self { entries: self.entries.to_non_revertible(), summary: self.summary.non_revertible() }
 	}
@@ -402,7 +402,7 @@ pub enum AccessEntry {
 	AccountInfo { address: H160 },
 	/// Code info (`CodeInfoOf`), keyed by code hash: contracts with the same code share one entry.
 	CodeInfo { hash: H256 },
-	/// Code blob (`PristineCode`), keyed by code hash for the same reason.
+	/// Code blob (`PristineCode`), keyed by code hash: contracts with the same code share it.
 	CodeBlob { hash: H256 },
 	/// A contract storage slot, the only entry a contract can hold many of.
 	Storage(ContractSlot),
@@ -424,19 +424,19 @@ impl AccessEntry {
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 impl AccessEntry {
-	/// Builds the `i`-th entry of `key`'s family. Only the trailing bytes carry `i`, so a
+	/// Builds the `index`-th entry of `key_family`. Only the trailing bytes carry `index`, so a
 	/// comparison runs the whole shared prefix before it can decide.
-	pub fn with_index(i: usize, key: KeyFamily) -> Self {
-		match key {
+	pub fn with_index(index: usize, key_family: KeyFamily) -> Self {
+		match key_family {
 			KeyFamily::Slot => {
 				let slot = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
 					.expect("key fits STORAGE_KEY_BYTES bound; qed");
 				Self::Storage(ContractSlot {
 					slot: Slot::from(&slot),
-					address: H160::from_low_u64_be(i as u64),
+					address: H160::from_low_u64_be(index as u64),
 				})
 			},
-			KeyFamily::Address => Self::CodeInfo { hash: H256::from_low_u64_be(i as u64) },
+			KeyFamily::Address => Self::CodeInfo { hash: H256::from_low_u64_be(index as u64) },
 		}
 	}
 }
@@ -643,8 +643,7 @@ impl Access for InstantiateItems {
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) {
 		visit(AccessEntry::Account { address: self.address }, StorageOp::Write);
 		visit(AccessEntry::AccountInfo { address: self.address }, StorageOp::Write);
-		// Not read by the instantiate, since a new address has no mapping. The instantiate
-		// benches read it, so a call finding it hot is paid for.
+		// The instantiate never reads it, but its benches prepay a later call's read.
 		visit(AccessEntry::OriginalAccount { address: self.address }, StorageOp::Read);
 		visit(AccessEntry::Account { address: self.deployer }, StorageOp::Write);
 	}
@@ -668,12 +667,12 @@ pub struct CodeLoadItems {
 }
 
 impl CodeLoadItems {
-	/// Builds the items a code load touches when it only reads the info.
+	/// Builds the items a code load touches when it only reads the code info.
 	pub fn new(hash: H256) -> Self {
 		Self::with_info_op(hash, StorageOp::Read)
 	}
 
-	/// Builds the items a code load touches, with `info_op` on the info.
+	/// Builds the items a code load touches when it performs `info_op` on the code info.
 	pub fn with_info_op(hash: H256, info_op: StorageOp) -> Self {
 		Self { hash, info_op }
 	}
@@ -694,8 +693,8 @@ impl Access for CodeLoadItems {
 /// A read or write of one contract slot.
 #[derive(Clone, Debug)]
 pub struct StorageItems {
-	pub key: ContractSlot,
-	pub op: StorageOp,
+	key: ContractSlot,
+	op: StorageOp,
 }
 
 impl StorageItems {
@@ -736,6 +735,8 @@ pub struct AccessListMetrics {
 /// both journals' lengths at frame entry. Two journals instead of one with
 /// tagged entries: an upgrade needs its own entry either way, and untagged
 /// entries use less memory.
+///
+/// # Safety invariant
 ///
 /// A reverting frame rolls back every entry it touched, regardless of whether
 /// the touch happened before or after its charge:
@@ -948,25 +949,25 @@ impl AccessList {
 		AccessListMetrics { size: self.accessed.len(), cold: self.cold_count, hot: self.hot_count }
 	}
 
-	/// Adds fresh entries of `key`'s family until the list holds `target_size` of them.
+	/// Adds fresh entries of `key_family` until the list holds `target_size` of them.
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
-	pub fn fill_to(&mut self, target_size: usize, key: KeyFamily) {
+	pub fn fill_to(&mut self, target_size: usize, key_family: KeyFamily) {
 		let already = self.metrics().size;
-		assert!(already <= target_size, "the map is already past the target");
-		for i in 0..target_size - already {
-			let entry = AccessEntry::with_index(i, key);
-			assert!(!self.touch(entry, StorageOp::Read).is_hot(), "fill entries must be new");
+		assert!(already <= target_size, "already={already} target_size={target_size}");
+		for index in 0..target_size - already {
+			let warmth = self.touch(AccessEntry::with_index(index, key_family), StorageOp::Read);
+			assert!(!warmth.is_hot(), "entry {index}: {warmth:?}");
 		}
-		assert_eq!(self.metrics().size, target_size, "the map reached the requested size");
+		assert_eq!(self.metrics().size, target_size);
 	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 impl AccessList {
-	/// Builds an access list holding entries `0..entries` of the given `key` family.
-	pub fn with_entries(entries: usize, key: KeyFamily) -> Self {
+	/// Builds an access list holding entries `0..entries` of `key_family`.
+	pub fn with_entries(entries: usize, key_family: KeyFamily) -> Self {
 		let mut list = Self::new();
-		list.fill_to(entries, key);
+		list.fill_to(entries, key_family);
 		list
 	}
 
@@ -1133,11 +1134,12 @@ mod tests {
 
 	#[test]
 	fn peek_agrees_with_touch() {
+		#[track_caller]
 		fn agree(al: &mut AccessList, entry: AccessEntry, op: StorageOp, expected: Warmth) {
 			let before = al.metrics();
-			assert_eq!(al.peek(&entry), expected, "peek must report like touch");
-			assert_eq!(al.metrics(), before, "peek must not mutate the list");
-			assert_eq!(al.touch(entry, op), expected, "touch must report like peek");
+			assert_eq!(al.peek(&entry), expected);
+			assert_eq!(al.metrics(), before);
+			assert_eq!(al.touch(entry, op), expected);
 		}
 
 		// Indices past the fill range, so the fill never hands out these entries itself.
@@ -1298,27 +1300,6 @@ mod tests {
 		al.touch(entry.clone(), StorageOp::Write);
 		al.rollback_frame();
 		assert!(!al.peek(&entry).is_hot(), "the entry and its upgrade are both gone");
-	}
-
-	#[test]
-	fn the_senders_transfer_entries_stay_hot_for_the_next_call() {
-		let mut al = AccessList::new();
-		let sender = H160::from_low_u64_be(0xcafe);
-		let transfer_to = |target| TransferItems { from: sender, to: target, dust: false };
-
-		// A first value call, that puts the sender's two entries in the list.
-		al.warm(transfer_to(H160::from_low_u64_be(1)));
-
-		assert_eq!(
-			al.warmth_of_summarized(transfer_to(H160::from_low_u64_be(2))).entries,
-			TransferWarmth {
-				receiver_account: Warmth::cold_non_revertible(),
-				sender_account: Warmth::write_paid(), // a transfer always writes the balance
-				receiver_account_info: Warmth::cold_non_revertible(),
-				sender_account_info: Warmth::read_paid(), // no dust, so it was only read
-				dust: false,
-			}
-		);
 	}
 
 	#[test]

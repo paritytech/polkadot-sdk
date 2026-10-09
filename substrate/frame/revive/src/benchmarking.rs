@@ -138,7 +138,7 @@ fn assert_first_call_items_not_whitelisted<T: Config>(contract: &Contract<T>, du
 
 /// Asserts that the bench measures every entry an instantiation marks hot.
 fn assert_instantiate_items_not_whitelisted<T: Config>(address: H160, deployer: H160) {
-	// The call into the deployer already reads its account.
+	// `CallSetup` whitelists the deployer's account, so no instantiate bench measures it.
 	assert_not_whitelisted::<T>(
 		InstantiateItems { address, deployer },
 		&[AccessEntry::Account { address: deployer }],
@@ -1002,7 +1002,7 @@ mod benchmarks {
 		{
 			blob = ContractBlob::<T>::from_storage(code_hash, &mut meter);
 		}
-		assert!(blob.is_ok(), "an existing contract must load");
+		assert!(blob.is_ok(), "{:?}", blob.err());
 		Ok(())
 	}
 
@@ -2696,6 +2696,21 @@ mod benchmarks {
 		al.enter_frame();
 		al.touch(
 			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot),
+			StorageOp::Read,
+		);
+		#[block]
+		{
+			al.rollback_frame();
+		}
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_rollback_address_amortization() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::Address);
+		al.enter_frame();
+		al.touch(
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Address),
 			StorageOp::Read,
 		);
 		#[block]

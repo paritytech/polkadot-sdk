@@ -250,30 +250,30 @@ impl RuntimeCosts {
 }
 
 /// Computes the overhead the access list adds to an access.
-pub fn access_list_overhead<T: Config>(summary: WarmthSummary) -> Weight {
-	let [cold_full, cold_base, hot_full, hot_base]: [fn() -> Weight; 4] = match summary.key() {
-		KeyFamily::Slot => [
-			T::WeightInfo::access_list_touch_cold_full,
-			T::WeightInfo::access_list_touch_cold_empty,
-			T::WeightInfo::access_list_touch_hot_full,
-			T::WeightInfo::access_list_touch_hot_single_element,
-		],
-		KeyFamily::Address => [
-			T::WeightInfo::access_list_touch_cold_address_full,
-			T::WeightInfo::access_list_touch_cold_address_empty,
-			T::WeightInfo::access_list_touch_hot_address_full,
-			T::WeightInfo::access_list_touch_hot_address_single_element,
-		],
-	};
+fn access_list_overhead<T: Config>(summary: WarmthSummary) -> Weight {
+	let [cold_full, cold_base, hot_full, hot_base, rollback]: [fn() -> Weight; 5] =
+		match summary.key_family() {
+			KeyFamily::Slot => [
+				T::WeightInfo::access_list_touch_cold_full,
+				T::WeightInfo::access_list_touch_cold_empty,
+				T::WeightInfo::access_list_touch_hot_full,
+				T::WeightInfo::access_list_touch_hot_single_element,
+				T::WeightInfo::access_list_rollback_amortization,
+			],
+			KeyFamily::Address => [
+				T::WeightInfo::access_list_touch_cold_address_full,
+				T::WeightInfo::access_list_touch_cold_address_empty,
+				T::WeightInfo::access_list_touch_hot_address_full,
+				T::WeightInfo::access_list_touch_hot_address_single_element,
+				T::WeightInfo::access_list_rollback_address_amortization,
+			],
+		};
 	let cold_touch = cold_full().saturating_sub(cold_base());
 	let hot_touch = hot_full().saturating_sub(hot_base());
 	cold_touch
 		.saturating_mul(summary.cold().into())
 		.saturating_add(hot_touch.saturating_mul(summary.hot().into()))
-		.saturating_add(
-			T::WeightInfo::access_list_rollback_amortization()
-				.saturating_mul(summary.cold_revertible().into()),
-		)
+		.saturating_add(rollback().saturating_mul(summary.cold_revertible().into()))
 		.saturating_add(
 			access_list_upgrade_overhead::<T>().saturating_mul(summary.upgrades().into()),
 		)
@@ -295,7 +295,8 @@ pub fn deferred_write_cost<T: Config>() -> Weight {
 /// Computes the cost of an access from the warmth of its entries.
 ///
 /// Each bench measures the whole access, so the hot one applies only when every entry is hot. The
-/// access list's own costs come on top, entry by entry.
+/// access list's own costs come on top for every entry accessed, plus the write surcharge for every
+/// read-paid entry the access writes.
 pub fn weight_from_warmth_summary<T: Config>(
 	summary: WarmthSummary,
 	cold: impl FnOnce() -> Weight,
@@ -610,15 +611,21 @@ mod tests {
 		let cold = Warmth::cold_non_revertible();
 		let hot = Warmth::read_paid();
 		let overlay_overhead = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
-		let touch_overhead = |warmth, key| {
-			let summary = WarmthSummary::new(key).count(warmth, StorageOp::Read);
+		let touch_overhead = |warmth, key_family| {
+			let summary = WarmthSummary::new(key_family).count(warmth, StorageOp::Read);
 			access_list_overhead::<Test>(summary)
+		};
+		let rollback_overhead = |key_family| {
+			touch_overhead(Warmth::cold_revertible(), key_family)
+				.saturating_sub(touch_overhead(cold, key_family))
 		};
 		let derived_overheads = [
 			("cold slot touch", touch_overhead(cold, KeyFamily::Slot)),
 			("cold address touch", touch_overhead(cold, KeyFamily::Address)),
 			("hot slot touch", touch_overhead(hot, KeyFamily::Slot)),
 			("hot address touch", touch_overhead(hot, KeyFamily::Address)),
+			("slot rollback", rollback_overhead(KeyFamily::Slot)),
+			("address rollback", rollback_overhead(KeyFamily::Address)),
 			("journaled upgrade", access_list_upgrade_overhead::<Test>()),
 			("hot storage overlay", overlay_overhead),
 		];
@@ -701,21 +708,15 @@ mod tests {
 			}
 		}
 
+		let rollback = <Test as Config>::WeightInfo::access_list_rollback_amortization();
 		for (rev_cost, non_rev_cost) in with_kind(&persistent(cold_revertible))
 			.into_iter()
 			.zip(with_kind(&persistent(cold_non_revertible)))
 		{
-			let rev_weight = weight(&rev_cost);
-			let non_rev_weight = weight(&non_rev_cost);
-			assert!(
-				rev_weight.ref_time() > non_rev_weight.ref_time(),
-				"expected revertible > non-revertible ref_time for {rev_cost:?}: \
-				 rev={rev_weight:?} non={non_rev_weight:?}",
-			);
 			assert_eq!(
-				rev_weight.proof_size(),
-				non_rev_weight.proof_size(),
-				"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}",
+				weight(&rev_cost),
+				weight(&non_rev_cost).saturating_add(rollback),
+				"{rev_cost:?}"
 			);
 		}
 

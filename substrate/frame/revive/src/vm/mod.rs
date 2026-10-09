@@ -146,7 +146,7 @@ impl CodeLoadToken {
 	}
 
 	/// Computes the cost of the code's bytes at the blob's warmth, plus PVM compilation.
-	fn blob<T: Config>(warmth: Warmth, code_len: u32, code_type: BytecodeType) -> Weight {
+	fn blob_cost<T: Config>(warmth: Warmth, code_len: u32, code_type: BytecodeType) -> Weight {
 		let per_byte: fn(u32) -> Weight = match (code_type, warmth.is_hot()) {
 			(BytecodeType::Pvm, false) => T::WeightInfo::call_with_pvm_code_per_byte,
 			(BytecodeType::Pvm, true) => T::WeightInfo::call_with_pvm_code_per_byte_hot,
@@ -172,7 +172,7 @@ impl<T: Config> Token<T> for CodeLoadToken {
 		match *self {
 			Self::Flat(warmth) => Self::flat_cost::<T>(warmth),
 			Self::Blob { warmth, code_len, code_type } => {
-				Self::blob::<T>(warmth, code_len, code_type)
+				Self::blob_cost::<T>(warmth, code_len, code_type)
 			},
 		}
 	}
@@ -534,12 +534,12 @@ mod tests {
 			);
 			let hot = code_load_weight(code_len, code_type, load_warmth_at(Warmth::read_paid()));
 			assert!(cold.ref_time() > hot.ref_time(), "{code_type:?}: cold={cold:?} hot={hot:?}");
-			assert_eq!(hot.proof_size(), 0, "a hot blob is already in the proof: {hot:?}");
+			assert_eq!(hot.proof_size(), 0, "{code_type:?}: {hot:?}");
 			let both_reads_proof = <Test as Config>::WeightInfo::code_load().proof_size();
 			assert!(
 				cold.proof_size() >= both_reads_proof + u64::from(code_len),
-				"a cold load proves both reads and the blob's {code_len} bytes: \
-				 cold={cold:?} both_reads_proof={both_reads_proof}",
+				"{code_type:?}: cold={cold:?} both_reads_proof={both_reads_proof} \
+				 code_len={code_len}",
 			);
 			let hot_info_cold_blob = code_load_weight(
 				code_len,
@@ -548,8 +548,8 @@ mod tests {
 			);
 			assert!(
 				hot_info_cold_blob.proof_size() >= both_reads_proof + u64::from(code_len),
-				"a cold blob walks its trie path even when the info is hot: \
-				 {hot_info_cold_blob:?} both_reads_proof={both_reads_proof}",
+				"{code_type:?}: hot_info_cold_blob={hot_info_cold_blob:?} \
+				 both_reads_proof={both_reads_proof} code_len={code_len}",
 			);
 
 			let twice_as_long = code_load_weight(
@@ -559,8 +559,7 @@ mod tests {
 			);
 			assert!(
 				twice_as_long.proof_size().saturating_sub(cold.proof_size()) >= u64::from(code_len),
-				"doubling the code adds at least {code_len} bytes of proof: \
-				 twice={twice_as_long:?} cold={cold:?}",
+				"{code_type:?}: twice={twice_as_long:?} cold={cold:?} code_len={code_len}",
 			);
 
 			// The bytes alone, with the entries' touches subtracted out.
@@ -570,37 +569,24 @@ mod tests {
 			};
 			let hot_blob = Warmth::read_paid();
 			let hot_blob_bytes = bytes_of(load_warmth_at(hot_blob));
-			assert!(
-				hot_blob_bytes.ref_time() > 0,
-				"a hot blob still pays for its bytes: {code_type:?}: {hot_blob_bytes:?}",
-			);
+			assert!(hot_blob_bytes.ref_time() > 0, "{code_type:?}: {hot_blob_bytes:?}");
 			let empty_blob = Token::<Test>::weight(&CodeLoadToken::Blob {
 				warmth: hot_blob,
 				code_len: 0,
 				code_type,
 			});
-			assert_eq!(
-				empty_blob.proof_size(),
-				0,
-				"the two reads' proof lives in `Flat`, not in `Blob`: {code_type:?}",
-			);
+			assert_eq!(empty_blob.proof_size(), 0, "{code_type:?}");
 			if matches!(code_type, BytecodeType::Evm) {
-				assert_eq!(
-					empty_blob,
-					Weight::zero(),
-					"the trie path and the entries' touches live in `Flat`, not in `Blob`",
-				);
+				assert_eq!(empty_blob, Weight::zero());
 			}
 		}
 
-		// One rollback prepay per entry.
-		let rollback = <Test as Config>::WeightInfo::access_list_rollback_amortization();
+		let rollback = <Test as Config>::WeightInfo::access_list_rollback_address_amortization();
 		let empty_blob = |load| code_load_weight(0, BytecodeType::Evm, load);
 		assert_eq!(
 			empty_blob(load_warmth_at(Warmth::cold_revertible()))
 				.saturating_sub(empty_blob(load_warmth_at(Warmth::cold_non_revertible()))),
 			rollback.saturating_mul(CodeLoadItems::new(H256::zero()).entry_count().into()),
-			"one rollback prepay per code entry",
 		);
 	}
 
@@ -628,22 +614,18 @@ mod tests {
 		assert_eq!(
 			owed_for_the_info_write(Warmth::cold_non_revertible(), Warmth::cold_non_revertible()),
 			rehash_weight,
-			"a cold code info write adds what the `code_load` bench never measured",
 		);
 		assert_eq!(
 			owed_for_the_info_write(Warmth::read_paid(), Warmth::read_paid()),
 			rehash_and_upgrade_weight,
-			"a read-paid code info write also journals the upgrade",
 		);
 		assert_eq!(
 			owed_for_the_info_write(Warmth::read_paid(), Warmth::cold_non_revertible()),
 			rehash_and_upgrade_weight,
-			"a cold blob adds no write charge of its own",
 		);
 		assert_eq!(
 			owed_for_the_info_write(Warmth::write_paid(), Warmth::read_paid()),
 			Weight::zero(),
-			"a write-paid code info write adds nothing",
 		);
 	}
 
@@ -657,8 +639,6 @@ mod tests {
 			let stored = H256::repeat_byte(1);
 			<CodeInfoOf<Test>>::insert(stored, code_info.clone());
 			<PristineCode<Test>>::insert(stored, code.clone());
-			// Metadata without a blob: a load that read the blob before paying for it would fail
-			// with `CodeNotFound` instead of running out of weight.
 			let blob_missing = H256::repeat_byte(2);
 			<CodeInfoOf<Test>>::insert(blob_missing, code_info);
 
@@ -671,11 +651,10 @@ mod tests {
 			let mut meter = new_meter(Weight::MAX);
 			let loaded = ContractBlob::<Test>::from_storage_with_warmth(stored, &mut meter, cold)
 				.expect("the load fits");
-			assert_eq!(loaded.code(), &code[..], "the blob read back is the stored one");
+			assert_eq!(loaded.code(), &code[..]);
 			assert_eq!(
 				meter.weight_consumed(),
-				code_load_weight(code_len, BytecodeType::Pvm, cold),
-				"a load consumes exactly the blob's weight",
+				code_load_weight(code_len, BytecodeType::Pvm, cold)
 			);
 
 			let flat_cost = Token::<Test>::weight(&CodeLoadToken::Flat(cold));
@@ -684,16 +663,15 @@ mod tests {
 				ContractBlob::<Test>::from_storage_with_warmth(blob_missing, &mut meter, cold)
 					.map(|_| ()),
 				Err(Error::<Test>::OutOfGas.into()),
-				"with weight for the two reads only, the blob's charge fails before the blob is read",
 			);
-			assert_eq!(meter.weight_consumed(), flat_cost, "only the first charge landed");
+			assert_eq!(meter.weight_consumed(), flat_cost);
 
 			let mut meter = new_meter(Weight::zero());
+			let info_missing = H256::repeat_byte(3);
 			assert_eq!(
-				ContractBlob::<Test>::from_storage_with_warmth(stored, &mut meter, cold)
+				ContractBlob::<Test>::from_storage_with_warmth(info_missing, &mut meter, cold)
 					.map(|_| ()),
 				Err(Error::<Test>::OutOfGas.into()),
-				"with no weight at all, the load pays for its reads before making the first",
 			);
 		});
 	}

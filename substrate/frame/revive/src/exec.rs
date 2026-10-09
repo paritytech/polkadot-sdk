@@ -635,6 +635,7 @@ pub trait Executable<T: Config>: Sized {
 	) -> Result<Self, DispatchError>;
 
 	/// Load the executable from storage, charging the code load at the code's `warmth`.
+	/// The default implementation ignores `warmth` and calls [`Self::from_storage`].
 	#[doc(hidden)]
 	fn from_storage_with_warmth<S: State>(
 		code_hash: H256,
@@ -1076,7 +1077,11 @@ where
 		input_data: &Vec<u8>,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
-		let mut access_list = Self::new_access_list_with_warm_target(&args, &origin, value);
+		let mut access_list = if exec_config.first_frame_reads_paid {
+			Self::new_access_list_with_warm_target(&args, &origin, value)
+		} else {
+			AccessList::new()
+		};
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,
@@ -1120,7 +1125,7 @@ where
 	}
 
 	/// Creates the access list with the target's entries warm, plus the transfer's when the call
-	/// moves value. The `call` and `eth_call` extrinsic weights already pay for these reads.
+	/// moves value.
 	fn new_access_list_with_warm_target(
 		args: &FrameArgs<T, E>,
 		origin: &Origin<T>,
@@ -1258,7 +1263,7 @@ where
 				// in case of delegate the executable is not the one at `address`
 				let executable = if let Some(delegated_call) = &delegated_call {
 					if let Some(precompile) =
-						<AllPrecompiles<T>>::get::<Self>(delegated_call.callee.as_fixed_bytes())
+						<AllPrecompiles<T>>::get(delegated_call.callee.as_fixed_bytes())
 					{
 						ExecutableOrPrecompile::Precompile {
 							instance: precompile,
@@ -1651,7 +1656,7 @@ where
 					};
 
 					if module.store_code(&self.exec_config, &mut frame.frame_meter)?.is_some() {
-						// New code is in the storage overlay, so its entries can be warm.
+						// New code is in the storage overlay, so its entries can be warmed.
 						let warmth = self.access_list.warm_summarized(
 							access_list::CodeLoadItems::with_info_op(
 								*module.code_hash(),
@@ -2086,6 +2091,23 @@ where
 	/// Same as `frames` but with a mutable reference as iterator item.
 	fn frames_mut(&mut self) -> impl Iterator<Item = &mut Frame<T>> {
 		core::iter::once(&mut self.first_frame).chain(&mut self.frames).rev()
+	}
+
+	/// Caller of the frame at `depth`, counting from the top frame.
+	///
+	/// A delegate frame runs as the delegating contract, so its caller is the one recorded in
+	/// its [`DelegateInfo`]. Any other frame is called by the frame below it, or by the origin
+	/// when it is the first frame.
+	fn caller_at(&self, depth: usize) -> Origin<T> {
+		let Some(frame) = self.frames().nth(depth) else { return self.origin.clone() };
+		if let Some(DelegateInfo { caller, .. }) = &frame.delegate {
+			caller.clone()
+		} else {
+			self.frames()
+				.nth(depth + 1)
+				.map(|f| Origin::from_account_id(f.account_id.clone()))
+				.unwrap_or(self.origin.clone())
+		}
 	}
 
 	/// Returns whether the specified contract allows to be reentered right now.
@@ -2589,27 +2611,11 @@ where
 			return mock_caller;
 		}
 
-		if let Some(DelegateInfo { caller, .. }) = &self.top_frame().delegate {
-			caller.clone()
-		} else {
-			self.frames()
-				.nth(1)
-				.map(|f| Origin::from_account_id(f.account_id.clone()))
-				.unwrap_or(self.origin.clone())
-		}
+		self.caller_at(0)
 	}
 
 	fn caller_of_caller(&self) -> Origin<T> {
-		// fetch top frame of top frame
-		let caller_of_caller_frame = match self.frames().nth(2) {
-			None => return self.origin.clone(),
-			Some(frame) => frame,
-		};
-		if let Some(DelegateInfo { caller, .. }) = &caller_of_caller_frame.delegate {
-			caller.clone()
-		} else {
-			Origin::from_account_id(caller_of_caller_frame.account_id.clone())
-		}
+		self.caller_at(1)
 	}
 
 	fn origin(&self) -> &Origin<T> {

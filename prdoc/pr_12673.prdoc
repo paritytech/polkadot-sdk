@@ -9,22 +9,23 @@ doc:
     cold benchmark if any of the items it accesses is cold, and the hot benchmark if all are hot.
 - audience: Runtime Dev
   description: |-
-    `WeightInfo` has 12 new required methods: `code_load`, `account_info_read`, `seal_call_hot`,
+    `WeightInfo` has 13 new required methods: `code_load`, `account_info_read`, `seal_call_hot`,
     `seal_call_transfer_hot`, `seal_delegate_call_hot`, `call_with_pvm_code_per_byte_hot`,
     `call_with_evm_code_per_byte_hot`, `access_list_touch_hot_upgrade`,
     `access_list_touch_cold_address_empty`, `access_list_touch_cold_address_full`,
-    `access_list_touch_hot_address_single_element` and `access_list_touch_hot_address_full`.
+    `access_list_touch_hot_address_single_element`, `access_list_touch_hot_address_full` and
+    `access_list_rollback_address_amortization`.
     Some existing benchmarks also measure different work now, so runtimes with their own
     `pallet_revive` weights must regenerate them:
     - `call`, `eth_call`, `seal_call`, `seal_delegate_call`, `instantiate` and `seal_instantiate`
       no longer measure the code reads, which `code_load` charges separately. Their weights drop,
-      but a cold call or instantiation now also pays `code_load`, so its total weight probably
-      grows rather than drops.
+      but a cold call or instantiation now also pays `code_load`.
     - `seal_instantiate` and `evm_instantiate` also measure a read of the new address's
       `OriginalAccount` entry.
     - `access_list_touch_hot_full` now touches a read-paid entry with a read, so it no longer
       measures an upgrade; `access_list_touch_hot_upgrade` measures that.
-    - The benchmarks that fill the access list now fill it to 4,096 entries.
+    - Since the access list grew from 2,048 to 4,096 entries, the benchmarks that fill it now go
+      up to 4,096.
 
     Code outside the pallet that uses `pallet_revive::precompiles`:
     - `Ext` no longer has `touch_storage_access` and `peek_storage_access`, and
@@ -38,8 +39,9 @@ doc:
           kind: StorageAccessKind::persistent_cold(),
       })?;
       ```
+    - `StorageOp` and `Warmth` are no longer re-exported.
     - In `RuntimeCosts`, `DelegateCallBase` is removed, `CallBase` takes the warmth of the call's
-      entries as a new parameter, `CallTransferSurcharge` takes a `TransferAccessKind` in place of
+      entries as a new parameter, `CallTransferSurcharge` takes the transfer's warmth in place of
       `dust_transfer`, and `AccountInfoRead` and `AccessListRegistration` are new. Code that
       charged `CallBase`, `DelegateCallBase` or `CallTransferSurcharge` can no longer build these
       variants; it should charge the cold price from `WeightInfo` instead, for example
@@ -48,6 +50,14 @@ doc:
 
     `ContractBlob::store_code` now returns `Option<BalanceOf<T>>`: the deposit collected for newly
     stored code, or `None` when the code was already stored.
+
+    `ExecConfig` has a new field, `first_frame_reads_paid`, which `with_first_frame_reads_paid`
+    sets. It adds the called contract's entries to the access list, so a call back into the
+    contract is charged hot. The `call` and `eth_call` dispatchables set it, because their weights
+    already cover these reads. Code that calls `bare_call` directly should leave it unset, unless
+    its weight already covers them too. Code that builds an `ExecConfig` by listing all its
+    fields, instead of calling a constructor such as `ExecConfig::new_substrate_tx()`, must add
+    the new one.
 
     The access list holds up to 4,096 entries per transaction (was 2,048). The memory budgeted
     for its worst case, which `integrity_test` counts against `RuntimeMemory`, grows from 1.5 MiB

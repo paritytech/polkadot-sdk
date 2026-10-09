@@ -492,7 +492,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			|kind| RuntimeCosts::SetStorage { new_bytes: value_len, old_bytes: max_size, kind };
 
 		if value_len > max_size {
-			// Nothing is accessed on this failure, so the slot stays cold and owes no rollback.
+			// The failing write leaves the access list unchanged, so it prepays no rollback.
 			let access_kind = StorageAccessKind::new(transient, || {
 				self.ext
 					.warmth_of(self.ext.slot_access(&key, StorageOp::Write))
@@ -654,7 +654,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			None => {
 				let warmth = self
 					.ext
-					.warm(CallItems::new(callee, matches!(&call_type, CallType::DelegateCall)));
+					.warm(CallItems::new(callee, matches!(call_type, CallType::DelegateCall)));
 				self.charge_gas(RuntimeCosts::CallBase(warmth))?;
 			},
 		};
@@ -817,8 +817,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		) {
 			Ok(address) => {
 				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
-					// EIP-2929 warms a created address. It is safe to do the same, since the new
-					// entries are in the storage overlay.
+					// EIP-2929 warms the new contract, whose entries are in the overlay or prepaid.
 					let warmth =
 						self.ext.warm(InstantiateItems { address, deployer: self.ext.address() });
 					self.charge_gas(RuntimeCosts::AccessListRegistration(warmth.summary()))?;
