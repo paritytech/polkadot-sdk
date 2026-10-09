@@ -1432,7 +1432,7 @@ pub mod pallet {
 					deposit_limit: storage_deposit_limit,
 				},
 				data,
-				&ExecConfig::new_substrate_tx(),
+				&ExecConfig::new_substrate_tx().with_first_frame_reads_paid(),
 			);
 
 			if let Ok(return_value) = &output.result &&
@@ -1721,7 +1721,8 @@ pub mod pallet {
 						authorization_deposit: auth_result.deposit,
 					},
 					data,
-					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
+					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight)
+						.with_first_frame_reads_paid(),
 				);
 
 				block_storage::EthereumCallResult::new::<T>(

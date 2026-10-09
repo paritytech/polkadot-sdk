@@ -1045,7 +1045,11 @@ where
 		input_data: &Vec<u8>,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
-		let mut access_list = Self::new_access_list_with_warm_target(&args, &origin, value);
+		let mut access_list = if exec_config.first_frame_reads_paid {
+			Self::new_access_list_with_warm_target(&args, &origin, value)
+		} else {
+			AccessList::new()
+		};
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,
@@ -1089,7 +1093,7 @@ where
 	}
 
 	/// Creates the access list with the target's entries warm, plus the transfer's when the call
-	/// moves value. The `call` and `eth_call` extrinsic weights already pay for these reads.
+	/// moves value.
 	fn new_access_list_with_warm_target(
 		args: &FrameArgs<T, E>,
 		origin: &Origin<T>,

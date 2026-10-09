@@ -643,8 +643,6 @@ impl Access for InstantiateItems {
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) {
 		visit(AccessEntry::Account { address: self.address }, StorageOp::Write);
 		visit(AccessEntry::AccountInfo { address: self.address }, StorageOp::Write);
-		// Not read by the instantiate, since a new address has no mapping. The instantiate
-		// benches read it, so a call finding it hot is paid for.
 		visit(AccessEntry::OriginalAccount { address: self.address }, StorageOp::Read);
 		visit(AccessEntry::Account { address: self.deployer }, StorageOp::Write);
 	}

@@ -17,7 +17,7 @@
 
 //! The pallet-revive shared VM integration test suite.
 use crate::{
-	Code, Config, Error, H256, Key, PristineCode, System, U256,
+	Code, Config, Error, ExecConfig, H256, Key, PristineCode, System, U256,
 	address::AddressMapper,
 	evm::fees::InfoT,
 	exec::EMPTY_CODE_HASH,
@@ -1026,6 +1026,7 @@ fn transient_storage_works(fixture_type: FixtureType) {
 		let metrics = access_list_metrics_of(|| {
 			let result = builder::bare_call(addr)
 				.data(HostTransientMemory::transientMemoryTestCall { slot, a: value }.abi_encode())
+				.exec_config(ExecConfig::new_substrate_tx().with_first_frame_reads_paid())
 				.build_and_unwrap_result();
 			assert!(!result.did_revert(), "test reverted");
 			let decoded =

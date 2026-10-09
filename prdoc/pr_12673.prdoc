@@ -51,6 +51,14 @@ doc:
     `ContractBlob::store_code` now returns `Option<BalanceOf<T>>`: the deposit collected for newly
     stored code, or `None` when the code was already stored.
 
+    `ExecConfig` has a new field, `first_frame_reads_paid`, which `with_first_frame_reads_paid`
+    sets. It adds the called contract's entries to the access list, so a call back into the
+    contract is charged hot. The `call` and `eth_call` dispatchables set it, because their weights
+    already cover these reads. Code that calls `bare_call` directly should leave it unset, unless
+    its weight already covers them too. Code that builds an `ExecConfig` by listing all its
+    fields, instead of calling a constructor such as `ExecConfig::new_substrate_tx()`, must add
+    the new one.
+
     The access list holds up to 4,096 entries per transaction (was 2,048). The memory budgeted
     for its worst case, which `integrity_test` counts against `RuntimeMemory`, grows from 1.5 MiB
     to 2.5 MiB, so a runtime close to its memory limit can now fail that check. `integrity_test`

@@ -3210,10 +3210,15 @@ fn is_cold_touch<E: Ext>(ext: &mut E, key: &Key) -> bool {
 }
 
 fn run_root_call(contract_addr: H160, input: Vec<u8>) {
-	run_root_call_with_value(contract_addr, input, U256::zero());
+	run_root_call_with_value(contract_addr, input, U256::zero(), &ExecConfig::new_substrate_tx());
 }
 
-fn run_root_call_with_value(contract_addr: H160, input: Vec<u8>, value: U256) {
+fn run_root_call_with_value(
+	contract_addr: H160,
+	input: Vec<u8>,
+	value: U256,
+	exec_config: &ExecConfig<Test>,
+) {
 	set_balance(&ALICE, <Test as Config>::Currency::minimum_balance() * 1000);
 	let mut meter =
 		TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>()).unwrap();
@@ -3223,7 +3228,7 @@ fn run_root_call_with_value(contract_addr: H160, input: Vec<u8>, value: U256) {
 		&mut meter,
 		value,
 		input,
-		&ExecConfig::new_substrate_tx(),
+		exec_config,
 	));
 }
 
@@ -3479,6 +3484,7 @@ fn cold_hot_3level_commit_then_revert_drops_committed() {
 
 #[test]
 fn cold_hot_first_frame_warms_entry_target() {
+	let exec_config = ExecConfig::new_substrate_tx().with_first_frame_reads_paid();
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
 			ctx.ext.warmth_of(CallItems::Plain { target: BOB_ADDR }).entries(),
@@ -3505,7 +3511,7 @@ fn cold_hot_first_frame_warms_entry_target() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, root_code_hash);
-		run_root_call(BOB_ADDR, vec![]);
+		run_root_call_with_value(BOB_ADDR, vec![], U256::zero(), &exec_config);
 	});
 
 	let value_transfer_root_code_hash = MockLoader::insert(Call, |ctx, _| {
@@ -3534,7 +3540,8 @@ fn cold_hot_first_frame_warms_entry_target() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, value_transfer_root_code_hash);
-		run_root_call_with_value(BOB_ADDR, vec![], Pallet::<Test>::convert_native_to_evm(100u128));
+		let value = Pallet::<Test>::convert_native_to_evm(100u128);
+		run_root_call_with_value(BOB_ADDR, vec![], value, &exec_config);
 	});
 }
 
