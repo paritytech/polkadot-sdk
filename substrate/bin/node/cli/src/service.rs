@@ -514,6 +514,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			config.chain_spec.fork_id(),
 			metrics.clone(),
 			Arc::clone(&peer_store_handle),
+			&net_config.network_config,
 		);
 	net_config.add_notification_protocol(statement_notification_config);
 

@@ -140,7 +140,7 @@ use prometheus_endpoint::{
 };
 use rand::seq::IteratorRandom;
 use sc_network::{
-	config::{NonReservedPeerMode, SetConfig},
+	config::{NetworkConfiguration, NonReservedPeerMode, SetConfig},
 	error, multiaddr,
 	peer_store::PeerStoreProvider,
 	service::{
@@ -523,6 +523,8 @@ impl Metrics {
 pub struct StatementHandlerPrototype {
 	protocol_name: ProtocolName,
 	notification_service: Box<dyn NotificationService>,
+	/// Inbound slots for light peers, the node's `--in-peers-light`.
+	in_peers_light: u32,
 }
 
 impl StatementHandlerPrototype {
@@ -536,6 +538,7 @@ impl StatementHandlerPrototype {
 		fork_id: Option<&str>,
 		metrics: NotificationMetrics,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
+		network_config: &NetworkConfiguration,
 	) -> (Self, Net::NotificationProtocolConfig) {
 		let genesis_hash = genesis_hash.as_ref();
 		let hex = array_bytes::bytes2hex("", genesis_hash);
@@ -547,13 +550,18 @@ impl StatementHandlerPrototype {
 		} else {
 			(format!("/{hex}/{STATEMENT_PROTOCOL_V2}"), format!("/{hex}/{STATEMENT_PROTOCOL_V1}"))
 		};
+		// The default set holds `--in-peers-light` only as part of its inbound total, so the
+		// light allowance is recovered the way the sync engine recovers it.
+		let default_set = &network_config.default_peers_set;
+		let in_peers_light = (default_set.in_peers + default_set.out_peers)
+			.saturating_sub(network_config.default_peers_set_num_full);
 		// The v2 DHT topology dials peers outside the sync set, so it needs non-reserved slots.
 		// The v1 path manages its peers exclusively through the reserved set: it must keep
 		// non-reserved slots closed, or sync recovery's forced disconnect stops disconnecting.
 		let set_config = if v2dht_enabled() {
 			SetConfig {
-				in_peers: 50,
-				out_peers: 50,
+				in_peers: V2_DHT_IN_PEERS_FULL + in_peers_light,
+				out_peers: V2_DHT_OUT_PEERS,
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Accept,
 			}
@@ -575,7 +583,7 @@ impl StatementHandlerPrototype {
 			peer_store_handle,
 		);
 
-		(Self { protocol_name: protocol_name.into(), notification_service }, config)
+		(Self { protocol_name: protocol_name.into(), notification_service, in_peers_light }, config)
 	}
 
 	/// Turns the prototype into the actual handler.
@@ -732,6 +740,8 @@ impl StatementHandlerPrototype {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			reserved_peers: HashSet::new(),
+			in_peers_light: self.in_peers_light,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
@@ -818,6 +828,11 @@ pub struct StatementHandler<
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set
 	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
+	/// Mirror of the statement protocol's reserved set, which only the sync-event handlers
+	/// change. A reserved peer holds no inbound slot.
+	reserved_peers: HashSet<PeerId>,
+	/// Inbound slots for light peers, next to [`V2_DHT_IN_PEERS_FULL`] for full peers.
+	in_peers_light: u32,
 	/// Set to `true` when an incoming statement is dropped because `is_major_syncing()` is true
 	/// and only a reconnect can recover it: any peer without the v2 DHT path, a v1 peer with it
 	dropped_statements_during_sync: bool,
@@ -907,6 +922,8 @@ pub struct Peer {
 	/// Whether this peer is a light client.
 	/// Light clients on V2 must set topic affinity before receiving statements.
 	is_light: bool,
+	/// Whether the peer opened the substream, taking one of our inbound slots.
+	inbound: bool,
 	/// A pending topic affinity filter waiting to be scheduled for initial sync.
 	/// Set when a new `ExplicitTopicAffinity` arrives; consumed by the main loop
 	/// once any in-progress initial sync for this peer completes.
@@ -1146,6 +1163,7 @@ impl Peer {
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
+			inbound: true,
 			pending_topic_affinity: None,
 			sync_watermark: 0,
 		}
@@ -1235,6 +1253,8 @@ where
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			reserved_peers: HashSet::new(),
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
@@ -1458,17 +1478,17 @@ where
 			self.deferred_peers.len(),
 		);
 
-		let addrs: HashSet<multiaddr::Multiaddr> = self
-			.deferred_peers
-			.drain()
+		let peers: Vec<PeerId> = self.deferred_peers.drain().collect();
+		let addrs: HashSet<multiaddr::Multiaddr> = peers
+			.iter()
 			.map(|p| {
-				iter::once(multiaddr::Protocol::P2p(p.into())).collect::<multiaddr::Multiaddr>()
+				iter::once(multiaddr::Protocol::P2p((*p).into())).collect::<multiaddr::Multiaddr>()
 			})
 			.collect();
 
-		if let Err(err) = self.network.add_peers_to_reserved_set(self.protocol_name.clone(), addrs)
-		{
-			log::warn!(target: LOG_TARGET, "Failed to add deferred peers: {err}");
+		match self.network.add_peers_to_reserved_set(self.protocol_name.clone(), addrs) {
+			Ok(()) => self.reserved_peers.extend(peers),
+			Err(err) => log::warn!(target: LOG_TARGET, "Failed to add deferred peers: {err}"),
 		}
 	}
 
@@ -1515,6 +1535,7 @@ where
 			log::warn!(target: LOG_TARGET, "Failed to remove peer {peer_id} for sync recovery: {err}");
 			return;
 		}
+		self.reserved_peers.remove(&peer_id);
 		if v2dht_enabled() {
 			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
 		}
@@ -1533,12 +1554,43 @@ where
 		);
 		let addr =
 			iter::once(multiaddr::Protocol::P2p(peer_id.into())).collect::<multiaddr::Multiaddr>();
-		if let Err(err) = self
+		match self
 			.network
 			.add_peers_to_reserved_set(self.protocol_name.clone(), iter::once(addr).collect())
 		{
-			log::warn!(target: LOG_TARGET, "Failed to re-add sync recovery peer {peer_id}: {err}");
+			Ok(()) => {
+				self.reserved_peers.insert(peer_id);
+			},
+			Err(err) => {
+				log::warn!(target: LOG_TARGET, "Failed to re-add sync recovery peer {peer_id}: {err}");
+			},
 		}
+	}
+
+	/// Whether an inbound substream from `peer` fits its role's quota.
+	///
+	/// The protocol controller counts the full and light slots together, so the split by role
+	/// happens here, as in the sync engine. A reserved peer holds no slot there either.
+	fn inbound_slot_free(&self, peer: &PeerId, is_light: bool) -> bool {
+		if self.reserved_peers.contains(peer) {
+			return true;
+		}
+		let taken = self
+			.peers
+			.iter()
+			.filter(|(id, p)| {
+				p.inbound && p.is_light == is_light && !self.reserved_peers.contains(id)
+			})
+			.count();
+		let limit = if is_light { self.in_peers_light } else { V2_DHT_IN_PEERS_FULL } as usize;
+		if taken >= limit {
+			log::debug!(
+				target: LOG_TARGET,
+				"Inbound {} slots full ({taken}/{limit}), rejecting {peer}",
+				if is_light { "light" } else { "full" },
+			);
+		}
+		taken < limit
 	}
 
 	/// React to peer connect/disconnect events from the sync subsystem:
@@ -1566,14 +1618,20 @@ where
 					self.protocol_name.clone(),
 					iter::once(addr).collect(),
 				);
-				if let Err(err) = result {
-					log::error!(target: LOG_TARGET, "Add reserved peer failed: {}", err);
+				match result {
+					Ok(()) => {
+						self.reserved_peers.insert(remote);
+					},
+					Err(err) => {
+						log::error!(target: LOG_TARGET, "Add reserved peer failed: {}", err);
+					},
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
 				if self.deferred_peers.remove(&remote) {
 					return;
 				}
+				self.reserved_peers.remove(&remote);
 				let result = self.network.remove_peers_from_reserved_set(
 					self.protocol_name.clone(),
 					iter::once(remote).collect(),
@@ -1610,17 +1668,22 @@ where
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
 				// Only accept peers whose role can be determined
-				let result = self
-					.network
-					.peer_role(peer, handshake)
-					.map_or(ValidationResult::Reject, |_| ValidationResult::Accept);
+				let result = match self.network.peer_role(peer, handshake) {
+					Some(role)
+						if v2dht_enabled() && !self.inbound_slot_free(&peer, role.is_light()) =>
+					{
+						ValidationResult::Reject
+					},
+					Some(_) => ValidationResult::Accept,
+					None => ValidationResult::Reject,
+				};
 				let _ = result_tx.send(result);
 			},
 			NotificationEvent::NotificationStreamOpened {
 				peer,
 				negotiated_fallback,
 				handshake,
-				..
+				direction,
 			} => {
 				// If negotiated_fallback is Some, the peer connected on a fallback protocol
 				// (v1). If None, the peer connected on the main protocol (v2).
@@ -1657,6 +1720,7 @@ where
 						protocol_version,
 						topic_affinity: None,
 						is_light,
+						inbound: direction.is_inbound(),
 						pending_topic_affinity: None,
 						sync_watermark: 0,
 					},
@@ -3354,6 +3418,7 @@ mod tests {
 					protocol_version: PeerProtocolVersion::V1,
 					topic_affinity: None,
 					is_light: false,
+					inbound: true,
 					pending_topic_affinity: None,
 					sync_watermark: 0,
 				},
@@ -3398,6 +3463,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			reserved_peers: HashSet::new(),
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
@@ -4344,6 +4411,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			reserved_peers: HashSet::new(),
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
@@ -4410,6 +4479,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			reserved_peers: HashSet::new(),
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
@@ -6512,6 +6583,7 @@ mod tests {
 				protocol_version: version,
 				topic_affinity,
 				is_light,
+				inbound: true,
 				pending_topic_affinity: None,
 				sync_watermark: 0,
 			}
@@ -6697,6 +6769,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			reserved_peers: HashSet::new(),
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
@@ -6783,6 +6857,7 @@ mod tests {
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
+				inbound: true,
 				pending_topic_affinity: None,
 				sync_watermark: 0,
 			},
@@ -7200,6 +7275,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			reserved_peers: HashSet::new(),
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
@@ -7243,6 +7320,55 @@ mod tests {
 		assert!(handler.deferred_peers.contains(&peer2));
 		assert!(handler.deferred_peers.contains(&peer3));
 		assert!(network.get_removed_reserved().is_empty(), "no remove call for buffered peer");
+	}
+
+	#[test]
+	fn inbound_slots_are_split_by_role() {
+		let (mut handler, _store, _network, _notification_service, _, peer_ids) =
+			build_handler(V2_DHT_IN_PEERS_FULL as usize);
+		handler.in_peers_light = 1;
+		let candidate = PeerId::random();
+
+		assert!(!handler.inbound_slot_free(&candidate, false), "full inbound slots are taken");
+		assert!(handler.inbound_slot_free(&candidate, true), "light slots are counted apart");
+
+		handler.peers.get_mut(&peer_ids[0]).unwrap().inbound = false;
+		assert!(handler.inbound_slot_free(&candidate, false), "an outbound peer holds no slot");
+
+		handler.peers.get_mut(&peer_ids[1]).unwrap().is_light = true;
+		assert!(!handler.inbound_slot_free(&candidate, true), "the light quota is taken");
+		assert!(handler.inbound_slot_free(&candidate, false));
+	}
+
+	#[test]
+	fn reserved_peers_hold_no_inbound_slot() {
+		let (mut handler, _store, _network, _notification_service, _, peer_ids) = build_handler(1);
+		handler.in_peers_light = 1;
+		handler.peers.get_mut(&peer_ids[0]).unwrap().is_light = true;
+		let candidate = PeerId::random();
+		assert!(!handler.inbound_slot_free(&candidate, true));
+
+		handler.reserved_peers.insert(candidate);
+		assert!(handler.inbound_slot_free(&candidate, true), "a reserved candidate always fits");
+
+		handler.reserved_peers.clear();
+		handler.reserved_peers.insert(peer_ids[0]);
+		assert!(handler.inbound_slot_free(&candidate, true), "a reserved peer is not counted");
+	}
+
+	#[test]
+	fn reserved_set_mirror_follows_sync_events() {
+		let (mut handler, _store, _network, _notification_service, _, _) = build_handler(0);
+		let peer = PeerId::random();
+
+		handler.handle_sync_event(SyncEvent::PeerConnected {
+			peer_id: peer,
+			roles: sc_network::Roles::FULL,
+		});
+		assert!(handler.reserved_peers.contains(&peer));
+
+		handler.handle_sync_event(SyncEvent::PeerDisconnected(peer));
+		assert!(!handler.reserved_peers.contains(&peer));
 	}
 
 	#[test]
@@ -7297,6 +7423,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: deferred,
+			reserved_peers: HashSet::new(),
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
@@ -7318,6 +7446,8 @@ mod tests {
 
 		let added = network.get_added_reserved();
 		assert_eq!(added.len(), 1);
+		assert!(handler.reserved_peers.contains(&peer1));
+		assert!(handler.reserved_peers.contains(&peer2));
 		let added_addrs = &added[0];
 		let expected_addr1: sc_network::Multiaddr =
 			iter::once(multiaddr::Protocol::P2p(peer1.into())).collect();
@@ -7349,6 +7479,7 @@ mod tests {
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
+				inbound: true,
 				pending_topic_affinity: None,
 				sync_watermark: 0,
 			},
@@ -7392,6 +7523,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			reserved_peers: HashSet::new(),
+			in_peers_light: 0,
 			dropped_statements_during_sync: true,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
@@ -7462,6 +7595,7 @@ mod tests {
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
+			inbound: true,
 			pending_topic_affinity: None,
 			sync_watermark: 0,
 		};
@@ -7511,6 +7645,8 @@ mod tests {
 					parked_propagations: VecDeque::new(),
 					pending_sends: FuturesUnordered::new(),
 					deferred_peers: HashSet::new(),
+					reserved_peers: HashSet::new(),
+					in_peers_light: 0,
 					dropped_statements_during_sync: dropped,
 					sync_recovery_peer: None,
 					sync_recovery_readd_timeout: Box::pin(pending().fuse()),
@@ -7567,6 +7703,7 @@ mod tests {
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
+			inbound: true,
 			pending_topic_affinity: None,
 			sync_watermark: 0,
 		};
@@ -7629,6 +7766,7 @@ mod tests {
 			protocol_version: PeerProtocolVersion::V2,
 			topic_affinity: Some(filter_over(&[topic(9)])),
 			is_light: false,
+			inbound: true,
 			pending_topic_affinity: None,
 			sync_watermark: 0,
 		};

@@ -46,6 +46,7 @@ pub(crate) fn new_statement_handler_proto<
 			parachain_config.chain_spec.fork_id(),
 			metrics.clone(),
 			Arc::clone(&net_config.peer_store_handle()),
+			&net_config.network_config,
 		);
 	net_config.add_notification_protocol(statement_config);
 	statement_handler_proto
