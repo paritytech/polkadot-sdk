@@ -34,7 +34,9 @@ pub type BlockNumberFor<T, I = ()> =
 
 /// A type alias for handling balance deposits.
 pub type DepositBalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+	<<T as Config<I>>::Currency as frame_support::traits::fungible::Inspect<
+		<T as SystemConfig>::AccountId,
+	>>::Balance;
 /// A type alias representing the details of a collection.
 pub type CollectionDetailsFor<T, I> =
 	CollectionDetails<<T as SystemConfig>::AccountId, DepositBalanceOf<T, I>>;
@@ -60,7 +62,9 @@ pub type ItemDetailsFor<T, I> =
 	ItemDetails<<T as SystemConfig>::AccountId, ItemDepositOf<T, I>, ApprovalsOf<T, I>>;
 /// A type alias for an accounts balance.
 pub type BalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+	<<T as Config<I>>::Currency as frame_support::traits::fungible::Inspect<
+		<T as SystemConfig>::AccountId,
+	>>::Balance;
 /// A type alias to represent the price of an item.
 pub type ItemPrice<T, I = ()> = BalanceOf<T, I>;
 /// A type alias for the tips held by a single item.
