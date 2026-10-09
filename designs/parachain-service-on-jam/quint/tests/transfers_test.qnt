@@ -112,6 +112,7 @@ module transfers_test {
     supervisor: id,
     supervisorCreated: 0,
     created: 0,
+    codeHash: { hashBytes: 0 },
     requests: Map(),
     storage: Map(),
     account: { balance: 1000000, supervisorBalance: 0, minMemoGas: 100 }
@@ -242,7 +243,7 @@ module transfers_test {
     // Holds 500 above its empty-store threshold.
     val fs = counterparties.put(ours, {
       supervisor: ParachainServiceId, supervisorCreated: ParachainServiceCreated, created: 0,
-      requests: Map(), storage: Map(),
+      codeHash: { hashBytes: 0 }, requests: Map(), storage: Map(),
       account: { balance: BaseDeposit + 500, supervisorBalance: 0, minMemoGas: 0 }
     })
     val fromOurs = { ...payFive, source: Some(ours), amount: 500 }

@@ -37,7 +37,9 @@ module accumulate_test {
     val ah = AssetHubParaId
     val newCode: Hash = { hashBytes: 31337 }
     val len = FixedCodeLen
-    val msg = UpgradeService({ codeHash: newCode, len: len, minAccGas: 0, minMemoGas: 0 })
+    val msg = UpgradeService({
+      service: None, codeHash: newCode, len: len, minAccGas: 0, minMemoGas: 0
+    })
     // Solicited only: the request exists but the blob was never supplied.
     val solicited = initialState.addReferencer(ah, newCode, len).state
     val onlySolicited = replay(solicited, ah, 0, msg)
@@ -66,7 +68,9 @@ module accumulate_test {
     val ah = AssetHubParaId
     val newCode: Hash = { hashBytes: 31338 }
     val len = FixedCodeLen
-    val msg = UpgradeService({ codeHash: newCode, len: len, minAccGas: 0, minMemoGas: 0 })
+    val msg = UpgradeService({
+      service: None, codeHash: newCode, len: len, minAccGas: 0, minMemoGas: 0
+    })
     // Available, but only the Coretime chain references it.
     val theirs = markProvided(initialState.addReferencer(CoretimeParaId, newCode, len).state,
       newCode, len)
@@ -95,7 +99,9 @@ module accumulate_test {
     val ahCode: ValidationCodeHash = { vchBytes: 2 }
     val newCode: Hash = { hashBytes: 4242 }
     val upgrade =
-      UpgradeService({ codeHash: newCode, len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 })
+      UpgradeService({
+        service: None, codeHash: newCode, len: FixedCodeLen, minAccGas: 0, minMemoGas: 0
+      })
     init
       // Make the new service code available, so the upgrade's own preconditions hold.
       .then(applyHappyPath(ah, ahCode, List(Solicit({ target: Parachain(ah), hash: newCode, len: FixedCodeLen }))))

@@ -295,7 +295,9 @@ module state_balance {
               jamSolicit: None,
               jamForget: Some(h),
               retained: true,
-              log: Some(ForgetAgainAt({ target: Parachain(para_id), hash: h, len: len, due: now + ExpungePeriod }))
+              log: Some(ForgetAgainAt({
+                target: Parachain(para_id), hash: h, len: len, due: now + ExpungePeriod
+              }))
             }
           | Unrequested(since) =>
             // Second forget: expunge only once strictly past the turnaround
@@ -320,7 +322,9 @@ module state_balance {
               jamSolicit: None,
               jamForget: Some(h),
               retained: true,
-              log: Some(ForgetAgainAt({ target: Parachain(para_id), hash: h, len: len, due: now + ExpungePeriod }))
+              log: Some(ForgetAgainAt({
+                target: Parachain(para_id), hash: h, len: len, due: now + ExpungePeriod
+              }))
             } else {
               state: s,
               jamSolicit: None,

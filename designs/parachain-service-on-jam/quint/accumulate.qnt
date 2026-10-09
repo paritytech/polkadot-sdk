@@ -319,6 +319,11 @@ module accumulate {
           state: reattributeTransferQueue(cleaned, before, queuedTransferCount(cleaned)) }
       }
       | UpgradeService(payload) =>
+      match payload.service {
+      | Some(target) =>
+        { ...acc, foreign:
+          foreignUpgrade(acc.foreign, target, payload.codeHash, payload.minMemoGas) }
+      | None =>
       // §5.4: Asset Hub must reference the new code, and it must be available.
       if (acc.state.hasReferencer(payload.codeHash, payload.len, AssetHubParaId) and
           acc.state.preimageAvailable(payload.codeHash, payload.len))
@@ -331,6 +336,7 @@ module accumulate {
         { ...acc,
           logs: acc.logs.append(ServiceUpgradePreimageMissing({ codeHash: payload.codeHash }))
         }
+      }
       | SetKV(payload) =>
       // §3.3: no-op for an unregistered or deregistering para (§6.4). Step 1
       // already rejects its work packages, so this only matters if `SetKV`

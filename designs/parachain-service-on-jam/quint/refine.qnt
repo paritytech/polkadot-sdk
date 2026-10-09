@@ -88,7 +88,8 @@ module refine {
     // paraId 4 + newTotal Compact<u64>.
     | ParachainSetStateBalance(p) => 4 + compactLen(p.newTotal)
     // codeHash 32 + Compact<u32> len + minAccGas 8 + minMemoGas 8.
-    | UpgradeService(p) => 48 + compactLen(p.len)
+    | UpgradeService(p) =>
+      48 + compactLen(p.len) + (match p.service { | Some(_) => 5 | None => 1 })
   }
 
   /// Summed SCALE-encoded size of the upward messages themselves, excluding the

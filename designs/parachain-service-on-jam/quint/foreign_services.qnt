@@ -14,6 +14,8 @@ module foreign_services {
     supervisor: ServiceId,
     supervisorCreated: Timeslot,
     created: Timeslot,
+    // Hash of the service's code.
+    codeHash: Hash,
     // Preimage requests, sharing the `RequestStatus` machine of 6.1.
     requests: (Hash, int) -> RequestStatus,
     // Storage key -> value.
@@ -162,6 +164,20 @@ module foreign_services {
       { services: fs.put(s, { ...f, storage: f.storage.mapRemove(key) }), log: None }
     }
 
+  // --- upgrade -------------------------------------------------------------
+
+  /// Replacing a supervised service's code. Unlike this service's own upgrade
+  /// (5.4) the code need not be available. An unknown or unsupervised service is
+  /// a silent no-op.
+  pure def foreignUpgrade(
+    fs: ForeignServices, s: ServiceId, codeHash: Hash, minMemoGas: int
+  ): ForeignServices =
+    if (not(supervisedByUs(fs, s))) fs
+    else {
+      val f = fs.get(s)
+      fs.put(s, { ...f, codeHash: codeHash, account: { ...f.account, minMemoGas: minMemoGas } })
+    }
+
   // --- solicit -------------------------------------------------------------
 
   /// A `Service`-targeted `solicit`.
@@ -270,6 +286,7 @@ module foreign_services {
       supervisor: ParachainServiceId,
       supervisorCreated: ParachainServiceCreated,
       created: now,
+      codeHash: c.codeHash,
       requests: Map((c.codeHash, c.len) -> Unprovided),
       storage: Map(),
       account: { balance: 0, supervisorBalance: 0, minMemoGas: c.minMemoGas }

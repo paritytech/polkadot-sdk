@@ -23,6 +23,7 @@ module service_ops_test {
     supervisor: ParachainServiceId,
     supervisorCreated: ParachainServiceCreated,
     created: created,
+    codeHash: someHash,
     requests: reqs,
     storage: store,
     account: { balance: 1000000, supervisorBalance: 0, minMemoGas: 0 }
@@ -152,6 +153,27 @@ module service_ops_test {
       // Naming ourselves is refused outright.
       logsOf(emptyOurs, EjectService({ service: ParachainServiceId }), 10)
         == List(ServiceEjectFailed({ service: ParachainServiceId, error: TargetIsSelf })),
+    }))
+  }
+
+  /// `UpgradeService` naming a supervised service replaces its code, without
+  /// the availability check of this service's own upgrade. Anything else is a
+  /// silent no-op.
+  run upgradeSupervisedServiceTest = {
+    val newCode: Hash = { hashBytes: 77 }
+    val upgradeIt = UpgradeService({
+      service: Some(victim), codeHash: newCode, len: 0, minAccGas: 0, minMemoGas: 9
+    })
+    val theirs: ForeignServices =
+      Map(victim -> { ...supervised(Map(), Map(), 0), supervisor: victim })
+    init.then(expectThat(all {
+      after(emptyOurs, upgradeIt, 10).get(victim).codeHash == newCode,
+      after(emptyOurs, upgradeIt, 10).get(victim).account.minMemoGas == 9,
+      logsOf(emptyOurs, upgradeIt, 10) == List(),
+      after(Map(), upgradeIt, 10) == Map(),
+      logsOf(Map(), upgradeIt, 10) == List(),
+      after(theirs, upgradeIt, 10) == theirs,
+      logsOf(theirs, upgradeIt, 10) == List(),
     }))
   }
 

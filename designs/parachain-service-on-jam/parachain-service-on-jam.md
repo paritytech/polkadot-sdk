@@ -635,9 +635,15 @@ enum UpwardMessage {
     /// Remove every `incoming_transfers` bucket up to and including this bucket
     /// id. See §5.1. **Asset Hub only.**
     CleanUpBucketsUpTo(BucketId),
-    /// Replace the Parachain Service's own service code. See §5.4.
-    /// **Asset Hub only.**
-    UpgradeService { code_hash: Hash, len: Compact<u32>, min_acc_gas: u64, min_memo_gas: u64 },
+    /// Replace the code of `service`, or of the Parachain Service itself when it is
+    /// `None`. See §5.4. **Asset Hub only.**
+    UpgradeService {
+        service: Option<ServiceId>,
+        code_hash: Hash,
+        len: Compact<u32>,
+        min_acc_gas: u64,
+        min_memo_gas: u64,
+    },
     /// Upsert a parachain's head data. See §6.3. **Coretime chain only.**
     ParachainSetHead { para_id: ParaId, new_head: HeadData },
     /// Upsert a parachain's validation code. See §6.3. **Coretime chain only.**
@@ -1066,6 +1072,9 @@ Refine wrapper rejects from any other parachain. Accumulate forwards it to JAM's
 host call after verifying that **Asset Hub references** the new code's preimage (§6.1)
 and that the preimage is **available for lookup**, meaning JAM's `query` reports it as
 provided or re-requested. Asset Hub cannot `Forget` its reference to the active code.
+
+With `service: Some(id)`, `UpgradeService` upgrades a supervised service instead.
+Accumulate forwards it to JAM's `upgrade` for `id` without these checks. 
 
 ```
 Phase 1: Solicit

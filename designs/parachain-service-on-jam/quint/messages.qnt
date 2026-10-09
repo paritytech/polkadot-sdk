@@ -295,9 +295,12 @@ module messages {
   | SetValidatorKeys({ keys: List[ValidatorKey], isLast: bool })
   // clean_up_buckets_up_to(bucket_id): Asset Hub only.
   | CleanUpBucketsUpTo(BucketId)
-  // parachain_service_upgrade(code_hash, len, min_acc_gas, min_memo_gas):
-  // Asset Hub only (design §5.4).
-  | UpgradeService({ codeHash: Hash, len: int, minAccGas: int, minMemoGas: int })
+  // parachain_service_upgrade(service, code_hash, len, min_acc_gas, min_memo_gas):
+  // Asset Hub only (design §5.4). `service` names a supervised service, `None`
+  // this service.
+  | UpgradeService({
+      service: Option[ServiceId], codeHash: Hash, len: int, minAccGas: int, minMemoGas: int
+  })
   // parachain_set_head(para_id, new_head): Coretime only.
   | ParachainSetHead({ paraId: ParaId, newHead: HeadData })
   // parachain_set_validation_code(para_id, new_validation_code): Coretime only.

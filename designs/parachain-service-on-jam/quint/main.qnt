@@ -415,6 +415,9 @@ module main {
       Solicit({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
       RemoveServiceStorage({ service: MkServiceId(4), key: List(1, 2) }),
       EjectService({ service: MkServiceId(4) }),
+      UpgradeService({
+        service: Some(MkServiceId(4)), codeHash: anyHash, len: 0, minAccGas: 0, minMemoGas: 7
+      }),
       // Sets `created` free, which is how a service this one does not
       // supervise comes about.
       SetServiceSupervisor({ service: created, newSupervisor: created }),
@@ -464,8 +467,13 @@ module main {
       // or, on a shorter queue, to empty it and restart the ids at 0 (§5.1).
       CleanUpBucketsUpTo(0),
       CleanUpBucketsUpTo(2),
-      UpgradeService({ codeHash: activeCode.asPreimage(), len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 }),
-      UpgradeService({ codeHash: unsolicitedHash, len: 4096, minAccGas: 0, minMemoGas: 0 }),
+      UpgradeService({
+        service: None, codeHash: activeCode.asPreimage(), len: FixedCodeLen,
+        minAccGas: 0, minMemoGas: 0
+      }),
+      UpgradeService({
+        service: None, codeHash: unsolicitedHash, len: 4096, minAccGas: 0, minMemoGas: 0
+      }),
       // Assignments of every kind: tiles directly (1), kept and rotated (3),
       // an empty one and one for an unknown core, both of which Refine rejects,
       // and a hand-off, which requires an exact 80-hash queue (§3.3).
