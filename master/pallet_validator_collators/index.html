@@ -148,7 +148,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate pallet_validator_collators</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_validator_collators/index.html">pallet_<wbr>validator_<wbr>collators</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#todo" title="TODO">TODO</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>pallet_<wbr>validator_<wbr>collators</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_validator_collators/lib.rs.html#16-329">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Validator Collators pallet.</p>
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate pallet_validator_collators</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_validator_collators/index.html">pallet_<wbr>validator_<wbr>collators</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#todo" title="TODO">TODO</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>pallet_<wbr>validator_<wbr>collators</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_validator_collators/lib.rs.html#16-525">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Validator Collators pallet.</p>
 <p>Stores the validator set announced by the chain that runs <code>pallet-staking-async</code>, typically
 Asset Hub, and offers it as a session manager, so the relay-chain validators of the current era
 collate on a system parachain.</p>
@@ -160,31 +160,62 @@ or from another pallet through <a href="pallet/struct.Pallet.html#method.receive
 is not newer than the stored one, or that has more validators than <a href="pallet/trait.Config.html#associatedtype.MaxValidators" title="associated type pallet_validator_collators::pallet::Config::MaxValidators"><code>Config::MaxValidators</code></a>.</p>
 <p>The pallet is a [<code>pallet_session::SessionManager</code>]. At every session rotation it returns the
 stored validators that have registered local session keys, checked with
-<a href="pallet/trait.Config.html#associatedtype.ValidatorRegistration" title="associated type pallet_validator_collators::pallet::Config::ValidatorRegistration"><code>Config::ValidatorRegistration</code></a>. <a href="pallet/type.MaxCollators.html" title="type pallet_validator_collators::pallet::MaxCollators"><code>MaxCollators</code></a> optionally caps how many of them are
-returned. The runtime combines this pallet with <code>pallet-collator-selection</code> through
-[<code>pallet_session::UnionSessionManager</code>], so invulnerables and candidates keep collating next to
-the validators.</p>
+<a href="pallet/trait.Config.html#associatedtype.ValidatorRegistration" title="associated type pallet_validator_collators::pallet::Config::ValidatorRegistration"><code>Config::ValidatorRegistration</code></a>. The runtime combines this pallet with
+<code>pallet-collator-selection</code> through [<code>pallet_session::UnionSessionManager</code>], so invulnerables
+and candidates keep collating next to the validators.</p>
+<p><a href="pallet/type.MaxCollators.html" title="type pallet_validator_collators::pallet::MaxCollators"><code>MaxCollators</code></a> optionally caps how many validators are returned. Governance can start with a
+low cap and raise it in steps, or lower it again, to roll out validator collators gradually.
+Under a cap the pallet draws the validators at random at the first forced rotation after a set
+arrives or the cap changes, stores them in <a href="pallet/type.Collators.html" title="type pallet_validator_collators::pallet::Collators"><code>Collators</code></a> and returns those with registered keys
+until the next draw. The draw shuffles the whole set with a seed made of the genesis hash, the
+era and the relay chain epoch randomness cached in <a href="pallet/type.EpochRandomness.html" title="type pallet_validator_collators::pallet::EpochRandomness"><code>EpochRandomness</code></a>, then keeps the first
+validators with registered keys up to the cap. Every validator with keys has the same chance to
+be drawn in each era. A cap change draws again from the stored set, so the drawn validators
+can change. Every draw takes its seed from the randomness cached at the time of the draw. The
+seed includes the genesis hash, so each chain draws independently from the same set. A
+validator that registers keys after the draw waits for the next set or for a cap change. Each
+set, so each era, gets a new draw, which is enacted at the second forced rotation with no
+notice, so a validator with keys must already run a synced collator node to collate when drawn.</p>
+<p>The pallet implements [<code>cumulus_pallet_parachain_system::OnSystemEvent</code>]. The runtime must
+include it in the <code>OnSystemEvent</code> of <code>cumulus-pallet-parachain-system</code>, alone or in a tuple
+with other handlers, to keep <a href="pallet/type.EpochRandomness.html" title="type pallet_validator_collators::pallet::EpochRandomness"><code>EpochRandomness</code></a> up to date from the relay chain state proof.
+The runtime should also return the keys of <a href="pallet/struct.Pallet.html#method.relay_keys_to_prove" title="associated function pallet_validator_collators::pallet::Pallet::relay_keys_to_prove"><code>Pallet::relay_keys_to_prove</code></a> from
+<a href="cumulus_primitives_core::KeyToIncludeInRelayProof"><code>KeyToIncludeInRelayProof</code></a>, so collators
+include the randomness key in the proof.
+The draw runs in the session rotation, before the block’s own proof is processed, so it uses
+the value cached by the previous block.
+A block whose proof lacks the trie nodes of the randomness key, or holds a value that does not
+decode, is invalid. A proof that shows the key absent, as before the relay chain’s first epoch
+change, caches the zero value a draw without randomness uses.
+Without the <code>OnSystemEvent</code> wiring, every draw uses a zero randomness value and logs an error.</p>
 <p>The stored set is the one staking elected for the era. The relay chain enacts only the elected
 validators with relay-chain session keys, and each system chain returns only those with keys
 registered there, so a returned collator is not necessarily an active relay-chain validator.</p>
 <p>The pallet is also a [<code>pallet_session::ShouldEndSession</code>]. Pallet-session queues a new set at
-one rotation and enacts it at the next. When a set arrives the pallet forces two rotations in
-the following two blocks, so the set is in force without waiting for the regular period. The
-regular rotations given by <a href="pallet/trait.Config.html#associatedtype.PeriodicSession" title="associated type pallet_validator_collators::pallet::Config::PeriodicSession"><code>Config::PeriodicSession</code></a> continue as before.</p>
+one rotation and enacts it at the next. When a set arrives, or the cap changes while a set is
+stored, the pallet forces two rotations in the following two blocks, so the change is in force
+without waiting for the regular period. The regular rotations given by
+<a href="pallet/trait.Config.html#associatedtype.PeriodicSession" title="associated type pallet_validator_collators::pallet::Config::PeriodicSession"><code>Config::PeriodicSession</code></a> continue as before.</p>
 <p>The returned validators author blocks like any collator, so a <code>pallet-collator-selection</code> event
 handler pays them from its pot and records them in <code>LastAuthoredBlock</code>.</p>
 <p>A runtime must configure <code>pallet-collator-selection</code>’s <code>KickThreshold</code> to exceed a full Aura
 round of the merged list, <a href="pallet/trait.Config.html#associatedtype.MaxValidators" title="associated type pallet_validator_collators::pallet::Config::MaxValidators"><code>Config::MaxValidators</code></a> plus the invulnerables and candidates, times
 the blocks the chain produces per Aura slot. Otherwise bonded candidates are kicked as stale
-between their slots.</p>
+between their slots. <a href="pallet/trait.Config.html#associatedtype.MaxValidators" title="associated type pallet_validator_collators::pallet::Config::MaxValidators"><code>Config::MaxValidators</code></a> rather than the cap is the bound, since the cap
+can be raised or removed without a runtime upgrade.</p>
 <h3 id="todo"><a class="doc-anchor" href="#todo">§</a>TODO</h3>
 <ul>
-<li>A random draw among the opted-in validators when a cap is set. For now the cap keeps a prefix
-of the set in account order.</li>
 <li>Counting the blocks each validator authors and reporting era points to the chain where
 <code>pallet-staking-async</code> runs, typically Asset Hub.</li>
-<li>Dropping validators that author no blocks for a session.</li>
+<li>Dropping validators that author no blocks for a session, judged among the drawn validators
+under a cap.</li>
 <li>(Only if a need is established) Propagating relay-chain offences to the collator set.</li>
+<li>Under a cap, revisit the redraw period and notice once operators have run collators. A draw
+per era without notice is the first step, with operators expected to run a synced collator
+node all the time. Options: redraw every few eras or sessions, keep a drawn validator for
+several eras while it stays in the active set, and announce the drawn validators before they
+collate so they can sync a node. Open points: the time a node needs to sync, and refilling the
+place of a drawn validator that leaves the active set, which needs notice too.</li>
 </ul>
 </div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_validator_collators::pallet">pallet</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="pallet/index.html" title="mod pallet_validator_collators::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
 to construct this pallet.</dd><dt><a class="mod" href="weights/index.html" title="mod pallet_validator_collators::weights">weights</a></dt><dd>Default weights for <code>pallet_validator_collators</code>.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

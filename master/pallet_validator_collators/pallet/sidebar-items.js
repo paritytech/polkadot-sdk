@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","RotationState"],"mod":["dispatchables","storage_types"],"struct":["EraValidatorSet","Pallet"],"trait":["Config"],"type":["MaxCollators","Module","PendingRotation","ValidatorSet"]};
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","RotationState"],"mod":["dispatchables","storage_types"],"struct":["DrawnCollators","EraValidatorSet","Pallet"],"trait":["Config"],"type":["Collators","EpochRandomness","MaxCollators","Module","PendingRotation","ValidatorSet"]};
