@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791474395839,
+  "lastUpdate": 1791559995835,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -132839,6 +132839,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3187923651,
             "range": "± 87722595",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "05ddbee5c062d49c8a2a072c529a2fc80aad243e",
+          "message": "pallet-validator-collators: random draw of validator collators under a cap (#13420)\n\nWhen `MaxCollators` is set, `pallet-validator-collators` draws the\nvalidators at random at the first of the two forced rotations after a\nset arrives. The draw shuffles the whole set with a seed made of the\ngenesis hash, the era and the relay chain epoch randomness, keeps the\nvalidators with registered keys and truncates to the cap. The drawn list\nand its era are stored in the new `Collators` storage item and reported\nin the new `CollatorsDrawn` event. Without a cap every validator with\nregistered keys is returned.\n\nChanging the cap while a set is stored forces two session rotations. The\nfirst draws the list anew from the stored set, with the randomness\ncached at that time, so the drawn validators can change. Removing the\ncap clears the drawn list.\n\nThe pallet implements `cumulus_pallet_parachain_system::OnSystemEvent`\nand caches the relay chain `ONE_EPOCH_AGO_RANDOMNESS` in the new\n`EpochRandomness` storage item (similar to People Polkadot's\n`relay-randomness` pallet).\nRuntimes using the pallet must wire it as `OnSystemEvent` of\n`cumulus-pallet-parachain-system`, and should return the keys of\n`Pallet::relay_keys_to_prove` from\n`cumulus_primitives_core::KeyToIncludeInRelayProof`.\nA relay chain state proof that lacks the trie nodes of the randomness\nkey, or holds a value that does not decode, makes the block invalid, so\na block author cannot omit the key to keep an older value. A proof that\nshows the key absent, as on a relay chain before its first epoch change,\ncaches a zero value, the default of BABE's randomness storage.\n\nAsset Hub Westend and People Westend wire the pallet as `OnSystemEvent`\nand implement `KeyToIncludeInRelayProof` with its keys.\n\nUnder a cap the list is **redrawn for every new set, so every era**, and\napplies with no notice: **drawn validators must already run a synced\ncollator node**.\n\n## Why this is the first step\n\nThe cap lets governance roll out validator collators gradually: start\nwith a low cap and raise it in steps, monitoring in between, up to no\ncap. Lowering it again goes back to fewer collators if something breaks.\nEach cap change is a new draw.\n\nRedraw period, a slot kept for several eras and advance notice are\ndeferred until operators have run collators and given feedback. See\nhttps://github.com/paritytech/metanode/issues/22.\n\n## Notes\n\n- Panics: `on_relay_state_proof`, the pallet's `OnSystemEvent` handler,\n_panics_ on a relay chain state proof without the trie nodes of the\nrandomness key or with an undecodable value, which makes the block\ninvalid, as parachain-system does for other required relay proof data\n(e.g. People on Polkadot via individuality's `relay-randomness` pallet).\nHonest collators include the key in their fixed key list and through\n`KeyToIncludeInRelayProof`.\n- Try-state: drawn collators imply a cached randomness, which flags a\nruntime without the `OnSystemEvent` wiring. Since an absent key caches\nzero, the cache exists from the first block on a wired chain, so this\nholds in every state.\n- Storage: `Collators` and `EpochRandomness` are new in this PR, so no\nmigration is needed. `Collators` is bounded by `MaxValidators`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: DenzelPenzel <15388928+DenzelPenzel@users.noreply.github.com>\nCo-authored-by: Omar <OmarAbdulla7@hotmail.com>\nCo-authored-by: Egor_P <egor@parity.io>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Viacheslav <shlavik@gmail.com>\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-09T14:14:41Z",
+          "tree_id": "b983dd39dd9dcaef53011142a688462ad54a0ae8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/05ddbee5c062d49c8a2a072c529a2fc80aad243e"
+        },
+        "date": 1791559965002,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20680729,
+            "range": "± 134970",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20701111,
+            "range": "± 161989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22140155,
+            "range": "± 196247",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27419760,
+            "range": "± 204243",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62433281,
+            "range": "± 567791",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 383214832,
+            "range": "± 6071605",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2823272524,
+            "range": "± 92021541",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17907348,
+            "range": "± 198697",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17896771,
+            "range": "± 149418",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18512751,
+            "range": "± 296141",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22827820,
+            "range": "± 232721",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62094007,
+            "range": "± 446675",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 358503815,
+            "range": "± 5386937",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2716028799,
+            "range": "± 15895147",
             "unit": "ns/iter"
           }
         ]
