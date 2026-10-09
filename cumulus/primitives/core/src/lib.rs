@@ -20,7 +20,7 @@
 
 extern crate alloc;
 
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::vec::Vec;
 use codec::{Compact, Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
@@ -35,9 +35,6 @@ pub mod parachain_block_data;
 pub mod scheduling;
 pub mod spec_messaging;
 
-use cumulus_primitives_spec_messaging::{
-	ChannelId, ConsumedStream, ConsumptionRecord, InChannelState, OutChannelState, StreamId,
-};
 pub use parachain_block_data::ParachainBlockData;
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
@@ -750,30 +747,5 @@ sp_api::decl_runtime_apis! {
 		///
 		/// The collator will include them in the relay chain proof that is passed alongside the parachain inherent into the runtime.
 		fn keys_to_prove() -> RelayProofRequest;
-	}
-
-	/// The speculative-messaging node/runtime boundary: everything a collator authors and serves
-	/// by. Absent on runtimes without speculative messaging; nodes stay idle then.
-	pub trait SpecMsgApi {
-		/// This block's sends, per stream, in canonical `StreamId` order with payloads in send
-		/// order. What a collator appends to its archive. Empty for an idle block.
-		fn outbound_messages() -> Vec<(StreamId, Vec<Vec<u8>>)>;
-
-		/// Everything this chain currently consumes, grouped by source: what the inherent
-		/// provider fetches, from which position. Suspended channels are omitted. Ack registers
-		/// are absent; which to read follows from [`Self::out_channels`].
-		fn consumed_streams() -> BTreeMap<ParaId, Vec<ConsumedStream>>;
-
-		/// Outbound channel views: credit and watermark standing, phases, and via the keys which
-		/// ack registers to read.
-		fn out_channels() -> BTreeMap<ChannelId, OutChannelState>;
-
-		/// Inbound channel views: which channels are due a register publish, suspension standing.
-		fn in_channels() -> BTreeMap<ChannelId, InChannelState>;
-
-		/// The block's consumption record. The node uses it for acknowledgement checks and lift
-		/// assembly; the `validate_block` wrapper calls the same implementation in-wasm after
-		/// each block of a bundle.
-		fn consumption_record() -> ConsumptionRecord;
 	}
 }
