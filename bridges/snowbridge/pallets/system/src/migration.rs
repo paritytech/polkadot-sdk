@@ -138,7 +138,7 @@ pub mod v1 {
 		T: Config,
 	{
 		fn on_runtime_upgrade() -> Weight {
-			let mut params = Pallet::<T>::parameters();
+			let mut params = PricingParameters::<T>::get();
 
 			let old_fee_per_gas = params.fee_per_gas;
 
