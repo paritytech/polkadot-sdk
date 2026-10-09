@@ -76,10 +76,11 @@ pub struct SaleInfoRecord<Balance, BlockNumber> {
 	/// The index of the first core for sale. Sold regions are assigned core indices
 	/// incrementing from this value.
 	pub first_core: CoreIndex,
-	/// Number of cores which have been sold; never more than cores_offered.
+	/// Number of cores which have been sold, including renewals; never more than
+	/// cores_offered.
 	pub cores_sold: CoreIndex,
-	/// Number of renewals exercised in the current Renewal phase.
-	pub renewal_count: u32,
+	/// Number of cores sold in the auction, set at settlement.
+	pub auction_cores_sold: CoreIndex,
 	/// The current phase of this sale cycle.
 	pub phase: SalePhase,
 }

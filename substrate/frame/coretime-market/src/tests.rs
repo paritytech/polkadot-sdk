@@ -886,6 +886,8 @@ fn displacement_works_when_renewals_fill_remaining_cores() {
 		// Renewer 2 takes the free core.
 		TestRenewalRights::set(2, sale.region_begin, 1);
 		assert_ok!(place_renewal(25, 2, 0, sale.region_begin));
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!((sale.cores_sold, sale.auction_cores_sold), (2, 1));
 
 		// Renewer 3 displaces the auction winner, without penalty.
 		TestRenewalRights::set(3, sale.region_begin, 1);
@@ -894,6 +896,7 @@ fn displacement_works_when_renewals_fill_remaining_cores() {
 			_ => panic!("Expected Renewed via displacement"),
 		}
 		assert!(market_events().iter().any(|e| matches!(e, Event::BidDisplaced { who: 1, .. })));
+		assert_eq!(SaleInfo::<Test>::get().unwrap().cores_sold, 2);
 	});
 }
 
