@@ -71,6 +71,7 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_dap`.
 pub trait WeightInfo {
+	fn set_budget_allocation() -> Weight;
 	fn set_allocations() -> Weight;
 	fn drip_issuance(_n: u32) -> Weight;
 	fn on_idle_base() -> Weight;
@@ -80,6 +81,16 @@ pub trait WeightInfo {
 /// Weights for `pallet_dap` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	/// Storage: `Dap::BudgetAllocation` (r:0 w:1)
+	/// Proof: `Dap::BudgetAllocation` (`max_values`: Some(1), `max_size`: Some(593), added: 1088, mode: `MaxEncodedLen`)
+	fn set_budget_allocation() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 6_933_000 picoseconds.
+		Weight::from_parts(7_589_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 	/// Storage: `Dap::BudgetAllocation` (r:0 w:1)
 	/// Proof: `Dap::BudgetAllocation` (`max_values`: Some(1), `max_size`: Some(593), added: 1088, mode: `MaxEncodedLen`)
 	fn set_allocations() -> Weight {
@@ -113,6 +124,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
+	/// Storage: `Dap::BudgetAllocation` (r:0 w:1)
+	/// Proof: `Dap::BudgetAllocation` (`max_values`: Some(1), `max_size`: Some(593), added: 1088, mode: `MaxEncodedLen`)
+	fn set_budget_allocation() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 6_933_000 picoseconds.
+		Weight::from_parts(7_589_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 	/// Storage: `Dap::BudgetAllocation` (r:0 w:1)
 	/// Proof: `Dap::BudgetAllocation` (`max_values`: Some(1), `max_size`: Some(593), added: 1088, mode: `MaxEncodedLen`)
 	fn set_allocations() -> Weight {

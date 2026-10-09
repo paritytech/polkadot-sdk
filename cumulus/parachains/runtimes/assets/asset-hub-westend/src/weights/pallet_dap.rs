@@ -50,8 +50,12 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_dap`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_dap::WeightInfo for WeightInfo<T> {
+	fn set_budget_allocation() -> Weight {
+		Weight::from_parts(10_498_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	fn set_allocations() -> Weight {
-		
 		Weight::from_parts(10_498_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))

@@ -239,11 +239,6 @@ pub mod pallet {
 			/// The new budget allocation map.
 			allocations: BudgetAllocationMap,
 		},
-		/// Asset allocation was updated via governance.
-		AssetAllocationUpdated {
-			/// The new asset allocation map.
-			allocations: AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>,
-		},
 		/// Funds were drained from the staging account into the DAP buffer.
 		StagingDrained {
 			/// Amount drained.
@@ -262,6 +257,11 @@ pub mod pallet {
 		},
 		/// An unexpected/defensive event was triggered.
 		Unexpected(UnexpectedKind<AssetKindOf<T>>),
+		/// Asset allocation was updated via governance.
+		AssetAllocationUpdated {
+			/// The new asset allocation map.
+			allocations: AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>,
+		},
 	}
 
 	/// Defensive/unexpected errors/events.
@@ -269,17 +269,17 @@ pub mod pallet {
 	pub enum UnexpectedKind<AssetKind> {
 		/// Failed to mint issuance.
 		MintFailed,
-		/// A transfer during the distribution failed.
-		DistributionTransferFailed {
-			/// An asset for which the transfer failed.
-			asset: AssetKind,
-		},
 		/// Elapsed time was clamped at the safety ceiling.
 		ElapsedClamped {
 			/// The actual elapsed time in milliseconds.
 			actual_elapsed: u64,
 			/// The ceiling that was applied.
 			ceiling: u64,
+		},
+		/// A transfer during the distribution failed.
+		DistributionTransferFailed {
+			/// An asset for which the transfer failed.
+			asset: AssetKind,
 		},
 	}
 
@@ -313,12 +313,12 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// A key in the budget allocation does not match any registered recipient.
 		UnknownBudgetKey,
-		/// A zero asset distribution share is detected.
-		ZeroAssetDistribution,
 		/// Budget allocation percentages do not sum to exactly 100%.
 		BudgetNotExact,
 		/// Provided asset does not exist.
 		AssetDoesntExist,
+		/// A zero asset distribution share is detected.
+		ZeroAssetDistribution,
 	}
 
 	#[pallet::hooks]
@@ -425,12 +425,28 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Set the budget allocation map.
+		///
+		/// Each key must match a registered `BudgetRecipient`. The sum of all percentages
+		/// must be exactly 100%. Recipients not included in the map receive nothing.
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::set_budget_allocation())]
+		#[deprecated(note = "use `set_allocations` instead")]
+		pub fn set_budget_allocation(
+			origin: OriginFor<T>,
+			new_allocations: BudgetAllocationMap,
+		) -> DispatchResult {
+			T::BudgetOrigin::ensure_origin(origin)?;
+
+			Self::set_budget_allocation_map(new_allocations)
+		}
+
 		/// Optionally set the budget and asset allocation maps.
 		///
 		/// Each key must match a registered `BudgetRecipient`. For budget allocation, the sum of
 		/// all percentages must be exactly 100%. For asset allocation, all `amount_per_ms` values
 		/// must be non-zero. Recipients not included in the map receive nothing.
-		#[pallet::call_index(0)]
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_allocations())]
 		pub fn set_allocations(
 			origin: OriginFor<T>,
@@ -439,45 +455,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::BudgetOrigin::ensure_origin(origin)?;
 
-			let registered: Vec<_> =
-				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
-
-			if let Some(budget_allocations) = new_budget_allocations {
-				// Validate all keys are registered recipients.
-				for key in budget_allocations.keys() {
-					ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
-				}
-
-				// Validate sum == 100%. Use u64 to avoid overflow when summing deconstructed
-				// Perbills.
-				let total_parts: u64 =
-					budget_allocations.values().map(|p| p.deconstruct() as u64).sum();
-				ensure!(
-					total_parts == Perbill::one().deconstruct() as u64,
-					Error::<T>::BudgetNotExact
-				);
-
-				BudgetAllocation::<T>::put(budget_allocations.clone());
-				Self::deposit_event(Event::BudgetAllocationUpdated {
-					allocations: budget_allocations,
-				});
+			if let Some(allocations) = new_budget_allocations {
+				Self::set_budget_allocation_map(allocations)?;
 			}
 
-			if let Some(asset_allocations) = new_asset_allocations {
-				// Validate all keys are registered recipients and no zero amounts are set.
-				for (asset, allocations) in &asset_allocations {
-					ensure!(T::Assets::asset_exists(asset.clone()), Error::<T>::AssetDoesntExist);
-
-					for (key, amount) in allocations {
-						ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
-						ensure!(!amount.amount_per_ms.is_zero(), Error::<T>::ZeroAssetDistribution)
-					}
-				}
-
-				AssetAllocation::<T>::put(asset_allocations.clone());
-				Self::deposit_event(Event::AssetAllocationUpdated {
-					allocations: asset_allocations,
-				});
+			if let Some(allocations) = new_asset_allocations {
+				Self::set_asset_allocations_map(allocations)?;
 			}
 
 			Ok(())
@@ -536,6 +519,47 @@ pub mod pallet {
 		/// Reactivate funds on buffer withdrawal.
 		pub(crate) fn reactivate_buffer_funds(amount: BalanceOf<T>) {
 			<NativeCurrencyOf<T> as FungibleUnbalanced<T::AccountId>>::reactivate(amount);
+		}
+
+		/// Set the budget allocation map.
+		fn set_budget_allocation_map(allocations: BudgetAllocationMap) -> DispatchResult {
+			// Validate all keys are registered recipients.
+			let registered: Vec<_> =
+				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
+			for key in allocations.keys() {
+				ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
+			}
+
+			// Validate sum == 100%. Use u64 to avoid overflow when summing deconstructed Perbills.
+			let total_parts: u64 = allocations.values().map(|p| p.deconstruct() as u64).sum();
+			ensure!(total_parts == Perbill::one().deconstruct() as u64, Error::<T>::BudgetNotExact);
+
+			BudgetAllocation::<T>::put(allocations.clone());
+			Self::deposit_event(Event::BudgetAllocationUpdated { allocations });
+
+			Ok(())
+		}
+
+		/// Set the asset allocations map.
+		fn set_asset_allocations_map(
+			allocations: AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>,
+		) -> DispatchResult {
+			let registered: Vec<_> =
+				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
+			// Validate all keys are registered recipients and no zero amounts are set.
+			for (asset, allocations) in &allocations {
+				ensure!(T::Assets::asset_exists(asset.clone()), Error::<T>::AssetDoesntExist);
+
+				for (key, amount) in allocations {
+					ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
+					ensure!(!amount.amount_per_ms.is_zero(), Error::<T>::ZeroAssetDistribution)
+				}
+			}
+
+			AssetAllocation::<T>::put(allocations.clone());
+			Self::deposit_event(Event::AssetAllocationUpdated { allocations });
+
+			Ok(())
 		}
 
 		/// Core issuance drip logic, called from `on_initialize`.

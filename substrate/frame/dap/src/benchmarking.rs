@@ -107,6 +107,16 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn set_budget_allocation() {
+		let allocations = build_even_allocation::<T>();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, allocations.clone());
+
+		assert_has_event::<T>(Event::BudgetAllocationUpdated { allocations });
+	}
+
+	#[benchmark]
 	fn set_allocations() {
 		let asset_allocations = create_full_asset_allocations::<T>();
 		let budget_allocations = build_even_allocation::<T>();
