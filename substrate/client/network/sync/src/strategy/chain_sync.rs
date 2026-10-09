@@ -2304,21 +2304,7 @@ where
 
 		match import_result {
 			ImportResult::Import(hash, header, body, justifications) => {
-				let origin = BlockOrigin::NetworkInitialSync;
-				let block = IncomingBlock {
-					hash,
-					header: Some(header),
-					body,
-					indexed_body: None,
-					justifications,
-					origin: None,
-					allow_missing_state: true,
-					import_existing: true,
-					skip_execution: self.skip_execution(),
-					state: Some(ImportedState),
-				};
-				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
-				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
+				self.queue_state_import(hash, header, body, justifications);
 				Ok(())
 			},
 			ImportResult::Continue => Ok(()),
@@ -2370,6 +2356,32 @@ where
 		Some(resumable)
 	}
 
+	/// Queue the import of the target block of a state sync whose every chunk is written: the
+	/// block import checks that the state is complete and marks it present.
+	fn queue_state_import(
+		&mut self,
+		hash: B::Hash,
+		header: B::Header,
+		body: Option<Vec<B::Extrinsic>>,
+		justifications: Option<Justifications>,
+	) {
+		let origin = BlockOrigin::NetworkInitialSync;
+		let block = IncomingBlock {
+			hash,
+			header: Some(header),
+			body,
+			indexed_body: None,
+			justifications,
+			origin: None,
+			allow_missing_state: true,
+			import_existing: true,
+			skip_execution: self.skip_execution(),
+			state: Some(ImportedState),
+		};
+		debug!(target: LOG_TARGET, "State download is complete. Import is queued");
+		self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
+	}
+
 	fn attempt_state_sync(&mut self, finalized_hash: B::Hash, finalized_number: NumberFor<B>) {
 		let mut heads: Vec<_> = self.peers.values().map(|peer| peer.best_number).collect();
 		heads.sort();
@@ -2377,6 +2389,18 @@ where
 		if finalized_number + STATE_SYNC_FINALITY_THRESHOLD.saturated_into() >= median {
 			if let Ok(Some(header)) = self.client.header(finalized_hash) {
 				let state_sync = match self.resumable_state_sync(finalized_number) {
+					Some(resumable) if resumable.complete => {
+						// Every chunk was written before the restart: only the import is left.
+						let target = resumable.target;
+						let hash = target.header.hash();
+						self.queue_state_import(
+							hash,
+							target.header,
+							target.body,
+							target.justifications,
+						);
+						return;
+					},
 					Some(resumable) => Ok(StateSync::resume(
 						self.client.clone(),
 						resumable.target,

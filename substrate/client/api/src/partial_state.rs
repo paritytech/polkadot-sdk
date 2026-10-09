@@ -48,6 +48,9 @@ pub struct ResumablePartialState<Block: BlockT> {
 	/// Where the download continues: the cursor the last written chunk left, which is the start
 	/// of the next range request. Empty when no chunk was written.
 	pub cursor: Vec<Vec<u8>>,
+	/// Every chunk was written: only the import of the target block is left. The cursor is then
+	/// the one the last chunk with a range end left.
+	pub complete: bool,
 }
 
 /// Writes verified state trie nodes of a block that is being state-synced.
@@ -56,25 +59,27 @@ pub struct ResumablePartialState<Block: BlockT> {
 /// state response, and completed by the import of the target block with `ImportedState`, when
 /// `Backend::complete_partial_state` checks that the state is complete and marks it present. The
 /// nodes stay invisible to `state_at` until then. A chunk is the nodes of one verified range
-/// proof, see `sp_trie::partial_state`; nodes already written, or not awaited by the target's
-/// walker, are ignored, so the same chunk may be submitted again after an `Err`.
+/// proof with the range it covers, see `sp_trie::partial_state`: the nodes whose subtree starts
+/// inside that range are written, so that the chunks of one download write each position of the
+/// state exactly once. A chunk is written once per successful call; the same chunk may be
+/// submitted again after an `Err`, never after an `Ok`.
 ///
-/// The database records the attempt: its target once, and the cursor with every chunk. After a
-/// restart `resumable_partial_state` returns them, so the download can continue where it
-/// stopped. An attempt that is begun over, or whose state does not complete, is discarded by the
-/// database together with its nodes.
+/// The database records the attempt: its target once, and the range end of every chunk, the
+/// cursor the download continues from. After a restart `resumable_partial_state` returns them, so
+/// the download can continue where it stopped. An attempt that is begun over, or whose state does
+/// not complete, is discarded by the database together with its nodes.
 pub trait PartialStateImport<Block: BlockT> {
 	/// Record the target of a new attempt. A recorded attempt that was not completed is discarded
 	/// first. On `Err` the attempt must not start.
 	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()>;
 
-	/// Write the nodes of `partial_state` and `cursor`, where the download continues once they are
-	/// stored, in one transaction. On `Err` nothing of this call was persisted. The block must be
-	/// the recorded target.
+	/// Write the nodes of `partial_state` that its range covers, and its range end as the cursor
+	/// the download continues from, in one transaction; a chunk without an end marks the download
+	/// complete. On `Err` nothing of this call was persisted. The block must be the recorded
+	/// target.
 	fn import_partial_state(
 		&self,
 		partial_state: PartialStateFor<Block>,
-		cursor: &[Vec<u8>],
 	) -> sp_blockchain::Result<()>;
 
 	/// The attempt recorded by `begin_partial_state` and not completed, with the cursor its last

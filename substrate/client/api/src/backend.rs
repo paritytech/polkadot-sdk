@@ -716,17 +716,18 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// together is an error.
 	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()>;
 
-	/// Inject partial state into the database.
-	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to
-	/// database, together with `cursor`, where the download continues once they are stored. Once
-	/// every chunk is written, the block import calls `complete_partial_state`. The block hash
-	/// identifies the state being synced and must be the recorded target: the backend keeps one
-	/// walker per block in memory and rebuilds it from the database when needed, so a node is
-	/// never inserted twice (which would break reference counting).
+	/// Inject partial state into the database, see
+	/// [`PartialStateImport::import_partial_state`](crate::PartialStateImport::import_partial_state).
+	/// State sync receives the nodes of one range proof per response and uses
+	/// `import_partial_state` to write those its range covers, together with the range end as the
+	/// cursor the download continues from. Once every chunk is written, the block import calls
+	/// `complete_partial_state`. The block hash identifies the state being synced and must be the
+	/// recorded target. Nothing about the download is kept in memory: the ranges of a download
+	/// partition its keys, so each node is written once per position (a second write would break
+	/// reference counting), and a restart continues from the recorded cursor.
 	fn import_partial_state(
 		&self,
 		partial_state: PartialStateFor<Block>,
-		cursor: &[Vec<u8>],
 	) -> sp_blockchain::Result<()>;
 
 	/// The recorded state sync attempt that was not completed, see

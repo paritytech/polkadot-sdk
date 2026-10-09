@@ -20,26 +20,36 @@
 use super::{LayoutV1 as Layout, MemoryDB};
 use hash_db::{HashDB, Hasher, Prefix, EMPTY_PREFIX};
 use sp_core::storage::{well_known_keys, ChildType, PrefixedStorageKey};
-use std::collections::{hash_map::Entry, HashMap};
+use std::{cmp::Ordering, collections::HashMap};
 use trie_db::{
 	node::{decode_hash, Node, NodeHandle, Value},
 	NibbleSlice, NibbleVec, NodeCodec, TrieLayout,
 };
 
 /// One chunk of a block's state: the trie nodes of a single verified range proof, as state sync
-/// receives them from a peer.
+/// receives them from a peer, with the range the proof covers.
 ///
 /// A range proof carries every node on the paths from the state root down to the keys it covers,
-/// so a chunk is complete from the root down, every chunk contains the root, and adjacent chunks
-/// share the nodes along their boundary. All chunks of one sync carry the same block and root.
+/// so a chunk is complete from the root down and every chunk contains the root. Keys are in nested
+/// sync order: top trie keys in order, with a child trie's keys right after the child's top trie
+/// key. A cursor in that order is a top trie key alone, or followed by a child trie key.
 pub struct PartialState<H: Hasher, BlockNumber: Default> {
-	/// The block whose state is being synced; keys the walker that consumes the chunks.
+	/// The block whose state is being synced.
 	pub block_hash: H::Out,
 	pub block_number: BlockNumber,
 	/// The root the walk starts from.
 	pub state_root: H::Out,
 	/// The proof's nodes keyed by hash alone, without database prefixes.
 	pub nodes: MemoryDB<H>,
+	/// The cursor the range was requested from, exclusive. Empty at the start of the state.
+	pub start: Vec<Vec<u8>>,
+	/// The cursor the range ends with, inclusive, which the next request starts from. `None` on
+	/// the final chunk: the state is complete.
+	pub end: Option<Vec<Vec<u8>>>,
+	/// Child tries whose content the proof carries under another top trie key with the same
+	/// root, as `(key, source key)` pairs. The server sends a root's content once per request; the
+	/// verifier reports the keys it skipped for that reason.
+	pub child_trie_copies: Vec<(Vec<u8>, Vec<u8>)>,
 }
 
 /// A received trie node together with the position it has to be stored at.
@@ -58,120 +68,118 @@ pub struct PrefixedTrieNode<H: Hasher> {
 	pub encoded: Vec<u8>,
 }
 
-/// Walks a block's state trie as its chunks arrive.
+/// The nodes of `chunk` to write, each with its database prefix: every node reached from the
+/// state root whose subtree starts inside the chunk's range. The ranges of a download partition
+/// its keys in order and the first key under a node lies in exactly one of them, whose proof
+/// carries the node as an ancestor of a key it covers; so across a download each position is
+/// written exactly once, and a database that counts references counts each one once.
 ///
-/// Only the root is known at first. A received node is decoded to learn its children, which are
-/// awaited in turn. `import` feeds a chunk and returns the nodes that became writable, each
-/// exactly once, so a reference-counting database never sees a node twice. `from_storage`
-/// recovers the walk from a database that already holds part of the state, which is why nothing
-/// about a walker needs to be persisted.
-pub struct PartialStateWalker<H: Hasher> {
-	/// The frontier: nodes whose parent has been seen and which have not. Empty once the walk is
-	/// complete, and small while it runs, since chunks arrive in key order.
-	pub nodes: Vec<TrieNodeInfo<H>>,
-}
-
-impl<H: Hasher> PartialStateWalker<H> {
-	/// A walker that awaits the root: nothing of the state has been seen yet.
-	pub fn new(root: H::Out) -> Self {
-		Self { nodes: vec![TrieNodeInfo::root(root)] }
-	}
-
-	/// A walker for a state that `storage` already holds in part: descend from the root through
-	/// the present nodes and await the absent ones. `storage` reads a node by hash and database
-	/// prefix. On an empty database this is one read and equals `new`.
-	pub fn from_storage(
-		root: H::Out,
-		mut storage: impl FnMut(&H::Out, Prefix) -> Option<Vec<u8>>,
-	) -> Result<Self, Error> {
-		let mut walker = Self { nodes: Vec::new() };
-		let mut queue = vec![TrieNodeInfo::root(root)];
-		while let Some(info) = queue.pop() {
-			match storage(&info.hash, info.db_prefix()?.as_prefix()) {
-				Some(encoded) => queue.extend(info.children(&encoded)?),
-				None => walker.nodes.push(info),
-			}
-		}
-		Ok(walker)
-	}
-
-	/// Is trie traversal completed.
-	pub fn is_completed(&self) -> bool {
-		self.nodes.is_empty()
-	}
-
-	/// Feed a chunk; returns the nodes that became writable, with their database prefix.
-	///
-	/// A chunk is complete from the root down, so one pass consumes it: every awaited node it
-	/// contains is written and its children are looked up in the same chunk. Nodes it repeats
-	/// from earlier chunks are not awaited and are skipped. On `Err` the walker is unusable: drop
-	/// it and rebuild it with `from_storage`.
-	pub fn import<BlockNumber: Default>(
-		&mut self,
-		chunk: PartialState<H, BlockNumber>,
-	) -> Result<Vec<PrefixedTrieNode<H>>, Error> {
-		let mut written = Vec::new();
-		// The frontier is taken, not cloned; nodes still awaited are pushed back as they are met.
-		let mut queue = std::mem::take(&mut self.nodes);
-		while let Some(info) = queue.pop() {
-			// The chunk is keyed by hash alone: proof prefixes differ from database prefixes.
-			match chunk.nodes.get(&info.hash, EMPTY_PREFIX) {
-				Some(encoded) => {
-					queue.extend(info.children(&encoded)?);
-					written.push(PrefixedTrieNode {
-						hash: info.hash,
-						prefix: info.db_prefix()?,
-						encoded,
-					});
-				},
-				None => self.nodes.push(info),
-			}
-		}
-		Ok(written)
-	}
-}
-
-/// The walkers of the blocks whose state is being synced, keyed by block hash.
+/// A node is taken from the chunk by hash. A node of a child trie listed in `child_trie_copies`
+/// that the chunk lacks is read from `storage` at the same path under the source key's keyspace,
+/// which an earlier chunk wrote: the proof carries a root's content once per request, and in key
+/// order the source's content precedes the copy's key. Any other node the chunk lacks is left to
+/// the range that covers it.
 ///
-/// Shared by sc-client-db and the in-memory backend. A walker is built from the caller's storage
-/// on its block's first chunk and dropped on any failure, so the map never holds a walker that is
-/// out of step with the storage.
-pub struct PartialStateWalkers<H: Hasher>(HashMap<H::Out, PartialStateWalker<H>>);
-
-impl<H: Hasher> Default for PartialStateWalkers<H> {
-	fn default() -> Self {
-		Self(Default::default())
-	}
-}
-
-impl<H: Hasher> PartialStateWalkers<H> {
-	/// Feed a chunk to the walker of its block, see [`PartialStateWalker::import`].
-	///
-	/// `storage` reads a node of the caller's database by hash and prefix; it builds the walker
-	/// on the block's first chunk. On `Err` the block has no walker any more.
-	pub fn import<BlockNumber: Default>(
-		&mut self,
-		chunk: PartialState<H, BlockNumber>,
-		storage: impl FnMut(&H::Out, Prefix) -> Option<Vec<u8>>,
-	) -> Result<Vec<PrefixedTrieNode<H>>, Error> {
-		let block_hash = chunk.block_hash;
-		let walker = match self.0.entry(block_hash) {
-			Entry::Occupied(entry) => entry.into_mut(),
-			Entry::Vacant(entry) => {
-				entry.insert(PartialStateWalker::from_storage(chunk.state_root, storage)?)
-			},
+/// The proof also carries the ancestors of `start`, read by the seek to the range's beginning,
+/// and nodes to the left of them. Their subtrees start at or before `start`: ancestors are
+/// descended without being written, the others are skipped with everything below.
+pub fn chunk_nodes<H: Hasher, BlockNumber: Default>(
+	chunk: &PartialState<H, BlockNumber>,
+	mut storage: impl FnMut(&H::Out, Prefix) -> Option<Vec<u8>>,
+) -> Result<Vec<PrefixedTrieNode<H>>, Error> {
+	let copies: HashMap<&[u8], &Vec<u8>> = chunk
+		.child_trie_copies
+		.iter()
+		.map(|(key, source)| (key.as_slice(), source))
+		.collect();
+	let mut written = Vec::new();
+	let mut queue = vec![TrieNodeInfo::<H>::root(chunk.state_root)];
+	while let Some(info) = queue.pop() {
+		// Where the node's copy source holds it, for a node of a copied child trie.
+		let source = match info.child_trie_key.as_deref().and_then(|key| copies.get(key)) {
+			Some(source) => Some(db_prefix(Some(source), &info.trie_prefix)?),
+			None => None,
 		};
-		let result = walker.import(chunk);
-		// A failed walker is dropped, not rolled back: the next chunk rebuilds it from storage.
-		if result.is_err() {
-			self.0.remove(&block_hash);
+		// The chunk is keyed by hash alone: proof prefixes differ from database prefixes.
+		let Some(encoded) = chunk
+			.nodes
+			.get(&info.hash, EMPTY_PREFIX)
+			.or_else(|| storage(&info.hash, source?.as_prefix()))
+		else {
+			// Not in this chunk: the range that covers it brings it.
+			continue;
+		};
+		let (subtree, children) = info.expand(&encoded)?;
+		let child_trie_key = info.child_trie_key.as_deref();
+		match placement(child_trie_key, &subtree, &chunk.start) {
+			// Starts before the range: an earlier chunk wrote it and everything below.
+			Placement::Before => continue,
+			// Starts at or before `start` and reaches past it: written already, but what is
+			// below may start inside the range.
+			Placement::Ancestor => {
+				queue.extend(children);
+				continue;
+			},
+			Placement::After => {},
 		}
-		result
+		if chunk
+			.end
+			.as_deref()
+			.is_some_and(|end| placement(child_trie_key, &subtree, end) == Placement::After)
+		{
+			continue;
+		}
+		written.push(PrefixedTrieNode { hash: info.hash, prefix: info.db_prefix()?, encoded });
+		queue.extend(children);
 	}
+	Ok(written)
+}
 
-	/// Forget the walker of `block_hash`, if any. Returns whether there was one.
-	pub fn remove(&mut self, block_hash: &H::Out) -> bool {
-		self.0.remove(block_hash).is_some()
+/// Where a node's subtree lies relative to a cursor, in nested sync order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Placement {
+	/// Every key under the node comes before the cursor.
+	Before,
+	/// The cursor is under the node, or is the node's own key: the subtree starts at or before
+	/// the cursor and may reach past it.
+	Ancestor,
+	/// Every key under the node comes after the cursor.
+	After,
+}
+
+/// The placement of the subtree at `subtree`, the position every key under a node starts with,
+/// in the child trie with top key `child_trie_key` or in the top trie, relative to `cursor`: a
+/// top trie key, optionally followed by a child trie key, or nothing for the start of the state.
+///
+/// A child trie's keys follow its top key, and a cursor at that key alone stands after all of
+/// them: the request that reads the key reads into the child trie, and a request starting at the
+/// key goes on in the top trie, so the child trie is read in full on one side of that cursor.
+fn placement(child_trie_key: Option<&[u8]>, subtree: &NibbleVec, cursor: &[Vec<u8>]) -> Placement {
+	let Some(top) = cursor.first() else { return Placement::After };
+	let Some(child_trie_key) = child_trie_key else {
+		return compare(subtree, &NibbleSlice::new(top));
+	};
+	match (child_trie_key.cmp(top.as_slice()), cursor.get(1)) {
+		(Ordering::Less, _) | (Ordering::Equal, None) => Placement::Before,
+		(Ordering::Greater, _) => Placement::After,
+		(Ordering::Equal, Some(child)) => compare(subtree, &NibbleSlice::new(child)),
+	}
+}
+
+/// `subtree` against the nibbles of a key in the same trie.
+fn compare(subtree: &NibbleVec, key: &NibbleSlice) -> Placement {
+	for i in 0..subtree.len().min(key.len()) {
+		match subtree.at(i).cmp(&key.at(i)) {
+			Ordering::Less => return Placement::Before,
+			Ordering::Greater => return Placement::After,
+			Ordering::Equal => {},
+		}
+	}
+	// The key continues under the node, or is its own key; or the node sits below the key.
+	if subtree.len() <= key.len() {
+		Placement::Ancestor
+	} else {
+		Placement::After
 	}
 }
 
@@ -210,32 +218,30 @@ impl<H: Hasher> TrieNodeInfo<H> {
 		Self { trie_prefix: NibbleVec::new(), hash, is_detached_value: false, child_trie_key: None }
 	}
 
-	/// Get info for node children: branches, detached value and child trie.
-	pub fn children(&self, encoded: &[u8]) -> Result<Vec<TrieNodeInfo<H>>, Error> {
-		// A detached value is a leaf of the walk: bytes, not a node.
+	/// Decode the node: its subtree prefix, which every key under it starts with, and the nodes
+	/// to reach from it, hashed branch children, a detached value, a child trie root.
+	pub fn expand(&self, encoded: &[u8]) -> Result<(NibbleVec, Vec<TrieNodeInfo<H>>), Error> {
+		// A detached value is a leaf of the walk: bytes, not a node, at its key's position.
 		if self.is_detached_value {
-			return Ok(vec![]);
+			return Ok((self.trie_prefix.clone(), vec![]));
 		}
 		let node = <Layout<H> as TrieLayout>::Codec::decode(&mut &encoded[..])
 			.map_err(|_| Error::TrieDecodeError)?;
-		let mut children = vec![];
-		// The node's own partial key: appended to this node's path, it gives the position of the
-		// value and of the children below.
-		let partial = match &node {
+		// The node's own partial key, appended to its path, gives the position of its value and
+		// of the children below.
+		let mut subtree = self.trie_prefix.clone();
+		match &node {
 			Node::Leaf(partial, _) |
 			Node::Extension(partial, _) |
-			Node::NibbledBranch(partial, _, _) => Some(NibbleVec::from(*partial)),
-			_ => None,
-		};
+			Node::NibbledBranch(partial, _, _) => subtree.append(&NibbleVec::from(*partial)),
+			_ => {},
+		}
+		let mut children = vec![];
 		match &node {
 			Node::Leaf(_, value) |
 			Node::Branch(_, Some(value)) |
 			Node::NibbledBranch(_, _, Some(value)) => {
-				let mut trie_prefix = self.trie_prefix.clone();
-				if let Some(partial) = &partial {
-					trie_prefix.append(partial);
-				}
-				let key = trie_prefix.as_prefix().0;
+				let key = subtree.as_prefix().0;
 				// A value under a `:child_storage:` key of the top trie is a child trie root,
 				// stored inline. The child trie is walked from it, under its own keyspace.
 				if self.child_trie_key.is_none() && well_known_keys::is_child_storage_key(key) {
@@ -252,7 +258,7 @@ impl<H: Hasher> TrieNodeInfo<H> {
 				// A value longer than 32 bytes lives in its own node under the same prefix.
 				} else if let Value::Node(hash) = value {
 					children.push(TrieNodeInfo {
-						trie_prefix,
+						trie_prefix: subtree.clone(),
 						hash: as_hash::<H>(hash)?,
 						is_detached_value: true,
 						child_trie_key: self.child_trie_key.clone(),
@@ -267,10 +273,7 @@ impl<H: Hasher> TrieNodeInfo<H> {
 			Node::Branch(branches, _) | Node::NibbledBranch(_, branches, _) => {
 				for (i, branch) in branches.iter().enumerate() {
 					if let Some(NodeHandle::Hash(hash)) = branch {
-						let mut trie_prefix = self.trie_prefix.clone();
-						if let Some(partial) = &partial {
-							trie_prefix.append(partial);
-						}
+						let mut trie_prefix = subtree.clone();
 						trie_prefix.push(i as u8);
 						children.push(TrieNodeInfo {
 							trie_prefix,
@@ -283,53 +286,80 @@ impl<H: Hasher> TrieNodeInfo<H> {
 			},
 			_ => {},
 		}
-		Ok(children)
+		Ok((subtree, children))
 	}
 
 	/// Get prefix for database key: a child trie node sits under its child keyspace followed by
 	/// its path in the child trie, a top trie node under its path alone.
 	pub fn db_prefix(&self) -> Result<NibbleVec, Error> {
-		let mut prefix = NibbleVec::new();
-		if let Some(key) = &self.child_trie_key {
-			match ChildType::from_prefixed_key(PrefixedStorageKey::new_ref(&key)) {
-				Some((ChildType::ParentKeyId, key)) => {
-					prefix.append(&NibbleVec::from(NibbleSlice::new(key)))
-				},
-				None => return Err(Error::UnknownChildStorageType),
-			}
-		}
-		prefix.append(&self.trie_prefix);
-		Ok(prefix)
+		db_prefix(self.child_trie_key.as_ref(), &self.trie_prefix)
 	}
+}
+
+/// The database prefix of a node at `trie_prefix` in the child trie with the top trie key
+/// `child_trie_key`, or in the top trie for `None`. Shared by `TrieNodeInfo::db_prefix` and the
+/// copy of a child trie, which asks for a node's prefix under another keyspace.
+fn db_prefix(
+	child_trie_key: Option<&Vec<u8>>,
+	trie_prefix: &NibbleVec,
+) -> Result<NibbleVec, Error> {
+	let mut prefix = NibbleVec::new();
+	if let Some(key) = child_trie_key {
+		match ChildType::from_prefixed_key(PrefixedStorageKey::new_ref(key)) {
+			Some((ChildType::ParentKeyId, key)) => {
+				prefix.append(&NibbleVec::from(NibbleSlice::new(key)))
+			},
+			None => return Err(Error::UnknownChildStorageType),
+		}
+	}
+	prefix.append(trie_prefix);
+	Ok(prefix)
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use crate::{
-		prefixed_key, KeySpacedDBMut, LayoutV1, PrefixedMemoryDB, TrieDBMutBuilder, TrieMut,
+		prefixed_key, KeySpacedDB, KeySpacedDBMut, LayoutV1, PrefixedMemoryDB, Recorder, Trie,
+		TrieDBBuilder, TrieDBMutBuilder, TrieMut,
 	};
 	use sp_core::Blake2Hasher;
 	use std::collections::BTreeSet;
 
 	type Hash = <Blake2Hasher as Hasher>::Out;
+	type Chunk = PartialState<Blake2Hasher, u64>;
 
-	const CHILD_NAME: &[u8] = b"child";
+	/// Two child tries with the same content. Their top trie leaves are distinct nodes; one-letter
+	/// names would give two identical leaves with a single hash.
+	const TWINS: [&[u8]; 2] = [b"alpha", b"bravo"];
+	/// The content of every child trie. `b` and `c` are longer than 32 bytes: stored as detached
+	/// value nodes under LayoutV1, each below its own hashed leaf, so the child trie has two
+	/// subtrees a range read can stop between. `a` is inline in the root.
+	const CHILD_CONTENT: [(&[u8], &[u8]); 3] =
+		[(b"a", b"1"), (b"b", &[7u8; 64]), (b"c", &[8u8; 64])];
 
-	/// Builds a top trie with one child trie the way `sp_state_machine` lays them out in the
-	/// database, and returns that prefixed database together with the state root.
-	fn build_state() -> (PrefixedMemoryDB<Blake2Hasher>, Hash) {
+	/// The top trie key of the child trie called `name`.
+	fn child_key(name: &[u8]) -> Vec<u8> {
+		let mut key = well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX.to_vec();
+		key.extend_from_slice(name);
+		key
+	}
+
+	/// Builds a top trie with one child trie per name in `children`, all with the same content,
+	/// the way `sp_state_machine` lays them out in the database. Returns that prefixed database
+	/// with the state root and the child root.
+	fn build_state(children: &[&[u8]]) -> (PrefixedMemoryDB<Blake2Hasher>, Hash, Hash) {
 		let mut db = PrefixedMemoryDB::<Blake2Hasher>::default();
 
 		let mut child_root = Hash::default();
-		{
-			let mut keyspaced = KeySpacedDBMut::new(&mut db, CHILD_NAME);
+		for name in children {
+			let mut keyspaced = KeySpacedDBMut::new(&mut db, name);
 			let mut trie =
 				TrieDBMutBuilder::<LayoutV1<Blake2Hasher>>::new(&mut keyspaced, &mut child_root)
 					.build();
-			trie.insert(b"a", b"1").unwrap();
-			// Longer than 32 bytes: stored as a detached value node under LayoutV1.
-			trie.insert(b"b", &[7u8; 64]).unwrap();
+			for (key, value) in CHILD_CONTENT {
+				trie.insert(key, value).unwrap();
+			}
 			trie.commit();
 		}
 
@@ -339,15 +369,16 @@ mod tests {
 				TrieDBMutBuilder::<LayoutV1<Blake2Hasher>>::new(&mut db, &mut root).build();
 			trie.insert(b"key0", &[0u8; 40]).unwrap();
 			trie.insert(b"key1", b"short").unwrap();
-			let mut child_key = well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX.to_vec();
-			child_key.extend_from_slice(CHILD_NAME);
-			trie.insert(&child_key, child_root.as_ref()).unwrap();
+			for name in children {
+				trie.insert(&child_key(name), child_root.as_ref()).unwrap();
+			}
 			trie.commit();
 		}
-		(db, root)
+		(db, root, child_root)
 	}
 
-	/// Keys under which `db` holds its nodes: the oracle for the walker's prefixes.
+	/// Keys under which `db` holds its nodes: the oracle for the prefixes and for writing each
+	/// position once.
 	fn db_keys(db: &PrefixedMemoryDB<Blake2Hasher>) -> BTreeSet<Vec<u8>> {
 		db.clone()
 			.drain()
@@ -357,136 +388,178 @@ mod tests {
 			.collect()
 	}
 
-	fn all_nodes(db: &PrefixedMemoryDB<Blake2Hasher>) -> Vec<Vec<u8>> {
-		db.clone()
-			.drain()
-			.into_values()
-			.filter(|(_, rc)| *rc > 0)
-			.map(|(encoded, _)| encoded)
-			.collect()
+	/// The nodes a read of `keys` touches, as a range proof carries them: in the top trie for a
+	/// `keyspace` of `None`, else in the child trie under `keyspace`, `root` being its root.
+	fn read_nodes(
+		db: &PrefixedMemoryDB<Blake2Hasher>,
+		root: &Hash,
+		keyspace: Option<&[u8]>,
+		keys: &[&[u8]],
+	) -> Vec<Vec<u8>> {
+		let mut recorder = Recorder::<LayoutV1<Blake2Hasher>>::new();
+		match keyspace {
+			Some(keyspace) => {
+				let keyspaced = KeySpacedDB::new(db, keyspace);
+				let trie = TrieDBBuilder::<LayoutV1<Blake2Hasher>>::new(&keyspaced, root)
+					.with_recorder(&mut recorder)
+					.build();
+				for key in keys {
+					trie.get(key).unwrap();
+				}
+			},
+			None => {
+				let trie = TrieDBBuilder::<LayoutV1<Blake2Hasher>>::new(db, root)
+					.with_recorder(&mut recorder)
+					.build();
+				for key in keys {
+					trie.get(key).unwrap();
+				}
+			},
+		}
+		recorder.drain().into_iter().map(|record| record.data).collect()
 	}
 
 	/// The nodes as a state-sync chunk: a `MemoryDB` keyed by hash only, no prefixes.
-	fn chunk(nodes: Vec<Vec<u8>>, root: Hash) -> PartialState<Blake2Hasher, u64> {
+	fn chunk(
+		nodes: Vec<Vec<u8>>,
+		root: Hash,
+		start: &[&[u8]],
+		end: Option<&[&[u8]]>,
+		child_trie_copies: &[(&[u8], &[u8])],
+	) -> Chunk {
 		let mut db = MemoryDB::<Blake2Hasher>::default();
 		for encoded in nodes {
 			db.insert(EMPTY_PREFIX, &encoded);
 		}
-		PartialState { block_hash: root, block_number: 0, state_root: root, nodes: db }
-	}
-
-	fn written_keys(nodes: &[PrefixedTrieNode<Blake2Hasher>]) -> BTreeSet<Vec<u8>> {
-		nodes
-			.iter()
-			.map(|node| prefixed_key::<Blake2Hasher>(&node.hash, node.prefix.as_prefix()))
-			.collect()
-	}
-
-	#[test]
-	fn import_recovers_database_prefixes() {
-		let (db, root) = build_state();
-		let expected = db_keys(&db);
-
-		let mut walker = PartialStateWalker::<Blake2Hasher>::new(root);
-		let written = walker.import(chunk(all_nodes(&db), root)).unwrap();
-
-		assert_eq!(written_keys(&written), expected);
-		assert_eq!(written.len(), expected.len(), "every position is written exactly once");
-		assert!(walker.is_completed());
-	}
-
-	#[test]
-	fn import_resumes_across_chunks() {
-		let (db, root) = build_state();
-		let expected = db_keys(&db);
-		let root_node = db.get(&root, EMPTY_PREFIX).unwrap();
-
-		let mut walker = PartialStateWalker::<Blake2Hasher>::new(root);
-		let mut written = walker.import(chunk(vec![root_node], root)).unwrap();
-		assert_eq!(written.len(), 1);
-		assert!(!walker.is_completed());
-
-		// The second chunk re-sends the root, as a range proof does: it must not be written again.
-		written.extend(walker.import(chunk(all_nodes(&db), root)).unwrap());
-
-		assert_eq!(written_keys(&written), expected);
-		assert_eq!(written.len(), expected.len(), "the root is written once");
-		assert!(walker.is_completed());
-	}
-
-	/// Keys the walker still waits for, as `sp_state_machine` would read them.
-	fn awaited_keys(walker: &PartialStateWalker<Blake2Hasher>) -> BTreeSet<Vec<u8>> {
-		walker
-			.nodes
-			.iter()
-			.map(|info| {
-				prefixed_key::<Blake2Hasher>(&info.hash, info.db_prefix().unwrap().as_prefix())
-			})
-			.collect()
-	}
-
-	#[test]
-	fn from_storage_awaits_what_the_database_lacks() {
-		let (db, root) = build_state();
-		let root_node = db.get(&root, EMPTY_PREFIX).unwrap();
-
-		// A sync that wrote the root and stopped.
-		let mut live = PartialStateWalker::<Blake2Hasher>::new(root);
-		let written = live.import(chunk(vec![root_node], root)).unwrap();
-		let mut partial_db = PrefixedMemoryDB::<Blake2Hasher>::default();
-		for node in &written {
-			partial_db.emplace(node.hash, node.prefix.as_prefix(), node.encoded.clone());
+		let cursor = |keys: &[&[u8]]| keys.iter().map(|key| key.to_vec()).collect();
+		PartialState {
+			block_hash: root,
+			block_number: 0,
+			state_root: root,
+			nodes: db,
+			start: cursor(start),
+			end: end.map(cursor),
+			child_trie_copies: child_trie_copies
+				.iter()
+				.map(|(key, source)| (key.to_vec(), source.to_vec()))
+				.collect(),
 		}
+	}
 
-		// Rebuilt from that database, the walker waits for exactly what the live one does.
-		let mut rebuilt = PartialStateWalker::<Blake2Hasher>::from_storage(root, |hash, prefix| {
-			partial_db.get(hash, prefix)
-		})
-		.unwrap();
-		assert_eq!(awaited_keys(&rebuilt), awaited_keys(&live));
+	/// Writes what `chunk_nodes` returns into `storage`, as a backend does, and returns how many
+	/// nodes it wrote.
+	fn import(chunk: &Chunk, storage: &mut PrefixedMemoryDB<Blake2Hasher>) -> usize {
+		let written = chunk_nodes(chunk, |hash, prefix| storage.get(hash, prefix)).unwrap();
+		for node in &written {
+			storage.emplace(node.hash, node.prefix.as_prefix(), node.encoded.clone());
+		}
+		written.len()
+	}
 
-		// An empty database gives a fresh walker, a complete one a finished walker.
-		let empty = PrefixedMemoryDB::<Blake2Hasher>::default();
-		let fresh = PartialStateWalker::<Blake2Hasher>::from_storage(root, |hash, prefix| {
-			empty.get(hash, prefix)
-		})
-		.unwrap();
-		assert_eq!(awaited_keys(&fresh), awaited_keys(&PartialStateWalker::new(root)));
-		let complete = PartialStateWalker::<Blake2Hasher>::from_storage(root, |hash, prefix| {
-			db.get(hash, prefix)
-		})
-		.unwrap();
-		assert!(complete.is_completed());
-
-		// The rest of the state goes through the rebuilt walker without writing the root again.
-		let rest = rebuilt.import(chunk(all_nodes(&db), root)).unwrap();
-		let mut all = written_keys(&written);
-		all.extend(written_keys(&rest));
-		assert_eq!(all, db_keys(&db));
-		assert_eq!(written.len() + rest.len(), db_keys(&db).len(), "no node is written twice");
-		assert!(rebuilt.is_completed());
+	fn nibbles(key: &[u8]) -> NibbleVec {
+		NibbleVec::from(NibbleSlice::new(key))
 	}
 
 	#[test]
-	fn failed_import_drops_the_walker() {
-		let (db, root) = build_state();
-		let root_node = db.get(&root, EMPTY_PREFIX).unwrap();
-		let no_storage = |_: &Hash, _: Prefix| None;
+	fn placement_follows_nested_sync_order() {
+		let t = b"key".to_vec();
+		let alpha = child_key(b"alpha");
+		let c = b"c".to_vec();
 
-		let mut walkers = PartialStateWalkers::<Blake2Hasher>::default();
-		walkers.import(chunk(vec![root_node.clone()], root), no_storage).unwrap();
+		// Nothing read yet: everything is after.
+		assert_eq!(placement(None, &nibbles(b"key"), &[]), Placement::After);
+		assert_eq!(placement(Some(&alpha), &nibbles(b"c"), &[]), Placement::After);
 
-		// Garbage under an awaited hash: decoding fails and the block's walker is gone.
-		let mut live = PartialStateWalker::<Blake2Hasher>::new(root);
-		live.import(chunk(vec![root_node], root)).unwrap();
-		let awaited = live.nodes[0].hash;
-		let mut corrupt = chunk(vec![], root);
-		corrupt.nodes.emplace(awaited, EMPTY_PREFIX, vec![0xff; 3]);
-		assert!(matches!(walkers.import(corrupt, no_storage), Err(Error::TrieDecodeError)));
-		assert!(!walkers.remove(&root), "the walker was dropped with the error");
+		// Top trie nodes against a top trie key.
+		assert_eq!(placement(None, &nibbles(b"ke"), &[t.clone()]), Placement::Ancestor);
+		assert_eq!(placement(None, &nibbles(b"key"), &[t.clone()]), Placement::Ancestor);
+		assert_eq!(placement(None, &nibbles(b"key0"), &[t.clone()]), Placement::After);
+		assert_eq!(placement(None, &nibbles(b"kex"), &[t.clone()]), Placement::Before);
+		assert_eq!(placement(None, &nibbles(b"kez"), &[t.clone()]), Placement::After);
 
-		// The next chunk builds a walker again; with no storage behind it, the root is rewritten.
-		let written = walkers.import(chunk(all_nodes(&db), root), no_storage).unwrap();
-		assert_eq!(written_keys(&written), db_keys(&db));
+		// Child trie nodes: the top keys decide first, and a cursor at the child's own key stands
+		// after the whole child trie.
+		assert_eq!(placement(Some(&alpha), &nibbles(b"c"), &[t.clone()]), Placement::Before);
+		assert_eq!(placement(Some(&alpha), &nibbles(b"c"), &[child_key(b"a")]), Placement::After);
+		assert_eq!(placement(Some(&alpha), &nibbles(b"c"), &[alpha.clone()]), Placement::Before);
+		assert_eq!(
+			placement(Some(&alpha), &nibbles(b"c"), &[alpha.clone(), c.clone()]),
+			Placement::Ancestor
+		);
+		assert_eq!(
+			placement(Some(&alpha), &nibbles(b"b"), &[alpha.clone(), c.clone()]),
+			Placement::Before
+		);
+		assert_eq!(
+			placement(Some(&alpha), &nibbles(b"d"), &[alpha.clone(), c.clone()]),
+			Placement::After
+		);
+		// A top trie node against a cursor inside a child trie: the top key alone counts.
+		assert_eq!(
+			placement(None, &nibbles(b"key"), &[alpha.clone(), c.clone()]),
+			Placement::After
+		);
+		assert_eq!(placement(None, &nibbles(b":child_storage:"), &[alpha, c]), Placement::Ancestor);
+	}
+
+	/// A download in two ranges over a state with twin child tries, with the proofs built as the
+	/// server records them. Every position is written once, and the second twin's nodes that the
+	/// second chunk lacks come from what the first chunk wrote under the first twin.
+	#[test]
+	fn ranges_write_each_position_once_and_copy_a_twin() {
+		let (db, root, child_root) = build_state(&TWINS);
+		let [alpha, bravo] = TWINS;
+		let (alpha_key, bravo_key) = (child_key(alpha), child_key(bravo));
+		let expected = db_keys(&db);
+		let mut storage = PrefixedMemoryDB::<Blake2Hasher>::default();
+
+		// Request 1: down to alpha's key, then all of alpha; it ends right after alpha's `c`.
+		let mut nodes = read_nodes(&db, &root, None, &[&alpha_key]);
+		nodes.extend(read_nodes(&db, &child_root, Some(alpha), &[b"a", b"b", b"c"]));
+		let first = chunk(nodes, root, &[], Some(&[&alpha_key, b"c"]), &[]);
+		let count = import(&first, &mut storage);
+		assert!(count > 0);
+
+		// Request 2 resumes inside alpha: the server reads alpha's key again and seeks to `c`,
+		// finds nothing left, goes on to bravo's key, whose content it skips, then the rest. The
+		// proof repeats alpha's leaf `b` as a left neighbour of the seek.
+		let mut nodes = read_nodes(&db, &root, None, &[&alpha_key, &bravo_key, b"key0", b"key1"]);
+		nodes.extend(read_nodes(&db, &child_root, Some(alpha), &[b"b", b"c"]));
+		let second = chunk(
+			nodes,
+			root,
+			&[&alpha_key, b"c"],
+			None,
+			&[(bravo_key.as_slice(), alpha_key.as_slice())],
+		);
+		let count = count + import(&second, &mut storage);
+
+		assert_eq!(db_keys(&storage), expected);
+		assert_eq!(count, expected.len(), "every position is written exactly once");
+	}
+
+	/// A range that ends at the copied child's key covers its content, and the copy is made.
+	#[test]
+	fn child_key_at_the_end_keeps_its_content() {
+		let (db, root, child_root) = build_state(&TWINS);
+		let [alpha, bravo] = TWINS;
+		let (alpha_key, bravo_key) = (child_key(alpha), child_key(bravo));
+		let mut storage = PrefixedMemoryDB::<Blake2Hasher>::default();
+
+		let mut nodes = read_nodes(&db, &root, None, &[&alpha_key, &bravo_key]);
+		nodes.extend(read_nodes(&db, &child_root, Some(alpha), &[b"a", b"b", b"c"]));
+		let copies = [(bravo_key.as_slice(), alpha_key.as_slice())];
+		let cut = chunk(nodes, root, &[], Some(&[&bravo_key]), &copies);
+		import(&cut, &mut storage);
+
+		let under =
+			|name: &[u8]| db_keys(&storage).into_iter().filter(|key| key.starts_with(name)).count();
+		assert_eq!(under(alpha), under(bravo), "bravo got every node alpha has");
+		assert!(under(bravo) > 0);
+		assert!(
+			!db_keys(&storage)
+				.contains(&prefixed_key::<Blake2Hasher>(&root, nibbles(b"key0").as_prefix())),
+			"nothing past the end is written"
+		);
 	}
 }

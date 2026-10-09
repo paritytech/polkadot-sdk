@@ -32,7 +32,7 @@ use sp_state_machine::{
 	Backend as StateBackend, BackendTransaction, ChildStorageCollection, InMemoryBackend,
 	IndexOperation, StorageCollection, TrieBackendBuilder,
 };
-use sp_trie::{partial_state::PartialStateWalkers, HashDBT, PrefixedMemoryDB};
+use sp_trie::{partial_state::chunk_nodes, HashDBT, PrefixedMemoryDB};
 use std::{
 	collections::{HashMap, HashSet},
 	ptr,
@@ -618,7 +618,6 @@ pub struct Backend<Block: BlockT> {
 	blockchain: Blockchain<Block>,
 	import_lock: RwLock<()>,
 	pinned_blocks: RwLock<HashMap<Block::Hash, i64>>,
-	partial_state_walkers: RwLock<PartialStateWalkers<HashingFor<Block>>>,
 	/// The state sync attempt begun and not completed, with its cursor. The node store is shared
 	/// by every block, so the nodes of an attempt that is begun over stay where they are.
 	partial_state: RwLock<Option<ResumablePartialState<Block>>>,
@@ -636,7 +635,6 @@ impl<Block: BlockT> Backend<Block> {
 			blockchain: Blockchain::new(),
 			import_lock: Default::default(),
 			pinned_blocks: Default::default(),
-			partial_state_walkers: Default::default(),
 			partial_state: Default::default(),
 		}
 	}
@@ -802,16 +800,14 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 	}
 
 	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()> {
-		let mut attempt = self.partial_state.write();
-		*self.partial_state_walkers.write() = Default::default();
-		*attempt = Some(ResumablePartialState { target, cursor: Vec::new() });
+		*self.partial_state.write() =
+			Some(ResumablePartialState { target, cursor: Vec::new(), complete: false });
 		Ok(())
 	}
 
 	fn import_partial_state(
 		&self,
 		partial_state: PartialStateFor<Block>,
-		cursor: &[Vec<u8>],
 	) -> sp_blockchain::Result<()> {
 		let mut attempt = self.partial_state.write();
 		let Some(attempt) = attempt
@@ -823,17 +819,18 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 				partial_state.block_hash,
 			)));
 		};
-		// The node store doubles as the storage a dropped walker is rebuilt from.
-		let nodes = self
-			.partial_state_walkers
-			.write()
-			.import(partial_state, |hash, prefix| self.state_db.read().get(hash, prefix))
-			.map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
+		// The node store doubles as the storage a copied child trie is read from.
+		let nodes =
+			chunk_nodes(&partial_state, |hash, prefix| self.state_db.read().get(hash, prefix))
+				.map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
 		let mut state_db = self.state_db.write();
 		for node in nodes {
 			state_db.emplace(node.hash, node.prefix.as_prefix(), node.encoded);
 		}
-		attempt.cursor = cursor.to_vec();
+		match partial_state.end {
+			Some(end) => attempt.cursor = end,
+			None => attempt.complete = true,
+		}
 		Ok(())
 	}
 
@@ -1000,17 +997,18 @@ mod tests {
 			})
 			.unwrap();
 		backend
-			.import_partial_state(
-				PartialState {
-					block_hash: header.hash(),
-					block_number: header.number,
-					state_root: header.state_root,
-					nodes: partial_state,
-				},
-				&[],
-			)
+			.import_partial_state(PartialState {
+				block_hash: header.hash(),
+				block_number: header.number,
+				state_root: header.state_root,
+				nodes: partial_state,
+				start: vec![],
+				end: None,
+				child_trie_copies: vec![],
+			})
 			.unwrap();
-		assert_eq!(backend.resumable_partial_state().unwrap().map(|r| r.cursor), Some(vec![]));
+		let resumable = backend.resumable_partial_state().unwrap().expect("recorded");
+		assert!(resumable.complete, "the only chunk had no range end");
 
 		let mut op = backend.begin_operation().unwrap();
 		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)

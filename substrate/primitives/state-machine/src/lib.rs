@@ -465,8 +465,14 @@ mod execution {
 		/// State root of the level, for
 		/// top trie it is as an empty byte array.
 		pub state_root: Vec<u8>,
-		/// Storage of parents, empty for top root or
-		/// when exporting (building proof).
+		/// The top trie keys whose value is this level's root, that is the `:child_storage:`
+		/// keys of this child trie. Empty for the top trie, and empty when building a proof.
+		///
+		/// The range-proof verifier reads the content of a root once per response, under the
+		/// first key it meets. A later key with the same root is added here without reading the
+		/// content again. So the first key is the one `key_values` was read under, and every
+		/// other key names a child trie that is a copy of it.
+		/// `KeyValueStates::child_trie_copies` lists those pairs.
 		pub parent_storage_keys: Vec<Vec<u8>>,
 		/// Pair of key and values from this state.
 		pub key_values: Vec<(Vec<u8>, Vec<u8>)>,
@@ -493,6 +499,18 @@ mod execution {
 		/// Return total number of key values in states.
 		pub fn len(&self) -> usize {
 			self.0.iter().fold(0, |nb, state| nb + state.key_values.len())
+		}
+
+		/// The child tries whose content the response carries under another top trie key with
+		/// the same root, as `(key, source key)` pairs, see `parent_storage_keys`.
+		pub fn child_trie_copies(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
+			self.0
+				.iter()
+				.filter_map(|level| level.parent_storage_keys.split_first())
+				.flat_map(|(source, copies)| {
+					copies.iter().map(move |copy| (copy.clone(), source.clone()))
+				})
+				.collect()
 		}
 
 		/// Update last keys accessed from this state.
@@ -997,14 +1015,15 @@ mod execution {
 			return Err(Box::new("Invalid start of range."));
 		}
 
-		let mut child_roots = HashSet::new();
+		// The roots entered so far, with the index of their level: the content of a root is read
+		// once, and a later key holding the same root is noted on that level instead.
+		let mut child_roots: std::collections::HashMap<Vec<u8>, usize> = Default::default();
 		let (mut child_key, mut start_at) = if start_at.len() == 2 {
 			let storage_key = start_at.get(0).expect("Checked length.").clone();
 			let child_key = if let Some(state_root) = proving_backend
 				.storage(&storage_key)
 				.map_err(|e| Box::new(e) as Box<dyn Error>)?
 			{
-				child_roots.insert(state_root.clone());
 				Some((storage_key, state_root))
 			} else {
 				return Err(Box::new("Invalid range start child trie key."));
@@ -1020,8 +1039,9 @@ mod execution {
 				result.push(KeyValueStorageLevel {
 					state_root: state_root.clone(),
 					key_values: Default::default(),
-					parent_storage_keys: Default::default(),
+					parent_storage_keys: vec![storage_key.clone()],
 				});
+				child_roots.insert(state_root.clone(), result.len() - 1);
 
 				let storage_key = PrefixedStorageKey::new_ref(storage_key);
 				(
@@ -1037,11 +1057,7 @@ mod execution {
 				(None, 1)
 			};
 
-			let values = if child_info.is_some() {
-				&mut result.last_mut().expect("Added above").key_values
-			} else {
-				&mut result[0].key_values
-			};
+			let level = if child_info.is_some() { result.len() - 1 } else { 0 };
 			let start_at_ref = start_at.as_ref().map(AsRef::as_ref);
 			let mut switch_child_key = None;
 
@@ -1057,16 +1073,19 @@ mod execution {
 
 			while let Some(item) = iter.next() {
 				let (key, value) = item.map_err(|e| Box::new(e) as Box<dyn Error>)?;
-				values.push((key.to_vec(), value.to_vec()));
+				result[level].key_values.push((key.to_vec(), value.to_vec()));
 
 				if depth < MAX_NESTED_TRIE_DEPTH &&
 					sp_core::storage::well_known_keys::is_child_storage_key(key.as_slice())
 				{
-					// Do not add two chid trie with same root.
-					if !child_roots.contains(value.as_slice()) {
-						child_roots.insert(value.clone());
-						switch_child_key = Some((key, value));
-						break;
+					// A root already read is not read again: the key is noted on its level, as
+					// a copy of the child trie read under the level's first key.
+					match child_roots.get(value.as_slice()) {
+						Some(level) => result[*level].parent_storage_keys.push(key),
+						None => {
+							switch_child_key = Some((key, value));
+							break;
+						},
 					}
 				}
 			}
@@ -1592,7 +1611,8 @@ mod tests {
 	}
 	fn prove_read_and_proof_check_works_inner(state_version: StateVersion) {
 		let child_info = ChildInfo::new_default(b"sub1");
-		let missing_child_info = ChildInfo::new_default(b"sub1sub2"); // key will include other child root to proof.
+		let missing_child_info = ChildInfo::new_default(b"sub1sub2"); // key will include other child root
+																// to proof.
 		let child_info = &child_info;
 		let missing_child_info = &missing_child_info;
 		// fetch read proof from 'remote' full node
@@ -1909,6 +1929,58 @@ mod tests {
 		}
 
 		assert_eq!(nb_loop, 10);
+	}
+
+	/// Two child tries with the same content share a root, and a response carries a root's
+	/// content once: the verifier notes the second key on the first one's level, so the client can
+	/// copy the content. A third child trie with its own root is never noted.
+	#[test]
+	fn range_proof_reports_the_keys_of_a_repeated_child_root() {
+		let child = |name: &[u8]| ChildInfo::new_default(name);
+		let content: StorageCollection =
+			vec![(b"a".to_vec(), Some(b"1".to_vec())), (b"b".to_vec(), Some(vec![7u8; 64]))];
+		let other: StorageCollection = vec![(b"a".to_vec(), Some(b"2".to_vec()))];
+		let mut backend = new_in_mem::<BlakeTwo256>();
+		backend.insert(
+			vec![
+				(None, vec![(b"key".to_vec(), Some(b"value".to_vec()))]),
+				(Some(child(b"alpha")), content.clone()),
+				(Some(child(b"bravo")), content),
+				(Some(child(b"charlie")), other),
+			],
+			StateVersion::V1,
+		);
+		let root = *backend.root();
+		let key = |name: &[u8]| child(name).prefixed_storage_key().into_inner();
+
+		// Everything in one response: bravo is a copy of alpha, charlie stands alone.
+		let (proof, _) =
+			prove_range_read_with_child_with_size_on_trie_backend(&backend, usize::MAX, &[])
+				.unwrap();
+		let (values, completed) =
+			read_range_proof_check_with_child::<BlakeTwo256>(root, proof, &[]).unwrap();
+		assert_eq!(completed, 0);
+		assert_eq!(values.child_trie_copies(), vec![(key(b"bravo"), key(b"alpha"))]);
+
+		// A response that ends inside alpha, then one resumed there that reaches bravo's key:
+		// the resumed response notes bravo on the level of the child trie it resumed into.
+		let (proof, _) =
+			prove_range_read_with_child_with_size_on_trie_backend(&backend, 1, &[]).unwrap();
+		let (values, completed) =
+			read_range_proof_check_with_child::<BlakeTwo256>(root, proof, &[]).unwrap();
+		assert_eq!(completed, 2, "stopped inside the first child trie");
+		assert!(values.child_trie_copies().is_empty());
+		let mut cursor = smallvec::SmallVec::<[Vec<u8>; 2]>::new();
+		assert!(values.update_last_key(completed, &mut cursor));
+		assert_eq!(cursor.to_vec(), vec![key(b"alpha"), b"a".to_vec()]);
+
+		let (proof, _) =
+			prove_range_read_with_child_with_size_on_trie_backend(&backend, usize::MAX, &cursor)
+				.unwrap();
+		let (values, completed) =
+			read_range_proof_check_with_child::<BlakeTwo256>(root, proof, &cursor).unwrap();
+		assert_eq!(completed, 0);
+		assert_eq!(values.child_trie_copies(), vec![(key(b"bravo"), key(b"alpha"))]);
 	}
 
 	#[test]

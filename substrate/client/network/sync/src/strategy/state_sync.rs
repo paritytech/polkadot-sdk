@@ -283,15 +283,18 @@ where
 		}
 
 		// Write the chunk before moving the cursor: a chunk that never reached the database
-		// is asked for again, because `last_key` still points at its start. The next cursor is
-		// stored with the chunk, so that a restart continues from it.
+		// is asked for again, because `last_key` still points at its start. The range the chunk
+		// proves travels with it, and its end is stored as the cursor a restart continues from.
 		let partial_state = PartialStateFor::<B> {
 			block_hash: self.metadata.target_hash(),
 			block_number: self.metadata.target_number(),
 			state_root: self.metadata.target_root(),
 			nodes,
+			start: self.metadata.last_key.to_vec(),
+			end: (!complete).then(|| next_key.to_vec()),
+			child_trie_copies: values.child_trie_copies(),
 		};
-		if let Err(e) = self.client.import_partial_state(partial_state, &next_key) {
+		if let Err(e) = self.client.import_partial_state(partial_state) {
 			self.metadata.write_failures += 1;
 			warn!(
 				target: LOG_TARGET,
@@ -375,8 +378,9 @@ mod tests {
 		begun: Mutex<Option<PartialStateTarget<Block>>>,
 		/// Makes `begin_partial_state` fail.
 		fail_begin: AtomicBool,
-		/// The cursor passed with every successful write.
-		cursors: Mutex<Vec<Vec<Vec<u8>>>>,
+		/// The range of every chunk written: its start and, unless it was the final chunk, its
+		/// end.
+		ranges: Mutex<Vec<(Vec<Vec<u8>>, Option<Vec<Vec<u8>>>)>>,
 	}
 
 	impl StubClient {
@@ -391,7 +395,7 @@ mod tests {
 				writes: AtomicUsize::new(0),
 				begun: Mutex::new(None),
 				fail_begin: AtomicBool::new(false),
-				cursors: Mutex::new(Vec::new()),
+				ranges: Mutex::new(Vec::new()),
 			})
 		}
 
@@ -472,7 +476,6 @@ mod tests {
 		fn import_partial_state(
 			&self,
 			partial_state: PartialStateFor<Block>,
-			cursor: &[Vec<u8>],
 		) -> sp_blockchain::Result<()> {
 			assert_eq!(partial_state.block_hash, header().hash());
 			let failing = self.failing_writes.load(Ordering::SeqCst);
@@ -481,7 +484,7 @@ mod tests {
 				return Err(sp_blockchain::Error::Storage("injected write failure".into()));
 			}
 			self.writes.fetch_add(1, Ordering::SeqCst);
-			self.cursors.lock().unwrap().push(cursor.to_vec());
+			self.ranges.lock().unwrap().push((partial_state.start, partial_state.end));
 			Ok(())
 		}
 
@@ -581,6 +584,17 @@ mod tests {
 		assert_eq!(client.writes(), 1);
 	}
 
+	/// The final chunk has no range end: the database marks the download complete instead of
+	/// recording a cursor.
+	#[test]
+	fn last_chunk_carries_no_range_end() {
+		let client = StubClient::new(vec![], 0, 0);
+		let mut sync = StateSync::resume(client.clone(), target(), vec![vec![0x80]]);
+
+		assert!(matches!(sync.import(response()), ImportResult::Import(_, _, _, _)));
+		assert_eq!(*client.ranges.lock().unwrap(), vec![(vec![vec![0x80]], None)]);
+	}
+
 	#[test]
 	fn failed_write_of_the_last_chunk_does_not_complete() {
 		let client = StubClient::new(vec![], 0, 1);
@@ -617,12 +631,12 @@ mod tests {
 	}
 
 	#[test]
-	fn successful_write_passes_the_next_cursor_to_the_database() {
+	fn successful_write_passes_the_range_to_the_database() {
 		let client = StubClient::new(one_key_in_the_top_trie(), 1, 0);
 		let mut sync = state_sync(client.clone());
 
 		assert!(matches!(sync.import(response()), ImportResult::Continue));
-		assert_eq!(*client.cursors.lock().unwrap(), vec![vec![vec![0x80]]]);
+		assert_eq!(*client.ranges.lock().unwrap(), vec![(vec![], Some(vec![vec![0x80]]))]);
 		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
 	}
 
