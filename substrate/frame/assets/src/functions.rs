@@ -682,6 +682,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// Figure out the debit and credit, together with side-effects.
 		let debit = Self::prep_debit(id.clone(), source, amount, f.into())?;
+		// A self-transfer moves nothing, so the sweep does not apply.
+		let debit = if source == dest { amount } else { debit };
 		check(debit)?;
 		let (credit, maybe_burn) = Self::prep_credit(id.clone(), dest, amount, debit, f.burn_dust)?;
 
@@ -1066,12 +1068,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					None,
 					f,
 					|debit| {
-						// A self-transfer moves nothing, so only the request is charged.
-						let charge = if owner == destination { amount } else { debit };
-						remaining = approved
-							.amount
-							.checked_sub(&charge)
-							.ok_or(Error::<T, I>::Unapproved)?;
+						remaining =
+							approved.amount.checked_sub(&debit).ok_or(Error::<T, I>::Unapproved)?;
 						Ok(())
 					},
 				)?
