@@ -332,15 +332,6 @@ fn strict_on_import_rejects_bad_items() {
 			),
 			Error::<Test>::EmptyItem
 		);
-		// Oversized payload.
-		let big = vec![0u8; (MaxMsgLen::get() + 1) as usize];
-		assert_err!(
-			SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				inherent(vec![(a, stream(0), ConsumeItem::Channel { payloads: vec![big] })]),
-			),
-			Error::<Test>::MessageTooBig
-		);
 		// Duplicate stream in one inherent.
 		assert_err!(
 			SpecMessaging::enact_messages(
@@ -713,7 +704,8 @@ fn the_local_cap_bounds_in_flight_whatever_the_peer_grants() {
 	new_test_ext().execute_with(|| {
 		open_out_channel();
 		roll_one_block();
-		let huge = WindowGrant { max_messages: u32::MAX, max_bytes: u64::MAX, max_message_size: 0 };
+		let huge =
+			WindowGrant { max_messages: u32::MAX, max_bytes: u64::MAX, max_message_size: u32::MAX };
 		assert_ok!(SpecMessaging::enact_messages(
 			RuntimeOrigin::none(),
 			read_register(0, register(0, huge))
@@ -724,6 +716,44 @@ fn the_local_cap_bounds_in_flight_whatever_the_peer_grants() {
 			assert_ok!(SpecMessaging::send(out_channel(), vec![i]));
 		}
 		assert_err!(SpecMessaging::send(out_channel(), vec![9]), Error::<Test>::NoCredit);
+	});
+}
+
+#[test]
+fn an_oversized_leaf_is_consumed_and_dropped() {
+	new_test_ext().execute_with(|| {
+		accept(0);
+		let big = vec![0u8; (MaxMsgLen::get() + 1) as usize];
+		let item = ConsumeItem::Channel { payloads: vec![big, data_payload(b"next")] };
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			inherent(vec![(src(), stream(0), item)])
+		));
+		// Both leaves are consumed: the channel moves past the oversized one.
+		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))).leaf_count(), 2);
+		System::assert_has_event(
+			Event::OversizedLeaf {
+				channel: ChannelId { peer: src(), domain: 0, num: 0 },
+				position: MessagePosition(0),
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn a_send_over_the_peers_max_message_size_is_refused() {
+	new_test_ext().execute_with(|| {
+		open_out_channel();
+		roll_one_block();
+		let grant = WindowGrant { max_message_size: 8, ..TestGrant::get() };
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			read_register(0, register(0, grant))
+		));
+		// `Data` adds a variant byte and a compact length: 5 bytes of data is a 7-byte leaf.
+		assert_ok!(SpecMessaging::send(out_channel(), vec![0; 5]));
+		assert_err!(SpecMessaging::send(out_channel(), vec![0; 7]), Error::<Test>::MessageTooBig);
 	});
 }
 

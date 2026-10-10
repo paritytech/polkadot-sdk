@@ -224,6 +224,10 @@ pub mod pallet {
 		/// A consumed leaf did not decode as a `SpecMsgKind`. It is consumed anyway (it is a
 		/// valid leaf) and dropped.
 		UndecodableLeaf { channel: ChannelId, position: MessagePosition },
+		/// A consumed leaf exceeds [`Config::MaxMsgLen`]: the sender ignored our grant's
+		/// `max_message_size`. It is consumed anyway and dropped, so a peer cannot stall the
+		/// channel or fail the block.
+		OversizedLeaf { channel: ChannelId, position: MessagePosition },
 	}
 
 	#[pallet::error]
@@ -296,6 +300,10 @@ pub mod pallet {
 			assert!(
 				T::MaxTouchedStreams::get() <= MAX_COMMITMENT_ENTRIES,
 				"`MaxTouchedStreams` must not exceed `MAX_COMMITMENT_ENTRIES`",
+			);
+			assert!(
+				T::DefaultWindowGrant::get().max_message_size <= T::MaxMsgLen::get(),
+				"`DefaultWindowGrant::max_message_size` must not exceed `MaxMsgLen`",
 			);
 		}
 	}
@@ -455,7 +463,8 @@ pub mod pallet {
 			let mut state = OutChannels::<T>::get(channel).ok_or(Error::<T>::UnknownChannel)?;
 			ensure!(!state.closed_by_us, Error::<T>::AlreadyClosed);
 			ensure!(state.phase() == ChannelPhase::Open, Error::<T>::ChannelNotOpen);
-			Self::ensure_credit(&channel, &state)?;
+			let size = SpecMsgKind::Signal(SpecMsgSignal::CloseChannel).encoded_size();
+			Self::ensure_credit(&channel, &state, size)?;
 			Self::send_signal(&channel, SpecMsgSignal::CloseChannel)?;
 			state.closed_by_us = true;
 			OutChannels::<T>::insert(channel, state);
@@ -740,6 +749,10 @@ impl<T: Config> Pallet<T> {
 			frontier
 				.try_append(leaf_hash(LEAF_VERSION, payload))
 				.map_err(|_| Error::<T>::BadFrontier)?;
+			if payload.len() > T::MaxMsgLen::get() as usize {
+				Self::deposit_event(Event::OversizedLeaf { channel, position });
+				continue;
+			}
 			// Route `Data`, apply signals. A non-`SpecMsgKind` payload is a valid leaf regardless,
 			// so it is consumed, dropped and reported.
 			match SpecMsgKind::decode_all(&mut &payload[..]) {
@@ -802,7 +815,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Per-item guards: not already touched, non-empty, no oversized payload, within the cap.
+	/// Per-item guards: not already touched, non-empty, within the cap.
 	fn check_touch(
 		touched: &mut BTreeSet<(ParaId, StreamId)>,
 		source: ParaId,
@@ -811,10 +824,6 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), Error<T>> {
 		ensure!(!touched.contains(&(source, stream)), Error::<T>::DuplicateStream);
 		ensure!(!payloads.is_empty(), Error::<T>::EmptyItem);
-		ensure!(
-			payloads.iter().all(|p| p.len() <= T::MaxMsgLen::get() as usize),
-			Error::<T>::MessageTooBig
-		);
 		ensure!((touched.len() as u32) < T::MaxTouchedStreams::get(), Error::<T>::TooManyStreams);
 		touched.insert((source, stream));
 		Ok(())
@@ -903,8 +912,8 @@ impl<T: Config> Pallet<T> {
 	pub fn send(channel: ChannelId, data: Vec<u8>) -> Result<MessagePosition, Error<T>> {
 		let state = OutChannels::<T>::get(channel).ok_or(Error::<T>::ChannelNotOpen)?;
 		ensure!(state.phase() == ChannelPhase::Open, Error::<T>::ChannelNotOpen);
-		Self::ensure_credit(&channel, &state)?;
 		let payload = SpecMsgKind::Data(data).encode();
+		Self::ensure_credit(&channel, &state, payload.len())?;
 		let size = payload.len() as u32;
 		let position = Self::append_to_stream(Self::outbound_stream(&channel), payload)?;
 		OutChannelsMeta::<T>::mutate(channel, |meta| meta.account_send(size));
@@ -925,10 +934,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// The credit gate: in-flight count and bytes must both be below the peer's grant and
-	/// [`Config::MaxInFlight`]. The grant is advice; honoring it protects our archive and surfaces
-	/// backpressure to the caller.
-	fn ensure_credit(channel: &ChannelId, state: &OutChannelState) -> Result<(), Error<T>> {
+	/// [`Config::MaxInFlight`], and a leaf of `size` encoded bytes must fit the grant's
+	/// `max_message_size`, since the peer drops a bigger one. The grant is advice; honoring it
+	/// protects our archive and surfaces backpressure to the caller.
+	fn ensure_credit(
+		channel: &ChannelId,
+		state: &OutChannelState,
+		size: usize,
+	) -> Result<(), Error<T>> {
 		let grant = state.register.map(|register| register.grant).unwrap_or_default();
+		ensure!(size as u64 <= u64::from(grant.max_message_size), Error::<T>::MessageTooBig);
 		let cap = T::MaxInFlight::get();
 		let meta = OutChannelsMeta::<T>::get(channel);
 		ensure!(
