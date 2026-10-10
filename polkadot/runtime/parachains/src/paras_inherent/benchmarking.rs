@@ -16,62 +16,15 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::{inclusion, inclusion::MAX_PROVIDES_WINDOW_SIZE, ParaId};
+use crate::{inclusion, ParaId};
 use alloc::collections::btree_map::BTreeMap;
-use codec::Encode;
 use core::cmp::{max, min};
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
-use polkadot_primitives::{
-	node_features::FeatureIndex, v9::MAX_COMMITMENT_ENTRIES, CommittedCandidateReceiptV2,
-	GroupIndex, Hash, RequiresSet, StreamsRoot, UMPSignal,
-};
+use polkadot_primitives::{node_features::FeatureIndex, GroupIndex};
 
-use crate::builder::{BenchBuilder, CandidateDescriptorVersionConfig};
-
-/// A distinct `StreamsRoot` per `n`. `H256::from_low_u64_be` is std-only, and benchmarks build for
-/// the wasm runtime too.
-fn root(n: u64) -> StreamsRoot {
-	let mut bytes = [0u8; 32];
-	bytes[24..].copy_from_slice(&n.to_be_bytes());
-	StreamsRoot(Hash::from(bytes))
-}
-
-/// A worst-case `Requires` set (`MAX_COMMITMENT_ENTRIES` sources) for the backed-candidate
-/// benchmark. Seed the windows with [`seed_provides_windows`] so the candidate stays admitted.
-fn bench_requires_set() -> RequiresSet {
-	RequiresSet::try_from_iter(
-		(0..MAX_COMMITMENT_ENTRIES).map(|i| (ParaId::from(i), root(i as u64))),
-	)
-	.expect("MAX_COMMITMENT_ENTRIES entries fit the bound; qed")
-}
-
-/// Candidate modifier: append the worst-case `Requires` signal.
-/// Fill every required source's window, with its required root as the oldest entry: each match
-/// then decodes a full window and scans all of it.
-fn seed_provides_windows<T: inclusion::Config>() {
-	for (source, required) in bench_requires_set().iter() {
-		let window: Vec<_> = core::iter::once(*required)
-			.chain((1..MAX_PROVIDES_WINDOW_SIZE).map(|filler| root(u64::MAX - filler as u64)))
-			.collect();
-		let window: frame_support::BoundedVec<
-			_,
-			frame_support::traits::ConstU32<MAX_PROVIDES_WINDOW_SIZE>,
-		> = window.try_into().expect("exactly MAX_PROVIDES_WINDOW_SIZE roots; qed");
-		inclusion::RecentProvides::<T>::insert(*source, window);
-	}
-}
-
-fn add_requires_signal<H>(
-	mut candidate: CommittedCandidateReceiptV2<H>,
-) -> CommittedCandidateReceiptV2<H> {
-	candidate
-		.commitments
-		.upward_messages
-		.force_push(UMPSignal::Requires(bench_requires_set()).encode());
-	candidate
-}
+use crate::builder::BenchBuilder;
 
 #[benchmarks]
 mod benchmarks {
@@ -186,18 +139,13 @@ mod benchmarks {
 			true,
 		)
 		.unwrap();
-		// The backed candidate carries a worst-case `Requires` set against full provides windows.
 		let cores_with_backed: BTreeMap<_, _> = vec![(0, v)] // The backed candidate will have `v` validity votes.
 			.into_iter()
 			.collect();
 
 		let scenario = BenchBuilder::<T>::new()
 			.set_backed_in_inherent_paras(cores_with_backed.clone())
-			.set_candidate_descriptor_version(CandidateDescriptorVersionConfig::V2)
-			.set_candidate_modifier(Some(add_requires_signal::<T::Hash>))
 			.build();
-
-		seed_provides_windows::<T>();
 
 		let mut benchmark = scenario.data.clone();
 

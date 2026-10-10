@@ -139,4 +139,20 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::inclusion::WeightInfo
 			.saturating_add(Weight::from_parts(0, 4412).saturating_mul(h.into()))
 			.saturating_add(Weight::from_parts(0, 65630).saturating_mul(u.into()))
 	}
+	// Measured locally (10 steps, 1 repeat); regenerate with `/cmd bench`.
+	/// Storage: `ParaInclusion::RecentProvides` (r:256 w:0)
+	/// Proof: `ParaInclusion::RecentProvides` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `r` is `[1, 256]`.
+	fn requires_satisfied(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `37 + r * (4117 ±0)`
+		//  Estimated: `1027 + r * (6593 ±0)`
+		// Minimum execution time: 9_000_000 picoseconds.
+		Weight::from_parts(9_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 1027))
+			// Standard Error: 19_313
+			.saturating_add(Weight::from_parts(7_792_478, 0).saturating_mul(r.into()))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(r.into())))
+			.saturating_add(Weight::from_parts(0, 6593).saturating_mul(r.into()))
+	}
 }
