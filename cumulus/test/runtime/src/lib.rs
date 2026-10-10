@@ -376,6 +376,7 @@ impl cumulus_pallet_spec_messaging::Config for Runtime {
 	type AcceptChannelOrigin = EnsureRoot<AccountId>;
 	type ChannelManagementOrigin = EnsureRoot<AccountId>;
 	type DefaultWindowGrant = SpecMsgWindowGrant;
+	type MaxInFlight = SpecMsgWindowGrant;
 }
 
 impl parachain_info::Config for Runtime {}

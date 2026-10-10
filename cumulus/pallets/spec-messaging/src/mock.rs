@@ -59,6 +59,7 @@ impl cumulus_pallet_spec_messaging::Config for Test {
 	type AcceptChannelOrigin = EnsureRoot<u64>;
 	type ChannelManagementOrigin = EnsureRoot<u64>;
 	type DefaultWindowGrant = TestGrant;
+	type MaxInFlight = TestGrant;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

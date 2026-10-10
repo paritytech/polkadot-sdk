@@ -686,6 +686,48 @@ fn a_register_read_starts_and_ends_at_its_context() {
 }
 
 #[test]
+fn an_older_register_never_replaces_a_newer_one() {
+	new_test_ext().execute_with(|| {
+		open_out_channel();
+		roll_one_block();
+		let open = register(1, TestGrant::get());
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(0, open)));
+		roll_one_block();
+		// The peer closes: same watermark and version, so only the position orders the reads.
+		let closed = Register { closed: true, grant: WindowGrant::default(), ..open };
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(1, closed)));
+		roll_one_block();
+
+		// The open register at position 0 is still a valid lift; it is ignored.
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(0, open)));
+		assert_eq!(OutChannels::<Test>::get(out_channel()).unwrap().register, Some(closed));
+		assert_err!(
+			SpecMessaging::send(out_channel(), b"x".to_vec()),
+			Error::<Test>::ChannelNotOpen
+		);
+	});
+}
+
+#[test]
+fn the_local_cap_bounds_in_flight_whatever_the_peer_grants() {
+	new_test_ext().execute_with(|| {
+		open_out_channel();
+		roll_one_block();
+		let huge = WindowGrant { max_messages: u32::MAX, max_bytes: u64::MAX, max_message_size: 0 };
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			read_register(0, register(0, huge))
+		));
+
+		// `OpenChannel` is in flight, so the cap of 4 leaves room for three.
+		for i in 0..3u8 {
+			assert_ok!(SpecMessaging::send(out_channel(), vec![i]));
+		}
+		assert_err!(SpecMessaging::send(out_channel(), vec![9]), Error::<Test>::NoCredit);
+	});
+}
+
+#[test]
 fn register_reads_must_target_an_outbound_channel_and_decode() {
 	new_test_ext().execute_with(|| {
 		// No outbound channel to this peer yet.

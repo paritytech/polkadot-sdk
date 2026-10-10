@@ -69,6 +69,9 @@ pub struct OutChannelMeta {
 	pub sizes: Vec<u32>,
 	/// Sum of `sizes`.
 	pub bytes: u64,
+	/// Position on the peer's `Ack` stream of the last applied register. The lift binds it and
+	/// the stream only grows, so an older register is never applied over a newer one.
+	pub read_at: Option<MessagePosition>,
 }
 
 impl OutChannelMeta {
@@ -151,6 +154,11 @@ pub mod pallet {
 
 		/// The send-window credit every published register grants.
 		type DefaultWindowGrant: Get<WindowGrant>;
+
+		/// Local cap on each outbound channel's in-flight messages and bytes, applied on top of
+		/// the peer's grant. It bounds the per-channel bookkeeping and the archive's unconfirmed
+		/// tail whatever the peer grants.
+		type MaxInFlight: Get<WindowGrant>;
 	}
 
 	/// Per-stream outbound MMR frontiers; reflects state as of the previous block.
@@ -518,8 +526,10 @@ pub mod pallet {
 
 		/// Stall recovery: move an inbound frontier to `(peaks, leaf_count)` past payloads that
 		/// cannot be fetched; the skipped leaves are lost. `extension` must extend our frontier to
-		/// exactly that root, so a skip only moves forward and a bad claim fails here. Recorded as
-		/// an [`Interval`] like any consumption.
+		/// exactly that root, so a skip only moves forward. Whether the sender committed that
+		/// frontier is checked only by the candidate's lift: take the peaks from a committed root,
+		/// or no block with this call can be included. Recorded as an [`Interval`] like any
+		/// consumption.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(4, 4))]
 		pub fn skip_inbound_stream(
@@ -788,7 +798,7 @@ impl<T: Config> Pallet<T> {
 		let start = frontier.root();
 		ConsumptionOutbox::<T>::append((source, stream, Interval { start, end: frontier }));
 		*gaps += 1;
-		Self::apply_register_read(&channel, register);
+		Self::apply_register_read(&channel, base, register);
 		Ok(())
 	}
 
@@ -914,13 +924,18 @@ impl<T: Config> Pallet<T> {
 		Ok(position)
 	}
 
-	/// The credit gate: in-flight count and bytes must both be below the peer's grant. The grant
-	/// is advice; honoring it protects our archive and surfaces backpressure to the caller.
+	/// The credit gate: in-flight count and bytes must both be below the peer's grant and
+	/// [`Config::MaxInFlight`]. The grant is advice; honoring it protects our archive and surfaces
+	/// backpressure to the caller.
 	fn ensure_credit(channel: &ChannelId, state: &OutChannelState) -> Result<(), Error<T>> {
 		let grant = state.register.map(|register| register.grant).unwrap_or_default();
+		let cap = T::MaxInFlight::get();
 		let meta = OutChannelsMeta::<T>::get(channel);
-		ensure!((meta.sizes.len() as u64) < u64::from(grant.max_messages), Error::<T>::NoCredit);
-		ensure!(meta.bytes < grant.max_bytes, Error::<T>::NoCredit);
+		ensure!(
+			(meta.sizes.len() as u64) < u64::from(grant.max_messages.min(cap.max_messages)),
+			Error::<T>::NoCredit
+		);
+		ensure!(meta.bytes < grant.max_bytes.min(cap.max_bytes), Error::<T>::NoCredit);
 		Ok(())
 	}
 
@@ -958,18 +973,24 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Apply a register read: refresh the grant and release in-flight messages below the
-	/// watermark. A register whose watermark or version goes backwards is ignored; these monotonic
-	/// fields are the only ordering of reads, so an older grant can briefly win until the next
-	/// read.
-	fn apply_register_read(channel: &ChannelId, register: Register) {
+	/// Apply a register read at `position` on the peer's `Ack` stream: refresh the grant and
+	/// release in-flight messages below the watermark. A register older than the last applied one,
+	/// or whose watermark or version goes backwards, is ignored. The position check stops an older
+	/// grant or `closed` flag from replacing a newer one.
+	fn apply_register_read(channel: &ChannelId, position: MessagePosition, register: Register) {
 		let Some(mut state) = OutChannels::<T>::get(channel) else { return };
 		if let Some(previous) = state.register {
 			if register.up_to < previous.up_to || register.version < previous.version {
 				return;
 			}
 		}
-		OutChannelsMeta::<T>::mutate(channel, |meta| meta.confirm(register.up_to));
+		let mut meta = OutChannelsMeta::<T>::get(channel);
+		if meta.read_at.is_some_and(|read_at| position < read_at) {
+			return;
+		}
+		meta.read_at = Some(position);
+		meta.confirm(register.up_to);
+		OutChannelsMeta::<T>::insert(channel, meta);
 		state.register = Some(register);
 		OutChannels::<T>::insert(channel, state);
 	}
