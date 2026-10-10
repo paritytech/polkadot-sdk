@@ -201,6 +201,13 @@ pub mod staking {
 	/// Maximum number of validators elected by Asset Hub, and so the bound of the validator set
 	/// that system chains accept from it.
 	pub const MAX_VALIDATOR_SET: u32 = 1000;
+
+	/// Maximum number of entries in one report of authored blocks.
+	///
+	/// Every system chain sends its reports in chunks of at most this many entries and Asset Hub
+	/// accepts reports up to it. A report over Asset Hub's bound does not decode there, so the
+	/// senders and Asset Hub share this value.
+	pub const MAX_ENTRIES_PER_REPORT: u32 = 500;
 }
 
 /// DAP-related constants, shared across all Westend system parachain runtimes.

@@ -838,6 +838,33 @@ impl<T: Config> Pallet<T> {
 		Eras::<T>::reward_active_era(validators_points)
 	}
 
+	/// Credit `points` earned outside the relay chain, such as for blocks authored on system
+	/// chains, to the active era.
+	///
+	/// Accounts not exposed in the active era are dropped, since their points would count in the
+	/// era's total without a claimable share. Without an active era nothing is credited and no
+	/// event is emitted. An account listed more than once is credited for every entry.
+	pub fn reward_system_chain_points(
+		points: impl IntoIterator<Item = (T::AccountId, RewardPoint)>,
+	) {
+		let Some(era) = ActiveEra::<T>::get().map(|active| active.index) else {
+			log!(warn, "no active era, dropping points earned outside the relay chain");
+			return;
+		};
+		let (exposed, dropped): (Vec<_>, Vec<_>) = points
+			.into_iter()
+			.partition(|(who, _)| Eras::<T>::was_validator_exposed(era, who));
+		let credited = exposed.len() as u32;
+		if credited > 0 {
+			Eras::<T>::reward_active_era(exposed);
+		}
+		Self::deposit_event(Event::<T>::SystemChainPointsCredited {
+			era,
+			credited,
+			dropped: dropped.len() as u32,
+		});
+	}
+
 	/// Helper to set a new `ForceEra` mode.
 	pub(crate) fn set_force_era(mode: Forcing) {
 		log!(info, "Setting force era mode {:?}.", mode);

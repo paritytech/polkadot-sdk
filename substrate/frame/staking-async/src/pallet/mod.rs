@@ -1478,6 +1478,13 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
+		/// Points earned outside the relay chain were credited to `era`. `credited` entries were
+		/// exposed in `era` and `dropped` entries were not.
+		SystemChainPointsCredited {
+			era: EraIndex,
+			credited: u32,
+			dropped: u32,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.

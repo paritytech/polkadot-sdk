@@ -153,6 +153,7 @@ std = [
 	"pallet-staking-async-ah-client?/std",
 	"pallet-staking-async-rc-client?/std",
 	"pallet-staking-async-runtime-api?/std",
+	"pallet-staking-async-system-chain-client?/std",
 	"pallet-staking-async?/std",
 	"pallet-staking-reward-fn?/std",
 	"pallet-staking-runtime-api?/std",
@@ -351,6 +352,7 @@ runtime-benchmarks = [
 	"pallet-society?/runtime-benchmarks",
 	"pallet-staking-async-ah-client?/runtime-benchmarks",
 	"pallet-staking-async-rc-client?/runtime-benchmarks",
+	"pallet-staking-async-system-chain-client?/runtime-benchmarks",
 	"pallet-staking-async?/runtime-benchmarks",
 	"pallet-staking?/runtime-benchmarks",
 	"pallet-state-trie-migration?/runtime-benchmarks",
@@ -504,6 +506,7 @@ try-runtime = [
 	"pallet-society?/try-runtime",
 	"pallet-staking-async-ah-client?/try-runtime",
 	"pallet-staking-async-rc-client?/try-runtime",
+	"pallet-staking-async-system-chain-client?/try-runtime",
 	"pallet-staking-async?/try-runtime",
 	"pallet-staking?/try-runtime",
 	"pallet-state-trie-migration?/try-runtime",
@@ -737,6 +740,7 @@ runtime-full = [
 	"pallet-staking-async-ah-client",
 	"pallet-staking-async-rc-client",
 	"pallet-staking-async-runtime-api",
+	"pallet-staking-async-system-chain-client",
 	"pallet-staking-reward-curve",
 	"pallet-staking-reward-fn",
 	"pallet-staking-runtime-api",
@@ -1821,6 +1825,11 @@ path = "../substrate/frame/staking-async/rc-client"
 default-features = false
 optional = true
 path = "../substrate/frame/staking-async/runtime-api"
+
+[dependencies.pallet-staking-async-system-chain-client]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/system-chain-client"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
