@@ -1209,8 +1209,8 @@ impl pallet_validator_collators::Config for Runtime {
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type BlockReporter = staking::CreditBlocksLocally;
 	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
-	type MaxEntriesPerReport =
-		ConstU32<{ testnet_parachains_constants::westend::staking::MAX_ENTRIES_PER_REPORT }>;
+	// The local report never crosses the bounded call, so the whole set fits one chunk.
+	type MaxEntriesPerReport = staking::MaxValidatorSet;
 	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }
 
