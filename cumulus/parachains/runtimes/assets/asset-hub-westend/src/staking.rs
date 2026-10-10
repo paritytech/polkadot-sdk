@@ -17,14 +17,16 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::traits::EitherOf;
+use frame_support::traits::{EitherOf, Equals, TryMapSuccess};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
+use pallet_xcm::EnsureXcm;
 use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
+	traits::TryMorph, transaction_validity::TransactionPriority, FixedPointNumber, FixedU128,
+	SaturatedConversion,
 };
 use sp_staking::EraIndex;
 use testnet_parachains_constants::westend::{
@@ -532,6 +534,74 @@ impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSe
 					testnet_parachains_constants::westend::locations::PeopleParaId::get(),
 				)
 			},
+		}
+	}
+}
+
+/// Returns the parachain id of a sibling parachain location.
+pub struct SiblingParaId;
+impl TryMorph<Location> for SiblingParaId {
+	type Outcome = ParaId;
+
+	fn try_morph(location: Location) -> Result<ParaId, ()> {
+		match location.unpack() {
+			(1, [Parachain(id)]) => Ok((*id).into()),
+			_ => Err(()),
+		}
+	}
+}
+
+/// The system chains allowed to report the blocks authored on them, as their parachain id.
+pub type AuthoredBlocksReportOrigin =
+	TryMapSuccess<EnsureXcm<Equals<PeopleLocation>>, SiblingParaId>;
+
+/// Credits era points to the validators in staking.
+pub struct StakingRewardPoints;
+impl pallet_staking_async_system_chain_client::RewardPoints<AccountId> for StakingRewardPoints {
+	fn reward(points: Vec<(AccountId, u32)>) {
+		Staking::reward_system_chain_points(points);
+	}
+
+	fn weight(entries: u32) -> Weight {
+		use pallet_staking_async::WeightInfo;
+		<Runtime as pallet_staking_async::Config>::WeightInfo::reward_system_chain_points(entries)
+	}
+}
+
+/// Credits the block counts of this chain's own blocks.
+pub struct CreditBlocksLocally;
+impl pallet_validator_collators::ReportAuthoredBlocks<AccountId> for CreditBlocksLocally {
+	fn report(blocks: &[(AccountId, u32)]) -> Result<(), ()> {
+		StakingSystemChainClient::credit_authored_blocks(
+			ParachainInfo::parachain_id(),
+			blocks.iter().cloned(),
+		);
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_report(blocks: &[(AccountId, u32)]) {
+		// Weight this chain's blocks and expose every account in an active era, so that the
+		// credit reaches staking and accrues every entry.
+		pallet_staking_async_system_chain_client::PointsPerBlock::<Runtime>::insert(
+			ParachainInfo::parachain_id(),
+			1,
+		);
+		let era = pallet_staking_async::ActiveEra::<Runtime>::get()
+			.map(|active| active.index)
+			.unwrap_or_else(|| {
+				pallet_staking_async::ActiveEra::<Runtime>::put(
+					pallet_staking_async::ActiveEraInfo { index: 1, start: Some(0) },
+				);
+				1
+			});
+		for (who, _) in blocks {
+			Staking::add_era_stakers(
+				era,
+				who.clone(),
+				sp_staking::Exposure { total: 1, own: 1, others: vec![] },
+			);
+			pallet_staking_async::ErasValidatorIncentiveWeight::<Runtime>::insert(era, who, 1);
 		}
 	}
 }

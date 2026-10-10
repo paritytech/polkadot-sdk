@@ -97,4 +97,61 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `ValidatorCollators::ReportPeriod` (r:0 w:1)
+	/// Proof: `ValidatorCollators::ReportPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn set_report_period() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 3_146_000 picoseconds.
+		Weight::from_parts(5_761_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `ValidatorCollators::AuthoredBlocks` (r:1 w:1)
+	/// Proof: `ValidatorCollators::AuthoredBlocks` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
+	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn note_author() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `4`
+		//  Estimated: `3509`
+		// Minimum execution time: 3_476_000 picoseconds.
+		Weight::from_parts(5_651_000, 0)
+			.saturating_add(Weight::from_parts(0, 3509))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
+	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:0)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006), added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::AuthoredBlocks` (r:1001 w:1000)
+	/// Proof: `ValidatorCollators::AuthoredBlocks` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
+	/// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	/// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
+	/// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
+	/// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	/// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(2306), added: 2801, mode: `MaxEncodedLen`)
+	/// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	/// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	/// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
+	fn report_blocks(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `32236 + n * (49 ±0)`
+		//  Estimated: `35712 + n * (2519 ±0)`
+		// Minimum execution time: 65_784_000 picoseconds.
+		Weight::from_parts(92_795_000, 0)
+			.saturating_add(Weight::from_parts(0, 35712))
+			// Standard Error: 23_412
+			.saturating_add(Weight::from_parts(7_573_800, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 2519).saturating_mul(n.into()))
+	}
 }
