@@ -943,6 +943,31 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 			.saturating_add(Weight::from_parts(0, 2543).saturating_mul(v.into()))
 	}
 	/// Storage: `Staking::ActiveEra` (r:1 w:0)
+	/// Proof: `Staking::ActiveEra` (`max_values`: Some(1), `max_size`: Some(13), added: 508, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasStakersOverview` (r:1000 w:0)
+	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasRewardPoints` (r:1 w:1)
+	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasValidatorIncentiveWeight` (r:1000 w:0)
+	/// Proof: `Staking::ErasValidatorIncentiveWeight` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasSumWeightedPoints` (r:1 w:1)
+	/// Proof: `Staking::ErasSumWeightedPoints` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
+	/// The range of component `v` is `[1, 1000]`.
+	fn reward_system_chain_points(v: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1255 + v * (117 ±0)`
+		//  Estimated: `39483 + v * (2567 ±0)`
+		// Minimum execution time: 33_373_000 picoseconds.
+		Weight::from_parts(35_377_000, 0)
+			.saturating_add(Weight::from_parts(0, 39483))
+			// Standard Error: 58_585
+			.saturating_add(Weight::from_parts(13_381_819, 0).saturating_mul(v.into()))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(v.into())))
+			.saturating_add(T::DbWeight::get().writes(2))
+			.saturating_add(Weight::from_parts(0, 2567).saturating_mul(v.into()))
+	}
+	/// Storage: `Staking::ActiveEra` (r:1 w:0)
 	/// Proof: `Staking::ActiveEra` (`max_values`: Some(1), `max_size`: Some(13), added: 508, mode: `Measured`)
 	/// Storage: `Staking::EraPruningState` (r:1 w:0)
 	/// Proof: `Staking::EraPruningState` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)

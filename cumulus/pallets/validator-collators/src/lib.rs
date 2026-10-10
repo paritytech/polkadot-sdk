@@ -73,6 +73,15 @@
 //! The returned validators author blocks like any collator, so a `pallet-collator-selection` event
 //! handler pays them from its pot and records them in `LastAuthoredBlock`.
 //!
+//! The pallet is also a `pallet_authorship::EventHandler` and counts the blocks each author
+//! produces in [`AuthoredBlocks`]. Every [`ReportPeriod`] blocks it hands the counts of the authors
+//! in the stored set to [`Config::BlockReporter`], in chunks of at most
+//! [`Config::MaxEntriesPerReport`] entries, and drops the counts of other authors. The reporter
+//! delivers them to the chain that runs `pallet-staking-async`, where they become era points. All
+//! chunks of one report are handed over in one storage layer. If the reporter rejects any of
+//! them, every count is kept for the next report and the chunks already handed over are rolled
+//! back. Without a stored set every count is dropped.
+//!
 //! A runtime must configure `pallet-collator-selection`'s `KickThreshold` to exceed a full Aura
 //! round of the merged list, [`Config::MaxValidators`] plus the invulnerables and candidates, times
 //! the blocks the chain produces per Aura slot. Otherwise bonded candidates are kicked as stale
@@ -81,8 +90,6 @@
 //!
 //! ## TODO
 //!
-//! - Counting the blocks each validator authors and reporting era points to the chain where
-//!   `pallet-staking-async` runs, typically Asset Hub.
 //! - Dropping validators that author no blocks for a session, judged among the drawn validators
 //!   under a cap.
 //! - (Only if a need is established) Propagating relay-chain offences to the collator set.
@@ -113,9 +120,31 @@ pub mod weights;
 
 const LOG_TARGET: &str = "runtime::validator-collators";
 
+/// Delivers the block counts of one report.
+pub trait ReportAuthoredBlocks<AccountId> {
+	/// Hand over the number of blocks each account authored.
+	///
+	/// `Ok` means the counts were accepted for delivery or credited, not that a remote chain
+	/// applied them.
+	#[allow(clippy::result_unit_err)]
+	fn report(blocks: &[(AccountId, u32)]) -> Result<(), ()>;
+
+	/// Prepare the runtime so that [`Self::report`] succeeds for `blocks` in benchmarks.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_report(_blocks: &[(AccountId, u32)]) {}
+}
+
+/// Discards the counts.
+impl<AccountId> ReportAuthoredBlocks<AccountId> for () {
+	fn report(_: &[(AccountId, u32)]) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	pub use crate::weights::WeightInfo;
+	use crate::ReportAuthoredBlocks;
 	use alloc::{collections::BTreeSet, vec, vec::Vec};
 	use cumulus_pallet_parachain_system::{
 		relay_state_snapshot::{Error as RelayProofError, ReadEntryErr},
@@ -125,7 +154,9 @@ pub mod pallet {
 		relay_chain::well_known_keys, PersistedValidationData, RelayStorageKey,
 	};
 	use frame_support::{
+		dispatch::DispatchClass,
 		pallet_prelude::*,
+		storage::with_storage_layer,
 		traits::{EnsureOrigin, ValidatorRegistration},
 		BoundedBTreeSet,
 	};
@@ -133,7 +164,7 @@ pub mod pallet {
 	use pallet_session::{SessionManager, ShouldEndSession};
 	use rand::{seq::SliceRandom, SeedableRng};
 	use rand_chacha::ChaCha20Rng;
-	use sp_runtime::traits::{BlakeTwo256, Hash, Zero};
+	use sp_runtime::traits::{BlakeTwo256, Hash, Saturating, Zero};
 	use sp_staking::{EraIndex, SessionIndex};
 
 	/// A validator set received for an era.
@@ -177,7 +208,7 @@ pub mod pallet {
 		/// Origin allowed to submit a validator set.
 		type SetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Origin allowed to change [`MaxCollators`].
+		/// Origin allowed to change [`MaxCollators`] and [`ReportPeriod`].
 		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Lookup of registered session keys.
@@ -189,6 +220,19 @@ pub mod pallet {
 
 		/// The regular session rotation rule kept next to the forced rotations.
 		type PeriodicSession: ShouldEndSession<BlockNumberFor<Self>>;
+
+		/// Hands the block counts of one report to the chain that credits them.
+		type BlockReporter: ReportAuthoredBlocks<Self::AccountId>;
+
+		/// Number of blocks between two reports until governance sets [`ReportPeriod`].
+		#[pallet::constant]
+		type DefaultReportPeriod: Get<BlockNumberFor<Self>>;
+
+		/// Maximum number of entries handed to [`Config::BlockReporter`] in one call.
+		///
+		/// Must not exceed the bound of the call that receives the counts.
+		#[pallet::constant]
+		type MaxEntriesPerReport: Get<u32>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -237,6 +281,17 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type EpochRandomness<T: Config> = StorageValue<_, [u8; 32], OptionQuery>;
 
+	/// Number of blocks between two reports of [`AuthoredBlocks`]. A report is made in every
+	/// block whose number is a multiple of it.
+	#[pallet::storage]
+	pub type ReportPeriod<T: Config> =
+		StorageValue<_, BlockNumberFor<T>, ValueQuery, T::DefaultReportPeriod>;
+
+	/// Blocks authored since the last report, per author.
+	#[pallet::storage]
+	pub type AuthoredBlocks<T: Config> =
+		CountedStorageMap<_, Twox64Concat, T::AccountId, u32, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -249,6 +304,13 @@ pub mod pallet {
 		/// The stored validator set does not decode, so no validators were returned for the
 		/// session.
 		StoredSetUndecodable,
+		/// The number of blocks between two reports was changed.
+		ReportPeriodSet { period: BlockNumberFor<T> },
+		/// The block counts of `authors` authors were removed. The `reported` of them in the
+		/// stored set were handed to the reporter and the others were dropped.
+		BlocksReported { authors: u32, reported: u32 },
+		/// The reporter rejected the block counts, which are kept for the next report.
+		BlocksReportFailed { authors: u32 },
 	}
 
 	#[pallet::error]
@@ -257,16 +319,27 @@ pub mod pallet {
 		StaleEra,
 		/// The set has more validators than [`Config::MaxValidators`].
 		TooManyValidators,
+		/// The report period must be greater than zero.
+		ZeroReportPeriod,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Charges the read of [`PendingRotation`] by [`ShouldEndSession::should_end_session`],
-		/// which pallet-session makes in every block without charging it.
-		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			T::DbWeight::get()
-				.reads(1)
-				.saturating_add(Weight::from_parts(0, RotationState::max_encoded_len() as u64))
+		/// Reports [`AuthoredBlocks`] at every multiple of [`ReportPeriod`].
+		///
+		/// Also charges the read of [`PendingRotation`] by
+		/// [`ShouldEndSession::should_end_session`], which pallet-session makes in every block
+		/// without charging it.
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			let mut weight = T::DbWeight::get().reads(2).saturating_add(Weight::from_parts(
+				0,
+				(RotationState::max_encoded_len() + BlockNumberFor::<T>::max_encoded_len()) as u64,
+			));
+			let period = ReportPeriod::<T>::get();
+			if !period.is_zero() && (now % period).is_zero() {
+				weight.saturating_accrue(Self::report_blocks());
+			}
+			weight
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -305,6 +378,22 @@ pub mod pallet {
 				PendingRotation::<T>::put(RotationState::AwaitingQueue);
 			}
 			Self::deposit_event(Event::MaxCollatorsSet { max });
+			Ok(())
+		}
+
+		/// Set the number of blocks between two reports of the authored blocks.
+		///
+		/// The next report is made at the next multiple of `period`.
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::set_report_period())]
+		pub fn set_report_period(
+			origin: OriginFor<T>,
+			period: BlockNumberFor<T>,
+		) -> DispatchResult {
+			T::UpdateOrigin::ensure_origin(origin)?;
+			ensure!(!period.is_zero(), Error::<T>::ZeroReportPeriod);
+			ReportPeriod::<T>::put(period);
+			Self::deposit_event(Event::ReportPeriodSet { period });
 			Ok(())
 		}
 	}
@@ -385,6 +474,43 @@ pub mod pallet {
 			validators
 		}
 
+		/// Hand the counted blocks of the stored validators to [`Config::BlockReporter`].
+		///
+		/// Sends at most [`Config::MaxEntriesPerReport`] entries per call to the reporter. Counts
+		/// are removed only if the reporter accepts every chunk. Authors outside the stored set
+		/// are dropped.
+		pub(crate) fn report_blocks() -> Weight {
+			let authors = AuthoredBlocks::<T>::count();
+			let weight = T::WeightInfo::report_blocks(authors);
+			if authors == 0 {
+				return weight;
+			}
+			let validators = ValidatorSet::<T>::get().map(|set| set.validators);
+			let chunk_size = T::MaxEntriesPerReport::get().max(1) as usize;
+			let result = with_storage_layer(|| -> Result<u32, DispatchError> {
+				let blocks = AuthoredBlocks::<T>::drain()
+					.filter(|(who, _)| validators.as_ref().is_some_and(|set| set.contains(who)))
+					.collect::<Vec<_>>();
+				blocks.chunks(chunk_size).try_for_each(|chunk| {
+					T::BlockReporter::report(chunk)
+						.map_err(|()| DispatchError::Other("the reporter rejected the counts"))
+				})?;
+				Ok(blocks.len() as u32)
+			});
+			let event = match result {
+				Ok(reported) => Event::BlocksReported { authors, reported },
+				Err(_) => {
+					log::warn!(
+						target: crate::LOG_TARGET,
+						"the reporter rejected the counts of {authors} authors, keeping them"
+					);
+					Event::BlocksReportFailed { authors }
+				},
+			};
+			Self::deposit_event(event);
+			weight
+		}
+
 		/// Check the pallet invariants.
 		#[cfg(any(test, feature = "try-runtime"))]
 		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
@@ -411,6 +537,10 @@ pub mod pallet {
 			ensure!(
 				!Collators::<T>::exists() || EpochRandomness::<T>::exists(),
 				"collators are drawn without a cached relay chain epoch randomness"
+			);
+			ensure!(
+				AuthoredBlocks::<T>::iter_values().all(|blocks| blocks > 0),
+				"an author is counted with zero blocks"
 			);
 			// Until the first forced rotation the drawn collators may be missing or belong to a
 			// previous set or cap.
@@ -481,6 +611,17 @@ pub mod pallet {
 		fn should_end_session(now: BlockNumberFor<T>) -> bool {
 			PendingRotation::<T>::get() != RotationState::Idle ||
 				T::PeriodicSession::should_end_session(now)
+		}
+	}
+
+	impl<T: Config> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T> {
+		/// Counts the block for `author` in [`AuthoredBlocks`].
+		fn note_author(author: T::AccountId) {
+			frame_system::Pallet::<T>::register_extra_weight_unchecked(
+				T::WeightInfo::note_author(),
+				DispatchClass::Mandatory,
+			);
+			AuthoredBlocks::<T>::mutate(author, |blocks| blocks.saturating_inc());
 		}
 	}
 

@@ -54,6 +54,9 @@ impl pallet_validator_collators::Config for Test {
 	type ValidatorRegistration = AllRegistered;
 	type MaxValidators = ConstU32<50>;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type BlockReporter = ();
+	type DefaultReportPeriod = Period;
+	type MaxEntriesPerReport = ConstU32<4>;
 	type WeightInfo = ();
 }
 

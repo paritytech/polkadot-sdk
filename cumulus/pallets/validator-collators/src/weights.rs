@@ -31,6 +31,9 @@ pub trait WeightInfo {
 	fn set_validators(n: u32) -> Weight;
 	fn set_max_collators() -> Weight;
 	fn on_relay_state_proof() -> Weight;
+	fn set_report_period() -> Weight;
+	fn note_author() -> Weight;
+	fn report_blocks(n: u32) -> Weight;
 }
 
 /// Default weights for `pallet_validator_collators`, see the module doc for their source.
@@ -74,6 +77,41 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `ValidatorCollators::ReportPeriod` (r:0 w:1)
+	/// Proof: `ValidatorCollators::ReportPeriod` (`max_values`: Some(1), `max_size`: Some(4),
+	/// added: 499, mode: `MaxEncodedLen`)
+	fn set_report_period() -> Weight {
+		Weight::from_parts(5_761_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `ValidatorCollators::AuthoredBlocks` (r:1 w:1)
+	/// Proof: `ValidatorCollators::AuthoredBlocks` (`max_values`: None, `max_size`: Some(44),
+	/// added: 2519, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
+	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
+	/// `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn note_author() -> Weight {
+		Weight::from_parts(5_651_000, 3_509)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
+	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
+	/// `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:0)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
+	/// added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::AuthoredBlocks` (r:1001 w:1000)
+	/// Proof: `ValidatorCollators::AuthoredBlocks` (`max_values`: None, `max_size`: Some(44),
+	/// added: 2519, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
+	fn report_blocks(n: u32) -> Weight {
+		Weight::from_parts(92_795_000, 33_491)
+			.saturating_add(Weight::from_parts(7_573_800, 2_519).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -115,5 +153,40 @@ impl WeightInfo for () {
 		Weight::from_parts(4_748_000, 1_517)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `ValidatorCollators::ReportPeriod` (r:0 w:1)
+	/// Proof: `ValidatorCollators::ReportPeriod` (`max_values`: Some(1), `max_size`: Some(4),
+	/// added: 499, mode: `MaxEncodedLen`)
+	fn set_report_period() -> Weight {
+		Weight::from_parts(5_761_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `ValidatorCollators::AuthoredBlocks` (r:1 w:1)
+	/// Proof: `ValidatorCollators::AuthoredBlocks` (`max_values`: None, `max_size`: Some(44),
+	/// added: 2519, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
+	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
+	/// `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn note_author() -> Weight {
+		Weight::from_parts(5_651_000, 3_509)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
+	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
+	/// `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:0)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
+	/// added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::AuthoredBlocks` (r:1001 w:1000)
+	/// Proof: `ValidatorCollators::AuthoredBlocks` (`max_values`: None, `max_size`: Some(44),
+	/// added: 2519, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
+	fn report_blocks(n: u32) -> Weight {
+		Weight::from_parts(92_795_000, 33_491)
+			.saturating_add(Weight::from_parts(7_573_800, 2_519).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
 	}
 }

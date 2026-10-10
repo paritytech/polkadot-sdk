@@ -10,6 +10,7 @@
 //! * `asset-hub-westend-local` electing two validators from its genesis stakers AliceStash and
 //!   BobStash, with the signed election phases skipped and a short unsigned phase.
 //! * `people-westend-local`.
+//! * Both parachains report authored blocks every 10 blocks, in place of the runtime default.
 //! * On each parachain one invulnerable collator, plus one collator per validator that is not a
 //!   collator at genesis.
 //!
@@ -19,6 +20,8 @@
 //!    on Asset Hub. Asset Hub stores the set and announces it to People.
 //! 3. Both parachains rotate AliceStash and BobStash in as collators, and their collator nodes
 //!    author blocks.
+//! 4. Both parachains report the blocks of AliceStash and BobStash, and Asset Hub credits them as
+//!    era points of the active era.
 
 use super::common::{
 	account, build_network_config, fetch, fetch_raw, hex_accounts, init_logging,
@@ -70,6 +73,13 @@ const SESSION_ROTATION_TIMEOUT: Duration = Duration::from_secs(2 * 60);
 /// From the rotations to both validator collators having authored a block on both parachains.
 const AUTHORSHIP_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
+/// `ValidatorCollators::ReportPeriod` of both parachains, in blocks.
+const REPORT_PERIOD: u32 = 10;
+
+/// From the authorship check to Asset Hub crediting the blocks of each parachain: one report
+/// period plus a margin for the XCM delivery.
+const CREDIT_TIMEOUT: Duration = Duration::from_secs(3 * 60);
+
 /// Response of `author_rotateKeysWithOwner`.
 #[derive(Deserialize)]
 struct GeneratedSessionKeys {
@@ -79,7 +89,7 @@ struct GeneratedSessionKeys {
 
 /// The whole test, below the 60-minute CI step so that the step ends with this error and the log
 /// collection steps run.
-const TEST_TIMEOUT: Duration = Duration::from_secs(50 * 60);
+const TEST_TIMEOUT: Duration = Duration::from_secs(55 * 60);
 
 #[tokio::test(flavor = "multi_thread")]
 async fn validator_collators_on_asset_hub_and_people() -> Result<(), anyhow::Error> {
@@ -97,6 +107,7 @@ async fn run() -> Result<(), anyhow::Error> {
 		election: true,
 		hrmp_channel_max_total_size: None,
 		sudo_balance: None,
+		report_period: Some(REPORT_PERIOD),
 	})
 	.await?;
 	let network = initialize_network(config).await?;
@@ -211,6 +222,10 @@ async fn run() -> Result<(), anyhow::Error> {
 	});
 	futures::future::try_join_all(authorship).await?;
 
+	// AND Asset Hub credits the blocks authored on both parachains to exposed validators
+	log::info!("Waiting for Asset Hub to credit the blocks of both parachains");
+	wait_for_credits_from_both_chains(&asset_hub_client).await?;
+
 	// AND the relay chain kept its validators, since the elected set is the running one
 	let relay_validators = session_validators(&relay_client).await?;
 	if relay_validators != stashes.iter().copied().collect::<BTreeSet<_>>() {
@@ -301,6 +316,61 @@ async fn register_keys(
 fn is_set_of_era_1_with_two_validators(fields: &Composite<u32>) -> bool {
 	fields.at("era").and_then(|era| era.as_u128()) == Some(1) &&
 		fields.at("count").and_then(|count| count.as_u128()) == Some(VALIDATORS.len() as u128)
+}
+
+/// Waits until Asset Hub credited the blocks of Asset Hub and of People, each to at least one
+/// validator exposed in the active era.
+///
+/// Staking reports `SystemChainPointsCredited` for every credit, just before
+/// `StakingSystemChainClient` reports the source in `BlocksCredited`.
+async fn wait_for_credits_from_both_chains(
+	client: &OnlineClient<PolkadotConfig>,
+) -> Result<(), anyhow::Error> {
+	let wait = async {
+		let mut pending = BTreeSet::from([ASSET_HUB_ID as u128, PEOPLE_ID as u128]);
+		let mut blocks = client.blocks().subscribe_finalized().await?;
+		while let Some(block) = blocks.next().await {
+			let block = block?;
+			let mut credited = 0;
+			for event in block.events().await?.iter() {
+				let event = event?;
+				match (event.pallet_name(), event.variant_name()) {
+					("Staking", "SystemChainPointsCredited") => {
+						credited = event
+							.field_values()?
+							.at("credited")
+							.and_then(|credited| credited.as_u128())
+							.unwrap_or(0);
+					},
+					("StakingSystemChainClient", "BlocksCredited") => {
+						let fields = event.field_values()?;
+						if let Some(source) = credit_source(&fields).filter(|_| credited > 0) {
+							log::info!(
+								"Asset Hub #{}: credited the blocks of {source}",
+								block.number()
+							);
+							pending.remove(&source);
+						}
+						credited = 0;
+					},
+					_ => {},
+				}
+			}
+			if pending.is_empty() {
+				return Ok(());
+			}
+		}
+		Err(anyhow!("Asset Hub block subscription ended"))
+	};
+	tokio::time::timeout(CREDIT_TIMEOUT, wait).await.map_err(|_| {
+		anyhow!("Asset Hub did not credit the blocks of both chains within {CREDIT_TIMEOUT:?}")
+	})?
+}
+
+/// The parachain id in the `source` field of `BlocksCredited`.
+fn credit_source(fields: &Composite<u32>) -> Option<u128> {
+	let source = fields.at("source")?;
+	source.as_u128().or_else(|| source.at(0).and_then(|id| id.as_u128()))
 }
 
 async fn wait_for_session_validators(
