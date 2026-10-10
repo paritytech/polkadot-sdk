@@ -240,7 +240,7 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-	type EventHandler = (CollatorSelection,);
+	type EventHandler = (CollatorSelection, ValidatorCollators);
 }
 
 parameter_types! {
@@ -1207,6 +1207,10 @@ impl pallet_validator_collators::Config for Runtime {
 	type ValidatorRegistration = Session;
 	type MaxValidators = staking::MaxValidatorSet;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type BlockReporter = staking::CreditBlocksLocally;
+	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
+	type MaxEntriesPerReport =
+		ConstU32<{ testnet_parachains_constants::westend::staking::MAX_ENTRIES_PER_REPORT }>;
 	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }
 
@@ -1214,6 +1218,19 @@ impl pallet_validator_set_announcer::Config for Runtime {
 	type Sender = staking::ValidatorSetToSystemChains;
 	type Destinations = staking::ValidatorSetDestinations;
 	type WeightInfo = weights::pallet_validator_set_announcer::WeightInfo<Runtime>;
+}
+
+impl pallet_staking_async_system_chain_client::Config for Runtime {
+	type Source = ParaId;
+	type ReportOrigin = staking::AuthoredBlocksReportOrigin;
+	type PointsOrigin = CollatorSelectionUpdateOrigin;
+	type RewardPoints = staking::StakingRewardPoints;
+	type MaxEntriesPerReport =
+		ConstU32<{ testnet_parachains_constants::westend::staking::MAX_ENTRIES_PER_REPORT }>;
+	// A relay chain block earns a fixed number of points. The cap leaves governance room above the
+	// per-block value that matches it, while an era's total stays far from saturating.
+	type MaxPointsPerBlock = ConstU32<1_000>;
+	type WeightInfo = weights::pallet_staking_async_system_chain_client::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1723,6 +1740,7 @@ construct_runtime!(
 		AuraExt: cumulus_pallet_aura_ext = 24,
 		ValidatorCollators: pallet_validator_collators = 25,
 		ValidatorSetAnnouncer: pallet_validator_set_announcer = 26,
+		StakingSystemChainClient: pallet_staking_async_system_chain_client = 27,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
@@ -2025,6 +2043,7 @@ mod benches {
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
 		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]
+		[pallet_staking_async_system_chain_client, StakingSystemChainClient]
 		[pallet_uniques, Uniques]
 		[pallet_utility, Utility]
 		[pallet_meta_tx, MetaTx]

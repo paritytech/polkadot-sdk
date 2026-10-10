@@ -85,6 +85,9 @@ pub(super) struct NetworkOptions {
 	pub(super) hrmp_channel_max_total_size: Option<u32>,
 	/// Balance of Alice, the relay chain's sudo key, in place of zombienet's default.
 	pub(super) sudo_balance: Option<u128>,
+	/// `ValidatorCollators::ReportPeriod` of both parachains at genesis, in blocks, in place of
+	/// the runtime default.
+	pub(super) report_period: Option<u32>,
 }
 
 /// Logging from `RUST_LOG`, `info` by default. The orchestrator's chain spec generator is capped
@@ -114,6 +117,12 @@ pub(super) async fn build_network_config(
 		);
 	}
 	let extra_collators = if options.validator_collators { &VALIDATORS[..] } else { &[] };
+	let report_period = options.report_period.map(report_period_entry).into_iter();
+	let asset_hub_raw = report_period
+		.clone()
+		.chain(options.election.then(election_phase_entries).into_iter().flatten())
+		.collect::<Vec<_>>();
+	let people_raw = report_period.collect::<Vec<_>>();
 
 	NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -145,9 +154,13 @@ pub(super) async fn build_network_config(
 				p.with_genesis_overrides(json!({
 					"staking": { "validatorCount": VALIDATORS.len(), "devStakers": null }
 				}))
-				.with_raw_spec_override(election_phases_override())
 			} else {
 				p.with_genesis_overrides(json!({ "staking": { "devStakers": null } }))
+			};
+			let p = if asset_hub_raw.is_empty() {
+				p
+			} else {
+				p.with_raw_spec_override(raw_genesis(asset_hub_raw))
 			};
 			extra_collators.iter().fold(
 				p.with_collator(|n| n.with_name(ASSET_HUB_INVULNERABLE)),
@@ -165,6 +178,11 @@ pub(super) async fn build_network_config(
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("people-westend-local")
 				.with_default_args(collator_args("runtime::validator-collators=debug"));
+			let p = if people_raw.is_empty() {
+				p
+			} else {
+				p.with_raw_spec_override(raw_genesis(people_raw))
+			};
 			extra_collators.iter().fold(
 				p.with_collator(|n| n.with_name(PEOPLE_INVULNERABLE)),
 				|p, validator| {
@@ -196,20 +214,35 @@ fn collator_args(log_targets: &str) -> Vec<zombienet_sdk::Arg> {
 	]
 }
 
-/// Skips the signed election phases on Asset Hub and shortens the unsigned one, by writing the
-/// `pub storage` parameters `SignedPhase`, `UnsignedPhase` and `SignedValidationPhase` into the
-/// raw genesis.
-fn election_phases_override() -> serde_json::Value {
+/// A raw genesis override writing these storage entries.
+fn raw_genesis(entries: Vec<(Vec<u8>, Vec<u8>)>) -> serde_json::Value {
+	let top = serde_json::Map::from_iter(entries.into_iter().map(|(key, value)| {
+		(format!("0x{}", hex::encode(key)), json!(format!("0x{}", hex::encode(value))))
+	}));
+	json!({ "genesis": { "raw": { "top": top } } })
+}
+
+/// Skips the signed election phases on Asset Hub and shortens the unsigned one, through the
+/// `pub storage` parameters `SignedPhase`, `UnsignedPhase` and `SignedValidationPhase`.
+fn election_phase_entries() -> Vec<(Vec<u8>, Vec<u8>)> {
 	let entry = |name: &str, value: u32| {
-		let key = sp_crypto_hashing::twox_128(format!(":{name}:").as_bytes());
-		(format!("0x{}", hex::encode(key)), json!(format!("0x{}", hex::encode(value.encode()))))
+		(sp_crypto_hashing::twox_128(format!(":{name}:").as_bytes()).to_vec(), value.encode())
 	};
-	let top = serde_json::Map::from_iter([
+	vec![
 		entry("SignedPhase", 0),
 		entry("UnsignedPhase", UNSIGNED_PHASE),
 		entry("SignedValidationPhase", 0),
-	]);
-	json!({ "genesis": { "raw": { "top": top } } })
+	]
+}
+
+/// `ValidatorCollators::ReportPeriod`.
+fn report_period_entry(period: u32) -> (Vec<u8>, Vec<u8>) {
+	let key = [
+		sp_crypto_hashing::twox_128(b"ValidatorCollators"),
+		sp_crypto_hashing::twox_128(b"ReportPeriod"),
+	]
+	.concat();
+	(key, period.encode())
 }
 
 /// Opens the HRMP channels from Asset Hub to People and back, taking messages of up to

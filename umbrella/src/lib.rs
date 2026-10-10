@@ -745,6 +745,11 @@ pub use pallet_staking_async_rc_client;
 #[cfg(feature = "pallet-staking-async-runtime-api")]
 pub use pallet_staking_async_runtime_api;
 
+/// The client for system chains, intended to be used in AssetHub. Credits the blocks
+/// validators author on system chains as era points.
+#[cfg(feature = "pallet-staking-async-system-chain-client")]
+pub use pallet_staking_async_system_chain_client;
+
 /// Reward Curve for FRAME staking pallet.
 #[cfg(feature = "pallet-staking-reward-curve")]
 pub use pallet_staking_reward_curve;

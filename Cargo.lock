@@ -1955,6 +1955,7 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-async",
  "pallet-staking-async-rc-client",
+ "pallet-staking-async-system-chain-client",
  "pallet-staking-runtime-api",
  "pallet-state-trie-migration",
  "pallet-sudo",
@@ -15164,6 +15165,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking-async-system-chain-client"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-staking-reward-curve"
 version = "11.0.0"
 dependencies = [
@@ -15433,6 +15447,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-session",
@@ -16031,11 +16046,13 @@ version = "0.1.0"
 dependencies = [
  "emulated-integration-tests-common",
  "frame-support",
+ "pallet-authorship",
  "pallet-balances",
  "pallet-identity",
  "pallet-message-queue",
  "pallet-session",
  "pallet-staking-async",
+ "pallet-staking-async-system-chain-client",
  "pallet-validator-collators",
  "pallet-validator-set-announcer",
  "pallet-xcm",
@@ -17901,6 +17918,7 @@ dependencies = [
  "pallet-staking-async-ah-client",
  "pallet-staking-async-rc-client",
  "pallet-staking-async-runtime-api",
+ "pallet-staking-async-system-chain-client",
  "pallet-staking-reward-curve",
  "pallet-staking-reward-fn",
  "pallet-staking-runtime-api",

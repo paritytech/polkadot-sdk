@@ -230,3 +230,124 @@ fn asset_hub_caches_the_relay_epoch_randomness_from_the_next_block() {
 	// the emulator's relay state proof
 	AssetHubWestend::execute_with(|| assert_eq!(EpochRandomness::get(), Some([0; 32])));
 }
+
+#[test]
+fn people_reports_authored_blocks_to_asset_hub() {
+	type AssetHubRuntime = <AssetHubWestend as Chain>::Runtime;
+	type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
+	type PeopleValidatorCollators = pallet_validator_collators::Pallet<PeopleRuntime>;
+	let alice = Sr25519Keyring::Alice.to_account_id();
+	let bob = Sr25519Keyring::Bob.to_account_id();
+	let invulnerable = invulnerables()[0].0.clone();
+	let people = PeopleWestend::para_id();
+
+	// GIVEN era 1 is active on Asset Hub with Alice exposed, and People's blocks earn 5 points
+	AssetHubWestend::execute_with(|| {
+		pallet_staking_async::ActiveEra::<AssetHubRuntime>::put(
+			pallet_staking_async::ActiveEraInfo { index: 1, start: Some(0) },
+		);
+		pallet_staking_async::session_rotation::Eras::<AssetHubRuntime>::upsert_exposure(
+			1,
+			&alice,
+			pallet_staking_async::Exposure { total: 1, own: 1, others: vec![] },
+		);
+		assert_ok!(pallet_staking_async_system_chain_client::Pallet::<AssetHubRuntime>::set_points_per_block(
+			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
+			people,
+			5,
+		));
+	});
+
+	// AND People stores the set of Alice and Bob, Alice authored 3 blocks and an invulnerable 2,
+	// and the next block is a report block
+	PeopleWestend::execute_with(|| {
+		assert_ok!(PeopleValidatorCollators::set_validators(
+			<PeopleWestend as Chain>::RuntimeOrigin::root(),
+			1,
+			[alice.clone(), bob.clone()]
+				.into_iter()
+				.collect::<std::collections::BTreeSet<_>>()
+				.try_into()
+				.unwrap(),
+		));
+		let note = |who: &AccountId, blocks: u32| {
+			(0..blocks).for_each(|_| {
+				<PeopleValidatorCollators as pallet_authorship::EventHandler<_, _>>::note_author(
+					who.clone(),
+				)
+			})
+		};
+		note(&alice, 3);
+		note(&invulnerable, 2);
+		let next = <PeopleWestend as Chain>::System::block_number() + 1;
+		assert_ok!(PeopleValidatorCollators::set_report_period(
+			<PeopleWestend as Chain>::RuntimeOrigin::root(),
+			next,
+		));
+	});
+
+	// WHEN People reaches the report block
+	PeopleWestend::execute_with(|| {
+		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			PeopleWestend,
+			vec![
+				RuntimeEvent::ValidatorCollators(
+					pallet_validator_collators::Event::BlocksReported { reported: 1, .. }
+				) => {},
+			]
+		);
+		assert_eq!(pallet_validator_collators::AuthoredBlocks::<PeopleRuntime>::count(), 0);
+	});
+
+	// THEN Asset Hub credits Alice's blocks with People's points per block and nobody else
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::StakingSystemChainClient(
+					pallet_staking_async_system_chain_client::Event::BlocksCredited { source, entries: 1 }
+				) => { source: *source == people, },
+				RuntimeEvent::Staking(
+					pallet_staking_async::Event::SystemChainPointsCredited {
+						era: 1,
+						credited: 1,
+						dropped: 0,
+					}
+				) => {},
+			]
+		);
+		let points = pallet_staking_async::ErasRewardPoints::<AssetHubRuntime>::get(1);
+		assert_eq!(points.individual.into_iter().collect::<Vec<_>>(), vec![(alice, 15)]);
+		assert_eq!(points.total, 15);
+	});
+}
+
+#[test]
+fn people_report_call_decodes_on_asset_hub() {
+	// GIVEN the largest call People sends to report blocks
+	type MaxEntries =
+		<people_westend_runtime::Runtime as pallet_validator_collators::Config>::MaxEntriesPerReport;
+	let max_entries = <MaxEntries as frame_support::traits::Get<u32>>::get();
+	let blocks = (0..max_entries)
+		.map(|i| {
+			let mut account = [0u8; 32];
+			account[..4].copy_from_slice(&i.to_le_bytes());
+			(AccountId::from(account), i + 1)
+		})
+		.collect::<Vec<_>>();
+	let encoded = people_westend_runtime::ReportBlocksToAssetHub::encoded_call(&blocks);
+	// WHEN Asset Hub decodes it
+	let call = <asset_hub_westend_runtime::RuntimeCall as codec::Decode>::decode(&mut &encoded[..]);
+	// THEN it is `report_authored_blocks` of `pallet-staking-async-system-chain-client` with the
+	// same entries
+	match call {
+		Ok(asset_hub_westend_runtime::RuntimeCall::StakingSystemChainClient(
+			pallet_staking_async_system_chain_client::Call::report_authored_blocks {
+				blocks: decoded,
+			},
+		)) => assert_eq!(decoded.into_inner(), blocks),
+		other => panic!("People's report decodes on Asset Hub as {other:?}"),
+	}
+}

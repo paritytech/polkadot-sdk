@@ -59,6 +59,7 @@ pub mod pallet_scheduler;
 pub mod pallet_session;
 pub mod pallet_staking_async;
 pub mod pallet_staking_async_rc_client;
+pub mod pallet_staking_async_system_chain_client;
 pub mod pallet_sudo;
 pub mod pallet_timestamp;
 pub mod pallet_transaction_payment;

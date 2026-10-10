@@ -47,6 +47,7 @@ mod legacy_reward;
 mod nominators_no_slashing;
 mod payout_stakers;
 mod slashing;
+mod system_chain_points;
 mod try_state;
 mod validator_incentive;
 
