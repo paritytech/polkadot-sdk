@@ -650,6 +650,9 @@ pub mod pallet {
 			// Weight for updating the last relay chain block number in `on_finalize`.
 			weight += T::DbWeight::get().reads_writes(1, 1);
 
+			// Weight for buffering, or taking and sending, `PendingProvidesRoot` in `on_finalize`.
+			weight += T::DbWeight::get().reads_writes(1, 1);
+
 			// Weight for adjusting the unincluded segment in `on_finalize`.
 			weight += T::DbWeight::get().reads_writes(6, 3);
 
