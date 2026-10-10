@@ -19,8 +19,9 @@ use codec::Encode;
 use frame_benchmarking::v2::*;
 use pallet_message_queue as mq;
 use polkadot_primitives::{
-	CandidateCommitments, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash,
-	HrmpChannelId, OutboundHrmpMessage, SessionIndex, StreamsRoot, UMPSignal, UMP_SEPARATOR,
+	v9::MAX_COMMITMENT_ENTRIES, CandidateCommitments,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, HrmpChannelId,
+	OutboundHrmpMessage, RequiresSet, SessionIndex, StreamsRoot, UMPSignal, UMP_SEPARATOR,
 };
 
 use super::*;
@@ -166,6 +167,28 @@ mod benchmarks {
 				core_index,
 				backing_group,
 			);
+		}
+	}
+
+	/// `r` sources, each a full window whose oldest entry is the required root: every match
+	/// decodes a whole window and scans all of it.
+	#[benchmark]
+	fn requires_satisfied(r: Linear<1, { MAX_COMMITMENT_ENTRIES }>) {
+		let requires =
+			RequiresSet::try_from_iter((0..r).map(|i| (ParaId::from(i), root(i as u64))))
+				.expect("at most MAX_COMMITMENT_ENTRIES entries; qed");
+		for (source, required) in requires.iter() {
+			let window: Vec<_> = core::iter::once(*required)
+				.chain((1..MAX_PROVIDES_WINDOW_SIZE).map(|filler| root(u64::MAX - filler as u64)))
+				.collect();
+			let window: BoundedVec<_, ConstU32<MAX_PROVIDES_WINDOW_SIZE>> =
+				window.try_into().expect("exactly MAX_PROVIDES_WINDOW_SIZE roots; qed");
+			RecentProvides::<T>::insert(*source, window);
+		}
+
+		#[block]
+		{
+			assert!(Pallet::<T>::requires_satisfied(&requires).is_ok());
 		}
 	}
 

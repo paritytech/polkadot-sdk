@@ -71,6 +71,8 @@ pub trait WeightInfo {
 	/// NOTE: due to a shortcoming of the current benchmarking framework,
 	/// we use `u32` for the code upgrade, even though it is a `bool`.
 	fn enact_candidate(u: u32, h: u32, c: u32) -> Weight;
+	/// Weight of matching a `Requires` set of `r` entries against the provides windows.
+	fn requires_satisfied(r: u32) -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -78,10 +80,16 @@ impl WeightInfo for TestWeightInfo {
 	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
 		Weight::zero()
 	}
+	fn requires_satisfied(_r: u32) -> Weight {
+		Weight::zero()
+	}
 }
 
 impl WeightInfo for () {
 	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
+		Weight::zero()
+	}
+	fn requires_satisfied(_r: u32) -> Weight {
 		Weight::zero()
 	}
 }

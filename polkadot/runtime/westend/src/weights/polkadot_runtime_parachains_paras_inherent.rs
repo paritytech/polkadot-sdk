@@ -240,8 +240,6 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras_inherent::Weigh
 			.saturating_add(T::DbWeight::get().reads(20))
 			.saturating_add(T::DbWeight::get().writes(9))
 	}
-	// Measured locally (10 steps, 1 repeat) after the speculative-messaging benchmark change;
-	// regenerate with `/cmd bench`.
 	/// Storage: `ParaInherent::Included` (r:1 w:1)
 	/// Proof: `ParaInherent::Included` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `System::ParentHash` (r:1 w:0)
@@ -266,10 +264,10 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras_inherent::Weigh
 	/// Proof: `ParasShared::ActiveValidatorKeys` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Babe::AuthorVrfRandomness` (r:1 w:0)
 	/// Proof: `Babe::AuthorVrfRandomness` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
-	/// Storage: `ParasDisputes::Frozen` (r:1 w:0)
-	/// Proof: `ParasDisputes::Frozen` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `ParaInherent::OnChainVotes` (r:1 w:1)
 	/// Proof: `ParaInherent::OnChainVotes` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `ParasDisputes::Frozen` (r:1 w:0)
+	/// Proof: `ParasDisputes::Frozen` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `ParaInclusion::V1` (r:2 w:1)
 	/// Proof: `ParaInclusion::V1` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `ParaSessionInfo::AccountKeys` (r:1 w:0)
@@ -294,8 +292,6 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras_inherent::Weigh
 	/// Proof: `ParaScheduler::SessionStartBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Initializer::BufferedSessionChanges` (r:1 w:0)
 	/// Proof: `Initializer::BufferedSessionChanges` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `ParaInclusion::RecentProvides` (r:256 w:0)
-	/// Proof: `ParaInclusion::RecentProvides` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Paras::CurrentCodeHash` (r:1 w:0)
 	/// Proof: `Paras::CurrentCodeHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Paras::ParaLifecycles` (r:1 w:0)
@@ -321,14 +317,14 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras_inherent::Weigh
 	/// The range of component `v` is `[2, 5]`.
 	fn enter_backed_candidates_variable(v: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1130149`
-		//  Estimated: `1764739`
-		// Minimum execution time: 3_788_000_000 picoseconds.
-		Weight::from_parts(3_880_833_333, 0)
-			.saturating_add(Weight::from_parts(0, 1764739))
-			// Standard Error: 32_342_848
-			.saturating_add(Weight::from_parts(9_395_833, 0).saturating_mul(v.into()))
-			.saturating_add(T::DbWeight::get().reads(288))
+		//  Measured:  `76033`
+		//  Estimated: `81973`
+		// Minimum execution time: 1_546_884_000 picoseconds.
+		Weight::from_parts(1_510_948_970, 0)
+			.saturating_add(Weight::from_parts(0, 81973))
+			// Standard Error: 565_002
+			.saturating_add(Weight::from_parts(49_111_858, 0).saturating_mul(v.into()))
+			.saturating_add(T::DbWeight::get().reads(32))
 			.saturating_add(T::DbWeight::get().writes(16))
 	}
 	/// Storage: `ParaInherent::Included` (r:1 w:1)
