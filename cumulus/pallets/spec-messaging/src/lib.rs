@@ -165,6 +165,8 @@ pub mod pallet {
 		Replay,
 		/// This block's `StreamsRoot` is already committed; a later send could not be served.
 		RootCommitted,
+		/// `enact_messages` already ran this block.
+		AlreadyEnacted,
 	}
 
 	#[pallet::hooks]
@@ -199,6 +201,9 @@ pub mod pallet {
 		pub fn enact_messages(origin: OriginFor<T>, data: MessagingInherentData) -> DispatchResult {
 			ensure_none(origin)?;
 			Self::roll_over();
+			// Once per block: the record keeps one interval per stream, so a second consumption
+			// of a stream would replace the first, and no lift would bind the first.
+			ensure!(!ConsumptionOutbox::<T>::exists(), Error::<T>::AlreadyEnacted);
 
 			let mut touched = BTreeSet::new();
 			let mut gaps = 0u32;

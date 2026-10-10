@@ -371,6 +371,7 @@ fn events_item_rebuilds_frontier_and_guards_replay() {
 		));
 		// Highwater set; a replay at the same base is rejected.
 		assert_eq!(InboundHighwater::<Test>::get((a, s)), Some(0));
+		roll_one_block();
 		assert_err!(
 			SpecMessaging::enact_messages(
 				RuntimeOrigin::none(),
@@ -385,6 +386,36 @@ fn events_item_rebuilds_frontier_and_guards_replay() {
 				)]),
 			),
 			Error::<Test>::Replay
+		);
+	});
+}
+
+#[test]
+fn a_second_enact_in_one_block_is_rejected() {
+	new_test_ext().execute_with(|| {
+		let (a, s) = (src(), stream(0));
+		let read = |payload: &[u8]| {
+			inherent(vec![(
+				a,
+				s,
+				ConsumeItem::Events {
+					base: MessagePosition(0),
+					start_peaks: vec![],
+					payloads: vec![data_payload(payload)],
+				},
+			)])
+		};
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read(b"forged")));
+		// The record keeps one interval per stream: a second read of the same stream would
+		// replace the first, and the lift would then bind only the second.
+		let mut second = read(b"genuine");
+		if let ConsumeItem::Events { base, start_peaks, .. } = &mut second.items[0].2 {
+			*base = MessagePosition(1);
+			*start_peaks = vec![leaf_hash(LEAF_VERSION, &data_payload(b"forged"))];
+		}
+		assert_err!(
+			SpecMessaging::enact_messages(RuntimeOrigin::none(), second),
+			Error::<Test>::AlreadyEnacted
 		);
 	});
 }
