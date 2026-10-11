@@ -280,3 +280,110 @@ fn dust_removal_goes_to_accumulation_account() {
 			assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
 		});
 }
+
+/// Calls that move the delegator's funds, labelled so a failure names every call that slipped
+/// through.
+fn value_moving_calls() -> Vec<(&'static str, RuntimeCall)> {
+	let bob = AccountId::from(Sr25519Keyring::Bob);
+	let here = Location::here();
+	vec![
+		(
+			"PolkadotXcm::transfer_assets",
+			RuntimeCall::PolkadotXcm(pallet_xcm::Call::transfer_assets {
+				dest: Box::new(xcm::VersionedLocation::from(here.clone())),
+				beneficiary: Box::new(xcm::VersionedLocation::from(here)),
+				assets: Box::new(xcm::VersionedAssets::from(Assets::new())),
+				fee_asset_item: 0,
+				weight_limit: WeightLimit::Unlimited,
+			}),
+		),
+		(
+			"FellowshipSalary::payout_other",
+			RuntimeCall::FellowshipSalary(pallet_salary::Call::payout_other {
+				beneficiary: bob.clone(),
+			}),
+		),
+		(
+			"AmbassadorSalary::payout_other",
+			RuntimeCall::AmbassadorSalary(pallet_salary::Call::payout_other {
+				beneficiary: bob.clone(),
+			}),
+		),
+		(
+			"SecretarySalary::payout_other",
+			RuntimeCall::SecretarySalary(pallet_salary::Call::payout_other { beneficiary: bob }),
+		),
+	]
+}
+
+#[test]
+fn non_transfer_proxy_rejects_value_moving_calls() {
+	use collectives_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+
+	let mut leaked = Vec::new();
+	for (name, call) in value_moving_calls() {
+		if ProxyType::NonTransfer.filter(&call) {
+			leaked.push(name);
+		}
+		assert!(ProxyType::Any.filter(&call), "Any must permit {name}");
+	}
+	assert!(
+		leaked.is_empty(),
+		"NonTransfer must reject calls that move funds, but permitted: {leaked:?}",
+	);
+}
+
+#[test]
+fn non_transfer_proxy_still_permits_non_value_moving_calls() {
+	use collectives_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+
+	let permitted = vec![
+		("FellowshipSalary::payout", RuntimeCall::FellowshipSalary(pallet_salary::Call::payout {})),
+		("AmbassadorSalary::payout", RuntimeCall::AmbassadorSalary(pallet_salary::Call::payout {})),
+		("SecretarySalary::payout", RuntimeCall::SecretarySalary(pallet_salary::Call::payout {})),
+		(
+			"CollatorSelection::leave_intent",
+			RuntimeCall::CollatorSelection(pallet_collator_selection::Call::leave_intent {}),
+		),
+		("Utility::batch", RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![] })),
+	];
+	for (name, call) in permitted {
+		assert!(ProxyType::NonTransfer.filter(&call), "NonTransfer must still permit {name}");
+	}
+}
+
+/// `NonTransfer` rejects salary `payout_other`, so it must not claim the proxy types that admit it.
+#[test]
+fn non_transfer_proxy_is_not_a_superset_of_salary_proxies() {
+	use collectives_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+
+	let bob = AccountId::from(Sr25519Keyring::Bob);
+	let cases = [
+		(
+			ProxyType::Fellowship,
+			RuntimeCall::FellowshipSalary(pallet_salary::Call::payout_other {
+				beneficiary: bob.clone(),
+			}),
+		),
+		(
+			ProxyType::Ambassador,
+			RuntimeCall::AmbassadorSalary(pallet_salary::Call::payout_other {
+				beneficiary: bob.clone(),
+			}),
+		),
+		(
+			ProxyType::Secretary,
+			RuntimeCall::SecretarySalary(pallet_salary::Call::payout_other { beneficiary: bob }),
+		),
+	];
+	for (proxy, call) in cases {
+		assert!(proxy.filter(&call), "{proxy:?} must permit its salary payout_other");
+		assert!(
+			!ProxyType::NonTransfer.is_superset(&proxy),
+			"NonTransfer must not claim {proxy:?}"
+		);
+	}
+}
