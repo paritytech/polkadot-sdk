@@ -31,7 +31,7 @@ use frame_support::{
 	traits::{
 		fungible,
 		fungible::{NativeFromLeft, NativeOrWithId},
-		tokens::{PayFromAccount, UnityAssetBalanceConversion},
+		tokens::{NoAssetCategories, PayFromAccount, UnityAssetBalanceConversion},
 		AsEnsureOriginWithArg, ConstU32, ConstU64, Currency, Imbalance, OnInitialize,
 	},
 	PalletId,
@@ -111,6 +111,7 @@ impl pallet_treasury::Config for Test {
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
 	type BalanceConverter = UnityAssetBalanceConversion;
+	type AssetCategories = NoAssetCategories<(), u64>;
 	type PayoutPeriod = ConstU64<10>;
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -134,6 +135,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = PayFromAccount<Balances, TreasuryInstance1Account>;
 	type BalanceConverter = UnityAssetBalanceConversion;
+	type AssetCategories = NoAssetCategories<(), u64>;
 	type PayoutPeriod = ConstU64<10>;
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]

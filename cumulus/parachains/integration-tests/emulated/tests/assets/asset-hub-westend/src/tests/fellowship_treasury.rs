@@ -65,7 +65,7 @@ fn create_and_claim_treasury_spend() {
 		// create and approve a treasury spend.
 		assert_ok!(FellowshipTreasury::spend(
 			root,
-			Box::new(asset_kind),
+			Box::new(pallet_treasury::SpendAsset::Specific(asset_kind)),
 			SPEND_AMOUNT,
 			Box::new(Location::new(0, Into::<[u8; 32]>::into(alice.clone())).into()),
 			None,

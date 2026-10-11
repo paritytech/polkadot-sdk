@@ -640,4 +640,28 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 		// Minimum execution time: 10_591_000 picoseconds.
 		Weight::from_parts(11_121_000, 0)
 	}
+	/// Storage: `PoolAssets::AssetCategories` (r:1 w:1)
+	/// Proof: `PoolAssets::AssetCategories` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+	fn add_to_category() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `3555`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3555))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `PoolAssets::AssetCategories` (r:1 w:1)
+	/// Proof: `PoolAssets::AssetCategories` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+	fn remove_from_category() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `48`
+		//  Estimated: `3555`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3555))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

@@ -55,6 +55,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Account::<T, I>::get(id, who.borrow()).map(|a| a.balance)
 	}
 
+	/// Assets registered under `category`, reading at most `limit` entries.
+	pub fn assets_in_category(category: &[u8], limit: u32) -> Vec<T::AssetId> {
+		BoundedVec::<u8, T::StringLimit>::try_from(category.to_vec())
+			.map(|name| {
+				AssetCategories::<T, I>::iter_key_prefix(name).take(limit as usize).collect()
+			})
+			.unwrap_or_default()
+	}
+
 	/// Get the total supply of an asset `id`.
 	pub fn total_supply(id: T::AssetId) -> T::Balance {
 		Self::maybe_total_supply(id).unwrap_or_default()

@@ -20,7 +20,10 @@ use super::*;
 use crate::xcm_config::Collectives;
 use frame_support::{
 	parameter_types,
-	traits::{tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse, FromContains},
+	traits::{
+		tokens::{NoAssetCategories, UnityOrOuterConversion},
+		EitherOf, EitherOfDiverse, FromContains,
+	},
 };
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
@@ -152,6 +155,7 @@ impl pallet_treasury::Config for Runtime {
 	type Paymaster = LocalPay<NativeAndAllAssets, TreasuryAccount, xcm_config::LocationToAccountId>;
 	type BalanceConverter = TreasuryBalanceConverter;
 	type PayoutPeriod = PayoutSpendPeriod;
+	type AssetCategories = NoAssetCategories<VersionedLocatableAsset, Balance>;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = parachains_common::pay::benchmarks::LocalPayArguments<
