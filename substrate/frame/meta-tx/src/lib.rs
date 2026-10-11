@@ -214,6 +214,11 @@ pub mod pallet {
 				)
 				.map_err(Error::<T>::from)?;
 
+			if meta_dispatch_res.is_err() {
+				// This call reports success to the outside, so the failure of the meta
+				// transaction is noted for any post dispatch logic that needs to know about it.
+				frame_system::Pallet::<T>::note_nested_dispatch_failure();
+			}
 			Self::deposit_event(Event::Dispatched { result: meta_dispatch_res });
 
 			// meta weight after possible refunds.

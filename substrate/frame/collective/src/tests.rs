@@ -1173,6 +1173,90 @@ fn motions_reproposing_disapproved_works() {
 	});
 }
 
+/// Dispatching a proposal reports success whatever the proposal itself returns, so the failure
+/// of a proposal has to be noted for post dispatch logic such as the operational fee surcharge.
+#[test]
+fn nested_dispatch_failures_are_noted() {
+	// `execute` runs the proposal straight away.
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = make_proposal(42);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash: H256 = proposal.blake2_256().into();
+		assert_ok!(Collective::execute(RuntimeOrigin::signed(1), Box::new(proposal), proposal_len));
+		System::assert_last_event(RuntimeEvent::Collective(CollectiveEvent::MemberExecuted {
+			proposal_hash: hash,
+			result: Err(DispatchError::BadOrigin),
+		}));
+		assert!(System::nested_dispatch_failed());
+	});
+
+	// `propose` with a threshold of one also runs the proposal straight away.
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = make_proposal(42);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		assert_ok!(Collective::propose(
+			RuntimeOrigin::signed(1),
+			1,
+			Box::new(proposal),
+			proposal_len
+		));
+		assert!(System::nested_dispatch_failed());
+	});
+
+	// `close` runs an approved proposal.
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = make_proposal(42);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
+		let hash: H256 = proposal.blake2_256().into();
+		assert_ok!(Collective::propose(
+			RuntimeOrigin::signed(1),
+			2,
+			Box::new(proposal),
+			proposal_len
+		));
+		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
+		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
+		assert_ok!(Collective::close(
+			RuntimeOrigin::signed(2),
+			hash,
+			0,
+			proposal_weight,
+			proposal_len
+		));
+		assert!(System::nested_dispatch_failed());
+	});
+
+	// A proposal that succeeds notes nothing.
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {});
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
+		let hash: H256 = proposal.blake2_256().into();
+		assert_ok!(Collective::propose(
+			RuntimeOrigin::signed(1),
+			3,
+			Box::new(proposal),
+			proposal_len
+		));
+		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
+		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
+		assert_ok!(Collective::vote(RuntimeOrigin::signed(3), hash, 0, true));
+		assert_ok!(Collective::close(
+			RuntimeOrigin::signed(2),
+			hash,
+			0,
+			proposal_weight,
+			proposal_len
+		));
+		System::assert_last_event(RuntimeEvent::Collective(CollectiveEvent::Executed {
+			proposal_hash: hash,
+			result: Ok(()),
+		}));
+		assert!(!System::nested_dispatch_failed());
+	});
+}
+
 #[test]
 fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 	ExtBuilder::default().build_and_execute(|| {

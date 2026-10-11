@@ -2477,10 +2477,13 @@ impl<T: Config> Pallet<T> {
 
 	/// Note that a call dispatched from within the current extrinsic failed.
 	///
-	/// To be called by dispatchables that dispatch other calls and report success regardless of
-	/// their outcome, such as `pallet_utility::batch` or `pallet_proxy::proxy`, so that post
-	/// dispatch logic can tell such an extrinsic apart from one that genuinely succeeded. See
-	/// [`ExtrinsicNestedDispatchFailure`].
+	/// Every dispatchable that dispatches another call and reports success regardless of that
+	/// call's outcome must call this, so that post dispatch logic can tell such an extrinsic
+	/// apart from one that genuinely succeeded. In tree this covers `pallet_utility`'s `batch`,
+	/// `force_batch` and `if_else`, `pallet_proxy::proxy`, `pallet_meta_tx::dispatch`,
+	/// `pallet_recovery::control_inherited_account` and `pallet_collective`'s proposal
+	/// execution. A dispatchable that forwards the inner error to its caller does not need it.
+	/// See [`ExtrinsicNestedDispatchFailure`].
 	pub fn note_nested_dispatch_failure() {
 		ExtrinsicNestedDispatchFailure::<T>::put(true);
 	}

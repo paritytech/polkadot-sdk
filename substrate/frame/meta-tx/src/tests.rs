@@ -408,5 +408,9 @@ fn meta_tx_call_fails() {
 		// Alice balance is unchanged, Bob paid the transaction fee.
 		assert_eq!(alice_balance, Balances::free_balance(alice_account));
 		assert_eq!(bob_balance - tx_fee, Balances::free_balance(bob_account));
+
+		// The outer call reported success, so the failure of the meta transaction is noted for
+		// post dispatch logic such as the operational fee surcharge.
+		assert!(System::nested_dispatch_failed());
 	});
 }

@@ -551,6 +551,9 @@ pub mod pallet {
 
 			let Err(fallback_error) = fallback_result else {
 				// Fallback succeeded.
+				// This call reports success to the outside, so the failure of the main dispatch
+				// is noted for any post dispatch logic that needs to know about it.
+				frame_system::Pallet::<T>::note_nested_dispatch_failure();
 				Self::deposit_event(Event::IfElseFallbackCalled { main_error: main_error.error });
 				return Ok(Some(weight).into());
 			};

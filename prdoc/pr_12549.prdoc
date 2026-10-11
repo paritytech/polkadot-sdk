@@ -12,9 +12,11 @@ doc:
     asset alike.
 
     Some dispatchables report success regardless of the outcome of the calls they dispatch, for
-    example `Utility::batch`, `Utility::force_batch` and `Proxy::proxy`, and they inherit the
-    `Operational` class of the call they wrap. Those now note the failure of an inner dispatch in
-    the new transient `frame_system::ExtrinsicNestedDispatchFailure` storage value, through
+    example `Utility::batch`, `Utility::force_batch`, `Utility::if_else`, `Proxy::proxy`,
+    `MetaTx::dispatch`, `Recovery::control_inherited_account` and the proposal execution in
+    `pallet-collective`, and they can be `Operational` while reporting success. Those now note
+    the failure of an inner dispatch in the new transient
+    `frame_system::ExtrinsicNestedDispatchFailure` storage value, through
     `frame_system::Pallet::note_nested_dispatch_failure`, so that wrapping a failing operational
     call cannot recover the surcharge.
 
@@ -29,6 +31,12 @@ crates:
 - name: pallet-utility
   bump: patch
 - name: pallet-proxy
+  bump: patch
+- name: pallet-meta-tx
+  bump: patch
+- name: pallet-recovery
+  bump: patch
+- name: pallet-collective
   bump: patch
 - name: kitchensink-runtime
   bump: minor
@@ -77,8 +85,6 @@ crates:
 - name: frame-executive
   bump: none
 - name: pallet-balances
-  bump: none
-- name: pallet-meta-tx
   bump: none
 - name: pallet-origin-restriction
   bump: none
