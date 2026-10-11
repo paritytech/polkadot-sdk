@@ -644,7 +644,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Append `payload` to `stream`'s outbound MMR, returning its stable position. Enforces only
 	/// the consensus hard caps.
-	pub fn append_to_stream(
+	///
+	/// Crate-internal: it skips the channel and credit gates, and would let a caller forge `Signal`
+	/// leaves. Other code sends through [`Pallet::send`] (design § Message Kinds).
+	pub(crate) fn append_to_stream(
 		stream: StreamId,
 		payload: Vec<u8>,
 	) -> Result<MessagePosition, Error<T>> {
