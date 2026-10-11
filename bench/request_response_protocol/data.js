@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791559995835,
+  "lastUpdate": 1791758411214,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -132947,6 +132947,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2716028799,
             "range": "± 15895147",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4eec7dfb770e3c7d3d7b254125580edf3de527ec",
+          "message": "statement-store soak: fit the 6 h namespace token, accept a partial mesh (#13450)\n\nRaise the soak job timeout to 355 min and its test step to 345 min, so a\nsoak of up to ~5 h 15 min (`soak_secs=18900`) finishes before the 6 h\nnamespace token expires.\n\nThe lifecycle topology check (`baseline-ready`, `disconnected`,\n`joined`) now expects each online node to be connected to at least\n`min(online peers, CONNECTED_PEER_FLOOR)` peers, as the start-up wait\nalready does, instead of to every online peer. Past 51 nodes the\nstart-up wait accepted a partial mesh while the lifecycle check still\ndemanded a full one.",
+          "timestamp": "2026-10-11T21:20:08Z",
+          "tree_id": "ee6d1f135592fc0ca2b4a3d98521ca23fd06baba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4eec7dfb770e3c7d3d7b254125580edf3de527ec"
+        },
+        "date": 1791758377666,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21265960,
+            "range": "± 191837",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21513368,
+            "range": "± 212814",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23222242,
+            "range": "± 235979",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28297272,
+            "range": "± 332417",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 67047318,
+            "range": "± 1225618",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 420851989,
+            "range": "± 8184397",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3012211750,
+            "range": "± 77620755",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18339794,
+            "range": "± 290866",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18164599,
+            "range": "± 188251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18801474,
+            "range": "± 237019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23947541,
+            "range": "± 217811",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 67115909,
+            "range": "± 1044510",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 394665526,
+            "range": "± 6247827",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2841692792,
+            "range": "± 20372997",
             "unit": "ns/iter"
           }
         ]
