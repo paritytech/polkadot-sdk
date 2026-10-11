@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791560688065,
+  "lastUpdate": 1791759112322,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "802db0b998e522feab8eb3ff4505954bf9b6ac24",
-          "message": "[pallet-revive] Add vesting precompile (#11398)\n\n## Summary\n\nAdds a new built-in precompile (`pallet-revive-precompile-vesting`) that\nexposes Substrate's `pallet-vesting` to EVM contracts via pallet-revive.\nEVM contracts can call `vest()`, `vestOther(address)`,\n`vestingBalance()`, and `vestingBalanceOf(address)` at the precompile\naddress `0x0902`.\n\n## Changes\n\n- **`substrate/frame/revive/uapi/sol/IVesting.sol`**: New Solidity\ninterface defining the vesting precompile ABI\n- **`substrate/frame/revive/uapi/src/precompiles/vesting.rs`**: Binds\nthe Solidity interface via `alloy_core::sol!`\n- **`substrate/frame/revive/precompiles/`**: New crate implementing the\n`Precompile` trait — dispatches `vest`/`vestOther` through\n`pallet_vesting` and queries locked balances via `VestingSchedule`\n- **`substrate/frame/revive/src/tests.rs`**: Trailing comma fix in\n`construct_runtime!`\n\n## Test plan\n- [x] New vesting precompile tests pass (`vest`, `vestOther`,\n`vestingBalance`, `vestingBalanceOf`)\n- [x] Existing pallet-revive tests unaffected\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>",
-          "timestamp": "2026-04-02T13:39:00Z",
-          "tree_id": "181e94abc2aba15b35da9e0b87f7b7d5fc89002e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/802db0b998e522feab8eb3ff4505954bf9b6ac24"
-        },
-        "date": 1775142608701,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.073987392933336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1297111537333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.767818345666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4eec7dfb770e3c7d3d7b254125580edf3de527ec",
+          "message": "statement-store soak: fit the 6 h namespace token, accept a partial mesh (#13450)\n\nRaise the soak job timeout to 355 min and its test step to 345 min, so a\nsoak of up to ~5 h 15 min (`soak_secs=18900`) finishes before the 6 h\nnamespace token expires.\n\nThe lifecycle topology check (`baseline-ready`, `disconnected`,\n`joined`) now expects each online node to be connected to at least\n`min(online peers, CONNECTED_PEER_FLOOR)` peers, as the start-up wait\nalready does, instead of to every online peer. Past 51 nodes the\nstart-up wait accepted a partial mesh while the lifecycle check still\ndemanded a full one.",
+          "timestamp": "2026-10-11T21:20:08Z",
+          "tree_id": "ee6d1f135592fc0ca2b4a3d98521ca23fd06baba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4eec7dfb770e3c7d3d7b254125580edf3de527ec"
+        },
+        "date": 1791759080450,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13076290446666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.885248015900002,
             "unit": "seconds"
           }
         ]
