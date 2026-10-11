@@ -19,7 +19,7 @@ use crate::{
 	Config, Key,
 	access_list::StorageOp,
 	limits,
-	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
+	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext, ensure_not_read_only},
 	storage::WriteOutcome,
 	vm::{RuntimeCosts, StorageAccessKind},
 };
@@ -58,7 +58,8 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			IStorageCalls::clearStorage(_) | IStorageCalls::takeStorage(_)
 				if env.is_read_only() =>
 			{
-				Err(Error::Error(crate::Error::<Self::T>::StateChangeDenied.into()))
+				ensure_not_read_only::<Self::T>(env)?;
+				Ok(Vec::new())
 			},
 
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
@@ -124,9 +125,11 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 						kind: access_kind,
 					})?;
 				let outcome = if transient {
-					env.set_transient_storage(&key, None, true)?
+					env.set_transient_storage(&key, None, true)
+						.map_err(|_| Error::Revert("failed setting transient storage".into()))?
 				} else {
-					env.set_storage(&key, None, true)?
+					env.set_storage(&key, None, true)
+						.map_err(|_| Error::Revert("failed setting storage".into()))?
 				};
 				let value = match outcome {
 					WriteOutcome::Taken(v) => v,
@@ -218,5 +221,38 @@ mod tests {
 				Error::Revert("Storage precompile can only be called via delegate call".into(),)
 			);
 		})
+	}
+
+	#[test]
+	fn clear_and_take_storage_read_only_revert() {
+		let inputs = [
+			IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
+				flags: StorageFlags::empty().bits().into(),
+				key: [0u8; 32].into(),
+				isFixedKey: true,
+			}),
+			IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
+				flags: StorageFlags::empty().bits().into(),
+				key: [0u8; 32].into(),
+				isFixedKey: true,
+			}),
+		];
+		for input in inputs {
+			ExtBuilder::default().build().execute_with(|| {
+				let mut call_setup = CallSetup::<Test>::default();
+				call_setup.set_delegate_call(true);
+				call_setup.set_read_only(true);
+				let (mut ext, _) = call_setup.ext();
+				let result = <Storage<Test>>::call(
+					&<Storage<Test>>::MATCHER.base_address(),
+					&input,
+					&mut ext,
+				);
+				assert_eq!(
+					result,
+					Err(Error::Revert(crate::precompiles::STATIC_CALL_DENIED.into())),
+				);
+			});
+		}
 	}
 }

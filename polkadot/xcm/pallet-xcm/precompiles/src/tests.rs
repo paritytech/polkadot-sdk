@@ -188,7 +188,10 @@ fn test_xcm_send_precompile_fails() {
 			Ok(value) => value,
 			Err(err) => panic!("XcmSendPrecompile call failed with error: {err:?}"),
 		};
-		assert!(return_value.did_revert());
+		assert_eq!(
+			pallet_revive::evm::decode_revert_reason(&return_value.data).as_deref(),
+			Some("revert: XCM send failed: message could not be sent"),
+		);
 	});
 }
 
@@ -558,7 +561,12 @@ fn test_xcm_execute_precompile_fails() {
 			Ok(value) => value,
 			Err(err) => panic!("XcmExecutePrecompile call failed with error: {err:?}"),
 		};
-		assert!(return_value.did_revert());
+		assert_eq!(
+			pallet_revive::evm::decode_revert_reason(&return_value.data).as_deref(),
+			Some(
+				"revert: XCM execute failed: local execution incomplete at instruction 3: FailedToTransactAsset",
+			),
+		);
 		assert_eq!(Balances::total_balance(&ALICE), CUSTOM_INITIAL_BALANCE);
 		assert_eq!(Balances::total_balance(&BOB), CUSTOM_INITIAL_BALANCE);
 	});
@@ -808,13 +816,9 @@ fn delegatecall_is_rejected() {
 		let ret = ICaller::delegateCall::abi_decode_returns(&result.data)
 			.expect("return must decode as (bool, bytes)");
 		assert!(!ret.success, "DELEGATECALL to XCM precompile must be rejected");
-		// PrecompileDelegateDenied is an Error::Error (trap), not an Error::Revert, so the
-		// inner call produces no output data. A Solidity-level revert would include
-		// ABI-encoded reason bytes.
-		assert!(
-			ret.output.is_empty(),
-			"expected empty output from PrecompileDelegateDenied trap, got {} bytes",
-			ret.output.len(),
+		assert_eq!(
+			pallet_revive::evm::decode_revert_reason(&ret.output).as_deref(),
+			Some("revert: illegal to call this pre-compile via delegate call"),
 		);
 	});
 }

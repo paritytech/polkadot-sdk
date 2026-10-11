@@ -142,21 +142,57 @@ impl<T: Config> From<CrateError<T>> for Error {
 	}
 }
 
+/// Reason returned when a pre-compile is invoked via `DELEGATECALL`.
+pub const DELEGATE_CALL_DENIED: &str = "illegal to call this pre-compile via delegate call";
+
+/// Reason returned when a state-changing pre-compile is invoked from a static call.
+pub const STATIC_CALL_DENIED: &str = "cannot modify state in a static call";
+
+/// Reason returned when the caller is the root origin and the pre-compile needs an account.
+const ROOT_NOT_ALLOWED: &str = "root origin is not allowed";
+
+/// Reason returned when `ecdsaToEthAddress` is given a public key that is not a valid
+/// compressed secp256k1 key.
+const INVALID_COMPRESSED_PUBLIC_KEY: &str = "invalid compressed public key";
+
+/// Reason returned when `terminate` is called with no contract frame to destroy.
+const NO_CONTRACT_TO_TERMINATE: &str = "no contract to terminate";
+
 impl Error {
 	pub fn try_to_revert<T: Config>(e: DispatchError) -> Self {
 		let delegate_denied = CrateError::<T>::PrecompileDelegateDenied.into();
 		let construct = CrateError::<T>::TerminatedInConstructor.into();
 		let cannot_terminate_delegated = CrateError::<T>::CannotTerminateDelegatedAccount.into();
-		let message = match () {
-			_ if e == delegate_denied => "illegal to call this pre-compile via delegate call",
+		let contract_not_found = CrateError::<T>::ContractNotFound.into();
+		let ecdsa_recovery_failed = CrateError::<T>::EcdsaRecoveryFailed.into();
+		// Token failures use the same sentences as `impl From<TokenError> for &'static str`,
+		// which is what the assets precompiles return.
+		let message = match e {
+			DispatchError::Token(token) => <&'static str>::from(token),
+			_ if e == delegate_denied => DELEGATE_CALL_DENIED,
 			_ if e == construct => "terminate pre-compile cannot be called from the constructor",
 			_ if e == cannot_terminate_delegated => {
 				"cannot terminate an EIP-7702 delegated account via the terminate pre-compile"
 			},
+			_ if e == DispatchError::RootNotAllowed => ROOT_NOT_ALLOWED,
+			_ if e == contract_not_found => NO_CONTRACT_TO_TERMINATE,
+			_ if e == ecdsa_recovery_failed => INVALID_COMPRESSED_PUBLIC_KEY,
 			_ => return e.into(),
 		};
 		Self::Revert(message.into())
 	}
+}
+
+/// Reject a pre-compile invoked via `DELEGATECALL`.
+pub fn ensure_not_delegate_call<T: Config>(env: &impl Ext<T = T>) -> Result<(), Error> {
+	if env.is_delegate_call() { Err(Error::Revert(DELEGATE_CALL_DENIED.into())) } else { Ok(()) }
+}
+
+/// Reject a state-changing pre-compile invoked from a static call.
+///
+/// This is the only place that chooses revert versus trap for a static call.
+pub fn ensure_not_read_only<T: Config>(env: &impl Ext<T = T>) -> Result<(), Error> {
+	if env.is_read_only() { Err(Error::Revert(STATIC_CALL_DENIED.into())) } else { Ok(()) }
 }
 
 /// Type that can be implemented in other crates to extend the list of pre-compiles.

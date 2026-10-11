@@ -20,18 +20,18 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::DecodeAll;
+use codec::{Decode, DecodeAll};
 use core::{fmt, marker::PhantomData, num::NonZero};
-use frame_support::dispatch::RawOrigin;
+use frame_support::{dispatch::RawOrigin, traits::PalletInfoAccess};
 use pallet_revive::{
 	precompiles::{
 		alloy::{self, sol_types::SolValue},
-		AddressMatcher, Error, Ext, Precompile,
+		ensure_not_delegate_call, ensure_not_read_only, AddressMatcher, Error, Ext, Precompile,
 	},
 	DispatchInfo, ExecOrigin as Origin, Weight,
 };
 use pallet_xcm::{Config, WeightInfo};
-use tracing::error;
+use tracing::debug;
 use xcm::{v5, IdentifyVersion, VersionedLocation, VersionedXcm};
 use xcm_executor::traits::WeightBounds;
 
@@ -44,10 +44,127 @@ mod mock;
 mod tests;
 
 const LOG_TARGET: &str = "xcm::precompiles";
+const ERR_UNEXPECTED: &str = "unexpected error";
 
-fn revert(error: &impl fmt::Debug, message: &str) -> Error {
-	error!(target: LOG_TARGET, ?error, "{}", message);
-	Error::Revert(message.into())
+fn revert(error: &impl fmt::Debug, message: impl fmt::Display) -> Error {
+	let reason = alloc::string::ToString::to_string(&message);
+	debug!(target: LOG_TARGET, ?error, "{reason}");
+	Error::Revert(reason.into())
+}
+
+fn xcm_dispatch_reason<Runtime: pallet_xcm::Config>(
+	e: frame_support::sp_runtime::DispatchError,
+) -> alloc::string::String {
+	use frame_support::sp_runtime::DispatchError;
+	match e {
+		DispatchError::Token(token) => <&'static str>::from(token).into(),
+		DispatchError::Arithmetic(arith) => <&'static str>::from(arith).into(),
+		DispatchError::Other(msg) => msg.into(),
+		DispatchError::Module(module) => match decode_xcm_error::<Runtime>(e) {
+			Some(err) => xcm_pallet_reason(err),
+			None => module.message.unwrap_or(ERR_UNEXPECTED).into(),
+		},
+		_ => ERR_UNEXPECTED.into(),
+	}
+}
+
+fn decode_xcm_error<Runtime: pallet_xcm::Config>(
+	e: frame_support::sp_runtime::DispatchError,
+) -> Option<pallet_xcm::Error<Runtime>> {
+	use frame_support::sp_runtime::DispatchError;
+	let DispatchError::Module(module) = e else { return None };
+	let index = <pallet_xcm::Pallet<Runtime> as PalletInfoAccess>::index() as u8;
+	if module.index != index {
+		return None;
+	}
+	pallet_xcm::Error::<Runtime>::decode(&mut &module.error[..]).ok()
+}
+
+#[allow(deprecated)]
+fn xcm_pallet_reason<T>(err: pallet_xcm::Error<T>) -> alloc::string::String {
+	use pallet_xcm::Error::*;
+	match err {
+		Unreachable => "destination is unreachable".into(),
+		SendFailure => "message could not be sent".into(),
+		Filtered => "message was filtered".into(),
+		UnweighableMessage => "message weight could not be determined".into(),
+		DestinationNotInvertible => "destination cannot be inverted".into(),
+		Empty => "assets to send are empty".into(),
+		CannotReanchor => "could not re-anchor assets".into(),
+		TooManyAssets => "too many assets".into(),
+		InvalidOrigin => "origin is invalid for sending".into(),
+		BadVersion => "XCM version cannot be interpreted".into(),
+		BadLocation => "location cannot be expressed".into(),
+		NoSubscription => "subscription was not found".into(),
+		AlreadySubscribed => "location is already subscribed".into(),
+		CannotCheckOutTeleport => "could not check out assets for teleport".into(),
+		LowBalance => "insufficient asset balance".into(),
+		TooManyLocks => "too many asset locks".into(),
+		AccountNotSovereign => "account is not a sovereign account".into(),
+		FeesNotMet => "fees could not be paid".into(),
+		LockNotFound => "remote lock was not found".into(),
+		InUse => "lock still has consumers".into(),
+		InvalidAssetUnknownReserve => "reserve chain could not be determined".into(),
+		InvalidAssetUnsupportedReserve => {
+			"remote reserve with a different fee reserve is not supported".into()
+		},
+		TooManyReserves => "too many reserve locations".into(),
+		LocalExecutionIncomplete => "local execution incomplete".into(),
+		TooManyAuthorizedAliases => "too many authorized aliases".into(),
+		ExpiresInPast => "expiry block is in the past".into(),
+		AliasNotFound => "alias authorization was not found".into(),
+		LocalExecutionIncompleteWithError { index, error } => alloc::format!(
+			"local execution incomplete at instruction {index}: {}",
+			execution_error_reason(error),
+		),
+	}
+}
+
+fn execution_error_reason(error: pallet_xcm::ExecutionError) -> &'static str {
+	use pallet_xcm::ExecutionError::*;
+	match error {
+		Overflow => "Overflow",
+		Unimplemented => "Unimplemented",
+		UntrustedReserveLocation => "UntrustedReserveLocation",
+		UntrustedTeleportLocation => "UntrustedTeleportLocation",
+		LocationFull => "LocationFull",
+		LocationNotInvertible => "LocationNotInvertible",
+		BadOrigin => "BadOrigin",
+		InvalidLocation => "InvalidLocation",
+		AssetNotFound => "AssetNotFound",
+		FailedToTransactAsset => "FailedToTransactAsset",
+		NotWithdrawable => "NotWithdrawable",
+		LocationCannotHold => "LocationCannotHold",
+		ExceedsMaxMessageSize => "ExceedsMaxMessageSize",
+		DestinationUnsupported => "DestinationUnsupported",
+		Transport => "Transport",
+		Unroutable => "Unroutable",
+		UnknownClaim => "UnknownClaim",
+		FailedToDecode => "FailedToDecode",
+		MaxWeightInvalid => "MaxWeightInvalid",
+		NotHoldingFees => "NotHoldingFees",
+		TooExpensive => "TooExpensive",
+		Trap => "Trap",
+		ExpectationFalse => "ExpectationFalse",
+		PalletNotFound => "PalletNotFound",
+		NameMismatch => "NameMismatch",
+		VersionIncompatible => "VersionIncompatible",
+		HoldingWouldOverflow => "HoldingWouldOverflow",
+		ExportError => "ExportError",
+		ReanchorFailed => "ReanchorFailed",
+		NoDeal => "NoDeal",
+		FeesNotMet => "FeesNotMet",
+		LockError => "LockError",
+		NoPermission => "NoPermission",
+		Unanchored => "Unanchored",
+		NotDepositable => "NotDepositable",
+		TooManyAssets => "TooManyAssets",
+		UnhandledXcmVersion => "UnhandledXcmVersion",
+		WeightLimitReached => "WeightLimitReached",
+		Barrier => "Barrier",
+		WeightNotComputable => "WeightNotComputable",
+		ExceedsStackLimit => "ExceedsStackLimit",
+	}
 }
 
 // We don't allow XCM versions older than 5.
@@ -75,10 +192,7 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		frame_support::ensure!(
-			!env.is_delegate_call(),
-			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
-		);
+		ensure_not_delegate_call::<Runtime>(env)?;
 
 		let origin = env.caller();
 		let frame_origin = match origin {
@@ -88,7 +202,8 @@ where
 
 		match input {
 			IXcmCalls::send(_) | IXcmCalls::execute(_) if env.is_read_only() => {
-				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
+				ensure_not_read_only::<Runtime>(env)?;
+				Ok(Vec::new())
 			},
 			IXcmCalls::send(IXcm::sendCall { destination, message }) => {
 				// Charged before decoding; see `WeightInfo::decode_xcm`.
@@ -123,7 +238,10 @@ where
 				.map_err(|error| {
 					revert(
 						&error,
-						"XCM send failed: destination or message format may be incompatible",
+						alloc::format!(
+							"XCM send failed: {}",
+							xcm_dispatch_reason::<Runtime>(error)
+						),
 					)
 				})
 			},
@@ -162,9 +280,12 @@ where
 
 				result.map(|_| Vec::new()).map_err(|error| {
 					revert(
-							&error,
-							"XCM execute failed: message may be invalid or execution constraints not satisfied"
-						)
+						&error,
+						alloc::format!(
+							"XCM execute failed: {}",
+							xcm_dispatch_reason::<Runtime>(error.error),
+						),
+					)
 				})
 			},
 			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) => {
