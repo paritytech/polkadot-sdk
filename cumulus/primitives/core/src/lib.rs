@@ -777,5 +777,10 @@ sp_api::decl_runtime_apis! {
 		/// assembly; the `validate_block` wrapper calls the same implementation in-wasm after
 		/// each block of a bundle.
 		fn consumption_record() -> ConsumptionRecord;
+
+		/// The most streams the messaging inherent may touch per block, and the most register
+		/// reads among them: `MaxTouchedStreams` and `MaxContextGaps`. An inherent over either
+		/// fails the block, so the node plans within them.
+		fn consumption_caps() -> (u32, u32);
 	}
 }

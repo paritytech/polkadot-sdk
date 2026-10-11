@@ -923,6 +923,10 @@ impl_runtime_apis! {
 		fn consumption_record() -> cumulus_primitives_spec_messaging::ConsumptionRecord {
 			SpecMessaging::consumption_record()
 		}
+
+		fn consumption_caps() -> (u32, u32) {
+			SpecMessaging::consumption_caps()
+		}
 	}
 
 	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {

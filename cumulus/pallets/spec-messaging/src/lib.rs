@@ -439,6 +439,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// [`Config::MaxTouchedStreams`] and [`Config::MaxContextGaps`].
+	pub fn consumption_caps() -> (u32, u32) {
+		(T::MaxTouchedStreams::get(), T::MaxContextGaps::get())
+	}
+
 	/// This block's consumption grouped by source, per source in [`StreamId`] order.
 	pub fn consumption_record() -> ConsumptionRecord {
 		let mut record = ConsumptionRecord::default();
