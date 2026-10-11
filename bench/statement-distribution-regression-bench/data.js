@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791560849540,
+  "lastUpdate": 1791759275641,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "59c40532e76f62b7d77cbb71d6309714e1aab744",
-          "message": "[Release|CI/CD] Fixes for release flows (#11578)\n\nThis PR backports few fixes for soem release flows, that were made in\nstable2603 branch. In particular:\n- Fixed resume check in Crates Publish flow\n- Fixed missing llvm path on macos builds\n- Fixed scrtipt that reverts path deps in Cargo.toml files\n- Bumped parity-publish version\n- Fixed check if the post-crates-release branch exists in Crateds\nPublish flow\n\n---------\n\nCo-authored-by: BDevParity <bruno.devic@parity.io>",
-          "timestamp": "2026-04-01T18:29:31Z",
-          "tree_id": "efd0685650449864c3503bc9cf26911d9bf846d0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/59c40532e76f62b7d77cbb71d6309714e1aab744"
-        },
-        "date": 1775073060598,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.06199999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038537824370000015,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07974141940999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08673770245399998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4eec7dfb770e3c7d3d7b254125580edf3de527ec",
+          "message": "statement-store soak: fit the 6 h namespace token, accept a partial mesh (#13450)\n\nRaise the soak job timeout to 355 min and its test step to 345 min, so a\nsoak of up to ~5 h 15 min (`soak_secs=18900`) finishes before the 6 h\nnamespace token expires.\n\nThe lifecycle topology check (`baseline-ready`, `disconnected`,\n`joined`) now expects each online node to be connected to at least\n`min(online peers, CONNECTED_PEER_FLOOR)` peers, as the start-up wait\nalready does, instead of to every online peer. Past 51 nodes the\nstart-up wait accepted a partial mesh while the lifecycle check still\ndemanded a full one.",
+          "timestamp": "2026-10-11T21:20:08Z",
+          "tree_id": "ee6d1f135592fc0ca2b4a3d98521ca23fd06baba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4eec7dfb770e3c7d3d7b254125580edf3de527ec"
+        },
+        "date": 1791759244395,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.15999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038420079738000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08487231522599994,
             "unit": "seconds"
           }
         ]
