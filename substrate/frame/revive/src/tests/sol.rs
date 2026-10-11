@@ -44,6 +44,7 @@ use revm::bytecode::opcode::*;
 mod arithmetic;
 mod bitwise;
 mod block_info;
+mod cold_hot;
 mod contract;
 mod control;
 mod host;

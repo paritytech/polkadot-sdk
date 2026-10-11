@@ -194,32 +194,40 @@ contract StipendTest {
     }
 
     // Test that the transfer stipend prevents reentrancy. The attacker's receive()
-    // tries to call back into attemptTransfer() to drain more ETH, but the 2300
-    // gas stipend is not enough for an external call.
+    // tries to call back into attemptTransfer() to drain more ETH, but the stipend
+    // starves that call, so it drains nothing: the attacker receives only `amount`.
     function testTransferReentrancy() public payable {
         uint256 amount = msg.value / 4;
-        uint256 balanceBefore = address(reentrancyAttacker).balance;
+        uint256 attackerBefore = address(reentrancyAttacker).balance;
+        uint256 selfBefore = address(this).balance;
 
-        // The attacker's receive() attempts an external call which exhausts
-        // the stipend, causing receive() to revert with out-of-gas.
-        bool failed = false;
-        try this.attemptTransfer(payable(address(reentrancyAttacker)), amount) {
-            failed = false;
-        } catch {
-            failed = true;
-        }
-        require(failed, "Transfer to reentrancy attacker should have failed");
-        require(address(reentrancyAttacker).balance == balanceBefore, "Attacker balance should not change");
+        this.attemptTransfer(payable(address(reentrancyAttacker)), amount);
+        require(
+            address(reentrancyAttacker).balance == attackerBefore + amount,
+            "Attacker should receive exactly the transferred amount"
+        );
+        require(
+            address(this).balance == selfBefore - amount,
+            "StipendTest should lose exactly the transferred amount"
+        );
     }
 
     // Test that the send stipend prevents reentrancy.
     function testSendReentrancy() public payable {
         uint256 amount = msg.value / 4;
-        uint256 balanceBefore = address(reentrancyAttacker).balance;
+        uint256 attackerBefore = address(reentrancyAttacker).balance;
+        uint256 selfBefore = address(this).balance;
 
         bool success = payable(address(reentrancyAttacker)).send(amount);
-        require(!success, "Send to reentrancy attacker should have failed");
-        require(address(reentrancyAttacker).balance == balanceBefore, "Attacker balance should not change");
+        require(success, "Send to reentrancy attacker should succeed");
+        require(
+            address(reentrancyAttacker).balance == attackerBefore + amount,
+            "Attacker should receive exactly the sent amount"
+        );
+        require(
+            address(this).balance == selfBefore - amount,
+            "StipendTest should lose exactly the sent amount"
+        );
     }
 
     receive() external payable {}

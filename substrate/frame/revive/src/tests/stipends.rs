@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	Code, Config,
+	Code, Config, ExecConfig,
 	test_utils::builder::Contract,
 	tests::{ExtBuilder, Test, builder},
 };
@@ -156,6 +156,7 @@ fn evm_call_stipend_prevents_send_reentrancy() {
 		let result = builder::bare_call(addr)
 			.data(StipendTest::testSendReentrancyCall {}.abi_encode())
 			.evm_value(1_000_000_u128.into())
+			.exec_config(ExecConfig::new_substrate_tx().with_first_frame_reads_paid())
 			.build();
 
 		assert!(!result.result.unwrap().did_revert());

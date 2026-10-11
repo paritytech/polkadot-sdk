@@ -54,7 +54,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	access_list::Warmth,
+	access_list::{CodeLoadItems, StorageItems, StorageOp, Summarized, Warmth},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		StateOverrideSet, TYPE_EIP1559, TYPE_EIP7702, Tracer, TracerType,
@@ -1310,6 +1310,27 @@ pub mod pallet {
 				max_events_size / 1024,
 			);
 
+			// The access list memory is sized for `MAX_SLOT_ENTRIES` storage slots: the proof a
+			// cold SLOAD is charged limits how many a transaction can include. A proof limit
+			// above `PVFMemory` is a placeholder, since no PoV can be larger than that.
+			if max_block_weight.proof_size() <= max_pvf_mem {
+				let cold_slot_read =
+					<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::GetStorage {
+						len: 0,
+						kind: StorageAccessKind::persistent_cold(),
+					});
+				let max_slot_entries = max_block_weight
+					.proof_size()
+					.checked_div(cold_slot_read.proof_size())
+					.unwrap_or(u64::MAX);
+				assert!(
+					max_slot_entries <= crate::access_list::MAX_SLOT_ENTRIES as u64,
+					"A transaction can include {max_slot_entries} storage slot entries in the \
+					 access list, which is sized for {}",
+					crate::access_list::MAX_SLOT_ENTRIES
+				);
+			}
+
 			// Check that the configured memory limits fit into runtime memory.
 			//
 			// Dynamic allocations are not available, yet. Hence they are not taken into
@@ -1334,7 +1355,10 @@ pub mod pallet {
 					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
-						kind: StorageAccessKind::Persistent(Warmth::Cold { revertible: true }),
+						kind: StorageAccessKind::Persistent(StorageItems::summarize_single(
+							Warmth::cold_revertible(),
+							StorageOp::Write,
+						)),
 					})
 					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
 				)
@@ -1408,7 +1432,7 @@ pub mod pallet {
 					deposit_limit: storage_deposit_limit,
 				},
 				data,
-				&ExecConfig::new_substrate_tx(),
+				&ExecConfig::new_substrate_tx().with_first_frame_reads_paid(),
 			);
 
 			if let Ok(return_value) = &output.result &&
@@ -1697,7 +1721,8 @@ pub mod pallet {
 						authorization_deposit: auth_result.deposit,
 					},
 					data,
-					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
+					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight)
+						.with_first_frame_reads_paid(),
 				);
 
 				block_storage::EthereumCallResult::new::<T>(
@@ -2120,7 +2145,15 @@ impl<T: Config> Pallet<T> {
 					}
 				},
 				Code::Existing(code_hash) => {
-					let executable = ContractBlob::from_storage(code_hash, &mut transaction_meter)?;
+					// A root instantiate has no access list yet, so its blob is billed cold.
+					let executable = ContractBlob::from_storage_with_warmth(
+						code_hash,
+						&mut transaction_meter,
+						Summarized::all_cold(CodeLoadItems::with_info_op(
+							code_hash,
+							StorageOp::Write,
+						)),
+					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
 				},

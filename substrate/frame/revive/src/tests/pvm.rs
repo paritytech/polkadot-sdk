@@ -622,7 +622,13 @@ fn transient_storage_limit_in_call() {
 fn deploy_and_call_other_contract() {
 	let (caller_binary, _caller_code_hash) = compile_module("caller_contract").unwrap();
 	let (callee_binary, callee_code_hash) = compile_module("return_with_data").unwrap();
-	let code_load_weight = crate::vm::code_load_weight(callee_binary.len() as u32);
+	let code_load_weight = crate::vm::code_load_weight(
+		callee_binary.len() as u32,
+		crate::vm::BytecodeType::Pvm,
+		crate::access_list::Summarized::all_cold(crate::access_list::CodeLoadItems::new(
+			callee_code_hash,
+		)),
+	);
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
@@ -3319,7 +3325,10 @@ fn weight_consumed_is_linear_for_nested_calls() {
 			[0u32, 1u32, 2u32, limits::CALL_STACK_DEPTH]
 				.iter()
 				.map(|i| {
-					let result = builder::bare_call(addr).data(i.encode()).build();
+					let result = builder::bare_call(addr)
+						.data(i.encode())
+						.exec_config(ExecConfig::new_substrate_tx().with_first_frame_reads_paid())
+						.build();
 					assert_eq!(
 						u32::from_le_bytes(result.result.unwrap().data.try_into().unwrap()),
 						0

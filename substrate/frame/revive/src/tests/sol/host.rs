@@ -17,7 +17,7 @@
 
 //! The pallet-revive shared VM integration test suite.
 use crate::{
-	Code, Config, Error, H256, Key, PristineCode, System, U256,
+	Code, Config, Error, ExecConfig, H256, Key, PristineCode, System, U256,
 	address::AddressMapper,
 	evm::fees::InfoT,
 	exec::EMPTY_CODE_HASH,
@@ -28,8 +28,8 @@ use crate::{
 		ALICE, BOB, BOB_ADDR, CHARLIE, CHARLIE_ADDR, DJANGO, DJANGO_ADDR, builder::Contract,
 	},
 	tests::{
-		Contracts, ExtBuilder, RuntimeEvent, Test, TestSigner, builder, dummy_evm_contract,
-		test_utils, test_utils::get_contract,
+		Contracts, ExtBuilder, RuntimeEvent, Test, TestSigner, access_list_metrics_of, builder,
+		dummy_evm_contract, test_utils, test_utils::get_contract,
 	},
 };
 use frame_support::{assert_err_ignore_postinfo, assert_ok};
@@ -1010,6 +1010,7 @@ fn logs_work(fixture_type: FixtureType) {
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn transient_storage_works(fixture_type: FixtureType) {
+	use crate::access_list::CallItems;
 	use pallet_revive_fixtures::HostTransientMemory;
 	let (code, _) = compile_module_with_type("HostTransientMemory", fixture_type).unwrap();
 
@@ -1022,18 +1023,22 @@ fn transient_storage_works(fixture_type: FixtureType) {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr)
-			.data(
-				HostTransientMemory::HostTransientMemoryCalls::transientMemoryTest(
-					HostTransientMemory::transientMemoryTestCall { slot, a: value },
-				)
-				.abi_encode(),
-			)
-			.build_and_unwrap_result();
-		assert!(!result.did_revert(), "test reverted");
-		let decoded =
-			HostTransientMemory::transientMemoryTestCall::abi_decode_returns(&result.data).unwrap();
-		assert_eq!(0u64, decoded, "transient storage should return zero for {fixture_type:?}");
+		let metrics = access_list_metrics_of(|| {
+			let result = builder::bare_call(addr)
+				.data(HostTransientMemory::transientMemoryTestCall { slot, a: value }.abi_encode())
+				.exec_config(ExecConfig::new_substrate_tx().with_first_frame_reads_paid())
+				.build_and_unwrap_result();
+			assert!(!result.did_revert(), "test reverted");
+			let decoded =
+				HostTransientMemory::transientMemoryTestCall::abi_decode_returns(&result.data)
+					.unwrap();
+			assert_eq!(0u64, decoded, "transient storage should return zero for {fixture_type:?}");
+		});
+		assert_eq!(
+			metrics.size,
+			CallItems::plain_entry_count() as usize,
+			"the transient slot stays out of the persistent access list for {fixture_type:?}",
+		);
 	});
 }
 
