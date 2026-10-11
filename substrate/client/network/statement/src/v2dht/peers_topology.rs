@@ -195,8 +195,6 @@ impl PeersTopology {
 	/// Only the routing leg is capped: capping replicas would deterministically stop the
 	/// replica set at `gossip_target + 1` copies instead of `replication_factor`.
 	pub fn routing_targets(&self, topic: Topic) -> Vec<PeerId> {
-		// TODO: benchmark this per-statement path on large connected sets (see
-		// benches/peers_topology.rs).
 		let local = (self.local_key, self.local_peer);
 		let local_distance = xor_distance(*topic, self.local_key);
 		let k = self.config.replication_factor.get();
