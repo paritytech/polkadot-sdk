@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791560795824,
+  "lastUpdate": 1791759220988,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dhiraj@parity.io",
-            "name": "Dhiraj Sah",
-            "username": "dhirajs0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5fbeadde2a12aa6c3bd97b64a82748e715ae7813",
-          "message": "fix(pallet-multi-asset-bounties): use non-destructive read in calculate_payout() (#11425)\n\n## Description\n\n`calculate_payout()` in `pallet-multi-asset-bounties` uses\n`ChildBountiesValuePerParent::take()` — a destructive read that deletes\nthe storage entry — instead of `get()`. Since `calculate_payout()` is\ncalled from multiple code paths, the `take()` causes incorrect behavior\non subsequent calls.\n\n`calculate_payout()` is called from two places:\n\n1. `do_process_payout_payment()` (lib.rs:1736) — invoked by\n`award_bounty()` and `retry_payment()`\n2. `do_check_payout_payment_status()` (lib.rs:1771) — invoked by\n`check_status()` on payment success\n\nWhen a parent bounty with child bounties is awarded:\n\n- The **first call** (from `award_bounty()`) reads\n`ChildBountiesValuePerParent` via `take()`, correctly computing\n`parent_value - children_value`, but **deletes the storage entry** as a\nside effect.\n- The **second call** (from `check_status()` on success) reads the\nnow-deleted storage, gets `0`, and emits `BountyPayoutProcessed` with\n`value: parent_value` instead of the correct `value: parent_value -\nchildren_value`.\n\nAdditionally, if a non-synchronous `Paymaster` implementation is used\nwhere `check_payment()` can return `Failure`, the `retry_payment()` path\nwould call `calculate_payout()` again on the deleted storage, attempting\nto pay the full parent value instead of the reduced amount.\n\n## Integration\n\nNo integration changes required for downstream projects. This is a\nbugfix internal to `pallet-multi-asset-bounties` with no changes to\npublic APIs, storage layout, or trait definitions.\n\n## Review Notes\n\nThree changes were made:\n\n### 1. `calculate_payout()` — `take()` replaced with `get()`\n\n```diff\n- let children_value = ChildBountiesValuePerParent::<T, I>::take(parent_bounty_id);\n+ let children_value = ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id);\n```\n\nThis makes `calculate_payout()` idempotent — safe to call multiple times\nfor the same bounty.\n\n### 2. `remove_bounty()` — explicit storage cleanup added\n\n```diff\n  None => {\n      Bounties::<T, I>::remove(parent_bounty_id);\n      ChildBountiesPerParent::<T, I>::remove(parent_bounty_id);\n      TotalChildBountiesPerParent::<T, I>::remove(parent_bounty_id);\n-     debug_assert!(ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id).is_zero());\n+     ChildBountiesValuePerParent::<T, I>::remove(parent_bounty_id);\n  },\n```\n\nThe `debug_assert!` was removed because it was not a true invariant — it\nonly passed because `take()` had already deleted the value. When child\nbounties are paid out, `ChildBountiesValuePerParent` remains non-zero\nuntil parent bounty cleanup.\n\n### 3. Test updated\n\nAdded an event assertion to the existing `check_status_works` test to\nverify `BountyPayoutProcessed` emits the correct net payout value\n(`parent_value - child_value`) instead of the full parent value. This\nassertion fails with `take()` and passes with `get()`.\n\n### Impact\n\n- **Current deployments (KAH, PAH)**: Both use `LocalPay` where\n`check_payment()` always returns `Success`. The retry/lock path is\nunreachable, but the `BountyPayoutProcessed` event emits an incorrect\npayout value for parent bounties with child bounties.\n- **Future deployments**: If the pallet is configured with an async\n`Paymaster` (e.g., XCM-based) where `check_payment()` can return\n`Failure`, the `retry_payment()` path would compute a wrong payout\namount, potentially leading to permanent fund lock with no recovery path\n(since `close_bounty()` rejects `PayoutAttempted` status).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-02T12:05:52Z",
-          "tree_id": "ebe38e3aeb199e27802d596aaad9f33dcfa43197",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5fbeadde2a12aa6c3bd97b64a82748e715ae7813"
-        },
-        "date": 1775136448621,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63623.75,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52935.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.713038795289958,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005397753499999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.873884179250001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021633720000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8753863140100004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8845396156200023,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.292011635972978,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002184594,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8443696247899983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7467652750099578,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4826960331099994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002184594,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021633720000000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.289627390929942,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4eec7dfb770e3c7d3d7b254125580edf3de527ec",
+          "message": "statement-store soak: fit the 6 h namespace token, accept a partial mesh (#13450)\n\nRaise the soak job timeout to 355 min and its test step to 345 min, so a\nsoak of up to ~5 h 15 min (`soak_secs=18900`) finishes before the 6 h\nnamespace token expires.\n\nThe lifecycle topology check (`baseline-ready`, `disconnected`,\n`joined`) now expects each online node to be connected to at least\n`min(online peers, CONNECTED_PEER_FLOOR)` peers, as the start-up wait\nalready does, instead of to every online peer. Past 51 nodes the\nstart-up wait accepted a partial mesh while the lifecycle check still\ndemanded a full one.",
+          "timestamp": "2026-10-11T21:20:08Z",
+          "tree_id": "ee6d1f135592fc0ca2b4a3d98521ca23fd06baba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4eec7dfb770e3c7d3d7b254125580edf3de527ec"
+        },
+        "date": 1791759190125,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63572.090000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001867384,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000017974140000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.004925164379999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000017974140000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001867384,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7811887412,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7986805633800005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.801694298369998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.384102021379983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.318837745299999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.83199738526,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8467781234899878,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.329596188412806,
             "unit": "seconds"
           }
         ]
