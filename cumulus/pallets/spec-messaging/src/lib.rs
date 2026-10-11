@@ -208,6 +208,10 @@ pub mod pallet {
 	pub type InChannels<T: Config> =
 		StorageMap<_, Twox64Concat, ChannelId, InChannelState, OptionQuery>;
 
+	/// Whether `enact_messages` ran this block; cleared next block.
+	#[pallet::storage]
+	pub type Enacted<T: Config> = StorageValue<_, (), OptionQuery>;
+
 	/// This block's consumption intervals; grouped/sorted by [`Pallet::consumption_record`],
 	/// cleared next block. Bounded by [`Config::MaxTouchedStreams`].
 	#[pallet::storage]
@@ -228,6 +232,9 @@ pub mod pallet {
 		/// `max_message_size`. It is consumed anyway and dropped, so a peer cannot stall the
 		/// channel or fail the block.
 		OversizedLeaf { channel: ChannelId, position: MessagePosition },
+		/// An inherent item was not consumed: earlier in the block, after the collator planned
+		/// it, the channel was suspended or closed, or its stream skipped (a scheduled call).
+		ItemDropped { channel: ChannelId },
 	}
 
 	#[pallet::error]
@@ -319,7 +326,8 @@ pub mod pallet {
 			Self::roll_over();
 			// Once per block: the record keeps one interval per stream, so a second consumption
 			// of a stream would replace the first, and no lift would bind the first.
-			ensure!(!ConsumptionOutbox::<T>::exists(), Error::<T>::AlreadyEnacted);
+			ensure!(!Enacted::<T>::exists(), Error::<T>::AlreadyEnacted);
+			Enacted::<T>::put(());
 
 			let mut touched = BTreeSet::new();
 			let mut gaps = 0u32;
@@ -555,8 +563,8 @@ pub mod pallet {
 			let mut state = InChannels::<T>::get(channel).ok_or(Error::<T>::UnknownChannel)?;
 			let stream = Self::inbound_stream(&channel);
 			let outbox = ConsumptionOutbox::<T>::get();
-			// One interval per stream per block: the inherent ran first, so a stream it consumed
-			// is already here.
+			// One interval per stream per block: a stream the inherent or an earlier skip consumed
+			// is already here. A skip before the inherent makes the inherent drop that item.
 			ensure!(
 				!outbox.iter().any(|(source, s, _)| *source == sender && *s == stream),
 				Error::<T>::StreamTouched
@@ -629,6 +637,7 @@ impl<T: Config> Pallet<T> {
 
 		BlockStreamsRoot::<T>::kill();
 		ConsumptionOutbox::<T>::kill();
+		Enacted::<T>::kill();
 		let mut drained = 0u32;
 		for (stream, messages) in OutboundMessages::<T>::drain() {
 			let mut frontier = OutboundFrontier::<T>::get(stream);
@@ -742,8 +751,18 @@ impl<T: Config> Pallet<T> {
 		ensure!(recipient == T::SelfParaId::get(), Error::<T>::UnknownStream);
 		let channel = ChannelId { peer: source, domain, num };
 		let mut state = InChannels::<T>::get(channel).ok_or(Error::<T>::UnknownStream)?;
-		ensure!(!state.suspended && !state.published.closed, Error::<T>::UnknownStream);
 		Self::check_touch(touched, source, stream, &payloads)?;
+		// The collator planned on the parent's state. A scheduled call in `on_initialize` may have
+		// suspended or closed the channel, or skipped its stream, since: drop the item rather than
+		// fail the block, which every retry would rebuild the same way. Nothing is recorded, so
+		// nothing needs a lift.
+		let skipped = ConsumptionOutbox::<T>::get()
+			.iter()
+			.any(|(s, t, _)| *s == source && *t == stream);
+		if state.suspended || state.published.closed || skipped {
+			Self::deposit_event(Event::ItemDropped { channel });
+			return Ok(());
+		}
 
 		let mut frontier = InboundFrontier::<T>::get((source, stream));
 		let start = frontier.root();

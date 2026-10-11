@@ -872,17 +872,18 @@ fn receiver_close_publishes_a_closed_register_and_reaccept_resumes() {
 		assert_eq!(InChannels::<Test>::get(channel).expect("accepted").published, closed);
 		assert_eq!(sent_on(SpecMessaging::ack_stream(&channel)), vec![closed.encode()]);
 		assert!(SpecMessaging::consumed_streams().is_empty());
-		assert_err!(
-			SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				inherent(vec![(
-					src(),
-					stream(0),
-					ConsumeItem::Channel { payloads: vec![data_payload(b"b")] }
-				)]),
-			),
-			Error::<Test>::UnknownStream
-		);
+		// A stale item is dropped, not consumed: the block stays valid.
+		let consumed = InboundFrontier::<Test>::get((src(), stream(0))).leaf_count();
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			inherent(vec![(
+				src(),
+				stream(0),
+				ConsumeItem::Channel { payloads: vec![data_payload(b"b")] }
+			)]),
+		));
+		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))).leaf_count(), consumed);
+		assert!(SpecMessaging::consumption_record().entries.is_empty());
 		assert_err!(
 			SpecMessaging::close_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
 			Error::<Test>::AlreadyClosed
@@ -919,17 +920,18 @@ fn suspend_pauses_consumption_and_resume_restores_the_grant() {
 		assert!(state.suspended);
 		assert_eq!(state.published, register(0, WindowGrant::default()));
 		assert!(SpecMessaging::consumed_streams().is_empty());
-		assert_err!(
-			SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				inherent(vec![(
-					src(),
-					stream(0),
-					ConsumeItem::Channel { payloads: vec![data_payload(b"a")] }
-				)]),
-			),
-			Error::<Test>::UnknownStream
-		);
+		// A stale item is dropped, not consumed: the block stays valid.
+		let consumed = InboundFrontier::<Test>::get((src(), stream(0))).leaf_count();
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			inherent(vec![(
+				src(),
+				stream(0),
+				ConsumeItem::Channel { payloads: vec![data_payload(b"a")] }
+			)]),
+		));
+		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))).leaf_count(), consumed);
+		assert!(SpecMessaging::consumption_record().entries.is_empty());
 		assert_err!(
 			SpecMessaging::suspend_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
 			Error::<Test>::AlreadySuspended
@@ -1102,6 +1104,32 @@ fn skip_from_the_empty_stream_takes_the_peaks_as_proof() {
 		};
 		assert_ok!(skip(&new, extension));
 		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), new);
+	});
+}
+
+#[test]
+fn a_skip_scheduled_before_the_inherent_drops_its_item() {
+	new_test_ext().execute_with(|| {
+		let payloads = skip_payloads(5);
+		accept(0);
+		roll_one_block();
+		// A scheduled skip runs in `on_initialize`, before the inherent planned on the parent.
+		let new = frontier_over(&payloads, 5);
+		let extension = MMRExtensionProof { leaf_count: 5, connecting_nodes: new.peaks().to_vec() };
+		assert_ok!(skip(&new, extension));
+
+		let item = ConsumeItem::Channel { payloads: vec![payloads[0].clone()] };
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			inherent(vec![(src(), stream(0), item)])
+		));
+		// Only the skip is recorded; the item changed nothing.
+		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), new);
+		let record = SpecMessaging::consumption_record();
+		assert_eq!(record.entries[&src()][&stream(0)].end, new);
+		System::assert_has_event(
+			Event::ItemDropped { channel: ChannelId { peer: src(), domain: 0, num: 0 } }.into(),
+		);
 	});
 }
 
