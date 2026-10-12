@@ -1,0 +1,55 @@
+title: 'Era points for blocks validators author on system chains'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-staking-async` gains `reward_system_chain_points`, a public function that credits
+    points earned outside the relay chain to the active era. Accounts not exposed in the active
+    era are dropped. Points from system chains and from the relay chain session report share one
+    tally, so they also move the self-stake incentive share and count as activity for
+    `chill_inactive`. The new `WeightInfo::reward_system_chain_points` must be added by external
+    implementors of the trait.
+
+    `pallet-validator-collators` counts the blocks each author produces as a
+    `pallet_authorship::EventHandler`. Every `ReportPeriod` blocks it hands the counts of the
+    authors in the stored validator set to the runtime's `BlockReporter`, in chunks of at most
+    `MaxEntriesPerReport` entries, inside one storage layer. If the reporter rejects a chunk, every
+    count is kept for the next report. Governance sets the period with `set_report_period`. New
+    required config items: `BlockReporter`, `DefaultReportPeriod`, `MaxEntriesPerReport`. The
+    runtime adds the pallet to the `EventHandler` of `pallet-authorship`.
+
+    Adds `pallet-staking-async-system-chain-client`, which runs on Asset Hub only and receives
+    the counts. Other chains call `report_authored_blocks` from `ReportOrigin`, which names the
+    reporting chain, and the local chain credits its own counts through `credit_authored_blocks`.
+    A count becomes `count × PointsPerBlock[source]` era points, handed to the runtime's
+    `RewardPoints`. A source without points per block earns nothing. Governance sets the values
+    with `set_points_per_block`, up to `MaxPointsPerBlock`. A report holds at most
+    `MaxEntriesPerReport` entries, which must not be lower than the chunk size of any chain that
+    reports over XCM.
+
+    People Westend reports its counts to Asset Hub Westend over XCM. Asset Hub Westend adds
+    `pallet-staking-async-system-chain-client` and credits its own counts locally.
+    People's report bound matches the client's on Asset Hub, and Asset Hub hands its own counts
+    over in one chunk.
+crates:
+- name: pallet-staking-async
+  bump: major
+- name: pallet-validator-collators
+  bump: major
+- name: pallet-staking-async-system-chain-client
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: testnet-parachains-constants
+  bump: minor
+- name: pallet-ahm-test
+  bump: none
+- name: pallet-validator-set-announcer
+  bump: none
+- name: people-westend-integration-tests
+  bump: none
+- name: cumulus-zombienet-sdk-tests
+  bump: none
+- name: polkadot-sdk
+  bump: minor
