@@ -120,6 +120,50 @@ fn para_lock(para_id: u32) -> Option<bool> {
 	pallet_registrar_para::Paras::<para::Runtime>::get(para_id).unwrap().locked
 }
 
+/// Take `who` all the way to a para the relay chain has onboarded as a parathread.
+///
+/// Leaves the relay chain in session 3, which is when onboarding lands.
+fn onboarded_para(who: AccountId32) -> u32 {
+	Relay::execute_with(|| relay::run_to_session(1));
+
+	let para_id = reserve(who.clone());
+	let blob = request_registration(who, para_id, 32, 64);
+
+	Relay::execute_with(|| {
+		assert_ok!(submit_code(para_id, blob.clone()));
+		let session =
+			polkadot_runtime_parachains::shared::CurrentSessionIndex::<relay::Runtime>::get();
+		relay::conclude_pvf_checking(&ValidationCode(blob), session);
+		relay::run_to_session(3);
+		assert!(polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::is_parathread(
+			para_id.into()
+		));
+	});
+
+	para_id
+}
+
+/// Whether the relay chain's registrar still holds the record a deregistration removes.
+fn relay_has_record(para_id: u32) -> bool {
+	polkadot_runtime_common::paras_registrar::Paras::<relay::Runtime>::contains_key(
+		polkadot_primitives::Id::from(para_id),
+	)
+}
+
+/// Whether the relay chain has scheduled `para_id` to be cleaned up.
+fn relay_offboarding(para_id: u32) -> bool {
+	polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::lifecycle(para_id.into()) ==
+		Some(polkadot_runtime_parachains::ParaLifecycle::OffboardingParathread)
+}
+
+/// Whether the parachain's registrar emitted an event matching `f`.
+fn para_event(f: impl Fn(&pallet_registrar_para::Event<para::Runtime>) -> bool) -> bool {
+	para::System::events().iter().any(|e| match &e.event {
+		para::RuntimeEvent::Registrar(event) => f(event),
+		_ => false,
+	})
+}
+
 /// Tell the relay chain that `para_id` produced a head, the way an included candidate does.
 fn note_head_on_relay(para_id: u32) {
 	Relay::execute_with(|| {
@@ -446,5 +490,141 @@ fn a_lock_lifted_on_the_parachain_is_not_reapplied_by_later_heads() {
 	RegistrarPara::execute_with(|| {
 		assert_eq!(para_lock(para_id), Some(false));
 		assert_ok!(para::Registrar::add_lock(para::RuntimeOrigin::signed(ALICE), para_id));
+	});
+}
+
+#[test]
+fn a_reserved_para_id_is_dropped_without_asking_the_relay_chain() {
+	MockNet::reset();
+
+	let para_id = reserve(ALICE);
+	RegistrarPara::execute_with(|| {
+		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT);
+
+		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id));
+
+		// The relay chain never knew this id, so there was nobody to ask and nothing to wait for.
+		assert_eq!(para_state(para_id), None);
+		assert_eq!(para_held(&ALICE), 0);
+	});
+
+	Relay::execute_with(|| {
+		assert!(!relay_has_record(para_id));
+		assert!(polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::lifecycle(
+			para_id.into()
+		)
+		.is_none());
+	});
+}
+
+#[test]
+fn a_deregistration_travels_to_the_relay_chain_and_frees_every_deposit() {
+	MockNet::reset();
+
+	let para_id = onboarded_para(ALICE);
+	let deposit = para::PARA_DEPOSIT + para::PER_BYTE * (32 + 64);
+
+	RegistrarPara::execute_with(|| {
+		assert!(matches!(para_state(para_id), Some(RegistrationState::Registered { .. })));
+		assert_eq!(para_held(&ALICE), deposit);
+
+		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id));
+	});
+
+	// The relay chain scheduled the cleanup.
+	Relay::execute_with(|| {
+		assert!(relay_offboarding(para_id));
+		relay::run_to_session(5);
+		assert!(polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::lifecycle(
+			para_id.into()
+		)
+		.is_none());
+	});
+
+	// And its confirmation is what frees the deposits, taking the para id with them.
+	RegistrarPara::execute_with(|| {
+		assert_eq!(para_state(para_id), None);
+		assert_eq!(para_held(&ALICE), 0);
+		assert!(para_event(|e| matches!(e, pallet_registrar_para::Event::Deregistered { .. })));
+	});
+}
+
+#[test]
+fn a_lost_deregistration_verdict_is_settled_by_asking_again() {
+	MockNet::reset();
+
+	let para_id = onboarded_para(ALICE);
+	let deposit = para::PARA_DEPOSIT + para::PER_BYTE * (32 + 64);
+
+	// The relay chain drops the para, but its verdict never arrives.
+	senders::RelayReportsLost::set(true);
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id));
+	});
+	Relay::execute_with(|| assert!(relay_offboarding(para_id)));
+
+	// So the parachain is left holding deposits for a para that is already on its way out, and
+	// asks again once the deadline has passed.
+	senders::RelayReportsLost::set(false);
+	RegistrarPara::execute_with(|| {
+		assert!(matches!(para_state(para_id), Some(RegistrationState::Deregistering { .. })));
+		assert_eq!(para_held(&ALICE), deposit);
+
+		para::System::set_block_number(para::PENDING_DEADLINE + 1);
+		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id));
+	});
+
+	// The relay chain confirms a para it already dropped, which frees the deposits.
+	RegistrarPara::execute_with(|| {
+		assert_eq!(para_state(para_id), None);
+		assert_eq!(para_held(&ALICE), 0);
+		assert!(para_event(|e| matches!(
+			e,
+			pallet_registrar_para::Event::Unexpected(
+				pallet_registrar_para::UnexpectedKind::ResponseNeverArrived { .. }
+			)
+		)));
+		assert!(para_event(|e| matches!(e, pallet_registrar_para::Event::Deregistered { .. })));
+	});
+}
+
+#[test]
+fn the_relay_chain_refuses_to_drop_a_para_it_is_still_onboarding() {
+	MockNet::reset();
+
+	Relay::execute_with(|| relay::run_to_session(1));
+
+	let para_id = reserve(ALICE);
+	let blob = request_registration(ALICE, para_id, 32, 64);
+	let deposit = para::PARA_DEPOSIT + para::PER_BYTE * (32 + 64);
+
+	// The code lands, so the parachain is told the registration went through, but the relay chain
+	// is still onboarding it and will not let it go yet.
+	Relay::execute_with(|| {
+		assert_ok!(submit_code(para_id, blob));
+		assert_eq!(
+			polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::lifecycle(para_id.into()),
+			Some(polkadot_runtime_parachains::ParaLifecycle::Onboarding)
+		);
+	});
+
+	RegistrarPara::execute_with(|| {
+		assert!(matches!(para_state(para_id), Some(RegistrationState::Registered { .. })));
+		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id));
+	});
+
+	Relay::execute_with(|| assert!(relay_has_record(para_id)));
+
+	// The refusal put the para back where it was, deposits and all.
+	RegistrarPara::execute_with(|| {
+		assert!(matches!(para_state(para_id), Some(RegistrationState::Registered { .. })));
+		assert_eq!(para_held(&ALICE), deposit);
+		assert!(para_event(|e| matches!(
+			e,
+			pallet_registrar_para::Event::DeregistrationFailed {
+				reason: FailureReason::NotDeregisterable,
+				..
+			}
+		)));
 	});
 }
