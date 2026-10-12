@@ -1983,6 +1983,9 @@ sp_api::impl_runtime_apis! {
 			block: <Block as BlockT>::LazyBlock,
 			data: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
+			// The first block after a runtime upgrade is checked by the new runtime on top of the
+			// state the old runtime left behind: apply the upgrade's migrations first.
+			Executive::ensure_runtime_upgrade_applied();
 			data.check_extrinsics(&block)
 		}
 	}

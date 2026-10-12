@@ -25108,10 +25108,15 @@ dependencies = [
 name = "sp-block-builder"
 version = "26.0.0"
 dependencies = [
+ "futures",
  "parity-scale-codec",
  "sp-api 26.0.0",
+ "sp-externalities 0.25.0",
  "sp-inherents 26.0.0",
  "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-test-primitives",
+ "sp-version 29.0.0",
 ]
 
 [[package]]

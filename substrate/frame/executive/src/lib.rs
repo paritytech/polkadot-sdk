@@ -632,16 +632,7 @@ where
 		// This means the format of all the event related storage must always be compatible.
 		<frame_system::Pallet<System>>::reset_events();
 
-		let mut weight = Weight::zero();
-		if Self::runtime_upgraded() {
-			weight = weight.saturating_add(Self::execute_on_runtime_upgrade());
-
-			frame_system::LastRuntimeUpgrade::<System>::put(
-				frame_system::LastRuntimeUpgradeInfo::from(
-					<System::Version as frame_support::traits::Get<_>>::get(),
-				),
-			);
-		}
+		let mut weight = Self::ensure_runtime_upgrade_applied();
 		<frame_system::Pallet<System>>::initialize(block_number, parent_hash, digest);
 
 		weight = System::BlockWeights::get().base_block.saturating_add(weight);
@@ -663,6 +654,48 @@ where
 
 		frame_system::Pallet::<System>::note_finished_initialize();
 		<System as frame_system::Config>::PreInherents::pre_inherents();
+	}
+
+	/// Apply the runtime upgrade, if there is one that has not been applied yet.
+	///
+	/// Runs [`Self::execute_on_runtime_upgrade`] and records the current runtime version in
+	/// [`frame_system::LastRuntimeUpgrade`] when that version differs from the recorded one, as
+	/// [`Self::initialize_block`] does at the start of the first block of a new runtime. Returns
+	/// the weight of the upgrade, which is zero when there is nothing to apply.
+	///
+	/// Block execution takes care of this by itself. The function is meant for runtime API calls
+	/// that run on the state of the last block of the previous runtime and read storage that the
+	/// upgrade's migrations change. In particular, with delayed runtime upgrades
+	/// (`system_version >= 3`) the first block after the upgrade block is built, and its inherents
+	/// are checked, by the new runtime on top of the state the old runtime left behind. A
+	/// `BlockBuilder::check_inherents` implementation therefore calls this first:
+	///
+	/// ```ignore
+	/// fn check_inherents(
+	/// 	block: <Block as BlockT>::LazyBlock,
+	/// 	data: InherentData,
+	/// ) -> CheckInherentsResult {
+	/// 	Executive::ensure_runtime_upgrade_applied();
+	/// 	data.check_extrinsics(&block)
+	/// }
+	/// ```
+	///
+	/// The state changes of a runtime API call are discarded, so the migrations run again, for
+	/// real, when the block is executed.
+	pub fn ensure_runtime_upgrade_applied() -> Weight {
+		if !Self::runtime_upgraded() {
+			return Weight::zero();
+		}
+
+		let weight = Self::execute_on_runtime_upgrade();
+
+		frame_system::LastRuntimeUpgrade::<System>::put(
+			frame_system::LastRuntimeUpgradeInfo::from(
+				<System::Version as frame_support::traits::Get<_>>::get(),
+			),
+		);
+
+		weight
 	}
 
 	/// Returns if the runtime has been upgraded, based on [`frame_system::LastRuntimeUpgrade`].
