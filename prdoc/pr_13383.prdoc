@@ -6,7 +6,11 @@ doc:
     a core's resubmittable parachain blocks, oldest first — back into collation parts from local
     state only: the parachain backend, the code-hash provider and the resubmission store. The
     headers are regrouped into their original bundles and each bundle's stored proofs are merged
-    into one PoV. Nothing calls it yet; the resubmission wiring that follows does.
+    into one PoV. The resubmission store now also records `max_pov_size`, so the persisted
+    validation data can be rebuilt from stored state. Nothing calls the hydration helper yet; the
+    resubmission wiring that follows does.
 crates:
 - name: cumulus-client-consensus-aura
-  bump: minor
+  bump: patch
+- name: cumulus-client-resubmission-store
+  bump: major
