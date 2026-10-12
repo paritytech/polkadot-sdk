@@ -29,7 +29,8 @@ use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
 use frame_support::{DebugNoBound, DefaultNoBound, traits::Get};
 use sp_runtime::{
-	DispatchError, FixedPointNumber, FixedU128,
+	DispatchError, Rounding, SaturatedConversion,
+	helpers_128bit::multiply_by_rational_with_rounding,
 	traits::{Saturating, Zero},
 };
 
@@ -113,6 +114,13 @@ impl Diff {
 	/// Calculate how much of a charge or refund results from applying the diff and store it
 	/// in the passed `info` if any.
 	///
+	/// Added and removed storage are netted against each other before a rate is applied. A net
+	/// addition is charged at the current `DepositPerByte` and `DepositPerChildTrieItem`, a net
+	/// removal is refunded pro rata of the deposit the contract holds, which is its average
+	/// historical rate. Storage that is replaced within the same diff is therefore free, even
+	/// after a rate change. This is intended: `Diff` only carries counters, so a replacement
+	/// cannot be told apart from a key that was created and deleted again in the same frame.
+	///
 	/// # Note
 	///
 	/// In case `None` is passed for `info` only charges are calculated. This is because refunds
@@ -136,16 +144,16 @@ impl Diff {
 		// Refunds are calculated pro rata based on the accumulated storage within the contract
 		let bytes_removed = self.bytes_removed.saturating_sub(self.bytes_added);
 		let items_removed = self.items_removed.saturating_sub(self.items_added);
-		let ratio = FixedU128::checked_from_rational(bytes_removed, info.storage_bytes)
-			.unwrap_or_default()
-			.min(FixedU128::from_u32(1));
-		bytes_deposit = bytes_deposit
-			.saturating_add(&Deposit::Refund(ratio.saturating_mul_int(info.storage_byte_deposit)));
-		let ratio = FixedU128::checked_from_rational(items_removed, info.storage_items)
-			.unwrap_or_default()
-			.min(FixedU128::from_u32(1));
-		items_deposit = items_deposit
-			.saturating_add(&Deposit::Refund(ratio.saturating_mul_int(info.storage_item_deposit)));
+		bytes_deposit = bytes_deposit.saturating_add(&Deposit::Refund(Self::pro_rata::<T>(
+			info.storage_byte_deposit,
+			bytes_removed,
+			info.storage_bytes,
+		)));
+		items_deposit = items_deposit.saturating_add(&Deposit::Refund(Self::pro_rata::<T>(
+			info.storage_item_deposit,
+			items_removed,
+			info.storage_items,
+		)));
 
 		// We need to update the contract info structure with the new deposits
 		info.storage_bytes =
@@ -170,6 +178,18 @@ impl Diff {
 		}
 
 		bytes_deposit.saturating_add(&items_deposit)
+	}
+
+	/// `deposit * removed / stored`, rounded down and capped at `deposit`.
+	fn pro_rata<T: Config>(deposit: BalanceOf<T>, removed: u32, stored: u32) -> BalanceOf<T> {
+		multiply_by_rational_with_rounding(
+			deposit.saturated_into(),
+			removed.min(stored).into(),
+			stored.into(),
+			Rounding::Down,
+		)
+		.unwrap_or_default()
+		.saturated_into()
 	}
 }
 

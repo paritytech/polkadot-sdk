@@ -1,0 +1,38 @@
+title: '[pallet-revive] Exact pro rata storage deposit refunds'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Closes https://github.com/paritytech/polkadot-sdk/issues/12692
+
+    Refunds for removed contract storage are now computed as `deposit * removed / stored` with
+    exact integer arithmetic, rounded down. Previously the ratio went through `FixedU128`, which
+    could refund one unit too little. For example, a contract holding 3 bytes with a byte deposit
+    of 3 that removed one byte was refunded 0. It is now refunded 1.
+
+    The netting rule is unchanged and is now documented on `Diff::update_contract` as the
+    intended semantics. Within a frame, added and removed bytes and items are offset against
+    each other before a rate is applied:
+
+    * A net addition is charged at the current `DepositPerByte` and `DepositPerChildTrieItem`.
+    * A net removal is refunded pro rata of the deposit the contract holds, so at the
+      contract's average rate. This is not necessarily the rate paid for the removed item.
+
+    After a change of `DepositPerByte` or `DepositPerChildTrieItem` callers observe the
+    following. Storage growth is charged at the new rate. Shrinking storage is refunded at the
+    contract's average rate, which mixes the old and new rates. Replacing storage with the same
+    amount in one frame costs nothing, whether it is a different key or a key that is created
+    and deleted again. An in-place overwrite of the same key is netted in `write_raw` and is
+    free as before. Deposits already held by contracts are never repriced.
+
+    No migration is needed. The layout of `ContractInfo` is unchanged and recorded deposits stay
+    valid.
+- audience: Runtime User
+  description: |-
+    Removing contract storage can refund up to one unit more than before for bytes and for
+    items, so the storage deposit charged by a call and the storage deposit reported by a dry
+    run can be correspondingly lower. Pricing after a change of the deposit rates is otherwise
+    unchanged: only net storage growth is charged at the current rate, and net removals are
+    refunded at the contract's average rate.
+crates:
+- name: pallet-revive
+  bump: patch
