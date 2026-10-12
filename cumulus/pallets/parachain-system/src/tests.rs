@@ -1902,6 +1902,120 @@ fn claim_queue_offset_beyond_the_relay_parent_offset_bound_is_rejected() {
 		.add(1, || {});
 }
 
+fn streams_root(byte: u8) -> cumulus_primitives_spec_messaging::StreamsRoot {
+	cumulus_primitives_spec_messaging::StreamsRoot(relay_chain::Hash::repeat_byte(byte))
+}
+
+fn bundle_info(index: u8, is_last: bool) -> DigestItem {
+	cumulus_primitives_core::BlockBundleInfo { index, is_last }.to_digest_item()
+}
+
+#[test]
+fn provides_follows_the_scheduling_signals() {
+	let core_info = CoreInfo {
+		selector: CoreSelector(1),
+		claim_queue_offset: ClaimQueueOffset(1),
+		number_of_cores: codec::Compact(1),
+	};
+	let core_info_digest = CumulusDigestItem::CoreInfo(core_info.clone()).encode();
+
+	BlockTests::new()
+		.add_with_post_test(
+			1,
+			move || {
+				MockProvidesRoot::set(Some(streams_root(1)));
+				System::deposit_log(DigestItem::PreRuntime(
+					CUMULUS_CONSENSUS_ID,
+					core_info_digest.clone(),
+				));
+			},
+			move || {
+				assert_eq!(
+					UpwardMessages::<Test>::get(),
+					vec![
+						UMP_SEPARATOR,
+						UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
+							.encode(),
+						UMPSignal::Provides(streams_root(1)).encode(),
+					]
+				);
+			},
+		)
+		// Without scheduling signals the tail is just the `Provides`.
+		.add_with_post_test(
+			2,
+			|| MockProvidesRoot::set(Some(streams_root(2))),
+			|| {
+				assert_eq!(
+					UpwardMessages::<Test>::get(),
+					vec![UMP_SEPARATOR, UMPSignal::Provides(streams_root(2)).encode()]
+				);
+			},
+		)
+		// A block that touched no stream sends nothing.
+		.add_with_post_test(
+			3,
+			|| MockProvidesRoot::set(None),
+			|| assert!(UpwardMessages::<Test>::get().is_empty()),
+		);
+}
+
+/// Two sending blocks in one bundle: one `Provides`, the last root, on the last block. The MVP sent
+/// one per sending block, which its collator declared as duplicates.
+#[test]
+fn a_bundle_sends_one_provides_on_its_last_block() {
+	BlockTests::new()
+		.add_with_post_test(
+			1,
+			|| {
+				MockProvidesRoot::set(Some(streams_root(1)));
+				System::deposit_log(bundle_info(0, false));
+			},
+			|| assert!(UpwardMessages::<Test>::get().is_empty()),
+		)
+		.add_with_post_test(
+			2,
+			|| {
+				MockProvidesRoot::set(Some(streams_root(2)));
+				System::deposit_log(bundle_info(1, true));
+			},
+			|| {
+				assert_eq!(
+					UpwardMessages::<Test>::get(),
+					vec![UMP_SEPARATOR, UMPSignal::Provides(streams_root(2)).encode()]
+				);
+			},
+		);
+}
+
+/// An idle last block still reports the root an earlier block of its bundle produced.
+#[test]
+fn an_idle_last_block_sends_the_bundles_root() {
+	BlockTests::new()
+		.add_with_post_test(
+			1,
+			|| {
+				MockProvidesRoot::set(Some(streams_root(1)));
+				System::deposit_log(bundle_info(0, false));
+			},
+			|| assert!(UpwardMessages::<Test>::get().is_empty()),
+		)
+		.add_with_post_test(
+			2,
+			|| {
+				MockProvidesRoot::set(None);
+				System::deposit_log(bundle_info(1, true));
+			},
+			|| {
+				assert_eq!(
+					UpwardMessages::<Test>::get(),
+					vec![UMP_SEPARATOR, UMPSignal::Provides(streams_root(1)).encode()]
+				);
+				assert_eq!(PendingProvidesRoot::<Test>::get(), None);
+			},
+		);
+}
+
 #[test]
 fn ump_signals_are_sent_correctly() {
 	let core_info = CoreInfo {
