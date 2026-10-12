@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-client-collator-discovery"
-version = "0.1.0"
+version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
 description = "Parachain collator authority discovery — keeps collators connected via reserved peers on the block-announce protocol."
