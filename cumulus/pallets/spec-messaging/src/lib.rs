@@ -798,8 +798,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Consume a register read: the head `Register` of the peer's `Ack` stream for one of our
 	/// outbound channels, in any phase. Rebuild the frontier from the unproven hints (a lie binds
-	/// no lift), record the [`Interval`] and apply the register. No position state is kept. Any
-	/// other `Events` stream invalidates the block.
+	/// no lift), record the [`Interval`] and apply the register. A read is never rejected for its
+	/// position; [`Pallet::apply_register_read`] ignores an older one. Any other `Events` stream
+	/// invalidates the block.
 	fn consume_events_item(
 		touched: &mut BTreeSet<(ParaId, StreamId)>,
 		gaps: &mut u32,
