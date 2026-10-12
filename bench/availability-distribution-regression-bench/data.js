@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791800668152,
+  "lastUpdate": 1791806481889,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a1a2bbfdb435f381ba633e62c022090f1efa4fca",
-          "message": "Fix slot-based collator panic during warp sync (#11072) (#11381)\n\nWhen a parachain collator starts with `--authoring=slot-based` and\nperforms warp sync, the `slot-based-block-builder` essential task\nimmediately calls `slot_duration()` which requires\n`AuraApi_slot_duration`. During warp sync the runtime isn't ready, so\nthis fails and the task returns, shutting down the node.\n\nThe lookahead collator avoids this by calling `wait_for_aura()` before\nstarting. This PR adds an equivalent guard to the slot-based collator.\n\n### Manual test\nBefore the fix the collator panicked after the relay chain warp sync\nwith AuraApi_slot_duration not available, which does not occur anymore\nnow.\n```\n ./target/release/polkadot-parachain \\                                                                                                                                                                                                                                                                          \n    --chain asset-hub-polkadot \\\n    --sync warp \\\n    --authoring=slot-based \\\n    --tmp -- --sync warp\n```\nCloses #11072.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>",
-          "timestamp": "2026-04-02T20:55:34Z",
-          "tree_id": "91d815959b0ac9a381da89ca91e02813e5ffc1c6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a1a2bbfdb435f381ba633e62c022090f1efa4fca"
-        },
-        "date": 1775168269538,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00726609534,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009378335766666654,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14702138730666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02377061624666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010181508506666648,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "34595be73eb19afe34d26ace0090d26ac5aefec5",
+          "message": "Kanas/module invalidity (#11724)\n\n# Description\n\nThis PR implements descriptive module invalidity support for\ntransactions as proposed in #11337. It extends the `InvalidTransaction`\nenum with a new `Module(ModuleError)` variant, allowing pallets to\nreturn pallet-specific, descriptive error data during the transaction\nvalidation phase (e.g., in `TransactionExtension`).\n\nCloses #11337\n\n## Integration\n\nDownstream projects and UI tools (like `subxt` or `polkadot-js`) can now\nleverage descriptive invalidity reasons. When a transaction is rejected\nby the pool with a `Module` error, the RPC will return a formatted\nmessage including the pallet index and the error bytes.\n\nExample RPC error output:\n`\"Invalid Transaction: Module error: index: 5, error: [1, 0, 0, 0]\"`\n\nClient-side libraries can use this index and byte array to look up the\nspecific error definition in the chain's current metadata, mirroring how\n`DispatchError::Module` is handled today.\n\n## Review Notes\n\nThe implementation follows the established pattern for descriptive\nerrors in Substrate while ensuring 100% backward compatibility for the\ntransaction pool and node-side logic.\n\n### Key Changes:\n- **`sp-runtime`**: Appended `Module(ModuleError)` to the\n`InvalidTransaction` enum (index 13). This position ensures that\nexisting SCALE-encoded variants remain unchanged.\n- **String Conversion**: Updated the `From<InvalidTransaction> for\n&'static str` implementation to prioritize the descriptive message from\n`ModuleError` if present.\n- **RPC Layer**: Enriched both the Author RPC (v1) and the Transaction\nRPC (v2) to explicitly handle the `Module` variant and return formatted\ndebug information.\n- **Verification**: Added a new unit test\n`module_invalidity_should_encode_and_decode` in `sp-runtime` to verify\nthe encoding/decoding and string conversion paths.\n\n### Integration Diff:\n```diff\n pub enum InvalidTransaction {\n     ...\n     UnknownOrigin,\n+    /// An error in a module.\n+    Module(ModuleError),\n }\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-12T10:28:18Z",
+          "tree_id": "47f2c97fbd39be2faa91203e80a838da5de805de",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/34595be73eb19afe34d26ace0090d26ac5aefec5"
+        },
+        "date": 1791806454221,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007647257273333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009783498019999979,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025429207999999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14405233179333338,
             "unit": "seconds"
           }
         ]
