@@ -1,6 +1,7 @@
 # Speculative Messaging: Consensus-Critical Encoding Specification
 
-Companion to [speculative-messaging-design.md](speculative-messaging-design.md) v0.5. This document
+Companion to the Speculative Messaging design v0.5
+([#12659](https://github.com/paritytech/polkadot-sdk/pull/12659)). This document
 pins every byte that must be bit-identical across all implementations. Unmarked sections are
 normative and implemented in `cumulus-primitives-spec-messaging` / `polkadot-primitives::v9`.
 Items marked **⚠ OPEN** are listed in §13.
@@ -139,7 +140,8 @@ at decode.
 
 ```rust
 struct MMRExtensionProof {
-    leaf_count: u64,            // plain u64, §5.3
+    #[codec(compact)]
+    leaf_count: u64,            // Compact, §5.3
     connecting_nodes: Vec<Hash> // positions derived, §5.1
 }
 ```
@@ -163,7 +165,7 @@ node count is not exactly right for the pair.
 
 ### 5.3 `leaf_count` encoding
 
-Plain `u64` (8 bytes, SCALE little-endian), the same as `MmrFrontier.leaf_count`. Not `Compact`.
+SCALE `Compact<u64>`: the proof is carried in the PoV. `MmrFrontier.leaf_count` stays a plain `u64`.
 
 ## 6. `MmrInclusionProof` (wire-only)
 
@@ -218,7 +220,8 @@ struct LiftsBySource(BoundedVec<(ParaId, Vec<RequiresLift>), ConstU32<MAX_COMMIT
 `MAX_COMMITMENT_ENTRIES` sources. A candidate that requires nothing emits no `Requires` signal.
 Within a source, lifts match the consumption record's streams positionally in canonical `StreamId`
 order; a mispaired lift cannot verify because the tree walk binds the record's key. Carried in
-`ParachainBlockData::V3 { lifts: LiftsBySource, .. }`, never in the block body or commitments.
+`ParachainBlockData::V3 { lifts: LiftsBySource, .. }` (`cumulus-primitives-core`, added with the
+collator hook), never in the block body or commitments.
 
 ## 9. Wire protocol (interoperability-normative)
 
@@ -251,11 +254,15 @@ struct Interval { start: MmrRoot, end: MmrFrontier }
 - `start` of a stream's first consumption is the empty root `H(EMPTY_TAG)` (§3.3).
 - `ConsumeItem::Channel { payloads }`: `start` = root of the stored inbound frontier, `end` = that
   frontier after appending the payloads.
-- `ConsumeItem::Events { base, start_peaks, payloads }`: the frontier is rebuilt with
-  `MmrFrontier::from_parts(start_peaks, base)`; `start` = its root, `end` = it after appending the
-  payloads (`payloads.len() ≥ 1`; a register head read is the single-payload case). `base` and
-  `start_peaks` are unproven hints; a lie yields a root no lift can bind. Replay guard: `base` must
-  exceed the stream's highwater, which then becomes `base + len − 1`.
+- `ConsumeItem::Events { base, start_peaks, payloads }` on an `Ack` stream (a register read):
+  exactly one payload, the head `Register`. The frontier is rebuilt with
+  `MmrFrontier::from_parts(start_peaks, base)` and the head appended; `end` = that frontier and
+  `start` = its root, so the interval is empty: a read advances nothing. `base` and `start_peaks`
+  are unproven hints; a lie yields a root no lift can bind. No position state is kept; the
+  register's own monotonic values guard against replay. Any other `Events` stream invalidates the
+  block.
+- Broadcast event streams (not implemented): `payloads.len() ≥ 1`, and the replay guard is a
+  highwater: `base` must exceed it, and it then becomes `base + len − 1`.
 - One interval per stream per block; at most one inherent item per stream; strict-on-import, one
   invalid item invalidates the block. The inherent carries no roots and no proofs.
 - `stitch`: intervals in bundle order; `next.start` equals the current root (the empty root for an
@@ -280,10 +287,10 @@ Reference algorithms: design §Requires Lifting (`stitch`, `build_requires_entry
 | `MAX_EXTENSION_CONNECTING_NODES` | 256 | decode ceiling; must exceed the valid maxima, not consensus |
 | `MAX_INCLUSION_PROOF_ITEMS` | 128 | decode ceiling; must exceed the valid maxima, not consensus |
 | `SPMS_ENGINE_ID` | `*b"SPMS"` | implemented; freeze before cross-chain ships |
-| `W` (RecentProvides ring) | 128 | relay-side, governance-adjustable |
+| `W` (RecentProvides ring) | 128 | relay-side constant; changed by runtime upgrade |
 | `MaxTouchedStreams` | per-chain receiver | inherent bound; `≤ MAX_COMMITMENT_ENTRIES`; integrity-checked |
 | `MaxContextGaps` | per-chain receiver | bound the receiver's inherent; integrity-checked |
-| `MaxMessagesPerBlock` / `MaxMsgLen` (≤ the wire bound) | per-chain sender constants | STF-enforced sender-side |
+| `MaxMessagesPerBlock` / `MaxMsgLen` (≤ the wire bound) | per-chain sender | STF-enforced; integrity-checked |
 | Lift / advance PoV reservation | pallet weight constants | ⚠ OPEN, §13 #5 |
 
 ## 12. Conformance test vectors
@@ -317,7 +324,7 @@ bytes; a vector change is a spec change.
 | 1 | ~~`connecting_nodes` encoding~~ | settled: `Vec<Hash>`, positions derived (§5.1) |
 | 2 | ~~`StreamProof` decode bound~~ | settled: 64 (§4.3) |
 | 3 | `SPMS_ENGINE_ID` freeze | implemented as `*b"SPMS"`; freeze before cross-chain ships (§7.4) |
-| 4 | ~~`leaf_count` encoding~~ | settled: plain `u64` (§5.3) |
+| 4 | ~~`leaf_count` encoding~~ | settled: `Compact<u64>` (§5.3) |
 | 5 | Lift / advance PoV reservation | pallet weights; set with benchmarks, above ~4.2 KB/stream, ~2.1 KB/gap |
 | 6 | ~~Event wire path~~ | settled: one envelope protocol (§9); protocol string pinned by the node crate |
 | 7 | Conformance vectors | extract language-neutral vector files; pin the tree adversarial negatives (§12) |
