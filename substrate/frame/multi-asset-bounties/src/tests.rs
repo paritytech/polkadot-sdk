@@ -966,6 +966,40 @@ fn check_status_works() {
 }
 
 #[test]
+fn close_parent_refunds_only_remaining_value_after_child_payout() {
+	ExtBuilder::default().build_and_execute(|| {
+		let s = create_awarded_child_bounty();
+		let child_payment_id = get_payment_id(s.parent_bounty_id, Some(s.child_bounty_id))
+			.expect("no child payout attempt");
+		set_status(child_payment_id, PaymentStatus::Success);
+		assert_ok!(Bounties::check_status(
+			RuntimeOrigin::signed(1),
+			s.parent_bounty_id,
+			Some(s.child_bounty_id)
+		));
+
+		assert_eq!(
+			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
+			s.child_value
+		);
+		let funding_source =
+			Bounties::funding_source_account(s.asset_kind).expect("conversion failed");
+		let funding_source_balance = paid(funding_source, s.asset_kind);
+
+		assert_ok!(Bounties::close_bounty(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			None
+		));
+
+		assert_eq!(
+			paid(funding_source, s.asset_kind),
+			funding_source_balance + s.value - s.child_value
+		);
+	});
+}
+
+#[test]
 fn check_status_fails() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given

@@ -36,7 +36,7 @@ use frame_support::{
 	traits::{
 		fungible::HoldConsideration, ConstU32, Contains, EnsureOriginWithArg, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
-		VariantCountOf, WithdrawReasons,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -388,8 +388,6 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
 }
 
