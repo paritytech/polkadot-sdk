@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791759275641,
+  "lastUpdate": 1791800781183,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5c97c0f72ec9ac3a9d807bc03b6f8e0ecde3a3c9",
-          "message": "[Penpal] fix genesis presets - assign proper ED to accounts (#11575)\n\nPenpal had values below the ED for initializing asset balances for some\naccounts. This has not been detected as no unit tests actually use the\npresets. This PR fixes the invalid values, and it also adds some unit\ntests for validating that the presets build at least.\n\nCloses #11558.\n\n---------\n\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-01T23:06:59Z",
-          "tree_id": "565b491296861ae00fc1f0485cf9dfeef10c6e24",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5c97c0f72ec9ac3a9d807bc03b6f8e0ecde3a3c9"
-        },
-        "date": 1775089671465,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.06999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08080397228999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03841178178399999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08487231522599994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8c541320b8ff1b7f9377962d13d3359a2dd502e5",
+          "message": "fix(sc-network-gossip): deduplicate local message registration (#12694)\n\n`register_message_hashed` used `known_messages.insert(message_hash, ())`\nas the dedup guard before pushing a `MessageEntry`. With\n`schnellru::LruMap` (0.2.3), `insert` does not distinguish new keys from\nreplacements: for an existing key it replaces the value and still\nreturns `true` whenever the cache is non-empty (`!self.is_empty()`).\nRegistering the same message twice therefore passed the guard and\nappended a second `MessageEntry` with the same hash, breaking the\nintended one-entry-per-hash invariant in the gossip message cache.\n\nThe `on_incoming` path was unaffected because it already checks\n`known_messages.get(&message_hash).is_some()` before calling\n`register_message_hashed`. The broken path is user-reachable via\n`register_message` and `multicast`, which hash the payload and call\n`register_message_hashed` directly with no prior dedup check.\n\nDuplicate entries surface through `messages_for()` as repeated\nnotifications for the same bytes, waste memory in `messages`, and can\ncause duplicate processing in upper layers that assume the cache is\nhash-unique. `multicast` also registers before propagating, so\nduplicates can be rebroadcast from the local cache on later topic\nbroadcasts.\n\nA second `register_message` / `multicast` for an already-registered\nmessage hash is now ignored by an explicit `known_messages.get()` check\nbefore insert, matching the `on_incoming` dedup behavior.\n\nCloses #12607\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-12T08:50:37Z",
+          "tree_id": "3dc421c6618ec68d031297b713c8e09ee7102e66",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8c541320b8ff1b7f9377962d13d3359a2dd502e5"
+        },
+        "date": 1791800749664,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.09,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08567639006199991,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03871710679399999,
             "unit": "seconds"
           }
         ]
