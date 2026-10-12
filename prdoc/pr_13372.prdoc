@@ -1,0 +1,31 @@
+title: 'HRMP: New Deposit Flow'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The relay chain HRMP pallet now sets channel deposits through the new `ChannelDeposits` and
+    `OnDepositSet` traits from `hrmp-primitives`, set as `hrmp::Config::DepositProvider`. Each call
+    asks the provider with a `DepositAction` and the `Deposits` each side should hold, priced from
+    the active config. The provider sets and tracks the deposits and reports back through
+    `on_deposit_set` with the same `Deposits`, where the call finishes and records what was set, so
+    a provider on another chain can finish it later. Init and accept on system channels skip it.
+    Dropping an open request on offboarding now also frees the sender's request slot. Force and
+    system channel opens now also emit `OpenChannelRequested` and `OpenChannelAccepted`.
+
+    `LocalDepositProvider` reserves and unreserves through `Config::Currency` in the same call.
+    Every runtime must now set `type DepositProvider`; `LocalDepositProvider<Runtime>` works as a
+    drop-in.
+
+    Prepares for taking deposits in `pallet-hrmp-para` on the Coretime chain (Asset Hub on Kusama).
+crates:
+- name: hrmp-primitives
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: major
+- name: westend-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: pallet-hrmp-relay
+  bump: none
+- name: polkadot-sdk-frame
+  bump: none

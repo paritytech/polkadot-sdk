@@ -30,6 +30,9 @@ use scale_info::TypeInfo;
 /// A parachain id.
 pub type ParaId = u32;
 
+/// A balance, as the relay chain counts it.
+pub type Balance = u128;
+
 /// One end of a channel, in the order the relay chain names them.
 #[derive(
 	Encode,
@@ -112,4 +115,66 @@ impl ReceiveMigratedChannels for () {
 	fn receive_channel(_: MigratedChannel) -> sp_runtime::DispatchResult {
 		Err(sp_runtime::DispatchError::Unavailable)
 	}
+}
+
+/// The channel call a deposit request is for.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum DepositAction {
+	/// Takes the sender's deposit.
+	InitOpenChannel { max_capacity: u32, max_message_size: u32, max_total_size: u32 },
+	/// Takes the recipient's deposit.
+	AcceptOpenChannel,
+	/// Sets both deposits to what they owe now.
+	PokeChannelDeposits,
+	/// Gives back the chosen sides' deposits, then drops the open request.
+	CancelOpenRequest { sender: bool, recipient: bool },
+	/// Gives back both deposits, then closes the channel.
+	CloseChannel,
+	/// Gives back the chosen sides' deposits.
+	Release { sender: bool, recipient: bool },
+}
+
+/// What each side of a channel holds once a request is done; `None` leaves that side alone.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub struct Deposits {
+	pub sender: Option<Balance>,
+	pub recipient: Option<Balance>,
+}
+
+/// Sets HRMP channel deposits, reporting each one through [`Self::OnDepositSet`] once it is set.
+pub trait ChannelDeposits {
+	/// Where the outcome of every accepted request is reported.
+	type OnDepositSet: OnDepositSet;
+
+	/// Asks to set each side of `channel_id` to its amount in `deposits`, for `action`.
+	/// `Ok` only means accepted; [`OnDepositSet::on_deposit_set`] is called once they are set, and
+	/// until then another request touching the same side of `channel_id` must be refused.
+	fn try_set_deposit(
+		channel_id: ChannelId,
+		deposits: Deposits,
+		action: DepositAction,
+	) -> sp_runtime::DispatchResult;
+}
+
+/// Finishes the call that asked for a deposit.
+pub trait OnDepositSet {
+	/// Each side of `channel_id` now holds its amount in `deposits`, as asked with `action`.
+	fn on_deposit_set(
+		channel_id: ChannelId,
+		deposits: Deposits,
+		action: DepositAction,
+	) -> sp_runtime::Weight;
 }

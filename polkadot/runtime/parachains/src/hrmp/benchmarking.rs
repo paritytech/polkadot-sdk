@@ -368,11 +368,10 @@ mod benchmarks {
 
 		assert_eq!(HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32, c);
 		let outgoing = (0..c).map(|id| (id + PREFIX_1).into()).collect::<Vec<ParaId>>();
-		let config = configuration::ActiveConfig::<T>::get();
 
 		#[block]
 		{
-			Hrmp::<T>::clean_open_channel_requests(&config, &outgoing);
+			Hrmp::<T>::clean_open_channel_requests(&outgoing);
 		}
 
 		assert_eq!(HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32, 0);
