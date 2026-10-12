@@ -1,0 +1,64 @@
+title: "Account for the extrinsic length in the proof_size weight dimension"
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Previously the encoded length of an extrinsic was handled separately from its `Weight`: it was
+    passed around as an extra `len` parameter and `CheckWeight` added it to the `proof_size`
+    dimension manually. Any transaction extension that forgot this subtlety would under-account the
+    proof size.
+
+    The extrinsic length is now treated as a first class part of the extrinsic weight. `DispatchInfo`
+    gains a new `length_weight: Weight` field which carries the `proof_size` contribution of the
+    encoded extrinsic. The FRAME executive fills it in before running the transaction extension
+    pipeline, so `DispatchInfo::total_weight()` already includes the length and every extension
+    receives the correct total proof size automatically.
+
+    Consequently:
+    - `DispatchInfo::total_weight()` now returns `call_weight + extension_weight + length_weight`.
+    - The post-dispatch actual weight (re-assembled in `dispatch_transaction`) now also re-adds the
+      non-reclaimable length weight, so unspent-weight reclaim never reclaims the extrinsic length.
+    - `frame_system::Pallet::reclaim_weight` no longer needs the extrinsic length passed in.
+    - `frame_system::calculate_consumed_weight`, `calculate_consumed_extrinsic_weight` and
+      `CheckWeight::do_prepare` no longer take a `len` argument as the length is already part of
+      `DispatchInfo`.
+
+    Block length enforcement (`CheckWeight::check_block_length`) is unchanged and still uses the raw
+    extrinsic length.
+
+    Closes https://github.com/paritytech/polkadot-sdk/issues/9410.
+- audience: Runtime User
+  description: |-
+    On runtimes that price the `proof_size` weight dimension, the weight reported for an extrinsic
+    (and the corresponding weight-based fee) now includes the encoded length of the extrinsic in the
+    `proof_size` dimension. The total cost of an extrinsic is unchanged in intent; the length is now
+    accounted as weight instead of being handled separately. Runtimes that do not price `proof_size`
+    in `WeightToFee` (the common `ref_time`-only case) are unaffected.
+
+crates:
+- name: frame-support
+  bump: major
+- name: frame-support-procedural
+  bump: patch
+- name: frame-system
+  bump: major
+- name: frame-executive
+  bump: patch
+- name: sp-runtime
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: cumulus-pallet-weight-reclaim
+  bump: patch
+- name: cumulus-primitives-storage-weight-reclaim
+  bump: patch
+# The following crates only construct `DispatchInfo` in tests/benchmarks; they gain the new
+# `length_weight` field with its default value and have no functional change.
+- name: pallet-transaction-payment
+  bump: none
+- name: pallet-asset-tx-payment
+  bump: none
+- name: pallet-asset-conversion-tx-payment
+  bump: none
+- name: pallet-bridge-relayers
+  bump: none
