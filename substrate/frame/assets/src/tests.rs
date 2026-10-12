@@ -19,6 +19,7 @@
 
 use super::*;
 use crate::{mock::*, Error};
+use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
@@ -2035,6 +2036,9 @@ fn querying_roles_should_work() {
 #[test]
 fn normal_asset_create_and_destroy_callbacks_should_work() {
 	build_and_execute(|| {
+		// Genesis seeds an asset, which fires `created`; clear the marker so the assertions below
+		// reflect the create call under test rather than genesis.
+		storage::clear(AssetsCallbackHandle::CREATED.as_bytes());
 		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_none());
 		assert!(storage::get(AssetsCallbackHandle::DESTROYED.as_bytes()).is_none());
 
@@ -2055,12 +2059,291 @@ fn normal_asset_create_and_destroy_callbacks_should_work() {
 }
 
 #[test]
+fn balance_change_callbacks_work() {
+	build_and_execute(|| {
+		// Read and clear the recorded invocations, so each assertion sees only its own
+		// operation. Returns every call (not just the last), so a double-fire is visible.
+		let take = |key: &str| {
+			let calls = AssetsCallbackHandle::calls(key);
+			storage::clear(key.as_bytes());
+			calls
+		};
+
+		let asset = 0u32;
+		let owner = 1u64;
+		let dest = 2u64;
+		let delegate = 3u64;
+		let mint_amount = 100u64;
+		let transfer_amount = 60u64;
+		let approved_amount = 30u64;
+		let burn_request = 1000u64;
+		let burned_actual = 90u64;
+
+		Balances::make_free_balance_be(&owner, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, true, 1));
+
+		// Mint fires `issued` exactly once with the minted amount.
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset, owner, mint_amount));
+		assert_eq!(
+			take(AssetsCallbackHandle::ISSUED),
+			vec![(asset, owner, mint_amount).encode()],
+			"mint must fire `issued` exactly once"
+		);
+
+		// Transfer fires `transferred` exactly once with the credited amount.
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(owner), asset, dest, transfer_amount));
+		assert_eq!(
+			take(AssetsCallbackHandle::TRANSFERRED),
+			vec![(asset, owner, dest, transfer_amount).encode()],
+			"transfer must fire `transferred` exactly once"
+		);
+
+		// The delegated path funnels through the same internals and also fires `transferred`.
+		assert_ok!(Assets::approve_transfer(
+			RuntimeOrigin::signed(owner),
+			asset,
+			delegate,
+			approved_amount
+		));
+		assert_ok!(Assets::transfer_approved(
+			RuntimeOrigin::signed(delegate),
+			asset,
+			owner,
+			dest,
+			approved_amount
+		));
+		assert_eq!(
+			take(AssetsCallbackHandle::TRANSFERRED),
+			vec![(asset, owner, dest, approved_amount).encode()],
+			"transfer_approved must fire `transferred` exactly once"
+		);
+
+		// A zero-amount transfer is a no-op: no event, no callback.
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(dest), asset, owner, 0));
+		assert!(take(AssetsCallbackHandle::TRANSFERRED).is_empty());
+
+		// dest holds exactly 90. A best-effort burn asks for more, so the callback must see
+		// the actual burned amount (90), not the requested 1000.
+		assert_ok!(Assets::burn(RuntimeOrigin::signed(owner), asset, dest, burn_request));
+		assert_eq!(
+			take(AssetsCallbackHandle::BURNED),
+			vec![(asset, dest, burned_actual).encode()],
+			"burn must fire `burned` once with the actual burned amount"
+		);
+	});
+}
+
+#[test]
+fn balance_change_callbacks_fire_on_fungibles_paths() {
+	use frame_support::traits::{
+		fungibles::Mutate,
+		tokens::{Fortitude, Precision, Preservation},
+	};
+	build_and_execute(|| {
+		let take = |key: &str| {
+			let calls = AssetsCallbackHandle::calls(key);
+			storage::clear(key.as_bytes());
+			calls
+		};
+
+		let asset = 0u32;
+		let owner = 1u64;
+		let dest = 2u64;
+		let mint_amount = 100u64;
+		let move_amount = 60u64;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, true, 1));
+
+		assert_ok!(Assets::mint_into(asset, &owner, mint_amount));
+		assert_eq!(
+			take(AssetsCallbackHandle::ISSUED),
+			vec![(asset, owner, mint_amount).encode()],
+			"fungibles `mint_into` must fire `issued` exactly once"
+		);
+
+		assert_ok!(<Assets as Mutate<u64>>::transfer(
+			asset,
+			&owner,
+			&dest,
+			move_amount,
+			Preservation::Expendable
+		));
+		assert_eq!(
+			take(AssetsCallbackHandle::TRANSFERRED),
+			vec![(asset, owner, dest, move_amount).encode()],
+			"fungibles `transfer` must fire `transferred` exactly once"
+		);
+
+		assert_ok!(Assets::burn_from(
+			asset,
+			&dest,
+			move_amount,
+			Preservation::Expendable,
+			Precision::Exact,
+			Fortitude::Polite
+		));
+		assert_eq!(
+			take(AssetsCallbackHandle::BURNED),
+			vec![(asset, dest, move_amount).encode()],
+			"fungibles `burn_from` must fire `burned` exactly once"
+		);
+	});
+}
+
+#[test]
+fn balance_change_callbacks_fire_on_shelve_and_restore() {
+	use frame_support::traits::fungibles::Mutate;
+	build_and_execute(|| {
+		let asset = 0u32;
+		let owner = 1u64;
+		let amount = 60u64;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, true, 1));
+		assert_ok!(Assets::mint_into(asset, &owner, 100));
+		storage::clear(AssetsCallbackHandle::ISSUED.as_bytes());
+
+		assert_ok!(<Assets as Mutate<u64>>::shelve(asset, &owner, amount));
+		assert_eq!(Assets::total_supply(asset), 40);
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED),
+			vec![(asset, owner, amount).encode()],
+			"fungibles `shelve` must fire `burned` exactly once"
+		);
+
+		assert_ok!(<Assets as Mutate<u64>>::restore(asset, &owner, amount));
+		assert_eq!(Assets::total_supply(asset), 100);
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::ISSUED),
+			vec![(asset, owner, amount).encode()],
+			"fungibles `restore` must fire `issued` exactly once"
+		);
+	});
+}
+
+#[test]
+fn balance_change_callbacks_fire_on_a_transfer_that_burns_dust() {
+	build_and_execute(|| {
+		let asset = 0u32;
+		let source = 1u64;
+		let dest = 2u64;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, source, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(source), asset, source, 100));
+		storage::clear(AssetsCallbackHandle::ISSUED.as_bytes());
+
+		// 5 would be left below the minimum balance of 10, so it is dust the transfer burns.
+		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: true };
+		assert_ok!(Assets::do_transfer(asset, &source, &dest, 95, None, f));
+		assert_eq!(Assets::balance(asset, dest), 95);
+		assert_eq!(Assets::total_supply(asset), 95);
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::TRANSFERRED),
+			vec![(asset, source, dest, 95u64).encode()],
+		);
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED),
+			vec![(asset, source, 5u64).encode()],
+			"the dust a transfer burns must fire `burned`"
+		);
+
+		// A self-transfer moves nothing, so it burns no dust either: 5 would be dust again, but
+		// the supply stays and so must the callbacks.
+		storage::clear(AssetsCallbackHandle::BURNED.as_bytes());
+		assert_ok!(Assets::do_transfer(asset, &dest, &dest, 90, None, f));
+		assert_eq!(Assets::balance(asset, dest), 95);
+		assert_eq!(Assets::total_supply(asset), 95);
+		assert!(AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED).is_empty());
+
+		// A transfer that leaves no dust burns nothing, `burn_dust` or not.
+		assert_ok!(Assets::do_transfer(asset, &dest, &source, 50, None, f));
+		assert_eq!(Assets::balance(asset, dest), 45);
+		assert_eq!(Assets::total_supply(asset), 95);
+		assert!(AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED).is_empty());
+	});
+}
+
+#[test]
+fn balance_change_callbacks_fire_on_refund_burn() {
+	build_and_execute(|| {
+		let asset = 0u32;
+		let owner = 1u64;
+		let mint_amount = 100u64;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, false, 1));
+		Balances::make_free_balance_be(&owner, 100);
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(owner), asset));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset, owner, mint_amount));
+		storage::clear(AssetsCallbackHandle::ISSUED.as_bytes());
+
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(owner), asset, true));
+		assert_eq!(Assets::total_supply(asset), 0);
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED),
+			vec![(asset, owner, mint_amount).encode()],
+			"refund with `allow_burn` must fire `burned` exactly once"
+		);
+	});
+}
+
+#[test]
+fn balance_change_callbacks_fire_on_balanced_paths() {
+	use frame_support::traits::{
+		fungibles::{Balanced, Mutate},
+		tokens::{Fortitude, Precision, Preservation},
+	};
+	build_and_execute(|| {
+		let asset = 0u32;
+		let owner = 1u64;
+		let dest = 2u64;
+		let move_amount = 40u64;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, true, 1));
+		assert_ok!(Assets::mint_into(asset, &owner, 100));
+
+		let credit = <Assets as Balanced<u64>>::withdraw(
+			asset,
+			&owner,
+			move_amount,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
+		.expect("withdraw succeeds");
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::WITHDRAWN),
+			vec![(asset, owner, move_amount).encode()],
+			"`Balanced::withdraw` must fire `withdrawn` exactly once"
+		);
+
+		assert_ok!(<Assets as Balanced<u64>>::resolve(&dest, credit));
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::DEPOSITED),
+			vec![(asset, dest, move_amount).encode()],
+			"`Balanced::resolve` (deposit) must fire `deposited` exactly once"
+		);
+	});
+}
+
+#[test]
 fn root_asset_create_should_work() {
 	build_and_execute(|| {
+		// Genesis seeds an asset, which fires `created`; clear the marker so the assertions below
+		// reflect the force_create call under test rather than genesis.
+		storage::clear(AssetsCallbackHandle::CREATED.as_bytes());
 		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_none());
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
 		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_some());
 		assert!(storage::get(AssetsCallbackHandle::DESTROYED.as_bytes()).is_none());
+	});
+}
+
+#[test]
+fn genesis_seeded_assets_fire_created_callback() {
+	// The mock seeds an asset at genesis. `created` must fire for it, otherwise callback-backed
+	// state (e.g. the precompile asset-index map) is never established for genesis assets and
+	// later mirrors for that asset are silently dropped.
+	build_and_execute(|| {
+		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_some());
 	});
 }
 
@@ -2232,47 +2515,116 @@ fn asset_id_cannot_be_reused() {
 		// Enable auto increment. Next asset id must be 5.
 		pallet::NextAssetId::<Test>::put(5);
 
+		// `create` must follow the sequence: only the next id is accepted.
 		assert_noop!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1), Error::<Test>::BadAssetId);
 		assert_noop!(Assets::create(RuntimeOrigin::signed(1), 1, 1, 1), Error::<Test>::BadAssetId);
-		assert_noop!(
-			Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1),
-			Error::<Test>::BadAssetId
-		);
-		assert_noop!(
-			Assets::force_create(RuntimeOrigin::root(), 1, 1, true, 1),
-			Error::<Test>::BadAssetId
-		);
 
-		// Asset with id `5` is created.
+		// Asset with id `5` is created and the sequence advances to `6`.
 		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 5, 1, 1));
 		assert!(Asset::<Test>::contains_key(5));
+		assert_eq!(pallet::NextAssetId::<Test>::get(), Some(6));
 
-		// Destroy asset with id `6`.
+		// Destroy asset with id `5`.
 		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 5));
 		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 5));
 
-		assert!(!Asset::<Test>::contains_key(0));
+		assert!(!Asset::<Test>::contains_key(5));
 
-		// Asset id `5` cannot be reused.
+		// Asset id `5` cannot be reused: the sequence has moved past it.
 		assert_noop!(Assets::create(RuntimeOrigin::signed(1), 5, 1, 1), Error::<Test>::BadAssetId);
 
 		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 6, 1, 1));
 		assert!(Asset::<Test>::contains_key(6));
+		assert_eq!(pallet::NextAssetId::<Test>::get(), Some(7));
+	});
+}
 
-		// Destroy asset with id `6`.
-		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 6));
-		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 6));
+#[test]
+fn force_create_can_use_arbitrary_id() {
+	build_and_execute(|| {
+		// Enable auto increment with the next id at `50`, reserving the `0..50` range for
+		// deliberate, forced assignment.
+		pallet::NextAssetId::<Test>::put(50);
 
-		assert!(!Asset::<Test>::contains_key(6));
+		// A forced id below the sequence is allowed and leaves the sequence untouched.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 10, 1, false, 1));
+		assert!(Asset::<Test>::contains_key(10));
+		assert_eq!(pallet::NextAssetId::<Test>::get(), Some(50));
 
-		// Asset id `6` cannot be reused with force.
+		// A forced id cannot collide with a currently-live asset.
 		assert_noop!(
-			Assets::force_create(RuntimeOrigin::root(), 6, 1, false, 1),
-			Error::<Test>::BadAssetId
+			Assets::force_create(RuntimeOrigin::root(), 10, 1, false, 1),
+			Error::<Test>::InUse
 		);
 
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 7, 1, false, 1));
-		assert!(Asset::<Test>::contains_key(7));
+		// A forced id at or beyond the sequence advances `NextAssetId` past it, so the sequence
+		// never later collides.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 60, 1, false, 1));
+		assert!(Asset::<Test>::contains_key(60));
+		assert_eq!(pallet::NextAssetId::<Test>::get(), Some(61));
+
+		// A subsequent sequential `create` picks up from the advanced sequence.
+		assert_noop!(Assets::create(RuntimeOrigin::signed(1), 50, 1, 1), Error::<Test>::BadAssetId);
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 61, 1, 1));
+		assert_eq!(pallet::NextAssetId::<Test>::get(), Some(62));
+
+		// Forcing exactly the next id also advances the sequence.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 62, 1, false, 1));
+		assert_eq!(pallet::NextAssetId::<Test>::get(), Some(63));
+	});
+}
+
+#[test]
+fn force_create_arbitrary_id_is_inert_without_auto_increment() {
+	build_and_execute(|| {
+		// Auto increment inactive: `NextAssetId` is not set.
+		assert_eq!(pallet::NextAssetId::<Test>::get(), None);
+
+		// A privileged origin can still pick any id, and the sequence stays inactive.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 123, 1, false, 1));
+		assert!(Asset::<Test>::contains_key(123));
+		assert_eq!(pallet::NextAssetId::<Test>::get(), None);
+	});
+}
+
+#[test]
+fn fungibles_create_must_follow_the_allocator() {
+	build_and_execute(|| {
+		use frame_support::traits::fungibles::Create;
+
+		pallet::NextAssetId::<Test>::put(5);
+
+		// Not gated on `ForceOrigin`, so a non-sequential id is rejected.
+		assert_noop!(<Assets as Create<_>>::create(0, 1, false, 1), Error::<Test>::BadAssetId);
+		assert!(!Asset::<Test>::contains_key(0));
+		assert_eq!(pallet::NextAssetId::<Test>::get(), Some(5));
+
+		// The sequential id is accepted and advances the allocator.
+		assert_ok!(<Assets as Create<_>>::create(5, 1, false, 1));
+		assert!(Asset::<Test>::contains_key(5));
+		assert_eq!(pallet::NextAssetId::<Test>::get(), Some(6));
+	});
+}
+
+#[test]
+fn allocating_past_the_id_space_fails() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+
+		// Forcing the top of the id space cannot advance the sequence past it.
+		pallet::NextAssetId::<Test>::put(u32::MAX);
+		assert_noop!(
+			Assets::force_create(RuntimeOrigin::root(), u32::MAX, 1, false, 1),
+			Error::<Test>::AssetIdAllocationFailed
+		);
+		assert!(!Asset::<Test>::contains_key(u32::MAX));
+
+		// The sequential `create` path overflows the same way.
+		assert_noop!(
+			Assets::create(RuntimeOrigin::signed(1), u32::MAX, 1, 1),
+			Error::<Test>::AssetIdAllocationFailed
+		);
 	});
 }
 
@@ -2293,5 +2645,35 @@ fn setting_too_many_reserves_fails() {
 			reserves.clone().try_into();
 		assert!(result.is_err());
 		assert_eq!(Reserves::<Test>::get(0), vec![]);
+	});
+}
+
+#[test]
+fn fungibles_inspect_is_sufficient_works() {
+	build_and_execute(|| {
+		use frame_support::traits::fungibles::Inspect;
+
+		// An unknown asset is not sufficient.
+		assert!(!<Assets as Inspect<u64>>::is_sufficient(0));
+
+		// A sufficient asset reports `true`, an insufficient one `false`.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert!(<Assets as Inspect<u64>>::is_sufficient(0));
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1, 1, false, 1));
+		assert!(!<Assets as Inspect<u64>>::is_sufficient(1));
+
+		// Sufficiency changes via `force_asset_status` are reflected.
+		assert_ok!(Assets::force_asset_status(
+			RuntimeOrigin::root(),
+			0,
+			1,
+			1,
+			1,
+			1,
+			1,
+			false,
+			false
+		));
+		assert!(!<Assets as Inspect<u64>>::is_sufficient(0));
 	});
 }

@@ -152,12 +152,15 @@ pub type Barrier = TrailingSetTopicAsId<
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
 					// Parent and sibling system parachains get free execution.
-					AllowExplicitUnpaidExecutionFrom<(
-						IsParentsOnly<ConstU8<1>>,
-						RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
-						Equals<SnowbridgeFrontendLocation>,
-						Equals<GovernanceLocation>,
-					)>,
+					AllowExplicitUnpaidExecutionFrom<
+						(
+							IsParentsOnly<ConstU8<1>>,
+							RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
+							Equals<SnowbridgeFrontendLocation>,
+							Equals<GovernanceLocation>,
+						),
+						CheapTrustedAliasers,
+					>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 					// HRMP notifications from the relay chain are OK.
@@ -183,11 +186,20 @@ pub type WaivedLocations = (
 /// - NativeToken with the parent Relay Chain and sibling parachains.
 pub type TrustedTeleporters = ConcreteAssetFromSystem<WestendLocation>;
 
-/// Defines origin aliasing rules for this chain.
+/// Aliasing rules that are pure computation and thus cheap enough to also be evaluated by
+/// barriers, before any payment is taken.
 ///
-/// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin),
+/// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin).
+///
+/// `AuthorizedAliasers` is deliberately NOT part of this: it reads storage, which is more than a
+/// barrier is allowed to cost.
+pub type CheapTrustedAliasers = (AliasChildLocation,);
+
+/// Defines origin aliasing rules for this chain. Used by the executor.
+///
+/// - Allow all the cheap aliasing rules also used by the barriers,
 /// - Allow origins explicitly authorized by the alias target location.
-pub type TrustedAliasers = (AliasChildLocation, AuthorizedAliasers<Runtime>);
+pub type TrustedAliasers = (CheapTrustedAliasers, AuthorizedAliasers<Runtime>);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {

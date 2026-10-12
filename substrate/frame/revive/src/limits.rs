@@ -212,6 +212,11 @@ pub mod code {
 				},
 				// Since polkavm `0.30.0` linker will fail if it detects sbrk instruction.
 				// So this branch is never reached for programs built with polkavm >= 0.30.0.
+				//
+				// # Note
+				//
+				// The decoder might decode sbrk to `invalid` under our Revive isa. In this case,
+				// this branch is _not_ hit for sbrk but the one above instead.
 				Instruction::sbrk(_, _) => {
 					log::debug!(target: LOG_TARGET, "sbrk instruction is not allowed. offset {}", inst.offset);
 					return Err(<Error<T>>::InvalidInstruction.into());
@@ -219,8 +224,10 @@ pub mod code {
 				// Only benchmarking code is allowed to circumvent the import table. We might want
 				// to remove this magic syscall number later. Hence we need to prevent contracts
 				// from using it.
+				//
+				// The `as` conversion is fine here because we are just testing equality.
 				#[cfg(not(feature = "runtime-benchmarks"))]
-				Instruction::ecalli(idx) if idx == crate::SENTINEL => {
+				Instruction::ecalli(idx) if idx as u32 == crate::SENTINEL => {
 					log::debug!(target: LOG_TARGET, "reserved syscall idx {idx}. offset {}", inst.offset);
 					return Err(<Error<T>>::InvalidInstruction.into());
 				},
