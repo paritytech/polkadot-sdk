@@ -23,7 +23,6 @@ extern crate alloc;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use jam_types::{Slot, WorkPackage};
-use primitive_types::H256;
 
 mod config;
 mod merkle;
@@ -57,28 +56,12 @@ pub fn authorize<S: SignatureVerifier>(
 	package: &WorkPackage,
 	slot: Slot,
 ) -> Result<AuthTrace, AuthorizationError> {
-	let wp_hash = signable_work_package_hash(package);
-	authorize_hash::<S>(config, token, wp_hash, slot)
-}
-
-/// Authorize a concrete WorkPackage hash.
-fn authorize_hash<S: SignatureVerifier>(
-	config: &AuthConfig,
-	token: &AuthToken,
-	work_package_hash: H256,
-	slot: Slot,
-) -> Result<AuthTrace, AuthorizationError> {
 	let collator_index =
 		config.expected_collator_index(slot).map_err(AuthorizationError::BadConfig)?;
 
 	token
-		.check_proof(config, collator_index)
-		.map_err(AuthorizationError::BadToken)?;
-	token
-		.check_signature::<S>(work_package_hash)
-		.map_err(AuthorizationError::BadToken)?;
-
-	Ok(AuthTrace { author_key: token.key })
+		.try_into_trace::<S>(config, package, collator_index)
+		.map_err(AuthorizationError::BadToken)
 }
 
 #[cfg(test)]
@@ -146,32 +129,16 @@ mod tests {
 				authorize::<Verifier>(&config, &token, &package, slot).expect("valid token"),
 				expected
 			);
-
-			assert_eq!(
-				authorize_hash::<Verifier>(
-					&config,
-					&token,
-					signable_work_package_hash(&package),
-					slot
-				)
-				.expect("valid token"),
-				expected
-			);
 		}
 	}
 
 	#[test]
 	fn authorize_invalid_config_errors() {
 		let (mut config, token, package) = fixture();
-		let hash = signable_work_package_hash(&package);
 
 		config.collator_set_size = 0;
 		assert!(matches!(
 			authorize::<NeverVerify>(&config, &token, &package, 2),
-			Err(AuthorizationError::BadConfig(ConfigError::ZeroCollatorSetSize))
-		));
-		assert!(matches!(
-			authorize_hash::<NeverVerify>(&config, &token, hash, 2),
 			Err(AuthorizationError::BadConfig(ConfigError::ZeroCollatorSetSize))
 		));
 
@@ -181,18 +148,10 @@ mod tests {
 			authorize::<NeverVerify>(&config, &token, &package, 2),
 			Err(AuthorizationError::BadConfig(ConfigError::ZeroSlotDuration))
 		));
-		assert!(matches!(
-			authorize_hash::<NeverVerify>(&config, &token, hash, 2),
-			Err(AuthorizationError::BadConfig(ConfigError::ZeroSlotDuration))
-		));
 
 		config.collator_set_size = 0;
 		assert!(matches!(
 			authorize::<NeverVerify>(&config, &token, &package, 2),
-			Err(AuthorizationError::BadConfig(ConfigError::ZeroSlotDuration))
-		));
-		assert!(matches!(
-			authorize_hash::<NeverVerify>(&config, &token, hash, 2),
 			Err(AuthorizationError::BadConfig(ConfigError::ZeroSlotDuration))
 		));
 	}
@@ -200,14 +159,9 @@ mod tests {
 	#[test]
 	fn authorize_wrong_slot_errors() {
 		let (config, token, package) = fixture();
-		let hash = signable_work_package_hash(&package);
 
 		assert!(matches!(
 			authorize::<NeverVerify>(&config, &token, &package, 0),
-			Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
-		));
-		assert!(matches!(
-			authorize_hash::<NeverVerify>(&config, &token, hash, 0),
 			Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
 		));
 	}
@@ -215,15 +169,10 @@ mod tests {
 	#[test]
 	fn authorize_invalid_proof_errors() {
 		let (config, mut token, package) = fixture();
-		let hash = signable_work_package_hash(&package);
 		token.proof.clear();
 
 		assert!(matches!(
 			authorize::<NeverVerify>(&config, &token, &package, 2),
-			Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
-		));
-		assert!(matches!(
-			authorize_hash::<NeverVerify>(&config, &token, hash, 2),
 			Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
 		));
 	}
@@ -231,15 +180,10 @@ mod tests {
 	#[test]
 	fn authorize_invalid_signature_errors() {
 		let (config, mut token, package) = fixture();
-		let hash = signable_work_package_hash(&package);
 		token.signature[63] ^= 1;
 
 		assert!(matches!(
 			authorize::<Verifier>(&config, &token, &package, 2),
-			Err(AuthorizationError::BadToken(TokenError::BadCollatorSignature))
-		));
-		assert!(matches!(
-			authorize_hash::<Verifier>(&config, &token, hash, 2),
 			Err(AuthorizationError::BadToken(TokenError::BadCollatorSignature))
 		));
 	}
