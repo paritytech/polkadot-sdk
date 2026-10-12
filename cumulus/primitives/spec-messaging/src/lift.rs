@@ -425,8 +425,8 @@ pub fn stitch(
 	let mut gaps = advances.iter();
 	// `first.start` is the boundary with the previous candidate; nothing here can check it, and
 	// nothing needs to: everything consumed is bound through the chain from `first.end`.
-	// Cross-candidate continuity is the STF's (the stored frontier for channels, value monotonicity
-	// for register reads).
+	// Cross-candidate continuity is the STF's (the stored frontier for channels; for register reads,
+	// the last applied position and the register's monotonic fields).
 	let mut current = first.end.clone();
 	for next in rest {
 		let current_root = current.root();

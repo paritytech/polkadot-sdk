@@ -258,9 +258,9 @@ struct Interval { start: MmrRoot, end: MmrFrontier }
   exactly one payload, the head `Register`. The frontier is rebuilt with
   `MmrFrontier::from_parts(start_peaks, base)` and the head appended; `end` = that frontier and
   `start` = its root, so the interval is empty: a read advances nothing. `base` and `start_peaks`
-  are unproven hints; a lie yields a root no lift can bind. No position state is kept; the
-  register's own monotonic values guard against replay. Any other `Events` stream invalidates the
-  block.
+  are unproven hints; a lie yields a root no lift can bind. A read is never rejected for its
+  position; the STF ignores one older than the last applied read, or whose monotonic fields go
+  backwards. Any other `Events` stream invalidates the block.
 - Broadcast event streams (not implemented): `payloads.len() ≥ 1`, and the replay guard is a
   highwater: `base` must exceed it, and it then becomes `base + len − 1`.
 - One interval per stream per block; at most one inherent item per stream; strict-on-import, one
