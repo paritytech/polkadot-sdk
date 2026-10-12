@@ -186,6 +186,21 @@ mod tests {
 	}
 
 	#[test]
+	fn proof_len_matches_padded_leaf_count_works() {
+		for exponent in 0..32 {
+			let size = 1u32 << exponent;
+			for size in [size - 1, size, size + 1] {
+				// Only nonempty sets whose padding fits in u32 can form a tree.
+				if size == 0 || size > (1u32 << 31) {
+					continue;
+				}
+				let padded = super::padded_leaf_count(size as usize).expect("valid collator set");
+				assert_eq!(proof_len(size), padded.ilog2() as usize, "set size {size}");
+			}
+		}
+	}
+
+	#[test]
 	fn proof_len_maximum_size_works() {
 		assert_eq!(proof_len(u32::MAX), 32);
 	}
