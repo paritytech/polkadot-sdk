@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791800838392,
+  "lastUpdate": 1791806637030,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5c97c0f72ec9ac3a9d807bc03b6f8e0ecde3a3c9",
-          "message": "[Penpal] fix genesis presets - assign proper ED to accounts (#11575)\n\nPenpal had values below the ED for initializing asset balances for some\naccounts. This has not been detected as no unit tests actually use the\npresets. This PR fixes the invalid values, and it also adds some unit\ntests for validating that the presets build at least.\n\nCloses #11558.\n\n---------\n\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-01T23:06:59Z",
-          "tree_id": "565b491296861ae00fc1f0485cf9dfeef10c6e24",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5c97c0f72ec9ac3a9d807bc03b6f8e0ecde3a3c9"
-        },
-        "date": 1775089701501,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026451518300000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00935240131999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009821636549999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009310476259999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "34595be73eb19afe34d26ace0090d26ac5aefec5",
+          "message": "Kanas/module invalidity (#11724)\n\n# Description\n\nThis PR implements descriptive module invalidity support for\ntransactions as proposed in #11337. It extends the `InvalidTransaction`\nenum with a new `Module(ModuleError)` variant, allowing pallets to\nreturn pallet-specific, descriptive error data during the transaction\nvalidation phase (e.g., in `TransactionExtension`).\n\nCloses #11337\n\n## Integration\n\nDownstream projects and UI tools (like `subxt` or `polkadot-js`) can now\nleverage descriptive invalidity reasons. When a transaction is rejected\nby the pool with a `Module` error, the RPC will return a formatted\nmessage including the pallet index and the error bytes.\n\nExample RPC error output:\n`\"Invalid Transaction: Module error: index: 5, error: [1, 0, 0, 0]\"`\n\nClient-side libraries can use this index and byte array to look up the\nspecific error definition in the chain's current metadata, mirroring how\n`DispatchError::Module` is handled today.\n\n## Review Notes\n\nThe implementation follows the established pattern for descriptive\nerrors in Substrate while ensuring 100% backward compatibility for the\ntransaction pool and node-side logic.\n\n### Key Changes:\n- **`sp-runtime`**: Appended `Module(ModuleError)` to the\n`InvalidTransaction` enum (index 13). This position ensures that\nexisting SCALE-encoded variants remain unchanged.\n- **String Conversion**: Updated the `From<InvalidTransaction> for\n&'static str` implementation to prioritize the descriptive message from\n`ModuleError` if present.\n- **RPC Layer**: Enriched both the Author RPC (v1) and the Transaction\nRPC (v2) to explicitly handle the `Module` variant and return formatted\ndebug information.\n- **Verification**: Added a new unit test\n`module_invalidity_should_encode_and_decode` in `sp-runtime` to verify\nthe encoding/decoding and string conversion paths.\n\n### Integration Diff:\n```diff\n pub enum InvalidTransaction {\n     ...\n     UnknownOrigin,\n+    /// An error in a module.\n+    Module(ModuleError),\n }\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-12T10:28:18Z",
+          "tree_id": "47f2c97fbd39be2faa91203e80a838da5de805de",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/34595be73eb19afe34d26ace0090d26ac5aefec5"
+        },
+        "date": 1791806609378,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025504632600000013,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010576509309999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009410652589999992,
             "unit": "seconds"
           }
         ]
