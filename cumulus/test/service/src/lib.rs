@@ -322,6 +322,7 @@ pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	RpcHandlers,
 	TransactionPool,
 	Arc<Backend>,
+	Option<sc_dkg::CollectionStatsHandle>,
 )>
 where
 	RB: Fn(Arc<Client>) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error> + Send + 'static,
@@ -446,6 +447,8 @@ where
 	// (`ecdsa_bls381::Pair::from_seed(sr25519 public key bytes)`) into the
 	// keystore and start the worker. Collators only (they are the session
 	// validators in the test setup).
+	#[allow(unused_mut)]
+	let mut dkg_collection_stats = None;
 	#[cfg(feature = "with-authority-discovery")]
 	if collator_key.is_some() {
 		use sp_core::crypto::key_types;
@@ -455,15 +458,23 @@ where
 		if let Some(aura_pk) = keystore.sr25519_public_keys(key_types::AURA).first().cloned() {
 			let raw: [u8; 32] = aura_pk.0;
 			let dealing_pair = sp_core::ecdsa_bls381::Pair::from_seed(&raw);
-			// SURI form of the raw seed so `insert` stores exactly this pair.
+			// SURI form of the raw seed so the keystore stores exactly this pair.
+			// NOTE: `Keystore::insert` only writes to the file-system store and is
+			// a no-op for the in-memory keystore used here; `generate_new` with a
+			// seed inserts the pair into the in-memory cache instead.
 			let suri = format!("0x{}", array_bytes::bytes2hex("", raw));
-			keystore.insert(key_types::BEEFY, &suri, dealing_pair.public().as_ref()).map_err(
-				|_| {
+			let inserted = keystore
+				.ecdsa_bls381_generate_new(key_types::BEEFY, Some(&suri))
+				.map_err(|_| {
 					sc_service::Error::Application(
 						"failed to insert BEEFY key into keystore".into(),
 					)
-				},
-			)?;
+				})?;
+			if inserted != dealing_pair.public() {
+				return Err(sc_service::Error::Application(
+					"inserted BEEFY key does not match the dealing pair".into(),
+				))
+			}
 
 			let worker_params = sc_dkg::worker::WorkerParams {
 				client: client.clone(),
@@ -483,6 +494,7 @@ where
 				)>,
 			};
 			let worker = sc_dkg::worker::DkgWorker::new(worker_params);
+			dkg_collection_stats = Some(worker.collection_stats());
 			task_manager.spawn_essential_handle().spawn("dkg-gadget", Some("dkg"), worker.run());
 		}
 	}
@@ -600,7 +612,7 @@ where
 		}
 	}
 
-	Ok((task_manager, client, network, rpc_handlers, transaction_pool, backend))
+	Ok((task_manager, client, network, rpc_handlers, transaction_pool, backend, dkg_collection_stats))
 }
 
 /// A Cumulus test node instance used for testing.
@@ -620,6 +632,9 @@ pub struct TestNode {
 	pub transaction_pool: TransactionPool,
 	/// Node's backend
 	pub backend: Arc<Backend>,
+	/// DKG worker collection stats, if the DKG gadget is running (collators
+	/// with the `with-authority-discovery` feature).
+	pub dkg_collection_stats: Option<sc_dkg::CollectionStatsHandle>,
 }
 
 /// A builder to create a [`TestNode`].
@@ -804,7 +819,7 @@ impl TestNodeBuilder {
 		relay_chain_config.network.node_name =
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
 
-		let (task_manager, client, network, rpc_handlers, transaction_pool, backend) =
+		let (task_manager, client, network, rpc_handlers, transaction_pool, backend, dkg_collection_stats) =
 			match relay_chain_config.network.network_backend {
 				sc_network::config::NetworkBackendType::Libp2p => {
 					start_node_impl::<_, sc_network::NetworkWorker<_, _>>(
@@ -843,7 +858,7 @@ impl TestNodeBuilder {
 		let multiaddr = polkadot_test_service::get_listen_address(network.clone()).await;
 		let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
-		TestNode { task_manager, client, network, addr, rpc_handlers, transaction_pool, backend }
+		TestNode { task_manager, client, network, addr, rpc_handlers, transaction_pool, backend, dkg_collection_stats }
 	}
 }
 

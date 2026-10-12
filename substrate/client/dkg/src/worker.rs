@@ -16,7 +16,11 @@
 //! takes the dealing pair in-memory (dev/testnet only); a keystore-signable
 //! receipt API in `adkg-vrf` is the production follow-up.
 
-use std::{collections::BTreeSet, marker::PhantomData, sync::Arc};
+use std::{
+	collections::BTreeSet,
+	marker::PhantomData,
+	sync::{atomic::Ordering, Arc},
+};
 
 use codec::{Decode, Encode};
 use futures::{select, FutureExt, StreamExt};
@@ -50,7 +54,7 @@ use crate::{
 		peers::KnownPeers,
 	},
 	keys::{self, AuthoritySetError},
-	LOG_TARGET,
+	CollectionStatsHandle, LOG_TARGET,
 };
 
 /// DKG worker parameters.
@@ -164,6 +168,8 @@ where
 	/// Validated dealings received over gossip for the current session
 	/// (to be aggregated/submitted on-chain — Phase 4).
 	collected: Vec<(u32, Dealing<Vec<u8>>)>,
+	/// Collection observability shared with the node that spawned the worker.
+	collection_stats: CollectionStatsHandle,
 	_phantom: PhantomData<(S, Bc, AccountId, Keys)>,
 }
 
@@ -213,8 +219,15 @@ where
 			current_session: None,
 			dealt_session: None,
 			collected: Vec::new(),
+			collection_stats: CollectionStatsHandle::default(),
 			_phantom: PhantomData,
 		}
+	}
+
+	/// A handle to this worker's collection stats (dealings received over
+	/// gossip); clone before [`Self::run`] consumes the worker.
+	pub fn collection_stats(&self) -> CollectionStatsHandle {
+		self.collection_stats.clone()
 	}
 
 	/// Runs the worker: drives gossip and reacts to session changes.
@@ -343,6 +356,8 @@ where
 			dealing.id
 		);
 		self.collected.push((dealing.session_index, dealing.dealing));
+		self.collection_stats.dealings.fetch_add(1, Ordering::Relaxed);
+		self.collection_stats.latest_session.fetch_max(dealing.session_index, Ordering::Relaxed);
 	}
 }
 

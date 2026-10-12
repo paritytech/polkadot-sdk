@@ -21,6 +21,21 @@ use ark_ec::{pairing::Pairing, CurveGroup};
 
 const LOG_TARGET: &str = "dkg";
 
+/// Observability handle for the dealings collected by the DKG worker (see the
+/// `worker` module, requires `bls-experimental`). A clone is handed to the
+/// node that spawns the worker so tests can assert that dealings are gossiped
+/// and collected.
+#[derive(Debug, Default)]
+pub struct CollectionStats {
+	/// Total number of dealings collected from gossip.
+	pub dealings: std::sync::atomic::AtomicU64,
+	/// Session index of the most recently collected dealing.
+	pub latest_session: std::sync::atomic::AtomicU32,
+}
+
+/// Shared handle to a worker's [`CollectionStats`].
+pub type CollectionStatsHandle = Arc<CollectionStats>;
+
 /// DKG gadget network parameters.
 pub struct DkgNetworkParams<N, S> {
 	/// Network implementing gossip, requests and sync-oracle.
