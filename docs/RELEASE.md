@@ -166,6 +166,8 @@ with the same flow.
    [Stable Release - Publish final release](https://github.com/paritytech/release-automation/actions/workflows/release-stable-32_publish-final-release.yml).
    It signs the final tag on the rc's commit, renames the draft onto it, publishes, and creates the legacy
    `polkadot-vX.Y.Z` tag. Publishing from the GitHub UI instead would leave the final tag unsigned.
+   Tick `mark_latest` when releasing the newest stable line; leave it off for a patch to an older one, so it
+   does not take "Latest" from a newer release.
 
 Every flow above starts with `release-guard`, which validates the tag, verifies its GPG signature and pins the
 resolved commit SHA that the rest of the run checks out.
