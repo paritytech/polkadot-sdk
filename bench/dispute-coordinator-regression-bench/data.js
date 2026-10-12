@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791759330539,
+  "lastUpdate": 1791800838392,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "59c40532e76f62b7d77cbb71d6309714e1aab744",
-          "message": "[Release|CI/CD] Fixes for release flows (#11578)\n\nThis PR backports few fixes for soem release flows, that were made in\nstable2603 branch. In particular:\n- Fixed resume check in Crates Publish flow\n- Fixed missing llvm path on macos builds\n- Fixed scrtipt that reverts path deps in Cargo.toml files\n- Bumped parity-publish version\n- Fixed check if the post-crates-release branch exists in Crateds\nPublish flow\n\n---------\n\nCo-authored-by: BDevParity <bruno.devic@parity.io>",
-          "timestamp": "2026-04-01T18:29:31Z",
-          "tree_id": "efd0685650449864c3503bc9cf26911d9bf846d0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/59c40532e76f62b7d77cbb71d6309714e1aab744"
-        },
-        "date": 1775073090530,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009137444969999974,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009506957649999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026102321700000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010360214809999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8c541320b8ff1b7f9377962d13d3359a2dd502e5",
+          "message": "fix(sc-network-gossip): deduplicate local message registration (#12694)\n\n`register_message_hashed` used `known_messages.insert(message_hash, ())`\nas the dedup guard before pushing a `MessageEntry`. With\n`schnellru::LruMap` (0.2.3), `insert` does not distinguish new keys from\nreplacements: for an existing key it replaces the value and still\nreturns `true` whenever the cache is non-empty (`!self.is_empty()`).\nRegistering the same message twice therefore passed the guard and\nappended a second `MessageEntry` with the same hash, breaking the\nintended one-entry-per-hash invariant in the gossip message cache.\n\nThe `on_incoming` path was unaffected because it already checks\n`known_messages.get(&message_hash).is_some()` before calling\n`register_message_hashed`. The broken path is user-reachable via\n`register_message` and `multicast`, which hash the payload and call\n`register_message_hashed` directly with no prior dedup check.\n\nDuplicate entries surface through `messages_for()` as repeated\nnotifications for the same bytes, waste memory in `messages`, and can\ncause duplicate processing in upper layers that assume the cache is\nhash-unique. `multicast` also registers before propagating, so\nduplicates can be rebroadcast from the local cache on later topic\nbroadcasts.\n\nA second `register_message` / `multicast` for an already-registered\nmessage hash is now ignored by an explicit `known_messages.get()` check\nbefore insert, matching the `on_incoming` dedup behavior.\n\nCloses #12607\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-12T08:50:37Z",
+          "tree_id": "3dc421c6618ec68d031297b713c8e09ee7102e66",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8c541320b8ff1b7f9377962d13d3359a2dd502e5"
+        },
+        "date": 1791800806534,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00253072664,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010415639259999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009310476259999997,
             "unit": "seconds"
           }
         ]
