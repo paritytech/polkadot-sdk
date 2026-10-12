@@ -33,7 +33,7 @@ use sp_state_machine::{
 	backend::{AsTrieBackend, TryPendingCode},
 	OverlayedChanges, StateMachine, StorageProof,
 };
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, sync::Arc, time::Duration};
 
 /// Call executor that executes methods locally, querying all required
 /// data from local backend.
@@ -216,6 +216,7 @@ where
 		at_hash: Block::Hash,
 		method: &str,
 		call_data: &[u8],
+		timeout: Option<Duration>,
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
 		let at_number =
 			self.backend.blockchain().expect_block_number_from_id(&BlockId::Hash(at_hash))?;
@@ -237,6 +238,7 @@ where
 			call_data,
 			&runtime_code,
 			&mut self.execution_extensions.extensions(at_hash, at_number),
+			timeout,
 		)
 		.map_err(Into::into)
 	}
