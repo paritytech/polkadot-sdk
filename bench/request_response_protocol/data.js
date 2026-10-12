@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791799890502,
+  "lastUpdate": 1791805603168,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -133163,6 +133163,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2694130325,
             "range": "± 33180571",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "34595be73eb19afe34d26ace0090d26ac5aefec5",
+          "message": "Kanas/module invalidity (#11724)\n\n# Description\n\nThis PR implements descriptive module invalidity support for\ntransactions as proposed in #11337. It extends the `InvalidTransaction`\nenum with a new `Module(ModuleError)` variant, allowing pallets to\nreturn pallet-specific, descriptive error data during the transaction\nvalidation phase (e.g., in `TransactionExtension`).\n\nCloses #11337\n\n## Integration\n\nDownstream projects and UI tools (like `subxt` or `polkadot-js`) can now\nleverage descriptive invalidity reasons. When a transaction is rejected\nby the pool with a `Module` error, the RPC will return a formatted\nmessage including the pallet index and the error bytes.\n\nExample RPC error output:\n`\"Invalid Transaction: Module error: index: 5, error: [1, 0, 0, 0]\"`\n\nClient-side libraries can use this index and byte array to look up the\nspecific error definition in the chain's current metadata, mirroring how\n`DispatchError::Module` is handled today.\n\n## Review Notes\n\nThe implementation follows the established pattern for descriptive\nerrors in Substrate while ensuring 100% backward compatibility for the\ntransaction pool and node-side logic.\n\n### Key Changes:\n- **`sp-runtime`**: Appended `Module(ModuleError)` to the\n`InvalidTransaction` enum (index 13). This position ensures that\nexisting SCALE-encoded variants remain unchanged.\n- **String Conversion**: Updated the `From<InvalidTransaction> for\n&'static str` implementation to prioritize the descriptive message from\n`ModuleError` if present.\n- **RPC Layer**: Enriched both the Author RPC (v1) and the Transaction\nRPC (v2) to explicitly handle the `Module` variant and return formatted\ndebug information.\n- **Verification**: Added a new unit test\n`module_invalidity_should_encode_and_decode` in `sp-runtime` to verify\nthe encoding/decoding and string conversion paths.\n\n### Integration Diff:\n```diff\n pub enum InvalidTransaction {\n     ...\n     UnknownOrigin,\n+    /// An error in a module.\n+    Module(ModuleError),\n }\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-12T10:28:18Z",
+          "tree_id": "47f2c97fbd39be2faa91203e80a838da5de805de",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/34595be73eb19afe34d26ace0090d26ac5aefec5"
+        },
+        "date": 1791805575355,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19483901,
+            "range": "± 115887",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19762146,
+            "range": "± 108247",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21247777,
+            "range": "± 84649",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26280127,
+            "range": "± 240851",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61466000,
+            "range": "± 616396",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 352804108,
+            "range": "± 3298923",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2643416305,
+            "range": "± 63424308",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16875448,
+            "range": "± 185201",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17033431,
+            "range": "± 124658",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17689011,
+            "range": "± 240347",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22157372,
+            "range": "± 136946",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63403244,
+            "range": "± 403114",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 358709275,
+            "range": "± 3876571",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2679162626,
+            "range": "± 15633415",
             "unit": "ns/iter"
           }
         ]
