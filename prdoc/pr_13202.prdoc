@@ -1,0 +1,23 @@
+title: '[pallet-revive] Use an EIP-684 collision check for contract creation'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/13128
+
+    `ContractInfo::new` only rejected addresses that were already `AccountType::Contract`, so a
+    CREATE or CREATE2 landing on an EIP-7702 `DelegatedEOA` was accepted. `insert_contract` then
+    swapped in the new `ContractInfo` while keeping the delegation target and payer, which left
+    `eth_getCode` reporting the delegation indicator for an account executing different code and
+    orphaned the delegation trie and its deposits.
+
+    `ContractInfo::new` now applies an EIP-684 check through the new
+    `AccountInfo::is_create_collision`: the address is rejected with `DuplicateContract` if it
+    has a nonzero nonce or any account entry other than a plain EOA, which includes a cleared
+    delegation. Genesis config and `eth_call` state overrides install code on accounts whose
+    nonce is already set, so they use the new `ContractInfo::new_without_collision_check`.
+
+    `terminate_if_same_tx` no longer schedules a delegated EOA for deletion. The balance transfer
+    still happens, as EIP-6780 requires for `SELFDESTRUCT` in delegated code.
+crates:
+- name: pallet-revive
+  bump: minor
