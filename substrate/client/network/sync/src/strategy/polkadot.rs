@@ -26,8 +26,8 @@ use crate::{
 	strategy::{
 		chain_sync::{ChainSync, ChainSyncMode, GapSyncBodyPolicyProvider},
 		state::StateStrategy,
-		state_sync::{is_resumable, StateSync},
-		warp::{WarpSync, WarpSyncConfig, WarpSyncResult},
+		state_sync::{resumable_state_sync, StateSync},
+		warp::{WarpSync, WarpSyncConfig},
 		StrategyKey, SyncingAction, SyncingStrategy,
 	},
 	types::SyncStatus,
@@ -35,9 +35,7 @@ use crate::{
 };
 use log::{debug, error, info, warn};
 use prometheus_endpoint::Registry;
-use sc_client_api::{
-	partial_state::ResumablePartialState, BlockBackend, PartialStateImport, ProofProvider,
-};
+use sc_client_api::{BlockBackend, PartialStateImport, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus};
 use sc_network::ProtocolName;
 use sc_network_common::sync::{message::BlockAnnounce, SyncMode};
@@ -406,46 +404,6 @@ where
 		}
 	}
 
-	/// The state sync attempt an earlier run of this node recorded, if it can continue towards
-	/// the finalized head `res` reports: its target must be at most
-	/// [`crate::strategy::state_sync::MAX_RESUME_DISTANCE`] blocks behind and not newer, and the
-	/// warp proof must have imported no authority set change above it, since such a header,
-	/// imported without state, is never executed and finality would stall behind it. Otherwise
-	/// `None`: the attempt is discarded when the new one begins.
-	fn resumable_state_sync(&self, res: &WarpSyncResult<B>) -> Option<ResumablePartialState<B>> {
-		let resumable = match self.client.resumable_partial_state() {
-			Ok(resumable) => resumable?,
-			Err(e) => {
-				warn!(target: LOG_TARGET, "Failed to read the record of an earlier state sync: {e}");
-				return None;
-			},
-		};
-		let stored = *resumable.target.header.number();
-		let head = *res.target_header.number();
-		if !is_resumable::<B>(stored, head) {
-			info!(
-				target: LOG_TARGET,
-				"The state sync of #{stored} interrupted earlier is too old to resume behind \
-				 #{head}, starting over.",
-			);
-			return None;
-		}
-		if res.highest_proof_header.map_or(false, |proof_header| proof_header > stored) {
-			info!(
-				target: LOG_TARGET,
-				"The state sync of #{stored} interrupted earlier cannot resume, an authority set \
-				 changed above it, starting over.",
-			);
-			return None;
-		}
-		info!(
-			target: LOG_TARGET,
-			"Resuming the state sync of #{stored} ({}) interrupted earlier.",
-			resumable.target.header.hash(),
-		);
-		Some(resumable)
-	}
-
 	/// Proceed with the next strategy if the active one finished.
 	pub fn proceed_to_next(&mut self) -> Result<(), ClientError> {
 		// The strategies are switched as `WarpSync` -> `StateStrategy` -> `ChainSync`.
@@ -461,13 +419,13 @@ where
 						.iter()
 						.map(|(peer_id, (_, best_number))| (*peer_id, *best_number));
 					let protocol_name = self.config.state_request_protocol_name.clone();
-					let state_sync = match self.resumable_state_sync(&res) {
+					let state_sync = match resumable_state_sync(
+						&*self.client,
+						*res.target_header.number(),
+						res.highest_proof_header,
+					) {
 						Some(resumable) => StateStrategy::new_with_provider(
-							Box::new(StateSync::resume(
-								self.client.clone(),
-								resumable.target,
-								resumable.cursor,
-							)),
+							Box::new(StateSync::resume(self.client.clone(), resumable)),
 							peers,
 							protocol_name,
 						),

@@ -20,7 +20,7 @@
 //! is imported.
 
 use codec::{Decode, Encode};
-use hash_db::Hasher;
+use sp_core::Hasher;
 use sp_runtime::{
 	traits::{Block as BlockT, PartialStateFor},
 	Justifications,
@@ -62,28 +62,40 @@ pub struct ResumablePartialState<Block: BlockT> {
 /// proof with the range it covers, see `sp_trie::partial_state`: the nodes whose subtree starts
 /// inside that range are written, so that the chunks of one download write each position of the
 /// state exactly once. A chunk is written once per successful call; the same chunk may be
-/// submitted again after an `Err`, never after an `Ok`.
+/// submitted again after an `Err`, and one submitted again after an `Ok`, or out of order, is
+/// refused.
 ///
 /// The database records the attempt: its target once, and the range end of every chunk, the
 /// cursor the download continues from. After a restart `resumable_partial_state` returns them, so
-/// the download can continue where it stopped. An attempt that is begun over, or whose state does
-/// not complete, is discarded by the database together with its nodes.
+/// the download can continue where it stopped.
+///
+/// A state that never completes is never left behind. An attempt only ever runs on a database
+/// that holds no block state, so its nodes are the only content of the state column, and the
+/// database discards them together with the records as soon as anything else needs that column:
+/// a new attempt beginning (after a restart whose target is too old to resume, or a state sync
+/// that gave up), the first block state committed by other means (a restart in another sync
+/// mode), or the target block's import finding a node missing once every chunk was written. A
+/// download that stalls, because every peer pruned its target or the node went offline, keeps its
+/// records until one of those happens; nothing reads the nodes meanwhile.
 pub trait PartialStateImport<Block: BlockT> {
 	/// Record the target of a new attempt. A recorded attempt that was not completed is discarded
-	/// first. On `Err` the attempt must not start.
+	/// first. Fails, recording nothing, when the database holds block state. On `Err` the attempt
+	/// must not start.
 	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()>;
 
 	/// Write the nodes of `partial_state` that its range covers, and its range end as the cursor
 	/// the download continues from, in one transaction; a chunk without an end marks the download
-	/// complete. On `Err` nothing of this call was persisted. The block must be the recorded
-	/// target.
+	/// complete. On `Err` nothing of this call was persisted. A chunk is refused when its block or
+	/// state root is not the recorded target's, when its `start` is not the recorded cursor, or
+	/// when the final chunk was already written.
 	fn import_partial_state(
 		&self,
 		partial_state: PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()>;
 
 	/// The attempt recorded by `begin_partial_state` and not completed, with the cursor its last
-	/// written chunk left. `None` when nothing is recorded.
+	/// written chunk left. `None` when nothing is recorded, also while the discard of an earlier
+	/// attempt is unfinished.
 	fn resumable_partial_state(
 		&self,
 	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>>;

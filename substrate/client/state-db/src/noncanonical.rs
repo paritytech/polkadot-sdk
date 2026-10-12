@@ -369,7 +369,7 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 		self.last_canonicalized.as_ref().map(|&(_, n)| n)
 	}
 
-	/// Whether no block was ever inserted: nothing canonicalized and no non-canonical level.
+	/// Whether no block is recorded: nothing canonicalized and no non-canonical level.
 	pub fn is_empty(&self) -> bool {
 		self.last_canonicalized.is_none() && self.levels.is_empty()
 	}

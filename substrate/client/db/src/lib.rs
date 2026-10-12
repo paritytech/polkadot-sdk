@@ -498,7 +498,8 @@ pub(crate) mod partial_state_keys {
 	/// one without a range end, so that a restart does not download that range again.
 	pub const DOWNLOADED: &[u8] = b"partial_state_downloaded";
 	/// The state root of an attempt whose nodes are being removed, a SCALE `Block::Hash`; a start
-	/// that finds it finishes the job.
+	/// that finds it finishes the job. Never found next to `TARGET`: the first commit of a discard
+	/// replaces the records with the marker.
 	pub const DISCARDING: &[u8] = b"partial_state_discarding";
 }
 
@@ -512,6 +513,57 @@ enum DiscardStep<H: hash_db::Hasher> {
 	Visit(TrieNodeInfo<H>),
 	/// Remove the node under this database key.
 	Remove(Vec<u8>),
+}
+
+/// What `STATE_META` records about a state sync, mirrored in memory. One mutex serialises a
+/// chunk's write, the record, the removal of an attempt's nodes and the completion commit; memory
+/// changes only under it, right after the commit that changes the keys, and `from_database` loads
+/// it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PartialStateRecord<Hash> {
+	/// `TARGET` holds the attempt: chunks of this block are written.
+	Recorded { hash: Hash, state_root: Hash },
+	/// `DISCARDING` holds the root of an attempt whose nodes are being removed: a discard failed
+	/// after its first commit, and the next one starts from the marker.
+	Discarding { state_root: Hash },
+}
+
+/// How far the recorded attempt got, as `STATE_META` holds it.
+struct PartialStateProgress {
+	/// The start of the next range request: the end of the last chunk written, empty before the
+	/// first.
+	cursor: Vec<Vec<u8>>,
+	/// The final chunk was written: only the import of the target block is left.
+	complete: bool,
+}
+
+/// Decodes the record `TARGET` holds.
+fn decode_partial_state_target<Block: BlockT>(
+	raw: &[u8],
+) -> ClientResult<PartialStateTarget<Block>> {
+	PartialStateTarget::<Block>::decode(&mut &raw[..]).map_err(|e| {
+		ClientError::Backend(format!(
+			"The record of a state sync in progress does not decode ({e}): the database was \
+			 written by another version. Delete it and sync again."
+		))
+	})
+}
+
+/// Decodes the state root the `DISCARDING` marker holds.
+fn decode_partial_state_marker<Block: BlockT>(raw: &[u8]) -> ClientResult<Block::Hash> {
+	Block::Hash::decode(&mut &raw[..]).map_err(|e| {
+		ClientError::Backend(format!(
+			"The marker of an interrupted state sync discard does not decode ({e}): the database \
+			 was written by another version. Delete it and sync again."
+		))
+	})
+}
+
+/// Removes the records of an attempt: the target, the cursor and the completion marker.
+fn remove_partial_state_records(transaction: &mut Transaction<DbHash>) {
+	transaction.remove(columns::STATE_META, partial_state_keys::TARGET);
+	transaction.remove(columns::STATE_META, partial_state_keys::CURSOR);
+	transaction.remove(columns::STATE_META, partial_state_keys::DOWNLOADED);
 }
 
 struct PendingBlock<Block: BlockT> {
@@ -1258,10 +1310,8 @@ pub struct Backend<Block: BlockT> {
 	io_stats: FrozenForDuration<(kvdb::IoStats, StateUsageInfo)>,
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
-	/// The hash of the block whose state sync is recorded in `STATE_META` and not completed. Held
-	/// across a chunk's write, the record and the removal of an attempt's nodes, so that none of
-	/// them interleaves with another.
-	partial_state_target: Mutex<Option<Block::Hash>>,
+	/// The state sync recorded in `STATE_META`, mirrored in memory, see [`PartialStateRecord`].
+	partial_state: Mutex<Option<PartialStateRecord<Block::Hash>>>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
 	pruning_filters: Vec<Arc<dyn PruningFilter>>,
 }
@@ -1456,7 +1506,7 @@ impl<Block: BlockT> Backend<Block> {
 			state_usage: Arc::new(StateUsageStats::new()),
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
-			partial_state_target: Mutex::new(None),
+			partial_state: Mutex::new(None),
 			shared_trie_cache,
 			pruning_filters: config.pruning_filters.clone(),
 		};
@@ -1506,16 +1556,34 @@ impl<Block: BlockT> Backend<Block> {
 		// A state sync records its target; while its nodes are being removed, a marker replaces
 		// the record. Finish an interrupted removal, else remember the target. A record this build
 		// cannot read was written by another one: the database cannot be used as it is.
-		if db.get(columns::STATE_META, partial_state_keys::DISCARDING).is_some() {
-			backend.discard_partial_state("an interrupted discard")?;
-		} else if let Some(raw) = db.get(columns::STATE_META, partial_state_keys::TARGET) {
-			let target = PartialStateTarget::<Block>::decode(&mut &raw[..]).map_err(|e| {
-				ClientError::Backend(format!(
-					"The record of a state sync in progress does not decode ({e}): the database \
-					 was written by another version. Delete it and sync again."
-				))
-			})?;
-			*backend.partial_state_target.lock() = Some(target.header.hash());
+		{
+			let mut recorded = backend.partial_state.lock();
+			match (
+				db.get(columns::STATE_META, partial_state_keys::DISCARDING),
+				db.get(columns::STATE_META, partial_state_keys::TARGET),
+			) {
+				(Some(_), Some(_)) => {
+					return Err(ClientError::Backend(
+						"The database records a state sync in progress and the discard of one at \
+						 once, which never happens: it was written by another version. Delete it \
+						 and sync again."
+							.into(),
+					))
+				},
+				(Some(raw), None) => {
+					let state_root = decode_partial_state_marker::<Block>(&raw)?;
+					*recorded = Some(PartialStateRecord::Discarding { state_root });
+					backend.discard_partial_state(&mut recorded, "an interrupted discard")?;
+				},
+				(None, Some(raw)) => {
+					let target = decode_partial_state_target::<Block>(&raw)?;
+					*recorded = Some(PartialStateRecord::Recorded {
+						hash: target.header.hash(),
+						state_root: *target.header.state_root(),
+					});
+				},
+				(None, None) => {},
+			}
 		}
 
 		db.commit(db_init_transaction)?;
@@ -1701,8 +1769,36 @@ impl<Block: BlockT> Backend<Block> {
 		Ok(())
 	}
 
-	/// Remove the recorded state sync attempt together with its nodes.
-	/// `what` names the attempt in the logs.
+	/// Whether any block state was ever committed: then `STATE` is shared with it, and a state
+	/// sync attempt can neither begin nor be discarded.
+	fn holds_block_state(&self) -> bool {
+		self.blockchain.info().finalized_state.is_some() || !self.storage.state_db.is_empty()
+	}
+
+	/// How far the recorded attempt got, from `STATE_META`: the cursor the last written chunk
+	/// left, empty before the first, and whether the final chunk was written.
+	fn partial_state_progress(&self) -> ClientResult<PartialStateProgress> {
+		let cursor = match self.storage.db.get(columns::STATE_META, partial_state_keys::CURSOR) {
+			Some(raw) => Vec::<Vec<u8>>::decode(&mut &raw[..]).map_err(|e| {
+				ClientError::Backend(format!(
+					"The cursor of a state sync in progress does not decode ({e}): the database \
+					 was written by another version. Delete it and sync again."
+				))
+			})?,
+			None => Vec::new(),
+		};
+		let complete = self
+			.storage
+			.db
+			.get(columns::STATE_META, partial_state_keys::DOWNLOADED)
+			.is_some();
+		Ok(PartialStateProgress { cursor, complete })
+	}
+
+	/// Remove the recorded state sync attempt together with its nodes, under the caller's guard
+	/// of [`Backend::partial_state`], which the call leaves equal to the database: `None` once the
+	/// removal is complete, `Discarding` when it fails after its first commit. `what` names the
+	/// attempt in the logs.
 	///
 	/// The nodes are found by walking the attempt's trie from its state root through what `STATE`
 	/// holds, and removed children first, in commits of [`DISCARD_BATCH`] removals. That empties
@@ -1710,9 +1806,10 @@ impl<Block: BlockT> Backend<Block> {
 	///
 	/// The removal is not one transaction, so a marker brackets it: the first commit replaces the
 	/// records with the state root under `DISCARDING`, the last batch removes the marker. A crash
-	/// in between leaves the marker, and `from_database` calls this again at the next start: the
-	/// root comes from the marker, and since children go before parents, whatever the interrupted
-	/// walk removed reads as absent and is skipped.
+	/// in between leaves the marker, and `from_database` calls this again at the next start; a
+	/// failure in between leaves the memory at `Discarding`, and the next call starts from the
+	/// marker too. Since children go before parents, whatever an interrupted walk removed reads as
+	/// absent and is skipped.
 	///
 	/// On a reference-counting database (parity-db) a node at two trie positions holds two
 	/// references; the walk reaches both positions and dereferences it twice, as the download
@@ -1720,67 +1817,65 @@ impl<Block: BlockT> Backend<Block> {
 	/// only once it is planned, so the call waits for the root's removal, the last one, to become
 	/// visible: nothing of the old attempt may be readable once the next one starts, which reads
 	/// `STATE` for the child tries it copies.
-	fn discard_partial_state(&self, what: &str) -> ClientResult<()> {
-		// Chunk writes hold the target across their commit: none runs during the removal.
-		let mut recorded = self.partial_state_target.lock();
-		let info = self.blockchain.info();
-		if info.finalized_state.is_some() || !self.storage.state_db.is_empty() {
+	fn discard_partial_state(
+		&self,
+		recorded: &mut Option<PartialStateRecord<Block::Hash>>,
+		what: &str,
+	) -> ClientResult<()> {
+		let Some(record) = *recorded else {
+			return Err(ClientError::Backend(format!(
+				"Cannot discard {what}: no state sync is recorded"
+			)));
+		};
+		if self.holds_block_state() {
 			return Err(ClientError::Backend(format!(
 				"Cannot discard {what}: the database holds block state next to the record of a \
 				 state sync in progress, which never happens. Delete the database and sync again."
 			)));
 		}
-		// The marker of an interrupted discard holds the root; otherwise the record does, and the
-		// first commit replaces the record with the marker.
-		let root = match self.storage.db.get(columns::STATE_META, partial_state_keys::DISCARDING) {
-			Some(raw) => Block::Hash::decode(&mut &raw[..]).map_err(|e| {
-				ClientError::Backend(format!(
-					"The marker of an interrupted state sync discard does not decode ({e}): the \
-					 database was written by another version. Delete it and sync again."
-				))
-			})?,
-			None => {
-				let raw = self
-					.storage
-					.db
-					.get(columns::STATE_META, partial_state_keys::TARGET)
-					.ok_or_else(|| {
-						ClientError::Backend(format!(
-							"Cannot discard {what}: no state sync is recorded in the database"
-						))
-					})?;
-				let target = PartialStateTarget::<Block>::decode(&mut &raw[..]).map_err(|e| {
-					ClientError::Backend(format!(
-						"The record of a state sync in progress does not decode ({e}): the \
-						 database was written by another version. Delete it and sync again."
-					))
-				})?;
-				let root = *target.header.state_root();
+		let state_root = match record {
+			// The first commit replaces the records with the marker.
+			PartialStateRecord::Recorded { state_root, .. } => {
 				let mut transaction = Transaction::new();
-				transaction.remove(columns::STATE_META, partial_state_keys::TARGET);
-				transaction.remove(columns::STATE_META, partial_state_keys::CURSOR);
-				transaction.remove(columns::STATE_META, partial_state_keys::DOWNLOADED);
+				remove_partial_state_records(&mut transaction);
 				transaction.set_from_vec(
 					columns::STATE_META,
 					partial_state_keys::DISCARDING,
-					root.encode(),
+					state_root.encode(),
 				);
 				self.storage.db.commit(transaction)?;
-				root
+				*recorded = Some(PartialStateRecord::Discarding { state_root });
+				state_root
 			},
+			// An earlier discard did not finish: the marker holds the root.
+			PartialStateRecord::Discarding { state_root } => state_root,
 		};
-		*recorded = None;
 
 		let start = std::time::Instant::now();
+		let removed = self.remove_partial_state_nodes(state_root, what)?;
+		*recorded = None;
+		if let Err(e) = self.storage.db.optimize_db_col(columns::STATE) {
+			warn!(target: "db", "Failed to optimize the database after discarding partial state: {e:?}");
+		}
+		info!(
+			target: "db",
+			"Discarded the partial state of {what}: {removed} nodes in {:?}",
+			start.elapsed()
+		);
+		Ok(())
+	}
+
+	/// Removes every node reachable from `state_root` that `STATE` holds, children first, in
+	/// commits of [`DISCARD_BATCH`] removals; the last commit also removes the `DISCARDING` marker.
+	/// Returns the number of nodes removed, once the root's removal is visible to reads.
+	fn remove_partial_state_nodes(&self, state_root: Block::Hash, what: &str) -> ClientResult<u64> {
 		let walk_err = |e: sp_trie::partial_state::Error| {
-			ClientError::Backend(format!(
-				"Cannot discard {what}: its state does not decode ({e:?})"
-			))
+			ClientError::Backend(format!("Cannot discard {what}: its state does not decode ({e})"))
 		};
-		let root_key = self.storage.state_key(&root, EMPTY_PREFIX).into_owned();
+		let root_key = self.storage.state_key(&state_root, EMPTY_PREFIX).into_owned();
 		let root_present = self.storage.db.get(columns::STATE, &root_key).is_some();
 		let mut stack: Vec<DiscardStep<HashingFor<Block>>> =
-			vec![DiscardStep::Visit(TrieNodeInfo::root(root))];
+			vec![DiscardStep::Visit(TrieNodeInfo::root(state_root))];
 		let mut transaction = Transaction::new();
 		let (mut removed, mut pending) = (0u64, 0usize);
 		while let Some(step) = stack.pop() {
@@ -1827,21 +1922,19 @@ impl<Block: BlockT> Backend<Block> {
 				std::thread::sleep(std::time::Duration::from_millis(1));
 			}
 		}
-		if let Err(e) = self.storage.db.optimize_db_col(columns::STATE) {
-			warn!(target: "db", "Failed to optimize the database after discarding partial state: {e:?}");
-		}
-		info!("Discarded the partial state of {what}: {removed} nodes in {:?}", start.elapsed());
-		Ok(())
+		Ok(removed)
 	}
 
 	fn try_commit_operation(&self, mut operation: BlockImportOperation<Block>) -> ClientResult<()> {
+		// Chunk writes and discards hold the record across their commit; this commit holds it to
+		// its end, so that the records it removes and the memory mirroring them change together.
+		let mut recorded = self.partial_state.lock();
 		// The first block state lands on a database that still holds the nodes of a state sync
 		// that never completed: they go first, while `STATE` holds nothing else and before this
 		// block enters state-db, which the guard of the discard reads. The completion of a state
 		// sync, `reset_storage`, is the one state commit that keeps them.
-		let abandoned_state_sync = self.partial_state_target.lock().is_some();
-		if operation.commit_state && !operation.reset_storage && abandoned_state_sync {
-			self.discard_partial_state("a state sync that never completed")?;
+		if operation.commit_state && !operation.reset_storage && recorded.is_some() {
+			self.discard_partial_state(&mut recorded, "a state sync that never completed")?;
 		}
 
 		let mut transaction = Transaction::new();
@@ -1949,19 +2042,25 @@ impl<Block: BlockT> Backend<Block> {
 
 			if operation.reset_storage {
 				// The state-synced block lands together with the removal of its records: the
-				// attempt is complete. Nothing recorded is the legacy full-state import.
-				match *self.partial_state_target.lock() {
-					Some(recorded) if recorded == hash => {
-						transaction.remove(columns::STATE_META, partial_state_keys::TARGET);
-						transaction.remove(columns::STATE_META, partial_state_keys::CURSOR);
-						transaction.remove(columns::STATE_META, partial_state_keys::DOWNLOADED);
+				// attempt is complete.
+				match *recorded {
+					Some(PartialStateRecord::Recorded { hash: target, .. }) if target == hash => {
+						remove_partial_state_records(&mut transaction)
 					},
-					Some(recorded) => {
+					Some(PartialStateRecord::Recorded { hash: target, .. }) => {
 						return Err(ClientError::Backend(format!(
 							"Block {hash:?} imports with a synced state while the recorded state \
-							 sync targets {recorded:?}"
+							 sync targets {target:?}"
 						)))
 					},
+					Some(PartialStateRecord::Discarding { .. }) => {
+						return Err(ClientError::Backend(format!(
+							"Block {hash:?} imports with a synced state while the recorded state \
+							 sync is being discarded"
+						)))
+					},
+					// Nothing recorded: `BlockImportOperation::reset_storage`, which only tests
+					// call, imports a whole state without a state sync.
 					None => {},
 				}
 			}
@@ -2268,8 +2367,8 @@ impl<Block: BlockT> Backend<Block> {
 			trace!(target: "db", "DB Commit done {hash:?}");
 			if operation.reset_storage {
 				// The state-synced block is in and so is the recorded attempt.
-				let mut recorded = self.partial_state_target.lock();
-				if *recorded == Some(hash) {
+				if matches!(*recorded, Some(PartialStateRecord::Recorded { hash: target, .. }) if target == hash)
+				{
 					*recorded = None;
 				}
 			}
@@ -3121,18 +3220,27 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 	}
 
 	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()> {
-		if self.partial_state_target.lock().is_some() {
+		let hash = target.header.hash();
+		let mut recorded = self.partial_state.lock();
+		if self.holds_block_state() {
+			return Err(ClientError::Backend(format!(
+				"Cannot begin the state sync of {hash:?}: the database holds block state, and a \
+				 state sync only ever runs on one that holds none. Start with `--sync full`, or \
+				 delete the database to sync its state again."
+			)));
+		}
+		if recorded.is_some() {
 			// A new target replaces an attempt that never completed: its nodes go first, while
 			// `STATE` holds nothing else.
-			self.discard_partial_state("the earlier state sync attempt")?;
+			self.discard_partial_state(&mut recorded, "the earlier state sync attempt")?;
 		}
-		let hash = target.header.hash();
 		let mut transaction = Transaction::new();
 		transaction.set_from_vec(columns::STATE_META, partial_state_keys::TARGET, target.encode());
 		transaction.remove(columns::STATE_META, partial_state_keys::CURSOR);
 		transaction.remove(columns::STATE_META, partial_state_keys::DOWNLOADED);
 		self.storage.db.commit(transaction)?;
-		*self.partial_state_target.lock() = Some(hash);
+		*recorded =
+			Some(PartialStateRecord::Recorded { hash, state_root: *target.header.state_root() });
 		Ok(())
 	}
 
@@ -3141,11 +3249,43 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		partial_state: PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()> {
 		let block_hash = partial_state.block_hash;
+		let refused = |what: String| {
+			sp_blockchain::Error::Storage(format!("state chunk of {block_hash:?} {what}"))
+		};
 		// Held across the commit: a discard cannot run in between.
-		let recorded = self.partial_state_target.lock();
-		if *recorded != Some(block_hash) {
-			return Err(sp_blockchain::Error::Storage(format!(
-				"state chunk of {block_hash:?} does not belong to the recorded state sync target"
+		let recorded = self.partial_state.lock();
+		let state_root = match *recorded {
+			Some(PartialStateRecord::Recorded { hash, state_root }) if hash == block_hash => {
+				state_root
+			},
+			Some(PartialStateRecord::Recorded { hash, .. }) => {
+				return Err(refused(format!(
+					"does not belong to the recorded state sync target {hash:?}"
+				)))
+			},
+			Some(PartialStateRecord::Discarding { .. }) => {
+				return Err(refused(
+					"arrives while the recorded state sync is being discarded".into(),
+				))
+			},
+			None => return Err(refused("arrives while no state sync is recorded".into())),
+		};
+		if partial_state.state_root != state_root {
+			return Err(refused(format!(
+				"is for state root {:?} while the recorded target's is {state_root:?}",
+				partial_state.state_root
+			)));
+		}
+		// Only the next range in order is written: a second write of a position would raise its
+		// reference count for good, and a range written over a hole would never complete.
+		let progress = self.partial_state_progress()?;
+		if progress.complete {
+			return Err(refused("arrives after the final chunk: the download is complete".into()));
+		}
+		if progress.cursor != partial_state.start {
+			return Err(refused(format!(
+				"starts at {:?} while the recorded cursor is {:?}",
+				partial_state.start, progress.cursor
 			)));
 		}
 		// The nodes of this chunk's range go straight into `STATE`, bypassing state-db: they
@@ -3154,7 +3294,11 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		let nodes = chunk_nodes(&partial_state, |hash, prefix| {
 			self.storage.db.get(columns::STATE, &self.storage.state_key(hash, prefix))
 		})
-		.map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
+		.map_err(|e| {
+			sp_blockchain::Error::Storage(format!(
+				"state chunk of {block_hash:?} does not decode: {e}"
+			))
+		})?;
 
 		let mut transaction = Transaction::new();
 		let (mut ops, mut bytes) = (0u64, 0u64);
@@ -3183,23 +3327,13 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 	fn resumable_partial_state(
 		&self,
 	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>> {
+		// Under the record's mutex, the keys are read as one state.
+		let _recorded = self.partial_state.lock();
 		let Some(raw) = self.storage.db.get(columns::STATE_META, partial_state_keys::TARGET) else {
 			return Ok(None);
 		};
-		let target = PartialStateTarget::<Block>::decode(&mut &raw[..]).map_err(|e| {
-			sp_blockchain::Error::Storage(format!("undecodable state sync target record: {e}"))
-		})?;
-		let cursor = match self.storage.db.get(columns::STATE_META, partial_state_keys::CURSOR) {
-			Some(raw) => Vec::<Vec<u8>>::decode(&mut &raw[..]).map_err(|e| {
-				sp_blockchain::Error::Storage(format!("undecodable state sync cursor record: {e}"))
-			})?,
-			None => Vec::new(),
-		};
-		let complete = self
-			.storage
-			.db
-			.get(columns::STATE_META, partial_state_keys::DOWNLOADED)
-			.is_some();
+		let target = decode_partial_state_target::<Block>(&raw)?;
+		let PartialStateProgress { cursor, complete } = self.partial_state_progress()?;
 		Ok(Some(ResumablePartialState { target, cursor, complete }))
 	}
 
@@ -3208,11 +3342,33 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		operation: &mut Self::BlockImportOperation,
 		state_root: Block::Hash,
 	) -> sp_blockchain::Result<()> {
+		let mut recorded = self.partial_state.lock();
+		match *recorded {
+			Some(PartialStateRecord::Recorded { state_root: recorded_root, .. })
+				if recorded_root == state_root => {},
+			Some(PartialStateRecord::Recorded { hash, state_root: recorded_root }) => {
+				return Err(ClientError::Backend(format!(
+					"State root {state_root:?} cannot complete the state sync: the recorded \
+					 target {hash:?} has state root {recorded_root:?}"
+				)))
+			},
+			Some(PartialStateRecord::Discarding { .. }) => {
+				return Err(ClientError::Backend(format!(
+					"State root {state_root:?} cannot complete the state sync: the recorded \
+					 attempt is being discarded"
+				)))
+			},
+			None => {
+				return Err(ClientError::Backend(format!(
+					"State root {state_root:?} cannot complete a state sync: none is recorded"
+				)))
+			},
+		}
 		let state = DbStateBuilder::new(self.storage.clone(), state_root).build();
 		if let Err(e) = sc_client_api::partial_state::check_state_complete(state) {
 			// Every chunk was written, yet a node is missing: the attempt cannot complete. Its
 			// nodes go now, before anything else writes `STATE`.
-			self.discard_partial_state("a state sync whose state did not complete")
+			self.discard_partial_state(&mut recorded, "a state sync whose state did not complete")
 				.map_err(|discard| {
 					ClientError::Backend(format!("{e}; discarding its state failed too: {discard}"))
 				})?;
@@ -3289,7 +3445,7 @@ pub(crate) mod tests {
 		partial_state::{chunk_nodes, PartialState},
 		LayoutV0, TrieDBMutBuilder, TrieMut,
 	};
-	use std::sync::atomic::{AtomicBool, Ordering};
+	use std::sync::atomic::{AtomicUsize, Ordering};
 
 	const CONS0_ENGINE_ID: ConsensusEngineId = *b"CON0";
 	const CONS1_ENGINE_ID: ConsensusEngineId = *b"CON1";
@@ -6585,7 +6741,7 @@ pub(crate) mod tests {
 
 	/// Databases the partial-state tests run against. The in-memory kvdb and RocksDB store
 	/// state nodes under `prefix ++ hash`; parity-db counts references itself and stores them
-	/// under the bare hash, see `StorageDb::get`.
+	/// under the bare hash, see `StorageDb::state_key`.
 	#[derive(Debug, Clone, Copy)]
 	enum PartialStateDb {
 		KvdbMemdb,
@@ -6634,7 +6790,7 @@ pub(crate) mod tests {
 		let (inner, tmp) = partial_state_test_db(kind);
 		let db = Arc::new(ObservingDb {
 			inner,
-			fail_next_commit: AtomicBool::new(false),
+			commits_until_failure: AtomicUsize::new(0),
 			state_writes: Default::default(),
 		});
 		(partial_state_backend_on(db.clone()), db, tmp)
@@ -6650,9 +6806,8 @@ pub(crate) mod tests {
 		)
 	}
 
-	/// Closes `backend` and `db` and opens the same database again, as a restart does. The
-	/// reopened handle is the one to read after a discard: parity-db applies a removal in the
-	/// background, out of reach of `get` until the database is closed.
+	/// Closes `backend` and `db` and opens the same database again, as a restart does: the tests
+	/// read what the next start would find.
 	fn reopen_partial_state_db(
 		kind: PartialStateDb,
 		backend: Backend<Block>,
@@ -6730,17 +6885,7 @@ pub(crate) mod tests {
 
 		let (backend, _db, _tmp) = partial_state_test_backend(kind);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		backend
-			.import_partial_state(PartialState {
-				block_hash: header.hash(),
-				block_number: header.number,
-				state_root: header.state_root,
-				nodes: partial_state,
-				start: vec![],
-				end: None,
-				child_trie_copies: vec![],
-			})
-			.unwrap();
+		backend.import_partial_state(chunk(&header, partial_state)).unwrap();
 
 		import_synced_block(&backend, &header).unwrap();
 		assert_eq!(state_pairs(&backend, &header), expected_key_values);
@@ -6752,42 +6897,23 @@ pub(crate) mod tests {
 	fn import_partial_state_retries_after_failed_commit() {
 		let expected_key_values =
 			vec![(vec![0u8; 40], vec![0u8; 1]), (vec![1u8; 40], vec![1u8; 1])];
-		let (partial_state, header) = partial_state_chunk(&expected_key_values);
-		let chunk = || PartialState {
-			block_hash: header.hash(),
-			block_number: header.number,
-			state_root: header.state_root,
-			nodes: partial_state.clone(),
-			start: vec![],
-			end: None,
-			child_trie_copies: vec![],
-		};
-
-		let db = Arc::new(ObservingDb {
-			inner: sp_database::as_database(kvdb_memorydb::create(crate::utils::NUM_COLUMNS)),
-			fail_next_commit: AtomicBool::new(false),
-			state_writes: Default::default(),
-		});
-		let backend = Backend::<Block>::new_test_with_tx_storage_source(
-			BlocksPruning::Some(10),
-			10,
-			DatabaseSource::Custom { db: db.clone(), require_create_flag: true },
-			Default::default(),
-		);
+		let (nodes, header) = partial_state_chunk(&expected_key_values);
+		let (backend, db, _tmp) = observed_partial_state_test_backend(PartialStateDb::KvdbMemdb);
 
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
 
 		// `Backend::new` has committed its own initialisation by now: arm the failure only here.
-		db.fail_next_commit.store(true, Ordering::SeqCst);
-		assert!(backend.import_partial_state(with_end(chunk(), &[vec![0x80]])).is_err());
-		assert!(
-			!db.fail_next_commit.load(Ordering::SeqCst),
-			"the injected failure was consumed by the chunk's commit"
-		);
+		db.fail_commit(1);
+		assert!(backend
+			.import_partial_state(with_end(chunk(&header, nodes.clone()), &[vec![0x80]]))
+			.is_err());
+		assert!(!db.armed(), "the injected failure was consumed by the chunk's commit");
 		let cursor = || backend.resumable_partial_state().unwrap().unwrap().cursor;
 		assert!(cursor().is_empty(), "the cursor is stored with the nodes, or not at all");
 
-		backend.import_partial_state(with_end(chunk(), &[vec![0x80]])).unwrap();
+		backend
+			.import_partial_state(with_end(chunk(&header, nodes), &[vec![0x80]]))
+			.unwrap();
 		assert_eq!(cursor(), vec![vec![0x80]]);
 
 		import_synced_block(&backend, &header).unwrap();
@@ -6855,7 +6981,6 @@ pub(crate) mod tests {
 			backend
 				.import_partial_state(PartialState {
 					block_hash: header.hash(),
-					block_number: header.number,
 					state_root: root,
 					nodes: proof.into_memory_db(),
 					start: cursor.to_vec(),
@@ -6942,10 +7067,13 @@ pub(crate) mod tests {
 
 	/// The download goes on after a restart from the recorded cursor, and no position is written
 	/// twice: on parity-db a second write of a node raises its reference count for good.
-	#[test]
-	fn resumed_download_writes_each_position_once() {
+	#[rstest::rstest]
+	#[case::kvdb_memdb(PartialStateDb::KvdbMemdb)]
+	#[case::paritydb(PartialStateDb::ParityDb)]
+	#[case::rocksdb(PartialStateDb::RocksDb)]
+	fn resumed_download_writes_each_position_once(#[case] kind: PartialStateDb) {
 		let (remote, header) = download_state();
-		let (backend, db, _tmp) = observed_partial_state_test_backend(PartialStateDb::KvdbMemdb);
+		let (backend, db, _tmp) = observed_partial_state_test_backend(kind);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
 		let (backend, chunks, _) = download(&remote, &header, backend, &db, 300, true);
 		assert!(chunks > 1);
@@ -6958,10 +7086,13 @@ pub(crate) mod tests {
 
 	/// After the final chunk the download is complete: a restart finds it so and the block is
 	/// imported without the last range being downloaded and written again.
-	#[test]
-	fn completed_download_survives_a_restart() {
+	#[rstest::rstest]
+	#[case::kvdb_memdb(PartialStateDb::KvdbMemdb)]
+	#[case::paritydb(PartialStateDb::ParityDb)]
+	#[case::rocksdb(PartialStateDb::RocksDb)]
+	fn completed_download_survives_a_restart(#[case] kind: PartialStateDb) {
 		let (remote, header) = download_state();
-		let (backend, db, _tmp) = observed_partial_state_test_backend(PartialStateDb::KvdbMemdb);
+		let (backend, db, _tmp) = observed_partial_state_test_backend(kind);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
 		let (backend, _, _) = download(&remote, &header, backend, &db, 300, false);
 		let writes = db.state_writes.lock().len();
@@ -6999,15 +7130,7 @@ pub(crate) mod tests {
 			}),
 		);
 
-		let chunk = PartialState {
-			block_hash: header.hash(),
-			block_number: header.number,
-			state_root: header.state_root,
-			nodes,
-			start: vec![],
-			end: None,
-			child_trie_copies: vec![],
-		};
+		let chunk = chunk(&header, nodes);
 		backend
 			.import_partial_state(with_end(chunk, &[vec![0x80], vec![0x01]]))
 			.unwrap();
@@ -7027,15 +7150,6 @@ pub(crate) mod tests {
 	fn chunk_of_another_block_is_refused() {
 		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
 		let (other_nodes, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
-		let chunk = |header: &Header, nodes| PartialState {
-			block_hash: header.hash(),
-			block_number: header.number,
-			state_root: header.state_root,
-			nodes,
-			start: vec![],
-			end: None,
-			child_trie_copies: vec![],
-		};
 		let (backend, _db, _tmp) = partial_state_test_backend(PartialStateDb::KvdbMemdb);
 
 		assert!(backend.import_partial_state(chunk(&header, nodes.clone())).is_err());
@@ -7056,15 +7170,7 @@ pub(crate) mod tests {
 		let (_, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
 		let (backend, db, tmp) = partial_state_test_backend(kind);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		let chunk = PartialState {
-			block_hash: header.hash(),
-			block_number: header.number,
-			state_root: header.state_root,
-			nodes,
-			start: vec![],
-			end: None,
-			child_trie_copies: vec![],
-		};
+		let chunk = chunk(&header, nodes);
 		backend.import_partial_state(with_end(chunk, &[vec![0x80]])).unwrap();
 		let root_key = root_key(&backend, &header);
 		assert!(db.get(columns::STATE, &root_key).is_some());
@@ -7095,15 +7201,7 @@ pub(crate) mod tests {
 		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
 		let (backend, db, tmp) = partial_state_test_backend(kind);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		let chunk = PartialState {
-			block_hash: header.hash(),
-			block_number: header.number,
-			state_root: header.state_root,
-			nodes,
-			start: vec![],
-			end: None,
-			child_trie_copies: vec![],
-		};
+		let chunk = chunk(&header, nodes);
 		backend.import_partial_state(with_end(chunk, &[vec![0x80]])).unwrap();
 		let root_key = root_key(&backend, &header);
 
@@ -7130,15 +7228,7 @@ pub(crate) mod tests {
 		let (nodes, header) = partial_state_chunk(&key_values);
 		let (backend, _db, _tmp) = partial_state_test_backend(kind);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		let chunk = PartialState {
-			block_hash: header.hash(),
-			block_number: header.number,
-			state_root: header.state_root,
-			nodes,
-			start: vec![],
-			end: None,
-			child_trie_copies: vec![],
-		};
+		let chunk = chunk(&header, nodes);
 		backend.import_partial_state(chunk).unwrap();
 		import_synced_block(&backend, &header).unwrap();
 		assert_eq!(backend.resumable_partial_state().unwrap(), None);
@@ -7164,15 +7254,7 @@ pub(crate) mod tests {
 		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
 		let (backend, db, tmp) = partial_state_test_backend(kind);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		let chunk = PartialState {
-			block_hash: header.hash(),
-			block_number: header.number,
-			state_root: header.state_root,
-			nodes,
-			start: vec![],
-			end: None,
-			child_trie_copies: vec![],
-		};
+		let chunk = chunk(&header, nodes);
 		backend.import_partial_state(with_end(chunk, &[vec![0x80]])).unwrap();
 		let root_key = root_key(&backend, &header);
 
@@ -7260,15 +7342,7 @@ pub(crate) mod tests {
 		let (nodes, header) = partial_state_chunk(&key_values);
 		let (backend, _db, _tmp) = partial_state_test_backend(PartialStateDb::KvdbMemdb);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		let chunk = PartialState {
-			block_hash: header.hash(),
-			block_number: header.number,
-			state_root: header.state_root,
-			nodes,
-			start: vec![],
-			end: None,
-			child_trie_copies: vec![],
-		};
+		let chunk = chunk(&header, nodes);
 		backend.import_partial_state(chunk).unwrap();
 
 		// Same state root, so the completeness walk passes; a different block, so the commit
@@ -7295,15 +7369,7 @@ pub(crate) mod tests {
 		root_only.insert(EMPTY_PREFIX, &nodes.get(&header.state_root, EMPTY_PREFIX).unwrap());
 		let (backend, db, tmp) = partial_state_test_backend(kind);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		let chunk = PartialState {
-			block_hash: header.hash(),
-			block_number: header.number,
-			state_root: header.state_root,
-			nodes: root_only,
-			start: vec![],
-			end: None,
-			child_trie_copies: vec![],
-		};
+		let chunk = chunk(&header, root_only);
 		backend.import_partial_state(with_end(chunk, &[vec![0x80]])).unwrap();
 		let root_key = root_key(&backend, &header);
 
@@ -7312,6 +7378,259 @@ pub(crate) mod tests {
 
 		let db = reopen_partial_state_db(kind, backend, db, &tmp);
 		assert!(db.get(columns::STATE, &root_key).is_none());
+	}
+
+	/// A download of `header`'s one-chunk state whose discard, run by `begin` of `other`, fails on
+	/// its second commit: the records are gone, the marker holds the root, the nodes are still
+	/// there. Returns the backend, the database, its directory, both headers and the root's key.
+	fn discard_interrupted_after_the_marker(
+		kind: PartialStateDb,
+	) -> ClientResult<(
+		Backend<Block>,
+		Arc<ObservingDb>,
+		Option<tempfile::TempDir>,
+		Header,
+		Header,
+		Vec<u8>,
+	)> {
+		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
+		let (_, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
+		let (backend, db, tmp) = observed_partial_state_test_backend(kind);
+		backend.begin_partial_state(partial_state_target(&header))?;
+		backend.import_partial_state(with_end(chunk(&header, nodes), &[vec![0x80]]))?;
+		let root_key = root_key(&backend, &header);
+		// The first commit of a discard replaces the records with the marker; the second removes
+		// the nodes and the marker.
+		db.fail_commit(2);
+		if backend.begin_partial_state(partial_state_target(&other)).is_ok() {
+			return Err(ClientError::Backend(
+				"the injected failure did not stop the discard".into(),
+			));
+		}
+		Ok((backend, db, tmp, header, other, root_key))
+	}
+
+	/// A discard that fails after its first commit leaves the marker and the nodes; the memory
+	/// knows it, so chunks are refused and the next `begin` finishes the removal from the marker.
+	#[rstest::rstest]
+	#[case::kvdb_memdb(PartialStateDb::KvdbMemdb)]
+	#[case::paritydb(PartialStateDb::ParityDb)]
+	#[case::rocksdb(PartialStateDb::RocksDb)]
+	fn failed_discard_after_the_marker_resumes_from_it(#[case] kind: PartialStateDb) {
+		let (backend, db, tmp, header, other, root_key) =
+			discard_interrupted_after_the_marker(kind).unwrap();
+		assert!(!db.armed(), "the injected failure was consumed by the discard");
+		assert!(db.get(columns::STATE_META, partial_state_keys::DISCARDING).is_some());
+		assert!(db.get(columns::STATE_META, partial_state_keys::TARGET).is_none());
+		assert!(db.get(columns::STATE, &root_key).is_some(), "the removal did not happen");
+		assert_eq!(backend.resumable_partial_state().unwrap(), None);
+		let (nodes, _) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
+		assert!(
+			backend.import_partial_state(chunk(&header, nodes)).is_err(),
+			"no chunk is written while the attempt is being discarded"
+		);
+
+		backend.begin_partial_state(partial_state_target(&other)).unwrap();
+		assert_eq!(
+			backend.resumable_partial_state().unwrap(),
+			Some(ResumablePartialState {
+				target: partial_state_target(&other),
+				cursor: vec![],
+				complete: false
+			}),
+		);
+		let db = reopen_partial_state_db(kind, backend, db, &tmp);
+		assert!(db.get(columns::STATE, &root_key).is_none(), "the removal was finished");
+		assert!(db.get(columns::STATE_META, partial_state_keys::DISCARDING).is_none());
+	}
+
+	/// A discard that fails after its first commit is finished at the next start, from the marker.
+	#[rstest::rstest]
+	#[case::kvdb_memdb(PartialStateDb::KvdbMemdb)]
+	#[case::paritydb(PartialStateDb::ParityDb)]
+	#[case::rocksdb(PartialStateDb::RocksDb)]
+	fn failed_discard_after_the_marker_is_finished_at_the_next_start(#[case] kind: PartialStateDb) {
+		let (backend, db, tmp, _, _, root_key) =
+			discard_interrupted_after_the_marker(kind).unwrap();
+		let db = reopen_partial_state_db(kind, backend, db, &tmp);
+		let backend = reopen_backend(db.clone(), BlocksPruning::Some(10));
+		assert_eq!(backend.resumable_partial_state().unwrap(), None);
+		let db = reopen_partial_state_db(kind, backend, db, &tmp);
+		assert!(db.get(columns::STATE, &root_key).is_none(), "the removal was finished");
+		assert!(db.get(columns::STATE_META, partial_state_keys::DISCARDING).is_none());
+	}
+
+	/// A discard that fails on its first commit changes nothing: the attempt stays recorded, its
+	/// download goes on, and the next `begin` discards it whole.
+	#[test]
+	fn failed_discard_before_the_marker_keeps_the_record() {
+		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
+		let (_, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
+		let (backend, db, _tmp) = observed_partial_state_test_backend(PartialStateDb::KvdbMemdb);
+		backend.begin_partial_state(partial_state_target(&header)).unwrap();
+		backend
+			.import_partial_state(with_end(chunk(&header, nodes.clone()), &[vec![0x80]]))
+			.unwrap();
+		let root_key = root_key(&backend, &header);
+
+		db.fail_commit(1);
+		assert!(backend.begin_partial_state(partial_state_target(&other)).is_err());
+		assert!(!db.armed());
+		assert_eq!(
+			backend.resumable_partial_state().unwrap(),
+			Some(ResumablePartialState {
+				target: partial_state_target(&header),
+				cursor: vec![vec![0x80]],
+				complete: false
+			}),
+			"the attempt is untouched"
+		);
+		let mut next = chunk(&header, nodes);
+		next.start = vec![vec![0x80]];
+		backend.import_partial_state(next).unwrap();
+
+		backend.begin_partial_state(partial_state_target(&other)).unwrap();
+		assert!(db.get(columns::STATE, &root_key).is_none());
+		assert_eq!(
+			backend.resumable_partial_state().unwrap().map(|record| record.target),
+			Some(partial_state_target(&other))
+		);
+	}
+
+	/// The record of an attempt and the marker of a discard are never found together: the
+	/// database does not open.
+	#[test]
+	fn both_markers_fail_to_open() {
+		let (_, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
+		let (backend, db, _tmp) = partial_state_test_backend(PartialStateDb::KvdbMemdb);
+		let mut transaction = Transaction::new();
+		transaction.set_from_vec(
+			columns::STATE_META,
+			partial_state_keys::TARGET,
+			partial_state_target(&header).encode(),
+		);
+		transaction.set_from_vec(
+			columns::STATE_META,
+			partial_state_keys::DISCARDING,
+			header.state_root.encode(),
+		);
+		db.commit(transaction).unwrap();
+		drop(backend);
+
+		let reopened = Backend::<Block>::new(
+			DatabaseSettings {
+				trie_cache_maximum_size: Some(16 * 1024 * 1024),
+				state_pruning: Some(PruningMode::blocks_pruning(10)),
+				source: DatabaseSource::Custom { db, require_create_flag: false },
+				blocks_pruning: BlocksPruning::Some(10),
+				pruning_filters: Default::default(),
+				metrics_registry: None,
+			},
+			0,
+		);
+		assert!(reopened.is_err());
+	}
+
+	/// Once the final chunk is written, no chunk is written again: a second write of a position
+	/// would raise its reference count for good.
+	#[test]
+	fn chunk_after_the_final_chunk_is_refused() {
+		let key_values = vec![(vec![0u8; 40], vec![0u8; 1])];
+		let (nodes, header) = partial_state_chunk(&key_values);
+		let (backend, db, _tmp) = observed_partial_state_test_backend(PartialStateDb::KvdbMemdb);
+		backend.begin_partial_state(partial_state_target(&header)).unwrap();
+		backend.import_partial_state(chunk(&header, nodes.clone())).unwrap();
+		let writes = db.state_writes.lock().len();
+
+		assert!(backend.import_partial_state(chunk(&header, nodes)).is_err());
+		assert_eq!(db.state_writes.lock().len(), writes, "nothing was written");
+		assert!(backend.resumable_partial_state().unwrap().is_some_and(|record| record.complete));
+
+		import_synced_block(&backend, &header).unwrap();
+		assert_eq!(state_pairs(&backend, &header), key_values);
+	}
+
+	/// A chunk is written only from the recorded cursor: one from elsewhere would leave a hole
+	/// or write a range twice.
+	#[test]
+	fn chunk_whose_start_is_not_the_cursor_is_refused() {
+		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
+		let (backend, db, _tmp) = observed_partial_state_test_backend(PartialStateDb::KvdbMemdb);
+		backend.begin_partial_state(partial_state_target(&header)).unwrap();
+		backend
+			.import_partial_state(with_end(chunk(&header, nodes.clone()), &[vec![0x80]]))
+			.unwrap();
+		let writes = db.state_writes.lock().len();
+
+		let from = |start: &[Vec<u8>]| {
+			let mut next = chunk(&header, nodes.clone());
+			next.start = start.to_vec();
+			next
+		};
+		assert!(backend.import_partial_state(from(&[])).is_err(), "the first range again");
+		assert!(backend.import_partial_state(from(&[vec![0x90]])).is_err(), "past the cursor");
+		assert_eq!(db.state_writes.lock().len(), writes, "nothing was written");
+		assert_eq!(
+			backend.resumable_partial_state().unwrap().map(|record| record.cursor),
+			Some(vec![vec![0x80]]),
+			"the cursor is untouched"
+		);
+
+		backend.import_partial_state(from(&[vec![0x80]])).unwrap();
+		assert!(backend.resumable_partial_state().unwrap().is_some_and(|record| record.complete));
+	}
+
+	/// A chunk of another state root would write nodes the discard could never reach.
+	#[test]
+	fn chunk_of_another_state_root_is_refused() {
+		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
+		let (_, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
+		let (backend, db, _tmp) = observed_partial_state_test_backend(PartialStateDb::KvdbMemdb);
+		backend.begin_partial_state(partial_state_target(&header)).unwrap();
+
+		let mut wrong_root = chunk(&header, nodes.clone());
+		wrong_root.state_root = other.state_root;
+		assert!(backend.import_partial_state(wrong_root).is_err());
+		assert!(db.state_writes.lock().is_empty(), "nothing was written");
+
+		backend.import_partial_state(chunk(&header, nodes)).unwrap();
+	}
+
+	/// A block whose state root is not the recorded target's cannot complete the attempt, and
+	/// its failure discards nothing: the recorded target still completes.
+	#[test]
+	fn completion_with_another_state_root_does_not_discard_the_attempt() {
+		let key_values = vec![(vec![0u8; 40], vec![0u8; 1])];
+		let (nodes, header) = partial_state_chunk(&key_values);
+		let (_, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
+		let (backend, db, _tmp) = partial_state_test_backend(PartialStateDb::KvdbMemdb);
+		backend.begin_partial_state(partial_state_target(&header)).unwrap();
+		backend.import_partial_state(chunk(&header, nodes)).unwrap();
+		let root_key = root_key(&backend, &header);
+
+		assert!(import_synced_block(&backend, &other).is_err());
+		assert!(
+			backend.resumable_partial_state().unwrap().is_some_and(|record| record.complete),
+			"the attempt is untouched"
+		);
+		assert!(db.get(columns::STATE, &root_key).is_some(), "its nodes are untouched");
+
+		import_synced_block(&backend, &header).unwrap();
+		assert_eq!(state_pairs(&backend, &header), key_values);
+	}
+
+	/// A state sync only ever runs on a database that holds no block state: `begin` refuses one
+	/// that does, and records nothing.
+	#[test]
+	fn begin_on_a_database_with_block_state_is_an_error() {
+		let (_, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
+		let (backend, db, _tmp) = partial_state_test_backend(PartialStateDb::KvdbMemdb);
+		let genesis = commit_genesis_state(&backend).unwrap();
+
+		assert!(backend.begin_partial_state(partial_state_target(&header)).is_err());
+		assert!(db.get(columns::STATE_META, partial_state_keys::TARGET).is_none());
+		assert_eq!(backend.resumable_partial_state().unwrap(), None);
+		assert!(backend.have_state_at(genesis.hash(), 0), "the live state is intact");
 	}
 
 	/// A trie whose two leaves are one node: the keys differ in their first nibble only and hold
@@ -7325,7 +7644,7 @@ pub(crate) mod tests {
 	/// them.
 	fn chunk_keys(
 		backend: &Backend<Block>,
-		chunk: PartialState<HashingFor<Block>, u64>,
+		chunk: PartialState<HashingFor<Block>>,
 	) -> Result<Vec<Vec<u8>>, sp_trie::partial_state::Error> {
 		Ok(chunk_nodes(&chunk, |_, _| None)?
 			.into_iter()
@@ -7343,19 +7662,10 @@ pub(crate) mod tests {
 		let (nodes, header) = shared_leaf_chunk();
 		let (_, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
 		let (backend, db, tmp) = partial_state_test_backend(kind);
-		let chunk = |nodes| PartialState {
-			block_hash: header.hash(),
-			block_number: header.number,
-			state_root: header.state_root,
-			nodes,
-			start: vec![],
-			end: None,
-			child_trie_copies: vec![],
-		};
-		let keys = chunk_keys(&backend, chunk(nodes.clone())).unwrap();
+		let keys = chunk_keys(&backend, chunk(&header, nodes.clone())).unwrap();
 		assert_eq!(keys.len(), 3, "the root and the leaf at two positions");
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		backend.import_partial_state(chunk(nodes)).unwrap();
+		backend.import_partial_state(chunk(&header, nodes)).unwrap();
 		for key in &keys {
 			assert!(db.get(columns::STATE, key).is_some());
 		}
@@ -7367,6 +7677,40 @@ pub(crate) mod tests {
 			assert!(db.get(columns::STATE, key).is_none(), "every reference is gone");
 		}
 		assert!(db.get(columns::STATE_META, partial_state_keys::DISCARDING).is_none());
+	}
+
+	/// On parity-db a node at two trie positions, written once per position in one commit, holds
+	/// one reference per position: one dereference leaves it in place, the second removes it.
+	#[test]
+	fn shared_node_holds_one_reference_per_position_on_parity_db() {
+		let (nodes, header) = shared_leaf_chunk();
+		let (backend, db, tmp) = partial_state_test_backend(PartialStateDb::ParityDb);
+		let keys = chunk_keys(&backend, chunk(&header, nodes.clone())).unwrap();
+		let leaf_key = keys
+			.iter()
+			.find(|key| keys.iter().filter(|other| other == key).count() == 2)
+			.expect("the leaf sits at two positions under one bare hash")
+			.clone();
+		backend.begin_partial_state(partial_state_target(&header)).unwrap();
+		backend.import_partial_state(chunk(&header, nodes)).unwrap();
+
+		let dereference = |db: &Arc<dyn Database<DbHash>>| {
+			let mut transaction = Transaction::new();
+			transaction.remove(columns::STATE, &leaf_key);
+			db.commit(transaction).unwrap();
+		};
+		let reopen = |db: Arc<dyn Database<DbHash>>| {
+			drop(db);
+			let path = tmp.as_ref().expect("parity-db lives on disk").path();
+			crate::parity_db::open::<DbHash>(path, DatabaseType::Full, false, false)
+				.expect("parity-db reopens in test")
+		};
+		dereference(&db);
+		let db = reopen_partial_state_db(PartialStateDb::ParityDb, backend, db, &tmp);
+		assert!(db.get(columns::STATE, &leaf_key).is_some(), "one reference of two is left");
+		dereference(&db);
+		let db = reopen(db);
+		assert!(db.get(columns::STATE, &leaf_key).is_none(), "the second one removes it");
 	}
 
 	/// On parity-db a node written once for two of its positions holds one reference. The discard
@@ -7421,11 +7765,23 @@ pub(crate) mod tests {
 		(nodes, header)
 	}
 
+	/// A chunk of the whole state of `header`: from the start, with no range end and no copies.
+	fn chunk(header: &Header, nodes: MemoryDB<HashingFor<Block>>) -> PartialStateFor<Block> {
+		PartialState {
+			block_hash: header.hash(),
+			state_root: header.state_root,
+			nodes,
+			start: vec![],
+			end: None,
+			child_trie_copies: vec![],
+		}
+	}
+
 	/// `chunk` with `end` as the cursor its range ends with.
 	fn with_end(
-		mut chunk: PartialState<HashingFor<Block>, u64>,
+		mut chunk: PartialState<HashingFor<Block>>,
 		end: &[Vec<u8>],
-	) -> PartialState<HashingFor<Block>, u64> {
+	) -> PartialState<HashingFor<Block>> {
 		chunk.end = Some(end.to_vec());
 		chunk
 	}
@@ -7449,17 +7805,34 @@ pub(crate) mod tests {
 			.collect()
 	}
 
-	/// Delegates to an in-memory database. Fails one `commit` while armed, and records the key of
-	/// every write to the `STATE` column.
+	/// Wraps a database of any kind. Fails the `n`th `commit` after `fail_commit(n)`, and records
+	/// the key of every write to the `STATE` column.
 	struct ObservingDb {
 		inner: Arc<dyn Database<DbHash>>,
-		fail_next_commit: AtomicBool,
+		/// Commits left before the one that fails; zero means none will.
+		commits_until_failure: AtomicUsize,
 		state_writes: Mutex<Vec<Vec<u8>>>,
+	}
+
+	impl ObservingDb {
+		/// Makes the `nth` commit from now fail; the ones before and after it go through.
+		fn fail_commit(&self, nth: usize) {
+			self.commits_until_failure.store(nth, Ordering::SeqCst);
+		}
+
+		fn armed(&self) -> bool {
+			self.commits_until_failure.load(Ordering::SeqCst) > 0
+		}
 	}
 
 	impl Database<DbHash> for ObservingDb {
 		fn commit(&self, transaction: Transaction<DbHash>) -> sp_database::error::Result<()> {
-			if self.fail_next_commit.swap(false, Ordering::SeqCst) {
+			let left = self.commits_until_failure.fetch_update(
+				Ordering::SeqCst,
+				Ordering::SeqCst,
+				|left| (left > 0).then(|| left - 1),
+			);
+			if left == Ok(1) {
 				return Err(sp_database::error::DatabaseError(Box::new(std::io::Error::other(
 					"injected commit failure",
 				))));

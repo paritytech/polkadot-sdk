@@ -657,9 +657,9 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 		self.db.read().last_canonicalized()
 	}
 
-	/// Whether no block state was ever recorded: nothing was canonicalized and no non-canonical
-	/// block exists. State written past state-db, such as the trie nodes of a state sync in
-	/// progress, does not count. Always `false` in `ArchiveAll` mode, which records nothing.
+	/// Whether no block state is recorded: nothing was canonicalized and no non-canonical block
+	/// exists. State written past state-db, such as the trie nodes of a state sync in progress,
+	/// does not count. Always `false` in `ArchiveAll` mode, which records nothing.
 	pub fn is_empty(&self) -> bool {
 		self.db.read().is_empty()
 	}

@@ -23,10 +23,12 @@ use crate::{
 	LOG_TARGET,
 };
 use codec::{Decode, Encode};
-use log::{debug, warn};
+use log::{debug, info, warn};
 use sc_client_api::{
-	partial_state::PartialStateTarget, CompactProof, PartialStateImport, ProofProvider,
+	partial_state::{PartialStateTarget, ResumablePartialState},
+	CompactProof, PartialStateImport, ProofProvider,
 };
+use sc_consensus::{ImportedState, IncomingBlock};
 use smallvec::SmallVec;
 use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor, PartialStateFor},
@@ -34,19 +36,71 @@ use sp_runtime::{
 };
 use std::{fmt, sync::Arc};
 
-/// Consecutive database write failures tolerated before state sync gives up on the target.
-const MAX_PARTIAL_STATE_WRITE_FAILURES: u32 = 3;
+/// Consecutive database write failures tolerated before state sync gives up on the target. Every
+/// failure has the same range asked again from the same peer, and a server answers an identical
+/// request twice within a minute before it refuses the peer and we drop it
+/// (`state_request_handler::MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER`): the limit stays within that.
+const MAX_PARTIAL_STATE_WRITE_FAILURES: u32 = 2;
 
 /// How far behind the finalized head the target of an interrupted state sync may be for the
 /// download to resume after a restart: a quarter of the 256 blocks of state that peers keep by
 /// default (`sc_state_db::DEFAULT_MAX_BLOCK_CONSTRAINT`), so that the rest of the download has
 /// time before they prune the target. An older target is discarded and a new one is chosen.
-pub const MAX_RESUME_DISTANCE: u32 = 64;
+pub(crate) const MAX_RESUME_DISTANCE: u32 = 64;
 
 /// Whether the target of an interrupted state sync, at `stored`, is close enough behind the
 /// finalized head `head` to resume the download, see [`MAX_RESUME_DISTANCE`].
-pub fn is_resumable<B: BlockT>(stored: NumberFor<B>, head: NumberFor<B>) -> bool {
+pub(crate) fn is_resumable<B: BlockT>(stored: NumberFor<B>, head: NumberFor<B>) -> bool {
 	stored <= head && head - stored <= MAX_RESUME_DISTANCE.into()
+}
+
+/// The state sync attempt an earlier run of this node recorded, if its download can continue
+/// towards the finalized head at `head`: the target must be at most [`MAX_RESUME_DISTANCE`] blocks
+/// behind `head` and not newer, and no header of a warp proof may sit at or above it
+/// (`highest_proof_header`, warp sync only). Such headers are imported without state and are never
+/// executed: a target below one would stall finality behind it, and a target that is one is already
+/// in the chain, where its state import would be skipped. Otherwise `None`: the attempt is
+/// discarded when the new one begins.
+pub(crate) fn resumable_state_sync<B: BlockT, Client: PartialStateImport<B>>(
+	client: &Client,
+	head: NumberFor<B>,
+	highest_proof_header: Option<NumberFor<B>>,
+) -> Option<ResumablePartialState<B>> {
+	let resumable = match client.resumable_partial_state() {
+		Ok(resumable) => resumable?,
+		Err(e) => {
+			warn!(target: LOG_TARGET, "Failed to read the record of an earlier state sync: {e}");
+			return None;
+		},
+	};
+	let stored = *resumable.target.header.number();
+	let hash = resumable.target.header.hash();
+	if !is_resumable::<B>(stored, head) {
+		info!(
+			target: LOG_TARGET,
+			"The state sync of #{stored} ({hash}) interrupted earlier cannot resume towards \
+			 #{head}: the target must be at most {MAX_RESUME_DISTANCE} blocks behind, starting over.",
+		);
+		return None;
+	}
+	if highest_proof_header.is_some_and(|proof_header| proof_header >= stored) {
+		info!(
+			target: LOG_TARGET,
+			"The state sync of #{stored} ({hash}) interrupted earlier cannot resume: the warp proof \
+			 imported a header at or above it, starting over.",
+		);
+		return None;
+	}
+	info!(
+		target: LOG_TARGET,
+		"Resuming the state sync of #{stored} ({hash}) interrupted earlier{}.",
+		if resumable.complete {
+			", every chunk is in the database: importing the block"
+		} else {
+			""
+		},
+	);
+	Some(resumable)
 }
 
 /// Generic state sync provider. Used for mocking in tests.
@@ -55,6 +109,11 @@ pub trait StateSyncProvider<B: BlockT>: Send + Sync {
 	fn import(&mut self, response: StateResponse) -> ImportResult<B>;
 	/// Produce next state request.
 	fn next_request(&self) -> StateRequest;
+	/// The import of the target block, yielded once, when every chunk was in the database before
+	/// this provider was created (a download completed by an earlier run, see
+	/// [`StateSync::resume`]). `None` otherwise: a download in progress yields the import through
+	/// [`ImportResult::Import`] with its final chunk.
+	fn take_target_import(&mut self) -> Option<IncomingBlock<B>>;
 	/// Check if the state is complete.
 	fn is_complete(&self) -> bool;
 	/// Returns target block number.
@@ -65,12 +124,13 @@ pub trait StateSyncProvider<B: BlockT>: Send + Sync {
 	fn progress(&self) -> StateSyncProgress;
 }
 
-// Reported state sync phase.
+/// Reported state sync phase.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum StateSyncPhase {
-	// State download in progress.
+	/// Chunks are being downloaded and written to the database.
 	DownloadingState,
-	// Download is complete, state is being imported.
+	/// Every chunk is in the database; the target block is being imported, which checks that
+	/// the state is complete.
 	ImportingState,
 }
 
@@ -96,8 +156,8 @@ pub struct StateSyncProgress {
 
 /// Import state chunk result.
 pub enum ImportResult<B: BlockT> {
-	/// The whole state is in the database: import the target block.
-	Import(B::Hash, B::Header, Option<Vec<B::Extrinsic>>, Option<Justifications>),
+	/// The whole state is in the database: import the target block, with `ImportedState`.
+	Import(IncomingBlock<B>),
 	/// Continue downloading.
 	Continue,
 	/// Bad state chunk.
@@ -112,6 +172,9 @@ struct StateSyncMetadata<B: BlockT> {
 	target_body: Option<Vec<B::Extrinsic>>,
 	target_justifications: Option<Justifications>,
 	complete: bool,
+	/// The download completed in an earlier run: the target import is yielded once by
+	/// `take_target_import`.
+	import_pending: bool,
 	imported_bytes: u64,
 	/// Consecutive failures of `import_partial_state`, reset by the next successful write.
 	write_failures: u32,
@@ -140,9 +203,27 @@ impl<B: BlockT> StateSyncMetadata<B> {
 		}
 	}
 
+	/// The target block as the import queue takes it: with the state the download wrote, nothing
+	/// to execute, and the import allowed even if the block is already known.
+	fn target_block(&self) -> IncomingBlock<B> {
+		IncomingBlock {
+			hash: self.target_hash(),
+			header: Some(self.target_header.clone()),
+			body: self.target_body.clone(),
+			indexed_body: None,
+			justifications: self.target_justifications.clone(),
+			origin: None,
+			allow_missing_state: true,
+			import_existing: true,
+			skip_execution: true,
+			state: Some(ImportedState),
+		}
+	}
+
 	fn progress(&self) -> StateSyncProgress {
 		let cursor = *self.last_key.get(0).and_then(|last| last.get(0)).unwrap_or(&0u8);
-		let percent_done = cursor as u32 * 100 / 256;
+		// The cursor stays at the start of the final range once the download is complete.
+		let percent_done = if self.complete { 100 } else { cursor as u32 * 100 / 256 };
 		StateSyncProgress {
 			percentage: percent_done,
 			size: self.imported_bytes,
@@ -192,20 +273,21 @@ where
 		))
 	}
 
-	/// Continue the download of `target`, recorded by an earlier run, from `cursor`: the start
-	/// of the next range request. Nothing is recorded again.
-	pub fn resume(
-		client: Arc<Client>,
-		target: PartialStateTarget<B>,
-		cursor: Vec<Vec<u8>>,
-	) -> Self {
-		Self::with_cursor(
+	/// Continue the attempt an earlier run recorded: the download goes on from its cursor, or,
+	/// when every chunk is already written, only the target import is left and
+	/// [`StateSyncProvider::take_target_import`] yields it. Nothing is recorded again.
+	pub fn resume(client: Arc<Client>, resumable: ResumablePartialState<B>) -> Self {
+		let ResumablePartialState { target, cursor, complete } = resumable;
+		let mut sync = Self::with_cursor(
 			client,
 			target.header,
 			target.body,
 			target.justifications,
 			SmallVec::from_vec(cursor),
-		)
+		);
+		sync.metadata.complete = complete;
+		sync.metadata.import_pending = complete;
+		sync
 	}
 
 	fn with_cursor(
@@ -223,6 +305,7 @@ where
 				target_body,
 				target_justifications,
 				complete: false,
+				import_pending: false,
 				imported_bytes: 0,
 				write_failures: 0,
 			},
@@ -237,11 +320,17 @@ where
 {
 	///  Validate and import a state response.
 	fn import(&mut self, response: StateResponse) -> ImportResult<B> {
+		if self.metadata.complete {
+			// A late answer to the final request, from a peer that answered after another one
+			// did: every chunk is in the database, nothing is left to verify or write.
+			debug!(target: LOG_TARGET, "Ignoring a state response after the download completed");
+			return ImportResult::Continue;
+		}
 		if response.proof.is_empty() {
 			debug!(target: LOG_TARGET, "Missing proof");
 			return ImportResult::BadResponse;
 		}
-		debug!(target: LOG_TARGET, "Importing state from {} trie nodes", response.proof.len());
+		debug!(target: LOG_TARGET, "Verifying a state proof of {} bytes", response.proof.len());
 		let proof_size = response.proof.len() as u64;
 		let proof = match CompactProof::decode(&mut response.proof.as_ref()) {
 			Ok(proof) => proof,
@@ -287,7 +376,6 @@ where
 		// proves travels with it, and its end is stored as the cursor a restart continues from.
 		let partial_state = PartialStateFor::<B> {
 			block_hash: self.metadata.target_hash(),
-			block_number: self.metadata.target_number(),
 			state_root: self.metadata.target_root(),
 			nodes,
 			start: self.metadata.last_key.to_vec(),
@@ -316,12 +404,7 @@ where
 			// Every chunk is already in the database. The block import checks that the state is
 			// complete and marks it as available.
 			self.metadata.complete = true;
-			ImportResult::Import(
-				self.metadata.target_hash(),
-				self.metadata.target_header.clone(),
-				self.metadata.target_body.clone(),
-				self.metadata.target_justifications.clone(),
-			)
+			ImportResult::Import(self.metadata.target_block())
 		} else {
 			ImportResult::Continue
 		}
@@ -330,6 +413,10 @@ where
 	/// Produce next state request.
 	fn next_request(&self) -> StateRequest {
 		self.metadata.next_request()
+	}
+
+	fn take_target_import(&mut self) -> Option<IncomingBlock<B>> {
+		std::mem::take(&mut self.metadata.import_pending).then(|| self.metadata.target_block())
 	}
 
 	/// Check if the state is complete.
@@ -381,6 +468,10 @@ mod tests {
 		/// The range of every chunk written: its start and, unless it was the final chunk, its
 		/// end.
 		ranges: Mutex<Vec<(Vec<Vec<u8>>, Option<Vec<Vec<u8>>>)>>,
+		/// What `resumable_partial_state` reports.
+		resumable: Mutex<Option<ResumablePartialState<Block>>>,
+		/// Makes `resumable_partial_state` fail.
+		fail_resumable: AtomicBool,
 	}
 
 	impl StubClient {
@@ -396,6 +487,8 @@ mod tests {
 				begun: Mutex::new(None),
 				fail_begin: AtomicBool::new(false),
 				ranges: Mutex::new(Vec::new()),
+				resumable: Mutex::new(None),
+				fail_resumable: AtomicBool::new(false),
 			})
 		}
 
@@ -491,7 +584,10 @@ mod tests {
 		fn resumable_partial_state(
 			&self,
 		) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>> {
-			Ok(None)
+			if self.fail_resumable.load(Ordering::SeqCst) {
+				return Err(sp_blockchain::Error::Storage("injected read failure".into()));
+			}
+			Ok(self.resumable.lock().unwrap().clone())
 		}
 	}
 
@@ -511,6 +607,11 @@ mod tests {
 
 	fn target() -> PartialStateTarget<Block> {
 		PartialStateTarget { header: header(), body: None, justifications: None }
+	}
+
+	/// The record of an earlier run's attempt on the target, left at `cursor`.
+	fn resumable(cursor: Vec<Vec<u8>>, complete: bool) -> ResumablePartialState<Block> {
+		ResumablePartialState { target: target(), cursor, complete }
 	}
 
 	/// A level of the range read that yielded no key.
@@ -559,11 +660,10 @@ mod tests {
 	}
 
 	#[test]
-	fn third_consecutive_failed_write_aborts() {
-		let client = StubClient::new(one_key_in_the_top_trie(), 1, 3);
+	fn second_consecutive_failed_write_aborts() {
+		let client = StubClient::new(one_key_in_the_top_trie(), 1, 2);
 		let mut sync = state_sync(client.clone());
 
-		assert!(matches!(sync.import(response()), ImportResult::Continue));
 		assert!(matches!(sync.import(response()), ImportResult::Continue));
 		assert!(matches!(sync.import(response()), ImportResult::Abort));
 		assert!(sync.next_request().start.is_empty());
@@ -577,10 +677,16 @@ mod tests {
 		let mut sync = state_sync(client.clone());
 
 		match sync.import(response()) {
-			ImportResult::Import(hash, _, _, _) => assert_eq!(hash, header().hash()),
+			ImportResult::Import(block) => {
+				assert_eq!(block.hash, header().hash());
+				assert_eq!(block.header, Some(header()));
+				assert!(block.state.is_some() && block.import_existing && block.skip_execution);
+				assert!(block.allow_missing_state);
+			},
 			_ => panic!("expected the target block import"),
 		}
 		assert!(sync.is_complete());
+		assert!(sync.take_target_import().is_none(), "the import went with the final chunk");
 		assert_eq!(client.writes(), 1);
 	}
 
@@ -589,9 +695,9 @@ mod tests {
 	#[test]
 	fn last_chunk_carries_no_range_end() {
 		let client = StubClient::new(vec![], 0, 0);
-		let mut sync = StateSync::resume(client.clone(), target(), vec![vec![0x80]]);
+		let mut sync = StateSync::resume(client.clone(), resumable(vec![vec![0x80]], false));
 
-		assert!(matches!(sync.import(response()), ImportResult::Import(_, _, _, _)));
+		assert!(matches!(sync.import(response()), ImportResult::Import(_)));
 		assert_eq!(*client.ranges.lock().unwrap(), vec![(vec![vec![0x80]], None)]);
 	}
 
@@ -602,7 +708,7 @@ mod tests {
 
 		assert!(matches!(sync.import(response()), ImportResult::Continue));
 		assert!(!sync.is_complete());
-		assert!(matches!(sync.import(response()), ImportResult::Import(_, _, _, _)));
+		assert!(matches!(sync.import(response()), ImportResult::Import(_)));
 		assert!(sync.is_complete());
 		assert_eq!(client.writes(), 1);
 	}
@@ -616,7 +722,9 @@ mod tests {
 		assert!(sync.next_request().start.is_empty());
 
 		let cursor = vec![vec![0x80], vec![0x01]];
-		let sync = StateSync::resume(client.clone(), begun, cursor.clone());
+		let record =
+			ResumablePartialState { target: begun, cursor: cursor.clone(), complete: false };
+		let sync = StateSync::resume(client.clone(), record);
 		assert!(client.begun.lock().unwrap().is_none(), "nothing is recorded again");
 		assert_eq!(sync.next_request().start, cursor);
 		assert_eq!(sync.target_hash(), header().hash());
@@ -679,7 +787,8 @@ mod tests {
 	#[test]
 	fn leaving_a_child_trie_without_keys_is_progress() {
 		let client = StubClient::new(vec![level_without_keys()], 1, 0);
-		let mut sync = StateSync::resume(client.clone(), target(), vec![vec![0x80], vec![0x01]]);
+		let mut sync =
+			StateSync::resume(client.clone(), resumable(vec![vec![0x80], vec![0x01]], false));
 
 		assert!(matches!(sync.import(response()), ImportResult::Continue));
 		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
@@ -693,5 +802,84 @@ mod tests {
 		assert!(is_resumable::<Block>(100, 100 + distance));
 		assert!(!is_resumable::<Block>(100, 101 + distance));
 		assert!(!is_resumable::<Block>(101, 100));
+	}
+
+	/// A download that completed in an earlier run has only the target import left: it is yielded
+	/// once, and no range is requested or written.
+	#[test]
+	fn resumed_complete_attempt_yields_the_target_import_once() {
+		let client = StubClient::new(vec![], 0, 0);
+		let mut sync = StateSync::resume(client.clone(), resumable(vec![vec![0x80]], true));
+
+		assert!(sync.is_complete());
+		assert_eq!(sync.progress().phase, StateSyncPhase::ImportingState);
+		let block = sync.take_target_import().expect("the import is pending");
+		assert_eq!(block.hash, header().hash());
+		assert!(block.state.is_some() && block.allow_missing_state && block.import_existing);
+		assert!(block.skip_execution);
+		assert!(sync.take_target_import().is_none(), "yielded once");
+		assert_eq!(client.writes(), 0);
+	}
+
+	/// A late answer to the final request changes nothing: it is neither written again nor
+	/// counted as a failure.
+	#[test]
+	fn response_after_completion_is_ignored() {
+		let client = StubClient::new(vec![], 0, 0);
+		let mut sync = state_sync(client.clone());
+
+		assert!(matches!(sync.import(response()), ImportResult::Import(_)));
+		assert!(matches!(sync.import(response()), ImportResult::Continue));
+		assert_eq!(client.writes(), 1);
+		assert_eq!(sync.metadata.write_failures, 0);
+		assert!(sync.is_complete());
+	}
+
+	#[test]
+	fn resumed_download_yields_no_import() {
+		let client = StubClient::new(vec![], 1, 0);
+		let mut sync = StateSync::resume(client.clone(), resumable(vec![vec![0x80]], false));
+
+		assert!(sync.take_target_import().is_none());
+		assert!(!sync.is_complete());
+		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
+	}
+
+	#[test]
+	fn resumable_state_sync_follows_the_distance_and_the_proof_rules() {
+		let distance = MAX_RESUME_DISTANCE as u64;
+		let client = StubClient::new(vec![], 1, 0);
+		let target_at = |number| {
+			let header = Header::new(
+				number,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			);
+			PartialStateTarget { header, body: None, justifications: None }
+		};
+		let record =
+			|complete| ResumablePartialState { target: target_at(100), cursor: vec![], complete };
+
+		assert!(resumable_state_sync(&*client, 100, None).is_none(), "nothing recorded");
+
+		*client.resumable.lock().unwrap() = Some(record(false));
+		assert!(resumable_state_sync(&*client, 100, None).is_some());
+		assert!(resumable_state_sync(&*client, 100 + distance, None).is_some());
+		assert!(resumable_state_sync(&*client, 101 + distance, None).is_none(), "too old");
+		assert!(resumable_state_sync(&*client, 99, None).is_none(), "ahead of the head");
+		assert!(resumable_state_sync(&*client, 100, Some(99)).is_some(), "proof below");
+		assert!(resumable_state_sync(&*client, 100, Some(100)).is_none(), "proof at the target");
+		assert!(resumable_state_sync(&*client, 100, Some(101)).is_none(), "proof above");
+
+		*client.resumable.lock().unwrap() = Some(record(true));
+		assert!(
+			resumable_state_sync(&*client, 100, None).is_some_and(|record| record.complete),
+			"a complete record passes through"
+		);
+
+		client.fail_resumable.store(true, Ordering::SeqCst);
+		assert!(resumable_state_sync(&*client, 100, None).is_none(), "read error");
 	}
 }

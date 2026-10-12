@@ -33,7 +33,7 @@ use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, trace};
 use prost::Message;
 use sc_client_api::{PartialStateImport, ProofProvider};
-use sc_consensus::{BlockImportError, BlockImportStatus, ImportedState, IncomingBlock};
+use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::BlockAnnounce;
 use sc_network_types::PeerId;
@@ -196,29 +196,14 @@ impl<B: BlockT> StateStrategy<B> {
 
 		debug!(
 			target: LOG_TARGET,
-			"Importing state data from {} with {} keys, {} proof nodes.",
+			"Importing state data from {}, {} bytes of proof.",
 			peer_id,
-			response.entries.len(),
 			response.proof.len(),
 		);
 
 		match self.state_sync.import(response) {
-			ImportResult::Import(hash, header, body, justifications) => {
-				let origin = BlockOrigin::NetworkInitialSync;
-				let block = IncomingBlock {
-					hash,
-					header: Some(header),
-					body,
-					indexed_body: None,
-					justifications,
-					origin: None,
-					allow_missing_state: true,
-					import_existing: true,
-					skip_execution: true,
-					state: Some(ImportedState),
-				};
-				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
-				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
+			ImportResult::Import(block) => {
+				self.queue_target_import(block);
 				Ok(())
 			},
 			ImportResult::Continue => Ok(()),
@@ -276,6 +261,16 @@ impl<B: BlockT> StateStrategy<B> {
 			self.succeeded |= results.into_iter().any(|result| result.is_ok());
 			self.actions.push(SyncingAction::Finished);
 		}
+	}
+
+	/// Queue the import of the target block: every chunk of its state is in the database, and the
+	/// block import checks that the state is complete and marks it present.
+	fn queue_target_import(&mut self, block: IncomingBlock<B>) {
+		debug!(target: LOG_TARGET, "State download is complete. Import is queued");
+		self.actions.push(SyncingAction::ImportBlocks {
+			origin: BlockOrigin::NetworkInitialSync,
+			blocks: vec![block],
+		});
 	}
 
 	/// Produce state request.
@@ -358,6 +353,11 @@ impl<B: BlockT> StateStrategy<B> {
 		&mut self,
 		network_service: &NetworkServiceHandle,
 	) -> impl Iterator<Item = SyncingAction<B>> {
+		// A download completed by an earlier run has only the import left.
+		if let Some(block) = self.state_sync.take_target_import() {
+			self.queue_target_import(block);
+		}
+
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
 			let (tx, rx) = oneshot::channel();
 
@@ -402,6 +402,7 @@ mod test {
 	};
 	use codec::Decode;
 	use sc_block_builder::BlockBuilderBuilder;
+	use sc_client_api::partial_state::{PartialStateTarget, ResumablePartialState};
 	use sc_consensus::{ImportedAux, ImportedState};
 	use sp_core::H256;
 	use sp_runtime::traits::Zero;
@@ -416,6 +417,7 @@ mod test {
 		impl<B: BlockT> StateSyncProvider<B> for StateSync<B> {
 			fn import(&mut self, response: StateResponse) -> ImportResult<B>;
 			fn next_request(&self) -> StateRequest;
+			fn take_target_import(&mut self) -> Option<IncomingBlock<B>>;
 			fn is_complete(&self) -> bool;
 			fn target_number(&self) -> NumberFor<B>;
 			fn target_hash(&self) -> B::Hash;
@@ -703,6 +705,7 @@ mod test {
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		// Sync provider gave up on the target.
 		state_sync_provider.expect_import().return_once(|_| ImportResult::Abort);
+		state_sync_provider.expect_take_target_import().returning(|| None);
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
 		let mut state_strategy = StateStrategy::new_with_provider(
@@ -741,12 +744,6 @@ mod test {
 		let body = Some(block.extrinsics().iter().cloned().collect::<Vec<_>>());
 		let justifications = Some(Justifications::from((*b"FRNK", Vec::new())));
 
-		// Prepare `StateSync`
-		let mut state_sync_provider = MockStateSync::<Block>::new();
-		let import =
-			ImportResult::Import(hash, header.clone(), body.clone(), justifications.clone());
-		state_sync_provider.expect_import().return_once(move |_| import);
-
 		// Reference values to check against.
 		let expected_origin = BlockOrigin::NetworkInitialSync;
 		let expected_block = IncomingBlock {
@@ -761,6 +758,12 @@ mod test {
 			skip_execution: true,
 			state: Some(ImportedState),
 		};
+
+		// Prepare `StateSync`
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		let import = ImportResult::Import(expected_block.clone());
+		state_sync_provider.expect_import().return_once(move |_| import);
+
 		let expected_blocks = vec![expected_block];
 
 		// Prepare `StateStrategy`.
@@ -784,6 +787,90 @@ mod test {
 			SyncingAction::ImportBlocks { origin, blocks }
 				if *origin == expected_origin && *blocks == expected_blocks,
 		));
+	}
+
+	/// The record of an earlier run whose download completed: the strategy queues the target
+	/// import at once, sends no request, and finishes when the import succeeds.
+	#[test]
+	fn resumed_complete_attempt_imports_the_target_without_a_request() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let target_header = target_block.header().clone();
+		let target_hash = target_header.hash();
+		let resumable = ResumablePartialState {
+			target: PartialStateTarget { header: target_header, body: None, justifications: None },
+			cursor: vec![vec![0x80]],
+			complete: true,
+		};
+		let initial_peers = std::iter::once((PeerId::random(), 10));
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(StateSync::resume(client, resumable)),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
+
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
+		let actions = state_strategy.actions(&network_handle).collect::<Vec<_>>();
+		assert!(matches!(
+			actions.as_slice(),
+			[SyncingAction::ImportBlocks { blocks, .. }]
+				if blocks.len() == 1 && blocks[0].hash == target_hash && blocks[0].state.is_some()
+		));
+		assert_eq!(state_strategy.actions(&network_handle).count(), 0, "no request, one import");
+
+		state_strategy.on_blocks_processed(
+			1,
+			1,
+			vec![(
+				Ok(BlockImportStatus::ImportedUnknown(1, ImportedAux::default(), None)),
+				target_hash,
+			)],
+		);
+		let actions = state_strategy.actions(&network_handle).collect::<Vec<_>>();
+		assert!(matches!(actions.as_slice(), [SyncingAction::Finished]));
+		assert!(state_strategy.is_succeeded());
+	}
+
+	/// The record of an earlier run whose download stopped at a cursor: the next request starts
+	/// there and no import is queued.
+	#[test]
+	fn resumed_download_requests_from_the_cursor() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let resumable = ResumablePartialState {
+			target: PartialStateTarget {
+				header: target_block.header().clone(),
+				body: None,
+				justifications: None,
+			},
+			cursor: vec![vec![0x80]],
+			complete: false,
+		};
+		let initial_peers = std::iter::once((PeerId::random(), 10));
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(StateSync::resume(client, resumable)),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
+
+		assert!(state_strategy.state_sync.take_target_import().is_none());
+		let (_, request) = state_strategy.state_request().expect("a request from the cursor");
+		assert_eq!(request.start, vec![vec![0x80]]);
 	}
 
 	#[test]
@@ -873,6 +960,7 @@ mod test {
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		state_sync_provider.expect_target_hash().return_const(target_hash);
 		state_sync_provider.expect_is_complete().return_const(true);
+		state_sync_provider.expect_take_target_import().returning(|| None);
 
 		// Get enough peers for possible spurious requests.
 		let initial_peers = (1..=10).map(|best_number| (PeerId::random(), best_number));

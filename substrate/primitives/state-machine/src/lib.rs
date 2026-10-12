@@ -1611,8 +1611,7 @@ mod tests {
 	}
 	fn prove_read_and_proof_check_works_inner(state_version: StateVersion) {
 		let child_info = ChildInfo::new_default(b"sub1");
-		let missing_child_info = ChildInfo::new_default(b"sub1sub2"); // key will include other child root
-																// to proof.
+		let missing_child_info = ChildInfo::new_default(b"sub1sub2"); // key will include other child root to proof.
 		let child_info = &child_info;
 		let missing_child_info = &missing_child_info;
 		// fetch read proof from 'remote' full node

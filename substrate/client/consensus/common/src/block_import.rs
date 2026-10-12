@@ -129,12 +129,12 @@ pub enum StorageChanges<Block: BlockT> {
 
 /// Marker for a block whose state was written to the database by state sync, one verified chunk
 /// at a time, before the block itself is imported. Importing the block executes nothing and
-/// computes no state: it checks that the state is complete and marks it as available.
+/// computes no state: the client checks that the state is complete and marks it as available,
+/// and GRANDPA rebuilds its authority set from it.
 ///
-/// NOTE: this was used to carry the downloaded key-values, which the import turned into a trie in
-/// memory. That path went away with `--sync fast-unsafe`. The marker keeps the shape of
-/// certain public api. Once the `fast-unsafe` deprecation period is over,
-/// this marker should be removed.
+/// NOTE: this used to carry the downloaded key-values, which the import turned into a trie in
+/// memory; that path went away with the in-memory state download. The marker keeps the shape of
+/// `StorageChanges` and `IncomingBlock`, which still tell a state-synced block apart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ImportedState;
 

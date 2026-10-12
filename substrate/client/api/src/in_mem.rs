@@ -53,6 +53,13 @@ struct PendingBlock<B: BlockT> {
 	register_as_leaf: bool,
 }
 
+/// A state sync attempt: its record and the nodes its chunks wrote, in a store of their own.
+/// `state_at` cannot reach them until the target block commits with the state complete.
+struct PartialStateAttempt<Block: BlockT> {
+	record: ResumablePartialState<Block>,
+	nodes: PrefixedMemoryDB<HashingFor<Block>>,
+}
+
 #[derive(PartialEq, Eq, Clone)]
 enum StoredBlock<B: BlockT> {
 	Header(B::Header, Option<Justifications>),
@@ -477,6 +484,10 @@ pub struct BlockImportOperation<Block: BlockT> {
 	pending_block: Option<PendingBlock<Block>>,
 	old_state: InMemoryBackend<HashingFor<Block>>,
 	new_state: Option<BackendTransaction<HashingFor<Block>>>,
+	/// The state a completed state sync delivered for the pending block, set by
+	/// `Backend::complete_partial_state`; `commit_operation` installs it as the block's state
+	/// instead of deriving one from `old_state` and `new_state`.
+	synced_state: Option<InMemoryBackend<HashingFor<Block>>>,
 	aux: Vec<(Vec<u8>, Option<Vec<u8>>)>,
 	finalized_blocks: Vec<(Block::Hash, Option<Justification>)>,
 	set_head: Option<Block::Hash>,
@@ -614,13 +625,13 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 /// > **Warning**: Doesn't support all the features necessary for a proper database. Only use this
 /// > struct for testing purposes. Do **NOT** use in production.
 pub struct Backend<Block: BlockT> {
-	state_db: RwLock<PrefixedMemoryDB<HashingFor<Block>>>,
+	states: RwLock<HashMap<Block::Hash, InMemoryBackend<HashingFor<Block>>>>,
 	blockchain: Blockchain<Block>,
 	import_lock: RwLock<()>,
 	pinned_blocks: RwLock<HashMap<Block::Hash, i64>>,
-	/// The state sync attempt begun and not completed, with its cursor. The node store is shared
-	/// by every block, so the nodes of an attempt that is begun over stay where they are.
-	partial_state: RwLock<Option<ResumablePartialState<Block>>>,
+	/// The state sync attempt begun and not completed: its record and its nodes, kept apart from
+	/// the states of the blocks until the target block commits with the state complete.
+	partial_state: RwLock<Option<PartialStateAttempt<Block>>>,
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -631,11 +642,11 @@ impl<Block: BlockT> Backend<Block> {
 	/// For testing purposes only!
 	pub fn new() -> Self {
 		Backend {
-			state_db: RwLock::new(Default::default()),
+			states: RwLock::new(HashMap::new()),
 			blockchain: Blockchain::new(),
 			import_lock: Default::default(),
 			pinned_blocks: Default::default(),
-			partial_state: Default::default(),
+			partial_state: RwLock::new(None),
 		}
 	}
 
@@ -682,6 +693,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 			pending_block: None,
 			old_state,
 			new_state: None,
+			synced_state: None,
 			aux: Default::default(),
 			finalized_blocks: Default::default(),
 			set_head: None,
@@ -705,13 +717,36 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		}
 
 		if let Some(pending_block) = operation.pending_block {
+			let old_state = &operation.old_state;
 			let (header, body, justification) = pending_block.block.into_inner();
 
 			let hash = header.hash();
 
-			if let Some(new_state) = operation.new_state {
-				self.state_db.write().consolidate(new_state);
+			let synced = operation.synced_state.is_some();
+			let changes_storage = operation.new_state.is_some();
+			let new_state = match (operation.synced_state, operation.new_state) {
+				// A completed state sync: the attempt's nodes are the block's whole state.
+				(Some(state), _) => state,
+				(None, Some(state)) => old_state.update_backend(*header.state_root(), state),
+				(None, None) => old_state.clone(),
+			};
+
+			if synced {
+				// The state-synced block completes the recorded attempt, and no other.
+				let recorded = self
+					.partial_state
+					.read()
+					.as_ref()
+					.map(|attempt| attempt.record.target.header.hash());
+				if let Some(recorded) = recorded.filter(|recorded| *recorded != hash) {
+					return Err(sp_blockchain::Error::Backend(format!(
+						"Block {hash:?} imports with a synced state while the recorded state \
+						 sync targets {recorded:?}"
+					)));
+				}
 			}
+
+			self.states.write().insert(hash, new_state);
 
 			self.blockchain.insert(
 				hash,
@@ -721,6 +756,12 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 				pending_block.state,
 				pending_block.register_as_leaf,
 			)?;
+
+			if synced || changes_storage {
+				// The state-synced block is in, so the attempt is complete; and a block state
+				// committed by other means abandons a recorded attempt, as the database does.
+				*self.partial_state.write() = None;
+			}
 		}
 
 		if !operation.aux.is_empty() {
@@ -771,12 +812,11 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 			return Ok(Self::State::default());
 		}
 
-		let header = self
-			.blockchain
-			.header(hash)?
-			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{hash}")))?;
-
-		Ok(TrieBackendBuilder::new(self.state_db.read().clone(), *header.state_root()).build())
+		self.states
+			.read()
+			.get(&hash)
+			.cloned()
+			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{hash}")))
 	}
 
 	fn revert(
@@ -800,8 +840,11 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 	}
 
 	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()> {
-		*self.partial_state.write() =
-			Some(ResumablePartialState { target, cursor: Vec::new(), complete: false });
+		// Replacing the attempt drops the nodes of an earlier one: that is its discard.
+		*self.partial_state.write() = Some(PartialStateAttempt {
+			record: ResumablePartialState { target, cursor: Vec::new(), complete: false },
+			nodes: PrefixedMemoryDB::default(),
+		});
 		Ok(())
 	}
 
@@ -809,27 +852,46 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		&self,
 		partial_state: PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()> {
-		let mut attempt = self.partial_state.write();
-		let Some(attempt) = attempt
-			.as_mut()
-			.filter(|attempt| attempt.target.header.hash() == partial_state.block_hash)
-		else {
-			return Err(sp_blockchain::Error::Storage(format!(
-				"state chunk of {:?} does not belong to the recorded state sync target",
-				partial_state.block_hash,
-			)));
+		let block_hash = partial_state.block_hash;
+		let refused = |what: String| {
+			sp_blockchain::Error::Storage(format!("state chunk of {block_hash:?} {what}"))
 		};
-		// The node store doubles as the storage a copied child trie is read from.
-		let nodes =
-			chunk_nodes(&partial_state, |hash, prefix| self.state_db.read().get(hash, prefix))
-				.map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
-		let mut state_db = self.state_db.write();
+		let mut guard = self.partial_state.write();
+		let Some(attempt) = guard.as_mut() else {
+			return Err(refused("arrives while no state sync is recorded".into()));
+		};
+		let target = &attempt.record.target.header;
+		if target.hash() != block_hash {
+			return Err(refused(format!(
+				"does not belong to the recorded state sync target {:?}",
+				target.hash()
+			)));
+		}
+		if *target.state_root() != partial_state.state_root {
+			return Err(refused(format!(
+				"is for state root {:?} while the recorded target's is {:?}",
+				partial_state.state_root,
+				target.state_root()
+			)));
+		}
+		if attempt.record.complete {
+			return Err(refused("arrives after the final chunk: the download is complete".into()));
+		}
+		if attempt.record.cursor != partial_state.start {
+			return Err(refused(format!(
+				"starts at {:?} while the recorded cursor is {:?}",
+				partial_state.start, attempt.record.cursor
+			)));
+		}
+		// A copied child trie is read from what the earlier chunks of this attempt wrote.
+		let nodes = chunk_nodes(&partial_state, |hash, prefix| attempt.nodes.get(hash, prefix))
+			.map_err(|e| refused(format!("does not decode: {e}")))?;
 		for node in nodes {
-			state_db.emplace(node.hash, node.prefix.as_prefix(), node.encoded);
+			attempt.nodes.emplace(node.hash, node.prefix.as_prefix(), node.encoded);
 		}
 		match partial_state.end {
-			Some(end) => attempt.cursor = end,
-			None => attempt.complete = true,
+			Some(end) => attempt.record.cursor = end,
+			None => attempt.record.complete = true,
 		}
 		Ok(())
 	}
@@ -837,19 +899,46 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 	fn resumable_partial_state(
 		&self,
 	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>> {
-		Ok(self.partial_state.read().clone())
+		Ok(self.partial_state.read().as_ref().map(|attempt| attempt.record.clone()))
 	}
 
 	fn complete_partial_state(
 		&self,
-		_operation: &mut Self::BlockImportOperation,
+		operation: &mut Self::BlockImportOperation,
 		state_root: Block::Hash,
 	) -> sp_blockchain::Result<()> {
-		let state = TrieBackendBuilder::new(self.state_db.read().clone(), state_root).build();
-		let result = crate::partial_state::check_state_complete(state);
-		// Complete or not, the attempt is over. Its nodes stay: the store is shared.
-		*self.partial_state.write() = None;
-		result
+		let mut guard = self.partial_state.write();
+		let checked = match guard.as_ref() {
+			None => {
+				return Err(sp_blockchain::Error::Backend(format!(
+					"State root {state_root:?} cannot complete a state sync: none is recorded"
+				)))
+			},
+			Some(attempt) if *attempt.record.target.header.state_root() != state_root => {
+				return Err(sp_blockchain::Error::Backend(format!(
+					"State root {state_root:?} cannot complete the state sync: the recorded \
+					 target {:?} has state root {:?}",
+					attempt.record.target.header.hash(),
+					attempt.record.target.header.state_root()
+				)))
+			},
+			// Checked through the borrowed store; the operation gets a copy of its own.
+			Some(attempt) => crate::partial_state::check_state_complete::<HashingFor<Block>, _>(
+				TrieBackendBuilder::new(&attempt.nodes, state_root).build(),
+			)
+			.map(|()| attempt.nodes.clone()),
+		};
+		match checked {
+			Ok(nodes) => {
+				operation.synced_state = Some(TrieBackendBuilder::new(nodes, state_root).build());
+				Ok(())
+			},
+			Err(e) => {
+				// Every chunk was written, yet a node is missing: the attempt cannot complete.
+				*guard = None;
+				Err(e)
+			},
+		}
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> blockchain::Result<()> {
@@ -888,14 +977,15 @@ mod tests {
 	use crate::{
 		backend::{Backend as ScClientApiBackend, BlockImportOperation},
 		in_mem::{BlockT, Blockchain},
+		partial_state::{PartialStateTarget, ResumablePartialState},
 		NewBlockState, TrieCacheContext,
 	};
 	use sp_blockchain::Backend;
 	use sp_runtime::{
 		traits::{HashingFor, Header as HeaderT},
-		ConsensusEngineId, Justifications,
+		ConsensusEngineId, Justifications, StateVersion, Storage,
 	};
-	use sp_state_machine::Backend as SpStateMachineBackend;
+	use sp_state_machine::{Backend as SpStateMachineBackend, InMemoryBackend};
 	use sp_trie::{partial_state::PartialState, LayoutV0, MemoryDB, TrieDBMutBuilder, TrieMut};
 	use substrate_test_runtime::{Block, Header, H256};
 
@@ -963,24 +1053,22 @@ mod tests {
 		));
 	}
 
-	#[test]
-	fn import_partial_state() {
-		let expected_key_values =
-			vec![(vec![0u8; 40], vec![0u8; 1]), (vec![1u8; 40], vec![1u8; 1])];
-
-		let mut partial_state = MemoryDB::default();
+	/// The nodes of a state holding `key_values`, keyed by hash as a chunk carries them, with a
+	/// header at that state root.
+	fn partial_state_chunk(
+		key_values: &[(Vec<u8>, Vec<u8>)],
+	) -> (MemoryDB<HashingFor<Block>>, Header) {
+		let mut nodes = MemoryDB::default();
 		let mut state_root: <Block as BlockT>::Hash = Default::default();
-		let mut trie = TrieDBMutBuilder::<LayoutV0<HashingFor<Block>>>::new(
-			&mut partial_state,
-			&mut state_root,
-		)
-		.build();
-		for (k, v) in &expected_key_values {
-			trie.insert(k, v).unwrap();
+		{
+			let mut trie =
+				TrieDBMutBuilder::<LayoutV0<HashingFor<Block>>>::new(&mut nodes, &mut state_root)
+					.build();
+			for (k, v) in key_values {
+				trie.insert(k, v).expect("an in-memory trie accepts every key");
+			}
+			trie.commit();
 		}
-		trie.commit();
-		drop(trie);
-
 		let header = Header {
 			number: 1,
 			parent_hash: Default::default(),
@@ -988,41 +1076,239 @@ mod tests {
 			digest: Default::default(),
 			extrinsics_root: Default::default(),
 		};
-		let backend = super::Backend::<Block>::new();
-		backend
-			.begin_partial_state(crate::partial_state::PartialStateTarget {
-				header: header.clone(),
-				body: None,
-				justifications: None,
-			})
-			.unwrap();
-		backend
-			.import_partial_state(PartialState {
-				block_hash: header.hash(),
-				block_number: header.number,
-				state_root: header.state_root,
-				nodes: partial_state,
-				start: vec![],
-				end: None,
-				child_trie_copies: vec![],
-			})
-			.unwrap();
-		let resumable = backend.resumable_partial_state().unwrap().expect("recorded");
-		assert!(resumable.complete, "the only chunk had no range end");
+		(nodes, header)
+	}
 
-		let mut op = backend.begin_operation().unwrap();
-		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)
-			.unwrap();
-		backend.complete_partial_state(&mut op, header.state_root).unwrap();
-		backend.commit_operation(op).unwrap();
+	fn target(header: &Header) -> PartialStateTarget<Block> {
+		PartialStateTarget { header: header.clone(), body: None, justifications: None }
+	}
 
-		let key_values: Vec<_> = backend
-			.state_at(header.hash(), TrieCacheContext::Untrusted)
-			.unwrap()
+	/// A chunk of the whole state of `header`: from the start, no range end, no copies.
+	fn chunk(
+		header: &Header,
+		nodes: MemoryDB<HashingFor<Block>>,
+	) -> PartialState<HashingFor<Block>> {
+		PartialState {
+			block_hash: header.hash(),
+			state_root: header.state_root,
+			nodes,
+			start: vec![],
+			end: None,
+			child_trie_copies: vec![],
+		}
+	}
+
+	fn storage_err(e: impl ToString) -> sp_blockchain::Error {
+		sp_blockchain::Error::Storage(e.to_string())
+	}
+
+	fn pairs_of(
+		state: &InMemoryBackend<HashingFor<Block>>,
+	) -> sp_blockchain::Result<Vec<(Vec<u8>, Vec<u8>)>> {
+		state
 			.pairs(Default::default())
-			.unwrap()
-			.map(Result::unwrap)
-			.collect();
-		assert_eq!(key_values, expected_key_values);
+			.map_err(storage_err)?
+			.map(|kv| kv.map_err(storage_err))
+			.collect()
+	}
+
+	#[test]
+	fn import_partial_state() -> sp_blockchain::Result<()> {
+		let expected_key_values =
+			vec![(vec![0u8; 40], vec![0u8; 1]), (vec![1u8; 40], vec![1u8; 1])];
+		let (nodes, header) = partial_state_chunk(&expected_key_values);
+		let backend = super::Backend::<Block>::new();
+		backend.begin_partial_state(target(&header))?;
+		backend.import_partial_state(chunk(&header, nodes))?;
+		assert_eq!(
+			backend.resumable_partial_state()?,
+			Some(ResumablePartialState { target: target(&header), cursor: vec![], complete: true }),
+			"the only chunk had no range end"
+		);
+		assert!(
+			matches!(
+				backend.state_at(header.hash(), TrieCacheContext::Untrusted),
+				Err(sp_blockchain::Error::UnknownBlock(_))
+			),
+			"the state is not visible before the block imports"
+		);
+
+		let mut op = backend.begin_operation()?;
+		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)?;
+		backend.complete_partial_state(&mut op, header.state_root)?;
+		backend.commit_operation(op)?;
+
+		let state = backend.state_at(header.hash(), TrieCacheContext::Untrusted)?;
+		assert_eq!(pairs_of(&state)?, expected_key_values);
+		assert_eq!(backend.resumable_partial_state()?, None, "completion forgets the attempt");
+		Ok(())
+	}
+
+	/// Every block keeps a state of its own: a child that changes a key leaves its parent's
+	/// state readable, which a store shared between blocks and their replaced nodes did not.
+	#[test]
+	fn parent_state_stays_readable_after_child_changes_storage() -> sp_blockchain::Result<()> {
+		let backend = super::Backend::<Block>::new();
+		let key = b"key".to_vec();
+
+		let mut op = backend.begin_operation()?;
+		let genesis_root = op.set_genesis_state(
+			Storage {
+				top: [(key.clone(), vec![1])].into_iter().collect(),
+				children_default: Default::default(),
+			},
+			true,
+			StateVersion::V1,
+		)?;
+		let genesis = Header {
+			number: 0,
+			parent_hash: Default::default(),
+			state_root: genesis_root,
+			digest: Default::default(),
+			extrinsics_root: Default::default(),
+		};
+		op.set_block_data(genesis.clone(), None, None, None, NewBlockState::Final, true)?;
+		backend.commit_operation(op)?;
+
+		let mut op = backend.begin_operation()?;
+		backend.begin_state_operation(&mut op, genesis.hash())?;
+		let (root, transaction) = op
+			.state()?
+			.ok_or_else(|| sp_blockchain::Error::Backend("the operation has no state".into()))?
+			.storage_root(std::iter::once((key.as_slice(), Some(&[2u8][..]))), StateVersion::V1);
+		op.update_db_storage(transaction)?;
+		let child = Header {
+			number: 1,
+			parent_hash: genesis.hash(),
+			state_root: root,
+			digest: Default::default(),
+			extrinsics_root: Default::default(),
+		};
+		op.set_block_data(child.clone(), None, None, None, NewBlockState::Best, true)?;
+		backend.commit_operation(op)?;
+
+		let read = |hash| -> sp_blockchain::Result<Option<Vec<u8>>> {
+			backend
+				.state_at(hash, TrieCacheContext::Untrusted)?
+				.storage(&key)
+				.map_err(storage_err)
+		};
+		assert_eq!(read(genesis.hash())?, Some(vec![1]));
+		assert_eq!(read(child.hash())?, Some(vec![2]));
+		Ok(())
+	}
+
+	#[test]
+	fn partial_state_stays_invisible_until_completed() -> sp_blockchain::Result<()> {
+		let key = vec![0u8; 40];
+		let (nodes, header) = partial_state_chunk(&[(key.clone(), vec![0u8; 1])]);
+		let backend = super::Backend::<Block>::new();
+		backend.begin_partial_state(target(&header))?;
+		backend.import_partial_state(chunk(&header, nodes))?;
+		assert!(matches!(
+			backend.state_at(header.hash(), TrieCacheContext::Untrusted),
+			Err(sp_blockchain::Error::UnknownBlock(_))
+		));
+
+		// The header alone, imported without the synced state, has none of the attempt's keys.
+		let mut op = backend.begin_operation()?;
+		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)?;
+		backend.commit_operation(op)?;
+		let state = backend.state_at(header.hash(), TrieCacheContext::Untrusted)?;
+		assert_eq!(state.storage(&key).map_err(storage_err)?, None);
+		assert!(
+			backend.resumable_partial_state()?.is_some_and(|record| record.complete),
+			"a header-only import keeps the attempt"
+		);
+		Ok(())
+	}
+
+	#[test]
+	fn begin_partial_state_discards_the_earlier_attempt() -> sp_blockchain::Result<()> {
+		let (nodes, first) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
+		let (_, second) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
+		let backend = super::Backend::<Block>::new();
+		backend.begin_partial_state(target(&first))?;
+		backend.import_partial_state(chunk(&first, nodes))?;
+		backend.begin_partial_state(target(&second))?;
+		assert_eq!(
+			backend.resumable_partial_state()?,
+			Some(ResumablePartialState {
+				target: target(&second),
+				cursor: vec![],
+				complete: false
+			})
+		);
+
+		// The first attempt's root is not the recorded one: refused, nothing is dropped.
+		let mut op = backend.begin_operation()?;
+		assert!(backend.complete_partial_state(&mut op, first.state_root).is_err());
+		assert!(backend.resumable_partial_state()?.is_some());
+		// The second attempt has no nodes: its walk fails, and that drops the attempt.
+		assert!(backend.complete_partial_state(&mut op, second.state_root).is_err());
+		assert_eq!(backend.resumable_partial_state()?, None);
+		Ok(())
+	}
+
+	#[test]
+	fn chunk_out_of_order_is_refused() -> sp_blockchain::Result<()> {
+		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
+		let (other_nodes, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
+		let backend = super::Backend::<Block>::new();
+		assert!(backend.import_partial_state(chunk(&header, nodes.clone())).is_err(), "no record");
+		backend.begin_partial_state(target(&header))?;
+		assert!(backend.import_partial_state(chunk(&other, other_nodes)).is_err(), "other block");
+		let mut ahead = chunk(&header, nodes.clone());
+		ahead.start = vec![vec![0x80]];
+		assert!(backend.import_partial_state(ahead).is_err(), "start is not the cursor");
+		let mut wrong_root = chunk(&header, nodes.clone());
+		wrong_root.state_root = other.state_root;
+		assert!(backend.import_partial_state(wrong_root).is_err(), "another state root");
+		assert_eq!(
+			backend.resumable_partial_state()?,
+			Some(ResumablePartialState {
+				target: target(&header),
+				cursor: vec![],
+				complete: false
+			}),
+			"a refused chunk changes nothing"
+		);
+		backend.import_partial_state(chunk(&header, nodes.clone()))?;
+		assert!(
+			backend.import_partial_state(chunk(&header, nodes)).is_err(),
+			"after the final chunk"
+		);
+		Ok(())
+	}
+
+	/// The attempt outlives a commit that fails after the completion check: the next operation
+	/// completes it again.
+	#[test]
+	fn completion_survives_a_failed_commit() -> sp_blockchain::Result<()> {
+		let expected = vec![(vec![0u8; 40], vec![0u8; 1])];
+		let (nodes, header) = partial_state_chunk(&expected);
+		// A parent nobody knows: the block cannot become best, so its commit fails.
+		let header = Header { parent_hash: H256::from_low_u64_be(7), ..header };
+		let backend = super::Backend::<Block>::new();
+		backend.begin_partial_state(target(&header))?;
+		backend.import_partial_state(chunk(&header, nodes))?;
+
+		let mut op = backend.begin_operation()?;
+		backend.complete_partial_state(&mut op, header.state_root)?;
+		op.set_block_data(header.clone(), None, None, None, NewBlockState::Best, true)?;
+		assert!(backend.commit_operation(op).is_err());
+		assert!(
+			backend.resumable_partial_state()?.is_some_and(|record| record.complete),
+			"the attempt survives the failed commit"
+		);
+
+		let mut op = backend.begin_operation()?;
+		backend.complete_partial_state(&mut op, header.state_root)?;
+		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)?;
+		backend.commit_operation(op)?;
+		let state = backend.state_at(header.hash(), TrieCacheContext::Untrusted)?;
+		assert_eq!(pairs_of(&state)?, expected);
+		assert_eq!(backend.resumable_partial_state()?, None);
+		Ok(())
 	}
 }

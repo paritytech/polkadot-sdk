@@ -205,7 +205,7 @@ pub struct WarpSyncResult<B: BlockT> {
 	pub target_justifications: Option<Justifications>,
 	/// The highest block of the warp proof handed to the import queue, if any: the last authority
 	/// set change below the target. Such headers are imported without state and are never
-	/// executed, so a state sync may not resume a target below one of them.
+	/// executed, so a state sync may not resume a target at or below one of them.
 	pub highest_proof_header: Option<NumberFor<B>>,
 }
 

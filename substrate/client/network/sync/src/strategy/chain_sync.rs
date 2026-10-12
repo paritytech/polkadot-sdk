@@ -36,7 +36,7 @@ use crate::{
 	service::network::NetworkServiceHandle,
 	strategy::{
 		disconnected_peers::DisconnectedPeers,
-		state_sync::{is_resumable, ImportResult, StateSync, StateSyncProvider},
+		state_sync::{resumable_state_sync, ImportResult, StateSync, StateSyncProvider},
 		warp::{WarpSyncPhase, WarpSyncProgress},
 		StrategyKey, SyncingAction, SyncingStrategy,
 	},
@@ -49,11 +49,8 @@ use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Counter, Gauge, PrometheusError, Registry, U64};
 use prost::Message;
-use sc_client_api::{
-	blockchain::BlockGap, partial_state::ResumablePartialState, BlockBackend, PartialStateImport,
-	ProofProvider,
-};
-use sc_consensus::{BlockImportError, BlockImportStatus, ImportedState, IncomingBlock};
+use sc_client_api::{blockchain::BlockGap, BlockBackend, PartialStateImport, ProofProvider};
+use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
@@ -2291,9 +2288,8 @@ where
 		let import_result = if let Some(sync) = &mut self.state_sync {
 			debug!(
 				target: LOG_TARGET,
-				"Importing state data from {} with {} keys, {} proof nodes.",
+				"Importing state data from {}, {} bytes of proof.",
 				peer_id,
-				response.entries.len(),
 				response.proof.len(),
 			);
 			sync.import(response)
@@ -2303,8 +2299,8 @@ where
 		};
 
 		match import_result {
-			ImportResult::Import(hash, header, body, justifications) => {
-				self.queue_state_import(hash, header, body, justifications);
+			ImportResult::Import(block) => {
+				self.queue_target_import(block);
 				Ok(())
 			},
 			ImportResult::Continue => Ok(()),
@@ -2324,88 +2320,35 @@ where
 		}
 	}
 
-	/// The state sync attempt an earlier run of this node recorded, if its target is close enough
-	/// behind the newly finalized block `finalized_number` to resume, see
-	/// [`crate::strategy::state_sync::MAX_RESUME_DISTANCE`]. Otherwise `None`: the attempt is
-	/// discarded when the new one begins.
-	fn resumable_state_sync(
-		&self,
-		finalized_number: NumberFor<B>,
-	) -> Option<ResumablePartialState<B>> {
-		let resumable = match self.client.resumable_partial_state() {
-			Ok(resumable) => resumable?,
-			Err(e) => {
-				warn!(target: LOG_TARGET, "Failed to read the record of an earlier state sync: {e}");
-				return None;
-			},
-		};
-		let stored = *resumable.target.header.number();
-		if !is_resumable::<B>(stored, finalized_number) {
-			info!(
-				target: LOG_TARGET,
-				"The state sync of #{stored} interrupted earlier is too old to resume behind \
-				 #{finalized_number}, starting over.",
-			);
-			return None;
-		}
-		info!(
-			target: LOG_TARGET,
-			"Resuming the state sync of #{stored} ({}) interrupted earlier.",
-			resumable.target.header.hash(),
-		);
-		Some(resumable)
-	}
-
 	/// Queue the import of the target block of a state sync whose every chunk is written: the
 	/// block import checks that the state is complete and marks it present.
-	fn queue_state_import(
-		&mut self,
-		hash: B::Hash,
-		header: B::Header,
-		body: Option<Vec<B::Extrinsic>>,
-		justifications: Option<Justifications>,
-	) {
-		let origin = BlockOrigin::NetworkInitialSync;
-		let block = IncomingBlock {
-			hash,
-			header: Some(header),
-			body,
-			indexed_body: None,
-			justifications,
-			origin: None,
-			allow_missing_state: true,
-			import_existing: true,
-			skip_execution: self.skip_execution(),
-			state: Some(ImportedState),
-		};
+	fn queue_target_import(&mut self, block: IncomingBlock<B>) {
 		debug!(target: LOG_TARGET, "State download is complete. Import is queued");
-		self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
+		self.actions.push(SyncingAction::ImportBlocks {
+			origin: BlockOrigin::NetworkInitialSync,
+			blocks: vec![block],
+		});
 	}
 
 	fn attempt_state_sync(&mut self, finalized_hash: B::Hash, finalized_number: NumberFor<B>) {
+		if self.client.info().finalized_state.is_some() {
+			// The state is there, from a state sync whose completion was not seen here or from
+			// an earlier run: a new download would write next to it. Sync the blocks instead.
+			warn!(
+				target: LOG_TARGET,
+				"The database already holds a finalized state, switching to full sync.",
+			);
+			self.mode = ChainSyncMode::Full;
+			self.restart();
+			return;
+		}
 		let mut heads: Vec<_> = self.peers.values().map(|peer| peer.best_number).collect();
 		heads.sort();
 		let median = heads[heads.len() / 2];
 		if finalized_number + STATE_SYNC_FINALITY_THRESHOLD.saturated_into() >= median {
 			if let Ok(Some(header)) = self.client.header(finalized_hash) {
-				let state_sync = match self.resumable_state_sync(finalized_number) {
-					Some(resumable) if resumable.complete => {
-						// Every chunk was written before the restart: only the import is left.
-						let target = resumable.target;
-						let hash = target.header.hash();
-						self.queue_state_import(
-							hash,
-							target.header,
-							target.body,
-							target.justifications,
-						);
-						return;
-					},
-					Some(resumable) => Ok(StateSync::resume(
-						self.client.clone(),
-						resumable.target,
-						resumable.cursor,
-					)),
+				let state_sync = match resumable_state_sync(&*self.client, finalized_number, None) {
+					Some(resumable) => Ok(StateSync::resume(self.client.clone(), resumable)),
 					None => {
 						log::debug!(
 							target: LOG_TARGET,
@@ -2415,7 +2358,12 @@ where
 					},
 				};
 				match state_sync {
-					Ok(state_sync) => {
+					Ok(mut state_sync) => {
+						// Every chunk was written before the restart: only the import is left,
+						// and the strategy waits for it like for the import of a final chunk.
+						if let Some(block) = state_sync.take_target_import() {
+							self.queue_target_import(block);
+						}
 						self.state_sync = Some(state_sync);
 						self.allowed_requests.set_all();
 					},

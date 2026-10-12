@@ -711,9 +711,9 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Record the target of a new state sync attempt, see
 	/// [`PartialStateImport::begin_partial_state`](crate::PartialStateImport::begin_partial_state).
-	/// A recorded attempt that was not completed is discarded first, records and nodes. An
-	/// attempt is only ever recorded while the database holds no block state; finding the two
-	/// together is an error.
+	/// A recorded attempt that was not completed is discarded first, records and nodes, and a
+	/// discard an earlier call left unfinished is finished first. Fails, recording nothing, when
+	/// the database holds block state: an attempt only ever runs on one that holds none.
 	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()>;
 
 	/// Inject partial state into the database, see
@@ -721,10 +721,13 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// State sync receives the nodes of one range proof per response and uses
 	/// `import_partial_state` to write those its range covers, together with the range end as the
 	/// cursor the download continues from. Once every chunk is written, the block import calls
-	/// `complete_partial_state`. The block hash identifies the state being synced and must be the
-	/// recorded target. Nothing about the download is kept in memory: the ranges of a download
+	/// `complete_partial_state`. A chunk is written only when its block hash and state root are
+	/// the recorded target's, its `start` is the recorded cursor and the final chunk was not
+	/// written yet; any other chunk is refused with nothing written: the ranges of a download
 	/// partition its keys, so each node is written once per position (a second write would break
-	/// reference counting), and a restart continues from the recorded cursor.
+	/// reference counting, and a range written over a hole would never complete). Nothing about
+	/// the download is kept in memory beyond the record: a restart continues from the recorded
+	/// cursor.
 	fn import_partial_state(
 		&self,
 		partial_state: PartialStateFor<Block>,
@@ -732,6 +735,7 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// The recorded state sync attempt that was not completed, see
 	/// [`PartialStateImport::resumable_partial_state`](crate::PartialStateImport::resumable_partial_state).
+	/// `None` when nothing is recorded, also while the discard of an earlier attempt is unfinished.
 	fn resumable_partial_state(
 		&self,
 	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>>;
@@ -740,8 +744,9 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// `state_root`, child tries included, then notes on `operation` that the block being imported
 	/// already has that state, so the import executes nothing and writes no storage changes.
 	///
-	/// Fails on the first missing node and leaves `operation` untouched; the attempt is then
-	/// discarded, since a state that did not complete once every chunk was written never will.
+	/// Fails without touching `operation` when `state_root` is not the recorded target's, and
+	/// nothing is discarded then. Fails on the first missing node otherwise, and the attempt is
+	/// then discarded, since a state that did not complete once every chunk was written never will.
 	fn complete_partial_state(
 		&self,
 		operation: &mut Self::BlockImportOperation,

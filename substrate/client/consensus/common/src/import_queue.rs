@@ -91,7 +91,8 @@ pub struct IncomingBlock<B: BlockT> {
 	pub skip_execution: bool,
 	/// Re-validate existing block.
 	pub import_existing: bool,
-	/// Do not compute new state, but rather set it to the given set.
+	/// Do not compute a new state: state sync wrote it to the database before the block, and the
+	/// import only checks that it is complete.
 	pub state: Option<ImportedState>,
 }
 
