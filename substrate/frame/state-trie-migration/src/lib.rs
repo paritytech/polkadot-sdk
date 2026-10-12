@@ -1442,6 +1442,9 @@ mod test {
 		let limit = MigrationLimits { item: 1, size: 1000 };
 		let initial_keys = Some(vec![(vec![], vec![66u8; 77])]);
 		let mut ext = new_test_ext(StateVersion::V0, false, initial_keys.clone(), None);
+		// Set the version to 1, as if the upgrade happened: the trie is laid out under `V0` at
+		// genesis, but the migration runs under the post-upgrade `V1` semantics.
+		ext.state_version = StateVersion::V1;
 
 		let root_upgraded = ext.execute_with(|| {
 			AutoLimits::<Test>::put(Some(limit));
@@ -1466,6 +1469,9 @@ mod test {
 		let limit = MigrationLimits { item: 1, size: 1000 };
 		let initial_child = Some(vec![(b"chk1".to_vec(), vec![], vec![66u8; 77])]);
 		let mut ext = new_test_ext(StateVersion::V0, false, None, initial_child.clone());
+		// Set the version to 1, as if the upgrade happened: the trie is laid out under `V0` at
+		// genesis, but the migration runs under the post-upgrade `V1` semantics.
+		ext.state_version = StateVersion::V1;
 
 		let root_upgraded = ext.execute_with(|| {
 			AutoLimits::<Test>::put(Some(limit));
@@ -1489,6 +1495,9 @@ mod test {
 	fn auto_migrate_works() {
 		let run_with_limits = |limit, from, until| {
 			let mut ext = new_test_ext(StateVersion::V0, false, None, None);
+			// Set the version to 1, as if the upgrade happened: the trie is laid out under `V0`
+			// at genesis, but the migration runs under the post-upgrade `V1` semantics.
+			ext.state_version = StateVersion::V1;
 			let root_upgraded = ext.execute_with(|| {
 				assert_eq!(AutoLimits::<Test>::get(), None);
 				assert_eq!(MigrationProcess::<Test>::get(), Default::default());
