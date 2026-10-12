@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791800613606,
+  "lastUpdate": 1791806428369,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ba06ae6f41de22a7f376b2ed9453d49434bc0bcf",
-          "message": "Bags-list on_idle: per-item weight consumption via WeightMeter (#11594)\n\nThe benchmark failed depending on `MaxAutoRebagPerBlock` (e.g. it passes\nwith 10 as configured in Westend, Polkadot and Kusama AH runtime but it\nfailed with 5, as it was configured before, see [runtime\nPR](https://github.com/polkadot-fellows/runtimes/pull/1065)).\n\nReplace the bulk `on_idle` benchmark with a per-item `on_idle_rebag`\nbenchmark that measures the worst-case cost of a single rebag. `on_idle`\nnow consumes weight per iteration via `WeightMeter` instead of reserving\na single bulk weight upfront.\nThis decouples the benchmark from `MaxAutoRebagPerBlock`. Changing the\nconfig no longer requires re-running benchmarks.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T08:37:03Z",
-          "tree_id": "08c626183a09b2edaed88afb1f851ab87e88b838",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba06ae6f41de22a7f376b2ed9453d49434bc0bcf"
-        },
-        "date": 1775210174507,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12866954090000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.937609184299998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12938581743333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "34595be73eb19afe34d26ace0090d26ac5aefec5",
+          "message": "Kanas/module invalidity (#11724)\n\n# Description\n\nThis PR implements descriptive module invalidity support for\ntransactions as proposed in #11337. It extends the `InvalidTransaction`\nenum with a new `Module(ModuleError)` variant, allowing pallets to\nreturn pallet-specific, descriptive error data during the transaction\nvalidation phase (e.g., in `TransactionExtension`).\n\nCloses #11337\n\n## Integration\n\nDownstream projects and UI tools (like `subxt` or `polkadot-js`) can now\nleverage descriptive invalidity reasons. When a transaction is rejected\nby the pool with a `Module` error, the RPC will return a formatted\nmessage including the pallet index and the error bytes.\n\nExample RPC error output:\n`\"Invalid Transaction: Module error: index: 5, error: [1, 0, 0, 0]\"`\n\nClient-side libraries can use this index and byte array to look up the\nspecific error definition in the chain's current metadata, mirroring how\n`DispatchError::Module` is handled today.\n\n## Review Notes\n\nThe implementation follows the established pattern for descriptive\nerrors in Substrate while ensuring 100% backward compatibility for the\ntransaction pool and node-side logic.\n\n### Key Changes:\n- **`sp-runtime`**: Appended `Module(ModuleError)` to the\n`InvalidTransaction` enum (index 13). This position ensures that\nexisting SCALE-encoded variants remain unchanged.\n- **String Conversion**: Updated the `From<InvalidTransaction> for\n&'static str` implementation to prioritize the descriptive message from\n`ModuleError` if present.\n- **RPC Layer**: Enriched both the Author RPC (v1) and the Transaction\nRPC (v2) to explicitly handle the `Module` variant and return formatted\ndebug information.\n- **Verification**: Added a new unit test\n`module_invalidity_should_encode_and_decode` in `sp-runtime` to verify\nthe encoding/decoding and string conversion paths.\n\n### Integration Diff:\n```diff\n pub enum InvalidTransaction {\n     ...\n     UnknownOrigin,\n+    /// An error in a module.\n+    Module(ModuleError),\n }\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-12T10:28:18Z",
+          "tree_id": "47f2c97fbd39be2faa91203e80a838da5de805de",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/34595be73eb19afe34d26ace0090d26ac5aefec5"
+        },
+        "date": 1791806400001,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.888296170366669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13992986570000002,
             "unit": "seconds"
           }
         ]
