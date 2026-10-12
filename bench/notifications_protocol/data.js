@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791758360877,
+  "lastUpdate": 1791799837708,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -237695,6 +237695,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2449132612,
             "range": "± 55768402",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8c541320b8ff1b7f9377962d13d3359a2dd502e5",
+          "message": "fix(sc-network-gossip): deduplicate local message registration (#12694)\n\n`register_message_hashed` used `known_messages.insert(message_hash, ())`\nas the dedup guard before pushing a `MessageEntry`. With\n`schnellru::LruMap` (0.2.3), `insert` does not distinguish new keys from\nreplacements: for an existing key it replaces the value and still\nreturns `true` whenever the cache is non-empty (`!self.is_empty()`).\nRegistering the same message twice therefore passed the guard and\nappended a second `MessageEntry` with the same hash, breaking the\nintended one-entry-per-hash invariant in the gossip message cache.\n\nThe `on_incoming` path was unaffected because it already checks\n`known_messages.get(&message_hash).is_some()` before calling\n`register_message_hashed`. The broken path is user-reachable via\n`register_message` and `multicast`, which hash the payload and call\n`register_message_hashed` directly with no prior dedup check.\n\nDuplicate entries surface through `messages_for()` as repeated\nnotifications for the same bytes, waste memory in `messages`, and can\ncause duplicate processing in upper layers that assume the cache is\nhash-unique. `multicast` also registers before propagating, so\nduplicates can be rebroadcast from the local cache on later topic\nbroadcasts.\n\nA second `register_message` / `multicast` for an already-registered\nmessage hash is now ignored by an explicit `known_messages.get()` check\nbefore insert, matching the `on_incoming` dedup behavior.\n\nCloses #12607\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-12T08:50:37Z",
+          "tree_id": "3dc421c6618ec68d031297b713c8e09ee7102e66",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8c541320b8ff1b7f9377962d13d3359a2dd502e5"
+        },
+        "date": 1791799802334,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4650484,
+            "range": "± 43352",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 296026,
+            "range": "± 4009",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4352999,
+            "range": "± 28691",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 367009,
+            "range": "± 2913",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5267919,
+            "range": "± 69131",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 923677,
+            "range": "± 16205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10946023,
+            "range": "± 93673",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4820970,
+            "range": "± 56604",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 44627705,
+            "range": "± 546647",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 39414238,
+            "range": "± 356272",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 375354029,
+            "range": "± 6882674",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 310926202,
+            "range": "± 3168040",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2653875352,
+            "range": "± 37199095",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2411222167,
+            "range": "± 18715821",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3380851,
+            "range": "± 37708",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1863536,
+            "range": "± 13953",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3465762,
+            "range": "± 51353",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1936417,
+            "range": "± 9090",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4026775,
+            "range": "± 46086",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2265054,
+            "range": "± 15375",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7899669,
+            "range": "± 101528",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5292273,
+            "range": "± 41193",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37361019,
+            "range": "± 243662",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36994698,
+            "range": "± 254328",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 326007570,
+            "range": "± 2375860",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 286651339,
+            "range": "± 2431178",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2609870114,
+            "range": "± 42776182",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2343076618,
+            "range": "± 33110374",
             "unit": "ns/iter"
           }
         ]
