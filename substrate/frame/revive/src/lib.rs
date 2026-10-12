@@ -210,8 +210,9 @@ pub mod pallet {
 		/// Handler for burned native currency (e.g. gas rounding).
 		///
 		/// When EVM gas accounting rounds up the transaction cost, the small rounding
-		/// difference is withdrawn from the caller and forwarded to this handler.
-		/// Use this to redirect burned value to a treasury or DAP instead of silently
+		/// difference is withdrawn from the caller and forwarded to this handler. The balance
+		/// of a contract that is terminated with itself as the beneficiary is forwarded here
+		/// as well. Use this to redirect burned value to a treasury or DAP instead of silently
 		/// destroying it.
 		#[pallet::no_default_bounds]
 		type OnBurn: OnUnbalanced<CreditOf<Self>>;
