@@ -76,6 +76,7 @@
 //! ### Dispatchable Functions
 //!
 //! - `set_keys` - Set a validator's session keys for upcoming sessions.
+//! - `purge_keys` - Remove a validator's session keys.
 //!
 //! ### Public Functions
 //!
@@ -772,9 +773,14 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::purge_keys())]
 		pub fn purge_keys(origin: OriginFor<T>) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			Self::do_purge_keys(&who)?;
-			Ok(())
+			let account = ensure_signed(origin)?;
+			let who = T::ValidatorIdOf::convert(account.clone())
+				// `purge_keys` may not have a controller-stash pair any more. If so then we expect
+				// the stash account to be passed in directly and convert that to a
+				// `ValidatorId` using the `TryFrom` trait if supported.
+				.or_else(|| T::ValidatorId::try_from(account.clone()).ok())
+				.ok_or(Error::<T>::NoAssociatedValidatorId)?;
+			Self::do_purge_keys(&account, &who)
 		}
 	}
 
@@ -1035,15 +1041,8 @@ impl<T: Config> Pallet<T> {
 		Ok(old_keys)
 	}
 
-	fn do_purge_keys(account: &T::AccountId) -> DispatchResult {
-		let who = T::ValidatorIdOf::convert(account.clone())
-			// `purge_keys` may not have a controller-stash pair any more. If so then we expect the
-			// stash account to be passed in directly and convert that to a `ValidatorId` using the
-			// `TryFrom` trait if supported.
-			.or_else(|| T::ValidatorId::try_from(account.clone()).ok())
-			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
-
-		let old_keys = Self::take_keys(&who).ok_or(Error::<T>::NoKeys)?;
+	fn do_purge_keys(account: &T::AccountId, who: &T::ValidatorId) -> DispatchResult {
+		let old_keys = Self::take_keys(who).ok_or(Error::<T>::NoKeys)?;
 		for id in T::Keys::key_ids() {
 			let key_data = old_keys.get_raw(*id);
 			Self::clear_key_owner(*id, key_data);
@@ -1277,20 +1276,7 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 		let who = T::ValidatorIdOf::convert(account.clone())
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
-		let old_keys = Self::take_keys(&who).ok_or(Error::<T>::NoKeys)?;
-		for id in T::Keys::key_ids() {
-			let key_data = old_keys.get_raw(*id);
-			Self::clear_key_owner(*id, key_data);
-		}
-		let _ = T::Currency::release_all(
-			&HoldReason::Keys.into(),
-			account,
-			frame_support::traits::tokens::Precision::BestEffort,
-		);
-		if ExternallySetKeys::<T>::take(account).is_none() {
-			frame_system::Pallet::<T>::dec_consumers(account);
-		}
-		Ok(())
+		Self::do_purge_keys(account, &who)
 	}
 
 	fn set_keys_weight() -> Weight {
