@@ -158,6 +158,12 @@ impl<H, N> CandidatePendingAvailability<H, N> {
 		&self.commitments
 	}
 
+	/// Mutable access to the candidate commitments, for tests that add UMP signals.
+	#[cfg(all(test, not(feature = "runtime-benchmarks")))]
+	pub(crate) fn candidate_commitments_mut(&mut self) -> &mut CandidateCommitments {
+		&mut self.commitments
+	}
+
 	/// Get the candidate's relay parent's number.
 	pub(crate) fn relay_parent_number(&self) -> N
 	where

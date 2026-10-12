@@ -2381,6 +2381,127 @@ mod enter {
 		});
 	}
 
+	fn streams_root(byte: u8) -> polkadot_primitives::StreamsRoot {
+		polkadot_primitives::StreamsRoot(polkadot_primitives::Hash::repeat_byte(byte))
+	}
+
+	/// Append a `Provides` signal to para 0's candidate pending availability, which becomes
+	/// available, and so is enacted, in the next `enter`.
+	fn add_provides_to_pending_candidate_of_para_0(root: polkadot_primitives::StreamsRoot) {
+		inclusion::PendingAvailability::<Test>::mutate(ParaId::from(0), |maybe_candidates| {
+			let commitments = maybe_candidates
+				.as_mut()
+				.and_then(|candidates| candidates.front_mut())
+				.expect("the scenario put a candidate of para 0 into pending availability; qed")
+				.candidate_commitments_mut();
+			commitments.upward_messages.force_push(polkadot_primitives::UMP_SEPARATOR);
+			commitments.upward_messages.force_push(UMPSignal::Provides(root).encode());
+		});
+	}
+
+	/// A receiver backed in the same relay block as its sender's candidate is enacted still
+	/// matches: availability is processed, and the root recorded, before backed candidates are
+	/// sanitized.
+	#[test]
+	fn requires_matches_provides_enacted_in_the_same_block() {
+		new_test_ext(default_config()).execute_with(|| {
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
+				approved_peer_signal: None,
+				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
+					if candidate.descriptor.para_id() == 1.into() {
+						// Para 1 requires the root para 0's concluding candidate provides in this
+						// very block.
+						candidate.commitments.upward_messages.force_push(
+							UMPSignal::Requires(
+								polkadot_primitives::RequiresSet::try_from_iter([(
+									ParaId::from(0),
+									polkadot_primitives::StreamsRoot(
+										polkadot_primitives::Hash::repeat_byte(42),
+									),
+								)])
+								.unwrap(),
+							)
+							.encode(),
+						);
+					}
+					candidate
+				}),
+			});
+			add_provides_to_pending_candidate_of_para_0(streams_root(42));
+
+			let data = scenario.data.clone();
+			assert_eq!(data.backed_candidates.len(), 2);
+			// Nothing is filtered: para 1's `Requires` matched.
+			assert_ok!(Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data));
+
+			// The root went through the real enactment path.
+			let requires = polkadot_primitives::RequiresSet::try_from_iter([(
+				ParaId::from(0),
+				streams_root(42),
+			)])
+			.unwrap();
+			assert!(inclusion::Pallet::<Test>::requires_satisfied(&requires).is_ok());
+			// Para 1's concluding candidate provided nothing.
+			assert!(!inclusion::RecentProvides::<Test>::contains_key(ParaId::from(1)));
+		});
+	}
+
+	/// A dispute that freezes the chain clears every sender's window, uninvolved senders too, so
+	/// `force_unfreeze` cannot resume with the invalid candidate's root still matchable.
+	#[test]
+	fn a_dispute_freeze_clears_the_provides_windows() {
+		new_test_ext(crate::mock::MockGenesisConfig::default()).execute_with(|| {
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				// One dispute in the current session: 2 of 5 validators vote against, over the
+				// byzantine threshold.
+				dispute_sessions: vec![2],
+				backed_and_concluding: BTreeMap::new(),
+				num_validators_per_core: 5,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
+				approved_peer_signal: None,
+				candidate_modifier: None,
+			});
+
+			let mut data = scenario.data.clone();
+			data.bitfields.clear();
+			assert_eq!(data.disputes.len(), 1);
+			let candidate_hash = data.disputes[0].candidate_hash;
+			let session = data.disputes[0].session;
+
+			// The disputed candidate was included at `now - 1`, so a dispute against it reverts
+			// to `now - 2` and freezes.
+			let now = frame_system::Pallet::<Test>::block_number();
+			crate::disputes::Pallet::<Test>::note_included(session, candidate_hash, now - 1);
+
+			let (sender_a, sender_b) = (ParaId::from(3000), ParaId::from(4000));
+			inclusion::Pallet::<Test>::record_provides(sender_a, streams_root(1));
+			inclusion::Pallet::<Test>::record_provides(sender_a, streams_root(2));
+			inclusion::Pallet::<Test>::record_provides(sender_b, streams_root(3));
+
+			assert_ok!(Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data));
+
+			assert_eq!(crate::disputes::Frozen::<Test>::get(), Some(now - 2));
+			assert!(!inclusion::RecentProvides::<Test>::contains_key(sender_a));
+			assert!(!inclusion::RecentProvides::<Test>::contains_key(sender_b));
+		});
+	}
+
 	#[rstest]
 	#[case(true, true)]
 	#[case(true, false)]
