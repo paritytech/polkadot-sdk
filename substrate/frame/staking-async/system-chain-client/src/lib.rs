@@ -22,11 +22,11 @@
 //!
 //! Each system chain counts the blocks its authors produce in `pallet-validator-collators` and
 //! reports the counts of the validators. Other chains call [`Pallet::report_authored_blocks`]
-//! from [`Config::ReportOrigin`], which names the reporting chain as a [`Config::Source`]. This
-//! chain credits its own counts through [`Pallet::credit_authored_blocks`]. A count becomes
-//! `count × PointsPerBlock[source]` era points, handed to [`Config::RewardPoints`]. A source
-//! without an entry in [`PointsPerBlock`] earns nothing. Governance sets the entries through
-//! [`Config::PointsOrigin`].
+//! from [`Config::ReportOrigin`], which names the reporting chain as a [`Config::Source`]. The
+//! chain that runs this pallet credits its own counts through [`Pallet::credit_authored_blocks`].
+//! A count becomes `count × PointsPerBlock[source]` era points, handed to
+//! [`Config::RewardPoints`]. A source without an entry in [`PointsPerBlock`] earns nothing.
+//! Governance sets the entries through [`Config::PointsOrigin`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -65,11 +65,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::MaybeSerializeDeserialize;
 
-	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
-
 	#[pallet::pallet]
-	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	/// Configuration trait of this pallet.
