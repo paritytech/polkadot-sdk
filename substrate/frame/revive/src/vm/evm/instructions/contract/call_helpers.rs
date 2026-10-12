@@ -38,7 +38,7 @@ pub fn get_memory_in_and_out_ranges<'a, E: Ext>(
 }
 
 /// Resize memory and return range of memory.
-/// If `len` is 0 dont touch memory and return `usize::MAX` as offset and 0 as length.
+/// If `len` is 0, memory is not touched and an empty range starting at 0 is returned.
 pub fn resize_memory<'a, E: Ext>(
 	interpreter: &mut Interpreter<'a, E>,
 	offset: U256,
@@ -50,8 +50,7 @@ pub fn resize_memory<'a, E: Ext>(
 		interpreter.memory.resize(offset, len)?;
 		ControlFlow::Continue(offset..offset + len)
 	} else {
-		// unrealistic value so we are sure it is not used
-		ControlFlow::Continue(usize::MAX..usize::MAX)
+		ControlFlow::Continue(0..0)
 	}
 }
 
