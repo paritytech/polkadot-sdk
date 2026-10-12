@@ -20,7 +20,7 @@
 use crate::{
 	mock::*,
 	pallet::{Bids, Configuration, SaleInfo},
-	BidDisplacement, Event, InitData, SalePhase,
+	Event, InitData, SalePhase,
 };
 use fp_coretime::{
 	market::{AdjustBidResult, Market, OrderResult, RenewalOrderResult, TickAction},
@@ -71,9 +71,16 @@ fn place_renewal(
 	who: u64,
 	core: u16,
 	when: u32,
-) -> Result<RenewalOrderResult<u64, u32>, Error> {
+) -> Result<RenewalOrderResult<u64, u64, u32>, Error> {
 	let renewal_id = PotentialRenewalId { core, when };
 	<CoretimeMarket as Market<u64, u64, u64>>::place_renewal_order(block_number, &who, renewal_id)
+}
+
+fn displaced(result: RenewalOrderResult<u64, u64, u32>) -> Option<(u64, u64)> {
+	match result {
+		RenewalOrderResult::Renewed { displaced, .. } => displaced,
+		_ => panic!("Expected Renewed"),
+	}
 }
 
 fn adjust_bid(
@@ -587,10 +594,11 @@ fn renewal_during_renewal_phase() {
 
 		let result = place_renewal(25, 2, 0, sale.region_begin).unwrap();
 		match result {
-			RenewalOrderResult::Renewed { price, region_id, effective_to } => {
+			RenewalOrderResult::Renewed { price, region_id, effective_to, displaced } => {
 				assert!(price > 0);
 				assert_eq!(region_id.begin, sale.region_begin);
 				assert_eq!(effective_to, sale.region_end);
+				assert_eq!(displaced, None);
 
 				assert_eq!(
 					last_market_event(),
@@ -642,23 +650,6 @@ fn double_renewal_prevented() {
 		assert!(place_renewal(25, 1, 0, sale.region_begin).is_ok());
 
 		assert_noop!(place_renewal(25, 1, 0, sale.region_begin), Error::Unavailable);
-	});
-}
-
-#[test]
-fn displacement_fails_when_pending_actions_full() {
-	TestExt::new().execute_with(|| {
-		let sale = setup_renewal_phase(&[(1, 200), (2, 150)]);
-
-		// Pre-fill PendingRenewalActions to capacity.
-		crate::pallet::PendingDisplacements::<Test>::put(sp_runtime::BoundedVec::truncate_from(
-			(0..100u64)
-				.map(|i| BidDisplacement { who: i, refund: 50 })
-				.collect::<alloc::vec::Vec<_>>(),
-		));
-
-		TestRenewalRights::set(3, sale.region_begin, 1);
-		assert_noop!(place_renewal(25, 3, 0, sale.region_begin), Error::TooManyBids);
 	});
 }
 
@@ -721,16 +712,7 @@ fn no_displacement_when_not_oversubscribed() {
 		let sale = setup_renewal_phase(&[(1, 200)]);
 
 		TestRenewalRights::set(2, sale.region_begin, 1);
-		let result = place_renewal(25, 2, 0, sale.region_begin).unwrap();
-		match result {
-			RenewalOrderResult::Renewed { .. } => {},
-			_ => panic!("Expected direct Renewed"),
-		}
-
-		let actions = tick(30);
-		let refund_count =
-			actions.iter().filter(|a| matches!(a, TickAction::Refund { .. })).count();
-		assert_eq!(refund_count, 0, "No displacement refunds");
+		assert_eq!(displaced(place_renewal(25, 2, 0, sale.region_begin).unwrap()), None);
 	});
 }
 
@@ -853,10 +835,11 @@ fn displacement_works_when_oversubscribed() {
 		TestRenewalRights::set(3, sale.region_begin, 1);
 		let result = place_renewal(25, 3, 0, sale.region_begin).unwrap();
 		match result {
-			RenewalOrderResult::Renewed { price, region_id, effective_to } => {
+			RenewalOrderResult::Renewed { price, region_id, effective_to, displaced } => {
 				assert!(price > 0);
 				assert_eq!(region_id.begin, sale.region_begin);
 				assert_eq!(effective_to, sale.region_end);
+				assert_eq!(displaced, Some((2, sale.clearing_price.unwrap())));
 			},
 			_ => panic!("Expected Renewed via displacement"),
 		}
@@ -872,7 +855,7 @@ fn displacement_works_when_oversubscribed() {
 			actions.iter().filter(|a| matches!(a, TickAction::Refund { .. })).count();
 
 		assert_eq!(sell_count, 1, "1 remaining auction winner");
-		assert_eq!(refund_count, 1, "1 displaced refund");
+		assert_eq!(refund_count, 0, "Displaced bidder was refunded at renewal");
 	});
 }
 
@@ -892,7 +875,10 @@ fn displacement_works_when_renewals_fill_remaining_cores() {
 		// Renewer 3 displaces the auction winner, without penalty.
 		TestRenewalRights::set(3, sale.region_begin, 1);
 		match place_renewal(25, 3, 1, sale.region_begin).unwrap() {
-			RenewalOrderResult::Renewed { price, .. } => assert_eq!(price, clearing),
+			RenewalOrderResult::Renewed { price, displaced, .. } => {
+				assert_eq!(price, clearing);
+				assert_eq!(displaced, Some((1, clearing)));
+			},
 			_ => panic!("Expected Renewed via displacement"),
 		}
 		assert!(market_events().iter().any(|e| matches!(e, Event::BidDisplaced { who: 1, .. })));
@@ -906,14 +892,8 @@ fn displacement_targets_lowest_non_tenant_bidder() {
 		let sale = setup_renewal_phase(&[(1, 200), (2, 150)]);
 
 		TestRenewalRights::set(3, sale.region_begin, 1);
-		place_renewal(25, 3, 0, sale.region_begin).unwrap();
-
-		let actions = tick(30);
-		let refund = actions.iter().find(|a| matches!(a, TickAction::Refund { .. }));
-		match refund {
-			Some(TickAction::Refund { who, .. }) => assert_eq!(*who, 2),
-			_ => panic!("Expected refund for displaced user 2"),
-		}
+		let result = place_renewal(25, 3, 0, sale.region_begin).unwrap();
+		assert_eq!(displaced(result).map(|(who, _)| who), Some(2));
 	});
 }
 
@@ -927,14 +907,10 @@ fn existing_tenant_protected_from_displacement() {
 
 		TestRenewalRights::set(3, sale.region_begin, 1);
 		// Should displace user 2 (non-tenant), NOT user 1 (tenant with lower bid).
-		place_renewal(25, 3, 0, sale.region_begin).unwrap();
+		let result = place_renewal(25, 3, 0, sale.region_begin).unwrap();
+		assert_eq!(displaced(result).map(|(who, _)| who), Some(2));
 
 		let actions = tick(30);
-		let refund = actions.iter().find(|a| matches!(a, TickAction::Refund { .. }));
-		match refund {
-			Some(TickAction::Refund { who, .. }) => assert_eq!(*who, 2),
-			_ => panic!("Expected refund for non-tenant user 2"),
-		}
 
 		let sell = actions
 			.iter()
@@ -975,10 +951,12 @@ fn tenant_protection_limited_to_renewal_rights_count() {
 
 		// User 2 (150) displaced first, then user 1's unprotected allocation (180).
 		TestRenewalRights::set(3, sale.region_begin, 1);
-		place_renewal(25, 3, 0, sale.region_begin).unwrap();
+		let result = place_renewal(25, 3, 0, sale.region_begin).unwrap();
+		assert_eq!(displaced(result).map(|(who, _)| who), Some(2));
 
 		TestRenewalRights::set(4, sale.region_begin, 1);
-		place_renewal(25, 4, 0, sale.region_begin).unwrap();
+		let result = place_renewal(25, 4, 0, sale.region_begin).unwrap();
+		assert_eq!(displaced(result).map(|(who, _)| who), Some(1));
 
 		let actions = tick(30);
 
@@ -987,10 +965,6 @@ fn tenant_protection_limited_to_renewal_rights_count() {
 			.filter(|a| matches!(a, TickAction::SellRegion { owner, .. } if *owner == 1))
 			.count();
 		assert_eq!(user1_sells, 1, "Only 1 of user 1's 2 allocations should survive");
-
-		let refund_count =
-			actions.iter().filter(|a| matches!(a, TickAction::Refund { .. })).count();
-		assert_eq!(refund_count, 2);
 	});
 }
 
@@ -1045,14 +1019,8 @@ fn displaced_refund_equals_clearing_price() {
 
 		let sale = SaleInfo::<Test>::get().unwrap();
 		TestRenewalRights::set(3, sale.region_begin, 1);
-		place_renewal(25, 3, 0, sale.region_begin).unwrap();
-
-		let actions = tick(30);
-		let refund = actions.iter().find_map(|a| match a {
-			TickAction::Refund { amount, .. } => Some(*amount),
-			_ => None,
-		});
-		assert_eq!(refund, Some(clearing));
+		let result = place_renewal(25, 3, 0, sale.region_begin).unwrap();
+		assert_eq!(displaced(result), Some((2, clearing)));
 	});
 }
 
@@ -1069,17 +1037,16 @@ fn multiple_displacements_in_one_renewal_phase() {
 
 		TestRenewalRights::set(4, sale.region_begin, 1);
 		TestRenewalRights::set(5, sale.region_begin, 1);
-		place_renewal(25, 4, 0, sale.region_begin).unwrap();
-		place_renewal(25, 5, 0, sale.region_begin).unwrap();
+		let result = place_renewal(25, 4, 0, sale.region_begin).unwrap();
+		assert_eq!(displaced(result).map(|(who, _)| who), Some(3));
+		let result = place_renewal(25, 5, 0, sale.region_begin).unwrap();
+		assert_eq!(displaced(result).map(|(who, _)| who), Some(2));
 
 		let actions = tick(30);
 		let sell_count =
 			actions.iter().filter(|a| matches!(a, TickAction::SellRegion { .. })).count();
-		let refund_count =
-			actions.iter().filter(|a| matches!(a, TickAction::Refund { .. })).count();
 
 		assert_eq!(sell_count, 1, "1 remaining auction winner");
-		assert_eq!(refund_count, 2, "2 displaced refunds");
 
 		let finalized_sale = SaleInfo::<Test>::get().unwrap();
 		assert_eq!(finalized_sale.cores_offered, 3);

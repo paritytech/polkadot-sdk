@@ -43,12 +43,11 @@ fn default_config<T: Config>() -> ConfigRecordOf<T> {
 	}
 }
 
-fn setup_sale<T: Config>() -> Result<(), BenchmarkError> {
+fn setup_sale<T: Config>() {
 	let config = default_config::<T>();
-	Pallet::<T>::configure(config).map_err(|_| BenchmarkError::Weightless)?;
+	Pallet::<T>::configure(config).unwrap();
 	let init = InitData { reserve_price: 100u32.into() };
-	Pallet::<T>::start_sales(0u32.into(), init).map_err(|_| BenchmarkError::Weightless)?;
-	Ok(())
+	Pallet::<T>::start_sales(0u32.into(), init).unwrap();
 }
 
 /// Make the current sale offer `cores` cores, independent of the runtime's core range.
@@ -56,22 +55,19 @@ fn set_cores_offered<T: Config>(cores: u32) {
 	SaleInfo::<T>::mutate_extant(|sale| sale.cores_offered = cores.saturated_into());
 }
 
-fn fill_bids<T: Config>(n: u32) -> Result<(), BenchmarkError> {
+fn fill_bids<T: Config>(n: u32) {
 	for i in 0..n {
 		let who: T::AccountId = account("bidder", i, SEED);
 		// Vary prices so bids spread across the sorted vec.
 		let price: u32 = 200u32.saturating_sub(i % 100);
-		Pallet::<T>::place_order(0u32.into(), &who, price.into())
-			.map_err(|_| BenchmarkError::Weightless)?;
+		Pallet::<T>::place_order(0u32.into(), &who, price.into()).unwrap();
 	}
-	Ok(())
 }
 
-fn advance_to_renewal<T: Config>() -> Result<(), BenchmarkError> {
+fn advance_to_renewal<T: Config>() {
 	let mut meter = frame_support::weights::WeightMeter::new();
 	Pallet::<T>::tick(20u32.into(), &mut meter);
 	assert_eq!(SaleInfo::<T>::get().map(|s| s.phase), Some(SalePhase::Renewal));
-	Ok(())
 }
 
 fn market_events<T: Config>() -> Vec<Event<T>> {
@@ -85,48 +81,43 @@ mod benches {
 	use super::*;
 
 	#[benchmark]
-	fn configure() -> Result<(), BenchmarkError> {
+	fn configure() {
 		let config = default_config::<T>();
 
 		#[block]
 		{
-			Pallet::<T>::configure(config).map_err(|_| BenchmarkError::Weightless)?;
+			Pallet::<T>::configure(config).unwrap();
 		}
 
 		assert!(Configuration::<T>::get().is_some());
-
-		Ok(())
 	}
 
 	#[benchmark]
-	fn start_sales() -> Result<(), BenchmarkError> {
+	fn start_sales() {
 		let config = default_config::<T>();
-		Pallet::<T>::configure(config).map_err(|_| BenchmarkError::Weightless)?;
+		Pallet::<T>::configure(config).unwrap();
 		let init = InitData { reserve_price: 100u32.into() };
 
 		#[block]
 		{
-			Pallet::<T>::start_sales(0u32.into(), init).map_err(|_| BenchmarkError::Weightless)?;
+			Pallet::<T>::start_sales(0u32.into(), init).unwrap();
 		}
 
 		assert!(market_events::<T>()
 			.into_iter()
 			.any(|event| matches!(event, Event::<T>::SaleInitialized { .. })));
-
-		Ok(())
 	}
 
 	#[benchmark]
-	fn place_order() -> Result<(), BenchmarkError> {
-		setup_sale::<T>()?;
-		fill_bids::<T>(T::MaxBids::get())?;
+	fn place_order() {
+		setup_sale::<T>();
+		fill_bids::<T>(T::MaxBids::get());
 
 		let caller: T::AccountId = account("caller", 0, SEED);
 
 		#[block]
 		{
-			Pallet::<T>::place_order(0u32.into(), &caller, 200u32.into())
-				.map_err(|_| BenchmarkError::Weightless)?;
+			Pallet::<T>::place_order(0u32.into(), &caller, 200u32.into()).unwrap();
 		}
 
 		assert_eq!(
@@ -136,76 +127,67 @@ mod benches {
 				.count(),
 			1
 		);
-
-		Ok(())
 	}
 
 	#[benchmark]
-	fn place_renewal_order() -> Result<(), BenchmarkError> {
-		setup_sale::<T>()?;
+	fn place_renewal_order() {
+		setup_sale::<T>();
 
 		// Worst case: a full book of winners where only the highest-priced one is displaceable,
 		// so displacement scans all `MaxBids` allocations.
 		set_cores_offered::<T>(T::MaxBids::get());
-		fill_bids::<T>(T::MaxBids::get())?;
+		fill_bids::<T>(T::MaxBids::get());
 
-		advance_to_renewal::<T>()?;
+		advance_to_renewal::<T>();
 
-		let region_begin =
-			pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?.region_begin;
+		let region_begin = pallet::SaleInfo::<T>::get().unwrap().region_begin;
 		let allocations = pallet::Allocations::<T>::get();
 		for allocation in allocations.iter().skip(1) {
 			T::RenewalRights::set_rights_count(&allocation.who, region_begin, 1);
 		}
-		let top = allocations.first().ok_or(BenchmarkError::Weightless)?.who.clone();
+		let top = allocations.first().unwrap().who.clone();
 		let caller: T::AccountId = account("renewer", 0, SEED);
 		T::RenewalRights::set_rights_count(&caller, region_begin, 1);
 		let renewal_id = PotentialRenewalId { core: 0, when: region_begin };
 
 		#[block]
 		{
-			Pallet::<T>::place_renewal_order(0u32.into(), &caller, renewal_id)
-				.map_err(|_| BenchmarkError::Weightless)?;
+			Pallet::<T>::place_renewal_order(0u32.into(), &caller, renewal_id).unwrap();
 		}
 
 		assert!(market_events::<T>()
 			.into_iter()
 			.any(|event| matches!(event, Event::BidDisplaced { who, .. } if who == top)));
-
-		Ok(())
 	}
 
 	#[benchmark]
-	fn adjust_bid() -> Result<(), BenchmarkError> {
-		setup_sale::<T>()?;
+	fn adjust_bid() {
+		setup_sale::<T>();
 		let max = T::MaxBids::get();
 		// Pick the last-inserted bidder — they hold the lowest price and their bid
 		// will shift across the whole sorted vec when raised (worst-case cost).
 		let caller: T::AccountId = account("bidder", max - 1, SEED);
-		fill_bids::<T>(max)?;
+		fill_bids::<T>(max);
 
 		let bid_id = pallet::Bids::<T>::get()
 			.iter()
 			.find(|b| b.who == caller)
 			.map(|b| b.bid_id)
-			.ok_or(BenchmarkError::Weightless)?;
+			.unwrap();
 
 		#[block]
 		{
-			Pallet::<T>::adjust_bid(0u32.into(), bid_id, &caller, Some(200u32.into()))
-				.map_err(|_| BenchmarkError::Weightless)?;
+			Pallet::<T>::adjust_bid(0u32.into(), bid_id, &caller, Some(200u32.into())).unwrap();
 		}
 
 		assert!(market_events::<T>()
 			.into_iter()
 			.any(|event| matches!(event, Event::BidRaised { .. })));
-
-		Ok(())
 	}
 
 	#[benchmark]
-	fn tick_base() -> Result<(), BenchmarkError> {
-		setup_sale::<T>()?;
+	fn tick_base() {
+		setup_sale::<T>();
 
 		assert!(SaleInfo::<T>::exists());
 		assert!(Configuration::<T>::exists());
@@ -218,13 +200,11 @@ mod benches {
 		{
 			Pallet::<T>::tick(0u32.into(), &mut meter);
 		}
-
-		Ok(())
 	}
 
 	#[benchmark]
-	fn sale_phase_transition_to_renewal(c: Linear<1, 100>) -> Result<(), BenchmarkError> {
-		setup_sale::<T>()?;
+	fn sale_phase_transition_to_renewal(c: Linear<1, 100>) {
+		setup_sale::<T>();
 		set_cores_offered::<T>(c);
 
 		for i in 0..T::MaxBids::get() {
@@ -234,8 +214,8 @@ mod benches {
 			assert_ok!(Pallet::<T>::place_order(0u32.into(), &who, price.into()));
 		}
 
-		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
-		let config = pallet::Configuration::<T>::get().ok_or(BenchmarkError::Weightless)?;
+		let sale = pallet::SaleInfo::<T>::get().unwrap();
+		let config = pallet::Configuration::<T>::get().unwrap();
 
 		let market_end = sale.sale_start.saturating_add(config.market_period);
 
@@ -250,24 +230,22 @@ mod benches {
 			Event::<T>::PhaseTransitioned { from: SalePhase::Market, to: SalePhase::Renewal }
 				.into(),
 		);
-
-		Ok(())
 	}
 
 	#[benchmark]
-	fn sale_phase_transition_to_settlement(c: Linear<1, 100>) -> Result<(), BenchmarkError> {
-		setup_sale::<T>()?;
+	fn sale_phase_transition_to_settlement(c: Linear<1, 100>) {
+		setup_sale::<T>();
 
 		// Worst case: `c` winners all displaced by `c` distinct renewers, leaving `2c` quotas
 		// to clear.
 		let cores = c.min(T::MaxBids::get());
 		set_cores_offered::<T>(cores);
-		fill_bids::<T>(cores)?;
+		fill_bids::<T>(cores);
 
-		advance_to_renewal::<T>()?;
+		advance_to_renewal::<T>();
 
-		let sale = pallet::SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
-		let config = pallet::Configuration::<T>::get().ok_or(BenchmarkError::Weightless)?;
+		let sale = pallet::SaleInfo::<T>::get().unwrap();
+		let config = pallet::Configuration::<T>::get().unwrap();
 
 		for i in 0..cores {
 			let renewer: T::AccountId = account("renewer", i, SEED);
@@ -296,16 +274,13 @@ mod benches {
 			Event::<T>::PhaseTransitioned { from: SalePhase::Renewal, to: SalePhase::Settlement }
 				.into(),
 		);
-
-		Ok(())
 	}
 
 	#[benchmark]
-	fn sale_phase_transition_to_market() -> Result<(), BenchmarkError> {
-		setup_sale::<T>()?;
-		let ready = T::TimesliceProvider::latest_timeslice_ready_to_commit()
-			.ok_or(BenchmarkError::Weightless)?;
-		let config = Configuration::<T>::get().ok_or(BenchmarkError::Weightless)?;
+	fn sale_phase_transition_to_market() {
+		setup_sale::<T>();
+		let ready = T::TimesliceProvider::latest_timeslice_ready_to_commit().unwrap();
+		let config = Configuration::<T>::get().unwrap();
 		SaleInfo::<T>::mutate_extant(|sale| {
 			sale.phase = SalePhase::Settlement;
 			sale.region_begin = ready;
@@ -323,8 +298,6 @@ mod benches {
 			Event::<T>::PhaseTransitioned { from: SalePhase::Settlement, to: SalePhase::Market }
 				.into(),
 		);
-
-		Ok(())
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

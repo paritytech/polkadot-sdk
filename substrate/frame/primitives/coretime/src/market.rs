@@ -110,7 +110,7 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 		block_number: RelayBlockNumber,
 		who: &AccountId,
 		renewal: PotentialRenewalId,
-	) -> Result<RenewalOrderResult<Balance, Self::BidId>, Self::Error>;
+	) -> Result<RenewalOrderResult<AccountId, Balance, Self::BidId>, Self::Error>;
 
 	/// Adjust the price of an existing bid.
 	///
@@ -224,7 +224,7 @@ pub enum OrderResult<AccountId, Balance, BidId> {
 
 /// Possible outcomes of [`Market::place_renewal_order`].
 #[derive(Debug, PartialEq)]
-pub enum RenewalOrderResult<Balance, BidId> {
+pub enum RenewalOrderResult<AccountId, Balance, BidId> {
 	/// A renewal bid was placed.
 	BidPlaced {
 		/// Identifier of the bid.
@@ -240,6 +240,9 @@ pub enum RenewalOrderResult<Balance, BidId> {
 		region_id: RegionId,
 		/// End of the renewed region.
 		effective_to: Timeslice,
+		/// If a bidder was displaced to free a core, the displaced bidder and the locked amount
+		/// to refund.
+		displaced: Option<(AccountId, Balance)>,
 	},
 }
 

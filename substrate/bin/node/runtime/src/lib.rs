@@ -2528,6 +2528,7 @@ impl pallet_coretime_market::Config for Runtime {
 	type Balance = Balance;
 	type RelayBlockNumber = BlockNumber;
 	type WeightInfo = pallet_coretime_market::weights::SubstrateWeight<Runtime>;
+	// TODO: Replace with `pallet-broker` once these traits are implemented for it.
 	type CoreRangeProvider = MarketCoreRange;
 	type TimesliceProvider = MarketTimeslices;
 	type RenewalRights = MarketRenewalRights;

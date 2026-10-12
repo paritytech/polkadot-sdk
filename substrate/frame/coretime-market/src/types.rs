@@ -232,14 +232,3 @@ impl AccountQuota {
 		self.auction_wins.saturating_sub(self.displacements)
 	}
 }
-
-/// Representation of a bid that was displaced during the renewal phase that will resolve to
-/// `TickAction::Refund` at the finalization.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct BidDisplacement<AccountId, Balance> {
-	/// The bidder account.
-	pub who: AccountId,
-	/// Remaining locked amount (the clearing price). Excess was already refunded at
-	/// auction settlement.
-	pub refund: Balance,
-}

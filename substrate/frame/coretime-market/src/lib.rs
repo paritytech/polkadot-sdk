@@ -314,14 +314,6 @@ pub mod pallet {
 	pub type Quotas<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, AccountQuota, ValueQuery>;
 
-	/// Actions accumulated during the Renewal phase, resolved at sale finalization.
-	#[pallet::storage]
-	pub type PendingDisplacements<T: Config> = StorageValue<
-		_,
-		BoundedVec<BidDisplacement<T::AccountId, BalanceOf<T>>, T::MaxBids>,
-		ValueQuery,
-	>;
-
 	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
 		/// Get the current price at a given relay block number, or `None` if no sale is active.
@@ -464,7 +456,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		_block_number: RelayBlockNumberOf<T>,
 		who: &T::AccountId,
 		renewal: PotentialRenewalId,
-	) -> Result<RenewalOrderResult<BalanceOf<T>, Self::BidId>, Self::Error> {
+	) -> Result<RenewalOrderResult<T::AccountId, BalanceOf<T>, Self::BidId>, Self::Error> {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 		ensure!(sale.phase == SalePhase::Renewal, Error::<T>::WrongPhase);
@@ -487,14 +479,14 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		let penalty = if oversubscribed { config.penalty * clearing } else { Zero::zero() };
 		let renewal_price = clearing.saturating_add(penalty);
 
-		let core = if sale.cores_sold < sale.cores_offered {
+		let (core, displaced) = if sale.cores_sold < sale.cores_offered {
 			// Unallocated core available: direct renewal.
 			let core = sale.first_core.saturating_add(sale.cores_sold);
 			SaleInfo::<T>::mutate_extant(|sale| sale.cores_sold.saturating_inc());
-			core
+			(core, None)
 		} else {
-			// All cores allocated: displace the lowest-priced winner whose renewal
-			// rights are fully consumed by auction wins.
+			// All cores allocated: displace the lowest-priced winner holding more auction wins
+			// than renewal rights.
 			let mut allocations = Allocations::<T>::get();
 
 			// Allocations are sorted by price descending, so search from the lowest bid up.
@@ -507,24 +499,18 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 				.ok_or(Error::<T>::Unavailable)?;
 
 			let displaced = allocations.remove(displace_idx);
-			let core = displaced.core;
+			// Excess above the clearing price was already refunded at auction settlement.
 			let refund = clearing;
-
-			PendingDisplacements::<T>::try_mutate(|displacements| {
-				displacements
-					.try_push(BidDisplacement { who: displaced.who.clone(), refund })
-					.map_err(|_| Error::<T>::TooManyBids)
-			})?;
 
 			Quotas::<T>::mutate(&displaced.who, |quota| quota.displacements.saturating_inc());
 			Self::deposit_event(Event::BidDisplaced {
-				who: displaced.who,
+				who: displaced.who.clone(),
 				bid_id: displaced.bid_id,
 				refund,
 			});
 			Allocations::<T>::put(allocations);
 
-			core
+			(displaced.core, Some((displaced.who, refund)))
 		};
 
 		let region_id = RegionId { begin: sale.region_begin, core, mask: CoreMask::complete() };
@@ -541,6 +527,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			price: renewal_price,
 			region_id,
 			effective_to: sale.region_end,
+			displaced,
 		})
 	}
 
@@ -810,7 +797,7 @@ fn settle_auction<T: Config>(mut sale: SaleInfoRecordOf<T>) -> Vec<TickActionOf<
 
 /// Finalize the sale at the end of the Renewal phase.
 ///
-/// Issues regions for auction winners and refunds displaced bids.
+/// Issues regions for auction winners.
 fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> {
 	let mut actions = vec![];
 	let allocations = Allocations::<T>::take();
@@ -827,10 +814,6 @@ fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> 
 			region_id,
 			region_end: sale.region_end,
 		});
-	}
-
-	for displacement in PendingDisplacements::<T>::take() {
-		actions.push(TickAction::Refund { who: displacement.who, amount: displacement.refund });
 	}
 
 	Pallet::<T>::deposit_event(Event::SaleFinalized { regions_issued: count });
