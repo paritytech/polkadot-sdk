@@ -329,7 +329,7 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let bench_impls = expand_bench_functions(def);
 	let docs = expand_func_doc(def);
 	let all_syscalls = expand_func_list(def);
-	let lookup_syscall = expand_func_lookup(def);
+	let lookup_syscall = expand_func_lookup();
 	let all_trace_ops = expand_trace_op_list(def);
 	let lookup_trace_op = expand_trace_op_lookup(def);
 
@@ -550,33 +550,30 @@ fn expand_func_doc(def: &EnvDef) -> TokenStream2 {
 
 fn expand_func_list(def: &EnvDef) -> TokenStream2 {
 	let docs = def.host_funcs.iter().map(|f| {
+		let cfg = &f.cfg;
 		let name = Literal::byte_string(f.name.as_bytes());
 		quote! {
+			#cfg
 			#name.as_slice()
 		}
 	});
-	let len = docs.clone().count();
 
+	// Upload validation uses this list as the import allowlist, so it must honour `#[cfg]`.
 	quote! {
 		{
-			static FUNCS: [&[u8]; #len] = [#(#docs),*];
-			FUNCS.as_slice()
+			static FUNCS: &[&[u8]] = &[#(#docs),*];
+			FUNCS
 		}
 	}
 }
 
-fn expand_func_lookup(def: &EnvDef) -> TokenStream2 {
-	let arms = def.host_funcs.iter().enumerate().map(|(idx, f)| {
-		let name_str = &f.name;
-		quote! {
-			#name_str => Some(#idx as u8)
-		}
-	});
+fn expand_func_lookup() -> TokenStream2 {
+	// Indices are only known after `#[cfg]` stripping, so derive them from the list itself.
 	quote! {
-		match name {
-			#( #arms, )*
-			_ => None,
-		}
+		list_syscalls()
+			.iter()
+			.position(|syscall| *syscall == name.as_bytes())
+			.map(|idx| idx as u8)
 	}
 }
 
