@@ -22,16 +22,15 @@
 #![allow(dead_code)]
 
 use super::message::CollationParts;
-use codec::Decode;
+use codec::Encode;
 use cumulus_client_consensus_common::ValidationCodeHashProvider;
 use cumulus_client_resubmission_store::ResubmissionStore;
-use cumulus_primitives_core::{CumulusDigestItem, PersistedValidationData};
-use sc_client_api::{Backend, TrieCacheContext};
+use cumulus_primitives_core::{relay_chain::HeadData, CumulusDigestItem, PersistedValidationData};
+use sc_client_api::Backend;
 use sp_api::StorageProof;
 use sp_blockchain::{Backend as BlockchainBackend, Error as BlockchainError, HeaderBackend};
-use sp_crypto_hashing::twox_128;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
-use sp_state_machine::Backend as StateBackend;
+use std::sync::Arc;
 
 const LOG_TARGET: &str = "aura::resubmittable_segment";
 
@@ -53,10 +52,6 @@ enum HydrateError {
 	BodyBackend(BlockchainError),
 	#[error("no validation-code hash at parent")]
 	NoValidationCodeHash,
-	#[error("block state unavailable: {0}")]
-	StateUnavailable(BlockchainError),
-	#[error("no validation data in the block's post-state")]
-	ValidationDataMissing,
 	#[error("bundle starts at index {0}, not 0 (skipped index or partial bundle)")]
 	MalformedBundleStart(u8),
 }
@@ -191,15 +186,22 @@ where
 		.code_hash_at(bundle_parent_hash)
 		.ok_or(HydrateError::NoValidationCodeHash)?;
 
-	// Anchor on the first block; its store row carries the shared relay parent, session and header.
+	// Anchor on the first block; its store row carries the shared relay parent header and the
+	// `max_pov_size`, used to rebuild the PVD.
 	let first_hash = bundle[0].hash();
-	let validation_data = read_validation_data(para_backend, first_hash)?;
-	let relay_parent = store
+	let anchor = store
 		.load(first_hash)
 		.map_err(HydrateError::StoreLoad)?
-		.ok_or(HydrateError::StoredEntryMissing)?
-		.relay_parent_header
-		.hash();
+		.ok_or(HydrateError::StoredEntryMissing)?;
+	let relay_parent_header = anchor.relay_parent_header;
+	let relay_parent = relay_parent_header.hash();
+
+	let validation_data = PersistedValidationData {
+		parent_head: HeadData(parent_header.encode()),
+		relay_parent_number: *relay_parent_header.number(),
+		relay_parent_storage_root: *relay_parent_header.state_root(),
+		max_pov_size: anchor.max_pov_size,
+	};
 
 	let mut blocks = Vec::with_capacity(bundle.len());
 	let mut proofs = Vec::with_capacity(bundle.len());
@@ -217,7 +219,7 @@ where
 			.ok_or(HydrateError::BodyMissing)?;
 
 		blocks.push(Block::new(header, body));
-		proofs.push((*stored.proof).clone());
+		proofs.push(Arc::unwrap_or_clone(stored.proof));
 	}
 
 	Ok(CollationParts {
@@ -228,27 +230,6 @@ where
 		validation_code_hash,
 		validation_data,
 	})
-}
-
-/// Read a parablock's [`PersistedValidationData`] from its `ParachainSystem::ValidationData`
-/// post-state.
-fn read_validation_data<Block, B>(
-	para_backend: &B,
-	block_hash: Block::Hash,
-) -> Result<PersistedValidationData, HydrateError>
-where
-	Block: BlockT,
-	B: Backend<Block>,
-{
-	let key = [twox_128(b"ParachainSystem"), twox_128(b"ValidationData")].concat();
-	let state = para_backend
-		.state_at(block_hash, TrieCacheContext::Untrusted)
-		.map_err(HydrateError::StateUnavailable)?;
-	let raw = state
-		.storage(&key)
-		.map_err(|_| HydrateError::ValidationDataMissing)?
-		.ok_or(HydrateError::ValidationDataMissing)?;
-	PersistedValidationData::decode(&mut &raw[..]).map_err(|_| HydrateError::ValidationDataMissing)
 }
 
 #[cfg(test)]
