@@ -37,20 +37,20 @@ use std::sync::Arc;
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
 
-/// The candidate's UMP signal tail, byte-identical to `validate_block`'s, with the same checks so a
-/// rejected candidate is never submitted. No records or lifts are sourced yet, so no `Requires`.
+/// The candidate's UMP signal tail, byte-identical to `validate_block`'s. No records or lifts are
+/// sourced yet, so no `Requires`.
 fn collation_ump_signals(
 	signed_scheduling_info: Option<&SignedSchedulingInfo>,
 	upward_message_signals: Vec<Vec<u8>>,
 ) -> Result<Vec<Vec<u8>>, SpecMessagingError> {
-	let spec_messaging = SpecMessagingSignals::build(&upward_message_signals, &[], None)?;
 	Ok(match signed_scheduling_info {
 		// A signed scheduling info (resubmission) replaces the block's *scheduling* signals
 		// wholesale, via the same `SchedulingSignals::from_scheduling_info` the PVF applies. The
 		// block's `Provides` is kept, as the PVF keeps it.
-		Some(signed_info) => {
-			ump_signal_tail(SchedulingSignals::from_scheduling_info(signed_info), spec_messaging)
-		},
+		Some(signed_info) => ump_signal_tail(
+			SchedulingSignals::from_scheduling_info(signed_info),
+			SpecMessagingSignals::build(&upward_message_signals, &[], None)?,
+		),
 		// Otherwise the block's signals pass through unchanged: the runtime already emits them
 		// in the canonical order (`pallet_parachain_system::send_ump_signals`).
 		None if upward_message_signals.is_empty() => Vec::new(),
@@ -522,6 +522,10 @@ mod tests {
 			RequiresSet::try_from_iter([(ParaId::from(1u32), StreamsRoot(Hash::repeat_byte(1)))])
 				.unwrap();
 		let raw = vec![UMPSignal::Requires(requires).encode()];
-		assert_eq!(collation_ump_signals(None, raw), Err(SpecMessagingError::BlockEmittedRequires));
+		let signed_info = signed(2, peer(0xCC));
+		assert_eq!(
+			collation_ump_signals(Some(&signed_info), raw),
+			Err(SpecMessagingError::BlockEmittedRequires)
+		);
 	}
 }
