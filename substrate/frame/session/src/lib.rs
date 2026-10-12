@@ -76,6 +76,7 @@
 //! ### Dispatchable Functions
 //!
 //! - `set_keys` - Set a validator's session keys for upcoming sessions.
+//! - `purge_keys` - Remove a validator's session keys.
 //!
 //! ### Public Functions
 //!
@@ -118,7 +119,7 @@ pub mod weights;
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 use codec::{Decode, MaxEncodedLen};
 use core::{
 	marker::PhantomData,
@@ -285,6 +286,55 @@ impl<A> SessionManager<A> for () {
 	}
 	fn start_session(_: SessionIndex) {}
 	fn end_session(_: SessionIndex) {}
+}
+
+/// A session manager that returns the union of the sets of `A` and `B`.
+///
+/// Both managers are expected to return their full current set at every rotation. `None` from one
+/// side means that side contributes nothing this time. The result is `None` only when both sides
+/// return `None`. When only one side returns a set, that set is returned unchanged. When both do,
+/// the result is `A`'s set followed by `B`'s set, keeping the first occurrence of every account.
+pub struct UnionSessionManager<A, B>(PhantomData<(A, B)>);
+
+impl<A, B> UnionSessionManager<A, B> {
+	fn union<ValidatorId: Clone + Ord>(
+		a: Option<Vec<ValidatorId>>,
+		b: Option<Vec<ValidatorId>>,
+	) -> Option<Vec<ValidatorId>> {
+		match (a, b) {
+			(Some(a), Some(b)) => {
+				let mut seen = BTreeSet::new();
+				Some(a.into_iter().chain(b).filter(|id| seen.insert(id.clone())).collect())
+			},
+			(a, None) => a,
+			(None, b) => b,
+		}
+	}
+}
+
+impl<ValidatorId, A, B> SessionManager<ValidatorId> for UnionSessionManager<A, B>
+where
+	ValidatorId: Clone + Ord,
+	A: SessionManager<ValidatorId>,
+	B: SessionManager<ValidatorId>,
+{
+	fn new_session(new_index: SessionIndex) -> Option<Vec<ValidatorId>> {
+		Self::union(A::new_session(new_index), B::new_session(new_index))
+	}
+
+	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<ValidatorId>> {
+		Self::union(A::new_session_genesis(new_index), B::new_session_genesis(new_index))
+	}
+
+	fn start_session(start_index: SessionIndex) {
+		A::start_session(start_index);
+		B::start_session(start_index);
+	}
+
+	fn end_session(end_index: SessionIndex) {
+		A::end_session(end_index);
+		B::end_session(end_index);
+	}
 }
 
 /// Handler for session life cycle events.
@@ -723,28 +773,26 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::purge_keys())]
 		pub fn purge_keys(origin: OriginFor<T>) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			Self::do_purge_keys(&who)?;
-			Ok(())
+			let account = ensure_signed(origin)?;
+			let who = T::ValidatorIdOf::convert(account.clone())
+				// `purge_keys` may not have a controller-stash pair any more. If so then we expect
+				// the stash account to be passed in directly and convert that to a
+				// `ValidatorId` using the `TryFrom` trait if supported.
+				.or_else(|| T::ValidatorId::try_from(account.clone()).ok())
+				.ok_or(Error::<T>::NoAssociatedValidatorId)?;
+			Self::do_purge_keys(&account, &who)
 		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	impl<T: Config> Pallet<T> {
-		/// Mint enough funds into `who`, such that they can pay the session key setting deposit.
+		/// Mint the session key setting deposit into `who`, on top of any existing balance.
 		///
 		/// Meant to be used if any pallet's benchmarking code wishes to set session keys, and wants
-		/// to make sure it will succeed.
+		/// to make sure it will succeed without consuming funds `who` holds for other purposes.
 		pub fn ensure_can_pay_key_deposit(who: &T::AccountId) -> Result<(), DispatchError> {
-			use frame_support::traits::tokens::{Fortitude, Preservation};
-			let deposit = T::KeyDeposit::get();
-			let has = T::Currency::reducible_balance(who, Preservation::Protect, Fortitude::Force);
-			if let Some(deficit) = deposit.checked_sub(&has) {
-				T::Currency::mint_into(who, deficit.max(T::Currency::minimum_balance()))
-					.map(|_inc| ())
-			} else {
-				Ok(())
-			}
+			let amount = T::KeyDeposit::get().max(T::Currency::minimum_balance());
+			T::Currency::mint_into(who, amount).map(|_inc| ())
 		}
 	}
 }
@@ -993,15 +1041,8 @@ impl<T: Config> Pallet<T> {
 		Ok(old_keys)
 	}
 
-	fn do_purge_keys(account: &T::AccountId) -> DispatchResult {
-		let who = T::ValidatorIdOf::convert(account.clone())
-			// `purge_keys` may not have a controller-stash pair any more. If so then we expect the
-			// stash account to be passed in directly and convert that to a `ValidatorId` using the
-			// `TryFrom` trait if supported.
-			.or_else(|| T::ValidatorId::try_from(account.clone()).ok())
-			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
-
-		let old_keys = Self::take_keys(&who).ok_or(Error::<T>::NoKeys)?;
+	fn do_purge_keys(account: &T::AccountId, who: &T::ValidatorId) -> DispatchResult {
+		let old_keys = Self::take_keys(who).ok_or(Error::<T>::NoKeys)?;
 		for id in T::Keys::key_ids() {
 			let key_data = old_keys.get_raw(*id);
 			Self::clear_key_owner(*id, key_data);
@@ -1235,20 +1276,7 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 		let who = T::ValidatorIdOf::convert(account.clone())
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
-		let old_keys = Self::take_keys(&who).ok_or(Error::<T>::NoKeys)?;
-		for id in T::Keys::key_ids() {
-			let key_data = old_keys.get_raw(*id);
-			Self::clear_key_owner(*id, key_data);
-		}
-		let _ = T::Currency::release_all(
-			&HoldReason::Keys.into(),
-			account,
-			frame_support::traits::tokens::Precision::BestEffort,
-		);
-		if ExternallySetKeys::<T>::take(account).is_none() {
-			frame_system::Pallet::<T>::dec_consumers(account);
-		}
-		Ok(())
+		Self::do_purge_keys(account, &who)
 	}
 
 	fn set_keys_weight() -> Weight {

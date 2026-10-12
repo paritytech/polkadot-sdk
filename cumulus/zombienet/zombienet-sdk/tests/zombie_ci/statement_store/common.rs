@@ -9,8 +9,8 @@
 use anyhow::anyhow;
 use codec::Encode;
 use log::info;
-use sc_statement_store::test_utils::get_keypair;
-use sp_core::{hexdisplay::HexDisplay, Bytes, Pair};
+use sc_statement_store::test_utils::{create_test_statement, get_keypair};
+use sp_core::{hexdisplay::HexDisplay, sr25519, Bytes, Pair};
 use sp_statement_store::{
 	statement_allowance_key, StatementAllowance, StatementEvent, SubmitOutcome, SubmitResult,
 	Topic, TopicFilter,
@@ -25,7 +25,7 @@ use zombienet_sdk::{
 		backend::rpc::RpcClient,
 		ext::subxt_rpcs::{client::RpcSubscription, rpc_params},
 	},
-	LocalFileSystem, Network, NetworkConfigBuilder,
+	AddCollatorOptions, LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
 use sc_statement_store::subxt_client::CustomConfig;
@@ -253,6 +253,72 @@ pub(super) async fn assert_statements_match(
 	Ok(())
 }
 
+const PAYLOAD_SIZE: usize = 128;
+
+pub(super) struct Load {
+	keypairs: Vec<sr25519::Pair>,
+	seq: u32,
+	ttl: Option<Duration>,
+}
+
+impl Load {
+	pub(super) fn new(participants: u32) -> Self {
+		let keypairs = (0..participants).map(get_keypair).collect();
+		Self { keypairs, seq: 0, ttl: None }
+	}
+
+	pub(super) fn expiring(participants: u32, ttl: Duration) -> Self {
+		Self { ttl: Some(ttl), ..Self::new(participants) }
+	}
+
+	pub(super) fn next_statement(
+		&mut self,
+		round: u64,
+		topic: Topic,
+	) -> sp_statement_store::Statement {
+		let keypair = &self.keypairs[self.seq as usize % self.keypairs.len()];
+		self.seq += 1;
+		let mut payload = vec![0u8; PAYLOAD_SIZE];
+		payload[..8].copy_from_slice(&round.to_le_bytes());
+		payload[8..12].copy_from_slice(&self.seq.to_le_bytes());
+		let expiry_ts = self
+			.ttl
+			.and_then(|ttl| {
+				let now = std::time::SystemTime::now()
+					.duration_since(std::time::UNIX_EPOCH)
+					.ok()?
+					.as_secs();
+				u32::try_from(now + ttl.as_secs()).ok()
+			})
+			.unwrap_or(u32::MAX);
+		create_test_statement(keypair, &[topic], None, payload, expiry_ts, self.seq)
+	}
+}
+
+/// Submits `rate` statements per second for `secs` seconds from `load` on `topic`, round-robin
+/// over `targets`, and returns them encoded in submission order
+pub(super) async fn submit_at_rate(
+	load: &mut Load,
+	round: u64,
+	topic: Topic,
+	rate: usize,
+	secs: u64,
+	targets: &[(&str, &RpcClient)],
+) -> Result<Vec<Vec<u8>>, anyhow::Error> {
+	let total = rate * secs as usize;
+	let mut ticker = tokio::time::interval(Duration::from_secs(1) / rate as u32);
+	let mut expected = Vec::with_capacity(total);
+	for idx in 0..total {
+		ticker.tick().await;
+		let statement = load.next_statement(round, topic);
+		let (name, rpc) = targets[idx % targets.len()];
+		let result = submit_statement(rpc, &statement).await?;
+		assert_eq!(result, SubmitResult::New, "round {round}: {name} rejected the statement");
+		expected.push(statement.encode());
+	}
+	Ok(expected)
+}
+
 /// Creates a custom chain spec with uniform allowances for all participants
 pub(super) fn create_chain_spec_with_allowances(
 	participant_count: u32,
@@ -329,12 +395,16 @@ async fn launch_network(
 	collator_env: &[(&str, &str)],
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let collators: Vec<(&str, Option<&str>)> = collators.iter().map(|&name| (name, None)).collect();
-	launch_network_with_commands(&collators, chain_spec_path, collator_args, collator_env).await
+	launch_network_with_commands(&collators, &[], chain_spec_path, collator_args, collator_env)
+		.await
 }
 
-/// [`launch_network`] with an optional per-collator command in place of `polkadot-parachain`
+/// [`launch_network`] with an optional per-collator command in place of `polkadot-parachain`,
+/// plus one full node per `full_nodes` entry, running with the same args and env as the
+/// collators
 pub(super) async fn launch_network_with_commands(
 	collators: &[(&str, Option<&str>)],
+	full_nodes: &[&str],
 	chain_spec_path: &Path,
 	collator_args: Vec<zombienet_sdk::Arg>,
 	collator_env: &[(&str, &str)],
@@ -366,8 +436,10 @@ pub(super) async fn launch_network_with_commands(
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(collator_args)
 				.with_collator(|n| collator(n, &collators[0]));
-
-			collators[1..].iter().fold(p, |acc, c| acc.with_collator(|n| collator(n, c)))
+			let p = collators[1..].iter().fold(p, |acc, c| acc.with_collator(|n| collator(n, c)));
+			full_nodes.iter().fold(p, |acc, &name| {
+				acc.with_fullnode(|n| n.with_name(name).with_env(collator_env.to_vec()))
+			})
 		})
 		.with_global_settings(|global_settings| {
 			global_settings
@@ -507,6 +579,81 @@ pub(super) async fn spawn_network_with_injected_allowances_v2(
 	);
 	launch_network(collators, &chain_spec_path, args, &[("STATEMENT_STORE_V2_DHT_ENABLED", "1")])
 		.await
+}
+
+/// Statements the late-joiner scenario submits with keypair 0: three before the joiner starts,
+/// two while it syncs.
+pub(super) const LATE_JOINER_TOTAL: usize = 5;
+
+/// Adds `dave` with `joiner_options` once charlie is past block 10, so it joins in major sync, and
+/// checks its subscription receives every statement submitted on charlie before and during the
+/// sync. Its log must also show the deferred-peer drain: charlie and alice dial dave either way.
+pub(super) async fn assert_late_joiner_receives_backlog(
+	network: &mut Network<LocalFileSystem>,
+	joiner_options: AddCollatorOptions,
+) -> Result<(), anyhow::Error> {
+	const PRE_JOIN_COUNT: usize = 3;
+
+	let charlie = network.get_node("charlie")?;
+	let charlie_rpc = charlie.rpc().await?;
+
+	// Leave the joiner behind the major-sync threshold (`MAJOR_SYNC_BLOCKS` is 5).
+	let charlie_height = {
+		let height = std::cell::Cell::new(0.0f64);
+		charlie
+			.wait_metric_with_timeout(
+				crate::utils::BEST_BLOCK_METRIC,
+				|best| {
+					height.set(best);
+					best >= 10.0
+				},
+				360u64,
+			)
+			.await?;
+		height.get()
+	};
+	info!("charlie at block {charlie_height:.0} before dave joins");
+
+	let topic: Topic = [0x51; 32].into();
+	let keypair = get_keypair(0);
+	let statement =
+		|seq: u32| create_test_statement(&keypair, &[topic], None, vec![seq as u8], u32::MAX, seq);
+	let pre_join: Vec<_> = (0..PRE_JOIN_COUNT as u32).map(statement).collect();
+	for statement in &pre_join {
+		assert_eq!(submit_statement(&charlie_rpc, statement).await?, SubmitResult::New);
+	}
+
+	network.add_collator("dave", joiner_options, 1004).await?;
+	let dave = network.get_node("dave")?;
+	let dave_rpc = dave.rpc().await?;
+	let mut subscription = subscribe_topic(&dave_rpc, topic).await?;
+
+	let during_sync: Vec<_> =
+		(PRE_JOIN_COUNT as u32..LATE_JOINER_TOTAL as u32).map(statement).collect();
+	for statement in &during_sync {
+		assert_eq!(submit_statement(&charlie_rpc, statement).await?, SubmitResult::New);
+	}
+	let dave_height = dave.reports(crate::utils::BEST_BLOCK_METRIC).await.unwrap_or(0.0);
+	info!("dave at block {dave_height:.0} of {charlie_height:.0} when the batch landed");
+
+	dave.wait_metric_with_timeout(
+		crate::utils::BEST_BLOCK_METRIC,
+		|best| best >= charlie_height,
+		240u64,
+	)
+	.await
+	.map_err(|_| anyhow!("dave did not reach block {charlie_height:.0}"))?;
+
+	let expected: Vec<Vec<u8>> = pre_join
+		.iter()
+		.chain(&during_sync)
+		.map(|statement| statement.encode())
+		.collect();
+	assert_statements_match(&mut subscription, &expected, 120, "dave").await?;
+
+	let dave_logs = dave.logs().await?;
+	assert!(dave_logs.lines().any(|line| line.contains("Major sync complete, adding")));
+	Ok(())
 }
 
 /// Probes whether the node behind `rpc` currently stores `expected` for `topic`.
