@@ -1,0 +1,10 @@
+title: Remove deprecated sp_maybe_compressed_blob::compress
+doc:
+- audience: Node Dev
+  description: |-
+    ## Summary
+
+    This is part of #11561. `sp_maybe_compressed_blob::compress` was due for removal after June 2026, and it only forwarded to the same level-3 compression as `compress_weakly`. In-repo callers already use `compress_weakly` or `compress_strongly`. The private `compress_with_level` helper stays in place.
+crates:
+- name: sp-maybe-compressed-blob
+  bump: major
