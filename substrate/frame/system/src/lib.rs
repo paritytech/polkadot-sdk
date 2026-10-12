@@ -1114,14 +1114,10 @@ pub mod pallet {
 
 	/// Whether a dispatch nested inside the current extrinsic failed.
 	///
-	/// Dispatchables that dispatch other calls and report success regardless of their outcome,
-	/// such as `pallet_utility::batch` or `pallet_proxy::proxy`, note the failure of an inner
-	/// dispatch here through [`Pallet::note_nested_dispatch_failure`]. This lets post dispatch
-	/// logic, such as a transaction extension, tell an extrinsic that genuinely succeeded from
-	/// one that only reports success from the outside.
+	/// Set through [`Pallet::note_nested_dispatch_failure`], so that post dispatch logic can
+	/// tell a genuine success from one that is only reported from the outside.
 	///
-	/// This information is available until the end of the extrinsic execution. More precisely
-	/// this information is removed in `note_applied_extrinsic`.
+	/// Available until the end of the extrinsic; removed in `note_applied_extrinsic`.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	pub type ExtrinsicNestedDispatchFailure<T: Config> = StorageValue<_, bool, ValueQuery>;
@@ -2477,13 +2473,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Note that a call dispatched from within the current extrinsic failed.
 	///
-	/// Every dispatchable that dispatches another call and reports success regardless of that
-	/// call's outcome must call this, so that post dispatch logic can tell such an extrinsic
-	/// apart from one that genuinely succeeded. In tree this covers `pallet_utility`'s `batch`,
-	/// `force_batch` and `if_else`, `pallet_proxy::proxy`, `pallet_meta_tx::dispatch`,
-	/// `pallet_recovery::control_inherited_account` and `pallet_collective`'s proposal
-	/// execution. A dispatchable that forwards the inner error to its caller does not need it.
-	/// See [`ExtrinsicNestedDispatchFailure`].
+	/// Must be called by every dispatchable that dispatches another call and reports success
+	/// regardless of its outcome, such as `pallet_utility::batch` or `pallet_proxy::proxy`. One
+	/// that forwards the inner error to its caller does not need it. See
+	/// [`ExtrinsicNestedDispatchFailure`].
 	pub fn note_nested_dispatch_failure() {
 		ExtrinsicNestedDispatchFailure::<T>::put(true);
 	}
