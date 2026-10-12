@@ -10,4 +10,4 @@ doc:
     such as alloy require both fields to decode a block header.
 crates:
 - name: pallet-revive-eth-rpc
-  bump: minor
+  bump: major
