@@ -15,6 +15,7 @@
 
 use super::*;
 use crate as pallet_validator_collators;
+use cumulus_pallet_parachain_system::OnSystemEvent;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types, traits::ConstU32, PalletId,
 };
@@ -157,9 +158,21 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
+parameter_types! {
+	/// The relay chain epoch randomness in the state proof of every block, `None` for no proof.
+	pub static RelayEpochRandomness: Option<[u8; 32]> = Some([7; 32]);
+}
+
+/// Produce blocks up to `n`, each with a relay chain state proof carrying
+/// [`RelayEpochRandomness`].
 pub fn initialize_to_block(n: u64) {
 	for i in System::block_number() + 1..=n {
 		System::set_block_number(i);
 		<AllPalletsWithSystem as frame_support::traits::OnInitialize<u64>>::on_initialize(i);
+		if let Some(randomness) = RelayEpochRandomness::get() {
+			<ValidatorCollators as OnSystemEvent>::on_relay_state_proof(
+				&crate::relay_proof::with_epoch_randomness(randomness),
+			);
+		}
 	}
 }
