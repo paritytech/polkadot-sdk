@@ -1269,6 +1269,8 @@ mod benchmarks {
 			validator_points,
 			activation_timestamp,
 		};
+		// The era-start hook is charged on top of this weight, so it must not run here.
+		NextEraValidators::<T>::kill();
 
 		#[block]
 		{
@@ -1608,12 +1610,20 @@ mod benchmarks {
 		// proof era (`l - 1`) stays below the active era.
 		set_active_era::<T>(l);
 
+		// Fill the `EraRewardPoints::individual` to hit the worst-case scenario.
+		let mut individual_points = BoundedBTreeMap::new();
+		for index in 0..T::MaxValidatorSet::get() {
+			individual_points
+				.try_insert(account::<T::AccountId>("validator", index, 0), 100)
+				.unwrap();
+		}
+
 		// Set the validator has been inactive for `l` eras.
 		let proof = (0..l)
 			.inspect(|&era| {
 				ErasRewardPoints::<T>::insert(
 					era,
-					EraRewardPoints { total: 0, individual: BoundedBTreeMap::new() },
+					EraRewardPoints { total: 0, individual: individual_points.clone() },
 				);
 				Eras::<T>::upsert_exposure(era, &stash, Exposure::default());
 			})

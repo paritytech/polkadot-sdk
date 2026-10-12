@@ -4,7 +4,7 @@
 // Benchmarking statement store performance
 
 use anyhow::anyhow;
-use codec::Encode;
+use codec::{Decode, Encode};
 use futures::stream::{FuturesUnordered, StreamExt};
 use log::{debug, info};
 use sc_statement_store::{
@@ -128,7 +128,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 
 			let current_count = Cell::new(0.0f64);
 			node.wait_metric_with_timeout(
-				"substrate_sub_statement_store_submitted_statements",
+				"substrate_sub_statement_store_submitted_statements{reason=\"persistent\"}",
 				|count| {
 					current_count.set(count);
 					true
@@ -221,11 +221,30 @@ impl LatencyBenchConfig {
 #[derive(Debug, Clone)]
 struct RoundStats {
 	send_duration: Duration,
-	receive_duration: Duration,
+	/// Time from the neighbour's submit to the arrival here, one entry per message.
+	message_latencies: Vec<Duration>,
 	full_latency: Duration,
 	sent_count: u32,
 	received_count: u32,
-	receive_attempts: u32,
+}
+
+/// Microseconds since the Unix epoch. All nodes of a local zombienet run on one host, so a send
+/// time written by one client and read by another share a clock.
+fn unix_micros() -> u64 {
+	std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.expect("system clock after epoch; qed")
+		.as_micros() as u64
+}
+
+/// `values` at the 50th, 90th and 99th percentile (nearest rank) and the maximum.
+fn percentiles(mut values: Vec<f64>) -> [f64; 4] {
+	values.sort_by(f64::total_cmp);
+	let at = |q: f64| {
+		let rank = (q * values.len() as f64).ceil() as usize;
+		values[rank - 1]
+	};
+	[at(0.5), at(0.9), at(0.99), values[values.len() - 1]]
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -283,6 +302,9 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 	);
 
 	let barrier = Arc::new(Barrier::new(config.num_clients as usize));
+	// Every client subscribes before any client sends, so no statement arrives ahead of the
+	// subscription that measures it.
+	let subscribed = Arc::new(Barrier::new(config.num_clients as usize));
 	let sync_start = std::time::Instant::now();
 
 	// Generate unique test run ID using timestamp to avoid interference with old data
@@ -295,6 +317,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 		.map(|client_id| {
 			let config = Arc::clone(&config);
 			let barrier = Arc::clone(&barrier);
+			let subscribed = Arc::clone(&subscribed);
 			let keyring = get_keypair(client_id);
 			let node_idx = (client_id as usize) % config.num_nodes;
 			let conn_idx = (client_id as usize / config.num_nodes) % pool_size_per_node;
@@ -319,54 +342,154 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					);
 				}
 
-				let submission_jitter = (client_id % 1000) as u64;
-				tokio::time::sleep(Duration::from_millis(submission_jitter)).await;
-
 				let mut rounds_stats = Vec::new();
 				for round in 0..config.num_rounds {
-					let round_start = std::time::Instant::now();
-
 					// Create subscriptions for messages we expect to receive
 					if client_id == 0 {
 						info!("Creating subscriptions for expected messages");
 					}
 
-					let mut subscriptions = Vec::new();
-					for msg_idx in 0..config.messages_per_client() as u32 {
-						let topic_str = format!("{test_run_id}-{client_id}-{round}-{msg_idx}");
+					// The neighbour runs on another node, so its statements reach this client only
+					// through gossip. A failed subscription still reaches the barrier below, so
+					// the other clients never wait for it.
+					let subscriptions = async {
+						let mut subscriptions = Vec::new();
+						for msg_idx in 0..config.messages_per_client() as u32 {
+							let topic_str =
+								format!("{test_run_id}-{neighbour_id}-{round}-{msg_idx}");
 
-						if client_id == 0 {
-							info!("Subscribed {msg_idx} message(s) {topic_str:?}");
-						}
+							if client_id == 0 {
+								info!("Subscribed {msg_idx} message(s) {topic_str:?}");
+							}
 
-						let topic: Topic = blake2_256(topic_str.as_bytes()).into();
+							let topic: Topic = blake2_256(topic_str.as_bytes()).into();
 
-						let subscription = rpc_client
-							.subscribe::<StatementEvent>(
-								"statement_subscribeStatement",
-								rpc_params![TopicFilter::MatchAll(
-									vec![topic].try_into().expect("Single topic")
-								)],
-								"statement_unsubscribeStatement",
-							)
-							.await
-							.map_err(|e| {
-								anyhow!(
+							let subscription = rpc_client
+								.subscribe::<StatementEvent>(
+									"statement_subscribeStatement",
+									rpc_params![TopicFilter::MatchAll(
+										vec![topic].try_into().expect("Single topic")
+									)],
+									"statement_unsubscribeStatement",
+								)
+								.await
+								.map_err(|e| {
+									anyhow!(
 									"Client {}: Failed to subscribe for message {} from neighbour {}: {}",
 									client_id,
 									msg_idx,
 									neighbour_id,
 									e
 								)
-							})?;
-						subscriptions.push((msg_idx, topic_str, subscription));
+								})?;
+							subscriptions.push((msg_idx, topic_str, subscription));
+						}
+						Ok::<_, anyhow::Error>(subscriptions)
 					}
+					.await;
+					subscribed.wait().await;
+					let subscriptions = subscriptions?;
 
 					if client_id == 0 {
 						info!("Created {} subscriptions", subscriptions.len());
 					}
 
-					// Step 2: Send messages
+					// Step 2: Receive in the background, so the arrival time is taken when the
+					// statement arrives and not when this client finishes its own sends.
+					let total_timeout =
+						Duration::from_millis(config.req_timeout_ms * config.max_retries as u64);
+					let receiver = tokio::spawn(async move {
+						let mut futures: FuturesUnordered<_> = subscriptions
+							.into_iter()
+							.map(|(msg_idx, topic_str, mut subscription)| async move {
+								// The first batch can be an empty snapshot, so wait for one that
+								// carries the neighbour's statement.
+								let first_statement = async {
+									loop {
+										match subscription.next().await {
+											Some(Ok(StatementEvent::NewStatements {
+												statements,
+												..
+											})) => {
+												if let Some(encoded) = statements.into_iter().next()
+												{
+													return Ok(encoded);
+												}
+											},
+											Some(Err(e)) => {
+												return Err(anyhow!(
+													"Subscription error for message {}: {}",
+													msg_idx,
+													e
+												))
+											},
+											None => {
+												return Err(anyhow!(
+													"Subscription ended unexpectedly for message {}",
+													msg_idx
+												))
+											},
+										}
+									}
+								};
+								let encoded =
+									timeout(total_timeout, first_statement).await.map_err(
+										|_| anyhow!("Timeout waiting for message {}", msg_idx),
+									)??;
+								let received_at = unix_micros();
+								let statement =
+									Statement::decode(&mut &encoded[..]).map_err(|e| {
+										anyhow!(
+											"Undecodable statement for message {}: {}",
+											msg_idx,
+											e
+										)
+									})?;
+								let sent_at = statement
+									.data()
+									.and_then(|data| data.get(..8))
+									.map(|bytes| {
+										u64::from_le_bytes(bytes.try_into().expect("8 bytes; qed"))
+									})
+									.ok_or_else(|| {
+										anyhow!("No send time in message {}", msg_idx)
+									})?;
+								let latency =
+									Duration::from_micros(received_at.saturating_sub(sent_at));
+								Ok::<_, anyhow::Error>((msg_idx, topic_str, latency))
+							})
+							.collect();
+
+						let mut message_latencies = Vec::new();
+						while let Some(result) = futures.next().await {
+							let (msg_idx, topic_str, latency) = result.map_err(|e| {
+								anyhow!(
+									"Client {}: Failed to receive message from neighbour {}: {}",
+									client_id,
+									neighbour_id,
+									e
+								)
+							})?;
+							message_latencies.push(latency);
+							if client_id == 0 {
+								info!(
+									"Received {} message(s) {topic_str:?} (msg_idx: {}) after {:?}",
+									message_latencies.len(),
+									msg_idx,
+									latency
+								);
+							}
+						}
+						Ok::<_, anyhow::Error>(message_latencies)
+					});
+
+					// Spreads the submits over a second, as a crowd of real clients would.
+					let submission_jitter = (client_id % 1000) as u64;
+					tokio::time::sleep(Duration::from_millis(submission_jitter)).await;
+					let round_start = std::time::Instant::now();
+
+					// Step 3: Send messages
+					let send_start = std::time::Instant::now();
 					let mut msg_idx: u32 = 0;
 
 					if client_id == 0 {
@@ -390,13 +513,25 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 							statement.set_channel(channel);
 							statement.set_expiry_from_parts(u32::MAX, timestamp_ms);
 							statement.set_topic(0, topic.into());
-							statement.set_plain_data(vec![0u8; size]);
+							// The data starts with the send time, which the receiver subtracts
+							// from its arrival time.
+							let mut data = vec![0u8; size.max(8)];
+							data[..8].copy_from_slice(&unix_micros().to_le_bytes());
+							statement.set_plain_data(data);
 							statement.sign_sr25519_private(&keyring);
 
 							let encoded: Bytes = statement.encode().into();
 							let result: SubmitResult = rpc_client
 								.request("statement_submit", rpc_params![encoded])
 								.await?;
+							if !matches!(result, SubmitResult::New) {
+								return Err(anyhow!(
+									"Client {}: submit of message {} returned {:?}",
+									client_id,
+									msg_idx,
+									result
+								));
+							}
 
 							msg_idx += 1;
 							if client_id == 0 {
@@ -406,64 +541,15 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					}
 
 					let sent_count = msg_idx;
-					let send_duration = round_start.elapsed();
+					let send_duration = send_start.elapsed();
 
-					// Step 3: Wait for subscriptions to receive messages
-					let receive_start = std::time::Instant::now();
-					let mut received_count = 0;
-					let receive_attempts = subscriptions.len() as u32;
-
+					// Step 4: Wait for the neighbour's messages
 					if client_id == 0 {
-						info!("Start receiving messages via subscriptions");
+						info!("Waiting for messages via subscriptions");
 					}
+					let message_latencies = receiver.await??;
+					let received_count = message_latencies.len() as u32;
 
-					let total_timeout =
-						Duration::from_millis(config.req_timeout_ms * config.max_retries as u64);
-
-					let mut futures: FuturesUnordered<_> = subscriptions
-						.into_iter()
-						.map(|(msg_idx, topic_str, mut subscription)| async move {
-							match timeout(total_timeout, subscription.next()).await {
-								Ok(Some(Ok(StatementEvent::NewStatements { .. }))) => {
-									Ok((msg_idx, topic_str))
-								},
-								Ok(Some(Err(e))) => Err(anyhow!(
-									"Subscription error for message {}: {}",
-									msg_idx,
-									e
-								)),
-								Ok(None) => Err(anyhow!(
-									"Subscription ended unexpectedly for message {}",
-									msg_idx
-								)),
-								Err(_) => Err(anyhow!("Timeout waiting for message {}", msg_idx)),
-							}
-						})
-						.collect();
-
-					while let Some(result) = futures.next().await {
-						match result {
-							Ok((msg_idx, topic_str)) => {
-								received_count += 1;
-								if client_id == 0 {
-									info!(
-										"Received {received_count} message(s) {topic_str:?} (msg_idx: {})",
-										msg_idx
-									);
-								}
-							},
-							Err(e) => {
-								return Err(anyhow!(
-									"Client {}: Failed to receive message from neighbour {}: {}",
-									client_id,
-									neighbour_id,
-									e
-								));
-							},
-						}
-					}
-
-					let receive_duration = receive_start.elapsed();
 					let full_latency = round_start.elapsed();
 					if full_latency < Duration::from_millis(config.interval_ms) {
 						tokio::time::sleep(
@@ -474,11 +560,10 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 
 					rounds_stats.push(RoundStats {
 						send_duration,
-						receive_duration,
+						message_latencies,
 						full_latency,
 						sent_count,
 						received_count,
-						receive_attempts,
 					});
 				}
 
@@ -514,35 +599,24 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 		all_round_stats.extend(stats);
 	}
 
-	let calc_stats = |values: Vec<f64>| -> (f64, f64, f64) {
-		let min = values.iter().copied().fold(f64::INFINITY, f64::min);
-		let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-		let avg = values.iter().sum::<f64>() / values.len() as f64;
-		(min, avg, max)
-	};
-
 	let send_s =
-		calc_stats(all_round_stats.iter().map(|s| s.send_duration.as_secs_f64()).collect());
-	let read_s =
-		calc_stats(all_round_stats.iter().map(|s| s.receive_duration.as_secs_f64()).collect());
-	let latency_s =
-		calc_stats(all_round_stats.iter().map(|s| s.full_latency.as_secs_f64()).collect());
-	let attempts = calc_stats(all_round_stats.iter().map(|s| s.receive_attempts as f64).collect());
-	let attempts_per_msg = (
-		attempts.0 / config.messages_per_client() as f64,
-		attempts.1 / config.messages_per_client() as f64,
-		attempts.2 / config.messages_per_client() as f64,
+		percentiles(all_round_stats.iter().map(|s| s.send_duration.as_secs_f64()).collect());
+	let message_s = percentiles(
+		all_round_stats
+			.iter()
+			.flat_map(|s| s.message_latencies.iter().map(Duration::as_secs_f64))
+			.collect(),
 	);
+	let round_s =
+		percentiles(all_round_stats.iter().map(|s| s.full_latency.as_secs_f64()).collect());
 
 	info!("");
-	info!("                      Min       Avg       Max");
-	info!("Send, s             {:>8.3}  {:>8.3}  {:>8.3}", send_s.0, send_s.1, send_s.2);
-	info!("Receive, s          {:>8.3}  {:>8.3}  {:>8.3}", read_s.0, read_s.1, read_s.2);
-	info!("Latency, s          {:>8.3}  {:>8.3}  {:>8.3}", latency_s.0, latency_s.1, latency_s.2);
-	info!(
-		"Attempts, per msg   {:>8.1}  {:>8.1}  {:>8.1}",
-		attempts_per_msg.0, attempts_per_msg.1, attempts_per_msg.2
-	);
+	info!("                      p50       p90       p99       Max");
+	for (label, [p50, p90, p99, max]) in
+		[("Send, s", send_s), ("Message latency, s", message_s), ("Round, s", round_s)]
+	{
+		info!("{label:<20}{p50:>8.3}  {p90:>8.3}  {p99:>8.3}  {max:>8.3}");
+	}
 
 	Ok(())
 }

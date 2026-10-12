@@ -421,15 +421,15 @@ impl Knowledge {
 		// we need to share the same `MessageSubject` with the followup approval candidate index.
 		if kind == MessageKind::Assignment && success && message.1.count_ones() > 1 {
 			for candidate_index in message.1.iter_ones() {
-				success = success &&
-					self.insert(
-						MessageSubject(
-							message.0,
-							vec![candidate_index as u32].try_into().expect("Non-empty vec; qed"),
-							message.2,
-						),
-						kind,
-					);
+				// Every candidate needs an entry, even if an earlier one is already known.
+				success &= self.insert(
+					MessageSubject(
+						message.0,
+						vec![candidate_index as u32].try_into().expect("Non-empty vec; qed"),
+						message.2,
+					),
+					kind,
+				);
 			}
 		}
 		success
@@ -2377,10 +2377,6 @@ impl State {
 		for (cert, candidate_bitfield) in assignments.into_iter() {
 			let cert_bitfield_bits = match &cert.cert.kind {
 				AssignmentCertKindV2::RelayVRFDelay { core_index } => core_index.0 as usize + 1,
-				// We don't want to run the VRF yet, but the output is always bounded by `n_cores`.
-				// We assume `candidate_bitfield` length for the core bitfield and we just check
-				// against `MAX_BITFIELD_SIZE` later.
-				AssignmentCertKindV2::RelayVRFModulo { .. } => candidate_bitfield.len(),
 				AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => {
 					core_bitfield.len()
 				},

@@ -743,6 +743,8 @@ pub struct TestCandidateBuilder {
 	pub relay_parent: Hash,
 	pub commitments_hash: Hash,
 	pub core_index: CoreIndex,
+	pub scheduling_parent: Hash,
+	pub para_head: Hash,
 }
 
 impl std::default::Default for TestCandidateBuilder {
@@ -754,6 +756,8 @@ impl std::default::Default for TestCandidateBuilder {
 			relay_parent: zeros,
 			commitments_hash: zeros,
 			core_index: CoreIndex(0),
+			scheduling_parent: zeros,
+			para_head: zeros,
 		}
 	}
 }
@@ -765,6 +769,17 @@ impl TestCandidateBuilder {
 		descriptor.set_para_id(self.para_id);
 		descriptor.set_pov_hash(self.pov_hash);
 		descriptor.set_core_index(self.core_index);
+		CandidateReceiptV2 { descriptor, commitments_hash: self.commitments_hash }
+	}
+
+	/// Build a `CandidateReceipt` with a V3 candidate descriptor.
+	pub fn build_v3(self) -> CandidateReceiptV2 {
+		let mut descriptor =
+			dummy_candidate_descriptor_v3(self.relay_parent, self.scheduling_parent);
+		descriptor.set_para_id(self.para_id);
+		descriptor.set_pov_hash(self.pov_hash);
+		descriptor.set_core_index(self.core_index);
+		descriptor.set_para_head(self.para_head);
 		CandidateReceiptV2 { descriptor, commitments_hash: self.commitments_hash }
 	}
 }
@@ -873,7 +888,10 @@ mod candidate_receipt_tests {
 		let new_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut new_ccr.encode().as_slice()).unwrap();
 
-		assert_eq!(new_ccr.descriptor.version_old_rules(), CandidateDescriptorVersion::Unknown);
+		assert_eq!(
+			new_ccr.descriptor.version_old_rules(),
+			CandidateDescriptorVersion::Unknown(100)
+		);
 		assert_eq!(
 			new_ccr.parse_ump_signals(&std::collections::BTreeMap::new()),
 			Err(CommittedCandidateReceiptError::UnknownVersion(100))

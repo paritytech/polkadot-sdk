@@ -38,7 +38,6 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::{limits::BlockWeights, pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_core::ConstU32;
 use sp_runtime::{traits::BlakeTwo256, BuildStorage};
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
@@ -98,7 +97,7 @@ impl Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = TestConsensusHook;
 	type WeightInfo = ();
-	type RelayParentOffset = ConstU32<0>;
+	type RelayParentOffset = MockRelayParentOffset;
 	type SchedulingSignatureVerifier = ();
 }
 
@@ -117,6 +116,8 @@ impl ConsensusHook for TestConsensusHook {
 
 parameter_types! {
 	pub const MaxWeight: Weight = Weight::MAX;
+	/// Settable so tests can exercise the non-zero case; `ConstU32` is fixed at compile time.
+	pub static MockRelayParentOffset: u32 = 0;
 }
 
 impl pallet_message_queue::Config for Test {
@@ -140,14 +141,15 @@ pub struct FromThreadLocal;
 /// A `MessageProcessor` that stores all messages in thread-local.
 pub struct SaveIntoThreadLocal;
 
-std::thread_local! {
-	pub static HANDLED_DMP_MESSAGES: RefCell<Vec<Vec<u8>>> = RefCell::new(Vec::new());
-	pub static HANDLED_XCMP_MESSAGES: RefCell<Vec<(ParaId, relay_chain::BlockNumber, Vec<u8>)>> = RefCell::new(Vec::new());
-	pub static SENT_MESSAGES: RefCell<Vec<(ParaId, Vec<u8>)>> = RefCell::new(Vec::new());
+parameter_types! {
+	pub static XcmpMessagesHandlingLimit: usize = usize::MAX;
+	pub static HandledXcmpMessages: Vec<(ParaId, relay_chain::BlockNumber, Vec<u8>)> = Vec::new();
+	pub static HandledDmpMessages: Vec<Vec<u8>> = Vec::new();
+	pub static SentMessages: Vec<(ParaId, Vec<u8>)> = Vec::new();
 }
 
 pub fn send_message(dest: ParaId, message: Vec<u8>) {
-	SENT_MESSAGES.with(|m| m.borrow_mut().push((dest, message)));
+	SentMessages::mutate(|m| m.push((dest, message)));
 }
 
 impl XcmpMessageSource for FromThreadLocal {
@@ -160,8 +162,8 @@ impl XcmpMessageSource for FromThreadLocal {
 		let mut taken_messages = 0;
 		let mut taken_bytes = 0;
 		let mut result = Vec::new();
-		SENT_MESSAGES.with(|ms| {
-			ms.borrow_mut().retain(|m| {
+		SentMessages::mutate(|ms| {
+			ms.retain(|m| {
 				let status = <Pallet<Test> as GetChannelInfo>::get_channel_status(m.0);
 				let (max_size_now, max_size_ever) = match status {
 					ChannelStatus::Ready(now, ever) => (now, ever),
@@ -201,9 +203,8 @@ impl ProcessMessage for SaveIntoThreadLocal {
 	) -> Result<bool, ProcessMessageError> {
 		assert_eq!(origin, Self::Origin::Parent);
 
-		HANDLED_DMP_MESSAGES.with(|m| {
-			m.borrow_mut().push(message.to_vec());
-			Weight::zero()
+		HandledDmpMessages::mutate(|msgs| {
+			msgs.push(message.to_vec());
 		});
 		Ok(true)
 	}
@@ -212,22 +213,24 @@ impl ProcessMessage for SaveIntoThreadLocal {
 impl XcmpMessageHandler for SaveIntoThreadLocal {
 	fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
 		iter: I,
-		_max_weight: Weight,
-	) -> Weight {
-		HANDLED_XCMP_MESSAGES.with(|m| {
-			for (sender, sent_at, message) in iter {
-				m.borrow_mut().push((sender, sent_at, message.to_vec()));
+		max_weight: Weight,
+	) -> (usize, Weight) {
+		let mut num_processed_pages = 0;
+		HandledXcmpMessages::mutate(|messages| {
+			for (sender, sent_at, message) in iter.take(XcmpMessagesHandlingLimit::get()) {
+				num_processed_pages += 1;
+				messages.push((sender, sent_at, message.to_vec()));
 			}
-			Weight::zero()
-		})
+		});
+		(num_processed_pages, max_weight)
 	}
 }
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	HANDLED_DMP_MESSAGES.with(|m| m.borrow_mut().clear());
-	HANDLED_XCMP_MESSAGES.with(|m| m.borrow_mut().clear());
+	HandledDmpMessages::reset();
+	HandledXcmpMessages::reset();
 
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
@@ -293,10 +296,14 @@ pub struct BlockTests {
 
 	included_para_head: Option<relay_chain::HeadData>,
 	pending_blocks: VecDeque<relay_chain::HeadData>,
+	pre_inherent_digests: Vec<sp_runtime::DigestItem>,
 }
 
 impl BlockTests {
 	pub fn new() -> BlockTests {
+		// `parameter_types!` statics are thread-local and outlive the test that set them, and a
+		// `should_panic` test never runs cleanup, so reset here rather than at the end of a test.
+		MockRelayParentOffset::set(0);
 		Default::default()
 	}
 
@@ -356,6 +363,17 @@ impl BlockTests {
 		F: 'static + Fn(&BlockTests, RelayChainBlockNumber, &mut ParachainInherentData),
 	{
 		self.inherent_data_hook = Some(Box::new(f));
+		self
+	}
+
+	pub fn with_pre_inherent_digests(mut self, digests: Vec<sp_runtime::DigestItem>) -> Self {
+		self.pre_inherent_digests = digests;
+		self
+	}
+
+	/// Sets `Config::RelayParentOffset` for this test. Reset to 0 by [`BlockTests::new`].
+	pub fn with_relay_parent_offset(self, offset: u32) -> Self {
+		MockRelayParentOffset::set(offset);
 		self
 	}
 
@@ -444,6 +462,9 @@ impl BlockTests {
 			};
 
 			// execute the block
+			for digest in &self.pre_inherent_digests {
+				System::deposit_log(digest.clone());
+			}
 			ParachainSystem::on_initialize(*n);
 			ParachainSystem::create_inherent(&inherent_data)
 				.expect("got an inherent")

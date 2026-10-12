@@ -1928,34 +1928,6 @@ pub mod pallet_macros {
 	///     }
 	/// }
 	/// ```
-	///
-	/// ## Former Usage
-	///
-	/// Prior to <https://github.com/paritytech/substrate/pull/14306>, the following syntax was used.
-	/// This is deprecated and will soon be removed.
-	///
-	/// ```
-	/// #[frame_support::pallet]
-	/// pub mod pallet {
-	/// #     #[pallet::config]
-	/// #     pub trait Config: frame_system::Config {}
-	/// #     #[pallet::pallet]
-	/// #     pub struct Pallet<T>(_);
-	/// #     use frame_support::traits::GenesisBuild;
-	///     #[pallet::genesis_config]
-	///     #[derive(frame_support::DefaultNoBound)]
-	///     pub struct GenesisConfig<T: Config> {
-	/// 		foo: Vec<T::AccountId>
-	/// 	}
-	///
-	///     #[pallet::genesis_build]
-	///     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
-	///         fn build(&self) {
-	///             todo!()
-	///         }
-	///     }
-	/// }
-	/// ```
 	pub use frame_support_procedural::genesis_build;
 
 	/// Allows adding an associated type trait bounded by

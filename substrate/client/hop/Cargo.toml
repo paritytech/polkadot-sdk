@@ -14,6 +14,7 @@ workspace = true
 # Core
 codec = { workspace = true, features = ["derive"] }
 hex = { workspace = true }
+parity-db = { workspace = true }
 parking_lot = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
@@ -27,6 +28,9 @@ clap = { workspace = true, features = ["derive"] }
 
 # RPC
 jsonrpsee = { workspace = true, features = ["client", "macros", "server"] }
+
+# Metrics
+prometheus-endpoint = { workspace = true, default-features = true }
 
 # Substrate primitives (client-side, always with std)
 polkadot-primitives = { workspace = true, default-features = true }
