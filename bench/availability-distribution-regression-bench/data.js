@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791806481889,
+  "lastUpdate": 1791815200731,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ba06ae6f41de22a7f376b2ed9453d49434bc0bcf",
-          "message": "Bags-list on_idle: per-item weight consumption via WeightMeter (#11594)\n\nThe benchmark failed depending on `MaxAutoRebagPerBlock` (e.g. it passes\nwith 10 as configured in Westend, Polkadot and Kusama AH runtime but it\nfailed with 5, as it was configured before, see [runtime\nPR](https://github.com/polkadot-fellows/runtimes/pull/1065)).\n\nReplace the bulk `on_idle` benchmark with a per-item `on_idle_rebag`\nbenchmark that measures the worst-case cost of a single rebag. `on_idle`\nnow consumes weight per iteration via `WeightMeter` instead of reserving\na single bulk weight upfront.\nThis decouples the benchmark from `MaxAutoRebagPerBlock`. Changing the\nconfig no longer requires re-running benchmarks.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T08:37:03Z",
-          "tree_id": "08c626183a09b2edaed88afb1f851ab87e88b838",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba06ae6f41de22a7f376b2ed9453d49434bc0bcf"
-        },
-        "date": 1775210204497,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0071980807000000015,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023683390466666662,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14641442017333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009500977853333311,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14405233179333338,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a6a749e55ece8bd55ce81031782a3f9582cb1b54",
+          "message": "Bump revive differential tests (#13448)\n\n# Description\n\nUpdate the revive-differential-tests action and checkout to\n`562538e33022be827bc0383aa53786f3a9751596`, and refresh the REVM and\nPolkaVM expectation files to match the current results.",
+          "timestamp": "2026-10-12T12:51:42Z",
+          "tree_id": "aa6dbea70f83efdaeebec3cd85da5f45cc62d819",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6a749e55ece8bd55ce81031782a3f9582cb1b54"
+        },
+        "date": 1791815170698,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007687496586666669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009866506299999968,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025239562533333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14201137874666667,
             "unit": "seconds"
           }
         ]
