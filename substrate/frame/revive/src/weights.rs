@@ -220,10 +220,12 @@ pub trait WeightInfo {
 	fn evm_sar_opcode(r: u32, ) -> Weight;
 	fn evm_addmod_opcode(r: u32, ) -> Weight;
 	fn evm_addmod_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_addmod_opcode_three_limb_variant(r: u32, ) -> Weight;
 	fn evm_addmod_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_addmod_opcode_fixed_knuth_variant(r: u32, ) -> Weight;
 	fn evm_div_opcode(r: u32, ) -> Weight;
 	fn evm_div_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_div_opcode_three_limb_variant(r: u32, ) -> Weight;
 	fn evm_div_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_div_opcode_fixed_knuth_variant(r: u32, ) -> Weight;
 	fn evm_add_opcode(r: u32, ) -> Weight;
@@ -231,14 +233,17 @@ pub trait WeightInfo {
 	fn evm_mul_opcode(r: u32, ) -> Weight;
 	fn evm_sdiv_opcode(r: u32, ) -> Weight;
 	fn evm_sdiv_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_sdiv_opcode_three_limb_variant(r: u32, ) -> Weight;
 	fn evm_sdiv_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_sdiv_opcode_fixed_knuth_variant(r: u32, ) -> Weight;
 	fn evm_mod_opcode(r: u32, ) -> Weight;
 	fn evm_mod_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_mod_opcode_three_limb_variant(r: u32, ) -> Weight;
 	fn evm_mod_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_mod_opcode_fixed_knuth_variant(r: u32, ) -> Weight;
 	fn evm_smod_opcode(r: u32, ) -> Weight;
 	fn evm_smod_opcode_one_limb_variant(r: u32, ) -> Weight;
+	fn evm_smod_opcode_three_limb_variant(r: u32, ) -> Weight;
 	fn evm_smod_opcode_mixed_variant(r: u32, ) -> Weight;
 	fn evm_smod_opcode_fixed_knuth_variant(r: u32, ) -> Weight;
 	fn evm_mulmod_opcode(r: u32, ) -> Weight;
@@ -2037,6 +2042,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 164
 			.saturating_add(Weight::from_parts(446_981, 0).saturating_mul(r.into()))
 	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_addmod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_addmod_opcode(r)
+	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_addmod_opcode_mixed_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -2076,6 +2085,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(1_297_933, 0)
 			// Standard Error: 79
 			.saturating_add(Weight::from_parts(239_591, 0).saturating_mul(r.into()))
+	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_div_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_div_opcode(r)
 	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_div_opcode_mixed_variant(r: u32, ) -> Weight {
@@ -2147,6 +2160,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 105
 			.saturating_add(Weight::from_parts(280_476, 0).saturating_mul(r.into()))
 	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_sdiv_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_sdiv_opcode(r)
+	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_sdiv_opcode_mixed_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -2187,6 +2204,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 83
 			.saturating_add(Weight::from_parts(236_164, 0).saturating_mul(r.into()))
 	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_mod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_mod_opcode(r)
+	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_mod_opcode_mixed_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -2226,6 +2247,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(977_937, 0)
 			// Standard Error: 207
 			.saturating_add(Weight::from_parts(244_348, 0).saturating_mul(r.into()))
+	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_smod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_smod_opcode(r)
 	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_smod_opcode_mixed_variant(r: u32, ) -> Weight {
@@ -4360,6 +4385,10 @@ impl WeightInfo for () {
 			// Standard Error: 164
 			.saturating_add(Weight::from_parts(446_981, 0).saturating_mul(r.into()))
 	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_addmod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_addmod_opcode(r)
+	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_addmod_opcode_mixed_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -4399,6 +4428,10 @@ impl WeightInfo for () {
 		Weight::from_parts(1_297_933, 0)
 			// Standard Error: 79
 			.saturating_add(Weight::from_parts(239_591, 0).saturating_mul(r.into()))
+	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_div_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_div_opcode(r)
 	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_div_opcode_mixed_variant(r: u32, ) -> Weight {
@@ -4470,6 +4503,10 @@ impl WeightInfo for () {
 			// Standard Error: 105
 			.saturating_add(Weight::from_parts(280_476, 0).saturating_mul(r.into()))
 	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_sdiv_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_sdiv_opcode(r)
+	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_sdiv_opcode_mixed_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -4510,6 +4547,10 @@ impl WeightInfo for () {
 			// Standard Error: 83
 			.saturating_add(Weight::from_parts(236_164, 0).saturating_mul(r.into()))
 	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_mod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_mod_opcode(r)
+	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_mod_opcode_mixed_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -4549,6 +4590,10 @@ impl WeightInfo for () {
 		Weight::from_parts(977_937, 0)
 			// Standard Error: 207
 			.saturating_add(Weight::from_parts(244_348, 0).saturating_mul(r.into()))
+	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_smod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_smod_opcode(r)
 	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_smod_opcode_mixed_variant(r: u32, ) -> Weight {

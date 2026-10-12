@@ -2053,6 +2053,10 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 363
 			.saturating_add(Weight::from_parts(464_652, 0).saturating_mul(r.into()))
 	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_addmod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_addmod_opcode(r)
+	}
 	/// The range of component `r` is `[0, 341]`.
 	fn evm_addmod_opcode_mixed_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -2096,6 +2100,10 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			// Standard Error: 166
 			.saturating_add(Weight::from_parts(248_607, 0).saturating_mul(r.into()))
+	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_div_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_div_opcode(r)
 	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_div_opcode_mixed_variant(r: u32, ) -> Weight {
@@ -2174,6 +2182,10 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 147
 			.saturating_add(Weight::from_parts(283_782, 0).saturating_mul(r.into()))
 	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_sdiv_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_sdiv_opcode(r)
+	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_sdiv_opcode_mixed_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -2218,6 +2230,10 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 132
 			.saturating_add(Weight::from_parts(253_915, 0).saturating_mul(r.into()))
 	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_mod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_mod_opcode(r)
+	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_mod_opcode_mixed_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -2261,6 +2277,10 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			// Standard Error: 119
 			.saturating_add(Weight::from_parts(243_873, 0).saturating_mul(r.into()))
+	}
+	// Placeholder until weights are regenerated for this variant.
+	fn evm_smod_opcode_three_limb_variant(r: u32, ) -> Weight {
+		Self::evm_smod_opcode(r)
 	}
 	/// The range of component `r` is `[0, 512]`.
 	fn evm_smod_opcode_mixed_variant(r: u32, ) -> Weight {

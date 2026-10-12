@@ -425,6 +425,48 @@ mod one_limb_division_operands {
 	];
 }
 
+/// Operands covering the seven patterns we found when dividing `2^255` by three-limb divisors.
+///
+/// Knuth's Algorithm D estimates two quotient limbs for these divisors. We found the higher limb
+/// corrected zero or one time and the lower limb up to twice. Unlike with two-limb divisors, an
+/// estimate can still be one too large after its corrections, and the division then adds the
+/// divisor back after subtracting. We only found that on the higher limb without corrections. The
+/// counts were checked with a source-level trace of `uint` 0.10.2 and Rust 1.93
+/// `compiler_builtins`.
+///
+/// Each pattern has two distinct divisors. Each denominator also makes the `u128` divisions behind
+/// the estimates take as many steps as any we found with its pattern. We only found the lower limb
+/// corrected twice without the higher one with a highest denominator limb above one, which shortens
+/// the division behind the first estimate.
+mod three_limb_division_operands {
+	use super::U256;
+
+	/// Two distinct divisors per pattern, with correction counts listed in limb order 1, 0.
+	pub const DENOMINATORS: [U256; 14] = [
+		// Corrections: 0, 0.
+		U256([0x5953_c831_477d_af4d, 0xb3aa_ba8e_016a_4a5b, 0x1, 0]),
+		U256([0xc435_0788_b8fa_4738, 0xfce4_f4ce_07f9_5693, 0x1, 0]),
+		// Corrections: 0, 1.
+		U256([0x5bea_4bdb_1b8f_828a, 0x5bee_2b88_29a3_5779, 0x1, 0]),
+		U256([0x113a_2875_4d21_7cac, 0x5915_1f88_0b93_b2e5, 0x1, 0]),
+		// Corrections: 0, 2.
+		U256([0x58d3_080e_a261_0b2c, 0x06c1_6099_c37a_fb70, 0x25d, 0]),
+		U256([0x5648_021c_ce54_ef66, 0xf709_e780_1fa7_e46e, 0x0103_59f5, 0]),
+		// Corrections: 1, 0.
+		U256([0x64c3_be1d_246d_7821, 0x00f5_75ee_0862_2f50, 0x1, 0]),
+		U256([0x5239_dfd9_4c93_12cc, 0x4de1_94ac_3a49_1826, 0x1, 0]),
+		// Corrections: 1, 1.
+		U256([0xc9e1_b256_93a4_a2cc, 0xedb3_e9e8_d16e_a87f, 0x1, 0]),
+		U256([0x5ebe_d4f9_e6f8_b9e8, 0xe261_7082_463f_8395, 0x1, 0]),
+		// Corrections: 1, 2.
+		U256([0xd0ad_3019_7337_1a13, 0x0a1b_d7f0_0fa5_0c21, 0x1, 0]),
+		U256([0xd4c3_a565_664e_aa66, 0x0ca2_823c_292b_9317, 0x1, 0]),
+		// Corrections: 0, 0, with the divisor added back to the higher limb.
+		U256([0x0e78_2bf3_fa0e_13ab, 0x386d_d8b2_091a_6756, 0x1, 0]),
+		U256([0x0c44_ac2c_7ddc_8ca9, 0x0280_e278_312b_2362, 0x1, 0]),
+	];
+}
+
 /// Randomly chooses between the Knuth and one-limb correction-pattern operand sets.
 mod mixed_division_operands {
 	use super::{
@@ -5204,6 +5246,39 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random three-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_three_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use three_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let [modulus, numerator] = unsigned_division_operands(&mut rng, &DENOMINATORS);
+			[modulus, numerator, numerator]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
 	///
 	/// # Subtraction Safety
@@ -5307,6 +5382,36 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn evm_div_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use one_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `DIV` op-codes with pseudo-random three-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode_three_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use three_limb_division_operands::DENOMINATORS;
 
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
@@ -5602,6 +5707,36 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `SDIV` op-codes with pseudo-random three-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode_three_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use three_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `SDIV` op-codes with pseudo-random mixed one-limb and Knuth divisors.
 	///
 	/// # Subtraction Safety
@@ -5726,6 +5861,36 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 	}
 
+	/// Benchmarks `r` EVM `MOD` op-codes with pseudo-random three-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode_three_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use three_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	/// Benchmarks `r` EVM `MOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
 	///
 	/// # Subtraction Safety
@@ -5828,6 +5993,36 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn evm_smod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use one_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SMOD` op-codes with pseudo-random three-limb correction patterns.
+	///
+	/// # Subtraction Safety
+	///
+	/// Not safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode_three_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use three_limb_division_operands::DENOMINATORS;
 
 		let mut rng = Pcg64::seed_from_u64(1337);
 		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));

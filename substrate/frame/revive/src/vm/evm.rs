@@ -184,11 +184,13 @@ impl EvmOpcodeCosts {
 				.saturating_sub(Self::Pop.base_weight::<T>()),
 			Self::AddMod => per_opcode(T::WeightInfo::evm_addmod_opcode)
 				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_three_limb_variant))
 				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_mixed_variant))
 				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_fixed_knuth_variant))
 				.saturating_sub(Self::Pop.base_weight::<T>()),
 			Self::Div => per_opcode(T::WeightInfo::evm_div_opcode)
 				.max(per_opcode(T::WeightInfo::evm_div_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_three_limb_variant))
 				.max(per_opcode(T::WeightInfo::evm_div_opcode_mixed_variant))
 				.max(per_opcode(T::WeightInfo::evm_div_opcode_fixed_knuth_variant))
 				.saturating_sub(Self::Pop.base_weight::<T>()),
@@ -197,16 +199,19 @@ impl EvmOpcodeCosts {
 			Self::Mul => per_opcode(T::WeightInfo::evm_mul_opcode),
 			Self::SDiv => per_opcode(T::WeightInfo::evm_sdiv_opcode)
 				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_three_limb_variant))
 				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_mixed_variant))
 				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_fixed_knuth_variant))
 				.saturating_sub(Self::Pop.base_weight::<T>()),
 			Self::Mod => per_opcode(T::WeightInfo::evm_mod_opcode)
 				.max(per_opcode(T::WeightInfo::evm_mod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_three_limb_variant))
 				.max(per_opcode(T::WeightInfo::evm_mod_opcode_mixed_variant))
 				.max(per_opcode(T::WeightInfo::evm_mod_opcode_fixed_knuth_variant))
 				.saturating_sub(Self::Pop.base_weight::<T>()),
 			Self::SMod => per_opcode(T::WeightInfo::evm_smod_opcode)
 				.max(per_opcode(T::WeightInfo::evm_smod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_three_limb_variant))
 				.max(per_opcode(T::WeightInfo::evm_smod_opcode_mixed_variant))
 				.max(per_opcode(T::WeightInfo::evm_smod_opcode_fixed_knuth_variant))
 				.saturating_sub(Self::Pop.base_weight::<T>()),
