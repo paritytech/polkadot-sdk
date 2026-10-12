@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791806533910,
+  "lastUpdate": 1791815272605,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ba06ae6f41de22a7f376b2ed9453d49434bc0bcf",
-          "message": "Bags-list on_idle: per-item weight consumption via WeightMeter (#11594)\n\nThe benchmark failed depending on `MaxAutoRebagPerBlock` (e.g. it passes\nwith 10 as configured in Westend, Polkadot and Kusama AH runtime but it\nfailed with 5, as it was configured before, see [runtime\nPR](https://github.com/polkadot-fellows/runtimes/pull/1065)).\n\nReplace the bulk `on_idle` benchmark with a per-item `on_idle_rebag`\nbenchmark that measures the worst-case cost of a single rebag. `on_idle`\nnow consumes weight per iteration via `WeightMeter` instead of reserving\na single bulk weight upfront.\nThis decouples the benchmark from `MaxAutoRebagPerBlock`. Changing the\nconfig no longer requires re-running benchmarks.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T08:37:03Z",
-          "tree_id": "08c626183a09b2edaed88afb1f851ab87e88b838",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba06ae6f41de22a7f376b2ed9453d49434bc0bcf"
-        },
-        "date": 1775210234639,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63628.05000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52944.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000023293210000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.574064439359926,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.252657467242663,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002311441,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000023293210000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005375674749999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8197450725800013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002311441,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8746988019399993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8370473260399995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.820953318989998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.442806033999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7734382110599382,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.874418538849995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a6a749e55ece8bd55ce81031782a3f9582cb1b54",
+          "message": "Bump revive differential tests (#13448)\n\n# Description\n\nUpdate the revive-differential-tests action and checkout to\n`562538e33022be827bc0383aa53786f3a9751596`, and refresh the REVM and\nPolkaVM expectation files to match the current results.",
+          "timestamp": "2026-10-12T12:51:42Z",
+          "tree_id": "aa6dbea70f83efdaeebec3cd85da5f45cc62d819",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6a749e55ece8bd55ce81031782a3f9582cb1b54"
+        },
+        "date": 1791815242658,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63558.22000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.786685286970001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018148930000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7665623713100005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.319122647149997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.256380878169963,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005558624260000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002051785,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.774733147089999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8025887957299634,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002051785,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018148930000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.801130005660002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.239764759842616,
             "unit": "seconds"
           }
         ]
