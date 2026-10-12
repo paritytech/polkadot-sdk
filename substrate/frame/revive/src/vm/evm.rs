@@ -56,7 +56,8 @@ pub struct EVMGas(pub u64);
 
 impl<T: Config> Token<T> for EVMGas {
 	fn weight(&self) -> Weight {
-		let base_cost = T::WeightInfo::evm_opcode(1).saturating_sub(T::WeightInfo::evm_opcode(0));
+		let base_cost = T::WeightInfo::evm_jumpdest_opcode(1)
+			.saturating_sub(T::WeightInfo::evm_jumpdest_opcode(0));
 		base_cost.saturating_mul(self.0)
 	}
 }
@@ -64,47 +65,214 @@ impl<T: Config> Token<T> for EVMGas {
 /// The cost of an EVM op-code that is charged from its own benchmark rather than in [`EVMGas`].
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
 enum EvmOpcodeCosts {
+	// Control Opcodes
+	Jump,
+	Jumpi,
+	JumpDest,
+	Pc,
+
+	// Stack Opcodes
+	Push,
+	Pop,
+	Dup,
+	Swap,
+
+	// Block Info Opcodes
+	ChainId,
+	Difficulty,
+
+	// System Opcodes
+	CodeSize,
+	CallDataSize,
+	ReturnDataSize,
+	CallDataLoad,
+
+	// Memory Opcodes
+	MLoad,
+	MSize,
+	MStore,
+	MStore8,
+	MCopy { len: u32 },
+
+	// Bitwise Opcodes
+	Lt,
+	Gt,
+	Eq,
+	IsZero,
+	And,
+	Or,
+	Xor,
+	Not,
+	Byte,
+	Clz,
+	Slt,
+	Sgt,
+	Shl,
+	Shr,
+	Sar,
+
+	// Arithmetic Opcodes
+	AddMod,
 	Div,
+	Add,
+	Sub,
+	Mul,
 	SDiv,
 	Mod,
 	SMod,
-	AddMod,
 	MulMod,
+	Exp { exponent_bits: u32 },
+	SignExtend,
+}
+
+impl EvmOpcodeCosts {
+	/// The cost measured by the op-code's benchmark, where the interpreter always dispatches to
+	/// the same handler.
+	fn base_weight<T: Config>(&self) -> Weight {
+		let per_opcode = |weight_fn: fn(u32) -> Weight| weight_fn(1).saturating_sub(weight_fn(0));
+		match self {
+			Self::Jump => per_opcode(T::WeightInfo::evm_jump_opcode)
+				.saturating_sub(Self::JumpDest.base_weight::<T>()),
+			Self::Jumpi => per_opcode(T::WeightInfo::evm_jumpi_opcode)
+				.saturating_sub(Self::JumpDest.base_weight::<T>()),
+			Self::JumpDest => per_opcode(T::WeightInfo::evm_jumpdest_opcode),
+			Self::Pc => per_opcode(T::WeightInfo::evm_pc_opcode),
+			Self::Push => per_opcode(T::WeightInfo::evm_push_opcode),
+			Self::Pop => per_opcode(T::WeightInfo::evm_pop_opcode),
+			Self::Dup => per_opcode(T::WeightInfo::evm_dup_opcode),
+			Self::Swap => per_opcode(T::WeightInfo::evm_swap_opcode),
+			Self::ChainId => per_opcode(T::WeightInfo::evm_chainid_opcode),
+			Self::Difficulty => per_opcode(T::WeightInfo::evm_difficulty_opcode),
+			Self::CodeSize => per_opcode(T::WeightInfo::evm_codesize_opcode),
+			Self::CallDataSize => per_opcode(T::WeightInfo::evm_calldatasize_opcode),
+			Self::ReturnDataSize => per_opcode(T::WeightInfo::evm_returndatasize_opcode),
+			Self::CallDataLoad => per_opcode(T::WeightInfo::evm_calldataload_opcode),
+			Self::MLoad => per_opcode(T::WeightInfo::evm_mload_opcode),
+			Self::MSize => per_opcode(T::WeightInfo::evm_msize_opcode),
+			Self::MStore => per_opcode(T::WeightInfo::evm_mstore_opcode),
+			Self::MStore8 => per_opcode(T::WeightInfo::evm_mstore8_opcode),
+			Self::MCopy { len } => {
+				// The fixed cost covers the first 64 bytes, so shorter copies pay nothing more.
+				let extra_bytes = len.saturating_sub(64);
+				per_opcode(T::WeightInfo::evm_mcopy_opcode).saturating_add(
+					T::WeightInfo::evm_mcopy_per_byte(extra_bytes)
+						.saturating_sub(T::WeightInfo::evm_mcopy_per_byte(0)),
+				)
+			},
+			Self::Lt => per_opcode(T::WeightInfo::evm_lt_opcode),
+			Self::Gt => per_opcode(T::WeightInfo::evm_gt_opcode),
+			Self::Eq => per_opcode(T::WeightInfo::evm_eq_opcode),
+			Self::IsZero => per_opcode(T::WeightInfo::evm_iszero_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::And => per_opcode(T::WeightInfo::evm_and_opcode),
+			Self::Or => per_opcode(T::WeightInfo::evm_or_opcode),
+			Self::Xor => per_opcode(T::WeightInfo::evm_xor_opcode),
+			Self::Not => per_opcode(T::WeightInfo::evm_not_opcode),
+			Self::Byte => per_opcode(T::WeightInfo::evm_byte_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Clz => per_opcode(T::WeightInfo::evm_clz_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Slt => per_opcode(T::WeightInfo::evm_slt_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Sgt => per_opcode(T::WeightInfo::evm_sgt_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Shl => per_opcode(T::WeightInfo::evm_shl_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Shr => per_opcode(T::WeightInfo::evm_shr_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Sar => per_opcode(T::WeightInfo::evm_sar_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::AddMod => per_opcode(T::WeightInfo::evm_addmod_opcode)
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_three_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_fixed_knuth_variant))
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Div => per_opcode(T::WeightInfo::evm_div_opcode)
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_three_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_fixed_knuth_variant))
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Add => per_opcode(T::WeightInfo::evm_add_opcode),
+			Self::Sub => per_opcode(T::WeightInfo::evm_sub_opcode),
+			Self::Mul => per_opcode(T::WeightInfo::evm_mul_opcode),
+			Self::SDiv => per_opcode(T::WeightInfo::evm_sdiv_opcode)
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_three_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_fixed_knuth_variant))
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Mod => per_opcode(T::WeightInfo::evm_mod_opcode)
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_three_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_fixed_knuth_variant))
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::SMod => per_opcode(T::WeightInfo::evm_smod_opcode)
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_three_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_fixed_knuth_variant))
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::MulMod => per_opcode(T::WeightInfo::evm_mulmod_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Exp { exponent_bits: 0 } => per_opcode(T::WeightInfo::evm_exp_zero_opcode),
+			Self::Exp { exponent_bits } => per_opcode(T::WeightInfo::evm_exp_opcode)
+				.saturating_add(
+					T::WeightInfo::evm_exp_per_bit(exponent_bits.saturating_sub(1))
+						.saturating_sub(T::WeightInfo::evm_exp_per_bit(0)),
+				),
+			Self::SignExtend => per_opcode(T::WeightInfo::evm_signextend_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+		}
+	}
 }
 
 impl<T: Config> Token<T> for EvmOpcodeCosts {
 	fn weight(&self) -> Weight {
-		let per_opcode = |weight_fn: fn(u32) -> Weight| weight_fn(1).saturating_sub(weight_fn(0));
-		// These op-codes are benchmarked in pairs with a `POP`, whose cost isn't theirs.
-		let pop = per_opcode(T::WeightInfo::evm_pop_opcode);
-		match self {
-			Self::Div => per_opcode(T::WeightInfo::evm_div_opcode)
-				.max(per_opcode(T::WeightInfo::evm_div_opcode_one_limb_variant))
-				.max(per_opcode(T::WeightInfo::evm_div_opcode_mixed_variant))
-				.max(per_opcode(T::WeightInfo::evm_div_opcode_fixed_knuth_variant))
-				.saturating_sub(pop),
-			Self::SDiv => per_opcode(T::WeightInfo::evm_sdiv_opcode)
-				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_one_limb_variant))
-				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_mixed_variant))
-				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_fixed_knuth_variant))
-				.saturating_sub(pop),
-			Self::Mod => per_opcode(T::WeightInfo::evm_mod_opcode)
-				.max(per_opcode(T::WeightInfo::evm_mod_opcode_one_limb_variant))
-				.max(per_opcode(T::WeightInfo::evm_mod_opcode_mixed_variant))
-				.max(per_opcode(T::WeightInfo::evm_mod_opcode_fixed_knuth_variant))
-				.saturating_sub(pop),
-			Self::SMod => per_opcode(T::WeightInfo::evm_smod_opcode)
-				.max(per_opcode(T::WeightInfo::evm_smod_opcode_one_limb_variant))
-				.max(per_opcode(T::WeightInfo::evm_smod_opcode_mixed_variant))
-				.max(per_opcode(T::WeightInfo::evm_smod_opcode_fixed_knuth_variant))
-				.saturating_sub(pop),
-			Self::AddMod => per_opcode(T::WeightInfo::evm_addmod_opcode)
-				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_one_limb_variant))
-				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_mixed_variant))
-				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_fixed_knuth_variant))
-				.saturating_sub(pop),
-			Self::MulMod => per_opcode(T::WeightInfo::evm_mulmod_opcode).saturating_sub(pop),
+		// The op-codes in one block of the `evm_dispatch_mix` benchmark, each with the number of
+		// times it occurs. Must match `EvmMixedOpcodes::BLOCK` in the benchmarks.
+		const DISPATCH_MIX: [(EvmOpcodeCosts, u64); 14] = [
+			(EvmOpcodeCosts::Pc, 5),
+			(EvmOpcodeCosts::ChainId, 5),
+			(EvmOpcodeCosts::Difficulty, 5),
+			(EvmOpcodeCosts::CodeSize, 5),
+			(EvmOpcodeCosts::CallDataSize, 5),
+			(EvmOpcodeCosts::ReturnDataSize, 5),
+			(EvmOpcodeCosts::MSize, 5),
+			(EvmOpcodeCosts::JumpDest, 5),
+			(EvmOpcodeCosts::Not, 5),
+			(EvmOpcodeCosts::Pop, 7),
+			(EvmOpcodeCosts::And, 7),
+			(EvmOpcodeCosts::Or, 7),
+			(EvmOpcodeCosts::Xor, 7),
+			(EvmOpcodeCosts::Mul, 7),
+		];
+
+		let base_weight = self.base_weight::<T>();
+		// The benchmarks of these families already run their op-codes in a pseudo-random order.
+		if matches!(self, Self::Push | Self::Dup | Self::Swap) {
+			return base_weight;
 		}
+
+		// What a mispredicted dispatch to the op-code's handler costs: the part of the mix that
+		// its op-codes' charges don't cover, per op-code.
+		let (mix_opcodes, mix_charges) = DISPATCH_MIX.iter().fold(
+			(0, Weight::zero()),
+			|(opcodes, charges), (opcode, repetitions)| {
+				(
+					opcodes + repetitions,
+					charges.saturating_add(opcode.base_weight::<T>().saturating_mul(*repetitions)),
+				)
+			},
+		);
+		let dispatch_misprediction = T::WeightInfo::evm_dispatch_mix(1)
+			.saturating_sub(T::WeightInfo::evm_dispatch_mix(0))
+			.saturating_sub(mix_charges)
+			.saturating_div(mix_opcodes);
+
+		base_weight.saturating_add(dispatch_misprediction)
 	}
 }
 
