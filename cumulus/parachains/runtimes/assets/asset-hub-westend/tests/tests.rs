@@ -3898,19 +3898,16 @@ fn full_report_of_authored_blocks_fits_the_message_queue_and_the_block() {
 	use asset_hub_westend_runtime::{MessageQueueServiceWeight, StakingSystemChainClient};
 	use frame_support::traits::Get;
 	use pallet_validator_collators::{Config, WeightInfo};
-	type MaxEntries =
-		<Runtime as pallet_staking_async_system_chain_client::Config>::MaxEntriesPerReport;
+	use testnet_parachains_constants::westend::staking::MAX_ENTRIES_PER_REPORT;
 	type MaxValidators = <Runtime as Config>::MaxValidators;
-	// GIVEN a report from another chain with the most entries a report may hold, all credited.
-	// The XCM instructions around the call weigh little next to the credit and are left out.
-	let message =
-		StakingSystemChainClient::report_authored_blocks_weight(<MaxEntries as Get<u32>>::get());
+	// GIVEN the largest report a system chain sends over XCM, all credited. The XCM instructions
+	// around the call weigh little next to the credit and are left out.
+	let message = StakingSystemChainClient::report_authored_blocks_weight(MAX_ENTRIES_PER_REPORT);
 	// WHEN it is processed from the message queue
 	// THEN it fits the service weight, so it is not set aside as overweight
 	assert!(
 		MessageQueueServiceWeight::get().all_gte(message),
-		"a full report of {} entries weighs {message:?}",
-		<MaxEntries as Get<u32>>::get()
+		"a full report of {MAX_ENTRIES_PER_REPORT} entries weighs {message:?}",
 	);
 	// GIVEN this chain counted blocks for every validator of the largest set
 	let local = <Runtime as Config>::WeightInfo::report_blocks(<MaxValidators as Get<u32>>::get());

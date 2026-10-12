@@ -347,7 +347,7 @@ fn people_report_call_decodes_on_asset_hub() {
 			pallet_staking_async_system_chain_client::Call::report_authored_blocks {
 				blocks: decoded,
 			},
-		)) => assert_eq!(decoded.into_inner(), blocks),
+		)) => assert_eq!(decoded, blocks),
 		other => panic!("People's report decodes on Asset Hub as {other:?}"),
 	}
 }

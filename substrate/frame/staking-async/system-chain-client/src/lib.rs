@@ -83,12 +83,6 @@ pub mod pallet {
 		/// Credits era points to the validators.
 		type RewardPoints: RewardPoints<Self::AccountId>;
 
-		/// Maximum number of entries in one report.
-		///
-		/// Must not be lower than the number of entries a reporting chain sends in one report.
-		#[pallet::constant]
-		type MaxEntriesPerReport: Get<u32>;
-
 		/// Largest points per block [`Pallet::set_points_per_block`] and the genesis config accept.
 		///
 		/// Crediting also bounds a stored value by it.
@@ -172,7 +166,7 @@ pub mod pallet {
 		#[pallet::weight(Pallet::<T>::report_authored_blocks_weight(blocks.len() as u32))]
 		pub fn report_authored_blocks(
 			origin: OriginFor<T>,
-			blocks: BoundedVec<(T::AccountId, u32), T::MaxEntriesPerReport>,
+			blocks: Vec<(T::AccountId, u32)>,
 		) -> DispatchResultWithPostInfo {
 			let source = T::ReportOrigin::ensure_origin(origin)?;
 			let credited = Self::credit_authored_blocks(source, blocks);
