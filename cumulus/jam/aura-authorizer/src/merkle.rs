@@ -49,7 +49,7 @@ pub enum CollatorProofError {
 	TooManyCollators,
 }
 
-fn padded_leaf_count(size: usize) -> Result<u32, CollatorProofError> {
+pub(crate) fn padded_leaf_count(size: usize) -> Result<u32, CollatorProofError> {
 	if size == 0 {
 		return Err(CollatorProofError::EmptySet);
 	}

@@ -22,7 +22,7 @@ use primitive_types::H256;
 
 use crate::{
 	config::AuthConfig,
-	merkle::{proof_len, CollatorHasher},
+	merkle::{padded_leaf_count, proof_len, CollatorHasher},
 	signing::signable_work_package_hash,
 	AuthTrace,
 };
@@ -93,10 +93,8 @@ impl AuthToken {
 			return Err(TokenError::BadCollatorSetProof);
 		}
 
-		let padded_size = config
-			.collator_set_size
-			.checked_next_power_of_two()
-			.ok_or(TokenError::BadCollatorSetProof)?;
+		let padded_size = padded_leaf_count(config.collator_set_size as usize)
+			.map_err(|_| TokenError::BadCollatorSetProof)?;
 
 		binary_merkle_tree::verify_proof::<CollatorHasher, _, _>(
 			&config.collator_set_root,
