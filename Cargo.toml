@@ -469,6 +469,7 @@ members = [
 	"substrate/frame/staking-async/runtimes/preset-store",
 	"substrate/frame/staking-async/runtimes/rc",
 	"substrate/frame/staking-async/runtimes/rc/constants",
+	"substrate/frame/staking-async/system-chain-client",
 	"substrate/frame/staking/reward-curve",
 	"substrate/frame/staking/reward-fn",
 	"substrate/frame/staking/runtime-api",
@@ -1092,6 +1093,7 @@ pallet-staking-async-preset-store = { path = "substrate/frame/staking-async/runt
 pallet-staking-async-rc-client = { path = "substrate/frame/staking-async/rc-client", default-features = false }
 pallet-staking-async-rc-runtime-constants = { path = "substrate/frame/staking-async/runtimes/rc/constants", default-features = false }
 pallet-staking-async-runtime-api = { path = "substrate/frame/staking-async/runtime-api", default-features = false }
+pallet-staking-async-system-chain-client = { path = "substrate/frame/staking-async/system-chain-client", default-features = false }
 pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", default-features = false }
 pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false }
 pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false }

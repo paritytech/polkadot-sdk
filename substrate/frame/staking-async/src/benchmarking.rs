@@ -1281,6 +1281,40 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Every account is exposed and has an incentive weight, so each entry is credited and
+	/// accrues into the weighted points sum.
+	#[benchmark]
+	fn reward_system_chain_points(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = 1;
+		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: Some(0) });
+		let points = (0..v)
+			.map(|i| (account::<T::AccountId>("validator", i, SEED), 1 + i % 10))
+			.collect::<Vec<_>>();
+		for (who, _) in &points {
+			Eras::<T>::upsert_exposure(
+				era,
+				who,
+				Exposure { total: 1u32.into(), own: 1u32.into(), others: vec![] },
+			);
+			ErasValidatorIncentiveWeight::<T>::insert(era, who, BalanceOf::<T>::from(100u64));
+		}
+		let total_before = ErasRewardPoints::<T>::get(era).total;
+		let reported: RewardPoint = points.iter().map(|(_, p)| p).sum();
+
+		#[block]
+		{
+			Pallet::<T>::reward_system_chain_points(points);
+		}
+
+		ensure!(
+			ErasRewardPoints::<T>::get(era).total == total_before + reported,
+			"the points were not credited"
+		);
+		Ok(())
+	}
+
 	// Helper function to set up era data for pruning benchmarks
 	fn setup_era_for_pruning<T: Config>(v: u32) -> EraIndex {
 		let validators = v;

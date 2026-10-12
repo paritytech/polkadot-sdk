@@ -14,9 +14,9 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, relay_proof::relay_state_proof, Call, Collators, Config, DrawnCollators,
-	EpochRandomness, EraValidatorSet, Error, Event, MaxCollators, PendingRotation, RotationState,
-	ValidatorSet,
+	mock::*, relay_proof::relay_state_proof, AuthoredBlocks, Call, Collators, Config,
+	DrawnCollators, EpochRandomness, EraValidatorSet, Error, Event, MaxCollators, PendingRotation,
+	ReportPeriod, RotationState, ValidatorSet,
 };
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::{
@@ -118,6 +118,10 @@ fn calls_reject_wrong_origin() {
 				RuntimeOrigin::signed(not_update_origin),
 				Some(1)
 			),
+			BadOrigin
+		);
+		assert_noop!(
+			ValidatorCollators::set_report_period(RuntimeOrigin::signed(not_update_origin), 3),
 			BadOrigin
 		);
 		assert_ok!(ValidatorCollators::do_try_state());
@@ -706,4 +710,152 @@ fn try_state_detects_drawn_collators_that_break_the_invariants() {
 			assert!(ValidatorCollators::do_try_state().is_err(), "{cap:?} {collators:?} {cached}");
 		});
 	}
+}
+
+fn note_blocks(author: u64, blocks: u32) {
+	(0..blocks).for_each(|_| {
+		<ValidatorCollators as pallet_authorship::EventHandler<_, _>>::note_author(author)
+	});
+}
+
+fn counts() -> Vec<(u64, u32)> {
+	let mut counts = AuthoredBlocks::<Test>::iter().collect::<Vec<_>>();
+	counts.sort();
+	counts
+}
+
+fn reported_entries() -> Vec<(u64, u32)> {
+	let mut entries = reported().concat();
+	entries.sort();
+	entries
+}
+
+#[test]
+fn report_sends_counts_of_stored_validators_only() {
+	new_test_ext().execute_with(|| {
+		// GIVEN the set of 10 and 11 is stored, and 10, 11 and invulnerable 1 authored blocks
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10, 11]));
+		note_blocks(10, 3);
+		note_blocks(11, 1);
+		note_blocks(1, 2);
+		assert_eq!(AuthoredBlocks::<Test>::count(), 3);
+		assert_ok!(ValidatorCollators::do_try_state());
+		// AND the invariants reject an author counted with zero blocks
+		frame_support::hypothetically!({
+			AuthoredBlocks::<Test>::insert(12, 0);
+			assert_eq!(
+				ValidatorCollators::do_try_state(),
+				Err("an author is counted with zero blocks".into())
+			);
+		});
+
+		// WHEN the report block comes without a stored set
+		// THEN nothing reaches the reporter and every count is dropped
+		frame_support::hypothetically!({
+			ValidatorSet::<Test>::kill();
+			PendingRotation::<Test>::kill();
+			initialize_to_block(5);
+			assert_eq!(reported(), Vec::<Vec<(u64, u32)>>::new());
+			assert_eq!(counts(), vec![]);
+			System::assert_has_event(Event::BlocksReported { authors: 3, reported: 0 }.into());
+		});
+
+		// WHEN the report block comes with the stored set
+		initialize_to_block(4);
+		assert!(reported().is_empty());
+		initialize_to_block(5);
+
+		// THEN the reporter got the counts of the validators only, and the map is empty, so
+		// a non-validator never reaches the chain that credits the counts
+		assert_eq!(reported_entries(), vec![(10, 3), (11, 1)]);
+		assert_eq!(counts(), vec![]);
+		assert_eq!(AuthoredBlocks::<Test>::count(), 0);
+		System::assert_has_event(Event::BlocksReported { authors: 3, reported: 2 }.into());
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn report_is_split_into_chunks() {
+	new_test_ext().execute_with(|| {
+		// GIVEN at most two entries per report and three validators with counts
+		MaxEntriesPerReport::set(2);
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10, 11, 12]));
+		note_blocks(10, 1);
+		note_blocks(11, 2);
+		note_blocks(12, 3);
+
+		// WHEN the report block comes
+		initialize_to_block(5);
+
+		// THEN every validator is reported in this period, in a chunk of two and one of one
+		assert_eq!(reported().iter().map(Vec::len).collect::<Vec<_>>(), vec![2, 1]);
+		assert_eq!(reported_entries(), vec![(10, 1), (11, 2), (12, 3)]);
+		assert_eq!(counts(), vec![]);
+	});
+}
+
+#[test]
+fn failed_report_keeps_the_counts_for_the_next_period() {
+	new_test_ext().execute_with(|| {
+		// GIVEN counts of three validators over two chunks, of invulnerable 1, and a reporter
+		// that rejects the second chunk
+		MaxEntriesPerReport::set(2);
+		FailingReportCall::set(Some(2));
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10, 11, 12]));
+		note_blocks(10, 1);
+		note_blocks(11, 2);
+		note_blocks(12, 3);
+		note_blocks(1, 1);
+		let before = counts();
+
+		// WHEN the report block comes
+		initialize_to_block(5);
+
+		// THEN the first chunk is rolled back and every count is kept, invulnerable 1 included
+		assert_eq!(ReportCalls::get(), 2);
+		assert!(reported().is_empty());
+		assert_eq!(counts(), before);
+		assert_eq!(AuthoredBlocks::<Test>::count(), 4);
+		System::assert_has_event(Event::BlocksReportFailed { authors: 4 }.into());
+
+		// WHEN more blocks are authored and the reporter accepts the next report
+		note_blocks(10, 4);
+		initialize_to_block(10);
+
+		// THEN it carries the sum of both periods, so nothing is lost or reported twice
+		assert_eq!(reported_entries(), vec![(10, 5), (11, 2), (12, 3)]);
+		assert_eq!(counts(), vec![]);
+		System::assert_has_event(Event::BlocksReported { authors: 4, reported: 3 }.into());
+	});
+}
+
+#[test]
+fn report_period_is_set_by_governance_and_never_zero() {
+	new_test_ext().execute_with(|| {
+		// GIVEN validator 10 authored a block
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10]));
+		note_blocks(10, 1);
+		// WHEN the update origin sets a zero period THEN it is rejected
+		assert_noop!(
+			ValidatorCollators::set_report_period(RuntimeOrigin::signed(RootAccount::get()), 0),
+			Error::<Test>::ZeroReportPeriod
+		);
+		// WHEN it sets a period of 3 instead of the default 5
+		assert_ok!(ValidatorCollators::set_report_period(
+			RuntimeOrigin::signed(RootAccount::get()),
+			3
+		));
+		System::assert_last_event(Event::ReportPeriodSet { period: 3 }.into());
+		assert_eq!(ReportPeriod::<Test>::get(), 3);
+		// THEN the next report is made at block 3
+		initialize_to_block(2);
+		assert!(reported().is_empty());
+		initialize_to_block(3);
+		assert_eq!(reported_entries(), vec![(10, 1)]);
+	});
 }

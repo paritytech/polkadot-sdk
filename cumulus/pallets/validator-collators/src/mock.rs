@@ -17,7 +17,9 @@ use super::*;
 use crate as pallet_validator_collators;
 use cumulus_pallet_parachain_system::OnSystemEvent;
 use frame_support::{
-	derive_impl, ord_parameter_types, parameter_types, traits::ConstU32, PalletId,
+	derive_impl, ord_parameter_types, parameter_types,
+	traits::{ConstU32, ConstU64},
+	PalletId,
 };
 use frame_system::EnsureSignedBy;
 use pallet_collator_selection::IdentityCollator;
@@ -124,7 +126,39 @@ impl Config for Test {
 	type ValidatorRegistration = Session;
 	type MaxValidators = ConstU32<50>;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type BlockReporter = MockReporter;
+	type DefaultReportPeriod = ConstU64<5>;
+	type MaxEntriesPerReport = MaxEntriesPerReport;
 	type WeightInfo = ();
+}
+
+parameter_types! {
+	pub static MaxEntriesPerReport: u32 = 10;
+	/// Number of calls to [`MockReporter`] so far.
+	pub static ReportCalls: u32 = 0;
+	/// The call to [`MockReporter`], counted from one, that is rejected.
+	pub static FailingReportCall: Option<u32> = None;
+}
+
+const REPORTED_KEY: &[u8] = b"reported";
+
+/// The chunks [`MockReporter`] accepted, kept in storage so that a rollback removes them.
+pub fn reported() -> Vec<Vec<(u64, u32)>> {
+	frame_support::storage::unhashed::get(REPORTED_KEY).unwrap_or_default()
+}
+
+pub struct MockReporter;
+impl ReportAuthoredBlocks<u64> for MockReporter {
+	fn report(blocks: &[(u64, u32)]) -> Result<(), ()> {
+		ReportCalls::mutate(|calls| *calls += 1);
+		if FailingReportCall::get() == Some(ReportCalls::get()) {
+			return Err(());
+		}
+		let mut chunks = reported();
+		chunks.push(blocks.to_vec());
+		frame_support::storage::unhashed::put(REPORTED_KEY, &chunks);
+		Ok(())
+	}
 }
 
 /// Standalone collators, funded and with session keys at genesis.

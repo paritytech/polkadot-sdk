@@ -323,3 +323,21 @@ fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 	// THEN the randomness key is requested
 	assert!(keys.contains(&RelayStorageKey::Top(ONE_EPOCH_AGO_RANDOMNESS.to_vec())));
 }
+
+#[test]
+fn report_of_authored_blocks_fits_the_block() {
+	use frame_support::traits::Get;
+	use pallet_validator_collators::{Config, WeightInfo};
+	use people_westend_runtime::RuntimeBlockWeights;
+	type MaxValidators = <Runtime as Config>::MaxValidators;
+	// GIVEN this chain counted blocks for every validator of the largest set
+	let report = <Runtime as Config>::WeightInfo::report_blocks(<MaxValidators as Get<u32>>::get());
+	// WHEN they are reported in one block's `on_initialize`, which charges them as mandatory
+	// weight
+	// THEN the weight fits the block
+	assert!(
+		RuntimeBlockWeights::get().max_block.all_gte(report),
+		"reporting {} validators weighs {report:?}",
+		<MaxValidators as Get<u32>>::get()
+	);
+}
