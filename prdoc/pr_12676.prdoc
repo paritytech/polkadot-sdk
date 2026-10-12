@@ -13,8 +13,7 @@ doc:
 
     Parachain-side, in the new `cumulus-primitives-spec-messaging` crate: `StreamId`, the
     stream MMR, the `StreamsRoot` trie, lifts and `requires` synthesis, the message fetch
-    protocol and its verifiers, channel and flow-control state, the messaging inherent data,
-    and the `ProvideUmpSignals` runtime hook.
+    protocol and its verifiers, channel and flow-control state, and the messaging inherent data.
 
     Nothing emits the new signals yet. `SchedulingSignals::from_block_signals` in
     `cumulus-primitives-core` panics if a parachain emits one, until a follow-up forwards them.
