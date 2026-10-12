@@ -15,12 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Published JAM work-package signing and the version-adapter entry points.
+//! Published JAM work-package signing and authorization.
 
 use cumulus_aura_authorizer::{
-	authorize, authorize_hash, build_collator_proofs, hash_signing_payload,
-	signable_work_package_hash, AuthConfig, AuthToken, AuthorizationError, SignatureVerifier,
-	TokenError, WORK_PACKAGE_SIGN_CTX,
+	authorize, build_collator_proofs, hash_signing_payload, signable_work_package_hash, AuthConfig,
+	AuthToken, AuthTrace, AuthorizationError, SignatureVerifier, TokenError, WORK_PACKAGE_SIGN_CTX,
 };
 use jam_types::{Encode as JamEncode, WorkPackage};
 
@@ -32,8 +31,8 @@ impl SignatureVerifier for Verifier {
 }
 
 #[test]
-fn published_package_and_adapter_works() {
-	let package = WorkPackage {
+fn published_package_works() {
+	let mut package = WorkPackage {
 		authorization: Default::default(),
 		auth_code_host: 1,
 		authorizer: jam_types::Authorizer::any(),
@@ -75,11 +74,12 @@ fn published_package_and_adapter_works() {
 	token.signature[..32].copy_from_slice(hash.as_bytes());
 	assert_eq!(
 		authorize::<Verifier>(&config, &token, &package, 0).unwrap(),
-		authorize_hash::<Verifier>(&config, &token, hash, 0).unwrap()
+		AuthTrace { author_key: token.key }
 	);
 
+	package.auth_code_host += 1;
 	assert!(matches!(
-		authorize_hash::<Verifier>(&config, &token, hash_signing_payload(b"different package"), 0),
+		authorize::<Verifier>(&config, &token, &package, 0),
 		Err(AuthorizationError::BadToken(TokenError::BadCollatorSignature))
 	));
 }

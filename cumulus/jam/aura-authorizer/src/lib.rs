@@ -62,9 +62,7 @@ pub fn authorize<S: SignatureVerifier>(
 }
 
 /// Authorize a concrete WorkPackage hash.
-///
-/// Should not be used directly and is only public for parasim testing.
-pub fn authorize_hash<S: SignatureVerifier>(
+fn authorize_hash<S: SignatureVerifier>(
 	config: &AuthConfig,
 	token: &AuthToken,
 	work_package_hash: H256,
