@@ -205,8 +205,7 @@ pub mod staking {
 	/// Maximum number of entries in one report of authored blocks.
 	///
 	/// Every system chain that reports over XCM sends its reports in chunks of at most this many
-	/// entries and Asset Hub accepts reports up to it. A report over Asset Hub's bound does not
-	/// decode there, so the senders and Asset Hub share this value.
+	/// entries. Asset Hub's message queue must fit a report of this size.
 	pub const MAX_ENTRIES_PER_REPORT: u32 = 500;
 }
 

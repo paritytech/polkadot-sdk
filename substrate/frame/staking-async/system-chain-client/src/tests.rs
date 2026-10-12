@@ -28,10 +28,8 @@ fn events() -> Vec<Event<Test>> {
 }
 
 fn report(source: u64, blocks: Vec<(u64, u32)>) -> Option<Weight> {
-	let result = StakingSystemChainClient::report_authored_blocks(
-		RuntimeOrigin::signed(source),
-		blocks.try_into().unwrap(),
-	);
+	let result =
+		StakingSystemChainClient::report_authored_blocks(RuntimeOrigin::signed(source), blocks);
 	assert_ok!(result);
 	result.unwrap().actual_weight
 }
@@ -95,11 +93,8 @@ fn calls_reject_wrong_origin_and_points_over_the_cap() {
 			BadOrigin
 		);
 		assert_noop!(
-			StakingSystemChainClient::report_authored_blocks(
-				other,
-				vec![(10, 1)].try_into().unwrap()
-			)
-			.map_err(|e| e.error),
+			StakingSystemChainClient::report_authored_blocks(other, vec![(10, 1)])
+				.map_err(|e| e.error),
 			BadOrigin
 		);
 		// AND a reporting chain cannot set its own points per block

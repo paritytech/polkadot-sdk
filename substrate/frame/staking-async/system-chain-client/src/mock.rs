@@ -43,7 +43,6 @@ impl Config for Test {
 	type ReportOrigin = EnsureSignedBy<Reporters, u64>;
 	type PointsOrigin = EnsureRoot<u64>;
 	type RewardPoints = MockRewardPoints;
-	type MaxEntriesPerReport = ConstU32<4>;
 	type MaxPointsPerBlock = ConstU32<10>;
 	type WeightInfo = ();
 }

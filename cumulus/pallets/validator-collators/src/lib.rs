@@ -230,7 +230,7 @@ pub mod pallet {
 
 		/// Maximum number of entries handed to [`Config::BlockReporter`] in one call.
 		///
-		/// Must not exceed the bound of the call that receives the counts.
+		/// A chunk of this size must fit what the receiving chain can process in one message.
 		#[pallet::constant]
 		type MaxEntriesPerReport: Get<u32>;
 
