@@ -444,8 +444,8 @@ pub mod pallet {
 
 			// Fixed overhead for storage ops outside the per-item loop:
 			// counter reads (ListNodes, PendingRebag), Lock read, cursor read
-			// (NextNodeAutoRebagged), cursor-update contains_key read, and cursor write.
-			let overhead = T::DbWeight::get().reads_writes(5, 1);
+			// (NextNodeAutoRebagged), and cursor write.
+			let overhead = T::DbWeight::get().reads_writes(4, 1);
 
 			// Early exit: not enough weight for overhead + at least one rebag.
 			if meter.try_consume(overhead.saturating_add(per_item)).is_err() {
@@ -494,6 +494,12 @@ pub mod pallet {
 			let combined_iter = PendingRebag::<T, I>::iter_keys().chain(regular_iter);
 
 			let accounts: Vec<_> = combined_iter.take((rebag_budget + 1) as usize).collect();
+			// `pending_count` was read above before any accounts were collected or processed,
+			// and nothing mutates `PendingRebag` in between, so it is exactly the number of
+			// pending accounts this batch actually captured: all of them if there were few
+			// enough to fit the budget, otherwise the whole batch (pending entries sort first,
+			// see the chain above).
+			let pending_len = core::cmp::min(pending_count as usize, accounts.len());
 
 			let mut processed = 0u32;
 			let mut successful_rebags = 0u32;
@@ -537,21 +543,24 @@ pub mod pallet {
 
 			// Whatever the count budget, the weight meter, or a lock stopped the loop from
 			// getting to is exactly where the cursor must resume from next time. Only regular
-			// ListNodes accounts are tracked, not PendingRebag.
-			let unprocessed = &accounts[processed as usize..];
-			let next_regular_account =
-				unprocessed.iter().find(|account| !PendingRebag::<T, I>::contains_key(account));
+			// ListNodes accounts are tracked, not PendingRebag — and the pending segment is
+			// `accounts[..pending_len]` by construction, so the first candidate resumption point
+			// is whichever of `processed`/`pending_len` is further along.
+			//
+			// This is a pure index computation, not a value-based scan: an account can
+			// legitimately appear in both `PendingRebag` and `ListNodes` at once (e.g. it
+			// nominates while the pallet is locked, queuing it to `PendingRebag` only, then
+			// validates after it unlocks, inserting it into `ListNodes` directly while the stale
+			// `PendingRebag` entry is still there). A scan keyed on "is this account currently in
+			// `PendingRebag`" would read storage for every skipped candidate — an uncharged read
+			// not covered by `overhead` — and could resolve to the `ListNodes` copy of an account
+			// already processed via its `PendingRebag` copy, wrongly treating that as the same
+			// node being re-encountered. Indexing by position reads nothing and can't repeat a
+			// position already covered by `processed`/`pending_len`.
+			let next_index = core::cmp::max(processed as usize, pending_len);
 
-			match next_regular_account {
-				// Defensive check: prevents re-processing the same node multiple times within a
-				// single block. This situation should not occur during normal execution, but
-				// can happen in test environments or if `on_idle()` is invoked more than once
-				// per block (e.g. via custom test harnesses or manual calls).
-				Some(next) if accounts[..processed as usize].contains(next) => {
-					NextNodeAutoRebagged::<T, I>::kill();
-					defensive!("Loop detected: {:?} already processed — cursor killed", next);
-				},
-				// Normal case: save the next regular node as a cursor for the following block.
+			match accounts.get(next_index) {
+				// Save the next regular node as a cursor for the following block.
 				Some(next) => {
 					NextNodeAutoRebagged::<T, I>::put(next);
 					log!(debug, "Saved next node to be processed in rebag cursor: {:?}", next);
