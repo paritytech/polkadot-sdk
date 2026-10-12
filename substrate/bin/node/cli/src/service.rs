@@ -874,6 +874,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 			transient_max_size: cli.statement_store_max_transient_size,
 			in_peers: cli.statement_in_peers,
 			out_peers: cli.statement_out_peers,
+			reserved_peers: cli.statement_reserved_peers,
 		}),
 	};
 

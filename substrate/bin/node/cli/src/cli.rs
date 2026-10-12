@@ -152,6 +152,15 @@ pub struct Cli {
 	)]
 	pub statement_out_peers: u32,
 
+	/// Maximum number of statement protocol peers reserved to cover the node's topics, unlimited
+	/// by default.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "COUNT", hide = true)]
+	pub statement_reserved_peers: Option<usize>,
+
 	/// False-positive rate of the topic-affinity bloom filter this node advertises.
 	///
 	/// Only relevant when `--enable-statement-store` is used.

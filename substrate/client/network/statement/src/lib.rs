@@ -684,6 +684,7 @@ impl StatementHandlerPrototype {
 			bloom_seed,
 			replication_factor,
 			gossip_target,
+			reserved_peers,
 			..
 		} = v2dht_config.unwrap_or_default();
 		affinity_topics.extend(affinity_topics_file.into_iter().flat_map(|file| file.0));
@@ -694,6 +695,7 @@ impl StatementHandlerPrototype {
 			network.local_peer_id(),
 			PeersTopologyConfig { replication_factor, gossip_target },
 			self.protocol_name.clone(),
+			reserved_peers.unwrap_or(usize::MAX),
 			v2dht_metrics,
 		);
 		if let Some(retention) = retention {
@@ -1206,6 +1208,7 @@ where
 				gossip_target: crate::config::DEFAULT_GOSSIP_TARGET,
 			},
 			protocol_name.clone(),
+			usize::MAX,
 			None,
 		);
 		Self {
@@ -3414,6 +3417,7 @@ mod tests {
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
+				usize::MAX,
 				None,
 			),
 		};
@@ -4360,6 +4364,7 @@ mod tests {
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
+				usize::MAX,
 				None,
 			),
 		};
@@ -4426,6 +4431,7 @@ mod tests {
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
+				usize::MAX,
 				None,
 			),
 		};
@@ -6713,6 +6719,7 @@ mod tests {
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
+				usize::MAX,
 				None,
 			),
 		};
@@ -7216,6 +7223,7 @@ mod tests {
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
+				usize::MAX,
 				None,
 			),
 		};
@@ -7313,6 +7321,7 @@ mod tests {
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
+				usize::MAX,
 				None,
 			),
 		};
@@ -7408,6 +7417,7 @@ mod tests {
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
+				usize::MAX,
 				None,
 			),
 		};
@@ -7527,6 +7537,7 @@ mod tests {
 						local_peer,
 						topology_config(20, 3),
 						"/statement/test".into(),
+						usize::MAX,
 						None,
 					),
 				}

@@ -176,6 +176,7 @@ impl V2DhtOrchestrator {
 		local_peer: PeerId,
 		peers_topology_config: PeersTopologyConfig,
 		protocol: ProtocolName,
+		max_reserved_peers: usize,
 		metrics: Option<V2DhtMetrics>,
 	) -> Self {
 		Self {
@@ -185,7 +186,7 @@ impl V2DhtOrchestrator {
 				bloom_seed,
 				bloom_false_pos,
 			),
-			peer_steering: PeerSteering::new(protocol),
+			peer_steering: PeerSteering::new(protocol, max_reserved_peers),
 			retention: None,
 			metrics,
 			major_sync_seen_at: None,
@@ -376,7 +377,7 @@ impl V2DhtOrchestrator {
 
 	/// Align the connected peers with the peers needed to cover the node's subscriptions, opening
 	/// and closing connections through the statement protocol's reserved set on `network`.
-	pub(crate) fn refresh_connections<N: NetworkPeers>(&self, network: &N) {
+	pub(crate) fn refresh_connections<N: NetworkPeers>(&mut self, network: &N) {
 		self.peer_steering.refresh_connections(network);
 	}
 
@@ -415,6 +416,7 @@ mod tests {
 			PeerId::random(),
 			topology_config(20, 3),
 			"/statement/test".into(),
+			usize::MAX,
 			None,
 		)
 	}
@@ -429,6 +431,7 @@ mod tests {
 			peer(local_seed),
 			config,
 			"/statement/test".into(),
+			usize::MAX,
 			None,
 		)
 	}
@@ -572,6 +575,7 @@ mod tests {
 			peer(1),
 			topology_config(1, 1),
 			"/statement/test".into(),
+			usize::MAX,
 			None,
 		);
 		let handle = RetentionHandle::new(peer(1), nz(1));
@@ -635,6 +639,7 @@ mod tests {
 			peer(1),
 			topology_config(1, 1),
 			"/statement/test".into(),
+			usize::MAX,
 			None,
 		);
 		let handle = RetentionHandle::new(peer(1), nz(1));
@@ -653,6 +658,7 @@ mod tests {
 			peer(1),
 			topology_config(1, 1),
 			"/statement/test".into(),
+			usize::MAX,
 			None,
 		);
 		let handle = RetentionHandle::new(peer(1), nz(1));
@@ -735,6 +741,7 @@ mod tests {
 			PeerId::random(),
 			topology_config(20, 3),
 			"/statement/test".into(),
+			usize::MAX,
 			None,
 		);
 
@@ -816,6 +823,7 @@ mod tests {
 			peer(1),
 			topology_config(20, 3),
 			"/statement/test".into(),
+			usize::MAX,
 			None,
 		);
 

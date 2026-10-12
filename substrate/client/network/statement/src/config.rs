@@ -116,6 +116,9 @@ pub struct V2DhtConfig {
 	pub in_peers: u32,
 	/// Outbound slots of the statement protocol's non-reserved peer set.
 	pub out_peers: u32,
+	/// Maximum number of peers reserved to cover the node's topics, on top of the slots, or no
+	/// limit when `None`.
+	pub reserved_peers: Option<usize>,
 }
 
 impl Default for V2DhtConfig {
@@ -131,6 +134,7 @@ impl Default for V2DhtConfig {
 			transient_max_size: None,
 			in_peers: DEFAULT_IN_PEERS,
 			out_peers: DEFAULT_OUT_PEERS,
+			reserved_peers: None,
 		}
 	}
 }
