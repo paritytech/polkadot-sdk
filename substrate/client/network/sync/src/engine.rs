@@ -35,7 +35,7 @@ use crate::{
 
 use codec::{Decode, DecodeAll, Encode};
 use futures::{channel::oneshot, StreamExt};
-use log::{debug, error, trace, warn};
+use log::{debug, error, trace};
 use prometheus_endpoint::{
 	register, Counter, Gauge, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
 };
@@ -129,8 +129,13 @@ struct Metrics {
 }
 
 impl Metrics {
-	fn register(r: &Registry, major_syncing: Arc<AtomicBool>) -> Result<Self, PrometheusError> {
+	fn register(
+		r: &Registry,
+		major_syncing: Arc<AtomicBool>,
+		num_connected: Arc<AtomicUsize>,
+	) -> Result<Self, PrometheusError> {
 		MajorSyncingGauge::register(r, major_syncing)?;
+		NumConnectedGauge::register(r, num_connected)?;
 		Ok(Self {
 			peers: {
 				let g = Gauge::new("substrate_sync_peers", "Number of peers we sync with")?;
@@ -178,6 +183,34 @@ impl MajorSyncingGauge {
 }
 
 impl MetricSource for MajorSyncingGauge {
+	type N = u64;
+
+	fn collect(&self, mut set: impl FnMut(&[&str], Self::N)) {
+		set(&[], self.0.load(Ordering::Relaxed) as u64);
+	}
+}
+
+/// The "number of connected peers" metric.
+#[derive(Clone)]
+struct NumConnectedGauge(Arc<AtomicUsize>);
+
+impl NumConnectedGauge {
+	/// Registers the [`NumConnectedGauge`] metric whose value is
+	/// obtained from the given `AtomicUsize`.
+	fn register(registry: &Registry, value: Arc<AtomicUsize>) -> Result<(), PrometheusError> {
+		prometheus_endpoint::register(
+			SourcedGauge::new(
+				&Opts::new("substrate_sub_libp2p_peers_count", "Number of connected peers"),
+				NumConnectedGauge(value),
+			)?,
+			registry,
+		)?;
+
+		Ok(())
+	}
+}
+
+impl MetricSource for NumConnectedGauge {
 	type N = u64;
 
 	fn collect(&self, mut set: impl FnMut(&[&str], Self::N)) {
@@ -417,7 +450,7 @@ where
 				tick_timeout,
 				peer_store_handle,
 				metrics: if let Some(r) = metrics_registry {
-					match Metrics::register(r, is_major_syncing.clone()) {
+					match Metrics::register(r, is_major_syncing.clone(), num_connected.clone()) {
 						Ok(metrics) => Some(metrics),
 						Err(err) => {
 							log::error!(target: LOG_TARGET, "Failed to register metrics {err:?}");
@@ -602,7 +635,7 @@ where
 	fn process_strategy_actions(&mut self) -> Result<(), ClientError> {
 		for action in self.strategy.actions(&self.network_service)? {
 			match action {
-				SyncingAction::StartRequest { peer_id, key, request, remove_obsolete } => {
+				SyncingAction::StartRequest { peer_id, key, request } => {
 					if !self.peers.contains_key(&peer_id) {
 						trace!(
 							target: LOG_TARGET,
@@ -611,21 +644,6 @@ where
 						);
 						debug_assert!(false);
 						continue;
-					}
-					if remove_obsolete {
-						if self.pending_responses.remove(peer_id, key) {
-							warn!(
-								target: LOG_TARGET,
-								"Processed `SyncingAction::StartRequest` to {peer_id} with \
-								strategy key {key:?}. Stale response removed!",
-							)
-						} else {
-							trace!(
-								target: LOG_TARGET,
-								"Processed `SyncingAction::StartRequest` to {peer_id} with \
-								strategy key {key:?}.",
-							)
-						}
 					}
 
 					self.pending_responses.insert(peer_id, key, request);
@@ -703,8 +721,11 @@ where
 			},
 			ToServiceCommand::EventStream(tx) => {
 				// Let a new subscriber know about already connected peers.
-				for peer_id in self.peers.keys() {
-					let _ = tx.unbounded_send(SyncEvent::PeerConnected(*peer_id));
+				for (peer_id, peer) in self.peers.iter() {
+					let _ = tx.unbounded_send(SyncEvent::PeerConnected {
+						peer_id: *peer_id,
+						roles: peer.info.roles,
+					});
 				}
 				self.event_streams.push(tx);
 			},
@@ -1073,8 +1094,11 @@ where
 			self.num_in_peers += 1;
 		}
 
-		self.event_streams
-			.retain(|stream| stream.unbounded_send(SyncEvent::PeerConnected(peer_id)).is_ok());
+		self.event_streams.retain(|stream| {
+			stream
+				.unbounded_send(SyncEvent::PeerConnected { peer_id, roles: status.roles })
+				.is_ok()
+		});
 
 		Ok(())
 	}
@@ -1561,5 +1585,28 @@ mod tests {
 		assert!(connected_no_slot.is_empty());
 		assert_eq!(num_in, 8);
 		assert!(disconnects.is_empty());
+	}
+
+	#[test]
+	fn num_connected_gauge_tracks_the_shared_counter() {
+		let registry = Registry::new();
+		let num_connected = Arc::new(AtomicUsize::new(0));
+		NumConnectedGauge::register(&registry, num_connected.clone()).unwrap();
+
+		let peers_count = || {
+			registry
+				.gather()
+				.iter()
+				.find(|family| family.get_name() == "substrate_sub_libp2p_peers_count")
+				.map(|family| family.get_metric()[0].get_gauge().get_value())
+		};
+
+		assert_eq!(peers_count(), Some(0.0));
+
+		num_connected.store(3, Ordering::Relaxed);
+		assert_eq!(peers_count(), Some(3.0));
+
+		num_connected.store(0, Ordering::Relaxed);
+		assert_eq!(peers_count(), Some(0.0));
 	}
 }

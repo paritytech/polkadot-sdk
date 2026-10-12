@@ -493,7 +493,7 @@ pub mod pallet {
 			task: TaskId,
 		},
 		/// Failed to auto-renew a core, likely due to the payer account not being sufficiently
-		/// funded.
+		/// funded or the workload on the core no longer belonging to the paying task.
 		AutoRenewalFailed {
 			/// The core for which the renewal failed.
 			core: CoreIndex,
@@ -609,6 +609,8 @@ pub mod pallet {
 		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
 		/// below `T::MinimumCreditPurchase`.
 		CreditPurchaseTooSmall,
+		/// The renewable workload of the core does not include the given task.
+		TaskNotInWorkload,
 		/// No renewal rights for the given account and timeslice exist.
 		UnknownRenewalRights,
 	}
@@ -971,7 +973,9 @@ pub mod pallet {
 		/// - `task`: The task for which we want to enable auto renewal.
 		/// - `workload_end_hint`: should be used when enabling auto-renewal for a core that is not
 		///   expiring in the upcoming bulk period (e.g., due to holding a lease) since it would be
-		///   inefficient to look up when the core expires to schedule the next renewal.
+		///   inefficient to look up when the core expires to schedule the next renewal. Also used
+		///   when the core is expiring with another task's workload, in which case it must point at
+		///   the task's own renewal record.
 		#[pallet::call_index(21)]
 		#[pallet::weight(T::WeightInfo::enable_auto_renew() + MarketWeightsOf::<T>::get_sale_info())]
 		pub fn enable_auto_renew(
