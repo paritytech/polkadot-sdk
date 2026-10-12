@@ -53,7 +53,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
 		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, RefundWeight,
-		TransactionExtension, Zero,
+		Saturating, TransactionExtension, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
@@ -271,6 +271,8 @@ pub enum Val<T: Config> {
 		who: T::AccountId,
 		// transaction fee
 		fee: BalanceOf<T>,
+		// refundable surcharge, kept on failure
+		surcharge: BalanceOf<T>,
 	},
 	NoCharge,
 }
@@ -288,6 +290,8 @@ pub enum Pre<T: Config> {
 		asset_id: Option<ChargeAssetIdOf<T>>,
 		// weight used by the extension
 		weight: Weight,
+		// refundable surcharge, kept on failure
+		surcharge: BalanceOf<T>,
 	},
 	NoCharge {
 		// weight initially estimated by the extension, to be refunded
@@ -336,9 +340,13 @@ where
 		};
 		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
 		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
-		self.can_withdraw_fee(&who, call, info, fee)?;
+		let surcharge = pallet_transaction_payment::Pallet::<T>::compute_operational_surcharge(
+			len as u32, info,
+		);
+		self.can_withdraw_fee(&who, call, info, fee.saturating_add(surcharge))?;
+		// Surcharge excluded from priority.
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
-		let val = Val::Charge { tip: self.tip, who: who.clone(), fee };
+		let val = Val::Charge { tip: self.tip, who: who.clone(), fee, surcharge };
 		let validity = ValidTransaction { priority, ..Default::default() };
 		Ok((validity, val, origin))
 	}
@@ -352,15 +360,18 @@ where
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		match val {
-			Val::Charge { tip, who, fee } => {
-				// Mutating call of `withdraw_fee` to actually charge for the transaction.
-				let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, fee)?;
+			Val::Charge { tip, who, fee, surcharge } => {
+				// Mutating call of `withdraw_fee` to actually charge fee plus surcharge; the
+				// surcharge is refunded on dispatch success.
+				let (_total, initial_payment) =
+					self.withdraw_fee(&who, call, info, fee.saturating_add(surcharge))?;
 				Ok(Pre::Charge {
 					tip,
 					who,
 					initial_payment,
 					asset_id: self.asset_id.clone(),
 					weight: self.weight(call),
+					surcharge,
 				})
 			},
 			Val::NoCharge => Ok(Pre::NoCharge { refund: self.weight(call) }),
@@ -374,9 +385,9 @@ where
 		len: usize,
 		result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		let (tip, who, initial_payment, asset_id, extension_weight) = match pre {
-			Pre::Charge { tip, who, initial_payment, asset_id, weight } => {
-				(tip, who, initial_payment, asset_id, weight)
+		let (tip, who, initial_payment, asset_id, extension_weight, surcharge) = match pre {
+			Pre::Charge { tip, who, initial_payment, asset_id, weight, surcharge } => {
+				(tip, who, initial_payment, asset_id, weight, surcharge)
 			},
 			Pre::NoCharge { refund } => {
 				// No-op: Refund everything
@@ -393,7 +404,7 @@ where
 				let mut actual_post_info = *post_info;
 				actual_post_info.refund(unspent_weight);
 				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch_details(
-					pallet_transaction_payment::Pre::Charge { tip, who, liquidity_info },
+					pallet_transaction_payment::Pre::Charge { tip, who, liquidity_info, surcharge },
 					info,
 					&actual_post_info,
 					len,
@@ -406,12 +417,18 @@ where
 				let unspent_weight = extension_weight.saturating_sub(actual_ext_weight);
 				let mut actual_post_info = *post_info;
 				actual_post_info.refund(unspent_weight);
-				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
+				let mut actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
 					len as u32,
 					info,
 					&actual_post_info,
 					tip,
 				);
+				// Refund the surcharge on success, keep it on failure.
+				if pallet_transaction_payment::Pallet::<T>::keep_operational_surcharge(
+					surcharge, result,
+				) {
+					actual_fee = actual_fee.saturating_add(surcharge);
+				}
 
 				let (converted_fee, converted_tip) =
 					T::OnChargeAssetTransaction::correct_and_deposit_fee(

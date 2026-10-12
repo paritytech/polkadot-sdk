@@ -116,6 +116,10 @@ fn default_post_info() -> PostDispatchInfo {
 	PostDispatchInfo { actual_weight: None, pays_fee: Default::default() }
 }
 
+fn op_info_from_weight(w: Weight) -> DispatchInfo {
+	DispatchInfo { call_weight: w, class: DispatchClass::Operational, ..Default::default() }
+}
+
 fn setup_lp(asset_id: u32, balance_factor: u64) {
 	let lp_provider = 5;
 	let ed = Balances::minimum_balance();
@@ -1727,4 +1731,136 @@ fn validate_rejects_zero_asset_fee_but_accepts_small_nonzero() {
 			);
 			assert!(result.is_ok(), "Small but non-zero fee should pass validation");
 		});
+}
+
+#[test]
+fn operational_surcharge_in_native_kept_on_failure() {
+	let base_weight = 5;
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+			OperationalFeeSurcharge::set(10);
+
+			let weight = 100;
+			let len = 10;
+			let info = op_info_from_weight(Weight::from_parts(weight, 0));
+			// fee = 5 base + 10 len + 100 weight = 115, surcharge = 10 * 115 = 1150.
+			let fee = base_weight + len as u64 + weight;
+			let surcharge = 10 * fee;
+			let prev_balance = Balances::free_balance(2);
+
+			// `None` selects native payment.
+			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, None)
+				.validate_and_prepare(Some(2).into(), CALL, &info, len, 0)
+				.unwrap();
+			// Fee and surcharge are both withdrawn upfront.
+			assert_eq!(Balances::free_balance(2), prev_balance - fee - surcharge);
+
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
+				pre,
+				&info,
+				&default_post_info(),
+				len,
+				&Err(DispatchError::BadOrigin),
+			));
+			// The failing dispatch forfeits the surcharge.
+			assert_eq!(Balances::free_balance(2), prev_balance - fee - surcharge);
+		});
+}
+
+#[test]
+fn operational_surcharge_in_native_refunded_on_success() {
+	let base_weight = 5;
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+			OperationalFeeSurcharge::set(10);
+
+			let weight = 100;
+			let len = 10;
+			let info = op_info_from_weight(Weight::from_parts(weight, 0));
+			let fee = base_weight + len as u64 + weight;
+			let surcharge = 10 * fee;
+			let prev_balance = Balances::free_balance(2);
+
+			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, None)
+				.validate_and_prepare(Some(2).into(), CALL, &info, len, 0)
+				.unwrap();
+			assert_eq!(Balances::free_balance(2), prev_balance - fee - surcharge);
+
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
+				pre,
+				&info,
+				&default_post_info(),
+				len,
+				&Ok(()),
+			));
+			// Only the regular fee is paid.
+			assert_eq!(Balances::free_balance(2), prev_balance - fee);
+		});
+}
+
+/// Charge an `Operational` transaction in an asset and report `result`, returning how much of the
+/// asset the caller ended up paying.
+fn operational_asset_payment(surcharge: u32, result: DispatchResult) -> u64 {
+	let base_weight = 5;
+	let balance_factor = 100;
+	let mut paid = 0;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+			OperationalFeeSurcharge::set(surcharge);
+
+			let asset_id = 1;
+			assert_ok!(Assets::force_create(
+				RuntimeOrigin::root(),
+				asset_id.into(),
+				42,   // owner
+				true, // is_sufficient
+				2,    // min balance
+			));
+			let caller = 1;
+			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
+			let balance = 100_000;
+			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
+			setup_lp(asset_id, balance_factor);
+
+			let len = 10;
+			let info = op_info_from_weight(WEIGHT_5);
+			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
+				.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0)
+				.unwrap();
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
+				pre,
+				&info,
+				&default_post_info(),
+				len,
+				&result,
+			));
+			paid = balance - Assets::balance(asset_id, caller);
+		});
+	paid
+}
+
+#[test]
+fn operational_surcharge_in_asset_kept_on_failure() {
+	// Without a surcharge the outcome of the dispatch makes no difference to the fee.
+	let plain = operational_asset_payment(0, Ok(()));
+	assert_eq!(operational_asset_payment(0, Err(DispatchError::BadOrigin)), plain);
+
+	let refunded = operational_asset_payment(10, Ok(()));
+	assert!(refunded < plain * 2, "a refunded surcharge must not dominate the fee");
+
+	// A failing transaction forfeits the surcharge, so it pays substantially more.
+	let forfeited = operational_asset_payment(10, Err(DispatchError::BadOrigin));
+	assert!(forfeited > refunded + plain);
 }

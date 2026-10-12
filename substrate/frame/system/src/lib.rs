@@ -1112,6 +1112,16 @@ pub mod pallet {
 	#[pallet::whitelist_storage]
 	pub type ExtrinsicWeightReclaimed<T: Config> = StorageValue<_, Weight, ValueQuery>;
 
+	/// Whether a dispatch nested inside the current extrinsic failed.
+	///
+	/// Set through [`Pallet::note_nested_dispatch_failure`], so that post dispatch logic can
+	/// tell a genuine success from one that is only reported from the outside.
+	///
+	/// Available until the end of the extrinsic; removed in `note_applied_extrinsic`.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub type ExtrinsicNestedDispatchFailure<T: Config> = StorageValue<_, bool, ValueQuery>;
+
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -2378,6 +2388,7 @@ impl<T: Config> Pallet<T> {
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &next_extrinsic_index);
 		ExecutionPhase::<T>::put(Phase::ApplyExtrinsic(next_extrinsic_index));
 		ExtrinsicWeightReclaimed::<T>::kill();
+		ExtrinsicNestedDispatchFailure::<T>::kill();
 	}
 
 	/// To be called immediately after `note_applied_extrinsic` of the last extrinsic of the block
@@ -2458,6 +2469,22 @@ impl<T: Config> Pallet<T> {
 		let actual_hash = T::Hashing::hash(code);
 		ensure!(actual_hash == authorization.code_hash, Error::<T>::Unauthorized);
 		Ok(authorization)
+	}
+
+	/// Note that a call dispatched from within the current extrinsic failed.
+	///
+	/// Must be called by every dispatchable that dispatches another call and reports success
+	/// regardless of its outcome, such as `pallet_utility::batch` or `pallet_proxy::proxy`. One
+	/// that forwards the inner error to its caller does not need it. See
+	/// [`ExtrinsicNestedDispatchFailure`].
+	pub fn note_nested_dispatch_failure() {
+		ExtrinsicNestedDispatchFailure::<T>::put(true);
+	}
+
+	/// Whether a call dispatched from within the current extrinsic failed, even though the
+	/// extrinsic itself may have reported success. See [`ExtrinsicNestedDispatchFailure`].
+	pub fn nested_dispatch_failed() -> bool {
+		ExtrinsicNestedDispatchFailure::<T>::get()
 	}
 
 	/// Reclaim the weight for the extrinsic given info and post info.

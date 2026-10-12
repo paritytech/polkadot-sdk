@@ -718,6 +718,30 @@ fn control_inherited_account_works() {
 			call_hash,
 			call_result: Err(DispatchError::Token(TokenError::FundsUnavailable)),
 		});
+		// The outer call reported success, so the inner failure is noted for post dispatch logic
+		// such as the operational fee surcharge.
+		assert!(System::nested_dispatch_failed());
+	});
+}
+
+/// A successfully controlled inherited account notes no nested failure.
+#[test]
+fn control_inherited_account_success_notes_nothing() {
+	new_test_ext().execute_with(|| {
+		let ticket = Recovery::inheritor_ticket(&FERDIE).unwrap();
+		Inheritor::<T>::insert(ALICE, (0, &FERDIE, ticket));
+
+		let call: RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		let call_hash = call.using_encoded(<T as frame_system::Config>::Hashing::hash);
+
+		assert_ok!(Recovery::control_inherited_account(signed(FERDIE), ALICE, Box::new(call)));
+		assert_last_event(Event::<T>::RecoveredAccountControlled {
+			recovered: ALICE,
+			inheritor: FERDIE,
+			call_hash,
+			call_result: Ok(()),
+		});
+		assert!(!System::nested_dispatch_failed());
 	});
 }
 

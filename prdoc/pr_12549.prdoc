@@ -1,0 +1,90 @@
+title: 'pallet-transaction-payment: refundable surcharge on operational transactions to prevent spam'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds a refundable anti-spam surcharge on `Operational` transactions, controlled by the new
+    `Config::OperationalFeeSurcharge` constant. When set to `N`, an extra `N * inclusion_fee`
+    (tip excluded) is withdrawn upfront and refunded only if the dispatch succeeds, so failing
+    operational transactions forfeit it while honest ones pay as before. Priority is unaffected.
+    The surcharge is applied by `pallet-asset-tx-payment` and
+    `pallet-asset-conversion-tx-payment` as well, for payments in the native currency and in an
+    asset alike.
+
+    Some dispatchables report success regardless of the outcome of the calls they dispatch, for
+    example `Utility::batch`, `Utility::force_batch`, `Utility::if_else`, `Proxy::proxy`,
+    `MetaTx::dispatch`, `Recovery::control_inherited_account` and the proposal execution in
+    `pallet-collective`, and they can be `Operational` while reporting success. Those now note
+    the failure of an inner dispatch in the new transient
+    `frame_system::ExtrinsicNestedDispatchFailure` storage value, through
+    `frame_system::Pallet::note_nested_dispatch_failure`, so that wrapping a failing operational
+    call cannot recover the surcharge.
+
+    Breaking: every runtime must now set `type OperationalFeeSurcharge`. Use `()` (the default,
+    behavior unchanged) to keep it disabled; all in-tree runtimes do so.
+
+crates:
+- name: pallet-transaction-payment
+  bump: major
+- name: frame-system
+  bump: minor
+- name: pallet-utility
+  bump: patch
+- name: pallet-proxy
+  bump: patch
+- name: pallet-meta-tx
+  bump: patch
+- name: pallet-recovery
+  bump: patch
+- name: pallet-collective
+  bump: patch
+- name: kitchensink-runtime
+  bump: minor
+- name: parachain-template-runtime
+  bump: minor
+- name: solochain-template-runtime
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: minor
+- name: cumulus-test-runtime
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: yet-another-parachain-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: polkadot-test-runtime
+  bump: minor
+- name: pallet-asset-tx-payment
+  bump: major
+- name: pallet-asset-conversion-tx-payment
+  bump: major
+- name: bridge-runtime-common
+  bump: none
+- name: pallet-bridge-relayers
+  bump: none
+- name: frame-executive
+  bump: none
+- name: pallet-balances
+  bump: none
+- name: pallet-origin-restriction
+  bump: none

@@ -589,6 +589,11 @@ pub mod pallet {
 
 			let call_hash = call.using_encoded(&T::Hashing::hash);
 			let call_result = call.dispatch(origin).map(|_| ()).map_err(|r| r.error);
+			if call_result.is_err() {
+				// This call reports success to the outside, so the failure of the inner dispatch
+				// is noted for any post dispatch logic that needs to know about it.
+				frame_system::Pallet::<T>::note_nested_dispatch_failure();
+			}
 
 			Self::deposit_event(Event::<T>::RecoveredAccountControlled {
 				recovered,

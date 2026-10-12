@@ -111,6 +111,7 @@ impl pallet_transaction_payment::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = FungibleAdapter<Pallet<Test>, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
+	type OperationalFeeSurcharge = ();
 	type WeightToFee = IdentityFee<u64>;
 	type LengthToFee = IdentityFee<u64>;
 }

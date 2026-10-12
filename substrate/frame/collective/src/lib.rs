@@ -646,6 +646,7 @@ pub mod pallet {
 
 			let proposal_hash = T::Hashing::hash_of(&proposal);
 			let result = proposal.dispatch(RawOrigin::Member(who).into());
+			Self::note_failed_proposal_dispatch(&result);
 			Self::deposit_event(Event::MemberExecuted {
 				proposal_hash,
 				result: result.map(|_| ()).map_err(|e| e.error),
@@ -902,6 +903,13 @@ fn get_result_weight(result: DispatchResultWithPostInfo) -> Option<Weight> {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Note a failed proposal dispatch in `frame_system`.
+	fn note_failed_proposal_dispatch(result: &DispatchResultWithPostInfo) {
+		if result.is_err() {
+			frame_system::Pallet::<T>::note_nested_dispatch_failure();
+		}
+	}
+
 	/// Check whether `who` is a member of the collective.
 	pub fn is_member(who: &T::AccountId) -> bool {
 		// Note: The dispatchables *do not* use this to check membership so make sure
@@ -927,6 +935,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let seats = Members::<T, I>::get().len() as MemberCount;
 		let result = proposal.dispatch(RawOrigin::Members(1, seats).into());
+		Self::note_failed_proposal_dispatch(&result);
 		Self::deposit_event(Event::Executed {
 			proposal_hash,
 			result: result.map(|_| ()).map_err(|e| e.error),
@@ -1161,6 +1170,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let dispatch_weight = proposal.get_dispatch_info().call_weight;
 		let origin = RawOrigin::Members(yes_votes, seats).into();
 		let result = proposal.dispatch(origin);
+		Self::note_failed_proposal_dispatch(&result);
 		Self::deposit_event(Event::Executed {
 			proposal_hash,
 			result: result.map(|_| ()).map_err(|e| e.error),

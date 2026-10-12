@@ -82,6 +82,7 @@ impl Get<frame_system::limits::BlockWeights> for BlockWeights {
 parameter_types! {
 	pub static WeightToFee: u64 = 1;
 	pub static TransactionByteFee: u64 = 1;
+	pub static OperationalFeeSurcharge: u32 = 0;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -176,6 +177,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
 	type OperationalFeeMultiplier = ConstU8<5>;
+	type OperationalFeeSurcharge = OperationalFeeSurcharge;
 	type WeightInfo = MockTxPaymentWeights;
 }
 
