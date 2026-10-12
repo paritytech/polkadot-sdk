@@ -223,7 +223,6 @@ impl<B: BlockT> StateStrategy<B> {
 					hash,
 					header: Some(header),
 					body,
-					indexed_body: None,
 					justifications,
 					origin: None,
 					allow_missing_state: true,
@@ -375,7 +374,6 @@ impl<B: BlockT> StateStrategy<B> {
 					}))
 				}
 				.boxed(),
-				remove_obsolete: false,
 			}
 		});
 		self.actions.extend(state_request);
@@ -781,7 +779,6 @@ mod test {
 			hash,
 			header: Some(header),
 			body,
-			indexed_body: None,
 			justifications,
 			origin: None,
 			allow_missing_state: true,

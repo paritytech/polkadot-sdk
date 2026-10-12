@@ -608,6 +608,10 @@ pub use pallet_offences;
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
 
+/// Sale of on-demand Coretime from the Coretime chain.
+#[cfg(feature = "pallet-on-demand-para")]
+pub use pallet_on_demand_para;
+
 /// FRAME oracle pallet for off-chain data.
 #[cfg(feature = "pallet-oracle")]
 pub use pallet_oracle;
@@ -697,11 +701,6 @@ pub use pallet_safe_mode;
 /// Paymaster.
 #[cfg(feature = "pallet-salary")]
 pub use pallet_salary;
-
-/// FRAME pallet for Scarcity NFTs: coinage-style purse-key ownership with feeless
-/// rest-time-prioritized transfers.
-#[cfg(feature = "pallet-scarcity")]
-pub use pallet_scarcity;
 
 /// FRAME Scheduler pallet.
 #[cfg(feature = "pallet-scheduler")]
@@ -805,6 +804,14 @@ pub use pallet_uniques;
 /// FRAME utilities pallet.
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
+
+/// Pallet that selects the relay-chain validators with registered keys as collators.
+#[cfg(feature = "pallet-validator-collators")]
+pub use pallet_validator_collators;
+
+/// Pallet that announces each era's validator set to other system chains.
+#[cfg(feature = "pallet-validator-set-announcer")]
+pub use pallet_validator_set_announcer;
 
 /// FRAME verify signature pallet.
 #[cfg(feature = "pallet-verify-signature")]

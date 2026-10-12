@@ -274,6 +274,15 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long = "statement-affinity-topic", value_name = "TOPIC", hide = true)]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
 
+	/// File with affinity topics advertised by this node, one 32-byte hex topic per line.
+	/// Blank lines and lines starting with `#` are skipped. Adds to `--statement-affinity-topic`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long = "statement-affinity-topics-file", value_name = "PATH", hide = true)]
+	pub statement_affinity_topics_file: Option<sc_statement_store::AffinityTopicsFile>,
+
 	/// Number of K-closest peers (replication factor) used for DHT-affinity statement routing.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
@@ -321,6 +330,24 @@ pub struct Cli<Config: CliConfig> {
 	/// Hidden: takes effect only on the experimental v2 DHT statement path.
 	#[arg(long, value_name = "SEED", hide = true)]
 	pub statement_bloom_seed: Option<u128>,
+
+	/// Maximum total data size (in bytes) of the statements the store keeps for DHT affinity.
+	/// Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_dht_affinity_size: Option<usize>,
+
+	/// Maximum total data size (in bytes) of the transient statements, kept only until
+	/// propagated. Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_transient_size: Option<usize>,
 
 	/// Upper bound on collator reserved-peer slots.
 	#[arg(long, value_name = "N", default_value_t = 32)]
@@ -384,10 +411,13 @@ impl<Config: CliConfig> Cli<Config> {
 					v2dht: sc_network_statement::v2dht_enabled().then(|| {
 						sc_statement_store::V2DhtConfig {
 							affinity_topics: self.statement_affinity_topics.clone(),
+							affinity_topics_file: self.statement_affinity_topics_file.clone(),
 							bloom_false_pos_rate: self.statement_bloom_false_positive_rate,
 							bloom_seed: self.statement_bloom_seed,
 							replication_factor: self.statement_replication_factor,
 							gossip_target: self.statement_gossip_target,
+							dht_affinity_max_size: self.statement_store_max_dht_affinity_size,
+							transient_max_size: self.statement_store_max_transient_size,
 						}
 					}),
 				},

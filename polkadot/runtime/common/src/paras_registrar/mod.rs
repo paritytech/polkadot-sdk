@@ -206,6 +206,8 @@ pub mod pallet {
 		/// Cannot perform a parachain slot / lifecycle swap. Check that the state of both paras
 		/// are correct for the swap to work.
 		CannotSwap,
+		/// The operation is scaffolded but not implemented yet.
+		NotImplemented,
 	}
 
 	/// Pending swap operations.
@@ -608,6 +610,30 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 			ValidationCode(validation_code),
 			false,
 		)
+	}
+
+	fn deregister(_para_id: u32) -> DispatchResult {
+		// TODO(ahm-v2): deregister the para and clear its registry entry.
+		Err(Error::<T>::NotImplemented.into())
+	}
+
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): validate the head data length against the active configuration.
+		Err(())
+	}
+
+	fn set_current_head(_para_id: u32, _head: Vec<u8>) {
+		// TODO(ahm-v2): set the para's current head.
+	}
+
+	fn check_code_upgrade(_para_id: u32, _code_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): validate the code length and that an upgrade may be scheduled now.
+		Err(())
+	}
+
+	fn schedule_code_upgrade(_para_id: u32, _validation_code: Vec<u8>) -> DispatchResult {
+		// TODO(ahm-v2): schedule the validation code upgrade.
+		Err(Error::<T>::NotImplemented.into())
 	}
 }
 
