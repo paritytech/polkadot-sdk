@@ -168,6 +168,8 @@ std = [
 	"pallet-tx-pause?/std",
 	"pallet-uniques?/std",
 	"pallet-utility?/std",
+	"pallet-validator-collators?/std",
+	"pallet-validator-set-announcer?/std",
 	"pallet-verify-signature?/std",
 	"pallet-vesting-precompiles?/std",
 	"pallet-vesting?/std",
@@ -360,6 +362,8 @@ runtime-benchmarks = [
 	"pallet-tx-pause?/runtime-benchmarks",
 	"pallet-uniques?/runtime-benchmarks",
 	"pallet-utility?/runtime-benchmarks",
+	"pallet-validator-collators?/runtime-benchmarks",
+	"pallet-validator-set-announcer?/runtime-benchmarks",
 	"pallet-verify-signature?/runtime-benchmarks",
 	"pallet-vesting-precompiles?/runtime-benchmarks",
 	"pallet-vesting?/runtime-benchmarks",
@@ -512,6 +516,8 @@ try-runtime = [
 	"pallet-tx-pause?/try-runtime",
 	"pallet-uniques?/try-runtime",
 	"pallet-utility?/try-runtime",
+	"pallet-validator-collators?/try-runtime",
+	"pallet-validator-set-announcer?/try-runtime",
 	"pallet-verify-signature?/try-runtime",
 	"pallet-vesting-precompiles?/try-runtime",
 	"pallet-vesting?/try-runtime",
@@ -745,6 +751,8 @@ runtime-full = [
 	"pallet-tx-pause",
 	"pallet-uniques",
 	"pallet-utility",
+	"pallet-validator-collators",
+	"pallet-validator-set-announcer",
 	"pallet-verify-signature",
 	"pallet-vesting",
 	"pallet-vesting-precompiles",
@@ -1883,6 +1891,16 @@ path = "../substrate/frame/uniques"
 default-features = false
 optional = true
 path = "../substrate/frame/utility"
+
+[dependencies.pallet-validator-collators]
+default-features = false
+optional = true
+path = "../cumulus/pallets/validator-collators"
+
+[dependencies.pallet-validator-set-announcer]
+default-features = false
+optional = true
+path = "../cumulus/pallets/validator-set-announcer"
 
 [dependencies.pallet-verify-signature]
 default-features = false

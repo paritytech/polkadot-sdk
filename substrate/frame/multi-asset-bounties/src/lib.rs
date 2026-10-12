@@ -1774,7 +1774,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			),
 		};
 
-		let id = <T as Config<I>>::Paymaster::pay(&source, &beneficiary, asset_kind, value)
+		let refund = Self::calculate_payout(parent_bounty_id, child_bounty_id, value);
+		let id = <T as Config<I>>::Paymaster::pay(&source, &beneficiary, asset_kind, refund)
 			.map_err(|_| Error::<T, I>::RefundError)?;
 
 		Self::deposit_event(Event::<T, I>::Paid {

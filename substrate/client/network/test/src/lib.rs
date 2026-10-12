@@ -777,8 +777,6 @@ pub struct FullPeerConfig {
 	pub sync_mode: SyncMode,
 	/// Extra genesis storage.
 	pub extra_storage: Option<sp_core::storage::Storage>,
-	/// Enable transaction indexing.
-	pub storage_chain: bool,
 	/// Optional target block header to sync to
 	pub target_header: Option<<Block as BlockT>::Header>,
 	/// Force genesis even in case of warp & light state sync.
@@ -833,11 +831,9 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 	/// Add a full peer.
 	fn add_full_peer_with_config(&mut self, config: FullPeerConfig) {
-		let mut test_client_builder = match (config.blocks_pruning, config.storage_chain) {
-			(Some(blocks_pruning), true) => TestClientBuilder::with_tx_storage(blocks_pruning),
-			(None, true) => TestClientBuilder::with_tx_storage(u32::MAX),
-			(Some(blocks_pruning), false) => TestClientBuilder::with_pruning_window(blocks_pruning),
-			(None, false) => TestClientBuilder::with_default_backend(),
+		let mut test_client_builder = match config.blocks_pruning {
+			Some(blocks_pruning) => TestClientBuilder::with_pruning_window(blocks_pruning),
+			None => TestClientBuilder::with_default_backend(),
 		};
 		if let Some(storage) = config.extra_storage {
 			let genesis_extra_storage = test_client_builder.genesis_init_mut().extra_storage();
