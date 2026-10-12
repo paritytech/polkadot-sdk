@@ -18,8 +18,8 @@
 //! Published JAM work-package signing and authorization.
 
 use cumulus_aura_authorizer::{
-	authorize, build_collator_proofs, hash_signing_payload, signable_work_package_hash, AuthConfig,
-	AuthToken, AuthTrace, AuthorizationError, SignatureVerifier, TokenError, WORK_PACKAGE_SIGN_CTX,
+	build_collator_proofs, hash_signing_payload, signable_work_package_hash, AuthConfig, AuthToken,
+	AuthTrace, AuthorizationError, SignatureVerifier, TokenError, WORK_PACKAGE_SIGN_CTX,
 };
 use jam_types::{Encode as JamEncode, WorkPackage};
 
@@ -73,13 +73,13 @@ fn published_package_works() {
 	let mut token = AuthToken { proof: vec![], key: [7; 32], signature: [0; 64] };
 	token.signature[..32].copy_from_slice(hash.as_bytes());
 	assert_eq!(
-		authorize::<Verifier>(&config, &token, &package, 0).unwrap(),
+		AuthTrace::try_from_token::<Verifier>(&config, &token, &package, 0).unwrap(),
 		AuthTrace { author_key: token.key }
 	);
 
 	package.auth_code_host += 1;
 	assert!(matches!(
-		authorize::<Verifier>(&config, &token, &package, 0),
+		AuthTrace::try_from_token::<Verifier>(&config, &token, &package, 0),
 		Err(AuthorizationError::BadToken(TokenError::BadCollatorSignature))
 	));
 }

@@ -49,19 +49,21 @@ pub enum AuthorizationError {
 	BadToken(TokenError),
 }
 
-/// The top level AURA authorization check for `is_authorized`.
-pub fn authorize<S: SignatureVerifier>(
-	config: &AuthConfig,
-	token: &AuthToken,
-	package: &WorkPackage,
-	slot: Slot,
-) -> Result<AuthTrace, AuthorizationError> {
-	let collator_index =
-		config.expected_collator_index(slot).map_err(AuthorizationError::BadConfig)?;
+impl AuthTrace {
+	/// Validate an AURA token for the slot and work package, returning its author trace.
+	pub fn try_from_token<S: SignatureVerifier>(
+		config: &AuthConfig,
+		token: &AuthToken,
+		package: &WorkPackage,
+		slot: Slot,
+	) -> Result<Self, AuthorizationError> {
+		let collator_index =
+			config.expected_collator_index(slot).map_err(AuthorizationError::BadConfig)?;
 
-	token
-		.try_into_trace::<S>(config, package, collator_index)
-		.map_err(AuthorizationError::BadToken)
+		token
+			.try_into_trace::<S>(config, package, collator_index)
+			.map_err(AuthorizationError::BadToken)
+	}
 }
 
 #[cfg(test)]
@@ -126,7 +128,8 @@ mod tests {
 			let expected = AuthTrace { author_key: token.key };
 
 			assert_eq!(
-				authorize::<Verifier>(&config, &token, &package, slot).expect("valid token"),
+				AuthTrace::try_from_token::<Verifier>(&config, &token, &package, slot)
+					.expect("valid token"),
 				expected
 			);
 		}
@@ -138,20 +141,20 @@ mod tests {
 
 		config.collator_set_size = 0;
 		assert!(matches!(
-			authorize::<NeverVerify>(&config, &token, &package, 2),
+			AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
 			Err(AuthorizationError::BadConfig(ConfigError::ZeroCollatorSetSize))
 		));
 
 		config.collator_set_size = 2;
 		config.slot_duration = 0;
 		assert!(matches!(
-			authorize::<NeverVerify>(&config, &token, &package, 2),
+			AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
 			Err(AuthorizationError::BadConfig(ConfigError::ZeroSlotDuration))
 		));
 
 		config.collator_set_size = 0;
 		assert!(matches!(
-			authorize::<NeverVerify>(&config, &token, &package, 2),
+			AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
 			Err(AuthorizationError::BadConfig(ConfigError::ZeroSlotDuration))
 		));
 	}
@@ -161,7 +164,7 @@ mod tests {
 		let (config, token, package) = fixture();
 
 		assert!(matches!(
-			authorize::<NeverVerify>(&config, &token, &package, 0),
+			AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 0),
 			Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
 		));
 	}
@@ -172,7 +175,7 @@ mod tests {
 		token.proof.clear();
 
 		assert!(matches!(
-			authorize::<NeverVerify>(&config, &token, &package, 2),
+			AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
 			Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
 		));
 	}
@@ -183,7 +186,7 @@ mod tests {
 		token.signature[63] ^= 1;
 
 		assert!(matches!(
-			authorize::<Verifier>(&config, &token, &package, 2),
+			AuthTrace::try_from_token::<Verifier>(&config, &token, &package, 2),
 			Err(AuthorizationError::BadToken(TokenError::BadCollatorSignature))
 		));
 	}
