@@ -50,13 +50,13 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// The part of `report_authored_blocks` this pallet does, measured with a full report from a
+	/// The part of `report_authored_blocks` this pallet does, measured with a report from a
 	/// source without points so that [`Config::RewardPoints`] is not measured here.
 	#[benchmark]
 	fn report_authored_blocks() {
 		let source = any_source::<T>();
 		PointsPerBlock::<T>::remove(source);
-		let blocks = (0..T::MaxEntriesPerReport::get())
+		let blocks = (0..1_000)
 			.map(|i| (account::<T::AccountId>("validator", i, 0), 1))
 			.collect::<Vec<_>>();
 		let entries = blocks.len() as u32;
