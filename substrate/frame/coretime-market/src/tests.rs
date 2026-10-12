@@ -216,14 +216,13 @@ fn place_bid_wrong_phase() {
 }
 
 #[test]
+#[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
 fn place_bid_too_early() {
 	TestExt::new().execute_with(|| {
-		start_sales(100);
-		let sale = SaleInfo::<Test>::get().unwrap();
+		let init = InitData { reserve_price: 100 };
+		<CoretimeMarket as Market<u64, u64, u64>>::start_sales(10, init).unwrap();
 
-		if sale.sale_start > 0 {
-			assert_noop!(place_bid(sale.sale_start - 1, 1, 200), Error::TooEarly);
-		}
+		assert_noop!(place_bid(9, 1, 200), Error::TooEarly);
 	});
 }
 

@@ -184,7 +184,9 @@ impl TestExt {
 			frame_system::Pallet::<Test>::set_block_number(1);
 			<CoretimeMarket as Market<u64, u64, u64>>::configure(self.0)
 				.expect("configure should not fail");
-			f()
+			let result = f();
+			CoretimeMarket::do_try_state().expect("try_state should pass");
+			result
 		})
 	}
 }

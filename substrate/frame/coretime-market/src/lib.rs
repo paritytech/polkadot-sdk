@@ -80,7 +80,7 @@ use fp_coretime::{
 	CoreIndex, CoreMask, PotentialRenewalId, RegionId, Timeslice,
 };
 use frame_support::{
-	ensure,
+	defensive, ensure,
 	traits::{
 		tokens::Balance as BalanceT, Defensive, DefensiveOption, DefensiveResult,
 		DefensiveTruncateFrom, Get, Randomness,
@@ -279,6 +279,11 @@ pub mod pallet {
 		fn integrity_test() {
 			assert!(!T::MaxBids::get().is_zero(), "`MaxBids` must be non-zero");
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	/// The market configuration.
@@ -328,6 +333,20 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Check that the bid book and the allocations are sorted by price descending.
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		ensure!(
+			Bids::<T>::get().windows(2).all(|w| w[0].price >= w[1].price),
+			"`Bids` must be sorted by price descending"
+		);
+		ensure!(
+			Allocations::<T>::get().windows(2).all(|w| w[0].bid_price >= w[1].bid_price),
+			"`Allocations` must be sorted by bid price descending"
+		);
+		Ok(())
+	}
+
 	/// Set the current sale phase.
 	pub(crate) fn set_phase(phase: SalePhase) {
 		SaleInfo::<T>::mutate_extant(|sale| sale.phase = phase);
@@ -428,7 +447,11 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 	) -> Result<OrderResult<T::AccountId, BalanceOf<T>, Self::BidId>, Self::Error> {
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 		ensure!(sale.phase == SalePhase::Market, Error::<T>::WrongPhase);
-		ensure!(block_number >= sale.sale_start, Error::<T>::TooEarly);
+		if block_number < sale.sale_start {
+			// A sale starts at the block it is rotated in, so the caller is behind.
+			defensive!("bid placed before the sale started");
+			return Err(Error::<T>::TooEarly);
+		}
 		ensure!(price_limit >= sale.reserve_price, Error::<T>::BidTooLow);
 
 		let current_price = descending_price::<T>(block_number, &sale)?;
