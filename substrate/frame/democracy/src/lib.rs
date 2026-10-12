@@ -179,6 +179,7 @@ mod vote_threshold;
 pub mod weights;
 pub use conviction::Conviction;
 pub use pallet::*;
+use sp_runtime::traits::{Header, HeaderProvider};
 pub use types::{
 	Delegations, MetadataOwner, PropIndex, ReferendumIndex, ReferendumInfo, ReferendumStatus,
 	Tally, UnvoteScope,
@@ -567,6 +568,11 @@ pub mod pallet {
 		/// Weight: see `begin_block`
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			Self::begin_block(n)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
 		}
 	}
 
@@ -1169,6 +1175,7 @@ pub mod pallet {
 	}
 }
 
+
 pub trait EncodeInto: Encode {
 	fn encode_into<T: AsMut<[u8]> + Default, H: sp_core::Hasher>(&self) -> T {
 		let mut t = T::default();
@@ -1188,6 +1195,74 @@ pub trait EncodeInto: Encode {
 	}
 }
 impl<T: Encode> EncodeInto for T {}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		// PublicPropCount should be greater than PublicProps count
+		ensure!(
+			PublicProps::<T>::get().len() <= <PublicPropCount<T>>::get() as usize,
+			"`PublicPropCount` should be greater than of `PublicProps` in storage"
+		);
+		// DepositOf should be equal to PublicProps in storage
+		ensure!(
+			DepositOf::<T>::iter().count() == PublicProps::<T>::get().len() as usize,
+			"`DepositOf` count should be equal to `PublicProps` count in storage"
+		);
+		// Total number of depositors should be greater or equal to `PublicProps`
+		ensure!(
+			Self::count_total_depositors() >= PublicProps::<T>::get().len() as u32,
+			"Total depositors should be greater than that of `PublicProps` in storage"
+		);
+		// Cancellations should be less than or equal to ReferendumInfoOf
+		ensure!(
+			Cancellations::<T>::iter().count() <= ReferendumInfoOf::<T>::iter().count() as usize,
+			"`Cancellations` should be less than or must equal `ReferendumInfoOf` in storage"
+		);
+
+		if (NextExternal::<T>::get().is_some()) {
+			ensure!(
+				PublicProps::<T>::get().len() == 0,
+				"`NextExternal` should exists only if PublicProps is empty"
+			);
+		}
+
+		Self::try_state_voting_of__storage_invariants();
+
+		Ok(())
+	}
+
+	fn count_total_depositors() -> u32 {
+		let mut total_count = 0;
+
+		// Iterate over the `DepositOf` storage map.
+		for (_, (account_ids, _)) in DepositOf::<T>::iter() {
+			total_count += account_ids.len() as u32; // Add the length of the BoundedVec
+		}
+
+		total_count
+	}
+
+	fn try_state_voting_of__storage_invariants() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (_, voting) in VotingOf::<T>::iter() {
+			match voting {
+				Voting::Direct { votes, .. } => {
+					ensure!(votes.len() <= PublicProps::<T>::get().len(),
+						"`VotingOf for a particular account should not be greater than PublicProps in storage");
+
+					ensure!(votes.len() <= <PublicPropCount<T>>::get() as usize,
+						"`VotingOf for a particular account should not be greater than PublicPropCount in storage");
+				},
+				Voting::Delegating { .. } => {},
+			}
+		}
+
+		Ok(())
+	}
+}
 
 impl<T: Config> Pallet<T> {
 	// exposed immutables.
