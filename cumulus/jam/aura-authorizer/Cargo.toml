@@ -1,0 +1,36 @@
+[package]
+name = "cumulus-aura-authorizer"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+publish = true
+description = "AURA authorization types, signing payloads, and collator proofs for JAM parachains"
+homepage.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+binary-merkle-tree = { version = "16.1.1", default-features = false }
+hash-db = { version = "0.16.0", default-features = false }
+hash256-std-hasher = { version = "0.15.2", default-features = false }
+codec = { workspace = true, features = ["derive", "max-encoded-len"] }
+jam-types = { workspace = true }
+polkadot-parachain-primitives = { version = "23.0.0", default-features = false }
+primitive-types = { workspace = true, features = ["codec"] }
+sp-crypto-hashing = { version = "0.1.0", default-features = false }
+
+[features]
+default = []
+std = [
+    "binary-merkle-tree/std",
+    "hash-db/std",
+    "hash256-std-hasher/std",
+    "codec/std",
+    "jam-types/std",
+    "polkadot-parachain-primitives/std",
+    "primitive-types/std",
+    "sp-crypto-hashing/std",
+]
