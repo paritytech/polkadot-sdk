@@ -28,7 +28,7 @@ use jsonrpsee::{
 use pallet_revive::evm::*;
 use pallet_revive_types::runtime_api::{
 	BlockV1, ExecutionTracerConfigV1, GenericTransactionV1, ReceiptGasInfoV1, StateOverrideSetV1,
-	TraceV1, TracerTypeV1, TransactionInfoV1,
+	SyntheticTransactionV1, TraceV1, TracerTypeV1, TransactionInfoV1,
 };
 use sp_core::{H160, H256, U256};
 use sp_crypto_hashing::keccak_256;
@@ -64,6 +64,15 @@ pub use apis::*;
 
 mod types;
 pub use types::*;
+
+/// Fetch the chain ID from the substrate chain.
+async fn chain_id(
+	api: &subxt::OnlineClient<subxt_client::SrcChainConfig>,
+) -> Result<u64, ClientError> {
+	let query = subxt_client::constants().revive().chain_id().unvalidated();
+	let at_block = api.at_current_block().await?;
+	at_block.constants().entry(query).map_err(|err| err.into())
+}
 
 pub const LOG_TARGET: &str = "eth-rpc";
 

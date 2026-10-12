@@ -1,0 +1,24 @@
+title: '`pallet-whitelist`: document that unwhitelisting pauses a live deferral rather than cancelling it, and pin it with a test'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Docs and test only. No behaviour change.
+
+    Since #11336, `pallet-whitelist` keeps two independent storage maps: `WhitelistedCall`, owned by
+    `WhitelistOrigin`, and `DeferredDispatch`, owned by `DispatchWhitelistedOrigin`. A relayed root
+    dispatch needs both plus an unexpired deferral. `remove_whitelisted_call` clears only the whitelist
+    entry, so a live deferral survives revocation, and re-whitelisting the same hash before expiry
+    re-enables relayed execution without a fresh act from `DispatchWhitelistedOrigin`.
+
+    This is intentional: neither origin can erase the other's record, revocation still blocks relayers
+    while the hash is off the whitelist, and re-arming requires `WhitelistOrigin` again. It was
+    previously undocumented and has been reported once as an authorization finding.
+
+    Changes:
+    - Pallet-level rustdoc: new "Deferred dispatch" section describing the two maps, their owners, and
+      the pause-not-cancel semantics of unwhitelisting.
+    - `remove_whitelisted_call` rustdoc: note that the deferred entry is left in place.
+    - New test `unwhitelisting_pauses_but_does_not_cancel_deferral` pinning the behaviour.
+crates:
+- name: pallet-whitelist
+  bump: none

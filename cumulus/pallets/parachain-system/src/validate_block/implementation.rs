@@ -24,8 +24,8 @@ use cumulus_primitives_core::{
 		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, MAX_HEAD_DATA_SIZE,
 		UMP_SEPARATOR,
 	},
-	CumulusDigestItem, ParachainBlockData, PersistedValidationData, SignedSchedulingInfo,
-	VerifySchedulingSignature,
+	CumulusDigestItem, ParachainBlockData, PersistedValidationData, SchedulingSignals,
+	SignedSchedulingInfo, VerifySchedulingSignature,
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
@@ -365,14 +365,15 @@ where
 
 	// A `signed_scheduling_info` overrides the block's emitted signals wholesale — they
 	// are ignored, not merged.
-	match scheduling_override_inputs.as_ref() {
-		Some((signed_info, _)) => {
-			scheduling::SchedulingSignals::from_scheduling_info(signed_info, &mut upward_messages)
-		},
-		None => scheduling::SchedulingSignals::from_block_signals(
-			&upward_message_signals,
-			&mut upward_messages,
-		),
+	let scheduling_tail = match scheduling_override_inputs.as_ref() {
+		Some((signed_info, _)) => SchedulingSignals::from_scheduling_info(signed_info),
+		None => SchedulingSignals::from_block_signals(&upward_message_signals),
+	}
+	.into_ump_messages();
+	for message in scheduling_tail {
+		upward_messages
+			.try_push(message)
+			.expect("UMPSignals does not fit in UMPMessages");
 	}
 
 	horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
