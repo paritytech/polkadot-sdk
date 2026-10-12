@@ -16,7 +16,10 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
-use jam_types::{Encode as JamEncode, WorkPackage};
+use jam_types::{
+	Authorizer, BoundedVec, Encode as JamEncode, MaxWorkItems, RefineContext, ServiceId, WorkItem,
+	WorkPackage,
+};
 use primitive_types::H256;
 use sp_crypto_hashing::blake2_256;
 
@@ -29,12 +32,26 @@ pub const WORK_PACKAGE_SIGN_CTX: &[u8] = b"jam:parachain-service:aura:work-packa
 /// and work items after [`WORK_PACKAGE_SIGN_CTX`], then hashes them with Blake2b-256.
 /// The authorization token is excluded because it contains the signature.
 pub fn signable_work_package_hash(package: &WorkPackage) -> H256 {
-	let payload = JamEncode::encode(&(
-		&package.auth_code_host,
-		&package.authorizer.code_hash,
+	hash_work_package_fields(
+		package.auth_code_host,
+		&package.authorizer,
 		&package.context,
-		&package.authorizer.config,
 		&package.items,
+	)
+}
+
+pub(crate) fn hash_work_package_fields(
+	auth_code_host: ServiceId,
+	authorizer: &Authorizer,
+	context: &RefineContext,
+	items: &BoundedVec<WorkItem, MaxWorkItems>,
+) -> H256 {
+	let payload = JamEncode::encode(&(
+		&auth_code_host,
+		&authorizer.code_hash,
+		context,
+		&authorizer.config,
+		items,
 	));
 	hash_signing_payload(&payload)
 }

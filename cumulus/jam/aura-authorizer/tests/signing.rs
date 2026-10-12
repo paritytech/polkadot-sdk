@@ -17,11 +17,13 @@
 
 //! Published JAM work-package signing and authorization.
 
+use codec::DecodeAll;
 use cumulus_aura_authorizer::{
 	build_collator_proofs, hash_signing_payload, signable_work_package_hash, AuthConfig, AuthToken,
-	AuthTrace, AuthorizationError, SignatureVerifier, TokenError, WORK_PACKAGE_SIGN_CTX,
+	AuthTrace, AuthorizationError, SignatureVerifier, TokenError, UnauthorizedWorkPackage,
+	WORK_PACKAGE_SIGN_CTX,
 };
-use jam_types::{Encode as JamEncode, WorkPackage};
+use jam_types::Encode as JamEncode;
 
 struct Verifier;
 impl SignatureVerifier for Verifier {
@@ -32,19 +34,29 @@ impl SignatureVerifier for Verifier {
 
 #[test]
 fn published_package_works() {
-	let mut package = WorkPackage {
-		authorization: Default::default(),
+	let package = UnauthorizedWorkPackage {
 		auth_code_host: 1,
-		authorizer: jam_types::Authorizer::any(),
+		authorizer: jam_types::Authorizer { code_hash: [3; 32].into(), config: vec![4, 5].into() },
 		context: jam_types::RefineContext {
-			anchor: Default::default(),
-			state_root: Default::default(),
-			beefy_root: Default::default(),
-			lookup_anchor: Default::default(),
-			lookup_anchor_slot: 0,
+			anchor: [6; 32].into(),
+			state_root: [7; 32].into(),
+			beefy_root: [8; 32].into(),
+			lookup_anchor: [6; 32].into(),
+			lookup_anchor_slot: 9,
 			prerequisites: Default::default(),
 		},
-		items: Default::default(),
+		items: vec![jam_types::WorkItem {
+			service: 1,
+			code_hash: [10; 32].into(),
+			refine_gas_limit: 11,
+			accumulate_gas_limit: 12,
+			export_count: 0,
+			payload: vec![13].into(),
+			import_segments: Default::default(),
+			extrinsics: Default::default(),
+		}]
+		.try_into()
+		.expect("one work item fits"),
 	};
 
 	let payload = JamEncode::encode(&(
@@ -54,7 +66,7 @@ fn published_package_works() {
 		&package.authorizer.config,
 		&package.items,
 	));
-	let hash = signable_work_package_hash(&package);
+	let hash = package.signing_hash();
 	let mut expected = WORK_PACKAGE_SIGN_CTX.to_vec();
 
 	expected.extend_from_slice(&payload);
@@ -72,6 +84,23 @@ fn published_package_works() {
 
 	let mut token = AuthToken { proof: vec![], key: [7; 32], signature: [0; 64] };
 	token.signature[..32].copy_from_slice(hash.as_bytes());
+	let expected_fields = payload;
+	let mut package = package.authorize(&token);
+	assert_eq!(signable_work_package_hash(&package), hash);
+	assert_eq!(
+		JamEncode::encode(&(
+			&package.auth_code_host,
+			&package.authorizer.code_hash,
+			&package.context,
+			&package.authorizer.config,
+			&package.items,
+		)),
+		expected_fields,
+	);
+	let decoded = AuthToken::decode_all(&mut &package.authorization.0[..]).expect("encoded token");
+	assert_eq!(decoded.key, token.key);
+	assert_eq!(decoded.proof, token.proof);
+	assert_eq!(decoded.signature, token.signature);
 	assert_eq!(
 		AuthTrace::try_from_token::<Verifier>(&config, &token, &package, 0).unwrap(),
 		AuthTrace { author_key: token.key }
