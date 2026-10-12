@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791800781183,
+  "lastUpdate": 1791806585162,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "22591718+RomarQ@users.noreply.github.com",
-            "name": "Rodrigo Quelhas",
-            "username": "RomarQ"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e3865cf729c8193ec2f2de2df682a66583891d7b",
-          "message": "Deprecate `ValidateUnsigned` trait and `#[pallet::validate_unsigned]` attribute (#10150)\n\nPart of #2415\nCloses #2436\n\nRelated: #6325 #6326\n\n## Summary\n\nDeprecates the `ValidateUnsigned` trait and\n`#[pallet::validate_unsigned]` attribute in favor of the new\n`TransactionExtension` API. This is a non-breaking change that adds\ndeprecation warnings to guide users toward the modern transaction\nvalidation approach.\n\n## Motivation\n\nThe `ValidateUnsigned` trait was the legacy approach for validating\nunsigned transactions in FRAME pallets. The newer `TransactionExtension`\ntrait provides a more flexible and composable way to handle transaction\nvalidation, including both signed and unsigned transactions.\n\n## Changes\n\n### Deprecated APIs\n- ✅ Added `#[deprecated]` attribute to `ValidateUnsigned` trait\n- ✅ Added deprecation warning to `#[pallet::validate_unsigned]` macro\nattribute\n\n### Migration (Using `TransactionExtensions`)\n\n\nhttps://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/transaction_extensions\n\n## Impact\n\n- **Non-breaking:** Existing code continues to work with deprecation\nwarnings\n- **Compiler warnings:** Users will see deprecation notices guiding them\nto migrate\n- **Timeline:** Full removal planned for a future major release (TBD)\n\n## Review Notes\n\n- The `#[pallet::validate_unsigned]` deprecation warning might be\nredundant since it's always used together with `ValidateUnsigned`, but\nboth are included for completeness and clarity.\n\n## Follow-up Tasks\n\nThe following pallets and crates need to be migrated to\n`TransactionExtension` in subsequent PRs:\n\n**Runtime crates:**\n- [ ] `polkadot-runtime-common`\n- [ ] `polkadot-runtime-parachains`\n\n**FRAME pallets:**\n- [ ] `pallet-babe`\n- [ ] `pallet-beefy`\n- [ ] `pallet-election-provider-multi-block`\n- [ ] `pallet-grandpa`\n- [x] `pallet-im-online`\nhttps://github.com/paritytech/polkadot-sdk/pull/11235\n- [x] `pallet-mixnet`\nhttps://github.com/paritytech/polkadot-sdk/pull/11010\n\n**Core:**\n- [ ] `frame-executive`\n- [ ] `frame-system`\n\n**Examples:**\n- [x] `pallet-example-offchain-worker`\nhttps://github.com/paritytech/polkadot-sdk/pull/10716\n\n**Testing:**\n- [ ] `substrate-test-runtime`\n\n## Open Question\n\nShould we remove the `ValidateUnsigned` bound from the type parameter\n`V` in the `Applyable` trait?\n\n---------\n\nCo-authored-by: Guillaume Thiolliere <guillaume.thiolliere@parity.io>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-04-02T09:41:38Z",
-          "tree_id": "46a79bcb9f9f0bb652ba4f031e1aefea5c994454",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e3865cf729c8193ec2f2de2df682a66583891d7b"
-        },
-        "date": 1775132116483,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08434163692599995,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03893025483599998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03871710679399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "34595be73eb19afe34d26ace0090d26ac5aefec5",
+          "message": "Kanas/module invalidity (#11724)\n\n# Description\n\nThis PR implements descriptive module invalidity support for\ntransactions as proposed in #11337. It extends the `InvalidTransaction`\nenum with a new `Module(ModuleError)` variant, allowing pallets to\nreturn pallet-specific, descriptive error data during the transaction\nvalidation phase (e.g., in `TransactionExtension`).\n\nCloses #11337\n\n## Integration\n\nDownstream projects and UI tools (like `subxt` or `polkadot-js`) can now\nleverage descriptive invalidity reasons. When a transaction is rejected\nby the pool with a `Module` error, the RPC will return a formatted\nmessage including the pallet index and the error bytes.\n\nExample RPC error output:\n`\"Invalid Transaction: Module error: index: 5, error: [1, 0, 0, 0]\"`\n\nClient-side libraries can use this index and byte array to look up the\nspecific error definition in the chain's current metadata, mirroring how\n`DispatchError::Module` is handled today.\n\n## Review Notes\n\nThe implementation follows the established pattern for descriptive\nerrors in Substrate while ensuring 100% backward compatibility for the\ntransaction pool and node-side logic.\n\n### Key Changes:\n- **`sp-runtime`**: Appended `Module(ModuleError)` to the\n`InvalidTransaction` enum (index 13). This position ensures that\nexisting SCALE-encoded variants remain unchanged.\n- **String Conversion**: Updated the `From<InvalidTransaction> for\n&'static str` implementation to prioritize the descriptive message from\n`ModuleError` if present.\n- **RPC Layer**: Enriched both the Author RPC (v1) and the Transaction\nRPC (v2) to explicitly handle the `Module` variant and return formatted\ndebug information.\n- **Verification**: Added a new unit test\n`module_invalidity_should_encode_and_decode` in `sp-runtime` to verify\nthe encoding/decoding and string conversion paths.\n\n### Integration Diff:\n```diff\n pub enum InvalidTransaction {\n     ...\n     UnknownOrigin,\n+    /// An error in a module.\n+    Module(ModuleError),\n }\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-12T10:28:18Z",
+          "tree_id": "47f2c97fbd39be2faa91203e80a838da5de805de",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/34595be73eb19afe34d26ace0090d26ac5aefec5"
+        },
+        "date": 1791806557844,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.14200000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038582715478000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08979925487599986,
             "unit": "seconds"
           }
         ]
