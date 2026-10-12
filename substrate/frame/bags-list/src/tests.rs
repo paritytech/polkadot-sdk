@@ -903,6 +903,32 @@ mod on_idle {
 			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), Some(4));
 		});
 	}
+
+	#[test]
+	fn cursor_resumes_at_first_node_skipped_by_weight_exhaustion() {
+		ExtBuilder::default()
+			.skip_genesis_ids()
+			.add_ids(vec![(1, 1_000), (2, 1_000), (3, 1_000), (4, 1_000), (5, 1_000)])
+			.build_and_execute(|| {
+				// The count budget allows 4 rebags, but the weight limit only covers 2.
+				<Runtime as Config>::MaxAutoRebagPerBlock::set(4);
+				for id in 1..=5u64 {
+					StakingMock::set_score_of(&id, 10);
+				}
+				let per_item = <Runtime as Config>::WeightInfo::on_idle_rebag();
+
+				run_to_block(1, per_item.saturating_mul(2));
+
+				// Only the two accounts the weight limit actually paid for were rebagged.
+				assert_eq!(
+					List::<Runtime>::get_bags(),
+					vec![(10, vec![1, 2]), (1_000, vec![3, 4, 5])]
+				);
+				// The cursor must resume at 3, the first node the weight limit forced it to
+				// skip, not jump past it to 5 as the count budget alone would suggest.
+				assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), Some(3));
+			});
+	}
 	#[test]
 	fn can_rebag_across_bags() {
 		ExtBuilder::default().build_and_execute(|| {
