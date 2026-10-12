@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
+use hash_db::Hasher as _;
 use primitive_types::H256;
 use sp_crypto_hashing::blake2_256;
 
@@ -71,7 +72,7 @@ pub fn build_collator_proofs(
 ) -> Result<(H256, Vec<Vec<H256>>), CollatorProofError> {
 	let padded_size = padded_leaf_count(keys.len())?;
 
-	let mut leaves: Vec<_> = keys.iter().map(|key| blake2_256(key)).map(Into::into).collect();
+	let mut leaves: Vec<_> = keys.iter().map(|key| CollatorHasher::hash(key)).collect();
 	leaves.resize(padded_size as usize, H256::zero());
 
 	// Keep each non-root level so every proof can reuse the same parent hashes.
@@ -81,7 +82,7 @@ pub fn build_collator_proofs(
 			.chunks_exact(2)
 			.map(|pair| {
 				let input = [pair[0].0, pair[1].0];
-				H256::from(blake2_256(input.as_flattened()))
+				CollatorHasher::hash(input.as_flattened())
 			})
 			.collect();
 
