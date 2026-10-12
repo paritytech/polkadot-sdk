@@ -75,20 +75,30 @@ pub struct ParentSearchResult<Block: BlockT> {
 	pub resubmittable_segment: Vec<Block::Header>,
 }
 
-/// Trim the best parent (and segment) to the first ancestor passing `filter_parent`, or to
-/// `search_base` when the segment empties.
+/// Trim the best parent (and segment) back to the first ancestor passing `filter_parent`, or to
+/// the included head. Walks the real chain via `get_header`, so it can step past the segment base
+/// to an older bundle-ender when the segment itself holds none.
 pub(crate) fn trim_best_parent_to_filter<Block: BlockT>(
 	mut result: ParentSearchResult<Block>,
-	search_base: &Block::Header,
+	get_header: impl Fn(Block::Hash) -> Option<Block::Header>,
 	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> ParentSearchResult<Block> {
-	while !filter_parent(&result.best_parent_header) && !result.resubmittable_segment.is_empty() {
-		result.resubmittable_segment.pop();
-		result.best_parent_header = result
-			.resubmittable_segment
-			.last()
-			.cloned()
-			.unwrap_or_else(|| search_base.clone());
+	while !filter_parent(&result.best_parent_header) {
+		let parent_hash = *result.best_parent_header.parent_hash();
+		match get_header(parent_hash) {
+			Some(header) => {
+				result.best_parent_header = header;
+				result.resubmittable_segment.pop();
+				if parent_hash == result.included_at_scheduling.hash() {
+					break;
+				}
+			},
+			None => {
+				result.best_parent_header = result.included_at_scheduling.clone();
+				result.resubmittable_segment.clear();
+				break;
+			},
+		}
 	}
 	result
 }
@@ -386,7 +396,6 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	// Determine the starting point for the search.
 	let (start_header, start_hash) =
 		maybe_pending.unwrap_or((included_header.clone(), included_hash));
-	let search_base = start_header.clone();
 
 	let result = match params {
 		ParentSearchParams::V2 { scheduling_parent: relay_parent } => {
@@ -443,5 +452,9 @@ pub async fn find_parent_for_building<Block: BlockT>(
 
 	// Trim the best parent (and its segment) back to the first ancestor passing the filter, so the
 	// returned result is the final parent to build on.
-	Ok(Some(trim_best_parent_to_filter(result, &search_base, filter_parent)))
+	Ok(Some(trim_best_parent_to_filter(
+		result,
+		|hash| backend.blockchain().header(hash).ok().flatten(),
+		filter_parent,
+	)))
 }
