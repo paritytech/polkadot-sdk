@@ -323,7 +323,9 @@ mod tests {
 	use crate::{
 		pool::HopDataPool,
 		rate_limit::RateLimitConfig,
-		types::{Recipient, RecipientVec, SenderId},
+		types::{
+			entry_accounted_size, Recipient, RecipientVec, SenderId, MAX_DATA_SIZE, MAX_RECIPIENTS,
+		},
 	};
 	use sp_core::{crypto::Pair, ed25519};
 	use sp_runtime::{MultiSignature, MultiSigner};
@@ -349,6 +351,11 @@ mod tests {
 		let recipients: Vec<Recipient> =
 			v.into_iter().map(|signer| Recipient { signer, claimed: false }).collect();
 		RecipientVec::try_from(recipients).expect("test recipient list exceeds MAX_RECIPIENTS")
+	}
+
+	/// Smallest `max_size` / `max_user_size` the pool constructor accepts.
+	fn min_pool_size() -> u64 {
+		entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS as usize)
 	}
 
 	fn test_pool(max_size: u64, retention_secs: u64, dir: &TempDir) -> Arc<HopDataPool> {
@@ -422,7 +429,7 @@ mod tests {
 	#[test]
 	fn tick_promotes_near_expiry_entries() {
 		let dir = TempDir::new().unwrap();
-		let pool = test_pool(1024 * 1024, 100, &dir);
+		let pool = test_pool(min_pool_size(), 100, &dir);
 		let (_, signer) = test_recipient();
 
 		let hash = pool
@@ -453,7 +460,7 @@ mod tests {
 	#[test]
 	fn tick_skips_promotion_when_no_promoter() {
 		let dir = TempDir::new().unwrap();
-		let pool = test_pool(1024 * 1024, 100, &dir);
+		let pool = test_pool(min_pool_size(), 100, &dir);
 		let (_, signer) = test_recipient();
 
 		pool.insert(vec![42u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
@@ -477,7 +484,7 @@ mod tests {
 	#[test]
 	fn tick_does_not_mark_promoted_on_failure() {
 		let dir = TempDir::new().unwrap();
-		let pool = test_pool(1024 * 1024, 100, &dir);
+		let pool = test_pool(min_pool_size(), 100, &dir);
 		let (_, signer) = test_recipient();
 
 		pool.insert(vec![42u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
@@ -504,7 +511,7 @@ mod tests {
 	fn tick_cleans_up_expired_entries() {
 		let dir = TempDir::new().unwrap();
 		// retention=0 secs so entries expire immediately on the next cleanup pass.
-		let pool = test_pool(1024 * 1024, 0, &dir);
+		let pool = test_pool(min_pool_size(), 0, &dir);
 		let (_, signer) = test_recipient();
 
 		pool.insert(vec![42u8; 50], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
@@ -522,7 +529,7 @@ mod tests {
 	#[test]
 	fn tick_promotes_then_cleans_up_independently() {
 		let dir = TempDir::new().unwrap();
-		let pool = test_pool(1024 * 1024, 100, &dir);
+		let pool = test_pool(min_pool_size(), 100, &dir);
 		let (_, signer) = test_recipient();
 
 		let hash = pool
@@ -568,7 +575,7 @@ mod tests {
 	#[test]
 	fn tick_skips_promotion_when_already_on_chain() {
 		let dir = TempDir::new().unwrap();
-		let pool = test_pool(1024 * 1024, 100, &dir);
+		let pool = test_pool(min_pool_size(), 100, &dir);
 		let (_, signer) = test_recipient();
 
 		let hash = pool
@@ -591,7 +598,7 @@ mod tests {
 	#[test]
 	fn tick_retries_unconfirmed_with_backoff() {
 		let dir = TempDir::new().unwrap();
-		let pool = test_pool(1024 * 1024, 100, &dir);
+		let pool = test_pool(min_pool_size(), 100, &dir);
 		let (_, signer) = test_recipient();
 
 		pool.insert(vec![42u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
