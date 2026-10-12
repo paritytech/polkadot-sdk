@@ -73,19 +73,30 @@ of statements in the database
 ### Throughput & Operations
 
 #### Submission Rate (Successful)
-- **Metric:** `rate(substrate_sub_statement_store_submitted_statements[$__rate_interval])`
-- **Type:** Counter (displayed as rate)
-- **What it measures:** Successful new statement submissions per second.
+- **Metric:** `rate(substrate_sub_statement_store_submitted_statements[$__rate_interval])` with label `reason`
+- **Type:** CounterVec (displayed as rate; use `sum by (reason)` for breakdown)
+- **Labels:** `reason` = `persistent` | `transient` | `dht` | `explicit` | `both`
+- **What it measures:** Successful new statement submissions per second, broken down by the
+  retention reason chosen at admission:
+  - **`persistent`**: No v2 retention resolver is installed (v2 DHT disabled); the statement is
+    kept under the normal retention rules.
+  - **`transient`**: The node has no affinity for any of the statement's topics; it is kept only
+    until the first maintenance sweep after propagation.
+  - **`dht`** / **`explicit`** / **`both`**: The node is a DHT replica for one of the statement's
+    topics, has explicit (configured or subscribed) affinity for one, or both.
 - **Why it matters:** Throughput metric it tells you how fast the system
   is processing valid work. Drops indicate upstream issues (fewer clients, network problems);
   spikes indicate bursts of activity.
-- **How to read:** Line chart showing submissions/sec. Legend shows mean/max/sum.
+- **How to read:** Line chart showing submissions/sec. Legend shows mean/max/sum. Use `sum(...)`
+  for the total across reasons.
 - **Problems it solves:**
   - Detect throughput degradation after a release (compare before/after deployment).
+  - Tell whether the v2 affinity oracles drive retention: a v2 node admitting only `transient`
+    statements keeps nothing by affinity.
 
 #### Throughput vs Errors
 - **Metrics:**
-  - `rate(submitted_statements)` (green = successful)
+  - `sum(rate(submitted_statements))` (green = successful, summed over `reason` label)
   - `sum(rate(validations_invalid))` (red = invalid, summed over `reason` label)
   - `sum(rate(rejections_total))` (orange = rejected, summed over `reason` label)
 - **What it measures:** Comparison of successful vs failed operations.
