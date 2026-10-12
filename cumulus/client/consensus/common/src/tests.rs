@@ -1647,6 +1647,7 @@ fn trim_best_parent_walks_an_incomplete_trailing_bundle_back() {
 			best_parent_header: c.clone(),
 			resubmittable_segment: vec![a.clone(), b.clone(), c.clone()],
 		},
+		&included,
 		|h| h.hash() != c.hash(),
 	);
 
@@ -1656,13 +1657,16 @@ fn trim_best_parent_walks_an_incomplete_trailing_bundle_back() {
 }
 
 #[test]
-fn trim_best_parent_falls_back_to_included_when_nothing_passes() {
+fn trim_best_parent_falls_back_to_the_segment_base_when_nothing_passes() {
+	// A candidate is pending, so the segment sits on `pending`, above `included`. When nothing
+	// passes, the trim falls back to the base (`pending`), not `included`.
 	let header = |number, parent| {
 		Header::new(number, Default::default(), Default::default(), parent, Default::default())
 	};
 	let included = header(0, Default::default());
-	let a = header(1, included.hash());
-	let b = header(2, a.hash());
+	let pending = header(1, included.hash());
+	let a = header(2, pending.hash());
+	let b = header(3, a.hash());
 
 	let result = crate::parent_search::trim_best_parent_to_filter(
 		ParentSearchResult::<Block> {
@@ -1670,9 +1674,11 @@ fn trim_best_parent_falls_back_to_included_when_nothing_passes() {
 			best_parent_header: b.clone(),
 			resubmittable_segment: vec![a.clone(), b.clone()],
 		},
-		|h| h.hash() == included.hash(),
+		&pending,
+		|_| false,
 	);
 
-	assert_eq!(result.best_parent_header.hash(), included.hash());
+	assert_eq!(result.best_parent_header.hash(), pending.hash());
+	assert_ne!(result.best_parent_header.hash(), included.hash());
 	assert!(result.resubmittable_segment.is_empty());
 }

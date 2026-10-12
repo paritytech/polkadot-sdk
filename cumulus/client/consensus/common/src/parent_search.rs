@@ -75,11 +75,11 @@ pub struct ParentSearchResult<Block: BlockT> {
 	pub resubmittable_segment: Vec<Block::Header>,
 }
 
-/// Walk the best parent (and its resubmittable segment) back to the first ancestor passing
-/// `filter_parent`, or to the included head. Pure: the segment already holds the ancestry up to the
-/// best parent, so no backend access is needed.
+/// Trim the best parent (and segment) to the first ancestor passing `filter_parent`, or to
+/// `search_base` when the segment empties.
 pub(crate) fn trim_best_parent_to_filter<Block: BlockT>(
 	mut result: ParentSearchResult<Block>,
+	search_base: &Block::Header,
 	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> ParentSearchResult<Block> {
 	while !filter_parent(&result.best_parent_header) && !result.resubmittable_segment.is_empty() {
@@ -88,7 +88,7 @@ pub(crate) fn trim_best_parent_to_filter<Block: BlockT>(
 			.resubmittable_segment
 			.last()
 			.cloned()
-			.unwrap_or_else(|| result.included_at_scheduling.clone());
+			.unwrap_or_else(|| search_base.clone());
 	}
 	result
 }
@@ -386,6 +386,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	// Determine the starting point for the search.
 	let (start_header, start_hash) =
 		maybe_pending.unwrap_or((included_header.clone(), included_hash));
+	let search_base = start_header.clone();
 
 	let result = match params {
 		ParentSearchParams::V2 { scheduling_parent: relay_parent } => {
@@ -442,5 +443,5 @@ pub async fn find_parent_for_building<Block: BlockT>(
 
 	// Trim the best parent (and its segment) back to the first ancestor passing the filter, so the
 	// returned result is the final parent to build on.
-	Ok(Some(trim_best_parent_to_filter(result, filter_parent)))
+	Ok(Some(trim_best_parent_to_filter(result, &search_base, filter_parent)))
 }
