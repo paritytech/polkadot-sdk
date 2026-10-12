@@ -56,6 +56,11 @@ doc:
     - `evm_exp_per_bit`
     - `evm_signextend_opcode`
     - `evm_dispatch_mix`
+    - `evm_div_opcode_three_limb_variant`
+    - `evm_sdiv_opcode_three_limb_variant`
+    - `evm_mod_opcode_three_limb_variant`
+    - `evm_smod_opcode_three_limb_variant`
+    - `evm_addmod_opcode_three_limb_variant`
 
     Below, `slope(f)` is `f(1) - f(0)` for a WeightInfo method `f`. An
     op-code charged from its own benchmark pays the benchmark's slope.
@@ -93,52 +98,9 @@ doc:
     No storage migration is required.
 - audience: Runtime User
   description: |-
-    The EVM op-codes below are charged from their own benchmarks, so each
+    Selected EVM op-codes are charged from their own benchmarks, so each
     of them costs a different amount than before. Growing EVM memory and
     copying RETURN/REVERT output now have their own charges too.
-
-    On Asset Hub Westend these op-codes cost the following ref time. None
-    of them uses proof size.
-
-    | Op-code | Ref time (ns) |
-    |---|---|
-    | `ADD` | 32.4 |
-    | `SUB` | 32.3 |
-    | `MUL` | 60.0 |
-    | `SIGNEXTEND` | 38.6 |
-    | `LT` | 29.8 |
-    | `GT` | 30.0 |
-    | `SLT` | 38.4 |
-    | `SGT` | 39.3 |
-    | `EQ` | 54.0 |
-    | `ISZERO` | 27.7 |
-    | `AND` | 24.9 |
-    | `OR` | 24.4 |
-    | `XOR` | 25.2 |
-    | `NOT` | 20.5 |
-    | `BYTE` | 28.9 |
-    | `SHL` | 39.1 |
-    | `SHR` | 38.0 |
-    | `SAR` | 45.1 |
-    | `CLZ` | 29.4 |
-    | `CALLDATALOAD` | 76.8 |
-    | `CALLDATASIZE` | 27.1 |
-    | `CODESIZE` | 27.3 |
-    | `RETURNDATASIZE` | 27.8 |
-    | `DIFFICULTY` (`PREVRANDAO`) | 27.1 |
-    | `CHAINID` | 26.9 |
-    | `POP` | 18.7 |
-    | `MLOAD` | 58.1 |
-    | `MSTORE` | 50.0 |
-    | `MSTORE8` | 46.8 |
-    | `MSIZE` | 26.9 |
-    | `JUMP` | 39.7 |
-    | `JUMPI` | 65.1 |
-    | `PC` | 27.8 |
-    | `JUMPDEST` | 17.7 |
-    | `PUSH0` to `PUSH32` | 34.6 |
-    | `DUP1` to `DUP16` | 33.5 |
-    | `SWAP1` to `SWAP16` | 24.1 |
 
     These depend on their operands:
 
