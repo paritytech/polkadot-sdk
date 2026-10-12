@@ -425,8 +425,8 @@ pub fn stitch(
 	let mut gaps = advances.iter();
 	// `first.start` is the boundary with the previous candidate; nothing here can check it, and
 	// nothing needs to: everything consumed is bound through the chain from `first.end`.
-	// Cross-candidate continuity is the STF's (the stored frontier for channels; for register reads,
-	// the last applied position and the register's monotonic fields).
+	// Cross-candidate continuity is the STF's (the stored frontier for channels; for register
+	// reads, the last applied position and the register's monotonic fields).
 	let mut current = first.end.clone();
 	for next in rest {
 		let current_root = current.root();
@@ -715,6 +715,28 @@ mod tests {
 		// A stray advance where the chain was already continuous.
 		let cont = Interval { start: root_at(&all, 2), end: frontier_at(&all, 5) };
 		assert_eq!(stitch(&[i1, cont], &[advance]), Err(LiftError::StrayAdvance));
+	}
+
+	#[test]
+	fn stitch_rejects_a_gap_bridged_to_the_wrong_context() {
+		// The advance is all that binds the earlier read to the stream: a context the chain does
+		// not reach must fail, or a fabricated read could hide behind a later genuine one.
+		let all = leaves(5);
+		let i1 = Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 2) };
+		let i2 = Interval { start: root_at(&all, 4), end: frontier_at(&all, 5) };
+		// A genuine extension of @2, but to @3, not to the context @4 block 2 started from.
+		assert_eq!(
+			stitch(&[i1.clone(), i2.clone()], &[extension(&all, 2, 3)]),
+			Err(LiftError::BrokenChain)
+		);
+		// An extension that does not fit @2 at all (built from @1).
+		assert_eq!(stitch(&[i1, i2], &[extension(&all, 1, 4)]), Err(LiftError::BrokenChain));
+	}
+
+	#[test]
+	fn nothing_recorded_lifts_nothing() {
+		assert_eq!(stitch(&[], &[]), Err(LiftError::EmptyRecord));
+		assert_eq!(build_requires_entry(&SourceStreams::new(), &[]), Err(LiftError::EmptyRecord));
 	}
 
 	#[test]
