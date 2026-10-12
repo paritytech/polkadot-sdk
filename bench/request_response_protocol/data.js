@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791805603168,
+  "lastUpdate": 1791815899990,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -133271,6 +133271,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2679162626,
             "range": "± 15633415",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a6a749e55ece8bd55ce81031782a3f9582cb1b54",
+          "message": "Bump revive differential tests (#13448)\n\n# Description\n\nUpdate the revive-differential-tests action and checkout to\n`562538e33022be827bc0383aa53786f3a9751596`, and refresh the REVM and\nPolkaVM expectation files to match the current results.",
+          "timestamp": "2026-10-12T12:51:42Z",
+          "tree_id": "aa6dbea70f83efdaeebec3cd85da5f45cc62d819",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6a749e55ece8bd55ce81031782a3f9582cb1b54"
+        },
+        "date": 1791815867142,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19654141,
+            "range": "± 138487",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20554314,
+            "range": "± 225705",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21487326,
+            "range": "± 212092",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26615841,
+            "range": "± 161658",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61591771,
+            "range": "± 698251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 376875382,
+            "range": "± 6806458",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2795940397,
+            "range": "± 94412231",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17814608,
+            "range": "± 190808",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17594297,
+            "range": "± 222885",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18176764,
+            "range": "± 232857",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22853675,
+            "range": "± 221693",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65987294,
+            "range": "± 1054817",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 390157904,
+            "range": "± 4388957",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2868658984,
+            "range": "± 41200354",
             "unit": "ns/iter"
           }
         ]
