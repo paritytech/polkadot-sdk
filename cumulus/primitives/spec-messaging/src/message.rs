@@ -35,7 +35,6 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
-use sp_core::ConstU32;
 use sp_runtime::traits::Hash as HashT;
 
 use crate::{
@@ -80,9 +79,6 @@ impl From<ProofError> for VerifyError {
 
 /// Maximum size in bytes of a single speculative message payload.
 pub const MAX_SPECULATIVE_MESSAGE_LEN: u32 = 102_400;
-
-/// Bound for a single speculative message payload.
-pub type MaxSpeculativeMessageLen = ConstU32<MAX_SPECULATIVE_MESSAGE_LEN>;
 
 /// Hash a payload into a stream MMR leaf: `H(LEAF_TAG ++ leaf_version ++ payload)`. Source, stream
 /// and position are structural and not in the preimage. Versions are hash-disjoint, so only the

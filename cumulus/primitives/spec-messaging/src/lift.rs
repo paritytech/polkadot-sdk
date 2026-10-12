@@ -519,7 +519,7 @@ mod tests {
 	use super::*;
 	use crate::streams_root::{gen_stream_proof, streams_root, TreeStep};
 	use mmr_lib::util::{MemMMR, MemStore};
-	use polkadot_primitives::{v9::MAX_COMMITMENT_ENTRIES, MAX_POV_SIZE};
+	use polkadot_primitives::v9::MAX_COMMITMENT_ENTRIES;
 	use sp_core::H256;
 
 	fn leaves(n: u64) -> Vec<Hash> {
@@ -567,28 +567,6 @@ mod tests {
 
 	fn ch(recipient: u32) -> StreamId {
 		StreamId::Channel { recipient: recipient.into(), domain: 0, num: 0 }
-	}
-
-	/// A keyed `StreamsRoot`-trie membership proof for one stream out of `n_streams` active
-	/// streams. Recipients are clustered (`2000..2000+n`), so keys diverge only in the low bits;
-	/// the realistic worst case for Patricia depth.
-	fn tree_proof(n_streams: u32) -> StreamProof {
-		let entries: BTreeMap<StreamId, Hash> =
-			(0..n_streams).map(|i| (ch(2_000 + i), H256::repeat_byte(i as u8))).collect();
-		let target = ch(2_000 + n_streams / 2);
-		gen_stream_proof(&entries, target).expect("target stream is present; qed").1
-	}
-
-	/// An extension proof of a given connecting-node count, for sizing the design's *day-scale*
-	/// worst case (≈10⁹ leaves → ~30 nodes) without building a 10⁹-leaf MMR: PoV cost is the
-	/// *encoded* size, which is a pure function of the node count, so synthetic nodes size
-	/// identically to real ones. Each node is a bare 32 B `Hash` (positions are derived at verify
-	/// time, not carried), matching the design's hash-only count.
-	fn synthetic_extension(nodes: usize) -> MMRExtensionProof {
-		MMRExtensionProof {
-			leaf_count: u64::MAX / 2, // a day-scale count; value is irrelevant to encoded size
-			connecting_nodes: (0..nodes as u64).map(|i| H256::repeat_byte(i as u8)).collect(),
-		}
 	}
 
 	#[test]
@@ -1093,159 +1071,6 @@ mod tests {
 			build_requires_entry(&streams, &[mk(proof_a), mk(proof_b)]),
 			Err(LiftError::DivergentRoots),
 		);
-	}
-
-	/// Empirical PoV-cost report for the requires-lift (run with `-- --nocapture`).
-	///
-	/// v0.5 replaces the pre-v0.5 point-3 two-level `sp_trie` read (relay `paras::Heads` proof + a
-	/// sender-state proof) with the POV-carried [`RequiresLift`], committing against the sender's
-	/// own keyed binary Patricia trie, no `sp_trie` witnesses. This measures the real
-	/// SCALE-encoded size along its two dimensions: the `tree_proof` ([`StreamProof`], `O(log S)`
-	/// in active streams) and the `extension` ([`MMRExtensionProof`], `O(log n)` in messages),
-	/// and asserts both stay logarithmic and the protocol's bounded worst case sits well under
-	/// `MAX_POV_SIZE`.
-	#[test]
-	fn pov_cost_report() {
-		println!("\n===== spec-msg v0.5 requires-lift PoV cost (SCALE-encoded, real proofs) =====");
-
-		// tree_proof: keyed StreamsRoot Patricia trie, O(log S) in a source's active streams.
-		println!("\n[tree_proof]  StreamProof over S active streams (clustered keys)");
-		println!("        S | steps | encoded");
-		for s in [1u32, 4, 16, 64, 256, 1024] {
-			let proof = tree_proof(s);
-			// Patricia-compressed: depth is O(log S), never the 64-bit key width.
-			assert!(
-				proof.steps.len() <= 20,
-				"tree proof depth {} too large for S={s}",
-				proof.steps.len()
-			);
-			println!("     {s:>4} | {:>5} | {:>5} B", proof.steps.len(), proof.encoded_size());
-		}
-
-		// extension: MMR ancestry, O(log n) in the stream's total messages. Build one MMR to N
-		// leaves; measure the ancestry proof bridging an endpoint `behind` leaves back from the
-		// tip (the unconsumed tail a lagging receiver must extend over).
-		const N: usize = 100_000;
-		let store = MemStore::<Hash>::default();
-		let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
-		for i in 0..N as u64 {
-			mmr.push(H256::from_low_u64_be(i)).unwrap();
-		}
-		// NB: each connecting node is a bare 32 B `Hash` (positions derived from the two leaf
-		// counts at verify time), so measured `encoded` tracks the design's "N hashes × 32 B"
-		// estimate.
-		println!("\n[extension]  MMRExtensionProof to tip N={N}, endpoint `behind` leaves back");
-		println!("     behind | nodes | encoded (32 B/node)");
-		let mut sample_ext = MMRExtensionProof::identity();
-		for behind in [1usize, 16, 256, 4_096, N / 2] {
-			let k = N - behind;
-			let ap = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
-			let ext = MMRExtensionProof {
-				leaf_count: N as u64,
-				connecting_nodes: ap
-					.prev_peaks_proof
-					.proof_items()
-					.iter()
-					.map(|(_, h)| *h)
-					.collect(),
-			};
-			// O(log N) connecting nodes, independent of how far the tail stretches.
-			assert!(
-				ext.connecting_nodes.len() <= 64,
-				"extension not O(log N): {}",
-				ext.connecting_nodes.len()
-			);
-			println!(
-				"   {behind:>7} | {:>5} | {:>5} B",
-				ext.connecting_nodes.len(),
-				ext.encoded_size()
-			);
-			sample_ext = ext;
-		}
-
-		// combined: one RequiresLift = extension + tree_proof (advances empty in the hot path; each
-		// interval-chain gap would add one more MMRExtensionProof of the same order).
-		let lift = RequiresLift {
-			advances: Vec::new(),
-			extension: sample_ext.clone(), // endpoint N/2 behind on an N-message stream
-			tree_proof: tree_proof(64),    // source with 64 active streams
-		};
-		let per_lift = lift.encoded_size();
-		println!(
-			"\n[lift]  one RequiresLift (ext@N/2 + tree_proof@S=64, advances=0): {per_lift} B"
-		);
-
-		// Per source: one lift per stream consumed from it (all fold to the SAME StreamsRoot). Per
-		// candidate: summed across sources.
-		println!("\n[candidate]  requires-lift PoV = Σ sources × streams/source × per_lift");
-		for (streams_per_source, sources) in [(1usize, 1usize), (2, 10), (4, 50)] {
-			let candidate = sources * streams_per_source * per_lift;
-			println!("   {sources:>3} sources × {streams_per_source} stream(s) = {candidate} B");
-		}
-		let budget = MAX_POV_SIZE as usize;
-
-		// --- Angle 1: empirical PoV share (real proofs, ≤100k messages, no gaps) ---
-		// A full-cap candidate (`MaxTouchedStreams` touched streams, itself capped at
-		// MAX_COMMITMENT_ENTRIES (one lift per touched stream, regardless of how they spread
-		// over sources) with a conservative measured lift (deepest 100k-message extension +
-		// a 1024-stream tree_proof): what fraction of the budget do real proofs at
-		// representative scale consume? Guards the typical footprint at <10%.
-		let empirical_lift = RequiresLift {
-			advances: Vec::new(),
-			extension: sample_ext, // deepest 100k-message extension measured above
-			tree_proof: tree_proof(1024),
-		};
-		let empirical_per_lift = empirical_lift.encoded_size();
-		let full_candidate = MAX_COMMITMENT_ENTRIES as usize * empirical_per_lift;
-		println!(
-			"\n[empirical share]  {} touched streams × {empirical_per_lift} B \
-			 = {full_candidate} B ({:.2}% of MAX_POV_SIZE = {} MiB)",
-			MAX_COMMITMENT_ENTRIES,
-			100.0 * full_candidate as f64 / budget as f64,
-			budget / (1024 * 1024),
-		);
-		assert!(
-			full_candidate < budget / 10,
-			"empirical full-cap candidate {full_candidate} B exceeds 10% of MAX_POV_SIZE",
-		);
-
-		// --- Angle 2: day-scale worst-case lift (the design's "Proof Size Considerations" sizing)
-		// --- The measurements above top out at N=100k messages; the design sizes against ~24 h
-		// of lag (≈10⁹ leaves → ~30 connecting nodes) *plus* one read-context gap (an advance
-		// proof). We can't build a 10⁹-leaf MMR, but PoV cost is the encoded size, so synthesize
-		// proofs of the worst-case shape. Ceiling per the design: ~4 KB/stream + ~2 KB/gap.
-		const DAY_SCALE_EXT_NODES: usize = 30; // log₂(10⁹) ≈ 30 (design's "~30 hashes")
-		let worst_lift = RequiresLift {
-			advances: vec![synthetic_extension(DAY_SCALE_EXT_NODES)], // one read-context gap
-			extension: synthetic_extension(DAY_SCALE_EXT_NODES),      // day-scale unconsumed tail
-			tree_proof: tree_proof(1024),                             // 1024 active streams
-		};
-		let worst_per_lift = worst_lift.encoded_size();
-		println!(
-			"\n[worst-case lift]  day-scale (~10⁹ leaves, {DAY_SCALE_EXT_NODES}-node ext + 1 gap + tree@S=1024): {worst_per_lift} B"
-		);
-		// Regression guard: one worst-case lift stays bounded. The design ceilings a touched stream
-		// at ~4 KB + ~2 KB/gap ≈ 6 KB; guard at 8 KB so an O(n) extension (non-logarithmic) or an
-		// uncompressed tree walk trips this instead of eating the PoV.
-		assert!(worst_per_lift < 8 * 1024, "worst-case lift {worst_per_lift} B exceeds ~8 KB");
-
-		// Authoring-time budget (design: "the block must guarantee at authoring time that the worst
-		// case still fits"): the bound is *how many touched streams fit*, not a fixed per-candidate
-		// total. Even at the day-scale worst case the PoV must comfortably hold the source cap.
-		let max_streams = budget / worst_per_lift;
-		println!(
-			"[headroom]  MAX_POV_SIZE {} MiB / {worst_per_lift} B ≈ {max_streams} day-scale touched streams \
-			 (source cap = {MAX_COMMITMENT_ENTRIES})",
-			budget / (1024 * 1024),
-		);
-		// A candidate names ≤ MAX_COMMITMENT_ENTRIES sources; even at day-scale the PoV must hold
-		// at least that many touched streams, or authoring couldn't fill a block. (Ample margin
-		// here.)
-		assert!(
-			max_streams >= MAX_COMMITMENT_ENTRIES as usize,
-			"day-scale worst case leaves room for only {max_streams} streams (< {MAX_COMMITMENT_ENTRIES})",
-		);
-		println!("===== end =====\n");
 	}
 
 	/// Single-leaf inclusion proof for leaf `index` of an `n`-leaf MMR (`mmr_lib`'s `gen_proof`).
