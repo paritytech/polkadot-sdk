@@ -99,7 +99,26 @@ impl Config for Test {
 	type WeightInfo = ();
 	type RelayParentOffset = MockRelayParentOffset;
 	type SchedulingSignatureVerifier = ();
-	type UmpSignalSource = ();
+	type UmpSignalSource = TestUmpSignalSource;
+}
+
+parameter_types! {
+	/// The root [`TestUmpSignalSource`] reports for the current block; `None` means no stream was
+	/// touched.
+	pub static MockProvidesRoot: Option<cumulus_primitives_spec_messaging::StreamsRoot> = None;
+}
+
+/// A speculative-messaging source driven by [`MockProvidesRoot`].
+pub struct TestUmpSignalSource;
+
+impl cumulus_primitives_spec_messaging::ProvideUmpSignals for TestUmpSignalSource {
+	fn provides_root() -> Option<cumulus_primitives_spec_messaging::StreamsRoot> {
+		MockProvidesRoot::get()
+	}
+
+	fn consumption_record() -> cumulus_primitives_spec_messaging::ConsumptionRecord {
+		Default::default()
+	}
 }
 
 std::thread_local! {
