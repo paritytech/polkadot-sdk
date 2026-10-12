@@ -30,6 +30,7 @@ use frame_support::{
 pub trait WeightInfo {
 	fn set_validators(n: u32) -> Weight;
 	fn set_max_collators() -> Weight;
+	fn on_relay_state_proof() -> Weight;
 }
 
 /// Default weights for `pallet_validator_collators`, see the module doc for their source.
@@ -48,11 +49,30 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:0)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
+	/// added: 32501, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::MaxCollators` (r:0 w:1)
 	/// Proof: `ValidatorCollators::MaxCollators` (`max_values`: Some(1), `max_size`: Some(4),
 	/// added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
+	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1),
+	/// added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::Collators` (r:0 w:1)
+	/// Proof: `ValidatorCollators::Collators` (`max_values`: Some(1), `max_size`: Some(32038),
+	/// added: 32533, mode: `MaxEncodedLen`)
 	fn set_max_collators() -> Weight {
-		Weight::from_parts(5_786_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
+		Weight::from_parts(10_935_000, 33_491)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
+	/// Storage: `ValidatorCollators::EpochRandomness` (r:1 w:1)
+	/// Proof: `ValidatorCollators::EpochRandomness` (`max_values`: Some(1), `max_size`: Some(32),
+	/// added: 527, mode: `MaxEncodedLen`)
+	fn on_relay_state_proof() -> Weight {
+		Weight::from_parts(4_748_000, 1_517)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -71,10 +91,29 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
+	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:0)
+	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
+	/// added: 32501, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::MaxCollators` (r:0 w:1)
 	/// Proof: `ValidatorCollators::MaxCollators` (`max_values`: Some(1), `max_size`: Some(4),
 	/// added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
+	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1),
+	/// added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::Collators` (r:0 w:1)
+	/// Proof: `ValidatorCollators::Collators` (`max_values`: Some(1), `max_size`: Some(32038),
+	/// added: 32533, mode: `MaxEncodedLen`)
 	fn set_max_collators() -> Weight {
-		Weight::from_parts(5_786_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
+		Weight::from_parts(10_935_000, 33_491)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	/// Storage: `ValidatorCollators::EpochRandomness` (r:1 w:1)
+	/// Proof: `ValidatorCollators::EpochRandomness` (`max_values`: Some(1), `max_size`: Some(32),
+	/// added: 527, mode: `MaxEncodedLen`)
+	fn on_relay_state_proof() -> Weight {
+		Weight::from_parts(4_748_000, 1_517)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
