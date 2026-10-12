@@ -213,7 +213,7 @@ fn the_top_frame_accesses_what_it_declares(fixture_type: FixtureType) {
 		&top_frame,
 		merged_entries([
 			CallItems::new(contract.addr, false).entries(),
-			CodeLoadItems { hash: contract.code_hash }.entries(),
+			CodeLoadItems::new(contract.code_hash).entries(),
 		]),
 	);
 }
@@ -235,7 +235,7 @@ fn the_top_frame_moving_value_accesses_what_it_declares(dust: bool) {
 		&top_frame,
 		merged_entries([
 			CallItems::new(contract.addr, false).entries(),
-			CodeLoadItems { hash: contract.code_hash }.entries(),
+			CodeLoadItems::new(contract.code_hash).entries(),
 			TransferItems { from: ALICE_ADDR, to: contract.addr, dust }.entries(),
 		]),
 	);
@@ -266,9 +266,9 @@ fn a_nested_plain_call_accesses_what_it_declares(
 		&accessed,
 		merged_entries([
 			CallItems::new(caller.addr, false).entries(),
-			CodeLoadItems { hash: caller.code_hash }.entries(),
+			CodeLoadItems::new(caller.code_hash).entries(),
 			CallItems::new(target.addr, false).entries(),
-			CodeLoadItems { hash: target.code_hash }.entries(),
+			CodeLoadItems::new(target.code_hash).entries(),
 		]),
 	);
 }
@@ -297,9 +297,9 @@ fn a_nested_delegate_call_accesses_what_it_declares(
 		&accessed,
 		merged_entries([
 			CallItems::new(caller.addr, false).entries(),
-			CodeLoadItems { hash: caller.code_hash }.entries(),
+			CodeLoadItems::new(caller.code_hash).entries(),
 			CallItems::new(target.addr, true).entries(),
-			CodeLoadItems { hash: target.code_hash }.entries(),
+			CodeLoadItems::new(target.code_hash).entries(),
 		]),
 	);
 }
@@ -328,9 +328,9 @@ fn a_nested_static_call_accesses_what_it_declares(
 		&accessed,
 		merged_entries([
 			CallItems::new(caller.addr, false).entries(),
-			CodeLoadItems { hash: caller.code_hash }.entries(),
+			CodeLoadItems::new(caller.code_hash).entries(),
 			CallItems::new(target.addr, false).entries(),
-			CodeLoadItems { hash: target.code_hash }.entries(),
+			CodeLoadItems::new(target.code_hash).entries(),
 		]),
 	);
 }
@@ -361,9 +361,9 @@ fn a_nested_value_call_accesses_what_it_declares(
 		&accessed,
 		merged_entries([
 			CallItems::new(caller.addr, false).entries(),
-			CodeLoadItems { hash: caller.code_hash }.entries(),
+			CodeLoadItems::new(caller.code_hash).entries(),
 			CallItems::new(target.addr, false).entries(),
-			CodeLoadItems { hash: target.code_hash }.entries(),
+			CodeLoadItems::new(target.code_hash).entries(),
 			TransferItems { from: caller.addr, to: target.addr, dust: false }.entries(),
 		]),
 	);

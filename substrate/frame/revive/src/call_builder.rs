@@ -25,13 +25,9 @@
 // benchmarks.
 #![cfg_attr(test, allow(dead_code))]
 
-#[cfg(feature = "runtime-benchmarks")]
-use crate::access_list::{Access, CodeLoadItems, Warmth};
 use crate::{
-	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob,
-	ContractInfo, Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts,
-	PristineCode, Weight,
-	access_list::AccessEntry,
+	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
+	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, PristineCode, Weight,
 	address::AddressMapper,
 	exec::{ExportedFunction, Key, PrecompileExt, Stack},
 	limits,
@@ -39,6 +35,8 @@ use crate::{
 	transient_storage::MeterEntry,
 	vm::pvm::{PreparedCall, Runtime},
 };
+#[cfg(test)]
+use crate::{AccountInfoOf, access_list::AccessEntry};
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
 use frame_system::RawOrigin;
@@ -232,25 +230,8 @@ pub fn caller_funding<T: Config>() -> BalanceOf<T> {
 	BalanceOf::<T>::max_value() / 10_000u32.into()
 }
 
-/// Returns the storage key one access-list entry stands for, or `None` for a child-trie slot.
-pub fn storage_key_of<T: Config>(entry: &AccessEntry) -> Option<Vec<u8>> {
-	Some(match entry {
-		AccessEntry::Account { address } => {
-			frame_system::Account::<T>::hashed_key_for(&T::AddressMapper::to_account_id(address))
-		},
-		AccessEntry::OriginalAccount { address } => {
-			crate::OriginalAccount::<T>::hashed_key_for(address)
-		},
-		AccessEntry::AccountInfo { address } => AccountInfoOf::<T>::hashed_key_for(address),
-		AccessEntry::CodeInfo { hash } => CodeInfoOf::<T>::hashed_key_for(hash),
-		AccessEntry::CodeBlob { hash } => PristineCode::<T>::hashed_key_for(hash),
-		// A slot lives in the contract's child trie, keyed by a trie id the entry does not carry.
-		AccessEntry::Storage(_) => return None,
-	})
-}
-
-/// Rebuilds the entry a main-trie key stands for, the inverse of [`storage_key_of`]. Returns
-/// `None` for a key of a different map, or a malformed one.
+/// Rebuilds the entry a main-trie key stands for, the inverse of [`AccessEntry::storage_key`].
+/// Returns `None` for a key of a different map, or a malformed one.
 #[cfg(test)]
 pub fn entry_of_key<T: Config>(key: &[u8]) -> Option<AccessEntry> {
 	use frame_support::storage::StoragePrefixedMap;
@@ -265,7 +246,7 @@ pub fn entry_of_key<T: Config>(key: &[u8]) -> Option<AccessEntry> {
 		let account_id = <T::AccountId as codec::Decode>::decode(&mut encoded).ok()?;
 		let entry = AccessEntry::Account { address: T::AddressMapper::to_address(&account_id) };
 		// Only claim the entry when it maps back to this key; other accounts have no address.
-		return (storage_key_of::<T>(&entry).as_deref() == Some(key)).then_some(entry);
+		return (entry.storage_key::<T>().as_deref() == Some(key)).then_some(entry);
 	}
 	if let Some(tail) = tail_of(&crate::OriginalAccount::<T>::final_prefix()) {
 		return Some(AccessEntry::OriginalAccount { address: address(tail)? });
@@ -280,23 +261,6 @@ pub fn entry_of_key<T: Config>(key: &[u8]) -> Option<AccessEntry> {
 		return Some(AccessEntry::CodeBlob { hash: hash(tail)? });
 	}
 	None
-}
-
-/// Whitelists the storage key behind one access-list entry.
-#[cfg(feature = "runtime-benchmarks")]
-fn whitelist_entry<T: Config>(entry: &AccessEntry) {
-	if let Some(key) = storage_key_of::<T>(entry) {
-		frame_benchmarking::benchmarking::add_to_whitelist(key.into());
-	}
-}
-
-/// Whitelists every entry the access reads.
-#[cfg(feature = "runtime-benchmarks")]
-pub fn whitelist_access<T: Config>(access: impl Access) {
-	access.expand(|entry, _op| {
-		whitelist_entry::<T>(&entry);
-		Warmth::cold_non_revertible()
-	});
 }
 
 /// An instantiated and deployed contract.
@@ -452,13 +416,6 @@ where
 		crate::AccountInfoOf::<T>::mutate(&self.address, |account| {
 			account.as_mut().map(|a| a.dust = dust);
 		});
-	}
-
-	/// Whitelist this contract's code keys; `code_load` prices those reads.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn whitelist_code(&self) -> Result<(), &'static str> {
-		whitelist_access::<T>(CodeLoadItems { hash: self.info()?.code_hash });
-		Ok(())
 	}
 
 	/// Returns `true` iff all storage entries related to code storage exist.

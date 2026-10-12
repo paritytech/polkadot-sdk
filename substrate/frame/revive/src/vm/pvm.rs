@@ -22,13 +22,14 @@ pub mod env;
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	StorageAccessKind,
-	access_list::{CallItems, StorageItems, StorageOp, TransferItems},
+	access_list::{CallItems, InstantiateItems, StorageOp, TransferItems},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	tracing::FrameTraceInfo,
+	vm::TransferAccessKind,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -484,20 +485,23 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let max_size = limits::STORAGE_BYTES;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
 		let cost =
 			|kind| RuntimeCosts::SetStorage { new_bytes: value_len, old_bytes: max_size, kind };
 
 		if value_len > max_size {
-			// Nothing is accessed on this failure, so the slot stays cold and owes no rollback.
+			// The failing write leaves the access list unchanged, so it prepays no rollback.
 			let access_kind = StorageAccessKind::new(transient, || {
-				self.ext.warmth_of_summarized(access).to_non_revertible()
+				self.ext
+					.warmth_of(self.ext.slot_access(&key, StorageOp::Write))
+					.to_non_revertible()
 			});
 			self.charge_gas(cost(access_kind))?;
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let access_kind = StorageAccessKind::new(transient, || self.ext.warm_summarized(access));
+		let access_kind = StorageAccessKind::new(transient, || {
+			self.ext.warm(self.ext.slot_access(&key, StorageOp::Write))
+		});
 		let charged = self.charge_gas(cost(access_kind))?;
 		let value = match value {
 			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
@@ -531,8 +535,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
-			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
-			self.ext.warm_summarized(access)
+			self.ext.warm(self.ext.slot_access(&key, StorageOp::Write))
 		});
 		let charged = self.charge_gas(RuntimeCosts::ClearStorage {
 			len: limits::STORAGE_BYTES,
@@ -562,8 +565,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
-			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Read);
-			self.ext.warm_summarized(access)
+			self.ext.warm(self.ext.slot_access(&key, StorageOp::Read))
 		});
 		let charged = self.charge_gas(RuntimeCosts::GetStorage {
 			len: limits::STORAGE_BYTES,
@@ -635,12 +637,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let callee = memory.read_h160(callee_ptr)?;
-		let value = match &call_type {
-			CallType::Call { value_ptr } => memory.read_u256(*value_ptr)?,
-			CallType::DelegateCall => U256::zero(),
-		};
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
-		let dust_transfer = Pallet::<E::T>::has_dust(value);
 		match &precompile {
 			Some(precompile) if precompile.has_contract_info() => {
 				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?;
@@ -649,9 +646,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				self.charge_gas(RuntimeCosts::PrecompileBase)?;
 			},
 			None => {
-				let call_items =
-					CallItems::new(callee, matches!(&call_type, CallType::DelegateCall));
-				let warmth = self.ext.warm_summarized(call_items);
+				let warmth = self
+					.ext
+					.warm(CallItems::new(callee, matches!(call_type, CallType::DelegateCall)));
 				self.charge_gas(RuntimeCosts::CallBase(warmth))?;
 			},
 		};
@@ -679,8 +676,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.reset_interpreter_cache();
 
 		let call_outcome = match call_type {
-			CallType::Call { .. } => {
+			CallType::Call { value_ptr } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
+				let value = memory.read_u256(value_ptr)?;
 				if value > 0u32.into() {
 					// If the call value is non-zero and state change is not allowed, issue an
 					// error.
@@ -688,17 +686,18 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						return Err(Error::<E::T>::StateChangeDenied.into());
 					}
 
-					// A precompile's account state is untracked, so its transfer has no warmth
-					// and pays cold.
-					let warmth = precompile.is_none().then(|| {
-						let transfer = TransferItems {
+					let dust_transfer = Pallet::<E::T>::has_dust(value);
+					// A precompile's account state is untracked, so its transfer pays cold.
+					let transfer = if precompile.is_none() {
+						TransferAccessKind::Tracked(self.ext.warm(TransferItems {
 							from: self.ext.address(),
 							to: callee,
 							dust: dust_transfer,
-						};
-						self.ext.warm_summarized(transfer)
-					});
-					self.charge_gas(RuntimeCosts::CallTransferSurcharge { dust_transfer, warmth })?;
+						}))
+					} else {
+						TransferAccessKind::Untracked { dust: dust_transfer }
+					};
+					self.charge_gas(RuntimeCosts::CallTransferSurcharge(transfer))?;
 				}
 
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
@@ -805,6 +804,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		) {
 			Ok(address) => {
 				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
+					// EIP-2929 warms the new contract, whose entries are in the overlay or prepaid.
+					let warmth =
+						self.ext.warm(InstantiateItems { address, deployer: self.ext.address() });
+					self.charge_gas(RuntimeCosts::AccessListRegistration(warmth.summary()))?;
 					self.write_fixed_sandbox_output(
 						memory,
 						address_ptr,

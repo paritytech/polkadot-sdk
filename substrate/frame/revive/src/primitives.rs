@@ -457,6 +457,12 @@ pub struct ExecConfig<T: Config> {
 	/// Whether this configuration was created for a dry-run execution.
 	/// Use to enable logic that should only run in dry-run mode.
 	pub is_dry_run: Option<DryRunConfigurations<MomentOf<T>>>,
+	/// Whether the dispatchable's weight already paid for reading the called contract's mapping
+	/// and contract info, and both sides of the transfer when the call moves value.
+	///
+	/// When set, these entries are added to the access list, so later accesses to them are
+	/// charged hot.
+	pub first_frame_reads_paid: bool,
 	/// An optional mock handler that can be used to override certain behaviors.
 	/// This is primarily used for testing purposes and should be `None` in production
 	/// environments.
@@ -476,6 +482,7 @@ impl<T: Config> ExecConfig<T> {
 			collect_deposit_from_hold: None,
 			effective_gas_price: None,
 			is_dry_run: None,
+			first_frame_reads_paid: false,
 			mock_handler: None,
 			test_env_transient_storage: None,
 		}
@@ -488,6 +495,7 @@ impl<T: Config> ExecConfig<T> {
 			effective_gas_price: None,
 			mock_handler: None,
 			is_dry_run: None,
+			first_frame_reads_paid: false,
 			test_env_transient_storage: None,
 		}
 	}
@@ -500,6 +508,7 @@ impl<T: Config> ExecConfig<T> {
 			effective_gas_price: Some(effective_gas_price),
 			mock_handler: None,
 			is_dry_run: None,
+			first_frame_reads_paid: false,
 			test_env_transient_storage: None,
 		}
 	}
@@ -508,6 +517,14 @@ impl<T: Config> ExecConfig<T> {
 	pub fn with_dry_run(mut self, timestamp_override: impl Into<Option<MomentOf<T>>>) -> Self {
 		self.is_dry_run =
 			Some(DryRunConfigurations { timestamp_override: timestamp_override.into() });
+		self
+	}
+
+	/// Returns this config with [`Self::first_frame_reads_paid`] set.
+	///
+	/// Only use it when the dispatchable's weight already paid for the reads that field lists.
+	pub fn with_first_frame_reads_paid(mut self) -> Self {
+		self.first_frame_reads_paid = true;
 		self
 	}
 
@@ -530,6 +547,7 @@ impl<T: Config> ExecConfig<T> {
 			collect_deposit_from_hold: self.collect_deposit_from_hold,
 			effective_gas_price: self.effective_gas_price,
 			is_dry_run: self.is_dry_run.clone(),
+			first_frame_reads_paid: self.first_frame_reads_paid,
 			mock_handler: None,
 			test_env_transient_storage: None,
 		}
