@@ -54,14 +54,10 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 
 		use IStorage::IStorageCalls;
 		let max_size = limits::STORAGE_BYTES;
+		if matches!(input, IStorageCalls::clearStorage(_) | IStorageCalls::takeStorage(_)) {
+			ensure_not_read_only::<Self::T>(env)?;
+		}
 		match input {
-			IStorageCalls::clearStorage(_) | IStorageCalls::takeStorage(_)
-				if env.is_read_only() =>
-			{
-				ensure_not_read_only::<Self::T>(env)?;
-				Ok(Vec::new())
-			},
-
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;

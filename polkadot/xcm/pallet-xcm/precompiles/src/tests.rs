@@ -758,7 +758,9 @@ fn weight_fails_on_old_version() {
 
 alloy::sol! {
 	interface ICaller {
+		function normal(address callee, uint64 value, bytes data, uint64 gas) external returns (bool success, bytes output);
 		function delegate(address callee, bytes data, uint64 gas) external returns (bool success, bytes output);
+		function staticCall(address callee, bytes data, uint64 gas) external view returns (bool success, bytes output);
 	}
 }
 
@@ -820,6 +822,155 @@ fn delegatecall_is_rejected() {
 			pallet_revive::evm::decode_revert_reason(&ret.output).as_deref(),
 			Some("revert: illegal to call this pre-compile via delegate call"),
 		);
+	});
+}
+
+fn deploy_caller() -> H160 {
+	let (init_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Caller",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)
+	.expect("Caller fixture must be compiled");
+	pallet_revive::Pallet::<Test>::bare_instantiate(
+		RuntimeOrigin::signed(ALICE),
+		0u32.into(),
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u128::MAX },
+		Code::Upload(init_code),
+		vec![],
+		None,
+		&ExecConfig::new_substrate_tx(),
+	)
+	.result
+	.expect("Caller deployment must succeed")
+	.addr
+}
+
+/// Calls the `Caller` fixture and returns its raw output.
+fn call_caller(caller: H160, calldata: Vec<u8>) -> Vec<u8> {
+	let result = pallet_revive::Pallet::<Test>::bare_call(
+		RuntimeOrigin::signed(ALICE),
+		caller,
+		U256::zero(),
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u128::MAX },
+		calldata,
+		&ExecConfig::new_substrate_tx(),
+	)
+	.result
+	.expect("outer call must succeed");
+	assert!(!result.did_revert(), "outer call must not revert");
+	result.data
+}
+
+fn send_to_relay_calldata() -> Vec<u8> {
+	use codec::Encode;
+	let destination: VersionedLocation = RelayLocation::get().into();
+	let message: VersionedXcm<()> = VersionedXcm::from(Xcm::<()>(vec![ClearOrigin]));
+	IXcm::sendCall { destination: destination.encode().into(), message: message.encode().into() }
+		.abi_encode()
+}
+
+fn execute_calldata() -> Vec<u8> {
+	use codec::Encode;
+	let message: VersionedXcm<RuntimeCall> = VersionedXcm::from(Xcm(vec![ClearOrigin]));
+	IXcm::executeCall {
+		message: message.encode().into(),
+		weight: IXcm::Weight { refTime: 1_000_000, proofSize: 1_000 },
+	}
+	.abi_encode()
+}
+
+/// `send` and `execute` from a static frame revert with the static-call reason and send nothing.
+#[test]
+fn static_call_send_and_execute_revert() {
+	let balances = vec![(ALICE, 1_000_000_000_000_000u128)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		let caller = deploy_caller();
+		let expected = format!("revert: {}", pallet_revive::precompiles::STATIC_CALL_DENIED);
+
+		for data in [send_to_relay_calldata(), execute_calldata()] {
+			let output = call_caller(
+				caller,
+				ICaller::staticCallCall {
+					callee: alloy::primitives::Address::from(xcm_precompile_address().0),
+					data: data.into(),
+					gas: u64::MAX,
+				}
+				.abi_encode(),
+			);
+			let ret = ICaller::staticCallCall::abi_decode_returns(&output).unwrap();
+			assert!(!ret.success);
+			assert_eq!(
+				pallet_revive::evm::decode_revert_reason(&ret.output),
+				Some(expected.clone())
+			);
+		}
+		assert!(sent_xcm().is_empty());
+	});
+}
+
+/// A delegate call made from a static frame reports the delegate-call reason.
+#[test]
+fn delegate_reason_wins_over_static_call() {
+	let balances = vec![(ALICE, 1_000_000_000_000_000u128)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		let caller = deploy_caller();
+		// The caller static-calls itself, and its `delegate` then delegate-calls the precompile.
+		let inner = ICaller::delegateCall {
+			callee: alloy::primitives::Address::from(xcm_precompile_address().0),
+			data: send_to_relay_calldata().into(),
+			gas: u64::MAX,
+		}
+		.abi_encode();
+		let output = call_caller(
+			caller,
+			ICaller::staticCallCall {
+				callee: alloy::primitives::Address::from(caller.0),
+				data: inner.into(),
+				gas: u64::MAX,
+			}
+			.abi_encode(),
+		);
+
+		let outer = ICaller::staticCallCall::abi_decode_returns(&output).unwrap();
+		assert!(outer.success);
+		let ret = ICaller::delegateCall::abi_decode_returns(&outer.output).unwrap();
+		assert!(!ret.success);
+		assert_eq!(
+			pallet_revive::evm::decode_revert_reason(&ret.output).as_deref(),
+			Some("revert: illegal to call this pre-compile via delegate call"),
+		);
+		assert!(sent_xcm().is_empty());
+	});
+}
+
+/// Running out of gas while charging stays a trap with empty return data.
+#[test]
+fn out_of_gas_still_traps() {
+	let balances = vec![(ALICE, 1_000_000_000_000_000u128)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		let caller = deploy_caller();
+		let send_with_gas = |gas| {
+			let output = call_caller(
+				caller,
+				ICaller::normalCall {
+					callee: alloy::primitives::Address::from(xcm_precompile_address().0),
+					value: 0,
+					data: send_to_relay_calldata().into(),
+					gas,
+				}
+				.abi_encode(),
+			);
+			ICaller::normalCall::abi_decode_returns(&output).unwrap()
+		};
+
+		let ret = send_with_gas(1);
+		assert!(!ret.success);
+		assert!(ret.output.is_empty(), "out of gas must not carry a revert reason");
+		assert!(sent_xcm().is_empty());
+
+		// The same call succeeds with enough gas, so gas is the only reason it failed.
+		assert!(send_with_gas(u64::MAX).success);
+		assert_eq!(sent_xcm().len(), 1);
 	});
 }
 

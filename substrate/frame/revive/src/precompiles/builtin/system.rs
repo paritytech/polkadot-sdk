@@ -43,11 +43,10 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		use ISystem::ISystemCalls;
+		if matches!(input, ISystemCalls::terminate(_)) {
+			ensure_not_read_only::<T>(env)?;
+		}
 		match input {
-			ISystemCalls::terminate(_) if env.is_read_only() => {
-				ensure_not_read_only::<T>(env)?;
-				Ok(Vec::new())
-			},
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
 				env.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::HashBlake256(input.len() as u32))?;

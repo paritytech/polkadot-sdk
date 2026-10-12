@@ -365,6 +365,44 @@ fn delegate_call_guards() {
 }
 
 #[test]
+fn delegate_reason_wins_over_read_only() {
+	new_test_ext().execute_with(|| {
+		for case in guard_test_cases().into_iter().filter(|c| c.reject_delegate) {
+			match call_with_flags(&case.input, true, true) {
+				Err(pallet_revive::precompiles::Error::Revert(revert)) => assert_eq!(
+					revert.reason,
+					pallet_revive::precompiles::DELEGATE_CALL_DENIED,
+					"{}",
+					case.name,
+				),
+				other => panic!("{}: expected delegate-call revert, got {other:?}", case.name),
+			}
+		}
+	});
+}
+
+#[test]
+fn root_caller_reverts_with_reason() {
+	new_test_ext().execute_with(|| {
+		let mut call_setup = pallet_revive::call_builder::CallSetup::<Test>::default();
+		call_setup.set_origin(pallet_revive::ExecOrigin::Root);
+		let (mut ext, _) = call_setup.ext();
+
+		for input in [
+			IVesting::IVestingCalls::vest(IVesting::vestCall {}),
+			IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {}),
+		] {
+			let result =
+				Vesting::<Test>::call(&Vesting::<Test>::MATCHER.base_address(), &input, &mut ext);
+			assert_eq!(
+				result,
+				Err(pallet_revive::precompiles::Error::Revert("root origin is not allowed".into())),
+			);
+		}
+	});
+}
+
+#[test]
 fn vest_without_schedule_reverts_with_reason() {
 	new_test_ext().execute_with(|| {
 		let locked: VestingBalance<Test> = 10_000;

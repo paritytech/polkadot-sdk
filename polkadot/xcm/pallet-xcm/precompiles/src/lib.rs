@@ -200,11 +200,11 @@ where
 			Origin::Signed(account_id) => RawOrigin::Signed(account_id.clone()).into(),
 		};
 
+		if matches!(input, IXcmCalls::send(_) | IXcmCalls::execute(_)) {
+			ensure_not_read_only::<Runtime>(env)?;
+		}
+
 		match input {
-			IXcmCalls::send(_) | IXcmCalls::execute(_) if env.is_read_only() => {
-				ensure_not_read_only::<Runtime>(env)?;
-				Ok(Vec::new())
-			},
 			IXcmCalls::send(IXcm::sendCall { destination, message }) => {
 				// Charged before decoding; see `WeightInfo::decode_xcm`.
 				env.charge(
