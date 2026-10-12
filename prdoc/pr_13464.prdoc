@@ -22,14 +22,13 @@ doc:
     reporting chain, and the local chain credits its own counts through `credit_authored_blocks`.
     A count becomes `count × PointsPerBlock[source]` era points, handed to the runtime's
     `RewardPoints`. A source without points per block earns nothing. Governance sets the values
-    with `set_points_per_block`, up to `MaxPointsPerBlock`. A report holds at most
-    `MaxEntriesPerReport` entries, which must not be lower than the chunk size of any chain that
-    reports over XCM.
+    with `set_points_per_block`, up to `MaxPointsPerBlock`. The client weighs a report by its
+    number of entries, and each reporting chain bounds the size of what it sends.
 
     People Westend reports its counts to Asset Hub Westend over XCM. Asset Hub Westend adds
     `pallet-staking-async-system-chain-client` and credits its own counts locally.
-    People's report bound matches the client's on Asset Hub, and Asset Hub hands its own counts
-    over in one chunk.
+    People sends at most `MaxEntriesPerReport` entries per report, and Asset Hub hands its own
+    counts over in one chunk.
 crates:
 - name: pallet-staking-async
   bump: major
