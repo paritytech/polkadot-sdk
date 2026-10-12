@@ -527,6 +527,9 @@ pub struct StatementHandlerPrototype {
 
 impl StatementHandlerPrototype {
 	/// Create a new instance.
+	///
+	/// On the v2 DHT path, `v2dht_config` sizes the protocol's non-reserved peer set; `None` takes
+	/// [`DEFAULT_IN_PEERS`] and [`DEFAULT_OUT_PEERS`].
 	pub fn new<
 		Hash: AsRef<[u8]>,
 		Block: BlockT,
@@ -536,6 +539,7 @@ impl StatementHandlerPrototype {
 		fork_id: Option<&str>,
 		metrics: NotificationMetrics,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
+		v2dht_config: Option<&V2DhtConfig>,
 	) -> (Self, Net::NotificationProtocolConfig) {
 		let genesis_hash = genesis_hash.as_ref();
 		let hex = array_bytes::bytes2hex("", genesis_hash);
@@ -551,9 +555,11 @@ impl StatementHandlerPrototype {
 		// The v1 path manages its peers exclusively through the reserved set: it must keep
 		// non-reserved slots closed, or sync recovery's forced disconnect stops disconnecting.
 		let set_config = if v2dht_enabled() {
+			let (in_peers, out_peers) = v2dht_config
+				.map_or((DEFAULT_IN_PEERS, DEFAULT_OUT_PEERS), |cfg| (cfg.in_peers, cfg.out_peers));
 			SetConfig {
-				in_peers: 50,
-				out_peers: 50,
+				in_peers,
+				out_peers,
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Accept,
 			}

@@ -84,6 +84,12 @@ pub const DEFAULT_REPLICATION_FACTOR: NonZeroUsize = NonZeroUsize::new(20).expec
 /// peers a statement is routed to for a given topic, on top of the topic's connected replicas.
 pub const DEFAULT_GOSSIP_TARGET: NonZeroUsize = NonZeroUsize::new(3).expect("3 is non-zero");
 
+/// Default inbound slots of the statement protocol on the v2 DHT path.
+pub const DEFAULT_IN_PEERS: u32 = 50;
+
+/// Default outbound slots of the statement protocol on the v2 DHT path.
+pub const DEFAULT_OUT_PEERS: u32 = 50;
+
 /// Parameters of the v2 DHT statement path.
 #[derive(Clone, Debug)]
 pub struct V2DhtConfig {
@@ -106,6 +112,10 @@ pub struct V2DhtConfig {
 	/// Maximum total data size in bytes of the transient statements, kept until propagated, or the
 	/// store's size limit when `None`.
 	pub transient_max_size: Option<usize>,
+	/// Inbound slots of the statement protocol's non-reserved peer set.
+	pub in_peers: u32,
+	/// Outbound slots of the statement protocol's non-reserved peer set.
+	pub out_peers: u32,
 }
 
 impl Default for V2DhtConfig {
@@ -119,6 +129,8 @@ impl Default for V2DhtConfig {
 			gossip_target: DEFAULT_GOSSIP_TARGET,
 			dht_affinity_max_size: None,
 			transient_max_size: None,
+			in_peers: DEFAULT_IN_PEERS,
+			out_peers: DEFAULT_OUT_PEERS,
 		}
 	}
 }
