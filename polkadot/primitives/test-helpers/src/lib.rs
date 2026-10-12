@@ -822,7 +822,7 @@ mod candidate_receipt_tests {
 	use polkadot_primitives::{
 		transpose_claim_queue, v9::CandidateUMPSignals, BackedCandidate,
 		CandidateDescriptorVersion, ClaimQueueOffset, CommittedCandidateReceiptError, CoreSelector,
-		UMPSignal, UMP_SEPARATOR,
+		RequiresSet, StreamsRoot, UMPSignal, UMP_SEPARATOR,
 	};
 	use std::collections::BTreeMap;
 
@@ -1227,7 +1227,7 @@ mod candidate_receipt_tests {
 			Err(CommittedCandidateReceiptError::DuplicateUMPSignal)
 		);
 
-		// Too many
+		// Too many: one of every variant (== `MAX_UMP_SIGNALS`) plus one extra.
 		new_ccr.commitments.upward_messages.clear();
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 		new_ccr
@@ -1238,6 +1238,17 @@ mod candidate_receipt_tests {
 			.commitments
 			.upward_messages
 			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+		new_ccr
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::Provides(Default::default()).encode());
+		new_ccr.commitments.upward_messages.force_push(
+			UMPSignal::Requires(
+				RequiresSet::try_from_iter([(Id::from(3u32), StreamsRoot(Hash::repeat_byte(3)))])
+					.unwrap(),
+			)
+			.encode(),
+		);
 		new_ccr
 			.commitments
 			.upward_messages
