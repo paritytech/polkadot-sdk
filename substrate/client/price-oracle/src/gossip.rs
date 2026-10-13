@@ -18,7 +18,7 @@
 //! Gossip of price reports between the oracle nodes.
 
 use crate::pool::ReportPool;
-use codec::Decode;
+use codec::{Decode, DecodeAll};
 use parking_lot::RwLock;
 use sc_network::{
 	config::{NonReservedPeerMode, SetConfig},
@@ -199,7 +199,7 @@ where
 			log::trace!(target: LOG_TARGET, "No acceptance rules yet, ignoring report from {sender}");
 			return ValidationResult::Discard;
 		};
-		let Ok(report) = SignedPriceReport::<Id, Signature>::decode(&mut data) else {
+		let Ok(report) = SignedPriceReport::<Id, Signature>::decode_all(&mut data) else {
 			return reject(cost::MALFORMED, "undecodable");
 		};
 		let anchor = report.report.anchor;
@@ -227,7 +227,7 @@ where
 		// Without rules nothing is worth keeping.
 		let oldest = self.acceptance.read().as_ref().map(Acceptance::oldest);
 		Box::new(move |_topic, mut data| {
-			match (oldest, SignedPriceReport::<Id, Signature>::decode(&mut data)) {
+			match (oldest, SignedPriceReport::<Id, Signature>::decode_all(&mut data)) {
 				(Some(oldest), Ok(report)) => report.report.anchor < oldest,
 				_ => true,
 			}
@@ -332,10 +332,20 @@ mod tests {
 		forged.report.anchor = Anchor(99);
 		assert!(matches!(validate(&v, &forged.encode()), ValidationResult::Discard));
 		assert!(matches!(validate(&v, b"garbage"), ValidationResult::Discard));
+		// A valid report with trailing bytes is malformed too: trailing bytes would otherwise
+		// turn one signed report into endless distinct gossip messages.
+		let mut padded = signed(1, 100).encode();
+		padded.push(0);
+		assert!(matches!(validate(&v, &padded), ValidationResult::Discard));
 		assert!(pool.is_empty());
 		assert_eq!(
 			*reports.lock(),
-			vec![cost::UNKNOWN_SIGNER.value, cost::BAD_SIGNATURE.value, cost::MALFORMED.value]
+			vec![
+				cost::UNKNOWN_SIGNER.value,
+				cost::BAD_SIGNATURE.value,
+				cost::MALFORMED.value,
+				cost::MALFORMED.value
+			]
 		);
 	}
 
