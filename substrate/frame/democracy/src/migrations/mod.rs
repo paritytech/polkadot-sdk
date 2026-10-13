@@ -20,3 +20,6 @@ pub mod unlock_and_unreserve_all_funds;
 
 /// V1 storage migrations for the preimage pallet.
 pub mod v1;
+
+/// V2: migrate public-proposal deposits from `Currency` reserves to `fungible` holds.
+pub mod v2;

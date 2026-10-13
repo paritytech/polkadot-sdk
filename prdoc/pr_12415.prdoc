@@ -1,0 +1,9 @@
+title: 'pallet-democracy: migrate from Currency to fungible holds and freezes'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Migrates `pallet-democracy` off the deprecated `Currency`/`ReservableCurrency`/`LockableCurrency` traits onto the fungible trait family. Public-proposal deposits are now taken as holds under `HoldReason::Proposal`, conviction vote locks as freezes under `FreezeReason::Vote`, and balance queries use `fungible::Inspect`.
+    Part of #12399 / #226.
+crates:
+- name: pallet-democracy
+  bump: major
