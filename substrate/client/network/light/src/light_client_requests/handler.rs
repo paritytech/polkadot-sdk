@@ -31,14 +31,17 @@ use sc_client_api::{BlockBackend, ProofProvider};
 use sc_network::{
 	config::ProtocolId,
 	request_responses::{IncomingRequest, OutgoingResponse},
-	NetworkBackend, ReputationChange,
+	NetworkBackend, ReputationChange, MAX_RESPONSE_SIZE,
 };
 use sc_network_types::PeerId;
 use sp_core::{
 	hexdisplay::HexDisplay,
-	storage::{ChildInfo, ChildType, PrefixedStorageKey},
+	storage::{ChildInfo, ChildType, PrefixedStorageKey, TRIE_VALUE_NODE_THRESHOLD},
 };
-use sp_runtime::traits::Block;
+use sp_runtime::{
+	traits::{Block, Hash, HashingFor, Header},
+	StateVersion,
+};
 use std::{marker::PhantomData, sync::Arc};
 
 const LOG_TARGET: &str = "light-client-request-handler";
@@ -157,6 +160,9 @@ where
 			},
 			Some(schema::v1::light::request::Request::RemoteReadChildRequest(r)) => {
 				self.on_remote_read_child_request(&peer, r)?
+			},
+			Some(schema::v1::light::request::Request::RemoteReadExtrinsicsRequest(r)) => {
+				self.on_remote_read_extrinsics_request(&peer, r)?
 			},
 			None => {
 				return Err(HandleRequestError::BadRequest("Remote request without request data."))
@@ -286,6 +292,104 @@ where
 			response: Some(schema::v1::light::response::Response::RemoteReadResponse(response)),
 		})
 	}
+
+	fn on_remote_read_extrinsics_request(
+		&mut self,
+		peer: &PeerId,
+		request: &schema::v1::light::RemoteReadExtrinsicsRequest,
+	) -> Result<schema::v1::light::Response, HandleRequestError> {
+		trace!("Remote read extrinsics request from {} at {:?}.", peer, request.block);
+
+		let block = Decode::decode(&mut request.block.as_ref())?;
+
+		let extrinsics = match self.client.block(block) {
+			Ok(Some(signed_block)) => {
+				let (header, extrinsics) = signed_block.block.deconstruct();
+				let encoded_extrinsics = extrinsics.iter().map(Encode::encode).collect();
+				let leaves = extrinsics_leaves::<HashingFor<B>>(
+					header.extrinsics_root(),
+					encoded_extrinsics,
+				);
+
+				if leaves.is_none() {
+					debug!(
+						"Extrinsics of block {:?} requested by {} don't reproduce the header's \
+						 extrinsics root under any trie version.",
+						request.block, peer,
+					);
+				}
+
+				leaves.map(|leaves| schema::v1::light::ExtrinsicsLeaves { leaves })
+			},
+			Ok(None) => None,
+			Err(error) => {
+				trace!(
+					"remote read extrinsics request from {} at {:?} failed with: {}",
+					peer,
+					request.block,
+					error,
+				);
+				None
+			},
+		};
+
+		let mut response = schema::v1::light::Response {
+			response: Some(schema::v1::light::response::Response::RemoteReadExtrinsicsResponse(
+				schema::v1::light::RemoteReadExtrinsicsResponse { extrinsics },
+			)),
+		};
+
+		// All-or-nothing: a payload that would exceed the maximum response size is replaced by
+		// an absent one, exactly like an unknown or pruned block, leaving the requester to fall
+		// back to downloading the block body.
+		if response.encoded_len() as u64 > MAX_RESPONSE_SIZE {
+			response.response =
+				Some(schema::v1::light::response::Response::RemoteReadExtrinsicsResponse(
+					schema::v1::light::RemoteReadExtrinsicsResponse { extrinsics: None },
+				));
+		}
+
+		Ok(response)
+	}
+}
+
+/// Compute the leaves of a block's extrinsics trie, as served in response to a
+/// [`schema::v1::light::RemoteReadExtrinsicsRequest`].
+///
+/// Under trie `state_version` 1, values of `TRIE_VALUE_NODE_THRESHOLD` bytes or more are
+/// represented in their trie node by their hash, so such extrinsics are served as their hash
+/// only; every other extrinsic is served verbatim.
+///
+/// Which trie `state_version` a block used for its `extrinsics_root` is not committed anywhere,
+/// so it is recovered by recomputing the ordered trie root from the body under each version and
+/// comparing it against the root from the header. This needs nothing beyond the header and the
+/// body, so it keeps working when the block's state has been pruned. Returns `None` if no
+/// version reproduces `extrinsics_root`.
+fn extrinsics_leaves<H: Hash>(
+	extrinsics_root: &H::Output,
+	encoded_extrinsics: Vec<Vec<u8>>,
+) -> Option<Vec<schema::v1::light::ExtrinsicLeaf>> {
+	let state_version = [StateVersion::V1, StateVersion::V0].into_iter().find(|version| {
+		H::ordered_trie_root(encoded_extrinsics.clone(), *version) == *extrinsics_root
+	})?;
+
+	Some(
+		encoded_extrinsics
+			.into_iter()
+			.map(|extrinsic| {
+				let value = if state_version == StateVersion::V1 &&
+					extrinsic.len() >= TRIE_VALUE_NODE_THRESHOLD as usize
+				{
+					schema::v1::light::extrinsic_leaf::Value::Hash(
+						<H as Hash>::hash(&extrinsic).as_ref().to_vec(),
+					)
+				} else {
+					schema::v1::light::extrinsic_leaf::Value::Raw(extrinsic)
+				};
+				schema::v1::light::ExtrinsicLeaf { value: Some(value) }
+			})
+			.collect(),
+	)
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -313,5 +417,157 @@ fn fmt_keys(first: Option<&Vec<u8>>, last: Option<&Vec<u8>>) -> String {
 		}
 	} else {
 		String::from("n/a")
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use futures::executor::block_on;
+	use sc_block_builder::BlockBuilderBuilder;
+	use schema::v1::light::extrinsic_leaf::Value;
+	use sp_consensus::BlockOrigin;
+	use sp_runtime::traits::BlakeTwo256;
+	use substrate_test_runtime_client::{
+		runtime::{currency::DOLLARS, Block, Transfer},
+		BlockBuilderExt, ClientBlockImportExt, DefaultTestClientBuilderExt, Sr25519Keyring,
+		TestClientBuilder, TestClientBuilderExt,
+	};
+
+	fn ordered_trie_root(extrinsics: &[Vec<u8>], version: StateVersion) -> sp_core::H256 {
+		BlakeTwo256::ordered_trie_root(extrinsics.to_vec(), version)
+	}
+
+	fn leaf_values(leaves: Vec<schema::v1::light::ExtrinsicLeaf>) -> Vec<Value> {
+		leaves.into_iter().map(|leaf| leaf.value.unwrap()).collect()
+	}
+
+	#[test]
+	fn empty_body_yields_empty_leaves() {
+		let root = ordered_trie_root(&[], StateVersion::V1);
+		assert_eq!(extrinsics_leaves::<BlakeTwo256>(&root, Vec::new()), Some(Vec::new()));
+	}
+
+	#[test]
+	fn small_extrinsics_are_served_verbatim() {
+		let extrinsics = vec![vec![1u8; 10], vec![2u8; 32]];
+		let root = ordered_trie_root(&extrinsics, StateVersion::V1);
+
+		let leaves = extrinsics_leaves::<BlakeTwo256>(&root, extrinsics.clone()).unwrap();
+		assert_eq!(
+			leaf_values(leaves),
+			vec![Value::Raw(extrinsics[0].clone()), Value::Raw(extrinsics[1].clone())],
+		);
+	}
+
+	#[test]
+	fn large_extrinsics_are_served_as_hashes() {
+		let extrinsics = vec![vec![1u8; 10], vec![2u8; 33], vec![3u8; 1024]];
+		let root = ordered_trie_root(&extrinsics, StateVersion::V1);
+
+		let leaves = extrinsics_leaves::<BlakeTwo256>(&root, extrinsics.clone()).unwrap();
+		assert_eq!(
+			leaf_values(leaves),
+			vec![
+				Value::Raw(extrinsics[0].clone()),
+				Value::Hash(BlakeTwo256::hash(&extrinsics[1]).as_ref().to_vec()),
+				Value::Hash(BlakeTwo256::hash(&extrinsics[2]).as_ref().to_vec()),
+			],
+		);
+	}
+
+	#[test]
+	fn state_version_0_extrinsics_are_served_verbatim() {
+		let extrinsics = vec![vec![1u8; 33], vec![2u8; 1024]];
+		let root = ordered_trie_root(&extrinsics, StateVersion::V0);
+
+		let leaves = extrinsics_leaves::<BlakeTwo256>(&root, extrinsics.clone()).unwrap();
+		assert_eq!(
+			leaf_values(leaves),
+			vec![Value::Raw(extrinsics[0].clone()), Value::Raw(extrinsics[1].clone())],
+		);
+	}
+
+	#[test]
+	fn mismatching_extrinsics_root_yields_none() {
+		let extrinsics = vec![vec![1u8; 10]];
+		let root = ordered_trie_root(&[vec![2u8; 10]], StateVersion::V1);
+
+		assert_eq!(extrinsics_leaves::<BlakeTwo256>(&root, extrinsics), None);
+	}
+
+	fn handler(
+		client: Arc<substrate_test_runtime_client::TestClient>,
+	) -> LightClientRequestHandler<Block, substrate_test_runtime_client::TestClient> {
+		let (_tx, request_receiver) = async_channel::bounded(1);
+		LightClientRequestHandler { request_receiver, client, _block: PhantomData }
+	}
+
+	fn remote_read_extrinsics(
+		handler: &mut LightClientRequestHandler<Block, substrate_test_runtime_client::TestClient>,
+		block: sp_core::H256,
+	) -> schema::v1::light::RemoteReadExtrinsicsResponse {
+		let request = schema::v1::light::Request {
+			request: Some(schema::v1::light::request::Request::RemoteReadExtrinsicsRequest(
+				schema::v1::light::RemoteReadExtrinsicsRequest { block: block.encode() },
+			)),
+		};
+
+		let response = handler
+			.handle_request(PeerId::random(), request.encode_to_vec())
+			.expect("request is valid; qed");
+		let response = schema::v1::light::Response::decode(&response[..]).unwrap();
+		match response.response {
+			Some(schema::v1::light::response::Response::RemoteReadExtrinsicsResponse(r)) => r,
+			response => panic!("unexpected response: {response:?}"),
+		}
+	}
+
+	#[test]
+	fn serves_extrinsics_leaves_of_imported_blocks() {
+		let client = TestClientBuilder::new().build();
+
+		let mut builder = BlockBuilderBuilder::new(&client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap();
+		builder
+			.push_transfer(Transfer {
+				from: Sr25519Keyring::Alice.into(),
+				to: Sr25519Keyring::Ferdie.into(),
+				amount: 42 * DOLLARS,
+				nonce: 0,
+			})
+			.unwrap();
+		builder
+			.push_transfer(Transfer {
+				from: Sr25519Keyring::Bob.into(),
+				to: Sr25519Keyring::Ferdie.into(),
+				amount: 24 * DOLLARS,
+				nonce: 0,
+			})
+			.unwrap();
+		let block = builder.build().unwrap().block;
+		let block_hash = block.header.hash();
+		let extrinsics = block.extrinsics.clone();
+		block_on(client.import(BlockOrigin::Own, block)).unwrap();
+
+		let mut handler = handler(Arc::new(client));
+		let response = remote_read_extrinsics(&mut handler, block_hash);
+
+		// The test runtime computes its extrinsics root with trie `state_version` 0, so every
+		// extrinsic is served verbatim, regardless of its size.
+		assert_eq!(
+			leaf_values(response.extrinsics.unwrap().leaves),
+			extrinsics.iter().map(|xt| Value::Raw(xt.encode())).collect::<Vec<_>>(),
+		);
+	}
+
+	#[test]
+	fn unknown_block_yields_absent_extrinsics() {
+		let mut handler = handler(Arc::new(TestClientBuilder::new().build()));
+		let response = remote_read_extrinsics(&mut handler, sp_core::H256::repeat_byte(0xab));
+		assert_eq!(response.extrinsics, None);
 	}
 }
