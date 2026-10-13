@@ -451,9 +451,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			} else if node_extra_args.price_oracle && !slot_based {
 				log::warn!("`--enable-price-oracle` requires `--authoring slot-based`.");
 			}
-			#[cfg(feature = "price-oracle")]
-			let price_oracle_protocol =
-				(node_extra_args.price_oracle && validator && slot_based).then(|| {
+			let price_oracle_protocol = (node_extra_args.price_oracle && validator && slot_based)
+				.then(|| {
 					let (config, notification_service, protocol_name) =
 						sc_price_oracle::peers_set_config::<Self::Block, Net>(
 							client.chain_info().genesis_hash,
@@ -488,19 +487,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				let _ = bitswap_slot.set(Arc::new(handle));
 			}
 
-			#[cfg(feature = "price-oracle")]
-			let price_oracle = price_oracle_protocol.map(|(notification_service, protocol_name)| {
-				PriceOracleNetwork {
-					notification_service,
-					protocol_name,
-					network: network.clone(),
-					sync_service: sync_service.clone(),
-					prometheus_registry: prometheus_registry.clone(),
-				}
-			});
-			#[cfg(not(feature = "price-oracle"))]
-			let price_oracle: Option<PriceOracleNetwork<Self::Block>> = None;
-
+			let price_oracle =
+				price_oracle_protocol.map(|(notification_service, protocol_name)| {
+					PriceOracleNetwork {
+						notification_service,
+						protocol_name,
+						network: network.clone(),
+						sync_service: sync_service.clone(),
+						prometheus_registry: prometheus_registry.clone(),
+					}
+				});
 			let peer_id = relay_chain_network.local_peer_id();
 
 			if validator && node_extra_args.collator_reserved_slots > 0 {

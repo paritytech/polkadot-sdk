@@ -149,8 +149,7 @@ pub struct NodeExtraArgs {
 	/// `None` disables HOP.
 	pub hop: Option<sc_hop::HopParams>,
 
-	/// Whether to run the price oracle service. Always `false` when the node is built without
-	/// the `price-oracle` feature.
+	/// Whether to run the price oracle service.
 	pub price_oracle: bool,
 }
 

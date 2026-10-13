@@ -275,7 +275,6 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
-			#[cfg(feature = "price-oracle")]
 			impl sp_price_oracle::runtime_api::PriceOracleApi<$block, $aura_id> for $runtime {
 				fn settings() -> sp_price_oracle::Settings<$aura_id> {
 					unimplemented!()
