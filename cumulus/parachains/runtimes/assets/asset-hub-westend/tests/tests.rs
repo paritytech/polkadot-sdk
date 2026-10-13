@@ -3926,7 +3926,9 @@ fn full_report_of_authored_blocks_fits_the_message_queue_and_the_block() {
 fn expected_era_duration_matches_the_staking_era() {
 	use testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS;
 	// GIVEN the era length of Asset Hub's staking
-	let era: u64 = staking::MaxEraDuration::get();
+	let era = staking::SessionsPerEra::get() as u64 *
+		staking::RelaySessionDuration::get() as u64 *
+		RELAY_CHAIN_SLOT_DURATION_MILLIS as u64;
 	// WHEN system chains expect the end of an era after the arrival of its set
 	// THEN they expect it after one era, so they report shortly before the rotation
 	assert_eq!(

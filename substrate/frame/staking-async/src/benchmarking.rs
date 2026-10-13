@@ -1397,7 +1397,9 @@ mod benchmarks {
 				individual: reward_points_individual.clone().try_into().unwrap(),
 			},
 		);
-		// The 7 points of each validator split as 4 for validation and 3 for collation.
+		// The 7 points of each validator split as 4 for validation and 3 for collation. One entry
+		// per `PointsKind` variant, so the weight of `prune_era_reward_points` covers all of
+		// them. A new variant must be added here.
 		for (kind, points) in [(PointsKind::Validation, 4u32), (PointsKind::Collation, 3u32)] {
 			let individual = reward_points_individual
 				.keys()
