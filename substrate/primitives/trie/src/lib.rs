@@ -356,6 +356,9 @@ where
 /// This function replicates the trie operations that would occur for the given delta, recording
 /// trie nodes accessed. It is intended for calculating proof size without altering the actual trie
 /// storage.
+///
+/// Only the value hash is looked up: an insert overwrites the old value without reading it, so a
+/// hashed-out old value must not end up in the proof.
 pub fn read_trie_keys_from_delta<L: TrieConfiguration, I, A, DB>(
 	db: &DB,
 	root: TrieHash<L>,
@@ -375,7 +378,7 @@ where
 			.build();
 
 		for key in delta {
-			trie.get(key.borrow())?;
+			trie.get_hash(key.borrow())?;
 		}
 	}
 

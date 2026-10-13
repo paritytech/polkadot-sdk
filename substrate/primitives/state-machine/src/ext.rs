@@ -1079,127 +1079,158 @@ mod tests {
 		assert_eq!(Vec::<u32>::decode(&mut &data[..]).unwrap(), vec![1, 2]);
 	}
 
-	#[test]
-	fn calculating_storage_root_should_not_change_storage_proof() {
-		let keys =
-			(0..100000u32)
-				.map(|i| (i.encode(), vec![i; 100].encode()))
-				.chain((0..1000u32).map(|i| {
-					let mut key = 1u32.encode();
-					key.extend(i.encode());
-					(key, vec![i; 100].encode())
-				}));
+	fn large_values(count: u32) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> + Clone {
+		(0..count)
+			.map(|i| (i.encode(), vec![i; 100].encode()))
+			.chain((0..1000u32).map(|i| {
+				let mut key = 1u32.encode();
+				key.extend(i.encode());
+				(key, vec![i; 100].encode())
+			}))
+	}
 
-		let child_info = ChildInfo::new_default(b"Child1");
-		let child_info = &child_info;
-
-		let backend = (
+	fn backend_with_child(
+		child_info: &ChildInfo,
+		top: impl Iterator<Item = (Vec<u8>, Vec<u8>)>,
+		child: impl Iterator<Item = (Vec<u8>, Vec<u8>)>,
+	) -> TestBackend {
+		(
 			Storage {
-				top: keys.clone().collect(),
+				top: top.collect(),
 				children_default: map![
 					child_info.storage_key().to_vec() => StorageChild {
-						data: keys.collect(),
-						child_info: child_info.to_owned(),
+						data: child.collect(),
+						child_info: child_info.clone(),
 					}
 				],
-				// children_default: Default::default(),
 			},
 			StateVersion::default(),
 		)
-			.into();
+			.into()
+	}
 
-		let recorder = Recorder::<Blake2Hasher>::default();
+	fn estimation_and_storage_root_proof_sizes(
+		backend: TestBackend,
+		apply_changes: impl FnOnce(&mut dyn Externalities),
+	) -> (usize, usize) {
+		let mut overlay = OverlayedChanges::default();
 
-		let backend = TrieBackendBuilder::wrap(&backend).with_recorder(recorder.clone()).build();
+		let estimation_recorder = Recorder::<Blake2Hasher>::default();
+		{
+			let backend = TrieBackendBuilder::wrap(&backend)
+				.with_recorder(estimation_recorder.clone())
+				.build();
+			let mut ext = Ext::new(&mut overlay, &backend, None);
+			apply_changes(&mut ext);
+			ext.record_proof_for_dirty_keys();
+		}
 
-		let mut overlay = Default::default();
-		let mut ext = Ext::new(&mut overlay, &backend, None);
+		let storage_root_recorder = Recorder::<Blake2Hasher>::default();
+		{
+			let backend = TrieBackendBuilder::wrap(&backend)
+				.with_recorder(storage_root_recorder.clone())
+				.build();
+			let mut ext = Ext::new(&mut overlay, &backend, None);
+			ext.storage_root(StateVersion::V1);
+		}
 
-		ext.place_storage(5000u32.encode(), Some(vec![30]));
-		ext.place_storage(100000u32.encode(), Some(vec![40]));
+		(estimation_recorder.estimate_encoded_size(), storage_root_recorder.estimate_encoded_size())
+	}
 
-		ext.place_storage(1u32.encode(), None);
-		ext.place_storage(6000u32.encode(), None);
+	/// The estimation must record exactly the nodes the real storage root computation touches:
+	/// too few would let a block overshoot its PoV budget, too many would waste it.
+	fn assert_estimation_matches_storage_root(
+		backend: TestBackend,
+		apply_changes: impl FnOnce(&mut dyn Externalities),
+	) {
+		let (estimation, storage_root) =
+			estimation_and_storage_root_proof_sizes(backend, apply_changes);
+		assert_eq!(estimation, storage_root);
+	}
 
-		ext.place_child_storage(child_info, 5000u32.encode(), Some(vec![30]));
-		ext.place_child_storage(child_info, 100000u32.encode(), Some(vec![40]));
+	/// Deleting from a child trie may leave it empty, which removes its root from the main trie.
+	/// The estimation cannot know whether that happens, so it assumes the removal and may record
+	/// one extra sibling node. It must still never record less than the real computation.
+	fn assert_estimation_covers_storage_root(
+		backend: TestBackend,
+		apply_changes: impl FnOnce(&mut dyn Externalities),
+	) {
+		let (estimation, storage_root) =
+			estimation_and_storage_root_proof_sizes(backend, apply_changes);
+		assert!(estimation >= storage_root, "{estimation} < {storage_root}");
+	}
 
-		ext.place_child_storage(child_info, 1u32.encode(), None);
-		ext.place_child_storage(child_info, 6000u32.encode(), None);
+	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof_for_main_trie_changes() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend = backend_with_child(&child_info, large_values(100000), large_values(100000));
 
-		ext.record_proof_for_dirty_keys();
-		let size_before = recorder.estimate_encoded_size();
+		assert_estimation_matches_storage_root(backend, |ext| {
+			ext.place_storage(5000u32.encode(), Some(vec![30]));
+			ext.place_storage(100000u32.encode(), Some(vec![40]));
 
-		ext.storage_root(StateVersion::V1);
-		let size_after = recorder.estimate_encoded_size();
+			ext.place_storage(1u32.encode(), None);
+			ext.place_storage(6000u32.encode(), None);
+		});
+	}
 
-		assert_eq!(size_before, size_after);
+	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof_for_child_inserts() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend = backend_with_child(&child_info, large_values(100000), large_values(100000));
+
+		assert_estimation_matches_storage_root(backend, |ext| {
+			ext.place_child_storage(&child_info, 5000u32.encode(), Some(vec![30]));
+			ext.place_child_storage(&child_info, 100000u32.encode(), Some(vec![40]));
+		});
+	}
+
+	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend = backend_with_child(&child_info, large_values(100000), large_values(100000));
+
+		assert_estimation_covers_storage_root(backend, |ext| {
+			ext.place_storage(5000u32.encode(), Some(vec![30]));
+			ext.place_storage(100000u32.encode(), Some(vec![40]));
+
+			ext.place_storage(1u32.encode(), None);
+			ext.place_storage(6000u32.encode(), None);
+
+			ext.place_child_storage(&child_info, 5000u32.encode(), Some(vec![30]));
+			ext.place_child_storage(&child_info, 100000u32.encode(), Some(vec![40]));
+
+			ext.place_child_storage(&child_info, 1u32.encode(), None);
+			ext.place_child_storage(&child_info, 6000u32.encode(), None);
+		});
 	}
 
 	#[test]
 	fn calculating_storage_root_should_not_change_storage_proof_2() {
-		let keys =
-			(0..100000u32)
-				.map(|i| (i.encode(), vec![i; 100].encode()))
-				.chain((0..1000u32).map(|i| {
-					let mut key = 1u32.encode();
-					key.extend(i.encode());
-					(key, vec![i; 100].encode())
-				}));
-
 		let child_info = ChildInfo::new_default(b"Child1");
-		let child_info = &child_info;
+		let backend = backend_with_child(&child_info, large_values(100000), large_values(100000));
 
-		let backend = (
-			Storage {
-				top: keys.clone().collect(),
-				children_default: map![
-					child_info.storage_key().to_vec() => StorageChild {
-						data: keys.collect(),
-						child_info: child_info.to_owned(),
-					}
-				],
-				// children_default: Default::default(),
-			},
-			StateVersion::default(),
-		)
-			.into();
+		assert_estimation_covers_storage_root(backend, |ext| {
+			let key1 = 5000u32;
+			let key2 = 100000u32;
+			ext.storage_start_transaction();
+			ext.place_storage(key1.encode(), Some(vec![30]));
+			ext.place_storage(key2.encode(), Some(vec![40]));
 
-		let recorder = Recorder::<Blake2Hasher>::default();
+			ext.place_child_storage(&child_info, key1.encode(), Some(vec![30]));
+			ext.place_child_storage(&child_info, key2.encode(), Some(vec![40]));
+			let _ = ext.storage_commit_transaction();
 
-		let backend = TrieBackendBuilder::wrap(&backend).with_recorder(recorder.clone()).build();
+			ext.record_proof_for_dirty_keys();
 
-		let mut overlay = Default::default();
-		let mut ext = Ext::new(&mut overlay, &backend, None);
+			ext.storage_start_transaction();
+			ext.place_storage(key1.encode(), None);
+			ext.place_storage(key2.encode(), None);
 
-		let key1 = 5000u32;
-		let key2 = 100000u32;
-		ext.storage_start_transaction();
-		ext.place_storage(key1.encode(), Some(vec![30]));
-		ext.place_storage(key2.encode(), Some(vec![40]));
-
-		ext.place_child_storage(child_info, key1.encode(), Some(vec![30]));
-		ext.place_child_storage(child_info, key2.encode(), Some(vec![40]));
-		let _ = ext.storage_commit_transaction();
-
-		ext.record_proof_for_dirty_keys();
-
-		ext.storage_start_transaction();
-		ext.place_storage(key1.encode(), None);
-		ext.place_storage(key2.encode(), None);
-
-		ext.place_child_storage(child_info, key1.encode(), None);
-		ext.place_child_storage(child_info, key2.encode(), None);
-		let _ = ext.storage_commit_transaction();
-
-		ext.record_proof_for_dirty_keys();
-
-		let size_before = recorder.estimate_encoded_size();
-
-		ext.storage_root(StateVersion::V1);
-		let size_after = recorder.estimate_encoded_size();
-
-		assert_eq!(size_before, size_after);
+			ext.place_child_storage(&child_info, key1.encode(), None);
+			ext.place_child_storage(&child_info, key2.encode(), None);
+			let _ = ext.storage_commit_transaction();
+		});
 	}
 
 	#[test]
@@ -1276,23 +1307,6 @@ mod tests {
 		assert_eq!(recorder.estimate_encoded_size(), 0);
 	}
 
-	fn assert_storage_root_does_not_change_proof(
-		backend: TestBackend,
-		apply_changes: impl FnOnce(&mut dyn Externalities),
-	) {
-		let recorder = Recorder::<Blake2Hasher>::default();
-		let backend = TrieBackendBuilder::wrap(&backend).with_recorder(recorder.clone()).build();
-		let mut overlay = Default::default();
-		let mut ext = Ext::new(&mut overlay, &backend, None);
-
-		apply_changes(&mut ext);
-		ext.record_proof_for_dirty_keys();
-		let size_before = recorder.estimate_encoded_size();
-
-		ext.storage_root(StateVersion::V1);
-		assert_eq!(size_before, recorder.estimate_encoded_size());
-	}
-
 	#[test]
 	fn calculating_storage_root_should_not_change_storage_proof_when_child_is_created() {
 		let child_info = ChildInfo::new_default(b"Child1");
@@ -1305,7 +1319,7 @@ mod tests {
 		)
 			.into();
 
-		assert_storage_root_does_not_change_proof(backend, |ext| {
+		assert_estimation_matches_storage_root(backend, |ext| {
 			ext.place_child_storage(&child_info, 1u32.encode(), Some(vec![30]));
 		});
 	}
@@ -1328,7 +1342,7 @@ mod tests {
 		)
 			.into();
 
-		assert_storage_root_does_not_change_proof(backend, |ext| {
+		assert_estimation_matches_storage_root(backend, |ext| {
 			for key in &child_keys {
 				ext.place_child_storage(&child_info, key.clone(), None);
 			}
