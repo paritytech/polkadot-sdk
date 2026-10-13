@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791899747207,
+  "lastUpdate": 1791903051677,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6324a6619b6b05945d96389b6f66eba913c4d64f",
-          "message": "fix: slot-based collator shuts down immediately after init (#11628)\n\nFix a regression introduced by #11381, where we wrapped the slot-based\ncollator launch in an async task that first calls `wait_for_aura`, then\nspawns the actual long-running collator tasks via `slot_based::run()`.\nThe wrapper was spawned with `spawn_essential_handle()`.\n\nEssential tasks shut down the node when they complete. The init wrapper\ncompletes immediately after spawning, the TaskManager sees an essential\ntask exit, and the node shuts down.\n\nThis only affects parachain collators started with\n`--authoring=slot-based`.\n\nFix: use `spawn_handle()` for the short-lived init wrapper. The child\ntasks inside `slot_based::run()` remain correctly marked as essential.\n\nAn easy way to reproduce (same setup used by staking-miner nightly test\n- which in fact started to fail after #11381 got merged e.g.\n[here](https://github.com/paritytech/polkadot-staking-miner/actions/runs/23928039324/job/69807526676)\n): spawn a Zombienet network with a 2-validator relay chain and a single\nslot-based parachain collator. The collator process starts but shuts\ndown immediately.\nFor example in your SDK repo:\n```\ncd substrate/frame/staking-async/runtimes/papi-tests\njust setup\njust run fake-dev \n```\nwhich launches zombienet spawning\n  - alice (relay validator, port 9944) — polkadot\n  - bob (relay validator, port 9945) — polkadot\n- charlie (parachain collator, port 9946) — polkadot-parachain\n--collator --authoring=slot-based\n\nPort 9946 never comes up.\n\nI have also verified that the fix coming from #11381 still works,\nrunning manually `./target/release/polkadot-parachain --chain\nasset-hub-polkadot --sync warp --authoring=slot-based --tmp -- --sync\nwarp`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T14:05:54Z",
-          "tree_id": "e34c6316fd57f85b7abcb7988131402e11478f35",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6324a6619b6b05945d96389b6f66eba913c4d64f"
-        },
-        "date": 1775230221426,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.080493534866667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12618188249999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.936164235300001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68506aeda4ca20c0a40fbd805fb1e84c903e8ebd",
+          "message": "ci: migrate ci-unified to bookworm (#13467)\n\ncc https://github.com/paritytech/devops/issues/5593",
+          "timestamp": "2026-10-13T16:07:41+02:00",
+          "tree_id": "41e4434ba6a3bf098995d2bc1aad049e349c40da",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/68506aeda4ca20c0a40fbd805fb1e84c903e8ebd"
+        },
+        "date": 1791903017627,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.910671875866667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1253387064666667,
             "unit": "seconds"
           }
         ]
