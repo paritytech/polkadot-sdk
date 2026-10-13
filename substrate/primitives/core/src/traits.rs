@@ -62,9 +62,6 @@ pub trait CodeExecutor: Sized + Send + Sync + ReadRuntimeVersion + Clone + 'stat
 	///
 	/// Returns the result: either the output data or an execution error, including one
 	/// indicating that the timeout has been reached.
-	///
-	/// NOTE: engines without an execution-interruption mechanism (PolkaVM) ignore the timeout
-	/// and run uncapped.
 	fn call_with_execution_timeout(
 		&self,
 		ext: &mut dyn Externalities,

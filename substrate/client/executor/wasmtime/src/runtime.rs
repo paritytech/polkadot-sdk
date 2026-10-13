@@ -493,7 +493,7 @@ pub struct Semantics {
 	/// Compiles the module with wasmtime epoch interruption, enabling
 	/// [`WasmInstance::call_with_timeout`] on its instances.
 	///
-	/// Adds roughly 10% execution overhead. Calls without a timeout are unaffected otherwise.
+	/// Adds roughly 10% execution overhead.
 	pub epoch_interruption: bool,
 }
 

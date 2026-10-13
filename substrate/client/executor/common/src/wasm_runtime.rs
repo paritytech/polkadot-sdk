@@ -84,9 +84,6 @@ pub trait WasmInstance: Send {
 	/// Returns the encoded result on success. Fails with [`Error::ExecutionTimeout`] on timeout,
 	/// or with [`Error::ExecutionTimeoutUnsupported`] if the module was not compiled with support
 	/// for execution timeouts.
-	///
-	/// NOTE: engines without an execution-interruption mechanism (PolkaVM) ignore the timeout
-	/// and run uncapped, never producing [`Error::ExecutionTimeout`].
 	fn call_with_timeout(
 		&mut self,
 		method: &str,
