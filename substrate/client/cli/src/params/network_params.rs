@@ -60,8 +60,12 @@ pub struct NetworkParams {
 	/// This can be used if there's a proxy in front of this node.
 	///
 	/// A `webrtc-direct` address must be given as
-	/// `/<ip4|ip6|dns|dns4|dns6>/<host>/udp/<port>/webrtc-direct`: the node appends its own
-	/// `/certhash/...` and `/p2p/...`, and doesn't start if either is supplied.
+	/// `/<ip4|ip6|dns|dns4|dns6>/<host>/udp/<port>/webrtc-direct`. The node appends its own
+	/// `/certhash/...` and `/p2p/...`.
+	///
+	/// A `/p2p/<peer id>` and, on a `webrtc-direct` address, a `/certhash/<hash>` may be given.
+	/// Both are checked against the node key and removed, and the node doesn't start if either
+	/// disagrees with it.
 	#[arg(long, value_name = "PUBLIC_ADDR", num_args = 1..)]
 	pub public_addr: Vec<Multiaddr>,
 
@@ -75,6 +79,10 @@ pub struct NetworkParams {
 	///
 	/// WebRTC addresses (`/ip4/<ip>/udp/<port>/webrtc-direct` and
 	/// `/ip6/<ip>/udp/<port>/webrtc-direct`) only work on the litep2p network backend.
+	///
+	/// A `/p2p/<peer id>` and, on a `webrtc-direct` address, a `/certhash/<hash>` may be given.
+	/// Both are checked against the node key and removed, and the node doesn't start if either
+	/// disagrees with it.
 	#[arg(long, value_name = "LISTEN_ADDR", num_args = 1..)]
 	pub listen_addr: Vec<Multiaddr>,
 
