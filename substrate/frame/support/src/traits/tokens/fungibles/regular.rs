@@ -119,6 +119,13 @@ pub trait Inspect<AccountId>: Sized {
 
 	/// Returns `true` if an `asset` exists.
 	fn asset_exists(asset: Self::AssetId) -> bool;
+
+	/// Returns `true` if the `asset` exists and is sufficient, `false` otherwise.
+	///
+	/// Defaults to `false`; implementations which track sufficiency should override this.
+	fn is_sufficient(_asset: Self::AssetId) -> bool {
+		false
+	}
 }
 
 /// Special dust type which can be type-safely converted into a `Credit`.

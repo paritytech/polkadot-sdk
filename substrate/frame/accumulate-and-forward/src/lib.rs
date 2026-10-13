@@ -37,6 +37,13 @@
 //!
 //! If the accumulation account is not pre-funded, deposits below ED will be silently burned.
 //!
+//! ## Forwarding
+//!
+//! `on_idle` forwards once `TransferPeriod` blocks of the configured `BlockNumberProvider` have
+//! elapsed since the last attempt and the account holds at least `MinTransferAmount` above its
+//! existential deposit. A chain may not observe every block of the provider, so the period is
+//! measured from the recorded last attempt.
+//!
 //! ## Total Issuance
 //!
 //! Accumulated funds are burnt upon forwarding (reducing `total_issuance` here) and the same
@@ -118,8 +125,8 @@ pub mod pallet {
 		/// message-related dependencies.
 		type Forwarder: super::Forwarder<Self::AccountId, BalanceOf<Self>>;
 
-		/// Minimum number of blocks between successive forwards.
-		/// Acts as a rate limiter to avoid sending too many messages.
+		/// Minimum number of blocks, as counted by [`Config::BlockNumberProvider`], between
+		/// successive forwards. Acts as a rate limiter to avoid sending too many messages.
 		#[pallet::constant]
 		type TransferPeriod: Get<BlockNumberFor<Self>>;
 
@@ -130,12 +137,19 @@ pub mod pallet {
 		type MinTransferAmount: Get<BalanceOf<Self>>;
 
 		/// Block number provider. Use `RelaychainDataProvider` on parachains so that
-		/// `TransferPeriod` is expressed in relay chain blocks, keeping the cadence stable.
+		/// `TransferPeriod` is expressed in relay chain blocks, keeping the cadence stable. It
+		/// may not be observed at every block.
 		type BlockNumberProvider: BlockNumberProvider;
 
 		/// Weight information for the pallet's operations.
 		type WeightInfo: weights::WeightInfo;
 	}
+
+	/// Block of [`Config::BlockNumberProvider`] at which a forward was last attempted.
+	///
+	/// `None` means none was attempted yet, so the next one is not rate limited.
+	#[pallet::storage]
+	pub type LastForwardBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -150,13 +164,21 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		fn on_idle(_block: SystemBlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			// Only attempt forwarding on blocks that are exact multiples of `TransferPeriod`.
-			let block = T::BlockNumberProvider::current_block_number();
-			if (block % T::TransferPeriod::get()) != Zero::zero() {
-				return Weight::zero();
+			let mut meter = WeightMeter::with_limit(remaining_weight);
+
+			// Need one read for `LastForwardBlock`.
+			if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
+				return meter.consumed();
 			}
 
-			let mut meter = WeightMeter::with_limit(remaining_weight);
+			// A chain may not observe every block of the provider, so the period is measured
+			// from the recorded last attempt.
+			let block = T::BlockNumberProvider::current_block_number();
+			if let Some(last) = LastForwardBlock::<T>::get() {
+				if block.saturating_sub(last) < T::TransferPeriod::get() {
+					return meter.consumed();
+				}
+			}
 
 			// Need one read for the balance check.
 			if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
@@ -176,10 +198,15 @@ pub mod pallet {
 				return meter.consumed();
 			}
 
-			// Ensure there is enough weight budget for the full XCM send.
-			if meter.try_consume(T::WeightInfo::send_native()).is_err() {
+			// Ensure there is budget for the send plus the write recording it.
+			let send_weight =
+				T::WeightInfo::send_native().saturating_add(T::DbWeight::get().writes(1));
+			if meter.try_consume(send_weight).is_err() {
 				return meter.consumed();
 			}
+
+			// Record before dispatching: a failing destination must be rate limited too.
+			LastForwardBlock::<T>::put(block);
 
 			// Attempt to forward accumulated funds.
 			match T::Forwarder::forward(accumulation_account, available_funds) {
@@ -203,7 +230,8 @@ pub mod pallet {
 		fn integrity_test() {
 			assert!(
 				!T::TransferPeriod::get().is_zero(),
-				"TransferPeriod must not be zero (would cause division by zero in on_idle)"
+				"TransferPeriod must not be zero (would forward on every block, defeating the \
+				 rate limiter)"
 			);
 		}
 	}

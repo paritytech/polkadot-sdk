@@ -16,6 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+fp-coretime = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -35,6 +36,7 @@ sp-tracing = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"fp-coretime/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
