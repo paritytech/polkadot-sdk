@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791899896840,
+  "lastUpdate": 1791903186198,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a1a2bbfdb435f381ba633e62c022090f1efa4fca",
-          "message": "Fix slot-based collator panic during warp sync (#11072) (#11381)\n\nWhen a parachain collator starts with `--authoring=slot-based` and\nperforms warp sync, the `slot-based-block-builder` essential task\nimmediately calls `slot_duration()` which requires\n`AuraApi_slot_duration`. During warp sync the runtime isn't ready, so\nthis fails and the task returns, shutting down the node.\n\nThe lookahead collator avoids this by calling `wait_for_aura()` before\nstarting. This PR adds an equivalent guard to the slot-based collator.\n\n### Manual test\nBefore the fix the collator panicked after the relay chain warp sync\nwith AuraApi_slot_duration not available, which does not occur anymore\nnow.\n```\n ./target/release/polkadot-parachain \\                                                                                                                                                                                                                                                                          \n    --chain asset-hub-polkadot \\\n    --sync warp \\\n    --authoring=slot-based \\\n    --tmp -- --sync warp\n```\nCloses #11072.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>",
-          "timestamp": "2026-04-02T20:55:34Z",
-          "tree_id": "91d815959b0ac9a381da89ca91e02813e5ffc1c6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a1a2bbfdb435f381ba633e62c022090f1efa4fca"
-        },
-        "date": 1775168329070,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.096,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03843802649,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0869272565719999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038886275292,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68506aeda4ca20c0a40fbd805fb1e84c903e8ebd",
+          "message": "ci: migrate ci-unified to bookworm (#13467)\n\ncc https://github.com/paritytech/devops/issues/5593",
+          "timestamp": "2026-10-13T16:07:41+02:00",
+          "tree_id": "41e4434ba6a3bf098995d2bc1aad049e349c40da",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/68506aeda4ca20c0a40fbd805fb1e84c903e8ebd"
+        },
+        "date": 1791903152496,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.134,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038893193268000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08386550298199995,
             "unit": "seconds"
           }
         ]
