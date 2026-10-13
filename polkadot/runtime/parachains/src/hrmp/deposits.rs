@@ -16,81 +16,75 @@
 
 //! Channel deposits.
 //!
-//! Every call that takes or returns a deposit goes through [`Config::DepositProvider`] and is
-//! completed once the deposits are set: right away if the provider sets them within the call,
-//! or in [`OnDepositSet::on_deposit_set`] if it holds the funds on another chain and reports
-//! back in a later block.
+//! Every call that takes or returns a deposit sends a [`DepositChangeRequest`] to
+//! [`Config::DepositProvider`] and completes once the request is done: right away if the
+//! provider applies it within the call, or in [`OnDepositChanged::on_deposit_changed`] if the
+//! provider holds the funds on another chain and reports back in a later block.
 //!
 //! [`Pallet`] is itself a provider that holds the deposits in [`Config::Currency`].
 
 use super::*;
 
-/// Reserves and releases HRMP channel deposits on behalf of the pallet that owns the channels.
+/// Holds the channel deposits for this pallet.
 ///
-/// Implemented by whoever holds the funds: the owning pallet itself when they are on the relay
-/// chain, or a pallet that forwards the request to another chain. The latter cannot set the
-/// deposits within the call, so it accepts the request and reports the outcome through
-/// [`Self::OnDepositSet`] later; until then it must refuse another request touching the same
-/// side of the channel.
+/// The pallet itself implements it to hold them in [`Config::Currency`], in which case every
+/// request is applied within the call. A provider that holds them on another chain answers
+/// [`DepositChangeResponse::Pending`] and reports through [`Self::OnDepositChanged`] once the
+/// funds are moved. Until then it must refuse another request for the same side of the same
+/// channel.
 pub trait ChannelDepositProvider {
-	/// Where the provider reports a pending request once its deposits are set.
-	type OnDepositSet: OnDepositSet;
+	/// Where a pending request is reported once done.
+	type OnDepositChanged: OnDepositChanged;
 
-	/// Requests that every side of `channel_id` named in `changes` ends up holding its target.
-	/// `action` is handed back in [`OnDepositSet::on_deposit_set`] if the request is pending.
-	fn try_set_deposit(
-		channel_id: &HrmpChannelId,
-		changes: DepositChanges,
-		action: DepositAction,
-	) -> Result<DepositStatus, DispatchError>;
+	/// Changes the deposits as `request` says, now or later.
+	fn request_deposit_change(
+		request: DepositChangeRequest,
+	) -> Result<DepositChangeResponse, DispatchError>;
 }
 
-/// Callback through which a [`ChannelDepositProvider`] reports that the deposits of a pending
-/// request are set.
+/// How a [`ChannelDepositProvider`] reports that a pending request is done.
 ///
-/// Implemented by the pallet that owns the channels, which then completes the call that asked
-/// for the change.
-pub trait OnDepositSet {
-	/// Called once every side of `channel_id` named in `changes` holds its target. `action` is
-	/// the one passed to [`ChannelDepositProvider::try_set_deposit`]. Returns the weight spent.
-	fn on_deposit_set(
-		channel_id: &HrmpChannelId,
-		changes: DepositChanges,
-		action: DepositAction,
-	) -> Weight;
+/// The pallet implements it and completes the call named in [`DepositChangeRequest::action`].
+pub trait OnDepositChanged {
+	/// Called once the deposits are changed as `request` asked. Returns the weight spent.
+	fn on_deposit_changed(request: DepositChangeRequest) -> Weight;
 }
 
-/// Whether a deposit request is done when [`ChannelDepositProvider::try_set_deposit`] returns.
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub enum DepositStatus {
-	/// The deposits are set. Nothing will be reported.
-	Set,
-	/// The request is accepted and its outcome is reported through [`OnDepositSet`].
-	Pending,
-}
-
-/// The deposit changes a call asks for, one per side of the channel. `None` leaves that side
-/// untouched, e.g. only the sender's side changes when a channel is requested.
-#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct DepositChanges {
+/// What a call asks the provider to do with the deposits of one channel.
+///
+/// Built by the pallet, handed to [`ChannelDepositProvider::request_deposit_change`], and handed
+/// back unchanged in [`OnDepositChanged::on_deposit_changed`] once a pending request is done, so
+/// the pallet knows which call to complete.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub struct DepositChangeRequest {
+	pub channel_id: HrmpChannelId,
+	/// Change for the sender, or `None` to leave its deposit as is.
 	pub sender: Option<DepositChange>,
+	/// Change for the recipient, or `None` to leave its deposit as is.
 	pub recipient: Option<DepositChange>,
+	/// The call that made the request. The provider passes it through untouched.
+	pub action: DepositAction,
 }
 
-/// A change to the deposit one side of a channel holds.
+/// How the deposit of one side of a channel must change.
 #[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct DepositChange {
-	/// What the side holds now, by the records of the pallet that owns the channels.
-	pub held: Balance,
-	/// What the side must hold once the change is done.
+	/// What the side holds now, according to the pallet's own records.
+	pub current: Balance,
+	/// What the side must hold once the request is done.
 	pub target: Balance,
 }
 
-/// Which HRMP call asked for a deposit change.
-///
-/// Passed to [`ChannelDepositProvider::try_set_deposit`] and handed back unchanged in
-/// [`OnDepositSet::on_deposit_set`], so the pallet that owns the channels knows which call to
-/// complete. A provider never inspects it.
+/// What the provider answers to a [`DepositChangeRequest`].
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+pub enum DepositChangeResponse {
+	/// The deposits are changed. The call completes right away.
+	Applied,
+	/// The provider accepted the request and will report through [`OnDepositChanged`].
+	Pending,
+}
+
+/// The call that made a [`DepositChangeRequest`], and what it needs to complete.
 #[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum DepositAction {
 	/// A new open channel request, carrying the limits it is recorded with.
@@ -104,35 +98,28 @@ pub enum DepositAction {
 }
 
 impl<T: Config> ChannelDepositProvider for Pallet<T> {
-	type OnDepositSet = Self;
+	type OnDepositChanged = Self;
 
-	fn try_set_deposit(
-		channel_id: &HrmpChannelId,
-		changes: DepositChanges,
-		_action: DepositAction,
-	) -> Result<DepositStatus, DispatchError> {
-		for (para, change) in
-			[(channel_id.sender, changes.sender), (channel_id.recipient, changes.recipient)]
-		{
-			let Some(DepositChange { held, target }) = change else { continue };
+	fn request_deposit_change(
+		request: DepositChangeRequest,
+	) -> Result<DepositChangeResponse, DispatchError> {
+		let DepositChangeRequest { channel_id, sender, recipient, .. } = request;
+		for (para, change) in [(channel_id.sender, sender), (channel_id.recipient, recipient)] {
+			let Some(DepositChange { current, target }) = change else { continue };
 			let account: T::AccountId = para.into_account_truncating();
-			if target > held {
-				T::Currency::reserve(&account, (target - held).unique_saturated_into())?;
+			if target > current {
+				T::Currency::reserve(&account, (target - current).unique_saturated_into())?;
 			} else {
-				T::Currency::unreserve(&account, (held - target).unique_saturated_into());
+				T::Currency::unreserve(&account, (current - target).unique_saturated_into());
 			}
 		}
-		Ok(DepositStatus::Set)
+		Ok(DepositChangeResponse::Applied)
 	}
 }
 
-impl<T: Config> OnDepositSet for Pallet<T> {
-	fn on_deposit_set(
-		channel_id: &HrmpChannelId,
-		changes: DepositChanges,
-		action: DepositAction,
-	) -> Weight {
-		Self::complete(channel_id, changes, action)
+impl<T: Config> OnDepositChanged for Pallet<T> {
+	fn on_deposit_changed(request: DepositChangeRequest) -> Weight {
+		Self::complete_call(&request)
 	}
 }
 
@@ -149,42 +136,35 @@ impl<T: Config> Pallet<T> {
 		(config.hrmp_sender_deposit, config.hrmp_recipient_deposit)
 	}
 
-	/// Asks [`Config::DepositProvider`] for `changes` and completes `action` if they are set
-	/// within the call. Otherwise `action` is completed in [`OnDepositSet::on_deposit_set`].
-	pub(super) fn set_deposit(
-		channel_id: &HrmpChannelId,
-		changes: DepositChanges,
-		action: DepositAction,
-	) -> DispatchResult {
-		if T::DepositProvider::try_set_deposit(channel_id, changes, action)? == DepositStatus::Set {
-			Self::complete(channel_id, changes, action);
+	/// Sends `request` to [`Config::DepositProvider`] and completes its call if the provider
+	/// applied it within the call. A pending request is completed in
+	/// [`OnDepositChanged::on_deposit_changed`] instead.
+	pub(super) fn request_deposit_change(request: DepositChangeRequest) -> DispatchResult {
+		if T::DepositProvider::request_deposit_change(request.clone())? ==
+			DepositChangeResponse::Applied
+		{
+			Self::complete_call(&request);
 		}
 		Ok(())
 	}
 
-	/// Asks [`Config::DepositProvider`] to give deposits back, for paths that cannot return an
+	/// [`Self::request_deposit_change`] for giving deposits back on paths that cannot return an
 	/// error. A failure is logged and the deposits are left with the provider.
-	pub(super) fn release_deposit(channel_id: &HrmpChannelId, changes: DepositChanges) {
-		if let Err(e) = Self::set_deposit(channel_id, changes, DepositAction::Release) {
-			log::error!(
-				target: "runtime::hrmp",
-				"releasing the deposits of {channel_id:?} failed: {e:?}"
-			);
+	pub(super) fn release_deposits(request: DepositChangeRequest) {
+		if let Err(e) = Self::request_deposit_change(request.clone()) {
+			log::error!(target: "runtime::hrmp", "releasing deposits failed: {e:?} for {request:?}");
 		}
 	}
 
-	/// Completes the call that asked for `action` once the deposits are set to `changes`,
-	/// returning the weight spent, bounded by the weight of that call.
-	fn complete(
-		channel_id: &HrmpChannelId,
-		changes: DepositChanges,
-		action: DepositAction,
-	) -> Weight {
-		match action {
+	/// Completes the call that made `request` once its deposits are changed, returning the
+	/// weight spent, bounded by the weight of that call.
+	fn complete_call(request: &DepositChangeRequest) -> Weight {
+		let channel_id = &request.channel_id;
+		match request.action {
 			DepositAction::InitOpenChannel { max_capacity, max_message_size, max_total_size } => {
 				// `init_open_channel` always changes the sender's side.
-				let sender_deposit = changes.sender.map(|c| c.target).unwrap_or_default();
-				Self::record_open_channel_request(
+				let sender_deposit = request.sender.map(|c| c.target).unwrap_or_default();
+				Self::finish_init_open_channel(
 					channel_id,
 					sender_deposit,
 					max_capacity,
@@ -194,11 +174,11 @@ impl<T: Config> Pallet<T> {
 				<T as Config>::WeightInfo::hrmp_init_open_channel()
 			},
 			DepositAction::AcceptOpenChannel => {
-				Self::confirm_open_channel_request(channel_id);
+				Self::finish_accept_open_channel(channel_id);
 				<T as Config>::WeightInfo::hrmp_accept_open_channel()
 			},
 			DepositAction::PokeChannelDeposits => {
-				Self::record_channel_deposits(channel_id, changes);
+				Self::finish_poke_channel_deposits(channel_id, request.sender, request.recipient);
 				<T as Config>::WeightInfo::poke_channel_deposits()
 			},
 			DepositAction::Release => Weight::zero(),

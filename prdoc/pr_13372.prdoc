@@ -3,11 +3,11 @@ doc:
 - audience: Runtime Dev
   description: |-
     The relay chain HRMP pallet no longer reserves channel deposits itself. Every call that takes
-    or gives back one asks `hrmp::Config::DepositProvider`, a `hrmp::deposits::ChannelDepositProvider`,
-    for the `DepositChanges` each side should see. A provider that sets them within the call
-    returns `DepositStatus::Set` and the call completes right away; one that holds the funds on
-    another chain returns `Pending` and completes the call later through `OnDepositSet`. The
-    pallet implements `ChannelDepositProvider` itself for deposits held in `Config::Currency`, so
+    or gives back one sends a `DepositChangeRequest` to `hrmp::Config::DepositProvider`, a
+    `hrmp::deposits::ChannelDepositProvider`. A provider that applies the request within the call
+    answers `Applied` and the call completes right away; one that holds the funds on another chain
+    answers `Pending` and the call completes later through `OnDepositChanged`. The pallet
+    implements `ChannelDepositProvider` itself for deposits held in `Config::Currency`, so
     `type DepositProvider = Hrmp;` keeps the behaviour of today. Every runtime must now set it.
 
     Prepares for taking deposits in `pallet-hrmp-para` on the Coretime chain (Asset Hub on Kusama).
