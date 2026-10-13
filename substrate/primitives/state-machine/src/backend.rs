@@ -352,18 +352,10 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	) where
 		H::Out: Ord + Encode,
 	{
-		let mut child_roots: Vec<Vec<u8>> = Default::default();
-		// child first
 		for (child_info, child_delta) in child_deltas {
 			self.record_proof_for_child_dirty_keys(child_info, child_delta);
-			child_roots.push(child_info.prefixed_storage_key().into_inner());
 		}
-		// At "estimation phase" we don't know if child trie is empty or not. Let's assume
-		// worst case - removal of the child storage root value from the main trie:
-		let mut delta_and_child_roots: Vec<_> = delta.collect();
-		delta_and_child_roots
-			.extend(child_roots.iter().map(|k| (k.as_slice(), DeltaKeyOp::Deleted)));
-		self.record_proof_for_dirty_keys(delta_and_child_roots.into_iter());
+		self.record_proof_for_dirty_keys(delta);
 	}
 
 	/// Register stats from overlay of state machine.

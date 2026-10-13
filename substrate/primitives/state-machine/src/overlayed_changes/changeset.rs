@@ -748,6 +748,14 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 	pub fn take_delta(&mut self) -> storage_key_delta_tracker::DeltaKeys<K> {
 		self.storage_root_dirty_keys.take_delta()
 	}
+
+	/// Marks `key` as modified for PoV size estimation without changing its value.
+	///
+	/// Used for keys the storage root computation will touch that are not written through this
+	/// changeset, such as the roots of child tries stored in the main trie.
+	pub fn track_storage_root_key(&mut self, key: K, op: storage_key_delta_tracker::DeltaKeyOp) {
+		self.storage_root_dirty_keys.add_key(key, op);
+	}
 }
 
 impl OverlayedChangeSet {

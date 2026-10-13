@@ -790,6 +790,12 @@ where
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 	) {
+		let mut delta = delta.into_iter().collect::<Vec<_>>();
+		if delta.is_empty() {
+			return;
+		}
+		delta.sort();
+
 		let default_root = match child_info.child_type() {
 			ChildType::ParentKeyId => empty_child_trie_root::<sp_trie::LayoutV1<H>>(),
 		};
@@ -803,9 +809,6 @@ where
 			},
 		};
 		let mut eph = Ephemeral::new(self.backend_storage(), &mut write_overlay);
-
-		let mut delta = delta.into_iter().collect::<Vec<_>>();
-		delta.sort();
 
 		let (keys_to_be_read, keys_to_be_removed) = Self::partition_delta(delta);
 

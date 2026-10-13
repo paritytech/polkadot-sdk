@@ -1248,4 +1248,90 @@ mod tests {
 			estimate_top_only_change(&mut OverlayedChanges::default()),
 		);
 	}
+
+	#[test]
+	fn empty_child_delta_records_nothing() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend: TestBackend = (
+			Storage {
+				top: map![vec![1] => vec![1]],
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: map![vec![1] => vec![1]],
+						child_info: child_info.clone(),
+					}
+				],
+			},
+			StateVersion::default(),
+		)
+			.into();
+		let recorder = Recorder::<Blake2Hasher>::default();
+		let backend = TrieBackendBuilder::wrap(&backend).with_recorder(recorder.clone()).build();
+
+		backend.record_proof_for_child_dirty_keys(
+			&child_info,
+			core::iter::empty::<(&[u8], crate::DeltaKeyOp)>(),
+		);
+
+		assert_eq!(recorder.estimate_encoded_size(), 0);
+	}
+
+	fn assert_storage_root_does_not_change_proof(
+		backend: TestBackend,
+		apply_changes: impl FnOnce(&mut dyn Externalities),
+	) {
+		let recorder = Recorder::<Blake2Hasher>::default();
+		let backend = TrieBackendBuilder::wrap(&backend).with_recorder(recorder.clone()).build();
+		let mut overlay = Default::default();
+		let mut ext = Ext::new(&mut overlay, &backend, None);
+
+		apply_changes(&mut ext);
+		ext.record_proof_for_dirty_keys();
+		let size_before = recorder.estimate_encoded_size();
+
+		ext.storage_root(StateVersion::V1);
+		assert_eq!(size_before, recorder.estimate_encoded_size());
+	}
+
+	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof_when_child_is_created() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend = (
+			Storage {
+				top: (0..10000u32).map(|i| (i.encode(), vec![i; 100].encode())).collect(),
+				children_default: Default::default(),
+			},
+			StateVersion::default(),
+		)
+			.into();
+
+		assert_storage_root_does_not_change_proof(backend, |ext| {
+			ext.place_child_storage(&child_info, 1u32.encode(), Some(vec![30]));
+		});
+	}
+
+	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof_when_child_is_emptied() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let child_keys = (0..3u32).map(|i| i.encode()).collect::<Vec<_>>();
+		let backend = (
+			Storage {
+				top: (0..10000u32).map(|i| (i.encode(), vec![i; 100].encode())).collect(),
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: child_keys.iter().map(|k| (k.clone(), vec![30])).collect(),
+						child_info: child_info.clone(),
+					}
+				],
+			},
+			StateVersion::default(),
+		)
+			.into();
+
+		assert_storage_root_does_not_change_proof(backend, |ext| {
+			for key in &child_keys {
+				ext.place_child_storage(&child_info, key.clone(), None);
+			}
+		});
+	}
 }

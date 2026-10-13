@@ -362,15 +362,28 @@ impl<H: Hasher> OverlayedChanges<H> {
 		let extrinsic_index = self.extrinsic_index();
 		let size_write = val.as_ref().map(|x| x.len() as u64).unwrap_or(0);
 		self.stats.tally_write_overlay(size_write);
-		let storage_key = child_info.storage_key().to_vec();
+		let root_key_op = if val.is_some() { DeltaKeyOp::Updated } else { DeltaKeyOp::Deleted };
+		let changeset = self.child_changeset(child_info);
+		changeset.set(key, val, extrinsic_index);
+		self.track_child_root_key(child_info, root_key_op);
+	}
+
+	fn child_changeset(&mut self, child_info: &ChildInfo) -> &mut OverlayedChangeSet {
 		let top = &self.top;
 		let (changeset, info) = self
 			.children
-			.entry(storage_key)
+			.entry(child_info.storage_key().to_vec())
 			.or_insert_with(|| (top.spawn_child(), child_info.clone()));
 		let updatable = info.try_update(child_info);
 		debug_assert!(updatable);
-		changeset.set(key, val, extrinsic_index);
+		changeset
+	}
+
+	/// The child root lives in the main trie, so changing the child changes that key too. Only a
+	/// write with a value proves the child stays non-empty; otherwise assume its root is removed.
+	fn track_child_root_key(&mut self, child_info: &ChildInfo, op: DeltaKeyOp) {
+		self.top
+			.track_storage_root_key(child_info.prefixed_storage_key().into_inner(), op);
 	}
 
 	/// Clear child storage of given storage key.
@@ -380,15 +393,10 @@ impl<H: Hasher> OverlayedChanges<H> {
 		self.mark_dirty();
 
 		let extrinsic_index = self.extrinsic_index();
-		let storage_key = child_info.storage_key().to_vec();
-		let top = &self.top;
-		let (changeset, info) = self
-			.children
-			.entry(storage_key)
-			.or_insert_with(|| (top.spawn_child(), child_info.clone()));
-		let updatable = info.try_update(child_info);
-		debug_assert!(updatable);
-		changeset.clear_where(|_, _| true, extrinsic_index)
+		let changeset = self.child_changeset(child_info);
+		let cleared = changeset.clear_where(|_, _| true, extrinsic_index);
+		self.track_child_root_key(child_info, DeltaKeyOp::Deleted);
+		cleared
 	}
 
 	/// Removes all key-value pairs which keys share the given prefix.
@@ -408,15 +416,10 @@ impl<H: Hasher> OverlayedChanges<H> {
 		self.mark_dirty();
 
 		let extrinsic_index = self.extrinsic_index();
-		let storage_key = child_info.storage_key().to_vec();
-		let top = &self.top;
-		let (changeset, info) = self
-			.children
-			.entry(storage_key)
-			.or_insert_with(|| (top.spawn_child(), child_info.clone()));
-		let updatable = info.try_update(child_info);
-		debug_assert!(updatable);
-		changeset.clear_where(|key, _| key.starts_with(prefix), extrinsic_index)
+		let changeset = self.child_changeset(child_info);
+		let cleared = changeset.clear_where(|key, _| key.starts_with(prefix), extrinsic_index);
+		self.track_child_root_key(child_info, DeltaKeyOp::Deleted);
+		cleared
 	}
 
 	/// Returns the current nesting depth of the transaction stack.
@@ -688,12 +691,8 @@ impl<H: Hasher> OverlayedChanges<H> {
 	{
 		let snapshot = self.top.take_delta();
 
-		let child_snapshots: Vec<_> = self
-			.children
-			.values_mut()
-			.map(|(changeset, info)| (&*info, changeset.take_delta()))
-			.filter(|(_, delta)| !delta.is_empty())
-			.collect();
+		let child_snapshots: Vec<_> =
+			self.children.values_mut().map(|v| (&v.1, v.0.take_delta())).collect();
 
 		let delta = snapshot.values().map(|(k, op)| (&k[..], *op));
 		let child_delta = child_snapshots
@@ -1274,5 +1273,69 @@ mod tests {
 		let next_to_40 = overlay.child_iter_after(child, &[40]).next().unwrap();
 		assert_eq!(next_to_40.0.to_vec(), vec![50]);
 		assert_eq!(next_to_40.1.value(), Some(&vec![50]));
+	}
+
+	fn top_delta_op(
+		overlay: &mut OverlayedChanges<Blake2Hasher>,
+		key: &[u8],
+	) -> Option<DeltaKeyOp> {
+		overlay.top.take_delta().values().find(|(k, _)| k == key).map(|(_, op)| *op)
+	}
+
+	#[test]
+	fn child_write_reports_child_root_key_once_in_top_delta() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let root_key = child_info.prefixed_storage_key().into_inner();
+		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
+
+		overlay.set_child_storage(&child_info, vec![1], Some(vec![1]));
+		assert_eq!(top_delta_op(&mut overlay, &root_key), Some(DeltaKeyOp::Updated));
+
+		overlay.set_child_storage(&child_info, vec![2], Some(vec![2]));
+		assert_eq!(top_delta_op(&mut overlay, &root_key), None);
+
+		// The child may end up empty, so its root key may be removed from the main trie.
+		overlay.set_child_storage(&child_info, vec![1], None);
+		assert_eq!(top_delta_op(&mut overlay, &root_key), Some(DeltaKeyOp::Deleted));
+
+		overlay.set_child_storage(&child_info, vec![3], Some(vec![3]));
+		assert_eq!(top_delta_op(&mut overlay, &root_key), None);
+	}
+
+	#[test]
+	fn clearing_child_reports_child_root_key_as_deleted_in_top_delta() {
+		let clears: [fn(&mut OverlayedChanges<Blake2Hasher>, &ChildInfo); 2] = [
+			|overlay, child_info| {
+				overlay.clear_child_storage(child_info);
+			},
+			|overlay, child_info| {
+				overlay.clear_child_prefix(child_info, &[1]);
+			},
+		];
+		for clear in clears {
+			let child_info = ChildInfo::new_default(b"Child1");
+			let root_key = child_info.prefixed_storage_key().into_inner();
+			let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
+
+			clear(&mut overlay, &child_info);
+			assert_eq!(top_delta_op(&mut overlay, &root_key), Some(DeltaKeyOp::Deleted));
+		}
+	}
+
+	#[test]
+	fn rolled_back_child_write_does_not_report_child_root_key() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let root_key = child_info.prefixed_storage_key().into_inner();
+		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
+
+		overlay.start_transaction();
+		overlay.set_child_storage(&child_info, vec![1], Some(vec![1]));
+		overlay.rollback_transaction().unwrap();
+		assert_eq!(top_delta_op(&mut overlay, &root_key), None);
+
+		overlay.start_transaction();
+		overlay.set_child_storage(&child_info, vec![1], Some(vec![1]));
+		overlay.commit_transaction().unwrap();
+		assert_eq!(top_delta_op(&mut overlay, &root_key), Some(DeltaKeyOp::Updated));
 	}
 }
