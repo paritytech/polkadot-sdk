@@ -1,0 +1,61 @@
+title: 'pallet-proxy: add try_state invariant checks and sort the Proxies map'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    In the new `try_state` hook, several storage invariants for the pallet are checked,
+    with consideration for future use as an oracle in pallet fuzzing campaigns. The three
+    deposit checks warn by default and become hard errors under a new `fuzzing` feature,
+    since a live chain can legally hold a stale deposit or an announcement left behind by
+    an account migration, neither of which a campaign can produce.
+
+    The sortedness invariant found live state that breaks it: some `Proxies` entries on the
+    Polkadot, Kusama and Westend Asset Hubs are unsorted, so `binary_search` misses a
+    delegate that is present, leaving the owner unable to remove that proxy or recover its
+    deposit while `add_proxy` adds a duplicate instead of failing with `Duplicate`. The
+    pallet now declares a storage version and adds `migrations::MigrateV0ToV1`, which sorts
+    each entry and drops exact duplicates. Deposits are left as they are, a deduplicated
+    entry pricing below its deposit until `poke_deposit` corrects it.
+
+    `MigrateV0ToV1` is a multi-block migration, one entry per step, so it belongs in
+    `pallet_migrations::Config::Migrations` rather than in a runtime's single-block
+    migration tuple: the map is large enough on the Asset Hubs (4,455 entries on Polkadot,
+    262.2 KiB of proof) that walking it in one block is worth avoiding. It is added to the
+    live runtimes in this repository that both use the pallet and run multi-block
+    migrations, namely Westend, Asset Hub Westend and People Westend. Collectives Westend
+    and Coretime Westend have no multi-block migration runner and so cannot take it yet,
+    and the Rococo runtimes are skipped because that testnet is retired. The Polkadot and
+    Kusama Asset Hub runtimes live in `polkadot-fellows/runtimes` and can take it once this
+    is released.
+
+    Two breaking changes come with it, hence the major bump: `WeightInfo` gains a required
+    `migrate_v0_to_v1_step` method, and `migrations::MigrateV0ToV1` is now a struct
+    implementing `SteppedMigration` rather than an alias for a `VersionedMigration`.
+- audience: Runtime User
+  description: |-
+    Accounts whose proxy list was stored out of order can add and remove proxies again once
+    the migration has walked past their entry. A list that held a duplicate is then one
+    entry shorter than the deposit recorded for it, and `poke_deposit` returns the
+    difference.
+
+crates:
+- name: pallet-proxy
+  bump: major
+- name: westend-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: pallet-staking-async-rc-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: patch
