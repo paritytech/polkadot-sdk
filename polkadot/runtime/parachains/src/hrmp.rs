@@ -519,7 +519,10 @@ pub mod pallet {
 		/// The channel can be opened only after the recipient confirms it and only on a session
 		/// change.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::hrmp_init_open_channel())]
+		#[pallet::weight(
+			<T as Config>::WeightInfo::hrmp_init_open_channel()
+				.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
+		)]
 		pub fn hrmp_init_open_channel(
 			origin: OriginFor<T>,
 			recipient: ParaId,
@@ -540,7 +543,10 @@ pub mod pallet {
 		///
 		/// The channel will be opened only on the next session boundary.
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::hrmp_accept_open_channel())]
+		#[pallet::weight(
+			<T as Config>::WeightInfo::hrmp_accept_open_channel()
+				.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
+		)]
 		pub fn hrmp_accept_open_channel(origin: OriginFor<T>, sender: ParaId) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
 			// `OpenChannelAccepted` is emitted once the deposit is set and the request confirmed.
@@ -651,7 +657,10 @@ pub mod pallet {
 		/// Total number of open requests (i.e. `HrmpOpenChannelRequestsList`) must be provided as
 		/// witness data.
 		#[pallet::call_index(6)]
-		#[pallet::weight(<T as Config>::WeightInfo::hrmp_cancel_open_request(*open_requests))]
+		#[pallet::weight(
+			<T as Config>::WeightInfo::hrmp_cancel_open_request(*open_requests)
+				.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
+		)]
 		pub fn hrmp_cancel_open_request(
 			origin: OriginFor<T>,
 			channel_id: HrmpChannelId,
@@ -677,7 +686,11 @@ pub mod pallet {
 		///
 		/// Origin must be the `ChannelManager`.
 		#[pallet::call_index(7)]
-		#[pallet::weight(<T as Config>::WeightInfo::force_open_hrmp_channel(1))]
+		#[pallet::weight(
+			// A cancel, an init and an accept each ask the provider.
+			<T as Config>::WeightInfo::force_open_hrmp_channel(1)
+				.saturating_add(T::DepositProvider::weight_of_try_set_deposit().saturating_mul(3))
+		)]
 		pub fn force_open_hrmp_channel(
 			origin: OriginFor<T>,
 			sender: ParaId,
@@ -768,7 +781,10 @@ pub mod pallet {
 		///
 		/// Any signed origin can call this function.
 		#[pallet::call_index(9)]
-		#[pallet::weight(<T as Config>::WeightInfo::poke_channel_deposits())]
+		#[pallet::weight(
+			<T as Config>::WeightInfo::poke_channel_deposits()
+				.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
+		)]
 		pub fn poke_channel_deposits(
 			origin: OriginFor<T>,
 			sender: ParaId,
@@ -891,6 +907,7 @@ impl<T: Config> Pallet<T> {
 		let w1 = Self::perform_outgoing_para_cleanup(&notification.prev_config, outgoing_paras);
 		Self::process_hrmp_open_channel_requests(&notification.prev_config);
 		Self::process_hrmp_close_channel_requests();
+		// TODO(ahm-v2): add `DepositProvider::weight_of_try_set_deposit` per release made above.
 		w1.saturating_add(<T as Config>::WeightInfo::force_process_hrmp_open(
 			outgoing_paras.len() as u32
 		))

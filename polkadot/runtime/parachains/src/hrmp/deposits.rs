@@ -42,6 +42,10 @@ pub trait ChannelDepositProvider {
 	fn try_set_deposit(
 		request: DepositChangeRequest,
 	) -> Result<DepositChangeResponse, DispatchError>;
+
+	/// Upper bound of what [`Self::try_set_deposit`] spends on top of what the calls' benchmarks
+	/// measure with the in-pallet provider, e.g. sending a message.
+	fn weight_of_try_set_deposit() -> Weight;
 }
 
 /// Receives the outcome of a pending [`DepositChangeRequest`].
@@ -92,9 +96,8 @@ pub struct DepositChange {
 pub enum DepositChangeResponse {
 	/// The request is applied. The action resumes right away.
 	Applied,
-	/// The request is accepted and its outcome is reported through [`OnDepositSet`]. `weight` is
-	/// what accepting it cost on top of the call's own weight, e.g. sending a message.
-	Pending { weight: Weight },
+	/// The request is accepted and its outcome is reported through [`OnDepositSet`].
+	Pending,
 }
 
 /// The action a [`DepositChangeRequest`] resumes once the deposits are changed.
@@ -131,19 +134,26 @@ impl<T: Config> ChannelDepositProvider for Pallet<T> {
 		}
 		Ok(DepositChangeResponse::Applied)
 	}
+
+	fn weight_of_try_set_deposit() -> Weight {
+		// Measured by the calls' benchmarks.
+		Weight::zero()
+	}
 }
 
 impl<T: Config> OnDepositSet for Pallet<T> {
 	fn on_deposit_set(request: DepositChangeRequest, result: Result<(), DepositError>) {
 		match result {
 			Ok(()) => Self::resume(&request),
-			// TODO(ahm-v2): emit an event (later on hrmp_relay) so the para learns its deposit was refused.
+			// TODO(ahm-v2): emit an event (later on hrmp_relay) so the para learns its deposit was
+			// refused.
 			Err(e) => {
 				log::warn!(target: LOG_TARGET, "deposit refused: {e:?}, request: {request:?}")
 			},
 		}
-		// TODO(ahm-v2): the report arrives through xcm message so the weight of resuming is registered here:
-		// per action, the weight of the call it belongs to. Zero for now as no async provider.
+		// TODO(ahm-v2): the report arrives through xcm message so the weight of resuming is
+		// registered here: per action, the weight of the call it belongs to. Zero for now as no
+		// async provider.
 		frame_system::Pallet::<T>::register_extra_weight_unchecked(
 			Weight::zero(),
 			DispatchClass::Normal,
@@ -168,11 +178,16 @@ impl<T: Config> Pallet<T> {
 	/// applied it right away. A pending request resumes in [`OnDepositSet::on_deposit_set`]
 	/// instead. Fails only if the provider refuses the request right away.
 	pub(super) fn set_deposit(request: DepositChangeRequest) -> DispatchResult {
+		// Nothing to change, e.g. on a channel with the system, needs no provider.
+		let unchanged =
+			|change: Option<DepositChange>| change.is_none_or(|c| c.current == c.target);
+		if unchanged(request.sender) && unchanged(request.recipient) {
+			Self::resume(&request);
+			return Ok(());
+		}
 		match T::DepositProvider::try_set_deposit(request.clone())? {
 			DepositChangeResponse::Applied => Self::resume(&request),
-			// TODO(ahm-v2): the calls add the provider's worst case to their declared weight and
-			// report `weight` as spent on top of their own.
-			DepositChangeResponse::Pending { weight: _ } => {},
+			DepositChangeResponse::Pending => {},
 		}
 		Ok(())
 	}
