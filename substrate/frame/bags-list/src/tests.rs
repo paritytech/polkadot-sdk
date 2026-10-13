@@ -1228,13 +1228,9 @@ mod on_idle {
 
 	#[test]
 	fn cursor_handles_account_present_in_both_pending_and_list() {
-		// An account can legitimately end up in both `PendingRebag` and `ListNodes` at once: it
-		// first joins while the pallet is locked (queued to `PendingRebag` only), then a second,
-		// independent `on_insert` for the same id lands after the pallet unlocks (e.g. the
-		// staking pallet's `do_add_nominator`/`do_add_validator` each guard `on_insert` on their
-		// own, role-specific storage map, not on whether the account already has a pending or
-		// real bags-list entry) and inserts it into `ListNodes` directly, leaving the stale
-		// `PendingRebag` entry untouched.
+		// An account can end up in both `PendingRebag` and `ListNodes` at once: it joins while
+		// locked (queued to `PendingRebag`), then a second `on_insert` after unlock inserts it
+		// into `ListNodes` directly, leaving the stale `PendingRebag` entry untouched.
 		ExtBuilder::default().skip_genesis_ids().build_and_execute(|| {
 			<Runtime as Config>::MaxAutoRebagPerBlock::set(1);
 
@@ -1248,12 +1244,8 @@ mod on_idle {
 			assert!(PendingRebag::<Runtime>::contains_key(&5));
 			assert!(List::<Runtime>::contains(&5));
 
-			// Budget of 1: the loop processes exactly the `PendingRebag`-sourced copy of 5 (which
-			// removes it from `PendingRebag`) and stops. `accounts[1]` is the `ListNodes`-sourced
-			// copy of that same account 5 — a position-based cursor can save it without panicking
-			// via the old value-based `find`, which would have matched it as a "regular" account
-			// (no longer in `PendingRebag`) already present in the processed prefix, and killed
-			// the cursor via `defensive!`, panicking in this debug build.
+			// Budget of 1: the loop processes the `PendingRebag`-sourced copy of 5 and stops,
+			// leaving the `ListNodes`-sourced copy at `accounts[1]` unprocessed.
 			run_to_block(1, Weight::MAX);
 
 			assert!(!PendingRebag::<Runtime>::contains_key(&5));

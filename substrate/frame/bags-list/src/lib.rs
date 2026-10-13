@@ -541,22 +541,9 @@ pub mod pallet {
 				}
 			}
 
-			// Whatever the count budget, the weight meter, or a lock stopped the loop from
-			// getting to is exactly where the cursor must resume from next time. Only regular
-			// ListNodes accounts are tracked, not PendingRebag — and the pending segment is
-			// `accounts[..pending_len]` by construction, so the first candidate resumption point
-			// is whichever of `processed`/`pending_len` is further along.
-			//
-			// This is a pure index computation, not a value-based scan: an account can
-			// legitimately appear in both `PendingRebag` and `ListNodes` at once (e.g. it
-			// nominates while the pallet is locked, queuing it to `PendingRebag` only, then
-			// validates after it unlocks, inserting it into `ListNodes` directly while the stale
-			// `PendingRebag` entry is still there). A scan keyed on "is this account currently in
-			// `PendingRebag`" would read storage for every skipped candidate — an uncharged read
-			// not covered by `overhead` — and could resolve to the `ListNodes` copy of an account
-			// already processed via its `PendingRebag` copy, wrongly treating that as the same
-			// node being re-encountered. Indexing by position reads nothing and can't repeat a
-			// position already covered by `processed`/`pending_len`.
+			// Resume at the first regular (non-pending) account the loop didn't reach yet.
+			// Pending accounts sort first in `accounts`, so that's whichever of `processed` /
+			// `pending_len` is further along.
 			let next_index = core::cmp::max(processed as usize, pending_len);
 
 			match accounts.get(next_index) {
