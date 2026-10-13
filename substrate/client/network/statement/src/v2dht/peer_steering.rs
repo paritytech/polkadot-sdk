@@ -133,6 +133,11 @@ impl PeerSteering {
 		self.desired = peers.into_iter().collect();
 	}
 
+	/// Whether `peer` is needed to cover the node's subscriptions.
+	pub(crate) fn is_desired(&self, peer: &PeerId) -> bool {
+		self.desired.contains(peer)
+	}
+
 	// === Reconciliation ===
 
 	/// Desired peers without an open connection.

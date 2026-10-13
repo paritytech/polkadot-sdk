@@ -380,6 +380,19 @@ impl V2DhtOrchestrator {
 		self.peer_steering.refresh_connections(network);
 	}
 
+	/// Whether `peer` is held in the statement protocol's reserved set by peer steering.
+	pub(crate) fn is_steered(&self, peer: &PeerId) -> bool {
+		self.peer_steering.is_desired(peer)
+	}
+
+	#[cfg(test)]
+	pub(crate) fn update_peers_needing_connections(
+		&mut self,
+		peers: impl IntoIterator<Item = PeerId>,
+	) {
+		self.peer_steering.update_peers_needing_connections(peers);
+	}
+
 	pub(crate) fn evict_stale_peers(&mut self) {
 		if self.peers_topology.evict(Instant::now()) {
 			self.publish_dht_affinity();

@@ -555,9 +555,10 @@ impl StatementHandlerPrototype {
 		let default_set = &network_config.default_peers_set;
 		let in_peers_light = (default_set.in_peers + default_set.out_peers)
 			.saturating_sub(network_config.default_peers_set_num_full);
-		// The v2 DHT topology dials peers outside the sync set, so it needs non-reserved slots.
-		// The v1 path manages its peers exclusively through the reserved set: it must keep
-		// non-reserved slots closed, or sync recovery's forced disconnect stops disconnecting.
+		// The v2 DHT path reserves only the peers that steering picks, every other peer holds a
+		// non-reserved slot. The v1 path manages its peers exclusively through the reserved set:
+		// it must keep non-reserved slots closed, or sync recovery's forced disconnect stops
+		// disconnecting.
 		let set_config = if v2dht_enabled() {
 			SetConfig {
 				in_peers: V2_DHT_IN_PEERS_FULL + in_peers_light,
@@ -740,7 +741,6 @@ impl StatementHandlerPrototype {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
-			reserved_peers: HashSet::new(),
 			in_peers_light: self.in_peers_light,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -828,9 +828,6 @@ pub struct StatementHandler<
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set
 	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
-	/// Mirror of the statement protocol's reserved set, which only the sync-event handlers
-	/// change. A reserved peer holds no inbound slot.
-	reserved_peers: HashSet<PeerId>,
 	/// Inbound slots for light peers, next to [`V2_DHT_IN_PEERS_FULL`] for full peers.
 	in_peers_light: u32,
 	/// Set to `true` when an incoming statement is dropped because `is_major_syncing()` is true
@@ -1253,7 +1250,6 @@ where
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
-			reserved_peers: HashSet::new(),
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -1478,17 +1474,17 @@ where
 			self.deferred_peers.len(),
 		);
 
-		let peers: Vec<PeerId> = self.deferred_peers.drain().collect();
-		let addrs: HashSet<multiaddr::Multiaddr> = peers
-			.iter()
+		let addrs: HashSet<multiaddr::Multiaddr> = self
+			.deferred_peers
+			.drain()
 			.map(|p| {
-				iter::once(multiaddr::Protocol::P2p((*p).into())).collect::<multiaddr::Multiaddr>()
+				iter::once(multiaddr::Protocol::P2p(p.into())).collect::<multiaddr::Multiaddr>()
 			})
 			.collect();
 
-		match self.network.add_peers_to_reserved_set(self.protocol_name.clone(), addrs) {
-			Ok(()) => self.reserved_peers.extend(peers),
-			Err(err) => log::warn!(target: LOG_TARGET, "Failed to add deferred peers: {err}"),
+		if let Err(err) = self.network.add_peers_to_reserved_set(self.protocol_name.clone(), addrs)
+		{
+			log::warn!(target: LOG_TARGET, "Failed to add deferred peers: {err}");
 		}
 	}
 
@@ -1497,10 +1493,9 @@ where
 	/// performs a fresh initial sync, delivering any statements that were dropped while the
 	/// `is_major_syncing` guard was active.
 	///
-	/// With the v2 DHT path on, only a v1 peer's drop leads here, so only a v1 peer is picked. Its
-	/// set keeps non-reserved slots open, so leaving the reserved set alone keeps the peer
-	/// connected; the substream is closed explicitly afterwards, as litep2p ignores a disconnect
-	/// of a reserved peer.
+	/// With the v2 DHT path on, only a v1 peer's drop leads here, so only a v1 peer is picked. The
+	/// peer is not reserved, so its substream is closed directly and the peer, which holds this
+	/// node in its own reserved set, reconnects on its own.
 	fn start_sync_recovery(&mut self) {
 		if !self.dropped_statements_during_sync {
 			return;
@@ -1528,16 +1523,17 @@ where
 			"Major sync complete, force-reconnecting {peer_id} for statement recovery",
 		);
 
+		if v2dht_enabled() {
+			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
+			return;
+		}
+
 		if let Err(err) = self.network.remove_peers_from_reserved_set(
 			self.protocol_name.clone(),
 			iter::once(peer_id).collect(),
 		) {
 			log::warn!(target: LOG_TARGET, "Failed to remove peer {peer_id} for sync recovery: {err}");
 			return;
-		}
-		self.reserved_peers.remove(&peer_id);
-		if v2dht_enabled() {
-			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
 		}
 
 		self.sync_recovery_peer = Some(peer_id);
@@ -1554,33 +1550,27 @@ where
 		);
 		let addr =
 			iter::once(multiaddr::Protocol::P2p(peer_id.into())).collect::<multiaddr::Multiaddr>();
-		match self
+		if let Err(err) = self
 			.network
 			.add_peers_to_reserved_set(self.protocol_name.clone(), iter::once(addr).collect())
 		{
-			Ok(()) => {
-				self.reserved_peers.insert(peer_id);
-			},
-			Err(err) => {
-				log::warn!(target: LOG_TARGET, "Failed to re-add sync recovery peer {peer_id}: {err}");
-			},
+			log::warn!(target: LOG_TARGET, "Failed to re-add sync recovery peer {peer_id}: {err}");
 		}
 	}
 
 	/// Whether an inbound substream from `peer` fits its role's quota.
 	///
 	/// The protocol controller counts the full and light slots together, so the split by role
-	/// happens here, as in the sync engine. A reserved peer holds no slot there either.
+	/// happens here, as in the sync engine. A steered peer is reserved and holds no slot there
+	/// either.
 	fn inbound_slot_free(&self, peer: &PeerId, is_light: bool) -> bool {
-		if self.reserved_peers.contains(peer) {
+		if self.v2dht.is_steered(peer) {
 			return true;
 		}
 		let taken = self
 			.peers
 			.iter()
-			.filter(|(id, p)| {
-				p.inbound && p.is_light == is_light && !self.reserved_peers.contains(id)
-			})
+			.filter(|(id, p)| p.inbound && p.is_light == is_light && !self.v2dht.is_steered(id))
 			.count();
 		let limit = if is_light { self.in_peers_light } else { V2_DHT_IN_PEERS_FULL } as usize;
 		if taken >= limit {
@@ -1601,7 +1591,13 @@ where
 	/// - On connect otherwise: add the peer to the reserved set.
 	/// - On disconnect: remove the peer from the reserved set, or from the deferred set if it never
 	///   joined.
+	///
+	/// With the v2 DHT path on, peer steering alone edits the reserved set and a sync peer holds
+	/// an ordinary slot, so the events are ignored.
 	fn handle_sync_event(&mut self, event: SyncEvent) {
+		if v2dht_enabled() {
+			return;
+		}
 		match event {
 			SyncEvent::PeerConnected { peer_id: remote, roles: _ } => {
 				if self.sync.is_major_syncing() {
@@ -1618,20 +1614,14 @@ where
 					self.protocol_name.clone(),
 					iter::once(addr).collect(),
 				);
-				match result {
-					Ok(()) => {
-						self.reserved_peers.insert(remote);
-					},
-					Err(err) => {
-						log::error!(target: LOG_TARGET, "Add reserved peer failed: {}", err);
-					},
+				if let Err(err) = result {
+					log::error!(target: LOG_TARGET, "Add reserved peer failed: {}", err);
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
 				if self.deferred_peers.remove(&remote) {
 					return;
 				}
-				self.reserved_peers.remove(&remote);
 				let result = self.network.remove_peers_from_reserved_set(
 					self.protocol_name.clone(),
 					iter::once(remote).collect(),
@@ -3463,7 +3453,6 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
-			reserved_peers: HashSet::new(),
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -4411,7 +4400,6 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
-			reserved_peers: HashSet::new(),
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -4479,7 +4467,6 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
-			reserved_peers: HashSet::new(),
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -6769,7 +6756,6 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
-			reserved_peers: HashSet::new(),
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -7275,7 +7261,6 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
-			reserved_peers: HashSet::new(),
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -7341,34 +7326,18 @@ mod tests {
 	}
 
 	#[test]
-	fn reserved_peers_hold_no_inbound_slot() {
+	fn steered_peers_hold_no_inbound_slot() {
 		let (mut handler, _store, _network, _notification_service, _, peer_ids) = build_handler(1);
 		handler.in_peers_light = 1;
 		handler.peers.get_mut(&peer_ids[0]).unwrap().is_light = true;
 		let candidate = PeerId::random();
 		assert!(!handler.inbound_slot_free(&candidate, true));
 
-		handler.reserved_peers.insert(candidate);
-		assert!(handler.inbound_slot_free(&candidate, true), "a reserved candidate always fits");
+		handler.v2dht.update_peers_needing_connections([candidate]);
+		assert!(handler.inbound_slot_free(&candidate, true), "a steered candidate always fits");
 
-		handler.reserved_peers.clear();
-		handler.reserved_peers.insert(peer_ids[0]);
-		assert!(handler.inbound_slot_free(&candidate, true), "a reserved peer is not counted");
-	}
-
-	#[test]
-	fn reserved_set_mirror_follows_sync_events() {
-		let (mut handler, _store, _network, _notification_service, _, _) = build_handler(0);
-		let peer = PeerId::random();
-
-		handler.handle_sync_event(SyncEvent::PeerConnected {
-			peer_id: peer,
-			roles: sc_network::Roles::FULL,
-		});
-		assert!(handler.reserved_peers.contains(&peer));
-
-		handler.handle_sync_event(SyncEvent::PeerDisconnected(peer));
-		assert!(!handler.reserved_peers.contains(&peer));
+		handler.v2dht.update_peers_needing_connections([peer_ids[0]]);
+		assert!(handler.inbound_slot_free(&candidate, true), "a steered peer is not counted");
 	}
 
 	#[test]
@@ -7423,7 +7392,6 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: deferred,
-			reserved_peers: HashSet::new(),
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -7446,8 +7414,6 @@ mod tests {
 
 		let added = network.get_added_reserved();
 		assert_eq!(added.len(), 1);
-		assert!(handler.reserved_peers.contains(&peer1));
-		assert!(handler.reserved_peers.contains(&peer2));
 		let added_addrs = &added[0];
 		let expected_addr1: sc_network::Multiaddr =
 			iter::once(multiaddr::Protocol::P2p(peer1.into())).collect();
@@ -7523,7 +7489,6 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
-			reserved_peers: HashSet::new(),
 			in_peers_light: 0,
 			dropped_statements_during_sync: true,
 			sync_recovery_peer: None,
@@ -7645,7 +7610,6 @@ mod tests {
 					parked_propagations: VecDeque::new(),
 					pending_sends: FuturesUnordered::new(),
 					deferred_peers: HashSet::new(),
-					reserved_peers: HashSet::new(),
 					in_peers_light: 0,
 					dropped_statements_during_sync: dropped,
 					sync_recovery_peer: None,
