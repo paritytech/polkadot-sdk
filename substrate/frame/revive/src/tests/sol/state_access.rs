@@ -20,15 +20,15 @@
 use crate::{
 	BalanceWithDust, Code, Config, Pallet,
 	access_list::{
-		Access, AccessEntry, CallItems, CodeLoadItems, StorageOp, TransferItems, merged_entries,
+		Access, AccessEntry, CallItems, CodeLoadItems, InstantiateItems, StorageOp, TransferItems,
+		merge_all,
 	},
-	call_builder::entry_of_key,
 	test_utils::{ALICE, ALICE_ADDR, builder::Contract},
 	tests::{ExtBuilder, Test, builder},
 };
 use alloy_core::sol_types::SolCall;
-use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{Callee, Caller, FixtureType, compile_module_with_type};
+use frame_support::traits::{StorageInfo, StorageInfoTrait, fungible::Mutate};
+use pallet_revive_fixtures::{Callee, Caller, Factory, FixtureType, compile_module_with_type};
 use pretty_assertions::assert_eq;
 use sp_core::{H160, H256};
 use sp_trie::recorder::Recorder;
@@ -43,6 +43,7 @@ struct DeployedContract {
 }
 
 /// What one operation read from the trie and wrote to the overlay.
+#[derive(Debug, PartialEq)]
 struct ReadsAndWrites {
 	/// Keys the access list tracks, as entries.
 	read: BTreeSet<AccessEntry>,
@@ -53,21 +54,44 @@ struct ReadsAndWrites {
 }
 
 impl ReadsAndWrites {
+	/// Builds the expected reads and writes from the declared `entries`.
+	fn declared(entries: BTreeMap<AccessEntry, StorageOp>) -> Self {
+		let written = entries
+			.iter()
+			.filter(|(_, op)| op.covers(StorageOp::Write))
+			.map(|(entry, _)| entry.clone())
+			.collect();
+		Self {
+			read: entries.into_keys().collect(),
+			written,
+			other_read: BTreeSet::new(),
+			other_written: BTreeSet::new(),
+		}
+	}
+
+	/// Moves `entry` from the reads to the writes, for a key the operation writes without
+	/// reading it first.
+	fn write_instead_of_read(&mut self, entry: AccessEntry) {
+		assert!(self.read.remove(&entry), "no declared read to move: {entry:?}");
+		self.written.insert(entry);
+	}
+
 	/// Splits recorded keys into the entries the access list tracks and labels for the rest,
 	/// dropping the keys a call is already charged for.
 	fn from_keys(read: &[Vec<u8>], written: &[Vec<u8>]) -> Self {
 		let covered = keys_the_benchmarks_cover();
+		let storage_items = crate::tests::AllPalletsWithSystem::storage_info();
 		let split = |keys: &[Vec<u8>]| {
 			let mut entries = BTreeSet::new();
 			let mut others = BTreeSet::new();
 			for key in keys {
-				match entry_of_key::<Test>(key) {
+				match AccessEntry::from_storage_key::<Test>(key) {
 					Some(entry) => {
 						entries.insert(entry);
 					},
 					None if covered.contains(key) => {},
 					None => {
-						others.insert(label_key(key));
+						others.insert(label_key(key, &storage_items));
 					},
 				}
 			}
@@ -96,14 +120,13 @@ fn keys_the_benchmarks_cover() -> BTreeSet<Vec<u8>> {
 
 /// Returns the name of a key as its pallet and storage item, or its raw bytes when no pallet
 /// claims it.
-fn label_key(key: &[u8]) -> String {
-	use frame_support::traits::StorageInfoTrait;
+fn label_key(key: &[u8], storage_items: &[StorageInfo]) -> String {
 	use sp_core::storage::well_known_keys::is_default_child_storage_key;
 	if is_default_child_storage_key(key) {
 		return "child trie root".to_string();
 	}
-	crate::tests::AllPalletsWithSystem::storage_info()
-		.into_iter()
+	storage_items
+		.iter()
 		.find(|info| key.starts_with(&info.prefix))
 		.map(|info| {
 			format!(
@@ -112,41 +135,41 @@ fn label_key(key: &[u8]) -> String {
 				String::from_utf8_lossy(&info.storage_name)
 			)
 		})
-		.unwrap_or_else(|| format!("{}", sp_core::hexdisplay::HexDisplay::from(&key)))
+		.unwrap_or_else(|| sp_core::hexdisplay::HexDisplay::from(&key).to_string())
 }
 
-/// Deploys both contracts, funds the caller, and commits, so that reading any of it afterwards
+/// Deploys one contract per code, funds them, and commits, so that reading any of it afterwards
 /// goes to the trie and is recorded.
-fn deploy_and_commit(
-	caller_code: &[u8],
-	target_code: &[u8],
-) -> (sp_io::TestExternalities, DeployedContract, DeployedContract) {
+fn deploy_contracts<const N: usize>(
+	contract_codes: [&[u8]; N],
+) -> (sp_io::TestExternalities, [DeployedContract; N]) {
 	let mut ext = ExtBuilder::default().build();
-	let (caller, target) = ext.execute_with(|| {
-		let deploy = |code: &[u8], salt: [u8; 32]| {
+	let contracts = ext.execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let mut salt = 0u8;
+		contract_codes.map(|code| {
+			salt += 1;
 			let Contract { addr, account_id } =
 				builder::bare_instantiate(Code::Upload(code.to_vec()))
-					.salt(Some(salt))
+					.salt(Some([salt; 32]))
 					.build_and_unwrap_contract();
+			// Funded so that a contract calling another one can move value.
+			let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000_000);
 			let code_hash = crate::tests::test_utils::get_contract(&addr).code_hash;
 			DeployedContract { addr, account_id, code_hash }
-		};
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let caller = deploy(caller_code, [1; 32]);
-		let _ = <Test as Config>::Currency::set_balance(&caller.account_id, 100_000_000_000);
-		(caller, deploy(target_code, [2; 32]))
+		})
 	});
 	ext.commit_all().unwrap();
-	(ext, caller, target)
+	(ext, contracts)
 }
 
 /// Runs `operation` on the committed state and returns what it read and wrote.
-fn reads_and_writes_of(
+fn reads_and_writes_of<R>(
 	ext: &mut sp_io::TestExternalities,
-	operation: impl FnOnce(),
-) -> ReadsAndWrites {
+	operation: impl FnOnce() -> R,
+) -> (ReadsAndWrites, R) {
 	let recorder = Recorder::<sp_core::Blake2Hasher>::default();
-	ext.execute_with_recorder(recorder.clone(), operation);
+	let outcome = ext.execute_with_recorder(recorder.clone(), operation);
 
 	let mut recorded = recorder.recorded_keys();
 	let read = recorded
@@ -165,7 +188,7 @@ fn reads_and_writes_of(
 	assert_eq!(ext.overlayed_changes().children().count(), 0);
 
 	// Mapping an account id back to its address reads `OriginalAccount`.
-	ext.execute_with(|| ReadsAndWrites::from_keys(&read, &written))
+	(ext.execute_with(|| ReadsAndWrites::from_keys(&read, &written)), outcome)
 }
 
 /// Returns the reads and writes of calling `caller` with `payload`, and the two deployed
@@ -173,11 +196,11 @@ fn reads_and_writes_of(
 fn reads_and_writes_of_call(
 	caller_code: &[u8],
 	target_code: &[u8],
-	payload: impl FnOnce(&DeployedContract, &DeployedContract) -> Vec<u8>,
+	payload: impl FnOnce(&DeployedContract) -> Vec<u8>,
 ) -> (ReadsAndWrites, DeployedContract, DeployedContract) {
-	let (mut ext, caller, target) = deploy_and_commit(caller_code, target_code);
-	let payload = payload(&caller, &target);
-	let reads_writes = reads_and_writes_of(&mut ext, || {
+	let (mut ext, [caller, target]) = deploy_contracts([caller_code, target_code]);
+	let payload = payload(&target);
+	let (reads_writes, ()) = reads_and_writes_of(&mut ext, || {
 		builder::bare_call(caller.addr).data(payload).build_and_unwrap_result();
 	});
 	(reads_writes, caller, target)
@@ -188,30 +211,24 @@ fn assert_only_declared_entries(
 	actual: &ReadsAndWrites,
 	expected: BTreeMap<AccessEntry, StorageOp>,
 ) {
-	assert_eq!(actual.read, expected.keys().cloned().collect::<BTreeSet<AccessEntry>>());
-	assert_eq!(
-		actual.written,
-		expected
-			.iter()
-			.filter(|(_, op)| matches!(op, StorageOp::Write))
-			.map(|(entry, _)| entry.clone())
-			.collect::<BTreeSet<AccessEntry>>(),
-	);
-	assert_eq!(actual.other_read, BTreeSet::new());
-	assert_eq!(actual.other_written, BTreeSet::new());
+	assert_eq!(*actual, ReadsAndWrites::declared(expected));
 }
 
 #[test_case(FixtureType::Solc;   "solc")]
 #[test_case(FixtureType::Resolc; "resolc")]
 fn the_top_frame_accesses_what_it_declares(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+	let (mut ext, [contract]) = deploy_contracts([code.as_slice()]);
 	// a call that reads no contract storage.
-	let (top_frame, contract, _) =
-		reads_and_writes_of_call(&code, &code, |_, _| Callee::whoSenderCall {}.abi_encode());
+	let (top_frame, ()) = reads_and_writes_of(&mut ext, || {
+		builder::bare_call(contract.addr)
+			.data(Callee::whoSenderCall {}.abi_encode())
+			.build_and_unwrap_result();
+	});
 
 	assert_only_declared_entries(
 		&top_frame,
-		merged_entries([
+		merge_all([
 			CallItems::new(contract.addr, false).entries(),
 			CodeLoadItems::new(contract.code_hash).entries(),
 		]),
@@ -222,10 +239,10 @@ fn the_top_frame_accesses_what_it_declares(fixture_type: FixtureType) {
 #[test_case(true;  "dust")]
 fn the_top_frame_moving_value_accesses_what_it_declares(dust: bool) {
 	let (code, _) = compile_module_with_type("DoNothingReceiver", FixtureType::Solc).unwrap();
-	let (mut ext, contract, _) = deploy_and_commit(&code, &code);
+	let (mut ext, [contract]) = deploy_contracts([code.as_slice()]);
 
 	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
-	let top_frame = reads_and_writes_of(&mut ext, || {
+	let (top_frame, ()) = reads_and_writes_of(&mut ext, || {
 		builder::bare_call(contract.addr)
 			.evm_value(Pallet::<Test>::convert_native_to_evm(value))
 			.build_and_unwrap_result();
@@ -233,7 +250,7 @@ fn the_top_frame_moving_value_accesses_what_it_declares(dust: bool) {
 
 	assert_only_declared_entries(
 		&top_frame,
-		merged_entries([
+		merge_all([
 			CallItems::new(contract.addr, false).entries(),
 			CodeLoadItems::new(contract.code_hash).entries(),
 			TransferItems { from: ALICE_ADDR, to: contract.addr, dust }.entries(),
@@ -252,7 +269,7 @@ fn a_nested_plain_call_accesses_what_it_declares(
 	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
 	let (target_code, _) = compile_module_with_type("Callee", target_type).unwrap();
 	let (accessed, caller, target) =
-		reads_and_writes_of_call(&caller_code, &target_code, |_, target| {
+		reads_and_writes_of_call(&caller_code, &target_code, |target| {
 			Caller::normalCall {
 				_callee: target.addr.0.into(),
 				_value: 0,
@@ -264,7 +281,7 @@ fn a_nested_plain_call_accesses_what_it_declares(
 
 	assert_only_declared_entries(
 		&accessed,
-		merged_entries([
+		merge_all([
 			CallItems::new(caller.addr, false).entries(),
 			CodeLoadItems::new(caller.code_hash).entries(),
 			CallItems::new(target.addr, false).entries(),
@@ -284,7 +301,7 @@ fn a_nested_delegate_call_accesses_what_it_declares(
 	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
 	let (target_code, _) = compile_module_with_type("Callee", target_type).unwrap();
 	let (accessed, caller, target) =
-		reads_and_writes_of_call(&caller_code, &target_code, |_, target| {
+		reads_and_writes_of_call(&caller_code, &target_code, |target| {
 			Caller::delegateCall {
 				_callee: target.addr.0.into(),
 				_data: Callee::echoCall { _data: 42 }.abi_encode().into(),
@@ -295,7 +312,7 @@ fn a_nested_delegate_call_accesses_what_it_declares(
 
 	assert_only_declared_entries(
 		&accessed,
-		merged_entries([
+		merge_all([
 			CallItems::new(caller.addr, false).entries(),
 			CodeLoadItems::new(caller.code_hash).entries(),
 			CallItems::new(target.addr, true).entries(),
@@ -315,7 +332,7 @@ fn a_nested_static_call_accesses_what_it_declares(
 	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
 	let (target_code, _) = compile_module_with_type("Callee", target_type).unwrap();
 	let (accessed, caller, target) =
-		reads_and_writes_of_call(&caller_code, &target_code, |_, target| {
+		reads_and_writes_of_call(&caller_code, &target_code, |target| {
 			Caller::staticCallCall {
 				_callee: target.addr.0.into(),
 				_data: Callee::echoCall { _data: 42 }.abi_encode().into(),
@@ -326,7 +343,7 @@ fn a_nested_static_call_accesses_what_it_declares(
 
 	assert_only_declared_entries(
 		&accessed,
-		merged_entries([
+		merge_all([
 			CallItems::new(caller.addr, false).entries(),
 			CodeLoadItems::new(caller.code_hash).entries(),
 			CallItems::new(target.addr, false).entries(),
@@ -347,7 +364,7 @@ fn a_nested_value_call_accesses_what_it_declares(
 	let (target_code, _) = compile_module_with_type("DoNothingReceiver", target_type).unwrap();
 	let value = BalanceWithDust::new_unchecked::<Test>(1, 0);
 	let (accessed, caller, target) =
-		reads_and_writes_of_call(&caller_code, &target_code, |_, target| {
+		reads_and_writes_of_call(&caller_code, &target_code, |target| {
 			Caller::normalCall {
 				_callee: target.addr.0.into(),
 				_value: Pallet::<Test>::convert_native_to_evm(value).low_u64(),
@@ -359,7 +376,7 @@ fn a_nested_value_call_accesses_what_it_declares(
 
 	assert_only_declared_entries(
 		&accessed,
-		merged_entries([
+		merge_all([
 			CallItems::new(caller.addr, false).entries(),
 			CodeLoadItems::new(caller.code_hash).entries(),
 			CallItems::new(target.addr, false).entries(),
@@ -367,6 +384,74 @@ fn a_nested_value_call_accesses_what_it_declares(
 			TransferItems { from: caller.addr, to: target.addr, dust: false }.entries(),
 		]),
 	);
+}
+
+#[test_case(FixtureType::Solc;   "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
+	let (factory_code, _) = compile_module_with_type("Factory", fixture_type).unwrap();
+	let child_code_uploaded_up_front = fixture_type == FixtureType::Resolc;
+	let (mut ext, [factory]) = deploy_contracts([factory_code.as_slice()]);
+	if child_code_uploaded_up_front {
+		// resolc creates the child from an uploaded blob; solc stores the code on the create.
+		let (child_code, _) = compile_module_with_type("ReceivingChild", fixture_type).unwrap();
+		ext.execute_with(|| {
+			crate::Pallet::<Test>::upload_code(
+				crate::tests::RuntimeOrigin::signed(ALICE.clone()),
+				child_code,
+				<crate::BalanceOf<Test>>::MAX,
+			)
+			.unwrap();
+		});
+		ext.commit_all().unwrap();
+	}
+
+	let (accessed, child) = reads_and_writes_of(&mut ext, || {
+		let result = builder::bare_call(factory.addr)
+			.data(Factory::createCall {}.abi_encode())
+			.build_and_unwrap_result();
+		let created = Factory::createCall::abi_decode_returns(&result.data).unwrap();
+		H160::from_slice(created.as_slice())
+	});
+	let child_hash = ext.execute_with(|| crate::tests::test_utils::get_contract(&child).code_hash);
+
+	let mut expected = ReadsAndWrites::declared(merge_all([
+		CallItems::new(factory.addr, false).entries(),
+		CodeLoadItems::new(factory.code_hash).entries(),
+		InstantiateItems { address: child, deployer: factory.addr }.entries(),
+		CodeLoadItems::with_info_op(child_hash, StorageOp::Write).entries(),
+	]));
+	// Warmed by InstantiateItems, never read: seal_instantiate and evm_instantiate pay for it.
+	expected.read.remove(&AccessEntry::OriginalAccount { address: child });
+	// Never warmed: every signed transaction already reads and writes the signer's account.
+	expected.read.insert(AccessEntry::Account { address: ALICE_ADDR });
+	expected.written.insert(AccessEntry::Account { address: ALICE_ADDR });
+
+	if !child_code_uploaded_up_front {
+		// The list does not track this write: the create stores the code and is billed cold.
+		expected.write_instead_of_read(AccessEntry::CodeBlob { hash: child_hash });
+	}
+
+	// The deposit entries, which are not tracked by the access list and always paid cold.
+	let mut deposit_items = BTreeSet::from(
+		[
+			"Assets::Account",
+			"Assets::Asset",
+			"AssetsFreezer::Freezes",
+			"AssetsFreezer::FrozenBalances",
+			"Balances::Holds",
+			"Contracts::NativeDepositOf",
+		]
+		.map(String::from),
+	);
+	if !child_code_uploaded_up_front {
+		// The code deposit sits on the pallet's own account.
+		deposit_items.insert("System::Account".into());
+	}
+
+	expected.other_read = deposit_items.clone();
+	expected.other_written = deposit_items;
+	assert_eq!(accessed, expected);
 }
 
 #[test_case(false; "no dust")]
@@ -377,19 +462,21 @@ fn a_transfer_accesses_what_it_declares(dust: bool) {
 
 	let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
 	let (target_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
-	let (mut ext, from, to) = deploy_and_commit(&caller_code, &target_code);
+	let (mut ext, [from, to]) = deploy_contracts([caller_code.as_slice(), target_code.as_slice()]);
 
 	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
-	let reads_writes = reads_and_writes_of(&mut ext, || {
+	let (reads_writes, ()) = reads_and_writes_of(&mut ext, || {
 		transfer_with_dust::<Test>(&from.account_id, &to.account_id, value, Preservation::Preserve)
 			.unwrap();
 	});
 
 	let mut expected = TransferItems { from: from.addr, to: to.addr, dust }.entries();
 	if !dust {
-		// A dust-free transfer never touches the receiver's info. The access names it either way,
-		// which costs only a hot touch since `CallItems` already named that entry.
-		expected.remove(&AccessEntry::AccountInfo { address: to.addr });
+		// The access has the receiver's info; a dust-free transfer never touches it.
+		assert!(
+			expected.remove(&AccessEntry::AccountInfo { address: to.addr }).is_some(),
+			"the transfer no longer has the receiver's info",
+		);
 	}
 	assert_only_declared_entries(&reads_writes, expected);
 }

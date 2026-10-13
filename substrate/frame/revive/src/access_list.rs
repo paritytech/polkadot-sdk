@@ -439,10 +439,7 @@ impl AccessEntry {
 			KeyFamily::Address => Self::CodeInfo { hash: H256::from_low_u64_be(index as u64) },
 		}
 	}
-}
 
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-impl AccessEntry {
 	/// Returns the storage key behind the entry.
 	pub fn storage_key<T: crate::Config>(&self) -> Option<Vec<u8>> {
 		match self {
@@ -460,6 +457,41 @@ impl AccessEntry {
 			// Child-trie slots have no fixed key here.
 			Self::Storage(_) => None,
 		}
+	}
+
+	/// Returns the entry for a main-trie key.
+	/// Returns `None` for a malformed key, or one of a map the access list does not track.
+	#[cfg(test)]
+	pub fn from_storage_key<T: crate::Config>(key: &[u8]) -> Option<Self> {
+		use frame_support::storage::StoragePrefixedMap;
+
+		let address =
+			|tail: &[u8]| (tail.len() == H160::len_bytes()).then(|| H160::from_slice(tail));
+		let hash = |tail: &[u8]| (tail.len() == H256::len_bytes()).then(|| H256::from_slice(tail));
+
+		if let Some(tail) = key.strip_prefix(&frame_system::Account::<T>::final_prefix()) {
+			use frame_support::{Blake2_128Concat, ReversibleStorageHasher};
+			let mut encoded = Blake2_128Concat::reverse(tail);
+			let account_id = <T::AccountId as codec::Decode>::decode(&mut encoded).ok()?;
+			let entry = Self::Account {
+				address: <T::AddressMapper as crate::AddressMapper<T>>::to_address(&account_id),
+			};
+			// Keep the entry only when the address maps back: an unmapped account does not.
+			return (entry.storage_key::<T>().as_deref() == Some(key)).then_some(entry);
+		}
+		if let Some(tail) = key.strip_prefix(&crate::OriginalAccount::<T>::final_prefix()) {
+			return Some(Self::OriginalAccount { address: address(tail)? });
+		}
+		if let Some(tail) = key.strip_prefix(&crate::AccountInfoOf::<T>::final_prefix()) {
+			return Some(Self::AccountInfo { address: address(tail)? });
+		}
+		if let Some(tail) = key.strip_prefix(&crate::CodeInfoOf::<T>::final_prefix()) {
+			return Some(Self::CodeInfo { hash: hash(tail)? });
+		}
+		if let Some(tail) = key.strip_prefix(&crate::PristineCode::<T>::final_prefix()) {
+			return Some(Self::CodeBlob { hash: hash(tail)? });
+		}
+		None
 	}
 }
 
@@ -532,30 +564,36 @@ pub trait Access {
 	{
 		let mut entries = BTreeMap::new();
 		self.expand(|entry, op| {
-			let charged = entries.entry(entry).or_insert(op);
-			if !charged.covers(op) {
-				*charged = op;
-			}
+			insert_or_update(&mut entries, entry, op);
 			Warmth::cold_non_revertible()
 		});
 		entries
 	}
 }
 
-/// Merges the entries of several accesses. When more than one names an entry, a write wins over
-/// a read.
+/// Inserts or updates `entry` with `op`.
 #[cfg(test)]
-pub fn merged_entries(
-	entries: impl IntoIterator<Item = BTreeMap<AccessEntry, StorageOp>>,
-) -> BTreeMap<AccessEntry, StorageOp> {
-	let mut merged = BTreeMap::new();
-	for (entry, op) in entries.into_iter().flatten() {
-		let charged = merged.entry(entry).or_insert(op);
-		if !charged.covers(op) {
-			*charged = op;
-		}
+fn insert_or_update(
+	all_entries: &mut BTreeMap<AccessEntry, StorageOp>,
+	entry: AccessEntry,
+	op: StorageOp,
+) {
+	let charged = all_entries.entry(entry).or_insert(op);
+	if !charged.covers(op) {
+		*charged = op;
 	}
-	merged
+}
+
+/// Merges the entries of several accesses into one map.
+#[cfg(test)]
+pub fn merge_all(
+	entry_maps: impl IntoIterator<Item = BTreeMap<AccessEntry, StorageOp>>,
+) -> BTreeMap<AccessEntry, StorageOp> {
+	let mut all_entries = BTreeMap::new();
+	for (entry, op) in entry_maps.into_iter().flatten() {
+		insert_or_update(&mut all_entries, entry, op);
+	}
+	all_entries
 }
 
 /// Warmth of the entries [`CallItems`] covers, one variant per call kind.

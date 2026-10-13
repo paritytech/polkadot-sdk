@@ -35,8 +35,6 @@ use crate::{
 	transient_storage::MeterEntry,
 	vm::pvm::{PreparedCall, Runtime},
 };
-#[cfg(test)]
-use crate::{AccountInfoOf, access_list::AccessEntry};
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
 use frame_system::RawOrigin;
@@ -228,39 +226,6 @@ pub fn caller_funding<T: Config>() -> BalanceOf<T> {
 	// Minting can overflow, so we can't abuse of the funding. This value happens to be big enough,
 	// but not too big to make the total supply overflow.
 	BalanceOf::<T>::max_value() / 10_000u32.into()
-}
-
-/// Rebuilds the entry a main-trie key stands for, the inverse of [`AccessEntry::storage_key`].
-/// Returns `None` for a key of a different map, or a malformed one.
-#[cfg(test)]
-pub fn entry_of_key<T: Config>(key: &[u8]) -> Option<AccessEntry> {
-	use frame_support::storage::StoragePrefixedMap;
-
-	let tail_of = |map_prefix: &[u8]| key.strip_prefix(map_prefix);
-	let address = |tail: &[u8]| (tail.len() == H160::len_bytes()).then(|| H160::from_slice(tail));
-	let hash = |tail: &[u8]| (tail.len() == H256::len_bytes()).then(|| H256::from_slice(tail));
-
-	if let Some(tail) = tail_of(&frame_system::Account::<T>::final_prefix()) {
-		use frame_support::{Blake2_128Concat, ReversibleStorageHasher};
-		let mut encoded = Blake2_128Concat::reverse(tail);
-		let account_id = <T::AccountId as codec::Decode>::decode(&mut encoded).ok()?;
-		let entry = AccessEntry::Account { address: T::AddressMapper::to_address(&account_id) };
-		// Only claim the entry when it maps back to this key; other accounts have no address.
-		return (entry.storage_key::<T>().as_deref() == Some(key)).then_some(entry);
-	}
-	if let Some(tail) = tail_of(&crate::OriginalAccount::<T>::final_prefix()) {
-		return Some(AccessEntry::OriginalAccount { address: address(tail)? });
-	}
-	if let Some(tail) = tail_of(&AccountInfoOf::<T>::final_prefix()) {
-		return Some(AccessEntry::AccountInfo { address: address(tail)? });
-	}
-	if let Some(tail) = tail_of(&CodeInfoOf::<T>::final_prefix()) {
-		return Some(AccessEntry::CodeInfo { hash: hash(tail)? });
-	}
-	if let Some(tail) = tail_of(&PristineCode::<T>::final_prefix()) {
-		return Some(AccessEntry::CodeBlob { hash: hash(tail)? });
-	}
-	None
 }
 
 /// An instantiated and deployed contract.
