@@ -484,9 +484,13 @@ where
 	}
 
 	fn storage_root(&mut self) -> Vec<u8> {
+		self.storage_root_with_version(self.state_version)
+	}
+
+	fn storage_root_with_version(&mut self, state_version: StateVersion) -> Vec<u8> {
 		let _guard = guard();
 
-		let (root, _cached) = self.overlay.storage_root(self.backend, self.state_version);
+		let (root, _cached) = self.overlay.storage_root(self.backend, state_version);
 
 		trace!(
 			target: "state",
@@ -500,11 +504,19 @@ where
 	}
 
 	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
+		self.child_storage_root_with_version(child_info, self.state_version)
+	}
+
+	fn child_storage_root_with_version(
+		&mut self,
+		child_info: &ChildInfo,
+		state_version: StateVersion,
+	) -> Vec<u8> {
 		let _guard = guard();
 
 		let (root, _cached) = self
 			.overlay
-			.child_storage_root(child_info, self.backend, self.state_version)
+			.child_storage_root(child_info, self.backend, state_version)
 			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 
 		trace!(
@@ -595,14 +607,12 @@ where
 	}
 
 	fn commit(&mut self) {
-		// Bench always use latest state.
-		let state_version = StateVersion::default();
 		for _ in 0..self.overlay.transaction_depth() {
 			self.overlay.commit_transaction().expect(BENCHMARKING_FN);
 		}
 		let changes = self
 			.overlay
-			.drain_storage_changes(self.backend, state_version)
+			.drain_storage_changes(self.backend, self.state_version)
 			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 		self.backend
 			.commit(

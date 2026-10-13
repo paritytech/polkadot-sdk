@@ -1,10 +1,10 @@
-title: 'sp-io: Stop passing state version to storage root host functions'
+title: 'sp-state-machine: Make the state version a property of the externalities'
 doc:
 - audience: Node Dev
   description: |-
-    This starts ignoring the `state_version` passed to the storage root functions. This basically implements [this old rfc](https://github.com/w3f/PPPs/pull/6), but instead of deprecating the functions it changes the way the host/node is handling this. This is a preparation for [parachain service](https://github.com/paritytech/parachain-service/issues/52). Parachains on JAM will require new host functions and to not introduce the requirement there to pass `state_version` this pull requests removes the requirement.
+    The state version is now passed to the externalities when they are created (`Ext::new`, `StateMachine::new`, `prove_execution*`, `execution_proof_check*`) and the node takes it from the `RuntimeVersion` of the executed code. `Externalities::storage_root` and `Externalities::child_storage_root` use this configured state version. The existing storage root host functions keep their behavior and still honor the `state_version` they pass, using the new `Externalities::storage_root_with_version` and `Externalities::child_storage_root_with_version`.
 
-    A later pull request will then introduce the new host functions for JAM.
+    This is a preparation for [parachain service](https://github.com/paritytech/parachain-service/issues/52). Parachains on JAM will require new host functions, and with this change these new host functions don't need to pass the `state_version`. A later pull request will then introduce the new host functions for JAM.
 crates:
 - name: cumulus-pallet-parachain-system
   bump: major
@@ -14,8 +14,6 @@ crates:
   bump: major
 - name: frame-benchmarking
   bump: major
-- name: pallet-state-trie-migration
-  bump: major
 - name: sp-externalities
   bump: major
 - name: sp-io
@@ -23,6 +21,4 @@ crates:
 - name: sp-state-machine
   bump: major
 - name: frame-benchmarking-cli
-  bump: major
-- name: pallet-beefy-mmr
   bump: major

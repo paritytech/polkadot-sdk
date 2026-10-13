@@ -30,7 +30,7 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use core::any::{Any, TypeId};
 
-use sp_storage::{ChildInfo, TrackedStorageKey};
+use sp_storage::{ChildInfo, StateVersion, TrackedStorageKey};
 
 pub use extensions::{Extension, ExtensionStore, Extensions, TransactionType};
 pub use scope_limited::{set_and_run_with_externalities, with_externalities};
@@ -194,8 +194,16 @@ pub trait Externalities: ExtensionStore {
 	///
 	/// This will also update all child storage keys in the top-level storage map.
 	///
-	/// The returned hash is defined by the `Block` and is SCALE encoded.
+	/// The returned hash is defined by the `Block` and is SCALE encoded. The trie layout follows
+	/// the state version the externalities were configured with.
 	fn storage_root(&mut self) -> Vec<u8>;
+
+	/// Get the trie root of the current storage map using the given `state_version`.
+	///
+	/// Same as [`Self::storage_root`], but the trie layout follows `state_version` instead of
+	/// the configured state version. Used by the legacy host functions that pass the state
+	/// version explicitly.
+	fn storage_root_with_version(&mut self, state_version: StateVersion) -> Vec<u8>;
 
 	/// Get the trie root of a child storage map.
 	///
@@ -203,7 +211,20 @@ pub trait Externalities: ExtensionStore {
 	///
 	/// If the storage root equals the default hash as defined by the trie, the key in the top-level
 	/// storage map will be removed.
+	///
+	/// The trie layout follows the state version the externalities were configured with.
 	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8>;
+
+	/// Get the trie root of a child storage map using the given `state_version`.
+	///
+	/// Same as [`Self::child_storage_root`], but the trie layout follows `state_version` instead
+	/// of the configured state version. Used by the legacy host functions that pass the state
+	/// version explicitly.
+	fn child_storage_root_with_version(
+		&mut self,
+		child_info: &ChildInfo,
+		state_version: StateVersion,
+	) -> Vec<u8>;
 
 	/// Append storage item.
 	///
