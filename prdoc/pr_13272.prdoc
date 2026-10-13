@@ -1,0 +1,11 @@
+title: 'statement-store: recover V2 gossip after major sync'
+doc:
+- audience: Node Dev
+  description: |-
+    Fix V2 statement gossip recovery after major sync: resume deferred connections,
+    refresh affinity, and request statement history even when no data was dropped.
+    A v1 peer cannot replay on request, so its dropped statements are still recovered
+    through a reconnect with the v2 DHT path on.
+crates:
+- name: sc-network-statement
+  bump: patch

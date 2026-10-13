@@ -246,7 +246,7 @@ fetch_rpm_package_from_s3() {
   echo "Git Tag (VERSION):           $VERSION"
   echo "Code Version (NODE_VERSION): $NODE_VERSION"
   
-  URL_BASE=$(get_s3_url_base $BINARY)
+  URL_BASE="https://$(get_s3_url_base $BINARY)"
   
   # CORRECTED FILENAME: Changed underscore to hyphen to match the uploaded file.
   FILENAME="${BINARY}-${NODE_VERSION}-1.x86_64.rpm"
@@ -282,7 +282,7 @@ fetch_debian_package_from_s3() {
   OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
   echo "OUTPUT_DIR : $OUTPUT_DIR"
 
-  URL_BASE=$(get_s3_url_base $BINARY)
+  URL_BASE="https://$(get_s3_url_base $BINARY)"
   echo "URL_BASE=$URL_BASE"
 
   URL=$URL_BASE/$VERSION/x86_64-unknown-linux-gnu/${BINARY}_${NODE_VERSION}_amd64.deb
@@ -309,7 +309,7 @@ fetch_release_artifacts_from_s3() {
   OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${TARGET}/${BINARY}"}
   echo "OUTPUT_DIR : $OUTPUT_DIR"
 
-  URL_BASE=$(get_s3_url_base $BINARY)
+  URL_BASE="https://$(get_s3_url_base $BINARY)"
   echo "URL_BASE=$URL_BASE"
 
   URL_BINARY=$URL_BASE/$VERSION/$TARGET/$BINARY
@@ -332,32 +332,42 @@ fetch_release_artifacts_from_s3() {
 }
 
 # Pass the name of the binary as input, it will
-# return the s3 base url
+# return the s3 bucket path, without a scheme
 function get_s3_url_base() {
     name=$1
     case $name in
       polkadot | polkadot-execute-worker | polkadot-prepare-worker )
-        printf "https://releases.parity.io/polkadot"
+        printf "releases.parity.io/polkadot"
         ;;
 
       polkadot-parachain)
-        printf "https://releases.parity.io/polkadot-parachain"
+        printf "releases.parity.io/polkadot-parachain"
         ;;
 
       polkadot-omni-node)
-        printf "https://releases.parity.io/polkadot-omni-node"
+        printf "releases.parity.io/polkadot-omni-node"
         ;;
 
       chain-spec-builder)
-        printf "https://releases.parity.io/chain-spec-builder"
+        printf "releases.parity.io/chain-spec-builder"
         ;;
 
       frame-omni-bencher)
-        printf "https://releases.parity.io/frame-omni-bencher"
+        printf "releases.parity.io/frame-omni-bencher"
         ;;
+
+      substrate-node)
+        printf "releases.parity.io/substrate-node"
+        ;;
+
       eth-rpc)
-        printf "https://releases.parity.io/eth-rpc"
+        printf "releases.parity.io/eth-rpc"
         ;;
+
+      subkey)
+        printf "releases.parity.io/subkey"
+        ;;
+
       *)
         printf "UNSUPPORTED BINARY $name"
         exit 1
