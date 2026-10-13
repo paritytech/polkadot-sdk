@@ -7,17 +7,20 @@ the bulletin DB snapshots the e2e test runs against.
 
 | File | Role |
 | --- | --- |
-| `payloads.rs` | Deterministic bulletin payloads + their CIDs, shared by both tests (ported from smoldot `e2e-tests/src/bulletin.rs`). A unit test pins that the CIDs reproduce the values smoldot serves. |
-| `common.rs` | Shared network config (`network_config`, one topology for both tests) + chain-spec resolution (`resolve_chain_spec`). |
+| `payloads.rs` | Deterministic bulletin payloads + their CIDs, shared by both tests. |
+| `common.rs` | Shared network config (`network_config`) + chain-spec resolution (`resolve_chain_spec`). |
 | `e2e.rs` | The consumer test `bitswap_unstable_e2e` (`#[ignore]`d). |
 | `generate_snapshot.rs` | The snapshot generator `bitswap_generate_snapshot` (`#[ignore]`d). |
+
+`payloads.rs` is ported from smoldot `e2e-tests/src/bulletin.rs`; a unit test pins that the CIDs
+reproduce the values smoldot serves. `network_config` is one topology shared by both tests.
 
 Both tests are `#[ignore]`d (they need zombienet binaries), so they compile in normal `cargo check`
 but only run when explicitly requested with `--ignored`.
 
 ## Chain-spec provenance
 
-The bulletin runtime is **not** in polkadot-sdk. The parachain chain-spec is referenced by URL
+The bulletin runtime is **not** in `polkadot-sdk`. The parachain chain-spec is referenced by URL
 (`common.rs::CHAIN_SPEC_BULLETIN`) from smoldot's checked-in copy,
 `paritytech/smoldot:e2e-tests/chain-specs/bulletin-westend-local-spec.json`, pinned to a commit.
 That file is itself generated upstream by
