@@ -1,0 +1,11 @@
+title: '[Fungibles] Avoid dusting below-ED amounts when creating/releasing holds'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes possible dust of free balance amount below ED in the edge case of managing holds
+
+crates:
+- name: frame-support
+  bump: patch
+- name: pallet-balances
+  bump: patch
