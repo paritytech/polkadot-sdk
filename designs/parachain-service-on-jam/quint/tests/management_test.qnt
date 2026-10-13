@@ -83,7 +83,7 @@ module management_test {
     val s0 = parachainSetStateBalance(initialState, para, bal).state
     val s1 = parachainSetValidationCode(s0, para, code, FixedCodeLen, 0).state
     // Solicit an extra preimage: now the para holds more than baseline + code.
-    val s2 = s1.addReferencer(para, extra, 512).state
+    val s2 = s1.addReferencer(para, extra, 512, 0).state
     val c = parachainCleanUp(s2, para, 0)
     all {
       assert(c.state == s2),
@@ -101,7 +101,7 @@ module management_test {
     val h: Hash = { hashBytes: 4242 }
     val len = 1024
     val before = initialState.paraInfo(target).usedStateBalance
-    val held = initialState.addReferencer(target, h, len).state
+    val held = initialState.addReferencer(target, h, len, 0).state
     val forced = replay(held, CoretimeParaId, 0, Forget({ target: Parachain(target), hash: h, len: len }))
     all {
       assert(held.paraInfo(target).usedStateBalance == before + preimageFootprint(len)),
@@ -120,7 +120,7 @@ module management_test {
     val h: Hash = { hashBytes: 4243 }
     val len = 2048
     val before = initialState.paraInfo(target).usedStateBalance
-    val held = markProvided(initialState.addReferencer(target, h, len).state, h, len)
+    val held = markProvided(initialState.addReferencer(target, h, len, 0).state, h, len)
     val msg = Forget({ target: Parachain(target), hash: h, len: len })
     val first = replay(held, CoretimeParaId, 5, msg)
     val due = 5 + ExpungePeriod
@@ -206,7 +206,7 @@ module management_test {
     val h: Hash = { hashBytes: 6161 }
     val len = 1024
     val key = List(3)
-    val withPreimage = initialState.addReferencer(target, h, len).state
+    val withPreimage = initialState.addReferencer(target, h, len, 0).state
     val held = applySetKV(withPreimage, target, key, List(7)).state
     val refused = parachainCleanUp(held, target, 0)
     val d1 = replay(held, CoretimeParaId, 0, Forget({ target: Parachain(target), hash: h, len: len }))
@@ -300,8 +300,8 @@ module management_test {
       // Both displaced codes are untouched: still referenced, still available.
       assert(s3.hasReferencer(hA.asPreimage(), lenA, para)),
       assert(s3.hasReferencer(hB.asPreimage(), lenB, para)),
-      assert(s3.preimageStatus.get((hA.asPreimage(), lenA)) == Provided),
-      assert(s3.preimageStatus.get((hB.asPreimage(), lenB)) == Provided),
+      assert(s3.preimageStatus.get((hA.asPreimage(), lenA)) == Provided(0)),
+      assert(s3.preimageStatus.get((hB.asPreimage(), lenB)) == Provided(0)),
       assert(out.jamForget == Set()),
       // (hC, lenC) now has para as referencer.
       assert(s3.hasReferencer(hC.asPreimage(), lenC, para)),

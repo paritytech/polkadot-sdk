@@ -45,7 +45,7 @@ module accumulate_test {
       minMemoGas: 0
     })
     // Solicited only: the request exists but the blob was never supplied.
-    val solicited = initialState.addReferencer(ah, newCode, len).state
+    val solicited = initialState.addReferencer(ah, newCode, len, 0).state
     val onlySolicited = replay(solicited, ah, 0, msg)
     // Once provided, the same call goes through.
     val provided = markProvided(solicited, newCode, len)
@@ -80,11 +80,11 @@ module accumulate_test {
       minMemoGas: 0
     })
     // Available, but only the Coretime chain references it.
-    val theirs = markProvided(initialState.addReferencer(CoretimeParaId, newCode, len).state,
+    val theirs = markProvided(initialState.addReferencer(CoretimeParaId, newCode, len, 0).state,
       newCode, len)
     val refused = replay(theirs, ah, 0, msg)
     // Once Asset Hub references it too, the same call goes through.
-    val shared = theirs.addReferencer(ah, newCode, len).state
+    val shared = theirs.addReferencer(ah, newCode, len, 0).state
     all {
       assert(theirs.preimageAvailable(newCode, len)),
       assert(not(theirs.hasReferencer(newCode, len, ah))),
@@ -229,9 +229,9 @@ module accumulate_test {
     val otherCode: Hash = { hashBytes: 31338 }
     val len = FixedCodeLen
     val held = {
-      ...initialState.addReferencer(ah, ownCode, len).state
-        .addReferencer(ah, ownCode, 100).state
-        .addReferencer(ah, otherCode, len).state,
+      ...initialState.addReferencer(ah, ownCode, len, 0).state
+        .addReferencer(ah, ownCode, 100, 0).state
+        .addReferencer(ah, otherCode, len, 0).state,
       serviceCodeHash: ownCode,
       serviceCodeLen: len
     }

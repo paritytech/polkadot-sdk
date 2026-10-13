@@ -334,14 +334,14 @@ module main {
   }
 
   // Model JAM Phase 3: anyone submits a solicited preimage out-of-band, moving
-  // its `query` status `Unprovided -> Provided`.
+  // its `query` status `Unprovided -> Provided(now)`.
   action provisionPreimage = {
     val unprovided =
       svc.preimageStatus.keys().filter(k => svc.preimageStatus.get(k) == Unprovided)
     all {
       unprovided != Set(),
       nondet key = oneOf(unprovided)
-      svc' = { ...svc, preimageStatus: svc.preimageStatus.put(key, Provided) },
+      svc' = { ...svc, preimageStatus: svc.preimageStatus.put(key, Provided(now)) },
       now' = now,
       jamStagingSet' = jamStagingSet,
       solicitedSet' = solicitedSet,

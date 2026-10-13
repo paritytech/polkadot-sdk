@@ -131,24 +131,29 @@ module foreign_services {
         services: fs.put(s, { ...f, requests: f.requests.mapRemove(key) }),
         log: None
       }
-      val unrequested =
+      pure def unrequested(providedSince: Timeslot): ForeignOutcome =
         {
-          services: fs.put(s, { ...f, requests: f.requests.put(key, Unrequested(now)) }),
+          services: fs.put(s, {
+            ...f,
+            requests: f.requests.put(
+              key, Unrequested({ providedSince: providedSince, unrequestedSince: now })
+            )
+          }),
           log: again(now + ExpungePeriod)
         }
       match f.requests.get(key) {
         // Never provided, so one step frees it.
         | Unprovided => dropped
         // Available: unrequest only, and say when to come back.
-        | Provided => unrequested
-        | Unrequested(since) =>
-          if (now > (since + ExpungePeriod)) dropped
-          else { services: fs, log: again(since + ExpungePeriod) }
+        | Provided(since) => unrequested(since)
+        | Unrequested(r) =>
+          if (now > (r.unrequestedSince + ExpungePeriod)) dropped
+          else { services: fs, log: again(r.unrequestedSince + ExpungePeriod) }
         // Rescued: gated on the ORIGINAL unrequest slot, and never expunges
         // here; past the period it unrequests again on a fresh clock.
-        | Rerequested(since) =>
-          if (now > (since + ExpungePeriod)) unrequested
-          else { services: fs, log: again(since + ExpungePeriod) }
+        | Rerequested(r) =>
+          if (now > (r.unrequestedSince + ExpungePeriod)) unrequested(r.rerequestedSince)
+          else { services: fs, log: again(r.unrequestedSince + ExpungePeriod) }
       }
     }
   }
@@ -201,7 +206,15 @@ module foreign_services {
           Some({ ...f, requests: f.requests.put(key, Unprovided) })
         else match f.requests.get(key) {
           // The rescue: an unrequested blob JAM still holds comes back.
-          | Unrequested(since) => Some({ ...f, requests: f.requests.put(key, Rerequested(since)) })
+          | Unrequested(r) =>
+            Some({
+              ...f,
+              requests: f.requests.put(key, Rerequested({
+                providedSince: r.providedSince,
+                unrequestedSince: r.unrequestedSince,
+                rerequestedSince: now
+              }))
+            })
           | _ => None
         }
       match requested {

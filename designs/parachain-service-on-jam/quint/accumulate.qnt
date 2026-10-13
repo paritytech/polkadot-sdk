@@ -133,7 +133,7 @@ module accumulate {
             // half-removed para.
             if (not(acc.state.isLive(target)) or acc.state.paraInfo(target).isDeregistering) acc
             else {
-              val d = acc.state.addReferencer(target, payload.hash, payload.len)
+              val d = acc.state.addReferencer(target, payload.hash, payload.len, now)
               {
                 state: d.state,
                 jamDesignate: acc.jamDesignate,

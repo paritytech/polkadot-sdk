@@ -205,7 +205,7 @@ module service_ops_test {
   /// The two-step expunge of 6.1 applies to a `Service` target unchanged.
   run forgetOnServiceIsTwoStepTest = {
     val provided: ForeignServices =
-      Map(victim -> supervised(Map((someHash, someLen) -> Provided), Map(), 0))
+      Map(victim -> supervised(Map((someHash, someLen) -> Provided(0)), Map(), 0))
     val once = after(provided, forgetIt, 10)
     init.then(expectThat(all {
       // First forget only unrequests, and says when to return.
@@ -216,7 +216,7 @@ module service_ops_test {
         len: someLen,
         due: 10 + ExpungePeriod
       })),
-      once.get(victim).requests.get((someHash, someLen)) == Unrequested(10),
+      once.get(victim).requests.get((someHash, someLen)) == Unrequested({ providedSince: 0, unrequestedSince: 10 }),
       // Too early: nothing happens and the ORIGINAL deadline is reported.
       logsOf(once, forgetIt, 11)
         == List(ForgetAgainAt({
@@ -242,9 +242,9 @@ module service_ops_test {
   /// refused because a live request already exists.
   run solicitOnServiceRescuesOrRefusesTest = {
     val unrequested: ForeignServices =
-      Map(victim -> supervised(Map((someHash, someLen) -> Unrequested(3)), Map(), 0))
+      Map(victim -> supervised(Map((someHash, someLen) -> Unrequested({ providedSince: 0, unrequestedSince: 3 })), Map(), 0))
     val provided: ForeignServices =
-      Map(victim -> supervised(Map((someHash, someLen) -> Provided), Map(), 0))
+      Map(victim -> supervised(Map((someHash, someLen) -> Provided(0)), Map(), 0))
     init.then(expectThat(all {
       // Fresh request.
       logsOf(emptyOurs, solicitIt, 10) == List(),
@@ -253,7 +253,7 @@ module service_ops_test {
       // Rescue keeps the ORIGINAL unrequest slot, which still gates the forget.
       logsOf(unrequested, solicitIt, 10) == List(),
       after(unrequested, solicitIt, 10).get(victim).requests.get((someHash, someLen))
-        == Rerequested(3),
+        == Rerequested({ providedSince: 0, unrequestedSince: 3, rerequestedSince: 10 }),
       // Already live.
       logsOf(provided, solicitIt, 10)
         == List(ServiceSolicitFailed({ service: victim, error: AlreadySolicited })),

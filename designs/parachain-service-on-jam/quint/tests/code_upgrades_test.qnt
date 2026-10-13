@@ -106,7 +106,7 @@ module code_upgrades_test {
     val para = CoretimeParaId
     val h: ValidationCodeHash = { vchBytes: 0x6161 }
     // Solicited (so the para references it) but NOT provided.
-    val s0 = initialState.addReferencer(para, h.asPreimage(), FixedCodeLen).state
+    val s0 = initialState.addReferencer(para, h.asPreimage(), FixedCodeLen, 0).state
     val d = announceCodeUpgrade(s0, para, h, FixedCodeLen, 0)
     all {
       assert(d.state.paraInfo(para).announcedUpgrade == None),
@@ -131,6 +131,40 @@ module code_upgrades_test {
       assert(not(s0.hasReferencer(h.asPreimage(), FixedCodeLen, para))),
       assert(d.state.paraInfo(para).announcedUpgrade == None),
       assert(d.log == Some(CodeUpgradeNotAvailable({ hash: h.asPreimage(), len: FixedCodeLen }))),
+      init
+    }
+  }
+
+  /// An `Announcement` needs code that is available now and has been since its
+  /// lookup anchor or earlier: code provided at slot 10 cannot be announced by a
+  /// report anchored at slot 8, even though it is available by the time the
+  /// report is accumulated. Otherwise the `Apply` that follows would leave the
+  /// parachain with code Refine cannot look up. Unrequested code is never
+  /// accepted, and rescued code only from the slot it was rescued at.
+  run announceJudgedAtLookupAnchorTest = {
+    val para = CoretimeParaId
+    val h: ValidationCodeHash = { vchBytes: 0x7272 }
+    val p = h.asPreimage()
+    val solicited = initialState.addReferencer(para, p, FixedCodeLen, 0).state
+    // Provided at 10, available from 10 on.
+    val provided = markProvidedAt(solicited, p, FixedCodeLen, 10)
+    // Forgotten at 20, available from 10 until before 20.
+    val unrequested = provided.removeReferencer(para, p, FixedCodeLen, 20).state
+    // Re-solicited at 30, available from 10 until before 20 and from 30 on.
+    val rescued = unrequested.addReferencer(para, p, FixedCodeLen, 30).state
+    pure def accepted(s: ParachainServiceState, anchor: Timeslot): bool =
+      announceCodeUpgrade(s, para, h, FixedCodeLen, anchor).state
+        .paraInfo(para).announcedUpgrade == Some({ hash: h, len: FixedCodeLen })
+    all {
+      assert(announceCodeUpgrade(provided, para, h, FixedCodeLen, 8).log
+        == Some(CodeUpgradeNotAvailable({ hash: p, len: FixedCodeLen }))),
+      assert(not(accepted(provided, 9))),
+      assert(accepted(provided, 10)),
+      assert(not(accepted(unrequested, 19))),
+      assert(not(accepted(unrequested, 20))),
+      assert(not(accepted(rescued, 19))),
+      assert(not(accepted(rescued, 29))),
+      assert(accepted(rescued, 30)),
       init
     }
   }

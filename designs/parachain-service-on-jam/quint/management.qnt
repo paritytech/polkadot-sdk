@@ -128,7 +128,7 @@ module management {
       val pi = s.paraInfo(para_id)
       // Acquire the new referencer (no charge if already solicited); reject
       // if no headroom.
-      val acquired = s.addReferencer(para_id, newHash.asPreimage(), codeLen)
+      val acquired = s.addReferencer(para_id, newHash.asPreimage(), codeLen, now)
       match acquired.log {
         | Some(_) =>
           { state: s, jamSolicit: Set(), jamForget: Set(), logs: List().appendOption(acquired.log) }

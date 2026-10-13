@@ -55,27 +55,31 @@ module state {
     referencers: Set[ParaId]
   }
 
-  /// JAM's `query(hash, len)` request status. The service reaches every state
-  /// except that it never carries the `provided_since`/`rerequested_since`
-  /// slots — only the `unrequested_since` slot that gates the next `forget`.
+  /// JAM's `query(hash, len)` request status, with the slots `query` reports.
   ///   - `Unprovided`: solicited, preimage never submitted. A `forget` drops
   ///     it in one step.
-  ///   - `Provided`: the preimage is available. A `forget` unrequests it (does
-  ///     NOT expunge) and moves it to `Unrequested`.
-  ///   - `Unrequested(since)`: provided then forgotten once; `since` is the
-  ///     unrequest slot. A second `forget` expunges only once
-  ///     `now > since + ExpungePeriod`.
+  ///   - `Provided(since)`: available from slot `since` on. A `forget`
+  ///     unrequests it (does NOT expunge) and moves it to `Unrequested`.
+  ///   - `Unrequested`: provided then forgotten once, available from
+  ///     `providedSince` until before `unrequestedSince`. A second `forget`
+  ///     expunges only once `now > unrequestedSince + ExpungePeriod`.
   ///     A `solicit` while `Unrequested` RESCUES the still-held blob back to
   ///     available, moving it to `Rerequested`.
-  ///   - `Rerequested(since)`: unrequested then re-solicited, available again.
-  ///     `since` is the ORIGINAL `unrequested_since`, which still gates the
+  ///   - `Rerequested`: unrequested then re-solicited at `rerequestedSince`,
+  ///     available again from then on. `unrequestedSince` still gates the
   ///     next `forget` (JAM `Rerequested → Unrequest` requires
-  ///     `now > since + ExpungePeriod`; otherwise `NotYetUnrequest`).
+  ///     `now > unrequestedSince + ExpungePeriod`; otherwise
+  ///     `NotYetUnrequest`), which leaves it `Unrequested` with
+  ///     `providedSince = rerequestedSince`.
   type RequestStatus =
     | Unprovided
-    | Provided
-    | Unrequested(Timeslot)
-    | Rerequested(Timeslot)
+    | Provided(Timeslot)
+    | Unrequested({ providedSince: Timeslot, unrequestedSince: Timeslot })
+    | Rerequested({
+      providedSince: Timeslot,
+      unrequestedSince: Timeslot,
+      rerequestedSince: Timeslot
+    })
 
   // --- Per-parachain log (design §3.1, capacity-bounded) -----------------
   type ParachainLog = List[(Timeslot, LogEntry)]
@@ -246,26 +250,10 @@ module state {
   pure def preimageAvailable(s: ParachainServiceState, h: Hash, len: int): bool =
     s.preimageStatus.keys().contains((h, len)) and
       (match s.preimageStatus.get((h, len)) {
-        | Provided => true
+        | Provided(_) => true
         | Rerequested(_) => true
         | Unprovided => false
         | Unrequested(_) => false
-      })
-
-  /// Whether `query(hash, len)` reports the preimage as available for lookup AT
-  /// timeslot `t`.
-  /// `Provided` and `Rerequested` carry no start slot in this model (only
-  /// `unrequested_since` is tracked), so both count as available at any `t`;
-  /// `Unrequested(y)` was available until it was unrequested at `y`.
-  pure def preimageAvailableAt(
-    s: ParachainServiceState, h: Hash, len: int, t: Timeslot
-  ): bool =
-    s.preimageStatus.keys().contains((h, len)) and
-      (match s.preimageStatus.get((h, len)) {
-        | Provided => true
-        | Rerequested(_) => true
-        | Unprovided => false
-        | Unrequested(y) => t < y
       })
 
   /// Whether this service is still `core`'s assigner, i.e. whether JAM accepts

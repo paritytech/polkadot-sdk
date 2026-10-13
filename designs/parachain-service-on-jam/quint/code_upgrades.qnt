@@ -12,6 +12,19 @@ module code_upgrades {
   pure def unchangedDelta(s: ParachainServiceState): PreimageDelta =
     { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
 
+  /// Whether `query(hash, len)` reports the preimage as available for lookup AT
+  /// timeslot `t`: it is available now and has been since `t` or earlier.
+  pure def preimageAvailableAt(
+    s: ParachainServiceState, h: Hash, len: int, t: Timeslot
+  ): bool =
+    s.preimageStatus.keys().contains((h, len)) and
+      (match s.preimageStatus.get((h, len)) {
+        | Provided(since) => since <= t
+        | Rerequested(r) => r.rerequestedSince <= t
+        | Unprovided => false
+        | Unrequested(_) => false
+      })
+
   /// Announce the code a later `Apply` may switch to (§5.2). Replayed from a
   /// `RequestCodeUpgrade` upward message during Accumulate, so it runs
   /// on-chain, not inside Refine. Availability is judged as of `lookupAnchor`,

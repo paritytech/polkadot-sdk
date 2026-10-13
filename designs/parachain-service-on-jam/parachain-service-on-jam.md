@@ -1009,8 +1009,8 @@ Step 2: Announcement
 
     Both must hold:
       - the parachain references (hash, len)
-      - query(hash, len) reports it available at the work report's lookup
-        anchor
+      - query(hash, len) reports it as provided or re-requested, and it became
+        available at or before the work report's lookup anchor
 
     either fails    -> rejected with CodeUpgradeNotAvailable, nothing changes
     already active  -> no-op

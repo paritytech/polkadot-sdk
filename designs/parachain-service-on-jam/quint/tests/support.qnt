@@ -18,17 +18,24 @@ module support {
   import state_vars.* from "../state_vars"
   import main.* from "../main"
 
+  /// Mark `(h, len)` as provided at slot `at`.
+  pure def markProvidedAt(
+    s: ParachainServiceState, h: Hash, len: int, at: Timeslot
+  ): ParachainServiceState =
+    { ...s, preimageStatus: s.preimageStatus.put((h, len), Provided(at)) }
+
+  /// Mark `(h, len)` as provided at slot 0, so it is available at every slot.
   pure def markProvided(
     s: ParachainServiceState, h: Hash, len: int
   ): ParachainServiceState =
-    { ...s, preimageStatus: s.preimageStatus.put((h, len), Provided) }
+    markProvidedAt(s, h, len, 0)
 
   /// Solicit `(h, len)` for `para` and mark it available, i.e. the state left
   /// by step 1 of §5.2 once someone has supplied the blob.
   pure def solicitedAndProvided(
     s: ParachainServiceState, para: ParaId, h: ValidationCodeHash, len: int
   ): ParachainServiceState =
-    markProvided(s.addReferencer(para, h.asPreimage(), len).state, h.asPreimage(), len)
+    markProvided(s.addReferencer(para, h.asPreimage(), len, 0).state, h.asPreimage(), len)
 
   pure def isUnrequested(st: RequestStatus): bool =
     match st { | Unrequested(_) => true | _ => false }
