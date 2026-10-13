@@ -2118,7 +2118,12 @@ fn erc20_mirror_ext() -> sp_io::TestExternalities {
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
 			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+			SessionKeys {
+				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
+				authority_discovery: AuthorityDiscoveryId::from(
+					sp_core::sr25519::Public::from_raw(ALICE),
+				),
+			},
 		)])
 		.build()
 }
