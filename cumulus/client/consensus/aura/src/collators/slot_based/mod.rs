@@ -76,15 +76,11 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_client_proof_size_recording::register_proof_size_recording_cleanup;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{
-	KeyToIncludeInRelayProof, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
-	TargetBlockRate,
+	KeyToIncludeInRelayProof, RelayParentOffsetApi, SchedulingV3EnabledApi, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
-use polkadot_primitives::{
-	CollatorPair, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
-	PersistedValidationData, ValidationCodeHash,
-};
+use polkadot_primitives::{CollatorPair, Id as ParaId};
 use sc_client_api::{
 	backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, BlockchainEvents,
 	UsageProvider,
@@ -92,7 +88,7 @@ use sc_client_api::{
 use sc_consensus::BlockImport;
 use sc_network_types::PeerId;
 use sc_utils::mpsc::tracing_unbounded;
-use sp_api::{ProvideRuntimeApi, StorageProof};
+use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
@@ -107,11 +103,12 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 mod block_builder_task;
 mod block_import;
 mod collation_task;
+mod message;
 mod relay_chain_data_cache;
 mod resubmission;
+mod resubmittable_segment;
 mod scheduling;
 mod slot_timer;
-mod unincluded_segment;
 
 #[cfg(test)]
 mod tests;
@@ -280,74 +277,4 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		Some("slot-based-collator"),
 		resubmission_backfill_fut.boxed(),
 	);
-}
-
-/// Message sent from the block builder to the collation task over their shared channel.
-///
-/// Carries either a single collation (submitted via
-/// [`CollationGenerationMessage::SubmitCollation`]) or a whole segment of collations (submitted
-/// via [`CollationGenerationMessage::SubmitSegment`]).
-///
-/// [`CollationGenerationMessage::SubmitCollation`]: polkadot_node_subsystem::messages::CollationGenerationMessage::SubmitCollation
-/// [`CollationGenerationMessage::SubmitSegment`]: polkadot_node_subsystem::messages::CollationGenerationMessage::SubmitSegment
-enum CollatorMessage<Block: BlockT> {
-	/// A single collation (one PoV / one candidate on the relay chain).
-	Collation {
-		/// Core index that this collation should be submitted on.
-		core_index: CoreIndex,
-		/// The built collation payload. Submitted as a V2 collation (no scheduling proof).
-		entry: CollatorSegmentEntry<Block>,
-	},
-	/// A segment of collations sharing target core, submitted once per hedged scheduling parent.
-	///
-	/// V3 collations are submitted as segments; the block builder currently emits 1-length
-	/// segments, and the resubmission path will produce multi-entry ones.
-	Segment(CollatorSegmentMessage<Block>),
-	/// Hedged sibling header chains for the `Segment` sent immediately before, on `core_index`.
-	Hedges {
-		/// Core of the segment these hedges rebuild.
-		core_index: CoreIndex,
-		/// One header chain per hedged sibling scheduling parent, best first.
-		header_chains: Vec<Vec<RelayHeader>>,
-	},
-}
-
-/// Segment message sent from the block builder for V3/V4 candidates. Routed to
-/// `CollationGenerationMessage::SubmitSegment` by the collation task.
-///
-/// The collation task prepends the resubmitted unincluded segment (hydrated from
-/// `unincluded_headers`) to the freshly-built `bundle` and submits it for `scheduling_proof`. A
-/// following [`CollatorMessage::Hedges`] re-submits the same headers under each sibling's chain.
-struct CollatorSegmentMessage<Block: BlockT> {
-	/// Proof for the chosen scheduling parent.
-	pub scheduling_proof: SchedulingProof,
-	/// Target core for the whole segment submission.
-	pub core_index: CoreIndex,
-	/// This core's slice of the prior unincluded segment, as bare headers. Hydrated into
-	/// [`CollatorSegmentEntry`]s by the collation task (off the block-production hot path) and
-	/// prepended, oldest first, ahead of `bundle`.
-	pub unincluded_headers: Vec<Block::Header>,
-	/// The freshly-built bundle for this core, if one was built this slot. Submitted last, after
-	/// the resubmitted entries.
-	pub bundle: Option<CollatorSegmentEntry<Block>>,
-	/// End of the production relay slot, after which validators reject its sibling hedges.
-	pub valid_until: std::time::Instant,
-}
-
-/// One entry of a [`CollatorSegmentMessage`]. Each entry produces one `SegmentCollation`
-/// (one PoV / one candidate on the relay chain), and may still bundle multiple parablocks
-/// inside its PoV via `build_multi_block_collation`.
-struct CollatorSegmentEntry<Block: BlockT> {
-	/// The hash of the relay chain block that provides the context for the parachain block(s).
-	pub relay_parent: RelayHash,
-	/// The header of the parent of the first block in this entry.
-	pub parent_header: Block::Header,
-	/// The built blocks bundled into this entry.
-	pub blocks: Vec<Block>,
-	/// The storage proof collected while building all of `blocks`.
-	pub proof: StorageProof,
-	/// The validation code hash at the parent block.
-	pub validation_code_hash: ValidationCodeHash,
-	/// The persisted validation data for this entry.
-	pub validation_data: PersistedValidationData,
 }

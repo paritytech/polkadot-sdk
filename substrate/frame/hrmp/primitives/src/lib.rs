@@ -24,8 +24,33 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+
+/// A parachain id.
+pub type ParaId = u32;
+
+/// One end of a channel, in the order the relay chain names them.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub struct ChannelId {
+	/// The para that sends on this channel.
+	pub sender: ParaId,
+	/// The para that receives on this channel.
+	pub recipient: ParaId,
+}
 
 /// HRMP control-plane messages sent to the relay chain.
 ///
@@ -59,4 +84,32 @@ pub enum MessageToPara {
 pub enum MessageToParaV1 {
 	#[codec(index = 0)]
 	TODO,
+}
+
+/// One channel, as it arrives at the destination from the chain that used to hold its deposits.
+///
+/// Carries no deposit. [`ReceiveMigratedChannels::receive_channel`] takes the sender's, and for a
+/// confirmed channel the recipient's, deposit at the destination's own prices.
+///
+/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC channel
+/// is dropped.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub struct MigratedChannel {
+	/// Which channel.
+	pub channel: ChannelId,
+	/// Whether the source chain has the channel itself, or only an open request the recipient
+	/// has not accepted.
+	pub confirmed: bool,
+}
+
+/// Takes migrated channels into the pallet that owns HRMP on the destination.
+pub trait ReceiveMigratedChannels {
+	/// Take one channel, charging its deposits at this chain's prices.
+	fn receive_channel(channel: MigratedChannel) -> sp_runtime::DispatchResult;
+}
+
+impl ReceiveMigratedChannels for () {
+	fn receive_channel(_: MigratedChannel) -> sp_runtime::DispatchResult {
+		Err(sp_runtime::DispatchError::Unavailable)
+	}
 }

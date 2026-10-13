@@ -62,7 +62,7 @@ use frame_support::{
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64,
 		ConstantStoragePrice, Contains, Currency, EitherOfDiverse, EnsureOriginWithArg,
 		EqualPrivilegeOnly, InsideBoth, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice,
-		LockIdentifier, Nothing, OnUnbalanced, VariantCountOf, WithdrawReasons,
+		LockIdentifier, Nothing, OnUnbalanced, WithdrawReasons,
 	},
 	weights::{
 		constants::{
@@ -592,8 +592,6 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = frame_system::Pallet<Runtime>;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
 }
 
@@ -1586,6 +1584,10 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<false>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = ();
+	// A backstop on the buffer's size only: each log's weight is charged where it is emitted, so
+	// the block fills before the cap is reached. Nothing here mirrors balance changes, and the
+	// pallet's benchmarks fill the buffer past any cap, so the value is never reached.
+	type MaxOutsideFrameLogs = ConstU32<2048>;
 	type Deposit = ();
 }
 
@@ -2485,6 +2487,34 @@ impl pallet_broker::Config for Runtime {
 }
 
 parameter_types! {
+	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
+}
+
+/// The size of the on-demand pool as seen by `pallet_on_demand_para`.
+///
+/// On a real Coretime chain this reflects the number of cores the Relay chain has assigned to the
+/// on-demand pool. This runtime has no Relay chain, so we report a fixed non-zero size.
+pub struct OnDemandPoolCapacity;
+impl pallet_on_demand_para::PoolCapacityProvider for OnDemandPoolCapacity {
+	fn pool_cores() -> u32 {
+		1
+	}
+}
+
+impl pallet_on_demand_para::Config for Runtime {
+	type WeightInfo = pallet_on_demand_para::weights::SubstrateWeight<Runtime>;
+	type Currency = Balances;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type RelayBlockNumberProvider = System;
+	type PoolCapacityProvider = OnDemandPoolCapacity;
+	type PricingProvider = pallet_on_demand_para::DefaultPricingProvider;
+	// Orders are dropped instead of being forwarded to a Relay chain.
+	type OrderQueue = ();
+	type MaxBatchSize = ConstU32<1000>;
+	type PalletId = OnDemandPalletId;
+}
+
+parameter_types! {
 	pub const MixnetNumCoverToCurrentBlocks: BlockNumber = 3;
 	pub const MixnetNumRequestsToCurrentBlocks: BlockNumber = 3;
 	pub const MixnetNumCoverToPrevBlocks: BlockNumber = 3;
@@ -2671,6 +2701,7 @@ impl pallet_registrar_para::Config for Runtime {
 	>;
 	type SendToRelay = DiscardRegistrarMessages;
 	type RelayOrigin = EnsureRoot<AccountId>;
+	type ParachainOrigin = frame_system::EnsureNever<registrar_primitives::ParaId>;
 	type FirstPublicParaId = ConstU32<2000>;
 	type MinCodeSize = ConstU32<9>;
 	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
@@ -2698,6 +2729,30 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		_manager: AccountId,
 		_para_id: registrar_primitives::ParaId,
 		_genesis_head: Vec<u8>,
+		_validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
+
+	fn deregister(_para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
+
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		Ok(())
+	}
+
+	fn set_current_head(_para_id: registrar_primitives::ParaId, _head: Vec<u8>) {}
+
+	fn check_code_upgrade(
+		_para_id: registrar_primitives::ParaId,
+		_code_len: u32,
+	) -> Result<(), ()> {
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(
+		_para_id: registrar_primitives::ParaId,
 		_validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult {
 		Ok(())
@@ -3020,6 +3075,9 @@ mod runtime {
 
 	#[runtime::pallet_index(96)]
 	pub type RegistrarRelay = pallet_registrar_relay::Pallet<Runtime>;
+
+	#[runtime::pallet_index(97)]
+	pub type OnDemand = pallet_on_demand_para::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3360,6 +3418,7 @@ mod benches {
 		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_multisig, Multisig]
 		[pallet_offences, OffencesBench::<Runtime>]
+		[pallet_on_demand_para, OnDemand]
 		[pallet_oracle, Oracle]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]

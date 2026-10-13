@@ -18,10 +18,10 @@ doc:
     - The planner pass runs only after a change that can enable a launch (view update,
       accepted advertisement, concluded fetch, released slot, fetch timer) instead of
       after every message.
-    - Adds `ProspectiveParachainsMessage::GetKnownOutputHeads`: per active leaf and
-      para, the output heads of all held candidates plus the para's latest included
-      head. The validator side queries it before each planner pass. Knowledge under a
-      sibling relay fork does not block a fetch.
+    - Adds `ProspectiveParachainsMessage::GetKnownOutputHeads`: per scheduling parent
+      still in view and para, the output heads of all held candidates plus the para's
+      latest included head. The validator side queries it before each planner pass.
+      Knowledge under a sibling relay fork does not block a fetch.
 crates:
 - name: polkadot-collator-protocol
   bump: minor

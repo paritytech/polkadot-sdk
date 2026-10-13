@@ -895,43 +895,38 @@ fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
 	)
 }
 
-/// Set the given cores to `Idle`, freeing them from whatever parachain they were assigned to.
-pub async fn unassign_cores(
+/// Opens an HRMP channel from `sender` to `recipient` with
+/// `Sudo::sudo(Hrmp::force_open_hrmp_channel)` and waits `timeout_secs` for its finalization.
+/// The channel opens at the next relay chain session change.
+pub async fn open_hrmp_channel<S: Signer<PolkadotConfig>>(
 	client: &OnlineClient<PolkadotConfig>,
-	cores: Vec<u32>,
+	sender: u32,
+	recipient: u32,
+	max_capacity: u32,
+	max_message_size: u32,
+	signer: &S,
+	timeout_secs: u64,
 ) -> Result<(), anyhow::Error> {
-	log::info!("Setting cores {:?} to Idle", cores);
-
-	let idle_cores_call = create_idle_core_call(&cores);
-
-	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
-		client,
-		&idle_cores_call,
-		&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
-		60u64,
-	)
-	.await;
-	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
-	log::info!("Cores set to Idle");
-
-	Ok(())
-}
-
-fn create_idle_core_call(cores: &[u32]) -> DynamicPayload {
-	let mut idle_cores = vec![];
-	for core in cores.iter() {
-		idle_cores.push(value! {
-			Coretime(assign_core { core : *core, begin: 0, assignment: ((Idle(), 57600)), end_hint: None() })
-		});
-	}
-
-	zombienet_sdk::subxt::tx::dynamic(
+	let call = zombienet_sdk::subxt::tx::dynamic(
 		"Sudo",
 		"sudo",
 		vec![value! {
-			Utility(batch { calls: idle_cores })
+			Hrmp(force_open_hrmp_channel {
+				sender: sender,
+				recipient: recipient,
+				max_capacity: max_capacity,
+				max_message_size: max_message_size
+			})
 		}],
+	);
+	submit_extrinsic_and_wait_for_finalization_success_with_timeout(
+		client,
+		&call,
+		signer,
+		timeout_secs,
 	)
+	.await
+	.map_err(|e| anyhow!("opening HRMP channel {sender} to {recipient}: {e}"))
 }
 
 /// Creates a runtime upgrade call using `Sudo::sudo(System::set_code_without_checks)`.

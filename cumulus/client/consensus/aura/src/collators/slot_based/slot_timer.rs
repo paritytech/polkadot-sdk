@@ -39,7 +39,7 @@ pub(crate) struct SlotTime {
 	/// Time offset to apply when calculating time remaining
 	time_offset: Duration,
 	/// Relay production slot
-	slot: Slot,
+	relay_slot: Slot,
 }
 
 impl SlotTime {
@@ -48,9 +48,9 @@ impl SlotTime {
 		relay_slot_duration: Duration,
 		slot_start_timestamp: Timestamp,
 		time_offset: Duration,
-		slot: Slot,
+		relay_slot: Slot,
 	) -> Self {
-		Self { relay_slot_duration, slot_start_timestamp, time_offset, slot }
+		Self { relay_slot_duration, slot_start_timestamp, time_offset, relay_slot }
 	}
 
 	/// Get the time remaining in this slot
@@ -84,8 +84,8 @@ impl SlotTime {
 		current_parachain_slot != next_parachain_slot
 	}
 
-	pub fn slot(&self) -> Slot {
-		self.slot
+	pub fn relay_slot(&self) -> Slot {
+		self.relay_slot
 	}
 }
 
@@ -264,7 +264,7 @@ mod tests {
 			slot_start_timestamp: Timestamp::new(
 				Duration::from_millis(para_slot_millis).as_millis() as u64 * *last_reported_slot,
 			),
-			slot: last_reported_slot,
+			relay_slot: last_reported_slot,
 		};
 
 		let time_left = slot_time.time_left_internal(Duration::from_millis(time_now));

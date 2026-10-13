@@ -20,31 +20,29 @@ use std::{collections::VecDeque, path::PathBuf, sync::Arc, time::Instant};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::ValidationCodeHashProvider;
 use cumulus_client_resubmission_store::ResubmissionStore;
+use cumulus_primitives_core::SchedulingProof;
 use cumulus_relay_chain_interface::RelayChainInterface;
-
+use futures::{prelude::*, stream::FusedStream};
 use polkadot_node_primitives::{
-	MaybeCompressedPoV, SegmentCollation, SubmitSegmentParams, UpwardMessages, MAX_SEGMENT_LEN,
+	MaybeCompressedPoV, SegmentCollation, SubmitSegmentParams, MAX_SEGMENT_LEN,
 };
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
 	CandidateDescriptorVersion, CollatorPair, CoreIndex, Header as RelayHeader, Id as ParaId,
 };
-
-use codec::{Decode, Encode};
-use cumulus_primitives_core::{
-	relay_chain::{BlockId, UMPSignal, UMP_SEPARATOR},
-	ClaimQueueOffset, SchedulingProof, SignedSchedulingInfo,
+use sc_utils::mpsc::TracingUnboundedReceiver;
+use sp_runtime::{
+	traits::{Block as BlockT, Header},
+	BoundedVec,
 };
-use futures::{prelude::*, stream::FusedStream};
 
 use crate::export_pov_to_path;
-use sc_utils::mpsc::TracingUnboundedReceiver;
-use sp_runtime::traits::{Block as BlockT, Header};
 
 use super::{
-	block_builder_task::MAX_HEDGED_SIBLINGS, CollatorMessage, CollatorSegmentEntry,
-	CollatorSegmentMessage,
+	block_builder_task::MAX_HEDGED_SIBLINGS,
+	message::{CollationParts, CollatorMessage},
+	resubmittable_segment::ResubmittableSegment,
 };
 
 const LOG_TARGET: &str = "aura::cumulus::collation_task";
@@ -216,9 +214,18 @@ pub async fn run_collation_task<Block, RClient, CS, Backend, CHP>(
 	)
 	.await;
 
-	// Read-side handle over the resubmission aux store, used to hydrate the V3 unincluded segment
-	// off the block-production hot path. Cheap to hold (wraps the backend `Arc`).
+	// Read-side handle over the resubmission aux store, used to hydrate the V3 resubmittable
+	// headers off the block-production hot path. Cheap to hold (wraps the backend `Arc`).
 	let resubmission_store = ResubmissionStore::new(para_backend.clone());
+
+	let mut submitter = CollationSubmitter {
+		collator_service,
+		overseer_handle,
+		export_pov,
+		para_backend,
+		code_hash_provider,
+		resubmission_store,
+	};
 
 	// Hedged rebuilds deferred behind their segment's main submission; served only when no new
 	// message is waiting, so main submissions for other cores always go first.
@@ -228,369 +235,268 @@ pub async fn run_collation_task<Block, RClient, CS, Backend, CHP>(
 
 	while let Some(work) = next_work(&mut collator_receiver, &mut pending).await {
 		match work {
-			Work::Message(CollatorMessage::Collation { core_index, entry }) => {
-				handle_collation(
-					core_index,
-					entry,
-					&collator_service,
-					&mut overseer_handle,
-					&relay_client,
-					export_pov.clone(),
-				)
-				.await;
+			Work::Message(CollatorMessage::Collation { core_index, parts }) => {
+				submitter.submit_collation(core_index, parts).await;
 				record_submission(&mut pending, &mut last_segment, None, None);
 			},
-			Work::Message(CollatorMessage::Segment(segment)) => {
-				let core_index = segment.core_index;
-				let submitted = handle_segment(
-					segment,
-					&collator_service,
-					&mut overseer_handle,
-					&relay_client,
-					export_pov.clone(),
-					&*para_backend,
-					&code_hash_provider,
-					&resubmission_store,
-				)
-				.await;
+			Work::Message(CollatorMessage::Segment {
+				scheduling_proof,
+				core_index,
+				resubmittable_headers,
+				bundle,
+				valid_until,
+			}) => {
+				let submitted = submitter
+					.submit_segment(
+						scheduling_proof,
+						core_index,
+						resubmittable_headers,
+						bundle,
+						valid_until,
+					)
+					.await;
 				record_submission(&mut pending, &mut last_segment, Some(core_index), submitted);
 			},
 			Work::Message(CollatorMessage::Hedges { core_index, header_chains }) => {
 				pending.extend(hedges_for(last_segment.take(), core_index, header_chains));
 			},
-			Work::Hedge(SegmentSubmission {
-				core_index,
-				headers,
-				proof,
-				resubmitted,
-				fresh,
-				..
-			}) => {
-				// Store rows are written at import unless the session lookup failed; a block
-				// without one is skipped here, though the main submission carried it.
-				let entries = super::unincluded_segment::hydrate_segment(
-					headers,
-					&*para_backend,
-					&code_hash_provider,
-					&resubmission_store,
-				);
-				submit_segment(
-					entries,
-					proof,
-					core_index,
-					true,
-					resubmitted,
-					fresh,
-					&collator_service,
-					&mut overseer_handle,
-					&relay_client,
-					export_pov.clone(),
-				)
-				.await;
-			},
+			Work::Hedge(hedge) => submitter.submit_hedge(hedge).await,
 		}
 	}
 }
 
-/// Build one segment's collations under `scheduling_proof` and submit them for `core_index`;
-/// returns whether anything was sent.
-///
-/// Entries that fail to build or whose session lookup fails are skipped — they do not abort the
-/// whole segment. `resubmitted` and `fresh` only feed the logs.
-async fn submit_segment<Block, RClient, CS>(
-	entries: Vec<CollatorSegmentEntry<Block>>,
-	scheduling_proof: SchedulingProof,
-	core_index: CoreIndex,
-	hedged: bool,
-	resubmitted: usize,
-	fresh: usize,
-	collator_service: &CS,
-	overseer_handle: &mut OverseerHandle,
-	relay_client: &RClient,
+/// Turns [`CollatorMessage`]s into collations and forwards them to the collation-generation
+/// subsystem.
+struct CollationSubmitter<Block: BlockT, CS, Backend, CHP> {
+	collator_service: CS,
+	overseer_handle: OverseerHandle,
 	export_pov: Option<PathBuf>,
-) -> bool
+	/// Backend, store, and code-hash provider hydrate the resubmitted headers into
+	/// [`CollationParts`] off the block-production hot path.
+	para_backend: Arc<Backend>,
+	code_hash_provider: CHP,
+	resubmission_store: ResubmissionStore<Block, Backend>,
+}
+
+impl<Block, CS, Backend, CHP> CollationSubmitter<Block, CS, Backend, CHP>
 where
 	Block: BlockT,
-	RClient: RelayChainInterface + Clone + 'static,
 	CS: CollatorServiceInterface<Block>,
+	Backend: sc_client_api::Backend<Block>,
+	CHP: ValidationCodeHashProvider<Block::Hash>,
 {
-	// Logged on every submission so a rejected one can be traced to its scheduling parent.
-	let scheduling_parent = scheduling_proof.scheduling_parent();
-	let total_entries = resubmitted + fresh;
+	/// Submit a single collation as a one-element V2 segment: no scheduling proof, the scheduling
+	/// parent is the relay parent.
+	async fn submit_collation(&mut self, core_index: CoreIndex, parts: CollationParts<Block>) {
+		let Some(segment_collation) = self.build_collation(parts, None).await else {
+			return;
+		};
+		let scheduling_parent = segment_collation.relay_parent;
 
-	let mut collations = Vec::with_capacity(total_entries);
-	for entry in entries {
-		if let Some(collation) = build_collation(
-			entry,
-			Some(scheduling_proof.clone()),
-			collator_service,
-			relay_client,
-			export_pov.clone(),
-		)
-		.await
-		{
-			collations.push(collation);
-		}
+		tracing::debug!(target: LOG_TARGET, ?core_index, ?scheduling_parent, "Submitting collation for core.");
+
+		self.overseer_handle
+			.send_msg(
+				CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+					scheduling_parent,
+					core_index,
+					candidates_descriptor_version: CandidateDescriptorVersion::V2,
+					collations: BoundedVec::truncate_from(vec![segment_collation]),
+				}),
+				"SubmitSegment",
+			)
+			.await;
 	}
 
-	if collations.is_empty() {
-		tracing::debug!(
-			target: LOG_TARGET,
-			?core_index,
-			?scheduling_parent,
-			hedged,
+	/// Submit a V3 segment; `Some` only if it sent something a following `Hedges` could rebuild.
+	async fn submit_segment(
+		&mut self,
+		scheduling_proof: SchedulingProof,
+		core_index: CoreIndex,
+		resubmittable_headers: Vec<Block::Header>,
+		bundle: Option<CollationParts<Block>>,
+		valid_until: Instant,
+	) -> Option<SegmentSubmission<Block>> {
+		// Hydrate the resubmitted headers here (proof/body reads), off the block-production hot
+		// path, then prepend them (oldest first) to the freshly-built bundle.
+		let mut all_parts = self.hydrate(resubmittable_headers);
+		let resubmitted = all_parts.len();
+		// `bundle` holds at most one freshly-built bundle.
+		let fresh = usize::from(bundle.is_some());
+		all_parts.extend(bundle);
+
+		// Hedges keep only the headers; the parts move into the main submission. Skipped when no
+		// hedge can follow: offset 0 (empty chain, nothing to swap) or no budget for the backlog.
+		let hedgeable =
+			!scheduling_proof.header_chain.is_empty() && hedge_budget(resubmitted + fresh) > 0;
+		let headers: Option<Vec<_>> = hedgeable.then(|| {
+			all_parts
+				.iter()
+				.flat_map(|parts| parts.blocks.iter().map(|b| b.header().clone()))
+				.collect()
+		});
+
+		let sent = self
+			.send_segment(
+				all_parts,
+				scheduling_proof.clone(),
+				core_index,
+				false,
+				resubmitted,
+				fresh,
+			)
+			.await;
+
+		Some(SegmentSubmission {
+			core_index,
+			headers: headers.filter(|_| sent)?,
+			proof: scheduling_proof,
 			resubmitted,
 			fresh,
-			"No collations built for segment; nothing submitted for core.",
-		);
-		return false;
+			valid_until,
+		})
 	}
 
-	if collations.len() > MAX_SEGMENT_LEN as usize {
-		tracing::warn!(
+	/// Rebuild a hedged segment from its headers and submit it under the sibling's proof.
+	async fn submit_hedge(&mut self, hedge: SegmentSubmission<Block>) {
+		let SegmentSubmission { core_index, headers, proof, resubmitted, fresh, .. } = hedge;
+		// Store rows are written at build time; a block without one is skipped here, though the
+		// main submission carried it.
+		let parts = self.hydrate(headers);
+		self.send_segment(parts, proof, core_index, true, resubmitted, fresh).await;
+	}
+
+	fn hydrate(&self, headers: Vec<Block::Header>) -> Vec<CollationParts<Block>> {
+		ResubmittableSegment::new(headers).hydrate(
+			&*self.para_backend,
+			&self.code_hash_provider,
+			&self.resubmission_store,
+		)
+	}
+
+	/// Build `all_parts` under `scheduling_proof` and submit them for `core_index`; returns whether
+	/// anything was sent. Parts that fail to build are skipped, not fatal to the segment.
+	/// `resubmitted` and `fresh` only feed the logs.
+	async fn send_segment(
+		&mut self,
+		all_parts: Vec<CollationParts<Block>>,
+		scheduling_proof: SchedulingProof,
+		core_index: CoreIndex,
+		hedged: bool,
+		resubmitted: usize,
+		fresh: usize,
+	) -> bool {
+		// Logged on every submission so a rejected one can be traced to its scheduling parent.
+		let scheduling_parent = scheduling_proof.scheduling_parent();
+		let total = resubmitted + fresh;
+
+		let mut collations = Vec::with_capacity(all_parts.len());
+		for parts in all_parts {
+			if let Some(collation) =
+				self.build_collation(parts, Some(scheduling_proof.clone())).await
+			{
+				collations.push(collation);
+			}
+		}
+
+		if collations.is_empty() {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?core_index,
+				?scheduling_parent,
+				hedged,
+				resubmitted,
+				fresh,
+				"No collations built for segment; nothing submitted for core.",
+			);
+			return false;
+		}
+
+		if collations.len() > MAX_SEGMENT_LEN as usize {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?core_index,
+				?scheduling_parent,
+				hedged,
+				segment_len = collations.len(),
+				max = MAX_SEGMENT_LEN,
+				"Segment exceeds MAX_SEGMENT_LEN; truncating.",
+			);
+		}
+
+		tracing::debug!(
 			target: LOG_TARGET,
 			?core_index,
 			?scheduling_parent,
 			hedged,
 			segment_len = collations.len(),
-			max = MAX_SEGMENT_LEN,
-			"Segment exceeds MAX_SEGMENT_LEN; truncating.",
+			resubmitted,
+			fresh,
+			dropped = total.saturating_sub(collations.len()),
+			"Submitting segment for core.",
 		);
+
+		self.overseer_handle
+			.send_msg(
+				CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+					scheduling_parent,
+					core_index,
+					candidates_descriptor_version: CandidateDescriptorVersion::V3,
+					collations: BoundedVec::truncate_from(collations),
+				}),
+				"SubmitSegment",
+			)
+			.await;
+		true
 	}
-
-	tracing::debug!(
-		target: LOG_TARGET,
-		?core_index,
-		?scheduling_parent,
-		hedged,
-		segment_len = collations.len(),
-		resubmitted,
-		fresh,
-		dropped = total_entries.saturating_sub(collations.len()),
-		"Submitting segment for core.",
-	);
-
-	overseer_handle
-		.send_msg(
-			CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
-				scheduling_parent,
-				core_index,
-				candidates_descriptor_version: CandidateDescriptorVersion::V3,
-				collations: sp_runtime::BoundedVec::truncate_from(collations),
-			}),
-			"SubmitSegment",
-		)
-		.await;
-	true
 }
 
-/// Submit a single collation as a one-element V2 segment: no scheduling proof, the scheduling
-/// parent is the collation's relay parent.
-async fn handle_collation<Block: BlockT>(
-	core_index: CoreIndex,
-	entry: CollatorSegmentEntry<Block>,
-	collator_service: &impl CollatorServiceInterface<Block>,
-	overseer_handle: &mut OverseerHandle,
-	relay_client: &(impl RelayChainInterface + Clone + 'static),
-	export_pov: Option<PathBuf>,
-) {
-	let Some(segment_collation) =
-		build_collation(entry, None, collator_service, relay_client, export_pov).await
-	else {
-		return;
-	};
-	let scheduling_parent = segment_collation.relay_parent;
-
-	tracing::debug!(
-		target: LOG_TARGET,
-		?core_index,
-		?scheduling_parent,
-		"Submitting collation for core.",
-	);
-
-	overseer_handle
-		.send_msg(
-			CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
-				scheduling_parent,
-				core_index,
-				candidates_descriptor_version: CandidateDescriptorVersion::V2,
-				collations: sp_runtime::BoundedVec::truncate_from(vec![segment_collation]),
-			}),
-			"SubmitSegment",
-		)
-		.await;
-}
-
-/// Submit a V3 segment; `Some` only if it sent something a following `Hedges` could rebuild.
-async fn handle_segment<Block, Backend, CHP>(
-	segment: CollatorSegmentMessage<Block>,
-	collator_service: &impl CollatorServiceInterface<Block>,
-	overseer_handle: &mut OverseerHandle,
-	relay_client: &(impl RelayChainInterface + Clone + 'static),
-	export_pov: Option<PathBuf>,
-	para_backend: &Backend,
-	code_hash_provider: &CHP,
-	resubmission_store: &ResubmissionStore<Block, Backend>,
-) -> Option<SegmentSubmission<Block>>
+impl<Block, CS, Backend, CHP> CollationSubmitter<Block, CS, Backend, CHP>
 where
 	Block: BlockT,
+	CS: CollatorServiceInterface<Block>,
 	Backend: sc_client_api::Backend<Block>,
 	CHP: ValidationCodeHashProvider<Block::Hash>,
 {
-	let CollatorSegmentMessage {
-		scheduling_proof,
-		core_index,
-		unincluded_headers,
-		bundle,
-		valid_until,
-	} = segment;
-	// Hydrated here (proof/body reads), off the block-production hot path, and prepended oldest
-	// first ahead of the fresh bundle.
-	let requested = unincluded_headers.len();
-	let mut all_entries = super::unincluded_segment::hydrate_segment(
-		unincluded_headers,
-		para_backend,
-		code_hash_provider,
-		resubmission_store,
-	);
-	let resubmitted = all_entries.len();
-	all_entries.extend(bundle);
-	let fresh = all_entries.len() - resubmitted;
+	/// Build one `SegmentCollation` from `parts`: build the PoV and export it if configured. The
+	/// session and relay-parent header data are carried in `parts`, resolved at build/hydration
+	/// time. Returns `None` if the collation could not be built.
+	async fn build_collation(
+		&self,
+		parts: CollationParts<Block>,
+		scheduling_proof: Option<SchedulingProof>,
+	) -> Option<SegmentCollation> {
+		let CollationParts {
+			relay_parent,
+			parent_header,
+			blocks,
+			proof,
+			validation_code_hash,
+			validation_data,
+			relay_parent_session,
+			relay_parent_storage_root,
+			relay_parent_number,
+		} = parts;
 
-	// Nothing hydrated, so every proof below would report the same failure.
-	if all_entries.is_empty() {
-		tracing::debug!(
-			target: LOG_TARGET,
-			?core_index,
-			requested,
-			"Segment hydrated empty; nothing submitted for core.",
-		);
-		return None;
-	}
+		// The scheduling proof, including its UMP scheduling-tail override, is applied inside
+		// `build_multi_block_collation`.
+		let (collation, block_data) = match self.collator_service.build_multi_block_collation(
+			&parent_header,
+			blocks,
+			proof,
+			scheduling_proof,
+		) {
+			Some(collation) => collation,
+			None => {
+				tracing::warn!(target: LOG_TARGET, ?relay_parent, "Unable to build collation.");
+				return None;
+			},
+		};
 
-	// Hedges keep only the headers; the entries move into the main submission. Skipped when no
-	// hedge can follow: offset 0 (empty chain, nothing to swap) or no budget for the backlog.
-	let hedgeable =
-		!scheduling_proof.header_chain.is_empty() && hedge_budget(resubmitted + fresh) > 0;
-	let headers: Option<Vec<_>> = hedgeable.then(|| {
-		all_entries
-			.iter()
-			.flat_map(|e| e.blocks.iter().map(|b| b.header().clone()))
-			.collect()
-	});
+		block_data.log_size_info();
 
-	let sent = submit_segment(
-		all_entries,
-		scheduling_proof.clone(),
-		core_index,
-		false,
-		resubmitted,
-		fresh,
-		collator_service,
-		overseer_handle,
-		relay_client,
-		export_pov,
-	)
-	.await;
-
-	Some(SegmentSubmission {
-		core_index,
-		headers: headers.filter(|_| sent)?,
-		proof: scheduling_proof,
-		resubmitted,
-		fresh,
-		valid_until,
-	})
-}
-
-/// Mirror the PVF's `signed_scheduling_info` override on the collator side: strip the existing
-/// scheduling tail from `upward_messages` (everything from the first `UMP_SEPARATOR` onwards)
-/// and re-emit it from `signed_info.payload`. After this, collation-generation's
-/// `parse_ump_signals` reads the same `SelectCore`/`ApprovedPeer` the PVF would compute.
-fn override_ump_scheduling_tail(
-	upward_messages: &mut UpwardMessages,
-	signed_info: &SignedSchedulingInfo,
-) {
-	// Strip everything from the first `UMP_SEPARATOR` onwards (the existing scheduling tail).
-	if let Some(pos) = upward_messages.iter().position(|m| m == &UMP_SEPARATOR) {
-		for bytes in upward_messages.iter().skip(pos + 1) {
-			// NOTE: intentionally exhaustive (no `_` arm), mirroring
-			// `SchedulingSignals::from_block_signals`: a new `UMPSignal` variant must fail to
-			// compile here, because the truncate below would silently drop it.
-			match UMPSignal::decode(&mut &bytes[..]).expect("Failed to decode `UMPSignal`") {
-				UMPSignal::SelectCore(..) | UMPSignal::ApprovedPeer(..) => {},
-			}
-		}
-		upward_messages.truncate(pos);
-	}
-
-	// Re-emit the tail using the signed info's selector/offset/peer.
-	let _ = upward_messages.try_push(UMP_SEPARATOR);
-	let _ = upward_messages.try_push(
-		UMPSignal::SelectCore(
-			signed_info.payload.core_selector,
-			ClaimQueueOffset(signed_info.payload.claim_queue_offset),
-		)
-		.encode(),
-	);
-	let _ = upward_messages
-		.try_push(UMPSignal::ApprovedPeer(signed_info.payload.peer_id.clone()).encode());
-}
-
-/// Build one collation from an entry: build the PoV, export it if configured, and look up the
-/// session index. Returns `None` if the collation could not be built or the session lookup failed.
-async fn build_collation<Block: BlockT, RClient: RelayChainInterface + Clone + 'static>(
-	entry: CollatorSegmentEntry<Block>,
-	scheduling_proof: Option<SchedulingProof>,
-	collator_service: &impl CollatorServiceInterface<Block>,
-	relay_client: &RClient,
-	export_pov: Option<PathBuf>,
-) -> Option<SegmentCollation> {
-	let CollatorSegmentEntry {
-		relay_parent,
-		parent_header,
-		blocks,
-		proof,
-		validation_code_hash,
-		validation_data,
-	} = entry;
-
-	// Capture the signed scheduling info before `build_multi_block_collation` consumes the proof;
-	// used to pre-apply the PVF's UMP-signal override below.
-	let scheduling_signals_override =
-		scheduling_proof.as_ref().and_then(|p| p.signed_scheduling_info.clone());
-
-	let (mut collation, block_data) = match collator_service.build_multi_block_collation(
-		&parent_header,
-		blocks,
-		proof,
-		scheduling_proof,
-	) {
-		Some(collation) => collation,
-		None => {
-			tracing::warn!(target: LOG_TARGET, ?relay_parent, "Unable to build collation.");
-			return None;
-		},
-	};
-
-	// Pre-apply the PVF's UMP-signal override locally. The PVF replaces the block's emitted
-	// `SelectCore`/`ApprovedPeer` signals wholesale with the ones in `signed_scheduling_info`
-	// (see `cumulus_pallet_parachain_system::validate_block::implementation`). Doing the same
-	// rewrite on `collation.upward_messages` here lets collation-generation's `parse_ump_signals`
-	// see the post-override signals, so a historical entry whose body committed to a different
-	// selector than the segment's `core_index` won't trip `CoreIndexMismatch` at the collator-side
-	// pre-check, and the committed commitments match what the PVF produces.
-	if let Some(signed_info) = scheduling_signals_override.as_ref() {
-		override_ump_scheduling_tail(&mut collation.upward_messages, signed_info);
-	}
-
-	block_data.log_size_info();
-
-	if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
-		if let Some(pov_path) = export_pov {
-			if let Ok(Some(relay_parent_header)) =
-				relay_client.header(BlockId::Hash(relay_parent)).await
-			{
+		if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
+			if let Some(pov_path) = self.export_pov.as_ref() {
 				if let Some(header) = block_data.blocks().first().map(|b| b.header()) {
 					export_pov_to_path::<Block>(
 						pov_path,
@@ -598,50 +504,35 @@ async fn build_collation<Block: BlockT, RClient: RelayChainInterface + Clone + '
 						header.hash(),
 						*header.number(),
 						parent_header.clone(),
-						relay_parent_header.state_root,
-						relay_parent_header.number,
+						relay_parent_storage_root,
+						relay_parent_number,
 						validation_data.max_pov_size,
 					);
 				}
-			} else {
-				tracing::error!(target: LOG_TARGET, "Failed to get relay parent header from hash: {relay_parent:?}");
 			}
+
+			tracing::info!(
+				target: LOG_TARGET,
+				block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
+				"Compressed PoV size: {}kb",
+				pov.block_data.0.len() as f64 / 1024f64,
+			);
 		}
 
-		tracing::info!(
-			target: LOG_TARGET,
-			block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
-			"Compressed PoV size: {}kb",
-			pov.block_data.0.len() as f64 / 1024f64,
-		);
+		Some(SegmentCollation {
+			relay_parent,
+			collation,
+			validation_code_hash,
+			session_index: relay_parent_session,
+			validation_data,
+		})
 	}
-
-	let session_index = match relay_client.session_index_for_child(relay_parent).await {
-		Ok(session_index) => session_index,
-		Err(err) => {
-			tracing::error!(
-				target: LOG_TARGET,
-				?err,
-				?relay_parent,
-				"Failed to fetch session index."
-			);
-			return None;
-		},
-	};
-
-	Some(SegmentCollation {
-		relay_parent,
-		collation,
-		validation_code_hash,
-		session_index,
-		validation_data,
-	})
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use cumulus_primitives_core::SchedulingInfoPayload;
+	use cumulus_primitives_core::{SchedulingInfoPayload, SignedSchedulingInfo};
 	use cumulus_test_client::runtime::Block;
 	use polkadot_primitives::CoreSelector;
 	use std::time::Duration;
@@ -702,13 +593,13 @@ mod tests {
 	}
 
 	fn segment_message(core_index: CoreIndex) -> CollatorMessage<Block> {
-		CollatorMessage::Segment(CollatorSegmentMessage {
+		CollatorMessage::Segment {
 			scheduling_proof: scheduling_proof(0),
 			core_index,
-			unincluded_headers: vec![],
+			resubmittable_headers: vec![],
 			bundle: None,
 			valid_until: Instant::now(),
-		})
+		}
 	}
 
 	/// The next work as `("segment", core)` or `("hedge", proof)`; never blocks on a queued hedge.
@@ -720,8 +611,8 @@ mod tests {
 			.await
 			.expect("next_work must not block");
 		match work? {
-			Work::Message(CollatorMessage::Segment(segment)) => {
-				Some(("segment", segment.core_index.0))
+			Work::Message(CollatorMessage::Segment { core_index, .. }) => {
+				Some(("segment", core_index.0))
 			},
 			Work::Hedge(hedge) => {
 				Some(("hedge", hedge.proof.internal_scheduling_parent_header.number))

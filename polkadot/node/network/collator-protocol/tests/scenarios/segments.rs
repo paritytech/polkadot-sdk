@@ -213,8 +213,6 @@ mod same_head_retry {
 
 		w.fail_fetch(request_id);
 
-		// THE RETRY — red today: the parked segment was already consumed while A was
-		// in flight, so no follow-up fetch ever fires.
 		let retry_id = w.expect_fetch_v3_to(second);
 		w.respond_fetch_v3(
 			retry_id,
@@ -267,7 +265,6 @@ mod same_head_retry {
 		);
 		expect_second_of(&mut w, bad_receipt.hash(), "bad twin optimistically dispatched");
 
-		// THE RETRY — red today, same exhaustion gap as the fetch-failure scenario.
 		let retry_id = w.expect_fetch_v3_to(second);
 		w.respond_fetch_v3(
 			retry_id,
