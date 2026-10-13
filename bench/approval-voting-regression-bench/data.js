@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791896720377,
+  "lastUpdate": 1791899847056,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dhiraj@parity.io",
-            "name": "Dhiraj Sah",
-            "username": "dhirajs0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "97ebda9a6dab457e53a94e7108a6b2f9c374a5c1",
-          "message": "update multi asset bounties pallet account derivation logic  (#11052)\n\n# Description\n\nUpdates bounty and child-bounty account derivation in\n`pallet-multi-asset-bounties` to use the sub-account prefixes `\"mbt\"`\n(multi-asset bounty) and `\"mcb\"` (multi-asset child bounty) instead of\n`\"bt\"` and `\"cb\"`. To avoid having the same bounty account by both the\nnew multi asset bounties pallet and the old bounties pallet.\n\n## Integration\n\nThe pallet is only deployed on Westend (not Kusama or Polkadot), so no\nproduction downstream depends on the old derivation; the change is\nlimited to testnet as the KAH and PAH runtime are configured with the\nnew prefix already.\n\n## Review Notes\n- Doc comments were added at module level (account derivation\nsubsection) and on both structs to document the prefixes.\n- **Version bump:** Major\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T10:16:47Z",
-          "tree_id": "e0cb1bad7b77f16191cd4548b8959e888a414ad6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/97ebda9a6dab457e53a94e7108a6b2f9c374a5c1"
-        },
-        "date": 1775216251552,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52939.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63619.77999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4526117146700095,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021174,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8712547692899983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001952001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021174,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001952001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.855303541830002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005063004610000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.85378802421,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.728950009079967,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.563825234179976,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.2675325551727505,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.796854170489998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.79341795798,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "de8b01bbec123e4fadee1cf2ddb30f52620519bb",
+          "message": "cumulus: compute resubmittable segment in the parent search (#13355)\n\n# Description\n\nDuring the `find_parent` call we are able to find both the included head\nand pending availability head if it exists. They can be used as starting\npoint for a forward walk up to para best block, to determine the\nresubmittable segment (as headers).\n\n*NOTE*: at this point the resubmittable segment can contain multiple\nblocks of the same bundle. The following PRs in the stack will be able\nto compact the blocks of a bundle in a single collation though, before\nsubmitting a V4 segment.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12309\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-13T11:28:21Z",
+          "tree_id": "0c560d215ab0a56e4f684dfe89a7bc5cd949c978",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/de8b01bbec123e4fadee1cf2ddb30f52620519bb"
+        },
+        "date": 1791899813607,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63571.61000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7363329054600003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000023774559999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.77849053106,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000023774559999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005297799290000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002336966,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002336966,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7487621583100004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.797762490379999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.229243183849963,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8215926467699732,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.410970160172802,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3410046525799904,
             "unit": "seconds"
           }
         ]
