@@ -641,16 +641,17 @@ impl<T: Config> Pallet<T> {
 				log::debug!(target: LOG_TARGET, "Report from unknown signer {:?}", report.signer);
 				continue;
 			}
+			if latest
+				.get(&report.signer)
+				.is_some_and(|existing| existing.report.anchor > report.report.anchor)
+			{
+				continue;
+			}
 			if !report.verify_signature() {
 				log::debug!(target: LOG_TARGET, "Invalid signature from {:?}", report.signer);
 				continue;
 			}
-			match latest.get(&report.signer) {
-				Some(existing) if existing.report.anchor > report.report.anchor => continue,
-				_ => {
-					latest.insert(report.signer.clone(), report);
-				},
-			}
+			latest.insert(report.signer.clone(), report);
 		}
 
 		latest.into_values().collect()
