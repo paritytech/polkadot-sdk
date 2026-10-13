@@ -21,14 +21,13 @@
 //! Implements [#11935](https://github.com/paritytech/polkadot-sdk/issues/11935): the module that
 //! keeps the node connected to the peers it needs to cover its subscriptions.
 //!
-//! It tracks the connected peers, the peers needed for coverage and the peers it holds in the
-//! statement protocol's reserved set. [`PeerSteering::peers_to_reserve`] and
-//! [`PeerSteering::peers_to_release`] decide how to align the reserved set with the desired one —
-//! the desired peers outside the reserved set and the reserved peers no longer desired — closing
-//! at most [`MAX_DISCONNECT_PERCENT`] of the connected peers per refresh so the set converges over
-//! several refreshes rather than churning at once. [`PeerSteering::refresh_connections`] applies
-//! that decision by editing the reserved set: adding a peer dials it and keeps the notification
-//! substream open, removing one drops it. The orchestrator supplies the coverage set via
+//! The module keeps three sets of peers: the peers with an open substream, the peers needed to
+//! cover the node's subscriptions (the desired set), and the peers it holds in the statement
+//! protocol's reserved set. Each refresh moves the reserved set toward the desired one. A desired
+//! peer gets reserved, which dials it and keeps its substream open. A reserved peer no longer
+//! desired is released, which drops it. A refresh releases at most [`MAX_DISCONNECT_PERCENT`] of
+//! the connected peers, so the set converges over several refreshes instead of churning at once.
+//! The orchestrator supplies the desired set through
 //! [`PeerSteering::update_peers_needing_connections`].
 //!
 //! Each connected peer carries a score based on its actions. Undesired peers are
@@ -166,25 +165,25 @@ impl PeerSteering {
 			.collect()
 	}
 
-	/// Reserved peers no longer desired. Every such peer without an open connection goes, the
-	/// connected ones are capped at [`MAX_DISCONNECT_PERCENT`] of the connected peers (at least
-	/// one while any remain) so the set converges step by step.
+	/// Reserved peers no longer desired. A peer without an open substream is released at once. The
+	/// connected ones go at most [`MAX_DISCONNECT_PERCENT`] of the connected peers per refresh, and
+	/// at least one, so the set converges step by step.
 	pub(crate) fn peers_to_release(&self) -> Vec<PeerId> {
 		let limit = (self.connected.len() * MAX_DISCONNECT_PERCENT / 100).max(1);
-		let mut release = Vec::new();
+		let mut to_release = Vec::new();
 		// Drop the lowest-scored peers first. Among peers of equal score, the longest-connected one
 		// goes first, spreading disconnects across peers.
-		let mut connected: Vec<(i32, u64, PeerId)> = Vec::new();
+		let mut to_disconnect: Vec<(i32, u64, PeerId)> = Vec::new();
 		for peer in self.reserved.iter().filter(|peer| !self.desired.contains(peer)) {
 			match self.connected.get(peer) {
-				Some(entry) => connected.push((entry.score, entry.seq, *peer)),
-				None => release.push(*peer),
+				Some(entry) => to_disconnect.push((entry.score, entry.seq, *peer)),
+				None => to_release.push(*peer),
 			}
 		}
-		connected.sort();
-		connected.truncate(limit);
-		release.extend(connected.into_iter().map(|(_, _, peer)| peer));
-		release
+		to_disconnect.sort();
+		to_disconnect.truncate(limit);
+		to_release.extend(to_disconnect.into_iter().map(|(_, _, peer)| peer));
+		to_release
 	}
 
 	/// Align the reserved set with the desired set by editing the statement protocol's reserved
@@ -203,6 +202,9 @@ impl PeerSteering {
 			release.len(),
 		);
 
+		// Leaving the reserved set drops a peer this node dialed only while the set has no
+		// outbound slots, otherwise the controller moves it to a free slot and an explicit
+		// disconnect is needed.
 		for peer in release {
 			match network.remove_peers_from_reserved_set(self.protocol.clone(), vec![peer]) {
 				Ok(()) => {
