@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791899717625,
+  "lastUpdate": 1791902000346,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -133595,6 +133595,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2985912663,
             "range": "± 115423106",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68506aeda4ca20c0a40fbd805fb1e84c903e8ebd",
+          "message": "ci: migrate ci-unified to bookworm (#13467)\n\ncc https://github.com/paritytech/devops/issues/5593",
+          "timestamp": "2026-10-13T16:07:41+02:00",
+          "tree_id": "41e4434ba6a3bf098995d2bc1aad049e349c40da",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/68506aeda4ca20c0a40fbd805fb1e84c903e8ebd"
+        },
+        "date": 1791901966148,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19996161,
+            "range": "± 223340",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19879755,
+            "range": "± 140297",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21356881,
+            "range": "± 73377",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25841659,
+            "range": "± 174913",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58126290,
+            "range": "± 743596",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 332567860,
+            "range": "± 5998854",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2665865260,
+            "range": "± 110518992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16456800,
+            "range": "± 99860",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16821887,
+            "range": "± 154465",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16989599,
+            "range": "± 94788",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21742663,
+            "range": "± 128042",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58377330,
+            "range": "± 1116174",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 338609271,
+            "range": "± 5096425",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2570418329,
+            "range": "± 20443414",
             "unit": "ns/iter"
           }
         ]
