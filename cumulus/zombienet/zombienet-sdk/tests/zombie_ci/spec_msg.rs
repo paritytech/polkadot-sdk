@@ -7,12 +7,18 @@
 //! Each chain both sends and receives: the sender reads the receiver's `Ack` register, so each
 //! collator names the other as its static `--spec-msg-peer`. Zombienet derives a node's key from
 //! its name, so both peer ids are known before spawn.
+//!
+//! The delivery test logs one checkpoint per protocol step, each read from chain state: the
+//! sender's committed root, the relay's provides window, the receiver's consumption record, and
+//! the executed XCM.
 
 use crate::utils::initialize_network;
 use anyhow::anyhow;
-use codec::Decode;
+use codec::{Decode, Encode};
 use cumulus_primitives_core::ParaId;
-use cumulus_primitives_spec_messaging::{ChannelId, InChannelState, OutChannelState};
+use cumulus_primitives_spec_messaging::{
+	ChannelId, ConsumptionRecord, InChannelState, OutChannelState, SPMS_ENGINE_ID,
+};
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_throughput, open_hrmp_channel, submit_extrinsic_and_wait_for_finalization_success,
 };
@@ -20,9 +26,11 @@ use std::{collections::BTreeMap, future::Future, time::Duration};
 use zombienet_sdk::{
 	subxt::{
 		self,
+		backend::StreamOfResults,
 		blocks::Block,
+		config::substrate::DigestItem,
 		dynamic::Value,
-		ext::scale_value::{At, Composite, Primitive, ValueDef},
+		ext::scale_value::{At, Primitive, ValueDef},
 		utils::H256,
 		OnlineClient, PolkadotConfig,
 	},
@@ -64,17 +72,43 @@ async fn spec_msg_delivers_xcm_without_hrmp() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
+	if hrmp_channel_open(&relay, SENDER, RECEIVER).await? {
+		return Err(anyhow!("an HRMP channel {SENDER} -> {RECEIVER} exists"));
+	}
+	log::info!("No HRMP channel {SENDER} -> {RECEIVER} on the relay chain");
+
 	open_spec_msg_channel(&sender, &receiver).await?;
 
 	log::info!("Sending an XCM {SENDER} -> {RECEIVER}");
-	sudo(&sender, send_xcm_to(RECEIVER)).await?;
+	// Subscribe first: the receiver may consume the message before the send is finalized.
+	let receiver_blocks = receiver.blocks().subscribe_finalized().await?;
+	let sent = sender.blocks().at(sudo(&sender, send_xcm_to(RECEIVER)).await?).await?;
+	let root = committed_root(&sent)
+		.ok_or_else(|| anyhow!("send block #{} commits no `StreamsRoot`", sent.number()))?;
+	log::info!(
+		"Checkpoint 1/5, send: {SENDER} block #{} holds `PolkadotXcm::Sent` and commits \
+		 `StreamsRoot` {root:?} in its SPMS digest, its `Provides`",
+		sent.number(),
+	);
 
-	// The XCM reaches the receiver's message queue under `SpecMsg(sender)` and executes.
-	wait_for_event(&receiver, "MessageQueue", "Processed", |fields| {
-		let fields = format!("{fields:?}");
-		fields.contains("SpecMsg") && fields.contains("Bool(true)")
+	wait_for("the relay chain to hold that root in the sender's provides window", || async {
+		let newest: Option<H256> = call_at(
+			&relay,
+			None,
+			"ParachainHost_newest_included_provides",
+			&ParaId::from(SENDER).encode(),
+		)
+		.await?;
+		Ok(newest == Some(root))
 	})
 	.await?;
+	log::info!(
+		"Checkpoint 2/5, relay: at relay block #{}, `newest_included_provides({SENDER})` is that \
+		 root: the sender's candidate was included and its `Provides` recorded",
+		relay.blocks().at_latest().await?.number(),
+	);
+
+	follow_delivery(&receiver, receiver_blocks).await?;
 
 	// Both chains still make progress with messaging live.
 	assert_para_throughput(
@@ -135,13 +169,8 @@ async fn spec_msg_vs_hrmp_latency() -> Result<(), anyhow::Error> {
 
 	log::info!("Force-opening HRMP {SENDER} -> {RECEIVER}");
 	open_hrmp_channel(&relay, SENDER, RECEIVER, 8, 1024, &dev::alice(), 120).await?;
-	wait_for("the HRMP channel to open on the relay chain", || async {
-		let key = Value::named_composite([
-			("sender", Value::u128(SENDER.into())),
-			("recipient", Value::u128(RECEIVER.into())),
-		]);
-		let query = subxt::dynamic::storage("Hrmp", "HrmpChannels", vec![key]);
-		Ok(relay.storage().at_latest().await?.fetch(&query).await?.is_some())
+	wait_for("the HRMP channel to open on the relay chain", || {
+		hrmp_channel_open(&relay, SENDER, RECEIVER)
 	})
 	.await?;
 	let hrmp = measure(&sender, &receiver, &inclusions, "Sibling").await?;
@@ -492,8 +521,47 @@ async fn call<T: Decode>(
 	client: &OnlineClient<PolkadotConfig>,
 	method: &str,
 ) -> Result<T, anyhow::Error> {
-	let bytes = client.runtime_api().at_latest().await?.call_raw(method, None).await?;
+	call_at(client, None, method, &[]).await
+}
+
+/// Call a runtime API with SCALE-encoded `args` at block `at`, or the latest if `None`, and decode
+/// its result.
+async fn call_at<T: Decode>(
+	client: &OnlineClient<PolkadotConfig>,
+	at: Option<H256>,
+	method: &str,
+	args: &[u8],
+) -> Result<T, anyhow::Error> {
+	let api = match at {
+		Some(hash) => client.runtime_api().at(hash),
+		None => client.runtime_api().at_latest().await?,
+	};
+	let bytes = api.call_raw(method, Some(args)).await?;
 	Ok(T::decode(&mut &bytes[..])?)
+}
+
+/// Whether the relay chain has an HRMP channel `from -> to`.
+async fn hrmp_channel_open(
+	relay: &OnlineClient<PolkadotConfig>,
+	from: u32,
+	to: u32,
+) -> Result<bool, anyhow::Error> {
+	let key = Value::named_composite([
+		("sender", Value::u128(from.into())),
+		("recipient", Value::u128(to.into())),
+	]);
+	let query = subxt::dynamic::storage("Hrmp", "HrmpChannels", vec![key]);
+	Ok(relay.storage().at_latest().await?.fetch(&query).await?.is_some())
+}
+
+/// The `StreamsRoot` a block commits in its SPMS digest, if it sent anything.
+fn committed_root(block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>) -> Option<H256> {
+	block.header().digest.logs.iter().find_map(|item| match item {
+		DigestItem::Consensus(id, payload) if *id == SPMS_ENGINE_ID => {
+			H256::decode(&mut &payload[..]).ok()
+		},
+		_ => None,
+	})
 }
 
 /// Poll `check` every 6 s for up to 5 minutes.
@@ -513,35 +581,68 @@ where
 	Err(anyhow!("timed out waiting for {what}"))
 }
 
-/// Wait up to 5 minutes for a finalized `pallet::variant` event whose fields match.
-async fn wait_for_event(
-	client: &OnlineClient<PolkadotConfig>,
-	pallet: &str,
-	variant: &str,
-	matches: impl Fn(&Composite<u32>) -> bool,
+/// Follow the receiver's finalized blocks until the XCM executes, logging the block that consumed
+/// the sender's stream and the one that executed the XCM.
+async fn follow_delivery(
+	receiver: &OnlineClient<PolkadotConfig>,
+	mut blocks: StreamOfResults<Block<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
 ) -> Result<(), anyhow::Error> {
-	log::info!("Waiting for `{pallet}::{variant}`");
-	let wait = async {
-		let mut blocks = client.blocks().subscribe_finalized().await?;
+	log::info!("Following {RECEIVER}'s finalized blocks");
+	let mut consumed = false;
+	let follow = async {
 		while let Some(block) = blocks.next().await {
 			let block = block?;
+			if !consumed {
+				let record: ConsumptionRecord =
+					call_at(receiver, Some(block.hash()), "SpecMsgApi_consumption_record", &[])
+						.await?;
+				if let Some(streams) = record.entries.get(&ParaId::from(SENDER)) {
+					for (stream, interval) in streams {
+						log::info!(
+							"Checkpoint 3/5, consume: {RECEIVER} block #{} consumed {stream:?} up \
+							 to leaf {}, fetched from {SENDER}'s collator; its consumption \
+							 record becomes the candidate's `Requires`",
+							block.number(),
+							interval.end.leaf_count(),
+						);
+					}
+					log::info!(
+						"Checkpoint 4/5, backing: {RECEIVER} block #{} is finalized, so its \
+						 candidate was backed and included: the relay matched its `Requires` \
+						 against {SENDER}'s provides window",
+						block.number(),
+					);
+					consumed = true;
+				}
+			}
 			for event in block.events().await?.iter() {
 				let event = event?;
-				if event.pallet_name() != pallet || event.variant_name() != variant {
+				if event.pallet_name() != "MessageQueue" || event.variant_name() != "Processed" {
 					continue;
 				}
-				let fields = event.field_values()?;
-				if matches(&fields) {
-					log::info!("#{}: `{pallet}::{variant}` {fields:?}", block.number());
+				let values = event.field_values()?;
+				let fields = format!("{values:?}");
+				if fields.contains("SpecMsg") && fields.contains("Bool(true)") {
+					if !consumed {
+						return Err(anyhow!("XCM executed before any block consumed it"));
+					}
+					let field = |name| values.at(name).map(ToString::to_string).unwrap_or_default();
+					log::info!(
+						"Checkpoint 5/5, execute: {RECEIVER} block #{} `MessageQueue::Processed`: \
+						 origin {}, success {}",
+						block.number(),
+						field("origin"),
+						field("success"),
+					);
 					return Ok(());
 				}
 			}
 		}
-		Err(anyhow!("block subscription ended"))
+		Err(anyhow!("receiver block subscription ended"))
 	};
-	tokio::time::timeout(Duration::from_secs(300), wait)
+	tokio::time::timeout(Duration::from_secs(300), follow)
 		.await
-		.map_err(|_| anyhow!("no matching `{pallet}::{variant}` within 5 minutes"))?
+		.map_err(|_| anyhow!("XCM not executed within 5 minutes"))?
 }
 
 /// `--spec-msg-peer` for the collator `name` of `para`, listening on `port`.
