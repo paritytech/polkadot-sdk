@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791896671480,
+  "lastUpdate": 1791899796772,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dhiraj@parity.io",
-            "name": "Dhiraj Sah",
-            "username": "dhirajs0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "97ebda9a6dab457e53a94e7108a6b2f9c374a5c1",
-          "message": "update multi asset bounties pallet account derivation logic  (#11052)\n\n# Description\n\nUpdates bounty and child-bounty account derivation in\n`pallet-multi-asset-bounties` to use the sub-account prefixes `\"mbt\"`\n(multi-asset bounty) and `\"mcb\"` (multi-asset child bounty) instead of\n`\"bt\"` and `\"cb\"`. To avoid having the same bounty account by both the\nnew multi asset bounties pallet and the old bounties pallet.\n\n## Integration\n\nThe pallet is only deployed on Westend (not Kusama or Polkadot), so no\nproduction downstream depends on the old derivation; the change is\nlimited to testnet as the KAH and PAH runtime are configured with the\nnew prefix already.\n\n## Review Notes\n- Doc comments were added at module level (account derivation\nsubsection) and on both structs to document the prefixes.\n- **Version bump:** Major\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T10:16:47Z",
-          "tree_id": "e0cb1bad7b77f16191cd4548b8959e888a414ad6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/97ebda9a6dab457e53a94e7108a6b2f9c374a5c1"
-        },
-        "date": 1775216220639,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006904606919999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14801892618666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02405747934,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009784786193333317,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1425002571200001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "de8b01bbec123e4fadee1cf2ddb30f52620519bb",
+          "message": "cumulus: compute resubmittable segment in the parent search (#13355)\n\n# Description\n\nDuring the `find_parent` call we are able to find both the included head\nand pending availability head if it exists. They can be used as starting\npoint for a forward walk up to para best block, to determine the\nresubmittable segment (as headers).\n\n*NOTE*: at this point the resubmittable segment can contain multiple\nblocks of the same bundle. The following PRs in the stack will be able\nto compact the blocks of a bundle in a single collation though, before\nsubmitting a V4 segment.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12309\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-13T11:28:21Z",
+          "tree_id": "0c560d215ab0a56e4f684dfe89a7bc5cd949c978",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/de8b01bbec123e4fadee1cf2ddb30f52620519bb"
+        },
+        "date": 1791899763277,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007820205366666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00995869903333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14309372598000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025305311446666666,
             "unit": "seconds"
           }
         ]
