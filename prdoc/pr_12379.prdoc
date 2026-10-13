@@ -1,0 +1,8 @@
+title: Avoid RocksDB dependency in subkey build
+doc:
+- audience: Node Dev
+  description: |-
+    Disables `sc-cli` default features for `subkey`, removing its unused RocksDB/`librocksdb-sys` dependency and avoiding native RocksDB build failures during direct `subkey` builds.
+crates:
+- name: subkey
+  bump: patch

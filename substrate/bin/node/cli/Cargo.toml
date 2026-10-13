@@ -146,6 +146,8 @@ polkadot-sdk = { features = [
 	"tracing-gum",
 ], workspace = true, default-features = true }
 
+sc-service = { workspace = true, features = ["rocksdb"] }
+
 # Shared code between the staging node and kitchensink runtime:
 kitchensink-runtime = { workspace = true }
 node-inspect = { optional = true, workspace = true, default-features = true }
@@ -192,6 +194,7 @@ runtime-benchmarks = [
 	"kitchensink-runtime/runtime-benchmarks",
 	"node-inspect?/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
 ]
 try-runtime = [
 	"kitchensink-runtime/try-runtime",
