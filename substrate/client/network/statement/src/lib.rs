@@ -565,7 +565,7 @@ impl StatementHandlerPrototype {
 		// disconnecting.
 		let set_config = if v2dht_enabled() {
 			SetConfig {
-				in_peers: in_peers_full + in_peers_light,
+				in_peers: in_peers_full.saturating_add(in_peers_light),
 				out_peers: DEFAULT_OUT_PEERS,
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Accept,

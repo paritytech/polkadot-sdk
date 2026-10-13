@@ -25,7 +25,8 @@
 //! cover the node's subscriptions (the desired set), and the peers it holds in the statement
 //! protocol's reserved set. Each refresh moves the reserved set toward the desired one. A desired
 //! peer gets reserved, which dials it and keeps its substream open. A reserved peer no longer
-//! desired is released, which drops it. A refresh releases at most [`MAX_DISCONNECT_PERCENT`] of
+//! desired is released, which drops a peer this node dialed and leaves a peer that dialed in as
+//! an ordinary inbound peer. A refresh releases at most [`MAX_DISCONNECT_PERCENT`] of
 //! the connected peers, so the set converges over several refreshes instead of churning at once.
 //! The orchestrator supplies the desired set through
 //! [`PeerSteering::update_peers_needing_connections`].
