@@ -750,7 +750,6 @@ mod test {
 			hash,
 			header: Some(header),
 			body,
-			indexed_body: None,
 			justifications,
 			origin: None,
 			allow_missing_state: true,

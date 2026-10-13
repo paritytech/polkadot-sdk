@@ -48,9 +48,7 @@ use std::{any::Any, collections::HashMap, sync::Arc};
 fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
 	match sync_mode {
 		SyncMode::Full => ChainSyncMode::Full,
-		SyncMode::LightState { storage_chain_mode } => {
-			ChainSyncMode::LightState { storage_chain_mode }
-		},
+		SyncMode::LightState => ChainSyncMode::LightState,
 		SyncMode::Warp => ChainSyncMode::Full,
 	}
 }

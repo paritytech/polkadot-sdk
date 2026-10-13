@@ -1,0 +1,10 @@
+title: 'statement-store: restore the full-store fixture and report percentiles in the benchmarks'
+doc:
+- audience: Node Dev
+  description: |-
+    The full-store benchmark restores its fixture after the eviction phase and checks the fixture
+    size on every start. The add_filter benchmark reports the median and p90, and the
+    enforce_limits benchmark waits by the clock until its expiry backlog has expired.
+crates:
+- name: sc-statement-store
+  bump: none

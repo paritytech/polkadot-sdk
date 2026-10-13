@@ -533,7 +533,6 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		&mut self,
 		header: <Block as BlockT>::Header,
 		body: Option<Vec<<Block as BlockT>::Extrinsic>>,
-		_indexed_body: Option<Vec<Vec<u8>>>,
 		justifications: Option<Justifications>,
 		state: NewBlockState,
 		register_as_leaf: bool,
@@ -1134,7 +1133,7 @@ mod tests {
 		);
 
 		let mut op = backend.begin_operation()?;
-		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)?;
+		op.set_block_data(header.clone(), None, None, NewBlockState::Normal, true)?;
 		backend.complete_partial_state(&mut op, header.state_root)?;
 		backend.commit_operation(op)?;
 
@@ -1167,7 +1166,7 @@ mod tests {
 			digest: Default::default(),
 			extrinsics_root: Default::default(),
 		};
-		op.set_block_data(genesis.clone(), None, None, None, NewBlockState::Final, true)?;
+		op.set_block_data(genesis.clone(), None, None, NewBlockState::Final, true)?;
 		backend.commit_operation(op)?;
 
 		let mut op = backend.begin_operation()?;
@@ -1184,7 +1183,7 @@ mod tests {
 			digest: Default::default(),
 			extrinsics_root: Default::default(),
 		};
-		op.set_block_data(child.clone(), None, None, None, NewBlockState::Best, true)?;
+		op.set_block_data(child.clone(), None, None, NewBlockState::Best, true)?;
 		backend.commit_operation(op)?;
 
 		let read = |hash| -> sp_blockchain::Result<Option<Vec<u8>>> {
@@ -1212,7 +1211,7 @@ mod tests {
 
 		// The header alone, imported without the synced state, has none of the attempt's keys.
 		let mut op = backend.begin_operation()?;
-		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)?;
+		op.set_block_data(header.clone(), None, None, NewBlockState::Normal, true)?;
 		backend.commit_operation(op)?;
 		let state = backend.state_at(header.hash(), TrieCacheContext::Untrusted)?;
 		assert_eq!(state.storage(&key).map_err(storage_err)?, None);
@@ -1295,7 +1294,7 @@ mod tests {
 
 		let mut op = backend.begin_operation()?;
 		backend.complete_partial_state(&mut op, header.state_root)?;
-		op.set_block_data(header.clone(), None, None, None, NewBlockState::Best, true)?;
+		op.set_block_data(header.clone(), None, None, NewBlockState::Best, true)?;
 		assert!(backend.commit_operation(op).is_err());
 		assert!(
 			backend.resumable_partial_state()?.is_some_and(|record| record.complete),
@@ -1304,7 +1303,7 @@ mod tests {
 
 		let mut op = backend.begin_operation()?;
 		backend.complete_partial_state(&mut op, header.state_root)?;
-		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)?;
+		op.set_block_data(header.clone(), None, None, NewBlockState::Normal, true)?;
 		backend.commit_operation(op)?;
 		let state = backend.state_at(header.hash(), TrieCacheContext::Untrusted)?;
 		assert_eq!(pairs_of(&state)?, expected);

@@ -304,9 +304,7 @@ impl Into<sc_network::config::SyncMode> for SyncMode {
 	fn into(self) -> sc_network::config::SyncMode {
 		match self {
 			SyncMode::Full => sc_network::config::SyncMode::Full,
-			SyncMode::Fast => {
-				sc_network::config::SyncMode::LightState { storage_chain_mode: false }
-			},
+			SyncMode::Fast => sc_network::config::SyncMode::LightState,
 			SyncMode::FastUnsafe => {
 				// The conversion runs while the configuration is built, before the logger exists:
 				// a `log::warn!` here is lost, so the warning goes to stderr like the one for the
@@ -315,7 +313,7 @@ impl Into<sc_network::config::SyncMode> for SyncMode {
 					"WARNING: `--sync fast-unsafe` is deprecated and behaves like `--sync fast`: the \
 					latest state is always downloaded with proofs. Use `--sync fast`."
 				);
-				sc_network::config::SyncMode::LightState { storage_chain_mode: false }
+				sc_network::config::SyncMode::LightState
 			},
 			SyncMode::Warp => sc_network::config::SyncMode::Warp,
 		}

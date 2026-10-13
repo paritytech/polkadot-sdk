@@ -210,7 +210,6 @@ impl<B: BlockT> StateSyncMetadata<B> {
 			hash: self.target_hash(),
 			header: Some(self.target_header.clone()),
 			body: self.target_body.clone(),
-			indexed_body: None,
 			justifications: self.target_justifications.clone(),
 			origin: None,
 			allow_missing_state: true,

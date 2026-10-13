@@ -286,7 +286,6 @@ fn create_block_response(blocks: Vec<Block>) -> BlockResponse<Block> {
 				hash: b.hash(),
 				header: Some(b.header().clone()),
 				body: Some(b.deconstruct().1),
-				indexed_body: None,
 				receipt: None,
 				message_queue: None,
 				justification: None,
@@ -1631,7 +1630,6 @@ fn gap_sync_pauses_above_body_cutoff_while_major_syncing() {
 			hash: blocks[6].hash(),
 			header: Some(blocks[6].header().clone()),
 			body: None,
-			indexed_body: None,
 			receipt: None,
 			message_queue: None,
 			justification: None,
@@ -1771,8 +1769,7 @@ fn state_sync_is_not_attempted_over_an_existing_state() {
 	let client = Arc::new(TestClientBuilder::new().build());
 	let block = build_block(&client, None, false);
 	assert!(client.info().finalized_state.is_some());
-	let mut sync =
-		new_test_sync_with_mode(client, ChainSyncMode::LightState { storage_chain_mode: false });
+	let mut sync = new_test_sync_with_mode(client, ChainSyncMode::LightState);
 	sync.add_peer(PeerId::random(), block.hash(), 1);
 
 	sync.attempt_state_sync(block.hash(), 1);
@@ -1790,8 +1787,7 @@ fn complete_recorded_state_sync_imports_the_target_and_restarts_in_full_mode() {
 	let client = client_knowing_header_only(&header);
 	record_complete_state(&remote, &client, &header).unwrap();
 
-	let mut sync =
-		new_test_sync_with_mode(client, ChainSyncMode::LightState { storage_chain_mode: false });
+	let mut sync = new_test_sync_with_mode(client, ChainSyncMode::LightState);
 	for _ in 0..2 {
 		sync.add_peer(PeerId::random(), block.hash(), 1);
 	}
@@ -1914,8 +1910,7 @@ fn ancestry_search_allows_state_request_to_move_to_another_peer() {
 	let remote = TestClientBuilder::new().build();
 	let block = build_block(&remote, None, false);
 	let client = client_knowing_header_only(block.header());
-	let mut sync =
-		new_test_sync_with_mode(client, ChainSyncMode::LightState { storage_chain_mode: false });
+	let mut sync = new_test_sync_with_mode(client, ChainSyncMode::LightState);
 	let peers = [PeerId::random(), PeerId::random()];
 	for peer in peers {
 		sync.add_peer(peer, block.hash(), 1);
