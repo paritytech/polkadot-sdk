@@ -1,0 +1,17 @@
+[package]
+name = "pvq-runtime-api"
+description = "Runtime API for PVQ"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+version = "0.1.0"
+
+[dependencies]
+pvq-primitives = { workspace = true }
+
+sp-api = { workspace = true }
+
+[features]
+default = ["std"]
+std = ["pvq-primitives/std", "sp-api/std"]

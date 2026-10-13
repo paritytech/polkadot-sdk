@@ -1,0 +1,21 @@
+[package]
+name = "pvq-executor"
+description = "PVQ program executor"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+version = "0.1.0"
+
+[dependencies]
+tracing = { workspace = true }
+
+polkavm = { workspace = true }
+
+pvq-primitives = { workspace = true }
+
+thiserror = { workspace = true, optional = true }
+
+[features]
+default = ["std"]
+std = ["polkavm/std", "pvq-primitives/std", "thiserror", "tracing/std"]
