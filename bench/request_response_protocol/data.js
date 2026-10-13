@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791895627238,
+  "lastUpdate": 1791899717625,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -133487,6 +133487,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2689124206,
             "range": "± 19287020",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "de8b01bbec123e4fadee1cf2ddb30f52620519bb",
+          "message": "cumulus: compute resubmittable segment in the parent search (#13355)\n\n# Description\n\nDuring the `find_parent` call we are able to find both the included head\nand pending availability head if it exists. They can be used as starting\npoint for a forward walk up to para best block, to determine the\nresubmittable segment (as headers).\n\n*NOTE*: at this point the resubmittable segment can contain multiple\nblocks of the same bundle. The following PRs in the stack will be able\nto compact the blocks of a bundle in a single collation though, before\nsubmitting a V4 segment.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12309\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-13T11:28:21Z",
+          "tree_id": "0c560d215ab0a56e4f684dfe89a7bc5cd949c978",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/de8b01bbec123e4fadee1cf2ddb30f52620519bb"
+        },
+        "date": 1791899689658,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20480581,
+            "range": "± 427978",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20377450,
+            "range": "± 225765",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22284839,
+            "range": "± 161886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27414923,
+            "range": "± 183641",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63379460,
+            "range": "± 852815",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 398677827,
+            "range": "± 10902226",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2720556907,
+            "range": "± 141067154",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 20068258,
+            "range": "± 338205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18903513,
+            "range": "± 205697",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 20152680,
+            "range": "± 702596",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23660606,
+            "range": "± 195107",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 66687398,
+            "range": "± 547573",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 387588192,
+            "range": "± 5788143",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2985912663,
+            "range": "± 115423106",
             "unit": "ns/iter"
           }
         ]
