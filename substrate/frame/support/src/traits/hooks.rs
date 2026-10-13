@@ -174,6 +174,36 @@ pub trait BeforeAllRuntimeMigrations {
 	}
 }
 
+/// Implemented by pallets, allows defining logic to run after all [`OnRuntimeUpgrade`] logic has
+/// finished.
+///
+/// This is the symmetric counterpart to [`BeforeAllRuntimeMigrations`]. It is intended to be used
+/// internally in FRAME and not exposed directly to FRAME developers. The auto-generated impl on a
+/// pallet dispatches [`Hooks::on_non_genesis_integration`] when applicable.
+pub trait AfterAllRuntimeMigrations {
+	/// Something that should happen after all runtime migrations have executed.
+	fn after_all_runtime_migrations() -> Weight {
+		Weight::zero()
+	}
+}
+
+/// Compute the unhashed-storage marker key used to flag a pallet as newly added during a
+/// runtime upgrade.
+///
+/// Used by the auto-generated [`BeforeAllRuntimeMigrations`] / [`AfterAllRuntimeMigrations`]
+/// impls to carry a one-shot signal across the runtime upgrade boundary, so that
+/// [`Hooks::on_non_genesis_integration`] is only dispatched for pallets that were actually
+/// integrated in this upgrade. The key lives outside any pallet's hashed prefix and is set
+/// before migrations and cleared immediately after they run.
+#[doc(hidden)]
+pub fn newly_added_pallet_marker_key(pallet_hashed_prefix: &[u8]) -> alloc::vec::Vec<u8> {
+	const PREFIX: &[u8] = b":__frame_newly_added__:";
+	let mut key = alloc::vec::Vec::with_capacity(PREFIX.len() + pallet_hashed_prefix.len());
+	key.extend_from_slice(PREFIX);
+	key.extend_from_slice(pallet_hashed_prefix);
+	key
+}
+
 /// See [`Hooks::on_runtime_upgrade`].
 pub trait OnRuntimeUpgrade {
 	/// See [`Hooks::on_runtime_upgrade`].
@@ -256,6 +286,18 @@ impl_for_tuples_attr! {
 		fn before_all_runtime_migrations() -> Weight {
 			let mut weight = Weight::zero();
 			for_tuples!( #( weight = weight.saturating_add(Tuple::before_all_runtime_migrations()); )* );
+			weight
+		}
+	}
+}
+
+impl_for_tuples_attr! {
+	impl AfterAllRuntimeMigrations for Tuple {
+		/// Implements the default behavior of
+		/// [`AfterAllRuntimeMigrations::after_all_runtime_migrations`] for tuples.
+		fn after_all_runtime_migrations() -> Weight {
+			let mut weight = Weight::zero();
+			for_tuples!( #( weight = weight.saturating_add(Tuple::after_all_runtime_migrations()); )* );
 			weight
 		}
 	}
@@ -463,6 +505,31 @@ pub trait Hooks<BlockNumber> {
 	///
 	/// This is the non-mandatory version of [`Hooks::on_initialize`].
 	fn on_poll(_n: BlockNumber, _weight: &mut WeightMeter) {}
+
+	/// Hook called the first time a pallet is integrated into a runtime *after* genesis.
+	///
+	/// As the name implies, this is **not** called at genesis: a pallet that is part of the
+	/// runtime from genesis is expected to initialize itself via its `GenesisConfig` (see
+	/// `BuildGenesisConfig`). This hook only fires when a pallet is added to a runtime mid-flight,
+	/// i.e. it has no on-chain storage keys yet — including no on-chain storage version. In that
+	/// case it runs during the first block of the upgraded runtime, **after** every pallet's
+	/// [`Hooks::on_runtime_upgrade`] migration has finished.
+	///
+	/// Use this hook for pallet-internal initialization logic that can be derived entirely from
+	/// within the pallet (e.g. writing default storage values). For initialization that requires
+	/// external data — such as values from another pallet — prefer a runtime-level migration.
+	///
+	/// ## Ordering
+	///
+	/// `on_non_genesis_integration` is called from
+	/// [`AfterAllRuntimeMigrations::after_all_runtime_migrations`], which runs **after** the
+	/// entire [`OnRuntimeUpgrade`] tuple for the runtime has executed. This guarantees that any
+	/// existing pallets' migrations have already been applied when this hook runs, so the
+	/// observable on-chain state is fully migrated. The pallet's own on-chain storage version is
+	/// written ahead of migrations (in
+	/// [`BeforeAllRuntimeMigrations::before_all_runtime_migrations`]) so version-gated migrations
+	/// see the correct value.
+	fn on_non_genesis_integration() {}
 
 	/// Hook executed when a code change (aka. a "runtime upgrade") is detected by the FRAME
 	/// `Executive` pallet.

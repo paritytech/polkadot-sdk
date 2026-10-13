@@ -215,8 +215,7 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 		{
 			fn before_all_runtime_migrations() -> #frame_support::weights::Weight {
 				use #frame_support::traits::{Get, PalletInfoAccess};
-				use #frame_support::__private::hashing::twox_128;
-				use #frame_support::storage::unhashed::contains_prefixed_key;
+				use #frame_support::storage::unhashed::{contains_prefixed_key, put};
 				#frame_support::__private::sp_tracing::enter_span!(
 					#frame_support::__private::sp_tracing::trace_span!("before_all")
 				);
@@ -228,6 +227,46 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 				let exists = contains_prefixed_key(&pallet_hashed_prefix);
 				if !exists {
 					#initialize_on_chain_storage_version
+					// Mark this pallet as newly added so the matching
+					// `AfterAllRuntimeMigrations` impl dispatches
+					// `on_non_genesis_integration` once every pallet's migrations have run.
+					let marker_key =
+						#frame_support::traits::newly_added_pallet_marker_key(
+							&pallet_hashed_prefix,
+						);
+					put(&marker_key, &true);
+					// 1 read for `contains_prefixed_key` + 2 writes (storage version + marker).
+					<T as #frame_system::Config>::DbWeight::get().reads_writes(1, 2)
+				} else {
+					<T as #frame_system::Config>::DbWeight::get().reads(1)
+				}
+			}
+		}
+
+		impl<#type_impl_gen>
+			#frame_support::traits::AfterAllRuntimeMigrations
+			for #pallet_ident<#type_use_gen> #where_clause
+		{
+			fn after_all_runtime_migrations() -> #frame_support::weights::Weight {
+				use #frame_support::traits::{Get, PalletInfoAccess};
+				use #frame_support::storage::unhashed::{get, kill};
+				#frame_support::__private::sp_tracing::enter_span!(
+					#frame_support::__private::sp_tracing::trace_span!("after_all")
+				);
+
+				let pallet_hashed_prefix = <Self as PalletInfoAccess>::name_hash();
+				let marker_key =
+					#frame_support::traits::newly_added_pallet_marker_key(
+						&pallet_hashed_prefix,
+					);
+				// If the matching `before_all_runtime_migrations` flagged this pallet as newly
+				// added in this same upgrade, all runtime migrations have now finished, so
+				// dispatch the user-facing hook and clear the one-shot marker.
+				if get::<bool>(&marker_key).unwrap_or(false) {
+					kill(&marker_key);
+					<Self as #frame_support::traits::Hooks<
+						#frame_system::pallet_prelude::BlockNumberFor::<T>
+					>>::on_non_genesis_integration();
 					<T as #frame_system::Config>::DbWeight::get().reads_writes(1, 1)
 				} else {
 					<T as #frame_system::Config>::DbWeight::get().reads(1)
