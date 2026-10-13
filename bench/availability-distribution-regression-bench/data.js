@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791815200731,
+  "lastUpdate": 1791896671480,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b77d5ecf3b6e2fe7106b7561ca70c11d3494307a",
-          "message": "collator-proto/metrics: Fix blindspot in collation fetch latency metrics (#11600)\n\nThe current implementation of the `collation_fetch_latency` metric\ncontains a critical observability blindspot due to insufficient\nhistogram bucket resolution.\n\n\nCurrently, the the collation fetching is capped at an upper bound of 5\nseconds. This effectively creates a black box for investigating latency\nevents. Any fetch operation exceeding the 5s threshold is aggregated\ninto the final bucket, regardless if the fetching took 30s or 1h. This\nobscures the true distribution of network delays and prevents accurate\nperformance profiling for high-latency scenarios.\n\nThe discrepancy was identified with\nhttps://github.com/lexnv/block-confidence-monitor and confirmed via\nmanual analysis of the logs. Without granular visibility into these\noutliers, we cannot effectively measure the success of our block\nconfidence / debug bottlenecks in validator-side protocols.\n\nWhile at it, have increased the granularity of other buckets which might\nbe relevant.\n\nPart of the block confidence work:\n- https://github.com/paritytech/polkadot-sdk/issues/11377\n\n\ncc @sandreim @skunert\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T09:32:32Z",
-          "tree_id": "f0ce1970ea9844bb168a17fa08a7dc0be79691b3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b77d5ecf3b6e2fe7106b7561ca70c11d3494307a"
-        },
-        "date": 1775214050139,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007084638126666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02399495698,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14751878477333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009821028153333312,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14201137874666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "40801b808531a58136a8bf310abd62c47183c342",
+          "message": "pallet-multi-asset-bounties: refund parent bounty net of paid-out child-bounty value on close (#13258)\n\n## Summary\n\n`close_bounty` on a parent bounty refunded the full stored `value` to\nthe funding source, even\nthough part of that value had already been moved to child-bounties and,\nfor paid-out children,\nnever came back. With a paymaster that performs a real transfer\n(`LocalPay` on Polkadot and Kusama\nAsset Hub) the refund over-requested, failed with `RefundError`, and the\nparent bounty could never\nbe closed through the intended path.\n\nThe refund path now applies the same `calculate_payout` adjustment as\nthe payout path, so a parent\nbounty refunds `value - ChildBountiesValuePerParent`, which is exactly\nwhat its account holds.\nChild-bounty refunds are unchanged.\n\n## Root cause\n\nThe pallet tracks the cumulative funded child value in\n`ChildBountiesValuePerParent`. On a child\n*refund* the counter is reverted, because the funds return to the parent\naccount. On a child\n*payout* it is intentionally kept, because the funds leave for good and\nthe parent payout must be\nreduced by that amount. The payout path honours this via\n`calculate_payout`; the refund path did\nnot.\n\nOnce a child has been paid out, every `close_bounty` attempt on the\nparent fails identically. The\nfunds are not lost (they stay in the parent bounty account and can still\nbe awarded), but the\nreclaim-to-treasury path is unavailable for that parent.\n\n## Changes\n\n- `do_process_refund_payment` computes the refund amount through\n`calculate_payout` instead of\nusing the raw `value`. This covers both `close_bounty` and the\n`RefundAttempted` retry in\n  `retry_payment`, and is a no-op for child-bounties.\n- Doc comments on `ChildBountiesValuePerParent` and `calculate_payout`\nupdated to mention the\n  refund.\n- Test paymaster gains an opt-in strict mode (`set_strict_balances`)\nthat debits the source and\nfails when it holds too little, modelling `LocalPay`. Off by default;\nexisting tests unchanged.\n- New regression test\n`close_parent_bounty_after_child_payout_refunds_remaining_value`. It\nfails\n  on `master` with `RefundError` and passes with this change.\n\n## Notes for reviewers\n\n- No storage migration. Bounties already stuck in this state become\nclosable as soon as the runtime\nis upgraded, since the fix only changes the amount requested at close\ntime.",
+          "timestamp": "2026-10-13T10:43:48Z",
+          "tree_id": "d7036073cf05a27550cf631ec288a0ea4ee33751",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/40801b808531a58136a8bf310abd62c47183c342"
+        },
+        "date": 1791896639094,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010047388079999976,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02517923362000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007994710513333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1425002571200001,
             "unit": "seconds"
           }
         ]
