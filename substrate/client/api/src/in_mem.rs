@@ -825,7 +825,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 
 	fn import_partial_state(
 		&self,
-		partial_state: PartialStateFor<Block>,
+		partial_state: &PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()> {
 		let block_hash = partial_state.block_hash;
 		let refused = |what: String| {
@@ -841,8 +841,8 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		for node in nodes {
 			attempt.nodes.emplace(node.hash, node.prefix.as_prefix(), node.encoded);
 		}
-		match partial_state.end {
-			Some(end) => attempt.record.cursor = end,
+		match &partial_state.end {
+			Some(end) => attempt.record.cursor = end.clone(),
 			None => attempt.record.complete = true,
 		}
 		Ok(())
@@ -1076,7 +1076,7 @@ mod tests {
 		let (nodes, header) = partial_state_chunk(&expected_key_values);
 		let backend = super::Backend::<Block>::new();
 		backend.begin_partial_state(target(&header))?;
-		backend.import_partial_state(chunk(&header, nodes))?;
+		backend.import_partial_state(&chunk(&header, nodes))?;
 		assert_eq!(
 			backend.resumable_partial_state()?,
 			Some(ResumablePartialState { target: target(&header), cursor: vec![], complete: true }),
@@ -1108,7 +1108,7 @@ mod tests {
 		let (_, second) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
 		let backend = super::Backend::<Block>::new();
 		backend.begin_partial_state(target(&first))?;
-		backend.import_partial_state(chunk(&first, nodes))?;
+		backend.import_partial_state(&chunk(&first, nodes))?;
 		backend.begin_partial_state(target(&second))?;
 		assert_eq!(
 			backend.resumable_partial_state()?,

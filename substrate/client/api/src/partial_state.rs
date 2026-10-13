@@ -82,7 +82,7 @@ pub trait PartialStateImport<Block: BlockT> {
 	/// cursor, or one after the final chunk is refused.
 	fn import_partial_state(
 		&self,
-		partial_state: PartialStateFor<Block>,
+		partial_state: &PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()>;
 
 	/// The sync recorded by `begin_partial_state` and not completed, with its cursor. `None` if

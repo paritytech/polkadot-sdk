@@ -3242,7 +3242,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 
 	fn import_partial_state(
 		&self,
-		partial_state: PartialStateFor<Block>,
+		partial_state: &PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()> {
 		let block_hash = partial_state.block_hash;
 		let refused = |what: String| {
@@ -6831,14 +6831,14 @@ pub(crate) mod tests {
 		// `Backend::new` has committed its own initialisation by now: arm the failure only here.
 		db.fail_commit(1);
 		assert!(backend
-			.import_partial_state(with_end(chunk(&header, nodes.clone()), &[vec![0x80]]))
+			.import_partial_state(&with_end(chunk(&header, nodes.clone()), &[vec![0x80]]))
 			.is_err());
 		assert!(!db.armed(), "the injected failure was consumed by the chunk's commit");
 		let cursor = || backend.resumable_partial_state().unwrap().unwrap().cursor;
 		assert!(cursor().is_empty(), "the cursor is stored with the nodes, or not at all");
 
 		backend
-			.import_partial_state(with_end(chunk(&header, nodes), &[vec![0x80]]))
+			.import_partial_state(&with_end(chunk(&header, nodes), &[vec![0x80]]))
 			.unwrap();
 		assert_eq!(cursor(), vec![vec![0x80]]);
 
@@ -6905,7 +6905,7 @@ pub(crate) mod tests {
 			}
 			copies += values.child_trie_copies().len();
 			backend
-				.import_partial_state(PartialState {
+				.import_partial_state(&PartialState {
 					block_hash: header.hash(),
 					state_root: root,
 					nodes: proof.into_memory_db(),
@@ -7058,7 +7058,7 @@ pub(crate) mod tests {
 
 		let chunk = chunk(&header, nodes);
 		backend
-			.import_partial_state(with_end(chunk, &[vec![0x80], vec![0x01]]))
+			.import_partial_state(&with_end(chunk, &[vec![0x80], vec![0x01]]))
 			.unwrap();
 		assert_eq!(
 			backend.resumable_partial_state().unwrap().unwrap().cursor,
@@ -7085,28 +7085,28 @@ pub(crate) mod tests {
 			next
 		};
 
-		assert!(backend.import_partial_state(from(&[])).is_err(), "nothing recorded");
+		assert!(backend.import_partial_state(&from(&[])).is_err(), "nothing recorded");
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		assert!(backend.import_partial_state(chunk(&other, other_nodes)).is_err(), "other block");
+		assert!(backend.import_partial_state(&chunk(&other, other_nodes)).is_err(), "other block");
 		let mut wrong_root = from(&[]);
 		wrong_root.state_root = other.state_root;
-		assert!(backend.import_partial_state(wrong_root).is_err(), "other state root");
-		assert!(backend.import_partial_state(from(&[vec![0x80]])).is_err(), "past the cursor");
+		assert!(backend.import_partial_state(&wrong_root).is_err(), "other state root");
+		assert!(backend.import_partial_state(&from(&[vec![0x80]])).is_err(), "past the cursor");
 		assert!(db.state_writes.lock().is_empty(), "nothing was written");
 
-		backend.import_partial_state(with_end(from(&[]), &[vec![0x80]])).unwrap();
-		assert!(backend.import_partial_state(from(&[])).is_err(), "the first range again");
+		backend.import_partial_state(&with_end(from(&[]), &[vec![0x80]])).unwrap();
+		assert!(backend.import_partial_state(&from(&[])).is_err(), "the first range again");
 		assert_eq!(
 			backend.resumable_partial_state().unwrap().map(|record| record.cursor),
 			Some(vec![vec![0x80]]),
 			"the cursor is untouched"
 		);
 
-		backend.import_partial_state(from(&[vec![0x80]])).unwrap();
+		backend.import_partial_state(&from(&[vec![0x80]])).unwrap();
 		assert!(backend.resumable_partial_state().unwrap().is_some_and(|record| record.complete));
 		let writes = db.state_writes.lock().len();
 		assert!(
-			backend.import_partial_state(from(&[vec![0x80]])).is_err(),
+			backend.import_partial_state(&from(&[vec![0x80]])).is_err(),
 			"after the final chunk"
 		);
 		assert_eq!(db.state_writes.lock().len(), writes, "nothing was written");
@@ -7127,7 +7127,7 @@ pub(crate) mod tests {
 		let (backend, db, tmp) = partial_state_test_backend(kind);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
 		let chunk = chunk(&header, nodes);
-		backend.import_partial_state(with_end(chunk, &[vec![0x80]])).unwrap();
+		backend.import_partial_state(&with_end(chunk, &[vec![0x80]])).unwrap();
 		let root_key = root_key(&backend, &header);
 		assert!(db.get(columns::STATE, &root_key).is_some());
 
@@ -7158,7 +7158,7 @@ pub(crate) mod tests {
 		let (backend, db, tmp) = partial_state_test_backend(kind);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
 		let chunk = chunk(&header, nodes);
-		backend.import_partial_state(with_end(chunk, &[vec![0x80]])).unwrap();
+		backend.import_partial_state(&with_end(chunk, &[vec![0x80]])).unwrap();
 		let root_key = root_key(&backend, &header);
 
 		let genesis = commit_genesis_state(&backend).unwrap();
@@ -7180,7 +7180,7 @@ pub(crate) mod tests {
 		let (backend, _db, _tmp) = partial_state_test_backend(PartialStateDb::KvdbMemdb);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
 		let chunk = chunk(&header, nodes);
-		backend.import_partial_state(chunk).unwrap();
+		backend.import_partial_state(&chunk).unwrap();
 
 		// Same state root, so the completeness walk passes. A different block, so the commit
 		// refuses.
@@ -7207,7 +7207,7 @@ pub(crate) mod tests {
 		let (backend, db, tmp) = partial_state_test_backend(kind);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
 		let chunk = chunk(&header, root_only);
-		backend.import_partial_state(with_end(chunk, &[vec![0x80]])).unwrap();
+		backend.import_partial_state(&with_end(chunk, &[vec![0x80]])).unwrap();
 		let root_key = root_key(&backend, &header);
 
 		assert!(import_synced_block(&backend, &header).is_err());
@@ -7234,7 +7234,7 @@ pub(crate) mod tests {
 		let (_, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
 		let (backend, db, tmp) = observed_partial_state_test_backend(kind);
 		backend.begin_partial_state(partial_state_target(&header))?;
-		backend.import_partial_state(with_end(chunk(&header, nodes), &[vec![0x80]]))?;
+		backend.import_partial_state(&with_end(chunk(&header, nodes), &[vec![0x80]]))?;
 		let root_key = root_key(&backend, &header);
 		// The first commit of a discard replaces the records with the marker. The second removes
 		// the nodes and the marker.
@@ -7263,7 +7263,7 @@ pub(crate) mod tests {
 		assert_eq!(backend.resumable_partial_state().unwrap(), None);
 		let (nodes, _) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
 		assert!(
-			backend.import_partial_state(chunk(&header, nodes)).is_err(),
+			backend.import_partial_state(&chunk(&header, nodes)).is_err(),
 			"no chunk is written while the attempt is being discarded"
 		);
 
@@ -7306,7 +7306,7 @@ pub(crate) mod tests {
 		let (backend, db, _tmp) = observed_partial_state_test_backend(PartialStateDb::KvdbMemdb);
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
 		backend
-			.import_partial_state(with_end(chunk(&header, nodes.clone()), &[vec![0x80]]))
+			.import_partial_state(&with_end(chunk(&header, nodes.clone()), &[vec![0x80]]))
 			.unwrap();
 		let root_key = root_key(&backend, &header);
 
@@ -7324,7 +7324,7 @@ pub(crate) mod tests {
 		);
 		let mut next = chunk(&header, nodes);
 		next.start = vec![vec![0x80]];
-		backend.import_partial_state(next).unwrap();
+		backend.import_partial_state(&next).unwrap();
 
 		backend.begin_partial_state(partial_state_target(&other)).unwrap();
 		assert!(db.get(columns::STATE, &root_key).is_none());
@@ -7380,7 +7380,7 @@ pub(crate) mod tests {
 		let mut op = backend.begin_operation().unwrap();
 		assert!(backend.mark_state_complete(&mut op, header.state_root).is_err(), "none recorded");
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		backend.import_partial_state(chunk(&header, nodes)).unwrap();
+		backend.import_partial_state(&chunk(&header, nodes)).unwrap();
 		let root_key = root_key(&backend, &header);
 
 		assert!(backend.check_state_complete(other.state_root).is_err());
@@ -7443,7 +7443,7 @@ pub(crate) mod tests {
 		let keys = chunk_keys(&backend, chunk(&header, nodes.clone())).unwrap();
 		assert_eq!(keys.len(), 3, "the root and the leaf at two positions");
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		backend.import_partial_state(chunk(&header, nodes)).unwrap();
+		backend.import_partial_state(&chunk(&header, nodes)).unwrap();
 		for key in &keys {
 			assert!(db.get(columns::STATE, key).is_some());
 		}

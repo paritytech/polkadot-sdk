@@ -1376,7 +1376,7 @@ where
 
 	fn import_partial_state(
 		&self,
-		partial_state: PartialStateFor<Block>,
+		partial_state: &PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()> {
 		let _import_lock = self.backend.get_import_lock().write();
 		self.backend.import_partial_state(partial_state)

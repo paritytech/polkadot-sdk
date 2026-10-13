@@ -207,13 +207,7 @@ impl<B: BlockT> StateStrategy<B> {
 			},
 			ImportResult::Continue => Ok(()),
 			ImportResult::Abort => {
-				error!(
-					target: LOG_TARGET,
-					"State sync aborted: the state could not be written to the database. \
-					Falling back to full sync.",
-				);
-				self.aborted = true;
-				self.actions.push(SyncingAction::Finished);
+				self.abort();
 				Ok(())
 			},
 			ImportResult::BadResponse => {
@@ -272,6 +266,17 @@ impl<B: BlockT> StateStrategy<B> {
 		});
 	}
 
+	/// Give up on the target: the strategy finishes without success and requests nothing more.
+	fn abort(&mut self) {
+		error!(
+			target: LOG_TARGET,
+			"State sync aborted: the state could not be written to the database. Falling back to \
+			 full sync.",
+		);
+		self.aborted = true;
+		self.actions.push(SyncingAction::Finished);
+	}
+
 	/// Produce state request.
 	fn state_request(&mut self) -> Option<(PeerId, StateRequest)> {
 		// After an abort `Finished` is already queued, but `actions()` would still send one more
@@ -281,7 +286,8 @@ impl<B: BlockT> StateStrategy<B> {
 			return None;
 		}
 
-		if self.state_sync.is_complete() {
+		// Nothing to ask while a chunk waits to be written: its retry decides what comes next.
+		if self.state_sync.is_complete() || self.state_sync.has_pending_write() {
 			return None;
 		}
 
@@ -356,6 +362,12 @@ impl<B: BlockT> StateStrategy<B> {
 		if let Some(block) = self.state_sync.take_target_import() {
 			self.queue_target_import(block);
 		}
+		// A chunk whose write failed is written again from memory once its delay has passed.
+		match self.state_sync.retry_pending_write() {
+			Some(ImportResult::Import(block)) => self.queue_target_import(block),
+			Some(ImportResult::Abort) => self.abort(),
+			Some(ImportResult::Continue | ImportResult::BadResponse) | None => {},
+		}
 
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
 			let (tx, rx) = oneshot::channel();
@@ -417,6 +429,8 @@ mod test {
 			fn import(&mut self, response: StateResponse) -> ImportResult<B>;
 			fn next_request(&self) -> StateRequest;
 			fn take_target_import(&mut self) -> Option<IncomingBlock<B>>;
+			fn retry_pending_write(&mut self) -> Option<ImportResult<B>>;
+			fn has_pending_write(&self) -> bool;
 			fn is_complete(&self) -> bool;
 			fn target_number(&self) -> NumberFor<B>;
 			fn target_hash(&self) -> B::Hash;
@@ -705,6 +719,7 @@ mod test {
 		// Sync provider gave up on the target.
 		state_sync_provider.expect_import().return_once(|_| ImportResult::Abort);
 		state_sync_provider.expect_take_target_import().returning(|| None);
+		state_sync_provider.expect_retry_pending_write().returning(|| None);
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
 		let mut state_strategy = StateStrategy::new_with_provider(
@@ -720,6 +735,84 @@ mod test {
 
 		// The strategy finishes without success and, although the peer is available again, it
 		// schedules no further state request.
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
+		let actions = state_strategy.actions(&network_handle).collect::<Vec<_>>();
+		assert!(matches!(actions.as_slice(), [SyncingAction::Finished]));
+		assert!(!state_strategy.is_succeeded());
+	}
+
+	/// While a chunk waits to be written, no state request goes out.
+	#[test]
+	fn pending_write_blocks_state_requests() {
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		state_sync_provider.expect_take_target_import().returning(|| None);
+		state_sync_provider.expect_retry_pending_write().returning(|| None);
+		state_sync_provider.expect_is_complete().return_const(false);
+		state_sync_provider.expect_has_pending_write().return_const(true);
+		let initial_peers = (1..=10).map(|best_number| (PeerId::random(), best_number));
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
+
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
+		assert_eq!(state_strategy.actions(&network_handle).count(), 0);
+	}
+
+	/// The retry of the final chunk's write queues the target import, like its response would.
+	#[test]
+	fn retried_final_write_queues_the_target_import() {
+		let block = IncomingBlock {
+			hash: Hash::random(),
+			header: None,
+			body: None,
+			justifications: None,
+			origin: None,
+			allow_missing_state: true,
+			import_existing: true,
+			skip_execution: true,
+			state: Some(ImportedState),
+		};
+		let target_hash = block.hash;
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		state_sync_provider.expect_take_target_import().returning(|| None);
+		state_sync_provider
+			.expect_retry_pending_write()
+			.return_once(move || Some(ImportResult::Import(block)));
+		state_sync_provider.expect_is_complete().return_const(true);
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			std::iter::once((PeerId::random(), 10)),
+			ProtocolName::Static(""),
+		);
+
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
+		let actions = state_strategy.actions(&network_handle).collect::<Vec<_>>();
+		assert!(matches!(
+			actions.as_slice(),
+			[SyncingAction::ImportBlocks { blocks, .. }]
+				if blocks.len() == 1 && blocks[0].hash == target_hash
+		));
+	}
+
+	/// A retry that gives up finishes the strategy without success.
+	#[test]
+	fn retry_that_gives_up_finishes_without_success() {
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		state_sync_provider.expect_take_target_import().returning(|| None);
+		state_sync_provider
+			.expect_retry_pending_write()
+			.return_once(|| Some(ImportResult::Abort));
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			std::iter::once((PeerId::random(), 10)),
+			ProtocolName::Static(""),
+		);
+
 		let network_provider = NetworkServiceProvider::new();
 		let network_handle = network_provider.handle();
 		let actions = state_strategy.actions(&network_handle).collect::<Vec<_>>();
@@ -924,6 +1017,7 @@ mod test {
 		state_sync_provider.expect_target_hash().return_const(target_hash);
 		state_sync_provider.expect_is_complete().return_const(true);
 		state_sync_provider.expect_take_target_import().returning(|| None);
+		state_sync_provider.expect_retry_pending_write().returning(|| None);
 
 		// Get enough peers for possible spurious requests.
 		let initial_peers = (1..=10).map(|best_number| (PeerId::random(), best_number));

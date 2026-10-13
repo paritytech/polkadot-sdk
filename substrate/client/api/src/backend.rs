@@ -721,7 +721,7 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// [`PartialStateImport::import_partial_state`](crate::PartialStateImport::import_partial_state).
 	fn import_partial_state(
 		&self,
-		partial_state: PartialStateFor<Block>,
+		partial_state: &PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()>;
 
 	/// The recorded state sync that was not completed. `None` if nothing is recorded, or while an

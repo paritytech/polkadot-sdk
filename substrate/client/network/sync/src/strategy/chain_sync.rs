@@ -1026,6 +1026,17 @@ where
 				self.attempt_state_sync(hash, number);
 			}
 		}
+		// A chunk whose write failed is written again from memory once its delay has passed.
+		match self.state_sync.as_mut().and_then(|sync| sync.retry_pending_write()) {
+			Some(ImportResult::Import(block)) => self.queue_target_import(block),
+			Some(ImportResult::Abort) => self.abort_state_sync(),
+			// A justification request may have cleared the allowed requests during the wait.
+			// Let the next state request go out.
+			Some(ImportResult::Continue | ImportResult::BadResponse) => {
+				self.allowed_requests.set_all()
+			},
+			None => {},
+		}
 
 		let block_requests = self
 			.block_requests()
@@ -2226,7 +2237,9 @@ where
 			return None;
 		}
 		if let Some(sync) = &self.state_sync {
-			if sync.is_complete() {
+			// Nothing to ask while a chunk waits to be written: its retry decides what comes
+			// next.
+			if sync.is_complete() || sync.has_pending_write() {
 				return None;
 			}
 
@@ -2286,12 +2299,7 @@ where
 			},
 			ImportResult::Continue => Ok(()),
 			ImportResult::Abort => {
-				error!(
-					target: LOG_TARGET,
-					"State sync aborted: the state could not be written to the database.",
-				);
-				self.state_sync = None;
-				self.restart();
+				self.abort_state_sync();
 				Ok(())
 			},
 			ImportResult::BadResponse => {
@@ -2303,6 +2311,16 @@ where
 
 	/// Queue the import of the state sync target. Its whole state is in the database, and the
 	/// block import checks that it is complete and marks it present.
+	/// Give up on the state sync target and start the block sync over.
+	fn abort_state_sync(&mut self) {
+		error!(
+			target: LOG_TARGET,
+			"State sync aborted: the state could not be written to the database.",
+		);
+		self.state_sync = None;
+		self.restart();
+	}
+
 	fn queue_target_import(&mut self, block: IncomingBlock<B>) {
 		debug!(target: LOG_TARGET, "State download is complete. Import is queued");
 		self.actions.push(SyncingAction::ImportBlocks {
