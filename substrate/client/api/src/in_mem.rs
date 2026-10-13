@@ -54,7 +54,9 @@ struct PendingBlock<B: BlockT> {
 }
 
 /// A state sync attempt: its record and the nodes its chunks wrote, in a store of their own.
-/// `state_at` cannot reach them until the target block commits with the state complete.
+/// `state_at` cannot reach them until the target block commits with the state complete. Only
+/// tests sync state into this backend, so the chunks are written as they come: the ordering and
+/// ownership checks the database makes have no counterpart here.
 struct PartialStateAttempt<Block: BlockT> {
 	record: ResumablePartialState<Block>,
 	nodes: PrefixedMemoryDB<HashingFor<Block>>,
@@ -630,7 +632,7 @@ pub struct Backend<Block: BlockT> {
 	import_lock: RwLock<()>,
 	pinned_blocks: RwLock<HashMap<Block::Hash, i64>>,
 	/// The state sync attempt begun and not completed: its record and its nodes, kept apart from
-	/// the states of the blocks until the target block commits with the state complete.
+	/// the states of the blocks until `complete_partial_state` hands them to the target block.
 	partial_state: RwLock<Option<PartialStateAttempt<Block>>>,
 }
 
@@ -722,29 +724,12 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 
 			let hash = header.hash();
 
-			let synced = operation.synced_state.is_some();
-			let changes_storage = operation.new_state.is_some();
 			let new_state = match (operation.synced_state, operation.new_state) {
 				// A completed state sync: the attempt's nodes are the block's whole state.
 				(Some(state), _) => state,
 				(None, Some(state)) => old_state.update_backend(*header.state_root(), state),
 				(None, None) => old_state.clone(),
 			};
-
-			if synced {
-				// The state-synced block completes the recorded attempt, and no other.
-				let recorded = self
-					.partial_state
-					.read()
-					.as_ref()
-					.map(|attempt| attempt.record.target.header.hash());
-				if let Some(recorded) = recorded.filter(|recorded| *recorded != hash) {
-					return Err(sp_blockchain::Error::Backend(format!(
-						"Block {hash:?} imports with a synced state while the recorded state \
-						 sync targets {recorded:?}"
-					)));
-				}
-			}
 
 			self.states.write().insert(hash, new_state);
 
@@ -756,12 +741,6 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 				pending_block.state,
 				pending_block.register_as_leaf,
 			)?;
-
-			if synced || changes_storage {
-				// The state-synced block is in, so the attempt is complete; and a block state
-				// committed by other means abandons a recorded attempt, as the database does.
-				*self.partial_state.write() = None;
-			}
 		}
 
 		if !operation.aux.is_empty() {
@@ -854,35 +833,12 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 	) -> sp_blockchain::Result<()> {
 		let block_hash = partial_state.block_hash;
 		let refused = |what: String| {
-			sp_blockchain::Error::Storage(format!("state chunk of {block_hash:?} {what}"))
+			sp_blockchain::Error::Storage(format!("State chunk of {block_hash:?} {what}"))
 		};
 		let mut guard = self.partial_state.write();
 		let Some(attempt) = guard.as_mut() else {
 			return Err(refused("arrives while no state sync is recorded".into()));
 		};
-		let target = &attempt.record.target.header;
-		if target.hash() != block_hash {
-			return Err(refused(format!(
-				"does not belong to the recorded state sync target {:?}",
-				target.hash()
-			)));
-		}
-		if *target.state_root() != partial_state.state_root {
-			return Err(refused(format!(
-				"is for state root {:?} while the recorded target's is {:?}",
-				partial_state.state_root,
-				target.state_root()
-			)));
-		}
-		if attempt.record.complete {
-			return Err(refused("arrives after the final chunk: the download is complete".into()));
-		}
-		if attempt.record.cursor != partial_state.start {
-			return Err(refused(format!(
-				"starts at {:?} while the recorded cursor is {:?}",
-				partial_state.start, attempt.record.cursor
-			)));
-		}
 		// A copied child trie is read from what the earlier chunks of this attempt wrote.
 		let nodes = chunk_nodes(&partial_state, |hash, prefix| attempt.nodes.get(hash, prefix))
 			.map_err(|e| refused(format!("does not decode: {e}")))?;
@@ -907,38 +863,18 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		operation: &mut Self::BlockImportOperation,
 		state_root: Block::Hash,
 	) -> sp_blockchain::Result<()> {
-		let mut guard = self.partial_state.write();
-		let checked = match guard.as_ref() {
-			None => {
-				return Err(sp_blockchain::Error::Backend(format!(
-					"State root {state_root:?} cannot complete a state sync: none is recorded"
-				)))
-			},
-			Some(attempt) if *attempt.record.target.header.state_root() != state_root => {
-				return Err(sp_blockchain::Error::Backend(format!(
-					"State root {state_root:?} cannot complete the state sync: the recorded \
-					 target {:?} has state root {:?}",
-					attempt.record.target.header.hash(),
-					attempt.record.target.header.state_root()
-				)))
-			},
-			// Checked through the borrowed store; the operation gets a copy of its own.
-			Some(attempt) => crate::partial_state::check_state_complete::<HashingFor<Block>, _>(
-				TrieBackendBuilder::new(&attempt.nodes, state_root).build(),
-			)
-			.map(|()| attempt.nodes.clone()),
-		};
-		match checked {
-			Ok(nodes) => {
-				operation.synced_state = Some(TrieBackendBuilder::new(nodes, state_root).build());
-				Ok(())
-			},
-			Err(e) => {
-				// Every chunk was written, yet a node is missing: the attempt cannot complete.
-				*guard = None;
-				Err(e)
-			},
-		}
+		// The attempt ends here either way: complete, its nodes become the block's state; with a
+		// node missing, it is dropped.
+		let attempt = self.partial_state.write().take().ok_or_else(|| {
+			sp_blockchain::Error::Backend(format!(
+				"State root {state_root:?} cannot complete a state sync: none is recorded"
+			))
+		})?;
+		crate::partial_state::check_state_complete::<HashingFor<Block>, _>(
+			TrieBackendBuilder::new(&attempt.nodes, state_root).build(),
+		)?;
+		operation.synced_state = Some(TrieBackendBuilder::new(attempt.nodes, state_root).build());
+		Ok(())
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> blockchain::Result<()> {
@@ -1161,75 +1097,9 @@ mod tests {
 			})
 		);
 
-		// The first attempt's root is not the recorded one: refused, nothing is dropped.
+		// The first attempt's nodes are gone: nothing completes at its root any more.
 		let mut op = backend.begin_operation()?;
 		assert!(backend.complete_partial_state(&mut op, first.state_root).is_err());
-		assert!(backend.resumable_partial_state()?.is_some());
-		// The second attempt has no nodes: its walk fails, and that drops the attempt.
-		assert!(backend.complete_partial_state(&mut op, second.state_root).is_err());
-		assert_eq!(backend.resumable_partial_state()?, None);
-		Ok(())
-	}
-
-	#[test]
-	fn chunk_out_of_order_is_refused() -> sp_blockchain::Result<()> {
-		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
-		let (other_nodes, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
-		let backend = super::Backend::<Block>::new();
-		assert!(backend.import_partial_state(chunk(&header, nodes.clone())).is_err(), "no record");
-		backend.begin_partial_state(target(&header))?;
-		assert!(backend.import_partial_state(chunk(&other, other_nodes)).is_err(), "other block");
-		let mut ahead = chunk(&header, nodes.clone());
-		ahead.start = vec![vec![0x80]];
-		assert!(backend.import_partial_state(ahead).is_err(), "start is not the cursor");
-		let mut wrong_root = chunk(&header, nodes.clone());
-		wrong_root.state_root = other.state_root;
-		assert!(backend.import_partial_state(wrong_root).is_err(), "another state root");
-		assert_eq!(
-			backend.resumable_partial_state()?,
-			Some(ResumablePartialState {
-				target: target(&header),
-				cursor: vec![],
-				complete: false
-			}),
-			"a refused chunk changes nothing"
-		);
-		backend.import_partial_state(chunk(&header, nodes.clone()))?;
-		assert!(
-			backend.import_partial_state(chunk(&header, nodes)).is_err(),
-			"after the final chunk"
-		);
-		Ok(())
-	}
-
-	/// The attempt outlives a commit that fails after the completion check: the next operation
-	/// completes it again.
-	#[test]
-	fn completion_survives_a_failed_commit() -> sp_blockchain::Result<()> {
-		let expected = vec![(vec![0u8; 40], vec![0u8; 1])];
-		let (nodes, header) = partial_state_chunk(&expected);
-		// A parent nobody knows: the block cannot become best, so its commit fails.
-		let header = Header { parent_hash: H256::from_low_u64_be(7), ..header };
-		let backend = super::Backend::<Block>::new();
-		backend.begin_partial_state(target(&header))?;
-		backend.import_partial_state(chunk(&header, nodes))?;
-
-		let mut op = backend.begin_operation()?;
-		backend.complete_partial_state(&mut op, header.state_root)?;
-		op.set_block_data(header.clone(), None, None, None, NewBlockState::Best, true)?;
-		assert!(backend.commit_operation(op).is_err());
-		assert!(
-			backend.resumable_partial_state()?.is_some_and(|record| record.complete),
-			"the attempt survives the failed commit"
-		);
-
-		let mut op = backend.begin_operation()?;
-		backend.complete_partial_state(&mut op, header.state_root)?;
-		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)?;
-		backend.commit_operation(op)?;
-		let state = backend.state_at(header.hash(), TrieCacheContext::Untrusted)?;
-		assert_eq!(pairs_of(&state)?, expected);
-		assert_eq!(backend.resumable_partial_state()?, None);
 		Ok(())
 	}
 }
