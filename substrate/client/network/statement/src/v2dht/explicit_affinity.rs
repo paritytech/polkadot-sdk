@@ -30,10 +30,6 @@ use sp_statement_store::{Statement, Topic};
 use std::collections::{HashMap, HashSet};
 
 /// The source of this node's affinity for a topic.
-///
-/// Each variant names a category of holder, not a single holder: a per-source reference count
-/// tracks how many holders of that category want the topic.
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum AffinitySource {
 	/// Topic configured via CLI or the config file.
@@ -47,7 +43,6 @@ pub(crate) enum AffinitySource {
 /// The local topics produce the [`AffinityFilter`] this node advertises; the stored peer filters
 /// let the node decide whom to forward a statement to. This answers only the *explicit* half of the
 /// store/forward decision — the DHT-closeness half lives in the peers-topology module.
-#[allow(dead_code)]
 pub(crate) struct ExplicitAffinity {
 	/// Seed for the advertised filter. Encoded on the wire so peers rebuild the same bloom; it
 	/// only needs to stay stable for the node's lifetime, so a fresh random value per node
@@ -55,16 +50,15 @@ pub(crate) struct ExplicitAffinity {
 	seed: u128,
 	/// False-positive rate for the advertised filter.
 	false_pos: f64,
-	/// Local topics, each mapped to its per-source reference counts. A topic stays in the map only
-	/// while some source references it.
-	local: HashMap<Topic, HashMap<AffinitySource, u32>>,
+	/// Local topics, each mapped to the sources that want it. A topic stays in the map only while
+	/// some source wants it.
+	local: HashMap<Topic, HashSet<AffinitySource>>,
 	/// Marks the advertised affinity filter stale
 	local_changed: bool,
 	/// The filter each connected peer advertises.
 	peers: HashMap<PeerId, AffinityFilter>,
 }
 
-#[allow(dead_code)]
 impl ExplicitAffinity {
 	pub(crate) fn new(
 		configured_topics: &[Topic],
@@ -78,40 +72,28 @@ impl ExplicitAffinity {
 			local_changed: false,
 			peers: HashMap::new(),
 		};
-		// Configured adds are never balanced by removes, so collapse duplicate CLI values to one
-		// reference per topic.
-		let mut topics = configured_topics.to_vec();
-		topics.sort();
-		topics.dedup();
-		this.add_topics(AffinitySource::Configured, &topics);
+		this.add_topics(AffinitySource::Configured, configured_topics);
 		this
 	}
 
 	// === Local topics ===
 
-	/// Add one of `source`'s references to each topic.
-	pub(crate) fn add_topics(&mut self, source: AffinitySource, topics: &[Topic]) {
+	/// Mark each topic as wanted by `source`.
+	fn add_topics(&mut self, source: AffinitySource, topics: &[Topic]) {
 		log::trace!(target: LOG_TARGET, "explicit_affinity: add_topics {} from {source:?}", topics.len());
 		for &topic in topics {
-			let count = self.local.entry(topic).or_default().entry(source).or_insert(0);
-			*count = count.saturating_add(1);
-			if *count == 1 {
+			if self.local.entry(topic).or_default().insert(source) {
 				self.local_changed = true;
 			}
 		}
 	}
 
-	/// Drop one of `source`'s references to each topic. A topic stays until its last source drops.
-	pub(crate) fn remove_topics(&mut self, source: AffinitySource, topics: &[Topic]) {
+	/// Drop `source` from each topic. A topic stays until its last source drops.
+	fn remove_topics(&mut self, source: AffinitySource, topics: &[Topic]) {
 		log::trace!(target: LOG_TARGET, "explicit_affinity: remove_topics {} from {source:?}", topics.len());
 		for topic in topics {
 			let Some(sources) = self.local.get_mut(topic) else { continue };
-			if let Some(count) = sources.get_mut(&source) {
-				*count = count.saturating_sub(1);
-				if *count == 0 {
-					sources.remove(&source);
-				}
-			}
+			sources.remove(&source);
 			if sources.is_empty() {
 				self.local.remove(topic);
 				self.local_changed = true;
@@ -128,7 +110,7 @@ impl ExplicitAffinity {
 		let current: HashSet<Topic> = self
 			.local
 			.iter()
-			.filter(|(_, sources)| sources.contains_key(&source))
+			.filter(|(_, sources)| sources.contains(&source))
 			.map(|(topic, _)| *topic)
 			.collect();
 
@@ -160,6 +142,11 @@ impl ExplicitAffinity {
 		)
 	}
 
+	/// Request another advertisement without changing topic membership.
+	pub(crate) fn mark_local_filter_stale(&mut self) {
+		self.local_changed = true;
+	}
+
 	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
 	pub(crate) fn take_local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
 		if !self.local_changed {
@@ -176,8 +163,8 @@ impl ExplicitAffinity {
 		self.peers.insert(peer, filter);
 	}
 
-	/// Drop a peer's stored filter once it disconnects.
-	pub(crate) fn on_peer_disconnected(&mut self, peer: PeerId) {
+	/// Drop a peer's stored filter once its statement substream closes.
+	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
 		self.peers.remove(&peer);
 	}
 
@@ -286,15 +273,6 @@ mod tests {
 	}
 
 	#[test]
-	fn configured_duplicates_collapse_to_one_reference() {
-		let mut affinity =
-			ExplicitAffinity::new(&[topic(1), topic(1)], None, DEFAULT_BLOOM_FALSE_POS_RATE);
-		// A repeated configured value holds a single reference: one remove clears the topic.
-		affinity.remove_topics(AffinitySource::Configured, &[topic(1)]);
-		assert!(affinity.topics().is_empty());
-	}
-
-	#[test]
 	fn topic_survives_until_last_source_drops() {
 		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		affinity.add_topics(AffinitySource::Configured, &[topic(1)]);
@@ -309,20 +287,6 @@ mod tests {
 
 		affinity.remove_topics(AffinitySource::RpcSubscription, &[topic(1)]);
 		assert!(affinity.topics().is_empty(), "last source dropped");
-	}
-
-	#[test]
-	fn topic_survives_until_last_holder_of_one_source_drops() {
-		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
-		// Two subscriptions on the same topic each hold a reference.
-		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(1)]);
-		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(1)]);
-
-		affinity.remove_topics(AffinitySource::RpcSubscription, &[topic(1)]);
-		assert_eq!(topic_set(&affinity), HashSet::from([topic(1)]), "one subscription remains");
-
-		affinity.remove_topics(AffinitySource::RpcSubscription, &[topic(1)]);
-		assert!(affinity.topics().is_empty(), "both subscriptions gone");
 	}
 
 	#[test]
@@ -423,12 +387,12 @@ mod tests {
 	}
 
 	#[test]
-	fn on_peer_disconnected_drops_the_filter() {
+	fn on_substream_closed_drops_the_filter() {
 		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		let peer = PeerId::random();
 		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
-		affinity.on_peer_disconnected(peer);
+		affinity.on_substream_closed(peer);
 		assert!(!affinity.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
 	}
 

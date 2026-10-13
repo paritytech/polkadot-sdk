@@ -219,7 +219,17 @@ impl<B: BlockT> ConsensusGossip<B> {
 		message: Vec<u8>,
 		sender: Option<PeerId>,
 	) {
-		if self.known_messages.insert(message_hash, ()) {
+		// `LruMap::insert` also returns true on key replacement, so detect a
+		// true insert via `get_or_insert` (callback runs only for missing keys).
+		let mut is_new = false;
+		if self
+			.known_messages
+			.get_or_insert(message_hash, || {
+				is_new = true;
+			})
+			.is_some() &&
+			is_new
+		{
 			self.messages.push(MessageEntry { message_hash, topic, message, sender });
 
 			if let Some(ref metrics) = self.metrics {
@@ -236,6 +246,13 @@ impl<B: BlockT> ConsensusGossip<B> {
 	pub fn register_message(&mut self, topic: B::Hash, message: Vec<u8>) {
 		let message_hash = HashingFor::<B>::hash(&message[..]);
 		self.register_message_hashed(message_hash, topic, message, None);
+	}
+
+	/// Marks a message as known without registering it, so it is never propagated. Incoming
+	/// copies of the message are ignored, as for a registered message.
+	pub fn mark_message_known(&mut self, message: &[u8]) {
+		let message_hash = HashingFor::<B>::hash(message);
+		self.known_messages.insert(message_hash, ());
 	}
 
 	/// Call when a peer has been disconnected to stop tracking gossip status.
@@ -563,7 +580,15 @@ mod tests {
 
 	macro_rules! push_msg {
 		($consensus:expr, $topic:expr, $hash: expr, $m:expr) => {
-			if $consensus.known_messages.insert($hash, ()) {
+			let mut is_new = false;
+			if $consensus
+				.known_messages
+				.get_or_insert($hash, || {
+					is_new = true;
+				})
+				.is_some() &&
+				is_new
+			{
 				$consensus.messages.push(MessageEntry {
 					message_hash: $hash,
 					topic: $topic,
@@ -924,5 +949,46 @@ mod tests {
 			vec![(peer_id, rep::GOSSIP_SUCCESS)],
 			network.inner.lock().unwrap().peer_reports
 		);
+	}
+
+	#[test]
+	fn duplicate_register_not_doubly_stored() {
+		let mut consensus = ConsensusGossip::<Block>::new(Arc::new(AllowAll), "/foo".into(), None);
+		let topic = [1u8; 32].into();
+		let message = vec![1, 2, 3, 4];
+
+		consensus.register_message(topic, message.clone());
+		consensus.register_message(topic, message.clone());
+
+		let count = consensus
+			.messages_for(topic)
+			.filter(|notification| notification.message == message)
+			.count();
+		assert_eq!(count, 1, "registering the same message twice must not store it twice");
+	}
+
+	#[test]
+	fn message_marked_known_is_ignored_and_not_kept() {
+		let mut consensus = ConsensusGossip::<Block>::new(Arc::new(AllowAll), "/foo".into(), None);
+
+		let mut network = NoOpNetwork::default();
+		let mut notification_service: Box<dyn NotificationService> =
+			Box::new(NoOpNotificationService::default());
+
+		let peer_id = PeerId::random();
+		consensus.new_peer(&mut notification_service, peer_id, ObservedRole::Full);
+
+		let message = vec![1, 2, 3];
+		consensus.mark_message_known(&message);
+
+		// the message isn't kept, so it's never propagated
+		assert!(consensus.messages.is_empty());
+
+		// an incoming copy is ignored: not validated, forwarded or reported
+		let to_forward =
+			consensus.on_incoming(&mut network, &mut notification_service, peer_id, vec![message]);
+		assert!(to_forward.is_empty());
+		assert!(consensus.messages.is_empty());
+		assert!(network.inner.lock().unwrap().peer_reports.is_empty());
 	}
 }
