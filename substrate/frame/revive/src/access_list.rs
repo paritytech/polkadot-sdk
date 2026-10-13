@@ -459,8 +459,7 @@ impl AccessEntry {
 		}
 	}
 
-	/// Returns the entry for a main-trie key.
-	/// Returns `None` for a malformed key, or one of a map the access list does not track.
+	/// Returns the entry for a main-trie key the access list tracks, `None` otherwise.
 	#[cfg(test)]
 	pub fn from_storage_key<T: crate::Config>(key: &[u8]) -> Option<Self> {
 		use frame_support::storage::StoragePrefixedMap;
@@ -473,11 +472,11 @@ impl AccessEntry {
 			use frame_support::{Blake2_128Concat, ReversibleStorageHasher};
 			let mut encoded = Blake2_128Concat::reverse(tail);
 			let account_id = <T::AccountId as codec::Decode>::decode(&mut encoded).ok()?;
-			let entry = Self::Account {
-				address: <T::AddressMapper as crate::AddressMapper<T>>::to_address(&account_id),
-			};
-			// Keep the entry only when the address maps back: an unmapped account does not.
-			return (entry.storage_key::<T>().as_deref() == Some(key)).then_some(entry);
+			return <T::AddressMapper as crate::AddressMapper<T>>::is_mapped(&account_id).then(
+				|| Self::Account {
+					address: <T::AddressMapper as crate::AddressMapper<T>>::to_address(&account_id),
+				},
+			);
 		}
 		if let Some(tail) = key.strip_prefix(&crate::OriginalAccount::<T>::final_prefix()) {
 			return Some(Self::OriginalAccount { address: address(tail)? });
@@ -554,46 +553,6 @@ pub trait Access {
 		});
 		entries
 	}
-
-	/// Returns the entries this access touches with the operation on each. A repeated entry ends
-	/// up written if either visit writes.
-	#[cfg(test)]
-	fn entries(self) -> BTreeMap<AccessEntry, StorageOp>
-	where
-		Self: Sized,
-	{
-		let mut entries = BTreeMap::new();
-		self.expand(|entry, op| {
-			insert_or_update(&mut entries, entry, op);
-			Warmth::cold_non_revertible()
-		});
-		entries
-	}
-}
-
-/// Inserts or updates `entry` with `op`.
-#[cfg(test)]
-fn insert_or_update(
-	all_entries: &mut BTreeMap<AccessEntry, StorageOp>,
-	entry: AccessEntry,
-	op: StorageOp,
-) {
-	let charged = all_entries.entry(entry).or_insert(op);
-	if !charged.covers(op) {
-		*charged = op;
-	}
-}
-
-/// Merges the entries of several accesses into one map.
-#[cfg(test)]
-pub fn merge_all(
-	entry_maps: impl IntoIterator<Item = BTreeMap<AccessEntry, StorageOp>>,
-) -> BTreeMap<AccessEntry, StorageOp> {
-	let mut all_entries = BTreeMap::new();
-	for (entry, op) in entry_maps.into_iter().flatten() {
-		insert_or_update(&mut all_entries, entry, op);
-	}
-	all_entries
 }
 
 /// Warmth of the entries [`CallItems`] covers, one variant per call kind.
