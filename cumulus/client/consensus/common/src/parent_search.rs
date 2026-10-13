@@ -76,8 +76,8 @@ pub struct ParentSearchResult<Block: BlockT> {
 }
 
 /// Trim the best parent (and segment) back to the first ancestor passing `filter_parent`, or to
-/// the included head. Walks the real chain via `get_header`, so it can step past the segment base
-/// to an older bundle-ender when the segment itself holds none.
+/// the included head. Walks the in-memory segment first, then follows storage via `get_header` past
+/// the segment base to an older bundle-ender when the segment itself holds none.
 pub(crate) fn trim_best_parent_to_filter<Block: BlockT>(
 	mut result: ParentSearchResult<Block>,
 	get_header: impl Fn(Block::Hash) -> Option<Block::Header>,
@@ -85,10 +85,17 @@ pub(crate) fn trim_best_parent_to_filter<Block: BlockT>(
 ) -> ParentSearchResult<Block> {
 	while !filter_parent(&result.best_parent_header) {
 		let parent_hash = *result.best_parent_header.parent_hash();
-		match get_header(parent_hash) {
+		result.resubmittable_segment.pop();
+		// Inside the segment the popped tail is the parent, read from memory; once it empties, the
+		// parent sits below the segment base and is read from storage.
+		let parent = result
+			.resubmittable_segment
+			.last()
+			.cloned()
+			.or_else(|| get_header(parent_hash));
+		match parent {
 			Some(header) => {
 				result.best_parent_header = header;
-				result.resubmittable_segment.pop();
 				if parent_hash == result.included_at_scheduling.hash() {
 					break;
 				}
