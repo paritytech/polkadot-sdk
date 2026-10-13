@@ -1179,6 +1179,171 @@ fn find_best_parent_with_pending() {
 }
 
 /// Tests that the best parent is found within allowed ancestry.
+/// `is_parent_valid_for_params` mirrors the search's per-block validity rule, for re-checking an
+/// already-found parent after the context changed.
+#[test]
+fn is_parent_valid_for_params_rechecks_a_found_parent() {
+	sp_tracing::try_init_simple();
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+
+	let included_relay_parent = relay_hash_from_block_num(10);
+	let included_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		None,
+		None,
+		Some(included_relay_parent),
+	);
+
+	let block_relay_parent = relay_hash_from_block_num(11);
+	let child_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		Some(included_block.header().hash()),
+		None,
+		Some(block_relay_parent),
+	);
+
+	let mut relay_chain = Relaychain::new();
+	let search_relay_parent = relay_hash_from_block_num(13);
+
+	// V2: with a deep enough ancestry the child's relay parent (11) is within it.
+	relay_chain.scheduling_lookahead = Some(3);
+	assert!(block_on(is_parent_valid_for_params::<Block>(
+		&relay_chain,
+		&ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+		child_block.header(),
+	))
+	.unwrap());
+
+	// V2: with the shallow ancestry (only 13) the child's relay parent left it — the
+	// relay-chain-fork shape the re-check exists for.
+	relay_chain.scheduling_lookahead = Some(1);
+	assert!(!block_on(is_parent_valid_for_params::<Block>(
+		&relay_chain,
+		&ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+		child_block.header(),
+	))
+	.unwrap());
+
+	// V3: valid only while the relay chain reports the block's relay parent as an ancestor of
+	// the scheduling parent.
+	let v3_params = ParentSearchParams::V3 { scheduling_parent: search_relay_parent };
+	assert!(!block_on(is_parent_valid_for_params::<Block>(
+		&relay_chain,
+		&v3_params,
+		child_block.header(),
+	))
+	.unwrap());
+	relay_chain
+		.allowed_relay_parents_at
+		.entry(search_relay_parent)
+		.or_default()
+		.push(block_relay_parent);
+	assert!(block_on(is_parent_valid_for_params::<Block>(
+		&relay_chain,
+		&v3_params,
+		child_block.header(),
+	))
+	.unwrap());
+}
+
+/// `search_start_block` resolves the search's fallback: the pending block when one exists and is
+/// locally known, the included block otherwise, `None` when the pending block is unknown locally.
+#[test]
+fn search_start_block_prefers_known_pending() {
+	sp_tracing::try_init_simple();
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+
+	let included_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		None,
+		None,
+		Some(relay_hash_from_block_num(10)),
+	);
+	let pending_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		Some(included_block.header().hash()),
+		None,
+		Some(relay_hash_from_block_num(12)),
+	);
+
+	let relay_chain = Relaychain::new();
+	let search_relay_parent = relay_hash_from_block_num(15);
+	relay_chain
+		.inner
+		.lock()
+		.unwrap()
+		.included_pvd_header_at
+		.insert(search_relay_parent, included_block.header().clone());
+
+	// No pending block: the included block is the start.
+	let start = block_on(search_start_block(
+		&relay_chain,
+		&*backend,
+		search_relay_parent,
+		ParaId::from(100),
+	))
+	.unwrap()
+	.expect("included block is known; qed");
+	assert_eq!(start.start_header().hash(), included_block.hash());
+	assert!(start.pending_header.is_none());
+	assert_eq!(&start.included_header, included_block.header());
+
+	// A locally known pending block wins over the included one.
+	relay_chain
+		.inner
+		.lock()
+		.unwrap()
+		.pending_pvd_header_at
+		.insert(search_relay_parent, pending_block.header().clone());
+	let start = block_on(search_start_block(
+		&relay_chain,
+		&*backend,
+		search_relay_parent,
+		ParaId::from(100),
+	))
+	.unwrap()
+	.expect("pending block is known; qed");
+	assert_eq!(start.start_header().hash(), pending_block.hash());
+	assert_eq!(start.pending_header.as_ref(), Some(pending_block.header()));
+	assert_eq!(&start.included_header, included_block.header());
+
+	// A pending block that is not locally known blocks the search entirely.
+	let sproof = sproof_with_parent_by_hash(&client, pending_block.hash());
+	let pending_but_unknown = build_block(&*client, sproof, Some(pending_block.hash()), None, None);
+	relay_chain
+		.inner
+		.lock()
+		.unwrap()
+		.pending_pvd_header_at
+		.insert(search_relay_parent, pending_but_unknown.header().clone());
+	assert!(block_on(search_start_block(
+		&relay_chain,
+		&*backend,
+		search_relay_parent,
+		ParaId::from(100),
+	))
+	.unwrap()
+	.is_none());
+}
+
 #[test]
 fn find_best_parent_in_allowed_ancestry() {
 	sp_tracing::try_init_simple();
