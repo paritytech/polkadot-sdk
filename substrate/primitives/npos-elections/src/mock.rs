@@ -331,7 +331,7 @@ pub(crate) fn run_and_compare<Output: PerThing128, FS>(
 	let truth_value = elect_float(to_elect, candidates, voters, &stake_of).unwrap();
 
 	assert_eq!(
-		winners.iter().map(|(x, _)| x).collect::<Vec<_>>(),
+		winners.iter().map(|w| &w.who).collect::<Vec<_>>(),
 		truth_value.winners.iter().map(|(x, _)| x).collect::<Vec<_>>()
 	);
 
