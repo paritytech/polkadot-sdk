@@ -705,6 +705,26 @@ impl Client {
 		Ok((eth_block, receipt_infos))
 	}
 
+	/// Sends `latest_block` to block subscribers, reusing `latest_eth_block` if provided.
+	async fn announce_latest_block(
+		&self,
+		latest_block: Arc<SubstrateBlock>,
+		latest_eth_block: Option<BlockV1>,
+	) {
+		if self.block_subscription_tx.receiver_count() == 0 {
+			return;
+		}
+
+		let eth_block = match latest_eth_block {
+			Some(eth_block) => Some(eth_block),
+			None => self.evm_block(latest_block, false).await,
+		};
+
+		if let Some(eth_block) = eth_block {
+			let _ = self.block_subscription_tx.send(eth_block);
+		}
+	}
+
 	/// Start the block subscription, and populate the block cache.
 	pub async fn subscribe_and_cache_new_blocks(
 		&self,
@@ -717,20 +737,23 @@ impl Client {
 			match subscription_type {
 				SubscriptionType::BestBlocks => {
 					let (eth_block, _) = self.process_block(&block).await?;
-					self.block_provider.update_latest(Arc::new(block), subscription_type).await;
+					let latest_block =
+						self.block_provider.update_latest(Arc::new(block), subscription_type).await;
 
 					if let Some(sender) = &self.block_notifier {
 						if sender.receiver_count() > 0 {
 							let _ = sender.send(hash);
 						}
 					}
-					if self.block_subscription_tx.receiver_count() > 0 {
-						let _ = self.block_subscription_tx.send(eth_block);
+					if let Some(latest_block) = latest_block {
+						let latest_eth_block =
+							Some(eth_block).filter(|_| latest_block.block_hash() == hash);
+						self.announce_latest_block(latest_block, latest_eth_block).await;
 					}
 				},
 				SubscriptionType::FinalizedBlocks => {
 					let block_number = block.block_number();
-					let (receipt_infos, eth_hash) = match self
+					let (receipt_infos, eth_hash, eth_block) = match self
 						.receipt_provider
 						.get_processed_eth_block_hash(block_number, hash)
 						.await
@@ -739,16 +762,24 @@ impl Client {
 							log::trace!(target: LOG_TARGET_SUBSCRIPTION,
 									"⏩ Finalized block #{block_number} already processed, \
 									 skipping extraction");
-							(None, eth_hash)
+							(None, eth_hash, None)
 						},
 						None => {
 							let (eth_block, infos) = self.process_block(&block).await?;
-							(Some(infos), eth_block.hash)
+							(Some(infos), eth_block.hash, Some(eth_block))
 						},
 					};
 
-					self.block_provider.update_latest(Arc::new(block), subscription_type).await;
+					let latest_block =
+						self.block_provider.update_latest(Arc::new(block), subscription_type).await;
 					self.advance_sync_head(block_number, hash).await;
+
+					// A finalized block at or above the latest block becomes the latest block.
+					if let Some(latest_block) = latest_block {
+						let latest_eth_block =
+							eth_block.filter(|_| latest_block.block_hash() == hash);
+						self.announce_latest_block(latest_block, latest_eth_block).await;
+					}
 
 					if self.log_subscription_tx.receiver_count() > 0 {
 						let logs = match receipt_infos {
