@@ -155,15 +155,11 @@ const ROOT_NOT_ALLOWED: &str = "root origin is not allowed";
 /// compressed secp256k1 key.
 const INVALID_COMPRESSED_PUBLIC_KEY: &str = "invalid compressed public key";
 
-/// Reason returned when `terminate` is called with no contract frame to destroy.
-const NO_CONTRACT_TO_TERMINATE: &str = "no contract to terminate";
-
 impl Error {
 	pub fn try_to_revert<T: Config>(e: DispatchError) -> Self {
 		let delegate_denied = CrateError::<T>::PrecompileDelegateDenied.into();
 		let construct = CrateError::<T>::TerminatedInConstructor.into();
 		let cannot_terminate_delegated = CrateError::<T>::CannotTerminateDelegatedAccount.into();
-		let contract_not_found = CrateError::<T>::ContractNotFound.into();
 		let ecdsa_recovery_failed = CrateError::<T>::EcdsaRecoveryFailed.into();
 		// Token failures use the same sentences as `impl From<TokenError> for &'static str`,
 		// which is what the assets precompiles return.
@@ -175,7 +171,6 @@ impl Error {
 				"cannot terminate an EIP-7702 delegated account via the terminate pre-compile"
 			},
 			_ if e == DispatchError::RootNotAllowed => ROOT_NOT_ALLOWED,
-			_ if e == contract_not_found => NO_CONTRACT_TO_TERMINATE,
 			_ if e == ecdsa_recovery_failed => INVALID_COMPRESSED_PUBLIC_KEY,
 			_ => return e.into(),
 		};

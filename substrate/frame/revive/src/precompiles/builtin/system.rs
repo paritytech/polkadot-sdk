@@ -28,6 +28,9 @@ use core::{marker::PhantomData, num::NonZero};
 use pallet_revive_uapi::precompiles::system::ISystem;
 use sp_core::hexdisplay::AsBytesRef;
 
+/// Reason returned when `terminate` is called with no contract frame to destroy.
+const NO_CONTRACT_TO_TERMINATE: &str = "no contract to terminate";
+
 pub struct System<T>(PhantomData<T>);
 
 impl<T: Config> BuiltinPrecompile for System<T> {
@@ -105,7 +108,15 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				env.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::Terminate { code_removed: true })?;
 				let h160 = H160::from_slice(beneficiary.as_slice());
-				env.terminate_caller(&h160).map_err(Error::try_to_revert::<T>)?;
+				env.terminate_caller(&h160).map_err(|e| {
+					// `terminate_caller` returns this when no contract called the precompile, for
+					// example an account calling it directly.
+					if e == crate::Error::<T>::ContractNotFound.into() {
+						Error::Revert(NO_CONTRACT_TO_TERMINATE.into())
+					} else {
+						Error::try_to_revert::<T>(e)
+					}
+				})?;
 				Ok(Vec::new())
 			},
 			ISystemCalls::sr25519Verify(ISystem::sr25519VerifyCall {

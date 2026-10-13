@@ -113,57 +113,10 @@ fn xcm_pallet_reason<T>(err: pallet_xcm::Error<T>) -> alloc::string::String {
 		TooManyAuthorizedAliases => "too many authorized aliases".into(),
 		ExpiresInPast => "expiry block is in the past".into(),
 		AliasNotFound => "alias authorization was not found".into(),
-		LocalExecutionIncompleteWithError { index, error } => alloc::format!(
-			"local execution incomplete at instruction {index}: {}",
-			execution_error_reason(error),
-		),
-	}
-}
-
-fn execution_error_reason(error: pallet_xcm::ExecutionError) -> &'static str {
-	use pallet_xcm::ExecutionError::*;
-	match error {
-		Overflow => "Overflow",
-		Unimplemented => "Unimplemented",
-		UntrustedReserveLocation => "UntrustedReserveLocation",
-		UntrustedTeleportLocation => "UntrustedTeleportLocation",
-		LocationFull => "LocationFull",
-		LocationNotInvertible => "LocationNotInvertible",
-		BadOrigin => "BadOrigin",
-		InvalidLocation => "InvalidLocation",
-		AssetNotFound => "AssetNotFound",
-		FailedToTransactAsset => "FailedToTransactAsset",
-		NotWithdrawable => "NotWithdrawable",
-		LocationCannotHold => "LocationCannotHold",
-		ExceedsMaxMessageSize => "ExceedsMaxMessageSize",
-		DestinationUnsupported => "DestinationUnsupported",
-		Transport => "Transport",
-		Unroutable => "Unroutable",
-		UnknownClaim => "UnknownClaim",
-		FailedToDecode => "FailedToDecode",
-		MaxWeightInvalid => "MaxWeightInvalid",
-		NotHoldingFees => "NotHoldingFees",
-		TooExpensive => "TooExpensive",
-		Trap => "Trap",
-		ExpectationFalse => "ExpectationFalse",
-		PalletNotFound => "PalletNotFound",
-		NameMismatch => "NameMismatch",
-		VersionIncompatible => "VersionIncompatible",
-		HoldingWouldOverflow => "HoldingWouldOverflow",
-		ExportError => "ExportError",
-		ReanchorFailed => "ReanchorFailed",
-		NoDeal => "NoDeal",
-		FeesNotMet => "FeesNotMet",
-		LockError => "LockError",
-		NoPermission => "NoPermission",
-		Unanchored => "Unanchored",
-		NotDepositable => "NotDepositable",
-		TooManyAssets => "TooManyAssets",
-		UnhandledXcmVersion => "UnhandledXcmVersion",
-		WeightLimitReached => "WeightLimitReached",
-		Barrier => "Barrier",
-		WeightNotComputable => "WeightNotComputable",
-		ExceedsStackLimit => "ExceedsStackLimit",
+		// `ExecutionError` has no fields, so `Debug` prints the variant name.
+		LocalExecutionIncompleteWithError { index, error } => {
+			alloc::format!("local execution incomplete at instruction {index}: {error:?}")
+		},
 	}
 }
 

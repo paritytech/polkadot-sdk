@@ -9,8 +9,7 @@ doc:
 
     `pallet_revive::precompiles` adds `ensure_not_delegate_call`, `ensure_not_read_only`,
     `DELEGATE_CALL_DENIED` and `STATIC_CALL_DENIED`. `Error::try_to_revert` now also turns
-    `RootNotAllowed`, `ContractNotFound`, `EcdsaRecoveryFailed` and `DispatchError::Token` into
-    reverts.
+    `RootNotAllowed`, `EcdsaRecoveryFailed` and `DispatchError::Token` into reverts.
 
     If you maintain a precompile, replace hand-written guards with the helpers. A `?` on a
     `DispatchError` still traps, so map pallet errors at the call site.
@@ -63,3 +62,5 @@ crates:
   bump: patch
 - name: pallet-vesting-precompiles
   bump: patch
+- name: pallet-revive-fixtures
+  bump: minor
