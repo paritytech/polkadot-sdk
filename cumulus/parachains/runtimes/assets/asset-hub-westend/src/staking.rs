@@ -558,13 +558,13 @@ pub type AuthoredBlocksReportOrigin =
 /// Credits era points to the validators in staking.
 pub struct StakingRewardPoints;
 impl pallet_staking_async_system_chain_client::RewardPoints<AccountId> for StakingRewardPoints {
-	fn reward(points: Vec<(AccountId, u32)>) {
-		Staking::reward_system_chain_points(points);
+	fn reward(kind: sp_staking::PointsKind, points: Vec<(AccountId, u32)>) {
+		Staking::reward_service_points(kind, points);
 	}
 
 	fn weight(entries: u32) -> Weight {
 		use pallet_staking_async::WeightInfo;
-		<Runtime as pallet_staking_async::Config>::WeightInfo::reward_system_chain_points(entries)
+		<Runtime as pallet_staking_async::Config>::WeightInfo::reward_service_points(entries)
 	}
 }
 
@@ -583,8 +583,9 @@ impl pallet_validator_collators::ReportAuthoredBlocks<AccountId> for CreditBlock
 	fn ensure_successful_report(blocks: &[(AccountId, u32)]) {
 		// Weight this chain's blocks and expose every account in an active era, so that the
 		// credit reaches staking and accrues every entry.
-		pallet_staking_async_system_chain_client::PointsPerBlock::<Runtime>::insert(
+		pallet_staking_async_system_chain_client::PointsPerUnit::<Runtime>::insert(
 			ParachainInfo::parachain_id(),
+			sp_staking::PointsKind::Collation,
 			1,
 		);
 		let era = pallet_staking_async::ActiveEra::<Runtime>::get()

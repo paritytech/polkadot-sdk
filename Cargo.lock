@@ -15175,6 +15175,7 @@ dependencies = [
  "scale-info",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "sp-staking",
 ]
 
 [[package]]
@@ -16062,6 +16063,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
+ "sp-staking",
  "staging-xcm",
  "staging-xcm-executor",
  "westend-runtime",

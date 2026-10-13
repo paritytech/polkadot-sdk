@@ -28,6 +28,7 @@ use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::AccountIdConversion;
+use sp_staking::PointsKind;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, locations::PeopleParaId, xcm_version::SAFE_XCM_VERSION,
 };
@@ -45,7 +46,7 @@ fn asset_hub_westend_genesis(
 	id: ParaId,
 	foreign_assets: Vec<(Location, AccountId, Balance)>,
 	foreign_assets_endowed_accounts: Vec<(Location, AccountId, Balance)>,
-	points_per_block: Vec<(ParaId, u32)>,
+	points_per_unit: Vec<(ParaId, PointsKind, u32)>,
 ) -> serde_json::Value {
 	let mut balances: Vec<_> = endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect();
 	// The DAP buffer receives slashes and is the signed-phase reward pot. Payouts transfer with
@@ -76,7 +77,7 @@ fn asset_hub_westend_genesis(
 				.collect(),
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
-		staking_system_chain_client: StakingSystemChainClientConfig { points_per_block },
+		staking_system_chain_client: StakingSystemChainClientConfig { points_per_unit },
 		staking: StakingConfig {
 			stakers: vec![
 				(
@@ -190,7 +191,10 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 					),
 				],
 				// Blocks authored on Asset Hub and People earn era points.
-				vec![(id, 20), (PeopleParaId::get(), 20)],
+				vec![
+					(id, PointsKind::Collation, 20),
+					(PeopleParaId::get(), PointsKind::Collation, 20),
+				],
 			)
 		},
 		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_westend_genesis(

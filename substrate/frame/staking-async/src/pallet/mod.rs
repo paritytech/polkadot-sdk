@@ -54,7 +54,7 @@ use sp_runtime::{
 	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
-	EraIndex, Page, SessionIndex,
+	EraIndex, Page, PointsKind, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -927,9 +927,26 @@ pub mod pallet {
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
+	///
+	/// The same points split by the service that earned them are in [`ErasRewardPointsByKind`].
 	#[pallet::storage]
 	pub type ErasRewardPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T>, ValueQuery>;
+
+	/// The points of [`ErasRewardPoints`] split by the service that earned them.
+	///
+	/// Written with [`ErasRewardPoints`] and pruned with it. An entry never holds more than the
+	/// tally does for the same account.
+	#[pallet::storage]
+	pub type ErasRewardPointsByKind<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		PointsKind,
+		EraRewardPoints<T>,
+		ValueQuery,
+	>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
@@ -1478,9 +1495,10 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
-		/// Points earned outside the relay chain were credited to `era`. `credited` entries were
-		/// exposed in `era` and `dropped` entries were not.
-		SystemChainPointsCredited {
+		/// Points earned for `kind` were credited to `era`. `credited` entries were exposed in
+		/// `era` and `dropped` entries were not.
+		ServicePointsCredited {
+			kind: PointsKind,
 			era: EraIndex,
 			credited: u32,
 			dropped: u32,
@@ -1710,6 +1728,8 @@ pub mod pallet {
 				},
 				PruningStep::ErasRewardPoints => {
 					ErasRewardPoints::<T>::remove(era);
+					// At most one entry per `PointsKind`.
+					let _ = ErasRewardPointsByKind::<T>::clear_prefix(era, u32::MAX, None);
 					EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 					T::WeightInfo::prune_era_reward_points()
 				},

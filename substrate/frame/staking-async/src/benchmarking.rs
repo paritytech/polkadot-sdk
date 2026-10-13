@@ -40,7 +40,7 @@ use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, Zero},
 	Perbill, Percent, Saturating,
 };
-use sp_staking::currency_to_vote::CurrencyToVote;
+use sp_staking::{currency_to_vote::CurrencyToVote, PointsKind};
 use testing_utils::*;
 
 const SEED: u32 = 0;
@@ -1284,7 +1284,7 @@ mod benchmarks {
 	/// Every account is exposed and has an incentive weight, so each entry is credited and
 	/// accrues into the weighted points sum.
 	#[benchmark]
-	fn reward_system_chain_points(
+	fn reward_service_points(
 		v: Linear<1, { T::MaxValidatorSet::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let era = 1;
@@ -1301,16 +1301,22 @@ mod benchmarks {
 			ErasValidatorIncentiveWeight::<T>::insert(era, who, BalanceOf::<T>::from(100u64));
 		}
 		let total_before = ErasRewardPoints::<T>::get(era).total;
+		let collation_before = ErasRewardPointsByKind::<T>::get(era, PointsKind::Collation).total;
 		let reported: RewardPoint = points.iter().map(|(_, p)| p).sum();
 
 		#[block]
 		{
-			Pallet::<T>::reward_system_chain_points(points);
+			Pallet::<T>::reward_service_points(PointsKind::Collation, points);
 		}
 
 		ensure!(
 			ErasRewardPoints::<T>::get(era).total == total_before + reported,
 			"the points were not credited"
+		);
+		ensure!(
+			ErasRewardPointsByKind::<T>::get(era, PointsKind::Collation).total ==
+				collation_before + reported,
+			"the points were not recorded under their kind"
 		);
 		Ok(())
 	}
@@ -1388,9 +1394,24 @@ mod benchmarks {
 			era,
 			crate::EraRewardPoints::<T> {
 				total: 77777,
-				individual: reward_points_individual.try_into().unwrap(),
+				individual: reward_points_individual.clone().try_into().unwrap(),
 			},
 		);
+		// The 7 points of each validator split as 4 for validation and 3 for collation.
+		for (kind, points) in [(PointsKind::Validation, 4u32), (PointsKind::Collation, 3u32)] {
+			let individual = reward_points_individual
+				.keys()
+				.map(|validator| (validator.clone(), points))
+				.collect::<BTreeMap<_, _>>();
+			ErasRewardPointsByKind::<T>::insert(
+				era,
+				kind,
+				crate::EraRewardPoints::<T> {
+					total: points * validators,
+					individual: individual.try_into().unwrap(),
+				},
+			);
+		}
 		ErasTotalStake::<T>::insert(era, BalanceOf::<T>::max_value());
 		ErasNominatorsSlashable::<T>::insert(era, true);
 		ErasSumValidatorIncentiveWeight::<T>::insert(era, total_incentive_weight);

@@ -437,6 +437,11 @@ impl pallet_validator_collators::Config for Runtime {
 	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
 	type MaxEntriesPerReport =
 		ConstU32<{ testnet_parachains_constants::westend::staking::MAX_ENTRIES_PER_REPORT }>;
+	type UnixTime = Timestamp;
+	type DefaultExpectedEraDuration =
+		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;
+	type DefaultReportMargin = ConstU64<120_000>;
+	type MaxReportMargin = ConstU64<1_800_000>;
 	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }
 
