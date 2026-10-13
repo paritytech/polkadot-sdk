@@ -88,11 +88,8 @@ pub(crate) fn trim_best_parent_to_filter<Block: BlockT>(
 		result.resubmittable_segment.pop();
 		// Inside the segment the popped tail is the parent, read from memory; once it empties, the
 		// parent sits below the segment base and is read from storage.
-		let parent = result
-			.resubmittable_segment
-			.last()
-			.cloned()
-			.or_else(|| get_header(parent_hash));
+		let parent =
+			result.resubmittable_segment.last().cloned().or_else(|| get_header(parent_hash));
 		match parent {
 			Some(header) => {
 				result.best_parent_header = header;
