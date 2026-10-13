@@ -79,22 +79,6 @@ pub enum Subcommand {
 	#[command(subcommand)]
 	Key(sc_cli::KeySubcommand),
 
-	/// Build a chain specification.
-	///
-	/// The `build-spec` command relies on the chain specification built (hard-coded) into the node
-	/// binary, and may utilize the genesis presets of the runtimes  also embedded in the nodes
-	/// that support  this command. Since `polkadot-omni-node` does not contain any embedded
-	/// runtime, and requires a `chain-spec` path to be passed to its `--chain` flag, the command
-	/// isn't bringing significant value as it does for other node binaries (e.g. the
-	///  `polkadot` binary).
-	///
-	/// For a more versatile `chain-spec` manipulation experience please check out the
-	/// `polkadot-omni-node chain-spec-builder` subcommand.
-	#[deprecated(
-		note = "build-spec will be removed after 1/06/2025. Use chain-spec-builder instead"
-	)]
-	BuildSpec(sc_cli::BuildSpecCmd),
-
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),
 
@@ -331,6 +315,24 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, value_name = "SEED", hide = true)]
 	pub statement_bloom_seed: Option<u128>,
 
+	/// Maximum total data size (in bytes) of the statements the store keeps for DHT affinity.
+	/// Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_dht_affinity_size: Option<usize>,
+
+	/// Maximum total data size (in bytes) of the transient statements, kept only until
+	/// propagated. Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_transient_size: Option<usize>,
+
 	/// Upper bound on collator reserved-peer slots.
 	#[arg(long, value_name = "N", default_value_t = 32)]
 	pub collator_reserved_slots: usize,
@@ -398,6 +400,8 @@ impl<Config: CliConfig> Cli<Config> {
 							bloom_seed: self.statement_bloom_seed,
 							replication_factor: self.statement_replication_factor,
 							gossip_target: self.statement_gossip_target,
+							dht_affinity_max_size: self.statement_store_max_dht_affinity_size,
+							transient_max_size: self.statement_store_max_transient_size,
 						}
 					}),
 				},
