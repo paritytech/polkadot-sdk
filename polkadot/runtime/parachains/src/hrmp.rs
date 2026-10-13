@@ -276,8 +276,8 @@ pub mod pallet {
 		/// implementation should be the same as `Balance` as used in the `Configuration`.
 		type Currency: ReservableCurrency<Self::AccountId>;
 
-		/// Holds the channel deposits, either within the call or on another chain with the call
-		/// completed later. `Pallet<Self>` holds them in [`Config::Currency`].
+		/// Where the channel deposits are held, see [`deposits`]. `Pallet<Self>` holds them in
+		/// [`Config::Currency`].
 		type DepositProvider: ChannelDepositProvider<OnDepositChanged = Pallet<Self>>;
 
 		/// The default channel size and capacity to use when opening a channel to a system
@@ -1446,7 +1446,7 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	/// Records the open channel request once the sender's deposit is taken.
+	/// Second half of [`Self::init_open_channel`], run once the sender's deposit is taken.
 	fn finish_init_open_channel(
 		channel_id: &HrmpChannelId,
 		sender_deposit: Balance,
@@ -1516,14 +1516,14 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	/// Confirms the open channel request once the recipient's deposit is taken.
+	/// Second half of [`Self::accept_open_channel`], run once the recipient's deposit is taken.
 	fn finish_accept_open_channel(channel_id: &HrmpChannelId) {
 		let config = configuration::ActiveConfig::<T>::get();
 		let (sender, recipient) = (channel_id.sender, channel_id.recipient);
 		let Some(mut channel_req) = HrmpOpenChannelRequests::<T>::get(channel_id) else {
 			log::error!(
 				target: "runtime::hrmp",
-				"accepting {channel_id:?} after its open request was dropped"
+				"accept of {channel_id:?} completed after its open request was dropped"
 			);
 			return;
 		};
@@ -1545,7 +1545,7 @@ impl<T: Config> Pallet<T> {
 		);
 	}
 
-	/// Records the deposits of an open channel once they are changed.
+	/// Second half of [`Self::poke_channel_deposits`], run once both deposits are changed.
 	fn finish_poke_channel_deposits(
 		channel_id: &HrmpChannelId,
 		sender: Option<DepositChange>,
@@ -1555,7 +1555,7 @@ impl<T: Config> Pallet<T> {
 			let Some(channel) = channel else {
 				log::error!(
 					target: "runtime::hrmp",
-					"updating the deposits of {channel_id:?} after it was closed"
+					"poke of {channel_id:?} completed after it was closed"
 				);
 				return;
 			};
