@@ -54,6 +54,8 @@ mod benchmarking;
 pub mod deposits;
 use deposits::{ChannelDepositProvider, DepositAction, DepositChange, DepositChangeRequest};
 
+const LOG_TARGET: &str = "runtime::hrmp";
+
 pub trait WeightInfo {
 	fn hrmp_init_open_channel() -> Weight;
 	fn hrmp_accept_open_channel() -> Weight;
@@ -278,7 +280,7 @@ pub mod pallet {
 
 		/// Where the channel deposits are held, see [`deposits`]. `Pallet<Self>` holds them in
 		/// [`Config::Currency`].
-		type DepositProvider: ChannelDepositProvider<OnDepositChanged = Pallet<Self>>;
+		type DepositProvider: ChannelDepositProvider<OnDepositSet = Pallet<Self>>;
 
 		/// The default channel size and capacity to use when opening a channel to a system
 		/// parachain.
@@ -790,7 +792,7 @@ pub mod pallet {
 			if (channel.sender_deposit, channel.recipient_deposit) !=
 				(sender_deposit, recipient_deposit)
 			{
-				Self::request_deposit_change(DepositChangeRequest {
+				Self::set_deposit(DepositChangeRequest {
 					channel_id,
 					sender: Some(DepositChange {
 						current: channel.sender_deposit,
@@ -1434,7 +1436,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		let (sender_deposit, _) = Self::required_deposits(&channel_id, &config);
-		Self::request_deposit_change(DepositChangeRequest {
+		Self::set_deposit(DepositChangeRequest {
 			channel_id,
 			sender: Some(DepositChange { current: 0, target: sender_deposit }),
 			recipient: None,
@@ -1453,7 +1455,7 @@ impl<T: Config> Pallet<T> {
 		max_capacity: u32,
 		max_message_size: u32,
 		max_total_size: u32,
-	) {
+	) -> Weight {
 		let config = configuration::ActiveConfig::<T>::get();
 		let (sender, recipient) = (channel_id.sender, channel_id.recipient);
 
@@ -1484,6 +1486,7 @@ impl<T: Config> Pallet<T> {
 				}])
 			}),
 		);
+		<T as Config>::WeightInfo::hrmp_init_open_channel()
 	}
 
 	/// Accept a pending open channel request from the given sender.
@@ -1508,7 +1511,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		let (_, recipient_deposit) = Self::required_deposits(&channel_id, &config);
-		Self::request_deposit_change(DepositChangeRequest {
+		Self::set_deposit(DepositChangeRequest {
 			channel_id,
 			sender: None,
 			recipient: Some(DepositChange { current: 0, target: recipient_deposit }),
@@ -1517,15 +1520,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Second half of [`Self::accept_open_channel`], run once the recipient's deposit is taken.
-	fn finish_accept_open_channel(channel_id: &HrmpChannelId) {
+	fn finish_accept_open_channel(channel_id: &HrmpChannelId) -> Weight {
+		let weight = <T as Config>::WeightInfo::hrmp_accept_open_channel();
 		let config = configuration::ActiveConfig::<T>::get();
 		let (sender, recipient) = (channel_id.sender, channel_id.recipient);
 		let Some(mut channel_req) = HrmpOpenChannelRequests::<T>::get(channel_id) else {
 			log::error!(
-				target: "runtime::hrmp",
+				target: LOG_TARGET,
 				"accept of {channel_id:?} completed after its open request was dropped"
 			);
-			return;
+			return weight;
 		};
 
 		// persist the updated open channel request and then increment the number of accepted
@@ -1543,6 +1547,7 @@ impl<T: Config> Pallet<T> {
 				Xcm(vec![HrmpChannelAccepted { recipient: recipient.into() }])
 			}),
 		);
+		weight
 	}
 
 	/// Second half of [`Self::poke_channel_deposits`], run once both deposits are changed.
@@ -1550,11 +1555,11 @@ impl<T: Config> Pallet<T> {
 		channel_id: &HrmpChannelId,
 		sender: Option<DepositChange>,
 		recipient: Option<DepositChange>,
-	) {
+	) -> Weight {
 		HrmpChannels::<T>::mutate(channel_id, |channel| {
 			let Some(channel) = channel else {
 				log::error!(
-					target: "runtime::hrmp",
+					target: LOG_TARGET,
 					"poke of {channel_id:?} completed after it was closed"
 				);
 				return;
@@ -1566,6 +1571,7 @@ impl<T: Config> Pallet<T> {
 				channel.recipient_deposit = change.target;
 			}
 		});
+		<T as Config>::WeightInfo::poke_channel_deposits()
 	}
 
 	fn cancel_open_request(origin: ParaId, channel_id: HrmpChannelId) -> DispatchResult {
@@ -1590,7 +1596,7 @@ impl<T: Config> Pallet<T> {
 
 		// Unreserve the sender's deposit. The recipient could not have left their deposit because
 		// we ensured that the request is not confirmed.
-		Self::request_deposit_change(DepositChangeRequest {
+		Self::set_deposit(DepositChangeRequest {
 			channel_id,
 			sender: Some(DepositChange { current: open_channel_req.sender_deposit, target: 0 }),
 			recipient: None,
@@ -1898,7 +1904,7 @@ impl<T: Config> Pallet<T> {
 			// this should never happen unless the max downward message size is configured to a
 			// jokingly small number.
 			log::error!(
-				target: "runtime::hrmp",
+				target: LOG_TARGET,
 				"sending '{log_label}::notification_bytes' failed."
 			);
 			debug_assert!(false);

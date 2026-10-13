@@ -6,7 +6,7 @@ doc:
     or gives back one sends a `DepositChangeRequest` to `hrmp::Config::DepositProvider`, a
     `hrmp::deposits::ChannelDepositProvider`. A provider that applies the request within the call
     answers `Applied` and the call completes right away; one that holds the funds on another chain
-    answers `Pending` and the call completes later through `OnDepositChanged`. The pallet
+    answers `Pending` and the call completes later through `OnDepositSet`. The pallet
     implements `ChannelDepositProvider` itself for deposits held in `Config::Currency`, so
     `type DepositProvider = Hrmp;` keeps the behaviour of today. Every runtime must now set it.
 
