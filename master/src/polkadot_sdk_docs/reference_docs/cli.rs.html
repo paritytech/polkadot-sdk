@@ -172,86 +172,82 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#22 id=22 data-nosnippet>22</a>//! #### Generating Custom Chain Specification
 <a href=#23 id=23 data-nosnippet>23</a>//! ```bash
 <a href=#24 id=24 data-nosnippet>24</a>//! ./target/debug/node-template \
-<a href=#25 id=25 data-nosnippet>25</a>//! build-spec \
-<a href=#26 id=26 data-nosnippet>26</a>//! --disable-default-bootnode \
-<a href=#27 id=27 data-nosnippet>27</a>//! --chain local \
-<a href=#28 id=28 data-nosnippet>28</a>//! &gt; customSpec.json
-<a href=#29 id=29 data-nosnippet>29</a>//! ```
-<a href=#30 id=30 data-nosnippet>30</a>//!
-<a href=#31 id=31 data-nosnippet>31</a>//! - `build-spec`: A subcommand to generate a chain specification file.
-<a href=#32 id=32 data-nosnippet>32</a>//! - `--disable-default-bootnode`: Disables the default bootnodes in the node template.
-<a href=#33 id=33 data-nosnippet>33</a>//! - `--chain local`: Indicates the chain specification is for a local development chain.
-<a href=#34 id=34 data-nosnippet>34</a>//! - `&gt; customSpec.json`: Redirects the output into a customSpec.json file.
-<a href=#35 id=35 data-nosnippet>35</a>//!
-<a href=#36 id=36 data-nosnippet>36</a>//! #### Converting Chain Specification to Raw Format
-<a href=#37 id=37 data-nosnippet>37</a>//! ```bash
-<a href=#38 id=38 data-nosnippet>38</a>//! ./target/debug/node-template build-spec \
-<a href=#39 id=39 data-nosnippet>39</a>//! --chain=customSpec.json \
-<a href=#40 id=40 data-nosnippet>40</a>//! --raw \
-<a href=#41 id=41 data-nosnippet>41</a>//! --disable-default-bootnode \
-<a href=#42 id=42 data-nosnippet>42</a>//! &gt; customSpecRaw.json
-<a href=#43 id=43 data-nosnippet>43</a>//! ```
-<a href=#44 id=44 data-nosnippet>44</a>//!
-<a href=#45 id=45 data-nosnippet>45</a>//! - `--chain=customSpec.json`: Uses the custom chain specification as input.
-<a href=#46 id=46 data-nosnippet>46</a>//! - `--disable-default-bootnode`: Disables the default bootnodes in the node template.
-<a href=#47 id=47 data-nosnippet>47</a>//! - `--raw`: Converts the chain specification into a raw format with encoded storage keys.
-<a href=#48 id=48 data-nosnippet>48</a>//! - `&gt; customSpecRaw.json`: Outputs to `customSpecRaw.json`.
-<a href=#49 id=49 data-nosnippet>49</a>//!
-<a href=#50 id=50 data-nosnippet>50</a>//! #### Starting the First Node in a Private Network
-<a href=#51 id=51 data-nosnippet>51</a>//! ```bash
-<a href=#52 id=52 data-nosnippet>52</a>//! ./target/debug/node-template \
-<a href=#53 id=53 data-nosnippet>53</a>//!   --base-path /tmp/node01 \
-<a href=#54 id=54 data-nosnippet>54</a>//!   --chain ./customSpecRaw.json \
-<a href=#55 id=55 data-nosnippet>55</a>//!   --port 30333 \
-<a href=#56 id=56 data-nosnippet>56</a>//!   --ws-port 9945 \
-<a href=#57 id=57 data-nosnippet>57</a>//!   --rpc-port 9933 \
-<a href=#58 id=58 data-nosnippet>58</a>//!   --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
-<a href=#59 id=59 data-nosnippet>59</a>//!   --validator \
-<a href=#60 id=60 data-nosnippet>60</a>//!   --rpc-methods Unsafe \
-<a href=#61 id=61 data-nosnippet>61</a>//!   --name MyNode01
-<a href=#62 id=62 data-nosnippet>62</a>//! ```
-<a href=#63 id=63 data-nosnippet>63</a>//!
-<a href=#64 id=64 data-nosnippet>64</a>//! - `--base-path`: Sets the directory for node data.
-<a href=#65 id=65 data-nosnippet>65</a>//! - `--chain`: Specifies the chain specification file.
-<a href=#66 id=66 data-nosnippet>66</a>//! - `--port`: TCP port for peer-to-peer communication.
-<a href=#67 id=67 data-nosnippet>67</a>//! - `--ws-port`: WebSocket port for RPC.
-<a href=#68 id=68 data-nosnippet>68</a>//! - `--rpc-port`: HTTP port for JSON-RPC.
-<a href=#69 id=69 data-nosnippet>69</a>//! - `--telemetry-url`: Endpoint for sending telemetry data.
-<a href=#70 id=70 data-nosnippet>70</a>//! - `--validator`: Indicates the node’s participation in block production.
-<a href=#71 id=71 data-nosnippet>71</a>//! - `--rpc-methods Unsafe`: Allows potentially unsafe RPC methods.
-<a href=#72 id=72 data-nosnippet>72</a>//! - `--name`: Sets a human-readable name for the node.
-<a href=#73 id=73 data-nosnippet>73</a>//!
-<a href=#74 id=74 data-nosnippet>74</a>//! #### Adding a Second Node to the Network
-<a href=#75 id=75 data-nosnippet>75</a>//! ```bash
-<a href=#76 id=76 data-nosnippet>76</a>//! ./target/release/node-template \
-<a href=#77 id=77 data-nosnippet>77</a>//!   --base-path /tmp/bob \
-<a href=#78 id=78 data-nosnippet>78</a>//!   --chain local \
-<a href=#79 id=79 data-nosnippet>79</a>//!   --bob \
-<a href=#80 id=80 data-nosnippet>80</a>//!   --port 30334 \
-<a href=#81 id=81 data-nosnippet>81</a>//!   --rpc-port 9946 \
-<a href=#82 id=82 data-nosnippet>82</a>//!   --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
-<a href=#83 id=83 data-nosnippet>83</a>//!   --validator \
-<a href=#84 id=84 data-nosnippet>84</a>//!   --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
-<a href=#85 id=85 data-nosnippet>85</a>//! ```
-<a href=#86 id=86 data-nosnippet>86</a>//!
-<a href=#87 id=87 data-nosnippet>87</a>//! - `--base-path`: Sets the directory for node data.
-<a href=#88 id=88 data-nosnippet>88</a>//! - `--chain`: Specifies the chain specification file.
-<a href=#89 id=89 data-nosnippet>89</a>//! - `--bob`: Initializes the node with the session keys of the "Bob" account.
-<a href=#90 id=90 data-nosnippet>90</a>//! - `--port`: TCP port for peer-to-peer communication.
-<a href=#91 id=91 data-nosnippet>91</a>//! - `--rpc-port`: HTTP port for JSON-RPC.
-<a href=#92 id=92 data-nosnippet>92</a>//! - `--telemetry-url`: Endpoint for sending telemetry data.
-<a href=#93 id=93 data-nosnippet>93</a>//! - `--validator`: Indicates the node’s participation in block production.
-<a href=#94 id=94 data-nosnippet>94</a>//! - `--bootnodes`: Specifies the address of the first node for peer discovery. Nodes should find
-<a href=#95 id=95 data-nosnippet>95</a>//!   each other using mDNS. This command needs to be used if they don't find each other.
-<a href=#96 id=96 data-nosnippet>96</a>//!
-<a href=#97 id=97 data-nosnippet>97</a>//! ---
-<a href=#98 id=98 data-nosnippet>98</a>//!
-<a href=#99 id=99 data-nosnippet>99</a>//! &gt; If you are interested in learning how to extend the CLI with your custom arguments, you can
-<a href=#100 id=100 data-nosnippet>100</a>//! &gt; check out the [Customize your Substrate chain CLI](https://www.youtube.com/watch?v=IVifko1fqjw)
-<a href=#101 id=101 data-nosnippet>101</a>//! &gt; seminar.
-<a href=#102 id=102 data-nosnippet>102</a>//! &gt; Please note that the seminar is based on an older version of Substrate, and [Clap](https://docs.rs/clap/latest/clap/)
-<a href=#103 id=103 data-nosnippet>103</a>//! &gt; is now used instead of [StructOpt](https://docs.rs/structopt/latest/structopt/) for parsing
-<a href=#104 id=104 data-nosnippet>104</a>//! &gt; CLI arguments.
+<a href=#25 id=25 data-nosnippet>25</a>//! export-chain-spec \
+<a href=#26 id=26 data-nosnippet>26</a>//! --chain local \
+<a href=#27 id=27 data-nosnippet>27</a>//! &gt; customSpec.json
+<a href=#28 id=28 data-nosnippet>28</a>//! ```
+<a href=#29 id=29 data-nosnippet>29</a>//!
+<a href=#30 id=30 data-nosnippet>30</a>//! - `export-chain-spec`: A subcommand to generate a chain specification file.
+<a href=#31 id=31 data-nosnippet>31</a>//! - `--chain local`: Indicates the chain specification is for a local development chain.
+<a href=#32 id=32 data-nosnippet>32</a>//! - `&gt; customSpec.json`: Redirects the output into a customSpec.json file.
+<a href=#33 id=33 data-nosnippet>33</a>//!
+<a href=#34 id=34 data-nosnippet>34</a>//! #### Converting Chain Specification to Raw Format
+<a href=#35 id=35 data-nosnippet>35</a>//! ```bash
+<a href=#36 id=36 data-nosnippet>36</a>//! ./target/debug/node-template export-chain-spec \
+<a href=#37 id=37 data-nosnippet>37</a>//! --chain=customSpec.json \
+<a href=#38 id=38 data-nosnippet>38</a>//! --raw \
+<a href=#39 id=39 data-nosnippet>39</a>//! &gt; customSpecRaw.json
+<a href=#40 id=40 data-nosnippet>40</a>//! ```
+<a href=#41 id=41 data-nosnippet>41</a>//!
+<a href=#42 id=42 data-nosnippet>42</a>//! - `--chain=customSpec.json`: Uses the custom chain specification as input.
+<a href=#43 id=43 data-nosnippet>43</a>//! - `--raw`: Converts the chain specification into a raw format with encoded storage keys.
+<a href=#44 id=44 data-nosnippet>44</a>//! - `&gt; customSpecRaw.json`: Outputs to `customSpecRaw.json`.
+<a href=#45 id=45 data-nosnippet>45</a>//!
+<a href=#46 id=46 data-nosnippet>46</a>//! #### Starting the First Node in a Private Network
+<a href=#47 id=47 data-nosnippet>47</a>//! ```bash
+<a href=#48 id=48 data-nosnippet>48</a>//! ./target/debug/node-template \
+<a href=#49 id=49 data-nosnippet>49</a>//!   --base-path /tmp/node01 \
+<a href=#50 id=50 data-nosnippet>50</a>//!   --chain ./customSpecRaw.json \
+<a href=#51 id=51 data-nosnippet>51</a>//!   --port 30333 \
+<a href=#52 id=52 data-nosnippet>52</a>//!   --ws-port 9945 \
+<a href=#53 id=53 data-nosnippet>53</a>//!   --rpc-port 9933 \
+<a href=#54 id=54 data-nosnippet>54</a>//!   --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
+<a href=#55 id=55 data-nosnippet>55</a>//!   --validator \
+<a href=#56 id=56 data-nosnippet>56</a>//!   --rpc-methods Unsafe \
+<a href=#57 id=57 data-nosnippet>57</a>//!   --name MyNode01
+<a href=#58 id=58 data-nosnippet>58</a>//! ```
+<a href=#59 id=59 data-nosnippet>59</a>//!
+<a href=#60 id=60 data-nosnippet>60</a>//! - `--base-path`: Sets the directory for node data.
+<a href=#61 id=61 data-nosnippet>61</a>//! - `--chain`: Specifies the chain specification file.
+<a href=#62 id=62 data-nosnippet>62</a>//! - `--port`: TCP port for peer-to-peer communication.
+<a href=#63 id=63 data-nosnippet>63</a>//! - `--ws-port`: WebSocket port for RPC.
+<a href=#64 id=64 data-nosnippet>64</a>//! - `--rpc-port`: HTTP port for JSON-RPC.
+<a href=#65 id=65 data-nosnippet>65</a>//! - `--telemetry-url`: Endpoint for sending telemetry data.
+<a href=#66 id=66 data-nosnippet>66</a>//! - `--validator`: Indicates the node’s participation in block production.
+<a href=#67 id=67 data-nosnippet>67</a>//! - `--rpc-methods Unsafe`: Allows potentially unsafe RPC methods.
+<a href=#68 id=68 data-nosnippet>68</a>//! - `--name`: Sets a human-readable name for the node.
+<a href=#69 id=69 data-nosnippet>69</a>//!
+<a href=#70 id=70 data-nosnippet>70</a>//! #### Adding a Second Node to the Network
+<a href=#71 id=71 data-nosnippet>71</a>//! ```bash
+<a href=#72 id=72 data-nosnippet>72</a>//! ./target/release/node-template \
+<a href=#73 id=73 data-nosnippet>73</a>//!   --base-path /tmp/bob \
+<a href=#74 id=74 data-nosnippet>74</a>//!   --chain local \
+<a href=#75 id=75 data-nosnippet>75</a>//!   --bob \
+<a href=#76 id=76 data-nosnippet>76</a>//!   --port 30334 \
+<a href=#77 id=77 data-nosnippet>77</a>//!   --rpc-port 9946 \
+<a href=#78 id=78 data-nosnippet>78</a>//!   --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
+<a href=#79 id=79 data-nosnippet>79</a>//!   --validator \
+<a href=#80 id=80 data-nosnippet>80</a>//!   --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
+<a href=#81 id=81 data-nosnippet>81</a>//! ```
+<a href=#82 id=82 data-nosnippet>82</a>//!
+<a href=#83 id=83 data-nosnippet>83</a>//! - `--base-path`: Sets the directory for node data.
+<a href=#84 id=84 data-nosnippet>84</a>//! - `--chain`: Specifies the chain specification file.
+<a href=#85 id=85 data-nosnippet>85</a>//! - `--bob`: Initializes the node with the session keys of the "Bob" account.
+<a href=#86 id=86 data-nosnippet>86</a>//! - `--port`: TCP port for peer-to-peer communication.
+<a href=#87 id=87 data-nosnippet>87</a>//! - `--rpc-port`: HTTP port for JSON-RPC.
+<a href=#88 id=88 data-nosnippet>88</a>//! - `--telemetry-url`: Endpoint for sending telemetry data.
+<a href=#89 id=89 data-nosnippet>89</a>//! - `--validator`: Indicates the node’s participation in block production.
+<a href=#90 id=90 data-nosnippet>90</a>//! - `--bootnodes`: Specifies the address of the first node for peer discovery. Nodes should find
+<a href=#91 id=91 data-nosnippet>91</a>//!   each other using mDNS. This command needs to be used if they don't find each other.
+<a href=#92 id=92 data-nosnippet>92</a>//!
+<a href=#93 id=93 data-nosnippet>93</a>//! ---
+<a href=#94 id=94 data-nosnippet>94</a>//!
+<a href=#95 id=95 data-nosnippet>95</a>//! &gt; If you are interested in learning how to extend the CLI with your custom arguments, you can
+<a href=#96 id=96 data-nosnippet>96</a>//! &gt; check out the [Customize your Substrate chain CLI](https://www.youtube.com/watch?v=IVifko1fqjw)
+<a href=#97 id=97 data-nosnippet>97</a>//! &gt; seminar.
+<a href=#98 id=98 data-nosnippet>98</a>//! &gt; Please note that the seminar is based on an older version of Substrate, and [Clap](https://docs.rs/clap/latest/clap/)
+<a href=#99 id=99 data-nosnippet>99</a>//! &gt; is now used instead of [StructOpt](https://docs.rs/structopt/latest/structopt/) for parsing
+<a href=#100 id=100 data-nosnippet>100</a>//! &gt; CLI arguments.
 </span></code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

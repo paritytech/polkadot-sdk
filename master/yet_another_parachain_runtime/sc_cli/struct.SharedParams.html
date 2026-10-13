@@ -161,7 +161,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Shared parameters used by all <code>CoreParams</code>.</p>
 </div></details><h2 id="fields" class="fields section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.chain" class="structfield section-header"><a href="#structfield.chain" class="anchor field">§</a><code>chain: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;</code></span><div class="docblock"><p>Specify the chain specification.</p>
 <p>It can be one of the predefined ones (dev, local, or staging) or it can be a path to
-a file with the chainspec (such as one exported by the <code>build-spec</code> subcommand).</p>
+a file with the chainspec (such as one exported by a node’s chain specification export
+subcommand).</p>
 </div><span id="structfield.dev" class="structfield section-header"><a href="#structfield.dev" class="anchor field">§</a><code>dev: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a></code></span><div class="docblock"><p>Specify the development chain.</p>
 <p>This flag sets <code>--chain=dev</code>, <code>--force-authoring</code>, <code>--rpc-cors=all</code>, <code>--alice</code>, and <code>--tmp</code>
 flags, unless explicitly overridden. It also disables local peer discovery (see <code>--no-mdns</code>

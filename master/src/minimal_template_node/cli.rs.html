@@ -208,38 +208,30 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#58 id=58 data-nosnippet>58</a>	</span><span class="attr">#[command(subcommand)]
 <a href=#59 id=59 data-nosnippet>59</a>	</span>Key(sc_cli::KeySubcommand),
 <a href=#60 id=60 data-nosnippet>60</a>
-<a href=#61 id=61 data-nosnippet>61</a>	<span class="doccomment">/// Build a chain specification.
-<a href=#62 id=62 data-nosnippet>62</a>	/// DEPRECATED: `build-spec` command will be removed after 1/04/2026. Use `export-chain-spec`
-<a href=#63 id=63 data-nosnippet>63</a>	/// command instead.
-<a href=#64 id=64 data-nosnippet>64</a>	</span><span class="attr">#[deprecated(
-<a href=#65 id=65 data-nosnippet>65</a>		note = <span class="string">"build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
-<a href=#66 id=66 data-nosnippet>66</a>	</span>)]
-<a href=#67 id=67 data-nosnippet>67</a>	</span>BuildSpec(sc_cli::BuildSpecCmd),
-<a href=#68 id=68 data-nosnippet>68</a>
-<a href=#69 id=69 data-nosnippet>69</a>	<span class="doccomment">/// Export the chain specification.
-<a href=#70 id=70 data-nosnippet>70</a>	</span>ExportChainSpec(sc_cli::ExportChainSpecCmd),
-<a href=#71 id=71 data-nosnippet>71</a>
-<a href=#72 id=72 data-nosnippet>72</a>	<span class="doccomment">/// Validate blocks.
-<a href=#73 id=73 data-nosnippet>73</a>	</span>CheckBlock(sc_cli::CheckBlockCmd),
-<a href=#74 id=74 data-nosnippet>74</a>
-<a href=#75 id=75 data-nosnippet>75</a>	<span class="doccomment">/// Export blocks.
-<a href=#76 id=76 data-nosnippet>76</a>	</span>ExportBlocks(sc_cli::ExportBlocksCmd),
-<a href=#77 id=77 data-nosnippet>77</a>
-<a href=#78 id=78 data-nosnippet>78</a>	<span class="doccomment">/// Export the state of a given block into a chain spec.
-<a href=#79 id=79 data-nosnippet>79</a>	</span>ExportState(sc_cli::ExportStateCmd),
-<a href=#80 id=80 data-nosnippet>80</a>
-<a href=#81 id=81 data-nosnippet>81</a>	<span class="doccomment">/// Import blocks.
-<a href=#82 id=82 data-nosnippet>82</a>	</span>ImportBlocks(sc_cli::ImportBlocksCmd),
-<a href=#83 id=83 data-nosnippet>83</a>
-<a href=#84 id=84 data-nosnippet>84</a>	<span class="doccomment">/// Remove the whole chain.
-<a href=#85 id=85 data-nosnippet>85</a>	</span>PurgeChain(sc_cli::PurgeChainCmd),
-<a href=#86 id=86 data-nosnippet>86</a>
-<a href=#87 id=87 data-nosnippet>87</a>	<span class="doccomment">/// Revert the chain to a previous state.
-<a href=#88 id=88 data-nosnippet>88</a>	</span>Revert(sc_cli::RevertCmd),
-<a href=#89 id=89 data-nosnippet>89</a>
-<a href=#90 id=90 data-nosnippet>90</a>	<span class="doccomment">/// Db meta columns information.
-<a href=#91 id=91 data-nosnippet>91</a>	</span>ChainInfo(sc_cli::ChainInfoCmd),
-<a href=#92 id=92 data-nosnippet>92</a>}
+<a href=#61 id=61 data-nosnippet>61</a>	<span class="doccomment">/// Export the chain specification.
+<a href=#62 id=62 data-nosnippet>62</a>	</span>ExportChainSpec(sc_cli::ExportChainSpecCmd),
+<a href=#63 id=63 data-nosnippet>63</a>
+<a href=#64 id=64 data-nosnippet>64</a>	<span class="doccomment">/// Validate blocks.
+<a href=#65 id=65 data-nosnippet>65</a>	</span>CheckBlock(sc_cli::CheckBlockCmd),
+<a href=#66 id=66 data-nosnippet>66</a>
+<a href=#67 id=67 data-nosnippet>67</a>	<span class="doccomment">/// Export blocks.
+<a href=#68 id=68 data-nosnippet>68</a>	</span>ExportBlocks(sc_cli::ExportBlocksCmd),
+<a href=#69 id=69 data-nosnippet>69</a>
+<a href=#70 id=70 data-nosnippet>70</a>	<span class="doccomment">/// Export the state of a given block into a chain spec.
+<a href=#71 id=71 data-nosnippet>71</a>	</span>ExportState(sc_cli::ExportStateCmd),
+<a href=#72 id=72 data-nosnippet>72</a>
+<a href=#73 id=73 data-nosnippet>73</a>	<span class="doccomment">/// Import blocks.
+<a href=#74 id=74 data-nosnippet>74</a>	</span>ImportBlocks(sc_cli::ImportBlocksCmd),
+<a href=#75 id=75 data-nosnippet>75</a>
+<a href=#76 id=76 data-nosnippet>76</a>	<span class="doccomment">/// Remove the whole chain.
+<a href=#77 id=77 data-nosnippet>77</a>	</span>PurgeChain(sc_cli::PurgeChainCmd),
+<a href=#78 id=78 data-nosnippet>78</a>
+<a href=#79 id=79 data-nosnippet>79</a>	<span class="doccomment">/// Revert the chain to a previous state.
+<a href=#80 id=80 data-nosnippet>80</a>	</span>Revert(sc_cli::RevertCmd),
+<a href=#81 id=81 data-nosnippet>81</a>
+<a href=#82 id=82 data-nosnippet>82</a>	<span class="doccomment">/// Db meta columns information.
+<a href=#83 id=83 data-nosnippet>83</a>	</span>ChainInfo(sc_cli::ChainInfoCmd),
+<a href=#84 id=84 data-nosnippet>84</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
