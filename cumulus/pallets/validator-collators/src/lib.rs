@@ -87,11 +87,12 @@
 //! each set in [`SetReceivedAt`], from [`Config::UnixTime`], and expects the era to end
 //! [`ExpectedEraDuration`] after it. The early report runs in the first block at or after
 //! [`ReportMargin`] before that end, so that in a normal era the counts reach the chain that runs
-//! `pallet-staking-async` before the era rotates. At most half of [`ExpectedEraDuration`] is used
-//! as the margin. The early report removes [`SetReceivedAt`] and is not retried: if the reporter
-//! rejects it, its counts go out with the next [`ReportPeriod`] report. The periodic report also
-//! covers eras that end earlier or later than expected, a set that never arrives, and the time
-//! before the first set arrives. If both reports fall in the same block, the pallet reports once.
+//! `pallet-staking-async` before the era rotates. The margin used is at most
+//! [`Config::MaxReportMargin`] and at most half of [`ExpectedEraDuration`]. The early report
+//! removes [`SetReceivedAt`] and is not retried: if the reporter rejects it, its counts go out with
+//! the next [`ReportPeriod`] report. The periodic report also covers eras that end earlier or later
+//! than expected, a set that never arrives, and the time before the first set arrives. If both
+//! reports fall in the same block, the pallet reports once.
 //!
 //! A runtime must configure `pallet-collator-selection`'s `KickThreshold` to exceed a full Aura
 //! round of the merged list, [`Config::MaxValidators`] plus the invulnerables and candidates, times
@@ -262,7 +263,8 @@ pub mod pallet {
 
 		/// Largest value [`Pallet::set_report_margin`] accepts, in milliseconds.
 		///
-		/// Timing the report also bounds a stored value by it.
+		/// A stored [`ReportMargin`] above it, as after a runtime upgrade that lowers it, is used
+		/// up to it.
 		#[pallet::constant]
 		type MaxReportMargin: Get<u64>;
 
