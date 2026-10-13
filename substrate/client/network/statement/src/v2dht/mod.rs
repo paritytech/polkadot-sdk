@@ -374,8 +374,8 @@ impl V2DhtOrchestrator {
 		}
 	}
 
-	/// Align the connected peers with the peers needed to cover the node's subscriptions, opening
-	/// and closing connections through the statement protocol's reserved set on `network`.
+	/// Reserve the peers needed to cover the node's subscriptions and release the rest, through
+	/// the statement protocol's reserved set on `network`.
 	pub(crate) fn refresh_connections<N: NetworkPeers>(&mut self, network: &N) {
 		self.peer_steering.refresh_connections(network);
 	}

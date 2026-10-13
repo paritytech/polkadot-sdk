@@ -58,10 +58,11 @@ pub(crate) mod score {
 /// instead of dropping every undesired connection at once.
 const MAX_DISCONNECT_PERCENT: usize = 20;
 
-/// Keeps the connected peer set aligned with the peers needed to cover the node's subscriptions.
+/// Keeps the statement protocol's reserved set aligned with the peers needed to cover the node's
+/// subscriptions.
 ///
-/// The connected set is fed by statement notification substream events; the desired set is supplied
-/// by the orchestrator. [`Self::refresh_connections`] drives the two together.
+/// The desired set comes from the orchestrator and the connected set from the statement substream
+/// events. [`Self::refresh_connections`] edits the reserved set to match the desired one.
 #[derive(Debug)]
 pub(crate) struct PeerSteering {
 	/// Statement protocol whose reserved set the connections are steered through.
@@ -186,8 +187,7 @@ impl PeerSteering {
 		to_release
 	}
 
-	/// Align the reserved set with the desired set by editing the statement protocol's reserved
-	/// set on `network`.
+	/// Edit the statement protocol's reserved set on `network` so it matches the desired set.
 	///
 	/// The connected set tracks open substreams, so it updates through the substream events as the
 	/// changes take effect, not here.

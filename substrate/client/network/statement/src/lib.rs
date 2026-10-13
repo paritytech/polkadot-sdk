@@ -934,7 +934,7 @@ pub struct Peer {
 	/// Whether this peer is a light client.
 	/// Light clients on V2 must set topic affinity before receiving statements.
 	is_light: bool,
-	/// Whether the peer opened the substream, taking one of our inbound slots.
+	/// Whether the peer opened the substream.
 	inbound: bool,
 	/// A pending topic affinity filter waiting to be scheduled for initial sync.
 	/// Set when a new `ExplicitTopicAffinity` arrives; consumed by the main loop
@@ -1509,9 +1509,10 @@ where
 	/// performs a fresh initial sync, delivering any statements that were dropped while the
 	/// `is_major_syncing` guard was active.
 	///
-	/// With the v2 DHT path on, only a v1 peer's drop leads here, so only a v1 peer is picked. The
-	/// peer is not reserved, so its substream is closed directly and the peer, which holds this
-	/// node in its own reserved set, reconnects on its own.
+	/// With the v2 DHT path on, only a v1 peer's drop leads here, so only a v1 peer is picked.
+	/// Steering reserves v2 peers only, so the v1 peer is not reserved: its substream is closed
+	/// directly, and the peer, which holds this node in its own reserved set, reconnects on its
+	/// own.
 	fn start_sync_recovery(&mut self) {
 		if !self.dropped_statements_during_sync {
 			return;
@@ -1577,7 +1578,8 @@ where
 	/// Whether the role's inbound quota has room for one more peer.
 	///
 	/// The protocol controller counts the full and light slots together, so the split by role
-	/// happens here, as in the sync engine. A reserved peer holds no slot there either.
+	/// happens here, as in the sync engine. A reserved peer holds no controller slot, so it is
+	/// left out of the count.
 	fn inbound_slot_free(&self, role: ObservedRole) -> bool {
 		let is_light = role.is_light();
 		let taken = self
