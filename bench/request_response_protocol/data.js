@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791902000346,
+  "lastUpdate": 1791928284138,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -133703,6 +133703,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2570418329,
             "range": "± 20443414",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e8e1c1b5efc3189184214a5e55c617b5f9e8886c",
+          "message": "sp-keystore: MemoryKeystore signs only with a secret URI that derives the queried key (#13410)\n\nCloses #13142\n\n`MemoryKeystore::insert` stores any suri under any public key and\nreturns `Ok(())`. `pair()` then derived a key from the stored suri\nwithout checking it against the queried public, which caused two\nproblems:\n- After a mismatched insert, `sr25519_sign`, `sign_with` and the VRF\nmethods returned a signature from a different key, one that does not\nverify under the queried public.\n- After an unparseable suri, every lookup panicked on `expect(\"seed\nslice is valid\")`, including the typed `*_public_keys` listings.\n\nAs planned in the issue, the check happens at lookup time, the way\n`LocalKeystore` does it. `insert` only gets raw public bytes and doesn't\nknow the scheme, so it can't validate up front.\n- `pair()` parses the suri with `from_string(..).ok()` and returns\n`None` unless the derived public matches the queried one. Every sign,\nVRF and proof-of-possession method goes through it.\n- `public_keys` skips an unparseable suri, the same way it already skips\na mismatched one.\n\n`insert`, `keys` and `has_keys` are unchanged: they still report what\nwas stored, like `LocalKeystore`.\n\nThe sign methods return `Ok(None)` for such an entry, matching how\n`public_keys` already treats it as absent. `LocalKeystore` returns an\nerror instead (`PublicKeyMismatch` / `InvalidPhrase`). Happy to switch\nto an `Err` if that's preferred.\n\nTests:\n- `mismatched_secret_uri_signs_nothing`: sign, `sign_with`, VRF sign,\nVRF pre-output and listing, then the same suri under its own public\nstill signs and verifies.\n- `unparseable_secret_uri_does_not_panic`: sr25519, ed25519 and ecdsa\nsign, prehashed sign, VRF, `sign_with` and listings.\n\nEach test fails with its half of the fix reverted. `cargo test -p\nsp-keystore --lib`: 7 passed, and 12 with `--all-features`.\n\nRWF finding, same cluster as #13402.\n\n---------\n\nSigned-off-by: Abdulwaarith <abdulwaarithz@gmail.com>",
+          "timestamp": "2026-10-13T20:18:30Z",
+          "tree_id": "c09f9ebb2a9d0bb366c92ec5eb8502b4121e2968",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e8e1c1b5efc3189184214a5e55c617b5f9e8886c"
+        },
+        "date": 1791928249947,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19530485,
+            "range": "± 152375",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19983207,
+            "range": "± 198557",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21481550,
+            "range": "± 266242",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26578048,
+            "range": "± 199682",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63358623,
+            "range": "± 1131271",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 367311423,
+            "range": "± 4268836",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2686556772,
+            "range": "± 50382807",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16914171,
+            "range": "± 96724",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17275700,
+            "range": "± 330178",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17354765,
+            "range": "± 105236",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21923822,
+            "range": "± 124621",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61768964,
+            "range": "± 741732",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 359457418,
+            "range": "± 3842894",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2677929172,
+            "range": "± 33813483",
             "unit": "ns/iter"
           }
         ]
