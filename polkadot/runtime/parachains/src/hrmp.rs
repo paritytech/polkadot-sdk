@@ -960,26 +960,22 @@ impl<T: Config> Pallet<T> {
 			};
 
 			// Return the deposit of the sender, but only if it is not the para being offboarded.
-			let release = |para: ParaId, current: Balance| {
-				(!outgoing.contains(&para)).then_some(DepositChange { current, target: 0 })
-			};
-			let mut request = DepositChangeRequest {
-				channel_id: req_id.clone(),
-				sender: release(req_id.sender, req_data.sender_deposit),
-				recipient: None,
-				action: DepositAction::Release,
-			};
+			let unless_offboarding =
+				|para: ParaId, deposit: Balance| (!outgoing.contains(&para)).then_some(deposit);
+			let sender_deposit = unless_offboarding(req_id.sender, req_data.sender_deposit);
 
 			// If the request was confirmed, then it means it was confirmed in the finished session.
 			// Therefore, the config's hrmp_recipient_deposit represents the actual value of the
 			// deposit.
 			//
 			// We still want to refund the deposit only if the para is not being offboarded.
+			let mut recipient_deposit = None;
 			if req_data.confirmed {
-				request.recipient = release(req_id.recipient, config.hrmp_recipient_deposit);
+				recipient_deposit =
+					unless_offboarding(req_id.recipient, config.hrmp_recipient_deposit);
 				Self::decrease_accepted_channel_request_count(req_id.recipient);
 			}
-			Self::release_deposits(request);
+			Self::release_deposits(&req_id, sender_deposit, recipient_deposit);
 		}
 
 		<T as Config>::WeightInfo::clean_open_channel_requests(outgoing.len() as u32)
@@ -1094,12 +1090,7 @@ impl<T: Config> Pallet<T> {
 		if let Some(HrmpChannel { sender_deposit, recipient_deposit, .. }) =
 			HrmpChannels::<T>::take(channel_id)
 		{
-			Self::release_deposits(DepositChangeRequest {
-				channel_id: channel_id.clone(),
-				sender: Some(DepositChange { current: sender_deposit, target: 0 }),
-				recipient: Some(DepositChange { current: recipient_deposit, target: 0 }),
-				action: DepositAction::Release,
-			});
+			Self::release_deposits(channel_id, Some(sender_deposit), Some(recipient_deposit));
 		}
 
 		HrmpChannelContents::<T>::remove(channel_id);
@@ -1596,12 +1587,9 @@ impl<T: Config> Pallet<T> {
 
 		// Unreserve the sender's deposit. The recipient could not have left their deposit because
 		// we ensured that the request is not confirmed.
-		Self::set_deposit(DepositChangeRequest {
-			channel_id,
-			sender: Some(DepositChange { current: open_channel_req.sender_deposit, target: 0 }),
-			recipient: None,
-			action: DepositAction::Release,
-		})
+		Self::release_deposits(&channel_id, Some(open_channel_req.sender_deposit), None);
+
+		Ok(())
 	}
 
 	fn close_channel(origin: ParaId, channel_id: HrmpChannelId) -> Result<(), Error<T>> {

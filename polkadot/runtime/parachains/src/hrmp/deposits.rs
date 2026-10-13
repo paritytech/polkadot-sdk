@@ -20,7 +20,8 @@
 //! deposit sends a [`DepositChangeRequest`] to [`Config::DepositProvider`]. If the provider
 //! applies the request within the call, the call completes right away. If the provider holds the
 //! funds on another chain, it answers pending and the call completes in
-//! [`OnDepositSet::on_deposit_set`] once the provider reports back.
+//! [`OnDepositSet::on_deposit_set`] once the provider reports back, or stops there if the
+//! provider refused the request.
 //!
 //! The pallet implements [`ChannelDepositProvider`] itself to hold the deposits in
 //! [`Config::Currency`], which keeps the behaviour from before the provider existed.
@@ -36,17 +37,27 @@ pub trait ChannelDepositProvider {
 	/// Receives the report of a pending request once it is done.
 	type OnDepositSet: OnDepositSet;
 
-	/// Applies `request`, or accepts it to apply it later.
+	/// Applies `request`, or accepts it to apply it later. Refuses it with an error, e.g. when
+	/// the funds are short or a request for the same side is still pending.
 	fn try_set_deposit(
 		request: DepositChangeRequest,
 	) -> Result<DepositChangeResponse, DispatchError>;
 }
 
-/// Receives the report that a pending [`DepositChangeRequest`] is done.
+/// Receives the outcome of a pending [`DepositChangeRequest`].
 pub trait OnDepositSet {
-	/// Called once the deposits are set as `request` asked. Returns the weight spent resuming
-	/// the request's action.
-	fn on_deposit_set(request: DepositChangeRequest) -> Weight;
+	/// Called once `request` is applied, or refused with `Err`. Returns the weight spent
+	/// resuming the request's action.
+	fn on_deposit_set(request: DepositChangeRequest, result: Result<(), DepositError>) -> Weight;
+}
+
+/// Why a provider refused a pending [`DepositChangeRequest`].
+#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub enum DepositError {
+	/// A side cannot cover its deposit.
+	InsufficientFunds,
+	/// A reason of the provider's own.
+	Other,
 }
 
 /// A request to change the deposits of a channel, with the action to resume once they are
@@ -70,7 +81,8 @@ pub struct DepositChangeRequest {
 /// What one side of a channel holds before and after a [`DepositChangeRequest`].
 #[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct DepositChange {
-	/// What the side holds now, by the requester's records.
+	/// What the side holds now, by the requester's records. A provider with records of its own
+	/// goes by those and acts on `target` alone.
 	pub current: Balance,
 	/// What the side holds once the request is done.
 	pub target: Balance,
@@ -81,7 +93,7 @@ pub struct DepositChange {
 pub enum DepositChangeResponse {
 	/// The request is applied. The action resumes right away.
 	Applied,
-	/// The request is accepted and is reported through [`OnDepositSet`] once applied.
+	/// The request is accepted and its outcome is reported through [`OnDepositSet`].
 	Pending,
 }
 
@@ -99,6 +111,8 @@ pub enum DepositAction {
 	Release,
 }
 
+/// The in-pallet provider: holds the deposits in [`Config::Currency`] and applies every request
+/// within the call.
 impl<T: Config> ChannelDepositProvider for Pallet<T> {
 	type OnDepositSet = Self;
 
@@ -120,8 +134,14 @@ impl<T: Config> ChannelDepositProvider for Pallet<T> {
 }
 
 impl<T: Config> OnDepositSet for Pallet<T> {
-	fn on_deposit_set(request: DepositChangeRequest) -> Weight {
-		Self::resume(&request)
+	fn on_deposit_set(request: DepositChangeRequest, result: Result<(), DepositError>) -> Weight {
+		match result {
+			Ok(()) => Self::resume(&request),
+			Err(e) => {
+				log::warn!(target: LOG_TARGET, "deposit refused: {e:?}, request: {request:?}");
+				Weight::zero()
+			},
+		}
 	}
 }
 
@@ -140,7 +160,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Sends `request` to [`Config::DepositProvider`] and resumes its action if the provider
 	/// applied it right away. A pending request resumes in [`OnDepositSet::on_deposit_set`]
-	/// instead. Fails only if the provider refuses the request.
+	/// instead. Fails only if the provider refuses the request right away.
 	pub(super) fn set_deposit(request: DepositChangeRequest) -> DispatchResult {
 		if T::DepositProvider::try_set_deposit(request.clone())? == DepositChangeResponse::Applied {
 			Self::resume(&request);
@@ -148,9 +168,20 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// [`Self::set_deposit`] for giving deposits back from paths that cannot return an error. A
-	/// refused release is logged.
-	pub(super) fn release_deposits(request: DepositChangeRequest) {
+	/// Gives back the deposits of `channel_id`: `sender` and `recipient` are what each side holds
+	/// by this pallet's records, or `None` to leave that side alone. A refused release is logged.
+	pub(super) fn release_deposits(
+		channel_id: &HrmpChannelId,
+		sender: Option<Balance>,
+		recipient: Option<Balance>,
+	) {
+		let release = |current| DepositChange { current, target: 0 };
+		let request = DepositChangeRequest {
+			channel_id: channel_id.clone(),
+			sender: sender.map(release),
+			recipient: recipient.map(release),
+			action: DepositAction::Release,
+		};
 		if let Err(e) = Self::set_deposit(request.clone()) {
 			log::error!(target: LOG_TARGET, "giving back deposits failed: {e:?}, request: {request:?}");
 		}
