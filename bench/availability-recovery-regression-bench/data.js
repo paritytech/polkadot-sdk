@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791815128243,
+  "lastUpdate": 1791896622460,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dhiraj@parity.io",
-            "name": "Dhiraj Sah",
-            "username": "dhirajs0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "97ebda9a6dab457e53a94e7108a6b2f9c374a5c1",
-          "message": "update multi asset bounties pallet account derivation logic  (#11052)\n\n# Description\n\nUpdates bounty and child-bounty account derivation in\n`pallet-multi-asset-bounties` to use the sub-account prefixes `\"mbt\"`\n(multi-asset bounty) and `\"mcb\"` (multi-asset child bounty) instead of\n`\"bt\"` and `\"cb\"`. To avoid having the same bounty account by both the\nnew multi asset bounties pallet and the old bounties pallet.\n\n## Integration\n\nThe pallet is only deployed on Westend (not Kusama or Polkadot), so no\nproduction downstream depends on the old derivation; the change is\nlimited to testnet as the KAH and PAH runtime are configured with the\nnew prefix already.\n\n## Review Notes\n- Doc comments were added at module level (account derivation\nsubsection) and on both structs to document the prefixes.\n- **Version bump:** Major\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T10:16:47Z",
-          "tree_id": "e0cb1bad7b77f16191cd4548b8959e888a414ad6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/97ebda9a6dab457e53a94e7108a6b2f9c374a5c1"
-        },
-        "date": 1775216189947,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.146771587199996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13980980593333336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.39443835253333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "40801b808531a58136a8bf310abd62c47183c342",
+          "message": "pallet-multi-asset-bounties: refund parent bounty net of paid-out child-bounty value on close (#13258)\n\n## Summary\n\n`close_bounty` on a parent bounty refunded the full stored `value` to\nthe funding source, even\nthough part of that value had already been moved to child-bounties and,\nfor paid-out children,\nnever came back. With a paymaster that performs a real transfer\n(`LocalPay` on Polkadot and Kusama\nAsset Hub) the refund over-requested, failed with `RefundError`, and the\nparent bounty could never\nbe closed through the intended path.\n\nThe refund path now applies the same `calculate_payout` adjustment as\nthe payout path, so a parent\nbounty refunds `value - ChildBountiesValuePerParent`, which is exactly\nwhat its account holds.\nChild-bounty refunds are unchanged.\n\n## Root cause\n\nThe pallet tracks the cumulative funded child value in\n`ChildBountiesValuePerParent`. On a child\n*refund* the counter is reverted, because the funds return to the parent\naccount. On a child\n*payout* it is intentionally kept, because the funds leave for good and\nthe parent payout must be\nreduced by that amount. The payout path honours this via\n`calculate_payout`; the refund path did\nnot.\n\nOnce a child has been paid out, every `close_bounty` attempt on the\nparent fails identically. The\nfunds are not lost (they stay in the parent bounty account and can still\nbe awarded), but the\nreclaim-to-treasury path is unavailable for that parent.\n\n## Changes\n\n- `do_process_refund_payment` computes the refund amount through\n`calculate_payout` instead of\nusing the raw `value`. This covers both `close_bounty` and the\n`RefundAttempted` retry in\n  `retry_payment`, and is a no-op for child-bounties.\n- Doc comments on `ChildBountiesValuePerParent` and `calculate_payout`\nupdated to mention the\n  refund.\n- Test paymaster gains an opt-in strict mode (`set_strict_balances`)\nthat debits the source and\nfails when it holds too little, modelling `LocalPay`. Off by default;\nexisting tests unchanged.\n- New regression test\n`close_parent_bounty_after_child_payout_refunds_remaining_value`. It\nfails\n  on `master` with `RefundError` and passes with this change.\n\n## Notes for reviewers\n\n- No storage migration. Bounties already stuck in this state become\nclosable as soon as the runtime\nis upgraded, since the fix only changes the amount requested at close\ntime.",
+          "timestamp": "2026-10-13T10:43:48Z",
+          "tree_id": "d7036073cf05a27550cf631ec288a0ea4ee33751",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/40801b808531a58136a8bf310abd62c47183c342"
+        },
+        "date": 1791896590106,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.631541018899998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14078380593333334,
             "unit": "seconds"
           }
         ]
