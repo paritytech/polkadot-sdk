@@ -351,21 +351,24 @@ pub mod pallet {
 							start_peaks.into_inner(),
 							payloads,
 						)
+						.map(|()| true)
 					},
 				};
 				// The block fails with only the error name, and its events roll back with it:
 				// name the item.
-				if let Err(error) = result {
+				let consumed = result.map_err(|error| {
 					log::warn!(
 						target: LOG_TARGET,
 						"Invalid inherent item from {source:?} on {stream:?}: {error:?}",
 					);
-					return Err(error.into());
+					error
+				})?;
+				if consumed {
+					log::debug!(
+						target: LOG_TARGET,
+						"Consumed {count} payloads from {source:?} on {stream:?}",
+					);
 				}
-				log::debug!(
-					target: LOG_TARGET,
-					"Consumed {count} payloads from {source:?} on {stream:?}",
-				);
 			}
 			Ok(())
 		}
@@ -738,13 +741,13 @@ impl<T: Config> Pallet<T> {
 	/// Append `payloads` onto the stream's stored [`InboundFrontier`], record the [`Interval`], and
 	/// republish the channel's register with the new watermark. Only streams of an accepted, live
 	/// inbound channel are consumed. Order/count need no check — a deviation yields an endpoint no
-	/// lift can bind.
+	/// lift can bind. Returns `false` if the item was dropped.
 	fn consume_channel_item(
 		touched: &mut BTreeSet<(ParaId, StreamId)>,
 		source: ParaId,
 		stream: StreamId,
 		payloads: Vec<Payload>,
-	) -> Result<(), Error<T>> {
+	) -> Result<bool, Error<T>> {
 		let StreamId::Channel { recipient, domain, num } = stream else {
 			return Err(Error::<T>::UnknownStream);
 		};
@@ -761,7 +764,7 @@ impl<T: Config> Pallet<T> {
 			.any(|(s, t, _)| *s == source && *t == stream);
 		if state.suspended || state.published.closed || skipped {
 			Self::deposit_event(Event::ItemDropped { channel });
-			return Ok(());
+			return Ok(false);
 		}
 
 		let mut frontier = InboundFrontier::<T>::get((source, stream));
@@ -793,7 +796,7 @@ impl<T: Config> Pallet<T> {
 		// per block.
 		Self::publish_register(&channel, &mut state)?;
 		InChannels::<T>::insert(channel, state);
-		Ok(())
+		Ok(true)
 	}
 
 	/// Consume a register read: the head `Register` of the peer's `Ack` stream for one of our
