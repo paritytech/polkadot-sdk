@@ -2612,8 +2612,8 @@ impl BlockNumberProvider for () {
 	}
 }
 
-/// `PartialState` instantiation for `Block`.
-/// Resolves circular dependency on `sp-trie`.
+/// The state sync chunk type for `Block`'s hasher. Defined here rather than in `sp-trie`, which
+/// cannot name `Block` without a circular dependency on this crate.
 #[cfg(feature = "std")]
 pub type PartialStateFor<B> = sp_trie::partial_state::PartialState<HashingFor<B>>;
 

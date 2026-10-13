@@ -419,6 +419,8 @@ where
 						.iter()
 						.map(|(peer_id, (_, best_number))| (*peer_id, *best_number));
 					let protocol_name = self.config.state_request_protocol_name.clone();
+					// Resume what an earlier run left behind if its target still fits, else start
+					// a new attempt.
 					let state_sync = match resumable_state_sync(
 						&*self.client,
 						*res.target_header.number(),

@@ -36,31 +36,24 @@ use sp_runtime::{
 };
 use std::{fmt, sync::Arc};
 
-/// Consecutive database write failures tolerated before state sync gives up on the target. Every
-/// failure has the same range asked again from the same peer, and a server answers an identical
-/// request twice within a minute before it refuses the peer and we drop it
-/// (`state_request_handler::MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER`): the limit stays within that.
+/// Database write failures in a row we tolerate before giving up on the target. Each failure asks
+/// the same peer for the same range again, and a server only answers an identical request twice
+/// per minute (`state_request_handler::MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER`), so stay within that.
 const MAX_PARTIAL_STATE_WRITE_FAILURES: u32 = 2;
 
-/// How far behind the finalized head the target of an interrupted state sync may be for the
-/// download to resume after a restart: a quarter of the 256 blocks of state that peers keep by
-/// default (`sc_state_db::DEFAULT_MAX_BLOCK_CONSTRAINT`), so that the rest of the download has
-/// time before they prune the target. An older target is discarded and a new one is chosen.
+/// How far behind the finalized head the target of an interrupted state sync may be to resume it.
+/// Peers keep 256 blocks of state by default (`sc_state_db::DEFAULT_MAX_BLOCK_CONSTRAINT`). A
+/// quarter of that leaves the rest of the download some time before they prune the target.
 pub(crate) const MAX_RESUME_DISTANCE: u32 = 64;
 
-/// Whether the target of an interrupted state sync, at `stored`, is close enough behind the
-/// finalized head `head` to resume the download, see [`MAX_RESUME_DISTANCE`].
+/// Is the stored target close enough behind `head` to resume, and not ahead of it?
 pub(crate) fn is_resumable<B: BlockT>(stored: NumberFor<B>, head: NumberFor<B>) -> bool {
 	stored <= head && head - stored <= MAX_RESUME_DISTANCE.into()
 }
 
-/// The state sync attempt an earlier run of this node recorded, if its download can continue
-/// towards the finalized head at `head`: the target must be at most [`MAX_RESUME_DISTANCE`] blocks
-/// behind `head` and not newer, and no header of a warp proof may sit at or above it
-/// (`highest_proof_header`, warp sync only). Such headers are imported without state and are never
-/// executed: a target below one would stall finality behind it, and a target that is one is already
-/// in the chain, where its state import would be skipped. Otherwise `None`: the attempt is
-/// discarded when the new one begins.
+/// The state sync an earlier run left behind, if it can still be resumed towards `head`. `None`
+/// when there is none or it has to start over. The old attempt is then discarded when the new one
+/// begins.
 pub(crate) fn resumable_state_sync<B: BlockT, Client: PartialStateImport<B>>(
 	client: &Client,
 	head: NumberFor<B>,
@@ -75,6 +68,7 @@ pub(crate) fn resumable_state_sync<B: BlockT, Client: PartialStateImport<B>>(
 	};
 	let stored = *resumable.target.header.number();
 	let hash = resumable.target.header.hash();
+	// Too far behind the head, or ahead of it: start over.
 	if !is_resumable::<B>(stored, head) {
 		info!(
 			target: LOG_TARGET,
@@ -83,6 +77,9 @@ pub(crate) fn resumable_state_sync<B: BlockT, Client: PartialStateImport<B>>(
 		);
 		return None;
 	}
+	// Warp sync only. The headers of the warp proof are imported without state and never
+	// executed. A target below one of them would leave finality stuck behind it, and a target
+	// that is one of them is already in the chain, so its state import would be skipped.
 	if highest_proof_header.is_some_and(|proof_header| proof_header >= stored) {
 		info!(
 			target: LOG_TARGET,
@@ -109,10 +106,9 @@ pub trait StateSyncProvider<B: BlockT>: Send + Sync {
 	fn import(&mut self, response: StateResponse) -> ImportResult<B>;
 	/// Produce next state request.
 	fn next_request(&self) -> StateRequest;
-	/// The import of the target block, yielded once, when every chunk was in the database before
-	/// this provider was created (a download completed by an earlier run, see
-	/// [`StateSync::resume`]). `None` otherwise: a download in progress yields the import through
-	/// [`ImportResult::Import`] with its final chunk.
+	/// The import of the target block, if the download already completed in an earlier run and
+	/// only the import is left. Handed out once. A download in progress returns `None`: its
+	/// import comes with the final chunk, as [`ImportResult::Import`].
 	fn take_target_import(&mut self) -> Option<IncomingBlock<B>>;
 	/// Check if the state is complete.
 	fn is_complete(&self) -> bool;
@@ -129,8 +125,8 @@ pub trait StateSyncProvider<B: BlockT>: Send + Sync {
 pub enum StateSyncPhase {
 	/// Chunks are being downloaded and written to the database.
 	DownloadingState,
-	/// Every chunk is in the database; the target block is being imported, which checks that
-	/// the state is complete.
+	/// Every chunk is in the database. The target block is being imported, which checks that the
+	/// state is complete.
 	ImportingState,
 }
 
@@ -156,13 +152,13 @@ pub struct StateSyncProgress {
 
 /// Import state chunk result.
 pub enum ImportResult<B: BlockT> {
-	/// The whole state is in the database: import the target block, with `ImportedState`.
+	/// The whole state is in the database. Import the target block.
 	Import(IncomingBlock<B>),
 	/// Continue downloading.
 	Continue,
 	/// Bad state chunk.
 	BadResponse,
-	/// The chunk could not be written to the database repeatedly. Give up on this target.
+	/// Chunks keep failing to write to the database. Give up on this target.
 	Abort,
 }
 
@@ -172,11 +168,10 @@ struct StateSyncMetadata<B: BlockT> {
 	target_body: Option<Vec<B::Extrinsic>>,
 	target_justifications: Option<Justifications>,
 	complete: bool,
-	/// The download completed in an earlier run: the target import is yielded once by
-	/// `take_target_import`.
+	/// The download completed in an earlier run and `take_target_import` was not called yet.
 	import_pending: bool,
 	imported_bytes: u64,
-	/// Consecutive failures of `import_partial_state`, reset by the next successful write.
+	/// Database write failures in a row. Reset by the next successful write.
 	write_failures: u32,
 }
 
@@ -198,13 +193,13 @@ impl<B: BlockT> StateSyncMetadata<B> {
 		StateRequest {
 			block: self.target_hash().encode(),
 			start: self.last_key.clone().into_vec(),
-			// Proofs are mandatory. The field stays for peers on older releases.
+			// Proofs are mandatory now. The field only stays for peers on older releases.
 			no_proof: false,
 		}
 	}
 
-	/// The target block as the import queue takes it: with the state the download wrote, nothing
-	/// to execute, and the import allowed even if the block is already known.
+	/// The target block as the import queue takes it: its state comes from the download, nothing
+	/// is executed, and importing it is fine even if the block is already known.
 	fn target_block(&self) -> IncomingBlock<B> {
 		IncomingBlock {
 			hash: self.target_hash(),
@@ -222,7 +217,7 @@ impl<B: BlockT> StateSyncMetadata<B> {
 
 	fn progress(&self) -> StateSyncProgress {
 		let cursor = *self.last_key.get(0).and_then(|last| last.get(0)).unwrap_or(&0u8);
-		// The cursor stays at the start of the final range once the download is complete.
+		// Once complete, the cursor is stuck at the start of the final range: report 100 instead.
 		let percent_done = if self.complete { 100 } else { cursor as u32 * 100 / 256 };
 		StateSyncProgress {
 			percentage: percent_done,
@@ -238,8 +233,8 @@ impl<B: BlockT> StateSyncMetadata<B> {
 
 /// State sync state machine.
 ///
-/// Every verified chunk is written to the database as it arrives, and the cursor moves only once
-/// that write succeeded. Nothing of the state is kept in memory between two responses.
+/// Every verified chunk goes straight to the database, and the cursor only moves once that write
+/// succeeded. Nothing of the state lives in memory between two responses.
 pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
 	client: Arc<Client>,
@@ -250,9 +245,9 @@ where
 	B: BlockT,
 	Client: ProofProvider<B> + PartialStateImport<B> + Send + Sync + 'static,
 {
-	/// Create a new instance. The client records the target, so that a restart can resume the
-	/// download, and discards an earlier attempt that never completed. On `Err` nothing was
-	/// recorded and the state sync must not start.
+	/// Create a new instance. The client records the target so a restart can resume the download,
+	/// and drops any earlier attempt that never completed. On `Err` nothing was recorded and the
+	/// state sync must not start.
 	pub fn new(
 		client: Arc<Client>,
 		target_header: B::Header,
@@ -273,9 +268,9 @@ where
 		))
 	}
 
-	/// Continue the attempt an earlier run recorded: the download goes on from its cursor, or,
-	/// when every chunk is already written, only the target import is left and
-	/// [`StateSyncProvider::take_target_import`] yields it. Nothing is recorded again.
+	/// Continue the attempt an earlier run recorded, from its cursor. If every chunk was already
+	/// written there is nothing to download: [`StateSyncProvider::take_target_import`] hands out
+	/// the target import instead. Nothing is recorded again.
 	pub fn resume(client: Arc<Client>, resumable: ResumablePartialState<B>) -> Self {
 		let ResumablePartialState { target, cursor, complete } = resumable;
 		let mut sync = Self::with_cursor(
@@ -321,8 +316,8 @@ where
 	///  Validate and import a state response.
 	fn import(&mut self, response: StateResponse) -> ImportResult<B> {
 		if self.metadata.complete {
-			// A late answer to the final request, from a peer that answered after another one
-			// did: every chunk is in the database, nothing is left to verify or write.
+			// A late answer to the final request (another peer answered it first). Everything is
+			// in the database already, nothing left to verify or write.
 			debug!(target: LOG_TARGET, "Ignoring a state response after the download completed");
 			return ImportResult::Continue;
 		}
@@ -356,11 +351,11 @@ where
 		};
 		debug!(target: LOG_TARGET, "Verified state response with {} keys", values.len());
 
-		// A response that is not the end of the range must move the cursor: an honest server
-		// includes at least one key after the start of the range, and any key moves it. One that
-		// does not (a range already received, an out-of-order range, a root-only proof) would
-		// otherwise be asked from the same peer again and again. Leaving a child trie with no key
-		// left moves the cursor too, up one level.
+		// A chunk that is not the last one must move the cursor. An honest server always puts at
+		// least one key after the start of the range, and any key moves it. Without this check a
+		// response that makes no progress (a range we already have, one out of order, a root-only
+		// proof) would be asked from the same peer forever. Leaving a child trie that has no key
+		// left moves the cursor up one level, so that counts as progress too.
 		let complete = completed == 0;
 		let mut next_key = self.metadata.last_key.clone();
 		if !complete &&
@@ -371,9 +366,9 @@ where
 			return ImportResult::BadResponse;
 		}
 
-		// Write the chunk before moving the cursor: a chunk that never reached the database
-		// is asked for again, because `last_key` still points at its start. The range the chunk
-		// proves travels with it, and its end is stored as the cursor a restart continues from.
+		// Write the chunk before moving the cursor. If the write fails, `last_key` still points at
+		// the start of this range, so the same range is asked again. The chunk carries the range
+		// it proves, and its end becomes the cursor a restart continues from.
 		let partial_state = PartialStateFor::<B> {
 			block_hash: self.metadata.target_hash(),
 			state_root: self.metadata.target_root(),
@@ -390,6 +385,7 @@ where
 				self.metadata.write_failures,
 				MAX_PARTIAL_STATE_WRITE_FAILURES,
 			);
+			// Ask the same range again, up to the limit.
 			return if self.metadata.write_failures >= MAX_PARTIAL_STATE_WRITE_FAILURES {
 				ImportResult::Abort
 			} else {
@@ -401,7 +397,7 @@ where
 
 		self.metadata.imported_bytes += proof_size;
 		if complete {
-			// Every chunk is already in the database. The block import checks that the state is
+			// Everything is in the database. The block import now checks that the state is
 			// complete and marks it as available.
 			self.metadata.complete = true;
 			ImportResult::Import(self.metadata.target_block())
@@ -416,6 +412,7 @@ where
 	}
 
 	fn take_target_import(&mut self) -> Option<IncomingBlock<B>> {
+		// Only `resume` sets this, for a download that completed before the restart.
 		std::mem::take(&mut self.metadata.import_pending).then(|| self.metadata.target_block())
 	}
 
@@ -454,8 +451,7 @@ mod tests {
 	};
 	use substrate_test_runtime_client::runtime::{Block, Header};
 
-	/// A client whose range-proof verification returns a fixed answer and whose partial-state
-	/// writes fail a configurable number of times before they start succeeding.
+	/// A client with a fixed range-proof answer, whose writes fail a given number of times first.
 	struct StubClient {
 		/// Key-values and the depth the range read stopped at, as `verify_range_proof` reports.
 		verified: Mutex<(Vec<KeyValueStorageLevel>, usize)>,
@@ -619,13 +615,12 @@ mod tests {
 		KeyValueStorageLevel { state_root: vec![], parent_storage_keys: vec![], key_values: vec![] }
 	}
 
-	/// A response whose proof decodes (to an empty compact proof); the stub never reads it.
+	/// A response whose proof decodes (to an empty compact proof). The stub never reads it.
 	fn response() -> StateResponse {
 		StateResponse { entries: vec![], proof: vec![0u8] }
 	}
 
-	/// One key in the top trie, with the range read stopped at depth 1: a chunk in the middle of
-	/// the download.
+	/// One key in the top trie, range read stopped at depth 1: a chunk mid-download.
 	fn one_key_in_the_top_trie() -> Vec<KeyValueStorageLevel> {
 		vec![KeyValueStorageLevel {
 			state_root: vec![],
@@ -728,8 +723,7 @@ mod tests {
 		assert!(StateSync::new(client, header(), None, None).is_err());
 	}
 
-	/// Each chunk reaches the database with the range it covers: from the cursor to the next one,
-	/// and the final chunk with no end, which marks the download complete.
+	/// Each chunk reaches the database with its range, and the final one has no end.
 	#[test]
 	fn chunks_pass_their_range_to_the_database() {
 		let client = StubClient::new(one_key_in_the_top_trie(), 1, 0);
@@ -747,8 +741,7 @@ mod tests {
 		);
 	}
 
-	/// Zero keys while the range is not exhausted: the cursor would stay where it is, and the same
-	/// peer would be asked forever.
+	/// Zero keys while the range is not exhausted: the same peer would be asked forever.
 	#[test]
 	fn response_without_progress_is_bad_and_writes_nothing() {
 		let client = StubClient::new(vec![], 1, 0);
@@ -781,8 +774,7 @@ mod tests {
 		assert_eq!(client.writes(), 0);
 	}
 
-	/// Resumed inside a child trie, the response ends it without a key and stops at the top level:
-	/// the cursor shrinks to the child trie's key, which is progress.
+	/// Resumed inside a child trie that ends without a key: the cursor moves up, which is progress.
 	#[test]
 	fn leaving_a_child_trie_without_keys_is_progress() {
 		let client = StubClient::new(vec![level_without_keys()], 1, 0);
@@ -794,8 +786,7 @@ mod tests {
 		assert_eq!(client.writes(), 1);
 	}
 
-	/// A download that completed in an earlier run has only the target import left: it is yielded
-	/// once, and no range is requested or written.
+	/// A download completed in an earlier run: the import is handed out once, nothing is requested.
 	#[test]
 	fn resumed_complete_attempt_yields_the_target_import_once() {
 		let client = StubClient::new(vec![], 0, 0);
@@ -811,8 +802,7 @@ mod tests {
 		assert_eq!(client.writes(), 0);
 	}
 
-	/// A late answer to the final request changes nothing: it is neither written again nor
-	/// counted as a failure.
+	/// A late answer to the final request is neither written nor counted as a failure.
 	#[test]
 	fn response_after_completion_is_ignored() {
 		let client = StubClient::new(vec![], 0, 0);

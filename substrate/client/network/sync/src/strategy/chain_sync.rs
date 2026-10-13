@@ -298,8 +298,8 @@ struct GapSync<B: BlockT> {
 pub enum ChainSyncMode {
 	/// Full block download and verification.
 	Full,
-	/// Download blocks and the latest state. The state is downloaded with proofs and written to
-	/// the database as it arrives.
+	/// Download blocks and the latest state. The state comes with proofs and is written to the
+	/// database as it arrives.
 	LightState {
 		/// Download indexed transactions for recent blocks.
 		storage_chain_mode: bool,
@@ -2320,8 +2320,8 @@ where
 		}
 	}
 
-	/// Queue the import of the target block of a state sync whose every chunk is written: the
-	/// block import checks that the state is complete and marks it present.
+	/// Queue the import of the state sync target. Its whole state is in the database, and the
+	/// block import checks that it is complete and marks it present.
 	fn queue_target_import(&mut self, block: IncomingBlock<B>) {
 		debug!(target: LOG_TARGET, "State download is complete. Import is queued");
 		self.actions.push(SyncingAction::ImportBlocks {
@@ -2332,8 +2332,8 @@ where
 
 	fn attempt_state_sync(&mut self, finalized_hash: B::Hash, finalized_number: NumberFor<B>) {
 		if self.client.info().finalized_state.is_some() {
-			// The state is there, from a state sync whose completion was not seen here or from
-			// an earlier run: a new download would write next to it. Sync the blocks instead.
+			// There is state already, from a sync that completed without us noticing or from an
+			// earlier run. A new download would write next to it, so sync the blocks instead.
 			warn!(
 				target: LOG_TARGET,
 				"The database already holds a finalized state, switching to full sync.",
@@ -2347,6 +2347,7 @@ where
 		let median = heads[heads.len() / 2];
 		if finalized_number + STATE_SYNC_FINALITY_THRESHOLD.saturated_into() >= median {
 			if let Ok(Some(header)) = self.client.header(finalized_hash) {
+				// Pick up where an earlier run stopped, if its target is still usable.
 				let state_sync = match resumable_state_sync(&*self.client, finalized_number, None) {
 					Some(resumable) => Ok(StateSync::resume(self.client.clone(), resumable)),
 					None => {
@@ -2359,8 +2360,8 @@ where
 				};
 				match state_sync {
 					Ok(mut state_sync) => {
-						// Every chunk was written before the restart: only the import is left,
-						// and the strategy waits for it like for the import of a final chunk.
+						// Every chunk was written before the restart, so only the import is left.
+						// Queue it and wait for it like for the import of a final chunk.
 						if let Some(block) = state_sync.take_target_import() {
 							self.queue_target_import(block);
 						}

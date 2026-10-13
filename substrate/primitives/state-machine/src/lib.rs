@@ -465,14 +465,12 @@ mod execution {
 		/// State root of the level, for
 		/// top trie it is as an empty byte array.
 		pub state_root: Vec<u8>,
-		/// The top trie keys whose value is this level's root, that is the `:child_storage:`
-		/// keys of this child trie. Empty for the top trie, and empty when building a proof.
+		/// The `:child_storage:` keys of the top trie whose value is this level's root. Empty for
+		/// the top trie, and empty when building a proof.
 		///
-		/// The range-proof verifier reads the content of a root once per response, under the
-		/// first key it meets. A later key with the same root is added here without reading the
-		/// content again. So the first key is the one `key_values` was read under, and every
-		/// other key names a child trie that is a copy of it.
-		/// `KeyValueStates::child_trie_copies` lists those pairs.
+		/// The verifier reads a root's content once per response, under the first key it meets.
+		/// Later keys with the same root are only appended here, so the first key is the one
+		/// `key_values` was read under and the others are copies of it.
 		pub parent_storage_keys: Vec<Vec<u8>>,
 		/// Pair of key and values from this state.
 		pub key_values: Vec<(Vec<u8>, Vec<u8>)>,
@@ -501,8 +499,8 @@ mod execution {
 			self.0.iter().fold(0, |nb, state| nb + state.key_values.len())
 		}
 
-		/// The child tries whose content the response carries under another top trie key with
-		/// the same root, as `(key, source key)` pairs, see `parent_storage_keys`.
+		/// Child tries whose content was not read because an earlier key has the same root, as
+		/// `(key, source key)` pairs. See `parent_storage_keys`.
 		pub fn child_trie_copies(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
 			self.0
 				.iter()
@@ -1015,8 +1013,8 @@ mod execution {
 			return Err(Box::new("Invalid start of range."));
 		}
 
-		// The roots entered so far, with the index of their level: the content of a root is read
-		// once, and a later key holding the same root is noted on that level instead.
+		// Roots we already entered, with the index of their level. A root's content is read only
+		// once: a later key holding the same root just gets noted on that level.
 		let mut child_roots: std::collections::HashMap<Vec<u8>, usize> = Default::default();
 		let (mut child_key, mut start_at) = if start_at.len() == 2 {
 			let storage_key = start_at.get(0).expect("Checked length.").clone();
@@ -1078,8 +1076,8 @@ mod execution {
 				if depth < MAX_NESTED_TRIE_DEPTH &&
 					sp_core::storage::well_known_keys::is_child_storage_key(key.as_slice())
 				{
-					// A root already read is not read again: the key is noted on its level, as
-					// a copy of the child trie read under the level's first key.
+					// Seen this root before: don't read the content again, just note the key on
+					// the level it was read under. The client copies the content from there.
 					match child_roots.get(value.as_slice()) {
 						Some(level) => result[*level].parent_storage_keys.push(key),
 						None => {
@@ -1930,9 +1928,9 @@ mod tests {
 		assert_eq!(nb_loop, 10);
 	}
 
-	/// Two child tries with the same content share a root, and a response carries a root's
-	/// content once: the verifier notes the second key on the first one's level, so the client can
-	/// copy the content. A third child trie with its own root is never noted.
+	/// Two child tries with the same content share a root. The response carries that content once,
+	/// and the verifier notes the second key on the first one's level so the client can copy it. A
+	/// third child trie with its own root is never noted.
 	#[test]
 	fn range_proof_reports_the_keys_of_a_repeated_child_root() {
 		let child = |name: &[u8]| ChildInfo::new_default(name);

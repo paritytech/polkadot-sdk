@@ -78,7 +78,7 @@ pub struct StateStrategy<B: BlockT> {
 	actions: Vec<SyncingAction<B>>,
 	protocol_name: ProtocolName,
 	succeeded: bool,
-	/// Set once the state sync gave up on its target; no further requests are scheduled.
+	/// Set once the state sync gave up on its target. No more requests after that.
 	aborted: bool,
 }
 
@@ -86,8 +86,7 @@ impl<B: BlockT> StateStrategy<B> {
 	/// Strategy key used by state sync.
 	pub const STRATEGY_KEY: StrategyKey = StrategyKey::new("State");
 
-	/// Create a new instance. Fails when the client cannot record the target, see
-	/// [`StateSync::new`].
+	/// Create a new instance. Fails if the client cannot record the target, see [`StateSync::new`].
 	pub fn new<Client>(
 		client: Arc<Client>,
 		target_header: B::Header,
@@ -263,8 +262,8 @@ impl<B: BlockT> StateStrategy<B> {
 		}
 	}
 
-	/// Queue the import of the target block: every chunk of its state is in the database, and the
-	/// block import checks that the state is complete and marks it present.
+	/// Queue the import of the target block. Its whole state is in the database, and the block
+	/// import checks that it is complete and marks it present.
 	fn queue_target_import(&mut self, block: IncomingBlock<B>) {
 		debug!(target: LOG_TARGET, "State download is complete. Import is queued");
 		self.actions.push(SyncingAction::ImportBlocks {
@@ -275,9 +274,9 @@ impl<B: BlockT> StateStrategy<B> {
 
 	/// Produce state request.
 	fn state_request(&mut self) -> Option<(PeerId, StateRequest)> {
-		// After an abort `Finished` is already queued. `actions()` would still send this request
-		// before the holder swaps strategies, and its response would reach a strategy that does
-		// not expect it.
+		// After an abort `Finished` is already queued, but `actions()` would still send one more
+		// request before the holder swaps strategies, and its response would land on a strategy
+		// that does not expect it.
 		if self.aborted {
 			return None;
 		}
@@ -353,7 +352,7 @@ impl<B: BlockT> StateStrategy<B> {
 		&mut self,
 		network_service: &NetworkServiceHandle,
 	) -> impl Iterator<Item = SyncingAction<B>> {
-		// A download completed by an earlier run has only the import left.
+		// A download that completed in an earlier run has only the import left.
 		if let Some(block) = self.state_sync.take_target_import() {
 			self.queue_target_import(block);
 		}
@@ -789,8 +788,7 @@ mod test {
 		));
 	}
 
-	/// The record of an earlier run whose download completed: the strategy queues the target
-	/// import at once, sends no request, and finishes when the import succeeds.
+	/// A download completed in an earlier run: one import at once, no request, done when it lands.
 	#[test]
 	fn resumed_complete_attempt_imports_the_target_without_a_request() {
 		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());

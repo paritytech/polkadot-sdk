@@ -86,8 +86,8 @@ pub trait ProofProvider<Block: BlockT> {
 	) -> sp_blockchain::Result<Vec<(KeyValueStorageLevel, bool)>>;
 
 	/// Verify read storage proof for a set of keys.
-	/// Returns collected key-value pairs, the nested state depth of current iteration or 0 if
-	/// completed, and the decoded trie nodes of the proof keyed by hash, for state sync to write.
+	/// Returns the collected key-value pairs, the nested state depth of the current iteration (0
+	/// if completed), and the proof's decoded trie nodes keyed by hash, for state sync to write.
 	fn verify_range_proof(
 		&self,
 		root: Block::Hash,

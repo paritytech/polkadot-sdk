@@ -53,10 +53,9 @@ struct PendingBlock<B: BlockT> {
 	register_as_leaf: bool,
 }
 
-/// A state sync attempt: its record and the nodes its chunks wrote, in a store of their own.
-/// `state_at` cannot reach them until the target block commits with the state complete. Only
-/// tests sync state into this backend, so the chunks are written as they come: the ordering and
-/// ownership checks the database makes have no counterpart here.
+/// A state sync in progress: its record and the nodes its chunks wrote, kept apart from the
+/// block states until the target block commits. Only tests sync state into this backend, so
+/// chunks are written as they come, without the ordering checks the real database makes.
 struct PartialStateAttempt<Block: BlockT> {
 	record: ResumablePartialState<Block>,
 	nodes: PrefixedMemoryDB<HashingFor<Block>>,
@@ -486,9 +485,8 @@ pub struct BlockImportOperation<Block: BlockT> {
 	pending_block: Option<PendingBlock<Block>>,
 	old_state: InMemoryBackend<HashingFor<Block>>,
 	new_state: Option<BackendTransaction<HashingFor<Block>>>,
-	/// The state a completed state sync delivered for the pending block, set by
-	/// `Backend::complete_partial_state`; `commit_operation` installs it as the block's state
-	/// instead of deriving one from `old_state` and `new_state`.
+	/// The state a completed state sync delivered for the pending block. `commit_operation`
+	/// installs it as is instead of deriving one from `old_state` and `new_state`.
 	synced_state: Option<InMemoryBackend<HashingFor<Block>>>,
 	aux: Vec<(Vec<u8>, Option<Vec<u8>>)>,
 	finalized_blocks: Vec<(Block::Hash, Option<Justification>)>,
@@ -631,8 +629,7 @@ pub struct Backend<Block: BlockT> {
 	blockchain: Blockchain<Block>,
 	import_lock: RwLock<()>,
 	pinned_blocks: RwLock<HashMap<Block::Hash, i64>>,
-	/// The state sync attempt begun and not completed: its record and its nodes, kept apart from
-	/// the states of the blocks until `complete_partial_state` hands them to the target block.
+	/// The state sync begun and not completed, if any.
 	partial_state: RwLock<Option<PartialStateAttempt<Block>>>,
 }
 
@@ -725,7 +722,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 			let hash = header.hash();
 
 			let new_state = match (operation.synced_state, operation.new_state) {
-				// A completed state sync: the attempt's nodes are the block's whole state.
+				// A completed state sync: the downloaded nodes are the block's whole state.
 				(Some(state), _) => state,
 				(None, Some(state)) => old_state.update_backend(*header.state_root(), state),
 				(None, None) => old_state.clone(),
@@ -819,7 +816,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 	}
 
 	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()> {
-		// Replacing the attempt drops the nodes of an earlier one: that is its discard.
+		// Replacing an earlier sync drops its nodes. That is all a discard is here.
 		*self.partial_state.write() = Some(PartialStateAttempt {
 			record: ResumablePartialState { target, cursor: Vec::new(), complete: false },
 			nodes: PrefixedMemoryDB::default(),
@@ -839,7 +836,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		let Some(attempt) = guard.as_mut() else {
 			return Err(refused("arrives while no state sync is recorded".into()));
 		};
-		// A copied child trie is read from what the earlier chunks of this attempt wrote.
+		// A copied child trie is read back from what earlier chunks wrote.
 		let nodes = chunk_nodes(&partial_state, |hash, prefix| attempt.nodes.get(hash, prefix))
 			.map_err(|e| refused(format!("does not decode: {e}")))?;
 		for node in nodes {
@@ -863,8 +860,8 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		operation: &mut Self::BlockImportOperation,
 		state_root: Block::Hash,
 	) -> sp_blockchain::Result<()> {
-		// The attempt ends here either way: complete, its nodes become the block's state; with a
-		// node missing, it is dropped.
+		// The sync ends here either way. Complete, its nodes become the block's state. With a node
+		// missing, it is dropped.
 		let attempt = self.partial_state.write().take().ok_or_else(|| {
 			sp_blockchain::Error::Backend(format!(
 				"State root {state_root:?} cannot complete a state sync: none is recorded"

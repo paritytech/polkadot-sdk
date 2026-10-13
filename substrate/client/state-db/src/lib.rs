@@ -378,7 +378,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 		}
 	}
 
-	/// Whether no block state was ever recorded, see [`StateDb::is_empty`].
+	/// True while no block state was recorded, see [`StateDb::is_empty`].
 	fn is_empty(&self) -> bool {
 		self.mode != PruningMode::ArchiveAll && self.non_canonical.is_empty()
 	}
@@ -657,9 +657,9 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 		self.db.read().last_canonicalized()
 	}
 
-	/// Whether no block state is recorded: nothing was canonicalized and no non-canonical block
-	/// exists. State written past state-db, such as the trie nodes of a state sync in progress,
-	/// does not count. Always `false` in `ArchiveAll` mode, which records nothing.
+	/// True while no block state is recorded: nothing canonicalized and no non-canonical block.
+	/// Trie nodes written past state-db, like those of a state sync in progress, do not count.
+	/// Always `false` in `ArchiveAll` mode, which records nothing.
 	pub fn is_empty(&self) -> bool {
 		self.db.read().is_empty()
 	}

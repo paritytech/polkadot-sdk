@@ -1371,7 +1371,7 @@ where
 		&self,
 		target: sc_client_api::partial_state::PartialStateTarget<Block>,
 	) -> sp_blockchain::Result<()> {
-		// Beginning over an earlier attempt empties the state column: no block import runs
+		// Beginning over an earlier sync empties the state column, so no block import may run
 		// meanwhile.
 		let _import_lock = self.backend.get_import_lock().write();
 		self.backend.begin_partial_state(target)

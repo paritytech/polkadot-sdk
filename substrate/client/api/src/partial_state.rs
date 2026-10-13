@@ -16,8 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Partial state: trie nodes of a block's state written to the database before the block itself
-//! is imported.
+//! Partial state: the trie nodes of a block's state, written to the database chunk by chunk
+//! before the block itself is imported.
 
 use codec::{Decode, Encode};
 use sp_core::Hasher;
@@ -28,80 +28,69 @@ use sp_runtime::{
 use sp_state_machine::{Backend, IterArgs};
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 
-/// The block whose state a state sync downloads: what the sync needs to import it once the state
-/// is complete, and what a restart needs to resume the download.
+/// The block a state sync downloads the state of. Enough to import the block once its state is
+/// complete, and to resume the download after a restart.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub struct PartialStateTarget<Block: BlockT> {
-	/// The header; its state root is the root the state is downloaded from.
+	/// The header. Its state root is where the download starts.
 	pub header: Block::Header,
-	/// The body, when the sync has it (warp sync downloads it, fast sync does not).
+	/// The body, if the sync has it. Warp sync downloads it, fast sync does not.
 	pub body: Option<Vec<Block::Extrinsic>>,
-	/// The justifications, when the sync has them.
+	/// The justifications, if the sync has them.
 	pub justifications: Option<Justifications>,
 }
 
-/// A state sync attempt that was begun and not completed, as the database recorded it.
+/// A state sync that was begun and not completed, as the database recorded it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResumablePartialState<Block: BlockT> {
 	/// The block whose state was being downloaded.
 	pub target: PartialStateTarget<Block>,
-	/// Where the download continues: the cursor the last written chunk left, which is the start
-	/// of the next range request. Empty when no chunk was written.
+	/// Where to continue: the start of the next range request. Empty before the first chunk.
 	pub cursor: Vec<Vec<u8>>,
-	/// Every chunk was written: only the import of the target block is left. The cursor is then
-	/// the one the last chunk with a range end left.
+	/// Every chunk is written, only the import of the target block is left.
 	pub complete: bool,
 }
 
-/// Writes verified state trie nodes of a block that is being state-synced.
+/// Writes the verified state of a block that is being state-synced, one chunk at a time.
 ///
-/// An attempt is begun with `begin_partial_state`, advanced with one `import_partial_state` per
-/// state response, and completed by the import of the target block with `ImportedState`, when
-/// `Backend::complete_partial_state` checks that the state is complete and marks it present. The
-/// nodes stay invisible to `state_at` until then. A chunk is the nodes of one verified range
-/// proof with the range it covers, see `sp_trie::partial_state`: the nodes whose subtree starts
-/// inside that range are written, so that the chunks of one download write each position of the
-/// state exactly once. A chunk is written once per successful call; the same chunk may be
-/// submitted again after an `Err`, and one submitted again after an `Ok`, or out of order, is
-/// refused.
+/// `begin_partial_state` records the target, `import_partial_state` writes one chunk per state
+/// response, and importing the target block with `ImportedState` completes the sync: the backend
+/// checks that the state is complete and marks it present. Until then `state_at` cannot see the
+/// nodes. A chunk is the nodes of one verified range proof plus the range it covers, see
+/// `sp_trie::partial_state`.
 ///
-/// The database records the attempt: its target once, and the range end of every chunk, the
-/// cursor the download continues from. After a restart `resumable_partial_state` returns them, so
-/// the download can continue where it stopped.
+/// The database records the target and the cursor every chunk leaves, so after a restart
+/// `resumable_partial_state` says where to continue.
 ///
-/// A state that never completes is never left behind. An attempt only ever runs on a database
-/// that holds no block state, so its nodes are the only content of the state column, and the
-/// database discards them together with the records as soon as anything else needs that column:
-/// a new attempt beginning (after a restart whose target is too old to resume, or a state sync
-/// that gave up), the first block state committed by other means (a restart in another sync
-/// mode), or the target block's import finding a node missing once every chunk was written. A
-/// download that stalls, because every peer pruned its target or the node went offline, keeps its
-/// records until one of those happens; nothing reads the nodes meanwhile.
+/// A state that never completes is not left behind. A sync only runs on a database with no block
+/// state, so its nodes are all the state column holds, and the database drops them, records
+/// included, as soon as anything else needs that column: a new sync beginning (the old target is
+/// too old to resume, or the sync gave up), the first block state committed by other means (a
+/// restart in another sync mode), or the target import finding a node missing after the last
+/// chunk. A download that stalls, because every peer pruned the target or the node went offline,
+/// keeps its records until one of those happens. Nothing reads the nodes meanwhile.
 pub trait PartialStateImport<Block: BlockT> {
-	/// Record the target of a new attempt. A recorded attempt that was not completed is discarded
-	/// first. Fails, recording nothing, when the database holds block state. On `Err` the attempt
-	/// must not start.
+	/// Record the target of a new sync. An earlier sync that never completed is discarded first.
+	/// Fails, and records nothing, if the database already holds block state.
 	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()>;
 
-	/// Write the nodes of `partial_state` that its range covers, and its range end as the cursor
-	/// the download continues from, in one transaction; a chunk without an end marks the download
-	/// complete. On `Err` nothing of this call was persisted. A chunk is refused when its block or
-	/// state root is not the recorded target's, when its `start` is not the recorded cursor, or
-	/// when the final chunk was already written.
+	/// Write the chunk's nodes and its range end as the new cursor, in one transaction. A chunk
+	/// with no end marks the download complete. On `Err` nothing was written and the same chunk
+	/// may be sent again. A chunk for another block or state root, one not starting at the
+	/// cursor, or one after the final chunk is refused.
 	fn import_partial_state(
 		&self,
 		partial_state: PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()>;
 
-	/// The attempt recorded by `begin_partial_state` and not completed, with the cursor its last
-	/// written chunk left. `None` when nothing is recorded, also while the discard of an earlier
-	/// attempt is unfinished.
+	/// The sync recorded by `begin_partial_state` and not completed, with its cursor. `None` if
+	/// nothing is recorded, or while an earlier sync is still being discarded.
 	fn resumable_partial_state(
 		&self,
 	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>>;
 }
 
-/// Walks the whole state trie of `state`, child tries included; errors on the first missing node.
+/// Walks the whole state trie at `state`, child tries included. Errors on the first missing node.
 pub fn check_state_complete<H, B>(state: B) -> sp_blockchain::Result<()>
 where
 	H: Hasher,

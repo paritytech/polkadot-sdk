@@ -1735,8 +1735,8 @@ fn client_knowing_header_only(header: &Header) -> Arc<TestClient> {
 	client
 }
 
-/// Records on `client` a completed download of the state of `header`, which `remote` holds: what
-/// a restart finds once the final chunk is written and before the target block is imported.
+/// Records on `client` a completed download of `header`'s state, taken from `remote`: what a
+/// restart finds after the final chunk and before the target import.
 fn record_complete_state(
 	remote: &TestClient,
 	client: &TestClient,
@@ -1780,8 +1780,8 @@ fn state_sync_is_not_attempted_over_an_existing_state() {
 	assert!(matches!(sync.mode, ChainSyncMode::Full));
 }
 
-/// A recorded download that completed before a restart: fast sync queues the target import at
-/// once, requests nothing, and switches to full sync when the import lands.
+/// A download completed before a restart: fast sync queues the import at once, requests nothing,
+/// and switches to full sync when the import lands.
 #[test]
 fn complete_recorded_state_sync_imports_the_target_and_restarts_in_full_mode() {
 	let remote = TestClientBuilder::new().build();

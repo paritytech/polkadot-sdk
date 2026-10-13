@@ -486,58 +486,54 @@ pub(crate) mod columns {
 	pub const BODY_INDEX: u32 = 12;
 }
 
-/// Keys in [`columns::STATE_META`] that record a state sync in progress, see
-/// [`Backend::begin_partial_state`](sc_client_api::Backend::begin_partial_state).
+/// Keys in `STATE_META` that track a state sync in progress. The partial-state methods of
+/// `Backend` write them.
 pub(crate) mod partial_state_keys {
-	/// The target block of the attempt, a SCALE `PartialStateTarget`.
+	/// The block whose state we are syncing, a SCALE encoded `PartialStateTarget`.
 	pub const TARGET: &[u8] = b"partial_state_target";
-	/// Where the download continues, a SCALE `Vec<Vec<u8>>`, written with every chunk that has a
-	/// range end.
+	/// Where the download continues: the cursor the last written chunk ended at, SCALE encoded.
 	pub const CURSOR: &[u8] = b"partial_state_cursor";
-	/// Every chunk is written, only the block import is left; written with the final chunk, the
-	/// one without a range end, so that a restart does not download that range again.
+	/// Set with the final chunk. Every node is in and only the block import is left, so a restart
+	/// does not download the last range again.
 	pub const DOWNLOADED: &[u8] = b"partial_state_downloaded";
-	/// The state root of an attempt whose nodes are being removed, a SCALE `Block::Hash`; a start
-	/// that finds it finishes the job. Never found next to `TARGET`: the first commit of a discard
-	/// replaces the records with the marker.
+	/// The state root of an attempt we are removing from `STATE`, SCALE encoded. A start that finds
+	/// it finishes the removal. It replaces `TARGET`, the two are never found together.
 	pub const DISCARDING: &[u8] = b"partial_state_discarding";
 }
 
-/// Removals per commit while a discard walks an attempt's nodes: about 4 MiB of keys, well under
-/// parity-db's commit queue.
+/// How many node removals go into one commit while discarding an attempt. About 4 MiB of keys,
+/// well under parity-db's commit queue.
 const DISCARD_BATCH: usize = 100_000;
 
-/// One step of the walk that removes an attempt's nodes, see `Backend::discard_partial_state`.
+/// One step of the walk that removes an attempt's nodes, see `remove_partial_state_nodes`.
 enum DiscardStep<H: hash_db::Hasher> {
-	/// Read the node at this position; present, it is removed after its children.
+	/// Look the node up and, if present, queue its removal after its children.
 	Visit(TrieNodeInfo<H>),
-	/// Remove the node under this database key.
+	/// Remove the node stored under this key.
 	Remove(Vec<u8>),
 }
 
-/// What `STATE_META` records about a state sync, mirrored in memory. One mutex serialises a
-/// chunk's write, the record, the removal of an attempt's nodes and the completion commit; memory
-/// changes only under it, right after the commit that changes the keys, and `from_database` loads
-/// it.
+/// The state sync that `STATE_META` records, mirrored in memory. One mutex guards it, so a chunk
+/// write, a discard and the completing commit never interleave. It changes right after the
+/// commit that changes the keys, and `from_database` loads it at start.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PartialStateRecord<Hash> {
-	/// `TARGET` holds the attempt: chunks of this block are written.
+	/// `TARGET` is set: chunks of this block are accepted.
 	Recorded { hash: Hash, state_root: Hash },
-	/// `DISCARDING` holds the root of an attempt whose nodes are being removed: a discard failed
-	/// after its first commit, and the next one starts from the marker.
+	/// `DISCARDING` is set: a discard failed after its first commit. The next one starts from the
+	/// marker.
 	Discarding { state_root: Hash },
 }
 
-/// How far the recorded attempt got, as `STATE_META` holds it.
+/// How far the recorded attempt got, read from `STATE_META`.
 struct PartialStateProgress {
-	/// The start of the next range request: the end of the last chunk written, empty before the
-	/// first.
+	/// Where the next range starts. Empty before the first chunk.
 	cursor: Vec<Vec<u8>>,
-	/// The final chunk was written: only the import of the target block is left.
+	/// The final chunk is written, only the block import is left.
 	complete: bool,
 }
 
-/// Decodes the record `TARGET` holds.
+/// Decodes the `TARGET` record.
 fn decode_partial_state_target<Block: BlockT>(
 	raw: &[u8],
 ) -> ClientResult<PartialStateTarget<Block>> {
@@ -549,7 +545,7 @@ fn decode_partial_state_target<Block: BlockT>(
 	})
 }
 
-/// Decodes the state root the `DISCARDING` marker holds.
+/// Decodes the `DISCARDING` marker.
 fn decode_partial_state_marker<Block: BlockT>(raw: &[u8]) -> ClientResult<Block::Hash> {
 	Block::Hash::decode(&mut &raw[..]).map_err(|e| {
 		ClientError::Backend(format!(
@@ -559,7 +555,7 @@ fn decode_partial_state_marker<Block: BlockT>(raw: &[u8]) -> ClientResult<Block:
 	})
 }
 
-/// Removes the records of an attempt: the target, the cursor and the completion marker.
+/// Removes the target, the cursor and the downloaded marker of an attempt.
 fn remove_partial_state_records(transaction: &mut Transaction<DbHash>) {
 	transaction.remove(columns::STATE_META, partial_state_keys::TARGET);
 	transaction.remove(columns::STATE_META, partial_state_keys::CURSOR);
@@ -1186,11 +1182,9 @@ struct StorageDb<Block: BlockT> {
 }
 
 impl<Block: BlockT> StorageDb<Block> {
-	/// Key of a state node in the `STATE` column.
-	///
-	/// A database that counts references itself (parity-db) stores a node once, by hash. The
-	/// others get the node's trie position in front of the hash, so that identical nodes at
-	/// different positions stay distinct. Reads and partial-state writes share this rule.
+	/// The key a state node lives under in `STATE`. parity-db counts references itself and stores a
+	/// node once, by hash. The other databases put the trie position in front of the hash, so the
+	/// same node at two positions gets two entries. Reads and state sync writes both use this.
 	fn state_key<'a>(&self, hash: &'a Block::Hash, prefix: Prefix) -> Cow<'a, [u8]> {
 		if self.prefix_keys {
 			Cow::Owned(prefixed_key::<HashingFor<Block>>(hash, prefix))
@@ -1310,7 +1304,7 @@ pub struct Backend<Block: BlockT> {
 	io_stats: FrozenForDuration<(kvdb::IoStats, StateUsageInfo)>,
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
-	/// The state sync recorded in `STATE_META`, mirrored in memory, see [`PartialStateRecord`].
+	/// The state sync in progress, a mirror of what `STATE_META` records.
 	partial_state: Mutex<Option<PartialStateRecord<Block::Hash>>>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
 	pruning_filters: Vec<Arc<dyn PruningFilter>>,
@@ -1553,9 +1547,9 @@ impl<Block: BlockT> Backend<Block> {
 			_ => {},
 		}
 
-		// A state sync records its target; while its nodes are being removed, a marker replaces
-		// the record. Finish an interrupted removal, else remember the target. A record this build
-		// cannot read was written by another one: the database cannot be used as it is.
+		// Pick up a state sync left by the previous run. If a discard was interrupted, the marker
+		// is there instead of the target, and we finish the removal now. A record we cannot decode
+		// was written by another version, and we refuse to run on it.
 		{
 			let mut recorded = backend.partial_state.lock();
 			match (
@@ -1769,14 +1763,13 @@ impl<Block: BlockT> Backend<Block> {
 		Ok(())
 	}
 
-	/// Whether any block state was ever committed: then `STATE` is shared with it, and a state
-	/// sync attempt can neither begin nor be discarded.
+	/// True once any block state was committed. From then on `STATE` is shared with real block
+	/// state, so a state sync can neither start nor be discarded.
 	fn holds_block_state(&self) -> bool {
 		self.blockchain.info().finalized_state.is_some() || !self.storage.state_db.is_empty()
 	}
 
-	/// How far the recorded attempt got, from `STATE_META`: the cursor the last written chunk
-	/// left, empty before the first, and whether the final chunk was written.
+	/// Reads the cursor and the downloaded marker of the recorded attempt.
 	fn partial_state_progress(&self) -> ClientResult<PartialStateProgress> {
 		let cursor = match self.storage.db.get(columns::STATE_META, partial_state_keys::CURSOR) {
 			Some(raw) => Vec::<Vec<u8>>::decode(&mut &raw[..]).map_err(|e| {
@@ -1795,28 +1788,10 @@ impl<Block: BlockT> Backend<Block> {
 		Ok(PartialStateProgress { cursor, complete })
 	}
 
-	/// Remove the recorded state sync attempt together with its nodes, under the caller's guard
-	/// of [`Backend::partial_state`], which the call leaves equal to the database: `None` once the
-	/// removal is complete, `Discarding` when it fails after its first commit. `what` names the
+	/// Removes the recorded attempt and its nodes from `STATE`. The caller holds the mutex and
+	/// passes its guard. On return the memory matches the database again: `None` when everything
+	/// is gone, `Discarding` when a commit failed after the marker was written. `what` names the
 	/// attempt in the logs.
-	///
-	/// The nodes are found by walking the attempt's trie from its state root through what `STATE`
-	/// holds, and removed children first, in commits of [`DISCARD_BATCH`] removals. That empties
-	/// the column: the walk runs only while no block state was ever committed.
-	///
-	/// The removal is not one transaction, so a marker brackets it: the first commit replaces the
-	/// records with the state root under `DISCARDING`, the last batch removes the marker. A crash
-	/// in between leaves the marker, and `from_database` calls this again at the next start; a
-	/// failure in between leaves the memory at `Discarding`, and the next call starts from the
-	/// marker too. Since children go before parents, whatever an interrupted walk removed reads as
-	/// absent and is skipped.
-	///
-	/// On a reference-counting database (parity-db) a node at two trie positions holds two
-	/// references; the walk reaches both positions and dereferences it twice, as the download
-	/// wrote it. parity-db applies a removal in the background and shows a pending one to `get`
-	/// only once it is planned, so the call waits for the root's removal, the last one, to become
-	/// visible: nothing of the old attempt may be readable once the next one starts, which reads
-	/// `STATE` for the child tries it copies.
 	fn discard_partial_state(
 		&self,
 		recorded: &mut Option<PartialStateRecord<Block::Hash>>,
@@ -1827,6 +1802,8 @@ impl<Block: BlockT> Backend<Block> {
 				"Cannot discard {what}: no state sync is recorded"
 			)));
 		};
+		// The walk below removes every node it reaches, so `STATE` must hold nothing but the
+		// attempt. That is always the case here, this is a sanity check.
 		if self.holds_block_state() {
 			return Err(ClientError::Backend(format!(
 				"Cannot discard {what}: the database holds block state next to the record of a \
@@ -1834,7 +1811,9 @@ impl<Block: BlockT> Backend<Block> {
 			)));
 		}
 		let state_root = match record {
-			// The first commit replaces the records with the marker.
+			// The removal takes several commits, so a marker brackets it. The first commit swaps
+			// the records for the state root under `DISCARDING`. If we crash or fail after this
+			// point, the next start or the next discard resumes from the marker.
 			PartialStateRecord::Recorded { state_root, .. } => {
 				let mut transaction = Transaction::new();
 				remove_partial_state_records(&mut transaction);
@@ -1847,7 +1826,7 @@ impl<Block: BlockT> Backend<Block> {
 				*recorded = Some(PartialStateRecord::Discarding { state_root });
 				state_root
 			},
-			// An earlier discard did not finish: the marker holds the root.
+			// An earlier discard failed after writing the marker. We start from there.
 			PartialStateRecord::Discarding { state_root } => state_root,
 		};
 
@@ -1865,9 +1844,9 @@ impl<Block: BlockT> Backend<Block> {
 		Ok(())
 	}
 
-	/// Removes every node reachable from `state_root` that `STATE` holds, children first, in
-	/// commits of [`DISCARD_BATCH`] removals; the last commit also removes the `DISCARDING` marker.
-	/// Returns the number of nodes removed, once the root's removal is visible to reads.
+	/// Walks the trie under `state_root` through what `STATE` holds and removes every node it
+	/// finds, children first, in commits of `DISCARD_BATCH` removals. The last commit also drops
+	/// the `DISCARDING` marker. Returns how many nodes went.
 	fn remove_partial_state_nodes(&self, state_root: Block::Hash, what: &str) -> ClientResult<u64> {
 		let walk_err = |e: sp_trie::partial_state::Error| {
 			ClientError::Backend(format!("Cannot discard {what}: its state does not decode ({e})"))
@@ -1883,15 +1862,18 @@ impl<Block: BlockT> Backend<Block> {
 				DiscardStep::Visit(info) => {
 					let prefix = info.db_prefix().map_err(walk_err)?;
 					let key = self.storage.state_key(&info.hash, prefix.as_prefix()).into_owned();
-					// Absent: never written, or removed by an interrupted walk.
+					// A missing node was never downloaded, or an interrupted walk already removed
+					// it. Children go before parents, so an earlier walk left nothing we need here.
 					if let Some(encoded) = self.storage.db.get(columns::STATE, &key) {
-						// Pushed before its children, so popped after them.
+						// Queue the removal before the children, so it pops after them.
 						stack.push(DiscardStep::Remove(key));
 						let (_, children) = info.expand(&encoded).map_err(walk_err)?;
 						stack.extend(children.into_iter().map(DiscardStep::Visit));
 					}
 				},
 				DiscardStep::Remove(key) => {
+					// On parity-db a node at two trie positions holds two references, one per
+					// write. The walk reaches both positions and so dereferences it twice.
 					transaction.remove(columns::STATE, &key);
 					removed += 1;
 					pending += 1;
@@ -1903,13 +1885,16 @@ impl<Block: BlockT> Backend<Block> {
 				},
 			}
 		}
-		// The marker goes with the last batch: the removal is complete once it is gone.
+		// The marker goes with the last batch. Once it is gone, the removal is complete.
 		transaction.remove(columns::STATE_META, partial_state_keys::DISCARDING);
 		self.storage.db.commit(transaction)?;
 
 		if root_present {
-			// Commits are planned in order: once the root's removal is visible, every one is. The
-			// databases that apply a commit before returning pass at once.
+			// parity-db applies commits in the background, and a removal only shows up to `get`
+			// once it is planned. The next attempt reads `STATE` for the child tries it copies, so
+			// nothing of this one may still be readable when we return. Commits are planned in
+			// order: once the root is gone, everything before it is too. The other databases apply
+			// a commit before returning and pass this at once.
 			let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
 			while self.storage.db.get(columns::STATE, &root_key).is_some() {
 				if std::time::Instant::now() > deadline {
@@ -1926,13 +1911,14 @@ impl<Block: BlockT> Backend<Block> {
 	}
 
 	fn try_commit_operation(&self, mut operation: BlockImportOperation<Block>) -> ClientResult<()> {
-		// Chunk writes and discards hold the record across their commit; this commit holds it to
-		// its end, so that the records it removes and the memory mirroring them change together.
+		// Hold the record for the whole commit, so that removing the records from the database
+		// and clearing the memory mirror happen together. Chunk writes and discards do the same.
 		let mut recorded = self.partial_state.lock();
-		// The first block state lands on a database that still holds the nodes of a state sync
-		// that never completed: they go first, while `STATE` holds nothing else and before this
-		// block enters state-db, which the guard of the discard reads. The completion of a state
-		// sync, `reset_storage`, is the one state commit that keeps them.
+		// The first real block state can land on a database that still holds the nodes of a
+		// state sync that never completed, after a `--sync full` restart for example. Remove them
+		// first, while `STATE` holds nothing else and before this block enters state-db. The one
+		// state commit that must keep them is the completion of the state sync itself, which
+		// comes with `reset_storage` set.
 		if operation.commit_state && !operation.reset_storage && recorded.is_some() {
 			self.discard_partial_state(&mut recorded, "a state sync that never completed")?;
 		}
@@ -2041,7 +2027,7 @@ impl<Block: BlockT> Backend<Block> {
 			}
 
 			if operation.reset_storage {
-				// The state-synced block lands together with the removal of its records: the
+				// This is the block the state sync was for. Its records go in the same commit, the
 				// attempt is complete.
 				match *recorded {
 					Some(PartialStateRecord::Recorded { hash: target, .. }) if target == hash => {
@@ -2059,8 +2045,8 @@ impl<Block: BlockT> Backend<Block> {
 							 sync is being discarded"
 						)))
 					},
-					// Nothing recorded: `BlockImportOperation::reset_storage`, which only tests
-					// call, imports a whole state without a state sync.
+					// Nothing recorded. `BlockImportOperation::reset_storage` can also import a
+					// whole state outside a state sync, which only tests do.
 					None => {},
 				}
 			}
@@ -2366,7 +2352,7 @@ impl<Block: BlockT> Backend<Block> {
 		if let Some((header, hash)) = imported {
 			trace!(target: "db", "DB Commit done {hash:?}");
 			if operation.reset_storage {
-				// The state-synced block is in and so is the recorded attempt.
+				// The block is in, and with it the state the attempt downloaded.
 				if matches!(*recorded, Some(PartialStateRecord::Recorded { hash: target, .. }) if target == hash)
 				{
 					*recorded = None;
@@ -3230,7 +3216,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			)));
 		}
 		if recorded.is_some() {
-			// A new target replaces an attempt that never completed: its nodes go first, while
+			// A new target replaces an attempt that never completed. Its nodes go first, while
 			// `STATE` holds nothing else.
 			self.discard_partial_state(&mut recorded, "the earlier state sync attempt")?;
 		}
@@ -3252,7 +3238,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		let refused = |what: String| {
 			sp_blockchain::Error::Storage(format!("state chunk of {block_hash:?} {what}"))
 		};
-		// Held across the commit: a discard cannot run in between.
+		// Held across the commit, so no discard can run in between.
 		let recorded = self.partial_state.lock();
 		let state_root = match *recorded {
 			Some(PartialStateRecord::Recorded { hash, state_root }) if hash == block_hash => {
@@ -3276,8 +3262,9 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 				partial_state.state_root
 			)));
 		}
-		// Only the next range in order is written: a second write of a position would raise its
-		// reference count for good, and a range written over a hole would never complete.
+		// We only accept the next range in order. Writing a position twice would raise its
+		// reference count on parity-db for good, and a range written over a hole could never
+		// complete.
 		let progress = self.partial_state_progress()?;
 		if progress.complete {
 			return Err(refused("arrives after the final chunk: the download is complete".into()));
@@ -3288,9 +3275,9 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 				partial_state.start, progress.cursor
 			)));
 		}
-		// The nodes of this chunk's range go straight into `STATE`, bypassing state-db: they
-		// belong to no imported block until the target block is imported with the state complete.
-		// Read and written under the key `StorageDb::get` looks nodes up by.
+		// The nodes go straight into `STATE`, bypassing state-db. They belong to no block until
+		// the target block is imported with the state complete. They are keyed exactly as
+		// `StorageDb::get` looks nodes up, so reads find them.
 		let nodes = chunk_nodes(&partial_state, |hash, prefix| {
 			self.storage.db.get(columns::STATE, &self.storage.state_key(hash, prefix))
 		})
@@ -3308,9 +3295,9 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			bytes += (key.len() + node.encoded.len()) as u64;
 			transaction.set_from_vec(columns::STATE, &key, node.encoded);
 		}
-		// The range end travels with the nodes as the cursor: after a restart the download
-		// continues exactly where the last committed chunk left it. The final chunk has no end;
-		// it marks the download complete instead, so that its range is not downloaded again.
+		// The cursor is committed together with the nodes, so after a restart the download
+		// continues exactly where the last committed chunk ended. The final chunk has no end and
+		// sets the downloaded marker instead, so its range is not fetched again.
 		match &partial_state.end {
 			Some(end) => transaction.set_from_vec(
 				columns::STATE_META,
@@ -3327,7 +3314,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 	fn resumable_partial_state(
 		&self,
 	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>> {
-		// Under the record's mutex, the keys are read as one state.
+		// Under the mutex, so the three keys are read as one consistent record.
 		let _recorded = self.partial_state.lock();
 		let Some(raw) = self.storage.db.get(columns::STATE_META, partial_state_keys::TARGET) else {
 			return Ok(None);
@@ -3366,16 +3353,16 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		}
 		let state = DbStateBuilder::new(self.storage.clone(), state_root).build();
 		if let Err(e) = sc_client_api::partial_state::check_state_complete(state) {
-			// Every chunk was written, yet a node is missing: the attempt cannot complete. Its
-			// nodes go now, before anything else writes `STATE`.
+			// Every chunk was written and still a node is missing. The attempt cannot complete,
+			// so its nodes go now, before anything else writes `STATE`.
 			self.discard_partial_state(&mut recorded, "a state sync whose state did not complete")
 				.map_err(|discard| {
 					ClientError::Backend(format!("{e}; discarding its state failed too: {discard}"))
 				})?;
 			return Err(e);
 		}
-		// Committed like a state import with no changes: the block is recorded as having state,
-		// and `reset_storage` has the commit drop the attempt's records.
+		// Commit it like a state import with no changes. The block gets recorded as having
+		// state, and `reset_storage` makes the commit drop the attempt's records.
 		operation.commit_state = true;
 		operation.reset_storage = true;
 		Ok(())
@@ -6740,7 +6727,7 @@ pub(crate) mod tests {
 	}
 
 	/// Databases the partial-state tests run against. The in-memory kvdb and RocksDB store
-	/// state nodes under `prefix ++ hash`; parity-db counts references itself and stores them
+	/// state nodes under `prefix ++ hash`. parity-db counts references itself and stores them
 	/// under the bare hash, see `StorageDb::state_key`.
 	#[derive(Debug, Clone, Copy)]
 	enum PartialStateDb {
@@ -6995,7 +6982,7 @@ pub(crate) mod tests {
 
 	/// A real download, chunk by chunk as the range prover cuts it, for several size limits: the
 	/// chunks write every position of the state exactly once, the twin child trie's positions
-	/// included, which come from the first twin's nodes; the block completes and every key reads
+	/// included, which come from the first twin's nodes. The block completes and every key reads
 	/// back.
 	#[rstest::rstest]
 	#[case::kvdb_memdb(PartialStateDb::KvdbMemdb)]
@@ -7225,7 +7212,7 @@ pub(crate) mod tests {
 		let chunk = chunk(&header, nodes);
 		backend.import_partial_state(chunk).unwrap();
 
-		// Same state root, so the completeness walk passes; a different block, so the commit
+		// Same state root, so the completeness walk passes. A different block, so the commit
 		// refuses.
 		let other = Header { number: 2, ..header.clone() };
 		assert!(import_synced_block(&backend, &other).is_err());
@@ -7279,7 +7266,7 @@ pub(crate) mod tests {
 		backend.begin_partial_state(partial_state_target(&header))?;
 		backend.import_partial_state(with_end(chunk(&header, nodes), &[vec![0x80]]))?;
 		let root_key = root_key(&backend, &header);
-		// The first commit of a discard replaces the records with the marker; the second removes
+		// The first commit of a discard replaces the records with the marker. The second removes
 		// the nodes and the marker.
 		db.fail_commit(2);
 		if backend.begin_partial_state(partial_state_target(&other)).is_ok() {
@@ -7290,7 +7277,7 @@ pub(crate) mod tests {
 		Ok((backend, db, tmp, header, other, root_key))
 	}
 
-	/// A discard that fails after its first commit leaves the marker and the nodes; the memory
+	/// A discard that fails after its first commit leaves the marker and the nodes. The memory
 	/// knows it, so chunks are refused and the next `begin` finishes the removal from the marker.
 	#[rstest::rstest]
 	#[case::kvdb_memdb(PartialStateDb::KvdbMemdb)]
@@ -7564,13 +7551,13 @@ pub(crate) mod tests {
 	/// the key of every write to the `STATE` column.
 	struct ObservingDb {
 		inner: Arc<dyn Database<DbHash>>,
-		/// Commits left before the one that fails; zero means none will.
+		/// Commits left before the one that fails. Zero means none will.
 		commits_until_failure: AtomicUsize,
 		state_writes: Mutex<Vec<Vec<u8>>>,
 	}
 
 	impl ObservingDb {
-		/// Makes the `nth` commit from now fail; the ones before and after it go through.
+		/// Makes the `nth` commit from now fail. The ones before and after it go through.
 		fn fail_commit(&self, nth: usize) {
 			self.commits_until_failure.store(nth, Ordering::SeqCst);
 		}

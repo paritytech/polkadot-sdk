@@ -709,44 +709,38 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// Tells whether the backend requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
 
-	/// Record the target of a new state sync attempt, see
+	/// Record the target of a new state sync. An earlier sync that never completed is discarded
+	/// first, nodes and records, and a discard left unfinished is finished. Fails, and records
+	/// nothing, if the database holds block state. See
 	/// [`PartialStateImport::begin_partial_state`](crate::PartialStateImport::begin_partial_state).
-	/// A recorded attempt that was not completed is discarded first, records and nodes, and a
-	/// discard an earlier call left unfinished is finished first. Fails, recording nothing, when
-	/// the database holds block state: an attempt only ever runs on one that holds none.
 	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()>;
 
-	/// Inject partial state into the database, see
+	/// Write one chunk of a state sync: the nodes its range covers, plus the range end as the
+	/// cursor the download continues from. A chunk for another block or state root, one not
+	/// starting at the cursor, or one after the final chunk is refused with nothing written. Each
+	/// node must be written once per position, or reference counting breaks, and a range written
+	/// over a hole would never complete. Nothing is kept in memory beyond the record, so a restart
+	/// continues from the recorded cursor. See
 	/// [`PartialStateImport::import_partial_state`](crate::PartialStateImport::import_partial_state).
-	/// State sync receives the nodes of one range proof per response and uses
-	/// `import_partial_state` to write those its range covers, together with the range end as the
-	/// cursor the download continues from. Once every chunk is written, the block import calls
-	/// `complete_partial_state`. A chunk is written only when its block hash and state root are
-	/// the recorded target's, its `start` is the recorded cursor and the final chunk was not
-	/// written yet; any other chunk is refused with nothing written: the ranges of a download
-	/// partition its keys, so each node is written once per position (a second write would break
-	/// reference counting, and a range written over a hole would never complete). Nothing about
-	/// the download is kept in memory beyond the record: a restart continues from the recorded
-	/// cursor.
 	fn import_partial_state(
 		&self,
 		partial_state: PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()>;
 
-	/// The recorded state sync attempt that was not completed, see
+	/// The recorded state sync that was not completed. `None` if nothing is recorded, or while an
+	/// earlier sync is still being discarded. See
 	/// [`PartialStateImport::resumable_partial_state`](crate::PartialStateImport::resumable_partial_state).
-	/// `None` when nothing is recorded, also while the discard of an earlier attempt is unfinished.
 	fn resumable_partial_state(
 		&self,
 	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>>;
 
-	/// Finishes a state sync: checks that the database holds every node of the state trie at
-	/// `state_root`, child tries included, then notes on `operation` that the block being imported
-	/// already has that state, so the import executes nothing and writes no storage changes.
+	/// Finish a state sync: check that every node of the state trie at `state_root` is in the
+	/// database, child tries included, then mark on `operation` that the block already has its
+	/// state, so the import executes nothing and writes no storage changes.
 	///
-	/// Fails without touching `operation` when `state_root` is not the recorded target's, and
-	/// nothing is discarded then. Fails on the first missing node otherwise, and the attempt is
-	/// then discarded, since a state that did not complete once every chunk was written never will.
+	/// If `state_root` is not the recorded target's, fails and leaves everything as it was. If a
+	/// node is missing, fails and discards the sync: a state still incomplete after the last chunk
+	/// will never complete.
 	fn complete_partial_state(
 		&self,
 		operation: &mut Self::BlockImportOperation,
