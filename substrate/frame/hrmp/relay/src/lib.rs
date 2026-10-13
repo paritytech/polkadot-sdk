@@ -19,7 +19,7 @@
 //!
 //! Relay half of HRMP channel management. Runs on the relay chain, applying channel operations
 //! received from a parachain (`pallet-hrmp-para`) to the relay's legacy `hrmp` routing table and
-//! reporting back. It will also implement `ChannelDeposits` for that legacy pallet, with the
+//! reporting back. It will also implement `ChannelDepositProvider` for that legacy pallet, with the
 //! deposits held by `pallet-hrmp-para`.
 
 #![cfg_attr(not(feature = "std"), no_std)]

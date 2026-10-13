@@ -1132,7 +1132,7 @@ impl parachains_hrmp::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = EnsureRoot<AccountId>;
 	type Currency = Balances;
-	type DepositProvider = parachains_hrmp::LocalDepositProvider<Runtime>;
+	type DepositProvider = Hrmp;
 	type DefaultChannelSizeAndCapacityWithSystem = ActiveConfigHrmpChannelSizeAndCapacityRatio<
 		Runtime,
 		HrmpChannelSizeAndCapacityWithSystemRatio,
