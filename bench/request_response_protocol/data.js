@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791815899990,
+  "lastUpdate": 1791895627238,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -133379,6 +133379,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2868658984,
             "range": "± 41200354",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "40801b808531a58136a8bf310abd62c47183c342",
+          "message": "pallet-multi-asset-bounties: refund parent bounty net of paid-out child-bounty value on close (#13258)\n\n## Summary\n\n`close_bounty` on a parent bounty refunded the full stored `value` to\nthe funding source, even\nthough part of that value had already been moved to child-bounties and,\nfor paid-out children,\nnever came back. With a paymaster that performs a real transfer\n(`LocalPay` on Polkadot and Kusama\nAsset Hub) the refund over-requested, failed with `RefundError`, and the\nparent bounty could never\nbe closed through the intended path.\n\nThe refund path now applies the same `calculate_payout` adjustment as\nthe payout path, so a parent\nbounty refunds `value - ChildBountiesValuePerParent`, which is exactly\nwhat its account holds.\nChild-bounty refunds are unchanged.\n\n## Root cause\n\nThe pallet tracks the cumulative funded child value in\n`ChildBountiesValuePerParent`. On a child\n*refund* the counter is reverted, because the funds return to the parent\naccount. On a child\n*payout* it is intentionally kept, because the funds leave for good and\nthe parent payout must be\nreduced by that amount. The payout path honours this via\n`calculate_payout`; the refund path did\nnot.\n\nOnce a child has been paid out, every `close_bounty` attempt on the\nparent fails identically. The\nfunds are not lost (they stay in the parent bounty account and can still\nbe awarded), but the\nreclaim-to-treasury path is unavailable for that parent.\n\n## Changes\n\n- `do_process_refund_payment` computes the refund amount through\n`calculate_payout` instead of\nusing the raw `value`. This covers both `close_bounty` and the\n`RefundAttempted` retry in\n  `retry_payment`, and is a no-op for child-bounties.\n- Doc comments on `ChildBountiesValuePerParent` and `calculate_payout`\nupdated to mention the\n  refund.\n- Test paymaster gains an opt-in strict mode (`set_strict_balances`)\nthat debits the source and\nfails when it holds too little, modelling `LocalPay`. Off by default;\nexisting tests unchanged.\n- New regression test\n`close_parent_bounty_after_child_payout_refunds_remaining_value`. It\nfails\n  on `master` with `RefundError` and passes with this change.\n\n## Notes for reviewers\n\n- No storage migration. Bounties already stuck in this state become\nclosable as soon as the runtime\nis upgraded, since the fix only changes the amount requested at close\ntime.",
+          "timestamp": "2026-10-13T10:43:48Z",
+          "tree_id": "d7036073cf05a27550cf631ec288a0ea4ee33751",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/40801b808531a58136a8bf310abd62c47183c342"
+        },
+        "date": 1791895595942,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20102562,
+            "range": "± 216540",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20320667,
+            "range": "± 193671",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21572334,
+            "range": "± 143415",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26657491,
+            "range": "± 226538",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62647982,
+            "range": "± 864561",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 364610942,
+            "range": "± 7359388",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2688093655,
+            "range": "± 145051768",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17198261,
+            "range": "± 199227",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17447441,
+            "range": "± 160070",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17566522,
+            "range": "± 169949",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22335056,
+            "range": "± 150343",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62092286,
+            "range": "± 786165",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 367224708,
+            "range": "± 7583366",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2689124206,
+            "range": "± 19287020",
             "unit": "ns/iter"
           }
         ]
