@@ -117,38 +117,11 @@ impl ReceiveMigratedChannels for () {
 	}
 }
 
-/// The channel call a deposit request is made for.
+/// Which HRMP call asked for a deposit change.
 ///
-/// Sent with the request in [`ChannelDepositProvider::try_set_deposit`] and returned with its
-/// outcome in [`OnDepositSet::on_deposit_set`], so the pallet that owns the channels knows which
-/// call to finish. A provider carries it along without looking at it.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
-)]
-pub enum DepositAction {
-	/// A request to open a channel, recorded once the sender's deposit is taken.
-	InitOpenChannel { max_capacity: u32, max_message_size: u32, max_total_size: u32 },
-	/// The recipient accepting an open channel request.
-	AcceptOpenChannel,
-	/// Bringing the deposits of an open channel in line with the current prices.
-	PokeChannelDeposits,
-	/// Dropping an open channel request.
-	CancelOpenRequest,
-	/// Closing a channel.
-	CloseChannel,
-}
-
-/// The deposit each side of a channel should hold once a request is done.
-///
-/// The relay chain's HRMP pallet does not hold channel deposits itself. It asks its
-/// `DepositProvider`, a [`ChannelDepositProvider`], to set them. The provider may hold the funds
-/// locally or on another chain, where they are settled later. This type carries the request in
-/// [`ChannelDepositProvider::try_set_deposit`] and comes back in
-/// [`OnDepositSet::on_deposit_set`] once the deposits are set.
-///
-/// A side set to `Some(amount)` must end up holding exactly `amount`, so the provider reserves or
-/// releases the difference from what that side holds now. A side set to `None` is not touched,
-/// e.g. only the sender's side is set when a channel is requested.
+/// Passed to [`ChannelDepositProvider::try_set_deposit`] and handed back unchanged in
+/// [`OnDepositSet::on_deposit_set`], so the pallet that owns the channels knows which call to
+/// complete. A provider never inspects it.
 #[derive(
 	Encode,
 	Decode,
@@ -161,52 +134,96 @@ pub enum DepositAction {
 	TypeInfo,
 	MaxEncodedLen,
 )]
-pub struct DepositTargets {
-	/// Target deposit of the channel's sender, or `None` to leave it unchanged.
-	pub sender: Option<Balance>,
-	/// Target deposit of the channel's recipient, or `None` to leave it unchanged.
-	pub recipient: Option<Balance>,
+pub enum DepositAction {
+	/// A new open channel request, carrying the limits it is recorded with.
+	InitOpenChannel { max_capacity: u32, max_message_size: u32, max_total_size: u32 },
+	/// The recipient accepting an open channel request.
+	AcceptOpenChannel,
+	/// Bringing the deposits of an open channel in line with the current prices.
+	PokeChannelDeposits,
+	/// Giving deposits back. Nothing to complete.
+	Release,
+}
+
+/// A change to the deposit one side of a channel holds.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub struct DepositChange {
+	/// What the side holds now, by the records of the pallet that owns the channels.
+	pub held: Balance,
+	/// What the side must hold once the change is done.
+	pub target: Balance,
+}
+
+/// The deposit changes a call asks for, one per side of the channel. `None` leaves that side
+/// untouched, e.g. only the sender's side changes when a channel is requested.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub struct DepositChanges {
+	pub sender: Option<DepositChange>,
+	pub recipient: Option<DepositChange>,
+}
+
+/// Whether a deposit request is done when [`ChannelDepositProvider::try_set_deposit`] returns.
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+pub enum DepositStatus {
+	/// The deposits are set. Nothing will be reported.
+	Set,
+	/// The request is accepted and its outcome is reported through [`OnDepositSet`].
+	Pending,
 }
 
 /// Reserves and releases HRMP channel deposits on behalf of the pallet that owns the channels.
 ///
 /// Implemented by whoever holds the funds: the owning pallet itself when they are on the relay
-/// chain, or a pallet that forwards the request to another chain. Setting a deposit may complete
-/// later, so the outcome is reported back through [`Self::OnDepositSet`] rather than returned
-/// here.
+/// chain, or a pallet that forwards the request to another chain. The latter cannot set the
+/// deposits within the call, so it accepts the request and reports the outcome through
+/// [`Self::OnDepositSet`] later; until then it must refuse another request touching the same
+/// side of the channel.
 pub trait ChannelDepositProvider {
-	/// The callback invoked once the deposits of an accepted request are set.
+	/// Where the provider reports a pending request once its deposits are set.
 	type OnDepositSet: OnDepositSet;
 
-	/// Requests that every side of `channel_id` named in `targets` holds its amount, for `action`.
-	/// Sides left as `None` are not touched.
-	///
-	/// `Ok` only means the request was accepted, not that the deposits are set. The provider
-	/// calls [`OnDepositSet::on_deposit_set`] once they are, and until then another request
-	/// touching the same side of `channel_id` must be refused.
+	/// Requests that every side of `channel_id` named in `changes` ends up holding its target.
+	/// `action` is handed back in [`OnDepositSet::on_deposit_set`] if the request is pending.
 	fn try_set_deposit(
 		channel_id: ChannelId,
-		targets: DepositTargets,
+		changes: DepositChanges,
 		action: DepositAction,
-	) -> sp_runtime::DispatchResult;
+	) -> Result<DepositStatus, sp_runtime::DispatchError>;
 }
 
-/// Callback through which a [`ChannelDepositProvider`] reports the outcome of a deposit request.
+/// Callback through which a [`ChannelDepositProvider`] reports that the deposits of a pending
+/// request are set.
 ///
-/// Implemented by the pallet that issued the request via
-/// [`ChannelDepositProvider::try_set_deposit`]. The provider calls it once the deposits are
-/// actually reserved or released, which may be in a later block or on another chain. The
-/// implementor then resumes the `action` the request was made for, e.g. opening, accepting or
-/// closing the channel.
+/// Implemented by the pallet that owns the channels, which then completes the call that asked
+/// for the change.
 pub trait OnDepositSet {
-	/// Called once every side of `channel_id` named in `targets` holds its amount. Sides left as
-	/// `None` were not touched.
-	///
-	/// `action` is the action passed to [`ChannelDepositProvider::try_set_deposit`] and tells the
-	/// implementor which pending call to finish. Returns the weight spent finishing it.
+	/// Called once every side of `channel_id` named in `changes` holds its target. `action` is
+	/// the one passed to [`ChannelDepositProvider::try_set_deposit`]. Returns the weight spent.
 	fn on_deposit_set(
 		channel_id: ChannelId,
-		targets: DepositTargets,
+		changes: DepositChanges,
 		action: DepositAction,
 	) -> sp_runtime::Weight;
 }

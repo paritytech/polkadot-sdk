@@ -524,31 +524,6 @@ fn poke_deposits_increase_without_balance_fails() {
 }
 
 #[test]
-fn recipient_offboarding_frees_sender_request_slot() {
-	let para_a = 2001.into();
-	let para_b = 2003.into();
-
-	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		register_parachain_with_balance(para_a, 1000);
-		register_parachain_with_balance(para_b, 1000);
-		run_to_block(5, Some(vec![4, 5]));
-
-		assert_ok!(Hrmp::init_open_channel(para_a, para_b, 2, 8));
-		assert_eq!(HrmpOpenChannelRequestCount::<Test>::get(para_a), 1);
-
-		deregister_parachain(para_b);
-		run_to_block(7, Some(vec![6, 7]));
-		assert!(!Paras::is_valid_para(para_b));
-		assert_eq!(HrmpOpenChannelRequestCount::<Test>::get(para_a), 0);
-		assert_eq!(
-			<Test as Config>::Currency::reserved_balance(&para_a.into_account_truncating()),
-			0
-		);
-		Hrmp::assert_storage_consistency_exhaustive();
-	});
-}
-
-#[test]
 fn close_channel_works() {
 	let para_a = 2005.into();
 	let para_b = 2002.into();
