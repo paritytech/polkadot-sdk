@@ -34,7 +34,7 @@ use pallet_balances::Error as BalancesError;
 use sp_io::storage;
 use sp_runtime::{
 	traits::{ConstU32, ConvertInto},
-	TokenError,
+	ArithmeticError, TokenError,
 };
 
 mod sets;
@@ -2713,6 +2713,29 @@ fn fungibles_transfer_should_never_burn_above_unit_min_balance() {
 			to: 2,
 			amount: 100,
 		}));
+	});
+}
+
+/// A credit that fails after the debit must fail the transfer, not strand the debit.
+#[test]
+fn fungibles_transfer_fails_when_the_credit_is_rejected() {
+	use frame_support::{storage::with_storage_layer, traits::tokens::Preservation::Expendable};
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, u64::MAX - 100));
+
+		// `can_deposit` skips the supply check that the credit then fails.
+		assert_noop!(
+			with_storage_layer(|| <Assets as fungibles::Mutate<_>>::transfer(
+				0, &1, &2, 95, Expendable
+			)),
+			ArithmeticError::Overflow
+		);
+		assert_eq!(Assets::balance(0, 1), 100);
 	});
 }
 

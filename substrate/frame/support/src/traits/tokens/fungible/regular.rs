@@ -341,9 +341,7 @@ where
 		}
 
 		let actual = Self::decrease_balance(source, amount, Exact, preservation, Polite)?;
-		// This should never fail as we checked `can_deposit` earlier. But we do a best-effort
-		// anyway.
-		let _ = Self::increase_balance(dest, actual, BestEffort);
+		Self::increase_balance(dest, actual, Exact)?;
 		Self::done_transfer(source, dest, actual);
 		Ok(actual)
 	}

@@ -16,7 +16,8 @@ doc:
     `decrease_balance` returned for the credit, the return value and the `Transferred` event,
     the last of which is what indexers read. Both defaults also debit with `Exact` instead of
     `BestEffort`, so a `decrease_balance` that cannot take the full `amount` fails the transfer
-    rather than moving less.
+    rather than moving less, and the credit's error is propagated where it used to be discarded,
+    so a credit that does not fit fails the transfer instead of stranding the debit.
 
     Porting notes. An `Unbalanced::decrease_balance` implementation must do one of two things with
     a sub-minimum remainder, never both: return exactly `amount` and pass the remainder to
