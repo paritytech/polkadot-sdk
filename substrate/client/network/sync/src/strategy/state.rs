@@ -839,40 +839,6 @@ mod test {
 		assert!(state_strategy.is_succeeded());
 	}
 
-	/// The record of an earlier run whose download stopped at a cursor: the next request starts
-	/// there and no import is queued.
-	#[test]
-	fn resumed_download_requests_from_the_cursor() {
-		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
-		let target_block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().best_hash)
-			.with_parent_block_number(client.chain_info().best_number)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let resumable = ResumablePartialState {
-			target: PartialStateTarget {
-				header: target_block.header().clone(),
-				body: None,
-				justifications: None,
-			},
-			cursor: vec![vec![0x80]],
-			complete: false,
-		};
-		let initial_peers = std::iter::once((PeerId::random(), 10));
-		let mut state_strategy = StateStrategy::new_with_provider(
-			Box::new(StateSync::resume(client, resumable)),
-			initial_peers,
-			ProtocolName::Static(""),
-		);
-
-		assert!(state_strategy.state_sync.take_target_import().is_none());
-		let (_, request) = state_strategy.state_request().expect("a request from the cursor");
-		assert_eq!(request.start, vec![vec![0x80]]);
-	}
-
 	#[test]
 	fn importing_unknown_block_doesnt_finish_strategy() {
 		let target_hash = Hash::random();

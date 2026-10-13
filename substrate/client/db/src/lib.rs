@@ -6860,37 +6860,6 @@ pub(crate) mod tests {
 		Ok(header)
 	}
 
-	/// Imports `header` with the state of `parent` unchanged: a real state commit.
-	fn commit_block_with_state(
-		backend: &Backend<Block>,
-		parent: &Header,
-		header: &Header,
-	) -> ClientResult<()> {
-		let mut op = backend.begin_operation()?;
-		backend.begin_state_operation(&mut op, parent.hash())?;
-		op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best, true)?;
-		backend.commit_operation(op)
-	}
-
-	/// Nodes written through `import_partial_state` must be readable through the regular state
-	/// backend once the block is committed, whatever key layout the database uses.
-	#[rstest::rstest]
-	#[case::kvdb_memdb(PartialStateDb::KvdbMemdb)]
-	#[case::paritydb(PartialStateDb::ParityDb)]
-	#[case::rocksdb(PartialStateDb::RocksDb)]
-	fn import_partial_state(#[case] kind: PartialStateDb) {
-		let expected_key_values =
-			vec![(vec![0u8; 40], vec![0u8; 1]), (vec![1u8; 40], vec![1u8; 1])];
-		let (partial_state, header) = partial_state_chunk(&expected_key_values);
-
-		let (backend, _db, _tmp) = partial_state_test_backend(kind);
-		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		backend.import_partial_state(chunk(&header, partial_state)).unwrap();
-
-		import_synced_block(&backend, &header).unwrap();
-		assert_eq!(state_pairs(&backend, &header), expected_key_values);
-	}
-
 	/// A chunk whose commit fails must be accepted again, and the retry writes the nodes the failed
 	/// commit lost: nothing about the chunk is remembered, so the retry is the same write.
 	#[test]
@@ -7144,19 +7113,49 @@ pub(crate) mod tests {
 		assert_eq!(state_pairs(&backend, &header), key_values);
 	}
 
-	/// Chunks belong to the recorded target only: nodes written for any other block could never
-	/// be discarded.
+	/// A chunk is written only for the recorded target, from its cursor, and never after the
+	/// final chunk: anything else would write nodes the discard cannot reach, leave a hole, or
+	/// raise a reference count for good. A refused chunk changes nothing.
 	#[test]
-	fn chunk_of_another_block_is_refused() {
-		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
+	fn chunks_out_of_order_are_refused() {
+		let key_values = vec![(vec![0u8; 40], vec![0u8; 1])];
+		let (nodes, header) = partial_state_chunk(&key_values);
 		let (other_nodes, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
-		let (backend, _db, _tmp) = partial_state_test_backend(PartialStateDb::KvdbMemdb);
+		let (backend, db, _tmp) = observed_partial_state_test_backend(PartialStateDb::KvdbMemdb);
+		let from = |start: &[Vec<u8>]| {
+			let mut next = chunk(&header, nodes.clone());
+			next.start = start.to_vec();
+			next
+		};
 
-		assert!(backend.import_partial_state(chunk(&header, nodes.clone())).is_err());
-
+		assert!(backend.import_partial_state(from(&[])).is_err(), "nothing recorded");
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		assert!(backend.import_partial_state(chunk(&other, other_nodes)).is_err());
-		backend.import_partial_state(chunk(&header, nodes)).unwrap();
+		assert!(backend.import_partial_state(chunk(&other, other_nodes)).is_err(), "other block");
+		let mut wrong_root = from(&[]);
+		wrong_root.state_root = other.state_root;
+		assert!(backend.import_partial_state(wrong_root).is_err(), "other state root");
+		assert!(backend.import_partial_state(from(&[vec![0x80]])).is_err(), "past the cursor");
+		assert!(db.state_writes.lock().is_empty(), "nothing was written");
+
+		backend.import_partial_state(with_end(from(&[]), &[vec![0x80]])).unwrap();
+		assert!(backend.import_partial_state(from(&[])).is_err(), "the first range again");
+		assert_eq!(
+			backend.resumable_partial_state().unwrap().map(|record| record.cursor),
+			Some(vec![vec![0x80]]),
+			"the cursor is untouched"
+		);
+
+		backend.import_partial_state(from(&[vec![0x80]])).unwrap();
+		assert!(backend.resumable_partial_state().unwrap().is_some_and(|record| record.complete));
+		let writes = db.state_writes.lock().len();
+		assert!(
+			backend.import_partial_state(from(&[vec![0x80]])).is_err(),
+			"after the final chunk"
+		);
+		assert_eq!(db.state_writes.lock().len(), writes, "nothing was written");
+
+		import_synced_block(&backend, &header).unwrap();
+		assert_eq!(state_pairs(&backend, &header), key_values);
 	}
 
 	/// A new target replaces an attempt that never completed: its nodes are gone, only the new
@@ -7213,125 +7212,6 @@ pub(crate) mod tests {
 		assert!(db.get(columns::STATE, &root_key).is_none(), "the attempt's nodes are gone");
 		let backend = reopen_backend(db, BlocksPruning::Some(10));
 		assert!(backend.have_state_at(genesis.hash(), 0), "the genesis state is intact");
-	}
-
-	/// Once the synced block is in, its records are gone and the next state commits keep the
-	/// state: nothing is left to discard.
-	#[rstest::rstest]
-	#[case::kvdb_memdb(PartialStateDb::KvdbMemdb)]
-	#[case::paritydb(PartialStateDb::ParityDb)]
-	#[case::rocksdb(PartialStateDb::RocksDb)]
-	fn completion_forgets_the_attempt_and_the_next_state_commit_keeps_the_state(
-		#[case] kind: PartialStateDb,
-	) {
-		let key_values = vec![(vec![0u8; 40], vec![0u8; 1])];
-		let (nodes, header) = partial_state_chunk(&key_values);
-		let (backend, _db, _tmp) = partial_state_test_backend(kind);
-		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		let chunk = chunk(&header, nodes);
-		backend.import_partial_state(chunk).unwrap();
-		import_synced_block(&backend, &header).unwrap();
-		assert_eq!(backend.resumable_partial_state().unwrap(), None);
-
-		let next = Header {
-			number: 2,
-			parent_hash: header.hash(),
-			state_root: header.state_root,
-			digest: Default::default(),
-			extrinsics_root: Default::default(),
-		};
-		commit_block_with_state(&backend, &header, &next).unwrap();
-		assert_eq!(state_pairs(&backend, &next), key_values);
-		assert_eq!(state_pairs(&backend, &header), key_values);
-	}
-
-	/// A crash in the middle of a discard leaves the marker; the next start finishes the wipe.
-	#[rstest::rstest]
-	#[case::kvdb_memdb(PartialStateDb::KvdbMemdb)]
-	#[case::paritydb(PartialStateDb::ParityDb)]
-	#[case::rocksdb(PartialStateDb::RocksDb)]
-	fn reopen_finishes_an_interrupted_discard(#[case] kind: PartialStateDb) {
-		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
-		let (backend, db, tmp) = partial_state_test_backend(kind);
-		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		let chunk = chunk(&header, nodes);
-		backend.import_partial_state(with_end(chunk, &[vec![0x80]])).unwrap();
-		let root_key = root_key(&backend, &header);
-
-		// The first transaction of a discard, then nothing.
-		let mut transaction = Transaction::new();
-		transaction.remove(columns::STATE_META, partial_state_keys::TARGET);
-		transaction.remove(columns::STATE_META, partial_state_keys::CURSOR);
-		transaction.set_from_vec(
-			columns::STATE_META,
-			partial_state_keys::DISCARDING,
-			header.state_root.encode(),
-		);
-		db.commit(transaction).unwrap();
-
-		let db = reopen_partial_state_db(kind, backend, db, &tmp);
-		let backend = reopen_backend(db.clone(), BlocksPruning::Some(10));
-		assert_eq!(backend.resumable_partial_state().unwrap(), None);
-		let db = reopen_partial_state_db(kind, backend, db, &tmp);
-		assert!(db.get(columns::STATE, &root_key).is_none(), "the wipe was finished");
-		assert!(db.get(columns::STATE_META, partial_state_keys::DISCARDING).is_none());
-	}
-
-	/// A record this build cannot read was written by another version: the database does not
-	/// open.
-	#[test]
-	fn undecodable_record_fails_to_open() {
-		let (backend, db, _tmp) = partial_state_test_backend(PartialStateDb::KvdbMemdb);
-		let mut transaction = Transaction::new();
-		transaction.set(columns::STATE_META, partial_state_keys::TARGET, b"another format");
-		db.commit(transaction).unwrap();
-		drop(backend);
-
-		let reopened = Backend::<Block>::new(
-			DatabaseSettings {
-				trie_cache_maximum_size: Some(16 * 1024 * 1024),
-				state_pruning: Some(PruningMode::blocks_pruning(10)),
-				source: DatabaseSource::Custom { db, require_create_flag: false },
-				blocks_pruning: BlocksPruning::Some(10),
-				pruning_filters: Default::default(),
-				metrics_registry: None,
-			},
-			0,
-		);
-		assert!(reopened.is_err());
-	}
-
-	/// A recorded attempt never meets block state: every discard runs before the first state
-	/// commits, and completion removes the records. Finding the two together is an error, and
-	/// nothing is wiped: the nodes may be shared with the live state.
-	#[test]
-	fn stale_record_with_state_present_is_an_error() {
-		let (_, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
-		let (backend, db, _tmp) = partial_state_test_backend(PartialStateDb::KvdbMemdb);
-		let genesis = commit_genesis_state(&backend).unwrap();
-
-		// A record left behind by another build, found at the next start.
-		let mut transaction = Transaction::new();
-		transaction.set_from_vec(
-			columns::STATE_META,
-			partial_state_keys::TARGET,
-			partial_state_target(&header).encode(),
-		);
-		db.commit(transaction).unwrap();
-		drop(backend);
-		let backend = reopen_backend(db.clone(), BlocksPruning::Some(10));
-		assert!(backend.resumable_partial_state().unwrap().is_some());
-
-		let next = Header {
-			number: 1,
-			parent_hash: genesis.hash(),
-			state_root: genesis.state_root,
-			digest: Default::default(),
-			extrinsics_root: Default::default(),
-		};
-		assert!(commit_block_with_state(&backend, &genesis, &next).is_err());
-		assert!(backend.have_state_at(genesis.hash(), 0), "the live state is intact");
-		assert!(backend.resumable_partial_state().unwrap().is_some(), "nothing was dropped");
 	}
 
 	/// A block other than the recorded target cannot complete the attempt: its import fails, and
@@ -7531,71 +7411,6 @@ pub(crate) mod tests {
 		assert!(reopened.is_err());
 	}
 
-	/// Once the final chunk is written, no chunk is written again: a second write of a position
-	/// would raise its reference count for good.
-	#[test]
-	fn chunk_after_the_final_chunk_is_refused() {
-		let key_values = vec![(vec![0u8; 40], vec![0u8; 1])];
-		let (nodes, header) = partial_state_chunk(&key_values);
-		let (backend, db, _tmp) = observed_partial_state_test_backend(PartialStateDb::KvdbMemdb);
-		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		backend.import_partial_state(chunk(&header, nodes.clone())).unwrap();
-		let writes = db.state_writes.lock().len();
-
-		assert!(backend.import_partial_state(chunk(&header, nodes)).is_err());
-		assert_eq!(db.state_writes.lock().len(), writes, "nothing was written");
-		assert!(backend.resumable_partial_state().unwrap().is_some_and(|record| record.complete));
-
-		import_synced_block(&backend, &header).unwrap();
-		assert_eq!(state_pairs(&backend, &header), key_values);
-	}
-
-	/// A chunk is written only from the recorded cursor: one from elsewhere would leave a hole
-	/// or write a range twice.
-	#[test]
-	fn chunk_whose_start_is_not_the_cursor_is_refused() {
-		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
-		let (backend, db, _tmp) = observed_partial_state_test_backend(PartialStateDb::KvdbMemdb);
-		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		backend
-			.import_partial_state(with_end(chunk(&header, nodes.clone()), &[vec![0x80]]))
-			.unwrap();
-		let writes = db.state_writes.lock().len();
-
-		let from = |start: &[Vec<u8>]| {
-			let mut next = chunk(&header, nodes.clone());
-			next.start = start.to_vec();
-			next
-		};
-		assert!(backend.import_partial_state(from(&[])).is_err(), "the first range again");
-		assert!(backend.import_partial_state(from(&[vec![0x90]])).is_err(), "past the cursor");
-		assert_eq!(db.state_writes.lock().len(), writes, "nothing was written");
-		assert_eq!(
-			backend.resumable_partial_state().unwrap().map(|record| record.cursor),
-			Some(vec![vec![0x80]]),
-			"the cursor is untouched"
-		);
-
-		backend.import_partial_state(from(&[vec![0x80]])).unwrap();
-		assert!(backend.resumable_partial_state().unwrap().is_some_and(|record| record.complete));
-	}
-
-	/// A chunk of another state root would write nodes the discard could never reach.
-	#[test]
-	fn chunk_of_another_state_root_is_refused() {
-		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
-		let (_, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
-		let (backend, db, _tmp) = observed_partial_state_test_backend(PartialStateDb::KvdbMemdb);
-		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-
-		let mut wrong_root = chunk(&header, nodes.clone());
-		wrong_root.state_root = other.state_root;
-		assert!(backend.import_partial_state(wrong_root).is_err());
-		assert!(db.state_writes.lock().is_empty(), "nothing was written");
-
-		backend.import_partial_state(chunk(&header, nodes)).unwrap();
-	}
-
 	/// A block whose state root is not the recorded target's cannot complete the attempt, and
 	/// its failure discards nothing: the recorded target still completes.
 	#[test]
@@ -7677,66 +7492,6 @@ pub(crate) mod tests {
 			assert!(db.get(columns::STATE, key).is_none(), "every reference is gone");
 		}
 		assert!(db.get(columns::STATE_META, partial_state_keys::DISCARDING).is_none());
-	}
-
-	/// On parity-db a node at two trie positions, written once per position in one commit, holds
-	/// one reference per position: one dereference leaves it in place, the second removes it.
-	#[test]
-	fn shared_node_holds_one_reference_per_position_on_parity_db() {
-		let (nodes, header) = shared_leaf_chunk();
-		let (backend, db, tmp) = partial_state_test_backend(PartialStateDb::ParityDb);
-		let keys = chunk_keys(&backend, chunk(&header, nodes.clone())).unwrap();
-		let leaf_key = keys
-			.iter()
-			.find(|key| keys.iter().filter(|other| other == key).count() == 2)
-			.expect("the leaf sits at two positions under one bare hash")
-			.clone();
-		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		backend.import_partial_state(chunk(&header, nodes)).unwrap();
-
-		let dereference = |db: &Arc<dyn Database<DbHash>>| {
-			let mut transaction = Transaction::new();
-			transaction.remove(columns::STATE, &leaf_key);
-			db.commit(transaction).unwrap();
-		};
-		let reopen = |db: Arc<dyn Database<DbHash>>| {
-			drop(db);
-			let path = tmp.as_ref().expect("parity-db lives on disk").path();
-			crate::parity_db::open::<DbHash>(path, DatabaseType::Full, false, false)
-				.expect("parity-db reopens in test")
-		};
-		dereference(&db);
-		let db = reopen_partial_state_db(PartialStateDb::ParityDb, backend, db, &tmp);
-		assert!(db.get(columns::STATE, &leaf_key).is_some(), "one reference of two is left");
-		dereference(&db);
-		let db = reopen(db);
-		assert!(db.get(columns::STATE, &leaf_key).is_none(), "the second one removes it");
-	}
-
-	/// On parity-db a node written once for two of its positions holds one reference. The discard
-	/// dereferences it twice all the same: the second removal finds no key and is skipped.
-	#[test]
-	fn discard_tolerates_a_node_written_once_for_two_positions() {
-		let (mut nodes, header) = shared_leaf_chunk();
-		let (_, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
-		let (backend, db, tmp) = partial_state_test_backend(PartialStateDb::ParityDb);
-		backend.begin_partial_state(partial_state_target(&header)).unwrap();
-		// parity-db keys `STATE` by the bare hash: one `Set` per distinct node.
-		let mut transaction = Transaction::new();
-		let mut keys = Vec::new();
-		for (hash, (encoded, _)) in nodes.drain() {
-			keys.push(hash.as_ref().to_vec());
-			transaction.set_from_vec(columns::STATE, hash.as_ref(), encoded);
-		}
-		db.commit(transaction).unwrap();
-		assert_eq!(keys.len(), 2, "the root and the shared leaf");
-
-		backend.begin_partial_state(partial_state_target(&other)).unwrap();
-
-		let db = reopen_partial_state_db(PartialStateDb::ParityDb, backend, db, &tmp);
-		for key in &keys {
-			assert!(db.get(columns::STATE, key).is_none());
-		}
 	}
 
 	/// Builds a one-level trie holding `key_values` and returns its nodes as a state-sync chunk

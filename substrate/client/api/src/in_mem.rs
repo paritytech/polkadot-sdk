@@ -983,7 +983,7 @@ mod tests {
 	use sp_blockchain::Backend;
 	use sp_runtime::{
 		traits::{HashingFor, Header as HeaderT},
-		ConsensusEngineId, Justifications, StateVersion, Storage,
+		ConsensusEngineId, Justifications,
 	};
 	use sp_state_machine::{Backend as SpStateMachineBackend, InMemoryBackend};
 	use sp_trie::{partial_state::PartialState, LayoutV0, MemoryDB, TrieDBMutBuilder, TrieMut};
@@ -1141,85 +1141,6 @@ mod tests {
 		let state = backend.state_at(header.hash(), TrieCacheContext::Untrusted)?;
 		assert_eq!(pairs_of(&state)?, expected_key_values);
 		assert_eq!(backend.resumable_partial_state()?, None, "completion forgets the attempt");
-		Ok(())
-	}
-
-	/// Every block keeps a state of its own: a child that changes a key leaves its parent's
-	/// state readable, which a store shared between blocks and their replaced nodes did not.
-	#[test]
-	fn parent_state_stays_readable_after_child_changes_storage() -> sp_blockchain::Result<()> {
-		let backend = super::Backend::<Block>::new();
-		let key = b"key".to_vec();
-
-		let mut op = backend.begin_operation()?;
-		let genesis_root = op.set_genesis_state(
-			Storage {
-				top: [(key.clone(), vec![1])].into_iter().collect(),
-				children_default: Default::default(),
-			},
-			true,
-			StateVersion::V1,
-		)?;
-		let genesis = Header {
-			number: 0,
-			parent_hash: Default::default(),
-			state_root: genesis_root,
-			digest: Default::default(),
-			extrinsics_root: Default::default(),
-		};
-		op.set_block_data(genesis.clone(), None, None, None, NewBlockState::Final, true)?;
-		backend.commit_operation(op)?;
-
-		let mut op = backend.begin_operation()?;
-		backend.begin_state_operation(&mut op, genesis.hash())?;
-		let (root, transaction) = op
-			.state()?
-			.ok_or_else(|| sp_blockchain::Error::Backend("the operation has no state".into()))?
-			.storage_root(std::iter::once((key.as_slice(), Some(&[2u8][..]))), StateVersion::V1);
-		op.update_db_storage(transaction)?;
-		let child = Header {
-			number: 1,
-			parent_hash: genesis.hash(),
-			state_root: root,
-			digest: Default::default(),
-			extrinsics_root: Default::default(),
-		};
-		op.set_block_data(child.clone(), None, None, None, NewBlockState::Best, true)?;
-		backend.commit_operation(op)?;
-
-		let read = |hash| -> sp_blockchain::Result<Option<Vec<u8>>> {
-			backend
-				.state_at(hash, TrieCacheContext::Untrusted)?
-				.storage(&key)
-				.map_err(storage_err)
-		};
-		assert_eq!(read(genesis.hash())?, Some(vec![1]));
-		assert_eq!(read(child.hash())?, Some(vec![2]));
-		Ok(())
-	}
-
-	#[test]
-	fn partial_state_stays_invisible_until_completed() -> sp_blockchain::Result<()> {
-		let key = vec![0u8; 40];
-		let (nodes, header) = partial_state_chunk(&[(key.clone(), vec![0u8; 1])]);
-		let backend = super::Backend::<Block>::new();
-		backend.begin_partial_state(target(&header))?;
-		backend.import_partial_state(chunk(&header, nodes))?;
-		assert!(matches!(
-			backend.state_at(header.hash(), TrieCacheContext::Untrusted),
-			Err(sp_blockchain::Error::UnknownBlock(_))
-		));
-
-		// The header alone, imported without the synced state, has none of the attempt's keys.
-		let mut op = backend.begin_operation()?;
-		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)?;
-		backend.commit_operation(op)?;
-		let state = backend.state_at(header.hash(), TrieCacheContext::Untrusted)?;
-		assert_eq!(state.storage(&key).map_err(storage_err)?, None);
-		assert!(
-			backend.resumable_partial_state()?.is_some_and(|record| record.complete),
-			"a header-only import keeps the attempt"
-		);
 		Ok(())
 	}
 

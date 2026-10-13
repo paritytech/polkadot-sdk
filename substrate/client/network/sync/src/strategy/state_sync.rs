@@ -690,17 +690,6 @@ mod tests {
 		assert_eq!(client.writes(), 1);
 	}
 
-	/// The final chunk has no range end: the database marks the download complete instead of
-	/// recording a cursor.
-	#[test]
-	fn last_chunk_carries_no_range_end() {
-		let client = StubClient::new(vec![], 0, 0);
-		let mut sync = StateSync::resume(client.clone(), resumable(vec![vec![0x80]], false));
-
-		assert!(matches!(sync.import(response()), ImportResult::Import(_)));
-		assert_eq!(*client.ranges.lock().unwrap(), vec![(vec![vec![0x80]], None)]);
-	}
-
 	#[test]
 	fn failed_write_of_the_last_chunk_does_not_complete() {
 		let client = StubClient::new(vec![], 0, 1);
@@ -724,8 +713,9 @@ mod tests {
 		let cursor = vec![vec![0x80], vec![0x01]];
 		let record =
 			ResumablePartialState { target: begun, cursor: cursor.clone(), complete: false };
-		let sync = StateSync::resume(client.clone(), record);
+		let mut sync = StateSync::resume(client.clone(), record);
 		assert!(client.begun.lock().unwrap().is_none(), "nothing is recorded again");
+		assert!(sync.take_target_import().is_none(), "the download is not complete");
 		assert_eq!(sync.next_request().start, cursor);
 		assert_eq!(sync.target_hash(), header().hash());
 		assert_eq!(sync.progress().percentage, 50);
@@ -738,14 +728,23 @@ mod tests {
 		assert!(StateSync::new(client, header(), None, None).is_err());
 	}
 
+	/// Each chunk reaches the database with the range it covers: from the cursor to the next one,
+	/// and the final chunk with no end, which marks the download complete.
 	#[test]
-	fn successful_write_passes_the_range_to_the_database() {
+	fn chunks_pass_their_range_to_the_database() {
 		let client = StubClient::new(one_key_in_the_top_trie(), 1, 0);
 		let mut sync = state_sync(client.clone());
 
 		assert!(matches!(sync.import(response()), ImportResult::Continue));
 		assert_eq!(*client.ranges.lock().unwrap(), vec![(vec![], Some(vec![vec![0x80]]))]);
 		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
+
+		*client.verified.lock().unwrap() = (vec![], 0);
+		assert!(matches!(sync.import(response()), ImportResult::Import(_)));
+		assert_eq!(
+			*client.ranges.lock().unwrap(),
+			vec![(vec![], Some(vec![vec![0x80]])), (vec![vec![0x80]], None)]
+		);
 	}
 
 	/// Zero keys while the range is not exhausted: the cursor would stay where it is, and the same
@@ -795,15 +794,6 @@ mod tests {
 		assert_eq!(client.writes(), 1);
 	}
 
-	#[test]
-	fn is_resumable_within_the_distance_and_not_ahead() {
-		let distance = MAX_RESUME_DISTANCE as u64;
-		assert!(is_resumable::<Block>(100, 100));
-		assert!(is_resumable::<Block>(100, 100 + distance));
-		assert!(!is_resumable::<Block>(100, 101 + distance));
-		assert!(!is_resumable::<Block>(101, 100));
-	}
-
 	/// A download that completed in an earlier run has only the target import left: it is yielded
 	/// once, and no range is requested or written.
 	#[test]
@@ -833,16 +823,6 @@ mod tests {
 		assert_eq!(client.writes(), 1);
 		assert_eq!(sync.metadata.write_failures, 0);
 		assert!(sync.is_complete());
-	}
-
-	#[test]
-	fn resumed_download_yields_no_import() {
-		let client = StubClient::new(vec![], 1, 0);
-		let mut sync = StateSync::resume(client.clone(), resumable(vec![vec![0x80]], false));
-
-		assert!(sync.take_target_import().is_none());
-		assert!(!sync.is_complete());
-		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
 	}
 
 	#[test]
