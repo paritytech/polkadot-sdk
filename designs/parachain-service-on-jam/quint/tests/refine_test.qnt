@@ -85,11 +85,15 @@ module refine_test {
   /// refunds, while the same hash at the code's OWN len is validation code and refused.
   run solicitForgetMatchesHashAndLenTest = {
     val para = CoretimeParaId
-    val h = { vchBytes: 1 }.asPreimage()   // coretime's ACTIVE code hash
-    val otherLen = 999                    // != FixedCodeLen
+    val h = { vchBytes: 1 }.asPreimage() // coretime's ACTIVE code hash
+    val otherLen = 999 // != FixedCodeLen
     val baseAcc: AccumulateOutcome = {
-      state: initialState, jamDesignate: List(), preimageOps: List(),
-      jamAssigns: List(), logs: List(), foreign: Map()
+      state: initialState,
+      jamDesignate: List(),
+      preimageOps: List(),
+      jamAssigns: List(),
+      logs: List(),
+      foreign: Map()
     }
     val pi0 = initialState.paraInfo(para)
     // 1. Solicit at the code's OWN len: already the active code, so this
@@ -125,7 +129,8 @@ module refine_test {
       // (4) correct len is refused: nothing changes, and it is logged.
       assert(refused.state == fgt.state),
       assert(refused.logs == List(
-        CanNotRemoveCode({ hash: h, len: FixedCodeLen }))),
+        CanNotRemoveCode({ hash: h, len: FixedCodeLen })
+      )),
       assert(refused.state.preimageRegistry.keys().contains((h, FixedCodeLen))),
       init
     }
@@ -148,7 +153,8 @@ module refine_test {
       wellFormedCalls(headHash(0), 1, List()).append(Panic), 0)[0]
     // Accumulating the panicking result must touch nothing at all.
     val accPanic = accumulateOnePackage(
-      initialState, { result: panicked, authTrace: 7 }, Set(), List(), FixedCodeLen, 5, Map())
+      initialState, { result: panicked, authTrace: 7 }, Set(), List(), FixedCodeLen, 5, Map()
+    )
     all {
       // Reporting is the only way a validation code records a reason.
       assert(reported == refineCallsErr(initialState, para, Opaque(42))),

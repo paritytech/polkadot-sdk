@@ -66,7 +66,8 @@ module support {
     // Run the exact per-block Accumulate pipeline the model step runs.
     val blockOut = accumulateBlock(
       svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages,
-      foreignServices)
+      foreignServices
+    )
     all {
       svc' = blockOut.state,
       now' = blockNow,
@@ -154,8 +155,7 @@ module support {
   /// `incoming_transfers` at capacity, maximally fragmented: one transfer per
   /// bucket in ids `0 .. MaxIncomingTransfers`, which is what one transfer per
   /// accumulate invocation produces.
-  pure val fullIncomingTransfersFixture:
-    BucketId -> List[IncomingTransfer] =
+  pure val fullIncomingTransfersFixture: BucketId -> List[IncomingTransfer] =
     range(0, MaxIncomingTransfers).foldl(Map(), (acc, i) =>
       acc.put(i, List({ source: MkServiceId(0), amount: 1000 + i, toSupervisorBalance: false, memo: 0 })))
 
@@ -163,8 +163,11 @@ module support {
     ...initialState,
     incomingTransfers: fullIncomingTransfersFixture,
     incomingTransferBuckets:
-      Some({ firstBucket: 0, lastBucket: MaxIncomingTransfers - 1,
-             count: MaxIncomingTransfers })
+      Some({
+        firstBucket: 0,
+        lastBucket: MaxIncomingTransfers - 1,
+        count: MaxIncomingTransfers
+      })
   }
 
   /// One bucket short of the reservation: the queue can still hold one more.
@@ -172,8 +175,11 @@ module support {
     ...fullTransferQueue,
     incomingTransfers: fullTransferQueue.incomingTransfers.mapRemove(MaxIncomingTransfers - 1),
     incomingTransferBuckets:
-      Some({ firstBucket: 0, lastBucket: MaxIncomingTransfers - 2,
-             count: MaxIncomingTransfers - 1 })
+      Some({
+        firstBucket: 0,
+        lastBucket: MaxIncomingTransfers - 2,
+        count: MaxIncomingTransfers - 1
+      })
   }
 
   /// Refine a candidate for `paraId` declaring a STALE parent head: the sentinel
@@ -224,8 +230,12 @@ module support {
   pure def accOverWith(
     s: ParachainServiceState, fs: ForeignServices
   ): AccumulateOutcome = {
-    state: s, jamDesignate: List(), preimageOps: List(),
-    jamAssigns: List(), logs: List(), foreign: fs
+    state: s,
+    jamDesignate: List(),
+    preimageOps: List(),
+    jamAssigns: List(),
+    logs: List(),
+    foreign: fs
   }
 
   pure def accOver(s: ParachainServiceState): AccumulateOutcome =
@@ -302,7 +312,8 @@ module support {
     incomingTransfers: Map(
       1 -> oneTransfer,
       2 -> oneTransfer,
-      4 -> oneTransfer),
+      4 -> oneTransfer
+    ),
     incomingTransferBuckets: Some({ firstBucket: 1, lastBucket: 4, count: 3 })
   }
 
@@ -311,7 +322,8 @@ module support {
     incomingTransfers: Map(
       1 -> oneTransfer,
       2 -> oneTransfer,
-      3 -> oneTransfer),
+      3 -> oneTransfer
+    ),
     incomingTransferBuckets: Some({ firstBucket: 1, lastBucket: 3, count: 3 })
   }
 }

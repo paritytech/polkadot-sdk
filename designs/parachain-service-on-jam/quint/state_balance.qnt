@@ -13,11 +13,11 @@ module state_balance {
 
   // --- Per-parachain footprint primitives --------------------------------
 
-   /// Per-para baseline footprint, in BALANCE UNITS: 4 246 (ParaInfo entry)
-   /// + 65 585 (log reserve). Each is one storage item, so each carries
-   /// `C_itemdeposit = 10` on top of its octets (4 236 / 65 575). Derivation in
-   /// §6.1. Balances are `Compact<u64>` sized at their 9 B worst case here.
-   pure val BaselineFootprint: int = 69825
+  /// Per-para baseline footprint, in BALANCE UNITS: 4 246 (ParaInfo entry)
+  /// + 65 585 (log reserve). Each is one storage item, so each carries
+  /// `C_itemdeposit = 10` on top of its octets (4 236 / 65 575). Derivation in
+  /// §6.1. Balances are `Compact<u64>` sized at their 9 B worst case here.
+  pure val BaselineFootprint: int = 69825
 
   /// Octet overhead of one `BoundedVec` general-storage entry: JAM's per-entry
   /// overhead, a 1 B map-tag key, and a 2 B compact length prefix (§6.1).
@@ -44,7 +44,7 @@ module state_balance {
     val fixedItems = 3 + CoreCount
     val fixed =
       stagedKeys + pendingAssigns + pendingAssignCores + transferBuckets +
-      fixedItems * ItemDeposit
+        fixedItems * ItemDeposit
     // Worst case one bucket per transfer, each costing a full bucket.
     fixed + MaxIncomingTransfers * IncomingTransferEntryFootprint
   }
@@ -69,8 +69,8 @@ module state_balance {
   ///     34 + 5 (singleton {ParaId} set) + 37 (key = 1 B map tag + 32 B hash + 4 B len)
   /// Total = 187 + len balance units (octet subtotal 157 + len, items 30).
   pure def preimageFootprint(len: int): int =
-  (2 * ItemDeposit + PreimageRequestOverhead + len) +
-  (ItemDeposit + StorageEntryOverhead + 5 + 37)
+    (2 * ItemDeposit + PreimageRequestOverhead + len) +
+      (ItemDeposit + StorageEntryOverhead + 5 + 37)
 
   /// What Asset Hub is charged for the unreserved part of the transfer queue
   /// (§5.1), priced per worst-case bucket as §6.1 sizes the reservation itself.
@@ -90,27 +90,31 @@ module state_balance {
     if (delta == 0) s
     else {
       val pi = s.paraInfo(AssetHubParaId)
-      { ...s,
+      {
+        ...s,
         parachains: s.parachains.put(AssetHubParaId,
-          { ...pi,
+          {
+            ...pi,
             usedStateBalance: pi.usedStateBalance + delta,
-            totalStateBalance: pi.totalStateBalance + delta }) }
+            totalStateBalance: pi.totalStateBalance + delta
+          })
+      }
     }
   }
 
   // --- Update primitives --------------------------------------------------
 
   pure def setUsed(pi: ParaInfo, newUsed: Balance): ParaInfo =
-  { ...pi, usedStateBalance: newUsed }
+    { ...pi, usedStateBalance: newUsed }
 
   pure def setTotal(pi: ParaInfo, newTotal: Balance): ParaInfo =
-  { ...pi, totalStateBalance: newTotal }
+    { ...pi, totalStateBalance: newTotal }
 
   pure def addUsed(pi: ParaInfo, delta: int): ParaInfo =
-  setUsed(pi, pi.usedStateBalance + delta)
+    setUsed(pi, pi.usedStateBalance + delta)
 
   pure def hasHeadroom(pi: ParaInfo, delta: int): bool =
-  pi.usedStateBalance + delta <= pi.totalStateBalance
+    pi.usedStateBalance + delta <= pi.totalStateBalance
 
   // --- ParaInfo construction at registration -----------------------------
   //
@@ -182,8 +186,13 @@ module state_balance {
       // solicits the preimage again in that window, we must call JAM `solicit`
       // to make the preimage available again.
       if (isRescue)
-        { state: { ...s, preimageStatus: rescuedStatus },
-          jamSolicit: Some(h), jamForget: None, retained: false, log: None }
+        {
+          state: { ...s, preimageStatus: rescuedStatus },
+          jamSolicit: Some(h),
+          jamForget: None,
+          retained: false,
+          log: None
+        }
       else
         { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
     } else if (not(pi.hasHeadroom(delta))) {
@@ -198,7 +207,7 @@ module state_balance {
       }
     } else {
       val wasEmpty = not(s.preimageRegistry.keys().contains((h, len))) or
-      s.preimageRegistry.get((h, len)).referencers == Set()
+        s.preimageRegistry.get((h, len)).referencers == Set()
       // On a rescue, the existing referencers are only the retained ghost(s)
       // from the two-step forget (`Unrequested` has no live referencer). The
       // soliciting para becomes the sole LIVE referencer, so refund and drop
@@ -296,7 +305,10 @@ module state_balance {
               jamForget: Some(h),
               retained: true,
               log: Some(ForgetAgainAt({
-                target: Parachain(para_id), hash: h, len: len, due: now + ExpungePeriod
+                target: Parachain(para_id),
+                hash: h,
+                len: len,
+                due: now + ExpungePeriod
               }))
             }
           | Unrequested(since) =>
@@ -323,7 +335,10 @@ module state_balance {
               jamForget: Some(h),
               retained: true,
               log: Some(ForgetAgainAt({
-                target: Parachain(para_id), hash: h, len: len, due: now + ExpungePeriod
+                target: Parachain(para_id),
+                hash: h,
+                len: len,
+                due: now + ExpungePeriod
               }))
             } else {
               state: s,

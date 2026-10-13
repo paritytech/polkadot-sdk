@@ -17,15 +17,15 @@ module invariants {
   /// `set_service_supervisor` can move the link and the model only ever names
   /// the service itself.
   val foreign_supervisor_is_us_or_self: bool =
-  foreignServices.keys().forall(s =>
-    effectiveSupervisor(foreignServices, s) == ParachainServiceId
-      or effectiveSupervisor(foreignServices, s) == s)
+    foreignServices.keys().forall(s =>
+      effectiveSupervisor(foreignServices, s) == ParachainServiceId
+        or effectiveSupervisor(foreignServices, s) == s)
 
   /// The Parachain Service never appears among the services it supervises.
   /// `eject_service` refuses to name self, and a `desired_id` naming our own
   /// index is refused as `IdTaken` even though it sits in the protected range.
   val foreign_excludes_self: bool =
-  not(foreignServices.keys().contains(ParachainServiceId))
+    not(foreignServices.keys().contains(ParachainServiceId))
 
   /// The hash `accumulate` returned is exactly the commitment over the heads
   /// that changed in the step (§5.5): `None` when none changed, the single
@@ -33,35 +33,34 @@ module invariants {
   /// that return no hash: if one ever started moving a head without
   /// committing to it, this fails.
   val head_commitment_matches_changed_heads: bool =
-  lastHeadRoot == headCommitment(prevSvc, svc)
+    lastHeadRoot == headCommitment(prevSvc, svc)
 
   /// For every live para, `0 ≤ used_state_balance ≤ total_state_balance`.
   val balance_invariant: bool =
-  svc.parachains.keys().forall(para_id => {
+    svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
       0 <= pi.usedStateBalance and pi.usedStateBalance <= pi.totalStateBalance
-  })
+    })
 
   /// A ParaId appears in `preimage_registry[(h, len)].referencers` iff its
   /// referencer set is non-empty. (The "iff" is structural: an empty
   /// referencer set should not be persisted; see `removeReferencer`.)
   val preimage_referencer_consistency: bool =
-  svc.preimageRegistry.keys().forall(key =>
-    svc.preimageRegistry.get(key).referencers != Set()
-  )
+    svc.preimageRegistry.keys().forall(key =>
+      svc.preimageRegistry.get(key).referencers != Set())
 
   /// `designate` is invoked iff Accumulate just processed a
   /// `SetValidatorKeys { isLast: true }` whose assembled length ∈ ValCount.
   /// We over-approximate by checking the stagingset, when non-empty, is in
   /// `ValCount`.
   val designate_only_valid_lengths: bool =
-  jamStagingSet == List() or ValCount.contains(jamStagingSet.length())
+    jamStagingSet == List() or ValCount.contains(jamStagingSet.length())
 
   /// An announced upgrade requires an active validation code to upgrade FROM,
   /// and must differ from it. A para with no validation code has every candidate
   /// rejected (§5.1 step 2), so it never reaches the replay that could announce.
   val announcement_requires_different_active_code: bool =
-  svc.parachains.keys().forall(para_id => {
+    svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
       match pi.announcedUpgrade {
         | None => true
@@ -71,16 +70,14 @@ module invariants {
             | Some(vc) => announced != vc
           }
       }
-  })
+    })
 
   /// Staged validator keys live entirely on Asset Hub's books: if the
   /// buffer is non-empty, Asset Hub must be live and have room for it.
   val staged_keys_owned_by_asset_hub: bool =
-  svc.stagedValidatorKeys == List() or (
-    svc.isLive(AssetHubParaId) and
-    svc.paraInfo(AssetHubParaId).usedStateBalance >=
-    ValidatorKeySize * svc.stagedValidatorKeys.length()
-  )
+    svc.stagedValidatorKeys == List() or (svc.isLive(AssetHubParaId) and
+      svc.paraInfo(AssetHubParaId).usedStateBalance >=
+        ValidatorKeySize * svc.stagedValidatorKeys.length())
 
   /// Every live parachain's active validation code (when set) is a
   /// referencer in `preimage_registry`. `None` is a freshly-registered para
@@ -90,21 +87,21 @@ module invariants {
   /// codes, and a rescue by another para drops it as referencer while its
   /// retained record still names them.
   val validation_code_in_registry: bool =
-  svc.parachains.keys().forall(para_id => {
+    svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
       if (pi.isDeregistering) true
       else match pi.validationCode {
         | None => true
         | Some(vc) => svc.hasReferencer(vc.hash.asPreimage(), vc.len, para_id)
       }
-  })
+    })
 
   /// Every live parachain's announced-upgrade code (when present) is also
   /// a referencer in `preimage_registry`, same lifecycle as any other
   /// solicited preimage (§5.2). Deregistering paras are exempt for the same
   /// reason as in `validation_code_in_registry`.
   val announced_code_in_registry: bool =
-  svc.parachains.keys().forall(para_id => {
+    svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
       if (pi.isDeregistering) true
       else match pi.announcedUpgrade {
@@ -113,9 +110,10 @@ module invariants {
           svc.hasReferencer(
             announced.hash.asPreimage(),
             announced.len,
-            para_id)
+            para_id
+          )
       }
-  })
+    })
 
   /// Every `(para, hash, len)` for which Accumulate has processed a `Solicit`
   /// upward message without a subsequent `Forget` must still be
@@ -124,56 +122,56 @@ module invariants {
   /// entry stale by design; we only care that live paras' solicits are
   /// reflected.
   val solicit_implies_registry: bool =
-  solicitedSet.forall(triple => {
+    solicitedSet.forall(triple => {
       val para_id = triple._1
       val h = triple._2
       val len = triple._3
       not(svc.isLive(para_id)) or svc.hasReferencer(h, len, para_id)
-  })
+    })
 
   /// Every live para's `usedStateBalance` is at least its baseline footprint
   /// After registration the baseline is pre-charged and never released; only
   /// preimage referencer churn moves the figure above baseline.
   val used_above_baseline: bool =
-  svc.parachains.keys().forall(para_id =>
-    svc.paraInfo(para_id).usedStateBalance >= baselineFor(para_id))
+    svc.parachains.keys().forall(para_id =>
+      svc.paraInfo(para_id).usedStateBalance >= baselineFor(para_id))
 
   /// Full footprint accounting (§6.1). For every live para, `usedStateBalance`
   /// equals its baseline footprint plus Σ `preimageFootprint(len)` over
   /// every preimage the para references. Catches off-by-one bugs in
   /// `addReferencer` / `removeReferencer` / `parachainSetValidationCode`'s swap.
   val used_balance_consistency: bool =
-  svc.parachains.keys().forall(para_id => {
+    svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
       val refSum = svc.preimageRegistry.keys().fold(0, (acc, key) => {
-          val e = svc.preimageRegistry.get(key)
-          if (e.referencers.contains(para_id)) acc + preimageFootprint(key._2)
-          else acc
+        val e = svc.preimageRegistry.get(key)
+        if (e.referencers.contains(para_id)) acc + preimageFootprint(key._2)
+        else acc
       })
       val kvSum = svc.keyValueStorage.keys().fold(0, (acc, key) => {
-          if (key._1 == para_id) {
-              val v = svc.keyValueStorage.get(key)
-              acc + kvEntryFootprint(key._2.length(), v.length())
-          } else acc
+        if (key._1 == para_id) {
+          val v = svc.keyValueStorage.get(key)
+          acc + kvEntryFootprint(key._2.length(), v.length())
+        } else acc
       })
       pi.usedStateBalance == baselineFor(para_id) + refSum + kvSum
-  })
+    })
 
   /// Every referencer recorded in `preimage_registry` is a currently-live
   /// `ParaId`. `parachainCleanUp` (§6.4) must remove the cleaning-up para
   /// from every referencer set; this invariant catches any cleanup path
   /// that forgets to.
   val referencers_are_live: bool =
-  svc.preimageRegistry.keys().forall(key =>
-    svc.preimageRegistry.get(key).referencers.forall(para_id =>
-      svc.isLive(para_id)))
+    svc.preimageRegistry.keys().forall(key =>
+      svc.preimageRegistry.get(key).referencers.forall(para_id =>
+        svc.isLive(para_id)))
 
   /// Every `parachain_log` key is a currently-live `ParaId`. Together with
   /// `referencers_are_live` and `staged_keys_owned_by_asset_hub` this
   /// captures the post-cleanup property: no per-parachain state remains
   /// anywhere in service storage for an unregistered para.
   val parachain_log_only_for_live: bool =
-  svc.parachainLog.keys().forall(para_id => svc.isLive(para_id))
+    svc.parachainLog.keys().forall(para_id => svc.isLive(para_id))
 
   /// Every `headData` change between `prevSvc` and `svc` must be backed
   /// by an `Ok` work result that claims that new head, either directly
@@ -203,8 +201,7 @@ module invariants {
               acc or direct or viaMsg
             | Err(_) => acc
           }
-      })
-    )
+      }))
 
   /// Parent-head continuity (§5.1 step 4): replay the block's head-affecting
   /// operations in order and confirm the result matches the stored heads. Start
@@ -260,8 +257,8 @@ module invariants {
       | None => svc.incomingTransfers.keys() == Set()
       | Some(buckets) =>
         buckets.firstBucket <= buckets.lastBucket and
-        svc.incomingTransfers.keys() ==
-          buckets.firstBucket.to(buckets.lastBucket)
+          svc.incomingTransfers.keys() ==
+            buckets.firstBucket.to(buckets.lastBucket)
     }
 
   /// §3.1: every bucket holds at least one transfer and never more than
@@ -273,7 +270,6 @@ module invariants {
       val held = svc.incomingTransfers.get(k).length()
       held > 0 and held <= MaxTransfersPerBucket
     })
-
 
   /// A cached assign holds a non-empty queue within JAM's queue length.
   /// Non-emptiness is what makes `assignQueueFor`'s division well-defined; an
@@ -311,7 +307,7 @@ module invariants {
     svc.jamAccount.supervisorBalance >= 0,
     foreignServices.keys().forall(s =>
       foreignServices.get(s).account.balance >= 0 and
-      foreignServices.get(s).account.supervisorBalance >= 0)
+        foreignServices.get(s).account.supervisorBalance >= 0)
   }
 
   /// `staged_validator_keys` must never exceed the worst-case staging

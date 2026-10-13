@@ -18,19 +18,25 @@ module authorizer_queue_test {
   run tilingQueueForwardsImmediatelyTest = {
     val core = 5
     val baseAcc: AccumulateOutcome = {
-      state: initialState, jamDesignate: List(), preimageOps: List(),
-      jamAssigns: List(), logs: List(), foreign: Map()
+      state: initialState,
+      jamDesignate: List(),
+      preimageOps: List(),
+      jamAssigns: List(),
+      logs: List(),
+      foreign: Map()
     }
     // X = 10 tiles exactly: 8 copies fill 80.
     val ten = range(0, 10).foldl(List(), (acc, i) => acc.append({ authBytes: i }))
     val tiled = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
-      AssignCore({ core: core, queue: ten, newAssigner: None, jamSlot: 0 }))
+      AssignCore({ core: core, queue: ten, newAssigner: None, jamSlot: 0 })
+    )
     // A full 80-hash queue is installed as-is.
     val h80: AuthorizerHash = { authBytes: 1 }
     val eighty = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
-      AssignCore({ core: core, queue: fullQ(h80), newAssigner: None, jamSlot: 0 }))
+      AssignCore({ core: core, queue: fullQ(h80), newAssigner: None, jamSlot: 0 })
+    )
     all {
       assert(tiled.jamAssigns ==
         List({ core: core, assigner: ParachainServiceId, queue: repeatList(ten, 8) })),
@@ -50,12 +56,17 @@ module authorizer_queue_test {
     val core = 4
     val ten = range(0, 10).foldl(List(), (acc, i) => acc.append({ authBytes: i }))
     val baseAcc: AccumulateOutcome = {
-      state: initialState, jamDesignate: List(), preimageOps: List(),
-      jamAssigns: List(), logs: List(), foreign: Map()
+      state: initialState,
+      jamDesignate: List(),
+      preimageOps: List(),
+      jamAssigns: List(),
+      logs: List(),
+      foreign: Map()
     }
     val cached = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
-      AssignCore({ core: core, queue: ten, newAssigner: None, jamSlot: 50 })).state
+      AssignCore({ core: core, queue: ten, newAssigner: None, jamSlot: 50 })
+    ).state
     val beforeDue = applyAlwaysAccumulate(cached, 49)
     val atDue = applyAlwaysAccumulate(cached, 50)
     all {
@@ -77,29 +88,47 @@ module authorizer_queue_test {
   run malformedAssignCoreIsNoOpTest = {
     val core = 5
     val storedHash: AuthorizerHash = { authBytes: 5 }
-    val seeded = { ...initialState,
+    val seeded = {
+      ...initialState,
       pendingAssigns: Map(core -> { queue: List(storedHash), assigner: None }),
-      pendingAssignCores: Map(core -> 100) }
+      pendingAssignCores: Map(core -> 100)
+    }
     val baseAcc: AccumulateOutcome = {
-      state: seeded, jamDesignate: List(), preimageOps: List(),
-      jamAssigns: List(), logs: List(), foreign: Map()
+      state: seeded,
+      jamDesignate: List(),
+      preimageOps: List(),
+      jamAssigns: List(),
+      logs: List(),
+      foreign: Map()
     }
     val empty = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
-      AssignCore({ core: core, queue: List(), newAssigner: None, jamSlot: 0 }))
+      AssignCore({ core: core, queue: List(), newAssigner: None, jamSlot: 0 })
+    )
     val tooLong = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
-      AssignCore({ core: core, queue: fullQ({ authBytes: 1 }).append({ authBytes: 2 }),
-                  newAssigner: None, jamSlot: 0 }))
+      AssignCore({
+        core: core,
+        queue: fullQ({ authBytes: 1 }).append({ authBytes: 2 }),
+        newAssigner: None,
+        jamSlot: 0
+      })
+    )
     // A handoff must carry exactly 80 hashes, so a short one is malformed.
     val shortHandoff = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
-      AssignCore({ core: core, queue: List(storedHash),
-                  newAssigner: Some(MkServiceId(7)), jamSlot: 0 }))
+      AssignCore({
+        core: core,
+        queue: List(storedHash),
+        newAssigner: Some(MkServiceId(7)),
+        jamSlot: 0
+      })
+    )
     // Due later, so nothing would call `assign` yet: only caching it is at stake.
     val unknownCore = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
-      AssignCore({ core: CoreCount, queue: List(storedHash), newAssigner: None, jamSlot: 100 }))
+      AssignCore({ core: CoreCount, queue: List(storedHash), newAssigner: None, jamSlot: 100 })
+    )
     all {
       Set(empty, tooLong, shortHandoff, unknownCore).forall(out => and {
         out.jamAssigns == List(),
@@ -117,13 +146,18 @@ module authorizer_queue_test {
     val core = 5
     val q = List({ authBytes: 0 }, { authBytes: 1 }, { authBytes: 2 })
     val baseAcc: AccumulateOutcome = {
-      state: initialState, jamDesignate: List(), preimageOps: List(),
-      jamAssigns: List(), logs: List(), foreign: Map()
+      state: initialState,
+      jamDesignate: List(),
+      preimageOps: List(),
+      jamAssigns: List(),
+      logs: List(),
+      foreign: Map()
     }
     // Cached at now = 0 for a future jam_slot of 100.
     val stored = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
-      AssignCore({ core: core, queue: q, newAssigner: None, jamSlot: 100 }))
+      AssignCore({ core: core, queue: q, newAssigner: None, jamSlot: 100 })
+    )
     // 80 slots from the top of a 3-set: 26 full passes (78) then the first 2.
     val expected = assignQueueFor(q)
     val beforeDue = applyAlwaysAccumulate(stored.state, 99)
@@ -146,8 +180,11 @@ module authorizer_queue_test {
       assert(notDueYet.state.pendingAssigns.get(core).queue == advanceAssignQueue(q)),
       // The next cycle resumes from the rotated queue.
       assert(second.assigns ==
-        List({ core: core, assigner: ParachainServiceId,
-               queue: assignQueueFor(advanceAssignQueue(q)) })),
+        List({
+          core: core,
+          assigner: ParachainServiceId,
+          queue: assignQueueFor(advanceAssignQueue(q))
+        })),
       assert(second.state.pendingAssigns.get(core).queue ==
         advanceAssignQueue(advanceAssignQueue(q))),
       assert(second.state.pendingAssignCores.get(core) == 260),
@@ -191,15 +228,21 @@ module authorizer_queue_test {
     val q1 = List({ authBytes: 0 }, { authBytes: 1 }, { authBytes: 2 })
     val q2 = range(0, 11).foldl(List(), (acc, i) => acc.append({ authBytes: 10 + i }))
     val baseAcc: AccumulateOutcome = {
-      state: initialState, jamDesignate: List(), preimageOps: List(),
-      jamAssigns: List(), logs: List(), foreign: Map()
+      state: initialState,
+      jamDesignate: List(),
+      preimageOps: List(),
+      jamAssigns: List(),
+      logs: List(),
+      foreign: Map()
     }
     val after1 = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
-      AssignCore({ core: core, queue: q1, newAssigner: None, jamSlot: 100 }))
+      AssignCore({ core: core, queue: q1, newAssigner: None, jamSlot: 100 })
+    )
     val after2 = applyUpwardMessage(
       after1, CoretimeParaId, FixedCodeLen, 5, 5,
-      AssignCore({ core: core, queue: q2, newAssigner: None, jamSlot: 150 }))
+      AssignCore({ core: core, queue: q2, newAssigner: None, jamSlot: 150 })
+    )
     all {
       assert(after1.state.pendingAssigns.get(core).queue == q1),
       assert(after1.state.pendingAssignCores.get(core) == 100),
@@ -220,23 +263,30 @@ module authorizer_queue_test {
       acc.append({ authBytes: i }))
     val three = List({ authBytes: 1 }, { authBytes: 2 }, { authBytes: 3 })
     val baseAcc: AccumulateOutcome = {
-      state: initialState, jamDesignate: List(), preimageOps: List(),
-      jamAssigns: List(), logs: List(), foreign: Map()
+      state: initialState,
+      jamDesignate: List(),
+      preimageOps: List(),
+      jamAssigns: List(),
+      logs: List(),
+      foreign: Map()
     }
     // Handoff with the required full queue, due inline.
     val out = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
-      AssignCore({ core: core, queue: h80, newAssigner: Some(assigner), jamSlot: 0 }))
+      AssignCore({ core: core, queue: h80, newAssigner: Some(assigner), jamSlot: 0 })
+    )
     // A later assign for the SAME core, which `assigner` now controls. JAM
     // rejects it: nothing takes effect or is scheduled, and it is logged.
     val after = applyUpwardMessage(
       { ...out, jamAssigns: List(), logs: List() }, CoretimeParaId, FixedCodeLen, 0, 0,
-      AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 0 }))
+      AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 0 })
+    )
     // Keep-assigner short queue is stored and rotated as usual, from a state
     // where the core was never handed away.
     val stored = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
-      AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 0 }))
+      AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 0 })
+    )
     all {
       assert(out.jamAssigns ==
         List({ core: core, assigner: assigner, queue: h80 })),
@@ -301,15 +351,22 @@ module authorizer_queue_test {
     val core = 4
     val other = MkServiceId(7)
     val three = List({ authBytes: 1 }, { authBytes: 2 }, { authBytes: 3 })
-    val handedAway = { ...initialState,
-      jamCoreAssigners: initialState.jamCoreAssigners.put(core, other) }
+    val handedAway = {
+      ...initialState,
+      jamCoreAssigners: initialState.jamCoreAssigners.put(core, other)
+    }
     val baseAcc: AccumulateOutcome = {
-      state: handedAway, jamDesignate: List(), preimageOps: List(),
-      jamAssigns: List(), logs: List(), foreign: Map()
+      state: handedAway,
+      jamDesignate: List(),
+      preimageOps: List(),
+      jamAssigns: List(),
+      logs: List(),
+      foreign: Map()
     }
     val scheduled = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
-      AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 10 }))
+      AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 10 })
+    )
     val flushed = applyAlwaysAccumulate(scheduled.state, 10)
     all {
       // Replay: cached, nothing logged, no `assign` yet.
@@ -336,7 +393,8 @@ module authorizer_queue_test {
     val armed = {
       ...initialState,
       pendingAssigns: initialState.pendingAssigns.put(
-        core, { queue: three, assigner: None }),
+        core, { queue: three, assigner: None }
+      ),
       pendingAssignCores: initialState.pendingAssignCores.put(core, 5),
       jamCoreAssigners: initialState.jamCoreAssigners.put(core, other)
     }
@@ -370,17 +428,21 @@ module authorizer_queue_test {
         3 -> { queue: one, assigner: None },
         4 -> { queue: one, assigner: None },
         5 -> { queue: one, assigner: None },
-        6 -> { queue: one, assigner: None }),
+        6 -> { queue: one, assigner: None }
+      ),
       pendingAssignCores: Map(3 -> 5, 4 -> 2, 5 -> 8, 6 -> 5)
     }
     pure def call(c: CoreIndex): AssignCall =
       { core: c, assigner: ParachainServiceId, queue: assignQueueFor(one) }
     val first = accumulateBlockBudgeted(
-      armed, 10, List(), Set(), FixedCodeLen, List(), Map(), { flush: 1, end: 2 })
+      armed, 10, List(), Set(), FixedCodeLen, List(), Map(), { flush: 1, end: 2 }
+    )
     val second = accumulateBlockBudgeted(
-      first.state, 11, List(), Set(), FixedCodeLen, List(), Map(), { flush: 1, end: 0 })
+      first.state, 11, List(), Set(), FixedCodeLen, List(), Map(), { flush: 1, end: 0 }
+    )
     val everything = accumulateBlockBudgeted(
-      armed, 10, List(), Set(), FixedCodeLen, List(), Map(), FullAssignBudget)
+      armed, 10, List(), Set(), FixedCodeLen, List(), Map(), FullAssignBudget
+    )
     all {
       // A budget covering every due assign still fires them in order.
       assert(everything.assigns == List(call(4), call(3), call(6), call(5))),

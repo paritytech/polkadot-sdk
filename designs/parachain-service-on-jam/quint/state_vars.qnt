@@ -22,7 +22,6 @@ module state_vars {
   /// JAM `stagingset` mirror so we can observe `designate` effects.
   var jamStagingSet: List[ValidatorKey]
 
-
   /// Ghost state: every `(para_id, hash, len)` for which Accumulate has
   /// processed a `Solicit` upward message without a matching `Forget`.
   /// Stale entries for cleaned-up paras are intentionally retained. Used

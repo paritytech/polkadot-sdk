@@ -57,7 +57,6 @@ module main {
     { ...s6, jamAccount: { balance: TotalSupply, supervisorBalance: 0, minMemoGas: 0 } }
   }
 
-
   // --- Init --------------------------------------------------------------
 
   action init = all {
@@ -179,7 +178,8 @@ module main {
     nondet wp1CodeEnd = oneOf(Set(List(), List(ReportError(0)), List(Panic)))
     nondet wp1NoParasPrefix = oneOf(Set(false, true))
     val wp1Pool = arbitraryMessages(
-      wp1Para, activeCodeHashOr(svc.paraInfo(wp1Para), NoCodeHash))
+      wp1Para, activeCodeHashOr(svc.paraInfo(wp1Para), NoCodeHash)
+    )
     nondet wp1M1 = oneOf(wp1Pool)
     nondet wp1M2 = oneOf(wp1Pool)
     nondet wp1NumMsgs = oneOf(Set(0, 1, 2))
@@ -224,7 +224,8 @@ module main {
     nondet wp2CodeEnd = oneOf(Set(List(), List(ReportError(0)), List(Panic)))
     nondet wp2NoParasPrefix = oneOf(Set(false, true))
     val wp2Pool = arbitraryMessages(
-      wp2Para, activeCodeHashOr(svc.paraInfo(wp2Para), NoCodeHash))
+      wp2Para, activeCodeHashOr(svc.paraInfo(wp2Para), NoCodeHash)
+    )
     nondet wp2M1 = oneOf(wp2Pool)
     nondet wp2M2 = oneOf(wp2Pool)
     nondet wp2NumMsgs = oneOf(Set(0, 1, 2))
@@ -266,7 +267,8 @@ module main {
     nondet budget = oneOf(AssignBudgets)
     val blockOut = accumulateBlockBudgeted(
       svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages,
-      foreignServices, budget)
+      foreignServices, budget
+    )
 
     // Fold each candidate's `(para, lookup-anchor)` into the ghost
     // `logPrunedBelow`; a later package for the same para wins.
@@ -327,7 +329,8 @@ module main {
     val t = { source: senderId, amount: amount, toSupervisorBalance: toSup, memo: memo }
     nondet budget = oneOf(AssignBudgets)
     incomingTransferInvocation(
-      if (extra == 0) List(t) else List(t, { ...t, memo: memo + 1 }), budget)
+      if (extra == 0) List(t) else List(t, { ...t, memo: memo + 1 }), budget
+    )
   }
 
   // Model JAM Phase 3: anyone submits a solicited preimage out-of-band, moving
@@ -370,8 +373,10 @@ module main {
   ): Set[ParachainCandidate] = {
     val pi = s.paraInfo(para_id)
     val base = Set(
-      { validationCode:
-          { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen } },
+      {
+        validationCode:
+          { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen }
+      },
       { validationCode: { hash: { vchBytes: 99999 }, len: 999 } }
     )
     match pi.announcedUpgrade {
@@ -400,120 +405,196 @@ module main {
       RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen, phase: Announcement }),
       RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen, phase: Apply }),
       RequestCodeUpgrade({ hash: codeHashB, len: FixedCodeLen, phase: Announcement }),
-      // Lets the announce -> apply path actually complete in simulation: without
-      // its own solicit, codeHashA is never available and every announcement of
-      // it is rejected (§5.2).
-      Solicit({ target: Parachain(para_id), hash: codeHashA.asPreimage(), len: FixedCodeLen }),
+    // Lets the announce -> apply path actually complete in simulation: without
+    // its own solicit, codeHashA is never available and every announcement of
+    // it is rejected (§5.2).
+    Solicit({ target: Parachain(para_id), hash: codeHashA.asPreimage(), len: FixedCodeLen }),
       Solicit({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
       Forget({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
-      // Solicit/forget of the para's OWN active code, exercising the
-      // validation-code path (§5.2).
-      Solicit({ target: Parachain(para_id), hash: activeCode.asPreimage(), len: FixedCodeLen }),
+    // Solicit/forget of the para's OWN active code, exercising the
+    // validation-code path (§5.2).
+    Solicit({ target: Parachain(para_id), hash: activeCode.asPreimage(), len: FixedCodeLen }),
       Forget({ target: Parachain(para_id), hash: activeCode.asPreimage(), len: FixedCodeLen }),
-      // AH-only operations on a supervised service.
-      Forget({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
+    // AH-only operations on a supervised service.
+    Forget({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
       Solicit({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
       RemoveServiceStorage({ service: MkServiceId(4), key: List(1, 2) }),
       EjectService({ service: MkServiceId(4) }),
       UpgradeService({
-        service: Some(MkServiceId(4)), codeHash: anyHash, len: 0, minAccGas: 0, minMemoGas: 7
+        service: Some(MkServiceId(4)),
+        codeHash: anyHash,
+        len: 0,
+        minAccGas: 0,
+        minMemoGas: 7
       }),
-      // Sets `created` free, which is how a service this one does not
-      // supervise comes about.
-      SetServiceSupervisor({ service: created, newSupervisor: created }),
+    // Sets `created` free, which is how a service this one does not
+    // supervise comes about.
+    SetServiceSupervisor({ service: created, newSupervisor: created }),
       CreateService({
-        codeHash: anyHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 100,
-        id: 1, desiredId: None,
-        sourceSupervisorBalance: false, newSupervisorBalance: false
+        codeHash: anyHash,
+        len: FixedCodeLen,
+        minItemGas: 0,
+        minMemoGas: 100,
+        id: 1,
+        desiredId: None,
+        sourceSupervisorBalance: false,
+        newSupervisorBalance: false
       }),
-      // Registrar-only protected index (§6.5).
-      CreateService({
-        codeHash: anyHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 0,
-        id: 2, desiredId: Some(MkServiceId(42)),
-        sourceSupervisorBalance: false, newSupervisorBalance: false
+    // Registrar-only protected index (§6.5).
+    CreateService({
+      codeHash: anyHash,
+      len: FixedCodeLen,
+      minItemGas: 0,
+      minMemoGas: 0,
+      id: 2,
+      desiredId: Some(MkServiceId(42)),
+      sourceSupervisorBalance: false,
+      newSupervisorBalance: false
+    }),
+    // AH-only: Refine rejects from non-AH callers (§4.3). Both transfer
+    // modes, the self-moves between the service's own two balances, and one
+    // shape for each way a transfer is refused (§5.1). The other services
+    // involved are the two `CreateService`s above.
+    TransferOut({
+      source: None,
+      dest: created,
+      amount: 100,
+      id: 1,
+      sourceSupervisorBalance: false,
+      destSupervisorBalance: false,
+      deferred: Some((0, 1000))
+    }),
+      TransferOut({
+        source: None,
+        dest: created,
+        amount: 100,
+        id: 2,
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: false,
+        deferred: None
       }),
-      // AH-only: Refine rejects from non-AH callers (§4.3). Both transfer
-      // modes, the self-moves between the service's own two balances, and one
-      // shape for each way a transfer is refused (§5.1). The other services
-      // involved are the two `CreateService`s above.
-      TransferOut({ source: None, dest: created, amount: 100, id: 1,
-        sourceSupervisorBalance: false, destSupervisorBalance: false,
-        deferred: Some((0, 1000)) }),
-      TransferOut({ source: None, dest: created, amount: 100, id: 2,
-        sourceSupervisorBalance: false, destSupervisorBalance: false,
-        deferred: None }),
-      TransferOut({ source: None, dest: ParachainServiceId, amount: 100, id: 3,
-        sourceSupervisorBalance: false, destSupervisorBalance: true,
-        deferred: None }),
-      TransferOut({ source: None, dest: ParachainServiceId, amount: 100, id: 4,
-        sourceSupervisorBalance: true, destSupervisorBalance: false,
-        deferred: None }),
-      TransferOut({ source: Some(created), dest: MkServiceId(42), amount: 100, id: 5,
-        sourceSupervisorBalance: false, destSupervisorBalance: false,
-        deferred: None }),
-      TransferOut({ source: None, dest: MkServiceId(9), amount: 100, id: 6,
-        sourceSupervisorBalance: false, destSupervisorBalance: false,
-        deferred: Some((0, 1000)) }),
-      TransferOut({ source: None, dest: created, amount: 100, id: 7,
-        sourceSupervisorBalance: false, destSupervisorBalance: false,
-        deferred: Some((0, 10)) }),
-      TransferOut({ source: None, dest: created, amount: TotalSupply, id: 8,
-        sourceSupervisorBalance: false, destSupervisorBalance: false,
-        deferred: Some((0, 1000)) }),
+      TransferOut({
+        source: None,
+        dest: ParachainServiceId,
+        amount: 100,
+        id: 3,
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: true,
+        deferred: None
+      }),
+      TransferOut({
+        source: None,
+        dest: ParachainServiceId,
+        amount: 100,
+        id: 4,
+        sourceSupervisorBalance: true,
+        destSupervisorBalance: false,
+        deferred: None
+      }),
+      TransferOut({
+        source: Some(created),
+        dest: MkServiceId(42),
+        amount: 100,
+        id: 5,
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: false,
+        deferred: None
+      }),
+      TransferOut({
+        source: None,
+        dest: MkServiceId(9),
+        amount: 100,
+        id: 6,
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: false,
+        deferred: Some((0, 1000))
+      }),
+      TransferOut({
+        source: None,
+        dest: created,
+        amount: 100,
+        id: 7,
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: false,
+        deferred: Some((0, 10))
+      }),
+      TransferOut({
+        source: None,
+        dest: created,
+        amount: TotalSupply,
+        id: 8,
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: false,
+        deferred: Some((0, 1000))
+      }),
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: false }),
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: true }),
       SetValidatorKeys({ keys: List(), isLast: true }),
-      // Clean up just the head bucket, and a cut deep enough to reach mid-queue
-      // or, on a shorter queue, to empty it and restart the ids at 0 (§5.1).
-      CleanUpBucketsUpTo(0),
+    // Clean up just the head bucket, and a cut deep enough to reach mid-queue
+    // or, on a shorter queue, to empty it and restart the ids at 0 (§5.1).
+    CleanUpBucketsUpTo(0),
       CleanUpBucketsUpTo(2),
       UpgradeService({
-        service: None, codeHash: activeCode.asPreimage(), len: FixedCodeLen,
-        minAccGas: 0, minMemoGas: 0
+        service: None,
+        codeHash: activeCode.asPreimage(),
+        len: FixedCodeLen,
+        minAccGas: 0,
+        minMemoGas: 0
       }),
       UpgradeService({
-        service: None, codeHash: unsolicitedHash, len: 4096, minAccGas: 0, minMemoGas: 0
+        service: None,
+        codeHash: unsolicitedHash,
+        len: 4096,
+        minAccGas: 0,
+        minMemoGas: 0
       }),
-      // Assignments of every kind: tiles directly (1), kept and rotated (3),
-      // an empty one and one for an unknown core, both of which Refine rejects,
-      // and a hand-off, which requires an exact 80-hash queue (§3.3).
-      AssignCore({ core: CoreCount, queue: List(anyAuthHash), newAssigner: None, jamSlot: 100 }),
+    // Assignments of every kind: tiles directly (1), kept and rotated (3),
+    // an empty one and one for an unknown core, both of which Refine rejects,
+    // and a hand-off, which requires an exact 80-hash queue (§3.3).
+    AssignCore({ core: CoreCount, queue: List(anyAuthHash), newAssigner: None, jamSlot: 100 }),
       AssignCore({ core: 0, queue: List(anyAuthHash), newAssigner: None, jamSlot: 100 }),
-      AssignCore({ core: 0, queue: List(anyAuthHash, anyAuthHash, anyAuthHash),
-                   newAssigner: None, jamSlot: 10 }),
+      AssignCore({
+        core: 0,
+        queue: List(anyAuthHash, anyAuthHash, anyAuthHash),
+        newAssigner: None,
+        jamSlot: 10
+      }),
       AssignCore({ core: 0, queue: List(), newAssigner: None, jamSlot: 0 }),
-      AssignCore({ core: 0,
-                   queue: repeatList(List(anyAuthHash), AuthorizerQueueLength),
-                   newAssigner: Some(MkServiceId(7)), jamSlot: 10 }),
+      AssignCore({
+        core: 0,
+        queue: repeatList(List(anyAuthHash), AuthorizerQueueLength),
+        newAssigner: Some(MkServiceId(7)),
+        jamSlot: 10
+      }),
       ParachainSetHead({ paraId: para_id, newHead: 0 }),
       ParachainSetValidationCode({ paraId: para_id, newValidationCode: { hash: codeHashA, len: FixedCodeLen } }),
       ParachainSetStateBalance({ paraId: para_id, newTotal: 0 }),
-      // Coretime-only targeting OTHER paras, registering new paras and
-      // performs forced recovery / clean-up across the model's paraId space.
-      ParachainSetStateBalance({ paraId: MkParaId(3), newTotal: BaselineFootprint * 2 }),
+    // Coretime-only targeting OTHER paras, registering new paras and
+    // performs forced recovery / clean-up across the model's paraId space.
+    ParachainSetStateBalance({ paraId: MkParaId(3), newTotal: BaselineFootprint * 2 }),
       ParachainSetStateBalance({ paraId: MkParaId(4), newTotal: BaselineFootprint * 2 }),
       ParachainSetStateBalance({ paraId: MkParaId(5), newTotal: BaselineFootprint * 2 }),
       ParachainSetHead({ paraId: MkParaId(3), newHead: 7 }),
       ParachainSetHead({ paraId: MkParaId(4), newHead: 7 }),
       ParachainSetValidationCode({ paraId: MkParaId(3), newValidationCode: { hash: codeHashB, len: FixedCodeLen } }),
-      // `ParachainCleanUp` is Coretime-only, but the real Coretime chain
-      // never cleans up the privileged chains (1 = Coretime, 2 = Asset Hub)
-      // That would brick the control plane. We only generate clean-up of
-      // non-privileged test paras (3, 4), never `para_id` (which is the
-      // originating para, e.g. Coretime cleaning up itself).
-      ParachainCleanUp(MkParaId(3)),
+    // `ParachainCleanUp` is Coretime-only, but the real Coretime chain
+    // never cleans up the privileged chains (1 = Coretime, 2 = Asset Hub)
+    // That would brick the control plane. We only generate clean-up of
+    // non-privileged test paras (3, 4), never `para_id` (which is the
+    // originating para, e.g. Coretime cleaning up itself).
+    ParachainCleanUp(MkParaId(3)),
       ParachainCleanUp(MkParaId(4)),
-      // `Forget` / `RemoveKV` naming ANOTHER para (§6.4): legitimate from the
-      // Coretime chain, which drains a para that can no longer release its own
-      // state, and rejected as `RestrictedHostFunction` from every other caller.
-      // Both outcomes are reachable since the emitting para is sampled.
-      Forget({ target: Parachain(MkParaId(3)), hash: anyHash, len: 1024 }),
+    // `Forget` / `RemoveKV` naming ANOTHER para (§6.4): legitimate from the
+    // Coretime chain, which drains a para that can no longer release its own
+    // state, and rejected as `RestrictedHostFunction` from every other caller.
+    // Both outcomes are reachable since the emitting para is sampled.
+    Forget({ target: Parachain(MkParaId(3)), hash: anyHash, len: 1024 }),
       Forget({ target: Parachain(MkParaId(3)), hash: codeHashB.asPreimage(), len: FixedCodeLen }),
       RemoveKV({ paraId: MkParaId(3), key: List(0) }),
-      // KV store operations: exercises SetKV/RemoveKV paths (§6.1).
-      // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded. The empty
-      // value is rejected by Refine with `EmptyKVKeyOrValue` (§3.3).
-      SetKV({ key: List(0), value: List(0) }),
+    // KV store operations: exercises SetKV/RemoveKV paths (§6.1).
+    // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded. The empty
+    // value is rejected by Refine with `EmptyKVKeyOrValue` (§3.3).
+    SetKV({ key: List(0), value: List(0) }),
       SetKV({ key: List(0), value: List(0, 1) }),
       SetKV({ key: List(1), value: List(1) }),
       SetKV({ key: List(1), value: List() }),
@@ -521,5 +602,4 @@ module main {
       RemoveKV({ paraId: para_id, key: List(1) })
     )
   }
-
 }

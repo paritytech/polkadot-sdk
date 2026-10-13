@@ -146,7 +146,8 @@ module management_test {
       ...initialState,
       parachains: initialState.parachains.put(
         target,
-        { ...initialState.paraInfo(target), validationCode: Some(activeRef) })
+        { ...initialState.paraInfo(target), validationCode: Some(activeRef) }
+      )
     }
     val forced = replay(activeCodeState, CoretimeParaId, 0,
       Forget({ target: Parachain(target), hash: h, len: FixedCodeLen }))
@@ -157,7 +158,8 @@ module management_test {
       assert(forced.state.preimageRegistry.keys().contains((h, FixedCodeLen))),
       assert(forced.preimageOps == List()),
       assert(forced.logs == List(
-        CanNotRemoveCode({ hash: h, len: FixedCodeLen }))),
+        CanNotRemoveCode({ hash: h, len: FixedCodeLen })
+      )),
       init
     }
   }
@@ -225,7 +227,6 @@ module management_test {
     }
   }
 
-
   /// §6, §6.4: once clean-up has set `isDeregistering`, the para is treated as
   /// if it no longer existed. `parachain_set_state_balance` is rejected as
   /// `ParachainIsDeregistering`; the two other Coretime calls, a `Solicit` naming
@@ -240,7 +241,8 @@ module management_test {
     val s0 = parachainSetStateBalance(initialState, para, bal).state
     val s1 = markProvided(
       parachainSetValidationCode(s0, para, code, FixedCodeLen, 0).state,
-      code.asPreimage(), FixedCodeLen)
+      code.asPreimage(), FixedCodeLen
+    )
     val frozen = parachainCleanUp(s1, para, 0).state
     val setBal = parachainSetStateBalance(frozen, para, bal * 2)
     val setHead = parachainSetHead(frozen, para, 42)
@@ -254,7 +256,10 @@ module management_test {
       assert(frozen.paraInfo(para).isDeregistering),
       assert(setBal.state == frozen),
       assert(setBal.logs == List(StateBalanceUpdateRejected({
-        paraId: para, attempted: bal * 2, reason: ParachainIsDeregistering }))),
+        paraId: para,
+        attempted: bal * 2,
+        reason: ParachainIsDeregistering
+      }))),
       assert(setHead.state == frozen and setHead.logs == List()),
       assert(setCode.state == frozen and setCode.logs == List()),
       assert(setCode.jamSolicit == Set() and setCode.jamForget == Set()),
@@ -332,11 +337,17 @@ module management_test {
       assert(c.logs.length() == 2),
       assert(c.logs.select(e =>
         e == ForgetAgainAt({
-          target: Parachain(para), hash: hA.asPreimage(), len: lenA, due: nowT + ExpungePeriod
+          target: Parachain(para),
+          hash: hA.asPreimage(),
+          len: lenA,
+          due: nowT + ExpungePeriod
         })).length() == 1),
       assert(c.logs.select(e =>
         e == ForgetAgainAt({
-          target: Parachain(para), hash: hB.asPreimage(), len: lenB, due: nowT + ExpungePeriod
+          target: Parachain(para),
+          hash: hB.asPreimage(),
+          len: lenB,
+          due: nowT + ExpungePeriod
         })).length() == 1),
       init
     }

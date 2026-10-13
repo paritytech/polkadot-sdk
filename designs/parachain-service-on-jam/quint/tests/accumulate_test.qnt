@@ -38,7 +38,11 @@ module accumulate_test {
     val newCode: Hash = { hashBytes: 31337 }
     val len = FixedCodeLen
     val msg = UpgradeService({
-      service: None, codeHash: newCode, len: len, minAccGas: 0, minMemoGas: 0
+      service: None,
+      codeHash: newCode,
+      len: len,
+      minAccGas: 0,
+      minMemoGas: 0
     })
     // Solicited only: the request exists but the blob was never supplied.
     val solicited = initialState.addReferencer(ah, newCode, len).state
@@ -69,7 +73,11 @@ module accumulate_test {
     val newCode: Hash = { hashBytes: 31338 }
     val len = FixedCodeLen
     val msg = UpgradeService({
-      service: None, codeHash: newCode, len: len, minAccGas: 0, minMemoGas: 0
+      service: None,
+      codeHash: newCode,
+      len: len,
+      minAccGas: 0,
+      minMemoGas: 0
     })
     // Available, but only the Coretime chain references it.
     val theirs = markProvided(initialState.addReferencer(CoretimeParaId, newCode, len).state,
@@ -87,7 +95,6 @@ module accumulate_test {
     }
   }
 
-
   /// §5.1: rejection is what confines the privileged host functions of §4.3. A
   /// candidate rejected at the parent-head check must never reach the replay step,
   /// so a stale-parent candidate carrying `UpgradeService` cannot swap the service's
@@ -100,7 +107,11 @@ module accumulate_test {
     val newCode: Hash = { hashBytes: 4242 }
     val upgrade =
       UpgradeService({
-        service: None, codeHash: newCode, len: FixedCodeLen, minAccGas: 0, minMemoGas: 0
+        service: None,
+        codeHash: newCode,
+        len: FixedCodeLen,
+        minAccGas: 0,
+        minMemoGas: 0
       })
     init
       // Make the new service code available, so the upgrade's own preconditions hold.
@@ -140,7 +151,8 @@ module accumulate_test {
       lookupAnchor: 500
     }
     val out = accumulateOnePackage(
-      seeded, { result: WorkOk(Ok(ok)), authTrace: 9 }, Set(), List(), FixedCodeLen, 500, Map())
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 9 }, Set(), List(), FixedCodeLen, 500, Map()
+    )
     all {
       assert(seeded.paraLog(para).length() == 1),
       // Nothing at all changed, and the old entry survived.
@@ -183,10 +195,14 @@ module accumulate_test {
     val good: WorkPackage = { authorizedParas: List(CoretimeParaId), items: List(wi) }
     // Two items: not single-item (§3.2).
     val twoItems: WorkPackage = {
-      authorizedParas: List(CoretimeParaId, CoretimeParaId), items: List(wi, wi) }
+      authorizedParas: List(CoretimeParaId, CoretimeParaId),
+      items: List(wi, wi)
+    }
     // Config length disagrees with the item count.
     val mismatch: WorkPackage = {
-      authorizedParas: List(CoretimeParaId, CoretimeParaId), items: List(wi) }
+      authorizedParas: List(CoretimeParaId, CoretimeParaId),
+      items: List(wi)
+    }
     // No para named at all: the old code fabricated `MkParaId(0)` here.
     val noParas: WorkPackage = { authorizedParas: List(), items: List(wi) }
     pure def go(pkg: WorkPackage, noPrefix: bool): WorkExecResult =
@@ -203,7 +219,6 @@ module accumulate_test {
     }
   }
 
-
   /// §5.4: a `Forget` of the service's own active code is refused with
   /// `CanNotRemoveCode`, whether Asset Hub sends it or the Coretime chain on its
   /// behalf. The control forgets a different preimage held the same way and
@@ -213,10 +228,13 @@ module accumulate_test {
     val ownCode: Hash = { hashBytes: 31337 }
     val otherCode: Hash = { hashBytes: 31338 }
     val len = FixedCodeLen
-    val held = { ...initialState.addReferencer(ah, ownCode, len).state
-                   .addReferencer(ah, ownCode, 100).state
-                   .addReferencer(ah, otherCode, len).state,
-                 serviceCodeHash: ownCode, serviceCodeLen: len }
+    val held = {
+      ...initialState.addReferencer(ah, ownCode, len).state
+        .addReferencer(ah, ownCode, 100).state
+        .addReferencer(ah, otherCode, len).state,
+      serviceCodeHash: ownCode,
+      serviceCodeLen: len
+    }
     val forgetOwn = Forget({ target: Parachain(ah), hash: ownCode, len: len })
     val own = replay(held, ah, 0, forgetOwn)
     val byCoretime = replay(held, CoretimeParaId, 0, forgetOwn)

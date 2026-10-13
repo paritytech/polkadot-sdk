@@ -142,7 +142,8 @@ module parachain_log_test {
     val spamBefore = countRank(packed, 0)
     // A ~506 B accumulate entry (rank 2) arriving at the saturated log.
     val bigAcc = (2, Accumulate(
-      range(0, 500).foldl(List(), (l, _) => l.append(TooMuchStateHeld))))
+      range(0, 500).foldl(List(), (l, _) => l.append(TooMuchStateHeld))
+    ))
     val withAcc = pushLogEntry(packed, bigAcc)
     all {
       assert(spamBefore > 0),

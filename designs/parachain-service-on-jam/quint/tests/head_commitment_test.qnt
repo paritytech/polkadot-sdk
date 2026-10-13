@@ -22,14 +22,16 @@ module head_commitment_test {
   /// its own root rather than being hashed again.
   run headCommitmentRootShapeTest = {
     val leaf = merkleHash(Leaf({
-      paraId: AssetHubParaId, headHash: leafHeadHash(9)
+      paraId: AssetHubParaId,
+      headHash: leafHeadHash(9)
     }))
     init.then(expectThat(all {
       merkleRoot(List()) == None,
       merkleRoot(List(leaf)) == Some(leaf),
       // Two leaves combine into one node, so the root is neither leaf.
       merkleRoot(List(leaf, leaf)) == Some(merkleHash(Node({
-        left: leaf, right: leaf
+        left: leaf,
+        right: leaf
       }))),
     }))
   }
@@ -39,7 +41,8 @@ module head_commitment_test {
   run headCommitmentOrdersByParaIdTest = {
     init.then(expectThat(
       sortedParaIds(Set(MkParaId(7), MkParaId(1), MkParaId(4)))
-        == List(MkParaId(1), MkParaId(4), MkParaId(7))))
+        == List(MkParaId(1), MkParaId(4), MkParaId(7))
+    ))
   }
 
   /// An odd leaf count promotes the trailing element to the next level
@@ -53,7 +56,8 @@ module head_commitment_test {
     init.then(expectThat(all {
       pairUp(List(a, b, c)) == List(merkleHash(Node({ left: a, right: b })), c),
       merkleRoot(List(a, b, c)) == Some(merkleHash(Node({
-        left: merkleHash(Node({ left: a, right: b })), right: c
+        left: merkleHash(Node({ left: a, right: b })),
+        right: c
       }))),
     }))
   }
@@ -70,7 +74,8 @@ module head_commitment_test {
         lastHeadRoot == Some(merkleHash(Leaf({
           paraId: AssetHubParaId,
           headHash: leafHeadHash(svc.paraInfo(AssetHubParaId).headData)
-        })))))
+        })))
+      ))
       // A step that moves no head contributes no entry for that block.
       .then(provisionPreimage)
       .then(expectThat(lastHeadRoot == None))
@@ -101,14 +106,16 @@ module head_commitment_test {
     init
       .then(applyHappyPath(
         CoretimeParaId, coretimeCode,
-        List(ParachainSetHead({ paraId: AssetHubParaId, newHead: 42 }))))
+        List(ParachainSetHead({ paraId: AssetHubParaId, newHead: 42 }))
+      ))
       .then(expectThat(all {
         svc.paraInfo(AssetHubParaId).headData == 42,
         svc.paraInfo(CoretimeParaId).headData == 1
       }))
       .then(applyStaleParentCandidate(
         CoretimeParaId, coretimeCode,
-        List(ParachainSetHead({ paraId: AssetHubParaId, newHead: 7 }))))
+        List(ParachainSetHead({ paraId: AssetHubParaId, newHead: 7 }))
+      ))
       .then(expectThat(all {
         // The stale candidate's set_head(AssetHub, 7) was dropped: AH keeps 42.
         svc.paraInfo(AssetHubParaId).headData == 42,
@@ -127,7 +134,8 @@ module head_commitment_test {
     init
       .then(applyHappyPath(
         CoretimeParaId, coretimeCode,
-        List(ParachainSetHead({ paraId: MkParaId(9), newHead: 42 }))))
+        List(ParachainSetHead({ paraId: MkParaId(9), newHead: 42 }))
+      ))
       .then(expectThat(all {
         // The Coretime candidate was accepted (head advanced), so its set_head
         // message WAS replayed...

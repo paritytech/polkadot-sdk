@@ -364,11 +364,11 @@ module state_balance_test {
     // will exceed it (kvEntryFootprint adds 49 on top).
     // We approximate with a list of length 200000 (well above any headroom).
     val v1 = List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-    val v2 = v1.concat(v1).concat(v1).concat(v1).concat(v1)   // 50
-    val v3 = v2.concat(v2).concat(v2).concat(v2).concat(v2)   // 250
-    val v4 = v3.concat(v3).concat(v3).concat(v3).concat(v3)   // 1250
-    val v5 = v4.concat(v4).concat(v4).concat(v4).concat(v4)   // 6250
-    val v6 = v5.concat(v5).concat(v5).concat(v5).concat(v5)   // 31250
+    val v2 = v1.concat(v1).concat(v1).concat(v1).concat(v1) // 50
+    val v3 = v2.concat(v2).concat(v2).concat(v2).concat(v2) // 250
+    val v4 = v3.concat(v3).concat(v3).concat(v3).concat(v3) // 1250
+    val v5 = v4.concat(v4).concat(v4).concat(v4).concat(v4) // 6250
+    val v6 = v5.concat(v5).concat(v5).concat(v5).concat(v5) // 31250
     val hugeValue = v6.concat(v6).concat(v6).concat(v6).concat(v6) // 156250
     val d = applySetKV(s, para, key, hugeValue)
     all {

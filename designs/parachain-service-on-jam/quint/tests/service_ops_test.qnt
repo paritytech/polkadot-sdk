@@ -36,9 +36,14 @@ module service_ops_test {
   pure val removeIt = RemoveServiceStorage({ service: victim, key: someKey })
   pure val ejectIt = EjectService({ service: victim })
   pure def createWith(desired: Option[ServiceId]): UpwardMessage = CreateService({
-    codeHash: someHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 0,
-    id: 77, desiredId: desired,
-    sourceSupervisorBalance: false, newSupervisorBalance: false
+    codeHash: someHash,
+    len: FixedCodeLen,
+    minItemGas: 0,
+    minMemoGas: 0,
+    id: 77,
+    desiredId: desired,
+    sourceSupervisorBalance: false,
+    newSupervisorBalance: false
   })
 
   pure val createIt = createWith(None)
@@ -123,8 +128,10 @@ module service_ops_test {
   /// inheriting power.
   run staleSupervisorLinkFallsBackToSelfTest = {
     val stale: ForeignServices =
-      Map(victim -> { ...supervised(Map(), Map(), 0),
-                      supervisorCreated: ParachainServiceCreated + 1 })
+      Map(victim -> {
+        ...supervised(Map(), Map(), 0),
+        supervisorCreated: ParachainServiceCreated + 1
+      })
     init.then(expectThat(all {
       effectiveSupervisor(stale, victim) == victim,
       logsOf(stale, forgetIt, 0)
@@ -162,7 +169,11 @@ module service_ops_test {
   run upgradeSupervisedServiceTest = {
     val newCode: Hash = { hashBytes: 77 }
     val upgradeIt = UpgradeService({
-      service: Some(victim), codeHash: newCode, len: 0, minAccGas: 0, minMemoGas: 9
+      service: Some(victim),
+      codeHash: newCode,
+      len: 0,
+      minAccGas: 0,
+      minMemoGas: 9
     })
     val theirs: ForeignServices =
       Map(victim -> { ...supervised(Map(), Map(), 0), supervisor: victim })
@@ -200,12 +211,20 @@ module service_ops_test {
       // First forget only unrequests, and says when to return.
       logsOf(provided, forgetIt, 10)
         == List(ForgetAgainAt({
-          target: Service(victim), hash: someHash, len: someLen, due: 10 + ExpungePeriod })),
+        target: Service(victim),
+        hash: someHash,
+        len: someLen,
+        due: 10 + ExpungePeriod
+      })),
       once.get(victim).requests.get((someHash, someLen)) == Unrequested(10),
       // Too early: nothing happens and the ORIGINAL deadline is reported.
       logsOf(once, forgetIt, 11)
         == List(ForgetAgainAt({
-          target: Service(victim), hash: someHash, len: someLen, due: 10 + ExpungePeriod })),
+        target: Service(victim),
+        hash: someHash,
+        len: someLen,
+        due: 10 + ExpungePeriod
+      })),
       after(once, forgetIt, 11) == once,
       // Past the deadline: the request is gone.
       logsOf(once, forgetIt, 11 + ExpungePeriod) == List(),
@@ -258,7 +277,9 @@ module service_ops_test {
       logsOf(emptyOurs,
         SetServiceSupervisor({ service: victim, newSupervisor: stranger }), 10)
         == List(ServiceSupervisorFailed({
-             service: victim, error: HandoffUnknownNewSupervisor })),
+        service: victim,
+        error: HandoffUnknownNewSupervisor
+      })),
     }))
   }
 
@@ -275,12 +296,24 @@ module service_ops_test {
     val out = replayForeign(Map(), AssetHubParaId, 5, createIt)
     val cost = foreignThreshold(out.foreign.get(victim))
     val intoSupervisor = replayForeign(Map(), AssetHubParaId, 5, CreateService({
-      codeHash: someHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 0, id: 77,
-      desiredId: None, sourceSupervisorBalance: false, newSupervisorBalance: true
+      codeHash: someHash,
+      len: FixedCodeLen,
+      minItemGas: 0,
+      minMemoGas: 0,
+      id: 77,
+      desiredId: None,
+      sourceSupervisorBalance: false,
+      newSupervisorBalance: true
     }))
     val fromSupervisor = replayForeign(Map(), AssetHubParaId, 5, CreateService({
-      codeHash: someHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 0, id: 77,
-      desiredId: None, sourceSupervisorBalance: true, newSupervisorBalance: false
+      codeHash: someHash,
+      len: FixedCodeLen,
+      minItemGas: 0,
+      minMemoGas: 0,
+      id: 77,
+      desiredId: None,
+      sourceSupervisorBalance: true,
+      newSupervisorBalance: false
     }))
     init.then(expectThat(all {
       // Its code request is its whole footprint.
@@ -298,8 +331,11 @@ module service_ops_test {
   /// Creating is refused when it would take this service below its threshold,
   /// and that is checked before whether a desired index is free.
   run createRefusedWhenWeCannotAffordTest = {
-    val poor = { ...initialState, jamAccount:
-      { ...initialState.jamAccount, balance: serviceThreshold(initialState) } }
+    val poor = {
+      ...initialState,
+      jamAccount:
+        { ...initialState.jamAccount, balance: serviceThreshold(initialState) }
+    }
     val wanted = MkServiceId(42)
     val taken: ForeignServices = Map(wanted -> supervised(Map(), Map(), 0))
     init.then(expectThat(all {
@@ -313,8 +349,10 @@ module service_ops_test {
 
   /// Our empty-store service, holding the given balances.
   pure def funded(bal: Balance, sup: Balance): ForeignServices =
-    Map(victim -> { ...supervised(Map(), Map(), 0),
-      account: { balance: bal, supervisorBalance: sup, minMemoGas: 0 } })
+    Map(victim -> {
+      ...supervised(Map(), Map(), 0),
+      account: { balance: bal, supervisorBalance: sup, minMemoGas: 0 }
+    })
 
   /// A request the target could not keep paying for is refused, and both of
   /// its balances count towards paying.
@@ -362,10 +400,12 @@ module service_ops_test {
       not(targetsForeignPara(solicitIt, AssetHubParaId)),
       targetsForeignPara(
         Forget({ target: Parachain(CoretimeParaId), hash: someHash, len: someLen }),
-        AssetHubParaId),
+        AssetHubParaId
+      ),
       targetsForeignPara(
         Solicit({ target: Parachain(CoretimeParaId), hash: someHash, len: someLen }),
-        AssetHubParaId),
+        AssetHubParaId
+      ),
     }))
   }
 }

@@ -200,7 +200,8 @@ module code_upgrades_test {
     all {
       assert(s3 == s2),
       assert(refused.logs == List(
-        CanNotRemoveCode({ hash: hB.asPreimage(), len: FixedCodeLen }))),
+        CanNotRemoveCode({ hash: hB.asPreimage(), len: FixedCodeLen })
+      )),
       assert(isValidationCodeOf(s3.paraInfo(para), hB.asPreimage(), FixedCodeLen)),
       assert(announcedHashOf(s4.paraInfo(para)) == Some(hC)),
       assert(not(isValidationCodeOf(s4.paraInfo(para), hB.asPreimage(), FixedCodeLen))),

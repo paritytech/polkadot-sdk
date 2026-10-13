@@ -16,8 +16,8 @@ module accumulate {
   /// A parachain preimage reference a `Solicit` / `Forget` message actually
   /// added / released.
   type PreimageOp =
-  | Solicited((ParaId, Hash, int))
-  | Forgotten((ParaId, Hash, int))
+    | Solicited((ParaId, Hash, int))
+    | Forgotten((ParaId, Hash, int))
 
   /// Applies `ops` in order to a set of solicited `(para, hash, len)`.
   pure def applyPreimageOps(
@@ -109,7 +109,8 @@ module accumulate {
           match payload.phase {
             | Announcement =>
               announceCodeUpgrade(
-                acc.state, para_id, payload.hash, payload.len, lookupAnchor)
+                acc.state, para_id, payload.hash, payload.len, lookupAnchor
+              )
             | Apply =>
               applyCodeUpgrade(acc.state, para_id, payload.hash, payload.len)
           }
@@ -120,251 +121,278 @@ module accumulate {
           jamAssigns: acc.jamAssigns,
           logs: acc.logs.appendOption(d.log),
           foreign: acc.foreign
-      }
+        }
       | Solicit(payload) =>
-      match payload.target {
-      | Service(s) =>
-      val o = foreignSolicit(acc.foreign, s, payload.hash, payload.len, now)
-      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
-      | Parachain(target) =>
-      // §3.3: no-op for a target that is not registered or is deregistering
-      // (§6.4), so a Coretime-delegated solicit cannot add state to a
-      // half-removed para.
-      if (not(acc.state.isLive(target)) or acc.state.paraInfo(target).isDeregistering) acc
-      else {
-        val d = acc.state.addReferencer(target, payload.hash, payload.len)
+        match payload.target {
+          | Service(s) =>
+            val o = foreignSolicit(acc.foreign, s, payload.hash, payload.len, now)
+            { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+          | Parachain(target) =>
+            // §3.3: no-op for a target that is not registered or is deregistering
+            // (§6.4), so a Coretime-delegated solicit cannot add state to a
+            // half-removed para.
+            if (not(acc.state.isLive(target)) or acc.state.paraInfo(target).isDeregistering) acc
+            else {
+              val d = acc.state.addReferencer(target, payload.hash, payload.len)
+              {
+                state: d.state,
+                jamDesignate: acc.jamDesignate,
+                // A rejected solicit (`InsufficientStateBalance`) is not recorded.
+                preimageOps:
+                  if (d.log == None)
+                    acc.preimageOps.append(Solicited((target, payload.hash, payload.len)))
+                  else acc.preimageOps,
+                jamAssigns: acc.jamAssigns,
+                logs: acc.logs.appendOption(d.log),
+                foreign: acc.foreign
+              }
+            }
+        }
+      | EjectService(payload) =>
+        val o = foreignEject(acc.state, acc.foreign, payload.service, now)
+        { ...acc, state: o.state, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+      | CreateService(payload) =>
+        val o = foreignCreate(acc.state, acc.foreign, payload, now)
+        { ...acc, state: o.state, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+      | SetServiceSupervisor(payload) =>
+        val o = foreignSetSupervisor(
+          acc.foreign, payload.service, payload.newSupervisor
+        )
+        { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+      | Forget(payload) =>
+        match payload.target {
+          | Service(s) =>
+            val o = foreignForget(acc.foreign, s, payload.hash, payload.len, now)
+            { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+          | Parachain(target) =>
+            // §5.4: Asset Hub holds the service's own active code, which must never
+            // be expunged.
+            if (target == AssetHubParaId and payload.hash == acc.state.serviceCodeHash and
+                payload.len == acc.state.serviceCodeLen)
+              {
+                ...acc,
+                logs: acc.logs.append(
+                  CanNotRemoveCode({ hash: payload.hash, len: payload.len })
+                )
+              }
+            else if (not(acc.state.isLive(target))) acc
+            else {
+              val pi = acc.state.paraInfo(target)
+              val activeVc = pi.validationCode
+              val isActive =
+                match activeVc { | Some(vc) => refIs(vc, payload.hash, payload.len) | None => false }
+              val isAnnounced =
+                match pi.announcedUpgrade {
+                  | None => false
+                  | Some(vc) => refIs(vc, payload.hash, payload.len)
+                }
+              if (isActive or isAnnounced) {
+                // The target's active or announced code: refused, so the referencer
+                // and the balance both stay (§5.2). This is what stops a forced call
+                // from stripping running validation code.
+                {
+                  ...acc,
+                  logs: acc.logs.append(
+                    CanNotRemoveCode({ hash: payload.hash, len: payload.len })
+                  )
+                }
+              } else {
+                val d = acc.state.removeReferencer(target, payload.hash, payload.len, now)
+                {
+                  state: d.state,
+                  jamDesignate: acc.jamDesignate,
+                  preimageOps: acc.preimageOps.append(Forgotten((target, payload.hash, payload.len))),
+                  jamAssigns: acc.jamAssigns,
+                  logs: acc.logs.appendOption(d.log),
+                  foreign: acc.foreign
+                }
+              }
+            }
+        }
+      | SetValidatorKeys(payload) =>
+        // Both Refine and `accumulateOkPrefix`'s service-restriction check
+        // (§4.3) reject upward messages from non-Asset-Hub paras before we
+        // reach this branch, so `para_id == AssetHubParaId` holds by construction.
+        val o = applySetValidatorKeys(acc.state, payload.keys, payload.isLast)
         {
-          state: d.state,
-          jamDesignate: acc.jamDesignate,
-          // A rejected solicit (`InsufficientStateBalance`) is not recorded.
-          preimageOps:
-            if (d.log == None)
-              acc.preimageOps.append(Solicited((target, payload.hash, payload.len)))
-            else acc.preimageOps,
+          state: o.state,
+          jamDesignate:
+            if (o.designate == List()) acc.jamDesignate else o.designate,
+          preimageOps: acc.preimageOps,
           jamAssigns: acc.jamAssigns,
-          logs: acc.logs.appendOption(d.log),
+          logs: acc.logs.appendOption(o.log),
           foreign: acc.foreign
         }
-      }
-      }
-      | EjectService(payload) =>
-      val o = foreignEject(acc.state, acc.foreign, payload.service, now)
-      { ...acc, state: o.state, foreign: o.services, logs: acc.logs.appendOption(o.log) }
-      | CreateService(payload) =>
-      val o = foreignCreate(acc.state, acc.foreign, payload, now)
-      { ...acc, state: o.state, foreign: o.services, logs: acc.logs.appendOption(o.log) }
-      | SetServiceSupervisor(payload) =>
-      val o = foreignSetSupervisor(
-        acc.foreign, payload.service, payload.newSupervisor)
-      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
-      | Forget(payload) =>
-      match payload.target {
-      | Service(s) =>
-      val o = foreignForget(acc.foreign, s, payload.hash, payload.len, now)
-      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
-      | Parachain(target) =>
-      // §5.4: Asset Hub holds the service's own active code, which must never
-      // be expunged.
-      if (target == AssetHubParaId and payload.hash == acc.state.serviceCodeHash and
-          payload.len == acc.state.serviceCodeLen)
-        { ...acc, logs: acc.logs.append(
-          CanNotRemoveCode({ hash: payload.hash, len: payload.len })) }
-      else if (not(acc.state.isLive(target))) acc
-      else {
-        val pi = acc.state.paraInfo(target)
-        val activeVc = pi.validationCode
-        val isActive =
-          match activeVc { | Some(vc) => refIs(vc, payload.hash, payload.len) | None => false }
-        val isAnnounced =
-          match pi.announcedUpgrade {
-            | None => false
-            | Some(vc) => refIs(vc, payload.hash, payload.len)
-          }
-        if (isActive or isAnnounced) {
-          // The target's active or announced code: refused, so the referencer
-          // and the balance both stay (§5.2). This is what stops a forced call
-          // from stripping running validation code.
-          { ...acc, logs: acc.logs.append(
-            CanNotRemoveCode({ hash: payload.hash, len: payload.len })) }
-        } else {
-          val d = acc.state.removeReferencer(target, payload.hash, payload.len, now)
-          {
-            state: d.state,
-            jamDesignate: acc.jamDesignate,
-            preimageOps: acc.preimageOps.append(Forgotten((target, payload.hash, payload.len))),
-            jamAssigns: acc.jamAssigns,
-            logs: acc.logs.appendOption(d.log),
-            foreign: acc.foreign
-          }
-        }
-      }
-      }
-      | SetValidatorKeys(payload) =>
-      // Both Refine and `accumulateOkPrefix`'s service-restriction check
-      // (§4.3) reject upward messages from non-Asset-Hub paras before we
-      // reach this branch, so `para_id == AssetHubParaId` holds by construction.
-      val o = applySetValidatorKeys(acc.state, payload.keys, payload.isLast)
-      {
-        state: o.state,
-        jamDesignate:
-        if (o.designate == List()) acc.jamDesignate else o.designate,
-        preimageOps: acc.preimageOps,
-        jamAssigns: acc.jamAssigns,
-        logs: acc.logs.appendOption(o.log),
-        foreign: acc.foreign
-      }
       | ParachainSetStateBalance(payload) =>
-      // §6.1: only legal from Coretime chain (rights check is in §6).
-      // Here we just apply the underlying primitive.
-      val o = parachainSetStateBalance(acc.state, payload.paraId, payload.newTotal)
-      {
-        state: o.state,
-        jamDesignate: acc.jamDesignate,
-        preimageOps: acc.preimageOps,
-        jamAssigns: acc.jamAssigns,
-        logs: acc.logs.concat(o.logs),
-        foreign: acc.foreign
-      }
+        // §6.1: only legal from Coretime chain (rights check is in §6).
+        // Here we just apply the underlying primitive.
+        val o = parachainSetStateBalance(acc.state, payload.paraId, payload.newTotal)
+        {
+          state: o.state,
+          jamDesignate: acc.jamDesignate,
+          preimageOps: acc.preimageOps,
+          jamAssigns: acc.jamAssigns,
+          logs: acc.logs.concat(o.logs),
+          foreign: acc.foreign
+        }
       | ParachainSetHead(payload) =>
-      val o = parachainSetHead(acc.state, payload.paraId, payload.newHead)
-      { ...acc, state: o.state }
+        val o = parachainSetHead(acc.state, payload.paraId, payload.newHead)
+        { ...acc, state: o.state }
       | ParachainSetValidationCode(payload) =>
-      val o = parachainSetValidationCode(
-        acc.state, payload.paraId, payload.newValidationCode.hash,
-        payload.newValidationCode.len, now
-      )
-      {
-        state: o.state,
-        jamDesignate: acc.jamDesignate,
-        preimageOps: acc.preimageOps,
-        jamAssigns: acc.jamAssigns,
-        logs: acc.logs.concat(o.logs),
-        foreign: acc.foreign
-      }
+        val o = parachainSetValidationCode(
+          acc.state, payload.paraId, payload.newValidationCode.hash,
+          payload.newValidationCode.len, now
+        )
+        {
+          state: o.state,
+          jamDesignate: acc.jamDesignate,
+          preimageOps: acc.preimageOps,
+          jamAssigns: acc.jamAssigns,
+          logs: acc.logs.concat(o.logs),
+          foreign: acc.foreign
+        }
       | ParachainCleanUp(paraId) =>
-      val o = parachainCleanUp(acc.state, paraId, now)
-      {
-        state: o.state,
-        jamDesignate: acc.jamDesignate,
-        preimageOps: acc.preimageOps,
-        jamAssigns: acc.jamAssigns,
-        logs: acc.logs.concat(o.logs),
-        foreign: acc.foreign
-      }
+        val o = parachainCleanUp(acc.state, paraId, now)
+        {
+          state: o.state,
+          jamDesignate: acc.jamDesignate,
+          preimageOps: acc.preimageOps,
+          jamAssigns: acc.jamAssigns,
+          logs: acc.logs.concat(o.logs),
+          foreign: acc.foreign
+        }
       | TransferOut(payload) =>
-      val o = transferOut(acc.state, acc.foreign, payload)
-      { ...acc, state: o.state, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+        val o = transferOut(acc.state, acc.foreign, payload)
+        { ...acc, state: o.state, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | AssignCore(payload) =>
-      // §5.1 step 7 (replay). Caches the entry for its `jamSlot`. The inline
-      // case exists because always-accumulate ran before this replay, so a
-      // `jamSlot` already due would otherwise wait a block; it fires here
-      // instead, then settles into the same post-fire state as the flush.
-      val queueLen = payload.queue.length()
-      // Refine already rejected a malformed queue or an unknown core (§3.3), so
-      // this is defensive only: it re-checks both rather than trusting the digest.
-      if (not(wellFormedAssignQueue(payload.queue, payload.newAssigner)) or
-          not(validCoreIndex(payload.core)))
-        acc
-      else if (payload.jamSlot <= now)
-        if (not(acc.state.isAssignerOf(payload.core)))
-          // The core was handed away, so JAM rejects the `assign` (§7.1), and
-          // any entry cached for it is dropped.
-          { ...acc,
-            logs: acc.logs.append(CoreNotAssignable({ core: payload.core })),
-            state: { ...acc.state,
-              pendingAssigns: acc.state.pendingAssigns.mapRemove(payload.core),
-              pendingAssignCores: acc.state.pendingAssignCores.mapRemove(payload.core)
+        // §5.1 step 7 (replay). Caches the entry for its `jamSlot`. The inline
+        // case exists because always-accumulate ran before this replay, so a
+        // `jamSlot` already due would otherwise wait a block; it fires here
+        // instead, then settles into the same post-fire state as the flush.
+        val queueLen = payload.queue.length()
+        // Refine already rejected a malformed queue or an unknown core (§3.3), so
+        // this is defensive only: it re-checks both rather than trusting the digest.
+        if (not(wellFormedAssignQueue(payload.queue, payload.newAssigner)) or
+            not(validCoreIndex(payload.core)))
+          acc
+        else if (payload.jamSlot <= now)
+          if (not(acc.state.isAssignerOf(payload.core)))
+            // The core was handed away, so JAM rejects the `assign` (§7.1), and
+            // any entry cached for it is dropped.
+            {
+              ...acc,
+              logs: acc.logs.append(CoreNotAssignable({ core: payload.core })),
+              state: {
+                ...acc.state,
+                pendingAssigns: acc.state.pendingAssigns.mapRemove(payload.core),
+                pendingAssignCores: acc.state.pendingAssignCores.mapRemove(payload.core)
+              }
             }
-          }
+          else
+            {
+              ...acc,
+              jamAssigns: acc.jamAssigns.append({
+                core: payload.core,
+                assigner: payload.newAssigner.optionGetOr(ParachainServiceId),
+                queue: assignQueueFor(payload.queue)
+              }),
+              state: {
+                ...acc.state.recordAssigner(
+                  payload.core, payload.newAssigner.optionGetOr(ParachainServiceId)
+                ),
+                pendingAssigns:
+                  if (fillsDirectly(queueLen)) acc.state.pendingAssigns.mapRemove(payload.core)
+                  else acc.state.pendingAssigns.put(payload.core, {
+                    queue: advanceAssignQueue(payload.queue),
+                    assigner: payload.newAssigner
+                  }),
+                pendingAssignCores:
+                  if (fillsDirectly(queueLen)) acc.state.pendingAssignCores.mapRemove(payload.core)
+                  else acc.state.pendingAssignCores.put(
+                    payload.core, now + AuthorizerQueueLength
+                  )
+              }
+            }
         else
-          { ...acc,
-            jamAssigns: acc.jamAssigns.append({
-              core: payload.core,
-              assigner: payload.newAssigner.optionGetOr(ParachainServiceId),
-              queue: assignQueueFor(payload.queue)
-            }),
-            state: { ...acc.state.recordAssigner(
-                payload.core, payload.newAssigner.optionGetOr(ParachainServiceId)),
-              pendingAssigns:
-                if (fillsDirectly(queueLen)) acc.state.pendingAssigns.mapRemove(payload.core)
-                else acc.state.pendingAssigns.put(payload.core, {
-                  queue: advanceAssignQueue(payload.queue),
-                  assigner: payload.newAssigner
-                }),
+          {
+            ...acc,
+            state: {
+              ...acc.state,
+              pendingAssigns: acc.state.pendingAssigns.put(payload.core, {
+                queue: payload.queue,
+                assigner: payload.newAssigner
+              }),
               pendingAssignCores:
-                if (fillsDirectly(queueLen)) acc.state.pendingAssignCores.mapRemove(payload.core)
-                else acc.state.pendingAssignCores.put(
-                  payload.core, now + AuthorizerQueueLength)
+                acc.state.pendingAssignCores.put(payload.core, payload.jamSlot)
             }
           }
-      else
-        { ...acc,
-          state: { ...acc.state,
-            pendingAssigns: acc.state.pendingAssigns.put(payload.core, {
-              queue: payload.queue,
-              assigner: payload.newAssigner
-            }),
-            pendingAssignCores:
-              acc.state.pendingAssignCores.put(payload.core, payload.jamSlot)
+      | CleanUpBucketsUpTo(bucketId) =>
+        // Asset Hub removes whole buckets up to and including `bucketId`. Both
+        // Refine and `accumulateOkPrefix`'s service-restriction check (§4.3)
+        // reject non-Asset-Hub origins before we reach this branch.
+        {
+          val before = queuedTransferCount(acc.state)
+          val cleaned = cleanUpBucketsUpTo(acc.state, bucketId)
+          {
+            ...acc,
+            state: reattributeTransferQueue(cleaned, before, queuedTransferCount(cleaned))
           }
         }
-      | CleanUpBucketsUpTo(bucketId) =>
-      // Asset Hub removes whole buckets up to and including `bucketId`. Both
-      // Refine and `accumulateOkPrefix`'s service-restriction check (§4.3)
-      // reject non-Asset-Hub origins before we reach this branch.
-      {
-        val before = queuedTransferCount(acc.state)
-        val cleaned = cleanUpBucketsUpTo(acc.state, bucketId)
-        { ...acc,
-          state: reattributeTransferQueue(cleaned, before, queuedTransferCount(cleaned)) }
-      }
       | UpgradeService(payload) =>
-      match payload.service {
-      | Some(target) =>
-        { ...acc, foreign:
-          foreignUpgrade(acc.foreign, target, payload.codeHash, payload.minMemoGas) }
-      | None =>
-      // §5.4: Asset Hub must reference the new code, and it must be available.
-      if (acc.state.hasReferencer(payload.codeHash, payload.len, AssetHubParaId) and
-          acc.state.preimageAvailable(payload.codeHash, payload.len))
-        { ...acc, state: { ...acc.state,
-          serviceCodeHash: payload.codeHash,
-          serviceCodeLen: payload.len,
-          jamAccount: { ...acc.state.jamAccount, minMemoGas: payload.minMemoGas }
-        } }
-      else
-        { ...acc,
-          logs: acc.logs.append(ServiceUpgradePreimageMissing({ codeHash: payload.codeHash }))
+        match payload.service {
+          | Some(target) =>
+            {
+              ...acc,
+              foreign:
+                foreignUpgrade(acc.foreign, target, payload.codeHash, payload.minMemoGas)
+            }
+          | None =>
+            // §5.4: Asset Hub must reference the new code, and it must be available.
+            if (acc.state.hasReferencer(payload.codeHash, payload.len, AssetHubParaId) and
+                acc.state.preimageAvailable(payload.codeHash, payload.len))
+              {
+                ...acc,
+                state: {
+                  ...acc.state,
+                  serviceCodeHash: payload.codeHash,
+                  serviceCodeLen: payload.len,
+                  jamAccount: { ...acc.state.jamAccount, minMemoGas: payload.minMemoGas }
+                }
+              }
+            else
+              {
+                ...acc,
+                logs: acc.logs.append(ServiceUpgradePreimageMissing({ codeHash: payload.codeHash }))
+              }
         }
-      }
       | SetKV(payload) =>
-      // §3.3: no-op for an unregistered or deregistering para (§6.4). Step 1
-      // already rejects its work packages, so this only matters if `SetKV`
-      // ever names a para.
-      if (not(acc.state.isLive(para_id)) or acc.state.paraInfo(para_id).isDeregistering) acc
-      else {
-        val d = applySetKV(acc.state, para_id, payload.key, payload.value)
-        {
-          ...acc,
-          state: d.state,
-          logs: acc.logs.appendOption(d.log)
+        // §3.3: no-op for an unregistered or deregistering para (§6.4). Step 1
+        // already rejects its work packages, so this only matters if `SetKV`
+        // ever names a para.
+        if (not(acc.state.isLive(para_id)) or acc.state.paraInfo(para_id).isDeregistering) acc
+        else {
+          val d = applySetKV(acc.state, para_id, payload.key, payload.value)
+          {
+            ...acc,
+            state: d.state,
+            logs: acc.logs.appendOption(d.log)
+          }
         }
-      }
       | RemoveServiceStorage(payload) =>
-      val o = foreignRemoveStorage(acc.foreign, payload.service, payload.key)
-      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+        val o = foreignRemoveStorage(acc.foreign, payload.service, payload.key)
+        { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | RemoveKV(payload) =>
-      // No-op for an unregistered or deregistering para (§6.4).
-      if (not(acc.state.isLive(payload.paraId))
-          or acc.state.paraInfo(payload.paraId).isDeregistering) acc
-      else {
-        val d = applyRemoveKV(acc.state, payload.paraId, payload.key)
-        {
-          ...acc,
-          state: d.state,
-          logs: acc.logs.appendOption(d.log)
+        // No-op for an unregistered or deregistering para (§6.4).
+        if (not(acc.state.isLive(payload.paraId))
+            or acc.state.paraInfo(payload.paraId).isDeregistering) acc
+        else {
+          val d = applyRemoveKV(acc.state, payload.paraId, payload.key)
+          {
+            ...acc,
+            state: d.state,
+            logs: acc.logs.appendOption(d.log)
+          }
         }
-      }
     }
   }
 
@@ -446,13 +474,13 @@ module accumulate {
       // error for this work-item before the service's refine ran.
       // Skip entirely: no log entry, no state change, no prune (no candidate).
       | WorkErr => {
-          state: state,
-          solicited: solicited,
-          jamDesignate: prevDesignate,
-          jamAssigns: List(),
-          logPruned: None,
-          foreign: foreign
-        }
+        state: state,
+        solicited: solicited,
+        jamDesignate: prevDesignate,
+        jamAssigns: List(),
+        logPruned: None,
+        foreign: foreign
+      }
       | WorkOk(digest) =>
         match digest {
           | Err(e) =>
@@ -533,23 +561,28 @@ module accumulate {
     foreign: ForeignServices
   ): MultiPackageOutcome = {
     packages.foldl(
-      { state: state,
+      {
+        state: state,
         solicited: solicited,
         jamDesignate: prevDesignate,
         jamAssigns: List(),
         logPruned: List(),
-        foreign: foreign },
+        foreign: foreign
+      },
       (acc, p) => {
         val out = accumulateOnePackage(
-          acc.state, p, acc.solicited, acc.jamDesignate, codeLen, now, acc.foreign)
-        { state: out.state,
+          acc.state, p, acc.solicited, acc.jamDesignate, codeLen, now, acc.foreign
+        )
+        {
+          state: out.state,
           solicited: out.solicited,
           jamDesignate: out.jamDesignate,
           jamAssigns: acc.jamAssigns.concat(out.jamAssigns),
           logPruned: acc.logPruned.appendOption(out.logPruned),
           foreign: out.foreign
         }
-      })
+      }
+    )
   }
 
   // ---- Always-accumulate (§5.1, general work) ---------------------------
@@ -594,8 +627,10 @@ module accumulate {
         if (not(acc.state.isAssignerOf(c)))
           // The core was handed away since this entry was cached, so JAM rejects
           // the `assign`: drop the entry and log the rejection (§7.1).
-          { ...acc,
-            state: { ...acc.state,
+          {
+            ...acc,
+            state: {
+              ...acc.state,
               pendingAssigns: acc.state.pendingAssigns.mapRemove(c),
               pendingAssignCores: acc.state.pendingAssignCores.mapRemove(c)
             },
@@ -604,12 +639,16 @@ module accumulate {
         else {
           val pending = s.pendingAssigns.get(c)
           val queueLen = pending.queue.length()
-          { state: { ...acc.state.recordAssigner(
-                c, pending.assigner.optionGetOr(ParachainServiceId)),
+          {
+            state: {
+              ...acc.state.recordAssigner(
+                c, pending.assigner.optionGetOr(ParachainServiceId)
+              ),
               pendingAssigns:
                 if (fillsDirectly(queueLen)) acc.state.pendingAssigns.mapRemove(c)
                 else acc.state.pendingAssigns.put(c, {
-                  ...pending, queue: advanceAssignQueue(pending.queue)
+                  ...pending,
+                  queue: advanceAssignQueue(pending.queue)
                 }),
               pendingAssignCores:
                 if (fillsDirectly(queueLen)) acc.state.pendingAssignCores.mapRemove(c)
@@ -775,5 +814,6 @@ module accumulate {
     foreign: ForeignServices
   ): BlockOutcome =
     accumulateBlockBudgeted(
-      state, now, staging, solicited, codeLen, packages, foreign, FullAssignBudget)
+      state, now, staging, solicited, codeLen, packages, foreign, FullAssignBudget
+    )
 }

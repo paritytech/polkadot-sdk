@@ -61,8 +61,8 @@ module validator_keys {
         state: sCleared,
         designate: if (ok) assembled else List(),
         log:
-        if (ok) None
-        else Some(DesignateRejected({ len: assembled.length() }))
+          if (ok) None
+          else Some(DesignateRejected({ len: assembled.length() }))
       }
     } else {
       // Partial append: the chunk stays in the buffer until finalization.

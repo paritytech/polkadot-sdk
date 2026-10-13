@@ -33,9 +33,14 @@ module code_upgrades {
       // shadows the active code.
       unchangedDelta(s)
     } else if (not(s.hasReferencer(h, codeLen, para_id))
-               or not(s.preimageAvailableAt(h, codeLen, lookupAnchor))) {
-      { state: s, jamSolicit: None, jamForget: None, retained: false,
-        log: Some(CodeUpgradeNotAvailable({ hash: h, len: codeLen })) }
+        or not(s.preimageAvailableAt(h, codeLen, lookupAnchor))) {
+      {
+        state: s,
+        jamSolicit: None,
+        jamForget: None,
+        retained: false,
+        log: Some(CodeUpgradeNotAvailable({ hash: h, len: codeLen }))
+      }
     } else {
       unchangedDelta({
         ...s,
@@ -56,8 +61,13 @@ module code_upgrades {
     val pi = s.paraInfo(para_id)
     val newRef = { hash: newHash, len: codeLen }
     val notAnnounced =
-      { state: s, jamSolicit: None, jamForget: None, retained: false,
-        log: Some(CodeUpgradeNotAnnounced({ hash: newHash.asPreimage(), len: codeLen })) }
+      {
+        state: s,
+        jamSolicit: None,
+        jamForget: None,
+        retained: false,
+        log: Some(CodeUpgradeNotAnnounced({ hash: newHash.asPreimage(), len: codeLen }))
+      }
     match pi.announcedUpgrade {
       | None => notAnnounced
       | Some(vc) =>

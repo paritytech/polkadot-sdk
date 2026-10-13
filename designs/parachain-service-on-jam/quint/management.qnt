@@ -30,30 +30,37 @@ module management {
     if (not(s.isLive(para_id))) {
       match initParaInfo(para_id, newTotal) {
         | None =>
-        // Rejected: new_total below baseline.
-        {
-          state: s,
-          jamSolicit: Set(),
-          jamForget: Set(),
-          logs: List(StateBalanceUpdateRejected({
-                paraId: para_id,
-                attempted: newTotal,
-                reason: BelowUsed({ currentTotal: 0, currentUsed: baselineFor(para_id) })
-          }))
-        }
+          // Rejected: new_total below baseline.
+          {
+            state: s,
+            jamSolicit: Set(),
+            jamForget: Set(),
+            logs: List(StateBalanceUpdateRejected({
+              paraId: para_id,
+              attempted: newTotal,
+              reason: BelowUsed({ currentTotal: 0, currentUsed: baselineFor(para_id) })
+            }))
+          }
         | Some(pi) =>
-        {
-          state: { ...s, parachains: s.parachains.put(para_id, pi) },
-          jamSolicit: Set(),
-          jamForget: Set(),
-          logs: List()
-        }
+          {
+            state: { ...s, parachains: s.parachains.put(para_id, pi) },
+            jamSolicit: Set(),
+            jamForget: Set(),
+            logs: List()
+          }
       }
     } else if (s.paraInfo(para_id).isDeregistering) {
       // §6.4: a deregistering para can neither be re-funded nor re-registered.
-      { state: s, jamSolicit: Set(), jamForget: Set(),
+      {
+        state: s,
+        jamSolicit: Set(),
+        jamForget: Set(),
         logs: List(StateBalanceUpdateRejected({
-          paraId: para_id, attempted: newTotal, reason: ParachainIsDeregistering })) }
+          paraId: para_id,
+          attempted: newTotal,
+          reason: ParachainIsDeregistering
+        }))
+      }
     } else {
       val pi = s.paraInfo(para_id)
       if (newTotal < pi.usedStateBalance) {
@@ -62,10 +69,12 @@ module management {
           jamSolicit: Set(),
           jamForget: Set(),
           logs: List(StateBalanceUpdateRejected({
-                paraId: para_id,
-                attempted: newTotal,
-                reason: BelowUsed({
-                  currentTotal: pi.totalStateBalance, currentUsed: pi.usedStateBalance })
+            paraId: para_id,
+            attempted: newTotal,
+            reason: BelowUsed({
+              currentTotal: pi.totalStateBalance,
+              currentUsed: pi.usedStateBalance
+            })
           }))
         }
       } else {
@@ -122,32 +131,33 @@ module management {
       val acquired = s.addReferencer(para_id, newHash.asPreimage(), codeLen)
       match acquired.log {
         | Some(_) =>
-        { state: s, jamSolicit: Set(), jamForget: Set(), logs: List().appendOption(acquired.log) }
+          { state: s, jamSolicit: Set(), jamForget: Set(), logs: List().appendOption(acquired.log) }
         | None =>
-        val pi2 = acquired.state.paraInfo(para_id)
-        {
-          state: {
-            ...acquired.state,
-            parachains: acquired.state.parachains.put(
-              para_id,
-              { ...pi2,
-                validationCode: Some({ hash: newHash, len: codeLen }),
-                announcedUpgrade: None
-              }
-            )
-          },
-          jamSolicit: optionToSet(acquired.jamSolicit),
-          jamForget: Set(),
-          logs: List()
-        }
+          val pi2 = acquired.state.paraInfo(para_id)
+          {
+            state: {
+              ...acquired.state,
+              parachains: acquired.state.parachains.put(
+                para_id,
+                {
+                  ...pi2,
+                  validationCode: Some({ hash: newHash, len: codeLen }),
+                  announcedUpgrade: None
+                }
+              )
+            },
+            jamSolicit: optionToSet(acquired.jamSolicit),
+            jamForget: Set(),
+            logs: List()
+          }
       }
     }
   }
 
-   /// The exact `usedStateBalance` a para may hold at clean-up: its baseline
-   /// plus the footprints of its active validation code and (if any) announced
-   /// upgrade code: nothing else. Any excess means it still holds other
-   /// solicited preimages or `keyValueStorage`, which it must release first.
+  /// The exact `usedStateBalance` a para may hold at clean-up: its baseline
+  /// plus the footprints of its active validation code and (if any) announced
+  /// upgrade code: nothing else. Any excess means it still holds other
+  /// solicited preimages or `keyValueStorage`, which it must release first.
   pure def cleanUpAllowedBalance(pi: ParaInfo, para_id: ParaId): int = {
     val activeFp =
       match pi.validationCode {
@@ -161,13 +171,13 @@ module management {
     baselineFor(para_id) + activeFp + announcedFp
   }
 
-   /// §6.4: deregister a parachain. Rejects with `TooMuchStateHeld` unless the
-   /// para holds only its baseline and validation code(s) (it must release all
-   /// other solicited preimages and `keyValueStorage` first). Otherwise forgets
-   /// the validation code(s) via the two-step forget (§6.1). If any code cannot
-   /// be expunged yet, sets `isDeregistering = true` and keeps the entry; the
-   /// Coretime chain needs to retry once the logged `due` is reached. Once every code
-   /// is expunged, drops all per-para state.
+  /// §6.4: deregister a parachain. Rejects with `TooMuchStateHeld` unless the
+  /// para holds only its baseline and validation code(s) (it must release all
+  /// other solicited preimages and `keyValueStorage` first). Otherwise forgets
+  /// the validation code(s) via the two-step forget (§6.1). If any code cannot
+  /// be expunged yet, sets `isDeregistering = true` and keeps the entry; the
+  /// Coretime chain needs to retry once the logged `due` is reached. Once every code
+  /// is expunged, drops all per-para state.
   pure def parachainCleanUp(
     s: ParachainServiceState,
     para_id: ParaId,
@@ -192,7 +202,8 @@ module management {
             { state: afterActive.state, jamSolicit: None, jamForget: None, retained: false, log: None }
           | Some(vc) =>
             afterActive.state.removeReferencer(
-              para_id, vc.hash.asPreimage(), vc.len, now)
+              para_id, vc.hash.asPreimage(), vc.len, now
+            )
         }
         val s1 = afterAnnounced.state
         val jamForgets =
@@ -202,8 +213,10 @@ module management {
         if (stillHeld) {
           // Mark deregistering and keep the entry; retry completes it later.
           {
-            state: { ...s1,
-              parachains: s1.parachains.put(para_id, { ...s1.paraInfo(para_id), isDeregistering: true }) },
+            state: {
+              ...s1,
+              parachains: s1.parachains.put(para_id, { ...s1.paraInfo(para_id), isDeregistering: true })
+            },
             jamSolicit: Set(),
             jamForget: jamForgets,
             // Both the active and the pending code can enter limbo with distinct
@@ -215,11 +228,13 @@ module management {
           val stagedAfter =
             if (para_id == AssetHubParaId) List() else s1.stagedValidatorKeys
           {
-            state: { ...s1,
+            state: {
+              ...s1,
               parachains: s1.parachains.mapRemove(para_id),
               parachainLog: s1.parachainLog.mapRemove(para_id),
               stagedValidatorKeys: stagedAfter,
-              keyValueStorage: s1.keyValueStorage.mapFilterKeys(key => key._1 != para_id) },
+              keyValueStorage: s1.keyValueStorage.mapFilterKeys(key => key._1 != para_id)
+            },
             jamSolicit: Set(),
             jamForget: jamForgets,
             logs: List()
@@ -228,5 +243,4 @@ module management {
       }
     }
   }
-
 }

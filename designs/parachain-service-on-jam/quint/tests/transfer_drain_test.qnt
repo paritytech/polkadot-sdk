@@ -54,7 +54,8 @@ module transfer_drain_test {
     // What the candidate read: buckets 0 and 1.
     val read = applyIncomingTransfer(
       applyIncomingTransfer(initialState, { source: from, amount: big, toSupervisorBalance: false, memo: 0 }),
-      { source: from, amount: big, toSupervisorBalance: false, memo: 1 })
+      { source: from, amount: big, toSupervisorBalance: false, memo: 1 }
+    )
     // A later invocation, after that read: bucket 2.
     val seeded = applyIncomingTransfer(read, { source: from, amount: big, toSupervisorBalance: false, memo: 2 })
     val ok: ParachainWorkDigestOk = {
@@ -66,7 +67,8 @@ module transfer_drain_test {
       lookupAnchor: 5
     }
     val out = accumulateOnePackage(
-      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), List(), FixedCodeLen, 10, Map())
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), List(), FixedCodeLen, 10, Map()
+    )
     all {
       assert(read.incomingTransfers.keys() == Set(0, 1)),
       assert(seeded.incomingTransfers.keys() == Set(0, 1, 2)),
@@ -97,7 +99,8 @@ module transfer_drain_test {
     val seeded = List(
       { source: MkServiceId(3), amount: big * 100, toSupervisorBalance: false, memo: 0 },
       { source: MkServiceId(4), amount: big * 100, toSupervisorBalance: false, memo: 0 },
-      { source: MkServiceId(5), amount: big * 100, toSupervisorBalance: false, memo: 0 })
+      { source: MkServiceId(5), amount: big * 100, toSupervisorBalance: false, memo: 0 }
+    )
       .foldl(full, (acc, t) => applyIncomingTransfer(acc, t))
     // Next round, clean up the first three entries: `clean_up_buckets_up_to`
     // removes buckets from the oldest id up, so buckets 0..2 go and the queue
@@ -111,7 +114,8 @@ module transfer_drain_test {
       lookupAnchor: 2
     }
     val out = accumulateOnePackage(
-      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), List(), FixedCodeLen, 3, Map())
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), List(), FixedCodeLen, 3, Map()
+    )
     all {
       // The three extra entries were charged their per-bucket cost.
       assert(seeded.paraInfo(ah).usedStateBalance == used0 + 3 * big),
@@ -139,12 +143,16 @@ module transfer_drain_test {
     // One unreserved entry, charged to Asset Hub, then pin the allowance so the
     // solicit only fits once that entry is refunded.
     val paid = applyIncomingTransfer(
-      fullTransferQueue, { source: MkServiceId(3), amount: big, toSupervisorBalance: false, memo: 0 })
+      fullTransferQueue, { source: MkServiceId(3), amount: big, toSupervisorBalance: false, memo: 0 }
+    )
     val pi = paid.paraInfo(ah)
     val tight =
-      { ...paid,
+      {
+        ...paid,
         parachains: paid.parachains.put(
-          ah, pi.setTotal(pi.usedStateBalance + preimageFootprint(len) - 1)) }
+          ah, pi.setTotal(pi.usedStateBalance + preimageFootprint(len) - 1)
+        )
+      }
     pure def candidate(msgs: List[UpwardMessage]): ParachainWorkDigestOk = {
       paraId: ah,
       validationCode: ahCode,
@@ -156,13 +164,14 @@ module transfer_drain_test {
     pure def replay(msgs: List[UpwardMessage]): ParachainServiceState =
       accumulateOnePackage(
         tight, { result: WorkOk(Ok(candidate(msgs))), authTrace: 0 },
-        Set(), List(), FixedCodeLen, MaxIncomingTransfers + 1, Map()).state
+        Set(), List(), FixedCodeLen, MaxIncomingTransfers + 1, Map()
+      ).state
     val cleanFirst =
       replay(List(CleanUpBucketsUpTo(MaxIncomingTransfers),
-                  Solicit({ target: Parachain(ah), hash: h, len: len })))
+        Solicit({ target: Parachain(ah), hash: h, len: len })))
     val solicitFirst =
       replay(List(Solicit({ target: Parachain(ah), hash: h, len: len }),
-                  CleanUpBucketsUpTo(MaxIncomingTransfers)))
+        CleanUpBucketsUpTo(MaxIncomingTransfers)))
     all {
       // The allowance is one short of the solicit, and cleaning up does not help.
       assert(not(tight.paraInfo(ah).hasHeadroom(preimageFootprint(len)))),

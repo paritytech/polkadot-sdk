@@ -88,10 +88,10 @@ module types {
   /// The wrapped integer, for the places the spec orders by `para_id`, the
   /// head-commitment leaves (§5.5). The sentinel is never constructed.
   pure def paraIdInt(p: ParaId): int =
-  match p {
-    | MkParaId(n) => n
-    | _ParaIdSentinel => 0
-  }
+    match p {
+      | MkParaId(n) => n
+      | _ParaIdSentinel => 0
+    }
 
   // --- Protocol constants (gray paper / design doc) -----------------------
 
@@ -115,7 +115,7 @@ module types {
   /// `CoreCount + 1`; this `2.to(CoreCount)` matches the gray paper's
   /// half-open `N_{2 .. C_corecount+1}`.
   pure val ValCount: Set[int] =
-  2.to(CoreCount).map(c => 3 * c)
+    2.to(CoreCount).map(c => 3 * c)
 
   /// Combined cap on a work-report's auth-trace + result blobs.
   pure val MaxReportVarSize: int = 48 * 1024
@@ -189,7 +189,6 @@ module types {
   pure val IncomingTransferEntryFootprint: int =
     ItemDeposit + IncomingTransferBucketOctets
 
-
   // --- Polymorphic Option ------------------------------------------------
 
   type Option[a] = Some(a) | None
@@ -198,39 +197,39 @@ module types {
 
   /// Quint has no built-in map-remove; rebuild without the key.
   pure def mapRemove(m: a -> b, k: a): a -> b =
-  m.keys().exclude(Set(k)).mapBy(x => m.get(x))
+    m.keys().exclude(Set(k)).mapBy(x => m.get(x))
 
   /// Rebuild a map keeping only the keys that satisfy `keep`.
   pure def mapFilterKeys(m: a -> b, keep: a => bool): a -> b =
-  m.keys().filter(keep).mapBy(x => m.get(x))
+    m.keys().filter(keep).mapBy(x => m.get(x))
 
   /// Append `opt`'s element to `l` when present; leave `l` unchanged on `None`.
   pure def appendOption(l: List[a], opt: Option[a]): List[a] =
-  match opt {
-    | Some(e) => l.append(e)
-    | None => l
-  }
+    match opt {
+      | Some(e) => l.append(e)
+      | None => l
+    }
 
   /// `Option.map`: apply `f` to the wrapped value, or propagate `None`.
   pure def optionMap(opt: Option[a], f: a => b): Option[b] =
-  match opt {
-    | Some(e) => Some(f(e))
-    | None => None
-  }
+    match opt {
+      | Some(e) => Some(f(e))
+      | None => None
+    }
 
   /// `Option`'s value or a default when `None`.
   pure def optionGetOr(opt: Option[a], fallback: a): a =
-  match opt {
-    | Some(e) => e
-    | None => fallback
-  }
+    match opt {
+      | Some(e) => e
+      | None => fallback
+    }
 
   /// `Some(e)` -> singleton `{e}`; `None` -> empty set.
   pure def optionToSet(opt: Option[a]): Set[a] =
-  match opt {
-    | Some(e) => Set(e)
-    | None => Set()
-  }
+    match opt {
+      | Some(e) => Set(e)
+      | None => Set()
+    }
 
   // --- Abstract hash functions ---------------------------------------------
   //
