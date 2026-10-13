@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791815344790,
+  "lastUpdate": 1791899896840,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "802db0b998e522feab8eb3ff4505954bf9b6ac24",
-          "message": "[pallet-revive] Add vesting precompile (#11398)\n\n## Summary\n\nAdds a new built-in precompile (`pallet-revive-precompile-vesting`) that\nexposes Substrate's `pallet-vesting` to EVM contracts via pallet-revive.\nEVM contracts can call `vest()`, `vestOther(address)`,\n`vestingBalance()`, and `vestingBalanceOf(address)` at the precompile\naddress `0x0902`.\n\n## Changes\n\n- **`substrate/frame/revive/uapi/sol/IVesting.sol`**: New Solidity\ninterface defining the vesting precompile ABI\n- **`substrate/frame/revive/uapi/src/precompiles/vesting.rs`**: Binds\nthe Solidity interface via `alloy_core::sol!`\n- **`substrate/frame/revive/precompiles/`**: New crate implementing the\n`Precompile` trait — dispatches `vest`/`vestOther` through\n`pallet_vesting` and queries locked balances via `VestingSchedule`\n- **`substrate/frame/revive/src/tests.rs`**: Trailing comma fix in\n`construct_runtime!`\n\n## Test plan\n- [x] New vesting precompile tests pass (`vest`, `vestOther`,\n`vestingBalance`, `vestingBalanceOf`)\n- [x] Existing pallet-revive tests unaffected\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>",
-          "timestamp": "2026-04-02T13:39:00Z",
-          "tree_id": "181e94abc2aba15b35da9e0b87f7b7d5fc89002e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/802db0b998e522feab8eb3ff4505954bf9b6ac24"
-        },
-        "date": 1775142689797,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.098,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03832349872799998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08301442390399989,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.07851261838799989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "de8b01bbec123e4fadee1cf2ddb30f52620519bb",
+          "message": "cumulus: compute resubmittable segment in the parent search (#13355)\n\n# Description\n\nDuring the `find_parent` call we are able to find both the included head\nand pending availability head if it exists. They can be used as starting\npoint for a forward walk up to para best block, to determine the\nresubmittable segment (as headers).\n\n*NOTE*: at this point the resubmittable segment can contain multiple\nblocks of the same bundle. The following PRs in the stack will be able\nto compact the blocks of a bundle in a single collation though, before\nsubmitting a V4 segment.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12309\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-13T11:28:21Z",
+          "tree_id": "0c560d215ab0a56e4f684dfe89a7bc5cd949c978",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/de8b01bbec123e4fadee1cf2ddb30f52620519bb"
+        },
+        "date": 1791899863463,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.14400000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08906236508399991,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038886275292,
             "unit": "seconds"
           }
         ]
