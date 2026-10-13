@@ -49,12 +49,12 @@ use std::{
 	sync::Arc,
 	time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use tokio::time::Instant;
+use tokio::time::{Instant, MissedTickBehavior};
 
 const LOG_TARGET: &str = "price-oracle";
 /// Lower bound on the tick interval. A shorter interval configured in the runtime is raised to
 /// this value.
-const MIN_TICK_INTERVAL: Duration = Duration::from_millis(500);
+const MIN_TICK_INTERVAL: Duration = Duration::from_secs(1);
 /// Part of the tick interval reserved for aggregating and signing. Fetching stops this long
 /// before the tick interval elapses.
 const TICK_MARGIN: Duration = Duration::from_millis(200);
@@ -145,19 +145,16 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 	);
 	let mut incoming = gossip_engine.messages_for(gossip::topic::<Block>());
 
-	let mut interval = MIN_TICK_INTERVAL;
-	let mut next_tick = Instant::now();
+	let mut ticker = tokio::time::interval(MIN_TICK_INTERVAL);
+	ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 	let mut tick = futures::future::Fuse::terminated();
 	let mut api_missing_logged = false;
 
 	log::info!(target: LOG_TARGET, "Price oracle service started on {protocol_name}");
 	loop {
-		let timer = tokio::time::sleep_until(next_tick).fuse();
-		futures::pin_mut!(timer);
-		futures::select! {
-			_ = timer => {
+		tokio::select! {
+			ticked_at = ticker.tick() => {
 				// Start a tick, unless the previous one is still running or the node is syncing.
-				next_tick = Instant::now() + interval;
 				if !tick.is_terminated() {
 					log::warn!(target: LOG_TARGET, "Previous tick still running, skipping a tick");
 					continue;
@@ -180,17 +177,18 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				// Validate incoming reports against the signers and window of this block.
 				validator.set_acceptance(acceptance);
 				// Follow a changed tick interval from the next tick on.
-				if setup.interval() != interval {
-					interval = setup.interval();
-					log::info!(target: LOG_TARGET, "Tick interval is now {interval:?}");
-					next_tick = Instant::now() + interval;
+				if setup.interval() != ticker.period() {
+					let period = setup.interval();
+					log::info!(target: LOG_TARGET, "Tick interval is now {period:?}");
+					ticker = tokio::time::interval_at(ticked_at + period, period);
+					ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 				}
 				// Fetch, price, sign and pool in the background; the result arrives in the arm below.
 				tick = run_tick(client.clone(), fetcher.clone(), keystore.clone(), pool.clone(), setup)
 					.boxed()
 					.fuse();
 			},
-			encoded = &mut tick => {
+			encoded = &mut tick, if !tick.is_terminated() => {
 				// The tick finished: gossip the signed report, if it produced one.
 				if let Some(encoded) = encoded {
 					gossip_engine.gossip_message(gossip::topic::<Block>(), encoded, false);

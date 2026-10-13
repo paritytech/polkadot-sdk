@@ -38,7 +38,7 @@ sp-consensus = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-price-oracle = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-tokio = { features = ["time"], workspace = true, default-features = true }
+tokio = { features = ["macros", "time"], workspace = true, default-features = true }
 url = { workspace = true }
 
 [dev-dependencies]
