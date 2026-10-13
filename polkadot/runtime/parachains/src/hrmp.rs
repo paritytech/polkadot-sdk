@@ -532,14 +532,7 @@ pub mod pallet {
 				recipient,
 				proposed_max_capacity,
 				proposed_max_message_size,
-			)?;
-			Self::deposit_event(Event::OpenChannelRequested {
-				sender: origin,
-				recipient,
-				proposed_max_capacity,
-				proposed_max_message_size,
-			});
-			Ok(())
+			)
 		}
 
 		/// Accept a pending open channel request from the given sender.
@@ -549,9 +542,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::hrmp_accept_open_channel())]
 		pub fn hrmp_accept_open_channel(origin: OriginFor<T>, sender: ParaId) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
-			Self::accept_open_channel(origin, sender)?;
-			Self::deposit_event(Event::OpenChannelAccepted { sender, recipient: origin });
-			Ok(())
+			Self::accept_open_channel(origin, sender)
 		}
 
 		/// Initiate unilateral closing of a channel. The origin must be either the sender or the
@@ -789,26 +780,25 @@ pub mod pallet {
 			let config = configuration::ActiveConfig::<T>::get();
 			let (sender_deposit, recipient_deposit) = Self::required_deposits(&channel_id, &config);
 			// nothing to update
-			if (channel.sender_deposit, channel.recipient_deposit) !=
+			if (channel.sender_deposit, channel.recipient_deposit) ==
 				(sender_deposit, recipient_deposit)
 			{
-				Self::set_deposit(DepositChangeRequest {
-					channel_id,
-					sender: Some(DepositChange {
-						current: channel.sender_deposit,
-						target: sender_deposit,
-					}),
-					recipient: Some(DepositChange {
-						current: channel.recipient_deposit,
-						target: recipient_deposit,
-					}),
-					action: DepositAction::PokeChannelDeposits,
-				})?;
+				Self::deposit_event(Event::OpenChannelDepositsUpdated { sender, recipient });
+				return Ok(());
 			}
 
-			Self::deposit_event(Event::OpenChannelDepositsUpdated { sender, recipient });
-
-			Ok(())
+			Self::set_deposit(DepositChangeRequest {
+				channel_id,
+				sender: Some(DepositChange {
+					current: channel.sender_deposit,
+					target: sender_deposit,
+				}),
+				recipient: Some(DepositChange {
+					current: channel.recipient_deposit,
+					target: recipient_deposit,
+				}),
+				action: DepositAction::PokeChannelDeposits,
+			})
 		}
 
 		/// Establish a bidirectional HRMP channel between a parachain and a system chain.
@@ -969,12 +959,12 @@ impl<T: Config> Pallet<T> {
 			// deposit.
 			//
 			// We still want to refund the deposit only if the para is not being offboarded.
-			let mut recipient_deposit = None;
-			if req_data.confirmed {
-				recipient_deposit =
-					unless_offboarding(req_id.recipient, config.hrmp_recipient_deposit);
+			let recipient_deposit = if req_data.confirmed {
 				Self::decrease_accepted_channel_request_count(req_id.recipient);
-			}
+				unless_offboarding(req_id.recipient, config.hrmp_recipient_deposit)
+			} else {
+				None
+			};
 			Self::release_deposits(&req_id, sender_deposit, recipient_deposit);
 		}
 
@@ -1477,6 +1467,13 @@ impl<T: Config> Pallet<T> {
 				}])
 			}),
 		);
+
+		Self::deposit_event(Event::OpenChannelRequested {
+			sender,
+			recipient,
+			proposed_max_capacity: max_capacity,
+			proposed_max_message_size: max_message_size,
+		});
 		<T as Config>::WeightInfo::hrmp_init_open_channel()
 	}
 
@@ -1538,6 +1535,8 @@ impl<T: Config> Pallet<T> {
 				Xcm(vec![HrmpChannelAccepted { recipient: recipient.into() }])
 			}),
 		);
+
+		Self::deposit_event(Event::OpenChannelAccepted { sender, recipient });
 		weight
 	}
 
@@ -1547,21 +1546,22 @@ impl<T: Config> Pallet<T> {
 		sender: Option<DepositChange>,
 		recipient: Option<DepositChange>,
 	) -> Weight {
-		HrmpChannels::<T>::mutate(channel_id, |channel| {
-			let Some(channel) = channel else {
-				log::error!(
-					target: LOG_TARGET,
-					"poke of {channel_id:?} completed after it was closed"
-				);
-				return;
-			};
+		let updated = HrmpChannels::<T>::mutate(channel_id, |channel| {
+			let Some(channel) = channel else { return false };
 			if let Some(change) = sender {
 				channel.sender_deposit = change.target;
 			}
 			if let Some(change) = recipient {
 				channel.recipient_deposit = change.target;
 			}
+			true
 		});
+		if updated {
+			let HrmpChannelId { sender, recipient } = *channel_id;
+			Self::deposit_event(Event::OpenChannelDepositsUpdated { sender, recipient });
+		} else {
+			log::error!(target: LOG_TARGET, "poke of {channel_id:?} completed after it was closed");
+		}
 		<T as Config>::WeightInfo::poke_channel_deposits()
 	}
 

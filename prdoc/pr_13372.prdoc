@@ -10,6 +10,9 @@ doc:
     implements `ChannelDepositProvider` itself for deposits held in `Config::Currency`, so
     `type DepositProvider = Hrmp;` keeps the behaviour of today. Every runtime must now set it.
 
+    `OpenChannelRequested`, `OpenChannelAccepted` and `OpenChannelDepositsUpdated` are now emitted
+    once the call completes, so forced and system channel opens emit the first two as well.
+
     Prepares for taking deposits in `pallet-hrmp-para` on the Coretime chain (Asset Hub on Kusama).
 crates:
 - name: polkadot-runtime-parachains
