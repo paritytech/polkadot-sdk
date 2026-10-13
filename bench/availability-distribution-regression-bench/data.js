@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791903096622,
+  "lastUpdate": 1791929330593,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6324a6619b6b05945d96389b6f66eba913c4d64f",
-          "message": "fix: slot-based collator shuts down immediately after init (#11628)\n\nFix a regression introduced by #11381, where we wrapped the slot-based\ncollator launch in an async task that first calls `wait_for_aura`, then\nspawns the actual long-running collator tasks via `slot_based::run()`.\nThe wrapper was spawned with `spawn_essential_handle()`.\n\nEssential tasks shut down the node when they complete. The init wrapper\ncompletes immediately after spawning, the TaskManager sees an essential\ntask exit, and the node shuts down.\n\nThis only affects parachain collators started with\n`--authoring=slot-based`.\n\nFix: use `spawn_handle()` for the short-lived init wrapper. The child\ntasks inside `slot_based::run()` remain correctly marked as essential.\n\nAn easy way to reproduce (same setup used by staking-miner nightly test\n- which in fact started to fail after #11381 got merged e.g.\n[here](https://github.com/paritytech/polkadot-staking-miner/actions/runs/23928039324/job/69807526676)\n): spawn a Zombienet network with a 2-validator relay chain and a single\nslot-based parachain collator. The collator process starts but shuts\ndown immediately.\nFor example in your SDK repo:\n```\ncd substrate/frame/staking-async/runtimes/papi-tests\njust setup\njust run fake-dev \n```\nwhich launches zombienet spawning\n  - alice (relay validator, port 9944) — polkadot\n  - bob (relay validator, port 9945) — polkadot\n- charlie (parachain collator, port 9946) — polkadot-parachain\n--collator --authoring=slot-based\n\nPort 9946 never comes up.\n\nI have also verified that the fix coming from #11381 still works,\nrunning manually `./target/release/polkadot-parachain --chain\nasset-hub-polkadot --sync warp --authoring=slot-based --tmp -- --sync\nwarp`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T14:05:54Z",
-          "tree_id": "e34c6316fd57f85b7abcb7988131402e11478f35",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6324a6619b6b05945d96389b6f66eba913c4d64f"
-        },
-        "date": 1775230251760,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0071664483,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02373475936666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00961940874666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1478591585133334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1414152914133334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e8e1c1b5efc3189184214a5e55c617b5f9e8886c",
+          "message": "sp-keystore: MemoryKeystore signs only with a secret URI that derives the queried key (#13410)\n\nCloses #13142\n\n`MemoryKeystore::insert` stores any suri under any public key and\nreturns `Ok(())`. `pair()` then derived a key from the stored suri\nwithout checking it against the queried public, which caused two\nproblems:\n- After a mismatched insert, `sr25519_sign`, `sign_with` and the VRF\nmethods returned a signature from a different key, one that does not\nverify under the queried public.\n- After an unparseable suri, every lookup panicked on `expect(\"seed\nslice is valid\")`, including the typed `*_public_keys` listings.\n\nAs planned in the issue, the check happens at lookup time, the way\n`LocalKeystore` does it. `insert` only gets raw public bytes and doesn't\nknow the scheme, so it can't validate up front.\n- `pair()` parses the suri with `from_string(..).ok()` and returns\n`None` unless the derived public matches the queried one. Every sign,\nVRF and proof-of-possession method goes through it.\n- `public_keys` skips an unparseable suri, the same way it already skips\na mismatched one.\n\n`insert`, `keys` and `has_keys` are unchanged: they still report what\nwas stored, like `LocalKeystore`.\n\nThe sign methods return `Ok(None)` for such an entry, matching how\n`public_keys` already treats it as absent. `LocalKeystore` returns an\nerror instead (`PublicKeyMismatch` / `InvalidPhrase`). Happy to switch\nto an `Err` if that's preferred.\n\nTests:\n- `mismatched_secret_uri_signs_nothing`: sign, `sign_with`, VRF sign,\nVRF pre-output and listing, then the same suri under its own public\nstill signs and verifies.\n- `unparseable_secret_uri_does_not_panic`: sr25519, ed25519 and ecdsa\nsign, prehashed sign, VRF, `sign_with` and listings.\n\nEach test fails with its half of the fix reverted. `cargo test -p\nsp-keystore --lib`: 7 passed, and 12 with `--all-features`.\n\nRWF finding, same cluster as #13402.\n\n---------\n\nSigned-off-by: Abdulwaarith <abdulwaarithz@gmail.com>",
+          "timestamp": "2026-10-13T20:18:30Z",
+          "tree_id": "c09f9ebb2a9d0bb366c92ec5eb8502b4121e2968",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e8e1c1b5efc3189184214a5e55c617b5f9e8886c"
+        },
+        "date": 1791929296307,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025163906493333343,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0100298583333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.008182170439999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1425765513666667,
             "unit": "seconds"
           }
         ]
