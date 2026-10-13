@@ -1201,4 +1201,51 @@ mod tests {
 
 		assert_eq!(size_before, size_after);
 	}
+
+	#[test]
+	fn untouched_child_trie_is_not_re_estimated() {
+		let keys = (0..10000u32).map(|i| (i.encode(), vec![i; 100].encode()));
+		let child_info = ChildInfo::new_default(b"Child1");
+		let child_info = &child_info;
+
+		let backend: TestBackend = (
+			Storage {
+				top: keys.clone().collect(),
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: keys.collect(),
+						child_info: child_info.to_owned(),
+					}
+				],
+			},
+			StateVersion::default(),
+		)
+			.into();
+
+		let estimate_top_only_change = |overlay: &mut OverlayedChanges<Blake2Hasher>| {
+			let recorder = Recorder::<Blake2Hasher>::default();
+			let backend =
+				TrieBackendBuilder::wrap(&backend).with_recorder(recorder.clone()).build();
+			let mut ext = Ext::new(overlay, &backend, None);
+			ext.place_storage(5000u32.encode(), Some(vec![30]));
+			ext.record_proof_for_dirty_keys();
+			recorder.estimate_encoded_size()
+		};
+
+		let mut overlay_with_estimated_child = OverlayedChanges::default();
+		{
+			let backend =
+				TrieBackendBuilder::wrap(&backend).with_recorder(Recorder::default()).build();
+			let mut ext = Ext::new(&mut overlay_with_estimated_child, &backend, None);
+			ext.place_child_storage(child_info, 5000u32.encode(), Some(vec![30]));
+			ext.record_proof_for_dirty_keys();
+		}
+
+		// The child was already estimated and is untouched since, so it must not add any
+		// trie nodes to the proof of a later estimation.
+		assert_eq!(
+			estimate_top_only_change(&mut overlay_with_estimated_child),
+			estimate_top_only_change(&mut OverlayedChanges::default()),
+		);
+	}
 }
