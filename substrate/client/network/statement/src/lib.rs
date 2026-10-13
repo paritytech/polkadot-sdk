@@ -523,6 +523,8 @@ impl Metrics {
 pub struct StatementHandlerPrototype {
 	protocol_name: ProtocolName,
 	notification_service: Box<dyn NotificationService>,
+	/// Inbound slots for full peers, [`V2DhtConfig::in_peers`].
+	in_peers_full: u32,
 	/// Inbound slots for light peers, the node's `--in-peers-light`.
 	in_peers_light: u32,
 }
@@ -539,6 +541,7 @@ impl StatementHandlerPrototype {
 		metrics: NotificationMetrics,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
 		network_config: &NetworkConfiguration,
+		v2dht_config: Option<&V2DhtConfig>,
 	) -> (Self, Net::NotificationProtocolConfig) {
 		let genesis_hash = genesis_hash.as_ref();
 		let hex = array_bytes::bytes2hex("", genesis_hash);
@@ -555,14 +558,15 @@ impl StatementHandlerPrototype {
 		let default_set = &network_config.default_peers_set;
 		let in_peers_light = (default_set.in_peers + default_set.out_peers)
 			.saturating_sub(network_config.default_peers_set_num_full);
+		let in_peers_full = v2dht_config.map_or(DEFAULT_IN_PEERS, |config| config.in_peers);
 		// The v2 DHT path reserves only the peers that steering picks, every other peer holds an
 		// inbound slot. The v1 path manages its peers exclusively through the reserved set:
 		// it must keep non-reserved slots closed, or sync recovery's forced disconnect stops
 		// disconnecting.
 		let set_config = if v2dht_enabled() {
 			SetConfig {
-				in_peers: V2_DHT_IN_PEERS_FULL + in_peers_light,
-				out_peers: V2_DHT_OUT_PEERS,
+				in_peers: in_peers_full + in_peers_light,
+				out_peers: DEFAULT_OUT_PEERS,
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Accept,
 			}
@@ -584,7 +588,15 @@ impl StatementHandlerPrototype {
 			peer_store_handle,
 		);
 
-		(Self { protocol_name: protocol_name.into(), notification_service, in_peers_light }, config)
+		(
+			Self {
+				protocol_name: protocol_name.into(),
+				notification_service,
+				in_peers_full,
+				in_peers_light,
+			},
+			config,
+		)
 	}
 
 	/// Turns the prototype into the actual handler.
@@ -741,6 +753,7 @@ impl StatementHandlerPrototype {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: self.in_peers_full,
 			in_peers_light: self.in_peers_light,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -828,7 +841,9 @@ pub struct StatementHandler<
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set
 	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
-	/// Inbound slots for light peers, next to [`V2_DHT_IN_PEERS_FULL`] for full peers.
+	/// Inbound slots for full peers.
+	in_peers_full: u32,
+	/// Inbound slots for light peers.
 	in_peers_light: u32,
 	/// Set to `true` when an incoming statement is dropped because `is_major_syncing()` is true
 	/// and only a reconnect can recover it: any peer without the v2 DHT path, a v1 peer with it
@@ -1250,6 +1265,7 @@ where
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -1571,7 +1587,7 @@ where
 			.iter()
 			.filter(|(id, p)| p.inbound && p.is_light == is_light && !self.v2dht.is_reserved(id))
 			.count();
-		let limit = if is_light { self.in_peers_light } else { V2_DHT_IN_PEERS_FULL } as usize;
+		let limit = if is_light { self.in_peers_light } else { self.in_peers_full } as usize;
 		if taken >= limit {
 			log::debug!(
 				target: LOG_TARGET,
@@ -3452,6 +3468,7 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -4399,6 +4416,7 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -4466,6 +4484,7 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -6755,6 +6774,7 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -7260,6 +7280,7 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -7309,7 +7330,7 @@ mod tests {
 	#[test]
 	fn inbound_slots_are_split_by_role() {
 		let (mut handler, _store, _network, _notification_service, _, peer_ids) =
-			build_handler(V2_DHT_IN_PEERS_FULL as usize);
+			build_handler(DEFAULT_IN_PEERS as usize);
 		handler.in_peers_light = 1;
 		let candidate = PeerId::random();
 
@@ -7396,6 +7417,7 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: deferred,
+			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -7493,6 +7515,7 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: true,
 			sync_recovery_peer: None,
@@ -7614,6 +7637,7 @@ mod tests {
 					parked_propagations: VecDeque::new(),
 					pending_sends: FuturesUnordered::new(),
 					deferred_peers: HashSet::new(),
+					in_peers_full: DEFAULT_IN_PEERS,
 					in_peers_light: 0,
 					dropped_statements_during_sync: dropped,
 					sync_recovery_peer: None,

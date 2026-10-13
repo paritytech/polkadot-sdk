@@ -5,8 +5,13 @@ doc:
     With the v2 DHT path on, the statement set reserves only the peers that steering picks, every
     other peer holds an inbound slot and the protocol controller dials no peer of its own. The set
     gets the node's light allowance on top of its inbound slots and the handler splits them by
-    role, so a light peer is admitted while the full slots are taken.
-    `StatementHandlerPrototype::new` takes the network configuration as a new argument.
+    role, so a light peer is admitted while the full slots are taken. The full slots come from the
+    new `--statement-in-peers` flag, 50 by default. `StatementHandlerPrototype::new` takes the
+    network configuration and the v2 DHT configuration as new arguments.
 crates:
 - name: sc-network-statement
   bump: major
+- name: sc-statement-store
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: minor
