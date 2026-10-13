@@ -41,8 +41,12 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_runtime::{traits::OpaqueKeys, KeyTypeId, RuntimeAppPublic};
+use sp_core::ByteArray;
+pub use sp_runtime;
+use sp_runtime::{
+	traits::{Member, OpaqueKeys},
+	RuntimeAppPublic,
+};
 
 const LOG_TARGET: &str = "runtime::ad_migration";
 
@@ -51,52 +55,67 @@ const LOG_TARGET: &str = "runtime::ad_migration";
 /// Used to build the [`MigrationId`] the framework records once the migration completes.
 const MIGRATION_ID: &[u8; 16] = b"para_cmn_add_adi";
 
-/// `SessionKeys` layout before `pallet-authority-discovery` was added.
-#[derive(Clone, Eq, PartialEq, Debug, Decode)]
-struct OldSessionKeys {
-	pub aura: AuraId,
-}
+pub trait KeysTranslatorT {
+	type AuraId: Encode + Decode + Clone + AsRef<[u8]> + ByteArray + RuntimeAppPublic;
+	type OldSessionKeys: Decode + Member + OpaqueKeys;
+	type NewSessionKeys: 'static + codec::FullCodec + OpaqueKeys;
 
-impl OpaqueKeys for OldSessionKeys {
-	type KeyTypeIdProviders = (AuraId,);
+	fn aura(old: &Self::OldSessionKeys) -> &Self::AuraId;
 
-	fn key_ids() -> &'static [KeyTypeId] {
-		&[<AuraId as RuntimeAppPublic>::ID]
+	fn gen_authority_discovery(aura: &Self::AuraId) -> AuthorityDiscoveryId {
+		let hash = sp_io::hashing::blake2_256(aura.as_slice());
+		sp_core::sr25519::Public::from_raw(hash).into()
 	}
 
-	fn get_raw(&self, i: KeyTypeId) -> &[u8] {
-		if i == <AuraId as RuntimeAppPublic>::ID {
-			self.aura.as_ref()
-		} else {
-			&[]
+	fn do_translate(
+		old: Self::OldSessionKeys,
+		authority_discovery: AuthorityDiscoveryId,
+	) -> Self::NewSessionKeys;
+
+	fn translate(old: Self::OldSessionKeys) -> Self::NewSessionKeys {
+		let aura = Self::aura(&old);
+		let authority_discovery = Self::gen_authority_discovery(&aura);
+		Self::do_translate(old, authority_discovery)
+	}
+}
+
+#[macro_export]
+macro_rules! impl_keys_translator {
+	($session_keys: ident, $aura_id: ident, $authority_discovery_id: ident) => {
+		$crate::ad_migration::sp_runtime::impl_opaque_keys! {
+			pub struct OldSessionKeys {
+				pub aura: $aura_id,
+			}
 		}
-	}
 
-	fn ownership_proof_is_valid(&self, _owner: &[u8], _proof: &[u8]) -> bool {
-		// `pallet_session::Pallet::upgrade_keys` never calls this on the `Old` type.
-		false
-	}
-}
+		pub struct KeysTranslator;
 
-/// Per-validator placeholder authority-discovery key.
-fn placeholder_audi(aura: &AuraId) -> AuthorityDiscoveryId {
-	let aura_raw: [u8; 32] = sp_core::sr25519::Public::from(aura.clone()).0;
-	let hash = sp_io::hashing::blake2_256(&aura_raw);
-	sp_core::sr25519::Public::from_raw(hash).into()
-}
+		impl $crate::ad_migration::KeysTranslatorT for KeysTranslator {
+			type AuraId = $aura_id;
+			type OldSessionKeys = OldSessionKeys;
+			type NewSessionKeys = $session_keys;
 
-/// `true` iff `R::Keys` exposes exactly `[aura, authority_discovery]`.
-fn layout_matches<R: pallet_session::Config>() -> bool {
-	<<R as pallet_session::Config>::Keys as OpaqueKeys>::key_ids() ==
-		[<AuraId as RuntimeAppPublic>::ID, <AuthorityDiscoveryId as RuntimeAppPublic>::ID]
+			fn aura(old: &Self::OldSessionKeys) -> &Self::AuraId {
+				&old.aura
+			}
+
+			fn do_translate(
+				old: Self::OldSessionKeys,
+				authority_discovery: $authority_discovery_id,
+			) -> Self::NewSessionKeys {
+				Self::NewSessionKeys { aura: old.aura, authority_discovery }
+			}
+		}
+	};
 }
 
 /// Extend `pallet_session` session-key records with an authority-discovery placeholder.
-pub struct AppendAuthorityDiscoveryKeys<R>(PhantomData<R>);
+pub struct AppendAuthorityDiscoveryKeys<R, Translator>(PhantomData<(R, Translator)>);
 
-impl<R> SteppedMigration for AppendAuthorityDiscoveryKeys<R>
+impl<R, Translator> SteppedMigration for AppendAuthorityDiscoveryKeys<R, Translator>
 where
-	R: pallet_session::Config,
+	R: pallet_session::Config<Keys = Translator::NewSessionKeys>,
+	Translator: KeysTranslatorT,
 {
 	// Single step, no progress state to carry between steps.
 	type Cursor = ();
@@ -118,16 +137,6 @@ where
 			return Ok(None);
 		}
 
-		// Refuse to touch storage unless `R::Keys` exposes exactly `[aura, authority_discovery]`.
-		if !layout_matches::<R>() {
-			log::error!(
-				target: LOG_TARGET,
-				"AppendAuthorityDiscoveryKeys: R::Keys::key_ids() != [aura, authority_discovery]; \
-				 aborting without touching storage",
-			);
-			return Err(SteppedMigrationError::Failed);
-		}
-
 		// Compute the worst-case weight before doing any work, then charge the meter. `decode_len`
 		// reads only the length-prefix of `Validators`, not the whole vector.
 		let db = <R as frame_system::Config>::DbWeight::get();
@@ -138,25 +147,21 @@ where
 		//   - 2 writes          : KeyOwner insert (new aura + new audi)
 		// Plus constant ops: QueuedKeys translate (1R + 1W) and the Validators length read (1R).
 		// Total: (n × 1 + 2) reads, (n × 4 + 1) writes.
-		let weight = db.reads_writes(
-			n.saturating_mul(1).saturating_add(2),
-			n.saturating_mul(4).saturating_add(1),
-		);
+		let weight = db.reads_writes(n.saturating_add(2), n.saturating_mul(4).saturating_add(1));
 		meter
 			.try_consume(weight)
 			.map_err(|_| SteppedMigrationError::InsufficientWeight { required: weight })?;
 
-		pallet_session::Pallet::<R>::upgrade_keys::<OldSessionKeys, _>(|collator, old| {
-			log::info!(
-				target: LOG_TARGET,
-				"Collator {:?}: authority-discovery placeholder installed; rotate to activate",
-				collator,
-			);
-			let audi = placeholder_audi(&old.aura);
-			let bytes = (old.aura, audi).encode();
-			<R as pallet_session::Config>::Keys::decode(&mut &bytes[..])
-				.expect("R::Keys::key_ids() verified above; qed")
-		});
+		pallet_session::Pallet::<R>::upgrade_keys::<Translator::OldSessionKeys, _>(
+			|collator, old| {
+				log::info!(
+					target: LOG_TARGET,
+					"Collator {:?}: authority-discovery placeholder installed; rotate to activate",
+					collator,
+				);
+				Translator::translate(old)
+			},
+		);
 
 		log::info!(
 			target: LOG_TARGET,
@@ -170,20 +175,14 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		if !layout_matches::<R>() {
-			return Err(sp_runtime::TryRuntimeError::Other(
-				"pre_upgrade: R::Keys::key_ids() != [aura, authority_discovery]",
-			));
-		}
-
 		// Snapshot the pre-migration NextKeys, decoding the existing values with the same
 		// `OldSessionKeys` type that `upgrade_keys` consumes.
-		let next_keys_state: Vec<(<R as pallet_session::Config>::ValidatorId, AuraId)> =
+		let next_keys_state: Vec<(<R as pallet_session::Config>::ValidatorId, Translator::AuraId)> =
 			pallet_session::NextKeys::<R>::iter_keys()
 				.filter_map(|id| {
 					let key = pallet_session::NextKeys::<R>::hashed_key_for(&id);
-					frame_support::storage::unhashed::get::<OldSessionKeys>(&key)
-						.map(|old| (id, old.aura))
+					frame_support::storage::unhashed::get::<Translator::OldSessionKeys>(&key)
+						.map(|old| (id, Translator::aura(&old).clone()))
 				})
 				.collect();
 
@@ -198,7 +197,7 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		let pre_next_keys: Vec<(<R as pallet_session::Config>::ValidatorId, AuraId)> =
+		let pre_next_keys: Vec<(<R as pallet_session::Config>::ValidatorId, Translator::AuraId)> =
 			DecodeAll::decode_all(&mut &state[..]).map_err(|_| {
 				sp_runtime::TryRuntimeError::Other("post_upgrade: invalid state encoding")
 			})?;
@@ -206,20 +205,20 @@ where
 		// Every ValidatorId from pre-upgrade must still have a NextKeys entry that
 		// preserves the original aura key and carries the hashed `placeholder_audi`.
 		for (id, aura) in &pre_next_keys {
-			let keys = pallet_session::NextKeys::<R>::get(id).ok_or(
+			let next_keys = pallet_session::NextKeys::<R>::get(id).ok_or(
 				sp_runtime::TryRuntimeError::Other(
 					"post_upgrade: NextKeys entry missing after migration",
 				),
 			)?;
-			let aura_bytes: &[u8] = aura.as_ref();
-			if keys.get_raw(<AuraId as RuntimeAppPublic>::ID) != aura_bytes {
+			if next_keys.get_raw(Translator::AuraId::ID) != aura.as_slice() {
 				return Err(sp_runtime::TryRuntimeError::Other(
 					"post_upgrade: aura key not preserved by migration",
 				));
 			}
-			let expected_audi = placeholder_audi(aura);
-			let expected_audi_bytes: &[u8] = expected_audi.as_ref();
-			if keys.get_raw(<AuthorityDiscoveryId as RuntimeAppPublic>::ID) != expected_audi_bytes {
+			let expected_authority_discovery = Translator::gen_authority_discovery(&aura);
+			if next_keys.get_raw(AuthorityDiscoveryId::ID) !=
+				expected_authority_discovery.as_slice()
+			{
 				return Err(sp_runtime::TryRuntimeError::Other(
 					"post_upgrade: authority-discovery does not match the expected placeholder",
 				));
@@ -235,7 +234,15 @@ where
 mod tests {
 	use super::*;
 	use frame_support::{derive_impl, parameter_types};
-	use sp_runtime::BuildStorage;
+	use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+	use sp_runtime::{BuildStorage, KeyTypeId};
+
+	fn new_test_ext<Runtime: frame_system::Config>() -> sp_io::TestExternalities {
+		frame_system::GenesisConfig::<Runtime>::default()
+			.build_storage()
+			.unwrap()
+			.into()
+	}
 
 	pub type AccountId = u64;
 
@@ -260,6 +267,8 @@ mod tests {
 		}
 	}
 
+	impl_keys_translator!(MockSessionKeys, AuraId, AuthorityDiscoveryId);
+
 	frame_support::construct_runtime!(
 		pub enum Test {
 			System: frame_system,
@@ -282,8 +291,7 @@ mod tests {
 
 	pub struct TestSessionHandler;
 	impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
-		const KEY_TYPE_IDS: &'static [KeyTypeId] =
-			&[<AuraId as RuntimeAppPublic>::ID, <AuthorityDiscoveryId as RuntimeAppPublic>::ID];
+		const KEY_TYPE_IDS: &'static [KeyTypeId] = &[AuraId::ID, AuthorityDiscoveryId::ID];
 		fn on_genesis_session<K: OpaqueKeys>(_: &[(AccountId, K)]) {}
 		fn on_new_session<K: OpaqueKeys>(_: bool, _: &[(AccountId, K)], _: &[(AccountId, K)]) {}
 		fn on_disabled(_: u32) {}
@@ -302,10 +310,6 @@ mod tests {
 		type WeightInfo = ();
 		type Currency = Balances;
 		type KeyDeposit = ();
-	}
-
-	fn new_test_ext() -> sp_io::TestExternalities {
-		frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 	}
 
 	fn aura_key(v: AccountId) -> AuraId {
@@ -332,23 +336,26 @@ mod tests {
 	}
 
 	/// Drive the single-step migration. Asserts it completes in one step (`Ok(None)`), and when
-	/// `try-runtime` is enabled also exercises the `pre_upgrade` → `step` → `post_upgrade` hooks
-	/// the multi-block migration framework runs in CI.
+	/// `try-runtime` is enabled also exercises the `pre_upgrade` → `step` → `post_upgrade`
+	/// hooks the multi-block migration framework runs in CI.
 	fn run_migration() {
 		#[cfg(feature = "try-runtime")]
-		let state = AppendAuthorityDiscoveryKeys::<Test>::pre_upgrade().unwrap();
+		let state = AppendAuthorityDiscoveryKeys::<Test, KeysTranslator>::pre_upgrade().unwrap();
 
-		let cursor =
-			AppendAuthorityDiscoveryKeys::<Test>::step(None, &mut WeightMeter::new()).unwrap();
+		let cursor = AppendAuthorityDiscoveryKeys::<Test, KeysTranslator>::step(
+			None,
+			&mut WeightMeter::new(),
+		)
+		.unwrap();
 		assert_eq!(cursor, None, "single-step migration must complete in one step");
 
 		#[cfg(feature = "try-runtime")]
-		AppendAuthorityDiscoveryKeys::<Test>::post_upgrade(state).unwrap();
+		AppendAuthorityDiscoveryKeys::<Test, KeysTranslator>::post_upgrade(state).unwrap();
 	}
 
 	#[test]
 	fn appends_placeholder_audi_keys() {
-		new_test_ext().execute_with(|| {
+		new_test_ext::<Test>().execute_with(|| {
 			let validators = [1, 2, 3];
 			seed_old_layout(&validators);
 
@@ -356,9 +363,10 @@ mod tests {
 
 			for v in validators {
 				let keys = pallet_session::NextKeys::<Test>::get(v).expect("entry must remain");
-				let expected_audi = placeholder_audi(&aura_key(v));
+				let expected_authority_discovery =
+					KeysTranslator::gen_authority_discovery(&aura_key(v));
 				assert_eq!(keys.aura, aura_key(v));
-				assert_eq!(keys.authority_discovery, expected_audi);
+				assert_eq!(keys.authority_discovery, expected_authority_discovery);
 				assert_eq!(
 					pallet_session::KeyOwner::<Test>::get((
 						<AuraId as RuntimeAppPublic>::ID,
@@ -371,7 +379,7 @@ mod tests {
 				assert_eq!(
 					pallet_session::KeyOwner::<Test>::get((
 						<AuthorityDiscoveryId as RuntimeAppPublic>::ID,
-						expected_audi.encode(),
+						expected_authority_discovery.encode(),
 					)),
 					Some(v),
 				);
@@ -381,110 +389,36 @@ mod tests {
 			assert_eq!(queued.len(), validators.len());
 			for (v, keys) in &queued {
 				assert_eq!(keys.aura, aura_key(*v));
-				assert_eq!(keys.authority_discovery, placeholder_audi(&aura_key(*v)));
+				assert_eq!(
+					keys.authority_discovery,
+					KeysTranslator::gen_authority_discovery(&aura_key(*v))
+				);
 			}
 		});
 	}
 
 	#[test]
 	fn completes_in_a_single_step() {
-		new_test_ext().execute_with(|| {
+		new_test_ext::<Test>().execute_with(|| {
 			let validators = [1, 2];
 			seed_old_layout(&validators);
 
 			// The first (and only) step signals completion by returning a `None` cursor; the
 			// framework then records the migration as done and never calls it again.
-			let cursor =
-				AppendAuthorityDiscoveryKeys::<Test>::step(None, &mut WeightMeter::new()).unwrap();
+			let cursor = AppendAuthorityDiscoveryKeys::<Test, KeysTranslator>::step(
+				None,
+				&mut WeightMeter::new(),
+			)
+			.unwrap();
 			assert_eq!(cursor, None);
 		});
 	}
 
 	#[test]
 	fn works_with_empty_session_storage() {
-		new_test_ext().execute_with(|| {
+		new_test_ext::<Test>().execute_with(|| {
 			run_migration();
 			assert!(pallet_session::Validators::<Test>::get().is_empty());
 		});
-	}
-
-	/// Second mock runtime with a `SessionKeys` layout the migration must reject:
-	/// fields swapped to `{authority_discovery, aura}`. Exercises the `layout_matches`
-	/// guard's abort-without-touching-storage path.
-	mod wrong_layout {
-		use super::{super::*, IdentityValidator, Offset, Period};
-		use frame_support::derive_impl;
-		use sp_runtime::BuildStorage;
-
-		type AccountId = super::AccountId;
-		type Block = frame_system::mocking::MockBlock<Test>;
-
-		sp_runtime::impl_opaque_keys! {
-			pub struct WrongSessionKeys {
-				pub authority_discovery: AuthorityDiscoveryId,
-				pub aura: AuraId,
-			}
-		}
-
-		frame_support::construct_runtime!(
-			pub enum Test {
-				System: frame_system,
-				Balances: pallet_balances,
-				Session: pallet_session,
-			}
-		);
-
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-		impl frame_system::Config for Test {
-			type Block = Block;
-			type AccountData = pallet_balances::AccountData<u64>;
-			type DbWeight = frame_support::weights::constants::RocksDbWeight;
-		}
-
-		#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
-		impl pallet_balances::Config for Test {
-			type AccountStore = System;
-		}
-
-		// KEY_TYPE_IDS is reversed compared to the outer TestSessionHandler; keep local.
-		pub struct TestSessionHandler;
-		impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
-			const KEY_TYPE_IDS: &'static [KeyTypeId] =
-				&[<AuthorityDiscoveryId as RuntimeAppPublic>::ID, <AuraId as RuntimeAppPublic>::ID];
-			fn on_genesis_session<K: OpaqueKeys>(_: &[(AccountId, K)]) {}
-			fn on_new_session<K: OpaqueKeys>(_: bool, _: &[(AccountId, K)], _: &[(AccountId, K)]) {}
-			fn on_disabled(_: u32) {}
-		}
-
-		impl pallet_session::Config for Test {
-			type RuntimeEvent = RuntimeEvent;
-			type ValidatorId = AccountId;
-			type ValidatorIdOf = IdentityValidator;
-			type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-			type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
-			type SessionManager = ();
-			type SessionHandler = TestSessionHandler;
-			type Keys = WrongSessionKeys;
-			type DisablingStrategy = ();
-			type WeightInfo = ();
-			type Currency = Balances;
-			type KeyDeposit = ();
-		}
-
-		fn new_test_ext() -> sp_io::TestExternalities {
-			frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
-		}
-
-		#[test]
-		fn aborts_without_touching_storage() {
-			new_test_ext().execute_with(|| {
-				let mut meter = WeightMeter::new();
-				let result = AppendAuthorityDiscoveryKeys::<Test>::step(None, &mut meter);
-				assert_eq!(result, Err(SteppedMigrationError::Failed));
-				// Aborted before charging the meter or writing anything.
-				assert_eq!(meter.consumed(), frame_support::weights::Weight::zero());
-				assert!(pallet_session::QueuedKeys::<Test>::get().is_empty());
-			});
-		}
 	}
 }

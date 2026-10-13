@@ -94,6 +94,40 @@ impl_opaque_keys! {
 	}
 }
 
+#[cfg(not(feature = "runtime-benchmarks"))]
+mod ad_migration {
+	use super::*;
+	pub use parachains_common::ad_migration::*;
+	use parachains_common::impl_keys_translator;
+
+	impl_keys_translator!(SessionKeys, AuraId, AuthorityDiscoveryId);
+
+	// impl_opaque_keys! {
+	// 	pub struct OldSessionKeys {
+	// 		pub aura: Aura,
+	// 	}
+	// }
+	//
+	// pub struct KeysTranslator;
+	//
+	// impl KeysTranslatorT for KeysTranslator {
+	// 	type AuraId = AuraId;
+	// 	type OldSessionKeys = OldSessionKeys;
+	// 	type NewSessionKeys = SessionKeys;
+	//
+	// 	fn aura(old: &Self::OldSessionKeys) -> &Self::AuraId {
+	// 		&old.aura
+	// 	}
+	//
+	// 	fn do_translate(
+	// 		old: Self::OldSessionKeys,
+	// 		authority_discovery: AuthorityDiscoveryId,
+	// 	) -> SessionKeys {
+	// 		SessionKeys { aura: old.aura, authority_discovery }
+	// 	}
+	// }
+}
+
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (RemoveCollectiveFlip,);
 
@@ -454,7 +488,8 @@ impl pallet_authority_discovery::Config for Runtime {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = (parachains_common::ad_migration::AppendAuthorityDiscoveryKeys<Runtime>,);
+	type Migrations =
+		(ad_migration::AppendAuthorityDiscoveryKeys<Runtime, ad_migration::KeysTranslator>,);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;

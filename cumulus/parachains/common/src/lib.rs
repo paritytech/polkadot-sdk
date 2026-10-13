@@ -16,6 +16,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+extern crate core;
 
 pub mod ad_migration;
 #[cfg(feature = "runtime-benchmarks")]

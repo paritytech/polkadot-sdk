@@ -160,6 +160,15 @@ impl_opaque_keys! {
 	}
 }
 
+#[cfg(not(feature = "runtime-benchmarks"))]
+mod ad_migration {
+	use super::*;
+	pub use parachains_common::ad_migration::*;
+	use parachains_common::impl_keys_translator;
+
+	impl_keys_translator!(SessionKeys, AuraId, AuthorityDiscoveryId);
+}
+
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// Note: "westmint" is the legacy name for this chain. It has been renamed to
@@ -1517,7 +1526,7 @@ impl pallet_migrations::Config for Runtime {
 			weights::pallet_assets_precompiles::WeightInfo<Runtime>,
 		>,
 		pallet_revive::migrations::v3::Migration<Runtime>,
-		parachains_common::ad_migration::AppendAuthorityDiscoveryKeys<Runtime>,
+		ad_migration::AppendAuthorityDiscoveryKeys<Runtime, ad_migration::KeysTranslator>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
