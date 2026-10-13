@@ -19,40 +19,28 @@
 //! Epoch ticker driving a wasmtime engine compiled with epoch interruption.
 
 use sc_executor_common::error::WasmError;
-use std::{
-	sync::mpsc::{self, RecvTimeoutError},
-	time::Duration,
-};
+use std::time::Duration;
 use wasmtime::Engine;
 
-/// Interval at which an [`EpochTicker`] increments the epoch of its engine.
+/// Interval at which the ticker thread increments the epoch of its engine.
 const EPOCH_TICK: Duration = Duration::from_millis(100);
 
-/// Increments the epoch of a single engine every [`EPOCH_TICK`] from a dedicated thread.
+/// Spawn a thread incrementing the epoch of `engine` every [`EPOCH_TICK`].
 ///
-/// The thread terminates when the ticker is dropped.
-pub(crate) struct EpochTicker {
-	_stop: mpsc::Sender<()>,
-}
+/// The thread holds only a weak reference and terminates once the engine is dropped.
+pub(crate) fn spawn_ticker(engine: &Engine) -> std::result::Result<(), WasmError> {
+	let engine = engine.weak();
 
-impl EpochTicker {
-	/// Spawn a ticker thread for `engine`.
-	pub(crate) fn new(engine: Engine) -> std::result::Result<Self, WasmError> {
-		let (stop, stopped) = mpsc::channel::<()>();
+	std::thread::Builder::new()
+		.name("wasm-epoch-ticker".into())
+		.spawn(move || loop {
+			std::thread::sleep(EPOCH_TICK);
+			let Some(engine) = engine.upgrade() else { break };
+			engine.increment_epoch();
+		})
+		.map_err(|e| WasmError::Other(format!("cannot spawn the wasm-epoch-ticker thread: {e}")))?;
 
-		std::thread::Builder::new()
-			.name("wasm-epoch-ticker".into())
-			.spawn(move || {
-				while let Err(RecvTimeoutError::Timeout) = stopped.recv_timeout(EPOCH_TICK) {
-					engine.increment_epoch();
-				}
-			})
-			.map_err(|e| {
-				WasmError::Other(format!("cannot spawn the wasm-epoch-ticker thread: {e}"))
-			})?;
-
-		Ok(Self { _stop: stop })
-	}
+	Ok(())
 }
 
 /// Largest usable epoch deadline, effectively unbounded. `Store::set_epoch_deadline` adds the

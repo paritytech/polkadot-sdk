@@ -19,7 +19,7 @@
 //! Defines the compiled Wasm runtime that uses Wasmtime internally.
 
 use crate::{
-	epoch::{self, EpochTicker},
+	epoch,
 	host::HostState,
 	instance_wrapper::{EntryPoint, InstanceWrapper, MemoryWrapper},
 	util::{self, replace_strategy_if_broken},
@@ -149,8 +149,8 @@ pub struct WasmtimeRuntime {
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instantiation_strategy: InternalInstantiationStrategy,
 	instance_counter: Arc<InstanceCounter>,
-	/// Present iff the module was compiled with [`Semantics::epoch_interruption`].
-	epoch_ticker: Option<Arc<EpochTicker>>,
+	/// Whether the module was compiled with [`Semantics::epoch_interruption`].
+	epoch_interruption: bool,
 }
 
 impl WasmModule for WasmtimeRuntime {
@@ -167,7 +167,7 @@ impl WasmModule for WasmtimeRuntime {
 			}),
 		};
 
-		Ok(Box::new(WasmtimeInstance { strategy, epoch_ticker: self.epoch_ticker.clone() }))
+		Ok(Box::new(WasmtimeInstance { strategy, epoch_interruption: self.epoch_interruption }))
 	}
 }
 
@@ -175,9 +175,8 @@ impl WasmModule for WasmtimeRuntime {
 /// to execute the compiled code.
 pub struct WasmtimeInstance {
 	strategy: Strategy,
-	/// Keeps the epoch advancing for as long as this instance lives. `None` if the module was
-	/// compiled without epoch interruption.
-	epoch_ticker: Option<Arc<EpochTicker>>,
+	/// Whether the module was compiled with [`Semantics::epoch_interruption`].
+	epoch_interruption: bool,
 }
 
 impl WasmtimeInstance {
@@ -188,12 +187,12 @@ impl WasmtimeInstance {
 		timeout: Option<Duration>,
 		allocation_stats: &mut Option<AllocationStats>,
 	) -> Result<Vec<u8>> {
-		let epoch_deadline = match (&self.epoch_ticker, timeout) {
-			(Some(_), Some(timeout)) => Some(epoch::deadline_ticks(timeout)),
+		let epoch_deadline = match (self.epoch_interruption, timeout) {
+			(true, Some(timeout)) => Some(epoch::deadline_ticks(timeout)),
 			// An epoch-interruptible store traps immediately unless a deadline is set.
-			(Some(_), None) => Some(epoch::MAX_DEADLINE_TICKS),
-			(None, Some(_)) => return Err(Error::ExecutionTimeoutUnsupported),
-			(None, None) => None,
+			(true, None) => Some(epoch::MAX_DEADLINE_TICKS),
+			(false, Some(_)) => return Err(Error::ExecutionTimeoutUnsupported),
+			(false, None) => None,
 		};
 
 		match &mut self.strategy {
@@ -671,18 +670,17 @@ where
 		.instantiate_pre(&module)
 		.map_err(|e| WasmError::Other(format!("cannot preinstantiate module: {:#}", e)))?;
 
-	let epoch_ticker = config
-		.semantics
-		.epoch_interruption
-		.then(|| EpochTicker::new(engine.clone()).map(Arc::new))
-		.transpose()?;
+	let epoch_interruption = config.semantics.epoch_interruption;
+	if epoch_interruption {
+		epoch::spawn_ticker(&engine)?;
+	}
 
 	Ok(WasmtimeRuntime {
 		engine,
 		instance_pre: Arc::new(instance_pre),
 		instantiation_strategy,
 		instance_counter: Default::default(),
-		epoch_ticker,
+		epoch_interruption,
 	})
 }
 
