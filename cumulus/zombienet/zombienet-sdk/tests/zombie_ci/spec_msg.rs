@@ -31,6 +31,7 @@ use zombienet_sdk::{
 		config::substrate::DigestItem,
 		dynamic::Value,
 		ext::scale_value::{At, Primitive, ValueDef},
+		tx::TxStatus,
 		utils::H256,
 		OnlineClient, PolkadotConfig,
 	},
@@ -63,13 +64,10 @@ async fn spec_msg_delivers_xcm_without_hrmp() -> Result<(), anyhow::Error> {
 	let receiver: OnlineClient<PolkadotConfig> =
 		network.get_node(RECEIVER_COLLATOR)?.wait_client().await?;
 
-	log::info!("Waiting for both chains to produce blocks");
-	assert_para_throughput(
-		&relay,
-		10,
-		[(ParaId::from(SENDER), 5..11), (ParaId::from(RECEIVER), 5..11)],
-		[],
-	)
+	let start = (finalized_number(&sender).await?, finalized_number(&receiver).await?);
+	wait_for("both chains to finalize a block", || {
+		advanced(&sender, &receiver, (start.0 + 1, start.1 + 1))
+	})
 	.await?;
 
 	if hrmp_channel_open(&relay, SENDER, RECEIVER).await? {
@@ -80,7 +78,9 @@ async fn spec_msg_delivers_xcm_without_hrmp() -> Result<(), anyhow::Error> {
 	open_spec_msg_channel(&sender, &receiver).await?;
 
 	log::info!("Sending an XCM {SENDER} -> {RECEIVER}");
-	// Subscribe first: the receiver may consume the message before the send is finalized.
+	// Subscribe first: the receiver may consume the message before the send is finalized. The
+	// stream starts at the block finalized now, which predates the send.
+	let before_send = finalized_number(&receiver).await?;
 	let receiver_blocks = receiver.blocks().subscribe_finalized().await?;
 	let sent = sender.blocks().at(sudo(&sender, send_xcm_to(RECEIVER)).await?).await?;
 	let root = committed_root(&sent)
@@ -108,15 +108,12 @@ async fn spec_msg_delivers_xcm_without_hrmp() -> Result<(), anyhow::Error> {
 		relay.blocks().at_latest().await?.number(),
 	);
 
-	follow_delivery(&receiver, receiver_blocks).await?;
+	follow_delivery(&receiver, receiver_blocks, before_send).await?;
 
-	// Both chains still make progress with messaging live.
-	assert_para_throughput(
-		&relay,
-		10,
-		[(ParaId::from(SENDER), 5..11), (ParaId::from(RECEIVER), 5..11)],
-		[],
-	)
+	let now = (finalized_number(&sender).await?, finalized_number(&receiver).await?);
+	wait_for("both chains to finalize two more blocks with messaging live", || {
+		advanced(&sender, &receiver, (now.0 + 2, now.1 + 2))
+	})
 	.await?;
 
 	Ok(())
@@ -413,7 +410,8 @@ async fn open_spec_msg_channel(
 	receiver: &OnlineClient<PolkadotConfig>,
 ) -> Result<(), anyhow::Error> {
 	log::info!("Opening channel {SENDER} -> {RECEIVER}");
-	sudo(
+	// Either order works, so submit both at once; the waits below poll finalized state.
+	let open = sudo_in_block(
 		sender,
 		Value::unnamed_variant(
 			"SpecMessaging",
@@ -426,9 +424,8 @@ async fn open_spec_msg_channel(
 				],
 			)],
 		),
-	)
-	.await?;
-	sudo(
+	);
+	let accept = sudo_in_block(
 		receiver,
 		Value::unnamed_variant(
 			"SpecMessaging",
@@ -441,8 +438,8 @@ async fn open_spec_msg_channel(
 				],
 			)],
 		),
-	)
-	.await?;
+	);
+	tokio::try_join!(open, accept)?;
 
 	// The receiver consumes the `OpenChannel` signal from the sender's data stream: a channel
 	// payload fetched from the sender's collator, lifted to an included root.
@@ -516,6 +513,51 @@ async fn sudo(client: &OnlineClient<PolkadotConfig>, call: Value) -> Result<H256
 	Err(anyhow!("no `Sudo::Sudid` in block {block_hash:?}"))
 }
 
+/// Dispatch `call` as root like [`sudo`], but return once the call is in a best block.
+async fn sudo_in_block(
+	client: &OnlineClient<PolkadotConfig>,
+	call: Value,
+) -> Result<H256, anyhow::Error> {
+	let tx = subxt::dynamic::tx("Sudo", "sudo", vec![call]);
+	let mut progress = client.tx().sign_and_submit_then_watch_default(&tx, &dev::alice()).await?;
+	while let Some(status) = progress.next().await {
+		let in_block = match status? {
+			TxStatus::InBestBlock(in_block) | TxStatus::InFinalizedBlock(in_block) => in_block,
+			TxStatus::Error { message } |
+			TxStatus::Invalid { message } |
+			TxStatus::Dropped { message } => return Err(anyhow!("sudo tx failed: {message}")),
+			_ => continue,
+		};
+		for event in in_block.wait_for_success().await?.iter() {
+			let event = event?;
+			if event.pallet_name() == "Sudo" && event.variant_name() == "Sudid" {
+				let fields = format!("{:?}", event.field_values()?);
+				if fields.contains("Err") {
+					return Err(anyhow!("sudo dispatch failed: {fields}"));
+				}
+				return Ok(in_block.block_hash());
+			}
+		}
+		return Err(anyhow!("no `Sudo::Sudid` in block {:?}", in_block.block_hash()));
+	}
+	Err(anyhow!("sudo tx status stream ended"))
+}
+
+/// The number of a chain's latest finalized block.
+async fn finalized_number(client: &OnlineClient<PolkadotConfig>) -> Result<u32, anyhow::Error> {
+	Ok(client.blocks().at_latest().await?.number())
+}
+
+/// Whether both chains have finalized at least the given block numbers.
+async fn advanced(
+	sender: &OnlineClient<PolkadotConfig>,
+	receiver: &OnlineClient<PolkadotConfig>,
+	(sender_at, receiver_at): (u32, u32),
+) -> Result<bool, anyhow::Error> {
+	Ok(finalized_number(sender).await? >= sender_at &&
+		finalized_number(receiver).await? >= receiver_at)
+}
+
 /// Call a runtime API with no arguments at the latest block and decode its result.
 async fn call<T: Decode>(
 	client: &OnlineClient<PolkadotConfig>,
@@ -581,17 +623,21 @@ where
 	Err(anyhow!("timed out waiting for {what}"))
 }
 
-/// Follow the receiver's finalized blocks until the XCM executes, logging the block that consumed
-/// the sender's stream and the one that executed the XCM.
+/// Follow the receiver's finalized blocks after `before_send` until the XCM executes, logging the
+/// block that consumed the sender's stream and the one that executed the XCM.
 async fn follow_delivery(
 	receiver: &OnlineClient<PolkadotConfig>,
 	mut blocks: StreamOfResults<Block<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
+	before_send: u32,
 ) -> Result<(), anyhow::Error> {
 	log::info!("Following {RECEIVER}'s finalized blocks");
 	let mut consumed = false;
 	let follow = async {
 		while let Some(block) = blocks.next().await {
 			let block = block?;
+			if block.number() <= before_send {
+				continue;
+			}
 			if !consumed {
 				let record: ConsumptionRecord =
 					call_at(receiver, Some(block.hash()), "SpecMsgApi_consumption_record", &[])
