@@ -175,7 +175,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::service_agenda(&mut WeightMeter::new(), true, now, now, 0);
+			Pallet::<T>::service_agenda(&mut WeightMeter::new(), now, now, 0);
 		}
 
 		assert_eq!(Agenda::<T>::get(now).len() as u32, s);
@@ -195,7 +195,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			_result = Pallet::<T>::service_task(&mut counter, now, now, 0, true, task);
+			_result = Pallet::<T>::service_task(&mut counter, now, now, 0, task);
 		}
 
 		// assert!(_result.is_ok());
@@ -218,7 +218,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			_result = Pallet::<T>::service_task(&mut counter, now, now, 0, true, task);
+			_result = Pallet::<T>::service_task(&mut counter, now, now, 0, task);
 		}
 
 		// assert!(result.is_ok());
@@ -236,7 +236,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			_result = Pallet::<T>::service_task(&mut counter, now, now, 0, true, task);
+			_result = Pallet::<T>::service_task(&mut counter, now, now, 0, task);
 		}
 
 		// assert!(result.is_ok());
@@ -254,7 +254,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			_result = Pallet::<T>::service_task(&mut counter, now, now, 0, true, task);
+			_result = Pallet::<T>::service_task(&mut counter, now, now, 0, task);
 		}
 
 		// assert!(result.is_ok());
