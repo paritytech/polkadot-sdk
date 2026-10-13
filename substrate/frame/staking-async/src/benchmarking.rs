@@ -1269,6 +1269,8 @@ mod benchmarks {
 			validator_points,
 			activation_timestamp,
 		};
+		// The era-start hook is charged on top of this weight, so it must not run here.
+		NextEraValidators::<T>::kill();
 
 		#[block]
 		{
