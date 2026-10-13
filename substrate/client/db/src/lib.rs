@@ -1780,6 +1780,34 @@ impl<Block: BlockT> Backend<Block> {
 		Ok(PartialStateProgress { cursor, complete })
 	}
 
+	/// Fails unless `state_root` is the recorded target's. The caller holds the mutex.
+	fn ensure_recorded_target(
+		recorded: &Option<PartialStateRecord<Block::Hash>>,
+		state_root: Block::Hash,
+	) -> ClientResult<()> {
+		match *recorded {
+			Some(PartialStateRecord::Recorded { state_root: recorded_root, .. })
+				if recorded_root == state_root =>
+			{
+				Ok(())
+			},
+			Some(PartialStateRecord::Recorded { hash, state_root: recorded_root }) => {
+				Err(ClientError::Backend(format!(
+					"State root {state_root:?} is not the recorded state sync target's: \
+					 {hash:?} has state root {recorded_root:?}"
+				)))
+			},
+			Some(PartialStateRecord::Discarding { .. }) => Err(ClientError::Backend(format!(
+				"State root {state_root:?} is not the recorded state sync target's: the recorded \
+				 attempt is being discarded"
+			))),
+			None => Err(ClientError::Backend(format!(
+				"State root {state_root:?} is not the recorded state sync target's: none is \
+				 recorded"
+			))),
+		}
+	}
+
 	/// Removes the recorded attempt and its nodes from `STATE`. The caller holds the mutex and
 	/// passes its guard. On return the memory matches the database again: `None` when everything
 	/// is gone, `Discarding` when a commit failed after the marker was written. `what` names the
@@ -1909,7 +1937,7 @@ impl<Block: BlockT> Backend<Block> {
 		// The first real block state can land on a database that still holds the nodes of a
 		// state sync that never completed, after a `--sync full` restart for example. Remove them
 		// first, while `STATE` holds nothing else and before this block enters state-db. The one
-		// state commit that must keep them is the completion of the state sync itself, which
+		// state commit that must keep them is the one `mark_state_complete` prepared, which
 		// comes with `reset_storage` set.
 		if operation.commit_state && !operation.reset_storage && recorded.is_some() {
 			self.discard_partial_state(&mut recorded, "a state sync that never completed")?;
@@ -3306,35 +3334,12 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		Ok(Some(ResumablePartialState { target, cursor, complete }))
 	}
 
-	fn complete_partial_state(
-		&self,
-		operation: &mut Self::BlockImportOperation,
-		state_root: Block::Hash,
-	) -> sp_blockchain::Result<()> {
+	fn check_state_complete(&self, state_root: Block::Hash) -> sp_blockchain::Result<()> {
+		// Held across the walk, so no discard can run in between.
 		let mut recorded = self.partial_state.lock();
-		match *recorded {
-			Some(PartialStateRecord::Recorded { state_root: recorded_root, .. })
-				if recorded_root == state_root => {},
-			Some(PartialStateRecord::Recorded { hash, state_root: recorded_root }) => {
-				return Err(ClientError::Backend(format!(
-					"State root {state_root:?} cannot complete the state sync: the recorded \
-					 target {hash:?} has state root {recorded_root:?}"
-				)))
-			},
-			Some(PartialStateRecord::Discarding { .. }) => {
-				return Err(ClientError::Backend(format!(
-					"State root {state_root:?} cannot complete the state sync: the recorded \
-					 attempt is being discarded"
-				)))
-			},
-			None => {
-				return Err(ClientError::Backend(format!(
-					"State root {state_root:?} cannot complete a state sync: none is recorded"
-				)))
-			},
-		}
+		Self::ensure_recorded_target(&recorded, state_root)?;
 		let state = DbStateBuilder::new(self.storage.clone(), state_root).build();
-		if let Err(e) = sc_client_api::partial_state::check_state_complete(state) {
+		if let Err(e) = sc_client_api::partial_state::check_trie_complete(state) {
 			// Every chunk was written and still a node is missing. The attempt cannot complete,
 			// so its nodes go now, before anything else writes `STATE`.
 			self.discard_partial_state(&mut recorded, "a state sync whose state did not complete")
@@ -3343,6 +3348,15 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 				})?;
 			return Err(e);
 		}
+		Ok(())
+	}
+
+	fn mark_state_complete(
+		&self,
+		operation: &mut Self::BlockImportOperation,
+		state_root: Block::Hash,
+	) -> sp_blockchain::Result<()> {
+		Self::ensure_recorded_target(&self.partial_state.lock(), state_root)?;
 		// Commit it like a state import with no changes. The block gets recorded as having
 		// state, and `reset_storage` makes the commit drop the attempt's records.
 		operation.commit_state = true;
@@ -7354,18 +7368,24 @@ pub(crate) mod tests {
 		assert!(reopened.is_err());
 	}
 
-	/// A block whose state root is not the recorded target's cannot complete the attempt, and
-	/// its failure discards nothing: the recorded target still completes.
+	/// A block whose state root is not the recorded target's cannot complete the attempt, neither
+	/// the check nor the mark accepts it, and the failure discards nothing: the recorded target
+	/// still completes. With nothing recorded, the mark is refused too.
 	#[test]
 	fn completion_with_another_state_root_does_not_discard_the_attempt() {
 		let key_values = vec![(vec![0u8; 40], vec![0u8; 1])];
 		let (nodes, header) = partial_state_chunk(&key_values);
 		let (_, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
 		let (backend, db, _tmp) = partial_state_test_backend(PartialStateDb::KvdbMemdb);
+		let mut op = backend.begin_operation().unwrap();
+		assert!(backend.mark_state_complete(&mut op, header.state_root).is_err(), "none recorded");
 		backend.begin_partial_state(partial_state_target(&header)).unwrap();
 		backend.import_partial_state(chunk(&header, nodes)).unwrap();
 		let root_key = root_key(&backend, &header);
 
+		assert!(backend.check_state_complete(other.state_root).is_err());
+		assert!(backend.mark_state_complete(&mut op, other.state_root).is_err());
+		assert!(!op.commit_state && !op.reset_storage, "a refused mark leaves the operation alone");
 		assert!(import_synced_block(&backend, &other).is_err());
 		assert!(
 			backend.resumable_partial_state().unwrap().is_some_and(|record| record.complete),
@@ -7489,7 +7509,8 @@ pub(crate) mod tests {
 	fn import_synced_block(backend: &Backend<Block>, header: &Header) -> ClientResult<()> {
 		let mut op = backend.begin_operation()?;
 		op.set_block_data(header.clone(), None, None, NewBlockState::Normal, true)?;
-		backend.complete_partial_state(&mut op, header.state_root)?;
+		backend.check_state_complete(header.state_root)?;
+		backend.mark_state_complete(&mut op, header.state_root)?;
 		backend.commit_operation(op)
 	}
 

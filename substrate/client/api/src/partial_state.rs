@@ -54,10 +54,12 @@ pub struct ResumablePartialState<Block: BlockT> {
 /// Writes the verified state of a block that is being state-synced, one chunk at a time.
 ///
 /// `begin_partial_state` records the target, `import_partial_state` writes one chunk per state
-/// response, and importing the target block with `ImportedState` completes the sync: the backend
-/// checks that the state is complete and marks it present. Until then `state_at` cannot see the
-/// nodes. A chunk is the nodes of one verified range proof plus the range it covers, see
-/// `sp_trie::partial_state`.
+/// response, and importing the target block with `ImportedState` ends the sync: the backend
+/// checks that the state is complete
+/// ([`Backend::check_state_complete`](crate::Backend::check_state_complete)) and marks it present
+/// ([`Backend::mark_state_complete`](crate::Backend::mark_state_complete)). Until then `state_at`
+/// cannot see the nodes. A chunk is the nodes of one verified range proof plus the range it covers,
+/// see `sp_trie::partial_state`.
 ///
 /// The database records the target and the cursor every chunk leaves, so after a restart
 /// `resumable_partial_state` says where to continue.
@@ -91,7 +93,7 @@ pub trait PartialStateImport<Block: BlockT> {
 }
 
 /// Walks the whole state trie at `state`, child tries included. Errors on the first missing node.
-pub fn check_state_complete<H, B>(state: B) -> sp_blockchain::Result<()>
+pub fn check_trie_complete<H, B>(state: B) -> sp_blockchain::Result<()>
 where
 	H: Hasher,
 	B: Backend<H>,

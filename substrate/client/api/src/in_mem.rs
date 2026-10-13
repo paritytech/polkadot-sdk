@@ -854,21 +854,28 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		Ok(self.partial_state.read().as_ref().map(|attempt| attempt.record.clone()))
 	}
 
-	fn complete_partial_state(
+	fn check_state_complete(&self, state_root: Block::Hash) -> sp_blockchain::Result<()> {
+		let mut guard = self.partial_state.write();
+		let attempt = recorded_attempt(guard.as_ref(), state_root)?;
+		if let Err(e) = crate::partial_state::check_trie_complete::<HashingFor<Block>, _>(
+			TrieBackendBuilder::new(&attempt.nodes, state_root).build(),
+		) {
+			// With a node missing the sync can never complete: its nodes are dropped.
+			*guard = None;
+			return Err(e);
+		}
+		Ok(())
+	}
+
+	fn mark_state_complete(
 		&self,
 		operation: &mut Self::BlockImportOperation,
 		state_root: Block::Hash,
 	) -> sp_blockchain::Result<()> {
-		// The sync ends here either way. Complete, its nodes become the block's state. With a node
-		// missing, it is dropped.
-		let attempt = self.partial_state.write().take().ok_or_else(|| {
-			sp_blockchain::Error::Backend(format!(
-				"State root {state_root:?} cannot complete a state sync: none is recorded"
-			))
-		})?;
-		crate::partial_state::check_state_complete::<HashingFor<Block>, _>(
-			TrieBackendBuilder::new(&attempt.nodes, state_root).build(),
-		)?;
+		let mut guard = self.partial_state.write();
+		recorded_attempt(guard.as_ref(), state_root)?;
+		// The nodes become the block's state, and the sync is forgotten.
+		let attempt = guard.take().expect("checked to be `Some` just above; qed");
 		operation.synced_state = Some(TrieBackendBuilder::new(attempt.nodes, state_root).build());
 		Ok(())
 	}
@@ -886,6 +893,24 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 }
 
 impl<Block: BlockT> backend::LocalBackend<Block> for Backend<Block> {}
+
+/// The recorded attempt, if `state_root` is its target's.
+fn recorded_attempt<Block: BlockT>(
+	attempt: Option<&PartialStateAttempt<Block>>,
+	state_root: Block::Hash,
+) -> sp_blockchain::Result<&PartialStateAttempt<Block>> {
+	let not_recorded = |why: &str| {
+		sp_blockchain::Error::Backend(format!(
+			"State root {state_root:?} is not the recorded state sync target's: {why}"
+		))
+	};
+	let attempt = attempt.ok_or_else(|| not_recorded("none is recorded"))?;
+	let recorded_root = *attempt.record.target.header.state_root();
+	if recorded_root != state_root {
+		return Err(not_recorded(&format!("it has state root {recorded_root:?}")));
+	}
+	Ok(attempt)
+}
 
 /// Check that genesis storage is valid.
 pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {
@@ -1067,7 +1092,8 @@ mod tests {
 
 		let mut op = backend.begin_operation()?;
 		op.set_block_data(header.clone(), None, None, NewBlockState::Normal, true)?;
-		backend.complete_partial_state(&mut op, header.state_root)?;
+		backend.check_state_complete(header.state_root)?;
+		backend.mark_state_complete(&mut op, header.state_root)?;
 		backend.commit_operation(op)?;
 
 		let state = backend.state_at(header.hash(), TrieCacheContext::Untrusted)?;
@@ -1093,9 +1119,12 @@ mod tests {
 			})
 		);
 
-		// The first attempt's nodes are gone: nothing completes at its root any more.
+		// The first attempt's nodes are gone: nothing completes at its root any more, and the
+		// refusal leaves the second attempt recorded.
 		let mut op = backend.begin_operation()?;
-		assert!(backend.complete_partial_state(&mut op, first.state_root).is_err());
+		assert!(backend.check_state_complete(first.state_root).is_err());
+		assert!(backend.mark_state_complete(&mut op, first.state_root).is_err());
+		assert!(backend.resumable_partial_state()?.is_some(), "the second attempt is untouched");
 		Ok(())
 	}
 }

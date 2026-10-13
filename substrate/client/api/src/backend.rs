@@ -731,14 +731,17 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 		&self,
 	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>>;
 
-	/// Finish a state sync: check that every node of the state trie at `state_root` is in the
-	/// database, child tries included, then mark on `operation` that the block already has its
-	/// state, so the import executes nothing and writes no storage changes.
-	///
-	/// If `state_root` is not the recorded target's, fails and leaves everything as it was. If a
-	/// node is missing, fails and discards the sync: a state still incomplete after the last chunk
-	/// will never complete.
-	fn complete_partial_state(
+	/// Check that every node of the state trie at `state_root` is in the database, child tries
+	/// included. `state_root` must be the recorded target's, else fails and leaves everything as
+	/// it was. If a node is missing, fails and discards the sync: a state still incomplete after
+	/// the last chunk will never complete.
+	fn check_state_complete(&self, state_root: Block::Hash) -> sp_blockchain::Result<()>;
+
+	/// Mark on `operation` that the block whose state root is `state_root` already has its state,
+	/// so the import executes nothing and writes no storage changes, and the commit records the
+	/// block as having state and forgets the sync. `state_root` must be the recorded target's.
+	/// Presumes [`Self::check_state_complete`] passed; it walks nothing itself.
+	fn mark_state_complete(
 		&self,
 		operation: &mut Self::BlockImportOperation,
 		state_root: Block::Hash,

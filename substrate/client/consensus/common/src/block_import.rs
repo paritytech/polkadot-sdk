@@ -129,7 +129,9 @@ pub enum StorageChanges<Block: BlockT> {
 
 /// Marker for a block whose state was already written to the database by state sync, chunk by
 /// chunk, before the block itself. Importing it executes nothing: the client checks that the
-/// state is complete and marks it present, and GRANDPA rebuilds its authority set from it.
+/// state is complete and marks it present (`Backend::check_state_complete` and
+/// `Backend::mark_state_complete` in `sc_client_api`), and GRANDPA rebuilds its authority set
+/// from it.
 ///
 /// This used to carry the downloaded key-values, which the import turned into a trie in memory.
 /// Now it only keeps the shape of `StorageChanges` and `IncomingBlock`, which still tell a
