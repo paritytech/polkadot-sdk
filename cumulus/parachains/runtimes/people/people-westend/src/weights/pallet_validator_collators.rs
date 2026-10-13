@@ -52,6 +52,10 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightInfo<T> {
 	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:1)
 	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006), added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::SetReceivedAt` (r:0 w:1)
+	/// Proof: `ValidatorCollators::SetReceivedAt` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
 	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 1000]`.
@@ -61,11 +65,11 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 		//  Estimated: `33491`
 		// Minimum execution time: 64_827_000 picoseconds.
 		Weight::from_parts(68_383_144, 0)
-			.saturating_add(Weight::from_parts(0, 33491))
+			.saturating_add(Weight::from_parts(0, 33994))
 			// Standard Error: 83
 			.saturating_add(Weight::from_parts(18_742, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(2))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:0)
 	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006), added: 32501, mode: `MaxEncodedLen`)
@@ -100,6 +104,28 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 	/// Storage: `ValidatorCollators::ReportPeriod` (r:0 w:1)
 	/// Proof: `ValidatorCollators::ReportPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn set_report_period() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 5_105_000 picoseconds.
+		Weight::from_parts(5_645_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `ValidatorCollators::ExpectedEraDuration` (r:0 w:1)
+	/// Proof: `ValidatorCollators::ExpectedEraDuration` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	fn set_expected_era_duration() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 5_105_000 picoseconds.
+		Weight::from_parts(5_645_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `ValidatorCollators::ReportMargin` (r:0 w:1)
+	/// Proof: `ValidatorCollators::ReportMargin` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	fn set_report_margin() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

@@ -87,8 +87,8 @@ use frame_support::{
 use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{
-	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
-	StakerRewardCalculator,
+	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, PointsKind,
+	SessionIndex, StakerRewardCalculator,
 };
 
 /// A handler for all era-based storage items.
@@ -101,6 +101,7 @@ use sp_staking::{
 /// [`ErasStakersOverview`]
 /// [`ErasValidatorReward`]
 /// [`ErasRewardPoints`]
+/// [`ErasRewardPointsByKind`]
 /// [`ErasTotalStake`]
 pub struct Eras<T: Config>(core::marker::PhantomData<T>);
 
@@ -412,17 +413,22 @@ impl<T: Config> Eras<T> {
 		ClaimedRewards::<T>::get(era, validator).contains(&page)
 	}
 
-	/// Add reward points to validators using their stash account ID.
+	/// Add reward points earned for `kind` to validators using their stash account ID.
+	///
+	/// Points are added to [`ErasRewardPoints`] of the active era, and every entry recorded there
+	/// is also added to [`ErasRewardPointsByKind`] under `kind`.
 	///
 	/// As a side effect, accumulates `weight × points` into [`ErasSumWeightedPoints`] for the
 	/// active era, where `weight` is the validator's [`ErasValidatorIncentiveWeight`]. This
 	/// keeps the denominator of the weighted-points share up to date without iterating every
 	/// validator at payout time.
 	pub(crate) fn reward_active_era(
+		kind: PointsKind,
 		validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
 	) {
 		if let Some(active_era) = ActiveEra::<T>::get() {
 			let mut sum_weighted_points_delta: BalanceOf<T> = Zero::zero();
+			let mut recorded_points = Vec::new();
 			<ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
 				for (validator, points) in validators_points.into_iter() {
 					let weight =
@@ -437,7 +443,11 @@ impl<T: Config> Eras<T> {
 						None => {
 							// not much we can do -- validators should always be less than
 							// `MaxValidatorSet`.
-							era_rewards.individual.try_insert(validator, points).defensive().is_ok()
+							era_rewards
+								.individual
+								.try_insert(validator.clone(), points)
+								.defensive()
+								.is_ok()
 						},
 					};
 
@@ -450,10 +460,33 @@ impl<T: Config> Eras<T> {
 							weight.saturating_mul(IncentiveWeight::<T>::from(points)),
 						);
 					}
+					if recorded {
+						recorded_points.push((validator, points));
+					}
 
 					era_rewards.total.saturating_accrue(points);
 				}
 			});
+			if !recorded_points.is_empty() {
+				ErasRewardPointsByKind::<T>::mutate(active_era.index, kind, |by_kind| {
+					for (validator, points) in recorded_points {
+						let recorded = match by_kind.individual.get_mut(&validator) {
+							Some(individual) => {
+								individual.saturating_accrue(points);
+								true
+							},
+							// The accounts of a kind are a subset of the tally's, under the same
+							// bound.
+							None => {
+								by_kind.individual.try_insert(validator, points).defensive().is_ok()
+							},
+						};
+						if recorded {
+							by_kind.total.saturating_accrue(points);
+						}
+					}
+				});
+			}
 			if !sum_weighted_points_delta.is_zero() {
 				ErasSumWeightedPoints::<T>::mutate(active_era.index, |sum| {
 					*sum = sum.saturating_add(sum_weighted_points_delta);
@@ -560,9 +593,10 @@ impl<T: Config> Eras<T> {
 		// these two are only populated conditionally, so we only check them for lack of existence
 		let e6 = ClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
 		let e7 = ErasRewardPoints::<T>::contains_key(era);
+		let e8 = ErasRewardPointsByKind::<T>::iter_prefix_values(era).count() != 0;
 
 		// Check if era info is consistent - if not, era is in partial pruning state
-		if !vec![e0, e1, e2, e3, e4, e6, e7].windows(2).all(|w| w[0] == w[1]) {
+		if !vec![e0, e1, e2, e3, e4, e6, e7, e8].windows(2).all(|w| w[0] == w[1]) {
 			return Err("era info absence not consistent - partial pruning state".into());
 		}
 
@@ -590,6 +624,7 @@ impl<T: Config> Eras<T> {
 			if Self::uses_weighted_points(e) {
 				Self::check_sum_weighted_points_consistency(e)?;
 			}
+			Self::check_reward_points_by_kind_consistency(e)?;
 		}
 
 		// Ensure all eras older than oldest_present_era are either fully pruned or marked for
@@ -618,6 +653,43 @@ impl<T: Config> Eras<T> {
 			 stored vs computed individual weights do not match"
 		);
 
+		Ok(())
+	}
+
+	/// Verify that the points of each kind never exceed the tally in [`ErasRewardPoints`].
+	///
+	/// Only bounds are checked. The tally can hold points not recorded per kind.
+	pub(crate) fn check_reward_points_by_kind_consistency(
+		era: EraIndex,
+	) -> Result<(), sp_runtime::TryRuntimeError> {
+		let tally = ErasRewardPoints::<T>::get(era);
+		let mut sum_per_account = alloc::collections::BTreeMap::<T::AccountId, RewardPoint>::new();
+		let mut sum_of_totals: RewardPoint = 0;
+		for by_kind in ErasRewardPointsByKind::<T>::iter_prefix_values(era) {
+			let sum_of_individual = by_kind
+				.individual
+				.values()
+				.fold(0 as RewardPoint, |acc, points| acc.saturating_add(*points));
+			ensure!(
+				by_kind.total == sum_of_individual,
+				"the total of a points kind is not the sum of its entries"
+			);
+			sum_of_totals.saturating_accrue(by_kind.total);
+			for (who, points) in by_kind.individual {
+				ensure!(
+					tally.individual.contains_key(&who),
+					"an account has points of a kind but none in the tally"
+				);
+				sum_per_account.entry(who).or_default().saturating_accrue(points);
+			}
+		}
+		ensure!(
+			sum_per_account
+				.iter()
+				.all(|(who, points)| tally.individual.get(who).is_some_and(|t| points <= t)),
+			"the points of an account per kind exceed its points in the tally"
+		);
+		ensure!(sum_of_totals <= tally.total, "the points per kind exceed the tally's total");
 		Ok(())
 	}
 

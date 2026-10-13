@@ -37,16 +37,16 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn set_points_per_block() -> Result<(), BenchmarkError> {
+	fn set_points_per_unit() -> Result<(), BenchmarkError> {
 		let origin =
 			T::PointsOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let source = any_source::<T>();
-		let points = T::MaxPointsPerBlock::get();
+		let points = T::MaxPointsPerUnit::get();
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, source, points);
+		_(origin as T::RuntimeOrigin, source, PointsKind::Collation, points);
 
-		assert_eq!(PointsPerBlock::<T>::get(source), points);
+		assert_eq!(PointsPerUnit::<T>::get(source, PointsKind::Collation), points);
 		Ok(())
 	}
 
@@ -55,7 +55,7 @@ mod benchmarks {
 	#[benchmark]
 	fn report_authored_blocks() {
 		let source = any_source::<T>();
-		PointsPerBlock::<T>::remove(source);
+		PointsPerUnit::<T>::remove(source, PointsKind::Collation);
 		let blocks = (0..1_000)
 			.map(|i| (account::<T::AccountId>("validator", i, 0), 1))
 			.collect::<Vec<_>>();

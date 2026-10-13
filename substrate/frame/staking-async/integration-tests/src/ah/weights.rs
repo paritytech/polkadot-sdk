@@ -230,7 +230,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn rc_on_session_report(_: u32) -> Weight {
 		Default::default()
 	}
-	fn reward_system_chain_points(_: u32) -> Weight {
+	fn reward_service_points(_: u32) -> Weight {
 		Default::default()
 	}
 	fn prune_era_stakers_paged(_: u32) -> Weight {

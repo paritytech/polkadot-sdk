@@ -3920,6 +3920,22 @@ fn full_report_of_authored_blocks_fits_the_message_queue_and_the_block() {
 	);
 }
 
+// `fast-runtime` shortens the era, not the expected era duration.
+#[cfg(not(feature = "fast-runtime"))]
+#[test]
+fn expected_era_duration_matches_the_staking_era() {
+	use testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS;
+	// GIVEN the era length of Asset Hub's staking
+	let era: u64 = staking::MaxEraDuration::get();
+	// WHEN system chains expect the end of an era after the arrival of its set
+	// THEN they expect it after one era, so they report shortly before the rotation
+	assert_eq!(
+		EXPECTED_ERA_DURATION_MILLIS, era,
+		"update `testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS` \
+		to the era length of {era} ms",
+	);
+}
+
 #[test]
 fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 	use asset_hub_westend_runtime::{ParachainInfo, StakingSystemChainClient, ValidatorCollators};
@@ -3938,7 +3954,12 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 			&alice,
 			pallet_staking_async::Exposure { total: 1, own: 1, others: vec![] },
 		);
-		assert_ok!(StakingSystemChainClient::set_points_per_block(RuntimeOrigin::root(), own, 5));
+		assert_ok!(StakingSystemChainClient::set_points_per_unit(
+			RuntimeOrigin::root(),
+			own,
+			sp_staking::PointsKind::Collation,
+			5
+		));
 		assert_ok!(ValidatorCollators::receive_validator_set(1, [alice.clone(), bob.clone()]));
 		// AND Alice authored 3 blocks here
 		for _ in 0..3 {
@@ -3950,12 +3971,23 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 		let period = pallet_validator_collators::ReportPeriod::<Runtime>::get();
 		frame_system::Pallet::<Runtime>::reset_events();
 		ValidatorCollators::on_initialize(period);
-		// THEN Alice's blocks reach staking as points of this chain, with no message sent
+		// THEN Alice's blocks reach staking as collation points of this chain, with no message
+		// sent
 		assert_eq!(
 			pallet_staking_async::ErasRewardPoints::<Runtime>::get(1)
 				.individual
 				.into_iter()
 				.collect::<Vec<_>>(),
+			vec![(alice.clone(), 15)]
+		);
+		assert_eq!(
+			pallet_staking_async::ErasRewardPointsByKind::<Runtime>::get(
+				1,
+				sp_staking::PointsKind::Collation
+			)
+			.individual
+			.into_iter()
+			.collect::<Vec<_>>(),
 			vec![(alice, 15)]
 		);
 		let events = frame_system::Pallet::<Runtime>::events()
@@ -3969,7 +4001,8 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 			}
 		)));
 		assert!(events.contains(&RuntimeEvent::Staking(
-			pallet_staking_async::Event::SystemChainPointsCredited {
+			pallet_staking_async::Event::ServicePointsCredited {
+				kind: sp_staking::PointsKind::Collation,
 				era: 1,
 				credited: 1,
 				dropped: 0

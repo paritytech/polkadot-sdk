@@ -43,7 +43,7 @@ impl Config for Test {
 	type ReportOrigin = EnsureSignedBy<Reporters, u64>;
 	type PointsOrigin = EnsureRoot<u64>;
 	type RewardPoints = MockRewardPoints;
-	type MaxPointsPerBlock = ConstU32<10>;
+	type MaxPointsPerUnit = ConstU32<10>;
 	type WeightInfo = ();
 }
 
@@ -56,13 +56,13 @@ impl SortedMembers<u64> for Reporters {
 }
 
 parameter_types! {
-	pub static Rewarded: Vec<Vec<(u64, u32)>> = Vec::new();
+	pub static Rewarded: Vec<(PointsKind, Vec<(u64, u32)>)> = Vec::new();
 }
 
 pub struct MockRewardPoints;
 impl RewardPoints<u64> for MockRewardPoints {
-	fn reward(points: Vec<(u64, u32)>) {
-		Rewarded::mutate(|rewarded| rewarded.push(points));
+	fn reward(kind: PointsKind, points: Vec<(u64, u32)>) {
+		Rewarded::mutate(|rewarded| rewarded.push((kind, points)));
 	}
 
 	fn weight(entries: u32) -> Weight {

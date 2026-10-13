@@ -134,6 +134,7 @@ async fn run() -> Result<(), anyhow::Error> {
 		hrmp_channel_max_total_size: Some(HRMP_CHANNEL_MAX_TOTAL_SIZE),
 		sudo_balance: Some(SUDO_BALANCE),
 		report_period: None,
+		expected_era_duration: None,
 	})
 	.await?;
 	let network = initialize_network(config).await?;
