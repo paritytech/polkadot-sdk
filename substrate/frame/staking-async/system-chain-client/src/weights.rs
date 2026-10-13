@@ -29,7 +29,7 @@ use frame_support::{
 
 /// Weight functions needed for `pallet_staking_async_system_chain_client`.
 pub trait WeightInfo {
-	fn set_points_per_block() -> Weight;
+	fn set_points_per_unit() -> Weight;
 	fn report_authored_blocks() -> Weight;
 }
 
@@ -37,32 +37,32 @@ pub trait WeightInfo {
 /// source.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: `StakingSystemChainClient::PointsPerBlock` (r:0 w:1)
-	/// Proof: `StakingSystemChainClient::PointsPerBlock` (`max_values`: None, `max_size`: Some(16),
-	/// added: 2491, mode: `MaxEncodedLen`)
-	fn set_points_per_block() -> Weight {
+	/// Storage: `StakingSystemChainClient::PointsPerUnit` (r:0 w:1)
+	/// Proof: `StakingSystemChainClient::PointsPerUnit` (`max_values`: None, `max_size`: Some(25),
+	/// added: 2500, mode: `MaxEncodedLen`)
+	fn set_points_per_unit() -> Weight {
 		Weight::from_parts(3_948_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: `StakingSystemChainClient::PointsPerBlock` (r:1 w:0)
-	/// Proof: `StakingSystemChainClient::PointsPerBlock` (`max_values`: None, `max_size`: Some(16),
-	/// added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `StakingSystemChainClient::PointsPerUnit` (r:1 w:0)
+	/// Proof: `StakingSystemChainClient::PointsPerUnit` (`max_values`: None, `max_size`: Some(25),
+	/// added: 2500, mode: `MaxEncodedLen`)
 	fn report_authored_blocks() -> Weight {
-		Weight::from_parts(6_923_000, 3_481).saturating_add(T::DbWeight::get().reads(1_u64))
+		Weight::from_parts(6_923_000, 3_490).saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 }
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
-	/// Storage: `StakingSystemChainClient::PointsPerBlock` (r:0 w:1)
-	/// Proof: `StakingSystemChainClient::PointsPerBlock` (`max_values`: None, `max_size`: Some(16),
-	/// added: 2491, mode: `MaxEncodedLen`)
-	fn set_points_per_block() -> Weight {
+	/// Storage: `StakingSystemChainClient::PointsPerUnit` (r:0 w:1)
+	/// Proof: `StakingSystemChainClient::PointsPerUnit` (`max_values`: None, `max_size`: Some(25),
+	/// added: 2500, mode: `MaxEncodedLen`)
+	fn set_points_per_unit() -> Weight {
 		Weight::from_parts(3_948_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: `StakingSystemChainClient::PointsPerBlock` (r:1 w:0)
-	/// Proof: `StakingSystemChainClient::PointsPerBlock` (`max_values`: None, `max_size`: Some(16),
-	/// added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `StakingSystemChainClient::PointsPerUnit` (r:1 w:0)
+	/// Proof: `StakingSystemChainClient::PointsPerUnit` (`max_values`: None, `max_size`: Some(25),
+	/// added: 2500, mode: `MaxEncodedLen`)
 	fn report_authored_blocks() -> Weight {
-		Weight::from_parts(6_923_000, 3_481).saturating_add(RocksDbWeight::get().reads(1_u64))
+		Weight::from_parts(6_923_000, 3_490).saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 }

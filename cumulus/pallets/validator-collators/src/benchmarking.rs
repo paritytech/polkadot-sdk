@@ -108,6 +108,32 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn set_expected_era_duration() -> Result<(), BenchmarkError> {
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let duration = T::DefaultExpectedEraDuration::get().saturating_add(1);
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, duration);
+
+		assert_eq!(ExpectedEraDuration::<T>::get(), duration);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_report_margin() -> Result<(), BenchmarkError> {
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let margin = T::MaxReportMargin::get();
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, margin);
+
+		assert_eq!(ReportMargin::<T>::get(), margin);
+		Ok(())
+	}
+
 	/// The first block of an author, which inserts its entry and bumps the counter.
 	#[benchmark]
 	fn note_author() {

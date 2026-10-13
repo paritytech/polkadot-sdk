@@ -29,6 +29,7 @@ sp-externalities = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
+sp-staking = { workspace = true, default-features = true }
 
 # Polkadot
 westend-runtime = { workspace = true }

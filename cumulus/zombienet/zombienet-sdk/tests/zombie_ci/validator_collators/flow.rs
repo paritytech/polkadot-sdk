@@ -10,7 +10,8 @@
 //! * `asset-hub-westend-local` electing two validators from its genesis stakers AliceStash and
 //!   BobStash, with the signed election phases skipped and a short unsigned phase.
 //! * `people-westend-local`.
-//! * Both parachains report authored blocks every 10 blocks, in place of the runtime default.
+//! * Both parachains report authored blocks every 10 blocks and expect a 12-minute era, in place of
+//!   the runtime defaults, so the report before the expected era end comes within the test.
 //! * On each parachain one invulnerable collator, plus one collator per validator that is not a
 //!   collator at genesis.
 //!
@@ -22,9 +23,10 @@
 //!    author blocks.
 //! 4. Both parachains report the blocks of AliceStash and BobStash, and Asset Hub credits them as
 //!    era points of the active era.
+//! 5. Both parachains report once before the expected end of era 1.
 
 use super::common::{
-	account, build_network_config, fetch, fetch_raw, hex_accounts, init_logging,
+	account, build_network_config, fetch, fetch_raw, fetch_raw_at, hex_accounts, init_logging,
 	is_announcement_of_era_1, keypair, node_seed, open_hrmp_channels, session_validators,
 	wait_for_event, wait_for_finalized_block, wait_for_hrmp_channel, NetworkOptions, ASSET_HUB_ID,
 	ASSET_HUB_INVULNERABLE, CALL_TIMEOUT, CLIENT_TIMEOUT_SECS, PARA_BLOCKS, PEOPLE_ID,
@@ -80,6 +82,14 @@ const REPORT_PERIOD: u32 = 10;
 /// period plus a margin for the XCM delivery.
 const CREDIT_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
+/// `ValidatorCollators::ExpectedEraDuration` of both parachains, in milliseconds: the CI era of
+/// six relay chain sessions of 2 minutes.
+const EXPECTED_ERA_DURATION_MILLIS: u64 = 720_000;
+
+/// From a parachain receiving the set of era 1 to its report before the expected end of the era:
+/// one CI era plus a margin for finality.
+const EARLY_REPORT_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+
 /// Response of `author_rotateKeysWithOwner`.
 #[derive(Deserialize)]
 struct GeneratedSessionKeys {
@@ -108,6 +118,7 @@ async fn run() -> Result<(), anyhow::Error> {
 		hrmp_channel_max_total_size: None,
 		sudo_balance: None,
 		report_period: Some(REPORT_PERIOD),
+		expected_era_duration: Some(EXPECTED_ERA_DURATION_MILLIS),
 	})
 	.await?;
 	let network = initialize_network(config).await?;
@@ -184,12 +195,15 @@ async fn run() -> Result<(), anyhow::Error> {
 	// WHEN Asset Hub starts era 1 with AliceStash and BobStash
 	log::info!("Waiting for era 1 to start on Asset Hub");
 	let asset_hub_received_at = asset_hub_received.await??;
+	let asset_hub_early_report =
+		tokio::spawn(wait_for_early_report(asset_hub_client.clone(), "Asset Hub"));
 	asset_hub_announced.await??;
 	log::info!("Waiting for People to receive the set of era 1");
 	let people_received_at =
 		tokio::time::timeout(PEOPLE_RECEIVE_TIMEOUT, people_received).await.map_err(
 			|_| anyhow!("People did not receive the set within {PEOPLE_RECEIVE_TIMEOUT:?}"),
 		)???;
+	let people_early_report = tokio::spawn(wait_for_early_report(people_client.clone(), "People"));
 
 	// THEN both parachains collate with their invulnerable, AliceStash and BobStash
 	let stashes = VALIDATORS
@@ -225,6 +239,11 @@ async fn run() -> Result<(), anyhow::Error> {
 	// AND Asset Hub credits the blocks authored on both parachains to exposed validators
 	log::info!("Waiting for Asset Hub to credit the blocks of both parachains");
 	wait_for_credits_from_both_chains(&asset_hub_client).await?;
+
+	// AND both parachains report once before the expected end of era 1
+	log::info!("Waiting for both parachains to report before the expected end of era 1");
+	asset_hub_early_report.await??;
+	people_early_report.await??;
 
 	// AND the relay chain kept its validators, since the elected set is the running one
 	let relay_validators = session_validators(&relay_client).await?;
@@ -321,7 +340,7 @@ fn is_set_of_era_1_with_two_validators(fields: &Composite<u32>) -> bool {
 /// Waits until Asset Hub credited the blocks of Asset Hub and of People, each to at least one
 /// validator exposed in the active era.
 ///
-/// Staking reports `SystemChainPointsCredited` for every credit, just before
+/// Staking reports `ServicePointsCredited` for every credit, just before
 /// `StakingSystemChainClient` reports the source in `BlocksCredited`.
 async fn wait_for_credits_from_both_chains(
 	client: &OnlineClient<PolkadotConfig>,
@@ -335,7 +354,7 @@ async fn wait_for_credits_from_both_chains(
 			for event in block.events().await?.iter() {
 				let event = event?;
 				match (event.pallet_name(), event.variant_name()) {
-					("Staking", "SystemChainPointsCredited") => {
+					("Staking", "ServicePointsCredited") => {
 						credited = event
 							.field_values()?
 							.at("credited")
@@ -364,6 +383,47 @@ async fn wait_for_credits_from_both_chains(
 	};
 	tokio::time::timeout(CREDIT_TIMEOUT, wait).await.map_err(|_| {
 		anyhow!("Asset Hub did not credit the blocks of both chains within {CREDIT_TIMEOUT:?}")
+	})?
+}
+
+/// Waits for the report before the expected era end on `chain`: the first finalized block that
+/// removes `ValidatorCollators::SetReceivedAt`. A new arrival that replaces it does not count. The
+/// block must hold `ValidatorCollators::BlocksReported`, since periodic reports alone emit it too.
+async fn wait_for_early_report(
+	client: OnlineClient<PolkadotConfig>,
+	chain: &'static str,
+) -> Result<u32, anyhow::Error> {
+	let wait = async {
+		let mut blocks = client.blocks().subscribe_finalized().await?;
+		let mut arrival_stored = false;
+		while let Some(block) = blocks.next().await {
+			let block = block?;
+			let stored =
+				fetch_raw_at(&client, block.hash(), "ValidatorCollators", "SetReceivedAt", vec![])
+					.await?
+					.is_some();
+			if arrival_stored && !stored {
+				let reported = block.events().await?.iter().any(|event| {
+					event.is_ok_and(|event| {
+						event.pallet_name() == "ValidatorCollators" &&
+							event.variant_name() == "BlocksReported"
+					})
+				});
+				if !reported {
+					return Err(anyhow!(
+						"{chain} #{} removed `SetReceivedAt` without `BlocksReported`",
+						block.number()
+					));
+				}
+				log::info!("{chain} #{}: reported before the expected era end", block.number());
+				return Ok(block.number());
+			}
+			arrival_stored = stored;
+		}
+		Err(anyhow!("{chain} block subscription ended"))
+	};
+	tokio::time::timeout(EARLY_REPORT_TIMEOUT, wait).await.map_err(|_| {
+		anyhow!("{chain} did not report before the era end within {EARLY_REPORT_TIMEOUT:?}")
 	})?
 }
 

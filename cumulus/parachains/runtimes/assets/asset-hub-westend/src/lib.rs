@@ -1211,6 +1211,11 @@ impl pallet_validator_collators::Config for Runtime {
 	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
 	// The local report is credited directly, so the whole set fits one chunk.
 	type MaxEntriesPerReport = staking::MaxValidatorSet;
+	type UnixTime = Timestamp;
+	type DefaultExpectedEraDuration =
+		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;
+	type DefaultReportMargin = ConstU64<120_000>;
+	type MaxReportMargin = ConstU64<1_800_000>;
 	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }
 
@@ -1226,8 +1231,8 @@ impl pallet_staking_async_system_chain_client::Config for Runtime {
 	type PointsOrigin = CollatorSelectionUpdateOrigin;
 	type RewardPoints = staking::StakingRewardPoints;
 	// A relay chain block earns a fixed number of points. The cap leaves governance room above the
-	// per-block value that matches it, while an era's total stays far from saturating.
-	type MaxPointsPerBlock = ConstU32<1_000>;
+	// per-unit value that matches it, while an era's total stays far from saturating.
+	type MaxPointsPerUnit = ConstU32<1_000>;
 	type WeightInfo = weights::pallet_staking_async_system_chain_client::WeightInfo<Runtime>;
 }
 

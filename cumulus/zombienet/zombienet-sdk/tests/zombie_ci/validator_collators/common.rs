@@ -88,6 +88,9 @@ pub(super) struct NetworkOptions {
 	/// `ValidatorCollators::ReportPeriod` of both parachains at genesis, in blocks, in place of
 	/// the runtime default.
 	pub(super) report_period: Option<u32>,
+	/// `ValidatorCollators::ExpectedEraDuration` of both parachains at genesis, in
+	/// milliseconds, in place of the runtime default.
+	pub(super) expected_era_duration: Option<u64>,
 }
 
 /// Logging from `RUST_LOG`, `info` by default. The orchestrator's chain spec generator is capped
@@ -117,12 +120,21 @@ pub(super) async fn build_network_config(
 		);
 	}
 	let extra_collators = if options.validator_collators { &VALIDATORS[..] } else { &[] };
-	let report_period = options.report_period.map(report_period_entry).into_iter();
-	let asset_hub_raw = report_period
+	let report_settings = [
+		options
+			.report_period
+			.map(|period| validator_collators_entry("ReportPeriod", period)),
+		options
+			.expected_era_duration
+			.map(|duration| validator_collators_entry("ExpectedEraDuration", duration)),
+	]
+	.into_iter()
+	.flatten();
+	let asset_hub_raw = report_settings
 		.clone()
 		.chain(options.election.then(election_phase_entries).into_iter().flatten())
 		.collect::<Vec<_>>();
-	let people_raw = report_period.collect::<Vec<_>>();
+	let people_raw = report_settings.collect::<Vec<_>>();
 
 	NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -235,14 +247,14 @@ fn election_phase_entries() -> Vec<(Vec<u8>, Vec<u8>)> {
 	]
 }
 
-/// `ValidatorCollators::ReportPeriod`.
-fn report_period_entry(period: u32) -> (Vec<u8>, Vec<u8>) {
+/// The storage value `item` of `ValidatorCollators`.
+fn validator_collators_entry(item: &str, value: impl Encode) -> (Vec<u8>, Vec<u8>) {
 	let key = [
 		sp_crypto_hashing::twox_128(b"ValidatorCollators"),
-		sp_crypto_hashing::twox_128(b"ReportPeriod"),
+		sp_crypto_hashing::twox_128(item.as_bytes()),
 	]
 	.concat();
-	(key, period.encode())
+	(key, value.encode())
 }
 
 /// Opens the HRMP channels from Asset Hub to People and back, taking messages of up to
