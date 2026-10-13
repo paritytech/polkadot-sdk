@@ -46,9 +46,8 @@ pub trait ChannelDepositProvider {
 
 /// Receives the outcome of a pending [`DepositChangeRequest`].
 pub trait OnDepositSet {
-	/// Called once `request` is applied, or refused with `Err`. Returns the weight spent
-	/// resuming the request's action.
-	fn on_deposit_set(request: DepositChangeRequest, result: Result<(), DepositError>) -> Weight;
+	/// Called once `request` is applied, or refused with `Err`.
+	fn on_deposit_set(request: DepositChangeRequest, result: Result<(), DepositError>);
 }
 
 /// Why a provider refused a pending [`DepositChangeRequest`].
@@ -93,8 +92,9 @@ pub struct DepositChange {
 pub enum DepositChangeResponse {
 	/// The request is applied. The action resumes right away.
 	Applied,
-	/// The request is accepted and its outcome is reported through [`OnDepositSet`].
-	Pending,
+	/// The request is accepted and its outcome is reported through [`OnDepositSet`]. `weight` is
+	/// what accepting it cost on top of the call's own weight, e.g. sending a message.
+	Pending { weight: Weight },
 }
 
 /// The action a [`DepositChangeRequest`] resumes once the deposits are changed.
@@ -134,14 +134,20 @@ impl<T: Config> ChannelDepositProvider for Pallet<T> {
 }
 
 impl<T: Config> OnDepositSet for Pallet<T> {
-	fn on_deposit_set(request: DepositChangeRequest, result: Result<(), DepositError>) -> Weight {
+	fn on_deposit_set(request: DepositChangeRequest, result: Result<(), DepositError>) {
 		match result {
 			Ok(()) => Self::resume(&request),
+			// TODO(ahm-v2): emit an event (later on hrmp_relay) so the para learns its deposit was refused.
 			Err(e) => {
-				log::warn!(target: LOG_TARGET, "deposit refused: {e:?}, request: {request:?}");
-				Weight::zero()
+				log::warn!(target: LOG_TARGET, "deposit refused: {e:?}, request: {request:?}")
 			},
 		}
+		// TODO(ahm-v2): the report arrives through xcm message so the weight of resuming is registered here:
+		// per action, the weight of the call it belongs to. Zero for now as no async provider.
+		frame_system::Pallet::<T>::register_extra_weight_unchecked(
+			Weight::zero(),
+			DispatchClass::Normal,
+		);
 	}
 }
 
@@ -162,8 +168,11 @@ impl<T: Config> Pallet<T> {
 	/// applied it right away. A pending request resumes in [`OnDepositSet::on_deposit_set`]
 	/// instead. Fails only if the provider refuses the request right away.
 	pub(super) fn set_deposit(request: DepositChangeRequest) -> DispatchResult {
-		if T::DepositProvider::try_set_deposit(request.clone())? == DepositChangeResponse::Applied {
-			Self::resume(&request);
+		match T::DepositProvider::try_set_deposit(request.clone())? {
+			DepositChangeResponse::Applied => Self::resume(&request),
+			// TODO(ahm-v2): the calls add the provider's worst case to their declared weight and
+			// report `weight` as spent on top of their own.
+			DepositChangeResponse::Pending { weight: _ } => {},
 		}
 		Ok(())
 	}
@@ -183,13 +192,13 @@ impl<T: Config> Pallet<T> {
 			action: DepositAction::Release,
 		};
 		if let Err(e) = Self::set_deposit(request.clone()) {
+			// TODO(ahm-v2): emit an event (later on hrmp_relay) if release fails.
 			log::error!(target: LOG_TARGET, "giving back deposits failed: {e:?}, request: {request:?}");
 		}
 	}
 
-	/// Resumes the action of `request` now that its deposits are changed. Returns the weight
-	/// spent, bounded by the weight of the call that made the request.
-	fn resume(request: &DepositChangeRequest) -> Weight {
+	/// Resumes the action of `request` now that its deposits are updated.
+	fn resume(request: &DepositChangeRequest) {
 		let channel_id = &request.channel_id;
 		match request.action {
 			DepositAction::InitOpenChannel { max_capacity, max_message_size, max_total_size } => {
@@ -201,13 +210,13 @@ impl<T: Config> Pallet<T> {
 					max_capacity,
 					max_message_size,
 					max_total_size,
-				)
+				);
 			},
 			DepositAction::AcceptOpenChannel => Self::finish_accept_open_channel(channel_id),
 			DepositAction::PokeChannelDeposits => {
 				Self::finish_poke_channel_deposits(channel_id, request.sender, request.recipient)
 			},
-			DepositAction::Release => Weight::zero(),
+			DepositAction::Release => {},
 		}
 	}
 }

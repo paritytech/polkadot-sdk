@@ -527,6 +527,7 @@ pub mod pallet {
 			proposed_max_message_size: u32,
 		) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			// `OpenChannelRequested` is emitted once the deposit is set and the request recorded.
 			Self::init_open_channel(
 				origin,
 				recipient,
@@ -542,6 +543,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::hrmp_accept_open_channel())]
 		pub fn hrmp_accept_open_channel(origin: OriginFor<T>, sender: ParaId) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			// `OpenChannelAccepted` is emitted once the deposit is set and the request confirmed.
 			Self::accept_open_channel(origin, sender)
 		}
 
@@ -787,6 +789,7 @@ pub mod pallet {
 				return Ok(());
 			}
 
+			// `OpenChannelDepositsUpdated` is emitted once the deposits are set and recorded.
 			Self::set_deposit(DepositChangeRequest {
 				channel_id,
 				sender: Some(DepositChange {
@@ -1436,7 +1439,7 @@ impl<T: Config> Pallet<T> {
 		max_capacity: u32,
 		max_message_size: u32,
 		max_total_size: u32,
-	) -> Weight {
+	) {
 		let config = configuration::ActiveConfig::<T>::get();
 		let (sender, recipient) = (channel_id.sender, channel_id.recipient);
 
@@ -1474,7 +1477,6 @@ impl<T: Config> Pallet<T> {
 			proposed_max_capacity: max_capacity,
 			proposed_max_message_size: max_message_size,
 		});
-		<T as Config>::WeightInfo::hrmp_init_open_channel()
 	}
 
 	/// Accept a pending open channel request from the given sender.
@@ -1508,8 +1510,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Second half of [`Self::accept_open_channel`], run once the recipient's deposit is taken.
-	fn finish_accept_open_channel(channel_id: &HrmpChannelId) -> Weight {
-		let weight = <T as Config>::WeightInfo::hrmp_accept_open_channel();
+	fn finish_accept_open_channel(channel_id: &HrmpChannelId) {
 		let config = configuration::ActiveConfig::<T>::get();
 		let (sender, recipient) = (channel_id.sender, channel_id.recipient);
 		let Some(mut channel_req) = HrmpOpenChannelRequests::<T>::get(channel_id) else {
@@ -1517,7 +1518,7 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"accept of {channel_id:?} completed after its open request was dropped"
 			);
-			return weight;
+			return;
 		};
 
 		// persist the updated open channel request and then increment the number of accepted
@@ -1537,7 +1538,6 @@ impl<T: Config> Pallet<T> {
 		);
 
 		Self::deposit_event(Event::OpenChannelAccepted { sender, recipient });
-		weight
 	}
 
 	/// Second half of [`Self::poke_channel_deposits`], run once both deposits are changed.
@@ -1545,7 +1545,7 @@ impl<T: Config> Pallet<T> {
 		channel_id: &HrmpChannelId,
 		sender: Option<DepositChange>,
 		recipient: Option<DepositChange>,
-	) -> Weight {
+	) {
 		let updated = HrmpChannels::<T>::mutate(channel_id, |channel| {
 			let Some(channel) = channel else { return false };
 			if let Some(change) = sender {
@@ -1562,7 +1562,6 @@ impl<T: Config> Pallet<T> {
 		} else {
 			log::error!(target: LOG_TARGET, "poke of {channel_id:?} completed after it was closed");
 		}
-		<T as Config>::WeightInfo::poke_channel_deposits()
 	}
 
 	fn cancel_open_request(origin: ParaId, channel_id: HrmpChannelId) -> DispatchResult {
