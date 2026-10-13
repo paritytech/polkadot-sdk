@@ -441,6 +441,7 @@ impl AccessEntry {
 	}
 
 	/// Returns the storage key behind the entry.
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn storage_key<T: crate::Config>(&self) -> Option<Vec<u8>> {
 		match self {
 			Self::Account { address } => Some(frame_system::Account::<T>::hashed_key_for(

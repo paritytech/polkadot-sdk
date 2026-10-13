@@ -259,10 +259,12 @@ fn the_top_frame_accesses_what_it_declares(fixture_type: FixtureType) {
 	);
 }
 
-#[test_case(false; "no dust")]
-#[test_case(true;  "dust")]
-fn the_top_frame_moving_value_accesses_what_it_declares(dust: bool) {
-	let (code, _) = compile_module_with_type("DoNothingReceiver", FixtureType::Solc).unwrap();
+#[test_case(FixtureType::Solc,   false; "solc no dust")]
+#[test_case(FixtureType::Solc,   true;  "solc dust")]
+#[test_case(FixtureType::Resolc, false; "resolc no dust")]
+#[test_case(FixtureType::Resolc, true;  "resolc dust")]
+fn the_top_frame_moving_value_accesses_what_it_declares(fixture_type: FixtureType, dust: bool) {
+	let (code, _) = compile_module_with_type("DoNothingReceiver", fixture_type).unwrap();
 	let (mut ext, [contract]) = deploy_contracts([code.as_slice()]);
 
 	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
@@ -480,14 +482,16 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 	assert_eq!(accessed, expected);
 }
 
-#[test_case(false; "no dust")]
-#[test_case(true; "dust")]
-fn a_transfer_accesses_what_it_declares(dust: bool) {
+#[test_case(FixtureType::Solc,   false; "solc no dust")]
+#[test_case(FixtureType::Solc,   true;  "solc dust")]
+#[test_case(FixtureType::Resolc, false; "resolc no dust")]
+#[test_case(FixtureType::Resolc, true;  "resolc dust")]
+fn a_transfer_accesses_what_it_declares(fixture_type: FixtureType, dust: bool) {
 	use crate::evm::transfer_with_dust;
 	use frame_support::traits::tokens::Preservation;
 
-	let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
-	let (target_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
+	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+	let (target_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
 	let (mut ext, [from, to]) = deploy_contracts([caller_code.as_slice(), target_code.as_slice()]);
 
 	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
