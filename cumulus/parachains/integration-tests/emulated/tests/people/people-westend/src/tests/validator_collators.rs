@@ -265,8 +265,9 @@ fn people_reports_authored_blocks_to_asset_hub() {
 		));
 	});
 
-	// AND People stores the set of Alice and Bob, Alice authored 3 blocks and an invulnerable 2,
-	// and the next block is a report block
+	// AND People stores the set of Alice and Bob, Alice authored 3 blocks, Bob 1 and an
+	// invulnerable 2, and the next block is a report block. People drops the invulnerable, which
+	// is not in its set, and Asset Hub drops Bob, who is in People's set but not exposed.
 	PeopleWestend::execute_with(|| {
 		assert_ok!(PeopleValidatorCollators::set_validators(
 			<PeopleWestend as Chain>::RuntimeOrigin::root(),
@@ -285,6 +286,7 @@ fn people_reports_authored_blocks_to_asset_hub() {
 			})
 		};
 		note(&alice, 3);
+		note(&bob, 1);
 		note(&invulnerable, 2);
 		let next = <PeopleWestend as Chain>::System::block_number() + 1;
 		assert_ok!(PeopleValidatorCollators::set_report_period(
@@ -300,28 +302,29 @@ fn people_reports_authored_blocks_to_asset_hub() {
 			PeopleWestend,
 			vec![
 				RuntimeEvent::ValidatorCollators(
-					pallet_validator_collators::Event::BlocksReported { reported: 1, .. }
+					pallet_validator_collators::Event::BlocksReported { reported: 2, .. }
 				) => {},
 			]
 		);
 		assert_eq!(pallet_validator_collators::AuthoredBlocks::<PeopleRuntime>::count(), 0);
 	});
 
-	// THEN Asset Hub credits Alice's blocks with People's points per unit and nobody else
+	// THEN Asset Hub credits Alice's blocks with People's points per unit, drops Bob's and credits
+	// nobody else
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
 				RuntimeEvent::StakingSystemChainClient(
-					pallet_staking_async_system_chain_client::Event::BlocksCredited { source, entries: 1 }
+					pallet_staking_async_system_chain_client::Event::BlocksCredited { source, entries: 2 }
 				) => { source: *source == people, },
 				RuntimeEvent::Staking(
 					pallet_staking_async::Event::ServicePointsCredited {
 						kind: PointsKind::Collation,
 						era: 1,
 						credited: 1,
-						dropped: 0,
+						dropped: 1,
 					}
 				) => {},
 			]

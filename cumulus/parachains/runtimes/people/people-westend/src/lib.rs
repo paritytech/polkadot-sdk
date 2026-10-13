@@ -440,7 +440,7 @@ impl pallet_validator_collators::Config for Runtime {
 	type UnixTime = Timestamp;
 	type DefaultExpectedEraDuration =
 		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;
-	type DefaultReportMargin = ConstU64<120_000>;
+	type DefaultReportMargin = ConstU64<300_000>;
 	type MaxReportMargin = ConstU64<1_800_000>;
 	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }

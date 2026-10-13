@@ -261,6 +261,8 @@ pub mod pallet {
 		type DefaultReportMargin: Get<u64>;
 
 		/// Largest value [`Pallet::set_report_margin`] accepts, in milliseconds.
+		///
+		/// Timing the report also bounds a stored value by it.
 		#[pallet::constant]
 		type MaxReportMargin: Get<u64>;
 
@@ -333,7 +335,7 @@ pub mod pallet {
 		StorageValue<_, u64, ValueQuery, T::DefaultExpectedEraDuration>;
 
 	/// Time before the expected end of an era at which the counts are reported, in milliseconds.
-	/// Used up to half of [`ExpectedEraDuration`].
+	/// Used up to [`Config::MaxReportMargin`] and up to half of [`ExpectedEraDuration`].
 	#[pallet::storage]
 	pub type ReportMargin<T: Config> = StorageValue<_, u64, ValueQuery, T::DefaultReportMargin>;
 
@@ -407,7 +409,8 @@ pub mod pallet {
 						.saturating_add(Weight::from_parts(0, 3 * u64::max_encoded_len() as u64)),
 				);
 				let duration = ExpectedEraDuration::<T>::get();
-				let margin = ReportMargin::<T>::get().min(duration / 2);
+				let margin =
+					ReportMargin::<T>::get().min(T::MaxReportMargin::get()).min(duration / 2);
 				let now_ms: u64 = T::UnixTime::now().as_millis().saturated_into();
 				now_ms >= received_at.saturating_add(duration.saturating_sub(margin))
 			});
@@ -658,10 +661,7 @@ pub mod pallet {
 				"an arrival time is stored without a validator set"
 			);
 			ensure!(ExpectedEraDuration::<T>::get() > 0, "the expected era duration is zero");
-			ensure!(
-				(1..=T::MaxReportMargin::get()).contains(&ReportMargin::<T>::get()),
-				"the report margin is zero or above `MaxReportMargin`"
-			);
+			ensure!(ReportMargin::<T>::get() > 0, "the report margin is zero");
 			// Until the first forced rotation the drawn collators may be missing or belong to a
 			// previous set or cap.
 			if PendingRotation::<T>::get() == RotationState::AwaitingQueue {
