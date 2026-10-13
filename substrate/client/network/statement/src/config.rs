@@ -29,8 +29,9 @@ use std::{
 /// get the node's `--in-peers-light` on top.
 pub const V2_DHT_IN_PEERS_FULL: u32 = 50;
 
-/// Outbound slots on the statement protocol with the v2 DHT path on.
-pub const V2_DHT_OUT_PEERS: u32 = 50;
+/// Outbound slots on the statement protocol with the v2 DHT path on. Peer steering dials its
+/// peers through the reserved set, so the protocol controller dials none of its own.
+pub const V2_DHT_OUT_PEERS: u32 = 0;
 
 /// Interval at which we propagate statements;
 pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(1000);

@@ -555,8 +555,8 @@ impl StatementHandlerPrototype {
 		let default_set = &network_config.default_peers_set;
 		let in_peers_light = (default_set.in_peers + default_set.out_peers)
 			.saturating_sub(network_config.default_peers_set_num_full);
-		// The v2 DHT path reserves only the peers that steering picks, every other peer holds a
-		// non-reserved slot. The v1 path manages its peers exclusively through the reserved set:
+		// The v2 DHT path reserves only the peers that steering picks, every other peer holds an
+		// inbound slot. The v1 path manages its peers exclusively through the reserved set:
 		// it must keep non-reserved slots closed, or sync recovery's forced disconnect stops
 		// disconnecting.
 		let set_config = if v2dht_enabled() {
