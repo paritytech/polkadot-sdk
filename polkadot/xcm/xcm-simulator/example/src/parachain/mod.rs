@@ -58,6 +58,7 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -77,6 +78,8 @@ impl pallet_uniques::Config for Runtime {
 	type CollectionId = Location;
 	type ItemId = AssetInstance;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = ForeignCreators;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type CollectionDeposit = frame_support::traits::ConstU128<1_000>;
