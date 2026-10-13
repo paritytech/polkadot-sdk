@@ -91,6 +91,15 @@ pub struct Cli {
 	#[arg(long = "statement-affinity-topic", value_name = "TOPIC", hide = true)]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
 
+	/// File with affinity topics advertised by this node, one 32-byte hex topic per line.
+	/// Blank lines and lines starting with `#` are skipped. Adds to `--statement-affinity-topic`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long = "statement-affinity-topics-file", value_name = "PATH", hide = true)]
+	pub statement_affinity_topics_file: Option<sc_statement_store::AffinityTopicsFile>,
+
 	/// DHT replication factor (K): number of closest peers a statement is routed to.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
@@ -139,6 +148,24 @@ pub struct Cli {
 	#[arg(long, value_name = "SEED", hide = true)]
 	pub statement_bloom_seed: Option<u128>,
 
+	/// Maximum total data size (in bytes) of the statements the store keeps for DHT affinity.
+	/// Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_dht_affinity_size: Option<usize>,
+
+	/// Maximum total data size (in bytes) of the transient statements, kept only until
+	/// propagated. Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_transient_size: Option<usize>,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
@@ -172,14 +199,6 @@ pub enum Subcommand {
 
 	/// Sign a message, with a given (secret) key.
 	Sign(sc_cli::SignCmd),
-
-	/// Build a chain specification.
-	/// DEPRECATED: `build-spec` command will be removed after 1/04/2026. Use `export-chain-spec`
-	/// command instead.
-	#[deprecated(
-		note = "build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
-	)]
-	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Export the chain specification.
 	ExportChainSpec(sc_cli::ExportChainSpecCmd),
