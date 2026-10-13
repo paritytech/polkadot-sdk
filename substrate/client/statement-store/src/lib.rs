@@ -3311,15 +3311,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
 
-<<<<<<< HEAD
-	use crate::{col, Store, KEY_VERSION};
-=======
-	use crate::{
-		col, evicted_index_key, parse_time_index_key, AllowanceBlock, Config, Error, QueryIndex,
-		Resubmission, RetentionReasonMask, RetentionTrack, Store, StoreTotals, V2DhtConfig,
-		INDEX_EMPTY_VALUE, KEY_VERSION,
-	};
->>>>>>> e169b41 (statement-store: enforce allowance against best and finalized blocks (#13437))
+	use crate::{col, AllowanceBlock, Store, KEY_VERSION};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
