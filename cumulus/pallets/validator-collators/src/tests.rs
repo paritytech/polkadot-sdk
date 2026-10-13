@@ -845,33 +845,6 @@ fn failed_report_keeps_the_counts_for_the_next_period() {
 	});
 }
 
-#[test]
-fn report_period_is_set_by_governance_and_never_zero() {
-	new_test_ext().execute_with(|| {
-		// GIVEN validator 10 authored a block
-		initialize_to_block(1);
-		assert_ok!(receive(1, vec![10]));
-		note_blocks(10, 1);
-		// WHEN the update origin sets a zero period THEN it is rejected
-		assert_noop!(
-			ValidatorCollators::set_report_period(RuntimeOrigin::signed(RootAccount::get()), 0),
-			Error::<Test>::ZeroReportPeriod
-		);
-		// WHEN it sets a period of 3 instead of the default 5
-		assert_ok!(ValidatorCollators::set_report_period(
-			RuntimeOrigin::signed(RootAccount::get()),
-			3
-		));
-		System::assert_last_event(Event::ReportPeriodSet { period: 3 }.into());
-		assert_eq!(ReportPeriod::<Test>::get(), 3);
-		// THEN the next report is made at block 3
-		initialize_to_block(2);
-		assert!(reported().is_empty());
-		initialize_to_block(3);
-		assert_eq!(reported_entries(), vec![(10, 1)]);
-	});
-}
-
 fn root() -> RuntimeOrigin {
 	RuntimeOrigin::signed(RootAccount::get())
 }
@@ -1065,29 +1038,45 @@ fn report_timing_edge_cases() {
 		block_at(700);
 		assert_eq!(reports(), 1);
 	});
+
+	// A stored margin above `MaxReportMargin`, as after a runtime upgrade that lowers it, is
+	// used up to `MaxReportMargin`.
+	new_test_ext().execute_with(|| {
+		// GIVEN an expected era of 2000 ms, a stored margin of 600 ms above the maximum of
+		// 500 ms, and a set received at time 0
+		initialize_to_block(1);
+		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
+		assert_ok!(ValidatorCollators::set_expected_era_duration(root(), 2000));
+		ReportMargin::<Test>::put(600);
+		assert_ok!(receive(1, vec![10]));
+		// WHEN blocks run at 1499 and 1500 ms
+		// THEN the report is made at 1500 ms, with the margin capped
+		block_at(1499);
+		assert_eq!(reports(), 0);
+		block_at(1500);
+		assert_eq!(reports(), 1);
+		// AND the stored margin passes the invariants
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
 }
 
 #[test]
-fn timing_setters_are_bounded() {
+fn setters_are_bounded_and_announced() {
 	new_test_ext().execute_with(|| {
 		let max_margin =
 			<<Test as Config>::MaxReportMargin as frame_support::traits::Get<u64>>::get();
+		// GIVEN validator 10 authored a block
 		initialize_to_block(1);
-		// GIVEN the update origin
-		// WHEN it sets the smallest and the largest margin, and the smallest duration
-		// THEN each is stored and announced
-		assert_ok!(ValidatorCollators::set_report_margin(root(), 1));
-		System::assert_last_event(Event::ReportMarginSet { margin: 1 }.into());
-		assert_ok!(ValidatorCollators::set_report_margin(root(), max_margin));
-		System::assert_last_event(Event::ReportMarginSet { margin: max_margin }.into());
-		assert_eq!(ReportMargin::<Test>::get(), max_margin);
-		assert_ok!(ValidatorCollators::set_expected_era_duration(root(), 1));
-		System::assert_last_event(Event::ExpectedEraDurationSet { duration: 1 }.into());
-		assert_eq!(ExpectedEraDuration::<Test>::get(), 1);
-		assert_ok!(ValidatorCollators::do_try_state());
+		assert_ok!(receive(1, vec![10]));
+		note_blocks(10, 1);
 
-		// WHEN it sets a zero margin, a margin above the maximum or a zero duration
+		// WHEN the update origin sets a zero period, a zero margin, a margin above the maximum
+		// or a zero duration
 		// THEN each call fails and the stored values are unchanged
+		assert_noop!(
+			ValidatorCollators::set_report_period(root(), 0),
+			Error::<Test>::ZeroReportPeriod
+		);
 		assert_noop!(
 			ValidatorCollators::set_report_margin(root(), 0),
 			Error::<Test>::ZeroReportMargin
@@ -1101,12 +1090,32 @@ fn timing_setters_are_bounded() {
 			Error::<Test>::ZeroExpectedEraDuration
 		);
 
-		// AND the invariants reject the values the calls refuse
-		for (duration, margin, error) in [
-			(0, 1, "the expected era duration is zero"),
-			(1, 0, "the report margin is zero or above `MaxReportMargin`"),
-			(1, max_margin + 1, "the report margin is zero or above `MaxReportMargin`"),
-		] {
+		// WHEN it sets a period of 3 instead of the default 5
+		assert_ok!(ValidatorCollators::set_report_period(root(), 3));
+		System::assert_last_event(Event::ReportPeriodSet { period: 3 }.into());
+		assert_eq!(ReportPeriod::<Test>::get(), 3);
+		// THEN the next report is made at block 3
+		initialize_to_block(2);
+		assert!(reported().is_empty());
+		initialize_to_block(3);
+		assert_eq!(reported_entries(), vec![(10, 1)]);
+
+		// WHEN it sets the smallest and the largest margin, and the smallest duration
+		// THEN each is stored and announced
+		assert_ok!(ValidatorCollators::set_report_margin(root(), 1));
+		System::assert_last_event(Event::ReportMarginSet { margin: 1 }.into());
+		assert_ok!(ValidatorCollators::set_report_margin(root(), max_margin));
+		System::assert_last_event(Event::ReportMarginSet { margin: max_margin }.into());
+		assert_eq!(ReportMargin::<Test>::get(), max_margin);
+		assert_ok!(ValidatorCollators::set_expected_era_duration(root(), 1));
+		System::assert_last_event(Event::ExpectedEraDurationSet { duration: 1 }.into());
+		assert_eq!(ExpectedEraDuration::<Test>::get(), 1);
+		assert_ok!(ValidatorCollators::do_try_state());
+
+		// AND the invariants reject the zero values the calls refuse
+		for (duration, margin, error) in
+			[(0, 1, "the expected era duration is zero"), (1, 0, "the report margin is zero")]
+		{
 			frame_support::hypothetically!({
 				ExpectedEraDuration::<Test>::put(duration);
 				ReportMargin::<Test>::put(margin);
