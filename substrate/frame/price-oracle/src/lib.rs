@@ -656,10 +656,15 @@ impl<T: Config> Pallet<T> {
 		latest.into_values().collect()
 	}
 
-	/// Merge the votes of `reports` into storage, drop expired votes, and recompute prices.
+	/// Drop expired votes, merge the votes of `reports` into storage, and recompute prices.
 	fn apply_votes(reports: Vec<SignedPriceReportOf<T>>, current: Anchor, params: &Parameters) {
 		let mut votes: BTreeMap<PairId, BoundedVec<Vote<T::SignerId>, T::MaxSigners>> =
 			Votes::<T>::iter().collect();
+
+		// Prune first, so expired votes never take the room of new ones.
+		for pair_votes in votes.values_mut() {
+			pair_votes.retain(|v| is_live(v.anchor, current, params.report_window));
+		}
 
 		for report in reports {
 			let anchor = report.report.anchor;
@@ -684,8 +689,7 @@ impl<T: Config> Pallet<T> {
 		let publishing_paused = Paused::<T>::get().publishing;
 		let updated_at = T::BlockNumberProvider::current_block_number();
 
-		for (pair, pair_votes) in votes.iter_mut() {
-			pair_votes.retain(|v| is_live(v.anchor, current, params.report_window));
+		for (pair, pair_votes) in votes.iter() {
 			if pair_votes.is_empty() || (pair_votes.len() as u32) < params.quorum {
 				continue;
 			}
