@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791903186198,
+  "lastUpdate": 1791929424140,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ba06ae6f41de22a7f376b2ed9453d49434bc0bcf",
-          "message": "Bags-list on_idle: per-item weight consumption via WeightMeter (#11594)\n\nThe benchmark failed depending on `MaxAutoRebagPerBlock` (e.g. it passes\nwith 10 as configured in Westend, Polkadot and Kusama AH runtime but it\nfailed with 5, as it was configured before, see [runtime\nPR](https://github.com/polkadot-fellows/runtimes/pull/1065)).\n\nReplace the bulk `on_idle` benchmark with a per-item `on_idle_rebag`\nbenchmark that measures the worst-case cost of a single rebag. `on_idle`\nnow consumes weight per iteration via `WeightMeter` instead of reserving\na single bulk weight upfront.\nThis decouples the benchmark from `MaxAutoRebagPerBlock`. Changing the\nconfig no longer requires re-running benchmarks.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T08:37:03Z",
-          "tree_id": "08c626183a09b2edaed88afb1f851ab87e88b838",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba06ae6f41de22a7f376b2ed9453d49434bc0bcf"
-        },
-        "date": 1775210266892,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.04999999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038304625546000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08490627076399988,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08386550298199995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e8e1c1b5efc3189184214a5e55c617b5f9e8886c",
+          "message": "sp-keystore: MemoryKeystore signs only with a secret URI that derives the queried key (#13410)\n\nCloses #13142\n\n`MemoryKeystore::insert` stores any suri under any public key and\nreturns `Ok(())`. `pair()` then derived a key from the stored suri\nwithout checking it against the queried public, which caused two\nproblems:\n- After a mismatched insert, `sr25519_sign`, `sign_with` and the VRF\nmethods returned a signature from a different key, one that does not\nverify under the queried public.\n- After an unparseable suri, every lookup panicked on `expect(\"seed\nslice is valid\")`, including the typed `*_public_keys` listings.\n\nAs planned in the issue, the check happens at lookup time, the way\n`LocalKeystore` does it. `insert` only gets raw public bytes and doesn't\nknow the scheme, so it can't validate up front.\n- `pair()` parses the suri with `from_string(..).ok()` and returns\n`None` unless the derived public matches the queried one. Every sign,\nVRF and proof-of-possession method goes through it.\n- `public_keys` skips an unparseable suri, the same way it already skips\na mismatched one.\n\n`insert`, `keys` and `has_keys` are unchanged: they still report what\nwas stored, like `LocalKeystore`.\n\nThe sign methods return `Ok(None)` for such an entry, matching how\n`public_keys` already treats it as absent. `LocalKeystore` returns an\nerror instead (`PublicKeyMismatch` / `InvalidPhrase`). Happy to switch\nto an `Err` if that's preferred.\n\nTests:\n- `mismatched_secret_uri_signs_nothing`: sign, `sign_with`, VRF sign,\nVRF pre-output and listing, then the same suri under its own public\nstill signs and verifies.\n- `unparseable_secret_uri_does_not_panic`: sr25519, ed25519 and ecdsa\nsign, prehashed sign, VRF, `sign_with` and listings.\n\nEach test fails with its half of the fix reverted. `cargo test -p\nsp-keystore --lib`: 7 passed, and 12 with `--all-features`.\n\nRWF finding, same cluster as #13402.\n\n---------\n\nSigned-off-by: Abdulwaarith <abdulwaarithz@gmail.com>",
+          "timestamp": "2026-10-13T20:18:30Z",
+          "tree_id": "c09f9ebb2a9d0bb366c92ec5eb8502b4121e2968",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e8e1c1b5efc3189184214a5e55c617b5f9e8886c"
+        },
+        "date": 1791929389126,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.08599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03862074078399999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08163468804399993,
             "unit": "seconds"
           }
         ]
