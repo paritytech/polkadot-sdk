@@ -207,6 +207,15 @@ pub mod staking {
 	/// Every system chain that reports over XCM sends its reports in chunks of at most this many
 	/// entries. Asset Hub's message queue must fit a report of this size.
 	pub const MAX_ENTRIES_PER_REPORT: u32 = 500;
+
+	/// Expected time from the arrival of a validator set on a system chain to the end of its era,
+	/// in milliseconds: six relay chain sessions of one hour, the era length of Asset Hub's
+	/// staking.
+	///
+	/// The initial value of `ExpectedEraDuration` in `pallet-validator-collators` on every
+	/// Westend system chain. Asset Hub's runtime tests check that it matches the era length of
+	/// its staking configuration.
+	pub const EXPECTED_ERA_DURATION_MILLIS: u64 = 6 * 60 * 60 * 1000;
 }
 
 /// DAP-related constants, shared across all Westend system parachain runtimes.

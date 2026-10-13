@@ -50,9 +50,9 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_staking_async_system_chain_client`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_staking_async_system_chain_client::WeightInfo for WeightInfo<T> {
-	/// Storage: `StakingSystemChainClient::PointsPerBlock` (r:0 w:1)
-	/// Proof: `StakingSystemChainClient::PointsPerBlock` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
-	fn set_points_per_block() -> Weight {
+	/// Storage: `StakingSystemChainClient::PointsPerUnit` (r:0 w:1)
+	/// Proof: `StakingSystemChainClient::PointsPerUnit` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
+	fn set_points_per_unit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -61,15 +61,15 @@ impl<T: frame_system::Config> pallet_staking_async_system_chain_client::WeightIn
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `StakingSystemChainClient::PointsPerBlock` (r:1 w:0)
-	/// Proof: `StakingSystemChainClient::PointsPerBlock` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `StakingSystemChainClient::PointsPerUnit` (r:1 w:0)
+	/// Proof: `StakingSystemChainClient::PointsPerUnit` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
 	fn report_authored_blocks() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `175`
-		//  Estimated: `3481`
+		//  Estimated: `3490`
 		// Minimum execution time: 6_749_000 picoseconds.
 		Weight::from_parts(7_437_000, 0)
-			.saturating_add(Weight::from_parts(0, 3481))
+			.saturating_add(Weight::from_parts(0, 3490))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
 }

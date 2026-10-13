@@ -21,6 +21,7 @@ use parachains_common::{AccountId, AuraId};
 use sp_externalities::ExternalitiesExt;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
+use sp_staking::PointsKind;
 use westend_system_emulated_network::asset_hub_westend_emulated_chain::asset_hub_westend_runtime;
 
 fn use_memory_keystore() {
@@ -99,6 +100,7 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 	// WHEN Asset Hub starts era 1 with Alice, Bob and Charlie
 	let asset_hub_session_before = AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		type Runtime = <AssetHubWestend as Chain>::Runtime;
 		asset_hub_westend_runtime::staking::AnnounceValidatorSet::on_era_start(1, &validators);
 		assert_expected_events!(
 			AssetHubWestend,
@@ -117,7 +119,9 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 				pallet_validator_set_announcer::Event::AnnouncementFailed { .. }
 			)
 		)));
-		pallet_session::Pallet::<<AssetHubWestend as Chain>::Runtime>::current_index()
+		// AND both chains record the arrival of the set to time the report before the era end
+		assert!(pallet_validator_collators::SetReceivedAt::<Runtime>::get().is_some());
+		pallet_session::Pallet::<Runtime>::current_index()
 	});
 	PeopleWestend::execute_with(|| {
 		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
@@ -129,6 +133,8 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 				) => {},
 			]
 		);
+		type Runtime = <PeopleWestend as Chain>::Runtime;
+		assert!(pallet_validator_collators::SetReceivedAt::<Runtime>::get().is_some());
 	});
 
 	// THEN after two forced rotations both chains collate with the invulnerables, Alice and Bob
@@ -251,9 +257,10 @@ fn people_reports_authored_blocks_to_asset_hub() {
 			&alice,
 			pallet_staking_async::Exposure { total: 1, own: 1, others: vec![] },
 		);
-		assert_ok!(pallet_staking_async_system_chain_client::Pallet::<AssetHubRuntime>::set_points_per_block(
+		assert_ok!(pallet_staking_async_system_chain_client::Pallet::<AssetHubRuntime>::set_points_per_unit(
 			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
 			people,
+			PointsKind::Collation,
 			5,
 		));
 	});
@@ -300,7 +307,7 @@ fn people_reports_authored_blocks_to_asset_hub() {
 		assert_eq!(pallet_validator_collators::AuthoredBlocks::<PeopleRuntime>::count(), 0);
 	});
 
-	// THEN Asset Hub credits Alice's blocks with People's points per block and nobody else
+	// THEN Asset Hub credits Alice's blocks with People's points per unit and nobody else
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		assert_expected_events!(
@@ -310,7 +317,8 @@ fn people_reports_authored_blocks_to_asset_hub() {
 					pallet_staking_async_system_chain_client::Event::BlocksCredited { source, entries: 1 }
 				) => { source: *source == people, },
 				RuntimeEvent::Staking(
-					pallet_staking_async::Event::SystemChainPointsCredited {
+					pallet_staking_async::Event::ServicePointsCredited {
+						kind: PointsKind::Collation,
 						era: 1,
 						credited: 1,
 						dropped: 0,
@@ -319,8 +327,16 @@ fn people_reports_authored_blocks_to_asset_hub() {
 			]
 		);
 		let points = pallet_staking_async::ErasRewardPoints::<AssetHubRuntime>::get(1);
-		assert_eq!(points.individual.into_iter().collect::<Vec<_>>(), vec![(alice, 15)]);
+		assert_eq!(points.individual.into_iter().collect::<Vec<_>>(), vec![(alice.clone(), 15)]);
 		assert_eq!(points.total, 15);
+		// AND they are recorded as collation points only
+		let by_kind = |kind| {
+			let points =
+				pallet_staking_async::ErasRewardPointsByKind::<AssetHubRuntime>::get(1, kind);
+			(points.total, points.individual.into_iter().collect::<Vec<_>>())
+		};
+		assert_eq!(by_kind(PointsKind::Collation), (15, vec![(alice, 15)]));
+		assert_eq!(by_kind(PointsKind::Validation), (0, vec![]));
 	});
 }
 

@@ -45,6 +45,30 @@ pub type EraIndex = u32;
 
 /// Type for identifying a page.
 pub type Page = u32;
+
+/// The service for which validators earn reward points.
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum PointsKind {
+	/// Validating on the relay chain, as reported by the relay chain session report.
+	#[codec(index = 0)]
+	Validation,
+	/// Authoring blocks on system chains.
+	#[codec(index = 1)]
+	Collation,
+}
+
 /// Representation of a staking account, which may be a stash or controller account.
 ///
 /// Note: once the controller is completely deprecated, this enum can also be deprecated in favor of

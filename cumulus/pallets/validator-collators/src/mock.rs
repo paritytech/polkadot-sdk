@@ -129,7 +129,23 @@ impl Config for Test {
 	type BlockReporter = MockReporter;
 	type DefaultReportPeriod = ConstU64<5>;
 	type MaxEntriesPerReport = MaxEntriesPerReport;
+	type UnixTime = MockTime;
+	type DefaultExpectedEraDuration = ConstU64<1000>;
+	type DefaultReportMargin = ConstU64<100>;
+	type MaxReportMargin = ConstU64<500>;
 	type WeightInfo = ();
+}
+
+parameter_types! {
+	/// The time [`MockTime`] returns, in milliseconds.
+	pub static Now: u64 = 0;
+}
+
+pub struct MockTime;
+impl frame_support::traits::UnixTime for MockTime {
+	fn now() -> core::time::Duration {
+		core::time::Duration::from_millis(Now::get())
+	}
 }
 
 parameter_types! {
@@ -168,6 +184,10 @@ pub const VALIDATORS: [u64; 6] = [10, 11, 12, 13, 14, 15];
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_tracing::try_init_simple();
+	Now::set(0);
+	MaxEntriesPerReport::set(10);
+	ReportCalls::set(0);
+	FailingReportCall::set(None);
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let balances = COLLATORS.iter().chain(VALIDATORS.iter()).map(|&a| (a, 100)).collect();

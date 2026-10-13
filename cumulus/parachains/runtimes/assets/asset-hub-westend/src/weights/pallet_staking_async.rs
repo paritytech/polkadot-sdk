@@ -927,19 +927,21 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	/// Proof: `Staking::NextElectionPage` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ElectableStashes` (r:0 w:1)
 	/// Proof: `Staking::ElectableStashes` (`max_values`: Some(1), `max_size`: Some(32002), added: 32497, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasRewardPointsByKind` (r:1 w:1)
+	/// Proof: `Staking::ErasRewardPointsByKind` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `MaxEncodedLen`)
 	/// The range of component `v` is `[1, 1000]`.
 	fn rc_on_session_report(v: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `8226 + v * (61 ±0)`
-		//  Estimated: `39483 + v * (2543 ±0)`
+		//  Estimated: `77985 + v * (2543 ±0)`
 		// Minimum execution time: 244_879_000 picoseconds.
 		Weight::from_parts(205_636_695, 0)
-			.saturating_add(Weight::from_parts(0, 39483))
+			.saturating_add(Weight::from_parts(0, 77985))
 			// Standard Error: 6_515
 			.saturating_add(Weight::from_parts(6_343_680, 0).saturating_mul(v.into()))
-			.saturating_add(T::DbWeight::get().reads(16))
+			.saturating_add(T::DbWeight::get().reads(17))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(v.into())))
-			.saturating_add(T::DbWeight::get().writes(17))
+			.saturating_add(T::DbWeight::get().writes(18))
 			.saturating_add(Weight::from_parts(0, 2543).saturating_mul(v.into()))
 	}
 	/// Storage: `Staking::ActiveEra` (r:1 w:0)
@@ -948,23 +950,25 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasRewardPoints` (r:1 w:1)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasRewardPointsByKind` (r:1 w:1)
+	/// Proof: `Staking::ErasRewardPointsByKind` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasValidatorIncentiveWeight` (r:999 w:0)
 	/// Proof: `Staking::ErasValidatorIncentiveWeight` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasSumWeightedPoints` (r:1 w:1)
 	/// Proof: `Staking::ErasSumWeightedPoints` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	/// The range of component `v` is `[1, 1000]`.
-	fn reward_system_chain_points(v: u32, ) -> Weight {
+	fn reward_service_points(v: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1254 + v * (117 ±0)`
-		//  Estimated: `39483 + v * (2567 ±0)`
+		//  Estimated: `77985 + v * (2567 ±0)`
 		// Minimum execution time: 34_208_000 picoseconds.
 		Weight::from_parts(35_726_000, 0)
-			.saturating_add(Weight::from_parts(0, 39483))
+			.saturating_add(Weight::from_parts(0, 77985))
 			// Standard Error: 13_338
 			.saturating_add(Weight::from_parts(9_877_567, 0).saturating_mul(v.into()))
-			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(v.into())))
-			.saturating_add(T::DbWeight::get().writes(2))
+			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(Weight::from_parts(0, 2567).saturating_mul(v.into()))
 	}
 	/// Storage: `Staking::ActiveEra` (r:1 w:0)
@@ -1069,6 +1073,8 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	/// Proof: `Staking::EraPruningState` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
 	/// Storage: `Staking::ErasRewardPoints` (r:0 w:1)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
+	/// Storage: `Staking::ErasRewardPointsByKind` (r:0 w:2)
+	/// Proof: `Staking::ErasRewardPointsByKind` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `Measured`)
 	fn prune_era_reward_points() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `855`
@@ -1077,7 +1083,7 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 		Weight::from_parts(34_897_000, 0)
 			.saturating_add(Weight::from_parts(0, 4320))
 			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	/// Storage: `Staking::ActiveEra` (r:1 w:0)
 	/// Proof: `Staking::ActiveEra` (`max_values`: Some(1), `max_size`: Some(13), added: 508, mode: `Measured`)

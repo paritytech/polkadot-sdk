@@ -32,7 +32,7 @@ use mock::*;
 use sp_runtime::{
 	assert_eq_error_rate, bounded_vec, traits::BadOrigin, Perbill, Percent, TokenError,
 };
-use sp_staking::{Stake, StakingAccount, StakingInterface};
+use sp_staking::{PointsKind, Stake, StakingAccount, StakingInterface};
 use substrate_test_utils::assert_eq_uvec;
 
 mod bonding;
@@ -46,8 +46,8 @@ mod ledger;
 mod legacy_reward;
 mod nominators_no_slashing;
 mod payout_stakers;
+mod service_points;
 mod slashing;
-mod system_chain_points;
 mod try_state;
 mod validator_incentive;
 
