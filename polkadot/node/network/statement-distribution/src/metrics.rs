@@ -14,12 +14,26 @@
 
 //! Metrics for the statement distribution module
 
+use std::time::Duration;
+
 use polkadot_node_subsystem_util::metrics::{self, prometheus};
+
+use crate::v2::{FetchOutcome, FetchSlot};
 
 /// Buckets more suitable for checking the typical latency values
 const HISTOGRAM_LATENCY_BUCKETS: &[f64] = &[
 	0.000025, 0.00005, 0.000075, 0.0001, 0.0003125, 0.000625, 0.00125, 0.0025, 0.005, 0.01, 0.025,
 	0.05, 0.1,
+];
+
+/// Buckets for `AttestedCandidateRequest` completion latency.
+const HISTOGRAM_FETCH_BUCKETS: &[f64] =
+	&[0.010, 0.025, 0.050, 0.100, 0.150, 0.250, 0.500, 0.750, 1.000, 1.500, 2.000, 2.500, 5.000];
+
+/// Buckets for end-to-end "first knew about candidate -> have candidate" latency.
+const HISTOGRAM_LEARN_TO_FETCH_BUCKETS: &[f64] = &[
+	0.025, 0.050, 0.100, 0.200, 0.300, 0.400, 0.500, 0.600, 0.700, 1.0, 1.5, 2.0, 2.5, 3.0, 5.0,
+	7.5, 10.0, 15.0, 30.0,
 ];
 
 #[derive(Clone)]
@@ -37,6 +51,12 @@ struct MetricsInner {
 	// V2+
 	peer_rate_limit_request_drop: prometheus::Counter<prometheus::U64>,
 	max_parallel_requests_reached: prometheus::Counter<prometheus::U64>,
+	// Parallel `AttestedCandidate` fetch metrics.
+	parallel_fetch_fired: prometheus::Counter<prometheus::U64>,
+	parallel_fetch_won: prometheus::Counter<prometheus::U64>,
+	parallel_fetch_skipped_no_alt_peer: prometheus::Counter<prometheus::U64>,
+	fetch_completion_seconds: prometheus::HistogramVec,
+	learn_to_fetch_seconds: prometheus::Histogram,
 }
 
 /// Statement Distribution metrics.
@@ -143,6 +163,48 @@ impl Metrics {
 			metrics.max_parallel_requests_reached.inc();
 		}
 	}
+
+	/// Increment the counter for parallel `AttestedCandidateRequest` fires.
+	pub fn on_parallel_fetch_fired(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.parallel_fetch_fired.inc();
+		}
+	}
+
+	/// Increment the counter for cases where a parallel-slot fetch arrived before the
+	/// first-slot fetch and provided a valid response. Read together with
+	/// `parallel_fetch_fired_total` to see how often parallelism actually pays off.
+	pub fn on_parallel_fetch_won(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.parallel_fetch_won.inc();
+		}
+	}
+
+	/// Increment the counter for cases where a parallel second-slot fetch would have been
+	/// dispatched but no alternate advertiser was known.
+	pub fn on_parallel_fetch_skipped_no_alt_peer(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.parallel_fetch_skipped_no_alt_peer.inc();
+		}
+	}
+
+	/// Observe the end-to-end duration of a single `AttestedCandidateRequest`.
+	pub fn on_fetch_completion(&self, slot: FetchSlot, outcome: FetchOutcome, duration: Duration) {
+		if let Some(metrics) = &self.0 {
+			metrics
+				.fetch_completion_seconds
+				.with_label_values(&[slot.as_str(), outcome.as_str()])
+				.observe(duration.as_secs_f64());
+		}
+	}
+
+	/// Observe how much it took us to fetch a candidate from when we first learned about it
+	/// to when we got a complete response.
+	pub fn on_learn_to_fetch(&self, duration: Duration) {
+		if let Some(metrics) = &self.0 {
+			metrics.learn_to_fetch_seconds.observe(duration.as_secs_f64());
+		}
+	}
 }
 
 impl metrics::Metrics for Metrics {
@@ -233,6 +295,57 @@ impl metrics::Metrics for Metrics {
 				prometheus::Counter::new(
 					"polkadot_parachain_statement_distribution_max_parallel_requests_reached_total",
 					"Number of times the maximum number of parallel requests was reached.",
+				)?,
+				registry,
+			)?,
+			parallel_fetch_fired: prometheus::register(
+				prometheus::Counter::new(
+					"polkadot_parachain_statement_distribution_parallel_fetch_fired_total",
+					"Number of times a parallel (second-slot) AttestedCandidate fetch was \
+					 dispatched after the PARALLEL_FETCH_THRESHOLD elapsed without a response on \
+					 the first slot.",
+				)?,
+				registry,
+			)?,
+			parallel_fetch_won: prometheus::register(
+				prometheus::Counter::new(
+					"polkadot_parachain_statement_distribution_parallel_fetch_won_total",
+					"Number of times a parallel-slot AttestedCandidate fetch arrived before the \
+					 first slot and provided a valid response.",
+				)?,
+				registry,
+			)?,
+			parallel_fetch_skipped_no_alt_peer: prometheus::register(
+				prometheus::Counter::new(
+					"polkadot_parachain_statement_distribution_parallel_fetch_skipped_no_alt_peer_total",
+					"Number of times a parallel (second-slot) AttestedCandidate fetch could have \
+					 been dispatched but no alternate advertiser was available.",
+				)?,
+				registry,
+			)?,
+			fetch_completion_seconds: prometheus::register(
+				prometheus::HistogramVec::new(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_statement_distribution_fetch_completion_seconds",
+						"End-to-end duration of an AttestedCandidate fetch (per slot, per \
+						 outcome). Anchored at the 500ms parallel-fetch threshold and the \
+						 2500ms hard transport timeout.",
+					)
+					.buckets(HISTOGRAM_FETCH_BUCKETS.into()),
+					&["slot", "outcome"],
+				)?,
+				registry,
+			)?,
+			learn_to_fetch_seconds: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_statement_distribution_learn_to_fetch_seconds",
+						"Time from first learning about a candidate (manifest received or \
+						 cluster statement) to successfully fetching it (Complete response). \
+						 Captures queue wait + retry-cooldown + winning-slot fetch RTT \
+						 end-to-end.",
+					)
+					.buckets(HISTOGRAM_LEARN_TO_FETCH_BUCKETS.into()),
 				)?,
 				registry,
 			)?,

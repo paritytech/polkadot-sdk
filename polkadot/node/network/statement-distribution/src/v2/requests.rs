@@ -35,8 +35,9 @@ use super::{
 	COST_INVALID_SIGNATURE, COST_INVALID_UMP_SIGNALS, COST_UNREQUESTED_RESPONSE_STATEMENT,
 	REQUEST_RETRY_DELAY,
 };
-use crate::LOG_TARGET;
+use crate::{metrics::Metrics, LOG_TARGET};
 
+use arrayvec::ArrayVec;
 use bitvec::prelude::{BitVec, Lsb0};
 use polkadot_node_network_protocol::{
 	request_response::{
@@ -60,8 +61,101 @@ use std::{
 		hash_map::{Entry as HEntry, HashMap},
 		HashSet, VecDeque,
 	},
-	time::Instant,
+	time::{Duration, Instant},
 };
+
+/// After this much time without a response, dispatch a parallel `AttestedCandidateRequest`
+/// to a different advertiser of the same candidate. First-valid response wins.
+///
+/// Slots beyond the second are dispatched staggered: slot `N+1` fires after `N *
+/// PARALLEL_FETCH_THRESHOLD` has elapsed since the first request — each successive slot is
+/// further evidence that the candidate is genuinely slow to propagate, not that one peer
+/// happened to be sluggish.
+///
+/// Must be strictly less than the network-level `ATTESTED_CANDIDATE_TIMEOUT` (2500ms in
+/// `polkadot-node-network-protocol::request_response`) so the parallel fetch is dispatched
+/// while the original request is still alive.
+pub(crate) const PARALLEL_FETCH_THRESHOLD: Duration = Duration::from_millis(600);
+
+/// Maximum number of `AttestedCandidateRequest`s that can be in flight simultaneously for a
+/// single candidate.
+///
+/// Set to 4 to match the k=4 random-gossip fan-out introduced by the next part of issue
+/// #12028 — once random manifest gossip ships, each non-backer validator may learn about a
+/// candidate from cluster + grid + up to 4 random originators + their forwarders, so up to
+/// 4 parallel fetches are useful to escape multiple slow peers without exceeding the global
+/// in-flight cap of `2 * MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS = 10`.
+///
+/// In PR1 (parallel fetch alone) the practical effective cap is still ≤ 2 in most cases:
+/// a candidate typically has only ~2 advertisers known until random gossip is enabled, so
+/// `find_request_target_with_update` returns `None` for higher slots. Staggered firing
+/// also means later slots only fire if many `PARALLEL_FETCH_THRESHOLD` intervals have
+/// elapsed without a response.
+pub(crate) const MAX_PARALLEL_FETCH_SLOTS: usize = 4;
+
+const _: () =
+	assert!(MAX_PARALLEL_FETCH_SLOTS >= 1, "MAX_PARALLEL_FETCH_SLOTS must be at least 1",);
+
+// Sanity check against the network-level hard request timeout. The exact value of
+// `ATTESTED_CANDIDATE_TIMEOUT` is private to the protocol crate; we hard-code the expected
+// value here to catch any divergence.
+const _: () = assert!(
+	PARALLEL_FETCH_THRESHOLD.as_millis() < 2500,
+	"PARALLEL_FETCH_THRESHOLD must be less than the network-level ATTESTED_CANDIDATE_TIMEOUT",
+);
+
+/// Which fetch attempt resolved — the original or one of the parallel ones fired after the
+/// threshold.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FetchSlot {
+	/// The original request, sent on when we firt learn about the candidate.
+	First,
+	/// Any parallel request.
+	Parallel,
+}
+
+impl FetchSlot {
+	/// Static-string label suitable for prometheus.
+	pub fn as_str(self) -> &'static str {
+		match self {
+			FetchSlot::First => "first",
+			FetchSlot::Parallel => "parallel",
+		}
+	}
+}
+
+/// Outcome classification for a single fetch attempt. Used for metrics labels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FetchOutcome {
+	/// Response was valid and sufficient (this slot was the winner).
+	Success,
+	/// Response arrived but was rejected with a reputation penalty (e.g. bad signature).
+	Invalid,
+	/// Response did not arrive in time, or transport error (no reputation change).
+	TimeoutOther,
+	/// Response arrived after the candidate was already resolved or pruned.
+	Dropped,
+}
+
+impl FetchOutcome {
+	/// Static-string label suitable for prometheus.
+	pub fn as_str(self) -> &'static str {
+		match self {
+			FetchOutcome::Success => "success",
+			FetchOutcome::Invalid => "invalid",
+			FetchOutcome::TimeoutOther => "timeout_other",
+			FetchOutcome::Dropped => "dropped",
+		}
+	}
+}
+
+/// Observation emitted for every fetch attempt's resolution.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FetchCompletion {
+	pub slot: FetchSlot,
+	pub outcome: FetchOutcome,
+	pub duration: Duration,
+}
 
 /// An identifier for a candidate.
 ///
@@ -84,35 +178,69 @@ pub struct CandidateIdentifier {
 struct TaggedResponse {
 	identifier: CandidateIdentifier,
 	requested_peer: PeerId,
+	slot: FetchSlot,
+	sent_at: Instant,
 	props: RequestProperties,
 	response: OutgoingResult<AttestedCandidateResponse>,
 }
 
 /// A pending request.
+///
+/// A candidate may have up to `MAX_PARALLEL_FETCH_SLOTS` in-flight requests at any time. The
+/// first is dispatched as soon as the candidate becomes eligible; subsequent parallel slots
+/// are fired staggered, each after one additional `PARALLEL_FETCH_THRESHOLD` has elapsed
+/// since the first request, to *different* advertisers. First valid response wins; losers
+/// are dropped via the existing `CandidateRequestStatus::Outdated` path, with no reputation
+/// change.
+///
+/// Per-slot timing/identity travels with the response future via [`TaggedResponse`].
 #[derive(Debug)]
 pub struct RequestedCandidate {
 	priority: Priority,
 	known_by: VecDeque<PeerId>,
-	/// Has the request been sent out and a response not yet received?
-	in_flight: bool,
+	/// Peers we are currently waiting on responses from for this candidate. Bounded to
+	/// `MAX_PARALLEL_FETCH_SLOTS`.
+	in_flight: ArrayVec<PeerId, MAX_PARALLEL_FETCH_SLOTS>,
+	/// Time the first slot was dispatched, used to gate the staggered parallel-fire timer.
+	first_request_sent_at: Option<Instant>,
+	/// Time we first learned about this candidate.
+	first_learned_at: Instant,
 	/// The timestamp for the next time we should retry, if the response failed.
 	next_retry_time: Option<Instant>,
 }
 
 impl RequestedCandidate {
-	fn is_pending(&self) -> bool {
-		if self.in_flight {
+	/// True if the candidate has no in-flight slots and the retry-cooldown window has elapsed.
+	/// Used to dispatch the first request.
+	fn is_pending_first(&self) -> bool {
+		if !self.in_flight.is_empty() {
 			return false;
 		}
 
 		if let Some(next_retry_time) = self.next_retry_time {
-			let can_retry = Instant::now() >= next_retry_time;
-			if !can_retry {
+			if Instant::now() < next_retry_time {
 				return false;
 			}
 		}
 
 		true
+	}
+
+	/// True if at least one slot is in-flight, there is room for another (`< MAX`), and the
+	/// staggered parallel-fire threshold has elapsed since the first request. Used to dispatch
+	/// any parallel slot beyond the first. The staggering formula is `first_request_sent_at +
+	/// in_flight.len() * PARALLEL_FETCH_THRESHOLD` — so slot N+1 fires N thresholds after the
+	/// first.
+	fn is_pending_parallel(&self) -> bool {
+		if self.in_flight.is_empty() || self.in_flight.is_full() {
+			return false;
+		}
+
+		let Some(sent_at) = self.first_request_sent_at else { return false };
+		let wait = PARALLEL_FETCH_THRESHOLD
+			.checked_mul(self.in_flight.len() as u32)
+			.expect("len <= MAX_PARALLEL_FETCH_SLOTS << u32::MAX; qed");
+		Instant::now() >= sent_at + wait
 	}
 }
 
@@ -192,7 +320,9 @@ impl RequestManager {
 				e.insert(RequestedCandidate {
 					priority: Priority { attempts: 0, origin: Origin::Unspecified },
 					known_by: VecDeque::new(),
-					in_flight: false,
+					in_flight: ArrayVec::new(),
+					first_request_sent_at: None,
+					first_learned_at: Instant::now(),
 					next_retry_time: None,
 				}),
 				true,
@@ -275,10 +405,11 @@ impl RequestManager {
 		);
 	}
 
-	/// Returns true if there are pending requests that are dispatchable.
+	/// Returns true if there are pending requests that are dispatchable, either as a fresh
+	/// first request or as any parallel slot whose staggered threshold has elapsed.
 	pub fn has_pending_requests(&self) -> bool {
 		for (_id, entry) in &self.requests {
-			if entry.is_pending() {
+			if entry.is_pending_first() || entry.is_pending_parallel() {
 				return true;
 			}
 		}
@@ -299,14 +430,62 @@ impl RequestManager {
 		self.requests.len()
 	}
 
+	/// Test-only: rewind a candidate's `first_request_sent_at` far enough that all parallel
+	/// slots up to `MAX_PARALLEL_FETCH_SLOTS` are immediately dispatchable (staggered firing
+	/// will collapse to a burst because every threshold has already elapsed). Lets tests
+	/// exercise parallel-slot dispatch deterministically without sleeping on the wall clock.
+	#[cfg(test)]
+	pub(super) fn force_parallel_fire_ready(&mut self, identifier: &CandidateIdentifier) {
+		if let Some(entry) = self.requests.get_mut(identifier) {
+			let offset = PARALLEL_FETCH_THRESHOLD * MAX_PARALLEL_FETCH_SLOTS as u32 +
+				Duration::from_millis(1);
+			entry.first_request_sent_at = Some(Instant::now() - offset);
+		}
+	}
+
+	/// Test-only: number of peers currently in flight for a candidate.
+	#[cfg(test)]
+	pub(super) fn in_flight_count_for(&self, identifier: &CandidateIdentifier) -> usize {
+		self.requests.get(identifier).map(|e| e.in_flight.len()).unwrap_or(0)
+	}
+
 	/// Returns an instant at which the next request to be retried will be ready.
+	///
+	/// Only candidates with no in-flight slots are eligible for retry; a candidate that is
+	/// already mid-flight (one or two slots filled) doesn't need a retry timer.
 	pub fn next_retry_time(&mut self) -> Option<Instant> {
 		let mut next = None;
-		for (_id, request) in self.requests.iter().filter(|(_id, request)| !request.in_flight) {
+		for (_id, request) in
+			self.requests.iter().filter(|(_id, request)| request.in_flight.is_empty())
+		{
 			if let Some(next_retry_time) = request.next_retry_time {
 				if next.map_or(true, |next| next_retry_time < next) {
 					next = Some(next_retry_time);
 				}
+			}
+		}
+		next
+	}
+
+	/// Returns the soonest instant at which any candidate's next parallel slot becomes ready
+	/// to dispatch. For a candidate with `k` slots already in flight (`1 <= k < MAX`), the
+	/// next slot fires at `first_request_sent_at + k * PARALLEL_FETCH_THRESHOLD`
+	///
+	/// Returns `None` if no candidate has a parallel slot available.
+	/// available (either nothing in flight, or all MAX slots filled).
+	pub fn next_parallel_fire_time(&self) -> Option<Instant> {
+		let mut next = None;
+		for (_id, request) in &self.requests {
+			if request.in_flight.is_empty() || request.in_flight.is_full() {
+				continue;
+			}
+			let Some(sent_at) = request.first_request_sent_at else { continue };
+			let wait = PARALLEL_FETCH_THRESHOLD
+				.checked_mul(request.in_flight.len() as u32)
+				.expect("len <= MAX_PARALLEL_FETCH_SLOTS << u32::MAX; qed");
+			let fire_at = sent_at + wait;
+			if next.map_or(true, |n| fire_at < n) {
+				next = Some(fire_at);
 			}
 		}
 		next
@@ -323,9 +502,15 @@ impl RequestManager {
 	/// The second closure is used to determine the specific advertised
 	/// statements by a peer, to be compared against the mask and backing
 	/// threshold and returns `None` if the peer is no longer connected.
+	///
+	/// A candidate may receive up to two in-flight requests (the second is dispatched after
+	/// `PARALLEL_FETCH_THRESHOLD` has elapsed without a response on the first). The metrics
+	/// `parallel_fetch_fired_total` and `parallel_fetch_skipped_no_alt_peer_total` are emitted
+	/// directly through `metrics`.
 	pub fn next_request(
 		&mut self,
 		response_manager: &mut ResponseManager,
+		metrics: &Metrics,
 		request_props: impl Fn(&CandidateIdentifier) -> Option<RequestProperties>,
 		peer_advertised: impl Fn(&CandidateIdentifier, &PeerId) -> Option<StatementFilter>,
 	) -> Option<OutgoingRequest<AttestedCandidateRequest>> {
@@ -346,7 +531,7 @@ impl RequestManager {
 
 		// loop over all requests, in order of priority.
 		// do some active maintenance of the connected peers.
-		// dispatch the first request which is not in-flight already.
+		// dispatch the first ready request (first slot, or parallel second slot).
 
 		let mut cleanup_outdated = Vec::new();
 		for (i, (_priority, id)) in self.by_priority.iter().enumerate() {
@@ -363,9 +548,13 @@ impl RequestManager {
 				Some(e) => e,
 			};
 
-			if !entry.is_pending() {
+			let slot = if entry.is_pending_first() {
+				FetchSlot::First
+			} else if entry.is_pending_parallel() {
+				FetchSlot::Parallel
+			} else {
 				continue;
-			}
+			};
 
 			let props = match request_props(&id) {
 				None => {
@@ -382,7 +571,15 @@ impl RequestManager {
 				&peer_advertised,
 				&response_manager,
 			) {
-				None => continue,
+				None => {
+					// For a parallel slot, "no target" specifically means no alternate
+					// advertiser was available (every known peer is already in flight or
+					// otherwise filtered out). Surface that for operator diagnostics.
+					if matches!(slot, FetchSlot::Parallel) {
+						metrics.on_parallel_fetch_skipped_no_alt_peer();
+					}
+					continue;
+				},
 				Some(t) => t,
 			};
 
@@ -390,6 +587,7 @@ impl RequestManager {
 				target: crate::LOG_TARGET,
 				candidate_hash = ?id.candidate_hash,
 				peer = ?target,
+				?slot,
 				"Issuing candidate request"
 			);
 
@@ -401,12 +599,15 @@ impl RequestManager {
 				},
 			);
 
+			let sent_at = Instant::now();
 			let stored_id = id.clone();
 			response_manager.push(
 				Box::pin(async move {
 					TaggedResponse {
 						identifier: stored_id,
 						requested_peer: target,
+						slot,
+						sent_at,
 						props,
 						response: response_fut.await,
 					}
@@ -414,7 +615,12 @@ impl RequestManager {
 				target,
 			);
 
-			entry.in_flight = true;
+			entry.in_flight.push(target);
+			if matches!(slot, FetchSlot::First) {
+				entry.first_request_sent_at = Some(sent_at);
+			} else {
+				metrics.on_parallel_fetch_fired();
+			}
 
 			res = Some(request);
 			break;
@@ -583,13 +789,16 @@ impl UnhandledResponse {
 		transposed_cq: &TransposedClaimQueue,
 	) -> ResponseValidationOutput {
 		let UnhandledResponse {
-			response: TaggedResponse { identifier, requested_peer, props, response },
+			response: TaggedResponse { identifier, requested_peer, slot, sent_at, props, response },
 		} = self;
+
+		let duration = Instant::now().saturating_duration_since(sent_at);
 
 		// handle races if the candidate is no longer known.
 		// this could happen if we requested the candidate under two
 		// different identifiers at the same time, and received a valid
-		// response on the other.
+		// response on the other, or because a parallel (second-slot) fetch
+		// resolved later than the winner from the first slot.
 		//
 		// it could also happen in the case that we had a request in-flight
 		// and the request entry was garbage-collected on outdated relay parent.
@@ -599,10 +808,21 @@ impl UnhandledResponse {
 					requested_peer,
 					reputation_changes: Vec::new(),
 					request_status: CandidateRequestStatus::Outdated,
-				}
+					fetch_completion: FetchCompletion {
+						slot,
+						outcome: FetchOutcome::Dropped,
+						duration,
+					},
+					// Entry already gone — typically the winner of a parallel race already
+					// observed the learn-to-fetch duration on its own resolution.
+					learn_to_fetch: None,
+				};
 			},
 			Some(e) => e,
 		};
+
+		// Capture this before any potential `manager.remove_for` consumes the entry.
+		let first_learned_at = entry.first_learned_at;
 
 		let priority_index = match manager
 			.by_priority
@@ -612,10 +832,20 @@ impl UnhandledResponse {
 			Err(_) => unreachable!("requested candidates always have a priority entry; qed"),
 		};
 
-		// Set the next retry time before clearing the `in_flight` flag.
-		entry.next_retry_time = Some(Instant::now() + REQUEST_RETRY_DELAY);
-		entry.in_flight = false;
-		entry.priority.attempts += 1;
+		// Clear the resolving peer's slot from the in-flight set. We retain whichever other
+		// slot (if any) is still pending — its future remains in `ResponseManager` and will
+		// resolve to `Outdated` if this response Completed (via `remove_for`), or continue
+		// independently otherwise.
+		entry.in_flight.retain(|p| *p != requested_peer);
+
+		// Only schedule a retry if no other slot is still in flight: if the loser of a parallel
+		// race resolves Incomplete, we don't want to bump the retry cooldown while the winner
+		// is still in flight.
+		if entry.in_flight.is_empty() {
+			entry.next_retry_time = Some(Instant::now() + REQUEST_RETRY_DELAY);
+			entry.first_request_sent_at = None;
+			entry.priority.attempts += 1;
+		}
 
 		// update the location in the priority queue.
 		insert_or_update_priority(
@@ -638,6 +868,14 @@ impl UnhandledResponse {
 					requested_peer,
 					reputation_changes: vec![(requested_peer, COST_IMPROPERLY_DECODED_RESPONSE)],
 					request_status: CandidateRequestStatus::Incomplete,
+					fetch_completion: FetchCompletion {
+						slot,
+						outcome: FetchOutcome::Invalid,
+						duration,
+					},
+					// Not Complete yet — retry may follow. Only emit learn-to-fetch on the
+					// terminal Complete observation.
+					learn_to_fetch: None,
 				};
 			},
 			Err(e @ RequestError::NetworkError(_) | e @ RequestError::Canceled(_)) => {
@@ -651,12 +889,18 @@ impl UnhandledResponse {
 					requested_peer,
 					reputation_changes: vec![],
 					request_status: CandidateRequestStatus::Incomplete,
+					fetch_completion: FetchCompletion {
+						slot,
+						outcome: FetchOutcome::TimeoutOther,
+						duration,
+					},
+					learn_to_fetch: None,
 				};
 			},
 			Ok(response) => response,
 		};
 
-		let output = validate_complete_response(
+		let mut output = validate_complete_response(
 			&identifier,
 			props,
 			complete_response,
@@ -669,7 +913,22 @@ impl UnhandledResponse {
 			transposed_cq,
 		);
 
+		// Backfill the slot/duration info, since validate_complete_response doesn't know it.
+		output.fetch_completion = FetchCompletion {
+			slot,
+			outcome: match &output.request_status {
+				CandidateRequestStatus::Complete { .. } => FetchOutcome::Success,
+				_ => FetchOutcome::Invalid,
+			},
+			duration,
+		};
+
 		if let CandidateRequestStatus::Complete { .. } = output.request_status {
+			// End-to-end "we knew about this candidate" → "we have it" duration. Includes
+			// queue wait, retry-cooldown, and the winning fetch RTT. The caller emits this
+			// into `learn_to_fetch_seconds`.
+			output.learn_to_fetch =
+				Some(Instant::now().saturating_duration_since(first_learned_at));
 			manager.remove_for(identifier.candidate_hash);
 		}
 
@@ -705,10 +964,19 @@ fn validate_complete_response(
 		unwanted_mask.validated_in_group.resize(group.len(), true);
 	}
 
+	// `fetch_completion` is backfilled by the caller (`validate_response`) which has the
+	// slot/duration context. Use a placeholder here that will be overwritten.
+	// `learn_to_fetch` stays None for Incomplete outcomes.
 	let invalid_candidate_output = |cost: Rep| ResponseValidationOutput {
 		request_status: CandidateRequestStatus::Incomplete,
 		reputation_changes: vec![(requested_peer, cost)],
 		requested_peer,
+		fetch_completion: FetchCompletion {
+			slot: FetchSlot::First,
+			outcome: FetchOutcome::Invalid,
+			duration: Duration::ZERO,
+		},
+		learn_to_fetch: None,
 	};
 
 	let mut rep_changes = Vec::new();
@@ -882,6 +1150,13 @@ fn validate_complete_response(
 			statements,
 		},
 		reputation_changes: rep_changes,
+		// Backfilled by the caller (`validate_response`).
+		fetch_completion: FetchCompletion {
+			slot: FetchSlot::First,
+			outcome: FetchOutcome::Success,
+			duration: Duration::ZERO,
+		},
+		learn_to_fetch: None,
 	}
 }
 
@@ -910,6 +1185,14 @@ pub struct ResponseValidationOutput {
 	pub request_status: CandidateRequestStatus,
 	/// Any reputation changes as a result of validating the response.
 	pub reputation_changes: Vec<(PeerId, Rep)>,
+	/// Observation for the `fetch_completion_seconds` histogram and the
+	/// `parallel_fetch_won_total` counter. Always populated.
+	pub fetch_completion: FetchCompletion,
+	/// Observation for the `learn_to_fetch_seconds` histogram. Set to `Some` only
+	/// on `Complete` — the duration from when we first learned about the candidate (first
+	/// insertion into the `RequestManager`) to now. Captures queue-wait + retry-cooldown +
+	/// fetch RTT, end-to-end.
+	pub learn_to_fetch: Option<Duration>,
 }
 
 fn insert_or_update_priority(
@@ -1108,11 +1391,21 @@ mod tests {
 			};
 
 			let outgoing = request_manager
-				.next_request(&mut response_manager, request_props, peer_advertised)
+				.next_request(
+					&mut response_manager,
+					&Metrics::default(),
+					request_props,
+					peer_advertised,
+				)
 				.unwrap();
 			assert_eq!(outgoing.payload.candidate_hash, candidate);
 			let outgoing = request_manager
-				.next_request(&mut response_manager, request_props, peer_advertised)
+				.next_request(
+					&mut response_manager,
+					&Metrics::default(),
+					request_props,
+					peer_advertised,
+				)
 				.unwrap();
 			assert_eq!(outgoing.payload.candidate_hash, candidate);
 		}
@@ -1124,6 +1417,8 @@ mod tests {
 				response: TaggedResponse {
 					identifier: identifier1,
 					requested_peer: requested_peer_1,
+					slot: FetchSlot::First,
+					sent_at: Instant::now(),
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
 						candidate_receipt: candidate_receipt.clone().into(),
@@ -1144,18 +1439,18 @@ mod tests {
 				disabled_mask.clone(),
 				&Default::default(),
 			);
+			assert_eq!(output.requested_peer, requested_peer_1);
 			assert_eq!(
-				output,
-				ResponseValidationOutput {
-					requested_peer: requested_peer_1,
-					request_status: CandidateRequestStatus::Complete {
-						candidate: candidate_receipt.clone(),
-						persisted_validation_data: persisted_validation_data.clone(),
-						statements,
-					},
-					reputation_changes: vec![(requested_peer_1, BENEFIT_VALID_RESPONSE)],
+				output.request_status,
+				CandidateRequestStatus::Complete {
+					candidate: candidate_receipt.clone(),
+					persisted_validation_data: persisted_validation_data.clone(),
+					statements,
 				}
 			);
+			assert_eq!(output.reputation_changes, vec![(requested_peer_1, BENEFIT_VALID_RESPONSE)]);
+			assert_eq!(output.fetch_completion.slot, FetchSlot::First);
+			assert_eq!(output.fetch_completion.outcome, FetchOutcome::Success);
 		}
 
 		// Try to validate second response.
@@ -1165,6 +1460,8 @@ mod tests {
 				response: TaggedResponse {
 					identifier: identifier2,
 					requested_peer: requested_peer_2,
+					slot: FetchSlot::First,
+					sent_at: Instant::now(),
 					props: request_properties,
 					response: Ok(AttestedCandidateResponse {
 						candidate_receipt: candidate_receipt.clone().into(),
@@ -1184,14 +1481,10 @@ mod tests {
 				disabled_mask,
 				&Default::default(),
 			);
-			assert_eq!(
-				output,
-				ResponseValidationOutput {
-					requested_peer: requested_peer_2,
-					request_status: CandidateRequestStatus::Outdated,
-					reputation_changes: vec![],
-				}
-			);
+			assert_eq!(output.requested_peer, requested_peer_2);
+			assert_eq!(output.request_status, CandidateRequestStatus::Outdated);
+			assert_eq!(output.reputation_changes, vec![]);
+			assert_eq!(output.fetch_completion.outcome, FetchOutcome::Dropped);
 		}
 
 		assert_eq!(request_manager.requests.len(), 0);
@@ -1234,7 +1527,12 @@ mod tests {
 				|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
 
 			let outgoing = request_manager
-				.next_request(&mut response_manager, request_props, peer_advertised)
+				.next_request(
+					&mut response_manager,
+					&Metrics::default(),
+					request_props,
+					peer_advertised,
+				)
 				.unwrap();
 			assert_eq!(outgoing.payload.candidate_hash, candidate);
 		}
@@ -1249,6 +1547,8 @@ mod tests {
 				response: TaggedResponse {
 					identifier,
 					requested_peer,
+					slot: FetchSlot::First,
+					sent_at: Instant::now(),
 					props: request_properties,
 					response: Ok(AttestedCandidateResponse {
 						candidate_receipt: candidate_receipt.clone().into(),
@@ -1269,14 +1569,10 @@ mod tests {
 				disabled_mask,
 				&Default::default(),
 			);
-			assert_eq!(
-				output,
-				ResponseValidationOutput {
-					requested_peer,
-					request_status: CandidateRequestStatus::Outdated,
-					reputation_changes: vec![],
-				}
-			);
+			assert_eq!(output.requested_peer, requested_peer);
+			assert_eq!(output.request_status, CandidateRequestStatus::Outdated);
+			assert_eq!(output.reputation_changes, vec![]);
+			assert_eq!(output.fetch_completion.outcome, FetchOutcome::Dropped);
 		}
 	}
 
@@ -1318,7 +1614,12 @@ mod tests {
 				|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
 
 			let outgoing = request_manager
-				.next_request(&mut response_manager, request_props, peer_advertised)
+				.next_request(
+					&mut response_manager,
+					&Metrics::default(),
+					request_props,
+					peer_advertised,
+				)
 				.unwrap();
 			assert_eq!(outgoing.payload.candidate_hash, candidate);
 		}
@@ -1330,6 +1631,8 @@ mod tests {
 				response: TaggedResponse {
 					identifier,
 					requested_peer,
+					slot: FetchSlot::First,
+					sent_at: Instant::now(),
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
 						candidate_receipt: candidate_receipt.clone().into(),
@@ -1351,18 +1654,18 @@ mod tests {
 				disabled_mask,
 				&Default::default(),
 			);
+			assert_eq!(output.requested_peer, requested_peer);
 			assert_eq!(
-				output,
-				ResponseValidationOutput {
-					requested_peer,
-					request_status: CandidateRequestStatus::Complete {
-						candidate: candidate_receipt.clone().into(),
-						persisted_validation_data: persisted_validation_data.clone(),
-						statements,
-					},
-					reputation_changes: vec![(requested_peer, BENEFIT_VALID_RESPONSE)],
+				output.request_status,
+				CandidateRequestStatus::Complete {
+					candidate: candidate_receipt.clone().into(),
+					persisted_validation_data: persisted_validation_data.clone(),
+					statements,
 				}
 			);
+			assert_eq!(output.reputation_changes, vec![(requested_peer, BENEFIT_VALID_RESPONSE)]);
+			assert_eq!(output.fetch_completion.slot, FetchSlot::First);
+			assert_eq!(output.fetch_completion.outcome, FetchOutcome::Success);
 		}
 
 		// Ensure that cleanup occurred.
@@ -1432,8 +1735,12 @@ mod tests {
 
 		// Successfully dispatch request for candidate 1 from peer 1 and candidate 3 from peer 2
 		for _ in 0..2 {
-			let outgoing =
-				request_manager.next_request(&mut response_manager, request_props, peer_advertised);
+			let outgoing = request_manager.next_request(
+				&mut response_manager,
+				&Metrics::default(),
+				request_props,
+				peer_advertised,
+			);
 			assert!(outgoing.is_some());
 		}
 		assert_eq!(response_manager.active_peers.len(), 2);
@@ -1452,8 +1759,12 @@ mod tests {
 
 		// Do not dispatch the request for the second candidate from peer 1 (already serving that
 		// peer)
-		let outgoing =
-			request_manager.next_request(&mut response_manager, request_props, peer_advertised);
+		let outgoing = request_manager.next_request(
+			&mut response_manager,
+			&Metrics::default(),
+			request_props,
+			peer_advertised,
+		);
 		assert!(outgoing.is_none());
 		assert_eq!(response_manager.active_peers.len(), 2);
 		assert!(response_manager.is_sending_to(&requested_peer_1));
@@ -1471,6 +1782,8 @@ mod tests {
 				response: TaggedResponse {
 					identifier: identifier1,
 					requested_peer: requested_peer_1,
+					slot: FetchSlot::First,
+					sent_at: Instant::now(),
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
 						candidate_receipt: candidate_receipt_1.clone().into(),
@@ -1498,12 +1811,542 @@ mod tests {
 		}
 
 		// Check if the request that was ignored previously will be served now
-		let outgoing =
-			request_manager.next_request(&mut response_manager, request_props, peer_advertised);
+		let outgoing = request_manager.next_request(
+			&mut response_manager,
+			&Metrics::default(),
+			request_props,
+			peer_advertised,
+		);
 		assert!(outgoing.is_some());
 		assert_eq!(response_manager.active_peers.len(), 2);
 		assert!(response_manager.is_sending_to(&requested_peer_1));
 		assert!(response_manager.is_sending_to(&requested_peer_2));
 		assert_eq!(request_manager.requests.len(), 2);
+	}
+
+	// --- Parallel `AttestedCandidate` fetch (issue #12028) -------------------------------
+
+	/// Helper: insert a candidate with two known advertisers, ready for parallel-fetch tests.
+	fn setup_two_advertiser_candidate(
+		request_manager: &mut RequestManager,
+	) -> (CandidateIdentifier, PeerId, PeerId, RequestProperties, usize) {
+		let relay_parent = Hash::from_low_u64_le(1);
+		let candidate = CandidateHash(Hash::from_low_u64_le(0x10));
+		let peer_a = PeerId::random();
+		let peer_b = PeerId::random();
+
+		let identifier = request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.identifier
+			.clone();
+		request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.add_peer(peer_a);
+		request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.add_peer(peer_b);
+
+		let group_size = 3;
+		let unwanted_mask = StatementFilter::blank(group_size);
+		let props = RequestProperties { unwanted_mask, backing_threshold: None };
+		(identifier, peer_a, peer_b, props, group_size)
+	}
+
+	#[test]
+	fn parallel_fetch_not_fired_before_threshold() {
+		let mut request_manager = RequestManager::new();
+		let mut response_manager = ResponseManager::new();
+		let metrics = Metrics::default();
+
+		let (identifier, _peer_a, _peer_b, props, group_size) =
+			setup_two_advertiser_candidate(&mut request_manager);
+		let request_props = |_: &CandidateIdentifier| Some(props.clone());
+		let peer_advertised =
+			|_: &CandidateIdentifier, _: &PeerId| Some(StatementFilter::full(group_size));
+
+		// First request dispatches normally.
+		let first = request_manager.next_request(
+			&mut response_manager,
+			&metrics,
+			request_props,
+			peer_advertised,
+		);
+		assert!(first.is_some());
+		assert_eq!(request_manager.in_flight_count_for(&identifier), 1);
+
+		// Without forcing the threshold to elapse, no second slot is dispatched.
+		let second = request_manager.next_request(
+			&mut response_manager,
+			&metrics,
+			request_props,
+			peer_advertised,
+		);
+		assert!(second.is_none());
+		assert_eq!(request_manager.in_flight_count_for(&identifier), 1);
+		// Timer not yet ready either.
+		assert!(request_manager.next_parallel_fire_time().is_some());
+	}
+
+	#[test]
+	fn parallel_fetch_fired_after_threshold() {
+		let mut request_manager = RequestManager::new();
+		let mut response_manager = ResponseManager::new();
+		let metrics = Metrics::default();
+
+		let (identifier, _peer_a, _peer_b, props, group_size) =
+			setup_two_advertiser_candidate(&mut request_manager);
+		let request_props = |_: &CandidateIdentifier| Some(props.clone());
+		let peer_advertised =
+			|_: &CandidateIdentifier, _: &PeerId| Some(StatementFilter::full(group_size));
+
+		// Dispatch the first request, then rewind the timer past the threshold.
+		let first = request_manager
+			.next_request(&mut response_manager, &metrics, request_props, peer_advertised)
+			.expect("first dispatch");
+		let first_peer = match first.peer.clone() {
+			RequestRecipient::Peer(p) => p,
+			_ => panic!("expected peer recipient"),
+		};
+		request_manager.force_parallel_fire_ready(&identifier);
+
+		// Now the second slot should fire — to a different peer.
+		let second = request_manager
+			.next_request(&mut response_manager, &metrics, request_props, peer_advertised)
+			.expect("second dispatch");
+		let second_peer = match second.peer.clone() {
+			RequestRecipient::Peer(p) => p,
+			_ => panic!("expected peer recipient"),
+		};
+		assert_ne!(first_peer, second_peer);
+		assert_eq!(request_manager.in_flight_count_for(&identifier), 2);
+
+		// A third call returns `None` — even though `MAX_PARALLEL_FETCH_SLOTS` allows more
+		// in-flight, there are only two advertisers known so no alternate peer is available.
+		// This will bump `parallel_fetch_skipped_no_alt_peer` (not asserted here; covered by
+		// `parallel_fetch_skipped_when_only_one_advertiser`).
+		let third = request_manager.next_request(
+			&mut response_manager,
+			&metrics,
+			request_props,
+			peer_advertised,
+		);
+		assert!(third.is_none());
+		assert_eq!(request_manager.in_flight_count_for(&identifier), 2);
+	}
+
+	#[test]
+	fn parallel_fetch_skipped_when_only_one_advertiser() {
+		let mut request_manager = RequestManager::new();
+		let mut response_manager = ResponseManager::new();
+		let metrics = Metrics::default();
+
+		// Single advertiser scenario.
+		let relay_parent = Hash::from_low_u64_le(1);
+		let candidate = CandidateHash(Hash::from_low_u64_le(0x20));
+		let peer_only = PeerId::random();
+
+		let identifier = request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.identifier
+			.clone();
+		request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.add_peer(peer_only);
+
+		let group_size = 3;
+		let unwanted_mask = StatementFilter::blank(group_size);
+		let props = RequestProperties { unwanted_mask, backing_threshold: None };
+		let request_props = |_: &CandidateIdentifier| Some(props.clone());
+		let peer_advertised =
+			|_: &CandidateIdentifier, _: &PeerId| Some(StatementFilter::full(group_size));
+
+		// First dispatch goes to the only peer.
+		assert!(request_manager
+			.next_request(&mut response_manager, &metrics, request_props, peer_advertised)
+			.is_some());
+
+		// Even after the threshold elapses, no second slot — there's no alt peer.
+		request_manager.force_parallel_fire_ready(&identifier);
+		let second = request_manager.next_request(
+			&mut response_manager,
+			&metrics,
+			request_props,
+			peer_advertised,
+		);
+		assert!(second.is_none());
+		assert_eq!(request_manager.in_flight_count_for(&identifier), 1);
+	}
+
+	#[test]
+	fn parallel_fetch_first_wins_late_second_outdated() {
+		let mut request_manager = RequestManager::new();
+		let mut response_manager = ResponseManager::new();
+		let metrics = Metrics::default();
+
+		let relay_parent = Hash::from_low_u64_le(1);
+		let mut candidate_receipt = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let persisted_validation_data = dummy_pvd();
+		candidate_receipt.descriptor.persisted_validation_data_hash =
+			persisted_validation_data.hash();
+		let candidate = candidate_receipt.hash();
+		let candidate_receipt: CommittedCandidateReceipt = candidate_receipt.into();
+
+		let peer_a = PeerId::random();
+		let peer_b = PeerId::random();
+
+		let identifier = request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.identifier
+			.clone();
+		request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.add_peer(peer_a);
+		request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.add_peer(peer_b);
+
+		let group_size = 3;
+		let group = &[ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2)];
+		let disabled_mask: BitVec<u8, Lsb0> = Default::default();
+		let unwanted_mask = StatementFilter::blank(group_size);
+		let request_properties = RequestProperties { unwanted_mask, backing_threshold: None };
+		let request_props = |_: &CandidateIdentifier| Some(request_properties.clone());
+		let peer_advertised =
+			|_: &CandidateIdentifier, _: &PeerId| Some(StatementFilter::full(group_size));
+
+		// Fire both slots.
+		assert!(request_manager
+			.next_request(&mut response_manager, &metrics, request_props, peer_advertised)
+			.is_some());
+		request_manager.force_parallel_fire_ready(&identifier);
+		assert!(request_manager
+			.next_request(&mut response_manager, &metrics, request_props, peer_advertised)
+			.is_some());
+		assert_eq!(request_manager.in_flight_count_for(&identifier), 2);
+
+		// First response Completes. This removes all identifiers for the candidate.
+		let first_response = UnhandledResponse {
+			response: TaggedResponse {
+				identifier: identifier.clone(),
+				requested_peer: peer_a,
+				slot: FetchSlot::First,
+				sent_at: Instant::now(),
+				props: request_properties.clone(),
+				response: Ok(AttestedCandidateResponse {
+					candidate_receipt: candidate_receipt.clone().into(),
+					persisted_validation_data: persisted_validation_data.clone(),
+					statements: vec![],
+				}),
+			},
+		};
+		let output = first_response.validate_response(
+			&mut request_manager,
+			group,
+			0,
+			|_| None,
+			|_, _| true,
+			disabled_mask.clone(),
+			&Default::default(),
+		);
+		assert!(matches!(output.request_status, CandidateRequestStatus::Complete { .. }));
+		assert_eq!(output.fetch_completion.slot, FetchSlot::First);
+		assert_eq!(output.fetch_completion.outcome, FetchOutcome::Success);
+		// End-to-end learn-to-fetch duration must be populated on Complete.
+		assert!(output.learn_to_fetch.is_some());
+		// `Complete` triggers `remove_for`; the entry is gone.
+		assert_eq!(request_manager.total_requests_count(), 0);
+
+		// The second-slot response now arrives late: the entry is gone → Outdated, no rep.
+		let second_response = UnhandledResponse {
+			response: TaggedResponse {
+				identifier,
+				requested_peer: peer_b,
+				slot: FetchSlot::Parallel,
+				sent_at: Instant::now(),
+				props: request_properties,
+				response: Ok(AttestedCandidateResponse {
+					candidate_receipt: candidate_receipt.into(),
+					persisted_validation_data,
+					statements: vec![],
+				}),
+			},
+		};
+		let output = second_response.validate_response(
+			&mut request_manager,
+			group,
+			0,
+			|_| None,
+			|_, _| true,
+			disabled_mask,
+			&Default::default(),
+		);
+		assert_eq!(output.request_status, CandidateRequestStatus::Outdated);
+		assert_eq!(output.reputation_changes, vec![]);
+		assert_eq!(output.fetch_completion.slot, FetchSlot::Parallel);
+		assert_eq!(output.fetch_completion.outcome, FetchOutcome::Dropped);
+		// Outdated path — entry already gone — no learn-to-fetch measurement.
+		assert!(output.learn_to_fetch.is_none());
+	}
+
+	#[test]
+	fn parallel_fetch_second_wins_late_first_outdated_no_rep() {
+		let mut request_manager = RequestManager::new();
+		let mut response_manager = ResponseManager::new();
+		let metrics = Metrics::default();
+
+		let relay_parent = Hash::from_low_u64_le(1);
+		let mut candidate_receipt = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let persisted_validation_data = dummy_pvd();
+		candidate_receipt.descriptor.persisted_validation_data_hash =
+			persisted_validation_data.hash();
+		let candidate = candidate_receipt.hash();
+		let candidate_receipt: CommittedCandidateReceipt = candidate_receipt.into();
+
+		let peer_a = PeerId::random();
+		let peer_b = PeerId::random();
+
+		let identifier = request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.identifier
+			.clone();
+		request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.add_peer(peer_a);
+		request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.add_peer(peer_b);
+
+		let group_size = 3;
+		let group = &[ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2)];
+		let disabled_mask: BitVec<u8, Lsb0> = Default::default();
+		let unwanted_mask = StatementFilter::blank(group_size);
+		let request_properties = RequestProperties { unwanted_mask, backing_threshold: None };
+		let request_props = |_: &CandidateIdentifier| Some(request_properties.clone());
+		let peer_advertised =
+			|_: &CandidateIdentifier, _: &PeerId| Some(StatementFilter::full(group_size));
+
+		assert!(request_manager
+			.next_request(&mut response_manager, &metrics, request_props, peer_advertised)
+			.is_some());
+		request_manager.force_parallel_fire_ready(&identifier);
+		assert!(request_manager
+			.next_request(&mut response_manager, &metrics, request_props, peer_advertised)
+			.is_some());
+
+		// Second response wins.
+		let second_response = UnhandledResponse {
+			response: TaggedResponse {
+				identifier: identifier.clone(),
+				requested_peer: peer_b,
+				slot: FetchSlot::Parallel,
+				sent_at: Instant::now(),
+				props: request_properties.clone(),
+				response: Ok(AttestedCandidateResponse {
+					candidate_receipt: candidate_receipt.clone().into(),
+					persisted_validation_data: persisted_validation_data.clone(),
+					statements: vec![],
+				}),
+			},
+		};
+		let output = second_response.validate_response(
+			&mut request_manager,
+			group,
+			0,
+			|_| None,
+			|_, _| true,
+			disabled_mask.clone(),
+			&Default::default(),
+		);
+		assert!(matches!(output.request_status, CandidateRequestStatus::Complete { .. }));
+		assert_eq!(output.fetch_completion.slot, FetchSlot::Parallel);
+		assert_eq!(output.fetch_completion.outcome, FetchOutcome::Success);
+		assert_eq!(request_manager.total_requests_count(), 0);
+
+		// Late first response → Outdated, no reputation change for the slow peer.
+		let first_response = UnhandledResponse {
+			response: TaggedResponse {
+				identifier,
+				requested_peer: peer_a,
+				slot: FetchSlot::First,
+				sent_at: Instant::now(),
+				props: request_properties,
+				response: Ok(AttestedCandidateResponse {
+					candidate_receipt: candidate_receipt.into(),
+					persisted_validation_data,
+					statements: vec![],
+				}),
+			},
+		};
+		let output = first_response.validate_response(
+			&mut request_manager,
+			group,
+			0,
+			|_| None,
+			|_, _| true,
+			disabled_mask,
+			&Default::default(),
+		);
+		assert_eq!(output.request_status, CandidateRequestStatus::Outdated);
+		assert_eq!(output.reputation_changes, vec![]);
+		assert_eq!(output.fetch_completion.slot, FetchSlot::First);
+		assert_eq!(output.fetch_completion.outcome, FetchOutcome::Dropped);
+	}
+
+	#[test]
+	fn parallel_fetch_respects_per_peer_cap() {
+		// Two candidates both have only peer_a as advertiser. First candidate fires slot 1
+		// to peer_a; second candidate's `next_request` cannot fire (peer_a is busy with the
+		// first candidate's request) and second-slot dispatch is similarly blocked.
+		let mut request_manager = RequestManager::new();
+		let mut response_manager = ResponseManager::new();
+		let metrics = Metrics::default();
+
+		let relay_parent = Hash::from_low_u64_le(1);
+		let candidate_x = CandidateHash(Hash::from_low_u64_le(0x30));
+		let candidate_y = CandidateHash(Hash::from_low_u64_le(0x31));
+		let peer_a = PeerId::random();
+		let peer_b = PeerId::random();
+
+		// Candidate X knows peer_a and peer_b.
+		let identifier_x = request_manager
+			.get_or_insert(relay_parent, candidate_x, 1.into())
+			.identifier
+			.clone();
+		request_manager
+			.get_or_insert(relay_parent, candidate_x, 1.into())
+			.add_peer(peer_a);
+		request_manager
+			.get_or_insert(relay_parent, candidate_x, 1.into())
+			.add_peer(peer_b);
+
+		// Candidate Y knows only peer_b.
+		let _identifier_y = request_manager
+			.get_or_insert(relay_parent, candidate_y, 1.into())
+			.identifier
+			.clone();
+		request_manager
+			.get_or_insert(relay_parent, candidate_y, 1.into())
+			.add_peer(peer_b);
+
+		let group_size = 3;
+		let unwanted_mask = StatementFilter::blank(group_size);
+		let props = RequestProperties { unwanted_mask, backing_threshold: None };
+		let request_props = |_: &CandidateIdentifier| Some(props.clone());
+		let peer_advertised =
+			|_: &CandidateIdentifier, _: &PeerId| Some(StatementFilter::full(group_size));
+
+		// First two dispatches: X → peer_a, Y → peer_b (no overlap).
+		assert!(request_manager
+			.next_request(&mut response_manager, &metrics, request_props, peer_advertised)
+			.is_some());
+		assert!(request_manager
+			.next_request(&mut response_manager, &metrics, request_props, peer_advertised)
+			.is_some());
+		assert_eq!(response_manager.active_peers.len(), 2);
+
+		// Now force X's parallel-fire threshold. The only alternate advertiser for X is peer_b,
+		// but peer_b is already busy with Y → no second-slot dispatch for X.
+		request_manager.force_parallel_fire_ready(&identifier_x);
+		let blocked = request_manager.next_request(
+			&mut response_manager,
+			&metrics,
+			request_props,
+			peer_advertised,
+		);
+		assert!(blocked.is_none());
+		assert_eq!(request_manager.in_flight_count_for(&identifier_x), 1);
+	}
+
+	#[test]
+	fn parallel_fetch_cleanup_on_remove_for() {
+		let mut request_manager = RequestManager::new();
+		let mut response_manager = ResponseManager::new();
+		let metrics = Metrics::default();
+
+		let (identifier, _peer_a, _peer_b, props, group_size) =
+			setup_two_advertiser_candidate(&mut request_manager);
+		let request_props = |_: &CandidateIdentifier| Some(props.clone());
+		let peer_advertised =
+			|_: &CandidateIdentifier, _: &PeerId| Some(StatementFilter::full(group_size));
+
+		// Fire both slots.
+		assert!(request_manager
+			.next_request(&mut response_manager, &metrics, request_props, peer_advertised)
+			.is_some());
+		request_manager.force_parallel_fire_ready(&identifier);
+		assert!(request_manager
+			.next_request(&mut response_manager, &metrics, request_props, peer_advertised)
+			.is_some());
+
+		// Remove the candidate. Both slots' state must be cleaned up — when the still-pending
+		// response futures eventually resolve they'll find no entry and return Outdated.
+		request_manager.remove_for(identifier.candidate_hash);
+		assert_eq!(request_manager.total_requests_count(), 0);
+		assert_eq!(request_manager.in_flight_count_for(&identifier), 0);
+		assert!(request_manager.next_parallel_fire_time().is_none());
+	}
+
+	#[test]
+	fn parallel_fetch_threshold_below_hard_timeout() {
+		// Sanity: a 500ms parallel-fire threshold must sit below the 2500ms hard request
+		// timeout so the parallel fetch can be dispatched while the original request is
+		// still alive. Mirrors the static assertion at the top of the module.
+		assert!(PARALLEL_FETCH_THRESHOLD.as_millis() < 2500);
+	}
+
+	/// Staggered-firing invariant test — guards the PR2 random-gossip extension. With
+	/// `k` slots in-flight (`1 <= k < MAX`), the next parallel slot becomes dispatchable at
+	/// exactly `first_request_sent_at + k * PARALLEL_FETCH_THRESHOLD`. Once the in-flight
+	/// set is full (`k == MAX`), no further parallel slots are dispatched.
+	#[test]
+	fn parallel_fetch_staggered_threshold_invariant() {
+		let mut request_manager = RequestManager::new();
+
+		let relay_parent = Hash::from_low_u64_le(1);
+		let candidate = CandidateHash(Hash::from_low_u64_le(0x42));
+
+		let identifier = request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.identifier
+			.clone();
+
+		// Anchor a known `first_request_sent_at`.
+		let sent_at = Instant::now();
+
+		// Walk through slots 1..MAX. For each slot count `k`, the next parallel fire time
+		// must be exactly `sent_at + k * PARALLEL_FETCH_THRESHOLD`.
+		for k in 1..=MAX_PARALLEL_FETCH_SLOTS {
+			{
+				let entry = request_manager.requests.get_mut(&identifier).unwrap();
+				entry.in_flight.clear();
+				for _ in 0..k {
+					entry
+						.in_flight
+						.try_push(PeerId::random())
+						.expect("k <= MAX_PARALLEL_FETCH_SLOTS");
+				}
+				entry.first_request_sent_at = Some(sent_at);
+			}
+
+			let next = request_manager.next_parallel_fire_time();
+
+			if k == MAX_PARALLEL_FETCH_SLOTS {
+				// All slots full — no further parallel dispatch.
+				assert_eq!(
+					next, None,
+					"with {} slots filled (== MAX), no more parallel slots should be pending",
+					k
+				);
+			} else {
+				let expected = sent_at + PARALLEL_FETCH_THRESHOLD * k as u32;
+				assert_eq!(
+					next,
+					Some(expected),
+					"with {} slots filled, next parallel fire should be at sent_at + {}*THRESHOLD",
+					k,
+					k,
+				);
+			}
+		}
 	}
 }
