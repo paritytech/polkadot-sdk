@@ -939,9 +939,12 @@ impl<T: Config> Pallet<T> {
 
 		// Then drop each of them once the deposits are given back, if applicable.
 		for req_id in go {
-			let Some(req_data) = HrmpOpenChannelRequests::<T>::get(&req_id) else {
-				// Can't normally happen but no need to panic.
-				continue;
+			let req_data = match HrmpOpenChannelRequests::<T>::get(&req_id) {
+				Some(req_data) => req_data,
+				None => {
+					// Can't normally happen but no need to panic.
+					continue;
+				},
 			};
 
 			// Return the deposits, but only of the paras that are not being offboarded. The
