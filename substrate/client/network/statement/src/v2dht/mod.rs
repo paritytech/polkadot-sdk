@@ -376,13 +376,13 @@ impl V2DhtOrchestrator {
 
 	/// Align the connected peers with the peers needed to cover the node's subscriptions, opening
 	/// and closing connections through the statement protocol's reserved set on `network`.
-	pub(crate) fn refresh_connections<N: NetworkPeers>(&self, network: &N) {
+	pub(crate) fn refresh_connections<N: NetworkPeers>(&mut self, network: &N) {
 		self.peer_steering.refresh_connections(network);
 	}
 
-	/// Whether `peer` is held in the statement protocol's reserved set by peer steering.
-	pub(crate) fn is_steered(&self, peer: &PeerId) -> bool {
-		self.peer_steering.is_desired(peer)
+	/// Whether peer steering holds `peer` in the statement protocol's reserved set.
+	pub(crate) fn is_reserved(&self, peer: &PeerId) -> bool {
+		self.peer_steering.is_reserved(peer)
 	}
 
 	#[cfg(test)]
@@ -845,13 +845,14 @@ mod tests {
 		// The coverage peers connect, then the next tick recomputes the target.
 		for peer in &desired {
 			orchestrator.on_substream_opened(*peer);
+			orchestrator.peer_steering.reserve([*peer]);
 		}
 		orchestrator.on_pending_affinities();
 
 		// The connected coverage peers stay desired, so peer steering keeps them: nothing left to
-		// connect, nothing to disconnect.
-		assert!(orchestrator.peer_steering.peers_to_connect().is_empty());
-		assert!(orchestrator.peer_steering.peers_to_disconnect().is_empty());
+		// reserve, nothing to release.
+		assert!(orchestrator.peer_steering.peers_to_reserve().is_empty());
+		assert!(orchestrator.peer_steering.peers_to_release().is_empty());
 	}
 
 	#[test]

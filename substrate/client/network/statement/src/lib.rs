@@ -1561,16 +1561,15 @@ where
 	/// Whether an inbound substream from `peer` fits its role's quota.
 	///
 	/// The protocol controller counts the full and light slots together, so the split by role
-	/// happens here, as in the sync engine. A steered peer is reserved and holds no slot there
-	/// either.
+	/// happens here, as in the sync engine. A reserved peer holds no slot there either.
 	fn inbound_slot_free(&self, peer: &PeerId, is_light: bool) -> bool {
-		if self.v2dht.is_steered(peer) {
+		if self.v2dht.is_reserved(peer) {
 			return true;
 		}
 		let taken = self
 			.peers
 			.iter()
-			.filter(|(id, p)| p.inbound && p.is_light == is_light && !self.v2dht.is_steered(id))
+			.filter(|(id, p)| p.inbound && p.is_light == is_light && !self.v2dht.is_reserved(id))
 			.count();
 		let limit = if is_light { self.in_peers_light } else { V2_DHT_IN_PEERS_FULL } as usize;
 		if taken >= limit {
@@ -7326,18 +7325,23 @@ mod tests {
 	}
 
 	#[test]
-	fn steered_peers_hold_no_inbound_slot() {
-		let (mut handler, _store, _network, _notification_service, _, peer_ids) = build_handler(1);
+	fn reserved_peers_hold_no_inbound_slot() {
+		let (mut handler, _store, network, _notification_service, _, peer_ids) = build_handler(1);
 		handler.in_peers_light = 1;
 		handler.peers.get_mut(&peer_ids[0]).unwrap().is_light = true;
 		let candidate = PeerId::random();
 		assert!(!handler.inbound_slot_free(&candidate, true));
 
 		handler.v2dht.update_peers_needing_connections([candidate]);
-		assert!(handler.inbound_slot_free(&candidate, true), "a steered candidate always fits");
+		handler.v2dht.refresh_connections(&network);
+		assert_eq!(network.get_added_reserved().len(), 1);
+		assert!(handler.inbound_slot_free(&candidate, true), "a reserved candidate always fits");
 
 		handler.v2dht.update_peers_needing_connections([peer_ids[0]]);
-		assert!(handler.inbound_slot_free(&candidate, true), "a steered peer is not counted");
+		handler.v2dht.refresh_connections(&network);
+		assert_eq!(network.get_removed_reserved().len(), 1);
+		assert!(!handler.v2dht.is_reserved(&candidate), "a released peer is reserved no more");
+		assert!(handler.inbound_slot_free(&candidate, true), "a reserved peer is not counted");
 	}
 
 	#[test]
