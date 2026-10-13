@@ -552,13 +552,8 @@ pub mod pallet {
 					NextNodeAutoRebagged::<T, I>::put(next);
 					log!(debug, "Saved next node to be processed in rebag cursor: {:?}", next);
 				},
-				// End of regular list reached: no cursor needed.
-				// This happens when either:
-				// 1. We've processed all regular accounts in the list, OR
-				// 2. We've collected fewer than budget+1 accounts (meaning the iterator was
-				//    exhausted)
-				// Since pending accounts are processed first and not tracked in the cursor,
-				// this simply means there are no more regular accounts to process.
+				// No regular account left in this batch (it may have been entirely pending, or
+				// the list is exhausted). Kill the cursor; the next run resumes from the head.
 				None => {
 					NextNodeAutoRebagged::<T, I>::kill();
 					log!(debug, "End of regular list reached — cursor killed");

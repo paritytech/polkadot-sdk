@@ -929,6 +929,7 @@ mod on_idle {
 				assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), Some(3));
 			});
 	}
+
 	#[test]
 	fn can_rebag_across_bags() {
 		ExtBuilder::default().build_and_execute(|| {

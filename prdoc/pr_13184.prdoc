@@ -2,14 +2,12 @@ title: 'bags-list: fix on_idle cursor skipping nodes on weight exhaustion'
 doc:
 - audience: Runtime Dev
   description: |-
-    `Pallet::on_idle`'s auto-rebag cursor resumed from a count-based split (`accounts[rebag_budget]`)
-    computed before the per-item loop ran, so it skipped past nodes the weight meter or a lock
-    stopped the loop from actually reaching.
+    `Pallet::on_idle`'s auto-rebag cursor resumed from a count-based split computed before the
+    per-item loop ran, so it skipped past nodes the weight meter or a lock stopped the loop from
+    actually reaching.
 
-    The cursor now resumes from `accounts[max(processed, pending_len)]`, a pure index computed
-    after the loop from how far it actually got and how many pending entries led the batch. No
-    extra storage reads, and no risk of mismatching an account that legitimately appears in both
-    `PendingRebag` and `ListNodes` at once.
+    The cursor is now computed after the loop, from how far it actually got, so it correctly
+    resumes at the first node that was skipped.
 crates:
 - name: pallet-bags-list
   bump: patch
