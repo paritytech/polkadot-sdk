@@ -6,12 +6,6 @@ doc:
     that teleports native tokens to a destination chain and burns them there with `BurnAsset`.
     It is meant for networks without a DAP whose issuance is tracked on Asset Hub, such as the
     Kusama system chains, which currently carry their own copy of this logic.
-
-    The asset is reanchored to the destination before the message is built, since `BurnAsset`
-    takes concrete assets. A failed reanchor returns an error without touching local state. The
-    origin is preserved the same way as in `TeleportForwarderForAccountId32`, so the destination
-    must allow unpaid execution from the aliased accumulation accounts.
-
     `TeleportForwarderForAccountId32` keeps its behaviour; both forwarders now share the local
     execution and rollback logic.
 crates:
