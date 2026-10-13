@@ -247,9 +247,11 @@ executed the message.
     1. Remove `HrmpAcceptedChannelRequestCount` for `P`.
     1. Remove `HrmpOpenChannelRequests` and `HrmpOpenChannelRequestsList` for `(P, _)` and `(_, P)`.
         1. For each removed channel request `C`:
-            1. Unreserve the sender's deposit if the sender is not present in `outgoing_paras`
-            1. Unreserve the recipient's deposit if `C` is confirmed and the recipient is not present in
-               `outgoing_paras`
+            1. Unreserve the sender's deposit.
+            1. Unreserve the recipient's deposit if `C` is confirmed and the channel is not with or amongst
+               the system (no recipient deposit is taken for those).
+            1. Decrement `HrmpOpenChannelRequestCount` for the sender if the sender is not present in
+               `outgoing_paras`.
 1. For each channel designator `D` in `HrmpOpenChannelRequestsList` we query the request `R` from
    `HrmpOpenChannelRequests`:
     1. if `R.confirmed = true`,
@@ -259,6 +261,7 @@ executed the message.
               found in the configuration `config.hrmp_recipient_deposit`.
               1. Insert `sender` into the set `HrmpIngressChannelsIndex` for the `recipient`.
               1. Insert `recipient` into the set `HrmpEgressChannelsIndex` for the `sender`.
+        1. otherwise, unreserve the sender's deposit `R.sender_deposit` and the recipient's deposit.
         1. decrement `HrmpOpenChannelRequestCount` for `D.sender` by 1.
         1. decrement `HrmpAcceptedChannelRequestCount` for `D.recipient` by 1.
         1. remove `R`

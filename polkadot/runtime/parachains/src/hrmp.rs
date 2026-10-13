@@ -1003,27 +1003,32 @@ impl<T: Config> Pallet<T> {
 				},
 			};
 
-			// Return the deposit of the sender, but only if it is not the para being offboarded.
-			if !outgoing.contains(&req_id.sender) {
-				T::Currency::unreserve(
-					&req_id.sender.into_account_truncating(),
-					req_data.sender_deposit.unique_saturated_into(),
-				);
-			}
+			// Return the deposit of the sender. An offboarding sender gets it back too, the same
+			// way `close_hrmp_channel` returns the deposits of its channels.
+			T::Currency::unreserve(
+				&req_id.sender.into_account_truncating(),
+				req_data.sender_deposit.unique_saturated_into(),
+			);
 
 			// If the request was confirmed, then it means it was confirmed in the finished session.
 			// Therefore, the config's hrmp_recipient_deposit represents the actual value of the
 			// deposit.
-			//
-			// We still want to refund the deposit only if the para is not being offboarded.
 			if req_data.confirmed {
-				if !outgoing.contains(&req_id.recipient) {
+				// `accept_open_channel` takes no deposit for channels with or amongst the system.
+				let is_system = req_id.sender.is_system() || req_id.recipient.is_system();
+				if !is_system {
 					T::Currency::unreserve(
 						&req_id.recipient.into_account_truncating(),
 						config.hrmp_recipient_deposit.unique_saturated_into(),
 					);
 				}
 				Self::decrease_accepted_channel_request_count(req_id.recipient);
+			}
+
+			// The request no longer counts against the sender's outbound limit. An outgoing
+			// sender's counter is removed altogether by `clean_hrmp_after_outgoing`.
+			if !outgoing.contains(&req_id.sender) {
+				Self::decrease_open_channel_request_count(req_id.sender);
 			}
 		}
 
@@ -1107,6 +1112,17 @@ impl<T: Config> Pallet<T> {
 							v.insert(i, channel_id.recipient);
 						}
 					});
+				} else {
+					// The channel is not created, so the deposits taken for it are given back, as
+					// `close_hrmp_channel` would have done for an opened channel.
+					T::Currency::unreserve(
+						&channel_id.sender.into_account_truncating(),
+						sender_deposit.unique_saturated_into(),
+					);
+					T::Currency::unreserve(
+						&channel_id.recipient.into_account_truncating(),
+						recipient_deposit.unique_saturated_into(),
+					);
 				}
 
 				Self::decrease_open_channel_request_count(channel_id.sender);
