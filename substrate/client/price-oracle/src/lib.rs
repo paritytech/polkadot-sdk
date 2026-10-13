@@ -109,7 +109,7 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 		+ Send
 		+ Sync
 		+ 'static,
-	Signature: Clone + Encode + Decode + Send + Sync + 'static,
+	Signature: Clone + PartialEq + Encode + Decode + Send + Sync + 'static,
 {
 	let Params {
 		client,

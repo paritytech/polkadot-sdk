@@ -180,7 +180,7 @@ impl<Block, Id, Signature> Validator<Block> for ReportValidator<Block, Id, Signa
 where
 	Block: BlockT,
 	Id: RuntimeAppPublic<Signature = Signature> + Ord + Clone + Decode + Send + Sync + 'static,
-	Signature: Clone + Decode + Send + Sync + 'static,
+	Signature: Clone + PartialEq + Decode + Send + Sync + 'static,
 {
 	fn validate(
 		&self,
@@ -228,7 +228,11 @@ where
 		let oldest = self.acceptance.read().as_ref().map(Acceptance::oldest);
 		Box::new(move |_topic, mut data| {
 			match (oldest, SignedPriceReport::<Id, Signature>::decode_all(&mut data)) {
-				(Some(oldest), Ok(report)) => report.report.anchor < oldest,
+				// A report is kept while it is not expired and still the latest of its
+				// signer; a superseded one is not worth rebroadcasting.
+				(Some(oldest), Ok(report)) => {
+					report.report.anchor < oldest || !self.pool.holds(&report)
+				},
 				_ => true,
 			}
 		})
@@ -363,13 +367,25 @@ mod tests {
 	}
 
 	#[test]
-	fn expiry_follows_the_window() {
+	fn expiry_follows_the_window_and_the_pool() {
 		let (v, _, _) = validator();
-		let mut expired = v.message_expired();
 		let t = topic::<Block>();
-		assert!(!expired(t, &signed(1, 90).encode()));
-		assert!(expired(t, &signed(1, 89).encode()));
-		assert!(expired(t, b"garbage"));
+		// Signatures are randomised, so keep the exact bytes that were validated.
+		let (first, later) = (signed(1, 90).encode(), signed(1, 95).encode());
+		assert!(is_keep(&validate(&v, &first)));
+		{
+			let mut expired = v.message_expired();
+			assert!(!expired(t, &first));
+			assert!(expired(t, &signed(1, 89).encode()), "out of the window");
+			assert!(expired(t, &later), "not in the pool");
+			assert!(expired(t, &signed(1, 90).encode()), "same anchor, not the held one");
+			assert!(expired(t, b"garbage"));
+		}
+		// A later report of the same signer supersedes the held one.
+		assert!(is_keep(&validate(&v, &later)));
+		let mut expired = v.message_expired();
+		assert!(expired(t, &first), "superseded");
+		assert!(!expired(t, &later));
 	}
 
 	#[test]

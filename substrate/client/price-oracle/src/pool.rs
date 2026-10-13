@@ -83,6 +83,14 @@ impl<Id: Ord + Clone, Signature: Clone> ReportPool<Id, Signature> {
 			.collect()
 	}
 
+	/// Whether `report` is the one held for its signer.
+	pub fn holds(&self, report: &SignedPriceReport<Id, Signature>) -> bool
+	where
+		Signature: PartialEq,
+	{
+		self.inner.read().get(&report.signer) == Some(report)
+	}
+
 	/// The number of reports held.
 	pub fn len(&self) -> usize {
 		self.inner.read().len()
