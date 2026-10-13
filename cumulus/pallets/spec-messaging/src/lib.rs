@@ -46,6 +46,8 @@ use sp_runtime::generic::DigestItem;
 
 pub use pallet::*;
 
+const LOG_TARGET: &str = "runtime::spec-msg";
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -208,9 +210,14 @@ pub mod pallet {
 			let mut touched = BTreeSet::new();
 			let mut gaps = 0u32;
 			for (source, stream, item) in data.items {
-				match item {
+				let count = match &item {
+					ConsumeItem::Channel { payloads } | ConsumeItem::Events { payloads, .. } => {
+						payloads.len()
+					},
+				};
+				let result = match item {
 					ConsumeItem::Channel { payloads } => {
-						Self::consume_channel_item(&mut touched, source, stream, payloads)?
+						Self::consume_channel_item(&mut touched, source, stream, payloads)
 					},
 					ConsumeItem::Events { base, start_peaks, payloads } => {
 						Self::consume_events_item(
@@ -221,9 +228,22 @@ pub mod pallet {
 							base,
 							start_peaks,
 							payloads,
-						)?
+						)
 					},
+				};
+				// The block fails with only the error name, and its events roll back with it:
+				// name the item.
+				if let Err(error) = result {
+					log::warn!(
+						target: LOG_TARGET,
+						"Invalid inherent item from {source:?} on {stream:?}: {error:?}",
+					);
+					return Err(error.into());
 				}
+				log::debug!(
+					target: LOG_TARGET,
+					"Consumed {count} payloads from {source:?} on {stream:?}",
+				);
 			}
 			Ok(())
 		}
@@ -339,6 +359,11 @@ impl<T: Config> Pallet<T> {
 			SPMS_ENGINE_ID,
 			root.encode(),
 		));
+		log::debug!(
+			target: LOG_TARGET,
+			"Committed streams root {root:?} over {} streams",
+			entries.len(),
+		);
 
 		Some(root)
 	}

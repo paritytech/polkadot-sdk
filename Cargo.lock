@@ -5406,6 +5406,7 @@ dependencies = [
  "cumulus-primitives-spec-messaging",
  "frame-support",
  "frame-system",
+ "log",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
