@@ -227,6 +227,7 @@ use frame_support::{
 		tokens::fungible::{Credit, Debt},
 		ConstU32, Contains, Get, LockIdentifier,
 	},
+	weights::Weight,
 	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, WeakBoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -513,6 +514,36 @@ pub trait IsValidatorInactive<AccountId> {
 impl<AccountId> IsValidatorInactive<AccountId> for () {
 	fn is_inactive(_era: EraIndex, _stash: &AccountId, era_points: RewardPoint) -> bool {
 		era_points == 0
+	}
+}
+
+/// Notified when a new era becomes active.
+pub trait OnEraStart<AccountId> {
+	/// Whether the hook is in use. When `false`, staking does not keep the elected set, and at
+	/// era start it only removes a copy kept while the hook was enabled, charged as one read and
+	/// one write.
+	///
+	/// Expected to be constant for a given runtime version.
+	fn enabled() -> bool {
+		true
+	}
+
+	/// Called once when `era` becomes active, with the validators elected for it.
+	fn on_era_start(era: EraIndex, validators: &[AccountId]);
+
+	/// Upper bound of the weight of [`Self::on_era_start`] for `validators` validators.
+	fn weight(validators: u32) -> Weight;
+}
+
+impl<AccountId> OnEraStart<AccountId> for () {
+	fn enabled() -> bool {
+		false
+	}
+
+	fn on_era_start(_era: EraIndex, _validators: &[AccountId]) {}
+
+	fn weight(_validators: u32) -> Weight {
+		Weight::zero()
 	}
 }
 

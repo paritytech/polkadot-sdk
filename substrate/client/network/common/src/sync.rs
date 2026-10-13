@@ -27,10 +27,7 @@ pub enum SyncMode {
 	Full,
 	/// Download blocks and the latest state. The state is downloaded with proofs and written to
 	/// the database as it arrives.
-	LightState {
-		/// Download indexed transactions for recent blocks.
-		storage_chain_mode: bool,
-	},
+	LightState,
 	/// Warp sync - verify authority set transitions and the latest state.
 	Warp,
 }

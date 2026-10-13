@@ -672,7 +672,9 @@ impl<T: Config> Rotator<T> {
 			EraElectionPlanner::<T>::do_elect_paged(p);
 		}
 
-		crate::ElectableStashes::<T>::take().into_iter().collect()
+		let validators = crate::ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
+		Self::keep_next_era_validators(Self::planned_era(), &validators);
+		validators
 	}
 
 	#[cfg(any(feature = "try-runtime", test))]
@@ -724,6 +726,13 @@ impl<T: Config> Rotator<T> {
 			},
 		}
 
+		if let Some((kept_era, _)) = NextEraValidators::<T>::get() {
+			ensure!(
+				Self::is_planning() == Some(kept_era),
+				"kept validators exist only for an era that is planned and not yet active"
+			);
+		}
+
 		Ok(())
 	}
 
@@ -770,7 +779,7 @@ impl<T: Config> Rotator<T> {
 		rewarded_validators: u32,
 	) -> Weight {
 		// baseline weight for processing the relay chain session report
-		let weight = T::WeightInfo::rc_on_session_report(rewarded_validators);
+		let mut weight = T::WeightInfo::rc_on_session_report(rewarded_validators);
 
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			defensive!("Active era must always be available.");
@@ -794,7 +803,7 @@ impl<T: Config> Rotator<T> {
 		match activation_timestamp {
 			Some((time, id)) if Some(id) == current_planned_era => {
 				// We rotate the era if we have the activation timestamp.
-				Self::start_era(active_era, starting, time);
+				weight.saturating_accrue(Self::start_era(active_era, starting, time));
 			},
 			Some((_time, id)) => {
 				// RC has done something wrong -- we received the wrong ID. Don't start a new era.
@@ -857,11 +866,12 @@ impl<T: Config> Rotator<T> {
 		weight
 	}
 
+	/// Returns the weight of notifying [`Config::OnEraStart`].
 	pub(crate) fn start_era(
 		ending_era: ActiveEraInfo,
 		starting_session: SessionIndex,
 		new_era_start_timestamp: u64,
-	) {
+	) -> Weight {
 		// verify that a new era was planned
 		debug_assert!(CurrentEra::<T>::get().unwrap_or(0) == ending_era.index + 1);
 
@@ -887,6 +897,71 @@ impl<T: Config> Rotator<T> {
 			log!(debug, "Marking era {:?} for lazy pruning", old_era);
 			EraPruningState::<T>::insert(old_era, PruningStep::ErasStakersPaged);
 		}
+
+		Self::notify_era_start(starting_era)
+	}
+
+	/// Keep the validators elected for `era` when its election completes, for
+	/// [`Self::notify_era_start`].
+	///
+	/// Costs one write of the set in the block that completes the election.
+	pub(crate) fn keep_next_era_validators(era: EraIndex, validators: &[T::AccountId]) {
+		if T::OnEraStart::enabled() {
+			NextEraValidators::<T>::put((era, BoundedVec::truncate_from(validators.to_vec())));
+		}
+	}
+
+	/// Notify [`Config::OnEraStart`] with the validators of `era`, taking the copy kept by
+	/// [`Self::keep_next_era_validators`].
+	///
+	/// Taking the copy is charged as one read and one write, with the copy's maximum size as
+	/// proof size, whether or not the hook is enabled. Without a copy, as for an era whose
+	/// election completed before the hook was enabled, the hook is not called for that era. With
+	/// the hook disabled, a copy kept while it was enabled is removed and the hook is not called.
+	fn notify_era_start(era: EraIndex) -> Weight {
+		let kept = NextEraValidators::<T>::take();
+		let take_weight = Self::take_kept_validators_weight();
+		if !T::OnEraStart::enabled() {
+			return take_weight;
+		}
+		match kept {
+			Some((kept_era, validators)) if kept_era == era => {
+				T::OnEraStart::on_era_start(era, &validators);
+				take_weight.saturating_add(T::OnEraStart::weight(validators.len() as u32))
+			},
+			Some(_) => {
+				defensive!("kept validators belong to another era");
+				take_weight
+			},
+			None => {
+				log!(warn, "no validators kept for era {:?}, the era-start hook is skipped", era);
+				take_weight
+			},
+		}
+	}
+
+	/// Worst-case weight of [`Self::notify_era_start`].
+	pub(crate) fn notify_era_start_max_weight() -> Weight {
+		let hook_weight = if T::OnEraStart::enabled() {
+			T::OnEraStart::weight(T::MaxValidatorSet::get())
+		} else {
+			Weight::zero()
+		};
+		Self::take_kept_validators_weight().saturating_add(hook_weight)
+	}
+
+	/// Weight of taking [`NextEraValidators`]: one read and one write, with its maximum encoded
+	/// size as proof size.
+	fn take_kept_validators_weight() -> Weight {
+		let proof_size =
+			<NextEraValidators<T> as frame_support::traits::StorageInfoTrait>::storage_info()
+				.iter()
+				.filter_map(|info| info.max_size)
+				.map(u64::from)
+				.sum();
+		T::DbWeight::get()
+			.reads_writes(1, 1)
+			.saturating_add(Weight::from_parts(0, proof_size))
 	}
 
 	fn start_era_inc_active_era(start_timestamp: u64) {
@@ -1105,8 +1180,12 @@ impl<T: Config> EraElectionPlanner<T> {
 		//   that we know this writes one storage item under the hood)
 		// * 1 extra read for `CurrentEra`
 		// * 1 extra read for `BondedEras` in `get_prune_up_to`
+		// * 1 extra write for `NextEraValidators`, if `OnEraStart` is enabled
 		// ElectableStashes already read in `do_elect_paged`
 		required_weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
+		if T::OnEraStart::enabled() {
+			required_weight.saturating_accrue(T::DbWeight::get().writes(1));
+		}
 
 		let exec = Box::new(move |meter: &mut WeightMeter| {
 			crate::log!(
@@ -1133,6 +1212,7 @@ impl<T: Config> EraElectionPlanner<T> {
 				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
 				let prune_up_to = Self::get_prune_up_to();
 				let rc_validators = ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
+				Rotator::<T>::keep_next_era_validators(id, &rc_validators);
 
 				crate::log!(
 					info,

@@ -173,14 +173,47 @@ jobs:
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' | head -n 1)
 
             echo "Signing package with pgpkms (via AWS KMS)..."
-            chmod +x .github/scripts/release/pgpkms-gpg-wrapper.sh
-            cp .github/scripts/release/rpmmacros $HOME/.rpmmacros
+            : "${GITHUB_WORKSPACE:?GITHUB_WORKSPACE must be set to render .rpmmacros}"
+            gpg_wrapper="$GITHUB_WORKSPACE/.github/scripts/release/pgpkms-gpg-wrapper.sh"
+            chmod +x "$gpg_wrapper"
+
+            # rpm needs an absolute path for %__gpg/%__gpgbin, and it is only
+            # known at runtime: $GITHUB_WORKSPACE is /home/runner/work/<repo>/<repo>,
+            # so it must not be hardcoded to a repository name.
+            sed "s|\${GITHUB_WORKSPACE}|$GITHUB_WORKSPACE|g" \
+              "$GITHUB_WORKSPACE/.github/scripts/release/rpmmacros" > "$HOME/.rpmmacros"
 
             echo "Dumping rpm gpg-related macros..."
             rpm --showrc | grep gpg || true
             echo "Contents of .rpmmacros:"
             cat $HOME/.rpmmacros
+
+            # Unsigned RPMs are the silent failure mode here, so fail loudly if
+            # the macro did not resolve to the executable wrapper.
+            resolved_gpg=$(rpm --eval '%{__gpg}')
+            if [[ "$resolved_gpg" != "$gpg_wrapper" || ! -x "$resolved_gpg" ]]; then
+              echo "Error: %__gpg resolved to '$resolved_gpg', expected the executable '$gpg_wrapper'"
+              exit 1
+            fi
+
             rpm --addsign "$rpmname"
+
+            # Verify against the signing key rpm was told to use. An unsigned
+            # package reports "digests OK" without "signatures", so this single
+            # check catches both a missing and a bad signature. The throwaway
+            # rpmdb avoids touching the system one, which the runner cannot write.
+            echo "Verifying the signature of $rpmname..."
+            verify_db="$RUNNER_TEMP/rpm-verify-db"
+            rm -rf "$verify_db"
+            mkdir -p "$verify_db"
+            gpg --export --armor "$(rpm --eval '%{_gpg_name}')" > "$RUNNER_TEMP/signing-key.asc"
+            rpm --dbpath "$verify_db" --initdb
+            rpm --dbpath "$verify_db" --import "$RUNNER_TEMP/signing-key.asc"
+            rpm --dbpath "$verify_db" --checksig -v "$rpmname" || true
+            if ! rpm --dbpath "$verify_db" --checksig "$rpmname" | grep -q "signatures OK"; then
+              echo "Error: $rpmname is unsigned or its signature does not verify"
+              exit 1
+            fi
 
             echo "Copying signed package to local repo..."
             cp "$rpmname" "$LOCAL_REPO_PATH/"

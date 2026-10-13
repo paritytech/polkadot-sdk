@@ -533,7 +533,6 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		&mut self,
 		header: <Block as BlockT>::Header,
 		body: Option<Vec<<Block as BlockT>::Extrinsic>>,
-		_indexed_body: Option<Vec<Vec<u8>>>,
 		justifications: Option<Justifications>,
 		state: NewBlockState,
 		register_as_leaf: bool,
@@ -1067,7 +1066,7 @@ mod tests {
 		);
 
 		let mut op = backend.begin_operation()?;
-		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)?;
+		op.set_block_data(header.clone(), None, None, NewBlockState::Normal, true)?;
 		backend.complete_partial_state(&mut op, header.state_root)?;
 		backend.commit_operation(op)?;
 
