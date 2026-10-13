@@ -157,17 +157,29 @@ with the same flow.
 
 2. To build binaries and testnet runtimes and create the release draft, trigger
    [Release - Combined Builds Flow](https://github.com/paritytech/release-automation/actions/workflows/release-stable-22_combined-rc-runtime-builds-release-draft.yml)
-3. Repeat step 2 for every new rc if more changes are pushed to the release branch
+3. Create a new rc tag using
+   [Release - Branch off stable branch and/or tag rc](https://github.com/paritytech/release-automation/actions/workflows/release-stable-10_branchoff.yml)
+   and repeat step 2 for every new rc if more changes are pushed to the release branch
 4. When the release is finalized, publish crates using
    [Release - Publish Crates](https://github.com/paritytech/release-automation/actions/workflows/release-stable-80_publish-crates.yml)
-5. Trigger [Release - Combined Publish Release](https://github.com/paritytech/release-automation/actions/workflows/release-stable-70_combined-publish-release.yml),
+5. When crates are published, trigger
+   [Release - Post Crates Release Activities](https://github.com/paritytech/release-automation/actions/workflows/release-stable-60_post-crates-release-activities.yml),
+   which creates a PR with bumped crates versions, polkadot/polkadot-parachain/omni-node versions, spec versions
+   and reorganised prdocs
+6. Merge the post crates release PR and create a new rc tag using
+   [Release - Branch off stable branch and/or tag rc](https://github.com/paritytech/release-automation/actions/workflows/release-stable-10_branchoff.yml)
+7. Repeat step 2
+8. Trigger [Release - Combined Publish Release](https://github.com/paritytech/release-automation/actions/workflows/release-stable-70_combined-publish-release.yml),
    which promotes the rc to final on S3 and publishes the deb and RPM packages and the Docker images
-6. Review and finalize the release notes in the draft, then publish it with
+9. Review and finalize the release notes in the draft, then publish it with
    [Stable Release - Publish final release](https://github.com/paritytech/release-automation/actions/workflows/release-stable-32_publish-final-release.yml).
    It signs the final tag on the rc's commit, renames the draft onto it, publishes, and creates the legacy
    `polkadot-vX.Y.Z` tag. Publishing from the GitHub UI instead would leave the final tag unsigned.
-   Tick `mark_latest` when releasing the newest stable line; leave it off for a patch to an older one, so it
-   does not take "Latest" from a newer release.
+   Tick `mark_latest` when releasing the newest stable line or a patch for the latest stable release; leave it
+   off for a patch to an older one, so it does not take "Latest" from a newer release.
+10. A release marked as **latest** triggers
+    [Release - Announce release to Matrix rooms](/.github/workflows/release-99_notif-published.yml),
+    which sends notifications to several Matrix rooms.
 
 Every flow above starts with `release-guard`, which validates the tag, verifies its GPG signature and pins the
 resolved commit SHA that the rest of the run checks out.
