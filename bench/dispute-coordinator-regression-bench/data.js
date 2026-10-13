@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791903230729,
+  "lastUpdate": 1791929470834,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a1a2bbfdb435f381ba633e62c022090f1efa4fca",
-          "message": "Fix slot-based collator panic during warp sync (#11072) (#11381)\n\nWhen a parachain collator starts with `--authoring=slot-based` and\nperforms warp sync, the `slot-based-block-builder` essential task\nimmediately calls `slot_duration()` which requires\n`AuraApi_slot_duration`. During warp sync the runtime isn't ready, so\nthis fails and the task returns, shutting down the node.\n\nThe lookahead collator avoids this by calling `wait_for_aura()` before\nstarting. This PR adds an equivalent guard to the slot-based collator.\n\n### Manual test\nBefore the fix the collator panicked after the relay chain warp sync\nwith AuraApi_slot_duration not available, which does not occur anymore\nnow.\n```\n ./target/release/polkadot-parachain \\                                                                                                                                                                                                                                                                          \n    --chain asset-hub-polkadot \\\n    --sync warp \\\n    --authoring=slot-based \\\n    --tmp -- --sync warp\n```\nCloses #11072.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>",
-          "timestamp": "2026-04-02T20:55:34Z",
-          "tree_id": "91d815959b0ac9a381da89ca91e02813e5ffc1c6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a1a2bbfdb435f381ba633e62c022090f1efa4fca"
-        },
-        "date": 1775168359542,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026577970200000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009449751989999965,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010227070020000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009412567629999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e8e1c1b5efc3189184214a5e55c617b5f9e8886c",
+          "message": "sp-keystore: MemoryKeystore signs only with a secret URI that derives the queried key (#13410)\n\nCloses #13142\n\n`MemoryKeystore::insert` stores any suri under any public key and\nreturns `Ok(())`. `pair()` then derived a key from the stored suri\nwithout checking it against the queried public, which caused two\nproblems:\n- After a mismatched insert, `sr25519_sign`, `sign_with` and the VRF\nmethods returned a signature from a different key, one that does not\nverify under the queried public.\n- After an unparseable suri, every lookup panicked on `expect(\"seed\nslice is valid\")`, including the typed `*_public_keys` listings.\n\nAs planned in the issue, the check happens at lookup time, the way\n`LocalKeystore` does it. `insert` only gets raw public bytes and doesn't\nknow the scheme, so it can't validate up front.\n- `pair()` parses the suri with `from_string(..).ok()` and returns\n`None` unless the derived public matches the queried one. Every sign,\nVRF and proof-of-possession method goes through it.\n- `public_keys` skips an unparseable suri, the same way it already skips\na mismatched one.\n\n`insert`, `keys` and `has_keys` are unchanged: they still report what\nwas stored, like `LocalKeystore`.\n\nThe sign methods return `Ok(None)` for such an entry, matching how\n`public_keys` already treats it as absent. `LocalKeystore` returns an\nerror instead (`PublicKeyMismatch` / `InvalidPhrase`). Happy to switch\nto an `Err` if that's preferred.\n\nTests:\n- `mismatched_secret_uri_signs_nothing`: sign, `sign_with`, VRF sign,\nVRF pre-output and listing, then the same suri under its own public\nstill signs and verifies.\n- `unparseable_secret_uri_does_not_panic`: sr25519, ed25519 and ecdsa\nsign, prehashed sign, VRF, `sign_with` and listings.\n\nEach test fails with its half of the fix reverted. `cargo test -p\nsp-keystore --lib`: 7 passed, and 12 with `--all-features`.\n\nRWF finding, same cluster as #13402.\n\n---------\n\nSigned-off-by: Abdulwaarith <abdulwaarithz@gmail.com>",
+          "timestamp": "2026-10-13T20:18:30Z",
+          "tree_id": "c09f9ebb2a9d0bb366c92ec5eb8502b4121e2968",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e8e1c1b5efc3189184214a5e55c617b5f9e8886c"
+        },
+        "date": 1791929436411,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025430448299999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009294442579999977,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010200861349999998,
             "unit": "seconds"
           }
         ]
