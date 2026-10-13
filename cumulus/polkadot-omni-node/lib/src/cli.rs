@@ -357,7 +357,8 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// The node fetches prices from the markets registered on chain, signs them with its Aura
 	/// key, gossips them to the other collators, and includes the collected price reports in the
-	/// blocks it authors. Requires a runtime with the price oracle pallet.
+	/// blocks it authors. Requires a runtime with the price oracle pallet, `--collator` and
+	/// `--authoring slot-based`.
 	#[arg(long)]
 	pub enable_price_oracle: bool,
 

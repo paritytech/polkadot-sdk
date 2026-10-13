@@ -245,7 +245,9 @@ where
 			log::warn!("`--max-pov-percentage` has no effect in dev mode (no PoVs are produced).");
 		}
 		if price_oracle {
-			log::warn!("`--enable-price-oracle` has no effect in dev mode.");
+			return Err(sc_service::Error::Other(
+				"`--enable-price-oracle` is not supported in dev mode.".into(),
+			));
 		}
 
 		let PartialComponents {
