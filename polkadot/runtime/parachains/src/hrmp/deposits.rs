@@ -25,15 +25,92 @@
 
 use super::*;
 
+/// Reserves and releases HRMP channel deposits on behalf of the pallet that owns the channels.
+///
+/// Implemented by whoever holds the funds: the owning pallet itself when they are on the relay
+/// chain, or a pallet that forwards the request to another chain. The latter cannot set the
+/// deposits within the call, so it accepts the request and reports the outcome through
+/// [`Self::OnDepositSet`] later; until then it must refuse another request touching the same
+/// side of the channel.
+pub trait ChannelDepositProvider {
+	/// Where the provider reports a pending request once its deposits are set.
+	type OnDepositSet: OnDepositSet;
+
+	/// Requests that every side of `channel_id` named in `changes` ends up holding its target.
+	/// `action` is handed back in [`OnDepositSet::on_deposit_set`] if the request is pending.
+	fn try_set_deposit(
+		channel_id: &HrmpChannelId,
+		changes: DepositChanges,
+		action: DepositAction,
+	) -> Result<DepositStatus, DispatchError>;
+}
+
+/// Callback through which a [`ChannelDepositProvider`] reports that the deposits of a pending
+/// request are set.
+///
+/// Implemented by the pallet that owns the channels, which then completes the call that asked
+/// for the change.
+pub trait OnDepositSet {
+	/// Called once every side of `channel_id` named in `changes` holds its target. `action` is
+	/// the one passed to [`ChannelDepositProvider::try_set_deposit`]. Returns the weight spent.
+	fn on_deposit_set(
+		channel_id: &HrmpChannelId,
+		changes: DepositChanges,
+		action: DepositAction,
+	) -> Weight;
+}
+
+/// Whether a deposit request is done when [`ChannelDepositProvider::try_set_deposit`] returns.
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+pub enum DepositStatus {
+	/// The deposits are set. Nothing will be reported.
+	Set,
+	/// The request is accepted and its outcome is reported through [`OnDepositSet`].
+	Pending,
+}
+
+/// The deposit changes a call asks for, one per side of the channel. `None` leaves that side
+/// untouched, e.g. only the sender's side changes when a channel is requested.
+#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct DepositChanges {
+	pub sender: Option<DepositChange>,
+	pub recipient: Option<DepositChange>,
+}
+
+/// A change to the deposit one side of a channel holds.
+#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct DepositChange {
+	/// What the side holds now, by the records of the pallet that owns the channels.
+	pub held: Balance,
+	/// What the side must hold once the change is done.
+	pub target: Balance,
+}
+
+/// Which HRMP call asked for a deposit change.
+///
+/// Passed to [`ChannelDepositProvider::try_set_deposit`] and handed back unchanged in
+/// [`OnDepositSet::on_deposit_set`], so the pallet that owns the channels knows which call to
+/// complete. A provider never inspects it.
+#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub enum DepositAction {
+	/// A new open channel request, carrying the limits it is recorded with.
+	InitOpenChannel { max_capacity: u32, max_message_size: u32, max_total_size: u32 },
+	/// The recipient accepting an open channel request.
+	AcceptOpenChannel,
+	/// Bringing the deposits of an open channel in line with the current prices.
+	PokeChannelDeposits,
+	/// Giving deposits back. Nothing to complete.
+	Release,
+}
+
 impl<T: Config> ChannelDepositProvider for Pallet<T> {
 	type OnDepositSet = Self;
 
 	fn try_set_deposit(
-		channel_id: ChannelId,
+		channel_id: &HrmpChannelId,
 		changes: DepositChanges,
 		_action: DepositAction,
 	) -> Result<DepositStatus, DispatchError> {
-		let channel_id = from_shared(channel_id);
 		for (para, change) in
 			[(channel_id.sender, changes.sender), (channel_id.recipient, changes.recipient)]
 		{
@@ -51,30 +128,11 @@ impl<T: Config> ChannelDepositProvider for Pallet<T> {
 
 impl<T: Config> OnDepositSet for Pallet<T> {
 	fn on_deposit_set(
-		channel_id: ChannelId,
+		channel_id: &HrmpChannelId,
 		changes: DepositChanges,
 		action: DepositAction,
 	) -> Weight {
-		let channel_id = from_shared(channel_id);
-		if let Err(e) = Self::complete(&channel_id, changes, action) {
-			log::error!(
-				target: "runtime::hrmp",
-				"completing {action:?} on {channel_id:?} failed: {e:?}"
-			);
-		}
-		// Bounded by the weight of the call that asked for the deposit.
-		match action {
-			DepositAction::InitOpenChannel { .. } => {
-				<T as Config>::WeightInfo::hrmp_init_open_channel()
-			},
-			DepositAction::AcceptOpenChannel => {
-				<T as Config>::WeightInfo::hrmp_accept_open_channel()
-			},
-			DepositAction::PokeChannelDeposits => {
-				<T as Config>::WeightInfo::poke_channel_deposits()
-			},
-			DepositAction::Release => Weight::zero(),
-		}
+		Self::complete(channel_id, changes, action)
 	}
 }
 
@@ -98,10 +156,10 @@ impl<T: Config> Pallet<T> {
 		changes: DepositChanges,
 		action: DepositAction,
 	) -> DispatchResult {
-		match T::DepositProvider::try_set_deposit(to_shared(channel_id), changes, action)? {
-			DepositStatus::Set => Self::complete(channel_id, changes, action),
-			DepositStatus::Pending => Ok(()),
+		if T::DepositProvider::try_set_deposit(channel_id, changes, action)? == DepositStatus::Set {
+			Self::complete(channel_id, changes, action);
 		}
+		Ok(())
 	}
 
 	/// Asks [`Config::DepositProvider`] to give deposits back, for paths that cannot return an
@@ -115,12 +173,13 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Completes the call that asked for `action` once the deposits are set to `changes`.
+	/// Completes the call that asked for `action` once the deposits are set to `changes`,
+	/// returning the weight spent, bounded by the weight of that call.
 	fn complete(
 		channel_id: &HrmpChannelId,
 		changes: DepositChanges,
 		action: DepositAction,
-	) -> DispatchResult {
+	) -> Weight {
 		match action {
 			DepositAction::InitOpenChannel { max_capacity, max_message_size, max_total_size } => {
 				// `init_open_channel` always changes the sender's side.
@@ -132,101 +191,17 @@ impl<T: Config> Pallet<T> {
 					max_message_size,
 					max_total_size,
 				);
-				Ok(())
+				<T as Config>::WeightInfo::hrmp_init_open_channel()
 			},
-			DepositAction::AcceptOpenChannel => Self::confirm_open_channel_request(channel_id),
+			DepositAction::AcceptOpenChannel => {
+				Self::confirm_open_channel_request(channel_id);
+				<T as Config>::WeightInfo::hrmp_accept_open_channel()
+			},
 			DepositAction::PokeChannelDeposits => {
-				Self::record_channel_deposits(channel_id, changes)
+				Self::record_channel_deposits(channel_id, changes);
+				<T as Config>::WeightInfo::poke_channel_deposits()
 			},
-			DepositAction::Release => Ok(()),
+			DepositAction::Release => Weight::zero(),
 		}
 	}
-
-	fn record_open_channel_request(
-		channel_id: &HrmpChannelId,
-		sender_deposit: Balance,
-		max_capacity: u32,
-		max_message_size: u32,
-		max_total_size: u32,
-	) {
-		let config = configuration::ActiveConfig::<T>::get();
-		let (sender, recipient) = (channel_id.sender, channel_id.recipient);
-
-		HrmpOpenChannelRequestCount::<T>::mutate(&sender, |count| *count += 1);
-		HrmpOpenChannelRequests::<T>::insert(
-			channel_id,
-			HrmpOpenChannelRequest {
-				confirmed: false,
-				_age: 0,
-				sender_deposit,
-				max_capacity,
-				max_message_size,
-				max_total_size,
-			},
-		);
-		HrmpOpenChannelRequestsList::<T>::append(channel_id);
-
-		Self::send_to_para(
-			"init_open_channel",
-			&config,
-			recipient,
-			Self::wrap_notification(|| {
-				use xcm::opaque::latest::{prelude::*, Xcm};
-				Xcm(vec![HrmpNewChannelOpenRequest {
-					sender: sender.into(),
-					max_capacity,
-					max_message_size,
-				}])
-			}),
-		);
-	}
-
-	fn confirm_open_channel_request(channel_id: &HrmpChannelId) -> DispatchResult {
-		let config = configuration::ActiveConfig::<T>::get();
-		let (sender, recipient) = (channel_id.sender, channel_id.recipient);
-
-		HrmpOpenChannelRequests::<T>::try_mutate(channel_id, |channel_req| -> DispatchResult {
-			let channel_req =
-				channel_req.as_mut().ok_or(Error::<T>::AcceptHrmpChannelDoesntExist)?;
-			channel_req.confirmed = true;
-			Ok(())
-		})?;
-		HrmpAcceptedChannelRequestCount::<T>::mutate(&recipient, |count| *count += 1);
-
-		Self::send_to_para(
-			"accept_open_channel",
-			&config,
-			sender,
-			Self::wrap_notification(|| {
-				use xcm::opaque::latest::{prelude::*, Xcm};
-				Xcm(vec![HrmpChannelAccepted { recipient: recipient.into() }])
-			}),
-		);
-
-		Ok(())
-	}
-
-	fn record_channel_deposits(
-		channel_id: &HrmpChannelId,
-		changes: DepositChanges,
-	) -> DispatchResult {
-		HrmpChannels::<T>::try_mutate(channel_id, |channel| {
-			let channel = channel.as_mut().ok_or(Error::<T>::OpenHrmpChannelDoesntExist)?;
-			if let Some(change) = changes.sender {
-				channel.sender_deposit = change.target;
-			}
-			if let Some(change) = changes.recipient {
-				channel.recipient_deposit = change.target;
-			}
-			Ok(())
-		})
-	}
-}
-
-fn from_shared(channel_id: ChannelId) -> HrmpChannelId {
-	HrmpChannelId { sender: channel_id.sender.into(), recipient: channel_id.recipient.into() }
-}
-
-fn to_shared(channel_id: &HrmpChannelId) -> ChannelId {
-	ChannelId { sender: channel_id.sender.into(), recipient: channel_id.recipient.into() }
 }

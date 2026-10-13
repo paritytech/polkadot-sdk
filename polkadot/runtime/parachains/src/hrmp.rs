@@ -27,10 +27,6 @@ use codec::{Decode, Encode};
 use core::{fmt, mem};
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
-use hrmp_primitives::{
-	ChannelDepositProvider, ChannelId, DepositAction, DepositChange, DepositChanges, DepositStatus,
-	OnDepositSet,
-};
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
 use polkadot_primitives::{
 	Balance, Hash, HrmpChannelId, Id as ParaId, InboundHrmpMessage, OutboundHrmpMessage,
@@ -55,7 +51,8 @@ pub(crate) mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-mod deposits;
+pub mod deposits;
+use deposits::{ChannelDepositProvider, DepositAction, DepositChange, DepositChanges};
 
 pub trait WeightInfo {
 	fn hrmp_init_open_channel() -> Weight;
@@ -1445,6 +1442,46 @@ impl<T: Config> Pallet<T> {
 		Self::set_deposit(&channel_id, changes, action)
 	}
 
+	/// Records the open channel request once the sender's deposit is set.
+	fn record_open_channel_request(
+		channel_id: &HrmpChannelId,
+		sender_deposit: Balance,
+		max_capacity: u32,
+		max_message_size: u32,
+		max_total_size: u32,
+	) {
+		let config = configuration::ActiveConfig::<T>::get();
+		let (sender, recipient) = (channel_id.sender, channel_id.recipient);
+
+		HrmpOpenChannelRequestCount::<T>::mutate(&sender, |count| *count += 1);
+		HrmpOpenChannelRequests::<T>::insert(
+			channel_id,
+			HrmpOpenChannelRequest {
+				confirmed: false,
+				_age: 0,
+				sender_deposit,
+				max_capacity,
+				max_message_size,
+				max_total_size,
+			},
+		);
+		HrmpOpenChannelRequestsList::<T>::append(channel_id);
+
+		Self::send_to_para(
+			"init_open_channel",
+			&config,
+			recipient,
+			Self::wrap_notification(|| {
+				use xcm::opaque::latest::{prelude::*, Xcm};
+				Xcm(vec![HrmpNewChannelOpenRequest {
+					sender: sender.into(),
+					max_capacity,
+					max_message_size,
+				}])
+			}),
+		);
+	}
+
 	/// Accept a pending open channel request from the given sender.
 	///
 	/// Basically the same as [`hrmp_accept_open_channel`](Pallet::hrmp_accept_open_channel) but
@@ -1472,6 +1509,54 @@ impl<T: Config> Pallet<T> {
 			recipient: Some(DepositChange { held: 0, target: recipient_deposit }),
 		};
 		Self::set_deposit(&channel_id, changes, DepositAction::AcceptOpenChannel)
+	}
+
+	/// Confirms the open channel request once the recipient's deposit is set.
+	fn confirm_open_channel_request(channel_id: &HrmpChannelId) {
+		let config = configuration::ActiveConfig::<T>::get();
+		let (sender, recipient) = (channel_id.sender, channel_id.recipient);
+		let Some(mut channel_req) = HrmpOpenChannelRequests::<T>::get(channel_id) else {
+			log::error!(
+				target: "runtime::hrmp",
+				"accepting {channel_id:?} after its open request was dropped"
+			);
+			return;
+		};
+
+		// persist the updated open channel request and then increment the number of accepted
+		// channels.
+		channel_req.confirmed = true;
+		HrmpOpenChannelRequests::<T>::insert(channel_id, channel_req);
+		HrmpAcceptedChannelRequestCount::<T>::mutate(&recipient, |count| *count += 1);
+
+		Self::send_to_para(
+			"accept_open_channel",
+			&config,
+			sender,
+			Self::wrap_notification(|| {
+				use xcm::opaque::latest::{prelude::*, Xcm};
+				Xcm(vec![HrmpChannelAccepted { recipient: recipient.into() }])
+			}),
+		);
+	}
+
+	/// Records the deposits of an open channel once they are set.
+	fn record_channel_deposits(channel_id: &HrmpChannelId, changes: DepositChanges) {
+		HrmpChannels::<T>::mutate(channel_id, |channel| {
+			let Some(channel) = channel else {
+				log::error!(
+					target: "runtime::hrmp",
+					"updating the deposits of {channel_id:?} after it was closed"
+				);
+				return;
+			};
+			if let Some(change) = changes.sender {
+				channel.sender_deposit = change.target;
+			}
+			if let Some(change) = changes.recipient {
+				channel.recipient_deposit = change.target;
+			}
+		});
 	}
 
 	fn cancel_open_request(origin: ParaId, channel_id: HrmpChannelId) -> DispatchResult {
