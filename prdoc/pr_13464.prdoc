@@ -23,8 +23,8 @@ doc:
     `MaxEntriesPerReport` entries, inside one storage layer. If the reporter rejects a chunk, every
     count is kept for the next report. A report runs every `ReportPeriod` blocks, and once per
     set `ReportMargin` before the expected era end: the arrival time of the set, recorded in
-    `SetReceivedAt` from `UnixTime`, plus `ExpectedEraDuration`. At most half of
-    `ExpectedEraDuration` is used as the margin. The early report is not retried: if the reporter
+    `SetReceivedAt` from `UnixTime`, plus `ExpectedEraDuration`. The margin used is at
+    most `MaxReportMargin` and at most half of `ExpectedEraDuration`. The early report is not retried: if the reporter
     rejects it, its counts go out with the next periodic report. Governance sets the period with
     `set_report_period`, the expected era duration with `set_expected_era_duration` and the
     margin with `set_report_margin`, up to `MaxReportMargin`. New required config items:
