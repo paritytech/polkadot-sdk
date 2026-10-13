@@ -15699,6 +15699,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common-types",
  "parity-scale-codec",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-common",
  "scale-info",
@@ -15708,6 +15709,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "staging-parachain-info",
  "staging-xcm",
+ "staging-xcm-builder",
  "staging-xcm-executor",
  "tracing",
 ]
