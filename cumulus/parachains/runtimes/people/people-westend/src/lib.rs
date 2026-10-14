@@ -462,7 +462,7 @@ enum StakingSystemChainClientCalls {
 }
 
 /// Sends the block counts to Asset Hub as an unpaid `Transact` of `report_authored_blocks`, which
-/// Asset Hub dispatches with this chain's location as an XCM origin.
+/// Asset Hub dispatches with this chain's sibling parachain origin.
 pub struct ReportBlocksToAssetHub;
 
 impl ReportBlocksToAssetHub {
@@ -480,7 +480,7 @@ impl pallet_validator_collators::ReportAuthoredBlocks<AccountId> for ReportBlock
 		let xcm = Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {
-				origin_kind: OriginKind::Xcm,
+				origin_kind: OriginKind::Native,
 				fallback_max_weight: None,
 				call: Self::encoded_call(blocks).into(),
 			},

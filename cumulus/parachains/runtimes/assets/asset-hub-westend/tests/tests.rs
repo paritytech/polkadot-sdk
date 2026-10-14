@@ -4015,26 +4015,28 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 
 #[test]
 fn only_people_reports_blocks_and_only_as_itself() {
-	use asset_hub_westend_runtime::staking::AuthoredBlocksReportOrigin;
+	use asset_hub_westend_runtime::staking::EnsureReportingSibling;
 	use frame_support::traits::EnsureOrigin;
 	use testnet_parachains_constants::westend::locations::{PeopleLocation, PeopleParaId};
-	let xcm = |location: Location| RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location));
-	// GIVEN People's location as an XCM origin
+	let sibling =
+		|id: u32| RuntimeOrigin::from(cumulus_pallet_xcm::Origin::SiblingParachain(id.into()));
+	// GIVEN People as a sibling parachain origin
 	// WHEN it reports THEN it is accepted under People's id
 	assert_eq!(
-		AuthoredBlocksReportOrigin::try_origin(xcm(PeopleLocation::get())).ok(),
+		EnsureReportingSibling::try_origin(sibling(PeopleParaId::get().into())).ok(),
 		Some(PeopleParaId::get())
 	);
-	// GIVEN another sibling, the relay chain, or People's sovereign account through a
-	// `Transact` with another origin kind
+	// GIVEN another sibling, the relay chain, People's location as an XCM origin, or People's
+	// sovereign account through a `Transact` with another origin kind
 	let people_account = LocationToAccountId::convert_location(&PeopleLocation::get()).unwrap();
 	for origin in [
-		xcm(Location::new(1, [Parachain(2000)])),
-		xcm(Location::parent()),
+		sibling(2000),
+		RuntimeOrigin::from(cumulus_pallet_xcm::Origin::Relay),
+		RuntimeOrigin::from(pallet_xcm::Origin::Xcm(PeopleLocation::get())),
 		RuntimeOrigin::signed(people_account),
 		RuntimeOrigin::root(),
 	] {
 		// WHEN it reports THEN it is rejected
-		assert!(AuthoredBlocksReportOrigin::try_origin(origin).is_err());
+		assert!(EnsureReportingSibling::try_origin(origin).is_err());
 	}
 }

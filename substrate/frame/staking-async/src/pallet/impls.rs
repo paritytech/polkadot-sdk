@@ -46,6 +46,7 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking_async_rc_client::{self as rc_client};
+use pallet_staking_async_system_chain_client::{self as system_chain_client};
 use sp_runtime::{
 	traits::{CheckedAdd, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchResult, Perbill,
@@ -1430,6 +1431,16 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_desired_targets(count: u32) {
 		ValidatorCount::<T>::put(count);
+	}
+}
+
+impl<T: Config> system_chain_client::RewardPoints<T::AccountId> for Pallet<T> {
+	fn reward(kind: PointsKind, points: Vec<(T::AccountId, RewardPoint)>) {
+		Self::reward_service_points(kind, points);
+	}
+
+	fn weight(entries: u32) -> Weight {
+		T::WeightInfo::reward_service_points(entries)
 	}
 }
 
