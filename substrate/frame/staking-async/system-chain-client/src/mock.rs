@@ -22,6 +22,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::BuildStorage;
+use sp_staking::{PointsKind, RewardPoints};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
