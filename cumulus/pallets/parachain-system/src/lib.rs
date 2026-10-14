@@ -1795,6 +1795,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		if let Some(root) = PendingProvidesRoot::<T>::take() {
+			log::debug!(target: LOG_TARGET, "Emitting the `Provides` signal for root {root:?}");
 			ump_signals.push(UMPSignal::Provides(root).encode());
 		}
 
