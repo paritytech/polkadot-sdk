@@ -38,11 +38,21 @@ and return.
 
 The DAO distributes JAMKB, but not on JAM directly. JAM has no user accounts
 or transactions, and a service balance moves only through the service's own
-code. So JAMKB is represented on Asset Hub. There, the DAO can distribute it
+code. So JAMKB is 1:1 represented on Asset Hub. There, the DAO can distribute it
 by referendum or through contracts that automate distribution. The managing
 pallet is exposed to contracts through a precompile, which also lets
 them lease and redeem. That allows a secondary market to form around the
-asset.
+asset. The scenarios:
+
+- The DOT DAO deploys an adapter contract that sells JAMKB into private
+  ownership; the revenue is burned per Referendum 1926.
+- A JAM service team buys JAMKB with DOT and redeems it to its service's
+  regular balance. After reducing the service's footprint, the team may
+  return the units and sell them.
+- A parachain team buys JAMKB to back its parachain's state. After
+  freeing the state, the team may sell the units.
+- A holder keeps and trades JAMKB in ordinary Asset Hub wallets and DEXes,
+  or leases it to a JAM service.
 
 ### Scope
 
@@ -67,8 +77,9 @@ back the service's state footprint. The service can transfer its regular
 balance, but the supervisor balance can be transferred only by the effective
 supervisor. In this design the supervisor is the Parachain Service.
 
-Initially all JAMKB sits on the Parachain Service balance. Asset Hub
-manages distribution on behalf of the DAO.
+At JAM genesis, the Parachain Service balance holds the full JAMKB supply, and no
+other service holds a balance. Asset Hub manages distribution on behalf of
+the DAO.
 
 Example flow for governance permanent release, from approval through settlement.
 
@@ -129,7 +140,9 @@ holds the four privileged roles (Owner, Issuer, Admin, Freezer), assigned to it
 at initialization.
 
 The full JAMKB cap is minted into the `pallet-jamkb` custody account (§3.2).
-The mint is a one-time executed runtime call on the Asset Hub.
+The mint is a one-time executed runtime call on the Asset Hub. The asset is
+non-sufficient with `min_balance` 1; `initialize` takes a provider reference
+on each pallet account (§3.2).
 
 Parachain state footprint is backed on the Coretime chain. JAMKB is teleported
 there, and the Coretime chain backs each parachain's footprint against what it
@@ -178,6 +191,11 @@ type Anchor = Hash;
 
 /// The fixed JAMKB supply, minted at `initialize`.
 const CAP: Balance;
+
+/// The minimum `amount` that can be transferred by
+/// `approve_release`, `redeem`, `offer_lease`, `increase_lease`, `reclaim`,
+/// and `dispose_excess` with `refund`. A smaller `amount` is rejected.
+const MIN_TRANSFER: Balance;
 
 type AllocationId = u64;              // assigned from 1;
 type OperationId = u64;               // assigned from 1;
@@ -455,7 +473,8 @@ fn resume();
 
 /// Grants a budget to a policy adapter contract (§1). Origin: governance
 /// (Root). Transfers `amount` of undistributed units from the pallet's
-/// custody to `beneficiary` on Asset Hub.
+/// custody to `beneficiary` on Asset Hub. A budget can return by an
+/// ordinary transfer to `custody`.
 fn grant(beneficiary: AccountId, amount: Balance);
 
 // ── Permanent release ──────────────────────────────────────────────────────
@@ -560,7 +579,9 @@ fn unsupervise(target: ServiceId);
 
 /// Claims the voluntarily returned balance to `beneficiary`'s account (§4.4).
 /// Origin: any signed account. Moves the beneficiary's balance from the
-/// `custodial` account to the `beneficiary` account.
+/// `custodial` account to the `beneficiary` account. Rejected with
+/// `CannotCreate` when `beneficiary` has no JAMKB account and no native
+/// balance to create one; the custodial balance stays booked.
 fn claim(beneficiary: AccountId);
 
 /// Disposes an excess amount per service. Origin: governance (Root). Lowers
@@ -709,25 +730,36 @@ enum HoldReason {
 ### 3.4 The Generic AH→JAM Transport
 
 The pallet contains no code that reaches the Parachain Service directly. It
-is layered on a generic transport mechanism. The planned
-[cumulus-on-jam](https://github.com/paritytech/polkadot-sdk/pull/12714) §11 `validate_block`
-rework is expected to provide it, probably by extending `parachain-system` into
-a generic AH→JAM transport pallet. The generic pallet would own the outbound
-upward messages, sent through `send_upward_message` inside
-`jam_validate_block`, and the inherent that delivers the validation inputs.
+is layered on a generic transport mechanism, expected as an extension of
+`parachain-system` into a generic AH→JAM transport pallet. The
+[cumulus-on-jam](https://github.com/paritytech/polkadot-sdk/pull/12714) §11
+`validate_block` rework covers only the outputs a block emits through host
+calls; the delivery of inputs is undefined there. The generic pallet would own
+the outbound upward messages, sent through `send_upward_message` inside
+`jam_validate_block` (Parachain Service design §4.3), and the inherent that
+delivers the validation inputs.
 
 #### The parachain-system pallet requirements
 
 The design of that pallet is outside the scope of this document. The
 requirements below are what the pallet needs from it to operate.
 
-The generic pallet checks the inherent `(lookup-anchor, proof, para head,
-parachain_log, incoming_transfers)` against the state root after the
-lookup-anchor block and exposes the para head, `parachain_log` and
-`incoming_transfers` to pallets as validation inputs.
+The generic pallet checks the inherent against the state root after the
+lookup-anchor block and delivers the validation inputs to `pallet-jamkb`
+(`ValidationInputsHandler`).
 
 It also accepts the messages `pallet-jamkb` queues and sends them through
 `send_upward_message`.
+
+The pallet needs from it:
+
+- the validation inputs: the para head as the Asset Hub block number the
+  Parachain Service has accumulated up to, the entries of `parachain_log` not
+  delivered before, `incoming_transfers`, and the Parachain Service balance;
+- input processing that cannot fail and has bounded weight;
+- a send queue within 1024 messages and 40 KiB per block, with a sharing
+  policy between pallets;
+- `CleanUpBucketsUpTo` sent after the booked `incoming_transfers` buckets.
 
 ---
 
@@ -826,7 +858,7 @@ Non-cooperative return (`Reclaiming`):
 
 Supervision gives the pallet full power over the target, including cleaning
 its state and ejecting it. `cleanup_storage` is bonded with a deposit (§3.2).
-For a governance-approved lease, governance may fund the work as a treasury
+For a lease from a DAO adapter, governance may fund the recovery as a treasury
 bounty:
 
 ```
@@ -935,18 +967,111 @@ account in it. The exact layout is to be defined.
 7. **Generic transport.** The parachain-system rework that pulls the jamkb pallet's
    upward messages and delivers the validation inputs does not exist yet
    (§3.4).
-8. **Pallet account and burn instead of holds.** A hold cannot take the last
-   `min_balance` units and keeps the account alive, so a holder cannot redeem
-   their full balance and close the account. One option is to move the units
-   for permanent releases and redemptions into a pallet `in-flight` account
-   instead, burn them on Confirmed, and return them on Failed. Leases would
-   still use holds, since those units must return to the approver.
-9. **Sufficiency.** Whether JAMKB is a sufficient asset, and its
-   `min_balance`, is undecided. A sufficient asset needs a `min_balance`
-   worth about the native existential deposit, which requires a price. If
-   JAMKB is non-sufficient and `min_balance` is 1, the pallet accounts must
-   be touched at `initialize`.
-10. **Service lifecycle in another pallet.** Service accounts, service creation
-    and upgrade, supervisor hand-over, forget and eject concern the service,
-    not the token, and belong with the pallet that registers JAM services.
-    They should probably leave this document.
+8. **Burn instead of holds.** A hold cannot take the last `min_balance` unit,
+   so a holder redeems all but one unit and transfers the remainder out by a
+   plain `pallet-assets` transfer. The alternative is
+   `fungibles::Mutate::shelve` on the call and `restore` on Failed; `restore`
+   into a dead non-sufficient account fails, so those units would fall back
+   to `Custodial`.
+9. **Service registry pallet.** Service accounts, supervision, service
+   creation and upgrade belong to a service registry pallet that does not
+   exist. The recovery calls of §4.3 stay here: they apply their origin rule
+   and the recovery deposit, then request through `ServiceRegistry`. The
+   registry keeps one pending operation per service, correlates its outcome
+   by service, and reports it through `OnServiceEvent`. Before its own
+   dispatchables queue a message it asks `ServiceGuard`. A `CreateService` is
+   paid by its creator in JAMKB through `CreationTicket`, which the pallet
+   implements and the registry holds until the outcome.
+
+   ```rust
+   /// Implemented by the service registry. A request takes effect in a later
+   /// block and is reported through `OnServiceEvent`.
+   trait ServiceRegistry {
+       /// A raw storage key of a service, and the keys in one page.
+       type Key;
+       type MaxKeysPerPage: Get<u32>;
+       /// The Asset Hub account of `service`, if registered.
+       fn account(service: ServiceId) -> Option<AccountId>;
+       /// Whether the Parachain Service supervises `service`.
+       fn is_supervised(service: ServiceId) -> bool;
+       /// Whether `service` is frozen.
+       fn is_frozen(service: ServiceId) -> bool;
+       /// Freezes `service`: it stops executing.
+       fn freeze(service: ServiceId) -> Result<(), ServiceError>;
+       /// Unfreezes `service`: its stored code is restored.
+       fn unfreeze(service: ServiceId) -> Result<(), ServiceError>;
+       /// Removes `keys` from `service`'s storage.
+       fn remove_storage(service: ServiceId,
+                         keys: BoundedVec<Self::Key, Self::MaxKeysPerPage>)
+           -> Result<(), ServiceError>;
+       /// Forgets the preimage `(hash, len)` of `service`.
+       fn forget(service: ServiceId, hash: Hash, len: u32)
+           -> Result<(), ServiceError>;
+       /// Ejects `service`.
+       fn eject(service: ServiceId) -> Result<(), ServiceError>;
+       /// Sets `service`'s supervisor.
+       fn set_supervisor(service: ServiceId, new_supervisor: ServiceId)
+           -> Result<(), ServiceError>;
+   }
+
+   /// A synchronous rejection. Nothing is queued.
+   enum ServiceError {
+       NotRegistered, NotSupervised, Frozen, AlreadyFrozen, NotFrozen,
+       NoCode,
+   }
+
+   /// Implemented by `pallet-jamkb`. Read by the registry before it queues a
+   /// message.
+   trait ServiceGuard {
+       /// Whether `service`'s supervisor may be set, to itself or another.
+       fn may_set_supervisor(service: ServiceId) -> bool;
+       /// Whether `service` may be unfrozen.
+       fn may_unfreeze(service: ServiceId) -> bool;
+       /// Whether `service` may be ejected.
+       fn may_eject(service: ServiceId) -> bool;
+   }
+
+   /// Implemented by `pallet-jamkb`: the JAMKB cost of a `CreateService`.
+   /// `new` holds the new service's threshold balance on the creator; `burn`
+   /// moves it to the `released` account on `Created`; `drop` releases it
+   /// otherwise. The registry keeps it by `CreateService.id`.
+   type CreationTicket: Consideration<AccountId, Footprint>;
+
+   /// The outcome of a `Forget`.
+   enum ForgetOutcome {
+       /// The preimage is expunged.
+       Expunged,
+       /// The preimage is unrequested; a second `Forget` from the carried
+       /// timeslot expunges it.
+       AgainAt(Timeslot),
+       /// The service never requested the preimage.
+       NotRequested,
+   }
+
+   /// Implemented by `pallet-jamkb`. Called while the registry processes the
+   /// validation inputs (§3.4).
+   trait OnServiceEvent<R: ServiceRegistry> {
+       /// `service` was created and its `CreationTicket` burned. Its threshold
+       /// balance is on its supervisor balance when `new_supervisor_balance`
+       /// is set, on its regular balance otherwise.
+       fn on_created(service: ServiceId, new_supervisor_balance: bool);
+       /// A freeze or unfreeze of `service` was accumulated.
+       fn on_frozen(service: ServiceId, frozen: bool);
+       /// A storage page of `service` settled. `missing` holds each key the
+       /// service did not hold.
+       fn on_storage_removed(service: ServiceId,
+                             missing: BoundedVec<R::Key, R::MaxKeysPerPage>);
+       /// A `Forget` of `service` settled.
+       fn on_forgotten(service: ServiceId, outcome: ForgetOutcome);
+       /// An `EjectService` of `service` settled. `Ok` carries `credited`.
+       fn on_ejected(service: ServiceId,
+                     outcome: Result<Balance, ServiceEjectError>);
+       /// A `SetServiceSupervisor` of `service` settled.
+       fn on_supervisor_set(service: ServiceId,
+                            outcome: Result<(), ServiceSupervisorError>);
+   }
+   ```
+
+   The jamkb pallet's `OperationPayload` variants record a pending request,
+   keyed by service; the hook writes the operation state and `settle` applies
+   it.
