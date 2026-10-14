@@ -1,0 +1,15 @@
+title: 'fatxpool: add transactions from retracted blocks to the mempool'
+
+doc:
+  - audience: Node Dev
+    description: |-
+      Transactions from retracted blocks were only resubmitted to the new view and never reached
+      the mempool, so when the pool was at its limits they could later be pushed out by mempool
+      transactions regardless of their priority. They are now added to the mempool as well, using
+      the priority obtained while resubmitting them. When the mempool is full they go through the
+      usual replacement path, so a higher priority retracted transaction evicts lower ones and a
+      lower priority one is dropped.
+
+crates:
+  - name: sc-transaction-pool
+    bump: patch
