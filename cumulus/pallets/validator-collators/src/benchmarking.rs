@@ -21,16 +21,19 @@ use super::*;
 
 #[allow(unused)]
 use crate::Pallet as ValidatorCollators;
-use alloc::{collections::BTreeSet, vec::Vec};
+use alloc::{
+	collections::{BTreeMap, BTreeSet},
+	vec::Vec,
+};
 use cumulus_pallet_parachain_system::OnSystemEvent;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
 	traits::{EnsureOrigin, Get, Hooks},
-	BoundedBTreeSet, BoundedVec,
+	BoundedBTreeMap, BoundedBTreeSet, BoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_session::ShouldEndSession;
-use sp_runtime::traits::Saturating;
+use sp_runtime::traits::{Saturating, Zero};
 
 #[benchmarks]
 mod benchmarks {
@@ -136,10 +139,16 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// The first block of an author, which inserts its entry and bumps the counter.
+	/// The first block of an author, which inserts its entry and bumps the counter, by an active
+	/// collator of this pallet, whose activity record is refreshed.
 	#[benchmark]
 	fn note_author() {
 		let author: T::AccountId = account("author", 0, 0);
+		LastActivity::<T>::insert(
+			&author,
+			Activity::Active { since: Zero::zero(), authorities: T::MaxValidators::get() },
+		);
+		frame_system::Pallet::<T>::set_block_number(1u32.into());
 
 		#[block]
 		{
@@ -147,6 +156,10 @@ mod benchmarks {
 		}
 
 		assert_eq!(AuthoredBlocks::<T>::get(&author), 1);
+		assert_eq!(
+			LastActivity::<T>::get(&author),
+			Some(Activity::Active { since: 1u32.into(), authorities: 0 })
+		);
 	}
 
 	/// A block at a multiple of `ReportPeriod` that makes the early report of the stored set with
@@ -196,6 +209,28 @@ mod benchmarks {
 				reported: n,
 			}),
 		);
+		Ok(())
+	}
+
+	/// Worst case: removing the rule with `MaxValidators` drop records.
+	#[benchmark]
+	fn set_drop_rule() -> Result<(), BenchmarkError> {
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		CurrentDropRule::<T>::put(DropRule { rounds: 1, sessions: 1, min_collators: 0 });
+		let records = BoundedBTreeMap::try_from(
+			(0..T::MaxValidators::get())
+				.map(|i| (account("dropped", i, 0), u32::MAX))
+				.collect::<BTreeMap<_, _>>(),
+		)
+		.map_err(|_| BenchmarkError::Stop("the records exceed MaxValidators"))?;
+		Dropped::<T>::put(records);
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, None);
+
+		assert!(!CurrentDropRule::<T>::exists());
+		assert!(!Dropped::<T>::exists());
 		Ok(())
 	}
 

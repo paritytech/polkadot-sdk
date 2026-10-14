@@ -426,6 +426,15 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	/// Number of Aura authorities of the current session.
+	pub AuraAuthorityCount: u32 = pallet_aura::Pallet::<Runtime>::authorities_len() as u32;
+	/// `BLOCK_PROCESSING_VELOCITY + 1` blocks per relay chain slot, which the consensus hook
+	/// allows, times the relay chain slots per Aura slot.
+	pub const MaxBlocksPerSlot: u32 = (BLOCK_PROCESSING_VELOCITY + 1) *
+		(SLOT_DURATION as u32 / RELAY_CHAIN_SLOT_DURATION_MILLIS);
+}
+
 impl pallet_validator_collators::Config for Runtime {
 	type SetOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureXcm<Equals<AssetHubLocation>>>;
 	type UpdateOrigin = CollatorSelectionUpdateOrigin;
@@ -442,6 +451,8 @@ impl pallet_validator_collators::Config for Runtime {
 		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;
 	type DefaultReportMargin = ConstU64<300_000>;
 	type MaxReportMargin = ConstU64<1_800_000>;
+	type AuthorityCount = AuraAuthorityCount;
+	type MaxBlocksPerSlot = MaxBlocksPerSlot;
 	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }
 

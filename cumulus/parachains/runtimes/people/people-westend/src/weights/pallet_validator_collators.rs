@@ -138,15 +138,17 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 	/// Proof: `ValidatorCollators::AuthoredBlocks` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::LastActivity` (r:1 w:1)
+	/// Proof: `ValidatorCollators::LastActivity` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
 	fn note_author() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `4`
-		//  Estimated: `3509`
-		// Minimum execution time: 5_031_000 picoseconds.
-		Weight::from_parts(5_510_000, 0)
-			.saturating_add(Weight::from_parts(0, 3509))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
+		//  Estimated: `3514`
+		// Minimum execution time: 8_102_000 picoseconds.
+		Weight::from_parts(8_102_000, 0)
+			.saturating_add(Weight::from_parts(0, 3514))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	/// Storage: `ValidatorCollators::SetReceivedAt` (r:1 w:1)
 	/// Proof: `ValidatorCollators::SetReceivedAt` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
@@ -203,5 +205,18 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2519).saturating_mul(n.into()))
+	}
+	/// Storage: `ValidatorCollators::Dropped` (r:0 w:1)
+	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(36002), added: 36497, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::CurrentDropRule` (r:0 w:1)
+	/// Proof: `ValidatorCollators::CurrentDropRule` (`max_values`: Some(1), `max_size`: Some(12), added: 507, mode: `MaxEncodedLen`)
+	fn set_drop_rule() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(7_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 }

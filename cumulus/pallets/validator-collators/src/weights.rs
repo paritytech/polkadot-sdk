@@ -37,6 +37,7 @@ pub trait WeightInfo {
 	fn note_author() -> Weight;
 	fn report_blocks(n: u32) -> Weight;
 	fn on_initialize() -> Weight;
+	fn set_drop_rule() -> Weight;
 }
 
 /// Default weights for `pallet_validator_collators`, see the module doc for their source.
@@ -110,10 +111,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
 	/// `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::LastActivity` (r:1 w:1)
+	/// Proof: `ValidatorCollators::LastActivity` (`max_values`: None, `max_size`: Some(49),
+	/// added: 2524, mode: `MaxEncodedLen`)
 	fn note_author() -> Weight {
-		Weight::from_parts(5_651_000, 3_509)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+		Weight::from_parts(8_102_000, 3_514)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
@@ -158,6 +162,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(15_000_000, 3_506)
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `ValidatorCollators::Dropped` (r:0 w:1)
+	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(36002),
+	/// added: 36497, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::CurrentDropRule` (r:0 w:1)
+	/// Proof: `ValidatorCollators::CurrentDropRule` (`max_values`: Some(1), `max_size`: Some(12),
+	/// added: 507, mode: `MaxEncodedLen`)
+	fn set_drop_rule() -> Weight {
+		Weight::from_parts(7_000_000, 0).saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 }
 
@@ -231,10 +244,13 @@ impl WeightInfo for () {
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
 	/// `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::LastActivity` (r:1 w:1)
+	/// Proof: `ValidatorCollators::LastActivity` (`max_values`: None, `max_size`: Some(49),
+	/// added: 2524, mode: `MaxEncodedLen`)
 	fn note_author() -> Weight {
-		Weight::from_parts(5_651_000, 3_509)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+		Weight::from_parts(8_102_000, 3_514)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
@@ -279,5 +295,14 @@ impl WeightInfo for () {
 		Weight::from_parts(15_000_000, 3_506)
 			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `ValidatorCollators::Dropped` (r:0 w:1)
+	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(36002),
+	/// added: 36497, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::CurrentDropRule` (r:0 w:1)
+	/// Proof: `ValidatorCollators::CurrentDropRule` (`max_values`: Some(1), `max_size`: Some(12),
+	/// added: 507, mode: `MaxEncodedLen`)
+	fn set_drop_rule() -> Weight {
+		Weight::from_parts(7_000_000, 0).saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 }

@@ -15,7 +15,10 @@
 
 use crate::imports::*;
 use codec::Encode;
-use emulated_integration_tests_common::{collators, xcm_emulator::pallet_aura};
+use emulated_integration_tests_common::{
+	collators,
+	xcm_emulator::{self, pallet_aura},
+};
 use pallet_staking_async::OnEraStart;
 use parachains_common::{AccountId, AuraId};
 use sp_externalities::ExternalitiesExt;
@@ -367,4 +370,102 @@ fn people_report_call_decodes_on_asset_hub() {
 		)) => assert_eq!(decoded, blocks),
 		other => panic!("People's report decodes on Asset Hub as {other:?}"),
 	}
+}
+
+/// The account Aura assigns the next People block to, with the slot the emulator derives from the
+/// relay chain block number.
+fn next_author_on_people() -> AccountId {
+	type Runtime = <PeopleWestend as Chain>::Runtime;
+	let relay_block =
+		<<PeopleWestend as Chain>::Network as xcm_emulator::Network>::relay_block_number() + 1;
+	let slot = relay_block as u64 * xcm_emulator::RELAY_CHAIN_SLOT_DURATION_MILLIS /
+		pallet_aura::Pallet::<Runtime>::slot_duration();
+	let validators = pallet_session::Pallet::<Runtime>::validators();
+	validators[(slot % validators.len() as u64) as usize].clone()
+}
+
+#[test]
+fn idle_validator_is_dropped_on_people_at_the_regular_rotation() {
+	type Runtime = <PeopleWestend as Chain>::Runtime;
+	type RuntimeOrigin = <PeopleWestend as Chain>::RuntimeOrigin;
+	type ValidatorCollators = pallet_validator_collators::Pallet<Runtime>;
+	type Session = pallet_session::Pallet<Runtime>;
+	type System = <PeopleWestend as Chain>::System;
+	let period = people_westend_runtime::PERIOD;
+	let alice = Sr25519Keyring::Alice.to_account_id();
+	let bob = Sr25519Keyring::Bob.to_account_id();
+	let collators_with = |validators: Vec<AccountId>| {
+		invulnerables()
+			.into_iter()
+			.map(|(who, _)| who)
+			.chain(validators)
+			.collect::<Vec<_>>()
+	};
+	let mut both = vec![alice.clone(), bob.clone()];
+	both.sort();
+
+	// GIVEN a rule of one round and one session without a floor, and a set of Alice and Bob with
+	// keys, both set by root
+	PeopleWestend::execute_with(|| {
+		register_keys_on_people(&alice);
+		register_keys_on_people(&bob);
+		assert_ok!(ValidatorCollators::set_drop_rule(
+			RuntimeOrigin::root(),
+			Some(pallet_validator_collators::DropRule { rounds: 1, sessions: 1, min_collators: 0 }),
+		));
+		assert_ok!(ValidatorCollators::set_validators(
+			RuntimeOrigin::root(),
+			1,
+			both.iter()
+				.cloned()
+				.collect::<std::collections::BTreeSet<_>>()
+				.try_into()
+				.unwrap(),
+		));
+	});
+	// AND the second forced rotation enacts both, which jumps to the block before the regular
+	// rotation, beyond a window of `authorities × MaxBlocksPerSlot` blocks
+	PeopleWestend::execute_with(|| {});
+	let (kept, idle) = PeopleWestend::execute_with(|| {
+		assert_eq!(Session::validators(), collators_with(both.clone()));
+		type MaxBlocksPerSlot = <Runtime as pallet_validator_collators::Config>::MaxBlocksPerSlot;
+		let window = pallet_aura::Pallet::<Runtime>::authorities_len() as u32 *
+			<MaxBlocksPerSlot as frame_support::traits::Get<u32>>::get();
+		assert!(System::block_number() + window < period - 1);
+		System::set_block_number(period - 1);
+		// AND the validator that authors the rotation block, or Alice if neither does, authors
+		// a block, so the other one authored nothing within the window
+		let next_author = next_author_on_people();
+		let (kept, idle) = if next_author == bob {
+			(bob.clone(), alice.clone())
+		} else {
+			(alice.clone(), bob.clone())
+		};
+		<ValidatorCollators as pallet_authorship::EventHandler<_, _>>::note_author(kept.clone());
+		(kept, idle)
+	});
+
+	// WHEN People runs the regular rotation
+	PeopleWestend::execute_with(|| {
+		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
+		assert_eq!(System::block_number(), period);
+		let next_author = pallet_authorship::Pallet::<Runtime>::author();
+		assert!(next_author.as_ref() != Some(&idle));
+		// THEN only the validator that authored nothing is dropped
+		assert_expected_events!(
+			PeopleWestend,
+			vec![
+				RuntimeEvent::ValidatorCollators(
+					pallet_validator_collators::Event::CollatorsDropped { validators, kept: 0, .. }
+				) => { validators: *validators == vec![idle.clone()], },
+			]
+		);
+		// AND it keeps its slots until the next regular rotation
+		assert_eq!(Session::validators(), collators_with(both.clone()));
+		System::set_block_number(2 * period - 1);
+	});
+	PeopleWestend::execute_with(|| {
+		assert_eq!(System::block_number(), 2 * period);
+		assert_eq!(Session::validators(), collators_with(vec![kept]));
+	});
 }

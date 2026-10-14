@@ -133,6 +133,8 @@ impl Config for Test {
 	type DefaultExpectedEraDuration = ConstU64<1000>;
 	type DefaultReportMargin = ConstU64<100>;
 	type MaxReportMargin = ConstU64<500>;
+	type AuthorityCount = AuthorityCount;
+	type MaxBlocksPerSlot = MaxBlocksPerSlot;
 	type WeightInfo = ();
 }
 
@@ -150,6 +152,10 @@ impl frame_support::traits::UnixTime for MockTime {
 
 parameter_types! {
 	pub static MaxEntriesPerReport: u32 = 10;
+	/// Aura authorities of the current session, the window of a drop rule is
+	/// `rounds × AuthorityCount × MaxBlocksPerSlot` blocks.
+	pub static AuthorityCount: u32 = 4;
+	pub static MaxBlocksPerSlot: u32 = 2;
 	/// Number of calls to [`MockReporter`] so far.
 	pub static ReportCalls: u32 = 0;
 	/// The call to [`MockReporter`], counted from one, that is rejected.
