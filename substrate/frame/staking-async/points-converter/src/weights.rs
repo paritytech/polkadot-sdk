@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Default weights for `pallet_staking_async_system_chain_client`, from the Asset Hub Westend
+//! Default weights for `pallet_staking_async_points_converter`, from the Asset Hub Westend
 //! runtime benchmark.
 //!
 //! Runtimes should use their own benchmarked weights.
@@ -27,24 +27,24 @@ use frame_support::{
 	weights::{constants::RocksDbWeight, Weight},
 };
 
-/// Weight functions needed for `pallet_staking_async_system_chain_client`.
+/// Weight functions needed for `pallet_staking_async_points_converter`.
 pub trait WeightInfo {
-	fn set_points_per_unit() -> Weight;
+	fn set_points_per_service() -> Weight;
 	fn report_authored_blocks() -> Weight;
 }
 
-/// Default weights for `pallet_staking_async_system_chain_client`, see the module doc for their
+/// Default weights for `pallet_staking_async_points_converter`, see the module doc for their
 /// source.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: `StakingSystemChainClient::PointsPerUnit` (r:0 w:1)
-	/// Proof: `StakingSystemChainClient::PointsPerUnit` (`max_values`: None, `max_size`: Some(25),
+	/// Storage: `StakingPointsConverter::PointsPerService` (r:0 w:1)
+	/// Proof: `StakingPointsConverter::PointsPerService` (`max_values`: None, `max_size`: Some(25),
 	/// added: 2500, mode: `MaxEncodedLen`)
-	fn set_points_per_unit() -> Weight {
+	fn set_points_per_service() -> Weight {
 		Weight::from_parts(3_948_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: `StakingSystemChainClient::PointsPerUnit` (r:1 w:0)
-	/// Proof: `StakingSystemChainClient::PointsPerUnit` (`max_values`: None, `max_size`: Some(25),
+	/// Storage: `StakingPointsConverter::PointsPerService` (r:1 w:0)
+	/// Proof: `StakingPointsConverter::PointsPerService` (`max_values`: None, `max_size`: Some(25),
 	/// added: 2500, mode: `MaxEncodedLen`)
 	fn report_authored_blocks() -> Weight {
 		Weight::from_parts(6_923_000, 3_490).saturating_add(T::DbWeight::get().reads(1_u64))
@@ -53,14 +53,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
-	/// Storage: `StakingSystemChainClient::PointsPerUnit` (r:0 w:1)
-	/// Proof: `StakingSystemChainClient::PointsPerUnit` (`max_values`: None, `max_size`: Some(25),
+	/// Storage: `StakingPointsConverter::PointsPerService` (r:0 w:1)
+	/// Proof: `StakingPointsConverter::PointsPerService` (`max_values`: None, `max_size`: Some(25),
 	/// added: 2500, mode: `MaxEncodedLen`)
-	fn set_points_per_unit() -> Weight {
+	fn set_points_per_service() -> Weight {
 		Weight::from_parts(3_948_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: `StakingSystemChainClient::PointsPerUnit` (r:1 w:0)
-	/// Proof: `StakingSystemChainClient::PointsPerUnit` (`max_values`: None, `max_size`: Some(25),
+	/// Storage: `StakingPointsConverter::PointsPerService` (r:1 w:0)
+	/// Proof: `StakingPointsConverter::PointsPerService` (`max_values`: None, `max_size`: Some(25),
 	/// added: 2500, mode: `MaxEncodedLen`)
 	fn report_authored_blocks() -> Weight {
 		Weight::from_parts(6_923_000, 3_490).saturating_add(RocksDbWeight::get().reads(1_u64))

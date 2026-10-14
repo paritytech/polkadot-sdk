@@ -2,54 +2,25 @@ title: 'Era points for blocks validators author on system chains'
 doc:
 - audience: Runtime Dev
   description: |-
-    `sp-staking` gains `PointsKind`, the service for which validators earn reward points:
-    `Validation` (relay chain validation) and `Collation` (blocks authored on system chains),
-    with pinned codec indices. It also gains `RewardPoints`, which credits points of a given
-    `PointsKind` to validators, and now holds `RewardsReporter`.
-    `frame-support` re-exports `RewardsReporter`, so `frame_support::traits::RewardsReporter`
-    keeps working.
+    Validators earn era points for the blocks they author on system chains, weighted per chain and
+    service by governance.
 
-    `pallet-staking-async` gains `reward_service_points(kind, points)`, a public function that
-    credits points earned for a service other than relay chain validation to the active era and
-    emits `ServicePointsCredited`, and implements `RewardPoints` with it. Accounts not exposed in
-    the active era are dropped.
-    `PointsKind::Validation` is refused, since those points arrive only with the relay chain
-    session report. `ErasRewardPoints` stays the combined tally of every service, so points from
-    system chains also move the self-stake incentive share and count as activity for
-    `chill_inactive`. A new storage item, `ErasRewardPointsByKind`, records the same points per
-    `PointsKind`. It is written with the tally, pruned with it and checked by try-state against
-    it. No migration. The new `WeightInfo::reward_service_points` must be added by external
-    implementors of the trait.
+    `sp-staking` gains `ValidatorServiceKind` (`RelayConsensus`, `Collation`) and `RewardPoints`,
+    and now holds `RewardsReporter`, which `frame-support` re-exports at the same path.
 
-    `pallet-validator-collators` counts the blocks each author produces as a
-    `pallet_authorship::EventHandler`. At a report it hands the counts of the authors in the
-    stored validator set to the runtime's `BlockReporter`, in chunks of at most
-    `MaxEntriesPerReport` entries, inside one storage layer. If the reporter rejects a chunk, every
-    count is kept for the next report. A report runs every `ReportPeriod` blocks, and once per
-    set `ReportMargin` before the expected era end: the arrival time of the set, recorded in
-    `SetReceivedAt` from `UnixTime`, plus `ExpectedEraDuration`. The margin used is at
-    most `MaxReportMargin` and at most half of `ExpectedEraDuration`. The early report is not retried: if the reporter
-    rejects it, its counts go out with the next periodic report. Governance sets the period with
-    `set_report_period`, the expected era duration with `set_expected_era_duration` and the
-    margin with `set_report_margin`, up to `MaxReportMargin`. New required config items:
-    `BlockReporter`, `DefaultReportPeriod`, `MaxEntriesPerReport`, `UnixTime`,
-    `DefaultExpectedEraDuration`, `DefaultReportMargin`, `MaxReportMargin`. The runtime adds the
-    pallet to the `EventHandler` of `pallet-authorship`.
+    `pallet-staking-async` gains `reward_service_points`, which credits points for a service other
+    than relay chain consensus to the active era, dropping accounts not exposed in it. Points also
+    go to the new `ErasRewardPointsByService`, next to the unchanged combined tally. No migration.
+    External `WeightInfo` implementors must add `reward_service_points`.
 
-    Adds `pallet-staking-async-system-chain-client`, which runs on Asset Hub only and receives
-    the counts. Other chains call `report_authored_blocks` from `ReportOrigin`, which names the
-    reporting chain, and the local chain credits its own counts through `credit_authored_blocks`.
-    A count becomes `count × PointsPerUnit[(source, Collation)]` era points, handed to the
-    runtime's `RewardPoints` as `Collation` points. `PointsPerUnit` is keyed by source chain and
-    `PointsKind`. A source without points per unit earns nothing. Governance sets the values
-    with `set_points_per_unit`, up to `MaxPointsPerUnit`, and cannot weight `Validation`. The
-    client weighs a report by its number of entries, and each reporting chain bounds the size
-    of what it sends.
+    `pallet-validator-collators` counts the blocks each author produces and reports the counts of
+    the validators in the stored set every `ReportPeriod` blocks, and once per set shortly before
+    the expected era end. New config items: `BlockReporter`, `DefaultReportPeriod`,
+    `MaxEntriesPerReport`, `UnixTime`, `DefaultExpectedEraDuration`, `DefaultReportMargin` and
+    `MaxReportMargin`. The runtime adds the pallet to the `EventHandler` of `pallet-authorship`.
 
-    People Westend reports its counts to Asset Hub Westend over XCM. Asset Hub Westend adds
-    `pallet-staking-async-system-chain-client` and credits its own counts locally.
-    People sends at most `MaxEntriesPerReport` entries per report, and Asset Hub hands its own
-    counts over in one chunk.
+    New `pallet-staking-async-points-converter`, for Asset Hub, converts the reported counts into
+    era points using `PointsPerService`, set by governance.
 crates:
 - name: sp-staking
   bump: minor
@@ -59,7 +30,7 @@ crates:
   bump: major
 - name: pallet-validator-collators
   bump: major
-- name: pallet-staking-async-system-chain-client
+- name: pallet-staking-async-points-converter
   bump: major
 - name: asset-hub-westend-runtime
   bump: major

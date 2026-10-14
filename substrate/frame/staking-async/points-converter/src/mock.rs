@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use super::*;
-use crate as pallet_staking_async_system_chain_client;
+use crate as pallet_staking_async_points_converter;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU32, SortedMembers},
@@ -22,7 +22,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::BuildStorage;
-use sp_staking::{PointsKind, RewardPoints};
+use sp_staking::{RewardPoints, ValidatorServiceKind};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -30,7 +30,7 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
-		StakingSystemChainClient: pallet_staking_async_system_chain_client,
+		StakingPointsConverter: pallet_staking_async_points_converter,
 	}
 );
 
@@ -44,7 +44,7 @@ impl Config for Test {
 	type ReportOrigin = EnsureSignedBy<Reporters, u64>;
 	type PointsOrigin = EnsureRoot<u64>;
 	type RewardPoints = MockRewardPoints;
-	type MaxPointsPerUnit = ConstU32<10>;
+	type MaxPointsPerService = ConstU32<10>;
 	type WeightInfo = ();
 }
 
@@ -57,13 +57,13 @@ impl SortedMembers<u64> for Reporters {
 }
 
 parameter_types! {
-	pub static Rewarded: Vec<(PointsKind, Vec<(u64, u32)>)> = Vec::new();
+	pub static Rewarded: Vec<(ValidatorServiceKind, Vec<(u64, u32)>)> = Vec::new();
 }
 
 pub struct MockRewardPoints;
 impl RewardPoints<u64> for MockRewardPoints {
-	fn reward(kind: PointsKind, points: Vec<(u64, u32)>) {
-		Rewarded::mutate(|rewarded| rewarded.push((kind, points)));
+	fn reward(service: ValidatorServiceKind, points: Vec<(u64, u32)>) {
+		Rewarded::mutate(|rewarded| rewarded.push((service, points)));
 	}
 
 	fn weight(entries: u32) -> Weight {

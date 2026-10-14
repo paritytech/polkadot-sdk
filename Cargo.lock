@@ -2018,8 +2018,8 @@ dependencies = [
  "pallet-session",
  "pallet-staking",
  "pallet-staking-async",
+ "pallet-staking-async-points-converter",
  "pallet-staking-async-rc-client",
- "pallet-staking-async-system-chain-client",
  "pallet-staking-runtime-api",
  "pallet-state-trie-migration",
  "pallet-sudo",
@@ -15257,6 +15257,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking-async-points-converter"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-staking",
+]
+
+[[package]]
 name = "pallet-staking-async-preset-store"
 version = "0.1.0"
 dependencies = [
@@ -15413,20 +15427,6 @@ version = "14.0.0"
 dependencies = [
  "parity-scale-codec",
  "sp-api 26.0.0",
- "sp-staking",
-]
-
-[[package]]
-name = "pallet-staking-async-system-chain-client"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
  "sp-staking",
 ]
 
@@ -16311,7 +16311,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-session",
  "pallet-staking-async",
- "pallet-staking-async-system-chain-client",
+ "pallet-staking-async-points-converter",
  "pallet-validator-collators",
  "pallet-validator-set-announcer",
  "pallet-xcm",
@@ -18186,9 +18186,9 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-async",
  "pallet-staking-async-ah-client",
+ "pallet-staking-async-points-converter",
  "pallet-staking-async-rc-client",
  "pallet-staking-async-runtime-api",
- "pallet-staking-async-system-chain-client",
  "pallet-staking-reward-curve",
  "pallet-staking-reward-fn",
  "pallet-staking-runtime-api",

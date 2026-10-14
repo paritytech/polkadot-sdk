@@ -151,30 +151,38 @@ fn try_state_detects_incentive_weight_mismatch() {
 }
 
 #[test]
-fn try_state_detects_points_per_kind_above_the_tally() {
+fn try_state_detects_points_per_service_above_the_tally() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN era 1 with relay chain points for 11 and collation points for 21
 		Session::roll_until_active_era(1);
 		Staking::reward_by_ids(vec![(11, 20)]);
-		Staking::reward_service_points(PointsKind::Collation, vec![(21, 5)]);
+		Staking::reward_service_points(ValidatorServiceKind::Collation, vec![(21, 5)]);
 		assert_ok!(Staking::do_try_state(System::block_number()));
 
 		// WHEN the collation entry of 21 holds more than the tally does
-		ErasRewardPointsByKind::<Test>::mutate(1, PointsKind::Collation, |collation| {
-			*collation.individual.get_mut(&21).unwrap() = 6;
-			collation.total = 6;
-		});
+		ErasRewardPointsByService::<Test>::mutate(
+			1,
+			ValidatorServiceKind::Collation,
+			|collation| {
+				*collation.individual.get_mut(&21).unwrap() = 6;
+				collation.total = 6;
+			},
+		);
 
 		// THEN try-state detects it
 		assert_eq!(
 			Staking::do_try_state(System::block_number()),
-			Err("the points of an account per kind exceed its points in the tally".into())
+			Err("the points of an account per service exceed its points in the tally".into())
 		);
 
 		// Restore valid state so build_and_execute post-check passes.
-		ErasRewardPointsByKind::<Test>::mutate(1, PointsKind::Collation, |collation| {
-			*collation.individual.get_mut(&21).unwrap() = 5;
-			collation.total = 5;
-		});
+		ErasRewardPointsByService::<Test>::mutate(
+			1,
+			ValidatorServiceKind::Collation,
+			|collation| {
+				*collation.individual.get_mut(&21).unwrap() = 5;
+				collation.total = 5;
+			},
+		);
 	});
 }

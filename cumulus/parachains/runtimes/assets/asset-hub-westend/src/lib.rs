@@ -1225,15 +1225,15 @@ impl pallet_validator_set_announcer::Config for Runtime {
 	type WeightInfo = weights::pallet_validator_set_announcer::WeightInfo<Runtime>;
 }
 
-impl pallet_staking_async_system_chain_client::Config for Runtime {
+impl pallet_staking_async_points_converter::Config for Runtime {
 	type Source = ParaId;
 	type ReportOrigin = staking::EnsureReportingSibling;
 	type PointsOrigin = CollatorSelectionUpdateOrigin;
 	type RewardPoints = Staking;
 	// A relay chain block earns a fixed number of points. The cap leaves governance room above the
 	// per-unit value that matches it, while an era's total stays far from saturating.
-	type MaxPointsPerUnit = ConstU32<1_000>;
-	type WeightInfo = weights::pallet_staking_async_system_chain_client::WeightInfo<Runtime>;
+	type MaxPointsPerService = ConstU32<1_000>;
+	type WeightInfo = weights::pallet_staking_async_points_converter::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1743,7 +1743,7 @@ construct_runtime!(
 		AuraExt: cumulus_pallet_aura_ext = 24,
 		ValidatorCollators: pallet_validator_collators = 25,
 		ValidatorSetAnnouncer: pallet_validator_set_announcer = 26,
-		StakingSystemChainClient: pallet_staking_async_system_chain_client = 27,
+		StakingPointsConverter: pallet_staking_async_points_converter = 27,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
@@ -2046,7 +2046,7 @@ mod benches {
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
 		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]
-		[pallet_staking_async_system_chain_client, StakingSystemChainClient]
+		[pallet_staking_async_points_converter, StakingPointsConverter]
 		[pallet_uniques, Uniques]
 		[pallet_utility, Utility]
 		[pallet_meta_tx, MetaTx]
