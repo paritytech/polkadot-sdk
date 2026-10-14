@@ -991,6 +991,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Push a sender's `StreamsRoot` into its window, dropping the oldest when full.
 	pub(crate) fn record_provides(source: ParaId, root: StreamsRoot) {
+		log::debug!(target: LOG_TARGET, "Recording provides root {root:?} of para {source:?}");
 		RecentProvides::<T>::mutate(source, |window| {
 			// Appending at `len` never fails; a full window evicts its oldest root.
 			let _evicted = window.force_insert_keep_right(window.len(), root);
