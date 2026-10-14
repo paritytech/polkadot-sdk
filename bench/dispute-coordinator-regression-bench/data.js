@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791929470834,
+  "lastUpdate": 1791963574912,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ba06ae6f41de22a7f376b2ed9453d49434bc0bcf",
-          "message": "Bags-list on_idle: per-item weight consumption via WeightMeter (#11594)\n\nThe benchmark failed depending on `MaxAutoRebagPerBlock` (e.g. it passes\nwith 10 as configured in Westend, Polkadot and Kusama AH runtime but it\nfailed with 5, as it was configured before, see [runtime\nPR](https://github.com/polkadot-fellows/runtimes/pull/1065)).\n\nReplace the bulk `on_idle` benchmark with a per-item `on_idle_rebag`\nbenchmark that measures the worst-case cost of a single rebag. `on_idle`\nnow consumes weight per iteration via `WeightMeter` instead of reserving\na single bulk weight upfront.\nThis decouples the benchmark from `MaxAutoRebagPerBlock`. Changing the\nconfig no longer requires re-running benchmarks.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T08:37:03Z",
-          "tree_id": "08c626183a09b2edaed88afb1f851ab87e88b838",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba06ae6f41de22a7f376b2ed9453d49434bc0bcf"
-        },
-        "date": 1775210297751,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009739493300000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002681294200000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009349884039999984,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010200861349999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "47612878ffdca773d88bb35209b240d52337d376",
+          "message": "Fix `eth_subscribe(\"newHeads\")` in the ETH RPC (#13419)\n\n# Description\n\n`eth_subscribe(\"newHeads\")` was rejected on master. `SubscriptionKind`\nserialised the variant as `newBlockHeaders`, and only our own client\nsent that. This PR renames it to `newHeads` and adds `difficulty` and\n`mixHash` to `BlockHeader`, because alloy can't decode a `newHeads`\nheader without them.\n\nThe `newHeads` test now subscribes through alloy's WebSocket provider,\nwhich sends `\"newHeads\"` on the wire, and checks the header against the\nreceipt and `eth_getBlockByNumber`.\n\nSplit out of #13002 so it can be backported on its own.",
+          "timestamp": "2026-10-14T06:03:47Z",
+          "tree_id": "5c8c41b26201c7432996526e00336723ec2d53c7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/47612878ffdca773d88bb35209b240d52337d376"
+        },
+        "date": 1791963543154,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010371955599999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025359267199999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009254825809999995,
             "unit": "seconds"
           }
         ]
