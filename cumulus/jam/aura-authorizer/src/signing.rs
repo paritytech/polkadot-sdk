@@ -23,6 +23,8 @@ use jam_types::{
 use primitive_types::H256;
 use sp_crypto_hashing::blake2_256;
 
+use crate::UnauthorizedWorkPackage;
+
 /// Domain separator for the token-free work-package hash signed by AURA collators.
 pub const WORK_PACKAGE_SIGN_CTX: &[u8] = b"jam:parachain-service:aura:work-package:v1";
 
@@ -32,28 +34,50 @@ pub const WORK_PACKAGE_SIGN_CTX: &[u8] = b"jam:parachain-service:aura:work-packa
 /// and work items after [`WORK_PACKAGE_SIGN_CTX`], then hashes them with Blake2b-256.
 /// The authorization token is excluded because it contains the signature.
 pub fn signable_work_package_hash(package: &WorkPackage) -> H256 {
-	hash_work_package_fields(
-		package.auth_code_host,
-		&package.authorizer,
-		&package.context,
-		&package.items,
-	)
+	SigningPayload::from(package).hash()
 }
 
-pub(crate) fn hash_work_package_fields(
+/// Borrowed view of the work-package fields covered by the collator signature.
+pub(crate) struct SigningPayload<'a> {
 	auth_code_host: ServiceId,
-	authorizer: &Authorizer,
-	context: &RefineContext,
-	items: &BoundedVec<WorkItem, MaxWorkItems>,
-) -> H256 {
-	let payload = JamEncode::encode(&(
-		&auth_code_host,
-		&authorizer.code_hash,
-		context,
-		&authorizer.config,
-		items,
-	));
-	hash_signing_payload(&payload)
+	authorizer: &'a Authorizer,
+	context: &'a RefineContext,
+	items: &'a BoundedVec<WorkItem, MaxWorkItems>,
+}
+
+impl<'a> From<&'a WorkPackage> for SigningPayload<'a> {
+	fn from(package: &'a WorkPackage) -> Self {
+		Self {
+			auth_code_host: package.auth_code_host,
+			authorizer: &package.authorizer,
+			context: &package.context,
+			items: &package.items,
+		}
+	}
+}
+
+impl<'a> From<&'a UnauthorizedWorkPackage> for SigningPayload<'a> {
+	fn from(package: &'a UnauthorizedWorkPackage) -> Self {
+		Self {
+			auth_code_host: package.auth_code_host,
+			authorizer: &package.authorizer,
+			context: &package.context,
+			items: &package.items,
+		}
+	}
+}
+
+impl SigningPayload<'_> {
+	pub(crate) fn hash(&self) -> H256 {
+		let payload = JamEncode::encode(&(
+			&self.auth_code_host,
+			&self.authorizer.code_hash,
+			self.context,
+			&self.authorizer.config,
+			self.items,
+		));
+		hash_signing_payload(&payload)
+	}
 }
 
 /// Hash the JAM-encoded tuple of code host, authorizer code hash, refinement context,

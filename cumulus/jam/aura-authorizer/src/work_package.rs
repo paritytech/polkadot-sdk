@@ -21,7 +21,7 @@ use jam_types::{
 };
 use primitive_types::H256;
 
-use crate::{signing::hash_work_package_fields, AuthToken};
+use crate::{signing::SigningPayload, AuthToken};
 
 /// A work package awaiting its authorization token.
 ///
@@ -41,7 +41,7 @@ pub struct UnauthorizedWorkPackage {
 impl UnauthorizedWorkPackage {
 	/// Hash to be signed by the collator when constructing an AURA token.
 	pub fn signing_hash(&self) -> H256 {
-		hash_work_package_fields(self.auth_code_host, &self.authorizer, &self.context, &self.items)
+		SigningPayload::from(self).hash()
 	}
 
 	/// Attach an existing AURA token and return the complete work package.
