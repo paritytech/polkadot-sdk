@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791963429083,
+  "lastUpdate": 1791968607495,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "jfanatiker@gmx.at",
-            "name": "eskimor",
-            "username": "eskimor"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ce07e65a6ad40a7bccf8dbda655dff6c47671bdb",
-          "message": "Fix paths length (#11626)\n\nimplicit views can return paths longer than lookahead, which leads to\nis_slot_available skipping the loop\n[here](https://github.com/paritytech/polkadot-sdk/blob/a103769c2e2cb739f721d0446acabe97a2c0df08/polkadot/node/network/collator-protocol/src/validator_side/mod.rs#L1598),\nbecause of `ancestor_valid_len` being 0, leading to rejections of\ncandidates.\n\nI also noticed that `paths_via_relay_parents` can be massively\nsimplified, which also removes above bug. ImplicitView can likely be\nsimplified further as I no longer see any need to keep\n`block_info_storage` at all anymore.\n\nFixes: https://github.com/paritytech/polkadot-sdk/issues/11625",
-          "timestamp": "2026-04-03T20:03:44Z",
-          "tree_id": "b387b61c1c28646918618e00175bbac78358b407",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce07e65a6ad40a7bccf8dbda655dff6c47671bdb"
-        },
-        "date": 1775252095714,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007151406353333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024227972193333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009844330559999982,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14442200951333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007314164826666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6634ddb4dbf31ed8b9d192000b9bfc93dc0e4593",
+          "message": "Add interruptible executor & limit light client request processing time (#12725)\n\nAdd executor that aborts execution when timeout elapses, based on\nWasmTime epoch interruptions. A separate executor for time-bound\nrequests is needed, because epoch interruption compiles into the WASM\nblob and slows execution down by 10%.\n\nLimit light client execution proof requests by 3-second timeout by\ndefaul. The timeout is deliberately chosen high before we obtain\nreal-world execution time data for legitimate requests. The default\ntimeout can be overridden with `--light-request-execution-timeout-ms`.\n\n### Review Notes\n\nIt is recommended to review the PR as a series of individual commits.\nThey build on each other bottom-up.\n\nSee https://github.com/paritytech/polkadot-sdk/pull/12500 for original\nwork and discussion.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-10-14T07:20:02Z",
+          "tree_id": "63da01fa485ef8ded1664730d2330edda7a083d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6634ddb4dbf31ed8b9d192000b9bfc93dc0e4593"
+        },
+        "date": 1791968573950,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025090705506666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007724215606666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009721168133333317,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14605377264000002,
             "unit": "seconds"
           }
         ]
