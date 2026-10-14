@@ -264,7 +264,7 @@ enum RefineLog {
     EmptyKVKeyOrValue,
     /// Messages roots were set more than once in a single Refine invocation. See §4.3.
     MessagesCallRepeated,
-    /// The messages required roots exceeded `MAX_REQUIRES_SOURCES` or contains a repeated `ParaId` or
+    /// The messages required roots exceeded `MAX_REQUIRES_SOURCES (64)` or contained a repeated `ParaId` or
     /// the candidate's own `ParaId`. See §4.3.
     MessagesInvalidRequires,
 }
@@ -730,15 +730,12 @@ index `item_index` the Parachain Service performs:
 6. Executes the validation code (the `jam_validate_block` call).
 7. Assembles a `ParachainWorkDigest` from the validation code's host-function side effects and the
    authoritative `para_id` (see §4.2).
-8. Checks that the encoded digest (head data + upward messages) plus the
+8. Checks that the encoded digest (head data + upward messages + message roots) plus the
    work-report's authorizer trace fits in the Gray Paper's 48 KiB
    combined-result-blob budget. If not, aborts with
    `Err(RefineLog::RefineOutputTooLarge)`. Parachain-driven overflow (upward
    messages exceeding the 40 KiB budget) aborts earlier with
    `Err(RefineLog::UpwardMessagesTooLarge)` inside `send_upward_message`.
-9. Checks the provided required message roots. If the list exceeds `MAX_REQUIRES_SOURCES`,
-   contains a repeated `ParaId`, or names the parachain itself, aborts with
-   `Err(RefineLog::MessagesInvalidRequires)`.
 
 Any error in Refine aborts it immediately with that error.
 
@@ -802,8 +799,8 @@ Accumulate:
 | 201 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). Aborts Refine with `Err(RefineLog::HeadDataTooLarge)` if `new_head` exceeds the 4 KiB `HeadData` bound. The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `ParachainSetHead`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
 | 202 | `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
 | 203 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the validation code, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way validation code records a reason for its failure. See §4.2. |
-| 204 | `set_messages_streams_root(root: StreamsRoot)` | `()` | Declare the `StreamsRoot` this parachain block publishes. Aborts Refine with `Err(RefineLog::MessagesCallRepeated)` on a second call. Forwarded to Accumulate as `ParachainWorkDigest.messages_streams_root` and pushed into the parachain's settlement ring on enactment (§5.1 step 6). A second call aborts Refine with `Err(RefineLog::MessagesCallRepeated)`. |
-| 205 | `set_messages_requires_roots(entries: Vec<(ParaId, StreamsRoot)>)` | `()` | Declare the senders this parachain block consumed messages from (§8). The entries are forwarded as `ParachainWorkDigest.messages_requires_roots` and checked against the senders' settlement rings before enactment (§5.1 step 5). A second call aborts Refine with `Err(RefineLog::MessagesCallRepeated)`. More than `MAX_REQUIRES_SOURCES` entries, a repeated `ParaId`, or the candidate's own `para_id` aborts with `Err(RefineLog::MessagesInvalidRequires)`. |
+| 204 | `set_messages_streams_root(root: StreamsRoot)` | `()` | Declare the `StreamsRoot` this parachain block publishes. Forwarded to Accumulate as `ParachainWorkDigest.messages_streams_root` and pushed into the parachain's settlement ring on enactment (§5.1 step 5). A second call aborts Refine with `Err(RefineLog::MessagesCallRepeated)`. |
+| 205 | `set_messages_requires_roots(entries: Vec<(ParaId, StreamsRoot)>)` | `()` | Declare the senders this parachain block consumed messages from (§8). The entries are forwarded as `ParachainWorkDigest.messages_requires_roots` and checked against the senders settlement rings before enactment (§5.1 step 5). A second call aborts Refine with `Err(RefineLog::MessagesCallRepeated)`. More than `MAX_REQUIRES_SOURCES` entries, a repeated `ParaId`, or the candidate's own `para_id` aborts with `Err(RefineLog::MessagesInvalidRequires)`. |
 
 `UpwardMessage` is part of the parachain-visible ABI. Its SCALE encoding is
 stable, so a message's `encoded_size()` is computable inside the validation code. The 40 KiB
@@ -1779,11 +1776,11 @@ The settlement ring is represented using three separate structures.
 The `SettlementCursor`'s head is the position at which the next root is written and the tail
 is the oldest position of the ring. Both are incremented with wrapping arithmetic.
 
-The `messages_member` holds ever settled root in the ring. This is represented by a `Map` to
+The `messages_member` holds every settled root in the ring. This is represented by a `Map` to
 ensure that membership checks happen in `O(1)`. The value of the map is a plain 0x00 byte, since
-writting a zero-length value is a deletion in JAM.
+writing a zero-length value is a deletion in JAM.
 
-The `messages_queue` map an `u32` position to a `StreamsRoot`. This is used for eviction entirely.
+The `messages_queue` maps a `u32` position to a `StreamsRoot`. It is used only for eviction.
 
 **Checking Membership**
 
@@ -1794,7 +1791,7 @@ The settlement check reads only `messages_member`, once per declared `(ParaId, S
 1. Stop if the `messages_member` already holds `(para_id, new_root)`.
 2. If the ring is at capacity, remove the oldest entry at `tail` from both the `messages_member`
    and `messages_queue`. Then, advance the `tail`.
-3. Write `new_root` to `messages_queue` at `head` and insert it to the `messages_member`.
+3. Write `new_root` to `messages_queue` at `head` and insert it into `messages_member`.
    Then, advance the `head`.
 
 **Ring Cleanup**
