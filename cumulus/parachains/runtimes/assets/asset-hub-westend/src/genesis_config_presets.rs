@@ -190,7 +190,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 						10_000_000 * 4096 * 4096,
 					),
 				],
-				// Blocks authored on Asset Hub and People earn era points.
+				// Era points per block authored on each chain that reports its blocks.
 				vec![
 					(id, ValidatorServiceKind::Collation, 20),
 					(PeopleParaId::get(), ValidatorServiceKind::Collation, 20),
