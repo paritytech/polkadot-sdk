@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791978821306,
+  "lastUpdate": 1792014053579,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "rohit.sarpotdar@parity.io",
-            "name": "Rohit Sarpotdar",
-            "username": "rosarp"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8e64bb2e4d7554a813fe5a99805c9898123c1366",
-          "message": "Fix bridges integration test failure for the Westend network (#11643)\n\n## Description\n\nFix bridges **integration test failure** for the Westend network by\nusing the slot-based collator for asset-hub-westend nodes.\n\nThe `asset-hub-westend` runtime configures `RelayParentOffset = 1` (at\n`cumulus/parachains/runtimes/assets/asset-hub-westend/src/lib.rs:138`)\nin this\n[commit](https://github.com/paritytech/polkadot-sdk/commit/8e911a6ebc6965480621db8e89b1ecb157df9eba)\n, which requires relay parent descendant headers in the parachain\ninherent data. However, the **zombienet** test was launching the\ncollators with the default look ahead authoring policy, which passes an\nempty `relay_parent_descendants` vec. This caused a runtime panic on\nevery block build attempt:\n\n```\n  Unable to verify provided relay parent descendants.\n  expected_rp_descendants_num: 1\n  error: InvalidNumberOfDescendants { expected: 2, received: 0 }\n```\n\n  The parachain remained stuck at block #0, failing the test assertion:\nasset-hub-westend-collator1: reports block height is at least 10 within\n180 seconds\n\nOnly the slot-based collator\n(`collators/slot_based/block_builder_task.rs`) calls\n`create_inherent_data_with_rp_offset()` with the required descendant\ndata. The look ahead and basic collators call `create_inherent_data()`\nwhich passes `None`.\n\n## Integration\n\nThis change only affects a zombienet test TOML configuration file. No\ncrate changes.\n\n## Review Notes\n\nThe fix adds \"--authoring\", \"slot-based\" to both\nasset-hub-westend-collator1 and asset-hub-westend-collator2 in\n\nbridges/testing/environments/rococo-westend/bridge_hub_westend_local_network.toml.\n\n  This is only needed for the Westend side because:\n- asset-hub-westend has RelayParentOffset = ConstU32<1> — requires\ndescendant headers\n- asset-hub-rococo has RelayParentOffset = ConstU32<0> — no descendant\nverification, works with any collator\n\nThe Rococo TOML (bridge_hub_rococo_local_network.toml) is unchanged\nsince its asset-hub runtime doesn't require relay parent descendants.",
-          "timestamp": "2026-04-06T15:48:46Z",
-          "tree_id": "b7667e3cec15f4d82df4349b96eb57ddb06a7a41",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8e64bb2e4d7554a813fe5a99805c9898123c1366"
-        },
-        "date": 1775495281785,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.144336892,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009674044106666634,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006931771559999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023951700273333324,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.024842975846666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3de1a0ebc8d3c57156f020764a61667080f577d3",
+          "message": "[AHMv2] Abstracts away HRMP deposits into a Deposit Provider impl. Paves way for remote deposits later (on CT) (#13475)\n\n# Context\nAbstracting out the deposit provider from the HRMP pallet. No-op almost\nexcept couple of extra events. See `Functional Change`.\n\nThe followup PR will implement an async (deposit on CT, management on\nRC) implementation of the deposit provider. Makes it easier for relay to\nlive a token less life.\n\n## Review Note\nBasically just 2 files to review\n- `polkadot/runtime/parachains/src/hrmp/deposits.rs`: Contains all the\nnew traits (`ChannelDepositProvider` and the callback trait) and\nin-pallet impl/callbacks + weights etc. All of new code is just here.\n- `polkadot/runtime/parachains/src/hrmp.rs`: Only really deletes of\ndeposit code (except very small changes) which is outsourced to\ndeposits.rs. Should be <del>absolutely</del> almost (two cases that\ndidn't emit event before will emit now) no-op, not challenging the\nstatus quo.\n\n### Functional change:\n`OpenChannelRequested`, `OpenChannelAccepted` and\n`OpenChannelDepositsUpdated` are now emitted as part of a common\nfunction invoked when call completes. As a result\n`force_open_hrmp_channel`, `establish_system_channel` and\n`establish_channel_with_system` now also emit `OpenChannelRequested` and\n`OpenChannelAccepted`.\n\n## TODO \n- [ ] Security Audit for the PR\n- [ ] (followup) hrmp-primitives are for wire types, should contain\ncontract between hrmp_para and hrmp_relay, not for contract between hrmp\nand hrmp_relay.\n\n---------\n\nCo-authored-by: cirko33 <luka.ciric2106@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-14T19:45:35Z",
+          "tree_id": "0ca5495cde2173f2db2915a20b2e42af70a61123",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3de1a0ebc8d3c57156f020764a61667080f577d3"
+        },
+        "date": 1792014022646,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01001197745999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024909686413333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.008102050753333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14485521985333338,
             "unit": "seconds"
           }
         ]
