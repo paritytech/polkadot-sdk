@@ -42,6 +42,14 @@ use sp_statement_store::{StatementSource, SubmitResult};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const BACKLOG: usize = 10_000;
+const BACKLOG_SUBMIT_MARGIN: Duration = Duration::from_secs(20);
+
+fn unix_secs() -> u64 {
+	SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.expect("system clock after epoch; qed")
+		.as_secs()
+}
 
 fn main() {
 	let dir = std::path::PathBuf::from(
@@ -67,26 +75,27 @@ fn main() {
 		);
 	}
 
-	// 2. An expiry backlog of exactly one pass' statement budget: submitted a few seconds ahead
-	// of expiry, reaped off the global expiry index by a single call.
+	// 2. An expiry backlog of exactly one pass' statement budget: submitted ahead of expiry,
+	// reaped off the global expiry index by a single call. The margin covers a slow disk, since
+	// a statement that expires before its submit is rejected.
 	let keypair = sacrifice_keypair();
 	let base = fresh_id_base();
-	let now_secs = SystemTime::now()
-		.duration_since(UNIX_EPOCH)
-		.expect("system clock after epoch; qed")
-		.as_secs();
-	let expiry = (now_secs + 4) << 32;
+	let expiry_secs = unix_secs() + BACKLOG_SUBMIT_MARGIN.as_secs();
+	let expiry = expiry_secs << 32;
 	let started = Instant::now();
 	let mut last_hash = None;
 	for k in 0..BACKLOG as u64 {
-		let statement = create_statement(base + k, &[], None, 64, expiry, &keypair);
+		let statement = create_statement(base + k, &[], 64, expiry, &keypair);
 		last_hash = Some(statement.hash());
 		let result = store.submit(statement, StatementSource::Local);
 		assert!(matches!(result, SubmitResult::New), "backlog statement rejected: {:?}", result);
 	}
 	println!("ENFORCE_META backlog_submit_{}_secs={:.3}", BACKLOG, started.elapsed().as_secs_f64());
 	let last_hash = last_hash.expect("backlog is not empty; qed");
-	std::thread::sleep(Duration::from_secs(6));
+	// Wait until the backlog has expired by the store's clock, however long the submit took.
+	while unix_secs() <= expiry_secs {
+		std::thread::sleep(Duration::from_millis(200));
+	}
 
 	let started = Instant::now();
 	store.enforce_limits();
