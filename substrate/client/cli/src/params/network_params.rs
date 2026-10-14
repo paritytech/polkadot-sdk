@@ -24,7 +24,7 @@ use clap::Args;
 use sc_network::{
 	config::{
 		NetworkConfiguration, NodeKeyConfig, NonReservedPeerMode, SetConfig, TransportConfig,
-		DEFAULT_IDLE_CONNECTION_TIMEOUT,
+		DEFAULT_IDLE_CONNECTION_TIMEOUT, DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT,
 	},
 	multiaddr::Protocol,
 };
@@ -32,7 +32,7 @@ use sc_service::{
 	config::{Multiaddr, MultiaddrWithPeerId},
 	ChainSpec, ChainType,
 };
-use std::{borrow::Cow, num::NonZeroUsize, path::PathBuf};
+use std::{borrow::Cow, num::NonZeroUsize, path::PathBuf, time::Duration};
 
 /// Parameters used to create the network configuration.
 #[derive(Debug, Clone, Args)]
@@ -58,6 +58,14 @@ pub struct NetworkParams {
 	/// Public address that other nodes will use to connect to this node.
 	///
 	/// This can be used if there's a proxy in front of this node.
+	///
+	/// A `webrtc-direct` address must be given as
+	/// `/<ip4|ip6|dns|dns4|dns6>/<host>/udp/<port>/webrtc-direct`. The node appends its own
+	/// `/certhash/...` and `/p2p/...`.
+	///
+	/// A `/p2p/<peer id>` and, on a `webrtc-direct` address, a `/certhash/<hash>` may be given.
+	/// Both are checked against the node key and removed, and the node doesn't start if either
+	/// disagrees with it.
 	#[arg(long, value_name = "PUBLIC_ADDR", num_args = 1..)]
 	pub public_addr: Vec<Multiaddr>,
 
@@ -65,21 +73,26 @@ pub struct NetworkParams {
 	///
 	/// By default:
 	/// If `--validator` is passed: `/ip4/0.0.0.0/tcp/<port>` and `/ip6/[::]/tcp/<port>`.
-	/// Otherwise: `/ip4/0.0.0.0/tcp/<port>/ws` and `/ip6/[::]/tcp/<port>/ws`.
+	/// Otherwise: `/ip4/0.0.0.0/tcp/<port>/ws` and `/ip6/[::]/tcp/<port>/ws`, plus, on the
+	/// litep2p network backend, `/ip4/0.0.0.0/udp/<port>/webrtc-direct` and
+	/// `/ip6/[::]/udp/<port>/webrtc-direct`.
 	///
-	/// Experimental: `/ip4/<ip>/udp/<port>/webrtc-direct` and
-	/// `/ip6/<ip>/udp/<port>/webrtc-direct`. Unspecified addresses
-	/// (`0.0.0.0` / `[::]`) are not supported, bind to a specific IP is required.
-	/// Only works on the litep2p network backend.
+	/// WebRTC addresses (`/ip4/<ip>/udp/<port>/webrtc-direct` and
+	/// `/ip6/<ip>/udp/<port>/webrtc-direct`) only work on the litep2p network backend.
+	///
+	/// A `/p2p/<peer id>` and, on a `webrtc-direct` address, a `/certhash/<hash>` may be given.
+	/// Both are checked against the node key and removed, and the node doesn't start if either
+	/// disagrees with it.
 	#[arg(long, value_name = "LISTEN_ADDR", num_args = 1..)]
 	pub listen_addr: Vec<Multiaddr>,
 
-	/// Allow WebRTC addresses. This is an experimental feature.
+	/// Listen on WebRTC addresses even on a validator or collator (on para- &
+	/// relaychain side of the node depending on the position of the flag).
 	///
-	/// Without this enabled, WebRTC addresses specified in `listen_addr`
-	/// will be skipped. Only works on litep2p network backend.
+	/// Only applies if no explicit `--listen-addr` is passed. Only works on the
+	/// litep2p network backend.
 	#[arg(long)]
-	pub experimental_webrtc: bool,
+	pub force_enable_webrtc: bool,
 
 	/// Specify p2p protocol TCP port.
 	#[arg(long, value_name = "PORT", conflicts_with_all = &[ "listen_addr" ])]
@@ -115,7 +128,7 @@ pub struct NetworkParams {
 	pub in_peers: u32,
 
 	/// Maximum number of inbound light nodes peers.
-	#[arg(long, value_name = "COUNT", default_value_t = 100)]
+	#[arg(long, value_name = "COUNT", default_value_t = 500)]
 	pub in_peers_light: u32,
 
 	/// Disable mDNS discovery (default: true).
@@ -169,6 +182,21 @@ pub struct NetworkParams {
 	#[arg(long, value_name = "ADDR", num_args = 1.., requires = "ipfs_server")]
 	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
 
+	/// Wall-clock limit, in milliseconds, for a single runtime call serving an (untrusted)
+	/// light-client request.
+	///
+	/// `0` disables the limit.
+	///
+	/// The limit is enforced in 100ms steps, so a call may overrun it by up to 200ms.
+	///
+	/// Requests exceeding the limit are interrupted and answered with an empty proof.
+	#[arg(
+		long,
+		value_name = "MILLISECONDS",
+		default_value_t = DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT.as_millis() as u64
+	)]
+	pub light_request_execution_timeout_ms: u64,
+
 	/// Blockchain syncing mode.
 	#[arg(
 		long,
@@ -221,8 +249,16 @@ impl NetworkParams {
 	) -> NetworkConfiguration {
 		let port = self.port.unwrap_or(default_listen_port);
 
+		if self.force_enable_webrtc && !matches!(self.network_backend, NetworkBackendType::Litep2p)
+		{
+			log::warn!(
+				"`--force-enable-webrtc` has no effect: WebRTC is only supported by the litep2p \
+				 network backend",
+			);
+		}
+
 		let listen_addresses = if self.listen_addr.is_empty() {
-			if is_validator || is_dev {
+			let mut listen_addresses = if is_validator || is_dev {
 				vec![
 					Multiaddr::empty()
 						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
@@ -242,7 +278,24 @@ impl NetworkParams {
 						.with(Protocol::Tcp(port))
 						.with(Protocol::Ws(Cow::Borrowed("/"))),
 				]
+			};
+
+			if matches!(self.network_backend, NetworkBackendType::Litep2p) &&
+				(self.force_enable_webrtc || !is_validator)
+			{
+				listen_addresses.extend([
+					Multiaddr::empty()
+						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
+						.with(Protocol::Udp(port))
+						.with(Protocol::WebRTCDirect),
+					Multiaddr::empty()
+						.with(Protocol::Ip4([0, 0, 0, 0].into()))
+						.with(Protocol::Udp(port))
+						.with(Protocol::WebRTCDirect),
+				]);
 			}
+
+			listen_addresses
 		} else {
 			self.listen_addr.clone()
 		};
@@ -283,7 +336,6 @@ impl NetworkParams {
 			},
 			default_peers_set_num_full: self.in_peers + self.out_peers,
 			listen_addresses,
-			experimental_webrtc: self.experimental_webrtc,
 			public_addresses,
 			node_key,
 			node_name: node_name.to_string(),
@@ -302,6 +354,10 @@ impl NetworkParams {
 			kademlia_replication_factor: self.kademlia_replication_factor,
 			ipfs_server: self.ipfs_server,
 			ipfs_bootnodes: self.ipfs_bootnodes.clone(),
+			light_request_execution_timeout: match self.light_request_execution_timeout_ms {
+				0 => None,
+				ms => Some(Duration::from_millis(ms)),
+			},
 			sync_mode: self.sync.into(),
 			network_backend: self.network_backend.into(),
 		}

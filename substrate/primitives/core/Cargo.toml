@@ -59,10 +59,8 @@ libsecp256k1 = { features = ["static-context"], workspace = true }
 merlin = { workspace = true }
 schnorrkel = { features = ["preaudit_deprecated"], workspace = true }
 sp-crypto-hashing = { workspace = true }
-# k256 crate, better portability, intended to be used in substrate-runtimes (no-std)
+# k256 crate, used for ECDSA secp256k1 operations in both std and no_std
 k256 = { features = ["alloc", "ecdsa"], workspace = true }
-# secp256k1 crate, better performance, intended to be used on host side (std)
-secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = true }
 
 # bls crypto
 sha2 = { optional = true, workspace = true }
@@ -99,6 +97,7 @@ std = [
 	"hash256-std-hasher/std",
 	"impl-serde/std",
 	"itertools",
+	"k256/precomputed-tables",
 	"k256/std",
 	"libsecp256k1/std",
 	"log/std",
@@ -111,8 +110,6 @@ std = [
 	"rand",
 	"scale-info/std",
 	"schnorrkel/std",
-	"secp256k1/global-context",
-	"secp256k1/std",
 	"serde/std",
 	"sha2?/std",
 	"sp-crypto-hashing/std",

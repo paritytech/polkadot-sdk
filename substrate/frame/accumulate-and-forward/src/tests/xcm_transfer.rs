@@ -17,7 +17,7 @@
 
 //! Tests for the periodic accumulation-account-to-destination forwarding logic.
 
-use crate::{mock::*, Event};
+use crate::{mock::*, Event, LastForwardBlock};
 use frame_support::{
 	assert_ok,
 	pallet_prelude::Weight,
@@ -27,6 +27,7 @@ use frame_support::{
 	},
 	weights::constants::RocksDbWeight,
 };
+use sp_runtime::traits::BlockNumberProvider;
 
 type AccumulateForwardPallet = crate::Pallet<Test>;
 
@@ -55,125 +56,150 @@ fn reset_last_sent_amount() {
 	LAST_SENT_AMOUNT.with(|a| *a.borrow_mut() = None);
 }
 
-// Verify that `on_idle` does not trigger a forward on blocks that are not
-// exact multiples of `TransferPeriod`.
+/// Run `on_idle` at provider block `block` with `budget`, returning the weight consumed.
+fn on_idle_at(block: u64, budget: Weight) -> Weight {
+	MockBlockNumberProvider::set_block_number(block);
+	AccumulateForwardPallet::on_idle(System::block_number(), budget)
+}
+
+/// Run `on_idle` on each of `blocks`, keeping the account funded, and return the blocks that
+/// forwarded.
+fn blocks_that_forwarded(blocks: impl IntoIterator<Item = u64>) -> Vec<u64> {
+	let mut sent_at = Vec::new();
+	for block in blocks {
+		fund_accumulation_account(MinTransferAmount::get());
+		reset_send_count();
+		on_idle_at(block, Weight::MAX);
+		if get_send_count() == 1 {
+			sent_at.push(block);
+		}
+	}
+	sent_at
+}
+
+// After a forward, the next one waits exactly `TransferPeriod` blocks, wherever the first landed.
 #[test]
-fn rate_limit_rejects_non_period_blocks() {
+fn no_forward_until_the_period_elapsed() {
 	new_test_ext(true).execute_with(|| {
 		let period = TransferPeriod::get();
 		let ed = Balances::minimum_balance();
 		let funds = 10u64;
+		let first = 7u64;
 
+		// The first forward is not rate limited: nothing recorded means no period to wait out.
+		fund_accumulation_account(funds);
+		on_idle_at(first, Weight::MAX);
+		assert_eq!(get_send_count(), 1);
+		assert_eq!(LastForwardBlock::<Test>::get(), Some(first));
+
+		// Refund, so only the rate limit can hold the next forward back.
 		fund_accumulation_account(funds);
 		reset_send_count();
 
-		// Non-multiples within and around the first period.
-		for block in (period.saturating_sub(4)..=period.saturating_add(4)).filter(|b| *b != period)
-		{
-			System::set_block_number(block);
-			AccumulateForwardPallet::on_idle(block, Weight::from_all(u64::MAX));
+		for block in first + 1..first + period {
+			// Rate limited, so the only cost is the read of the recorded block.
+			assert_eq!(on_idle_at(block, Weight::MAX), RocksDbWeight::get().reads(1));
 			assert_eq!(get_send_count(), 0, "unexpected send at block {block}");
-
 			assert_eq!(
 				Balances::free_balance(get_accumulation_account()),
 				ed.saturating_add(funds),
 				"accumulation account should retain all funds at block {block}"
 			);
+			assert_eq!(LastForwardBlock::<Test>::get(), Some(first));
 		}
-	});
-}
 
-// Verify that `on_idle` triggers a forward on every block that is an exact
-// multiple of `TransferPeriod`, independently of prior calls.
-// After each forward the accumulation account should retain exactly ED.
-#[test]
-fn transfer_triggers_on_period_multiple() {
-	new_test_ext(true).execute_with(|| {
-		let period = TransferPeriod::get();
-		let ed = Balances::minimum_balance();
-		let funds = 10u64;
-
-		for i in 1u64..=4 {
-			fund_accumulation_account(funds);
-			reset_send_count();
-
-			let block = period.saturating_mul(i);
-			System::set_block_number(block);
-			AccumulateForwardPallet::on_idle(block, Weight::from_all(u64::MAX));
-			assert_eq!(get_send_count(), 1, "expected send at block {block} (iteration {i})");
-			assert_eq!(
-				Balances::free_balance(get_accumulation_account()),
-				ed,
-				"accumulation account should retain only ED after forward at block {block}"
-			);
-		}
-	});
-}
-
-// Verify that each period-multiple block can independently trigger a forward
-// without requiring any shared state between calls.
-#[test]
-fn each_period_multiple_triggers_independently() {
-	new_test_ext(true).execute_with(|| {
-		let period = TransferPeriod::get();
-		let funds = 30u64;
-
-		fund_accumulation_account(funds);
-		reset_send_count();
-		reset_last_sent_amount();
-
-		// First forward at block `period`.
-		System::set_block_number(period);
-		AccumulateForwardPallet::on_idle(period, Weight::from_all(u64::MAX));
+		// Exactly `period` blocks later, the next forward is allowed.
+		on_idle_at(first + period, Weight::MAX);
 		assert_eq!(get_send_count(), 1);
-		assert_eq!(get_last_sent_amount(), Some(funds));
-
-		// Replenish and trigger at block `2 * period` — no stored state required.
-		// The mock burns funds on success, so after the first forward only ED remains;
-		// funding 20 here means available_funds = 20 for this forward.
-		fund_accumulation_account(funds);
-		reset_last_sent_amount();
-
-		System::set_block_number(period.saturating_mul(2));
-		AccumulateForwardPallet::on_idle(period.saturating_mul(2), Weight::from_all(u64::MAX));
-		assert_eq!(get_send_count(), 2);
-		assert_eq!(get_last_sent_amount(), Some(funds));
+		assert_eq!(LastForwardBlock::<Test>::get(), Some(first + period));
+		assert_eq!(Balances::free_balance(get_accumulation_account()), ed);
 	});
 }
 
-// Verify that no forward occurs when available funds (balance minus ED) are
-// below the `MinTransferAmount` threshold, but does occur once they reach it.
+// A parachain may see the relay chain block number advance in steps of two or more, never landing
+// on an exact multiple of the period. Forwarding still happens on cadence.
+#[test]
+fn forwards_when_period_multiples_are_never_observed() {
+	new_test_ext(true).execute_with(|| {
+		// An even period with only odd blocks observed: never an exact multiple.
+		TransferPeriod::set(6);
+		let period = TransferPeriod::get();
+		let observed: Vec<u64> = (1..=25).step_by(2).collect();
+		assert!(observed.iter().all(|block| block % period != 0));
+
+		// Measured from the last forward, the cadence holds regardless.
+		assert_eq!(blocks_that_forwarded(observed), vec![1, 7, 13, 19, 25]);
+	});
+}
+
+// The rate limit follows the `BlockNumberProvider`, not the system block number.
+#[test]
+fn rate_limit_follows_the_provider_not_the_system_block() {
+	new_test_ext(true).execute_with(|| {
+		let period = TransferPeriod::get();
+
+		fund_accumulation_account(50);
+		on_idle_at(100, Weight::MAX);
+		assert_eq!(get_send_count(), 1);
+		assert_eq!(LastForwardBlock::<Test>::get(), Some(100));
+
+		// The system block advances well past a period while the provider barely moves: still
+		// rate limited.
+		fund_accumulation_account(50);
+		reset_send_count();
+		System::set_block_number(1 + period * 3);
+		on_idle_at(100 + period - 1, Weight::MAX);
+		assert_eq!(get_send_count(), 0);
+
+		// The provider crosses the period while the system block stands still: it forwards.
+		on_idle_at(100 + period, Weight::MAX);
+		assert_eq!(get_send_count(), 1);
+		assert_eq!(LastForwardBlock::<Test>::get(), Some(100 + period));
+	});
+}
+
+// A long gap in observed blocks produces one forward, not a burst of catch-up forwards.
+#[test]
+fn a_long_gap_produces_a_single_forward() {
+	new_test_ext(true).execute_with(|| {
+		assert_eq!(blocks_that_forwarded([2, 4, 100, 101, 102]), vec![2, 100]);
+		assert_eq!(LastForwardBlock::<Test>::get(), Some(100));
+	});
+}
+
+// No forward below `MinTransferAmount`. Nothing is recorded either, so the funds go out as soon
+// as they reach the threshold instead of waiting for another period.
 #[test]
 fn ensure_minimum_amount_limit_is_respected() {
 	new_test_ext(true).execute_with(|| {
-		let period = TransferPeriod::get();
 		let limit = MinTransferAmount::get();
 
-		// Fund the accumulation account with less than the minimum forwardable amount above ED.
+		// Less than the minimum forwardable amount above ED.
 		fund_accumulation_account(limit - 1);
 		reset_send_count();
 		reset_last_sent_amount();
 
-		System::set_block_number(period);
-		AccumulateForwardPallet::on_idle(period, Weight::from_all(u64::MAX));
+		// The balance read happens, the forward does not.
+		assert_eq!(on_idle_at(1, Weight::MAX), RocksDbWeight::get().reads(2));
 		assert_eq!(get_send_count(), 0);
+		assert_eq!(LastForwardBlock::<Test>::get(), None);
 
-		// Top up so that available funds exactly meet the minimum.
+		// Top up to exactly the minimum.
 		fund_accumulation_account(1);
 		assert_eq!(
 			Balances::free_balance(get_accumulation_account()),
 			Balances::minimum_balance() + limit
 		);
 
-		// Next period multiple — forward should now succeed.
-		System::set_block_number(2 * period);
-		AccumulateForwardPallet::on_idle(2 * period, Weight::from_all(u64::MAX));
+		// The next block forwards: no period to wait out yet.
+		on_idle_at(2, Weight::MAX);
 		assert_eq!(get_send_count(), 1);
 		assert_eq!(get_last_sent_amount(), Some(limit));
+		assert_eq!(LastForwardBlock::<Test>::get(), Some(2));
 	});
 }
 
-// Check the full success path: verify the send count, event, and forwarded amount.
+// The success path: send count, event, forwarded amount and the recorded block.
 #[test]
 fn verify_success_path() {
 	new_test_ext(true).execute_with(|| {
@@ -184,17 +210,17 @@ fn verify_success_path() {
 		reset_last_sent_amount();
 		fund_accumulation_account(funds);
 
-		System::set_block_number(period);
-		AccumulateForwardPallet::on_idle(period, Weight::from_all(u64::MAX));
+		on_idle_at(period, Weight::MAX);
 
 		assert_eq!(get_send_count(), 1);
 		System::assert_has_event(Event::<Test>::ForwardSucceeded { amount: funds }.into());
 		assert_eq!(get_last_sent_amount(), Some(funds));
+		assert_eq!(LastForwardBlock::<Test>::get(), Some(period));
 	});
 }
 
-// Check the failure path: when a forward fails, a `ForwardFailed` event is emitted
-// and the accumulation balance is unchanged (mock does not withdraw).
+// The failure path: `ForwardFailed` is emitted and the balance is unchanged (the mock does not
+// withdraw). The attempt is recorded all the same, so the retry waits another `TransferPeriod`.
 #[test]
 fn verify_failure_path() {
 	new_test_ext(true).execute_with(|| {
@@ -206,80 +232,55 @@ fn verify_failure_path() {
 		reset_last_sent_amount();
 		fund_accumulation_account(funds);
 
-		System::set_block_number(period);
 		SEND_FAIL.with(|f| *f.borrow_mut() = true);
 
 		let balance_before = Balances::free_balance(acc);
 		let issuance_before = Balances::total_issuance();
 
-		AccumulateForwardPallet::on_idle(period, Weight::from_all(u64::MAX));
+		on_idle_at(period, Weight::MAX);
 
 		assert_eq!(get_send_count(), 0);
 		assert_eq!(get_last_sent_amount(), None);
 		assert_eq!(Balances::free_balance(acc), balance_before);
 		assert_eq!(Balances::total_issuance(), issuance_before);
 		System::assert_has_event(Event::<Test>::ForwardFailed { amount: funds }.into());
+		assert_eq!(LastForwardBlock::<Test>::get(), Some(period));
 
+		// No retry on the very next block.
+		System::reset_events();
+		on_idle_at(period + 1, Weight::MAX);
+		assert!(System::events().is_empty());
+		assert_eq!(LastForwardBlock::<Test>::get(), Some(period));
+
+		// The retry happens a period later.
 		SEND_FAIL.with(|f| *f.borrow_mut() = false);
+		on_idle_at(period * 2, Weight::MAX);
+		assert_eq!(get_send_count(), 1);
+		assert_eq!(get_last_sent_amount(), Some(funds));
+		assert_eq!(LastForwardBlock::<Test>::get(), Some(period * 2));
 	});
 }
 
-// Verify that `on_idle` returns `Weight::zero()` immediately (no work done)
-// on blocks that are not multiples of `TransferPeriod`.
+// A forward that does not fit in the remaining weight is not recorded, so it retries next block.
 #[test]
-fn on_idle_consumes_no_weight_on_non_period_block() {
+fn on_idle_does_not_record_when_the_send_does_not_fit() {
 	new_test_ext(true).execute_with(|| {
-		let period = TransferPeriod::get();
-		let funds = 70u64;
-
-		// Ensure that the transfer period is not 1.
-		assert_ne!(period, 1);
-		fund_accumulation_account(funds);
+		fund_accumulation_account(50);
 		reset_send_count();
 
-		// Block 1 is not a multiple of TransferPeriod.
-		System::set_block_number(1);
-		let consumed = AccumulateForwardPallet::on_idle(1, Weight::from_all(u64::MAX));
+		// Not even enough for the read of the recorded block.
+		assert_eq!(on_idle_at(1, Weight::zero()), Weight::zero());
 
-		assert_eq!(consumed, Weight::zero());
+		// Enough for both reads, but not for the send and its write.
+		let two_reads = RocksDbWeight::get().reads(2);
+		assert_eq!(on_idle_at(1, two_reads), two_reads);
 		assert_eq!(get_send_count(), 0);
-	});
-}
+		assert_eq!(LastForwardBlock::<Test>::get(), None);
 
-// Verify that `on_idle` exits without forwarding when there is not enough weight
-// to perform the single balance read on a period block.
-#[test]
-fn on_idle_skips_when_no_weight_for_balance_read() {
-	new_test_ext(true).execute_with(|| {
-		let funds = 70u64;
-
-		fund_accumulation_account(funds);
-		reset_send_count();
-
-		let period = TransferPeriod::get();
-		System::set_block_number(period);
-		let consumed = AccumulateForwardPallet::on_idle(period, Weight::zero());
-
-		assert_eq!(consumed, Weight::zero());
-		assert_eq!(get_send_count(), 0);
-	});
-}
-
-// Verify that `on_idle` consumes exactly one read's worth of weight when the
-// balance check passes but the amount is below `MinTransferAmount`.
-#[test]
-fn on_idle_consumes_one_read_when_below_min_transfer() {
-	new_test_ext(true).execute_with(|| {
-		// Fund below MinTransferAmount so the forward is skipped after the balance read.
-		fund_accumulation_account(MinTransferAmount::get() - 1);
-		reset_send_count();
-
-		let period = TransferPeriod::get();
-		System::set_block_number(period);
-		let one_read = RocksDbWeight::get().reads(1);
-		let consumed = AccumulateForwardPallet::on_idle(period, one_read);
-
-		assert_eq!(consumed, one_read);
-		assert_eq!(get_send_count(), 0);
+		// With room for the write it goes through next block (`send_native` is zero for `()`).
+		let with_write = two_reads.saturating_add(RocksDbWeight::get().writes(1));
+		assert_eq!(on_idle_at(2, with_write), with_write);
+		assert_eq!(get_send_count(), 1);
+		assert_eq!(LastForwardBlock::<Test>::get(), Some(2));
 	});
 }

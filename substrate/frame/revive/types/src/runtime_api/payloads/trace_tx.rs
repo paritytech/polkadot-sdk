@@ -35,9 +35,17 @@ pub struct TraceTxInputPayloadV2<Block> {
 	pub config: TracerTypeV1,
 }
 
+/// The input type used when calling the `trace_tx_versioned` runtime API function. This function
+/// replaces the unversioned `trace_tx` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum TraceTxVersionedInputPayload<Block> {
+	/// The arguments provided when calling the `trace_tx_versioned` runtime API function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `trace_tx` runtime API function.
 	V1(TraceTxInputPayloadV1<Block>),
+	/// This version accepts the same arguments as `V1` and selects `TraceV2` rather than `TraceV1`
+	/// for the returned trace data.
 	V2(TraceTxInputPayloadV2<Block>),
 }
 
@@ -48,11 +56,25 @@ pub struct TraceTxOutputPayloadV1 {
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct TraceTxOutputPayloadV2 {
-	pub trace: Option<TraceV2>,
+	pub entry: Option<TraceEntryV1>,
 }
 
+/// The output type returned when calling the `trace_tx_versioned` runtime API function. This
+/// function replaces the unversioned `trace_tx` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum TraceTxVersionedOutputPayload {
+	/// The output returned when calling the `trace_tx_versioned` runtime API function with `V1`
+	/// arguments.
+	///
+	/// This output is identical to the output returned by the unversioned `trace_tx` runtime API
+	/// function.
 	V1(TraceTxOutputPayloadV1),
+	/// This version uses `TraceV2` for trace output instead of `TraceV1`.
+	///
+	/// `TraceV2::Call` uses `CallTraceV2`, which replaces `CallLogV1` with `CallLogV2`.
+	/// `CallLogV2` adds `index`, the block-wide log index matching the receipt `logIndex`, while
+	/// `position` continues to describe log ordering relative to child calls within the same trace
+	/// frame. `CallTraceV2` also removes `child_call_count`, which was only used to calculate
+	/// `position`. Prestate and execution traces are unchanged.
 	V2(TraceTxOutputPayloadV2),
 }
