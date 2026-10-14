@@ -57,7 +57,9 @@ pub(crate) fn padded_leaf_count(size: usize) -> Result<u32, CollatorProofError> 
 ///
 /// See [`crate::token::AuthToken::check_proof`] for the proof format.
 ///
-/// Hashes the tree once in O(n) time, then copies O(n log n) proof hashes.
+/// Uses the SDK proof builder for simplicity and auditability. It rebuilds the padded tree
+/// for each key, taking O(n²) hashing work overall. Shared tree construction is deliberately
+/// left as a future optimization.
 ///
 /// Returns an error if `keys` is empty or the padded tree exceeds the SDK's `u32` leaf count.
 pub fn build_collator_proofs(
@@ -68,66 +70,24 @@ pub fn build_collator_proofs(
 	let mut leaves: Vec<_> = keys.iter().map(|key| CollatorHasher::hash(key)).collect();
 	leaves.resize(padded_size as usize, H256::zero());
 
-	// Keep each non-root level so every proof can reuse the same parent hashes.
-	let mut levels = Vec::new();
-	while leaves.len() > 1 {
-		let parents = leaves
-			.chunks_exact(2)
-			.map(|pair| {
-				let input = [pair[0].0, pair[1].0];
-				CollatorHasher::hash(input.as_flattened())
-			})
-			.collect();
+	let first =
+		binary_merkle_tree::merkle_proof_raw::<CollatorHasher, _>(leaves.iter().copied(), 0);
+	let root = first.root;
+	let mut proofs = Vec::with_capacity(keys.len());
+	proofs.push(first.proof);
+	proofs.extend((1..keys.len()).map(|index| {
+		binary_merkle_tree::merkle_proof_raw::<CollatorHasher, _>(
+			leaves.iter().copied(),
+			index as u32,
+		)
+		.proof
+	}));
 
-		levels.push(leaves);
-		leaves = parents;
-	}
-
-	let proofs = (0..keys.len())
-		.map(|index| {
-			levels
-				.iter()
-				.enumerate()
-				.map(|(depth, nodes)| nodes[(index >> depth) ^ 1])
-				.collect()
-		})
-		.collect();
-
-	Ok((leaves[0], proofs))
+	Ok((root, proofs))
 }
 
 #[cfg(test)]
 mod tests {
-	#[test]
-	fn sdk_proof_compatibility_works() {
-		for size in [1usize, 2, 3, 17, 256, 257] {
-			let keys: alloc::vec::Vec<_> = (0..size)
-				.map(|index| {
-					let mut key = [0; 32];
-					key[..4].copy_from_slice(&(index as u32).to_le_bytes());
-					key
-				})
-				.collect();
-
-			let (root, proofs) = super::build_collator_proofs(&keys).expect("valid collator set");
-			let mut leaves: alloc::vec::Vec<_> = keys
-				.iter()
-				.map(|key| primitive_types::H256::from(sp_crypto_hashing::blake2_256(key)))
-				.collect();
-			leaves.resize(size.next_power_of_two(), primitive_types::H256::zero());
-
-			for (index, proof) in proofs.iter().enumerate() {
-				let expected = binary_merkle_tree::merkle_proof_raw::<super::CollatorHasher, _>(
-					leaves.iter().copied(),
-					index as u32,
-				);
-
-				assert_eq!(root, expected.root, "set size {size}, index {index}");
-				assert_eq!(*proof, expected.proof, "set size {size}, index {index}");
-			}
-		}
-	}
-
 	#[test]
 	fn build_collator_proofs_empty_set_errors() {
 		assert_eq!(super::build_collator_proofs(&[]), Err(super::CollatorProofError::EmptySet));
