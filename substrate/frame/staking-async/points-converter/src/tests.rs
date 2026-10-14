@@ -86,12 +86,17 @@ fn blocks_are_credited_with_the_weight_of_their_source() {
 		// THEN its blocks are credited at the cap
 		assert_eq!(Rewarded::get().last(), Some(&(Collation, vec![(10, 30)])));
 
+		// WHEN source 2 reports a count above `MaxBlocksPerEntry` of 100
+		report(2, vec![(10, 101), (11, 100)]);
+		// THEN that count is credited as 100 blocks, and the count at the cap is credited in full
+		assert_eq!(Rewarded::get().last(), Some(&(Collation, vec![(10, 1_000), (11, 1_000)])));
+
 		// WHEN source 2 reports no entries
 		System::reset_events();
 		let empty = report(2, vec![]);
 		// THEN nothing is handed to `RewardPoints`, no event is deposited and the weight of
 		// crediting is refunded
-		assert_eq!(Rewarded::get().len(), 2);
+		assert_eq!(Rewarded::get().len(), 3);
 		assert!(events().is_empty());
 		assert_eq!(empty, Some(own));
 	});
