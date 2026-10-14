@@ -143,7 +143,14 @@ function prepPreset(paraPreset: Presets): void {
 		"named-preset",
 		paraPreset,
 	]);
-	cmd("mv", ["chain_spec.json", "parachain.json"]);
+	// `polkadot-parachain` can't convert specs to raw, so zombienet gets a raw spec to use as-is.
+	cmd(join(targetDir, "/release/chain-spec-builder"), [
+		"-c",
+		"parachain.json",
+		"convert-to-raw",
+		"chain_spec.json",
+	]);
+	cmd("rm", ["chain_spec.json"]);
 
 	cmd(join(targetDir, "/release/chain-spec-builder"), [
 		"create",

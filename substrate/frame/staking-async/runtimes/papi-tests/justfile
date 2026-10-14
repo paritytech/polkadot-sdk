@@ -87,7 +87,11 @@ build-and-generate-chains:
         --relay-chain rococo-local \
         --para-id 1100 \
         named-preset fake-dot
-    mv ./chain_spec.json ./parachain.json
+    # `polkadot-parachain` can't convert specs to raw, so zombienet gets a raw spec to use as-is.
+    RUST_LOG=${LOG} ../../../../../target/release/chain-spec-builder \
+        -c ./parachain.json \
+        convert-to-raw ./chain_spec.json
+    rm ./chain_spec.json
     echo "✅ Creating rc chain specs"
     RUST_LOG=${LOG} ../../../../../target/release/chain-spec-builder \
         create \

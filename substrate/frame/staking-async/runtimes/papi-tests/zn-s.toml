@@ -1,6 +1,7 @@
 [relaychain]
 default_command = "polkadot"
 chain_spec_path = "./rc.json"
+chain_spec_command = "polkadot export-chain-spec --chain {{chainName}}"
 
 [[relaychain.nodes]]
 name = "alice"
