@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791963526614,
+  "lastUpdate": 1791968724704,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dhiraj@parity.io",
-            "name": "Dhiraj Sah",
-            "username": "dhirajs0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "97ebda9a6dab457e53a94e7108a6b2f9c374a5c1",
-          "message": "update multi asset bounties pallet account derivation logic  (#11052)\n\n# Description\n\nUpdates bounty and child-bounty account derivation in\n`pallet-multi-asset-bounties` to use the sub-account prefixes `\"mbt\"`\n(multi-asset bounty) and `\"mcb\"` (multi-asset child bounty) instead of\n`\"bt\"` and `\"cb\"`. To avoid having the same bounty account by both the\nnew multi asset bounties pallet and the old bounties pallet.\n\n## Integration\n\nThe pallet is only deployed on Westend (not Kusama or Polkadot), so no\nproduction downstream depends on the old derivation; the change is\nlimited to testnet as the KAH and PAH runtime are configured with the\nnew prefix already.\n\n## Review Notes\n- Doc comments were added at module level (account derivation\nsubsection) and on both structs to document the prefixes.\n- **Version bump:** Major\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T10:16:47Z",
-          "tree_id": "e0cb1bad7b77f16191cd4548b8959e888a414ad6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/97ebda9a6dab457e53a94e7108a6b2f9c374a5c1"
-        },
-        "date": 1775216282825,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.062,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03815741094,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07841305880399989,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038526906821999975,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6634ddb4dbf31ed8b9d192000b9bfc93dc0e4593",
+          "message": "Add interruptible executor & limit light client request processing time (#12725)\n\nAdd executor that aborts execution when timeout elapses, based on\nWasmTime epoch interruptions. A separate executor for time-bound\nrequests is needed, because epoch interruption compiles into the WASM\nblob and slows execution down by 10%.\n\nLimit light client execution proof requests by 3-second timeout by\ndefaul. The timeout is deliberately chosen high before we obtain\nreal-world execution time data for legitimate requests. The default\ntimeout can be overridden with `--light-request-execution-timeout-ms`.\n\n### Review Notes\n\nIt is recommended to review the PR as a series of individual commits.\nThey build on each other bottom-up.\n\nSee https://github.com/paritytech/polkadot-sdk/pull/12500 for original\nwork and discussion.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-10-14T07:20:02Z",
+          "tree_id": "63da01fa485ef8ded1664730d2330edda7a083d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6634ddb4dbf31ed8b9d192000b9bfc93dc0e4593"
+        },
+        "date": 1791968691311,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.128,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08315409043399992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038488771154,
             "unit": "seconds"
           }
         ]
