@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791963477453,
+  "lastUpdate": 1791968665085,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "jfanatiker@gmx.at",
-            "name": "eskimor",
-            "username": "eskimor"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ce07e65a6ad40a7bccf8dbda655dff6c47671bdb",
-          "message": "Fix paths length (#11626)\n\nimplicit views can return paths longer than lookahead, which leads to\nis_slot_available skipping the loop\n[here](https://github.com/paritytech/polkadot-sdk/blob/a103769c2e2cb739f721d0446acabe97a2c0df08/polkadot/node/network/collator-protocol/src/validator_side/mod.rs#L1598),\nbecause of `ancestor_valid_len` being 0, leading to rejections of\ncandidates.\n\nI also noticed that `paths_via_relay_parents` can be massively\nsimplified, which also removes above bug. ImplicitView can likely be\nsimplified further as I no longer see any need to keep\n`block_info_storage` at all anymore.\n\nFixes: https://github.com/paritytech/polkadot-sdk/issues/11625",
-          "timestamp": "2026-04-03T20:03:44Z",
-          "tree_id": "b387b61c1c28646918618e00175bbac78358b407",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce07e65a6ad40a7bccf8dbda655dff6c47671bdb"
-        },
-        "date": 1775252122114,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63623.56000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52938.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.829257683729998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005358862700000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002418657,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8100622823200014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002418657,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002260841,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9358978925300017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.484604190770002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7360110567999486,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8441939330699997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.240488575732644,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.645385901919955,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002260841,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.3423211692100017,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6634ddb4dbf31ed8b9d192000b9bfc93dc0e4593",
+          "message": "Add interruptible executor & limit light client request processing time (#12725)\n\nAdd executor that aborts execution when timeout elapses, based on\nWasmTime epoch interruptions. A separate executor for time-bound\nrequests is needed, because epoch interruption compiles into the WASM\nblob and slows execution down by 10%.\n\nLimit light client execution proof requests by 3-second timeout by\ndefaul. The timeout is deliberately chosen high before we obtain\nreal-world execution time data for legitimate requests. The default\ntimeout can be overridden with `--light-request-execution-timeout-ms`.\n\n### Review Notes\n\nIt is recommended to review the PR as a series of individual commits.\nThey build on each other bottom-up.\n\nSee https://github.com/paritytech/polkadot-sdk/pull/12500 for original\nwork and discussion.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-10-14T07:20:02Z",
+          "tree_id": "63da01fa485ef8ded1664730d2330edda7a083d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6634ddb4dbf31ed8b9d192000b9bfc93dc0e4593"
+        },
+        "date": 1791968631327,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63563.08999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7479981910899998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.76853275726,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.348774356480009,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8037550046100005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.318523969072734,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.18367002761001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001994594,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019452480000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7638512264300035,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00523932102,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001994594,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.745519170719999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019452480000000003,
             "unit": "seconds"
           }
         ]
