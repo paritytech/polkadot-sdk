@@ -96,19 +96,17 @@ impl SubxtBlockInfoProvider {
 
 	/// Returns whether the block at `number` with `hash` is still on the canonical chain.
 	///
-	/// When eth-rpc reconnects to a node that is behind and has not imported this block, the
-	/// block is still considered canonical.
+	/// When eth-rpc reconnects to a node that is behind, the block counts as not canonical, so the
+	/// latest block moves back to one that node can serve.
 	async fn is_canonical(&self, number: SubstrateBlockNumber, hash: H256) -> bool {
-		let canonical = match self.rpc.chain_get_block_hash(Some(number.into())).await {
-			Ok(Some(listed)) => Ok(listed == hash),
-			Ok(None) => self.rpc.chain_get_header(Some(hash)).await.map(|header| header.is_none()),
-			Err(err) => Err(err),
-		};
-		canonical.unwrap_or_else(|err| {
-			log::debug!(target: LOG_TARGET,
-				"Failed to check if block #{number} ({hash:?}) is canonical, keeping it as the latest block: {err:?}");
-			true
-		})
+		match self.rpc.chain_get_block_hash(Some(number.into())).await {
+			Ok(canonical) => canonical == Some(hash),
+			Err(err) => {
+				log::debug!(target: LOG_TARGET,
+					"Failed to check if block #{number} ({hash:?}) is canonical, keeping it as the latest block: {err:?}");
+				true
+			},
+		}
 	}
 
 	/// Updates the latest finalized block, and the latest block when it is no longer ahead of it.
@@ -453,8 +451,6 @@ pub mod test {
 		fail_block_hash_lookups: Arc<AtomicBool>,
 		/// Answer best block requests with `null` while set.
 		report_no_best_block: Arc<AtomicBool>,
-		/// Answer header requests for blocks above the best block with `null` while set.
-		no_imported_blocks_above_best: Arc<AtomicBool>,
 	}
 
 	impl Default for MockChainHeads {
@@ -469,7 +465,6 @@ pub mod test {
 				block_hash_lookup_count: Arc::default(),
 				fail_block_hash_lookups: Arc::default(),
 				report_no_best_block: Arc::default(),
-				no_imported_blocks_above_best: Arc::default(),
 			}
 		}
 	}
@@ -537,27 +532,20 @@ pub mod test {
 						Json(finalized_hash)
 					}
 				})
-				.method_handler("chain_getHeader", {
-					let chain_heads = self.clone();
-					move |params: Option<Box<serde_json::value::RawValue>>| {
+				.method_handler(
+					"chain_getHeader",
+					|params: Option<Box<serde_json::value::RawValue>>| {
 						let (hash,): (H256,) = decode_params(params);
-						let best_number = chain_heads.best_block.lock().unwrap().number();
-						let no_imported_blocks_above_best =
-							chain_heads.no_imported_blocks_above_best.load(Ordering::SeqCst);
-						let header = MockBlockId::from_hash(hash)
-							.filter(|block| {
-								!no_imported_blocks_above_best || block.number() <= best_number
-							})
-							.map(|block| SubstrateHeader {
-								parent_hash: H256::zero(),
-								number: block.number(),
-								state_root: H256::zero(),
-								extrinsics_root: H256::zero(),
-								digest: Default::default(),
-							});
+						let header = MockBlockId::from_hash(hash).map(|block| SubstrateHeader {
+							parent_hash: H256::zero(),
+							number: block.number(),
+							state_root: H256::zero(),
+							extrinsics_root: H256::zero(),
+							digest: Default::default(),
+						});
 						async move { Json(header) }
-					}
-				})
+					},
+				)
 				.build();
 
 			let rpc_client = RpcClient::new(mock);
@@ -635,13 +623,18 @@ pub mod test {
 			"no block hash lookup for a higher block"
 		);
 
-		chain_heads
+		let head = chain_heads
 			.import_best(&provider, &api, MockBlockId::SideBranch(best + 1))
 			.await;
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
 			MockBlockId::SideBranch(best + 1).hash(),
 			"a same-number block from a side branch replaces the latest block"
+		);
+		assert_eq!(
+			head.map(|head| head.block_hash()),
+			Some(MockBlockId::SideBranch(best + 1).hash()),
+			"a same-number block from a side branch is returned as the new latest block"
 		);
 		assert_eq!(
 			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
@@ -974,56 +967,6 @@ pub mod test {
 			Some(MockBlockId::MainBranch(finalized).hash()),
 			"the latest finalized block, not the lower one, is returned as the new latest block"
 		);
-	}
-
-	#[tokio::test]
-	async fn a_same_height_reorg_after_an_ignored_replay_updates_the_latest_block() {
-		let chain_heads = MockChainHeads::default();
-		let (provider, api) = chain_heads.provider().await;
-		let best = chain_heads.best_block.lock().unwrap().number();
-
-		let head = provider
-			.update_latest(
-				block_at(&api, MockBlockId::MainBranch(best - 1)).await,
-				SubscriptionType::BestBlocks,
-			)
-			.await;
-		assert!(head.is_none(), "a replay of a lower block does not change the latest block");
-
-		// The chain reorgs to a different block at the same height.
-		let head = chain_heads.import_best(&provider, &api, MockBlockId::SideBranch(best)).await;
-		assert_eq!(
-			provider.latest_block().await.block_hash(),
-			MockBlockId::SideBranch(best).hash(),
-			"the reorged-to block replaces the latest block"
-		);
-		assert_eq!(
-			head.map(|head| head.block_hash()),
-			Some(MockBlockId::SideBranch(best).hash()),
-			"the reorged-to block is returned as the new latest block"
-		);
-	}
-
-	#[tokio::test]
-	async fn the_latest_block_is_kept_while_the_node_lags() {
-		let chain_heads = MockChainHeads::default();
-		let (provider, api) = chain_heads.provider().await;
-		let best = chain_heads.best_block.lock().unwrap().number();
-
-		// A reconnect lands on a node that has not imported the latest block yet.
-		chain_heads.no_imported_blocks_above_best.store(true, Ordering::SeqCst);
-		let head = chain_heads
-			.import_best(&provider, &api, MockBlockId::MainBranch(best - 1))
-			.await;
-		assert!(head.is_none(), "a lagging node's best block does not change the latest block");
-		assert_eq!(
-			provider.latest_block().await.block_hash(),
-			MockBlockId::MainBranch(best).hash(),
-			"the latest block is kept while the node lags behind it"
-		);
-
-		let head = chain_heads.import_best(&provider, &api, MockBlockId::MainBranch(best)).await;
-		assert!(head.is_none(), "the latest block from the caught-up node does not change it");
 	}
 
 	#[tokio::test]
