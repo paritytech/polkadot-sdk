@@ -50,6 +50,7 @@ mod control;
 mod host;
 mod memory;
 mod stack;
+mod state_access;
 mod system;
 mod terminate;
 mod terminate_storage;

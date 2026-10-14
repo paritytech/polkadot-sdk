@@ -427,11 +427,9 @@ impl AccessEntry {
 			},
 		}
 	}
-}
 
-#[cfg(feature = "runtime-benchmarks")]
-impl AccessEntry {
 	/// Returns the storage key behind the entry.
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn storage_key<T: crate::Config>(&self) -> Option<Vec<u8>> {
 		match self {
 			Self::Account { address } => Some(frame_system::Account::<T>::hashed_key_for(
@@ -448,6 +446,40 @@ impl AccessEntry {
 			// Child-trie slots have no fixed key here.
 			Self::Storage(_) => None,
 		}
+	}
+
+	/// Returns the entry for a main-trie key the access list tracks, `None` otherwise.
+	#[cfg(test)]
+	pub fn from_storage_key<T: crate::Config>(key: &[u8]) -> Option<Self> {
+		use frame_support::storage::StoragePrefixedMap;
+
+		let address =
+			|tail: &[u8]| (tail.len() == H160::len_bytes()).then(|| H160::from_slice(tail));
+		let hash = |tail: &[u8]| (tail.len() == H256::len_bytes()).then(|| H256::from_slice(tail));
+
+		if let Some(tail) = key.strip_prefix(&frame_system::Account::<T>::final_prefix()) {
+			use frame_support::{Blake2_128Concat, ReversibleStorageHasher};
+			let mut encoded = Blake2_128Concat::reverse(tail);
+			let account_id = <T::AccountId as codec::Decode>::decode(&mut encoded).ok()?;
+			return <T::AddressMapper as crate::AddressMapper<T>>::is_mapped(&account_id).then(
+				|| Self::Account {
+					address: <T::AddressMapper as crate::AddressMapper<T>>::to_address(&account_id),
+				},
+			);
+		}
+		if let Some(tail) = key.strip_prefix(&crate::OriginalAccount::<T>::final_prefix()) {
+			return Some(Self::OriginalAccount { address: address(tail)? });
+		}
+		if let Some(tail) = key.strip_prefix(&crate::AccountInfoOf::<T>::final_prefix()) {
+			return Some(Self::AccountInfo { address: address(tail)? });
+		}
+		if let Some(tail) = key.strip_prefix(&crate::CodeInfoOf::<T>::final_prefix()) {
+			return Some(Self::CodeInfo { hash: hash(tail)? });
+		}
+		if let Some(tail) = key.strip_prefix(&crate::PristineCode::<T>::final_prefix()) {
+			return Some(Self::CodeBlob { hash: hash(tail)? });
+		}
+		None
 	}
 }
 
