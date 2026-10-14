@@ -1041,8 +1041,19 @@ fn is_pool_transaction_validation_works() {
 		assert!(!System::is_pool_transaction_validation());
 		System::initialize(&1, &[0u8; 32].into(), &Default::default());
 		assert!(!System::is_pool_transaction_validation());
-		System::note_pool_transaction_validation();
-		assert!(System::is_pool_transaction_validation());
+
+		System::run_in_pool_transaction_validation(|| {
+			assert!(System::is_pool_transaction_validation());
+
+			// Nested contexts are fine.
+			System::run_in_pool_transaction_validation(|| {
+				assert!(System::is_pool_transaction_validation());
+			});
+			assert!(System::is_pool_transaction_validation());
+		});
+
+		// Only set inside the closure.
+		assert!(!System::is_pool_transaction_validation());
 	});
 }
 
