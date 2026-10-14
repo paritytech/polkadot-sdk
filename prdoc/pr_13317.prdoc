@@ -1,0 +1,11 @@
+title: 'statement-store: migrate the database one version step at a time'
+
+doc:
+- audience: Node Dev
+  description: |-
+    An older statement store database is migrated one version step at a time, each step
+    limited to what its version changed on disk. No behaviour changes for the current version.
+
+crates:
+- name: sc-statement-store
+  bump: patch

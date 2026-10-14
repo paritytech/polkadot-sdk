@@ -864,10 +864,13 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 		rate_limit: cli.statement_rate_limit,
 		v2dht: sc_network_statement::v2dht_enabled().then(|| sc_statement_store::V2DhtConfig {
 			affinity_topics: cli.statement_affinity_topics.clone(),
+			affinity_topics_file: cli.statement_affinity_topics_file.clone(),
 			bloom_false_pos_rate: cli.statement_bloom_false_positive_rate,
 			bloom_seed: cli.statement_bloom_seed,
 			replication_factor: cli.statement_replication_factor,
 			gossip_target: cli.statement_gossip_target,
+			dht_affinity_max_size: cli.statement_store_max_dht_affinity_size,
+			transient_max_size: cli.statement_store_max_transient_size,
 		}),
 	};
 
