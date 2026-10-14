@@ -18,8 +18,8 @@
 //! Which state entries the access list finds cold or hot, on both VMs.
 
 use crate::{
-	AccountInfo, BalanceOf, CallResources, Code, Config, ExecConfig, ReentrancyProtection, Weight,
-	WeightInfo, WeightToken,
+	AccountInfo, BalanceOf, BalanceWithDust, CallResources, Code, Config, ExecConfig,
+	ReentrancyProtection, Weight, WeightInfo, WeightToken,
 	access_list::{
 		Access, AccessListMetrics, CallItems, CodeLoadItems, InstantiateItems, KeyFamily,
 		StorageOp, TransferItems, Warmth, WarmthSummary,
@@ -426,6 +426,44 @@ fn a_value_transfer_finds_both_account_infos_hot(fixture_type: FixtureType) {
 			"the rest of the value-transfer entries are newly touched",
 		);
 	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn a_dust_transfer_is_charged_more_than_a_whole_one(fixture_type: FixtureType) {
+	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+	let eoa = H160::from([0xfe; 20]);
+	let weight_of_transfer = |dust: u32| {
+		let value = BalanceWithDust::new_unchecked::<Test>(1, dust);
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr: caller, .. } =
+				builder::bare_instantiate(Code::Upload(caller_code.clone()))
+					.build_and_unwrap_contract();
+			let _ = crate::Pallet::<Test>::set_evm_balance(&caller, 100_000_000_000u128.into());
+			builder::bare_call(caller)
+				.data(
+					Caller::normalCall {
+						_callee: eoa.0.into(),
+						_value: crate::Pallet::<Test>::convert_native_to_evm(value).low_u64(),
+						_data: Vec::<u8>::new().into(),
+						_gas: u64::MAX,
+					}
+					.abi_encode(),
+				)
+				.build()
+				.weight_consumed
+		})
+	};
+
+	let without_dust = weight_of_transfer(0);
+	let with_dust = weight_of_transfer(1);
+
+	assert!(
+		with_dust.ref_time() > without_dust.ref_time(),
+		"a transfer carrying dust writes both account infos: \
+		 without_dust={without_dust:?} with_dust={with_dust:?}",
+	);
 }
 
 #[test_case(FixtureType::Solc)]

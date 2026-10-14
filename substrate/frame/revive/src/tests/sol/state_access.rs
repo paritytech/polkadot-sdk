@@ -200,6 +200,10 @@ fn reads_and_writes_of<R>(
 	ext: &mut sp_io::TestExternalities,
 	operation: impl FnOnce() -> R,
 ) -> (ReadsAndWrites, R) {
+	assert!(
+		ext.overlayed_changes().changes().next().is_none(),
+		"the setup must be committed before the operation runs",
+	);
 	let recorder = Recorder::<sp_core::Blake2Hasher>::default();
 	let outcome = ext.execute_with_recorder(recorder.clone(), operation);
 
@@ -460,7 +464,7 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 		expected.write_instead_of_read(AccessEntry::CodeBlob { hash: child_hash });
 	}
 
-	// The deposit entries, which are not tracked by the access list and always paid cold.
+	// The deposit entries, which the access list does not track.
 	let mut deposit_items = BTreeSet::from(
 		[
 			"Assets::Account",
@@ -476,9 +480,38 @@ fn a_nested_instantiate_accesses_what_it_declares(fixture_type: FixtureType) {
 		// The code deposit sits on the pallet's own account.
 		deposit_items.insert("System::Account".into());
 	}
+	let deposit_writes = deposit_items.clone();
 
-	expected.other_read = deposit_items.clone();
-	expected.other_written = deposit_items;
+	expected.other_read = deposit_items;
+	expected.other_written = deposit_writes;
+	assert_eq!(accessed, expected);
+}
+
+#[test_case(false; "no dust")]
+#[test_case(true;  "dust")]
+fn a_transfer_to_an_eoa_accesses_what_it_declares(dust: bool) {
+	let (mut ext, []) = deploy_contracts::<0>([]);
+	let eoa = H160::from([0xfe; 20]);
+	let value = BalanceWithDust::new_unchecked::<Test>(1, u32::from(dust));
+
+	let (accessed, ()) = reads_and_writes_of(&mut ext, || {
+		builder::bare_call(eoa)
+			.evm_value(Pallet::<Test>::convert_native_to_evm(value))
+			.exec_config(crate::ExecConfig::new_substrate_tx().with_first_frame_reads_paid())
+			.build_and_unwrap_result();
+	});
+
+	let mut expected = ReadsAndWrites::from_declared(
+		DeclaredEntries::of(CallItems::new(eoa, false)).and(TransferItems {
+			from: ALICE_ADDR,
+			to: eoa,
+			dust,
+		}),
+	);
+	if !dust {
+		// No frame runs at an address with no code, so its info is read and never written back.
+		assert!(expected.written.remove(&AccessEntry::AccountInfo { address: eoa }));
+	}
 	assert_eq!(accessed, expected);
 }
 
