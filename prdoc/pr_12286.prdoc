@@ -1,0 +1,25 @@
+title: 'Fix warp-synced node getting stuck on a reverted fork'
+doc:
+- audience: Node Operator
+  description: |-
+    Right after warp sync a node could import a few blocks that turned out to belong to a fork
+    that was later reverted, leaving its best block on a dead fork a handful of blocks above the
+    last finalized block. Every attempt to import the canonical successor then failed with
+    `block has an unknown parent` and the node never recovered on its own (only wiping the
+    database and re-warp-syncing helped).
+
+    The root cause is that, while importing the (later reverted) fork, the affected peers'
+    common block number gets inflated up to our forked best, above the finalized block. During
+    the post-warp gap fill the node is major syncing, which disables the announce-driven fork
+    detection, so it keeps requesting the canonical successor whose parent it never downloads.
+
+    The fork is now detected at download time: when the next block ready for import does not
+    build on our best block and we do not have its parent, the peer is put into an ancestor
+    search (the same fork-detection mechanism already used for block announcements) to find the
+    real common block, and the orphan blocks are dropped instead of imported. Once the common
+    block is pinned, the canonical chain is re-downloaded from the actual fork point and imported
+    as a new branch, so the node recovers without operator intervention and without ever hitting
+    an `UnknownParent` import error.
+crates:
+- name: sc-network-sync
+  bump: patch
