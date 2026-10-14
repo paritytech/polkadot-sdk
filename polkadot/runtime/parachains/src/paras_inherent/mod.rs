@@ -1201,6 +1201,13 @@ fn check_speculative_messaging<T: crate::inclusion::Config>(
 			);
 			return false;
 		}
+		log::debug!(
+			target: LOG_TARGET,
+			"Candidate {:?} for para {:?}: requires {:?} found in the provides windows.",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id(),
+			requires,
+		);
 	}
 
 	true
