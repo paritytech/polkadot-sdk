@@ -1230,6 +1230,12 @@ parameter_types! {
 	// Validators contribute no collators until governance raises the cap.
 	pub const DefaultMaxCollators: pallet_validator_collators::CollatorDraw =
 		pallet_validator_collators::CollatorDraw::None;
+	/// Most blocks the chain can build in one Aura slot: one more than
+	/// `BLOCK_PROCESSING_VELOCITY` per relay chain slot, over the relay chain slots of an Aura
+	/// slot. A maximum rather than the usual count, so that a number of blocks is never reached
+	/// in fewer Aura slots than it implies.
+	pub const MaxBlocksPerSlot: u32 = (BLOCK_PROCESSING_VELOCITY + 1) *
+		(SLOT_DURATION / RELAY_CHAIN_SLOT_DURATION_MILLIS as u64) as u32;
 }
 
 impl pallet_validator_collators::Config for Runtime {
@@ -1249,6 +1255,7 @@ impl pallet_validator_collators::Config for Runtime {
 		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;
 	type DefaultReportMargin = ConstU64<300_000>;
 	type MaxReportMargin = ConstU64<1_800_000>;
+	type MaxBlocksPerSlot = MaxBlocksPerSlot;
 	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }
 

@@ -15761,6 +15761,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-balances",
  "pallet-session",
  "pallet-validator-collators",
  "parity-scale-codec",
