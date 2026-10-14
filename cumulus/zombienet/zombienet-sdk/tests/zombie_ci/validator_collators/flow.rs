@@ -266,10 +266,11 @@ async fn register_keys(
 	let proof = generated
 		.proof
 		.ok_or_else(|| anyhow!("`{collator}` returned keys without an ownership proof"))?;
-	// The session keys of both parachains are one sr25519 Aura key.
-	let aura: [u8; 32] = generated.keys.0.as_slice().try_into().map_err(|_| {
+	// The session keys of both parachains are one sr25519 Aura key + one authority discovery key.
+	let keys: [u8; 64] = generated.keys.0.as_slice().try_into().map_err(|_| {
 		anyhow!("`{collator}` returned {} bytes of keys, expected 32", generated.keys.0.len())
 	})?;
+	let aura = keys[..32];
 	log::info!(
 		"`{collator}` generated Aura key 0x{} for 0x{}",
 		hex::encode(aura),

@@ -15,19 +15,9 @@
 
 //! Single-step multi-block migration that extends each existing
 //! `pallet_session::SessionKeys` entry with a new `authority_discovery:
-//! AuthorityDiscoveryId` field set to a per-validator placeholder derived from
-//! the validator's aura raw bytes.
-//!
-//! Why a hashed placeholder rather than zero or aura-raw:
-//! - The all-zero `sr25519::Public` is the Ristretto identity element, which schnorrkel accepts and
-//!   against which any Schnorr signature is trivially forgeable (`s·B == R` collapses when `P ==
-//!   0`). A zero placeholder is also shared by every validator across every adopting chain until
-//!   they each rotate, letting any attacker squat the entire authority-discovery mesh.
-//! - Reusing the aura raw bytes directly would tie the audi placeholder to the validator's aura
-//!   secret, giving an unwanted cross-protocol key reuse for the duration of the rotation grace
-//!   period.
-//!
-//! The hashed derivation is unique per validator and unforgeable.
+//! AuthorityDiscoveryId` field. By default the field is set to a per-validator placeholder derived
+//! from the validator's aura raw bytes. But each runtime has the option to customize this behavior.
+//! See [`KeysTranslatorT::gen_authority_discovery`] for more details.
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
@@ -62,6 +52,22 @@ pub trait KeysTranslatorT {
 
 	fn aura(old: &Self::OldSessionKeys) -> &Self::AuraId;
 
+	/// Generate an `authority_discovery` key.
+	///
+	/// The default implementation generates a per-validator placeholder derived from the
+	/// validator's aura raw bytes.
+	///
+	/// Why a hashed placeholder rather than zero or aura-raw:
+	/// - for example for `sr25519::Public` the all-zero key is the Ristretto identity element,
+	///   which schnorrkel accepts and against which any Schnorr signature is trivially forgeable
+	///   (`s·B == R` collapses when `P == 0`). A zero placeholder is also shared by every validator
+	///   across every adopting chain until they each rotate, letting any attacker squat the entire
+	///   authority-discovery mesh.
+	/// - Reusing the aura raw bytes directly would tie the authority discovery placeholder to the
+	///   validator's aura secret, giving an unwanted cross-protocol key reuse for the duration of
+	///   the rotation grace period.
+	///
+	/// The hashed derivation is unique per validator and unforgeable.
 	fn gen_authority_discovery(aura: &Self::AuraId) -> AuthorityDiscoveryId {
 		let hash = sp_io::hashing::blake2_256(aura.as_slice());
 		sp_core::sr25519::Public::from_raw(hash).into()

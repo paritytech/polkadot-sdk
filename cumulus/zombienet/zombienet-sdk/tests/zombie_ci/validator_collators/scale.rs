@@ -268,10 +268,10 @@ fn session_key_items(
 	accounts
 		.iter()
 		.flat_map(|account| {
-			let keys = Value::named_composite([(
-				"aura",
-				Value::unnamed_composite([Value::from_bytes(account)]),
-			)]);
+			let keys = Value::named_composite([
+				("aura", Value::unnamed_composite([Value::from_bytes(account)])),
+				("authority_discovery", Value::unnamed_composite([Value::from_bytes(account)])),
+			]);
 			let key_owner = Value::unnamed_composite([
 				Value::unnamed_composite([Value::from_bytes(aura)]),
 				Value::from_bytes(account),
