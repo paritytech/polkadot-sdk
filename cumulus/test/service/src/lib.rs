@@ -476,12 +476,62 @@ where
 				))
 			}
 
+			// Phase 4: submit the node's own dealing to the `key_gen` pallet
+			// (`add_transcript` binds the transcript to the submitter's session
+			// key, so only the node's own dealing is accepted).
+			let dealing_submitter: sc_dkg::worker::DealingSubmitter = {
+				let client = client.clone();
+				let transaction_pool = transaction_pool.clone();
+				let keystore = keystore.clone();
+				let spawner = task_manager.spawn_handle();
+				Arc::new(move |transcript_bytes: Vec<u8>| {
+					let client = client.clone();
+					let transaction_pool = transaction_pool.clone();
+					let keystore = keystore.clone();
+					spawner.spawn("dkg-submit-dealing", Some("dkg"), async move {
+						let call = runtime::KeyGenCall::add_transcript { transcript_bytes };
+						let extrinsic = match construct_extrinsic_with_keystore(
+							&client, &keystore, call, aura_pk, None,
+						) {
+							Ok(xt) => xt,
+							Err(()) => {
+								tracing::error!("🎲 DKG: failed to build/sign add_transcript extrinsic");
+								return
+							},
+						};
+						let best_hash = client.info().best_hash;
+						// Wrap for the pool's opaque block extrinsic type without
+						// double-wrapping the SCALE length prefix.
+						let opaque =
+							match sp_runtime::OpaqueExtrinsic::try_from_encoded_extrinsic(
+								&extrinsic.encode(),
+							) {
+								Ok(xt) => xt,
+								Err(e) => {
+									tracing::error!("🎲 DKG: failed to opaque-wrap extrinsic: {e:?}");
+									return
+								},
+							};
+						match sc_transaction_pool_api::LocalTransactionPool::submit_local(
+							&transaction_pool,
+							best_hash,
+							opaque,
+						) {
+							Ok(hash) =>
+								tracing::info!("🎲 DKG: submitted dealing to key_gen pallet: {hash:?}"),
+							Err(e) => tracing::error!("🎲 DKG: dealing submission failed: {e}"),
+						}
+					});
+				})
+			};
+
 			let worker_params = sc_dkg::worker::WorkerParams {
 				client: client.clone(),
 				keystore: keystore.clone(),
 				// Dev/testnet only: the worker needs the pair in memory for the
 				// dealing's proof of possession (keystore cannot export secrets).
 				dealing_pair: Some(dealing_pair),
+				dealing_submitter: Some(dealing_submitter),
 				network: network.clone(),
 				sync: sync_service.clone(),
 				notification_service: dkg_notification_service,
@@ -1015,7 +1065,7 @@ pub fn fetch_nonce(client: &Client, account: sp_core::sr25519::Public) -> u32 {
 		.expect("Fetching account nonce works; qed")
 }
 
-/// Construct an extrinsic that can be applied to the test runtime.
+	/// Construct an extrinsic that can be applied to the test runtime.
 pub fn construct_extrinsic(
 	client: &Client,
 	function: impl Into<runtime::RuntimeCall>,
@@ -1059,6 +1109,62 @@ pub fn construct_extrinsic(
 		runtime::Signature::Sr25519(signature),
 		tx_ext,
 	)
+}
+
+/// Construct an extrinsic like [`construct_extrinsic`], but sign the payload
+/// with the node's sr25519 (aura) key from the keystore instead of an
+/// in-memory pair (the keystore cannot export secret keys).
+pub fn construct_extrinsic_with_keystore(
+	client: &Client,
+	keystore: &sp_keystore::KeystorePtr,
+	function: impl Into<runtime::RuntimeCall>,
+	signer: sp_core::sr25519::Public,
+	nonce: Option<u32>,
+) -> Result<runtime::UncheckedExtrinsic, ()> {
+	let function = function.into();
+	let current_block_hash = client.info().best_hash;
+	let current_block = client.info().best_number.saturated_into();
+	let genesis_block = client.hash(0).unwrap().unwrap();
+	let nonce = nonce.unwrap_or_else(|| fetch_nonce(client, signer));
+	let period = runtime::BlockHashCount::get()
+		.checked_next_power_of_two()
+		.map(|c| c / 2)
+		.unwrap_or(2) as u64;
+	let tip = 0;
+	let tx_ext: runtime::TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim::from((
+		frame_system::AuthorizeCall::<runtime::Runtime>::new(),
+		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
+		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
+		frame_system::CheckGenesis::<runtime::Runtime>::new(),
+		frame_system::CheckEra::<runtime::Runtime>::from(generic::Era::mortal(
+			period,
+			current_block,
+		)),
+		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
+		frame_system::CheckWeight::<runtime::Runtime>::new(),
+		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
+		runtime::TestTransactionExtension::<runtime::Runtime>::default(),
+	))
+	.into();
+	let raw_payload = runtime::SignedPayload::from_raw(
+		function.clone(),
+		tx_ext.clone(),
+		((), (), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
+	);
+	let mut signature = None;
+	raw_payload.using_encoded(|e| {
+		signature = keystore
+			.sr25519_sign(sp_core::crypto::key_types::AURA, &signer, e)
+			.ok()
+			.flatten();
+	});
+	let signature = signature.ok_or(())?;
+	Ok(runtime::UncheckedExtrinsic::new_signed(
+		function,
+		MultiAddress::Id(signer.into()),
+		runtime::Signature::Sr25519(signature),
+		tx_ext,
+	))
 }
 
 /// Run a relay-chain validator node.

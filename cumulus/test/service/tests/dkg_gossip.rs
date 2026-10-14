@@ -17,6 +17,10 @@
 
 use std::{sync::atomic::Ordering, time::Duration};
 
+use adkg_vrf::dkg::transcript::Transcript;
+use ark_bls12_381::Bls12_381;
+use ark_serialize::CanonicalDeserialize;
+use codec::Decode;
 use cumulus_client_cli::get_raw_genesis_header;
 use cumulus_primitives_core::ParaId;
 use cumulus_test_service::{
@@ -24,7 +28,10 @@ use cumulus_test_service::{
 	TestNodeBuilder, run_relay_chain_validator_node,
 };
 use polkadot_primitives::HeadData;
+use sc_client_api::StorageProvider;
 use sc_dkg::CollectionStatsHandle;
+use sp_core::storage::StorageKey;
+use sp_crypto_hashing::twox_128;
 
 const PARA_ID: u32 = 100;
 
@@ -55,6 +62,38 @@ async fn wait_for_collection(
 			stats.latest_session.load(Ordering::Relaxed),
 		)
 	})
+}
+
+/// Poll `KeyGen::AggregatedTranscript` until it holds an aggregate of at
+/// least `min_dealers` single-dealer transcripts.
+async fn wait_for_aggregated_transcript(
+	client: &cumulus_test_service::Client,
+	min_dealers: usize,
+) -> usize {
+	let key = StorageKey(
+		[twox_128(b"KeyGen"), twox_128(b"AggregatedTranscript")].concat(),
+	);
+	tokio::time::timeout(Duration::from_secs(300), async {
+		loop {
+			let best_hash = client.chain_info().best_hash;
+			let dealers = client
+				.storage(best_hash, &key)
+				.ok()
+				.flatten()
+				.and_then(|data| Vec::<u8>::decode(&mut &data.0[..]).ok())
+				.and_then(|bytes| {
+					Transcript::<Bls12_381>::deserialize_compressed(&bytes[..]).ok()
+				})
+				.map(|t| t.list_dealers().len())
+				.unwrap_or(0);
+			if dealers >= min_dealers {
+				return dealers
+			}
+			tokio::time::sleep(Duration::from_secs(2)).await;
+		}
+	})
+	.await
+	.expect("timed out waiting for the aggregated transcript on-chain")
 }
 
 #[test]
@@ -127,6 +166,13 @@ fn dkg_dealings_gossiped_and_collected_per_session() {
 			"phase 1 done: charlie {c_dealings} dealings (session {c_session}), \
 			 dave {d_dealings} dealings (session {d_session})"
 		);
+
+		// Phase 1.5: both collators submitted their own dealings to the
+		// `key_gen` pallet, which merged them into the aggregated transcript.
+		// (Must be checked within the first session: `AggregatedTranscript` is
+		// not session-scoped yet — Phase 3.4.)
+		let dealers = wait_for_aggregated_transcript(&charlie.client, 2).await;
+		tracing::info!("on-chain aggregate has {dealers} dealers");
 
 		// Phase 2: the session rotates (10 parachain blocks); both collators
 		// deal again and collect a dealing from the new session.

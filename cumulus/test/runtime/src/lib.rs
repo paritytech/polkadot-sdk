@@ -71,6 +71,7 @@ pub use frame_support::{
 	StorageValue,
 };
 pub use frame_system::Call as SystemCall;
+pub use key_gen::Call as KeyGenCall;
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,

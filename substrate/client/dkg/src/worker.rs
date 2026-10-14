@@ -67,6 +67,10 @@ pub struct WorkerParams<Client, Network, S, Bc, AccountId, Keys> {
 	/// dealing's proof of possession (the keystore cannot export secrets).
 	/// If `None`, the node validates/forwards dealings but does not deal.
 	pub dealing_pair: Option<sp_core::ecdsa_bls381::Pair>,
+	/// Called with the node's own compressed serialized transcript right after
+	/// it is dealt and gossiped; the embedding service decides how/whether to
+	/// submit it on-chain (e.g. as a `key_gen::add_transcript` extrinsic).
+	pub dealing_submitter: Option<DealingSubmitter>,
 	/// Network implementing gossip and peers reporting (e.g. `Arc<dyn NetworkService>`).
 	pub network: Network,
 	/// Syncing service implementing a sync oracle.
@@ -80,6 +84,10 @@ pub struct WorkerParams<Client, Network, S, Bc, AccountId, Keys> {
 	pub prometheus_registry: Option<prometheus_endpoint::Registry>,
 	pub _phantom: PhantomData<(Bc, AccountId, Keys)>,
 }
+
+/// Callback invoked with the node's own serialized dealing after it is dealt
+/// and gossiped (e.g. to submit it on-chain).
+pub type DealingSubmitter = Arc<dyn Fn(Vec<u8>) + Send + Sync>;
 
 /// Error produced by the DKG worker.
 #[derive(Debug, thiserror::Error)]
@@ -159,6 +167,7 @@ where
 	client: Arc<Client>,
 	keystore: KeystorePtr,
 	dealing_pair: Option<sp_core::ecdsa_bls381::Pair>,
+	dealing_submitter: Option<DealingSubmitter>,
 	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<HashingOf<B>, Network>>,
 	/// Session currently tracked by the gossip filter.
@@ -166,7 +175,8 @@ where
 	/// Session we have already dealt in (deal at most once per session).
 	dealt_session: Option<u32>,
 	/// Validated dealings received over gossip for the current session
-	/// (to be aggregated/submitted on-chain — Phase 4).
+	/// (liveness/threshold tracking; nodes submit only their own dealing
+	/// on-chain — the pallet binds the transcript to the submitter's key).
 	collected: Vec<(u32, Dealing<Vec<u8>>)>,
 	/// Collection observability shared with the node that spawned the worker.
 	collection_stats: CollectionStatsHandle,
@@ -190,6 +200,7 @@ where
 			client,
 			keystore,
 			dealing_pair,
+			dealing_submitter,
 			network,
 			sync,
 			notification_service,
@@ -214,6 +225,7 @@ where
 			client,
 			keystore,
 			dealing_pair,
+			dealing_submitter,
 			gossip_engine,
 			gossip_validator,
 			current_session: None,
@@ -330,13 +342,16 @@ where
 
 				let message = GossipMessage::Dealing(DealingMessage {
 					session_index,
-					dealing: Dealing { dealing: dealing_bytes },
+					dealing: Dealing { dealing: dealing_bytes.clone() },
 					id: public,
 					signature,
 				});
 				self.gossip_engine.gossip_message(topic, message.encode(), true);
 				self.dealt_session = Some(session_index);
 				info!(target: LOG_TARGET, "🎲 DKG: dealt for session {session_index}");
+				if let Some(submit) = &self.dealing_submitter {
+					submit(dealing_bytes);
+				}
 			},
 			Err(e) => error!(target: LOG_TARGET, "🎲 DKG: dealing failed: {e}"),
 		}

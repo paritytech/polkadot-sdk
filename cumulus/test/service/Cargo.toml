@@ -93,7 +93,12 @@ sc-dkg = { workspace = true }
 sp-keystore = { workspace = true, default-features = true }
 
 [dev-dependencies]
+# Pinned fork, same as sc-dkg (see substrate/client/dkg/Cargo.toml).
+adkg-vrf = { git = "https://github.com/coax1d/adkg-vrf.git", rev = "d254558650cba8457a6fc0862796e76a1757869f" }
+ark-bls12-381 = { version = "0.5", features = ["curve"] }
+ark-serialize = { version = "0.5" }
 cumulus-test-client = { workspace = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
 
 [features]
 # Enables the runtime's authority-discovery variant (adds pallet_session with

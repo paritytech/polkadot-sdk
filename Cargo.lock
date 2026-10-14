@@ -5763,6 +5763,9 @@ dependencies = [
 name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
+ "adkg-vrf",
+ "ark-bls12-381 0.5.0",
+ "ark-serialize 0.5.0",
  "array-bytes 6.2.2",
  "async-trait",
  "clap",
@@ -5824,6 +5827,7 @@ dependencies = [
  "sp-consensus 0.32.0",
  "sp-consensus-aura",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-genesis-builder 0.8.0",
  "sp-io 30.0.0",
  "sp-keyring",
