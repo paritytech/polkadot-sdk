@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791978773444,
+  "lastUpdate": 1792014011763,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "387a7e2180b05276ffea4d093a9b8ea29d02f0dc",
-          "message": "[Release|CI/CD] Add `parity-publish restore` step to simplify post crates release activity (#11652)\n\nThis PR adds an new step to the Publish Crates flow, that will restore\ncrates Cargo.toml files to intial state before release and keep only\nbumped version in there to simplify post crates activity we used to run\nbefore, to aligne with the pipeline checks.\n\npartially address:\nhttps://github.com/paritytech/release-engineering/issues/291",
-          "timestamp": "2026-04-06T16:37:38Z",
-          "tree_id": "438167f1ea87ddc1124fdb6188ca989ea5cb6dae",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/387a7e2180b05276ffea4d093a9b8ea29d02f0dc"
-        },
-        "date": 1775498357943,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1291895374,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.052234720399998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.057245434033334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3de1a0ebc8d3c57156f020764a61667080f577d3",
+          "message": "[AHMv2] Abstracts away HRMP deposits into a Deposit Provider impl. Paves way for remote deposits later (on CT) (#13475)\n\n# Context\nAbstracting out the deposit provider from the HRMP pallet. No-op almost\nexcept couple of extra events. See `Functional Change`.\n\nThe followup PR will implement an async (deposit on CT, management on\nRC) implementation of the deposit provider. Makes it easier for relay to\nlive a token less life.\n\n## Review Note\nBasically just 2 files to review\n- `polkadot/runtime/parachains/src/hrmp/deposits.rs`: Contains all the\nnew traits (`ChannelDepositProvider` and the callback trait) and\nin-pallet impl/callbacks + weights etc. All of new code is just here.\n- `polkadot/runtime/parachains/src/hrmp.rs`: Only really deletes of\ndeposit code (except very small changes) which is outsourced to\ndeposits.rs. Should be <del>absolutely</del> almost (two cases that\ndidn't emit event before will emit now) no-op, not challenging the\nstatus quo.\n\n### Functional change:\n`OpenChannelRequested`, `OpenChannelAccepted` and\n`OpenChannelDepositsUpdated` are now emitted as part of a common\nfunction invoked when call completes. As a result\n`force_open_hrmp_channel`, `establish_system_channel` and\n`establish_channel_with_system` now also emit `OpenChannelRequested` and\n`OpenChannelAccepted`.\n\n## TODO \n- [ ] Security Audit for the PR\n- [ ] (followup) hrmp-primitives are for wire types, should contain\ncontract between hrmp_para and hrmp_relay, not for contract between hrmp\nand hrmp_relay.\n\n---------\n\nCo-authored-by: cirko33 <luka.ciric2106@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-14T19:45:35Z",
+          "tree_id": "0ca5495cde2173f2db2915a20b2e42af70a61123",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3de1a0ebc8d3c57156f020764a61667080f577d3"
+        },
+        "date": 1792013980306,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.070962404699998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12585675449999997,
             "unit": "seconds"
           }
         ]
