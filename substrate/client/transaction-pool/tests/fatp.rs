@@ -668,6 +668,23 @@ fn fatp_fork_reorg_respects_priority_over_order() {
 }
 
 #[test]
+fn fatp_fork_reorg_adds_unknown_retracted_txs_to_mempool() {
+	sp_tracing::try_init_simple();
+
+	let (api, [ta0, tb0, ta1, tb1], retracted_tip, enacted_tip) =
+		fork_with_interleaved_retracted_txs();
+	let (pool, _) = pool_with_api(api.clone());
+
+	block_on(pool.maintain(new_best_block_event(&pool, None, retracted_tip)));
+	assert_eq!(block_on(pool.mempool_len()), (0, 0));
+
+	block_on(pool.maintain(new_best_block_event(&pool, Some(retracted_tip), enacted_tip)));
+
+	assert_eq!(block_on(pool.mempool_len()), (4, 0));
+	assert_ready_iterator!(enacted_tip, &pool, [ta0, tb0, ta1, tb1]);
+}
+
+#[test]
 fn fatp_fork_do_resubmit_same_tx() {
 	let xt = uxt(Alice, 200);
 

@@ -66,7 +66,9 @@ use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, NumberFor},
-	transaction_validity::{TransactionTag as Tag, TransactionValidityError, ValidTransaction},
+	transaction_validity::{
+		TransactionPriority, TransactionTag as Tag, TransactionValidityError, ValidTransaction,
+	},
 	Saturating,
 };
 use std::{
@@ -1760,6 +1762,7 @@ where
 		// resubmit
 		{
 			let mut resubmit_transactions = Vec::new();
+			let mut unknown_transactions = HashMap::new();
 
 			for retracted in tree_route.retracted().iter().rev() {
 				let hash = retracted.hash;
@@ -1798,36 +1801,82 @@ where
 						!contains
 					},
 				);
-				let mut result = vec![];
 				for (tx_hash, tx) in txs {
-					result.push(
-						// find arc if tx is known
-						self.mempool
-							.get_by_hash(tx_hash)
-							.await
-							.map(|tx| (tx.source(), tx.tx()))
-							.unwrap_or_else(|| {
-								// These transactions are coming from retracted blocks, we
-								// should simply consider them external.
-								(TimedTransactionSource::new_external(true), Arc::from(tx))
-							}),
-					);
+					let resubmitted = match self.mempool.get_by_hash(tx_hash).await {
+						Some(tx) => (tx.source(), tx.tx()),
+						None => {
+							// These transactions are coming from retracted blocks, we
+							// should simply consider them external.
+							let tx: ExtrinsicFor<ChainApi> = Arc::from(tx);
+							unknown_transactions.insert(tx_hash, tx.clone());
+							(TimedTransactionSource::new_external(true), tx)
+						},
+					};
+					resubmit_transactions.push(resubmitted);
 				}
-				resubmit_transactions.extend(result);
 
 				self.metrics.report(|metrics| {
 					metrics.resubmitted_retracted_txs.inc_by(resubmitted_to_report)
 				});
 			}
 
-			let _ = view
+			let validated = view
 				.pool
 				.resubmit_at(
 					&hash_and_number,
 					resubmit_transactions,
 					ValidateTransactionPriority::Maintained,
 				)
-				.await;
+				.await
+				.into_iter()
+				.filter_map(Result::ok)
+				.filter_map(|outcome| {
+					let tx = unknown_transactions.remove(&outcome.hash())?;
+					Some((outcome.hash(), tx, outcome.priority()?))
+				})
+				.collect();
+
+			self.insert_retracted_into_mempool(view, validated).await;
+		}
+	}
+
+	/// Adds transactions from retracted blocks that were unknown to the mempool, so they compete
+	/// on priority with the other mempool transactions instead of living only in the view.
+	///
+	/// When the mempool is full and holds nothing of lower priority, the transaction is dropped
+	/// from the given view as well.
+	async fn insert_retracted_into_mempool(
+		&self,
+		view: &View<ChainApi>,
+		txs: Vec<(ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>, TransactionPriority)>,
+	) {
+		let source = TransactionSource::External;
+		let at_number = view.at.number.into().as_u64();
+		let xts = txs.iter().map(|(_, xt, _)| xt.clone()).collect::<Vec<_>>();
+		let results = self.mempool.extend_unwatched(source, at_number, &xts).await;
+
+		for (result, (tx_hash, xt, priority)) in results.into_iter().zip(txs) {
+			match result {
+				Ok(_) => self.mempool.update_transaction_priority(tx_hash, Some(priority)).await,
+				Err(TxPoolApiError::ImmediatelyDropped) => {
+					let replacement = self
+						.attempt_transaction_replacement_inner(
+							xt, priority, source, at_number, false,
+						)
+						.await;
+					if matches!(replacement, Err(TxPoolApiError::ImmediatelyDropped)) {
+						trace!(
+							target: LOG_TARGET,
+							?tx_hash,
+							"Retracted transaction dropped, mempool is full"
+						);
+						view.remove_subtree(&[tx_hash], false, |listener, tx_hash| {
+							listener.limits_enforced(&tx_hash)
+						});
+					}
+				},
+				Err(_) => {},
+			}
 		}
 	}
 
@@ -1914,7 +1963,7 @@ where
 			.ok_or(TxPoolApiError::ImmediatelyDropped)?
 			.clone();
 
-		let (xt_hash, validated_tx) = best_view
+		let (_, validated_tx) = best_view
 			.pool
 			.verify_one(
 				best_view.at.hash,
@@ -1930,11 +1979,25 @@ where
 			return Err(TxPoolApiError::ImmediatelyDropped);
 		};
 
+		self.attempt_transaction_replacement_inner(xt, priority, source, at_number, watched)
+			.await
+	}
+
+	/// Inserts an already validated transaction into the mempool, replacing lower priority
+	/// transactions if the mempool is at its limits.
+	async fn attempt_transaction_replacement_inner(
+		&self,
+		xt: ExtrinsicFor<ChainApi>,
+		priority: TransactionPriority,
+		source: TransactionSource,
+		at_number: u64,
+		watched: bool,
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, TxPoolApiError> {
 		let insertion_info = self
 			.mempool
 			.try_insert_with_replacement(xt, priority, source, at_number, watched)
 			.await?;
-		self.post_attempt_transaction_replacement(xt_hash, insertion_info)
+		self.post_attempt_transaction_replacement(insertion_info.hash, insertion_info)
 	}
 
 	/// Sync version of [`Self::attempt_transaction_replacement`].
