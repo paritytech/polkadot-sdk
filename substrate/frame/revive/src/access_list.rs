@@ -175,7 +175,7 @@ impl Warmth {
 		matches!(self, Self::Hot { .. })
 	}
 
-	/// Returns whether the entry is hot and `op` costs more than what it already paid.
+	/// Returns whether the entry is hot and its earlier charge does not cover `op`.
 	fn owes_upgrade(self, op: StorageOp) -> bool {
 		matches!(self, Self::Hot { charged } if !charged.covers(op))
 	}
