@@ -1,0 +1,25 @@
+title: 'hrmp: return deposits and request counts when offboarding drops open channel requests'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    Open channel requests removed at a session change because a para offboards no longer leak
+    deposits or request counts:
+
+    - A confirmed request that can't be turned into a channel, because one of its paras is
+      already offboarding, gives both deposits back instead of keeping them reserved.
+    - When a request is cleaned up because one of its paras is outgoing, the sender's deposit and,
+      for a confirmed request, the recipient's deposit are given back, including to the outgoing
+      para itself, as already happens for the deposits of its channels.
+    - The sender's open request count is decremented when only the recipient offboards, so the
+      request no longer takes one of the sender's outbound channel slots.
+    - No recipient deposit is given back for channels with or amongst the system, since none is
+      taken for them.
+
+    The weight of the request cleanup is benchmarked with confirmed requests, which is now the
+    worst case.
+
+    No storage, API or configuration change. Deposits already left reserved and request counts
+    already leaked by earlier versions are not touched.
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
