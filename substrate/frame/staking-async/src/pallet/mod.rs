@@ -54,9 +54,9 @@ use sp_runtime::{
 	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
-	EraIndex, Page, PointsKind, SessionIndex,
+	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
-	StakingInterface,
+	StakingInterface, ValidatorServiceKind,
 };
 
 mod impls;
@@ -928,7 +928,7 @@ pub mod pallet {
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	///
-	/// The same points split by the service that earned them are in [`ErasRewardPointsByKind`].
+	/// The same points split by the service that earned them are in [`ErasRewardPointsByService`].
 	#[pallet::storage]
 	pub type ErasRewardPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T>, ValueQuery>;
@@ -938,12 +938,12 @@ pub mod pallet {
 	/// Written with [`ErasRewardPoints`] and pruned with it. An entry never holds more than the
 	/// tally does for the same account.
 	#[pallet::storage]
-	pub type ErasRewardPointsByKind<T: Config> = StorageDoubleMap<
+	pub type ErasRewardPointsByService<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		EraIndex,
 		Twox64Concat,
-		PointsKind,
+		ValidatorServiceKind,
 		EraRewardPoints<T>,
 		ValueQuery,
 	>;
@@ -1495,10 +1495,10 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
-		/// Points earned for `kind` were credited to `era`. `credited` entries were exposed in
+		/// Points earned for `service` were credited to `era`. `credited` entries were exposed in
 		/// `era` and `dropped` entries were not.
 		ServicePointsCredited {
-			kind: PointsKind,
+			service: ValidatorServiceKind,
 			era: EraIndex,
 			credited: u32,
 			dropped: u32,
@@ -1728,8 +1728,8 @@ pub mod pallet {
 				},
 				PruningStep::ErasRewardPoints => {
 					ErasRewardPoints::<T>::remove(era);
-					// At most one entry per `PointsKind`.
-					let _ = ErasRewardPointsByKind::<T>::clear_prefix(era, u32::MAX, None);
+					// At most one entry per `ValidatorServiceKind`.
+					let _ = ErasRewardPointsByService::<T>::clear_prefix(era, u32::MAX, None);
 					EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 					T::WeightInfo::prune_era_reward_points()
 				},

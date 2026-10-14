@@ -21,7 +21,7 @@ pallet-identity = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking-async = { workspace = true }
-pallet-staking-async-system-chain-client = { workspace = true }
+pallet-staking-async-points-converter = { workspace = true }
 pallet-validator-collators = { workspace = true }
 pallet-validator-set-announcer = { workspace = true }
 pallet-xcm = { workspace = true }

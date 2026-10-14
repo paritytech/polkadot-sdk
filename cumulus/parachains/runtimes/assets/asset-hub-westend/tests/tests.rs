@@ -3895,14 +3895,14 @@ fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 
 #[test]
 fn full_report_of_authored_blocks_fits_the_message_queue_and_the_block() {
-	use asset_hub_westend_runtime::{MessageQueueServiceWeight, StakingSystemChainClient};
+	use asset_hub_westend_runtime::{MessageQueueServiceWeight, StakingPointsConverter};
 	use frame_support::traits::Get;
 	use pallet_validator_collators::{Config, WeightInfo};
 	use testnet_parachains_constants::westend::staking::MAX_ENTRIES_PER_REPORT;
 	type MaxValidators = <Runtime as Config>::MaxValidators;
 	// GIVEN the largest report a system chain sends over XCM, all credited. The XCM instructions
 	// around the call weigh little next to the credit and are left out.
-	let message = StakingSystemChainClient::report_authored_blocks_weight(MAX_ENTRIES_PER_REPORT);
+	let message = StakingPointsConverter::report_authored_blocks_weight(MAX_ENTRIES_PER_REPORT);
 	// WHEN it is processed from the message queue
 	// THEN it fits the service weight, so it is not set aside as overweight
 	assert!(
@@ -3940,7 +3940,7 @@ fn expected_era_duration_matches_the_staking_era() {
 
 #[test]
 fn own_blocks_are_credited_to_staking_under_this_chain_id() {
-	use asset_hub_westend_runtime::{ParachainInfo, StakingSystemChainClient, ValidatorCollators};
+	use asset_hub_westend_runtime::{ParachainInfo, StakingPointsConverter, ValidatorCollators};
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
 		let alice = AccountId::from(ALICE);
 		let bob = AccountId::from(BOB);
@@ -3956,10 +3956,10 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 			&alice,
 			pallet_staking_async::Exposure { total: 1, own: 1, others: vec![] },
 		);
-		assert_ok!(StakingSystemChainClient::set_points_per_unit(
+		assert_ok!(StakingPointsConverter::set_points_per_service(
 			RuntimeOrigin::root(),
 			own,
-			sp_staking::PointsKind::Collation,
+			sp_staking::ValidatorServiceKind::Collation,
 			5
 		));
 		assert_ok!(ValidatorCollators::receive_validator_set(1, [alice.clone(), bob.clone()]));
@@ -3983,9 +3983,9 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 			vec![(alice.clone(), 15)]
 		);
 		assert_eq!(
-			pallet_staking_async::ErasRewardPointsByKind::<Runtime>::get(
+			pallet_staking_async::ErasRewardPointsByService::<Runtime>::get(
 				1,
-				sp_staking::PointsKind::Collation
+				sp_staking::ValidatorServiceKind::Collation
 			)
 			.individual
 			.into_iter()
@@ -3996,15 +3996,15 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 			.into_iter()
 			.map(|r| r.event)
 			.collect::<Vec<_>>();
-		assert!(events.contains(&RuntimeEvent::StakingSystemChainClient(
-			pallet_staking_async_system_chain_client::Event::BlocksCredited {
+		assert!(events.contains(&RuntimeEvent::StakingPointsConverter(
+			pallet_staking_async_points_converter::Event::BlocksCredited {
 				source: own,
 				entries: 1
 			}
 		)));
 		assert!(events.contains(&RuntimeEvent::Staking(
 			pallet_staking_async::Event::ServicePointsCredited {
-				kind: sp_staking::PointsKind::Collation,
+				service: sp_staking::ValidatorServiceKind::Collation,
 				era: 1,
 				credited: 1,
 				dropped: 0

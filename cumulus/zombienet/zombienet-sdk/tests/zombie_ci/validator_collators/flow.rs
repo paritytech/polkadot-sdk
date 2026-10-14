@@ -341,7 +341,7 @@ fn is_set_of_era_1_with_two_validators(fields: &Composite<u32>) -> bool {
 /// validator exposed in the active era.
 ///
 /// Staking reports `ServicePointsCredited` for every credit, just before
-/// `StakingSystemChainClient` reports the source in `BlocksCredited`.
+/// `StakingPointsConverter` reports the source in `BlocksCredited`.
 async fn wait_for_credits_from_both_chains(
 	client: &OnlineClient<PolkadotConfig>,
 ) -> Result<(), anyhow::Error> {
@@ -361,7 +361,7 @@ async fn wait_for_credits_from_both_chains(
 							.and_then(|credited| credited.as_u128())
 							.unwrap_or(0);
 					},
-					("StakingSystemChainClient", "BlocksCredited") => {
+					("StakingPointsConverter", "BlocksCredited") => {
 						let fields = event.field_values()?;
 						if let Some(source) = credit_source(&fields).filter(|_| credited > 0) {
 							log::info!(

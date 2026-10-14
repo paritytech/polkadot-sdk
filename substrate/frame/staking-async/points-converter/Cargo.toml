@@ -1,10 +1,10 @@
 [package]
 authors.workspace = true
-description = "The client for system chains, intended to be used in AssetHub. Credits the blocks validators author on system chains as era points."
+description = "Converts reported units of a validator service into era points, intended to be used in Asset Hub."
 edition.workspace = true
 homepage.workspace = true
 license = "Apache-2.0"
-name = "pallet-staking-async-system-chain-client"
+name = "pallet-staking-async-points-converter"
 repository.workspace = true
 version = "0.1.0"
 

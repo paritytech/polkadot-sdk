@@ -52,9 +52,9 @@ use sp_runtime::{
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	EraIndex, OnStakingUpdate, Page, PointsKind, SessionIndex, Stake, StakerRewardCalculator,
+	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake, StakerRewardCalculator,
 	StakingAccount::{self, Controller, Stash},
-	StakingInterface,
+	StakingInterface, ValidatorServiceKind,
 };
 
 use super::pallet::*;
@@ -835,27 +835,27 @@ impl<T: Config> Pallet<T> {
 
 	#[cfg(test)]
 	pub(crate) fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
-		Eras::<T>::reward_active_era(PointsKind::Validation, validators_points)
+		Eras::<T>::reward_active_era(ValidatorServiceKind::RelayConsensus, validators_points)
 	}
 
-	/// Credit `points` earned for `kind`, a service other than relay chain validation, to the
+	/// Credit `points` earned for `service`, a service other than relay chain consensus, to the
 	/// active era.
 	///
 	/// Accounts not exposed in the active era are dropped, since their points would count in the
 	/// era's total without a claimable share. Without an active era nothing is credited and no
 	/// event is emitted. An account listed more than once is credited for every entry.
-	/// [`PointsKind::Validation`] is refused: those points arrive with the relay chain session
-	/// report.
+	/// [`ValidatorServiceKind::RelayConsensus`] is refused: those points arrive with the relay
+	/// chain session report.
 	pub fn reward_service_points(
-		kind: PointsKind,
+		service: ValidatorServiceKind,
 		points: impl IntoIterator<Item = (T::AccountId, RewardPoint)>,
 	) {
-		if kind == PointsKind::Validation {
-			defensive!("validation points come only from the relay chain session report");
+		if service == ValidatorServiceKind::RelayConsensus {
+			defensive!("relay consensus points come only from the relay chain session report");
 			return;
 		}
 		let Some(era) = ActiveEra::<T>::get().map(|active| active.index) else {
-			log!(warn, "no active era, dropping {:?} points", kind);
+			log!(warn, "no active era, dropping {:?} points", service);
 			return;
 		};
 		let (exposed, dropped): (Vec<_>, Vec<_>) = points
@@ -863,10 +863,10 @@ impl<T: Config> Pallet<T> {
 			.partition(|(who, _)| Eras::<T>::was_validator_exposed(era, who));
 		let credited = exposed.len() as u32;
 		if credited > 0 {
-			Eras::<T>::reward_active_era(kind, exposed);
+			Eras::<T>::reward_active_era(service, exposed);
 		}
 		Self::deposit_event(Event::<T>::ServicePointsCredited {
-			kind,
+			service,
 			era,
 			credited,
 			dropped: dropped.len() as u32,
@@ -1434,8 +1434,8 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 }
 
 impl<T: Config> sp_staking::RewardPoints<T::AccountId> for Pallet<T> {
-	fn reward(kind: PointsKind, points: Vec<(T::AccountId, RewardPoint)>) {
-		Self::reward_service_points(kind, points);
+	fn reward(service: ValidatorServiceKind, points: Vec<(T::AccountId, RewardPoint)>) {
+		Self::reward_service_points(service, points);
 	}
 
 	fn weight(entries: u32) -> Weight {
@@ -1468,7 +1468,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 
 		let validator_count = validator_points.len() as u32;
 		// note: weight for `reward_active_era` is taken care of inside `end_session`
-		Eras::<T>::reward_active_era(PointsKind::Validation, validator_points.into_iter());
+		Eras::<T>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			validator_points.into_iter(),
+		);
 		session_rotation::Rotator::<T>::end_session(
 			end_index,
 			activation_timestamp,

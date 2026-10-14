@@ -21,7 +21,7 @@ use parachains_common::{AccountId, AuraId};
 use sp_externalities::ExternalitiesExt;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
-use sp_staking::PointsKind;
+use sp_staking::ValidatorServiceKind;
 use westend_system_emulated_network::asset_hub_westend_emulated_chain::asset_hub_westend_runtime;
 
 fn use_memory_keystore() {
@@ -257,10 +257,10 @@ fn people_reports_authored_blocks_to_asset_hub() {
 			&alice,
 			pallet_staking_async::Exposure { total: 1, own: 1, others: vec![] },
 		);
-		assert_ok!(pallet_staking_async_system_chain_client::Pallet::<AssetHubRuntime>::set_points_per_unit(
+		assert_ok!(pallet_staking_async_points_converter::Pallet::<AssetHubRuntime>::set_points_per_service(
 			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
 			people,
-			PointsKind::Collation,
+			ValidatorServiceKind::Collation,
 			5,
 		));
 	});
@@ -309,19 +309,19 @@ fn people_reports_authored_blocks_to_asset_hub() {
 		assert_eq!(pallet_validator_collators::AuthoredBlocks::<PeopleRuntime>::count(), 0);
 	});
 
-	// THEN Asset Hub credits Alice's blocks with People's points per unit, drops Bob's and credits
-	// nobody else
+	// THEN Asset Hub credits Alice's blocks with People's points per service, drops Bob's and
+	// credits nobody else
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
-				RuntimeEvent::StakingSystemChainClient(
-					pallet_staking_async_system_chain_client::Event::BlocksCredited { source, entries: 2 }
+				RuntimeEvent::StakingPointsConverter(
+					pallet_staking_async_points_converter::Event::BlocksCredited { source, entries: 2 }
 				) => { source: *source == people, },
 				RuntimeEvent::Staking(
 					pallet_staking_async::Event::ServicePointsCredited {
-						kind: PointsKind::Collation,
+						service: ValidatorServiceKind::Collation,
 						era: 1,
 						credited: 1,
 						dropped: 1,
@@ -333,13 +333,13 @@ fn people_reports_authored_blocks_to_asset_hub() {
 		assert_eq!(points.individual.into_iter().collect::<Vec<_>>(), vec![(alice.clone(), 15)]);
 		assert_eq!(points.total, 15);
 		// AND they are recorded as collation points only
-		let by_kind = |kind| {
+		let by_service = |service| {
 			let points =
-				pallet_staking_async::ErasRewardPointsByKind::<AssetHubRuntime>::get(1, kind);
+				pallet_staking_async::ErasRewardPointsByService::<AssetHubRuntime>::get(1, service);
 			(points.total, points.individual.into_iter().collect::<Vec<_>>())
 		};
-		assert_eq!(by_kind(PointsKind::Collation), (15, vec![(alice, 15)]));
-		assert_eq!(by_kind(PointsKind::Validation), (0, vec![]));
+		assert_eq!(by_service(ValidatorServiceKind::Collation), (15, vec![(alice, 15)]));
+		assert_eq!(by_service(ValidatorServiceKind::RelayConsensus), (0, vec![]));
 	});
 }
 
@@ -359,13 +359,11 @@ fn people_report_call_decodes_on_asset_hub() {
 	let encoded = people_westend_runtime::ReportBlocksToAssetHub::encoded_call(&blocks);
 	// WHEN Asset Hub decodes it
 	let call = <asset_hub_westend_runtime::RuntimeCall as codec::Decode>::decode(&mut &encoded[..]);
-	// THEN it is `report_authored_blocks` of `pallet-staking-async-system-chain-client` with the
+	// THEN it is `report_authored_blocks` of `pallet-staking-async-points-converter` with the
 	// same entries
 	match call {
-		Ok(asset_hub_westend_runtime::RuntimeCall::StakingSystemChainClient(
-			pallet_staking_async_system_chain_client::Call::report_authored_blocks {
-				blocks: decoded,
-			},
+		Ok(asset_hub_westend_runtime::RuntimeCall::StakingPointsConverter(
+			pallet_staking_async_points_converter::Call::report_authored_blocks { blocks: decoded },
 		)) => assert_eq!(decoded, blocks),
 		other => panic!("People's report decodes on Asset Hub as {other:?}"),
 	}
