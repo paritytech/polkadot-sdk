@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791968607495,
+  "lastUpdate": 1791972486301,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "996adb4757eee544ad30e919ea31bc54f442db54",
-          "message": "Fix links (#11554)",
-          "timestamp": "2026-04-05T01:52:39Z",
-          "tree_id": "ec9f1f13ffc6249c5cb7b4040164b0bd5855f17b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/996adb4757eee544ad30e919ea31bc54f442db54"
-        },
-        "date": 1775359232914,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023877621566666663,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007027501253333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14312733959333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009660580693333315,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14605377264000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "69a43afcb6de792708f8f73a021780f67780b981",
+          "message": "Backport version bumps and prdocs reordering from stable2609 (#13468)\n\nThis PR backports regular version bumps and prdocs reordering after\nrelease from stable branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
+          "timestamp": "2026-10-14T08:33:36Z",
+          "tree_id": "b48e2deaf72e60630f6aeca03f369e7da2c4c261",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/69a43afcb6de792708f8f73a021780f67780b981"
+        },
+        "date": 1791972455431,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025230139799999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14630655810000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007727519640000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009920763893333313,
             "unit": "seconds"
           }
         ]
