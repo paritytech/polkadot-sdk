@@ -712,6 +712,7 @@ impl Client {
 		eth_block: Option<BlockV1>,
 		subscription_type: SubscriptionType,
 	) {
+		let hash = block.block_hash();
 		let Some(latest_block) =
 			self.block_provider.update_latest(Arc::new(block), subscription_type).await
 		else {
@@ -722,7 +723,6 @@ impl Client {
 			return;
 		}
 
-		let hash = block.block_hash();
 		let eth_block = match eth_block {
 			Some(eth_block) if latest_block.block_hash() == hash => Some(eth_block),
 			_ => self.evm_block(latest_block, false).await,
