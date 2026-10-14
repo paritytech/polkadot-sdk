@@ -20,7 +20,8 @@ doc:
     `MaxReportMargin`. The runtime adds the pallet to the `EventHandler` of `pallet-authorship`.
 
     New `pallet-staking-async-points-converter`, for Asset Hub, converts the reported counts into
-    era points using `PointsPerService`, set by governance.
+    era points using `PointsPerService`, set by governance. A count is credited up to
+    `MaxBlocksPerEntry`.
 crates:
 - name: sp-staking
   bump: minor
