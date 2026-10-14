@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791977791603,
+  "lastUpdate": 1792013052335,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -239807,6 +239807,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2503602990,
             "range": "± 56275474",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3de1a0ebc8d3c57156f020764a61667080f577d3",
+          "message": "[AHMv2] Abstracts away HRMP deposits into a Deposit Provider impl. Paves way for remote deposits later (on CT) (#13475)\n\n# Context\nAbstracting out the deposit provider from the HRMP pallet. No-op almost\nexcept couple of extra events. See `Functional Change`.\n\nThe followup PR will implement an async (deposit on CT, management on\nRC) implementation of the deposit provider. Makes it easier for relay to\nlive a token less life.\n\n## Review Note\nBasically just 2 files to review\n- `polkadot/runtime/parachains/src/hrmp/deposits.rs`: Contains all the\nnew traits (`ChannelDepositProvider` and the callback trait) and\nin-pallet impl/callbacks + weights etc. All of new code is just here.\n- `polkadot/runtime/parachains/src/hrmp.rs`: Only really deletes of\ndeposit code (except very small changes) which is outsourced to\ndeposits.rs. Should be <del>absolutely</del> almost (two cases that\ndidn't emit event before will emit now) no-op, not challenging the\nstatus quo.\n\n### Functional change:\n`OpenChannelRequested`, `OpenChannelAccepted` and\n`OpenChannelDepositsUpdated` are now emitted as part of a common\nfunction invoked when call completes. As a result\n`force_open_hrmp_channel`, `establish_system_channel` and\n`establish_channel_with_system` now also emit `OpenChannelRequested` and\n`OpenChannelAccepted`.\n\n## TODO \n- [ ] Security Audit for the PR\n- [ ] (followup) hrmp-primitives are for wire types, should contain\ncontract between hrmp_para and hrmp_relay, not for contract between hrmp\nand hrmp_relay.\n\n---------\n\nCo-authored-by: cirko33 <luka.ciric2106@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-14T19:45:35Z",
+          "tree_id": "0ca5495cde2173f2db2915a20b2e42af70a61123",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3de1a0ebc8d3c57156f020764a61667080f577d3"
+        },
+        "date": 1792013021806,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4764373,
+            "range": "± 71128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 298764,
+            "range": "± 2770",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4900283,
+            "range": "± 48567",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 368011,
+            "range": "± 2743",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5729349,
+            "range": "± 33005",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 898142,
+            "range": "± 9895",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11002122,
+            "range": "± 59964",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4872380,
+            "range": "± 24316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 43527139,
+            "range": "± 504085",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38418506,
+            "range": "± 100231",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 372788706,
+            "range": "± 3191918",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 306557823,
+            "range": "± 1907611",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2652011207,
+            "range": "± 17319507",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2367934710,
+            "range": "± 22515633",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3569463,
+            "range": "± 37337",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1911183,
+            "range": "± 18671",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3743301,
+            "range": "± 36100",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1996458,
+            "range": "± 9841",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4159425,
+            "range": "± 37529",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2329621,
+            "range": "± 7975",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8182807,
+            "range": "± 80425",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5416171,
+            "range": "± 25693",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 39097173,
+            "range": "± 309927",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37351179,
+            "range": "± 699662",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 321091629,
+            "range": "± 1992523",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 279625070,
+            "range": "± 1441333",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2476250312,
+            "range": "± 5606959",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2457644522,
+            "range": "± 93323960",
             "unit": "ns/iter"
           }
         ]
