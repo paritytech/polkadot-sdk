@@ -1317,7 +1317,7 @@ pub mod pallet {
 				let cold_slot_read =
 					<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::GetStorage {
 						len: 0,
-						kind: StorageAccessKind::persistent_cold(),
+						kind: StorageAccessKind::new_persistent_cold(),
 					});
 				let max_slot_entries = max_block_weight
 					.proof_size()
@@ -1356,7 +1356,7 @@ pub mod pallet {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
 						kind: StorageAccessKind::Persistent(StorageItems::summarize_single(
-							Warmth::cold_revertible(),
+							Warmth::new_cold_revertible(),
 							StorageOp::Write,
 						)),
 					})
@@ -2149,7 +2149,7 @@ impl<T: Config> Pallet<T> {
 					let executable = ContractBlob::from_storage_with_warmth(
 						code_hash,
 						&mut transaction_meter,
-						Summarized::all_cold(CodeLoadItems::with_info_op(
+						Summarized::new_all_cold(CodeLoadItems::with_info_op(
 							code_hash,
 							StorageOp::Write,
 						)),
