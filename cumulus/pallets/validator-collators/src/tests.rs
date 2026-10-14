@@ -1425,6 +1425,21 @@ fn under_a_cap_only_drawn_validators_are_judged_and_the_draw_skips_dropped_ones(
 		assert_eq!(dropped(), vec![]);
 		assert_eq!(activity(a), None);
 		assert!(!queued().contains(&a));
+
+		// WHEN a set of a alone arrives at block 32, so the next draw returns it
+		initialize_to_block(32);
+		assert_ok!(receive(3, vec![a]));
+		initialize_to_block(33);
+		// THEN it starts queued, and its window starts at the enactment instead of its last drop
+		assert_eq!(drawn(), vec![a]);
+		assert_eq!(activity(a), Some(Activity::Queued));
+		initialize_to_block(34);
+		assert_eq!(activity(a), active(34, 0));
+		initialize_to_block(40);
+		assert_eq!(dropped(), vec![]);
+		// AND it is judged a full window after the enactment
+		initialize_to_block(50);
+		assert_eq!(dropped(), vec![(a, planned_index() + 3)]);
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
@@ -1588,6 +1603,18 @@ fn activity_entries_follow_the_returned_list() {
 		assert_eq!(dropped().into_iter().map(|(v, _)| v).collect::<Vec<_>>(), vec![b]);
 		assert_eq!(drawn().len(), 2);
 		assert!(!drawn().contains(&b));
+		assert_ok!(ValidatorCollators::do_try_state());
+
+		// WHEN a set of a and b arrives at block 25, while the drop of a would still run
+		initialize_to_block(25);
+		assert_ok!(receive(3, vec![a, b]));
+		initialize_to_block(26);
+		// THEN a is drawn and starts queued, as a validator returned for the first time
+		assert_eq!(drawn(), vec![a]);
+		assert_eq!(activity(a), Some(Activity::Queued));
+		assert_eq!(dropped().into_iter().map(|(v, _)| v).collect::<Vec<_>>(), vec![b]);
+		initialize_to_block(27);
+		assert_eq!(activity(a), active(27, 0));
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
