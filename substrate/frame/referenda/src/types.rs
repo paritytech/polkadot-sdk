@@ -78,25 +78,39 @@ pub type ScheduleAddressOf<T, I> = <<T as Config<I>>::Scheduler as Anon<
 /// A referendum index.
 pub type ReferendumIndex = u32;
 
+/// What happened when an item went into a sorted bounded series.
+pub enum SortedInsertOutcome<T> {
+	/// The item is in the series. Nothing came out.
+	Inserted,
+	/// The item is in the series. The lowest item came out to make room.
+	Evicted(T),
+	/// The item is not in the series: it would sort beyond the bound.
+	Rejected,
+}
+
 pub trait InsertSorted<T> {
 	/// Inserts an item into a sorted series.
 	///
-	/// Returns `true` if it was inserted, `false` if it would belong beyond the bound of the
-	/// series.
+	/// The caller must handle [`SortedInsertOutcome::Evicted`]: the removed item is
+	/// returned here and nowhere else.
 	fn insert_sorted_by_key<F: FnMut(&T) -> K, K: PartialOrd<K> + Ord>(
 		&mut self,
 		t: T,
 		f: F,
-	) -> bool;
+	) -> SortedInsertOutcome<T>;
 }
 impl<T: Ord, S: Get<u32>> InsertSorted<T> for BoundedVec<T, S> {
 	fn insert_sorted_by_key<F: FnMut(&T) -> K, K: PartialOrd<K> + Ord>(
 		&mut self,
 		t: T,
 		mut f: F,
-	) -> bool {
+	) -> SortedInsertOutcome<T> {
 		let index = self.binary_search_by_key::<K, F>(&f(&t), f).unwrap_or_else(|x| x);
-		self.force_insert_keep_right(index, t).is_ok()
+		match self.force_insert_keep_right(index, t) {
+			Ok(None) => SortedInsertOutcome::Inserted,
+			Ok(Some(evicted)) => SortedInsertOutcome::Evicted(evicted),
+			Err(_) => SortedInsertOutcome::Rejected,
+		}
 	}
 }
 
@@ -699,29 +713,30 @@ mod tests {
 
 	#[test]
 	fn insert_sorted_works() {
+		use SortedInsertOutcome::*;
 		let mut b: BoundedVec<u32, ConstU32<6>> = vec![20, 30, 40].try_into().unwrap();
-		assert!(b.insert_sorted_by_key(10, |&x| x));
+		assert!(matches!(b.insert_sorted_by_key(10, |&x| x), Inserted));
 		assert_eq!(&b[..], &[10, 20, 30, 40][..]);
 
-		assert!(b.insert_sorted_by_key(60, |&x| x));
+		assert!(matches!(b.insert_sorted_by_key(60, |&x| x), Inserted));
 		assert_eq!(&b[..], &[10, 20, 30, 40, 60][..]);
 
-		assert!(b.insert_sorted_by_key(50, |&x| x));
+		assert!(matches!(b.insert_sorted_by_key(50, |&x| x), Inserted));
 		assert_eq!(&b[..], &[10, 20, 30, 40, 50, 60][..]);
 
-		assert!(!b.insert_sorted_by_key(9, |&x| x));
+		assert!(matches!(b.insert_sorted_by_key(9, |&x| x), Rejected));
 		assert_eq!(&b[..], &[10, 20, 30, 40, 50, 60][..]);
 
-		assert!(b.insert_sorted_by_key(11, |&x| x));
+		assert!(matches!(b.insert_sorted_by_key(11, |&x| x), Evicted(10)));
 		assert_eq!(&b[..], &[11, 20, 30, 40, 50, 60][..]);
 
-		assert!(b.insert_sorted_by_key(21, |&x| x));
+		assert!(matches!(b.insert_sorted_by_key(21, |&x| x), Evicted(11)));
 		assert_eq!(&b[..], &[20, 21, 30, 40, 50, 60][..]);
 
-		assert!(b.insert_sorted_by_key(61, |&x| x));
+		assert!(matches!(b.insert_sorted_by_key(61, |&x| x), Evicted(20)));
 		assert_eq!(&b[..], &[21, 30, 40, 50, 60, 61][..]);
 
-		assert!(b.insert_sorted_by_key(51, |&x| x));
+		assert!(matches!(b.insert_sorted_by_key(51, |&x| x), Evicted(21)));
 		assert_eq!(&b[..], &[30, 40, 50, 51, 60, 61][..]);
 	}
 

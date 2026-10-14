@@ -806,3 +806,174 @@ fn kill_queued_referendum_does_not_desync_deciding_count() {
 		);
 	});
 }
+
+/// A referendum that does not fit its track's full queue must not strand.
+///
+/// Before the fix, `ready_for_deciding` set `in_queue` even when the insert was rejected.
+/// The flag blocks the undeciding timeout, the referendum has no queue entry to pop and no
+/// alarm, so no code path ever touches it again.
+///
+/// With the fix, the flag stays unset and a wake-up is set at the undeciding timeout. The
+/// outcome of that wake-up depends on the queue at that block: if a place has freed, the
+/// referendum queues or begins deciding; if the queue is still full, it times out. Every
+/// resolved outcome is correct, so the test rejects only the stranded state: ongoing, not
+/// deciding, no queue entry, no alarm.
+///
+/// Out of scope: a queued referendum that a stronger one evicts from a full queue strands
+/// the same way and is not covered by the fix or by this test.
+#[test]
+fn referendum_rejected_from_a_full_queue_does_not_strand() {
+	ExtBuilder::default().build_and_execute(|| {
+		// One deciding place on track 0 and MaxQueued == 3. Five referenda: 0 takes the
+		// deciding place, 1..=3 fill the queue with positive support, and 4, with zero
+		// support, does not make the cut.
+		for i in 0..5u64 {
+			assert_ok!(Referenda::submit(
+				RuntimeOrigin::signed(i + 1),
+				Box::new(RawOrigin::Root.into()),
+				set_balance_proposal_bounded(i + 1),
+				DispatchTime::At(100),
+			));
+		}
+		set_tally(1, 10, 0);
+		set_tally(2, 20, 0);
+		set_tally(3, 30, 0);
+		// Deposits after the tallies: placing a deposit re-creates the alarm, so the
+		// service order at the prepare-period end is the submission order, and 4 meets
+		// a queue that is already full.
+		for i in 0..5u32 {
+			assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(6), i));
+		}
+
+		run_to(5);
+
+		assert_eq!(DecidingCount::<Test>::get(0u8), 1);
+		let queue = TrackQueue::<Test>::get(0u8);
+		assert_eq!(queue.len(), 3);
+		assert!(queue.iter().all(|(idx, _)| *idx != 4), "4 must not fit the full queue");
+
+		// Referendum 4 must not carry the queued flag it would never lose: the flag
+		// blocks the undeciding timeout, and nothing pops an entry that is not there.
+		let status = match ReferendumInfoFor::<Test>::get(4) {
+			Some(ReferendumInfo::Ongoing(status)) => status,
+			other => panic!("referendum 4 must still be ongoing, got {:?}", other),
+		};
+		assert!(!status.in_queue, "a rejected insertion must not set in_queue");
+		assert!(status.alarm.is_some(), "a wake-up must exist for the timeout");
+
+		// The wake-up at the undeciding timeout (block 21) must resolve the referendum:
+		// it re-queues or decides when a place has freed, or it times out. It must not
+		// stay ongoing with no queue entry and no alarm, which nothing would ever touch.
+		run_to(23);
+		match ReferendumInfoFor::<Test>::get(4) {
+			Some(ReferendumInfo::TimedOut(..)) => (),
+			Some(ReferendumInfo::Approved(..)) | Some(ReferendumInfo::Rejected(..)) => (),
+			Some(ReferendumInfo::Ongoing(status)) => {
+				let queued = status.in_queue &&
+					TrackQueue::<Test>::get(0u8).iter().any(|(idx, _)| *idx == 4);
+				assert!(
+					status.deciding.is_some() || queued || status.alarm.is_some(),
+					"referendum 4 is stranded: not deciding, not queued, no alarm"
+				);
+			},
+			other => panic!("unexpected state for referendum 4: {:?}", other),
+		}
+	});
+}
+
+/// A referendum that a stronger one evicts from a full track queue must not strand.
+///
+/// `force_insert_keep_right` on a full queue removes the weakest entry and returns it. The
+/// two insertion sites used to drop that return value, so the evicted referendum kept
+/// `in_queue = true` with no queue entry and no alarm: the second door into the stranded
+/// state, next to the rejected-insert door above. The fix clears the flag and sets a
+/// wake-up at the undeciding timeout, clamped to the next block when that lies in the past.
+#[test]
+fn referendum_evicted_from_a_full_queue_does_not_strand() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Deposits before the tallies: `set_tally` re-creates the alarms of 1..=3, so at
+		// the prepare-period end the zero-support referendum 4 queues first, and 3, the
+		// strongest, meets a full queue and evicts it.
+		for i in 0..5u64 {
+			assert_ok!(Referenda::submit(
+				RuntimeOrigin::signed(i + 1),
+				Box::new(RawOrigin::Root.into()),
+				set_balance_proposal_bounded(i + 1),
+				DispatchTime::At(100),
+			));
+			assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(6), i as u32));
+		}
+		set_tally(1, 10, 0);
+		set_tally(2, 20, 0);
+		set_tally(3, 30, 0);
+
+		run_to(5);
+
+		let queue = TrackQueue::<Test>::get(0u8);
+		assert_eq!(queue.len(), 3);
+		assert!(queue.iter().all(|(idx, _)| *idx != 4), "4 was evicted by 3");
+
+		let status = match ReferendumInfoFor::<Test>::get(4) {
+			Some(ReferendumInfo::Ongoing(status)) => status,
+			other => panic!("referendum 4 must still be ongoing, got {:?}", other),
+		};
+		assert!(!status.in_queue, "eviction must clear in_queue");
+		assert!(status.alarm.is_some(), "eviction must leave a wake-up");
+
+		run_to(23);
+		match ReferendumInfoFor::<Test>::get(4) {
+			Some(ReferendumInfo::TimedOut(..)) |
+			Some(ReferendumInfo::Approved(..)) |
+			Some(ReferendumInfo::Rejected(..)) => (),
+			Some(ReferendumInfo::Ongoing(status)) => {
+				let queued = status.in_queue &&
+					TrackQueue::<Test>::get(0u8).iter().any(|(idx, _)| *idx == 4);
+				assert!(
+					status.deciding.is_some() || queued || status.alarm.is_some(),
+					"referendum 4 is stranded: not deciding, not queued, no alarm"
+				);
+			},
+			other => panic!("unexpected state for referendum 4: {:?}", other),
+		}
+	});
+}
+
+/// The requeue arm has the same eviction: a nudged referendum that re-enters a full queue
+/// pushes the weakest entry out. The victim must get the same care.
+#[test]
+fn requeue_eviction_does_not_strand_the_victim() {
+	ExtBuilder::default().build_and_execute(|| {
+		for i in 0..5u64 {
+			assert_ok!(Referenda::submit(
+				RuntimeOrigin::signed(i + 1),
+				Box::new(RawOrigin::Root.into()),
+				set_balance_proposal_bounded(i + 1),
+				DispatchTime::At(100),
+			));
+		}
+		set_tally(1, 10, 0);
+		set_tally(2, 20, 0);
+		set_tally(3, 30, 0);
+		for i in 0..5u32 {
+			assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(6), i));
+		}
+		run_to(5);
+		// 0 decides; 1..=3 fill the queue; 4 was rejected and carries a wake-up.
+		assert_eq!(TrackQueue::<Test>::get(0u8).len(), 3);
+
+		// Give 4 more support than the weakest entry and nudge it through the requeue arm.
+		set_tally(4, 15, 0);
+		assert_ok!(Referenda::nudge_referendum(RuntimeOrigin::root(), 4));
+
+		let queue = TrackQueue::<Test>::get(0u8);
+		assert!(queue.iter().any(|(idx, _)| *idx == 4), "4 must have re-entered");
+		assert!(queue.iter().all(|(idx, _)| *idx != 1), "1, the weakest, was evicted");
+
+		let status = match ReferendumInfoFor::<Test>::get(1) {
+			Some(ReferendumInfo::Ongoing(status)) => status,
+			other => panic!("referendum 1 must still be ongoing, got {:?}", other),
+		};
+		assert!(!status.in_queue, "the evicted victim must not keep the queued flag");
+		assert!(status.alarm.is_some(), "the evicted victim must have a wake-up");
+	});
+}
