@@ -817,8 +817,8 @@ Due timeslots are kept only in `pending_assign_cores`, so Accumulate reads a cor
 `pending_assigns` entry only when that core is due.
 
 - If the call succeeds, the core is dropped from both maps. The exception is a core that
-  stays assigned to this service and whose queue needs rewriting every 80 blocks (§7.1). It
-  is re-armed 80 blocks out with its rotation advanced.
+  stays assigned to this service and whose queue needs rewriting every 80 timeslots (§7.1). It
+  is re-armed 80 timeslots out with its rotation advanced.
 - If JAM rejects it because this service is no longer the core's assigner, the core is
   dropped from both maps and `AccumulateLog::CoreNotAssignable` is recorded in the
   Coretime chain's log.
