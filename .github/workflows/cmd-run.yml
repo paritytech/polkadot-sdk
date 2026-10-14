@@ -230,25 +230,25 @@ jobs:
 
       - name: Upload command output
         if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: command-output
           path: /tmp/cmd/command_output.log
 
       - name: Upload command diff
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: command-diff
           path: /tmp/cmd/command_diff.patch
 
       - name: Upload git status
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: git-status
           path: /tmp/cmd/git_status.log
 
       - name: Upload git diff
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: git-diff
           path: /tmp/cmd/git_diff.log
@@ -304,7 +304,7 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Upload Subweight
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: startsWith(github.event.inputs.cmd, 'bench')
         with:
           name: subweight
@@ -334,14 +334,14 @@ jobs:
           ref: ${{ env.PR_BRANCH }}
 
       - name: Download command-diff artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: command-diff
           path: command-diff
 
       - name: Download command-output artifact
         if: startsWith(github.event.inputs.cmd, 'label')
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: command-output
           path: command-output
