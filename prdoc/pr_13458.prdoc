@@ -3,7 +3,9 @@ doc:
 - audience: Node Dev
   description: |-
     With the v2 DHT path on, the statement set reserves only the peers that steering picks, every
-    other peer holds an inbound slot and the protocol controller dials no peer of its own. The set
+    other peer holds an inbound slot and the protocol controller dials no peer of its own. Steering
+    keeps up to `replication_factor` routing peers reserved besides the peers covering the node's
+    topics: the nearest peer of every distance bucket, then the nearest peers overall. The set
     gets the node's light allowance on top of its inbound slots and the handler splits them by
     role, so a light peer is admitted while the full slots are taken. The full slots come from the
     new `--statement-in-peers` flag, 50 by default. `StatementHandlerPrototype::new` takes the
