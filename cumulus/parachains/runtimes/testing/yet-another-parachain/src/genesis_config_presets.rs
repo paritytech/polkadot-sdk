@@ -30,7 +30,7 @@ const ENDOWMENT: u128 = 1 << 60;
 
 fn yap_parachain_genesis(
 	root_key: AccountId,
-	invulnerables: Vec<(AccountId, AuraId)>,
+	invulnerables: Vec<(AccountId, AuraId, AuthorityDiscoveryId)>,
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
 	id: ParaId,
@@ -41,15 +41,13 @@ fn yap_parachain_genesis(
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+			invulnerables: invulnerables.iter().cloned().map(|(acc, _, _)| acc).collect(),
 			candidacy_bond: ExistentialDeposit::get() * 16,
 		},
 		session: SessionConfig {
 			keys: invulnerables
 				.into_iter()
-				.map(|(acc, aura)| {
-					let authority_discovery =
-						parachains_common::authority_discovery_id_from_aura(aura.clone());
+				.map(|(acc, aura, authority_discovery)| {
 					(acc.clone(), acc, SessionKeys { aura, authority_discovery })
 				})
 				.collect(),
@@ -75,10 +73,19 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		sp_genesis_builder::DEV_RUNTIME_PRESET => genesis_fn(vec![(
 			Sr25519Keyring::Alice.to_account_id(),
 			Sr25519Keyring::Alice.public().into(),
+			Sr25519Keyring::Alice.public().into(),
 		)]),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => genesis_fn(vec![
-			(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-			(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
+			(
+				Sr25519Keyring::Alice.to_account_id(),
+				Sr25519Keyring::Alice.public().into(),
+				Sr25519Keyring::Alice.public().into(),
+			),
+			(
+				Sr25519Keyring::Bob.to_account_id(),
+				Sr25519Keyring::Bob.public().into(),
+				Sr25519Keyring::Bob.public().into(),
+			),
 		]),
 		_ => return None,
 	};

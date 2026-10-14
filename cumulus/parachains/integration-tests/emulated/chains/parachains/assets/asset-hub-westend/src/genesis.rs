@@ -69,16 +69,18 @@ pub fn genesis() -> Storage {
 			..Default::default()
 		},
 		collator_selection: asset_hub_westend_runtime::CollatorSelectionConfig {
-			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, _)| acc).collect(),
+			invulnerables: collators::invulnerables()
+				.iter()
+				.cloned()
+				.map(|(acc, _, _)| acc)
+				.collect(),
 			candidacy_bond: ED * 16,
 			..Default::default()
 		},
 		session: asset_hub_westend_runtime::SessionConfig {
 			keys: collators::invulnerables()
 				.into_iter()
-				.map(|(acc, aura)| {
-					let authority_discovery =
-						parachains_common::authority_discovery_id_from_aura(aura.clone());
+				.map(|(acc, aura, authority_discovery)| {
 					(
 						acc.clone(), // account id
 						acc,         // validator id
