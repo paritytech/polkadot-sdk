@@ -148,7 +148,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">sc_client_api/</div>call_executor.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">sc_client_api/</div>call_executor.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a>// Copyright (C) Parity Technologies (UK) Ltd.
 <a href=#4 id=4 data-nosnippet>4</a>// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
@@ -173,7 +173,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#23 id=23 data-nosnippet>23</a><span class="kw">use </span>sp_externalities::Extensions;
 <a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, HashingFor};
 <a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>sp_state_machine::{OverlayedChanges, StorageProof};
-<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>std::cell::RefCell;
+<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>std::{cell::RefCell, time::Duration};
 <a href=#27 id=27 data-nosnippet>27</a>
 <a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span><span class="kw">crate</span>::execution_extensions::ExecutionExtensions;
 <a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>sp_api::ProofRecorder;
@@ -239,14 +239,17 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#89 id=89 data-nosnippet>89</a>
 <a href=#90 id=90 data-nosnippet>90</a>	<span class="doccomment">/// Prove the execution of the given `method`.
 <a href=#91 id=91 data-nosnippet>91</a>	///
-<a href=#92 id=92 data-nosnippet>92</a>	/// No changes are made.
-<a href=#93 id=93 data-nosnippet>93</a>	</span><span class="kw">fn </span>prove_execution(
-<a href=#94 id=94 data-nosnippet>94</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#95 id=95 data-nosnippet>95</a>		at_hash: B::Hash,
-<a href=#96 id=96 data-nosnippet>96</a>		method: <span class="kw-2">&amp;</span>str,
-<a href=#97 id=97 data-nosnippet>97</a>		call_data: <span class="kw-2">&amp;</span>[u8],
-<a href=#98 id=98 data-nosnippet>98</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, StorageProof), sp_blockchain::Error&gt;;
-<a href=#99 id=99 data-nosnippet>99</a>}
+<a href=#92 id=92 data-nosnippet>92</a>	/// `timeout` bounds the wall-clock execution time of the runtime call if `Some`.
+<a href=#93 id=93 data-nosnippet>93</a>	///
+<a href=#94 id=94 data-nosnippet>94</a>	/// No changes are made.
+<a href=#95 id=95 data-nosnippet>95</a>	</span><span class="kw">fn </span>prove_execution(
+<a href=#96 id=96 data-nosnippet>96</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#97 id=97 data-nosnippet>97</a>		at_hash: B::Hash,
+<a href=#98 id=98 data-nosnippet>98</a>		method: <span class="kw-2">&amp;</span>str,
+<a href=#99 id=99 data-nosnippet>99</a>		call_data: <span class="kw-2">&amp;</span>[u8],
+<a href=#100 id=100 data-nosnippet>100</a>		timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+<a href=#101 id=101 data-nosnippet>101</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, StorageProof), sp_blockchain::Error&gt;;
+<a href=#102 id=102 data-nosnippet>102</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

@@ -1087,7 +1087,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#937 id=937 data-nosnippet>937</a>			{
 <a href=#938 id=938 data-nosnippet>938</a>				<span class="kw">let </span>(handler, protocol_config) = LightClientRequestHandler::new::&lt;
 <a href=#939 id=939 data-nosnippet>939</a>					NetworkWorker&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;,
-<a href=#940 id=940 data-nosnippet>940</a>				&gt;(<span class="kw-2">&amp;</span>protocol_id, <span class="prelude-val">None</span>, client.clone());
+<a href=#940 id=940 data-nosnippet>940</a>				&gt;(<span class="kw-2">&amp;</span>protocol_id, <span class="prelude-val">None</span>, client.clone(), <span class="prelude-val">None</span>);
 <a href=#941 id=941 data-nosnippet>941</a>				<span class="self">self</span>.spawn_task(handler.run().boxed());
 <a href=#942 id=942 data-nosnippet>942</a>				protocol_config
 <a href=#943 id=943 data-nosnippet>943</a>			};
