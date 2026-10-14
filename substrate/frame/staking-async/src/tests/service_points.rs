@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for era points earned for services other than relay chain validation.
+//! Tests for era points earned for services other than relay chain consensus.
 
 use super::*;
 
@@ -24,8 +24,11 @@ fn points_of(era: EraIndex) -> (RewardPoint, Vec<(AccountId, RewardPoint)>) {
 	(points.total, points.individual.into_iter().collect())
 }
 
-fn points_of_kind(era: EraIndex, kind: PointsKind) -> (RewardPoint, Vec<(AccountId, RewardPoint)>) {
-	let points = ErasRewardPointsByKind::<Test>::get(era, kind);
+fn points_of_service(
+	era: EraIndex,
+	service: ValidatorServiceKind,
+) -> (RewardPoint, Vec<(AccountId, RewardPoint)>) {
+	let points = ErasRewardPointsByService::<Test>::get(era, service);
 	(points.total, points.individual.into_iter().collect())
 }
 
@@ -46,9 +49,12 @@ fn points_credit_exposed_validators_of_the_active_era_only() {
 			let before = points_of(1);
 			ActiveEra::<Test>::kill();
 			System::reset_events();
-			Staking::reward_service_points(PointsKind::Collation, vec![(11, 10)]);
+			Staking::reward_service_points(ValidatorServiceKind::Collation, vec![(11, 10)]);
 			assert_eq!(points_of(1), before);
-			assert!(!ErasRewardPointsByKind::<Test>::contains_key(1, PointsKind::Collation));
+			assert!(!ErasRewardPointsByService::<Test>::contains_key(
+				1,
+				ValidatorServiceKind::Collation
+			));
 			assert!(System::events().is_empty());
 		});
 
@@ -57,12 +63,15 @@ fn points_credit_exposed_validators_of_the_active_era_only() {
 		hypothetically!({
 			ErasRewardPoints::<Test>::remove(1);
 			System::reset_events();
-			Staking::reward_service_points(PointsKind::Collation, vec![(999, 7)]);
+			Staking::reward_service_points(ValidatorServiceKind::Collation, vec![(999, 7)]);
 			assert!(!ErasRewardPoints::<Test>::contains_key(1));
-			assert!(!ErasRewardPointsByKind::<Test>::contains_key(1, PointsKind::Collation));
+			assert!(!ErasRewardPointsByService::<Test>::contains_key(
+				1,
+				ValidatorServiceKind::Collation
+			));
 			System::assert_last_event(
 				Event::ServicePointsCredited {
-					kind: PointsKind::Collation,
+					service: ValidatorServiceKind::Collation,
 					era: 1,
 					credited: 0,
 					dropped: 1,
@@ -73,20 +82,26 @@ fn points_credit_exposed_validators_of_the_active_era_only() {
 
 		// WHEN points are credited for 11 twice, 21 and the unexposed 999
 		Staking::reward_service_points(
-			PointsKind::Collation,
+			ValidatorServiceKind::Collation,
 			vec![(11, 10), (21, 5), (999, 7), (11, 1)],
 		);
 
 		// THEN the exposed entries merge with the relay chain points, 999 counts in neither its
 		// own entry nor the total, so it dilutes no payout of the era
 		assert_eq!(points_of(1), (36, vec![(11, 31), (21, 5)]));
-		// AND each kind holds exactly its own points, so the split adds up to the tally
-		assert_eq!(points_of_kind(1, PointsKind::Validation), (20, vec![(11, 20)]));
-		assert_eq!(points_of_kind(1, PointsKind::Collation), (16, vec![(11, 11), (21, 5)]));
+		// AND each service holds exactly its own points, so the split adds up to the tally
+		assert_eq!(
+			points_of_service(1, ValidatorServiceKind::RelayConsensus),
+			(20, vec![(11, 20)])
+		);
+		assert_eq!(
+			points_of_service(1, ValidatorServiceKind::Collation),
+			(16, vec![(11, 11), (21, 5)])
+		);
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![Event::ServicePointsCredited {
-				kind: PointsKind::Collation,
+				service: ValidatorServiceKind::Collation,
 				era: 1,
 				credited: 3,
 				dropped: 1
@@ -101,12 +116,13 @@ fn closed_era_split_never_changes() {
 		// GIVEN era 1 with points for 11 and 21 has ended and era 2 is active
 		Session::roll_until_active_era(1);
 		Staking::reward_by_ids(vec![(11, 20), (21, 10)]);
-		Staking::reward_service_points(PointsKind::Collation, vec![(21, 3)]);
+		Staking::reward_service_points(ValidatorServiceKind::Collation, vec![(21, 3)]);
 		Session::roll_until_active_era(2);
 		assert!(ErasStakersOverview::<Test>::contains_key(2, 11));
 		let closed = points_of(1);
-		let closed_by_kind =
-			[PointsKind::Validation, PointsKind::Collation].map(|kind| points_of_kind(1, kind));
+		let closed_by_service =
+			[ValidatorServiceKind::RelayConsensus, ValidatorServiceKind::Collation]
+				.map(|service| points_of_service(1, service));
 		let rewards_of_11_in_era_1 = || {
 			hypothetically!({
 				System::reset_events();
@@ -126,17 +142,18 @@ fn closed_era_split_never_changes() {
 		assert!(!rewards_before.is_empty());
 
 		// WHEN points for 11 are credited
-		Staking::reward_service_points(PointsKind::Collation, vec![(11, 7)]);
+		Staking::reward_service_points(ValidatorServiceKind::Collation, vec![(11, 7)]);
 
 		// THEN era 2 holds them, era 1 and its split are untouched, and so is every payout of
 		// era 1
 		assert_eq!(points_of(1), closed);
 		assert_eq!(
-			[PointsKind::Validation, PointsKind::Collation].map(|kind| points_of_kind(1, kind)),
-			closed_by_kind
+			[ValidatorServiceKind::RelayConsensus, ValidatorServiceKind::Collation]
+				.map(|service| points_of_service(1, service)),
+			closed_by_service
 		);
 		assert_eq!(points_of(2), (7, vec![(11, 7)]));
-		assert_eq!(points_of_kind(2, PointsKind::Collation), (7, vec![(11, 7)]));
+		assert_eq!(points_of_service(2, ValidatorServiceKind::Collation), (7, vec![(11, 7)]));
 		assert_eq!(rewards_of_11_in_era_1(), rewards_before);
 	});
 }
@@ -148,15 +165,18 @@ fn validation_points_are_refused() {
 		// GIVEN era 1 is active with 11 exposed and relay chain points for 11
 		Session::roll_until_active_era(1);
 		Staking::reward_by_ids(vec![(11, 20)]);
-		let before = (points_of(1), points_of_kind(1, PointsKind::Validation));
+		let before = (points_of(1), points_of_service(1, ValidatorServiceKind::RelayConsensus));
 		let _ = staking_events_since_last_call();
 
-		// WHEN validation points are credited outside the relay chain session report
-		Staking::reward_service_points(PointsKind::Validation, vec![(11, 10)]);
+		// WHEN relay consensus points are credited outside the relay chain session report
+		Staking::reward_service_points(ValidatorServiceKind::RelayConsensus, vec![(11, 10)]);
 
 		// THEN nothing is written and no event is emitted, since only the relay chain session
-		// report credits validation points
-		assert_eq!((points_of(1), points_of_kind(1, PointsKind::Validation)), before);
+		// report credits relay consensus points
+		assert_eq!(
+			(points_of(1), points_of_service(1, ValidatorServiceKind::RelayConsensus)),
+			before
+		);
 		assert!(staking_events_since_last_call().is_empty());
 	});
 }

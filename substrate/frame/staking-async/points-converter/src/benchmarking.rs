@@ -13,20 +13,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Benchmarking setup for pallet-staking-async-system-chain-client.
+//! Benchmarking setup for pallet-staking-async-points-converter.
 
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
 
 #[allow(unused)]
-use crate::Pallet as StakingSystemChainClient;
+use crate::Pallet as StakingPointsConverter;
 use alloc::vec::Vec;
 use codec::Decode;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::traits::{EnsureOrigin, Get};
 use sp_runtime::traits::TrailingZeroInput;
-use sp_staking::PointsKind;
+use sp_staking::ValidatorServiceKind;
 
 fn any_source<T: Config>() -> T::Source {
 	T::Source::decode(&mut TrailingZeroInput::zeroes())
@@ -38,16 +38,16 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn set_points_per_unit() -> Result<(), BenchmarkError> {
+	fn set_points_per_service() -> Result<(), BenchmarkError> {
 		let origin =
 			T::PointsOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let source = any_source::<T>();
-		let points = T::MaxPointsPerUnit::get();
+		let points = T::MaxPointsPerService::get();
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, source, PointsKind::Collation, points);
+		_(origin as T::RuntimeOrigin, source, ValidatorServiceKind::Collation, points);
 
-		assert_eq!(PointsPerUnit::<T>::get(source, PointsKind::Collation), points);
+		assert_eq!(PointsPerService::<T>::get(source, ValidatorServiceKind::Collation), points);
 		Ok(())
 	}
 
@@ -56,7 +56,7 @@ mod benchmarks {
 	#[benchmark]
 	fn report_authored_blocks() {
 		let source = any_source::<T>();
-		PointsPerUnit::<T>::remove(source, PointsKind::Collation);
+		PointsPerService::<T>::remove(source, ValidatorServiceKind::Collation);
 		let blocks = (0..1_000)
 			.map(|i| (account::<T::AccountId>("validator", i, 0), 1))
 			.collect::<Vec<_>>();
@@ -76,7 +76,7 @@ mod benchmarks {
 	}
 
 	impl_benchmark_test_suite!(
-		StakingSystemChainClient,
+		StakingPointsConverter,
 		crate::mock::new_test_ext(),
 		crate::mock::Test
 	);

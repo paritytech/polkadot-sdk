@@ -239,10 +239,10 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Test that era pruning does not happen automatically
 		assert_eq!(active_era(), 1);
-		// Era 1 holds points of both kinds, which the `ErasRewardPoints` step removes.
+		// Era 1 holds points of both services, which the `ErasRewardPoints` step removes.
 		Staking::reward_by_ids(vec![(11, 1)]);
-		Staking::reward_service_points(PointsKind::Collation, vec![(11, 1)]);
-		assert_eq!(crate::ErasRewardPointsByKind::<T>::iter_prefix_values(1).count(), 2);
+		Staking::reward_service_points(ValidatorServiceKind::Collation, vec![(11, 1)]);
+		assert_eq!(crate::ErasRewardPointsByService::<T>::iter_prefix_values(1).count(), 2);
 
 		Session::roll_until_active_era(HistoryDepth::get() - 1);
 		assert!(matches!(
@@ -432,9 +432,9 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 						"{expected_step:?} should be empty after completing step"
 					);
 					assert_eq!(
-						crate::ErasRewardPointsByKind::<T>::iter_prefix_values(1).count(),
+						crate::ErasRewardPointsByService::<T>::iter_prefix_values(1).count(),
 						0,
-						"ErasRewardPointsByKind should be empty after completing {expected_step:?}"
+						"ErasRewardPointsByService should be empty after completing {expected_step:?}"
 					);
 				},
 				SingleEntryCleanups => {

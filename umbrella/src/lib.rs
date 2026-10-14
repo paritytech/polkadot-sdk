@@ -736,6 +736,11 @@ pub use pallet_staking_async;
 #[cfg(feature = "pallet-staking-async-ah-client")]
 pub use pallet_staking_async_ah_client;
 
+/// Converts reported units of a validator service into era points, intended to be used in
+/// Asset Hub.
+#[cfg(feature = "pallet-staking-async-points-converter")]
+pub use pallet_staking_async_points_converter;
+
 /// Pallet handling the communication with staking-ah-client. It's role is to glue the staking
 /// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
 #[cfg(feature = "pallet-staking-async-rc-client")]
@@ -744,11 +749,6 @@ pub use pallet_staking_async_rc_client;
 /// RPC runtime API for transaction payment FRAME pallet.
 #[cfg(feature = "pallet-staking-async-runtime-api")]
 pub use pallet_staking_async_runtime_api;
-
-/// The client for system chains, intended to be used in AssetHub. Credits the blocks
-/// validators author on system chains as era points.
-#[cfg(feature = "pallet-staking-async-system-chain-client")]
-pub use pallet_staking_async_system_chain_client;
 
 /// Reward Curve for FRAME staking pallet.
 #[cfg(feature = "pallet-staking-reward-curve")]

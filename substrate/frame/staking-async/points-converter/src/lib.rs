@@ -13,10 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The client for system chains, intended to be used in AssetHub.
+//! Converts reported units of a validator service into era points, intended to be used in Asset
+//! Hub.
 //!
-//! Credits the blocks validators author on system chains as era points. Meant for the chain that
-//! runs `pallet-staking-async`.
+//! Receives the blocks validators author on system chains and on the chain that runs this pallet.
 //!
 //! ## Overview
 //!
@@ -24,11 +24,11 @@
 //! reports the counts of the validators. Other chains call [`Pallet::report_authored_blocks`]
 //! from [`Config::ReportOrigin`], which names the reporting chain as a [`Config::Source`]. The
 //! chain that runs this pallet credits its own counts through [`Pallet::credit_authored_blocks`].
-//! A count becomes `count × PointsPerUnit[(source, Collation)]` era points, handed to
-//! [`Config::RewardPoints`] as [`sp_staking::PointsKind::Collation`] points. A source without an
-//! entry for [`sp_staking::PointsKind::Collation`] in [`PointsPerUnit`] earns nothing. Governance
-//! sets the entries through [`Config::PointsOrigin`]. Relay chain validation points are not
-//! weighted here.
+//! A count becomes `count × PointsPerService[(source, Collation)]` era points, handed to
+//! [`Config::RewardPoints`] as [`sp_staking::ValidatorServiceKind::Collation`] points. A source
+//! without an entry for [`sp_staking::ValidatorServiceKind::Collation`] in [`PointsPerService`]
+//! earns nothing. Governance sets the entries through [`Config::PointsOrigin`]. Relay chain
+//! consensus points are not converted here.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -53,7 +53,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, DefaultNoBound};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::MaybeSerializeDeserialize;
-	use sp_staking::{PointsKind, RewardPoints};
+	use sp_staking::{RewardPoints, ValidatorServiceKind};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -67,53 +67,61 @@ pub mod pallet {
 		/// Origin of a chain allowed to report the blocks authored on it. Returns that chain.
 		type ReportOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::Source>;
 
-		/// Origin allowed to set the points per unit of a source and a service.
+		/// Origin allowed to set the points per service of a source.
 		type PointsOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Credits era points to the validators.
 		type RewardPoints: RewardPoints<Self::AccountId>;
 
-		/// Largest points per unit [`Pallet::set_points_per_unit`] and the genesis config accept,
-		/// for every service.
+		/// Largest points per service [`Pallet::set_points_per_service`] and the genesis config
+		/// accept, for every service.
 		///
 		/// Crediting also bounds a stored value by it.
 		#[pallet::constant]
-		type MaxPointsPerUnit: Get<u32>;
+		type MaxPointsPerService: Get<u32>;
 
 		/// Weight information for this pallet.
 		type WeightInfo: WeightInfo;
 	}
 
-	/// Era points a validator earns per unit of a service on a source, bounded by
-	/// [`Config::MaxPointsPerUnit`] when crediting. Absent means zero.
+	/// Era points a validator earns for each unit of a service on a source, bounded by
+	/// [`Config::MaxPointsPerService`] when crediting. Absent means zero.
 	///
-	/// A unit is specific to the service. For [`PointsKind::Collation`] it is one block authored.
+	/// A unit is specific to the service. For [`ValidatorServiceKind::Collation`] it is one block
+	/// authored.
 	#[pallet::storage]
-	pub type PointsPerUnit<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, T::Source, Twox64Concat, PointsKind, u32, ValueQuery>;
+	pub type PointsPerService<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::Source,
+		Twox64Concat,
+		ValidatorServiceKind,
+		u32,
+		ValueQuery,
+	>;
 
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
-		/// Initial points per unit, per source and service.
-		pub points_per_unit: Vec<(T::Source, PointsKind, u32)>,
+		/// Initial points per service, per source.
+		pub points_per_service: Vec<(T::Source, ValidatorServiceKind, u32)>,
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			for (source, kind, points) in
-				self.points_per_unit.iter().filter(|(_, _, points)| *points > 0)
+			for (source, service, points) in
+				self.points_per_service.iter().filter(|(_, _, points)| *points > 0)
 			{
 				assert!(
-					*kind != PointsKind::Validation,
-					"the genesis config weights validation points, which come from the relay chain"
+					*service != ValidatorServiceKind::RelayConsensus,
+					"the genesis config weights points that come from the relay chain"
 				);
 				assert!(
-					*points <= T::MaxPointsPerUnit::get(),
-					"points per unit in the genesis config exceed `MaxPointsPerUnit`"
+					*points <= T::MaxPointsPerService::get(),
+					"points per service in the genesis config exceed `MaxPointsPerService`"
 				);
-				PointsPerUnit::<T>::insert(source, kind, points);
+				PointsPerService::<T>::insert(source, service, points);
 			}
 		}
 	}
@@ -121,8 +129,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Validators earn `points` era points per unit of `kind` on `source`.
-		PointsPerUnitSet { source: T::Source, kind: PointsKind, points: u32 },
+		/// Validators earn `points` era points for each unit of `service` on `source`.
+		PointsPerServiceSet { source: T::Source, service: ValidatorServiceKind, points: u32 },
 		/// Era points for the blocks of `entries` entries from `source` were handed to
 		/// [`Config::RewardPoints`].
 		BlocksCredited { source: T::Source, entries: u32 },
@@ -132,35 +140,38 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The points per unit exceed [`Config::MaxPointsPerUnit`].
-		PointsPerUnitTooHigh,
-		/// Validation points are weighted by the relay chain, not by this pallet.
-		ValidationNotWeighted,
+		/// The points per service exceed [`Config::MaxPointsPerService`].
+		PointsPerServiceTooHigh,
+		/// Relay consensus points are weighted by the relay chain, not by this pallet.
+		RelayConsensusNotWeighted,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Set the era points a validator earns per unit of `kind` on `source`.
+		/// Set the era points a validator earns for each unit of `service` on `source`.
 		///
-		/// Zero removes the entry, so `source` earns nothing for `kind`. Fails with
-		/// [`Error::PointsPerUnitTooHigh`] above [`Config::MaxPointsPerUnit`], and with
-		/// [`Error::ValidationNotWeighted`] for [`PointsKind::Validation`].
+		/// Zero removes the entry, so `source` earns nothing for `service`. Fails with
+		/// [`Error::PointsPerServiceTooHigh`] above [`Config::MaxPointsPerService`], and with
+		/// [`Error::RelayConsensusNotWeighted`] for [`ValidatorServiceKind::RelayConsensus`].
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::set_points_per_unit())]
-		pub fn set_points_per_unit(
+		#[pallet::weight(T::WeightInfo::set_points_per_service())]
+		pub fn set_points_per_service(
 			origin: OriginFor<T>,
 			source: T::Source,
-			kind: PointsKind,
+			service: ValidatorServiceKind,
 			points: u32,
 		) -> DispatchResult {
 			T::PointsOrigin::ensure_origin(origin)?;
-			ensure!(kind != PointsKind::Validation, Error::<T>::ValidationNotWeighted);
-			ensure!(points <= T::MaxPointsPerUnit::get(), Error::<T>::PointsPerUnitTooHigh);
+			ensure!(
+				service != ValidatorServiceKind::RelayConsensus,
+				Error::<T>::RelayConsensusNotWeighted
+			);
+			ensure!(points <= T::MaxPointsPerService::get(), Error::<T>::PointsPerServiceTooHigh);
 			match points {
-				0 => PointsPerUnit::<T>::remove(source, kind),
-				points => PointsPerUnit::<T>::insert(source, kind, points),
+				0 => PointsPerService::<T>::remove(source, service),
+				points => PointsPerService::<T>::insert(source, service, points),
 			}
-			Self::deposit_event(Event::PointsPerUnitSet { source, kind, points });
+			Self::deposit_event(Event::PointsPerServiceSet { source, service, points });
 			Ok(())
 		}
 
@@ -180,22 +191,23 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Credit `blocks` authored on `source` as era points, with the points per unit of
-		/// `source` for [`PointsKind::Collation`]. Nothing is credited when `blocks` is empty or
-		/// `source` earns no points, and an empty `blocks` deposits no event.
+		/// Credit `blocks` authored on `source` as era points, with the points per service of
+		/// `source` for [`ValidatorServiceKind::Collation`]. Nothing is credited when `blocks` is
+		/// empty or `source` earns no points, and an empty `blocks` deposits no event.
 		///
 		/// Returns the number of entries handed to [`Config::RewardPoints`].
 		pub fn credit_authored_blocks(
 			source: T::Source,
 			blocks: impl IntoIterator<Item = (T::AccountId, u32)>,
 		) -> u32 {
-			let points_per_unit = PointsPerUnit::<T>::get(source, PointsKind::Collation)
-				.min(T::MaxPointsPerUnit::get());
+			let points_per_service =
+				PointsPerService::<T>::get(source, ValidatorServiceKind::Collation)
+					.min(T::MaxPointsPerService::get());
 			let mut blocks = blocks.into_iter().peekable();
 			if blocks.peek().is_none() {
 				return 0;
 			}
-			if points_per_unit == 0 {
+			if points_per_service == 0 {
 				Self::deposit_event(Event::BlocksIgnored {
 					source,
 					entries: blocks.count() as u32,
@@ -203,10 +215,10 @@ pub mod pallet {
 				return 0;
 			}
 			let points: Vec<_> = blocks
-				.map(|(who, blocks)| (who, blocks.saturating_mul(points_per_unit)))
+				.map(|(who, blocks)| (who, blocks.saturating_mul(points_per_service)))
 				.collect();
 			let entries = points.len() as u32;
-			T::RewardPoints::reward(PointsKind::Collation, points);
+			T::RewardPoints::reward(ValidatorServiceKind::Collation, points);
 			Self::deposit_event(Event::BlocksCredited { source, entries });
 			entries
 		}

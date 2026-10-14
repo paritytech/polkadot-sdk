@@ -967,8 +967,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Staking::NextElectionPage` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ElectableStashes` (r:0 w:1)
 	/// Proof: `Staking::ElectableStashes` (`max_values`: Some(1), `max_size`: Some(32002), added: 32497, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::ErasRewardPointsByKind` (r:1 w:1)
-	/// Proof: `Staking::ErasRewardPointsByKind` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasRewardPointsByService` (r:1 w:1)
+	/// Proof: `Staking::ErasRewardPointsByService` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `MaxEncodedLen`)
 	/// The range of component `v` is `[1, 1000]`.
 	fn rc_on_session_report(v: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -989,8 +989,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasRewardPoints` (r:1 w:1)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::ErasRewardPointsByKind` (r:1 w:1)
-	/// Proof: `Staking::ErasRewardPointsByKind` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasRewardPointsByService` (r:1 w:1)
+	/// Proof: `Staking::ErasRewardPointsByService` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasValidatorIncentiveWeight` (r:1000 w:0)
 	/// Proof: `Staking::ErasValidatorIncentiveWeight` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasSumWeightedPoints` (r:1 w:1)
@@ -1106,8 +1106,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Staking::EraPruningState` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
 	/// Storage: `Staking::ErasRewardPoints` (r:0 w:1)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
-	/// Storage: `Staking::ErasRewardPointsByKind` (r:0 w:2)
-	/// Proof: `Staking::ErasRewardPointsByKind` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `Measured`)
+	/// Storage: `Staking::ErasRewardPointsByService` (r:0 w:2)
+	/// Proof: `Staking::ErasRewardPointsByService` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `Measured`)
 	fn prune_era_reward_points() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `822`
@@ -2076,8 +2076,8 @@ impl WeightInfo for () {
 	/// Proof: `Staking::NextElectionPage` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ElectableStashes` (r:0 w:1)
 	/// Proof: `Staking::ElectableStashes` (`max_values`: Some(1), `max_size`: Some(32002), added: 32497, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::ErasRewardPointsByKind` (r:1 w:1)
-	/// Proof: `Staking::ErasRewardPointsByKind` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasRewardPointsByService` (r:1 w:1)
+	/// Proof: `Staking::ErasRewardPointsByService` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `MaxEncodedLen`)
 	/// The range of component `v` is `[1, 1000]`.
 	fn rc_on_session_report(v: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -2098,8 +2098,8 @@ impl WeightInfo for () {
 	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasRewardPoints` (r:1 w:1)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::ErasRewardPointsByKind` (r:1 w:1)
-	/// Proof: `Staking::ErasRewardPointsByKind` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasRewardPointsByService` (r:1 w:1)
+	/// Proof: `Staking::ErasRewardPointsByService` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasValidatorIncentiveWeight` (r:1000 w:0)
 	/// Proof: `Staking::ErasValidatorIncentiveWeight` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasSumWeightedPoints` (r:1 w:1)
@@ -2215,8 +2215,8 @@ impl WeightInfo for () {
 	/// Proof: `Staking::EraPruningState` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
 	/// Storage: `Staking::ErasRewardPoints` (r:0 w:1)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
-	/// Storage: `Staking::ErasRewardPointsByKind` (r:0 w:2)
-	/// Proof: `Staking::ErasRewardPointsByKind` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `Measured`)
+	/// Storage: `Staking::ErasRewardPointsByService` (r:0 w:2)
+	/// Proof: `Staking::ErasRewardPointsByService` (`max_values`: None, `max_size`: Some(36018), added: 38502, mode: `Measured`)
 	fn prune_era_reward_points() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `822`

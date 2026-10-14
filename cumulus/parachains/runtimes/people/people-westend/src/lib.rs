@@ -449,14 +449,14 @@ impl pallet_validator_collators::Config for Runtime {
 // fails if it drifts.
 #[derive(Encode)]
 enum AssetHubRuntimePallets {
-	// index of `StakingSystemChainClient` in the Asset Hub Westend runtime.
+	// index of `StakingPointsConverter` in the Asset Hub Westend runtime.
 	#[codec(index = 27)]
-	StakingSystemChainClient(StakingSystemChainClientCalls),
+	StakingPointsConverter(StakingPointsConverterCalls),
 }
 
 #[derive(Encode)]
-enum StakingSystemChainClientCalls {
-	// index of `fn report_authored_blocks` in `pallet-staking-async-system-chain-client`.
+enum StakingPointsConverterCalls {
+	// index of `fn report_authored_blocks` in `pallet-staking-async-points-converter`.
 	#[codec(index = 1)]
 	ReportAuthoredBlocks { blocks: Vec<(AccountId, u32)> },
 }
@@ -468,8 +468,8 @@ pub struct ReportBlocksToAssetHub;
 impl ReportBlocksToAssetHub {
 	/// The encoded Asset Hub call that reports `blocks`.
 	pub fn encoded_call(blocks: &[(AccountId, u32)]) -> Vec<u8> {
-		AssetHubRuntimePallets::StakingSystemChainClient(
-			StakingSystemChainClientCalls::ReportAuthoredBlocks { blocks: blocks.to_vec() },
+		AssetHubRuntimePallets::StakingPointsConverter(
+			StakingPointsConverterCalls::ReportAuthoredBlocks { blocks: blocks.to_vec() },
 		)
 		.encode()
 	}
