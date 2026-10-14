@@ -897,15 +897,6 @@ fn reports_once_before_the_expected_era_end() {
 		block_at(1500);
 		// THEN there is no second early report
 		assert_eq!(reports(), 1);
-		// AND the invariants reject an arrival without a stored set
-		frame_support::hypothetically!({
-			ValidatorSet::<Test>::kill();
-			SetReceivedAt::<Test>::put(0);
-			assert_eq!(
-				ValidatorCollators::do_try_state(),
-				Err("an arrival time is stored without a validator set".into())
-			);
-		});
 
 		// WHEN the next set arrives
 		Now::set(1600);

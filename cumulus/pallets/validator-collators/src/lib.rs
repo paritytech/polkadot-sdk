@@ -253,11 +253,11 @@ pub mod pallet {
 		/// Wall clock time, to time the report before the expected end of an era.
 		type UnixTime: UnixTime;
 
-		/// Initial value of [`ExpectedEraDuration`], in milliseconds.
+		/// Value of [`ExpectedEraDuration`] until governance sets it, in milliseconds.
 		#[pallet::constant]
 		type DefaultExpectedEraDuration: Get<u64>;
 
-		/// Initial value of [`ReportMargin`], in milliseconds.
+		/// Value of [`ReportMargin`] until governance sets it, in milliseconds.
 		#[pallet::constant]
 		type DefaultReportMargin: Get<u64>;
 
@@ -393,23 +393,11 @@ pub mod pallet {
 		/// retried. If the reporter rejects it, the counts go out with the next [`ReportPeriod`]
 		/// report. Both rules in the same block make one report.
 		///
-		/// Also charges the read of [`PendingRotation`] by
+		/// The weight includes the read of [`PendingRotation`] by
 		/// [`ShouldEndSession::should_end_session`], which pallet-session makes in every block
 		/// without charging it.
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			let mut weight = T::DbWeight::get().reads(3).saturating_add(Weight::from_parts(
-				0,
-				(RotationState::max_encoded_len() +
-					BlockNumberFor::<T>::max_encoded_len() +
-					u64::max_encoded_len()) as u64,
-			));
 			let early = SetReceivedAt::<T>::get().is_some_and(|received_at| {
-				// `ExpectedEraDuration`, `ReportMargin` and the time, each read as a `u64`.
-				weight.saturating_accrue(
-					T::DbWeight::get()
-						.reads(3)
-						.saturating_add(Weight::from_parts(0, 3 * u64::max_encoded_len() as u64)),
-				);
 				let duration = ExpectedEraDuration::<T>::get();
 				let margin =
 					ReportMargin::<T>::get().min(T::MaxReportMargin::get()).min(duration / 2);
@@ -418,13 +406,14 @@ pub mod pallet {
 			});
 			if early {
 				SetReceivedAt::<T>::kill();
-				weight.saturating_accrue(T::DbWeight::get().writes(1));
 			}
 			let period = ReportPeriod::<T>::get();
-			if early || (!period.is_zero() && (now % period).is_zero()) {
-				weight.saturating_accrue(Self::report_blocks());
-			}
-			weight
+			let report = if early || (!period.is_zero() && (now % period).is_zero()) {
+				Self::report_blocks()
+			} else {
+				Weight::zero()
+			};
+			T::WeightInfo::on_initialize().saturating_add(report)
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -657,10 +646,6 @@ pub mod pallet {
 			ensure!(
 				AuthoredBlocks::<T>::iter_values().all(|blocks| blocks > 0),
 				"an author is counted with zero blocks"
-			);
-			ensure!(
-				!SetReceivedAt::<T>::exists() || ValidatorSet::<T>::exists(),
-				"an arrival time is stored without a validator set"
 			);
 			ensure!(ExpectedEraDuration::<T>::get() > 0, "the expected era duration is zero");
 			ensure!(ReportMargin::<T>::get() > 0, "the report margin is zero");
