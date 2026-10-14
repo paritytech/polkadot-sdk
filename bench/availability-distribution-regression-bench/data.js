@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791929330593,
+  "lastUpdate": 1791963429083,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dhiraj@parity.io",
-            "name": "Dhiraj Sah",
-            "username": "dhirajs0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ecada3402a70d906e10c6d33b0f42b6174fea119",
-          "message": "fix(multi-asset-bounties): enforce authorization in unassign_curator when parent bounty is not Active (#11612)\n\n# Description\n\nFix an authorization bypass in `pallet-multi-asset-bounties` where any\nsigned account could\nforcibly unassign an active child bounty's curator when the parent\nbounty was not in `Active` state\n(e.g., `CuratorUnassigned`). This also caused the child curator's native\nbalance hold (deposit) to\nbe permanently leaked — removed from pallet storage but never released\nor burned on-chain.\n\n**Root cause:** In `unassign_curator`, the `BountyStatus::Active`\nbranch's catch-all `Some(sender)`\narm used `if let Some(parent_curator) = parent_curator { ... }` with no\n`else` clause. When\n`parent_curator` was `None` (parent bounty not Active), the block was\nsilently skipped and execution\nfell through to the state transition — no `BadOrigin` error was\nreturned.\n\n## Integration\n\nNo integration changes required for downstream projects. This is a fix\ninternal to\n`pallet-multi-asset-bounties` with no public API changes. The extrinsic\nsignature and behavior for\nauthorized callers remain identical.\n\n## Review Notes\n\nThe fix restructures the `BountyStatus::Active` arm in\n`unassign_curator` with two changes:\n\n### 1. Authorization before storage mutation\n\nPreviously, `CuratorDeposit::take()` was called unconditionally at the\ntop of the `Active` arm\n(before verifying the caller). Now it is called inside each `match\nmaybe_sender` arm, only after the\ncaller is confirmed to be authorized. This prevents the deposit from\nbeing removed from storage on\nan unauthorized (and reverted) call path.\n\n```diff\n BountyStatus::Active { ref curator, .. } => {\n-    let maybe_curator_deposit =\n-        CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id);\n     match maybe_sender {\n         None => {\n-            if let Some(curator_deposit) = maybe_curator_deposit {\n+            if let Some(curator_deposit) =\n+                CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)\n+            {\n                 T::Consideration::burn(curator_deposit, curator);\n             }\n         },\n```\n\n### 2. Explicit rejection when `parent_curator` is `None`\n\nThe catch-all `Some(sender)` arm now uses\n`parent_curator.ok_or(BadOrigin)?` followed by an\n`ensure!`. When `parent_curator` is `None`, the call is immediately\nrejected with `BadOrigin`.\n\n```diff\n         Some(sender) => {\n-            if let Some(parent_curator) = parent_curator {\n-                if sender == parent_curator && *curator != parent_curator {\n-                    if let Some(curator_deposit) = maybe_curator_deposit {\n-                        T::Consideration::burn(curator_deposit, curator);\n-                    }\n-                } else {\n-                    return Err(BadOrigin.into());\n-                }\n+            let parent_curator = parent_curator.ok_or(BadOrigin)?;\n+            ensure!(\n+                sender == parent_curator && *curator != parent_curator,\n+                BadOrigin\n+            );\n+            if let Some(curator_deposit) =\n+                CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)\n+            {\n+                T::Consideration::burn(curator_deposit, curator);\n             }\n         },\n```\n\n### Regression test\n\nA comprehensive test\n(`unprivileged_caller_cannot_unassign_active_child_curator_when_parent_not_active`)\nis added that:\n\n1. Creates an active child bounty with a separate child curator.\n2. Has the parent curator voluntarily unassign (putting parent into\n`CuratorUnassigned`).\n3. Asserts that an unprivileged attacker is rejected with `BadOrigin`.\n4. Verifies the child bounty remains `Active`, the curator deposit stays\nin storage, and the\n   balance hold is intact.\n5. Confirms the child curator can still voluntarily unassign themselves\nand that the deposit is\n   properly released.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements]\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T17:48:31Z",
-          "tree_id": "5da14c2f730c63446e39e27c8ef634b6bad9a81c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ecada3402a70d906e10c6d33b0f42b6174fea119"
-        },
-        "date": 1775243282386,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007022605633333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02427983188,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1496733622466667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009950672293333315,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1425765513666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "47612878ffdca773d88bb35209b240d52337d376",
+          "message": "Fix `eth_subscribe(\"newHeads\")` in the ETH RPC (#13419)\n\n# Description\n\n`eth_subscribe(\"newHeads\")` was rejected on master. `SubscriptionKind`\nserialised the variant as `newBlockHeaders`, and only our own client\nsent that. This PR renames it to `newHeads` and adds `difficulty` and\n`mixHash` to `BlockHeader`, because alloy can't decode a `newHeads`\nheader without them.\n\nThe `newHeads` test now subscribes through alloy's WebSocket provider,\nwhich sends `\"newHeads\"` on the wire, and checks the header against the\nreceipt and `eth_getBlockByNumber`.\n\nSplit out of #13002 so it can be backported on its own.",
+          "timestamp": "2026-10-14T06:03:47Z",
+          "tree_id": "5c8c41b26201c7432996526e00336723ec2d53c7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/47612878ffdca773d88bb35209b240d52337d376"
+        },
+        "date": 1791963396151,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14330545084666674,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009808081013333317,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025047364353333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007314164826666668,
             "unit": "seconds"
           }
         ]
