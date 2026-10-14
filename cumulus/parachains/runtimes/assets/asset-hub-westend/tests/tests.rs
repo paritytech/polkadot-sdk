@@ -3900,8 +3900,7 @@ fn full_report_of_authored_blocks_fits_the_message_queue_and_the_block() {
 	use pallet_validator_collators::{Config, WeightInfo};
 	use testnet_parachains_constants::westend::staking::MAX_ENTRIES_PER_REPORT;
 	type MaxValidators = <Runtime as Config>::MaxValidators;
-	// GIVEN the largest report a system chain sends over XCM, all credited. The XCM instructions
-	// around the call weigh little next to the credit and are left out.
+	// GIVEN the largest report a system chain sends over XCM, all credited
 	let message = StakingPointsConverter::report_authored_blocks_weight(MAX_ENTRIES_PER_REPORT);
 	// WHEN it is processed from the message queue
 	// THEN it fits the service weight, so it is not set aside as overweight
