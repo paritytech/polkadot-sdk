@@ -13,10 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, weights::WeightInfo, Error, Event, PointsPerUnit, RewardPoints};
+use crate::{mock::*, weights::WeightInfo, Error, Event, PointsPerUnit};
 use frame_support::{assert_noop, assert_ok, weights::Weight};
 use sp_runtime::traits::BadOrigin;
-use sp_staking::PointsKind::{self, Collation, Validation};
+use sp_staking::{
+	PointsKind::{self, Collation, Validation},
+	RewardPoints,
+};
 
 fn events() -> Vec<Event<Test>> {
 	System::events()
