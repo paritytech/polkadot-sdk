@@ -280,6 +280,11 @@ impl PeersetNotificationCommand {
 #[derive(Debug, PartialEq, Eq)]
 pub enum PeerState {
 	/// No active connection to peer.
+	///
+	/// For a reserved peer this is the state [`Peerset::connect_reserved_peers()`] selects on when
+	/// establishing an outbound substream. For a non-reserved peer the state carries no
+	/// information, so [`Peerset::cleanup_disconnected_peers()`] stops tracking the peer on the
+	/// next slot allocation; an untracked peer is from then on equivalent to one in this state.
 	Disconnected,
 
 	/// Substream to peer was recently closed and the peer is currently backed off.
@@ -479,9 +484,18 @@ impl Peerset {
 			self.reserved_peers.contains(&peer),
 		);
 
+		// An untracked peer is equivalent to one in [`PeerState::Disconnected`]: non-reserved peers
+		// are dropped from `peers` once they are disconnected (see
+		// [`Peerset::cleanup_disconnected_peers()`]), so this is the same "substream was already
+		// rejected by `report_inbound_substream()`" case as the [`PeerState::Disconnected`] arm
+		// below.
 		let Some(state) = self.peers.get_mut(&peer) else {
-			log::warn!(target: LOG_TARGET, "{}: substream opened for unknown peer {peer:?}", self.protocol);
-			debug_assert!(false);
+			log::debug!(
+				target: LOG_TARGET,
+				"{}: substream opened for an untracked peer {peer:?}, rejecting",
+				self.protocol,
+			);
+
 			return OpenResult::Reject;
 		};
 
@@ -541,11 +555,12 @@ impl Peerset {
 	pub fn report_substream_closed(&mut self, peer: PeerId) {
 		log::trace!(target: LOG_TARGET, "{}: substream closed to {peer:?}", self.protocol);
 
-		let Some(state) = self.peers.get_mut(&peer) else {
-			log::warn!(target: LOG_TARGET, "{}: substream closed for unknown peer {peer:?}", self.protocol);
-			debug_assert!(false);
-			return;
-		};
+		// An untracked peer is equivalent to one in [`PeerState::Disconnected`], so re-insert it
+		// and let the [`PeerState::Disconnected`] arm below handle it. This keeps the back-off
+		// and the reputation report identical to what a tracked, previously rejected peer
+		// receives; the entry is dropped again by [`Peerset::cleanup_disconnected_peers()`] once
+		// the back-off has expired.
+		let state = self.peers.entry(peer).or_insert(PeerState::Disconnected);
 
 		match &state {
 			// close was initiated either by remote ([`PeerState::Connected`]) or local node
@@ -1008,6 +1023,33 @@ impl Peerset {
 			.collect::<Vec<_>>()
 	}
 
+	/// Stop tracking the peers that are [`PeerState::Disconnected`] without being reserved.
+	///
+	/// [`PeerState::Disconnected`] carries no information for a non-reserved peer: it is not
+	/// counted towards the inbound/outbound slots and it is not part of the `ignore` set handed to
+	/// [`PeerStoreProvider::outgoing_candidates()`], which makes it indistinguishable from the peer
+	/// being absent from `peers`. Reserved peers are the exception and are always kept, since
+	/// [`Peerset::connect_reserved_peers()`] dials exactly those reserved peers that are tracked as
+	/// [`PeerState::Disconnected`].
+	///
+	/// Without this, `peers` grew without bound: every peer whose inbound substream was rejected —
+	/// because there was no free inbound slot or because the protocol is in reserved-only mode —
+	/// left a permanent entry behind. `peers` is now bounded by the reserved set plus the peers
+	/// that have an open, opening or closing substream.
+	fn cleanup_disconnected_peers(&mut self) {
+		let reserved_peers = &self.reserved_peers;
+
+		self.peers.retain(|peer, state| {
+			!std::matches!(state, PeerState::Disconnected) || reserved_peers.contains(peer)
+		});
+	}
+
+	/// Run the cleanup that normally happens on slot allocation.
+	#[cfg(test)]
+	pub fn cleanup_disconnected_peers_for_test(&mut self) {
+		self.cleanup_disconnected_peers();
+	}
+
 	/// Get the number of inbound peers.
 	#[cfg(test)]
 	pub fn num_in(&self) -> usize {
@@ -1047,7 +1089,10 @@ impl Stream for Peerset {
 		{
 			log::trace!(target: LOG_TARGET, "{}: backoff expired for {peer:?}", self.protocol);
 
-			if std::matches!(self.peers.get(&peer), None | Some(PeerState::Backoff)) {
+			// Only a peer that is still backed off is moved on to [`PeerState::Disconnected`]; an
+			// untracked peer must not start being tracked again because a stale back-off timer
+			// fired for it.
+			if std::matches!(self.peers.get(&peer), Some(PeerState::Backoff)) {
 				self.peers.insert(peer, PeerState::Disconnected);
 			}
 
@@ -1527,6 +1572,11 @@ impl Stream for Peerset {
 		// also check if there are free outbound slots and if so, fetch peers with highest
 		// reputations from `Peerstore` and start opening substreams to these peers
 		if let Poll::Ready(()) = Pin::new(&mut self.next_slot_allocation).poll(cx) {
+			// Drop the peers that are only tracked because they were disconnected or rejected at
+			// some point. This is done before the allocation below as neither
+			// `connect_reserved_peers()` nor the `ignore` set are affected by the removed entries.
+			self.cleanup_disconnected_peers();
+
 			let mut connect_to = self.connect_reserved_peers();
 
 			// if the number of outbound peers is lower than the desired amount of outbound peers,
