@@ -18,7 +18,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2026-10-14, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `4304c79bfbe1`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! HOSTNAME: `cbd3143d981c`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: 1024
 
 // Executed Command:
@@ -63,11 +63,11 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `32129`
 		//  Estimated: `33491`
-		// Minimum execution time: 70_612_000 picoseconds.
-		Weight::from_parts(73_437_641, 0)
+		// Minimum execution time: 70_768_000 picoseconds.
+		Weight::from_parts(74_564_144, 0)
 			.saturating_add(Weight::from_parts(0, 33491))
-			// Standard Error: 51
-			.saturating_add(Weight::from_parts(18_489, 0).saturating_mul(n.into()))
+			// Standard Error: 107
+			.saturating_add(Weight::from_parts(18_182, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -83,8 +83,8 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `121`
 		//  Estimated: `33491`
-		// Minimum execution time: 11_564_000 picoseconds.
-		Weight::from_parts(12_967_000, 0)
+		// Minimum execution time: 11_813_000 picoseconds.
+		Weight::from_parts(13_194_000, 0)
 			.saturating_add(Weight::from_parts(0, 33491))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -95,8 +95,8 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `60`
 		//  Estimated: `1517`
-		// Minimum execution time: 4_884_000 picoseconds.
-		Weight::from_parts(5_428_000, 0)
+		// Minimum execution time: 4_681_000 picoseconds.
+		Weight::from_parts(5_198_000, 0)
 			.saturating_add(Weight::from_parts(0, 1517))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -107,8 +107,8 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 5_570_000 picoseconds.
-		Weight::from_parts(6_175_000, 0)
+		// Minimum execution time: 5_399_000 picoseconds.
+		Weight::from_parts(6_025_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -118,8 +118,8 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 5_617_000 picoseconds.
-		Weight::from_parts(6_192_000, 0)
+		// Minimum execution time: 5_418_000 picoseconds.
+		Weight::from_parts(5_986_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -129,8 +129,8 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 5_565_000 picoseconds.
-		Weight::from_parts(6_110_000, 0)
+		// Minimum execution time: 5_401_000 picoseconds.
+		Weight::from_parts(5_985_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -149,6 +149,30 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 			.saturating_add(Weight::from_parts(0, 3514))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	/// Storage: `ValidatorCollators::SetReceivedAt` (r:1 w:1)
+	/// Proof: `ValidatorCollators::SetReceivedAt` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::ExpectedEraDuration` (r:1 w:0)
+	/// Proof: `ValidatorCollators::ExpectedEraDuration` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::ReportMargin` (r:1 w:0)
+	/// Proof: `ValidatorCollators::ReportMargin` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::ReportPeriod` (r:1 w:0)
+	/// Proof: `ValidatorCollators::ReportPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:0)
+	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::PendingRotation` (r:1 w:0)
+	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	fn on_initialize() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `161`
+		//  Estimated: `1493`
+		// Minimum execution time: 15_109_000 picoseconds.
+		Weight::from_parts(16_114_000, 0)
+			.saturating_add(Weight::from_parts(0, 1493))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
@@ -175,42 +199,18 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 	/// The range of component `n` is `[1, 1000]`.
 	fn report_blocks(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `34261 + n * (167 ±0)`
+		//  Measured:  `33573 + n * (167 ±0)`
 		//  Estimated: `39492 + n * (2567 ±0)`
-		// Minimum execution time: 139_528_000 picoseconds.
-		Weight::from_parts(142_925_000, 0)
+		// Minimum execution time: 137_933_000 picoseconds.
+		Weight::from_parts(139_820_000, 0)
 			.saturating_add(Weight::from_parts(0, 39492))
-			// Standard Error: 24_724
-			.saturating_add(Weight::from_parts(17_075_372, 0).saturating_mul(n.into()))
+			// Standard Error: 23_823
+			.saturating_add(Weight::from_parts(16_520_507, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(n.into())))
 			.saturating_add(T::DbWeight::get().writes(4))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2567).saturating_mul(n.into()))
-	}
-	/// Storage: `ValidatorCollators::PendingRotation` (r:1 w:0)
-	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
-	/// Storage: `ValidatorCollators::SetReceivedAt` (r:1 w:1)
-	/// Proof: `ValidatorCollators::SetReceivedAt` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `ValidatorCollators::ExpectedEraDuration` (r:1 w:0)
-	/// Proof: `ValidatorCollators::ExpectedEraDuration` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `ValidatorCollators::ReportMargin` (r:1 w:0)
-	/// Proof: `ValidatorCollators::ReportMargin` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `Timestamp::Now` (r:1 w:0)
-	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `ValidatorCollators::ReportPeriod` (r:1 w:0)
-	/// Proof: `ValidatorCollators::ReportPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:0)
-	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn on_initialize() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `3506`
-		// Minimum execution time: 15_000_000 picoseconds.
-		Weight::from_parts(15_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3506))
-			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `ValidatorCollators::Dropped` (r:0 w:1)
 	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(36002), added: 36497, mode: `MaxEncodedLen`)

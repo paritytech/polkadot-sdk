@@ -18,7 +18,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2026-10-14, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `4304c79bfbe1`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! HOSTNAME: `cbd3143d981c`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: 1024
 
 // Executed Command:
@@ -56,8 +56,8 @@ impl<T: frame_system::Config> pallet_staking_async_points_converter::WeightInfo 
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 7_281_000 picoseconds.
-		Weight::from_parts(7_924_000, 0)
+		// Minimum execution time: 7_090_000 picoseconds.
+		Weight::from_parts(7_847_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -65,10 +65,10 @@ impl<T: frame_system::Config> pallet_staking_async_points_converter::WeightInfo 
 	/// Proof: `StakingPointsConverter::PointsPerService` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
 	fn report_authored_blocks() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `175`
+		//  Measured:  `4`
 		//  Estimated: `3490`
-		// Minimum execution time: 7_543_000 picoseconds.
-		Weight::from_parts(8_260_000, 0)
+		// Minimum execution time: 6_329_000 picoseconds.
+		Weight::from_parts(7_021_000, 0)
 			.saturating_add(Weight::from_parts(0, 3490))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
