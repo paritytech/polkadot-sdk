@@ -344,152 +344,169 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#194 id=194 data-nosnippet>194</a>	///
 <a href=#195 id=195 data-nosnippet>195</a>	/// This will also update all child storage keys in the top-level storage map.
 <a href=#196 id=196 data-nosnippet>196</a>	///
-<a href=#197 id=197 data-nosnippet>197</a>	/// The returned hash is defined by the `Block` and is SCALE encoded.
-<a href=#198 id=198 data-nosnippet>198</a>	</span><span class="kw">fn </span>storage_root(<span class="kw-2">&amp;mut </span><span class="self">self</span>, state_version: StateVersion) -&gt; Vec&lt;u8&gt;;
-<a href=#199 id=199 data-nosnippet>199</a>
-<a href=#200 id=200 data-nosnippet>200</a>	<span class="doccomment">/// Get the trie root of a child storage map.
-<a href=#201 id=201 data-nosnippet>201</a>	///
-<a href=#202 id=202 data-nosnippet>202</a>	/// This will also update the value of the child storage keys in the top-level storage map.
-<a href=#203 id=203 data-nosnippet>203</a>	///
-<a href=#204 id=204 data-nosnippet>204</a>	/// If the storage root equals the default hash as defined by the trie, the key in the top-level
-<a href=#205 id=205 data-nosnippet>205</a>	/// storage map will be removed.
-<a href=#206 id=206 data-nosnippet>206</a>	</span><span class="kw">fn </span>child_storage_root(
-<a href=#207 id=207 data-nosnippet>207</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#208 id=208 data-nosnippet>208</a>		child_info: <span class="kw-2">&amp;</span>ChildInfo,
-<a href=#209 id=209 data-nosnippet>209</a>		state_version: StateVersion,
-<a href=#210 id=210 data-nosnippet>210</a>	) -&gt; Vec&lt;u8&gt;;
-<a href=#211 id=211 data-nosnippet>211</a>
-<a href=#212 id=212 data-nosnippet>212</a>	<span class="doccomment">/// Append storage item.
-<a href=#213 id=213 data-nosnippet>213</a>	///
-<a href=#214 id=214 data-nosnippet>214</a>	/// This assumes specific format of the storage item. Also there is no way to undo this
-<a href=#215 id=215 data-nosnippet>215</a>	/// operation.
-<a href=#216 id=216 data-nosnippet>216</a>	</span><span class="kw">fn </span>storage_append(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Vec&lt;u8&gt;, value: Vec&lt;u8&gt;);
+<a href=#197 id=197 data-nosnippet>197</a>	/// The returned hash is defined by the `Block` and is SCALE encoded. The trie layout follows
+<a href=#198 id=198 data-nosnippet>198</a>	/// the state version the externalities were configured with.
+<a href=#199 id=199 data-nosnippet>199</a>	</span><span class="kw">fn </span>storage_root(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Vec&lt;u8&gt;;
+<a href=#200 id=200 data-nosnippet>200</a>
+<a href=#201 id=201 data-nosnippet>201</a>	<span class="doccomment">/// Get the trie root of the current storage map using the given `state_version`.
+<a href=#202 id=202 data-nosnippet>202</a>	///
+<a href=#203 id=203 data-nosnippet>203</a>	/// Same as [`Self::storage_root`], but the trie layout follows `state_version` instead of
+<a href=#204 id=204 data-nosnippet>204</a>	/// the configured state version. Used by the legacy host functions that pass the state
+<a href=#205 id=205 data-nosnippet>205</a>	/// version explicitly.
+<a href=#206 id=206 data-nosnippet>206</a>	</span><span class="kw">fn </span>storage_root_with_version(<span class="kw-2">&amp;mut </span><span class="self">self</span>, state_version: StateVersion) -&gt; Vec&lt;u8&gt;;
+<a href=#207 id=207 data-nosnippet>207</a>
+<a href=#208 id=208 data-nosnippet>208</a>	<span class="doccomment">/// Get the trie root of a child storage map.
+<a href=#209 id=209 data-nosnippet>209</a>	///
+<a href=#210 id=210 data-nosnippet>210</a>	/// This will also update the value of the child storage keys in the top-level storage map.
+<a href=#211 id=211 data-nosnippet>211</a>	///
+<a href=#212 id=212 data-nosnippet>212</a>	/// If the storage root equals the default hash as defined by the trie, the key in the top-level
+<a href=#213 id=213 data-nosnippet>213</a>	/// storage map will be removed.
+<a href=#214 id=214 data-nosnippet>214</a>	///
+<a href=#215 id=215 data-nosnippet>215</a>	/// The trie layout follows the state version the externalities were configured with.
+<a href=#216 id=216 data-nosnippet>216</a>	</span><span class="kw">fn </span>child_storage_root(<span class="kw-2">&amp;mut </span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo) -&gt; Vec&lt;u8&gt;;
 <a href=#217 id=217 data-nosnippet>217</a>
-<a href=#218 id=218 data-nosnippet>218</a>	<span class="doccomment">/// Start a new nested transaction.
+<a href=#218 id=218 data-nosnippet>218</a>	<span class="doccomment">/// Get the trie root of a child storage map using the given `state_version`.
 <a href=#219 id=219 data-nosnippet>219</a>	///
-<a href=#220 id=220 data-nosnippet>220</a>	/// This allows to either commit or roll back all changes made after this call to the
-<a href=#221 id=221 data-nosnippet>221</a>	/// top changes or the default child changes. For every transaction there cam be a
-<a href=#222 id=222 data-nosnippet>222</a>	/// matching call to either `storage_rollback_transaction` or `storage_commit_transaction`.
-<a href=#223 id=223 data-nosnippet>223</a>	/// Any transactions that are still open after returning from runtime are committed
-<a href=#224 id=224 data-nosnippet>224</a>	/// automatically.
-<a href=#225 id=225 data-nosnippet>225</a>	///
-<a href=#226 id=226 data-nosnippet>226</a>	/// Changes made without any open transaction are committed immediately.
-<a href=#227 id=227 data-nosnippet>227</a>	</span><span class="kw">fn </span>storage_start_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
+<a href=#220 id=220 data-nosnippet>220</a>	/// Same as [`Self::child_storage_root`], but the trie layout follows `state_version` instead
+<a href=#221 id=221 data-nosnippet>221</a>	/// of the configured state version. Used by the legacy host functions that pass the state
+<a href=#222 id=222 data-nosnippet>222</a>	/// version explicitly.
+<a href=#223 id=223 data-nosnippet>223</a>	</span><span class="kw">fn </span>child_storage_root_with_version(
+<a href=#224 id=224 data-nosnippet>224</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#225 id=225 data-nosnippet>225</a>		child_info: <span class="kw-2">&amp;</span>ChildInfo,
+<a href=#226 id=226 data-nosnippet>226</a>		state_version: StateVersion,
+<a href=#227 id=227 data-nosnippet>227</a>	) -&gt; Vec&lt;u8&gt;;
 <a href=#228 id=228 data-nosnippet>228</a>
-<a href=#229 id=229 data-nosnippet>229</a>	<span class="doccomment">/// Rollback the last transaction started by `storage_start_transaction`.
+<a href=#229 id=229 data-nosnippet>229</a>	<span class="doccomment">/// Append storage item.
 <a href=#230 id=230 data-nosnippet>230</a>	///
-<a href=#231 id=231 data-nosnippet>231</a>	/// Any changes made during that storage transaction are discarded. Returns an error when
-<a href=#232 id=232 data-nosnippet>232</a>	/// no transaction is open that can be closed.
-<a href=#233 id=233 data-nosnippet>233</a>	</span><span class="kw">fn </span>storage_rollback_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
+<a href=#231 id=231 data-nosnippet>231</a>	/// This assumes specific format of the storage item. Also there is no way to undo this
+<a href=#232 id=232 data-nosnippet>232</a>	/// operation.
+<a href=#233 id=233 data-nosnippet>233</a>	</span><span class="kw">fn </span>storage_append(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Vec&lt;u8&gt;, value: Vec&lt;u8&gt;);
 <a href=#234 id=234 data-nosnippet>234</a>
-<a href=#235 id=235 data-nosnippet>235</a>	<span class="doccomment">/// Commit the last transaction started by `storage_start_transaction`.
+<a href=#235 id=235 data-nosnippet>235</a>	<span class="doccomment">/// Start a new nested transaction.
 <a href=#236 id=236 data-nosnippet>236</a>	///
-<a href=#237 id=237 data-nosnippet>237</a>	/// Any changes made during that storage transaction are committed. Returns an error when
-<a href=#238 id=238 data-nosnippet>238</a>	/// no transaction is open that can be closed.
-<a href=#239 id=239 data-nosnippet>239</a>	</span><span class="kw">fn </span>storage_commit_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
-<a href=#240 id=240 data-nosnippet>240</a>
-<a href=#241 id=241 data-nosnippet>241</a>	<span class="doccomment">/// Index specified transaction slice and store it.
-<a href=#242 id=242 data-nosnippet>242</a>	</span><span class="kw">fn </span>storage_index_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _index: u32, _hash: <span class="kw-2">&amp;</span>[u8], _size: u32) {
-<a href=#243 id=243 data-nosnippet>243</a>		<span class="macro">unimplemented!</span>(<span class="string">"storage_index_transaction"</span>);
-<a href=#244 id=244 data-nosnippet>244</a>	}
+<a href=#237 id=237 data-nosnippet>237</a>	/// This allows to either commit or roll back all changes made after this call to the
+<a href=#238 id=238 data-nosnippet>238</a>	/// top changes or the default child changes. For every transaction there cam be a
+<a href=#239 id=239 data-nosnippet>239</a>	/// matching call to either `storage_rollback_transaction` or `storage_commit_transaction`.
+<a href=#240 id=240 data-nosnippet>240</a>	/// Any transactions that are still open after returning from runtime are committed
+<a href=#241 id=241 data-nosnippet>241</a>	/// automatically.
+<a href=#242 id=242 data-nosnippet>242</a>	///
+<a href=#243 id=243 data-nosnippet>243</a>	/// Changes made without any open transaction are committed immediately.
+<a href=#244 id=244 data-nosnippet>244</a>	</span><span class="kw">fn </span>storage_start_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
 <a href=#245 id=245 data-nosnippet>245</a>
-<a href=#246 id=246 data-nosnippet>246</a>	<span class="doccomment">/// Renew existing piece of transaction storage.
-<a href=#247 id=247 data-nosnippet>247</a>	</span><span class="kw">fn </span>storage_renew_transaction_index(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _index: u32, _hash: <span class="kw-2">&amp;</span>[u8]) {
-<a href=#248 id=248 data-nosnippet>248</a>		<span class="macro">unimplemented!</span>(<span class="string">"storage_renew_transaction_index"</span>);
-<a href=#249 id=249 data-nosnippet>249</a>	}
-<a href=#250 id=250 data-nosnippet>250</a>
-<a href=#251 id=251 data-nosnippet>251</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#252 id=252 data-nosnippet>252</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
-<a href=#253 id=253 data-nosnippet>253</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#254 id=254 data-nosnippet>254</a>	///
-<a href=#255 id=255 data-nosnippet>255</a>	/// Wipes all changes from caches and the database.
-<a href=#256 id=256 data-nosnippet>256</a>	///
-<a href=#257 id=257 data-nosnippet>257</a>	/// The state will be reset to genesis.
-<a href=#258 id=258 data-nosnippet>258</a>	</span><span class="kw">fn </span>wipe(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
-<a href=#259 id=259 data-nosnippet>259</a>
-<a href=#260 id=260 data-nosnippet>260</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#261 id=261 data-nosnippet>261</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
-<a href=#262 id=262 data-nosnippet>262</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#263 id=263 data-nosnippet>263</a>	///
-<a href=#264 id=264 data-nosnippet>264</a>	/// Commits all changes to the database and clears all caches.
-<a href=#265 id=265 data-nosnippet>265</a>	</span><span class="kw">fn </span>commit(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
-<a href=#266 id=266 data-nosnippet>266</a>
-<a href=#267 id=267 data-nosnippet>267</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#268 id=268 data-nosnippet>268</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
-<a href=#269 id=269 data-nosnippet>269</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#270 id=270 data-nosnippet>270</a>	///
-<a href=#271 id=271 data-nosnippet>271</a>	/// Gets the current read/write count for the benchmarking process.
-<a href=#272 id=272 data-nosnippet>272</a>	</span><span class="kw">fn </span>read_write_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (u32, u32, u32, u32);
-<a href=#273 id=273 data-nosnippet>273</a>
-<a href=#274 id=274 data-nosnippet>274</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#275 id=275 data-nosnippet>275</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
-<a href=#276 id=276 data-nosnippet>276</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#277 id=277 data-nosnippet>277</a>	///
-<a href=#278 id=278 data-nosnippet>278</a>	/// Resets read/write count for the benchmarking process.
-<a href=#279 id=279 data-nosnippet>279</a>	</span><span class="kw">fn </span>reset_read_write_count(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
-<a href=#280 id=280 data-nosnippet>280</a>
-<a href=#281 id=281 data-nosnippet>281</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#282 id=282 data-nosnippet>282</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
-<a href=#283 id=283 data-nosnippet>283</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#284 id=284 data-nosnippet>284</a>	///
-<a href=#285 id=285 data-nosnippet>285</a>	/// Gets the current DB tracking whitelist.
-<a href=#286 id=286 data-nosnippet>286</a>	</span><span class="kw">fn </span>get_whitelist(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;TrackedStorageKey&gt;;
-<a href=#287 id=287 data-nosnippet>287</a>
-<a href=#288 id=288 data-nosnippet>288</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#289 id=289 data-nosnippet>289</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
-<a href=#290 id=290 data-nosnippet>290</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#291 id=291 data-nosnippet>291</a>	///
-<a href=#292 id=292 data-nosnippet>292</a>	/// Adds new storage keys to the DB tracking whitelist.
-<a href=#293 id=293 data-nosnippet>293</a>	</span><span class="kw">fn </span>set_whitelist(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new: Vec&lt;TrackedStorageKey&gt;);
-<a href=#294 id=294 data-nosnippet>294</a>
-<a href=#295 id=295 data-nosnippet>295</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#296 id=296 data-nosnippet>296</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
-<a href=#297 id=297 data-nosnippet>297</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-<a href=#298 id=298 data-nosnippet>298</a>	///
-<a href=#299 id=299 data-nosnippet>299</a>	/// Returns estimated proof size for the state queries so far.
-<a href=#300 id=300 data-nosnippet>300</a>	/// Proof is reset on commit and wipe.
-<a href=#301 id=301 data-nosnippet>301</a>	</span><span class="kw">fn </span>proof_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
-<a href=#302 id=302 data-nosnippet>302</a>		<span class="prelude-val">None
-<a href=#303 id=303 data-nosnippet>303</a>	</span>}
+<a href=#246 id=246 data-nosnippet>246</a>	<span class="doccomment">/// Rollback the last transaction started by `storage_start_transaction`.
+<a href=#247 id=247 data-nosnippet>247</a>	///
+<a href=#248 id=248 data-nosnippet>248</a>	/// Any changes made during that storage transaction are discarded. Returns an error when
+<a href=#249 id=249 data-nosnippet>249</a>	/// no transaction is open that can be closed.
+<a href=#250 id=250 data-nosnippet>250</a>	</span><span class="kw">fn </span>storage_rollback_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
+<a href=#251 id=251 data-nosnippet>251</a>
+<a href=#252 id=252 data-nosnippet>252</a>	<span class="doccomment">/// Commit the last transaction started by `storage_start_transaction`.
+<a href=#253 id=253 data-nosnippet>253</a>	///
+<a href=#254 id=254 data-nosnippet>254</a>	/// Any changes made during that storage transaction are committed. Returns an error when
+<a href=#255 id=255 data-nosnippet>255</a>	/// no transaction is open that can be closed.
+<a href=#256 id=256 data-nosnippet>256</a>	</span><span class="kw">fn </span>storage_commit_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
+<a href=#257 id=257 data-nosnippet>257</a>
+<a href=#258 id=258 data-nosnippet>258</a>	<span class="doccomment">/// Index specified transaction slice and store it.
+<a href=#259 id=259 data-nosnippet>259</a>	</span><span class="kw">fn </span>storage_index_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _index: u32, _hash: <span class="kw-2">&amp;</span>[u8], _size: u32) {
+<a href=#260 id=260 data-nosnippet>260</a>		<span class="macro">unimplemented!</span>(<span class="string">"storage_index_transaction"</span>);
+<a href=#261 id=261 data-nosnippet>261</a>	}
+<a href=#262 id=262 data-nosnippet>262</a>
+<a href=#263 id=263 data-nosnippet>263</a>	<span class="doccomment">/// Renew existing piece of transaction storage.
+<a href=#264 id=264 data-nosnippet>264</a>	</span><span class="kw">fn </span>storage_renew_transaction_index(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _index: u32, _hash: <span class="kw-2">&amp;</span>[u8]) {
+<a href=#265 id=265 data-nosnippet>265</a>		<span class="macro">unimplemented!</span>(<span class="string">"storage_renew_transaction_index"</span>);
+<a href=#266 id=266 data-nosnippet>266</a>	}
+<a href=#267 id=267 data-nosnippet>267</a>
+<a href=#268 id=268 data-nosnippet>268</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#269 id=269 data-nosnippet>269</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
+<a href=#270 id=270 data-nosnippet>270</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#271 id=271 data-nosnippet>271</a>	///
+<a href=#272 id=272 data-nosnippet>272</a>	/// Wipes all changes from caches and the database.
+<a href=#273 id=273 data-nosnippet>273</a>	///
+<a href=#274 id=274 data-nosnippet>274</a>	/// The state will be reset to genesis.
+<a href=#275 id=275 data-nosnippet>275</a>	</span><span class="kw">fn </span>wipe(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
+<a href=#276 id=276 data-nosnippet>276</a>
+<a href=#277 id=277 data-nosnippet>277</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#278 id=278 data-nosnippet>278</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
+<a href=#279 id=279 data-nosnippet>279</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#280 id=280 data-nosnippet>280</a>	///
+<a href=#281 id=281 data-nosnippet>281</a>	/// Commits all changes to the database and clears all caches.
+<a href=#282 id=282 data-nosnippet>282</a>	</span><span class="kw">fn </span>commit(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
+<a href=#283 id=283 data-nosnippet>283</a>
+<a href=#284 id=284 data-nosnippet>284</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#285 id=285 data-nosnippet>285</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
+<a href=#286 id=286 data-nosnippet>286</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#287 id=287 data-nosnippet>287</a>	///
+<a href=#288 id=288 data-nosnippet>288</a>	/// Gets the current read/write count for the benchmarking process.
+<a href=#289 id=289 data-nosnippet>289</a>	</span><span class="kw">fn </span>read_write_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (u32, u32, u32, u32);
+<a href=#290 id=290 data-nosnippet>290</a>
+<a href=#291 id=291 data-nosnippet>291</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#292 id=292 data-nosnippet>292</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
+<a href=#293 id=293 data-nosnippet>293</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#294 id=294 data-nosnippet>294</a>	///
+<a href=#295 id=295 data-nosnippet>295</a>	/// Resets read/write count for the benchmarking process.
+<a href=#296 id=296 data-nosnippet>296</a>	</span><span class="kw">fn </span>reset_read_write_count(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
+<a href=#297 id=297 data-nosnippet>297</a>
+<a href=#298 id=298 data-nosnippet>298</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#299 id=299 data-nosnippet>299</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
+<a href=#300 id=300 data-nosnippet>300</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#301 id=301 data-nosnippet>301</a>	///
+<a href=#302 id=302 data-nosnippet>302</a>	/// Gets the current DB tracking whitelist.
+<a href=#303 id=303 data-nosnippet>303</a>	</span><span class="kw">fn </span>get_whitelist(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;TrackedStorageKey&gt;;
 <a href=#304 id=304 data-nosnippet>304</a>
 <a href=#305 id=305 data-nosnippet>305</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 <a href=#306 id=306 data-nosnippet>306</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
 <a href=#307 id=307 data-nosnippet>307</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 <a href=#308 id=308 data-nosnippet>308</a>	///
-<a href=#309 id=309 data-nosnippet>309</a>	/// Get all the keys that have been read or written to during the benchmark.
-<a href=#310 id=310 data-nosnippet>310</a>	</span><span class="kw">fn </span>get_read_and_written_keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(Vec&lt;u8&gt;, u32, u32, bool)&gt;;
-<a href=#311 id=311 data-nosnippet>311</a>}
-<a href=#312 id=312 data-nosnippet>312</a>
-<a href=#313 id=313 data-nosnippet>313</a><span class="doccomment">/// Extension for the [`Externalities`] trait.
-<a href=#314 id=314 data-nosnippet>314</a></span><span class="kw">pub trait </span>ExternalitiesExt {
-<a href=#315 id=315 data-nosnippet>315</a>	<span class="doccomment">/// Tries to find a registered extension and returns a mutable reference.
-<a href=#316 id=316 data-nosnippet>316</a>	</span><span class="kw">fn </span>extension&lt;T: Any + Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>T&gt;;
-<a href=#317 id=317 data-nosnippet>317</a>
-<a href=#318 id=318 data-nosnippet>318</a>	<span class="doccomment">/// Register extension `ext`.
-<a href=#319 id=319 data-nosnippet>319</a>	///
-<a href=#320 id=320 data-nosnippet>320</a>	/// Should return error if extension is already registered or extensions are not supported.
-<a href=#321 id=321 data-nosnippet>321</a>	</span><span class="kw">fn </span>register_extension&lt;T: Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ext: T) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
-<a href=#322 id=322 data-nosnippet>322</a>
-<a href=#323 id=323 data-nosnippet>323</a>	<span class="doccomment">/// Deregister and drop extension of `T` type.
-<a href=#324 id=324 data-nosnippet>324</a>	///
-<a href=#325 id=325 data-nosnippet>325</a>	/// Should return error if extension of type `T` is not registered or
-<a href=#326 id=326 data-nosnippet>326</a>	/// extensions are not supported.
-<a href=#327 id=327 data-nosnippet>327</a>	</span><span class="kw">fn </span>deregister_extension&lt;T: Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+<a href=#309 id=309 data-nosnippet>309</a>	/// Adds new storage keys to the DB tracking whitelist.
+<a href=#310 id=310 data-nosnippet>310</a>	</span><span class="kw">fn </span>set_whitelist(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new: Vec&lt;TrackedStorageKey&gt;);
+<a href=#311 id=311 data-nosnippet>311</a>
+<a href=#312 id=312 data-nosnippet>312</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#313 id=313 data-nosnippet>313</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
+<a href=#314 id=314 data-nosnippet>314</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#315 id=315 data-nosnippet>315</a>	///
+<a href=#316 id=316 data-nosnippet>316</a>	/// Returns estimated proof size for the state queries so far.
+<a href=#317 id=317 data-nosnippet>317</a>	/// Proof is reset on commit and wipe.
+<a href=#318 id=318 data-nosnippet>318</a>	</span><span class="kw">fn </span>proof_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+<a href=#319 id=319 data-nosnippet>319</a>		<span class="prelude-val">None
+<a href=#320 id=320 data-nosnippet>320</a>	</span>}
+<a href=#321 id=321 data-nosnippet>321</a>
+<a href=#322 id=322 data-nosnippet>322</a>	<span class="doccomment">/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#323 id=323 data-nosnippet>323</a>	/// Benchmarking related functionality and shouldn't be used anywhere else!
+<a href=#324 id=324 data-nosnippet>324</a>	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<a href=#325 id=325 data-nosnippet>325</a>	///
+<a href=#326 id=326 data-nosnippet>326</a>	/// Get all the keys that have been read or written to during the benchmark.
+<a href=#327 id=327 data-nosnippet>327</a>	</span><span class="kw">fn </span>get_read_and_written_keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(Vec&lt;u8&gt;, u32, u32, bool)&gt;;
 <a href=#328 id=328 data-nosnippet>328</a>}
 <a href=#329 id=329 data-nosnippet>329</a>
-<a href=#330 id=330 data-nosnippet>330</a><span class="kw">impl </span>ExternalitiesExt <span class="kw">for </span><span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Externalities {
-<a href=#331 id=331 data-nosnippet>331</a>	<span class="kw">fn </span>extension&lt;T: Any + Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>T&gt; {
-<a href=#332 id=332 data-nosnippet>332</a>		<span class="self">self</span>.extension_by_type_id(TypeId::of::&lt;T&gt;()).and_then(&lt;<span class="kw">dyn </span>Any&gt;::downcast_mut)
-<a href=#333 id=333 data-nosnippet>333</a>	}
+<a href=#330 id=330 data-nosnippet>330</a><span class="doccomment">/// Extension for the [`Externalities`] trait.
+<a href=#331 id=331 data-nosnippet>331</a></span><span class="kw">pub trait </span>ExternalitiesExt {
+<a href=#332 id=332 data-nosnippet>332</a>	<span class="doccomment">/// Tries to find a registered extension and returns a mutable reference.
+<a href=#333 id=333 data-nosnippet>333</a>	</span><span class="kw">fn </span>extension&lt;T: Any + Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>T&gt;;
 <a href=#334 id=334 data-nosnippet>334</a>
-<a href=#335 id=335 data-nosnippet>335</a>	<span class="kw">fn </span>register_extension&lt;T: Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ext: T) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-<a href=#336 id=336 data-nosnippet>336</a>		<span class="self">self</span>.register_extension_with_type_id(TypeId::of::&lt;T&gt;(), Box::new(ext))
-<a href=#337 id=337 data-nosnippet>337</a>	}
-<a href=#338 id=338 data-nosnippet>338</a>
-<a href=#339 id=339 data-nosnippet>339</a>	<span class="kw">fn </span>deregister_extension&lt;T: Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-<a href=#340 id=340 data-nosnippet>340</a>		<span class="self">self</span>.deregister_extension_by_type_id(TypeId::of::&lt;T&gt;())
-<a href=#341 id=341 data-nosnippet>341</a>	}
-<a href=#342 id=342 data-nosnippet>342</a>}
+<a href=#335 id=335 data-nosnippet>335</a>	<span class="doccomment">/// Register extension `ext`.
+<a href=#336 id=336 data-nosnippet>336</a>	///
+<a href=#337 id=337 data-nosnippet>337</a>	/// Should return error if extension is already registered or extensions are not supported.
+<a href=#338 id=338 data-nosnippet>338</a>	</span><span class="kw">fn </span>register_extension&lt;T: Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ext: T) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+<a href=#339 id=339 data-nosnippet>339</a>
+<a href=#340 id=340 data-nosnippet>340</a>	<span class="doccomment">/// Deregister and drop extension of `T` type.
+<a href=#341 id=341 data-nosnippet>341</a>	///
+<a href=#342 id=342 data-nosnippet>342</a>	/// Should return error if extension of type `T` is not registered or
+<a href=#343 id=343 data-nosnippet>343</a>	/// extensions are not supported.
+<a href=#344 id=344 data-nosnippet>344</a>	</span><span class="kw">fn </span>deregister_extension&lt;T: Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+<a href=#345 id=345 data-nosnippet>345</a>}
+<a href=#346 id=346 data-nosnippet>346</a>
+<a href=#347 id=347 data-nosnippet>347</a><span class="kw">impl </span>ExternalitiesExt <span class="kw">for </span><span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Externalities {
+<a href=#348 id=348 data-nosnippet>348</a>	<span class="kw">fn </span>extension&lt;T: Any + Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>T&gt; {
+<a href=#349 id=349 data-nosnippet>349</a>		<span class="self">self</span>.extension_by_type_id(TypeId::of::&lt;T&gt;()).and_then(&lt;<span class="kw">dyn </span>Any&gt;::downcast_mut)
+<a href=#350 id=350 data-nosnippet>350</a>	}
+<a href=#351 id=351 data-nosnippet>351</a>
+<a href=#352 id=352 data-nosnippet>352</a>	<span class="kw">fn </span>register_extension&lt;T: Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ext: T) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+<a href=#353 id=353 data-nosnippet>353</a>		<span class="self">self</span>.register_extension_with_type_id(TypeId::of::&lt;T&gt;(), Box::new(ext))
+<a href=#354 id=354 data-nosnippet>354</a>	}
+<a href=#355 id=355 data-nosnippet>355</a>
+<a href=#356 id=356 data-nosnippet>356</a>	<span class="kw">fn </span>deregister_extension&lt;T: Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+<a href=#357 id=357 data-nosnippet>357</a>		<span class="self">self</span>.deregister_extension_by_type_id(TypeId::of::&lt;T&gt;())
+<a href=#358 id=358 data-nosnippet>358</a>	}
+<a href=#359 id=359 data-nosnippet>359</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

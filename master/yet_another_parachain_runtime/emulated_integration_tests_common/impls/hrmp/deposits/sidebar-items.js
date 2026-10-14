@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DepositAction","DepositChangeResponse","DepositError"],"struct":["DepositChange","DepositChangeRequest"],"trait":["ChannelDepositProvider","OnDepositSet"]};

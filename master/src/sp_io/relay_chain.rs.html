@@ -410,7 +410,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#260 id=260 data-nosnippet>260</a>	///
 <a href=#261 id=261 data-nosnippet>261</a>	/// Returns a `Vec&lt;u8&gt;` that holds the SCALE encoded hash.
 <a href=#262 id=262 data-nosnippet>262</a>	</span><span class="kw">fn </span>root(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; AllocateAndReturnFatPointer&lt;Vec&lt;u8&gt;&gt; {
-<a href=#263 id=263 data-nosnippet>263</a>		<span class="self">self</span>.storage_root(StateVersion::V0)
+<a href=#263 id=263 data-nosnippet>263</a>		<span class="self">self</span>.storage_root_with_version(StateVersion::V0)
 <a href=#264 id=264 data-nosnippet>264</a>	}
 <a href=#265 id=265 data-nosnippet>265</a>
 <a href=#266 id=266 data-nosnippet>266</a>	<span class="doccomment">/// "Commit" all existing operations and compute the resulting storage root.
@@ -420,7 +420,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#270 id=270 data-nosnippet>270</a>	/// Returns a `Vec&lt;u8&gt;` that holds the SCALE encoded hash.
 <a href=#271 id=271 data-nosnippet>271</a>	</span><span class="attr">#[version(<span class="number">2</span>)]
 <a href=#272 id=272 data-nosnippet>272</a>	</span><span class="kw">fn </span>root(<span class="kw-2">&amp;mut </span><span class="self">self</span>, version: PassAs&lt;StateVersion, u8&gt;) -&gt; AllocateAndReturnFatPointer&lt;Vec&lt;u8&gt;&gt; {
-<a href=#273 id=273 data-nosnippet>273</a>		<span class="self">self</span>.storage_root(version)
+<a href=#273 id=273 data-nosnippet>273</a>		<span class="self">self</span>.storage_root_with_version(version)
 <a href=#274 id=274 data-nosnippet>274</a>	}
 <a href=#275 id=275 data-nosnippet>275</a>
 <a href=#276 id=276 data-nosnippet>276</a>	<span class="doccomment">/// Always returns `None`. This function exists for compatibility reasons.
@@ -667,7 +667,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#517 id=517 data-nosnippet>517</a>		storage_key: PassFatPointerAndRead&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
 <a href=#518 id=518 data-nosnippet>518</a>	) -&gt; AllocateAndReturnFatPointer&lt;Vec&lt;u8&gt;&gt; {
 <a href=#519 id=519 data-nosnippet>519</a>		<span class="kw">let </span>child_info = ChildInfo::new_default(storage_key);
-<a href=#520 id=520 data-nosnippet>520</a>		<span class="self">self</span>.child_storage_root(<span class="kw-2">&amp;</span>child_info, StateVersion::V0)
+<a href=#520 id=520 data-nosnippet>520</a>		<span class="self">self</span>.child_storage_root_with_version(<span class="kw-2">&amp;</span>child_info, StateVersion::V0)
 <a href=#521 id=521 data-nosnippet>521</a>	}
 <a href=#522 id=522 data-nosnippet>522</a>
 <a href=#523 id=523 data-nosnippet>523</a>	<span class="doccomment">/// Default child root calculation.
@@ -683,7 +683,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#533 id=533 data-nosnippet>533</a>		version: PassAs&lt;StateVersion, u8&gt;,
 <a href=#534 id=534 data-nosnippet>534</a>	) -&gt; AllocateAndReturnFatPointer&lt;Vec&lt;u8&gt;&gt; {
 <a href=#535 id=535 data-nosnippet>535</a>		<span class="kw">let </span>child_info = ChildInfo::new_default(storage_key);
-<a href=#536 id=536 data-nosnippet>536</a>		<span class="self">self</span>.child_storage_root(<span class="kw-2">&amp;</span>child_info, version)
+<a href=#536 id=536 data-nosnippet>536</a>		<span class="self">self</span>.child_storage_root_with_version(<span class="kw-2">&amp;</span>child_info, version)
 <a href=#537 id=537 data-nosnippet>537</a>	}
 <a href=#538 id=538 data-nosnippet>538</a>
 <a href=#539 id=539 data-nosnippet>539</a>	<span class="doccomment">/// Child storage key iteration.
@@ -2344,7 +2344,43 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#2194 id=2194 data-nosnippet>2194</a>		<span class="macro">assert!</span>(!ecdsa::is_signature_normalized(<span class="kw-2">&amp;</span>signature.<span class="number">0</span>));
 <a href=#2195 id=2195 data-nosnippet>2195</a>		<span class="macro">assert!</span>(crypto::ecdsa_verify_prehashed(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>prehash, <span class="kw-2">&amp;</span>pair.public()));
 <a href=#2196 id=2196 data-nosnippet>2196</a>	}
-<a href=#2197 id=2197 data-nosnippet>2197</a>}
+<a href=#2197 id=2197 data-nosnippet>2197</a>
+<a href=#2198 id=2198 data-nosnippet>2198</a>	<span class="attr">#[test]
+<a href=#2199 id=2199 data-nosnippet>2199</a>	</span><span class="kw">fn </span>storage_root_uses_passed_version() {
+<a href=#2200 id=2200 data-nosnippet>2200</a>		<span class="comment">// A value of 64 bytes exceeds `TRIE_VALUE_NODE_THRESHOLD`, so V0 and V1 produce
+<a href=#2201 id=2201 data-nosnippet>2201</a>		// different roots. The legacy host functions must follow the passed version, not the one
+<a href=#2202 id=2202 data-nosnippet>2202</a>		// the externalities were configured with.
+<a href=#2203 id=2203 data-nosnippet>2203</a>		</span><span class="kw">let </span>value = <span class="macro">vec!</span>[<span class="number">42u8</span>; <span class="number">64</span>];
+<a href=#2204 id=2204 data-nosnippet>2204</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext =
+<a href=#2205 id=2205 data-nosnippet>2205</a>			TestExternalities::new_with_state_version(Storage::default(), StateVersion::V1);
+<a href=#2206 id=2206 data-nosnippet>2206</a>
+<a href=#2207 id=2207 data-nosnippet>2207</a>		ext.execute_with(|| {
+<a href=#2208 id=2208 data-nosnippet>2208</a>			storage::set(<span class="string">b"key"</span>, <span class="kw-2">&amp;</span>value);
+<a href=#2209 id=2209 data-nosnippet>2209</a>
+<a href=#2210 id=2210 data-nosnippet>2210</a>			<span class="comment">// `TestExternalities` always inserts the (empty) `:code` entry.
+<a href=#2211 id=2211 data-nosnippet>2211</a>			</span><span class="kw">let </span>top = <span class="macro">vec!</span>[(<span class="string">b":code"</span>.to_vec(), Vec::new()), (<span class="string">b"key"</span>.to_vec(), value.clone())];
+<a href=#2212 id=2212 data-nosnippet>2212</a>			<span class="macro">assert_eq!</span>(
+<a href=#2213 id=2213 data-nosnippet>2213</a>				storage::root(StateVersion::V0),
+<a href=#2214 id=2214 data-nosnippet>2214</a>				LayoutV0::&lt;sp_core::Blake2Hasher&gt;::trie_root(top.clone()).as_ref().to_vec()
+<a href=#2215 id=2215 data-nosnippet>2215</a>			);
+<a href=#2216 id=2216 data-nosnippet>2216</a>			<span class="macro">assert_eq!</span>(
+<a href=#2217 id=2217 data-nosnippet>2217</a>				storage::root(StateVersion::V1),
+<a href=#2218 id=2218 data-nosnippet>2218</a>				LayoutV1::&lt;sp_core::Blake2Hasher&gt;::trie_root(top).as_ref().to_vec()
+<a href=#2219 id=2219 data-nosnippet>2219</a>			);
+<a href=#2220 id=2220 data-nosnippet>2220</a>
+<a href=#2221 id=2221 data-nosnippet>2221</a>			default_child_storage::set(<span class="string">b"child"</span>, <span class="string">b"ck"</span>, <span class="kw-2">&amp;</span>value);
+<a href=#2222 id=2222 data-nosnippet>2222</a>			<span class="kw">let </span>child = <span class="macro">vec!</span>[(<span class="string">b"ck"</span>.to_vec(), value.clone())];
+<a href=#2223 id=2223 data-nosnippet>2223</a>			<span class="macro">assert_eq!</span>(
+<a href=#2224 id=2224 data-nosnippet>2224</a>				default_child_storage::root(<span class="string">b"child"</span>, StateVersion::V0),
+<a href=#2225 id=2225 data-nosnippet>2225</a>				LayoutV0::&lt;sp_core::Blake2Hasher&gt;::trie_root(child.clone()).as_ref().to_vec()
+<a href=#2226 id=2226 data-nosnippet>2226</a>			);
+<a href=#2227 id=2227 data-nosnippet>2227</a>			<span class="macro">assert_eq!</span>(
+<a href=#2228 id=2228 data-nosnippet>2228</a>				default_child_storage::root(<span class="string">b"child"</span>, StateVersion::V1),
+<a href=#2229 id=2229 data-nosnippet>2229</a>				LayoutV1::&lt;sp_core::Blake2Hasher&gt;::trie_root(child).as_ref().to_vec()
+<a href=#2230 id=2230 data-nosnippet>2230</a>			);
+<a href=#2231 id=2231 data-nosnippet>2231</a>		});
+<a href=#2232 id=2232 data-nosnippet>2232</a>	}
+<a href=#2233 id=2233 data-nosnippet>2233</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

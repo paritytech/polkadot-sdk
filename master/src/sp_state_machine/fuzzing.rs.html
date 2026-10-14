@@ -301,7 +301,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#151 id=151 data-nosnippet>151</a>	H::Out: codec::Decode + codec::Encode + <span class="lifetime">'static</span>,
 <a href=#152 id=152 data-nosnippet>152</a>{
 <a href=#153 id=153 data-nosnippet>153</a>	<span class="kw">fn </span>process_item(<span class="kw-2">&amp;mut </span><span class="self">self</span>, item: FuzzAppendItem) {
-<a href=#154 id=154 data-nosnippet>154</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.overlay, <span class="kw-2">&amp;mut </span><span class="self">self</span>.backend, <span class="prelude-val">None</span>);
+<a href=#154 id=154 data-nosnippet>154</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.overlay, <span class="kw-2">&amp;mut </span><span class="self">self</span>.backend, <span class="prelude-val">None</span>, StateVersion::default());
 <a href=#155 id=155 data-nosnippet>155</a>		<span class="kw">match </span>item {
 <a href=#156 id=156 data-nosnippet>156</a>			FuzzAppendItem::Append(value, length) =&gt; {
 <a href=#157 id=157 data-nosnippet>157</a>				<span class="kw">let </span>value = <span class="macro">vec!</span>[value <span class="kw">as </span>u8; length <span class="kw">as </span>usize];
@@ -311,162 +311,167 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#161 id=161 data-nosnippet>161</a>			FuzzAppendItem::Append50(value, length) =&gt; {
 <a href=#162 id=162 data-nosnippet>162</a>				<span class="kw">let </span>value = <span class="macro">vec!</span>[value <span class="kw">as </span>u8; length <span class="kw">as </span>usize];
 <a href=#163 id=163 data-nosnippet>163</a>				<span class="kw">for _ in </span><span class="number">0</span>..<span class="number">50 </span>{
-<a href=#164 id=164 data-nosnippet>164</a>					<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.overlay, <span class="kw-2">&amp;mut </span><span class="self">self</span>.backend, <span class="prelude-val">None</span>);
-<a href=#165 id=165 data-nosnippet>165</a>					ext.storage_append(<span class="self">self</span>.key.clone(), value.clone());
-<a href=#166 id=166 data-nosnippet>166</a>					<span class="self">self</span>.reference.append(<span class="self">self</span>.key.clone(), value.clone(), <span class="kw-2">&amp;mut </span><span class="self">self</span>.backend);
-<a href=#167 id=167 data-nosnippet>167</a>				}
-<a href=#168 id=168 data-nosnippet>168</a>			},
-<a href=#169 id=169 data-nosnippet>169</a>			FuzzAppendItem::Insert(value, length) =&gt; {
-<a href=#170 id=170 data-nosnippet>170</a>				<span class="kw">let </span>value = <span class="macro">vec!</span>[value <span class="kw">as </span>u8; length <span class="kw">as </span>usize];
-<a href=#171 id=171 data-nosnippet>171</a>				ext.set_storage(<span class="self">self</span>.key.clone(), value.clone());
-<a href=#172 id=172 data-nosnippet>172</a>				<span class="self">self</span>.reference.insert(<span class="self">self</span>.key.clone(), <span class="prelude-val">Some</span>(value));
+<a href=#164 id=164 data-nosnippet>164</a>					<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(
+<a href=#165 id=165 data-nosnippet>165</a>						<span class="kw-2">&amp;mut </span><span class="self">self</span>.overlay,
+<a href=#166 id=166 data-nosnippet>166</a>						<span class="kw-2">&amp;mut </span><span class="self">self</span>.backend,
+<a href=#167 id=167 data-nosnippet>167</a>						<span class="prelude-val">None</span>,
+<a href=#168 id=168 data-nosnippet>168</a>						StateVersion::default(),
+<a href=#169 id=169 data-nosnippet>169</a>					);
+<a href=#170 id=170 data-nosnippet>170</a>					ext.storage_append(<span class="self">self</span>.key.clone(), value.clone());
+<a href=#171 id=171 data-nosnippet>171</a>					<span class="self">self</span>.reference.append(<span class="self">self</span>.key.clone(), value.clone(), <span class="kw-2">&amp;mut </span><span class="self">self</span>.backend);
+<a href=#172 id=172 data-nosnippet>172</a>				}
 <a href=#173 id=173 data-nosnippet>173</a>			},
-<a href=#174 id=174 data-nosnippet>174</a>			FuzzAppendItem::Remove =&gt; {
-<a href=#175 id=175 data-nosnippet>175</a>				ext.clear_storage(<span class="kw-2">&amp;</span><span class="self">self</span>.key);
-<a href=#176 id=176 data-nosnippet>176</a>				<span class="self">self</span>.reference.insert(<span class="self">self</span>.key.clone(), <span class="prelude-val">None</span>);
-<a href=#177 id=177 data-nosnippet>177</a>			},
-<a href=#178 id=178 data-nosnippet>178</a>			FuzzAppendItem::Read =&gt; {
-<a href=#179 id=179 data-nosnippet>179</a>				<span class="kw">let </span>left = ext.storage(<span class="self">self</span>.key.as_slice());
-<a href=#180 id=180 data-nosnippet>180</a>				<span class="kw">let </span>right = <span class="self">self</span>.reference.get(<span class="self">self</span>.key.as_slice());
-<a href=#181 id=181 data-nosnippet>181</a>				<span class="macro">assert_eq!</span>(left.as_ref(), right);
+<a href=#174 id=174 data-nosnippet>174</a>			FuzzAppendItem::Insert(value, length) =&gt; {
+<a href=#175 id=175 data-nosnippet>175</a>				<span class="kw">let </span>value = <span class="macro">vec!</span>[value <span class="kw">as </span>u8; length <span class="kw">as </span>usize];
+<a href=#176 id=176 data-nosnippet>176</a>				ext.set_storage(<span class="self">self</span>.key.clone(), value.clone());
+<a href=#177 id=177 data-nosnippet>177</a>				<span class="self">self</span>.reference.insert(<span class="self">self</span>.key.clone(), <span class="prelude-val">Some</span>(value));
+<a href=#178 id=178 data-nosnippet>178</a>			},
+<a href=#179 id=179 data-nosnippet>179</a>			FuzzAppendItem::Remove =&gt; {
+<a href=#180 id=180 data-nosnippet>180</a>				ext.clear_storage(<span class="kw-2">&amp;</span><span class="self">self</span>.key);
+<a href=#181 id=181 data-nosnippet>181</a>				<span class="self">self</span>.reference.insert(<span class="self">self</span>.key.clone(), <span class="prelude-val">None</span>);
 <a href=#182 id=182 data-nosnippet>182</a>			},
-<a href=#183 id=183 data-nosnippet>183</a>			FuzzAppendItem::StartTransaction =&gt; {
-<a href=#184 id=184 data-nosnippet>184</a>				<span class="self">self</span>.transaction_depth += <span class="number">1</span>;
-<a href=#185 id=185 data-nosnippet>185</a>				<span class="self">self</span>.reference.start_transaction();
-<a href=#186 id=186 data-nosnippet>186</a>				ext.storage_start_transaction();
+<a href=#183 id=183 data-nosnippet>183</a>			FuzzAppendItem::Read =&gt; {
+<a href=#184 id=184 data-nosnippet>184</a>				<span class="kw">let </span>left = ext.storage(<span class="self">self</span>.key.as_slice());
+<a href=#185 id=185 data-nosnippet>185</a>				<span class="kw">let </span>right = <span class="self">self</span>.reference.get(<span class="self">self</span>.key.as_slice());
+<a href=#186 id=186 data-nosnippet>186</a>				<span class="macro">assert_eq!</span>(left.as_ref(), right);
 <a href=#187 id=187 data-nosnippet>187</a>			},
-<a href=#188 id=188 data-nosnippet>188</a>			FuzzAppendItem::RollbackTransaction =&gt; {
-<a href=#189 id=189 data-nosnippet>189</a>				<span class="kw">if </span><span class="self">self</span>.transaction_depth == <span class="number">0 </span>{
-<a href=#190 id=190 data-nosnippet>190</a>					<span class="kw">return</span>;
-<a href=#191 id=191 data-nosnippet>191</a>				}
-<a href=#192 id=192 data-nosnippet>192</a>				<span class="self">self</span>.transaction_depth -= <span class="number">1</span>;
-<a href=#193 id=193 data-nosnippet>193</a>				<span class="self">self</span>.reference.rollback_transaction();
-<a href=#194 id=194 data-nosnippet>194</a>				ext.storage_rollback_transaction().unwrap();
-<a href=#195 id=195 data-nosnippet>195</a>			},
-<a href=#196 id=196 data-nosnippet>196</a>			FuzzAppendItem::CommitTransaction =&gt; {
-<a href=#197 id=197 data-nosnippet>197</a>				<span class="kw">if </span><span class="self">self</span>.transaction_depth == <span class="number">0 </span>{
-<a href=#198 id=198 data-nosnippet>198</a>					<span class="kw">return</span>;
-<a href=#199 id=199 data-nosnippet>199</a>				}
-<a href=#200 id=200 data-nosnippet>200</a>				<span class="self">self</span>.transaction_depth -= <span class="number">1</span>;
-<a href=#201 id=201 data-nosnippet>201</a>				<span class="self">self</span>.reference.commit_transaction();
-<a href=#202 id=202 data-nosnippet>202</a>				ext.storage_commit_transaction().unwrap();
-<a href=#203 id=203 data-nosnippet>203</a>			},
-<a href=#204 id=204 data-nosnippet>204</a>		}
-<a href=#205 id=205 data-nosnippet>205</a>	}
-<a href=#206 id=206 data-nosnippet>206</a>
-<a href=#207 id=207 data-nosnippet>207</a>	<span class="kw">fn </span>check_final_state(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#208 id=208 data-nosnippet>208</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.overlay, <span class="kw-2">&amp;mut </span><span class="self">self</span>.backend, <span class="prelude-val">None</span>);
-<a href=#209 id=209 data-nosnippet>209</a>		<span class="kw">let </span>left = ext.storage(<span class="self">self</span>.key.as_slice());
-<a href=#210 id=210 data-nosnippet>210</a>		<span class="kw">let </span>right = <span class="self">self</span>.reference.get(<span class="self">self</span>.key.as_slice());
-<a href=#211 id=211 data-nosnippet>211</a>		<span class="macro">assert_eq!</span>(left.as_ref(), right);
-<a href=#212 id=212 data-nosnippet>212</a>	}
-<a href=#213 id=213 data-nosnippet>213</a>}
-<a href=#214 id=214 data-nosnippet>214</a>
-<a href=#215 id=215 data-nosnippet>215</a><span class="attr">#[test]
-<a href=#216 id=216 data-nosnippet>216</a></span><span class="kw">fn </span>fuzz_scenarii() {
-<a href=#217 id=217 data-nosnippet>217</a>	<span class="macro">assert_eq!</span>(codec::Compact(<span class="number">5u16</span>).encode()[<span class="number">0</span>], DataValue::EasyBug <span class="kw">as </span>u8);
-<a href=#218 id=218 data-nosnippet>218</a>	<span class="kw">let </span>scenarii = <span class="macro">vec!</span>[
-<a href=#219 id=219 data-nosnippet>219</a>		(
-<a href=#220 id=220 data-nosnippet>220</a>			<span class="macro">vec!</span>[
-<a href=#221 id=221 data-nosnippet>221</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Small),
-<a href=#222 id=222 data-nosnippet>222</a>				FuzzAppendItem::StartTransaction,
-<a href=#223 id=223 data-nosnippet>223</a>				FuzzAppendItem::Append50(DataValue::D, DataLength::Small),
-<a href=#224 id=224 data-nosnippet>224</a>				FuzzAppendItem::Read,
-<a href=#225 id=225 data-nosnippet>225</a>				FuzzAppendItem::RollbackTransaction,
-<a href=#226 id=226 data-nosnippet>226</a>				FuzzAppendItem::StartTransaction,
-<a href=#227 id=227 data-nosnippet>227</a>				FuzzAppendItem::Append(DataValue::D, DataLength::Small),
-<a href=#228 id=228 data-nosnippet>228</a>				FuzzAppendItem::Read,
-<a href=#229 id=229 data-nosnippet>229</a>				FuzzAppendItem::RollbackTransaction,
-<a href=#230 id=230 data-nosnippet>230</a>			],
-<a href=#231 id=231 data-nosnippet>231</a>			<span class="prelude-val">Some</span>((DataValue::D, DataLength::Small)),
-<a href=#232 id=232 data-nosnippet>232</a>		),
-<a href=#233 id=233 data-nosnippet>233</a>		(
-<a href=#234 id=234 data-nosnippet>234</a>			<span class="macro">vec!</span>[
-<a href=#235 id=235 data-nosnippet>235</a>				FuzzAppendItem::Append(DataValue::B, DataLength::Small),
-<a href=#236 id=236 data-nosnippet>236</a>				FuzzAppendItem::StartTransaction,
-<a href=#237 id=237 data-nosnippet>237</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Small),
-<a href=#238 id=238 data-nosnippet>238</a>				FuzzAppendItem::StartTransaction,
-<a href=#239 id=239 data-nosnippet>239</a>				FuzzAppendItem::Remove,
-<a href=#240 id=240 data-nosnippet>240</a>				FuzzAppendItem::StartTransaction,
-<a href=#241 id=241 data-nosnippet>241</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Zero),
-<a href=#242 id=242 data-nosnippet>242</a>				FuzzAppendItem::CommitTransaction,
-<a href=#243 id=243 data-nosnippet>243</a>				FuzzAppendItem::CommitTransaction,
+<a href=#188 id=188 data-nosnippet>188</a>			FuzzAppendItem::StartTransaction =&gt; {
+<a href=#189 id=189 data-nosnippet>189</a>				<span class="self">self</span>.transaction_depth += <span class="number">1</span>;
+<a href=#190 id=190 data-nosnippet>190</a>				<span class="self">self</span>.reference.start_transaction();
+<a href=#191 id=191 data-nosnippet>191</a>				ext.storage_start_transaction();
+<a href=#192 id=192 data-nosnippet>192</a>			},
+<a href=#193 id=193 data-nosnippet>193</a>			FuzzAppendItem::RollbackTransaction =&gt; {
+<a href=#194 id=194 data-nosnippet>194</a>				<span class="kw">if </span><span class="self">self</span>.transaction_depth == <span class="number">0 </span>{
+<a href=#195 id=195 data-nosnippet>195</a>					<span class="kw">return</span>;
+<a href=#196 id=196 data-nosnippet>196</a>				}
+<a href=#197 id=197 data-nosnippet>197</a>				<span class="self">self</span>.transaction_depth -= <span class="number">1</span>;
+<a href=#198 id=198 data-nosnippet>198</a>				<span class="self">self</span>.reference.rollback_transaction();
+<a href=#199 id=199 data-nosnippet>199</a>				ext.storage_rollback_transaction().unwrap();
+<a href=#200 id=200 data-nosnippet>200</a>			},
+<a href=#201 id=201 data-nosnippet>201</a>			FuzzAppendItem::CommitTransaction =&gt; {
+<a href=#202 id=202 data-nosnippet>202</a>				<span class="kw">if </span><span class="self">self</span>.transaction_depth == <span class="number">0 </span>{
+<a href=#203 id=203 data-nosnippet>203</a>					<span class="kw">return</span>;
+<a href=#204 id=204 data-nosnippet>204</a>				}
+<a href=#205 id=205 data-nosnippet>205</a>				<span class="self">self</span>.transaction_depth -= <span class="number">1</span>;
+<a href=#206 id=206 data-nosnippet>206</a>				<span class="self">self</span>.reference.commit_transaction();
+<a href=#207 id=207 data-nosnippet>207</a>				ext.storage_commit_transaction().unwrap();
+<a href=#208 id=208 data-nosnippet>208</a>			},
+<a href=#209 id=209 data-nosnippet>209</a>		}
+<a href=#210 id=210 data-nosnippet>210</a>	}
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a>	<span class="kw">fn </span>check_final_state(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#213 id=213 data-nosnippet>213</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.overlay, <span class="kw-2">&amp;mut </span><span class="self">self</span>.backend, <span class="prelude-val">None</span>, StateVersion::default());
+<a href=#214 id=214 data-nosnippet>214</a>		<span class="kw">let </span>left = ext.storage(<span class="self">self</span>.key.as_slice());
+<a href=#215 id=215 data-nosnippet>215</a>		<span class="kw">let </span>right = <span class="self">self</span>.reference.get(<span class="self">self</span>.key.as_slice());
+<a href=#216 id=216 data-nosnippet>216</a>		<span class="macro">assert_eq!</span>(left.as_ref(), right);
+<a href=#217 id=217 data-nosnippet>217</a>	}
+<a href=#218 id=218 data-nosnippet>218</a>}
+<a href=#219 id=219 data-nosnippet>219</a>
+<a href=#220 id=220 data-nosnippet>220</a><span class="attr">#[test]
+<a href=#221 id=221 data-nosnippet>221</a></span><span class="kw">fn </span>fuzz_scenarii() {
+<a href=#222 id=222 data-nosnippet>222</a>	<span class="macro">assert_eq!</span>(codec::Compact(<span class="number">5u16</span>).encode()[<span class="number">0</span>], DataValue::EasyBug <span class="kw">as </span>u8);
+<a href=#223 id=223 data-nosnippet>223</a>	<span class="kw">let </span>scenarii = <span class="macro">vec!</span>[
+<a href=#224 id=224 data-nosnippet>224</a>		(
+<a href=#225 id=225 data-nosnippet>225</a>			<span class="macro">vec!</span>[
+<a href=#226 id=226 data-nosnippet>226</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Small),
+<a href=#227 id=227 data-nosnippet>227</a>				FuzzAppendItem::StartTransaction,
+<a href=#228 id=228 data-nosnippet>228</a>				FuzzAppendItem::Append50(DataValue::D, DataLength::Small),
+<a href=#229 id=229 data-nosnippet>229</a>				FuzzAppendItem::Read,
+<a href=#230 id=230 data-nosnippet>230</a>				FuzzAppendItem::RollbackTransaction,
+<a href=#231 id=231 data-nosnippet>231</a>				FuzzAppendItem::StartTransaction,
+<a href=#232 id=232 data-nosnippet>232</a>				FuzzAppendItem::Append(DataValue::D, DataLength::Small),
+<a href=#233 id=233 data-nosnippet>233</a>				FuzzAppendItem::Read,
+<a href=#234 id=234 data-nosnippet>234</a>				FuzzAppendItem::RollbackTransaction,
+<a href=#235 id=235 data-nosnippet>235</a>			],
+<a href=#236 id=236 data-nosnippet>236</a>			<span class="prelude-val">Some</span>((DataValue::D, DataLength::Small)),
+<a href=#237 id=237 data-nosnippet>237</a>		),
+<a href=#238 id=238 data-nosnippet>238</a>		(
+<a href=#239 id=239 data-nosnippet>239</a>			<span class="macro">vec!</span>[
+<a href=#240 id=240 data-nosnippet>240</a>				FuzzAppendItem::Append(DataValue::B, DataLength::Small),
+<a href=#241 id=241 data-nosnippet>241</a>				FuzzAppendItem::StartTransaction,
+<a href=#242 id=242 data-nosnippet>242</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Small),
+<a href=#243 id=243 data-nosnippet>243</a>				FuzzAppendItem::StartTransaction,
 <a href=#244 id=244 data-nosnippet>244</a>				FuzzAppendItem::Remove,
-<a href=#245 id=245 data-nosnippet>245</a>			],
-<a href=#246 id=246 data-nosnippet>246</a>			<span class="prelude-val">Some</span>((DataValue::EasyBug, DataLength::Small)),
-<a href=#247 id=247 data-nosnippet>247</a>		),
-<a href=#248 id=248 data-nosnippet>248</a>		(
-<a href=#249 id=249 data-nosnippet>249</a>			<span class="macro">vec!</span>[
-<a href=#250 id=250 data-nosnippet>250</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Small),
-<a href=#251 id=251 data-nosnippet>251</a>				FuzzAppendItem::StartTransaction,
-<a href=#252 id=252 data-nosnippet>252</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Medium),
-<a href=#253 id=253 data-nosnippet>253</a>				FuzzAppendItem::StartTransaction,
-<a href=#254 id=254 data-nosnippet>254</a>				FuzzAppendItem::Remove,
-<a href=#255 id=255 data-nosnippet>255</a>				FuzzAppendItem::CommitTransaction,
-<a href=#256 id=256 data-nosnippet>256</a>				FuzzAppendItem::RollbackTransaction,
-<a href=#257 id=257 data-nosnippet>257</a>			],
-<a href=#258 id=258 data-nosnippet>258</a>			<span class="prelude-val">Some</span>((DataValue::B, DataLength::Big)),
-<a href=#259 id=259 data-nosnippet>259</a>		),
-<a href=#260 id=260 data-nosnippet>260</a>		(
-<a href=#261 id=261 data-nosnippet>261</a>			<span class="macro">vec!</span>[
-<a href=#262 id=262 data-nosnippet>262</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Big),
-<a href=#263 id=263 data-nosnippet>263</a>				FuzzAppendItem::StartTransaction,
-<a href=#264 id=264 data-nosnippet>264</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Medium),
-<a href=#265 id=265 data-nosnippet>265</a>				FuzzAppendItem::Remove,
-<a href=#266 id=266 data-nosnippet>266</a>				FuzzAppendItem::RollbackTransaction,
-<a href=#267 id=267 data-nosnippet>267</a>				FuzzAppendItem::StartTransaction,
-<a href=#268 id=268 data-nosnippet>268</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Zero),
-<a href=#269 id=269 data-nosnippet>269</a>			],
-<a href=#270 id=270 data-nosnippet>270</a>			<span class="prelude-val">None</span>,
-<a href=#271 id=271 data-nosnippet>271</a>		),
-<a href=#272 id=272 data-nosnippet>272</a>		(
-<a href=#273 id=273 data-nosnippet>273</a>			<span class="macro">vec!</span>[
-<a href=#274 id=274 data-nosnippet>274</a>				FuzzAppendItem::StartTransaction,
-<a href=#275 id=275 data-nosnippet>275</a>				FuzzAppendItem::RollbackTransaction,
-<a href=#276 id=276 data-nosnippet>276</a>				FuzzAppendItem::RollbackTransaction,
-<a href=#277 id=277 data-nosnippet>277</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Zero),
-<a href=#278 id=278 data-nosnippet>278</a>			],
-<a href=#279 id=279 data-nosnippet>279</a>			<span class="prelude-val">None</span>,
-<a href=#280 id=280 data-nosnippet>280</a>		),
-<a href=#281 id=281 data-nosnippet>281</a>		(<span class="macro">vec!</span>[FuzzAppendItem::StartTransaction], <span class="prelude-val">Some</span>((DataValue::EasyBug, DataLength::Zero))),
-<a href=#282 id=282 data-nosnippet>282</a>	];
-<a href=#283 id=283 data-nosnippet>283</a>
-<a href=#284 id=284 data-nosnippet>284</a>	<span class="kw">for </span>(scenario, init) <span class="kw">in </span>scenarii.into_iter() {
-<a href=#285 id=285 data-nosnippet>285</a>		fuzz_append::&lt;BlakeTwo256&gt;(FuzzAppendPayload(scenario, init));
-<a href=#286 id=286 data-nosnippet>286</a>	}
-<a href=#287 id=287 data-nosnippet>287</a>}
+<a href=#245 id=245 data-nosnippet>245</a>				FuzzAppendItem::StartTransaction,
+<a href=#246 id=246 data-nosnippet>246</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Zero),
+<a href=#247 id=247 data-nosnippet>247</a>				FuzzAppendItem::CommitTransaction,
+<a href=#248 id=248 data-nosnippet>248</a>				FuzzAppendItem::CommitTransaction,
+<a href=#249 id=249 data-nosnippet>249</a>				FuzzAppendItem::Remove,
+<a href=#250 id=250 data-nosnippet>250</a>			],
+<a href=#251 id=251 data-nosnippet>251</a>			<span class="prelude-val">Some</span>((DataValue::EasyBug, DataLength::Small)),
+<a href=#252 id=252 data-nosnippet>252</a>		),
+<a href=#253 id=253 data-nosnippet>253</a>		(
+<a href=#254 id=254 data-nosnippet>254</a>			<span class="macro">vec!</span>[
+<a href=#255 id=255 data-nosnippet>255</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Small),
+<a href=#256 id=256 data-nosnippet>256</a>				FuzzAppendItem::StartTransaction,
+<a href=#257 id=257 data-nosnippet>257</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Medium),
+<a href=#258 id=258 data-nosnippet>258</a>				FuzzAppendItem::StartTransaction,
+<a href=#259 id=259 data-nosnippet>259</a>				FuzzAppendItem::Remove,
+<a href=#260 id=260 data-nosnippet>260</a>				FuzzAppendItem::CommitTransaction,
+<a href=#261 id=261 data-nosnippet>261</a>				FuzzAppendItem::RollbackTransaction,
+<a href=#262 id=262 data-nosnippet>262</a>			],
+<a href=#263 id=263 data-nosnippet>263</a>			<span class="prelude-val">Some</span>((DataValue::B, DataLength::Big)),
+<a href=#264 id=264 data-nosnippet>264</a>		),
+<a href=#265 id=265 data-nosnippet>265</a>		(
+<a href=#266 id=266 data-nosnippet>266</a>			<span class="macro">vec!</span>[
+<a href=#267 id=267 data-nosnippet>267</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Big),
+<a href=#268 id=268 data-nosnippet>268</a>				FuzzAppendItem::StartTransaction,
+<a href=#269 id=269 data-nosnippet>269</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Medium),
+<a href=#270 id=270 data-nosnippet>270</a>				FuzzAppendItem::Remove,
+<a href=#271 id=271 data-nosnippet>271</a>				FuzzAppendItem::RollbackTransaction,
+<a href=#272 id=272 data-nosnippet>272</a>				FuzzAppendItem::StartTransaction,
+<a href=#273 id=273 data-nosnippet>273</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Zero),
+<a href=#274 id=274 data-nosnippet>274</a>			],
+<a href=#275 id=275 data-nosnippet>275</a>			<span class="prelude-val">None</span>,
+<a href=#276 id=276 data-nosnippet>276</a>		),
+<a href=#277 id=277 data-nosnippet>277</a>		(
+<a href=#278 id=278 data-nosnippet>278</a>			<span class="macro">vec!</span>[
+<a href=#279 id=279 data-nosnippet>279</a>				FuzzAppendItem::StartTransaction,
+<a href=#280 id=280 data-nosnippet>280</a>				FuzzAppendItem::RollbackTransaction,
+<a href=#281 id=281 data-nosnippet>281</a>				FuzzAppendItem::RollbackTransaction,
+<a href=#282 id=282 data-nosnippet>282</a>				FuzzAppendItem::Append(DataValue::A, DataLength::Zero),
+<a href=#283 id=283 data-nosnippet>283</a>			],
+<a href=#284 id=284 data-nosnippet>284</a>			<span class="prelude-val">None</span>,
+<a href=#285 id=285 data-nosnippet>285</a>		),
+<a href=#286 id=286 data-nosnippet>286</a>		(<span class="macro">vec!</span>[FuzzAppendItem::StartTransaction], <span class="prelude-val">Some</span>((DataValue::EasyBug, DataLength::Zero))),
+<a href=#287 id=287 data-nosnippet>287</a>	];
 <a href=#288 id=288 data-nosnippet>288</a>
-<a href=#289 id=289 data-nosnippet>289</a><span class="doccomment">/// Test append operation for a given fuzzing payload.
-<a href=#290 id=290 data-nosnippet>290</a></span><span class="kw">pub fn </span>fuzz_append&lt;H&gt;(payload: FuzzAppendPayload)
-<a href=#291 id=291 data-nosnippet>291</a><span class="kw">where
-<a href=#292 id=292 data-nosnippet>292</a>	</span>H: Hasher,
-<a href=#293 id=293 data-nosnippet>293</a>	H::Out: codec::Decode + codec::Encode + <span class="lifetime">'static</span>,
-<a href=#294 id=294 data-nosnippet>294</a>{
-<a href=#295 id=295 data-nosnippet>295</a>	<span class="kw">let </span>FuzzAppendPayload(to_fuzz, initial) = payload;
-<a href=#296 id=296 data-nosnippet>296</a>	<span class="kw">let </span>key = <span class="string">b"k"</span>.to_vec();
-<a href=#297 id=297 data-nosnippet>297</a>	<span class="kw">let </span><span class="kw-2">mut </span>reference = SimpleOverlay::default();
-<a href=#298 id=298 data-nosnippet>298</a>	<span class="kw">let </span>initial: BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = initial
-<a href=#299 id=299 data-nosnippet>299</a>		.into_iter()
-<a href=#300 id=300 data-nosnippet>300</a>		.map(|(v, l)| (key.clone(), <span class="macro">vec!</span>[v <span class="kw">as </span>u8; l <span class="kw">as </span>usize]))
-<a href=#301 id=301 data-nosnippet>301</a>		.collect();
-<a href=#302 id=302 data-nosnippet>302</a>	<span class="kw">for </span>(k, v) <span class="kw">in </span>initial.iter() {
-<a href=#303 id=303 data-nosnippet>303</a>		reference.data[<span class="number">0</span>].insert(k.clone(), <span class="prelude-val">Some</span>(v.clone()));
-<a href=#304 id=304 data-nosnippet>304</a>	}
-<a href=#305 id=305 data-nosnippet>305</a>	reference.start_transaction(); <span class="comment">// level 0 is backend, keep it untouched.
-<a href=#306 id=306 data-nosnippet>306</a>	</span><span class="kw">let </span>overlay = OverlayedChanges::default();
-<a href=#307 id=307 data-nosnippet>307</a>
-<a href=#308 id=308 data-nosnippet>308</a>	<span class="kw">let </span><span class="kw-2">mut </span>state = FuzzAppendState::&lt;H&gt; {
-<a href=#309 id=309 data-nosnippet>309</a>		key,
-<a href=#310 id=310 data-nosnippet>310</a>		reference,
-<a href=#311 id=311 data-nosnippet>311</a>		overlay,
-<a href=#312 id=312 data-nosnippet>312</a>		backend: (initial, StateVersion::default()).into(),
-<a href=#313 id=313 data-nosnippet>313</a>		transaction_depth: <span class="number">0</span>,
-<a href=#314 id=314 data-nosnippet>314</a>	};
-<a href=#315 id=315 data-nosnippet>315</a>	<span class="kw">for </span>item <span class="kw">in </span>to_fuzz {
-<a href=#316 id=316 data-nosnippet>316</a>		state.process_item(item);
-<a href=#317 id=317 data-nosnippet>317</a>	}
-<a href=#318 id=318 data-nosnippet>318</a>	state.check_final_state();
-<a href=#319 id=319 data-nosnippet>319</a>}
+<a href=#289 id=289 data-nosnippet>289</a>	<span class="kw">for </span>(scenario, init) <span class="kw">in </span>scenarii.into_iter() {
+<a href=#290 id=290 data-nosnippet>290</a>		fuzz_append::&lt;BlakeTwo256&gt;(FuzzAppendPayload(scenario, init));
+<a href=#291 id=291 data-nosnippet>291</a>	}
+<a href=#292 id=292 data-nosnippet>292</a>}
+<a href=#293 id=293 data-nosnippet>293</a>
+<a href=#294 id=294 data-nosnippet>294</a><span class="doccomment">/// Test append operation for a given fuzzing payload.
+<a href=#295 id=295 data-nosnippet>295</a></span><span class="kw">pub fn </span>fuzz_append&lt;H&gt;(payload: FuzzAppendPayload)
+<a href=#296 id=296 data-nosnippet>296</a><span class="kw">where
+<a href=#297 id=297 data-nosnippet>297</a>	</span>H: Hasher,
+<a href=#298 id=298 data-nosnippet>298</a>	H::Out: codec::Decode + codec::Encode + <span class="lifetime">'static</span>,
+<a href=#299 id=299 data-nosnippet>299</a>{
+<a href=#300 id=300 data-nosnippet>300</a>	<span class="kw">let </span>FuzzAppendPayload(to_fuzz, initial) = payload;
+<a href=#301 id=301 data-nosnippet>301</a>	<span class="kw">let </span>key = <span class="string">b"k"</span>.to_vec();
+<a href=#302 id=302 data-nosnippet>302</a>	<span class="kw">let </span><span class="kw-2">mut </span>reference = SimpleOverlay::default();
+<a href=#303 id=303 data-nosnippet>303</a>	<span class="kw">let </span>initial: BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = initial
+<a href=#304 id=304 data-nosnippet>304</a>		.into_iter()
+<a href=#305 id=305 data-nosnippet>305</a>		.map(|(v, l)| (key.clone(), <span class="macro">vec!</span>[v <span class="kw">as </span>u8; l <span class="kw">as </span>usize]))
+<a href=#306 id=306 data-nosnippet>306</a>		.collect();
+<a href=#307 id=307 data-nosnippet>307</a>	<span class="kw">for </span>(k, v) <span class="kw">in </span>initial.iter() {
+<a href=#308 id=308 data-nosnippet>308</a>		reference.data[<span class="number">0</span>].insert(k.clone(), <span class="prelude-val">Some</span>(v.clone()));
+<a href=#309 id=309 data-nosnippet>309</a>	}
+<a href=#310 id=310 data-nosnippet>310</a>	reference.start_transaction(); <span class="comment">// level 0 is backend, keep it untouched.
+<a href=#311 id=311 data-nosnippet>311</a>	</span><span class="kw">let </span>overlay = OverlayedChanges::default();
+<a href=#312 id=312 data-nosnippet>312</a>
+<a href=#313 id=313 data-nosnippet>313</a>	<span class="kw">let </span><span class="kw-2">mut </span>state = FuzzAppendState::&lt;H&gt; {
+<a href=#314 id=314 data-nosnippet>314</a>		key,
+<a href=#315 id=315 data-nosnippet>315</a>		reference,
+<a href=#316 id=316 data-nosnippet>316</a>		overlay,
+<a href=#317 id=317 data-nosnippet>317</a>		backend: (initial, StateVersion::default()).into(),
+<a href=#318 id=318 data-nosnippet>318</a>		transaction_depth: <span class="number">0</span>,
+<a href=#319 id=319 data-nosnippet>319</a>	};
+<a href=#320 id=320 data-nosnippet>320</a>	<span class="kw">for </span>item <span class="kw">in </span>to_fuzz {
+<a href=#321 id=321 data-nosnippet>321</a>		state.process_item(item);
+<a href=#322 id=322 data-nosnippet>322</a>	}
+<a href=#323 id=323 data-nosnippet>323</a>	state.check_final_state();
+<a href=#324 id=324 data-nosnippet>324</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

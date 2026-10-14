@@ -212,7 +212,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#62 id=62 data-nosnippet>62</a>{
 <a href=#63 id=63 data-nosnippet>63</a>	<span class="doccomment">/// Get externalities implementation.
 <a href=#64 id=64 data-nosnippet>64</a>	</span><span class="kw">pub fn </span>ext(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Ext&lt;<span class="lifetime">'_</span>, H, InMemoryBackend&lt;H&gt;&gt; {
-<a href=#65 id=65 data-nosnippet>65</a>		Ext::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.overlay, <span class="kw-2">&amp;</span><span class="self">self</span>.backend, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span><span class="self">self</span>.extensions))
+<a href=#65 id=65 data-nosnippet>65</a>		Ext::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.overlay, <span class="kw-2">&amp;</span><span class="self">self</span>.backend, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span><span class="self">self</span>.extensions), <span class="self">self</span>.state_version)
 <a href=#66 id=66 data-nosnippet>66</a>	}
 <a href=#67 id=67 data-nosnippet>67</a>
 <a href=#68 id=68 data-nosnippet>68</a>	<span class="doccomment">/// Create a new instance of `TestExternalities` with storage.
@@ -407,287 +407,295 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#257 id=257 data-nosnippet>257</a>		<span class="kw">let </span>proving_backend = TrieBackendBuilder::wrap(<span class="kw-2">&amp;</span><span class="self">self</span>.backend)
 <a href=#258 id=258 data-nosnippet>258</a>			.with_recorder(Default::default())
 <a href=#259 id=259 data-nosnippet>259</a>			.build();
-<a href=#260 id=260 data-nosnippet>260</a>		<span class="kw">let </span><span class="kw-2">mut </span>proving_ext =
-<a href=#261 id=261 data-nosnippet>261</a>			Ext::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.overlay, <span class="kw-2">&amp;</span>proving_backend, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span><span class="self">self</span>.extensions));
-<a href=#262 id=262 data-nosnippet>262</a>
-<a href=#263 id=263 data-nosnippet>263</a>		<span class="kw">let </span>outcome = sp_externalities::set_and_run_with_externalities(<span class="kw-2">&amp;mut </span>proving_ext, execute);
-<a href=#264 id=264 data-nosnippet>264</a>		<span class="kw">let </span>proof = proving_backend.extract_proof().expect(<span class="string">"Failed to extract storage proof"</span>);
-<a href=#265 id=265 data-nosnippet>265</a>
-<a href=#266 id=266 data-nosnippet>266</a>		(outcome, proof)
-<a href=#267 id=267 data-nosnippet>267</a>	}
-<a href=#268 id=268 data-nosnippet>268</a>
-<a href=#269 id=269 data-nosnippet>269</a>	<span class="doccomment">/// Execute the given closure while `self` set as externalities and the given `proof_recorder`
-<a href=#270 id=270 data-nosnippet>270</a>	/// enabled.
-<a href=#271 id=271 data-nosnippet>271</a>	</span><span class="kw">pub fn </span>execute_with_recorder&lt;R&gt;(
-<a href=#272 id=272 data-nosnippet>272</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#273 id=273 data-nosnippet>273</a>		proof_recorder: Recorder&lt;H&gt;,
-<a href=#274 id=274 data-nosnippet>274</a>		execute: <span class="kw">impl </span>FnOnce() -&gt; R,
-<a href=#275 id=275 data-nosnippet>275</a>	) -&gt; R {
-<a href=#276 id=276 data-nosnippet>276</a>		<span class="kw">let </span>proving_backend =
-<a href=#277 id=277 data-nosnippet>277</a>			TrieBackendBuilder::wrap(<span class="kw-2">&amp;</span><span class="self">self</span>.backend).with_recorder(proof_recorder).build();
-<a href=#278 id=278 data-nosnippet>278</a>		<span class="kw">let </span><span class="kw-2">mut </span>proving_ext =
-<a href=#279 id=279 data-nosnippet>279</a>			Ext::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.overlay, <span class="kw-2">&amp;</span>proving_backend, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span><span class="self">self</span>.extensions));
-<a href=#280 id=280 data-nosnippet>280</a>
-<a href=#281 id=281 data-nosnippet>281</a>		sp_externalities::set_and_run_with_externalities(<span class="kw-2">&amp;mut </span>proving_ext, execute)
-<a href=#282 id=282 data-nosnippet>282</a>	}
-<a href=#283 id=283 data-nosnippet>283</a>
-<a href=#284 id=284 data-nosnippet>284</a>	<span class="doccomment">/// Execute the given closure while `self` is set as externalities.
-<a href=#285 id=285 data-nosnippet>285</a>	///
-<a href=#286 id=286 data-nosnippet>286</a>	/// Returns the result of the given closure, if no panics occurred.
-<a href=#287 id=287 data-nosnippet>287</a>	/// Otherwise, returns `Err`.
-<a href=#288 id=288 data-nosnippet>288</a>	</span><span class="kw">pub fn </span>execute_with_safe&lt;R&gt;(
-<a href=#289 id=289 data-nosnippet>289</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#290 id=290 data-nosnippet>290</a>		f: <span class="kw">impl </span>FnOnce() -&gt; R + UnwindSafe,
-<a href=#291 id=291 data-nosnippet>291</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;R, String&gt; {
-<a href=#292 id=292 data-nosnippet>292</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = AssertUnwindSafe(<span class="self">self</span>.ext());
-<a href=#293 id=293 data-nosnippet>293</a>		std::panic::catch_unwind(<span class="kw">move </span>|| {
-<a href=#294 id=294 data-nosnippet>294</a>			sp_externalities::set_and_run_with_externalities(<span class="kw-2">&amp;mut *</span>ext, f)
-<a href=#295 id=295 data-nosnippet>295</a>		})
-<a href=#296 id=296 data-nosnippet>296</a>		.map_err(|e| <span class="macro">format!</span>(<span class="string">"Closure panicked: {:?}"</span>, e))
-<a href=#297 id=297 data-nosnippet>297</a>	}
-<a href=#298 id=298 data-nosnippet>298</a>
-<a href=#299 id=299 data-nosnippet>299</a>	<span class="doccomment">/// Resets the overlay to its default state.
-<a href=#300 id=300 data-nosnippet>300</a>	</span><span class="kw">pub fn </span>reset_overlay(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#301 id=301 data-nosnippet>301</a>		<span class="self">self</span>.overlay = Default::default();
-<a href=#302 id=302 data-nosnippet>302</a>	}
-<a href=#303 id=303 data-nosnippet>303</a>}
-<a href=#304 id=304 data-nosnippet>304</a>
-<a href=#305 id=305 data-nosnippet>305</a><span class="kw">impl</span>&lt;H: Hasher&gt; std::fmt::Debug <span class="kw">for </span>TestExternalities&lt;H&gt;
-<a href=#306 id=306 data-nosnippet>306</a><span class="kw">where
-<a href=#307 id=307 data-nosnippet>307</a>	</span>H::Out: Ord + codec::Codec,
-<a href=#308 id=308 data-nosnippet>308</a>{
-<a href=#309 id=309 data-nosnippet>309</a>	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-<a href=#310 id=310 data-nosnippet>310</a>		<span class="kw">let </span>pairs: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">self
-<a href=#311 id=311 data-nosnippet>311</a>			</span>.backend
-<a href=#312 id=312 data-nosnippet>312</a>			.pairs(Default::default())
-<a href=#313 id=313 data-nosnippet>313</a>			.expect(<span class="string">"creating an iterator over all of the pairs doesn't fail in tests"</span>)
-<a href=#314 id=314 data-nosnippet>314</a>			.collect();
-<a href=#315 id=315 data-nosnippet>315</a>		<span class="macro">write!</span>(f, <span class="string">"overlay: {:?}\nbackend: {:?}"</span>, <span class="self">self</span>.overlay, pairs)
-<a href=#316 id=316 data-nosnippet>316</a>	}
-<a href=#317 id=317 data-nosnippet>317</a>}
-<a href=#318 id=318 data-nosnippet>318</a>
-<a href=#319 id=319 data-nosnippet>319</a><span class="kw">impl</span>&lt;H&gt; TestExternalities&lt;H&gt;
-<a href=#320 id=320 data-nosnippet>320</a><span class="kw">where
-<a href=#321 id=321 data-nosnippet>321</a>	</span>H: Hasher,
-<a href=#322 id=322 data-nosnippet>322</a>	H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
-<a href=#323 id=323 data-nosnippet>323</a>{
-<a href=#324 id=324 data-nosnippet>324</a>	<span class="doccomment">/// This doesn't test if they are in the same state, only if they contains the
-<a href=#325 id=325 data-nosnippet>325</a>	/// same data at this state
-<a href=#326 id=326 data-nosnippet>326</a>	</span><span class="kw">pub fn </span>eq(<span class="kw-2">&amp;mut </span><span class="self">self</span>, other: <span class="kw-2">&amp;mut </span>TestExternalities&lt;H&gt;) -&gt; bool {
-<a href=#327 id=327 data-nosnippet>327</a>		<span class="self">self</span>.as_backend().eq(<span class="kw-2">&amp;</span>other.as_backend())
-<a href=#328 id=328 data-nosnippet>328</a>	}
-<a href=#329 id=329 data-nosnippet>329</a>}
-<a href=#330 id=330 data-nosnippet>330</a>
-<a href=#331 id=331 data-nosnippet>331</a><span class="kw">impl</span>&lt;H: Hasher&gt; Default <span class="kw">for </span>TestExternalities&lt;H&gt;
-<a href=#332 id=332 data-nosnippet>332</a><span class="kw">where
-<a href=#333 id=333 data-nosnippet>333</a>	</span>H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
-<a href=#334 id=334 data-nosnippet>334</a>{
-<a href=#335 id=335 data-nosnippet>335</a>	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#336 id=336 data-nosnippet>336</a>		<span class="comment">// default to default version.
-<a href=#337 id=337 data-nosnippet>337</a>		</span><span class="self">Self</span>::new_with_state_version(Storage::default(), Default::default())
-<a href=#338 id=338 data-nosnippet>338</a>	}
-<a href=#339 id=339 data-nosnippet>339</a>}
-<a href=#340 id=340 data-nosnippet>340</a>
-<a href=#341 id=341 data-nosnippet>341</a><span class="kw">impl</span>&lt;H: Hasher&gt; From&lt;Storage&gt; <span class="kw">for </span>TestExternalities&lt;H&gt;
-<a href=#342 id=342 data-nosnippet>342</a><span class="kw">where
-<a href=#343 id=343 data-nosnippet>343</a>	</span>H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
-<a href=#344 id=344 data-nosnippet>344</a>{
-<a href=#345 id=345 data-nosnippet>345</a>	<span class="kw">fn </span>from(storage: Storage) -&gt; <span class="self">Self </span>{
-<a href=#346 id=346 data-nosnippet>346</a>		<span class="self">Self</span>::new_with_state_version(storage, Default::default())
-<a href=#347 id=347 data-nosnippet>347</a>	}
-<a href=#348 id=348 data-nosnippet>348</a>}
-<a href=#349 id=349 data-nosnippet>349</a>
-<a href=#350 id=350 data-nosnippet>350</a><span class="kw">impl</span>&lt;H: Hasher&gt; From&lt;(Storage, StateVersion)&gt; <span class="kw">for </span>TestExternalities&lt;H&gt;
-<a href=#351 id=351 data-nosnippet>351</a><span class="kw">where
-<a href=#352 id=352 data-nosnippet>352</a>	</span>H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
-<a href=#353 id=353 data-nosnippet>353</a>{
-<a href=#354 id=354 data-nosnippet>354</a>	<span class="kw">fn </span>from((storage, state_version): (Storage, StateVersion)) -&gt; <span class="self">Self </span>{
-<a href=#355 id=355 data-nosnippet>355</a>		<span class="self">Self</span>::new_with_state_version(storage, state_version)
-<a href=#356 id=356 data-nosnippet>356</a>	}
-<a href=#357 id=357 data-nosnippet>357</a>}
-<a href=#358 id=358 data-nosnippet>358</a>
-<a href=#359 id=359 data-nosnippet>359</a><span class="kw">impl</span>&lt;H&gt; sp_externalities::ExtensionStore <span class="kw">for </span>TestExternalities&lt;H&gt;
-<a href=#360 id=360 data-nosnippet>360</a><span class="kw">where
-<a href=#361 id=361 data-nosnippet>361</a>	</span>H: Hasher,
-<a href=#362 id=362 data-nosnippet>362</a>	H::Out: Ord + codec::Codec,
-<a href=#363 id=363 data-nosnippet>363</a>{
-<a href=#364 id=364 data-nosnippet>364</a>	<span class="kw">fn </span>extension_by_type_id(<span class="kw-2">&amp;mut </span><span class="self">self</span>, type_id: TypeId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Any&gt; {
-<a href=#365 id=365 data-nosnippet>365</a>		<span class="self">self</span>.extensions.get_mut(type_id)
-<a href=#366 id=366 data-nosnippet>366</a>	}
-<a href=#367 id=367 data-nosnippet>367</a>
-<a href=#368 id=368 data-nosnippet>368</a>	<span class="kw">fn </span>register_extension_with_type_id(
-<a href=#369 id=369 data-nosnippet>369</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#370 id=370 data-nosnippet>370</a>		type_id: TypeId,
-<a href=#371 id=371 data-nosnippet>371</a>		extension: Box&lt;<span class="kw">dyn </span>Extension&gt;,
-<a href=#372 id=372 data-nosnippet>372</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_externalities::Error&gt; {
-<a href=#373 id=373 data-nosnippet>373</a>		<span class="self">self</span>.extensions.register_with_type_id(type_id, extension)
+<a href=#260 id=260 data-nosnippet>260</a>		<span class="kw">let </span><span class="kw-2">mut </span>proving_ext = Ext::new(
+<a href=#261 id=261 data-nosnippet>261</a>			<span class="kw-2">&amp;mut </span><span class="self">self</span>.overlay,
+<a href=#262 id=262 data-nosnippet>262</a>			<span class="kw-2">&amp;</span>proving_backend,
+<a href=#263 id=263 data-nosnippet>263</a>			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span><span class="self">self</span>.extensions),
+<a href=#264 id=264 data-nosnippet>264</a>			<span class="self">self</span>.state_version,
+<a href=#265 id=265 data-nosnippet>265</a>		);
+<a href=#266 id=266 data-nosnippet>266</a>
+<a href=#267 id=267 data-nosnippet>267</a>		<span class="kw">let </span>outcome = sp_externalities::set_and_run_with_externalities(<span class="kw-2">&amp;mut </span>proving_ext, execute);
+<a href=#268 id=268 data-nosnippet>268</a>		<span class="kw">let </span>proof = proving_backend.extract_proof().expect(<span class="string">"Failed to extract storage proof"</span>);
+<a href=#269 id=269 data-nosnippet>269</a>
+<a href=#270 id=270 data-nosnippet>270</a>		(outcome, proof)
+<a href=#271 id=271 data-nosnippet>271</a>	}
+<a href=#272 id=272 data-nosnippet>272</a>
+<a href=#273 id=273 data-nosnippet>273</a>	<span class="doccomment">/// Execute the given closure while `self` set as externalities and the given `proof_recorder`
+<a href=#274 id=274 data-nosnippet>274</a>	/// enabled.
+<a href=#275 id=275 data-nosnippet>275</a>	</span><span class="kw">pub fn </span>execute_with_recorder&lt;R&gt;(
+<a href=#276 id=276 data-nosnippet>276</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#277 id=277 data-nosnippet>277</a>		proof_recorder: Recorder&lt;H&gt;,
+<a href=#278 id=278 data-nosnippet>278</a>		execute: <span class="kw">impl </span>FnOnce() -&gt; R,
+<a href=#279 id=279 data-nosnippet>279</a>	) -&gt; R {
+<a href=#280 id=280 data-nosnippet>280</a>		<span class="kw">let </span>proving_backend =
+<a href=#281 id=281 data-nosnippet>281</a>			TrieBackendBuilder::wrap(<span class="kw-2">&amp;</span><span class="self">self</span>.backend).with_recorder(proof_recorder).build();
+<a href=#282 id=282 data-nosnippet>282</a>		<span class="kw">let </span><span class="kw-2">mut </span>proving_ext = Ext::new(
+<a href=#283 id=283 data-nosnippet>283</a>			<span class="kw-2">&amp;mut </span><span class="self">self</span>.overlay,
+<a href=#284 id=284 data-nosnippet>284</a>			<span class="kw-2">&amp;</span>proving_backend,
+<a href=#285 id=285 data-nosnippet>285</a>			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span><span class="self">self</span>.extensions),
+<a href=#286 id=286 data-nosnippet>286</a>			<span class="self">self</span>.state_version,
+<a href=#287 id=287 data-nosnippet>287</a>		);
+<a href=#288 id=288 data-nosnippet>288</a>
+<a href=#289 id=289 data-nosnippet>289</a>		sp_externalities::set_and_run_with_externalities(<span class="kw-2">&amp;mut </span>proving_ext, execute)
+<a href=#290 id=290 data-nosnippet>290</a>	}
+<a href=#291 id=291 data-nosnippet>291</a>
+<a href=#292 id=292 data-nosnippet>292</a>	<span class="doccomment">/// Execute the given closure while `self` is set as externalities.
+<a href=#293 id=293 data-nosnippet>293</a>	///
+<a href=#294 id=294 data-nosnippet>294</a>	/// Returns the result of the given closure, if no panics occurred.
+<a href=#295 id=295 data-nosnippet>295</a>	/// Otherwise, returns `Err`.
+<a href=#296 id=296 data-nosnippet>296</a>	</span><span class="kw">pub fn </span>execute_with_safe&lt;R&gt;(
+<a href=#297 id=297 data-nosnippet>297</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#298 id=298 data-nosnippet>298</a>		f: <span class="kw">impl </span>FnOnce() -&gt; R + UnwindSafe,
+<a href=#299 id=299 data-nosnippet>299</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;R, String&gt; {
+<a href=#300 id=300 data-nosnippet>300</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = AssertUnwindSafe(<span class="self">self</span>.ext());
+<a href=#301 id=301 data-nosnippet>301</a>		std::panic::catch_unwind(<span class="kw">move </span>|| {
+<a href=#302 id=302 data-nosnippet>302</a>			sp_externalities::set_and_run_with_externalities(<span class="kw-2">&amp;mut *</span>ext, f)
+<a href=#303 id=303 data-nosnippet>303</a>		})
+<a href=#304 id=304 data-nosnippet>304</a>		.map_err(|e| <span class="macro">format!</span>(<span class="string">"Closure panicked: {:?}"</span>, e))
+<a href=#305 id=305 data-nosnippet>305</a>	}
+<a href=#306 id=306 data-nosnippet>306</a>
+<a href=#307 id=307 data-nosnippet>307</a>	<span class="doccomment">/// Resets the overlay to its default state.
+<a href=#308 id=308 data-nosnippet>308</a>	</span><span class="kw">pub fn </span>reset_overlay(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#309 id=309 data-nosnippet>309</a>		<span class="self">self</span>.overlay = Default::default();
+<a href=#310 id=310 data-nosnippet>310</a>	}
+<a href=#311 id=311 data-nosnippet>311</a>}
+<a href=#312 id=312 data-nosnippet>312</a>
+<a href=#313 id=313 data-nosnippet>313</a><span class="kw">impl</span>&lt;H: Hasher&gt; std::fmt::Debug <span class="kw">for </span>TestExternalities&lt;H&gt;
+<a href=#314 id=314 data-nosnippet>314</a><span class="kw">where
+<a href=#315 id=315 data-nosnippet>315</a>	</span>H::Out: Ord + codec::Codec,
+<a href=#316 id=316 data-nosnippet>316</a>{
+<a href=#317 id=317 data-nosnippet>317</a>	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
+<a href=#318 id=318 data-nosnippet>318</a>		<span class="kw">let </span>pairs: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">self
+<a href=#319 id=319 data-nosnippet>319</a>			</span>.backend
+<a href=#320 id=320 data-nosnippet>320</a>			.pairs(Default::default())
+<a href=#321 id=321 data-nosnippet>321</a>			.expect(<span class="string">"creating an iterator over all of the pairs doesn't fail in tests"</span>)
+<a href=#322 id=322 data-nosnippet>322</a>			.collect();
+<a href=#323 id=323 data-nosnippet>323</a>		<span class="macro">write!</span>(f, <span class="string">"overlay: {:?}\nbackend: {:?}"</span>, <span class="self">self</span>.overlay, pairs)
+<a href=#324 id=324 data-nosnippet>324</a>	}
+<a href=#325 id=325 data-nosnippet>325</a>}
+<a href=#326 id=326 data-nosnippet>326</a>
+<a href=#327 id=327 data-nosnippet>327</a><span class="kw">impl</span>&lt;H&gt; TestExternalities&lt;H&gt;
+<a href=#328 id=328 data-nosnippet>328</a><span class="kw">where
+<a href=#329 id=329 data-nosnippet>329</a>	</span>H: Hasher,
+<a href=#330 id=330 data-nosnippet>330</a>	H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
+<a href=#331 id=331 data-nosnippet>331</a>{
+<a href=#332 id=332 data-nosnippet>332</a>	<span class="doccomment">/// This doesn't test if they are in the same state, only if they contains the
+<a href=#333 id=333 data-nosnippet>333</a>	/// same data at this state
+<a href=#334 id=334 data-nosnippet>334</a>	</span><span class="kw">pub fn </span>eq(<span class="kw-2">&amp;mut </span><span class="self">self</span>, other: <span class="kw-2">&amp;mut </span>TestExternalities&lt;H&gt;) -&gt; bool {
+<a href=#335 id=335 data-nosnippet>335</a>		<span class="self">self</span>.as_backend().eq(<span class="kw-2">&amp;</span>other.as_backend())
+<a href=#336 id=336 data-nosnippet>336</a>	}
+<a href=#337 id=337 data-nosnippet>337</a>}
+<a href=#338 id=338 data-nosnippet>338</a>
+<a href=#339 id=339 data-nosnippet>339</a><span class="kw">impl</span>&lt;H: Hasher&gt; Default <span class="kw">for </span>TestExternalities&lt;H&gt;
+<a href=#340 id=340 data-nosnippet>340</a><span class="kw">where
+<a href=#341 id=341 data-nosnippet>341</a>	</span>H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
+<a href=#342 id=342 data-nosnippet>342</a>{
+<a href=#343 id=343 data-nosnippet>343</a>	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#344 id=344 data-nosnippet>344</a>		<span class="comment">// default to default version.
+<a href=#345 id=345 data-nosnippet>345</a>		</span><span class="self">Self</span>::new_with_state_version(Storage::default(), Default::default())
+<a href=#346 id=346 data-nosnippet>346</a>	}
+<a href=#347 id=347 data-nosnippet>347</a>}
+<a href=#348 id=348 data-nosnippet>348</a>
+<a href=#349 id=349 data-nosnippet>349</a><span class="kw">impl</span>&lt;H: Hasher&gt; From&lt;Storage&gt; <span class="kw">for </span>TestExternalities&lt;H&gt;
+<a href=#350 id=350 data-nosnippet>350</a><span class="kw">where
+<a href=#351 id=351 data-nosnippet>351</a>	</span>H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
+<a href=#352 id=352 data-nosnippet>352</a>{
+<a href=#353 id=353 data-nosnippet>353</a>	<span class="kw">fn </span>from(storage: Storage) -&gt; <span class="self">Self </span>{
+<a href=#354 id=354 data-nosnippet>354</a>		<span class="self">Self</span>::new_with_state_version(storage, Default::default())
+<a href=#355 id=355 data-nosnippet>355</a>	}
+<a href=#356 id=356 data-nosnippet>356</a>}
+<a href=#357 id=357 data-nosnippet>357</a>
+<a href=#358 id=358 data-nosnippet>358</a><span class="kw">impl</span>&lt;H: Hasher&gt; From&lt;(Storage, StateVersion)&gt; <span class="kw">for </span>TestExternalities&lt;H&gt;
+<a href=#359 id=359 data-nosnippet>359</a><span class="kw">where
+<a href=#360 id=360 data-nosnippet>360</a>	</span>H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
+<a href=#361 id=361 data-nosnippet>361</a>{
+<a href=#362 id=362 data-nosnippet>362</a>	<span class="kw">fn </span>from((storage, state_version): (Storage, StateVersion)) -&gt; <span class="self">Self </span>{
+<a href=#363 id=363 data-nosnippet>363</a>		<span class="self">Self</span>::new_with_state_version(storage, state_version)
+<a href=#364 id=364 data-nosnippet>364</a>	}
+<a href=#365 id=365 data-nosnippet>365</a>}
+<a href=#366 id=366 data-nosnippet>366</a>
+<a href=#367 id=367 data-nosnippet>367</a><span class="kw">impl</span>&lt;H&gt; sp_externalities::ExtensionStore <span class="kw">for </span>TestExternalities&lt;H&gt;
+<a href=#368 id=368 data-nosnippet>368</a><span class="kw">where
+<a href=#369 id=369 data-nosnippet>369</a>	</span>H: Hasher,
+<a href=#370 id=370 data-nosnippet>370</a>	H::Out: Ord + codec::Codec,
+<a href=#371 id=371 data-nosnippet>371</a>{
+<a href=#372 id=372 data-nosnippet>372</a>	<span class="kw">fn </span>extension_by_type_id(<span class="kw-2">&amp;mut </span><span class="self">self</span>, type_id: TypeId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Any&gt; {
+<a href=#373 id=373 data-nosnippet>373</a>		<span class="self">self</span>.extensions.get_mut(type_id)
 <a href=#374 id=374 data-nosnippet>374</a>	}
 <a href=#375 id=375 data-nosnippet>375</a>
-<a href=#376 id=376 data-nosnippet>376</a>	<span class="kw">fn </span>deregister_extension_by_type_id(
+<a href=#376 id=376 data-nosnippet>376</a>	<span class="kw">fn </span>register_extension_with_type_id(
 <a href=#377 id=377 data-nosnippet>377</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#378 id=378 data-nosnippet>378</a>		type_id: TypeId,
-<a href=#379 id=379 data-nosnippet>379</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_externalities::Error&gt; {
-<a href=#380 id=380 data-nosnippet>380</a>		<span class="kw">if </span><span class="self">self</span>.extensions.deregister(type_id) {
-<a href=#381 id=381 data-nosnippet>381</a>			<span class="prelude-val">Ok</span>(())
-<a href=#382 id=382 data-nosnippet>382</a>		} <span class="kw">else </span>{
-<a href=#383 id=383 data-nosnippet>383</a>			<span class="prelude-val">Err</span>(sp_externalities::Error::ExtensionIsNotRegistered(type_id))
-<a href=#384 id=384 data-nosnippet>384</a>		}
-<a href=#385 id=385 data-nosnippet>385</a>	}
-<a href=#386 id=386 data-nosnippet>386</a>}
-<a href=#387 id=387 data-nosnippet>387</a>
-<a href=#388 id=388 data-nosnippet>388</a><span class="kw">impl</span>&lt;H&gt; sp_externalities::ExternalitiesExt <span class="kw">for </span>TestExternalities&lt;H&gt;
-<a href=#389 id=389 data-nosnippet>389</a><span class="kw">where
-<a href=#390 id=390 data-nosnippet>390</a>	</span>H: Hasher,
-<a href=#391 id=391 data-nosnippet>391</a>	H::Out: Ord + codec::Codec,
-<a href=#392 id=392 data-nosnippet>392</a>{
-<a href=#393 id=393 data-nosnippet>393</a>	<span class="kw">fn </span>extension&lt;T: Any + Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>T&gt; {
-<a href=#394 id=394 data-nosnippet>394</a>		<span class="self">self</span>.extension_by_type_id(TypeId::of::&lt;T&gt;()).and_then(&lt;<span class="kw">dyn </span>Any&gt;::downcast_mut)
-<a href=#395 id=395 data-nosnippet>395</a>	}
-<a href=#396 id=396 data-nosnippet>396</a>
-<a href=#397 id=397 data-nosnippet>397</a>	<span class="kw">fn </span>register_extension&lt;T: Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ext: T) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_externalities::Error&gt; {
-<a href=#398 id=398 data-nosnippet>398</a>		<span class="self">self</span>.register_extension_with_type_id(TypeId::of::&lt;T&gt;(), Box::new(ext))
-<a href=#399 id=399 data-nosnippet>399</a>	}
-<a href=#400 id=400 data-nosnippet>400</a>
-<a href=#401 id=401 data-nosnippet>401</a>	<span class="kw">fn </span>deregister_extension&lt;T: Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_externalities::Error&gt; {
-<a href=#402 id=402 data-nosnippet>402</a>		<span class="self">self</span>.deregister_extension_by_type_id(TypeId::of::&lt;T&gt;())
+<a href=#379 id=379 data-nosnippet>379</a>		extension: Box&lt;<span class="kw">dyn </span>Extension&gt;,
+<a href=#380 id=380 data-nosnippet>380</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_externalities::Error&gt; {
+<a href=#381 id=381 data-nosnippet>381</a>		<span class="self">self</span>.extensions.register_with_type_id(type_id, extension)
+<a href=#382 id=382 data-nosnippet>382</a>	}
+<a href=#383 id=383 data-nosnippet>383</a>
+<a href=#384 id=384 data-nosnippet>384</a>	<span class="kw">fn </span>deregister_extension_by_type_id(
+<a href=#385 id=385 data-nosnippet>385</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#386 id=386 data-nosnippet>386</a>		type_id: TypeId,
+<a href=#387 id=387 data-nosnippet>387</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_externalities::Error&gt; {
+<a href=#388 id=388 data-nosnippet>388</a>		<span class="kw">if </span><span class="self">self</span>.extensions.deregister(type_id) {
+<a href=#389 id=389 data-nosnippet>389</a>			<span class="prelude-val">Ok</span>(())
+<a href=#390 id=390 data-nosnippet>390</a>		} <span class="kw">else </span>{
+<a href=#391 id=391 data-nosnippet>391</a>			<span class="prelude-val">Err</span>(sp_externalities::Error::ExtensionIsNotRegistered(type_id))
+<a href=#392 id=392 data-nosnippet>392</a>		}
+<a href=#393 id=393 data-nosnippet>393</a>	}
+<a href=#394 id=394 data-nosnippet>394</a>}
+<a href=#395 id=395 data-nosnippet>395</a>
+<a href=#396 id=396 data-nosnippet>396</a><span class="kw">impl</span>&lt;H&gt; sp_externalities::ExternalitiesExt <span class="kw">for </span>TestExternalities&lt;H&gt;
+<a href=#397 id=397 data-nosnippet>397</a><span class="kw">where
+<a href=#398 id=398 data-nosnippet>398</a>	</span>H: Hasher,
+<a href=#399 id=399 data-nosnippet>399</a>	H::Out: Ord + codec::Codec,
+<a href=#400 id=400 data-nosnippet>400</a>{
+<a href=#401 id=401 data-nosnippet>401</a>	<span class="kw">fn </span>extension&lt;T: Any + Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>T&gt; {
+<a href=#402 id=402 data-nosnippet>402</a>		<span class="self">self</span>.extension_by_type_id(TypeId::of::&lt;T&gt;()).and_then(&lt;<span class="kw">dyn </span>Any&gt;::downcast_mut)
 <a href=#403 id=403 data-nosnippet>403</a>	}
-<a href=#404 id=404 data-nosnippet>404</a>}
-<a href=#405 id=405 data-nosnippet>405</a>
-<a href=#406 id=406 data-nosnippet>406</a><span class="attr">#[cfg(test)]
-<a href=#407 id=407 data-nosnippet>407</a></span><span class="kw">mod </span>tests {
-<a href=#408 id=408 data-nosnippet>408</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#409 id=409 data-nosnippet>409</a>	<span class="kw">use </span>sp_core::{storage::ChildInfo, traits::Externalities, H256};
-<a href=#410 id=410 data-nosnippet>410</a>	<span class="kw">use </span>sp_runtime::traits::BlakeTwo256;
-<a href=#411 id=411 data-nosnippet>411</a>
-<a href=#412 id=412 data-nosnippet>412</a>	<span class="attr">#[test]
-<a href=#413 id=413 data-nosnippet>413</a>	</span><span class="kw">fn </span>commit_should_work() {
-<a href=#414 id=414 data-nosnippet>414</a>		<span class="kw">let </span>storage = Storage::default(); <span class="comment">// avoid adding the trie threshold.
-<a href=#415 id=415 data-nosnippet>415</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>ext = TestExternalities::&lt;BlakeTwo256&gt;::from((storage, Default::default()));
-<a href=#416 id=416 data-nosnippet>416</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = ext.ext();
-<a href=#417 id=417 data-nosnippet>417</a>		ext.set_storage(<span class="string">b"doe"</span>.to_vec(), <span class="string">b"reindeer"</span>.to_vec());
-<a href=#418 id=418 data-nosnippet>418</a>		ext.set_storage(<span class="string">b"dog"</span>.to_vec(), <span class="string">b"puppy"</span>.to_vec());
-<a href=#419 id=419 data-nosnippet>419</a>		ext.set_storage(<span class="string">b"dogglesworth"</span>.to_vec(), <span class="string">b"cat"</span>.to_vec());
-<a href=#420 id=420 data-nosnippet>420</a>		<span class="kw">let </span>root = array_bytes::hex_n_into_unchecked::&lt;<span class="kw">_</span>, H256, <span class="number">32</span>&gt;(
-<a href=#421 id=421 data-nosnippet>421</a>			<span class="string">"ed4d8c799d996add422395a6abd7545491d40bd838d738afafa1b8a4de625489"</span>,
-<a href=#422 id=422 data-nosnippet>422</a>		);
-<a href=#423 id=423 data-nosnippet>423</a>		<span class="macro">assert_eq!</span>(H256::from_slice(ext.storage_root(Default::default()).as_slice()), root);
-<a href=#424 id=424 data-nosnippet>424</a>	}
-<a href=#425 id=425 data-nosnippet>425</a>
-<a href=#426 id=426 data-nosnippet>426</a>	<span class="attr">#[test]
-<a href=#427 id=427 data-nosnippet>427</a>	</span><span class="kw">fn </span>raw_storage_drain_and_restore() {
-<a href=#428 id=428 data-nosnippet>428</a>		<span class="comment">// Create a TestExternalities with some data in it.
-<a href=#429 id=429 data-nosnippet>429</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>original_ext =
-<a href=#430 id=430 data-nosnippet>430</a>			TestExternalities::&lt;BlakeTwo256&gt;::from((Default::default(), Default::default()));
-<a href=#431 id=431 data-nosnippet>431</a>		original_ext.insert(<span class="string">b"doe"</span>.to_vec(), <span class="string">b"reindeer"</span>.to_vec());
-<a href=#432 id=432 data-nosnippet>432</a>		original_ext.insert(<span class="string">b"dog"</span>.to_vec(), <span class="string">b"puppy"</span>.to_vec());
-<a href=#433 id=433 data-nosnippet>433</a>		original_ext.insert(<span class="string">b"dogglesworth"</span>.to_vec(), <span class="string">b"cat"</span>.to_vec());
-<a href=#434 id=434 data-nosnippet>434</a>		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="kw-2">&amp;</span><span class="string">b"test_child"</span>[..]);
-<a href=#435 id=435 data-nosnippet>435</a>		original_ext.insert_child(child_info.clone(), <span class="string">b"cattytown"</span>.to_vec(), <span class="string">b"is_dark"</span>.to_vec());
-<a href=#436 id=436 data-nosnippet>436</a>		original_ext.insert_child(child_info.clone(), <span class="string">b"doggytown"</span>.to_vec(), <span class="string">b"is_sunny"</span>.to_vec());
-<a href=#437 id=437 data-nosnippet>437</a>
-<a href=#438 id=438 data-nosnippet>438</a>		<span class="comment">// Apply the backend to itself again to increase the ref count of all nodes.
-<a href=#439 id=439 data-nosnippet>439</a>		</span>original_ext.backend.apply_transaction(
-<a href=#440 id=440 data-nosnippet>440</a>			<span class="kw-2">*</span>original_ext.backend.root(),
-<a href=#441 id=441 data-nosnippet>441</a>			original_ext.backend.clone().into_storage(),
-<a href=#442 id=442 data-nosnippet>442</a>		);
-<a href=#443 id=443 data-nosnippet>443</a>
-<a href=#444 id=444 data-nosnippet>444</a>		<span class="comment">// Ensure all have the correct ref count
-<a href=#445 id=445 data-nosnippet>445</a>		</span><span class="macro">assert!</span>(original_ext.backend.backend_storage().keys().values().all(|r| <span class="kw-2">*</span>r == <span class="number">2</span>));
-<a href=#446 id=446 data-nosnippet>446</a>
-<a href=#447 id=447 data-nosnippet>447</a>		<span class="comment">// Drain the raw storage and root.
-<a href=#448 id=448 data-nosnippet>448</a>		</span><span class="kw">let </span>root = <span class="kw-2">*</span>original_ext.backend.root();
-<a href=#449 id=449 data-nosnippet>449</a>		<span class="kw">let </span>(raw_storage, storage_root) = original_ext.into_raw_snapshot();
-<a href=#450 id=450 data-nosnippet>450</a>
-<a href=#451 id=451 data-nosnippet>451</a>		<span class="comment">// Load the raw storage and root into a new TestExternalities.
-<a href=#452 id=452 data-nosnippet>452</a>		</span><span class="kw">let </span>recovered_ext = TestExternalities::&lt;BlakeTwo256&gt;::from_raw_snapshot(
-<a href=#453 id=453 data-nosnippet>453</a>			raw_storage,
-<a href=#454 id=454 data-nosnippet>454</a>			storage_root,
-<a href=#455 id=455 data-nosnippet>455</a>			Default::default(),
-<a href=#456 id=456 data-nosnippet>456</a>		);
-<a href=#457 id=457 data-nosnippet>457</a>
-<a href=#458 id=458 data-nosnippet>458</a>		<span class="comment">// Check the storage root is the same as the original
-<a href=#459 id=459 data-nosnippet>459</a>		</span><span class="macro">assert_eq!</span>(root, <span class="kw-2">*</span>recovered_ext.backend.root());
-<a href=#460 id=460 data-nosnippet>460</a>
-<a href=#461 id=461 data-nosnippet>461</a>		<span class="comment">// Check the original storage key/values were recovered correctly
-<a href=#462 id=462 data-nosnippet>462</a>		</span><span class="macro">assert_eq!</span>(recovered_ext.backend.storage(<span class="string">b"doe"</span>).unwrap(), <span class="prelude-val">Some</span>(<span class="string">b"reindeer"</span>.to_vec()));
-<a href=#463 id=463 data-nosnippet>463</a>		<span class="macro">assert_eq!</span>(recovered_ext.backend.storage(<span class="string">b"dog"</span>).unwrap(), <span class="prelude-val">Some</span>(<span class="string">b"puppy"</span>.to_vec()));
-<a href=#464 id=464 data-nosnippet>464</a>		<span class="macro">assert_eq!</span>(recovered_ext.backend.storage(<span class="string">b"dogglesworth"</span>).unwrap(), <span class="prelude-val">Some</span>(<span class="string">b"cat"</span>.to_vec()));
+<a href=#404 id=404 data-nosnippet>404</a>
+<a href=#405 id=405 data-nosnippet>405</a>	<span class="kw">fn </span>register_extension&lt;T: Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ext: T) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_externalities::Error&gt; {
+<a href=#406 id=406 data-nosnippet>406</a>		<span class="self">self</span>.register_extension_with_type_id(TypeId::of::&lt;T&gt;(), Box::new(ext))
+<a href=#407 id=407 data-nosnippet>407</a>	}
+<a href=#408 id=408 data-nosnippet>408</a>
+<a href=#409 id=409 data-nosnippet>409</a>	<span class="kw">fn </span>deregister_extension&lt;T: Extension&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_externalities::Error&gt; {
+<a href=#410 id=410 data-nosnippet>410</a>		<span class="self">self</span>.deregister_extension_by_type_id(TypeId::of::&lt;T&gt;())
+<a href=#411 id=411 data-nosnippet>411</a>	}
+<a href=#412 id=412 data-nosnippet>412</a>}
+<a href=#413 id=413 data-nosnippet>413</a>
+<a href=#414 id=414 data-nosnippet>414</a><span class="attr">#[cfg(test)]
+<a href=#415 id=415 data-nosnippet>415</a></span><span class="kw">mod </span>tests {
+<a href=#416 id=416 data-nosnippet>416</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#417 id=417 data-nosnippet>417</a>	<span class="kw">use </span>sp_core::{storage::ChildInfo, traits::Externalities, H256};
+<a href=#418 id=418 data-nosnippet>418</a>	<span class="kw">use </span>sp_runtime::traits::BlakeTwo256;
+<a href=#419 id=419 data-nosnippet>419</a>
+<a href=#420 id=420 data-nosnippet>420</a>	<span class="attr">#[test]
+<a href=#421 id=421 data-nosnippet>421</a>	</span><span class="kw">fn </span>commit_should_work() {
+<a href=#422 id=422 data-nosnippet>422</a>		<span class="kw">let </span>storage = Storage::default(); <span class="comment">// avoid adding the trie threshold.
+<a href=#423 id=423 data-nosnippet>423</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>ext = TestExternalities::&lt;BlakeTwo256&gt;::from((storage, Default::default()));
+<a href=#424 id=424 data-nosnippet>424</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = ext.ext();
+<a href=#425 id=425 data-nosnippet>425</a>		ext.set_storage(<span class="string">b"doe"</span>.to_vec(), <span class="string">b"reindeer"</span>.to_vec());
+<a href=#426 id=426 data-nosnippet>426</a>		ext.set_storage(<span class="string">b"dog"</span>.to_vec(), <span class="string">b"puppy"</span>.to_vec());
+<a href=#427 id=427 data-nosnippet>427</a>		ext.set_storage(<span class="string">b"dogglesworth"</span>.to_vec(), <span class="string">b"cat"</span>.to_vec());
+<a href=#428 id=428 data-nosnippet>428</a>		<span class="kw">let </span>root = array_bytes::hex_n_into_unchecked::&lt;<span class="kw">_</span>, H256, <span class="number">32</span>&gt;(
+<a href=#429 id=429 data-nosnippet>429</a>			<span class="string">"ed4d8c799d996add422395a6abd7545491d40bd838d738afafa1b8a4de625489"</span>,
+<a href=#430 id=430 data-nosnippet>430</a>		);
+<a href=#431 id=431 data-nosnippet>431</a>		<span class="macro">assert_eq!</span>(H256::from_slice(ext.storage_root().as_slice()), root);
+<a href=#432 id=432 data-nosnippet>432</a>	}
+<a href=#433 id=433 data-nosnippet>433</a>
+<a href=#434 id=434 data-nosnippet>434</a>	<span class="attr">#[test]
+<a href=#435 id=435 data-nosnippet>435</a>	</span><span class="kw">fn </span>raw_storage_drain_and_restore() {
+<a href=#436 id=436 data-nosnippet>436</a>		<span class="comment">// Create a TestExternalities with some data in it.
+<a href=#437 id=437 data-nosnippet>437</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>original_ext =
+<a href=#438 id=438 data-nosnippet>438</a>			TestExternalities::&lt;BlakeTwo256&gt;::from((Default::default(), Default::default()));
+<a href=#439 id=439 data-nosnippet>439</a>		original_ext.insert(<span class="string">b"doe"</span>.to_vec(), <span class="string">b"reindeer"</span>.to_vec());
+<a href=#440 id=440 data-nosnippet>440</a>		original_ext.insert(<span class="string">b"dog"</span>.to_vec(), <span class="string">b"puppy"</span>.to_vec());
+<a href=#441 id=441 data-nosnippet>441</a>		original_ext.insert(<span class="string">b"dogglesworth"</span>.to_vec(), <span class="string">b"cat"</span>.to_vec());
+<a href=#442 id=442 data-nosnippet>442</a>		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="kw-2">&amp;</span><span class="string">b"test_child"</span>[..]);
+<a href=#443 id=443 data-nosnippet>443</a>		original_ext.insert_child(child_info.clone(), <span class="string">b"cattytown"</span>.to_vec(), <span class="string">b"is_dark"</span>.to_vec());
+<a href=#444 id=444 data-nosnippet>444</a>		original_ext.insert_child(child_info.clone(), <span class="string">b"doggytown"</span>.to_vec(), <span class="string">b"is_sunny"</span>.to_vec());
+<a href=#445 id=445 data-nosnippet>445</a>
+<a href=#446 id=446 data-nosnippet>446</a>		<span class="comment">// Apply the backend to itself again to increase the ref count of all nodes.
+<a href=#447 id=447 data-nosnippet>447</a>		</span>original_ext.backend.apply_transaction(
+<a href=#448 id=448 data-nosnippet>448</a>			<span class="kw-2">*</span>original_ext.backend.root(),
+<a href=#449 id=449 data-nosnippet>449</a>			original_ext.backend.clone().into_storage(),
+<a href=#450 id=450 data-nosnippet>450</a>		);
+<a href=#451 id=451 data-nosnippet>451</a>
+<a href=#452 id=452 data-nosnippet>452</a>		<span class="comment">// Ensure all have the correct ref count
+<a href=#453 id=453 data-nosnippet>453</a>		</span><span class="macro">assert!</span>(original_ext.backend.backend_storage().keys().values().all(|r| <span class="kw-2">*</span>r == <span class="number">2</span>));
+<a href=#454 id=454 data-nosnippet>454</a>
+<a href=#455 id=455 data-nosnippet>455</a>		<span class="comment">// Drain the raw storage and root.
+<a href=#456 id=456 data-nosnippet>456</a>		</span><span class="kw">let </span>root = <span class="kw-2">*</span>original_ext.backend.root();
+<a href=#457 id=457 data-nosnippet>457</a>		<span class="kw">let </span>(raw_storage, storage_root) = original_ext.into_raw_snapshot();
+<a href=#458 id=458 data-nosnippet>458</a>
+<a href=#459 id=459 data-nosnippet>459</a>		<span class="comment">// Load the raw storage and root into a new TestExternalities.
+<a href=#460 id=460 data-nosnippet>460</a>		</span><span class="kw">let </span>recovered_ext = TestExternalities::&lt;BlakeTwo256&gt;::from_raw_snapshot(
+<a href=#461 id=461 data-nosnippet>461</a>			raw_storage,
+<a href=#462 id=462 data-nosnippet>462</a>			storage_root,
+<a href=#463 id=463 data-nosnippet>463</a>			Default::default(),
+<a href=#464 id=464 data-nosnippet>464</a>		);
 <a href=#465 id=465 data-nosnippet>465</a>
-<a href=#466 id=466 data-nosnippet>466</a>		<span class="comment">// Check the original child storage key/values were recovered correctly
-<a href=#467 id=467 data-nosnippet>467</a>		</span><span class="macro">assert_eq!</span>(
-<a href=#468 id=468 data-nosnippet>468</a>			recovered_ext.backend.child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"cattytown"</span>).unwrap(),
-<a href=#469 id=469 data-nosnippet>469</a>			<span class="prelude-val">Some</span>(<span class="string">b"is_dark"</span>.to_vec())
-<a href=#470 id=470 data-nosnippet>470</a>		);
-<a href=#471 id=471 data-nosnippet>471</a>		<span class="macro">assert_eq!</span>(
-<a href=#472 id=472 data-nosnippet>472</a>			recovered_ext.backend.child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"doggytown"</span>).unwrap(),
-<a href=#473 id=473 data-nosnippet>473</a>			<span class="prelude-val">Some</span>(<span class="string">b"is_sunny"</span>.to_vec())
-<a href=#474 id=474 data-nosnippet>474</a>		);
-<a href=#475 id=475 data-nosnippet>475</a>
-<a href=#476 id=476 data-nosnippet>476</a>		<span class="comment">// Ensure all have the correct ref count after importing
-<a href=#477 id=477 data-nosnippet>477</a>		</span><span class="macro">assert!</span>(recovered_ext.backend.backend_storage().keys().values().all(|r| <span class="kw-2">*</span>r == <span class="number">2</span>));
-<a href=#478 id=478 data-nosnippet>478</a>	}
-<a href=#479 id=479 data-nosnippet>479</a>
-<a href=#480 id=480 data-nosnippet>480</a>	<span class="attr">#[test]
-<a href=#481 id=481 data-nosnippet>481</a>	</span><span class="kw">fn </span>set_and_retrieve_code() {
-<a href=#482 id=482 data-nosnippet>482</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExternalities::&lt;BlakeTwo256&gt;::default();
-<a href=#483 id=483 data-nosnippet>483</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = ext.ext();
-<a href=#484 id=484 data-nosnippet>484</a>
-<a href=#485 id=485 data-nosnippet>485</a>		<span class="kw">let </span>code = <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
-<a href=#486 id=486 data-nosnippet>486</a>		ext.set_storage(CODE.to_vec(), code.clone());
+<a href=#466 id=466 data-nosnippet>466</a>		<span class="comment">// Check the storage root is the same as the original
+<a href=#467 id=467 data-nosnippet>467</a>		</span><span class="macro">assert_eq!</span>(root, <span class="kw-2">*</span>recovered_ext.backend.root());
+<a href=#468 id=468 data-nosnippet>468</a>
+<a href=#469 id=469 data-nosnippet>469</a>		<span class="comment">// Check the original storage key/values were recovered correctly
+<a href=#470 id=470 data-nosnippet>470</a>		</span><span class="macro">assert_eq!</span>(recovered_ext.backend.storage(<span class="string">b"doe"</span>).unwrap(), <span class="prelude-val">Some</span>(<span class="string">b"reindeer"</span>.to_vec()));
+<a href=#471 id=471 data-nosnippet>471</a>		<span class="macro">assert_eq!</span>(recovered_ext.backend.storage(<span class="string">b"dog"</span>).unwrap(), <span class="prelude-val">Some</span>(<span class="string">b"puppy"</span>.to_vec()));
+<a href=#472 id=472 data-nosnippet>472</a>		<span class="macro">assert_eq!</span>(recovered_ext.backend.storage(<span class="string">b"dogglesworth"</span>).unwrap(), <span class="prelude-val">Some</span>(<span class="string">b"cat"</span>.to_vec()));
+<a href=#473 id=473 data-nosnippet>473</a>
+<a href=#474 id=474 data-nosnippet>474</a>		<span class="comment">// Check the original child storage key/values were recovered correctly
+<a href=#475 id=475 data-nosnippet>475</a>		</span><span class="macro">assert_eq!</span>(
+<a href=#476 id=476 data-nosnippet>476</a>			recovered_ext.backend.child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"cattytown"</span>).unwrap(),
+<a href=#477 id=477 data-nosnippet>477</a>			<span class="prelude-val">Some</span>(<span class="string">b"is_dark"</span>.to_vec())
+<a href=#478 id=478 data-nosnippet>478</a>		);
+<a href=#479 id=479 data-nosnippet>479</a>		<span class="macro">assert_eq!</span>(
+<a href=#480 id=480 data-nosnippet>480</a>			recovered_ext.backend.child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"doggytown"</span>).unwrap(),
+<a href=#481 id=481 data-nosnippet>481</a>			<span class="prelude-val">Some</span>(<span class="string">b"is_sunny"</span>.to_vec())
+<a href=#482 id=482 data-nosnippet>482</a>		);
+<a href=#483 id=483 data-nosnippet>483</a>
+<a href=#484 id=484 data-nosnippet>484</a>		<span class="comment">// Ensure all have the correct ref count after importing
+<a href=#485 id=485 data-nosnippet>485</a>		</span><span class="macro">assert!</span>(recovered_ext.backend.backend_storage().keys().values().all(|r| <span class="kw-2">*</span>r == <span class="number">2</span>));
+<a href=#486 id=486 data-nosnippet>486</a>	}
 <a href=#487 id=487 data-nosnippet>487</a>
-<a href=#488 id=488 data-nosnippet>488</a>		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>ext.storage(CODE).unwrap(), <span class="kw-2">&amp;</span>code);
-<a href=#489 id=489 data-nosnippet>489</a>	}
-<a href=#490 id=490 data-nosnippet>490</a>
-<a href=#491 id=491 data-nosnippet>491</a>	<span class="attr">#[test]
-<a href=#492 id=492 data-nosnippet>492</a>	</span><span class="kw">fn </span>check_send() {
-<a href=#493 id=493 data-nosnippet>493</a>		<span class="kw">fn </span>assert_send&lt;T: Send&gt;() {}
-<a href=#494 id=494 data-nosnippet>494</a>		assert_send::&lt;TestExternalities&lt;BlakeTwo256&gt;&gt;();
-<a href=#495 id=495 data-nosnippet>495</a>	}
-<a href=#496 id=496 data-nosnippet>496</a>
-<a href=#497 id=497 data-nosnippet>497</a>	<span class="attr">#[test]
-<a href=#498 id=498 data-nosnippet>498</a>	</span><span class="kw">fn </span>commit_all_and_kill_child_storage() {
-<a href=#499 id=499 data-nosnippet>499</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExternalities::&lt;BlakeTwo256&gt;::default();
-<a href=#500 id=500 data-nosnippet>500</a>		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="kw-2">&amp;</span><span class="string">b"test_child"</span>[..]);
-<a href=#501 id=501 data-nosnippet>501</a>
-<a href=#502 id=502 data-nosnippet>502</a>		{
-<a href=#503 id=503 data-nosnippet>503</a>			<span class="kw">let </span><span class="kw-2">mut </span>ext = ext.ext();
-<a href=#504 id=504 data-nosnippet>504</a>			ext.place_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"doe"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"reindeer"</span>.to_vec()));
-<a href=#505 id=505 data-nosnippet>505</a>			ext.place_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"dog"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"puppy"</span>.to_vec()));
-<a href=#506 id=506 data-nosnippet>506</a>			ext.place_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"dog2"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"puppy2"</span>.to_vec()));
-<a href=#507 id=507 data-nosnippet>507</a>		}
-<a href=#508 id=508 data-nosnippet>508</a>
-<a href=#509 id=509 data-nosnippet>509</a>		ext.commit_all().unwrap();
-<a href=#510 id=510 data-nosnippet>510</a>
-<a href=#511 id=511 data-nosnippet>511</a>		{
-<a href=#512 id=512 data-nosnippet>512</a>			<span class="kw">let </span><span class="kw-2">mut </span>ext = ext.ext();
-<a href=#513 id=513 data-nosnippet>513</a>
-<a href=#514 id=514 data-nosnippet>514</a>			<span class="macro">assert!</span>(
-<a href=#515 id=515 data-nosnippet>515</a>				ext.kill_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="prelude-val">Some</span>(<span class="number">2</span>), <span class="prelude-val">None</span>).maybe_cursor.is_some(),
-<a href=#516 id=516 data-nosnippet>516</a>				<span class="string">"Should not delete all keys"
-<a href=#517 id=517 data-nosnippet>517</a>			</span>);
+<a href=#488 id=488 data-nosnippet>488</a>	<span class="attr">#[test]
+<a href=#489 id=489 data-nosnippet>489</a>	</span><span class="kw">fn </span>set_and_retrieve_code() {
+<a href=#490 id=490 data-nosnippet>490</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExternalities::&lt;BlakeTwo256&gt;::default();
+<a href=#491 id=491 data-nosnippet>491</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = ext.ext();
+<a href=#492 id=492 data-nosnippet>492</a>
+<a href=#493 id=493 data-nosnippet>493</a>		<span class="kw">let </span>code = <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
+<a href=#494 id=494 data-nosnippet>494</a>		ext.set_storage(CODE.to_vec(), code.clone());
+<a href=#495 id=495 data-nosnippet>495</a>
+<a href=#496 id=496 data-nosnippet>496</a>		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>ext.storage(CODE).unwrap(), <span class="kw-2">&amp;</span>code);
+<a href=#497 id=497 data-nosnippet>497</a>	}
+<a href=#498 id=498 data-nosnippet>498</a>
+<a href=#499 id=499 data-nosnippet>499</a>	<span class="attr">#[test]
+<a href=#500 id=500 data-nosnippet>500</a>	</span><span class="kw">fn </span>check_send() {
+<a href=#501 id=501 data-nosnippet>501</a>		<span class="kw">fn </span>assert_send&lt;T: Send&gt;() {}
+<a href=#502 id=502 data-nosnippet>502</a>		assert_send::&lt;TestExternalities&lt;BlakeTwo256&gt;&gt;();
+<a href=#503 id=503 data-nosnippet>503</a>	}
+<a href=#504 id=504 data-nosnippet>504</a>
+<a href=#505 id=505 data-nosnippet>505</a>	<span class="attr">#[test]
+<a href=#506 id=506 data-nosnippet>506</a>	</span><span class="kw">fn </span>commit_all_and_kill_child_storage() {
+<a href=#507 id=507 data-nosnippet>507</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExternalities::&lt;BlakeTwo256&gt;::default();
+<a href=#508 id=508 data-nosnippet>508</a>		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="kw-2">&amp;</span><span class="string">b"test_child"</span>[..]);
+<a href=#509 id=509 data-nosnippet>509</a>
+<a href=#510 id=510 data-nosnippet>510</a>		{
+<a href=#511 id=511 data-nosnippet>511</a>			<span class="kw">let </span><span class="kw-2">mut </span>ext = ext.ext();
+<a href=#512 id=512 data-nosnippet>512</a>			ext.place_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"doe"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"reindeer"</span>.to_vec()));
+<a href=#513 id=513 data-nosnippet>513</a>			ext.place_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"dog"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"puppy"</span>.to_vec()));
+<a href=#514 id=514 data-nosnippet>514</a>			ext.place_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"dog2"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"puppy2"</span>.to_vec()));
+<a href=#515 id=515 data-nosnippet>515</a>		}
+<a href=#516 id=516 data-nosnippet>516</a>
+<a href=#517 id=517 data-nosnippet>517</a>		ext.commit_all().unwrap();
 <a href=#518 id=518 data-nosnippet>518</a>
-<a href=#519 id=519 data-nosnippet>519</a>			<span class="macro">assert!</span>(ext.child_storage(<span class="kw-2">&amp;</span>child_info, <span class="kw-2">&amp;</span><span class="string">b"doe"</span>[..]).is_none());
-<a href=#520 id=520 data-nosnippet>520</a>			<span class="macro">assert!</span>(ext.child_storage(<span class="kw-2">&amp;</span>child_info, <span class="kw-2">&amp;</span><span class="string">b"dog"</span>[..]).is_none());
-<a href=#521 id=521 data-nosnippet>521</a>			<span class="macro">assert!</span>(ext.child_storage(<span class="kw-2">&amp;</span>child_info, <span class="kw-2">&amp;</span><span class="string">b"dog2"</span>[..]).is_some());
-<a href=#522 id=522 data-nosnippet>522</a>		}
-<a href=#523 id=523 data-nosnippet>523</a>	}
-<a href=#524 id=524 data-nosnippet>524</a>
-<a href=#525 id=525 data-nosnippet>525</a>	<span class="attr">#[test]
-<a href=#526 id=526 data-nosnippet>526</a>	</span><span class="kw">fn </span>as_backend_generates_same_backend_as_commit_all() {
-<a href=#527 id=527 data-nosnippet>527</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExternalities::&lt;BlakeTwo256&gt;::default();
-<a href=#528 id=528 data-nosnippet>528</a>		{
-<a href=#529 id=529 data-nosnippet>529</a>			<span class="kw">let </span><span class="kw-2">mut </span>ext = ext.ext();
-<a href=#530 id=530 data-nosnippet>530</a>			ext.set_storage(<span class="string">b"doe"</span>.to_vec(), <span class="string">b"reindeer"</span>.to_vec());
-<a href=#531 id=531 data-nosnippet>531</a>			ext.set_storage(<span class="string">b"dog"</span>.to_vec(), <span class="string">b"puppy"</span>.to_vec());
-<a href=#532 id=532 data-nosnippet>532</a>			ext.set_storage(<span class="string">b"dogglesworth"</span>.to_vec(), <span class="string">b"cat"</span>.to_vec());
-<a href=#533 id=533 data-nosnippet>533</a>		}
-<a href=#534 id=534 data-nosnippet>534</a>
-<a href=#535 id=535 data-nosnippet>535</a>		<span class="kw">let </span>backend = ext.as_backend();
-<a href=#536 id=536 data-nosnippet>536</a>
-<a href=#537 id=537 data-nosnippet>537</a>		ext.commit_all().unwrap();
-<a href=#538 id=538 data-nosnippet>538</a>		<span class="macro">assert!</span>(ext.backend.eq(<span class="kw-2">&amp;</span>backend), <span class="string">"Both backend should be equal."</span>);
-<a href=#539 id=539 data-nosnippet>539</a>	}
-<a href=#540 id=540 data-nosnippet>540</a>}
+<a href=#519 id=519 data-nosnippet>519</a>		{
+<a href=#520 id=520 data-nosnippet>520</a>			<span class="kw">let </span><span class="kw-2">mut </span>ext = ext.ext();
+<a href=#521 id=521 data-nosnippet>521</a>
+<a href=#522 id=522 data-nosnippet>522</a>			<span class="macro">assert!</span>(
+<a href=#523 id=523 data-nosnippet>523</a>				ext.kill_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="prelude-val">Some</span>(<span class="number">2</span>), <span class="prelude-val">None</span>).maybe_cursor.is_some(),
+<a href=#524 id=524 data-nosnippet>524</a>				<span class="string">"Should not delete all keys"
+<a href=#525 id=525 data-nosnippet>525</a>			</span>);
+<a href=#526 id=526 data-nosnippet>526</a>
+<a href=#527 id=527 data-nosnippet>527</a>			<span class="macro">assert!</span>(ext.child_storage(<span class="kw-2">&amp;</span>child_info, <span class="kw-2">&amp;</span><span class="string">b"doe"</span>[..]).is_none());
+<a href=#528 id=528 data-nosnippet>528</a>			<span class="macro">assert!</span>(ext.child_storage(<span class="kw-2">&amp;</span>child_info, <span class="kw-2">&amp;</span><span class="string">b"dog"</span>[..]).is_none());
+<a href=#529 id=529 data-nosnippet>529</a>			<span class="macro">assert!</span>(ext.child_storage(<span class="kw-2">&amp;</span>child_info, <span class="kw-2">&amp;</span><span class="string">b"dog2"</span>[..]).is_some());
+<a href=#530 id=530 data-nosnippet>530</a>		}
+<a href=#531 id=531 data-nosnippet>531</a>	}
+<a href=#532 id=532 data-nosnippet>532</a>
+<a href=#533 id=533 data-nosnippet>533</a>	<span class="attr">#[test]
+<a href=#534 id=534 data-nosnippet>534</a>	</span><span class="kw">fn </span>as_backend_generates_same_backend_as_commit_all() {
+<a href=#535 id=535 data-nosnippet>535</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExternalities::&lt;BlakeTwo256&gt;::default();
+<a href=#536 id=536 data-nosnippet>536</a>		{
+<a href=#537 id=537 data-nosnippet>537</a>			<span class="kw">let </span><span class="kw-2">mut </span>ext = ext.ext();
+<a href=#538 id=538 data-nosnippet>538</a>			ext.set_storage(<span class="string">b"doe"</span>.to_vec(), <span class="string">b"reindeer"</span>.to_vec());
+<a href=#539 id=539 data-nosnippet>539</a>			ext.set_storage(<span class="string">b"dog"</span>.to_vec(), <span class="string">b"puppy"</span>.to_vec());
+<a href=#540 id=540 data-nosnippet>540</a>			ext.set_storage(<span class="string">b"dogglesworth"</span>.to_vec(), <span class="string">b"cat"</span>.to_vec());
+<a href=#541 id=541 data-nosnippet>541</a>		}
+<a href=#542 id=542 data-nosnippet>542</a>
+<a href=#543 id=543 data-nosnippet>543</a>		<span class="kw">let </span>backend = ext.as_backend();
+<a href=#544 id=544 data-nosnippet>544</a>
+<a href=#545 id=545 data-nosnippet>545</a>		ext.commit_all().unwrap();
+<a href=#546 id=546 data-nosnippet>546</a>		<span class="macro">assert!</span>(ext.backend.eq(<span class="kw-2">&amp;</span>backend), <span class="string">"Both backend should be equal."</span>);
+<a href=#547 id=547 data-nosnippet>547</a>	}
+<a href=#548 id=548 data-nosnippet>548</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
