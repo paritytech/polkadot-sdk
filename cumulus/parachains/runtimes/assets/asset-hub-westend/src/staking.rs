@@ -537,7 +537,8 @@ impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSe
 	}
 }
 
-/// Accepts the sibling parachain origin of People and returns its parachain id.
+/// Accepts the sibling parachain origin of a system chain allowed to report the blocks authored
+/// on it, and returns its parachain id.
 pub struct EnsureReportingSibling;
 impl EnsureOrigin<RuntimeOrigin> for EnsureReportingSibling {
 	type Success = ParaId;
