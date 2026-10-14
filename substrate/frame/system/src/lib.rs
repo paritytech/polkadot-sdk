@@ -1951,8 +1951,7 @@ impl<T: Config> Pallet<T> {
 	/// This call enables conditional execution depending on whether the runtime is
 	/// validating a transaction for the transaction pool or executing in a block. Any code executed
 	/// solely during the transaction validation in the pool can be bypassed by a block author. The
-	/// code executed for the block execution must still enforce all the necessary checks. This
-	/// feature can be used only to reorganize execution at the expense of the block author.
+	/// code executed for the block execution must still enforce all the necessary checks.
 	pub fn is_pool_transaction_validation() -> bool {
 		POOL_TRANSACTION_VALIDATION::with(|_| ()).is_some()
 	}
