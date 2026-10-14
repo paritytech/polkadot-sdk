@@ -22,13 +22,6 @@ use sp_crypto_hashing::blake2_256;
 
 use crate::token::CollatorKey;
 
-/// Number of sibling hashes in a collator membership proof.
-///
-/// This is ⌈log₂(collator_set_size)⌉, the depth of the zero-padded power-of-two tree.
-pub(crate) fn proof_len(collator_set_size: u32) -> usize {
-	(u32::BITS - collator_set_size.saturating_sub(1).leading_zeros()) as usize
-}
-
 /// Blake2b-256 adapter for the SDK's binary Merkle tree.
 pub(crate) struct CollatorHasher;
 
@@ -105,8 +98,6 @@ pub fn build_collator_proofs(
 
 #[cfg(test)]
 mod tests {
-	use super::proof_len;
-
 	#[test]
 	fn sdk_proof_compatibility_works() {
 		for size in [1usize, 2, 3, 17, 256, 257] {
@@ -157,51 +148,5 @@ mod tests {
 				Err(super::CollatorProofError::TooManyCollators)
 			);
 		}
-	}
-
-	#[test]
-	fn proof_len_empty_and_singleton_works() {
-		// Empty sets are rejected by the caller; the length helper still returns zero.
-		assert_eq!(proof_len(0), 0);
-		assert_eq!(proof_len(1), 0);
-	}
-
-	#[test]
-	fn proof_len_powers_of_two_works() {
-		for exponent in 0..32 {
-			let size = 1u32 << exponent;
-			assert_eq!(proof_len(size), exponent as usize, "set size {size}");
-		}
-	}
-
-	#[test]
-	fn proof_len_power_of_two_neighbors_works() {
-		assert_eq!(proof_len(2 - 1), 0);
-		assert_eq!(proof_len(2 + 1), 2);
-		for exponent in 2..32 {
-			let size = 1u32 << exponent;
-			assert_eq!(proof_len(size - 1), exponent as usize, "set size {}", size - 1);
-			assert_eq!(proof_len(size + 1), exponent as usize + 1, "set size {}", size + 1);
-		}
-	}
-
-	#[test]
-	fn proof_len_matches_padded_leaf_count_works() {
-		for exponent in 0..32 {
-			let size = 1u32 << exponent;
-			for size in [size - 1, size, size + 1] {
-				// Only nonempty sets whose padding fits in u32 can form a tree.
-				if size == 0 || size > (1u32 << 31) {
-					continue;
-				}
-				let padded = super::padded_leaf_count(size as usize).expect("valid collator set");
-				assert_eq!(proof_len(size), padded.ilog2() as usize, "set size {size}");
-			}
-		}
-	}
-
-	#[test]
-	fn proof_len_maximum_size_works() {
-		assert_eq!(proof_len(u32::MAX), 32);
 	}
 }

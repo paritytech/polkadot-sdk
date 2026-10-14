@@ -22,7 +22,7 @@ use primitive_types::H256;
 
 use crate::{
 	config::AuthConfig,
-	merkle::{padded_leaf_count, proof_len, CollatorHasher},
+	merkle::{padded_leaf_count, CollatorHasher},
 	signing::signable_work_package_hash,
 	AuthTrace,
 };
@@ -85,16 +85,16 @@ impl AuthToken {
 	/// an out-of-range index, or a set size outside `1..=2^31`. The upper limit ensures that
 	/// the power-of-two padded leaf count fits in the SDK's `u32` leaf-count parameter.
 	pub fn check_proof(&self, config: &AuthConfig, collator_index: u32) -> Result<(), TokenError> {
-		if self.proof.len() != proof_len(config.collator_set_size) {
+		let padded_size = padded_leaf_count(config.collator_set_size as usize)
+			.map_err(|_| TokenError::BadCollatorSetProof)?;
+
+		if self.proof.len() != padded_size.ilog2() as usize {
 			return Err(TokenError::BadCollatorSetProof);
 		}
 
 		if collator_index >= config.collator_set_size {
 			return Err(TokenError::BadCollatorSetProof);
 		}
-
-		let padded_size = padded_leaf_count(config.collator_set_size as usize)
-			.map_err(|_| TokenError::BadCollatorSetProof)?;
 
 		binary_merkle_tree::verify_proof::<CollatorHasher, _, _>(
 			&config.collator_set_root,
