@@ -359,14 +359,22 @@ pub mod pallet {
 				let consumed = result.map_err(|error| {
 					log::warn!(
 						target: LOG_TARGET,
-						"Invalid inherent item from {source:?} on {stream:?}: {error:?}",
+						"Block {:?}: invalid inherent item from {source:?} on {stream:?}: {error:?}",
+						frame_system::Pallet::<T>::block_number(),
 					);
 					error
 				})?;
 				if consumed {
-					log::debug!(
+					// Every block republishes the `Ack` registers: keep them out of `debug`.
+					let level = match stream {
+						StreamId::Ack { .. } => log::Level::Trace,
+						_ => log::Level::Debug,
+					};
+					log::log!(
 						target: LOG_TARGET,
-						"Consumed {count} payloads from {source:?} on {stream:?}",
+						level,
+						"Block {:?}: consumed {count} payloads from {source:?} on {stream:?}",
+						frame_system::Pallet::<T>::block_number(),
 					);
 				}
 			}
@@ -715,7 +723,8 @@ impl<T: Config> Pallet<T> {
 		));
 		log::debug!(
 			target: LOG_TARGET,
-			"Committed streams root {root:?} over {} streams",
+			"Block {:?}: committed streams root {root:?} over {} streams",
+			frame_system::Pallet::<T>::block_number(),
 			entries.len(),
 		);
 
