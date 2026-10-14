@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791929285057,
+  "lastUpdate": 1791963380041,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "jfanatiker@gmx.at",
-            "name": "eskimor",
-            "username": "eskimor"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ce07e65a6ad40a7bccf8dbda655dff6c47671bdb",
-          "message": "Fix paths length (#11626)\n\nimplicit views can return paths longer than lookahead, which leads to\nis_slot_available skipping the loop\n[here](https://github.com/paritytech/polkadot-sdk/blob/a103769c2e2cb739f721d0446acabe97a2c0df08/polkadot/node/network/collator-protocol/src/validator_side/mod.rs#L1598),\nbecause of `ancestor_valid_len` being 0, leading to rejections of\ncandidates.\n\nI also noticed that `paths_via_relay_parents` can be massively\nsimplified, which also removes above bug. ImplicitView can likely be\nsimplified further as I no longer see any need to keep\n`block_info_storage` at all anymore.\n\nFixes: https://github.com/paritytech/polkadot-sdk/issues/11625",
-          "timestamp": "2026-04-03T20:03:44Z",
-          "tree_id": "b387b61c1c28646918618e00175bbac78358b407",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce07e65a6ad40a7bccf8dbda655dff6c47671bdb"
-        },
-        "date": 1775252068881,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13296580056666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.151880404366668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.487293709466666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "47612878ffdca773d88bb35209b240d52337d376",
+          "message": "Fix `eth_subscribe(\"newHeads\")` in the ETH RPC (#13419)\n\n# Description\n\n`eth_subscribe(\"newHeads\")` was rejected on master. `SubscriptionKind`\nserialised the variant as `newBlockHeaders`, and only our own client\nsent that. This PR renames it to `newHeads` and adds `difficulty` and\n`mixHash` to `BlockHeader`, because alloy can't decode a `newHeads`\nheader without them.\n\nThe `newHeads` test now subscribes through alloy's WebSocket provider,\nwhich sends `\"newHeads\"` on the wire, and checks the header against the\nreceipt and `eth_getBlockByNumber`.\n\nSplit out of #13002 so it can be backported on its own.",
+          "timestamp": "2026-10-14T06:03:47Z",
+          "tree_id": "5c8c41b26201c7432996526e00336723ec2d53c7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/47612878ffdca773d88bb35209b240d52337d376"
+        },
+        "date": 1791963347956,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12591069146666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.610788102633334,
             "unit": "seconds"
           }
         ]
