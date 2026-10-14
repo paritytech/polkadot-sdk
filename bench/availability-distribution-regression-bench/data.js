@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791972486301,
+  "lastUpdate": 1791978821306,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "nasihudeen04@gmail.com",
-            "name": "Nasihudeen Jimoh",
-            "username": "Kanasjnr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7da81d63069e38e11bea4cc4735bc9a45d3f0589",
-          "message": "Kanas/omni node aura authority id type based on metadata checks (#11107)\n\n# Description\nThis PR implements optional metadata-based detection to automatically\ndetermine the correct Aura authority ID type from runtime metadata.\n\nThe library currently assumes that the Aura authority ID type is\n`ed25519` for `asset-hub-polkadot`/`statemint` and `sr25519` for all\nother chains. This PR adds the ability to detect the correct type from\nruntime metadata when available.\n\nFurther implementation of #11026\n\n## Integration\n**No integration changes required.** This is a non-breaking enhancement\nthat improves detection logic. Behavior remains backward compatible with\nexisting fallback mechanisms.\n\n## Review Notes\n\n### Implementation Overview\nThis PR implements optional metadata detection for Aura authority IDs:\n- **Optional metadata detection**: Adds support to read the Aura\nauthority ID type from runtime metadata when available\n\n### Changes Made\n\n**File: `cumulus/polkadot-omni-node/lib/src/common/runtime.rs`**\n1. **Added `aura_consensus_id()` method to `MetadataInspector`**:\n- Scans runtime metadata types for\n`sp_consensus_aura::sr25519::AuthorityId` or\n`sp_consensus_aura::ed25519::AuthorityId`\n   - Returns `Some(AuraConsensusId)` if found, `None` otherwise\n   - Only checks if Aura pallet exists in metadata\n\n2. **Updated `DefaultRuntimeResolver::runtime()`**:\n- Calls `metadata_inspector.aura_consensus_id()` for metadata-based\ndetection\n   - Uses detected type immediately when available\n- Falls back to chain spec ID check when metadata detection returns\n`None`\n\n3. **Added test coverage**:\n- Test verifies `aura_consensus_id()` correctly detects `sr25519` from\ntest runtime metadata\n\n### Example Behavior\n**Metadata detection workflow:**\n- If metadata detection succeeds → uses detected type (`sr25519` or\n`ed25519`)\n- If metadata unavailable or detection fails → uses chain spec ID\nheuristics (`ed25519` for asset-hub-polkadot/statemint, `sr25519` for\nothers)\n\n### Code Example\n```diff\n+ fn aura_consensus_id(&self) -> Option<AuraConsensusId> {\n+     if !self.pallet_exists(DEFAULT_AURA_PALLET_NAME) {\n+         return None;\n+     }\n+ \n+     for portable_type in self.0.types().types() {\n+         let path = &portable_type.ty.path;\n+         let segments = path.segments();\n+ \n+         if segments.len() >= 3 {\n+             let last_three = &segments[segments.len() - 3..];\n+             match last_three {\n+                 [\"sp_consensus_aura\", \"sr25519\", \"AuthorityId\"] =>\n+                     return Some(AuraConsensusId::Sr25519),\n+                 [\"sp_consensus_aura\", \"ed25519\", \"AuthorityId\"] =>\n+                     return Some(AuraConsensusId::Ed25519),\n+                 _ => continue,\n+             }\n+         }\n+     }\n+     None\n+ }\n```\n\n### Testing\n\n- Added unit test `test_aura_consensus_id()` that verifies metadata\ndetection works correctly with the test runtime (which uses `sr25519`)\n\n### Notes\n\n- The fallback logic preserves existing behavior while making\nassumptions explicit\n- Metadata detection is optional and gracefully falls back when metadata\nis unavailable or doesn't contain the required information\n\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [ ] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n## Bot Commands\n\nYou can use the following bot commands in comments to help manage your\nPR:\n\n**Labeling (Self-service for contributors):**\n* `/cmd label T1-FRAME` - Add a single label\n* `/cmd label T1-FRAME R0-no-crate-publish-required` - Add multiple\nlabels\n* `/cmd label T6-XCM D2-substantial I5-enhancement` - Add multiple\nlabels at once\n* See [label\ndocumentation](https://paritytech.github.io/labels/doc_polkadot-sdk.html)\nfor all available labels\n\n**Other useful commands:**\n* `/cmd fmt` - Format code (cargo +nightly fmt and taplo)\n* `/cmd prdoc` - Generate PR documentation\n* `/cmd bench` - Run benchmarks\n* `/cmd update-ui` - Update UI tests\n* `/cmd --help` - Show help for all available commands\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
-          "timestamp": "2026-04-06T09:51:25Z",
-          "tree_id": "1774e93b522a09e756fb09370d030c0ad61932fa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/7da81d63069e38e11bea4cc4735bc9a45d3f0589"
-        },
-        "date": 1775473927079,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023929198760000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009655054513333315,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14440553737333345,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0070633198000000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009920763893333313,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0c6a0edc17553c5ec227dd9d669c814947c2bebf",
+          "message": "papi-tests: convert chain specs with export-chain-spec (#13479)\n\nzombienet converts plain chain specs to raw with the node's `build-spec`\nsubcommand unless `chain_spec_command` is set. #12586 removed\n`build-spec`, which broke `just setup` / `just run` in papi-tests.\n\nThis sets `chain_spec_command` to `export-chain-spec` for the relay\n(`polkadot`) and the parachain (`polkadot-parachain`). zombienet still\ncustomizes both plain specs before converting them, as before.\n\nNote: `{{chainName}}` is wrapped in `{% raw %}` because zombienet\nrenders the TOML with nunjucks (using env vars) before parsing it.\nUnescaped, it renders to an empty string and `--chain` gets no value.\n\nThis fixes also miner nightly test which relies on papi-test setup (see\nhttps://github.com/paritytech/polkadot-staking-miner/issues/1344)\n\nTested locally:\n```\n# just run fake-dev (zombienet v1.3.140)\n🚧 Chain Spec for paraId 1100 was set to a file in raw format, can't customize. 🚧\nCommand : bash -c polkadot export-chain-spec --chain /tmp/zombie-.../rococo-local-plain.json  --raw > /tmp/zombie-.../rococo-local-raw.json\n[Parachain] 💤 Idle (0 peers), best: #3 (0x464e…b28f), finalized #0 (0x64c0…0313)\n\n# polkadot-staking-miner: cargo test --release --features integration-tests submit_works\nINFO monitor: Charlie score registered (malicious)\nINFO monitor: Alice score registered\nINFO monitor: Bob score registered\nINFO monitor: Charlie slashed for incomplete/invalid submission!\nINFO monitor: Alice rewarded!\nINFO monitor: Bob solution discarded!\nINFO monitor: 🤑 Successfully completed three-miner test: Alice and Bob submitted solutions (one rewarded, one discarded), Charlie slashed for malicious behavior!\ntest submit_works ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 526.32s\n```",
+          "timestamp": "2026-10-14T10:16:54Z",
+          "tree_id": "586e0e251e749fa3ebcbbf61e2e44f3b3d183f46",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0c6a0edc17553c5ec227dd9d669c814947c2bebf"
+        },
+        "date": 1791978788493,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009863221019999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007302027706666669,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1448949187866667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024842975846666664,
             "unit": "seconds"
           }
         ]
