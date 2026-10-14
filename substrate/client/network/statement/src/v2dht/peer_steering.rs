@@ -27,8 +27,9 @@
 //! set. Each refresh moves the reserved set toward the desired one. A desired
 //! peer gets reserved, which dials it and keeps its substream open. A reserved peer no longer
 //! desired is released, which drops a peer this node dialed and leaves a peer that dialed in as
-//! an ordinary inbound peer. A refresh releases at most [`MAX_DISCONNECT_PERCENT`] of
-//! the connected peers, so the set converges over several refreshes instead of churning at once.
+//! an ordinary inbound peer while an inbound slot is free. A refresh releases at most
+//! [`MAX_DISCONNECT_PERCENT`] of the connected peers, so the set converges over several
+//! refreshes instead of churning at once.
 //! The orchestrator supplies the desired set through
 //! [`PeerSteering::update_peers_needing_connections`].
 //!
@@ -127,7 +128,7 @@ impl PeerSteering {
 		self.connected.get(peer).map(|entry| entry.score)
 	}
 
-	// === Coverage target ===
+	// === Desired set ===
 
 	/// Replace the set of peers the node needs connected.
 	pub(crate) fn update_peers_needing_connections(

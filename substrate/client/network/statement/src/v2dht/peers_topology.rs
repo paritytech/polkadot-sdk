@@ -256,7 +256,8 @@ impl PeersTopology {
 	///
 	/// A bucket holds the peers whose key shares a prefix of one length with the local key, as in
 	/// Kademlia. One peer per bucket gives a statement for any topic a connected next hop closer
-	/// to the topic. The nearest peers are the replicas the node shares its topics with.
+	/// to the topic, as long as a known peer is closer. The nearest peers are the replicas the
+	/// node shares its topics with.
 	pub fn peers_for_routing(&self) -> Vec<PeerId> {
 		let limit = self.config.replication_factor.get();
 		let mut nearest_per_bucket = Vec::new();
@@ -755,6 +756,21 @@ mod tests {
 		routing.sort();
 		expected.sort();
 		assert_eq!(routing, expected);
+	}
+
+	#[test]
+	fn common_prefix_len_counts_the_shared_leading_bits() {
+		let zero = [0u8; 32];
+		assert_eq!(common_prefix_len(&zero, &zero), 256);
+
+		let mut first_bit = zero;
+		first_bit[0] = 0x80;
+		assert_eq!(common_prefix_len(&zero, &first_bit), 0);
+
+		let mut bit_ten = zero;
+		bit_ten[1] = 0x20;
+		bit_ten[2] = 0xff;
+		assert_eq!(common_prefix_len(&zero, &bit_ten), 10);
 	}
 
 	#[test]

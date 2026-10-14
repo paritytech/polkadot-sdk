@@ -1738,7 +1738,9 @@ where
 				});
 
 				if v2dht_enabled() {
-					if !is_light {
+					// A v1 peer takes no part in the DHT path, so it stays out of the
+					// orchestrator and steering never reserves it.
+					if !is_light && protocol_version == PeerProtocolVersion::V2 {
 						// TODO: Do we need to pass light nodes to the Orchestrator?
 						self.v2dht.on_substream_opened(peer);
 					}

@@ -770,6 +770,24 @@ mod tests {
 	}
 
 	#[test]
+	fn affinity_tick_marks_routing_peers_for_connection() {
+		let mut orchestrator = orchestrator_with(1, topology_config(3, 3));
+		for seed in 2..=6 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
+		}
+
+		// Without topics the desired set is the routing peers alone, none connected yet.
+		orchestrator.on_pending_affinities();
+		let mut routing = orchestrator.peers_topology.peers_for_routing();
+		let mut connect = orchestrator.peer_steering.peers_to_connect();
+		routing.sort();
+		connect.sort();
+		assert_eq!(routing.len(), 3);
+		assert_eq!(connect, routing);
+	}
+
+	#[test]
 	fn valid_statements_reward_the_sender() {
 		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
 		let peer = peer(2);
