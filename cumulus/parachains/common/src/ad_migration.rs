@@ -58,10 +58,10 @@ pub trait KeysTranslatorT {
 	/// validator's aura raw bytes.
 	///
 	/// Why a hashed placeholder rather than zero or aura-raw:
-	/// - for example for `sr25519::Public` the all-zero key is the Ristretto identity element,
-	///   which schnorrkel accepts and against which any Schnorr signature is trivially forgeable
-	///   (`s·B == R` collapses when `P == 0`). A zero placeholder is also shared by every validator
-	///   across every adopting chain until they each rotate, letting any attacker squat the entire
+	/// - for `sr25519::Public` the all-zero key is the Ristretto identity element, which schnorrkel
+	///   accepts and against which any Schnorr signature is trivially forgeable (`s·B == R`
+	///   collapses when `P == 0`). A zero placeholder is also shared by every validator across
+	///   every adopting chain until they each rotate, letting any attacker squat the entire
 	///   authority-discovery mesh.
 	/// - Reusing the aura raw bytes directly would tie the authority discovery placeholder to the
 	///   validator's aura secret, giving an unwanted cross-protocol key reuse for the duration of
