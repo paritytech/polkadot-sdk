@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791978917036,
+  "lastUpdate": 1792014137183,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dhiraj@parity.io",
-            "name": "Dhiraj Sah",
-            "username": "dhirajs0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ecada3402a70d906e10c6d33b0f42b6174fea119",
-          "message": "fix(multi-asset-bounties): enforce authorization in unassign_curator when parent bounty is not Active (#11612)\n\n# Description\n\nFix an authorization bypass in `pallet-multi-asset-bounties` where any\nsigned account could\nforcibly unassign an active child bounty's curator when the parent\nbounty was not in `Active` state\n(e.g., `CuratorUnassigned`). This also caused the child curator's native\nbalance hold (deposit) to\nbe permanently leaked — removed from pallet storage but never released\nor burned on-chain.\n\n**Root cause:** In `unassign_curator`, the `BountyStatus::Active`\nbranch's catch-all `Some(sender)`\narm used `if let Some(parent_curator) = parent_curator { ... }` with no\n`else` clause. When\n`parent_curator` was `None` (parent bounty not Active), the block was\nsilently skipped and execution\nfell through to the state transition — no `BadOrigin` error was\nreturned.\n\n## Integration\n\nNo integration changes required for downstream projects. This is a fix\ninternal to\n`pallet-multi-asset-bounties` with no public API changes. The extrinsic\nsignature and behavior for\nauthorized callers remain identical.\n\n## Review Notes\n\nThe fix restructures the `BountyStatus::Active` arm in\n`unassign_curator` with two changes:\n\n### 1. Authorization before storage mutation\n\nPreviously, `CuratorDeposit::take()` was called unconditionally at the\ntop of the `Active` arm\n(before verifying the caller). Now it is called inside each `match\nmaybe_sender` arm, only after the\ncaller is confirmed to be authorized. This prevents the deposit from\nbeing removed from storage on\nan unauthorized (and reverted) call path.\n\n```diff\n BountyStatus::Active { ref curator, .. } => {\n-    let maybe_curator_deposit =\n-        CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id);\n     match maybe_sender {\n         None => {\n-            if let Some(curator_deposit) = maybe_curator_deposit {\n+            if let Some(curator_deposit) =\n+                CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)\n+            {\n                 T::Consideration::burn(curator_deposit, curator);\n             }\n         },\n```\n\n### 2. Explicit rejection when `parent_curator` is `None`\n\nThe catch-all `Some(sender)` arm now uses\n`parent_curator.ok_or(BadOrigin)?` followed by an\n`ensure!`. When `parent_curator` is `None`, the call is immediately\nrejected with `BadOrigin`.\n\n```diff\n         Some(sender) => {\n-            if let Some(parent_curator) = parent_curator {\n-                if sender == parent_curator && *curator != parent_curator {\n-                    if let Some(curator_deposit) = maybe_curator_deposit {\n-                        T::Consideration::burn(curator_deposit, curator);\n-                    }\n-                } else {\n-                    return Err(BadOrigin.into());\n-                }\n+            let parent_curator = parent_curator.ok_or(BadOrigin)?;\n+            ensure!(\n+                sender == parent_curator && *curator != parent_curator,\n+                BadOrigin\n+            );\n+            if let Some(curator_deposit) =\n+                CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)\n+            {\n+                T::Consideration::burn(curator_deposit, curator);\n             }\n         },\n```\n\n### Regression test\n\nA comprehensive test\n(`unprivileged_caller_cannot_unassign_active_child_curator_when_parent_not_active`)\nis added that:\n\n1. Creates an active child bounty with a separate child curator.\n2. Has the parent curator voluntarily unassign (putting parent into\n`CuratorUnassigned`).\n3. Asserts that an unprivileged attacker is rejected with `BadOrigin`.\n4. Verifies the child bounty remains `Active`, the curator deposit stays\nin storage, and the\n   balance hold is intact.\n5. Confirms the child curator can still voluntarily unassign themselves\nand that the deposit is\n   properly released.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements]\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T17:48:31Z",
-          "tree_id": "5da14c2f730c63446e39e27c8ef634b6bad9a81c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ecada3402a70d906e10c6d33b0f42b6174fea119"
-        },
-        "date": 1775243343497,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.082,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03860612729799999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08225480304999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08683293705799995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3de1a0ebc8d3c57156f020764a61667080f577d3",
+          "message": "[AHMv2] Abstracts away HRMP deposits into a Deposit Provider impl. Paves way for remote deposits later (on CT) (#13475)\n\n# Context\nAbstracting out the deposit provider from the HRMP pallet. No-op almost\nexcept couple of extra events. See `Functional Change`.\n\nThe followup PR will implement an async (deposit on CT, management on\nRC) implementation of the deposit provider. Makes it easier for relay to\nlive a token less life.\n\n## Review Note\nBasically just 2 files to review\n- `polkadot/runtime/parachains/src/hrmp/deposits.rs`: Contains all the\nnew traits (`ChannelDepositProvider` and the callback trait) and\nin-pallet impl/callbacks + weights etc. All of new code is just here.\n- `polkadot/runtime/parachains/src/hrmp.rs`: Only really deletes of\ndeposit code (except very small changes) which is outsourced to\ndeposits.rs. Should be <del>absolutely</del> almost (two cases that\ndidn't emit event before will emit now) no-op, not challenging the\nstatus quo.\n\n### Functional change:\n`OpenChannelRequested`, `OpenChannelAccepted` and\n`OpenChannelDepositsUpdated` are now emitted as part of a common\nfunction invoked when call completes. As a result\n`force_open_hrmp_channel`, `establish_system_channel` and\n`establish_channel_with_system` now also emit `OpenChannelRequested` and\n`OpenChannelAccepted`.\n\n## TODO \n- [ ] Security Audit for the PR\n- [ ] (followup) hrmp-primitives are for wire types, should contain\ncontract between hrmp_para and hrmp_relay, not for contract between hrmp\nand hrmp_relay.\n\n---------\n\nCo-authored-by: cirko33 <luka.ciric2106@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-14T19:45:35Z",
+          "tree_id": "0ca5495cde2173f2db2915a20b2e42af70a61123",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3de1a0ebc8d3c57156f020764a61667080f577d3"
+        },
+        "date": 1792014106114,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.14600000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08090277379199998,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03827800844799999,
             "unit": "seconds"
           }
         ]
