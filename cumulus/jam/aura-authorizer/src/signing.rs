@@ -47,23 +47,16 @@ pub(crate) struct SigningPayload<'a> {
 
 impl<'a> From<&'a WorkPackage> for SigningPayload<'a> {
 	fn from(package: &'a WorkPackage) -> Self {
-		Self {
-			auth_code_host: package.auth_code_host,
-			authorizer: &package.authorizer,
-			context: &package.context,
-			items: &package.items,
-		}
+		// Keep this exhaustive so new fields require an explicit signing decision.
+		let WorkPackage { authorization: _, auth_code_host, authorizer, context, items } = package;
+		Self { auth_code_host: *auth_code_host, authorizer, context, items }
 	}
 }
 
 impl<'a> From<&'a UnauthorizedWorkPackage> for SigningPayload<'a> {
 	fn from(package: &'a UnauthorizedWorkPackage) -> Self {
-		Self {
-			auth_code_host: package.auth_code_host,
-			authorizer: &package.authorizer,
-			context: &package.context,
-			items: &package.items,
-		}
+		let UnauthorizedWorkPackage { auth_code_host, authorizer, context, items } = package;
+		Self { auth_code_host: *auth_code_host, authorizer, context, items }
 	}
 }
 
