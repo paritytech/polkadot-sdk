@@ -22,6 +22,7 @@ args = [
 [[parachains]]
 id = 1100
 chain_spec_path = "./parachain.json"
+chain_spec_command = "polkadot-parachain export-chain-spec --chain {% raw %}{{chainName}}{% endraw %}"
 
 [parachains.collator]
 command = "polkadot-parachain"
