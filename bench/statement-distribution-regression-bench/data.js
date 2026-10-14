@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791968724704,
+  "lastUpdate": 1791972581391,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fea7d4dfaf87849580209d86fffc22cb5042eab1",
-          "message": "collator-protocol revamp: use ratio for peer eviction from DB  (#11576)\n\nThe current implementation of `prune_for_para` gives edge to new peers\nbecause it uses only the timestamp of the last bump when evicting peers\nto the DB. As a result, a high score collator which is inactive for a\nwhile can easily be evicted by new peers with minimal score.\n\nTo fix this we now calculate `score / time_since_last_bump` ratio for\neach peer and evict the one with the min value.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T10:58:20Z",
-          "tree_id": "53c0a624fcad442766bed34e7ffa6c03aaf822c4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fea7d4dfaf87849580209d86fffc22cb5042eab1"
-        },
-        "date": 1775218767230,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.08200000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038090006456,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08390025439999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038488771154,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "69a43afcb6de792708f8f73a021780f67780b981",
+          "message": "Backport version bumps and prdocs reordering from stable2609 (#13468)\n\nThis PR backports regular version bumps and prdocs reordering after\nrelease from stable branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
+          "timestamp": "2026-10-14T08:33:36Z",
+          "tree_id": "b48e2deaf72e60630f6aeca03f369e7da2c4c261",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/69a43afcb6de792708f8f73a021780f67780b981"
+        },
+        "date": 1791972549692,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.134,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038467066486000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08069830400399997,
             "unit": "seconds"
           }
         ]
