@@ -87,8 +87,8 @@ use frame_support::{
 use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{
-	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, PointsKind,
-	SessionIndex, StakerRewardCalculator,
+	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
+	StakerRewardCalculator, ValidatorServiceKind,
 };
 
 /// A handler for all era-based storage items.
@@ -101,7 +101,7 @@ use sp_staking::{
 /// [`ErasStakersOverview`]
 /// [`ErasValidatorReward`]
 /// [`ErasRewardPoints`]
-/// [`ErasRewardPointsByKind`]
+/// [`ErasRewardPointsByService`]
 /// [`ErasTotalStake`]
 pub struct Eras<T: Config>(core::marker::PhantomData<T>);
 
@@ -413,17 +413,17 @@ impl<T: Config> Eras<T> {
 		ClaimedRewards::<T>::get(era, validator).contains(&page)
 	}
 
-	/// Add reward points earned for `kind` to validators using their stash account ID.
+	/// Add reward points earned for `service` to validators using their stash account ID.
 	///
 	/// Points are added to [`ErasRewardPoints`] of the active era, and every entry recorded there
-	/// is also added to [`ErasRewardPointsByKind`] under `kind`.
+	/// is also added to [`ErasRewardPointsByService`] under `service`.
 	///
 	/// As a side effect, accumulates `weight × points` into [`ErasSumWeightedPoints`] for the
 	/// active era, where `weight` is the validator's [`ErasValidatorIncentiveWeight`]. This
 	/// keeps the denominator of the weighted-points share up to date without iterating every
 	/// validator at payout time.
 	pub(crate) fn reward_active_era(
-		kind: PointsKind,
+		service: ValidatorServiceKind,
 		validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
 	) {
 		if let Some(active_era) = ActiveEra::<T>::get() {
@@ -468,21 +468,23 @@ impl<T: Config> Eras<T> {
 				}
 			});
 			if !recorded_points.is_empty() {
-				ErasRewardPointsByKind::<T>::mutate(active_era.index, kind, |by_kind| {
+				ErasRewardPointsByService::<T>::mutate(active_era.index, service, |by_service| {
 					for (validator, points) in recorded_points {
-						let recorded = match by_kind.individual.get_mut(&validator) {
+						let recorded = match by_service.individual.get_mut(&validator) {
 							Some(individual) => {
 								individual.saturating_accrue(points);
 								true
 							},
-							// The accounts of a kind are a subset of the tally's, under the same
+							// The accounts of a service are a subset of the tally's, under the same
 							// bound.
-							None => {
-								by_kind.individual.try_insert(validator, points).defensive().is_ok()
-							},
+							None => by_service
+								.individual
+								.try_insert(validator, points)
+								.defensive()
+								.is_ok(),
 						};
 						if recorded {
-							by_kind.total.saturating_accrue(points);
+							by_service.total.saturating_accrue(points);
 						}
 					}
 				});
@@ -593,7 +595,7 @@ impl<T: Config> Eras<T> {
 		// these two are only populated conditionally, so we only check them for lack of existence
 		let e6 = ClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
 		let e7 = ErasRewardPoints::<T>::contains_key(era);
-		let e8 = ErasRewardPointsByKind::<T>::iter_prefix_values(era).count() != 0;
+		let e8 = ErasRewardPointsByService::<T>::iter_prefix_values(era).count() != 0;
 
 		// Check if era info is consistent - if not, era is in partial pruning state
 		if !vec![e0, e1, e2, e3, e4, e6, e7, e8].windows(2).all(|w| w[0] == w[1]) {
@@ -624,7 +626,7 @@ impl<T: Config> Eras<T> {
 			if Self::uses_weighted_points(e) {
 				Self::check_sum_weighted_points_consistency(e)?;
 			}
-			Self::check_reward_points_by_kind_consistency(e)?;
+			Self::check_reward_points_by_service_consistency(e)?;
 		}
 
 		// Ensure all eras older than oldest_present_era are either fully pruned or marked for
@@ -656,29 +658,29 @@ impl<T: Config> Eras<T> {
 		Ok(())
 	}
 
-	/// Verify that the points of each kind never exceed the tally in [`ErasRewardPoints`].
+	/// Verify that the points of each service never exceed the tally in [`ErasRewardPoints`].
 	///
-	/// Only bounds are checked. The tally can hold points not recorded per kind.
-	pub(crate) fn check_reward_points_by_kind_consistency(
+	/// Only bounds are checked. The tally can hold points not recorded per service.
+	pub(crate) fn check_reward_points_by_service_consistency(
 		era: EraIndex,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		let tally = ErasRewardPoints::<T>::get(era);
 		let mut sum_per_account = alloc::collections::BTreeMap::<T::AccountId, RewardPoint>::new();
 		let mut sum_of_totals: RewardPoint = 0;
-		for by_kind in ErasRewardPointsByKind::<T>::iter_prefix_values(era) {
-			let sum_of_individual = by_kind
+		for by_service in ErasRewardPointsByService::<T>::iter_prefix_values(era) {
+			let sum_of_individual = by_service
 				.individual
 				.values()
 				.fold(0 as RewardPoint, |acc, points| acc.saturating_add(*points));
 			ensure!(
-				by_kind.total == sum_of_individual,
-				"the total of a points kind is not the sum of its entries"
+				by_service.total == sum_of_individual,
+				"the total of a service is not the sum of its entries"
 			);
-			sum_of_totals.saturating_accrue(by_kind.total);
-			for (who, points) in by_kind.individual {
+			sum_of_totals.saturating_accrue(by_service.total);
+			for (who, points) in by_service.individual {
 				ensure!(
 					tally.individual.contains_key(&who),
-					"an account has points of a kind but none in the tally"
+					"an account has points of a service but none in the tally"
 				);
 				sum_per_account.entry(who).or_default().saturating_accrue(points);
 			}
@@ -687,9 +689,9 @@ impl<T: Config> Eras<T> {
 			sum_per_account
 				.iter()
 				.all(|(who, points)| tally.individual.get(who).is_some_and(|t| points <= t)),
-			"the points of an account per kind exceed its points in the tally"
+			"the points of an account per service exceed its points in the tally"
 		);
-		ensure!(sum_of_totals <= tally.total, "the points per kind exceed the tally's total");
+		ensure!(sum_of_totals <= tally.total, "the points per service exceed the tally's total");
 		Ok(())
 	}
 

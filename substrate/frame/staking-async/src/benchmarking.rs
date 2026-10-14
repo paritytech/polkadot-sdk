@@ -40,7 +40,7 @@ use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, Zero},
 	Perbill, Percent, Saturating,
 };
-use sp_staking::{currency_to_vote::CurrencyToVote, PointsKind};
+use sp_staking::{currency_to_vote::CurrencyToVote, ValidatorServiceKind};
 use testing_utils::*;
 
 const SEED: u32 = 0;
@@ -1301,12 +1301,13 @@ mod benchmarks {
 			ErasValidatorIncentiveWeight::<T>::insert(era, who, BalanceOf::<T>::from(100u64));
 		}
 		let total_before = ErasRewardPoints::<T>::get(era).total;
-		let collation_before = ErasRewardPointsByKind::<T>::get(era, PointsKind::Collation).total;
+		let collation_before =
+			ErasRewardPointsByService::<T>::get(era, ValidatorServiceKind::Collation).total;
 		let reported: RewardPoint = points.iter().map(|(_, p)| p).sum();
 
 		#[block]
 		{
-			Pallet::<T>::reward_service_points(PointsKind::Collation, points);
+			Pallet::<T>::reward_service_points(ValidatorServiceKind::Collation, points);
 		}
 
 		ensure!(
@@ -1314,9 +1315,9 @@ mod benchmarks {
 			"the points were not credited"
 		);
 		ensure!(
-			ErasRewardPointsByKind::<T>::get(era, PointsKind::Collation).total ==
+			ErasRewardPointsByService::<T>::get(era, ValidatorServiceKind::Collation).total ==
 				collation_before + reported,
-			"the points were not recorded under their kind"
+			"the points were not recorded under their service"
 		);
 		Ok(())
 	}
@@ -1397,17 +1398,19 @@ mod benchmarks {
 				individual: reward_points_individual.clone().try_into().unwrap(),
 			},
 		);
-		// The 7 points of each validator split as 4 for validation and 3 for collation. One entry
-		// per `PointsKind` variant, so the weight of `prune_era_reward_points` covers all of
-		// them. A new variant must be added here.
-		for (kind, points) in [(PointsKind::Validation, 4u32), (PointsKind::Collation, 3u32)] {
+		// The 7 points of each validator split as 4 for relay consensus and 3 for collation. One
+		// entry per `ValidatorServiceKind` variant, so the weight of `prune_era_reward_points`
+		// covers all of them. A new variant must be added here.
+		for (service, points) in
+			[(ValidatorServiceKind::RelayConsensus, 4u32), (ValidatorServiceKind::Collation, 3u32)]
+		{
 			let individual = reward_points_individual
 				.keys()
 				.map(|validator| (validator.clone(), points))
 				.collect::<BTreeMap<_, _>>();
-			ErasRewardPointsByKind::<T>::insert(
+			ErasRewardPointsByService::<T>::insert(
 				era,
-				kind,
+				service,
 				crate::EraRewardPoints::<T> {
 					total: points * validators,
 					individual: individual.try_into().unwrap(),

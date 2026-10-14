@@ -561,7 +561,7 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureReportingSibling {
 pub struct CreditBlocksLocally;
 impl pallet_validator_collators::ReportAuthoredBlocks<AccountId> for CreditBlocksLocally {
 	fn report(blocks: &[(AccountId, u32)]) -> Result<(), ()> {
-		StakingSystemChainClient::credit_authored_blocks(
+		StakingPointsConverter::credit_authored_blocks(
 			ParachainInfo::parachain_id(),
 			blocks.iter().cloned(),
 		);
@@ -572,9 +572,9 @@ impl pallet_validator_collators::ReportAuthoredBlocks<AccountId> for CreditBlock
 	fn ensure_successful_report(blocks: &[(AccountId, u32)]) {
 		// Weight this chain's blocks and expose every account in an active era, so that the
 		// credit reaches staking and accrues every entry.
-		pallet_staking_async_system_chain_client::PointsPerUnit::<Runtime>::insert(
+		pallet_staking_async_points_converter::PointsPerService::<Runtime>::insert(
 			ParachainInfo::parachain_id(),
-			sp_staking::PointsKind::Collation,
+			sp_staking::ValidatorServiceKind::Collation,
 			1,
 		);
 		let era = pallet_staking_async::ActiveEra::<Runtime>::get()

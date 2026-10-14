@@ -463,13 +463,13 @@ members = [
 	"substrate/frame/staking-async",
 	"substrate/frame/staking-async/ah-client",
 	"substrate/frame/staking-async/integration-tests",
+	"substrate/frame/staking-async/points-converter",
 	"substrate/frame/staking-async/rc-client",
 	"substrate/frame/staking-async/runtime-api",
 	"substrate/frame/staking-async/runtimes/parachain",
 	"substrate/frame/staking-async/runtimes/preset-store",
 	"substrate/frame/staking-async/runtimes/rc",
 	"substrate/frame/staking-async/runtimes/rc/constants",
-	"substrate/frame/staking-async/system-chain-client",
 	"substrate/frame/staking/reward-curve",
 	"substrate/frame/staking/reward-fn",
 	"substrate/frame/staking/runtime-api",
@@ -1089,11 +1089,11 @@ pallet-society = { path = "substrate/frame/society", default-features = false }
 pallet-staking = { path = "substrate/frame/staking", default-features = false }
 pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false }
 pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false }
+pallet-staking-async-points-converter = { path = "substrate/frame/staking-async/points-converter", default-features = false }
 pallet-staking-async-preset-store = { path = "substrate/frame/staking-async/runtimes/preset-store", default-features = false }
 pallet-staking-async-rc-client = { path = "substrate/frame/staking-async/rc-client", default-features = false }
 pallet-staking-async-rc-runtime-constants = { path = "substrate/frame/staking-async/runtimes/rc/constants", default-features = false }
 pallet-staking-async-runtime-api = { path = "substrate/frame/staking-async/runtime-api", default-features = false }
-pallet-staking-async-system-chain-client = { path = "substrate/frame/staking-async/system-chain-client", default-features = false }
 pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", default-features = false }
 pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false }
 pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false }
