@@ -19,11 +19,12 @@
 //! Peer steering for the v2 DHT gossip path.
 //!
 //! Implements [#11935](https://github.com/paritytech/polkadot-sdk/issues/11935): the module that
-//! keeps the node connected to the peers it needs to cover its subscriptions.
+//! keeps the node connected to the peers it needs, those covering its subscriptions and its
+//! routing peers.
 //!
-//! The module keeps three sets of peers: the peers with an open substream, the peers needed to
-//! cover the node's subscriptions (the desired set), and the peers it holds in the statement
-//! protocol's reserved set. Each refresh moves the reserved set toward the desired one. A desired
+//! The module keeps three sets of peers: the peers with an open substream, the peers the node
+//! needs connected (the desired set), and the peers it holds in the statement protocol's reserved
+//! set. Each refresh moves the reserved set toward the desired one. A desired
 //! peer gets reserved, which dials it and keeps its substream open. A reserved peer no longer
 //! desired is released, which drops a peer this node dialed and leaves a peer that dialed in as
 //! an ordinary inbound peer. A refresh releases at most [`MAX_DISCONNECT_PERCENT`] of
@@ -59,8 +60,7 @@ pub(crate) mod score {
 /// instead of dropping every undesired connection at once.
 const MAX_DISCONNECT_PERCENT: usize = 20;
 
-/// Keeps the statement protocol's reserved set aligned with the peers needed to cover the node's
-/// subscriptions.
+/// Keeps the statement protocol's reserved set aligned with the peers the node needs connected.
 ///
 /// The desired set comes from the orchestrator and the connected set from the statement substream
 /// events. [`Self::refresh_connections`] edits the reserved set to match the desired one.
@@ -72,7 +72,7 @@ pub(crate) struct PeerSteering {
 	connected: HashMap<PeerId, ConnectedPeer>,
 	/// Monotonic counter handing each new connection its sequence.
 	next_connection_seq: u64,
-	/// Peers needed to cover the node's subscriptions.
+	/// Peers the node needs connected.
 	desired: HashSet<PeerId>,
 	/// Peers held in the statement protocol's reserved set.
 	reserved: HashSet<PeerId>,
@@ -129,7 +129,7 @@ impl PeerSteering {
 
 	// === Coverage target ===
 
-	/// Replace the set of peers needed to cover the node's subscriptions.
+	/// Replace the set of peers the node needs connected.
 	pub(crate) fn update_peers_needing_connections(
 		&mut self,
 		peers: impl IntoIterator<Item = PeerId>,

@@ -364,18 +364,20 @@ impl V2DhtOrchestrator {
 		statements_by_peer.into_iter().collect()
 	}
 
-	/// Recompute the peers needed to cover the node's topics and hand them to peer steering.
+	/// Recompute the peers the node needs connected, those covering its topics and its routing
+	/// peers, and hand them to peer steering.
 	pub(crate) fn on_pending_affinities(&mut self) {
 		let topics = self.explicit_affinity.topics();
-		let desired = self.peers_topology.peers_for_topics(&topics);
+		let mut desired = self.peers_topology.peers_for_topics(&topics);
+		desired.extend(self.peers_topology.peers_for_routing());
 		self.peer_steering.update_peers_needing_connections(desired);
 		if let Some(metrics) = &self.metrics {
 			metrics.set_desired_unconnected_peers(self.peer_steering.peers_to_connect().len());
 		}
 	}
 
-	/// Reserve the peers needed to cover the node's subscriptions and release the rest, through
-	/// the statement protocol's reserved set on `network`.
+	/// Reserve the peers the node needs connected and release the rest, through the statement
+	/// protocol's reserved set on `network`.
 	pub(crate) fn refresh_connections<N: NetworkPeers>(&mut self, network: &N) {
 		self.peer_steering.refresh_connections(network);
 	}
@@ -842,10 +844,10 @@ mod tests {
 		let desired = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
 		assert!(!desired.is_empty());
 
-		// The coverage peers connect, then the next tick recomputes the target.
-		for peer in &desired {
-			orchestrator.on_substream_opened(*peer);
-			orchestrator.peer_steering.reserve([*peer]);
+		// The desired peers connect, then the next tick recomputes the target.
+		for peer in orchestrator.peer_steering.peers_to_reserve() {
+			orchestrator.on_substream_opened(peer);
+			orchestrator.peer_steering.reserve([peer]);
 		}
 		orchestrator.on_pending_affinities();
 
