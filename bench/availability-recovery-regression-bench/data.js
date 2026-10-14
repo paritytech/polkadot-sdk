@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791972439601,
+  "lastUpdate": 1791978773444,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "rohit.sarpotdar@parity.io",
-            "name": "Rohit Sarpotdar",
-            "username": "rosarp"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8e64bb2e4d7554a813fe5a99805c9898123c1366",
-          "message": "Fix bridges integration test failure for the Westend network (#11643)\n\n## Description\n\nFix bridges **integration test failure** for the Westend network by\nusing the slot-based collator for asset-hub-westend nodes.\n\nThe `asset-hub-westend` runtime configures `RelayParentOffset = 1` (at\n`cumulus/parachains/runtimes/assets/asset-hub-westend/src/lib.rs:138`)\nin this\n[commit](https://github.com/paritytech/polkadot-sdk/commit/8e911a6ebc6965480621db8e89b1ecb157df9eba)\n, which requires relay parent descendant headers in the parachain\ninherent data. However, the **zombienet** test was launching the\ncollators with the default look ahead authoring policy, which passes an\nempty `relay_parent_descendants` vec. This caused a runtime panic on\nevery block build attempt:\n\n```\n  Unable to verify provided relay parent descendants.\n  expected_rp_descendants_num: 1\n  error: InvalidNumberOfDescendants { expected: 2, received: 0 }\n```\n\n  The parachain remained stuck at block #0, failing the test assertion:\nasset-hub-westend-collator1: reports block height is at least 10 within\n180 seconds\n\nOnly the slot-based collator\n(`collators/slot_based/block_builder_task.rs`) calls\n`create_inherent_data_with_rp_offset()` with the required descendant\ndata. The look ahead and basic collators call `create_inherent_data()`\nwhich passes `None`.\n\n## Integration\n\nThis change only affects a zombienet test TOML configuration file. No\ncrate changes.\n\n## Review Notes\n\nThe fix adds \"--authoring\", \"slot-based\" to both\nasset-hub-westend-collator1 and asset-hub-westend-collator2 in\n\nbridges/testing/environments/rococo-westend/bridge_hub_westend_local_network.toml.\n\n  This is only needed for the Westend side because:\n- asset-hub-westend has RelayParentOffset = ConstU32<1> — requires\ndescendant headers\n- asset-hub-rococo has RelayParentOffset = ConstU32<0> — no descendant\nverification, works with any collator\n\nThe Rococo TOML (bridge_hub_rococo_local_network.toml) is unchanged\nsince its asset-hub runtime doesn't require relay parent descendants.",
-          "timestamp": "2026-04-06T15:48:46Z",
-          "tree_id": "b7667e3cec15f4d82df4349b96eb57ddb06a7a41",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8e64bb2e4d7554a813fe5a99805c9898123c1366"
-        },
-        "date": 1775495251211,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12871409363333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.030822714800003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.955109681133333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0c6a0edc17553c5ec227dd9d669c814947c2bebf",
+          "message": "papi-tests: convert chain specs with export-chain-spec (#13479)\n\nzombienet converts plain chain specs to raw with the node's `build-spec`\nsubcommand unless `chain_spec_command` is set. #12586 removed\n`build-spec`, which broke `just setup` / `just run` in papi-tests.\n\nThis sets `chain_spec_command` to `export-chain-spec` for the relay\n(`polkadot`) and the parachain (`polkadot-parachain`). zombienet still\ncustomizes both plain specs before converting them, as before.\n\nNote: `{{chainName}}` is wrapped in `{% raw %}` because zombienet\nrenders the TOML with nunjucks (using env vars) before parsing it.\nUnescaped, it renders to an empty string and `--chain` gets no value.\n\nThis fixes also miner nightly test which relies on papi-test setup (see\nhttps://github.com/paritytech/polkadot-staking-miner/issues/1344)\n\nTested locally:\n```\n# just run fake-dev (zombienet v1.3.140)\n🚧 Chain Spec for paraId 1100 was set to a file in raw format, can't customize. 🚧\nCommand : bash -c polkadot export-chain-spec --chain /tmp/zombie-.../rococo-local-plain.json  --raw > /tmp/zombie-.../rococo-local-raw.json\n[Parachain] 💤 Idle (0 peers), best: #3 (0x464e…b28f), finalized #0 (0x64c0…0313)\n\n# polkadot-staking-miner: cargo test --release --features integration-tests submit_works\nINFO monitor: Charlie score registered (malicious)\nINFO monitor: Alice score registered\nINFO monitor: Bob score registered\nINFO monitor: Charlie slashed for incomplete/invalid submission!\nINFO monitor: Alice rewarded!\nINFO monitor: Bob solution discarded!\nINFO monitor: 🤑 Successfully completed three-miner test: Alice and Bob submitted solutions (one rewarded, one discarded), Charlie slashed for malicious behavior!\ntest submit_works ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 526.32s\n```",
+          "timestamp": "2026-10-14T10:16:54Z",
+          "tree_id": "586e0e251e749fa3ebcbbf61e2e44f3b3d183f46",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0c6a0edc17553c5ec227dd9d669c814947c2bebf"
+        },
+        "date": 1791978740244,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.11919884626666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.057245434033334,
             "unit": "seconds"
           }
         ]
