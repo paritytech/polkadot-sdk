@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791971684215,
+  "lastUpdate": 1791977843480,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -134135,6 +134135,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2565126297,
             "range": "± 13495776",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0c6a0edc17553c5ec227dd9d669c814947c2bebf",
+          "message": "papi-tests: convert chain specs with export-chain-spec (#13479)\n\nzombienet converts plain chain specs to raw with the node's `build-spec`\nsubcommand unless `chain_spec_command` is set. #12586 removed\n`build-spec`, which broke `just setup` / `just run` in papi-tests.\n\nThis sets `chain_spec_command` to `export-chain-spec` for the relay\n(`polkadot`) and the parachain (`polkadot-parachain`). zombienet still\ncustomizes both plain specs before converting them, as before.\n\nNote: `{{chainName}}` is wrapped in `{% raw %}` because zombienet\nrenders the TOML with nunjucks (using env vars) before parsing it.\nUnescaped, it renders to an empty string and `--chain` gets no value.\n\nThis fixes also miner nightly test which relies on papi-test setup (see\nhttps://github.com/paritytech/polkadot-staking-miner/issues/1344)\n\nTested locally:\n```\n# just run fake-dev (zombienet v1.3.140)\n🚧 Chain Spec for paraId 1100 was set to a file in raw format, can't customize. 🚧\nCommand : bash -c polkadot export-chain-spec --chain /tmp/zombie-.../rococo-local-plain.json  --raw > /tmp/zombie-.../rococo-local-raw.json\n[Parachain] 💤 Idle (0 peers), best: #3 (0x464e…b28f), finalized #0 (0x64c0…0313)\n\n# polkadot-staking-miner: cargo test --release --features integration-tests submit_works\nINFO monitor: Charlie score registered (malicious)\nINFO monitor: Alice score registered\nINFO monitor: Bob score registered\nINFO monitor: Charlie slashed for incomplete/invalid submission!\nINFO monitor: Alice rewarded!\nINFO monitor: Bob solution discarded!\nINFO monitor: 🤑 Successfully completed three-miner test: Alice and Bob submitted solutions (one rewarded, one discarded), Charlie slashed for malicious behavior!\ntest submit_works ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 526.32s\n```",
+          "timestamp": "2026-10-14T10:16:54Z",
+          "tree_id": "586e0e251e749fa3ebcbbf61e2e44f3b3d183f46",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0c6a0edc17553c5ec227dd9d669c814947c2bebf"
+        },
+        "date": 1791977812879,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19765416,
+            "range": "± 174038",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20022581,
+            "range": "± 136495",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21327205,
+            "range": "± 147476",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26229093,
+            "range": "± 188711",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59068553,
+            "range": "± 459844",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 346937807,
+            "range": "± 3536323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2657266091,
+            "range": "± 75387676",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16508277,
+            "range": "± 216846",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16508019,
+            "range": "± 89947",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17270546,
+            "range": "± 112686",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21941397,
+            "range": "± 199929",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61890549,
+            "range": "± 1069419",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 347450574,
+            "range": "± 5014440",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2626733213,
+            "range": "± 51354777",
             "unit": "ns/iter"
           }
         ]
