@@ -935,8 +935,10 @@ pub mod pallet {
 
 	/// The points of [`ErasRewardPoints`] split by the service that earned them.
 	///
-	/// Written with [`ErasRewardPoints`] and pruned with it. An entry never holds more than the
-	/// tally does for the same account.
+	/// Values are era points as credited, in the same unit as [`ErasRewardPoints`]. A service
+	/// measured in other units, such as blocks authored, is converted to points before it is
+	/// credited. Written with [`ErasRewardPoints`] and pruned with it. An entry never holds more
+	/// than the tally does for the same account.
 	#[pallet::storage]
 	pub type ErasRewardPointsByService<T: Config> = StorageDoubleMap<
 		_,
