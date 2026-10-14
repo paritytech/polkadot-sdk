@@ -97,3 +97,10 @@ impl PropagationOutboxes {
 		}
 	}
 }
+
+impl Drop for PropagationOutboxes {
+	fn drop(&mut self) {
+		let queued: Vec<_> = self.outboxes.drain().flat_map(|(_, outbox)| outbox).collect();
+		self.release(&queued);
+	}
+}

@@ -2586,6 +2586,7 @@ impl Store {
 			)
 		};
 		let accounts_count = self.known_accounts_count.load(AtomicOrdering::Relaxed);
+		let held_count = self.query_index.read().hold_counts.len();
 
 		if deleted_count > 0 {
 			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
@@ -2596,6 +2597,7 @@ impl Store {
 			metrics.bytes_total.set(total_size as u64);
 			metrics.accounts_total.set(accounts_count as u64);
 			metrics.expired_total.set(expired_count as u64);
+			metrics.held_statements.set(held_count as u64);
 			metrics.capacity_statements.set(capacity_statements as u64);
 			metrics.capacity_bytes.set(capacity_bytes as u64);
 		});

@@ -7,7 +7,8 @@ doc:
     every propagation outbox it was queued in has fetched it, instead of being swept as soon as the
     propagation pass takes it. `StatementStore` gains `hold_statements` and `release_statements`,
     both no-ops by default, and every statement `take_recent_statements` returns comes with one
-    hold that the caller releases. Nodes without the v2 DHT path enabled are unaffected.
+    hold that the caller releases. The new `substrate_sub_statement_store_held_statements` gauge
+    reports how many statements are held. Nodes without the v2 DHT path enabled are unaffected.
 
 crates:
 - name: sp-statement-store
