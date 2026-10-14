@@ -704,7 +704,9 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let to_sender = peer_arg(SENDER, SENDER_COLLATOR, SENDER_P2P_PORT)?;
 	let collator_args = |peer: &str| -> Vec<zombienet_sdk::Arg> {
 		vec![
-			("-lparachain=debug,spec-msg=debug,xcm=info,runtime::spec-messaging=debug").into(),
+			("-lparachain=debug,spec-msg=debug,xcm=info,cumulus-collator=debug,\
+			  runtime::spec-msg=debug,runtime::parachain-system=debug")
+				.into(),
 			("--force-authoring").into(),
 			("--enable-spec-msg").into(),
 			("--spec-msg-peer", peer).into(),
@@ -722,7 +724,10 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(vec![
+					("-lparachain=debug,runtime::inclusion=debug,runtime::inclusion-inherent=debug")
+						.into(),
+				])
 				.with_validator(|node| node.with_name("alice"))
 				.with_validator(|node| node.with_name("bob"))
 		})
