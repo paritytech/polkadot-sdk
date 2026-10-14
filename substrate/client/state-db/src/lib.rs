@@ -806,7 +806,7 @@ mod tests {
 	}
 
 	#[test]
-	fn is_empty_until_the_first_block() {
+	fn is_empty_until_the_first_block_except_in_archive_all() {
 		let mut db = make_db(&[]);
 		let (state_db_init, state_db) = StateDb::open(
 			db.clone(),
@@ -842,10 +842,7 @@ mod tests {
 
 		db.commit(&state_db.canonicalize_block(&H256::from_low_u64_be(1)).unwrap());
 		assert!(!state_db.is_empty(), "a canonical block counts");
-	}
 
-	#[test]
-	fn archive_all_is_never_empty() {
 		let mut db = make_db(&[]);
 		let (state_db_init, state_db) = StateDb::<H256, H256, TestDb>::open(
 			db.clone(),
@@ -855,7 +852,7 @@ mod tests {
 		)
 		.unwrap();
 		db.commit(&state_db_init);
-		assert!(!state_db.is_empty());
+		assert!(!state_db.is_empty(), "archive-all never is");
 	}
 
 	#[test]

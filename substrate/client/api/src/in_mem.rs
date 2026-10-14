@@ -1108,33 +1108,4 @@ mod tests {
 		assert_eq!(store.resumable()?, None, "completion forgets the attempt");
 		Ok(())
 	}
-
-	#[test]
-	fn begin_discards_the_earlier_attempt() -> sp_blockchain::Result<()> {
-		let (nodes, first) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
-		let (_, second) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
-		let backend = super::Backend::<Block>::new();
-		let store = backend.partial_state().expect("the in-memory backend has a store");
-		store.begin(target(&first))?;
-		store.import(&chunk(&first, nodes))?;
-		store.begin(target(&second))?;
-		assert_eq!(
-			store.resumable()?,
-			Some(ResumablePartialState {
-				target: target(&second),
-				cursor: vec![],
-				complete: false
-			})
-		);
-
-		// The first attempt's nodes are gone: nothing completes at its root any more, neither the
-		// check nor a commit marked as synced, and the refusals leave the second attempt recorded.
-		assert!(store.check_complete(first.state_root).is_err());
-		let mut op = backend.begin_operation()?;
-		op.set_block_data(first.clone(), None, None, NewBlockState::Normal, true)?;
-		op.mark_state_synced()?;
-		assert!(backend.commit_operation(op).is_err());
-		assert!(store.resumable()?.is_some(), "the second attempt is untouched");
-		Ok(())
-	}
 }

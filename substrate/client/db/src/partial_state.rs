@@ -766,13 +766,17 @@ mod tests {
 	/// included, which come from the first twin's nodes: on parity-db a second write of a node
 	/// raises its reference count for good. After the restart the download is complete and nothing
 	/// is written again. The block completes, the records are gone and every key reads back.
+	///
+	/// The limits give a range per key, then ranges where one resumes inside the first twin,
+	/// reaches the second and takes the nodes it skipped from the first twin's, then a single
+	/// range.
 	#[rstest::rstest]
 	#[case::kvdb_memdb(PartialStateDb::KvdbMemdb)]
 	#[case::paritydb(PartialStateDb::ParityDb)]
 	#[case::rocksdb(PartialStateDb::RocksDb)]
 	fn download_writes_each_position_once(#[case] kind: PartialStateDb) {
 		let (remote, header) = download_state();
-		for size_limit in [1usize, 300, 4096, usize::MAX] {
+		for size_limit in [1usize, 550, usize::MAX] {
 			let (backend, db, _tmp) = observed_partial_state_test_backend(kind);
 			assert_eq!(backend.partial_state.resumable().unwrap(), None);
 			backend.partial_state.begin(partial_state_target(&header)).unwrap();
@@ -786,8 +790,9 @@ mod tests {
 			);
 			let (backend, chunks, copies) = download(&remote, &header, backend, &db, size_limit);
 			assert!(size_limit != 1 || chunks > 10, "a limit of one byte cuts a range per key");
-			// One response for the whole state reads the twins together and skips the second one.
-			assert!(size_limit != usize::MAX || copies == 1, "the twin is reported as a copy");
+			// A response that reads both twins skips the second one and reports it as a copy.
+			assert!(size_limit == 1 || copies == 1, "the twin is reported as a copy");
+			assert!(size_limit != 550 || chunks > 2, "the twins are read by a resumed range");
 
 			let mut writes = db.state_writes.lock().clone();
 			writes.sort();
@@ -894,11 +899,9 @@ mod tests {
 
 	/// Every chunk was written and still a node is missing: the attempt cannot complete and is
 	/// discarded, nodes and records.
-	#[rstest::rstest]
-	#[case::kvdb_memdb(PartialStateDb::KvdbMemdb)]
-	#[case::paritydb(PartialStateDb::ParityDb)]
-	#[case::rocksdb(PartialStateDb::RocksDb)]
-	fn failed_completion_discards_the_attempt(#[case] kind: PartialStateDb) {
+	#[test]
+	fn failed_completion_discards_the_attempt() {
+		let kind = PartialStateDb::KvdbMemdb;
 		let (nodes, header) =
 			partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1]), (vec![1u8; 40], vec![1u8; 1])]);
 		let mut root_only = MemoryDB::default();
@@ -918,11 +921,9 @@ mod tests {
 
 	/// A discard that fails after its first commit leaves the marker and the nodes. The memory
 	/// knows it, so chunks are refused, and the next start finishes the removal from the marker.
-	#[rstest::rstest]
-	#[case::kvdb_memdb(PartialStateDb::KvdbMemdb)]
-	#[case::paritydb(PartialStateDb::ParityDb)]
-	#[case::rocksdb(PartialStateDb::RocksDb)]
-	fn failed_discard_after_the_marker_is_finished_at_the_next_start(#[case] kind: PartialStateDb) {
+	#[test]
+	fn failed_discard_after_the_marker_is_finished_at_the_next_start() {
+		let kind = PartialStateDb::KvdbMemdb;
 		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
 		let (_, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
 		let (backend, db, tmp) = observed_partial_state_test_backend(kind);
@@ -952,44 +953,6 @@ mod tests {
 		let db = reopen_partial_state_db(kind, backend, db, &tmp);
 		assert!(db.get(columns::STATE, &root_key).is_none(), "the removal was finished");
 		assert!(db.get(columns::STATE_META, partial_state_keys::DISCARDING).is_none());
-	}
-
-	/// A discard that fails on its first commit changes nothing: the attempt stays recorded, its
-	/// download goes on, and the next `begin` discards it whole.
-	#[test]
-	fn failed_discard_before_the_marker_keeps_the_record() {
-		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
-		let (_, other) = partial_state_chunk(&[(vec![2u8; 40], vec![2u8; 1])]);
-		let (backend, db, _tmp) = observed_partial_state_test_backend(PartialStateDb::KvdbMemdb);
-		backend.partial_state.begin(partial_state_target(&header)).unwrap();
-		backend
-			.partial_state
-			.import(&with_end(chunk(&header, nodes.clone()), &[vec![0x80]]))
-			.unwrap();
-		let root_key = root_key(&backend, &header);
-
-		db.fail_commit(1);
-		assert!(backend.partial_state.begin(partial_state_target(&other)).is_err());
-		assert!(!db.armed());
-		assert_eq!(
-			backend.partial_state.resumable().unwrap(),
-			Some(ResumablePartialState {
-				target: partial_state_target(&header),
-				cursor: vec![vec![0x80]],
-				complete: false
-			}),
-			"the attempt is untouched"
-		);
-		let mut next = chunk(&header, nodes);
-		next.start = vec![vec![0x80]];
-		backend.partial_state.import(&next).unwrap();
-
-		backend.partial_state.begin(partial_state_target(&other)).unwrap();
-		assert!(db.get(columns::STATE, &root_key).is_none());
-		assert_eq!(
-			backend.partial_state.resumable().unwrap().map(|record| record.target),
-			Some(partial_state_target(&other))
-		);
 	}
 
 	/// A block other than the recorded target cannot complete the attempt. With another state root

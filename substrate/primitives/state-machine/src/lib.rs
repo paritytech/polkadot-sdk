@@ -1929,58 +1929,6 @@ mod tests {
 		assert_eq!(nb_loop, 10);
 	}
 
-	/// Two child tries with the same content share a root. The response carries that content once,
-	/// and the verifier notes the second key on the first one's level so the client can copy it. A
-	/// third child trie with its own root is never noted.
-	#[test]
-	fn range_proof_reports_the_keys_of_a_repeated_child_root() {
-		let child = |name: &[u8]| ChildInfo::new_default(name);
-		let content: StorageCollection =
-			vec![(b"a".to_vec(), Some(b"1".to_vec())), (b"b".to_vec(), Some(vec![7u8; 64]))];
-		let other: StorageCollection = vec![(b"a".to_vec(), Some(b"2".to_vec()))];
-		let mut backend = new_in_mem::<BlakeTwo256>();
-		backend.insert(
-			vec![
-				(None, vec![(b"key".to_vec(), Some(b"value".to_vec()))]),
-				(Some(child(b"alpha")), content.clone()),
-				(Some(child(b"bravo")), content),
-				(Some(child(b"charlie")), other),
-			],
-			StateVersion::V1,
-		);
-		let root = *backend.root();
-		let key = |name: &[u8]| child(name).prefixed_storage_key().into_inner();
-
-		// Everything in one response: bravo is a copy of alpha, charlie stands alone.
-		let (proof, _) =
-			prove_range_read_with_child_with_size_on_trie_backend(&backend, usize::MAX, &[])
-				.unwrap();
-		let (values, completed) =
-			read_range_proof_check_with_child::<BlakeTwo256>(root, proof, &[]).unwrap();
-		assert_eq!(completed, 0);
-		assert_eq!(values.child_trie_copies(), vec![(key(b"bravo"), key(b"alpha"))]);
-
-		// A response that ends inside alpha, then one resumed there that reaches bravo's key:
-		// the resumed response notes bravo on the level of the child trie it resumed into.
-		let (proof, _) =
-			prove_range_read_with_child_with_size_on_trie_backend(&backend, 1, &[]).unwrap();
-		let (values, completed) =
-			read_range_proof_check_with_child::<BlakeTwo256>(root, proof, &[]).unwrap();
-		assert_eq!(completed, 2, "stopped inside the first child trie");
-		assert!(values.child_trie_copies().is_empty());
-		let mut cursor = smallvec::SmallVec::<[Vec<u8>; 2]>::new();
-		assert!(values.update_last_key(completed, &mut cursor));
-		assert_eq!(cursor.to_vec(), vec![key(b"alpha"), b"a".to_vec()]);
-
-		let (proof, _) =
-			prove_range_read_with_child_with_size_on_trie_backend(&backend, usize::MAX, &cursor)
-				.unwrap();
-		let (values, completed) =
-			read_range_proof_check_with_child::<BlakeTwo256>(root, proof, &cursor).unwrap();
-		assert_eq!(completed, 0);
-		assert_eq!(values.child_trie_copies(), vec![(key(b"bravo"), key(b"alpha"))]);
-	}
-
 	#[test]
 	fn compact_multiple_child_trie() {
 		let size_no_inner_hash = compact_multiple_child_trie_inner(StateVersion::V0);

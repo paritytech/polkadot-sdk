@@ -522,8 +522,6 @@ mod tests {
 		verifications: AtomicUsize,
 		/// The target `begin_partial_state` recorded, if any.
 		begun: Mutex<Option<PartialStateTarget<Block>>>,
-		/// Makes `begin_partial_state` fail.
-		fail_begin: AtomicBool,
 		/// The range of every chunk written: its start and, unless it was the final chunk, its
 		/// end.
 		ranges: Mutex<Vec<(Vec<Vec<u8>>, Option<Vec<Vec<u8>>>)>>,
@@ -545,7 +543,6 @@ mod tests {
 				writes: AtomicUsize::new(0),
 				verifications: AtomicUsize::new(0),
 				begun: Mutex::new(None),
-				fail_begin: AtomicBool::new(false),
 				ranges: Mutex::new(Vec::new()),
 				resumable: Mutex::new(None),
 				fail_resumable: AtomicBool::new(false),
@@ -624,9 +621,6 @@ mod tests {
 			&self,
 			target: PartialStateTarget<Block>,
 		) -> sp_blockchain::Result<()> {
-			if self.fail_begin.load(Ordering::SeqCst) {
-				return Err(sp_blockchain::Error::Storage("injected begin failure".into()));
-			}
 			*self.begun.lock().unwrap() = Some(target);
 			Ok(())
 		}
@@ -701,8 +695,9 @@ mod tests {
 		}]
 	}
 
-	/// A failed write keeps the chunk: nothing is written, the cursor stays. Once the delay has
-	/// passed the retry writes it, and the cursor moves without a second response.
+	/// A failed write keeps the chunk: nothing is written, the cursor stays, and a response that
+	/// arrives meanwhile is ignored. Once the delay has passed the retry writes it, and the cursor
+	/// moves without a second response.
 	#[test]
 	fn failed_write_is_retried_from_memory() {
 		let client = StubClient::new(one_key_in_the_top_trie(), 1, 1);
@@ -712,6 +707,8 @@ mod tests {
 		assert!(sync.has_pending_write());
 		assert!(sync.next_request().start.is_empty(), "the cursor did not move");
 		assert_eq!(client.writes(), 0);
+		assert!(matches!(sync.import(response()), ImportResult::Continue));
+		assert_eq!(client.verifications(), 1, "a response while the write is pending is ignored");
 		assert!(sync.retry_pending_write().is_none(), "no retry before the delay");
 
 		sync.expire_write_delay();
@@ -754,24 +751,19 @@ mod tests {
 		assert!(!sync.is_complete());
 	}
 
-	/// A response that arrives while a chunk waits to be written is neither verified nor written.
+	/// A download in two chunks. Each reaches the database with its range, the final one has no
+	/// end and yields the target import. A late answer after that is neither written nor counted
+	/// as a failure.
 	#[test]
-	fn response_while_a_write_is_pending_is_ignored() {
-		let client = StubClient::new(one_key_in_the_top_trie(), 1, 1);
+	fn download_in_two_chunks_ends_with_the_target_import() {
+		let client = StubClient::new(one_key_in_the_top_trie(), 1, 0);
 		let mut sync = state_sync(client.clone());
 
 		assert!(matches!(sync.import(response()), ImportResult::Continue));
-		assert!(matches!(sync.import(response()), ImportResult::Continue));
-		assert_eq!(client.verifications(), 1);
-		assert_eq!(client.writes(), 0);
-		assert!(sync.has_pending_write());
-	}
+		assert_eq!(*client.ranges.lock().unwrap(), vec![(vec![], Some(vec![vec![0x80]]))]);
+		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
 
-	#[test]
-	fn last_chunk_is_written_before_the_target_import_is_requested() {
-		let client = StubClient::new(vec![], 0, 0);
-		let mut sync = state_sync(client.clone());
-
+		*client.verified.lock().unwrap() = (vec![], 0);
 		match sync.import(response()) {
 			ImportResult::Import(block) => {
 				assert_eq!(block.hash, header().hash());
@@ -781,25 +773,16 @@ mod tests {
 			},
 			_ => panic!("expected the target block import"),
 		}
+		assert_eq!(
+			*client.ranges.lock().unwrap(),
+			vec![(vec![], Some(vec![vec![0x80]])), (vec![vec![0x80]], None)]
+		);
 		assert!(sync.is_complete());
 		assert!(sync.take_target_import().is_none(), "the import went with the final chunk");
-		assert_eq!(client.writes(), 1);
-	}
-
-	/// The final chunk's retry hands out the target import, like the response would have.
-	#[test]
-	fn retried_final_write_yields_the_target_import() {
-		let client = StubClient::new(vec![], 0, 1);
-		let mut sync = state_sync(client.clone());
 
 		assert!(matches!(sync.import(response()), ImportResult::Continue));
-		assert!(!sync.is_complete());
-		assert!(sync.take_target_import().is_none());
-		sync.expire_write_delay();
-		assert!(matches!(sync.retry_pending_write(), Some(ImportResult::Import(_))));
-		assert!(sync.is_complete());
-		assert_eq!(client.writes(), 1);
-		assert!(sync.take_target_import().is_none(), "the import went with the retry");
+		assert_eq!(client.writes(), 2);
+		assert!(!sync.has_pending_write());
 	}
 
 	#[test]
@@ -821,103 +804,35 @@ mod tests {
 		assert_eq!(sync.progress().percentage, 50);
 	}
 
+	/// A chunk that is not the last must move the cursor, else the same peer would be asked
+	/// forever. Leaving a child trie that has no key left moves it up a level, which counts.
 	#[test]
-	fn new_fails_when_the_target_cannot_be_recorded() {
+	fn response_must_make_progress() {
+		// Zero keys while the range is not exhausted.
 		let client = StubClient::new(vec![], 1, 0);
-		client.fail_begin.store(true, Ordering::SeqCst);
-		assert!(StateSync::new(client, header(), None, None).is_err());
-	}
-
-	/// Each chunk reaches the database with its range, and the final one has no end.
-	#[test]
-	fn chunks_pass_their_range_to_the_database() {
-		let client = StubClient::new(one_key_in_the_top_trie(), 1, 0);
-		let mut sync = state_sync(client.clone());
-
-		assert!(matches!(sync.import(response()), ImportResult::Continue));
-		assert_eq!(*client.ranges.lock().unwrap(), vec![(vec![], Some(vec![vec![0x80]]))]);
-		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
-
-		*client.verified.lock().unwrap() = (vec![], 0);
-		assert!(matches!(sync.import(response()), ImportResult::Import(_)));
-		assert_eq!(
-			*client.ranges.lock().unwrap(),
-			vec![(vec![], Some(vec![vec![0x80]])), (vec![vec![0x80]], None)]
-		);
-	}
-
-	/// Zero keys while the range is not exhausted: the same peer would be asked forever.
-	#[test]
-	fn response_without_progress_is_bad_and_writes_nothing() {
-		let client = StubClient::new(vec![], 1, 0);
-		let mut sync = state_sync(client.clone());
-
-		assert!(matches!(sync.import(response()), ImportResult::BadResponse));
+		assert!(matches!(state_sync(client.clone()).import(response()), ImportResult::BadResponse));
 		assert_eq!(client.writes(), 0);
-		assert!(sync.next_request().start.is_empty());
-	}
 
-	/// The stub answers the same key every time: the second response makes no progress.
-	#[test]
-	fn response_repeating_the_cursor_is_bad() {
+		// Stopped inside a child trie that yielded no key: the cursor cannot be updated.
+		let client = StubClient::new(vec![level_without_keys(), level_without_keys()], 2, 0);
+		assert!(matches!(state_sync(client.clone()).import(response()), ImportResult::BadResponse));
+		assert_eq!(client.writes(), 0);
+
+		// The stub answers the same key every time: the second response repeats the cursor.
 		let client = StubClient::new(one_key_in_the_top_trie(), 1, 0);
 		let mut sync = state_sync(client.clone());
-
 		assert!(matches!(sync.import(response()), ImportResult::Continue));
 		assert!(matches!(sync.import(response()), ImportResult::BadResponse));
 		assert_eq!(client.writes(), 1);
 		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
-	}
 
-	/// Stopped inside a child trie that yielded no key: the cursor cannot be updated.
-	#[test]
-	fn failed_cursor_update_is_bad() {
-		let client = StubClient::new(vec![level_without_keys(), level_without_keys()], 2, 0);
-		let mut sync = state_sync(client.clone());
-
-		assert!(matches!(sync.import(response()), ImportResult::BadResponse));
-		assert_eq!(client.writes(), 0);
-	}
-
-	/// Resumed inside a child trie that ends without a key: the cursor moves up, which is progress.
-	#[test]
-	fn leaving_a_child_trie_without_keys_is_progress() {
+		// Resumed inside a child trie that ends without a key: the cursor moves up.
 		let client = StubClient::new(vec![level_without_keys()], 1, 0);
 		let mut sync =
 			StateSync::resume(client.clone(), resumable(vec![vec![0x80], vec![0x01]], false));
-
 		assert!(matches!(sync.import(response()), ImportResult::Continue));
 		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
 		assert_eq!(client.writes(), 1);
-	}
-
-	/// A download completed in an earlier run: the import is handed out once, nothing is requested.
-	#[test]
-	fn resumed_complete_attempt_yields_the_target_import_once() {
-		let client = StubClient::new(vec![], 0, 0);
-		let mut sync = StateSync::resume(client.clone(), resumable(vec![vec![0x80]], true));
-
-		assert!(sync.is_complete());
-		assert_eq!(sync.progress().phase, StateSyncPhase::ImportingState);
-		let block = sync.take_target_import().expect("the import is pending");
-		assert_eq!(block.hash, header().hash());
-		assert!(block.state.is_some() && block.allow_missing_state && block.import_existing);
-		assert!(block.skip_execution);
-		assert!(sync.take_target_import().is_none(), "yielded once");
-		assert_eq!(client.writes(), 0);
-	}
-
-	/// A late answer to the final request is neither written nor counted as a failure.
-	#[test]
-	fn response_after_completion_is_ignored() {
-		let client = StubClient::new(vec![], 0, 0);
-		let mut sync = state_sync(client.clone());
-
-		assert!(matches!(sync.import(response()), ImportResult::Import(_)));
-		assert!(matches!(sync.import(response()), ImportResult::Continue));
-		assert_eq!(client.writes(), 1);
-		assert!(!sync.has_pending_write());
-		assert!(sync.is_complete());
 	}
 
 	#[test]

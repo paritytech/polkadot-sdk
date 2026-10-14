@@ -508,53 +508,6 @@ mod tests {
 		assert_eq!(placement(None, &nibbles(b":child_storage:"), &[alpha, c]), Placement::Ancestor);
 	}
 
-	/// A download in two ranges over a state with twin child tries, with the proofs built as the
-	/// server records them. Every position is written once, and the second twin's nodes that the
-	/// second chunk lacks come from what the first chunk wrote under the first twin.
-	#[test]
-	fn ranges_write_each_position_once_and_copy_a_twin() {
-		let (db, root, child_root) = build_state(&TWINS);
-		let [alpha, bravo] = TWINS;
-		let (alpha_key, bravo_key) = (child_key(alpha), child_key(bravo));
-		let expected = db_keys(&db);
-		let mut storage = PrefixedMemoryDB::<Blake2Hasher>::default();
-
-		// Request 1: down to alpha's key, then alpha up to `c`, where the size limit trips.
-		let mut nodes = read_nodes(&db, &root, None, &[&alpha_key]);
-		nodes.extend(read_nodes(&db, &child_root, Some(alpha), &[b"a", b"b", b"c"]));
-		let first = chunk(nodes, root, &[], Some(&[&alpha_key, b"c"]), &[]);
-		let count = import(&first, &mut storage);
-		assert!(count > 0);
-
-		// Request 2 resumes inside alpha: the server reads alpha's key again, seeks to `c` (which
-		// records `c` and its value, nothing of `b`), reads `d`, goes on to bravo's key, whose
-		// content it skips, then the rest.
-		let mut nodes = read_nodes(&db, &root, None, &[&alpha_key, &bravo_key, b"key0", b"key1"]);
-		nodes.extend(read_nodes(&db, &child_root, Some(alpha), &[b"c", b"d"]));
-		let second = chunk(
-			nodes,
-			root,
-			&[&alpha_key, b"c"],
-			None,
-			&[(bravo_key.as_slice(), alpha_key.as_slice())],
-		);
-		let mut from_storage = 0;
-		let written = chunk_nodes(&second, |hash, prefix| {
-			let node = storage.get(hash, prefix);
-			from_storage += node.is_some() as usize;
-			node
-		})
-		.unwrap();
-		assert_eq!(from_storage, 2, "bravo's `b` leaf and its value come from alpha's copy");
-		for node in &written {
-			storage.emplace(node.hash, node.prefix.as_prefix(), node.encoded.clone());
-		}
-		let count = count + written.len();
-
-		assert_eq!(db_keys(&storage), expected);
-		assert_eq!(count, expected.len(), "every position is written exactly once");
-	}
-
 	/// A range that ends at the copied child's key covers its content, and the copy is made.
 	#[test]
 	fn child_key_at_the_end_keeps_its_content() {

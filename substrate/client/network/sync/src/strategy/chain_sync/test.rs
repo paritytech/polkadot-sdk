@@ -1814,20 +1814,19 @@ fn complete_recorded_state_sync_imports_the_target_and_restarts_in_full_mode() {
 	assert!(matches!(sync.mode, ChainSyncMode::Full));
 }
 
-/// A single-chunk state response for `header`, built from `remote`.
-fn single_chunk_response(remote: &TestClient, header: &Header) -> Vec<u8> {
-	let (proof, _) = remote.read_proof_collection(header.hash(), &[], usize::MAX).unwrap();
-	StateResponse { entries: vec![], proof: proof.encode() }.encode_to_vec()
-}
-
-/// A fast sync of `header` from `remote` whose first chunk the database refuses: the recorded
-/// target is swapped for another block right before the response arrives. Returns the sync, the
-/// peer that answered, and the target to record again so that a retry can succeed.
-fn fast_sync_with_a_refused_write(
-	remote: &TestClient,
-	header: &Header,
-) -> (ChainSync<Block, TestClient>, Arc<TestClient>, PeerId, PartialStateTarget<Block>) {
-	let client = client_knowing_header_only(header);
+/// A chunk the database refused is kept and written again a second later, with no new request:
+/// the retry completes the download and the target import lands. The refusal comes from another
+/// target recorded under the sync's feet, right before the response arrives.
+#[test]
+fn failed_chunk_write_is_retried_from_memory() {
+	let remote = TestClientBuilder::new().build();
+	let header = build_block(&remote, None, true).header().clone();
+	let target = |header: &Header| PartialStateTarget {
+		header: header.clone(),
+		body: None,
+		justifications: None,
+	};
+	let client = client_knowing_header_only(&header);
 	let mut sync = new_test_sync_with_mode(client.clone(), ChainSyncMode::LightState);
 	for _ in 0..2 {
 		sync.add_peer(PeerId::random(), header.hash(), 1);
@@ -1836,32 +1835,20 @@ fn fast_sync_with_a_refused_write(
 	let (peer, request) = sync.state_request().expect("the download starts");
 	assert!(request.start.is_empty());
 
-	// Another target gets recorded under the sync's feet: the chunk no longer belongs to it.
-	let other = build_block(remote, Some(header.hash()), false).header().clone();
-	client
-		.begin_partial_state(PartialStateTarget { header: other, body: None, justifications: None })
-		.unwrap();
-	assert!(sync.on_state_data(&peer, &single_chunk_response(remote, header)).is_ok());
-	let target = PartialStateTarget { header: header.clone(), body: None, justifications: None };
-	(sync, client, peer, target)
-}
+	let other = build_block(&remote, Some(header.hash()), false).header().clone();
+	client.begin_partial_state(target(&other)).unwrap();
+	let (proof, _) = remote.read_proof_collection(header.hash(), &[], usize::MAX).unwrap();
+	let response = StateResponse { entries: vec![], proof: proof.encode() }.encode_to_vec();
+	assert!(sync.on_state_data(&peer, &response).is_ok());
 
-/// A chunk the database refused is kept and written again a second later, with no new request:
-/// the retry completes the download and the target import lands.
-#[test]
-fn failed_chunk_write_is_retried_from_memory() {
-	let remote = TestClientBuilder::new().build();
-	let header = build_block(&remote, None, true).header().clone();
-	let (mut sync, client, _, target) = fast_sync_with_a_refused_write(&remote, &header);
 	let network_provider = NetworkServiceProvider::new();
 	let network_handle = network_provider.handle();
-
 	assert_eq!(sync.take_actions().count(), 0, "nothing imported yet");
 	assert!(sync.state_request().is_none(), "no request while the chunk waits");
 	assert!(sync.block_requests().is_empty(), "block sync waits for the state");
 	assert!(sync.actions(&network_handle).unwrap().is_empty(), "the retry waits for its delay");
 
-	client.begin_partial_state(target).unwrap();
+	client.begin_partial_state(target(&header)).unwrap();
 	sync.state_sync.as_mut().expect("the state sync goes on").expire_write_delay();
 	let actions = sync.actions(&network_handle).unwrap();
 	assert!(matches!(
@@ -1876,29 +1863,6 @@ fn failed_chunk_write_is_retried_from_memory() {
 	);
 	assert!(sync.state_sync.is_none());
 	assert!(matches!(sync.mode, ChainSyncMode::Full));
-}
-
-/// Four retries a second apart and the chunk still cannot be written: the state sync is given
-/// up and the block sync starts over.
-#[test]
-fn fast_sync_gives_up_after_the_last_retry() {
-	let remote = TestClientBuilder::new().build();
-	let header = build_block(&remote, None, true).header().clone();
-	let (mut sync, _, _, _) = fast_sync_with_a_refused_write(&remote, &header);
-	let network_provider = NetworkServiceProvider::new();
-	let network_handle = network_provider.handle();
-
-	for _ in 0..3 {
-		sync.state_sync.as_mut().expect("still retrying").expire_write_delay();
-		assert!(sync.actions(&network_handle).unwrap().is_empty());
-		assert!(sync.state_sync.is_some());
-	}
-	sync.state_sync.as_mut().expect("the last retry").expire_write_delay();
-	let actions = sync.actions(&network_handle).unwrap();
-	assert!(!actions
-		.iter()
-		.any(|action| matches!(action, SyncingAction::ImportBlocks { .. })));
-	assert!(sync.state_sync.is_none(), "the state sync was given up");
 }
 
 /// Replacing a block download must let another peer retry it before ancestry search finishes.

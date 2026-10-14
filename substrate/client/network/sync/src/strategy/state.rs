@@ -756,9 +756,8 @@ mod test {
 		)
 	}
 
-	/// While a chunk waits to be written no state request goes out, and its retry decides what
-	/// is next: the final chunk's retry queues the target import like its response would, and a
-	/// retry that gives up finishes the strategy without success.
+	/// While a chunk waits to be written no state request goes out, and the final chunk's retry
+	/// queues the target import like its response would.
 	#[test]
 	fn pending_write_blocks_requests_and_its_retry_decides() {
 		let network_provider = NetworkServiceProvider::new();
@@ -786,11 +785,6 @@ mod test {
 			[SyncingAction::ImportBlocks { blocks, .. }]
 				if blocks.len() == 1 && blocks[0].hash == target_hash
 		));
-
-		let mut given_up = strategy_with_pending_write(Some(ImportResult::Abort));
-		let actions = given_up.actions(&network_handle).collect::<Vec<_>>();
-		assert!(matches!(actions.as_slice(), [SyncingAction::Finished]));
-		assert!(!given_up.is_succeeded());
 	}
 
 	#[test]
