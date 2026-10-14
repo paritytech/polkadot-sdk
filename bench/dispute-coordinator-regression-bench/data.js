@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791963574912,
+  "lastUpdate": 1791968783985,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b77d5ecf3b6e2fe7106b7561ca70c11d3494307a",
-          "message": "collator-proto/metrics: Fix blindspot in collation fetch latency metrics (#11600)\n\nThe current implementation of the `collation_fetch_latency` metric\ncontains a critical observability blindspot due to insufficient\nhistogram bucket resolution.\n\n\nCurrently, the the collation fetching is capped at an upper bound of 5\nseconds. This effectively creates a black box for investigating latency\nevents. Any fetch operation exceeding the 5s threshold is aggregated\ninto the final bucket, regardless if the fetching took 30s or 1h. This\nobscures the true distribution of network delays and prevents accurate\nperformance profiling for high-latency scenarios.\n\nThe discrepancy was identified with\nhttps://github.com/lexnv/block-confidence-monitor and confirmed via\nmanual analysis of the logs. Without granular visibility into these\noutliers, we cannot effectively measure the success of our block\nconfidence / debug bottlenecks in validator-side protocols.\n\nWhile at it, have increased the granularity of other buckets which might\nbe relevant.\n\nPart of the block confidence work:\n- https://github.com/paritytech/polkadot-sdk/issues/11377\n\n\ncc @sandreim @skunert\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T09:32:32Z",
-          "tree_id": "f0ce1970ea9844bb168a17fa08a7dc0be79691b3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b77d5ecf3b6e2fe7106b7561ca70c11d3494307a"
-        },
-        "date": 1775214140693,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026379307399999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009170030749999971,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00907721798,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009254825809999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6634ddb4dbf31ed8b9d192000b9bfc93dc0e4593",
+          "message": "Add interruptible executor & limit light client request processing time (#12725)\n\nAdd executor that aborts execution when timeout elapses, based on\nWasmTime epoch interruptions. A separate executor for time-bound\nrequests is needed, because epoch interruption compiles into the WASM\nblob and slows execution down by 10%.\n\nLimit light client execution proof requests by 3-second timeout by\ndefaul. The timeout is deliberately chosen high before we obtain\nreal-world execution time data for legitimate requests. The default\ntimeout can be overridden with `--light-request-execution-timeout-ms`.\n\n### Review Notes\n\nIt is recommended to review the PR as a series of individual commits.\nThey build on each other bottom-up.\n\nSee https://github.com/paritytech/polkadot-sdk/pull/12500 for original\nwork and discussion.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-10-14T07:20:02Z",
+          "tree_id": "63da01fa485ef8ded1664730d2330edda7a083d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6634ddb4dbf31ed8b9d192000b9bfc93dc0e4593"
+        },
+        "date": 1791968749936,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025773886600000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009403355859999978,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010623115849999993,
             "unit": "seconds"
           }
         ]
