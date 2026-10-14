@@ -41,8 +41,9 @@ use sc_client_api::{
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
 	CallExecutor, DecodedCompactProof, ExecutorProvider, KeysIter, OnFinalityAction,
-	OnImportAction, PairsIter, PartialStateImport, PrefetchedIndexedTransactions, ProofProvider,
-	StaleBlock, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
+	OnImportAction, PairsIter, PartialStateImport, PartialStateStore,
+	PrefetchedIndexedTransactions, ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage,
+	UsageProvider,
 };
 use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, ImportedState,
@@ -626,8 +627,8 @@ where
 			},
 			Some(sc_consensus::StorageChanges::Import(ImportedState)) => {
 				let state_root = *import_headers.post().state_root();
-				self.backend.check_state_complete(state_root)?;
-				self.backend.mark_state_complete(&mut operation.op, state_root)?;
+				partial_state_store(&*self.backend)?.check_complete(state_root)?;
+				operation.op.mark_state_synced()?;
 				None
 			},
 			None => None,
@@ -1358,6 +1359,20 @@ where
 	}
 }
 
+/// The backend's partial-state store, or the error every state sync operation fails with on a
+/// backend that has none.
+fn partial_state_store<B, Block>(
+	backend: &B,
+) -> sp_blockchain::Result<&dyn PartialStateStore<Block>>
+where
+	B: backend::Backend<Block>,
+	Block: BlockT,
+{
+	backend.partial_state().ok_or_else(|| {
+		sp_blockchain::Error::Backend("state sync is not supported by this backend".into())
+	})
+}
+
 impl<B, E, Block, RA> PartialStateImport<Block> for Client<B, E, Block, RA>
 where
 	B: backend::Backend<Block>,
@@ -1368,25 +1383,27 @@ where
 		&self,
 		target: sc_client_api::partial_state::PartialStateTarget<Block>,
 	) -> sp_blockchain::Result<()> {
+		let store = partial_state_store(&*self.backend)?;
 		// Beginning over an earlier sync empties the state column, so no block import may run
 		// meanwhile.
 		let _import_lock = self.backend.get_import_lock().write();
-		self.backend.begin_partial_state(target)
+		store.begin(target)
 	}
 
 	fn import_partial_state(
 		&self,
 		partial_state: &PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()> {
+		let store = partial_state_store(&*self.backend)?;
 		let _import_lock = self.backend.get_import_lock().write();
-		self.backend.import_partial_state(partial_state)
+		store.import(partial_state)
 	}
 
 	fn resumable_partial_state(
 		&self,
 	) -> sp_blockchain::Result<Option<sc_client_api::partial_state::ResumablePartialState<Block>>>
 	{
-		self.backend.resumable_partial_state()
+		partial_state_store(&*self.backend)?.resumable()
 	}
 }
 

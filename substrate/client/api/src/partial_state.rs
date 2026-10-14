@@ -54,12 +54,15 @@ pub struct ResumablePartialState<Block: BlockT> {
 /// Writes the verified state of a block that is being state-synced, one chunk at a time.
 ///
 /// `begin_partial_state` records the target, `import_partial_state` writes one chunk per state
-/// response, and importing the target block with `ImportedState` ends the sync: the backend
-/// checks that the state is complete
-/// ([`Backend::check_state_complete`](crate::Backend::check_state_complete)) and marks it present
-/// ([`Backend::mark_state_complete`](crate::Backend::mark_state_complete)). Until then `state_at`
-/// cannot see the nodes. A chunk is the nodes of one verified range proof plus the range it covers,
-/// see `sp_trie::partial_state`.
+/// response, and importing the target block with `ImportedState` ends the sync: the client checks
+/// that the state is complete ([`PartialStateStore::check_complete`]) and marks the block's
+/// import operation as carrying it
+/// ([`BlockImportOperation::mark_state_synced`](crate::backend::BlockImportOperation::mark_state_synced)).
+/// Until then `state_at` cannot see the nodes. A chunk is the nodes of one verified range proof
+/// plus the range it covers, see `sp_trie::partial_state`.
+///
+/// The client implements this on top of the [`PartialStateStore`] its backend hands out, adding
+/// the import lock. A backend without a store cannot state-sync, and every method fails.
 ///
 /// The database records the target and the cursor every chunk leaves, so after a restart
 /// `resumable_partial_state` says where to continue.
@@ -90,6 +93,38 @@ pub trait PartialStateImport<Block: BlockT> {
 	fn resumable_partial_state(
 		&self,
 	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>>;
+}
+
+/// The backend side of a state sync: where the chunks go and what the database remembers of
+/// them. Taken from [`Backend::partial_state`](crate::Backend::partial_state). The store shares
+/// the backend's database and locks: its nodes land in the state column the backend reads, and
+/// the commit of the target block, marked with
+/// [`BlockImportOperation::mark_state_synced`](crate::backend::BlockImportOperation::mark_state_synced),
+/// completes what the store began.
+pub trait PartialStateStore<Block: BlockT>: Send + Sync {
+	/// Record the target of a new state sync. An earlier sync that never completed is discarded
+	/// first, nodes and records, and a discard left unfinished is finished. Fails, and records
+	/// nothing, if the database holds block state.
+	fn begin(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()>;
+
+	/// Write one chunk: the nodes its range covers, plus the range end as the cursor the download
+	/// continues from, in one transaction. A chunk for another block or state root, one not
+	/// starting at the cursor, or one after the final chunk is refused with nothing written. Each
+	/// node must be written once per position, or reference counting breaks, and a range written
+	/// over a hole would never complete. The cursor is kept in the database alone, so a restart
+	/// continues from it.
+	fn import(&self, chunk: &PartialStateFor<Block>) -> sp_blockchain::Result<()>;
+
+	/// The recorded state sync that was not completed. `None` if nothing is recorded, or while an
+	/// earlier sync is still being discarded.
+	fn resumable(&self) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>>;
+
+	/// Check that every node of the state trie at `state_root` is in the database, child tries
+	/// included. `state_root` must be the recorded target's, else fails and leaves everything as
+	/// it was. If a node is missing, fails and discards the sync: a state still incomplete after
+	/// the last chunk will never complete. Marking the target's import operation presumes this
+	/// passed; the mark itself walks nothing.
+	fn check_complete(&self, state_root: Block::Hash) -> sp_blockchain::Result<()>;
 }
 
 /// Walks the whole state trie at `state`, child tries included. Errors on the first missing node.

@@ -26,7 +26,7 @@ use sp_api::CallContext;
 use sp_consensus::BlockOrigin;
 use sp_core::{offchain::OffchainStorage, H256};
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, NumberFor, PartialStateFor},
+	traits::{Block as BlockT, HashingFor, NumberFor},
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
@@ -37,9 +37,7 @@ use sp_storage::{ChildInfo, StorageData, StorageKey};
 pub use sp_trie::MerkleValue;
 
 use crate::{
-	blockchain::Backend as BlockchainBackend,
-	partial_state::{PartialStateTarget, ResumablePartialState},
-	UsageInfo,
+	blockchain::Backend as BlockchainBackend, partial_state::PartialStateStore, UsageInfo,
 };
 
 pub use sp_state_machine::{Backend as StateBackend, BackendTransaction, KeyValueStates};
@@ -273,6 +271,15 @@ pub trait BlockImportOperation<Block: BlockT> {
 
 	/// Configure whether to create a block gap if newly imported block is missing parent
 	fn set_create_gap(&mut self, create_gap: bool);
+
+	/// Mark that the pending block's state was written by a state sync, chunk by chunk through
+	/// the backend's [`PartialStateStore`], and checked complete. The import executes nothing and
+	/// writes no storage changes; the commit records the block as having state and forgets the
+	/// sync. The commit fails if the block is not the recorded target. A backend without a store
+	/// refuses the mark.
+	fn mark_state_synced(&mut self) -> sp_blockchain::Result<()> {
+		Err(sp_blockchain::Error::Backend("state sync is not supported by this backend".into()))
+	}
 }
 
 /// Interface for performing operations on the backend.
@@ -706,46 +713,13 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// Tells whether the backend requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
 
-	/// Record the target of a new state sync. An earlier sync that never completed is discarded
-	/// first, nodes and records, and a discard left unfinished is finished. Fails, and records
-	/// nothing, if the database holds block state. See
-	/// [`PartialStateImport::begin_partial_state`](crate::PartialStateImport::begin_partial_state).
-	fn begin_partial_state(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()>;
-
-	/// Write one chunk of a state sync: the nodes its range covers, plus the range end as the
-	/// cursor the download continues from. A chunk for another block or state root, one not
-	/// starting at the cursor, or one after the final chunk is refused with nothing written. Each
-	/// node must be written once per position, or reference counting breaks, and a range written
-	/// over a hole would never complete. Nothing is kept in memory beyond the record, so a restart
-	/// continues from the recorded cursor. See
-	/// [`PartialStateImport::import_partial_state`](crate::PartialStateImport::import_partial_state).
-	fn import_partial_state(
-		&self,
-		partial_state: &PartialStateFor<Block>,
-	) -> sp_blockchain::Result<()>;
-
-	/// The recorded state sync that was not completed. `None` if nothing is recorded, or while an
-	/// earlier sync is still being discarded. See
-	/// [`PartialStateImport::resumable_partial_state`](crate::PartialStateImport::resumable_partial_state).
-	fn resumable_partial_state(
-		&self,
-	) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>>;
-
-	/// Check that every node of the state trie at `state_root` is in the database, child tries
-	/// included. `state_root` must be the recorded target's, else fails and leaves everything as
-	/// it was. If a node is missing, fails and discards the sync: a state still incomplete after
-	/// the last chunk will never complete.
-	fn check_state_complete(&self, state_root: Block::Hash) -> sp_blockchain::Result<()>;
-
-	/// Mark on `operation` that the block whose state root is `state_root` already has its state,
-	/// so the import executes nothing and writes no storage changes, and the commit records the
-	/// block as having state and forgets the sync. `state_root` must be the recorded target's.
-	/// Presumes [`Self::check_state_complete`] passed; it walks nothing itself.
-	fn mark_state_complete(
-		&self,
-		operation: &mut Self::BlockImportOperation,
-		state_root: Block::Hash,
-	) -> sp_blockchain::Result<()>;
+	/// The store a state sync writes into, if this backend has one. `None` means the backend
+	/// cannot state-sync, and the client refuses every state sync operation. The store shares the
+	/// backend's database and locks; the commit of the target block, marked with
+	/// [`BlockImportOperation::mark_state_synced`], completes what the store began.
+	fn partial_state(&self) -> Option<&dyn PartialStateStore<Block>> {
+		None
+	}
 }
 
 /// Mark for all Backend implementations, that are making use of state data, stored locally.
