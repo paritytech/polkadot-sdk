@@ -45,6 +45,7 @@ impl Config for Test {
 	type PointsOrigin = EnsureRoot<u64>;
 	type RewardPoints = MockRewardPoints;
 	type MaxPointsPerService = ConstU32<10>;
+	type MaxBlocksPerEntry = ConstU32<100>;
 	type WeightInfo = ();
 }
 

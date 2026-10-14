@@ -1225,6 +1225,13 @@ impl pallet_validator_set_announcer::Config for Runtime {
 	type WeightInfo = weights::pallet_validator_set_announcer::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	/// Twice the blocks a system chain can author in an expected era duration.
+	pub const MaxBlocksPerEntry: u32 = (2 *
+		testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS /
+		(RELAY_CHAIN_SLOT_DURATION_MILLIS / BLOCK_PROCESSING_VELOCITY) as u64) as u32;
+}
+
 impl pallet_staking_async_points_converter::Config for Runtime {
 	type Source = ParaId;
 	type ReportOrigin = staking::EnsureReportingSibling;
@@ -1233,6 +1240,7 @@ impl pallet_staking_async_points_converter::Config for Runtime {
 	// A relay chain block earns a fixed number of points. The cap leaves governance room above the
 	// per-unit value that matches it, while an era's total stays far from saturating.
 	type MaxPointsPerService = ConstU32<1_000>;
+	type MaxBlocksPerEntry = MaxBlocksPerEntry;
 	type WeightInfo = weights::pallet_staking_async_points_converter::WeightInfo<Runtime>;
 }
 

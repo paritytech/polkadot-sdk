@@ -24,11 +24,11 @@
 //! reports the counts of the validators. Other chains call [`Pallet::report_authored_blocks`]
 //! from [`Config::ReportOrigin`], which names the reporting chain as a [`Config::Source`]. The
 //! chain that runs this pallet credits its own counts through [`Pallet::credit_authored_blocks`].
-//! A count becomes `count × PointsPerService[(source, Collation)]` era points, handed to
-//! [`Config::RewardPoints`] as [`sp_staking::ValidatorServiceKind::Collation`] points. A source
-//! without an entry for [`sp_staking::ValidatorServiceKind::Collation`] in [`PointsPerService`]
-//! earns nothing. Governance sets the entries through [`Config::PointsOrigin`]. Relay chain
-//! consensus points are not converted here.
+//! A count becomes `min(count, MaxBlocksPerEntry) × PointsPerService[(source, Collation)]` era
+//! points, handed to [`Config::RewardPoints`] as [`sp_staking::ValidatorServiceKind::Collation`]
+//! points. A source without an entry for [`sp_staking::ValidatorServiceKind::Collation`] in
+//! [`PointsPerService`] earns nothing. Governance sets the entries through
+//! [`Config::PointsOrigin`]. Relay chain consensus points are not converted here.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -80,6 +80,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxPointsPerService: Get<u32>;
 
+		/// Largest count of blocks credited for one entry of a report. A larger count is credited
+		/// as this many blocks.
+		#[pallet::constant]
+		type MaxBlocksPerEntry: Get<u32>;
+
 		/// Weight information for this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -88,7 +93,7 @@ pub mod pallet {
 	/// [`Config::MaxPointsPerService`] when crediting. Absent means zero.
 	///
 	/// A unit is specific to the service. For [`ValidatorServiceKind::Collation`] it is one block
-	/// authored.
+	/// authored. The result is credited to staking as era points.
 	#[pallet::storage]
 	pub type PointsPerService<T: Config> = StorageDoubleMap<
 		_,
@@ -192,8 +197,9 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Credit `blocks` authored on `source` as era points, with the points per service of
-		/// `source` for [`ValidatorServiceKind::Collation`]. Nothing is credited when `blocks` is
-		/// empty or `source` earns no points, and an empty `blocks` deposits no event.
+		/// `source` for [`ValidatorServiceKind::Collation`]. Each count is credited up to
+		/// [`Config::MaxBlocksPerEntry`]. Nothing is credited when `blocks` is empty or `source`
+		/// earns no points, and an empty `blocks` deposits no event.
 		///
 		/// Returns the number of entries handed to [`Config::RewardPoints`].
 		pub fn credit_authored_blocks(
@@ -214,8 +220,11 @@ pub mod pallet {
 				});
 				return 0;
 			}
+			let max_blocks = T::MaxBlocksPerEntry::get();
 			let points: Vec<_> = blocks
-				.map(|(who, blocks)| (who, blocks.saturating_mul(points_per_service)))
+				.map(|(who, blocks)| {
+					(who, blocks.min(max_blocks).saturating_mul(points_per_service))
+				})
 				.collect();
 			let entries = points.len() as u32;
 			T::RewardPoints::reward(ValidatorServiceKind::Collation, points);
