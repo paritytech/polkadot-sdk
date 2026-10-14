@@ -10,7 +10,10 @@ use zombienet_orchestrator::network::node::LogLineCountOptions;
 use {
 	crate::utils::initialize_network,
 	anyhow::anyhow,
-	cumulus_zombienet_sdk_helpers::{assert_para_is_registered, assert_para_throughput},
+	// The `network::` variant takes the node name and asserts the para-side block floor; the
+	// top-level one takes a relay client and counts `CandidateBacked` events. This test drives a
+	// network, so it needs the former — which is also the only one the JAM build has.
+	cumulus_zombienet_sdk_helpers::{assert_para_is_registered, network::assert_para_throughput},
 	serde_json::json,
 	zombienet_configuration::types::Arg,
 	zombienet_sdk::{
@@ -85,7 +88,7 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	}
 
 	log::info!("Ensuring parachain making progress");
-	assert_para_throughput(network, "bob", 20, [(ParaId::from(PARA_ID), 2..20)], []).await?;
+	assert_para_throughput(&network, "bob", 20, [(ParaId::from(PARA_ID), 2..20)], []).await?;
 
 	for (name, timeout_secs) in [("bob", 600u64)] {
 		log::info!("Checking block production for {name} within {timeout_secs}s");

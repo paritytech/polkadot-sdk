@@ -36,6 +36,7 @@
 extern crate alloc;
 
 pub mod jam;
+pub mod upward;
 
 /// A 31-octet JAM state key. A `[u8; 31]` newtype-free alias, identical to
 /// `parachain_service_core::StateKey` (which is gated off the wasm family, where this crate is
@@ -60,3 +61,4 @@ pub use jam::{jam_state, JamStateReader, JAM_PROOF_KEY};
 pub use jam_proof::JamProofReader;
 #[cfg(feature = "std")]
 pub use jam_proof_finalizer::JamProofFinalizer;
+pub use upward::jam_upward;

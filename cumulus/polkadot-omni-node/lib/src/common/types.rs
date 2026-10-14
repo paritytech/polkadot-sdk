@@ -33,12 +33,14 @@ pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
 	cumulus_jam_state_reader::jam_state::HostFunctions,
+	cumulus_jam_state_reader::jam_upward::HostFunctions,
 );
 #[cfg(feature = "runtime-benchmarks")]
 pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
 	cumulus_jam_state_reader::jam_state::HostFunctions,
+	cumulus_jam_state_reader::jam_upward::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 

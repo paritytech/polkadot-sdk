@@ -128,12 +128,6 @@ const MONITOR_BUDGET: Duration = Duration::from_secs(2);
 /// normal inclusion trail (about two slots) plus the collation task's resend window and the
 /// authoring hold it can impose, so it only ever fires on a package that is genuinely lost.
 const STALL_REROOT_SLOTS: u64 = 8;
-/// Sanity bound on the number of in-flight blocks.
-///
-/// The runtime's consensus hook owns capacity for real (`can_build_upon`); this only stops a
-/// runaway should that ever answer wrongly, and tripping it is a bug worth a loud log. A turn
-/// adds at most one block per core — two on the JAM tiny preset — so this stays well clear.
-const MAX_UNINCLUDED: usize = 8;
 /// Soft bound on the state proof the node returns. One key's proof is bounded by the trie depth,
 /// so this only has to be comfortably large.
 const PROOF_SIZE_LIMIT: u32 = 64 * 1024;
@@ -165,8 +159,8 @@ enum HeadMove {
 	Unchanged,
 	/// The head moved to a block this collator authored.
 	Ours,
-	/// The head moved to a block this collator did not author: another collator's — the common
-	/// case under slot rotation — or one of ours from further back than [`MAX_UNINCLUDED`].
+	/// The head moved to a block this collator did not author: another collator's, the common
+	/// case under slot rotation.
 	Foreign,
 }
 
@@ -202,8 +196,9 @@ struct Descendant<Header> {
 /// announced and this node imported. Sibling forks are kept — several collators may have
 /// authored children of the same block, and choosing between them is [`select_parent`]'s job.
 ///
-/// The cap is [`MAX_UNINCLUDED`] generations: a deeper block could never be built on anyway, and
-/// the walk must stay bounded when a fork storm widens the tree.
+/// The walk ends where the tree does. It needs no cap of its own: the runtime refuses to execute a
+/// block that does not fit its unincluded segment, at authoring and at import alike, so no branch
+/// below the accumulated head is deeper than the runtime's capacity.
 fn local_descendants<Block: NodeBlock>(
 	backend: &ParachainBackend<Block>,
 	included: Block::Hash,
@@ -211,7 +206,7 @@ fn local_descendants<Block: NodeBlock>(
 	let blockchain = backend.blockchain();
 	let mut frontier = vec![included];
 	let mut descendants = Vec::new();
-	for depth in 1..=MAX_UNINCLUDED {
+	for depth in 1.. {
 		let mut next = Vec::new();
 		for hash in frontier {
 			let children = match blockchain.children(hash) {
@@ -503,10 +498,10 @@ struct BuilderState<Header: HeaderT> {
 	last_claimed_slot: Option<Slot>,
 	/// The hash of the para head JAM has accumulated, as of the last tick that managed to read it.
 	included: Option<Header::Hash>,
-	/// The blocks this collator authored most recently, oldest first, capped at
-	/// [`MAX_UNINCLUDED`]. Its only job is to let [`select_parent`] prefer our own block over a
-	/// peer's at the same depth, so it needs no pruning beyond that cap: a block below the
-	/// accumulated head never turns up among its descendants again.
+	/// The blocks this collator authored that are still below the accumulated head, oldest first.
+	/// Its only job is to let [`select_parent`] prefer our own block over a peer's at the same
+	/// depth, so [`Self::forget_unreachable`] drops every block that is no longer among the
+	/// accumulated head's descendants: it can never be a parent again.
 	own_recent: VecDeque<Header::Hash>,
 	/// The para slot the accumulated head last moved in, which is what the stall clock counts
 	/// from. `None` only before the first tick.
@@ -531,9 +526,12 @@ struct Reroot<Hash> {
 impl<Header: HeaderT> BuilderState<Header> {
 	fn remember_authored(&mut self, block_hash: Header::Hash) {
 		self.own_recent.push_back(block_hash);
-		while self.own_recent.len() > MAX_UNINCLUDED {
-			self.own_recent.pop_front();
-		}
+	}
+
+	/// Forget the authored blocks that are no longer below the accumulated head.
+	fn forget_unreachable(&mut self, descendants: &[Descendant<Header>]) {
+		self.own_recent
+			.retain(|hash| descendants.iter().any(|descendant| descendant.header.hash() == *hash));
 	}
 
 	/// Fold this tick's reading of the accumulated head into the stall clock, and say how many
@@ -689,11 +687,20 @@ fn para_head_state_key(service_id: ServiceId, para_id: u32) -> StateKey {
 	service_value_state_key(service_id, &para_info_key(para_id.into()))
 }
 
-/// Fetch a proof of the para's head at `anchor` and check it against that anchor's state root.
+/// Fetch a proof of the para's head **and its `parachain_log`** at `anchor`, checked against that
+/// anchor's state root.
 ///
-/// Returns the proof to carry in the block together with the value it proves; `None` means the
+/// Returns the proof to carry in the block together with the head it proves; `None` means the
 /// proof shows the para has no head yet, which is how a first block is recognised. Verifying
 /// with the very code the service runs means a proof refine would reject never leaves the node.
+///
+/// Both keys are proven in one proof. The runtime reads its own `parachain_log` during block
+/// execution — that is how the Coretime chain sees the service's `CoreNotAssignable` feedback —
+/// and `JamProofReader::read` panics by design when a requested key is not authenticated. A
+/// proof covering only the head key would therefore make every block that reads the log an
+/// invalid candidate, so the collator has to carry the log's nodes from the start. The two
+/// proofs are merged by node set: the nodes of a trie proof are content-addressed, so a union is
+/// a superset that verifies both keys, and `StateProof` documents extra nodes as harmless.
 async fn fetch_anchor_state_proof<Jam: JamStateSource + ?Sized>(
 	jam: &Jam,
 	anchor: HeaderHash,
@@ -702,20 +709,59 @@ async fn fetch_anchor_state_proof<Jam: JamStateSource + ?Sized>(
 	para_id: u32,
 ) -> Result<(StateProof, Option<Vec<u8>>), String> {
 	let key = para_head_state_key(service_id, para_id);
+	let log_key =
+		service_value_state_key(service_id, &parachain_service_core::para_log_key(para_id.into()));
+
+	let mut proof = fetch_proof_for(jam, anchor, key).await?;
+	if log_key != key {
+		let log_proof = fetch_proof_for(jam, anchor, log_key).await?;
+		merge_proof(&mut proof, log_proof);
+	}
+
+	let proved = verify_state_proof(&proof, state_root, &key)
+		.map_err(|error| format!("the node's own state proof does not verify: {error:?}"))?;
+	// The log's nodes are carried for the runtime's own read; proving it here means a proof that
+	// cannot serve that read fails on the node instead of inside a candidate.
+	verify_state_proof(&proof, state_root, &log_key).map_err(|error| {
+		format!("the node's own state proof does not cover the para's log: {error:?}")
+	})?;
+
+	Ok((proof, proved))
+}
+
+/// The state proof of one key at `anchor`, converted to the form that travels in the PoV.
+async fn fetch_proof_for<Jam: JamStateSource + ?Sized>(
+	jam: &Jam,
+	anchor: HeaderHash,
+	key: StateKey,
+) -> Result<StateProof, String> {
 	let range_proof = jam
 		.state_proof(anchor, StorageKey(key), StorageKey(key), PROOF_SIZE_LIMIT)
 		.await
 		.map_err(|error| format!("state proof: {error}"))?;
 	// polkajam's `RangeProof` is a host-side JSON type with no SCALE codec at all, so the form
 	// that travels in the PoV is `jam-state-helpers`' own; converting is the host's job.
-	let proof = StateProof {
+	Ok(StateProof {
 		nodes: range_proof.nodes.iter().map(|node| **node).collect(),
 		values: range_proof.values.iter().map(|(key, value)| (**key, value.to_vec())).collect(),
-	};
-	let proved = verify_state_proof(&proof, state_root, &key)
-		.map_err(|error| format!("the node's own state proof does not verify: {error:?}"))?;
+	})
+}
 
-	Ok((proof, proved))
+/// Fold `extra`'s nodes and value preimages into `proof`.
+///
+/// Nodes are content-addressed, so duplicates are dropped by hash and the union verifies every
+/// key either proof covered. Value preimages are keyed by their state key for the same reason.
+fn merge_proof(proof: &mut StateProof, extra: StateProof) {
+	for node in extra.nodes {
+		if !proof.nodes.iter().any(|existing| existing == &node) {
+			proof.nodes.push(node);
+		}
+	}
+	for (key, value) in extra.values {
+		if !proof.values.iter().any(|(existing, _)| existing == &key) {
+			proof.values.push((key, value));
+		}
+	}
 }
 
 /// Register the JAM state reader and the additional-data finalizer over a verified anchor proof.
@@ -1107,6 +1153,7 @@ where
 	let included_hash = included_header.hash();
 
 	let descendants = local_descendants::<Block>(para_backend, included_hash);
+	state.forget_unreachable(&descendants);
 	// The branch a previous tick re-rooted onto, if its tip is still a block we hold.
 	let committed = state.rerooted.and_then(|reroot| {
 		let header = para_client.header(reroot.tip).ok().flatten()?;
@@ -1301,18 +1348,6 @@ where
 			tip.header_hash,
 		)
 		.await;
-		if depth >= MAX_UNINCLUDED {
-			tracing::error!(
-				target: LOG_TARGET,
-				depth,
-				max_unincluded = MAX_UNINCLUDED,
-				parent = ?parent_hash,
-				"The chain of unaccumulated blocks hit the local sanity bound; the runtime's \
-				 capacity gate should have stopped us long before. Skipping the rest of this \
-				 tick.",
-			);
-			break;
-		}
 		let started = Instant::now();
 		let can_build = can_build_upon::<Block, RuntimeApi, AuraId>(
 			para_client,
@@ -2101,20 +2136,20 @@ mod tests {
 		assert_eq!(head_move::<H256>(None, None, &VecDeque::new()), HeadMove::Unchanged);
 	}
 
-	/// The remembered blocks are a tie-breaker, not a ledger, so the list stays bounded — and the
-	/// bound is the same depth the walk and the sanity tripwire use.
+	/// The remembered blocks are a tie-breaker, not a ledger: once the accumulated head moves past
+	/// a block, that block can never be a parent again and is forgotten.
 	#[test]
-	fn the_remembered_blocks_stay_bounded() {
-		let chain = chain(MAX_UNINCLUDED as u32 + 2);
+	fn blocks_below_the_accumulated_head_are_forgotten() {
+		let chain = chain(4);
 		let mut state = builder_state();
-
 		for header in &chain {
 			state.remember_authored(header.hash());
 		}
 
-		assert_eq!(state.own_recent.len(), MAX_UNINCLUDED);
-		assert!(!state.own_recent.contains(&chain[0].hash()), "the oldest is forgotten first");
-		assert!(state.own_recent.contains(&chain[chain.len() - 1].hash()));
+		// The head moved to `chain[1]`: only `chain[2]` and `chain[3]` are still below it.
+		state.forget_unreachable(&descendants(&[(&chain[2], 1), (&chain[3], 2)]));
+
+		assert_eq!(state.own_recent, ours(&[&chain[2], &chain[3]]));
 	}
 
 	/// The turn claims a para slot once and may author several packages under that claim, so the

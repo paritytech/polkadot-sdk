@@ -36,8 +36,8 @@ use codec::Encode;
 use jam_interface::{ServiceId, Slot as JamSlot};
 use jam_types::{Authorization, CodeHash, WorkPackage};
 use parachain_authorizer::aura::{
-	build_collator_tree, expected_collator_index, signable_work_package_hash, AuthConfig,
-	AuthToken, CollatorKey, CollatorSignature,
+	build_collator_proofs, signable_work_package_hash, AuthConfig, AuthToken, CollatorKey,
+	CollatorSignature,
 };
 use parachain_service_core::authorizer::{
 	authorizer_hash, AuthConfigBlob, Authorizer, AuthorizerHash,
@@ -105,7 +105,8 @@ impl AuraAuthorizer {
 			            to authorize against"
 				.into());
 		}
-		let (collator_set_root, proofs) = build_collator_tree(&collators);
+		let (collator_set_root, proofs) = build_collator_proofs(&collators)
+			.map_err(|error| format!("cannot build the collator-set tree: {error:?}"))?;
 		let config = AuthConfig {
 			para_ids: vec![para_id.into()],
 			parachain_service,
@@ -178,7 +179,9 @@ impl AuraAuthorizer {
 	/// The collator the round-robin names for `slot` — what the guest computes from the package's
 	/// *lookup* anchor slot, and therefore what the lookup-anchor policy has to satisfy.
 	pub(crate) fn collator_for(&self, slot: JamSlot) -> u32 {
-		expected_collator_index(slot, &self.config)
+		self.config
+			.expected_collator_index(slot)
+			.expect("`new` rejects a zero slot duration and an empty collator set; qed")
 	}
 
 	/// Whether `slot` names this collator.
@@ -554,7 +557,7 @@ pub(crate) mod tests {
 
 		let token = GuestToken::decode_all(&mut &package.authorization[..])
 			.expect("the guest decodes the token this node encoded");
-		let index = expected_collator_index(package.context.lookup_anchor_slot, &bob.config);
+		let index = bob.collator_for(package.context.lookup_anchor_slot);
 		assert_eq!(index, bob.own_index(), "the lookup anchor names the signer");
 		token
 			.check_proof(&bob.config, index)

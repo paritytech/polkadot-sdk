@@ -13,6 +13,8 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+# The riscv blob declares a stack size large enough for its metadata recursion; see `lib.rs`.
+polkavm-derive = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 serde_json = { features = ["alloc"], workspace = true }
@@ -31,7 +33,7 @@ pallet-accumulate-and-forward = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-broker = { workspace = true }
+log = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-meta-tx = { workspace = true }
 pallet-multisig = { workspace = true }
@@ -85,6 +87,13 @@ parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 
+# On JAM the broker is `pallet-jam-broker`, aliased as `pallet_broker` in `src/lib.rs`.
+[target.'cfg(not(jam))'.dependencies]
+pallet-broker = { workspace = true }
+
+[target.'cfg(jam)'.dependencies]
+pallet-jam-broker = { workspace = true }
+
 [dev-dependencies]
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 
@@ -95,6 +104,7 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 default = ["std"]
 std = [
 	"codec/std",
+	"log/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-session-benchmarking/std",
@@ -117,6 +127,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-broker/std",
+	"pallet-jam-broker/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
 	"pallet-meta-tx/std",
@@ -175,6 +186,7 @@ runtime-benchmarks = [
 	"pallet-accumulate-and-forward/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-broker/runtime-benchmarks",
+	"pallet-jam-broker/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-meta-tx/runtime-benchmarks",
@@ -214,6 +226,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-broker/try-runtime",
+	"pallet-jam-broker/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-meta-tx/try-runtime",

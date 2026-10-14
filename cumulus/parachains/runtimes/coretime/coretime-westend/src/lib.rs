@@ -29,16 +29,29 @@ pub mod fast_runtime_binary {
 	include!(concat!(env!("OUT_DIR"), "/fast_runtime_binary.rs"));
 }
 
+// The PolkaVM stack has to be declared large enough for the deepest call chain the runtime makes
+// on the guest. The 8 KiB default is not: this runtime's `Metadata_metadata` alone recurses
+// through the whole pallet metadata tree and traps on the stack guard before producing a byte.
+// The test runtime and the parachain template both declare 2 MiB for the same reason.
+#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e"))]
+polkavm_derive::min_stack_size!(2 * 1024 * 1024);
+
 mod coretime;
 mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
 
 extern crate alloc;
+// On JAM the broker is `pallet-jam-broker`: the same pallet, sending its core assignments to the
+// Parachain Service.
+#[cfg(jam)]
+extern crate pallet_jam_broker as pallet_broker;
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
+use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+#[cfg(not(jam))]
+use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId, VerifySchedulingSignature};
 use frame_support::{
 	construct_runtime, derive_impl,
@@ -307,6 +320,16 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
 	type SchedulingSignatureVerifier = ();
 }
+
+/// The clock the runtime reads as "the relay block number".
+///
+/// On a relay-connected chain that is the relay parent number; on JAM there is no relay chain and
+/// `RelaychainDataProvider` does not exist, so the JAM lookup-anchor slot of the block's own
+/// `JamParent` digest serves instead.
+#[cfg(not(jam))]
+pub type SlotNumber = RelaychainDataProvider<Runtime>;
+#[cfg(jam)]
+pub type SlotNumber = cumulus_pallet_parachain_system::JamSlotNumber<Runtime>;
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
@@ -625,7 +648,7 @@ impl pallet_accumulate_and_forward::Config for Runtime {
 	>;
 	type TransferPeriod = ForwardPeriod;
 	type MinTransferAmount = MinForwardAmount;
-	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type BlockNumberProvider = SlotNumber;
 	type WeightInfo = weights::pallet_accumulate_and_forward::WeightInfo<Runtime>;
 }
 

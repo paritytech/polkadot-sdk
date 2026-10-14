@@ -15,13 +15,16 @@
 // limitations under the License.
 
 use crate::{xcm_config::LocationToAccountId, *};
+#[cfg(not(jam))]
 use codec::{Decode, Encode};
+#[cfg(not(jam))]
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
+#[cfg(not(jam))]
 use cumulus_primitives_core::relay_chain;
 use frame_support::parameter_types;
-use pallet_broker::{
-	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, TaskId,
-};
+#[cfg(not(jam))]
+use pallet_broker::{CoreAssignment, CoretimeInterface, PartsOf57600, RCBlockNumberOf};
+use pallet_broker::{CoreIndex, TaskId};
 use parachains_common::{AccountId, Balance};
 use sp_runtime::traits::MaybeConvert;
 use westend_runtime_constants::system_parachain::coretime;
@@ -31,6 +34,7 @@ use xcm_executor::traits::ConvertLocation;
 /// A type containing the encoding of the coretime pallet in the Relay chain runtime. Used to
 /// construct any remote calls. The codec index must correspond to the index of `Coretime` in the
 /// `construct_runtime` of the Relay chain.
+#[cfg(not(jam))]
 #[derive(Encode, Decode)]
 enum RelayRuntimePallets {
 	#[codec(index = 66)]
@@ -38,6 +42,7 @@ enum RelayRuntimePallets {
 }
 
 /// Call encoding for the calls needed from the relay coretime pallet.
+#[cfg(not(jam))]
 #[derive(Encode, Decode)]
 enum CoretimeProviderCalls {
 	#[codec(index = 1)]
@@ -64,7 +69,9 @@ parameter_types! {
 /// Type that implements the `CoretimeInterface` for the allocation of Coretime. Meant to operate
 /// from the parachain context. That is, the parachain provides a market (broker) for the sale of
 /// coretime, but assumes a `CoretimeProvider` (i.e. a Relay Chain) to actually provide cores.
+#[cfg(not(jam))]
 pub struct CoretimeAllocator;
+#[cfg(not(jam))]
 impl CoretimeInterface for CoretimeAllocator {
 	type AccountId = AccountId;
 	type Balance = Balance;
@@ -215,6 +222,16 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 }
 
+/// The cores whose assignment the Parachain Service rejected, from this chain's `parachain_log`.
+#[cfg(jam)]
+pub struct JamRejectedCores;
+#[cfg(jam)]
+impl frame_support::traits::Get<Vec<CoreIndex>> for JamRejectedCores {
+	fn get() -> Vec<CoreIndex> {
+		ParachainSystem::jam_rejected_cores()
+	}
+}
+
 pub struct SovereignAccountOf;
 impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
 	fn maybe_convert(id: TaskId) -> Option<AccountId> {
@@ -231,7 +248,10 @@ impl pallet_broker::Config for Runtime {
 	type TimeslicePeriod = ConstU32<{ coretime::TIMESLICE_PERIOD }>;
 	type MaxLeasedCores = ConstU32<50>;
 	type MaxReservedCores = ConstU32<50>;
+	#[cfg(not(jam))]
 	type Coretime = CoretimeAllocator;
+	#[cfg(jam)]
+	type Coretime = pallet_broker::JamCoretime<Runtime, SlotNumber>;
 	type ConvertBalance = sp_runtime::traits::Identity;
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
 	type PalletId = BrokerPalletId;
@@ -240,4 +260,6 @@ impl pallet_broker::Config for Runtime {
 	type MaxAutoRenewals = ConstU32<50>;
 	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
+	#[cfg(jam)]
+	type RejectedCores = JamRejectedCores;
 }

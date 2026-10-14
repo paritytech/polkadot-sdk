@@ -31,7 +31,7 @@ use zombienet_sdk::NetworkConfigBuilder;
 
 #[cfg(feature = "jam")]
 use cumulus_jam_zombienet_tests::{
-	para::{Para, TINY_CORES},
+	para::Para,
 	spawn::{spawn, SpawnOptions},
 };
 
@@ -56,8 +56,9 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 	#[cfg(feature = "jam")]
 	let jam = spawn(
 		"block_bundling_three_cores_glutton",
-		&[Para::new(PARA_ID, 0, &["collator-0", "collator-1", "collator-2"])],
-		SpawnOptions::new(TINY_CORES),
+		// The three cores the relay network assigns, held from genesis.
+		&[Para::new(PARA_ID, 0, &["collator-0", "collator-1", "collator-2"]).also_on([1, 2])],
+		SpawnOptions::new(3),
 	)
 	.await?;
 	#[cfg(feature = "jam")]

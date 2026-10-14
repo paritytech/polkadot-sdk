@@ -21,7 +21,7 @@ use jam_types::{
 	Authorization, Authorizer, CodeHash, Encode as _, ExtrinsicSpec, RefineContext, WorkDigest,
 	WorkItem, WorkOutput, WorkPackage, WorkPayload,
 };
-use parachain_service_core::{candidate::ParachainCandidate, types::ValidationCodeHash};
+use parachain_service_core::candidate::ParachainCandidate;
 use sp_consensus::BlockStatus;
 use sp_runtime::{
 	testing::{Block, Header as TestHeader, MockCallU64, TestXt},
@@ -302,7 +302,7 @@ fn make_pov(
 /// validation-code hash; the PoV travels as work-item extrinsic 0, exactly as the collator sends
 /// it.
 fn build_bundle(extrinsics: Vec<ExtrinsicSpec>, extrinsic_data: &[u8]) -> (Vec<u8>, WorkPackage) {
-	let payload = ParachainCandidate { validation_code: ValidationCodeHash([0u8; 32]) }.encode();
+	let payload = ParachainCandidate { validation_code: [0u8; 32].into() }.encode();
 
 	let work_item = WorkItem {
 		service: 0,

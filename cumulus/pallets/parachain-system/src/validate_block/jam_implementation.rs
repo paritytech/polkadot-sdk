@@ -217,7 +217,7 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 				crate::PendingUpgradeEmit::<PSC>::get().map(|(hash, len, phase)| {
 					(hash, len, phase, u32::from(PSC::SelfParaId::get()))
 				}),
-			)
+			);
 		},
 		// Arm the JAM proof reader + finalizer from the carried `JAM_PROOF_KEY` entry for
 		// the duration of each block's execution, so `jam_state_read` and `finalize` are

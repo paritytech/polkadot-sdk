@@ -29,3 +29,12 @@
 pub mod slot;
 #[cfg(any(test, jam))]
 pub mod upgrade;
+
+#[cfg(jam)]
+pub mod upward;
+
+// Reading the parachain's own feedback out of the service goes through the JAM state read, which
+// is a real host call on the guest and an armed reader on the host. The pure decode, the newest
+// batch and the rejected-core scan are host-testable and compiled everywhere the module is.
+#[cfg(any(test, jam))]
+pub mod feedback;

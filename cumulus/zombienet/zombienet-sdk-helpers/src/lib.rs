@@ -40,8 +40,12 @@ pub const PARA_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 /// The Prometheus metric that reports a parachain's finalized block height.
 pub const PARA_FINALIZED_METRIC: &str = "block_height{status=\"finalized\"}";
 
+pub mod coretime;
 #[cfg(feature = "jam")]
 pub mod jam;
+pub mod jam_rpc;
+#[cfg(feature = "jam")]
+mod jam_throughput;
 
 mod runtime_blob;
 pub use runtime_blob::inflate_runtime_wasm;
@@ -314,15 +318,11 @@ pub mod network {
 	#[cfg(feature = "jam")]
 	use anyhow::anyhow;
 
-	/// How long the JAM path waits for a parachain to reach its expected block floor.
-	#[cfg(feature = "jam")]
-	const PARA_BLOCK_TIMEOUT_SECS: u64 = 400;
-
 	/// Assigns the given `cores` to the given `para_id`.
 	///
 	/// On a relay chain this waits for the relay node `relay_node` and submits the assignment.
-	/// On JAM a core is bound to the para's authorizer hash at genesis, so there is nothing to
-	/// assign.
+	/// On JAM the Coretime chain's broker assigns cores, if the network runs one; otherwise a core
+	/// is bound to the para's authorizer hash at genesis and there is nothing to assign.
 	#[cfg(not(feature = "jam"))]
 	pub async fn assign_cores(
 		network: &Network<LocalFileSystem>,
@@ -335,15 +335,105 @@ pub mod network {
 		super::assign_cores(&client, para_id, cores).await
 	}
 
-	/// No-op on JAM: a core is bound to the para's authorizer hash at genesis.
+	/// Force-reserves `cores` for `para_id` through the Coretime chain's broker and waits until
+	/// they are assigned. A network without a Coretime chain binds its cores at genesis, so there
+	/// the call is a no-op.
 	#[cfg(feature = "jam")]
 	pub async fn assign_cores(
-		_network: &Network<LocalFileSystem>,
+		network: &Network<LocalFileSystem>,
 		_relay_node: &str,
-		_para_id: u32,
-		_cores: Vec<u32>,
+		para_id: u32,
+		cores: Vec<u32>,
 	) -> Result<(), anyhow::Error> {
+		let Ok(coretime) = network.get_node(crate::coretime::CORETIME_COLLATOR) else {
+			return Ok(());
+		};
+		let client: OnlineClient<ParaConfig> = coretime.wait_client().await?;
+		crate::coretime::force_reserve(&client, para_id, &cores).await
+	}
+
+	/// Upgrades the runtime of the para `para_node` belongs to, to `code`, and waits until a
+	/// block of `para_node` runs it.
+	///
+	/// On a relay chain this is a sudo `System::set_code`.
+	#[cfg(not(feature = "jam"))]
+	pub async fn upgrade_runtime(
+		network: &Network<LocalFileSystem>,
+		para_node: &str,
+		code: &[u8],
+	) -> Result<(), anyhow::Error> {
+		let client: OnlineClient<PolkadotConfig> =
+			network.get_node(para_node)?.wait_client().await?;
+		submit_sudo_runtime_upgrade(
+			&client,
+			code,
+			&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
+		)
+		.await?;
+		wait_for_runtime_upgrade(&client).await?;
 		Ok(())
+	}
+
+	/// The JAM code-upgrade lifecycle: [`schedule_code_upgrade`] arms it by hash, the code is
+	/// handed to JAM out of band with [`crate::jam_rpc::provide_validation_code`], and the para
+	/// switches once the service reflects the announcement (§5.2).
+	#[cfg(feature = "jam")]
+	pub async fn upgrade_runtime(
+		network: &Network<LocalFileSystem>,
+		para_node: &str,
+		code: &[u8],
+	) -> Result<(), anyhow::Error> {
+		let client: OnlineClient<ParaConfig> = network.get_node(para_node)?.wait_client().await?;
+		schedule_code_upgrade(&client, code).await?;
+		let jam = crate::jam_rpc::JamRpc::wait_ready(
+			&crate::jam_throughput::ordinary_jam_node_url(network)?,
+			tokio::time::Instant::now() + std::time::Duration::from_secs(60),
+		)
+		.await?;
+		crate::jam_rpc::provide_validation_code(
+			&jam,
+			parachain_service_core::PARACHAIN_SERVICE_ID,
+			code,
+		)
+		.await?;
+		wait_for_runtime_upgrade_on_best(&client).await?;
+		Ok(())
+	}
+
+	/// Arms a JAM runtime upgrade to `code`: a sudo `ParachainSystem::schedule_code_upgrade_hash`
+	/// with the code's 32-byte hash and length. The code itself never travels on chain, a
+	/// multi-MB extrinsic would trap the PolkaVM runtime. Returns the block that armed it.
+	#[cfg(feature = "jam")]
+	pub async fn schedule_code_upgrade(
+		client: &OnlineClient<ParaConfig>,
+		code: &[u8],
+	) -> Result<H256, anyhow::Error> {
+		use zombienet_sdk::subxt::ext::scale_value::{value, Value};
+
+		let code_len = code.len() as u32;
+		let call = zombienet_sdk::subxt::tx::dynamic(
+			"ParachainSystem",
+			"schedule_code_upgrade_hash",
+			vec![Value::from_bytes(sp_crypto_hashing::blake2_256(code)), value!(code_len)],
+		);
+		log::info!("Sending sudo(schedule_code_upgrade_hash) for {code_len} bytes");
+		let block = submit_extrinsic_and_wait_for_best_block_success(
+			client,
+			&crate::coretime::sudo_call(call),
+			&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
+		)
+		.await?;
+
+		// `sudo` reports the inner dispatch only through `Sudid`; the extrinsic itself succeeds
+		// either way.
+		let events = client.blocks().at(block).await?.events().await?;
+		let sudid: Vec<Result<(), sp_runtime::DispatchError>> =
+			find_event_and_decode_fields(&events, "Sudo", "Sudid")?;
+		match sudid.first() {
+			Some(Ok(())) => Ok(block),
+			Some(Err(e)) => Err(anyhow!("sudo(schedule_code_upgrade_hash) failed: {e:?}")),
+			None => Err(anyhow!("no Sudid event in block {block:?}")),
+		}
 	}
 
 	/// Waits for the relay node `relay_node` to accept clients.
@@ -407,9 +497,8 @@ pub mod network {
 	/// Asserts the parachain throughput.
 	///
 	/// On a relay chain this waits for the relay node `relay_node` and counts
-	/// `ParaInclusion::CandidateBacked` events. On JAM those events do not exist, so only the
-	/// para-side half of the contract is kept: every para must reach the lower bound of its
-	/// expected block range.
+	/// `ParaInclusion::CandidateBacked` events. On JAM it counts the candidates accepted in JAM
+	/// blocks instead.
 	#[cfg(not(feature = "jam"))]
 	pub async fn assert_para_throughput(
 		network: &Network<LocalFileSystem>,
@@ -430,51 +519,25 @@ pub mod network {
 		.await
 	}
 
-	/// On JAM the relay `CandidateBacked` events do not exist. The explicit block ranges are
-	/// asserted instead; if there are none, the candidate range's lower bound is used as the
-	/// floor, so the check is never vacuous.
+	/// The JAM variant: `ParaInclusion::CandidateBacked` does not exist, so a candidate is a work
+	/// report of the Parachain Service accepted in a JAM block. They are counted over `stop_after`
+	/// finalized JAM blocks, with the same warm-up and range checks as on a relay chain. The JAM
+	/// chain is read through the network's ordinary JAM node; `relay_node` is unused.
 	#[cfg(feature = "jam")]
 	pub async fn assert_para_throughput(
 		network: &Network<LocalFileSystem>,
 		_relay_node: &str,
-		_stop_after: u32,
+		stop_after: u32,
 		expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
 		expected_number_of_blocks: impl Into<HashMap<ParaId, (OnlineClient<ParaConfig>, Range<u32>)>>,
 	) -> Result<(), anyhow::Error> {
-		let candidate_ranges = expected_candidate_ranges.into();
-		let block_ranges = expected_number_of_blocks.into();
-
-		let expected: Vec<(ParaId, Range<u32>)> = if block_ranges.is_empty() {
-			candidate_ranges.into_iter().collect()
-		} else {
-			block_ranges
-				.into_iter()
-				.map(|(para_id, (_client, range))| (para_id, range))
-				.collect()
-		};
-
-		for (para_id, range) in expected {
-			let floor = range.start;
-			let para = network
-				.parachain(para_id.into())
-				.ok_or_else(|| anyhow!("ParaId {para_id} is not part of the network"))?;
-			let node = para
-				.collators()
-				.into_iter()
-				.next()
-				.ok_or_else(|| anyhow!("ParaId {para_id} has no collator to poll"))?;
-
-			log::info!("Waiting for para {para_id} to reach block #{floor} on {}", node.name());
-			node.wait_metric_with_timeout(
-				PARA_BLOCK_METRIC,
-				|best| best >= floor as f64,
-				PARA_BLOCK_TIMEOUT_SECS,
-			)
-			.await
-			.map_err(|e| anyhow!("ParaId {para_id} did not reach block #{floor}: {e}"))?;
-		}
-
-		Ok(())
+		crate::jam_throughput::assert_para_throughput(
+			network,
+			stop_after,
+			expected_candidate_ranges.into(),
+			expected_number_of_blocks.into(),
+		)
+		.await
 	}
 }
 
@@ -964,6 +1027,9 @@ async fn submit_tx_and_wait_for_finalization<C: PolkadotLikeConfig>(
 /// finality is a projection of JAM's accumulated parachain head and does not advance while the
 /// service's head is unchanged, so inclusion in a best block is the strongest signal a JAM para
 /// gives. Use the finalized variant on a chain with real finality.
+///
+/// The nonce is read at the best block too. subxt reads it at the finalized block by default,
+/// which lags behind on a JAM para: a second call right after the first would reuse its nonce.
 pub async fn submit_extrinsic_and_wait_for_best_block_success<
 	C: PolkadotLikeConfig,
 	S: Signer<C>,
@@ -972,7 +1038,15 @@ pub async fn submit_extrinsic_and_wait_for_best_block_success<
 	call: &DynamicPayload,
 	signer: &S,
 ) -> Result<H256, anyhow::Error> {
-	let extensions = PolkadotExtrinsicParamsBuilder::<C>::new().immortal().build();
+	let best = client
+		.blocks()
+		.subscribe_best()
+		.await?
+		.next()
+		.await
+		.ok_or_else(|| anyhow!("the best block stream ended before yielding a block"))??;
+	let nonce = best.account_nonce(&signer.account_id()).await?;
+	let extensions = PolkadotExtrinsicParamsBuilder::<C>::new().immortal().nonce(nonce).build();
 
 	log::info!("Submitting transaction...");
 

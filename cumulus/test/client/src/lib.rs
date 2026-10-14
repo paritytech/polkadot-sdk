@@ -60,6 +60,7 @@ pub type Executor = client::LocalCallExecutor<
 		sp_io::SubstrateHostFunctions,
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
 		cumulus_jam_state_reader::jam_state::HostFunctions,
+		cumulus_jam_state_reader::jam_upward::HostFunctions,
 	)>,
 >;
 
@@ -222,6 +223,7 @@ pub fn validate_block_raw(
 		sp_io::SubstrateHostFunctions,
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
 		cumulus_jam_state_reader::jam_state::HostFunctions,
+		cumulus_jam_state_reader::jam_upward::HostFunctions,
 	)>::builder()
 	.with_execution_method(WasmExecutionMethod::default())
 	.with_max_runtime_instances(1)

@@ -1067,24 +1067,20 @@ fn build_bloaty_blob(
 	match target {
 		RuntimeTarget::Riscv => {
 			let elf_path = target_directory.join(&blob_name);
-			let elf_metadata = match elf_path.metadata() {
-				Ok(path) => path,
-				Err(error) => {
-					panic!("internal error: couldn't read the metadata of {elf_path:?}: {error}")
-				},
+			let blob_bytes = match std::fs::read(&elf_path) {
+				Ok(bytes) => bytes,
+				Err(error) => panic!("internal error: couldn't read {elf_path:?}: {error}"),
 			};
 
 			let polkavm_path = target_directory.join(format!("{}.polkavm", blob_name));
-			if polkavm_path
-				.metadata()
-				.map(|polkavm_metadata| {
-					polkavm_metadata.modified().unwrap() < elf_metadata.modified().unwrap()
-				})
-				.unwrap_or(true)
-			{
-				let blob_bytes =
-					std::fs::read(elf_path).expect("binary always exists after its built");
-
+			// The ELF `polkavm_path` was linked from. Every runtime variant built from this project
+			// (see `WasmBuilder::set_file_name`) shares this target directory, and cargo restores
+			// an already built variant's ELF with its original, older modification time. So only
+			// the ELF's content tells whether `polkavm_path` still belongs to it.
+			let linked_elf_path = target_directory.join(format!("{}.polkavm.elf", blob_name));
+			let is_linked = polkavm_path.exists() &&
+				std::fs::read(&linked_elf_path).is_ok_and(|linked| linked == blob_bytes);
+			if !is_linked {
 				let mut config = polkavm_linker::Config::default();
 				config.set_strip(true); // TODO: This shouldn't always be done.
 
@@ -1102,6 +1098,8 @@ fn build_bloaty_blob(
 				};
 
 				std::fs::write(&polkavm_path, program)
+					.expect("writing the blob to a file always works");
+				std::fs::write(&linked_elf_path, &blob_bytes)
 					.expect("writing the blob to a file always works");
 			}
 

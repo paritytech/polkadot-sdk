@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 anyhow = { workspace = true, default-features = true }
+array-bytes = { workspace = true }
 codec = { workspace = true, features = ["derive"] }
 log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
@@ -24,13 +25,27 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 zombienet-sdk = { workspace = true }
 futures = { workspace = true }
 zombienet-configuration = { workspace = true }
+cumulus-jam-interface = { workspace = true, optional = true }
+cumulus-jam-rpc-interface = { workspace = true, optional = true }
+url = { workspace = true, optional = true }
+parachain-service-core = { path = "../../../../parachain-service/core", features = ["std"], optional = true }
+# The JAM node RPC client (`jam_rpc`): polkajam's methods, with the base64 spelling of its byte
+# strings taken from `jam-types`' own serde.
+jam-std-common = { workspace = true }
+jam-types = { workspace = true, features = ["bytes", "serde", "std"] }
+jsonrpsee = { workspace = true, features = ["ws-client"] }
+serde_json = { workspace = true, default-features = true }
 
 [dev-dependencies]
 polkavm = { workspace = true }
-serde_json = { workspace = true, default-features = true }
 
 [features]
 # Selects the JAM implementations of the helpers that abstract over the backing chain.
-jam = []
+jam = [
+	"dep:cumulus-jam-interface",
+	"dep:cumulus-jam-rpc-interface",
+	"dep:parachain-service-core",
+	"dep:url",
+]
 
 

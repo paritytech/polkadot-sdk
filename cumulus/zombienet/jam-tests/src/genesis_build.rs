@@ -111,13 +111,19 @@ pub fn build_jam_genesis(
 	);
 	for (core, hash) in spare {
 		overrides["auth_queues"][core.to_string()] = json!([hash]);
+		// The Parachain Service is the assigner of **every** core, spare ones included: the
+		// Coretime chain decides which para owns a core, and its `AssignCore` keeps the service
+		// as the assigner (§7.1). A spare core left on the `gen-spec` default assigner could
+		// never be handed to a real para — every `AssignCore` naming it would come back as
+		// `CoreNotAssignable`.
+		overrides["assigners"][core.to_string()] = json!(PARACHAIN_SERVICE_ID);
 	}
 	if let Some(blob) = &binaries.bootstrap_service_blob {
 		overrides["services"][BOOTSTRAP_SERVICE_ID.to_string()] =
 			bootstrap_service(blob, work_dir)?;
 	}
 	overrides["protocol_parameters"] = parameters_for_cores(cores)?;
-	overrides["privileges"] = service_privileges(&queues, PARACHAIN_SERVICE_ID);
+	overrides["privileges"] = service_privileges(cores, PARACHAIN_SERVICE_ID);
 
 	Ok(JamGenesis { overrides, para_specs, authorizer_blob })
 }
@@ -199,8 +205,13 @@ pub fn jam_node_env() -> Vec<(&'static str, &'static str)> {
 		);
 		"interpreter"
 	};
-	let mut env =
-		vec![("POLKAVM_BACKEND", backend), ("POLKAVM_ALLOW_INSECURE", "1"), ("RUST_LOG", "debug")];
+	// `polkavm=debug` logs every block the interpreter compiles; that logging, not the execution,
+	// is what makes a cold refine take seconds.
+	let mut env = vec![
+		("POLKAVM_BACKEND", backend),
+		("POLKAVM_ALLOW_INSECURE", "1"),
+		("RUST_LOG", "debug,polkavm=info"),
+	];
 	if generic_sandbox {
 		env.extend([("POLKAVM_SANDBOX", "generic"), ("POLKAVM_ALLOW_EXPERIMENTAL", "1")]);
 	}
@@ -397,11 +408,15 @@ pub fn built_genesis_overrides(
 /// phase needs. These are `ChainSpecConfig`-level, not `GenesisService`-level, so they go into
 /// the overrides directly, not through the `parachain-chain-spec` builder.
 ///
-/// `assign` covers every core in `queues`; `always_acc` is set to 10M to handle the worst-case
+/// `assign` covers **every** core of the network, not just the ones genesis fills: on JAM the
+/// Parachain Service is the assignment authority for all of them, and a core it is not the
+/// assigner of rejects every `AssignCore` with `CoreNotAssignable` (§7.1). A core no para claims
+/// starts with the null authorizer and assigner 0; without the privilege the Coretime chain
+/// could never hand it to a real para. `always_acc` is set to 10M to handle the worst-case
 /// due-assign flush (341 cores × 80-hash queues, measured at ~9.94M gas — see PS `GENESIS.md`).
-pub fn service_privileges(queues: &[(u16, String)], service_id: u32) -> serde_json::Value {
+pub fn service_privileges(cores: u16, service_id: u32) -> serde_json::Value {
 	let assign: serde_json::Map<String, serde_json::Value> =
-		queues.iter().map(|(core, _)| (core.to_string(), json!(service_id))).collect();
+		(0..cores).map(|core| (core.to_string(), json!(service_id))).collect();
 	let mut always_acc = serde_json::Map::new();
 	always_acc.insert(service_id.to_string(), json!(10_000_000u64));
 	json!({
@@ -527,13 +542,13 @@ mod tests {
 		{
 			let stored = built
 				.storage
-				.get(&para_info_key(ParaId(para)))
+				.get(&para_info_key(ParaId::from(para)))
 				.expect("every para is registered; qed");
 			let info = ParaInfo::decode_all(&mut &stored[..]).expect("decode ParaInfo; qed");
 			let code = info.validation_code.expect("the para has a validation code; qed");
 			assert_eq!(code.len, expected.len() as u32, "para {para} code length");
 			assert_eq!(
-				code.hash.0,
+				parachain_service_core::types::validation_code_hash_bytes(&code.hash),
 				jam_std_common::hash_raw(expected),
 				"para {para} validation code",
 			);

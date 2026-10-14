@@ -66,6 +66,9 @@ fn coretime_westend_genesis(
 				.collect(),
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
+		// On JAM there is no relay governance to route the broker's admin calls through: a test or an
+		// operator drives them with sudo. The key is Alice's, the same one the JAM harness's `sudo` calls sign with.
+		sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
 	})
 }
 

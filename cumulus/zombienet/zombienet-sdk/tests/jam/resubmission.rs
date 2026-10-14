@@ -187,11 +187,10 @@ async fn spawn_proxied_network(
 		})
 		.collect::<anyhow::Result<HashMap<_, _>>>()?;
 	let options = SpawnOptions {
-		cores: TINY_CORES,
 		ordinary_rpc_port: Some(jam_or_port),
-		validator_rpc_ports: Vec::new(),
 		collators: collator_options,
 		ready_timeout: Duration::from_secs(120),
+		..SpawnOptions::new(TINY_CORES)
 	};
 
 	// The proxy has to be serving before the network comes up: the proxied collators'

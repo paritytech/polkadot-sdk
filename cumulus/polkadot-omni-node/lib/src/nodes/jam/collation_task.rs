@@ -1830,11 +1830,7 @@ mod tests {
 		let candidate =
 			<ParachainCandidate as Decode>::decode(&mut &package.items[0].payload.0[..])
 				.expect("the payload is a ParachainCandidate");
-		let expected = ParachainCandidate {
-			validation_code: parachain_service_core::types::ValidationCodeHash(
-				source.validation_code_hash.into(),
-			),
-		};
+		let expected = ParachainCandidate { validation_code: source.validation_code_hash.into() };
 		assert_eq!(
 			candidate.encode(),
 			expected.encode(),

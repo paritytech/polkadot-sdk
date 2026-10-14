@@ -26,7 +26,6 @@ mod slot_based_authoring;
 // `assert_relay_parent_offset` reads relay parent digests, which a JAM para header does not carry.
 #[cfg(not(feature = "jam"))]
 mod slot_based_rp_offset;
-// The test upgrades the para's runtime to a WASM blob mid-run; the JAM runtime is PolkaVM, so
-// there is nothing to upgrade to.
-#[cfg(not(feature = "jam"))]
+// On JAM the runtime is a PolkaVM blob and the upgrade is the service's code-upgrade lifecycle:
+// `schedule_code_upgrade_hash` + the out-of-band preimage, driven from the coretime chain.
 mod upgrade_to_3_cores;

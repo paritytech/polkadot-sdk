@@ -99,16 +99,13 @@ mod tests {
 	/// hashed-leaf path.
 	fn para_info_value() -> Vec<u8> {
 		use parachain_service_core::{
-			types::{HeadData, ValidationCodeHash, ValidationCodeRef},
+			types::{HeadData, ValidationCodeRef},
 			ParaInfo,
 		};
 
 		ParaInfo {
 			head_data: HeadData::try_from(vec![0xca, 0xfe]).expect("2 bytes < 4 KiB; qed"),
-			validation_code: Some(ValidationCodeRef {
-				hash: ValidationCodeHash([0x11; 32]),
-				len: 1,
-			}),
+			validation_code: Some(ValidationCodeRef { hash: [0x11; 32].into(), len: 1 }),
 			announced_upgrade: None,
 			total_state_balance: 0,
 			used_state_balance: 0,

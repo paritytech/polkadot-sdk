@@ -194,17 +194,17 @@ pub(crate) fn code_size_fits(len: usize) -> bool {
 }
 
 fn code_ref_matches(code: &ValidationCodeRef, hash: [u8; 32], len: u32) -> bool {
-	code.hash.0 == hash && code.len == len
+	code.hash == hash.into() && code.len == len
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use alloc::vec;
-	use parachain_service_core::types::{HeadData, ValidationCodeHash};
+	use parachain_service_core::types::HeadData;
 
 	fn code_ref(hash: [u8; 32], len: u32) -> ValidationCodeRef {
-		ValidationCodeRef { hash: ValidationCodeHash(hash), len }
+		ValidationCodeRef { hash: hash.into(), len }
 	}
 
 	fn para_info(

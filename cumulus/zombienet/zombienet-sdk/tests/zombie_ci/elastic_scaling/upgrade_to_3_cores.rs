@@ -1,35 +1,48 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+//! Elastic scaling: assign cores, upgrade the runtime, assert three blocks per slot.
+//!
+//! On JAM (`--features jam`) the cores are assigned by the Coretime chain's broker, which runs on
+//! core 0, so the para starts on core 1.
+
+#[cfg(not(feature = "jam"))]
 use crate::utils::initialize_network;
+#[cfg(not(feature = "jam"))]
 use anyhow::anyhow;
+#[cfg(feature = "jam")]
+use cumulus_jam_zombienet_tests::{
+	para::Para,
+	spawn::{spawn, SpawnOptions},
+};
 use cumulus_test_runtime::{
 	elastic_scaling::WASM_BINARY as WASM_ELASTIC_SCALING,
 	elastic_scaling_12s_slot::WASM_BINARY as WASM_ELASTIC_SCALING_12S_SLOT,
 };
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, assign_cores, submit_sudo_runtime_upgrade, wait_for_pvf_prepare,
-	wait_for_runtime_upgrade,
+	network::{assert_para_throughput, assign_cores, upgrade_runtime},
+	wait_for_pvf_prepare,
 };
 use polkadot_primitives::Id as ParaId;
 use rstest::rstest;
+#[cfg(not(feature = "jam"))]
 use serde_json::json;
-use zombienet_sdk::{
-	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
-	NetworkConfig, NetworkConfigBuilder,
-};
+#[cfg(not(feature = "jam"))]
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
 
-// This test ensures that we can upgrade the parachain's runtime to support elastic scaling
-// and that the parachain produces 3 blocks per slot after the upgrade.
+#[cfg(not(feature = "jam"))]
+const FIRST_CORE: u32 = 0;
+#[cfg(feature = "jam")]
+const FIRST_CORE: u32 = 1;
 
-// Covers both sync and async backing parachains.
-#[tokio::test(flavor = "multi_thread")]
+/// `#[rstest]` cannot infer a runtime for an `async` case body, so `#[tokio::test]` is named
+/// explicitly. JAM has no sync backing.
 #[rstest]
 #[case(true)]
-#[case(false)]
+#[cfg_attr(not(feature = "jam"), case(false))]
+#[tokio::test(flavor = "multi_thread")]
 async fn elastic_scaling_upgrade_to_3_cores(
 	#[case] async_backing: bool,
 ) -> Result<(), anyhow::Error> {
@@ -38,64 +51,45 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	);
 
 	log::info!("Spawning network");
-	let config = build_network_config(async_backing).await?;
-	let network = initialize_network(config).await?;
+	#[cfg(not(feature = "jam"))]
+	let network = initialize_network(build_network_config(async_backing).await?).await?;
+	#[cfg(not(feature = "jam"))]
+	let network = &network;
+	#[cfg(feature = "jam")]
+	let jam = spawn(
+		"elastic_scaling_upgrade_to_3_cores",
+		&[Para::new(PARA_ID, FIRST_CORE, &["collator0"])],
+		SpawnOptions::new(4).with_coretime(),
+	)
+	.await?;
+	#[cfg(feature = "jam")]
+	let network = &jam.network;
 
-	let alice = network.get_node("validator0")?;
-	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
+	assign_cores(network, "validator0", PARA_ID, vec![FIRST_CORE]).await?;
+	wait_for_pvf_prepare(network, 1).await?;
 
-	assign_cores(&alice_client, PARA_ID, vec![0]).await?;
+	let before_upgrade = if async_backing { 19..21 } else { 9..12 };
+	assert_para_throughput(
+		network,
+		"validator0",
+		20,
+		[(ParaId::from(PARA_ID), before_upgrade)],
+		[],
+	)
+	.await?;
 
-	// Wait for PVF preparation to complete.
-	wait_for_pvf_prepare(&network, 1).await?;
+	assign_cores(network, "validator0", PARA_ID, vec![FIRST_CORE + 1, FIRST_CORE + 2]).await?;
 
-	if async_backing {
-		log::info!("Ensuring parachain makes progress making 6s blocks");
-		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 19..21)], []).await?;
-	} else {
-		log::info!("Ensuring parachain makes progress making 12s blocks");
-		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 9..12)], []).await?;
-	}
-
-	assign_cores(&alice_client, PARA_ID, vec![1, 2]).await?;
-	let collator0 = network.get_node("collator0")?;
-	let collator0_client: OnlineClient<PolkadotConfig> = collator0.wait_client().await?;
-
-	let current_spec_version =
-		collator0_client.backend().current_runtime_version().await?.spec_version;
-	log::info!("Current runtime spec version {current_spec_version}");
-
-	let wasm = if async_backing {
-		WASM_ELASTIC_SCALING.expect("Wasm runtime not build")
-	} else {
-		WASM_ELASTIC_SCALING_12S_SLOT.expect("Wasm runtime not build")
-	};
-
-	log::info!("Performing runtime upgrade");
-	submit_sudo_runtime_upgrade(&collator0_client, wasm, &dev::alice()).await?;
-
-	let collator1 = network.get_node("collator1")?;
-	let collator1_client: OnlineClient<PolkadotConfig> = collator1.wait_client().await?;
-	let expected_spec_version = current_spec_version + 1;
-
-	log::info!("Waiting for parachain runtime upgrade to version {}", expected_spec_version);
-	wait_for_runtime_upgrade(&collator1_client).await?;
-
-	let spec_version_from_collator0 =
-		collator0_client.backend().current_runtime_version().await?.spec_version;
-	assert_eq!(
-		expected_spec_version, spec_version_from_collator0,
-		"Unexpected runtime spec version"
-	);
+	log::info!("Performing the runtime upgrade to the elastic-scaling flavor");
+	let wasm = if async_backing { WASM_ELASTIC_SCALING } else { WASM_ELASTIC_SCALING_12S_SLOT };
+	upgrade_runtime(network, "collator0", wasm.expect("Wasm runtime not build")).await?;
+	wait_for_pvf_prepare(network, 2).await?;
 
 	log::info!("Ensure elastic scaling works, 3 blocks should be produced in each 6s slot");
-	// Wait for post-upgrade PVF preparation to complete.
-	wait_for_pvf_prepare(&network, 2).await?;
-	assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 50..61)], []).await?;
-
-	Ok(())
+	assert_para_throughput(network, "validator0", 20, [(ParaId::from(PARA_ID), 50..61)], []).await
 }
 
+#[cfg(not(feature = "jam"))]
 async fn build_network_config(async_backing: bool) -> Result<NetworkConfig, anyhow::Error> {
 	// images are not relevant for `native`, but we leave it here in case we use `k8s` some day
 	let images = zombienet_sdk::environment::get_images_from_env();
@@ -137,14 +131,13 @@ async fn build_network_config(async_backing: bool) -> Result<NetworkConfig, anyh
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![
-					"--authoring=slot-based".into(),
-					"-lparachain=debug,aura=debug".into(),
+					("-lparachain=debug,xcm=trace").into(),
+					("--force-authoring").into(),
 				])
-				.onboard_as_parachain(false)
 				.with_chain(chain)
-				.with_collator(|n| n.with_name("collator0").validator(true))
-				.with_collator(|n| n.with_name("collator1").validator(true))
-				.with_collator(|n| n.with_name("collator2").validator(true))
+				.with_collator(|n| n.with_name("collator0"))
+				.with_collator(|n| n.with_name("collator1"))
+				.with_collator(|n| n.with_name("collator2"))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),

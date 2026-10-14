@@ -2232,9 +2232,8 @@ fn carried_jam_proof_finalizes_to_authored_digest() {
 /// A `ParaInfo` with the given active and announced code refs, SCALE-encoded as stored in the
 /// parachain service.
 fn build_para_info(active: Option<([u8; 32], u32)>, announced: Option<([u8; 32], u32)>) -> Vec<u8> {
-	use jam_helpers::types::{HeadData, ValidationCodeHash, ValidationCodeRef};
-	let to_ref =
-		|(hash, len): ([u8; 32], u32)| ValidationCodeRef { hash: ValidationCodeHash(hash), len };
+	use jam_helpers::types::{HeadData, ValidationCodeRef};
+	let to_ref = |(hash, len): ([u8; 32], u32)| ValidationCodeRef { hash: hash.into(), len };
 	jam_helpers::ParaInfo {
 		head_data: HeadData::try_from(vec![0xca, 0xfe]).expect("2 bytes < 4 KiB; qed"),
 		validation_code: active.map(to_ref),

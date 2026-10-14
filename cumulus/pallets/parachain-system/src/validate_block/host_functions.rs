@@ -84,6 +84,10 @@ pub(super) fn install_overrides() -> impl Sized {
 		#[cfg(jam)]
 		cumulus_jam_state_reader::jam_state::host_jam_state_read_into
 			.replace_implementation(host_jam_state_read_into),
+		// Upward messages go straight to the Parachain Service.
+		#[cfg(jam)]
+		cumulus_jam_state_reader::jam_upward::host_send_upward_message
+			.replace_implementation(parachain_service_core::host::send_upward_message),
 		sp_additional_data::additional_data::host_finalize_into
 			.replace_implementation(host_finalize_into),
 		#[cfg(all(

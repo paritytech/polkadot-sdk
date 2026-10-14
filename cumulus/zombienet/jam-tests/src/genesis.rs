@@ -18,7 +18,7 @@ use crate::{
 };
 use anyhow::Context;
 use codec::Encode;
-use parachain_authorizer::aura::{build_collator_tree, AuthConfig, CollatorKey};
+use parachain_authorizer::aura::{build_collator_proofs, AuthConfig, CollatorKey};
 use parachain_service_core::authorizer::{AuthConfigBlob, Authorizer, AuthorizerHash, CodeHash};
 use sp_core::crypto::ByteArray;
 use std::path::Path;
@@ -31,7 +31,8 @@ const SLOT_DURATION: u32 = 1;
 /// the para id and host service, the collator-set root in the runtime's own order, the set size
 /// and the slot duration — everything `blake2b-256(code_hash ‖ SCALE(config))` commits to.
 pub fn aura_config(para: &Para) -> anyhow::Result<AuthConfig> {
-	let (collator_set_root, _proofs) = build_collator_tree(&collator_set(para)?);
+	let (collator_set_root, _proofs) = build_collator_proofs(&collator_set(para)?)
+		.map_err(|error| anyhow::anyhow!("para {}'s collator set: {error:?}", para.id))?;
 	Ok(AuthConfig {
 		para_ids: vec![para.id.into()],
 		parachain_service: PARACHAIN_SERVICE_ID,
@@ -90,7 +91,7 @@ mod tests {
 	/// three separate binaries have to agree on — this harness, the collator and the guest.
 	fn expected(id: u32, keys: &[[u8; 32]]) -> AuthorizerHash {
 		let leaves: Vec<CollatorKey> = keys.to_vec();
-		let (root, _) = build_collator_tree(&leaves);
+		let (root, _) = build_collator_proofs(&leaves).expect("a non-empty collator set; qed");
 		let mut config = Vec::new();
 		// SCALE, field by field: a length-prefixed vec of one para id, the service, the root, the
 		// set size, the slot duration.

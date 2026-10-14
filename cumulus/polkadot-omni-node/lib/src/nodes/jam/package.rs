@@ -130,12 +130,7 @@ pub(crate) fn work_package(
 	authorizer: Authorizer,
 	context: RefineContext,
 ) -> WorkPackage {
-	let payload = ParachainCandidate {
-		validation_code: parachain_service_core::types::ValidationCodeHash(
-			validation_code_hash.into(),
-		),
-	}
-	.encode();
+	let payload = ParachainCandidate { validation_code: validation_code_hash.into() }.encode();
 
 	let work_item = WorkItem {
 		service: params.service_id,

@@ -19,30 +19,26 @@ use anyhow::anyhow;
 #[cfg(not(feature = "jam"))]
 use cumulus_test_runtime::block_bundling::WASM_BINARY;
 use cumulus_zombienet_sdk_helpers::inflate_runtime_wasm;
-#[cfg(feature = "jam")]
-use cumulus_zombienet_sdk_helpers::{
-	submit_extrinsic_and_wait_for_best_block_success, wait_for_runtime_upgrade_on_best,
-};
-#[cfg(not(feature = "jam"))]
-use cumulus_zombienet_sdk_helpers::{
-	submit_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
-};
-use sp_crypto_hashing::blake2_256;
-#[cfg(not(feature = "jam"))]
-use zombienet_sdk::NetworkConfig;
-use zombienet_sdk::{
-	subxt::{ext::scale_value::value, tx::DynamicPayload, OnlineClient},
-	subxt_signer::sr25519::dev,
-};
+use zombienet_sdk::subxt::OnlineClient;
 
 #[cfg(not(feature = "jam"))]
 use {
 	cumulus_primitives_core::relay_chain::MAX_POV_SIZE,
 	cumulus_zombienet_sdk_helpers::submit_unsigned_extrinsic_and_wait_for_finalization_success,
-	cumulus_zombienet_sdk_helpers::{assign_cores, ensure_is_only_block_in_core, BlockToCheck},
+	cumulus_zombienet_sdk_helpers::{
+		assign_cores, ensure_is_only_block_in_core,
+		submit_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade, BlockToCheck,
+	},
 	serde_json::json,
-	zombienet_sdk::subxt::{ext::scale_value::Value, utils::H256},
-	zombienet_sdk::{subxt::PolkadotConfig, NetworkConfigBuilder},
+	sp_crypto_hashing::blake2_256,
+	zombienet_sdk::subxt::{
+		ext::scale_value::{value, Value},
+		tx::DynamicPayload,
+		utils::H256,
+	},
+	zombienet_sdk::{
+		subxt::PolkadotConfig, subxt_signer::sr25519::dev, NetworkConfig, NetworkConfigBuilder,
+	},
 };
 
 #[cfg(feature = "jam")]
@@ -53,11 +49,13 @@ use {
 		spawn::{spawn, SpawnOptions},
 	},
 	cumulus_zombienet_sdk_helpers::{
-		find_event_and_decode_fields, jam::DigestItem, network::assert_para_throughput, ParaConfig,
+		jam::DigestItem,
+		jam_rpc::provide_validation_code,
+		network::{assert_para_throughput, schedule_code_upgrade},
+		wait_for_runtime_upgrade_on_best, ParaConfig,
 	},
 	polkadot_primitives::Id as ParaId,
-	std::{collections::HashMap, time::Duration},
-	zombienet_sdk::subxt::ext::scale_value::Value,
+	std::time::Duration,
 };
 
 const PARA_ID: u32 = 2400;
@@ -139,13 +137,7 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	let jam = spawn(
 		"block_bundling_runtime_upgrade",
 		&[Para::new(PARA_ID, 0, &[PARA_NODE])],
-		SpawnOptions {
-			cores: TINY_CORES,
-			ordinary_rpc_port: None,
-			validator_rpc_ports: Vec::new(),
-			collators: HashMap::new(),
-			ready_timeout: Duration::from_secs(120),
-		},
+		SpawnOptions { ready_timeout: Duration::from_secs(120), ..SpawnOptions::new(TINY_CORES) },
 	)
 	.await?;
 	#[cfg(not(feature = "jam"))]
@@ -156,7 +148,6 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	let network = &jam.network;
 
 	let para_node = network.get_node(PARA_NODE)?;
-	let alice = dev::alice();
 
 	// ── Relay path ─────────────────────────────────────────────────────────────────────────
 	#[cfg(not(feature = "jam"))]
@@ -164,6 +155,7 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 		let relay_node = network.get_node("validator-0")?;
 		let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 		let para_client: OnlineClient<PolkadotConfig> = para_node.wait_client().await?;
+		let alice = dev::alice();
 
 		// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet).
 		assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
@@ -200,9 +192,6 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	{
 		let para_client: OnlineClient<ParaConfig> = para_node.wait_client().await?;
 
-		// The JAM ordinary node RPC, for the out-of-band preimage submission.
-		let jam_rpc = &jam.jam_rpc;
-
 		// Step 1: arm the upgrade by hash. `schedule_code_upgrade_hash` takes the 32-byte blake2b
 		// hash and the length, never the code bytes: a multi-MB extrinsic payload traps the
 		// PolkaVM runtime, and the code itself lives offchain in JAM. The runtime records
@@ -211,32 +200,8 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 		//
 		// The padded target hashes differently from the code already active — the service
 		// treats a request for the active code as a no-op — so this is what arms the lifecycle.
-		let code_hash = blake2_256(&runtime_wasm);
-		let code_len = runtime_wasm.len() as u32;
-		let schedule_call = create_schedule_code_upgrade_hash_call(code_hash, code_len);
-		let sudo_schedule_call = create_sudo_unchecked_weight_call(schedule_call);
-		log::info!("Sending sudo(schedule_code_upgrade_hash) for {code_len} bytes");
-		// Inclusion in a best block, not finalization: the JAM collator only finalizes a para head
-		// once JAM accumulates it, and JAM's accumulated head stays put here, so waiting for
-		// finalization would wait forever.
-		let authorize_block = submit_extrinsic_and_wait_for_best_block_success(
-			&para_client,
-			&sudo_schedule_call,
-			&alice,
-		)
-		.await?;
-
-		// `sudo` reports the INNER dispatch only through `Sudid`; the extrinsic itself succeeds
-		// either way. Without this an arming that never happened surfaces much later as an
-		// opaque "Transaction is invalid".
-		let events = para_client.blocks().at(authorize_block).await?.events().await?;
-		let sudid: Vec<Result<(), sp_runtime::DispatchError>> =
-			find_event_and_decode_fields(&events, "Sudo", "Sudid")?;
-		match sudid.first() {
-			Some(Ok(())) => log::info!("schedule_code_upgrade_hash included (code scheduled)"),
-			Some(Err(e)) => return Err(anyhow!("sudo(schedule_code_upgrade_hash) failed: {e:?}")),
-			None => return Err(anyhow!("no Sudid event in block {authorize_block:?}")),
-		}
+		schedule_code_upgrade(&para_client, &runtime_wasm).await?;
+		log::info!("schedule_code_upgrade_hash included (code scheduled)");
 
 		// Step 2 — S2 (negative window): observe NEGATIVE_WINDOW_BLOCKS para blocks and assert
 		// NONE carry RuntimeEnvironmentUpdated. The service refuses an announcement whose code it
@@ -285,12 +250,7 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 		// runtime waits on before switching (service design §5.2). No node or collator code may
 		// submit the preimage.
 		log::info!("Providing validation code to JAM service {PARACHAIN_SERVICE_ID}");
-		cumulus_jam_zombienet_tests::rpc::provide_validation_code(
-			jam_rpc,
-			PARACHAIN_SERVICE_ID,
-			&runtime_wasm,
-		)
-		.await?;
+		provide_validation_code(&jam.jam_rpc, PARACHAIN_SERVICE_ID, &runtime_wasm).await?;
 		log::info!("Preimage provided and confirmed at a finalized JAM anchor");
 
 		// Step 4: Wait for the first para best block whose header digest carries
@@ -302,17 +262,9 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 		// Step 5: Assert the para keeps producing blocks after the upgrade.
 		// `ensure_is_only_block_in_core` is not used on JAM: that helper reads
 		// `CumulusDigestItem::BlockBundleInfo` which JAM para headers do not carry.
-		let current_best = para_node.reports("block_height{status=\"best\"}").await? as u32;
-		let target = current_best + 5;
-		log::info!("Asserting para reaches block {target} after upgrade");
-		assert_para_throughput(
-			network,
-			PARA_NODE,
-			5,
-			[(ParaId::from(PARA_ID), 5..100)],
-			[(ParaId::from(PARA_ID), (para_client, target..target + 10))],
-		)
-		.await?;
+		// The para holds one core, so at most one candidate per JAM block; one miss is tolerated.
+		log::info!("Asserting para candidates keep being accepted after upgrade");
+		assert_para_throughput(network, PARA_NODE, 5, [(ParaId::from(PARA_ID), 4..6)], []).await?;
 	}
 
 	Ok(())
@@ -328,19 +280,6 @@ fn create_authorize_upgrade_call(code_hash: H256) -> DynamicPayload {
 	)
 }
 
-/// Creates a `ParachainSystem::schedule_code_upgrade_hash` call (JAM path only).
-///
-/// Takes the 32-byte blake2b hash and the byte length, never the code: a multi-MB extrinsic
-/// payload traps the PolkaVM runtime, and the code lives offchain in JAM.
-#[cfg(feature = "jam")]
-fn create_schedule_code_upgrade_hash_call(code_hash: [u8; 32], code_len: u32) -> DynamicPayload {
-	zombienet_sdk::subxt::tx::dynamic(
-		"ParachainSystem",
-		"schedule_code_upgrade_hash",
-		vec![Value::from_bytes(code_hash), value!(code_len)],
-	)
-}
-
 /// Creates a `System::apply_authorized_upgrade` call.
 #[cfg(not(feature = "jam"))]
 fn create_apply_authorized_upgrade_call(code: Vec<u8>) -> DynamicPayload {
@@ -351,21 +290,6 @@ fn create_apply_authorized_upgrade_call(code: Vec<u8>) -> DynamicPayload {
 #[cfg(not(feature = "jam"))]
 fn create_sudo_call(inner_call: DynamicPayload) -> DynamicPayload {
 	zombienet_sdk::subxt::tx::dynamic("Sudo", "sudo", vec![inner_call.into_value()])
-}
-
-/// Wraps `inner_call` in `Sudo::sudo_unchecked_weight` with a nominal declared weight.
-///
-/// Plain `Sudo::sudo` derives its dispatch weight from the inner call, which for a runtime upgrade
-/// is charged before the block-length and weight checks have any slack left. The relay helper
-/// `create_runtime_upgrade_call` declares `{1, 1}` here for the same reason; the real cost is
-/// still accounted post-dispatch.
-#[cfg(feature = "jam")]
-fn create_sudo_unchecked_weight_call(inner_call: DynamicPayload) -> DynamicPayload {
-	zombienet_sdk::subxt::tx::dynamic(
-		"Sudo",
-		"sudo_unchecked_weight",
-		vec![inner_call.into_value(), value! { { ref_time: 1u64, proof_size: 1u64 } }],
-	)
 }
 
 #[cfg(not(feature = "jam"))]

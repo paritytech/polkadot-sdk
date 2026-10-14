@@ -11,6 +11,7 @@
 
 pub mod chain_spec;
 pub mod control;
+pub mod coretime;
 pub mod env;
 pub mod genesis;
 pub mod genesis_build;

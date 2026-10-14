@@ -5,7 +5,7 @@
 //! [`Para`] with its collators, and the handle a test drives the run through.
 
 use crate::{
-	chain_spec,
+	chain_spec, coretime,
 	env::{binaries_or_err, init_logger},
 	genesis_build::{build_jam_genesis, jam_node_env, polkavm_env, JamGenesis},
 	network::{
@@ -38,6 +38,8 @@ pub struct SpawnOptions {
 	pub collators: HashMap<String, CollatorOptions>,
 	/// How long [`JamRpc::wait_ready`] may take before the spawn fails.
 	pub ready_timeout: Duration,
+	/// Run the Coretime chain on core 0 and start its sales, see [`SpawnOptions::with_coretime`].
+	pub coretime: bool,
 }
 
 impl SpawnOptions {
@@ -49,7 +51,16 @@ impl SpawnOptions {
 			validator_rpc_ports: Vec::new(),
 			collators: HashMap::new(),
 			ready_timeout: DEADLINE,
+			coretime: false,
 		}
+	}
+
+	/// Also run the Coretime chain ([`coretime::coretime_para`]) on core 0 and start its sales
+	/// once the network is up, so that `network::assign_cores` assigns cores through its broker.
+	/// The broker reserves core 0 for the Coretime chain, so no other para may sit on it.
+	pub fn with_coretime(mut self) -> Self {
+		self.coretime = true;
+		self
 	}
 }
 
@@ -78,6 +89,19 @@ pub async fn spawn(
 	options: SpawnOptions,
 ) -> anyhow::Result<JamNetwork> {
 	init_logger();
+
+	let paras: Vec<Para> = if options.coretime {
+		anyhow::ensure!(
+			paras.iter().all(|para| para.core != 0),
+			"core 0 belongs to the Coretime chain"
+		);
+		std::iter::once(coretime::coretime_para()?)
+			.chain(paras.iter().cloned())
+			.collect()
+	} else {
+		paras.to_vec()
+	};
+	let paras = &paras[..];
 
 	let binaries = binaries_or_err()?;
 	let (work_dir, _temp) = work_dir(test)?;
@@ -231,6 +255,10 @@ pub async fn spawn(
 	let network = zombienet_sdk::environment::get_spawn_fn()(config).await?;
 	let jam_url = network.get_jam_node(ORDINARY_NODE)?.ws_uri();
 	let jam_rpc = JamRpc::wait_ready(&jam_url, Instant::now() + options.ready_timeout).await?;
+	if options.coretime {
+		let paras: Vec<&Para> = paras.iter().collect();
+		coretime::start_sales(&network, &genesis.authorizer_blob, &paras, options.cores).await?;
+	}
 
 	Ok(JamNetwork { network, jam_rpc, jam_url, genesis, work_dir, _temp })
 }
