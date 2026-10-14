@@ -4,11 +4,15 @@ doc:
   description: |-
     `sp-staking` gains `PointsKind`, the service for which validators earn reward points:
     `Validation` (relay chain validation) and `Collation` (blocks authored on system chains),
-    with pinned codec indices.
+    with pinned codec indices. It also gains `RewardPoints`, which credits points of a given
+    `PointsKind` to validators, and now holds `RewardsReporter`.
+    `frame-support` re-exports `RewardsReporter`, so `frame_support::traits::RewardsReporter`
+    keeps working.
 
     `pallet-staking-async` gains `reward_service_points(kind, points)`, a public function that
     credits points earned for a service other than relay chain validation to the active era and
-    emits `ServicePointsCredited`. Accounts not exposed in the active era are dropped.
+    emits `ServicePointsCredited`, and implements `RewardPoints` with it. Accounts not exposed in
+    the active era are dropped.
     `PointsKind::Validation` is refused, since those points arrive only with the relay chain
     session report. `ErasRewardPoints` stays the combined tally of every service, so points from
     system chains also move the self-stake incentive share and count as activity for
@@ -49,6 +53,8 @@ doc:
 crates:
 - name: sp-staking
   bump: minor
+- name: frame-support
+  bump: patch
 - name: pallet-staking-async
   bump: major
 - name: pallet-validator-collators

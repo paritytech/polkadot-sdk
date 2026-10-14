@@ -25,28 +25,16 @@
 //! from [`Config::ReportOrigin`], which names the reporting chain as a [`Config::Source`]. The
 //! chain that runs this pallet credits its own counts through [`Pallet::credit_authored_blocks`].
 //! A count becomes `count × PointsPerUnit[(source, Collation)]` era points, handed to
-//! [`Config::RewardPoints`] as [`PointsKind::Collation`] points. A source without an entry for
-//! [`PointsKind::Collation`] in [`PointsPerUnit`] earns nothing. Governance sets the entries
-//! through [`Config::PointsOrigin`]. Relay chain validation points are not weighted here.
+//! [`Config::RewardPoints`] as [`sp_staking::PointsKind::Collation`] points. A source without an
+//! entry for [`sp_staking::PointsKind::Collation`] in [`PointsPerUnit`] earns nothing. Governance
+//! sets the entries through [`Config::PointsOrigin`]. Relay chain validation points are not
+//! weighted here.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
-use alloc::vec::Vec;
-use frame_support::weights::Weight;
-use sp_staking::PointsKind;
-
 pub use pallet::*;
-
-/// Credits era points to validators.
-pub trait RewardPoints<AccountId> {
-	/// Credit `points` earned for `kind` to the active era.
-	fn reward(kind: PointsKind, points: Vec<(AccountId, u32)>);
-
-	/// Weight of [`Self::reward`] for `entries` entries.
-	fn weight(entries: u32) -> Weight;
-}
 
 #[cfg(test)]
 mod mock;
@@ -61,12 +49,11 @@ pub mod weights;
 #[frame_support::pallet]
 pub mod pallet {
 	pub use crate::weights::WeightInfo;
-	use crate::RewardPoints;
 	use alloc::vec::Vec;
 	use frame_support::{pallet_prelude::*, DefaultNoBound};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::MaybeSerializeDeserialize;
-	use sp_staking::PointsKind;
+	use sp_staking::{PointsKind, RewardPoints};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);

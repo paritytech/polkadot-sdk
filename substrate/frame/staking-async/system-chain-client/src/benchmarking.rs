@@ -26,6 +26,7 @@ use codec::Decode;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::traits::{EnsureOrigin, Get};
 use sp_runtime::traits::TrailingZeroInput;
+use sp_staking::PointsKind;
 
 fn any_source<T: Config>() -> T::Source {
 	T::Source::decode(&mut TrailingZeroInput::zeroes())
