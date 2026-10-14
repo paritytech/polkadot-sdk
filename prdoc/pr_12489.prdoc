@@ -26,3 +26,5 @@ crates:
     bump: major
   - name: yet-another-parachain-runtime
     bump: major
+  - name: emulated-integration-tests-common
+    bump: major

@@ -85,6 +85,8 @@ pub trait KeysTranslatorT {
 	}
 }
 
+/// Generates a default `KeysTranslatorT` implementation for the case where the old session keys
+/// were `{aura}` and we want to append the `authority_discovery` key.
 #[macro_export]
 macro_rules! impl_keys_translator {
 	($session_keys: ident, $aura_id: ident, $authority_discovery_id: ident) => {

@@ -266,19 +266,22 @@ async fn register_keys(
 	let proof = generated
 		.proof
 		.ok_or_else(|| anyhow!("`{collator}` returned keys without an ownership proof"))?;
-	// The session keys of both parachains are one sr25519 Aura key + one authority discovery key.
+	// The session keys of both parachains are one sr25519 Aura key
+	// + one sr25519 authority discovery key.
 	let keys: [u8; 64] = generated.keys.0.as_slice().try_into().map_err(|_| {
-		anyhow!("`{collator}` returned {} bytes of keys, expected 32", generated.keys.0.len())
+		anyhow!("`{collator}` returned {} bytes of keys, expected 64", generated.keys.0.len())
 	})?;
-	let aura = &keys[..32];
+	let (aura, authority_discovery) = keys.split_at(32);
 	log::info!(
 		"`{collator}` generated Aura key 0x{} for 0x{}",
 		hex::encode(aura),
 		hex::encode(owner)
 	);
 
-	let keys =
-		Value::named_composite([("aura", Value::unnamed_composite([Value::from_bytes(aura)]))]);
+	let keys = Value::named_composite([
+		("aura", Value::unnamed_composite([Value::from_bytes(aura)])),
+		("authority_discovery", Value::unnamed_composite([Value::from_bytes(authority_discovery)])),
+	]);
 	let call = subxt::dynamic::tx(
 		"Session",
 		"set_keys",
