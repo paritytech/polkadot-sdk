@@ -29,6 +29,10 @@
 //! points. A source without an entry for [`sp_staking::ValidatorServiceKind::Collation`] in
 //! [`PointsPerService`] earns nothing. Governance sets the entries through
 //! [`Config::PointsOrigin`]. Relay chain consensus points are not converted here.
+//!
+//! For example, with `PointsPerService[(source, Collation)] = 10` for a reporting chain, a report
+//! from that chain of 40 units (blocks authored, for
+//! [`sp_staking::ValidatorServiceKind::Collation`]) for an account credits it 400 era points.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
