@@ -1227,9 +1227,9 @@ impl pallet_validator_set_announcer::Config for Runtime {
 
 impl pallet_staking_async_system_chain_client::Config for Runtime {
 	type Source = ParaId;
-	type ReportOrigin = staking::AuthoredBlocksReportOrigin;
+	type ReportOrigin = staking::EnsureReportingSibling;
 	type PointsOrigin = CollatorSelectionUpdateOrigin;
-	type RewardPoints = staking::StakingRewardPoints;
+	type RewardPoints = Staking;
 	// A relay chain block earns a fixed number of points. The cap leaves governance room above the
 	// per-unit value that matches it, while an era's total stays far from saturating.
 	type MaxPointsPerUnit = ConstU32<1_000>;

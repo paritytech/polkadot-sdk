@@ -25,9 +25,11 @@ use alloc::{collections::BTreeSet, vec::Vec};
 use cumulus_pallet_parachain_system::OnSystemEvent;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
-	traits::{EnsureOrigin, Get},
+	traits::{EnsureOrigin, Get, Hooks},
 	BoundedBTreeSet, BoundedVec,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
+use pallet_session::ShouldEndSession;
 use sp_runtime::traits::Saturating;
 
 #[benchmarks]
@@ -145,6 +147,27 @@ mod benchmarks {
 		}
 
 		assert_eq!(AuthoredBlocks::<T>::get(&author), 1);
+	}
+
+	/// A block at a multiple of `ReportPeriod` that makes the early report of the stored set with
+	/// no counts, and the `PendingRotation` read of `should_end_session`.
+	#[benchmark]
+	fn on_initialize() -> Result<(), BenchmarkError> {
+		let validators = BoundedBTreeSet::try_from(BTreeSet::from([account("validator", 0, 0)]))
+			.map_err(|_| BenchmarkError::Stop("the set exceeds MaxValidators"))?;
+		Pallet::<T>::do_receive_validator_set(0, validators)?;
+		// The early report is due at any time with a zero expected era duration.
+		ExpectedEraDuration::<T>::put(0);
+		let now = ReportPeriod::<T>::get();
+
+		#[block]
+		{
+			<Pallet<T> as Hooks<BlockNumberFor<T>>>::on_initialize(now);
+			<Pallet<T> as ShouldEndSession<_>>::should_end_session(now);
+		}
+
+		assert_eq!(SetReceivedAt::<T>::get(), None);
+		Ok(())
 	}
 
 	/// A stored set of `MaxValidators` validators, `n` of them with counts, every count handed

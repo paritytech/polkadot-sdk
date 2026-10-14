@@ -17,20 +17,19 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::traits::{EitherOf, Equals, TryMapSuccess};
+use frame_support::traits::{EitherOf, EnsureOrigin};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
-use pallet_xcm::EnsureXcm;
 use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::TryMorph, transaction_validity::TransactionPriority, FixedPointNumber, FixedU128,
-	SaturatedConversion,
+	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
 };
 use sp_staking::EraIndex;
 use testnet_parachains_constants::westend::{
-	locations::PeopleLocation, staking::MAX_VALIDATOR_SET,
+	locations::{PeopleLocation, PeopleParaId},
+	staking::MAX_VALIDATOR_SET,
 };
 use xcm::latest::prelude::*;
 
@@ -531,40 +530,30 @@ impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSe
 		match destination {
 			ValidatorSetDestination::People => {
 				ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
-					testnet_parachains_constants::westend::locations::PeopleParaId::get(),
+					PeopleParaId::get(),
 				)
 			},
 		}
 	}
 }
 
-/// Returns the parachain id of a sibling parachain location.
-pub struct SiblingParaId;
-impl TryMorph<Location> for SiblingParaId {
-	type Outcome = ParaId;
+/// Accepts the sibling parachain origin of People and returns its parachain id.
+pub struct EnsureReportingSibling;
+impl EnsureOrigin<RuntimeOrigin> for EnsureReportingSibling {
+	type Success = ParaId;
 
-	fn try_morph(location: Location) -> Result<ParaId, ()> {
-		match location.unpack() {
-			(1, [Parachain(id)]) => Ok((*id).into()),
-			_ => Err(()),
+	fn try_origin(o: RuntimeOrigin) -> Result<ParaId, RuntimeOrigin> {
+		match o.clone().into() {
+			Ok(cumulus_pallet_xcm::Origin::SiblingParachain(id)) if id == PeopleParaId::get() => {
+				Ok(id)
+			},
+			_ => Err(o),
 		}
 	}
-}
 
-/// The system chains allowed to report the blocks authored on them, as their parachain id.
-pub type AuthoredBlocksReportOrigin =
-	TryMapSuccess<EnsureXcm<Equals<PeopleLocation>>, SiblingParaId>;
-
-/// Credits era points to the validators in staking.
-pub struct StakingRewardPoints;
-impl pallet_staking_async_system_chain_client::RewardPoints<AccountId> for StakingRewardPoints {
-	fn reward(kind: sp_staking::PointsKind, points: Vec<(AccountId, u32)>) {
-		Staking::reward_service_points(kind, points);
-	}
-
-	fn weight(entries: u32) -> Weight {
-		use pallet_staking_async::WeightInfo;
-		<Runtime as pallet_staking_async::Config>::WeightInfo::reward_service_points(entries)
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(cumulus_pallet_xcm::Origin::SiblingParachain(PeopleParaId::get()).into())
 	}
 }
 
