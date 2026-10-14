@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791928284138,
+  "lastUpdate": 1791962390229,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -133811,6 +133811,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2677929172,
             "range": "± 33813483",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "47612878ffdca773d88bb35209b240d52337d376",
+          "message": "Fix `eth_subscribe(\"newHeads\")` in the ETH RPC (#13419)\n\n# Description\n\n`eth_subscribe(\"newHeads\")` was rejected on master. `SubscriptionKind`\nserialised the variant as `newBlockHeaders`, and only our own client\nsent that. This PR renames it to `newHeads` and adds `difficulty` and\n`mixHash` to `BlockHeader`, because alloy can't decode a `newHeads`\nheader without them.\n\nThe `newHeads` test now subscribes through alloy's WebSocket provider,\nwhich sends `\"newHeads\"` on the wire, and checks the header against the\nreceipt and `eth_getBlockByNumber`.\n\nSplit out of #13002 so it can be backported on its own.",
+          "timestamp": "2026-10-14T06:03:47Z",
+          "tree_id": "5c8c41b26201c7432996526e00336723ec2d53c7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/47612878ffdca773d88bb35209b240d52337d376"
+        },
+        "date": 1791962361625,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19496228,
+            "range": "± 47681",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19691918,
+            "range": "± 219510",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21020419,
+            "range": "± 131635",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26097612,
+            "range": "± 176911",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59954202,
+            "range": "± 625351",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 392142677,
+            "range": "± 9157074",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2692869951,
+            "range": "± 100434205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16922817,
+            "range": "± 232916",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16771781,
+            "range": "± 100481",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17506226,
+            "range": "± 152113",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22098546,
+            "range": "± 296803",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62223367,
+            "range": "± 748589",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 357359286,
+            "range": "± 3019777",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2653945628,
+            "range": "± 26863637",
             "unit": "ns/iter"
           }
         ]
