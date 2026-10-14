@@ -363,6 +363,7 @@ async fn topology_mismatch(
 	offline_node_idx: Option<usize>,
 ) -> Result<Option<String>, anyhow::Error> {
 	let expected_eligible = nodes.len() - 1;
+	let online_peers = expected_eligible - usize::from(offline_node_idx.is_some());
 	// A node's routing peers may include the offline one.
 	let connected_floor =
 		expected_eligible.min(REPLICATION_FACTOR) - usize::from(offline_node_idx.is_some());
@@ -378,12 +379,13 @@ async fn topology_mismatch(
 					.ok_or_else(|| anyhow!("{}: missing system_health.isSyncing", handle.name()))?;
 				if eligible != expected_eligible as f64 ||
 					actual_connected < connected_floor as f64 ||
+					actual_connected > online_peers as f64 ||
 					syncing
 				{
 					return Ok(Some(format!(
 						"{}: eligible={eligible}, connected={actual_connected}, syncing={syncing}; \
-						 expected eligible={expected_eligible}, connected>={connected_floor}, \
-						 syncing=false",
+						 expected eligible={expected_eligible}, \
+						 connected={connected_floor}..={online_peers}, syncing=false",
 						handle.name(),
 					)));
 				}
