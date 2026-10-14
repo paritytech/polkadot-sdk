@@ -1,6 +1,6 @@
 // Messaging (design §8): the Refine-side `set_messages_streams_root` /
 // `set_messages_requires_roots` declarations (§8.1), the Accumulate
-// settlement check (§5.1 step 6), the per-parachain settlement ring with its
+// settlement check (§5.1 step 5), the per-parachain settlement ring with its
 // wrapping `u32` positions and position-based eviction (§8.2), its
 // reservation in the baseline footprint (§6.1), and teardown (§8.3).
 module messaging_test {
@@ -36,7 +36,7 @@ module messaging_test {
   ): WorkResult = {
     result: WorkOk(Ok({
       paraId: para,
-      validationCode: { hash: codeHash, len: FixedCodeLen },
+      validationCode: codeHash,
       parentHeadHash: headHash(parent),
       headData: parent + 1,
       upwardMessages: msgs,
@@ -48,15 +48,11 @@ module messaging_test {
   }
 
   /// §4.3 / §8.1: either messaging host call invoked more than once aborts
-  /// the PVF with `MessagesCallRepeated`; called at most once each, the
-  /// declarations travel verbatim in the digest, the `StreamsRoot` as an
-  /// option and the requires roots as the declared set.
+  /// the validation code with `MessagesCallRepeated`; called at most once
+  /// each, the declarations travel verbatim in the digest, the `StreamsRoot`
+  /// as an option and the requires roots as the declared set.
   run messagesRepeatedCallRejectedTest = {
     val ct = CoretimeParaId
-    val ctPkg: WorkPackage = {
-      authorizedParas: List(ct),
-      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
-    }
     val streamsRootTwice =
       refineWithMessaging(initialState, ct, StreamsRootRepeated, RequiresRootsUndeclared)
     val requiresTwice =
@@ -65,13 +61,14 @@ module messaging_test {
       initialState, ct,
       StreamsRootDeclared(StreamsRootA),
       RequiresRootsDeclared(List((AssetHubParaId, StreamsRootB))))
+    val wellFormed = wellFormedCalls(headHash(0), 1, List())
     all {
-      assert(streamsRootTwice == WorkOk(Err({ paraId: ct, error: MessagesCallRepeated }))),
-      assert(requiresTwice == WorkOk(Err({ paraId: ct, error: MessagesCallRepeated }))),
+      assert(streamsRootTwice == refineCallsErr(initialState, ct, MessagesCallRepeated)),
+      assert(requiresTwice == refineCallsErr(initialState, ct, MessagesCallRepeated)),
       // Both called once: the digest carries the declarations verbatim.
       assert(onceEach == WorkOk(Ok({
         paraId: ct,
-        validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen },
+        validationCode: activeCandidateCode(initialState, ct).hash,
         parentHeadHash: headHash(0),
         headData: 1,
         upwardMessages: List(),
@@ -79,23 +76,23 @@ module messaging_test {
         messagesStreamsRoot: Some(StreamsRootA),
         messagesRequiresRoots: List((AssetHubParaId, StreamsRootB))
       }))),
-      // Failure precedence, pinned for the Rust harness. A PVF abort wins:
-      // the declarations never reach the wrapper.
-      assert(refineWithRoots(initialState, ctPkg, false, PvfReportError(9),
-        Some(headHash(0)), HeadDeclared(1), List(), 0,
-        StreamsRootRepeated, RequiresRootsRepeated)[0]
-        == WorkOk(Err({ paraId: ct, error: Opaque(9) }))),
+      // Failure precedence, pinned for the Rust harness. The first aborting
+      // call wins: a `report_error` before the messaging calls means they are
+      // never made.
+      assert(refineCalls(initialState, ct,
+        wellFormed.append(ReportError(9))
+          .concat(messagingCalls(StreamsRootRepeated, RequiresRootsRepeated)))
+        == refineCallsErr(initialState, ct, Opaque(9))),
       // The messaging calls abort in the call itself, before the wrapper's
       // post-run head-declaration checks.
-      assert(refineWithRoots(initialState, ctPkg, false, PvfOk,
-        None, HeadUndeclared, List(), 0,
-        StreamsRootRepeated, RequiresRootsUndeclared)[0]
-        == WorkOk(Err({ paraId: ct, error: MessagesCallRepeated }))),
+      assert(refineCalls(initialState, ct,
+        messagingCalls(StreamsRootRepeated, RequiresRootsUndeclared))
+        == refineCallsErr(initialState, ct, MessagesCallRepeated)),
       // A repeat is settled before the set's own validity.
-      assert(refineWithRoots(initialState, ctPkg, false, PvfOk,
-        Some(headHash(0)), HeadDeclared(1), List(), 0,
-        StreamsRootRepeated, RequiresRootsDeclared(List((ct, StreamsRootA))))[0]
-        == WorkOk(Err({ paraId: ct, error: MessagesCallRepeated }))),
+      assert(refineCalls(initialState, ct,
+        wellFormed.concat(
+          messagingCalls(StreamsRootRepeated, RequiresRootsDeclared(List((ct, StreamsRootA))))))
+        == refineCallsErr(initialState, ct, MessagesCallRepeated)),
       init
     }
   }
@@ -104,7 +101,7 @@ module messaging_test {
   /// source `ParaId`, or naming the candidate's own para is rejected with
   /// `MessagesInvalidRequires`. Exactly `MaxRequiresSources` distinct foreign
   /// sources pass Refine: whether they SETTLE is Accumulate's concern alone
-  /// (§5.1 step 6), so Refine accepts entries no ring will ever match.
+  /// (§5.1 step 5), so Refine accepts entries no ring will ever match.
   run messagesInvalidRequiresRejectedTest = {
     val ct = CoretimeParaId
     pure def sources(n: int): List[(ParaId, StreamsRoot)] =
@@ -123,10 +120,10 @@ module messaging_test {
       initialState, ct, StreamsRootUndeclared,
       RequiresRootsDeclared(List((ct, rootNo(0)))))
     all {
-      assert(oneTooMany == WorkOk(Err({ paraId: ct, error: MessagesInvalidRequires }))),
+      assert(oneTooMany == refineCallsErr(initialState, ct, MessagesInvalidRequires)),
       assert(isOkDigest(atCap)),
-      assert(dupSource == WorkOk(Err({ paraId: ct, error: MessagesInvalidRequires }))),
-      assert(namesItself == WorkOk(Err({ paraId: ct, error: MessagesInvalidRequires }))),
+      assert(dupSource == refineCallsErr(initialState, ct, MessagesInvalidRequires)),
+      assert(namesItself == refineCallsErr(initialState, ct, MessagesInvalidRequires)),
       // The same rules as pure predicates, for the Rust harness to mirror.
       assert(wellFormedRequiresRoots(sources(MaxRequiresSources), ct)),
       assert(not(wellFormedRequiresRoots(sources(MaxRequiresSources + 1), ct))),
@@ -139,7 +136,7 @@ module messaging_test {
     }
   }
 
-  /// §5.1 step 6: the settlement check, end to end through the shared
+  /// §5.1 step 5: the settlement check, end to end through the shared
   /// `accumulateBlock` pipeline. A receiver naming a root its source never
   /// enacted is rejected SILENTLY (head unchanged, nothing logged, like every
   /// other Accumulate rejection); once the sender enacts a candidate whose
@@ -189,9 +186,11 @@ module messaging_test {
     val code: ValidationCodeHash = { vchBytes: 1 }
     pure def candidate(parent: HeadData): ParachainWorkDigestOk = {
       paraId: para,
-      validationCode: { hash: code, len: FixedCodeLen },
+      validationCode: code,
       parentHeadHash: headHash(parent),
-      headData: parent + 1,
+      // A stale candidate declares the sentinel as its new head too, as in
+      // `buildPackage`; `+ 1` would overflow it.
+      headData: if (parent == StaleParentHead) parent else parent + 1,
       upwardMessages: List(),
       lookupAnchor: 0,
       messagesStreamsRoot: Some(StreamsRootA),
@@ -199,10 +198,10 @@ module messaging_test {
     }
     val rejected = accumulateOnePackage(
       initialState, { result: WorkOk(Ok(candidate(StaleParentHead))), authTrace: 0 },
-      Set(), None, FixedCodeLen, 1, Map())
+      Set(), List(), FixedCodeLen, 1, Map())
     val enacted = accumulateOnePackage(
       initialState, { result: WorkOk(Ok(candidate(0))), authTrace: 0 },
-      Set(), None, FixedCodeLen, 1, Map())
+      Set(), List(), FixedCodeLen, 1, Map())
     all {
       // The rejected candidate changed nothing: no head write, no push.
       assert(rejected.state == initialState),
@@ -327,14 +326,14 @@ module messaging_test {
   /// §6.1 / §8.2: the settlement ring at capacity is reserved in the baseline
   /// footprint, so pushes never move `usedStateBalance` and the accounting
   /// invariant keeps holding with a full ring. The figures pin the design
-  /// doc's derivation: 10 937 for the ring, 80 768 for the baseline.
+  /// doc's derivation: 10 937 for the ring, 80 762 for the baseline.
   run settlementRingReservedInBaselineTest = {
     val para = CoretimeParaId
     val before = initialState.paraInfo(para).usedStateBalance
     val pushed = pushMany(initialState, para, MaxSettlementRingCapacity + 1)
     all {
       assert(SettlementRingFootprint == 10937),
-      assert(BaselineFootprint == 80768),
+      assert(BaselineFootprint == 80762),
       assert(pushed.paraInfo(para).usedStateBalance == before),
       init
     }
@@ -346,7 +345,7 @@ module messaging_test {
       }))
   }
 
-  /// §5.1 step 6 against a ring at CAPACITY: fullness changes nothing about
+  /// §5.1 step 5 against a ring at CAPACITY: fullness changes nothing about
   /// the check. A receiver naming the evicted root or a never-pushed root is
   /// silently rejected (the whole state is untouched), while the identical
   /// candidate naming any root still inside the window, oldest or newest,
@@ -361,7 +360,7 @@ module messaging_test {
     pure def wanting(root: StreamsRoot): WorkResult = {
       result: WorkOk(Ok({
         paraId: receiver,
-        validationCode: { hash: receiverCode, len: FixedCodeLen },
+        validationCode: receiverCode,
         parentHeadHash: headHash(0),
         headData: 1,
         upwardMessages: List(),
@@ -372,7 +371,7 @@ module messaging_test {
       authTrace: 0
     }
     pure def runOn(root: StreamsRoot): PerPackageOutcome =
-      accumulateOnePackage(fullRing, wanting(root), Set(), None, FixedCodeLen, 1, Map())
+      accumulateOnePackage(fullRing, wanting(root), Set(), List(), FixedCodeLen, 1, Map())
     all {
       // The evicted root and a never-pushed root: rejected, NOTHING changed.
       assert(runOn(rootNo(0)).state == fullRing),
@@ -384,7 +383,7 @@ module messaging_test {
     }
   }
 
-  /// §5.1 step 6 at FULL fan-in (`MaxRequiresSources` entries): settlement is
+  /// §5.1 step 5 at FULL fan-in (`MaxRequiresSources` entries): settlement is
   /// all-or-nothing. Against empty rings the max-size set is silently
   /// rejected; with every source's ring holding its root the candidate
   /// enacts; with 31 of 32 present the single missing source still rejects
@@ -398,7 +397,7 @@ module messaging_test {
     val candidate: WorkResult = {
       result: WorkOk(Ok({
         paraId: receiver,
-        validationCode: { hash: receiverCode, len: FixedCodeLen },
+        validationCode: receiverCode,
         parentHeadHash: headHash(0),
         headData: 1,
         upwardMessages: List(),
@@ -415,7 +414,7 @@ module messaging_test {
     val oneMissing = range(0, MaxRequiresSources - 1).foldl(initialState, (acc, i) =>
       settlementRingPush(acc, srcPara(i), rootNo(i)))
     pure def runOn(s: ParachainServiceState): PerPackageOutcome =
-      accumulateOnePackage(s, candidate, Set(), None, FixedCodeLen, 1, Map())
+      accumulateOnePackage(s, candidate, Set(), List(), FixedCodeLen, 1, Map())
     all {
       // Refine would carry this set: it is well-formed at the cap.
       assert(wellFormedRequiresRoots(fullRequires, receiver)),
@@ -430,7 +429,7 @@ module messaging_test {
     }
   }
 
-  /// §5.1 step 6, the line the check-before-head-write ordering exists for:
+  /// §5.1 step 5, the line the check-before-head-write ordering exists for:
   /// "a rejected candidate publishes no root of its own". A candidate that
   /// both consumes and declares a root is rejected at settlement, so neither
   /// its head NOR its own `messages_streams_root` lands; the identical
@@ -445,10 +444,10 @@ module messaging_test {
       receiver, receiverCode, 0, List(),
       Some(own), List((sender, rootNo(0))))
     val vsEmpty = accumulateOnePackage(
-      initialState, pipeline, Set(), None, FixedCodeLen, 1, Map())
+      initialState, pipeline, Set(), List(), FixedCodeLen, 1, Map())
     val ready = settlementRingPush(initialState, sender, rootNo(0))
     val vsReady = accumulateOnePackage(
-      ready, pipeline, Set(), None, FixedCodeLen, 1, Map())
+      ready, pipeline, Set(), List(), FixedCodeLen, 1, Map())
     all {
       // Settlement rejection: no head write and, crucially, no publish.
       assert(vsEmpty.state == initialState),
@@ -470,10 +469,10 @@ module messaging_test {
     val onlyA = settlementRingPush(initialState, a, r)
     val wrongSource = accumulateOnePackage(
       onlyA, mkWork(receiver, receiverCode, 0, List(), None, List((MkParaId(3), r))),
-      Set(), None, FixedCodeLen, 1, Map())
+      Set(), List(), FixedCodeLen, 1, Map())
     val rightSource = accumulateOnePackage(
       onlyA, mkWork(receiver, receiverCode, 0, List(), None, List((a, r))),
-      Set(), None, FixedCodeLen, 1, Map())
+      Set(), List(), FixedCodeLen, 1, Map())
     all {
       // The same root value under a different source misses.
       assert(wrongSource.state == onlyA),
@@ -490,7 +489,7 @@ module messaging_test {
     val sender = CoretimeParaId
     val senderCode: ValidationCodeHash = { vchBytes: 1 }
     val out = accumulateAll(
-      initialState, Set(), None, FixedCodeLen, 1,
+      initialState, Set(), List(), FixedCodeLen, 1,
       List(
         mkWork(sender, senderCode, 0, List(), Some(rootNo(1)), List()),
         mkWork(sender, senderCode, 1, List(), Some(rootNo(2)), List())),
@@ -519,7 +518,7 @@ module messaging_test {
     // Same block: Coretime's first candidate resets AH's head, its second
     // consumes from AH's pre-reset ring.
     val sameBlock = accumulateAll(
-      seeded, Set(), None, FixedCodeLen, 1,
+      seeded, Set(), List(), FixedCodeLen, 1,
       List(
         mkWork(ct, ctCode, 0, List(ParachainSetHead({ paraId: ah, newHead: 7 })), None, List()),
         mkWork(ct, ctCode, 1, List(), None, List((ah, rootNo(0))))),
@@ -578,7 +577,7 @@ module messaging_test {
       parachainSetValidationCode(registered, doomed, code, FixedCodeLen, 0).state
     // Provided code: the clean-up's forget only unrequests (two-step, §6.1),
     // so the para survives in the deregistering state.
-    val provided = markProvided(withCode, vchAsHash(code), FixedCodeLen)
+    val provided = markProvided(withCode, code.asPreimage(), FixedCodeLen)
     val seeded = settlementRingPush(provided, doomed, rootNo(5))
     val out = parachainCleanUp(seeded, doomed, 0).state
     all {
@@ -613,13 +612,13 @@ module messaging_test {
       doomed, rootS)
     val cleanUp = List(ParachainCleanUp(doomed))
     val cleanUpFirst = accumulateAll(
-      seeded, Set(), None, FixedCodeLen, 1,
+      seeded, Set(), List(), FixedCodeLen, 1,
       List(
         mkWork(ct, ctCode, 0, cleanUp, None, List()),
         mkWork(ct, ctCode, 1, List(), None, List((doomed, rootS)))),
       Map())
     val receiverFirst = accumulateAll(
-      seeded, Set(), None, FixedCodeLen, 1,
+      seeded, Set(), List(), FixedCodeLen, 1,
       List(
         mkWork(ct, ctCode, 0, List(), None, List((doomed, rootS))),
         mkWork(ct, ctCode, 1, cleanUp, None, List())),

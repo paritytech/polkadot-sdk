@@ -6,6 +6,7 @@ module transfers_test {
   import state.* from "../state"
   import state_balance.* from "../state_balance"
   import accumulate.* from "../accumulate"
+  import foreign_services.* from "../foreign_services"
   import state_vars.* from "../state_vars"
   import main.* from "../main"
   import invariants.* from "../invariants"
@@ -23,16 +24,16 @@ module transfers_test {
     // One short of the reservation: still inside it, so the entry is free and
     // fills it exactly.
     val edge = applyIncomingTransfer(almostFullTransferQueue,
-      { from: MkServiceId(0), amount: 0, toSupervisorBalance: false, memo: 0 })
+      { source: MkServiceId(0), amount: 0, toSupervisorBalance: false, memo: 0 })
     // Below the bound: a zero-amount transfer is still recorded.
     val below = applyIncomingTransfer(initialState,
-      { from: MkServiceId(0), amount: 0, toSupervisorBalance: false, memo: 0 })
+      { source: MkServiceId(0), amount: 0, toSupervisorBalance: false, memo: 0 })
     // At the bound: too little to pay for its own entry, so not recorded.
     val short = applyIncomingTransfer(full,
-      { from: MkServiceId(0), amount: IncomingTransferEntryFootprint - 1, toSupervisorBalance: false, memo: 0 })
+      { source: MkServiceId(0), amount: IncomingTransferEntryFootprint - 1, toSupervisorBalance: false, memo: 0 })
     // At the bound: exactly covers its entry, so recorded past the reserved portion.
     val paid = applyIncomingTransfer(full,
-      { from: MkServiceId(0), amount: IncomingTransferEntryFootprint, toSupervisorBalance: false, memo: 0 })
+      { source: MkServiceId(0), amount: IncomingTransferEntryFootprint, toSupervisorBalance: false, memo: 0 })
     all {
       // One short of the reservation the entry is free, filling it exactly.
       assert(queuedTransferCount(edge) == MaxIncomingTransfers),
@@ -40,7 +41,10 @@ module transfers_test {
       assert(below.incomingTransferBuckets ==
         Some({ firstBucket: 0, lastBucket: 0, count: 1 })),
       assert(queuedTransferCount(below) == 1),
-      assert(short == full),
+      // Not recorded, but JAM still credits it.
+      assert({ ...short, jamAccount: full.jamAccount } == full),
+      assert(short.jamAccount.balance ==
+        full.jamAccount.balance + IncomingTransferEntryFootprint - 1),
       // Past the bound: the next id past the old tail.
       assert(queuedTransferCount(paid) == MaxIncomingTransfers + 1),
       assert(paid.incomingTransferBuckets ==
@@ -54,8 +58,8 @@ module transfers_test {
   /// adding no storage item. A later invocation cannot reopen that bucket, so its
   /// arrivals get a fresh id: that is what closes a bucket and makes clean-up safe.
   run oneInvocationSharesBucketTest = {
-    val t1 = { from: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 0 }
-    val t2 = { from: MkServiceId(3), amount: 600, toSupervisorBalance: false, memo: 0 }
+    val t1 = { source: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 0 }
+    val t2 = { source: MkServiceId(3), amount: 600, toSupervisorBalance: false, memo: 0 }
     // One invocation carrying both.
     val together = applyIncomingTransfers(initialState, List(t1, t2))
     // Two invocations carrying one each.
@@ -79,7 +83,7 @@ module transfers_test {
   /// arrival timeslot.
   run bucketSpillsAtCapacityTest = {
     val batch = range(0, MaxTransfersPerBucket + 1).foldl(List(), (acc, i) =>
-      acc.append({ from: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: i }))
+      acc.append({ source: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: i }))
     val filled = applyIncomingTransfers(initialState, batch)
     all {
       // One past capacity in a single invocation: two buckets.
@@ -95,62 +99,214 @@ module transfers_test {
   /// Every `TransferFailed` payload in `paraId`'s accumulate log, oldest first.
   pure def transferFailures(s: ParachainServiceState, paraId: ParaId):
     List[{ id: int, error: TransferError }] =
-  s.paraLog(paraId).foldl(List(), (acc, pair) => match pair._2 {
-    | AccumulateLogEntry(evs) => evs.foldl(acc, (a, e) => match e {
-      | TransferFailed(p) => a.append(p)
-      | _ => a
+    s.paraLog(paraId).foldl(List(), (acc, pair) => match pair._2 {
+      | Accumulate(evs) => evs.foldl(acc, (a, e) => match e {
+        | TransferFailed(p) => a.append(p)
+        | _ => a
+      })
+      | Refine(_) => acc
     })
-    | RefineLogEntry(_) => acc
-  })
 
+  /// A service this one does not supervise: it supervises itself.
+  pure def independentService(id: ServiceId): ForeignService = {
+    supervisor: id,
+    supervisorCreated: 0,
+    created: 0,
+    codeHash: { hashBytes: 0 },
+    requests: Map(),
+    storage: Map(),
+    account: { balance: 1000000, supervisorBalance: 0, minMemoGas: 100 }
+  }
+
+  /// Two such services, as transfer counterparties.
+  pure val counterparties: ForeignServices = Map(
+    MkServiceId(5) -> independentService(MkServiceId(5)),
+    MkServiceId(6) -> independentService(MkServiceId(6))
+  )
+
+  /// `dest` exists but supervises itself, so this service may pay into it but
+  /// neither write it directly nor spend from it.
   run transferOutPlainMoveNeedsSupervisionTest = {
     val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
     val dest = MkServiceId(5)
     init
+      .then(setForeign(counterparties))
       // Plain move to another service → rejected.
       .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
-        List(TransferOut({ source: None, dest: dest, amount: 100, id: 77,
-          sourceSupervisorBalance: false, destSupervisorBalance: false,
-          deferred: None }))))))
+        List(TransferOut({
+          source: None,
+          dest: dest,
+          amount: 100,
+          id: 77,
+          sourceSupervisorBalance: false,
+          destSupervisorBalance: false,
+          deferred: None
+        }))))))
       // The caller-supplied id is echoed back untouched.
       .then(expectThat(svc.transferFailures(AssetHubParaId) == List(
-        { id: 77, error: DestinationNotSupervised })))
+        { id: 77, error: DestinationNotSupervised }
+      )))
       // Deferred transfer → no supervision needed, so no new failure appears.
       .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
-        List(TransferOut({ source: None, dest: dest, amount: 100, id: 78,
-          sourceSupervisorBalance: false, destSupervisorBalance: false,
-          deferred: Some((7, 1000)) }))))))
+        List(TransferOut({
+          source: None,
+          dest: dest,
+          amount: 100,
+          id: 78,
+          sourceSupervisorBalance: false,
+          destSupervisorBalance: false,
+          deferred: Some((7, 1000))
+        }))))))
       .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 1))
       // Self-move into the service's own supervisor balance → permitted, so no
       // new failure appears.
       .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
-        List(TransferOut({ source: None, dest: ParachainServiceId, amount: 100,
-          id: 79, sourceSupervisorBalance: false, destSupervisorBalance: true,
-          deferred: None }))))))
+        List(TransferOut({
+          source: None,
+          dest: ParachainServiceId,
+          amount: 100,
+          id: 79,
+          sourceSupervisorBalance: false,
+          destSupervisorBalance: true,
+          deferred: None
+        }))))))
       .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 1))
-      // The reverse self-move spends the supervisor balance, so its outcome
-      // depends on self-supervision the model abstracts away; no failure here.
+      // The reverse self-move spends the supervisor balance 79 just funded,
+      // which this service may do as its own supervisor.
       .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
-        List(TransferOut({ source: None, dest: ParachainServiceId, amount: 100,
-          id: 80, sourceSupervisorBalance: true, destSupervisorBalance: false,
-          deferred: None }))))))
+        List(TransferOut({
+          source: None,
+          dest: ParachainServiceId,
+          amount: 100,
+          id: 80,
+          sourceSupervisorBalance: true,
+          destSupervisorBalance: false,
+          deferred: None
+        }))))))
       .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 1))
-      // A foreign source always fails, but `UnknownSource` vs
-      // `SourceNotSupervised` turns on existence the model abstracts away.
+      // Spending from a service this one does not supervise → rejected.
       .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
-        List(TransferOut({ source: Some(dest), dest: MkServiceId(6),
-          amount: 100, id: 81, sourceSupervisorBalance: false,
-          destSupervisorBalance: false, deferred: None }))))))
-      .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 1))
+        List(TransferOut({
+          source: Some(dest),
+          dest: MkServiceId(6),
+          amount: 100,
+          id: 81,
+          sourceSupervisorBalance: false,
+          destSupervisorBalance: false,
+          deferred: None
+        }))))))
+      .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 2))
       // Both selectors naming the regular balance on a self target is an
       // identity write.
       .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
-        List(TransferOut({ source: None, dest: ParachainServiceId, amount: 100,
-          id: 82, sourceSupervisorBalance: false, destSupervisorBalance: false,
-          deferred: None }))))))
+        List(TransferOut({
+          source: None,
+          dest: ParachainServiceId,
+          amount: 100,
+          id: 82,
+          sourceSupervisorBalance: false,
+          destSupervisorBalance: false,
+          deferred: None
+        }))))))
       .then(expectThat(svc.transferFailures(AssetHubParaId) == List(
         { id: 77, error: DestinationNotSupervised },
-        { id: 82, error: DestinationNotSupervised })))
+        { id: 81, error: SourceNotSupervised },
+        { id: 82, error: DestinationNotSupervised }
+      )))
+  }
+
+  pure def sendOut(
+    s: ParachainServiceState, fs: ForeignServices, t: TransferOutArgs
+  ): AccumulateOutcome =
+    applyUpwardMessage(accOverWith(s, fs), AssetHubParaId, FixedCodeLen, 0, 0, TransferOut(t))
+
+  pure def refusal(e: TransferError): List[AccumulateLog] =
+    List(TransferFailed({ id: 1, error: e }))
+
+  /// A deferred 100 from this service's regular balance to `MkServiceId(5)`.
+  pure val payFive: TransferOutArgs = {
+    source: None,
+    dest: MkServiceId(5),
+    amount: 100,
+    id: 1,
+    sourceSupervisorBalance: false,
+    destSupervisorBalance: false,
+    deferred: Some((0, 1000))
+  }
+
+  /// Every way JAM's `transfer` refuses, in the order it checks them, and what a
+  /// transfer that goes through moves.
+  run transferOutRefusalsAndEffectsTest = {
+    val s = initialState
+    val fs = counterparties
+    val slack = s.jamAccount.balance - serviceThreshold(s)
+    val paid = sendOut(s, fs, payFive)
+    val atThreshold = { ...s, jamAccount: { ...s.jamAccount, balance: serviceThreshold(s) } }
+    val intoOwnSupervisor = {
+      ...payFive,
+      dest: ParachainServiceId,
+      destSupervisorBalance: true,
+      deferred: None
+    }
+    val intoSupervisor = sendOut(s, fs, { ...payFive, destSupervisorBalance: true })
+    all {
+      assert(sendOut(s, fs, { ...payFive, source: Some(MkServiceId(9)) }).logs
+        == refusal(UnknownSource)),
+      // An unknown `dest` takes precedence over the plain move it cannot make.
+      assert(sendOut(s, fs, { ...payFive, dest: MkServiceId(9), deferred: None }).logs
+        == refusal(UnknownDestination)),
+      // `dest` asks for at least 100 gas.
+      assert(sendOut(s, fs, { ...payFive, deferred: Some((0, 99)) }).logs
+        == refusal(GasBelowDestinationMinimum)),
+      assert(sendOut(s, fs, { ...payFive, deferred: Some((0, 100)) }).logs == List()),
+      // Everything above the threshold may go, and not one unit more.
+      assert(sendOut(s, fs, { ...payFive, amount: slack + 1 }).logs
+        == refusal(InsufficientServiceBalance)),
+      assert(sendOut(s, fs, { ...payFive, amount: slack }).logs == List()),
+      // The supervisor balance starts out empty.
+      assert(sendOut(s, fs, { ...payFive, sourceSupervisorBalance: true }).logs
+        == refusal(InsufficientServiceBalance)),
+      // Between its own two balances, a plain move keeps the total, so it goes
+      // through even at the threshold. A deferred one is checked before it is
+      // credited.
+      assert(sendOut(atThreshold, fs, intoOwnSupervisor).logs == List()),
+      assert(sendOut(atThreshold, fs, { ...intoOwnSupervisor, deferred: Some((0, 1000)) }).logs
+        == refusal(InsufficientServiceBalance)),
+      // A refused transfer moves nothing.
+      assert(sendOut(s, fs, { ...payFive, amount: slack + 1 }).state == s),
+      // One that goes through debits the source and credits the chosen balance.
+      assert(paid.state.jamAccount.balance == s.jamAccount.balance - 100),
+      assert(paid.foreign.get(MkServiceId(5)).account.balance ==
+        fs.get(MkServiceId(5)).account.balance + 100),
+      assert(intoSupervisor.foreign.get(MkServiceId(5)).account.supervisorBalance == 100),
+      init
+    }
+  }
+
+  /// This service may spend from a service it supervises, down to that
+  /// service's own threshold.
+  run transferOutFromSupervisedServiceTest = {
+    val ours = MkServiceId(MinPublicServiceIndex)
+    // Holds 500 above its empty-store threshold.
+    val fs = counterparties.put(ours, {
+      supervisor: ParachainServiceId,
+      supervisorCreated: ParachainServiceCreated,
+      created: 0,
+      codeHash: { hashBytes: 0 },
+      requests: Map(),
+      storage: Map(),
+      account: { balance: BaseDeposit + 500, supervisorBalance: 0, minMemoGas: 0 }
+    })
+    val fromOurs = { ...payFive, source: Some(ours), amount: 500 }
+    val out = sendOut(initialState, fs, fromOurs)
+    all {
+      assert(out.logs == List()),
+      assert(out.foreign.get(ours).account.balance == BaseDeposit),
+      assert(out.state.jamAccount == initialState.jamAccount),
+      assert(sendOut(initialState, fs, { ...fromOurs, amount: 501 }).logs
+        == refusal(InsufficientServiceBalance)),
+      init
+    }
   }
 
   /// §5.1: cleaning up refunds exactly what admission charged, so an unreserved
@@ -167,11 +323,11 @@ module transfers_test {
     val total0 = full.paraInfo(ah).totalStateBalance
     // Deliberately far more than one entry costs, to pin that the surplus is not
     // credited to the allowance.
-    val paid = applyIncomingTransfer(full, { from: MkServiceId(3), amount: big * 100, toSupervisorBalance: false, memo: 0 })
+    val paid = applyIncomingTransfer(full, { source: MkServiceId(3), amount: big * 100, toSupervisorBalance: false, memo: 0 })
     // Clean the whole queue back out through the real accumulate path.
     val ok: ParachainWorkDigestOk = {
       paraId: ah,
-      validationCode: { hash: ahCode, len: FixedCodeLen },
+      validationCode: ahCode,
       parentHeadHash: headHash(paid.paraInfo(ah).headData),
       headData: paid.paraInfo(ah).headData + 1,
       upwardMessages: List(CleanUpBucketsUpTo(fresh)),
@@ -180,8 +336,9 @@ module transfers_test {
       messagesRequiresRoots: List()
     }
     val out = accumulateOnePackage(
-      paid, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen,
-      fresh + 1, Map())
+      paid, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), List(), FixedCodeLen,
+      fresh + 1, Map()
+    )
     all {
       // The reserved portion cost nothing beyond the baseline.
       assert(excessTransferFootprint(MaxIncomingTransfers) == 0),
@@ -212,19 +369,54 @@ module transfers_test {
       .then(setSvc(contiguousBucketsState))
       .then(expectThat(incoming_transfers_buckets_consistent))
 
-
   /// §3.1: the record keeps JAM's `destsupervisor` flag, since any service may
   /// credit either balance with a deferred transfer and Asset Hub must know
   /// which one to move the funds on from.
   run incomingTransferRecordsSupervisorBalanceTest = {
-    val toSup = { from: MkServiceId(0), amount: 500, toSupervisorBalance: true, memo: 0 }
+    val toSup = { source: MkServiceId(0), amount: 500, toSupervisorBalance: true, memo: 0 }
     val toReg = { ...toSup, toSupervisorBalance: false, memo: 1 }
     val s = applyIncomingTransfers(initialState, List(toSup, toReg))
     all {
       assert(s.incomingTransfers.get(0) == List(toSup, toReg)),
       assert(s.incomingTransfers.get(0)[0].toSupervisorBalance),
       assert(not(s.incomingTransfers.get(0)[1].toSupervisorBalance)),
+      // Each lands in the balance it names.
+      assert(s.jamAccount.supervisorBalance == initialState.jamAccount.supervisorBalance + 500),
+      assert(s.jamAccount.balance == initialState.jamAccount.balance + 500),
       init
     }
+  }
+
+  /// §5.1: an invocation carrying only transfers still flushes due assigns
+  /// before recording them. A due rotation fires and is re-armed, a due entry on
+  /// a handed-away core is dropped and logged, and one not yet due is kept.
+  run transferOnlyInvocationFlushesDueAssignsTest = {
+    val three = List({ authBytes: 1 }, { authBytes: 2 }, { authBytes: 3 })
+    val armed = {
+      ...initialState,
+      pendingAssigns: Map(
+        3 -> { queue: three, assigner: None },
+        4 -> { queue: three, assigner: None },
+        5 -> { queue: three, assigner: None }
+      ),
+      pendingAssignCores: Map(3 -> 0, 4 -> 0, 5 -> 50),
+      jamCoreAssigners: initialState.jamCoreAssigners.put(4, MkServiceId(7))
+    }
+    val t = { source: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 0 }
+    init
+      .then(setSvc(armed))
+      .then(incomingTransferInvocation(List(t), FullAssignBudget))
+      .then(expectThat(all {
+        lastStepAssigns ==
+          List({ core: 3, assigner: ParachainServiceId, queue: assignQueueFor(three) }),
+        svc.pendingAssigns ==
+          Map(3 -> { queue: advanceAssignQueue(three), assigner: None },
+            5 -> { queue: three, assigner: None }),
+        svc.pendingAssignCores == Map(3 -> AuthorizerQueueLength, 5 -> 50),
+        svc.paraLog(CoretimeParaId) ==
+          pushLogEntry(armed.paraLog(CoretimeParaId),
+            (0, Accumulate(List(CoreNotAssignable({ core: 4 }))))),
+        svc.incomingTransfers.get(0) == List(t)
+      }))
   }
 }

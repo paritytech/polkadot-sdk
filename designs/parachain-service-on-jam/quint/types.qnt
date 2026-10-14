@@ -89,15 +89,15 @@ module types {
   // validation-code hash needs an explicit conversion to the registry's key
   // type whenever it's stored or looked up.
 
-  pure def vchAsHash(vch: ValidationCodeHash): Hash = { hashBytes: vch.vchBytes }
+  pure def asPreimage(vch: ValidationCodeHash): Hash = { hashBytes: vch.vchBytes }
 
   /// The wrapped integer, for the places the spec orders by `para_id`, the
   /// head-commitment leaves (§5.5). The sentinel is never constructed.
   pure def paraIdInt(p: ParaId): int =
-  match p {
-    | MkParaId(n) => n
-    | _ParaIdSentinel => 0
-  }
+    match p {
+      | MkParaId(n) => n
+      | _ParaIdSentinel => 0
+    }
 
   // --- Protocol constants (gray paper / design doc) -----------------------
 
@@ -105,12 +105,23 @@ module types {
   pure val ValidatorKeySize: int = 336
 
   pure val CoreCount: int = 341
-  /// Valid `stagingset` lengths (gray paper Safrole, eq. valcount).
+
+  /// Gas available to the due-assign flushes of one accumulate invocation
+  /// (§5.1). For abstraction reasons the model does not track gas: a budget
+  /// is the number of due assigns the gas pays for, whether JAM accepts or
+  /// rejects them. `flush` is what fits into the always-accumulate allowance,
+  /// `end` what fits into the gas left once the work packages are done.
+  type AssignBudget = { flush: int, end: int }
+
+  /// An always-accumulate allowance that pays for every due assign.
+  pure val FullAssignBudget: AssignBudget = { flush: CoreCount, end: 0 }
+  /// Valid `stagingset` lengths (gray paper Safrole, eq. valcount): a multiple
+  /// of 3, at least 6 and at most 1023.
   /// Quint's `.to` is inclusive, so the upper bound is `CoreCount` not
   /// `CoreCount + 1`; this `2.to(CoreCount)` matches the gray paper's
   /// half-open `N_{2 .. C_corecount+1}`.
   pure val ValCount: Set[int] =
-  2.to(CoreCount).map(c => 3 * c)
+    2.to(CoreCount).map(c => 3 * c)
 
   /// Combined cap on a work-report's auth-trace + result blobs.
   pure val MaxReportVarSize: int = 48 * 1024
@@ -122,11 +133,8 @@ module types {
   /// Per-call cap on `set_validator_keys` chunks (design §4.3).
   pure val SetValidatorKeysMaxKeys: int = 30
 
-  /// Max upward messages a PVF may emit in one Refine invocation (design §4.3).
+  /// Max upward messages validation code may emit in one Refine invocation (design §4.3).
   pure val MaxUpwardMessages: int = 1024
-
-  /// §5.2: pending-upgrade deadline relative to current timeslot (24 h at 6 s).
-  pure val UpgradeTimeoutTimeslots: int = 24 * 3600 / 6
 
   /// Per-para log byte budget (exact encoded size of all entries must stay ≤ this).
   pure val ParachainLogByteCap: int = 64 * 1024
@@ -140,6 +148,16 @@ module types {
   /// (~32 h). A preimage forgotten at timeslot `y` may only be expunged by a
   /// second `forget` once `y < now - ExpungePeriod`. See §6.1.
   pure val ExpungePeriod: int = MaxLookupAge + 4800
+
+  /// Gray paper `C_basedeposit` and `C_itemdeposit`: the threshold balance every
+  /// service needs, and what each item it stores adds to it.
+  pure val BaseDeposit: int = 100
+  pure val ItemDeposit: int = 10
+
+  /// The octets the gray paper's footprint counts for a storage entry on top of
+  /// its key and value, and for a preimage request on top of the preimage.
+  pure val StorageEntryOverhead: int = 34
+  pure val PreimageRequestOverhead: int = 81
 
   /// §3.1: 80-slot authorizer queue length.
   pure val AuthorizerQueueLength: int = 80
@@ -193,13 +211,12 @@ module types {
   /// transfer itself. `MaxTransfersPerBucket` bounds how much a bucket may hold,
   /// not how little, so it does not move this figure.
   pure val IncomingTransferBucketOctets: int =
-    34 + 9 + 1 + IncomingTransferValueOctets
+    StorageEntryOverhead + 9 + 1 + IncomingTransferValueOctets
 
   /// Full balance-unit cost of one worst-case bucket (§6.1): its octets plus the
   /// one storage item it occupies.
   pure val IncomingTransferEntryFootprint: int =
-    10 + IncomingTransferBucketOctets
-
+    ItemDeposit + IncomingTransferBucketOctets
 
   // --- Polymorphic Option ------------------------------------------------
 
@@ -209,45 +226,45 @@ module types {
 
   /// Quint has no built-in map-remove; rebuild without the key.
   pure def mapRemove(m: a -> b, k: a): a -> b =
-  m.keys().exclude(Set(k)).mapBy(x => m.get(x))
+    m.keys().exclude(Set(k)).mapBy(x => m.get(x))
 
   /// Rebuild a map keeping only the keys that satisfy `keep`.
   pure def mapFilterKeys(m: a -> b, keep: a => bool): a -> b =
-  m.keys().filter(keep).mapBy(x => m.get(x))
+    m.keys().filter(keep).mapBy(x => m.get(x))
 
   /// Append `opt`'s element to `l` when present; leave `l` unchanged on `None`.
   pure def appendOption(l: List[a], opt: Option[a]): List[a] =
-  match opt {
-    | Some(e) => l.append(e)
-    | None => l
-  }
+    match opt {
+      | Some(e) => l.append(e)
+      | None => l
+    }
 
   /// `Option.map`: apply `f` to the wrapped value, or propagate `None`.
   pure def optionMap(opt: Option[a], f: a => b): Option[b] =
-  match opt {
-    | Some(e) => Some(f(e))
-    | None => None
-  }
+    match opt {
+      | Some(e) => Some(f(e))
+      | None => None
+    }
 
   /// `Option`'s value or a default when `None`.
   pure def optionGetOr(opt: Option[a], fallback: a): a =
-  match opt {
-    | Some(e) => e
-    | None => fallback
-  }
+    match opt {
+      | Some(e) => e
+      | None => fallback
+    }
 
   /// `Some(e)` -> singleton `{e}`; `None` -> empty set.
   pure def optionToSet(opt: Option[a]): Set[a] =
-  match opt {
-    | Some(e) => Set(e)
-    | None => Set()
-  }
+    match opt {
+      | Some(e) => Set(e)
+      | None => Set()
+    }
 
   // --- Abstract hash functions ---------------------------------------------
   //
   // Both digest `head_data` injectively, since only equality semantics matter,
   // but they stand for different real functions and so land in different
-  // domains: `blake2b-256` for the parent-head check (§5.1 step 3) and
+  // domains: `blake2b-256` for the parent-head check (§5.1 step 4) and
   // `keccak_256` for the head a commitment leaf carries (§5.5).
 
   pure def headHash(h: HeadData): HeadHash = { headBytes: h }

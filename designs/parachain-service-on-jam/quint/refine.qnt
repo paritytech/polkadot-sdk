@@ -1,30 +1,29 @@
-// Refine: in-core, stateless PVF execution (design §4).
+// Refine: in-core, stateless validation-code execution (design §4).
 //
-// We do NOT model PVF semantics; instead we model Refine as a non-
+// We do NOT model validation-code semantics; instead we model Refine as a non-
 // deterministic producer of `ParachainWorkDigest`s subject to the
 // structural rules from §4.1–§4.3:
 //
 // - The `paraId` of each work-item is sourced from the authorizer config's
 // `authorized_paras` prefix, not from the extrinsic.
-// - The PVF must call `set_parent_head_hash` exactly once (modeled as a
-// well-formedness check on `Ok` results).
-// - Refine returns `Err(InvalidCodeHash)` iff `historical_lookup` for the
-// candidate's `validation_code_hash` returns None.
-// - `set_validator_keys` may appear at most once in the emitted
-//   `upwardMessages` list, and any chunk must contain at most 30 keys.
+// - The validation code must call `set_parent_head_hash` and `set_head` exactly once.
+// - Refine returns `Err(ValidationCodeLookupFailed)` iff `historical_lookup` for the
+// candidate's `validation_code` returns None.
+// - The first host call that breaks a §4.3 rule aborts Refine with that rule's
+//   `RefineLog`.
+// - `set_messages_streams_root` / `set_messages_requires_roots` are optional,
+//   at most once each (§4.3, §8).
 //
 // The `parent_head_hash` field is mandatory but is *not* validated against
-// service state here; that check lives in Accumulate (§5.1, step 1).
+// service state here; that check lives in Accumulate (§5.1, step 4).
 module refine {
   import types.* from "./types"
   import messages.* from "./messages"
   import state.* from "./state"
 
-  /// Per-work-package extrinsic: one parachain candidate per item (design §3.2).
+  /// The work-item payload: one parachain candidate per item (design §3.2).
   type ParachainCandidate = {
-    validationCode: ValidationCodeRef,
-    // PoV is opaque; the model treats it as a nondeterministic input.
-    pov: int
+    validationCode: ValidationCodeRef
   }
 
   type WorkPackage = {
@@ -36,36 +35,6 @@ module refine {
 
   // --- Upward-message validity rules (Refine-side enforcement) ------------
 
-  /// Per §4.3: `set_validator_keys` may appear at most once per Refine.
-  pure def setValidatorKeysCount(msgs: List[UpwardMessage]): int =
-  msgs.foldl(0, (acc, m) => match m {
-      | SetValidatorKeys(_) => acc + 1
-      | _ => acc
-  })
-
-  /// Per §4.3: an `assign_core` queue holds 1 to `AuthorizerQueueLength` hashes.
-  /// A queue that hands the core to another service must be exactly
-  /// `AuthorizerQueueLength`: the service can no longer re-present a short one
-  /// after the handoff, so the installed queue has to cycle on its own.
-  pure def wellFormedAssignQueues(msgs: List[UpwardMessage]): bool =
-  msgs.foldl(true, (acc, m) => match m {
-    | AssignCore(p) => acc and (match p.newAssigner {
-        | None => p.queue.length() > 0 and p.queue.length() <= AuthorizerQueueLength
-        | Some(_) => p.queue.length() == AuthorizerQueueLength
-      })
-    | _ => acc
-  })
-
-  /// Per §4.3: a `SetValidatorKeys` chunk holds at most
-  /// `SetValidatorKeysMaxKeys` keys. Refine checks the length explicitly and
-  /// rejects a longer chunk with `TooManyValidatorKeys`.
-  pure def setValidatorKeysWithinCap(msgs: List[UpwardMessage]): bool =
-  msgs.foldl(true, (acc, m) => match m {
-    | SetValidatorKeys(payload) =>
-    acc and (payload.keys.length() <= SetValidatorKeysMaxKeys)
-    | _ => acc
-  })
-
   /// Actual SCALE-encoded size of one upward message, used by the 48 KiB
   /// result-blob budget check (§4.1 step 7). Every variant is measured from
   /// its real payload, except `ParachainSetHead`: `HeadData` is opaque in the
@@ -73,66 +42,62 @@ module refine {
   /// length and is charged its worst case (2 B compact len + 4096 B max).
   // 1 B enum discriminant (the message tag) + the variant's payload size.
   pure def upwardMessageSize(m: UpwardMessage): int =
-  1 + match m {
-    // hash 32 + Compact<u32> len.
-    | RequestCodeUpgrade(p) => 32 + compactLen(p.len)
-    // Target (1 tag + 4 id) + hash 32 + Compact<u32> len.
-    | Solicit(p) => 37 + compactLen(p.len)
-    // service 4.
-    | EjectService(_) => 4
-    // service 4 + newSupervisor 4.
-    | SetServiceSupervisor(_) => 8
-    // codeHash 32 + Compact<u32> len + two u64 gas limits 16 + id Compact<u64>
-    // + Option<ServiceId> desiredId (1 tag + 4 when Some)
-    // + two balance selectors 2.
-    | CreateService(p) =>
-      50 + compactLen(p.len) + compactLen(p.id)
-        + (match p.desiredId { | Some(_) => 5 | None => 1 })
-    // Target (1 tag + 4 id) + hash 32 + Compact<u32> len.
-    | Forget(p) => 37 + compactLen(p.len)
-    // service 4 + Vec<u8> key (compact len prefix + bytes).
-    | RemoveServiceStorage(p) => 4 + compactLen(p.key.length()) + p.key.length()
-    | SetKV(p) =>
-      compactLen(p.key.length()) + p.key.length()
-        + compactLen(p.value.length()) + p.value.length()
-    // paraId 4 + Vec<u8> key (compact len prefix + bytes).
-    | RemoveKV(p) => 4 + compactLen(p.key.length()) + p.key.length()
-    // dest 4 + two balance selectors 2 + amount Compact<u64> + id Compact<u64>
-    // + Option<ServiceId> source (1 tag + 4 when Some)
-    // + Option<(Memo, gas)> (1 tag + 128 memo + 8 gas when Some).
-    | TransferOut(p) =>
-      6 + compactLen(p.amount) + compactLen(p.id)
-        + (match p.source { | Some(_) => 5 | None => 1 })
-        + (match p.deferred { | Some(_) => 137 | None => 1 })
-    // core 4 + jamSlot 4 + Vec<AuthorizerHash> (compact len + 32 per entry)
-    // + Option<ServiceId> (1 tag + 4 when Some).
-    | AssignCore(p) =>
-      8 + compactLen(p.queue.length()) + p.queue.length() * 32
-        + (match p.newAssigner { | Some(_) => 5 | None => 1 })
-    // Vec<ValidatorKey> (compact len + 336 per key) + isLast 1.
-    | SetValidatorKeys(p) =>
-      1 + compactLen(p.keys.length()) + p.keys.length() * 336
-    // bucket_id u64.
-    | CleanUpBucketsUpTo(_) => 8
-    | ParachainSetHead(_) => 4102
-    // paraId 4 + hash 32 + Compact<u32> len.
-    | ParachainSetValidationCode(p) => 36 + compactLen(p.newValidationCodeLen)
-    | ParachainCleanUp(_) => 4
-    // paraId 4 + newTotal Compact<u64>.
-    | ParachainSetStateBalance(p) => 4 + compactLen(p.newTotal)
-    // codeHash 32 + Compact<u32> len + minAccGas 8 + minMemoGas 8.
-    | UpgradeService(p) => 48 + compactLen(p.len)
-  }
+    1 + match m {
+      // hash 32 + Compact<u32> len + 1 B phase tag.
+      | RequestCodeUpgrade(p) => 32 + compactLen(p.len) + 1
+      // Target (1 tag + 4 id) + hash 32 + Compact<u32> len.
+      | Solicit(p) => 37 + compactLen(p.len)
+      // service 4.
+      | EjectService(_) => 4
+      // service 4 + newSupervisor 4.
+      | SetServiceSupervisor(_) => 8
+      // codeHash 32 + Compact<u32> len + two u64 gas limits 16 + id Compact<u64>
+      // + Option<ServiceId> desiredId (1 tag + 4 when Some)
+      // + two balance selectors 2.
+      | CreateService(p) =>
+        50 + compactLen(p.len) + compactLen(p.id)
+          + (match p.desiredId { | Some(_) => 5 | None => 1 })
+      // Target (1 tag + 4 id) + hash 32 + Compact<u32> len.
+      | Forget(p) => 37 + compactLen(p.len)
+      // service 4 + Vec<u8> key (compact len prefix + bytes).
+      | RemoveServiceStorage(p) => 4 + compactLen(p.key.length()) + p.key.length()
+      | SetKV(p) =>
+        compactLen(p.key.length()) + p.key.length()
+          + compactLen(p.value.length()) + p.value.length()
+      // paraId 4 + Vec<u8> key (compact len prefix + bytes).
+      | RemoveKV(p) => 4 + compactLen(p.key.length()) + p.key.length()
+      // dest 4 + two balance selectors 2 + amount Compact<u64> + id Compact<u64>
+      // + Option<ServiceId> source (1 tag + 4 when Some)
+      // + Option<(Memo, gas)> (1 tag + 128 memo + 8 gas when Some).
+      | TransferOut(p) =>
+        6 + compactLen(p.amount) + compactLen(p.id)
+          + (match p.source { | Some(_) => 5 | None => 1 })
+          + (match p.deferred { | Some(_) => 137 | None => 1 })
+      // core 4 + jamSlot 4 + Vec<AuthorizerHash> (compact len + 32 per entry)
+      // + Option<ServiceId> (1 tag + 4 when Some).
+      | AssignCore(p) =>
+        8 + compactLen(p.queue.length()) + p.queue.length() * 32
+          + (match p.newAssigner { | Some(_) => 5 | None => 1 })
+      // Vec<ValidatorKey> (compact len + 336 per key) + isLast 1.
+      | SetValidatorKeys(p) =>
+        1 + compactLen(p.keys.length()) + p.keys.length() * 336
+      // bucket_id u64.
+      | CleanUpBucketsUpTo(_) => 8
+      | ParachainSetHead(_) => 4102
+      // paraId 4 + ValidationCodeRef (hash 32 + u32 len 4).
+      | ParachainSetValidationCode(_) => 40
+      | ParachainCleanUp(_) => 4
+      // paraId 4 + newTotal Compact<u64>.
+      | ParachainSetStateBalance(p) => 4 + compactLen(p.newTotal)
+      // codeHash 32 + Compact<u32> len + minAccGas 8 + minMemoGas 8.
+      | UpgradeService(p) =>
+        48 + compactLen(p.len) + (match p.service { | Some(_) => 5 | None => 1 })
+    }
 
   /// Summed SCALE-encoded size of the upward messages themselves, excluding the
   /// enclosing vector's length prefix.
   pure def upwardMessagesTotalSize(msgs: List[UpwardMessage]): int =
-  msgs.foldl(0, (acc, m) => acc + upwardMessageSize(m))
-
-  /// `true` iff the upward messages exceed the parachain's 40 KiB budget. The
-  /// vector's length prefix is not charged against the budget.
-  pure def exceedsUpwardMessagesBudget(msgs: List[UpwardMessage]): bool =
-  upwardMessagesTotalSize(msgs) > MaxUpwardMessagesSize
+    msgs.foldl(0, (acc, m) => acc + upwardMessageSize(m))
 
   /// `true` iff the whole Refine output (`paraId` + `vch` + `parentHeadHash` +
   /// worst-case `head_data` + upward messages) plus a worst-case auth trace
@@ -140,7 +105,7 @@ module refine {
   /// `MaxUpwardMessagesSize` is chosen so this cannot trigger, so it fires only
   /// if that budget or one of the sizes below is ever set inconsistently.
   pure def refineOutputExceedsBudget(msgs: List[UpwardMessage]): bool = {
-    val headDataMax = 4098    // BoundedVec<u8, 4096> worst case
+    val headDataMax = 4098 // BoundedVec<u8, 4096> worst case
     val authTraceMax = 256
     val resultBase = 4 + 32 + 32 + headDataMax
     // The encoded blob does carry the vector's length prefix, 2 B worst case.
@@ -152,19 +117,20 @@ module refine {
   //
   // `refineItem` models §4.1 abstractly: given a candidate and the service's
   // view of the active+pending validation code for that para, produce
-  // either an `Ok` with a list of upward messages (any from §4.3 that the
-  // PVF chose to emit, subject to the well-formedness rules above) or an
-  // `Err(InvalidCodeHash)` when the lookup fails.
+  // either an `Ok` with the upward messages the validation code emitted or
+  // an `Err` naming the first rule it broke.
   //
-  // For the model, we nondeterministically pick the upward messages in
+  // For the model, we nondeterministically pick the host calls in
   // the spec's top-level `step` action; see `main.qnt`.
 
-  pure def refineErr(paraId: ParaId, e: RefineLog): ParachainWorkDigest =
-  Err({ paraId: paraId, error: e })
+  pure def refineErr(
+    paraId: ParaId, codeHash: ValidationCodeHash, e: RefineLog
+  ): ParachainWorkDigest =
+    Err({ paraId: paraId, validationCode: codeHash, error: e })
 
   pure def refineOk(
     paraId: ParaId,
-    ref: ValidationCodeRef,
+    codeHash: ValidationCodeHash,
     parentHead: HeadHash,
     newHead: HeadData,
     msgs: List[UpwardMessage],
@@ -172,30 +138,65 @@ module refine {
     provides: Option[StreamsRoot],
     requires: List[(ParaId, StreamsRoot)]
   ): ParachainWorkDigest =
-  Ok({
+    Ok({
       paraId: paraId,
-      validationCode: ref,
+      validationCode: codeHash,
       parentHeadHash: parentHead,
       headData: newHead,
       upwardMessages: msgs,
       lookupAnchor: lookupAnchor,
       messagesStreamsRoot: provides,
       messagesRequiresRoots: requires
-  })
+    })
+
+  /// `true` iff the code identified by `ref` has a non-empty referencer set
+  /// in the preimage registry, i.e. the `(hash, len)` tuple key exists.
+  pure def codeAvailable(s: ParachainServiceState, ref: ValidationCodeRef): bool = {
+    val key = (ref.hash.asPreimage(), ref.len)
+    s.preimageRegistry.keys().contains(key) and
+      s.preimageRegistry.get(key).referencers != Set()
+  }
+
+  /// One host call the validation code makes, in the order it makes them
+  /// (§4.2, §4.3). A trace that ends without `ReportError` or `Panic` means the
+  /// code ran to completion.
+  ///   - `SetHeadOversized`: `set_head` with head data past the 4 KiB `HeadData`
+  ///     cap. `HeadData` is opaque in the model (types.qnt), so the violation is
+  ///     a case of its own rather than a measured length.
+  ///   - `ReportError(payload)`: `report_error(data)`, the only way a validation
+  ///     code records a reason for its failure (`RefineLog::Opaque`).
+  ///   - `Panic`: any other abnormal exit. Deliberately NOT caught, so the
+  ///     service's whole `refine` fails with it and there is no
+  ///     `ParachainWorkDigest` at all (§3.3).
+  ///   - `SetMessagesStreamsRoot(root)` / `SetMessagesRequiresRoots(entries)`:
+  ///     the optional messaging declarations (§8). The service treats the roots
+  ///     as opaque and never derives them from head data.
+  type CodeCall =
+    | SetParentHeadHash(HeadHash)
+    | SetHead(HeadData)
+    | SetHeadOversized
+    | Send(UpwardMessage)
+    | SetMessagesStreamsRoot(StreamsRoot)
+    | SetMessagesRequiresRoots(List[(ParaId, StreamsRoot)])
+    | ReportError(int)
+    | Panic
+
+  /// `Send` for each of `msgs`, in order.
+  pure def sends(msgs: List[UpwardMessage]): List[CodeCall] =
+    msgs.foldl(List(), (acc, m) => acc.append(Send(m)))
 
   // --- Messaging declarations (§4.3, §8.1) --------------------------------
   //
   // Both host calls are OPTIONAL and may each be called at most once per
-  // Refine invocation; a repeat aborts the PVF with `MessagesCallRepeated`.
-  // Like the head declarations, the PVF is an oracle: the model only sees
-  // what its calls amounted to.
+  // Refine invocation; a repeat aborts with `MessagesCallRepeated`. The
+  // declaration types below summarise what a validation code's calls to one
+  // of them amounted to, for the nondet menus and the tests.
 
-  /// What the PVF's `set_messages_streams_root` calls amounted to:
+  /// What the validation code's `set_messages_streams_root` calls amounted to:
   ///   - `StreamsRootUndeclared`: never called; this candidate declares no
-  ///     root (§8.1: a PVF calls it only when the root changed since its
-  ///     last enacted block).
-  ///   - `StreamsRootDeclared(root)`: called exactly once. The service treats
-  ///     `root` as opaque and never derives it from head data.
+  ///     root (§8.1: called only when the root changed since the last
+  ///     enacted block).
+  ///   - `StreamsRootDeclared(root)`: called exactly once.
   ///   - `StreamsRootRepeated`: called more than once, rejected with
   ///     `MessagesCallRepeated`.
   type StreamsRootDeclaration =
@@ -203,9 +204,9 @@ module refine {
     | StreamsRootDeclared(StreamsRoot)
     | StreamsRootRepeated
 
-  /// What the PVF's `set_messages_requires_roots` calls amounted to; one call
-  /// carries the whole set (`RequiresRootsDeclared`), a second call is
-  /// `RequiresRootsRepeated`.
+  /// What the validation code's `set_messages_requires_roots` calls amounted
+  /// to; one call carries the whole set (`RequiresRootsDeclared`), a second
+  /// call is `RequiresRootsRepeated`.
   type RequiresRootsDeclaration =
     | RequiresRootsUndeclared
     | RequiresRootsDeclared(List[(ParaId, StreamsRoot)])
@@ -215,7 +216,7 @@ module refine {
   /// at most `MaxRequiresSources` entries, repeats no source `ParaId`, and
   /// never names the candidate's own `para_id`. Refine checks nothing about
   /// the roots themselves: whether they are settleable is decided on-chain
-  /// (§5.1 step 6).
+  /// (§5.1 step 5).
   pure def wellFormedRequiresRoots(
     entries: List[(ParaId, StreamsRoot)], para_id: ParaId
   ): bool = and {
@@ -226,127 +227,166 @@ module refine {
     entries.foldl(true, (acc, e) => acc and e._1 != para_id)
   }
 
-  /// `true` iff either messaging host call was invoked more than once.
-  pure def messagesCallRepeated(
+  /// The host calls a pair of messaging declarations stands for: the
+  /// `set_messages_streams_root` calls, then the `set_messages_requires_roots`
+  /// calls. A repeat is modelled as two calls with the same argument, so a
+  /// repeat is settled before the set's own validity.
+  pure def messagingCalls(
     provides: StreamsRootDeclaration, requires: RequiresRootsDeclaration
-  ): bool =
-  (match provides { | StreamsRootRepeated => true | _ => false }) or
-  (match requires { | RequiresRootsRepeated => true | _ => false })
-
-  /// The declared `StreamsRoot` as the digest carries it.
-  pure def declaredStreamsRoot(p: StreamsRootDeclaration): Option[StreamsRoot] =
-  match p { | StreamsRootDeclared(r) => Some(r) | _ => None }
-
-  /// The declared `messages_requires_roots` as the digest carries them.
-  pure def declaredRequiresRoots(
-    r: RequiresRootsDeclaration
-  ): List[(ParaId, StreamsRoot)] =
-  match r { | RequiresRootsDeclared(l) => l | _ => List() }
-
-  /// `true` iff the code identified by `ref` has a non-empty referencer set
-  /// in the preimage registry, i.e. the `(hash, len)` tuple key exists.
-  pure def codeAvailable(s: ParachainServiceState, ref: ValidationCodeRef): bool = {
-    val key = (vchAsHash(ref.hash), ref.len)
-    s.preimageRegistry.keys().contains(key) and
-    s.preimageRegistry.get(key).referencers != Set()
+  ): List[CodeCall] = {
+    val providesCalls = match provides {
+      | StreamsRootUndeclared => List()
+      | StreamsRootDeclared(root) => List(SetMessagesStreamsRoot(root))
+      | StreamsRootRepeated =>
+        List(
+          SetMessagesStreamsRoot({ streamsRootBytes: 0 }),
+          SetMessagesStreamsRoot({ streamsRootBytes: 0 })
+        )
+    }
+    val requiresCalls = match requires {
+      | RequiresRootsUndeclared => List()
+      | RequiresRootsDeclared(l) => List(SetMessagesRequiresRoots(l))
+      | RequiresRootsRepeated =>
+        List(SetMessagesRequiresRoots(List()), SetMessagesRequiresRoots(List()))
+    }
+    providesCalls.concat(requiresCalls)
   }
 
-  /// How the PVF terminated (design §4.2). The service treats these differently:
-  ///   - `PvfOk`: ran to completion; the wrapper's own checks decide the outcome.
-  ///   - `PvfReportError(payload)`: the PVF aborted itself with
-  ///     `report_error(data)`. That call IS the abort, and it is the only way a
-  ///     PVF records a reason for its failure (`RefineLog::Opaque`).
-  ///   - `PvfPanic`: any other abnormal exit. Deliberately NOT caught, so the
-  ///     service's whole `refine` fails with it and there is no
-  ///     `ParachainWorkDigest` at all; the work-digest result is a gray-paper
-  ///     work error, which Accumulate skips entirely (§3.3).
-  type PvfOutcome =
-    | PvfOk
-    | PvfReportError(int)
-    | PvfPanic
+  type RunStop =
+    | Running
+    | Aborted(RefineLog)
+    | Panicked
 
-  /// What the PVF's mandatory `set_head` call amounts to (§4.2):
-  ///   - `HeadUndeclared`: never called, rejected with `MissingHeadDeclaration`.
-  ///   - `HeadOversized`: called with head data past the 4 KiB `HeadData` cap,
-  ///     rejected with `HeadDataTooLarge` (§4.3). `HeadData` is opaque in the
-  ///     model (types.qnt), so the violation is a case of its own rather than a
-  ///     measured length.
-  ///   - `HeadDeclared(h)`: a well-formed declaration of `h`.
-  type HeadDeclaration =
-    | HeadUndeclared
-    | HeadOversized
-    | HeadDeclared(HeadData)
+  /// What the Refine wrapper has collected from the calls made so far.
+  type RefineRun = {
+    parent: Option[HeadHash],
+    head: Option[HeadData],
+    msgs: List[UpwardMessage],
+    msgsSize: int,
+    keysSent: bool,
+    streamsRoot: Option[StreamsRoot],
+    requiresRoots: Option[List[(ParaId, StreamsRoot)]],
+    stop: RunStop
+  }
 
-  /// Per-item Refine semantics (§4.1). The PVF is modeled as an oracle whose
-  /// visible effects are how it terminated (`pvf`), the `set_parent_head_hash`
-  /// and `set_head` declarations (`parentHead` `None` / `newHead`
-  /// `HeadUndeclared` if the PVF never called them, §4.2), and the emitted
-  /// upward `msgs`. The wrapper applies the §4.1/§4.3 checks in order and
-  /// otherwise forwards the declarations verbatim; the authoritative
-  /// parent-head match and the head write happen in Accumulate (§5.1).
+  pure val freshRun: RefineRun = {
+    parent: None,
+    head: None,
+    msgs: List(),
+    msgsSize: 0,
+    keysSent: false,
+    streamsRoot: None,
+    requiresRoots: None,
+    stop: Running
+  }
+
+  /// The rule `send_upward_message(m)` breaks, checked in the §4.3 order: the
+  /// para restrictions, the variant's own requirements, the 40 KiB budget, the
+  /// message count.
+  pure def sendViolation(r: RefineRun, para_id: ParaId, m: UpwardMessage): Option[RefineLog] = {
+    val variantViolation: Option[RefineLog] = match m {
+      | AssignCore(p) =>
+        if (not(wellFormedAssignQueue(p.queue, p.newAssigner))) Some(InvalidAuthorizerQueue)
+        else if (not(validCoreIndex(p.core))) Some(InvalidCoreIndex)
+        else None
+      | SetValidatorKeys(p) =>
+        if (p.keys.length() > SetValidatorKeysMaxKeys) Some(TooManyValidatorKeys)
+        else if (r.keysSent) Some(SetValidatorKeysRepeated)
+        else None
+      | SetKV(p) =>
+        if (p.key == List() or p.value == List()) Some(EmptyKVKeyOrValue) else None
+      | RemoveKV(p) => if (p.key == List()) Some(EmptyKVKeyOrValue) else None
+      | _ => None
+    }
+    if (violatesParachainRestrictions(List(m), para_id)) Some(RestrictedHostFunction)
+    else if (variantViolation != None) variantViolation
+    else if (r.msgsSize + upwardMessageSize(m) > MaxUpwardMessagesSize)
+      Some(UpwardMessagesTooLarge)
+    else if (r.msgs.length() >= MaxUpwardMessages) Some(TooManyUpwardMessages)
+    else None
+  }
+
+  /// Apply one host call. The first call that breaks a rule aborts Refine, and
+  /// every later call is ignored. Calling `set_parent_head_hash` or `set_head`
+  /// a second time is as invalid as never calling it (§4.2).
+  pure def applyCall(r: RefineRun, para_id: ParaId, c: CodeCall): RefineRun =
+    if (r.stop != Running) r
+    else match c {
+      | SetParentHeadHash(h) =>
+        if (r.parent != None) { ...r, stop: Aborted(InvalidHeadDeclaration) }
+        else { ...r, parent: Some(h) }
+      | SetHead(h) =>
+        if (r.head != None) { ...r, stop: Aborted(InvalidHeadDeclaration) }
+        else { ...r, head: Some(h) }
+      | SetHeadOversized =>
+        if (r.head != None) { ...r, stop: Aborted(InvalidHeadDeclaration) }
+        else { ...r, stop: Aborted(HeadDataTooLarge) }
+      | Send(m) =>
+        match sendViolation(r, para_id, m) {
+          | Some(e) => { ...r, stop: Aborted(e) }
+          | None => {
+            ...r,
+            msgs: r.msgs.append(m),
+            msgsSize: r.msgsSize + upwardMessageSize(m),
+            keysSent: r.keysSent or (match m { | SetValidatorKeys(_) => true | _ => false })
+          }
+        }
+      | SetMessagesStreamsRoot(root) =>
+        if (r.streamsRoot != None) { ...r, stop: Aborted(MessagesCallRepeated) }
+        else { ...r, streamsRoot: Some(root) }
+      | SetMessagesRequiresRoots(entries) =>
+        if (r.requiresRoots != None) { ...r, stop: Aborted(MessagesCallRepeated) }
+        else if (not(wellFormedRequiresRoots(entries, para_id)))
+          { ...r, stop: Aborted(MessagesInvalidRequires) }
+        else { ...r, requiresRoots: Some(entries) }
+      | ReportError(payload) => { ...r, stop: Aborted(Opaque(payload)) }
+      | Panic => { ...r, stop: Panicked }
+    }
+
+  /// Per-item Refine semantics (§4.1). The validation code is modeled as an
+  /// oracle whose visible effects are its host `calls`, in order. The wrapper
+  /// applies the §4.2/§4.3 rules call by call, then the checks that need the
+  /// whole run, and otherwise forwards the declarations verbatim. The
+  /// authoritative parent-head match and the head write happen in Accumulate
+  /// (§5.1).
   ///
-  /// `None` means the invocation produced no digest at all (`PvfPanic`).
+  /// `None` means the invocation produced no digest at all (`Panic`).
   ///
   /// Refine is stateless: it reads no `ParaInfo` (registration is checked in
-  /// Accumulate, §5.1 step 1); the only state it touches is the preimage
+  /// Accumulate, §5.1 step 1). The only state it touches is the preimage
   /// store, via `codeAvailable`.
   pure def refineItem(
     s: ParachainServiceState,
     para_id: ParaId,
     candidate: ParachainCandidate,
-    pvf: PvfOutcome,
-    parentHead: Option[HeadHash],
-    newHead: HeadDeclaration,
-    msgs: List[UpwardMessage],
-    lookupAnchor: Timeslot,
-    provides: StreamsRootDeclaration,
-    requires: RequiresRootsDeclaration
+    calls: List[CodeCall],
+    lookupAnchor: Timeslot
   ): Option[ParachainWorkDigest] = {
+    val codeHash = candidate.validationCode.hash
     if (not(codeAvailable(s, candidate.validationCode)))
-    Some(refineErr(para_id, InvalidCodeHash))
-    else
-    match pvf {
-      | PvfPanic => None
-      | PvfReportError(payload) => Some(refineErr(para_id, Opaque(payload)))
-      | PvfOk =>
-        if (msgs.length() > MaxUpwardMessages)
-        Some(refineErr(para_id, TooManyUpwardMessages))
-        else if (setValidatorKeysCount(msgs) > 1)
-        Some(refineErr(para_id, SetValidatorKeysRepeated))
-        else if (not(setValidatorKeysWithinCap(msgs)))
-        Some(refineErr(para_id, TooManyValidatorKeys))
-        else if (not(wellFormedAssignQueues(msgs)))
-        Some(refineErr(para_id, InvalidAuthorizerQueue))
-        else if (violatesParachainRestrictions(msgs, para_id))
-        Some(refineErr(para_id, RestrictedHostFunction))
-        else if (exceedsUpwardMessagesBudget(msgs))
-        Some(refineErr(para_id, UpwardMessagesTooLarge))
-        else if (refineOutputExceedsBudget(msgs))
-        Some(refineErr(para_id, RefineOutputTooLarge))
-        // §4.3, §8.1: like `HeadOversized`, both messaging failures abort in
-        // the offending call itself, so they are settled before the wrapper's
-        // post-run head-declaration checks.
-        else if (messagesCallRepeated(provides, requires))
-        Some(refineErr(para_id, MessagesCallRepeated))
-        else if (not(wellFormedRequiresRoots(declaredRequiresRoots(requires), para_id)))
-        Some(refineErr(para_id, MessagesInvalidRequires))
-        else
-        // `set_parent_head_hash` / `set_head` are both mandatory (§4.2): a
-        // missing declaration is rejected with `MissingHeadDeclaration`. An
-        // oversized head is checked first because `set_head` aborts in the call
-        // itself, before the wrapper can observe what else the PVF skipped.
-        match newHead {
-          | HeadOversized => Some(refineErr(para_id, HeadDataTooLarge))
-          | HeadUndeclared => Some(refineErr(para_id, MissingHeadDeclaration))
-          | HeadDeclared(nh) =>
-            match parentHead {
-              | None => Some(refineErr(para_id, MissingHeadDeclaration))
-              | Some(ph) =>
-                Some(refineOk(
-                  para_id, candidate.validationCode, ph, nh, msgs, lookupAnchor,
-                  declaredStreamsRoot(provides), declaredRequiresRoots(requires)))
-            }
-        }
+      Some(refineErr(para_id, codeHash, ValidationCodeLookupFailed))
+    else {
+      val r = calls.foldl(freshRun, (acc, c) => applyCall(acc, para_id, c))
+      match r.stop {
+        | Panicked => None
+        | Aborted(e) => Some(refineErr(para_id, codeHash, e))
+        | Running =>
+          match r.parent {
+            | None => Some(refineErr(para_id, codeHash, InvalidHeadDeclaration))
+            | Some(ph) =>
+              match r.head {
+                | None => Some(refineErr(para_id, codeHash, InvalidHeadDeclaration))
+                | Some(nh) =>
+                  if (refineOutputExceedsBudget(r.msgs))
+                    Some(refineErr(para_id, codeHash, RefineOutputTooLarge))
+                  else
+                    Some(refineOk(
+                      para_id, codeHash, ph, nh, r.msgs, lookupAnchor, r.streamsRoot,
+                      match r.requiresRoots { | Some(l) => l | None => List() }
+                    ))
+              }
+          }
+      }
     }
   }
 
@@ -357,24 +397,16 @@ module refine {
   /// useless. Otherwise each item is refined via `refineItem`, with its
   /// `para_id` sourced from `authorized_paras`.
   ///
-  /// Single-item packages only (per §3.2): `pvf`, `parentHead`, `newHead`,
-  /// `msgs`, `provides`, and `requires` are per-item scalars declared by the
-  /// PVF. `parentHead` is `None` and `newHead` is `HeadUndeclared` when the
-  /// PVF skipped the corresponding mandatory host call (§4.2); the messaging
-  /// declarations are optional, `*Undeclared` when never called (§8.1).
-  pure def refineWithRoots(
+  /// Single-item packages only (per §3.2): `calls` are the host calls of that
+  /// item's validation code.
+  pure def refine(
     s: ParachainServiceState,
     pkg: WorkPackage,
-    // The config parsed for the authorizer but carries no `Vec<ParaId>` prefix,
-    // so the service cannot source a `para_id` from it (§4.1 step 1).
-    authParasPrefixMissing: bool,
-    pvf: PvfOutcome,
-    parentHead: Option[HeadHash],
-    newHead: HeadDeclaration,
-    msgs: List[UpwardMessage],
-    lookupAnchor: Timeslot,
-    provides: StreamsRootDeclaration,
-    requires: RequiresRootsDeclaration
+  // The config parsed for the authorizer but carries no `Vec<ParaId>` prefix,
+  // so the service cannot source a `para_id` from it (§4.1 step 1).
+  authParasPrefixMissing: bool,
+    calls: List[CodeCall],
+    lookupAnchor: Timeslot
   ): List[WorkExecResult] = {
     // Package-level failures are settled before §4.1 step 2 fixes an
     // authoritative `para_id`, so none can name a para to log against and all
@@ -385,30 +417,14 @@ module refine {
     if (authParasPrefixMissing
         or pkg.items.length() != 1
         or pkg.authorizedParas.length() != pkg.items.length())
-    List(WorkErr)
+      List(WorkErr)
     else
-    match refineItem(
-      s, pkg.authorizedParas[0], pkg.items[0],
-      pvf, parentHead, newHead, msgs, lookupAnchor, provides, requires
-    ) {
-      | Some(d) => List(WorkOk(d))
-      | None => List(WorkErr)
-    }
+      match refineItem(
+        s, pkg.authorizedParas[0], pkg.items[0],
+        calls, lookupAnchor
+      ) {
+        | Some(d) => List(WorkOk(d))
+        | None => List(WorkErr)
+      }
   }
-
-  /// `refineWithRoots` for a PVF that never touched the messaging host calls:
-  /// the common case, and the signature every pre-§8 caller keeps.
-  pure def refine(
-    s: ParachainServiceState,
-    pkg: WorkPackage,
-    authParasPrefixMissing: bool,
-    pvf: PvfOutcome,
-    parentHead: Option[HeadHash],
-    newHead: HeadDeclaration,
-    msgs: List[UpwardMessage],
-    lookupAnchor: Timeslot
-  ): List[WorkExecResult] =
-  refineWithRoots(
-    s, pkg, authParasPrefixMissing, pvf, parentHead, newHead, msgs,
-    lookupAnchor, StreamsRootUndeclared, RequiresRootsUndeclared)
 }

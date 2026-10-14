@@ -16,13 +16,13 @@ module transfer_drain_test {
   run cleanUpRemovesBucketsUpToIdTest = {
     // Three separate invocations, so three closed buckets: 0, 1, 2.
     val a = applyIncomingTransfer(initialState,
-      { from: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 0 })
-    val b = applyIncomingTransfer(a, { from: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 1 })
-    val c = applyIncomingTransfer(b, { from: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 2 })
+      { source: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 0 })
+    val b = applyIncomingTransfer(a, { source: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 1 })
+    val c = applyIncomingTransfer(b, { source: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 2 })
     val partial = cleanUpBucketsUpTo(c, 1)
     val everything = cleanUpBucketsUpTo(c, 2)
     val refilled = applyIncomingTransfer(everything,
-      { from: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 3 })
+      { source: MkServiceId(0), amount: 500, toSupervisorBalance: false, memo: 3 })
     all {
       assert(c.incomingTransfers.keys() == Set(0, 1, 2)),
       assert(c.incomingTransferBuckets ==
@@ -53,13 +53,14 @@ module transfer_drain_test {
     val from = MkServiceId(3)
     // What the candidate read: buckets 0 and 1.
     val read = applyIncomingTransfer(
-      applyIncomingTransfer(initialState, { from: from, amount: big, toSupervisorBalance: false, memo: 0 }),
-      { from: from, amount: big, toSupervisorBalance: false, memo: 1 })
+      applyIncomingTransfer(initialState, { source: from, amount: big, toSupervisorBalance: false, memo: 0 }),
+      { source: from, amount: big, toSupervisorBalance: false, memo: 1 }
+    )
     // A later invocation, after that read: bucket 2.
-    val seeded = applyIncomingTransfer(read, { from: from, amount: big, toSupervisorBalance: false, memo: 2 })
+    val seeded = applyIncomingTransfer(read, { source: from, amount: big, toSupervisorBalance: false, memo: 2 })
     val ok: ParachainWorkDigestOk = {
       paraId: ah,
-      validationCode: { hash: ahCode, len: FixedCodeLen },
+      validationCode: ahCode,
       parentHeadHash: headHash(seeded.paraInfo(ah).headData),
       headData: seeded.paraInfo(ah).headData + 1,
       upwardMessages: List(CleanUpBucketsUpTo(1)),
@@ -68,14 +69,15 @@ module transfer_drain_test {
       messagesRequiresRoots: List()
     }
     val out = accumulateOnePackage(
-      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 10, Map())
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), List(), FixedCodeLen, 10, Map()
+    )
     all {
       assert(read.incomingTransfers.keys() == Set(0, 1)),
       assert(seeded.incomingTransfers.keys() == Set(0, 1, 2)),
       // The two it read are gone; the one it never saw survives intact.
       assert(out.state.incomingTransfers.keys() == Set(2)),
       assert(out.state.incomingTransfers.get(2) ==
-        List({ from: from, amount: big, toSupervisorBalance: false, memo: 2 })),
+        List({ source: from, amount: big, toSupervisorBalance: false, memo: 2 })),
       assert(out.state.incomingTransferBuckets ==
         Some({ firstBucket: 2, lastBucket: 2, count: 1 })),
       init
@@ -97,16 +99,17 @@ module transfer_drain_test {
     // Full queue (count `MaxIncomingTransfers`), then three more entries, each
     // arriving in its own invocation so each opens its own bucket.
     val seeded = List(
-      { from: MkServiceId(3), amount: big * 100, toSupervisorBalance: false, memo: 0 },
-      { from: MkServiceId(4), amount: big * 100, toSupervisorBalance: false, memo: 0 },
-      { from: MkServiceId(5), amount: big * 100, toSupervisorBalance: false, memo: 0 })
+      { source: MkServiceId(3), amount: big * 100, toSupervisorBalance: false, memo: 0 },
+      { source: MkServiceId(4), amount: big * 100, toSupervisorBalance: false, memo: 0 },
+      { source: MkServiceId(5), amount: big * 100, toSupervisorBalance: false, memo: 0 }
+    )
       .foldl(full, (acc, t) => applyIncomingTransfer(acc, t))
     // Next round, clean up the first three entries: `clean_up_buckets_up_to`
     // removes buckets from the oldest id up, so buckets 0..2 go and the queue
     // returns to the reservation size.
     val ok: ParachainWorkDigestOk = {
       paraId: ah,
-      validationCode: { hash: ahCode, len: FixedCodeLen },
+      validationCode: ahCode,
       parentHeadHash: headHash(seeded.paraInfo(ah).headData),
       headData: seeded.paraInfo(ah).headData + 1,
       upwardMessages: List(CleanUpBucketsUpTo(2)),
@@ -115,7 +118,8 @@ module transfer_drain_test {
       messagesRequiresRoots: List()
     }
     val out = accumulateOnePackage(
-      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 3, Map())
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), List(), FixedCodeLen, 3, Map()
+    )
     all {
       // The three extra entries were charged their per-bucket cost.
       assert(seeded.paraInfo(ah).usedStateBalance == used0 + 3 * big),
@@ -143,15 +147,19 @@ module transfer_drain_test {
     // One unreserved entry, charged to Asset Hub, then pin the allowance so the
     // solicit only fits once that entry is refunded.
     val paid = applyIncomingTransfer(
-      fullTransferQueue, { from: MkServiceId(3), amount: big, toSupervisorBalance: false, memo: 0 })
+      fullTransferQueue, { source: MkServiceId(3), amount: big, toSupervisorBalance: false, memo: 0 }
+    )
     val pi = paid.paraInfo(ah)
     val tight =
-      { ...paid,
+      {
+        ...paid,
         parachains: paid.parachains.put(
-          ah, pi.setTotal(pi.usedStateBalance + preimageFootprint(len) - 1)) }
+          ah, pi.setTotal(pi.usedStateBalance + preimageFootprint(len) - 1)
+        )
+      }
     pure def candidate(msgs: List[UpwardMessage]): ParachainWorkDigestOk = {
       paraId: ah,
-      validationCode: { hash: ahCode, len: FixedCodeLen },
+      validationCode: ahCode,
       parentHeadHash: headHash(tight.paraInfo(ah).headData),
       headData: tight.paraInfo(ah).headData + 1,
       upwardMessages: msgs,
@@ -162,13 +170,14 @@ module transfer_drain_test {
     pure def replay(msgs: List[UpwardMessage]): ParachainServiceState =
       accumulateOnePackage(
         tight, { result: WorkOk(Ok(candidate(msgs))), authTrace: 0 },
-        Set(), None, FixedCodeLen, MaxIncomingTransfers + 1, Map()).state
+        Set(), List(), FixedCodeLen, MaxIncomingTransfers + 1, Map()
+      ).state
     val cleanFirst =
       replay(List(CleanUpBucketsUpTo(MaxIncomingTransfers),
-                  Solicit({ target: Parachain(ah), hash: h, len: len })))
+        Solicit({ target: Parachain(ah), hash: h, len: len })))
     val solicitFirst =
       replay(List(Solicit({ target: Parachain(ah), hash: h, len: len }),
-                  CleanUpBucketsUpTo(MaxIncomingTransfers)))
+        CleanUpBucketsUpTo(MaxIncomingTransfers)))
     all {
       // The allowance is one short of the solicit, and cleaning up does not help.
       assert(not(tight.paraInfo(ah).hasHeadroom(preimageFootprint(len)))),

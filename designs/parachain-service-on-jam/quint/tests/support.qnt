@@ -10,6 +10,7 @@ module support {
   import types.* from "../types"
   import messages.* from "../messages"
   import state.* from "../state"
+  import state_balance.* from "../state_balance"
   import foreign_services.* from "../foreign_services"
   import refine.* from "../refine"
   import accumulate.* from "../accumulate"
@@ -17,10 +18,24 @@ module support {
   import state_vars.* from "../state_vars"
   import main.* from "../main"
 
+  /// Mark `(h, len)` as provided at slot `at`.
+  pure def markProvidedAt(
+    s: ParachainServiceState, h: Hash, len: int, at: Timeslot
+  ): ParachainServiceState =
+    { ...s, preimageStatus: s.preimageStatus.put((h, len), Provided(at)) }
+
+  /// Mark `(h, len)` as provided at slot 0, so it is available at every slot.
   pure def markProvided(
     s: ParachainServiceState, h: Hash, len: int
   ): ParachainServiceState =
-    { ...s, preimageStatus: s.preimageStatus.put((h, len), Provided) }
+    markProvidedAt(s, h, len, 0)
+
+  /// Solicit `(h, len)` for `para` and mark it available, i.e. the state left
+  /// by step 1 of §5.2 once someone has supplied the blob.
+  pure def solicitedAndProvided(
+    s: ParachainServiceState, para: ParaId, h: ValidationCodeHash, len: int
+  ): ParachainServiceState =
+    markProvided(s.addReferencer(para, h.asPreimage(), len, 0).state, h.asPreimage(), len)
 
   pure def isUnrequested(st: RequestStatus): bool =
     match st { | Unrequested(_) => true | _ => false }
@@ -31,8 +46,8 @@ module support {
   /// rather than a parallel copy. Each package is refined (at guarantee time,
   /// against the pre-block state) and paired with lookup-anchor 0 (prune
   /// nothing). Each element is `(para, codeHash, msgs)`; `codeHash` is what the
-  /// collator says it validated against (active *or* pending, both accepted by
-  /// `accumulateOkPrefix` step 3).
+  /// collator says it validated against; only the ACTIVE code is accepted by
+  /// `accumulateOkPrefix` (§5.1 step 2).
   action applyHappyPaths(
     pkgs: List[(ParaId, ValidationCodeHash, List[UpwardMessage])]
   ): bool = {
@@ -44,12 +59,12 @@ module support {
       val pi = svc.paraInfo(p._1)
       val pkg: WorkPackage = {
         authorizedParas: List(p._1),
-        items: List({ validationCode: { hash: p._2, len: FixedCodeLen }, pov: 0 })
+        items: List({ validationCode: { hash: p._2, len: FixedCodeLen } })
       }
       val wr: WorkResult = {
         result: refine(
-          svc, pkg, false, PvfOk,
-          Some(headHash(pi.headData)), HeadDeclared(pi.headData + 1), p._3, 0
+          svc, pkg, false,
+          wellFormedCalls(headHash(pi.headData), pi.headData + 1, p._3), 0
         )[0],
         authTrace: 0
       }
@@ -58,7 +73,8 @@ module support {
     // Run the exact per-block Accumulate pipeline the model step runs.
     val blockOut = accumulateBlock(
       svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages,
-      foreignServices)
+      foreignServices
+    )
     all {
       svc' = blockOut.state,
       now' = blockNow,
@@ -67,6 +83,7 @@ module support {
       prevSvc' = svc,
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
+      lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
       logPrunedBelow' =
@@ -80,7 +97,7 @@ module support {
   ): bool = applyHappyPaths(List((paraId, codeHash, msgs)))
 
   /// `applyHappyPaths` with per-package messaging declarations (§8.1): each
-  /// element also carries what the PVF's `set_messages_streams_root` /
+  /// element also carries what the validation code's `set_messages_streams_root` /
   /// `set_messages_requires_roots` calls amounted to. Packages carry no upward
   /// messages, since the messaging fields travel in the digest, not the
   /// message list. Same shared `accumulateBlock` pipeline as the model step,
@@ -93,13 +110,14 @@ module support {
       val pi = svc.paraInfo(p._1)
       val pkg: WorkPackage = {
         authorizedParas: List(p._1),
-        items: List({ validationCode: { hash: p._2, len: FixedCodeLen }, pov: 0 })
+        items: List({ validationCode: { hash: p._2, len: FixedCodeLen } })
       }
       val wr: WorkResult = {
-        result: refineWithRoots(
-          svc, pkg, false, PvfOk,
-          Some(headHash(pi.headData)), HeadDeclared(pi.headData + 1), List(), 0,
-          p._3, p._4
+        result: refine(
+          svc, pkg, false,
+          wellFormedCalls(headHash(pi.headData), pi.headData + 1, List())
+            .concat(messagingCalls(p._3, p._4)),
+          0
         )[0],
         authTrace: 0
       }
@@ -116,6 +134,7 @@ module support {
       prevSvc' = svc,
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
+      lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
       logPrunedBelow' =
@@ -139,13 +158,15 @@ module support {
     val pkg: WorkPackage = {
       authorizedParas: List(caller),
       items: List({
-        validationCode: { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen },
-        pov: 0
+        validationCode: { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen }
       })
     }
-    refineWithRoots(s, pkg, false, PvfOk,
-      Some(headHash(pi.headData)), HeadDeclared(pi.headData + 1), List(), 0,
-      provides, requires)[0]
+    refine(
+      s, pkg, false,
+      wellFormedCalls(headHash(pi.headData), pi.headData + 1, List())
+        .concat(messagingCalls(provides, requires)),
+      0
+    )[0]
   }
 
   /// Generic guard-only assertion wrapper: holds all primes at their
@@ -159,6 +180,7 @@ module support {
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
+    lastStepAssignBudget' = lastStepAssignBudget,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
@@ -173,8 +195,24 @@ module support {
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
+    lastStepAssignBudget' = lastStepAssignBudget,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
+    logPrunedBelow' = logPrunedBelow
+  }
+
+  /// Replace the other JAM services, e.g. to give a test counterparties.
+  action setForeign(fs: ForeignServices): bool = all {
+    svc' = svc,
+    now' = now,
+    jamStagingSet' = jamStagingSet,
+    solicitedSet' = solicitedSet,
+    prevSvc' = prevSvc,
+    lastStepWorkResults' = lastStepWorkResults,
+    lastStepAssigns' = lastStepAssigns,
+    lastStepAssignBudget' = lastStepAssignBudget,
+    lastHeadRoot' = lastHeadRoot,
+    foreignServices' = fs,
     logPrunedBelow' = logPrunedBelow
   }
 
@@ -188,6 +226,7 @@ module support {
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
+    lastStepAssignBudget' = lastStepAssignBudget,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
@@ -196,17 +235,19 @@ module support {
   /// `incoming_transfers` at capacity, maximally fragmented: one transfer per
   /// bucket in ids `0 .. MaxIncomingTransfers`, which is what one transfer per
   /// accumulate invocation produces.
-  pure val fullIncomingTransfersFixture:
-    BucketId -> List[IncomingTransfer] =
+  pure val fullIncomingTransfersFixture: BucketId -> List[IncomingTransfer] =
     range(0, MaxIncomingTransfers).foldl(Map(), (acc, i) =>
-      acc.put(i, List({ from: MkServiceId(0), amount: 1000 + i, toSupervisorBalance: false, memo: 0 })))
+      acc.put(i, List({ source: MkServiceId(0), amount: 1000 + i, toSupervisorBalance: false, memo: 0 })))
 
   pure val fullTransferQueue: ParachainServiceState = {
     ...initialState,
     incomingTransfers: fullIncomingTransfersFixture,
     incomingTransferBuckets:
-      Some({ firstBucket: 0, lastBucket: MaxIncomingTransfers - 1,
-             count: MaxIncomingTransfers })
+      Some({
+        firstBucket: 0,
+        lastBucket: MaxIncomingTransfers - 1,
+        count: MaxIncomingTransfers
+      })
   }
 
   /// One bucket short of the reservation: the queue can still hold one more.
@@ -214,14 +255,17 @@ module support {
     ...fullTransferQueue,
     incomingTransfers: fullTransferQueue.incomingTransfers.mapRemove(MaxIncomingTransfers - 1),
     incomingTransferBuckets:
-      Some({ firstBucket: 0, lastBucket: MaxIncomingTransfers - 2,
-             count: MaxIncomingTransfers - 1 })
+      Some({
+        firstBucket: 0,
+        lastBucket: MaxIncomingTransfers - 2,
+        count: MaxIncomingTransfers - 1
+      })
   }
 
   /// Refine a candidate for `paraId` declaring a STALE parent head: the sentinel
   /// head the para never has (`StaleParentHead`), as both parent and new head,
   /// carrying `msgs` as its upward messages. Accumulate's parent-head check (§5.1
-  /// step 3) must reject it, so neither its head write nor its replayed messages
+  /// step 4) must reject it, so neither its head write nor its replayed messages
   /// (§5.1 step 7) take effect. The new head is deliberately NOT `current + 1`:
   /// if the check were broken and the candidate applied, the head would jump to
   /// an obviously-invalid sentinel value, so the "head unchanged" assertion can
@@ -232,31 +276,30 @@ module support {
     val blockNow = now + 1
     val pkg: WorkPackage = {
       authorizedParas: List(paraId),
-      items: List({ validationCode: { hash: codeHash, len: FixedCodeLen }, pov: 0 })
+      items: List({ validationCode: { hash: codeHash, len: FixedCodeLen } })
     }
     val wr: WorkResult = {
       result: refine(
-        svc, pkg, false, PvfOk,
-        Some(headHash(StaleParentHead)), HeadDeclared(StaleParentHead), msgs, 0
+        svc, pkg, false,
+        wellFormedCalls(headHash(StaleParentHead), StaleParentHead, msgs), 0
       )[0],
       authTrace: 0
     }
     val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
     val out = accumulateOnePackage(
-      afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, blockNow,
+      afterAlwaysAccumulate.state, wr, solicitedSet, List(), FixedCodeLen, blockNow,
       foreignServices
     )
     all {
       svc' = out.state,
       now' = blockNow,
-      jamStagingSet' = match out.jamDesignate {
-        | Some(v) => v
-        | None => jamStagingSet
-      },
+      jamStagingSet' =
+        if (out.jamDesignate == List()) jamStagingSet else out.jamDesignate,
       solicitedSet' = out.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = List(wr),
       lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out.jamAssigns),
+      lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = headCommitment(svc, out.state),
       foreignServices' = out.foreign,
       logPrunedBelow' = logPrunedBelow
@@ -267,8 +310,12 @@ module support {
   pure def accOverWith(
     s: ParachainServiceState, fs: ForeignServices
   ): AccumulateOutcome = {
-    state: s, jamDesignate: None, jamSolicit: Set(),
-    jamForget: Set(), jamAssigns: List(), logs: List(), foreign: fs
+    state: s,
+    jamDesignate: List(),
+    preimageOps: List(),
+    jamAssigns: List(),
+    logs: List(),
+    foreign: fs
   }
 
   pure def accOver(s: ParachainServiceState): AccumulateOutcome =
@@ -285,27 +332,51 @@ module support {
   ): AccumulateOutcome =
     applyUpwardMessage(accOverWith(initialState, fs), caller, FixedCodeLen, now, now, m)
 
+  /// The calls of validation code that declares both heads, then sends `msgs`.
+  pure def wellFormedCalls(
+    parent: HeadHash, newHead: HeadData, msgs: List[UpwardMessage]
+  ): List[CodeCall] =
+    List(SetParentHeadHash(parent), SetHead(newHead)).concat(sends(msgs))
+
+  /// The code a `refineCalls` candidate for `caller` carries: its active code.
+  pure def activeCandidateCode(s: ParachainServiceState, caller: ParaId): ValidationCodeRef =
+    { hash: activeCodeHashOr(s.paraInfo(caller), NoCodeHash), len: FixedCodeLen }
+
+  /// Refine a candidate for `caller` against its active code, making `calls`.
+  pure def refineCalls(
+    s: ParachainServiceState, caller: ParaId, calls: List[CodeCall]
+  ): WorkExecResult = {
+    val pkg: WorkPackage = {
+      authorizedParas: List(caller),
+      items: List({ validationCode: activeCandidateCode(s, caller) })
+    }
+    refine(s, pkg, false, calls, 0)[0]
+  }
+
+  /// What `refineCalls` returns when Refine fails with `e`.
+  pure def refineCallsErr(s: ParachainServiceState, caller: ParaId, e: RefineLog): WorkExecResult =
+    WorkOk(refineErr(caller, activeCandidateCode(s, caller).hash, e))
+
   /// Refine one otherwise well-formed candidate for `caller`, carrying `msgs`.
   pure def refineWithMsgs(
     s: ParachainServiceState, caller: ParaId, msgs: List[UpwardMessage]
   ): WorkExecResult = {
     val pi = s.paraInfo(caller)
-    val pkg: WorkPackage = {
-      authorizedParas: List(caller),
-      items: List({
-        validationCode: { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen },
-        pov: 0
-      })
-    }
-    refine(s, pkg, false, PvfOk,
-      Some(headHash(pi.headData)), HeadDeclared(pi.headData + 1), msgs, 0)[0]
+    refineCalls(s, caller, wellFormedCalls(headHash(pi.headData), pi.headData + 1, msgs))
   }
 
   pure def isOkDigest(r: WorkExecResult): bool =
     match r { | WorkOk(d) => match d { | Ok(_) => true | Err(_) => false } | WorkErr => false }
 
-  pure def activeCodePinned(pi: ParaInfo): bool =
-    match pi.validationCode { | Some(vc) => vc.pinned | None => false }
+  /// Whether `(h, len)` is `pi`'s validation code, i.e. its active or
+  /// announced code, which is what makes a `Forget` of it refused (§5.2).
+  pure def isValidationCodeOf(pi: ParaInfo, h: Hash, len: int): bool = {
+    val isActive =
+      match pi.validationCode { | Some(ref) => refIs(ref, h, len) | None => false }
+    val isAnnounced =
+      match pi.announcedUpgrade { | Some(ref) => refIs(ref, h, len) | None => false }
+    isActive or isAnnounced
+  }
 
   /// The endpoint invariant itself must reject a hole in the bucket ids. Asset
   /// Hub reads the queue by walking `firstBucket ..= lastBucket`, so a missing id
@@ -314,14 +385,15 @@ module support {
   /// present and every id lies between them, so only the contiguity conjunct
   /// rules it out.
   pure val oneTransfer: List[IncomingTransfer] =
-    List({ from: MkServiceId(0), amount: 1, toSupervisorBalance: false, memo: 0 })
+    List({ source: MkServiceId(0), amount: 1, toSupervisorBalance: false, memo: 0 })
 
   pure val gappedBucketsState: ParachainServiceState = {
     ...initialState,
     incomingTransfers: Map(
       1 -> oneTransfer,
       2 -> oneTransfer,
-      4 -> oneTransfer),
+      4 -> oneTransfer
+    ),
     incomingTransferBuckets: Some({ firstBucket: 1, lastBucket: 4, count: 3 })
   }
 
@@ -330,7 +402,8 @@ module support {
     incomingTransfers: Map(
       1 -> oneTransfer,
       2 -> oneTransfer,
-      3 -> oneTransfer),
+      3 -> oneTransfer
+    ),
     incomingTransferBuckets: Some({ firstBucket: 1, lastBucket: 3, count: 3 })
   }
 }

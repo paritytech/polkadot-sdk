@@ -26,7 +26,7 @@ module main {
 
   /// Initial state with the two privileged chains pre-registered, so that
   /// every state mutation in the model flows through `stepRefineAccumulate`
-  /// Coretime and Asset Hub act as ordinary parachains whose PVFs emit
+  /// Coretime and Asset Hub act as ordinary parachains whose validation code emits
   /// privileged upward messages (Coretime: `ParachainSet*`, Asset Hub:
   /// `SetValidatorKeys` / `UpgradeService` / `TransferOut` / `CleanUpBucketsUpTo`).
   /// Per-para balance budget at init: baseline + headroom for the active
@@ -41,6 +41,10 @@ module main {
   pure val InitialAssetHubBalance: int =
     AssetHubBaselineFootprint + preimageFootprint(FixedCodeLen) * 2 + BaselineFootprint
 
+  /// The entire token supply, all of which the Parachain Service holds at
+  /// genesis.
+  pure val TotalSupply: Balance = 1000000000000000000
+
   pure val initialState: ParachainServiceState = {
     val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
     val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
@@ -49,7 +53,8 @@ module main {
     val s3 = parachainSetHead(s2, CoretimeParaId, 0).state
     val s4 = parachainSetStateBalance(s3, AssetHubParaId, InitialAssetHubBalance).state
     val s5 = parachainSetValidationCode(s4, AssetHubParaId, assetHubCode, FixedCodeLen, 0).state
-    parachainSetHead(s5, AssetHubParaId, 0).state
+    val s6 = parachainSetHead(s5, AssetHubParaId, 0).state
+    { ...s6, jamAccount: { balance: TotalSupply, supervisorBalance: 0, minMemoGas: 0 } }
   }
 
   // --- Init --------------------------------------------------------------
@@ -62,22 +67,29 @@ module main {
     prevSvc' = initialState,
     lastStepWorkResults' = List(),
     lastStepAssigns' = List(),
+    lastStepAssignBudget' = { flush: 0, end: 0 },
     lastHeadRoot' = None,
     foreignServices' = Map(),
     logPrunedBelow' = Map()
   }
 
+  /// Due-assign budgets a step picks from: none, one, or every due assign, both
+  /// for the always-accumulate allowance and for the gas left at the end.
+  pure val AssignBudgets: Set[AssignBudget] =
+    tuples(Set(0, 1, CoreCount), Set(0, 1, CoreCount))
+      .map(b => { flush: b._1, end: b._2 })
+
   // --- Step (a): refine + accumulate one work-report --------------------
 
   /// A sentinel head value no live para ever reaches, modelling a candidate
   /// built on a non-current (stale) head that Accumulate's parent-head check
-  /// (§5.1 step 3) must reject.
+  /// (§5.1 step 4) must reject.
   pure val StaleParentHead: HeadData = 9223372036854775807
 
   /// Placeholder hash for a candidate built for a para that has no active
   /// validation code yet (`validationCode == None`). It matches no real code,
   /// so Accumulate's authoritative code check rejects the candidate as
-  /// `InvalidCodeHash`, modelling that a codeless para can validate nothing.
+  /// `ValidationCodeLookupFailed`, modelling that a codeless para can validate nothing.
   pure val NoCodeHash: ValidationCodeHash = { vchBytes: 999999 }
 
   /// Construct one nondet work package's inputs against a service state `s`.
@@ -87,18 +99,19 @@ module main {
   /// para's latest head this block (tracked across packages), so a second
   /// package for the same para chains off the first's new head. The result is
   /// parent `headHash(curHead)`, new head `curHead + 1`, which chains correctly
-  /// and passes Accumulate's parent-head check (§5.1 step 3).
-  /// `declParent` models whether the PVF called `set_parent_head_hash`; when
-  /// false the declaration is `None`, which Refine rejects with
-  /// `MissingHeadDeclaration` (§4.2). `headDecl` selects the `set_head` case the
-  /// same way: `HeadUndeclared` (never called) and `HeadOversized` (past the
-  /// 4 KiB cap, rejected with `HeadDataTooLarge`) pass through, while
-  /// `HeadDeclared`'s payload is ignored and replaced by the chained head below.
+  /// and passes Accumulate's parent-head check (§5.1 step 4).
+  /// `declParent` models whether the validation code called `set_parent_head_hash`.
+  /// `headCall` is its `set_head` call, if any: `SetHead`'s payload is ignored and
+  /// replaced by the chained head below, `SetHeadOversized` passes through.
+  /// `headFirst` puts it before the upward messages rather than after, so the
+  /// order of aborting calls is exercised. `codeEnd` is how the code exits
+  /// (§4.2).
   /// `staleParent` models a candidate built on a non-current (stale)
   /// head: it declares the `StaleParentHead` sentinel as its parent (and new
   /// head) while still carrying its normal messages, so the candidate is
-  /// well-formed but rejected by Accumulate's parent-head check (§5.1 step 3),
-  /// exercising that check.
+  /// well-formed but rejected by Accumulate's parent-head check (§5.1 step 4),
+  /// exercising that check. `messaging` are the optional messaging host calls
+  /// (§8.1), made just before the code exits.
   pure def buildPackage(
     curHead: HeadData,
     paraId: ParaId,
@@ -108,12 +121,12 @@ module main {
     numMsgs: int,
     itemCount: int,
     declParent: bool,
-    headDecl: HeadDeclaration,
-    staleParent: bool
-  ): {
-    pkg: WorkPackage, msgs: List[UpwardMessage],
-    parentHead: Option[HeadHash], newHead: HeadDeclaration
-  } = {
+    headCall: List[CodeCall],
+    headFirst: bool,
+    codeEnd: List[CodeCall],
+    staleParent: bool,
+    messaging: List[CodeCall]
+  ): { pkg: WorkPackage, calls: List[CodeCall] } = {
     val msgs =
       if (numMsgs == 0) List()
       else if (numMsgs == 1) List(m1)
@@ -122,19 +135,19 @@ module main {
       if (itemCount == 0) { authorizedParas: List(paraId), items: List() }
       else if (itemCount == 1) { authorizedParas: List(paraId), items: List(candidate) }
       else { authorizedParas: List(paraId, paraId), items: List(candidate, candidate) }
-    {
-      pkg: pkg, msgs: msgs,
-      parentHead:
-        if (staleParent) Some(headHash(StaleParentHead))
-        else if (declParent) Some(headHash(curHead)) else None,
-      newHead:
-        if (staleParent) HeadDeclared(StaleParentHead)
-        else match headDecl {
-          | HeadDeclared(_) => HeadDeclared(curHead + 1)
-          | HeadUndeclared => HeadUndeclared
-          | HeadOversized => HeadOversized
-        }
-    }
+    val parentCalls =
+      if (staleParent) List(SetParentHeadHash(headHash(StaleParentHead)))
+      else if (declParent) List(SetParentHeadHash(headHash(curHead)))
+      else List()
+    val headCalls =
+      if (staleParent) List(SetHead(StaleParentHead))
+      else headCall.foldl(List(), (acc, c) => acc.append(match c {
+        | SetHead(_) => SetHead(curHead + 1)
+        | _ => c
+      }))
+    val body =
+      if (headFirst) headCalls.concat(sends(msgs)) else sends(msgs).concat(headCalls)
+    { pkg: pkg, calls: parentCalls.concat(body).concat(messaging).concat(codeEnd) }
   }
 
   action stepRefineAccumulate = {
@@ -164,10 +177,11 @@ module main {
     nondet wp1Candidate = oneOf(arbitraryCandidates(svc, wp1Para))
     // §4.2: `report_error` aborts and is logged; a bare panic is not caught and
     // yields a work error with no digest at all.
-    nondet wp1Pvf = oneOf(Set(PvfOk, PvfReportError(0), PvfPanic))
+    nondet wp1CodeEnd = oneOf(Set(List(), List(ReportError(0)), List(Panic)))
     nondet wp1NoParasPrefix = oneOf(Set(false, true))
     val wp1Pool = arbitraryMessages(
-      wp1Para, activeCodeHashOr(svc.paraInfo(wp1Para), NoCodeHash))
+      wp1Para, activeCodeHashOr(svc.paraInfo(wp1Para), NoCodeHash)
+    )
     nondet wp1M1 = oneOf(wp1Pool)
     nondet wp1M2 = oneOf(wp1Pool)
     nondet wp1NumMsgs = oneOf(Set(0, 1, 2))
@@ -177,17 +191,18 @@ module main {
     // work-item before the service's refine ran. Accumulate sees the no-op
     // case (§3.3).
     nondet wp1IsJamSkip = oneOf(Set(false, true))
-    // Whether the PVF declared its parent head (§4.2). When false, Refine
-    // rejects with `MissingHeadDeclaration`; an oversized `set_head` is
-    // rejected with `HeadDataTooLarge`. The `HeadDeclared` payload is a
+    // Whether the validation code declared its parent head (§4.2). When false, Refine
+    // rejects with `InvalidHeadDeclaration`; an oversized `set_head` is
+    // rejected with `HeadDataTooLarge`. The `SetHead` payload is a
     // placeholder: `buildPackage` substitutes the para's chained head.
     nondet wp1DeclParent = oneOf(Set(false, true))
-    nondet wp1HeadDecl = oneOf(Set(HeadDeclared(0), HeadUndeclared, HeadOversized))
+    nondet wp1HeadCall = oneOf(Set(List(SetHead(0)), List(), List(SetHeadOversized)))
+    nondet wp1HeadFirst = oneOf(Set(false, true))
     // A stale-parent candidate (built on a non-current head) exercises the
-    // parent-head check's rejection (§5.1 step 3). Forced to active code so it
+    // parent-head check's rejection (§5.1 step 4). Forced to active code so it
     // is rejected on the parent rather than on the code.
     nondet wp1StaleParent = oneOf(Set(false, true))
-    // §8.1: what the PVF's optional messaging host calls amounted to.
+    // §8.1: what the validation code's optional messaging host calls amounted to.
     nondet wp1StreamsRoot = oneOf(streamsRootMenu)
     nondet wp1RequiresRoots = oneOf(requiresRootsMenu(wp1Para))
     // Latest head for wp1's para this block. A non-live para (e.g. not yet
@@ -196,15 +211,14 @@ module main {
     val wp1Head = if (svc.isLive(wp1Para)) svc.paraInfo(wp1Para).headData else 0
     val wp1 = buildPackage(
       wp1Head, wp1Para, wp1Candidate, wp1M1, wp1M2,
-      wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1HeadDecl, wp1StaleParent
+      wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1HeadCall, wp1HeadFirst, wp1CodeEnd,
+      wp1StaleParent, messagingCalls(wp1StreamsRoot, wp1RequiresRoots)
     )
     val wp1Wr: WorkResult = {
       result:
         if (wp1IsJamSkip) WorkErr
-        else refineWithRoots(
-          svc, wp1.pkg, wp1NoParasPrefix, wp1Pvf,
-          wp1.parentHead, wp1.newHead, wp1.msgs, lookupAnchor1,
-          wp1StreamsRoot, wp1RequiresRoots
+        else refine(
+          svc, wp1.pkg, wp1NoParasPrefix, wp1.calls, lookupAnchor1
         )[0],
       authTrace: wp1AuthTrace
     }
@@ -212,10 +226,11 @@ module main {
     // Second work package. 
     nondet wp2Para = oneOf(svc.parachains.keys())
     nondet wp2Candidate = oneOf(arbitraryCandidates(svc, wp2Para))
-    nondet wp2Pvf = oneOf(Set(PvfOk, PvfReportError(0), PvfPanic))
+    nondet wp2CodeEnd = oneOf(Set(List(), List(ReportError(0)), List(Panic)))
     nondet wp2NoParasPrefix = oneOf(Set(false, true))
     val wp2Pool = arbitraryMessages(
-      wp2Para, activeCodeHashOr(svc.paraInfo(wp2Para), NoCodeHash))
+      wp2Para, activeCodeHashOr(svc.paraInfo(wp2Para), NoCodeHash)
+    )
     nondet wp2M1 = oneOf(wp2Pool)
     nondet wp2M2 = oneOf(wp2Pool)
     nondet wp2NumMsgs = oneOf(Set(0, 1, 2))
@@ -223,7 +238,8 @@ module main {
     nondet wp2AuthTrace = oneOf(Set(0, 1, 2))
     nondet wp2IsJamSkip = oneOf(Set(false, true))
     nondet wp2DeclParent = oneOf(Set(false, true))
-    nondet wp2HeadDecl = oneOf(Set(HeadDeclared(0), HeadUndeclared, HeadOversized))
+    nondet wp2HeadCall = oneOf(Set(List(SetHead(0)), List(), List(SetHeadOversized)))
+    nondet wp2HeadFirst = oneOf(Set(false, true))
     nondet wp2StaleParent = oneOf(Set(false, true))
     nondet wp2StreamsRoot = oneOf(streamsRootMenu)
     nondet wp2RequiresRoots = oneOf(requiresRootsMenu(wp2Para))
@@ -233,15 +249,14 @@ module main {
       else if (svc.isLive(wp2Para)) svc.paraInfo(wp2Para).headData else 0
     val wp2 = buildPackage(
       wp2Head, wp2Para, wp2Candidate, wp2M1, wp2M2,
-      wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2HeadDecl, wp2StaleParent
+      wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2HeadCall, wp2HeadFirst, wp2CodeEnd,
+      wp2StaleParent, messagingCalls(wp2StreamsRoot, wp2RequiresRoots)
     )
     val wp2Wr: WorkResult = {
       result:
         if (wp2IsJamSkip) WorkErr
-        else refineWithRoots(
-          svc, wp2.pkg, wp2NoParasPrefix, wp2Pvf,
-          wp2.parentHead, wp2.newHead, wp2.msgs, lookupAnchor2,
-          wp2StreamsRoot, wp2RequiresRoots
+        else refine(
+          svc, wp2.pkg, wp2NoParasPrefix, wp2.calls, lookupAnchor2
         )[0],
       authTrace: wp2AuthTrace
     }
@@ -256,9 +271,11 @@ module main {
       if (numPkgs == 0) List()
       else if (numPkgs == 1) List(wp1Wr)
       else List(wp1Wr, wp2Wr)
-    val blockOut = accumulateBlock(
+    nondet budget = oneOf(AssignBudgets)
+    val blockOut = accumulateBlockBudgeted(
       svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages,
-      foreignServices)
+      foreignServices, budget
+    )
 
     // Fold each candidate's `(para, lookup-anchor)` into the ghost
     // `logPrunedBelow`; a later package for the same para wins.
@@ -273,6 +290,7 @@ module main {
       prevSvc' = svc,
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
+      lastStepAssignBudget' = budget,
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
       logPrunedBelow' = newLogPrunedBelow
@@ -282,6 +300,30 @@ module main {
   // --- Step (b): another service sends an OnTransfer into Asset Hub ----
   // One step is one accumulate invocation, so the transfers it carries share the
   // buckets it opens; a later step's arrivals can never reopen them (§5.1).
+
+  /// A transfer-only accumulate invocation at the current timeslot carrying `ts`.
+  /// Due assigns are flushed first, as in every invocation (§5.1), within
+  /// `budget`.
+  action incomingTransferInvocation(
+    ts: List[IncomingTransfer], budget: AssignBudget
+  ): bool = {
+    val out = accumulateTransfers(svc, now, ts, budget)
+    all {
+      svc' = out.state,
+      now' = now,
+      jamStagingSet' = jamStagingSet,
+      solicitedSet' = solicitedSet,
+      prevSvc' = svc,
+      lastStepWorkResults' = List(),
+      lastStepAssigns' = out.assigns,
+      lastStepAssignBudget' = budget,
+      // Touches no head, so the commitment is empty (checked by the invariant).
+      lastHeadRoot' = None,
+      foreignServices' = foreignServices,
+      logPrunedBelow' = logPrunedBelow
+    }
+  }
+
   action stepIncomingTransfer = {
     val senderPool: Set[ServiceId] = Set(MkServiceId(0), MkServiceId(3), MkServiceId(7))
     nondet senderId = oneOf(senderPool)
@@ -291,38 +333,30 @@ module main {
     nondet toSup = oneOf(Set(false, true))
     // Batch sizes above one exercise the in-invocation packing.
     nondet extra = oneOf(Set(0, 1))
-    val t = { from: senderId, amount: amount, toSupervisorBalance: toSup, memo: memo }
-    all {
-      svc' = applyIncomingTransfers(
-        svc, if (extra == 0) List(t) else List(t, { ...t, memo: memo + 1 })),
-      now' = now,
-      jamStagingSet' = jamStagingSet,
-      solicitedSet' = solicitedSet,
-      prevSvc' = svc,
-      lastStepWorkResults' = List(),
-      lastStepAssigns' = List(),
-      // Touches no head, so the commitment is empty (checked by the invariant).
-      lastHeadRoot' = None,
-      foreignServices' = foreignServices,
-      logPrunedBelow' = logPrunedBelow
-    }
+    val t = { source: senderId, amount: amount, toSupervisorBalance: toSup, memo: memo }
+    nondet budget = oneOf(AssignBudgets)
+    incomingTransferInvocation(
+      if (extra == 0) List(t) else List(t, { ...t, memo: memo + 1 }), budget
+    )
   }
 
   // Model JAM Phase 3: anyone submits a solicited preimage out-of-band, moving
-  // its `query` status `Unprovided -> Provided`.
+  // its `query` status `Unprovided -> Provided(now)`.
   action provisionPreimage = {
     val unprovided =
       svc.preimageStatus.keys().filter(k => svc.preimageStatus.get(k) == Unprovided)
     all {
       unprovided != Set(),
       nondet key = oneOf(unprovided)
-      svc' = { ...svc, preimageStatus: svc.preimageStatus.put(key, Provided) },
+      svc' = { ...svc, preimageStatus: svc.preimageStatus.put(key, Provided(now)) },
       now' = now,
       jamStagingSet' = jamStagingSet,
       solicitedSet' = solicitedSet,
       prevSvc' = svc,
       lastStepWorkResults' = List(),
       lastStepAssigns' = List(),
+      // Not an accumulate invocation, so no due assign is applied.
+      lastStepAssignBudget' = { flush: 0, end: 0 },
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
       foreignServices' = foreignServices,
@@ -337,23 +371,25 @@ module main {
   // --- Auxiliary: nondeterministic refine-input generators --------------
 
   /// A small menu of candidates a collator might produce: one carrying the
-  /// active validation code (the happy path), one carrying the pending
-  /// upgrade code (the dual-code window of §5.2), and one carrying an
-  /// unsolicited hash (which Refine must reject as `InvalidCodeHash`).
+  /// active validation code (the happy path), one carrying the announced
+  /// upgrade code when there is one (which §5.1 step 2 must reject until an
+  /// `Apply` lands), and one carrying an unsolicited hash (which Refine must
+  /// reject as `ValidationCodeLookupFailed`).
   pure def arbitraryCandidates(
     s: ParachainServiceState, para_id: ParaId
   ): Set[ParachainCandidate] = {
     val pi = s.paraInfo(para_id)
-    val active = activeCodeHashOr(pi, NoCodeHash)
-    val pending = match pi.pendingUpgrade {
-      | None => active
-      | Some(pair) => pair._1.ref.hash
-    }
-    Set(
-      { validationCode: { hash: active, len: FixedCodeLen }, pov: 0 },
-      { validationCode: { hash: pending, len: FixedCodeLen }, pov: 0 },
-      { validationCode: { hash: { vchBytes: 99999 }, len: 999 }, pov: 0 }
+    val base = Set(
+      {
+        validationCode:
+          { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen }
+      },
+      { validationCode: { hash: { vchBytes: 99999 }, len: 999 } }
     )
+    match pi.announcedUpgrade {
+      | None => base
+      | Some(ref) => base.union(Set({ validationCode: ref }))
+    }
   }
 
   /// §8: the two roots the nondet messaging menus draw from. Two distinct
@@ -362,7 +398,7 @@ module main {
   pure val StreamsRootA: StreamsRoot = { streamsRootBytes: 1 }
   pure val StreamsRootB: StreamsRoot = { streamsRootBytes: 2 }
 
-  /// Menu of `set_messages_streams_root` outcomes a PVF might declare (§8.1):
+  /// Menu of `set_messages_streams_root` outcomes validation code might declare (§8.1):
   /// no root, either root, or an aborting repeated call.
   pure val streamsRootMenu: Set[StreamsRootDeclaration] = Set(
     StreamsRootUndeclared,
@@ -373,7 +409,7 @@ module main {
 
   /// Menu of `set_messages_requires_roots` outcomes (§8.1): nothing consumed,
   /// entries that settle once their source has enacted the named root (and
-  /// are silently rejected until then, §5.1 step 6), an ill-formed set naming
+  /// are silently rejected until then, §5.1 step 5), an ill-formed set naming
   /// the candidate itself, and an aborting repeated call.
   pure def requiresRootsMenu(para_id: ParaId): Set[RequiresRootsDeclaration] = Set(
     RequiresRootsUndeclared,
@@ -385,7 +421,7 @@ module main {
     RequiresRootsRepeated
   )
 
-  /// Menu of individual upward messages a PVF might emit during Refine.
+    /// Menu of individual upward messages validation code might emit during Refine.
   /// Every parachain draws from the SAME menu: restricted host calls
   /// (AH-only, Coretime-only) are included for all paras so the Refine
   /// wrapper's `RestrictedHostFunction` rejection (§4.3) is exercised
@@ -399,105 +435,207 @@ module main {
     val codeHashA: ValidationCodeHash = { vchBytes: 101 }
     val codeHashB: ValidationCodeHash = { vchBytes: 102 }
     val anyAuthHash: AuthorizerHash = { authBytes: 0 }
+    // The id the first `CreateService` without a `desiredId` gets.
+    val created: ServiceId = MkServiceId(MinPublicServiceIndex)
     Set(
-      RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen }),
-      RequestCodeUpgrade({ hash: codeHashB, len: FixedCodeLen }),
+      RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen, phase: Announcement }),
+      RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen, phase: Apply }),
+      RequestCodeUpgrade({ hash: codeHashB, len: FixedCodeLen, phase: Announcement }),
+    // Lets the announce -> apply path actually complete in simulation: without
+    // its own solicit, codeHashA is never available and every announcement of
+    // it is rejected (§5.2).
+    Solicit({ target: Parachain(para_id), hash: codeHashA.asPreimage(), len: FixedCodeLen }),
       Solicit({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
       Forget({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
-      // Solicit/forget of the para's OWN active code, exercising the
-      // `pinned` path (§5.2).
-      Solicit({ target: Parachain(para_id), hash: vchAsHash(activeCode), len: FixedCodeLen }),
-      Forget({ target: Parachain(para_id), hash: vchAsHash(activeCode), len: FixedCodeLen }),
-      // AH-only operations on a supervised service.
-      Forget({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
+    // Solicit/forget of the para's OWN active code, exercising the
+    // validation-code path (§5.2).
+    Solicit({ target: Parachain(para_id), hash: activeCode.asPreimage(), len: FixedCodeLen }),
+      Forget({ target: Parachain(para_id), hash: activeCode.asPreimage(), len: FixedCodeLen }),
+    // AH-only operations on a supervised service.
+    Forget({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
       Solicit({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
       RemoveServiceStorage({ service: MkServiceId(4), key: List(1, 2) }),
       EjectService({ service: MkServiceId(4) }),
-      SetServiceSupervisor({
-        service: MkServiceId(4), newSupervisor: MkServiceId(4)
+      UpgradeService({
+        service: Some(MkServiceId(4)),
+        codeHash: anyHash,
+        len: 0,
+        minAccGas: 0,
+        minMemoGas: 7
       }),
+    // Sets `created` free, which is how a service this one does not
+    // supervise comes about.
+    SetServiceSupervisor({ service: created, newSupervisor: created }),
       CreateService({
-        codeHash: anyHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 0,
-        id: 1, desiredId: None,
-        sourceSupervisorBalance: false, newSupervisorBalance: false
+        codeHash: anyHash,
+        len: FixedCodeLen,
+        minItemGas: 0,
+        minMemoGas: 100,
+        id: 1,
+        desiredId: None,
+        sourceSupervisorBalance: false,
+        newSupervisorBalance: false
       }),
-      // Registrar-only protected index (§6.5).
-      CreateService({
-        codeHash: anyHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 0,
-        id: 2, desiredId: Some(MkServiceId(42)),
-        sourceSupervisorBalance: false, newSupervisorBalance: false
+    // Registrar-only protected index (§6.5).
+    CreateService({
+      codeHash: anyHash,
+      len: FixedCodeLen,
+      minItemGas: 0,
+      minMemoGas: 0,
+      id: 2,
+      desiredId: Some(MkServiceId(42)),
+      sourceSupervisorBalance: false,
+      newSupervisorBalance: false
+    }),
+    // AH-only: Refine rejects from non-AH callers (§4.3). Both transfer
+    // modes, the self-moves between the service's own two balances, and one
+    // shape for each way a transfer is refused (§5.1). The other services
+    // involved are the two `CreateService`s above.
+    TransferOut({
+      source: None,
+      dest: created,
+      amount: 100,
+      id: 1,
+      sourceSupervisorBalance: false,
+      destSupervisorBalance: false,
+      deferred: Some((0, 1000))
+    }),
+      TransferOut({
+        source: None,
+        dest: created,
+        amount: 100,
+        id: 2,
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: false,
+        deferred: None
       }),
-      // AH-only: Refine rejects from non-AH callers (§4.3). Both transfer
-      // modes: a deferred transfer (memo + gas) and a plain move (neither),
-      // the self-moves between the service's own two balances, and a foreign
-      // source (§5.1).
-      TransferOut({ source: None, dest: MkServiceId(0), amount: 100, id: 1,
-        sourceSupervisorBalance: false, destSupervisorBalance: false,
-        deferred: Some((0, 1000)) }),
-      TransferOut({ source: None, dest: MkServiceId(0), amount: 100, id: 2,
-        sourceSupervisorBalance: false, destSupervisorBalance: false,
-        deferred: None }),
-      TransferOut({ source: None, dest: ParachainServiceId, amount: 100, id: 3,
-        sourceSupervisorBalance: false, destSupervisorBalance: true,
-        deferred: None }),
-      TransferOut({ source: None, dest: ParachainServiceId, amount: 100, id: 4,
-        sourceSupervisorBalance: true, destSupervisorBalance: false,
-        deferred: None }),
-      TransferOut({ source: Some(MkServiceId(0)), dest: MkServiceId(2),
-        amount: 100, id: 5, sourceSupervisorBalance: false,
-        destSupervisorBalance: false, deferred: None }),
+      TransferOut({
+        source: None,
+        dest: ParachainServiceId,
+        amount: 100,
+        id: 3,
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: true,
+        deferred: None
+      }),
+      TransferOut({
+        source: None,
+        dest: ParachainServiceId,
+        amount: 100,
+        id: 4,
+        sourceSupervisorBalance: true,
+        destSupervisorBalance: false,
+        deferred: None
+      }),
+      TransferOut({
+        source: Some(created),
+        dest: MkServiceId(42),
+        amount: 100,
+        id: 5,
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: false,
+        deferred: None
+      }),
+      TransferOut({
+        source: None,
+        dest: MkServiceId(9),
+        amount: 100,
+        id: 6,
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: false,
+        deferred: Some((0, 1000))
+      }),
+      TransferOut({
+        source: None,
+        dest: created,
+        amount: 100,
+        id: 7,
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: false,
+        deferred: Some((0, 10))
+      }),
+      TransferOut({
+        source: None,
+        dest: created,
+        amount: TotalSupply,
+        id: 8,
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: false,
+        deferred: Some((0, 1000))
+      }),
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: false }),
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: true }),
       SetValidatorKeys({ keys: List(), isLast: true }),
-      // Clean up just the head bucket, and a cut deep enough to reach mid-queue
-      // or, on a shorter queue, to empty it and restart the ids at 0 (§5.1).
-      CleanUpBucketsUpTo(0),
+    // Clean up just the head bucket, and a cut deep enough to reach mid-queue
+    // or, on a shorter queue, to empty it and restart the ids at 0 (§5.1).
+    CleanUpBucketsUpTo(0),
       CleanUpBucketsUpTo(2),
-      UpgradeService({ codeHash: vchAsHash(activeCode), len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 }),
-      UpgradeService({ codeHash: unsolicitedHash, len: 4096, minAccGas: 0, minMemoGas: 0 }),
-      // Assignments of every kind: tiles directly (1), kept and rotated (3),
-      // an empty one Refine rejects, and a hand-off, which requires an exact
-      // 80-hash queue (§4.3).
+      UpgradeService({
+        service: None,
+        codeHash: activeCode.asPreimage(),
+        len: FixedCodeLen,
+        minAccGas: 0,
+        minMemoGas: 0
+      }),
+      UpgradeService({
+        service: None,
+        codeHash: unsolicitedHash,
+        len: 4096,
+        minAccGas: 0,
+        minMemoGas: 0
+      }),
+    // Assignments of every kind: tiles directly (1), kept and rotated (3),
+    // an empty one and one for an unknown core, both of which Refine rejects,
+    // and a hand-off, which requires an exact 80-hash queue (§3.3).
+    AssignCore({ core: CoreCount, queue: List(anyAuthHash), newAssigner: None, jamSlot: 100 }),
       AssignCore({ core: 0, queue: List(anyAuthHash), newAssigner: None, jamSlot: 100 }),
-      AssignCore({ core: 0, queue: List(anyAuthHash, anyAuthHash, anyAuthHash),
-                   newAssigner: None, jamSlot: 10 }),
+      AssignCore({
+        core: 0,
+        queue: List(anyAuthHash, anyAuthHash, anyAuthHash),
+        newAssigner: None,
+        jamSlot: 10
+      }),
       AssignCore({ core: 0, queue: List(), newAssigner: None, jamSlot: 0 }),
-      AssignCore({ core: 0,
-                   queue: repeatList(List(anyAuthHash), AuthorizerQueueLength),
-                   newAssigner: Some(MkServiceId(7)), jamSlot: 10 }),
+      AssignCore({
+        core: 0,
+        queue: repeatList(List(anyAuthHash), AuthorizerQueueLength),
+        newAssigner: Some(MkServiceId(7)),
+        jamSlot: 10
+      }),
       ParachainSetHead({ paraId: para_id, newHead: 0 }),
-      ParachainSetValidationCode({ paraId: para_id, newValidationCodeHash: codeHashA, newValidationCodeLen: FixedCodeLen }),
+      ParachainSetValidationCode({ paraId: para_id, newValidationCode: { hash: codeHashA, len: FixedCodeLen } }),
       ParachainSetStateBalance({ paraId: para_id, newTotal: 0 }),
-      // Coretime-only targeting OTHER paras, registering new paras and
-      // performs forced recovery / clean-up across the model's paraId space.
-      ParachainSetStateBalance({ paraId: MkParaId(3), newTotal: BaselineFootprint * 2 }),
+    // Coretime-only targeting OTHER paras, registering new paras and
+    // performs forced recovery / clean-up across the model's paraId space.
+    ParachainSetStateBalance({ paraId: MkParaId(3), newTotal: BaselineFootprint * 2 }),
       ParachainSetStateBalance({ paraId: MkParaId(4), newTotal: BaselineFootprint * 2 }),
       ParachainSetStateBalance({ paraId: MkParaId(5), newTotal: BaselineFootprint * 2 }),
       ParachainSetHead({ paraId: MkParaId(3), newHead: 7 }),
       ParachainSetHead({ paraId: MkParaId(4), newHead: 7 }),
-      ParachainSetValidationCode({ paraId: MkParaId(3), newValidationCodeHash: codeHashB, newValidationCodeLen: FixedCodeLen }),
-      // `ParachainCleanUp` is Coretime-only, but the real Coretime chain
-      // never cleans up the privileged chains (1 = Coretime, 2 = Asset Hub)
-      // That would brick the control plane. We only generate clean-up of
-      // non-privileged test paras (3, 4), never `para_id` (which is the
-      // originating para, e.g. Coretime cleaning up itself).
-      ParachainCleanUp(MkParaId(3)),
+      ParachainSetValidationCode({ paraId: MkParaId(3), newValidationCode: { hash: codeHashB, len: FixedCodeLen } }),
+    // `ParachainCleanUp` is Coretime-only, but the real Coretime chain
+    // never cleans up the privileged chains (1 = Coretime, 2 = Asset Hub)
+    // That would brick the control plane. We only generate clean-up of
+    // non-privileged test paras (3, 4), never `para_id` (which is the
+    // originating para, e.g. Coretime cleaning up itself).
+    ParachainCleanUp(MkParaId(3)),
       ParachainCleanUp(MkParaId(4)),
-      // `Forget` / `RemoveKV` naming ANOTHER para (§6.4): legitimate from the
-      // Coretime chain, which drains a para that can no longer release its own
-      // state, and rejected as `RestrictedHostFunction` from every other caller.
-      // Both outcomes are reachable since the emitting para is sampled.
-      Forget({ target: Parachain(MkParaId(3)), hash: anyHash, len: 1024 }),
-      Forget({ target: Parachain(MkParaId(3)), hash: vchAsHash(codeHashB), len: FixedCodeLen }),
+    // `Forget` / `RemoveKV` naming ANOTHER para (§6.4): legitimate from the
+    // Coretime chain, which drains a para that can no longer release its own
+    // state, and rejected as `RestrictedHostFunction` from every other caller.
+    // Both outcomes are reachable since the emitting para is sampled.
+    Forget({ target: Parachain(MkParaId(3)), hash: anyHash, len: 1024 }),
+      Forget({ target: Parachain(MkParaId(3)), hash: codeHashB.asPreimage(), len: FixedCodeLen }),
       RemoveKV({ paraId: MkParaId(3), key: List(0) }),
-      // KV store operations: exercises SetKV/RemoveKV paths (§6.1).
-      // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded.
-      SetKV({ key: List(0), value: List(0) }),
+    // KV store operations: exercises SetKV/RemoveKV paths (§6.1).
+    // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded. The empty
+    // value is rejected by Refine with `EmptyKVKeyOrValue` (§3.3).
+    SetKV({ key: List(0), value: List(0) }),
       SetKV({ key: List(0), value: List(0, 1) }),
+      SetKV({ key: List(1), value: List(1) }),
       SetKV({ key: List(1), value: List() }),
       RemoveKV({ paraId: para_id, key: List(0) }),
       RemoveKV({ paraId: para_id, key: List(1) })
     )
   }
-
 }

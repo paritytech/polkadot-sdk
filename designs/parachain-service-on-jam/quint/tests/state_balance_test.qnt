@@ -29,8 +29,7 @@ module state_balance_test {
         ParachainSetStateBalance({ paraId: para, newTotal: cap }),
         ParachainSetValidationCode({
           paraId: para,
-          newValidationCodeHash: paraCode,
-          newValidationCodeLen: FixedCodeLen
+          newValidationCode: { hash: paraCode, len: FixedCodeLen }
         })
       )))
       // After registration + set validation code: usedStateBalance is exactly at the cap.
@@ -47,17 +46,19 @@ module state_balance_test {
         not(svc.preimageRegistry.keys().contains((soliciteeHash, soliciteeLen))),
         // usedStateBalance stayed at the cap.
         svc.paraInfo(para).usedStateBalance == cap,
+        // The rejected solicit is not recorded in the ghost history.
+        not(solicitedSet.contains((para, soliciteeHash, soliciteeLen))),
         // Accumulate log carries InsufficientStateBalance(FromSolicit(...)) for this block.
         svc.paraLog(para).foldl(false, (found, pair) =>
           found or (pair._1 == now and match pair._2 {
-            | AccumulateLogEntry(evs) => evs.foldl(false, (a, e) => match e {
+            | Accumulate(evs) => evs.foldl(false, (a, e) => match e {
               | InsufficientStateBalance(reason) => match reason {
                 | FromSolicit(p) => a or (p.hash == soliciteeHash and p.len == soliciteeLen)
                 | FromSetKV(_) => a
               }
               | _ => a
             })
-            | RefineLogEntry(_) => false
+            | Refine(_) => false
           }))
       }))
   }
@@ -68,7 +69,7 @@ module state_balance_test {
     val para = CoretimeParaId
     val h: Hash = { hashBytes: 0x7A }
     // Solicit only — the preimage is never provided, so status is `Unprovided`.
-    val d1 = initialState.addReferencer(para, h, 512)
+    val d1 = initialState.addReferencer(para, h, 512, 0)
     val d2 = d1.state.removeReferencer(para, h, 512, 0)
     all {
       assert(d1.state.preimageStatus.get((h, 512)) == Unprovided),
@@ -91,7 +92,7 @@ module state_balance_test {
     val h: Hash = { hashBytes: 0x7B }
     // Solicit, provide, then first forget at now = 0 -> Unrequested(0),
     // due = 0 + ExpungePeriod.
-    val d1 = initialState.addReferencer(para, h, 512)
+    val d1 = initialState.addReferencer(para, h, 512, 0)
     val provided = markProvided(d1.state, h, 512)
     val d2 = provided.removeReferencer(para, h, 512, 0)
     // At now == due: not yet expungeable (no-op retry, entry survives).
@@ -99,12 +100,12 @@ module state_balance_test {
     // At now == due + 1: expunges.
     val pastDue = d2.state.removeReferencer(para, h, 512, ExpungePeriod + 1)
     all {
-      assert(d2.state.preimageStatus.get((h, 512)) == Unrequested(0)),
+      assert(d2.state.preimageStatus.get((h, 512)) == Unrequested({ providedSince: 0, unrequestedSince: 0 })),
       // now == due -> no-op, still present and retained, ForgetAgainAt re-emitted.
       assert(atDue.state.preimageRegistry.keys().contains((h, 512))),
       assert(atDue.retained),
       assert(atDue.jamForget == None),
-      assert(atDue.log == Some(ForgetAgainAt({ hash: h, len: 512, due: ExpungePeriod }))),
+      assert(atDue.log == Some(ForgetAgainAt({ target: Parachain(para), hash: h, len: 512, due: ExpungePeriod }))),
       // now == due + 1 -> expunged.
       assert(not(pastDue.state.preimageRegistry.keys().contains((h, 512)))),
       assert(not(pastDue.state.preimageStatus.keys().contains((h, 512)))),
@@ -126,18 +127,18 @@ module state_balance_test {
     val p1 = CoretimeParaId
     val p2 = AssetHubParaId
     // p1 solicits, the blob is provided, p1 forgets (last ref) at now = 5.
-    val d1 = initialState.addReferencer(p1, h, 512)
+    val d1 = initialState.addReferencer(p1, h, 512, 0)
     val provided = markProvided(d1.state, h, 512)
     val d2 = provided.removeReferencer(p1, h, 512, 5)
     // p2 solicits the same (h, 512) while it is Unrequested(5): rescue.
-    val d3 = d2.state.addReferencer(p2, h, 512)
+    val d3 = d2.state.addReferencer(p2, h, 512, 6)
     all {
-      assert(d2.state.preimageStatus.get((h, 512)) == Unrequested(5)),
+      assert(d2.state.preimageStatus.get((h, 512)) == Unrequested({ providedSince: 0, unrequestedSince: 5 })),
       // p1 still charged the footprint while retained as the ghost.
       assert(d2.state.paraInfo(p1).usedStateBalance == d1.state.paraInfo(p1).usedStateBalance),
       // Rescue fires a real JAM solicit and moves to Rerequested keeping y = 5.
       assert(d3.jamSolicit == Some(h)),
-      assert(d3.state.preimageStatus.get((h, 512)) == Rerequested(5)),
+      assert(d3.state.preimageStatus.get((h, 512)) == Rerequested({ providedSince: 0, unrequestedSince: 5, rerequestedSince: 6 })),
       // Ghost p1 is freed+refunded; p2 is the sole live referencer.
       assert(d3.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
       assert(d3.state.paraInfo(p1).usedStateBalance
@@ -155,28 +156,28 @@ module state_balance_test {
     val p1 = CoretimeParaId
     val p2 = AssetHubParaId
     // p1 solicit + provide + forget at now = 10 -> Unrequested(10).
-    val d1 = initialState.addReferencer(p1, h, 512)
+    val d1 = initialState.addReferencer(p1, h, 512, 0)
     val provided = markProvided(d1.state, h, 512)
     val d2 = provided.removeReferencer(p1, h, 512, 10)
     // p2 rescues at now = 20 -> Rerequested(10), freeing ghost p1: p2 is now
     // the sole referencer.
-    val d3 = d2.state.addReferencer(p2, h, 512)
+    val d3 = d2.state.addReferencer(p2, h, 512, 20)
     // A forget of p1 is now a no-op (p1 was freed on rescue); p2 (last live
     // referencer) forgets at now = 25, still within the ORIGINAL turnaround
     // (25 <= 10 + ExpungePeriod), so it hits the NotYetUnrequest gate.
     val d4 = d3.state.removeReferencer(p1, h, 512, 25)
     val d5 = d4.state.removeReferencer(p2, h, 512, 25)
     all {
-      assert(d3.state.preimageStatus.get((h, 512)) == Rerequested(10)),
+      assert(d3.state.preimageStatus.get((h, 512)) == Rerequested({ providedSince: 0, unrequestedSince: 10, rerequestedSince: 20 })),
       assert(d3.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
       // Last forget is NotYetUnrequest: no-op, entry survives, retained, no JAM
       // forget, and the retry deadline is the ORIGINAL 10 + ExpungePeriod.
       assert(d5.state.preimageRegistry.keys().contains((h, 512))),
       assert(d5.retained),
       assert(d5.jamForget == None),
-      assert(d5.log == Some(ForgetAgainAt({ hash: h, len: 512, due: 10 + ExpungePeriod }))),
+      assert(d5.log == Some(ForgetAgainAt({ target: Parachain(p2), hash: h, len: 512, due: 10 + ExpungePeriod }))),
       // Status is unchanged (still Rerequested(10)).
-      assert(d5.state.preimageStatus.get((h, 512)) == Rerequested(10)),
+      assert(d5.state.preimageStatus.get((h, 512)) == Rerequested({ providedSince: 0, unrequestedSince: 10, rerequestedSince: 20 })),
       init
     }
   }
@@ -187,17 +188,17 @@ module state_balance_test {
   run forgetRetainedSelfRescueTest = {
     val h: Hash = { hashBytes: 0x8C }
     val para = CoretimeParaId
-    val d1 = initialState.addReferencer(para, h, 512)
+    val d1 = initialState.addReferencer(para, h, 512, 0)
     val provided = markProvided(d1.state, h, 512)
     val d2 = provided.removeReferencer(para, h, 512, 7)
     // Same para re-solicits its own code sitting in limbo.
-    val d3 = d2.state.addReferencer(para, h, 512)
+    val d3 = d2.state.addReferencer(para, h, 512, 8)
     all {
-      assert(d2.state.preimageStatus.get((h, 512)) == Unrequested(7)),
+      assert(d2.state.preimageStatus.get((h, 512)) == Unrequested({ providedSince: 0, unrequestedSince: 7 })),
       assert(d2.state.preimageRegistry.get((h, 512)).referencers == Set(para)),
       // Idempotent branch still fires JAM solicit and rescues to Rerequested(7).
       assert(d3.jamSolicit == Some(h)),
-      assert(d3.state.preimageStatus.get((h, 512)) == Rerequested(7)),
+      assert(d3.state.preimageStatus.get((h, 512)) == Rerequested({ providedSince: 0, unrequestedSince: 7, rerequestedSince: 8 })),
       assert(d3.state.preimageRegistry.get((h, 512)).referencers == Set(para)),
       init
     }
@@ -212,26 +213,86 @@ module state_balance_test {
     val p1 = CoretimeParaId
     val p2 = AssetHubParaId
     // p1 solicit + provide + forget at now=5 -> Unrequested(5), p1 ghost.
-    val d1 = initialState.addReferencer(p1, h, 512)
+    val d1 = initialState.addReferencer(p1, h, 512, 0)
     val prov = markProvided(d1.state, h, 512)
     val d2 = prov.removeReferencer(p1, h, 512, 5)
     // p2 rescues (frees p1) -> Rerequested(5), referencers = {p2}.
-    val d3 = d2.state.addReferencer(p2, h, 512)
+    val d3 = d2.state.addReferencer(p2, h, 512, 6)
     // p2 forgets past the ORIGINAL deadline (now > 5 + ExpungePeriod): the
     // Rerequested forget succeeds -> Unrequested(now), p2 retained (ghost).
     val t2 = 5 + ExpungePeriod + 1
     val d4 = d3.state.removeReferencer(p2, h, 512, t2)
     // p1 rescues again (frees p2) -> Rerequested, referencers = {p1}.
-    val d5 = d4.state.addReferencer(p1, h, 512)
+    val d5 = d4.state.addReferencer(p1, h, 512, t2 + 1)
     all {
       // After every cycle the set is a singleton; no ghost pile-up.
       assert(d3.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
-      assert(d4.state.preimageStatus.get((h, 512)) == Unrequested(t2)),
+      assert(d4.state.preimageStatus.get((h, 512)) == Unrequested({ providedSince: 6, unrequestedSince: t2 })),
       assert(d4.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
       assert(d5.state.preimageRegistry.get((h, 512)).referencers == Set(p1)),
       // Only the current sole referencer is charged the footprint; the other
       // para is back at baseline (freed on the rescue that displaced it).
       assert(d5.state.paraInfo(p2).usedStateBalance == d2.state.paraInfo(p2).usedStateBalance),
+      init
+    }
+  }
+
+  /// The last referencer of a rescued preimage needs three `Forget`s to expunge it (§6.1).
+  run forgetRescuedThreeStepsTest = {
+    val h: Hash = { hashBytes: 0x8E }
+    val p1 = CoretimeParaId
+    val p2 = AssetHubParaId
+    // p1 solicit + provide + forget at now = 10 -> Unrequested(10), then p2 rescues.
+    val d1 = initialState.addReferencer(p1, h, 512, 0)
+    val provided = markProvided(d1.state, h, 512)
+    val d2 = provided.removeReferencer(p1, h, 512, 10)
+    val d3 = d2.state.addReferencer(p2, h, 512, 11)
+    // 1. Within the original period: no-op, due is the end of the original period.
+    val first = d3.state.removeReferencer(p2, h, 512, 20)
+    // 2. After that due: unrequested again, due is the end of the new period.
+    val t2 = 10 + ExpungePeriod + 1
+    val second = first.state.removeReferencer(p2, h, 512, t2)
+    // 3. After the new due: expunged and refunded.
+    val third = second.state.removeReferencer(p2, h, 512, t2 + ExpungePeriod + 1)
+    all {
+      assert(d3.state.preimageStatus.get((h, 512)) == Rerequested({ providedSince: 0, unrequestedSince: 10, rerequestedSince: 11 })),
+      assert(first.state == d3.state),
+      assert(first.jamForget == None),
+      assert(first.retained),
+      assert(first.log == Some(ForgetAgainAt({ target: Parachain(p2), hash: h, len: 512, due: 10 + ExpungePeriod }))),
+      assert(second.state.preimageStatus.get((h, 512)) == Unrequested({ providedSince: 11, unrequestedSince: t2 })),
+      assert(second.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
+      assert(second.jamForget == Some(h)),
+      assert(second.retained),
+      assert(second.log == Some(ForgetAgainAt({ target: Parachain(p2), hash: h, len: 512, due: t2 + ExpungePeriod }))),
+      assert(not(third.state.preimageRegistry.keys().contains((h, 512)))),
+      assert(not(third.state.preimageStatus.keys().contains((h, 512)))),
+      assert(third.jamForget == Some(h)),
+      assert(not(third.retained)),
+      assert(third.log == None),
+      assert(third.state.paraInfo(p2).usedStateBalance == d2.state.paraInfo(p2).usedStateBalance),
+      init
+    }
+  }
+
+  /// After a rescue, the freed ghost's pending second `Forget` changes nothing and logs
+  /// nothing (§6.1).
+  run forgetFreedGhostNoOpTest = {
+    val h: Hash = { hashBytes: 0x8F }
+    val p1 = CoretimeParaId
+    val p2 = AssetHubParaId
+    val d1 = initialState.addReferencer(p1, h, 512, 0)
+    val provided = markProvided(d1.state, h, 512)
+    val d2 = provided.removeReferencer(p1, h, 512, 10)
+    val d3 = d2.state.addReferencer(p2, h, 512, 11)
+    // p1 sends its second `Forget` after the due of its `ForgetAgainAt`.
+    val ghost = d3.state.removeReferencer(p1, h, 512, 10 + ExpungePeriod + 1)
+    all {
+      assert(ghost.state == d3.state),
+      assert(ghost.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
+      assert(ghost.jamForget == None),
+      assert(not(ghost.retained)),
+      assert(ghost.log == None),
       init
     }
   }
@@ -246,6 +307,8 @@ module state_balance_test {
     val d = applySetKV(s, para, key, value)
     val expected = kvEntryFootprint(key.length(), value.length())
     all {
+      // §6.1: `49 + k + v`, key and value stored without length prefixes.
+      assert(expected == 49 + key.length() + value.length()),
       assert(d.log == None),
       assert(d.state.paraInfo(para).usedStateBalance == before + expected),
       init
@@ -270,22 +333,21 @@ module state_balance_test {
     }
   }
 
-  /// Overwriting an existing key charges only the value-size delta.
+  /// Overwriting an existing key charges only the difference in value length (§6.1).
   run kvOverwriteDeltaTest = {
     val s = initialState
     val para = CoretimeParaId
     val key = List(5)
-    val value1 = List(1, 2)
-    val value2 = List(1, 2, 3, 4)
+    // 63 -> 64 bytes is where a SCALE length prefix would grow, but stored values have none.
+    val value1 = range(0, 63)
+    val value2 = range(0, 64)
     val d1 = applySetKV(s, para, key, value1)
     val afterInsert = d1.state.paraInfo(para).usedStateBalance
     val d2 = applySetKV(d1.state, para, key, value2)
-    // Growing overwrite: delta = (compactLen(4)+4) - (compactLen(2)+2) = 5 - 3 = 2
-    val growDelta = (1 + value2.length()) - (1 + value1.length())
     all {
       assert(d1.log == None),
       assert(d2.log == None),
-      assert(d2.state.paraInfo(para).usedStateBalance == afterInsert + growDelta),
+      assert(d2.state.paraInfo(para).usedStateBalance == afterInsert + 1),
       init
     }
   }
@@ -299,19 +361,57 @@ module state_balance_test {
     // InitialParaBalance = BaselineFootprint + 2*preimageFootprint(FixedCodeLen) + BaselineFootprint
     // After registration, usedStateBalance = BaselineFootprint + 2*preimageFootprint(FixedCodeLen).
     // Remaining headroom ≈ BaselineFootprint. A value of length BaselineFootprint+1 bytes
-    // will exceed it (kvEntryFootprint adds 39+ bytes of overhead on top).
+    // will exceed it (kvEntryFootprint adds 49 on top).
     // We approximate with a list of length 200000 (well above any headroom).
     val v1 = List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-    val v2 = v1.concat(v1).concat(v1).concat(v1).concat(v1)   // 50
-    val v3 = v2.concat(v2).concat(v2).concat(v2).concat(v2)   // 250
-    val v4 = v3.concat(v3).concat(v3).concat(v3).concat(v3)   // 1250
-    val v5 = v4.concat(v4).concat(v4).concat(v4).concat(v4)   // 6250
-    val v6 = v5.concat(v5).concat(v5).concat(v5).concat(v5)   // 31250
+    val v2 = v1.concat(v1).concat(v1).concat(v1).concat(v1) // 50
+    val v3 = v2.concat(v2).concat(v2).concat(v2).concat(v2) // 250
+    val v4 = v3.concat(v3).concat(v3).concat(v3).concat(v3) // 1250
+    val v5 = v4.concat(v4).concat(v4).concat(v4).concat(v4) // 6250
+    val v6 = v5.concat(v5).concat(v5).concat(v5).concat(v5) // 31250
     val hugeValue = v6.concat(v6).concat(v6).concat(v6).concat(v6) // 156250
     val d = applySetKV(s, para, key, hugeValue)
     all {
       assert(d.state == s),
       assert(d.log != None),
+      init
+    }
+  }
+
+  /// (h, 100) and (h, 200) are distinct registry entries:
+  /// soliciting one does not affect the other, and forgetting one
+  /// leaves the other intact.
+  run differentLensAreDistinctEntriesTest = {
+    val h: Hash = { hashBytes: 42 }
+    val p1 = CoretimeParaId
+    val p2 = AssetHubParaId
+    // Seed state: p1 registered with enough headroom.
+    val s0 = initialState
+    // Solicit (h, 100) for p1.
+    val d1 = s0.addReferencer(p1, h, 100, 0)
+    // Solicit (h, 200) for p2.
+    val d2 = d1.state.addReferencer(p2, h, 200, 0)
+    // (h, 100) becomes available, so its forget takes the two-step path.
+    val provided = markProvided(d2.state, h, 100)
+    // First forget of (h, 100) for p1 (its sole referencer) at now = 0:
+    // unrequests it, the entry survives awaiting expunge.
+    val d3 = provided.removeReferencer(p1, h, 100, 0)
+    // Second forget once strictly past the deadline: the entry is expunged.
+    val d4 = d3.state.removeReferencer(p1, h, 100, ExpungePeriod + 1)
+    all {
+      // After soliciting (h,100) and (h,200): two distinct entries.
+      assert(d2.state.preimageRegistry.keys().contains((h, 100))),
+      assert(d2.state.preimageRegistry.keys().contains((h, 200))),
+      // (h,100) has p1 as referencer; (h,200) has p2.
+      assert(d2.state.preimageRegistry.get((h, 100)).referencers == Set(p1)),
+      assert(d2.state.preimageRegistry.get((h, 200)).referencers == Set(p2)),
+      // First forget: (h,100) still present (awaiting expunge), (h,200) untouched.
+      assert(d3.state.preimageRegistry.keys().contains((h, 100))),
+      assert(isUnrequested(d3.state.preimageStatus.get((h, 100)))),
+      // Second forget once due: (h,100) entry is gone; (h,200) untouched.
+      assert(not(d4.state.preimageRegistry.keys().contains((h, 100)))),
+      assert(d4.state.preimageRegistry.keys().contains((h, 200))),
+      assert(d4.state.preimageRegistry.get((h, 200)).referencers == Set(p2)),
       init
     }
   }

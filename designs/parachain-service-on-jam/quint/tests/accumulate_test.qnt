@@ -37,9 +37,15 @@ module accumulate_test {
     val ah = AssetHubParaId
     val newCode: Hash = { hashBytes: 31337 }
     val len = FixedCodeLen
-    val msg = UpgradeService({ codeHash: newCode, len: len, minAccGas: 0, minMemoGas: 0 })
+    val msg = UpgradeService({
+      service: None,
+      codeHash: newCode,
+      len: len,
+      minAccGas: 0,
+      minMemoGas: 0
+    })
     // Solicited only: the request exists but the blob was never supplied.
-    val solicited = initialState.addReferencer(ah, newCode, len).state
+    val solicited = initialState.addReferencer(ah, newCode, len, 0).state
     val onlySolicited = replay(solicited, ah, 0, msg)
     // Once provided, the same call goes through.
     val provided = markProvided(solicited, newCode, len)
@@ -53,7 +59,38 @@ module accumulate_test {
       // Accepted once available.
       assert(provided.preimageAvailable(newCode, len)),
       assert(whenProvided.state.serviceCodeHash == newCode),
+      assert(whenProvided.state.serviceCodeLen == len),
       assert(whenProvided.logs == List()),
+      init
+    }
+  }
+
+  /// §5.4: a service upgrade also requires Asset Hub to reference the new code.
+  /// Otherwise the parachain that does could forget it, and the running service
+  /// code would be expunged.
+  run serviceUpgradeRequiresAssetHubReferenceTest = {
+    val ah = AssetHubParaId
+    val newCode: Hash = { hashBytes: 31338 }
+    val len = FixedCodeLen
+    val msg = UpgradeService({
+      service: None,
+      codeHash: newCode,
+      len: len,
+      minAccGas: 0,
+      minMemoGas: 0
+    })
+    // Available, but only the Coretime chain references it.
+    val theirs = markProvided(initialState.addReferencer(CoretimeParaId, newCode, len, 0).state,
+      newCode, len)
+    val refused = replay(theirs, ah, 0, msg)
+    // Once Asset Hub references it too, the same call goes through.
+    val shared = theirs.addReferencer(ah, newCode, len, 0).state
+    all {
+      assert(theirs.preimageAvailable(newCode, len)),
+      assert(not(theirs.hasReferencer(newCode, len, ah))),
+      assert(refused.state.serviceCodeHash == initialState.serviceCodeHash),
+      assert(refused.logs == List(ServiceUpgradePreimageMissing({ codeHash: newCode }))),
+      assert(replay(shared, ah, 0, msg).state.serviceCodeHash == newCode),
       init
     }
   }
@@ -69,7 +106,13 @@ module accumulate_test {
     val ahCode: ValidationCodeHash = { vchBytes: 2 }
     val newCode: Hash = { hashBytes: 4242 }
     val upgrade =
-      UpgradeService({ codeHash: newCode, len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 })
+      UpgradeService({
+        service: None,
+        codeHash: newCode,
+        len: FixedCodeLen,
+        minAccGas: 0,
+        minMemoGas: 0
+      })
     init
       // Make the new service code available, so the upgrade's own preconditions hold.
       .then(applyHappyPath(ah, ahCode, List(Solicit({ target: Parachain(ah), hash: newCode, len: FixedCodeLen }))))
@@ -98,7 +141,7 @@ module accumulate_test {
     val seeded = initialState.appendRefineLog(para, 1, Opaque(64), 0)
     val ok: ParachainWorkDigestOk = {
       paraId: para,
-      validationCode: { hash: code, len: FixedCodeLen },
+      validationCode: code,
       // Stale parent: rejected at the parent-head check.
       parentHeadHash: headHash(StaleParentHead),
       headData: StaleParentHead,
@@ -110,7 +153,8 @@ module accumulate_test {
       messagesRequiresRoots: List()
     }
     val out = accumulateOnePackage(
-      seeded, { result: WorkOk(Ok(ok)), authTrace: 9 }, Set(), None, FixedCodeLen, 500, Map())
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 9 }, Set(), List(), FixedCodeLen, 500, Map()
+    )
     all {
       assert(seeded.paraLog(para).length() == 1),
       // Nothing at all changed, and the old entry survived.
@@ -121,22 +165,50 @@ module accumulate_test {
     }
   }
 
+  /// §5.1 step 2: an `Err` is only logged if it names the para's active code. A
+  /// failure of any other code, e.g. one a coretime buyer picked to call
+  /// `report_error`, is dropped without a log entry, and so is a failed lookup of it.
+  run refineErrCodeCheckTest = {
+    val para = CoretimeParaId
+    val active = activeCandidateCode(initialState, para).hash
+    val other: ValidationCodeHash = { vchBytes: 77 }
+    val lookupFailed = ValidationCodeLookupFailed
+    pure def after(codeHash: ValidationCodeHash, e: RefineLog): ParachainServiceState =
+      accumulateOnePackage(initialState,
+        { result: WorkOk(refineErr(CoretimeParaId, codeHash, e)), authTrace: 0 },
+        Set(), List(), FixedCodeLen, 5, Map()).state
+    pure def logged(e: RefineLog): ParachainLog =
+      List((5, Refine({ error: e, authTrace: 0 })))
+    all {
+      assert(initialState.paraInfo(para).validationCode.optionMap(vc => vc.hash) == Some(active)),
+      assert(after(active, Opaque(7)).paraLog(para) == logged(Opaque(7))),
+      assert(after(active, lookupFailed).paraLog(para) == logged(lookupFailed)),
+      assert(after(other, Opaque(7)) == initialState),
+      assert(after(other, lookupFailed) == initialState),
+      init
+    }
+  }
+
   /// §4.1 step 1 / §4.2: every package-level failure panics, because none has an
   /// authoritative `para_id` to attribute a `RefineLog` to. A work error carries
   /// no digest, so nothing is logged for any of them.
   run packageLevelFailuresPanicTest = {
-    val wi = { validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 }
+    val wi = { validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } }
     val good: WorkPackage = { authorizedParas: List(CoretimeParaId), items: List(wi) }
     // Two items: not single-item (§3.2).
     val twoItems: WorkPackage = {
-      authorizedParas: List(CoretimeParaId, CoretimeParaId), items: List(wi, wi) }
+      authorizedParas: List(CoretimeParaId, CoretimeParaId),
+      items: List(wi, wi)
+    }
     // Config length disagrees with the item count.
     val mismatch: WorkPackage = {
-      authorizedParas: List(CoretimeParaId, CoretimeParaId), items: List(wi) }
+      authorizedParas: List(CoretimeParaId, CoretimeParaId),
+      items: List(wi)
+    }
     // No para named at all: the old code fabricated `MkParaId(0)` here.
     val noParas: WorkPackage = { authorizedParas: List(), items: List(wi) }
     pure def go(pkg: WorkPackage, noPrefix: bool): WorkExecResult =
-      refine(initialState, pkg, noPrefix, PvfOk, Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
+      refine(initialState, pkg, noPrefix, wellFormedCalls(headHash(0), 1, List()), 0)[0]
     all {
       // Config carries no `Vec<ParaId>` prefix, so no para can be sourced.
       assert(go(good, true) == WorkErr),
@@ -149,29 +221,41 @@ module accumulate_test {
     }
   }
 
-
-  /// §5.4: a `Forget` of the service's own running code is never forwarded.
-  /// Once expunged, JAM's `accumulate` would have no code to run and the
-  /// service could not upgrade its way back out. The control forgets a
-  /// different preimage held the same way and shows that one is released.
-  run forgetOwnServiceCodeIsNoOpTest = {
+  /// §5.4: a `Forget` of the service's own active code is refused with
+  /// `CanNotRemoveCode`, whether Asset Hub sends it or the Coretime chain on its
+  /// behalf. The control forgets a different preimage held the same way and
+  /// shows that one is released.
+  run forgetOwnServiceCodeIsRefusedTest = {
     val ah = AssetHubParaId
     val ownCode: Hash = { hashBytes: 31337 }
     val otherCode: Hash = { hashBytes: 31338 }
     val len = FixedCodeLen
-    val held = { ...initialState.addReferencer(ah, ownCode, len).state
-                   .addReferencer(ah, otherCode, len).state,
-                 serviceCodeHash: ownCode }
-    val own = replay(held, ah, 0, Forget({ target: Parachain(ah), hash: ownCode, len: len }))
+    val held = {
+      ...initialState.addReferencer(ah, ownCode, len, 0).state
+        .addReferencer(ah, ownCode, 100, 0).state
+        .addReferencer(ah, otherCode, len, 0).state,
+      serviceCodeHash: ownCode,
+      serviceCodeLen: len
+    }
+    val forgetOwn = Forget({ target: Parachain(ah), hash: ownCode, len: len })
+    val own = replay(held, ah, 0, forgetOwn)
+    val byCoretime = replay(held, CoretimeParaId, 0, forgetOwn)
     val other = replay(held, ah, 0, Forget({ target: Parachain(ah), hash: otherCode, len: len }))
+    // The active code's hash at another length is a different preimage.
+    val otherLen = replay(held, ah, 0, Forget({ target: Parachain(ah), hash: ownCode, len: 100 }))
     all {
-      assert(own.state == held),
-      assert(own.jamForget == Set()),
-      assert(own.logs == List()),
+      assert(Set(own, byCoretime).forall(out => and {
+        out.state == held,
+        out.preimageOps == List(),
+        out.logs == List(CanNotRemoveCode({ hash: ownCode, len: len }))
+      })),
       assert(held.hasReferencer(ownCode, len, ah)),
-      // Control: an unrelated preimage is released as usual.
+      // Controls: both are released as usual.
       assert(not(other.state.hasReferencer(otherCode, len, ah))),
-      assert(other.jamForget == Set(otherCode)),
+      assert(other.preimageOps == List(Forgotten((ah, otherCode, len)))),
+      assert(not(otherLen.state.hasReferencer(ownCode, 100, ah))),
+      assert(otherLen.state.hasReferencer(ownCode, len, ah)),
+      assert(otherLen.logs == List()),
       init
     }
   }

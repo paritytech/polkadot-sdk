@@ -22,7 +22,6 @@ module state_vars {
   /// JAM `stagingset` mirror so we can observe `designate` effects.
   var jamStagingSet: List[ValidatorKey]
 
-
   /// Ghost state: every `(para_id, hash, len)` for which Accumulate has
   /// processed a `Solicit` upward message without a matching `Forget`.
   /// Stale entries for cleaned-up paras are intentionally retained. Used
@@ -42,10 +41,15 @@ module state_vars {
   /// directly. Not part of the protocol.
   var lastStepWorkResults: List[WorkResult]
 
-  /// Ghost state: JAM `assign` calls made during the last step (`set_assigner`
-  /// updates and `set_authorizer_queue` flushes at their `jam_slot`). Lets
-  /// invariants verify `new_assigner` is forwarded. Not part of the protocol.
+  /// Ghost state: the `assign` calls JAM accepted during the last step. Not part
+  /// of the protocol.
   var lastStepAssigns: List[AssignCall]
+
+  /// Ghost state: the due-assign budget of the last step, counted in assigns
+  /// rather than gas (see `AssignBudget`). Records the nondet choice so the
+  /// Rust harness can provide gas for exactly that many. Not part of the
+  /// protocol.
+  var lastStepAssignBudget: AssignBudget
 
   /// The 32-byte value `accumulate` returned for the last step: the head
   /// commitment of §5.5, or `None` when no head changed. Not ghost state: it

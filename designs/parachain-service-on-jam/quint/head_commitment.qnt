@@ -17,26 +17,26 @@ module head_commitment {
   /// `LeafHeadHash`; a node holds its two children's `MerkleHash`es, which the
   /// design writes as the tuple variant `Node(Hash, Hash)`.
   type MerkleTree =
-  | Leaf({ paraId: ParaId, headHash: LeafHeadHash })
-  | Node({ left: MerkleHash, right: MerkleHash })
+    | Node({ left: MerkleHash, right: MerkleHash })
+    | Leaf({ paraId: ParaId, headHash: LeafHeadHash })
 
   /// Abstract `keccak_256` of a tree element's SCALE encoding. Doubling the
   /// body and adding the discriminant keeps the leaf and node images disjoint,
   /// so a leaf hash can never collide with a node hash (§5.5).
   pure def merkleHash(t: MerkleTree): MerkleHash =
-  match t {
-    | Leaf(l) => { merkleBytes: 2 * (paraIdInt(l.paraId) * 257 + l.headHash.leafHeadBytes) }
-    | Node(c) => { merkleBytes: 2 * (c.left.merkleBytes * 257 + c.right.merkleBytes) + 1 }
-  }
+    match t {
+      | Node(c) => { merkleBytes: 2 * (c.left.merkleBytes * 257 + c.right.merkleBytes) }
+      | Leaf(l) => { merkleBytes: 2 * (paraIdInt(l.paraId) * 257 + l.headHash.leafHeadBytes) + 1 }
+    }
 
   /// Set of para ids as a list ordered by ascending `para_id`, so every
   /// verifier builds the same tree (§5.5). Insertion sort, which makes the
   /// result independent of the set fold's order.
   pure def sortedParaIds(ps: Set[ParaId]): List[ParaId] =
-  ps.fold(List(), (acc, p) =>
-    acc.select(q => paraIdInt(q) < paraIdInt(p))
-      .append(p)
-      .concat(acc.select(q => paraIdInt(q) > paraIdInt(p))))
+    ps.fold(List(), (acc, p) =>
+      acc.select(q => paraIdInt(q) < paraIdInt(p))
+        .append(p)
+        .concat(acc.select(q => paraIdInt(q) > paraIdInt(p))))
 
   /// One level of tree reduction: hash adjacent pairs, promoting a trailing
   /// odd element unchanged.
@@ -47,9 +47,12 @@ module head_commitment {
         match acc.pending {
           | None => { out: acc.out, pending: Some(h) }
           | Some(p) =>
-            { out: acc.out.append(merkleHash(Node({ left: p, right: h }))),
-              pending: None }
-        })
+            {
+              out: acc.out.append(merkleHash(Node({ left: p, right: h }))),
+              pending: None
+            }
+        }
+    )
     match paired.pending {
       | Some(p) => paired.out.append(p)
       | None => paired.out
@@ -63,12 +66,12 @@ module head_commitment {
   /// Root of the binary Merkle tree over `leaves`. No leaves means no hash is
   /// returned at all; a single leaf is its own root (§5.5).
   pure def merkleRoot(leaves: List[MerkleHash]): Option[MerkleHash] =
-  if (leaves.length() == 0) None
-  else {
-    val collapsed = 1.to(MaxMerkleLevels).fold(leaves, (level, _) =>
-      if (level.length() <= 1) level else pairUp(level))
-    Some(collapsed[0])
-  }
+    if (leaves.length() == 0) None
+    else {
+      val collapsed = 1.to(MaxMerkleLevels).fold(leaves, (level, _) =>
+        if (level.length() <= 1) level else pairUp(level))
+      Some(collapsed[0])
+    }
 
   /// Parachains whose `head_data` differs between the block's prior and
   /// posterior state. Diffing the whole block is what gives §5.5's "exactly one
@@ -80,9 +83,9 @@ module head_commitment {
     prev: ParachainServiceState,
     post: ParachainServiceState
   ): Set[ParaId] =
-  post.parachains.keys().filter(p =>
-    not(prev.parachains.keys().contains(p))
-      or prev.paraInfo(p).headData != post.paraInfo(p).headData)
+    post.parachains.keys().filter(p =>
+      not(prev.parachains.keys().contains(p))
+        or prev.paraInfo(p).headData != post.paraInfo(p).headData)
 
   /// The block's head commitment: the Merkle root over the changed heads, or
   /// `None` when no head changed and the service contributes no entry (§5.5).
@@ -90,10 +93,11 @@ module head_commitment {
     prev: ParachainServiceState,
     post: ParachainServiceState
   ): Option[MerkleHash] =
-  merkleRoot(
-    sortedParaIds(changedHeads(prev, post)).foldl(List(), (acc, p) =>
-      acc.append(merkleHash(Leaf({
-        paraId: p,
-        headHash: leafHeadHash(post.paraInfo(p).headData)
-      })))))
+    merkleRoot(
+      sortedParaIds(changedHeads(prev, post)).foldl(List(), (acc, p) =>
+        acc.append(merkleHash(Leaf({
+          paraId: p,
+          headHash: leafHeadHash(post.paraInfo(p).headData)
+        }))))
+    )
 }

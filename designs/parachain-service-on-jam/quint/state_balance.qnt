@@ -27,16 +27,16 @@ module state_balance {
     + MaxSettlementRingCapacity * (34 + 9 + 32)
     + (1 + 2 * MaxSettlementRingCapacity) * 10
 
-  /// Per-para baseline footprint, in BALANCE UNITS: 4 246 (ParaInfo entry)
-  /// + 65 585 (log reserve) + 10 937 (settlement ring at capacity) = 80 768.
+  /// Per-para baseline footprint, in BALANCE UNITS: 4 240 (ParaInfo entry)
+  /// + 65 585 (log reserve) + 10 937 (settlement ring at capacity) = 80 762.
   /// The first two are one storage item each, so each carries
-  /// `C_itemdeposit = 10` on top of its octets (4 236 / 65 575). Derivation in
+  /// `C_itemdeposit = 10` on top of its octets (4 230 / 65 575). Derivation in
   /// §6.1. Balances are `Compact<u64>` sized at their 9 B worst case here.
-  pure val BaselineFootprint: int = 4246 + 65585 + SettlementRingFootprint
+  pure val BaselineFootprint: int = 4240 + 65585 + SettlementRingFootprint
 
-  /// Octet overhead of one `BoundedVec` general-storage entry: JAM's 34 B, a
-  /// 1 B map-tag key, and a 2 B compact length prefix (§6.1).
-  pure val VecEntryOverhead: int = 34 + 1 + 2
+  /// Octet overhead of one `BoundedVec` general-storage entry: JAM's per-entry
+  /// overhead, a 1 B map-tag key, and a 2 B compact length prefix (§6.1).
+  pure val VecEntryOverhead: int = StorageEntryOverhead + 1 + 2
 
   /// Asset Hub additionally owns the service-global state items (staged
   /// validator keys, pending assigns + their dirty-core index, incoming
@@ -44,19 +44,22 @@ module state_balance {
   /// pre-provisioned rather than charged to `usedStateBalance` as they grow.
   pure val AssetHubGlobalItemsFootprint: int = {
     val stagedKeys = VecEntryOverhead + MaxStagedValidatorKeys * ValidatorKeySize
-    // One storage entry per core: 34 + 3 (tag + u16 CoreIndex key) + 2 (compact
-    // len) + the authorizer queue + 5 (Option<ServiceId>).
+    // One storage entry per core: JAM's per-entry overhead + 3 (tag + u16
+    // CoreIndex key) + 2 (compact len) + the authorizer queue + 5
+    // (Option<ServiceId>).
     val pendingAssigns =
-      CoreCount * (34 + 3 + 2 + AuthorizerQueueLength * 32 + 5)
+      CoreCount * (StorageEntryOverhead + 3 + 2 + AuthorizerQueueLength * 32 + 5)
     // (u16 CoreIndex 2 + Timeslot 4) per core.
     val pendingAssignCores = VecEntryOverhead + CoreCount * 6
-    // Endpoint pointer: 34 + 1 (key) + first_bucket 8 + last_bucket 8 + count 4.
-    val transferBuckets = 34 + 1 + 8 + 8 + 4
+    // Endpoint pointer: JAM's per-entry overhead + 1 (key) + first_bucket 8 +
+    // last_bucket 8 + count 4.
+    val transferBuckets = StorageEntryOverhead + 1 + 8 + 8 + 4
     // Fixed storage items: the two BoundedVecs, the endpoint pointer, and one per
     // core for pendingAssigns. The transfer buckets are counted per transfer below.
     val fixedItems = 3 + CoreCount
     val fixed =
-      stagedKeys + pendingAssigns + pendingAssignCores + transferBuckets + fixedItems * 10
+      stagedKeys + pendingAssigns + pendingAssignCores + transferBuckets +
+        fixedItems * ItemDeposit
     // Worst case one bucket per transfer, each costing a full bucket.
     fixed + MaxIncomingTransfers * IncomingTransferEntryFootprint
   }
@@ -81,7 +84,8 @@ module state_balance {
   ///     34 + 5 (singleton {ParaId} set) + 37 (key = 1 B map tag + 32 B hash + 4 B len)
   /// Total = 187 + len balance units (octet subtotal 157 + len, items 30).
   pure def preimageFootprint(len: int): int =
-  (20 + 81 + len) + (10 + 34 + 5 + 37)
+    (2 * ItemDeposit + PreimageRequestOverhead + len) +
+      (ItemDeposit + StorageEntryOverhead + 5 + 37)
 
   /// What Asset Hub is charged for the unreserved part of the transfer queue
   /// (§5.1), priced per worst-case bucket as §6.1 sizes the reservation itself.
@@ -101,27 +105,31 @@ module state_balance {
     if (delta == 0) s
     else {
       val pi = s.paraInfo(AssetHubParaId)
-      { ...s,
+      {
+        ...s,
         parachains: s.parachains.put(AssetHubParaId,
-          { ...pi,
+          {
+            ...pi,
             usedStateBalance: pi.usedStateBalance + delta,
-            totalStateBalance: pi.totalStateBalance + delta }) }
+            totalStateBalance: pi.totalStateBalance + delta
+          })
+      }
     }
   }
 
   // --- Update primitives --------------------------------------------------
 
   pure def setUsed(pi: ParaInfo, newUsed: Balance): ParaInfo =
-  { ...pi, usedStateBalance: newUsed }
+    { ...pi, usedStateBalance: newUsed }
 
   pure def setTotal(pi: ParaInfo, newTotal: Balance): ParaInfo =
-  { ...pi, totalStateBalance: newTotal }
+    { ...pi, totalStateBalance: newTotal }
 
   pure def addUsed(pi: ParaInfo, delta: int): ParaInfo =
-  setUsed(pi, pi.usedStateBalance + delta)
+    setUsed(pi, pi.usedStateBalance + delta)
 
   pure def hasHeadroom(pi: ParaInfo, delta: int): bool =
-  pi.usedStateBalance + delta <= pi.totalStateBalance
+    pi.usedStateBalance + delta <= pi.totalStateBalance
 
   // --- ParaInfo construction at registration -----------------------------
   //
@@ -135,7 +143,7 @@ module state_balance {
       Some({
         headData: 0,
         validationCode: None,
-        pendingUpgrade: None,
+        announcedUpgrade: None,
         totalStateBalance: newTotal,
         usedStateBalance: baseline,
         isDeregistering: false
@@ -164,36 +172,45 @@ module state_balance {
   }
 
   pure def addReferencer(
-    s: ParachainServiceState, para_id: ParaId, h: Hash, len: int
+    s: ParachainServiceState, para_id: ParaId, h: Hash, len: int, now: Timeslot
   ): PreimageDelta = {
     val pi = s.paraInfo(para_id)
     val delta = preimageFootprint(len)
-    // A `solicit` while the request is `Unrequested(y)` RESCUES the still-held
-    // blob back to available (JAM `Unrequested → Rerequested`), keeping the
-    // original `y` for the next forget's gate. This fires a real JAM `solicit`.
-    // `rescueSlot` is `Some(y)` exactly when this solicit is a rescue, so it
-    // doubles as the rescue flag and carries `y` for the status transition.
-    val rescueSlot: Option[Timeslot] =
+    // Soliciting a forgotten preimage that JAM still holds makes it available
+    // again from `now` on, the status becomes `Rerequested`. `rescued` is the
+    // `Unrequested` status in that case and `None` otherwise.
+    val rescued: Option[{ providedSince: Timeslot, unrequestedSince: Timeslot }] =
       if (s.preimageStatus.keys().contains((h, len)))
         match s.preimageStatus.get((h, len)) {
-          | Unrequested(y) => Some(y)
+          | Unrequested(r) => Some(r)
           | _ => None
         }
       else None
-    val isRescue = rescueSlot != None
+    val isRescue = rescued != None
     val rescuedStatus =
-      match rescueSlot {
-        | Some(y) => s.preimageStatus.put((h, len), Rerequested(y))
+      match rescued {
+        | Some(r) =>
+          s.preimageStatus.put((h, len), Rerequested({
+            providedSince: r.providedSince,
+            unrequestedSince: r.unrequestedSince,
+            rerequestedSince: now
+          }))
         | None => s.preimageStatus
       }
     if (s.hasReferencer(h, len, para_id)) {
-      // Already a referencer: idempotent, needs no extra state balance
-      // (footprint already charged). But if the request is `Unrequested` (the
-      // retained para re-soliciting its own code in limbo), the service still
-      // must fire JAM `solicit` to rescue it, else the para cannot look it up.
+      // The para already references this preimage and already pays for it, so
+      // nothing changes. One exception: the para forgot the preimage, but it is
+      // still listed as referencer until the second forget expunges it. If it
+      // solicits the preimage again in that window, we must call JAM `solicit`
+      // to make the preimage available again.
       if (isRescue)
-        { state: { ...s, preimageStatus: rescuedStatus },
-          jamSolicit: Some(h), jamForget: None, retained: false, log: None }
+        {
+          state: { ...s, preimageStatus: rescuedStatus },
+          jamSolicit: Some(h),
+          jamForget: None,
+          retained: false,
+          log: None
+        }
       else
         { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
     } else if (not(pi.hasHeadroom(delta))) {
@@ -208,7 +225,7 @@ module state_balance {
       }
     } else {
       val wasEmpty = not(s.preimageRegistry.keys().contains((h, len))) or
-      s.preimageRegistry.get((h, len)).referencers == Set()
+        s.preimageRegistry.get((h, len)).referencers == Set()
       // On a rescue, the existing referencers are only the retained ghost(s)
       // from the two-step forget (`Unrequested` has no live referencer). The
       // soliciting para becomes the sole LIVE referencer, so refund and drop
@@ -228,8 +245,8 @@ module state_balance {
       val newEntry =
         { referencers: (if (isRescue) Set() else existing).union(Set(para_id)) }
       // A fresh JAM `solicit` (empty → non-empty) starts `Unprovided`. A new
-      // referencer joining an `Unrequested(y)` entry rescues it to
-      // `Rerequested(y)` (fires JAM `solicit`). Any other join leaves the
+      // referencer joining an `Unrequested` entry rescues it to
+      // `Rerequested` (fires JAM `solicit`). Any other join leaves the
       // status untouched (already `Unprovided`/`Provided`/`Rerequested`).
       val newStatus =
         if (wasEmpty) s.preimageStatus.put((h, len), Unprovided)
@@ -296,47 +313,68 @@ module state_balance {
           | Unprovided =>
             // Never provided → single `forget` drops it, deposit lifted now.
             expunged
-          | Provided =>
+          | Provided(since) =>
             // Available → first `forget` only unrequests (JAM keeps it for the
             // turnaround). Keep the referencer (still charged), record the
             // unrequest slot, log the expunge deadline.
             {
-              state: { ...s, preimageStatus: s.preimageStatus.put((h, len), Unrequested(now)) },
+              state: {
+                ...s,
+                preimageStatus: s.preimageStatus.put(
+                  (h, len), Unrequested({ providedSince: since, unrequestedSince: now })
+                )
+              },
               jamSolicit: None,
               jamForget: Some(h),
               retained: true,
-              log: Some(ForgetAgainAt({ hash: h, len: len, due: now + ExpungePeriod }))
+              log: Some(ForgetAgainAt({
+                target: Parachain(para_id),
+                hash: h,
+                len: len,
+                due: now + ExpungePeriod
+              }))
             }
-          | Unrequested(since) =>
+          | Unrequested(r) =>
             // Second forget: expunge only once strictly past the turnaround
             // (JAM `now > since + min_turnaround`); otherwise a no-op retry.
-            val due = since + ExpungePeriod
+            val due = r.unrequestedSince + ExpungePeriod
             if (now > due) expunged
             else {
               state: s,
               jamSolicit: None,
               jamForget: None,
               retained: true,
-              log: Some(ForgetAgainAt({ hash: h, len: len, due: due }))
+              log: Some(ForgetAgainAt({ target: Parachain(para_id), hash: h, len: len, due: due }))
             }
-          | Rerequested(since) =>
+          | Rerequested(r) =>
             // Rescued preimage. JAM gates `forget` against the ORIGINAL
             // `unrequested_since`: past the turnaround it unrequests again
-            // (→ `Unrequested(now)`, fresh clock); otherwise a no-op retry
-            // (JAM `NotYetUnrequest`). Either way it does NOT expunge here.
-            val due = since + ExpungePeriod
+            // (→ `Unrequested` since `now`, fresh clock, provided since the
+            // rescue); otherwise a no-op retry (JAM `NotYetUnrequest`). Either
+            // way it does NOT expunge here.
+            val due = r.unrequestedSince + ExpungePeriod
             if (now > due) {
-              state: { ...s, preimageStatus: s.preimageStatus.put((h, len), Unrequested(now)) },
+              state: {
+                ...s,
+                preimageStatus: s.preimageStatus.put(
+                  (h, len), Unrequested({ providedSince: r.rerequestedSince, unrequestedSince: now })
+                )
+              },
               jamSolicit: None,
               jamForget: Some(h),
               retained: true,
-              log: Some(ForgetAgainAt({ hash: h, len: len, due: now + ExpungePeriod }))
+              log: Some(ForgetAgainAt({
+                target: Parachain(para_id),
+                hash: h,
+                len: len,
+                due: now + ExpungePeriod
+              }))
             } else {
               state: s,
               jamSolicit: None,
               jamForget: None,
               retained: true,
-              log: Some(ForgetAgainAt({ hash: h, len: len, due: due }))
+              log: Some(ForgetAgainAt({ target: Parachain(para_id), hash: h, len: len, due: due }))
             }
         }
       }
@@ -346,13 +384,14 @@ module state_balance {
   // --- Parachain-storage KV accounting (§6.1) ----------------------------
 
   /// Per-entry footprint for a `key_value_storage` write of a `kLen`-byte key
-  /// and `vLen`-byte value, per §6.1, in balance units:
+  /// and `vLen`-byte value, per §6.1, in balance units. Key and value are stored
+  /// as sent, without length prefixes:
   /// 10 (1 storage item)
-  /// + 34 (JAM overhead) + compactLen(vLen) + vLen (SCALE Vec<u8> value)
-  /// + 1 (map tag 0x07) + 4 (ParaId) + compactLen(kLen) + kLen (key)
-  /// = 49 + compactLen(kLen) + kLen + compactLen(vLen) + vLen
+  /// + 34 (JAM overhead) + vLen (value)
+  /// + 1 (map tag 0x08) + 4 (ParaId) + kLen (key)
+  /// = 49 + kLen + vLen
   pure def kvEntryFootprint(kLen: int, vLen: int): int =
-    10 + 39 + compactLen(kLen) + kLen + compactLen(vLen) + vLen
+    ItemDeposit + StorageEntryOverhead + 1 + 4 + kLen + vLen
 
   type KVDelta = {
     state: ParachainServiceState,
@@ -366,15 +405,12 @@ module state_balance {
     s: ParachainServiceState, para_id: ParaId, key: List[int], value: List[int]
   ): KVDelta = {
     val pi = s.paraInfo(para_id)
-    val newVBytes = compactLen(value.length()) + value.length()
     val entryExists = s.keyValueStorage.keys().contains((para_id, key))
     val delta =
       if (not(entryExists))
         kvEntryFootprint(key.length(), value.length())
-      else {
-        val oldV = s.keyValueStorage.get((para_id, key))
-        newVBytes - (compactLen(oldV.length()) + oldV.length())
-      }
+      else
+        value.length() - s.keyValueStorage.get((para_id, key)).length()
     if (delta > 0 and not(pi.hasHeadroom(delta))) {
       {
         state: s,
