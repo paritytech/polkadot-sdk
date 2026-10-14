@@ -465,12 +465,13 @@ mod execution {
 		/// State root of the level, for
 		/// top trie it is as an empty byte array.
 		pub state_root: Vec<u8>,
-		/// The `:child_storage:` keys of the top trie whose value is this level's root. Empty for
-		/// the top trie, and empty when building a proof.
+		/// The top-trie keys this child trie is stored under: the `:child_storage:` keys whose
+		/// value is `state_root`. Usually one key. More than one when several child tries have
+		/// the same root, so the same content. Empty for the top trie, which has no parent.
 		///
-		/// The verifier reads a root's content once per response, under the first key it meets.
-		/// Later keys with the same root are only appended here, so the first key is the one
-		/// `key_values` was read under and the others are copies of it.
+		/// Only the range proof verifier fills this. It reads a root's content once, under the
+		/// first key it meets, so `key_values` belongs to the first key. The later keys are
+		/// copies the client fills from the first one (see `child_trie_copies`).
 		pub parent_storage_keys: Vec<Vec<u8>>,
 		/// Pair of key and values from this state.
 		pub key_values: Vec<(Vec<u8>, Vec<u8>)>,

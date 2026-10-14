@@ -286,7 +286,7 @@ impl<B: BlockT> StateStrategy<B> {
 			return None;
 		}
 
-		// Nothing to ask while a chunk waits to be written: its retry decides what comes next.
+		// Nothing to ask while a chunk waits to be written: its retry decides what is next.
 		if self.state_sync.is_complete() || self.state_sync.has_pending_write() {
 			return None;
 		}
@@ -362,7 +362,7 @@ impl<B: BlockT> StateStrategy<B> {
 		if let Some(block) = self.state_sync.take_target_import() {
 			self.queue_target_import(block);
 		}
-		// A chunk whose write failed is written again from memory once its delay has passed.
+		// Retry a pending chunk write.
 		match self.state_sync.retry_pending_write() {
 			Some(ImportResult::Import(block)) => self.queue_target_import(block),
 			Some(ImportResult::Abort) => self.abort(),
@@ -742,29 +742,31 @@ mod test {
 		assert!(!state_strategy.is_succeeded());
 	}
 
-	/// While a chunk waits to be written, no state request goes out.
-	#[test]
-	fn pending_write_blocks_state_requests() {
+	/// A strategy whose provider has a chunk write pending and answers `result` to its retry.
+	fn strategy_with_pending_write(result: Option<ImportResult<Block>>) -> StateStrategy<Block> {
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		state_sync_provider.expect_take_target_import().returning(|| None);
-		state_sync_provider.expect_retry_pending_write().returning(|| None);
+		state_sync_provider.expect_retry_pending_write().return_once(move || result);
 		state_sync_provider.expect_is_complete().return_const(false);
 		state_sync_provider.expect_has_pending_write().return_const(true);
-		let initial_peers = (1..=10).map(|best_number| (PeerId::random(), best_number));
-		let mut state_strategy = StateStrategy::new_with_provider(
+		StateStrategy::new_with_provider(
 			Box::new(state_sync_provider),
-			initial_peers,
+			std::iter::once((PeerId::random(), 10)),
 			ProtocolName::Static(""),
-		);
-
-		let network_provider = NetworkServiceProvider::new();
-		let network_handle = network_provider.handle();
-		assert_eq!(state_strategy.actions(&network_handle).count(), 0);
+		)
 	}
 
-	/// The retry of the final chunk's write queues the target import, like its response would.
+	/// While a chunk waits to be written no state request goes out, and its retry decides what
+	/// is next: the final chunk's retry queues the target import like its response would, and a
+	/// retry that gives up finishes the strategy without success.
 	#[test]
-	fn retried_final_write_queues_the_target_import() {
+	fn pending_write_blocks_requests_and_its_retry_decides() {
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
+
+		let mut waiting = strategy_with_pending_write(None);
+		assert_eq!(waiting.actions(&network_handle).count(), 0);
+
 		let block = IncomingBlock {
 			hash: Hash::random(),
 			header: None,
@@ -777,47 +779,18 @@ mod test {
 			state: Some(ImportedState),
 		};
 		let target_hash = block.hash;
-		let mut state_sync_provider = MockStateSync::<Block>::new();
-		state_sync_provider.expect_take_target_import().returning(|| None);
-		state_sync_provider
-			.expect_retry_pending_write()
-			.return_once(move || Some(ImportResult::Import(block)));
-		state_sync_provider.expect_is_complete().return_const(true);
-		let mut state_strategy = StateStrategy::new_with_provider(
-			Box::new(state_sync_provider),
-			std::iter::once((PeerId::random(), 10)),
-			ProtocolName::Static(""),
-		);
-
-		let network_provider = NetworkServiceProvider::new();
-		let network_handle = network_provider.handle();
-		let actions = state_strategy.actions(&network_handle).collect::<Vec<_>>();
+		let mut written = strategy_with_pending_write(Some(ImportResult::Import(block)));
+		let actions = written.actions(&network_handle).collect::<Vec<_>>();
 		assert!(matches!(
 			actions.as_slice(),
 			[SyncingAction::ImportBlocks { blocks, .. }]
 				if blocks.len() == 1 && blocks[0].hash == target_hash
 		));
-	}
 
-	/// A retry that gives up finishes the strategy without success.
-	#[test]
-	fn retry_that_gives_up_finishes_without_success() {
-		let mut state_sync_provider = MockStateSync::<Block>::new();
-		state_sync_provider.expect_take_target_import().returning(|| None);
-		state_sync_provider
-			.expect_retry_pending_write()
-			.return_once(|| Some(ImportResult::Abort));
-		let mut state_strategy = StateStrategy::new_with_provider(
-			Box::new(state_sync_provider),
-			std::iter::once((PeerId::random(), 10)),
-			ProtocolName::Static(""),
-		);
-
-		let network_provider = NetworkServiceProvider::new();
-		let network_handle = network_provider.handle();
-		let actions = state_strategy.actions(&network_handle).collect::<Vec<_>>();
+		let mut given_up = strategy_with_pending_write(Some(ImportResult::Abort));
+		let actions = given_up.actions(&network_handle).collect::<Vec<_>>();
 		assert!(matches!(actions.as_slice(), [SyncingAction::Finished]));
-		assert!(!state_strategy.is_succeeded());
+		assert!(!given_up.is_succeeded());
 	}
 
 	#[test]

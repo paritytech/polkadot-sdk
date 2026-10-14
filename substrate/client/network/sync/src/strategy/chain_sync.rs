@@ -1026,7 +1026,7 @@ where
 				self.attempt_state_sync(hash, number);
 			}
 		}
-		// A chunk whose write failed is written again from memory once its delay has passed.
+		// Retry a pending chunk write.
 		match self.state_sync.as_mut().and_then(|sync| sync.retry_pending_write()) {
 			Some(ImportResult::Import(block)) => self.queue_target_import(block),
 			Some(ImportResult::Abort) => self.abort_state_sync(),
@@ -2237,8 +2237,7 @@ where
 			return None;
 		}
 		if let Some(sync) = &self.state_sync {
-			// Nothing to ask while a chunk waits to be written: its retry decides what comes
-			// next.
+			// Nothing to ask while a chunk waits to be written: its retry decides what is next.
 			if sync.is_complete() || sync.has_pending_write() {
 				return None;
 			}
@@ -2309,8 +2308,6 @@ where
 		}
 	}
 
-	/// Queue the import of the state sync target. Its whole state is in the database, and the
-	/// block import checks that it is complete and marks it present.
 	/// Give up on the state sync target and start the block sync over.
 	fn abort_state_sync(&mut self) {
 		error!(
@@ -2321,6 +2318,8 @@ where
 		self.restart();
 	}
 
+	/// Queue the import of the state sync target. Its whole state is in the database, and the
+	/// block import checks that it is complete and marks it present.
 	fn queue_target_import(&mut self, block: IncomingBlock<B>) {
 		debug!(target: LOG_TARGET, "State download is complete. Import is queued");
 		self.actions.push(SyncingAction::ImportBlocks {

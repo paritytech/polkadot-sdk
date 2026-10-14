@@ -116,10 +116,8 @@ pub trait StateSyncProvider<B: BlockT>: Send + Sync {
 	/// only the import is left. Handed out once. A download in progress returns `None`: its
 	/// import comes with the final chunk, as [`ImportResult::Import`].
 	fn take_target_import(&mut self) -> Option<IncomingBlock<B>>;
-	/// Retry the write of a chunk whose earlier write failed, once the delay has passed. Nothing
-	/// is downloaded again. `None` when no write is pending or it is too early, otherwise what the
-	/// response would have produced: `Continue`, `Import` for the final chunk, or `Abort` after
-	/// the last retry.
+	/// Retry a chunk whose write failed, once its delay has passed, without downloading it again.
+	/// `None` if nothing is pending or it is too early, else what the response would have returned.
 	fn retry_pending_write(&mut self) -> Option<ImportResult<B>>;
 	/// A verified chunk waits to be written. No state request goes out meanwhile.
 	fn has_pending_write(&self) -> bool;
@@ -180,9 +178,7 @@ struct PendingWrite<B: BlockT> {
 	/// The chunk. Its `end` is the cursor once written, `None` on the final chunk.
 	chunk: PartialStateFor<B>,
 	proof_size: u64,
-	/// Retries made so far.
 	retries: u32,
-	/// No retry before this.
 	next_attempt: Instant,
 }
 
@@ -329,9 +325,7 @@ where
 		}
 	}
 
-	/// Write `pending`. On success the cursor moves, or the download completes with the final
-	/// chunk. On failure the chunk is kept and retried after the delay, up to the limit, after
-	/// which the state sync gives up on its target.
+	/// Write `pending`; on failure keep it for a retry after the delay, up to the limit.
 	fn try_write(&mut self, mut pending: PendingWrite<B>) -> ImportResult<B> {
 		match self.client.import_partial_state(&pending.chunk) {
 			Ok(()) => {
@@ -398,8 +392,7 @@ where
 			return ImportResult::Continue;
 		}
 		if self.pending_write.is_some() {
-			// No request is out while a chunk waits to be written, so this answers a cancelled
-			// one. The chunk we hold is the one to write, this response is left alone.
+			// No request is out while a chunk waits to be written: this answers a cancelled one.
 			debug!(target: LOG_TARGET, "Ignoring a state response while a chunk waits to be written");
 			return ImportResult::Continue;
 		}
@@ -708,10 +701,10 @@ mod tests {
 		}]
 	}
 
-	/// A failed write keeps the chunk: nothing is written, the cursor stays, and the retry waits
-	/// for the delay.
+	/// A failed write keeps the chunk: nothing is written, the cursor stays. Once the delay has
+	/// passed the retry writes it, and the cursor moves without a second response.
 	#[test]
-	fn failed_write_keeps_the_chunk_and_continues() {
+	fn failed_write_is_retried_from_memory() {
 		let client = StubClient::new(one_key_in_the_top_trie(), 1, 1);
 		let mut sync = state_sync(client.clone());
 
@@ -719,18 +712,8 @@ mod tests {
 		assert!(sync.has_pending_write());
 		assert!(sync.next_request().start.is_empty(), "the cursor did not move");
 		assert_eq!(client.writes(), 0);
-		assert!(!sync.is_complete());
 		assert!(sync.retry_pending_write().is_none(), "no retry before the delay");
-		assert!(sync.has_pending_write());
-	}
 
-	/// The retry writes the chunk kept in memory: the cursor moves without a second response.
-	#[test]
-	fn retried_write_moves_the_cursor_without_a_new_response() {
-		let client = StubClient::new(one_key_in_the_top_trie(), 1, 1);
-		let mut sync = state_sync(client.clone());
-
-		assert!(matches!(sync.import(response()), ImportResult::Continue));
 		sync.expire_write_delay();
 		assert!(matches!(sync.retry_pending_write(), Some(ImportResult::Continue)));
 		assert!(!sync.has_pending_write());
@@ -740,40 +723,35 @@ mod tests {
 		assert_eq!(client.verifications(), 1, "the range was not downloaded again");
 	}
 
-	/// Four retries, then the state sync gives up: nothing was written, the cursor stayed.
+	/// The last retry can still succeed. If it fails too, the state sync gives up: nothing was
+	/// written and the cursor stayed.
 	#[test]
-	fn fourth_failed_retry_aborts() {
-		let client = StubClient::new(one_key_in_the_top_trie(), 1, 5);
-		let mut sync = state_sync(client.clone());
-
-		assert!(matches!(sync.import(response()), ImportResult::Continue));
-		for _ in 0..3 {
+	fn the_limit_is_four_retries() {
+		let after_the_last_retry = |failing_writes| {
+			let client = StubClient::new(one_key_in_the_top_trie(), 1, failing_writes);
+			let mut sync = state_sync(client.clone());
+			assert!(matches!(sync.import(response()), ImportResult::Continue));
+			for _ in 1..MAX_PARTIAL_STATE_WRITE_RETRIES {
+				sync.expire_write_delay();
+				assert!(matches!(sync.retry_pending_write(), Some(ImportResult::Continue)));
+				assert!(sync.has_pending_write());
+			}
 			sync.expire_write_delay();
-			assert!(matches!(sync.retry_pending_write(), Some(ImportResult::Continue)));
-			assert!(sync.has_pending_write());
-		}
-		sync.expire_write_delay();
-		assert!(matches!(sync.retry_pending_write(), Some(ImportResult::Abort)));
-		assert!(!sync.has_pending_write());
-		assert!(sync.next_request().start.is_empty());
-		assert_eq!(client.writes(), 0);
-		assert!(!sync.is_complete());
-	}
+			let last = sync.retry_pending_write();
+			assert!(!sync.has_pending_write());
+			(client, sync, last)
+		};
 
-	/// The fourth retry can still succeed.
-	#[test]
-	fn fourth_retry_can_still_succeed() {
-		let client = StubClient::new(one_key_in_the_top_trie(), 1, 4);
-		let mut sync = state_sync(client.clone());
-
-		assert!(matches!(sync.import(response()), ImportResult::Continue));
-		for _ in 0..4 {
-			sync.expire_write_delay();
-			assert!(matches!(sync.retry_pending_write(), Some(ImportResult::Continue)));
-		}
-		assert!(!sync.has_pending_write());
+		let (client, sync, last) = after_the_last_retry(4);
+		assert!(matches!(last, Some(ImportResult::Continue)));
 		assert_eq!(client.writes(), 1);
 		assert_eq!(sync.next_request().start, vec![vec![0x80]]);
+
+		let (client, sync, last) = after_the_last_retry(5);
+		assert!(matches!(last, Some(ImportResult::Abort)));
+		assert_eq!(client.writes(), 0);
+		assert!(sync.next_request().start.is_empty());
+		assert!(!sync.is_complete());
 	}
 
 	/// A response that arrives while a chunk waits to be written is neither verified nor written.
