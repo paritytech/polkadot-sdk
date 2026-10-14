@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791972629250,
+  "lastUpdate": 1791978965634,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fea7d4dfaf87849580209d86fffc22cb5042eab1",
-          "message": "collator-protocol revamp: use ratio for peer eviction from DB  (#11576)\n\nThe current implementation of `prune_for_para` gives edge to new peers\nbecause it uses only the timestamp of the last bump when evicting peers\nto the DB. As a result, a high score collator which is inactive for a\nwhile can easily be evicted by new peers with minimal score.\n\nTo fix this we now calculate `score / time_since_last_bump` ratio for\neach peer and evict the one with the min value.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T10:58:20Z",
-          "tree_id": "53c0a624fcad442766bed34e7ffa6c03aaf822c4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fea7d4dfaf87849580209d86fffc22cb5042eab1"
-        },
-        "date": 1775218796707,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027037774499999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009311321369999988,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009132344560000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010036336989999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0c6a0edc17553c5ec227dd9d669c814947c2bebf",
+          "message": "papi-tests: convert chain specs with export-chain-spec (#13479)\n\nzombienet converts plain chain specs to raw with the node's `build-spec`\nsubcommand unless `chain_spec_command` is set. #12586 removed\n`build-spec`, which broke `just setup` / `just run` in papi-tests.\n\nThis sets `chain_spec_command` to `export-chain-spec` for the relay\n(`polkadot`) and the parachain (`polkadot-parachain`). zombienet still\ncustomizes both plain specs before converting them, as before.\n\nNote: `{{chainName}}` is wrapped in `{% raw %}` because zombienet\nrenders the TOML with nunjucks (using env vars) before parsing it.\nUnescaped, it renders to an empty string and `--chain` gets no value.\n\nThis fixes also miner nightly test which relies on papi-test setup (see\nhttps://github.com/paritytech/polkadot-staking-miner/issues/1344)\n\nTested locally:\n```\n# just run fake-dev (zombienet v1.3.140)\n🚧 Chain Spec for paraId 1100 was set to a file in raw format, can't customize. 🚧\nCommand : bash -c polkadot export-chain-spec --chain /tmp/zombie-.../rococo-local-plain.json  --raw > /tmp/zombie-.../rococo-local-raw.json\n[Parachain] 💤 Idle (0 peers), best: #3 (0x464e…b28f), finalized #0 (0x64c0…0313)\n\n# polkadot-staking-miner: cargo test --release --features integration-tests submit_works\nINFO monitor: Charlie score registered (malicious)\nINFO monitor: Alice score registered\nINFO monitor: Bob score registered\nINFO monitor: Charlie slashed for incomplete/invalid submission!\nINFO monitor: Alice rewarded!\nINFO monitor: Bob solution discarded!\nINFO monitor: 🤑 Successfully completed three-miner test: Alice and Bob submitted solutions (one rewarded, one discarded), Charlie slashed for malicious behavior!\ntest submit_works ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 526.32s\n```",
+          "timestamp": "2026-10-14T10:16:54Z",
+          "tree_id": "586e0e251e749fa3ebcbbf61e2e44f3b3d183f46",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0c6a0edc17553c5ec227dd9d669c814947c2bebf"
+        },
+        "date": 1791978932040,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00249537643,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009489235429999989,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011362500199999988,
             "unit": "seconds"
           }
         ]
