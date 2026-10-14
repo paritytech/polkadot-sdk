@@ -270,17 +270,15 @@ async fn register_keys(
 	let keys: [u8; 64] = generated.keys.0.as_slice().try_into().map_err(|_| {
 		anyhow!("`{collator}` returned {} bytes of keys, expected 32", generated.keys.0.len())
 	})?;
-	let aura = keys[..32];
+	let aura = &keys[..32];
 	log::info!(
 		"`{collator}` generated Aura key 0x{} for 0x{}",
 		hex::encode(aura),
 		hex::encode(owner)
 	);
 
-	let keys = Value::named_composite([(
-		"aura",
-		Value::unnamed_composite([Value::from_bytes(aura.as_slice())]),
-	)]);
+	let keys =
+		Value::named_composite([("aura", Value::unnamed_composite([Value::from_bytes(aura)]))]);
 	let call = subxt::dynamic::tx(
 		"Session",
 		"set_keys",
