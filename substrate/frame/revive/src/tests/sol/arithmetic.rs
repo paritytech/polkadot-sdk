@@ -32,6 +32,8 @@ use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{Arithmetic, FixtureType, compile_module_with_type};
 use test_case::test_case;
 
+type Weights = <Test as Config>::WeightInfo;
+
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn arithmetic_works(fixture_type: FixtureType) {
@@ -61,7 +63,6 @@ fn arithmetic_works(fixture_type: FixtureType) {
 
 #[test]
 fn exp_charges_each_exponent_bit_after_the_first() {
-	type Weights = <Test as Config>::WeightInfo;
 	let weight_of = |exponent: U256| {
 		weight_of_solc_call(
 			"Arithmetic",
