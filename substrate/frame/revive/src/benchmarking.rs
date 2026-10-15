@@ -4120,7 +4120,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = core::hint::black_box(&mut *memory).grow(target_words);
+			result = core::hint::black_box(&mut *memory).bench_grow(target_words);
 		}
 
 		assert!(result.is_continue());
@@ -4148,7 +4148,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = core::hint::black_box(&mut *memory).reallocate(n);
+			result = core::hint::black_box(&mut *memory).bench_reallocate(n);
 		}
 
 		assert!(result.is_continue());

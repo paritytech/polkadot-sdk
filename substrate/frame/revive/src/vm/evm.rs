@@ -131,6 +131,8 @@ pub enum EvmOpcodeCosts {
 /// An op-code in one block of the `evm_dispatch_mix` benchmark.
 pub struct DispatchMixOpcode {
 	/// The op-code's byte.
+	// Only the `evm_dispatch_mix` benchmark reads the byte.
+	#[cfg_attr(not(feature = "runtime-benchmarks"), allow(dead_code))]
 	pub opcode: u8,
 	/// What the op-code is charged.
 	cost: EvmOpcodeCosts,

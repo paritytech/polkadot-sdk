@@ -112,7 +112,7 @@ impl<T: Config> Memory<T> {
 	/// Expose zeroed memory through `words` without allocating.
 	///
 	/// The caller charges for growth first. The requested size must fit the existing capacity.
-	pub fn grow(&mut self, words: u32) -> ControlFlow<Halt> {
+	fn grow(&mut self, words: u32) -> ControlFlow<Halt> {
 		if words > (self.capacity / 32) as u32 {
 			return ControlFlow::Break(Error::<T>::OutOfGas.into());
 		}
@@ -127,7 +127,7 @@ impl<T: Config> Memory<T> {
 	///
 	/// The caller charges for allocation and copying first. Production capacity at least doubles,
 	/// so live bytes occupy at most half the requested replacement capacity.
-	pub fn reallocate(&mut self, words: u32) -> ControlFlow<Halt> {
+	fn reallocate(&mut self, words: u32) -> ControlFlow<Halt> {
 		if words > crate::limits::EVM_MEMORY_BYTES / 32 || words <= (self.capacity / 32) as u32 {
 			return ControlFlow::Break(Error::<T>::OutOfGas.into());
 		}
@@ -218,11 +218,16 @@ impl<T: Config> Memory<T> {
 	}
 }
 
-impl<T> Clone for Memory<T> {
-	fn clone(&self) -> Self {
-		let mut data = Vec::with_capacity(self.capacity);
-		data.extend_from_slice(&self.data);
-		Self { data, capacity: self.capacity, _phantom: core::marker::PhantomData }
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> Memory<T> {
+	/// [`Self::grow`] without a charge, for the `evm_memory_grow` benchmark.
+	pub fn bench_grow(&mut self, words: u32) -> ControlFlow<Halt> {
+		self.grow(words)
+	}
+
+	/// [`Self::reallocate`] without a charge, for the `evm_memory_reallocate` benchmark.
+	pub fn bench_reallocate(&mut self, words: u32) -> ControlFlow<Halt> {
+		self.reallocate(words)
 	}
 }
 
