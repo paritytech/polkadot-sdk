@@ -9,4 +9,4 @@ doc:
     orchestrator and is never reserved.
 crates:
 - name: sc-network-statement
-  bump: patch
+  bump: minor
