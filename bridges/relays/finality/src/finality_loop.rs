@@ -88,6 +88,14 @@ pub trait SourceClient<P: FinalitySyncPipeline>: SourceClientBase<P> {
 		&self,
 		number: P::Number,
 	) -> Result<(P::Header, Option<P::FinalityProof>), Self::Error>;
+
+	/// Get canonical header by number.
+	///
+	/// Preferred over `header_and_finality_proof` when the proof is not needed: reading the proof
+	/// reads the whole block, which is expensive against a light client source.
+	async fn header(&self, number: P::Number) -> Result<P::Header, Self::Error> {
+		self.header_and_finality_proof(number).await.map(|(header, _)| header)
+	}
 }
 
 /// Target client used in finality synchronization loop.
@@ -136,7 +144,7 @@ impl<P: FinalitySyncPipeline> SyncInfo<P> {
 		source_client: &SC,
 		id_at_target: &HeaderId<P::Hash, P::Number>,
 	) -> Result<bool, SC::Error> {
-		let header_at_source = source_client.header_and_finality_proof(id_at_target.0).await?.0;
+		let header_at_source = source_client.header(id_at_target.0).await?;
 		let header_hash_at_source = header_at_source.hash();
 		Ok(if id_at_target.1 == header_hash_at_source {
 			true
