@@ -21,7 +21,9 @@ use crate::{
 	BlockInfoProvider,
 	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
 };
+use governor::{DefaultDirectRateLimiter, Quota, RateLimiter};
 use pallet_revive::evm::H256;
+use std::num::NonZeroU32;
 use tokio::sync::mpsc;
 
 const LOG_TARGET: &str = "eth-rpc::block-sync";
@@ -78,6 +80,13 @@ impl SyncCheckpoint {
 /// How often (in blocks) the backward sync checkpoints are persisted to the database.
 const BLOCK_INTERVAL: u32 = 128;
 
+/// Returns a limiter that lets through at most `max_blocks_per_sec` blocks per second on average.
+pub fn new_historical_sync_rate_limiter(
+	max_blocks_per_sec: NonZeroU32,
+) -> DefaultDirectRateLimiter {
+	RateLimiter::direct(Quota::per_second(max_blocks_per_sec).allow_burst(NonZeroU32::MIN))
+}
+
 /// Options for [`Client::sync_backward_range`].
 struct BackwardSyncRange {
 	from: SubstrateBlockNumber,
@@ -88,6 +97,8 @@ struct BackwardSyncRange {
 	checkpoint_tail: bool,
 	/// When true, persist the first EVM block boundary if a non-EVM block is encountered.
 	persist_first_evm_block: bool,
+	/// Whether this range is subject to rate limiting.
+	rate_limit: bool,
 }
 
 impl Client {
@@ -221,6 +232,7 @@ impl Client {
 			set_head: true,
 			checkpoint_tail: true,
 			persist_first_evm_block: true,
+			rate_limit: true,
 		})
 		.await
 	}
@@ -245,6 +257,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
+					rate_limit: true,
 				})
 				.await?;
 
@@ -266,6 +279,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: true,
 					persist_first_evm_block: true,
+					rate_limit: true,
 				})
 				.await?;
 			} else {
@@ -289,6 +303,7 @@ impl Client {
 			set_head,
 			checkpoint_tail,
 			persist_first_evm_block,
+			rate_limit,
 		}: BackwardSyncRange,
 	) -> Result<(), ClientError> {
 		if from < to {
@@ -310,6 +325,10 @@ impl Client {
 			|synced: u64| synced <= 1 || synced.is_multiple_of(u64::from(BLOCK_INTERVAL));
 
 		let loop_result: Result<(), ClientError> = loop {
+			if rate_limit && let Some(limiter) = self.historical_sync_rate_limiter() {
+				limiter.until_ready().await;
+			}
+
 			let block_number = block.block_number();
 			let block_hash = block.block_hash();
 
@@ -428,6 +447,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
+					rate_limit: false,
 				})
 				.await
 			{

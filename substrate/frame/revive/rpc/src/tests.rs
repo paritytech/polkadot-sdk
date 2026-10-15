@@ -60,7 +60,7 @@ use pallet_revive_types::runtime_api::{
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::{sync::Arc, thread};
+use std::{num::NonZeroU32, sync::Arc, thread};
 use subxt::{
 	OnlineClient,
 	client::OnlineClientAtBlockImpl,
@@ -2378,12 +2378,14 @@ async fn submit_evm_transfers(count: usize) -> anyhow::Result<()> {
 /// in-memory SQLite database so that sync labels written by the test do not interfere
 /// with the eth-rpc server's internal database (and vice versa).
 async fn create_sync_test_client() -> anyhow::Result<Client> {
-	let (client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let (client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue(None).await?;
 	Ok(client)
 }
 
-async fn create_sync_test_client_with_subscription_gap_queue()
--> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
+/// `max_blocks_per_sec` has the same meaning as [`CliCommand::historical_sync_max_blocks_per_sec`].
+async fn create_sync_test_client_with_subscription_gap_queue(
+	max_blocks_per_sec: Option<NonZeroU32>,
+) -> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
 	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
 
 	let node_url = SharedResources::node_rpc_url();
@@ -2420,20 +2422,29 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		true,
 		subscription_gap_queue,
 		runtime_api_provider,
+		max_blocks_per_sec.map(crate::block_sync::new_historical_sync_rate_limiter),
 		chain_id,
 	)
 	.await?;
 	Ok((client, gap_fill_rx))
 }
 
-/// Fresh sync: labels, hash mappings, and re-sync idempotency.
+/// Checks that a historical block sync into an empty database records the sync labels and the
+/// block hash mappings, respects the rate limit, and can run again without moving the head back.
 async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	use crate::block_sync::SyncCheckpoint;
 
-	// Submit a transaction so the chain has at least one block with EVM data to sync.
-	submit_evm_transfers(1).await?;
+	// The rate-limited sync below must take at least this long.
+	const MIN_SYNC_TIME: std::time::Duration = std::time::Duration::from_secs(2);
 
-	let client = create_sync_test_client().await?;
+	// At the slowest limit, 1 block/s, the sync needs this many blocks to last `MIN_SYNC_TIME`.
+	submit_evm_transfers(MIN_SYNC_TIME.as_secs() as usize).await?;
+
+	let block_count = SharedResources::node_client().await.at_current_block().await?.block_number();
+	let max_blocks_per_sec = NonZeroU32::new(u32::try_from(block_count / MIN_SYNC_TIME.as_secs())?)
+		.unwrap_or(NonZeroU32::MIN);
+	let (client, _gap_fill_rx) =
+		create_sync_test_client_with_subscription_gap_queue(Some(max_blocks_per_sec)).await?;
 
 	// Fresh DB — sync_state table should be empty.
 	for label in [SyncLabel::Tail, SyncLabel::Head] {
@@ -2453,7 +2464,9 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	let finalized_before_sync = client.latest_finalized_block().await.block_number();
 
 	// Run the full backward sync.
+	let start = std::time::Instant::now();
 	client.sync_backward().await?;
+	let sync_elapsed = start.elapsed();
 
 	// Genesis label must match the chain.
 	let genesis = client
@@ -2485,6 +2498,12 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 		.await?
 		.expect("Tail should be set after sync");
 	assert_eq!(sync_tail, genesis, "Tail should be genesis");
+
+	// 100ms of slack: the limiter and the test read different clocks.
+	assert!(
+		sync_elapsed + std::time::Duration::from_millis(100) >= MIN_SYNC_TIME,
+		"the sync took {sync_elapsed:?}, expected at least {MIN_SYNC_TIME:?}",
+	);
 
 	// On the dev node all blocks (including genesis) have EVM hashes
 	let evm_first = client.receipt_provider().get_sync_label(ChainMetadata::FirstEvmBlock).await?;
@@ -3759,7 +3778,8 @@ async fn test_state_override_trace_call() -> anyhow::Result<()> {
 async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
 	submit_evm_transfers(1).await?;
 
-	let (sync_client, gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let (sync_client, gap_fill_rx) =
+		create_sync_test_client_with_subscription_gap_queue(None).await?;
 	sync_client.sync_backward().await?;
 
 	let head_after_sync = sync_client
