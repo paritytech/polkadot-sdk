@@ -1607,6 +1607,21 @@ fn activity_entries_follow_the_returned_list() {
 		assert_eq!(activity(10), active(5, 4));
 		assert_ok!(ValidatorCollators::do_try_state());
 
+		// WHEN 12 registers keys, is queued at block 20 and purges them before the next rotation
+		set_keys(12);
+		initialize_to_block(20);
+		assert_eq!(activity(12), Some(Activity::Queued));
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(12)));
+		initialize_to_block(30);
+		// THEN its queued record is removed
+		assert_eq!(activity(12), None);
+		// AND when it registers keys again, it is queued again instead of active, so its window
+		// starts only at its enactment
+		set_keys(12);
+		initialize_to_block(40);
+		assert_eq!(activity(12), Some(Activity::Queued));
+		assert_ok!(ValidatorCollators::do_try_state());
+
 		// AND the invariants reject a record outside the stored set, a dropped validator with a
 		// record, a drop record without a rule, a drop record outside the stored set and drop
 		// records that do not decode
@@ -1647,7 +1662,7 @@ fn activity_entries_follow_the_returned_list() {
 			);
 		});
 		frame_support::hypothetically!({
-			Dropped::<Test>::put(crate::DropRecords::<Test>::try_from(records(12)).unwrap());
+			Dropped::<Test>::put(crate::DropRecords::<Test>::try_from(records(11)).unwrap());
 			assert_eq!(
 				ValidatorCollators::do_try_state(),
 				Err("validators are dropped without a drop rule".into())
