@@ -39,7 +39,10 @@ use crate::{
 	storage::WriteOutcome,
 	vm::{
 		evm,
-		evm::{ExtBytecode, Halt, Interpreter, instructions, instructions::utility::IntoAddress},
+		evm::{
+			EvmOpcodeCosts, ExtBytecode, Halt, Interpreter, instructions,
+			instructions::utility::IntoAddress,
+		},
 		pvm,
 	},
 	*,
@@ -196,38 +199,17 @@ impl Outcome {
 }
 
 /// The code of the `evm_dispatch_mix` benchmark: a pseudo-random, stack-neutral mix of cheap
-/// op-codes, built in blocks that each contain the same op-codes the same number of times.
+/// op-codes, built in blocks that each contain the op-codes of [`EvmOpcodeCosts::DISPATCH_MIX`]
+/// the number of times it lists.
 struct EvmMixedOpcodes;
 
 impl EvmMixedOpcodes {
-	/// Cheap op-codes whose work doesn't depend on their operands, so in the mix each one does
-	/// exactly the work it's charged for. The repetitions make every block leave the stack as high
-	/// as it found it. Must match the mix in the weight of `EvmOpcodeCosts`, which derives the
-	/// charge.
-	const BLOCK: [(u8, usize, usize, usize); 14] = [
-		// (op-code, pops, pushes, repetitions)
-		(PC, 0, 1, 5),
-		(CHAINID, 0, 1, 5),
-		(DIFFICULTY, 0, 1, 5),
-		(CODESIZE, 0, 1, 5),
-		(CALLDATASIZE, 0, 1, 5),
-		(RETURNDATASIZE, 0, 1, 5),
-		(MSIZE, 0, 1, 5),
-		(JUMPDEST, 0, 0, 5),
-		(NOT, 1, 1, 5),
-		(POP, 1, 0, 7),
-		(AND, 2, 1, 7),
-		(OR, 2, 1, 7),
-		(XOR, 2, 1, 7),
-		(MUL, 2, 1, 7),
-	];
-
 	/// The number of op-codes in a block.
 	const CODE_BLOCK_SIZE: usize = {
 		let mut size = 0;
 		let mut index = 0;
-		while index < Self::BLOCK.len() {
-			size += Self::BLOCK[index].3;
+		while index < EvmOpcodeCosts::DISPATCH_MIX.len() {
+			size += EvmOpcodeCosts::DISPATCH_MIX[index].repetitions as usize;
 			index += 1;
 		}
 		size
@@ -253,10 +235,13 @@ impl EvmMixedOpcodes {
 	fn generate_block(rng: &mut impl Rng, code: &mut Vec<u8>) {
 		use alloc::collections::VecDeque;
 
-		let mut remaining = Self::BLOCK
+		let mut remaining = EvmOpcodeCosts::DISPATCH_MIX
 			.into_iter()
-			.flat_map(|(op_code, pops, pushes, repetitions)| {
-				vec![(op_code, pops, pushes); repetitions]
+			.flat_map(|mix_opcode| {
+				let info = OpCode::info_by_op(mix_opcode.opcode)
+					.expect("every op-code of the dispatch mix is defined; qed");
+				let (pops, pushes) = (usize::from(info.inputs()), usize::from(info.outputs()));
+				vec![(mix_opcode.opcode, pops, pushes); mix_opcode.repetitions as usize]
 			})
 			.collect::<VecDeque<_>>();
 		remaining.make_contiguous().shuffle(rng);

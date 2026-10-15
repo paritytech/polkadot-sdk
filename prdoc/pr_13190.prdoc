@@ -65,8 +65,9 @@ doc:
     op-code charged from its own benchmark pays the benchmark's slope.
     `JUMP` and `JUMPI` subtract `slope(evm_jumpdest_opcode)`, and the
     op-codes benchmarked in pairs with a `POP` subtract
-    `slope(evm_pop_opcode)`. Every op-code except `PUSH`, `DUP` and `SWAP`
-    also pays a dispatch charge: `slope(evm_dispatch_mix)` minus the
+    `slope(evm_pop_opcode)`. Before it runs, every op-code except `PUSH`,
+    `DUP` and `SWAP` also pays a dispatch charge, including op-codes
+    charged through RuntimeCosts: `slope(evm_dispatch_mix)` minus the
     charges of the 80 op-codes in one block of that benchmark, divided by
     80.
 
@@ -94,10 +95,17 @@ doc:
     methods in custom WeightInfo implementations. Update exhaustive
     matches on RuntimeCosts for the new memory cost variants.
 
+    The pallet's `integrity_test` requires the dispatch charge above to be
+    greater than zero. If it fails for your runtime, regenerate its
+    pallet-revive weights.
+
     No storage migration is required.
 - audience: Runtime User
   description: |-
-    Selected EVM op-codes are charged from their own benchmarks.
+    Selected EVM op-codes are charged from their own benchmarks. Every
+    op-code except `PUSH`, `DUP` and `SWAP` also pays 9.1 ns for the
+    dispatch to its handler. The `EXP` and `MCOPY` figures below include
+    it.
 
     These depend on their operands:
 

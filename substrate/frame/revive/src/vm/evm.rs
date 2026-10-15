@@ -25,7 +25,10 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::{convert::Infallible, ops::ControlFlow};
-use revm::{bytecode::Bytecode, primitives::Bytes};
+use revm::{
+	bytecode::{Bytecode, opcode},
+	primitives::Bytes,
+};
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod instructions;
@@ -64,7 +67,7 @@ impl<T: Config> Token<T> for EVMGas {
 
 /// The cost of an EVM op-code that is charged from its own benchmark rather than in [`EVMGas`].
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
-enum EvmOpcodeCosts {
+pub enum EvmOpcodeCosts {
 	// Control Opcodes
 	Jump,
 	Jumpi,
@@ -123,6 +126,16 @@ enum EvmOpcodeCosts {
 	MulMod,
 	Exp { exponent_bits: u32 },
 	SignExtend,
+}
+
+/// An op-code in one block of the `evm_dispatch_mix` benchmark.
+pub struct DispatchMixOpcode {
+	/// The op-code's byte.
+	pub opcode: u8,
+	/// What the op-code is charged.
+	cost: EvmOpcodeCosts,
+	/// How many times the op-code occurs in a block.
+	pub repetitions: u64,
 }
 
 impl EvmOpcodeCosts {
@@ -227,52 +240,81 @@ impl EvmOpcodeCosts {
 				.saturating_sub(Self::Pop.base_weight::<T>()),
 		}
 	}
+
+	/// The op-codes in one block of the `evm_dispatch_mix` benchmark, which builds its code from
+	/// this table.
+	///
+	/// These are cheap op-codes whose work doesn't depend on their operands, so in the mix each
+	/// one does exactly the work it's charged for. The repetitions make every block leave the
+	/// stack as high as it found it.
+	pub const DISPATCH_MIX: [DispatchMixOpcode; 14] = [
+		DispatchMixOpcode { opcode: opcode::PC, cost: Self::Pc, repetitions: 5 },
+		DispatchMixOpcode { opcode: opcode::CHAINID, cost: Self::ChainId, repetitions: 5 },
+		DispatchMixOpcode { opcode: opcode::DIFFICULTY, cost: Self::Difficulty, repetitions: 5 },
+		DispatchMixOpcode { opcode: opcode::CODESIZE, cost: Self::CodeSize, repetitions: 5 },
+		DispatchMixOpcode {
+			opcode: opcode::CALLDATASIZE,
+			cost: Self::CallDataSize,
+			repetitions: 5,
+		},
+		DispatchMixOpcode {
+			opcode: opcode::RETURNDATASIZE,
+			cost: Self::ReturnDataSize,
+			repetitions: 5,
+		},
+		DispatchMixOpcode { opcode: opcode::MSIZE, cost: Self::MSize, repetitions: 5 },
+		DispatchMixOpcode { opcode: opcode::JUMPDEST, cost: Self::JumpDest, repetitions: 5 },
+		DispatchMixOpcode { opcode: opcode::NOT, cost: Self::Not, repetitions: 5 },
+		DispatchMixOpcode { opcode: opcode::POP, cost: Self::Pop, repetitions: 7 },
+		DispatchMixOpcode { opcode: opcode::AND, cost: Self::And, repetitions: 7 },
+		DispatchMixOpcode { opcode: opcode::OR, cost: Self::Or, repetitions: 7 },
+		DispatchMixOpcode { opcode: opcode::XOR, cost: Self::Xor, repetitions: 7 },
+		DispatchMixOpcode { opcode: opcode::MUL, cost: Self::Mul, repetitions: 7 },
+	];
 }
 
 impl<T: Config> Token<T> for EvmOpcodeCosts {
 	fn weight(&self) -> Weight {
-		// The op-codes in one block of the `evm_dispatch_mix` benchmark, each with the number of
-		// times it occurs. Must match `EvmMixedOpcodes::BLOCK` in the benchmarks.
-		const DISPATCH_MIX: [(EvmOpcodeCosts, u64); 14] = [
-			(EvmOpcodeCosts::Pc, 5),
-			(EvmOpcodeCosts::ChainId, 5),
-			(EvmOpcodeCosts::Difficulty, 5),
-			(EvmOpcodeCosts::CodeSize, 5),
-			(EvmOpcodeCosts::CallDataSize, 5),
-			(EvmOpcodeCosts::ReturnDataSize, 5),
-			(EvmOpcodeCosts::MSize, 5),
-			(EvmOpcodeCosts::JumpDest, 5),
-			(EvmOpcodeCosts::Not, 5),
-			(EvmOpcodeCosts::Pop, 7),
-			(EvmOpcodeCosts::And, 7),
-			(EvmOpcodeCosts::Or, 7),
-			(EvmOpcodeCosts::Xor, 7),
-			(EvmOpcodeCosts::Mul, 7),
-		];
+		self.base_weight::<T>()
+	}
+}
 
-		let base_weight = self.base_weight::<T>();
-		// The benchmarks of these families already run their op-codes in a pseudo-random order.
-		if matches!(self, Self::Push | Self::Dup | Self::Swap) {
-			return base_weight;
-		}
+/// What a mispredicted dispatch to an op-code's handler costs.
+///
+/// The benchmark of an op-code runs only that op-code, so the interpreter always dispatches to
+/// the same handler. Contracts mix op-codes, which makes many of these dispatches mispredict.
+/// `evm_dispatch_mix` runs [`EvmOpcodeCosts::DISPATCH_MIX`] in a pseudo-random order, and this
+/// charges the part of it that the charges of its op-codes don't cover, per op-code.
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+pub struct EvmDispatch;
 
-		// What a mispredicted dispatch to the op-code's handler costs: the part of the mix that
-		// its op-codes' charges don't cover, per op-code.
-		let (mix_opcodes, mix_charges) = DISPATCH_MIX.iter().fold(
+impl EvmDispatch {
+	/// Checks that the weights leave a dispatch charge above zero. Otherwise `evm_dispatch_mix`
+	/// measured no more than the charges of its op-codes, and the dispatch charge would silently
+	/// be zero.
+	pub fn integrity_test<T: Config>() {
+		assert!(
+			Token::<T>::weight(&Self).ref_time() > 0,
+			"`evm_dispatch_mix` must measure more than the charges of its op-codes",
+		);
+	}
+}
+
+impl<T: Config> Token<T> for EvmDispatch {
+	fn weight(&self) -> Weight {
+		let (mix_opcodes, mix_charges) = EvmOpcodeCosts::DISPATCH_MIX.iter().fold(
 			(0, Weight::zero()),
-			|(opcodes, charges), (opcode, repetitions)| {
+			|(opcodes, charges), DispatchMixOpcode { cost, repetitions, .. }| {
 				(
 					opcodes + repetitions,
-					charges.saturating_add(opcode.base_weight::<T>().saturating_mul(*repetitions)),
+					charges.saturating_add(cost.base_weight::<T>().saturating_mul(*repetitions)),
 				)
 			},
 		);
-		let dispatch_misprediction = T::WeightInfo::evm_dispatch_mix(1)
+		T::WeightInfo::evm_dispatch_mix(1)
 			.saturating_sub(T::WeightInfo::evm_dispatch_mix(0))
 			.saturating_sub(mix_charges)
-			.saturating_div(mix_opcodes);
-
-		base_weight.saturating_add(dispatch_misprediction)
+			.saturating_div(mix_opcodes)
 	}
 }
 
@@ -433,11 +475,6 @@ mod tests {
 			"a zero exponent must be cheaper than a non-zero one: zero={:?} one bit={:?}",
 			charge(exp(0)),
 			charge(exp(1)),
-		);
-		// Both pay the same dispatch charge, so only their benchmarks set them apart.
-		assert_eq!(
-			charge(exp(1)).saturating_sub(charge(exp(0))),
-			slope(Weights::evm_exp_opcode).saturating_sub(slope(Weights::evm_exp_zero_opcode)),
 		);
 	}
 
