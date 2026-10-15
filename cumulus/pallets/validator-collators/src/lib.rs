@@ -101,16 +101,18 @@
 //! block it last authored or the block of the rotation that enacted it, with the largest Aura
 //! authority count of any list in force since then. At every rotation, a returned validator whose
 //! record is at least `rounds × authorities × MaxBlocksPerSlot` blocks old is dropped: it is not
-//! returned for `sessions` sessions, see [`Dropped`]. With [`Config::MaxBlocksPerSlot`] the most
-//! blocks the chain produces in one Aura slot, such a span holds at least `rounds` slots of every
-//! authority of an unchanged list. The span is counted in blocks, so it does not advance while the
-//! chain produces none. A validator returned for the first time, or again after a drop, is first
-//! judged a full window after the rotation that enacts it. A rotation never drops validators below
-//! `min_collators` of the validators it would return, and keeps the idle ones with the most recent
-//! records. Pallet-session enacts the list a rotation returns at the next rotation, so a dropped
-//! validator keeps its slots for one more session. Under a cap only the drawn validators are
-//! judged, and a place that empties after the draw stays empty until the drop ends or the next
-//! draw. Without a rule nobody is dropped.
+//! returned for `sessions` sessions, see [`Dropped`]. This number of blocks is the window. An Aura
+//! slot holds at most [`Config::MaxBlocksPerSlot`] blocks, so a window covers at least
+//! `rounds × authorities` slots. Aura gives the slots to the authorities in turn, so while the
+//! authority list does not change, every authority has at least `rounds` slots in a window. The
+//! window is counted in blocks, so it does not advance while the chain produces none. A validator
+//! returned for the first time, or again after a drop, is first judged a full window after the
+//! rotation that enacts it. A rotation never drops validators below `min_collators` of the
+//! validators it would return, and keeps the idle ones with the most recent records. Pallet-session
+//! enacts the list a rotation returns at the next rotation, so a dropped validator keeps its slots
+//! for one more session. Under a cap only the drawn validators are judged, and a place that empties
+//! after the draw stays empty until the drop ends or the next draw. Without a rule nobody is
+//! dropped.
 //!
 //! A runtime must configure `pallet-collator-selection`'s `KickThreshold` to exceed a full Aura
 //! round of the merged list, [`Config::MaxValidators`] plus the invulnerables and candidates, times
@@ -345,8 +347,8 @@ pub mod pallet {
 
 		/// Most blocks the chain can produce in one Aura slot.
 		///
-		/// A span of this many blocks times the authority count holds at least one slot of every
-		/// authority of an unchanged list.
+		/// Sizes the window of a [`DropRule`] in blocks, so that it covers at least `rounds` slots
+		/// of every authority.
 		#[pallet::constant]
 		type MaxBlocksPerSlot: Get<u32>;
 

@@ -67,9 +67,7 @@ const WINDOW_MARGIN: Duration = Duration::from_secs(2 * 60);
 const DROP_ENACTED_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
 /// The whole test, below the 60-minute CI step so that the step ends with this error and the log
-/// collection steps run. It covers the sum of the waits at their timeouts: network spawn (10
-/// minutes), client connections (2), first blocks (5), set enacted (4), window (under 9 for a
-/// window of 32 blocks), drop enacted (4) and last blocks (5).
+/// collection steps run. It covers the sum of the waits at their timeouts.
 const TEST_TIMEOUT: Duration = Duration::from_secs(40 * 60);
 
 /// `pallet_validator_collators::Activity` with People's block number.
