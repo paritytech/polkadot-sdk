@@ -4270,7 +4270,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = core::hint::black_box(&*memory).copy_out(0, n as usize);
+			result = core::hint::black_box(&*memory).bench_copy_out(0, n as usize);
 		}
 
 		assert_eq!(result.len(), n as usize);

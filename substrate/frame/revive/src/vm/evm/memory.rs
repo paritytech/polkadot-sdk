@@ -183,14 +183,27 @@ impl<T: Config> Memory<T> {
 		&self.data[offset..offset + size]
 	}
 
-	/// Allocate an output buffer and copy the given memory region into it.
+	/// Charge for copying the given memory region out, then copy it into a new output buffer.
 	///
-	/// The caller charges for copying first and ensures the region is exposed.
+	/// The caller ensures the region is exposed.
 	///
 	/// # Panics
 	///
 	/// Panics on out of bounds.
-	pub fn copy_out(&self, offset: usize, len: usize) -> Vec<u8> {
+	pub fn copy_out(
+		&self,
+		offset: usize,
+		len: usize,
+		ext: &mut impl Ext<T = T>,
+	) -> ControlFlow<Halt, Vec<u8>> {
+		ext.charge_or_halt(RuntimeCosts::EvmMemoryCopyOut(len as u32))?;
+		ControlFlow::Continue(self.copy_out_uncharged(offset, len))
+	}
+
+	/// Allocate an output buffer and copy the given memory region into it.
+	///
+	/// The caller charges for copying first.
+	fn copy_out_uncharged(&self, offset: usize, len: usize) -> Vec<u8> {
 		self.slice_len(offset, len).to_vec()
 	}
 
@@ -228,6 +241,11 @@ impl<T: Config> Memory<T> {
 	/// [`Self::reallocate`] without a charge, for the `evm_memory_reallocate` benchmark.
 	pub fn bench_reallocate(&mut self, words: u32) -> ControlFlow<Halt> {
 		self.reallocate(words)
+	}
+
+	/// [`Self::copy_out`] without a charge, for the `evm_memory_copy_out` benchmark.
+	pub fn bench_copy_out(&self, offset: usize, len: usize) -> Vec<u8> {
+		self.copy_out_uncharged(offset, len)
 	}
 }
 
