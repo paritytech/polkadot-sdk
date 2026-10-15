@@ -5,7 +5,9 @@
 //!
 //! * `flow`: relay chain validators elected on Asset Hub collate on Asset Hub and People.
 //! * `scale`: both chains rotate to an authority list of Polkadot Asset Hub's size.
+//! * `drop`: People drops a validator that has session keys and runs no collator node.
 
 mod common;
+mod drop;
 mod flow;
 mod scale;

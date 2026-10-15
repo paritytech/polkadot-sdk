@@ -29,8 +29,8 @@ use super::common::{
 	account, build_network_config, fetch, fetch_raw, fetch_raw_at, hex_accounts, init_logging,
 	is_announcement_of_era_1, keypair, node_seed, open_hrmp_channels, session_validators,
 	wait_for_event, wait_for_finalized_block, wait_for_hrmp_channel, NetworkOptions, ASSET_HUB_ID,
-	ASSET_HUB_INVULNERABLE, CALL_TIMEOUT, CLIENT_TIMEOUT_SECS, PARA_BLOCKS, PEOPLE_ID,
-	PEOPLE_INVULNERABLE, POLL_INTERVAL, VALIDATORS,
+	ASSET_HUB_INVULNERABLE, CALL_TIMEOUT, CLIENT_TIMEOUT_SECS, PARA_BLOCKS, PARA_BLOCKS_TIMEOUT,
+	PEOPLE_ID, PEOPLE_INVULNERABLE, POLL_INTERVAL, VALIDATORS,
 };
 use crate::utils::initialize_network;
 
@@ -113,6 +113,7 @@ async fn validator_collators_on_asset_hub_and_people() -> Result<(), anyhow::Err
 async fn run() -> Result<(), anyhow::Error> {
 	log::info!("Spawning network");
 	let config = build_network_config(NetworkOptions {
+		asset_hub: true,
 		validator_collators: true,
 		election: true,
 		hrmp_channel_max_total_size: None,
@@ -139,8 +140,8 @@ async fn run() -> Result<(), anyhow::Error> {
 
 	log::info!("Waiting for both parachains to finalize {PARA_BLOCKS} blocks");
 	tokio::try_join!(
-		wait_for_finalized_block(&asset_hub_client, "Asset Hub", PARA_BLOCKS),
-		wait_for_finalized_block(&people_client, "People", PARA_BLOCKS),
+		wait_for_finalized_block(&asset_hub_client, "Asset Hub", PARA_BLOCKS, PARA_BLOCKS_TIMEOUT),
+		wait_for_finalized_block(&people_client, "People", PARA_BLOCKS, PARA_BLOCKS_TIMEOUT),
 	)?;
 
 	// GIVEN a network where Asset Hub has not started era 1 yet, elects two validators, reports
