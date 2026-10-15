@@ -1,7 +1,11 @@
 // Accumulate: on-chain integration (design §5.1).
 //
 // The always-accumulate work (apply due authorizer queues) runs first, then the
-// incoming transfers, then the block's work packages in order.
+// incoming transfers, then the block's work packages in order. Per work
+// package (§5.1): registration check, validation-code check, Refine-result
+// dispatch, parent-head check, settlement check (§8), enactment (head write,
+// then the push of the candidate's `messages_streams_root` into its ring), and
+// the replay of its upward messages.
 module accumulate {
   import types.* from "./types"
   import messages.* from "./messages"
@@ -398,8 +402,8 @@ module accumulate {
 
   // ---- Per-work-package accumulation (§5.1) -----------------------------
 
-  /// Implements §5.1 steps 1–5 for a single `ParachainWorkDigest::Ok`.
-  /// Step 6 (replay upward messages) is iterated by the caller.
+  /// Implements §5.1 steps 1–6 for a single `ParachainWorkDigest::Ok`.
+  /// Step 7 (replay upward messages) is iterated by the caller.
   pure def accumulateOkPrefix(
     s: ParachainServiceState,
     r: ParachainWorkDigestOk,
@@ -435,18 +439,31 @@ module accumulate {
           // to apply a work-package whose upward messages include
           // restricted host calls from the wrong parachain.
           { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
+        } else if (not(settlementCheck(s, r.messagesRequiresRoots))) {
+          // Settlement check (§5.1 step 5, §8). Positioned as the final gate 
+          // before the head write to ensure rejected consumers cannot publish 
+          // their own roots. Silently rejects if any requirement is missing.
+          { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
         } else {
           // §5.1: the candidate is accepted, so its lookup-anchor prune runs before
           // any of its own effects are applied. Doing it first also frees space that
           // would otherwise be reclaimed by evicting entries this prune removes anyway.
           val pruned = pruneLogBelow(s, r.paraId, r.lookupAnchor)
-          // Step 5: head update.
+          // Step 6: enactment, head write then ring push.
           val pi2 = pruned.paraInfo(r.paraId)
+          val sAfterHead = {
+            ...pruned,
+            parachains: pruned.parachains.put(r.paraId, { ...pi2, headData: r.headData })
+          }
+          // Push the candidate's `messages_streams_root` (§5.1 step 6, §8.1).
+          // Executed after the head write to guarantee roots only enter the 
+          // ring upon successful enactment.
+          val pushed = match r.messagesStreamsRoot {
+            | Some(root) => settlementRingPush(sAfterHead, r.paraId, root)
+            | None => sAfterHead
+          }
           {
-            state: {
-              ...pruned,
-              parachains: pruned.parachains.put(r.paraId, { ...pi2, headData: r.headData })
-            },
+            state: pushed,
             rejected: false,
             jamSolicit: Set(),
             jamForget: Set(),

@@ -91,6 +91,10 @@ module management {
   /// §6.2 / §6.3: upsert head data. No-op on a ParaId whose ParaInfo
   /// doesn't exist yet (Coretime must call set_state_balance first) or that
   /// is deregistering (§6.4).
+  /// Does not touch the parachain's settlement ring (§8.1): roots declared
+  /// before a forced head reset stay settleable until evicted, so a call the
+  /// Coretime chain makes for one parachain can never invalidate the
+  /// in-flight candidates of the parachains consuming from it.
   pure def parachainSetHead(
     s: ParachainServiceState,
     para_id: ParaId,
@@ -205,7 +209,12 @@ module management {
               para_id, vc.hash.asPreimage(), vc.len, now
             )
         }
-        val s1 = afterAnnounced.state
+        // §6.4 / §8.1: the first accepted clean-up deletes the settlement
+        // ring, whether the parachain is dropped right away or left
+        // deregistering while a validation code awaits its expunging forget.
+        // The ring is plain storage, not a preimage, so it needs no two-step
+        // release.
+        val s1 = settlementRingDelete(afterAnnounced.state, para_id)
         val jamForgets =
           optionToSet(afterActive.jamForget).union(optionToSet(afterAnnounced.jamForget))
 

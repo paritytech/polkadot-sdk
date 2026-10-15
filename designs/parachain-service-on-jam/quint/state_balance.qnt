@@ -13,11 +13,26 @@ module state_balance {
 
   // --- Per-parachain footprint primitives --------------------------------
 
-  /// Per-para baseline footprint, in BALANCE UNITS: 4 246 (ParaInfo entry)
-  /// + 65 585 (log reserve). Each is one storage item, so each carries
-  /// `C_itemdeposit = 10` on top of its octets (4 236 / 65 575). Derivation in
+  /// §6.1 / §8.1: a parachain's settlement ring at capacity, reserved in the
+  /// baseline so pushes are never charged, in BALANCE UNITS. The
+  /// `(ParaId, SettlementCursor)` entry is `34 + 5 (tag + ParaId) + 8` octets;
+  /// each of the `MaxSettlementRingCapacity` `messages_member` entries is
+  /// `34 + 37 (tag + ParaId + root) + 1 (marker)` and each `messages_queue` entry
+  /// `34 + 9 (tag + ParaId + u32) + 32 (root)`; every entry is one storage
+  /// item at `C_itemdeposit = 10`. At capacity 64: 9 455 octets + 129 items
+  /// = 10 745.
+  pure val SettlementRingFootprint: int =
+    (34 + 5 + 8)
+    + MaxSettlementRingCapacity * (34 + 37 + 1)
+    + MaxSettlementRingCapacity * (34 + 9 + 32)
+    + (1 + 2 * MaxSettlementRingCapacity) * 10
+
+  /// Per-para baseline footprint, in BALANCE UNITS: 4 240 (ParaInfo entry)
+  /// + 65 585 (log reserve) + 10 745 (settlement ring at capacity) = 80 570.
+  /// The first two are one storage item each, so each carries
+  /// `C_itemdeposit = 10` on top of its octets (4 230 / 65 575). Derivation in
   /// §6.1. Balances are `Compact<u64>` sized at their 9 B worst case here.
-  pure val BaselineFootprint: int = 69825
+  pure val BaselineFootprint: int = 4240 + 65585 + SettlementRingFootprint
 
   /// Octet overhead of one `BoundedVec` general-storage entry: JAM's per-entry
   /// overhead, a 1 B map-tag key, and a 2 B compact length prefix (§6.1).
