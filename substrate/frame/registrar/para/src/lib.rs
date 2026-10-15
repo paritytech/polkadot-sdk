@@ -656,11 +656,10 @@ pub mod pallet {
 		/// Give up a para id, releasing every consideration held for it.
 		///
 		/// An id that was never registered is dropped here and now; one the relay chain onboarded
-		/// has to be dropped there first, so the considerations stay taken until it answers. The id
-		/// is not returned to the pool either way.
+		/// has to be dropped there first, so the considerations stay taken until it answers.
 		///
-		/// Called again on a para already deregistering, from `can_retry_after`, it resends the
-		/// request: the relay chain confirms a para it already dropped.
+		/// Can be called again on a para that is already deregistering, once `can_retry_after`
+		/// has passed. This resends the request.
 		#[pallet::call_index(6)]
 		#[pallet::weight(
 			T::WeightInfo::deregister_reserved()
