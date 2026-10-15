@@ -5925,7 +5925,7 @@ dependencies = [
  "frame-support",
  "futures",
  "hex",
- "jsonrpsee",
+ "jsonrpsee 0.24.11",
  "log",
  "multihash",
  "parity-scale-codec",
