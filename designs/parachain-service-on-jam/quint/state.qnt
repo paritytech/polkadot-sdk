@@ -89,7 +89,7 @@ module state {
   type IncomingTransfer =
     { source: ServiceId, amount: Balance, toSupervisorBalance: bool, memo: Memo }
 
-  // --- Settlement ring (design §8.2) --------------------------------------
+  // --- Settlement ring (design §8.1) --------------------------------------
 
   /// Positions of a parachain's settlement ring: `head` is where the next root
   /// is written, `tail` the oldest live position. Both are `u32` counters
@@ -97,8 +97,12 @@ module state {
   /// is the wrapping range `[tail, head)`.
   type SettlementCursor = { head: int, tail: int }
 
-  /// A settlement-ring member: the position of the root's most recent push.
-  type MemberEntry = { seq: int }
+  /// Settlement-ring member value (§8.1).
+  /// A `0x00` marker, since writing a zero-length value deletes the key in JAM.
+  type MemberEntry = int
+
+  /// Value stored for every `messagesMember` entry.
+  pure val MemberMarker: MemberEntry = 0
 
   // --- Top-level service state -------------------------------------------
 
@@ -141,7 +145,7 @@ module state {
     // Per-parachain key/value store (design §3.1, §6.1). Keyed by
     // (ParaId, user_key); each entry is billed under the sole-user rule.
     keyValueStorage: (ParaId, List[int]) -> List[int],
-    // §8.2 settlement ring, mirroring the three storage maps under tags
+    // §8.1 settlement ring, mirroring the three storage maps under tags
     // `0x09`–`0x0b`. `messagesCursor` holds the ring positions, absent until
     // the parachain's first push and never read by the settlement check.
     // `messagesMember` is the membership index, present iff the root is one
@@ -547,70 +551,54 @@ module state {
       )
     }
 
-  // --- Messaging settlement ring (§8.2) -----------------------------------
+  // --- Messaging settlement ring (§8.1) -----------------------------------
 
-  /// Number of live positions in a ring with cursor `c`: the length of the
-  /// wrapping range `[tail, head)`, i.e. `head.wrapping_sub(tail)` (§8.2).
+  /// Number of active entries in the ring: `head - tail` (with U32 wrapping).
   pure def ringLive(c: SettlementCursor): int = wrappingSubU32(c.head, c.tail)
 
-  /// §5.1 step 5: the settlement check. One `messagesMember` point read per
-  /// `messages_requires_roots` entry: every named `(source, root)` must be a
-  /// key of `messagesMember`, i.e. one of the source's last
-  /// `MaxSettlementRingCapacity` enacted roots. `true` on an empty list (a
-  /// candidate that consumed nothing always settles).
+  /// Settlement check (§5.1 step 5).
+  /// Ensures every required `(source, root)` exists in `messagesMember`.
+  /// Always returns `true` for empty requirement lists.
   pure def settlementCheck(
     s: ParachainServiceState, requires: List[(ParaId, StreamsRoot)]
   ): bool =
     requires.foldl(true, (acc, e) => acc and s.messagesMember.keys().contains(e))
 
-  /// §8.2 push: run on enactment for a candidate carrying a
-  /// `messages_streams_root` (§5.1 step 6, after the head write). Mirrors the
-  /// multi-step operation of §8.2: load the cursor; if
-  /// `head.wrapping_sub(tail) == MaxSettlementRingCapacity`, evict the oldest
-  /// entry (read the root at `tail`, delete that `messagesQueue` entry, drop
-  /// the `messagesMember` entry only if its `seq` equals `tail`, advance
-  /// `tail`); then write the new root at `head`, insert its membership at
-  /// `head`, and advance `head`. Both counters wrap as `u32`. At most one
-  /// eviction is ever needed since roots are pushed one at a time.
+  /// Appends a new `messages_streams_root` upon candidate enactment (§8.1).
   ///
-  /// A repeated root only moves its `messagesMember` entry to the new
-  /// position; the old `messagesQueue` entry stays until its position is
-  /// evicted, and that eviction leaves the membership alive because its `seq`
-  /// no longer matches the evicted position.
+  /// - Skips duplicates, allowing repeated roots to retain their original eviction schedule.
+  /// - Evicts the oldest root if the ring has reached `MaxSettlementRingCapacity`.
+  /// - Wraps `head` and `tail` counters as `u32`.
   pure def settlementRingPush(
     s: ParachainServiceState, para: ParaId, root: StreamsRoot
-  ): ParachainServiceState = {
-    val cursor =
-      if (s.messagesCursor.keys().contains(para)) s.messagesCursor.get(para)
-      else { head: 0, tail: 0 }
-    val atCapacity = ringLive(cursor) == MaxSettlementRingCapacity
-    val evicted =
-      if (not(atCapacity)) s
-      else {
-        val victim = s.messagesQueue.get((para, cursor.tail))
-        { ...s,
-          messagesQueue: s.messagesQueue.mapRemove((para, cursor.tail)),
-          messagesMember:
-            // The victim root may have been re-pushed since; its membership
-            // then points at the newer position and survives this eviction.
-            if (s.messagesMember.get((para, victim)).seq == cursor.tail)
-              s.messagesMember.mapRemove((para, victim))
-            else s.messagesMember }
-      }
-    { ...evicted,
-      messagesQueue: evicted.messagesQueue.put((para, cursor.head), root),
-      messagesMember: evicted.messagesMember.put((para, root), { seq: cursor.head }),
-      messagesCursor: evicted.messagesCursor.put(para, {
-        head: wrappingAddU32(cursor.head, 1),
-        tail: if (atCapacity) wrappingAddU32(cursor.tail, 1) else cursor.tail
-      }) }
-  }
+  ): ParachainServiceState =
+    if (s.messagesMember.keys().contains((para, root))) s
+    else {
+      val cursor =
+        if (s.messagesCursor.keys().contains(para)) s.messagesCursor.get(para)
+        else { head: 0, tail: 0 }
+      val atCapacity = ringLive(cursor) == MaxSettlementRingCapacity
+      val evicted =
+        if (not(atCapacity)) s
+        else {
+          val victim = s.messagesQueue.get((para, cursor.tail))
+          { ...s,
+            messagesQueue: s.messagesQueue.mapRemove((para, cursor.tail)),
+            messagesMember: s.messagesMember.mapRemove((para, victim)) }
+        }
+      { ...evicted,
+        messagesQueue: evicted.messagesQueue.put((para, cursor.head), root),
+        messagesMember: evicted.messagesMember.put((para, root), MemberMarker),
+        messagesCursor: evicted.messagesCursor.put(para, {
+          head: wrappingAddU32(cursor.head, 1),
+          tail: if (atCapacity) wrappingAddU32(cursor.tail, 1) else cursor.tail
+        }) }
+    }
 
-  /// §8.3 teardown: delete `para`'s whole ring, the cursor together with every
-  /// `messagesMember` and `messagesQueue` entry at positions in the wrapping
-  /// range `[tail, head)`. Run by the first accepted `parachain_clean_up`
-  /// (§6.4), and by nothing else: a forced `parachain_set_head` does not touch
-  /// the ring (§8.3). The model deletes atomically; the service needs gas for
+  /// Destroys a parachain's entire settlement ring (cursor, queue, and member index).
+  ///
+  /// Triggered exclusively by `parachain_clean_up` (§6.4). Note: forced head updates 
+  /// bypass this. While atomic in this model, the service needs gas for
   /// `1 + MaxSettlementRingCapacity` reads and `1 + 2 * MaxSettlementRingCapacity`
   /// deletions in the worst case.
   pure def settlementRingDelete(

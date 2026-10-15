@@ -440,12 +440,9 @@ module accumulate {
           // restricted host calls from the wrong parachain.
           { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
         } else if (not(settlementCheck(s, r.messagesRequiresRoots))) {
-          // §5.1 step 5 / §8: the settlement check, deliberately the LAST
-          // gate (passing implies enacting) and ahead of the head write, so a
-          // rejected consumer never publishes a root of its own. Every
-          // `(ParaId, StreamsRoot)` in `messages_requires_roots` must be a key
-          // of `messagesMember` (§8.2); if any is missing the candidate is
-          // rejected silently, like every other rejection above.
+          // Settlement check (§5.1 step 5, §8). Positioned as the final gate 
+          // before the head write to ensure rejected consumers cannot publish 
+          // their own roots. Silently rejects if any requirement is missing.
           { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
         } else {
           // §5.1: the candidate is accepted, so its lookup-anchor prune runs before
@@ -458,9 +455,9 @@ module accumulate {
             ...pruned,
             parachains: pruned.parachains.put(r.paraId, { ...pi2, headData: r.headData })
           }
-          // §5.1 step 6 / §8.2: the enacted candidate's own
-          // `messages_streams_root` is pushed only after the head write, so a
-          // root enters the ring only for a candidate that enacted.
+          // Push the candidate's `messages_streams_root` (§5.1 step 6, §8.1).
+          // Executed after the head write to guarantee roots only enter the 
+          // ring upon successful enactment.
           val pushed = match r.messagesStreamsRoot {
             | Some(root) => settlementRingPush(sAfterHead, r.paraId, root)
             | None => sAfterHead

@@ -96,7 +96,7 @@ module support {
     paraId: ParaId, codeHash: ValidationCodeHash, msgs: List[UpwardMessage]
   ): bool = applyHappyPaths(List((paraId, codeHash, msgs)))
 
-  /// `applyHappyPaths` with per-package messaging declarations (§8.1): each
+  /// `applyHappyPaths` with per-package messaging declarations (§8): each
   /// element also carries what the validation code's `set_messages_streams_root` /
   /// `set_messages_requires_roots` calls amounted to. Packages carry no upward
   /// messages, since the messaging fields travel in the digest, not the
@@ -149,7 +149,7 @@ module support {
   ): bool = applyMessagingPaths(List((paraId, codeHash, provides, requires)))
 
   /// Refine one otherwise well-formed candidate for `caller`, carrying the
-  /// given messaging declarations (§8.1) and no upward messages.
+  /// given messaging declarations (§8) and no upward messages.
   pure def refineWithMessaging(
     s: ParachainServiceState, caller: ParaId,
     provides: StreamsRootDeclaration, requires: RequiresRootsDeclaration

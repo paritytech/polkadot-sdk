@@ -264,7 +264,7 @@ enum RefineLog {
     EmptyKVKeyOrValue,
     /// Messages roots were set more than once in a single Refine invocation. See §4.3.
     MessagesCallRepeated,
-    /// The messages required roots exceeded `MAX_REQUIRES_SOURCES (64)` or contained a repeated `ParaId` or
+    /// The messages required roots exceeded `MAX_REQUIRES_SOURCES (32)` or contained a repeated `ParaId` or
     /// the candidate's own `ParaId`. See §4.3.
     MessagesInvalidRequires,
 }

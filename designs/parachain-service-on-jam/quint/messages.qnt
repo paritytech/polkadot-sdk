@@ -60,11 +60,11 @@ module messages {
     // A `SetKV` or `RemoveKV` carried an empty key, or a `SetKV` an empty value (§3.3).
     | EmptyKVKeyOrValue
     // `set_messages_streams_root` or `set_messages_requires_roots` was called
-    // more than once in a single Refine invocation (§4.3, §8.1).
+    // more than once in a single Refine invocation (§4.3, §8).
     | MessagesCallRepeated
     // A `set_messages_requires_roots` set exceeded `MaxRequiresSources`,
     // repeated a source `ParaId`, or named the candidate's own `para_id`
-    // (§4.3, §8.1).
+    // (§4.3, §8).
     | MessagesInvalidRequires
 
   // --- Accumulate-side log payloads ---------------------------------------

@@ -185,7 +185,7 @@ module refine {
   pure def sends(msgs: List[UpwardMessage]): List[CodeCall] =
     msgs.foldl(List(), (acc, m) => acc.append(Send(m)))
 
-  // --- Messaging declarations (§4.3, §8.1) --------------------------------
+  // --- Messaging declarations (§4.3, §8) --------------------------------
   //
   // Both host calls are OPTIONAL and may each be called at most once per
   // Refine invocation; a repeat aborts with `MessagesCallRepeated`. The
@@ -194,8 +194,7 @@ module refine {
 
   /// What the validation code's `set_messages_streams_root` calls amounted to:
   ///   - `StreamsRootUndeclared`: never called; this candidate declares no
-  ///     root (§8.1: called only when the root changed since the last
-  ///     enacted block).
+  ///     root (§8).
   ///   - `StreamsRootDeclared(root)`: called exactly once.
   ///   - `StreamsRootRepeated`: called more than once, rejected with
   ///     `MessagesCallRepeated`.
@@ -212,7 +211,7 @@ module refine {
     | RequiresRootsDeclared(List[(ParaId, StreamsRoot)])
     | RequiresRootsRepeated
 
-  /// §4.3 / §8.1: a `messages_requires_roots` set is well-formed iff it holds
+  /// §4.3 / §8: a `messages_requires_roots` set is well-formed iff it holds
   /// at most `MaxRequiresSources` entries, repeats no source `ParaId`, and
   /// never names the candidate's own `para_id`. Refine checks nothing about
   /// the roots themselves: whether they are settleable is decided on-chain

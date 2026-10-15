@@ -111,7 +111,7 @@ module main {
   /// head) while still carrying its normal messages, so the candidate is
   /// well-formed but rejected by Accumulate's parent-head check (§5.1 step 4),
   /// exercising that check. `messaging` are the optional messaging host calls
-  /// (§8.1), made just before the code exits.
+  /// (§8), made just before the code exits.
   pure def buildPackage(
     curHead: HeadData,
     paraId: ParaId,
@@ -202,7 +202,7 @@ module main {
     // parent-head check's rejection (§5.1 step 4). Forced to active code so it
     // is rejected on the parent rather than on the code.
     nondet wp1StaleParent = oneOf(Set(false, true))
-    // §8.1: what the validation code's optional messaging host calls amounted to.
+    // §8: what the validation code's optional messaging host calls amounted to.
     nondet wp1StreamsRoot = oneOf(streamsRootMenu)
     nondet wp1RequiresRoots = oneOf(requiresRootsMenu(wp1Para))
     // Latest head for wp1's para this block. A non-live para (e.g. not yet
@@ -393,12 +393,12 @@ module main {
   }
 
   /// §8: the two roots the nondet messaging menus draw from. Two distinct
-  /// values are enough to reach settlement hits and misses, membership
-  /// re-pushes, and clean-up interactions, keeping the state space bounded.
+  /// values are enough to reach settlement hits and misses, repeated-root
+  /// pushes, and clean-up interactions, keeping the state space bounded.
   pure val StreamsRootA: StreamsRoot = { streamsRootBytes: 1 }
   pure val StreamsRootB: StreamsRoot = { streamsRootBytes: 2 }
 
-  /// Menu of `set_messages_streams_root` outcomes validation code might declare (§8.1):
+  /// Menu of `set_messages_streams_root` outcomes validation code might declare (§8):
   /// no root, either root, or an aborting repeated call.
   pure val streamsRootMenu: Set[StreamsRootDeclaration] = Set(
     StreamsRootUndeclared,
@@ -407,7 +407,7 @@ module main {
     StreamsRootRepeated
   )
 
-  /// Menu of `set_messages_requires_roots` outcomes (§8.1): nothing consumed,
+  /// Menu of `set_messages_requires_roots` outcomes (§8): nothing consumed,
   /// entries that settle once their source has enacted the named root (and
   /// are silently rejected until then, §5.1 step 5), an ill-formed set naming
   /// the candidate itself, and an aborting repeated call.

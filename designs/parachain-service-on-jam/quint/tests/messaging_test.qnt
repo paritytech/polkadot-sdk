@@ -1,8 +1,9 @@
-// Messaging (design §8): the Refine-side `set_messages_streams_root` /
-// `set_messages_requires_roots` declarations (§8.1), the Accumulate
-// settlement check (§5.1 step 5), the per-parachain settlement ring with its
-// wrapping `u32` positions and position-based eviction (§8.2), its
-// reservation in the baseline footprint (§6.1), and teardown (§8.3).
+// Messaging tests (§8).
+//
+// - Refine-side `set_messages_streams_root` / `set_messages_requires_roots` declarations (§4.3).
+// - Accumulate settlement check (§5.1 step 5).
+// - Settlement ring push, eviction and `u32` wrapping (§8.1).
+// - Ring reservation in the baseline footprint (§6.1) and teardown on clean-up (§6.4).
 module messaging_test {
   import types.* from "../types"
   import messages.* from "../messages"
@@ -47,7 +48,7 @@ module messaging_test {
     authTrace: 0
   }
 
-  /// §4.3 / §8.1: either messaging host call invoked more than once aborts
+  /// §4.3 / §8: either messaging host call invoked more than once aborts
   /// the validation code with `MessagesCallRepeated`; called at most once
   /// each, the declarations travel verbatim in the digest, the `StreamsRoot`
   /// as an option and the requires roots as the declared set.
@@ -97,7 +98,7 @@ module messaging_test {
     }
   }
 
-  /// §4.3 / §8.1: a requires set past `MaxRequiresSources`, repeating a
+  /// §4.3 / §8: a requires set past `MaxRequiresSources`, repeating a
   /// source `ParaId`, or naming the candidate's own para is rejected with
   /// `MessagesInvalidRequires`. Exactly `MaxRequiresSources` distinct foreign
   /// sources pass Refine: whether they SETTLE is Accumulate's concern alone
@@ -213,7 +214,7 @@ module messaging_test {
     }
   }
 
-  /// §8.2 eviction is strictly position-based: a root leaves the ring only
+  /// §8.1 eviction is strictly position-based: a root leaves the ring only
   /// after `MaxSettlementRingCapacity` newer pushes. At capacity the ring
   /// holds exactly the last `MaxSettlementRingCapacity` roots: the oldest
   /// stops settling, its `messages_queue` entry at the old `tail` is deleted,
@@ -234,7 +235,7 @@ module messaging_test {
       assert(not(over.settlementCheck(List((para, rootNo(0)))))),
       assert(over.settlementCheck(List((para, rootNo(1))))),
       assert(over.settlementCheck(List((para, rootNo(MaxSettlementRingCapacity))))),
-      // The `(para_id, tail)` queue entry is deleted on eviction (§8.2).
+      // The `(para_id, tail)` queue entry is deleted on eviction (§8.1).
       assert(not(over.messagesQueue.keys().contains((para, 0)))),
       assert(not(over.messagesMember.keys().contains((para, rootNo(0))))),
       // The ratcheted footprint: one cursor + capacity× (member + queue).
@@ -244,34 +245,43 @@ module messaging_test {
     }
   }
 
-  /// §8.2 re-push rule: a repeated root only moves its membership (`seq`) to
-  /// the new position, leaving the old queue entry behind. Evicting that old
-  /// position must NOT drop the membership (its `seq` differs from `tail`);
-  /// the root finally leaves once its newest position is evicted.
-  run settlementRingRepushKeepsMembershipTest = {
+  /// Repeated roots are skipped (§8.1).
+  ///
+  /// - Pushing a root already in the ring leaves the state unchanged, even at capacity.
+  /// - The root keeps its original position and is evicted on its original schedule.
+  run settlementRingRepeatedRootSkippedTest = {
     val para = CoretimeParaId
     val x: StreamsRoot = { streamsRootBytes: 7777 }
-    // `x` at positions 0 AND 1, then distinct roots up to one past capacity:
-    // position 0 (holding `x`) is evicted.
-    val twice = settlementRingPush(settlementRingPush(initialState, para, x), para, x)
+    val once = settlementRingPush(initialState, para, x)
+    val twice = settlementRingPush(once, para, x)
+    // Fill the ring to capacity behind `x` at position 0.
     val s1 = range(0, MaxSettlementRingCapacity - 1).foldl(twice, (acc, i) =>
       settlementRingPush(acc, para, rootNo(i)))
-    // One more push evicts position 1, `x`'s newest position.
-    val s2 = settlementRingPush(s1, para, rootNo(MaxSettlementRingCapacity - 1))
+    val s1Repush = settlementRingPush(s1, para, x)
+    // Evicts position 0, which still holds `x`.
+    val s2 = settlementRingPush(s1Repush, para, rootNo(MaxSettlementRingCapacity - 1))
     all {
-      // Position 0 evicted, but `x` was re-pushed at 1: membership survives.
-      assert(s1.messagesCursor.get(para).tail == 1),
-      assert(not(s1.messagesQueue.keys().contains((para, 0)))),
-      assert(s1.messagesMember.get((para, x)) == { seq: 1 }),
-      assert(s1.settlementCheck(List((para, x)))),
-      // Position 1 evicted too: now the root is really gone.
-      assert(s2.messagesCursor.get(para).tail == 2),
+      // Repeated push is a no-op.
+      assert(twice == once),
+      assert(twice.messagesCursor.get(para) == { head: 1, tail: 0 }),
+      assert(twice.messagesQueue == Map((para, 0) -> x)),
+      // Repeated push at capacity is a no-op.
+      assert(ringLive(s1.messagesCursor.get(para)) == MaxSettlementRingCapacity),
+      assert(s1Repush == s1),
+      // `x` leaves with its original position, membership included.
+      assert(s2.messagesCursor.get(para).tail == 1),
+      assert(not(s2.messagesQueue.keys().contains((para, 0)))),
       assert(not(s2.settlementCheck(List((para, x))))),
+      assert(s2.settlementCheck(List((para, rootNo(0))))),
       init
     }
+      .then(setSvc(twice))
+      .then(expectThat(settlement_ring_coherent))
+      .then(setSvc(s2))
+      .then(expectThat(settlement_ring_coherent))
   }
 
-  /// §8.2: `head` and `tail` are `u32` counters advanced with wrapping
+  /// §8.1: `head` and `tail` are `u32` counters advanced with wrapping
   /// arithmetic, and the live window `[tail, head)` is a wrapping range. A
   /// ring whose cursor sits just below `u32::MAX` keeps working across the
   /// wrap: positions run `U32Modulus - 2, U32Modulus - 1, 0, 1, ...`, the
@@ -323,17 +333,17 @@ module messaging_test {
       .then(expectThat(settlement_ring_coherent and settlement_ring_only_for_live))
   }
 
-  /// §6.1 / §8.2: the settlement ring at capacity is reserved in the baseline
+  /// §6.1 / §8.1: the settlement ring at capacity is reserved in the baseline
   /// footprint, so pushes never move `usedStateBalance` and the accounting
   /// invariant keeps holding with a full ring. The figures pin the design
-  /// doc's derivation: 10 937 for the ring, 80 762 for the baseline.
+  /// doc's derivation: 10 745 for the ring, 80 570 for the baseline.
   run settlementRingReservedInBaselineTest = {
     val para = CoretimeParaId
     val before = initialState.paraInfo(para).usedStateBalance
     val pushed = pushMany(initialState, para, MaxSettlementRingCapacity + 1)
     all {
-      assert(SettlementRingFootprint == 10937),
-      assert(BaselineFootprint == 80762),
+      assert(SettlementRingFootprint == 10745),
+      assert(BaselineFootprint == 80570),
       assert(pushed.paraInfo(para).usedStateBalance == before),
       init
     }
@@ -459,7 +469,7 @@ module messaging_test {
     }
   }
 
-  /// §8.2: the ring is keyed by `(sender, root)`, so a root live in one
+  /// §8.1: the ring is keyed by `(sender, root)`, so a root live in one
   /// para's ring settles nothing for any other source naming the same value.
   run settlementRingPerSenderNamespaceTest = {
     val a = CoretimeParaId
@@ -481,7 +491,7 @@ module messaging_test {
     }
   }
 
-  /// §8 / §8.2: the ring holds the last `MaxSettlementRingCapacity` ENACTED
+  /// §8 / §8.1: the ring holds the last `MaxSettlementRingCapacity` ENACTED
   /// roots, not just the latest one. A sender chaining two candidates in one
   /// block leaves both roots settleable: a receiver one root behind is not
   /// cut off until `MaxSettlementRingCapacity` newer pushes evict it.
@@ -503,7 +513,7 @@ module messaging_test {
     }
   }
 
-  /// §6.3 / §8.3: a forced `parachain_set_head` does not touch the ring.
+  /// §6.3 / §8.1: a forced `parachain_set_head` does not touch the ring.
   /// Roots declared before the head reset stay settleable until evicted, so
   /// a receiver naming one still enacts, even in the same block right after
   /// the reset replays. Deleting the ring here would let a Coretime call made
@@ -539,7 +549,7 @@ module messaging_test {
     }
   }
 
-  /// §6.4 / §8.3: `parachain_clean_up` deletes the ring with the rest of the
+  /// §6.4 / §8.1: `parachain_clean_up` deletes the ring with the rest of the
   /// per-para state on the first accepted call. Rings of OTHER paras are
   /// untouched.
   run cleanUpDeletesRingTest = {
@@ -564,7 +574,7 @@ module messaging_test {
     }
   }
 
-  /// §6.4 / §8.3: the ring is deleted on the PARTIAL clean-up branch too. A
+  /// §6.4 / §8.1: the ring is deleted on the PARTIAL clean-up branch too. A
   /// para whose validation code enters forget-limbo stays live with
   /// `isDeregistering` set, but its ring is already gone: the ring is plain
   /// storage, not a preimage, so it needs no two-step release.
@@ -594,7 +604,7 @@ module messaging_test {
     }
   }
 
-  /// §8.3: `parachain_clean_up` takes effect when the candidate carrying it
+  /// §8.1: `parachain_clean_up` takes effect when the candidate carrying it
   /// replays (§5.1 step 7), and within a block the work packages are taken in
   /// order. Clean-up first: a LATER digest consuming from the deleted ring
   /// misses settlement and only the carrier enacts. Receiver first: it
@@ -638,15 +648,18 @@ module messaging_test {
     }
   }
 
-  /// The `settlement_ring_coherent` invariant is not vacuous: each corruption
-  /// class it exists for, an entry with no cursor, a window past capacity
-  /// (plain or wrapped), a queue root with no membership, is rejected, while
-  /// a genuinely pushed ring passes. (Same pattern as the gapped-buckets
-  /// fixture.)
+  /// `settlement_ring_coherent` rejects corrupted rings:
+  ///
+  /// - An entry with no cursor.
+  /// - A window past capacity (plain or wrapped).
+  /// - A queue root with no membership.
+  /// - A root at two positions.
+  ///
+  /// A ring built through pushes still passes.
   run settlementRingInvariantCatchesCorruptionTest = {
     val ct = CoretimeParaId
     val orphanMember: ParachainServiceState = { ...initialState,
-      messagesMember: Map((ct, rootNo(0)) -> { seq: 0 }) }
+      messagesMember: Map((ct, rootNo(0)) -> MemberMarker) }
     val overWideWindow: ParachainServiceState = { ...initialState,
       messagesCursor: Map(ct -> { head: MaxSettlementRingCapacity + 1, tail: 0 }) }
     // `head` behind `tail` by one is a wrapping window of `U32Modulus - 1`
@@ -656,6 +669,11 @@ module messaging_test {
     val memberlessQueue: ParachainServiceState = { ...initialState,
       messagesCursor: Map(ct -> { head: 1, tail: 0 }),
       messagesQueue: Map((ct, 0) -> rootNo(0)) }
+    // Same root at two live positions. Pushes never produce this (§8.1).
+    val duplicateRoot: ParachainServiceState = { ...initialState,
+      messagesCursor: Map(ct -> { head: 2, tail: 0 }),
+      messagesQueue: Map((ct, 0) -> rootNo(0), (ct, 1) -> rootNo(0)),
+      messagesMember: Map((ct, rootNo(0)) -> MemberMarker) }
     init
       .then(setSvc(orphanMember))
       .then(expectThat(not(settlement_ring_coherent)))
@@ -664,6 +682,8 @@ module messaging_test {
       .then(setSvc(wrappedOverWide))
       .then(expectThat(not(settlement_ring_coherent)))
       .then(setSvc(memberlessQueue))
+      .then(expectThat(not(settlement_ring_coherent)))
+      .then(setSvc(duplicateRoot))
       .then(expectThat(not(settlement_ring_coherent)))
       .then(setSvc(settlementRingPush(initialState, ct, rootNo(0))))
       .then(expectThat(settlement_ring_coherent and settlement_ring_only_for_live))
