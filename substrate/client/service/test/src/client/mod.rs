@@ -92,6 +92,7 @@ fn construct_block(
 		&mut Default::default(),
 		&runtime_code,
 		CallContext::Onchain { import: false },
+		substrate_test_runtime::VERSION.state_version(),
 	)
 	.execute()
 	.unwrap();
@@ -106,6 +107,7 @@ fn construct_block(
 			&mut Default::default(),
 			&runtime_code,
 			CallContext::Onchain { import: false },
+			substrate_test_runtime::VERSION.state_version(),
 		)
 		.execute()
 		.unwrap();
@@ -120,6 +122,7 @@ fn construct_block(
 		&mut Default::default(),
 		&runtime_code,
 		CallContext::Onchain { import: false },
+		substrate_test_runtime::VERSION.state_version(),
 	)
 	.execute()
 	.unwrap();
@@ -191,6 +194,7 @@ fn construct_genesis_should_work_with_native() {
 		&mut Default::default(),
 		&runtime_code,
 		CallContext::Onchain { import: false },
+		substrate_test_runtime::VERSION.state_version(),
 	)
 	.execute()
 	.unwrap();
@@ -223,6 +227,7 @@ fn construct_genesis_should_work_with_wasm() {
 		&mut Default::default(),
 		&runtime_code,
 		CallContext::Onchain { import: false },
+		substrate_test_runtime::VERSION.state_version(),
 	)
 	.execute()
 	.unwrap();
