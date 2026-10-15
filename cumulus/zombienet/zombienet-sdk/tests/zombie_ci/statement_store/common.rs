@@ -587,10 +587,12 @@ pub(super) const LATE_JOINER_TOTAL: usize = 5;
 
 /// Adds `dave` with `joiner_options` once charlie is past block 10, so it joins in major sync, and
 /// checks its subscription receives every statement submitted on charlie before and during the
-/// sync. Its log must also show the deferred-peer drain: charlie and alice dial dave either way.
+/// sync. Its log must also show `recovery_log`, the step that delivers the statements dropped
+/// during the sync: the deferred-peer drain on v1, the filter advertisement on v2.
 pub(super) async fn assert_late_joiner_receives_backlog(
 	network: &mut Network<LocalFileSystem>,
 	joiner_options: AddCollatorOptions,
+	recovery_log: &str,
 ) -> Result<(), anyhow::Error> {
 	const PRE_JOIN_COUNT: usize = 3;
 
@@ -652,7 +654,7 @@ pub(super) async fn assert_late_joiner_receives_backlog(
 	assert_statements_match(&mut subscription, &expected, 120, "dave").await?;
 
 	let dave_logs = dave.logs().await?;
-	assert!(dave_logs.lines().any(|line| line.contains("Major sync complete, adding")));
+	assert!(dave_logs.lines().any(|line| line.contains(recovery_log)), "{recovery_log}");
 	Ok(())
 }
 
