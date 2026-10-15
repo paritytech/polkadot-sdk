@@ -251,31 +251,27 @@ impl PeersTopology {
 		selected
 	}
 
-	/// Up to `replication_factor` known statement-protocol peers to keep connected: the nearest
-	/// peer of every distance bucket, then the nearest peers overall.
+	/// Known statement-protocol peers to keep connected: the `replication_factor` nearest peers,
+	/// then the nearest peer of every distance bucket they leave uncovered.
 	///
-	/// A bucket holds the peers whose key shares a prefix of one length with the local key, as in
-	/// Kademlia. One peer per bucket gives a statement for any topic a connected next hop closer
-	/// to the topic, as long as a known peer is closer. The nearest peers are the replicas the
-	/// node shares its topics with.
+	/// The nearest peers are the replicas the node shares its topics with. A bucket holds the
+	/// peers whose key shares a prefix of one length with the local key, as in Kademlia, so the
+	/// uncovered buckets are the far ones, holding most of the network. One peer in each gives a
+	/// statement for any topic a connected next hop closer to the topic.
 	pub fn peers_for_routing(&self) -> Vec<PeerId> {
-		let limit = self.config.replication_factor.get();
-		let mut nearest_per_bucket = Vec::new();
-		let mut nearest_rest = Vec::new();
-		let mut last_bucket = None;
+		let nearest = self.config.replication_factor.get();
+		let mut routing = Vec::new();
+		let mut covered = HashSet::new();
 		// Nearest-first order visits each bucket as one run, its first peer being its nearest.
 		for (peer, key) in self.discovered_index.closest(self.local_key) {
 			let bucket = common_prefix_len(&self.local_key, &key);
-			if last_bucket != Some(bucket) {
-				last_bucket = Some(bucket);
-				nearest_per_bucket.push(peer);
-			} else if nearest_rest.len() < limit {
-				nearest_rest.push(peer);
+			let among_nearest = routing.len() < nearest;
+			let first_of_bucket = covered.insert(bucket);
+			if among_nearest || first_of_bucket {
+				routing.push(peer);
 			}
 		}
-		nearest_per_bucket.extend(nearest_rest);
-		nearest_per_bucket.truncate(limit);
-		nearest_per_bucket
+		routing
 	}
 
 	/// Insert `peer` if absent, refresh its `last_seen`, and return its record.
@@ -722,7 +718,7 @@ mod tests {
 	}
 
 	#[test]
-	fn peers_for_routing_takes_one_peer_per_bucket_then_the_nearest() {
+	fn peers_for_routing_takes_the_nearest_then_one_peer_per_uncovered_bucket() {
 		let local = peer(1);
 		let local_key = peer_key(&local);
 		let mut topology = PeersTopology::new(local, topology_config(12, 3));
@@ -734,23 +730,16 @@ mod tests {
 		}
 		candidates.sort_by(|a, b| cmp_distance_then_peer(Topic(local_key), a, b));
 
-		// Naive model: the nearest peer of every bucket, then the nearest peers until K.
-		let mut expected = Vec::new();
-		let mut buckets = std::collections::HashSet::new();
-		for peer in &candidates {
-			if buckets.insert(common_prefix_len(&local_key, &peer_key(peer))) {
+		// Naive model: the 12 nearest, then the nearest peer of every bucket without one of them.
+		let bucket_of = |peer: &PeerId| common_prefix_len(&local_key, &peer_key(peer));
+		let mut expected: Vec<PeerId> = candidates[..12].to_vec();
+		let mut buckets: std::collections::HashSet<u32> = expected.iter().map(bucket_of).collect();
+		for peer in &candidates[12..] {
+			if buckets.insert(bucket_of(peer)) {
 				expected.push(*peer);
 			}
 		}
-		assert!(expected.len() > 3 && expected.len() < 12);
-		for peer in &candidates {
-			if expected.len() == 12 {
-				break;
-			}
-			if !expected.contains(peer) {
-				expected.push(*peer);
-			}
-		}
+		assert!(expected.len() > 12, "the far buckets add peers beyond the nearest");
 
 		let mut routing = topology.peers_for_routing();
 		routing.sort();
