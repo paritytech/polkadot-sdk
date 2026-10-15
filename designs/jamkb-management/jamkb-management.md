@@ -708,12 +708,14 @@ interface IJamkb {
 
 `pallet-assets` holds JAMKB. `pallet-jamkb` holds the four roles and
 administers the asset through the runtime-internal fungibles traits:
-`transfer`, `hold`, `release`, `transfer_on_hold` and `mint`. Policy adapters
+`transfer`, `hold`, `release`, `transfer_on_hold` and `mint_into`. Policy adapters
 move their JAMKB balances through the ERC20 precompile.
 
 **Hold rules.** `pallet-jamkb` locks units with a hold before it sends a
 transfer. The runtime sets `pallet-assets-holder` as the asset's `Holder`; it
-provides the hold traits. The hold reasons are declared as:
+provides the hold traits. A hold merges per reason per account, so the amount
+of each lease and each recovery deposit is kept in pallet storage. The hold
+reasons are declared as:
 
 ```rust
 /// The hold classes.
@@ -724,8 +726,14 @@ enum HoldReason {
     /// Units backing outstanding permanent releases.
     #[codec(index = 1)]
     Releasing,
+    /// The native-currency recovery deposit (`RECOVERY_DEPOSIT`).
+    #[codec(index = 2)]
+    RecoveryDeposit,
 }
 ```
+
+`Leased` and `Releasing` hold JAMKB through `pallet-assets-holder`;
+`RecoveryDeposit` holds the native currency through `pallet-balances`.
 
 ### 3.4 The Generic AH→JAM Transport
 
