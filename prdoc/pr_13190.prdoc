@@ -95,9 +95,7 @@ doc:
       `evm_memory_copy_out(len)`.
 
     Regenerate pallet-revive weights for your runtime and implement these
-    methods in custom WeightInfo implementations. Update exhaustive
-    matches on `pallet_revive::precompiles::RuntimeCosts` for the
-    `EvmMemoryGrow` and `EvmMemoryCopyOut` variants.
+    methods in custom WeightInfo implementations.
 
     The pallet's `integrity_test` requires the dispatch charge above to be
     greater than zero. If it fails for your runtime, regenerate its
