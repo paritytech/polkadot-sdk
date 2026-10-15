@@ -73,28 +73,41 @@ impl<T: frame_system::Config> WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
-	// Storage: `System::Account` (r:1 w:0)
+	// Storage: `AssetConversion::PoolFees` (r:1 w:0)
+	// Proof: `AssetConversion::PoolFees` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
+	// Storage: `ForeignAssets::Account` (r:1 w:1)
+	// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
+	// Storage: `System::Account` (r:2 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	// Storage: `ForeignAssets::Asset` (r:1 w:1)
+	// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
 	pub fn buy_execution() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `3593`
-		// Minimum execution time: 13_503_000 picoseconds.
-		Weight::from_parts(14_651_000, 3593)
-			.saturating_add(T::DbWeight::get().reads(1))
+		//  Measured:  `1280`
+		//  Estimated: `6196`
+		// Minimum execution time: 90_359_000 picoseconds.
+		Weight::from_parts(95_333_000, 6196)
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	// Storage: `System::Account` (r:1 w:1)
+	// Storage: `AssetConversion::PoolFees` (r:1 w:0)
+	// Proof: `AssetConversion::PoolFees` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
+	// Storage: `ForeignAssets::Account` (r:1 w:1)
+	// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
+	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	// Storage: `ForeignAssets::Asset` (r:1 w:1)
+	// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
 	// Storage: `Revive::OriginalAccount` (r:1 w:1)
 	// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	pub fn pay_fees() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `3593`
-		// Minimum execution time: 14_102_000 picoseconds.
-		Weight::from_parts(15_499_000, 3593)
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
+		//  Measured:  `1280`
+		//  Estimated: `6196`
+		// Minimum execution time: 90_457_000 picoseconds.
+		Weight::from_parts(95_462_000, 6196)
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().writes(5))
 	}
 	pub fn asset_claimer() -> Weight {
 		// Proof Size summary in bytes:
@@ -120,12 +133,24 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 7_930_000 picoseconds.
 		Weight::from_parts(8_705_000, 0)
 	}
+	// Storage: `AssetConversion::PoolFees` (r:1 w:0)
+	// Proof: `AssetConversion::PoolFees` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
+	// Storage: `System::Account` (r:2 w:1)
+	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	// Storage: `ForeignAssets::Account` (r:1 w:1)
+	// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
+	// Storage: `ForeignAssets::Asset` (r:1 w:1)
+	// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
+	// Storage: `ForeignAssetsFreezer::FrozenBalances` (r:1 w:0)
+	// Proof: `ForeignAssetsFreezer::FrozenBalances` (`max_values`: None, `max_size`: Some(682), added: 3157, mode: `MaxEncodedLen`)
 	pub fn refund_surplus() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 2_086_000 picoseconds.
-		Weight::from_parts(2_311_000, 0)
+		//  Measured:  `1394`
+		//  Estimated: `6196`
+		// Minimum execution time: 90_013_000 picoseconds.
+		Weight::from_parts(95_202_000, 6196)
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	pub fn set_error_handler() -> Weight {
 		// Proof Size summary in bytes:
