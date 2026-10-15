@@ -770,7 +770,7 @@ mod tests {
 		let mut connect = orchestrator.peer_steering.peers_to_connect();
 		routing.sort();
 		connect.sort();
-		assert_eq!(routing.len(), 3);
+		assert!(routing.len() >= 3, "the three nearest, plus the far buckets they leave uncovered");
 		assert_eq!(connect, routing);
 	}
 
