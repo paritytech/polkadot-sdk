@@ -65,11 +65,14 @@ doc:
     op-code charged from its own benchmark pays the benchmark's slope.
     `JUMP` and `JUMPI` subtract `slope(evm_jumpdest_opcode)`, and the
     op-codes benchmarked in pairs with a `POP` subtract
-    `slope(evm_pop_opcode)`. Before it runs, every op-code except `PUSH`,
-    `DUP` and `SWAP` also pays a dispatch charge, including op-codes
-    charged through RuntimeCosts: `slope(evm_dispatch_mix)` minus the
-    charges of the 80 op-codes in one block of that benchmark, divided by
-    80.
+    `slope(evm_pop_opcode)`. `DIV`, `SDIV`, `MOD`, `SMOD` and `ADDMOD` take
+    the largest slope of their benchmark and its `_one_limb_variant`,
+    `_three_limb_variant`, `_mixed_variant` and `_fixed_knuth_variant`
+    benchmarks before subtracting. Before it runs, every op-code except
+    `PUSH`, `DUP` and `SWAP` also pays a dispatch charge, including
+    op-codes charged through RuntimeCosts: `slope(evm_dispatch_mix)` minus
+    the charges of the 80 op-codes in one block of that benchmark, divided
+    by 80.
 
     These charges depend on the size of an operand:
 
@@ -93,7 +96,8 @@ doc:
 
     Regenerate pallet-revive weights for your runtime and implement these
     methods in custom WeightInfo implementations. Update exhaustive
-    matches on RuntimeCosts for the new memory cost variants.
+    matches on `pallet_revive::precompiles::RuntimeCosts` for the
+    `EvmMemoryGrow` and `EvmMemoryCopyOut` variants.
 
     The pallet's `integrity_test` requires the dispatch charge above to be
     greater than zero. If it fails for your runtime, regenerate its
@@ -102,22 +106,16 @@ doc:
     No storage migration is required.
 - audience: Runtime User
   description: |-
-    Selected EVM op-codes are charged from their own benchmarks. Every
-    op-code except `PUSH`, `DUP` and `SWAP` also pays 9.1 ns for the
-    dispatch to its handler. The `EXP` and `MCOPY` figures below include
-    it.
+    Selected EVM op-codes are charged from their own benchmarks, so their
+    gas costs change. The exact prices depend on the weights of each
+    runtime.
 
-    These depend on their operands:
-
-    - `EXP`: 49.3 ns with a zero exponent. Otherwise 100.7 ns, plus 65.9 ns
-      for each exponent bit after the first, so a 256-bit exponent costs
-      16.92 µs.
-    - `MCOPY`: 136.1 ns, plus 0.376 ns for each byte after the first 64.
-    - Memory growth: 735.6 ns, plus 3.626 ns for each new 32-byte word.
-      Growing past the capacity of the memory buffer adds 1275.9 ns, plus
-      2.491 ns for each 32-byte word of the new capacity.
-    - `RETURN` and `REVERT` with output: 188.9 ns, plus 0.161 ns for each
-      byte of output.
+    - Cheaper: `JUMP`, `JUMPI`, `EXP` with small exponents, and long
+      `MCOPY` copies.
+    - Much more expensive: `DIV`, `SDIV`, `MOD`, `SMOD`, `ADDMOD` and
+      `MULMOD`.
+    - More expensive: `CALLDATALOAD`, `MLOAD`, `MSTORE`, `EQ`, `MUL`, `EXP`
+      with large exponents, and short `MCOPY` copies.
 
     Existing contracts do not need migration or redeployment. Re-estimate
     gas limits after the runtime upgrade; calls using previous limits
