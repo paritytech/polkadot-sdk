@@ -180,7 +180,7 @@ impl multi_block::signed::Config for Runtime {
 
 parameter_types! {
 	/// Priority of the offchain miner transactions.
-	pub MinerTxPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub MinerTxPriority: TransactionPriority = TransactionPriority::MAX / 2;
 	/// Try and run the OCW miner 4 times during the unsigned phase.
 	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / 4;
 	pub storage MinerPages: u32 = 2;

@@ -1141,10 +1141,10 @@ pub mod pallet {
 				if let Ok(res) = Self::validate_code_is_authorized(&code[..]) {
 					if Self::can_set_code(&code, false).is_ok() {
 						return Ok(ValidTransaction {
-							priority: u64::max_value(),
+							priority: u64::MAX,
 							requires: Vec::new(),
 							provides: vec![res.code_hash.encode()],
-							longevity: TransactionLongevity::max_value(),
+							longevity: TransactionLongevity::MAX,
 							propagate: true,
 						});
 					}
@@ -1163,10 +1163,10 @@ pub mod pallet {
 				if source == TransactionSource::InBlock || source == TransactionSource::Local {
 					if task.is_valid() {
 						return Ok(ValidTransaction {
-							priority: u64::max_value(),
+							priority: u64::MAX,
 							requires: Vec::new(),
 							provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
-							longevity: TransactionLongevity::max_value(),
+							longevity: TransactionLongevity::MAX,
 							propagate: false,
 						});
 					}
@@ -2265,7 +2265,7 @@ impl<T: Config> Pallet<T> {
 	pub fn reset_events() {
 		<Events<T>>::kill();
 		EventCount::<T>::kill();
-		let _ = <EventTopics<T>>::clear(u32::max_value(), None);
+		let _ = <EventTopics<T>>::clear(u32::MAX, None);
 	}
 
 	/// Assert the given `event` exists.

@@ -596,7 +596,7 @@ impl parachains_session_info::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 }
 
 impl parachains_paras::Config for Runtime {

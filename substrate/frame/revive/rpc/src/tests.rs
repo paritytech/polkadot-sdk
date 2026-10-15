@@ -1244,7 +1244,7 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 		"upload_code",
 		vec![
 			subxt::dynamic::Value::from_bytes(&bytecode),
-			subxt::dynamic::Value::u128(u128::max_value()), // storage_deposit_limit
+			subxt::dynamic::Value::u128(u128::MAX), // storage_deposit_limit
 		],
 	);
 	let encoded_call = node_client.tx().await?.call_data(&upload_call)?;
