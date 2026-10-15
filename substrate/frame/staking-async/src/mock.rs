@@ -29,10 +29,12 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{EitherOfDiverse, Get, Imbalance, OnUnbalanced},
+	traits::{
+		fungible::ItemOf, AsEnsureOriginWithArg, EitherOfDiverse, Get, Imbalance, OnUnbalanced,
+	},
 	weights::constants::RocksDbWeight,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
+use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSigned, EnsureSignedBy};
 use pallet_staking_async_rc_client as rc_client;
 use sp_core::{ConstBool, ConstU64};
 use sp_io;
@@ -47,11 +49,13 @@ use std::collections::BTreeMap;
 
 pub(crate) const INIT_TIMESTAMP: u64 = 30_000;
 pub(crate) const BLOCK_TIME: u64 = 1000;
+const MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE: u128 = 1;
 
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
 		Balances: pallet_balances,
+		Assets: pallet_assets,
 		Dap: pallet_dap,
 		Staking: pallet_staking_async,
 		VoterBagsList: pallet_bags_list::<Instance1>,
@@ -112,6 +116,14 @@ impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+}
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
+impl pallet_assets::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = u128;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 parameter_types! {
@@ -541,9 +553,16 @@ pub(crate) fn setup_dap() {
 		.expect("mint dap buffer");
 }
 
+parameter_types! {
+	pub static ValidatorExpensesAssetId: u32 = 10;
+}
+
+type ValidatorExpensesCurrency = ItemOf<Assets, ValidatorExpensesAssetId, AccountId>;
+
 impl Config for Test {
 	type OldCurrency = Balances;
 	type Currency = Balances;
+	type ValidatorExpencesCurrency = ValidatorExpensesCurrency;
 	type RewardRemainder = RewardRemainderMock;
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
@@ -844,6 +863,13 @@ impl ExtBuilder {
 		let nominators_slashable = self.nominators_slashable;
 
 		ext.execute_with(|| {
+			use frame_support::traits::fungible::Create;
+			assert_ok!(<Test as Config>::ValidatorExpencesCurrency::create(
+				0,
+				false,
+				MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE
+			));
+
 			crate::AreNominatorsSlashable::<Test>::put(nominators_slashable);
 
 			if !UseLegacyEraPayout::get() {
