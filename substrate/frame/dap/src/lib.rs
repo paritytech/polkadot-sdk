@@ -197,6 +197,58 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type LastIssuanceTimestamp<T> = StorageValue<_, u64, ValueQuery>;
 
+	/// Genesis configuration for the DAP pallet.
+	///
+	/// Seeds [`BudgetAllocation`] so that the [`Pallet::try_state`] invariants hold from block 0
+	/// on a freshly initialised chain.
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		/// Initial budget allocation.
+		///
+		/// When `None`, [`BudgetAllocation`] is left empty and a warning is logged. Such a chain
+		/// fails the DAP `try_state` checks until governance calls
+		/// [`Pallet::set_budget_allocation`].
+		pub budget_allocation: Option<BudgetAllocationMap>,
+		/// `T` is only used by [`BuildGenesisConfig::build`].
+		///
+		/// Public so that runtimes can build a genesis config with a functional update.
+		#[serde(skip)]
+		pub _phantom: PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			let Some(allocation) = self.budget_allocation.clone() else {
+				log::warn!(
+					target: LOG_TARGET,
+					"DAP genesis: `budget_allocation` not set; `BudgetAllocation` will remain \
+					 empty until `set_budget_allocation` is called"
+				);
+				return;
+			};
+
+			// Same invariants as `Pallet::set_budget_allocation`.
+			let registered: Vec<BudgetKey> =
+				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
+			for key in allocation.keys() {
+				assert!(
+					registered.contains(key),
+					"DAP genesis: {key:?} is not a registered BudgetRecipient"
+				);
+			}
+
+			let total_parts: u64 = allocation.values().map(|p| p.deconstruct() as u64).sum();
+			assert!(
+				total_parts == Perbill::one().deconstruct() as u64,
+				"DAP genesis: budget allocation does not sum to 100%"
+			);
+
+			BudgetAllocation::<T>::put(allocation);
+		}
+	}
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// A key in the budget allocation does not match any registered recipient.
@@ -274,9 +326,25 @@ pub mod pallet {
 
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-			// TODO(ank4n): Re-enable after this migration is included in runtime.
-			// Self::do_try_state()
-			Ok(())
+			// Chains that were below `BudgetAllocation` seeding have been upgraded by
+			// `MigrateV1ToV2`, which is no longer part of any runtime's `Migrations`, so
+			// anything at or above v2 must have the budget seeded (via migration or genesis).
+			// A fixed floor is used rather than `STORAGE_VERSION` so that a future in-code
+			// bump does not silently skip this check on chains that are merely one version
+			// behind.
+			const MIN_SEEDED_VERSION: StorageVersion = StorageVersion::new(2);
+
+			let on_chain = <Pallet<T> as GetStorageVersion>::on_chain_storage_version();
+			if on_chain < MIN_SEEDED_VERSION {
+				log::debug!(
+					target: LOG_TARGET,
+					"DAP try_state skipped: on-chain storage version {on_chain:?} is below \
+					 {MIN_SEEDED_VERSION:?}"
+				);
+				return Ok(());
+			}
+
+			Self::do_try_state()
 		}
 	}
 

@@ -50,6 +50,10 @@ parameter_types! {
 pub fn genesis() -> Storage {
 	let genesis_config = asset_hub_westend_runtime::RuntimeGenesisConfig {
 		system: asset_hub_westend_runtime::SystemConfig::default(),
+		dap: asset_hub_westend_runtime::DapConfig {
+			budget_allocation: Some(asset_hub_westend_runtime::staking::initial_dap_budget()),
+			..Default::default()
+		},
 		balances: asset_hub_westend_runtime::BalancesConfig {
 			balances: accounts::init_balances()
 				.iter()
