@@ -133,14 +133,27 @@ pub enum EvmOpcodeCosts {
 
 /// An op-code in one block of the `evm_dispatch_mix` benchmark.
 pub struct DispatchMixOpcode {
-	/// The op-code's byte.
-	// Only the `evm_dispatch_mix` benchmark reads the byte.
-	#[cfg_attr(not(feature = "runtime-benchmarks"), allow(dead_code))]
+	/// The op-code's byte, which only the `evm_dispatch_mix` benchmark reads.
+	#[cfg(feature = "runtime-benchmarks")]
 	pub opcode: u8,
 	/// What the op-code is charged.
 	cost: EvmOpcodeCosts,
 	/// How many times the op-code occurs in a block.
 	pub repetitions: u64,
+}
+
+impl DispatchMixOpcode {
+	/// Takes the op-code's byte in every build, but keeps it only for the benchmark.
+	const fn new(opcode: u8, cost: EvmOpcodeCosts, repetitions: u64) -> Self {
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		let _ = opcode;
+		Self {
+			#[cfg(feature = "runtime-benchmarks")]
+			opcode,
+			cost,
+			repetitions,
+		}
+	}
 }
 
 impl EvmOpcodeCosts {
@@ -256,28 +269,20 @@ impl EvmOpcodeCosts {
 	/// one does exactly the work it's charged for. The repetitions make every block leave the
 	/// stack as high as it found it.
 	pub const DISPATCH_MIX: [DispatchMixOpcode; 14] = [
-		DispatchMixOpcode { opcode: opcode::PC, cost: Self::Pc, repetitions: 5 },
-		DispatchMixOpcode { opcode: opcode::CHAINID, cost: Self::ChainId, repetitions: 5 },
-		DispatchMixOpcode { opcode: opcode::DIFFICULTY, cost: Self::Difficulty, repetitions: 5 },
-		DispatchMixOpcode { opcode: opcode::CODESIZE, cost: Self::CodeSize, repetitions: 5 },
-		DispatchMixOpcode {
-			opcode: opcode::CALLDATASIZE,
-			cost: Self::CallDataSize,
-			repetitions: 5,
-		},
-		DispatchMixOpcode {
-			opcode: opcode::RETURNDATASIZE,
-			cost: Self::ReturnDataSize,
-			repetitions: 5,
-		},
-		DispatchMixOpcode { opcode: opcode::MSIZE, cost: Self::MSize, repetitions: 5 },
-		DispatchMixOpcode { opcode: opcode::JUMPDEST, cost: Self::JumpDest, repetitions: 5 },
-		DispatchMixOpcode { opcode: opcode::NOT, cost: Self::Not, repetitions: 5 },
-		DispatchMixOpcode { opcode: opcode::POP, cost: Self::Pop, repetitions: 7 },
-		DispatchMixOpcode { opcode: opcode::AND, cost: Self::And, repetitions: 7 },
-		DispatchMixOpcode { opcode: opcode::OR, cost: Self::Or, repetitions: 7 },
-		DispatchMixOpcode { opcode: opcode::XOR, cost: Self::Xor, repetitions: 7 },
-		DispatchMixOpcode { opcode: opcode::MUL, cost: Self::Mul, repetitions: 7 },
+		DispatchMixOpcode::new(opcode::PC, Self::Pc, 5),
+		DispatchMixOpcode::new(opcode::CHAINID, Self::ChainId, 5),
+		DispatchMixOpcode::new(opcode::DIFFICULTY, Self::Difficulty, 5),
+		DispatchMixOpcode::new(opcode::CODESIZE, Self::CodeSize, 5),
+		DispatchMixOpcode::new(opcode::CALLDATASIZE, Self::CallDataSize, 5),
+		DispatchMixOpcode::new(opcode::RETURNDATASIZE, Self::ReturnDataSize, 5),
+		DispatchMixOpcode::new(opcode::MSIZE, Self::MSize, 5),
+		DispatchMixOpcode::new(opcode::JUMPDEST, Self::JumpDest, 5),
+		DispatchMixOpcode::new(opcode::NOT, Self::Not, 5),
+		DispatchMixOpcode::new(opcode::POP, Self::Pop, 7),
+		DispatchMixOpcode::new(opcode::AND, Self::And, 7),
+		DispatchMixOpcode::new(opcode::OR, Self::Or, 7),
+		DispatchMixOpcode::new(opcode::XOR, Self::Xor, 7),
+		DispatchMixOpcode::new(opcode::MUL, Self::Mul, 7),
 	];
 }
 
