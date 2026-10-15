@@ -107,8 +107,8 @@
 //! force during the gap, since the first advance of a block runs before its session rotation
 //! changes the list. With no authorities counted, every gap counts as one slot. A run of slots
 //! without blocks no longer than the list counts in full whatever its cause, so a partial relay
-//! chain outage or collators that are not synced look like idleness. Governance raises `rounds`
-//! or removes the rule during such incidents.
+//! chain outage or collators that are not synced look like idleness. Governance raises
+//! `idle_rounds` or removes the rule during such incidents.
 //!
 //! Counts are in slots, so a change of the slot duration changes the wall time of windows and
 //! drops. A change that lowers the slot numbers re-anchors the count at the new slot without
@@ -117,11 +117,11 @@
 //! [`LastActivity`] holds, for each validator returned at the last rotation, the count of the
 //! block it last authored or, before its first block, of the rotation that enacted it, with the
 //! largest Aura authority count of any list in force since then. A returned validator whose
-//! record is at least `rounds × authorities` counted slots old is idle. This number of slots is
-//! the window. Aura gives slot `s` to authority `s mod authorities`, so while the authority list
-//! does not change, every authority has at least `rounds` slots in a window. A change of the list
-//! within a window, such as a candidate joining or leaving, keys set or purged, a new set, a cap
-//! change, or validators dropped or returned by this pallet, moves the authorities to other
+//! record is at least `idle_rounds × authorities` counted slots old is idle. This number of slots
+//! is the window. Aura gives slot `s` to authority `s mod authorities`, so while the authority
+//! list does not change, every authority has at least `idle_rounds` slots in a window. A change of
+//! the list within a window, such as a candidate joining or leaving, keys set or purged, a new set,
+//! a cap change, or validators dropped or returned by this pallet, moves the authorities to other
 //! positions and can cost an authority one of its slots. The `min_collators` floor bounds how many
 //! validators one rotation drops.
 //! A stall can hide a turn of every authority but counts as one slot, so like a list change it
@@ -130,12 +130,13 @@
 //!
 //! A rotation drops the idle validators: it does not return them. Pallet-session enacts the list
 //! a rotation returns at the next rotation, so a dropped validator keeps its slots until then.
-//! That next rotation starts the drop: no rotation returns the validator within `slots` counted
-//! slots from it, see [`Dropped`]. The first rotation at or after that end returns it again, less
-//! than one session period later, and it gets its slots back at the rotation after that one. So a
-//! dropped validator holds no slots for at least `slots` counted slots, unless the rule is removed
-//! or the validator leaves the stored set during the drop. A validator returned for the first
-//! time, or again after a drop, is first judged a full window after the rotation that enacts it.
+//! That next rotation starts the drop: no rotation returns the validator within `drop_slots`
+//! counted slots from it, see [`Dropped`]. The first rotation at or after that end returns it
+//! again, less than one session period later, and it gets its slots back at the rotation after
+//! that one. So a dropped validator holds no slots for at least `drop_slots` counted slots,
+//! unless the rule is removed or the validator leaves the stored set during the drop. A validator
+//! returned for the first time, or again after a drop, is first judged a full window after the
+//! rotation that enacts it.
 //! A rotation never drops validators below `min_collators` of the validators it would return, and
 //! keeps the idle ones with the most recent records. Under a cap only the drawn validators are
 //! judged, and a place that empties after the draw stays empty until the drop ends or the next
@@ -312,14 +313,14 @@ pub mod pallet {
 		/// authority one of its slots, and so can a stall. So a rule allows one more round than
 		/// the list changes and stalls expected in a window. `min_collators` bounds how many
 		/// validators one rotation drops.
-		pub rounds: u32,
+		pub idle_rounds: u32,
 		/// Counted slots during which a dropped validator is not returned, counted from the
 		/// rotation that enacts the list without it, so it holds no slots for at least this many
 		/// counted slots. At least one.
 		///
 		/// Drops end at rotations, so the first rotation at or after the end returns the validator
 		/// again.
-		pub slots: u64,
+		pub drop_slots: u64,
 		/// Number of validators a rotation never drops below, among the validators this pallet
 		/// would return, so under a cap it is bounded by the cap. The idle validators with the
 		/// most recent records are kept: the [`CountedSlots`] count of the block each last
@@ -504,7 +505,7 @@ pub mod pallet {
 	/// count from which each is returned again.
 	///
 	/// A record holds `None` from the rotation that drops the validator to the next one, which
-	/// enacts the list without it and sets the end to the count there plus the `slots` of the
+	/// enacts the list without it and sets the end to the count there plus the `drop_slots` of the
 	/// rule in force. Records end at rotations: the first rotation at or after that count returns
 	/// the validator again. Under a cap, a validator dropped before a draw is not drawn, so it is
 	/// returned only after the next draw.
@@ -542,11 +543,11 @@ pub mod pallet {
 		/// The rule that drops validators which author no blocks was set or removed.
 		DropRuleSet { rule: Option<DropRule> },
 		/// `validators` authored no blocks within the window and are no longer returned. Their
-		/// drops start at the next rotation, which sets their end in [`Dropped`]. `kept` idle
-		/// validators are still returned because of the floor.
+		/// drops start at the next rotation, which sets their end in [`Dropped`]. `kept_by_floor`
+		/// idle validators are still returned because of the floor.
 		///
 		/// Emitted with an empty `validators` when the floor keeps every idle validator.
-		CollatorsDropped { validators: Vec<T::AccountId>, kept: u32 },
+		CollatorsDropped { validators: Vec<T::AccountId>, kept_by_floor: u32 },
 	}
 
 	#[pallet::error]
@@ -690,16 +691,19 @@ pub mod pallet {
 		/// Set the rule that drops validators which author no blocks, or remove it.
 		///
 		/// The rule applies from the next rotation. Changing it keeps the end of the drops already
-		/// counting, and the drops that start at the next rotation take the `slots` of the rule in
-		/// force then. Removing it also removes every drop record, so every validator is returned
-		/// again at the next rotation.
+		/// counting, and the drops that start at the next rotation take the `drop_slots` of the
+		/// rule in force then. Removing it also removes every drop record, so every validator is
+		/// returned again at the next rotation.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::set_drop_rule())]
 		pub fn set_drop_rule(origin: OriginFor<T>, rule: Option<DropRule>) -> DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)?;
 			match rule {
 				Some(rule) => {
-					ensure!(rule.rounds >= 2 && rule.slots > 0, Error::<T>::InvalidDropRule)
+					ensure!(
+						rule.idle_rounds >= 2 && rule.drop_slots > 0,
+						Error::<T>::InvalidDropRule
+					)
 				},
 				None => Dropped::<T>::kill(),
 			}
@@ -897,7 +901,7 @@ pub mod pallet {
 							);
 						}
 						let Some(rule) = rule else { continue };
-						let window = rule.rounds.saturating_mul(authorities.max(ending));
+						let window = rule.idle_rounds.saturating_mul(authorities.max(ending));
 						if now.saturating_sub(since) >= window.into() {
 							idle.push((since, v.clone()));
 						}
@@ -907,7 +911,7 @@ pub mod pallet {
 			let Some(rule) = rule else { return eligible };
 			idle.sort();
 			let droppable = eligible.len().saturating_sub(rule.min_collators as usize);
-			let kept = idle.len().saturating_sub(droppable) as u32;
+			let kept_by_floor = idle.len().saturating_sub(droppable) as u32;
 			let newly_dropped: BTreeSet<_> = idle
 				.into_iter()
 				.take(droppable)
@@ -922,10 +926,10 @@ pub mod pallet {
 					},
 				})
 				.collect();
-			if !newly_dropped.is_empty() || kept > 0 {
+			if !newly_dropped.is_empty() || kept_by_floor > 0 {
 				Self::deposit_event(Event::CollatorsDropped {
 					validators: newly_dropped.iter().cloned().collect(),
-					kept,
+					kept_by_floor,
 				});
 			}
 			eligible.into_iter().filter(|v| !newly_dropped.contains(v)).collect()
@@ -1057,7 +1061,7 @@ pub mod pallet {
 					Some(until) => *until > now,
 					// Dropped at the previous rotation, so out of the list this rotation enacts.
 					None => {
-						*until = Some(now.saturating_add(rule.slots));
+						*until = Some(now.saturating_add(rule.drop_slots));
 						true
 					},
 				}

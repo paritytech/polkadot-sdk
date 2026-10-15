@@ -10,8 +10,7 @@ doc:
     `CurrentDropRule`, `LastActivity` and `Dropped`. No migration.
 
     `pallet_validator_collators::Config` gains `AuthorityCount` (Aura authorities of the current
-    session), which Asset Hub Westend and People Westend wire. External `WeightInfo`
-    implementors must add `set_drop_rule`.
+    session), which Asset Hub Westend and People Westend wire.
 crates:
 - name: pallet-validator-collators
   bump: major

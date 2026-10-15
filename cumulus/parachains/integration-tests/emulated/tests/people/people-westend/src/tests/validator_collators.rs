@@ -417,7 +417,8 @@ fn idle_validator_is_dropped_on_people_at_the_regular_rotation() {
 		|who: &AccountId| invulnerables().into_iter().any(|(invulnerable, _)| invulnerable == *who);
 	let mut both = vec![alice.clone(), bob.clone()];
 	both.sort();
-	let rule = pallet_validator_collators::DropRule { rounds: 2, slots: 2, min_collators: 0 };
+	let rule =
+		pallet_validator_collators::DropRule { idle_rounds: 2, drop_slots: 2, min_collators: 0 };
 
 	// GIVEN a rule of two rounds and drops of 2 slots without a floor, and a set of Alice and
 	// Bob with keys, both set by root
@@ -451,12 +452,12 @@ fn idle_validator_is_dropped_on_people_at_the_regular_rotation() {
 		}
 		let authorities = pallet_aura::Pallet::<Runtime>::authorities_len() as u64;
 		// The drop end is reached in one gap of the list without Bob, which counts in full.
-		assert!(rule.slots < authorities);
+		assert!(rule.drop_slots < authorities);
 		// AND the next blocks are in every slot of an invulnerable, up to the first slot of
 		// Alice at least a window after the enactment, so each gap is shorter than the list and
 		// counts in full, and the block in that slot is the regular rotation
 		let enacted_slot = u64::from(pallet_aura::CurrentSlot::<Runtime>::get());
-		let window = rule.rounds as u64 * authorities;
+		let window = rule.idle_rounds as u64 * authorities;
 		let rotation_slot =
 			(enacted_slot + window..).find(|slot| author_on_people(*slot) == alice).unwrap();
 		let slots = (enacted_slot + 1..rotation_slot)
@@ -482,7 +483,7 @@ fn idle_validator_is_dropped_on_people_at_the_regular_rotation() {
 			PeopleWestend,
 			vec![
 				RuntimeEvent::ValidatorCollators(
-					pallet_validator_collators::Event::CollatorsDropped { validators, kept: 0 }
+					pallet_validator_collators::Event::CollatorsDropped { validators, kept_by_floor: 0 }
 				) => { validators: *validators == vec![bob.clone()], },
 			]
 		);
@@ -494,13 +495,13 @@ fn idle_validator_is_dropped_on_people_at_the_regular_rotation() {
 	let until = PeopleWestend::execute_with(|| {
 		assert_eq!(System::block_number(), 2 * period);
 		assert_eq!(Session::validators(), collators_with(vec![alice.clone()]));
-		// THEN his drop of `slots` counted slots starts there
-		let until = counted_slots_on_people() + rule.slots;
+		// THEN his drop of `drop_slots` counted slots starts there
+		let until = counted_slots_on_people() + rule.drop_slots;
 		let dropped = pallet_validator_collators::Dropped::<Runtime>::get();
 		assert_eq!(dropped.get(&bob), Some(&Some(until)));
-		// AND the next block, the next regular rotation, comes `slots` slots later
+		// AND the next block, the next regular rotation, comes `drop_slots` slots later
 		next_people_block_in_slot(
-			u64::from(pallet_aura::CurrentSlot::<Runtime>::get()) + rule.slots,
+			u64::from(pallet_aura::CurrentSlot::<Runtime>::get()) + rule.drop_slots,
 		);
 		System::set_block_number(3 * period - 1);
 		until

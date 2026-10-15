@@ -1148,10 +1148,10 @@ fn setters_are_bounded_and_announced() {
 	});
 }
 
-fn set_rule(rounds: u32, slots: u64, min_collators: u32) {
+fn set_rule(idle_rounds: u32, drop_slots: u64, min_collators: u32) {
 	assert_ok!(ValidatorCollators::set_drop_rule(
 		RuntimeOrigin::signed(RootAccount::get()),
-		Some(DropRule { rounds, slots, min_collators })
+		Some(DropRule { idle_rounds, drop_slots, min_collators })
 	));
 }
 
@@ -1206,13 +1206,13 @@ fn idle_validator_is_dropped_one_session_after_the_judgement_and_returns_after_i
 		initialize_to_block(5);
 		assert_eq!(activity(11), active(5, 0));
 		// AND a validator whose last block is exactly a window before the rotation at block 20
-		// is dropped there, one slot later it is kept, for windows of `rounds × authorities`
+		// is dropped there, one slot later it is kept, for windows of `idle_rounds × authorities`
 		// slots
-		for (rounds, authorities) in [(2, 4), (3, 4), (2, 3)] {
-			let window = (rounds * authorities) as u64;
+		for (idle_rounds, authorities) in [(2, 4), (3, 4), (2, 3)] {
+			let window = (idle_rounds * authorities) as u64;
 			for (block, is_dropped) in [(20 - window, true), (21 - window, false)] {
 				frame_support::hypothetically!({
-					set_rule(rounds, 10, 0);
+					set_rule(idle_rounds, 10, 0);
 					AuthorityCount::set(authorities);
 					initialize_to_block(block);
 					note_blocks(10, 1);
@@ -1233,7 +1233,9 @@ fn idle_validator_is_dropped_one_session_after_the_judgement_and_returns_after_i
 		// WHEN the rotation at block 20 judges them
 		initialize_to_block(20);
 		// THEN 11 is dropped (20 - 5 >= 8) and 10 is not (20 - 15 < 8)
-		System::assert_has_event(Event::CollatorsDropped { validators: vec![11], kept: 0 }.into());
+		System::assert_has_event(
+			Event::CollatorsDropped { validators: vec![11], kept_by_floor: 0 }.into(),
+		);
 		assert_eq!(dropped(), vec![(11, None)]);
 		assert_eq!(activity(11), None);
 		assert_eq!(activity(10), active(15, 4));
@@ -1565,7 +1567,7 @@ fn floor_keeps_the_most_recently_active_idle_validators() {
 			// THEN nobody is dropped and the event counts the idle validators kept
 			assert_eq!(dropped(), vec![]);
 			System::assert_has_event(
-				Event::CollatorsDropped { validators: vec![], kept: 4 }.into(),
+				Event::CollatorsDropped { validators: vec![], kept_by_floor: 4 }.into(),
 			);
 		});
 
@@ -1574,7 +1576,7 @@ fn floor_keeps_the_most_recently_active_idle_validators() {
 		initialize_to_block(20);
 		// THEN the two with the oldest records are dropped and the two others are returned
 		System::assert_has_event(
-			Event::CollatorsDropped { validators: vec![12, 13], kept: 2 }.into(),
+			Event::CollatorsDropped { validators: vec![12, 13], kept_by_floor: 2 }.into(),
 		);
 		assert_eq!(queued(), vec![1, 2, 10, 11]);
 		assert_eq!(activity(10), active(9, 4));
@@ -1685,14 +1687,14 @@ fn drop_rule_is_set_by_governance_validated_and_lifted() {
 		set_keys(10);
 		set_keys(11);
 		// WHEN a rule with fewer than two rounds or zero slots is set THEN it is rejected
-		for (rounds, slots) in [(0, 10), (1, 10), (2, 0)] {
+		for (idle_rounds, drop_slots) in [(0, 10), (1, 10), (2, 0)] {
 			assert_noop!(
-				set_drop_rule(Some(DropRule { rounds, slots, min_collators: 0 })),
+				set_drop_rule(Some(DropRule { idle_rounds, drop_slots, min_collators: 0 })),
 				Error::<Test>::InvalidDropRule
 			);
 		}
 		// WHEN a rule without a floor is set THEN it is stored
-		let rule = DropRule { rounds: 2, slots: 20, min_collators: 0 };
+		let rule = DropRule { idle_rounds: 2, drop_slots: 20, min_collators: 0 };
 		assert_ok!(set_drop_rule(Some(rule)));
 		System::assert_last_event(Event::DropRuleSet { rule: Some(rule) }.into());
 		assert_eq!(CurrentDropRule::<Test>::get(), Some(rule));

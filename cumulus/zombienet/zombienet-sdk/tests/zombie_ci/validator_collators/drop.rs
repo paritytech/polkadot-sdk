@@ -259,8 +259,8 @@ async fn store_rule_and_set(
 		})
 		.collect::<Vec<_>>();
 	let rule = Value::named_composite([
-		("rounds", Value::u128(DROP_ROUNDS.into())),
-		("slots", Value::u128(DROP_SLOTS.into())),
+		("idle_rounds", Value::u128(DROP_ROUNDS.into())),
+		("drop_slots", Value::u128(DROP_SLOTS.into())),
 		("min_collators", Value::u128(0)),
 	]);
 	let calls = [
@@ -379,5 +379,5 @@ fn is_drop_of_one_validator(fields: &Composite<u32>) -> bool {
 	let one_dropped = fields.at("validators").is_some_and(
 		|validators| matches!(&validators.value, ValueDef::Composite(c) if c.len() == 1),
 	);
-	one_dropped && fields.at("kept").and_then(|kept| kept.as_u128()) == Some(0)
+	one_dropped && fields.at("kept_by_floor").and_then(|kept| kept.as_u128()) == Some(0)
 }

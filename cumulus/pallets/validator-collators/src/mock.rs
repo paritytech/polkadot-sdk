@@ -152,7 +152,7 @@ impl frame_support::traits::UnixTime for MockTime {
 parameter_types! {
 	pub static MaxEntriesPerReport: u32 = 10;
 	/// Aura authorities of the current session, the window of a drop rule is
-	/// `rounds × AuthorityCount` counted slots.
+	/// `idle_rounds × AuthorityCount` counted slots.
 	pub static AuthorityCount: u32 = 4;
 	/// Slots from the previous block to the next one, reset to one after each block.
 	pub static NextSlotGap: u64 = 1;

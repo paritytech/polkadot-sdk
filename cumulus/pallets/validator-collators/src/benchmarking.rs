@@ -242,7 +242,7 @@ mod benchmarks {
 	fn set_drop_rule() -> Result<(), BenchmarkError> {
 		let origin =
 			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		CurrentDropRule::<T>::put(DropRule { rounds: 2, slots: 1, min_collators: 0 });
+		CurrentDropRule::<T>::put(DropRule { idle_rounds: 2, drop_slots: 1, min_collators: 0 });
 		let records = BoundedBTreeMap::try_from(
 			(0..T::MaxValidators::get())
 				.map(|i| (account("dropped", i, 0), Some(0)))
