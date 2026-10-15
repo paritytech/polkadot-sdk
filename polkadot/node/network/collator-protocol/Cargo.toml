@@ -15,7 +15,6 @@ workspace = true
 async-trait = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
 futures = { workspace = true }
-futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 
@@ -28,6 +27,7 @@ sp-timestamp = { workspace = true, default-features = true }
 
 codec = { workspace = true }
 fatality = { workspace = true }
+polkadot-node-clock = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
@@ -39,6 +39,7 @@ tokio-util = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
+futures-timer = { workspace = true }
 kvdb-memorydb = { workspace = true }
 rstest = { workspace = true }
 sc-network-types = { workspace = true, default-features = true }
@@ -52,8 +53,15 @@ sp-core = { features = ["std"], workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 
 itertools = { workspace = true }
+polkadot-collator-protocol-test-sim-macros = { workspace = true }
+polkadot-node-clock = { workspace = true, default-features = true, features = ["test"] }
+polkadot-node-core-backing = { workspace = true, default-features = true }
+polkadot-node-core-prospective-parachains = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-overseer = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }
+polkadot-subsystem-test-sim = { workspace = true }
 
 [features]
 default = []

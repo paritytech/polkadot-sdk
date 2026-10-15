@@ -16,10 +16,7 @@
 
 use std::{
 	collections::{BTreeMap, HashMap},
-	sync::{
-		atomic::{AtomicU64, Ordering as AtomicOrdering},
-		Arc,
-	},
+	sync::Arc,
 	time::Duration,
 };
 
@@ -51,7 +48,7 @@ use sp_core::{sr25519::Pair, testing::TaskExecutor, Pair as PairT};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 
-use polkadot_node_primitives::{Timestamp, ACTIVE_DURATION_SECS};
+use polkadot_node_primitives::ACTIVE_DURATION_SECS;
 use polkadot_node_subsystem::{
 	messages::{AllMessages, BlockDescription, RuntimeApiMessage, RuntimeApiRequest},
 	ActiveLeavesUpdate,
@@ -60,11 +57,12 @@ use polkadot_node_subsystem_test_helpers::{
 	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CandidateReceiptV2 as CandidateReceipt, CoreIndex, DisputeStatement, GroupIndex, Hash,
-	HeadData, Header, IndexedVec, MultiDisputeStatementSet, MutateDescriptorV2, NodeFeatures,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
+	ApprovalVote, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoalescedApprovalCandidateHashes,
+	CoreIndex, DisputeStatement, GroupIndex, Hash, HeadData, Header, IndexedVec,
+	MultiDisputeStatementSet, MutateDescriptorV2, NodeFeatures, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	ValidatorSignature, ValidityAttestation,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_v2_bad_sig, dummy_digest, dummy_hash,
@@ -74,9 +72,9 @@ use crate::{
 	backend::Backend,
 	metrics::Metrics,
 	participation::{participation_full_happy_path, participation_missing_availability},
-	status::Clock,
 	Config, DisputeCoordinatorSubsystem,
 };
+use polkadot_node_clock::MockClock;
 
 use super::db::v1::DbBackend;
 
@@ -141,29 +139,6 @@ async fn generate_opposing_votes_pair(
 	);
 
 	(valid_vote, invalid_vote)
-}
-
-#[derive(Clone)]
-struct MockClock {
-	time: Arc<AtomicU64>,
-}
-
-impl Default for MockClock {
-	fn default() -> Self {
-		MockClock { time: Arc::new(AtomicU64::default()) }
-	}
-}
-
-impl Clock for MockClock {
-	fn now(&self) -> Timestamp {
-		self.time.load(AtomicOrdering::SeqCst)
-	}
-}
-
-impl MockClock {
-	fn set(&self, to: Timestamp) {
-		self.time.store(to, AtomicOrdering::SeqCst)
-	}
 }
 
 struct TestState {
@@ -369,6 +344,14 @@ impl TestState {
 										NodeFeatures::EMPTY
 									};
 									si_tx.send(Ok(features)).unwrap();
+								}
+							);
+							assert_matches!(
+								overseer_recv(virtual_overseer).await,
+								AllMessages::RuntimeApi(
+									RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+								) => {
+									tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 								}
 							);
 						}
@@ -582,7 +565,7 @@ impl TestState {
 		);
 		let backend =
 			DbBackend::new(self.db.clone(), self.config.column_config(), Metrics::default());
-		let subsystem_task = subsystem.run(ctx, backend, Box::new(self.clock.clone()));
+		let subsystem_task = subsystem.run(ctx, backend, Arc::new(self.clock.clone()));
 		let test_task = test(self, ctx_handle);
 
 		let (_, state) = futures::executor::block_on(future::join(subsystem_task, test_task));
@@ -770,7 +753,7 @@ fn make_candidate_included_event(candidate_receipt: CandidateReceipt) -> Candida
 pub async fn handle_approval_vote_request(
 	ctx_handle: &mut VirtualOverseer,
 	expected_hash: &CandidateHash,
-	votes_to_send: HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>,
+	votes_to_send: HashMap<ValidatorIndex, (CoalescedApprovalCandidateHashes, ValidatorSignature)>,
 ) {
 	assert_matches!(
 		ctx_handle.recv().await,
@@ -794,6 +777,73 @@ async fn handle_get_block_number(ctx_handle: &mut VirtualOverseer, test_state: &
 			tx.send(Ok(test_state.headers.get(&hash).map(|r| r.number))).unwrap();
 		}
 	)
+}
+
+#[test]
+fn conclude_before_the_first_leaf_shuts_down() {
+	test_harness(|test_state, mut virtual_overseer| {
+		Box::pin(async move {
+			// Ask the subsystem to conclude while it is waiting for its first leaf.
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+
+			// The subsystem should shut down cleanly.
+			assert!(virtual_overseer.try_recv().await.is_none());
+
+			test_state
+		})
+	});
+}
+
+#[test]
+fn conclude_after_leafless_signals_shuts_down() {
+	test_harness(|test_state, mut virtual_overseer| {
+		Box::pin(async move {
+			// Signals without a new leaf should not stop initialization.
+			virtual_overseer
+				.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(
+					test_state.last_block,
+					2,
+				)))
+				.await;
+			virtual_overseer
+				.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+					ActiveLeavesUpdate::default(),
+				)))
+				.await;
+
+			// A `Conclude` signal should shut down the subsystem cleanly.
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+			assert!(virtual_overseer.try_recv().await.is_none());
+
+			test_state
+		})
+	});
+}
+
+#[test]
+fn communication_before_the_first_leaf_is_dropped() {
+	test_harness(|test_state, mut virtual_overseer| {
+		Box::pin(async move {
+			// Messages arriving before the first leaf are dropped, rather than answered with
+			// potentially outdated information.
+			let (tx, rx) = oneshot::channel();
+			virtual_overseer
+				.send(FromOrchestra::Communication {
+					msg: DisputeCoordinatorMessage::ActiveDisputes(tx),
+				})
+				.await;
+
+			// The contained oneshot is cancelled without a response.
+			assert!(rx.await.is_err());
+
+			// The subsystem is still waiting for its first leaf and shuts down cleanly on
+			// `Conclude`.
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+			assert!(virtual_overseer.try_recv().await.is_none());
+
+			test_state
+		})
+	});
 }
 
 #[test]
@@ -979,7 +1029,10 @@ fn approval_vote_import_works() {
 
 			let approval_votes = [(
 				ValidatorIndex(4),
-				(vec![candidate_receipt1.hash()], approval_vote.into_validator_signature()),
+				(
+					vec![candidate_receipt1.hash()].try_into().unwrap(),
+					approval_vote.into_validator_signature(),
+				),
 			)]
 			.into_iter()
 			.collect();
@@ -2093,7 +2146,7 @@ fn concluded_supermajority_for_non_active_after_time() {
 			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash, HashMap::new())
 				.await;
 
-			test_state.clock.set(ACTIVE_DURATION_SECS + 1);
+			test_state.clock.advance_secs(ACTIVE_DURATION_SECS + 1);
 
 			{
 				let (tx, rx) = oneshot::channel();
@@ -2215,7 +2268,7 @@ fn concluded_supermajority_against_non_active_after_time() {
 			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash, HashMap::new())
 				.await;
 
-			test_state.clock.set(ACTIVE_DURATION_SECS + 1);
+			test_state.clock.advance_secs(ACTIVE_DURATION_SECS + 1);
 
 			{
 				let (tx, rx) = oneshot::channel();
@@ -2379,7 +2432,7 @@ fn resume_dispute_without_local_statement() {
 
 			// Advance the clock far enough so that the concluded dispute will be omitted from an
 			// ActiveDisputes query.
-			test_state.clock.set(test_state.clock.now() + ACTIVE_DURATION_SECS + 1);
+			test_state.clock.advance_secs(ACTIVE_DURATION_SECS + 1);
 
 			{
 				let (tx, rx) = oneshot::channel();
@@ -4313,6 +4366,14 @@ fn session_info_is_requested_only_once() {
 					si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 				}
 			);
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+				) => {
+					tx.send(Ok(ApprovalVotingParams::default())).unwrap();
+				}
+			);
 			test_state
 		})
 	});
@@ -4371,6 +4432,14 @@ fn session_info_big_jump_works() {
 						si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 					}
 				);
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+					) => {
+						tx.send(Ok(ApprovalVotingParams::default())).unwrap();
+					}
+				);
 			}
 			test_state
 		})
@@ -4427,6 +4496,14 @@ fn session_info_small_jump_works() {
 						RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 					) => {
 						si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+					}
+				);
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+					) => {
+						tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 					}
 				);
 			}
@@ -4912,6 +4989,14 @@ fn v3_candidate_on_subsequent_leaf_is_detected_correctly() {
 					f.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
 					f.set(FeatureIndex::CandidateReceiptV3 as usize, true);
 					si_tx.send(Ok(f)).unwrap();
+				}
+			);
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx), )
+				) => {
+					tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 				}
 			);
 

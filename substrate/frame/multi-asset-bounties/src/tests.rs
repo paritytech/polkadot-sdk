@@ -966,6 +966,40 @@ fn check_status_works() {
 }
 
 #[test]
+fn close_parent_refunds_only_remaining_value_after_child_payout() {
+	ExtBuilder::default().build_and_execute(|| {
+		let s = create_awarded_child_bounty();
+		let child_payment_id = get_payment_id(s.parent_bounty_id, Some(s.child_bounty_id))
+			.expect("no child payout attempt");
+		set_status(child_payment_id, PaymentStatus::Success);
+		assert_ok!(Bounties::check_status(
+			RuntimeOrigin::signed(1),
+			s.parent_bounty_id,
+			Some(s.child_bounty_id)
+		));
+
+		assert_eq!(
+			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
+			s.child_value
+		);
+		let funding_source =
+			Bounties::funding_source_account(s.asset_kind).expect("conversion failed");
+		let funding_source_balance = paid(funding_source, s.asset_kind);
+
+		assert_ok!(Bounties::close_bounty(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			None
+		));
+
+		assert_eq!(
+			paid(funding_source, s.asset_kind),
+			funding_source_balance + s.value - s.child_value
+		);
+	});
+}
+
+#[test]
 fn check_status_fails() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given
@@ -1181,10 +1215,11 @@ fn retry_payment_works() {
 			Some(s.child_bounty_id)
 		));
 
-		// Then
+		// Then: the child value is back in the parent account
 		let payment_id = get_payment_id(s.parent_bounty_id, Some(s.child_bounty_id))
 			.expect("no payment attempt");
-		assert_eq!(paid(child_bounty_account, s.asset_kind), s.child_value);
+		assert_eq!(paid(child_bounty_account, s.asset_kind), 0);
+		assert_eq!(paid(parent_bounty_account, s.asset_kind), s.value);
 		assert_eq!(
 			last_event(),
 			BountiesEvent::Paid {
@@ -2434,7 +2469,7 @@ fn close_parent_with_child_bounty() {
 			s.parent_bounty_id,
 			Some(s.child_bounty_id),
 			s.asset_kind,
-			s.value + s.child_value, // parent bounty value + child bounty value
+			s.value, // child value returned to the parent it was funded from
 		);
 		assert_eq!(pallet_bounties::ChildBountiesPerParent::<Test>::get(s.parent_bounty_id), 0);
 		assert_eq!(
@@ -2453,6 +2488,57 @@ fn close_parent_with_child_bounty() {
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id),
 			0
 		);
+	});
+}
+
+/// Regression test for closing a parent bounty after one of its child-bounties was paid out.
+///
+/// The paid-out child value left the parent account for good, but `close_bounty` used to request
+/// a refund of the full stored `value`. A paymaster that performs a real transfer (`LocalPay`)
+/// rejects that, so the parent bounty could never be closed. Without the `calculate_payout`
+/// adjustment in `do_process_refund_payment` this test fails with `RefundError`.
+#[test]
+fn close_parent_bounty_after_child_payout_refunds_remaining_value() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: parent bounty (50) whose only child-bounty (10) has been paid out
+		let s = create_awarded_child_bounty();
+		approve_payment(
+			s.child_beneficiary,
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			s.asset_kind,
+			s.child_value,
+		);
+		assert_eq!(pallet_bounties::ChildBountiesPerParent::<Test>::get(s.parent_bounty_id), 0);
+		assert_eq!(
+			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
+			s.child_value
+		);
+		let remaining = s.value - s.child_value;
+
+		// Parent account holds only the remaining 40; a larger transfer must fail
+		let parent_bounty_account =
+			Bounties::bounty_account(s.parent_bounty_id, s.asset_kind).expect("conversion failed");
+		let funding_source_account =
+			Bounties::funding_source_account(s.asset_kind).expect("conversion failed");
+		assert_eq!(paid(parent_bounty_account, s.asset_kind), remaining);
+
+		// When
+		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, None));
+
+		// Then: only the remaining value is refunded
+		assert_eq!(paid(funding_source_account, s.asset_kind), remaining);
+		assert_eq!(paid(parent_bounty_account, s.asset_kind), 0);
+		approve_payment(funding_source_account, s.parent_bounty_id, None, s.asset_kind, remaining);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id), None);
+		assert_eq!(
+			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
+			0
+		);
+		expect_events(vec![
+			BountiesEvent::BountyCanceled { index: s.parent_bounty_id, child_index: None },
+			BountiesEvent::BountyRefundProcessed { index: s.parent_bounty_id, child_index: None },
+		]);
 	});
 }
 
@@ -2668,5 +2754,214 @@ fn multi_asset_bounty_accounts_differ_from_legacy_bounty_accounts() {
 fn integrity_test() {
 	ExtBuilder::default().build_and_execute(|| {
 		Bounties::integrity_test();
+	});
+}
+
+#[test]
+fn increase_value_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: an active parent bounty (value 50, curator deposit 25 held).
+		let s = create_active_parent_bounty();
+		assert_eq!(Balances::reserved_balance(s.curator), s.curator_deposit);
+		let increase = 20;
+		let new_value = s.value + increase; // 70
+
+		// Give the curator enough free balance to cover the larger deposit hold.
+		let _ = Balances::mint_into(&s.curator, 100);
+
+		// When
+		assert_ok!(Bounties::increase_value(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			increase,
+		));
+
+		// Then: the recorded value is raised and the event is emitted.
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().value,
+			new_value
+		);
+		expect_events(vec![BountiesEvent::BountyValueIncreased {
+			index: s.parent_bounty_id,
+			old_value: s.value,
+			new_value,
+		}]);
+
+		// And: the curator deposit was rescaled to the new value (50% * 70 = 35).
+		let expected_deposit = new_value / 2; // 50% multiplier, within [Min, Max]
+		assert_eq!(Balances::reserved_balance(s.curator), expected_deposit);
+		assert_eq!(
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>)
+				.unwrap(),
+			consideration(new_value)
+		);
+	});
+}
+
+#[test]
+fn increase_value_fails() {
+	ExtBuilder::default().build_and_execute(|| {
+		// When/Then: unknown bounty index.
+		assert_noop!(
+			Bounties::increase_value(RuntimeOrigin::signed(4), 99, 10),
+			Error::<Test>::InvalidIndex
+		);
+
+		// Given: a parent bounty that is not yet `Active` (`FundingAttempted`).
+		let s = create_parent_bounty();
+
+		// When/Then: cannot increase value before the bounty is active.
+		assert_noop!(
+			Bounties::increase_value(RuntimeOrigin::signed(s.curator), s.parent_bounty_id, 10),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		// Given: an active parent bounty.
+		let s = create_active_parent_bounty();
+
+		// When/Then: unsigned origin is rejected.
+		assert_noop!(
+			Bounties::increase_value(RuntimeOrigin::none(), s.parent_bounty_id, 10),
+			BadOrigin
+		);
+
+		// When/Then: only the curator may increase the value.
+		assert_noop!(
+			Bounties::increase_value(RuntimeOrigin::signed(1), s.parent_bounty_id, 10),
+			Error::<Test>::RequireCurator
+		);
+
+		// When/Then: a zero increase is rejected.
+		assert_noop!(
+			Bounties::increase_value(RuntimeOrigin::signed(s.curator), s.parent_bounty_id, 0),
+			Error::<Test>::InvalidValue
+		);
+	});
+}
+
+#[test]
+fn increase_value_then_award_pays_new_value() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: an active parent bounty, value increased from 50 to 70.
+		let s = create_active_parent_bounty();
+		let _ = Balances::mint_into(&s.curator, 100);
+		let increase = 20;
+		let new_value = s.value + increase;
+		// `increase_value` moves no funds; model the external top-up it registers.
+		let parent_bounty_account =
+			Bounties::bounty_account(s.parent_bounty_id, s.asset_kind).expect("conversion failed");
+		top_up(parent_bounty_account, s.asset_kind, increase);
+		assert_ok!(Bounties::increase_value(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			increase,
+		));
+
+		// When: the bounty is awarded and the payout settles.
+		assert_ok!(Bounties::award_bounty(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			None,
+			s.beneficiary,
+		));
+		approve_payment(s.beneficiary, s.parent_bounty_id, None, s.asset_kind, new_value);
+
+		// Then: the beneficiary is paid the NEW value, not the original.
+		expect_events(vec![BountiesEvent::BountyPayoutProcessed {
+			index: s.parent_bounty_id,
+			child_index: None,
+			asset_kind: s.asset_kind,
+			value: new_value,
+			beneficiary: s.beneficiary,
+		}]);
+		assert_eq!(paid(s.beneficiary, s.asset_kind), new_value);
+	});
+}
+
+#[test]
+fn increase_value_creates_child_bounty_headroom() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: an active parent bounty (value 50) with its entire value allocated to one child.
+		let s = create_active_parent_bounty();
+		let _ = Balances::mint_into(&s.curator, 100);
+		assert_ok!(Bounties::fund_child_bounty(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			s.value, // 50 — consumes all parent value
+			s.metadata,
+			None,
+		));
+		assert_eq!(
+			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
+			s.value
+		);
+
+		// When/Then: no headroom left, another child is rejected.
+		assert_noop!(
+			Bounties::fund_child_bounty(
+				RuntimeOrigin::signed(s.curator),
+				s.parent_bounty_id,
+				1,
+				s.metadata,
+				None,
+			),
+			Error::<Test>::InsufficientBountyValue
+		);
+
+		// Given: the parent value is increased, creating new headroom.
+		let increase = 30;
+		// `increase_value` moves no funds; model the external top-up it registers.
+		let parent_bounty_account =
+			Bounties::bounty_account(s.parent_bounty_id, s.asset_kind).expect("conversion failed");
+		top_up(parent_bounty_account, s.asset_kind, increase);
+		assert_ok!(Bounties::increase_value(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			increase,
+		));
+
+		// When/Then: a child funded from the new headroom now succeeds, and the cumulative child
+		// value equals the new parent value (invariant Σ child ≤ parent preserved).
+		assert_ok!(Bounties::fund_child_bounty(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			increase, // 30
+			s.metadata,
+			None,
+		));
+		assert_eq!(
+			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
+			s.value + increase, // 80
+		);
+	});
+}
+
+#[test]
+fn increase_value_reverts_when_curator_cannot_fund_deposit() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: an active parent bounty. The curator's free balance is only the existential
+		// deposit (their 25 deposit is already held), so they cannot fund a larger hold.
+		let s = create_active_parent_bounty();
+		assert_eq!(Balances::reserved_balance(s.curator), s.curator_deposit);
+
+		// When/Then: the increase requires a larger deposit (50% * 70 = 35, i.e. +10) the curator
+		// cannot afford, so the call fails.
+		assert_noop!(
+			Bounties::increase_value(RuntimeOrigin::signed(s.curator), s.parent_bounty_id, 20),
+			TokenError::FundsUnavailable
+		);
+
+		// And: the whole call is rolled back — the deposit was NOT orphaned by the earlier `take`,
+		// and the value is unchanged.
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().value,
+			s.value
+		);
+		assert_eq!(
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>)
+				.unwrap(),
+			consideration(s.value)
+		);
+		assert_eq!(Balances::reserved_balance(s.curator), s.curator_deposit);
 	});
 }

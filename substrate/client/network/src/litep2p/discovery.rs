@@ -650,6 +650,13 @@ impl Stream for Discovery {
 					peers: peers.into_iter().collect(),
 				}));
 			},
+			Poll::Ready(Some(KademliaEvent::PeersDiscovered { peers })) => {
+				log::trace!(target: LOG_TARGET, "discovered {} peers", peers.len());
+
+				return Poll::Ready(Some(DiscoveryEvent::RoutingTableUpdate {
+					peers: peers.into_iter().collect(),
+				}));
+			},
 			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id })) => {
 				log::trace!(
 					target: LOG_TARGET,
@@ -735,7 +742,7 @@ impl Stream for Discovery {
 			})) => {
 				let observed_address =
 					if let Some(Protocol::P2p(peer_id)) = observed_address.iter().last() {
-						if peer_id != *this.local_peer_id.as_ref() {
+						if peer_id != this.local_peer_id.into() {
 							log::warn!(
 								target: LOG_TARGET,
 								"Discovered external address for a peer that is not us: {observed_address}",

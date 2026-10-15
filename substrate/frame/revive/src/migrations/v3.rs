@@ -18,7 +18,7 @@
 //! # Multi-Block Migration v3
 //!
 //! Iterates `frame_system::Account` and for each account:
-//! - If unmapped: calls `map_no_deposit` to create a deposit-free mapping.
+//! - If unmapped: calls `map_no_deposit_unchecked` to create a deposit-free mapping.
 //! - If already mapped: releases the held address mapping deposit.
 
 use super::PALLET_MIGRATIONS_ID;
@@ -73,12 +73,14 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				if T::AddressMapper::is_eth_derived(&account_id) {
 					// Eth-derived accounts are stateless mapped, nothing to do.
 				} else {
-					let _ = T::AddressMapper::map_no_deposit(&account_id).inspect_err(|err| {
-						log::debug!(
-							target: LOG_TARGET,
-							"Failed to map account {account_id:?}: {err:?}",
-						);
-					});
+					let _ = T::AddressMapper::map_no_deposit_unchecked(&account_id).inspect_err(
+						|err| {
+							log::debug!(
+								target: LOG_TARGET,
+								"Failed to map account {account_id:?}: {err:?}",
+							);
+						},
+					);
 
 					let _ = T::Currency::release_all(
 						&HoldReason::AddressMapping.into(),

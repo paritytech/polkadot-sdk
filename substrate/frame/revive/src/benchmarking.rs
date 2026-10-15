@@ -20,13 +20,14 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Pallet as Contracts,
+	access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES, StorageOp, Warmth},
 	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
 		block_hash::EthereumBlockBuilder, block_storage,
 	},
-	exec::{Key, Origin as ExecOrigin, PrecompileExt},
-	limits,
+	exec::{Ext, Key, Origin as ExecOrigin, PrecompileExt},
+	limits::{self, EVM_STACK_LIMIT},
 	precompiles::{
 		self, BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 		alloy::sol_types::{
@@ -38,7 +39,7 @@ use crate::{
 	storage::WriteOutcome,
 	vm::{
 		evm,
-		evm::{Interpreter, instructions, instructions::utility::IntoAddress},
+		evm::{ExtBytecode, Halt, Interpreter, instructions, instructions::utility::IntoAddress},
 		pvm,
 	},
 	*,
@@ -46,6 +47,7 @@ use crate::{
 use alloc::{vec, vec::Vec};
 use alloy_core::sol_types::{SolInterface, SolValue};
 use codec::{Encode, MaxEncodedLen};
+use core::ops::ControlFlow;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
@@ -60,7 +62,12 @@ use pallet_revive_uapi::{
 	CallFlags, ReturnErrorCode, StorageFlags, pack_hi_lo,
 	precompiles::{storage::IStorage, system::ISystem},
 };
-use revm::bytecode::Bytecode;
+use rand::{Rng, SeedableRng, seq::SliceRandom};
+use rand_pcg::Pcg64;
+use revm::bytecode::{
+	Bytecode,
+	opcode::{ADDMOD, DIV, MOD, MULMOD, POP, SDIV, SMOD},
+};
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
 	BABE_ENGINE_ID,
@@ -107,6 +114,211 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
+/// Delegate `address` to `target` (EIP-7702) without going through signature recovery.
+///
+/// Returns the account id the `seal_call` family expects in guest memory: `address` is never
+/// mapped, so it resolves to its fallback account whose first 20 encoded bytes are `address`.
+fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId, BenchmarkError> {
+	let account_id = T::AddressMapper::to_fallback_account_id(&address);
+	AccountInfo::<T>::set_delegation(&address, Some(target), &account_id)
+		.map_err(|_| "set_delegation failed")?;
+	Ok(account_id)
+}
+
+/// Pushes the data a benchmark set up out of the L1 and L2 caches by writing unrelated memory.
+///
+/// Writes 8 MiB, which is larger than the L2 cache of the reference hardware.
+fn evict_caches() {
+	const EVICTION_SIZE: usize = 8 * 1024 * 1024;
+	core::hint::black_box(vec![1u8; EVICTION_SIZE]);
+}
+
+/// Pushes `values` onto the interpreter's stack in order, so the last value ends up on top.
+fn setup_stack<E: Ext>(interpreter: &mut Interpreter<E>, values: impl IntoIterator<Item = U256>) {
+	values
+		.into_iter()
+		.for_each(|value| interpreter.stack.push(value).continue_value().unwrap());
+}
+
+/// Pairs a pseudo-randomly chosen denominator with the shared `2^255` numerator.
+fn unsigned_division_operands(rng: &mut impl Rng, denominators: &[U256]) -> [U256; 2] {
+	let denominator = denominators.choose(rng).copied().unwrap();
+	[denominator, knuth_division_operands::NUMERATOR]
+}
+
+/// Like [`unsigned_division_operands`], but negates the divisor pseudo-randomly.
+fn signed_division_operands(rng: &mut impl Rng, denominators: &[U256]) -> [U256; 2] {
+	let [magnitude, numerator] = unsigned_division_operands(rng, denominators);
+	let divisor =
+		if rng.gen_bool(0.5) { magnitude } else { U256::zero().overflowing_sub(magnitude).0 };
+	[divisor, numerator]
+}
+
+/// Operands covering all 17 correction patterns possible when dividing `2^255` by two-limb
+/// divisors.
+///
+/// Knuth's Algorithm D can correct the highest quotient limb zero or one time and each lower limb
+/// up to twice. The pattern `1, 0, 2` is impossible for this numerator. The counts were checked
+/// against `uint` 0.10.0's division. None of these operands needs the rarer correction that adds
+/// the divisor back after subtracting.
+///
+/// Picking a denominator pseudo-randomly varies the correction branches across divisions. Each
+/// denominator also makes the `u128` divisions behind the estimates take as many steps as any we
+/// found with its pattern. Correcting a limb twice needs a second denominator limb above one, which
+/// shortens the division behind the first estimate.
+///
+/// The fixed divisors are the denominators that measured slowest for each op-code. The slowest one
+/// depends on the op-code: `SDIV` and `SMOD` measured slowest with different patterns than `DIV`
+/// and `MOD`. After updating `uint` or the Rust toolchain, search for the denominators again and
+/// measure which one is slowest for each op-code.
+mod knuth_division_operands {
+	use super::{Rng, U256};
+
+	pub fn fixed_signed_operands(rng: &mut impl Rng, magnitude: U256) -> [U256; 2] {
+		// Consume the divisor draw to match the baseline's pseudo-random sign sequence.
+		let _ = rng.gen_range(0..DENOMINATORS.len() as u32);
+		let divisor =
+			if rng.gen_bool(0.5) { magnitude } else { U256::zero().overflowing_sub(magnitude).0 };
+		[divisor, NUMERATOR]
+	}
+
+	/// 2^255 as an unsigned value, or -2^255 as a signed one, so signed and unsigned divisions
+	/// divide the same magnitudes.
+	pub const NUMERATOR: U256 = U256([0, 0, 0, 1 << 63]);
+	/// The denominator that measured slowest for `DIV`.
+	pub const DIV_FIXED_DIVISOR: U256 = U256([0x05f0_ac84_84d2_a8f7, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `SDIV`.
+	pub const SDIV_FIXED_DIVISOR: U256 = U256([0x16d5_ec4a_0e7b_8cdb, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `MOD`.
+	pub const MOD_FIXED_DIVISOR: U256 = U256([0x0007_f84c_6624_4131, 0x1, 0, 0]);
+	/// The denominator that measured slowest for `SMOD`.
+	pub const SMOD_FIXED_DIVISOR: U256 = U256([0x5141_1d54_0d50_9ec1, 0x1, 0, 0]);
+	/// `ADDMOD` reuses the divisor of `MOD`.
+	pub const ADDMOD_FIXED_DIVISOR: U256 = MOD_FIXED_DIVISOR;
+
+	/// Two distinct divisors per pattern, with correction counts listed in limb order 2, 1, 0.
+	pub const DENOMINATORS: [U256; 34] = [
+		// Corrections: 0, 0, 0.
+		U256([0x1ac6_6dea_3270_0980, 0x1, 0, 0]),
+		U256([0x1150_77a4_12e2_ccc0, 0x1, 0, 0]),
+		// Corrections: 0, 0, 1.
+		U256([0x3c9b_ee44_0b3f_dba7, 0x1, 0, 0]),
+		U256([0x62aa_fc46_0845_aad9, 0x1, 0, 0]),
+		// Corrections: 0, 1, 0.
+		U256([0x2806_4b94_70ef_f3d9, 0x1, 0, 0]),
+		U256([0x61d1_c4c6_195a_2d43, 0x1, 0, 0]),
+		// Corrections: 0, 1, 1.
+		SDIV_FIXED_DIVISOR,
+		U256([0x3ef8_7550_1dce_eb99, 0x1, 0, 0]),
+		// Corrections: 1, 0, 0.
+		U256([0xce1e_8ac2_290c_265f, 0x1, 0, 0]),
+		U256([0xd736_05ee_66e1_a76b, 0x1, 0, 0]),
+		// Corrections: 1, 0, 1.
+		U256([0xeb2b_fb00_8fa9_e0f7, 0x1, 0, 0]),
+		SMOD_FIXED_DIVISOR,
+		// Corrections: 1, 1, 0.
+		U256([0x500c_237e_4578_d88b, 0x1, 0, 0]),
+		U256([0x0164_a34e_0b1c_a4fd, 0x1, 0, 0]),
+		// Corrections: 1, 1, 1.
+		MOD_FIXED_DIVISOR,
+		DIV_FIXED_DIVISOR,
+		// Corrections: 0, 0, 2.
+		U256([0x3db2_354e_f8e8_6ca5, 0x96aa_3b25, 0, 0]),
+		U256([0x2848_08be_ea22_56a3, 0x9339_ddd9, 0, 0]),
+		// Corrections: 0, 1, 2.
+		U256([0x2534_a796_ffdf_b85e, 0xc250_8262, 0, 0]),
+		U256([0x4726_e939_da3c_08fe, 0xc198_a4ce, 0, 0]),
+		// Corrections: 0, 2, 0.
+		U256([0x5d5b_2f53_f03d_bec8, 0x909d_ad3b, 0, 0]),
+		U256([0x8e31_4add_736d_ee08, 0x40ce_7f0c, 0, 0]),
+		// Corrections: 0, 2, 1.
+		U256([0x0c62_030f_fabf_0fc7, 0xb51d_e6cb, 0, 0]),
+		U256([0x0332_58df_e522_494c, 0xb4db_915d, 0, 0]),
+		// Corrections: 0, 2, 2.
+		U256([0x0b07_4c7e_fb00_0c1f, 0xa5b9_8f9a, 0, 0]),
+		U256([0x26a5_a3c7_fce7_abd6, 0xa4a5_d36a, 0, 0]),
+		// Corrections: 1, 1, 2.
+		U256([0x6654_d104_1c8e_6943, 0x2, 0, 0]),
+		U256([0x64b6_7f9c_0cf1_dbff, 0x2, 0, 0]),
+		// Corrections: 1, 2, 0.
+		U256([0xeff9_3d22_eeac_89cf, 0x87, 0, 0]),
+		U256([0xadb2_0f65_e0ba_c8df, 0x12, 0, 0]),
+		// Corrections: 1, 2, 1.
+		U256([0xf486_a407_463b_dfde, 0x253, 0, 0]),
+		U256([0xaea8_360c_3043_f5f9, 0x1b4, 0, 0]),
+		// Corrections: 1, 2, 2.
+		U256([0xecbe_4a28_bb14_dbf0, 0x43, 0, 0]),
+		U256([0x64e2_acbc_9934_b1f2, 0x43, 0, 0]),
+	];
+}
+
+/// Operands covering all eight correction patterns in the one-limb division path.
+///
+/// `div_mod_small` divides one numerator limb at a time. The highest limb cannot require a
+/// correction. Each remaining limb can cause one correction in the 128-bit division helper. The
+/// patterns below are ordered by numerator limbs 2, 1, 0. The counts were checked with a
+/// source-level trace of Rust 1.93 `compiler_builtins` using the shared `2^255` numerator.
+///
+/// Each pattern has two distinct full-width divisors. Selecting a divisor pseudo-randomly varies
+/// the correction branches while preserving the signed minimum-numerator case.
+mod one_limb_division_operands {
+	use super::U256;
+
+	/// Two distinct divisors per pattern, with correction counts listed in limb order 2, 1, 0.
+	pub const DENOMINATORS: [U256; 16] = [
+		// Corrections: 0, 0, 0.
+		U256([0xfff9_9928_4b39_14e9, 0, 0, 0]),
+		U256([0xfff7_2ef6_07d7_0402, 0, 0, 0]),
+		// Corrections: 0, 0, 1.
+		U256([0xfffc_adff_2ef2_7bf4, 0, 0, 0]),
+		U256([0xffc7_1287_6d60_c1f0, 0, 0, 0]),
+		// Corrections: 0, 1, 0.
+		U256([0xfff8_74b0_648f_da8a, 0, 0, 0]),
+		U256([0xfff7_1d06_39ab_3877, 0, 0, 0]),
+		// Corrections: 0, 1, 1.
+		U256([0xf974_5f46_74c9_5adf, 0, 0, 0]),
+		U256([0xf7e1_3204_7bd0_15af, 0, 0, 0]),
+		// Corrections: 1, 0, 0.
+		U256([0xfff7_ac60_75f1_501f, 0, 0, 0]),
+		U256([0xffe8_555d_5f54_a346, 0, 0, 0]),
+		// Corrections: 1, 0, 1.
+		U256([0xfe7a_ca58_4afc_ed70, 0, 0, 0]),
+		U256([0xfd2b_4905_64bd_9797, 0, 0, 0]),
+		// Corrections: 1, 1, 0.
+		U256([0xfcd0_0e3d_ccbd_7da4, 0, 0, 0]),
+		U256([0xee06_4d5d_bfab_b524, 0, 0, 0]),
+		// Corrections: 1, 1, 1.
+		U256([0xf42a_21ef_e080_fc89, 0, 0, 0]),
+		U256([0xf095_aea7_fc96_fbde, 0, 0, 0]),
+	];
+}
+
+/// Randomly chooses between the Knuth and one-limb correction-pattern operand sets.
+mod mixed_division_operands {
+	use super::{
+		Rng, U256, knuth_division_operands, one_limb_division_operands, signed_division_operands,
+		unsigned_division_operands,
+	};
+
+	pub fn unsigned_operands(rng: &mut impl Rng) -> [U256; 2] {
+		let denominators = denominators(rng);
+		unsigned_division_operands(rng, denominators)
+	}
+
+	pub fn signed_operands(rng: &mut impl Rng) -> [U256; 2] {
+		let denominators = denominators(rng);
+		signed_division_operands(rng, denominators)
+	}
+
+	fn denominators(rng: &mut impl Rng) -> &'static [U256] {
+		if rng.gen_bool(0.5) {
+			&knuth_division_operands::DENOMINATORS
+		} else {
+			&one_limb_division_operands::DENOMINATORS
+		}
+	}
+}
+
 #[benchmarks(
 	where
 		T: Config,
@@ -124,6 +336,179 @@ mod benchmarks {
 		{
 			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 		}
+	}
+
+	// Benchmark for processing N EIP-7702 authorizations with empty accounts
+	// This measures the overhead of processing the authorization list
+	// Parameter `n`: number of authorizations to process
+	#[benchmark(pov_mode = Measured)]
+	fn process_new_account_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use sp_io::hashing::keccak_256;
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+		let chain_id = U256::from(T::ChainId::get());
+		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		// Worst case: every authorization targets a *distinct* contract with *distinct* code
+		// so neither `AccountInfoOf<target>` nor `CodeInfoOf<code_hash>` reads can be cached
+		// across the loop. `dummy_unique(i)` produces a unique blob per index; the contract is
+		// deployed at a unique salt-index so addresses also differ.
+		let mut authorization_list = vec![];
+		for i in 0..n {
+			let target_contract =
+				Contract::<T>::with_index(i + 1, VmBinaryModule::dummy_unique(i), vec![])?;
+			let target = target_contract.address;
+
+			let key_material = keccak_256(&i.to_le_bytes());
+			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			let signed_auth = eip7702::sign_authorization(&key, chain_id, target, U256::zero());
+			authorization_list.push(signed_auth);
+		}
+
+		let auth_result;
+		#[block]
+		{
+			auth_result =
+				eip7702::process_authorizations::<T>(&authorization_list, &caller, &exec_config);
+		}
+
+		assert_eq!(auth_result.new_accounts, n as u32, "All authorizations should be new");
+		Ok(())
+	}
+
+	// Benchmark for processing N EIP-7702 authorizations with existing accounts.
+	//
+	// Worst case: each authority is *already* delegated to a unique target whose code is
+	// referenced only by that delegation, with the deposit paid by an account other than the
+	// bench's `caller`. Re-delegating to a fresh target then exercises the most expensive paths
+	// per auth:
+	//   - payer-change: full refund to `setup_payer` + full charge from `caller`
+	//   - old-code refcount → 0: `decrement_refcount` removes `CodeInfoOf` + `PristineCode`
+	//   - new-code refcount 0 → 1: `increment_refcount`
+	//
+	// To produce `refcount(old_code) == 1` going into the bench, we directly decrement the
+	// deployment's contribution after setup. This is equivalent to having terminated the old
+	// target (which would also drop the deployment's ref) — `#[block]` only reads the
+	// delegation snapshot's `code_hash`, never `AccountInfoOf[old_target]`, so it doesn't
+	// matter that the latter is still present.
+	//
+	// Parameter `n`: number of authorizations to process
+	#[benchmark(pov_mode = Measured)]
+	fn process_existing_account_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use sp_io::hashing::keccak_256;
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
+		// Distinct payer (≠ `caller`) so the bench takes the payer-change branch in
+		// `process_authorizations` (full refund + full charge per auth) rather than the
+		// same-payer net-diff fast path.
+		let setup_payer: T::AccountId = account("setup_payer", 0, 0);
+		T::Currency::set_balance(&setup_payer, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
+		let chain_id = U256::from(T::ChainId::get());
+		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		let mut authorization_list = vec![];
+		for i in 0..n {
+			// Old delegation target with unique code (so each gets its own `CodeInfoOf` entry).
+			let old_target =
+				Contract::<T>::with_index(2 * i + 1, VmBinaryModule::dummy_unique(2 * i), vec![])?;
+			let old_code_hash = <AccountInfoOf<T>>::get(&old_target.address)
+				.and_then(|info| match info.account_type {
+					AccountType::Contract(c) => Some(c.code_hash),
+					_ => None,
+				})
+				.ok_or("old_target should be a Contract")?;
+
+			// Pre-existing delegation paid by `setup_payer`. Bumps the authority's nonce to 1
+			// and brings `refcount(old_code)` to 2 (deployment + delegation snapshot).
+			let key_material = keccak_256(&i.to_le_bytes());
+			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			let setup_auth =
+				eip7702::sign_authorization(&key, chain_id, old_target.address, U256::zero());
+			let _ = eip7702::process_authorizations::<T>(&[setup_auth], &setup_payer, &exec_config);
+
+			// Drop the deployment's ref so the delegation snapshot is the sole holder. This
+			// mirrors the post-termination storage state without spending setup time on real
+			// contract calls (the bench measures `#[block]`, not setup).
+			let _ =
+				CodeInfo::<T>::decrement_refcount(old_code_hash).map_err(|_| "decrement failed")?;
+
+			// New target (also unique code) that the authority re-delegates to.
+			let new_target = Contract::<T>::with_index(
+				2 * i + 2,
+				VmBinaryModule::dummy_unique(2 * i + 1),
+				vec![],
+			)?;
+
+			// Authority's nonce is 1 after setup, so the re-delegation auth signs with nonce=1.
+			let signed_auth =
+				eip7702::sign_authorization(&key, chain_id, new_target.address, U256::one());
+			authorization_list.push(signed_auth);
+		}
+
+		let auth_result;
+		#[block]
+		{
+			auth_result =
+				eip7702::process_authorizations::<T>(&authorization_list, &caller, &exec_config);
+		}
+
+		assert_eq!(auth_result.new_accounts, 0u32);
+		assert_eq!(auth_result.existing_accounts, n as u32);
+		Ok(())
+	}
+
+	// Measures the per-tuple cost of an authorization that runs through chain_id check
+	// and ecdsa_recover but then fails validation (here: nonce mismatch) — captures the
+	// sig-recovery cost without any account creation/update work.
+	#[benchmark(pov_mode = Measured)]
+	fn process_invalid_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use sp_io::hashing::keccak_256;
+
+		let chain_id = U256::from(T::ChainId::get());
+		let target_contract = Contract::<T>::with_index(0, VmBinaryModule::dummy(), vec![])?;
+		let target = target_contract.address;
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		let mut authorization_list = vec![];
+		for i in 0..n {
+			let key_material = keccak_256(&(i as u32).to_le_bytes());
+			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			// Force nonce mismatch: signer's nonce is 0, but we sign nonce=1.
+			let signed_auth = eip7702::sign_authorization(&key, chain_id, target, U256::one());
+			authorization_list.push(signed_auth);
+		}
+
+		let auth_result;
+		#[block]
+		{
+			auth_result =
+				eip7702::process_authorizations::<T>(&authorization_list, &caller, &exec_config);
+		}
+
+		assert_eq!(auth_result.new_accounts, 0u32);
+		assert_eq!(auth_result.existing_accounts, 0u32);
+		Ok(())
 	}
 
 	/// Measures the per-entry cost of `process_deletion_queue_batch`: one `DeletionQueue` read
@@ -518,6 +903,7 @@ mod benchmarks {
 			TransactionSigned::default().signed_payload(),
 			effective_gas_price,
 			0,
+			vec![],
 		);
 
 		// contract should have received the value
@@ -625,6 +1011,44 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(origin);
 		assert!(!T::AddressMapper::is_mapped(&caller));
+	}
+
+	/// Worst case: every input account is not eth-derived, not yet mapped, and
+	/// already carries an [`HoldReason::AddressMapping`] hold. The per-account
+	/// loop body in `batch_map_accounts` then both inserts the [`OriginalAccount`]
+	/// entry via `map_no_deposit_unchecked` *and* releases the existing hold.
+	#[benchmark(pov_mode = Measured)]
+	fn batch_map_accounts(a: Linear<0, 1024>) -> Result<(), BenchmarkError> {
+		use frame_benchmarking::v2::account;
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+
+		// Matches the deposit that `AccountId32Mapper::map` would normally take.
+		let deposit = T::DepositPerByte::get()
+			.saturating_mul(52u32.into())
+			.saturating_add(T::DepositPerItem::get());
+
+		let mut accounts = Vec::with_capacity(a as usize);
+		for i in 0..a {
+			let account_id: T::AccountId = account("to_map", i, 0);
+			T::Currency::set_balance(&account_id, caller_funding::<T>());
+			T::Currency::hold(&HoldReason::AddressMapping.into(), &account_id, deposit)?;
+			accounts.push(account_id);
+		}
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), accounts.clone());
+
+		for account_id in &accounts {
+			assert!(T::AddressMapper::is_mapped(account_id));
+			assert_eq!(
+				T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), account_id),
+				0u32.into(),
+			);
+		}
+
+		Ok(())
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -827,6 +1251,29 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn origin_is_root() {
+		let input_bytes =
+			ISystem::ISystemCalls::originIsRoot(ISystem::originIsRootCall {}).abi_encode();
+
+		let mut setup = CallSetup::<T>::default();
+		setup.set_origin(ExecOrigin::Root);
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		let raw_data = result.unwrap().data;
+		let is_root = Bool::abi_decode(&raw_data).expect("decoding failed");
+		assert!(is_root);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_address() {
 		let len = H160::len_bytes();
 		build_runtime!(runtime, memory: [vec![0u8; len as _], ]);
@@ -907,7 +1354,7 @@ mod benchmarks {
 	fn seal_balance_of() {
 		let len = <sp_core::U256 as MaxEncodedLen>::max_encoded_len();
 		let account = account::<T::AccountId>("target", 0, 0);
-		<T as Config>::AddressMapper::map_no_deposit(&account).unwrap();
+		<T as Config>::AddressMapper::map_no_deposit_unchecked(&account).unwrap();
 
 		let address = T::AddressMapper::to_address(&account);
 		let balance = Pallet::<T>::min_balance() * 2u32.into();
@@ -1285,7 +1732,7 @@ mod benchmarks {
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
-		T::AddressMapper::map_no_deposit(&beneficiary)?;
+		T::AddressMapper::map_no_deposit_unchecked(&beneficiary)?;
 
 		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
 		let code_hash = instance.info()?.code_hash;
@@ -1358,16 +1805,21 @@ mod benchmarks {
 		let data = vec![42u8; n as _];
 		build_runtime!(runtime, instance, memory: [ topics_data, data, ]);
 
+		// Inside an ethereum transaction, the worst case: the log is also captured into the open
+		// receipt, which encodes it, accrues the bloom and writes what the transaction has
+		// committed so far to storage.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_deposit_event(
-				memory.as_mut_slice(),
-				0, // topics_ptr
-				num_topic,
-				topics_data.len() as u32, // data_ptr
-				n,                        // data_len
-			);
+			result = block_storage::bench_with_ethereum_context(|| {
+				runtime.bench_deposit_event(
+					memory.as_mut_slice(),
+					0, // topics_ptr
+					num_topic,
+					topics_data.len() as u32, // data_ptr
+					n,                        // data_len
+				)
+			});
 		}
 		assert_ok!(result);
 
@@ -1380,18 +1832,92 @@ mod benchmarks {
 		);
 	}
 
+	enum TrieFill {
+		Empty,
+		Full,
+	}
+
+	enum SlotAccess {
+		Cold,
+		Hot,
+	}
+
+	fn build_storage_contract<T: Config>(
+		op: StorageOp,
+		fill: TrieFill,
+	) -> Result<(ContractInfo<T>, Vec<u8>, Vec<u8>), BenchmarkError> {
+		let key = vec![0u8; limits::STORAGE_KEY_BYTES as usize];
+		let value = vec![1u8; limits::STORAGE_BYTES as usize];
+		let initial_value = match op {
+			StorageOp::Read => value.clone(),
+			StorageOp::Write => vec![42u8; limits::STORAGE_BYTES as usize],
+		};
+
+		let instance = match fill {
+			TrieFill::Full => {
+				Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?
+			},
+			TrieFill::Empty => Contract::<T>::new(VmBinaryModule::dummy(), vec![])?,
+		};
+		let info = instance.info()?;
+		info.bench_write_raw(&key, Some(initial_value), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+		Ok((info, key, value))
+	}
+
+	enum StorageCall {
+		Clear,
+		Contains,
+		Take,
+	}
+
+	fn setup_precompile_bench<T: Config>(
+		op: StorageCall,
+		key_byte: u8,
+		access: SlotAccess,
+	) -> Result<(CallSetup<T>, Key, Vec<u8>), BenchmarkError> {
+		let max_key_len = limits::STORAGE_KEY_BYTES;
+		let key = Key::try_from_var(vec![key_byte; max_key_len as usize])
+			.map_err(|_| "Key has wrong length")?;
+		let raw_key = vec![key_byte; max_key_len as usize].into();
+		let input_bytes = match op {
+			StorageCall::Clear => {
+				IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
+					flags: StorageFlags::empty().bits(),
+					key: raw_key,
+					isFixedKey: false,
+				})
+			},
+			StorageCall::Contains => {
+				IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
+					flags: StorageFlags::empty().bits(),
+					key: raw_key,
+					isFixedKey: false,
+				})
+			},
+			StorageCall::Take => IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
+				flags: StorageFlags::empty().bits(),
+				key: raw_key,
+				isFixedKey: false,
+			}),
+		}
+		.abi_encode();
+
+		let call_setup = CallSetup::<T>::default();
+		if matches!(access, SlotAccess::Hot) {
+			let info = call_setup.contract().info()?;
+			frame_benchmarking::add_to_whitelist_child(
+				info.child_trie_info().storage_key().to_vec(),
+				key.hash(),
+			);
+		}
+		Ok((call_setup, key, input_bytes))
+	}
+
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn get_storage_empty() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES as usize;
-		let value = vec![1u8; max_value_len];
-
-		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
-		let info = instance.info()?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Read, TrieFill::Empty)?;
 		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(value.clone()), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
 		#[block]
@@ -1405,16 +1931,8 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn get_storage_full() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES;
-		let value = vec![1u8; max_value_len as usize];
-
-		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
-		let info = instance.info()?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Read, TrieFill::Full)?;
 		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(value.clone()), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
 		#[block]
@@ -1428,16 +1946,7 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn set_storage_empty() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES as usize;
-		let value = vec![1u8; max_value_len];
-
-		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
-		let info = instance.info()?;
-		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(vec![42u8; max_value_len]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Write, TrieFill::Empty)?;
 
 		let val = Some(value.clone());
 		let result;
@@ -1447,22 +1956,13 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(child::get_raw(&child_trie_info, &key).unwrap(), value);
+		assert_eq!(child::get_raw(&info.child_trie_info(), &key).unwrap(), value);
 		Ok(())
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn set_storage_full() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES;
-		let value = vec![1u8; max_value_len as usize];
-
-		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
-		let info = instance.info()?;
-		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(vec![42u8; max_value_len as usize]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Write, TrieFill::Full)?;
 
 		let val = Some(value.clone());
 		let result;
@@ -1472,7 +1972,100 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(child::get_raw(&child_trie_info, &key).unwrap(), value);
+		assert_eq!(child::get_raw(&info.child_trie_info(), &key).unwrap(), value);
+		Ok(())
+	}
+
+	/// Worst-case lookup keys: differing only at the tail, comparisons walk the whole key.
+	fn shared_prefix_keys(count: usize, suffix_of: impl Fn(u64) -> u64) -> Vec<Vec<u8>> {
+		(0..count as u64)
+			.map(|i| {
+				let mut key = vec![0u8; limits::STORAGE_KEY_BYTES as usize];
+				key[limits::STORAGE_KEY_BYTES as usize - 8..]
+					.copy_from_slice(&suffix_of(i).to_be_bytes());
+				key
+			})
+			.collect()
+	}
+
+	/// Probed keys must exist, or reads measure a proof-of-absence walk instead.
+	/// Whitelisting keeps them out of the DB counters and pre-warms the cache.
+	fn setup_stored_keys<T: Config>(
+		count: usize,
+		value_byte: u8,
+		suffix_of: impl Fn(u64) -> u64,
+	) -> Result<(ContractInfo<T>, Vec<Vec<u8>>), BenchmarkError> {
+		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
+		let info = instance.info()?;
+		let child_trie_info = info.child_trie_info();
+		let value = vec![value_byte; limits::STORAGE_BYTES as usize];
+		let stored_keys = shared_prefix_keys(count, suffix_of);
+		for key in &stored_keys {
+			info.bench_write_raw(key, Some(value.clone()), false)
+				.map_err(|_| "Failed to write to storage during setup.")?;
+			frame_benchmarking::add_to_whitelist_child(
+				child_trie_info.storage_key().to_vec(),
+				key.clone(),
+			);
+		}
+		Ok((info, stored_keys))
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn overlay_probe_full(
+		n: Linear<0, { MAX_ACCESS_LIST_ENTRIES as u32 }>,
+	) -> Result<(), BenchmarkError> {
+		let value_byte = 42;
+		// One stored key per probe; odd suffixes, so the even fill never overwrites them.
+		let (info, stored_keys) =
+			setup_stored_keys::<T>(MAX_ACCESS_LIST_ENTRIES, value_byte, |i| i * 2 + 1)?;
+		let child_trie_info = info.child_trie_info();
+		// The block's PoV budget bounds the overlay entries like the access list cap.
+		let fill_keys = shared_prefix_keys(MAX_ACCESS_LIST_ENTRIES, |i| (i + 1) * 2);
+
+		let mut result = None;
+		#[block]
+		{
+			// The benchmark framework drains the overlay right before the block, so fill here.
+			for key in &fill_keys {
+				child::put_raw(&child_trie_info, key, &[0u8]);
+			}
+			for i in 0..n {
+				let index = i as usize % stored_keys.len();
+				result = child::get_raw(&child_trie_info, &stored_keys[index]);
+			}
+		}
+
+		if n > 0 {
+			let expected = vec![value_byte; limits::STORAGE_BYTES as usize];
+			assert_eq!(result, Some(expected), "the stored value must be read back");
+		}
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn overlay_probe_empty(
+		n: Linear<0, { MAX_ACCESS_LIST_ENTRIES as u32 }>,
+	) -> Result<(), BenchmarkError> {
+		let value_byte = 42;
+		// Reads must cost the same as in `overlay_probe_full`, so their shared cost cancels.
+		let (info, stored_keys) =
+			setup_stored_keys::<T>(MAX_ACCESS_LIST_ENTRIES, value_byte, |i| i * 2 + 1)?;
+		let child_trie_info = info.child_trie_info();
+
+		let mut result = None;
+		#[block]
+		{
+			for i in 0..n {
+				let index = i as usize % stored_keys.len();
+				result = child::get_raw(&child_trie_info, &stored_keys[index]);
+			}
+		}
+
+		if n > 0 {
+			let expected = vec![value_byte; limits::STORAGE_BYTES as usize];
+			assert_eq!(result, Some(expected), "the stored value must be read back");
+		}
 		Ok(())
 	}
 
@@ -1513,22 +2106,81 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn clear_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_set_storage_hot(
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		o: Linear<0, { limits::STORAGE_BYTES }>,
+	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
+		let value = vec![1u8; n as usize];
 
-		let input_bytes = IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![0u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
+		build_runtime!(runtime, instance, memory: [ key.unhashed(), value.clone(), ]);
+		let info = instance.info()?;
 
-		let mut call_setup = CallSetup::<T>::default();
-		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		info.write(&key, Some(vec![42u8; o as usize]), None, false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		frame_benchmarking::add_to_whitelist_child(
+			info.child_trie_info().storage_key().to_vec(),
+			key.hash(),
+		);
+
+		// Add the key to access list so the op's touch is hot.
+		runtime.ext().touch_storage_access(&key, StorageOp::Write);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_set_storage(
+				memory.as_mut_slice(),
+				StorageFlags::empty().bits(),
+				0,           // key_ptr
+				max_key_len, // key_len
+				max_key_len, // value_ptr
+				n,           // value_len
+			);
+		}
+
+		assert_ok!(result);
+		assert_eq!(info.read(&key).unwrap(), value);
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn clear_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Clear, key_byte, SlotAccess::Cold)?;
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).is_none());
+
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn clear_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Clear, key_byte, SlotAccess::Hot)?;
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		ext.touch_storage_access(&key, StorageOp::Write);
 
 		let result;
 		#[block]
@@ -1576,20 +2228,49 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn contains_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_get_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		let input_bytes = IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
-			flags: StorageFlags::TRANSIENT.bits(),
-			key: vec![0u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
+		build_runtime!(runtime, instance, memory: [ key.unhashed(), n.to_le_bytes(), vec![0u8; n as _], ]);
+		let info = instance.info()?;
 
-		let mut call_setup = CallSetup::<T>::default();
+		info.write(&key, Some(vec![42u8; n as usize]), None, false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		frame_benchmarking::add_to_whitelist_child(
+			info.child_trie_info().storage_key().to_vec(),
+			key.hash(),
+		);
+
+		runtime.ext().touch_storage_access(&key, StorageOp::Read);
+
+		let out_ptr = max_key_len + 4;
+		let result;
+		#[block]
+		{
+			result = runtime.bench_get_storage(
+				memory.as_mut_slice(),
+				StorageFlags::empty().bits(),
+				0,           // key_ptr
+				max_key_len, // key_len
+				out_ptr,     // out_ptr
+				max_key_len, // out_len_ptr
+			);
+		}
+
+		assert_ok!(result);
+		assert_eq!(&info.read(&key).unwrap(), &memory[out_ptr as usize..]);
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn contains_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Contains, key_byte, SlotAccess::Cold)?;
 		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1608,21 +2289,38 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn take_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![3u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-
-		let input_bytes = IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![3u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
-
-		let mut call_setup = CallSetup::<T>::default();
+	fn contains_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Contains, key_byte, SlotAccess::Hot)?;
 		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		ext.touch_storage_access(&key, StorageOp::Read);
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).is_some());
+
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn take_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 3;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Take, key_byte, SlotAccess::Cold)?;
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1637,6 +2335,139 @@ mod benchmarks {
 		assert_ok!(result);
 		assert!(ext.get_storage(&key).is_none());
 
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn take_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 3;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Take, key_byte, SlotAccess::Hot)?;
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		ext.touch_storage_access(&key, StorageOp::Write);
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).is_none());
+
+		Ok(())
+	}
+
+	fn worst_case_slot() -> crate::access_list::Slot {
+		let key = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
+			.expect("key fits STORAGE_KEY_BYTES bound; qed");
+		crate::access_list::Slot::from(&key)
+	}
+
+	fn near_full_access_list() -> crate::access_list::AccessList {
+		let mut al = AccessList::new();
+		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
+			al.touch(
+				AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(i as u64) },
+				StorageOp::Read,
+			);
+		}
+		al
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
+		let mut al = near_full_access_list();
+		// Insert a new entry (u64::MAX is past the fill range, so the touch is cold).
+		let entry =
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_cold());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
+		let mut al = near_full_access_list();
+		// Worst-case hot touch: the rightmost key and the write upgrades the read-paid entry.
+		let entry = AccessEntry {
+			slot: worst_case_slot(),
+			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64 - 2),
+		};
+
+		let touched = entry.clone();
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(touched, StorageOp::Write);
+		}
+		assert_eq!(
+			outcome,
+			Warmth::Hot { charged: StorageOp::Read },
+			"the fill seeded this entry read-paid"
+		);
+		assert_eq!(
+			al.peek(&entry),
+			Warmth::Hot { charged: StorageOp::Write },
+			"the write upgraded the entry"
+		);
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::new();
+		let entry =
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_cold());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::new();
+		let entry =
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		al.touch(entry.clone(), StorageOp::Read);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(!outcome.is_cold());
+		Ok(())
+	}
+
+	// Per-entry rollback cost, prepaid by every cold touch since a frame revert
+	// can't charge gas itself. Isolated by reverting a frame with exactly one
+	// journaled entry on top of a near-full `AccessList`.
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
+		let mut al = near_full_access_list();
+		al.enter_frame();
+		al.touch(
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) },
+			StorageOp::Read,
+		);
+		#[block]
+		{
+			al.rollback_frame();
+		}
 		Ok(())
 	}
 
@@ -1819,7 +2650,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
@@ -1890,7 +2721,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
@@ -1949,9 +2780,24 @@ mod benchmarks {
 	// d: with or without dust value to transfer
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call(t: Linear<0, 1>, d: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
-		let Contract { account_id: callee, address: callee_addr, .. } =
-			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+	fn seal_call(
+		t: Linear<0, 1>,
+		d: Linear<0, 1>,
+		i: Linear<0, { limits::code::BLOB_BYTES }>,
+	) -> Result<(), BenchmarkError> {
+		// An EIP-7702 delegated callee is the worst case for the account resolution in
+		// `new_frame`: the `AccountInfoOf` entry decodes the larger `DelegatedEOA` variant and
+		// the call still runs the target's code. (A callee whose delegation snapshot is empty
+		// costs a second read of the target but skips code load and execution entirely, so it
+		// is cheaper overall.)
+		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		let callee_addr = H160([0x42; 20]);
+		let callee = delegated_eoa::<T>(callee_addr, target.address)?;
+		// Keep the origin's budget the same as with a contract callee. A contract already exists
+		// in `System`, so `Stack::transfer` skips the "create the destination" arm; a fresh EOA
+		// does not, and that arm charges the destination's ED to the origin, leaving it nothing
+		// for `ensure_sufficient_dust` to burn into dust when `d == 1`.
+		T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
 
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
@@ -1977,6 +2823,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+		let before = Pallet::<T>::evm_balance(&callee_addr);
 
 		let result;
 		#[block]
@@ -1995,9 +2842,11 @@ mod benchmarks {
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		assert_eq!(
 			Pallet::<T>::evm_balance(&callee_addr),
-			evm_value,
-			"{callee_addr:?} balance should hold {evm_value:?}"
+			before + evm_value,
+			"{callee_addr:?} balance should have grown by {evm_value:?}"
 		);
+
+		Ok(())
 	}
 
 	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
@@ -2064,8 +2913,10 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
-		let Contract { account_id: address, .. } =
-			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+		// Delegated code source: worst case for the callee resolution in `new_frame`.
+		// See `seal_call`.
+		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		let address = delegated_eoa::<T>(H160([0x43; 20]), target.address)?;
 
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;
@@ -2579,6 +3430,643 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmarks `r` EVM `POP` op-codes.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_pop_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = Bytecode::new_raw(vec![POP; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, vec![U256::MAX; r as usize]);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `DIV` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
+	///   the divisor is picked at random from [`knuth_division_operands`].
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `DIV` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `DIV` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| mixed_division_operands::unsigned_operands(&mut rng));
+
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `DIV` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::{DIV_FIXED_DIVISOR, NUMERATOR};
+
+		let operands = (0..r).flat_map(|_| [DIV_FIXED_DIVISOR, NUMERATOR]);
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SDIV` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A carry through every limb to negate the numerator, since it's the most negative value.
+	/// * No early exit from the check against the most negative value, since the numerator is that
+	///   value.
+	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
+	///   the divisor is picked at random from [`knuth_division_operands`].
+	/// * A branch misprediction on whether the divisor and the quotient are negated, since the
+	///   divisor's sign is pseudo-random.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SDIV` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SDIV` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| mixed_division_operands::signed_operands(&mut rng));
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SDIV` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::{SDIV_FIXED_DIVISOR, fixed_signed_operands};
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| fixed_signed_operands(&mut rng, SDIV_FIXED_DIVISOR));
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `MOD` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
+	///   the divisor is picked at random from [`knuth_division_operands`].
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `MOD` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| unsigned_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `MOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| mixed_division_operands::unsigned_operands(&mut rng));
+
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `MOD` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::{MOD_FIXED_DIVISOR, NUMERATOR};
+
+		let operands = (0..r).flat_map(|_| [MOD_FIXED_DIVISOR, NUMERATOR]);
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SMOD` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A carry through every limb to negate the numerator, since it's the most negative value.
+	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
+	///   the divisor is picked at random from [`knuth_division_operands`].
+	/// * A branch misprediction on whether the divisor is negated, since its sign is pseudo-random.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SMOD` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| signed_division_operands(&mut rng, &DENOMINATORS));
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SMOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| mixed_division_operands::signed_operands(&mut rng));
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `SMOD` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use knuth_division_operands::{SMOD_FIXED_DIVISOR, fixed_signed_operands};
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| fixed_signed_operands(&mut rng, SMOD_FIXED_DIVISOR));
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A division for each addend, since both are above the modulus.
+	/// * A branch misprediction on how many times each quotient limb's estimate is corrected, since
+	///   the modulus is picked at random from [`knuth_division_operands`].
+	/// * A branch misprediction on whether the modulus is subtracted from the sum, since that
+	///   depends on the modulus picked.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use knuth_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let [modulus, numerator] = unsigned_division_operands(&mut rng, &DENOMINATORS);
+			[modulus, numerator, numerator]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random one-limb correction patterns.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_one_limb_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use one_limb_division_operands::DENOMINATORS;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let [modulus, numerator] = unsigned_division_operands(&mut rng, &DENOMINATORS);
+			[modulus, numerator, numerator]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with pseudo-random mixed one-limb and Knuth divisors.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_mixed_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let [modulus, numerator] = mixed_division_operands::unsigned_operands(&mut rng);
+			[modulus, numerator, numerator]
+		});
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `ADDMOD` op-codes with the selected fixed Knuth divisor.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode_fixed_knuth_variant(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use knuth_division_operands::{ADDMOD_FIXED_DIVISOR, NUMERATOR};
+
+		let operands = (0..r).flat_map(|_| [ADDMOD_FIXED_DIVISOR, NUMERATOR, NUMERATOR]);
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
+	/// Benchmarks `r` EVM `MULMOD` op-codes.
+	///
+	/// # Added Overheads
+	///
+	/// * Cold reads, since the L1 and L2 caches are evicted before the benchmark runs.
+	/// * A product that fills every limb, since the top and lowest bits of both operands are set.
+	/// * A multiply-subtract over all divisor limbs instead of all but the top two, since the top
+	///   bits of the modulus are clear and division requires a nonzero normalization shift.
+	/// * A branch misprediction on how many times the division loops, since the size of the modulus
+	///   is pseudo-random.
+	/// * A branch misprediction on each adjustment of the modulus's reciprocal, since whether it
+	///   happens is pseudo-random.
+	/// * A branch misprediction on the carry steps of the multiplication, since which limbs of one
+	///   operand are zero is pseudo-random.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mulmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		let top_bit = U256::one() << 255;
+		// The division computes the reciprocal of the top two limbs of the shifted modulus from the
+		// top limb first, and then adjusts it twice for the second limb. These say whether each
+		// adjustment happens.
+		let reciprocal_adjustments = |modulus: U256| {
+			let top = (modulus << modulus.leading_zeros() as usize) >> 128;
+			let (high, low) = (top.low_u128() >> 64, u128::from(top.low_u64()));
+			[low > u128::MAX % high, (U256::MAX >> 64) / top < U256::from((u128::MAX - low) / high)]
+		};
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let operands = (0..r).flat_map(|_| {
+			let limbs = if rng.gen_bool(0.5) { 3 } else { 4 };
+			let adjustments = [rng.gen_bool(0.5), rng.gen_bool(0.5)];
+			let modulus = loop {
+				let modulus = (U256(rng.r#gen()) | top_bit) >> (2 + 64 * (4 - limbs));
+				if reciprocal_adjustments(modulus) == adjustments {
+					break modulus;
+				}
+			};
+			let a = U256(rng.r#gen()) | top_bit | U256::one();
+			let mut b = U256(rng.r#gen()) | top_bit | U256::one();
+			for limb in 1..=2 {
+				if rng.gen_bool(0.5) {
+					b.0[limb] = 0;
+				}
+			}
+			[modulus, b, a]
+		});
+
+		let code = Bytecode::new_raw([MULMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		setup_stack(&mut interpreter, operands);
+
+		evict_caches();
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory
@@ -2663,10 +4151,11 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn extcodecopy(n: Linear<1_000, 10_000>) -> Result<(), BenchmarkError> {
-		let module = VmBinaryModule::sized(n);
-		let mut setup = CallSetup::<T>::new(module);
-		let contract = setup.contract();
+	fn extcodecopy(n: Linear<1_000, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+		// The caller contract; `CallSetup` whitelists its `AccountInfoOf`.
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::dummy());
+		// Copy a contract other than the caller, so its `AccountInfoOf` read is counted.
+		let target = Contract::<T>::with_index(1, VmBinaryModule::sized(n), vec![])?;
 
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
@@ -2675,7 +4164,7 @@ mod benchmarks {
 		let _ = interpreter.stack.push(U256::from(n));
 		let _ = interpreter.stack.push(U256::from(0u32));
 		let _ = interpreter.stack.push(U256::from(0u32));
-		let _ = interpreter.stack.push(contract.address);
+		let _ = interpreter.stack.push(target.address);
 
 		let result;
 		#[block]
@@ -2686,8 +4175,8 @@ mod benchmarks {
 		assert!(result.is_continue());
 		assert_eq!(
 			*interpreter.memory.slice(0..n as usize),
-			PristineCode::<T>::get(contract.info()?.code_hash).unwrap()[0..n as usize],
-			"Memory should contain the contract's code after extcodecopy"
+			PristineCode::<T>::get(target.info()?.code_hash).unwrap()[0..n as usize],
+			"Memory should contain the target contract's code after extcodecopy"
 		);
 
 		Ok(())
@@ -2981,6 +4470,11 @@ mod benchmarks {
 		let current_block = BlockNumberFor::<T>::from(1u32);
 		frame_system::Pallet::<T>::set_block_number(current_block);
 
+		// Where `Deposit` mints through `fungibles` and the runtime mirrors balance changes as
+		// logs, creating the contract above buffers one. Drop it, so these benchmarks measure the
+		// transactions and logs they set up themselves and no synthetic transaction on top.
+		Pallet::<T>::clear_outside_frame_logs();
+
 		Ok((instance, storage_deposit, evm_value, signer_key, current_block))
 	}
 
@@ -3032,7 +4526,7 @@ mod benchmarks {
 				// Store transaction
 				let _ = block_storage::bench_with_ethereum_context(|| {
 					let (encoded_logs, bloom) =
-						block_storage::get_receipt_details().unwrap_or_default();
+						block_storage::get_receipt_details::<T>().unwrap_or_default();
 
 					let block_builder_ir = EthBlockBuilderIR::<T>::get();
 					let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
@@ -3108,7 +4602,7 @@ mod benchmarks {
 			// Store transaction
 			let _ = block_storage::bench_with_ethereum_context(|| {
 				let (encoded_logs, bloom) =
-					block_storage::get_receipt_details().unwrap_or_default();
+					block_storage::get_receipt_details::<T>().unwrap_or_default();
 
 				let block_builder_ir = EthBlockBuilderIR::<T>::get();
 				let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
@@ -3175,7 +4669,15 @@ mod benchmarks {
 
 		// Store transaction
 		let _ = block_storage::bench_with_ethereum_context(|| {
-			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
+			// Captured inside the ethereum context, so each lands on the transaction's own receipt
+			// — the path `on_finalize_block_per_event` is charged for on every `DepositEvent`. The
+			// outside-of-frame drain is `outside_frame_log`'s, charged separately.
+			for _ in 0..e {
+				block_storage::capture_frame_log::<T>(&instance.address, &vec![], &vec![]);
+			}
+
+			let (encoded_logs, bloom) =
+				block_storage::get_receipt_details::<T>().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
 			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
@@ -3191,11 +4693,6 @@ mod benchmarks {
 			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
 		});
 
-		// Create e events with minimal data to isolate event count overhead
-		for _ in 0..e {
-			block_storage::capture_ethereum_log(&instance.address, &vec![], &vec![]);
-		}
-
 		#[block]
 		{
 			// Initialize block
@@ -3205,7 +4702,8 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// Verify transaction count
+		// The real transaction only: its `e` logs are on its own receipt, so no synthetic
+		// transaction is built.
 		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
 
 		Ok(())
@@ -3238,24 +4736,6 @@ mod benchmarks {
 			effective_gas_price: Pallet::<T>::evm_base_fee(),
 		};
 
-		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
-			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
-
-			let block_builder_ir = EthBlockBuilderIR::<T>::get();
-			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
-
-			block_builder.process_transaction(
-				signed_transaction,
-				true,
-				receipt_gas_info,
-				encoded_logs,
-				bloom,
-			);
-
-			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
-
 		// Create one event with d bytes of data distributed across topics and data field
 		let (event_data, topics) = if d < 32 {
 			// If total data is less than 32 bytes, put all in data field
@@ -3279,7 +4759,30 @@ mod benchmarks {
 			(event_data, topics)
 		};
 
-		block_storage::capture_ethereum_log(&instance.address, &event_data, &topics);
+		// Store transaction
+		let _ = block_storage::bench_with_ethereum_context(|| {
+			// Captured inside the ethereum context, so the log lands on the transaction's own
+			// receipt — the path `on_finalize_block_per_event` is charged for on every
+			// `DepositEvent`. The outside-of-frame drain is `outside_frame_log`'s, charged
+			// separately.
+			block_storage::capture_frame_log::<T>(&instance.address, &event_data, &topics);
+
+			let (encoded_logs, bloom) =
+				block_storage::get_receipt_details::<T>().unwrap_or_default();
+
+			let block_builder_ir = EthBlockBuilderIR::<T>::get();
+			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+			block_builder.process_transaction(
+				signed_transaction,
+				true,
+				receipt_gas_info,
+				encoded_logs,
+				bloom,
+			);
+
+			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+		});
 
 		#[block]
 		{
@@ -3290,7 +4793,83 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// Verify transaction count
+		// The real transaction only: its log is on its own receipt, so no synthetic transaction is
+		// built.
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+
+		Ok(())
+	}
+
+	/// Benchmark the `on_finalize` drain of `n` buffered outside-of-frame logs: taking the buffer
+	/// and folding each log into the synthetic transaction's receipt (RLP + bloom).
+	///
+	/// `pov_mode = Measured` because the block builder's storage is unbounded. The buffer itself is
+	/// whitelisted, so the marginal carries no proof size; a log's proof charge is its entry's
+	/// bytes, registered where it is buffered. The append is in the emitting pallet's weight, see
+	/// `buffer_outside_frame_log`.
+	///
+	/// Each log uses a representative ERC-20 `Transfer` payload: three 32-byte topics and a 32-byte
+	/// data word.
+	#[benchmark(pov_mode = Measured)]
+	fn outside_frame_log(n: Linear<0, 100>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Realistic order: `on_initialize` runs before the block's extrinsics buffer any logs.
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		// Representative ERC-20 `Transfer`: topics = [event sig, from, to], data = value word.
+		let topics =
+			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
+		let data = vec![0x44u8; 32];
+
+		// Appended straight into the buffer, past the cap: the drain is what is measured, and a
+		// runtime that keeps the buffer off still needs its weight.
+		for _ in 0..n {
+			Pallet::<T>::bench_buffer_outside_frame_log(
+				instance.address,
+				topics.clone(),
+				data.clone(),
+			);
+		}
+
+		#[block]
+		{
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Only the synthetic transaction, and only when at least one log was buffered.
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), (n > 0) as usize);
+
+		Ok(())
+	}
+
+	/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log carrying `d` bytes
+	/// of data: the `OutsideFrameLogs::take` scales with the value it reads back, and so do the
+	/// RLP encoding and bloom accrual that fold it into the synthetic transaction's receipt.
+	///
+	/// Pairs with `outside_frame_log`, which fixes the payload and varies the count; together they
+	/// give `OnFinalizeBlockParts::per_outside_frame_log` its per-log and per-byte marginals. A
+	/// contract `LOG` emitted off the ethereum path can carry up to `EVENT_BYTES`, so the count
+	/// benchmark's 32-byte word alone would under-charge it.
+	#[benchmark(pov_mode = Measured)]
+	fn outside_frame_log_data(d: Linear<0, { limits::EVENT_BYTES }>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		let topics =
+			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
+		let data = vec![0x44u8; d as usize];
+
+		Pallet::<T>::bench_buffer_outside_frame_log(instance.address, topics, data);
+
+		#[block]
+		{
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
 		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
 
 		Ok(())

@@ -1702,6 +1702,69 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 		});
 }
 
+#[test]
+fn apply_slash_paths_agree_on_unbonding_chunk_at_offence_era() {
+	// Both the public `apply_slash` extrinsic and the automatic `on_initialize` path drain
+	// the same UnappliedSlashes record and must produce identical on-ledger outcomes. The
+	// 30% fraction is chosen so the proportional branch in `Ledger::slash` actually hits the
+	// chunk; at 100% the active-first fallback would consume the chunk regardless and hide
+	// any path divergence.
+	ExtBuilder::default()
+		.slash_defer_duration(2)
+		.nominate(false)
+		.build_and_execute(|| {
+			let alice = 11; // validator
+			let offence_era = 2;
+			let slash_era = offence_era + SlashDeferDuration::get();
+			let chunk_unlock_era = offence_era + BondingDuration::get();
+
+			// GIVEN: alice has 500 active and a 500 chunk maturing at offence_era +
+			// BondingDuration, and a 30% offence is queued at offence_era.
+			assert_eq!(BondingDuration::get(), 3);
+			Session::roll_until_active_era(offence_era);
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(alice)));
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 500));
+			assert_eq!(
+				Staking::ledger(alice.into()).unwrap().unlocking.to_vec(),
+				vec![UnlockChunk { era: chunk_unlock_era, value: 500 }],
+			);
+			add_slash_in_era(alice, offence_era, Perbill::from_percent(30));
+			Session::roll_next();
+			assert_eq!(UnappliedSlashes::<T>::iter_prefix(&slash_era).count(), 1);
+
+			Session::roll_until_active_era(slash_era);
+
+			// Expected outcome under either path: 30% of (500 active + 500 chunk) = 300,
+			// split 150/150 by the proportional branch.
+			let assert_post_slash = || {
+				let ledger = Staking::ledger(alice.into()).unwrap();
+				assert_eq!(ledger.active, 350);
+				assert_eq!(
+					ledger.unlocking.to_vec(),
+					vec![UnlockChunk { era: chunk_unlock_era, value: 350 }],
+				);
+				assert_eq!(ledger.total, 700);
+			};
+
+			// WHEN: the permissionless extrinsic applies the slash before the auto path.
+			hypothetically!({
+				let (slash_key, _) =
+					UnappliedSlashes::<T>::iter_prefix(&slash_era).next().expect("queued");
+				assert_ok!(Staking::apply_slash(RuntimeOrigin::signed(1), slash_era, slash_key,));
+				// THEN: chunk is slashed proportionally.
+				assert_post_slash();
+			});
+
+			// WHEN: the auto path drains the record at the application era.
+			hypothetically!({
+				Session::roll_next();
+				assert_eq!(UnappliedSlashes::<T>::iter_prefix(&slash_era).count(), 0);
+				// THEN: same proportional outcome.
+				assert_post_slash();
+			});
+		});
+}
+
 mod paged_slashing {
 	use super::*;
 	use crate::slashing::OffenceRecord;

@@ -1,0 +1,35 @@
+title: 'pallet-validator-collators: random draw of validator collators under a cap'
+doc:
+- audience: Runtime Dev
+  description: |-
+    When `MaxCollators` is set, `pallet-validator-collators` draws the validators at random at the
+    first of the two forced rotations after a set arrives. The draw shuffles the whole set with a
+    seed made of the genesis hash, the era and the relay chain epoch randomness, keeps the
+    validators with registered keys and truncates to the cap. The drawn list and its era are
+    stored in the new `Collators` storage item and reported in the new `CollatorsDrawn` event.
+    Without a cap every validator with registered keys is returned.
+
+    Changing the cap while a set is stored forces two session rotations. The first draws the list
+    anew from the stored set, with the randomness cached at that time. Removing the cap clears the
+    drawn list.
+
+    The pallet implements `cumulus_pallet_parachain_system::OnSystemEvent` and caches the relay
+    chain `ONE_EPOCH_AGO_RANDOMNESS` in the new `EpochRandomness` storage item. Runtimes using the
+    pallet must include it in the `OnSystemEvent` of `cumulus-pallet-parachain-system`, alone or
+    in a tuple with other handlers, and should return the keys of `Pallet::relay_keys_to_prove`
+    from `cumulus_primitives_core::KeyToIncludeInRelayProof`. A relay chain state proof that lacks
+    the trie nodes of the randomness key, or holds a value that does not decode, makes the block
+    invalid. A proof that shows the key absent, as before the relay chain's first epoch change,
+    caches the zero value a draw without randomness uses.
+
+    Asset Hub Westend and People Westend wire the pallet as `OnSystemEvent` and implement
+    `KeyToIncludeInRelayProof` with its keys.
+crates:
+- name: pallet-validator-collators
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: people-westend-integration-tests
+  bump: none

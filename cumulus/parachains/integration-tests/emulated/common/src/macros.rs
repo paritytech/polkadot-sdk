@@ -24,7 +24,10 @@ pub use pallet_message_queue;
 pub use pallet_whitelist;
 pub use pallet_xcm;
 
-pub use frame_support::assert_ok;
+pub use frame_support::{
+	assert_ok,
+	storage::{with_transaction_unchecked, TransactionOutcome},
+};
 
 // Polkadot
 pub use polkadot_runtime_parachains::dmp::Pallet as Dmp;
@@ -139,15 +142,6 @@ macro_rules! test_parachain_is_trusted_teleporter {
 						};
 						delivery_fees_amount = inner_delivery_fees_amount;
 					});
-
-					// Reset to send actual message.
-					<$sender_para as $crate::macros::TestExt>::reset_ext();
-					<$receiver_para as $crate::macros::TestExt>::reset_ext();
-
-					// TODO: The test fails without the line below, seems like no horizontal message passing is being done
-					//       when also using dry_run_call above (it works if there is no dry_run_call)
-					//       So this is just workaround, must be investigated
-					<$sender_para as $crate::macros::TestExt>::execute_with(|| { });
 
 					let receiver_total_issuance_before = <$receiver_para as $crate::macros::TestExt>::execute_with(|| {
 						<<$receiver_para as [<$receiver_para Pallet>]>::Balances
@@ -800,14 +794,49 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					.unwrap();
 				assert_eq!(messages_to_query.len(), 1);
 				remote_message = messages_to_query[0].clone();
-				let asset_id_for_delivery_fees = VersionedAssetId::from(Location::parent());
-				let delivery_fees =
-					<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_delivery_fees(
-						destination_to_query.clone(),
-						remote_message.clone(),
-						asset_id_for_delivery_fees
+				let del_fee_pen = {
+					let fees_in_pen =
+						<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_delivery_fees(
+							destination_to_query.clone(),
+							remote_message.clone(),
+							$crate::macros::VersionedAssetId::from($crate::macros::AssetId(
+								$crate::macros::Location::here(),
+							)),
+						).unwrap();
+					$crate::xcm_helpers::get_amount_from_versioned_assets(fees_in_pen)
+				};
+				let exec_fee_pen =
+					<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_weight_to_asset_fee(
+						local_xcm_weight,
+						$crate::macros::VersionedAssetId::from($crate::macros::AssetId(
+							$crate::macros::Location::here(),
+						)),
 					).unwrap();
-				local_delivery_fees = $crate::xcm_helpers::get_amount_from_versioned_assets(delivery_fees);
+				local_delivery_fees = $crate::macros::with_transaction_unchecked(|| {
+					$crate::macros::assert_ok!(
+						$crate::macros::pallet_asset_conversion::Pallet::<Runtime>::swap_tokens_for_exact_tokens(
+							<$sender_para as $crate::macros::Chain>::RuntimeOrigin::from(
+								$crate::macros::RawOrigin::Signed(sender.clone()),
+							),
+							vec![
+								Box::new($crate::macros::Location::parent()),
+								Box::new($crate::macros::Location::here()),
+							],
+							exec_fee_pen,
+							local_execution_fees,
+							sender.clone(),
+							false,
+						)
+					);
+					let needed_wnd =
+						$crate::macros::pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
+							$crate::macros::Location::parent(),
+							$crate::macros::Location::here(),
+							del_fee_pen,
+							true,
+						).expect("pool exists and del_fee_pen is nonzero; qed");
+					$crate::macros::TransactionOutcome::Rollback(needed_wnd)
+				});
 			});
 
 			// These are set in the AssetHub closure.
@@ -1160,4 +1189,82 @@ macro_rules! assert_whitelisted {
 			]
 		);
     };
+}
+
+/// Read the balance of the `Assets`-pallet asset `$id` for `$who` on `$chain`.
+#[macro_export]
+macro_rules! assets_balance_on {
+	( $chain:ident, $id:expr, $who:expr ) => {
+		$crate::macros::paste::paste! {
+			<$chain as $crate::macros::TestExt>::ext_wrapper(|| {
+				type Assets = <$chain as [<$chain Pallet>]>::Assets;
+				<Assets as frame_support::traits::fungibles::Inspect<_>>::balance($id, $who)
+			})
+		}
+	};
+}
+
+/// Read the balance of the `ForeignAssets`-pallet asset `$id` for `$who` on `$chain`.
+#[macro_export]
+macro_rules! foreign_balance_on {
+	( $chain:ident, $id:expr, $who:expr ) => {
+		$crate::macros::paste::paste! {
+			<$chain as $crate::macros::TestExt>::ext_wrapper(|| {
+				type ForeignAssets = <$chain as [<$chain Pallet>]>::ForeignAssets;
+				<ForeignAssets as frame_support::traits::fungibles::Inspect<_>>::balance($id, $who)
+			})
+		}
+	};
+}
+
+/// Read the total issuance of the `Assets`-pallet asset `$id` on `$chain`.
+#[macro_export]
+macro_rules! assets_issuance_on {
+	( $chain:ident, $id:expr ) => {
+		$crate::macros::paste::paste! {
+			<$chain as $crate::macros::TestExt>::ext_wrapper(|| {
+				type Assets = <$chain as [<$chain Pallet>]>::Assets;
+				<Assets as frame_support::traits::fungibles::Inspect<_>>::total_issuance($id)
+			})
+		}
+	};
+}
+
+/// Read the total issuance of the `ForeignAssets`-pallet asset `$id` on `$chain`.
+#[macro_export]
+macro_rules! foreign_issuance_on {
+	( $chain:ident, $id:expr ) => {
+		$crate::macros::paste::paste! {
+			<$chain as $crate::macros::TestExt>::ext_wrapper(|| {
+				type ForeignAssets = <$chain as [<$chain Pallet>]>::ForeignAssets;
+				<ForeignAssets as frame_support::traits::fungibles::Inspect<_>>::total_issuance($id)
+			})
+		}
+	};
+}
+
+/// Read the total native-balance issuance on `$chain`.
+#[macro_export]
+macro_rules! balances_issuance_on {
+	( $chain:ident ) => {
+		$crate::macros::paste::paste! {
+			<$chain as $crate::macros::TestExt>::ext_wrapper(|| {
+				type Balances = <$chain as [<$chain Pallet>]>::Balances;
+				<Balances as frame_support::traits::fungible::Inspect<_>>::total_issuance()
+			})
+		}
+	};
+}
+
+/// Whether the `Assets`-pallet asset `$id` exists on `$chain`.
+#[macro_export]
+macro_rules! asset_exists_on {
+	( $chain:ident, $id:expr ) => {
+		$crate::macros::paste::paste! {
+			<$chain as $crate::macros::TestExt>::ext_wrapper(|| {
+				type Assets = <$chain as [<$chain Pallet>]>::Assets;
+				<Assets as frame_support::traits::fungibles::Inspect<_>>::asset_exists($id)
+			})
+		}
+	};
 }

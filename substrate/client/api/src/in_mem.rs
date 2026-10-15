@@ -520,7 +520,6 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		&mut self,
 		header: <Block as BlockT>::Header,
 		body: Option<Vec<<Block as BlockT>::Extrinsic>>,
-		_indexed_body: Option<Vec<Vec<u8>>>,
 		justifications: Option<Justifications>,
 		state: NewBlockState,
 		register_as_leaf: bool,
@@ -593,6 +592,13 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 	fn update_transaction_index(
 		&mut self,
 		_index: Vec<IndexOperation>,
+	) -> sp_blockchain::Result<()> {
+		Ok(())
+	}
+
+	fn set_renew_payloads(
+		&mut self,
+		_payloads: HashMap<H256, Vec<u8>>,
 	) -> sp_blockchain::Result<()> {
 		Ok(())
 	}

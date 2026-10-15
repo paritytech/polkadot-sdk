@@ -228,6 +228,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		REPUTATION_CHANGE_TEST_INTERVAL,
 		ah_invulnerable_collators,
 		HOLD_OFF_DURATION_DEFAULT_VALUE,
+		polkadot_node_clock::system_clock(),
 	);
 
 	let test_fut = test(TestHarness { virtual_overseer, keystore });
@@ -313,7 +314,7 @@ async fn assert_candidate_backing_second(
 				tx.send(Ok(Some(pvd.clone()))).unwrap();
 			}
 		),
-		CollationVersion::V2 | CollationVersion::V3 => assert_matches!(
+		CollationVersion::V2 | CollationVersion::V3 | CollationVersion::V4 => assert_matches!(
 			msg,
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
@@ -434,6 +435,10 @@ async fn connect_and_declare_collator(
 				collator.sign(&protocol_v3::declare_signature_payload(&peer)),
 			))
 		},
+		CollationVersion::V4 => unreachable!(
+			"legacy validator_side never negotiates V4; V4 flows are covered by \
+			 validator_side_experimental tests"
+		),
 	};
 
 	overseer_send(

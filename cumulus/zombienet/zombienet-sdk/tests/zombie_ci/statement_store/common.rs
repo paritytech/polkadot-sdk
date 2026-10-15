@@ -9,24 +9,35 @@
 use anyhow::anyhow;
 use codec::Encode;
 use log::info;
-use sc_statement_store::test_utils::get_keypair;
-use sp_core::{hexdisplay::HexDisplay, Bytes, Pair};
+use sc_statement_store::test_utils::{create_test_statement, get_keypair};
+use sp_core::{hexdisplay::HexDisplay, sr25519, Bytes, Pair};
 use sp_statement_store::{
-	statement_allowance_key, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
+	statement_allowance_key, StatementAllowance, StatementEvent, SubmitOutcome, SubmitResult,
+	Topic, TopicFilter,
 };
 use std::{
 	path::{Path, PathBuf},
 	time::Duration,
 };
+use zombienet_configuration::shared::node::{Initial, NodeConfigBuilder};
 use zombienet_sdk::{
 	subxt::{
 		backend::rpc::RpcClient,
 		ext::subxt_rpcs::{client::RpcSubscription, rpc_params},
 	},
-	LocalFileSystem, Network, NetworkConfigBuilder,
+	AddCollatorOptions, LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
+use sc_statement_store::subxt_client::CustomConfig;
+use subxt::OnlineClient;
 pub(super) const RPC_POOL_SIZE: usize = 10000;
+pub(super) const COLLATOR_INFO_LOG_FILTER: &str = "info,statement-store=info,statement-gossip=info";
+pub(super) const COLLATOR_TRACE_LOG_FILTER: &str =
+	"info,statement-store=trace,statement-gossip=trace";
+
+pub(super) use sp_statement_store::{
+	AddFilterResponse as UnstableAddFilterResponse, SubscribeEvent as UnstableStatementEvent,
+};
 
 pub(super) async fn submit_statement(
 	rpc: &RpcClient,
@@ -35,6 +46,61 @@ pub(super) async fn submit_statement(
 	let encoded: Bytes = statement.encode().into();
 	let result: SubmitResult = rpc.request("statement_submit", rpc_params![encoded]).await?;
 	Ok(result)
+}
+
+// Helpers for the unstable statement JSON-RPC methods specified in:
+// https://github.com/paritytech/json-rpc-interface-spec/pull/185
+pub(super) async fn submit_statement_unstable(
+	rpc: &RpcClient,
+	statement: &sp_statement_store::Statement,
+) -> Result<SubmitOutcome, anyhow::Error> {
+	let encoded: Bytes = statement.encode().into();
+	let result: SubmitOutcome =
+		rpc.request("statement_unstable_submit", rpc_params![encoded]).await?;
+	Ok(result)
+}
+
+pub(super) async fn subscribe_unstable(
+	rpc: &RpcClient,
+) -> Result<RpcSubscription<UnstableStatementEvent>, anyhow::Error> {
+	let subscription = rpc
+		.subscribe::<UnstableStatementEvent>(
+			"statement_unstable_subscribe",
+			rpc_params![],
+			"statement_unstable_unsubscribe",
+		)
+		.await?;
+	Ok(subscription)
+}
+
+pub(super) fn unstable_subscription_id(
+	subscription: &RpcSubscription<UnstableStatementEvent>,
+) -> Result<String, anyhow::Error> {
+	subscription
+		.subscription_id()
+		.map(ToOwned::to_owned)
+		.ok_or_else(|| anyhow!("Subscription was accepted without an id"))
+}
+
+pub(super) async fn add_filter_unstable(
+	rpc: &RpcClient,
+	subscription_id: &str,
+	filter: TopicFilter,
+) -> Result<UnstableAddFilterResponse, anyhow::Error> {
+	let response = rpc
+		.request("statement_unstable_add_filter", rpc_params![subscription_id, filter])
+		.await?;
+	Ok(response)
+}
+
+pub(super) async fn remove_filter_unstable(
+	rpc: &RpcClient,
+	subscription_id: &str,
+	filter_id: &str,
+) -> Result<(), anyhow::Error> {
+	Ok(rpc
+		.request("statement_unstable_remove_filter", rpc_params![subscription_id, filter_id])
+		.await?)
 }
 
 pub(super) async fn expect_one_statement(
@@ -57,6 +123,35 @@ pub(super) async fn expect_one_statement(
 				Ok(batch.into_iter().next().unwrap())
 			},
 		};
+	}
+}
+
+/// Reads `subscription` until `expected` is delivered, tolerating other statements first — a
+/// subscription serves every statement matching its topic, not only the one under test.
+pub(super) async fn expect_statement_delivered(
+	subscription: &mut RpcSubscription<StatementEvent>,
+	expected: &Bytes,
+	timeout_secs: u64,
+) -> Result<(), anyhow::Error> {
+	let deadline = tokio::time::Instant::now() + Duration::from_secs(timeout_secs);
+	loop {
+		let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+		if remaining.is_zero() {
+			return Err(anyhow!(
+				"Timeout after {timeout_secs}s waiting for the expected statement"
+			));
+		}
+		let item = tokio::time::timeout(remaining, subscription.next())
+			.await
+			.map_err(|_| {
+				anyhow!("Timeout after {timeout_secs}s waiting for the expected statement")
+			})?
+			.ok_or_else(|| anyhow!("Subscription stream ended unexpectedly"))?
+			.map_err(|e| anyhow!("Subscription error: {}", e))?;
+		let StatementEvent::NewStatements { statements, .. } = item;
+		if statements.iter().any(|s| s == expected) {
+			return Ok(());
+		}
 	}
 }
 
@@ -158,6 +253,72 @@ pub(super) async fn assert_statements_match(
 	Ok(())
 }
 
+const PAYLOAD_SIZE: usize = 128;
+
+pub(super) struct Load {
+	keypairs: Vec<sr25519::Pair>,
+	seq: u32,
+	ttl: Option<Duration>,
+}
+
+impl Load {
+	pub(super) fn new(participants: u32) -> Self {
+		let keypairs = (0..participants).map(get_keypair).collect();
+		Self { keypairs, seq: 0, ttl: None }
+	}
+
+	pub(super) fn expiring(participants: u32, ttl: Duration) -> Self {
+		Self { ttl: Some(ttl), ..Self::new(participants) }
+	}
+
+	pub(super) fn next_statement(
+		&mut self,
+		round: u64,
+		topic: Topic,
+	) -> sp_statement_store::Statement {
+		let keypair = &self.keypairs[self.seq as usize % self.keypairs.len()];
+		self.seq += 1;
+		let mut payload = vec![0u8; PAYLOAD_SIZE];
+		payload[..8].copy_from_slice(&round.to_le_bytes());
+		payload[8..12].copy_from_slice(&self.seq.to_le_bytes());
+		let expiry_ts = self
+			.ttl
+			.and_then(|ttl| {
+				let now = std::time::SystemTime::now()
+					.duration_since(std::time::UNIX_EPOCH)
+					.ok()?
+					.as_secs();
+				u32::try_from(now + ttl.as_secs()).ok()
+			})
+			.unwrap_or(u32::MAX);
+		create_test_statement(keypair, &[topic], None, payload, expiry_ts, self.seq)
+	}
+}
+
+/// Submits `rate` statements per second for `secs` seconds from `load` on `topic`, round-robin
+/// over `targets`, and returns them encoded in submission order
+pub(super) async fn submit_at_rate(
+	load: &mut Load,
+	round: u64,
+	topic: Topic,
+	rate: usize,
+	secs: u64,
+	targets: &[(&str, &RpcClient)],
+) -> Result<Vec<Vec<u8>>, anyhow::Error> {
+	let total = rate * secs as usize;
+	let mut ticker = tokio::time::interval(Duration::from_secs(1) / rate as u32);
+	let mut expected = Vec::with_capacity(total);
+	for idx in 0..total {
+		ticker.tick().await;
+		let statement = load.next_statement(round, topic);
+		let (name, rpc) = targets[idx % targets.len()];
+		let result = submit_statement(rpc, &statement).await?;
+		assert_eq!(result, SubmitResult::New, "round {round}: {name} rejected the statement");
+		expected.push(statement.encode());
+	}
+	Ok(expected)
+}
+
 /// Creates a custom chain spec with uniform allowances for all participants
 pub(super) fn create_chain_spec_with_allowances(
 	participant_count: u32,
@@ -196,21 +357,19 @@ pub(super) fn create_chain_spec_with_allowances(
 	Ok(chain_spec_path)
 }
 
-pub(super) fn collator_default_args(participant_count: u32) -> Vec<zombienet_sdk::Arg> {
-	let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
-	[
+/// Builds the standard collator CLI args for the statement-store zombienet tests
+pub(super) fn collator_args(participant_count: u32, log_filter: &str) -> Vec<zombienet_sdk::Arg> {
+	let mut args: Vec<String> = vec![
 		"--force-authoring".to_string(),
 		"--authoring=slot-based".to_string(),
 		"--max-runtime-instances=32".to_string(),
-		// TODO: we need trace only for statement_store_crash_mid_sync
-		"-linfo,statement-store=trace,statement-gossip=trace".to_string(),
+		format!("-l{log_filter}"),
 		"--enable-statement-store".to_string(),
-		format!("--rpc-max-connections={}", participant_count + 1000),
-		format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}"),
-	]
-	.iter()
-	.map(|s| s.as_str().into())
-	.collect()
+	];
+	let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
+	args.push(format!("--rpc-max-connections={}", participant_count + 1000));
+	args.push(format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}"));
+	args.iter().map(|s| s.as_str().into()).collect()
 }
 
 pub(super) fn base_dir() -> Result<PathBuf, anyhow::Error> {
@@ -228,16 +387,37 @@ pub(super) fn format_build_errors(errors: Vec<anyhow::Error>) -> anyhow::Error {
 	anyhow!("config errs: {errs}")
 }
 
-/// Spawns a zombienet network with a custom chain spec containing injected statement allowances
-pub(super) async fn spawn_network_with_injected_allowances(
+/// Builds the network config, initialises the network, and waits for it to come up
+async fn launch_network(
 	collators: &[&str],
-	participant_count: u32,
+	chain_spec_path: &Path,
+	collator_args: Vec<zombienet_sdk::Arg>,
+	collator_env: &[(&str, &str)],
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	assert!(!collators.is_empty());
+	let collators: Vec<(&str, Option<&str>)> = collators.iter().map(|&name| (name, None)).collect();
+	launch_network_with_commands(&collators, &[], chain_spec_path, collator_args, collator_env)
+		.await
+}
+
+/// [`launch_network`] with an optional per-collator command in place of `polkadot-parachain`,
+/// plus one full node per `full_nodes` entry, running with the same args and env as the
+/// collators
+pub(super) async fn launch_network_with_commands(
+	collators: &[(&str, Option<&str>)],
+	full_nodes: &[&str],
+	chain_spec_path: &Path,
+	collator_args: Vec<zombienet_sdk::Arg>,
+	collator_env: &[(&str, &str)],
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let base_dir = base_dir()?;
-	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
-	let default_args = collator_default_args(participant_count);
+	let collator = |n: NodeConfigBuilder<Initial>, &(name, command): &(&str, Option<&str>)| {
+		let n = n.with_name(name).with_env(collator_env.to_vec());
+		match command {
+			Some(command) => n.with_command(command),
+			None => n,
+		}
+	};
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -254,12 +434,12 @@ pub(super) async fn spawn_network_with_injected_allowances(
 				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_default_args(default_args)
-				.with_collator(|n| n.with_name(collators[0]));
-
-			collators[1..]
-				.iter()
-				.fold(p, |acc, &name| acc.with_collator(|n| n.with_name(name)))
+				.with_default_args(collator_args)
+				.with_collator(|n| collator(n, &collators[0]));
+			let p = collators[1..].iter().fold(p, |acc, c| acc.with_collator(|n| collator(n, c)));
+			full_nodes.iter().fold(p, |acc, &name| {
+				acc.with_fullnode(|n| n.with_name(name).with_env(collator_env.to_vec()))
+			})
 		})
 		.with_global_settings(|global_settings| {
 			global_settings
@@ -271,7 +451,6 @@ pub(super) async fn spawn_network_with_injected_allowances(
 
 	let network = crate::utils::initialize_network(config).await?;
 	assert!(network.wait_until_is_up(60).await.is_ok());
-
 	Ok(network)
 }
 
@@ -279,71 +458,230 @@ pub(super) async fn spawn_network_with_injected_allowances(
 pub(super) async fn spawn_network_sudo(
 	collators: &[&str],
 	allowance_items: Vec<(Vec<u8>, Vec<u8>)>,
+	log_filter: &str,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	let images = zombienet_sdk::environment::get_images_from_env();
+	let network = spawn_network_inner(collators, allowance_items.len(), log_filter).await?;
+	let node = network.get_node(collators[0])?;
+	sc_statement_store::subxt_client::set_allowances_via_sudo(node.ws_uri(), allowance_items)
+		.await?;
+
+	Ok(network)
+}
+
+/// Spawns a zombienet network with a custom chain spec containing injected statement allowances
+pub(super) async fn spawn_network_with_injected_allowances(
+	collators: &[&str],
+	participant_count: u32,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	assert!(!collators.is_empty());
 	let base_dir = base_dir()?;
+	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
+	let args = collator_args(participant_count, COLLATOR_TRACE_LOG_FILTER);
+	launch_network(collators, &chain_spec_path, args, &[]).await
+}
 
-	let participant_count = allowance_items.len();
-
+/// Spawns a network using `people-westend-local-spec.json`, waits for block production
+async fn spawn_network_inner(
+	collators: &[&str],
+	participant_count: usize,
+	log_filter: &str,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	let base_dir = base_dir()?;
 	let chain_spec_template = include_str!("people-westend-local-spec.json");
 	let chain_spec_path = base_dir.join("people-westend-local-spec.json");
 	std::fs::write(&chain_spec_path, chain_spec_template)
 		.map_err(|e| anyhow!("Failed to write chain spec to file: {}", e))?;
 
-	let config = NetworkConfigBuilder::new()
-		.with_relaychain(|r| {
-			r.with_chain("westend-local")
-				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec!["-lparachain=debug".into()])
-				.with_validator(|node| node.with_name("validator-0"))
-				.with_validator(|node| node.with_name("validator-1"))
-		})
-		.with_parachain(|p| {
-			let p = p
-				.with_id(1004)
-				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
-				.with_default_command("polkadot-parachain")
-				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec![
-					"--force-authoring".into(),
-					"--authoring".into(),
-					"slot-based".into(),
-					"--max-runtime-instances=32".into(),
-					"-linfo,statement-store=trace,statement-gossip=trace".into(),
-					"--enable-statement-store".into(),
-					format!("--rpc-max-connections={}", participant_count + 1000).as_str().into(),
-					format!(
-						"--rpc-max-subscriptions-per-connection={}",
-						(participant_count * 16).max(32)
-					)
-					.as_str()
-					.into(),
-				])
-				.with_collator(|n| n.with_name(collators[0]));
-
-			collators[1..]
-				.iter()
-				.fold(p, |acc, &name| acc.with_collator(|n| n.with_name(name)))
-		})
-		.with_global_settings(|global_settings| {
-			global_settings.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
-		})
-		.build()
-		.map_err(format_build_errors)?;
-
-	let network = crate::utils::initialize_network(config).await?;
-	assert!(network.wait_until_is_up(60).await.is_ok());
+	let participant_count_u32 = u32::try_from(participant_count)
+		.expect("participant_count must fit in u32 for collator args");
+	let args = collator_args(participant_count_u32, log_filter);
+	let network = launch_network(collators, &chain_spec_path, args, &[]).await?;
 
 	info!("Waiting for parachain to produce blocks...");
-	let first_collator = collators[0];
-	let node = network.get_node(first_collator)?;
-	node.wait_metric_with_timeout("block_height{status=\"best\"}", |height| height >= 1.0, 300u64)
+	let node = network.get_node(collators[0])?;
+	node.wait_metric_with_timeout(crate::utils::BEST_BLOCK_METRIC, |height| height >= 1.0, 300u64)
 		.await?;
 	info!("Parachain is producing blocks");
 
-	sc_statement_store::subxt_client::set_allowances_via_sudo(node.ws_uri(), allowance_items)
-		.await?;
-
 	Ok(network)
+}
+
+/// Spawns a network without pre-injected allowances
+pub(super) async fn spawn_network(
+	collators: &[&str],
+	log_filter: &str,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	spawn_network_inner(collators, 0, log_filter).await
+}
+
+pub(super) async fn online_client_from_node(
+	node: &zombienet_sdk::NetworkNode,
+) -> Result<OnlineClient<CustomConfig>, anyhow::Error> {
+	OnlineClient::<CustomConfig>::from_insecure_url_with_config(
+		CustomConfig::default(),
+		node.ws_uri(),
+	)
+	.await
+	.map_err(Into::into)
+}
+
+/// Waits up to `timeout_secs` for each node to produce at least one block
+pub(super) async fn wait_for_first_block(
+	nodes: &[&zombienet_sdk::NetworkNode],
+	timeout_secs: u64,
+) -> Result<(), anyhow::Error> {
+	for node in nodes {
+		node.wait_metric_with_timeout(
+			crate::utils::BEST_BLOCK_METRIC,
+			|height| height >= 1.0,
+			timeout_secs,
+		)
+		.await?;
+	}
+	Ok(())
+}
+
+/// Builds collator CLI args that pin the v2 DHT replication factor `K` and gossip target, on top of
+/// [`collator_args`]. The v2 path itself is switched on by the `STATEMENT_STORE_V2_DHT_ENABLED`
+/// environment variable, not a CLI flag (see [`spawn_network_with_injected_allowances_v2`]).
+pub(super) fn collator_args_v2(
+	participant_count: u32,
+	log_filter: &str,
+	replication_factor: u32,
+	gossip_target: u32,
+) -> Vec<zombienet_sdk::Arg> {
+	let mut args = collator_args(participant_count, log_filter);
+	let replication = format!("--statement-replication-factor={replication_factor}");
+	args.push(replication.as_str().into());
+	let gossip = format!("--statement-gossip-target={gossip_target}");
+	args.push(gossip.as_str().into());
+	args
+}
+
+/// Spawns a network on the v2 DHT path with injected allowances, pinning `K` and the gossip target.
+///
+/// The v2 DHT path is gated by `v2dht_enabled()`, which reads `STATEMENT_STORE_V2_DHT_ENABLED`, so
+/// we set that on every collator rather than passing a CLI flag.
+pub(super) async fn spawn_network_with_injected_allowances_v2(
+	collators: &[&str],
+	participant_count: u32,
+	replication_factor: u32,
+	gossip_target: u32,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	assert!(!collators.is_empty());
+	let base_dir = base_dir()?;
+	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
+	let args = collator_args_v2(
+		participant_count,
+		COLLATOR_TRACE_LOG_FILTER,
+		replication_factor,
+		gossip_target,
+	);
+	launch_network(collators, &chain_spec_path, args, &[("STATEMENT_STORE_V2_DHT_ENABLED", "1")])
+		.await
+}
+
+/// Statements the late-joiner scenario submits with keypair 0: three before the joiner starts,
+/// two while it syncs.
+pub(super) const LATE_JOINER_TOTAL: usize = 5;
+
+/// Adds `dave` with `joiner_options` once charlie is past block 10, so it joins in major sync, and
+/// checks its subscription receives every statement submitted on charlie before and during the
+/// sync. Its log must also show the deferred-peer drain: charlie and alice dial dave either way.
+pub(super) async fn assert_late_joiner_receives_backlog(
+	network: &mut Network<LocalFileSystem>,
+	joiner_options: AddCollatorOptions,
+) -> Result<(), anyhow::Error> {
+	const PRE_JOIN_COUNT: usize = 3;
+
+	let charlie = network.get_node("charlie")?;
+	let charlie_rpc = charlie.rpc().await?;
+
+	// Leave the joiner behind the major-sync threshold (`MAJOR_SYNC_BLOCKS` is 5).
+	let charlie_height = {
+		let height = std::cell::Cell::new(0.0f64);
+		charlie
+			.wait_metric_with_timeout(
+				crate::utils::BEST_BLOCK_METRIC,
+				|best| {
+					height.set(best);
+					best >= 10.0
+				},
+				360u64,
+			)
+			.await?;
+		height.get()
+	};
+	info!("charlie at block {charlie_height:.0} before dave joins");
+
+	let topic: Topic = [0x51; 32].into();
+	let keypair = get_keypair(0);
+	let statement =
+		|seq: u32| create_test_statement(&keypair, &[topic], None, vec![seq as u8], u32::MAX, seq);
+	let pre_join: Vec<_> = (0..PRE_JOIN_COUNT as u32).map(statement).collect();
+	for statement in &pre_join {
+		assert_eq!(submit_statement(&charlie_rpc, statement).await?, SubmitResult::New);
+	}
+
+	network.add_collator("dave", joiner_options, 1004).await?;
+	let dave = network.get_node("dave")?;
+	let dave_rpc = dave.rpc().await?;
+	let mut subscription = subscribe_topic(&dave_rpc, topic).await?;
+
+	let during_sync: Vec<_> =
+		(PRE_JOIN_COUNT as u32..LATE_JOINER_TOTAL as u32).map(statement).collect();
+	for statement in &during_sync {
+		assert_eq!(submit_statement(&charlie_rpc, statement).await?, SubmitResult::New);
+	}
+	let dave_height = dave.reports(crate::utils::BEST_BLOCK_METRIC).await.unwrap_or(0.0);
+	info!("dave at block {dave_height:.0} of {charlie_height:.0} when the batch landed");
+
+	dave.wait_metric_with_timeout(
+		crate::utils::BEST_BLOCK_METRIC,
+		|best| best >= charlie_height,
+		240u64,
+	)
+	.await
+	.map_err(|_| anyhow!("dave did not reach block {charlie_height:.0}"))?;
+
+	let expected: Vec<Vec<u8>> = pre_join
+		.iter()
+		.chain(&during_sync)
+		.map(|statement| statement.encode())
+		.collect();
+	assert_statements_match(&mut subscription, &expected, 120, "dave").await?;
+
+	let dave_logs = dave.logs().await?;
+	assert!(dave_logs.lines().any(|line| line.contains("Major sync complete, adding")));
+	Ok(())
+}
+
+/// Probes whether the node behind `rpc` currently stores `expected` for `topic`.
+///
+/// A fresh subscription first replays every matching statement already in the store, ending the
+/// replay with `remaining == Some(0)` (or a single empty batch when the store holds none). We scan
+/// that replay for `expected`. Subscribing grants explicit affinity for *future* statements only,
+/// so the probe cannot turn an already-removed statement into a stored one, though it can keep a
+/// statement the maintenance sweep would otherwise remove while the probe runs.
+pub(super) async fn stores_locally(
+	rpc: &RpcClient,
+	topic: Topic,
+	expected: &Bytes,
+) -> Result<bool, anyhow::Error> {
+	let mut subscription = subscribe_topic(rpc, topic).await?;
+	loop {
+		let item = match tokio::time::timeout(Duration::from_secs(10), subscription.next()).await {
+			Ok(Some(Ok(item))) => item,
+			// Timeout or stream end before `expected` appeared: the node does not store it.
+			_ => return Ok(false),
+		};
+		let StatementEvent::NewStatements { statements, remaining } = item;
+		if statements.iter().any(|s| s == expected) {
+			return Ok(true);
+		}
+		// The replay is done once a batch is empty or reports nothing more to come.
+		if statements.is_empty() || remaining == Some(0) {
+			return Ok(false);
+		}
+	}
 }

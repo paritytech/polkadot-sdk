@@ -17,6 +17,7 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true, default-feature
 frame-benchmarking-cli = { workspace = true }
 polkadot-jemalloc-shim = { workspace = true }
 sc-cli = { workspace = true, default-features = true }
+sp-crypto-ec-utils = { workspace = true, default-features = true, features = ["rfc163"] }
 sp-runtime = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
 tracing-subscriber = { workspace = true }

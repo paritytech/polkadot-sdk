@@ -23,16 +23,14 @@
 use super::*;
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
-	sync::{
-		atomic::{AtomicU64, Ordering as AtomicOrdering},
-		Arc,
-	},
+	sync::Arc,
 };
 
 use assert_matches::assert_matches;
 use codec::Encode;
 use futures::channel::oneshot;
 use parking_lot::Mutex;
+use polkadot_node_clock::MockClock;
 use sp_core::testing::TaskExecutor;
 
 use polkadot_node_subsystem::{messages::AllMessages, ActiveLeavesUpdate};
@@ -208,45 +206,33 @@ impl Backend for TestBackend {
 	}
 }
 
-#[derive(Clone)]
-pub struct TestClock(Arc<AtomicU64>);
-
-impl TestClock {
-	fn new(initial: u64) -> Self {
-		TestClock(Arc::new(AtomicU64::new(initial)))
-	}
-
-	fn inc_by(&self, duration: u64) {
-		self.0.fetch_add(duration, AtomicOrdering::Relaxed);
-	}
-}
-
-impl Clock for TestClock {
-	fn timestamp_now(&self) -> Timestamp {
-		self.0.load(AtomicOrdering::Relaxed)
-	}
-}
-
 const TEST_STAGNANT_INTERVAL: Duration = Duration::from_millis(20);
 
 type VirtualOverseer =
 	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ChainSelectionMessage>;
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
-	test: impl FnOnce(TestBackend, TestClock, VirtualOverseer) -> T,
+	test: impl FnOnce(TestBackend, MockClock, VirtualOverseer) -> T,
+) {
+	test_harness_with_mode(StagnantCheckMode::CheckAndPrune, test)
+}
+
+fn test_harness_with_mode<T: Future<Output = VirtualOverseer>>(
+	stagnant_check_mode: StagnantCheckMode,
+	test: impl FnOnce(TestBackend, MockClock, VirtualOverseer) -> T,
 ) {
 	let pool = TaskExecutor::new();
 	let (context, virtual_overseer) =
 		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
 
 	let backend = TestBackend::default();
-	let clock = TestClock::new(0);
+	let clock = MockClock::default();
 	let subsystem = crate::run(
 		context,
 		backend.clone(),
 		StagnantCheckInterval::new(TEST_STAGNANT_INTERVAL),
-		StagnantCheckMode::CheckAndPrune,
-		Box::new(clock.clone()),
+		stagnant_check_mode,
+		Arc::new(clock.clone()),
 	);
 
 	let test_fut = test(backend, clock, virtual_overseer);
@@ -1796,7 +1782,7 @@ fn block_has_correct_stagnant_at() {
 		)
 		.await;
 
-		clock.inc_by(1);
+		clock.advance_secs(1);
 
 		import_blocks_into(&mut virtual_overseer, &backend, None, chain_a_ext.clone()).await;
 
@@ -1833,7 +1819,7 @@ fn detects_stagnant() {
 
 		{
 			let (_, write_rx) = backend.await_next_write();
-			clock.inc_by(STAGNANT_TIMEOUT);
+			clock.advance_secs(STAGNANT_TIMEOUT);
 
 			write_rx.await.unwrap();
 		}
@@ -1849,6 +1835,59 @@ fn detects_stagnant() {
 
 		virtual_overseer
 	})
+}
+
+#[test]
+fn prune_only_stagnant_waits_for_the_prune_delay() {
+	test_harness_with_mode(
+		StagnantCheckMode::PruneOnly,
+		|backend, clock, mut virtual_overseer| async move {
+			let finalized_number = 0;
+			let finalized_hash = Hash::repeat_byte(0);
+
+			// F <- A1
+
+			let (a1_hash, chain_a) =
+				construct_chain_on_base(vec![1], finalized_number, finalized_hash, |h| {
+					salt_header(h, b"a");
+				});
+
+			import_chains_into_empty(
+				&mut virtual_overseer,
+				&backend,
+				finalized_number,
+				finalized_hash,
+				vec![chain_a],
+			)
+			.await;
+
+			backend.assert_stagnant_at_state(vec![(STAGNANT_TIMEOUT, vec![a1_hash])]);
+
+			// The clock has not reached STAGNANT_PRUNE_DELAY yet; ensure the cutoff saturates to 0
+			// without pruning.
+			futures_timer::Delay::new(TEST_STAGNANT_INTERVAL * 5).await;
+
+			backend.assert_stagnant_at_state(vec![(STAGNANT_TIMEOUT, vec![a1_hash])]);
+
+			// One second before the prune threshold: entry should still not be pruned.
+			clock.advance_secs(STAGNANT_PRUNE_DELAY + STAGNANT_TIMEOUT - 1);
+			futures_timer::Delay::new(TEST_STAGNANT_INTERVAL * 5).await;
+
+			backend.assert_stagnant_at_state(vec![(STAGNANT_TIMEOUT, vec![a1_hash])]);
+
+			// Once the delay has passed, the entry is pruned.
+			{
+				let (_, write_rx) = backend.await_next_write();
+				clock.advance_secs(1);
+
+				write_rx.await.unwrap();
+			}
+
+			backend.assert_stagnant_at_state(vec![]);
+
+			virtual_overseer
+		},
+	)
 }
 
 #[test]
@@ -1877,13 +1916,13 @@ fn finalize_stagnant_unlocks_subtree() {
 		)
 		.await;
 
-		clock.inc_by(1);
+		clock.advance_secs(1);
 
 		import_blocks_into(&mut virtual_overseer, &backend, None, chain_a_ext.clone()).await;
 
 		{
 			let (_, write_rx) = backend.await_next_write();
-			clock.inc_by(STAGNANT_TIMEOUT - 1);
+			clock.advance_secs(STAGNANT_TIMEOUT - 1);
 
 			write_rx.await.unwrap();
 		}
@@ -1931,13 +1970,13 @@ fn approval_undoes_stagnant_unlocking_subtree() {
 		)
 		.await;
 
-		clock.inc_by(1);
+		clock.advance_secs(1);
 
 		import_blocks_into(&mut virtual_overseer, &backend, None, chain_a_ext.clone()).await;
 
 		{
 			let (_, write_rx) = backend.await_next_write();
-			clock.inc_by(STAGNANT_TIMEOUT - 1);
+			clock.advance_secs(STAGNANT_TIMEOUT - 1);
 
 			write_rx.await.unwrap();
 		}
@@ -1993,7 +2032,7 @@ fn stagnant_preserves_parents_children() {
 
 		{
 			let (_, write_rx) = backend.await_next_write();
-			clock.inc_by(STAGNANT_TIMEOUT);
+			clock.advance_secs(STAGNANT_TIMEOUT);
 
 			write_rx.await.unwrap();
 		}
@@ -2035,7 +2074,7 @@ fn stagnant_makes_childless_parent_leaf() {
 
 		{
 			let (_, write_rx) = backend.await_next_write();
-			clock.inc_by(STAGNANT_TIMEOUT);
+			clock.advance_secs(STAGNANT_TIMEOUT);
 
 			write_rx.await.unwrap();
 		}
