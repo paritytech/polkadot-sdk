@@ -2,7 +2,7 @@ title: 'Update EVM Opcode Benchmarking and Weights'
 doc:
 - audience: Runtime Dev
   description: |-
-    Replace JUMPDEST-based estimates for selected EVM opcodes with
+    Replace JUMPDEST-based estimates for selected EVM op-codes with
     weights derived from their own benchmarks.
 
     The `evm_opcode` benchmark and WeightInfo method are renamed to
@@ -97,17 +97,18 @@ doc:
       exceeds the capacity of the memory buffer, the capacity becomes
       `target` rounded up to a power of two, and the growth also pays
       `evm_memory_reallocate(capacity / 32)`. The buffer starts at 4 KiB.
-      Every op-code whose memory range ends past the current memory size
-      pays this, including the input and output ranges of calls.
+      Every op-code whose non-empty memory range ends past the current
+      memory size pays this, including the input and output ranges of
+      calls.
     - `RETURN` and `REVERT` with `len > 0` bytes of output:
       `evm_memory_copy_out(len)`.
 
     Regenerate pallet-revive weights for your runtime and implement these
     methods in custom WeightInfo implementations.
 
-    The pallet's `integrity_test` requires the dispatch charge above to be
-    greater than zero. If it fails for your runtime, regenerate its
-    pallet-revive weights.
+    The pallet's `integrity_test` requires the `ref_time` of the dispatch
+    charge above to be greater than zero. If it fails for your runtime,
+    regenerate its pallet-revive weights.
 
     No storage migration is required.
 - audience: Runtime User
@@ -132,4 +133,4 @@ crates:
 - name: asset-hub-westend-runtime
   bump: patch
 - name: pallet-revive-fixtures
-  bump: minor
+  bump: major
