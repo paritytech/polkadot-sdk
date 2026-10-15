@@ -5,14 +5,22 @@
 
 use anyhow::anyhow;
 use codec::{Decode, Encode};
-use cumulus_zombienet_sdk_helpers::open_hrmp_channel;
+use cumulus_zombienet_sdk_helpers::{
+	open_hrmp_channel, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
+};
 use serde_json::json;
+use sp_consensus_aura::{sr25519::AuthorityId, ConsensusLog, AURA_ENGINE_ID};
+use sp_core::crypto::key_types;
 use std::{collections::BTreeSet, str::FromStr, time::Duration};
 use zombienet_sdk::{
 	subxt::{
 		self,
+		config::substrate::DigestItem,
 		dynamic::Value,
-		ext::scale_value::{At, Composite, ValueDef},
+		ext::{
+			scale_encode::EncodeAsType,
+			scale_value::{At, Composite, ValueDef},
+		},
 		utils::H256,
 		OnlineClient, PolkadotConfig,
 	},
@@ -41,7 +49,7 @@ pub(super) const HRMP_OPEN_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
 /// Blocks each parachain must finalize before the test changes anything.
 pub(super) const PARA_BLOCKS: u32 = 3;
-const PARA_BLOCKS_TIMEOUT: Duration = Duration::from_secs(5 * 60);
+pub(super) const PARA_BLOCKS_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
 pub(super) const POLL_INTERVAL: Duration = Duration::from_secs(6);
 
@@ -72,9 +80,12 @@ pub(super) const VALIDATORS: [Validator; 2] = [
 	},
 ];
 
-/// What the network adds to `westend-local` with validators `alice` and `bob`, and
-/// `asset-hub-westend-local` and `people-westend-local` with one invulnerable collator each.
+/// What the network adds to `westend-local` with validators `alice` and `bob`,
+/// `people-westend-local` and optionally `asset-hub-westend-local`, each parachain with one
+/// invulnerable collator.
 pub(super) struct NetworkOptions {
+	/// Spawns Asset Hub. Without it the network has People only.
+	pub(super) asset_hub: bool,
 	/// One collator node per validator on each parachain, not a collator at genesis.
 	pub(super) validator_collators: bool,
 	/// `pallet-staking-async-ah-client` in `Active` mode, Asset Hub electing the two validators,
@@ -85,10 +96,10 @@ pub(super) struct NetworkOptions {
 	pub(super) hrmp_channel_max_total_size: Option<u32>,
 	/// Balance of Alice, the relay chain's sudo key, in place of zombienet's default.
 	pub(super) sudo_balance: Option<u128>,
-	/// `ValidatorCollators::ReportPeriod` of both parachains at genesis, in blocks, in place of
-	/// the runtime default.
+	/// `ValidatorCollators::ReportPeriod` of every spawned parachain at genesis, in blocks, in
+	/// place of the runtime default.
 	pub(super) report_period: Option<u32>,
-	/// `ValidatorCollators::ExpectedEraDuration` of both parachains at genesis, in
+	/// `ValidatorCollators::ExpectedEraDuration` of every spawned parachain at genesis, in
 	/// milliseconds, in place of the runtime default.
 	pub(super) expected_era_duration: Option<u64>,
 }
@@ -136,22 +147,25 @@ pub(super) async fn build_network_config(
 		.collect::<Vec<_>>();
 	let people_raw = report_settings.collect::<Vec<_>>();
 
-	NetworkConfigBuilder::new()
-		.with_relaychain(|r| {
-			r.with_chain("westend-local")
-				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![
-					("-lparachain=info,runtime::staking-async::ah-client=debug,xcm=info").into(),
-				])
-				.with_genesis_overrides(relay_overrides)
-				.with_validator(|node| match options.sudo_balance {
-					Some(balance) => node.with_name("alice").with_initial_balance(balance),
-					None => node.with_name("alice"),
-				})
-				.with_validator(|node| node.with_name("bob"))
+	let network = NetworkConfigBuilder::new().with_relaychain(|r| {
+		let r = r
+			.with_chain("westend-local")
+			.with_default_command("polkadot")
+			.with_default_image(images.polkadot.as_str())
+			.with_default_args(vec![
+				("-lparachain=info,runtime::staking-async::ah-client=debug,xcm=info").into(),
+			]);
+		// The chain spec generator rejects an empty override.
+		let r =
+			if relay_overrides.is_empty() { r } else { r.with_genesis_overrides(relay_overrides) };
+		r.with_validator(|node| match options.sudo_balance {
+			Some(balance) => node.with_name("alice").with_initial_balance(balance),
+			None => node.with_name("alice"),
 		})
-		.with_parachain(|p| {
+		.with_validator(|node| node.with_name("bob"))
+	});
+	let network = if options.asset_hub {
+		network.with_parachain(|p| {
 			let p = p
 				.with_id(ASSET_HUB_ID)
 				.with_default_command("polkadot-parachain")
@@ -183,6 +197,10 @@ pub(super) async fn build_network_config(
 				},
 			)
 		})
+	} else {
+		network
+	};
+	network
 		.with_parachain(|p| {
 			let p = p
 				.with_id(PEOPLE_ID)
@@ -352,6 +370,7 @@ pub(super) async fn wait_for_finalized_block(
 	client: &OnlineClient<PolkadotConfig>,
 	chain: &str,
 	number: u32,
+	timeout: Duration,
 ) -> Result<(), anyhow::Error> {
 	let wait = async {
 		let mut blocks = client.blocks().subscribe_finalized().await?;
@@ -363,9 +382,201 @@ pub(super) async fn wait_for_finalized_block(
 		}
 		Err(anyhow!("{chain} block subscription ended"))
 	};
-	tokio::time::timeout(PARA_BLOCKS_TIMEOUT, wait)
+	tokio::time::timeout(timeout, wait)
 		.await
-		.map_err(|_| anyhow!("{chain} did not finalize #{number} within {PARA_BLOCKS_TIMEOUT:?}"))?
+		.map_err(|_| anyhow!("{chain} did not finalize #{number} within {timeout:?}"))?
+}
+
+/// A parachain under test.
+pub(super) struct Chain<'a> {
+	pub(super) name: &'static str,
+	pub(super) id: u32,
+	pub(super) client: &'a OnlineClient<PolkadotConfig>,
+	pub(super) invulnerable: &'static str,
+}
+
+/// Raw storage keys and values for `System::set_storage`.
+pub(super) type StorageItems = Vec<(Vec<u8>, Vec<u8>)>;
+
+/// The block that enacts a new Aura authority list.
+pub(super) struct RotationBlock {
+	pub(super) hash: H256,
+	pub(super) number: u32,
+	pub(super) header_size: usize,
+	pub(super) authorities: usize,
+}
+
+/// A raw storage item of `pallet` and `item` at `keys`, with the key hashed and the value
+/// encoded as the chain's metadata describes them.
+pub(super) fn storage_item(
+	client: &OnlineClient<PolkadotConfig>,
+	pallet: &str,
+	item: &str,
+	keys: Vec<Value>,
+	value: Value,
+) -> Result<(Vec<u8>, Vec<u8>), anyhow::Error> {
+	let key = client.storage().address_bytes(&subxt::dynamic::storage(pallet, item, keys))?;
+	let metadata = client.metadata();
+	let value_ty = metadata
+		.pallet_by_name(pallet)
+		.and_then(|pallet| pallet.storage())
+		.and_then(|storage| storage.entry_by_name(item))
+		.ok_or_else(|| anyhow!("no storage item `{pallet}::{item}` in the metadata"))?
+		.entry_type()
+		.value_ty();
+	let value = value.encode_as_type(value_ty, metadata.types())?;
+	Ok((key, value))
+}
+
+/// `Session::NextKeys` and `Session::KeyOwner` for each account, whose own public key is its
+/// Aura key. `is_registered` reads `NextKeys`, and `KeyOwner` keeps pallet-session consistent.
+pub(super) fn session_key_items(
+	client: &OnlineClient<PolkadotConfig>,
+	accounts: &[[u8; 32]],
+) -> Result<StorageItems, anyhow::Error> {
+	let aura = key_types::AURA.0;
+	accounts
+		.iter()
+		.flat_map(|account| {
+			let keys = Value::named_composite([(
+				"aura",
+				Value::unnamed_composite([Value::from_bytes(account)]),
+			)]);
+			let key_owner = Value::unnamed_composite([
+				Value::unnamed_composite([Value::from_bytes(aura)]),
+				Value::from_bytes(account),
+			]);
+			[
+				storage_item(client, "Session", "NextKeys", vec![Value::from_bytes(account)], keys),
+				storage_item(
+					client,
+					"Session",
+					"KeyOwner",
+					vec![key_owner],
+					Value::from_bytes(account),
+				),
+			]
+		})
+		.collect()
+}
+
+/// Sends `call` from the relay chain to `chain`, which dispatches it as root.
+pub(super) async fn transact_as_root(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	chain: &Chain<'_>,
+	call: subxt::tx::DynamicPayload,
+) -> Result<(), anyhow::Error> {
+	let name = format!("{}::{}", call.pallet_name(), call.call_name());
+	let call = chain.client.tx().call_data(&call)?;
+	submit_extrinsic_and_wait_for_finalization_success_with_timeout(
+		relay_client,
+		&root_transact(chain.id, call),
+		&dev::alice(),
+		CALL_TIMEOUT.as_secs(),
+	)
+	.await
+	.map_err(|e| anyhow!("sending `{name}` to {}: {e}", chain.name))?;
+	log::info!("Sent `{name}` to {}", chain.name);
+	Ok(())
+}
+
+/// `Sudo::sudo(XcmPallet::send)` of an unpaid `Transact` of `call` to parachain `para_id`, which
+/// the parachain dispatches as root.
+pub(super) fn root_transact(para_id: u32, call: Vec<u8>) -> subxt::tx::DynamicPayload {
+	let dest = Value::unnamed_variant(
+		"V5",
+		[Value::named_composite([
+			("parents", Value::u128(0)),
+			(
+				"interior",
+				Value::unnamed_variant(
+					"X1",
+					[Value::unnamed_composite([Value::unnamed_variant(
+						"Parachain",
+						[Value::u128(para_id.into())],
+					)])],
+				),
+			),
+		])],
+	);
+	let message = Value::unnamed_variant(
+		"V5",
+		[Value::unnamed_composite([Value::unnamed_composite([
+			Value::named_variant(
+				"UnpaidExecution",
+				[
+					("weight_limit", Value::unnamed_variant("Unlimited", [])),
+					("check_origin", Value::unnamed_variant("None", [])),
+				],
+			),
+			Value::named_variant(
+				"Transact",
+				[
+					("origin_kind", Value::unnamed_variant("Superuser", [])),
+					("fallback_max_weight", Value::unnamed_variant("None", [])),
+					("call", Value::named_composite([("encoded", Value::from_bytes(call))])),
+				],
+			),
+		])])],
+	);
+	subxt::dynamic::tx(
+		"Sudo",
+		"sudo",
+		vec![Value::unnamed_variant(
+			"XcmPallet",
+			[Value::named_variant("send", [("dest", dest), ("message", message)])],
+		)],
+	)
+}
+
+pub(super) async fn current_index(
+	client: &OnlineClient<PolkadotConfig>,
+) -> Result<u32, anyhow::Error> {
+	Ok(fetch(client, "Session", "CurrentIndex", vec![]).await?.unwrap_or_default())
+}
+
+/// Waits for a finalized block whose header carries Aura's `AuthoritiesChange` digest. Only
+/// finalized blocks count, since the collator may build blocks that do not become canonical.
+pub(super) async fn wait_for_authorities_change(
+	client: OnlineClient<PolkadotConfig>,
+	chain: &'static str,
+	timeout: Duration,
+) -> Result<RotationBlock, anyhow::Error> {
+	let wait = async {
+		let mut blocks = client.blocks().subscribe_finalized().await?;
+		while let Some(block) = blocks.next().await {
+			let block = block?;
+			let header = block.header();
+			let authorities = header.digest.logs.iter().find_map(|log| match log {
+				DigestItem::Consensus(engine, data) if *engine == AURA_ENGINE_ID => {
+					match ConsensusLog::<AuthorityId>::decode(&mut &data[..]) {
+						Ok(ConsensusLog::AuthoritiesChange(authorities)) => Some(authorities.len()),
+						_ => None,
+					}
+				},
+				_ => None,
+			});
+			if let Some(authorities) = authorities {
+				let rotation = RotationBlock {
+					hash: block.hash(),
+					number: block.number(),
+					header_size: header.encoded_size(),
+					authorities,
+				};
+				log::info!(
+					"{chain} #{} {:?} enacts {authorities} Aura authorities, header of {} bytes",
+					rotation.number,
+					rotation.hash,
+					rotation.header_size
+				);
+				return Ok(rotation);
+			}
+		}
+		Err(anyhow!("{chain} block subscription ended"))
+	};
+	tokio::time::timeout(timeout, wait)
+		.await
+		.map_err(|_| anyhow!("no Aura authorities change on {chain} within {timeout:?}"))?
 }
 
 pub(super) async fn session_validators(

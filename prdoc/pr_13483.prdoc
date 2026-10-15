@@ -21,3 +21,5 @@ crates:
   bump: none
 - name: people-westend-integration-tests
   bump: none
+- name: cumulus-zombienet-sdk-tests
+  bump: none
