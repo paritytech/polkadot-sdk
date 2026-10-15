@@ -1,11 +1,7 @@
 [package]
 name = "snowbridge-pallet-inbound-queue"
 description = "Snowbridge Inbound Queue Pallet"
-<<<<<<< HEAD
 version = "0.30.0"
-=======
-version = "0.2.1"
->>>>>>> 32cc17db (Preserve Snowbridge v1 inbound liveness when the Asset Hub sovereign is empty (#12569))
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
