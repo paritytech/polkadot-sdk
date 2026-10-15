@@ -15,14 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::{slope, weight_of_solc_call};
 use crate::{
 	Code, Config,
 	evm::decode_revert_reason,
 	test_utils::{ALICE, builder::Contract},
 	tests::{ExtBuilder, Test, builder},
+	weights::WeightInfo,
 };
 
-use alloy_core::sol_types::SolInterface;
+use alloy_core::{
+	primitives::U256,
+	sol_types::{SolCall, SolInterface},
+};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{Arithmetic, FixtureType, compile_module_with_type};
 use test_case::test_case;
@@ -52,4 +57,32 @@ fn arithmetic_works(fixture_type: FixtureType) {
 			}
 		}
 	});
+}
+
+#[test]
+fn exp_charges_each_exponent_bit_after_the_first() {
+	type Weights = <Test as Config>::WeightInfo;
+	let weight_of = |exponent: U256| {
+		weight_of_solc_call(
+			"Arithmetic",
+			Arithmetic::exponentiateCall { base: U256::from(3), exponent }.abi_encode(),
+		)
+	};
+
+	let zero = weight_of(U256::ZERO);
+	let one_bit = weight_of(U256::from(1));
+	let max_bits = weight_of(U256::from(1) << 255);
+
+	assert!(
+		zero.ref_time() < one_bit.ref_time(),
+		"a zero exponent must be cheaper than a non-zero one: zero={zero:?} one bit={one_bit:?}",
+	);
+	assert_eq!(
+		one_bit.saturating_add(slope(Weights::evm_exp_zero_opcode)),
+		zero.saturating_add(slope(Weights::evm_exp_opcode)),
+	);
+	assert_eq!(
+		max_bits,
+		one_bit.saturating_add(slope(Weights::evm_exp_per_bit).saturating_mul(255))
+	);
 }

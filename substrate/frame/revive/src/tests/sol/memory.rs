@@ -15,18 +15,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::{slope, weight_of_solc_call};
 use crate::{
 	Code, Config, Error, ExecReturnValue, LOG_TARGET,
 	evm::decode_revert_reason,
+	limits::EVM_MEMORY_BYTES,
 	test_utils::{ALICE, builder::Contract},
 	tests::{ExtBuilder, Test, builder},
+	weights::WeightInfo,
 };
-use alloy_core::sol_types::{SolCall, SolInterface};
+use alloy_core::{
+	primitives::U256,
+	sol_types::{SolCall, SolInterface},
+};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{FixtureType, Memory, compile_module_with_type};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
 use test_case::test_case;
+
+type Weights = <Test as Config>::WeightInfo;
 
 #[test]
 fn memory_limit_works() {
@@ -131,4 +139,75 @@ fn mcopy_works(fixture_type: FixtureType) {
 		let decoded = Memory::testMcopyCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(expected_value, decoded, "memory test should return {expected_value}");
 	});
+}
+
+#[test]
+fn mcopy_charges_each_byte_after_the_first_64() {
+	let weight_of = |len: u32| {
+		weight_of_solc_call(
+			"Memory",
+			Memory::mcopyWithoutGrowthCall { len: U256::from(len) }.abi_encode(),
+		)
+	};
+
+	let empty = weight_of(0);
+	let fixed = weight_of(64);
+	let one_more = weight_of(65);
+
+	// A zero-length copy pays the fixed part too.
+	assert_eq!(fixed, empty);
+	assert_eq!(one_more, fixed.saturating_add(slope(Weights::evm_mcopy_per_byte)));
+}
+
+#[test]
+fn mstore_at_a_high_offset_charges_growth_and_reallocation() {
+	// The fixture expands memory to 1 KiB before the store.
+	const EXPANDED_BYTES: u32 = 1024;
+	let weight_of = |offset: u32| {
+		weight_of_solc_call(
+			"Memory",
+			Memory::mstoreAtCall { offset: U256::from(offset) }.abi_encode(),
+		)
+	};
+
+	let without_growth = weight_of(0);
+	let to_the_limit = weight_of(EVM_MEMORY_BYTES - 32);
+
+	// Growing past the 4 KiB buffer replaces it with one of the next power of two.
+	let growth = slope(Weights::evm_memory_grow)
+		.saturating_mul(((EVM_MEMORY_BYTES - EXPANDED_BYTES) / 32).into())
+		.saturating_add(Weights::evm_memory_reallocate(EVM_MEMORY_BYTES.next_power_of_two() / 32));
+	assert_eq!(to_the_limit, without_growth.saturating_add(growth));
+}
+
+#[test]
+fn return_charges_copying_its_output() {
+	// The fixture expands memory to 64 KiB before returning.
+	const LEN: u32 = 64 * 1024;
+	let weight_of = |len: u32| {
+		weight_of_solc_call(
+			"Memory",
+			Memory::returnPrefixCall { len: U256::from(len) }.abi_encode(),
+		)
+	};
+
+	let empty = weight_of(0);
+	let large = weight_of(LEN);
+
+	assert_eq!(large, empty.saturating_add(Weights::evm_memory_copy_out(LEN)));
+}
+
+#[test]
+fn zero_length_calldatacopy_skips_the_copy_charge() {
+	let weight_of = |len: u32| {
+		weight_of_solc_call(
+			"Memory",
+			Memory::calldatacopyWithoutGrowthCall { len: U256::from(len) }.abi_encode(),
+		)
+	};
+
+	let empty = weight_of(0);
+	let word = weight_of(32);
+
+	assert_eq!(word, empty.saturating_add(Weights::seal_copy_to_contract(32)));
 }
