@@ -799,7 +799,7 @@ Accumulate:
 | 201 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). Aborts Refine with `Err(RefineLog::HeadDataTooLarge)` if `new_head` exceeds the 4 KiB `HeadData` bound. The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `ParachainSetHead`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
 | 202 | `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
 | 203 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the validation code, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way validation code records a reason for its failure. See §4.2. |
-| 204 | `set_messages_streams_root(root: StreamsRoot)` | `()` | Declare the `StreamsRoot` this parachain block publishes. Forwarded to Accumulate as `ParachainWorkDigest.messages_streams_root` and pushed into the parachain's settlement ring on enactment (§5.1 step 5). A second call aborts Refine with `Err(RefineLog::MessagesCallRepeated)`. |
+| 204 | `set_messages_streams_root(root: StreamsRoot)` | `()` | Declare the `StreamsRoot` this parachain block publishes. Forwarded to Accumulate as `ParachainWorkDigest.messages_streams_root` and pushed into the parachain's settlement ring on enactment (§5.1 step 6). A second call aborts Refine with `Err(RefineLog::MessagesCallRepeated)`. |
 | 205 | `set_messages_requires_roots(entries: Vec<(ParaId, StreamsRoot)>)` | `()` | Declare the senders this parachain block consumed messages from (§8). The entries are forwarded as `ParachainWorkDigest.messages_requires_roots` and checked against the senders settlement rings before enactment (§5.1 step 5). A second call aborts Refine with `Err(RefineLog::MessagesCallRepeated)`. More than `MAX_REQUIRES_SOURCES` entries, a repeated `ParaId`, or the candidate's own `para_id` aborts with `Err(RefineLog::MessagesInvalidRequires)`. |
 
 `UpwardMessage` is part of the parachain-visible ABI. Its SCALE encoding is
@@ -943,9 +943,9 @@ writes no state, records no log entry, and prunes nothing. The steps are:
 5. **Settlement check**: Check that every `(ParaId, StreamsRoot)` in the digest's
    `messages_requires_roots` is present in the corresponding parachain's settlement ring (§8.1).
    If any pair is missing, the candidate is rejected.
-   Then, push the `messages_streams_root` into the parachain's settlement ring if present.
-6. **Head data update**: Write the new `head_data` from the work digest into
-   `ParaInfo` for the parachain.
+6. **Enactment**: Write the new `head_data` from the work digest into
+   `ParaInfo` for the parachain and push the `messages_streams_root` into the parachain's
+   settlement ring if present.
 7. **Process host-function calls from Refine**: Replay the `UpwardMessage`s in the work
    digest, applying each one's effect (code upgrades, transfers, authorizer queue
    updates, validator key updates, etc.). See the `UpwardMessage` variants in §3.3 for
