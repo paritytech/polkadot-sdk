@@ -65,7 +65,6 @@ impl pallet_validator_collators::Config for Test {
 	type DefaultReportMargin = ConstU64<100>;
 	type MaxReportMargin = ConstU64<500>;
 	type AuthorityCount = ConstU32<1>;
-	type MaxBlocksPerSlot = ConstU32<1>;
 	type WeightInfo = ();
 }
 

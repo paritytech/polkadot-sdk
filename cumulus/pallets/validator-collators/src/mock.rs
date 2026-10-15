@@ -134,7 +134,6 @@ impl Config for Test {
 	type DefaultReportMargin = ConstU64<100>;
 	type MaxReportMargin = ConstU64<500>;
 	type AuthorityCount = AuthorityCount;
-	type MaxBlocksPerSlot = MaxBlocksPerSlot;
 	type WeightInfo = ();
 }
 
@@ -153,9 +152,10 @@ impl frame_support::traits::UnixTime for MockTime {
 parameter_types! {
 	pub static MaxEntriesPerReport: u32 = 10;
 	/// Aura authorities of the current session, the window of a drop rule is
-	/// `rounds × AuthorityCount × MaxBlocksPerSlot` blocks.
+	/// `rounds × AuthorityCount` counted slots.
 	pub static AuthorityCount: u32 = 4;
-	pub static MaxBlocksPerSlot: u32 = 1;
+	/// Slots from the previous block to the next one, reset to one after each block.
+	pub static NextSlotGap: u64 = 1;
 	/// Number of calls to [`MockReporter`] so far.
 	pub static ReportCalls: u32 = 0;
 	/// The call to [`MockReporter`], counted from one, that is rejected.
@@ -192,6 +192,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_tracing::try_init_simple();
 	Now::set(0);
 	MaxEntriesPerReport::set(10);
+	NextSlotGap::set(1);
 	ReportCalls::set(0);
 	FailingReportCall::set(None);
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -215,7 +216,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	t.into()
+	let mut ext: sp_io::TestExternalities = t.into();
+	// Block `n` is in slot `n` and, with one slot per block, counts `n` slots.
+	ext.execute_with(|| CountedSlots::<Test>::put(SlotCount { slot: 0.into(), count: 0 }));
+	ext
 }
 
 parameter_types! {
@@ -224,10 +228,20 @@ parameter_types! {
 }
 
 /// Produce blocks up to `n`, each with a relay chain state proof carrying
-/// [`RelayEpochRandomness`].
+/// [`RelayEpochRandomness`], and an Aura slot [`NextSlotGap`] after the slot of the last block
+/// that advanced [`CountedSlots`].
 pub fn initialize_to_block(n: u64) {
 	for i in System::block_number() + 1..=n {
-		System::set_block_number(i);
+		let previous = CountedSlots::<Test>::get().map_or(0, |counted| *counted.slot);
+		let slot = sp_consensus_aura::Slot::from(previous + NextSlotGap::get());
+		NextSlotGap::set(1);
+		let digest = sp_runtime::Digest {
+			logs: vec![sp_runtime::DigestItem::PreRuntime(
+				sp_consensus_aura::AURA_ENGINE_ID,
+				codec::Encode::encode(&slot),
+			)],
+		};
+		System::initialize(&i, &System::block_hash(i - 1), &digest);
 		<AllPalletsWithSystem as frame_support::traits::OnInitialize<u64>>::on_initialize(i);
 		if let Some(randomness) = RelayEpochRandomness::get() {
 			<ValidatorCollators as OnSystemEvent>::on_relay_state_proof(

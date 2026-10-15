@@ -14,9 +14,10 @@
 //! 1. In one call People gets session keys for a generated account with no node, a drop rule of two
 //!    rounds, and a validator set holding only that account. The two forced rotations that follow
 //!    the set enact the invulnerable and the account as Aura authorities, and the account's
-//!    activity record starts at the enacting block.
-//! 2. With half of the Aura slots empty, People keeps finalizing blocks until the window of two
-//!    rounds of both authorities has passed since the enacting block.
+//!    activity record starts at the counted slots of the enacting block.
+//! 2. With half of the Aura slots empty, People keeps finalizing blocks until it has counted the
+//!    window of two rounds of both authorities since the enacting block. The empty slots count, so
+//!    this takes about the window in slot time.
 //! 3. Setting no cap, which forces two rotations while a set is stored, drops the account at the
 //!    first rotation and enacts the invulnerable alone at the second.
 
@@ -45,19 +46,15 @@ const IDLE_ACCOUNT_URI: &str = "//drop//idle";
 /// Full Aura rounds the account may go without authoring.
 const DROP_ROUNDS: u32 = 2;
 
-/// Blocks the account is not returned, counted from the rotation that enacts the drop.
-const DROP_BLOCKS: u32 = 2;
+/// Counted slots the account is not returned, from the rotation that enacts the drop.
+const DROP_SLOTS: u64 = 2;
 
 /// From the call that stores the set being finalized on the relay chain to People finalizing the
 /// block that enacts the account: the relay chain delivers the message, then People rotates twice.
 const SET_ENACTED_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
-/// Slowest average block time while the account holds half of the Aura slots: the invulnerable
-/// authors at least one block per relay chain block in its own slots and none in the account's.
-const SLOWEST_BLOCK_TIME: Duration = Duration::from_secs(12);
-
-/// Added to the window at `SLOWEST_BLOCK_TIME` for finality lag, from the block that enacts the
-/// account to People finalizing the end of the window.
+/// Added to the window in slot time for finality lag, from the block that enacts the account to
+/// People finalizing the block that counts the end of the window.
 const WINDOW_MARGIN: Duration = Duration::from_secs(2 * 60);
 
 /// From the call that sets no cap being finalized on the relay chain to People finalizing the
@@ -69,11 +66,18 @@ const DROP_ENACTED_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 /// collection steps run. It covers the sum of the waits at their timeouts.
 const TEST_TIMEOUT: Duration = Duration::from_secs(40 * 60);
 
-/// `pallet_validator_collators::Activity` with People's block number.
+/// `pallet_validator_collators::Activity`.
 #[derive(Debug, PartialEq, Decode)]
 enum Activity {
 	Queued,
-	Active { since: u32, authorities: u32 },
+	Active { since: u64, authorities: u32 },
+}
+
+/// `pallet_validator_collators::SlotCount`.
+#[derive(Debug, Decode)]
+struct SlotCount {
+	_slot: u64,
+	count: u64,
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -116,9 +120,9 @@ async fn run() -> Result<(), anyhow::Error> {
 
 	let idle = account(&keypair(IDLE_ACCOUNT_URI)?);
 	let invulnerable = account(&keypair(&node_seed(people.invulnerable))?);
-	let max_blocks_per_slot: u32 = people_client
+	let slot_duration: u64 = people_client
 		.constants()
-		.at(&subxt::dynamic::constant("ValidatorCollators", "MaxBlocksPerSlot"))?
+		.at(&subxt::dynamic::constant("Aura", "SlotDuration"))?
 		.as_type()?;
 
 	// GIVEN the account with session keys and a drop rule on People
@@ -143,9 +147,10 @@ async fn run() -> Result<(), anyhow::Error> {
 	set_received.await??;
 
 	// THEN the next two rotations enact the account next to the invulnerable, and its activity
-	// record starts at the enacting block
+	// record starts at the counted slots of the enacting block
 	let enacted = set_enacted.await??;
 	check_authorities(&people, &enacted, &[invulnerable, idle], index_before_set + 2).await?;
+	let enacted_count = counted_slots(&people_client, enacted.hash).await?;
 	let activity: Option<Activity> = fetch_at(
 		&people_client,
 		enacted.hash,
@@ -154,20 +159,19 @@ async fn run() -> Result<(), anyhow::Error> {
 		vec![Value::from_bytes(idle)],
 	)
 	.await?;
-	let expected = Activity::Active { since: enacted.number, authorities: 0 };
+	let expected = Activity::Active { since: enacted_count, authorities: 0 };
 	if activity.as_ref() != Some(&expected) {
 		return Err(anyhow!("activity of the account is {activity:?}, expected {expected:?}"));
 	}
 
 	// GIVEN the account authors nothing for a window after its enactment, while the invulnerable
 	// keeps the chain going
-	let window = DROP_ROUNDS * enacted.authorities as u32 * max_blocks_per_slot;
-	let window_timeout = SLOWEST_BLOCK_TIME * window + WINDOW_MARGIN;
+	let window = DROP_ROUNDS as u64 * enacted.authorities as u64;
+	let window_timeout = Duration::from_millis(slot_duration * window) + WINDOW_MARGIN;
 	let window_start = Instant::now();
-	let window_end = enacted.number + window;
-	wait_for_finalized_block(&people_client, people.name, window_end, window_timeout).await?;
+	wait_for_counted_slots(&people_client, enacted_count + window, window_timeout).await?;
 	log::info!(
-		"People finalized the window of {window} blocks in {:?} with half of the slots empty",
+		"People counted the window of {window} slots in {:?} with half of the slots empty",
 		window_start.elapsed()
 	);
 
@@ -207,13 +211,13 @@ async fn run() -> Result<(), anyhow::Error> {
 		));
 	}
 	check_authorities(&people, &drop_enacted, &[invulnerable], index_before_drop + 2).await?;
-	// AND the second rotation starts the drop of `DROP_BLOCKS` blocks, and the activity record of
-	// the account is gone
-	let dropped: Vec<([u8; 32], Option<u32>)> =
+	// AND the second rotation starts the drop of `DROP_SLOTS` counted slots, and the activity
+	// record of the account is gone
+	let dropped: Vec<([u8; 32], Option<u64>)> =
 		fetch_at(&people_client, drop_enacted.hash, "ValidatorCollators", "Dropped", vec![])
 			.await?
 			.unwrap_or_default();
-	let until = Some(drop_enacted.number + DROP_BLOCKS);
+	let until = Some(counted_slots(&people_client, drop_enacted.hash).await? + DROP_SLOTS);
 	if dropped != vec![(idle, until)] {
 		return Err(anyhow!("drop records are {dropped:?}, expected the account until {until:?}"));
 	}
@@ -256,7 +260,7 @@ async fn store_rule_and_set(
 		.collect::<Vec<_>>();
 	let rule = Value::named_composite([
 		("rounds", Value::u128(DROP_ROUNDS.into())),
-		("blocks", Value::u128(DROP_BLOCKS.into())),
+		("slots", Value::u128(DROP_SLOTS.into())),
 		("min_collators", Value::u128(0)),
 	]);
 	let calls = [
@@ -288,6 +292,41 @@ async fn store_rule_and_set(
 		subxt::dynamic::tx("Utility", "batch_all", vec![Value::unnamed_composite(calls)]),
 	)
 	.await
+}
+
+/// The slots People counted up to block `at`.
+async fn counted_slots(
+	client: &OnlineClient<PolkadotConfig>,
+	at: subxt::utils::H256,
+) -> Result<u64, anyhow::Error> {
+	let counted: Option<SlotCount> =
+		fetch_at(client, at, "ValidatorCollators", "CountedSlots", vec![]).await?;
+	counted
+		.map(|counted| counted.count)
+		.ok_or_else(|| anyhow!("People counts no slots at {at:?}"))
+}
+
+/// Waits until People finalizes a block that counts at least `target` slots.
+async fn wait_for_counted_slots(
+	client: &OnlineClient<PolkadotConfig>,
+	target: u64,
+	timeout: Duration,
+) -> Result<(), anyhow::Error> {
+	let wait = async {
+		let mut blocks = client.blocks().subscribe_finalized().await?;
+		while let Some(block) = blocks.next().await {
+			let block = block?;
+			let count = counted_slots(client, block.hash()).await?;
+			if count >= target {
+				log::info!("People finalized #{} counting {count} slots", block.number());
+				return Ok(());
+			}
+		}
+		Err(anyhow!("People block subscription ended"))
+	};
+	tokio::time::timeout(timeout, wait)
+		.await
+		.map_err(|_| anyhow!("People did not count {target} slots within {timeout:?}"))?
 }
 
 /// Checks that `rotation` enacts `expected` as Aura authorities and session validators, in

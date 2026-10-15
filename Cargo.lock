@@ -15707,6 +15707,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "scale-info",
+ "sp-consensus-aura",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking",

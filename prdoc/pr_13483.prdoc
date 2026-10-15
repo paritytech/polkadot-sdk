@@ -2,14 +2,16 @@ title: 'pallet-validator-collators: drop validators that author no blocks'
 doc:
 - audience: Runtime Dev
   description: |-
-    `pallet-validator-collators` can stop returning, for a number of blocks, validators that
+    `pallet-validator-collators` can stop returning, for a number of Aura slots, validators that
     author no blocks within a number of Aura rounds. Governance sets the rule with the new
-    `set_drop_rule` call. Without a rule, the default, nobody is dropped. New storage items:
+    `set_drop_rule` call. Without a rule, the default, nobody is dropped. The pallet counts the
+    Aura slots between blocks, read from the Aura pre-runtime digest, and counts a gap longer
+    than the Aura authority count as one slot. New storage items: `CountedSlots`,
     `CurrentDropRule`, `LastActivity` and `Dropped`. No migration.
 
     `pallet_validator_collators::Config` gains `AuthorityCount` (Aura authorities of the current
-    session) and `MaxBlocksPerSlot` (most blocks per Aura slot). Asset Hub Westend and People
-    Westend wire both. External `WeightInfo` implementors must add `set_drop_rule`.
+    session), which Asset Hub Westend and People Westend wire. External `WeightInfo`
+    implementors must add `set_drop_rule`.
 crates:
 - name: pallet-validator-collators
   bump: major

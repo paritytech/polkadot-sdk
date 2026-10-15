@@ -25,6 +25,7 @@ use alloc::{
 	collections::{BTreeMap, BTreeSet},
 	vec::Vec,
 };
+use codec::Encode;
 use cumulus_pallet_parachain_system::OnSystemEvent;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
@@ -33,7 +34,26 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_session::ShouldEndSession;
-use sp_runtime::traits::{Saturating, Zero};
+use sp_consensus_aura::{Slot, AURA_ENGINE_ID};
+use sp_runtime::{traits::Saturating, DigestItem};
+
+/// Put [`CountedSlots`] one slot before the slot of the current block, so the next call advances
+/// it, with a zero count.
+fn one_slot_to_count<T: Config>() -> Result<(), BenchmarkError> {
+	let slot = Pallet::<T>::current_slot().unwrap_or_else(|| {
+		let slot = Slot::from(1);
+		frame_system::Pallet::<T>::deposit_log(DigestItem::PreRuntime(
+			AURA_ENGINE_ID,
+			slot.encode(),
+		));
+		slot
+	});
+	let previous = (*slot)
+		.checked_sub(1)
+		.ok_or(BenchmarkError::Stop("the block is in the first slot"))?;
+	CountedSlots::<T>::put(SlotCount { slot: previous.into(), count: 0 });
+	Ok(())
+}
 
 #[benchmarks]
 mod benchmarks {
@@ -140,15 +160,16 @@ mod benchmarks {
 	}
 
 	/// The first block of an author, which inserts its entry and bumps the counter, by an active
-	/// collator of this pallet, whose activity record is refreshed.
+	/// collator of this pallet, whose activity record is refreshed, in the first call of the block
+	/// that advances the counted slots.
 	#[benchmark]
-	fn note_author() {
+	fn note_author() -> Result<(), BenchmarkError> {
 		let author: T::AccountId = account("author", 0, 0);
 		LastActivity::<T>::insert(
 			&author,
-			Activity::Active { since: Zero::zero(), authorities: T::MaxValidators::get() },
+			Activity::Active { since: 0, authorities: T::MaxValidators::get() },
 		);
-		frame_system::Pallet::<T>::set_block_number(1u32.into());
+		one_slot_to_count::<T>()?;
 
 		#[block]
 		{
@@ -158,12 +179,14 @@ mod benchmarks {
 		assert_eq!(AuthoredBlocks::<T>::get(&author), 1);
 		assert_eq!(
 			LastActivity::<T>::get(&author),
-			Some(Activity::Active { since: 1u32.into(), authorities: 0 })
+			Some(Activity::Active { since: 1, authorities: 0 })
 		);
+		Ok(())
 	}
 
-	/// A block at a multiple of `ReportPeriod` that makes the early report of the stored set with
-	/// no counts, and the `PendingRotation` read of `should_end_session`.
+	/// A block at a multiple of `ReportPeriod` that advances the counted slots and makes the
+	/// early report of the stored set with no counts, and the `PendingRotation` read of
+	/// `should_end_session`.
 	#[benchmark]
 	fn on_initialize() -> Result<(), BenchmarkError> {
 		let validators = BoundedBTreeSet::try_from(BTreeSet::from([account("validator", 0, 0)]))
@@ -172,6 +195,7 @@ mod benchmarks {
 		// The early report is due at any time with a zero expected era duration.
 		ExpectedEraDuration::<T>::put(0);
 		let now = ReportPeriod::<T>::get();
+		one_slot_to_count::<T>()?;
 
 		#[block]
 		{
@@ -180,6 +204,7 @@ mod benchmarks {
 		}
 
 		assert_eq!(SetReceivedAt::<T>::get(), None);
+		assert_eq!(CountedSlots::<T>::get().map(|counted| counted.count), Some(1));
 		Ok(())
 	}
 
@@ -217,10 +242,10 @@ mod benchmarks {
 	fn set_drop_rule() -> Result<(), BenchmarkError> {
 		let origin =
 			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		CurrentDropRule::<T>::put(DropRule { rounds: 2, blocks: 1u32.into(), min_collators: 0 });
+		CurrentDropRule::<T>::put(DropRule { rounds: 2, slots: 1, min_collators: 0 });
 		let records = BoundedBTreeMap::try_from(
 			(0..T::MaxValidators::get())
-				.map(|i| (account("dropped", i, 0), Some(Zero::zero())))
+				.map(|i| (account("dropped", i, 0), Some(0)))
 				.collect::<BTreeMap<_, _>>(),
 		)
 		.map_err(|_| BenchmarkError::Stop("the records exceed MaxValidators"))?;
