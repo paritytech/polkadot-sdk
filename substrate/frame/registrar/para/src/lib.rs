@@ -325,7 +325,7 @@ pub mod pallet {
 		/// The relay chain confirmed a cancellation. The registration consideration was returned.
 		RegistrationCancelled { para_id: ParaId, message_id: u64, manager: T::AccountId },
 		/// A para id that was never registered was given up. The reservation was returned.
-		ReservationDropped { para_id: ParaId, who: T::AccountId },
+		ReservationDropped { para_id: ParaId, manager: T::AccountId },
 		/// The relay chain has been asked to drop a para. Both considerations stay taken until it
 		/// answers.
 		DeregisterRequested { para_id: ParaId, message_id: u64, manager: T::AccountId },
@@ -678,7 +678,7 @@ pub mod pallet {
 				RegistrationState::Reserved => {
 					info.reservation.drop(&manager)?;
 					Paras::<T>::remove(para_id);
-					Self::deposit_event(Event::ReservationDropped { para_id, who: manager });
+					Self::deposit_event(Event::ReservationDropped { para_id, manager: manager });
 					return Ok(());
 				},
 				RegistrationState::Pending { .. } => return Err(Error::<T>::NotRegistered.into()),

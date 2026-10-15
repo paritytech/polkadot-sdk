@@ -29,6 +29,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::Weight,
+	storage::with_storage_layer,
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed, pallet_prelude::BlockNumberFor};
@@ -615,16 +616,22 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	fn deregister(para_id: u32) -> DispatchResult {
 		let id = ParaId::from(para_id);
 		match paras::Pallet::<T>::lifecycle(id) {
-			None |
-			Some(ParaLifecycle::OffboardingParathread) |
-			Some(ParaLifecycle::OffboardingParachain) => Ok(()),
-			_ => {
-				polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
-					.map_err(|_| Error::<T>::CannotDeregister)?;
-				Self::deposit_event(Event::<T>::Deregistered { para_id: id });
-				Ok(())
-			},
+			// Para must be a parathread (on-demand parachain), or not exist at all.
+			Some(ParaLifecycle::Parathread) | None => {},
+			_ => return Err(Error::<T>::NotParathread.into()),
 		}
+
+		// Instead of using do_deregister, we use with_storage_layer to ensure the transaction is
+		// rolled back if the schedule_para_cleanup fails and to read less storage and make no no-op
+		// operations (unreserve).
+		with_storage_layer(|| {
+			polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
+				.map_err(|_| Error::<T>::CannotDeregister)?;
+
+			Paras::<T>::remove(id);
+			Self::deposit_event(Event::<T>::Deregistered { para_id: id });
+			Ok(())
+		})
 	}
 
 	fn check_head_data(_head_len: u32) -> Result<(), ()> {
