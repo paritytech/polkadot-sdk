@@ -24492,7 +24492,11 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
+<<<<<<< HEAD
 version = "0.31.0"
+=======
+version = "0.2.1"
+>>>>>>> 32cc17db (Preserve Snowbridge v1 inbound liveness when the Asset Hub sovereign is empty (#12569))
 dependencies = [
  "alloy-core",
  "frame-benchmarking",
