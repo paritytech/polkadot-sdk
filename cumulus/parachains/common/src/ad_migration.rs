@@ -205,14 +205,17 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		let pre_next_keys: Vec<(<R as pallet_session::Config>::ValidatorId, Translator::AuraId)> =
-			DecodeAll::decode_all(&mut &state[..]).map_err(|_| {
-				sp_runtime::TryRuntimeError::Other("post_upgrade: invalid state encoding")
-			})?;
+		let pre_next_keys: Vec<(
+			<R as pallet_session::Config>::ValidatorId,
+			Translator::OldSessionKeys,
+		)> = DecodeAll::decode_all(&mut &state[..]).map_err(|_| {
+			sp_runtime::TryRuntimeError::Other("post_upgrade: invalid state encoding")
+		})?;
 
 		// Every ValidatorId from pre-upgrade must still have a NextKeys entry that
-		// preserves the original aura key and carries the hashed `placeholder_audi`.
-		for (id, aura) in &pre_next_keys {
+		// preserves the original aura key and carries the generated authority discovery key.
+		for (id, pre_next_key) in &pre_next_keys {
+			let aura = Translator::aura(&pre_next_key);
 			let next_keys = pallet_session::NextKeys::<R>::get(id).ok_or(
 				sp_runtime::TryRuntimeError::Other(
 					"post_upgrade: NextKeys entry missing after migration",
