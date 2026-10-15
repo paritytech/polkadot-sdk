@@ -153,7 +153,7 @@ impl Metrics {
 			held_statements: register(
 				Gauge::new(
 					"substrate_sub_statement_store_held_statements",
-					"Current number of statements the retention sweep skips while propagation outboxes hold them",
+					"Current number of statement hashes propagation outboxes hold back from the retention sweep",
 				)?,
 				registry,
 			)?,

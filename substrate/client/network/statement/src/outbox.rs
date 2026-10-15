@@ -64,7 +64,7 @@ impl PropagationOutboxes {
 	}
 
 	/// The peer's queued hashes as one slice, oldest first.
-	pub(crate) fn make_contiguous(&mut self, who: &PeerId) -> Option<&[Hash]> {
+	pub(crate) fn queued(&mut self, who: &PeerId) -> Option<&[Hash]> {
 		self.outboxes.get_mut(who).map(|outbox| &*outbox.make_contiguous())
 	}
 

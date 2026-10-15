@@ -696,7 +696,7 @@ struct QueryIndex {
 	/// Number of holds per hash, see [`StatementStore::hold_statements`]; the maintenance sweep
 	/// skips held statements. A removal keeps the count, as its holders release it even after a
 	/// re-admission.
-	hold_counts: HashMap<Hash, usize>,
+	held: HashMap<Hash, usize>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Encode, Decode)]
@@ -753,7 +753,7 @@ impl QueryIndex {
 			dec_key_counts: HashMap::new(),
 			recent: HashMap::new(),
 			retention_tracks: HashMap::new(),
-			hold_counts: HashMap::new(),
+			held: HashMap::new(),
 		}
 	}
 
@@ -798,24 +798,24 @@ impl QueryIndex {
 
 	/// The track of an already propagated statement, which the retention sweep re-checks.
 	fn propagated_track(&self, hash: &Hash) -> Option<RetentionTrack> {
-		if self.recent.contains_key(hash) || self.hold_counts.contains_key(hash) {
+		if self.recent.contains_key(hash) || self.held.contains_key(hash) {
 			return None;
 		}
 		self.retention_tracks.get(hash).copied()
 	}
 
-	fn hold(&mut self, hashes: &[Hash]) {
+	fn hold<'a>(&mut self, hashes: impl IntoIterator<Item = &'a Hash>) {
 		for hash in hashes {
-			*self.hold_counts.entry(*hash).or_insert(0) += 1;
+			*self.held.entry(*hash).or_insert(0) += 1;
 		}
 	}
 
 	fn release(&mut self, hashes: &[Hash]) {
 		for hash in hashes {
-			if let Some(count) = self.hold_counts.get_mut(hash) {
+			if let Some(count) = self.held.get_mut(hash) {
 				*count = count.saturating_sub(1);
 				if *count == 0 {
-					self.hold_counts.remove(hash);
+					self.held.remove(hash);
 				}
 			}
 		}
@@ -2586,7 +2586,7 @@ impl Store {
 			)
 		};
 		let accounts_count = self.known_accounts_count.load(AtomicOrdering::Relaxed);
-		let held_count = self.query_index.read().hold_counts.len();
+		let held_count = self.query_index.read().held.len();
 
 		if deleted_count > 0 {
 			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
@@ -2732,16 +2732,12 @@ impl StatementStore for Store {
 				),
 			}
 		}
-		// Holds matter only to the retention sweep, which needs a resolver.
-		let hashes: Vec<_> = if self.retention_fn.get().is_some() {
-			result.iter().map(|(_, hash, _)| *hash).collect()
-		} else {
-			Vec::new()
-		};
 		{
 			let mut query_index = self.query_index.write();
 			query_index.clear_propagated(&recent);
-			query_index.hold(&hashes);
+			if self.retention_fn.get().is_some() {
+				query_index.hold(result.iter().map(|(_, hash, _)| hash));
+			}
 		}
 		result.sort_unstable_by_key(|(seq, ..)| *seq);
 		Ok(result)

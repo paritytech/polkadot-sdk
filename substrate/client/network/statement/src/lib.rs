@@ -1713,9 +1713,9 @@ where
 					);
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
-				let queued = self.propagation_outboxes.remove(&peer);
-				if queued > 0 {
-					self.record_abandoned_send(send_failure::DISCONNECTED, queued);
+				let abandoned = self.propagation_outboxes.remove(&peer);
+				if abandoned > 0 {
+					self.record_abandoned_send(send_failure::DISCONNECTED, abandoned);
 				}
 				self.in_flight_chunks.remove(&peer);
 			},
@@ -2145,7 +2145,7 @@ where
 			}
 			let peer_version = peer_data.protocol_version;
 			let max_size = max_statement_payload_size(peer_version.envelope_overhead());
-			let Some(outbox) = self.propagation_outboxes.make_contiguous(&who) else {
+			let Some(outbox) = self.propagation_outboxes.queued(&who) else {
 				return;
 			};
 			let chunk = match fetch_statement_chunk(
@@ -3081,7 +3081,7 @@ mod tests {
 		/// Admission journal: the vector index is the statement's admission sequence number.
 		admissions: Arc<Mutex<Vec<sp_statement_store::Hash>>>,
 		fail_fetches: Arc<AtomicBool>,
-		hold_counts: Arc<Mutex<HashMap<sp_statement_store::Hash, usize>>>,
+		held: Arc<Mutex<HashMap<sp_statement_store::Hash, usize>>>,
 	}
 
 	impl TestStatementStore {
@@ -3092,7 +3092,7 @@ mod tests {
 				subscription_topics: Default::default(),
 				admissions: Default::default(),
 				fail_fetches: Arc::new(AtomicBool::new(false)),
-				hold_counts: Default::default(),
+				held: Default::default(),
 			}
 		}
 
@@ -3148,16 +3148,16 @@ mod tests {
 		}
 
 		fn hold_statements(&self, hashes: &[sp_statement_store::Hash]) {
-			let mut hold_counts = self.hold_counts.lock().unwrap();
+			let mut held = self.held.lock().unwrap();
 			for hash in hashes {
-				*hold_counts.entry(*hash).or_default() += 1;
+				*held.entry(*hash).or_default() += 1;
 			}
 		}
 
 		fn release_statements(&self, hashes: &[sp_statement_store::Hash]) {
-			let mut hold_counts = self.hold_counts.lock().unwrap();
+			let mut held = self.held.lock().unwrap();
 			for hash in hashes {
-				let Entry::Occupied(mut count) = hold_counts.entry(*hash) else {
+				let Entry::Occupied(mut count) = held.entry(*hash) else {
 					panic!("released {hash:?} without a hold");
 				};
 				*count.get_mut() -= 1;
@@ -3801,7 +3801,7 @@ mod tests {
 		let queued = handler.propagation_outboxes.get(&peer_id).map_or(0, |outbox| outbox.len());
 		assert!(queued > 0);
 		assert!(handler.in_flight_chunks.contains_key(&peer_id));
-		assert_eq!(statement_store.hold_counts.lock().unwrap().values().sum::<usize>(), queued);
+		assert_eq!(statement_store.held.lock().unwrap().values().sum::<usize>(), queued);
 
 		handler
 			.handle_notification_event(NotificationEvent::NotificationStreamClosed {
@@ -3810,7 +3810,7 @@ mod tests {
 			.await;
 
 		assert!(handler.propagation_outboxes.get(&peer_id).is_none());
-		assert!(statement_store.hold_counts.lock().unwrap().is_empty());
+		assert!(statement_store.held.lock().unwrap().is_empty());
 		assert!(!handler.in_flight_chunks.contains_key(&peer_id));
 		let metrics = handler.metrics.as_ref().unwrap();
 		assert_eq!(
@@ -3956,10 +3956,10 @@ mod tests {
 		let tail: HashSet<_> =
 			outbox.iter().skip(MAX_PROPAGATION_OUTBOX_LEN - 3).copied().collect();
 		assert_eq!(tail, fresh_hashes, "the freshest hashes must survive the overflow");
-		let hold_counts = statement_store.hold_counts.lock().unwrap();
-		assert_eq!(hold_counts[&old_hash], MAX_PROPAGATION_OUTBOX_LEN - 3);
-		assert!(fresh_hashes.iter().all(|hash| hold_counts[hash] == 1));
-		drop(hold_counts);
+		let held = statement_store.held.lock().unwrap();
+		assert_eq!(held[&old_hash], MAX_PROPAGATION_OUTBOX_LEN - 3);
+		assert!(fresh_hashes.iter().all(|hash| held[hash] == 1));
+		drop(held);
 
 		let metrics = handler.metrics.as_ref().unwrap();
 		assert_eq!(
