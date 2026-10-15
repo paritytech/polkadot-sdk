@@ -1551,7 +1551,7 @@ fn activity_entries_follow_the_returned_list() {
 			);
 			assert_eq!(
 				ValidatorCollators::do_try_state(),
-				Err("the drop records do not decode, they may exceed `MaxValidators`".into())
+				Err("the drop records do not decode".into())
 			);
 		});
 		frame_support::hypothetically!({

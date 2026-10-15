@@ -760,8 +760,8 @@ pub mod pallet {
 			dropped: &mut DropRecords<T>,
 		) -> Vec<T::AccountId> {
 			let now = frame_system::Pallet::<T>::block_number();
-			// The list that ends at this rotation, since Aura writes the next one after the session
-			// managers ran.
+			// The list that ends at this rotation, since Aura writes the list this rotation enacts
+			// only after the session managers ran.
 			let ending = T::AuthorityCount::get();
 			let mut rule = CurrentDropRule::<T>::get();
 			if rule.is_some() && (ending == 0 || T::MaxBlocksPerSlot::get() == 0) {
@@ -864,7 +864,7 @@ pub mod pallet {
 			ensure!(ReportMargin::<T>::get() > 0, "the report margin is zero");
 			ensure!(
 				!Dropped::<T>::exists() || Dropped::<T>::try_get().is_ok(),
-				"the drop records do not decode, they may exceed `MaxValidators`"
+				"the drop records do not decode"
 			);
 			let dropped = Dropped::<T>::get();
 			ensure!(
