@@ -1952,6 +1952,9 @@ impl<T: Config> Pallet<T> {
 	/// validating a transaction for the transaction pool or executing in a block. Any code executed
 	/// solely during the transaction validation in the pool can be bypassed by a block author. The
 	/// code executed for the block execution must still enforce all the necessary checks.
+	///
+	/// Furthermore the validation in the transaction pool happens on a different block and state
+	/// than the execution.
 	pub fn is_pool_transaction_validation() -> bool {
 		POOL_TRANSACTION_VALIDATION::with(|_| ()).is_some()
 	}
