@@ -1281,18 +1281,19 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Every account is exposed and has an incentive weight, so each entry is credited and
-	/// accrues into the weighted points sum.
+	/// Every account of the largest validator set is exposed, has an incentive weight and already
+	/// holds a point in both reward records, so the report updates `v` entries of full maps.
 	#[benchmark]
 	fn reward_service_points(
 		v: Linear<1, { T::MaxValidatorSet::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let era = 1;
+		let max_validators = T::MaxValidatorSet::get();
 		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: Some(0) });
-		let points = (0..v)
-			.map(|i| (account::<T::AccountId>("validator", i, SEED), 1 + i % 10))
+		let accounts = (0..max_validators)
+			.map(|i| account::<T::AccountId>("validator", i, SEED))
 			.collect::<Vec<_>>();
-		for (who, _) in &points {
+		for who in &accounts {
 			Eras::<T>::upsert_exposure(
 				era,
 				who,
@@ -1300,6 +1301,34 @@ mod benchmarks {
 			);
 			ErasValidatorIncentiveWeight::<T>::insert(era, who, BalanceOf::<T>::from(100u64));
 		}
+		let full_record = || -> Result<EraRewardPoints<T>, BenchmarkError> {
+			Ok(EraRewardPoints::<T> {
+				total: max_validators,
+				individual: accounts
+					.iter()
+					.map(|who| (who.clone(), 1))
+					.collect::<BTreeMap<_, _>>()
+					.try_into()
+					.map_err(|_| BenchmarkError::Stop("reward points exceed the validator set"))?,
+			})
+		};
+		ErasRewardPoints::<T>::insert(era, full_record()?);
+		ErasRewardPointsByService::<T>::insert(
+			era,
+			ValidatorServiceKind::Collation,
+			full_record()?,
+		);
+		ErasSumWeightedPoints::<T>::insert(
+			era,
+			BalanceOf::<T>::from(100u64 * max_validators as u64),
+		);
+
+		let points = accounts
+			.into_iter()
+			.take(v as usize)
+			.enumerate()
+			.map(|(i, who)| (who, 1 + i as u32 % 10))
+			.collect::<Vec<_>>();
 		let total_before = ErasRewardPoints::<T>::get(era).total;
 		let collation_before =
 			ErasRewardPointsByService::<T>::get(era, ValidatorServiceKind::Collation).total;
