@@ -276,7 +276,7 @@ fn signed_division_operands(rng: &mut impl Rng, denominators: &[U256]) -> [U256;
 ///
 /// Knuth's Algorithm D can correct the highest quotient limb zero or one time and each lower limb
 /// up to twice. The pattern `1, 0, 2` is impossible for this numerator. The counts were checked
-/// against `uint` 0.10.0's division. None of these operands needs the rarer correction that adds
+/// against `uint` 0.10's division. None of these operands needs the rarer correction that adds
 /// the divisor back after subtracting.
 ///
 /// Picking a denominator pseudo-randomly varies the correction branches across divisions. Each
@@ -416,7 +416,7 @@ mod one_limb_division_operands {
 /// corrected zero or one time and the lower limb up to twice. Unlike with two-limb divisors, an
 /// estimate can still be one too large after its corrections, and the division then adds the
 /// divisor back after subtracting. We only found that on the higher limb without corrections. The
-/// counts were checked with a source-level trace of `uint` 0.10.2 and Rust 1.93
+/// counts were checked with a source-level trace of `uint` 0.10 and Rust 1.93
 /// `compiler_builtins`.
 ///
 /// Each pattern has two distinct divisors. Each denominator also makes the `u128` divisions behind
