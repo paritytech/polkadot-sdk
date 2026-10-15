@@ -1250,12 +1250,24 @@ where
 			},
 		};
 
-		if self.has_view(&hash_and_number.hash) {
+		if let Some((view, _)) = self.view_store.get_view_at(hash_and_number.hash, false) {
 			debug!(
 				target: LOG_TARGET,
 				?hash_and_number,
 				"view already exists for block"
 			);
+			// The existing view was not built along this tree route, so it is missing the
+			// transactions from the retracted blocks.
+			if !tree_route.retracted().is_empty() {
+				let included = future::join_all(
+					tree_route.enacted().iter().map(|block| self.fetch_block_transactions(block)),
+				)
+				.await
+				.into_iter()
+				.flatten()
+				.collect();
+				self.resubmit_retracted_transactions(&view, tree_route, &included).await;
+			}
 			return;
 		}
 
@@ -1445,7 +1457,7 @@ where
 		// 2. Handle transactions from the tree route. Pruning transactions from the view first
 		// will make some space for mempool transactions in case we are at the view's limits.
 		let start = Instant::now();
-		self.update_view_with_fork(&view, tree_route, at.clone()).await;
+		self.update_view_with_fork(&view, tree_route).await;
 		debug!(
 			target: LOG_TARGET,
 			?at,
@@ -1698,12 +1710,7 @@ where
 	///
 	/// Transactions from the retracted blocks are resubmitted to the given view. Tags for
 	/// transactions included in blocks on enacted fork are pruned from the provided view.
-	async fn update_view_with_fork(
-		&self,
-		view: &View<ChainApi>,
-		tree_route: &TreeRoute<Block>,
-		hash_and_number: HashAndNumber<Block>,
-	) {
+	async fn update_view_with_fork(&self, view: &View<ChainApi>, tree_route: &TreeRoute<Block>) {
 		debug!(
 			target: LOG_TARGET,
 			?tree_route,
@@ -1759,85 +1766,90 @@ where
 		self.metrics
 			.report(|metrics| metrics.unknown_from_block_import_txs.inc_by(unknown_count as _));
 
-		// resubmit
-		{
-			let mut resubmit_transactions = Vec::new();
-			let mut unknown_transactions = HashMap::new();
+		self.resubmit_retracted_transactions(view, tree_route, &pruned_log).await;
+	}
 
-			for retracted in tree_route.retracted().iter().rev() {
-				let hash = retracted.hash;
+	/// Resubmits transactions from the retracted blocks of the given tree route to the given view.
+	///
+	/// Transactions in `included` were included on the enacted path and are skipped.
+	async fn resubmit_retracted_transactions(
+		&self,
+		view: &View<ChainApi>,
+		tree_route: &TreeRoute<Block>,
+		included: &HashSet<ExtrinsicHash<ChainApi>>,
+	) {
+		let mut resubmit_transactions = Vec::new();
+		let mut unknown_transactions = HashMap::new();
 
-				let block_transactions = api
-					.block_body(hash)
-					.await
-					.unwrap_or_else(|error| {
-						warn!(
+		for retracted in tree_route.retracted().iter().rev() {
+			let hash = retracted.hash;
+
+			let block_transactions = self
+				.api
+				.block_body(hash)
+				.await
+				.unwrap_or_else(|error| {
+					warn!(
+						target: LOG_TARGET,
+						%error,
+						"Failed to fetch block body"
+					);
+					None
+				})
+				.unwrap_or_default()
+				.into_iter();
+
+			let mut resubmitted_to_report = 0;
+
+			let txs = block_transactions.into_iter().map(|tx| (self.hash_of(&tx), tx)).filter(
+				|(tx_hash, _)| {
+					let contains = included.contains(&tx_hash);
+
+					// need to count all transactions, not just filtered, here
+					resubmitted_to_report += 1;
+
+					if !contains {
+						trace!(
 							target: LOG_TARGET,
-							%error,
-							"Failed to fetch block body"
+							?tx_hash,
+							?hash,
+							"Resubmitting from retracted block"
 						);
-						None
-					})
-					.unwrap_or_default()
-					.into_iter();
-
-				let mut resubmitted_to_report = 0;
-
-				let txs = block_transactions.into_iter().map(|tx| (self.hash_of(&tx), tx)).filter(
-					|(tx_hash, _)| {
-						let contains = pruned_log.contains(&tx_hash);
-
-						// need to count all transactions, not just filtered, here
-						resubmitted_to_report += 1;
-
-						if !contains {
-							trace!(
-								target: LOG_TARGET,
-								?tx_hash,
-								?hash,
-								"Resubmitting from retracted block"
-							);
-						}
-						!contains
+					}
+					!contains
+				},
+			);
+			for (tx_hash, tx) in txs {
+				let resubmitted = match self.mempool.get_by_hash(tx_hash).await {
+					Some(tx) => (tx.source(), tx.tx()),
+					None => {
+						// These transactions are coming from retracted blocks, we
+						// should simply consider them external.
+						let tx: ExtrinsicFor<ChainApi> = Arc::from(tx);
+						unknown_transactions.insert(tx_hash, tx.clone());
+						(TimedTransactionSource::new_external(true), tx)
 					},
-				);
-				for (tx_hash, tx) in txs {
-					let resubmitted = match self.mempool.get_by_hash(tx_hash).await {
-						Some(tx) => (tx.source(), tx.tx()),
-						None => {
-							// These transactions are coming from retracted blocks, we
-							// should simply consider them external.
-							let tx: ExtrinsicFor<ChainApi> = Arc::from(tx);
-							unknown_transactions.insert(tx_hash, tx.clone());
-							(TimedTransactionSource::new_external(true), tx)
-						},
-					};
-					resubmit_transactions.push(resubmitted);
-				}
-
-				self.metrics.report(|metrics| {
-					metrics.resubmitted_retracted_txs.inc_by(resubmitted_to_report)
-				});
+				};
+				resubmit_transactions.push(resubmitted);
 			}
 
-			let validated = view
-				.pool
-				.resubmit_at(
-					&hash_and_number,
-					resubmit_transactions,
-					ValidateTransactionPriority::Maintained,
-				)
-				.await
-				.into_iter()
-				.filter_map(Result::ok)
-				.filter_map(|outcome| {
-					let tx = unknown_transactions.remove(&outcome.hash())?;
-					Some((outcome.hash(), tx, outcome.priority()?))
-				})
-				.collect();
-
-			self.insert_retracted_into_mempool(view, validated).await;
+			self.metrics
+				.report(|metrics| metrics.resubmitted_retracted_txs.inc_by(resubmitted_to_report));
 		}
+
+		let validated = view
+			.pool
+			.resubmit_at(&view.at, resubmit_transactions, ValidateTransactionPriority::Maintained)
+			.await
+			.into_iter()
+			.filter_map(Result::ok)
+			.filter_map(|outcome| {
+				let tx = unknown_transactions.remove(&outcome.hash())?;
+				Some((outcome.hash(), tx, outcome.priority()?))
+			})
+			.collect();
+
+		self.insert_retracted_into_mempool(view, validated).await;
 	}
 
 	/// Adds transactions from retracted blocks that were unknown to the mempool, so they compete

@@ -10,6 +10,10 @@ doc:
       usual replacement path, so a higher priority retracted transaction evicts lower ones and a
       lower priority one is dropped.
 
+      Retracted transactions are now also resubmitted when the newly enacted block already has a
+      view, for example when it was imported as non best earlier or gets finalized while a sibling
+      is the best block. Previously they were lost for that view and its descendants.
+
 crates:
   - name: sc-transaction-pool
     bump: patch
