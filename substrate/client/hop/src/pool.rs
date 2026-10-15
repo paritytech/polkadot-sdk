@@ -1281,7 +1281,7 @@ fn parse_hex_hash(stem: &str) -> Option<HopHash> {
 /// would race with concurrent releases on the same counter and could wrap
 /// to near `u64::MAX`.
 fn saturating_release(counter: &AtomicU64, accounted: u64) {
-	let _ = counter.try_update(Ordering::Relaxed, Ordering::Relaxed, |previous| {
+	let _ = counter.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |previous| {
 		Some(previous - accounted.min(previous))
 	});
 }
