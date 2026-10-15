@@ -245,8 +245,8 @@ struct Allocation {
                                       // the block the delivery was sent in.
                                       // A lease ends at
                                       // `delivered_at + duration`
-    approver: PalletsOrigin,          // a signed origin (an account or a
-                                      // contract) or governance
+    approver: Option<AccountId>,      // the signing account or contract;
+                                      // `None` for governance
     valid_from: BlockNumber,          // `accept_lease` and `execute_release`
                                       // are rejected before this block
     expires_at: BlockNumber,          // `accept_lease` and `execute_release`
@@ -620,7 +620,7 @@ name.
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-address constant JAMKB_ADDR = 0x0000000000000000000000000000000000000903;
+address constant JAMKB_ADDR = 0x0000000000000000000000000000000009030000;
 
 interface IJamkb {
     enum AllocationState { Approved, Delivering, Delivered, Reclaiming, Closed }
