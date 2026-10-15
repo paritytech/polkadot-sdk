@@ -73,7 +73,7 @@ fn request_registration(who: AccountId, para_id: u32, head_len: usize, code_len:
 
 /// Reserve, register and confirm a para for `who`, leaving the logs clean.
 ///
-/// Head and code sizes are 20 and 300, so the registration deposit is `PER_BYTE * 320`.
+/// The head data is 20 bytes, so the registration deposit is `PER_BYTE * (20 + MAX_CODE_SIZE)`.
 fn registered_para(who: AccountId) -> u32 {
 	let para_id = reserve_for(who);
 	request_registration(who, para_id, 20, 300);
@@ -162,8 +162,8 @@ mod register {
 
 			let blob = request_registration(ALICE, para_id, head_len, code_len);
 
-			// Deposit covers head data plus the *declared* code length.
-			let expected = PER_BYTE * (head_len as Balance + code_len as Balance);
+			// Deposit covers head data plus a full-sized code, not the declared 300 bytes.
+			let expected = PER_BYTE * (head_len as Balance + MAX_CODE_SIZE as Balance);
 			assert_eq!(held(ALICE), PARA_DEPOSIT + expected);
 
 			let expected_at = System::block_number() + PENDING_DEADLINE;
@@ -321,7 +321,7 @@ mod receive {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 			let _ = registrar_events();
-			let deposit = PER_BYTE * (20 + 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			assert_ok!(Registrar::receive(
 				RuntimeOrigin::root(),
@@ -426,7 +426,7 @@ mod receive {
 			run_to_block(System::block_number() + PENDING_DEADLINE);
 			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
 			let _ = registrar_events();
-			let deposit = PER_BYTE * (20 + 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			// The code landed on the relay chain after all and the success report was lost, so the
 			// cancellation comes back refused and the deposit is owed. The event echoes the
@@ -453,7 +453,7 @@ mod receive {
 		new_test_ext().execute_with(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
-			let deposit = PER_BYTE * (20 + 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			// A verdict already in flight settles the registration first.
 			assert_ok!(Registrar::receive(
@@ -610,7 +610,7 @@ mod receive {
 	#[test]
 	fn a_stale_verdict_cannot_settle_a_later_attempt() {
 		new_test_ext().execute_with(|| {
-			let deposit = PER_BYTE * (20 + 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 			run_to_block(System::block_number() + PENDING_DEADLINE);
@@ -679,7 +679,7 @@ mod cancel_registration {
 			request_registration(ALICE, para_id, 20, 300);
 			let _ = registrar_events();
 			let _ = take_sent();
-			let deposit = PER_BYTE * (20 + 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			run_to_block(System::block_number() + PENDING_DEADLINE);
 			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
@@ -776,7 +776,7 @@ mod cancel_registration {
 				Paras::<Test>::get(para_id).unwrap().state,
 				RegistrationState::Pending { cancellable_at: at, .. } if at == cancellable_at
 			));
-			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * (20 + 300));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * (20 + MAX_CODE_SIZE as Balance));
 			SendFails::set(false);
 			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
 		});

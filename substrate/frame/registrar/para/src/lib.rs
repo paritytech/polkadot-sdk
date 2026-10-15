@@ -32,9 +32,9 @@
 //! length and the blob is uploaded to the relay chain directly:
 //!
 //! 1. [`Pallet::reserve`] allocates a para id here and takes [`Config::ReservationConsideration`].
-//! 2. [`Pallet::register`] takes [`Config::RegistrationConsideration`] for the head data and the
-//!    *declared* code length, then asks the relay chain to accept the registration. Only the code
-//!    hash and length are sent.
+//! 2. [`Pallet::register`] takes [`Config::RegistrationConsideration`] for the head data and a
+//!    full-sized validation code, then asks the relay chain to accept the registration. Only the
+//!    code hash and length are sent.
 //! 3. The manager uploads the validation code to the relay chain, which accepts it only if it
 //!    matches the hash and length committed to in step 2.
 //! 4. The verdict arrives back as [`Pallet::receive`], which either finalises the registration or
@@ -66,7 +66,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
-	traits::{Consideration, EnsureOrigin, Footprint},
+	traits::{Consideration, EnsureOrigin, Footprint, Get},
 };
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
@@ -212,7 +212,7 @@ pub mod pallet {
 		type ReservationConsideration: Consideration<Self::AccountId, Footprint>;
 
 		/// The cost of a registration, on top of the reservation. The footprint is one item sized
-		/// as head data plus *declared* code length, so a per-byte price fits.
+		/// as head data plus [`Config::MaxCodeSize`], so a per-byte price fits.
 		type RegistrationConsideration: Consideration<Self::AccountId, Footprint>;
 
 		/// Sends messages to the relay chain.
@@ -240,7 +240,8 @@ pub mod pallet {
 
 		/// The largest validation code the relay chain will accept.
 		///
-		/// A local mirror of the relay chain's `max_code_size`. See [`Config::MinCodeSize`].
+		/// A local mirror of the relay chain's `max_code_size`, and what every registration is
+		/// charged for. See [`Config::MinCodeSize`].
 		#[pallet::constant]
 		type MaxCodeSize: Get<u32>;
 
@@ -482,9 +483,10 @@ pub mod pallet {
 		///
 		/// ## Costs
 		///
-		/// Takes [`Config::RegistrationConsideration`] for the head data and the *declared* code
-		/// length, on top of the para id reservation. It is returned if the relay chain rejects
-		/// the registration or if the caller later abandons it.
+		/// Takes [`Config::RegistrationConsideration`] for the head data and a code of
+		/// [`Config::MaxCodeSize`], on top of the para id reservation: a para pays for the largest
+		/// code it could ever have on chain, not the one it registers with. It is returned if the
+		/// relay chain rejects the registration or if the caller later abandons it.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::register(genesis_head.len() as u32))]
 		pub fn register(
@@ -508,10 +510,8 @@ pub mod pallet {
 			ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
 			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
 
-			let ticket = T::RegistrationConsideration::new(
-				&who,
-				Self::registration_footprint(head_len, code_len),
-			)?;
+			let ticket =
+				T::RegistrationConsideration::new(&who, Self::registration_footprint(head_len))?;
 
 			let cancellable_at = T::BlockNumberProvider::current_block_number()
 				.saturating_add(T::PendingDeadline::get());
@@ -679,9 +679,10 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	/// The footprint a registration is charged for: the head data plus the *declared* code length.
-	pub fn registration_footprint(head_len: u32, code_len: u32) -> Footprint {
-		Footprint::from_parts(1, head_len.saturating_add(code_len) as usize)
+	/// The footprint a registration is charged for: the head data plus a full-sized validation
+	/// code, whatever length the registration itself declares.
+	pub fn registration_footprint(head_len: u32) -> Footprint {
+		Footprint::from_parts(1, head_len.saturating_add(T::MaxCodeSize::get()) as usize)
 	}
 
 	/// Ensure `origin` may manage `para_id`: the para itself, its manager while unlocked, or root.
