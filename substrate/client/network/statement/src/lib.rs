@@ -118,7 +118,7 @@
 mod affinity;
 mod v2dht;
 
-use crate::{config::*, v2dht::peers_topology::PeersTopologyConfig};
+use crate::config::*;
 
 use affinity::AffinityFilter;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
@@ -172,6 +172,8 @@ use tokio::time::timeout;
 use v2dht::{RetentionHandle, V2DhtMetrics, V2DhtOrchestrator};
 pub mod config;
 pub use config::{AffinityTopicsFile, V2DhtConfig};
+#[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
+pub use v2dht::peers_topology::{DhtAffinity, PeersTopology, PeersTopologyConfig};
 pub use v2dht::RetentionReasonMask;
 #[cfg(test)]
 mod test_helpers;
