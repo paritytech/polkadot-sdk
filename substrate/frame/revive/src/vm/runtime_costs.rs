@@ -310,8 +310,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
 			EvmMemoryGrow { words, allocation_words } => {
-				let grow =
-					if words == 0 { Weight::zero() } else { T::WeightInfo::evm_memory_grow(words) };
+				let grow = cost_args!(evm_memory_grow, words);
 				let allocate = if allocation_words == 0 {
 					Weight::zero()
 				} else {

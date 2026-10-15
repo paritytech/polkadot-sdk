@@ -85,9 +85,9 @@ doc:
       charge. A zero-length copy pays the fixed part too.
     - Memory growth from `current` to `target` bytes, with `target`
       rounded up to a multiple of 32:
-      `evm_memory_grow((target - current) / 32)`. When `target` exceeds
-      the capacity of the memory buffer, the capacity becomes `target`
-      rounded up to a power of two, and the growth also pays
+      `slope(evm_memory_grow) * (target - current) / 32`. When `target`
+      exceeds the capacity of the memory buffer, the capacity becomes
+      `target` rounded up to a power of two, and the growth also pays
       `evm_memory_reallocate(capacity / 32)`. The buffer starts at 4 KiB.
       Every op-code whose memory range ends past the current memory size
       pays this, including the input and output ranges of calls.
