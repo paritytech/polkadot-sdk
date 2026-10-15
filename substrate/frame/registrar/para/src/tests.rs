@@ -834,7 +834,10 @@ mod deregister {
 			assert!(Paras::<Test>::get(para_id).is_none());
 			assert_eq!(held(ALICE), 0);
 			assert!(take_sent().is_empty());
-			assert_eq!(registrar_events(), vec![Event::ReservationDropped { para_id, who: ALICE }]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::ReservationDropped { para_id, manager: ALICE }]
+			);
 		});
 	}
 

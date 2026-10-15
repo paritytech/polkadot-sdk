@@ -616,6 +616,9 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	fn deregister(para_id: u32) -> DispatchResult {
 		let id = ParaId::from(para_id);
 		match paras::Pallet::<T>::lifecycle(id) {
+			// A retry after a lost answer: cleanup is already scheduled.
+			Some(ParaLifecycle::OffboardingParathread) |
+			Some(ParaLifecycle::OffboardingParachain) => return Ok(()),
 			// Para must be a parathread (on-demand parachain), or not exist at all.
 			Some(ParaLifecycle::Parathread) | None => {},
 			_ => return Err(Error::<T>::NotParathread.into()),

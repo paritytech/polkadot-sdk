@@ -678,7 +678,7 @@ pub mod pallet {
 				RegistrationState::Reserved => {
 					info.reservation.drop(&manager)?;
 					Paras::<T>::remove(para_id);
-					Self::deposit_event(Event::ReservationDropped { para_id, manager: manager });
+					Self::deposit_event(Event::ReservationDropped { para_id, manager });
 					return Ok(());
 				},
 				RegistrationState::Pending { .. } => return Err(Error::<T>::NotRegistered.into()),

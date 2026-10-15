@@ -273,7 +273,8 @@ pub enum FailureReason {
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
-	/// The relay chain will not drop this para: it is not an on-demand parathread.
+	/// The relay chain will not drop this para: it is not an on-demand parathread, or its
+	/// offboarding could not be scheduled (e.g. a PVF pre-check is still in progress).
 	#[codec(index = 4)]
 	NotDeregisterable,
 }

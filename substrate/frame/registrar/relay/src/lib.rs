@@ -78,6 +78,8 @@ pub use weights::WeightInfo;
 
 pub mod weights;
 
+const LOG_TARGET: &str = "runtime::registrar-relay";
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -199,16 +201,16 @@ pub mod pallet {
 		AuthorizationCancelled { para_id: ParaId, message_id: u64 },
 		/// A cancellation arrived after the para had already been onboarded, and was refused.
 		CancellationRefused { para_id: ParaId, message_id: u64 },
-		/// A para was dropped from the registry, or had already left it.
-		Deregistered { para_id: ParaId, message_id: u64 },
-		/// The registry refused to drop a para.
-		DeregistrationRejected { para_id: ParaId, message_id: u64 },
 		/// A report could not be sent back to the parachain.
 		ReportFailed { para_id: ParaId, message_id: u64 },
 		/// The parachain was told that a para produced its first head.
 		HeadNoted { para_id: ParaId },
 		/// A para's first head could not be reported to the parachain.
 		HeadNoteFailed { para_id: ParaId },
+		/// A para was dropped from the registry, or had already left it.
+		Deregistered { para_id: ParaId, message_id: u64 },
+		/// The registry refused to drop a para.
+		DeregistrationRejected { para_id: ParaId, message_id: u64 },
 	}
 
 	#[pallet::error]
@@ -472,7 +474,7 @@ pub mod pallet {
 		fn on_deregister_request(para_id: ParaId, message_id: u64) {
 			if let Err(e) = T::Registrar::deregister(para_id) {
 				log::debug!(
-					target: "runtime::registrar-relay",
+					target: LOG_TARGET,
 					"registry refused to drop para {para_id}: {e:?}",
 				);
 				Self::report_deregistration(
@@ -550,7 +552,7 @@ pub mod pallet {
 		fn report(para_id: ParaId, message_id: u64, message: MessageToParaV1) {
 			if T::SendToPara::send(MessageToPara::V1(message)).is_err() {
 				log::error!(
-					target: "runtime::registrar-relay",
+					target: LOG_TARGET,
 					"failed to report the outcome for para {para_id} back to the parachain",
 				);
 				Self::deposit_event(Event::ReportFailed { para_id, message_id });
@@ -572,7 +574,7 @@ impl<T: Config> OnNewHead for Pallet<T> {
 
 		if T::SendToPara::send(MessageToPara::V1(MessageToParaV1::HeadNoted { para_id })).is_err() {
 			log::error!(
-				target: "runtime::registrar-relay",
+				target: LOG_TARGET,
 				"failed to tell the parachain about a new head for para {para_id}",
 			);
 			Self::deposit_event(Event::HeadNoteFailed { para_id });
