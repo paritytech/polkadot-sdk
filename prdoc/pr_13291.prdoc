@@ -1,0 +1,14 @@
+title: Add Quint models for pallet-psm
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds formal models of `pallet-psm` in Quint under
+      `substrate/frame/psm/designs/quint/`. The models encode the pallet's
+      storage invariants, state a bidirectional flow-conservation invariant
+      that the `try_state` checks cannot express, and carry a multi-decimal
+      regression guard. Documentation only; no runtime code changes.
+
+crates:
+  - name: pallet-psm
+    bump: none
