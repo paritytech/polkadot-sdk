@@ -2,7 +2,7 @@ title: 'pallet-validator-collators: drop validators that author no blocks'
 doc:
 - audience: Runtime Dev
   description: |-
-    `pallet-validator-collators` can stop returning, for a number of sessions, validators that
+    `pallet-validator-collators` can stop returning, for a number of blocks, validators that
     author no blocks within a number of Aura rounds. Governance sets the rule with the new
     `set_drop_rule` call. Without a rule, the default, nobody is dropped. New storage items:
     `CurrentDropRule`, `LastActivity` and `Dropped`. No migration.

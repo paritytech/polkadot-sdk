@@ -11,12 +11,12 @@
 //!   root.
 //!
 //! Test flow:
-//! 1. In one call People gets session keys for a generated account with no node, a drop rule of one
-//!    round, and a validator set holding only that account. The two forced rotations that follow
+//! 1. In one call People gets session keys for a generated account with no node, a drop rule of two
+//!    rounds, and a validator set holding only that account. The two forced rotations that follow
 //!    the set enact the invulnerable and the account as Aura authorities, and the account's
 //!    activity record starts at the enacting block.
-//! 2. With half of the Aura slots empty, People keeps finalizing blocks until the window of one
-//!    round of both authorities has passed since the enacting block.
+//! 2. With half of the Aura slots empty, People keeps finalizing blocks until the window of two
+//!    rounds of both authorities has passed since the enacting block.
 //! 3. Setting no cap, which forces two rotations while a set is stored, drops the account at the
 //!    first rotation and enacts the invulnerable alone at the second.
 
@@ -43,11 +43,10 @@ use zombienet_sdk::subxt::{
 const IDLE_ACCOUNT_URI: &str = "//drop//idle";
 
 /// Full Aura rounds the account may go without authoring.
-const DROP_ROUNDS: u32 = 1;
+const DROP_ROUNDS: u32 = 2;
 
-/// Sessions the account stays dropped. Two keep its drop record past the rotation that enacts the
-/// drop.
-const DROP_SESSIONS: u32 = 2;
+/// Blocks the account is not returned, counted from the rotation that enacts the drop.
+const DROP_BLOCKS: u32 = 2;
 
 /// From the call that stores the set being finalized on the relay chain to People finalizing the
 /// block that enacts the account: the relay chain delivers the message, then People rotates twice.
@@ -208,15 +207,15 @@ async fn run() -> Result<(), anyhow::Error> {
 		));
 	}
 	check_authorities(&people, &drop_enacted, &[invulnerable], index_before_drop + 2).await?;
-	// AND the drop record keeps the account out for `DROP_SESSIONS` sessions from the session the
-	// dropping rotation planned, and its activity record is gone
-	let dropped: Vec<([u8; 32], u32)> =
+	// AND the second rotation starts the drop of `DROP_BLOCKS` blocks, and the activity record of
+	// the account is gone
+	let dropped: Vec<([u8; 32], Option<u32>)> =
 		fetch_at(&people_client, drop_enacted.hash, "ValidatorCollators", "Dropped", vec![])
 			.await?
 			.unwrap_or_default();
-	let until = index_before_drop + 2 + DROP_SESSIONS;
+	let until = Some(drop_enacted.number + DROP_BLOCKS);
 	if dropped != vec![(idle, until)] {
-		return Err(anyhow!("drop records are {dropped:?}, expected the account until {until}"));
+		return Err(anyhow!("drop records are {dropped:?}, expected the account until {until:?}"));
 	}
 	let activity: Option<Activity> = fetch_at(
 		&people_client,
@@ -257,7 +256,7 @@ async fn store_rule_and_set(
 		.collect::<Vec<_>>();
 	let rule = Value::named_composite([
 		("rounds", Value::u128(DROP_ROUNDS.into())),
-		("sessions", Value::u128(DROP_SESSIONS.into())),
+		("blocks", Value::u128(DROP_BLOCKS.into())),
 		("min_collators", Value::u128(0)),
 	]);
 	let calls = [

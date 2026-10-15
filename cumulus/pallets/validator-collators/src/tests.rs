@@ -1128,10 +1128,10 @@ fn setters_are_bounded_and_announced() {
 	});
 }
 
-fn set_rule(rounds: u32, sessions: u32, min_collators: u32) {
+fn set_rule(rounds: u32, blocks: u64, min_collators: u32) {
 	assert_ok!(ValidatorCollators::set_drop_rule(
 		RuntimeOrigin::signed(RootAccount::get()),
-		Some(DropRule { rounds, sessions, min_collators })
+		Some(DropRule { rounds, blocks, min_collators })
 	));
 }
 
@@ -1147,18 +1147,13 @@ fn active(since: u64, authorities: u32) -> Option<Activity<u64>> {
 	Some(Activity::Active { since, authorities })
 }
 
-fn dropped() -> Vec<(u64, u32)> {
+fn dropped() -> Vec<(u64, Option<u64>)> {
 	Dropped::<Test>::get().into_iter().collect()
 }
 
 /// The validators queued by the last rotation, in force from the next one.
 fn queued() -> Vec<u64> {
 	Session::queued_keys().into_iter().map(|(who, _)| who).collect()
-}
-
-/// The session index the pallet planned at the last rotation.
-fn planned_index() -> u32 {
-	Session::current_index() + 1
 }
 
 /// Produce blocks up to `n`, with each of `authors` authoring block `n - 1`.
@@ -1168,30 +1163,44 @@ fn run_to(n: u64, authors: &[u64]) {
 	initialize_to_block(n);
 }
 
-// The mock counts 4 Aura authorities and 2 blocks per slot, so a rule of one round has a window
+// The mock counts 4 Aura authorities and 1 block per slot, so a rule of two rounds has a window
 // of 8 blocks, shorter than the session period of 10 blocks.
 
 #[test]
-fn idle_validator_is_dropped_one_session_after_the_judgement_and_returns_after_its_sessions() {
+fn idle_validator_is_dropped_one_session_after_the_judgement_and_returns_after_its_blocks() {
 	new_test_ext().execute_with(|| {
-		// GIVEN a window of 8 blocks, and 10 and 11 received at block 3 and enacted at block 5
+		// GIVEN a window of 8 blocks, drops of 10 blocks, and 10 and 11 received at block 3 and
+		// enacted at block 5
 		initialize_to_block(1);
 		set_keys(10);
 		set_keys(11);
-		set_rule(1, 1, 0);
+		set_rule(2, 10, 0);
 		initialize_to_block(3);
 		assert_ok!(receive(1, vec![10, 11]));
 		initialize_to_block(5);
 		assert_eq!(activity(11), active(5, 0));
 		// AND a validator whose last block is exactly a window before the rotation at block 20
-		// is dropped there, one block later it is kept
-		for (block, is_dropped) in [(12, true), (13, false)] {
-			frame_support::hypothetically!({
-				initialize_to_block(block);
-				note_blocks(10, 1);
-				initialize_to_block(20);
-				assert_eq!(dropped().iter().any(|(v, _)| *v == 10), is_dropped, "block {block}");
-			});
+		// is dropped there, one block later it is kept, for windows of
+		// `rounds × authorities × blocks per slot` blocks
+		for (rounds, authorities, blocks_per_slot) in [(2, 4, 1), (3, 4, 1), (2, 3, 2)] {
+			let window = (rounds * authorities * blocks_per_slot) as u64;
+			for (block, is_dropped) in [(20 - window, true), (21 - window, false)] {
+				frame_support::hypothetically!({
+					set_rule(rounds, 10, 0);
+					AuthorityCount::set(authorities);
+					MaxBlocksPerSlot::set(blocks_per_slot);
+					initialize_to_block(block);
+					note_blocks(10, 1);
+					initialize_to_block(20);
+					AuthorityCount::set(4);
+					MaxBlocksPerSlot::set(1);
+					assert_eq!(
+						dropped().iter().any(|(v, _)| *v == 10),
+						is_dropped,
+						"window of {window} blocks, last block {block}"
+					);
+				});
+			}
 		}
 		// AND 10 authors at block 15
 		initialize_to_block(15);
@@ -1199,38 +1208,70 @@ fn idle_validator_is_dropped_one_session_after_the_judgement_and_returns_after_i
 
 		// WHEN the rotation at block 20 judges them
 		initialize_to_block(20);
-		// THEN 11 is dropped for one session (20 - 5 >= 8) and 10 is not (20 - 15 < 8)
-		let until = planned_index() + 1;
-		System::assert_has_event(
-			Event::CollatorsDropped { validators: vec![11], until, kept: 0 }.into(),
-		);
-		assert_eq!(dropped(), vec![(11, until)]);
+		// THEN 11 is dropped (20 - 5 >= 8) and 10 is not (20 - 15 < 8)
+		System::assert_has_event(Event::CollatorsDropped { validators: vec![11], kept: 0 }.into());
+		assert_eq!(dropped(), vec![(11, None)]);
 		assert_eq!(activity(11), None);
 		assert_eq!(activity(10), active(15, 4));
-		// AND 11 keeps its slots in the session that starts now and loses them at block 30
+		// AND 11 keeps its slots in the session that starts now
 		assert_eq!(Session::validators(), vec![1, 2, 10, 11]);
+		frame_support::hypothetically!({
+			// WHEN a set arrives at block 21, so rotations at blocks 22 and 23 start two sessions,
+			// while 10 authors
+			let index = Session::current_index();
+			initialize_to_block(21);
+			note_blocks(10, 1);
+			assert_ok!(receive(2, vec![10, 11]));
+			initialize_to_block(23);
+			// THEN 11 loses its slots at block 22, which starts its drop of 10 blocks
+			assert_eq!(Session::current_index(), index + 2);
+			assert_eq!(Session::validators(), vec![1, 2, 10]);
+			assert_eq!(dropped(), vec![(11, Some(32))]);
+		});
+		// WHEN the rotation at block 30 enacts the list without 11
 		run_to(30, &[10]);
+		// THEN 11 loses its slots and its drop of 10 blocks starts
 		assert_eq!(Session::validators(), vec![1, 2, 10]);
+		assert_eq!(dropped(), vec![(11, Some(40))]);
+		assert!(!queued().contains(&11));
 
-		// THEN at block 30 its drop ended and it is queued, a collator from block 40
+		frame_support::hypothetically!({
+			// WHEN a set arrives at block 39, so forced rotations at blocks 40 and 41 follow the
+			// end of its drop
+			initialize_to_block(39);
+			note_blocks(10, 1);
+			assert_ok!(receive(2, vec![10, 11]));
+			// THEN the rotation at block 40 queues it and the one at block 41 enacts it, so it
+			// held no slots for 11 blocks
+			initialize_to_block(40);
+			assert_eq!(dropped(), vec![]);
+			assert_eq!(activity(11), Some(Activity::Queued));
+			assert_eq!(Session::validators(), vec![1, 2, 10]);
+			initialize_to_block(41);
+			assert_eq!(Session::validators(), vec![1, 2, 10, 11]);
+		});
+
+		// WHEN the rotation at block 40 ends its drop
+		run_to(40, &[10]);
+		// THEN it is queued, a collator from block 50
 		assert_eq!(dropped(), vec![]);
 		assert_eq!(activity(11), Some(Activity::Queued));
 		assert_eq!(queued(), vec![1, 2, 10, 11]);
-		run_to(40, &[10]);
+		run_to(50, &[10]);
 		assert_eq!(Session::validators(), vec![1, 2, 10, 11]);
 		// AND the rotation that enacts it starts a fresh window instead of judging it
-		assert_eq!(activity(11), active(40, 0));
+		assert_eq!(activity(11), active(50, 0));
 		assert_eq!(dropped(), vec![]);
 
-		// WHEN it authors nothing until the rotation at block 50 THEN it is dropped again
+		// WHEN it authors nothing until the rotation at block 60 THEN it is dropped again
 		frame_support::hypothetically!({
-			run_to(50, &[10]);
-			assert_eq!(dropped(), vec![(11, planned_index() + 1)]);
+			run_to(60, &[10]);
+			assert_eq!(dropped(), vec![(11, None)]);
 		});
-		// WHEN it authors at block 49 THEN it stays
-		run_to(50, &[10, 11]);
+		// WHEN it authors at block 59 THEN it stays
+		run_to(60, &[10, 11]);
 		assert_eq!(dropped(), vec![]);
-		assert_eq!(activity(11), active(49, 4));
+		assert_eq!(activity(11), active(59, 4));
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
@@ -1240,7 +1281,7 @@ fn validator_is_judged_only_from_its_enactment() {
 	new_test_ext().execute_with(|| {
 		// GIVEN a window of 8 blocks and the set of 12 enacted at block 5 while 12 has no keys
 		initialize_to_block(1);
-		set_rule(1, 1, 0);
+		set_rule(2, 10, 0);
 		initialize_to_block(3);
 		assert_ok!(receive(1, vec![12]));
 		// WHEN 12 registers keys at block 12
@@ -1273,7 +1314,7 @@ fn validator_is_judged_only_from_its_enactment() {
 		assert_eq!(Session::validators(), vec![1, 2, 12]);
 		// WHEN it authors nothing until the rotation at block 40 THEN it is dropped
 		initialize_to_block(40);
-		assert_eq!(dropped(), vec![(12, planned_index() + 1)]);
+		assert_eq!(dropped(), vec![(12, None)]);
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
@@ -1281,11 +1322,11 @@ fn validator_is_judged_only_from_its_enactment() {
 #[test]
 fn window_follows_the_largest_list_in_force_since_the_record() {
 	new_test_ext().execute_with(|| {
-		// GIVEN 10 and 11 enacted at block 5 under a rule of one round
+		// GIVEN 10 and 11 enacted at block 5 under a rule of two rounds
 		initialize_to_block(1);
 		set_keys(10);
 		set_keys(11);
-		set_rule(1, 1, 0);
+		set_rule(2, 10, 0);
 		initialize_to_block(3);
 		assert_ok!(receive(1, vec![10, 11]));
 		initialize_to_block(5);
@@ -1321,7 +1362,7 @@ fn window_follows_the_largest_list_in_force_since_the_record() {
 		run_to(50, &[10]);
 		// AND the rotation at block 50 drops 11 alone, while 10 is judged on the list of 2 since
 		// its block (50 - 49 < 4)
-		assert_eq!(dropped(), vec![(11, planned_index() + 1)]);
+		assert_eq!(dropped(), vec![(11, None)]);
 		assert_eq!(activity(10), active(49, 2));
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
@@ -1338,7 +1379,7 @@ fn floor_keeps_the_most_recently_active_idle_validators() {
 		frame_support::hypothetically!({
 			// WHEN none of them authors, so all four share the enactment block as their record,
 			// and the rotation at block 20 applies a floor of 2
-			set_rule(1, 1, 2);
+			set_rule(2, 10, 2);
 			initialize_to_block(20);
 			// THEN the tie is broken by account, the two lowest are dropped
 			assert_eq!(dropped().into_iter().map(|(v, _)| v).collect::<Vec<_>>(), vec![10, 11]);
@@ -1351,27 +1392,21 @@ fn floor_keeps_the_most_recently_active_idle_validators() {
 
 		frame_support::hypothetically!({
 			// WHEN the floor exceeds the number of validators
-			set_rule(1, 1, 5);
+			set_rule(2, 10, 5);
 			initialize_to_block(20);
 			// THEN nobody is dropped and the event counts the idle validators kept
 			assert_eq!(dropped(), vec![]);
 			System::assert_has_event(
-				Event::CollatorsDropped { validators: vec![], until: planned_index() + 1, kept: 4 }
-					.into(),
+				Event::CollatorsDropped { validators: vec![], kept: 4 }.into(),
 			);
 		});
 
 		// WHEN the rotation at block 20 finds all four idle under a floor of 2
-		set_rule(1, 1, 2);
+		set_rule(2, 10, 2);
 		initialize_to_block(20);
 		// THEN the two with the oldest records are dropped and the two others are returned
 		System::assert_has_event(
-			Event::CollatorsDropped {
-				validators: vec![12, 13],
-				until: planned_index() + 1,
-				kept: 2,
-			}
-			.into(),
+			Event::CollatorsDropped { validators: vec![12, 13], kept: 2 }.into(),
 		);
 		assert_eq!(queued(), vec![1, 2, 10, 11]);
 		assert_eq!(activity(10), active(9, 4));
@@ -1383,12 +1418,12 @@ fn floor_keeps_the_most_recently_active_idle_validators() {
 #[test]
 fn under_a_cap_only_drawn_validators_are_judged_and_the_draw_skips_dropped_ones() {
 	new_test_ext().execute_with(|| {
-		// GIVEN a cap of 2 over 10, 11, 12 and 13 with keys, and drops of three sessions
+		// GIVEN a cap of 2 over 10, 11, 12 and 13 with keys, and drops of 10 blocks
 		initialize_to_block(1);
 		let set = vec![10, 11, 12, 13];
 		set.iter().copied().for_each(set_keys);
 		set_cap(Some(2));
-		set_rule(1, 3, 0);
+		set_rule(2, 10, 0);
 		initialize_to_block(3);
 		assert_ok!(receive(1, set.clone()));
 		initialize_to_block(5);
@@ -1398,16 +1433,39 @@ fn under_a_cap_only_drawn_validators_are_judged_and_the_draw_skips_dropped_ones(
 		// WHEN a authors nothing and b authors before the rotation at block 20
 		run_to(20, &[b]);
 		// THEN only a is dropped, and the validators outside the draw have no record
-		assert_eq!(dropped(), vec![(a, planned_index() + 3)]);
+		assert_eq!(dropped(), vec![(a, None)]);
 		assert!(outside.iter().all(|v| activity(*v).is_none()));
 
 		frame_support::hypothetically!({
-			// WHEN no new set arrives until its drop ends at the rotation at block 50
-			[30, 40, 50].into_iter().for_each(|block| run_to(block, &[b]));
+			// WHEN no new set arrives, so the rotation at block 30 starts its drop and the one at
+			// block 40 ends it
+			run_to(30, &[b]);
+			assert_eq!(dropped(), vec![(a, Some(40))]);
+			run_to(40, &[b]);
 			// THEN it is queued again in its place of the drawn list
 			assert_eq!(dropped(), vec![]);
 			assert_eq!(activity(a), Some(Activity::Queued));
 			assert_eq!(queued(), vec![1, 2, a, b]);
+		});
+
+		frame_support::hypothetically!({
+			// WHEN a set that leaves a out arrives at block 21
+			initialize_to_block(21);
+			assert_ok!(receive(2, set.iter().copied().filter(|v| *v != a).collect()));
+			initialize_to_block(22);
+			// THEN the first forced rotation removes its drop record
+			assert_eq!(dropped(), vec![]);
+			assert_ok!(ValidatorCollators::do_try_state());
+			// WHEN a set of a and b arrives at block 25, while the drop of a would still run
+			initialize_to_block(25);
+			assert_ok!(receive(3, vec![a, b]));
+			initialize_to_block(26);
+			// THEN a is drawn and starts queued, as a validator returned for the first time
+			assert!(drawn().contains(&a));
+			assert_eq!(activity(a), Some(Activity::Queued));
+			initialize_to_block(27);
+			assert_eq!(activity(a), active(27, 0));
+			assert_ok!(ValidatorCollators::do_try_state());
 		});
 
 		// WHEN a new set arrives at block 22 while a is dropped
@@ -1419,27 +1477,31 @@ fn under_a_cap_only_drawn_validators_are_judged_and_the_draw_skips_dropped_ones(
 		assert_eq!(redrawn, reference_draw(expected_seed(2, [7; 32]), &set, 2, &[a]));
 		assert_eq!(redrawn.len(), 2);
 		assert!(!redrawn.contains(&a));
-		// WHEN its drop ends at the rotation at block 30
+		// AND the rotation at block 23, which enacts the list without it, starts its drop
+		initialize_to_block(24);
+		assert_eq!(dropped(), vec![(a, Some(33))]);
+		// WHEN its drop ends at the rotation at block 40
 		run_to(30, &redrawn);
+		run_to(40, &redrawn);
 		// THEN it is not returned until the next draw
 		assert_eq!(dropped(), vec![]);
 		assert_eq!(activity(a), None);
 		assert!(!queued().contains(&a));
 
-		// WHEN a set of a alone arrives at block 32, so the next draw returns it
-		initialize_to_block(32);
+		// WHEN a set of a alone arrives at block 42, so the next draw returns it
+		initialize_to_block(42);
 		assert_ok!(receive(3, vec![a]));
-		initialize_to_block(33);
+		initialize_to_block(43);
 		// THEN it starts queued, and its window starts at the enactment instead of its last drop
 		assert_eq!(drawn(), vec![a]);
 		assert_eq!(activity(a), Some(Activity::Queued));
-		initialize_to_block(34);
-		assert_eq!(activity(a), active(34, 0));
-		initialize_to_block(40);
+		initialize_to_block(44);
+		assert_eq!(activity(a), active(44, 0));
+		initialize_to_block(50);
 		assert_eq!(dropped(), vec![]);
 		// AND it is judged a full window after the enactment
-		initialize_to_block(50);
-		assert_eq!(dropped(), vec![(a, planned_index() + 3)]);
+		initialize_to_block(60);
+		assert_eq!(dropped(), vec![(a, None)]);
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
@@ -1454,25 +1516,36 @@ fn drop_rule_is_set_by_governance_validated_and_lifted() {
 		initialize_to_block(1);
 		set_keys(10);
 		set_keys(11);
-		// WHEN a rule with zero rounds or zero sessions is set THEN it is rejected
-		assert_noop!(
-			set_drop_rule(Some(DropRule { rounds: 0, sessions: 1, min_collators: 0 })),
-			Error::<Test>::InvalidDropRule
-		);
-		assert_noop!(
-			set_drop_rule(Some(DropRule { rounds: 1, sessions: 0, min_collators: 0 })),
-			Error::<Test>::InvalidDropRule
-		);
+		// WHEN a rule with fewer than two rounds or zero blocks is set THEN it is rejected
+		for (rounds, blocks) in [(0, 10), (1, 10), (2, 0)] {
+			assert_noop!(
+				set_drop_rule(Some(DropRule { rounds, blocks, min_collators: 0 })),
+				Error::<Test>::InvalidDropRule
+			);
+		}
 		// WHEN a rule without a floor is set THEN it is stored
-		let rule = DropRule { rounds: 1, sessions: 2, min_collators: 0 };
+		let rule = DropRule { rounds: 2, blocks: 20, min_collators: 0 };
 		assert_ok!(set_drop_rule(Some(rule)));
 		System::assert_last_event(Event::DropRuleSet { rule: Some(rule) }.into());
 		assert_eq!(CurrentDropRule::<Test>::get(), Some(rule));
-		// AND 11 is dropped for two sessions at block 20 while 10 authors
+		// AND 11 is dropped at block 20 while 10 authors
 		initialize_to_block(3);
 		assert_ok!(receive(1, vec![10, 11]));
 		run_to(20, &[10]);
-		assert_eq!(dropped(), vec![(11, planned_index() + 2)]);
+		assert_eq!(dropped(), vec![(11, None)]);
+
+		frame_support::hypothetically!({
+			// WHEN the rule changes to drops of 30 blocks before the drop of 11 starts
+			set_rule(2, 30, 0);
+			run_to(30, &[10]);
+			// THEN its drop takes the 30 blocks of the rule in force at the rotation that starts it
+			assert_eq!(dropped(), vec![(11, Some(60))]);
+			// WHEN the rule changes to drops of 5 blocks while its drop counts
+			set_rule(2, 5, 0);
+			run_to(40, &[10]);
+			// THEN its drop keeps its end
+			assert_eq!(dropped(), vec![(11, Some(60))]);
+		});
 
 		frame_support::hypothetically!({
 			// WHEN the rule is removed
@@ -1493,10 +1566,13 @@ fn drop_rule_is_set_by_governance_validated_and_lifted() {
 			assert!(queued().contains(&11));
 		});
 
-		// WHEN the rotation at block 40 ends the drop of 11 and drops 10, idle since block 29
+		// WHEN the rotation at block 30 starts the drop of 11 for 20 blocks
 		run_to(30, &[10]);
-		initialize_to_block(40);
-		assert_eq!(dropped(), vec![(10, planned_index() + 2)]);
+		assert_eq!(dropped(), vec![(11, Some(50))]);
+		// AND the rotation at block 50 ends it and drops 10, idle since block 39
+		run_to(40, &[10]);
+		initialize_to_block(50);
+		assert_eq!(dropped(), vec![(10, None)]);
 		assert_eq!(activity(11), Some(Activity::Queued));
 		// AND the rule is removed in the same block
 		assert_ok!(set_drop_rule(None));
@@ -1534,9 +1610,10 @@ fn activity_entries_follow_the_returned_list() {
 		// AND the invariants reject a record outside the stored set, a dropped validator with a
 		// record, a drop record without a rule, a drop record outside the stored set and drop
 		// records that do not decode
-		let records = |v: u64| [(v, 9)].into_iter().collect::<std::collections::BTreeMap<_, _>>();
+		let records =
+			|v: u64| [(v, Some(9))].into_iter().collect::<std::collections::BTreeMap<_, _>>();
 		frame_support::hypothetically!({
-			set_rule(1, 1, 0);
+			set_rule(2, 10, 0);
 			Dropped::<Test>::put(crate::DropRecords::<Test>::try_from(records(13)).unwrap());
 			assert_eq!(
 				ValidatorCollators::do_try_state(),
@@ -1544,10 +1621,10 @@ fn activity_entries_follow_the_returned_list() {
 			);
 		});
 		frame_support::hypothetically!({
-			set_rule(1, 1, 0);
+			set_rule(2, 10, 0);
 			frame_support::storage::unhashed::put_raw(
 				&Dropped::<Test>::hashed_key(),
-				&(100..151u64).map(|v| (v, 9u32)).collect::<Vec<_>>().encode(),
+				&(100..151u64).map(|v| (v, Some(9u64))).collect::<Vec<_>>().encode(),
 			);
 			assert_eq!(
 				ValidatorCollators::do_try_state(),
@@ -1562,7 +1639,7 @@ fn activity_entries_follow_the_returned_list() {
 			);
 		});
 		frame_support::hypothetically!({
-			set_rule(1, 1, 0);
+			set_rule(2, 10, 0);
 			Dropped::<Test>::put(crate::DropRecords::<Test>::try_from(records(10)).unwrap());
 			assert_eq!(
 				ValidatorCollators::do_try_state(),
@@ -1577,60 +1654,20 @@ fn activity_entries_follow_the_returned_list() {
 			);
 		});
 	});
-
-	new_test_ext().execute_with(|| {
-		// GIVEN a cap of 2 over 10, 11, 12 and 13 with keys, and both drawn validators dropped
-		// for five sessions at block 20
-		initialize_to_block(1);
-		let set = vec![10, 11, 12, 13];
-		set.iter().copied().for_each(set_keys);
-		set_cap(Some(2));
-		set_rule(1, 5, 0);
-		initialize_to_block(3);
-		assert_ok!(receive(1, set.clone()));
-		initialize_to_block(20);
-		let (a, b) = (drawn()[0], drawn()[1]);
-		assert_eq!(dropped().into_iter().map(|(v, _)| v).collect::<Vec<_>>(), {
-			let mut both = vec![a, b];
-			both.sort();
-			both
-		});
-		// WHEN a set that leaves a out and keeps b arrives at block 21
-		assert_ok!(receive(2, set.iter().copied().filter(|v| *v != a).collect()));
-		initialize_to_block(22);
-		// THEN the first forced rotation removes the drop record of a, keeps the one of b, and
-		// its draw skips b
-		assert_eq!(dropped().into_iter().map(|(v, _)| v).collect::<Vec<_>>(), vec![b]);
-		assert_eq!(drawn().len(), 2);
-		assert!(!drawn().contains(&b));
-		assert_ok!(ValidatorCollators::do_try_state());
-
-		// WHEN a set of a and b arrives at block 25, while the drop of a would still run
-		initialize_to_block(25);
-		assert_ok!(receive(3, vec![a, b]));
-		initialize_to_block(26);
-		// THEN a is drawn and starts queued, as a validator returned for the first time
-		assert_eq!(drawn(), vec![a]);
-		assert_eq!(activity(a), Some(Activity::Queued));
-		assert_eq!(dropped().into_iter().map(|(v, _)| v).collect::<Vec<_>>(), vec![b]);
-		initialize_to_block(27);
-		assert_eq!(activity(a), active(27, 0));
-		assert_ok!(ValidatorCollators::do_try_state());
-	});
 }
 
 #[test]
 fn block_in_the_lag_session_creates_no_record() {
 	new_test_ext().execute_with(|| {
-		// GIVEN 11 dropped for one session at the rotation at block 20 while 10 authors
+		// GIVEN 11 dropped for 10 blocks at the rotation at block 20 while 10 authors
 		initialize_to_block(1);
 		set_keys(10);
 		set_keys(11);
-		set_rule(1, 1, 0);
+		set_rule(2, 10, 0);
 		initialize_to_block(3);
 		assert_ok!(receive(1, vec![10, 11]));
 		run_to(20, &[10]);
-		assert_eq!(dropped(), vec![(11, planned_index() + 1)]);
+		assert_eq!(dropped(), vec![(11, None)]);
 		// WHEN 11 authors at block 25, in the session it is still an authority of
 		initialize_to_block(25);
 		assert!(Session::validators().contains(&11));
@@ -1638,22 +1675,23 @@ fn block_in_the_lag_session_creates_no_record() {
 		// THEN the block creates no record
 		assert_eq!(activity(11), None);
 
-		// AND once returned it is queued at block 30 and gets a fresh window at block 40, so an
-		// alive validator is not dropped again for a block it authored before
-		let returns_with_a_fresh_window = || {
-			run_to(30, &[10]);
+		// AND once returned it is queued at block `queued_at` and gets a fresh window 10 blocks
+		// later, so an alive validator is not dropped again for a block it authored before
+		let returns_with_a_fresh_window = |queued_at: u64| {
+			run_to(queued_at, &[10]);
 			assert_eq!(activity(11), Some(Activity::Queued));
-			run_to(40, &[10]);
-			assert_eq!(activity(11), active(40, 0));
+			run_to(queued_at + 10, &[10]);
+			assert_eq!(activity(11), active(queued_at + 10, 0));
 			assert_eq!(dropped(), vec![]);
 			assert_ok!(ValidatorCollators::do_try_state());
 		};
 		frame_support::hypothetically!({
 			// WHEN the rule is removed and set again at block 25 instead of the drop ending
 			remove_rule();
-			set_rule(1, 1, 0);
-			returns_with_a_fresh_window();
+			set_rule(2, 10, 0);
+			returns_with_a_fresh_window(30);
 		});
-		returns_with_a_fresh_window();
+		// WHEN its drop runs from block 30 to block 40
+		returns_with_a_fresh_window(40);
 	});
 }

@@ -403,16 +403,14 @@ fn idle_validator_is_dropped_on_people_at_the_regular_rotation() {
 	};
 	let mut both = vec![alice.clone(), bob.clone()];
 	both.sort();
+	let rule = pallet_validator_collators::DropRule { rounds: 2, blocks: period, min_collators: 0 };
 
-	// GIVEN a rule of one round and one session without a floor, and a set of Alice and Bob with
-	// keys, both set by root
+	// GIVEN a rule of two rounds and one session period of blocks without a floor, and a set of
+	// Alice and Bob with keys, both set by root
 	PeopleWestend::execute_with(|| {
 		register_keys_on_people(&alice);
 		register_keys_on_people(&bob);
-		assert_ok!(ValidatorCollators::set_drop_rule(
-			RuntimeOrigin::root(),
-			Some(pallet_validator_collators::DropRule { rounds: 1, sessions: 1, min_collators: 0 }),
-		));
+		assert_ok!(ValidatorCollators::set_drop_rule(RuntimeOrigin::root(), Some(rule)));
 		assert_ok!(ValidatorCollators::set_validators(
 			RuntimeOrigin::root(),
 			1,
@@ -424,12 +422,13 @@ fn idle_validator_is_dropped_on_people_at_the_regular_rotation() {
 		));
 	});
 	// AND the second forced rotation enacts both, which jumps to the block before the regular
-	// rotation, beyond a window of `authorities × MaxBlocksPerSlot` blocks
+	// rotation, beyond a window of `rounds × authorities × MaxBlocksPerSlot` blocks
 	PeopleWestend::execute_with(|| {});
 	let (kept, idle) = PeopleWestend::execute_with(|| {
 		assert_eq!(Session::validators(), collators_with(both.clone()));
 		type MaxBlocksPerSlot = <Runtime as pallet_validator_collators::Config>::MaxBlocksPerSlot;
-		let window = pallet_aura::Pallet::<Runtime>::authorities_len() as u32 *
+		let window = rule.rounds *
+			pallet_aura::Pallet::<Runtime>::authorities_len() as u32 *
 			<MaxBlocksPerSlot as frame_support::traits::Get<u32>>::get();
 		assert!(System::block_number() + window < period - 1);
 		System::set_block_number(period - 1);
@@ -456,7 +455,7 @@ fn idle_validator_is_dropped_on_people_at_the_regular_rotation() {
 			PeopleWestend,
 			vec![
 				RuntimeEvent::ValidatorCollators(
-					pallet_validator_collators::Event::CollatorsDropped { validators, kept: 0, .. }
+					pallet_validator_collators::Event::CollatorsDropped { validators, kept: 0 }
 				) => { validators: *validators == vec![idle.clone()], },
 			]
 		);
@@ -464,8 +463,22 @@ fn idle_validator_is_dropped_on_people_at_the_regular_rotation() {
 		assert_eq!(Session::validators(), collators_with(both.clone()));
 		System::set_block_number(2 * period - 1);
 	});
+	// WHEN the next regular rotation enacts the list without it
 	PeopleWestend::execute_with(|| {
 		assert_eq!(System::block_number(), 2 * period);
 		assert_eq!(Session::validators(), collators_with(vec![kept]));
+		// THEN its drop of `blocks` blocks starts there
+		let dropped = pallet_validator_collators::Dropped::<Runtime>::get();
+		assert_eq!(dropped.get(&idle), Some(&Some(2 * period + rule.blocks)));
+		System::set_block_number(2 * period + rule.blocks - 1);
+	});
+	// AND the first rotation at its end returns it again
+	PeopleWestend::execute_with(|| {
+		assert_eq!(System::block_number(), 2 * period + rule.blocks);
+		assert!(!pallet_validator_collators::Dropped::<Runtime>::get().contains_key(&idle));
+		assert_eq!(
+			pallet_validator_collators::LastActivity::<Runtime>::get(&idle),
+			Some(pallet_validator_collators::Activity::Queued)
+		);
 	});
 }

@@ -164,8 +164,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `ValidatorCollators::Dropped` (r:0 w:1)
-	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(36002),
-	/// added: 36497, mode: `MaxEncodedLen`)
+	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(37002),
+	/// added: 37497, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::CurrentDropRule` (r:0 w:1)
 	/// Proof: `ValidatorCollators::CurrentDropRule` (`max_values`: Some(1), `max_size`: Some(12),
 	/// added: 507, mode: `MaxEncodedLen`)
@@ -297,8 +297,8 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `ValidatorCollators::Dropped` (r:0 w:1)
-	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(36002),
-	/// added: 36497, mode: `MaxEncodedLen`)
+	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(37002),
+	/// added: 37497, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::CurrentDropRule` (r:0 w:1)
 	/// Proof: `ValidatorCollators::CurrentDropRule` (`max_values`: Some(1), `max_size`: Some(12),
 	/// added: 507, mode: `MaxEncodedLen`)

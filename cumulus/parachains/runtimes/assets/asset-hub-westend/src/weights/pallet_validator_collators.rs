@@ -213,7 +213,7 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 			.saturating_add(Weight::from_parts(0, 2567).saturating_mul(n.into()))
 	}
 	/// Storage: `ValidatorCollators::Dropped` (r:0 w:1)
-	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(36002), added: 36497, mode: `MaxEncodedLen`)
+	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(37002), added: 37497, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::CurrentDropRule` (r:0 w:1)
 	/// Proof: `ValidatorCollators::CurrentDropRule` (`max_values`: Some(1), `max_size`: Some(12), added: 507, mode: `MaxEncodedLen`)
 	fn set_drop_rule() -> Weight {

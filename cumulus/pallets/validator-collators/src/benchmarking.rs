@@ -217,10 +217,10 @@ mod benchmarks {
 	fn set_drop_rule() -> Result<(), BenchmarkError> {
 		let origin =
 			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		CurrentDropRule::<T>::put(DropRule { rounds: 1, sessions: 1, min_collators: 0 });
+		CurrentDropRule::<T>::put(DropRule { rounds: 2, blocks: 1u32.into(), min_collators: 0 });
 		let records = BoundedBTreeMap::try_from(
 			(0..T::MaxValidators::get())
-				.map(|i| (account("dropped", i, 0), u32::MAX))
+				.map(|i| (account("dropped", i, 0), Some(Zero::zero())))
 				.collect::<BTreeMap<_, _>>(),
 		)
 		.map_err(|_| BenchmarkError::Stop("the records exceed MaxValidators"))?;

@@ -155,7 +155,7 @@ parameter_types! {
 	/// Aura authorities of the current session, the window of a drop rule is
 	/// `rounds × AuthorityCount × MaxBlocksPerSlot` blocks.
 	pub static AuthorityCount: u32 = 4;
-	pub static MaxBlocksPerSlot: u32 = 2;
+	pub static MaxBlocksPerSlot: u32 = 1;
 	/// Number of calls to [`MockReporter`] so far.
 	pub static ReportCalls: u32 = 0;
 	/// The call to [`MockReporter`], counted from one, that is rejected.
