@@ -531,8 +531,9 @@ fn a_deregistration_travels_to_the_relay_chain_and_frees_every_deposit() {
 		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id));
 	});
 
-	// The relay chain scheduled the cleanup.
+	// The relay chain dropped its record and scheduled the cleanup.
 	Relay::execute_with(|| {
+		assert!(!relay_has_record(para_id));
 		assert!(relay_offboarding(para_id));
 		relay::run_to_session(5);
 		assert!(polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::lifecycle(

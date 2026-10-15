@@ -621,7 +621,12 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 			Some(ParaLifecycle::OffboardingParachain) => return Ok(()),
 			// Para must be a parathread (on-demand parachain), or not exist at all.
 			Some(ParaLifecycle::Parathread) | None => {},
-			_ => return Err(Error::<T>::NotParathread.into()),
+			Some(
+				ParaLifecycle::Onboarding |
+				ParaLifecycle::Parachain |
+				ParaLifecycle::UpgradingParathread |
+				ParaLifecycle::DowngradingParachain,
+			) => return Err(Error::<T>::NotParathread.into()),
 		}
 
 		// Instead of using do_deregister, we use with_storage_layer to ensure the transaction is
@@ -635,6 +640,53 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 			Self::deposit_event(Event::<T>::Deregistered { para_id: id });
 			Ok(())
 		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(para_id: u32) -> DispatchResult {
+		use frame_system::RawOrigin;
+		use polkadot_runtime_parachains::shared;
+
+		// The sample size the paras pallet's own benchmarks assume for per-para lists.
+		const OTHER_PARAS: u32 = 1024;
+
+		let code = Self::worst_validation_code();
+		<Self as registrar_primitives::ParachainRegistrar>::register(
+			frame_benchmarking::account("manager", 0, 0),
+			para_id,
+			Self::worst_head_data().0,
+			code.0.clone(),
+		)?;
+		paras::Pallet::<T>::add_trusted_validation_code(RawOrigin::Root.into(), code)?;
+		Self::execute_pending_transitions();
+
+		// A pending upgrade makes offboarding scan the active PVF votes. Its code is trusted so it
+		// gets no vote of its own, which would make offboarding fail.
+		let now = frame_system::Pallet::<T>::block_number();
+		let upgrade = ValidationCode(alloc::vec![1u8; MIN_CODE_SIZE as usize]);
+		paras::Pallet::<T>::add_trusted_validation_code(RawOrigin::Root.into(), upgrade.clone())?;
+		paras::Pallet::<T>::force_schedule_code_upgrade(
+			RawOrigin::Root.into(),
+			ParaId::from(para_id),
+			upgrade,
+			now,
+		)?;
+
+		let others: Vec<ParaId> =
+			(1..=OTHER_PARAS).map(|i| ParaId::from(para_id.saturating_add(i))).collect();
+		for other in &others {
+			// Unknown code, so each upgrade opens a vote of its own.
+			let mut code = alloc::vec![0u8; MIN_CODE_SIZE as usize];
+			code[..4].copy_from_slice(&u32::from(*other).to_le_bytes());
+			paras::Pallet::<T>::force_schedule_code_upgrade(
+				RawOrigin::Root.into(),
+				*other,
+				ValidationCode(code),
+				now,
+			)?;
+		}
+		paras::ActionsQueue::<T>::insert(shared::Pallet::<T>::scheduled_session(), others);
+		Ok(())
 	}
 
 	fn check_head_data(_head_len: u32) -> Result<(), ()> {

@@ -124,6 +124,12 @@ impl ParachainRegistrar for MockRegistrar {
 		Ok(())
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(para_id: ParaId) -> sp_runtime::DispatchResult {
+		AlreadyKnown::mutate(|v| v.push(para_id));
+		Ok(())
+	}
+
 	fn check_head_data(_head_len: u32) -> Result<(), ()> {
 		// TODO(ahm-v2): check the head data length in the mock.
 		Ok(())

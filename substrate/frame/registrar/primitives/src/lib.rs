@@ -317,6 +317,10 @@ pub trait ParachainRegistrar {
 	/// the parachain learns the first answer never came, and it reports it as an unexpected event.
 	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult;
 
+	/// Leave `para_id` where [`Self::deregister`] does the most work and still succeeds.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(para_id: ParaId) -> sp_runtime::DispatchResult;
+
 	/// Whether head data of this size is acceptable right now.
 	#[allow(clippy::result_unit_err)]
 	fn check_head_data(head_len: u32) -> Result<(), ()>;
