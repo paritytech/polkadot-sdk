@@ -63,7 +63,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
       - name: Generate PrDoc
         run: |
-          python3 -m pip install -q cargo-workspace PyGithub whatthepatch pyyaml toml
+          python3 -m pip install --break-system-packages -q cargo-workspace PyGithub whatthepatch pyyaml toml
 
           python3 .github/scripts/generate-prdoc.py --pr "${{ inputs.pr }}" --bump "${{ inputs.bump }}" --audience "${{ inputs.audience }}" --force "${{ inputs.overwrite }}"
 

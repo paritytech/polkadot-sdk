@@ -27,4 +27,5 @@ mod systematic_chunk_recovery;
 mod v3_dynamic_enablement;
 mod v3_node_feature_rolling_enablement;
 mod v4_parachain_throughput;
+mod v4_resubmit_spare_core;
 mod validator_disabling;

@@ -172,16 +172,24 @@ where
 		unimplemented!("storage_append is not supported in ReadOnlyExternalities")
 	}
 
-	fn storage_root(&mut self, _state_version: StateVersion) -> Vec<u8> {
+	fn storage_root(&mut self) -> Vec<u8> {
 		unimplemented!("storage_root is not supported in ReadOnlyExternalities")
 	}
 
-	fn child_storage_root(
+	fn storage_root_with_version(&mut self, _state_version: StateVersion) -> Vec<u8> {
+		unimplemented!("storage_root_with_version is not supported in ReadOnlyExternalities")
+	}
+
+	fn child_storage_root(&mut self, _child_info: &ChildInfo) -> Vec<u8> {
+		unimplemented!("child_storage_root is not supported in ReadOnlyExternalities")
+	}
+
+	fn child_storage_root_with_version(
 		&mut self,
 		_child_info: &ChildInfo,
 		_state_version: StateVersion,
 	) -> Vec<u8> {
-		unimplemented!("child_storage_root is not supported in ReadOnlyExternalities")
+		unimplemented!("child_storage_root_with_version is not supported in ReadOnlyExternalities")
 	}
 
 	fn storage_start_transaction(&mut self) {

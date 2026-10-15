@@ -126,7 +126,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_024_001,
+	spec_version: 1_025_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -425,6 +425,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type ReservedCores = ConstU32<0>;
 	type SchedulingSignatureVerifier = ();
 }
 
@@ -959,6 +960,7 @@ impl_runtime_apis! {
 		}
 	}
 
+	#[api_version(3)]
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			RELAY_PARENT_OFFSET
@@ -966,6 +968,10 @@ impl_runtime_apis! {
 
 		fn max_claim_queue_offset() -> u8 {
 			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+
+		fn reserved_cores() -> u32 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::reserved_cores()
 		}
 	}
 

@@ -301,6 +301,20 @@ pub mod pallet {
 		/// If set to 0, this config has no impact.
 		type RelayParentOffset: Get<u32>;
 
+		/// Number of assigned cores not used for producing new candidates.
+		///
+		/// New candidates are produced on `assigned - ReservedCores` cores.
+		/// Every block commits a core selector (a monotonically-increasing sequence number)
+		/// in its `CumulusDigestItem::CoreInfo` digest; which the relay chain maps to a
+		/// core via `assigned_cores[selector % len]`. Resubmissions always go to the block's
+		/// own core.
+		///
+		/// `0` keeps every assigned core producing new candidates. With `N > 0` the parachain
+		/// needs N cores on top of what production uses. The size of unincluded segment should
+		/// be large enough such that building can continue through the two relay blocks after a
+		/// session change.
+		type ReservedCores: Get<u32>;
+
 		/// Verifier for V3 scheduling proofs.
 		///
 		/// Reports whether V3 scheduling validation is enabled and supplies the
@@ -1189,6 +1203,15 @@ impl<T: Config> Pallet<T> {
 		}
 
 		V3_CLAIM_QUEUE_LOOKAHEAD
+	}
+
+	/// Returns the number of cores that should not contain
+	/// new candidates in a relay chain slot.
+	///
+	/// This is used by the [cumulus_primitives_core::RelayParentOffsetApi::reserved_cores]
+	/// runtime API to expose the value to collators.
+	pub fn reserved_cores() -> u32 {
+		T::ReservedCores::get()
 	}
 }
 

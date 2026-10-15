@@ -663,6 +663,8 @@ where
 			claim_queue_relay_block,
 			self.para_id,
 			claim_queue_offset,
+			CumulusDigestItem::find_core_info(cx.initial_parent_header.digest())
+				.map(|core_info| core_info.selector),
 		)
 		.await
 		{
@@ -701,11 +703,16 @@ where
 				},
 			};
 
-		// In total we want to have at max `number_of_blocks` cores to use.
-		cores.truncate_cores(number_of_blocks);
-		let raw_blocks_per_core = (number_of_blocks / cores.total_cores()).max(1);
-		let left_over_blocks = number_of_blocks % cores.total_cores();
-		let blocks_per_cores = (0..cores.total_cores())
+		let reserved_cores = onchain_runtime_api(&*self.para_client)
+			.reserved_cores(initial_parent_hash)
+			.unwrap_or(0);
+		cores.set_cores_used(
+			number_of_blocks.min(cores.total_cores().saturating_sub(reserved_cores)),
+		);
+		let cores_used = cores.cores_used();
+		let raw_blocks_per_core = (number_of_blocks / cores_used).max(1);
+		let left_over_blocks = number_of_blocks % cores_used;
+		let blocks_per_cores = (0..cores_used)
 			.map(|i| {
 				// We distribute the left over blocks across the cores.
 				raw_blocks_per_core + u32::from(i < left_over_blocks)
@@ -715,6 +722,7 @@ where
 		tracing::debug!(
 			target: LOG_TARGET,
 			?blocks_per_cores,
+			cores_used,
 			core_indices = ?cores.core_indices(),
 			"Core configuration",
 		);
@@ -882,6 +890,40 @@ where
 			let total_cores = cores.total_cores();
 			let mut pov_parent_header = cx.initial_parent_header.clone();
 
+			let fresh_keys = cores.fresh_bucket_keys();
+			let catchup_keys = if cx.v3_enabled {
+				(0..total_cores).filter(|key| !fresh_keys.contains(key)).collect()
+			} else {
+				Vec::new()
+			};
+			for key in catchup_keys {
+				let Some(headers) = resubmittable_headers.remove(&key) else { continue };
+				let core_index = cores.core_indices()[key as usize];
+				let core_info = CoreInfo { selector: CoreSelector(key as u8), ..cores.core_info() };
+				let descendants = cx.relay_parent_data.clone().take_descendants();
+				let builder =
+					CollatorMessageBuilder::new(core_index).with_resubmittable_headers(headers);
+				let Some(submission) = assemble_core_submission::<Block, P>(
+					builder,
+					Some(descendants),
+					true,
+					cx.relay_parent(),
+					&core_info,
+					collator_peer_id,
+					cx.slot_claim.author_pub(),
+					&env.keystore,
+					core_index,
+				) else {
+					continue;
+				};
+				if collator_sender.unbounded_send(submission).is_err() {
+					tracing::error!(
+						target: LOG_TARGET,
+						"Unable to send collation to the collation task.",
+					);
+					return;
+				}
+			}
 			for blocks_per_core in blocks_per_cores {
 				let core_info = cores.core_info();
 				let this_core_index = cores.core_index();
@@ -1217,6 +1259,10 @@ where
 				target: LOG_TARGET,
 				?parent_hash,
 				?included_hash_at_execution,
+				relay_parent_num = relay_parent_header.number(),
+				?relay_slot,
+				?core_index,
+				block_index,
 				"Cannot build next block due to unincluded segment constraints, skipping entire bundle. Will continue at the next slot."
 			);
 
@@ -1537,9 +1583,15 @@ where
 
 /// Return value of [`determine_cores`].
 pub struct Cores {
+	/// Running core selector, continued from the parent's `CoreInfo`.
 	selector: CoreSelector,
 	claim_queue_offset: ClaimQueueOffset,
 	core_indices: Vec<CoreIndex>,
+	/// Cores that build new blocks this slot. The remainig only carry
+	/// resubmissions
+	cores_used: u32,
+	/// Index of the current core within `cores_used`.
+	position: u32,
 }
 
 impl Cores {
@@ -1548,7 +1600,7 @@ impl Cores {
 		CoreInfo {
 			selector: self.selector,
 			claim_queue_offset: self.claim_queue_offset,
-			number_of_cores: (self.core_indices.len() as u16).into(),
+			number_of_cores: (self.cores_used as u16).into(),
 		}
 	}
 
@@ -1559,15 +1611,16 @@ impl Cores {
 
 	/// Returns the current [`CoreIndex`].
 	pub fn core_index(&self) -> CoreIndex {
-		self.core_indices[self.selector.0 as usize]
+		self.core_indices[self.selector.0 as usize % self.core_indices.len()]
 	}
 
 	/// Advance to the next available core.
 	///
 	/// Returns `false` if there is no core left.
 	fn advance(&mut self) -> bool {
-		if self.selector.0 as usize + 1 < self.core_indices.len() {
-			self.selector.0 += 1;
+		if self.position + 1 < self.cores_used {
+			self.position += 1;
+			self.selector = next_selector(self.selector, self.total_cores());
 			true
 		} else {
 			false
@@ -1579,19 +1632,44 @@ impl Cores {
 		self.core_indices.len() as u32
 	}
 
-	/// Truncate `cores` to `max_cores`.
-	pub fn truncate_cores(&mut self, max_cores: u32) {
-		self.core_indices.truncate(max_cores as usize);
+	/// Cores that build new blocks this slot, clamped to `1..=total_cores`.
+	fn set_cores_used(&mut self, cores_used: u32) {
+		self.cores_used = cores_used.clamp(1, self.total_cores());
+	}
+
+	fn cores_used(&self) -> u32 {
+		self.cores_used
 	}
 
 	/// Returns the number of cores left.
 	fn cores_left(&self) -> u32 {
-		self.total_cores() - self.selector.0 as u32
+		self.cores_used - self.position
+	}
+
+	/// Bucket keys (`selector % total_cores`) of the cores that build new blocks this slot.
+	fn fresh_bucket_keys(&self) -> Vec<u32> {
+		let total = self.total_cores();
+		let mut selector = self.selector;
+		(0..self.cores_used)
+			.map(|_| {
+				let key = selector.0 as u32 % total;
+				selector = next_selector(selector, total);
+				key
+			})
+			.collect()
 	}
 
 	/// Returns if the current core is the last core.
 	fn is_last_core(&self) -> bool {
 		self.cores_left() == 1
+	}
+}
+
+/// The next selector. On `u8` overflow it continues as if the counter were unbounded.
+fn next_selector(selector: CoreSelector, total_cores: u32) -> CoreSelector {
+	match selector.0.checked_add(1) {
+		Some(next) => CoreSelector(next),
+		None => CoreSelector((256 % total_cores) as u8),
 	}
 }
 
@@ -1735,6 +1813,7 @@ pub async fn determine_cores<RI: RelayChainInterface + 'static>(
 	scheduling_parent: &RelayHeader,
 	para_id: ParaId,
 	relay_parent_offset: u32,
+	parent_selector: Option<CoreSelector>,
 ) -> Result<Option<Cores>, ()> {
 	let claim_queue =
 		&relay_chain_data_cache.get_by_hash(scheduling_parent.hash()).await?.claim_queue;
@@ -1746,12 +1825,75 @@ pub async fn determine_cores<RI: RelayChainInterface + 'static>(
 	Ok(if core_indices.is_empty() {
 		None
 	} else {
+		let total_cores = core_indices.len() as u32;
 		Some(Cores {
-			selector: CoreSelector(0),
+			selector: parent_selector.map_or(CoreSelector(0), |ps| next_selector(ps, total_cores)),
 			claim_queue_offset: ClaimQueueOffset(relay_parent_offset as u8),
 			core_indices,
+			cores_used: total_cores,
+			position: 0,
 		})
 	})
+}
+
+#[cfg(test)]
+mod cores_tests {
+	use super::*;
+
+	fn cores(total: u32, cores_used: u32, selector: u8) -> Cores {
+		Cores {
+			selector: CoreSelector(selector),
+			claim_queue_offset: ClaimQueueOffset(0),
+			core_indices: (0..total).map(CoreIndex).collect(),
+			cores_used,
+			position: 0,
+		}
+	}
+
+	#[test]
+	fn next_selector_keeps_residues_consecutive_across_the_wrap() {
+		assert_eq!(next_selector(CoreSelector(254), 3), CoreSelector(255));
+		assert_eq!(next_selector(CoreSelector(255), 3), CoreSelector(1));
+		assert_eq!(next_selector(CoreSelector(255), 4), CoreSelector(0));
+	}
+
+	#[test]
+	fn core_index_is_selector_modulo_total_cores() {
+		assert_eq!(cores(4, 4, 5).core_index(), CoreIndex(1));
+		assert_eq!(cores(3, 3, 255).core_index(), CoreIndex(0));
+	}
+
+	#[test]
+	fn set_cores_used_clamps_to_one_and_total() {
+		let mut c = cores(4, 4, 0);
+		c.set_cores_used(0);
+		assert_eq!(c.cores_used(), 1);
+		c.set_cores_used(9);
+		assert_eq!(c.cores_used(), 4);
+		// Velocity 6 on 4 cores with one reserved: three two-block bundles.
+		let (velocity, assigned, reserved) = (6u32, 4u32, 1u32);
+		c.set_cores_used(velocity.min(assigned - reserved));
+		assert_eq!(c.cores_used(), 3);
+	}
+
+	#[test]
+	fn fresh_bucket_keys_follow_the_selector() {
+		assert_eq!(cores(4, 3, 5).fresh_bucket_keys(), vec![1, 2, 3]);
+		assert_eq!(cores(3, 3, 254).fresh_bucket_keys(), vec![2, 0, 1]);
+		assert_eq!(cores(4, 4, 0).fresh_bucket_keys(), vec![0, 1, 2, 3]);
+	}
+
+	#[test]
+	fn advance_stops_at_cores_used_and_continues_the_counter() {
+		let mut c = cores(4, 3, 254);
+		assert!(c.advance());
+		assert_eq!(c.core_info().selector, CoreSelector(255));
+		assert!(c.advance());
+		assert_eq!(c.core_info().selector, CoreSelector(0));
+		assert_eq!(c.core_index(), CoreIndex(0));
+		assert!(c.is_last_core());
+		assert!(!c.advance());
+	}
 }
 
 #[cfg(test)]
