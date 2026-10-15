@@ -3,8 +3,7 @@ doc:
 - audience: Runtime Dev
   description: |-
     Replace JUMPDEST-based estimates for selected EVM opcodes with
-    weights derived from their own benchmarks. Add charges for memory
-    expansion and for copying RETURN/REVERT output from EVM memory.
+    weights derived from their own benchmarks.
 
     The `evm_opcode` benchmark and WeightInfo method are renamed to
     `evm_jumpdest_opcode`. Rename the method in custom WeightInfo
@@ -98,20 +97,19 @@ doc:
     No storage migration is required.
 - audience: Runtime User
   description: |-
-    Selected EVM op-codes are charged from their own benchmarks, so each
-    of them costs a different amount than before. Growing EVM memory and
-    copying RETURN/REVERT output now have their own charges too.
+    Selected EVM op-codes are charged from their own benchmarks.
 
     These depend on their operands:
 
-    - `EXP`: 48.8 ns with a zero exponent. Otherwise 94.7 ns, plus 59.4 ns
+    - `EXP`: 49.3 ns with a zero exponent. Otherwise 100.7 ns, plus 65.9 ns
       for each exponent bit after the first, so a 256-bit exponent costs
-      15.25 µs.
-    - `MCOPY`: 138.4 ns, plus 0.366 ns for each byte after the first 64.
-    - Memory growth: 636.4 ns, plus 2.993 ns for each new 32-byte word.
-      Growing past the capacity of the memory buffer adds 798.7 ns, plus
-      2.390 ns for each 32-byte word of the new capacity.
-    - `RETURN` and `REVERT`: TODO, fill in from the next weights run.
+      16.92 µs.
+    - `MCOPY`: 136.1 ns, plus 0.376 ns for each byte after the first 64.
+    - Memory growth: 735.6 ns, plus 3.626 ns for each new 32-byte word.
+      Growing past the capacity of the memory buffer adds 1275.9 ns, plus
+      2.491 ns for each 32-byte word of the new capacity.
+    - `RETURN` and `REVERT` with output: 188.9 ns, plus 0.161 ns for each
+      byte of output.
 
     Existing contracts do not need migration or redeployment. Re-estimate
     gas limits after the runtime upgrade; calls using previous limits
