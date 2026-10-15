@@ -1,0 +1,12 @@
+title: 'statement-store: with the v2 DHT path on, steering alone edits the reserved set'
+doc:
+- audience: Node Dev
+  description: |-
+    With the v2 DHT path on, the statement set reserves only the peers that steering picks, every
+    other peer holds an inbound slot and the protocol controller dials no peer of its own. Peer
+    steering tracks the peers it holds in the reserved set and reserves every desired peer,
+    including one that connected on its own. A peer on the v1 fallback protocol stays out of the
+    orchestrator and is never reserved.
+crates:
+- name: sc-network-statement
+  bump: patch
