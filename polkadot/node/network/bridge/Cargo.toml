@@ -27,6 +27,7 @@ polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
+strum = { features = ["derive"], workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
@@ -37,4 +38,3 @@ polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives-test-helpers = { workspace = true }
 sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
-strum = { features = ["derive"], workspace = true }
