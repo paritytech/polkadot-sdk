@@ -364,10 +364,12 @@ impl V2DhtOrchestrator {
 		statements_by_peer.into_iter().collect()
 	}
 
-	/// Recompute the peers needed to cover the node's topics and hand them to peer steering.
+	/// Recompute the peers the node needs connected, those covering its topics and its routing
+	/// peers, and hand them to peer steering.
 	pub(crate) fn on_pending_affinities(&mut self) {
 		let topics = self.explicit_affinity.topics();
-		let desired = self.peers_topology.peers_for_topics(&topics);
+		let mut desired = self.peers_topology.peers_for_topics(&topics);
+		desired.extend(self.peers_topology.peers_for_routing());
 		self.peer_steering.update_peers_needing_connections(desired);
 		if let Some(metrics) = &self.metrics {
 			metrics.set_desired_unconnected_peers(self.peer_steering.peers_to_connect().len());
@@ -755,6 +757,24 @@ mod tests {
 	}
 
 	#[test]
+	fn affinity_tick_marks_routing_peers_for_connection() {
+		let mut orchestrator = orchestrator_with(1, topology_config(3, 3));
+		for seed in 2..=6 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
+		}
+
+		// Without topics the desired set is the routing peers alone, none connected yet.
+		orchestrator.on_pending_affinities();
+		let mut routing = orchestrator.peers_topology.peers_for_routing();
+		let mut connect = orchestrator.peer_steering.peers_to_connect();
+		routing.sort();
+		connect.sort();
+		assert_eq!(routing.len(), 3);
+		assert_eq!(connect, routing);
+	}
+
+	#[test]
 	fn valid_statements_reward_the_sender() {
 		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
 		let peer = peer(2);
@@ -829,9 +849,9 @@ mod tests {
 		let desired = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
 		assert!(!desired.is_empty());
 
-		// The coverage peers connect, then the next tick recomputes the target.
-		for peer in &desired {
-			orchestrator.on_substream_opened(*peer);
+		// The desired peers connect, then the next tick recomputes the target.
+		for peer in orchestrator.peer_steering.peers_to_connect() {
+			orchestrator.on_substream_opened(peer);
 		}
 		orchestrator.on_pending_affinities();
 

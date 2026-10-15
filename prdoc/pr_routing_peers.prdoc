@@ -1,0 +1,10 @@
+title: 'statement-store: keep up to K routing peers reserved on the v2 DHT path'
+doc:
+- audience: Node Dev
+  description: |-
+    With the v2 DHT path on, peer steering keeps up to `replication_factor` routing peers reserved
+    besides the peers covering the node's topics: the nearest known peer of every distance bucket
+    from the node's key, then the nearest peers overall.
+crates:
+- name: sc-network-statement
+  bump: patch
