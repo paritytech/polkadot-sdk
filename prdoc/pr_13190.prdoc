@@ -23,6 +23,9 @@ doc:
     - `evm_calldatasize_opcode`
     - `evm_returndatasize_opcode`
     - `evm_calldataload_opcode`
+    - `evm_calldatacopy_opcode`
+    - `evm_codecopy_opcode`
+    - `evm_returndatacopy_opcode`
     - `evm_memory_grow`
     - `evm_memory_reallocate`
     - `evm_memory_copy_out`
@@ -83,6 +86,11 @@ doc:
     - `MCOPY` of `len` bytes: `slope(evm_mcopy_opcode) +
       slope(evm_mcopy_per_byte) * max(len - 64, 0)`, plus the dispatch
       charge. A zero-length copy pays the fixed part too.
+    - `CALLDATACOPY`, `CODECOPY` and `RETURNDATACOPY`: the slope of
+      `evm_calldatacopy_opcode`, `evm_codecopy_opcode` and
+      `evm_returndatacopy_opcode` respectively, plus the dispatch charge,
+      also at zero length. A non-zero length also pays
+      `seal_copy_to_contract(len)` and the memory growth.
     - Memory growth from `current` to `target` bytes, with `target`
       rounded up to a multiple of 32:
       `slope(evm_memory_grow) * (target - current) / 32`. When `target`

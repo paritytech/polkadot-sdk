@@ -194,6 +194,9 @@ pub trait WeightInfo {
 	fn evm_calldatasize_opcode(r: u32, ) -> Weight;
 	fn evm_returndatasize_opcode(r: u32, ) -> Weight;
 	fn evm_calldataload_opcode(r: u32, ) -> Weight;
+	fn evm_calldatacopy_opcode(r: u32, ) -> Weight;
+	fn evm_codecopy_opcode(r: u32, ) -> Weight;
+	fn evm_returndatacopy_opcode(r: u32, ) -> Weight;
 	fn evm_memory_grow(n: u32, ) -> Weight;
 	fn evm_memory_reallocate(n: u32, ) -> Weight;
 	fn evm_memory_copy_out(n: u32, ) -> Weight;
@@ -1798,6 +1801,24 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(810_980, 0)
 			// Standard Error: 154
 			.saturating_add(Weight::from_parts(68_902, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_calldatacopy_opcode(r: u32, ) -> Weight {
+		// Placeholder until the benchmark is run. Values are not measurements.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(30_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_codecopy_opcode(r: u32, ) -> Weight {
+		// Placeholder until the benchmark is run. Values are not measurements.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(30_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_returndatacopy_opcode(r: u32, ) -> Weight {
+		// Placeholder until the benchmark is run. Values are not measurements.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(30_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `n` is `[1, 16383]`.
 	fn evm_memory_grow(n: u32, ) -> Weight {
@@ -4188,6 +4209,24 @@ impl WeightInfo for () {
 		Weight::from_parts(810_980, 0)
 			// Standard Error: 154
 			.saturating_add(Weight::from_parts(68_902, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_calldatacopy_opcode(r: u32, ) -> Weight {
+		// Placeholder until the benchmark is run. Values are not measurements.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(30_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_codecopy_opcode(r: u32, ) -> Weight {
+		// Placeholder until the benchmark is run. Values are not measurements.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(30_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_returndatacopy_opcode(r: u32, ) -> Weight {
+		// Placeholder until the benchmark is run. Values are not measurements.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(30_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `n` is `[1, 16383]`.
 	fn evm_memory_grow(n: u32, ) -> Weight {

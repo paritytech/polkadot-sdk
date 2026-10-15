@@ -29,7 +29,7 @@ use alloy_core::{
 	sol_types::{SolCall, SolInterface},
 };
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{FixtureType, Memory, compile_module_with_type};
+use pallet_revive_fixtures::{FixtureType, Memory, MemoryEvmOnly, compile_module_with_type};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
 use test_case::test_case;
@@ -210,4 +210,37 @@ fn zero_length_calldatacopy_skips_the_copy_charge() {
 	let word = weight_of(32);
 
 	assert_eq!(word, empty.saturating_add(Weights::seal_copy_to_contract(32)));
+}
+
+#[test]
+fn zero_length_copies_pay_their_fixed_charge() {
+	// The weight of one more iteration of a loop of zero-length copies.
+	let iteration = |call: fn(U256) -> Vec<u8>| {
+		let weight_of = |n: u32| weight_of_solc_call("MemoryEvmOnly", call(U256::from(n)));
+		weight_of(1).saturating_sub(weight_of(0))
+	};
+
+	let mcopy = iteration(|n| MemoryEvmOnly::zeroLengthMcopiesCall { n }.abi_encode());
+	let copies = [
+		(
+			iteration(|n| MemoryEvmOnly::zeroLengthCalldatacopiesCall { n }.abi_encode()),
+			slope(Weights::evm_calldatacopy_opcode),
+		),
+		(
+			iteration(|n| MemoryEvmOnly::zeroLengthCodecopiesCall { n }.abi_encode()),
+			slope(Weights::evm_codecopy_opcode),
+		),
+		(
+			iteration(|n| MemoryEvmOnly::zeroLengthReturndatacopiesCall { n }.abi_encode()),
+			slope(Weights::evm_returndatacopy_opcode),
+		),
+	];
+
+	// The loops differ only in their copy, and a zero-length MCOPY pays the fixed part of MCOPY.
+	for (copy, fixed) in copies {
+		assert_eq!(
+			copy.saturating_add(slope(Weights::evm_mcopy_opcode)),
+			mcopy.saturating_add(fixed),
+		);
+	}
 }

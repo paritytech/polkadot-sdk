@@ -89,6 +89,9 @@ pub enum EvmOpcodeCosts {
 	CallDataSize,
 	ReturnDataSize,
 	CallDataLoad,
+	CallDataCopy,
+	CodeCopy,
+	ReturnDataCopy,
 
 	// Memory Opcodes
 	MLoad,
@@ -162,6 +165,9 @@ impl EvmOpcodeCosts {
 			Self::CallDataSize => per_opcode(T::WeightInfo::evm_calldatasize_opcode),
 			Self::ReturnDataSize => per_opcode(T::WeightInfo::evm_returndatasize_opcode),
 			Self::CallDataLoad => per_opcode(T::WeightInfo::evm_calldataload_opcode),
+			Self::CallDataCopy => per_opcode(T::WeightInfo::evm_calldatacopy_opcode),
+			Self::CodeCopy => per_opcode(T::WeightInfo::evm_codecopy_opcode),
+			Self::ReturnDataCopy => per_opcode(T::WeightInfo::evm_returndatacopy_opcode),
 			Self::MLoad => per_opcode(T::WeightInfo::evm_mload_opcode),
 			Self::MSize => per_opcode(T::WeightInfo::evm_msize_opcode),
 			Self::MStore => per_opcode(T::WeightInfo::evm_mstore_opcode),

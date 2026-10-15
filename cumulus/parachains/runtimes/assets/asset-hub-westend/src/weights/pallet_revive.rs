@@ -1773,6 +1773,24 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 447
 			.saturating_add(Weight::from_parts(82_298, 0).saturating_mul(r.into()))
 	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_calldatacopy_opcode(r: u32, ) -> Weight {
+		// Placeholder until the benchmark is run. Values are not measurements.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(30_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_codecopy_opcode(r: u32, ) -> Weight {
+		// Placeholder until the benchmark is run. Values are not measurements.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(30_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_returndatacopy_opcode(r: u32, ) -> Weight {
+		// Placeholder until the benchmark is run. Values are not measurements.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(30_000, 0).saturating_mul(r.into()))
+	}
 	/// The range of component `n` is `[1, 16383]`.
 	fn evm_memory_grow(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:

@@ -89,6 +89,7 @@ pub fn codesize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Copies running contract's bytecode to memory.
 pub fn codecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::CodeCopy)?;
 	let [memory_offset, code_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
 	let Some(memory_offset) = memory_resize(interpreter, memory_offset, len)? else {
@@ -145,6 +146,7 @@ pub fn callvalue<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 ///
 /// Copies input data to memory.
 pub fn calldatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::CallDataCopy)?;
 	let [memory_offset, data_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
 
@@ -168,6 +170,7 @@ pub fn returndatasize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<H
 
 /// EIP-211: New opcodes: RETURNDATASIZE and RETURNDATACOPY
 pub fn returndatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::ReturnDataCopy)?;
 	let [memory_offset, offset, len] = interpreter.stack.popn()?;
 
 	let len = as_usize_or_halt::<E::T>(len)?;
