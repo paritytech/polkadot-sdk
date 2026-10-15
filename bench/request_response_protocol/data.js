@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792013106525,
+  "lastUpdate": 1792108108204,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -134351,6 +134351,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2838146999,
             "range": "± 30259486",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "80536b7691ec4b8235ffdbf0f1e36745c953f17c",
+          "message": "statement-store: benchmark routing targets and retention affinity of the v2 topology (#13436)\n\n## Description\n\nAdds a criterion benchmark for the two per-statement decisions of the v2\nDHT topology: the forwarding targets of a topic and the local node's\nretention affinity. Both walk the XOR-ordered peer index, so the\nbenchmark runs them on a topology the size of a live network: 50 to 1000\nconnected peers out of 2048 known for the targets, 512 to 2048 known\npeers for the affinity. Each run checks its result against the counts\ncomputed at setup.\n\nThe topology types are re-exported with the same doc-hidden pattern that\nthe existing network benchmark relies on, and the benchmark requires the\ntest-helpers feature like that one.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13135. The\ntarget-selection benchmark was asked for in the review of\nhttps://github.com/paritytech/polkadot-sdk/pull/13197.\n\n## Integration\n\nNone.\n\n## Review Notes\n\nRun it with:\n\n```\ncargo bench -p sc-network-statement --features test-helpers --bench peers_topology\n```",
+          "timestamp": "2026-10-15T18:19:40Z",
+          "tree_id": "164b28844acb792cde2be7cfea1212a937dd0f24",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/80536b7691ec4b8235ffdbf0f1e36745c953f17c"
+        },
+        "date": 1792108077936,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19264142,
+            "range": "± 120947",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19533368,
+            "range": "± 150890",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21148800,
+            "range": "± 201775",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25600935,
+            "range": "± 304123",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60523690,
+            "range": "± 1121497",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 352021179,
+            "range": "± 9697046",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2660819473,
+            "range": "± 83817265",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16563087,
+            "range": "± 264147",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16904608,
+            "range": "± 187691",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17187315,
+            "range": "± 226099",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21873332,
+            "range": "± 249632",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61022400,
+            "range": "± 748743",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 358382168,
+            "range": "± 7202488",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2656669231,
+            "range": "± 35711500",
             "unit": "ns/iter"
           }
         ]
