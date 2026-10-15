@@ -17,7 +17,8 @@ doc:
     the last of which is what indexers read. Both defaults also debit with `Exact` instead of
     `BestEffort`, so a `decrease_balance` that cannot take the full `amount` fails the transfer
     rather than moving less, and the credit's error is propagated where it used to be discarded,
-    so a credit that does not fit fails the transfer instead of stranding the debit.
+    so a credit that does not fit fails the transfer instead of stranding the debit. A zero
+    transfer returns early without touching either account, as a self-transfer already did.
 
     Porting notes. An `Unbalanced::decrease_balance` implementation must do one of two things with
     a sub-minimum remainder, never both: return exactly `amount` and pass the remainder to
@@ -54,5 +55,5 @@ crates:
   bump: patch
 - name: pallet-assets
   bump: patch
-- name: asset-hub-westend-runtime
-  bump: patch
+- name: pallet-assets-precompiles
+  bump: none

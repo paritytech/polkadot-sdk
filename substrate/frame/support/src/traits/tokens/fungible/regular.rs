@@ -37,7 +37,7 @@ use crate::{
 	},
 };
 use core::marker::PhantomData;
-use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
+use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One, Zero};
 use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
@@ -336,7 +336,7 @@ where
 	) -> Result<Self::Balance, DispatchError> {
 		let _extra = Self::can_withdraw(source, amount).into_result(preservation != Expendable)?;
 		Self::can_deposit(dest, amount, Extant).into_result()?;
-		if source == dest {
+		if source == dest || amount.is_zero() {
 			return Ok(amount);
 		}
 

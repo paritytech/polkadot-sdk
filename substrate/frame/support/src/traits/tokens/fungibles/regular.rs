@@ -38,7 +38,7 @@ use crate::{
 		SameOrOther, TryDrop,
 	},
 };
-use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
+use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One, Zero};
 use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
@@ -390,7 +390,7 @@ where
 		let _extra = Self::can_withdraw(asset.clone(), source, amount)
 			.into_result(preservation != Expendable)?;
 		Self::can_deposit(asset.clone(), dest, amount, Extant).into_result()?;
-		if source == dest {
+		if source == dest || amount.is_zero() {
 			return Ok(amount);
 		}
 
