@@ -26,19 +26,19 @@ crates:
 - name: sp-staking
   bump: minor
 - name: frame-support
-  bump: patch
+  bump: major
 - name: pallet-staking-async
   bump: major
 - name: pallet-validator-collators
   bump: major
 - name: pallet-staking-async-points-converter
-  bump: major
+  bump: patch
 - name: asset-hub-westend-runtime
   bump: major
 - name: people-westend-runtime
-  bump: major
-- name: testnet-parachains-constants
   bump: minor
+- name: testnet-parachains-constants
+  bump: patch
 - name: pallet-ahm-test
   bump: none
 - name: pallet-validator-set-announcer
