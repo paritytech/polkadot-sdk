@@ -5,6 +5,7 @@ doc:
     With the v2 DHT path on, a full statement/2 peer that sends no filter within the grace period
     is treated as a node without the DHT path: it gets every statement, a match-all filter in
     return so it floods everything back, and it leaves the DHT index. A late filter restores it.
+    A statement/1 peer is served the same way from the start, without a filter.
 crates:
 - name: sc-network-statement
   bump: patch
