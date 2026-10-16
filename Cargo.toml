@@ -952,7 +952,7 @@ milagro-bls = { version = "1.5.4", default-features = false, package = "snowbrid
 minimal-template-runtime = { path = "templates/minimal/runtime" }
 mixnet = { version = "0.7.0" }
 mmr-gadget = { path = "substrate/client/merkle-mountain-range", default-features = false }
-mmr-lib = { version = "0.8.2", package = "polkadot-ckb-merkle-mountain-range", default-features = false }
+mmr-lib = { version = "0.8.3", package = "polkadot-ckb-merkle-mountain-range", default-features = false }
 mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-features = false }
 mockall = { version = "0.13.1" }
 multiaddr = { version = "0.18.1" }
@@ -1592,8 +1592,3 @@ twox-hash = { opt-level = 3 }
 wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 zeroize = { opt-level = 3 }
-
-[patch.crates-io]
-# `ancestry_proof_positions` — https://github.com/paritytech/merkle-mountain-range/pull/11.
-# Drop once 0.8.3 is on crates.io.
-polkadot-ckb-merkle-mountain-range = { git = "https://github.com/yrong/merkle-mountain-range", rev = "f3eac7c5a09daa19c6238051e8ba567b820cc3d2" }
