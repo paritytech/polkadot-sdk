@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792014053579,
+  "lastUpdate": 1792112076313,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "387a7e2180b05276ffea4d093a9b8ea29d02f0dc",
-          "message": "[Release|CI/CD] Add `parity-publish restore` step to simplify post crates release activity (#11652)\n\nThis PR adds an new step to the Publish Crates flow, that will restore\ncrates Cargo.toml files to intial state before release and keep only\nbumped version in there to simplify post crates activity we used to run\nbefore, to aligne with the pipeline checks.\n\npartially address:\nhttps://github.com/paritytech/release-engineering/issues/291",
-          "timestamp": "2026-04-06T16:37:38Z",
-          "tree_id": "438167f1ea87ddc1124fdb6188ca989ea5cb6dae",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/387a7e2180b05276ffea4d093a9b8ea29d02f0dc"
-        },
-        "date": 1775498388677,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1451682433733334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007167407993333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009810837799999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024136821979999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14485521985333338,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2cd0e4fe5b5ef1355d89ffff40f69c2713f01b34",
+          "message": "Remove deprecated BlockLength constructors (#13348)\n\n## Summary\n\nThis is part of #11561. `BlockLength::max` and\n`BlockLength::max_with_normal_ratio` were due for removal after July\n2026, and nothing in the repository calls them. The deprecation notes\npointed at `builder().max()` and `builder().normal_ratio()`, but the\nbuilder only had `max_length`. `max_length` already replaces\n`BlockLength::max`. This change adds `BlockLengthBuilder::normal_ratio`\nfor the second constructor and deletes both old functions.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-15T21:22:28Z",
+          "tree_id": "210cf51e8bfb60644cb4545861dcdd83aca5e7ae",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2cd0e4fe5b5ef1355d89ffff40f69c2713f01b34"
+        },
+        "date": 1792112046004,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007705394739999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024942523333333324,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14456822576666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00980373042666665,
             "unit": "seconds"
           }
         ]
