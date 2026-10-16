@@ -143,34 +143,46 @@ Cadence: every 3 months for new `stable` releases and monthly for existing `stab
 
 ### Steps to execute a new stable binary release
 
-From the main Polkadot-sdk repository in the paritytech org:
+All release flows run from [paritytech/release-automation](https://github.com/paritytech/release-automation/actions),
+which checks `paritytech/polkadot-sdk` out at the tag being released. The build logic itself still lives in
+polkadot-sdk, under `.github/scripts/`, `scripts/release/` and `docker/`.
 
-1. On the cut-off date, create a new branch with the name `satbleYYMM`
-  using combined [Branch-off stable/tag rc flow](/.github/workflows/release-10_branchoff-stable.yml)
-2. Create a new rc tag from the stable branch using combined
-   [Branch-off stable/tag rc flow](/.github/workflows/release-10_branchoff-stable.yml)
+1. On the cut-off date, create a new branch named `stableYYMM` and the first rc tag using
+   [Release - Branch off stable branch and/or tag rc](https://github.com/paritytech/release-automation/actions/workflows/release-stable-10_branchoff.yml)
 
-ℹ️ These first two steps can be done all in one if there are no extra actions (like crates release) are needed
-to be done in between.
-In case of a crates release: when it is done, the changes done by the Parity-Publish needs to be revereted and
-merged back to the stable branch via a PR as the direct pushes are restricted. When this is done,
-the new RC tag can be created using the flow from above.
+ℹ️ Branching off and tagging can be done in one run if no extra actions (like a crates release) are needed in
+between. In case of a crates release: once it is done, the changes made by Parity-Publish need to be reverted and
+merged back to the stable branch via a PR, as direct pushes are restricted. After that the rc tag can be created
+with the same flow.
 
-From the forked Polkadot-sdk repository in the [paritytech-release org](https://github.com/paritytech-release/polkadot-sdk/actions):
+2. To build binaries and testnet runtimes and create the release draft, trigger
+   [Release - Combined Builds Flow](https://github.com/paritytech/release-automation/actions/workflows/release-stable-22_combined-rc-runtime-builds-release-draft.yml)
+3. Create a new rc tag using
+   [Release - Branch off stable branch and/or tag rc](https://github.com/paritytech/release-automation/actions/workflows/release-stable-10_branchoff.yml)
+   and repeat step 2 for every new rc if more changes are pushed to the release branch
+4. When the release is finalized, publish crates using
+   [Release - Publish Crates](https://github.com/paritytech/release-automation/actions/workflows/release-stable-80_publish-crates.yml)
+5. When crates are published, trigger
+   [Release - Post Crates Release Activities](https://github.com/paritytech/release-automation/actions/workflows/release-stable-60_post-crates-release-activities.yml),
+   which creates a PR with bumped crates versions, polkadot/polkadot-parachain/omni-node versions, spec versions
+   and reorganised prdocs
+6. Merge the post crates release PR and create a new rc tag using
+   [Release - Branch off stable branch and/or tag rc](https://github.com/paritytech/release-automation/actions/workflows/release-stable-10_branchoff.yml)
+7. Repeat step 2
+8. Trigger [Release - Combined Publish Release](https://github.com/paritytech/release-automation/actions/workflows/release-stable-70_combined-publish-release.yml),
+   which promotes the rc to final on S3 and publishes the deb and RPM packages and the Docker images
+9. Review and finalize the release notes in the draft, then publish it with
+   [Stable Release - Publish final release](https://github.com/paritytech/release-automation/actions/workflows/release-stable-32_publish-final-release.yml).
+   It signs the final tag on the rc's commit, renames the draft onto it, publishes, and creates the legacy
+   `polkadot-vX.Y.Z` tag. Publishing from the GitHub UI instead would leave the final tag unsigned.
+   Tick `mark_latest` when releasing the newest stable line or a patch for the latest stable release; leave it
+   off for a patch to an older one, so it does not take "Latest" from a newer release.
+10. A release marked as **latest** triggers
+    [Release - Announce release to Matrix rooms](/.github/workflows/release-99_notif-published.yml),
+    which sends notifications to several Matrix rooms.
 
-1. Sync the forks before continuing with the release using
-[Sync the forked repo with the upstream](https://github.com/paritytech-release/polkadot-sdk/actions/workflows/fork-sync-action.yml)
-2. To build binaries or testnet runtimes and to create a release draft in the github
-trigger [Release - Combined Builds Flow](/.github/workflows/release-22_combined-rc-runtime-builds-release-draft.yml)
-3. Repeat steps 1 and 2 to prepare a new rc if there are any changes were pushed to release branch
-4. When the release is finalized and ready to go, publish crates using `parity-publish` tool and push changes
-to the release branch
-5. Trigger [Release - Promote RC to final candidate on S3](/.github/workflows/release-31_promote-rc-to-final.yml)
-to have it as a final rc on the S3
-6. Publish deb package for the `polkadot` binary using
-[Release - Publish Polkadot deb package](/.github/workflows/release-40_publish-deb-package.yml)
-7. Adjust the release draft and publish release on GitHub.
-8. Publish docker images using [Release - Publish Docker Image](/.github/workflows/release-50_publish-docker.yml)
+Every flow above starts with `release-guard`, which validates the tag, verifies its GPG signature and pins the
+resolved commit SHA that the rest of the run checks out.
 
 From the main Polkadot-sdk repository in the paritytech org:
 
