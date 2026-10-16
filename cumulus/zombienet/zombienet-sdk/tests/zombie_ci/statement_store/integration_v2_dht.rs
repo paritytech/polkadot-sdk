@@ -4,7 +4,8 @@
 //! End-to-end tests for the v2 DHT-affinity statement routing.
 //!
 //! v2 routes a statement to the `K` nodes with affinity to its topic instead of flooding every
-//! peer. It is on by default; the replication factor `K` and gossip target are set via CLI flags.
+//! peer. The `--statement-v2-dht` flag turns it on per node, and further flags set the replication
+//! factor `K` and the gossip target.
 
 use super::common::{
 	assert_late_joiner_receives_backlog, collator_args_v2, expect_statement_delivered,

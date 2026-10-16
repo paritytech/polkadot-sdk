@@ -284,8 +284,8 @@ static V2DHT_ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
 /// Feature-flag to switch between the legacy flood path and the DHT-targeted path.
 ///
-/// Off until [`set_v2dht_enabled`] turns it on, which a node does from its CLI before anything
-/// reads it. The value stays fixed for the process lifetime.
+/// Off by default. A node opts in through [`set_v2dht_enabled`] from its CLI before anything
+/// reads the gate, and the value stays fixed for the process lifetime.
 pub fn v2dht_enabled() -> bool {
 	*V2DHT_ENABLED.get_or_init(|| false)
 }

@@ -541,8 +541,8 @@ pub(super) async fn wait_for_first_block(
 	Ok(())
 }
 
-/// Builds collator CLI args that pin the v2 DHT replication factor `K` and gossip target, on top of
-/// [`collator_args`]. The v2 path itself is on by default.
+/// Builds collator CLI args that turn the v2 DHT path on and pin its replication factor `K` and
+/// gossip target, on top of [`collator_args`].
 pub(super) fn collator_args_v2(
 	participant_count: u32,
 	log_filter: &str,
@@ -550,6 +550,7 @@ pub(super) fn collator_args_v2(
 	gossip_target: u32,
 ) -> Vec<zombienet_sdk::Arg> {
 	let mut args = collator_args(participant_count, log_filter);
+	args.push("--statement-v2-dht".into());
 	let replication = format!("--statement-replication-factor={replication_factor}");
 	args.push(replication.as_str().into());
 	let gossip = format!("--statement-gossip-target={gossip_target}");

@@ -43,9 +43,10 @@ Remove this section when the feature stabilizes and the gate is removed.
 
 ### The v2 path is gated
 
-`v2dht_enabled()` in `lib.rs` is off until a node binary calls `set_v2dht_enabled` from its CLI,
-where the default is on and `--no-statement-v2-dht` turns it off. Peers without the v2 path are
-served by the flood branch until the fallback goes. Two invariants hold while the gate exists:
+`v2dht_enabled()` in `lib.rs` is off by default. A node binary turns it on with `set_v2dht_enabled`
+from its CLI, where `--statement-v2-dht` opts in. A default-configured node never takes the v2
+path, and peers without it are served by the flood branch. Two invariants hold while the gate
+exists:
 
 - Keep the v1 path working: with the gate off, behavior must match a node without the v2 code.
 - Put every v2 call site behind `v2dht_enabled()`; never let the v2 path leak into v1 handling.

@@ -43,9 +43,9 @@ pub struct Cli {
 	#[arg(long)]
 	pub no_hardware_benchmarks: bool,
 
-	/// Gossip statements to every peer instead of routing them through the DHT.
+	/// Route statements through the DHT instead of gossiping them to every peer.
 	#[arg(long)]
-	pub no_statement_v2_dht: bool,
+	pub statement_v2_dht: bool,
 
 	/// Number of concurrent workers for statement validation from the network.
 	///
