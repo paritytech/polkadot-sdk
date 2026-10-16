@@ -2448,7 +2448,7 @@ where
 	}
 
 	/// Give peers silent past [`AFFINITY_FILTER_GRACE_PERIOD`] a match-all filter, the v1 meaning
-	/// of no filter, and schedule their initial sync.
+	/// of no filter, register it with the orchestrator and schedule their initial sync.
 	fn assume_match_all_after_filter_grace(&mut self) {
 		let now = Instant::now();
 		let expired: Vec<PeerId> = self
@@ -2469,7 +2469,12 @@ where
 				"No affinity filter from {peer} within the grace period, assuming it wants everything"
 			);
 			// The seed is irrelevant to a filter with every bit set.
-			peer_data.topic_affinity = Some(AffinityFilter::match_all(0));
+			let filter = AffinityFilter::match_all(0);
+			peer_data.topic_affinity = Some(filter.clone());
+			if v2dht_enabled() {
+				// The propagation plan reads peer filters from the orchestrator.
+				self.v2dht.on_peer_filter_update(peer, filter);
+			}
 			self.schedule_initial_sync_for_peer(peer);
 		}
 	}
