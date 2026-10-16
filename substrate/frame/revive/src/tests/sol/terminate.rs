@@ -1207,19 +1207,24 @@ fn burned(before: u128) -> u128 {
 	get_balance(&BurnDestination::get()) - before
 }
 
-/// `System.terminate` with the contract itself as the beneficiary burns its balance, including
-/// funds that arrive after the call, and the account is reaped. The ED is 50 and the balance is
-/// either below it or above it. Under a lock of 500, only the part the lock does not pin is
-/// burned and the locked amount stays on the account.
+/// `System.terminate` with the contract itself as the beneficiary deletes the contract and leaves
+/// its balance on the account, including funds that arrive after the call, as in EIP-8246.
+/// Nothing is burned through `OnBurn`. The ED is 50. With a zero balance the ED is burned and the
+/// account is reaped. With 43 the ED stays with it, and with 57, or 43 plus 7 late, only the
+/// balance stays and the ED is burned. Under a lock of 500 the ED stays as well.
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
-	[(Encumbrance::None, 43), (Encumbrance::None, 57), (Encumbrance::Lock(500), SPENDABLE)],
-	[0, 7]
+	[
+		(Encumbrance::None, 0, 0, 0),
+		(Encumbrance::None, 43, 0, 50 + 43),
+		(Encumbrance::None, 43, 7, 43 + 7),
+		(Encumbrance::None, 57, 0, 57),
+		(Encumbrance::Lock(500), SPENDABLE, 7, 50 + SPENDABLE + 7),
+	]
 )]
-fn precompile_terminate_to_itself_burns_balance(
+fn precompile_terminate_to_itself_keeps_balance(
 	fixture_type: FixtureType,
-	(encumbrance, spendable): (Encumbrance, u128),
-	late: u128,
+	(encumbrance, spendable, late, left): (Encumbrance, u128, u128, u128),
 ) {
 	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
@@ -1249,15 +1254,11 @@ fn precompile_terminate_to_itself_burns_balance(
 			)
 			.build_and_unwrap_result();
 
-		let pinned = match encumbrance {
-			Encumbrance::Lock(amount) => amount,
-			_ => 0,
-		};
-		let left = if pinned == 0 { 0 } else { pinned.max(ed) };
 		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
 		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
-		assert_eq!(burned(burned_before), ed + spendable + late - pinned.max(ed), "burned");
+		assert_eq!(burned(burned_before), 0, "nothing is burned");
 		assert_eq!(Balances::total_balance(&account_id), left, "balance left on the account");
+		assert_eq!(System::account_exists(&account_id), left != 0, "reaped only when empty");
 		assert_eq!(
 			get_balance(&ALICE) - alice_before,
 			deposit + code_deposit,
@@ -1267,10 +1268,14 @@ fn precompile_terminate_to_itself_burns_balance(
 }
 
 /// A contract created in the same transaction that terminates with itself as the beneficiary,
-/// through `System.terminate` or `SELFDESTRUCT`, has its balance burned, and the account is
-/// reaped.
-#[test_matrix([FixtureType::Solc, FixtureType::Resolc], [METHOD_PRECOMPILE, METHOD_SYSCALL])]
-fn same_tx_terminate_to_itself_burns_balance(fixture_type: FixtureType, method: u8) {
+/// through `System.terminate` or `SELFDESTRUCT`, is deleted and its balance stays on the account,
+/// as in EIP-8246. With a zero balance the account is reaped.
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[METHOD_PRECOMPILE, METHOD_SYSCALL],
+	[0, SPENDABLE]
+)]
+fn same_tx_terminate_to_itself_keeps_balance(fixture_type: FixtureType, method: u8, value: u128) {
 	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
 	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
@@ -1295,7 +1300,7 @@ fn same_tx_terminate_to_itself_burns_balance(fixture_type: FixtureType, method: 
 			.data(
 				TerminateCaller::createAndTerminateCall {
 					value: alloy_core::primitives::U256::from_limbs(
-						Pallet::<Test>::convert_native_to_evm(SPENDABLE).0,
+						Pallet::<Test>::convert_native_to_evm(value).0,
 					),
 					method,
 					beneficiary: addr.0.into(),
@@ -1309,8 +1314,9 @@ fn same_tx_terminate_to_itself_burns_balance(fixture_type: FixtureType, method: 
 			TerminateCaller::createAndTerminateCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(H160::from_slice(created.as_slice()), addr);
 		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
-		assert_eq!(burned(burned_before), SPENDABLE, "burned");
-		assert_eq!(Balances::total_balance(&account_id), 0, "nothing is left on the account");
+		assert_eq!(burned(burned_before), 0, "nothing is burned");
+		assert_eq!(Balances::total_balance(&account_id), value, "the balance stays");
+		assert_eq!(System::account_exists(&account_id), value != 0, "reaped only when empty");
 	});
 }
 
@@ -1343,10 +1349,10 @@ fn syscall_pre_existing_to_itself_changes_nothing(fixture_type: FixtureType) {
 /// A contract terminated twice in one transaction sends the funds that arrive afterwards to the
 /// beneficiary it named last. A pre-existing contract calls `System.terminate` with `DJANGO` and
 /// runs `SELFDESTRUCT` with itself as the beneficiary, in either order, and then receives late
-/// funds. They are burned if it named itself last and go to `DJANGO` otherwise. Either way the
-/// contract is deleted and its deposit is refunded once.
+/// funds. They stay on the account if it named itself last, as in EIP-8246, and go to `DJANGO`
+/// otherwise. Either way the contract is deleted and its deposit is refunded once.
 #[test_matrix([FixtureType::Solc, FixtureType::Resolc], [false, true])]
-fn terminate_twice_late_funds_follow_last_beneficiary(
+fn terminate_twice_late_funds_stay_or_go_to_last_beneficiary(
 	fixture_type: FixtureType,
 	itself_last: bool,
 ) {
@@ -1384,13 +1390,13 @@ fn terminate_twice_late_funds_follow_last_beneficiary(
 			)
 			.build_and_unwrap_result();
 
-		let (to_beneficiary, to_burn) =
+		let (to_beneficiary, left) =
 			if itself_last { (SPENDABLE, late) } else { (SPENDABLE + late, 0) };
 		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
 		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
 		assert_eq!(get_balance(&DJANGO) - django_before, to_beneficiary, "beneficiary payout");
-		assert_eq!(burned(burned_before), to_burn, "burned");
-		assert_eq!(Balances::total_balance(&account_id), 0, "nothing is left on the account");
+		assert_eq!(burned(burned_before), 0, "nothing is burned");
+		assert_eq!(Balances::total_balance(&account_id), left, "balance left on the account");
 		assert_eq!(
 			get_balance(&ALICE) - alice_before,
 			deposit + code_deposit,
