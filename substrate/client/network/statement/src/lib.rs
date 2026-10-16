@@ -254,8 +254,7 @@ mod rep {
 }
 
 const LOG_TARGET: &str = "statement-gossip";
-/// V2 statement protocol suffix, work in progress protocol with topic affinity and other
-/// improvements, may have breaking changes before stabilization.
+/// V2 statement protocol suffix: topic affinity filters, shipped since stable2606.
 const STATEMENT_PROTOCOL_V2: &str = "statement/2";
 /// V1 statement protocol suffix, current stable protocol, no breaking changes will be made to it.
 const STATEMENT_PROTOCOL_V1: &str = "statement/1";
@@ -272,9 +271,8 @@ const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::fr
 /// How long a full `statement/2` peer may stay silent about its affinity before it is treated as
 /// wanting every statement.
 ///
-/// TODO: Remove once the filter is mandatory by protocol version. A full node running without
-/// the v2 DHT path never sends a filter, so a node with the path on would wait for it forever.
-/// A mixed network stays mixed through the rollout, so the grace period tells the two apart.
+/// A full node without the v2 DHT path never sends a filter, so a node with the path on waits
+/// this long before serving the peer as one that wants everything.
 const AFFINITY_FILTER_GRACE_PERIOD: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval between sweeps that evict statement-store peers unseen for the staleness TTL, so the
 /// topology converges on live peers even while discovery is quiet.
@@ -282,15 +280,21 @@ const PEER_EVICTION_INTERVAL: std::time::Duration = std::time::Duration::from_se
 /// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.
 const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(60);
 
-/// Feature-flag to switch between the legacy flood path and the new DHT-targeted path.
+static V2DHT_ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+/// Feature-flag to switch between the legacy flood path and the DHT-targeted path.
 ///
-/// Off by default; enable the v2 DHT path by setting `STATEMENT_STORE_V2_DHT_ENABLED=1`.
-/// The environment variable is read once; the value stays fixed for the process lifetime.
+/// Off until [`set_v2dht_enabled`] turns it on, which a node does from its CLI before anything
+/// reads it. The value stays fixed for the process lifetime.
 pub fn v2dht_enabled() -> bool {
-	static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-	*ENABLED.get_or_init(|| {
-		std::env::var_os("STATEMENT_STORE_V2_DHT_ENABLED").map_or(false, |value| value == "1")
-	})
+	*V2DHT_ENABLED.get_or_init(|| false)
+}
+
+/// Set the v2 DHT gate. A call after the first read changes nothing and logs a warning.
+pub fn set_v2dht_enabled(enabled: bool) {
+	if V2DHT_ENABLED.set(enabled).is_err() {
+		log::warn!(target: LOG_TARGET, "The v2 DHT gate was read before it was set, keeping it");
+	}
 }
 
 struct Metrics {

@@ -82,6 +82,7 @@ impl SubstrateCli for Cli {
 /// Parse command line arguments into service configuration.
 pub fn run() -> Result<()> {
 	let cli = Cli::from_args();
+	sc_network_statement::set_v2dht_enabled(!cli.no_statement_v2_dht);
 
 	match &cli.subcommand {
 		None => {
