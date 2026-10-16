@@ -21,9 +21,12 @@
 //! - `POV_FUZZ_SEED`: base seed, decimal or `0x` hex (default fixed). Script `i` uses seed `base +
 //!   i`, so `POV_FUZZ_SEED=<failing seed> POV_FUZZ_ITERS=1` replays one failure.
 //! - `POV_FUZZ_KEEP_GOING=1`: do not stop at the first failure, print a summary at the end.
+//! - `POV_FUZZ_SCALE`: largest scale class to run, `small` (default), `medium` or `large`.
+//!   Generated scales above it are reduced to it.
 
 use cumulus_proof_size_hostfunction_fuzz::{
 	op_count, pinned_scripts, script_from_seed, shrink, try_run_script, Failure, Mode, Report,
+	Scale,
 };
 use std::{
 	collections::BTreeMap,
@@ -40,9 +43,19 @@ fn env_u64(name: &str, default: u64) -> u64 {
 		.unwrap_or(default)
 }
 
+fn env_scale() -> Scale {
+	match std::env::var("POV_FUZZ_SCALE").as_deref() {
+		Ok("medium") => Scale::Medium,
+		Ok("large") => Scale::Large,
+		Ok("small") | Err(_) => Scale::Small,
+		Ok(other) => panic!("POV_FUZZ_SCALE must be small, medium or large, not {other:?}"),
+	}
+}
+
 #[derive(Default)]
 struct Stats {
 	runs: usize,
+	by_scale: [usize; 3],
 	executive: usize,
 	blocks: usize,
 	estimates: usize,
@@ -55,8 +68,9 @@ struct Stats {
 }
 
 impl Stats {
-	fn add(&mut self, mode: Mode, report: &Report) {
+	fn add(&mut self, scale: Scale, mode: Mode, report: &Report) {
 		self.runs += 1;
+		self.by_scale[scale as usize] += 1;
 		if mode == Mode::Executive {
 			self.executive += 1;
 		}
@@ -80,10 +94,14 @@ impl Stats {
 	fn print(&self) {
 		let blocks = self.blocks.max(1);
 		println!(
-			"stats: {} passing scripts ({} executive, {} free), {} blocks, {} estimations",
+			"stats: {} passing scripts ({} executive, {} free; {} small, {} medium, {} large), \
+			 {} blocks, {} estimations",
 			self.runs,
 			self.executive,
 			self.runs - self.executive,
+			self.by_scale[0],
+			self.by_scale[1],
+			self.by_scale[2],
 			self.blocks,
 			self.estimates,
 		);
@@ -125,14 +143,15 @@ fn random_smoke() {
 	let iters = env_u64("POV_FUZZ_ITERS", 300);
 	let base = env_u64("POV_FUZZ_SEED", 0x5eed_0f_10215);
 	let keep_going = std::env::var("POV_FUZZ_KEEP_GOING").is_ok_and(|v| v == "1");
+	let max_scale = env_scale();
 
 	let mut stats = Stats::default();
 	let mut failures: Vec<(u64, Failure)> = Vec::new();
 	for i in 0..iters {
 		let seed = base.wrapping_add(i);
-		let script = script_from_seed(seed);
+		let script = script_from_seed(seed, max_scale);
 		match try_run_script(&script) {
-			Ok(report) => stats.add(script.config.mode, &report),
+			Ok(report) => stats.add(script.config.scale, script.config.mode, &report),
 			Err(failure) => {
 				println!("seed {seed:#x} (iteration {i}): {failure}");
 				if !keep_going {
@@ -162,7 +181,7 @@ fn random_smoke() {
 				.iter()
 				.find(|(_, f)| &format!("{:?}", f.kind) == kind)
 				.expect("kind was collected from failures; qed");
-			report_shrunk(*seed, script_from_seed(*seed), false);
+			report_shrunk(*seed, script_from_seed(*seed, max_scale), false);
 		}
 		panic!("{} of {iters} scripts failed", failures.len());
 	}
