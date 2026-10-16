@@ -132,6 +132,16 @@ impl PeersTopology {
 		self.connected.insert(key, peer);
 	}
 
+	/// Drop `peer` from the DHT index and the connected set: it speaks the protocol without the
+	/// DHT path. The next substream open puts it back.
+	pub fn on_peer_without_dht(&mut self, peer: PeerId) {
+		let Some(info) = self.discovered.get_mut(&peer) else { return };
+		let key = info.key;
+		info.supports_protocol = false;
+		self.discovered_index.remove(key, &peer);
+		self.connected.remove(key, &peer);
+	}
+
 	/// Record that the statement notification substream closed.
 	pub fn on_substream_closed(&mut self, peer: PeerId) {
 		let Some(info) = self.discovered.get_mut(&peer) else { return };

@@ -1825,6 +1825,9 @@ where
 									}
 									if was_assumed_match_all {
 										// A late filter means the peer runs the v2 DHT path.
+										if v2dht_enabled() {
+											self.v2dht.on_substream_opened(peer);
+										}
 										self.send_local_filter(&peer).await;
 									}
 								},
@@ -2498,6 +2501,7 @@ where
 			if v2dht_enabled() {
 				// The propagation plan reads peer filters from the orchestrator.
 				self.v2dht.on_peer_filter_update(peer, filter);
+				self.v2dht.on_peer_without_dht(peer);
 			}
 			self.schedule_initial_sync_for_peer(peer);
 			self.send_match_all_filter(&peer).await;
