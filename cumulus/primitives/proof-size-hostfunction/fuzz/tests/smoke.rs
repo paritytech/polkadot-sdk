@@ -23,6 +23,9 @@
 //! - `POV_FUZZ_KEEP_GOING=1`: do not stop at the first failure, print a summary at the end.
 //! - `POV_FUZZ_SCALE`: largest scale class to run, `small` (default), `medium` or `large`.
 //!   Generated scales above it are reduced to it.
+//!
+//! Every script runs the estimation pass (collator plus validator replay per block) and the
+//! truth pass.
 
 use cumulus_proof_size_hostfunction_fuzz::{
 	op_count, pinned_scripts, script_from_seed, shrink, try_run_script, Failure, Mode, Report,
@@ -65,6 +68,8 @@ struct Stats {
 	over_nonzero: usize,
 	e_last_sum: u64,
 	truth_sum: u64,
+	validated_estimates: usize,
+	dropped_xts: usize,
 }
 
 impl Stats {
@@ -88,6 +93,8 @@ impl Stats {
 			self.over_nonzero += (over != 0) as usize;
 			self.e_last_sum += block.e_last;
 			self.truth_sum += block.truth;
+			self.validated_estimates += block.validated_estimates;
+			self.dropped_xts += block.dropped_xts;
 		}
 	}
 
@@ -116,7 +123,18 @@ impl Stats {
 			self.e_last_sum / blocks as u64,
 			self.truth_sum / blocks as u64,
 		);
+		println!(
+			"validator pass: {} blocks replayed on the collator proof, {} estimation values \
+			 matched, {} dropped extrinsics skipped",
+			self.blocks, self.validated_estimates, self.dropped_xts,
+		);
 	}
+}
+
+/// For a validator failure, the kind of estimation it is tied to (`Pre`, `Free`, `Final`, ...).
+fn validator_position(failure: &Failure) -> Option<String> {
+	let position = format!("{:?}", failure.position?);
+	Some(position.split('(').next().unwrap_or_default().to_string())
 }
 
 #[test]
@@ -174,6 +192,15 @@ fn random_smoke() {
 		for (kind, seeds) in &by_kind {
 			let seeds: Vec<_> = seeds.iter().map(|s| format!("{s:#x}")).collect();
 			println!("  {kind}: {} ({})", seeds.len(), seeds.join(", "));
+		}
+		let mut by_position: BTreeMap<(String, String), usize> = BTreeMap::new();
+		for (_, failure) in &failures {
+			if let Some(position) = validator_position(failure) {
+				*by_position.entry((format!("{:?}", failure.kind), position)).or_default() += 1;
+			}
+		}
+		for ((kind, position), count) in &by_position {
+			println!("  {kind} at a {position} estimation: {count}");
 		}
 		// Shrink the first failure of every kind.
 		for kind in by_kind.keys() {

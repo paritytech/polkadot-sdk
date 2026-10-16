@@ -1,256 +1,200 @@
 # Fuzzer for the storage-root PoV size estimation
 
-Hand-off notes for PR [#10215](https://github.com/paritytech/polkadot-sdk/pull/10215)
-("PoV size reclaim fix"). Written against head `0732e39745d` on 2026-10-16. Nothing in this
-crate is committed yet; it lives in the working tree of the `mku-pov-reclaim-fix-1` branch.
+Notes for PR [#10215](https://github.com/paritytech/polkadot-sdk/pull/10215), written against
+head `0732e39745d`.
 
-## What is being tested
+## What is tested
 
-The PR adds version 2 of the `storage_proof_size` host function. Before returning the proof
-size it calls `Externalities::record_proof_for_dirty_keys`, which walks the trie for every key
-written since the previous call and records the nodes that the later `storage_root` will touch.
-Weight reclaim reads the proof size before and after each extrinsic, so if the estimation misses
-nodes, the block's real PoV is larger than what the runtime accounted for.
+1. **No overshoot.** After the last estimation, `storage_root` must not add a byte to the proof
+   recorder.
+2. **Validator agreement.** Weight reclaim writes the estimation values into `BlockWeight`, so
+   the validator must obtain the collator's values from the collator's proof, without missing a
+   node.
 
-The property under test: **after the last estimation, `storage_root` must not add a single byte
-to the proof recorder.**
-
-Call chain on the production side:
-
-```
-storage_proof_size::storage_proof_size()  v2    cumulus/primitives/proof-size-hostfunction/src/lib.rs
-  Ext::record_proof_for_dirty_keys              substrate/primitives/state-machine/src/ext.rs
-  OverlayedChanges::record_proof_for_dirty_keys substrate/primitives/state-machine/src/overlayed_changes/mod.rs
-    StorageKeyDeltaTracker::take_delta          .../overlayed_changes/storage_key_delta_tracker.rs
-  TrieBackendEssence::record_proof_for_dirty_keys       .../trie_backend_essence.rs
-    read_trie_keys_from_delta   (TrieDB::get_hash)      substrate/primitives/trie/src/lib.rs
-    remove_trie_keys_from_delta (TrieDBMut::remove, no commit)
-  TrieBackendEssence::record_proof_for_child_dirty_keys
-```
-
-The harness drives all of this through the real native host functions (`sp_io::storage`,
-`sp_io::default_child_storage`, `storage_proof_size`) with a real `Ext`, overlay, trie backend
-and `Recorder`. Nothing is mocked. It does not execute WASM.
+The harness calls the real native host functions (`sp_io::storage`,
+`sp_io::default_child_storage`, `storage_proof_size`) on a real `Ext`, overlay, trie backend and
+`Recorder`. It does not execute WASM.
 
 ## Layout
 
 | File | Content |
 |---|---|
-| `src/lib.rs` | Input types (`Script`, `Block`, `Xt`, `Op`, `Key`, `Val`), `run_script` / `try_run_script`, invariants, `shrink`, `pinned_scripts`, `script_from_seed` |
-| `tests/smoke.rs` | Deterministic runner: `pinned_reproductions` and `random_smoke`. Works with plain `cargo test`. |
-| `fuzz_targets/pov_estimation.rs` | libFuzzer entry point for `cargo fuzz`. |
+| `src/lib.rs` | input types, the three passes, invariants, `shrink`, `pinned_scripts`, `script_from_seed` |
+| `tests/smoke.rs` | `pinned_reproductions` and `random_smoke`, plain `cargo test` |
+| `fuzz_targets/pov_estimation.rs` | libFuzzer entry point |
 
-Key functions in `src/lib.rs`:
+In `src/lib.rs`:
 
-- `execute(script, estimate)` runs one script once. With `estimate == false` every estimation
-  call is skipped; that run is the "truth".
-- `try_run_script` runs with estimation, then without, and compares. Returns `Err(Failure)` on
-  the first hard invariant violation, otherwise a `Report` with per-block numbers.
-- `BlockEnv` holds the recorder, extensions, trie backend and overlay of one block and
-  implements the client-side transaction handling.
-- `Ctx` executes ops inside the externalities and tracks estimation values.
-- `shrink` is a greedy minimiser: it drops blocks, extrinsics, initial entries and single ops
-  while the same `FailureKind` persists.
+- `try_run_script` runs the collator pass with its validator replays, then the truth pass, and
+  returns the first `Failure` or a `Report`. `run_script` panics with the script on failure.
+- `Ctx::initialize_block`, `Ctx::apply_extrinsic`, `Ctx::finalize_block` are the runtime side
+  of a block. Collator and validator call the same functions.
+- `BlockEnv` holds recorder, extensions, state and overlay of one block and does the host
+  transactions. `BlockWitness` is what the collator hands to `validate_block`: pre- and
+  post-block root, proof, estimation values.
+- `shrink` removes blocks, extrinsics, initial entries and ops one at a time and keeps every
+  removal that preserves the `FailureKind`. It lowers the scale first.
 
-## How a script executes
+## Passes
 
-Each block is executed the way `sc-block-builder`, `sp-api` and `frame-executive` execute it.
-`sp-api` wraps every runtime call at depth zero in a host transaction that starts the overlay
-transaction, the recorder transaction and `Extensions::start_transaction(Host)` together
-(`substrate/primitives/api/proc-macro/src/impl_runtime_apis.rs`, `start_transaction`).
-`BlockEnv::client_start` does the same three calls.
+1. **Collator pass**: each block as `sc-block-builder` builds it, with estimations.
+2. **Validator pass**, per block: the same block as `validate_block` runs it, on the collator's
+   proof.
+3. **Truth pass**: the collator pass without estimations. Its recorder size after `storage_root`
+   is the reference for `IncompleteProof` and the overestimation statistic.
+
+### Collator pass
+
+Every runtime call runs in a host transaction over overlay, recorder and extensions, as
+`sp-api` does, and gets a fresh trie backend over the block state, as `contextual_call` does.
+Extrinsics with `client_outcome == Rollback` are rolled back by the host and dropped from the
+block.
 
 ```
 block
-  host tx { initialize_block: init ops }                         committed
+  host tx { init ops }
   for each extrinsic:
     host tx {
       Estimate                     weight-reclaim validate()          if with_reclaim
-      pre ops                      nonce, fee withdrawal
-      runtime tx { body ops }      with_storage_layer around the call
+      pre ops
+      runtime tx { body ops }      with_storage_layer
       commit | rollback            body_outcome
-      post ops                     events append, fee refund
+      post ops
       Estimate                     weight-reclaim post_dispatch()     if with_reclaim
-    }                              client_outcome: commit, or rollback for an invalid extrinsic
-  host tx {
-    finalize_block: finalize ops
-    Estimate, Estimate             final estimations (see caveats)
-    storage_root
-  }
-  drain overlay into the backend, next block starts with a fresh overlay and recorder
+    }                              client_outcome
+  host tx { finalize ops, Estimate, Estimate, storage_root }
+  take proof, validator pass, apply changes to the state; next block with fresh overlay and recorder
 ```
 
-`Mode::Free` additionally executes every `Op::Estimate` wherever it appears in an op list. This
-covers callers outside the executive; `get_proof_size` is public and any pallet may call it.
-In `Mode::Executive` those ops do nothing.
+`Mode::Free` also executes every `Op::Estimate` in the op lists. `Op::Tx` is a nested runtime
+transaction, depth up to six. Runtime transactions do not touch the recorder; host transactions
+roll recorded nodes back.
 
-Op lists may contain `Op::Tx`, a nested runtime transaction, up to depth six. Runtime
-transactions do not affect the recorder; the `ProofSizeProvider` transaction hooks are no-ops
-for `Recorder`. Only the host transactions roll recorded nodes back.
+### Validator pass
 
-Keys are described symbolically so that `Debug` output stays short and libFuzzer mutations stay
-meaningful. `Key::Map(p, m, i)` is a 50 byte `prefix ++ hash ++ i` key like a `Blake2_128Concat`
-map entry, `Key::Value(p, m)` the 32 byte prefix of those (a branch node with a value),
-`Key::Sibling` a map key with one nibble changed at a random position, `Key::Short` a one to
-three byte key near the root, `Key::Raw` explicit bytes for hand-written scripts. The indices are
-reduced modulo the pallet, item and index counts of the script's scale. `Val` has four size
-classes: empty, inline, exactly 32 bytes, and hashed out under `StateVersion::V1`.
+One `Ext` over `TrieBackendBuilder::new(proof.into_memory_db(), pre_root)` with a fresh
+`Recorder`, no host transactions. It runs `init`, the committed extrinsics through
+`Ctx::apply_extrinsic`, `finalize`, the two final estimations and `storage::root`, then checks
+in this order:
 
-### Scale
+- a `trie`/`state` warning or a panic: `ValidatorMissingNode`;
+- a different post-block root: `ValidatorRootMismatch`;
+- a different sequence of `(EstimatePos, value)`: `ValidatorEstimateMismatch`, detail names the
+  first differing position and prints both sequences.
 
-`Config::scale` sets the key space and the initial trie size:
+A validator failure is reported before a collator failure of the same block; the collator
+failure is appended as "collator also: ...".
 
-| Scale | Pallets × items × indices | Initial main trie | Per child | Clear-prefix limit | Cost |
-|---|---|---|---|---|---|
-| `Small` | 4 × 3 × 128 = 1536 map keys | up to 600 generated keys (about 300 distinct) | up to 100 | below 8 | milliseconds |
-| `Medium` | 16 × 8 × 4096 | up to 5000 | up to 1000 | below 64 | seconds in a debug build |
-| `Large` | 16 × 8 × 65536 | up to 50000 | up to 5000 | below 1024 | about a minute in a debug build |
+The harness uses `Recorder` where production uses `SizeOnlyRecorderProvider`;
+`recorder_equivalence_*` in `validate_block/trie_recorder.rs` show they report the same size.
 
-Every script runs twice (with and without estimation), and a failing script is shrunk by
-re-running it many times. A 40-script run with all classes allowed took eight minutes as a debug
-build; use `--release` for anything beyond a handful of medium or large scripts.
+### Inputs
 
-Generation draws `Small` 70%, `Medium` 25%, `Large` 5%. The shrinker lowers the scale first, so
-failing cases end up small. `random_smoke` caps the scale at `Small` unless `POV_FUZZ_SCALE` is
-set; the libFuzzer target has no cap.
+`Key::Map(p, m, i)` is a 50 byte `prefix ++ hash ++ i` key like a `Blake2_128Concat` entry,
+`Key::Value(p, m)` its 32 byte prefix, `Key::Sibling` a map key with one nibble flipped,
+`Key::Short` a one to three byte key, `Key::Raw` explicit bytes for hand-written scripts.
+Indices are reduced modulo the counts of the script's scale. `Val` sizes: empty, inline, exactly
+32 bytes, hashed out under V1.
 
-Why scale matters for this invariant: the recorder deduplicates nodes. In a 300-key trie almost
-every operation shares nodes with every other one, so a node the estimation misses may already
-have been recorded by an unrelated read and the check passes. In a production-sized trie that
-read touches different nodes and the block overshoots. The truth run deduplicates the same way
-and cannot catch this; only a larger key space reduces the accidental overlap. On the other
-hand, `Key::Sibling` makes small tries deep: a lookup path crosses up to fifteen nodes because
-the flipped nibbles split the shared prefixes at many positions.
+| Scale | Pallets × items × indices | Initial main trie | Per child | Clear-prefix limit |
+|---|---|---|---|---|
+| `Small` | 4 × 3 × 128 | up to 600 drawn, about 300 distinct | up to 100 | below 8 |
+| `Medium` | 16 × 8 × 4096 | up to 5000 | up to 1000 | below 64 |
+| `Large` | 16 × 8 × 65536 | up to 50000 | up to 5000 | below 1024 |
 
-The initial trie also contains explicit entries and up to three of the four addressable child
-tries. Child `id` has storage key `[0x10 * (id + 1)]`. Scripts further choose backend and root
-state version, and whether a `LocalTrieCache` is attached.
+Drawn 70 / 25 / 5 percent. `random_smoke` caps at `Small` unless `POV_FUZZ_SCALE` says
+otherwise; the libFuzzer target has no cap. Up to three of four child tries start populated;
+child `id` has storage key `[0x10 * (id + 1)]`. Scripts also choose backend and root state
+version and whether a `LocalTrieCache` is attached.
 
 ## Invariants
 
-`FailureKind` in `src/lib.rs`:
-
 | Kind | Check |
 |---|---|
-| `Overshoot` | recorder size after `storage_root` is larger than the last estimation. This is the property the PR has to guarantee. |
-| `NotIdempotent` | two consecutive final estimations differ |
-| `NotMonotone` | an estimation is smaller than the previous one without a host rollback in between |
-| `NegativeReclaim` | `post < pre` for an extrinsic with reclaim; weight reclaim would saturate |
-| `Warning` | a `log` warning with target `trie` or `state` was emitted |
-| `IncompleteProof` | the run with estimations recorded fewer bytes after `storage_root` than the run without; the proof misses nodes a validator reads |
-| `Panic` | a panic that does not happen without estimation |
-| `PanicAlsoWithoutEstimation` | a panic that also happens without estimation, so a pre-existing bug |
+| `Overshoot` | recorder size after `storage_root` exceeds the last estimation |
+| `NotIdempotent` | the two final estimations differ |
+| `NotMonotone` | an estimation decreased without a host rollback in between |
+| `NegativeReclaim` | `post < pre` for an extrinsic with reclaim |
+| `Warning` | a `log` warning with target `trie` or `state` in the collator pass |
+| `IncompleteProof` | the collator pass recorded fewer bytes after `storage_root` than the truth pass |
+| `Panic` | a collator-pass panic that does not happen without estimation |
+| `PanicAlsoWithoutEstimation` | a collator-pass panic that also happens without estimation |
+| `ValidatorMissingNode` | validator pass panicked or logged a `trie`/`state` warning |
+| `ValidatorRootMismatch` | validator pass computed a different post-block root |
+| `ValidatorEstimateMismatch` | validator pass saw a different estimation value |
 
-The soft statistic `overestimation = e_last - truth` is printed by `random_smoke` and never
-fails a run. The documented source of overestimation is a child trie that may become empty:
-the estimation assumes its root key is removed from the main trie.
+`IncompleteProof` is the weaker form of `ValidatorMissingNode` and can go once the validator
+pass is trusted; the truth pass then only serves the overestimation statistic, which is printed
+and never fails a run.
 
 ## Running
 
-From the repository root:
-
 ```sh
 # pinned reproductions plus 300 random scripts; stops at the first failure and prints the shrunk script
-cargo test -p cumulus-proof-size-hostfunction-fuzz -- --nocapture
+cargo test --release -p cumulus-proof-size-hostfunction-fuzz -- --nocapture
 
-# collect all failures of a longer run, grouped by kind, one shrunk example per kind (about two minutes)
-POV_FUZZ_ITERS=3000 POV_FUZZ_KEEP_GOING=1 cargo test -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
+# all failures of a longer run, grouped by kind, one shrunk example per kind
+POV_FUZZ_ITERS=1000 POV_FUZZ_KEEP_GOING=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
 
-# the same with medium and large tries allowed; release build, since large tries are slow in debug
+# with medium and large tries
 POV_FUZZ_SCALE=large POV_FUZZ_ITERS=200 POV_FUZZ_KEEP_GOING=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
 
-# replay a single seed
-POV_FUZZ_SEED=0x5eed0f1022d POV_FUZZ_ITERS=1 cargo test -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
+# replay one seed
+POV_FUZZ_SEED=0x5eed0f1022d POV_FUZZ_ITERS=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
 
-# coverage-guided, needs `cargo install cargo-fuzz` and a nightly toolchain
+# coverage-guided, needs cargo-fuzz and nightly
 cd cumulus/primitives/proof-size-hostfunction/fuzz && cargo +nightly fuzz run pov_estimation -- -max_len=16384
 ```
 
-Environment variables of `random_smoke`: `POV_FUZZ_ITERS` (default 300), `POV_FUZZ_SEED` (base
-seed, decimal or `0x` hex; script `i` uses `base + i`), `POV_FUZZ_KEEP_GOING=1`,
-`POV_FUZZ_SCALE` (`small` by default, `medium` or `large` to allow the bigger classes; larger
-generated scales are reduced to the cap, including their trie sizes).
+`POV_FUZZ_SEED` takes decimal or `0x` hex; script `i` uses `base + i`. The libFuzzer binary
+builds on stable but has no coverage feedback without `cargo fuzz`.
 
-The libFuzzer binary builds on stable (`cargo build -p cumulus-proof-size-hostfunction-fuzz
---bins`) but gets no coverage feedback without `cargo fuzz`. `cargo-fuzz` and `cargo-hfuzz`
-are not installed in the development environment used so far.
-
-## Reading a failure
-
-A failure prints as `Kind in block N: detail`, followed by the shrunk script in `Debug` form.
-To turn a shrunk script into a unit test in `sp-state-machine`:
-
-1. Build the initial `Storage` from `InitialTrie::storage()` or by hand; `Key::bytes()` and
-   `Val::bytes()` give the concrete bytes.
-2. Replay the ops on an `Ext` with a recording backend, as the tests at the end of
-   `substrate/primitives/state-machine/src/ext.rs` do. `Op::Estimate` and the fixed estimation
-   points map to `ext.record_proof_for_dirty_keys()`.
-3. To pin the case in this crate, add it to `pinned_scripts()` with `Key::Raw` keys and a
-   comment stating the seed it came from.
-
-`shrink` is greedy and recomputes all candidates after every successful removal. For scripts
-with several hundred ops it takes seconds to a minute.
+A failure prints `Kind in block N: detail` and the shrunk script. To pin it, add it to
+`pinned_scripts()` with `Key::Raw` keys and the seed. To turn it into an `sp-state-machine`
+test, build the `Storage` from `InitialTrie::storage()`, replay the ops on a recording `Ext` as
+the tests in `ext.rs` do, and map the estimation points to `ext.record_proof_for_dirty_keys()`.
 
 ## Status on head `0732e39745d`
 
-Both tests fail on purpose. The failures are real defects, not harness bugs; each pinned script
-was minimised by hand and the two trie-level ones were reproduced outside the harness.
-
-Pinned scripts (`pinned_reproductions`):
+Both tests fail. Pinned scripts:
 
 | Name | Result | Cause |
 |---|---|---|
-| `review_incremental_main_deletions` | Overshoot, 174 to 209 | deletions spread over several estimations never collapse the branch; each estimation starts from the original root and removes only its own keys (`trie_backend_essence.rs`, `record_proof_for_dirty_keys`) |
-| `review_incremental_child_root_deletions` | Overshoot, 269 to 305 | same, for child root keys in the main trie |
-| `review_parent_update_hides_nested_delete` | Overshoot, 106 to 141 | `take_delta` lets an older layer's `Updated` overwrite the current layer's `Deleted` (`storage_key_delta_tracker.rs`, `take_delta`, unconditional `delta.insert`) |
-| `fuzz_client_layer_update_hides_finalize_delete` | Overshoot, 106 to 141 | same root cause; a write in one runtime call and a delete in a later one is enough, because each runtime call is its own host transaction layer |
-| `fuzz_child_emptied_then_refilled` | Overshoot, 121 to 123 | a child emptied and refilled before the estimation; V0 and V1 |
-| `fuzz_estimation_hits_trie_db_remove_panic` | Panic | `TrieDBMut::remove` of an absent key that ends exactly at a nibbled branch with a non-empty partial panics in `fix` or deletes a neighbouring value (trie-db 0.31.0, `remove_inspector`, arm `(NibbledBranch(n, ..), true)`). Pre-existing trie-db bug; the estimation now runs `remove` for deletions inside rolled-back extrinsics, so it panics where plain execution does not |
-| `fuzz_child_root_cache_survives_client_rollback` | IncompleteProof, 101 recorded vs 264 needed | `TrieBackendEssence::child_root` caches the child root outside the recorder's transactions. An estimation inside a rolled-back host transaction leaves the root cached while the recorder drops the top-trie path; a later child read hits the cache and never records the path. Pre-existing mechanism, new trigger |
-| `pr_main_trie_changes`, `pr_child_is_created`, `pr_child_is_emptied`, `executive_inserts_and_updates` | pass | happy paths from the PR's own tests |
+| `review_incremental_main_deletions` | Overshoot, 174 to 209 | deletions spread over several estimations never collapse the branch; each estimation starts from the original root and removes only its own keys (`record_proof_for_dirty_keys`) |
+| `review_incremental_child_root_deletions` | Overshoot, 269 to 305 | same, for child root keys |
+| `review_parent_update_hides_nested_delete` | Overshoot, 106 to 141 | `take_delta` lets an older layer's `Updated` overwrite the current layer's `Deleted` (unconditional `delta.insert`); both sides agree because the nested runtime transaction is a layer on both |
+| `fuzz_client_layer_update_hides_finalize_delete` | ValidatorEstimateMismatch at `Final(0)`, 106 vs 141; collator also Overshoot | same cause with host layers: write in one runtime call, delete in a later one; the validator has both in one layer |
+| `fuzz_child_emptied_then_refilled` | Overshoot, 121 to 123 | child emptied and refilled before the estimation; V0 and V1 |
+| `fuzz_estimation_hits_trie_db_remove_panic` | Panic | `TrieDBMut::remove` of an absent key ending at a nibbled branch with a non-empty partial panics in `fix` or deletes a neighbouring value (trie-db 0.31.0, `remove_inspector`); pre-existing, now reached by estimating a rolled-back deletion |
+| `validator_pre_delete_after_init_write` | ValidatorEstimateMismatch at `Free(0, 0)`, 106 vs 141 | `init` writes, an extrinsic without reclaim deletes and estimates |
+| `validator_pre_reinsert_after_init_delete` | ValidatorEstimateMismatch at `Free(0, 0)`, 141 vs 106 | mirror image; no collator-side check fails |
+| `validator_nested_estimate_after_delete` | ValidatorEstimateMismatch at `Free(0, 0)`, 106 vs 141 | delete in `pre`, estimation inside a nested runtime transaction |
+| `fuzz_child_root_cache_survives_client_rollback` | pass | failed while the harness kept one trie backend per block; production and the harness now use one per runtime call, so the child root cache dies with the rolled-back call |
+| `pr_*`, `executive_inserts_and_updates` | pass | happy paths from the PR's own tests |
 
-A 3000-script `random_smoke` run fails in roughly eight percent of the scripts. By kind:
-`Overshoot` dominates and is almost always the branch-collapse case in executive shape, often
-through `ClearPrefix`. `IncompleteProof`, `Panic` and `PanicAlsoWithoutEstimation` are the
-trie-db and cache cases above. Among passing scripts the overestimation per block averages
-about 40 bytes with outliers around 2 KiB.
+1000 random scripts at small scale: 103 fail. `Overshoot` 78, `Panic` 1,
+`PanicAlsoWithoutEstimation` 8, `ValidatorEstimateMismatch` 9, `ValidatorMissingNode` 7. Every
+validator failure is at the `Final` estimation the harness adds after `finalize`, in the
+`fuzz_client_layer_update_hides_finalize_delete` shape, and none at `Pre` or `Post`.
 
-The three `review_*` cases match the byte counts in the local review notes
-(`review-notes/pr-10215.md`, not part of the repository) exactly.
+The collator and validator diverge when a key is written in one runtime call and changed in a
+later one outside a runtime transaction, with no estimation in between and one after the
+change. The weight-reclaim pallet estimates in `validate()` before the extrinsic writes, so
+with its estimation points the condition is not met. It is met by the deprecated
+`StorageWeightReclaim` extension, which estimates in `prepare`, and by any pallet calling
+`get_proof_size` after its own writes. Fixing `take_delta` so the newest op per key wins removes
+the divergence and the overshoot cases of the same cause.
 
-## Caveats of the model
+## Caveats
 
-- **Final estimation.** The harness estimates once more after `finalize` ops and before
-  `storage_root`. Production does not; the last real estimation is the post-dispatch read of the
-  last extrinsic, so writes in `on_finalize` are never estimated. The invariant checked here is
-  therefore stricter than what production can rely on. The tracker bugs found are real
-  independent of this.
-- **Warning capture** relies on `log::set_logger` succeeding. If another logger is installed
-  first (for example by `sp_tracing` in the same test binary) the `Warning` kind is silent.
-- **Real keys** are `twox128 ++ twox128 ++ hash`. The symbolic keys approximate that shape, but
-  even at `Large` there are 16 pallets and 8 items, so the first-level branching of a real state
-  with thousands of prefixes is not reproduced, and maps stay far below production sizes.
-- **Overestimation** has no principled bound and is informational only.
-- **No WASM execution.** The `#[version(2)]` dispatch and the `ValidationExternalities` panic
-  guard are not covered. A tiny runtime executed through `sc_executor::WasmExecutor` would be
-  the next layer; not started.
-- The harness cannot see validation-side overshoot; there the proof is given.
-
-## Picking this up
-
-1. Keep the oracle as is. When the PR is fixed, the seven failing pinned scripts must pass; do
-   not relax `after <= e_last`.
-2. For every fix iteration, run the default smoke test first, then the 3000-script keep-going
-   run, and pin any new shrunk example with its seed.
-3. The trie-db removal bug needs an upstream fix in `paritytech/trie` regardless of this PR.
-   The estimation should also not run `remove` for keys that were never read, or should catch
-   the error; either way the host function must not panic on a rolled-back deletion.
-4. The child-root cache needs to participate in the recorder's host transactions, or the
-   estimation must bypass it. Check whether production block building can hit it: it needs a
-   host rollback after a child-root lookup, that is an extrinsic that fails after dispatch
-   or reads a child trie before failing validation.
-5. Once `cargo-fuzz` is available, run the libFuzzer target per configuration for a few hours
-   each and feed the crash corpus back into `pinned_scripts`.
-6. Candidates for more coverage: `storage::read` with offsets, `next_key` loops over child
-   tries, `Op::ChildRoot` followed by further child writes in the same extrinsic, and larger
-   initial tries with more than four pallet prefixes.
+- The harness estimates after `finalize`; production does not, so `on_finalize` writes are never
+  estimated there. Mismatches at `Final(_)` need a pallet that estimates in `on_finalize` to
+  matter.
+- Warning capture needs `log::set_logger` to succeed; another logger in the same binary silences
+  the `Warning` kinds.
+- Even at `Large` the key space has 16 pallets and 8 items; real state branches far wider near
+  the root and maps are far larger.
+- The validator pass models one block per PoV, uses a plain `StorageProof`, and its backend has
+  the `std` child root cache that the `no_std` validator lacks.
+- No WASM execution: the `#[version(2)]` dispatch and the `ValidationExternalities` guard are not
+  covered.

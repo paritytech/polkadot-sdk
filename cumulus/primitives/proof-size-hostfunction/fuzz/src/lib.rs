@@ -36,6 +36,11 @@
 //!   [`FailureKind::PanicAlsoWithoutEstimation`] if the script also panics without estimation.
 //! - **Complete proof**: the recorder size after `storage_root` is at least the truth `t` (see
 //!   below); otherwise the recorded proof misses nodes a validator needs.
+//! - **Validator agreement**: every block of the estimation pass is replayed as `validate_block`
+//!   executes it: on the collator's proof, in one runtime call without host transactions, without
+//!   the extrinsics the block builder dropped. The replay must not miss a trie node, must reach the
+//!   collator's post-block root and must observe exactly the collator's estimation values, since
+//!   weight reclaim writes them into `frame_system::BlockWeight`.
 //!
 //! Soft statistic: the same script is executed a second time without any estimation and the
 //! recorder size after `storage_root` is taken as the truth `t`; [`BlockReport::overestimation`]
@@ -45,7 +50,7 @@ use arbitrary::{Arbitrary, Result as ArbitraryResult, Unstructured};
 use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 use sp_core::{
 	storage::{ChildInfo, StateVersion, Storage, StorageChild},
-	Blake2Hasher,
+	Blake2Hasher, H256,
 };
 use sp_externalities::{Extensions, TransactionType};
 use sp_state_machine::{Ext, InMemoryBackend, OverlayedChanges, TrieBackend, TrieBackendBuilder};
@@ -53,7 +58,7 @@ use sp_trie::{
 	cache::{CacheSize, LocalTrieCache, SharedTrieCache},
 	proof_size_extension::ProofSizeExt,
 	recorder::Recorder,
-	PrefixedMemoryDB,
+	MemoryDB, PrefixedMemoryDB, StorageProof,
 };
 use std::{
 	cell::{Cell, RefCell},
@@ -87,6 +92,9 @@ type Hasher = Blake2Hasher;
 type State = InMemoryBackend<Hasher>;
 type BlockBackend<'a> =
 	TrieBackend<&'a PrefixedMemoryDB<Hasher>, Hasher, LocalTrieCache<Hasher>, Recorder<Hasher>>;
+/// Backend of the validator pass: the collator's proof as the only database.
+type ValidatorBackend =
+	TrieBackend<MemoryDB<Hasher>, Hasher, LocalTrieCache<Hasher>, Recorder<Hasher>>;
 
 /// State version selector.
 #[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq)]
@@ -613,6 +621,11 @@ pub struct BlockReport {
 	pub truth: u64,
 	/// Number of estimations executed in the block.
 	pub estimates: usize,
+	/// Number of estimation values the validator pass reproduced (the estimations of dropped
+	/// extrinsics are not part of the block).
+	pub validated_estimates: usize,
+	/// Number of extrinsics the block builder rolled back; the validator pass skips them.
+	pub dropped_xts: usize,
 }
 
 impl BlockReport {
@@ -651,6 +664,63 @@ pub enum FailureKind {
 	/// Something panicked, and the same script without any estimation panics too: not caused
 	/// by the estimation (or not only).
 	PanicAlsoWithoutEstimation,
+	/// The validator pass hit a trie node that is not in the collator's proof: it panicked
+	/// (`Ext` panics with `EXT_NOT_ALLOWED_TO_FAIL` on `IncompleteDatabase`) or logged a `trie`
+	/// or `state` warning (the estimation code logs read errors). The PoV is unusable.
+	ValidatorMissingNode,
+	/// The validator pass computed a different post-block storage root than the collator.
+	ValidatorRootMismatch,
+	/// The validator pass observed a different sequence of estimation values than the collator
+	/// for the included extrinsics. Weight reclaim stores `post - pre` in `BlockWeight`, so the
+	/// validator computes a different state and rejects the block.
+	ValidatorEstimateMismatch,
+}
+
+impl FailureKind {
+	/// Whether the failure was detected by the validator pass.
+	pub fn is_validator(self) -> bool {
+		matches!(
+			self,
+			FailureKind::ValidatorMissingNode |
+				FailureKind::ValidatorRootMismatch |
+				FailureKind::ValidatorEstimateMismatch
+		)
+	}
+}
+
+/// Where an estimation value was taken within a block. Extrinsic indices are positions in
+/// [`Block::xts`], counting extrinsics the block builder dropped, so the collator and the
+/// validator tag the same estimation with the same position.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EstimatePos {
+	/// The `n`-th executed [`Op::Estimate`] of `init` ([`Mode::Free`]).
+	Init(usize),
+	/// Pre-dispatch estimation of extrinsic `x`.
+	Pre(usize),
+	/// The `n`-th executed [`Op::Estimate`] of extrinsic `x`, `Free(x, n)`.
+	Free(usize, usize),
+	/// Post-dispatch estimation of extrinsic `x`.
+	Post(usize),
+	/// The `n`-th executed [`Op::Estimate`] of `finalize`.
+	Finalize(usize),
+	/// The `n`-th of the two final estimations before `storage_root`. Production has no such
+	/// estimation (see the README caveats).
+	Final(usize),
+}
+
+impl EstimatePos {
+	/// The extrinsic the estimation belongs to.
+	pub fn xt(self) -> Option<usize> {
+		match self {
+			EstimatePos::Pre(x) | EstimatePos::Free(x, _) | EstimatePos::Post(x) => Some(x),
+			EstimatePos::Init(_) | EstimatePos::Finalize(_) | EstimatePos::Final(_) => None,
+		}
+	}
+}
+
+fn fmt_estimates(values: &[(EstimatePos, u64)]) -> String {
+	let items: Vec<_> = values.iter().map(|(pos, v)| format!("{pos:?}={v}")).collect();
+	format!("[{}]", items.join(", "))
 }
 
 /// A hard invariant violation.
@@ -661,6 +731,10 @@ pub struct Failure {
 	pub block: usize,
 	/// What was compared, including the numbers involved.
 	pub detail: String,
+	/// For validator failures tied to an estimation: the position of the first differing value
+	/// ([`FailureKind::ValidatorEstimateMismatch`]) or of the estimation that first logged a
+	/// warning ([`FailureKind::ValidatorMissingNode`]).
+	pub position: Option<EstimatePos>,
 }
 
 impl fmt::Display for Failure {
@@ -723,6 +797,14 @@ fn limit(limit: &Option<u16>, scale: Scale) -> Option<u32> {
 	limit.map(|l| l as u32 % scale.limit_range())
 }
 
+/// The runtime call an estimation happens in, used to tag the values with an [`EstimatePos`].
+#[derive(Debug, Clone, Copy)]
+enum Phase {
+	Init,
+	Xt(usize),
+	Finalize,
+}
+
 /// Per-pass execution state, mutated from inside the externalities closures.
 struct Ctx {
 	scale: Scale,
@@ -733,30 +815,119 @@ struct Ctx {
 	last_estimate: Option<u64>,
 	estimates: usize,
 	failure: Option<Failure>,
+	phase: Phase,
+	/// Number of [`Op::Estimate`] executed in the current phase.
+	free_estimates: usize,
+	/// All estimation values of the block in execution order.
+	trace: Vec<(EstimatePos, u64)>,
+	/// The first estimation after which a `trie` or `state` warning was pending.
+	first_warning_at: Option<EstimatePos>,
 }
 
 impl Ctx {
-	/// Records the first hard invariant violation of the block.
-	fn fail(&mut self, kind: FailureKind, detail: String) {
-		if self.failure.is_none() {
-			self.failure = Some(Failure { kind, block: self.block, detail });
+	fn new(config: &Config, estimate: bool, block: usize) -> Self {
+		Ctx {
+			scale: config.scale,
+			mode: config.mode,
+			estimate,
+			root_version: config.root_version.state_version(),
+			block,
+			last_estimate: None,
+			estimates: 0,
+			failure: None,
+			phase: Phase::Init,
+			free_estimates: 0,
+			trace: Vec::new(),
+			first_warning_at: None,
 		}
 	}
 
-	/// Calls the v2 host function and checks monotonicity.
-	fn estimate(&mut self, at: &str) -> u64 {
+	/// Records the first hard invariant violation of the block.
+	fn fail(&mut self, kind: FailureKind, detail: String) {
+		if self.failure.is_none() {
+			self.failure = Some(Failure { kind, block: self.block, detail, position: None });
+		}
+	}
+
+	fn enter(&mut self, phase: Phase) {
+		self.phase = phase;
+		self.free_estimates = 0;
+	}
+
+	/// Calls the v2 host function, records the value and checks monotonicity.
+	fn estimate(&mut self, pos: EstimatePos) -> u64 {
 		let size = storage_proof_size::storage_proof_size();
 		self.estimates += 1;
 		if let Some(prev) = self.last_estimate {
 			if size < prev {
 				self.fail(
 					FailureKind::NotMonotone,
-					format!("estimate #{} ({at}) decreased from {prev} to {size}", self.estimates),
+					format!(
+						"estimate #{} ({pos:?}) decreased from {prev} to {size}",
+						self.estimates
+					),
 				);
 			}
 		}
 		self.last_estimate = Some(size);
+		self.trace.push((pos, size));
+		if self.first_warning_at.is_none() && WARNINGS.with(|w| !w.borrow().is_empty()) {
+			self.first_warning_at = Some(pos);
+		}
 		size
+	}
+
+	/// Runtime side of `initialize_block`.
+	fn initialize_block(&mut self, ops: &[Op]) {
+		self.enter(Phase::Init);
+		self.exec_ops(ops);
+	}
+
+	/// Runtime side of `apply_extrinsic`: weight-reclaim `validate()`, the extension pipeline,
+	/// `with_storage_layer` around the call, `post_dispatch()`. Collator and validator both run
+	/// exactly this; only the host transaction around it differs.
+	fn apply_extrinsic(&mut self, xt_index: usize, xt: &Xt) {
+		self.enter(Phase::Xt(xt_index));
+		let reclaim = xt.with_reclaim && self.estimate;
+		let pre = reclaim.then(|| self.estimate(EstimatePos::Pre(xt_index)));
+		self.exec_ops(&xt.pre);
+		sp_io::storage::start_transaction();
+		self.exec_ops(&xt.body);
+		match xt.body_outcome {
+			Outcome::Commit => sp_io::storage::commit_transaction(),
+			Outcome::Rollback => sp_io::storage::rollback_transaction(),
+		}
+		self.exec_ops(&xt.post);
+		if let Some(pre) = pre {
+			let post = self.estimate(EstimatePos::Post(xt_index));
+			if post < pre {
+				self.fail(
+					FailureKind::NegativeReclaim,
+					format!("extrinsic {xt_index}: pre = {pre}, post = {post}"),
+				);
+			}
+		}
+	}
+
+	/// Runtime side of `finalize_block`, then the two final estimations and `storage_root`.
+	/// Returns the last estimation (0 without estimation) and the encoded root.
+	fn finalize_block(&mut self, ops: &[Op]) -> (u64, Vec<u8>) {
+		self.enter(Phase::Finalize);
+		self.exec_ops(ops);
+		let e_last = if self.estimate {
+			let first = self.estimate(EstimatePos::Final(0));
+			let second = self.estimate(EstimatePos::Final(1));
+			if first != second {
+				self.fail(
+					FailureKind::NotIdempotent,
+					format!("consecutive final estimations differ: {first}, then {second}"),
+				);
+			}
+			second
+		} else {
+			0
+		};
+		(e_last, sp_io::storage::root(self.root_version))
 	}
 
 	fn exec_ops(&mut self, ops: &[Op]) {
@@ -817,31 +988,49 @@ impl Ctx {
 			},
 			Op::Estimate => {
 				if self.estimate && self.mode == Mode::Free {
-					self.estimate("Op::Estimate");
+					let n = self.free_estimates;
+					self.free_estimates += 1;
+					let pos = match self.phase {
+						Phase::Init => EstimatePos::Init(n),
+						Phase::Xt(x) => EstimatePos::Free(x, n),
+						Phase::Finalize => EstimatePos::Finalize(n),
+					};
+					self.estimate(pos);
 				}
 			},
 		}
 	}
 }
 
-/// The recorder, extensions, backend and overlay of one block.
+/// The recorder, extensions, state and overlay of one block.
+///
+/// The trie backend is not part of it: every runtime call gets a fresh one, as in production.
+/// `LocalCallExecutor::contextual_call` (`substrate/client/service/src/client/call_executor.rs`)
+/// calls `state_at` and `TrieBackendBuilder::wrap(..).with_recorder(..)` per runtime call, so
+/// the `TrieBackendEssence` caches (the child root cache) live for one runtime call, which is
+/// one host transaction. The recorder and the overlay are shared by all calls of the block.
 struct BlockEnv<'a> {
 	recorder: Recorder<Hasher>,
 	extensions: Extensions,
-	backend: BlockBackend<'a>,
+	state: &'a State,
+	cache: Option<&'a SharedTrieCache<Hasher>>,
 	overlay: OverlayedChanges<Hasher>,
 }
 
 impl<'a> BlockEnv<'a> {
-	fn new(state: &'a State, cache: Option<&SharedTrieCache<Hasher>>) -> Self {
+	fn new(state: &'a State, cache: Option<&'a SharedTrieCache<Hasher>>) -> Self {
 		let recorder = Recorder::<Hasher>::default();
 		let mut extensions = Extensions::new();
 		extensions.register(ProofSizeExt::new(recorder.clone()));
-		let backend = TrieBackendBuilder::wrap(state)
-			.with_recorder(recorder.clone())
-			.with_optional_cache(cache.map(|c| c.local_cache_untrusted()))
-			.build();
-		BlockEnv { recorder, extensions, backend, overlay: OverlayedChanges::default() }
+		BlockEnv { recorder, extensions, state, cache, overlay: OverlayedChanges::default() }
+	}
+
+	/// A fresh backend for one runtime call, recording into the block's recorder.
+	fn backend(&self) -> BlockBackend<'a> {
+		TrieBackendBuilder::wrap(self.state)
+			.with_recorder(self.recorder.clone())
+			.with_optional_cache(self.cache.map(|c| c.local_cache_untrusted()))
+			.build()
 	}
 
 	/// Client transaction as opened by `sp-api` (`execute_in_transaction` and runtime calls
@@ -868,12 +1057,13 @@ impl<'a> BlockEnv<'a> {
 		}
 	}
 
-	/// Runs `f` as runtime code: `enter_runtime`, a fresh `Ext` with the extensions,
-	/// `exit_runtime`.
+	/// Runs `f` as one runtime call: `enter_runtime`, a fresh backend and `Ext` with the
+	/// extensions, `exit_runtime`.
 	fn in_runtime<R>(&mut self, f: impl FnOnce() -> R) -> R {
 		self.overlay.enter_runtime().expect("not in runtime; qed");
 		let res = {
-			let mut ext = Ext::new(&mut self.overlay, &self.backend, Some(&mut self.extensions));
+			let backend = self.backend();
+			let mut ext = Ext::new(&mut self.overlay, &backend, Some(&mut self.extensions));
 			sp_externalities::set_and_run_with_externalities(&mut ext, f)
 		};
 		self.overlay.exit_runtime().expect("in runtime; qed");
@@ -886,10 +1076,32 @@ struct BlockRun {
 	e_last: u64,
 	after: u64,
 	estimates: usize,
+	validated_estimates: usize,
+	dropped_xts: usize,
+}
+
+/// What the collator hands to the validator for one block, plus the estimation values the
+/// validator has to reproduce.
+struct BlockWitness {
+	/// State root before the block.
+	pre_root: H256,
+	/// State root after the block (`transaction_storage_root` of the drained changes).
+	post_root: H256,
+	/// The block recorder's proof, taken after `drain_storage_changes` like
+	/// `sc-block-builder` does.
+	proof: StorageProof,
+	/// All estimation values of the collator in execution order, including those of extrinsics
+	/// the block builder dropped.
+	estimates: Vec<(EstimatePos, u64)>,
 }
 
 /// Executes the whole script once. With `estimate == false` all estimations are skipped
-/// (used for the truth run).
+/// (used for the truth run). With `estimate == true` every block is also replayed by
+/// [`validate_block`] on the collator's proof.
+///
+/// A validator failure takes precedence over a collator-side failure of the same block: a block
+/// the validator rejects is worse than one whose weight is off. The collator failure is
+/// appended to the detail.
 fn execute(script: &Script, estimate: bool) -> Result<Vec<BlockRun>, Failure> {
 	let config = &script.config;
 	let root_version = config.root_version.state_version();
@@ -903,47 +1115,19 @@ fn execute(script: &Script, estimate: bool) -> Result<Vec<BlockRun>, Failure> {
 	let mut runs = Vec::with_capacity(script.blocks.len());
 	for (block_index, block) in script.blocks.iter().enumerate() {
 		CURRENT_BLOCK.with(|b| b.set(block_index));
-		let mut ctx = Ctx {
-			scale: config.scale,
-			mode: config.mode,
-			estimate,
-			root_version,
-			block: block_index,
-			last_estimate: None,
-			estimates: 0,
-			failure: None,
-		};
+		let pre_root = *state.root();
+		let mut ctx = Ctx::new(config, estimate, block_index);
 		let mut env = BlockEnv::new(&state, shared_cache.as_ref());
 
 		// `initialize_block`.
 		env.client_start();
-		env.in_runtime(|| ctx.exec_ops(&block.init));
+		env.in_runtime(|| ctx.initialize_block(&block.init));
 		env.client_end(Outcome::Commit);
 
 		// `apply_extrinsic` inside `execute_in_transaction`.
 		for (xt_index, xt) in block.xts.iter().enumerate() {
 			env.client_start();
-			env.in_runtime(|| {
-				let reclaim = xt.with_reclaim && ctx.estimate;
-				let pre = reclaim.then(|| ctx.estimate("pre"));
-				ctx.exec_ops(&xt.pre);
-				sp_io::storage::start_transaction();
-				ctx.exec_ops(&xt.body);
-				match xt.body_outcome {
-					Outcome::Commit => sp_io::storage::commit_transaction(),
-					Outcome::Rollback => sp_io::storage::rollback_transaction(),
-				}
-				ctx.exec_ops(&xt.post);
-				if let Some(pre) = pre {
-					let post = ctx.estimate("post");
-					if post < pre {
-						ctx.fail(
-							FailureKind::NegativeReclaim,
-							format!("extrinsic {xt_index}: pre = {pre}, post = {post}"),
-						);
-					}
-				}
-			});
+			env.in_runtime(|| ctx.apply_extrinsic(xt_index, xt));
 			env.client_end(xt.client_outcome);
 			if xt.client_outcome == Outcome::Rollback {
 				// The recorder dropped the nodes recorded in the transaction.
@@ -953,24 +1137,7 @@ fn execute(script: &Script, estimate: bool) -> Result<Vec<BlockRun>, Failure> {
 
 		// `finalize_block`: final estimations, then the storage root.
 		env.client_start();
-		let e_last = env.in_runtime(|| {
-			ctx.exec_ops(&block.finalize);
-			let e_last = if ctx.estimate {
-				let first = ctx.estimate("final");
-				let second = ctx.estimate("final repeated");
-				if first != second {
-					ctx.fail(
-						FailureKind::NotIdempotent,
-						format!("consecutive final estimations differ: {first}, then {second}"),
-					);
-				}
-				second
-			} else {
-				0
-			};
-			let _ = sp_io::storage::root(root_version);
-			e_last
-		});
+		let (e_last, _) = env.in_runtime(|| ctx.finalize_block(&block.finalize));
 		env.client_end(Outcome::Commit);
 		let after = env.recorder.estimate_encoded_size() as u64;
 
@@ -984,20 +1151,185 @@ fn execute(script: &Script, estimate: bool) -> Result<Vec<BlockRun>, Failure> {
 		if !warnings.is_empty() {
 			ctx.fail(FailureKind::Warning, warnings.join("; "));
 		}
-		if let Some(failure) = ctx.failure {
-			return Err(failure);
-		}
-		runs.push(BlockRun { e_last, after, estimates: ctx.estimates });
 
-		// Commit the block into the backend for the next one.
-		let BlockEnv { backend, mut overlay, .. } = env;
+		// Finish the block as `sc-block-builder` does: drain the changes, then take the proof.
+		let backend = env.backend();
+		let BlockEnv { mut overlay, recorder, .. } = env;
 		let changes = overlay
 			.drain_storage_changes(&backend, root_version)
 			.expect("in-memory backend does not fail; qed");
 		drop(backend);
-		state.apply_transaction(changes.transaction_storage_root, changes.transaction);
+
+		let post_root = changes.transaction_storage_root;
+		let dropped_xts =
+			block.xts.iter().filter(|xt| xt.client_outcome == Outcome::Rollback).count();
+
+		let mut validated_estimates = 0;
+		if estimate {
+			let witness = BlockWitness {
+				pre_root,
+				post_root,
+				proof: recorder.to_storage_proof(),
+				estimates: std::mem::take(&mut ctx.trace),
+			};
+			match validate_block(config, block_index, block, &witness) {
+				Ok(compared) => validated_estimates = compared,
+				Err(mut failure) => {
+					if let Some(collator) = &ctx.failure {
+						failure.detail = format!("{}; collator also: {collator}", failure.detail);
+					}
+					return Err(failure);
+				},
+			}
+		}
+		if let Some(failure) = ctx.failure {
+			return Err(failure);
+		}
+		runs.push(BlockRun {
+			e_last,
+			after,
+			estimates: ctx.estimates,
+			validated_estimates,
+			dropped_xts,
+		});
+
+		// Commit the block into the backend for the next one.
+		state.apply_transaction(post_root, changes.transaction);
 	}
 	Ok(runs)
+}
+
+/// Replays `block` the way `validate_block`
+/// (`cumulus/pallets/parachain-system/src/validate_block/implementation.rs`) executes it and
+/// compares the result with the collator's [`BlockWitness`]. Returns the number of compared
+/// estimation values.
+///
+/// - The backend is the collator's proof as a `MemoryDB` with root `pre_root`, wrapped with a fresh
+///   recorder. It is built with `TrieBackendBuilder::new` rather than `create_proof_check_backend`,
+///   which only adds the check that the root node is in the proof; a block that reads nothing has
+///   an empty proof, and any missing node, including the root, surfaces on access.
+/// - One `OverlayedChanges`, one `Ext`, one `set_and_run_with_externalities` for the whole block.
+///   No host transactions, no `enter_runtime`; the runtime's own transactions
+///   (`with_storage_layer`, [`Op::Tx`]) are the only layers.
+/// - Extrinsics with `client_outcome == Rollback` are not part of the block and are skipped.
+/// - `validate_block` answers `storage_proof_size` with `ext.record_proof_for_dirty_keys()` and the
+///   `estimate_encoded_size()` of a `SizeOnlyRecorderProvider`. The harness calls the real host
+///   function, which does the same through `ProofSizeExt` on a `Recorder`. Both sum the encoded
+///   sizes of the distinct recorded nodes and values; `recorder_equivalence_cache` and
+///   `recorder_equivalence_no_cache` in `validate_block/trie_recorder.rs` assert that the two
+///   report the same size. The validator side has no `std` child-root cache in production; here the
+///   proof backend has one, which is harmless without host rollbacks.
+fn validate_block(
+	config: &Config,
+	block_index: usize,
+	block: &Block,
+	witness: &BlockWitness,
+) -> Result<usize, Failure> {
+	let included = |pos: &EstimatePos| {
+		pos.xt().map_or(true, |x| block.xts[x].client_outcome == Outcome::Commit)
+	};
+	let (expected, dropped): (Vec<_>, Vec<_>) =
+		witness.estimates.iter().copied().partition(|(pos, _)| included(pos));
+
+	let recorder = Recorder::<Hasher>::default();
+	let mut extensions = Extensions::new();
+	extensions.register(ProofSizeExt::new(recorder.clone()));
+	let backend: ValidatorBackend =
+		TrieBackendBuilder::new(witness.proof.clone().into_memory_db(), witness.pre_root)
+			.with_recorder(recorder.clone())
+			.build();
+	let mut overlay = OverlayedChanges::<Hasher>::default();
+	let mut ctx = Ctx::new(config, true, block_index);
+
+	let _ = take_warnings();
+	let quiet = QUIET_PANICS.with(|q| q.replace(true));
+	let result = panic::catch_unwind(AssertUnwindSafe(|| {
+		let mut ext = Ext::new(&mut overlay, &backend, Some(&mut extensions));
+		sp_externalities::set_and_run_with_externalities(&mut ext, || {
+			ctx.initialize_block(&block.init);
+			for (xt_index, xt) in block.xts.iter().enumerate() {
+				if xt.client_outcome == Outcome::Commit {
+					ctx.apply_extrinsic(xt_index, xt);
+				}
+			}
+			ctx.finalize_block(&block.finalize).1
+		})
+	}));
+	QUIET_PANICS.with(|q| q.set(quiet));
+	let warnings = take_warnings();
+
+	let fail = |kind, position, detail| Err(Failure { kind, block: block_index, detail, position });
+	let context = || {
+		format!(
+			"proof has {} nodes; validator estimates so far {}; collator {}",
+			witness.proof.len(),
+			fmt_estimates(&ctx.trace),
+			fmt_estimates(&expected)
+		)
+	};
+	let root = match result {
+		Ok(root) => root,
+		Err(payload) => {
+			let location = PANIC_LOCATION.with(|l| l.take()).unwrap_or_default();
+			return fail(
+				FailureKind::ValidatorMissingNode,
+				ctx.first_warning_at,
+				format!(
+					"validator panicked: {} at {location}; warnings: [{}]; {}",
+					panic_message(&*payload),
+					warnings.join("; "),
+					context()
+				),
+			);
+		},
+	};
+	if !warnings.is_empty() {
+		// `validate_block` logs these and continues; the estimation value then lacks the nodes
+		// the proof does not have.
+		return fail(
+			FailureKind::ValidatorMissingNode,
+			ctx.first_warning_at,
+			format!(
+				"validator warnings (first after estimation {}): [{}]; {}",
+				ctx.first_warning_at.map_or_else(|| "none".into(), |pos| format!("{pos:?}")),
+				warnings.join("; "),
+				context()
+			),
+		);
+	}
+	if root != witness.post_root.as_ref() {
+		return fail(
+			FailureKind::ValidatorRootMismatch,
+			None,
+			format!(
+				"collator root {:?}, validator root 0x{}",
+				witness.post_root,
+				root.iter().map(|b| format!("{b:02x}")).collect::<String>()
+			),
+		);
+	}
+	if ctx.trace != expected {
+		let first = (0..expected.len().max(ctx.trace.len()))
+			.find(|&i| expected.get(i) != ctx.trace.get(i))
+			.expect("the sequences differ; qed");
+		let show = |v: Option<&(EstimatePos, u64)>| {
+			v.map_or_else(|| "none".to_string(), |(pos, v)| format!("{pos:?} = {v}"))
+		};
+		return fail(
+			FailureKind::ValidatorEstimateMismatch,
+			expected.get(first).or(ctx.trace.get(first)).map(|(pos, _)| *pos),
+			format!(
+				"first difference at #{first}: collator {}, validator {}; collator {}; \
+				 validator {}; dropped extrinsics' values {}",
+				show(expected.get(first)),
+				show(ctx.trace.get(first)),
+				fmt_estimates(&expected),
+				fmt_estimates(&ctx.trace),
+				fmt_estimates(&dropped)
+			),
+		);
+	}
+	Ok(expected.len())
 }
 
 fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
@@ -1016,6 +1348,7 @@ fn execute_caught(script: &Script, estimate: bool) -> Result<Vec<BlockRun>, Fail
 			kind: FailureKind::Panic,
 			block: CURRENT_BLOCK.with(|b| b.get()),
 			detail: format!("{} at {location}", panic_message(&*payload)),
+			position: None,
 		})
 	})
 }
@@ -1051,6 +1384,7 @@ pub fn try_run_script(script: &Script) -> Result<Report, Failure> {
 					truth.after,
 					truth.after - run.after
 				),
+				position: None,
 			});
 		}
 	}
@@ -1063,6 +1397,8 @@ pub fn try_run_script(script: &Script) -> Result<Report, Failure> {
 				after: run.after,
 				truth: truth.after,
 				estimates: run.estimates,
+				validated_estimates: run.validated_estimates,
+				dropped_xts: run.dropped_xts,
 			})
 			.collect(),
 	})
@@ -1360,11 +1696,12 @@ fn raw(bytes: &[u8]) -> Key {
 	Key::Raw(bytes.to_vec())
 }
 
-/// Hand-written scripts: the three review reproductions and further failures found by the
-/// fuzzer (all expected to fail on the reviewed head), and happy paths taken from the PR's own
-/// `sp-state-machine` tests.
+/// Hand-written scripts: the three review reproductions, further failures found by the fuzzer,
+/// directed validator-pass cases (all expected to fail on the reviewed head), and happy paths
+/// taken from the PR's own `sp-state-machine` tests.
 ///
-/// Names starting with `review_` are the review reproductions, `fuzz_` the fuzzer findings.
+/// Names starting with `review_` are the review reproductions, `fuzz_` the fuzzer findings,
+/// `validator_` the directed tests of the collator/validator layer difference.
 pub fn pinned_scripts() -> Vec<(&'static str, Script)> {
 	// 200 map entries spread over all pallets and items, with large values.
 	let many_top: Vec<(Key, Val)> = (0..200u8)
@@ -1443,7 +1780,10 @@ pub fn pinned_scripts() -> Vec<(&'static str, Script)> {
 			// and simplified): `on_initialize` overwrites a key, `on_finalize` deletes it, one
 			// estimation at the end. Each runtime call runs in its own client transaction, so the
 			// overwrite sits in the parent layer and hides the deletion. No intermediate
-			// estimation and no runtime transaction is needed.
+			// estimation and no runtime transaction is needed. The validator has both ops in one
+			// layer and estimates 141 instead of 106 (`ValidatorEstimateMismatch` at `Final(0)`,
+			// reported before the collator's `Overshoot`). Production has no estimation in
+			// `finalize`, so this mismatch needs a pallet that estimates in a hook.
 			"fuzz_client_layer_update_hides_finalize_delete",
 			Script {
 				config: Config { mode: Mode::Executive, ..free_v1() },
@@ -1531,7 +1871,9 @@ pub fn pinned_scripts() -> Vec<(&'static str, Script)> {
 			// child root, which `TrieBackendEssence` caches. The block builder rolls the
 			// extrinsic back, which drops the recorded top trie nodes but not the cached root.
 			// The next extrinsic reads child 0, hits the cache and does not record the top trie
-			// path again: the proof misses nodes (`after < truth`, `IncompleteProof`).
+			// path again: the proof misses nodes. The validator pass cannot even open the top
+			// trie (`ValidatorMissingNode`, `Invalid state root`); the truth comparison alone
+			// reports it as `IncompleteProof`.
 			"fuzz_child_root_cache_survives_client_rollback",
 			Script {
 				config: Config { mode: Mode::Executive, ..free_v1() },
@@ -1565,6 +1907,102 @@ pub fn pinned_scripts() -> Vec<(&'static str, Script)> {
 							with_reclaim: false,
 						},
 					],
+					finalize: vec![],
+				}],
+			},
+		),
+		(
+			// Directed test of the layer-structure hypothesis (collator and validator see
+			// different transaction layers). `init` overwrites `[0x10]`; extrinsic 0 has no
+			// reclaim, so nothing estimates before its `pre` ops delete the key and estimate.
+			// Collator: the delete sits in the extrinsic's host layer, the write in the block
+			// layer below, and `take_delta` lets the older `Updated` overwrite the `Deleted`; the
+			// estimation reads the key (106). Validator: no host layers, both ops are in one
+			// layer, the delta says `Deleted`, the estimation removes the key and records the
+			// collapsing sibling (141). `ValidatorEstimateMismatch`, plus `Overshoot` on the
+			// collator. This is the order of the deprecated
+			// `cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim`, which estimates
+			// in `prepare` after the preceding extensions' writes.
+			"validator_pre_delete_after_init_write",
+			Script {
+				config: free_v1(),
+				initial: InitialTrie {
+					seed: 0,
+					top: 0,
+					extra_top: vec![(raw(&[0x10]), val64(0)), (raw(&[0x20]), val64(1))],
+					children: vec![],
+				},
+				blocks: vec![Block {
+					init: vec![Op::Set(raw(&[0x10]), Val(Size::Large, 0))],
+					xts: vec![Xt {
+						pre: vec![Op::Clear(raw(&[0x10])), Op::Estimate],
+						body: vec![],
+						body_outcome: Outcome::Commit,
+						post: vec![],
+						client_outcome: Outcome::Commit,
+						with_reclaim: false,
+					}],
+					finalize: vec![],
+				}],
+			},
+		),
+		(
+			// The mirror image: `init` deletes `[0x10]`, extrinsic 0 re-inserts it before the
+			// estimation. Collator: the older `Deleted` overwrites the newer `Updated`, the
+			// estimation removes the key (141). Validator: `Updated`, reads it (106). Every
+			// collator-side check passes (the collator only overestimates); only the validator
+			// pass sees the failure.
+			"validator_pre_reinsert_after_init_delete",
+			Script {
+				config: free_v1(),
+				initial: InitialTrie {
+					seed: 0,
+					top: 0,
+					extra_top: vec![(raw(&[0x10]), val64(0)), (raw(&[0x20]), val64(1))],
+					children: vec![],
+				},
+				blocks: vec![Block {
+					init: vec![Op::Clear(raw(&[0x10]))],
+					xts: vec![Xt {
+						pre: vec![Op::Set(raw(&[0x10]), Val(Size::Large, 0)), Op::Estimate],
+						body: vec![],
+						body_outcome: Outcome::Commit,
+						post: vec![],
+						client_outcome: Outcome::Commit,
+						with_reclaim: false,
+					}],
+					finalize: vec![],
+				}],
+			},
+		),
+		(
+			// Estimation inside a nested runtime transaction, the delete outside of it. The
+			// validator's runtime transaction is one layer above the merged write and delete;
+			// the collator's sits above a host layer with the delete and a block layer with the
+			// write. Collator 106, validator 141. With the delete inside the nested transaction
+			// both sides see the same layers and agree (both overshoot).
+			"validator_nested_estimate_after_delete",
+			Script {
+				config: free_v1(),
+				initial: InitialTrie {
+					seed: 0,
+					top: 0,
+					extra_top: vec![(raw(&[0x10]), val64(0)), (raw(&[0x20]), val64(1))],
+					children: vec![],
+				},
+				blocks: vec![Block {
+					init: vec![Op::Set(raw(&[0x10]), Val(Size::Large, 0))],
+					xts: vec![Xt {
+						pre: vec![
+							Op::Clear(raw(&[0x10])),
+							Op::Tx(vec![Op::Estimate], Outcome::Commit),
+						],
+						body: vec![],
+						body_outcome: Outcome::Commit,
+						post: vec![],
+						client_outcome: Outcome::Commit,
+						with_reclaim: false,
+					}],
 					finalize: vec![],
 				}],
 			},
