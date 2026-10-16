@@ -1810,6 +1810,7 @@ where
 									// already-stored statements (filtered by `topic_affinity`
 									// and DHT routing targets). Without this a late subscriber
 									// sees only the statements that arrive after it subscribes.
+									let mut was_assumed_match_all = false;
 									if let Some(peer_data) = self.peers.get_mut(&peer) {
 										log::debug!(
 											target: LOG_TARGET,
@@ -1818,7 +1819,13 @@ where
 										// Defer both the affinity update and sync scheduling
 										// to the main loop tick.
 										peer_data.pending_topic_affinity = Some(filter);
+										was_assumed_match_all =
+											std::mem::take(&mut peer_data.assumed_match_all);
 										self.awaiting_affinity_filter.remove(&peer);
+									}
+									if was_assumed_match_all {
+										// A late filter means the peer runs the v2 DHT path.
+										self.send_local_filter(&peer).await;
 									}
 								},
 							}
