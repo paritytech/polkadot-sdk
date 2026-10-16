@@ -959,6 +959,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			})?;
 
 		let cost = T::Consideration::new(&who, active_proposals as u32 - 1)?;
+		if let Some((old_who, old_cost)) = <CostOf<T, I>>::take(proposal_hash) {
+			old_cost.drop(&old_who)?;
+		}
 		if !cost.is_none() {
 			<CostOf<T, I>>::insert(proposal_hash, (who.clone(), cost));
 		}
