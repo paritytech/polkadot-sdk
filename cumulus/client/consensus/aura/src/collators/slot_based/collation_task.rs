@@ -246,8 +246,8 @@ pub async fn run_collation_task<Block, RClient, CS, Backend, CHP>(
 	};
 
 	// Sibling work deferred behind main submissions; an item starts only when no message is
-	// waiting, so a message arriving meanwhile waits for that one item, at worst until the slot's
-	// sibling deadline.
+	// waiting, so a message arriving meanwhile waits for that one item, at worst the slot's
+	// sibling deadline plus one segment build.
 	let mut deferred: VecDeque<Deferred<Block>> = VecDeque::new();
 	let mut siblings = SiblingResolver::new(relay_client, para_id);
 	siblings.ensure_subscribed().await;
@@ -385,9 +385,14 @@ where
 	/// part fails to hydrate, rather than advertising less than the main submission did.
 	async fn submit_to_sibling(&mut self, segment: SegmentSubmission<Block>, valid_until: Instant) {
 		let SegmentSubmission { core_index, headers, proof, resubmitted, fresh } = segment;
-		let parts = self.hydrate(headers);
-		if Instant::now() >= valid_until {
+		let too_late = || Instant::now() >= valid_until;
+		if too_late() {
 			tracing::debug!(target: LOG_TARGET, ?core_index, "Sibling submission too late.");
+			return;
+		}
+		let parts = self.hydrate(headers);
+		if too_late() {
+			tracing::debug!(target: LOG_TARGET, ?core_index, "Sibling hydrated too late.");
 			return;
 		}
 		if parts.len() != resubmitted + fresh {

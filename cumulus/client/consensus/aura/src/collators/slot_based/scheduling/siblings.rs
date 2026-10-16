@@ -47,20 +47,17 @@ use std::{
 	time::{Duration, Instant},
 };
 
-/// Most sibling SPs one segment is also submitted under. Each costs a whole extra submission, and
-/// the SP plus its siblings must stay inside the network bridge's `MAX_VIEW_HEADS`.
+/// Most sibling SPs one segment is also submitted under. Each costs a whole extra submission; relay
+/// forks are one block deep and rarely have more than one sibling.
 pub(crate) const MAX_SIBLING_SCHEDULING_PARENTS: usize = 2;
 
-/// Rejected candidates tolerated per segment before giving up, bounding the relay lookups a
-/// forked height can force.
+/// Candidates checked beyond [`MAX_SIBLING_SCHEDULING_PARENTS`] per slot and SP, so a few
+/// rejections do not hide a valid sibling; bounds the relay lookups a forked height can force.
 const MAX_REJECTED_SIBLINGS: usize = 2;
 
 /// BABE slots kept in [`RecentImports`]; enough for the slot before the production slot, the
 /// production slot, and parents a few slots back.
 const RECENT_SLOTS: usize = 4;
-
-/// Heads kept per slot, so a fork-spammed slot cannot grow the dedup scan.
-const MAX_IMPORTS_PER_SLOT: usize = 8;
 
 /// Time kept free before the production slot ends for a sibling rebuild to reach validators;
 /// assumes rebuilding and advertising one segment takes well under it.
@@ -110,15 +107,6 @@ impl RecentImports {
 		let hash = header.hash();
 		let at_slot = self.by_slot.entry(claim.slot).or_default();
 		if at_slot.iter().any(|known| known.hash == hash) {
-			return;
-		}
-		if at_slot.len() >= MAX_IMPORTS_PER_SLOT {
-			tracing::debug!(
-				target: LOG_TARGET,
-				slot = ?claim.slot,
-				?hash,
-				"Per-slot import cap reached; skipping relay header."
-			);
 			return;
 		}
 		at_slot.push(ImportedHeader { hash, header, claim });
@@ -213,6 +201,8 @@ pub(crate) struct SiblingResolver<RelayClient> {
 	imports: Fuse<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>>,
 	recent: RecentImports,
 	memo: SlotMemo,
+	/// Set when a relay lookup fails during a resolve, which is then not cached.
+	lookup_failed: bool,
 }
 
 /// Lookups for one production slot.
@@ -221,8 +211,8 @@ struct SlotMemo {
 	slot: Slot,
 	/// Claim queues per sibling.
 	claim_queues: HashMap<RelayHash, ClaimQueueSnapshot>,
-	/// Accepted chains per chosen SP, shared by every core of the slot.
-	chains: HashMap<RelayHash, Vec<Vec<RelayHeader>>>,
+	/// Accepted chains per chosen SP and internal scheduling parent, shared by every core.
+	chains: HashMap<(RelayHash, RelayHash), Vec<Vec<RelayHeader>>>,
 }
 
 impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
@@ -238,6 +228,7 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 			imports,
 			recent: Default::default(),
 			memo: Default::default(),
+			lookup_failed: false,
 		}
 	}
 
@@ -320,11 +311,12 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 		if self.memo.slot != params.production_slot {
 			self.memo = SlotMemo { slot: params.production_slot, ..Default::default() };
 		}
-		let chosen_hash = chosen.hash();
-		if let Some(chains) = self.memo.chains.get(&chosen_hash) {
+		let key = (chosen.hash(), proof.internal_scheduling_parent_header.hash());
+		if let Some(chains) = self.memo.chains.get(&key) {
 			return chains.iter().take(limit).cloned().collect();
 		}
 
+		self.lookup_failed = false;
 		self.ensure_subscribed().await;
 		self.drain();
 		let candidates = self.recent.siblings_of(chosen, params.production_slot);
@@ -345,7 +337,9 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 			?accepted,
 			"Sibling scheduling parents resolved.",
 		);
-		self.memo.chains.insert(chosen_hash, chains.clone());
+		if !self.lookup_failed {
+			self.memo.chains.insert(key, chains.clone());
+		}
 		chains.truncate(limit);
 		chains
 	}
@@ -403,8 +397,7 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 		Some(header_chain)
 	}
 
-	/// Whether the planned cores lead the para's claims at `sibling`. A failed lookup is not
-	/// cached.
+	/// Whether the planned cores lead the para's claims at `sibling`.
 	async fn assigns_cores(&mut self, sibling: RelayHash, params: &SiblingParams) -> bool {
 		if !self.memo.claim_queues.contains_key(&sibling) {
 			match self.relay_client.claim_queue(sibling).await {
@@ -413,6 +406,7 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 				},
 				Err(err) => {
 					tracing::debug!(target: LOG_TARGET, ?sibling, ?err, "No claim queue.");
+					self.lookup_failed = true;
 					return false;
 				},
 			}
@@ -428,7 +422,9 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 		if let Some(header) = self.recent.header(&hash) {
 			return Some(header.clone());
 		}
-		self.relay_client.header(BlockId::Hash(hash)).await.ok().flatten()
+		let header = self.relay_client.header(BlockId::Hash(hash)).await.ok().flatten();
+		self.lookup_failed |= header.is_none();
+		header
 	}
 }
 
@@ -455,8 +451,8 @@ mod tests {
 		imports
 	}
 
-	/// Deduplicated by hash, bounded in slots and heads per slot; a head older than every kept
-	/// slot, or without a BABE claim, is never recorded.
+	/// Deduplicated by hash and bounded in slots; a head older than every kept slot, or without a
+	/// BABE claim, is never recorded.
 	#[test]
 	fn recent_imports_dedup_and_stay_bounded() {
 		let mut imports = RecentImports::default();
@@ -476,12 +472,6 @@ mod tests {
 		no_claim.digest.logs.clear();
 		imports.insert(no_claim);
 		assert!(!imports.by_slot.contains_key(&Slot::from(9)));
-
-		let top = relay_header_with_slot(5, Default::default(), 5);
-		for tag in 0..(MAX_IMPORTS_PER_SLOT as u8 + 5) {
-			imports.insert(twin(&top, tag));
-		}
-		assert_eq!(imports.by_slot[&Slot::from(5)].len(), MAX_IMPORTS_PER_SLOT);
 	}
 
 	/// Candidates as `is_scheduling_parent_valid` admits them: a head from `production_slot - 1`,
@@ -550,6 +540,10 @@ mod tests {
 		assert_eq!(deadline(101), at + Duration::from_secs(10) - SIBLING_SUBMISSION_MARGIN);
 	}
 
+	/// Claim-queue depth the fixture's cores are read at. V3 reads at `max_claim_queue_offset`,
+	/// independent of the chain length, so it matches no chain length here.
+	const CLAIM_DEPTH: usize = 3;
+
 	/// Internal scheduling parent `isp` at height 10 and slot 100, with the planned slot 102 on
 	/// core 0.
 	struct Fixture {
@@ -585,10 +579,8 @@ mod tests {
 		) -> Vec<Vec<RelayHeader>> {
 			let mut client =
 				TestRelayClient::new(self.headers.iter().map(|h| (h.hash(), h.clone())).collect());
-			// Production reads the claims at the relay parent offset.
-			let depth = proof.header_chain.len();
 			for (hash, core) in &self.cores {
-				client.add_claim(*hash, depth, *core);
+				client.add_claim(*hash, CLAIM_DEPTH, *core);
 			}
 			let (tx, rx) = futures::channel::mpsc::unbounded();
 			let mut resolver = SiblingResolver::with_imports(client, 1.into(), Box::pin(rx));
@@ -598,7 +590,7 @@ mod tests {
 			let params = SiblingParams {
 				production_slot: Slot::from(102),
 				core_indices: vec![CoreIndex(0)],
-				claim_queue_offset: depth as u32,
+				claim_queue_offset: CLAIM_DEPTH as u32,
 				max_relay_parent_session_age: self.max_session_age,
 				valid_until: Instant::now() + Duration::from_secs(60),
 			};
@@ -662,7 +654,7 @@ mod tests {
 		assert_eq!(fx.resolve(&proof, &[&twin_sibling, &cousin], 2).await, expected);
 	}
 
-	/// Resolution gives up after `MAX_REJECTED_SIBLINGS` rejections past the limit.
+	/// At most `MAX_SIBLING_SCHEDULING_PARENTS + MAX_REJECTED_SIBLINGS` candidates are checked.
 	#[tokio::test]
 	async fn sibling_chains_bound_rejections() {
 		let mut fx = Fixture::new();
@@ -670,12 +662,13 @@ mod tests {
 		// Primaries sort first, so these are checked before `good`; another parent keeps them
 		// from outweighing it, and fails them at the internal scheduling parent.
 		let primary = relay_header_primary_with_slot(11, [9u8; 32].into(), 101);
-		let rejected: Vec<_> = (0..4).map(|tag| twin(&primary, tag)).collect();
+		let checked = MAX_SIBLING_SCHEDULING_PARENTS + MAX_REJECTED_SIBLINGS;
+		let rejected: Vec<_> = (0..checked as u8).map(|tag| twin(&primary, tag)).collect();
 		let good = twin(&chosen, 9);
 		fx.add(&good, Some(CoreIndex(0)));
 		let proof = fx.proof(vec![chosen]);
 
-		let within: Vec<_> = rejected[..MAX_REJECTED_SIBLINGS].iter().chain([&good]).collect();
+		let within: Vec<_> = rejected[..checked - 1].iter().chain([&good]).collect();
 		assert_eq!(fx.resolve(&proof, &within, 1).await, vec![vec![good.clone()]]);
 		let past: Vec<_> = rejected.iter().chain([&good]).collect();
 		assert!(fx.resolve(&proof, &past, 1).await.is_empty());
