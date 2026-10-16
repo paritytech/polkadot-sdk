@@ -75,15 +75,11 @@ pub const MAX_PRE_POST_OPS: usize = 8;
 pub const MAX_NESTED_OPS: usize = 8;
 /// Maximum nesting depth of runtime transactions.
 pub const MAX_TX_DEPTH: usize = 6;
-/// Maximum number of generated keys in the initial main trie.
-pub const MAX_INITIAL_TOP: u16 = 600;
 /// Maximum number of explicitly listed initial entries (main trie or one child).
 pub const MAX_EXTRA_ENTRIES: usize = 16;
 /// Maximum number of initially populated child tries. There are [`CHILD_IDS`] child ids, so
 /// at least one child always starts empty.
 pub const MAX_INITIAL_CHILDREN: usize = 3;
-/// Maximum number of generated keys per initial child trie.
-pub const MAX_CHILD_BULK: u8 = 100;
 /// Number of distinct child tries a script can address.
 pub const CHILD_IDS: u8 = 4;
 
@@ -104,6 +100,74 @@ impl Version {
 		match self {
 			Version::V0 => StateVersion::V0,
 			Version::V1 => StateVersion::V1,
+		}
+	}
+}
+
+/// Size of the key space and of the initial tries.
+///
+/// Small tries find and shrink local bugs quickly, but almost every operation shares trie nodes
+/// with every other one, and the recorder deduplicates nodes, so a missed node can be hidden by
+/// an unrelated read. Larger scales reduce that overlap.
+#[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Scale {
+	/// 4 pallets, 3 items, 128 indices (1536 map keys); up to 600 initial main trie keys and
+	/// 100 keys per child. Scripts run in milliseconds.
+	Small,
+	/// 16 pallets, 8 items, 4096 indices; up to 5000 initial keys and 1000 per child.
+	Medium,
+	/// 16 pallets, 8 items, 65536 indices; up to 50000 initial keys and 5000 per child.
+	/// Scripts take seconds.
+	Large,
+}
+
+impl Scale {
+	fn pallets(self) -> u64 {
+		match self {
+			Scale::Small => 4,
+			Scale::Medium | Scale::Large => 16,
+		}
+	}
+
+	fn items(self) -> u64 {
+		match self {
+			Scale::Small => 3,
+			Scale::Medium | Scale::Large => 8,
+		}
+	}
+
+	fn indices(self) -> u64 {
+		match self {
+			Scale::Small => 128,
+			Scale::Medium => 4096,
+			Scale::Large => 65536,
+		}
+	}
+
+	/// Maximum number of generated keys in the initial main trie.
+	pub fn max_initial_top(self) -> u32 {
+		match self {
+			Scale::Small => 600,
+			Scale::Medium => 5_000,
+			Scale::Large => 50_000,
+		}
+	}
+
+	/// Maximum number of generated keys per initial child trie.
+	pub fn max_child_bulk(self) -> u32 {
+		match self {
+			Scale::Small => 100,
+			Scale::Medium => 1_000,
+			Scale::Large => 5_000,
+		}
+	}
+
+	/// Exclusive upper bound of `clear_prefix` and `storage_kill` limits.
+	fn limit_range(self) -> u32 {
+		match self {
+			Scale::Small => 8,
+			Scale::Medium => 64,
+			Scale::Large => 1024,
 		}
 	}
 }
@@ -156,20 +220,21 @@ impl Val {
 	}
 }
 
-/// A storage key. Keys are described by small indices so that mutations stay meaningful and
-/// the `Debug` output of a failing script is short.
+/// A storage key. Keys are described by indices so that mutations stay meaningful and the
+/// `Debug` output of a failing script is short. The indices are reduced modulo the pallet, item
+/// and index counts of the script's [`Scale`] when the bytes are built.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Key {
-	/// `pallet(p) ++ item(p, m) ++ hash(i) ++ [i]` (49 bytes), like a `Blake2_128Concat` map
+	/// `pallet(p) ++ item(p, m) ++ hash(i) ++ i` (50 bytes), like a `Blake2_128Concat` map
 	/// entry. All `Map(p, m, _)` share a 32 byte prefix.
-	Map(u8, u8, u8),
+	Map(u8, u8, u16),
 	/// `pallet(p) ++ item(p, m)` (32 bytes), a storage value that is a prefix of all
 	/// `Map(p, m, _)` keys, so it lives in a branch node.
 	Value(u8, u8),
-	/// `Map(p, m, i)` with one nibble at byte `pos % 49` changed. Bit 4 of the last field
+	/// `Map(p, m, i)` with one nibble at byte `pos % 50` changed. Bit 4 of the last field
 	/// selects the high or low nibble, its low bits the xor value. Removing such a sibling
 	/// collapses a branch.
-	Sibling(u8, u8, u8, u8, u8),
+	Sibling(u8, u8, u16, u8, u8),
 	/// A one to three byte key `[a, a ^ 0x5a, a * 31 + 7][..1 + len % 3]`, so collapses happen
 	/// near the root and short keys are prefixes of each other.
 	Short(u8, u8),
@@ -179,12 +244,12 @@ pub enum Key {
 
 impl Key {
 	/// The key bytes. Never starts with `:`, so it never hits `:child_storage:`.
-	pub fn bytes(&self) -> Vec<u8> {
+	pub fn bytes(&self, scale: Scale) -> Vec<u8> {
 		let mut key = match self {
-			Key::Map(p, m, i) => map_key(*p, *m, *i),
-			Key::Value(p, m) => map_key(*p, *m, 0)[..32].to_vec(),
+			Key::Map(p, m, i) => map_key(*p, *m, *i, scale),
+			Key::Value(p, m) => map_key(*p, *m, 0, scale)[..32].to_vec(),
 			Key::Sibling(p, m, i, pos, x) => {
-				let mut key = map_key(*p, *m, *i);
+				let mut key = map_key(*p, *m, *i, scale);
 				let pos = *pos as usize % key.len();
 				let delta = x % 15 + 1;
 				if x & 0x10 == 0 {
@@ -206,27 +271,26 @@ impl Key {
 	}
 }
 
-fn map_key(p: u8, m: u8, i: u8) -> Vec<u8> {
-	let p = p as u64 % 4;
-	let m = m as u64 % 3;
+fn map_key(p: u8, m: u8, i: u16, scale: Scale) -> Vec<u8> {
+	let p = p as u64 % scale.pallets();
+	let m = m as u64 % scale.items();
+	let i = (i as u64 % scale.indices()) as u16;
 	let mut key = pseudo_bytes(1, p, 16);
 	key.extend(pseudo_bytes(2, p * 16 + m, 16));
 	key.extend(pseudo_bytes(3, i as u64, 16));
-	key.push(i);
+	key.extend(i.to_le_bytes());
 	key
 }
 
 impl<'a> Arbitrary<'a> for Key {
 	fn arbitrary(u: &mut Unstructured<'a>) -> ArbitraryResult<Self> {
 		Ok(match u.int_in_range(0..=99u8)? {
-			0..=59 => {
-				Key::Map(u.int_in_range(0..=3)?, u.int_in_range(0..=2)?, u.int_in_range(0..=127)?)
-			},
-			60..=67 => Key::Value(u.int_in_range(0..=3)?, u.int_in_range(0..=2)?),
+			0..=59 => Key::Map(u.arbitrary()?, u.arbitrary()?, u.arbitrary()?),
+			60..=67 => Key::Value(u.arbitrary()?, u.arbitrary()?),
 			68..=84 => Key::Sibling(
-				u.int_in_range(0..=3)?,
-				u.int_in_range(0..=2)?,
-				u.int_in_range(0..=127)?,
+				u.arbitrary()?,
+				u.arbitrary()?,
+				u.arbitrary()?,
 				u.arbitrary()?,
 				u.arbitrary()?,
 			),
@@ -242,8 +306,8 @@ pub struct Prefix(pub Key, pub u8);
 
 impl Prefix {
 	/// The prefix bytes.
-	pub fn bytes(&self) -> Vec<u8> {
-		let mut key = self.0.bytes();
+	pub fn bytes(&self, scale: Scale) -> Vec<u8> {
+		let mut key = self.0.bytes(scale);
 		let len = key.len();
 		let keep = match self.1 % 6 {
 			0 => len,
@@ -260,7 +324,7 @@ impl Prefix {
 
 /// One storage operation, executed through the host functions inside the runtime.
 ///
-/// Child ids are taken `% 4`, limits `% 8`.
+/// Child ids are taken `% 4`, limits modulo the [`Scale`]'s limit range.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Op {
 	Set(Key, Val),
@@ -269,12 +333,12 @@ pub enum Op {
 	Get(Key),
 	Exists(Key),
 	NextKey(Key),
-	ClearPrefix(Prefix, Option<u8>),
+	ClearPrefix(Prefix, Option<u16>),
 	ChildSet(u8, Key, Val),
 	ChildClear(u8, Key),
 	ChildGet(u8, Key),
-	ChildKill(u8, Option<u8>),
-	ChildClearPrefix(u8, Prefix, Option<u8>),
+	ChildKill(u8, Option<u16>),
+	ChildClearPrefix(u8, Prefix, Option<u16>),
 	ChildRoot(u8),
 	/// A nested runtime transaction (`with_transaction`).
 	Tx(Vec<Op>, Outcome),
@@ -330,6 +394,8 @@ fn gen_outcome(u: &mut Unstructured, rollback_percent: u8) -> ArbitraryResult<Ou
 /// Global configuration of a script.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Config {
+	/// Key space and initial trie size.
+	pub scale: Scale,
 	/// State version the initial trie is built with.
 	pub backend_version: Version,
 	/// State version passed to `storage_root` (also for `Op::Root` and `Op::ChildRoot`).
@@ -343,6 +409,11 @@ pub struct Config {
 impl<'a> Arbitrary<'a> for Config {
 	fn arbitrary(u: &mut Unstructured<'a>) -> ArbitraryResult<Self> {
 		Ok(Config {
+			scale: match u.int_in_range(0..=19u8)? {
+				0..=13 => Scale::Small,
+				14..=18 => Scale::Medium,
+				_ => Scale::Large,
+			},
 			backend_version: u.arbitrary()?,
 			root_version: u.arbitrary()?,
 			cache: u.arbitrary()?,
@@ -357,7 +428,7 @@ pub struct ChildInit {
 	/// Child id (`% 4`). The child storage key is `[0x10 * (id % 4 + 1)]`.
 	pub id: u8,
 	/// Number of generated entries (from the script seed).
-	pub bulk: u8,
+	pub bulk: u32,
 	/// Explicit entries.
 	pub extra: Vec<(Key, Val)>,
 }
@@ -368,24 +439,24 @@ pub struct InitialTrie {
 	/// Seed for the generated entries.
 	pub seed: u64,
 	/// Number of generated main trie entries.
-	pub top: u16,
+	pub top: u32,
 	/// Explicit main trie entries.
 	pub extra_top: Vec<(Key, Val)>,
 	/// Child tries. Children with no entries do not exist.
 	pub children: Vec<ChildInit>,
 }
 
-impl<'a> Arbitrary<'a> for InitialTrie {
-	fn arbitrary(u: &mut Unstructured<'a>) -> ArbitraryResult<Self> {
+impl InitialTrie {
+	fn arbitrary(u: &mut Unstructured, scale: Scale) -> ArbitraryResult<Self> {
 		let seed = u.arbitrary()?;
-		let top = u.int_in_range(0..=MAX_INITIAL_TOP)?;
+		let top = u.int_in_range(0..=scale.max_initial_top())?;
 		let extra_len = u.int_in_range(0..=MAX_EXTRA_ENTRIES)?;
 		let extra_top = (0..extra_len).map(|_| u.arbitrary()).collect::<Result<_, _>>()?;
 		let children_len = u.int_in_range(0..=MAX_INITIAL_CHILDREN)?;
 		let children = (0..children_len)
 			.map(|_| {
 				let id = gen_child(u)?;
-				let bulk = u.int_in_range(0..=MAX_CHILD_BULK)?;
+				let bulk = u.int_in_range(0..=scale.max_child_bulk())?;
 				let extra_len = u.int_in_range(0..=MAX_EXTRA_ENTRIES / 2)?;
 				let extra = (0..extra_len).map(|_| u.arbitrary()).collect::<Result<_, _>>()?;
 				Ok(ChildInit { id, bulk, extra })
@@ -397,23 +468,23 @@ impl<'a> Arbitrary<'a> for InitialTrie {
 
 impl InitialTrie {
 	/// Build the initial [`Storage`].
-	pub fn storage(&self) -> Storage {
+	pub fn storage(&self, scale: Scale) -> Storage {
 		let mut top = BTreeMap::new();
 		for (k, v) in generated_entries(self.seed, self.top as usize) {
-			top.insert(k.bytes(), v.bytes());
+			top.insert(k.bytes(scale), v.bytes());
 		}
 		for (k, v) in &self.extra_top {
-			top.insert(k.bytes(), v.bytes());
+			top.insert(k.bytes(scale), v.bytes());
 		}
 		let mut children: BTreeMap<u8, BTreeMap<Vec<u8>, Vec<u8>>> = BTreeMap::new();
 		for child in &self.children {
 			let id = child.id % CHILD_IDS;
 			let data = children.entry(id).or_default();
 			for (k, v) in generated_entries(child_seed(self.seed, id), child.bulk as usize) {
-				data.insert(k.bytes(), v.bytes());
+				data.insert(k.bytes(scale), v.bytes());
 			}
 			for (k, v) in &child.extra {
-				data.insert(k.bytes(), v.bytes());
+				data.insert(k.bytes(scale), v.bytes());
 			}
 		}
 		let children_default = children
@@ -434,7 +505,7 @@ fn child_seed(seed: u64, id: u8) -> u64 {
 
 fn generated_entries(seed: u64, count: usize) -> Vec<(Key, Val)> {
 	let mut rng = XorShift::new(seed);
-	let bytes = rng.bytes(count * 12);
+	let bytes = rng.bytes(count * 16);
 	let mut u = Unstructured::new(&bytes);
 	(0..count)
 		.map(|_| {
@@ -510,10 +581,21 @@ pub struct Script {
 	pub blocks: Vec<Block>,
 }
 
+impl Script {
+	/// Sets the scale and caps the generated initial trie sizes to the new scale's maxima.
+	pub fn set_scale(&mut self, scale: Scale) {
+		self.config.scale = scale;
+		self.initial.top = self.initial.top.min(scale.max_initial_top());
+		for child in &mut self.initial.children {
+			child.bulk = child.bulk.min(scale.max_child_bulk());
+		}
+	}
+}
+
 impl<'a> Arbitrary<'a> for Script {
 	fn arbitrary(u: &mut Unstructured<'a>) -> ArbitraryResult<Self> {
-		let config = u.arbitrary()?;
-		let initial = u.arbitrary()?;
+		let config: Config = u.arbitrary()?;
+		let initial = InitialTrie::arbitrary(u, config.scale)?;
 		let blocks_len = u.int_in_range(1..=MAX_BLOCKS)?;
 		let blocks = (0..blocks_len).map(|_| u.arbitrary()).collect::<Result<_, _>>()?;
 		Ok(Script { config, initial, blocks })
@@ -637,12 +719,13 @@ fn child_info(id: u8) -> ChildInfo {
 	ChildInfo::new_default(&[0x10 * (id % CHILD_IDS + 1)])
 }
 
-fn limit(limit: &Option<u8>) -> Option<u32> {
-	limit.map(|l| (l % 8) as u32)
+fn limit(limit: &Option<u16>, scale: Scale) -> Option<u32> {
+	limit.map(|l| l as u32 % scale.limit_range())
 }
 
 /// Per-pass execution state, mutated from inside the externalities closures.
 struct Ctx {
+	scale: Scale,
 	mode: Mode,
 	estimate: bool,
 	root_version: StateVersion,
@@ -684,34 +767,39 @@ impl Ctx {
 
 	fn exec_op(&mut self, op: &Op) {
 		use sp_io::{default_child_storage as child, storage};
+		let scale = self.scale;
 		match op {
-			Op::Set(k, v) => storage::set(&k.bytes(), &v.bytes()),
-			Op::Clear(k) => storage::clear(&k.bytes()),
-			Op::Append(k, v) => storage::append(&k.bytes(), v.bytes()),
+			Op::Set(k, v) => storage::set(&k.bytes(scale), &v.bytes()),
+			Op::Clear(k) => storage::clear(&k.bytes(scale)),
+			Op::Append(k, v) => storage::append(&k.bytes(scale), v.bytes()),
 			Op::Get(k) => {
-				let _ = storage::get(&k.bytes());
+				let _ = storage::get(&k.bytes(scale));
 			},
 			Op::Exists(k) => {
-				let _ = storage::exists(&k.bytes());
+				let _ = storage::exists(&k.bytes(scale));
 			},
 			Op::NextKey(k) => {
-				let _ = storage::next_key(&k.bytes());
+				let _ = storage::next_key(&k.bytes(scale));
 			},
 			Op::ClearPrefix(p, l) => {
-				let _ = storage::clear_prefix(&p.bytes(), limit(l));
+				let _ = storage::clear_prefix(&p.bytes(scale), limit(l, scale));
 			},
 			Op::ChildSet(c, k, v) => {
-				child::set(child_info(*c).storage_key(), &k.bytes(), &v.bytes())
+				child::set(child_info(*c).storage_key(), &k.bytes(scale), &v.bytes())
 			},
-			Op::ChildClear(c, k) => child::clear(child_info(*c).storage_key(), &k.bytes()),
+			Op::ChildClear(c, k) => child::clear(child_info(*c).storage_key(), &k.bytes(scale)),
 			Op::ChildGet(c, k) => {
-				let _ = child::get(child_info(*c).storage_key(), &k.bytes());
+				let _ = child::get(child_info(*c).storage_key(), &k.bytes(scale));
 			},
 			Op::ChildKill(c, l) => {
-				let _ = child::storage_kill(child_info(*c).storage_key(), limit(l));
+				let _ = child::storage_kill(child_info(*c).storage_key(), limit(l, scale));
 			},
 			Op::ChildClearPrefix(c, p, l) => {
-				let _ = child::clear_prefix(child_info(*c).storage_key(), &p.bytes(), limit(l));
+				let _ = child::clear_prefix(
+					child_info(*c).storage_key(),
+					&p.bytes(scale),
+					limit(l, scale),
+				);
 			},
 			Op::ChildRoot(c) => {
 				let _ = child::root(child_info(*c).storage_key(), self.root_version);
@@ -806,7 +894,7 @@ fn execute(script: &Script, estimate: bool) -> Result<Vec<BlockRun>, Failure> {
 	let config = &script.config;
 	let root_version = config.root_version.state_version();
 	let mut state: State =
-		(script.initial.storage(), config.backend_version.state_version()).into();
+		(script.initial.storage(config.scale), config.backend_version.state_version()).into();
 	let shared_cache = config
 		.cache
 		.then(|| SharedTrieCache::<Hasher>::new(CacheSize::new(64 << 20), None));
@@ -816,6 +904,7 @@ fn execute(script: &Script, estimate: bool) -> Result<Vec<BlockRun>, Failure> {
 	for (block_index, block) in script.blocks.iter().enumerate() {
 		CURRENT_BLOCK.with(|b| b.set(block_index));
 		let mut ctx = Ctx {
+			scale: config.scale,
 			mode: config.mode,
 			estimate,
 			root_version,
@@ -1038,7 +1127,15 @@ fn candidates(script: &Script) -> Vec<Script> {
 		s
 	};
 
-	// Whole blocks and extrinsics first.
+	// Smaller key space and tries first: everything else gets cheaper.
+	if script.config.scale > Scale::Small {
+		out.push(with(&|s| s.set_scale(Scale::Small)));
+	}
+	if script.config.scale > Scale::Medium {
+		out.push(with(&|s| s.set_scale(Scale::Medium)));
+	}
+
+	// Whole blocks and extrinsics.
 	if script.blocks.len() > 1 {
 		for b in 0..script.blocks.len() {
 			out.push(with(&|s| {
@@ -1227,13 +1324,17 @@ impl XorShift {
 }
 
 /// The script generated from `seed`: 1 KiB to 16 KiB of xorshift bytes fed to
-/// [`Script::arbitrary`].
-pub fn script_from_seed(seed: u64) -> Script {
+/// [`Script::arbitrary`], with the scale capped at `max_scale`.
+pub fn script_from_seed(seed: u64, max_scale: Scale) -> Script {
 	let mut rng = XorShift::new(seed);
 	let len = 1024 + (rng.next_u64() % (15 * 1024)) as usize;
 	let bytes = rng.bytes(len);
-	Script::arbitrary(&mut Unstructured::new(&bytes))
-		.expect("`Script::arbitrary` falls back to defaults on exhaustion; qed")
+	let mut script = Script::arbitrary(&mut Unstructured::new(&bytes))
+		.expect("`Script::arbitrary` falls back to defaults on exhaustion; qed");
+	if script.config.scale > max_scale {
+		script.set_scale(max_scale);
+	}
+	script
 }
 
 /// A 64 byte value; `n` in `0..3` selects distinct contents.
@@ -1243,6 +1344,7 @@ fn val64(n: u8) -> Val {
 
 fn free_v1() -> Config {
 	Config {
+		scale: Scale::Small,
 		backend_version: Version::V1,
 		root_version: Version::V1,
 		cache: false,
@@ -1265,8 +1367,9 @@ fn raw(bytes: &[u8]) -> Key {
 /// Names starting with `review_` are the review reproductions, `fuzz_` the fuzzer findings.
 pub fn pinned_scripts() -> Vec<(&'static str, Script)> {
 	// 200 map entries spread over all pallets and items, with large values.
-	let many_top: Vec<(Key, Val)> =
-		(0..200u8).map(|i| (Key::Map(i % 4, i % 3, i), Val(Size::Large, i))).collect();
+	let many_top: Vec<(Key, Val)> = (0..200u8)
+		.map(|i| (Key::Map(i % 4, i % 3, i as u16), Val(Size::Large, i)))
+		.collect();
 
 	vec![
 		(
@@ -1542,10 +1645,10 @@ pub fn pinned_scripts() -> Vec<(&'static str, Script)> {
 						init: vec![Op::Set(Key::Value(0, 0), Val(Size::Small, 1))],
 						xts: (0..4u8)
 							.map(|i| Xt {
-								pre: vec![Op::Set(Key::Map(1, 0, i), Val(Size::Exact32, i))],
+								pre: vec![Op::Set(Key::Map(1, 0, i as u16), Val(Size::Exact32, i))],
 								body: vec![
-									Op::Set(Key::Map(2, 1, 100 + i), Val(Size::Large, i)),
-									Op::ChildSet(1, Key::Map(0, 0, i), Val(Size::Large, i)),
+									Op::Set(Key::Map(2, 1, 100 + i as u16), Val(Size::Large, i)),
+									Op::ChildSet(1, Key::Map(0, 0, i as u16), Val(Size::Large, i)),
 								],
 								body_outcome: Outcome::Commit,
 								post: vec![Op::Append(Key::Value(3, 2), Val(Size::Small, i))],

@@ -89,15 +89,42 @@ transactions do not affect the recorder; the `ProofSizeProvider` transaction hoo
 for `Recorder`. Only the host transactions roll recorded nodes back.
 
 Keys are described symbolically so that `Debug` output stays short and libFuzzer mutations stay
-meaningful. `Key::Map(p, m, i)` is a 49 byte `prefix ++ hash ++ i` key like a `Blake2_128Concat`
+meaningful. `Key::Map(p, m, i)` is a 50 byte `prefix ++ hash ++ i` key like a `Blake2_128Concat`
 map entry, `Key::Value(p, m)` the 32 byte prefix of those (a branch node with a value),
-`Key::Sibling` a map key with one nibble changed, `Key::Short` a one to three byte key near the
-root, `Key::Raw` explicit bytes for hand-written scripts. `Val` has four size classes: empty,
-inline, exactly 32 bytes, and hashed out under `StateVersion::V1`.
+`Key::Sibling` a map key with one nibble changed at a random position, `Key::Short` a one to
+three byte key near the root, `Key::Raw` explicit bytes for hand-written scripts. The indices are
+reduced modulo the pallet, item and index counts of the script's scale. `Val` has four size
+classes: empty, inline, exactly 32 bytes, and hashed out under `StateVersion::V1`.
 
-The initial trie is a seeded bulk of up to 600 keys plus explicit entries, and up to three of the
-four addressable child tries. Child `id` has storage key `[0x10 * (id + 1)]`. Scripts also
-choose backend and root state version, and whether a `LocalTrieCache` is attached.
+### Scale
+
+`Config::scale` sets the key space and the initial trie size:
+
+| Scale | Pallets × items × indices | Initial main trie | Per child | Clear-prefix limit | Cost |
+|---|---|---|---|---|---|
+| `Small` | 4 × 3 × 128 = 1536 map keys | up to 600 generated keys (about 300 distinct) | up to 100 | below 8 | milliseconds |
+| `Medium` | 16 × 8 × 4096 | up to 5000 | up to 1000 | below 64 | seconds in a debug build |
+| `Large` | 16 × 8 × 65536 | up to 50000 | up to 5000 | below 1024 | about a minute in a debug build |
+
+Every script runs twice (with and without estimation), and a failing script is shrunk by
+re-running it many times. A 40-script run with all classes allowed took eight minutes as a debug
+build; use `--release` for anything beyond a handful of medium or large scripts.
+
+Generation draws `Small` 70%, `Medium` 25%, `Large` 5%. The shrinker lowers the scale first, so
+failing cases end up small. `random_smoke` caps the scale at `Small` unless `POV_FUZZ_SCALE` is
+set; the libFuzzer target has no cap.
+
+Why scale matters for this invariant: the recorder deduplicates nodes. In a 300-key trie almost
+every operation shares nodes with every other one, so a node the estimation misses may already
+have been recorded by an unrelated read and the check passes. In a production-sized trie that
+read touches different nodes and the block overshoots. The truth run deduplicates the same way
+and cannot catch this; only a larger key space reduces the accidental overlap. On the other
+hand, `Key::Sibling` makes small tries deep: a lookup path crosses up to fifteen nodes because
+the flipped nibbles split the shared prefixes at many positions.
+
+The initial trie also contains explicit entries and up to three of the four addressable child
+tries. Child `id` has storage key `[0x10 * (id + 1)]`. Scripts further choose backend and root
+state version, and whether a `LocalTrieCache` is attached.
 
 ## Invariants
 
@@ -129,6 +156,9 @@ cargo test -p cumulus-proof-size-hostfunction-fuzz -- --nocapture
 # collect all failures of a longer run, grouped by kind, one shrunk example per kind (about two minutes)
 POV_FUZZ_ITERS=3000 POV_FUZZ_KEEP_GOING=1 cargo test -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
 
+# the same with medium and large tries allowed; release build, since large tries are slow in debug
+POV_FUZZ_SCALE=large POV_FUZZ_ITERS=200 POV_FUZZ_KEEP_GOING=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
+
 # replay a single seed
 POV_FUZZ_SEED=0x5eed0f1022d POV_FUZZ_ITERS=1 cargo test -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
 
@@ -137,7 +167,9 @@ cd cumulus/primitives/proof-size-hostfunction/fuzz && cargo +nightly fuzz run po
 ```
 
 Environment variables of `random_smoke`: `POV_FUZZ_ITERS` (default 300), `POV_FUZZ_SEED` (base
-seed, decimal or `0x` hex; script `i` uses `base + i`), `POV_FUZZ_KEEP_GOING=1`.
+seed, decimal or `0x` hex; script `i` uses `base + i`), `POV_FUZZ_KEEP_GOING=1`,
+`POV_FUZZ_SCALE` (`small` by default, `medium` or `large` to allow the bigger classes; larger
+generated scales are reduced to the cap, including their trie sizes).
 
 The libFuzzer binary builds on stable (`cargo build -p cumulus-proof-size-hostfunction-fuzz
 --bins`) but gets no coverage feedback without `cargo fuzz`. `cargo-fuzz` and `cargo-hfuzz`
@@ -195,9 +227,9 @@ The three `review_*` cases match the byte counts in the local review notes
   independent of this.
 - **Warning capture** relies on `log::set_logger` succeeding. If another logger is installed
   first (for example by `sp_tracing` in the same test binary) the `Warning` kind is silent.
-- **Real keys** are `twox128 ++ twox128 ++ hash`. The symbolic keys approximate that shape but
-  with only four pallets and three items, so wide branches at the first nibble are rarer than
-  in a real state.
+- **Real keys** are `twox128 ++ twox128 ++ hash`. The symbolic keys approximate that shape, but
+  even at `Large` there are 16 pallets and 8 items, so the first-level branching of a real state
+  with thousands of prefixes is not reproduced, and maps stay far below production sizes.
 - **Overestimation** has no principled bound and is informational only.
 - **No WASM execution.** The `#[version(2)]` dispatch and the `ValidationExternalities` panic
   guard are not covered. A tiny runtime executed through `sc_executor::WasmExecutor` would be
