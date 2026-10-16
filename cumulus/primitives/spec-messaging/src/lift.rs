@@ -670,7 +670,7 @@ mod tests {
 
 	#[test]
 	fn extension_identity_on_empty_frontier_yields_empty_root() {
-		// The empty frontier has the defined root H(EMPTY_TAG) (encoding spec §3.4); the
+		// The empty frontier has the defined root `empty_root()` (encoding spec §3.2); the
 		// identity extension yields it like any other frontier's own root. Nothing binds
 		// it to a committed entry; an empty stream is never in the StreamsRoot tree, so
 		// a downstream tree walk fails naturally.

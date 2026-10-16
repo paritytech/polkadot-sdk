@@ -14,7 +14,7 @@ sorts like the field tuple.
 
 ## 1. Hash domain tags
 
-One byte, always the first preimage byte. All seven values are disjoint and frozen; a new hashing
+One byte, always the first preimage byte. All six values are disjoint and frozen; a new hashing
 context takes a fresh tag.
 
 | Tag | Value | Preimage |
@@ -22,10 +22,9 @@ context takes a fresh tag.
 | `LEAF_TAG` | `0x01` | message-MMR leaf |
 | `INNER_TAG` | `0x02` | message-MMR inner node |
 | `PEAK_TAG` | `0x03` | message-MMR peak bagging |
-| `EMPTY_TAG` | `0x04` | empty-frontier root (§3.3) |
+| `ROOT_TAG` | `0x04` | stream root: leaf count over the bagged peaks; the empty root too (§3.2) |
 | `TREE_LEAF_TAG` | `0x05` | commitment-tree leaf (`STREAMS_LEAF_TAG` in code) |
 | `TREE_INNER_TAG` | `0x06` | commitment-tree inner node (`STREAMS_INNER_TAG` in code) |
-| `ROOT_TAG` | `0x07` | stream root: leaf count over the bagged peaks (§3.2) |
 
 Values, not names, are consensus.
 
@@ -66,9 +65,10 @@ Pinned: `H(0x01 ‖ 0x00 ‖ "hello")` =
 
 ```
 inner = H(INNER_TAG ‖ left ‖ right)
+bag([])       = 0^32
 bag([p])      = p
 bag([p1..pn]) = H(PEAK_TAG ‖ bag([p2..pn]) ‖ p1)
-root          = H(ROOT_TAG ‖ leaf_count:8 LE ‖ bag(peaks))    (41-byte preimage; leaf_count ≥ 1)
+root          = H(ROOT_TAG ‖ leaf_count:8 LE ‖ bag(peaks))    (41-byte preimage)
 ```
 
 Peaks are ordered highest (largest subtree, leftmost) to lowest. Bagging is a right fold with the
@@ -79,7 +79,18 @@ The root binds the leaf count because peak hashes do not commit their heights: t
 identically at many counts (the two peaks of 3 leaves are also a valid frontier of `2^47 + 1`).
 Without the count, a peer could present a committed root at a forged position (`base`,
 `MmrInclusionProof.mmr_size`, `MMRExtensionProof.leaf_count`). With it, every root comparison is also
-a count comparison. The empty frontier keeps its constant root (§3.3).
+a count comparison.
+
+The empty frontier has no peaks, so its bag is 32 zero bytes and its root is the count-0 case:
+
+```
+empty_root = H(ROOT_TAG ‖ 0:8 ‖ 0^32) =
+  3efd2c3528b8f163c2e2349211af73f86181b748be1b6a5eebfbadc9428643ce
+```
+
+Every non-empty stream has `leaf_count ≥ 1`, so no other root can equal it. It compares like any other
+root: the `Interval.start` of a stream's first consumption is this constant (§10), and the identity
+extension on an empty frontier yields it.
 
 ### 3.3 Frontier and position
 
@@ -92,16 +103,6 @@ The peak set is a pure function of `leaf_count`; `mmr_size = leaf_index_to_mmr_s
 1)`. Positions are derived (`frontier.leaf_count + i`), never stored. `leaf_count ≤
 MAX_MMR_LEAF_COUNT = 2^48`; `MmrFrontier::from_parts` rejects a larger count or a peak count that
 does not match the count's set bits.
-
-The empty frontier has the defined root
-
-```
-empty_root = H(EMPTY_TAG) =
-  642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342
-```
-
-It compares like any other root: the `Interval.start` of a stream's first consumption is this
-constant (§10), and the identity extension on an empty frontier yields it.
 
 ## 4. Stream commitment tree (`StreamsRoot`)
 
@@ -260,7 +261,7 @@ material only. The versioned libp2p protocol string is pinned by the node crate 
 struct Interval { start: MmrRoot, end: MmrFrontier }
 ```
 
-- `start` of a stream's first consumption is the empty root `H(EMPTY_TAG)` (§3.3).
+- `start` of a stream's first consumption is the empty root (§3.2).
 - `ConsumeItem::Channel { payloads }`: `start` = root of the stored inbound frontier, `end` = that
   frontier after appending the payloads.
 - `ConsumeItem::Events { base, start_peaks, payloads }` on an `Ack` stream (a register read):
@@ -310,7 +311,7 @@ A conforming implementation reproduces every family. Status of the Rust pins in 
 crate:
 
 1. **StreamId**: encode/decode round-trips per kind, reserved-kind rejection, ordering. Pinned.
-2. **MMR**: leaf known-answer (§3.1), empty root (§3.3), roots at 5, 64 and 65 leaves (all three
+2. **MMR**: leaf known-answer (§3.1), empty root (§3.2), roots at 5, 64 and 65 leaves (all three
    from an independent implementation of §3.2), frontier round-trips. Pinned.
 3. **Tree**: `tree_hash` known-answer, proof round-trip, non-decreasing step order rejected,
    adversarially-close keys and key-aliasing negatives. Pinned.

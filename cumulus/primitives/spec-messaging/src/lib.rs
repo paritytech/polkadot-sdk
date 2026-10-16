@@ -89,19 +89,16 @@ pub const INNER_TAG: u8 = 0x2;
 /// MMR peak bagging.
 pub const PEAK_TAG: u8 = 0x3;
 
-/// The empty MMR's root is `H(EMPTY_TAG)` ([`mmr::empty_root`]). `mmr_lib` has no root for an
-/// empty MMR; the protocol needs one, since a stream's first consumption starts there.
-pub const EMPTY_TAG: u8 = 0x4;
+/// Stream root: `H(ROOT_TAG ++ leaf_count[8, LE] ++ bag(peaks)[32])` ([`mmr::MmrRoot::from_bag`]).
+/// Binding the count stops a peer from presenting the same peaks at a forged position. The empty
+/// MMR has no peaks to bag; its root is the count-0 case, with a zero bag ([`mmr::empty_root`]).
+pub const ROOT_TAG: u8 = 0x4;
 
 /// Commitment-tree leaf: `H(STREAMS_LEAF_TAG ++ key[8] ++ stream_root[32])`.
 pub const STREAMS_LEAF_TAG: u8 = 0x5;
 
 /// Commitment-tree inner node: `H(STREAMS_INNER_TAG ++ split_bit ++ left[32] ++ right[32])`.
 pub const STREAMS_INNER_TAG: u8 = 0x6;
-
-/// Stream root: `H(ROOT_TAG ++ leaf_count[8, LE] ++ bag(peaks)[32])` ([`mmr::MmrRoot::from_bag`]).
-/// Binding the count stops a peer from presenting the same peaks at a forged position.
-pub const ROOT_TAG: u8 = 0x7;
 
 /// Leaf preimage version. Versions are hash-disjoint, so the layout can change without old leaves
 /// colliding with new ones.

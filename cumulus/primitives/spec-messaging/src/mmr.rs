@@ -34,7 +34,7 @@ use scale_info::TypeInfo;
 use sp_core::ConstU32;
 use sp_runtime::{traits::Hash as HashT, BoundedVec};
 
-use crate::{SpecHasher, EMPTY_TAG, INNER_TAG, PEAK_TAG, ROOT_TAG};
+use crate::{SpecHasher, INNER_TAG, PEAK_TAG, ROOT_TAG};
 
 /// Upper bound on any leaf count node positions are derived from. `mmr_lib`'s node count, `2 *
 /// leaf_count - leaf_count.count_ones()`, overflows `u64` above `2^63`. Peer-supplied counts are
@@ -86,11 +86,12 @@ fn tagged_node(tag: u8, left: &Hash, right: &Hash) -> Hash {
 	<SpecHasher as HashT>::hash(&preimage)
 }
 
-/// The root of an empty MMR: `H(EMPTY_TAG)` (encoding spec §3.4). `mmr_lib` has none; the protocol
-/// needs a comparable value, since a stream's first consumption starts from the empty frontier.
-/// Empty streams are never committed to the `StreamsRoot` tree.
+/// The root of an empty MMR: the count-0 root over a zero bag, `H(ROOT_TAG ++ 0[8] ++ 0[32])`
+/// (encoding spec §3.2). `mmr_lib` has none; the protocol needs a comparable value, since a
+/// stream's first consumption starts from the empty frontier. No other root has a count of 0, so
+/// none can equal it. Empty streams are never committed to the `StreamsRoot` tree.
 pub fn empty_root() -> Hash {
-	<SpecHasher as HashT>::hash(&[EMPTY_TAG])
+	MmrRoot::from_bag(0, Hash::zero()).0
 }
 
 /// Bag the peaks (highest to lowest) with `mmr_lib`'s own bagging, so the result equals
@@ -186,13 +187,10 @@ impl MmrFrontier {
 	}
 
 	/// The root: the leaf count bound over the bagged peaks ([`MmrRoot::from_bag`]). The empty
-	/// frontier has the defined root `H(EMPTY_TAG)` ([`empty_root`], encoding spec §3.4), so a
-	/// frontier that has consumed nothing compares and extends like any other.
+	/// frontier bags to zero ([`empty_root`]), so a frontier that has consumed nothing compares and
+	/// extends like any other.
 	pub fn root(&self) -> MmrRoot {
-		match bag_peaks(&self.peaks) {
-			Some(bag) => MmrRoot::from_bag(self.leaf_count, bag),
-			None => MmrRoot(empty_root()),
-		}
+		MmrRoot::from_bag(self.leaf_count, bag_peaks(&self.peaks).unwrap_or_default())
 	}
 
 	/// The `mmr_lib` node count (size) of this frontier's MMR. Total under the leaf-count
@@ -313,12 +311,12 @@ mod tests {
 
 	#[test]
 	fn empty_root_frozen_vector() {
-		// FROZEN consensus vector: blake2b-256 of the single byte 0x04 (EMPTY_TAG),
-		// the defined root of an empty frontier (encoding spec §3.4).
+		// FROZEN consensus vector: blake2b-256 of `ROOT_TAG = 0x04`, a zero `u64` count and a zero
+		// bag, the defined root of an empty frontier (encoding spec §3.2).
 		assert_eq!(
 			empty_root(),
 			Hash::from(hex_literal::hex!(
-				"642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342"
+				"3efd2c3528b8f163c2e2349211af73f86181b748be1b6a5eebfbadc9428643ce"
 			))
 		);
 	}
@@ -328,7 +326,7 @@ mod tests {
 		// FROZEN consensus vector: appending these fixed leaves must always bag to this exact root.
 		// Any change to `SpecMerge`'s inner/peak domain tags or the peak-bagging order is a
 		// consensus break and breaks this test. (Round-trip tests can't catch a silent
-		// byte-format change.) Pinned for `LEAF/INNER/PEAK/ROOT = 0x1/0x2/0x3/0x7`.
+		// byte-format change.) Pinned for `LEAF/INNER/PEAK/ROOT = 0x1/0x2/0x3/0x4`.
 		let mut acc = MmrFrontier::new();
 		for i in 1..=5u8 {
 			acc.append(h(i));
@@ -336,7 +334,7 @@ mod tests {
 		assert_eq!(
 			acc.root().0,
 			Hash::from(hex_literal::hex!(
-				"0bb9712a55a73a0c70a089f9be2f022076ffc28976d4d77925ec10c3b3dd76e1"
+				"1190cb02577a8bafec9f05c38e64ca9155b65e9d862604c4f3d920dff4e5a85f"
 			))
 		);
 	}
@@ -354,7 +352,7 @@ mod tests {
 		assert_eq!(
 			acc.root().0,
 			Hash::from(hex_literal::hex!(
-				"56c221bd71540e5c3e5ed27a869ea339dc62579c5de7b3dea39e5a4d574ef15d"
+				"41cec1de3c0e0af93a02932404fc195f0fbb56f542abbce0681b4632da0848c2"
 			))
 		);
 		acc.append(h(65));
@@ -362,7 +360,7 @@ mod tests {
 		assert_eq!(
 			acc.root().0,
 			Hash::from(hex_literal::hex!(
-				"423a3bde0480d9f41c44dbd992ff0d4ecaa6f99821ec979d04c1c9b40d1aa709"
+				"109ccf71e0b753f6ff76d7f48e59f6376c1347bea4556b20c4a453a2cb8ca28d"
 			))
 		);
 	}
