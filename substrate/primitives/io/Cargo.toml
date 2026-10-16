@@ -32,6 +32,16 @@ sp-trie = { optional = true, workspace = true }
 tracing = { workspace = true }
 tracing-core = { workspace = true }
 
+[target.'cfg(jam)'.dependencies]
+hash-db = { workspace = true }
+hash256-std-hasher = { workspace = true }
+sp-jam-runtime-interface = { workspace = true }
+
+[target.'cfg(all(substrate_runtime, jam))'.dependencies]
+libsecp256k1 = { workspace = true, default-features = false, features = ["static-context"] }
+picoalloc = { workspace = true }
+sp-trie = { workspace = true, default-features = false }
+
 [target.'cfg(not(substrate_runtime))'.dependencies]
 sp-keystore = { workspace = true, default-features = false }
 sp-trie = { workspace = true, default-features = false }
@@ -64,6 +74,7 @@ std = [
 	"sp-core/std",
 	"sp-crypto-hashing/std",
 	"sp-externalities/std",
+	"sp-jam-runtime-interface/std",
 	"sp-keystore/std",
 	"sp-runtime-interface/std",
 	"sp-state-machine/std",

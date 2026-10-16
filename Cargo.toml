@@ -505,6 +505,7 @@ members = [
 	"substrate/frame/vesting",
 	"substrate/frame/vesting/precompiles",
 	"substrate/frame/whitelist",
+	"substrate/jam/runtime-interface",
 	"substrate/primitives/api",
 	"substrate/primitives/api/proc-macro",
 	"substrate/primitives/api/test",
@@ -626,6 +627,7 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 	'cfg(enable_alloc_error_handler)',
 	'cfg(fuzzing)',
 	'cfg(ignore_flaky_test)',
+	'cfg(jam)',
 	'cfg(revive_debug)',
 	'cfg(substrate_runtime)',
 ] }
@@ -1134,6 +1136,7 @@ penpal-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/
 penpal-runtime = { path = "cumulus/parachains/runtimes/testing/penpal" }
 people-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-westend" }
 people-westend-runtime = { path = "cumulus/parachains/runtimes/people/people-westend" }
+picoalloc = { version = "5.2.1", default-features = false }
 pin-project = { version = "1.1.3" }
 polkadot-approval-distribution = { path = "polkadot/node/network/approval-distribution", default-features = false }
 polkadot-availability-bitfield-distribution = { path = "polkadot/node/network/bitfield-distribution", default-features = false }
@@ -1392,6 +1395,7 @@ sp-genesis-builder = { path = "substrate/primitives/genesis-builder", default-fe
 sp-hop = { path = "substrate/primitives/hop", default-features = false }
 sp-inherents = { path = "substrate/primitives/inherents", default-features = false }
 sp-io = { path = "substrate/primitives/io", default-features = false }
+sp-jam-runtime-interface = { path = "substrate/jam/runtime-interface", default-features = false }
 sp-keyring = { path = "substrate/primitives/keyring", default-features = false }
 sp-keystore = { path = "substrate/primitives/keystore", default-features = false }
 sp-maybe-compressed-blob = { path = "substrate/primitives/maybe-compressed-blob", default-features = false }

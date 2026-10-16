@@ -16497,6 +16497,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "picoalloc"
+version = "5.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ce68d5282de9d0a9fe76f0189dbcc08ec7713695673f4611ebab9d1c785bf21"
+
+[[package]]
 name = "picosimd"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -25959,15 +25965,19 @@ dependencies = [
  "bytes",
  "docify",
  "ed25519-dalek",
+ "hash-db",
+ "hash256-std-hasher",
  "libsecp256k1",
  "log",
  "parity-scale-codec",
+ "picoalloc",
  "polkavm-derive 0.36.0",
  "rustversion",
  "secp256k1 0.28.2",
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.25.0",
+ "sp-jam-runtime-interface",
  "sp-keystore 0.34.0",
  "sp-runtime-interface 24.0.0",
  "sp-state-machine 0.35.0",
@@ -26002,6 +26012,14 @@ dependencies = [
  "sp-trie 46.0.0",
  "tracing",
  "tracing-core",
+]
+
+[[package]]
+name = "sp-jam-runtime-interface"
+version = "0.1.0"
+dependencies = [
+ "impl-trait-for-tuples",
+ "polkavm-derive 0.36.0",
 ]
 
 [[package]]

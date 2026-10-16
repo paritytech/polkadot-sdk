@@ -1,0 +1,26 @@
+[package]
+name = "sp-jam-runtime-interface"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "Declare and implement the bare JAM host calls of a runtime"
+documentation = "https://docs.rs/sp-jam-runtime-interface/"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[target.'cfg(not(substrate_runtime))'.dependencies]
+impl-trait-for-tuples = { workspace = true }
+
+[target.'cfg(all(target_arch = "riscv64", substrate_runtime))'.dependencies]
+polkavm-derive = { workspace = true }
+
+[features]
+default = ["std"]
+std = []

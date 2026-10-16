@@ -79,9 +79,51 @@
 
 extern crate alloc;
 
-#[cfg(all(not(feature = "disable_allocator"), substrate_runtime))]
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, not(jam)))]
 mod global_alloc;
 
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, jam, target_arch = "riscv64"))]
+mod global_alloc_riscv;
+
 /// Host functions for the relay chain runtime.
+#[cfg(not(jam))]
 pub mod relay_chain;
+#[cfg(not(jam))]
 pub use relay_chain::*;
+
+/// Host functions for a JAM runtime.
+#[cfg(jam)]
+pub mod jam;
+#[cfg(jam)]
+pub use jam::*;
+
+#[cfg(all(jam, substrate_runtime, target_family = "wasm"))]
+compile_error!(
+	"`--cfg jam` runtimes must be built for PolkaVM (riscv64); the JAM host-call set has no wasm ABI."
+);
+
+/// A default panic handler for the JAM runtime environment.
+///
+/// The JAM host-call set has no `abort_on_panic` host call: the handler logs through the
+/// (no-op in-runtime) logging bridge and then traps with the RISC-V `unimp` instruction.
+#[cfg(all(not(feature = "disable_panic_handler"), substrate_runtime, jam))]
+#[panic_handler]
+pub fn panic(info: &core::panic::PanicInfo) -> ! {
+	let message = alloc::format!("{}", info);
+	logging::log(sp_core::RuntimeInterfaceLogLevel::Error, "runtime", message.as_bytes());
+	unreachable();
+}
+
+/// A default OOM handler for the JAM runtime environment.
+///
+/// Like [`panic`], there is no `abort_on_panic` host call: the handler logs and then traps.
+#[cfg(all(not(feature = "disable_oom"), enable_alloc_error_handler, jam))]
+#[alloc_error_handler]
+pub fn oom(_: core::alloc::Layout) -> ! {
+	logging::log(
+		sp_core::RuntimeInterfaceLogLevel::Error,
+		"runtime",
+		b"Runtime memory exhausted. Aborting",
+	);
+	unreachable();
+}
