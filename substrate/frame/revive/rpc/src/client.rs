@@ -24,7 +24,7 @@ use crate::{
 	BlockId, BlockInfoProvider, BlockNumberOrTag, FeeHistoryProvider, FeeHistoryResult, Filter,
 	Log, ReceiptInfo, ReceiptProvider, SubxtBlockInfoProvider, SyncLabel, SyncingProgress,
 	SyncingStatus, TraceOutcome, TransactionTrace,
-	block_sync::{ChainMetadata, SyncCheckpoint},
+	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::EthTransact},
 };
 use futures::TryStreamExt;
@@ -520,7 +520,6 @@ impl Client {
 			runtime_api_provider,
 			historical_sync_rate_limiter: historical_sync_rate_limiter.map(Arc::new),
 		};
-		client.log_sync_state().await;
 
 		Ok(client)
 	}
@@ -571,9 +570,11 @@ impl Client {
 		&self.block_provider
 	}
 
-	/// Returns the historical block sync rate limiter.
-	pub(crate) fn historical_sync_rate_limiter(&self) -> Option<&DefaultDirectRateLimiter> {
-		self.historical_sync_rate_limiter.as_deref()
+	/// Waits until the historical sync rate limit, if set, lets another block through.
+	pub async fn throttle_historical_sync(&self) {
+		if let Some(limiter) = &self.historical_sync_rate_limiter {
+			limiter.until_ready().await;
+		}
 	}
 
 	pub(crate) fn subscription_gap_queue(&self) -> &SubscriptionGapQueue {
@@ -587,28 +588,6 @@ impl Client {
 			.first_evm_block()
 			.or_else(|| known_first_evm_block_for_chain(self.chain_id))
 			.unwrap_or(0)
-	}
-
-	/// Logs the stored sync checkpoints and the first EVM block in use.
-	async fn log_sync_state(&self) {
-		let format_checkpoint = |stored: Result<Option<SyncCheckpoint>, ClientError>| match stored {
-			Ok(Some(checkpoint)) => format!("#{}", checkpoint.block_number),
-			Ok(None) => "none".to_string(),
-			Err(err) => format!("read failed ({err:?})"),
-		};
-		let head = format_checkpoint(self.receipt_provider.get_sync_label(SyncLabel::Head).await);
-		let tail = format_checkpoint(self.receipt_provider.get_sync_label(SyncLabel::Tail).await);
-		let genesis =
-			format_checkpoint(self.receipt_provider.get_sync_label(ChainMetadata::Genesis).await);
-		let db_first_evm_block = format_checkpoint(
-			self.receipt_provider.get_sync_label(ChainMetadata::FirstEvmBlock).await,
-		);
-
-		log::info!(target: LOG_TARGET,
-			"🗄️ Sync state: head={head}, tail={tail}, genesis={genesis}, \
-			 stored first EVM block={db_first_evm_block}, first EVM block in use=#{}",
-			self.earliest_block_number(),
-		);
 	}
 
 	/// Subscribe to new blocks, and execute the async closure for each block.

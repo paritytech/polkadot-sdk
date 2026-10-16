@@ -203,6 +203,15 @@ impl CliCommand {
 
 		Ok(Self::from_arg_matches(&matches).expect("already validated by clap"))
 	}
+
+	/// Returns an error for option combinations that clap cannot reject.
+	fn validate(&self) -> anyhow::Result<()> {
+		anyhow::ensure!(
+			self.historical_sync_max_blocks_per_sec.is_none() || self.eth_pruning.is_archive(),
+			HISTORICAL_SYNC_LIMIT_REQUIRES_ARCHIVE,
+		);
+		Ok(())
+	}
 }
 
 /// Initialize the logger
@@ -340,6 +349,7 @@ fn build_client(
 
 /// Start the JSON-RPC server using the given command line arguments.
 pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
+	cmd.validate()?;
 	let CliCommand {
 		rpc_params,
 		prometheus_params,
@@ -350,11 +360,6 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		historical_sync_max_blocks_per_sec,
 		..
 	} = cmd;
-
-	anyhow::ensure!(
-		historical_sync_max_blocks_per_sec.is_none() || eth_pruning.is_archive(),
-		HISTORICAL_SYNC_LIMIT_REQUIRES_ARCHIVE,
-	);
 
 	#[cfg(not(test))]
 	init_logger(&shared_params)?;
@@ -558,22 +563,16 @@ mod tests {
 
 	#[test]
 	fn historical_sync_limit_requires_archive_mode() {
-		let run_error = |eth_pruning: &str, max_blocks_per_sec: Option<u32>| {
-			let mut args = vec![
-				"eth-rpc".to_string(),
-				// An unparsable node URL makes `run` return an error instead of connecting.
-				"--node-rpc-url=invalid".to_string(),
-				format!("--eth-pruning={eth_pruning}"),
-			];
-			if let Some(limit) = max_blocks_per_sec {
-				args.push(format!("--historical-sync-max-blocks-per-sec={limit}"));
-			}
-			let cmd = CliCommand::try_parse_from(args).unwrap();
-			run(cmd).unwrap_err().to_string()
-		};
+		let parse = |args: &[&str]| CliCommand::try_parse_from(args).unwrap();
 
-		assert_eq!(run_error("256", Some(5)), HISTORICAL_SYNC_LIMIT_REQUIRES_ARCHIVE);
-		assert_ne!(run_error("256", None), HISTORICAL_SYNC_LIMIT_REQUIRES_ARCHIVE);
-		assert_ne!(run_error("archive", Some(5)), HISTORICAL_SYNC_LIMIT_REQUIRES_ARCHIVE);
+		assert_eq!(
+			parse(&["eth-rpc", "--eth-pruning=256", "--historical-sync-max-blocks-per-sec=5"])
+				.validate()
+				.unwrap_err()
+				.to_string(),
+			HISTORICAL_SYNC_LIMIT_REQUIRES_ARCHIVE,
+		);
+		assert!(parse(&["eth-rpc", "--eth-pruning=256"]).validate().is_ok());
+		assert!(parse(&["eth-rpc", "--historical-sync-max-blocks-per-sec=5"]).validate().is_ok());
 	}
 }

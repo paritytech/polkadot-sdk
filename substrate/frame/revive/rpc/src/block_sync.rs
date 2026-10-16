@@ -194,11 +194,19 @@ impl Client {
 			self.receipt_provider().get_sync_label(SyncLabel::Head),
 			self.receipt_provider().get_sync_label(SyncLabel::Tail),
 		)?;
+		let first_evm_block = self
+			.receipt_provider()
+			.first_evm_block()
+			.map_or_else(|| "not stored".to_string(), |number| format!("#{number}"));
 
 		match (tail, head) {
 			(Some(tail), Some(head)) => {
 				// Verify boundary hashes still match the finalized chain.
 				tokio::try_join!(self.verify_boundary(&tail), self.verify_boundary(&head),)?;
+				log::info!(target: LOG_TARGET,
+					"🗄️ Resuming sync: DB has blocks #{}..#{}, chain head is #{}, \
+					 first EVM block {first_evm_block}",
+					tail.block_number, head.block_number, latest_finalized.block_number);
 				self.sync_backward_resume(tail, head, latest_finalized).await?;
 			},
 			(Some(_), None) => {
@@ -209,7 +217,8 @@ impl Client {
 			},
 			_ => {
 				log::info!(target: LOG_TARGET,
-					"🗄️ Fresh sync: syncing backward from #{}", latest_finalized.block_number);
+					"🗄️ Fresh sync: syncing backward from #{}, first EVM block {first_evm_block}",
+					latest_finalized.block_number);
 				self.sync_backward_fresh(latest_finalized.block_number).await?;
 			},
 		}
@@ -244,10 +253,6 @@ impl Client {
 		head: SyncCheckpoint,
 		latest_finalized: SyncCheckpoint,
 	) -> Result<(), ClientError> {
-		log::info!(target: LOG_TARGET,
-			"🗄️ Resuming sync: DB has blocks #{}..#{}, chain head is #{}",
-			tail.block_number, head.block_number, latest_finalized.block_number);
-
 		let top_gap = async {
 			// Top gap: sync from latest_finalized down to head + 1.
 			if head.block_number < latest_finalized.block_number {
@@ -325,8 +330,8 @@ impl Client {
 			|synced: u64| synced <= 1 || synced.is_multiple_of(u64::from(BLOCK_INTERVAL));
 
 		let loop_result: Result<(), ClientError> = loop {
-			if rate_limit && let Some(limiter) = self.historical_sync_rate_limiter() {
-				limiter.until_ready().await;
+			if rate_limit {
+				self.throttle_historical_sync().await;
 			}
 
 			let block_number = block.block_number();

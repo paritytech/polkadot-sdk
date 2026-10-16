@@ -406,6 +406,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_gas_estimation_with_no_funds_and_with_gas_specified,
 		test_block_sync_fresh,
 		test_block_sync_resume_interrupted,
+		test_block_sync_honors_rate_limit,
 		test_block_sync_detects_corruption,
 		test_block_sync_picks_up_new_blocks,
 		test_state_override_balance,
@@ -2429,22 +2430,14 @@ async fn create_sync_test_client_with_subscription_gap_queue(
 	Ok((client, gap_fill_rx))
 }
 
-/// Checks that a historical block sync into an empty database records the sync labels and the
-/// block hash mappings, respects the rate limit, and can run again without moving the head back.
+/// Fresh sync: labels, hash mappings, and re-sync idempotency.
 async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	use crate::block_sync::SyncCheckpoint;
 
-	// The rate-limited sync below must take at least this long.
-	const MIN_SYNC_TIME: std::time::Duration = std::time::Duration::from_secs(2);
+	// Submit a transaction so the chain has at least one block with EVM data to sync.
+	submit_evm_transfers(1).await?;
 
-	// At the slowest limit, 1 block/s, the sync needs this many blocks to last `MIN_SYNC_TIME`.
-	submit_evm_transfers(MIN_SYNC_TIME.as_secs() as usize).await?;
-
-	let block_count = SharedResources::node_client().await.at_current_block().await?.block_number();
-	let max_blocks_per_sec = NonZeroU32::new(u32::try_from(block_count / MIN_SYNC_TIME.as_secs())?)
-		.unwrap_or(NonZeroU32::MIN);
-	let (client, _gap_fill_rx) =
-		create_sync_test_client_with_subscription_gap_queue(Some(max_blocks_per_sec)).await?;
+	let client = create_sync_test_client().await?;
 
 	// Fresh DB — sync_state table should be empty.
 	for label in [SyncLabel::Tail, SyncLabel::Head] {
@@ -2464,9 +2457,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	let finalized_before_sync = client.latest_finalized_block().await.block_number();
 
 	// Run the full backward sync.
-	let start = std::time::Instant::now();
 	client.sync_backward().await?;
-	let sync_elapsed = start.elapsed();
 
 	// Genesis label must match the chain.
 	let genesis = client
@@ -2498,12 +2489,6 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 		.await?
 		.expect("Tail should be set after sync");
 	assert_eq!(sync_tail, genesis, "Tail should be genesis");
-
-	// 100ms of slack: the limiter and the test read different clocks.
-	assert!(
-		sync_elapsed + std::time::Duration::from_millis(100) >= MIN_SYNC_TIME,
-		"the sync took {sync_elapsed:?}, expected at least {MIN_SYNC_TIME:?}",
-	);
 
 	// On the dev node all blocks (including genesis) have EVM hashes
 	let evm_first = client.receipt_provider().get_sync_label(ChainMetadata::FirstEvmBlock).await?;
@@ -2663,6 +2648,48 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 		interrupted_head.block_number,
 		new_tail.block_number,
 		new_head.block_number,
+	);
+
+	Ok(())
+}
+
+/// Checks that the historical block sync honors the rate limit.
+async fn test_block_sync_honors_rate_limit() -> anyhow::Result<()> {
+	use crate::block_sync::SyncCheckpoint;
+
+	const GAP_BLOCKS: u64 = 3;
+	// At 1 block/s, the first block passes at once and each other block waits a second.
+	let min_sync_time = std::time::Duration::from_secs(GAP_BLOCKS - 1);
+
+	// The gap needs this many blocks above genesis, also when the test runs on its own.
+	submit_evm_transfers(GAP_BLOCKS as usize).await?;
+
+	let (client, _gap_fill_rx) =
+		create_sync_test_client_with_subscription_gap_queue(Some(NonZeroU32::MIN)).await?;
+
+	// With Tail at genesis and Head `GAP_BLOCKS` below the finalized block, the resume syncs only
+	// the blocks above Head.
+	let finalized = client.latest_finalized_block().await.block_number();
+	for (label, block_number) in [(SyncLabel::Tail, 0), (SyncLabel::Head, finalized - GAP_BLOCKS)] {
+		let block = client
+			.block_provider()
+			.block_by_number(block_number)
+			.await?
+			.expect("the block is below the finalized block");
+		client
+			.receipt_provider()
+			.set_sync_label(label, SyncCheckpoint::new(block_number, block.block_hash()))
+			.await?;
+	}
+
+	let start = std::time::Instant::now();
+	client.sync_backward().await?;
+	let sync_elapsed = start.elapsed();
+
+	// 100ms of slack: the limiter and the test read different clocks.
+	assert!(
+		sync_elapsed + std::time::Duration::from_millis(100) >= min_sync_time,
+		"the sync took {sync_elapsed:?}, expected at least {min_sync_time:?}",
 	);
 
 	Ok(())

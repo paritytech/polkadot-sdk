@@ -7,7 +7,7 @@ doc:
     node. It requires `--eth-pruning archive` (the default); with any other value, eth-rpc fails
     to start. Without the option there is no limit, so existing deployments need no change.
 
-    eth-rpc also logs its stored sync state at startup.
+    The log line that starts the historical sync now also shows the stored first EVM block.
 
     `CliCommand` has a new public field, `historical_sync_max_blocks_per_sec`. Code that constructs
     it with a struct literal must set the field; `None` keeps the previous behavior.
