@@ -1113,6 +1113,13 @@ mod tests {
 		backend: TestBackend,
 		apply_changes: impl FnOnce(&mut dyn Externalities),
 	) -> (usize, usize) {
+		estimation_and_storage_root_proof_sizes_with_recorder(backend, |ext, _| apply_changes(ext))
+	}
+
+	fn estimation_and_storage_root_proof_sizes_with_recorder(
+		backend: TestBackend,
+		apply_changes: impl FnOnce(&mut dyn Externalities, &Recorder<Blake2Hasher>),
+	) -> (usize, usize) {
 		let mut overlay = OverlayedChanges::default();
 
 		let estimation_recorder = Recorder::<Blake2Hasher>::default();
@@ -1121,7 +1128,7 @@ mod tests {
 				.with_recorder(estimation_recorder.clone())
 				.build();
 			let mut ext = Ext::new(&mut overlay, &backend, None);
-			apply_changes(&mut ext);
+			apply_changes(&mut ext, &estimation_recorder);
 			ext.record_proof_for_dirty_keys();
 		}
 
@@ -1158,6 +1165,191 @@ mod tests {
 		let (estimation, storage_root) =
 			estimation_and_storage_root_proof_sizes(backend, apply_changes);
 		assert!(estimation >= storage_root, "{estimation} < {storage_root}");
+	}
+
+	/// Nibble paths of the block-start trie: root -5- A -0- B -0- L1 (K1), B -1- L2 (K2),
+	/// A -1- L3 (K3). Deleting K1 and K2 collapses B into L2 and then A into L3, so L3 is loaded
+	/// only when both deletes are seen by one trie.
+	const K1: &[u8] = &[0x50, 0x00, 0xAA, 0xAA];
+	const K2: &[u8] = &[0x50, 0x10, 0xBB, 0xBB];
+	const K3: &[u8] = &[0x51, 0x00, 0xCC, 0xCC];
+	const FILLER: &[u8] = &[0x00, 0x11, 0x22, 0x33];
+
+	fn collapse_scenario_keys() -> Vec<(Vec<u8>, Vec<u8>)> {
+		let fillers = [0x0u8, 0x1, 0x2, 0x3, 0xA, 0xB, 0xC, 0xD]
+			.into_iter()
+			.map(|nibble| (vec![nibble << 4, 0x11, 0x22, 0x33], vec![nibble; 64]));
+		fillers
+			.chain([
+				(K1.to_vec(), vec![1u8; 64]),
+				(K2.to_vec(), vec![2u8; 64]),
+				(K3.to_vec(), vec![3u8; 64]),
+			])
+			.collect()
+	}
+
+	fn collapse_scenario_backend() -> TestBackend {
+		(
+			Storage {
+				top: collapse_scenario_keys().into_iter().collect(),
+				children_default: Default::default(),
+			},
+			StateVersion::V1,
+		)
+			.into()
+	}
+
+	/// Deleting in a child trie marks its root key as deleted in the top trie. The top keys share
+	/// the first byte of that key, so its branch keeps enough siblings not to collapse and the
+	/// top trie adds nothing beyond what the real root touches.
+	fn collapse_scenario_child_backend(child_info: &ChildInfo) -> TestBackend {
+		let child_root_key_first_byte = child_info.prefixed_storage_key().as_slice()[0];
+		let top = (0..4u8).map(|nibble| {
+			(vec![child_root_key_first_byte, nibble << 4, 0x22, 0x33], vec![nibble; 64])
+		});
+		backend_with_child(child_info, top, collapse_scenario_keys().into_iter())
+	}
+
+	/// A host transaction rolls back the recorder as well, as the runtime API glue does.
+	fn start_host_transaction(ext: &mut dyn Externalities, recorder: &Recorder<Blake2Hasher>) {
+		recorder.start_transaction();
+		ext.storage_start_transaction();
+	}
+
+	fn rollback_host_transaction(ext: &mut dyn Externalities, recorder: &Recorder<Blake2Hasher>) {
+		ext.storage_rollback_transaction().expect("transaction is open");
+		recorder.rollback_transaction().expect("transaction is open");
+	}
+
+	/// Each flush must see the deletes of the earlier ones, otherwise a collapse that only
+	/// happens jointly is never recorded and the block may overshoot its PoV budget.
+	#[test]
+	fn joint_collapse_across_flushes_is_estimated_exactly() {
+		for (first, second) in [(K1, K2), (K2, K1)] {
+			assert_estimation_matches_storage_root(collapse_scenario_backend(), |ext| {
+				ext.clear_storage(first);
+				ext.record_proof_for_dirty_keys();
+				ext.clear_storage(second);
+			});
+		}
+	}
+
+	/// A host rollback drops the nodes recorded inside the transaction from the proof. The
+	/// estimation trie must forget the deletes too, otherwise re-deleting the key is served from
+	/// memory and records nothing.
+	#[test]
+	fn host_rollback_restores_the_estimation_trie() {
+		let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_with_recorder(
+			collapse_scenario_backend(),
+			|ext, recorder| {
+				start_host_transaction(ext, recorder);
+				ext.clear_storage(K1);
+				ext.record_proof_for_dirty_keys();
+				rollback_host_transaction(ext, recorder);
+
+				ext.clear_storage(K1);
+				ext.record_proof_for_dirty_keys();
+				ext.clear_storage(K2);
+			},
+		);
+		assert_eq!(estimation, storage_root);
+	}
+
+	/// A runtime rollback keeps the recorded nodes, but the estimation trie must still undo the
+	/// collapse, otherwise the next delete collapses one level further than the real root does.
+	#[test]
+	fn runtime_rollback_restores_the_estimation_trie() {
+		assert_estimation_matches_storage_root(collapse_scenario_backend(), |ext| {
+			ext.storage_start_transaction();
+			ext.clear_storage(K1);
+			ext.record_proof_for_dirty_keys();
+			ext.storage_rollback_transaction().expect("transaction is open");
+
+			ext.clear_storage(K2);
+		});
+	}
+
+	/// Committing an inner transaction hands its deletes to the outer one, so an outer rollback
+	/// must undo them along with its own, back to the flush made before it started.
+	#[test]
+	fn outer_host_rollback_undoes_committed_inner_transaction() {
+		let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_with_recorder(
+			collapse_scenario_backend(),
+			|ext, recorder| {
+				ext.clear_storage(FILLER);
+				ext.record_proof_for_dirty_keys();
+
+				start_host_transaction(ext, recorder);
+				ext.clear_storage(K1);
+				ext.record_proof_for_dirty_keys();
+				ext.storage_start_transaction();
+				ext.clear_storage(K2);
+				ext.record_proof_for_dirty_keys();
+				ext.storage_commit_transaction().expect("transaction is open");
+				rollback_host_transaction(ext, recorder);
+
+				ext.clear_storage(K1);
+				ext.record_proof_for_dirty_keys();
+				ext.clear_storage(K2);
+			},
+		);
+		assert_eq!(estimation, storage_root);
+	}
+
+	/// Removing the last key turns the trie into the empty trie, which has no in-memory node to
+	/// roll back to; the rollback must still restore the full trie.
+	#[test]
+	fn emptied_estimation_trie_is_restored_by_rollback() {
+		let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_with_recorder(
+			collapse_scenario_backend(),
+			|ext, recorder| {
+				start_host_transaction(ext, recorder);
+				for (key, _) in collapse_scenario_keys() {
+					ext.clear_storage(&key);
+				}
+				ext.record_proof_for_dirty_keys();
+				rollback_host_transaction(ext, recorder);
+
+				ext.clear_storage(K1);
+				ext.record_proof_for_dirty_keys();
+				ext.clear_storage(K2);
+			},
+		);
+		assert_eq!(estimation, storage_root);
+	}
+
+	#[test]
+	fn joint_collapse_across_flushes_in_child_trie_is_estimated_exactly() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		for (first, second) in [(K1, K2), (K2, K1)] {
+			assert_estimation_matches_storage_root(
+				collapse_scenario_child_backend(&child_info),
+				|ext| {
+					ext.clear_child_storage(&child_info, first);
+					ext.record_proof_for_dirty_keys();
+					ext.clear_child_storage(&child_info, second);
+				},
+			);
+		}
+	}
+
+	#[test]
+	fn host_rollback_restores_the_child_estimation_trie() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_with_recorder(
+			collapse_scenario_child_backend(&child_info),
+			|ext, recorder| {
+				start_host_transaction(ext, recorder);
+				ext.clear_child_storage(&child_info, K1);
+				ext.record_proof_for_dirty_keys();
+				rollback_host_transaction(ext, recorder);
+
+				ext.clear_child_storage(&child_info, K1);
+				ext.record_proof_for_dirty_keys();
+				ext.clear_child_storage(&child_info, K2);
+			},
+		);
+		assert_eq!(estimation, storage_root);
 	}
 
 	#[test]
