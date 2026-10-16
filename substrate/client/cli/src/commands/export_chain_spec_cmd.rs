@@ -31,17 +31,10 @@ use std::{
 /// genesis config presets which can be referenced via `--chain <id>` . The logic for
 /// loading the chain spec into memory based on an `id` is specific to each
 /// node and is a prerequisite to enable this command.
-///
-/// Same functionality can be achieved currently via
-/// [`crate::commands::build_spec_cmd::BuildSpecCmd`]  but we recommend
-/// `export-chain-spec` in its stead. `build-spec` is known
-///  to be a legacy mix of exporting chain specs to JSON files or
-///  converting them to raw, which will be better
-///  represented under `export-chain-spec`.
 #[derive(Debug, Clone, Parser)]
 pub struct ExportChainSpecCmd {
 	/// The chain spec identifier to export.
-	#[arg(long, default_value = "local")]
+	#[arg(long, default_value = "")]
 	pub chain: String,
 
 	/// `chain-spec` JSON file path. If omitted, prints to stdout.
