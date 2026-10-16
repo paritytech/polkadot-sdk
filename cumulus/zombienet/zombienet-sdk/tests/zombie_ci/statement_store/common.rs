@@ -542,8 +542,7 @@ pub(super) async fn wait_for_first_block(
 }
 
 /// Builds collator CLI args that pin the v2 DHT replication factor `K` and gossip target, on top of
-/// [`collator_args`]. The v2 path itself is switched on by the `STATEMENT_STORE_V2_DHT_ENABLED`
-/// environment variable, not a CLI flag (see [`spawn_network_with_injected_allowances_v2`]).
+/// [`collator_args`]. The v2 path itself is on by default.
 pub(super) fn collator_args_v2(
 	participant_count: u32,
 	log_filter: &str,
@@ -559,9 +558,6 @@ pub(super) fn collator_args_v2(
 }
 
 /// Spawns a network on the v2 DHT path with injected allowances, pinning `K` and the gossip target.
-///
-/// The v2 DHT path is gated by `v2dht_enabled()`, which reads `STATEMENT_STORE_V2_DHT_ENABLED`, so
-/// we set that on every collator rather than passing a CLI flag.
 pub(super) async fn spawn_network_with_injected_allowances_v2(
 	collators: &[&str],
 	participant_count: u32,
@@ -577,8 +573,7 @@ pub(super) async fn spawn_network_with_injected_allowances_v2(
 		replication_factor,
 		gossip_target,
 	);
-	launch_network(collators, &chain_spec_path, args, &[("STATEMENT_STORE_V2_DHT_ENABLED", "1")])
-		.await
+	launch_network(collators, &chain_spec_path, args, &[]).await
 }
 
 /// Statements the late-joiner scenario submits with keypair 0: three before the joiner starts,

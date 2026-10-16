@@ -187,7 +187,7 @@ async fn launch_soak_network(
 		&full_nodes,
 		&chain_spec_path,
 		args,
-		&[("STATEMENT_STORE_V2_DHT_ENABLED", "1")],
+		&[],
 	)
 	.await
 }
@@ -833,7 +833,7 @@ async fn run_node_join(
 		info!("Lifecycle join: adding {JOINER_NAME} to {} statement nodes", nodes.len());
 		// The joiner inherits the parachain's default args, the soak's v2 DHT flags among them
 		let joiner_options = AddCollatorOptions {
-			env: vec![("STATEMENT_STORE_V2_DHT_ENABLED", "1").into()],
+			env: vec![],
 			..Default::default()
 		};
 		network.add_collator(JOINER_NAME, joiner_options, 1004).await?;
