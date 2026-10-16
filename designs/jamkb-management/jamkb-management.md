@@ -87,7 +87,7 @@ Example flow for governance permanent release, from approval through settlement.
 ━━ Asset Hub block B: execution ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Governance (Root)
-   │  approve_release(target, amount): the units are held on custody
+   │  approve_release(target, amount, memo): the units are held on custody
    ▼
 Any signed account
    │  execute_release(id)
@@ -197,6 +197,11 @@ const CAP: Balance;
 /// and `dispose_excess` with `refund`. A smaller `amount` is rejected.
 const MIN_TRANSFER: Balance;
 
+/// The gas every deferred `TransferOut` carries (§5.2). A destination whose
+/// `min_memo_gas` is above it refuses with `GasBelowDestinationMinimum`, and
+/// the operation fails.
+const MEMO_GAS: u64;
+
 type AllocationId = u64;              // assigned from 1;
 type OperationId = u64;               // assigned from 1;
 
@@ -237,7 +242,7 @@ type FrozenTargets = Set<ServiceId>;
 /// One approved allocation.
 struct Allocation {
     id: AllocationId,
-    mode: AllocationMode,             // Lease { duration } | Permanent
+    mode: AllocationMode,             // Lease { duration } | Permanent { memo }
     target: ServiceId,
     amount: Balance,
     state: AllocationState,
@@ -255,7 +260,7 @@ struct Allocation {
 
 enum AllocationMode {
     Lease { duration: BlockNumber },
-    Permanent,
+    Permanent { memo: [u8; 128] },    // the memo of the release (§5.2)
 }
 
 enum AllocationState {
@@ -286,7 +291,8 @@ struct Operation {
 enum OperationPayload {
     /// A lease or a governance permanent release (§4.1, §4.2.1).
     /// One `TransferOut` crediting the allocation's target; deferred when the
-    /// allocation's mode is `Permanent`.
+    /// allocation's mode is `Permanent`, with that mode's memo and the gas of
+    /// §5.2.
     ///
     /// Confirmed: the allocation moves to `Delivered` and `delivered_at` is
     /// set to the operation's `submitted_at`; for a release, the held units
@@ -305,13 +311,15 @@ enum OperationPayload {
         additional: Balance,
     },
     /// A redemption of holder funds (§4.2.2).
-    /// One deferred `TransferOut` crediting `target`'s regular balance.
+    /// One deferred `TransferOut`, with the memo and gas of §5.2, crediting
+    /// `target`'s regular balance.
     ///
     /// Confirmed: the held units move from `holder` to the `released` account.
     Redemption {
         holder: AccountId,            // the redeemer; the hold sits on it
         target: ServiceId,
         amount: Balance,              // the units locked for the transfer
+        memo: [u8; 128],              // the redeemer's memo (§5.2)
     },
     /// A lease return (`reclaim`, §4.3).
     /// One plain `TransferOut` debiting the lease target's supervisor balance
@@ -380,13 +388,15 @@ enum OperationPayload {
         target: ServiceId,
     },
     /// A refund of an incoming transfer to its source (`dispose_excess`).
-    /// One deferred `TransferOut` crediting `source`'s regular balance.
+    /// One deferred `TransferOut`, with the memo and gas of §5.2, crediting
+    /// `source`'s regular balance.
     ///
     /// Confirmed: the held units move from the `excess` account to the
     /// `released` account.
     Refund {
         source: ServiceId,
         amount: Balance,
+        memo: [u8; 128],              // governance's memo (§5.2)
     },
 }
 
@@ -480,10 +490,11 @@ fn grant(beneficiary: AccountId, amount: Balance);
 // ── Permanent release ──────────────────────────────────────────────────────
 
 /// Approves a permanent release to `target`. Origin: governance (Root).
-/// Records `Allocation{mode: Permanent, state: Approved}` and holds `amount`
-/// on custody (§3.3). `valid_from` `None` means the current block. Rejected
-/// when `target` is the Parachain Service.
-fn approve_release(target: ServiceId, amount: Balance,
+/// Records `Allocation{mode: Permanent { memo }, state: Approved}` and holds
+/// `amount` on custody (§3.3). `memo` goes to `target` unchanged (§5.2).
+/// `valid_from` `None` means the current block. Rejected when `target` is the
+/// Parachain Service.
+fn approve_release(target: ServiceId, amount: Balance, memo: [u8; 128],
                    valid_from: Option<BlockNumber>, valid_for: BlockNumber);
 
 /// Executes an approved release. Origin: any signed account. Legal while
@@ -493,8 +504,9 @@ fn execute_release(id: AllocationId);
 
 /// Moves the caller's own units to `target`. Origin: any signed account. Holds
 /// `amount` on the caller and records a `Redemption` operation with the
-/// caller as `holder`. Rejected when `target` is the Parachain Service.
-fn redeem(amount: Balance, target: ServiceId);
+/// caller as `holder`. `memo` goes to `target` unchanged (§5.2). Rejected
+/// when `target` is the Parachain Service.
+fn redeem(amount: Balance, target: ServiceId, memo: [u8; 128]);
 
 // ── Lease ──────────────────────────────────────────────────────────────────
 
@@ -587,9 +599,11 @@ fn claim(beneficiary: AccountId);
 /// Disposes an excess amount per service. Origin: governance (Root). Lowers
 /// `Excess[source]` by `amount`. With `refund = true` it holds `amount` on the
 /// `excess` account and records a `Refund` operation sending the units back to
-/// the `source` service's regular balance; with `refund = false` it moves the
-/// units from the `excess` account to custody.
-fn dispose_excess(source: ServiceId, amount: Balance, refund: bool);
+/// the `source` service's regular balance, with `memo` unchanged (§5.2); with
+/// `refund = false` it moves the units from the `excess` account to custody
+/// and `memo` is ignored.
+fn dispose_excess(source: ServiceId, amount: Balance, refund: bool,
+                  memo: [u8; 128]);
 
 // ── Shared by every flow ───────────────────────────────────────────────────
 
@@ -657,7 +671,8 @@ interface IJamkb {
 
     // -- Permanent release --
     function executeRelease(uint64 allocationId) external returns (uint64 opId);
-    function redeem(uint128 amount, uint32 target) external returns (uint64 opId);
+    function redeem(uint128 amount, uint32 target, bytes32[4] calldata memo)
+        external returns (uint64 opId);
 
     // -- Lease --
     /// `validFrom` 0 means the current block.
@@ -767,6 +782,12 @@ The pallet needs from it:
 - input processing that cannot fail and has bounded weight;
 - a send queue within 1024 messages and 40 KiB per block, with a sharing
   policy between pallets;
+- gas accounting for the send queue messages: a limit on how much gas the
+  messages of one block cost, shared between pallets. Each deferred
+  `TransferOut` costs JAM's fixed transfer cost, `C_gasT` (Gray Paper), plus
+  the memo gas. The limit is large enough
+  for any single message, so every queued message is sent; messages that do
+  not fit in this block are sent in a later one;
 - `CleanUpBucketsUpTo` sent after the booked `incoming_transfers` buckets.
 
 ---
@@ -813,7 +834,7 @@ the adapter sells the units on the Hub, and the buyer releases them.
 Governance releases units from DAO custody.
 
 ```
-Phase 1: Approve      `approve_release(target, amount, ..)` records the
+Phase 1: Approve      `approve_release(target, amount, memo, ..)` records the
                       release allocation.
 Phase 2: Execute      `execute_release(id)` starts delivery to the target's
                       regular balance.
@@ -832,8 +853,8 @@ Any holder of spendable units may release their own units to a JAM service,
 bypassing governance:
 
 ```
-Phase 1: Redeem       `redeem(amount, target)` starts delivery to the
-                      target's regular balance.
+Phase 1: Redeem       `redeem(amount, target, memo)` starts delivery to
+                      the target's regular balance.
 Phase 2: Confirm      `settle(op_id)` resolves the operation.
                       The output:
                       Confirmed: the credit sits on the target's regular
@@ -929,8 +950,13 @@ most one unsettled recovery operation per target.
 
 ### 5.2 Memo Requirements
 
-JAM transfer memos are 128 octets. A voluntary return carries the beneficiary
-account in it. The exact layout is to be defined.
+JAM transfer memos are 128 octets. A redemption, a release and a refund
+carry the memo their caller supplies, in a format the destination service
+defines. Every deferred `TransferOut` carries `MEMO_GAS`. A service that
+receives JAMKB from Asset Hub keeps its `min_memo_gas` at or below
+`MEMO_GAS`; a transfer to a service above it is refused and undone. A
+voluntary return carries the beneficiary account; its layout is to be
+defined.
 
 ---
 
