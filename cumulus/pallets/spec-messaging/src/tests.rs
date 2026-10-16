@@ -391,6 +391,44 @@ fn events_item_rebuilds_frontier_and_guards_replay() {
 }
 
 #[test]
+fn an_events_item_at_the_leaf_count_ceiling_is_rejected() {
+	new_test_ext().execute_with(|| {
+		// A message on one stream, then an `Events` item whose hints put the frontier at the
+		// ceiling. Were its payload appended, the record would not decode and would read as empty:
+		// no `Requires`, so the first message would never be checked. The block is invalid instead.
+		let (a, s) = (src(), stream(0));
+		let at_ceiling = ConsumeItem::Events {
+			base: MessagePosition(cumulus_primitives_spec_messaging::mmr::MAX_MMR_LEAF_COUNT),
+			start_peaks: vec![polkadot_core_primitives::Hash::zero()],
+			payloads: vec![data_payload(b"reg")],
+		};
+		assert_err!(
+			SpecMessaging::enact_messages(
+				RuntimeOrigin::none(),
+				inherent(vec![
+					(a, s, ConsumeItem::Channel { payloads: vec![data_payload(b"forged")] }),
+					(a, stream(1), at_ceiling),
+				]),
+			),
+			Error::<Test>::BadFrontier
+		);
+	});
+}
+
+#[test]
+fn an_undecodable_consumption_record_never_reads_as_empty() {
+	new_test_ext().execute_with(|| {
+		// Bytes that claim one entry but do not decode: `get` alone would read them as empty.
+		frame_support::storage::unhashed::put_raw(
+			&ConsumptionOutbox::<Test>::hashed_key(),
+			&[0x04, 0xff],
+		);
+		let read = std::panic::catch_unwind(|| SpecMessaging::consumption_record());
+		assert!(read.is_err());
+	});
+}
+
+#[test]
 fn a_second_enact_in_one_block_is_rejected() {
 	new_test_ext().execute_with(|| {
 		let (a, s) = (src(), stream(0));

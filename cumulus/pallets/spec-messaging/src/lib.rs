@@ -161,7 +161,8 @@ pub mod pallet {
 		TooManyStreams,
 		/// [`Config::MaxContextGaps`] exhausted.
 		TooManyGaps,
-		/// An `Events` item's `(start_peaks, base)` is not a valid frontier.
+		/// An `Events` item's `(start_peaks, base)` is not a valid frontier, or an item's payloads
+		/// would carry a frontier past `MAX_MMR_LEAF_COUNT`.
 		BadFrontier,
 		/// An `Events` item's `base` does not exceed the highwater (a replay).
 		Replay,
@@ -402,7 +403,9 @@ impl<T: Config> Pallet<T> {
 		let start = frontier.root();
 		for payload in &payloads {
 			let position = MessagePosition(frontier.leaf_count());
-			frontier.append(leaf_hash(LEAF_VERSION, payload));
+			frontier
+				.try_append(leaf_hash(LEAF_VERSION, payload))
+				.map_err(|_| Error::<T>::BadFrontier)?;
 			// Route `Data`; signals are the channel layer's. A non-`SpecMsgKind` payload is a valid
 			// leaf regardless, so it is consumed-and-dropped.
 			if let Ok(SpecMsgKind::Data(data)) = SpecMsgKind::decode_all(&mut &payload[..]) {
@@ -434,8 +437,12 @@ impl<T: Config> Pallet<T> {
 		let mut frontier =
 			MmrFrontier::from_parts(start_peaks, base.0).ok_or(Error::<T>::BadFrontier)?;
 		let start = frontier.root();
+		// The hints can put the frontier at the ceiling: a frontier past it would not decode, and
+		// would read back as an empty record.
 		for payload in &payloads {
-			frontier.append(leaf_hash(LEAF_VERSION, payload));
+			frontier
+				.try_append(leaf_hash(LEAF_VERSION, payload))
+				.map_err(|_| Error::<T>::BadFrontier)?;
 		}
 		InboundHighwater::<T>::insert(
 			(source, stream),
@@ -470,9 +477,21 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// This block's consumption grouped by source, per source in [`StreamId`] order.
+	///
+	/// # Panics
+	///
+	/// If the stored record does not decode. `get` would read it as empty, and an empty record
+	/// emits no `Requires`, so nothing the block consumed would be checked. Every entry is
+	/// written decodable, so this never fires; if it does, the candidate is invalid instead.
 	pub fn consumption_record() -> ConsumptionRecord {
+		let outbox = ConsumptionOutbox::<T>::get();
+		assert_eq!(
+			outbox.len(),
+			ConsumptionOutbox::<T>::decode_len().unwrap_or(0),
+			"the consumption record is written decodable; qed"
+		);
 		let mut record = ConsumptionRecord::default();
-		for (source, stream, interval) in ConsumptionOutbox::<T>::get() {
+		for (source, stream, interval) in outbox {
 			record.entries.entry(source).or_default().insert(stream, interval);
 		}
 		record
