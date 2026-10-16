@@ -160,7 +160,6 @@ impl_opaque_keys! {
 	}
 }
 
-#[cfg(not(feature = "runtime-benchmarks"))]
 mod ad_migration {
 	use super::*;
 	pub use parachains_common::ad_migration::*;
@@ -1526,7 +1525,6 @@ impl pallet_migrations::Config for Runtime {
 			weights::pallet_assets_precompiles::WeightInfo<Runtime>,
 		>,
 		pallet_revive::migrations::v3::Migration<Runtime>,
-		ad_migration::AppendAuthorityDiscoveryKeys<Runtime, ad_migration::KeysTranslator>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1922,6 +1920,9 @@ pub type Migrations = (
 	// incentive formula applies; pending pre-cutoff eras keep the legacy
 	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
 	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
+	// unreleased
+	// Appends a placeholder authority-discovery key to every collator's session keys.
+	ad_migration::AppendAuthorityDiscoveryKeys<Runtime, ad_migration::KeysTranslator>,
 );
 
 /// Executive: handles dispatch to the various modules.

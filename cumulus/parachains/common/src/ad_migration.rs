@@ -13,10 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Single-step multi-block migration that extends each existing
-//! `pallet_session::SessionKeys` entry with a new `authority_discovery:
-//! AuthorityDiscoveryId` field. By default the field is set to a per-validator placeholder derived
-//! from the validator's aura raw bytes. But each runtime has the option to customize this behavior.
+//! Runtime migration that extends each existing `pallet_session::SessionKeys` entry with a new
+//! `authority_discovery: AuthorityDiscoveryId` field.
+//! By default the field is set to a per-validator placeholder derived from the validator's
+//! aura raw bytes. But each runtime has the option to customize this behavior.
 //! See [`KeysTranslatorT::gen_authority_discovery`] for more details.
 
 #[cfg(feature = "try-runtime")]
@@ -26,9 +26,9 @@ use codec::DecodeAll;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{
-	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-	traits::Get,
-	weights::WeightMeter,
+	migrations::MigrationId,
+	traits::{Get, OnRuntimeUpgrade},
+	weights::Weight,
 };
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::ByteArray;
@@ -39,11 +39,6 @@ use sp_runtime::{
 };
 
 const LOG_TARGET: &str = "runtime::ad_migration";
-
-/// Unique pallet identifier for this authority-discovery key migration.
-///
-/// Used to build the [`MigrationId`] the framework records once the migration completes.
-const MIGRATION_ID: &[u8; 16] = b"para_cmn_add_adi";
 
 pub trait KeysTranslatorT {
 	type AuraId: Encode + Decode + Clone + AsRef<[u8]> + ByteArray + RuntimeAppPublic;
@@ -120,69 +115,109 @@ macro_rules! impl_keys_translator {
 /// Extend `pallet_session` session-key records with an authority-discovery placeholder.
 pub struct AppendAuthorityDiscoveryKeys<R, Translator>(PhantomData<(R, Translator)>);
 
-impl<R, Translator> SteppedMigration for AppendAuthorityDiscoveryKeys<R, Translator>
+impl<R, Translator> AppendAuthorityDiscoveryKeys<R, Translator>
 where
-	R: pallet_session::Config<Keys = Translator::NewSessionKeys>,
-	Translator: KeysTranslatorT,
+	R: pallet_migrations::Config,
 {
-	// Single step, no progress state to carry between steps.
-	type Cursor = ();
-	type Identifier = MigrationId<16>;
+	/// Identifier recorded in [`pallet_migrations::Historic`] once this migration has been
+	/// executed.
+	///
+	/// `pallet_migrations` only tracks multi-block migrations, but we reuse its `Historic` set so
+	/// that all executed migrations are recorded in a single place.
+	const MIGRATION_ID: MigrationId<16> =
+		MigrationId { pallet_id: *b"para_cmn_add_adi", version_from: 0, version_to: 1 };
 
-	fn id() -> Self::Identifier {
-		MigrationId { pallet_id: *MIGRATION_ID, version_from: 0, version_to: 1 }
+	fn bounded_id() -> Option<pallet_migrations::IdentifierOf<R>> {
+		Self::MIGRATION_ID.encode().try_into().ok()
 	}
 
-	fn max_steps() -> Option<u32> {
-		Some(1)
+	#[cfg(test)]
+	fn was_executed() -> bool {
+		let Some(id) = Self::bounded_id() else {
+			return false;
+		};
+
+		pallet_migrations::Historic::<R>::contains_key(id)
 	}
 
-	fn step(
-		cursor: Option<Self::Cursor>,
-		meter: &mut WeightMeter,
-	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		if cursor.is_some() {
-			return Ok(None);
+	fn try_execute(execute: impl Fn(&mut Weight)) -> Weight {
+		let mut weight = Weight::zero();
+		let db = <R as frame_system::Config>::DbWeight::get();
+
+		let Some(id) = Self::bounded_id() else {
+			log::error!(
+				target: LOG_TARGET,
+				"AppendAuthorityDiscoveryKeys: Invalid ID. Skipping",
+			);
+
+			return weight;
+		};
+
+		weight = weight.saturating_add(db.reads(1));
+		let was_executed = pallet_migrations::Historic::<R>::contains_key(&id);
+		if was_executed {
+			log::error!(
+				target: LOG_TARGET,
+				"AppendAuthorityDiscoveryKeys: Migration was already executed. Skipping",
+			);
+
+			return weight;
 		}
 
-		// Compute the worst-case weight before doing any work, then charge the meter. `decode_len`
-		// reads only the length-prefix of `Validators`, not the whole vector.
-		let db = <R as frame_system::Config>::DbWeight::get();
-		let n = pallet_session::Validators::<R>::decode_len().unwrap_or_default() as u64;
-		// Weight: per validator `upgrade_keys`:
-		//   - 1 read  + 1 write : NextKeys translate
-		//   - 1 write           : KeyOwner remove (old aura)
-		//   - 2 writes          : KeyOwner insert (new aura + new audi)
-		// Plus constant ops: QueuedKeys translate (1R + 1W) and the Validators length read (1R).
-		// Total: (n × 1 + 2) reads, (n × 4 + 1) writes.
-		let weight = db.reads_writes(n.saturating_add(2), n.saturating_mul(4).saturating_add(1));
-		meter
-			.try_consume(weight)
-			.map_err(|_| SteppedMigrationError::InsufficientWeight { required: weight })?;
+		execute(&mut weight);
 
-		pallet_session::Pallet::<R>::upgrade_keys::<Translator::OldSessionKeys, _>(
-			|collator, old| {
-				log::info!(
-					target: LOG_TARGET,
-					"Collator {:?}: authority-discovery placeholder installed; rotate to activate",
-					collator,
-				);
-				Translator::translate(old)
-			},
-		);
+		weight = weight.saturating_add(db.writes(1));
+		pallet_migrations::Historic::<R>::insert(&id, ());
 
-		log::info!(
-			target: LOG_TARGET,
-			"AppendAuthorityDiscoveryKeys: migrated ~{} collator(s) with hashed placeholder keys",
-			n,
-		);
+		weight
+	}
+}
 
-		// Single step: signal completion.
-		Ok(None)
+impl<R, Translator> OnRuntimeUpgrade for AppendAuthorityDiscoveryKeys<R, Translator>
+where
+	R: pallet_session::Config<Keys = Translator::NewSessionKeys> + pallet_migrations::Config,
+	Translator: KeysTranslatorT,
+{
+	fn on_runtime_upgrade() -> Weight {
+		let weight = Self::try_execute(|weight| {
+			let db = <R as frame_system::Config>::DbWeight::get();
+
+			let num_keys = pallet_session::Pallet::<R>::upgrade_keys::<Translator::OldSessionKeys, _>(
+				|collator, old| {
+					log::info!(
+						target: LOG_TARGET,
+						"Collator {:?}: authority-discovery placeholder installed; rotate to activate",
+						collator,
+					);
+					Translator::translate(old)
+				},
+			);
+
+			// Per `NextKeys` entry translated by `upgrade_keys`:
+			//   - 1 read  + 1 write : NextKeys translate
+			//   - 1 write           : KeyOwner remove old aura + insert it back (same key)
+			//   - 1 write           : KeyOwner insert authority_discovery
+			let per_key_weight = db.reads_writes(1, 3);
+			weight.saturating_accrue(per_key_weight.saturating_mul(num_keys));
+			// QueuedKeys translate: 1 read + 1 write
+			weight.saturating_accrue(db.reads_writes(1, 1));
+
+			log::info!(
+				target: LOG_TARGET,
+				"AppendAuthorityDiscoveryKeys: migrated {} collator(s) with hashed placeholder keys",
+				num_keys,
+			);
+		});
+
+		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		if Self::was_executed() {
+			return Ok(Vec::new());
+		}
+
 		// Snapshot the pre-migration NextKeys, decoding the existing values with the same
 		// `OldSessionKeys` type that `upgrade_keys` consumes.
 		let next_keys_state: Vec<(<R as pallet_session::Config>::ValidatorId, Translator::AuraId)> =
@@ -205,6 +240,11 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		// `pre_upgrade` returns no state when the migration was already executed.
+		if state.is_empty() {
+			return Ok(());
+		}
+
 		let pre_next_keys: Vec<(
 			<R as pallet_session::Config>::ValidatorId,
 			Translator::OldSessionKeys,
@@ -244,22 +284,23 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frame_support::{derive_impl, parameter_types};
+	use frame_support::{derive_impl, parameter_types, traits::ConstU64};
+	use frame_system::pallet_prelude::HeaderFor;
 	use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-	use sp_runtime::{BuildStorage, KeyTypeId};
+	use sp_core::H256;
+	use sp_runtime::{
+		traits::{Block as _, Header as _},
+		BuildStorage, KeyTypeId,
+	};
 
-	fn new_test_ext<Runtime: frame_system::Config>() -> sp_io::TestExternalities {
-		frame_system::GenesisConfig::<Runtime>::default()
-			.build_storage()
-			.unwrap()
-			.into()
+	fn new_test_ext() -> sp_io::TestExternalities {
+		frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 	}
 
 	pub type AccountId = u64;
 
 	parameter_types! {
 		pub const Period: u64 = 10;
-		pub const Offset: u64 = 0;
 	}
 
 	pub struct IdentityValidator;
@@ -269,7 +310,15 @@ mod tests {
 		}
 	}
 
-	type Block = frame_system::mocking::MockBlock<Test>;
+	type Block = sp_runtime::generic::Block<
+		sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>,
+		sp_runtime::generic::UncheckedExtrinsic<
+			AccountId,
+			RuntimeCall,
+			sp_runtime::testing::UintAuthorityId,
+			(),
+		>,
+	>;
 
 	sp_runtime::impl_opaque_keys! {
 		pub struct MockSessionKeys {
@@ -280,19 +329,37 @@ mod tests {
 
 	impl_keys_translator!(MockSessionKeys, AuraId, AuthorityDiscoveryId);
 
+	type Migration = AppendAuthorityDiscoveryKeys<Test, KeysTranslator>;
+
 	frame_support::construct_runtime!(
 		pub enum Test {
 			System: frame_system,
 			Balances: pallet_balances,
 			Session: pallet_session,
+			MultiBlockMigrations: pallet_migrations,
 		}
 	);
+
+	type Executive = frame_executive::Executive<
+		Test,
+		Block,
+		frame_system::ChainContext<Test>,
+		Test,
+		AllPalletsWithSystem,
+	>;
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type Block = Block;
 		type AccountData = pallet_balances::AccountData<u64>;
 		type DbWeight = frame_support::weights::constants::RocksDbWeight;
+		type SingleBlockMigrations = Migration;
+		type MultiBlockMigrator = MultiBlockMigrations;
+	}
+
+	#[derive_impl(pallet_migrations::config_preludes::TestDefaultConfig)]
+	impl pallet_migrations::Config for Test {
+		type Migrations = ();
 	}
 
 	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -312,8 +379,8 @@ mod tests {
 		type RuntimeEvent = RuntimeEvent;
 		type ValidatorId = AccountId;
 		type ValidatorIdOf = IdentityValidator;
-		type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-		type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+		type ShouldEndSession = pallet_session::PeriodicSessions<Period, ConstU64<0>>;
+		type NextSessionRotation = pallet_session::PeriodicSessions<Period, ConstU64<0>>;
 		type SessionManager = ();
 		type SessionHandler = TestSessionHandler;
 		type Keys = MockSessionKeys;
@@ -327,6 +394,15 @@ mod tests {
 		AuraId::from(sp_core::sr25519::Public::from_raw([v as u8; 32]))
 	}
 
+	/// The session keys `v` is expected to have after the migration.
+	fn migrated_keys(v: AccountId) -> MockSessionKeys {
+		let aura = aura_key(v);
+		MockSessionKeys {
+			authority_discovery: KeysTranslator::gen_authority_discovery(&aura),
+			aura,
+		}
+	}
+
 	/// Seed `NextKeys`/`QueuedKeys`/`KeyOwner`/`Validators` in the OLD (aura-only) layout,
 	/// bypassing the typed API which only knows the new layout.
 	fn seed_old_layout(validators: &[AccountId]) {
@@ -337,99 +413,144 @@ mod tests {
 				&pallet_session::NextKeys::<Test>::hashed_key_for(v),
 				&aura.encode(),
 			);
-			pallet_session::KeyOwner::<Test>::insert(
-				(<AuraId as RuntimeAppPublic>::ID, aura.encode()),
-				v,
-			);
+			pallet_session::KeyOwner::<Test>::insert((AuraId::ID, aura.encode()), v);
 		}
 		sp_io::storage::set(&pallet_session::QueuedKeys::<Test>::hashed_key(), &queued.encode());
 		pallet_session::Validators::<Test>::put(validators.to_vec());
 	}
 
-	/// Drive the single-step migration. Asserts it completes in one step (`Ok(None)`), and when
-	/// `try-runtime` is enabled also exercises the `pre_upgrade` → `step` → `post_upgrade`
-	/// hooks the multi-block migration framework runs in CI.
-	fn run_migration() {
+	/// Run the migration. When `try-runtime` is enabled also exercises the `pre_upgrade` →
+	/// `on_runtime_upgrade` → `post_upgrade` hooks the try-runtime CLI runs in CI.
+	fn run_migration() -> Weight {
 		#[cfg(feature = "try-runtime")]
-		let state = AppendAuthorityDiscoveryKeys::<Test, KeysTranslator>::pre_upgrade().unwrap();
+		let state = Migration::pre_upgrade().unwrap();
 
-		let cursor = AppendAuthorityDiscoveryKeys::<Test, KeysTranslator>::step(
-			None,
-			&mut WeightMeter::new(),
-		)
-		.unwrap();
-		assert_eq!(cursor, None, "single-step migration must complete in one step");
+		let weight = Migration::on_runtime_upgrade();
 
 		#[cfg(feature = "try-runtime")]
-		AppendAuthorityDiscoveryKeys::<Test, KeysTranslator>::post_upgrade(state).unwrap();
+		Migration::post_upgrade(state).unwrap();
+
+		weight
 	}
 
 	#[test]
-	fn appends_placeholder_audi_keys() {
-		new_test_ext::<Test>().execute_with(|| {
+	fn appends_placeholder_authority_discovery_keys() {
+		new_test_ext().execute_with(|| {
 			let validators = [1, 2, 3];
 			seed_old_layout(&validators);
 
 			run_migration();
 
 			for v in validators {
-				let keys = pallet_session::NextKeys::<Test>::get(v).expect("entry must remain");
-				let expected_authority_discovery =
-					KeysTranslator::gen_authority_discovery(&aura_key(v));
-				assert_eq!(keys.aura, aura_key(v));
-				assert_eq!(keys.authority_discovery, expected_authority_discovery);
+				assert_eq!(pallet_session::NextKeys::<Test>::get(v), Some(migrated_keys(v)));
 				assert_eq!(
-					pallet_session::KeyOwner::<Test>::get((
-						<AuraId as RuntimeAppPublic>::ID,
-						aura_key(v).encode(),
-					)),
+					pallet_session::KeyOwner::<Test>::get((AuraId::ID, aura_key(v).encode())),
 					Some(v),
 				);
-				// Each validator has its own per-validator KeyOwner entry for the
-				// aura-derived audi placeholder — no last-writer-wins collision.
+				// Each validator has its own `KeyOwner` entry for its aura-derived
+				// authority-discovery placeholder, so there is no last-writer-wins collision.
 				assert_eq!(
 					pallet_session::KeyOwner::<Test>::get((
-						<AuthorityDiscoveryId as RuntimeAppPublic>::ID,
-						expected_authority_discovery.encode(),
+						AuthorityDiscoveryId::ID,
+						migrated_keys(v).authority_discovery.encode(),
 					)),
 					Some(v),
 				);
 			}
-
-			let queued = pallet_session::QueuedKeys::<Test>::get();
-			assert_eq!(queued.len(), validators.len());
-			for (v, keys) in &queued {
-				assert_eq!(keys.aura, aura_key(*v));
-				assert_eq!(
-					keys.authority_discovery,
-					KeysTranslator::gen_authority_discovery(&aura_key(*v))
-				);
-			}
+			assert_eq!(
+				pallet_session::QueuedKeys::<Test>::get(),
+				validators.map(|v| (v, migrated_keys(v))).to_vec()
+			);
 		});
 	}
 
 	#[test]
-	fn completes_in_a_single_step() {
-		new_test_ext::<Test>().execute_with(|| {
+	fn runs_only_once() {
+		new_test_ext().execute_with(|| {
 			let validators = [1, 2];
 			seed_old_layout(&validators);
 
-			// The first (and only) step signals completion by returning a `None` cursor; the
-			// framework then records the migration as done and never calls it again.
-			let cursor = AppendAuthorityDiscoveryKeys::<Test, KeysTranslator>::step(
-				None,
-				&mut WeightMeter::new(),
-			)
-			.unwrap();
-			assert_eq!(cursor, None);
+			let db = <Test as frame_system::Config>::DbWeight::get();
+			assert_eq!(run_migration(), db.reads_writes(4, 8));
+			assert!(Migration::was_executed());
+
+			// A second run must not touch the (already migrated) keys again.
+			let next_keys = pallet_session::NextKeys::<Test>::iter().collect::<Vec<_>>();
+			let queued_keys = pallet_session::QueuedKeys::<Test>::get();
+			assert_eq!(run_migration(), db.reads(1));
+			assert_eq!(pallet_session::NextKeys::<Test>::iter().collect::<Vec<_>>(), next_keys);
+			assert_eq!(pallet_session::QueuedKeys::<Test>::get(), queued_keys);
 		});
 	}
 
 	#[test]
 	fn works_with_empty_session_storage() {
-		new_test_ext::<Test>().execute_with(|| {
-			run_migration();
-			assert!(pallet_session::Validators::<Test>::get().is_empty());
+		new_test_ext().execute_with(|| {
+			let db = <Test as frame_system::Config>::DbWeight::get();
+			assert_eq!(run_migration(), db.reads_writes(2, 2));
+			assert!(Migration::was_executed());
+			assert_eq!(pallet_session::NextKeys::<Test>::iter().count(), 0);
+		});
+	}
+
+	/// Author an empty block on top of the current state, then import it with
+	/// `Executive::execute_block`, like a node does.
+	///
+	/// Authoring follows the `BlockBuilder` runtime API (`initialize_block` + `finalize_block`)
+	/// inside a storage transaction that is rolled back; this only computes a header with the
+	/// correct state root. Importing then runs the full `execute_block` logic on the original
+	/// state, including its `final_checks` against that header.
+	fn run_block(number: u64, parent_hash: H256) -> H256 {
+		let header = HeaderFor::<Test>::new(
+			number,
+			Default::default(),
+			Default::default(),
+			parent_hash,
+			Default::default(),
+		);
+
+		sp_io::storage::start_transaction();
+		Executive::initialize_block(&header);
+		let header = Executive::finalize_block();
+		sp_io::storage::rollback_transaction();
+
+		Executive::execute_block(Block::new(header.clone(), vec![]).into());
+		header.hash()
+	}
+
+	/// Enact a runtime upgrade at `upgrade_block` and keep producing blocks until `last_block`.
+	fn upgrade_and_run_blocks(upgrade_block: u64, last_block: u64) {
+		// Make `Executive` think the runtime code changed, so it runs `on_runtime_upgrade`.
+		frame_system::LastRuntimeUpgrade::<Test>::kill();
+		frame_system::Pallet::<Test>::set_block_number(upgrade_block - 1);
+		let mut parent_hash = H256::default();
+		for number in upgrade_block..=last_block {
+			parent_hash = run_block(number, parent_hash);
+		}
+	}
+
+	/// Upgrade exactly at a session boundary: `Executive` runs `on_runtime_upgrade` before
+	/// `on_initialize`, so the rotation done by `pallet_session` in `on_initialize` already reads
+	/// `QueuedKeys` and `NextKeys` in the new layout.
+	#[test]
+	fn upgrade_at_session_boundary_keeps_validators() {
+		new_test_ext().execute_with(|| {
+			let validators = [1, 2, 3];
+			seed_old_layout(&validators);
+
+			upgrade_and_run_blocks(Period::get(), Period::get() + 1);
+
+			assert_eq!(pallet_session::CurrentIndex::<Test>::get(), 1);
+			assert!(Migration::was_executed());
+
+			assert_eq!(pallet_session::Validators::<Test>::get(), validators.to_vec());
+			assert_eq!(
+				pallet_session::QueuedKeys::<Test>::get(),
+				validators.map(|v| (v, migrated_keys(v))).to_vec()
+			);
+			for v in validators {
+				assert_eq!(pallet_session::NextKeys::<Test>::get(v), Some(migrated_keys(v)));
+			}
 		});
 	}
 }

@@ -27,6 +27,7 @@ pallet-assets = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-message-queue = { workspace = true }
+pallet-migrations = { workspace = true }
 pallet-multi-asset-bounties = { workspace = true }
 pallet-session = { workspace = true }
 pallet-treasury = { workspace = true }
@@ -50,6 +51,9 @@ pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common-types = { workspace = true }
 
+[dev-dependencies]
+frame-executive = { workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = [
@@ -64,6 +68,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
+	"pallet-migrations/std",
 	"pallet-multi-asset-bounties/std",
 	"pallet-session/std",
 	"pallet-treasury/std",
@@ -91,6 +96,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-multi-asset-bounties/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
@@ -103,6 +109,7 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
+	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-assets/try-runtime",
@@ -110,6 +117,7 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-multi-asset-bounties/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-treasury/try-runtime",

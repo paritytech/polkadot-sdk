@@ -136,6 +136,8 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	// unreleased
+	ad_migration::AppendAuthorityDiscoveryKeys<Runtime, ad_migration::KeysTranslator>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -154,7 +156,6 @@ impl_opaque_keys! {
 	}
 }
 
-#[cfg(not(feature = "runtime-benchmarks"))]
 mod ad_migration {
 	use super::*;
 	pub use parachains_common::ad_migration::*;
@@ -606,10 +607,7 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = (
-		pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>,
-		ad_migration::AppendAuthorityDiscoveryKeys<Runtime, ad_migration::KeysTranslator>,
-	);
+	type Migrations = pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>;
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;

@@ -15940,6 +15940,7 @@ version = "7.0.0"
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
+ "frame-executive",
  "frame-support",
  "frame-system",
  "log",
@@ -15948,6 +15949,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-message-queue",
+ "pallet-migrations",
  "pallet-multi-asset-bounties",
  "pallet-session",
  "pallet-treasury",
