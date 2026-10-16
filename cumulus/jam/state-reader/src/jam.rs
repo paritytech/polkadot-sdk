@@ -37,8 +37,9 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
+#[cfg(not(all(jam, substrate_runtime)))]
 use sp_runtime_interface::{
-	pass_by::{PassFatPointerAndRead, PassFatPointerAndWrite},
+	pass_by::{PassFatPointerAndRead, PassFatPointerAndReadWrite},
 	runtime_interface,
 };
 
@@ -100,8 +101,9 @@ sp_externalities::decl_extension! {
 /// `jam_state_read` **panics** when [`JamStateExt`] is not registered — the read is
 /// consensus-critical (its proof feeds the additional-data digest), so a missing extension must
 /// fail loudly rather than silently diverge.
+#[cfg(not(all(jam, substrate_runtime)))]
 #[runtime_interface]
-pub trait JamState {
+pub trait JamStateHost {
 	/// Read the JAM state item at the 31-byte `key`, writing the value into `value_out` and
 	/// returning its full length, or `-1` when the key is (provably) absent.
 	///
@@ -114,12 +116,10 @@ pub trait JamState {
 	/// # Panics
 	///
 	/// If [`JamStateExt`] is not registered in the externalities.
-	#[polkavm_index(344)]
-	#[raw_api]
 	fn jam_state_read_into(
 		&mut self,
 		key: PassFatPointerAndRead<&[u8]>,
-		value_out: PassFatPointerAndWrite<&mut [u8]>,
+		value_out: PassFatPointerAndReadWrite<&mut [u8]>,
 	) -> i64 {
 		let key: &StateKey = key.try_into().expect("a JAM state key is 31 bytes; qed");
 		let value = self
@@ -139,23 +139,64 @@ pub trait JamState {
 			None => -1,
 		}
 	}
+}
+
+/// Reading JAM chain state: [`jam_state::jam_state_read`] plus the exchangeable
+/// [`jam_state::host_jam_state_read_into`] that `validate_block` replaces to serve reads from the
+/// carried proof.
+pub mod jam_state {
+	use alloc::vec::Vec;
+
+	#[cfg(not(all(jam, substrate_runtime)))]
+	pub use super::jam_state_host::*;
+
+	#[cfg(all(jam, substrate_runtime))]
+	sp_jam_runtime_interface::host_calls! {
+		/// [`super::JamStateHost::jam_state_read_into`] at its fixed PolkaVM index, named like the
+		/// `#[runtime_interface]` host function so the node serves it through that registration.
+		#[index = 344]
+		fn ext_jam_state_host_jam_state_read_into_version_1(key: u64, value_out: u64) -> i64;
+	}
+
+	#[cfg(all(jam, substrate_runtime))]
+	fn host_call(key: &[u8], value_out: &mut [u8]) -> i64 {
+		let key = sp_runtime_interface::pack_ptr_and_len(key.as_ptr() as u32, key.len() as u32);
+		let value_out = sp_runtime_interface::pack_ptr_and_len(
+			value_out.as_mut_ptr() as u32,
+			value_out.len() as u32,
+		);
+		// SAFETY: The packed pointers and lengths come from live slices.
+		unsafe { ext_jam_state_host_jam_state_read_into_version_1(key, value_out) }
+	}
+
+	/// Exchangeable implementation of [`jam_state_read_into`].
+	#[cfg(all(jam, substrate_runtime))]
+	#[allow(non_upper_case_globals)]
+	pub static host_jam_state_read_into: sp_runtime_interface::wasm::ExchangeableFunction<
+		fn(&[u8], &mut [u8]) -> i64,
+	> = sp_runtime_interface::wasm::ExchangeableFunction::new(host_call);
+
+	/// Read the JAM state item at the 31-byte `key` into `value_out`, returning its full length
+	/// or `-1` when the key is (provably) absent.
+	#[cfg(all(jam, substrate_runtime))]
+	pub fn jam_state_read_into(key: &[u8], value_out: &mut [u8]) -> i64 {
+		host_jam_state_read_into.get()(key, value_out)
+	}
 
 	/// Read `key` from the JAM chain state, returning its value or `None` when (provably) absent.
 	///
-	/// Ergonomic wrapper over [`jam_state::jam_state_read_into`] that owns the destination buffer
+	/// Ergonomic wrapper over [`jam_state_read_into`] that owns the destination buffer
 	/// runtime-side, resizing once if the value is larger than the initial guess.
-	#[wrapper]
-	fn jam_state_read(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
-		let mut buf = Vec::new();
-		buf.resize(256, 0u8);
-		let len = jam_state_read_into__raw(key.as_ref(), &mut buf[..]);
+	pub fn jam_state_read(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut buf = alloc::vec![0u8; 256];
+		let len = jam_state_read_into(key.as_ref(), &mut buf[..]);
 		if len < 0 {
 			return None;
 		}
 		let len = len as usize;
 		if len > buf.len() {
 			buf.resize(len, 0u8);
-			jam_state_read_into__raw(key.as_ref(), &mut buf[..]);
+			jam_state_read_into(key.as_ref(), &mut buf[..]);
 		}
 		buf.truncate(len);
 		Some(buf)

@@ -26,7 +26,7 @@ use core::{
 };
 use hash_db::Hasher;
 use sp_core::{
-	storage::{ChildInfo, TrackedStorageKey},
+	storage::{ChildInfo, StateVersion, TrackedStorageKey},
 	traits::Externalities,
 };
 use sp_externalities::MultiRemovalResults;
@@ -60,13 +60,12 @@ where
 #[derive(Debug)]
 pub struct ReadOnlyExternalities<'a, H: Hasher, B: 'a + Backend<H>> {
 	backend: &'a B,
-	last_cursor: Option<Vec<u8>>,
 	_phantom: PhantomData<H>,
 }
 
 impl<'a, H: Hasher, B: 'a + Backend<H>> From<&'a B> for ReadOnlyExternalities<'a, H, B> {
 	fn from(backend: &'a B) -> Self {
-		ReadOnlyExternalities { backend, last_cursor: None, _phantom: PhantomData }
+		ReadOnlyExternalities { backend, _phantom: PhantomData }
 	}
 }
 
@@ -177,8 +176,20 @@ where
 		unimplemented!("storage_root is not supported in ReadOnlyExternalities")
 	}
 
+	fn storage_root_with_version(&mut self, _state_version: StateVersion) -> Vec<u8> {
+		unimplemented!("storage_root_with_version is not supported in ReadOnlyExternalities")
+	}
+
 	fn child_storage_root(&mut self, _child_info: &ChildInfo) -> Vec<u8> {
 		unimplemented!("child_storage_root is not supported in ReadOnlyExternalities")
+	}
+
+	fn child_storage_root_with_version(
+		&mut self,
+		_child_info: &ChildInfo,
+		_state_version: StateVersion,
+	) -> Vec<u8> {
+		unimplemented!("child_storage_root_with_version is not supported in ReadOnlyExternalities")
 	}
 
 	fn storage_start_transaction(&mut self) {
@@ -191,14 +202,6 @@ where
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
 		unimplemented!("Transactions are not supported by ReadOnlyExternalities");
-	}
-
-	fn store_last_cursor(&mut self, cursor: &[u8]) {
-		self.last_cursor = Some(cursor.to_vec());
-	}
-
-	fn take_last_cursor(&mut self) -> Option<Vec<u8>> {
-		self.last_cursor.take()
 	}
 
 	fn wipe(&mut self) {}

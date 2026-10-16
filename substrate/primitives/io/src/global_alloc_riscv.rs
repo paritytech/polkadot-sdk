@@ -16,10 +16,10 @@
 // limitations under the License.
 
 //! The PolkaVM (JAM) runtime allocator, backed by [`picoalloc`], mirroring
-//! [`crate::global_alloc_wasm`]: `picoalloc` manages a free-list heap inside an address space
-//! grown by the JAM `grow_heap` host call. The heap ceiling is the Gray Paper's own limit:
-//! `HEAP_SIZE` below is exactly that maximum (`b - a`); growing beyond it is a silent no-op,
-//! which surfaces here as an allocation failure.
+//! [`crate::global_alloc`]: `picoalloc` manages a free-list heap inside an address space
+//! grown by the JAM [`grow_heap`](crate::jam::host::jam::grow_heap) host call (index 1). The heap
+//! ceiling is the Gray Paper's own limit: `HEAP_SIZE` below is exactly that maximum (`b - a`);
+//! growing beyond it is a silent no-op, which surfaces here as an allocation failure.
 
 use core::{
 	alloc::{GlobalAlloc, Layout},
@@ -27,16 +27,7 @@ use core::{
 	ptr::NonNull,
 };
 
-#[polkavm_derive::polkavm_import]
-extern "C" {
-	/// Grows the heap by `size` bytes, returning the previous heap end address, or zero if the
-	/// allocation failed. When called with `size == 0`, returns the current heap end without
-	/// growing. Exceeding the Gray Paper's heap ceiling `b` is a silent no-op.
-	///
-	/// Index 1 is fixed by the Gray Paper (`Ω_Gemini`), not chosen here.
-	#[polkavm_import(index = 1)]
-	fn grow_heap(size: usize) -> usize;
-}
+use crate::jam::host::jam::grow_heap;
 
 /// The maximum heap size the Gray Paper allows for a service with empty read-only data and
 /// stack: `(b - a) * 2^12` with `a = (2·2^16)/2^12` and `b = (2^32 − 3·2^16 − 2^24)/2^12`,
@@ -56,11 +47,13 @@ impl picoalloc::Env for RuntimeAllocator {
 	}
 
 	unsafe fn allocate_address_space(&mut self) -> *mut u8 {
+		// SAFETY: `grow_heap` is a raw PolkaVM import without any pointers.
 		let current = unsafe { grow_heap(0) };
 		let aligned = current.next_multiple_of(32) as *mut u8;
 		// The heap starts right after the already-built stack and data sections, so the new
 		// address space starts at the current heap end, aligned to the 32-byte boundary `picoalloc`
 		// needs.
+		// SAFETY: `grow_heap` is a raw PolkaVM import without any pointers.
 		if unsafe { grow_heap(aligned.addr() - current) } == 0 {
 			return core::ptr::null_mut();
 		}
@@ -68,6 +61,7 @@ impl picoalloc::Env for RuntimeAllocator {
 	}
 
 	unsafe fn expand_memory_until(&mut self, base: *mut u8, size: picoalloc::Size) -> bool {
+		// SAFETY: `grow_heap` is a raw PolkaVM import without any pointers.
 		let current = unsafe { grow_heap(0) };
 		let Some(requested_end) = base.addr().checked_add(size.bytes() as usize) else {
 			return false;
@@ -79,6 +73,7 @@ impl picoalloc::Env for RuntimeAllocator {
 
 		// `grow_heap` returns the previous heap end, or zero if no space is left (the Gray
 		// Paper clamps at the ceiling `b` instead of signalling an error).
+		// SAFETY: `grow_heap` is a raw PolkaVM import without any pointers.
 		unsafe { grow_heap(requested_end - current) != 0 }
 	}
 

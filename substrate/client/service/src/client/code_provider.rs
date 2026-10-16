@@ -20,7 +20,7 @@ use super::{client::ClientConfig, wasm_override::WasmOverride, wasm_substitutes:
 use sc_client_api::{backend, backend::StateBackend as _, TrieCacheContext};
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_core::{
-	storage::well_known_keys,
+	storage::{well_known_keys, StateVersion},
 	traits::{FetchRuntimeCode, RuntimeCode},
 };
 use sp_runtime::traits::Block as BlockT;
@@ -179,7 +179,8 @@ where
 	) -> sp_blockchain::Result<RuntimeVersion> {
 		let mut overlay = OverlayedChanges::default();
 
-		let mut ext = Ext::new(&mut overlay, state, None);
+		// `Core_version` doesn't compute storage roots.
+		let mut ext = Ext::new(&mut overlay, state, None, StateVersion::default());
 
 		self.executor
 			.runtime_version(&mut ext, code)

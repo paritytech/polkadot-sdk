@@ -26,7 +26,6 @@ pub(super) use super::child_storage_host_functions::{
 	host_default_child_storage_read, host_default_child_storage_root,
 	host_default_child_storage_set, host_default_child_storage_storage_kill,
 };
-use sp_io::StorageIterations;
 use sp_runtime::traits::{Block as BlockT, HashingFor};
 use sp_state_machine::OverlayedChanges;
 use sp_trie::ProofSizeProvider;
@@ -68,11 +67,9 @@ pub(super) fn install_overrides() -> impl Sized {
 			.replace_implementation(host_default_child_storage_root),
 		sp_io::default_child_storage::host_next_key
 			.replace_implementation(host_default_child_storage_next_key),
-		// `misc`, `offchain_index` and `transaction_index` are host functions on wasm only; on
+		// `offchain_index` and `transaction_index` are host functions on wasm only; on
 		// PolkaVM/JAM the runtime uses the native in-blob implementations, so there is nothing
 		// to replace. Gate matches `sp_io::host_functions::wasm_only_host_functions!`.
-		#[cfg(any(not(substrate_runtime), target_family = "wasm"))]
-		sp_io::misc::host_last_cursor.replace_implementation(host_misc_last_cursor),
 		#[cfg(any(not(substrate_runtime), target_family = "wasm"))]
 		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
 		#[cfg(any(not(substrate_runtime), target_family = "wasm"))]
@@ -160,11 +157,52 @@ pub(crate) fn run_with_externalities_and_recorder<Block: BlockT, R, F: FnOnce() 
 	state_version: sp_core::storage::StateVersion,
 	execute: F,
 ) -> R {
-	let mut ext = Ext::<Block, _>::new(overlay, backend).with_state_version(state_version);
+	let mut ext = Ext::<Block, _>::new(overlay, backend, state_version);
 
 	recorder::using(recorder, || set_and_run_with_externalities(&mut ext, || execute()))
 }
 
+// The JAM flat host-call layer and the relay-chain `#[runtime_interface]` give some storage
+// functions different shapes; each `#[cfg(jam)]` function below has a `#[cfg(not(jam))]` twin of
+// the same name for wasm runtimes.
+
+#[cfg(not(jam))]
+pub(super) fn host_storage_read(
+	key: &[u8],
+	value_out: &mut [u8],
+	value_offset: u32,
+) -> Option<u32> {
+	match with_externalities(|ext| ext.storage(key)) {
+		Some(value) => {
+			let value_offset = value_offset as usize;
+			let data = &value[value_offset.min(value.len())..];
+			let written = core::cmp::min(data.len(), value_out.len());
+			value_out[..written].copy_from_slice(&data[..written]);
+			Some(value.len() as u32)
+		},
+		None => None,
+	}
+}
+
+#[cfg(not(jam))]
+pub(super) fn host_storage_root(version: sp_core::storage::StateVersion) -> Vec<u8> {
+	with_externalities(|ext| ext.storage_root_with_version(version))
+}
+
+#[cfg(not(jam))]
+pub(super) fn host_storage_clear_prefix(
+	prefix: &[u8],
+	limit: Option<u32>,
+) -> sp_io::KillStorageResult {
+	with_externalities(|ext| ext.clear_prefix(prefix, limit, None).into())
+}
+
+#[cfg(not(jam))]
+pub(super) fn host_storage_next_key(key: &[u8]) -> Option<Vec<u8>> {
+	with_externalities(|ext| ext.next_storage_key(key))
+}
+
+#[cfg(jam)]
 pub(super) fn host_storage_read(
 	key: &[u8],
 	value_out: &mut [u8],
@@ -203,6 +241,7 @@ pub(super) fn host_storage_proof_size() -> u64 {
 	para as _
 }
 
+#[cfg(jam)]
 pub(super) fn host_storage_root(out: &mut [u8]) {
 	with_externalities(|ext| {
 		let root = ext.storage_root();
@@ -217,26 +256,16 @@ pub(super) fn host_storage_root(out: &mut [u8]) {
 	})
 }
 
-pub(super) fn host_storage_clear_prefix(
-	prefix: &[u8],
-	maybe_limit: Option<u32>,
-	maybe_cursor_in: Option<&[u8]>,
-	maybe_cursor_out: &mut [u8],
-	counters: &mut StorageIterations,
-) -> u32 {
+/// Clear every key-value pair under `prefix` in the PoV-backed overlay.
+///
+/// Returns the `u64` encoding of [`sp_io::KillStorageResult`]: `(some_remaining as u64) << 32 |
+/// loops as u64`. The JAM host-call set has no continuation cursor, so the cursor the backend
+/// reports is consumed here rather than handed back to the runtime.
+#[cfg(jam)]
+pub(super) fn host_storage_clear_prefix(prefix: &[u8], maybe_limit: Option<u32>) -> u64 {
 	with_externalities(|ext| {
-		let removal_results =
-			ext.clear_prefix(prefix, maybe_limit, maybe_cursor_in.as_ref().map(|c| &c[..]));
-		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
-		if let Some(cursor_out) = removal_results.maybe_cursor {
-			ext.store_last_cursor(&cursor_out[..]);
-			let write_len = cursor_out_len.min(maybe_cursor_out.len());
-			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
-		}
-		counters.backend = removal_results.backend;
-		counters.unique = removal_results.unique;
-		counters.loops = removal_results.loops;
-		cursor_out_len as u32
+		let removal_results = ext.clear_prefix(prefix, maybe_limit, None);
+		((removal_results.maybe_cursor.is_some() as u64) << 32) | removal_results.loops as u64
 	})
 }
 
@@ -244,6 +273,7 @@ pub(super) fn host_storage_append(key: &[u8], value: Vec<u8>) {
 	with_externalities(|ext| ext.storage_append(key.to_vec(), value))
 }
 
+#[cfg(jam)]
 pub(super) fn host_storage_next_key(key_in: &[u8], key_out: &mut [u8]) -> u32 {
 	with_externalities(|ext| {
 		let next_key = ext.next_storage_key(key_in);
@@ -268,19 +298,6 @@ pub(super) fn host_storage_rollback_transaction() {
 pub(super) fn host_storage_commit_transaction() {
 	with_externalities(|ext| ext.storage_commit_transaction().ok())
 		.expect("No open transaction that can be committed.");
-}
-
-#[cfg(any(not(substrate_runtime), target_family = "wasm"))]
-pub(super) fn host_misc_last_cursor(out: &mut [u8]) -> Option<u32> {
-	with_externalities(|ext| {
-		let cursor = ext.take_last_cursor()?;
-		if out.len() >= cursor.len() {
-			out[..cursor.len()].copy_from_slice(&cursor[..]);
-		} else {
-			ext.store_last_cursor(&cursor[..]);
-		}
-		Some(cursor.len() as u32)
-	})
 }
 
 #[cfg(any(not(substrate_runtime), target_family = "wasm"))]

@@ -20,7 +20,7 @@
 
 use crate::{
 	host::HostState,
-	instance_wrapper::{EntryPoint, InstanceWrapper},
+	instance_wrapper::{EntryPoint, InstanceWrapper, MemoryWrapper},
 	util::{self, replace_strategy_if_broken},
 };
 
@@ -33,7 +33,7 @@ use sc_executor_common::{
 	wasm_runtime::{HeapAllocStrategy, WasmInstance, WasmModule},
 };
 use sp_runtime_interface::unpack_ptr_and_len;
-use sp_wasm_interface::{HostFunctions, Pointer};
+use sp_wasm_interface::{HostFunctions, Pointer, WordSize};
 use std::{
 	path::{Path, PathBuf},
 	sync::{
@@ -183,13 +183,9 @@ impl WasmtimeInstance {
 		match &mut self.strategy {
 			Strategy::RecreateInstance(ref mut instance_creator) => {
 				let mut instance_wrapper = instance_creator.instantiate()?;
+				let heap_base = instance_wrapper.extract_heap_base()?;
 				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
-				let allocator = if matches!(entrypoint, EntryPoint::V1(_)) {
-					let heap_base = instance_wrapper.extract_heap_base()?;
-					Some(FreeingBumpHeapAllocator::new(heap_base))
-				} else {
-					None
-				};
+				let allocator = FreeingBumpHeapAllocator::new(heap_base);
 
 				perform_call(data, &mut instance_wrapper, entrypoint, allocator, allocation_stats)
 			},
@@ -689,15 +685,19 @@ fn perform_call(
 	data: &[u8],
 	instance_wrapper: &mut InstanceWrapper,
 	entrypoint: EntryPoint,
-	allocator: Option<FreeingBumpHeapAllocator>,
+	mut allocator: FreeingBumpHeapAllocator,
 	allocation_stats: &mut Option<AllocationStats>,
 ) -> Result<Vec<u8>> {
-	let host_state = HostState::new(allocator, data);
+	let (data_ptr, data_len) = inject_input_data(instance_wrapper, &mut allocator, data)?;
+
+	let host_state = HostState::new(allocator);
 
 	// Set the host state before calling into wasm.
 	instance_wrapper.store_mut().data_mut().host_state = Some(host_state);
 
-	let ret = entrypoint.call(instance_wrapper).map(unpack_ptr_and_len);
+	let ret = entrypoint
+		.call(instance_wrapper.store_mut(), data_ptr, data_len)
+		.map(unpack_ptr_and_len);
 
 	// Reset the host state
 	let host_state = instance_wrapper.store_mut().data_mut().host_state.take().expect(
@@ -709,6 +709,19 @@ fn perform_call(
 	let output = extract_output_data(instance_wrapper, output_ptr, output_len)?;
 
 	Ok(output)
+}
+
+fn inject_input_data(
+	instance: &mut InstanceWrapper,
+	allocator: &mut FreeingBumpHeapAllocator,
+	data: &[u8],
+) -> Result<(Pointer<u8>, WordSize)> {
+	let mut ctx = instance.store_mut();
+	let memory = ctx.data().memory();
+	let data_len = data.len() as WordSize;
+	let data_ptr = allocator.allocate(&mut MemoryWrapper(&memory, &mut ctx), data_len)?;
+	util::write_memory_from(instance.store_mut(), data_ptr, data)?;
+	Ok((data_ptr, data_len))
 }
 
 fn extract_output_data(

@@ -167,7 +167,8 @@ where
 		let mut marker_fetcher = None;
 		let runtime_code =
 			self.maybe_resolve_marker(&state_runtime_code, runtime_code, &mut marker_fetcher);
-		let runtime_code = self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?.0;
+		let (runtime_code, runtime_version) =
+			self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?;
 
 		let mut extensions = self.execution_extensions.extensions(at_hash, at_number);
 
@@ -180,6 +181,7 @@ where
 			&mut extensions,
 			&runtime_code,
 			context,
+			runtime_version.state_version(),
 		)
 		.set_parent_hash(at_hash);
 
@@ -211,7 +213,8 @@ where
 		let mut marker_fetcher = None;
 		let runtime_code =
 			self.maybe_resolve_marker(&state_runtime_code, runtime_code, &mut marker_fetcher);
-		let runtime_code = self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?.0;
+		let (runtime_code, runtime_version) =
+			self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?;
 		let mut extensions = extensions.borrow_mut();
 
 		match recorder {
@@ -231,6 +234,7 @@ where
 					&mut extensions,
 					&runtime_code,
 					call_context,
+					runtime_version.state_version(),
 				)
 				.set_parent_hash(at_hash);
 				state_machine.execute()
@@ -245,6 +249,7 @@ where
 					&mut extensions,
 					&runtime_code,
 					call_context,
+					runtime_version.state_version(),
 				)
 				.set_parent_hash(at_hash);
 				state_machine.execute()
@@ -291,7 +296,8 @@ where
 		let mut marker_fetcher = None;
 		let runtime_code =
 			self.maybe_resolve_marker(&state_runtime_code, runtime_code, &mut marker_fetcher);
-		let runtime_code = self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?.0;
+		let (runtime_code, runtime_version) =
+			self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?;
 
 		sp_state_machine::prove_execution_on_trie_backend(
 			trie_backend,
@@ -301,6 +307,7 @@ where
 			call_data,
 			&runtime_code,
 			&mut self.execution_extensions.extensions(at_hash, at_number),
+			runtime_version.state_version(),
 		)
 		.map_err(Into::into)
 	}

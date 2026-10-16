@@ -31,6 +31,10 @@ codec = { workspace = true }
 # feature-driven instead of hard-coded to std.
 parachain-service-core = { path = "../../../../parachain-service/core", default-features = false }
 
+[target.'cfg(jam)'.dependencies]
+# The JAM (PolkaVM) side declares its host calls at fixed indices.
+sp-jam-runtime-interface = { workspace = true }
+
 [dev-dependencies]
 # Tests run only on the host (std); enabling sp-state-machine/std keeps its own
 # std-gated impls compiled so the dep builds 0-warning.

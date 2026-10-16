@@ -194,13 +194,12 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		fn execute_read(read: u32, panic_at_end: bool) -> DispatchResult {
 			let mut next_key = vec![];
-			let mut next = Vec::new();
 			for _ in 0..(read as usize) {
-				if sp_io::storage::next_key(&next_key, &mut next) {
+				if let Some(next) = sp_io::storage::next_key(&next_key) {
 					// Read the value
 					sp_io::storage::get(&next);
 
-					core::mem::swap(&mut next_key, &mut next);
+					next_key = next;
 				} else {
 					if panic_at_end {
 						return Ok(());

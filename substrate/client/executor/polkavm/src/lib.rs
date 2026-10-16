@@ -24,20 +24,28 @@ use sc_executor_common::{
 use sp_externalities::ExternalitiesExt as _;
 use sp_runtime_interface::unpack_ptr_and_len;
 use sp_wasm_interface::{
-	Function, FunctionContext, HostFunctions, Pointer, Value, ValueType, WordSize,
+	Function, FunctionContext as WasmFunctionContext, HostFunctions, Pointer, Value, ValueType,
+	WordSize,
 };
 
-// This executor supports only RFC-145 V2 entry points. A V2 entry point takes a single
-// `input_len` argument (zero-extended into A0 on riscv64) and pulls its payload out of the
-// host via the `Input::read` host function, which stashes the payload in `HostState::input_data`
-// for the duration of a runtime call. There is no V1 (pointer+length) convention here.
+/// The largest call payload a JAM runtime blob can be handed, in bytes.
+///
+/// A JAM blob's picoalloc allocator places its arena at the heap base without consulting `sbrk`,
+/// so a payload written there is overwritten by the first allocation. JAM blobs get it in the
+/// aux-data region instead, which the allocator never touches; this is that region's maximum.
+const JAM_MAX_INPUT_SIZE: u32 = 64 * 1024 * 1024;
 
 /// State made available to host functions for the duration of a runtime call.
-struct HostState {
-	/// Input payload of the current call, taken by `Input::read` on V2 entry points.
-	input_data: Option<Vec<u8>>,
-}
+///
+/// A runtime blob's entry points take `(input_data, input_len)` on riscv64 (the ABI the `sp-api`
+/// macro emits), so the call payload is written into guest memory before the call and the guest
+/// reads it as a slice; the JAM host-call set the runtime may call is registered on the linker.
+#[derive(Default)]
+struct HostState;
 
+// Cloning is cheap: `polkavm::InstancePre` is an `Arc` sharing the compiled module and linked
+// host functions.
+#[derive(Clone)]
 #[repr(transparent)]
 pub struct InstancePre(polkavm::InstancePre<HostState, String>);
 
@@ -87,10 +95,40 @@ impl WasmInstance for Instance {
 			);
 		}
 
-		// Stash the input payload so the guest can pull it out via `Input::read` (RFC-145 V2).
-		let mut state = HostState { input_data: Some(raw_data.to_vec()) };
+		// A JAM blob (created with an aux-data region) reads its payload from there.
+		let aux_size = self.0.module().memory_map().aux_data_size();
+		let data_pointer = if aux_size > 0 {
+			if let Err(err) = self.0.set_accessible_aux_size(raw_data_length) {
+				return (
+					Err(format!(
+						"call into the runtime method '{name}' failed: input payload of {raw_data_length} bytes does not fit the {aux_size}-byte input region: {err}"
+					)
+					.into()),
+					None,
+				);
+			}
+			self.0.module().memory_map().aux_data_address()
+		} else {
+			// Otherwise allocate space for the payload at the start of the heap.
+			if let Err(err) = self.0.sbrk(raw_data_length) {
+				return (
+					Err(format!(
+						"call into the runtime method '{name}' failed: reset memory failed: {err}"
+					)
+					.into()),
+					None,
+				);
+			}
+			self.0.module().memory_map().heap_base()
+		};
 
-		match self.0.call_typed(&mut state, pc, (raw_data_length,)) {
+		if let Err(err) = self.0.write_memory(data_pointer, raw_data) {
+			return (Err(format!("call into the runtime method '{name}': failed to write the input payload into guest memory: {err}").into()), None);
+		}
+
+		let mut state = HostState;
+
+		match self.0.call_typed(&mut state, pc, (data_pointer, raw_data_length)) {
 			Ok(()) => {},
 			Err(CallError::Trap) => {
 				return (
@@ -129,7 +167,7 @@ impl WasmInstance for Instance {
 
 struct Context<'r, 'a>(&'r mut polkavm::Caller<'a, HostState>);
 
-impl<'r, 'a> FunctionContext for Context<'r, 'a> {
+impl<'r, 'a> WasmFunctionContext for Context<'r, 'a> {
 	fn read_memory_into(
 		&mut self,
 		address: Pointer<u8>,
@@ -173,14 +211,60 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	fn register_panic_error_message(&mut self, _message: &str) {
 		unimplemented!("'register_panic_error_message' is never used when running under PolkaVM");
 	}
+}
 
-	fn take_input_data(&mut self) -> sp_wasm_interface::Result<Vec<u8>> {
+/// The node side of the JAM host-call set, as seen from the PolkaVM executor.
+///
+/// Guest pointers are plain addresses; this adapter is the
+/// [`sp_jam_runtime_interface::FunctionContext`] the host-call bodies use to reach the guest's
+/// memory.
+struct JamContext<'r, 'a>(&'r mut polkavm::Caller<'a, HostState>);
+impl sp_jam_runtime_interface::FunctionContext for JamContext<'_, '_> {
+	fn read_memory_into(&mut self, ptr: *const u8, dest: &mut [u8]) -> Result<(), String> {
 		self.0
-			.user_data
-			.input_data
-			.take()
-			.ok_or_else(|| "Input data already taken".into())
+			.instance
+			.read_memory_into(ptr as u32, dest)
+			.map_err(|error| error.to_string())
+			.map(|_| ())
 	}
+
+	fn write_memory(&mut self, ptr: *mut u8, data: &[u8]) -> Result<(), String> {
+		self.0
+			.instance
+			.write_memory(ptr as u32, data)
+			.map_err(|error| error.to_string())
+	}
+}
+
+/// Serve one JAM host call: every argument and the return value is one register.
+fn call_jam_host_function(
+	caller: &mut Caller<HostState>,
+	function: &dyn sp_jam_runtime_interface::HostFunction,
+) -> Result<(), String> {
+	struct Regs([u64; sp_jam_runtime_interface::MAX_ARGS]);
+
+	impl sp_jam_runtime_interface::Registers for Regs {
+		fn arg(&self, index: usize) -> u64 {
+			self.0[index]
+		}
+	}
+
+	let mut regs = [0u64; sp_jam_runtime_interface::MAX_ARGS];
+	for (index, reg) in Reg::ARG_REGS.iter().enumerate() {
+		regs[index] = caller.instance.reg(*reg);
+	}
+
+	log::trace!("Calling JAM host function: '{}', args = {:?}", function.name(), regs);
+
+	let value = function.execute(&mut JamContext(caller), &Regs(regs)).map_err(|error| {
+		format!("call into the host function '{}' failed: {error}", function.name())
+	})?;
+
+	if let Some(value) = value {
+		caller.instance.set_reg(Reg::A0, value);
+	}
+
+	Ok(())
 }
 
 fn call_host_function(
@@ -334,9 +418,10 @@ fn serve_fetch(
 	Ok(data_len)
 }
 
-pub fn create_runtime<H>(blob: &polkavm::ProgramBlob) -> Result<Box<dyn WasmModule>, WasmError>
+pub fn create_runtime<H, J>(blob: &polkavm::ProgramBlob) -> Result<InstancePre, WasmError>
 where
 	H: HostFunctions,
+	J: sp_jam_runtime_interface::HostFunctions,
 {
 	static ENGINE: std::sync::OnceLock<Result<polkavm::Engine, polkavm::Error>> =
 		std::sync::OnceLock::new();
@@ -353,8 +438,15 @@ where
 		},
 	};
 
-	let module =
-		polkavm::Module::from_blob(&engine, &polkavm::ModuleConfig::default(), blob.clone())?;
+	// JAM builds (`--cfg jam`) are identified by the `jam_validate_block` export that
+	// `register_validate_block!` emits only for them.
+	let is_jam = blob.exports().any(|export| export.symbol() == "jam_validate_block");
+
+	let mut module_config = polkavm::ModuleConfig::default();
+	if is_jam {
+		module_config.set_aux_data_size(JAM_MAX_INPUT_SIZE);
+	}
+	let module = polkavm::Module::from_blob(&engine, &module_config, blob.clone())?;
 
 	let mut linker = polkavm::Linker::<HostState, String>::new();
 
@@ -364,20 +456,17 @@ where
 		})?;
 	}
 
-	// `sbrk` was removed from the `jam_v1` instruction set (GP 0.8.0) and replaced with a
-	// `grow_heap` host call, which the two kinds of PolkaVM runtime blob give different
-	// contracts:
-	//
-	// * Non-JAM builds keep the historical byte-delta contract implemented by the `sp-io` riscv
-	//   allocator: `grow_heap(size)` grows the heap by `size` bytes and returns the new heap end,
-	//   exactly what `sbrk` does.
-	// * JAM builds (`--cfg jam`, identified by the `jam_validate_block` export that
-	//   `register_validate_block!` emits only for them) use `jam-pvm-common`'s picoalloc allocator:
-	//   `grow_heap(pages)` passes an absolute page count `ceil(heap_end / 4096)` and treats the
-	//   call as successful iff the return value is `>= pages`. We mirror the service host:
-	//   page-align the current byte heap top, grow the heap to the requested page count and return
-	//   it; a request that does not fit is refused by returning the current (smaller) page count.
-	let is_jam = blob.exports().any(|export| export.symbol() == "jam_validate_block");
+	// The JAM host-call set (fixed PolkaVM indices): the runtime imports these by number.
+	for function in J::host_functions() {
+		linker.define_untyped(function.name(), |mut caller: Caller<HostState>| {
+			call_jam_host_function(&mut caller, function)
+		})?;
+	}
+
+	// `grow_heap` is not part of the JAM host-call set (the service provides it); the blob's
+	// allocator imports it directly. It keeps the historical byte-delta `sbrk` contract for
+	// non-JAM blobs, while a JAM blob (identified by the `jam_validate_block` export) passes an
+	// absolute page count, as `jam-pvm-common`'s picoalloc does.
 
 	linker.define_untyped("grow_heap", move |caller: Caller<HostState>| {
 		if !is_jam {
@@ -395,8 +484,6 @@ where
 		let top = match caller.instance.sbrk(0) {
 			Ok(Some(top)) => u64::from(top),
 			Ok(None) => {
-				// `sbrk(0)` only reports the current top and never fails; treat a missing
-				// pointer as a refusal rather than growing blindly.
 				caller.instance.set_reg(Reg::A0, 0);
 				return Ok(());
 			},
@@ -404,15 +491,15 @@ where
 		};
 		let top_pages = top.div_ceil(page_size);
 
-		// The heap is already large enough, so report the current page count, which is
-		// `>= requested` and therefore a success for the guest.
+		// The heap is already large enough: report the current page count, which is `>= requested`
+		// and therefore a success for the guest.
 		if requested <= top_pages {
 			caller.instance.set_reg(Reg::A0, top_pages);
 			return Ok(());
 		}
 
-		// Grow by whole pages. A request that does not fit into the byte delta `sbrk` accepts
-		// is refused by reporting the current page count, which is `< requested`.
+		// Grow by whole pages; a request that does not fit is refused by reporting the current
+		// (smaller) page count.
 		let delta = (requested - top_pages)
 			.checked_mul(page_size)
 			.and_then(|delta| u32::try_from(delta).ok());
@@ -445,7 +532,7 @@ where
 	})?;
 
 	let instance_pre = linker.instantiate_pre(&module)?;
-	Ok(Box::new(InstancePre(instance_pre)))
+	Ok(InstancePre(instance_pre))
 }
 
 #[cfg(test)]

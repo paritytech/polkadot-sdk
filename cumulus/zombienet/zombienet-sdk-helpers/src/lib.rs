@@ -1188,6 +1188,7 @@ where
 {
 	let blocks = para_client.blocks();
 	let block = blocks.at(block_hash).await?;
+	let block_core_info = find_core_info(&block)?;
 
 	if is_only_block_in_core {
 		// A block with a non-zero bundle index continues the bundle of its parent, i.e. shares
@@ -1227,9 +1228,9 @@ where
 		}
 	};
 
-	// The direct descendant either opens a new bundle (index 0), meaning it occupies a new
-	// core, or continues the bundle of the checked block, meaning it shares the core with it.
-	if find_block_bundle_info(&next_block)?.index != 0 {
+	let next_block_core_info = find_core_info(&next_block)?;
+
+	if next_block_core_info == block_core_info {
 		return Err(anyhow::anyhow!(
 			"Not {} block ({}) in core, at least the following block is on the same core.",
 			if is_only_block_in_core { "first" } else { "last" },

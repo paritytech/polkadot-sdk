@@ -17,6 +17,10 @@ sp-crypto-hashing = { workspace = true }
 sp-externalities = { workspace = true }
 sp-runtime-interface = { workspace = true }
 
+[target.'cfg(jam)'.dependencies]
+# The JAM (PolkaVM) side declares its host calls at fixed indices.
+sp-jam-runtime-interface = { workspace = true }
+
 [dev-dependencies]
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }

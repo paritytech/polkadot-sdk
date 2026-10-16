@@ -21,6 +21,7 @@
 #[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;
 
+#[cfg(not(all(jam, substrate_runtime)))]
 use sp_runtime_interface::runtime_interface;
 
 #[cfg(feature = "std")]
@@ -32,16 +33,46 @@ pub const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
 ///
 /// Should return the current storage proof size if [`ProofSizeExt`] is registered. Otherwise, needs
 /// to return u64::MAX.
+#[cfg(not(all(jam, substrate_runtime)))]
 #[runtime_interface]
 pub trait StorageProofSize {
 	/// Returns the current storage proof size.
-	#[polkavm_index(341)]
 	fn storage_proof_size(&mut self) -> u64 {
 		let para = match self.extension::<ProofSizeExt>() {
 			Some(e) => e.storage_proof_size(),
 			None => return PROOF_RECORDING_DISABLED,
 		};
 		para
+	}
+}
+
+/// The JAM (PolkaVM) side of [`StorageProofSize`]: an import at its fixed PolkaVM index, named like
+/// the `#[runtime_interface]` host function so the node serves it through that registration.
+///
+/// Parachain block validation replaces [`storage_proof_size::host_storage_proof_size`] to serve the
+/// size from its own recorder, as it does on wasm.
+#[cfg(all(jam, substrate_runtime))]
+pub mod storage_proof_size {
+	sp_jam_runtime_interface::host_calls! {
+		/// Returns the current storage proof size.
+		#[index = 341]
+		fn ext_storage_proof_size_storage_proof_size_version_1() -> u64;
+	}
+
+	fn host_call() -> u64 {
+		// SAFETY: The host call has no arguments.
+		unsafe { ext_storage_proof_size_storage_proof_size_version_1() }
+	}
+
+	/// Exchangeable implementation of [`storage_proof_size`].
+	#[allow(non_upper_case_globals)]
+	pub static host_storage_proof_size: sp_runtime_interface::wasm::ExchangeableFunction<
+		fn() -> u64,
+	> = sp_runtime_interface::wasm::ExchangeableFunction::new(host_call);
+
+	/// Returns the current storage proof size.
+	pub fn storage_proof_size() -> u64 {
+		host_storage_proof_size.get()()
 	}
 }
 

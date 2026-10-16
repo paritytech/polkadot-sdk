@@ -70,6 +70,9 @@ docify = { workspace = true }
 # is exactly what the facade re-exported — so there is still one definition per type.
 [target.'cfg(jam)'.dependencies]
 parachain-service-core = { path = "../../../../parachain-service/core", default-features = false }
+# `parachain-service-core` links `jam-pvm-common`, which installs the blob's `#[panic_handler]` and
+# picoalloc `#[global_allocator]`; sp-io must not define a second pair.
+sp-io = { workspace = true, features = ["disable_allocator", "disable_panic_handler"] }
 # `RefineContext` is decoded from the `fetch` host call rather than read at a hardcoded byte
 # offset, so a field reordering upstream becomes a decode error instead of silently wrong
 # randomness. Both crates are already in this target's graph via `parachain-service-core`;
