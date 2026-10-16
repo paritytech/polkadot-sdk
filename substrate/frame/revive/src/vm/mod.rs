@@ -377,7 +377,7 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		Self::from_storage_with_warmth(
 			code_hash,
 			meter,
-			Summarized::all_cold(CodeLoadItems::new(code_hash)),
+			Summarized::new_all_cold(CodeLoadItems::new(code_hash)),
 		)
 	}
 
@@ -530,9 +530,10 @@ mod tests {
 			let cold = code_load_weight(
 				code_len,
 				code_type,
-				load_warmth_at(Warmth::cold_non_revertible()),
+				load_warmth_at(Warmth::new_cold_non_revertible()),
 			);
-			let hot = code_load_weight(code_len, code_type, load_warmth_at(Warmth::read_paid()));
+			let hot =
+				code_load_weight(code_len, code_type, load_warmth_at(Warmth::new_read_paid()));
 			assert!(cold.ref_time() > hot.ref_time(), "{code_type:?}: cold={cold:?} hot={hot:?}");
 			assert_eq!(hot.proof_size(), 0, "{code_type:?}: {hot:?}");
 			let both_reads_proof = <Test as Config>::WeightInfo::code_load().proof_size();
@@ -544,7 +545,7 @@ mod tests {
 			let hot_info_cold_blob = code_load_weight(
 				code_len,
 				code_type,
-				load_warmth(Warmth::read_paid(), Warmth::cold_non_revertible()),
+				load_warmth(Warmth::new_read_paid(), Warmth::new_cold_non_revertible()),
 			);
 			assert!(
 				hot_info_cold_blob.proof_size() >= both_reads_proof + u64::from(code_len),
@@ -555,7 +556,7 @@ mod tests {
 			let twice_as_long = code_load_weight(
 				code_len * 2,
 				code_type,
-				load_warmth_at(Warmth::cold_non_revertible()),
+				load_warmth_at(Warmth::new_cold_non_revertible()),
 			);
 			assert!(
 				twice_as_long.proof_size().saturating_sub(cold.proof_size()) >= u64::from(code_len),
@@ -567,7 +568,7 @@ mod tests {
 				code_load_weight(code_len, code_type, load)
 					.saturating_sub(code_load_weight(0, code_type, load))
 			};
-			let hot_blob = Warmth::read_paid();
+			let hot_blob = Warmth::new_read_paid();
 			let hot_blob_bytes = bytes_of(load_warmth_at(hot_blob));
 			assert!(hot_blob_bytes.ref_time() > 0, "{code_type:?}: {hot_blob_bytes:?}");
 			let empty_blob = Token::<Test>::weight(&CodeLoadToken::Blob {
@@ -584,8 +585,8 @@ mod tests {
 		let rollback = <Test as Config>::WeightInfo::access_list_rollback_address_amortization();
 		let empty_blob = |load| code_load_weight(0, BytecodeType::Evm, load);
 		assert_eq!(
-			empty_blob(load_warmth_at(Warmth::cold_revertible()))
-				.saturating_sub(empty_blob(load_warmth_at(Warmth::cold_non_revertible()))),
+			empty_blob(load_warmth_at(Warmth::new_cold_revertible()))
+				.saturating_sub(empty_blob(load_warmth_at(Warmth::new_cold_non_revertible()))),
 			rollback.saturating_mul(CodeLoadItems::new(H256::zero()).entry_count().into()),
 		);
 	}
@@ -612,19 +613,22 @@ mod tests {
 			rehash_weight.saturating_add(runtime_costs::access_list_upgrade_overhead::<Test>());
 
 		assert_eq!(
-			owed_for_the_info_write(Warmth::cold_non_revertible(), Warmth::cold_non_revertible()),
+			owed_for_the_info_write(
+				Warmth::new_cold_non_revertible(),
+				Warmth::new_cold_non_revertible()
+			),
 			rehash_weight,
 		);
 		assert_eq!(
-			owed_for_the_info_write(Warmth::read_paid(), Warmth::read_paid()),
+			owed_for_the_info_write(Warmth::new_read_paid(), Warmth::new_read_paid()),
 			rehash_and_upgrade_weight,
 		);
 		assert_eq!(
-			owed_for_the_info_write(Warmth::read_paid(), Warmth::cold_non_revertible()),
+			owed_for_the_info_write(Warmth::new_read_paid(), Warmth::new_cold_non_revertible()),
 			rehash_and_upgrade_weight,
 		);
 		assert_eq!(
-			owed_for_the_info_write(Warmth::write_paid(), Warmth::read_paid()),
+			owed_for_the_info_write(Warmth::new_write_paid(), Warmth::new_read_paid()),
 			Weight::zero(),
 		);
 	}
@@ -642,7 +646,7 @@ mod tests {
 			let blob_missing = H256::repeat_byte(2);
 			<CodeInfoOf<Test>>::insert(blob_missing, code_info);
 
-			let cold = load_warmth_at(Warmth::cold_non_revertible());
+			let cold = load_warmth_at(Warmth::new_cold_non_revertible());
 			let new_meter = |weight_limit| {
 				TransactionMeter::<Test>::new_from_limits(weight_limit, u128::MAX)
 					.expect("a weight-and-deposit meter always builds")

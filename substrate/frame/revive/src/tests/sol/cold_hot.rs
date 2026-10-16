@@ -498,12 +498,12 @@ fn a_contract_creation_pays_for_registering_its_entries(fixture_type: FixtureTyp
 	};
 	let registration_weight = |warmth| {
 		<RuntimeCosts as WeightToken<Test>>::weight(&RuntimeCosts::AccessListRegistration(
-			WarmthSummary::new(KeyFamily::Address).count(warmth, StorageOp::Read),
+			WarmthSummary::new(KeyFamily::PalletStorageSlot).add(warmth, StorageOp::Read),
 		))
 	};
 	// Only the registration charge depends on whether the entries are already hot.
-	let saving_per_hot_entry = registration_weight(Warmth::cold_revertible())
-		.saturating_sub(registration_weight(Warmth::read_paid()));
+	let saving_per_hot_entry = registration_weight(Warmth::new_cold_revertible())
+		.saturating_sub(registration_weight(Warmth::new_read_paid()));
 
 	let (all_cold_weight, _, child, stored_code_hash) = create_weight(AlreadyHot::Nothing);
 	let (new_contract_hot_weight, new_contract_entries, ..) =
@@ -583,10 +583,10 @@ fn a_created_contract_is_hot_for_the_rest_of_the_transaction(fixture_type: Fixtu
 		let (expected_child_call_cold, expected_child_call_hot) =
 			if fixture_type == FixtureType::Resolc {
 				// Instantiating from a code hash loads the code, which warms it.
-				(0, 4) // hot: OriginalAccount, AccountInfo, CodeInfo, CodeBlob
+				(0, 4) // hot: OriginalAccount, AccountInfo, CodeInfo, PristineCode
 			} else {
 				// The code is already stored, so CREATE never reads it and it stays cold.
-				(2, 2) // cold: CodeInfo, CodeBlob; hot: OriginalAccount, AccountInfo
+				(2, 2) // cold: CodeInfo, PristineCode; hot: OriginalAccount, AccountInfo
 			};
 		let expected_transfer_cold = 0; // the create already wrote the deployer's Account
 		let expected_transfer_hot = 4; // both parties' Account and AccountInfo

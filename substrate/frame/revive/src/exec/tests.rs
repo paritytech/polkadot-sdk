@@ -3634,7 +3634,7 @@ fn cold_hot_a_load_warms_both_code_entries() {
 		let own_hash = *ctx.ext.own_code_hash();
 		assert_eq!(
 			ctx.ext.warmth_of(CodeLoadItems::new(own_hash)).entries(),
-			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
+			CodeLoadWarmth { info: Warmth::new_read_paid(), blob: Warmth::new_read_paid() },
 			"a call warms the code it loads",
 		);
 
@@ -3651,7 +3651,7 @@ fn cold_hot_a_load_warms_both_code_entries() {
 			.unwrap();
 		assert_eq!(
 			ctx.ext.warmth_of(CodeLoadItems::new(dummy_code_hash)).entries(),
-			CodeLoadWarmth { info: Warmth::write_paid(), blob: Warmth::read_paid() },
+			CodeLoadWarmth { info: Warmth::new_write_paid(), blob: Warmth::new_read_paid() },
 			"an instantiate warms the code it loads, and pays for the code info refcount write",
 		);
 		exec_success()
@@ -3686,9 +3686,12 @@ fn cold_hot_a_chained_delegation_warms_the_target_it_reads() {
 				Warmth::Cold { revertible: nested },
 				"{frame_type}: nothing reads EVE's account info before the call",
 			);
-			let expected_charge = Token::<Test>::weight(&RuntimeCosts::AccountInfoRead(
-				Summarized::from_warmth(KeyFamily::Address, warmth_before, StorageOp::Read),
-			));
+			let expected_charge =
+				Token::<Test>::weight(&RuntimeCosts::AccountInfoRead(Summarized::from_warmth(
+					KeyFamily::PalletStorageSlot,
+					warmth_before,
+					StorageOp::Read,
+				)));
 			let weight_before = ctx.ext.frame_meter().weight_consumed();
 
 			let call_django = ctx.ext.call(
@@ -3700,7 +3703,11 @@ fn cold_hot_a_chained_delegation_warms_the_target_it_reads() {
 			);
 
 			assert_err!(call_django.map_err(|e| e.error), <Error<Test>>::ContractTrapped);
-			assert_eq!(account_info_warmth(ctx.ext, EVE_ADDR), Warmth::read_paid(), "{frame_type}");
+			assert_eq!(
+				account_info_warmth(ctx.ext, EVE_ADDR),
+				Warmth::new_read_paid(),
+				"{frame_type}"
+			);
 			assert_eq!(
 				ctx.ext.frame_meter().weight_consumed().saturating_sub(weight_before),
 				expected_charge,

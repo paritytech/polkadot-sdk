@@ -24,8 +24,6 @@
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 use alloc::vec;
 
-use core::cmp::Ordering;
-
 use alloc::{
 	collections::btree_map::{BTreeMap, Entry},
 	vec::Vec,
@@ -126,34 +124,22 @@ impl From<&Key> for Slot {
 }
 
 /// A slot inside one contract's storage.
-#[derive(Eq, PartialEq, Debug, Clone)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub struct ContractSlot {
+	// Compares on `slot` first, the most-discriminating field in the typical access pattern
+	// (one contract touching many slots within a transaction).
 	slot: Slot,
 	address: H160,
 }
 
-impl Ord for ContractSlot {
-	/// Compares on `slot` first, the most-discriminating field in the typical access pattern
-	/// (one contract touching many slots within a transaction).
-	fn cmp(&self, other: &Self) -> Ordering {
-		self.slot.cmp(&other.slot).then_with(|| self.address.cmp(&other.address))
-	}
-}
-
-impl PartialOrd for ContractSlot {
-	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		Some(self.cmp(other))
-	}
-}
-
-/// The kind of key an entry carries. Slots are much longer than addresses, so each family has
-/// its own benchmarks.
+/// The kind of key an [`AccessEntry`] carries. Contract storage slots are much longer than
+/// pallet storage keys, so each family has its own benchmarks.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum KeyFamily {
-	/// A storage slot.
-	Slot,
-	/// An address or a code hash.
-	Address,
+	/// A slot in a contract's storage.
+	ContractStorageSlot,
+	/// A key in a pallet's storage, such as an address or a code hash.
+	PalletStorageSlot,
 }
 
 /// The operation an access performs on a state item.
@@ -189,7 +175,7 @@ impl Warmth {
 		matches!(self, Self::Hot { .. })
 	}
 
-	/// Returns whether a write on this entry costs more than what it already paid.
+	/// Returns whether the entry is hot and its earlier charge does not cover `op`.
 	fn owes_upgrade(self, op: StorageOp) -> bool {
 		matches!(self, Self::Hot { charged } if !charged.covers(op))
 	}
@@ -203,12 +189,12 @@ impl Warmth {
 	}
 
 	/// Builds a cold warmth whose touch stays in the list if the frame reverts.
-	pub fn cold_non_revertible() -> Self {
+	pub fn new_cold_non_revertible() -> Self {
 		Self::Cold { revertible: false }
 	}
 
 	/// Builds a cold warmth whose touch is dropped if the frame reverts.
-	pub fn cold_revertible() -> Self {
+	pub fn new_cold_revertible() -> Self {
 		Self::Cold { revertible: true }
 	}
 
@@ -222,13 +208,13 @@ impl Warmth {
 
 	/// Builds a hot warmth that has paid for a read.
 	#[cfg(test)]
-	pub fn read_paid() -> Self {
+	pub fn new_read_paid() -> Self {
 		Self::Hot { charged: StorageOp::Read }
 	}
 
 	/// Builds a hot warmth that has paid for a write.
 	#[cfg(test)]
-	pub fn write_paid() -> Self {
+	pub fn new_write_paid() -> Self {
 		Self::Hot { charged: StorageOp::Write }
 	}
 }
@@ -261,8 +247,8 @@ impl WarmthSummary {
 		self.key_family
 	}
 
-	/// Counts one entry, at the operation performed on it.
-	pub fn count(mut self, warmth: Warmth, op: StorageOp) -> Self {
+	/// Adds one entry, at the operation performed on it.
+	pub fn add(mut self, warmth: Warmth, op: StorageOp) -> Self {
 		self.total = self.total.saturating_add(1);
 		match warmth {
 			Warmth::Cold { revertible } => {
@@ -343,8 +329,8 @@ impl<W> Summarized<W> {
 	}
 
 	/// Builds the warmth of an untracked access, with every entry cold.
-	pub fn all_cold<A: Access<Warmth = W>>(access: A) -> Self {
-		Self::from_access(access, |_entry, _op| Warmth::cold_non_revertible())
+	pub fn new_all_cold<A: Access<Warmth = W>>(access: A) -> Self {
+		Self::from_access(access, |_entry, _op| Warmth::new_cold_non_revertible())
 	}
 
 	/// Expands the access, taking each entry's warmth from `visit`, and counts them.
@@ -355,7 +341,7 @@ impl<W> Summarized<W> {
 		let mut summary = WarmthSummary::new(A::KEY_FAMILY);
 		let entries = access.expand(|entry, op| {
 			let warmth = visit(entry, op);
-			summary = summary.count(warmth, op);
+			summary = summary.add(warmth, op);
 			warmth
 		});
 		Self { entries, summary }
@@ -382,7 +368,7 @@ impl<W> Summarized<W> {
 impl Summarized<Warmth> {
 	/// Builds the warmth of one entry of the given key family, at the operation performed on it.
 	pub fn from_warmth(key_family: KeyFamily, warmth: Warmth, op: StorageOp) -> Self {
-		Self { entries: warmth, summary: WarmthSummary::new(key_family).count(warmth, op) }
+		Self { entries: warmth, summary: WarmthSummary::new(key_family).add(warmth, op) }
 	}
 
 	/// Returns the warmth with the rollback dropped, for a peek that touched nothing.
@@ -403,7 +389,7 @@ pub enum AccessEntry {
 	/// Code info (`CodeInfoOf`), keyed by code hash: contracts with the same code share one entry.
 	CodeInfo { hash: H256 },
 	/// Code blob (`PristineCode`), keyed by code hash: contracts with the same code share it.
-	CodeBlob { hash: H256 },
+	PristineCode { hash: H256 },
 	/// A contract storage slot, the only entry a contract can hold many of.
 	Storage(ContractSlot),
 }
@@ -412,12 +398,12 @@ impl AccessEntry {
 	/// Returns the family the entry's key belongs to.
 	fn key_family(&self) -> KeyFamily {
 		match self {
-			Self::Storage(_) => KeyFamily::Slot,
+			Self::Storage(_) => KeyFamily::ContractStorageSlot,
 			Self::Account { .. } |
 			Self::OriginalAccount { .. } |
 			Self::AccountInfo { .. } |
 			Self::CodeInfo { .. } |
-			Self::CodeBlob { .. } => KeyFamily::Address,
+			Self::PristineCode { .. } => KeyFamily::PalletStorageSlot,
 		}
 	}
 }
@@ -428,7 +414,7 @@ impl AccessEntry {
 	/// comparison runs the whole shared prefix before it can decide.
 	pub fn with_index(index: usize, key_family: KeyFamily) -> Self {
 		match key_family {
-			KeyFamily::Slot => {
+			KeyFamily::ContractStorageSlot => {
 				let slot = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
 					.expect("key fits STORAGE_KEY_BYTES bound; qed");
 				Self::Storage(ContractSlot {
@@ -436,7 +422,9 @@ impl AccessEntry {
 					address: H160::from_low_u64_be(index as u64),
 				})
 			},
-			KeyFamily::Address => Self::CodeInfo { hash: H256::from_low_u64_be(index as u64) },
+			KeyFamily::PalletStorageSlot => {
+				Self::CodeInfo { hash: H256::from_low_u64_be(index as u64) }
+			},
 		}
 	}
 }
@@ -456,7 +444,7 @@ impl AccessEntry {
 				Some(crate::AccountInfoOf::<T>::hashed_key_for(address))
 			},
 			Self::CodeInfo { hash } => Some(crate::CodeInfoOf::<T>::hashed_key_for(hash)),
-			Self::CodeBlob { hash } => Some(crate::PristineCode::<T>::hashed_key_for(hash)),
+			Self::PristineCode { hash } => Some(crate::PristineCode::<T>::hashed_key_for(hash)),
 			// Child-trie slots have no fixed key here.
 			Self::Storage(_) => None,
 		}
@@ -474,7 +462,7 @@ pub mod benchmarking {
 			if let Some(key) = entry.storage_key::<T>() {
 				frame_benchmarking::benchmarking::add_to_whitelist(key.into());
 			}
-			Warmth::cold_non_revertible()
+			Warmth::new_cold_non_revertible()
 		});
 	}
 
@@ -491,7 +479,7 @@ pub mod benchmarking {
 				!whitelisted || except.contains(&entry),
 				"{entry:?} is whitelisted, so the benchmark does not measure its read",
 			);
-			Warmth::cold_non_revertible()
+			Warmth::new_cold_non_revertible()
 		});
 	}
 }
@@ -518,7 +506,7 @@ pub trait Access {
 		let mut entries = 0;
 		self.expand(|_entry, _op| {
 			entries += 1;
-			Warmth::cold_non_revertible()
+			Warmth::new_cold_non_revertible()
 		});
 		entries
 	}
@@ -565,7 +553,7 @@ impl CallItems {
 
 impl Access for CallItems {
 	type Warmth = CallWarmth;
-	const KEY_FAMILY: KeyFamily = KeyFamily::Address;
+	const KEY_FAMILY: KeyFamily = KeyFamily::PalletStorageSlot;
 
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CallWarmth {
 		match self {
@@ -608,7 +596,7 @@ pub struct TransferItems {
 
 impl Access for TransferItems {
 	type Warmth = TransferWarmth;
-	const KEY_FAMILY: KeyFamily = KeyFamily::Address;
+	const KEY_FAMILY: KeyFamily = KeyFamily::PalletStorageSlot;
 
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> TransferWarmth {
 		// Dust balances live in the account infos, so only a dust transfer writes them.
@@ -638,7 +626,7 @@ pub struct InstantiateItems {
 
 impl Access for InstantiateItems {
 	type Warmth = ();
-	const KEY_FAMILY: KeyFamily = KeyFamily::Address;
+	const KEY_FAMILY: KeyFamily = KeyFamily::PalletStorageSlot;
 
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) {
 		visit(AccessEntry::Account { address: self.address }, StorageOp::Write);
@@ -680,12 +668,12 @@ impl CodeLoadItems {
 
 impl Access for CodeLoadItems {
 	type Warmth = CodeLoadWarmth;
-	const KEY_FAMILY: KeyFamily = KeyFamily::Address;
+	const KEY_FAMILY: KeyFamily = KeyFamily::PalletStorageSlot;
 
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CodeLoadWarmth {
 		CodeLoadWarmth {
 			info: visit(AccessEntry::CodeInfo { hash: self.hash }, self.info_op),
-			blob: visit(AccessEntry::CodeBlob { hash: self.hash }, StorageOp::Read),
+			blob: visit(AccessEntry::PristineCode { hash: self.hash }, StorageOp::Read),
 		}
 	}
 }
@@ -711,7 +699,7 @@ impl StorageItems {
 
 impl Access for StorageItems {
 	type Warmth = Warmth;
-	const KEY_FAMILY: KeyFamily = KeyFamily::Slot;
+	const KEY_FAMILY: KeyFamily = KeyFamily::ContractStorageSlot;
 
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> Warmth {
 		visit(AccessEntry::Storage(self.key), self.op)
@@ -1004,13 +992,13 @@ mod tests {
 			}),
 			AccessEntry::Account { address: H160::zero() },
 			AccessEntry::AccountInfo { address: H160::zero() },
-			AccessEntry::CodeBlob { hash: H256::repeat_byte(0xD) },
+			AccessEntry::PristineCode { hash: H256::repeat_byte(0xD) },
 		);
 
 		// Root frame: cold, but no checkpoint covers it, so it is not revertible.
 		assert_eq!(
 			al.touch(a.clone(), StorageOp::Read),
-			Warmth::cold_non_revertible(),
+			Warmth::new_cold_non_revertible(),
 			"A: first touch cold"
 		);
 		assert!(al.touch(a.clone(), StorageOp::Read).is_hot(), "A: second touch hot");
@@ -1021,7 +1009,7 @@ mod tests {
 		// Inside F1: journaled under the open checkpoint, so it is revertible.
 		assert_eq!(
 			al.touch(b.clone(), StorageOp::Read),
-			Warmth::cold_revertible(),
+			Warmth::new_cold_revertible(),
 			"B in F1: cold"
 		);
 		assert!(al.touch(a.clone(), StorageOp::Read).is_hot(), "A in F1: hot via parent");
@@ -1059,13 +1047,14 @@ mod tests {
 	#[test]
 	fn touch_caps_at_max_entries() {
 		let mut al = AccessList::new();
-		al.fill_to(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
+		al.fill_to(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
 
-		let new_entry = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
+		let new_entry =
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
 		al.enter_frame();
 		assert_eq!(
 			al.touch(new_entry.clone(), StorageOp::Read),
-			Warmth::cold_non_revertible(),
+			Warmth::new_cold_non_revertible(),
 			"past cap: bills cold, not revertible",
 		);
 		al.commit_frame();
@@ -1077,7 +1066,7 @@ mod tests {
 			"past cap re-touch: still cold (not tracked)"
 		);
 
-		let existing = AccessEntry::with_index(0, KeyFamily::Slot);
+		let existing = AccessEntry::with_index(0, KeyFamily::ContractStorageSlot);
 		assert!(
 			al.touch(existing.clone(), StorageOp::Read).is_hot(),
 			"existing entry still hot at cap"
@@ -1086,12 +1075,12 @@ mod tests {
 		// A write can still upgrade a tracked slot once the map is full.
 		assert_eq!(
 			al.touch(existing.clone(), StorageOp::Write),
-			Warmth::read_paid(),
+			Warmth::new_read_paid(),
 			"first write at cap: was read-paid",
 		);
 		assert_eq!(
 			al.touch(existing, StorageOp::Write),
-			Warmth::write_paid(),
+			Warmth::new_write_paid(),
 			"write at cap: upgraded",
 		);
 
@@ -1108,8 +1097,8 @@ mod tests {
 		let entry =
 			AccessEntry::Storage(ContractSlot { slot: Slot::Fix([2; 32]), address: H160::zero() });
 
-		let read_paid = Warmth::read_paid();
-		let write_paid = Warmth::write_paid();
+		let read_paid = Warmth::new_read_paid();
+		let write_paid = Warmth::new_write_paid();
 
 		assert!(!al.touch(entry.clone(), StorageOp::Read).is_hot(), "first read: cold");
 		assert_eq!(al.touch(entry.clone(), StorageOp::Read), read_paid, "read after read");
@@ -1143,35 +1132,38 @@ mod tests {
 		}
 
 		// Indices past the fill range, so the fill never hands out these entries itself.
-		let upgraded = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
-		let reverted = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES + 1, KeyFamily::Slot);
-		let upgraded_at_cap = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES + 2, KeyFamily::Slot);
+		let upgraded =
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
+		let reverted =
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES + 1, KeyFamily::ContractStorageSlot);
+		let upgraded_at_cap =
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES + 2, KeyFamily::ContractStorageSlot);
 
 		let mut al = AccessList::new();
 
-		agree(&mut al, upgraded.clone(), StorageOp::Read, Warmth::cold_non_revertible());
-		agree(&mut al, upgraded.clone(), StorageOp::Read, Warmth::read_paid());
-		agree(&mut al, upgraded.clone(), StorageOp::Write, Warmth::read_paid());
-		agree(&mut al, upgraded.clone(), StorageOp::Write, Warmth::write_paid());
-		agree(&mut al, upgraded, StorageOp::Read, Warmth::write_paid());
+		agree(&mut al, upgraded.clone(), StorageOp::Read, Warmth::new_cold_non_revertible());
+		agree(&mut al, upgraded.clone(), StorageOp::Read, Warmth::new_read_paid());
+		agree(&mut al, upgraded.clone(), StorageOp::Write, Warmth::new_read_paid());
+		agree(&mut al, upgraded.clone(), StorageOp::Write, Warmth::new_write_paid());
+		agree(&mut al, upgraded, StorageOp::Read, Warmth::new_write_paid());
 
 		al.enter_frame();
-		agree(&mut al, reverted.clone(), StorageOp::Write, Warmth::cold_revertible());
+		agree(&mut al, reverted.clone(), StorageOp::Write, Warmth::new_cold_revertible());
 		al.rollback_frame();
 
 		// Touched before the fill, so it is already in the list when the list fills up.
-		agree(&mut al, upgraded_at_cap.clone(), StorageOp::Read, Warmth::cold_non_revertible());
-		al.fill_to(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
+		agree(&mut al, upgraded_at_cap.clone(), StorageOp::Read, Warmth::new_cold_non_revertible());
+		al.fill_to(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
 
 		al.enter_frame();
 		// The rolled-back entry is gone, so at the cap it reads like any untracked one.
-		agree(&mut al, reverted, StorageOp::Write, Warmth::cold_non_revertible());
+		agree(&mut al, reverted, StorageOp::Write, Warmth::new_cold_non_revertible());
 		// A tracked read-paid slot still upgrades at the cap.
-		agree(&mut al, upgraded_at_cap.clone(), StorageOp::Write, Warmth::read_paid());
+		agree(&mut al, upgraded_at_cap.clone(), StorageOp::Write, Warmth::new_read_paid());
 		al.rollback_frame();
 		assert_eq!(
 			al.peek(&upgraded_at_cap),
-			Warmth::read_paid(),
+			Warmth::new_read_paid(),
 			"an at-cap upgrade rolls back with its frame"
 		);
 	}
@@ -1187,7 +1179,7 @@ mod tests {
 				("at the cap", MAX_ACCESS_LIST_ENTRIES),
 			] {
 				let mut al = AccessList::new();
-				al.fill_to(entries_before, KeyFamily::Slot);
+				al.fill_to(entries_before, KeyFamily::ContractStorageSlot);
 				assert_eq!(
 					al.warmth_of_summarized(access.clone()),
 					al.warm_summarized(access.clone()),
@@ -1202,7 +1194,7 @@ mod tests {
 
 		impl Access for SameEntry {
 			type Warmth = Vec<Warmth>;
-			const KEY_FAMILY: KeyFamily = KeyFamily::Address;
+			const KEY_FAMILY: KeyFamily = KeyFamily::PalletStorageSlot;
 
 			fn expand(
 				self,
@@ -1232,11 +1224,14 @@ mod tests {
 
 		impl Access for TooManyEntries {
 			type Warmth = ();
-			const KEY_FAMILY: KeyFamily = KeyFamily::Address;
+			const KEY_FAMILY: KeyFamily = KeyFamily::PalletStorageSlot;
 
 			fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) {
 				for index in 0..=MAX_ENTRIES_PER_ACCESS {
-					visit(AccessEntry::with_index(index, KeyFamily::Address), StorageOp::Read);
+					visit(
+						AccessEntry::with_index(index, KeyFamily::PalletStorageSlot),
+						StorageOp::Read,
+					);
 				}
 			}
 		}
@@ -1253,17 +1248,17 @@ mod tests {
 
 		al.enter_frame();
 		al.enter_frame();
-		assert_eq!(al.touch(entry.clone(), StorageOp::Write), Warmth::read_paid());
+		assert_eq!(al.touch(entry.clone(), StorageOp::Write), Warmth::new_read_paid());
 		al.commit_frame();
 		assert_eq!(
 			al.peek(&entry),
-			Warmth::write_paid(),
+			Warmth::new_write_paid(),
 			"a committed upgrade belongs to the parent frame"
 		);
 		al.rollback_frame();
 		assert_eq!(
 			al.peek(&entry),
-			Warmth::read_paid(),
+			Warmth::new_read_paid(),
 			"the parent's revert drops the committed upgrade"
 		);
 	}
@@ -1285,7 +1280,7 @@ mod tests {
 
 		assert_eq!(
 			al.peek(&upgraded),
-			Warmth::write_paid(),
+			Warmth::new_write_paid(),
 			"a rollback must only drop its own frame's upgrades"
 		);
 	}
@@ -1305,7 +1300,7 @@ mod tests {
 	#[test]
 	fn only_the_entries_that_fit_the_cap_are_revertible() {
 		let mut al = AccessList::new();
-		al.fill_to(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::Slot);
+		al.fill_to(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot);
 
 		al.enter_frame();
 
@@ -1316,10 +1311,10 @@ mod tests {
 		};
 
 		let expected = TransferWarmth {
-			receiver_account: Warmth::cold_revertible(), // the only entry that fits
-			sender_account: Warmth::cold_non_revertible(),
-			receiver_account_info: Warmth::cold_non_revertible(),
-			sender_account_info: Warmth::cold_non_revertible(),
+			receiver_account: Warmth::new_cold_revertible(), // the only entry that fits
+			sender_account: Warmth::new_cold_non_revertible(),
+			receiver_account_info: Warmth::new_cold_non_revertible(),
+			sender_account_info: Warmth::new_cold_non_revertible(),
 			dust: false,
 		};
 		assert_eq!(al.warmth_of_summarized(access).entries, expected);
@@ -1356,32 +1351,32 @@ mod tests {
 		assert_eq!(
 			recorded(CallItems::Plain { target }).entries,
 			CallWarmth::Plain {
-				original_account: Warmth::read_paid(),
-				account_info: Warmth::write_paid(),
+				original_account: Warmth::new_read_paid(),
+				account_info: Warmth::new_write_paid(),
 			},
 		);
 
 		assert_eq!(
 			recorded(CallItems::Delegate { target }).entries,
-			CallWarmth::Delegate { account_info: Warmth::read_paid() },
+			CallWarmth::Delegate { account_info: Warmth::new_read_paid() },
 		);
 
 		assert_eq!(
 			recorded(CodeLoadItems::new(H256::zero())).entries,
-			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
+			CodeLoadWarmth { info: Warmth::new_read_paid(), blob: Warmth::new_read_paid() },
 		);
 
 		let slot_access = |op| StorageItems::new(target, &Key::Fix([3; 32]), op);
-		assert_eq!(recorded(slot_access(StorageOp::Read)).entries, Warmth::read_paid());
-		assert_eq!(recorded(slot_access(StorageOp::Write)).entries, Warmth::write_paid());
+		assert_eq!(recorded(slot_access(StorageOp::Read)).entries, Warmth::new_read_paid());
+		assert_eq!(recorded(slot_access(StorageOp::Write)).entries, Warmth::new_write_paid());
 
 		assert_eq!(
 			recorded(transfer(false)).entries,
 			TransferWarmth {
-				receiver_account: Warmth::write_paid(),
-				sender_account: Warmth::write_paid(),
-				receiver_account_info: Warmth::read_paid(),
-				sender_account_info: Warmth::read_paid(),
+				receiver_account: Warmth::new_write_paid(),
+				sender_account: Warmth::new_write_paid(),
+				receiver_account_info: Warmth::new_read_paid(),
+				sender_account_info: Warmth::new_read_paid(),
 				dust: false,
 			},
 		);
@@ -1389,10 +1384,10 @@ mod tests {
 		assert_eq!(
 			recorded(transfer(true)).entries,
 			TransferWarmth {
-				receiver_account: Warmth::write_paid(),
-				sender_account: Warmth::write_paid(),
-				receiver_account_info: Warmth::write_paid(),
-				sender_account_info: Warmth::write_paid(),
+				receiver_account: Warmth::new_write_paid(),
+				sender_account: Warmth::new_write_paid(),
+				receiver_account_info: Warmth::new_write_paid(),
+				sender_account_info: Warmth::new_write_paid(),
 				dust: true,
 			},
 		);

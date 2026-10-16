@@ -2577,7 +2577,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
 		let mut al = AccessList::new();
-		let entry = AccessEntry::with_index(0, KeyFamily::Slot);
+		let entry = AccessEntry::with_index(0, KeyFamily::ContractStorageSlot);
 		let outcome;
 		#[block]
 		{
@@ -2590,7 +2590,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_address_empty() -> Result<(), BenchmarkError> {
 		let mut al = AccessList::new();
-		let entry = AccessEntry::with_index(0, KeyFamily::Address);
+		let entry = AccessEntry::with_index(0, KeyFamily::PalletStorageSlot);
 		let outcome;
 		#[block]
 		{
@@ -2602,7 +2602,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(1, KeyFamily::Slot);
+		let mut al = AccessList::with_entries(1, KeyFamily::ContractStorageSlot);
 		let entry = al.first();
 		let outcome;
 		#[block]
@@ -2614,7 +2614,7 @@ mod benchmarks {
 	}
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_address_single_element() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(1, KeyFamily::Address);
+		let mut al = AccessList::with_entries(1, KeyFamily::PalletStorageSlot);
 		let entry = al.first();
 		let outcome;
 		#[block]
@@ -2627,8 +2627,10 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::Slot);
-		let entry = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot);
+		let entry =
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
 		let outcome;
 		#[block]
 		{
@@ -2640,7 +2642,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
 		let entry = al.last();
 		let outcome;
 		#[block]
@@ -2653,8 +2656,9 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_address_full() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::Address);
-		let entry = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Address);
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot);
+		let entry = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot);
 		let outcome;
 		#[block]
 		{
@@ -2666,7 +2670,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_address_full() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Address);
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot);
 		let entry = al.last();
 		let outcome;
 		#[block]
@@ -2679,7 +2684,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_upgrade() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
 		let entry = al.last();
 		let outcome;
 		#[block]
@@ -2692,10 +2698,11 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::Slot);
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot);
 		al.enter_frame();
 		al.touch(
-			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot),
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot),
 			StorageOp::Read,
 		);
 		#[block]
@@ -2707,10 +2714,11 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_rollback_address_amortization() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::Address);
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot);
 		al.enter_frame();
 		al.touch(
-			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Address),
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot),
 			StorageOp::Read,
 		);
 		#[block]
