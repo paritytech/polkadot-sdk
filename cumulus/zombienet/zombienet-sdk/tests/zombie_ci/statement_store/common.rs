@@ -392,27 +392,23 @@ async fn launch_network(
 	collators: &[&str],
 	chain_spec_path: &Path,
 	collator_args: Vec<zombienet_sdk::Arg>,
-	collator_env: &[(&str, &str)],
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let collators: Vec<(&str, Option<&str>)> = collators.iter().map(|&name| (name, None)).collect();
-	launch_network_with_commands(&collators, &[], chain_spec_path, collator_args, collator_env)
-		.await
+	launch_network_with_commands(&collators, &[], chain_spec_path, collator_args).await
 }
 
 /// [`launch_network`] with an optional per-collator command in place of `polkadot-parachain`,
-/// plus one full node per `full_nodes` entry, running with the same args and env as the
-/// collators
+/// plus one full node per `full_nodes` entry, running with the same args as the collators
 pub(super) async fn launch_network_with_commands(
 	collators: &[(&str, Option<&str>)],
 	full_nodes: &[&str],
 	chain_spec_path: &Path,
 	collator_args: Vec<zombienet_sdk::Arg>,
-	collator_env: &[(&str, &str)],
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let base_dir = base_dir()?;
 	let collator = |n: NodeConfigBuilder<Initial>, &(name, command): &(&str, Option<&str>)| {
-		let n = n.with_name(name).with_env(collator_env.to_vec());
+		let n = n.with_name(name);
 		match command {
 			Some(command) => n.with_command(command),
 			None => n,
@@ -437,9 +433,7 @@ pub(super) async fn launch_network_with_commands(
 				.with_default_args(collator_args)
 				.with_collator(|n| collator(n, &collators[0]));
 			let p = collators[1..].iter().fold(p, |acc, c| acc.with_collator(|n| collator(n, c)));
-			full_nodes.iter().fold(p, |acc, &name| {
-				acc.with_fullnode(|n| n.with_name(name).with_env(collator_env.to_vec()))
-			})
+			full_nodes.iter().fold(p, |acc, &name| acc.with_fullnode(|n| n.with_name(name)))
 		})
 		.with_global_settings(|global_settings| {
 			global_settings
@@ -477,7 +471,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
 	let args = collator_args(participant_count, COLLATOR_TRACE_LOG_FILTER);
-	launch_network(collators, &chain_spec_path, args, &[]).await
+	launch_network(collators, &chain_spec_path, args).await
 }
 
 /// Spawns a network using `people-westend-local-spec.json`, waits for block production
@@ -495,7 +489,7 @@ async fn spawn_network_inner(
 	let participant_count_u32 = u32::try_from(participant_count)
 		.expect("participant_count must fit in u32 for collator args");
 	let args = collator_args(participant_count_u32, log_filter);
-	let network = launch_network(collators, &chain_spec_path, args, &[]).await?;
+	let network = launch_network(collators, &chain_spec_path, args).await?;
 
 	info!("Waiting for parachain to produce blocks...");
 	let node = network.get_node(collators[0])?;
@@ -574,7 +568,7 @@ pub(super) async fn spawn_network_with_injected_allowances_v2(
 		replication_factor,
 		gossip_target,
 	);
-	launch_network(collators, &chain_spec_path, args, &[]).await
+	launch_network(collators, &chain_spec_path, args).await
 }
 
 /// Statements the late-joiner scenario submits with keypair 0: three before the joiner starts,

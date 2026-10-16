@@ -397,7 +397,6 @@ async fn late_joiner_receives_backlog() -> Result<(), anyhow::Error> {
 	.await?;
 
 	let options = AddCollatorOptions {
-		env: vec![],
 		args: collator_args_v2(
 			names.len() as u32,
 			COLLATOR_TRACE_LOG_FILTER,
