@@ -30,7 +30,8 @@ use sp_core::{
 use sp_runtime::{traits::Hash, StateVersion, Storage};
 use sp_state_machine::{
 	backend::Backend as StateBackend, BackendTransaction, ChildStorageCollection, DBValue,
-	DeltaKeyOp, IterArgs, StorageCollection, StorageIterator, StorageKey, StorageValue,
+	DeltaKeyOp, EstimationTrie, IterArgs, StorageCollection, StorageIterator, StorageKey,
+	StorageValue,
 };
 use sp_trie::{
 	cache::{CacheSize, SharedTrieCache},
@@ -471,22 +472,26 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 			.map_or(Default::default(), |s| s.child_storage_root(child_info, delta, state_version))
 	}
 
-	fn record_proof_for_dirty_keys<'a>(&self, delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>) {
+	fn record_proof_for_dirty_keys<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		estimation_trie: &mut EstimationTrie<Hasher>,
+	) {
 		self.state
 			.borrow()
 			.as_ref()
-			.map_or(Default::default(), |s| s.record_proof_for_dirty_keys(delta))
+			.map_or(Default::default(), |s| s.record_proof_for_dirty_keys(delta, estimation_trie))
 	}
 
 	fn record_proof_for_child_dirty_keys<'a>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		estimation_trie: &mut EstimationTrie<Hasher>,
 	) {
-		self.state
-			.borrow()
-			.as_ref()
-			.map_or(Default::default(), |s| s.record_proof_for_child_dirty_keys(child_info, delta))
+		self.state.borrow().as_ref().map_or(Default::default(), |s| {
+			s.record_proof_for_child_dirty_keys(child_info, delta, estimation_trie)
+		})
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {

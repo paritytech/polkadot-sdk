@@ -162,6 +162,7 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 				let batch_size = changes.len();
 				let triggers_per_batch = estimation_batch_size as usize;
 				let trigger_interval = batch_size.div_ceil(triggers_per_batch);
+				let mut estimation_trie = Default::default();
 
 				for i in 0..triggers_per_batch {
 					let start_idx = i * trigger_interval;
@@ -174,11 +175,15 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 
 					match &maybe_child_info {
 						Some(child_info) => {
-							let _ = backend
-								.record_proof_for_child_dirty_keys(child_info, trigger_delta);
+							let _ = backend.record_proof_for_child_dirty_keys(
+								child_info,
+								trigger_delta,
+								&mut estimation_trie,
+							);
 						},
 						None => {
-							let _ = backend.record_proof_for_dirty_keys(trigger_delta);
+							let _ = backend
+								.record_proof_for_dirty_keys(trigger_delta, &mut estimation_trie);
 						},
 					}
 				}

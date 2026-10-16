@@ -19,7 +19,7 @@
 //! from storage.
 
 use crate::{
-	backend::{IterArgs, StorageIterator},
+	backend::{EstimationTrie, IterArgs, StorageIterator},
 	trie_backend::TrieCacheProvider,
 	warn, DeltaKeyOp, StorageKey, StorageValue,
 };
@@ -682,9 +682,11 @@ where
 	pub fn record_proof_for_dirty_keys<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		estimation_trie: &mut EstimationTrie<H>,
 	) {
 		// LayoutV1 is used unconditionally: V0 and V1 are read-compatible, and this function
-		// only reads trie nodes (remove uses disable_commit_on_drop). See sp_trie::TrieDB.
+		// only reads trie nodes (removals stay in the append-only estimation trie). See
+		// sp_trie::TrieDB.
 		let mut write_overlay = PrefixedMemoryDB::with_hasher(Default::default());
 		let backend_storage = &self.backend_storage();
 		let mut eph = Ephemeral::new(backend_storage, &mut write_overlay);
@@ -713,6 +715,7 @@ where
 				&mut eph,
 				self.root,
 				keys_to_be_removed,
+				estimation_trie,
 				recorder,
 				cache,
 			);
@@ -789,6 +792,7 @@ where
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		estimation_trie: &mut EstimationTrie<H>,
 	) {
 		let mut delta = delta.into_iter().collect::<Vec<_>>();
 		if delta.is_empty() {
@@ -829,6 +833,7 @@ where
 				&mut eph,
 				child_root,
 				keys_to_be_removed,
+				estimation_trie,
 				recorder,
 				cache,
 			)

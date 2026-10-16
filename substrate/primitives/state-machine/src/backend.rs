@@ -175,6 +175,10 @@ where
 /// state for a new block.
 pub type BackendTransaction<H> = PrefixedMemoryDB<H>;
 
+/// In-memory trie kept for PoV size estimation across flushes, so removals accumulate as they do
+/// in the real storage root computation.
+pub type EstimationTrie<H> = sp_trie::DetachedTrieDBMut<sp_trie::LayoutV1<H>>;
+
 /// A state backend is used to read state data and can have changes committed
 /// to it.
 ///
@@ -268,9 +272,13 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 
 	/// Updates the recorder's proof size by recording trie nodes for a given delta.
 	///
-	/// Does not include child storage updates.
-	fn record_proof_for_dirty_keys<'a>(&self, delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>)
-	where
+	/// Does not include child storage updates. The `estimation_trie` carries the removals of
+	/// earlier calls, see [`EstimationTrie`].
+	fn record_proof_for_dirty_keys<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		estimation_trie: &mut EstimationTrie<H>,
+	) where
 		H::Out: Ord;
 
 	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
@@ -278,6 +286,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		estimation_trie: &mut EstimationTrie<H>,
 	) where
 		H::Out: Ord;
 
@@ -347,15 +356,21 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		child_deltas: impl Iterator<
-			Item = (&'a ChildInfo, impl Iterator<Item = (&'a [u8], DeltaKeyOp)>),
+			Item = (
+				&'a ChildInfo,
+				impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+				&'a mut EstimationTrie<H>,
+			),
 		>,
+		estimation_trie: &mut EstimationTrie<H>,
 	) where
+		H: 'a,
 		H::Out: Ord + Encode,
 	{
-		for (child_info, child_delta) in child_deltas {
-			self.record_proof_for_child_dirty_keys(child_info, child_delta);
+		for (child_info, child_delta, child_estimation_trie) in child_deltas {
+			self.record_proof_for_child_dirty_keys(child_info, child_delta, child_estimation_trie);
 		}
-		self.record_proof_for_dirty_keys(delta);
+		self.record_proof_for_dirty_keys(delta, estimation_trie);
 	}
 
 	/// Register stats from overlay of state machine.

@@ -26,9 +26,10 @@ use codec::{Compact, CompactLen};
 use std::collections::HashSet as Set;
 
 use crate::{
+	backend::EstimationTrie,
 	ext::StorageAppend,
 	overlayed_changes::{
-		storage_key_delta_tracker, storage_key_delta_tracker::StorageKeyDeltaTracker,
+		storage_root_proof_tracker, storage_root_proof_tracker::StorageRootProofTracker,
 	},
 	warn,
 };
@@ -36,7 +37,8 @@ use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	vec::Vec,
 };
-use core::hash::Hash;
+use core::{fmt, hash::Hash};
+use hash_db::Hasher;
 use smallvec::SmallVec;
 
 const PROOF_OVERLAY_NON_EMPTY: &str = "\
@@ -186,11 +188,10 @@ impl StorageEntry {
 }
 
 /// Change set for basic key value with extrinsics index recording and removal support.
-pub type OverlayedChangeSet = OverlayedMap<StorageKey, StorageEntry>;
+pub type OverlayedChangeSet<H> = OverlayedMap<StorageKey, StorageEntry, H>;
 
 /// Holds a set of changes with the ability modify them using nested transactions.
-#[derive(Debug, Clone)]
-pub struct OverlayedMap<K, V> {
+pub struct OverlayedMap<K, V, H: Hasher> {
 	/// Stores the changes that this overlay constitutes.
 	changes: BTreeMap<K, OverlayedEntry<V>>,
 	/// Stores which keys are dirty per transaction. Needed in order to determine which
@@ -206,23 +207,48 @@ pub struct OverlayedMap<K, V> {
 
 	/// Stores which keys are dirty since recent storage_root snapshot. Needed in order to
 	/// determine which values shall be used for merkelization when new storage_root is called.
-	storage_root_dirty_keys: StorageKeyDeltaTracker<K>,
+	storage_root_proof: StorageRootProofTracker<K, H>,
 }
 
-impl<K, V> Default for OverlayedMap<K, V> {
+// Not derived, as that would require `H: Clone`.
+impl<K: Clone, V: Clone, H: Hasher> Clone for OverlayedMap<K, V, H> {
+	fn clone(&self) -> Self {
+		Self {
+			changes: self.changes.clone(),
+			dirty_keys: self.dirty_keys.clone(),
+			num_client_transactions: self.num_client_transactions,
+			execution_mode: self.execution_mode,
+			storage_root_proof: self.storage_root_proof.clone(),
+		}
+	}
+}
+
+impl<K: fmt::Debug, V: fmt::Debug, H: Hasher> fmt::Debug for OverlayedMap<K, V, H> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("OverlayedMap")
+			.field("changes", &self.changes)
+			.field("dirty_keys", &self.dirty_keys)
+			.field("num_client_transactions", &self.num_client_transactions)
+			.field("execution_mode", &self.execution_mode)
+			.field("storage_root_proof", &self.storage_root_proof)
+			.finish()
+	}
+}
+
+impl<K, V, H: Hasher> Default for OverlayedMap<K, V, H> {
 	fn default() -> Self {
 		Self {
 			changes: BTreeMap::new(),
 			dirty_keys: SmallVec::new(),
 			num_client_transactions: Default::default(),
 			execution_mode: Default::default(),
-			storage_root_dirty_keys: Default::default(),
+			storage_root_proof: Default::default(),
 		}
 	}
 }
 
 #[cfg(not(substrate_runtime))]
-impl From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, StorageEntry> {
+impl<H: Hasher> From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, StorageEntry, H> {
 	fn from(storage: sp_core::storage::StorageMap) -> Self {
 		Self {
 			changes: storage
@@ -242,7 +268,7 @@ impl From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, StorageEntr
 			dirty_keys: Default::default(),
 			num_client_transactions: 0,
 			execution_mode: ExecutionMode::Client,
-			storage_root_dirty_keys: Default::default(),
+			storage_root_proof: Default::default(),
 		}
 	}
 }
@@ -525,25 +551,25 @@ impl OverlayedEntry<StorageEntry> {
 	}
 }
 
-impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
+impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, H> {
 	/// Inserts a key into the dirty set.
 	///
 	/// Returns true if we are have at least one open transaction and if this
 	/// is the first write to the given key that transaction.
 	fn insert_dirty(&mut self, key: K, deleted: bool) -> bool {
-		self.storage_root_dirty_keys.add_key(
+		self.storage_root_proof.add_key(
 			key.clone(),
 			if deleted {
-				storage_key_delta_tracker::DeltaKeyOp::Deleted
+				storage_root_proof_tracker::DeltaKeyOp::Deleted
 			} else {
-				storage_key_delta_tracker::DeltaKeyOp::Updated
+				storage_root_proof_tracker::DeltaKeyOp::Updated
 			},
 		);
 		self.dirty_keys.last_mut().map(|dk| dk.insert(key)).unwrap_or_default()
 	}
 }
 
-impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
+impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, H> {
 	/// Create a new changeset at the same transaction state but without any contents.
 	///
 	/// This changeset might be created when there are already open transactions.
@@ -555,7 +581,7 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 			dirty_keys: repeat(Set::new()).take(self.transaction_depth()).collect(),
 			num_client_transactions: self.num_client_transactions,
 			execution_mode: self.execution_mode,
-			storage_root_dirty_keys: StorageKeyDeltaTracker::with_transaction_depth(
+			storage_root_proof: StorageRootProofTracker::with_transaction_depth(
 				self.transaction_depth(),
 			),
 		}
@@ -660,7 +686,7 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 	/// Changes made without any open transaction are committed immediately.
 	pub fn start_transaction(&mut self) {
 		self.dirty_keys.push(Default::default());
-		self.storage_root_dirty_keys.start_transaction();
+		self.storage_root_proof.start_transaction();
 	}
 
 	/// Rollback the last transaction started by `start_transaction`.
@@ -690,9 +716,9 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 		let dirty_keys = self.dirty_keys.pop().ok_or(NoOpenTransaction)?;
 
 		if rollback {
-			self.storage_root_dirty_keys.rollback_transaction();
+			self.storage_root_proof.rollback_transaction();
 		} else {
-			self.storage_root_dirty_keys.commit_transaction();
+			self.storage_root_proof.commit_transaction();
 		}
 
 		for key in dirty_keys {
@@ -745,20 +771,25 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 	/// These delta keys allow estimating the PoV size impact of storage root calculation
 	/// incrementally, without computing the full root after each extrinsic.
 	#[must_use]
-	pub fn take_delta(&mut self) -> storage_key_delta_tracker::DeltaKeys<K> {
-		self.storage_root_dirty_keys.take_delta()
+	pub fn take_delta(&mut self) -> storage_root_proof_tracker::DeltaKeys<K> {
+		self.storage_root_proof.take_delta()
+	}
+
+	/// The trie kept for PoV size estimation, see [`EstimationTrie`].
+	pub fn estimation_trie_mut(&mut self) -> &mut EstimationTrie<H> {
+		self.storage_root_proof.estimation_trie_mut()
 	}
 
 	/// Marks `key` as modified for PoV size estimation without changing its value.
 	///
 	/// Used for keys the storage root computation will touch that are not written through this
 	/// changeset, such as the roots of child tries stored in the main trie.
-	pub fn track_storage_root_key(&mut self, key: K, op: storage_key_delta_tracker::DeltaKeyOp) {
-		self.storage_root_dirty_keys.add_key(key, op);
+	pub fn track_storage_root_key(&mut self, key: K, op: storage_root_proof_tracker::DeltaKeyOp) {
+		self.storage_root_proof.add_key(key, op);
 	}
 }
 
-impl OverlayedChangeSet {
+impl<H: Hasher> OverlayedChangeSet<H> {
 	/// Rollback the last transaction started by `start_transaction`.
 	///
 	/// Any changes made during that transaction are discarded. Returns an error if
@@ -786,9 +817,9 @@ impl OverlayedChangeSet {
 		let dirty_keys = self.dirty_keys.pop().ok_or(NoOpenTransaction)?;
 
 		if rollback {
-			self.storage_root_dirty_keys.rollback_transaction();
+			self.storage_root_proof.rollback_transaction();
 		} else {
-			self.storage_root_dirty_keys.commit_transaction();
+			self.storage_root_proof.commit_transaction();
 		}
 
 		for key in dirty_keys {
@@ -981,6 +1012,9 @@ impl OverlayedChangeSet {
 mod test {
 	use super::*;
 	use pretty_assertions::assert_eq;
+	use sp_core::Blake2Hasher;
+
+	type OverlayedChangeSet = super::OverlayedChangeSet<Blake2Hasher>;
 
 	type Changes<'a> = Vec<(&'a [u8], (Option<&'a [u8]>, Vec<u32>))>;
 	type Drained<'a> = Vec<(&'a [u8], Option<&'a [u8]>)>;
@@ -1514,7 +1548,7 @@ mod test {
 
 	/// Simulates `spawn_child` scenario: a child changeset is created when the parent is
 	/// already at transaction depth N. The child's dirty_keys matches the parent's depth,
-	/// but storage_root_dirty_keys (delta tracker) starts at depth 0.
+	/// but storage_root_proof (delta tracker) starts at depth 0.
 	///
 	/// Pre-existing commit/rollback calls for levels that existed before spawn are no-ops
 	/// on both dirty_keys (empty sets) and the delta tracker (no layers) — safe because

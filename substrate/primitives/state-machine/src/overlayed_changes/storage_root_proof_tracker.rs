@@ -17,14 +17,17 @@
 
 //! Tracks modified storage keys to optimize PoV size estimation for storage root computation.
 
-use crate::trace;
+use crate::{backend::EstimationTrie, trace};
 use alloc::vec::Vec;
 use core::{
+	fmt::{self, Debug},
 	hash::{BuildHasher, Hash},
 	mem,
 };
+use hash_db::Hasher;
 use indexmap::IndexMap as HashMap;
 use nohash_hasher::BuildNoHashHasher;
+use sp_trie::{LayoutV1, TrieDBMutSnapshot};
 
 #[cfg(feature = "std")]
 const LOG_TARGET: &str = "storage_key_delta_tracker";
@@ -58,11 +61,11 @@ type CapturedMap = HashMap<KeyHash, DeltaKeyOp, BuildNoHashHasher<KeyHash>>;
 /// updated or deleted, allowing the trie layer to decide whether to read or remove the key.
 pub type DeltaKeys<K> = HashMap<KeyHash, (K, DeltaKeyOp), BuildNoHashHasher<KeyHash>>;
 
-/// Default hash builder used by [`StorageKeyDeltaTracker`] to hash storage keys.
+/// Default hash builder used by [`StorageRootProofTracker`] to hash storage keys.
 #[cfg(feature = "std")]
 pub type DefaultHashBuilder = foldhash::fast::RandomState;
 
-/// Default hash builder used by [`StorageKeyDeltaTracker`] to hash storage keys.
+/// Default hash builder used by [`StorageRootProofTracker`] to hash storage keys.
 #[cfg(not(feature = "std"))]
 pub type DefaultHashBuilder = sp_trie::RandomState;
 
@@ -83,18 +86,19 @@ pub type DefaultHashBuilder = sp_trie::RandomState;
 /// Optimized for 1k-5k transactions with ~10 nesting levels. Each transaction typically
 /// has 10-20 keys, with 50% duplication across transactions. Keys are 64-162 byte arrays
 /// (concatenated cryptographic hashes). Deduplication is highly optimized.
-#[derive(Debug, Clone)]
-pub struct StorageKeyDeltaTracker<K, HB = DefaultHashBuilder> {
+pub struct StorageRootProofTracker<K, H: Hasher, HB = DefaultHashBuilder> {
 	/// Stack of parent transaction layers (outermost first).
-	layers: Vec<TransactionLayer<K>>,
+	layers: Vec<TransactionLayer<K, H>>,
 	/// Current (innermost) transaction layer being built.
-	current: TransactionLayer<K>,
+	current: TransactionLayer<K, H>,
 	/// Hash builder for computing key hashes.
 	hasher: HB,
+	/// In-memory trie kept for PoV size estimation across flushes, so removals accumulate as they
+	/// do in the real storage root computation.
+	estimation_trie: EstimationTrie<H>,
 }
 
-#[derive(Debug, Clone)]
-struct TransactionLayer<K> {
+struct TransactionLayer<K, H: Hasher> {
 	/// base hash -> key map of all new keys that were not yet included into any delta.
 	dirty_keys: KeyMap<K>,
 	/// Maps key hash -> last emitted op for keys already reported in an incremental delta.
@@ -103,24 +107,74 @@ struct TransactionLayer<K> {
 	/// - Previously `Deleted`: suppress all future ops (Updated and Deleted).
 	/// - Previously `Updated`: suppress future `Updated` only; allow a subsequent `Deleted`.
 	snapshot: Option<CapturedMap>,
+	/// The trie as it was when this transaction started.
+	trie_snapshot: TrieDBMutSnapshot<LayoutV1<H>>,
 }
 
-impl<K> Default for TransactionLayer<K> {
+impl<K, H: Hasher> Default for TransactionLayer<K, H> {
 	fn default() -> Self {
 		Self {
 			dirty_keys: KeyMap::with_capacity_and_hasher(16, BuildNoHashHasher::<u64>::default()),
 			snapshot: None,
+			trie_snapshot: EstimationTrie::<H>::default().snapshot(),
 		}
 	}
 }
 
-impl<K, H: Default> Default for StorageKeyDeltaTracker<K, H> {
-	fn default() -> Self {
-		Self { layers: Vec::new(), current: TransactionLayer::default(), hasher: H::default() }
+// Not derived, as that would require `H: Clone`.
+impl<K: Clone, H: Hasher> Clone for TransactionLayer<K, H> {
+	fn clone(&self) -> Self {
+		Self {
+			dirty_keys: self.dirty_keys.clone(),
+			snapshot: self.snapshot.clone(),
+			trie_snapshot: self.trie_snapshot.clone(),
+		}
 	}
 }
 
-impl<K, H: Default> StorageKeyDeltaTracker<K, H> {
+impl<K: Debug, H: Hasher> Debug for TransactionLayer<K, H> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("TransactionLayer")
+			.field("dirty_keys", &self.dirty_keys)
+			.field("snapshot", &self.snapshot)
+			.finish_non_exhaustive()
+	}
+}
+
+impl<K, H: Hasher, HB: Default> Default for StorageRootProofTracker<K, H, HB> {
+	fn default() -> Self {
+		Self {
+			layers: Vec::new(),
+			current: TransactionLayer::default(),
+			hasher: HB::default(),
+			estimation_trie: Default::default(),
+		}
+	}
+}
+
+// Not derived, as that would require `H: Clone`.
+impl<K: Clone, H: Hasher, HB: Clone> Clone for StorageRootProofTracker<K, H, HB> {
+	fn clone(&self) -> Self {
+		Self {
+			layers: self.layers.clone(),
+			current: self.current.clone(),
+			hasher: self.hasher.clone(),
+			estimation_trie: self.estimation_trie.clone(),
+		}
+	}
+}
+
+impl<K: Debug, H: Hasher, HB: Debug> Debug for StorageRootProofTracker<K, H, HB> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("StorageRootProofTracker")
+			.field("layers", &self.layers)
+			.field("current", &self.current)
+			.field("hasher", &self.hasher)
+			.finish_non_exhaustive()
+	}
+}
+
+impl<K, H: Hasher, HB: Default> StorageRootProofTracker<K, H, HB> {
 	/// Creates a tracker pre-initialized with `depth` empty transaction layers.
 	///
 	/// Used by `spawn_child` to match the parent's transaction depth so that
@@ -130,12 +184,13 @@ impl<K, H: Default> StorageKeyDeltaTracker<K, H> {
 		Self {
 			layers: (0..depth).map(|_| TransactionLayer::default()).collect(),
 			current: TransactionLayer::default(),
-			hasher: H::default(),
+			hasher: HB::default(),
+			estimation_trie: Default::default(),
 		}
 	}
 }
 
-impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
+impl<K: core::fmt::Debug, H: Hasher, HB> StorageRootProofTracker<K, H, HB> {
 	/// Adds a `key` to the tracker with an operation `op` type.
 	///
 	/// A key added as `Deleted` prevents future `Updated` operations on the same key
@@ -144,7 +199,7 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 	pub fn add_key(&mut self, key: K, op: DeltaKeyOp)
 	where
 		K: Hash,
-		H: BuildHasher,
+		HB: BuildHasher,
 	{
 		trace!(target:LOG_TARGET, "add_key: {:?}/{:?}", key, op);
 		let hash = self.hasher.hash_one(&key);
@@ -154,8 +209,12 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 	/// Starts a new transaction layer for atomic operations.
 	pub fn start_transaction(&mut self) {
 		trace!(target:LOG_TARGET, "start_transaction {}", self.layers.len());
+		let trie_snapshot = self.estimation_trie.snapshot();
 		// Push current layer onto stack
-		let old_current = mem::take(&mut self.current);
+		let old_current = mem::replace(
+			&mut self.current,
+			TransactionLayer { trie_snapshot, ..Default::default() },
+		);
 		self.layers.push(old_current);
 	}
 
@@ -181,8 +240,14 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 	pub fn rollback_transaction(&mut self) {
 		trace!(target:LOG_TARGET, "rollback_transaction empty:{}", self.layers.len());
 		if let Some(layer) = self.layers.pop() {
-			self.current = layer;
+			let discarded = mem::replace(&mut self.current, layer);
+			self.estimation_trie.rollback_to(&discarded.trie_snapshot);
 		}
+	}
+
+	/// The trie kept for PoV size estimation, see [`EstimationTrie`].
+	pub fn estimation_trie_mut(&mut self) -> &mut EstimationTrie<H> {
+		&mut self.estimation_trie
 	}
 
 	/// Returns keys not in any previous delta, respecting Updated/Deleted semantics.
@@ -260,6 +325,7 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 #[cfg(test)]
 mod tests {
 	use super::{DeltaKeyOp, LOG_TARGET};
+	use sp_core::Blake2Hasher;
 	use tracing::debug;
 
 	macro_rules! delta_assert_eq {
@@ -286,7 +352,7 @@ mod tests {
         };
     }
 
-	type Tracker = super::StorageKeyDeltaTracker<String>;
+	type Tracker = super::StorageRootProofTracker<String, Blake2Hasher>;
 
 	#[test]
 	fn test_empty_snapshot() {

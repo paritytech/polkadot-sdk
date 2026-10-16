@@ -19,7 +19,7 @@
 
 mod changeset;
 mod offchain;
-mod storage_key_delta_tracker;
+mod storage_root_proof_tracker;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
@@ -47,7 +47,7 @@ use std::{
 };
 
 pub use self::changeset::{AlreadyInRuntime, NoOpenTransaction, NotInRuntime, OverlayedValue};
-pub use storage_key_delta_tracker::DeltaKeyOp;
+pub use storage_root_proof_tracker::DeltaKeyOp;
 
 /// Changes that are made outside of extrinsics are marked with this index;
 pub const NO_EXTRINSIC_INDEX: u32 = 0xffffffff;
@@ -95,11 +95,11 @@ impl Extrinsics {
 /// It allows changes to be modified using nestable transactions.
 pub struct OverlayedChanges<H: Hasher> {
 	/// Top level storage changes.
-	top: OverlayedChangeSet,
+	top: OverlayedChangeSet<H>,
 	/// Child storage changes. The map key is the child storage key without the common prefix.
-	children: Map<StorageKey, (OverlayedChangeSet, ChildInfo)>,
+	children: Map<StorageKey, (OverlayedChangeSet<H>, ChildInfo)>,
 	/// Offchain related changes.
-	offchain: OffchainOverlayedChanges,
+	offchain: OffchainOverlayedChanges<H>,
 	/// Transaction index changes,
 	transaction_index_ops: Vec<IndexOperation>,
 	/// True if extrinsics stats must be collected.
@@ -368,7 +368,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		self.track_child_root_key(child_info, root_key_op);
 	}
 
-	fn child_changeset(&mut self, child_info: &ChildInfo) -> &mut OverlayedChangeSet {
+	fn child_changeset(&mut self, child_info: &ChildInfo) -> &mut OverlayedChangeSet<H> {
 		let top = &self.top;
 		let (changeset, info) = self
 			.children
@@ -691,15 +691,24 @@ impl<H: Hasher> OverlayedChanges<H> {
 	{
 		let snapshot = self.top.take_delta();
 
-		let child_snapshots: Vec<_> =
-			self.children.values_mut().map(|v| (&v.1, v.0.take_delta())).collect();
+		let mut child_snapshots: Vec<_> = self
+			.children
+			.values_mut()
+			.map(|(changeset, info)| {
+				(&*info, changeset.take_delta(), changeset.estimation_trie_mut())
+			})
+			.collect();
 
 		let delta = snapshot.values().map(|(k, op)| (&k[..], *op));
-		let child_delta = child_snapshots
-			.iter()
-			.map(|(info, snap)| (*info, snap.values().map(|(k, op)| (&k[..], *op))));
+		let child_delta = child_snapshots.iter_mut().map(|(info, snap, estimation_trie)| {
+			(*info, snap.values().map(|(k, op)| (&k[..], *op)), &mut **estimation_trie)
+		});
 
-		backend.record_proof_for_dirty_keys_full(delta, child_delta);
+		backend.record_proof_for_dirty_keys_full(
+			delta,
+			child_delta,
+			self.top.estimation_trie_mut(),
+		);
 	}
 
 	/// Generate the child storage root using `backend` and all child changes
@@ -785,7 +794,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	}
 
 	/// Read only access ot offchain overlay.
-	pub fn offchain(&self) -> &OffchainOverlayedChanges {
+	pub fn offchain(&self) -> &OffchainOverlayedChanges<H> {
 		&self.offchain
 	}
 
@@ -949,7 +958,7 @@ mod tests {
 	use std::collections::BTreeMap;
 
 	fn assert_extrinsics(
-		overlay: &mut OverlayedChangeSet,
+		overlay: &mut OverlayedChangeSet<Blake2Hasher>,
 		key: impl AsRef<[u8]>,
 		expected: Vec<u32>,
 	) {
