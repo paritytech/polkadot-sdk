@@ -3,14 +3,17 @@ doc:
 - audience: Runtime Dev
   description: |-
     `pallet-validator-collators` can stop returning, for a number of Aura slots, validators that
-    author no blocks within a number of Aura rounds. Governance sets the rule with the new
-    `set_drop_rule` call. Without a rule, the default, nobody is dropped. The pallet counts the
-    Aura slots between blocks, read from the Aura pre-runtime digest, and counts a gap longer
-    than the Aura authority count as one slot. New storage items: `CountedSlots`,
-    `CurrentDropRule`, `LastActivity` and `Dropped`. No migration.
+    miss a number of their Aura turns in a row. Governance sets the rule with the new
+    `set_drop_rule` call. Without a rule, the default, nobody is dropped. The pallet reads the
+    slot of each block from the Aura pre-runtime digest, counts each empty slot as a missed turn
+    of the authority it belongs to, and adds these turns to the validators at each session
+    rotation. A gap longer than the authority list counts no missed turn. New storage items:
+    `CountedSlots`, `MissedTurns`, `CurrentDropRule`, `LastActivity` and `Dropped`. No migration.
 
-    `pallet_validator_collators::Config` gains `AuthorityCount` (Aura authorities of the current
-    session), which Asset Hub Westend and People Westend wire.
+    `pallet_validator_collators::Config` now requires `pallet_session::Config` with
+    `ValidatorId = AccountId`: the pallet reads the session validators, the Aura authorities in
+    the same order. It gains `MaxTrackedAuthorities`, the bound of `MissedTurns`, which Asset Hub
+    Westend and People Westend wire.
 crates:
 - name: pallet-validator-collators
   bump: major

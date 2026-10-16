@@ -97,36 +97,30 @@
 //! reports fall in the same block, the pallet reports once.
 //!
 //! Governance can set a [`DropRule`] in [`CurrentDropRule`] to stop returning validators that
-//! author no blocks. The rule measures time in counted Aura slots. [`CountedSlots`] advances in
-//! every block, with or without a rule, so a rule set later judges on a live count. It adds the
-//! slots since the previous block, read from the Aura pre-runtime digest, if they are at most the
-//! Aura authority count, and one slot otherwise. While one authority authors, a run of authorities
-//! that author nothing is shorter than the list, so its empty slots count in full. A longer gap
-//! means that every authority missed a turn, as in a chain stall, and counts as one slot. So a
-//! counted slot is never more than an elapsed slot. The authority count is that of the list in
-//! force during the gap, since the first advance of a block runs before its session rotation
-//! changes the list. With no authorities counted, every gap counts as one slot. A run of slots
-//! without blocks no longer than the list counts in full whatever its cause, so a partial relay
-//! chain outage or collators that are not synced look like idleness. Governance raises
-//! `idle_rounds` or removes the rule during such incidents.
+//! author no blocks. Aura gives slot `s` to the authority at position `s mod n` of its list of `n`
+//! authorities. A turn of a validator is a slot Aura gives it. A returned validator is dropped at
+//! the first rotation after it missed `idle_turns` consecutive turns of its own. Every block it
+//! authors starts the count again.
 //!
-//! Counts are in slots, so a change of the slot duration changes the wall time of windows and
-//! drops. A change that lowers the slot numbers re-anchors the count at the new slot without
-//! adding to it, and one that raises them by more than the authority count counts as one slot.
+//! The pallet reads the slot of each block from the Aura pre-runtime digest. When the gap since
+//! the previous block is at most `n` slots, each empty slot in it counts as a missed turn of the
+//! authority it belongs to, in [`MissedTurns`]. A longer gap means that every authority missed a
+//! turn, as in a chain stall, and counts no missed turn. A gap no longer than the list counts in
+//! full whatever its cause, so a partial relay chain outage or collators that are not synced look
+//! like missed turns. Governance raises `idle_turns` or removes the rule during such incidents.
+//! A change of the slot duration that lowers the slot numbers counts no missed turn.
 //!
-//! [`LastActivity`] holds, for each validator returned at the last rotation, the count of the
-//! block it last authored or, before its first block, of the rotation that enacted it, with the
-//! largest Aura authority count of any list in force since then. A returned validator whose
-//! record is at least `idle_rounds × authorities` counted slots old is idle. This number of slots
-//! is the window. Aura gives slot `s` to authority `s mod authorities`, so while the authority
-//! list does not change, every authority has at least `idle_rounds` slots in a window. A change of
-//! the list within a window, such as a candidate joining or leaving, keys set or purged, a new set,
-//! a cap change, or validators dropped or returned by this pallet, moves the authorities to other
-//! positions and can cost an authority one of its slots. The `min_collators` floor bounds how many
-//! validators one rotation drops.
-//! A stall can hide a turn of every authority but counts as one slot, so like a list change it
-//! costs an authority at most one of its slots. So a rule allows one more round than the list
-//! changes and stalls expected in a window, and needs at least two rounds.
+//! The Aura authority list is the validator list of `pallet-session` in the same order, so the
+//! pallet reads the authority count and the positions from that list. The empty slots of a gap
+//! belong to the list in force during the gap. The pallet counts them in the first of the
+//! authorship handler, the end of the session and its `on_initialize` that runs in a block, so
+//! before the block's session rotation changes the list. At each rotation it adds the missed turns
+//! of each position to the [`LastActivity`] record of the validator at that position of the
+//! ending list, and clears [`MissedTurns`]. So a change of the authority list never costs a
+//! validator a turn. Positions beyond [`Config::MaxTrackedAuthorities`] count no missed turns.
+//!
+//! [`CountedSlots`] counts the Aura slots in every block, a gap longer than the authority list as
+//! one slot. It measures drops.
 //!
 //! A rotation drops the idle validators: it does not return them. Pallet-session enacts the list
 //! a rotation returns at the next rotation, so a dropped validator keeps its slots until then.
@@ -135,13 +129,13 @@
 //! again, less than one session period later, and it gets its slots back at the rotation after
 //! that one. So a dropped validator holds no slots for at least `drop_slots` counted slots,
 //! unless the rule is removed or the validator leaves the stored set during the drop. A validator
-//! returned for the first time, or again after a drop, is first judged a full window after the
-//! rotation that enacts it.
+//! returned for the first time, or again after a drop, starts with no missed turns at the
+//! rotation that enacts it, so only the turns it owns from then on count.
 //! A rotation never drops validators below `min_collators` of the validators it would return, and
-//! keeps the idle ones with the most recent records. Under a cap only the drawn validators are
-//! judged, and a place that empties after the draw stays empty until the drop ends or the next
-//! draw. A validator dropped before a draw is not drawn, so after its drop it waits for the next
-//! draw. Without a rule nobody is dropped.
+//! keeps the idle ones with the fewest missed turns, then the lowest accounts. Under a cap only the
+//! drawn validators are judged, and a place that empties after the draw stays empty until the drop
+//! ends or the next draw. A validator dropped before a draw is not drawn, so after its drop it
+//! waits for the next draw. Without a rule nobody is dropped.
 //!
 //! A runtime must configure `pallet-collator-selection`'s `KickThreshold` to exceed a full Aura
 //! round of the merged list, [`Config::MaxValidators`] plus the invulnerables and candidates, times
@@ -271,11 +265,10 @@ pub mod pallet {
 	pub enum Activity {
 		/// Returned at the last rotation, a collator from the next one.
 		Queued,
-		/// A collator since `since`, the [`CountedSlots`] count of the block it last authored or,
-		/// before its first block, of the block that enacted it, with the largest number of Aura
-		/// authorities of any list in force since then. Written as zero and raised at every
-		/// session rotation.
-		Active { since: u64, authorities: u32 },
+		/// A collator, with `missed` the turns it missed since its last block or, before its first
+		/// block, since the rotation that enacted it, up to the last session rotation. The turns
+		/// missed since that rotation are in [`MissedTurns`].
+		Active { missed: u32 },
 	}
 
 	/// The Aura slots counted for a [`DropRule`].
@@ -288,9 +281,17 @@ pub mod pallet {
 		pub count: u64,
 	}
 
+	/// The result of [`Pallet::advance_slots`].
+	pub(crate) struct Advance {
+		/// The [`CountedSlots`] count of the current block.
+		pub count: u64,
+		/// The weight of the advance, zero when an earlier call of the block advanced.
+		pub weight: Weight,
+	}
+
 	/// The rule that drops validators which author no blocks.
 	///
-	/// Its lengths are counted Aura slots, see [`CountedSlots`], which are `u64` like Aura's
+	/// Its drop length is in counted Aura slots, see [`CountedSlots`], which are `u64` like Aura's
 	/// [`Slot`].
 	#[derive(
 		Clone,
@@ -305,15 +306,13 @@ pub mod pallet {
 		MaxEncodedLen,
 	)]
 	pub struct DropRule {
-		/// Full Aura rounds of the authority list a returned validator may go without authoring
-		/// before it is dropped. At least two.
+		/// Consecutive missed turns that drop a returned validator, at the first rotation after
+		/// the last of them. At least one.
 		///
-		/// Each change of the authority list within a window, including validators dropped or
-		/// returned by this pallet, moves the authorities to other positions and can cost an
-		/// authority one of its slots, and so can a stall. So a rule allows one more round than
-		/// the list changes and stalls expected in a window. `min_collators` bounds how many
-		/// validators one rotation drops.
-		pub idle_rounds: u32,
+		/// A turn is a slot Aura gives the validator, so one per round of the authority list.
+		/// The turns after the rotation that enacts the validator count, so with one turn a
+		/// validator whose node is not synced when it is enacted is dropped.
+		pub idle_turns: u32,
 		/// Counted slots during which a dropped validator is not returned, counted from the
 		/// rotation that enacts the list without it, so it holds no slots for at least this many
 		/// counted slots. At least one.
@@ -323,8 +322,7 @@ pub mod pallet {
 		pub drop_slots: u64,
 		/// Number of validators a rotation never drops below, among the validators this pallet
 		/// would return, so under a cap it is bounded by the cap. The idle validators with the
-		/// most recent records are kept: the [`CountedSlots`] count of the block each last
-		/// authored or, before its first block, of the block that enacted it.
+		/// fewest missed turns are kept, and among equal counts the lowest accounts.
 		///
 		/// When this pallet is the only session manager that returns collators, the floor keeps
 		/// the session list from becoming empty. Aura ignores an empty list, so the previous
@@ -345,7 +343,10 @@ pub mod pallet {
 
 	/// Configuration trait of this pallet.
 	#[pallet::config]
-	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
+	pub trait Config:
+		frame_system::Config<RuntimeEvent: From<Event<Self>>>
+		+ pallet_session::Config<ValidatorId = <Self as frame_system::Config>::AccountId>
+	{
 		/// Origin allowed to submit a validator set.
 		type SetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -394,11 +395,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxReportMargin: Get<u64>;
 
-		/// Number of Aura authorities of the current session.
+		/// Number of Aura positions whose missed turns are counted, the bound of [`MissedTurns`].
 		///
-		/// The authority list Aura assigns slots on, so the merged list of every session manager.
-		/// Read in every block that advances [`CountedSlots`].
-		type AuthorityCount: Get<u32>;
+		/// Authorities at later positions count no missed turns, so it should cover the merged
+		/// list of every session manager at its largest.
+		#[pallet::constant]
+		type MaxTrackedAuthorities: Get<u32>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -480,8 +482,8 @@ pub mod pallet {
 	/// The Aura slots counted since the first block that ran this pallet.
 	///
 	/// Advanced once per block, with or without a [`CurrentDropRule`], at whichever of this
-	/// pallet's `on_initialize`, the authorship handler and the session rotation runs first in the
-	/// block. It adds the slots since the slot it holds if they are at most the Aura authority
+	/// pallet's `on_initialize`, the authorship handler and the end of the session runs first in
+	/// the block. It adds the slots since the slot it holds if they are at most the Aura authority
 	/// count, and one slot otherwise. The slot comes from the Aura pre-runtime digest of the block,
 	/// so the count is current whatever the order of the pallets. A block in the same slot, or
 	/// without the digest, leaves it unchanged, and a block in an earlier slot stores that slot
@@ -489,12 +491,24 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CountedSlots<T: Config> = StorageValue<_, SlotCount, OptionQuery>;
 
+	/// Turns missed since the last session rotation, per position in the Aura authority list.
+	///
+	/// Advanced with [`CountedSlots`]. When the gap since the previous block is at most the
+	/// authority count, each empty slot `s` in it adds one at position `s mod n`. A block sets its
+	/// own position to zero. Holds no position beyond [`Config::MaxTrackedAuthorities`], and is
+	/// shorter than the authority list until a position needs a value. Added to [`LastActivity`]
+	/// and removed at the end of each session.
+	#[pallet::storage]
+	pub type MissedTurns<T: Config> =
+		StorageValue<_, BoundedVec<u16, T::MaxTrackedAuthorities>, ValueQuery>;
+
 	/// Activity of the validators this pallet returned at the last rotation.
 	///
-	/// An [`Activity::Queued`] record holds no count: it becomes [`Activity::Active`] at the
-	/// rotation that enacts the validator.
+	/// An [`Activity::Queued`] record holds no count: it becomes [`Activity::Active`] with no
+	/// missed turns at the rotation that enacts the validator.
 	///
-	/// Created and removed at session rotations only, and refreshed when the validator authors.
+	/// Created and removed at session rotations only, refreshed when the validator authors, and
+	/// given the turns it missed at the end of each session.
 	/// Kept with or without a [`CurrentDropRule`], so a rule set later judges on the activity
 	/// recorded before it, from the next rotation.
 	#[pallet::storage]
@@ -542,7 +556,7 @@ pub mod pallet {
 		ReportMarginSet { margin: u64 },
 		/// The rule that drops validators which author no blocks was set or removed.
 		DropRuleSet { rule: Option<DropRule> },
-		/// `validators` authored no blocks within the window and are no longer returned. Their
+		/// `validators` missed `idle_turns` turns in a row and are no longer returned. Their
 		/// drops start at the next rotation, which sets their end in [`Dropped`]. `kept_by_floor`
 		/// idle validators are still returned because of the floor.
 		///
@@ -564,7 +578,7 @@ pub mod pallet {
 		ZeroReportMargin,
 		/// The report margin is above [`Config::MaxReportMargin`].
 		ReportMarginTooHigh,
-		/// A drop rule needs at least two rounds and at least one slot.
+		/// A drop rule needs at least one turn and at least one slot.
 		InvalidDropRule,
 	}
 
@@ -578,13 +592,13 @@ pub mod pallet {
 		/// retried. If the reporter rejects it, the counts go out with the next [`ReportPeriod`]
 		/// report. Both rules in the same block make one report.
 		///
-		/// Advances [`CountedSlots`] if no earlier hook of the block did.
+		/// Advances [`CountedSlots`] and [`MissedTurns`] if no earlier hook of the block did.
 		///
 		/// The weight includes the read of [`PendingRotation`] by
 		/// [`ShouldEndSession::should_end_session`], which pallet-session makes in every block
 		/// without charging it.
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			Self::advance_counted_slots(Self::current_slot());
+			let advance = Self::advance_slots(Self::current_slot()).weight;
 			let early = SetReceivedAt::<T>::get().is_some_and(|received_at| {
 				let duration = ExpectedEraDuration::<T>::get();
 				let margin =
@@ -601,7 +615,9 @@ pub mod pallet {
 			} else {
 				Weight::zero()
 			};
-			T::WeightInfo::on_initialize().saturating_add(report)
+			<T as Config>::WeightInfo::on_initialize()
+				.saturating_add(advance)
+				.saturating_add(report)
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -614,7 +630,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Store the validator set of `era`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::set_validators(validators.len() as u32))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_validators(validators.len() as u32))]
 		pub fn set_validators(
 			origin: OriginFor<T>,
 			era: EraIndex,
@@ -629,7 +645,7 @@ pub mod pallet {
 		/// With a stored set, the change forces two rotations and the first draws [`Collators`]
 		/// again, so the drawn validators can change. `None` clears [`Collators`].
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::set_max_collators())]
+		#[pallet::weight(<T as Config>::WeightInfo::set_max_collators())]
 		pub fn set_max_collators(origin: OriginFor<T>, max: Option<u32>) -> DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)?;
 			MaxCollators::<T>::set(max);
@@ -647,7 +663,7 @@ pub mod pallet {
 		///
 		/// The next report is made at the next multiple of `period`.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::set_report_period())]
+		#[pallet::weight(<T as Config>::WeightInfo::set_report_period())]
 		pub fn set_report_period(
 			origin: OriginFor<T>,
 			period: BlockNumberFor<T>,
@@ -664,7 +680,7 @@ pub mod pallet {
 		///
 		/// It applies to the stored set too, whose arrival time is kept.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::set_expected_era_duration())]
+		#[pallet::weight(<T as Config>::WeightInfo::set_expected_era_duration())]
 		pub fn set_expected_era_duration(origin: OriginFor<T>, duration: u64) -> DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)?;
 			ensure!(duration > 0, Error::<T>::ZeroExpectedEraDuration);
@@ -678,7 +694,7 @@ pub mod pallet {
 		///
 		/// It applies to the stored set too, whose arrival time is kept.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::set_report_margin())]
+		#[pallet::weight(<T as Config>::WeightInfo::set_report_margin())]
 		pub fn set_report_margin(origin: OriginFor<T>, margin: u64) -> DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)?;
 			ensure!(margin > 0, Error::<T>::ZeroReportMargin);
@@ -690,20 +706,19 @@ pub mod pallet {
 
 		/// Set the rule that drops validators which author no blocks, or remove it.
 		///
-		/// The rule applies from the next rotation. Changing it keeps the end of the drops already
+		/// The rule applies from the next rotation. Missed turns are counted with or without a
+		/// rule, so that rotation can drop, within the floor, validators already in a run of at
+		/// least `idle_turns` missed turns. Changing the rule keeps the end of the drops already
 		/// counting, and the drops that start at the next rotation take the `drop_slots` of the
 		/// rule in force then. Removing it also removes every drop record, so every validator is
 		/// returned again at the next rotation.
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::set_drop_rule())]
+		#[pallet::weight(<T as Config>::WeightInfo::set_drop_rule())]
 		pub fn set_drop_rule(origin: OriginFor<T>, rule: Option<DropRule>) -> DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)?;
 			match rule {
 				Some(rule) => {
-					ensure!(
-						rule.idle_rounds >= 2 && rule.drop_slots > 0,
-						Error::<T>::InvalidDropRule
-					)
+					ensure!(rule.idle_turns > 0 && rule.drop_slots > 0, Error::<T>::InvalidDropRule)
 				},
 				None => Dropped::<T>::kill(),
 			}
@@ -799,7 +814,7 @@ pub mod pallet {
 		/// are dropped.
 		pub(crate) fn report_blocks() -> Weight {
 			let authors = AuthoredBlocks::<T>::count();
-			let weight = T::WeightInfo::report_blocks(authors);
+			let weight = <T as Config>::WeightInfo::report_blocks(authors);
 			if authors == 0 {
 				return weight;
 			}
@@ -835,86 +850,142 @@ pub mod pallet {
 				.convert_first(|item| item.pre_runtime_try_to::<Slot>(&AURA_ENGINE_ID))
 		}
 
-		/// Advance [`CountedSlots`] to `slot`, the slot of the current block, and return the count.
+		/// Advance [`CountedSlots`] and [`MissedTurns`] to `slot`, the slot of the current block.
 		///
 		/// The first call stores the slot with a zero count. Later calls add the slots since the
 		/// stored one, or one slot for a gap longer than the authority count, so a second call in
 		/// the same block changes nothing.
-		pub(crate) fn advance_counted_slots(slot: Option<Slot>) -> u64 {
+		pub(crate) fn advance_slots(slot: Option<Slot>) -> Advance {
 			let stored = CountedSlots::<T>::get();
+			// The callers' own weights cover the reads of a call that changes nothing.
+			let unchanged = |count: u64| Advance { count, weight: Weight::zero() };
 			let Some(slot) = slot else {
-				return stored.map_or(0, |counted| counted.count);
+				return unchanged(stored.map_or(0, |counted| counted.count));
 			};
-			let count = match stored {
-				None => 0,
-				Some(counted) if slot == counted.slot => return counted.count,
+			if let Some(counted) = stored.filter(|counted| counted.slot == slot) {
+				return unchanged(counted.count);
+			}
+			let authorities =
+				pallet_session::Validators::<T>::decode_len().unwrap_or_default() as u64;
+			let (count, empty) = match stored {
+				None => (0, 0..0),
 				// A longer slot duration lowers the slot numbers.
-				Some(counted) if slot < counted.slot => counted.count,
+				Some(counted) if slot < counted.slot => (counted.count, 0..0),
 				Some(counted) => {
 					let gap = *slot - *counted.slot;
-					let counted_gap = if gap <= T::AuthorityCount::get().into() { gap } else { 1 };
-					counted.count.saturating_add(counted_gap)
+					if gap <= authorities {
+						(counted.count.saturating_add(gap), *counted.slot + 1..*slot)
+					} else {
+						(counted.count.saturating_add(1), 0..0)
+					}
 				},
 			};
+			let looped = Self::note_missed_turns(slot, empty, authorities);
 			CountedSlots::<T>::put(SlotCount { slot, count });
-			count
+			Advance { count, weight: <T as Config>::WeightInfo::advance_slots(looped) }
+		}
+
+		/// Add a missed turn to [`MissedTurns`] at the position of each slot in `empty`, set the
+		/// position of `slot` to zero, and return the number of slots in `empty`.
+		///
+		/// `empty` holds fewer slots than `authorities`.
+		pub(crate) fn note_missed_turns(
+			slot: Slot,
+			empty: core::ops::Range<u64>,
+			authorities: u64,
+		) -> u32 {
+			if authorities == 0 {
+				return 0;
+			}
+			let positions = authorities.min(T::MaxTrackedAuthorities::get().into()) as usize;
+			let stored = MissedTurns::<T>::get();
+			let mut missed = stored.clone().into_inner();
+			let looped = (empty.end - empty.start) as u32;
+			let mut beyond = 0u32;
+			for s in empty {
+				let position = (s % authorities) as usize;
+				if position >= positions {
+					beyond.saturating_inc();
+					continue;
+				}
+				if missed.len() < positions {
+					missed.resize(positions, 0);
+				}
+				if let Some(turns) = missed.get_mut(position) {
+					turns.saturating_inc();
+				}
+			}
+			if beyond > 0 {
+				log::warn!(
+					target: crate::LOG_TARGET,
+					"{beyond} empty slots belong to positions beyond MaxTrackedAuthorities and count \
+					 no missed turn"
+				);
+			}
+			if let Some(own) = missed.get_mut((*slot % authorities) as usize) {
+				*own = 0;
+			}
+			if missed.as_slice() != stored.as_slice() {
+				// No position is at or beyond `MaxTrackedAuthorities`.
+				MissedTurns::<T>::put(BoundedVec::truncate_from(missed));
+			}
+			looped
+		}
+
+		/// Add the turns in [`MissedTurns`] to the [`LastActivity`] records of the validators at
+		/// their positions in the ending session list, and clear [`MissedTurns`].
+		fn add_missed_turns() {
+			let missed = MissedTurns::<T>::take();
+			if missed.is_empty() {
+				return;
+			}
+			let validators = pallet_session::Validators::<T>::get();
+			for (v, &turns) in validators.iter().zip(missed.iter()).filter(|(_, t)| **t > 0) {
+				if let Some(Activity::Active { missed }) = LastActivity::<T>::get(v) {
+					LastActivity::<T>::insert(
+						v,
+						Activity::Active { missed: missed.saturating_add(turns.into()) },
+					);
+				}
+			}
 		}
 
 		/// Record the activity of `candidates` and return those that are not dropped.
 		///
-		/// `activity` is [`LastActivity`] as stored before the rotation, `now` the [`CountedSlots`]
-		/// count of the rotation and `rule` the [`CurrentDropRule`]. Under a rule, idle candidates
-		/// are dropped into `dropped` within the floor.
+		/// `activity` is [`LastActivity`] as stored before the rotation and `rule` the
+		/// [`CurrentDropRule`]. Under a rule, idle candidates are dropped into `dropped` within the
+		/// floor.
 		fn filter_idle(
 			candidates: Vec<T::AccountId>,
-			now: u64,
-			mut rule: Option<DropRule>,
+			rule: Option<DropRule>,
 			activity: &BTreeMap<T::AccountId, Activity>,
 			dropped: &mut DropRecords<T>,
 		) -> Vec<T::AccountId> {
-			// The list that ends at this rotation, since Aura writes the list this rotation enacts
-			// only after the session managers ran.
-			let ending = T::AuthorityCount::get();
-			if rule.is_some() && ending == 0 {
-				log::error!(
-					target: crate::LOG_TARGET,
-					"no Aura authorities are counted, dropping nobody"
-				);
-				rule = None;
-			}
 			let eligible: Vec<_> =
 				candidates.into_iter().filter(|v| !dropped.contains_key(v)).collect();
 			let mut idle = Vec::new();
 			for v in &eligible {
 				match activity.get(v) {
 					None => LastActivity::<T>::insert(v, Activity::Queued),
-					// Enacted by this rotation. The next one raises the count to the enacted list.
-					Some(Activity::Queued) => LastActivity::<T>::insert(
-						v,
-						Activity::Active { since: now, authorities: 0 },
-					),
-					Some(&Activity::Active { since, authorities }) => {
-						if ending > authorities {
-							LastActivity::<T>::insert(
-								v,
-								Activity::Active { since, authorities: ending },
-							);
-						}
-						let Some(rule) = rule else { continue };
-						let window = rule.idle_rounds.saturating_mul(authorities.max(ending));
-						if now.saturating_sub(since) >= window.into() {
-							idle.push((since, v.clone()));
+					// Enacted by this rotation.
+					Some(Activity::Queued) => {
+						LastActivity::<T>::insert(v, Activity::Active { missed: 0 })
+					},
+					Some(&Activity::Active { missed }) => {
+						if rule.is_some_and(|rule| missed >= rule.idle_turns) {
+							idle.push((missed, v.clone()));
 						}
 					},
 				}
 			}
 			let Some(rule) = rule else { return eligible };
+			// The floor keeps the fewest missed turns first, then the lowest accounts.
 			idle.sort();
 			let droppable = eligible.len().saturating_sub(rule.min_collators as usize);
-			let kept_by_floor = idle.len().saturating_sub(droppable) as u32;
+			let kept_by_floor = idle.len().saturating_sub(droppable);
 			let newly_dropped: BTreeSet<_> = idle
 				.into_iter()
-				.take(droppable)
+				.skip(kept_by_floor)
 				.filter_map(|(_, v)| match dropped.try_insert(v.clone(), None) {
 					Ok(_) => Some(v),
 					Err(_) => {
@@ -929,7 +1000,7 @@ pub mod pallet {
 			if !newly_dropped.is_empty() || kept_by_floor > 0 {
 				Self::deposit_event(Event::CollatorsDropped {
 					validators: newly_dropped.iter().cloned().collect(),
-					kept_by_floor,
+					kept_by_floor: kept_by_floor as u32,
 				});
 			}
 			eligible.into_iter().filter(|v| !newly_dropped.contains(v)).collect()
@@ -972,13 +1043,10 @@ pub mod pallet {
 				!Dropped::<T>::exists() || Dropped::<T>::try_get().is_ok(),
 				"the drop records do not decode"
 			);
-			let counted = CountedSlots::<T>::get().map_or(0, |counted| counted.count);
 			ensure!(
-				LastActivity::<T>::iter_values().all(|activity| match activity {
-					Activity::Active { since, .. } => since <= counted,
-					Activity::Queued => true,
-				}),
-				"an activity record is newer than the counted slots"
+				MissedTurns::<T>::get().len() <=
+					pallet_session::Validators::<T>::decode_len().unwrap_or_default(),
+				"more positions have missed turns than there are session validators"
 			);
 			let dropped = Dropped::<T>::get();
 			ensure!(
@@ -1041,7 +1109,7 @@ pub mod pallet {
 				RotationState::Idle => {},
 			}
 			let slot = Self::current_slot();
-			let now = Self::advance_counted_slots(slot);
+			let now = Self::advance_slots(slot).count;
 			let set = ValidatorSet::<T>::get();
 			let stored_dropped = Dropped::<T>::get();
 			let mut dropped = stored_dropped.clone();
@@ -1085,7 +1153,7 @@ pub mod pallet {
 						.into_iter()
 						.filter(T::ValidatorRegistration::is_registered)
 						.collect();
-					Some(Self::filter_idle(candidates, now, rule, &activity, &mut dropped))
+					Some(Self::filter_idle(candidates, rule, &activity, &mut dropped))
 				},
 				None => {
 					if ValidatorSet::<T>::exists() {
@@ -1115,7 +1183,15 @@ pub mod pallet {
 
 		fn start_session(_: SessionIndex) {}
 
-		fn end_session(_: SessionIndex) {}
+		/// Adds the turns missed in the ending session to [`LastActivity`].
+		///
+		/// Pallet-session calls it before it replaces the session validators and Aura replaces
+		/// its authorities, so the positions still belong to the ending list. Advances
+		/// [`CountedSlots`] and [`MissedTurns`] first if no earlier hook of the block did.
+		fn end_session(_: SessionIndex) {
+			Self::advance_slots(Self::current_slot());
+			Self::add_missed_turns();
+		}
 	}
 
 	impl<T: Config> ShouldEndSession<BlockNumberFor<T>> for Pallet<T> {
@@ -1126,23 +1202,25 @@ pub mod pallet {
 	}
 
 	impl<T: Config> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T> {
-		/// Counts the block for `author` in [`AuthoredBlocks`] and refreshes its [`LastActivity`]
-		/// record if it is an active collator of this pallet.
+		/// Counts the block for `author` in [`AuthoredBlocks`] and, if it is an active collator of
+		/// this pallet, refreshes its [`LastActivity`] record with no missed turns.
 		///
 		/// Never creates a record, so a block of a validator that is no longer returned does not
 		/// count as activity when it is returned again.
 		///
-		/// Advances [`CountedSlots`] first, since the authorship handler can run before this
-		/// pallet's hooks.
+		/// Advances [`CountedSlots`] and [`MissedTurns`] first, since the authorship handler can
+		/// run before this pallet's hooks and the session rotation.
 		fn note_author(author: T::AccountId) {
+			let weight = Self::advance_slots(Self::current_slot()).weight;
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
-				T::WeightInfo::note_author(),
+				<T as Config>::WeightInfo::note_author().saturating_add(weight),
 				DispatchClass::Mandatory,
 			);
-			let since = Self::advance_counted_slots(Self::current_slot());
 			AuthoredBlocks::<T>::mutate(&author, |blocks| blocks.saturating_inc());
-			if let Some(Activity::Active { .. }) = LastActivity::<T>::get(&author) {
-				LastActivity::<T>::insert(author, Activity::Active { since, authorities: 0 });
+			if let Some(Activity::Active { missed }) = LastActivity::<T>::get(&author) {
+				if missed != 0 {
+					LastActivity::<T>::insert(author, Activity::Active { missed: 0 });
+				}
 			}
 		}
 	}
@@ -1182,7 +1260,7 @@ pub mod pallet {
 			if EpochRandomness::<T>::get() != Some(randomness) {
 				EpochRandomness::<T>::put(randomness);
 			}
-			T::WeightInfo::on_relay_state_proof()
+			<T as Config>::WeightInfo::on_relay_state_proof()
 		}
 	}
 }

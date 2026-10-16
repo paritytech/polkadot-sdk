@@ -427,8 +427,16 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 parameter_types! {
-	/// Number of Aura authorities of the current session.
-	pub AuraAuthorityCount: u32 = pallet_aura::Pallet::<Runtime>::authorities_len() as u32;
+	/// The largest session list: the invulnerables and candidates of `pallet-collator-selection`
+	/// and the validators of `pallet-validator-collators`.
+	pub MaxTrackedAuthorities: u32 = {
+		use frame_support::traits::Get;
+		let invulnerables: u32 =
+			<Runtime as pallet_collator_selection::Config>::MaxInvulnerables::get();
+		let candidates: u32 = <Runtime as pallet_collator_selection::Config>::MaxCandidates::get();
+		let validators: u32 = <Runtime as pallet_validator_collators::Config>::MaxValidators::get();
+		invulnerables.saturating_add(candidates).saturating_add(validators)
+	};
 }
 
 impl pallet_validator_collators::Config for Runtime {
@@ -447,7 +455,7 @@ impl pallet_validator_collators::Config for Runtime {
 		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;
 	type DefaultReportMargin = ConstU64<300_000>;
 	type MaxReportMargin = ConstU64<1_800_000>;
-	type AuthorityCount = AuraAuthorityCount;
+	type MaxTrackedAuthorities = MaxTrackedAuthorities;
 	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }
 

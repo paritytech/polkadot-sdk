@@ -12,12 +12,11 @@
 //!
 //! Test flow:
 //! 1. In one call People gets session keys for a generated account with no node, a drop rule of two
-//!    rounds, and a validator set holding only that account. The two forced rotations that follow
-//!    the set enact the invulnerable and the account as Aura authorities, and the account's
-//!    activity record starts at the counted slots of the enacting block.
-//! 2. With half of the Aura slots empty, People keeps finalizing blocks until it has counted the
-//!    window of two rounds of both authorities since the enacting block. The empty slots count, so
-//!    this takes about the window in slot time.
+//!    missed turns, and a validator set holding only that account. The two forced rotations that
+//!    follow the set enact the invulnerable and the account as Aura authorities, and the account's
+//!    activity record starts with no missed turns.
+//! 2. With every second Aura slot empty, People keeps finalizing blocks until the account has
+//!    missed two turns, which takes about two rounds of both authorities in slot time.
 //! 3. Setting no cap, which forces two rotations while a set is stored, drops the account at the
 //!    first rotation and enacts the invulnerable alone at the second.
 
@@ -43,8 +42,8 @@ use zombienet_sdk::subxt::{
 /// The generated account in the validator set, with session keys on People and no node.
 const IDLE_ACCOUNT_URI: &str = "//drop//idle";
 
-/// Full Aura rounds the account may go without authoring.
-const DROP_ROUNDS: u32 = 2;
+/// Consecutive missed turns that drop the account, at the first rotation after the last of them.
+const IDLE_TURNS: u32 = 2;
 
 /// Counted slots the account is not returned, from the rotation that enacts the drop.
 const DROP_SLOTS: u64 = 2;
@@ -53,9 +52,9 @@ const DROP_SLOTS: u64 = 2;
 /// block that enacts the account: the relay chain delivers the message, then People rotates twice.
 const SET_ENACTED_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
-/// Added to the window in slot time for finality lag, from the block that enacts the account to
-/// People finalizing the block that counts the end of the window.
-const WINDOW_MARGIN: Duration = Duration::from_secs(2 * 60);
+/// Added to the slot time of the account's turns for finality lag, from the block that enacts the
+/// account to People finalizing the block after its last missed turn.
+const TURNS_MARGIN: Duration = Duration::from_secs(2 * 60);
 
 /// From the call that sets no cap being finalized on the relay chain to People finalizing the
 /// block that enacts the invulnerable alone: the relay chain delivers the message, then People
@@ -70,7 +69,7 @@ const TEST_TIMEOUT: Duration = Duration::from_secs(40 * 60);
 #[derive(Debug, PartialEq, Decode)]
 enum Activity {
 	Queued,
-	Active { since: u64, authorities: u32 },
+	Active { missed: u32 },
 }
 
 /// `pallet_validator_collators::SlotCount`.
@@ -147,10 +146,9 @@ async fn run() -> Result<(), anyhow::Error> {
 	set_received.await??;
 
 	// THEN the next two rotations enact the account next to the invulnerable, and its activity
-	// record starts at the counted slots of the enacting block
+	// record starts with no missed turns
 	let enacted = set_enacted.await??;
 	check_authorities(&people, &enacted, &[invulnerable, idle], index_before_set + 2).await?;
-	let enacted_count = counted_slots(&people_client, enacted.hash).await?;
 	let activity: Option<Activity> = fetch_at(
 		&people_client,
 		enacted.hash,
@@ -159,20 +157,20 @@ async fn run() -> Result<(), anyhow::Error> {
 		vec![Value::from_bytes(idle)],
 	)
 	.await?;
-	let expected = Activity::Active { since: enacted_count, authorities: 0 };
+	let expected = Activity::Active { missed: 0 };
 	if activity.as_ref() != Some(&expected) {
 		return Err(anyhow!("activity of the account is {activity:?}, expected {expected:?}"));
 	}
 
-	// GIVEN the account authors nothing for a window after its enactment, while the invulnerable
-	// keeps the chain going
-	let window = DROP_ROUNDS as u64 * enacted.authorities as u64;
-	let window_timeout = Duration::from_millis(slot_duration * window) + WINDOW_MARGIN;
-	let window_start = Instant::now();
-	wait_for_counted_slots(&people_client, enacted_count + window, window_timeout).await?;
+	// GIVEN the account misses its turns after its enactment, one per round, while the
+	// invulnerable keeps the chain going
+	let turns_slots = IDLE_TURNS as u64 * enacted.authorities as u64;
+	let turns_timeout = Duration::from_millis(slot_duration * turns_slots) + TURNS_MARGIN;
+	let turns_start = Instant::now();
+	wait_for_missed_turns(&people_client, idle, IDLE_TURNS, turns_timeout).await?;
 	log::info!(
-		"People counted the window of {window} slots in {:?} with half of the slots empty",
-		window_start.elapsed()
+		"The account missed {IDLE_TURNS} turns in {:?}, {turns_slots} slots of turns",
+		turns_start.elapsed()
 	);
 
 	// WHEN setting no cap forces two rotations
@@ -259,7 +257,7 @@ async fn store_rule_and_set(
 		})
 		.collect::<Vec<_>>();
 	let rule = Value::named_composite([
-		("idle_rounds", Value::u128(DROP_ROUNDS.into())),
+		("idle_turns", Value::u128(IDLE_TURNS.into())),
 		("drop_slots", Value::u128(DROP_SLOTS.into())),
 		("min_collators", Value::u128(0)),
 	]);
@@ -306,19 +304,47 @@ async fn counted_slots(
 		.ok_or_else(|| anyhow!("People counts no slots at {at:?}"))
 }
 
-/// Waits until People finalizes a block that counts at least `target` slots.
-async fn wait_for_counted_slots(
+/// The turns `who` missed up to block `at`: those in its activity record, added at each
+/// rotation, and those counted for its position since the last rotation.
+async fn missed_turns(
 	client: &OnlineClient<PolkadotConfig>,
-	target: u64,
+	at: subxt::utils::H256,
+	who: [u8; 32],
+) -> Result<u32, anyhow::Error> {
+	let activity: Option<Activity> =
+		fetch_at(client, at, "ValidatorCollators", "LastActivity", vec![Value::from_bytes(who)])
+			.await?;
+	let recorded = match activity {
+		Some(Activity::Active { missed }) => missed,
+		other => return Err(anyhow!("the account has the activity record {other:?} at {at:?}")),
+	};
+	let validators: Vec<[u8; 32]> =
+		fetch_at(client, at, "Session", "Validators", vec![]).await?.unwrap_or_default();
+	let since_rotation: Vec<u16> =
+		fetch_at(client, at, "ValidatorCollators", "MissedTurns", vec![])
+			.await?
+			.unwrap_or_default();
+	let position = validators
+		.iter()
+		.position(|v| *v == who)
+		.ok_or_else(|| anyhow!("the account is no session validator at {at:?}"))?;
+	Ok(recorded + u32::from(since_rotation.get(position).copied().unwrap_or_default()))
+}
+
+/// Waits until People finalizes a block after which `who` missed at least `target` turns.
+async fn wait_for_missed_turns(
+	client: &OnlineClient<PolkadotConfig>,
+	who: [u8; 32],
+	target: u32,
 	timeout: Duration,
 ) -> Result<(), anyhow::Error> {
 	let wait = async {
 		let mut blocks = client.blocks().subscribe_finalized().await?;
 		while let Some(block) = blocks.next().await {
 			let block = block?;
-			let count = counted_slots(client, block.hash()).await?;
-			if count >= target {
-				log::info!("People finalized #{} counting {count} slots", block.number());
+			let missed = missed_turns(client, block.hash(), who).await?;
+			if missed >= target {
+				log::info!("People finalized #{} with {missed} missed turns", block.number());
 				return Ok(());
 			}
 		}
@@ -326,7 +352,7 @@ async fn wait_for_counted_slots(
 	};
 	tokio::time::timeout(timeout, wait)
 		.await
-		.map_err(|_| anyhow!("People did not count {target} slots within {timeout:?}"))?
+		.map_err(|_| anyhow!("the account did not miss {target} turns within {timeout:?}"))?
 }
 
 /// Checks that `rotation` enacts `expected` as Aura authorities and session validators, in

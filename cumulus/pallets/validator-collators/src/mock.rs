@@ -133,7 +133,7 @@ impl Config for Test {
 	type DefaultExpectedEraDuration = ConstU64<1000>;
 	type DefaultReportMargin = ConstU64<100>;
 	type MaxReportMargin = ConstU64<500>;
-	type AuthorityCount = AuthorityCount;
+	type MaxTrackedAuthorities = MaxTrackedAuthorities;
 	type WeightInfo = ();
 }
 
@@ -151,11 +151,15 @@ impl frame_support::traits::UnixTime for MockTime {
 
 parameter_types! {
 	pub static MaxEntriesPerReport: u32 = 10;
-	/// Aura authorities of the current session, the window of a drop rule is
-	/// `idle_rounds × AuthorityCount` counted slots.
-	pub static AuthorityCount: u32 = 4;
-	/// Slots from the previous block to the next one, reset to one after each block.
+	pub static MaxTrackedAuthorities: u32 = 16;
+	/// Slots from the previous block to the next one, reset to one after each block. With
+	/// [`Authoring`], the least number of slots.
 	pub static NextSlotGap: u64 = 1;
+	/// Whether each block is authored by the owner of its slot, the session validator at the slot
+	/// modulo their number. Without it, blocks have no author.
+	pub static Authoring: bool = false;
+	/// Session validators that author no blocks, so [`Authoring`] skips their slots.
+	pub static Silent: Vec<u64> = vec![];
 	/// Number of calls to [`MockReporter`] so far.
 	pub static ReportCalls: u32 = 0;
 	/// The call to [`MockReporter`], counted from one, that is rejected.
@@ -192,7 +196,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_tracing::try_init_simple();
 	Now::set(0);
 	MaxEntriesPerReport::set(10);
+	MaxTrackedAuthorities::set(16);
 	NextSlotGap::set(1);
+	Authoring::set(false);
+	Silent::set(vec![]);
 	ReportCalls::set(0);
 	FailingReportCall::set(None);
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -227,21 +234,48 @@ parameter_types! {
 	pub static RelayEpochRandomness: Option<[u8; 32]> = Some([7; 32]);
 }
 
+/// Replace the session validators with `count` accounts from 100, without a rotation.
+pub fn set_session_validators(count: u32) {
+	pallet_session::Validators::<Test>::put((100..100 + u64::from(count)).collect::<Vec<_>>());
+}
+
+/// The session validator Aura gives `slot` to.
+pub fn slot_owner(slot: u64) -> Option<u64> {
+	let validators = Session::validators();
+	validators.get((slot % validators.len().max(1) as u64) as usize).copied()
+}
+
 /// Produce blocks up to `n`, each with a relay chain state proof carrying
 /// [`RelayEpochRandomness`], and an Aura slot [`NextSlotGap`] after the slot of the last block
 /// that advanced [`CountedSlots`].
+///
+/// With [`Authoring`], each block is in the first slot from there whose owner is not
+/// [`Silent`], and that owner authors it before the hooks run, as the authorship pallet does.
 pub fn initialize_to_block(n: u64) {
 	for i in System::block_number() + 1..=n {
 		let previous = CountedSlots::<Test>::get().map_or(0, |counted| *counted.slot);
-		let slot = sp_consensus_aura::Slot::from(previous + NextSlotGap::get());
+		let mut slot = previous + NextSlotGap::get();
 		NextSlotGap::set(1);
+		let mut author = None;
+		if Authoring::get() {
+			let silent = Silent::get();
+			let first_live = (slot..slot + Session::validators().len() as u64)
+				.find(|s| slot_owner(*s).is_some_and(|owner| !silent.contains(&owner)));
+			if let Some(live) = first_live {
+				slot = live;
+				author = slot_owner(live);
+			}
+		}
 		let digest = sp_runtime::Digest {
 			logs: vec![sp_runtime::DigestItem::PreRuntime(
 				sp_consensus_aura::AURA_ENGINE_ID,
-				codec::Encode::encode(&slot),
+				codec::Encode::encode(&sp_consensus_aura::Slot::from(slot)),
 			)],
 		};
 		System::initialize(&i, &System::block_hash(i - 1), &digest);
+		if let Some(author) = author {
+			<ValidatorCollators as pallet_authorship::EventHandler<u64, u64>>::note_author(author);
+		}
 		<AllPalletsWithSystem as frame_support::traits::OnInitialize<u64>>::on_initialize(i);
 		if let Some(randomness) = RelayEpochRandomness::get() {
 			<ValidatorCollators as OnSystemEvent>::on_relay_state_proof(
