@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792014011763,
+  "lastUpdate": 1792112030089,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ae772b4edb58afa4499e46d97245e303605170bb",
-          "message": "statement-store: add channel replacement logic tests (#11617)\n\n# Description\nImplement unit tests for \"Channel replacement: verify only\nhigher-priority statements replace existing entries, corner cases of\nreplacement logic.\" #11534\n\n## Summary\n- `channel_replacement_only_higher_priority_succeeds` -> verifies\nlower/equal priority rejected with `ChannelPriorityTooLow`, higher\npriority replaces, one-per-channel invariant preserved\n \n- `channel_replacement_with_size_increase_evicts_others` -> verifies\nthat replacing a channel message with a larger one triggers additional\neviction of lowest-priority non-channel statements to satisfy size\nconstraints\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-06T20:43:48Z",
-          "tree_id": "7ac41f7f7da7e510fdc2027f4a8594e5870e6ec1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ae772b4edb58afa4499e46d97245e303605170bb"
-        },
-        "date": 1775513031493,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.8884081979,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13240294363333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12585675449999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2cd0e4fe5b5ef1355d89ffff40f69c2713f01b34",
+          "message": "Remove deprecated BlockLength constructors (#13348)\n\n## Summary\n\nThis is part of #11561. `BlockLength::max` and\n`BlockLength::max_with_normal_ratio` were due for removal after July\n2026, and nothing in the repository calls them. The deprecation notes\npointed at `builder().max()` and `builder().normal_ratio()`, but the\nbuilder only had `max_length`. `max_length` already replaces\n`BlockLength::max`. This change adds `BlockLengthBuilder::normal_ratio`\nfor the second constructor and deletes both old functions.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-15T21:22:28Z",
+          "tree_id": "210cf51e8bfb60644cb4545861dcdd83aca5e7ae",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2cd0e4fe5b5ef1355d89ffff40f69c2713f01b34"
+        },
+        "date": 1792111998995,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1271551451,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.89539288196666,
             "unit": "seconds"
           }
         ]
