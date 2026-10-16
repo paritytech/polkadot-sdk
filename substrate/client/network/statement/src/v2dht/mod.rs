@@ -292,6 +292,17 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.on_peer_filter_update(peer, filter);
 	}
 
+	/// Exclude `peer` from the DHT index: it speaks the protocol but floods instead of routing.
+	/// Steering would otherwise reserve and dial it, which a node without the DHT path rejects,
+	/// and routing would count it as a replica that holds and forwards what it only floods. Its
+	/// filter stays, so the propagation plan still serves it.
+	pub(crate) fn on_peer_without_dht(&mut self, peer: PeerId) {
+		self.peers_topology.on_peer_without_dht(peer);
+		// Changes the DHT peer index, hence affinity.
+		self.publish_dht_affinity();
+		self.report_topology_size();
+	}
+
 	// === Forward decision ===
 
 	/// Whether `peer` is a DHT routing target for a statement.
@@ -705,6 +716,21 @@ mod tests {
 		let plan = orchestrator.propagation_plan(&statements);
 
 		assert_eq!(plan, vec![(light_peer, vec![0])]);
+	}
+
+	#[test]
+	fn a_peer_without_dht_leaves_routing_but_keeps_its_filter() {
+		let mut orchestrator = orchestrator();
+		let peer = PeerId::random();
+		orchestrator.on_substream_opened(peer);
+		orchestrator.on_peer_filter_update(peer, AffinityFilter::match_all(0));
+		let statements = [statement(1, &[topic(1)])];
+
+		orchestrator.on_peer_without_dht(peer);
+
+		assert_eq!(orchestrator.peers_topology.connected_peers().count(), 0);
+		assert!(orchestrator.peers_topology.routing_targets(topic(1)).is_empty());
+		assert_eq!(orchestrator.propagation_plan(&statements), vec![(peer, vec![0])]);
 	}
 
 	#[test]
