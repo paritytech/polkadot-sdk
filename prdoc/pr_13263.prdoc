@@ -26,7 +26,8 @@ doc:
 
     The receiver may call back into the sender, as on Ethereum, under the same limits. Before, the
     EVM denied this after a zero-value `transfer()` or `send()` and in the callee of a `STATICCALL`
-    with a gas limit of 2300: the reentrant call returned 0.
+    with a gas limit of 2300: the reentrant call returned 0 in an EVM receiver, and a PolkaVM
+    receiver trapped.
 - audience: Runtime Dev
   description: |-
     `PrecompileExt::call` (exported as `pallet_revive::precompiles::Ext`) takes a `CallProtections`
@@ -51,7 +52,7 @@ doc:
 
     In a stipend-limited frame, `PrecompileExt::set_storage`, `PrecompileExt::terminate_caller`,
     `PrecompileWithInfoExt::instantiate` and a value transfer through `PrecompileExt::call` return
-    `OutOfGas`. A runtime precompile that changes state by calling into another pallet, for example
+    `OutOfGas`. A precompile that changes state by calling into another pallet, for example
     to move balances or assets, must call the new `PrecompileExt::ensure_not_stipend_limited`
     first. The assets, asset-conversion, XCM and vesting precompiles do so.
 

@@ -2890,7 +2890,7 @@ where
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		assert!(self.has_contract_info());
-		// Covers runtime precompiles
+		// Covers precompiles
 		self.ensure_not_stipend_limited()?;
 		let frame = self.top_frame_mut();
 		frame.contract_info.get(&frame.account_id).write(
