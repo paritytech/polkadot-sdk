@@ -303,6 +303,7 @@ struct Metrics {
 	pending_statements: Gauge<U64>,
 	ignored_statements: Counter<U64>,
 	peers_connected: GaugeVec<U64>,
+	peers_without_dht: Gauge<U64>,
 	statements_received: Counter<U64>,
 	bytes_sent_total: Counter<U64>,
 	bytes_received_total: Counter<U64>,
@@ -387,6 +388,13 @@ impl Metrics {
 					)
 					.buckets(exponential_buckets(1.0, 2.0, 14)?),
 					&["kind"],
+				)?,
+				r,
+			)?,
+			peers_without_dht: register(
+				Gauge::new(
+					"substrate_sync_statement_peers_without_dht",
+					"Number of connected peers served as nodes without the v2 DHT path",
 				)?,
 				r,
 			)?,
@@ -1707,6 +1715,7 @@ where
 				} else if !is_light {
 					self.awaiting_affinity_filter.insert(peer, Instant::now());
 				}
+				self.update_peers_without_dht();
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
 				if v2dht_enabled() {
@@ -1715,6 +1724,7 @@ where
 				let removed_peer = self.peers.remove(&peer);
 				debug_assert!(removed_peer.is_some());
 				self.awaiting_affinity_filter.remove(&peer);
+				self.update_peers_without_dht();
 
 				if let Some(removed_peer) = removed_peer {
 					self.metrics.as_ref().map(|metrics| {
@@ -1835,6 +1845,7 @@ where
 											self.v2dht.on_substream_opened(peer);
 										}
 										self.send_local_filter(&peer).await;
+										self.update_peers_without_dht();
 									}
 								},
 							}
@@ -2512,6 +2523,23 @@ where
 			self.schedule_initial_sync_for_peer(peer);
 			self.send_match_all_filter(&peer).await;
 		}
+		self.update_peers_without_dht();
+	}
+
+	/// Count the connected peers served as nodes without the v2 DHT path.
+	fn update_peers_without_dht(&self) {
+		if !v2dht_enabled() {
+			return;
+		}
+		let Some(metrics) = &self.metrics else { return };
+		let count = self
+			.peers
+			.values()
+			.filter(|peer| {
+				peer.assumed_match_all || peer.protocol_version == PeerProtocolVersion::V1
+			})
+			.count();
+		metrics.peers_without_dht.set(count as u64);
 	}
 
 	/// Process pending topic affinity changes for peers that have no active initial sync.
