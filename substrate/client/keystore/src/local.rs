@@ -481,6 +481,22 @@ impl KeystoreInner {
 		let path = path.into();
 		fs::create_dir_all(&path)?;
 
+		// Warn about legacy plain key files.
+		for entry in fs::read_dir(&path)? {
+			let name = match entry?.file_name().into_string() {
+				Ok(n) => n,
+				Err(_) => continue,
+			};
+			if Self::parse_legacy_key_filename(&name).is_some() {
+				log::warn!(
+					"Keystore contains a legacy plain key file: `{}`. \
+					 Future versions will require the `.json` format. \
+					 See https://github.com/paritytech/polkadot-sdk/pull/13200#discussion_r4181481113",
+					name,
+				);
+			}
+		}
+
 		Ok(Self { path: Some(path), additional: HashMap::new(), password })
 	}
 
@@ -517,17 +533,14 @@ impl KeystoreInner {
 	///
 	/// Places it into the file system store, if a path is configured.
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<()> {
-		// Always write the `.json` format.
+		// We only write the `.json` format, not the legacy plain format.
+		// See https://github.com/paritytech/polkadot-sdk/pull/13200#discussion_r4181481113
 		if let Some(file) = self.key_file(public, key_type) {
 			file.write(public, suri)?;
 		}
-		// Also write the legacy plain file for backward compatibility if key length allows.
-		if let Some(path) = self.plain_key_path(public, key_type) {
-			KeyFile::write_plain(&path, suri)?;
-		}
 
 		Ok(())
- 	}
+	}
 
 	/// Generate a new key.
 	///
@@ -536,17 +549,29 @@ impl KeystoreInner {
 	fn generate_by_type<Pair: CorePair>(&mut self, key_type: KeyTypeId) -> Result<Pair> {
 		let (pair, phrase, _) = Pair::generate_with_phrase(self.password());
 		let public = pair.public();
+		// We only write the `.json` format, not the legacy plain format.
+		// See https://github.com/paritytech/polkadot-sdk/pull/13200#discussion_r4181481113
 		if let Some(file) = self.key_file(public.as_slice(), key_type) {
 			file.write(public.as_slice(), &phrase)?;
-			// Also write the legacy plain file for backward compatibility.
-			if let Some(path) = self.plain_key_path(public.as_slice(), key_type) {
-				KeyFile::write_plain(&path, &phrase)?;
-			}
 		} else {
 			self.insert_ephemeral_pair(&pair, &phrase, key_type);
 		}
 
 		Ok(pair)
+	}
+
+	/// Try to parse a filename as a legacy plain key file.
+	///
+	/// Returns the decoded bytes if `name` is a hex-encoded string with a valid key type
+	/// prefix and no [`HASHED_FILENAME_SUFFIX`], or `None` otherwise.
+	fn parse_legacy_key_filename(name: &str) -> Option<Vec<u8>> {
+		if name.ends_with(HASHED_FILENAME_SUFFIX) {
+			return None;
+		}
+		match array_bytes::hex2bytes(name) {
+			Ok(bytes) if bytes.len() > KEY_TYPE_PREFIX_LEN => Some(bytes),
+			_ => None,
+		}
 	}
 
 	/// Returns `true` if the plain hex-encoded filename for a public key fits within the
@@ -663,23 +688,17 @@ impl KeystoreInner {
 
 				// skip directories and non-unicode file names
 				let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue };
-				let (hex, is_json) = match name.strip_suffix(HASHED_FILENAME_SUFFIX) {
-					Some(hex) => (hex, true),
-					None => (name, false),
-				};
-				// skip files that don't name a key of the requested type
-				let payload = match array_bytes::hex2bytes(hex) {
-					Ok(bytes)
-						if bytes.len() > KEY_TYPE_PREFIX_LEN &&
-							bytes[..KEY_TYPE_PREFIX_LEN] == key_type.0 =>
-					{
-						bytes[KEY_TYPE_PREFIX_LEN..].to_vec()
-					},
-					_ => continue,
-				};
-				let public = if is_json {
-					// JSON format: the body stores the public key and must agree with the
-					// hash in the filename.
+
+				let public = if let Some(hex) = name.strip_suffix(HASHED_FILENAME_SUFFIX) {
+					// `.json` format: check key type prefix, then read public key from body.
+					let bytes = match array_bytes::hex2bytes(hex) {
+						Ok(bytes)
+							if bytes.len() > KEY_TYPE_PREFIX_LEN &&
+								bytes[..KEY_TYPE_PREFIX_LEN] == key_type.0 =>
+							bytes,
+						_ => continue,
+					};
+					let payload = bytes[KEY_TYPE_PREFIX_LEN..].to_vec();
 					match HashedKeyFile::read(&path) {
 						Ok(entry)
 							if sp_crypto_hashing::blake2_256(&entry.public_key) ==
@@ -689,9 +708,14 @@ impl KeystoreInner {
 						},
 						_ => continue,
 					}
+				} else if let Some(bytes) = Self::parse_legacy_key_filename(name) {
+					// Legacy plain format: check key type, public key is in the filename.
+					if bytes[..KEY_TYPE_PREFIX_LEN] != key_type.0 {
+						continue;
+					}
+					bytes[KEY_TYPE_PREFIX_LEN..].to_vec()
 				} else {
-					// Legacy plain format: the public key is in the filename.
-					payload
+					continue;
 				};
 				if !public_keys.contains(&public) {
 					public_keys.push(public);
@@ -732,11 +756,6 @@ impl KeyFile {
 	fn write(&self, public: &[u8], phrase: &str) -> Result<()> {
 		let entry = HashedKeyFile { public_key: public.to_vec(), phrase: phrase.to_string() };
 		Self::write_file(&self.path, |f| serde_json::to_writer(f, &entry))
-	}
-
-	/// Write a legacy plain key file (bare JSON-encoded phrase).
-	fn write_plain(path: &Path, phrase: &str) -> Result<()> {
-		Self::write_file(path, |f| serde_json::to_writer(f, phrase))
 	}
 
 	/// Write to a file with restrictive permissions.
@@ -1211,7 +1230,7 @@ mod tests {
 	}
 
 	#[test]
-	fn short_keys_produce_both_file_formats_and_deduplicate() {
+	fn only_json_file_is_written() {
 		let temp_dir = TempDir::new().unwrap();
 		let store = LocalKeystore::open(temp_dir.path(), None).unwrap();
 		let public = store.sr25519_generate_new(TEST_KEY_TYPE, None).unwrap();
@@ -1223,22 +1242,39 @@ mod tests {
 			(json_file.path.clone(), plain_path)
 		};
 
+		// Only the `.json` file is written; no legacy plain file.
 		assert!(json_path.exists());
-		assert!(plain_path.exists());
+		assert!(!plain_path.exists());
 
-		// The `.json` file must exist and contain the public key and phrase.
 		let entry = HashedKeyFile::read(&json_path).unwrap();
 		assert_eq!(entry.public_key, public.to_raw_vec());
 
-		// The legacy plain file must also exist with the bare JSON-encoded phrase.
-		let phrase: String =
-			serde_json::from_reader(File::open(&plain_path).unwrap()).unwrap();
-		assert_eq!(phrase, entry.phrase);
-
-		// Despite two files on disk, only one key is returned.
 		let keys = store.sr25519_public_keys(TEST_KEY_TYPE);
 		assert_eq!(keys.len(), 1);
 		assert_eq!(keys[0], public);
+	}
+
+	#[test]
+	fn legacy_plain_files_are_read_as_fallback() {
+		let temp_dir = TempDir::new().unwrap();
+
+		// Simulate a legacy keystore by writing a plain key file directly.
+		let pair = sr25519::Pair::from_string("//Alice", None).unwrap();
+		let public = pair.public();
+		let kt = array_bytes::bytes2hex("", &TEST_KEY_TYPE.0);
+		let key = array_bytes::bytes2hex("", public.as_slice());
+		let plain_path = temp_dir.path().join(kt + &key);
+		fs::write(&plain_path, serde_json::to_vec("//Alice").unwrap()).unwrap();
+
+		let store = LocalKeystore::open(temp_dir.path(), None).unwrap();
+
+		// The legacy file is readable.
+		let keys = store.sr25519_public_keys(TEST_KEY_TYPE);
+		assert_eq!(keys.len(), 1);
+		assert_eq!(keys[0], public);
+
+		// Signing works from the legacy file.
+		assert!(store.sr25519_sign(TEST_KEY_TYPE, &public, b"message").unwrap().is_some());
 	}
 
 	#[test]
