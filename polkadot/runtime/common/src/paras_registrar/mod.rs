@@ -24,7 +24,7 @@
 pub mod migration;
 
 use alloc::vec::Vec;
-use core::result;
+use core::{matches, result};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -615,31 +615,17 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 
 	fn deregister(para_id: u32) -> DispatchResult {
 		let id = ParaId::from(para_id);
-		match paras::Pallet::<T>::lifecycle(id) {
-			// A retry after a lost answer: cleanup is already scheduled.
-			Some(ParaLifecycle::OffboardingParathread) |
-			Some(ParaLifecycle::OffboardingParachain) => return Ok(()),
-			// Para must be a parathread (on-demand parachain), or not exist at all.
-			Some(ParaLifecycle::Parathread) | None => {},
-			Some(
-				ParaLifecycle::Onboarding |
-				ParaLifecycle::Parachain |
-				ParaLifecycle::UpgradingParathread |
-				ParaLifecycle::DowngradingParachain,
-			) => return Err(Error::<T>::NotParathread.into()),
+		// A retry after a lost answer: cleanup is already scheduled.
+		if matches!(
+			paras::Pallet::<T>::lifecycle(id),
+			Some(ParaLifecycle::OffboardingParathread) | Some(ParaLifecycle::OffboardingParachain)
+		) {
+			return Ok(());
 		}
 
-		// Instead of using do_deregister, we use with_storage_layer to ensure the transaction is
-		// rolled back if the schedule_para_cleanup fails and to read less storage and make no no-op
-		// operations (unreserve).
-		with_storage_layer(|| {
-			polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
-				.map_err(|_| Error::<T>::CannotDeregister)?;
-
-			Paras::<T>::remove(id);
-			Self::deposit_event(Event::<T>::Deregistered { para_id: id });
-			Ok(())
-		})
+		// Using storage layer to ensure the transaction is rolled back if the schedule_para_cleanup
+		// fails.
+		with_storage_layer(|| Self::do_deregister(id))
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
