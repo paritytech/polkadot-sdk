@@ -292,10 +292,8 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.on_peer_filter_update(peer, filter);
 	}
 
-	/// Exclude `peer` from the DHT index: it speaks the protocol but floods instead of routing.
-	/// Steering would otherwise reserve and dial it, which a node without the DHT path rejects,
-	/// and routing would count it as a replica that holds and forwards what it only floods. Its
-	/// filter stays, so the propagation plan still serves it.
+	/// Exclude `peer` from the DHT index but keep its filter: steering would otherwise dial it and
+	/// routing would count it as a replica, while the propagation plan must still serve it.
 	pub(crate) fn on_peer_without_dht(&mut self, peer: PeerId) {
 		self.peers_topology.on_peer_without_dht(peer);
 		// Changes the DHT peer index, hence affinity.

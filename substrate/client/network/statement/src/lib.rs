@@ -276,7 +276,7 @@ const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::fr
 ///
 /// TODO: Remove once the filter is mandatory by protocol version. A full node running without
 /// the v2 DHT path never sends a filter, so a node with the path on would wait for it forever.
-/// The rollout flips every node at once, so the grace period is a safety net in case it does not.
+/// A mixed network stays mixed through the rollout, so the grace period tells the two apart.
 const AFFINITY_FILTER_GRACE_PERIOD: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval between sweeps that evict statement-store peers unseen for the staleness TTL, so the
 /// topology converges on live peers even while discovery is quiet.
@@ -921,7 +921,7 @@ pub struct Peer {
 	/// Set when a new `ExplicitTopicAffinity` arrives; consumed by the main loop
 	/// once any in-progress initial sync for this peer completes.
 	pending_topic_affinity: Option<AffinityFilter>,
-	/// No filter within the grace period: a full node without the v2 DHT path, sent match-all.
+	/// The peer sent no filter in time, so it is served as a full node without the v2 DHT path.
 	assumed_match_all: bool,
 	/// One past the newest admission covered by the peer's initial syncs.
 	sync_watermark: u64,
@@ -1403,25 +1403,25 @@ where
 	}
 
 	/// Advertise a changed affinity filter to every connected peer past V1. A peer assumed
-	/// match-all keeps getting match-all.
+	/// match-all is skipped: any filter restarts the receiver's initial sync, and it already has
+	/// the match-all one.
 	async fn broadcast_local_filter(&mut self, filter: AffinityFilter) {
 		let encoded = StatementMessage::ExplicitTopicAffinity(filter).encode();
-		let match_all =
-			StatementMessage::ExplicitTopicAffinity(AffinityFilter::match_all(0)).encode();
-		let peers: Vec<(PeerId, bool)> = self
+		let peers: Vec<PeerId> = self
 			.peers
 			.iter()
-			.filter(|(_, peer)| peer.protocol_version != PeerProtocolVersion::V1)
-			.map(|(peer_id, peer)| (*peer_id, peer.assumed_match_all))
+			.filter(|(_, peer)| {
+				peer.protocol_version != PeerProtocolVersion::V1 && !peer.assumed_match_all
+			})
+			.map(|(peer_id, _)| *peer_id)
 			.collect();
 		log::debug!(
 			target: LOG_TARGET,
 			"Advertising the local affinity filter to {} peers",
 			peers.len(),
 		);
-		for (peer, assumed_match_all) in peers {
-			let encoded = if assumed_match_all { match_all.clone() } else { encoded.clone() };
-			self.send_notification(&peer, encoded).await;
+		for peer in peers {
+			self.send_notification(&peer, encoded.clone()).await;
 		}
 	}
 
@@ -2489,9 +2489,9 @@ where
 		}
 	}
 
-	/// Give peers silent past [`AFFINITY_FILTER_GRACE_PERIOD`] a match-all filter, the v1 meaning
-	/// of no filter, register it with the orchestrator, schedule their initial sync and ask them
-	/// for everything in return.
+	/// Treat peers silent past [`AFFINITY_FILTER_GRACE_PERIOD`] as nodes without the v2 DHT path:
+	/// a match-all filter, the v1 meaning of no filter, no place in the DHT index, an initial
+	/// sync, and a match-all filter in return.
 	async fn assume_match_all_after_filter_grace(&mut self) {
 		let now = Instant::now();
 		let expired: Vec<PeerId> = self
@@ -6047,6 +6047,33 @@ mod tests {
 		assert!(!handler.peers.get(&peer_id).unwrap().assumed_match_all);
 		let local = StatementMessage::ExplicitTopicAffinity(handler.v2dht.local_filter()).encode();
 		assert_eq!(notification_service.get_sent_notifications().last(), Some(&(peer_id, local)));
+	}
+
+	#[tokio::test]
+	async fn a_filter_broadcast_skips_a_peer_assumed_match_all() {
+		let (mut handler, _statement_store, _network, notification_service) =
+			build_handler_no_peers();
+		let assumed = PeerId::random();
+		let other = PeerId::random();
+		for peer in [assumed, other] {
+			handler
+				.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+					peer,
+					direction: sc_network::service::traits::Direction::Inbound,
+					handshake: vec![],
+					negotiated_fallback: None,
+				})
+				.await;
+		}
+		handler.peers.get_mut(&assumed).unwrap().assumed_match_all = true;
+		notification_service.clear_sent_notifications();
+
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		filter.insert(&[0xAA; 32]);
+		handler.broadcast_local_filter(filter.clone()).await;
+
+		let encoded = StatementMessage::ExplicitTopicAffinity(filter).encode();
+		assert_eq!(notification_service.get_sent_notifications(), vec![(other, encoded)]);
 	}
 
 	async fn send_affinity(
