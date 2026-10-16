@@ -44,6 +44,13 @@ contract Host {
         }
     }
 
+    function sstoreTwo(uint64 slotA, uint64 valueA, uint64 slotB, uint64 valueB) public {
+        assembly {
+            sstore(slotA, valueA)
+            sstore(slotB, valueB)
+        }
+    }
+
     function logOps() public {
         assembly {
             log0(0x01, 0x20)
