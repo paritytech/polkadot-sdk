@@ -4,17 +4,25 @@ doc:
 - audience: Node Dev
   description: |
     Fixes two defects in filesystem-backed `LocalKeystore` when generating BLS381 /
-    ECDSA_BLS381 paired keys:
+    ECDSA_BLS381 paired keys, and unifies the on-disk key file format:
 
     - `ecdsa_bls381_generate_new` no longer panics when called with `seed = None`; the
       generated seed is now looked up through `key_phrase_by_type`, which handles the
       on-disk path.
-    - BLS key filenames that would exceed the 255-byte filesystem limit fall back to a
-      hashed filename (`hex(key_type || blake2_256(public_key))` with a `.hashed` suffix).
-      As such a name no longer carries the public key, the body of such a file is a JSON
-      object `{"public_key": <hex>, "phrase": <phrase>}` instead of the bare JSON-encoded
-      phrase. Short keys keep the plain filename and body, so existing keystores and the
-      tooling that writes them are unaffected.
+    - All keys are now stored in a `.json` format: the filename is
+      `hex(key_type || blake2_256(public_key))` with a `.json` suffix, and the body is a
+      JSON object `{"public_key": <hex>, "phrase": <phrase>}`. As such, the `.json`
+      filenames use a hash of the public key instead of the literal public key, so the
+      public key is stored in the file body. This also resolves the 255-byte filename
+      limit for BLS381 / ECDSA_BLS381 public keys.
+    - Legacy plain key files (`hex(key_type || public_key)` with a bare JSON-encoded
+      phrase) are still read as a fallback but are no longer written, so existing
+      keystores and tooling (e.g. Zombienet) that inject them remain unaffected. A
+      deprecation warning is logged on startup for each legacy plain key file found
+      in the keystore.
+    - When the legacy plain format is deprecated, `open` should atomically migrate
+      each legacy plain file to `.json`: write the `.json` file, and delete the plain
+      file only if the phrases match.
 
 crates:
 - name: sc-keystore
