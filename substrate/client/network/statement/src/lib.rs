@@ -1687,9 +1687,13 @@ where
 				});
 
 				if v2dht_enabled() {
-					// A light peer stores and routes nothing, so it stays out of the topology
-					// and reaches the propagation plan through its filter alone.
-					if !is_light {
+					if protocol_version == PeerProtocolVersion::V1 {
+						// A V1 peer cannot decode a filter and wants everything, so it is served
+						// like a peer assumed match-all and stays out of the DHT index.
+						self.v2dht.on_peer_filter_update(peer, AffinityFilter::match_all(0));
+					} else if !is_light {
+						// A light peer stores and routes nothing, so it stays out of the topology
+						// and reaches the propagation plan through its filter alone.
 						self.v2dht.on_substream_opened(peer);
 					}
 					self.send_local_filter(&peer).await;
