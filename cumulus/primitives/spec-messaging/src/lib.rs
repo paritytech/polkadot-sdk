@@ -104,9 +104,6 @@ pub const TREE_INNER_TAG: u8 = 0x6;
 /// colliding with new ones.
 pub const LEAF_VERSION: u8 = 0x0;
 
-/// Engine id of the consensus digest carrying the sender's `StreamsRoot`, deposited every block.
-/// A receiver reads the root from the sender's header, anchored by the relay's `para_heads`, and
-/// proves its stream against it. Foreign nodes parse this digest directly, so the format is
-/// protocol-standard and frozen once anything cross-chain ships. `*b"SPMS"` is the encoding
-/// spec's proposed value (§7.4).
+/// Engine id of the header digest carrying a block's `StreamsRoot`, deposited only by blocks that
+/// send (encoding spec §7.4).
 pub const SPMS_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"SPMS";

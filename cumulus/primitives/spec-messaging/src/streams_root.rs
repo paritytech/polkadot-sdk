@@ -14,11 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `StreamsRoot`: the sender's per-block stream commitment (spec-msg v0.5).
+//! `StreamsRoot`: the sender's stream commitment (spec-msg v0.5).
 //!
-//! Each block a sender commits one hash, the root of a keyed binary Patricia trie over `(StreamId,
-//! current stream root)` for every active stream. A receiver reads it from the sender's header
-//! digest and proves the stream it consumes against it, without a sender-state proof.
+//! Each block that sends commits one hash, the root of a keyed binary Patricia trie over
+//! `(StreamId, current stream root)` for every active stream. The relay records it as the sender's
+//! `Provides`, and a receiver proves the streams it consumed against it, without a sender-state
+//! proof.
 //!
 //! # Why a keyed trie
 //!
@@ -29,9 +30,9 @@
 //! position. A positional Merkle tree does not give it. Patricia compression also keeps proofs
 //! `O(log S)` in the number of streams rather than `O(64)` in the key width.
 //!
-//! Roles: the sender/node builds the root ([`streams_root`]) and serves proofs
-//! ([`gen_stream_proof`]); the receiver reads the root ([`read_streams_root`]) and verifies
-//! ([`verify_stream_membership`]).
+//! Roles: the sender builds the root ([`streams_root`]) and its node serves proofs
+//! ([`gen_stream_proof`]), checking its own header digest ([`read_streams_root`]); a receiver's
+//! lift walks a proof up to the committed root ([`streams_root_from_proof`]).
 //!
 //! Hashing (`blake2_256` via [`SpecHasher`]):
 //! - leaf `= H(TREE_LEAF_TAG ++ key[8] ++ stream_root[32])`, binding the full key;
@@ -260,9 +261,9 @@ pub fn streams_root_from_proof(
 	Some(StreamsRoot(node))
 }
 
-/// Verify that `stream_root` is the sender's committed root for `stream` under `streams_root` (from
-/// [`read_streams_root`]). Receiver side. The leaf is recomputed from `stream` and each direction
-/// is taken from its bits, so a proof for another stream cannot verify.
+/// Verify that `stream_root` is the sender's committed root for `stream` under `streams_root`. The
+/// leaf is recomputed from `stream` and each direction is taken from its bits, so a proof for
+/// another stream cannot verify.
 pub fn verify_stream_membership(
 	streams_root: StreamsRoot,
 	stream: StreamId,

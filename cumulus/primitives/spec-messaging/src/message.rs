@@ -288,8 +288,8 @@ pub fn verify_event(
 /// Verify an [`EventResponse`] as the head of `stream` under `under`; returns the position, the
 /// frontier at that head, and the payload. Crate-internal; [`verify_event`] is the public entry.
 ///
-/// Hashes the payload, verifies it as the last leaf ([`MmrInclusionProof::verify_head`]), bags the
-/// frontier to the stream root, and walks the tree to a `StreamsRoot` that must equal `under`. The
+/// Hashes the payload, verifies it as the last leaf ([`MmrInclusionProof::verify_head`]), computes
+/// the frontier's root, and walks the tree to a `StreamsRoot` that must equal `under`. The
 /// frontier is returned because lossy consumption needs it as the interval endpoint and it is not
 /// reconstructible from the response alone.
 pub(crate) fn verify_event_response(

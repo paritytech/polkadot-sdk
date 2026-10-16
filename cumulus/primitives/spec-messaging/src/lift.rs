@@ -204,10 +204,6 @@ impl MmrInclusionProof {
 	/// proven MMR. Returns the head position and the frontier of that MMR; `Err` on any structural
 	/// defect.
 	///
-	/// This is the register and event head read. Lossy consumers need the peaks, not just the root:
-	/// the read enters the consumption record as an interval whose `end` frontier the next gap
-	/// check or the lift extends from.
-	///
 	/// The expected shape is what `gen_proof` produces for the last leaf: the other peaks left to
 	/// right, then the head's `leaf_count.trailing_zeros()` left siblings bottom up. The item count
 	/// is checked exactly.
@@ -536,7 +532,7 @@ mod tests {
 		frontier
 	}
 
-	/// Bagged root over the first `k` leaves.
+	/// Root over the first `k` leaves.
 	fn root_at(all: &[Hash], k: usize) -> MmrRoot {
 		frontier_at(all, k).root()
 	}
@@ -613,10 +609,10 @@ mod tests {
 
 	#[test]
 	fn extension_leaf_count_disambiguates_equal_node_counts() {
-		// Encoding spec §12.4: extending one leaf to three and to four both take two connecting
-		// nodes, placed differently. That is why `leaf_count` is carried (the verifier cannot
-		// derive it from the node count) and why the nodes carry no positions (the count fixes
-		// them).
+		// Encoding spec §12, item 4: extending one leaf to three and to four both take two
+		// connecting nodes, placed differently. That is why `leaf_count` is carried (the verifier
+		// cannot derive it from the node count) and why the nodes carry no positions (the count
+		// fixes them).
 		let all = leaves(4);
 		let to3 = extension(&all, 1, 3);
 		let to4 = extension(&all, 1, 4);

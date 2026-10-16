@@ -341,7 +341,7 @@ mod tests {
 
 	#[test]
 	fn mmr_root_frozen_vectors_at_64_and_65_leaves() {
-		// FROZEN consensus vectors (encoding spec §12.2): 64 leaves collapse to a single peak
+		// FROZEN consensus vectors (encoding spec §12, item 2): 64 leaves collapse to a single peak
 		// through the full six-level merge chain; 65 adds a second peak and exercises bagging over
 		// it. Values computed independently of this crate (a Python model of §3.2's tag layout).
 		let mut acc = MmrFrontier::new();
