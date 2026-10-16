@@ -91,9 +91,9 @@ pub const MAX_MESSAGES_PER_RESPONSE: u32 = 1024;
 /// and position are structural and not in the preimage. Versions are hash-disjoint, so only the
 /// correct one reproduces a committed root.
 pub fn leaf_hash(leaf_version: u8, payload: &[u8]) -> Hash {
-	let mut preimage = Vec::new();
-	preimage.extend_from_slice(&LEAF_TAG.to_le_bytes());
-	preimage.extend_from_slice(&leaf_version.to_le_bytes());
+	let mut preimage = Vec::with_capacity(2 + payload.len());
+	preimage.push(LEAF_TAG);
+	preimage.push(leaf_version);
 	preimage.extend_from_slice(payload);
 	<SpecHasher as HashT>::hash(&preimage)
 }
