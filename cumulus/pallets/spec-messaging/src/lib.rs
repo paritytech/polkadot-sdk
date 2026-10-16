@@ -209,6 +209,13 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Enacted<T: Config> = StorageValue<_, (), OptionQuery>;
 
+	/// Inbound streams a skip moved this block; cleared next block. The inherent drops their items,
+	/// which the collator planned on the frontier before the skip. Bounded by
+	/// [`Config::MaxTouchedStreams`].
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub type SkippedStreams<T: Config> = StorageValue<_, Vec<(ParaId, StreamId)>, ValueQuery>;
+
 	/// This block's consumption intervals; grouped/sorted by [`Pallet::consumption_record`],
 	/// cleared next block. Bounded by [`Config::MaxTouchedStreams`].
 	#[pallet::storage]
@@ -551,10 +558,12 @@ pub mod pallet {
 
 		/// Stall recovery: move an inbound frontier to `(peaks, leaf_count)` past payloads that
 		/// cannot be fetched; the skipped leaves are lost. `extension` must extend our frontier to
-		/// exactly that root, so a skip only moves forward. Whether the sender committed that
-		/// frontier is checked only by the candidate's lift: take the peaks from a committed root,
-		/// or no block with this call can be included. Recorded as an [`Interval`] like any
-		/// consumption.
+		/// exactly that root, so a skip only moves forward. Not recorded for the lift, so a skip
+		/// never makes a block unbackable: if the sender never committed that frontier, only this
+		/// channel's later consumption cannot be lifted, the collator stops consuming it, and the
+		/// chain goes on. To recover, restore the frontier from the block before the skip with
+		/// `system.set_storage` on `InboundFrontier((sender, stream))`. Never restore one older
+		/// than the last consumed: its messages would run again.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(4, 4))]
 		pub fn skip_inbound_stream(
@@ -567,20 +576,26 @@ pub mod pallet {
 			extension: MMRExtensionProof,
 		) -> DispatchResult {
 			T::ChannelManagementOrigin::ensure_origin(origin)?;
+			// A scheduled skip can run before this pallet's `on_initialize`.
+			Self::roll_over();
 			let channel = ChannelId { peer: sender, domain, num };
 			let mut state = InChannels::<T>::get(channel).ok_or(Error::<T>::UnknownChannel)?;
 			let stream = Self::inbound_stream(&channel);
-			let outbox = ConsumptionOutbox::<T>::get();
-			// One interval per stream per block: a stream the inherent or an earlier skip consumed
-			// is already here. A skip before the inherent makes the inherent drop that item.
+			// The record of a stream the inherent consumed this block ends at the old frontier.
 			ensure!(
-				!outbox.iter().any(|(source, s, _)| *source == sender && *s == stream),
+				!ConsumptionOutbox::<T>::get()
+					.iter()
+					.any(|(source, s, _)| *source == sender && *s == stream),
 				Error::<T>::StreamTouched
 			);
-			ensure!(
-				(outbox.len() as u32) < T::MaxTouchedStreams::get(),
-				Error::<T>::TooManyStreams
-			);
+			let mut skipped = SkippedStreams::<T>::get();
+			if !skipped.contains(&(sender, stream)) {
+				ensure!(
+					(skipped.len() as u32) < T::MaxTouchedStreams::get(),
+					Error::<T>::TooManyStreams
+				);
+				skipped.push((sender, stream));
+			}
 
 			let new = MmrFrontier::from_parts(peaks, leaf_count).ok_or(Error::<T>::BadFrontier)?;
 			let old = InboundFrontier::<T>::get((sender, stream));
@@ -593,11 +608,7 @@ pub mod pallet {
 
 			let (from, to) = (MessagePosition(old.leaf_count()), MessagePosition(leaf_count));
 			InboundFrontier::<T>::insert((sender, stream), &new);
-			ConsumptionOutbox::<T>::append((
-				sender,
-				stream,
-				Interval { start: old.root(), end: new },
-			));
+			SkippedStreams::<T>::put(skipped);
 			Self::publish_register(&channel, &mut state)?;
 			InChannels::<T>::insert(channel, state);
 			Self::deposit_event(Event::StreamSkipped { channel, from, to });
@@ -645,6 +656,7 @@ impl<T: Config> Pallet<T> {
 
 		BlockStreamsRoot::<T>::kill();
 		ConsumptionOutbox::<T>::kill();
+		SkippedStreams::<T>::kill();
 		Enacted::<T>::kill();
 		let mut drained = 0u32;
 		for (stream, messages) in OutboundMessages::<T>::drain() {
@@ -765,9 +777,7 @@ impl<T: Config> Pallet<T> {
 		// suspended or closed the channel, or skipped its stream, since: drop the item rather than
 		// fail the block, which every retry would rebuild the same way. Nothing is recorded, so
 		// nothing needs a lift.
-		let skipped = ConsumptionOutbox::<T>::get()
-			.iter()
-			.any(|(s, t, _)| *s == source && *t == stream);
+		let skipped = SkippedStreams::<T>::get().contains(&(source, stream));
 		if state.suspended || state.published.closed || skipped {
 			Self::deposit_event(Event::ItemDropped { channel });
 			return Ok(false);

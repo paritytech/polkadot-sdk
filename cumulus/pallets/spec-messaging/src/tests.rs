@@ -21,9 +21,9 @@ use cumulus_primitives_spec_messaging::{
 	lift::{build_requires_entry, RequiresLift},
 	mmr::SpecMerge,
 	streams_root::{gen_stream_proof, read_streams_root, streams_root},
-	ChannelId, ChannelPhase, ConsumeItem, ConsumedStream, ConsumptionRecord, Interval,
-	MMRExtensionProof, MessagePosition, MessagingInherentData, MmrFrontier, ProvideConsumptionRecord,
-	Register, SpecMsgKind, SpecMsgSignal, StreamId, StreamsRoot, WindowGrant, LEAF_VERSION,
+	ChannelId, ChannelPhase, ConsumeItem, ConsumedStream, ConsumptionRecord, MMRExtensionProof,
+	MessagePosition, MessagingInherentData, MmrFrontier, ProvideConsumptionRecord, Register, SpecMsgKind,
+	SpecMsgSignal, StreamId, StreamsRoot, WindowGrant, LEAF_VERSION,
 };
 use frame_support::{
 	assert_err, assert_ok,
@@ -652,6 +652,22 @@ fn a_regressing_register_is_ignored() {
 }
 
 #[test]
+fn a_register_whose_version_regresses_is_ignored() {
+	new_test_ext().execute_with(|| {
+		open_out_channel();
+		let newer = Register { version: 1, ..register(1, TestGrant::get()) };
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(0, newer)));
+		roll_one_block();
+
+		// A later leaf announcing a lower version is consumed but not applied.
+		let older = Register { version: 0, ..register(2, TestGrant::get()) };
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(1, older)));
+		let state = OutChannels::<Test>::get(out_channel()).expect("opened");
+		assert_eq!(state.register.map(|read| read.register), Some(newer));
+	});
+}
+
+#[test]
 fn a_register_read_starts_and_ends_at_its_context() {
 	new_test_ext().execute_with(|| {
 		open_out_channel();
@@ -875,6 +891,60 @@ fn register_reads_must_target_an_outbound_channel_and_decode() {
 		assert_err!(
 			SpecMessaging::enact_messages(RuntimeOrigin::none(), read(vec![leaf.clone(), leaf])),
 			Error::<Test>::BadRegister
+		);
+
+		// The peer's register for another chain, on the same `(domain, num)`: the peer committed
+		// it, so a lift would bind it, and only the recipient check refuses it.
+		let for_another =
+			StreamId::Ack { recipient: ParaId::from(SELF_PARA + 1), domain: 0, num: 0 };
+		assert_err!(
+			SpecMessaging::enact_messages(
+				RuntimeOrigin::none(),
+				inherent(vec![(
+					peer(),
+					for_another,
+					ConsumeItem::Events {
+						base: MessagePosition(0),
+						start_peaks: vec![],
+						payloads: vec![register(0, TestGrant::get()).encode()],
+					},
+				)])
+			),
+			Error::<Test>::UnknownStream
+		);
+	});
+}
+
+#[test]
+fn register_reads_beyond_the_context_gap_cap_are_rejected() {
+	new_test_ext().execute_with(|| {
+		let gaps = <Test as crate::Config>::MaxContextGaps::get() as u16;
+		let read = |num| {
+			(
+				peer(),
+				StreamId::Ack { recipient: ParaId::from(SELF_PARA), domain: 0, num },
+				ConsumeItem::Events {
+					base: MessagePosition(0),
+					start_peaks: vec![],
+					payloads: vec![register(0, TestGrant::get()).encode()],
+				},
+			)
+		};
+		for num in 0..=gaps {
+			assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), peer(), 0, num));
+		}
+		roll_one_block();
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			inherent((0..gaps).map(read).collect())
+		));
+		roll_one_block();
+		assert_err!(
+			SpecMessaging::enact_messages(
+				RuntimeOrigin::none(),
+				inherent((0..=gaps).map(read).collect())
+			),
+			Error::<Test>::TooManyGaps
 		);
 	});
 }
@@ -1145,7 +1215,7 @@ fn consume_first(payloads: &[Vec<u8>], k: usize) {
 }
 
 #[test]
-fn skip_moves_the_frontier_records_and_republishes() {
+fn skip_moves_the_frontier_and_republishes_without_a_record() {
 	new_test_ext().execute_with(|| {
 		let payloads = skip_payloads(7);
 		accept(0);
@@ -1157,11 +1227,10 @@ fn skip_moves_the_frontier_records_and_republishes() {
 		assert_ok!(skip(&new, extension(&payloads, 3, 7)));
 
 		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), new);
-		let record = SpecMessaging::consumption_record();
-		assert_eq!(
-			record.entries[&src()][&stream(0)],
-			Interval { start: old.root(), end: new.clone() }
-		);
+		// Nothing to lift: a frontier the sender never committed cannot make this block
+		// unbackable, only the channel's later consumption.
+		assert!(SpecMessaging::consumption_record().entries.is_empty());
+		let _ = old;
 		let channel = ChannelId { peer: src(), domain: 0, num: 0 };
 		let state = InChannels::<Test>::get(channel).unwrap();
 		assert_eq!(state.published.up_to, MessagePosition(7));
@@ -1202,21 +1271,24 @@ fn a_skip_scheduled_before_the_inherent_drops_its_item() {
 	new_test_ext().execute_with(|| {
 		let payloads = skip_payloads(5);
 		accept(0);
-		roll_one_block();
-		// A scheduled skip runs in `on_initialize`, before the inherent planned on the parent.
+		consume_first(&payloads, 1);
+		// A scheduled skip runs in an earlier pallet's `on_initialize`, before this pallet's and
+		// before the inherent planned on the parent.
+		let n = System::block_number();
+		SpecMessaging::on_finalize(n);
+		System::set_block_number(n + 1);
 		let new = frontier_over(&payloads, 5);
-		let extension = MMRExtensionProof { leaf_count: 5, connecting_nodes: new.peaks().to_vec() };
-		assert_ok!(skip(&new, extension));
+		assert_ok!(skip(&new, extension(&payloads, 1, 5)));
+		SpecMessaging::on_initialize(n + 1);
 
-		let item = ConsumeItem::Channel { payloads: vec![payloads[0].clone()] };
+		let item = ConsumeItem::Channel { payloads: vec![payloads[1].clone()] };
 		assert_ok!(SpecMessaging::enact_messages(
 			RuntimeOrigin::none(),
 			inherent(vec![(src(), stream(0), item)])
 		));
-		// Only the skip is recorded; the item changed nothing.
+		// The item changed nothing, and nothing is recorded.
 		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), new);
-		let record = SpecMessaging::consumption_record();
-		assert_eq!(record.entries[&src()][&stream(0)].end, new);
+		assert!(SpecMessaging::consumption_record().entries.is_empty());
 		System::assert_has_event(
 			Event::ItemDropped { channel: ChannelId { peer: src(), domain: 0, num: 0 } }.into(),
 		);
@@ -1302,11 +1374,9 @@ fn skip_refuses_a_stream_consumed_this_block() {
 		assert_err!(skip(&new, extension(&payloads, 3, 7)), Error::<Test>::StreamTouched);
 		roll_one_block();
 		assert_ok!(skip(&new, extension(&payloads, 3, 7)));
-		// And the inherent cannot follow a skip either: the skip is this block's interval.
-		assert_err!(
-			skip(&frontier_over(&skip_payloads(9), 9), extension(&skip_payloads(9), 7, 9)),
-			Error::<Test>::StreamTouched
-		);
+		// A skip records nothing, so a second one in the block moves on from the first.
+		let further = skip_payloads(9);
+		assert_ok!(skip(&frontier_over(&further, 9), extension(&further, 7, 9)));
 	});
 }
 
