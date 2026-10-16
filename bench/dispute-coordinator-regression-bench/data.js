@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792014179860,
+  "lastUpdate": 1792112221867,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dhiraj@parity.io",
-            "name": "Dhiraj Sah",
-            "username": "dhirajs0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ecada3402a70d906e10c6d33b0f42b6174fea119",
-          "message": "fix(multi-asset-bounties): enforce authorization in unassign_curator when parent bounty is not Active (#11612)\n\n# Description\n\nFix an authorization bypass in `pallet-multi-asset-bounties` where any\nsigned account could\nforcibly unassign an active child bounty's curator when the parent\nbounty was not in `Active` state\n(e.g., `CuratorUnassigned`). This also caused the child curator's native\nbalance hold (deposit) to\nbe permanently leaked — removed from pallet storage but never released\nor burned on-chain.\n\n**Root cause:** In `unassign_curator`, the `BountyStatus::Active`\nbranch's catch-all `Some(sender)`\narm used `if let Some(parent_curator) = parent_curator { ... }` with no\n`else` clause. When\n`parent_curator` was `None` (parent bounty not Active), the block was\nsilently skipped and execution\nfell through to the state transition — no `BadOrigin` error was\nreturned.\n\n## Integration\n\nNo integration changes required for downstream projects. This is a fix\ninternal to\n`pallet-multi-asset-bounties` with no public API changes. The extrinsic\nsignature and behavior for\nauthorized callers remain identical.\n\n## Review Notes\n\nThe fix restructures the `BountyStatus::Active` arm in\n`unassign_curator` with two changes:\n\n### 1. Authorization before storage mutation\n\nPreviously, `CuratorDeposit::take()` was called unconditionally at the\ntop of the `Active` arm\n(before verifying the caller). Now it is called inside each `match\nmaybe_sender` arm, only after the\ncaller is confirmed to be authorized. This prevents the deposit from\nbeing removed from storage on\nan unauthorized (and reverted) call path.\n\n```diff\n BountyStatus::Active { ref curator, .. } => {\n-    let maybe_curator_deposit =\n-        CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id);\n     match maybe_sender {\n         None => {\n-            if let Some(curator_deposit) = maybe_curator_deposit {\n+            if let Some(curator_deposit) =\n+                CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)\n+            {\n                 T::Consideration::burn(curator_deposit, curator);\n             }\n         },\n```\n\n### 2. Explicit rejection when `parent_curator` is `None`\n\nThe catch-all `Some(sender)` arm now uses\n`parent_curator.ok_or(BadOrigin)?` followed by an\n`ensure!`. When `parent_curator` is `None`, the call is immediately\nrejected with `BadOrigin`.\n\n```diff\n         Some(sender) => {\n-            if let Some(parent_curator) = parent_curator {\n-                if sender == parent_curator && *curator != parent_curator {\n-                    if let Some(curator_deposit) = maybe_curator_deposit {\n-                        T::Consideration::burn(curator_deposit, curator);\n-                    }\n-                } else {\n-                    return Err(BadOrigin.into());\n-                }\n+            let parent_curator = parent_curator.ok_or(BadOrigin)?;\n+            ensure!(\n+                sender == parent_curator && *curator != parent_curator,\n+                BadOrigin\n+            );\n+            if let Some(curator_deposit) =\n+                CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)\n+            {\n+                T::Consideration::burn(curator_deposit, curator);\n             }\n         },\n```\n\n### Regression test\n\nA comprehensive test\n(`unprivileged_caller_cannot_unassign_active_child_curator_when_parent_not_active`)\nis added that:\n\n1. Creates an active child bounty with a separate child curator.\n2. Has the parent curator voluntarily unassign (putting parent into\n`CuratorUnassigned`).\n3. Asserts that an unprivileged attacker is rejected with `BadOrigin`.\n4. Verifies the child bounty remains `Active`, the curator deposit stays\nin storage, and the\n   balance hold is intact.\n5. Confirms the child curator can still voluntarily unassign themselves\nand that the deposit is\n   properly released.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements]\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-03T17:48:31Z",
-          "tree_id": "5da14c2f730c63446e39e27c8ef634b6bad9a81c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ecada3402a70d906e10c6d33b0f42b6174fea119"
-        },
-        "date": 1775243375721,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009514376749999982,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026741584200000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010563637749999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009269944309999988,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2cd0e4fe5b5ef1355d89ffff40f69c2713f01b34",
+          "message": "Remove deprecated BlockLength constructors (#13348)\n\n## Summary\n\nThis is part of #11561. `BlockLength::max` and\n`BlockLength::max_with_normal_ratio` were due for removal after July\n2026, and nothing in the repository calls them. The deprecation notes\npointed at `builder().max()` and `builder().normal_ratio()`, but the\nbuilder only had `max_length`. `max_length` already replaces\n`BlockLength::max`. This change adds `BlockLengthBuilder::normal_ratio`\nfor the second constructor and deletes both old functions.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-15T21:22:28Z",
+          "tree_id": "210cf51e8bfb60644cb4545861dcdd83aca5e7ae",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2cd0e4fe5b5ef1355d89ffff40f69c2713f01b34"
+        },
+        "date": 1792112191569,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.012075116110000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.010309323539999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00258516818,
             "unit": "seconds"
           }
         ]
