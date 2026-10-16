@@ -913,6 +913,8 @@ pub struct Peer {
 	/// Set when a new `ExplicitTopicAffinity` arrives; consumed by the main loop
 	/// once any in-progress initial sync for this peer completes.
 	pending_topic_affinity: Option<AffinityFilter>,
+	/// No filter within the grace period: a full node without the v2 DHT path, sent match-all.
+	assumed_match_all: bool,
 	/// One past the newest admission covered by the peer's initial syncs.
 	sync_watermark: u64,
 }
@@ -1149,6 +1151,7 @@ impl Peer {
 			topic_affinity: None,
 			is_light: false,
 			pending_topic_affinity: None,
+			assumed_match_all: false,
 			sync_watermark: 0,
 		}
 	}
@@ -1321,7 +1324,7 @@ where
 						self.v2dht.on_pending_affinities();
 						self.v2dht.refresh_connections(&self.network);
 					}
-					self.assume_match_all_after_filter_grace();
+					self.assume_match_all_after_filter_grace().await;
 					self.process_pending_affinities();
 					self.pending_affinities_timeout =
 						Box::pin(tokio::time::sleep(PENDING_AFFINITIES_INTERVAL).fuse());
@@ -1391,22 +1394,26 @@ where
 		});
 	}
 
-	/// Advertise a changed affinity filter to every connected peer past V1.
+	/// Advertise a changed affinity filter to every connected peer past V1. A peer assumed
+	/// match-all keeps getting match-all.
 	async fn broadcast_local_filter(&mut self, filter: AffinityFilter) {
 		let encoded = StatementMessage::ExplicitTopicAffinity(filter).encode();
-		let peers: Vec<PeerId> = self
+		let match_all =
+			StatementMessage::ExplicitTopicAffinity(AffinityFilter::match_all(0)).encode();
+		let peers: Vec<(PeerId, bool)> = self
 			.peers
 			.iter()
 			.filter(|(_, peer)| peer.protocol_version != PeerProtocolVersion::V1)
-			.map(|(peer_id, _)| *peer_id)
+			.map(|(peer_id, peer)| (*peer_id, peer.assumed_match_all))
 			.collect();
 		log::debug!(
 			target: LOG_TARGET,
 			"Advertising the local affinity filter to {} peers",
 			peers.len(),
 		);
-		for peer in peers {
-			self.send_notification(&peer, encoded.clone()).await;
+		for (peer, assumed_match_all) in peers {
+			let encoded = if assumed_match_all { match_all.clone() } else { encoded.clone() };
+			self.send_notification(&peer, encoded).await;
 		}
 	}
 
@@ -1416,6 +1423,13 @@ where
 			return;
 		}
 		let encoded = StatementMessage::ExplicitTopicAffinity(self.v2dht.local_filter()).encode();
+		self.send_notification(peer, encoded).await;
+	}
+
+	/// Ask `peer` for everything.
+	async fn send_match_all_filter(&mut self, peer: &PeerId) {
+		let encoded =
+			StatementMessage::ExplicitTopicAffinity(AffinityFilter::match_all(0)).encode();
 		self.send_notification(peer, encoded).await;
 	}
 
@@ -1660,6 +1674,7 @@ where
 						topic_affinity: None,
 						is_light,
 						pending_topic_affinity: None,
+						assumed_match_all: false,
 						sync_watermark: 0,
 					},
 				);
@@ -2450,8 +2465,9 @@ where
 	}
 
 	/// Give peers silent past [`AFFINITY_FILTER_GRACE_PERIOD`] a match-all filter, the v1 meaning
-	/// of no filter, register it with the orchestrator and schedule their initial sync.
-	fn assume_match_all_after_filter_grace(&mut self) {
+	/// of no filter, register it with the orchestrator, schedule their initial sync and ask them
+	/// for everything in return.
+	async fn assume_match_all_after_filter_grace(&mut self) {
 		let now = Instant::now();
 		let expired: Vec<PeerId> = self
 			.awaiting_affinity_filter
@@ -2473,11 +2489,13 @@ where
 			// The seed is irrelevant to a filter with every bit set.
 			let filter = AffinityFilter::match_all(0);
 			peer_data.topic_affinity = Some(filter.clone());
+			peer_data.assumed_match_all = true;
 			if v2dht_enabled() {
 				// The propagation plan reads peer filters from the orchestrator.
 				self.v2dht.on_peer_filter_update(peer, filter);
 			}
 			self.schedule_initial_sync_for_peer(peer);
+			self.send_match_all_filter(&peer).await;
 		}
 	}
 
@@ -3362,6 +3380,7 @@ mod tests {
 					topic_affinity: None,
 					is_light: false,
 					pending_topic_affinity: None,
+					assumed_match_all: false,
 					sync_watermark: 0,
 				},
 			);
@@ -6520,6 +6539,7 @@ mod tests {
 				topic_affinity,
 				is_light,
 				pending_topic_affinity: None,
+				assumed_match_all: false,
 				sync_watermark: 0,
 			}
 		};
@@ -6791,6 +6811,7 @@ mod tests {
 				topic_affinity: None,
 				is_light: false,
 				pending_topic_affinity: None,
+				assumed_match_all: false,
 				sync_watermark: 0,
 			},
 		);
@@ -7357,6 +7378,7 @@ mod tests {
 				topic_affinity: None,
 				is_light: false,
 				pending_topic_affinity: None,
+				assumed_match_all: false,
 				sync_watermark: 0,
 			},
 		);
@@ -7470,6 +7492,7 @@ mod tests {
 			topic_affinity: None,
 			is_light: false,
 			pending_topic_affinity: None,
+			assumed_match_all: false,
 			sync_watermark: 0,
 		};
 
@@ -7575,6 +7598,7 @@ mod tests {
 			topic_affinity: None,
 			is_light: false,
 			pending_topic_affinity: None,
+			assumed_match_all: false,
 			sync_watermark: 0,
 		};
 		let who = PeerId::random();
@@ -7637,6 +7661,7 @@ mod tests {
 			topic_affinity: Some(filter_over(&[topic(9)])),
 			is_light: false,
 			pending_topic_affinity: None,
+			assumed_match_all: false,
 			sync_watermark: 0,
 		};
 		let who = PeerId::random();
