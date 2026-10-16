@@ -34,8 +34,8 @@
 //! ([`verify_stream_membership`]).
 //!
 //! Hashing (`blake2_256` via [`SpecHasher`]):
-//! - leaf `= H(STREAMS_LEAF_TAG ++ key[8] ++ stream_root[32])`, binding the full key;
-//! - inner `= H(STREAMS_INNER_TAG ++ split_bit[1] ++ left[32] ++ right[32])`, binding the branch
+//! - leaf `= H(TREE_LEAF_TAG ++ key[8] ++ stream_root[32])`, binding the full key;
+//! - inner `= H(TREE_INNER_TAG ++ split_bit[1] ++ left[32] ++ right[32])`, binding the branch
 //! depth.
 
 use alloc::{collections::BTreeMap, vec::Vec};
@@ -45,8 +45,7 @@ use sp_core::ConstU32;
 use sp_runtime::{traits::Hash as HashT, BoundedVec, Digest, DigestItem};
 
 use crate::{
-	stream::StreamId, SpecHasher, SPMS_ENGINE_ID, STREAMS_INNER_TAG, STREAMS_LEAF_TAG,
-	STREAM_ID_LEN,
+	stream::StreamId, SpecHasher, SPMS_ENGINE_ID, STREAM_ID_LEN, TREE_INNER_TAG, TREE_LEAF_TAG,
 };
 
 /// Bit width of a `StreamId` key (the Patricia trie's maximum depth).
@@ -100,19 +99,19 @@ fn first_diverging_bit(a: &[u8; STREAM_ID_LEN], b: &[u8; STREAM_ID_LEN]) -> usiz
 	(0..KEY_BITS).find(|&i| bit(a, i) != bit(b, i)).expect("keys are distinct; qed")
 }
 
-/// `H(STREAMS_LEAF_TAG ++ key ++ stream_root)`.
+/// `H(TREE_LEAF_TAG ++ key ++ stream_root)`.
 fn hash_leaf(key: &[u8; STREAM_ID_LEN], stream_root: &Hash) -> Hash {
 	let mut pre = [0u8; 1 + STREAM_ID_LEN + 32];
-	pre[0] = STREAMS_LEAF_TAG;
+	pre[0] = TREE_LEAF_TAG;
 	pre[1..1 + STREAM_ID_LEN].copy_from_slice(key);
 	pre[1 + STREAM_ID_LEN..].copy_from_slice(stream_root.as_bytes());
 	<SpecHasher as HashT>::hash(&pre)
 }
 
-/// `H(STREAMS_INNER_TAG ++ split_bit ++ left ++ right)`.
+/// `H(TREE_INNER_TAG ++ split_bit ++ left ++ right)`.
 fn hash_inner(split_bit: u8, left: &Hash, right: &Hash) -> Hash {
 	let mut pre = [0u8; 1 + 1 + 32 + 32];
-	pre[0] = STREAMS_INNER_TAG;
+	pre[0] = TREE_INNER_TAG;
 	pre[1] = split_bit;
 	pre[2..34].copy_from_slice(left.as_bytes());
 	pre[34..].copy_from_slice(right.as_bytes());

@@ -23,8 +23,8 @@ context takes a fresh tag.
 | `INNER_TAG` | `0x02` | message-MMR inner node |
 | `PEAK_TAG` | `0x03` | message-MMR peak bagging |
 | `ROOT_TAG` | `0x04` | stream root: leaf count over the bagged peaks; the empty root too (§3.2) |
-| `TREE_LEAF_TAG` | `0x05` | commitment-tree leaf (`STREAMS_LEAF_TAG` in code) |
-| `TREE_INNER_TAG` | `0x06` | commitment-tree inner node (`STREAMS_INNER_TAG` in code) |
+| `TREE_LEAF_TAG` | `0x05` | commitment-tree leaf |
+| `TREE_INNER_TAG` | `0x06` | commitment-tree inner node |
 
 Values, not names, are consensus.
 

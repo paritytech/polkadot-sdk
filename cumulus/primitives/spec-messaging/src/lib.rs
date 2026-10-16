@@ -94,11 +94,11 @@ pub const PEAK_TAG: u8 = 0x3;
 /// MMR has no peaks to bag; its root is the count-0 case, with a zero bag ([`mmr::empty_root`]).
 pub const ROOT_TAG: u8 = 0x4;
 
-/// Commitment-tree leaf: `H(STREAMS_LEAF_TAG ++ key[8] ++ stream_root[32])`.
-pub const STREAMS_LEAF_TAG: u8 = 0x5;
+/// Commitment-tree leaf: `H(TREE_LEAF_TAG ++ key[8] ++ stream_root[32])`.
+pub const TREE_LEAF_TAG: u8 = 0x5;
 
-/// Commitment-tree inner node: `H(STREAMS_INNER_TAG ++ split_bit ++ left[32] ++ right[32])`.
-pub const STREAMS_INNER_TAG: u8 = 0x6;
+/// Commitment-tree inner node: `H(TREE_INNER_TAG ++ split_bit ++ left[32] ++ right[32])`.
+pub const TREE_INNER_TAG: u8 = 0x6;
 
 /// Leaf preimage version. Versions are hash-disjoint, so the layout can change without old leaves
 /// colliding with new ones.
