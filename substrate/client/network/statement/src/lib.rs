@@ -1146,6 +1146,11 @@ fn has_received_from(
 }
 
 impl Peer {
+	/// The peer floods instead of routing, so it is served like a v1 peer.
+	fn without_dht(&self) -> bool {
+		self.protocol_version == PeerProtocolVersion::V1 || self.assumed_match_all
+	}
+
 	/// Create a new peer for testing/benchmarking purposes.
 	#[cfg(any(test, feature = "test-helpers"))]
 	pub fn new_for_testing(statements_per_second: NonZeroU32, burst: NonZeroU32) -> Self {
@@ -1499,10 +1504,10 @@ where
 	/// performs a fresh initial sync, delivering any statements that were dropped while the
 	/// `is_major_syncing` guard was active.
 	///
-	/// With the v2 DHT path on, only a v1 peer's drop leads here, so only a v1 peer is picked. Its
-	/// set keeps non-reserved slots open, so leaving the reserved set alone keeps the peer
-	/// connected; the substream is closed explicitly afterwards, as litep2p ignores a disconnect
-	/// of a reserved peer.
+	/// With the v2 DHT path on, only the drop from a peer without the DHT path leads here, so only
+	/// such a peer is picked. Its set keeps non-reserved slots open, so leaving the reserved set
+	/// alone keeps the peer connected; the substream is closed explicitly afterwards, as litep2p
+	/// ignores a disconnect of a reserved peer.
 	fn start_sync_recovery(&mut self) {
 		if !self.dropped_statements_during_sync {
 			return;
@@ -1516,9 +1521,7 @@ where
 		let Some(&peer_id) = self
 			.peers
 			.iter()
-			.filter(|(_, peer)| {
-				!v2dht_enabled() || peer.protocol_version == PeerProtocolVersion::V1
-			})
+			.filter(|(_, peer)| !v2dht_enabled() || peer.without_dht())
 			.map(|(peer_id, _)| peer_id)
 			.choose(&mut rand::thread_rng())
 		else {
@@ -1758,12 +1761,12 @@ where
 						target: LOG_TARGET,
 						"{peer}: Ignoring statements while major syncing or offline"
 					);
-					// With the v2 DHT path on, a v2 peer replays on the re-advertised filter; a v1
-					// peer has no such request and is reconnected once the sync ends.
-					let from_v1_peer = self.peers.get(&peer).is_some_and(|peer_data| {
-						peer_data.protocol_version == PeerProtocolVersion::V1
-					});
-					if !v2dht_enabled() || from_v1_peer {
+					// With the v2 DHT path on, a v2 peer replays on the re-advertised filter; a
+					// peer without the DHT path gets no such request and is reconnected once the
+					// sync ends.
+					let from_peer_without_dht =
+						self.peers.get(&peer).is_some_and(|peer_data| peer_data.without_dht());
+					if !v2dht_enabled() || from_peer_without_dht {
 						self.dropped_statements_during_sync = true;
 					}
 					return;
@@ -2530,13 +2533,7 @@ where
 			return;
 		}
 		let Some(metrics) = &self.metrics else { return };
-		let count = self
-			.peers
-			.values()
-			.filter(|peer| {
-				peer.assumed_match_all || peer.protocol_version == PeerProtocolVersion::V1
-			})
-			.count();
+		let count = self.peers.values().filter(|peer| peer.without_dht()).count();
 		metrics.peers_without_dht.set(count as u64);
 	}
 
