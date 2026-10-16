@@ -43,6 +43,8 @@ pub struct PeersTopologyConfig {
 #[derive(Debug, Clone)]
 struct PeerInfo {
 	supports_protocol: bool,
+	/// The peer speaks the protocol without the DHT path, so identify must not index it.
+	without_dht: bool,
 	/// The statement notification substream to the peer is open.
 	connected: bool,
 	/// Cached `peer_key`; the peer id never changes and hashing is costly.
@@ -112,8 +114,8 @@ impl PeersTopology {
 	pub fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
 		let info = self.get_or_insert_peer(peer);
 		let key = info.key;
-		info.supports_protocol = supports_statement_protocol;
-		if supports_statement_protocol {
+		info.supports_protocol = supports_statement_protocol && !info.without_dht;
+		if info.supports_protocol {
 			self.discovered_index.insert(key, peer);
 		} else {
 			self.discovered_index.remove(key, &peer);
@@ -127,9 +129,21 @@ impl PeersTopology {
 		let info = self.get_or_insert_peer(peer);
 		let key = info.key;
 		info.supports_protocol = true;
+		info.without_dht = false;
 		info.connected = true;
 		self.discovered_index.insert(key, peer);
 		self.connected.insert(key, peer);
+	}
+
+	/// Drop `peer` from the DHT index and the connected set: it speaks the protocol without the
+	/// DHT path. Identify keeps it out, the next substream open puts it back.
+	pub fn on_peer_without_dht(&mut self, peer: PeerId) {
+		let Some(info) = self.discovered.get_mut(&peer) else { return };
+		let key = info.key;
+		info.supports_protocol = false;
+		info.without_dht = true;
+		self.discovered_index.remove(key, &peer);
+		self.connected.remove(key, &peer);
 	}
 
 	/// Record that the statement notification substream closed.
@@ -256,6 +270,7 @@ impl PeersTopology {
 		let now = Instant::now();
 		let info = self.discovered.entry(peer).or_insert_with(|| PeerInfo {
 			supports_protocol: false,
+			without_dht: false,
 			connected: false,
 			key: peer_key(&peer),
 			last_seen: now,
@@ -467,6 +482,30 @@ mod tests {
 		topology.on_substream_closed(supported);
 		assert!(!topology.is_connected(&supported));
 		assert_eq!(topology.known_peers_count(), 2);
+	}
+
+	#[test]
+	fn a_peer_without_dht_stays_out_of_the_index_until_its_next_substream_open() {
+		let mut topology = topology(1);
+		let peer = peer(2);
+		topology.on_substream_opened(peer);
+
+		topology.on_peer_without_dht(peer);
+		assert!(topology.is_connected(&peer));
+		assert_eq!(topology.connected_peers().count(), 0);
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
+
+		topology.on_peer_identified(peer, true);
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
+
+		topology.on_substream_closed(peer);
+		assert!(!topology.is_connected(&peer));
+		assert!(!topology.evict(Instant::now() + PEER_STALENESS_TTL));
+		assert_eq!(topology.known_peers_count(), 0);
+
+		topology.on_substream_opened(peer);
+		assert_eq!(topology.connected_peers().collect::<Vec<_>>(), vec![peer]);
+		assert_eq!(topology.dht_eligible_peers_count(), 1);
 	}
 
 	#[test]
