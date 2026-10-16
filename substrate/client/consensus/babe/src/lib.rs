@@ -1295,8 +1295,12 @@ where
 				},
 			}
 		};
+		// The verifier moves the seal from the header into `post_digests`. The equivocation
+		// proof must contain the sealed headers, otherwise the runtime cannot verify the
+		// signatures and rejects the report.
+		let sealed_header = block.post_header();
 		if let Err(err) = self
-			.check_and_report_equivocation(slot_now, slot, &block.header, &author, &block.origin)
+			.check_and_report_equivocation(slot_now, slot, &sealed_header, &author, &block.origin)
 			.await
 		{
 			warn!(
