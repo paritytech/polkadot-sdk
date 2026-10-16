@@ -1,10 +1,10 @@
-title: 'statement-store: turn the v2 DHT path on by default'
+title: 'statement-store: add a flag that turns the v2 DHT path on'
 doc:
 - audience: [Node Operator, Node Dev]
   description: |-
-    A node with the statement store now takes the v2 DHT path by default. The new
-    `--no-statement-v2-dht` flag on the substrate node and the omni-node turns it off, so
-    statements flood to every peer as before. The `STATEMENT_STORE_V2_DHT_ENABLED` environment
+    The new `--statement-v2-dht` flag on the substrate node and the omni-node makes a node with
+    the statement store route statements through the DHT instead of flooding them to every peer.
+    Without it the node floods as before. The `STATEMENT_STORE_V2_DHT_ENABLED` environment
     variable is gone; node binaries set the gate once from the CLI with `set_v2dht_enabled`.
 crates:
 - name: sc-network-statement

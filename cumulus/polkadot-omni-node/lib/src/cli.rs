@@ -207,11 +207,11 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long)]
 	pub enable_statement_store: bool,
 
-	/// Gossip statements to every peer instead of routing them through the DHT.
+	/// Route statements through the DHT instead of gossiping them to every peer.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	#[arg(long)]
-	pub no_statement_v2_dht: bool,
+	pub statement_v2_dht: bool,
 
 	/// Number of concurrent workers for statement validation from the network.
 	///
