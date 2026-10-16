@@ -16,9 +16,10 @@
 
 use crate::{
 	AccountId32Aliases, AllowUnpaidExecutionFrom, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, IsConcrete, MintLocation, TeleportForwarderForAccountId32,
+	FungibleAdapter, IsConcrete, MintLocation, TeleportAndBurnForwarderForAccountId32,
+	TeleportForwarderForAccountId32,
 };
-use core::cell::Cell;
+use core::cell::{Cell, RefCell};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{fungible::Inspect, ConstU32, Everything, Get, Nothing},
@@ -81,6 +82,7 @@ parameter_types! {
 
 thread_local! {
 	static ROUTER_SHOULD_FAIL: Cell<bool> = Cell::new(false);
+	static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = RefCell::new(Vec::new());
 }
 
 /// We use an XCM router whose behaviour is controlled by the `ROUTER_SHOULD_FAIL` thread-local.
@@ -88,19 +90,30 @@ thread_local! {
 /// failure that occurs after `WithdrawAsset` has already debited the source account.
 struct ControllableRouter;
 impl SendXcm for ControllableRouter {
-	type Ticket = ();
+	type Ticket = (Location, Xcm<()>);
 
-	fn validate(_dest: &mut Option<Location>, _msg: &mut Option<Xcm<()>>) -> SendResult<()> {
+	fn validate(
+		dest: &mut Option<Location>,
+		msg: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
 		if ROUTER_SHOULD_FAIL.with(|f| f.get()) {
 			Err(SendError::NotApplicable)
 		} else {
-			Ok(((), Assets::new()))
+			let dest = dest.take().ok_or(SendError::MissingArgument)?;
+			let msg = msg.take().ok_or(SendError::MissingArgument)?;
+			let ticket = (dest, msg);
+			Ok((ticket, Assets::new()))
 		}
 	}
 
-	fn deliver(_: ()) -> Result<XcmHash, SendError> {
+	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		SENT_XCM.with(|q| q.borrow_mut().push(ticket));
 		Ok([0u8; 32])
 	}
+}
+
+fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
+	SENT_XCM.with(|q| q.borrow().clone())
 }
 
 /// Perform no teleport tracking by disabling the checking-account mechanism.
@@ -161,7 +174,38 @@ fn new_test_ext(source: AccountId, balance: u128) -> sp_io::TestExternalities {
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
+	SENT_XCM.with(|q| q.borrow_mut().clear());
 	t.into()
+}
+
+type DepositForwarder = TeleportForwarderForAccountId32<
+	TestXcmConfig,
+	AssetHubLocation,
+	HereLocation,
+	AccumulationInterior,
+>;
+type BurnForwarder =
+	TeleportAndBurnForwarderForAccountId32<TestXcmConfig, AssetHubLocation, HereLocation>;
+
+fn remote_native_asset(amount: u128) -> Asset {
+	(Location::new(1, [Parachain(42)]), amount).into()
+}
+
+fn expected_remote_prefix(source: &AccountId, amount: u128) -> Vec<Instruction<()>> {
+	vec![
+		ReceiveTeleportedAsset(remote_native_asset(amount).into()),
+		AliasOrigin(Location::new(
+			1,
+			[Parachain(42), Junction::AccountId32 { network: None, id: source.clone().into() }],
+		)),
+		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+	]
+}
+
+fn expected_remote_xcm(source: &AccountId, amount: u128, remote: Instruction<()>) -> Xcm<()> {
+	let mut expected = expected_remote_prefix(source, amount);
+	expected.extend([remote, SetTopic([0u8; 32])]);
+	Xcm(expected)
 }
 
 /// Verify that when the XCM router fails (simulating a mid-program failure after `WithdrawAsset`
@@ -176,12 +220,7 @@ fn forward_rolls_back_balance_and_issuance_on_xcm_failure() {
 		let initial_issuance = Balances::total_issuance();
 
 		ROUTER_SHOULD_FAIL.with(|f| f.set(true));
-		let result = TeleportForwarderForAccountId32::<
-			TestXcmConfig,
-			AssetHubLocation,
-			HereLocation,
-			AccumulationInterior,
-		>::forward(source.clone(), 500u128);
+		let result = DepositForwarder::forward(source.clone(), 500u128);
 		ROUTER_SHOULD_FAIL.with(|f| f.set(false));
 
 		assert!(result.is_err(), "expected forward to fail when router fails");
@@ -195,5 +234,85 @@ fn forward_rolls_back_balance_and_issuance_on_xcm_failure() {
 			initial_issuance,
 			"total issuance must be unchanged after XCM failure"
 		);
+	});
+}
+
+#[test]
+fn deposit_forwarder_teleports_and_deposits_to_staging() {
+	let source: AccountId = AccountId32::from([1u8; 32]);
+
+	new_test_ext(source.clone(), 1_000).execute_with(|| {
+		let initial_issuance = Balances::total_issuance();
+
+		assert_eq!(DepositForwarder::forward(source.clone(), 500u128), Ok(()));
+
+		assert_eq!(Balances::balance(&source), 500);
+		assert_eq!(Balances::total_issuance(), initial_issuance - 500);
+
+		let expected = expected_remote_xcm(
+			&source,
+			500,
+			DepositAsset {
+				assets: Wild(AllCounted(1)),
+				beneficiary: AccumulationInterior::get().into_location(),
+			},
+		);
+		assert_eq!(sent_xcm(), vec![(AssetHubLocation::get(), expected)]);
+	});
+}
+
+#[test]
+fn burn_forwarder_teleports_and_burns_reanchored_asset() {
+	let source: AccountId = AccountId32::from([1u8; 32]);
+
+	new_test_ext(source.clone(), 1_000).execute_with(|| {
+		let initial_issuance = Balances::total_issuance();
+
+		assert_eq!(BurnForwarder::forward(source.clone(), 500u128), Ok(()));
+
+		assert_eq!(Balances::balance(&source), 500);
+		assert_eq!(Balances::total_issuance(), initial_issuance - 500);
+
+		let expected =
+			expected_remote_xcm(&source, 500, BurnAsset(remote_native_asset(500).into()));
+		assert_eq!(sent_xcm(), vec![(AssetHubLocation::get(), expected)]);
+	});
+}
+
+#[test]
+fn burn_forwarder_rolls_back_balance_and_issuance_on_xcm_failure() {
+	let source: AccountId = AccountId32::from([1u8; 32]);
+	let initial_balance = 1_000u128;
+
+	new_test_ext(source.clone(), initial_balance).execute_with(|| {
+		let initial_issuance = Balances::total_issuance();
+
+		ROUTER_SHOULD_FAIL.with(|f| f.set(true));
+		let result = BurnForwarder::forward(source.clone(), 500u128);
+		ROUTER_SHOULD_FAIL.with(|f| f.set(false));
+
+		assert!(result.is_err(), "expected forward to fail when router fails");
+		assert_eq!(Balances::balance(&source), initial_balance);
+		assert_eq!(Balances::total_issuance(), initial_issuance);
+		assert!(sent_xcm().is_empty());
+	});
+}
+
+#[test]
+fn burn_forwarder_fails_without_side_effects_when_reanchor_fails() {
+	let source: AccountId = AccountId32::from([1u8; 32]);
+	let initial_balance = 1_000u128;
+
+	new_test_ext(source.clone(), initial_balance).execute_with(|| {
+		let initial_issuance = Balances::total_issuance();
+
+		// More than `MAX_JUNCTIONS` parents cannot be reanchored to.
+		AssetHubLocation::set(Location::new(9, Here));
+		let result = BurnForwarder::forward(source.clone(), 500u128);
+
+		assert!(result.is_err(), "expected forward to fail when reanchoring fails");
+		assert_eq!(Balances::balance(&source), initial_balance);
+		assert_eq!(Balances::total_issuance(), initial_issuance);
+		assert!(sent_xcm().is_empty());
 	});
 }
