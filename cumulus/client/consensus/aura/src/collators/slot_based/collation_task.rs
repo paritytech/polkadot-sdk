@@ -40,106 +40,124 @@ use sp_runtime::{
 use crate::export_pov_to_path;
 
 use super::{
-	block_builder_task::MAX_HEDGED_SIBLINGS,
 	message::{CollationParts, CollatorMessage},
 	resubmittable_segment::ResubmittableSegment,
+	scheduling::{SiblingParams, SiblingResolver, MAX_SIBLING_SCHEDULING_PARENTS},
 };
 
 const LOG_TARGET: &str = "aura::cumulus::collation_task";
 
-/// Extra PoV builds one core may spend on hedging: a sibling rebuilds the whole segment, so a
-/// long backlog buys fewer siblings, and past this length none at all.
-const MAX_HEDGED_REBUILDS_PER_CORE: usize = 6;
+/// Extra collation builds one core may spend on sibling scheduling parents: a sibling rebuilds
+/// the whole segment, so a long backlog buys fewer siblings, and past this length none at all.
+const MAX_SIBLING_REBUILDS_PER_CORE: usize = 6;
 
-/// Hedged siblings a core submitting `entries` PoVs can afford (0 when there is nothing).
-fn hedge_budget(entries: usize) -> usize {
-	MAX_HEDGED_REBUILDS_PER_CORE
+/// Sibling scheduling parents a core submitting `entries` collations can afford.
+fn sibling_budget(entries: usize) -> usize {
+	MAX_SIBLING_REBUILDS_PER_CORE
 		.checked_div(entries)
 		.unwrap_or_default()
-		.min(MAX_HEDGED_SIBLINGS)
+		.min(MAX_SIBLING_SCHEDULING_PARENTS)
 }
 
-/// A segment submission, kept as headers only and re-hydrated when rebuilt. Both the last
-/// submitted segment and a queued hedge (the same segment under a sibling's proof) use it.
+/// A submitted segment, kept as headers only and re-hydrated when rebuilt under a sibling.
 struct SegmentSubmission<Block: BlockT> {
 	core_index: CoreIndex,
 	headers: Vec<Block::Header>,
 	proof: SchedulingProof,
 	resubmitted: usize,
 	fresh: usize,
-	/// End of the production relay slot; a hedge is dropped unbuilt after it.
-	valid_until: Instant,
 }
 
-/// Hedged rebuilds of `last` under each sibling chain, within its budget; empty unless `last` is
-/// on `core_index`.
-fn hedges_for<Block: BlockT>(
-	last: Option<SegmentSubmission<Block>>,
-	core_index: CoreIndex,
-	header_chains: Vec<Vec<RelayHeader>>,
-) -> Vec<SegmentSubmission<Block>> {
-	let Some(last) = last.filter(|last| last.core_index == core_index) else {
-		tracing::debug!(
-			target: LOG_TARGET,
-			?core_index,
-			"Dropping hedges without a hedgeable segment.",
-		);
-		return Vec::new();
-	};
-
-	header_chains
-		.into_iter()
-		.take(hedge_budget(last.resubmitted + last.fresh))
-		.map(|header_chain| SegmentSubmission {
-			core_index,
-			headers: last.headers.clone(),
-			proof: SchedulingProof { header_chain, ..last.proof.clone() },
-			resubmitted: last.resubmitted,
-			fresh: last.fresh,
-			valid_until: last.valid_until,
-		})
-		.collect()
-}
-
-/// Remember a handled message's segment; a segment for `core`, sent or not, supersedes that core's
-/// queued hedges.
-fn record_submission<Block: BlockT>(
-	pending: &mut VecDeque<SegmentSubmission<Block>>,
-	last_segment: &mut Option<SegmentSubmission<Block>>,
-	core: Option<CoreIndex>,
-	submitted: Option<SegmentSubmission<Block>>,
-) {
-	if let Some(core) = core {
-		pending.retain(|hedge| hedge.core_index != core);
+impl<Block: BlockT> SegmentSubmission<Block> {
+	/// `self` under each sibling's header chain; the signed scheduling info is kept, as it commits
+	/// to the internal scheduling parent only.
+	fn under(&self, header_chains: Vec<Vec<RelayHeader>>) -> Vec<Self> {
+		header_chains
+			.into_iter()
+			.map(|header_chain| Self {
+				core_index: self.core_index,
+				headers: self.headers.clone(),
+				proof: SchedulingProof { header_chain, ..self.proof.clone() },
+				resubmitted: self.resubmitted,
+				fresh: self.fresh,
+			})
+			.collect()
 	}
-	*last_segment = submitted;
 }
 
-/// Next unit of work: a ready message always wins over a queued hedged rebuild.
+/// Work deferred behind main submissions, dropped once its `valid_until` passes.
+enum Deferred<Block: BlockT> {
+	/// A submitted segment whose siblings are not looked up yet.
+	Resolve(SegmentSubmission<Block>, SiblingParams),
+	/// A submitted segment rebuilt under one sibling's header chain.
+	Sibling(SegmentSubmission<Block>, Instant),
+}
+
+impl<Block: BlockT> Deferred<Block> {
+	fn segment(&self) -> &SegmentSubmission<Block> {
+		match self {
+			Self::Resolve(segment, _) | Self::Sibling(segment, _) => segment,
+		}
+	}
+
+	fn valid_until(&self) -> Instant {
+		match self {
+			Self::Resolve(_, params) => params.valid_until,
+			Self::Sibling(_, valid_until) => *valid_until,
+		}
+	}
+}
+
+/// Queue sibling resolution for a submitted segment; a segment for `core_index`, sent or not,
+/// supersedes that core's earlier sibling work.
+fn defer_siblings<Block: BlockT>(
+	deferred: &mut VecDeque<Deferred<Block>>,
+	core_index: CoreIndex,
+	submitted: Option<(SegmentSubmission<Block>, SiblingParams)>,
+) {
+	deferred.retain(|work| work.segment().core_index != core_index);
+	deferred.extend(submitted.map(|(segment, siblings)| Deferred::Resolve(segment, siblings)));
+}
+
+/// Next unit of work: a ready message always wins over deferred work.
 enum Work<Block: BlockT> {
 	Message(CollatorMessage<Block>),
-	Hedge(SegmentSubmission<Block>),
+	Deferred(Deferred<Block>),
 }
 
-/// A ready message, else the oldest unexpired queued hedge; a hedge is never raced, so never
-/// cancelled. After `receiver` closes, every unexpired hedge is served before `None`.
-async fn next_work<Block: BlockT>(
+/// A ready message, else the oldest unexpired deferred work, which is never raced, so never
+/// cancelled. Relay imports are recorded while idle. After `receiver` closes, unexpired deferred
+/// work is served before `None`.
+async fn next_work<Block: BlockT, RelayClient: RelayChainInterface + 'static>(
 	receiver: &mut (impl FusedStream<Item = CollatorMessage<Block>> + Unpin),
-	pending: &mut VecDeque<SegmentSubmission<Block>>,
+	deferred: &mut VecDeque<Deferred<Block>>,
+	siblings: &mut SiblingResolver<RelayClient>,
 ) -> Option<Work<Block>> {
-	let queued = pending.len();
+	siblings.drain();
+	let queued = deferred.len();
 	let now = Instant::now();
-	pending.retain(|hedge| hedge.valid_until > now);
-	if pending.len() < queued {
+	deferred.retain(|work| work.valid_until() > now);
+	if deferred.len() < queued {
 		tracing::debug!(
 			target: LOG_TARGET,
-			expired = queued - pending.len(),
-			"Dropping hedges past their relay slot.",
+			expired = queued - deferred.len(),
+			"Dropping sibling work past its relay slot.",
 		);
 	}
 
-	if pending.is_empty() {
-		return receiver.next().await.map(Work::Message);
+	if deferred.is_empty() {
+		loop {
+			// `select!` skips a terminated stream, which would leave only the import branch.
+			if receiver.is_terminated() {
+				return None;
+			}
+			let absorb = siblings.absorb_next().fuse();
+			futures::pin_mut!(absorb);
+			futures::select_biased! {
+				message = receiver.next() => return message.map(Work::Message),
+				() = absorb => {},
+			}
+		}
 	}
 
 	futures::select_biased! {
@@ -150,7 +168,7 @@ async fn next_work<Block: BlockT>(
 		complete => {},
 	}
 
-	pending.pop_front().map(Work::Hedge)
+	deferred.pop_front().map(Work::Deferred)
 }
 
 /// Parameters for the collation task.
@@ -227,24 +245,24 @@ pub async fn run_collation_task<Block, RClient, CS, Backend, CHP>(
 		resubmission_store,
 	};
 
-	// Hedged rebuilds deferred behind their segment's main submission; served only when no new
-	// message is waiting, so main submissions for other cores always go first.
-	let mut pending: VecDeque<SegmentSubmission<Block>> = VecDeque::new();
-	// `Hedges` always directly follows its `Segment`, so only the last message's segment is kept.
-	let mut last_segment: Option<SegmentSubmission<Block>> = None;
+	// Sibling work deferred behind main submissions; an item starts only when no message is
+	// waiting, so a message arriving meanwhile waits for that one item, at worst until the slot's
+	// sibling deadline.
+	let mut deferred: VecDeque<Deferred<Block>> = VecDeque::new();
+	let mut siblings = SiblingResolver::new(relay_client, para_id);
+	siblings.ensure_subscribed().await;
 
-	while let Some(work) = next_work(&mut collator_receiver, &mut pending).await {
+	while let Some(work) = next_work(&mut collator_receiver, &mut deferred, &mut siblings).await {
 		match work {
 			Work::Message(CollatorMessage::Collation { core_index, parts }) => {
 				submitter.submit_collation(core_index, parts).await;
-				record_submission(&mut pending, &mut last_segment, None, None);
 			},
 			Work::Message(CollatorMessage::Segment {
 				scheduling_proof,
 				core_index,
 				resubmittable_headers,
 				bundle,
-				valid_until,
+				siblings: sibling_params,
 			}) => {
 				let submitted = submitter
 					.submit_segment(
@@ -252,15 +270,22 @@ pub async fn run_collation_task<Block, RClient, CS, Backend, CHP>(
 						core_index,
 						resubmittable_headers,
 						bundle,
-						valid_until,
+						sibling_params,
 					)
 					.await;
-				record_submission(&mut pending, &mut last_segment, Some(core_index), submitted);
+				defer_siblings(&mut deferred, core_index, submitted);
 			},
-			Work::Message(CollatorMessage::Hedges { core_index, header_chains }) => {
-				pending.extend(hedges_for(last_segment.take(), core_index, header_chains));
+			Work::Deferred(Deferred::Resolve(segment, params)) => {
+				let budget = sibling_budget(segment.resubmitted + segment.fresh);
+				let chains = siblings.resolve(&segment.proof, &params, budget).await;
+				// Ahead of other cores' work, keeping the core's siblings together.
+				for sibling in segment.under(chains).into_iter().rev() {
+					deferred.push_front(Deferred::Sibling(sibling, params.valid_until));
+				}
 			},
-			Work::Hedge(hedge) => submitter.submit_hedge(hedge).await,
+			Work::Deferred(Deferred::Sibling(segment, valid_until)) => {
+				submitter.submit_to_sibling(segment, valid_until).await
+			},
 		}
 	}
 }
@@ -293,7 +318,12 @@ where
 		};
 		let scheduling_parent = segment_collation.relay_parent;
 
-		tracing::debug!(target: LOG_TARGET, ?core_index, ?scheduling_parent, "Submitting collation for core.");
+		tracing::debug!(
+			target: LOG_TARGET,
+			?core_index,
+			?scheduling_parent,
+			"Submitting collation for core.",
+		);
 
 		self.overseer_handle
 			.send_msg(
@@ -308,15 +338,15 @@ where
 			.await;
 	}
 
-	/// Submit a V3 segment; `Some` only if it sent something a following `Hedges` could rebuild.
+	/// Submit a V3 segment; `Some` only if it sent something `siblings` may carry too.
 	async fn submit_segment(
 		&mut self,
 		scheduling_proof: SchedulingProof,
 		core_index: CoreIndex,
 		resubmittable_headers: Vec<Block::Header>,
 		bundle: Option<CollationParts<Block>>,
-		valid_until: Instant,
-	) -> Option<SegmentSubmission<Block>> {
+		siblings: Option<SiblingParams>,
+	) -> Option<(SegmentSubmission<Block>, SiblingParams)> {
 		// Hydrate the resubmitted headers here (proof/body reads), off the block-production hot
 		// path, then prepend them (oldest first) to the freshly-built bundle.
 		let mut all_parts = self.hydrate(resubmittable_headers);
@@ -325,11 +355,9 @@ where
 		let fresh = usize::from(bundle.is_some());
 		all_parts.extend(bundle);
 
-		// Hedges keep only the headers; the parts move into the main submission. Skipped when no
-		// hedge can follow: offset 0 (empty chain, nothing to swap) or no budget for the backlog.
-		let hedgeable =
-			!scheduling_proof.header_chain.is_empty() && hedge_budget(resubmitted + fresh) > 0;
-		let headers: Option<Vec<_>> = hedgeable.then(|| {
+		// Sibling rebuilds keep only the headers; the parts move into the main submission.
+		let siblings = siblings.filter(|_| sibling_budget(resubmitted + fresh) > 0);
+		let headers: Option<Vec<_>> = siblings.as_ref().map(|_| {
 			all_parts
 				.iter()
 				.flat_map(|parts| parts.blocks.iter().map(|b| b.header().clone()))
@@ -346,23 +374,32 @@ where
 				fresh,
 			)
 			.await;
+		let (headers, siblings) = headers.zip(siblings).filter(|_| sent)?;
 
-		Some(SegmentSubmission {
-			core_index,
-			headers: headers.filter(|_| sent)?,
-			proof: scheduling_proof,
-			resubmitted,
-			fresh,
-			valid_until,
-		})
+		let segment =
+			SegmentSubmission { core_index, headers, proof: scheduling_proof, resubmitted, fresh };
+		Some((segment, siblings))
 	}
 
-	/// Rebuild a hedged segment from its headers and submit it under the sibling's proof.
-	async fn submit_hedge(&mut self, hedge: SegmentSubmission<Block>) {
-		let SegmentSubmission { core_index, headers, proof, resubmitted, fresh, .. } = hedge;
-		// Store rows are written at build time; a block without one is skipped here, though the
-		// main submission carried it.
+	/// Rebuild a submitted segment from its headers under a sibling's header chain. Skipped if any
+	/// part fails to hydrate, rather than advertising less than the main submission did.
+	async fn submit_to_sibling(&mut self, segment: SegmentSubmission<Block>, valid_until: Instant) {
+		let SegmentSubmission { core_index, headers, proof, resubmitted, fresh } = segment;
 		let parts = self.hydrate(headers);
+		if Instant::now() >= valid_until {
+			tracing::debug!(target: LOG_TARGET, ?core_index, "Sibling submission too late.");
+			return;
+		}
+		if parts.len() != resubmitted + fresh {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?core_index,
+				hydrated = parts.len(),
+				expected = resubmitted + fresh,
+				"Skipping sibling submission with missing parts.",
+			);
+			return;
+		}
 		self.send_segment(parts, proof, core_index, true, resubmitted, fresh).await;
 	}
 
@@ -382,7 +419,7 @@ where
 		all_parts: Vec<CollationParts<Block>>,
 		scheduling_proof: SchedulingProof,
 		core_index: CoreIndex,
-		hedged: bool,
+		sibling: bool,
 		resubmitted: usize,
 		fresh: usize,
 	) -> bool {
@@ -404,7 +441,7 @@ where
 				target: LOG_TARGET,
 				?core_index,
 				?scheduling_parent,
-				hedged,
+				sibling,
 				resubmitted,
 				fresh,
 				"No collations built for segment; nothing submitted for core.",
@@ -417,7 +454,7 @@ where
 				target: LOG_TARGET,
 				?core_index,
 				?scheduling_parent,
-				hedged,
+				sibling,
 				segment_len = collations.len(),
 				max = MAX_SEGMENT_LEN,
 				"Segment exceeds MAX_SEGMENT_LEN; truncating.",
@@ -428,7 +465,7 @@ where
 			target: LOG_TARGET,
 			?core_index,
 			?scheduling_parent,
-			hedged,
+			sibling,
 			segment_len = collations.len(),
 			resubmitted,
 			fresh,
@@ -532,6 +569,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::collators::slot_based::tests::TestRelayClient;
 	use cumulus_primitives_core::{SchedulingInfoPayload, SignedSchedulingInfo};
 	use cumulus_test_client::runtime::Block;
 	use polkadot_primitives::CoreSelector;
@@ -582,14 +620,16 @@ mod tests {
 			proof: scheduling_proof(7),
 			resubmitted,
 			fresh,
-			valid_until: Instant::now() + Duration::from_secs(60),
 		}
 	}
 
-	fn queued(proof: u32, expired: bool) -> SegmentSubmission<Block> {
+	fn queued(proof: u32, expired: bool) -> Deferred<Block> {
 		let segment = segment(CoreIndex(0), 0, 1);
-		let valid_until = if expired { Instant::now() } else { segment.valid_until };
-		SegmentSubmission { proof: scheduling_proof(proof), valid_until, ..segment }
+		let valid_until = Instant::now() + Duration::from_secs(if expired { 0 } else { 60 });
+		Deferred::Sibling(
+			SegmentSubmission { proof: scheduling_proof(proof), ..segment },
+			valid_until,
+		)
 	}
 
 	fn segment_message(core_index: CoreIndex) -> CollatorMessage<Block> {
@@ -598,96 +638,134 @@ mod tests {
 			core_index,
 			resubmittable_headers: vec![],
 			bundle: None,
-			valid_until: Instant::now(),
+			siblings: None,
 		}
 	}
 
-	/// The next work as `("segment", core)` or `("hedge", proof)`; never blocks on a queued hedge.
+	/// The next work as `("segment", core)` or `("sibling", proof)`; never blocks on deferred work.
 	async fn serve(
 		rx: &mut TracingUnboundedReceiver<CollatorMessage<Block>>,
-		pending: &mut VecDeque<SegmentSubmission<Block>>,
+		deferred: &mut VecDeque<Deferred<Block>>,
 	) -> Option<(&'static str, u32)> {
-		let work = tokio::time::timeout(Duration::from_secs(5), next_work(rx, pending))
-			.await
-			.expect("next_work must not block");
+		// Never subscribed, so it only ever waits.
+		let mut siblings = SiblingResolver::new(TestRelayClient::new(Default::default()), 1.into());
+		let work =
+			tokio::time::timeout(Duration::from_secs(5), next_work(rx, deferred, &mut siblings))
+				.await
+				.expect("next_work never blocks here; qed");
 		match work? {
 			Work::Message(CollatorMessage::Segment { core_index, .. }) => {
 				Some(("segment", core_index.0))
 			},
-			Work::Hedge(hedge) => {
-				Some(("hedge", hedge.proof.internal_scheduling_parent_header.number))
+			Work::Deferred(work) => {
+				Some(("sibling", work.segment().proof.internal_scheduling_parent_header.number))
 			},
 			Work::Message(_) => panic!("only segments are sent"),
 		}
 	}
 
-	/// A ready message always wins; an idle open channel lets the oldest live hedge through, an
-	/// expired one is never served, and after close the remaining hedges drain before `None`.
+	/// A ready message always wins; an idle open channel lets the oldest live work through, expired
+	/// work is never served, and after close the remaining work drains before `None`.
 	#[tokio::test]
-	async fn next_work_serves_messages_then_live_hedges() {
-		let mut pending = VecDeque::from([queued(1, true), queued(2, false), queued(3, false)]);
+	async fn next_work_serves_messages_then_live_sibling_work() {
+		let mut deferred = VecDeque::from([queued(1, true), queued(2, false), queued(3, false)]);
 		let (tx, mut rx) = sc_utils::mpsc::tracing_unbounded("test", 16);
 
 		tx.unbounded_send(segment_message(CoreIndex(1)))
 			.expect("receiver is alive; qed");
-		assert_eq!(serve(&mut rx, &mut pending).await, Some(("segment", 1)));
-		assert_eq!(serve(&mut rx, &mut pending).await, Some(("hedge", 2)));
+		assert_eq!(serve(&mut rx, &mut deferred).await, Some(("segment", 1)));
+		assert_eq!(serve(&mut rx, &mut deferred).await, Some(("sibling", 2)));
 		tx.unbounded_send(segment_message(CoreIndex(2)))
 			.expect("receiver is alive; qed");
-		assert_eq!(serve(&mut rx, &mut pending).await, Some(("segment", 2)));
+		assert_eq!(serve(&mut rx, &mut deferred).await, Some(("segment", 2)));
 		drop(tx);
-		assert_eq!(serve(&mut rx, &mut pending).await, Some(("hedge", 3)));
-		assert_eq!(serve(&mut rx, &mut pending).await, None);
+		assert_eq!(serve(&mut rx, &mut deferred).await, Some(("sibling", 3)));
+		assert_eq!(serve(&mut rx, &mut deferred).await, None);
 	}
 
-	/// Hedges rebuild their own core's last segment under each chain, within the backlog budget,
-	/// and the next segment for that core, sent or not, supersedes them.
+	/// A segment under each sibling chain keeps everything but the chain, and the budget never
+	/// exceeds the rebuild cap.
 	#[test]
-	fn hedges_follow_their_segment() {
+	fn segment_under_sibling_chains_within_budget() {
 		let chains = vec![vec![scheduling_proof(8).internal_scheduling_parent_header], vec![]];
-		let last = segment(CoreIndex(0), 1, 1);
-		let valid_until = last.valid_until;
-		let hedges = hedges_for(Some(last), CoreIndex(0), chains.clone());
-		assert_eq!(hedges.len(), 2);
-		for (hedge, chain) in hedges.iter().zip(&chains) {
+		let segment = segment(CoreIndex(0), 1, 1);
+		let siblings = segment.under(chains.clone());
+		assert_eq!(siblings.len(), 2);
+		for (sibling, chain) in siblings.iter().zip(&chains) {
 			let proof = SchedulingProof { header_chain: chain.clone(), ..scheduling_proof(7) };
-			assert_eq!(hedge.proof, proof);
-			assert_eq!(hedge.headers, vec![header(100), header(101)]);
-			assert_eq!((hedge.core_index, hedge.resubmitted, hedge.fresh), (CoreIndex(0), 1, 1));
-			assert_eq!(hedge.valid_until, valid_until);
+			assert_eq!(sibling.proof, proof);
+			assert_eq!(sibling.headers, segment.headers);
+			assert_eq!(
+				(sibling.core_index, sibling.resubmitted, sibling.fresh),
+				(CoreIndex(0), 1, 1)
+			);
 		}
-		assert!(hedges_for(Some(segment(CoreIndex(0), 1, 1)), CoreIndex(1), chains).is_empty());
 
-		for (entries, kept) in [
+		for (entries, budget) in [
 			(0, 0),
-			(1, MAX_HEDGED_SIBLINGS),
+			(1, MAX_SIBLING_SCHEDULING_PARENTS),
 			(3, 2),
 			(4, 1),
-			(MAX_HEDGED_REBUILDS_PER_CORE + 1, 0),
+			(MAX_SIBLING_REBUILDS_PER_CORE + 1, 0),
 		] {
-			let last = Some(segment(CoreIndex(0), entries, 0));
-			assert_eq!(hedges_for(last, CoreIndex(0), vec![vec![]; 3]).len(), kept);
+			assert_eq!(sibling_budget(entries), budget);
 		}
-		for entries in 0..=(MAX_HEDGED_REBUILDS_PER_CORE + 2) {
-			assert!(entries * hedge_budget(entries) <= MAX_HEDGED_REBUILDS_PER_CORE);
+		for entries in 0..=(MAX_SIBLING_REBUILDS_PER_CORE + 2) {
+			assert!(entries * sibling_budget(entries) <= MAX_SIBLING_REBUILDS_PER_CORE);
 		}
+	}
 
-		let (mut pending, mut last) = (VecDeque::new(), None);
-		let record = |pending: &mut _, last: &mut _, core: CoreIndex, sent: bool| {
-			record_submission(pending, last, Some(core), sent.then(|| segment(core, 0, 1)))
+	/// A core's next segment, sent or not, drops its earlier sibling work; other cores keep theirs.
+	#[test]
+	fn next_segment_supersedes_sibling_work() {
+		let params = SiblingParams {
+			production_slot: Default::default(),
+			core_indices: vec![],
+			claim_queue_offset: 0,
+			max_relay_parent_session_age: 0,
+			valid_until: Instant::now(),
 		};
-		record(&mut pending, &mut last, CoreIndex(0), true);
-		pending.extend(hedges_for(last.take(), CoreIndex(0), vec![vec![]; 2]));
-		// Another core's segment leaves core 0's hedges queued; core 0's next one, even unsent,
-		// drops them.
-		record(&mut pending, &mut last, CoreIndex(1), true);
-		assert_eq!(pending.len(), 2);
-		record(&mut pending, &mut last, CoreIndex(0), false);
-		assert!(pending.is_empty());
+		let submitted = |core| Some((segment(core, 0, 1), params.clone()));
+		let mut deferred = VecDeque::new();
+		defer_siblings(&mut deferred, CoreIndex(0), submitted(CoreIndex(0)));
+		deferred.push_back(Deferred::Sibling(segment(CoreIndex(0), 0, 1), Instant::now()));
+		defer_siblings(&mut deferred, CoreIndex(1), submitted(CoreIndex(1)));
+		assert_eq!(deferred.len(), 3);
 
-		// A V2 collation in between leaves nothing to hedge.
-		record_submission(&mut pending, &mut last, None, None);
-		pending.extend(hedges_for(last.take(), CoreIndex(0), vec![vec![]]));
-		assert!(pending.is_empty());
+		defer_siblings(&mut deferred, CoreIndex(0), None);
+		let cores: Vec<_> = deferred.iter().map(|work| work.segment().core_index).collect();
+		assert_eq!(cores, vec![CoreIndex(1)]);
+	}
+
+	/// Relay imports arriving while `next_work` waits are recorded for later resolution.
+	#[tokio::test]
+	async fn next_work_records_imports_while_idle() {
+		let (import_tx, import_rx) = futures::channel::mpsc::unbounded();
+		let mut siblings = SiblingResolver::with_imports(
+			TestRelayClient::new(Default::default()),
+			1.into(),
+			Box::pin(import_rx),
+		);
+		let (tx, mut rx) = sc_utils::mpsc::tracing_unbounded("test", 16);
+		let mut deferred = VecDeque::new();
+
+		let work = {
+			let work = next_work(&mut rx, &mut deferred, &mut siblings);
+			futures::pin_mut!(work);
+			assert!(futures::poll!(work.as_mut()).is_pending());
+			let import = crate::collators::slot_based::tests::relay_header_with_slot(
+				1,
+				Default::default(),
+				1,
+			);
+			import_tx.unbounded_send(import).expect("receiver is alive; qed");
+			// Absorbs the import and keeps waiting for a message.
+			assert!(futures::poll!(work.as_mut()).is_pending());
+			tx.unbounded_send(segment_message(CoreIndex(0)))
+				.expect("receiver is alive; qed");
+			work.await
+		};
+		assert!(matches!(work, Some(Work::Message(CollatorMessage::Segment { .. }))));
+		assert_eq!(siblings.recorded(), 1);
 	}
 }

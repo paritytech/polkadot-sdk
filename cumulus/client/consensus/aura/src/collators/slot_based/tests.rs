@@ -16,24 +16,18 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	block_builder_task::{
-		determine_cores, offset_relay_parent_find_descendants, resolve_hedge_chains, HedgeContext,
-		MAX_HEDGED_SIBLINGS,
-	},
+	block_builder_task::{determine_cores, offset_relay_parent_find_descendants},
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
-	scheduling::SchedulingInfo,
 };
 use async_trait::async_trait;
 use codec::Encode;
-use cumulus_primitives_aura::Slot;
 use cumulus_primitives_core::CoreSelector;
 use cumulus_relay_chain_interface::*;
 use futures::Stream;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
-	node_features::FeatureIndex, vstaging::RelayParentInfo, CandidateEvent,
-	CommittedCandidateReceiptV2, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
-	NodeFeatures,
+	vstaging::RelayParentInfo, CandidateEvent, CommittedCandidateReceiptV2, CoreIndex,
+	Hash as RelayHash, Header as RelayHeader, Id as ParaId, NodeFeatures,
 };
 use sc_consensus_babe::{
 	AuthorityId, ConsensusLog as BabeConsensusLog, NextEpochDescriptor, BABE_ENGINE_ID,
@@ -45,7 +39,6 @@ use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
 	pin::Pin,
 	sync::{Arc, Mutex},
-	time::Duration,
 };
 
 fn header_numbers(headers: &Vec<RelayHeader>) -> Vec<BlockNumber> {
@@ -293,6 +286,7 @@ pub struct TestRelayClient {
 	headers: HashMap<RelayHash, RelayHeader>,
 	best_hash: Arc<Mutex<Option<RelayHash>>>,
 	best_notifications: Arc<Mutex<Option<Pin<Box<dyn Stream<Item = RelayHeader> + Send + Sync>>>>>,
+	claim_queues: HashMap<RelayHash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 }
 
 impl TestRelayClient {
@@ -301,6 +295,7 @@ impl TestRelayClient {
 			headers,
 			best_hash: Default::default(),
 			best_notifications: Arc::new(Mutex::new(None)),
+			claim_queues: Default::default(),
 		}
 	}
 
@@ -309,7 +304,15 @@ impl TestRelayClient {
 			headers,
 			best_hash: Arc::new(Mutex::new(Some(best_hash))),
 			best_notifications: Arc::new(Mutex::new(None)),
+			claim_queues: Default::default(),
 		}
+	}
+
+	/// Assign `core` to para 1 at `depth` of the claim queue at `relay_parent`, para 2 before it.
+	pub fn add_claim(&mut self, relay_parent: RelayHash, depth: usize, core: CoreIndex) {
+		let mut claims = VecDeque::from(vec![ParaId::from(2); depth]);
+		claims.push_back(ParaId::from(1));
+		self.claim_queues.entry(relay_parent).or_default().insert(core, claims);
 	}
 
 	pub fn set_best_hash(&mut self, best_hash: Option<RelayHash>) {
@@ -408,8 +411,7 @@ impl RelayChainInterface for TestRelayClient {
 	async fn import_notification_stream(
 		&self,
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
-		// Tests needing imports install a stream with `with_import_stream` instead.
-		Ok(Box::pin(futures::stream::empty()))
+		unimplemented!("Not needed for test")
 	}
 
 	async fn finality_notification_stream(
@@ -487,10 +489,9 @@ impl RelayChainInterface for TestRelayClient {
 
 	async fn claim_queue(
 		&self,
-		_: RelayHash,
+		relay_parent: RelayHash,
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
-		// Return empty claim queue for offset tests
-		Ok(BTreeMap::new())
+		Ok(self.claim_queues.get(&relay_parent).cloned().unwrap_or_default())
 	}
 
 	async fn call_runtime_api(
@@ -683,99 +684,4 @@ pub fn relay_header_with_slot(number: u32, parent_hash: RelayHash, slot: u64) ->
 		extrinsics_root: Default::default(),
 		digest,
 	}
-}
-
-pub fn v3_node_features() -> NodeFeatures {
-	let mut node_features = NodeFeatures::from_vec(vec![0; 5]);
-	node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
-	node_features
-}
-
-/// A [`SchedulingInfo`] wired to an import stream, with the sender that feeds it.
-pub fn with_import_stream(
-) -> (SchedulingInfo<TestRelayClient>, futures::channel::mpsc::UnboundedSender<RelayHeader>) {
-	let mut scheduling_info = SchedulingInfo::new(Duration::from_secs(6), Duration::ZERO);
-	let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-	let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> = Box::pin(rx);
-	scheduling_info.import_notifications = futures::StreamExt::fuse(stream);
-	(scheduling_info, tx)
-}
-
-/// The hedging fixture: relay parent `base` at slot 100, an unrelated `other_base` at the same
-/// height, and the chosen scheduling parent on `base` at slot 101.
-fn hedge_fixture() -> (RelayHeader, RelayHeader, RelayHeader) {
-	let base = relay_header_with_slot(10, Default::default(), 100);
-	let other_base = relay_header_with_slot(10, [1u8; 32].into(), 100);
-	let chosen = relay_header_with_slot(11, base.hash(), 101);
-	(base, other_base, chosen)
-}
-
-/// `chosen` with a distinct state root: a same-slot twin on the same base.
-fn twin(chosen: &RelayHeader, tag: u8) -> RelayHeader {
-	let mut header = chosen.clone();
-	header.state_root = [tag; 32].into();
-	header
-}
-
-/// Head of each chain `resolve_hedge_chains` accepts for a slot planned on core 0, with `imports`
-/// fed through the import stream, each assigned to its core.
-async fn hedged(
-	imports: &[(RelayHeader, CoreIndex)],
-	v3_enabled: bool,
-	relay_parent_offset: u32,
-) -> Vec<RelayHash> {
-	let (base, other_base, chosen) = hedge_fixture();
-	let mut cache = RelayChainDataCache::new(TestRelayClient::new(Default::default()), 1.into());
-	cache.set_test_data(base.clone(), vec![], v3_node_features());
-	cache.set_test_data(other_base, vec![], v3_node_features());
-	let (mut scheduling_info, tx) = with_import_stream();
-	for (header, core) in imports {
-		cache.set_test_data(header.clone(), vec![*core], v3_node_features());
-		tx.unbounded_send(header.clone()).expect("receiver is alive; qed");
-	}
-	scheduling_info.drain_imports();
-
-	let cx = HedgeContext {
-		v3_enabled,
-		relay_parent_offset,
-		max_relay_parent_session_age: 0,
-		scheduling_parent_header: &chosen,
-		relay_parent_hash: base.hash(),
-		para_id: ParaId::from(1),
-		claim_queue_offset: 0,
-		core_indices: &[CoreIndex(0)],
-	};
-	resolve_hedge_chains(&mut cache, scheduling_info.siblings_at(&chosen, Slot::from(102)), &cx)
-		.await
-		.iter()
-		.map(|chain| chain[0].hash())
-		.collect()
-}
-
-/// Hedging is off outside V3 and at `relay_parent_offset == 0`. Only an imported twin on the same
-/// base and core is accepted, and the cap keeps the primaries in hash order.
-#[tokio::test]
-async fn sp_hedge_chains_filter_and_cap_siblings() {
-	let (base, other_base, chosen) = hedge_fixture();
-	let sibling = twin(&chosen, 7);
-
-	let single = [(sibling.clone(), CoreIndex(0))];
-	assert!(hedged(&single, false, 1).await.is_empty());
-	assert!(hedged(&single, true, 0).await.is_empty());
-
-	let forked = relay_header_with_slot(11, other_base.hash(), 101);
-	let imports =
-		[(sibling.clone(), CoreIndex(0)), (forked, CoreIndex(0)), (twin(&chosen, 8), CoreIndex(1))];
-	assert_eq!(hedged(&imports, true, 1).await, vec![sibling.hash()]);
-
-	let mut primaries: Vec<RelayHeader> = (0..=MAX_HEDGED_SIBLINGS as u8)
-		.map(|i| {
-			let primary = relay_header_primary_with_slot(11, base.hash(), 101);
-			twin(&primary, i)
-		})
-		.collect();
-	let imports: Vec<_> = primaries.iter().map(|h| (h.clone(), CoreIndex(0))).collect();
-	primaries.sort_by_key(|header| header.hash());
-	let expected: Vec<_> = primaries.iter().take(MAX_HEDGED_SIBLINGS).map(|h| h.hash()).collect();
-	assert_eq!(hedged(&imports, true, 1).await, expected);
 }

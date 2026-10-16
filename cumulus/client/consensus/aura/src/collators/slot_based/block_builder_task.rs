@@ -25,7 +25,7 @@ use crate::{
 		check_validation_code_or_log,
 		slot_based::{
 			relay_chain_data_cache::RelayChainDataCache,
-			scheduling::{SchedulingInfo, SchedulingProofBuilder},
+			scheduling::{sibling_deadline, SchedulingInfo, SchedulingProofBuilder, SiblingParams},
 			slot_timer::{SlotInfo, SlotTimer},
 		},
 		BackingGroupConnectionHelper, RelayHash, RelayParentData,
@@ -77,14 +77,6 @@ use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
-
-/// Ceiling on hedged sibling scheduling parents; the collation task lowers it per segment length.
-/// Each costs a whole extra submission per scheduled core, and the chosen parent plus its siblings
-/// must stay inside the network bridge's `MAX_VIEW_HEADS` or `distribute_segment` drops them.
-pub(crate) const MAX_HEDGED_SIBLINGS: usize = 2;
-
-/// Siblings resolved per core, bounding the round trips a forked relay height can force.
-const MAX_SIBLINGS_RESOLVED: usize = MAX_HEDGED_SIBLINGS + 2;
 
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
@@ -786,107 +778,6 @@ where
 	}
 }
 
-/// The slot inputs hedge resolution reads.
-pub(crate) struct HedgeContext<'a> {
-	pub v3_enabled: bool,
-	pub relay_parent_offset: u32,
-	pub max_relay_parent_session_age: u32,
-	pub scheduling_parent_header: &'a RelayHeader,
-	pub relay_parent_hash: RelayHash,
-	pub para_id: ParaId,
-	pub claim_queue_offset: u32,
-	/// Cores the slot was planned on; a sibling that disagrees cannot carry the submission.
-	pub core_indices: &'a [CoreIndex],
-}
-
-/// Header chains of the `siblings` (from [`SchedulingInfo::siblings_at`], best first) the slot's
-/// blocks can also be advertised under, up to `MAX_HEDGED_SIBLINGS` accepted and
-/// `MAX_SIBLINGS_RESOLVED` resolved. Empty unless V3 at `relay_parent_offset >= 1`.
-pub(crate) async fn resolve_hedge_chains<RelayClient>(
-	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
-	siblings: Vec<RelayHeader>,
-	cx: &HedgeContext<'_>,
-) -> Vec<Vec<RelayHeader>>
-where
-	RelayClient: RelayChainInterface + 'static,
-{
-	if !cx.v3_enabled || cx.relay_parent_offset == 0 {
-		return Vec::new();
-	}
-
-	let sp = cx.scheduling_parent_header.hash();
-	let sp_number = cx.scheduling_parent_header.number;
-	let sibling_count = siblings.len();
-
-	let mut chains = Vec::new();
-	for (resolved, sibling) in siblings.into_iter().enumerate() {
-		if chains.len() >= MAX_HEDGED_SIBLINGS || resolved >= MAX_SIBLINGS_RESOLVED {
-			break;
-		}
-		if let Some(chain) = resolve_hedge_sibling(relay_chain_data_cache, sibling, cx).await {
-			chains.push(chain);
-		}
-	}
-
-	if sibling_count > 0 {
-		let submitted: Vec<_> = chains.iter().filter_map(|c| c.first()).map(|h| h.hash()).collect();
-		tracing::debug!(
-			target: LOG_TARGET,
-			?sp,
-			sp_number,
-			siblings = sibling_count,
-			?submitted,
-			"SP hedge: siblings",
-		);
-	}
-
-	chains
-}
-
-/// Resolve one sibling: `Some(header_chain)` if it can carry the slot's blocks.
-async fn resolve_hedge_sibling<RelayClient>(
-	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
-	sibling: RelayHeader,
-	cx: &HedgeContext<'_>,
-) -> Option<Vec<RelayHeader>>
-where
-	RelayClient: RelayChainInterface + 'static,
-{
-	let sp_sibling = sibling.hash();
-	// The collator protocol drops a submission for a core the sibling does not assign us.
-	let same_cores =
-		determine_cores(relay_chain_data_cache, &sibling, cx.para_id, cx.claim_queue_offset)
-			.await
-			.ok()
-			.flatten()
-			.is_some_and(|cores| cores.core_indices().starts_with(cx.core_indices));
-	if !same_cores {
-		tracing::debug!(target: LOG_TARGET, ?sp_sibling, reason = "cores", "SP hedge: rejected");
-		return None;
-	}
-
-	// A sibling whose walk-back implies another relay parent cannot carry the executed blocks.
-	let descendants = match offset_relay_parent_find_descendants(
-		relay_chain_data_cache,
-		sibling,
-		cx.relay_parent_offset,
-		cx.max_relay_parent_session_age,
-	)
-	.await
-	{
-		Ok(Some(mut data)) if data.relay_parent().hash() == cx.relay_parent_hash => {
-			data.take_descendants()
-		},
-		_ => {
-			tracing::debug!(target: LOG_TARGET, ?sp_sibling, reason = "base", "SP hedge: rejected");
-			return None;
-		},
-	};
-
-	tracing::debug!(target: LOG_TARGET, ?sp_sibling, "SP hedge: sibling accepted");
-	Some(descendants.into_iter().rev().collect())
-}
-
 /// Run block-builder.
 pub fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>(
 	params: BuilderTaskParams<Block, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>,
@@ -1018,27 +909,17 @@ where
 			let total_cores = cores.total_cores();
 			let mut pov_parent_header = cx.initial_parent_header.clone();
 
-			let core_indices = cores.core_indices().to_vec();
-			let hedge_ctx = HedgeContext {
-				v3_enabled: cx.v3_enabled,
-				relay_parent_offset: cx.relay_parent_offset,
-				max_relay_parent_session_age: cx.max_relay_parent_session_age,
-				scheduling_parent_header: &cx.scheduling_parent_header,
-				relay_parent_hash: cx.relay_parent().hash(),
-				para_id,
+			// The collation task looks up and checks sibling scheduling parents per segment.
+			let siblings = (cx.v3_enabled && cx.relay_parent_offset > 0).then(|| SiblingParams {
+				production_slot: slot_time.relay_slot(),
+				core_indices: cores.core_indices().to_vec(),
 				claim_queue_offset: cores.claim_queue_offset.0 as u32,
-				core_indices: &core_indices,
-			};
-			let siblings = env
-				.scheduling_info
-				.siblings_at(&cx.scheduling_parent_header, slot_time.relay_slot());
-			// Overlaps the builds; each core's deadline bounds the wait before its hedges go out.
-			let resolve = future::maybe_done(resolve_hedge_chains(
-				&mut env.relay_chain_data_cache,
-				siblings,
-				&hedge_ctx,
-			));
-			futures::pin_mut!(resolve);
+				max_relay_parent_session_age: cx.max_relay_parent_session_age,
+				valid_until: sibling_deadline(
+					slot_time.relay_slot(),
+					env.relay_chain_slot_duration,
+				),
+			});
 
 			for blocks_per_core in blocks_per_cores {
 				let core_info = cores.core_info();
@@ -1055,7 +936,7 @@ where
 
 				// Time the core build so we can pace after submitting (send early, then sleep).
 				let core_start = Instant::now();
-				let build = build_collation_parts_for_core(BuildCollationParams {
+				let maybe_parts = match build_collation_parts_for_core(BuildCollationParams {
 					pov_parent_header: pov_parent_header.clone(),
 					relay_parent_header: cx.relay_parent(),
 					max_pov_size: cx.max_pov_size,
@@ -1079,13 +960,9 @@ where
 					relay_slot: cx.relay_slot,
 					para_slot: cx.para_slot.slot,
 					para_client: &*env.para_client,
-				});
-				futures::pin_mut!(build);
-				let built = match future::select(build, resolve.as_mut()).await {
-					future::Either::Left((built, _)) => built,
-					future::Either::Right(((), build)) => build.await,
-				};
-				let maybe_parts = match built {
+				})
+				.await
+				{
 					Ok(maybe_parts) => maybe_parts,
 					Err(()) => return,
 				};
@@ -1113,7 +990,8 @@ where
 					resubmittable_headers.remove(&bucket_idx).unwrap_or_default();
 				let is_resubmitting = !resubmittable_headers_for_core.is_empty();
 				let mut builder = CollatorMessageBuilder::new(this_core_index)
-					.with_resubmittable_headers(resubmittable_headers_for_core);
+					.with_resubmittable_headers(resubmittable_headers_for_core)
+					.with_siblings(siblings.clone());
 				if let Some(parts) = maybe_parts {
 					builder = builder.with_bundle(parts);
 				}
@@ -1128,9 +1006,7 @@ where
 					cx.slot_claim.author_pub(),
 					&env.keystore,
 					this_core_index,
-					Instant::now() + slot_time.time_left(),
 				);
-				let is_segment = matches!(submission, Some(CollatorMessage::Segment { .. }));
 
 				match submission {
 					Some(submission) => {
@@ -1148,29 +1024,6 @@ where
 						has_fresh,
 						"Nothing to submit for this core.",
 					),
-				}
-
-				if is_segment {
-					// Hedging only spends this core's own slice; later cores re-read the output. A
-					// resubmit-only core has no pacing sleep to absorb a wait, so it only polls.
-					if has_fresh {
-						let deadline = tokio::time::Instant::from_std(core_start + time_for_core);
-						let _ = tokio::time::timeout_at(deadline, resolve.as_mut()).await;
-					} else {
-						let _ = resolve.as_mut().now_or_never();
-					}
-					let header_chains = resolve.as_mut().output_mut().cloned().unwrap_or_default();
-					if !header_chains.is_empty() {
-						let hedges =
-							CollatorMessage::Hedges { core_index: this_core_index, header_chains };
-						if collator_sender.unbounded_send(hedges).is_err() {
-							tracing::error!(
-								target: LOG_TARGET,
-								"Unable to send collation to the collation task.",
-							);
-							return;
-						}
-					}
 				}
 
 				// Pace only when a fresh block was built (nothing to pace on resubmit-only).
@@ -1241,7 +1094,6 @@ fn assemble_core_submission<Block, P>(
 	author_pub: &P::Public,
 	keystore: &KeystorePtr,
 	core_index: CoreIndex,
-	valid_until: Instant,
 ) -> Option<CollatorMessage<Block>>
 where
 	Block: BlockT,
@@ -1287,7 +1139,7 @@ where
 		"Submitting V3 segment with scheduling proof",
 	);
 
-	builder.with_scheduling_proof(scheduling_proof, valid_until).build()
+	builder.with_scheduling_proof(scheduling_proof).build()
 }
 
 /// Build one core's collation (possibly multiple blocks) and return its [`CollationParts`].

@@ -18,17 +18,15 @@
 //! The `builder -> collator` channel: the [`CollatorMessage`] payload and its
 //! [`CollatorMessageBuilder`]. Pure data; the collation task builds and submits the collations.
 
+use super::scheduling::SiblingParams;
 use cumulus_primitives_core::{relay_chain::BlockNumber as RelayBlockNumber, SchedulingProof};
 use polkadot_primitives::{
-	CoreIndex, Hash as RelayHash, Header as RelayHeader, PersistedValidationData, SessionIndex,
-	ValidationCodeHash,
+	CoreIndex, Hash as RelayHash, PersistedValidationData, SessionIndex, ValidationCodeHash,
 };
 use sp_api::StorageProof;
 use sp_runtime::traits::Block as BlockT;
-use std::time::Instant;
 
-/// A message from the block builder to the collation task: a single V2 collation, a V3 segment, or
-/// hedges of the segment sent just before.
+/// A message from the block builder to the collation task: a single V2 collation, or a V3 segment.
 pub(super) enum CollatorMessage<Block: BlockT> {
 	/// A single V2 collation (no scheduling proof).
 	Collation { core_index: CoreIndex, parts: CollationParts<Block> },
@@ -42,14 +40,8 @@ pub(super) enum CollatorMessage<Block: BlockT> {
 		resubmittable_headers: Vec<Block::Header>,
 		/// The freshly-built bundle for this core, if any. Submitted after the resubmitted parts.
 		bundle: Option<CollationParts<Block>>,
-		/// End of the production relay slot, after which validators reject its sibling hedges.
-		valid_until: Instant,
-	},
-	/// Hedged sibling header chains for the `Segment` sent immediately before, on `core_index`.
-	Hedges {
-		core_index: CoreIndex,
-		/// One header chain per hedged sibling scheduling parent, best first.
-		header_chains: Vec<Vec<RelayHeader>>,
+		/// Set when the segment may also be submitted under sibling scheduling parents.
+		siblings: Option<SiblingParams>,
 	},
 }
 
@@ -82,12 +74,19 @@ pub(super) struct CollatorMessageBuilder<Block: BlockT> {
 	core_index: CoreIndex,
 	bundle: Option<CollationParts<Block>>,
 	resubmittable_headers: Vec<Block::Header>,
-	scheduling_proof: Option<(SchedulingProof, Instant)>,
+	scheduling_proof: Option<SchedulingProof>,
+	siblings: Option<SiblingParams>,
 }
 
 impl<Block: BlockT> CollatorMessageBuilder<Block> {
 	pub(super) fn new(core_index: CoreIndex) -> Self {
-		Self { core_index, bundle: None, resubmittable_headers: Vec::new(), scheduling_proof: None }
+		Self {
+			core_index,
+			bundle: None,
+			resubmittable_headers: Vec::new(),
+			scheduling_proof: None,
+			siblings: None,
+		}
 	}
 
 	/// Attach the freshly-built bundle.
@@ -106,20 +105,22 @@ impl<Block: BlockT> CollatorMessageBuilder<Block> {
 		self
 	}
 
-	/// Attach a V3 scheduling proof; its hedges are dropped after `valid_until`.
-	pub(super) fn with_scheduling_proof(
-		mut self,
-		scheduling_proof: SchedulingProof,
-		valid_until: Instant,
-	) -> Self {
-		self.scheduling_proof = Some((scheduling_proof, valid_until));
+	/// Attach a V3 scheduling proof.
+	pub(super) fn with_scheduling_proof(mut self, scheduling_proof: SchedulingProof) -> Self {
+		self.scheduling_proof = Some(scheduling_proof);
+		self
+	}
+
+	/// Allow submitting under sibling scheduling parents. Only meaningful with a scheduling proof.
+	pub(super) fn with_siblings(mut self, siblings: Option<SiblingParams>) -> Self {
+		self.siblings = siblings;
 		self
 	}
 
 	/// Build the message. `None` when there is nothing to submit for the core.
 	pub(super) fn build(self) -> Option<CollatorMessage<Block>> {
 		match self.scheduling_proof {
-			Some((scheduling_proof, valid_until)) => {
+			Some(scheduling_proof) => {
 				if self.resubmittable_headers.is_empty() && self.bundle.is_none() {
 					return None;
 				}
@@ -129,7 +130,7 @@ impl<Block: BlockT> CollatorMessageBuilder<Block> {
 					core_index: self.core_index,
 					resubmittable_headers: self.resubmittable_headers,
 					bundle: self.bundle,
-					valid_until,
+					siblings: self.siblings,
 				})
 			},
 			None => self
