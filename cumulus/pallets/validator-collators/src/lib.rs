@@ -114,7 +114,10 @@
 //! [`Config::MaxBlocksPerSlot`] blocks, `n` the number of session validators at the judgement.
 //! At most [`Config::MaxBlocksPerSlot`] blocks fit in an Aura slot, so those blocks span at least
 //! `min_missed_turns × n` slots, which hold at least `min_missed_turns` of the validator's turns.
-//! The count is in blocks, so time when the chain is halted does not count.
+//! The count is in blocks, so time when the chain is halted does not count. The threshold follows
+//! the list length at each judgement, so a list change during the idle time shifts the count by a
+//! few turns. The record is reset only at a judgement, so a validator is dropped after as many
+//! whole judgement periods without a block as hold the threshold.
 //!
 //! A dropped validator is not returned for one era. Each further drop doubles that time, up to
 //! `max_drop_eras` eras. The count of drops restarts once the validator authors again. A drop ends
