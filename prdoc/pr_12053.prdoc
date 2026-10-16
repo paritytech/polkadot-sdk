@@ -11,14 +11,15 @@ doc:
       on-disk path.
     - All keys are now stored in a `.json` format: the filename is
       `hex(key_type || blake2_256(public_key))` with a `.json` suffix, and the body is a
-      JSON object `{"public_key": <hex>, "phrase": <phrase>}`. This also resolves the
-      255-byte filename limit for BLS381 / ECDSA_BLS381 public keys.
-
-      As such a name no longer carries the public key. Legacy plain key files
-      (`hex(key_type || public_key)` with a bare JSON-encoded phrase) are still read
-      as a fallback but are no longer written, so existing keystores and tooling
-      (e.g. Zombienet) that inject them remain unaffected. A deprecation warning is
-      logged on startup for each legacy plain key file found in the keystore.
+      JSON object `{"public_key": <hex>, "phrase": <phrase>}`. As such, the `.json`
+      filenames use a hash of the public key instead of the literal public key, so the
+      public key is stored in the file body. This also resolves the 255-byte filename
+      limit for BLS381 / ECDSA_BLS381 public keys.
+    - Legacy plain key files (`hex(key_type || public_key)` with a bare JSON-encoded
+      phrase) are still read as a fallback but are no longer written, so existing
+      keystores and tooling (e.g. Zombienet) that inject them remain unaffected. A
+      deprecation warning is logged on startup for each legacy plain key file found
+      in the keystore.
     - When the legacy plain format is deprecated, `open` should atomically migrate
       each legacy plain file to `.json`: write the `.json` file, and delete the plain
       file only if the phrases match.
