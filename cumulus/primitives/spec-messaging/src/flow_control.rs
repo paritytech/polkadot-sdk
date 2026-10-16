@@ -48,8 +48,9 @@ pub enum SpecMsgKind {
 	/// Channel lifecycle signalling. Emitted and consumed by the pallet, never by applications;
 	/// window-counted and ordered like any other leaf.
 	Signal(SpecMsgSignal),
-	/// Userspace payload bytes, delivered in order. Bounded by
-	/// [`crate::message::MAX_SPECULATIVE_MESSAGE_LEN`] in the sender STF, not by the type.
+	/// Userspace payload bytes, delivered in order. The sender STF bounds the encoded leaf, not
+	/// these bytes, by [`crate::message::MAX_SPECULATIVE_MESSAGE_LEN`]. The variant byte and the
+	/// compact length take up to 5 of it, so `data` holds 5 bytes less.
 	Data(Vec<u8>),
 }
 
@@ -159,6 +160,15 @@ mod tests {
 		);
 		// Data: variant 1 ++ compact(len) ++ bytes.
 		assert_eq!(SpecMsgKind::Data(vec![0xAA]).encode(), vec![0x01, 0x04, 0xAA]);
+	}
+
+	#[test]
+	fn data_at_the_protocol_bound_takes_five_bytes_of_framing() {
+		// The bound is on the encoded leaf. At this size the compact length takes 4 bytes, so 5
+		// bytes less data fill it exactly and one more overflows it.
+		let max = crate::message::MAX_SPECULATIVE_MESSAGE_LEN as usize;
+		assert_eq!(SpecMsgKind::Data(vec![0; max - 5]).encoded_size(), max);
+		assert_eq!(SpecMsgKind::Data(vec![0; max - 4]).encoded_size(), max + 1);
 	}
 
 	#[test]
