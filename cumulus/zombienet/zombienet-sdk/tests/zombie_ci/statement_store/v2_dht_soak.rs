@@ -183,14 +183,7 @@ async fn launch_soak_network(
 	let collators: Vec<(&str, Option<&str>)> =
 		AUTHORING_COLLATORS.iter().map(|&name| (name, None)).collect();
 	let full_nodes: Vec<&str> = full_node_names.iter().map(String::as_str).collect();
-	launch_network_with_commands(
-		&collators,
-		&full_nodes,
-		&chain_spec_path,
-		args,
-		&[],
-	)
-	.await
+	launch_network_with_commands(&collators, &full_nodes, &chain_spec_path, args).await
 }
 
 /// Reads each node's peer id and maps it into the XOR topic space: `blake2_256` of the peer id
@@ -831,11 +824,7 @@ async fn run_node_join(
 		load_started_rx.await?;
 		info!("Lifecycle join: adding {JOINER_NAME} to {} statement nodes", nodes.len());
 		// The joiner inherits the parachain's default args, the soak's v2 DHT flags among them
-		let joiner_options = AddCollatorOptions {
-			env: vec![],
-			..Default::default()
-		};
-		network.add_collator(JOINER_NAME, joiner_options, 1004).await?;
+		network.add_collator(JOINER_NAME, AddCollatorOptions::default(), 1004).await?;
 		let node = network.get_node(JOINER_NAME)?.clone();
 		let rpc = node.rpc().await?;
 		nodes_after_join.push(NodeHandle { node, rpc });

@@ -256,7 +256,8 @@ mod rep {
 const LOG_TARGET: &str = "statement-gossip";
 /// V2 statement protocol suffix: topic affinity filters, shipped since stable2606.
 const STATEMENT_PROTOCOL_V2: &str = "statement/2";
-/// V1 statement protocol suffix, current stable protocol, no breaking changes will be made to it.
+/// V1 statement protocol suffix: flood gossip without affinity filters. No breaking changes will
+/// be made to it.
 const STATEMENT_PROTOCOL_V1: &str = "statement/1";
 /// Maximum time we wait for sending a notification to a peer.
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
@@ -271,8 +272,8 @@ const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::fr
 /// How long a full `statement/2` peer may stay silent about its affinity before it is treated as
 /// wanting every statement.
 ///
-/// A full node without the v2 DHT path never sends a filter, so a node with the path on waits
-/// this long before serving the peer as one that wants everything.
+/// A full node without the v2 DHT path never sends a filter, so the wait is what tells it apart
+/// from a v2 peer whose filter is still in flight.
 const AFFINITY_FILTER_GRACE_PERIOD: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval between sweeps that evict statement-store peers unseen for the staleness TTL, so the
 /// topology converges on live peers even while discovery is quiet.
@@ -284,17 +285,17 @@ static V2DHT_ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
 /// Feature-flag to switch between the legacy flood path and the DHT-targeted path.
 ///
-/// Off by default. A node opts in through [`set_v2dht_enabled`] from its CLI before anything
-/// reads the gate, and the value stays fixed for the process lifetime.
+/// Off by default. The first read or call to [`set_v2dht_enabled`] fixes the value for the
+/// process lifetime.
 pub fn v2dht_enabled() -> bool {
 	*V2DHT_ENABLED.get_or_init(|| false)
 }
 
-/// Set the v2 DHT gate. A call after the first read changes nothing and logs a warning.
+/// Set the v2 DHT gate. The first read or set fixes it, so a node binary calls this once before
+/// anything reads the gate.
 pub fn set_v2dht_enabled(enabled: bool) {
-	if V2DHT_ENABLED.set(enabled).is_err() {
-		log::warn!(target: LOG_TARGET, "The v2 DHT gate was read before it was set, keeping it");
-	}
+	let fixed_now = V2DHT_ENABLED.set(enabled).is_ok();
+	debug_assert!(fixed_now, "the v2 DHT gate is already fixed at {}", v2dht_enabled());
 }
 
 struct Metrics {
