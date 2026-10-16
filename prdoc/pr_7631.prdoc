@@ -1,0 +1,29 @@
+title: '[pallet-conviction-voting] Prevent and remove empty storage entries'
+doc:
+- audience: Runtime Dev
+  description: |
+    Fixes #7458.
+
+    The conviction-voting pallet was creating and retaining 29,000+ empty storage entries
+    (VotingFor and ClassLocksFor with zero votes, delegations, and locks).
+
+    This PR addresses the problem in two ways:
+
+    1. **Automatic cleanup**: after every vote, remove-vote, undelegate, or unlock
+       operation, any resulting empty VotingFor or zero-balance ClassLocksFor entries
+       are removed immediately.
+
+    2. **Permissionless `cleanup_empty_storage` extrinsic**: a new call that anyone
+       can use to remove a stale VotingFor entry and/or zero-balance ClassLocksFor
+       entries for any account. The transaction fee is refunded on success to incentivise
+       third-party cleanup of legacy entries.
+
+    Additionally, zero-balance votes and zero-balance delegations are now explicitly
+    rejected with a `ZeroVote` error to prevent new empty entries from being created.
+crates:
+- name: pallet-conviction-voting
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
