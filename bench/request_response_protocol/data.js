@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792108108204,
+  "lastUpdate": 1792111106383,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -134459,6 +134459,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2656669231,
             "range": "± 35711500",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2cd0e4fe5b5ef1355d89ffff40f69c2713f01b34",
+          "message": "Remove deprecated BlockLength constructors (#13348)\n\n## Summary\n\nThis is part of #11561. `BlockLength::max` and\n`BlockLength::max_with_normal_ratio` were due for removal after July\n2026, and nothing in the repository calls them. The deprecation notes\npointed at `builder().max()` and `builder().normal_ratio()`, but the\nbuilder only had `max_length`. `max_length` already replaces\n`BlockLength::max`. This change adds `BlockLengthBuilder::normal_ratio`\nfor the second constructor and deletes both old functions.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-15T21:22:28Z",
+          "tree_id": "210cf51e8bfb60644cb4545861dcdd83aca5e7ae",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2cd0e4fe5b5ef1355d89ffff40f69c2713f01b34"
+        },
+        "date": 1792111076250,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19579629,
+            "range": "± 100726",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20021319,
+            "range": "± 217560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21355270,
+            "range": "± 125505",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26125998,
+            "range": "± 174219",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59369900,
+            "range": "± 1109651",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 361342119,
+            "range": "± 4831563",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2527846605,
+            "range": "± 111579958",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17303273,
+            "range": "± 205801",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17579322,
+            "range": "± 155838",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17670138,
+            "range": "± 236998",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22420964,
+            "range": "± 248195",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61100700,
+            "range": "± 867204",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 357828900,
+            "range": "± 4384551",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2647497961,
+            "range": "± 17475492",
             "unit": "ns/iter"
           }
         ]
