@@ -596,7 +596,6 @@ impl<AccountId: Eq> Mutate<AccountId> for () {}
 mod tests {
 	use super::*;
 	use core::cell::RefCell;
-	use sp_runtime::traits::Zero;
 
 	thread_local! {
 		static BALANCES: RefCell<[u64; 2]> = const { RefCell::new([0, 0]) };
