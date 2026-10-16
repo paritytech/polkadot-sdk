@@ -133,7 +133,7 @@ impl Config for Test {
 	type DefaultExpectedEraDuration = ConstU64<1000>;
 	type DefaultReportMargin = ConstU64<100>;
 	type MaxReportMargin = ConstU64<500>;
-	type MaxTrackedAuthorities = MaxTrackedAuthorities;
+	type MaxBlocksPerSlot = MaxBlocksPerSlot;
 	type WeightInfo = ();
 }
 
@@ -151,10 +151,9 @@ impl frame_support::traits::UnixTime for MockTime {
 
 parameter_types! {
 	pub static MaxEntriesPerReport: u32 = 10;
-	pub static MaxTrackedAuthorities: u32 = 16;
-	/// Slots from the previous block to the next one, reset to one after each block. With
-	/// [`Authoring`], the least number of slots.
-	pub static NextSlotGap: u64 = 1;
+	pub static MaxBlocksPerSlot: u32 = 1;
+	/// The Aura slot of the last block.
+	pub static LastSlot: u64 = 0;
 	/// Whether each block is authored by the owner of its slot, the session validator at the slot
 	/// modulo their number. Without it, blocks have no author.
 	pub static Authoring: bool = false;
@@ -196,8 +195,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_tracing::try_init_simple();
 	Now::set(0);
 	MaxEntriesPerReport::set(10);
-	MaxTrackedAuthorities::set(16);
-	NextSlotGap::set(1);
+	MaxBlocksPerSlot::set(1);
+	LastSlot::set(0);
 	Authoring::set(false);
 	Silent::set(vec![]);
 	ReportCalls::set(0);
@@ -223,20 +222,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	let mut ext: sp_io::TestExternalities = t.into();
-	// Block `n` is in slot `n` and, with one slot per block, counts `n` slots.
-	ext.execute_with(|| CountedSlots::<Test>::put(SlotCount { slot: 0.into(), count: 0 }));
-	ext
+	t.into()
 }
 
 parameter_types! {
 	/// The relay chain epoch randomness in the state proof of every block, `None` for no proof.
 	pub static RelayEpochRandomness: Option<[u8; 32]> = Some([7; 32]);
-}
-
-/// Replace the session validators with `count` accounts from 100, without a rotation.
-pub fn set_session_validators(count: u32) {
-	pallet_session::Validators::<Test>::put((100..100 + u64::from(count)).collect::<Vec<_>>());
 }
 
 /// The session validator Aura gives `slot` to.
@@ -246,16 +237,13 @@ pub fn slot_owner(slot: u64) -> Option<u64> {
 }
 
 /// Produce blocks up to `n`, each with a relay chain state proof carrying
-/// [`RelayEpochRandomness`], and an Aura slot [`NextSlotGap`] after the slot of the last block
-/// that advanced [`CountedSlots`].
+/// [`RelayEpochRandomness`], and in the Aura slot after [`LastSlot`].
 ///
 /// With [`Authoring`], each block is in the first slot from there whose owner is not
 /// [`Silent`], and that owner authors it before the hooks run, as the authorship pallet does.
 pub fn initialize_to_block(n: u64) {
 	for i in System::block_number() + 1..=n {
-		let previous = CountedSlots::<Test>::get().map_or(0, |counted| *counted.slot);
-		let mut slot = previous + NextSlotGap::get();
-		NextSlotGap::set(1);
+		let mut slot = LastSlot::get() + 1;
 		let mut author = None;
 		if Authoring::get() {
 			let silent = Silent::get();
@@ -266,13 +254,8 @@ pub fn initialize_to_block(n: u64) {
 				author = slot_owner(live);
 			}
 		}
-		let digest = sp_runtime::Digest {
-			logs: vec![sp_runtime::DigestItem::PreRuntime(
-				sp_consensus_aura::AURA_ENGINE_ID,
-				codec::Encode::encode(&sp_consensus_aura::Slot::from(slot)),
-			)],
-		};
-		System::initialize(&i, &System::block_hash(i - 1), &digest);
+		LastSlot::set(slot);
+		System::initialize(&i, &System::block_hash(i - 1), &Default::default());
 		if let Some(author) = author {
 			<ValidatorCollators as pallet_authorship::EventHandler<u64, u64>>::note_author(author);
 		}

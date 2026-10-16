@@ -390,20 +390,12 @@ fn next_people_block_in_slot(slot: u64) {
 	);
 }
 
-/// The slots counted up to the current People block.
-fn counted_slots_on_people() -> u64 {
-	type Runtime = <PeopleWestend as Chain>::Runtime;
-	pallet_validator_collators::CountedSlots::<Runtime>::get().map_or(0, |counted| counted.count)
-}
-
 #[test]
-fn idle_validator_is_dropped_on_people_at_the_regular_rotation() {
+fn validator_without_blocks_is_dropped_on_people_at_the_next_set() {
 	type Runtime = <PeopleWestend as Chain>::Runtime;
 	type RuntimeOrigin = <PeopleWestend as Chain>::RuntimeOrigin;
 	type ValidatorCollators = pallet_validator_collators::Pallet<Runtime>;
 	type Session = pallet_session::Pallet<Runtime>;
-	type System = <PeopleWestend as Chain>::System;
-	let period = people_westend_runtime::PERIOD;
 	let alice = Sr25519Keyring::Alice.to_account_id();
 	let bob = Sr25519Keyring::Bob.to_account_id();
 	let collators_with = |validators: Vec<AccountId>| {
@@ -415,103 +407,78 @@ fn idle_validator_is_dropped_on_people_at_the_regular_rotation() {
 	};
 	let mut both = vec![alice.clone(), bob.clone()];
 	both.sort();
-	let rule =
-		pallet_validator_collators::DropRule { idle_turns: 2, drop_slots: 2, min_collators: 0 };
-
-	// GIVEN a rule of two missed turns and drops of 2 slots without a floor, and a set of Alice
-	// and Bob with keys, both set by root
-	PeopleWestend::execute_with(|| {
-		register_keys_on_people(&alice);
-		register_keys_on_people(&bob);
-		assert_ok!(ValidatorCollators::set_drop_rule(RuntimeOrigin::root(), Some(rule)));
+	let set_of = |era: u32, validators: &[AccountId]| {
 		assert_ok!(ValidatorCollators::set_validators(
 			RuntimeOrigin::root(),
-			1,
-			both.iter()
+			era,
+			validators
+				.iter()
 				.cloned()
 				.collect::<std::collections::BTreeSet<_>>()
 				.try_into()
 				.unwrap(),
 		));
+	};
+	let rule = pallet_validator_collators::DropRule {
+		min_missed_turns: 2,
+		min_collators: 0,
+		max_drop_eras: 4,
+	};
+
+	// GIVEN a rule of two missed turns without a floor, and the set of era 1 with Alice and Bob
+	// with keys, set by root
+	PeopleWestend::execute_with(|| {
+		register_keys_on_people(&alice);
+		register_keys_on_people(&bob);
+		assert_ok!(ValidatorCollators::set_drop_rule(RuntimeOrigin::root(), Some(rule)));
+		set_of(1, &both);
 	});
 	PeopleWestend::execute_with(|| {});
-	// AND the second forced rotation enacts both with no missed turns
-	let slots = PeopleWestend::execute_with(|| {
+	// AND the second forced rotation enacts both, and the next block is in Alice's first slot
+	let next_slot = PeopleWestend::execute_with(|| {
 		assert_eq!(Session::validators(), collators_with(both.clone()));
-		for v in &both {
-			assert_eq!(
-				pallet_validator_collators::LastActivity::<Runtime>::get(v),
-				Some(pallet_validator_collators::Activity::Active { missed: 0 })
-			);
-		}
-		let authorities = pallet_aura::Pallet::<Runtime>::authorities_len() as u64;
-		// The drop end is reached in one gap of the list without Bob, which counts in full.
-		assert!(rule.drop_slots < authorities);
-		// AND the next blocks are in every slot that is not Bob's, up to the slot after his
-		// `idle_turns`-th turn since the enactment, and the block in that slot is the regular
-		// rotation
 		let enacted_slot = u64::from(pallet_aura::CurrentSlot::<Runtime>::get());
-		let last_turn = (enacted_slot + 1..)
-			.filter(|slot| author_on_people(*slot) == bob)
-			.nth(rule.idle_turns as usize - 1)
-			.unwrap();
-		let slots = (enacted_slot + 1..=last_turn + 1)
-			.filter(|slot| author_on_people(*slot) != bob)
-			.collect::<Vec<_>>();
-		next_people_block_in_slot(slots[0]);
-		System::set_block_number(period - slots.len() as u32);
-		slots
+		let alice_slot =
+			(enacted_slot + 1..).find(|slot| author_on_people(*slot) == alice).unwrap();
+		next_people_block_in_slot(alice_slot);
+		// AND the block after it is in a slot that is not Bob's, so Bob authors nothing in the
+		// period
+		(alice_slot + 1..).find(|slot| author_on_people(*slot) != bob).unwrap()
 	});
-	for slot in &slots[1..] {
-		PeopleWestend::execute_with(|| next_people_block_in_slot(*slot));
-	}
-
-	// WHEN People runs the regular rotation
+	// WHEN Alice authors her block, where the set of era 2 arrives, and the next block is
+	// `min_missed_turns × n × MaxBlocksPerSlot` blocks, for `n` authorities, after the
+	// judgement from which Bob is idle
+	PeopleWestend::execute_with(|| {
+		type System = <PeopleWestend as Chain>::System;
+		let activity = |who| pallet_validator_collators::LastActivity::<Runtime>::get(who).unwrap();
+		assert!(activity(&alice).authored);
+		set_of(2, &both);
+		next_people_block_in_slot(next_slot);
+		let idle_since = activity(&bob).idle_since;
+		let authorities = pallet_aura::Pallet::<Runtime>::authorities_len() as u32;
+		let max_blocks_per_slot: u32 =
+			<Runtime as pallet_validator_collators::Config>::MaxBlocksPerSlot::get();
+		System::set_block_number(
+			idle_since + rule.min_missed_turns * authorities * max_blocks_per_slot - 1,
+		);
+	});
+	// THEN the next block judges the period: only Bob is dropped, for one era
 	PeopleWestend::execute_with(|| {
 		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
-		assert_eq!(System::block_number(), period);
-		assert_ne!(pallet_authorship::Pallet::<Runtime>::author(), Some(bob.clone()));
-		// THEN only Bob, who missed his turns, is dropped, and Alice, who authored hers, has no
-		// missed turns
 		assert_expected_events!(
 			PeopleWestend,
 			vec![
 				RuntimeEvent::ValidatorCollators(
 					pallet_validator_collators::Event::CollatorsDropped { validators, kept_by_floor: 0 }
-				) => { validators: *validators == vec![bob.clone()], },
+				) => { validators: *validators == vec![(bob.clone(), 3)], },
 			]
 		);
-		assert!(matches!(
-			pallet_validator_collators::LastActivity::<Runtime>::get(&alice),
-			Some(pallet_validator_collators::Activity::Active { missed: 0 })
-		));
-		// AND he keeps his slots until the next regular rotation
-		assert_eq!(Session::validators(), collators_with(both.clone()));
-		System::set_block_number(2 * period - 1);
-	});
-	// WHEN the next regular rotation enacts the list without him
-	let until = PeopleWestend::execute_with(|| {
-		assert_eq!(System::block_number(), 2 * period);
-		assert_eq!(Session::validators(), collators_with(vec![alice.clone()]));
-		// THEN his drop of `drop_slots` counted slots starts there
-		let until = counted_slots_on_people() + rule.drop_slots;
 		let dropped = pallet_validator_collators::Dropped::<Runtime>::get();
-		assert_eq!(dropped.get(&bob), Some(&Some(until)));
-		// AND the next block, the next regular rotation, comes `drop_slots` slots later
-		next_people_block_in_slot(
-			u64::from(pallet_aura::CurrentSlot::<Runtime>::get()) + rule.drop_slots,
-		);
-		System::set_block_number(3 * period - 1);
-		until
+		assert_eq!(dropped.into_iter().map(|(v, _)| v).collect::<Vec<_>>(), vec![bob.clone()]);
+		assert_eq!(pallet_validator_collators::LastActivity::<Runtime>::get(&bob), None);
 	});
-	// AND that rotation, at the end of his drop, returns him again
+	// AND the rotation after it enacts the list without him
 	PeopleWestend::execute_with(|| {
-		assert_eq!(System::block_number(), 3 * period);
-		assert_eq!(counted_slots_on_people(), until);
-		assert!(!pallet_validator_collators::Dropped::<Runtime>::get().contains_key(&bob));
-		assert_eq!(
-			pallet_validator_collators::LastActivity::<Runtime>::get(&bob),
-			Some(pallet_validator_collators::Activity::Queued)
-		);
+		assert_eq!(Session::validators(), collators_with(vec![alice.clone()]));
 	});
 }

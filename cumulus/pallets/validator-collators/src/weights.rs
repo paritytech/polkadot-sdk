@@ -37,7 +37,6 @@ pub trait WeightInfo {
 	fn note_author() -> Weight;
 	fn report_blocks(n: u32) -> Weight;
 	fn on_initialize() -> Weight;
-	fn advance_slots(g: u32) -> Weight;
 	fn set_drop_rule() -> Weight;
 }
 
@@ -113,16 +112,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
 	/// `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::LastActivity` (r:1 w:1)
-	/// Proof: `ValidatorCollators::LastActivity` (`max_values`: None, `max_size`: Some(41),
-	/// added: 2516, mode: `MaxEncodedLen`)
-	/// Storage: `System::Digest` (r:1 w:0)
-	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `ValidatorCollators::CountedSlots` (r:1 w:0)
-	/// Proof: `ValidatorCollators::CountedSlots` (`max_values`: Some(1), `max_size`: Some(16),
-	/// added: 511, mode: `MaxEncodedLen`)
+	/// Proof: `ValidatorCollators::LastActivity` (`max_values`: None, `max_size`: Some(45),
+	/// added: 2520, mode: `MaxEncodedLen`)
 	fn note_author() -> Weight {
 		Weight::from_parts(8_102_000, 3_514)
-			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
@@ -164,35 +158,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:0)
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
 	/// `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `System::Digest` (r:1 w:0)
-	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `ValidatorCollators::CountedSlots` (r:1 w:0)
-	/// Proof: `ValidatorCollators::CountedSlots` (`max_values`: Some(1), `max_size`: Some(16),
-	/// added: 511, mode: `MaxEncodedLen`)
 	fn on_initialize() -> Weight {
 		Weight::from_parts(15_000_000, 3_506)
-			.saturating_add(T::DbWeight::get().reads(9_u64))
+			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: `System::Digest` (r:1 w:0)
-	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `ValidatorCollators::CountedSlots` (r:1 w:1)
-	/// Proof: `ValidatorCollators::CountedSlots` (`max_values`: Some(1), `max_size`: Some(16),
-	/// added: 511, mode: `MaxEncodedLen`)
-	/// Storage: `Session::Validators` (r:1 w:0)
-	/// Proof: `Session::Validators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `ValidatorCollators::MissedTurns` (r:1 w:1)
-	/// Proof: `ValidatorCollators::MissedTurns` (`max_values`: Some(1), `max_size`: Some(2242),
-	/// added: 2737, mode: `MaxEncodedLen`)
-	/// The range of component `g` is `[0, 1119]`.
-	fn advance_slots(_g: u32) -> Weight {
-		Weight::from_parts(8_000_000, 3_248)
-			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-	}
 	/// Storage: `ValidatorCollators::Dropped` (r:0 w:1)
-	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(37002),
-	/// added: 37497, mode: `MaxEncodedLen`)
+	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(40002),
+	/// added: 40497, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::CurrentDropRule` (r:0 w:1)
 	/// Proof: `ValidatorCollators::CurrentDropRule` (`max_values`: Some(1), `max_size`: Some(12),
 	/// added: 507, mode: `MaxEncodedLen`)
@@ -272,16 +245,11 @@ impl WeightInfo for () {
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
 	/// `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::LastActivity` (r:1 w:1)
-	/// Proof: `ValidatorCollators::LastActivity` (`max_values`: None, `max_size`: Some(41),
-	/// added: 2516, mode: `MaxEncodedLen`)
-	/// Storage: `System::Digest` (r:1 w:0)
-	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `ValidatorCollators::CountedSlots` (r:1 w:0)
-	/// Proof: `ValidatorCollators::CountedSlots` (`max_values`: Some(1), `max_size`: Some(16),
-	/// added: 511, mode: `MaxEncodedLen`)
+	/// Proof: `ValidatorCollators::LastActivity` (`max_values`: None, `max_size`: Some(45),
+	/// added: 2520, mode: `MaxEncodedLen`)
 	fn note_author() -> Weight {
 		Weight::from_parts(8_102_000, 3_514)
-			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
@@ -323,35 +291,14 @@ impl WeightInfo for () {
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:0)
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
 	/// `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `System::Digest` (r:1 w:0)
-	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `ValidatorCollators::CountedSlots` (r:1 w:0)
-	/// Proof: `ValidatorCollators::CountedSlots` (`max_values`: Some(1), `max_size`: Some(16),
-	/// added: 511, mode: `MaxEncodedLen`)
 	fn on_initialize() -> Weight {
 		Weight::from_parts(15_000_000, 3_506)
-			.saturating_add(RocksDbWeight::get().reads(9_u64))
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: `System::Digest` (r:1 w:0)
-	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `ValidatorCollators::CountedSlots` (r:1 w:1)
-	/// Proof: `ValidatorCollators::CountedSlots` (`max_values`: Some(1), `max_size`: Some(16),
-	/// added: 511, mode: `MaxEncodedLen`)
-	/// Storage: `Session::Validators` (r:1 w:0)
-	/// Proof: `Session::Validators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `ValidatorCollators::MissedTurns` (r:1 w:1)
-	/// Proof: `ValidatorCollators::MissedTurns` (`max_values`: Some(1), `max_size`: Some(2242),
-	/// added: 2737, mode: `MaxEncodedLen`)
-	/// The range of component `g` is `[0, 1119]`.
-	fn advance_slots(_g: u32) -> Weight {
-		Weight::from_parts(8_000_000, 3_248)
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
-	}
 	/// Storage: `ValidatorCollators::Dropped` (r:0 w:1)
-	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(37002),
-	/// added: 37497, mode: `MaxEncodedLen`)
+	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(40002),
+	/// added: 40497, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::CurrentDropRule` (r:0 w:1)
 	/// Proof: `ValidatorCollators::CurrentDropRule` (`max_values`: Some(1), `max_size`: Some(12),
 	/// added: 507, mode: `MaxEncodedLen`)

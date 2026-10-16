@@ -23,10 +23,8 @@ use super::*;
 use crate::Pallet as ValidatorCollators;
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
-	vec,
 	vec::Vec,
 };
-use codec::Encode;
 use cumulus_pallet_parachain_system::OnSystemEvent;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
@@ -35,66 +33,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_session::ShouldEndSession;
-use sp_consensus_aura::{Slot, AURA_ENGINE_ID};
-use sp_runtime::{traits::Saturating, DigestItem};
-
-/// The slot of the current block, with an Aura digest for slot `slot` added if it has none.
-fn current_slot<T: Config>(slot: u64) -> Slot {
-	Pallet::<T>::current_slot().unwrap_or_else(|| {
-		let slot = Slot::from(slot);
-		frame_system::Pallet::<T>::deposit_log(DigestItem::PreRuntime(
-			AURA_ENGINE_ID,
-			slot.encode(),
-		));
-		slot
-	})
-}
-
-/// Put [`CountedSlots`] at the slot of the current block with a zero count, so an advance
-/// changes nothing.
-fn slots_counted<T: Config>() {
-	CountedSlots::<T>::put(SlotCount { slot: current_slot::<T>(1), count: 0 });
-}
-
-/// Prepare the next advance of the counted slots to add `g` missed turns, the worst case for
-/// `g`: [`Config::MaxTrackedAuthorities`] session validators, a missed turn at every position,
-/// and [`CountedSlots`] at a zero count `g + 1` slots before the slot of the current block.
-fn slots_to_count<T: Config>(g: u32) -> Result<(), BenchmarkError> {
-	let authorities = T::MaxTrackedAuthorities::get();
-	if authorities == 0 {
-		return Err(BenchmarkError::Stop("MaxTrackedAuthorities is zero"));
-	}
-	let validators = (0..authorities)
-		.map(|i| account("validator", i, 0))
-		.collect::<Vec<T::AccountId>>();
-	pallet_session::Validators::<T>::put(validators);
-	let gap = u64::from(g) + 1;
-	let slot = current_slot::<T>(gap);
-	if *slot < gap {
-		return Err(BenchmarkError::Stop("the block is in a slot before the gap"));
-	}
-	CountedSlots::<T>::put(SlotCount { slot: (*slot - gap).into(), count: 0 });
-	MissedTurns::<T>::put(BoundedVec::truncate_from(vec![1; authorities as usize]));
-	Ok(())
-}
-
-/// The missed turns [`slots_to_count`] leaves after the advance to the slot of the current block.
-fn expected_missed_turns<T: Config>(g: u32) -> Vec<u16> {
-	let authorities = u64::from(T::MaxTrackedAuthorities::get());
-	let slot = Pallet::<T>::current_slot().map_or(0, |slot| *slot);
-	let empty = slot - u64::from(g)..slot;
-	(0..authorities)
-		.map(|position| {
-			if position == slot % authorities {
-				0
-			} else if empty.clone().any(|s| s % authorities == position) {
-				2
-			} else {
-				1
-			}
-		})
-		.collect()
-}
+use sp_runtime::traits::{Saturating, Zero};
 
 #[benchmarks]
 mod benchmarks {
@@ -201,13 +140,12 @@ mod benchmarks {
 	}
 
 	/// The first block of an author, which inserts its entry and bumps the counter, by an active
-	/// collator of this pallet, whose activity record is refreshed, after an earlier call of the
-	/// block advanced the counted slots.
+	/// collator of this pallet, whose activity record is marked as authored.
 	#[benchmark]
 	fn note_author() -> Result<(), BenchmarkError> {
 		let author: T::AccountId = account("author", 0, 0);
-		LastActivity::<T>::insert(&author, Activity::Active { missed: u32::MAX });
-		slots_counted::<T>();
+		let activity = Activity { authored: false, idle_since: Zero::zero() };
+		LastActivity::<T>::insert(&author, activity);
 
 		#[block]
 		{
@@ -215,13 +153,12 @@ mod benchmarks {
 		}
 
 		assert_eq!(AuthoredBlocks::<T>::get(&author), 1);
-		assert_eq!(LastActivity::<T>::get(&author), Some(Activity::Active { missed: 0 }));
+		assert_eq!(LastActivity::<T>::get(&author), Some(Activity { authored: true, ..activity }));
 		Ok(())
 	}
 
 	/// A block at a multiple of `ReportPeriod` that makes the early report of the stored set with
-	/// no counts, after an earlier call of the block advanced the counted slots, and the
-	/// `PendingRotation` read of `should_end_session`.
+	/// no counts, and the `PendingRotation` read of `should_end_session`.
 	#[benchmark]
 	fn on_initialize() -> Result<(), BenchmarkError> {
 		let validators = BoundedBTreeSet::try_from(BTreeSet::from([account("validator", 0, 0)]))
@@ -230,7 +167,6 @@ mod benchmarks {
 		// The early report is due at any time with a zero expected era duration.
 		ExpectedEraDuration::<T>::put(0);
 		let now = ReportPeriod::<T>::get();
-		slots_counted::<T>();
 
 		#[block]
 		{
@@ -239,25 +175,6 @@ mod benchmarks {
 		}
 
 		assert_eq!(SetReceivedAt::<T>::get(), None);
-		assert_eq!(CountedSlots::<T>::get().map(|counted| counted.count), Some(0));
-		Ok(())
-	}
-
-	/// The first advance of the counted slots in a block, which loops over `g` empty slots and
-	/// adds a missed turn for each.
-	#[benchmark]
-	fn advance_slots(
-		g: Linear<0, { T::MaxTrackedAuthorities::get().saturating_sub(1) }>,
-	) -> Result<(), BenchmarkError> {
-		slots_to_count::<T>(g)?;
-
-		#[block]
-		{
-			Pallet::<T>::advance_slots(Pallet::<T>::current_slot());
-		}
-
-		assert_eq!(CountedSlots::<T>::get().map(|counted| counted.count), Some(u64::from(g) + 1));
-		assert_eq!(MissedTurns::<T>::get().into_inner(), expected_missed_turns::<T>(g));
 		Ok(())
 	}
 
@@ -295,10 +212,14 @@ mod benchmarks {
 	fn set_drop_rule() -> Result<(), BenchmarkError> {
 		let origin =
 			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		CurrentDropRule::<T>::put(DropRule { idle_turns: 2, drop_slots: 1, min_collators: 0 });
+		CurrentDropRule::<T>::put(DropRule {
+			min_missed_turns: 1,
+			min_collators: 0,
+			max_drop_eras: 1,
+		});
 		let records = BoundedBTreeMap::try_from(
 			(0..T::MaxValidators::get())
-				.map(|i| (account("dropped", i, 0), Some(0)))
+				.map(|i| (account("dropped", i, 0), DropRecord { until: 1, drops: 1 }))
 				.collect::<BTreeMap<_, _>>(),
 		)
 		.map_err(|_| BenchmarkError::Stop("the records exceed MaxValidators"))?;

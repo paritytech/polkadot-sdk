@@ -134,8 +134,6 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `ValidatorCollators::CountedSlots` (r:1 w:0)
-	/// Proof: `ValidatorCollators::CountedSlots` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::AuthoredBlocks` (r:1 w:1)
 	/// Proof: `ValidatorCollators::AuthoredBlocks` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
@@ -149,11 +147,9 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 		// Minimum execution time: 17_206_000 picoseconds.
 		Weight::from_parts(18_466_000, 0)
 			.saturating_add(Weight::from_parts(0, 3510))
-			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	/// Storage: `ValidatorCollators::CountedSlots` (r:1 w:0)
-	/// Proof: `ValidatorCollators::CountedSlots` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::SetReceivedAt` (r:1 w:1)
 	/// Proof: `ValidatorCollators::SetReceivedAt` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::ExpectedEraDuration` (r:1 w:0)
@@ -175,27 +171,8 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 		// Minimum execution time: 18_318_000 picoseconds.
 		Weight::from_parts(19_401_000, 0)
 			.saturating_add(Weight::from_parts(0, 1501))
-			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	/// Storage: `ValidatorCollators::CountedSlots` (r:1 w:1)
-	/// Proof: `ValidatorCollators::CountedSlots` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
-	/// Storage: `Session::Validators` (r:1 w:0)
-	/// Proof: `Session::Validators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `ValidatorCollators::MissedTurns` (r:1 w:1)
-	/// Proof: `ValidatorCollators::MissedTurns` (`max_values`: Some(1), `max_size`: Some(2242), added: 2737, mode: `MaxEncodedLen`)
-	/// The range of component `g` is `[0, 1119]`.
-	fn advance_slots(g: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `38263`
-		//  Estimated: `39748`
-		// Minimum execution time: 20_887_000 picoseconds.
-		Weight::from_parts(22_212_428, 0)
-			.saturating_add(Weight::from_parts(0, 39748))
-			// Standard Error: 9
-			.saturating_add(Weight::from_parts(3_053, 0).saturating_mul(g.into()))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:1)
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
@@ -236,9 +213,9 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 			.saturating_add(Weight::from_parts(0, 2567).saturating_mul(n.into()))
 	}
 	/// Storage: `ValidatorCollators::CurrentDropRule` (r:0 w:1)
-	/// Proof: `ValidatorCollators::CurrentDropRule` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	/// Proof: `ValidatorCollators::CurrentDropRule` (`max_values`: Some(1), `max_size`: Some(12), added: 507, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::Dropped` (r:0 w:1)
-	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(41002), added: 41497, mode: `MaxEncodedLen`)
+	/// Proof: `ValidatorCollators::Dropped` (`max_values`: Some(1), `max_size`: Some(40002), added: 40497, mode: `MaxEncodedLen`)
 	fn set_drop_rule() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`

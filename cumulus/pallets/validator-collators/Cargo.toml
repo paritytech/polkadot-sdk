@@ -27,7 +27,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-session = { workspace = true }
-sp-consensus-aura = { workspace = true }
 sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
 
@@ -70,7 +69,6 @@ std = [
 	"rand/std",
 	"rand_chacha/std",
 	"scale-info/std",
-	"sp-consensus-aura/std",
 	"sp-runtime/std",
 	"sp-staking/std",
 	"sp-trie?/std",

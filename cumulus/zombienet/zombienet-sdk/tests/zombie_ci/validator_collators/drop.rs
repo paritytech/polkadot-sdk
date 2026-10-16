@@ -12,13 +12,14 @@
 //!
 //! Test flow:
 //! 1. In one call People gets session keys for a generated account with no node, a drop rule of two
-//!    missed turns, and a validator set holding only that account. The two forced rotations that
-//!    follow the set enact the invulnerable and the account as Aura authorities, and the account's
-//!    activity record starts with no missed turns.
-//! 2. With every second Aura slot empty, People keeps finalizing blocks until the account has
-//!    missed two turns, which takes about two rounds of both authorities in slot time.
-//! 3. Setting no cap, which forces two rotations while a set is stored, drops the account at the
-//!    first rotation and enacts the invulnerable alone at the second.
+//!    missed turns without a floor, and the validator set of era 1 holding the invulnerable and
+//!    that account. The two forced rotations that follow the set enact both as Aura authorities,
+//!    and the account is idle from the first one.
+//! 2. With every second Aura slot empty, People keeps finalizing blocks until `2 n` times
+//!    `MaxBlocksPerSlot` blocks, for `n` authorities, have passed since the account is idle.
+//! 3. The set of era 2, again with both, drops the account for one era at the first rotation, since
+//!    the invulnerable authored and the account did not, and enacts the invulnerable alone at the
+//!    second.
 
 use super::common::{
 	account, build_network_config, current_index, fetch_at, init_logging, keypair, node_seed,
@@ -42,23 +43,26 @@ use zombienet_sdk::subxt::{
 /// The generated account in the validator set, with session keys on People and no node.
 const IDLE_ACCOUNT_URI: &str = "//drop//idle";
 
-/// Consecutive missed turns that drop the account, at the first rotation after the last of them.
-const IDLE_TURNS: u32 = 2;
+/// Turns of its own the account misses before a judgement drops it.
+const MIN_MISSED_TURNS: u32 = 2;
 
-/// Counted slots the account is not returned, from the rotation that enacts the drop.
-const DROP_SLOTS: u64 = 2;
+/// Longest drop of the rule, in eras.
+const MAX_DROP_ERAS: u32 = 4;
 
 /// From the call that stores the set being finalized on the relay chain to People finalizing the
 /// block that enacts the account: the relay chain delivers the message, then People rotates twice.
 const SET_ENACTED_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
-/// Added to the slot time of the account's turns for finality lag, from the block that enacts the
-/// account to People finalizing the block after its last missed turn.
-const TURNS_MARGIN: Duration = Duration::from_secs(2 * 60);
+/// Relay chain block time. In the invulnerable's Aura slots People builds at least one block per
+/// relay chain block, and half of the slots are the account's and stay empty.
+const RELAY_BLOCK_TIME: Duration = Duration::from_secs(6);
 
-/// From the call that sets no cap being finalized on the relay chain to People finalizing the
-/// block that enacts the invulnerable alone: the relay chain delivers the message, then People
-/// rotates twice.
+/// Added for finality lag to the time of the blocks People must build between two judgements.
+const BLOCKS_MARGIN: Duration = Duration::from_secs(2 * 60);
+
+/// From the call that stores the second set being finalized on the relay chain to People
+/// finalizing the block that enacts the invulnerable alone: the relay chain delivers the message,
+/// then People rotates twice.
 const DROP_ENACTED_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
 /// The whole test, below the 60-minute CI step so that the step ends with this error and the log
@@ -66,17 +70,17 @@ const DROP_ENACTED_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 const TEST_TIMEOUT: Duration = Duration::from_secs(40 * 60);
 
 /// `pallet_validator_collators::Activity`.
-#[derive(Debug, PartialEq, Decode)]
-enum Activity {
-	Queued,
-	Active { missed: u32 },
+#[derive(Debug, Decode)]
+struct Activity {
+	authored: bool,
+	idle_since: u32,
 }
 
-/// `pallet_validator_collators::SlotCount`.
-#[derive(Debug, Decode)]
-struct SlotCount {
-	_slot: u64,
-	count: u64,
+/// `pallet_validator_collators::DropRecord`.
+#[derive(Debug, PartialEq, Decode)]
+struct DropRecord {
+	until: u32,
+	drops: u32,
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -119,20 +123,20 @@ async fn run() -> Result<(), anyhow::Error> {
 
 	let idle = account(&keypair(IDLE_ACCOUNT_URI)?);
 	let invulnerable = account(&keypair(&node_seed(people.invulnerable))?);
-	let slot_duration: u64 = people_client
+	let max_blocks_per_slot: u32 = people_client
 		.constants()
-		.at(&subxt::dynamic::constant("Aura", "SlotDuration"))?
+		.at(&subxt::dynamic::constant("ValidatorCollators", "MaxBlocksPerSlot"))?
 		.as_type()?;
 
 	// GIVEN the account with session keys and a drop rule on People
-	// WHEN a validator set holding only the account arrives
+	// WHEN a validator set holding the invulnerable and the account arrives
 	let index_before_set = current_index(&people_client).await?;
 	let set_received = tokio::spawn(wait_for_event(
 		people_client.clone(),
 		people.name,
 		"ValidatorCollators",
 		"ValidatorSetReceived",
-		is_set_of_one_validator,
+		is_set_of_two_validators,
 		SET_ENACTED_TIMEOUT + CALL_TIMEOUT,
 	));
 	// The finalized block streams start at the current head, and the rotations come several
@@ -142,11 +146,11 @@ async fn run() -> Result<(), anyhow::Error> {
 		people.name,
 		SET_ENACTED_TIMEOUT + CALL_TIMEOUT,
 	));
-	store_rule_and_set(&relay_client, &people, idle).await?;
+	store_rule_and_set(&relay_client, &people, idle, invulnerable).await?;
 	set_received.await??;
 
-	// THEN the next two rotations enact the account next to the invulnerable, and its activity
-	// record starts with no missed turns
+	// THEN the next two rotations enact the account next to the invulnerable, and it is idle with
+	// no block
 	let enacted = set_enacted.await??;
 	check_authorities(&people, &enacted, &[invulnerable, idle], index_before_set + 2).await?;
 	let activity: Option<Activity> = fetch_at(
@@ -157,23 +161,21 @@ async fn run() -> Result<(), anyhow::Error> {
 		vec![Value::from_bytes(idle)],
 	)
 	.await?;
-	let expected = Activity::Active { missed: 0 };
-	if activity.as_ref() != Some(&expected) {
-		return Err(anyhow!("activity of the account is {activity:?}, expected {expected:?}"));
-	}
+	let idle_since = match activity {
+		Some(Activity { authored: false, idle_since }) => idle_since,
+		other => return Err(anyhow!("activity of the account is {other:?}, expected idle")),
+	};
 
-	// GIVEN the account misses its turns after its enactment, one per round, while the
-	// invulnerable keeps the chain going
-	let turns_slots = IDLE_TURNS as u64 * enacted.authorities as u64;
-	let turns_timeout = Duration::from_millis(slot_duration * turns_slots) + TURNS_MARGIN;
-	let turns_start = Instant::now();
-	wait_for_missed_turns(&people_client, idle, IDLE_TURNS, turns_timeout).await?;
-	log::info!(
-		"The account missed {IDLE_TURNS} turns in {:?}, {turns_slots} slots of turns",
-		turns_start.elapsed()
-	);
+	// GIVEN People builds the blocks of the account's missed turns, while the invulnerable keeps
+	// the chain going
+	let blocks = MIN_MISSED_TURNS * enacted.authorities as u32 * max_blocks_per_slot;
+	let blocks_timeout = 2 * blocks * RELAY_BLOCK_TIME + BLOCKS_MARGIN;
+	let blocks_start = Instant::now();
+	wait_for_finalized_block(&people_client, people.name, idle_since + blocks, blocks_timeout)
+		.await?;
+	log::info!("{blocks} blocks passed in {:?}", blocks_start.elapsed());
 
-	// WHEN setting no cap forces two rotations
+	// WHEN the set of era 2, again holding the invulnerable and the account, arrives
 	let index_before_drop = current_index(&people_client).await?;
 	let dropped_event = tokio::spawn(wait_for_event(
 		people_client.clone(),
@@ -188,16 +190,7 @@ async fn run() -> Result<(), anyhow::Error> {
 		people.name,
 		DROP_ENACTED_TIMEOUT + CALL_TIMEOUT,
 	));
-	transact_as_root(
-		&relay_client,
-		&people,
-		subxt::dynamic::tx(
-			"ValidatorCollators",
-			"set_max_collators",
-			vec![Value::unnamed_variant("None", [])],
-		),
-	)
-	.await?;
+	transact_as_root(&relay_client, &people, set_validators(2, &[invulnerable, idle])).await?;
 
 	// THEN the first rotation drops the account and the second enacts the invulnerable alone
 	let dropped_at = dropped_event.await??;
@@ -209,15 +202,15 @@ async fn run() -> Result<(), anyhow::Error> {
 		));
 	}
 	check_authorities(&people, &drop_enacted, &[invulnerable], index_before_drop + 2).await?;
-	// AND the second rotation starts the drop of `DROP_SLOTS` counted slots, and the activity
-	// record of the account is gone
-	let dropped: Vec<([u8; 32], Option<u64>)> =
+	// AND the account is dropped for one era, while the stored set is of era 2, and its activity
+	// record is gone
+	let dropped: Vec<([u8; 32], DropRecord)> =
 		fetch_at(&people_client, drop_enacted.hash, "ValidatorCollators", "Dropped", vec![])
 			.await?
 			.unwrap_or_default();
-	let until = Some(counted_slots(&people_client, drop_enacted.hash).await? + DROP_SLOTS);
-	if dropped != vec![(idle, until)] {
-		return Err(anyhow!("drop records are {dropped:?}, expected the account until {until:?}"));
+	let expected = vec![(idle, DropRecord { until: 3, drops: 1 })];
+	if dropped != expected {
+		return Err(anyhow!("drop records are {dropped:?}, expected {expected:?}"));
 	}
 	let activity: Option<Activity> = fetch_at(
 		&people_client,
@@ -243,12 +236,27 @@ async fn run() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
+/// The encoded validators of a set.
+fn validators(accounts: &[[u8; 32]]) -> Value {
+	Value::unnamed_composite(accounts.iter().map(Value::from_bytes))
+}
+
+/// `ValidatorCollators::set_validators` of `era` holding `accounts`.
+fn set_validators(era: u32, accounts: &[[u8; 32]]) -> subxt::tx::DynamicPayload {
+	subxt::dynamic::tx(
+		"ValidatorCollators",
+		"set_validators",
+		vec![Value::u128(era.into()), validators(accounts)],
+	)
+}
+
 /// Through one call from the relay chain: session keys for `idle` whose own public key is its
-/// Aura key, the drop rule, then a validator set of era 1 holding only `idle`.
+/// Aura key, the drop rule, then a validator set of era 1 holding `invulnerable` and `idle`.
 async fn store_rule_and_set(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	people: &Chain<'_>,
 	idle: [u8; 32],
+	invulnerable: [u8; 32],
 ) -> Result<(), anyhow::Error> {
 	let keys = session_key_items(people.client, &[idle])?
 		.into_iter()
@@ -257,9 +265,9 @@ async fn store_rule_and_set(
 		})
 		.collect::<Vec<_>>();
 	let rule = Value::named_composite([
-		("idle_turns", Value::u128(IDLE_TURNS.into())),
-		("drop_slots", Value::u128(DROP_SLOTS.into())),
+		("min_missed_turns", Value::u128(MIN_MISSED_TURNS.into())),
 		("min_collators", Value::u128(0)),
+		("max_drop_eras", Value::u128(MAX_DROP_ERAS.into())),
 	]);
 	let calls = [
 		Value::unnamed_variant(
@@ -277,10 +285,7 @@ async fn store_rule_and_set(
 			"ValidatorCollators",
 			[Value::named_variant(
 				"set_validators",
-				[
-					("era", Value::u128(1)),
-					("validators", Value::unnamed_composite([Value::from_bytes(idle)])),
-				],
+				[("era", Value::u128(1)), ("validators", validators(&[invulnerable, idle]))],
 			)],
 		),
 	];
@@ -290,69 +295,6 @@ async fn store_rule_and_set(
 		subxt::dynamic::tx("Utility", "batch_all", vec![Value::unnamed_composite(calls)]),
 	)
 	.await
-}
-
-/// The slots People counted up to block `at`.
-async fn counted_slots(
-	client: &OnlineClient<PolkadotConfig>,
-	at: subxt::utils::H256,
-) -> Result<u64, anyhow::Error> {
-	let counted: Option<SlotCount> =
-		fetch_at(client, at, "ValidatorCollators", "CountedSlots", vec![]).await?;
-	counted
-		.map(|counted| counted.count)
-		.ok_or_else(|| anyhow!("People counts no slots at {at:?}"))
-}
-
-/// The turns `who` missed up to block `at`: those in its activity record, added at each
-/// rotation, and those counted for its position since the last rotation.
-async fn missed_turns(
-	client: &OnlineClient<PolkadotConfig>,
-	at: subxt::utils::H256,
-	who: [u8; 32],
-) -> Result<u32, anyhow::Error> {
-	let activity: Option<Activity> =
-		fetch_at(client, at, "ValidatorCollators", "LastActivity", vec![Value::from_bytes(who)])
-			.await?;
-	let recorded = match activity {
-		Some(Activity::Active { missed }) => missed,
-		other => return Err(anyhow!("the account has the activity record {other:?} at {at:?}")),
-	};
-	let validators: Vec<[u8; 32]> =
-		fetch_at(client, at, "Session", "Validators", vec![]).await?.unwrap_or_default();
-	let since_rotation: Vec<u16> =
-		fetch_at(client, at, "ValidatorCollators", "MissedTurns", vec![])
-			.await?
-			.unwrap_or_default();
-	let position = validators
-		.iter()
-		.position(|v| *v == who)
-		.ok_or_else(|| anyhow!("the account is no session validator at {at:?}"))?;
-	Ok(recorded + u32::from(since_rotation.get(position).copied().unwrap_or_default()))
-}
-
-/// Waits until People finalizes a block after which `who` missed at least `target` turns.
-async fn wait_for_missed_turns(
-	client: &OnlineClient<PolkadotConfig>,
-	who: [u8; 32],
-	target: u32,
-	timeout: Duration,
-) -> Result<(), anyhow::Error> {
-	let wait = async {
-		let mut blocks = client.blocks().subscribe_finalized().await?;
-		while let Some(block) = blocks.next().await {
-			let block = block?;
-			let missed = missed_turns(client, block.hash(), who).await?;
-			if missed >= target {
-				log::info!("People finalized #{} with {missed} missed turns", block.number());
-				return Ok(());
-			}
-		}
-		Err(anyhow!("People block subscription ended"))
-	};
-	tokio::time::timeout(timeout, wait)
-		.await
-		.map_err(|_| anyhow!("the account did not miss {target} turns within {timeout:?}"))?
 }
 
 /// Checks that `rotation` enacts `expected` as Aura authorities and session validators, in
@@ -393,14 +335,14 @@ async fn check_authorities(
 	Ok(())
 }
 
-/// `ValidatorSetReceived { era: 1, count: 1 }`.
-fn is_set_of_one_validator(fields: &Composite<u32>) -> bool {
+/// `ValidatorSetReceived { era: 1, count: 2 }`.
+fn is_set_of_two_validators(fields: &Composite<u32>) -> bool {
 	fields.at("era").and_then(|era| era.as_u128()) == Some(1) &&
-		fields.at("count").and_then(|count| count.as_u128()) == Some(1)
+		fields.at("count").and_then(|count| count.as_u128()) == Some(2)
 }
 
-/// `CollatorsDropped` with one validator and none kept. The set holds only the account, so the
-/// validator is the account, which the drop records confirm.
+/// `CollatorsDropped` with one validator and none kept. The drop records confirm that the
+/// validator is the account.
 fn is_drop_of_one_validator(fields: &Composite<u32>) -> bool {
 	let one_dropped = fields.at("validators").is_some_and(
 		|validators| matches!(&validators.value, ValueDef::Composite(c) if c.len() == 1),
