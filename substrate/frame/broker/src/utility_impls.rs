@@ -16,18 +16,18 @@
 // limitations under the License.
 
 use super::*;
+use fp_coretime::market::{
+	CoreRangeProvider, RenewalRightsProvider, SoldCoresRange, TimesliceProvider,
+};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::Balanced,
+		fungible::{Balanced, MutateHold},
 		tokens::{Fortitude::Polite, Precision::Exact, Preservation::Expendable},
 		OnUnbalanced,
 	},
 };
-use sp_arithmetic::{
-	traits::{SaturatedConversion, Saturating},
-	FixedPointNumber, FixedU64,
-};
+use sp_arithmetic::traits::{SaturatedConversion, Saturating};
 use sp_runtime::traits::{AccountIdConversion, BlockNumberProvider};
 
 impl<T: Config> Pallet<T> {
@@ -59,49 +59,28 @@ impl<T: Config> Pallet<T> {
 		T::PalletId::get().into_account_truncating()
 	}
 
-	pub fn sale_price(sale: &SaleInfoRecordOf<T>, now: RelayBlockNumberOf<T>) -> BalanceOf<T> {
-		let num = now.saturating_sub(sale.sale_start).min(sale.leadin_length).saturated_into();
-		let through = FixedU64::from_rational(num, sale.leadin_length.saturated_into());
-		T::PriceAdapter::leadin_factor_at(through).saturating_mul_int(sale.end_price)
-	}
-
 	pub(crate) fn charge(who: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 		let credit = T::Currency::withdraw(&who, amount, Exact, Expendable, Polite)?;
 		T::OnRevenue::on_unbalanced(credit);
 		Ok(())
 	}
 
-	/// Buy a core at the specified price (price is to be determined by the caller).
-	///
-	/// Note: It is the responsibility of the caller to write back the changed `SaleInfoRecordOf` to
-	/// storage.
-	pub(crate) fn purchase_core(
-		who: &T::AccountId,
-		price: BalanceOf<T>,
-		sale: &mut SaleInfoRecordOf<T>,
-	) -> Result<CoreIndex, DispatchError> {
-		Self::charge(who, price)?;
-		log::debug!("Purchased core at: {:?}", price);
-		let core = sale.first_core.saturating_add(sale.cores_sold);
-		sale.cores_sold.saturating_inc();
-		if sale.cores_sold <= sale.ideal_cores_sold || sale.sellout_price.is_none() {
-			sale.sellout_price = Some(price);
-		}
-		Ok(core)
+	pub(crate) fn lock_funds(who: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+		T::Currency::hold(&HoldReason::CoretimeBid.into(), who, amount)
+	}
+
+	pub(crate) fn refund(who: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+		T::Currency::release(&HoldReason::CoretimeBid.into(), who, amount, Exact).map(|_| ())
 	}
 
 	pub fn issue(
-		core: CoreIndex,
-		begin: Timeslice,
-		mask: CoreMask,
+		region_id: RegionId,
 		end: Timeslice,
 		owner: Option<T::AccountId>,
 		paid: Option<BalanceOf<T>>,
-	) -> RegionId {
-		let id = RegionId { begin, core, mask };
+	) {
 		let record = RegionRecord { end, owner, paid };
-		Regions::<T>::insert(&id, &record);
-		id
+		Regions::<T>::insert(&region_id, &record);
 	}
 
 	pub(crate) fn utilize(
@@ -170,5 +149,51 @@ impl<T: Config> Pallet<T> {
 
 			Self::deposit_event(Event::<T>::RegionUnpooled { region_id, when: unpooled_at });
 		};
+	}
+}
+
+pub struct CoreRangeProviderImpl<T: Config>(PhantomData<T>);
+
+impl<T: Config> CoreRangeProvider for CoreRangeProviderImpl<T> {
+	fn core_range() -> Option<SoldCoresRange> {
+		let reserved = Reservations::<T>::decode_len().unwrap_or_default() as CoreIndex +
+			Leases::<T>::decode_len().unwrap_or_default() as CoreIndex;
+		let core_count = Status::<T>::get()?.core_count;
+
+		Some(SoldCoresRange { from: reserved, to: core_count })
+	}
+}
+
+pub struct TimesliceProviderImpl<T: Config>(PhantomData<T>);
+
+impl<T: Config> TimesliceProvider for TimesliceProviderImpl<T> {
+	fn next_timeslice_to_commit() -> Option<Timeslice> {
+		if let (Some(status), Some(config)) = (Status::<T>::get(), Configuration::<T>::get()) {
+			Pallet::<T>::next_timeslice_to_commit(&config, &status)
+		} else {
+			None
+		}
+	}
+
+	fn latest_timeslice_ready_to_commit() -> Option<Timeslice> {
+		let Some(config) = Configuration::<T>::get() else {
+			return None;
+		};
+
+		let latest = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let advanced = latest.saturating_add(config.advance_notice);
+		let timeslice_period = T::TimeslicePeriod::get();
+		Some((advanced / timeslice_period).saturated_into())
+	}
+}
+
+impl<T: Config> RenewalRightsProvider<T::AccountId> for Pallet<T> {
+	fn renewal_rights_count(who: &T::AccountId, when: Timeslice) -> RenewalRightsCount {
+		RenewalRights::<T>::get(RenewalRightsId { owner: who.clone(), when }).unwrap_or_default()
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_rights_count(who: &T::AccountId, when: Timeslice, count: RenewalRightsCount) {
+		RenewalRights::<T>::insert(RenewalRightsId { owner: who.clone(), when }, count);
 	}
 }
