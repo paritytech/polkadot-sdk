@@ -68,7 +68,7 @@ pub use message::{
 	ExchangeRequest, ExchangeResponse, ExchangeVerified, MessagesRequest, MessagesResponse,
 	VerifiedEvent, VerifyError, MAX_MESSAGES_PER_RESPONSE, MAX_SPECULATIVE_MESSAGE_LEN,
 };
-pub use mmr::{MessagePosition, MmrFrontier, MmrRoot};
+pub use mmr::{FrontierFull, MessagePosition, MmrFrontier, MmrRoot};
 pub use stream::{PrivateKind, StreamId, STREAM_ID_LEN};
 pub use streams_root::{StreamProof, StreamsRoot};
 

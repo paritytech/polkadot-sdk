@@ -102,6 +102,10 @@ pub fn bag_peaks(peaks: &[Hash]) -> Option<Hash> {
 	bagging_peaks_hashes::<Hash, SpecMerge>(peaks.to_vec()).ok()
 }
 
+/// [`MmrFrontier::try_append`] refused a leaf: the frontier already holds [`MAX_MMR_LEAF_COUNT`].
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct FrontierFull;
+
 /// A stream's committed root at some point in its history: the leaf count bound over the bagged
 /// peaks. A newtype so it cannot be confused with a `StreamsRoot`, the commitment-tree root.
 #[derive(Clone, Copy, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
@@ -167,8 +171,14 @@ impl MmrFrontier {
 	}
 
 	/// Append a leaf, merging equal-height peaks via [`SpecMerge`] (matching `mmr_lib`'s
-	/// internal node construction). Preserves both constructor invariants.
-	pub fn append(&mut self, leaf: Hash) {
+	/// internal node construction). Preserves both constructor invariants: a frontier already at
+	/// [`MAX_MMR_LEAF_COUNT`] is left unchanged and the leaf refused, so every frontier still
+	/// decodes. A frontier built from untrusted parts can be at the ceiling, so its appends must
+	/// go through here.
+	pub fn try_append(&mut self, leaf: Hash) -> Result<(), FrontierFull> {
+		if self.leaf_count >= MAX_MMR_LEAF_COUNT {
+			return Err(FrontierFull);
+		}
 		let mut node = leaf;
 		// Going from `leaf_count` to `leaf_count + 1` merges exactly
 		// `trailing_zeros(leaf_count + 1)` pairs of peaks (binary-counter carry).
@@ -184,6 +194,19 @@ impl MmrFrontier {
 			.try_push(node)
 			.expect("a `u64` leaf count never has more than 64 set bits; qed");
 		self.leaf_count += 1;
+		Ok(())
+	}
+
+	/// [`try_append`](Self::try_append) for a frontier this chain built itself, from the empty
+	/// frontier one leaf at a time.
+	///
+	/// # Panics
+	///
+	/// At [`MAX_MMR_LEAF_COUNT`], which no stream reaches: `2^48` leaves are beyond any chain's
+	/// lifetime. Never call it on a frontier built from untrusted parts.
+	pub fn append(&mut self, leaf: Hash) {
+		self.try_append(leaf)
+			.expect("a frontier built leaf by leaf never reaches `MAX_MMR_LEAF_COUNT`; qed")
 	}
 
 	/// The root: the leaf count bound over the bagged peaks ([`MmrRoot::from_bag`]). The empty
@@ -363,6 +386,23 @@ mod tests {
 				"109ccf71e0b753f6ff76d7f48e59f6376c1347bea4556b20c4a453a2cb8ca28d"
 			))
 		);
+	}
+
+	#[test]
+	fn no_append_carries_a_frontier_past_the_ceiling() {
+		// A frontier built from untrusted parts can sit at the ceiling. Its next leaf is refused
+		// and the frontier left as it was, so it still decodes; one below, the last leaf fits.
+		let mut full = MmrFrontier::from_parts(vec![h(1)], MAX_MMR_LEAF_COUNT).unwrap();
+		assert_eq!(full.try_append(h(2)), Err(FrontierFull));
+		assert_eq!(full.leaf_count(), MAX_MMR_LEAF_COUNT);
+		assert_eq!(MmrFrontier::decode(&mut &full.encode()[..]).unwrap(), full);
+
+		let below = MAX_MMR_LEAF_COUNT - 1;
+		let mut last =
+			MmrFrontier::from_parts(vec![h(1); below.count_ones() as usize], below).unwrap();
+		assert_eq!(last.try_append(h(2)), Ok(()));
+		assert_eq!(last.leaf_count(), MAX_MMR_LEAF_COUNT);
+		assert_eq!(MmrFrontier::decode(&mut &last.encode()[..]).unwrap(), last);
 	}
 
 	#[test]

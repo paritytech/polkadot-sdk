@@ -40,7 +40,7 @@ use sp_runtime::{traits::Hash as HashT, BoundedVec};
 
 use crate::{
 	lift::{MMRExtensionProof, MmrInclusionProof, ProofError},
-	mmr::{MessagePosition, MmrFrontier},
+	mmr::{MessagePosition, MmrFrontier, MAX_MMR_LEAF_COUNT},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
 	SpecHasher, LEAF_TAG,
@@ -173,11 +173,12 @@ pub(crate) fn verify_messages_response(
 	// nor reach the node-position arithmetic. A rejected response is unverifiable, without a panic.
 	let mut frontier = MmrFrontier::from_parts(resp.start_peaks.clone(), resp.base.0)
 		.ok_or(VerifyError::MalformedResponse)?;
-	// `base + len` overflowing the leaf counter is unreachable under the ceiling. Kept so the
-	// accumulator arithmetic is total on its own.
+	// The frontier after the payloads must stay within `MAX_MMR_LEAF_COUNT`, or it would not
+	// decode. Checked up front; `try_append` refuses it too.
 	resp.base
 		.0
 		.checked_add(resp.payloads.len() as u64)
+		.filter(|end| *end <= MAX_MMR_LEAF_COUNT)
 		.ok_or(VerifyError::MalformedResponse)?;
 	// No payload may exceed the protocol's single-message bound (defense-in-depth against a crafted
 	// response inflating the hashed input; the transport also caps total response size).
@@ -191,7 +192,9 @@ pub(crate) fn verify_messages_response(
 
 	// Append the response's payloads as leaves onto the frontier at `base`.
 	for payload in &resp.payloads {
-		frontier.append(leaf_hash(resp.leaf_version, payload));
+		frontier
+			.try_append(leaf_hash(resp.leaf_version, payload))
+			.map_err(|_| VerifyError::MalformedResponse)?;
 	}
 
 	// Extend to the stream's current root, then walk the tree to the committed `StreamsRoot`.
@@ -722,6 +725,21 @@ mod tests {
 		};
 		assert_eq!(
 			verify_messages_response(stream, under, &too_large),
+			Err(VerifyError::MalformedResponse),
+		);
+
+		// A `base` at the ceiling is a valid frontier, but its next leaf would carry the count past
+		// it: the frontier would no longer decode. Rejected before anything is appended.
+		let at_ceiling = MessagesResponse {
+			base: MessagePosition(MAX_MMR_LEAF_COUNT),
+			leaf_version: 0,
+			payloads: vec![vec![0x01]].try_into().unwrap(),
+			start_peaks: vec![H256::zero(); 1],
+			extension: MMRExtensionProof::identity(),
+			tree_proof: StreamProof { steps: Default::default() },
+		};
+		assert_eq!(
+			verify_messages_response(stream, under, &at_ceiling),
 			Err(VerifyError::MalformedResponse),
 		);
 
