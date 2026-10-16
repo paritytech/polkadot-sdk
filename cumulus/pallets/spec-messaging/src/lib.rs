@@ -37,8 +37,8 @@ use cumulus_primitives_spec_messaging::{
 	leaf_hash, streams_root::streams_root, ChannelId, ChannelPhase, ConsumeItem, ConsumedStream,
 	ConsumptionRecord, InChannelState, Interval, MMRExtensionProof, MessagePosition,
 	MessagingInherentData, MmrFrontier, OutChannelState, Payload, ProvideConsumptionRecord, Register,
-	SpecMsgKind, SpecMsgSignal, StreamId, StreamsRoot, WindowGrant, INHERENT_IDENTIFIER,
-	LEAF_VERSION, SPMS_ENGINE_ID,
+	RegisterRead, SpecMsgKind, SpecMsgSignal, StreamId, StreamsRoot, WindowGrant,
+	INHERENT_IDENTIFIER, LEAF_VERSION, SPMS_ENGINE_ID,
 };
 use frame_support::{ensure, pallet_prelude::Weight, traits::Get, BoundedVec};
 use polkadot_core_primitives::Hash;
@@ -69,9 +69,6 @@ pub struct OutChannelMeta {
 	pub sizes: Vec<u32>,
 	/// Sum of `sizes`.
 	pub bytes: u64,
-	/// Position on the peer's `Ack` stream of the last applied register. The lift binds it and
-	/// the stream only grows, so an older register is never applied over a newer one.
-	pub read_at: Option<MessagePosition>,
 }
 
 impl OutChannelMeta {
@@ -977,7 +974,7 @@ impl<T: Config> Pallet<T> {
 		state: &OutChannelState,
 		size: usize,
 	) -> Result<(), Error<T>> {
-		let grant = state.register.map(|register| register.grant).unwrap_or_default();
+		let grant = state.register.map(|read| read.register.grant).unwrap_or_default();
 		ensure!(size as u64 <= u64::from(grant.max_message_size), Error::<T>::MessageTooBig);
 		let cap = T::MaxInFlight::get();
 		let meta = OutChannelsMeta::<T>::get(channel);
@@ -1030,18 +1027,17 @@ impl<T: Config> Pallet<T> {
 	fn apply_register_read(channel: &ChannelId, position: MessagePosition, register: Register) {
 		let Some(mut state) = OutChannels::<T>::get(channel) else { return };
 		if let Some(previous) = state.register {
-			if register.up_to < previous.up_to || register.version < previous.version {
+			if position < previous.at ||
+				register.up_to < previous.register.up_to ||
+				register.version < previous.register.version
+			{
 				return;
 			}
 		}
 		let mut meta = OutChannelsMeta::<T>::get(channel);
-		if meta.read_at.is_some_and(|read_at| position < read_at) {
-			return;
-		}
-		meta.read_at = Some(position);
 		meta.confirm(register.up_to);
 		OutChannelsMeta::<T>::insert(channel, meta);
-		state.register = Some(register);
+		state.register = Some(RegisterRead { at: position, register });
 		OutChannels::<T>::insert(channel, state);
 	}
 }

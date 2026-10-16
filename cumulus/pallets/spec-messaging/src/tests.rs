@@ -18,8 +18,9 @@ use codec::Encode;
 use cumulus_primitives_core::ParaId;
 use cumulus_primitives_spec_messaging::{
 	leaf_hash,
+	lift::{build_requires_entry, RequiresLift},
 	mmr::SpecMerge,
-	streams_root::{read_streams_root, streams_root},
+	streams_root::{gen_stream_proof, read_streams_root, streams_root},
 	ChannelId, ChannelPhase, ConsumeItem, ConsumedStream, ConsumptionRecord, Interval,
 	MMRExtensionProof, MessagePosition, MessagingInherentData, MmrFrontier, ProvideConsumptionRecord,
 	Register, SpecMsgKind, SpecMsgSignal, StreamId, StreamsRoot, WindowGrant, LEAF_VERSION,
@@ -646,7 +647,7 @@ fn a_regressing_register_is_ignored() {
 			read_register(1, register(0, TestGrant::get()))
 		));
 		let state = OutChannels::<Test>::get(out_channel()).expect("opened");
-		assert_eq!(state.register, Some(register(1, TestGrant::get())));
+		assert_eq!(state.register.map(|read| read.register), Some(register(1, TestGrant::get())));
 	});
 }
 
@@ -691,11 +692,100 @@ fn an_older_register_never_replaces_a_newer_one() {
 
 		// The open register at position 0 is still a valid lift; it is ignored.
 		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(0, open)));
-		assert_eq!(OutChannels::<Test>::get(out_channel()).unwrap().register, Some(closed));
+		assert_eq!(
+			OutChannels::<Test>::get(out_channel())
+				.unwrap()
+				.register
+				.map(|read| read.register),
+			Some(closed)
+		);
 		assert_err!(
 			SpecMessaging::send(out_channel(), b"x".to_vec()),
 			Error::<Test>::ChannelNotOpen
 		);
+	});
+}
+
+#[test]
+fn an_older_grant_never_replaces_a_suspension() {
+	new_test_ext().execute_with(|| {
+		open_out_channel();
+		roll_one_block();
+		let open = register(0, TestGrant::get());
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(0, open)));
+		roll_one_block();
+		// The peer suspends: a zero grant at the same watermark and version.
+		let suspended = Register { grant: WindowGrant::default(), ..open };
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			read_register(1, suspended)
+		));
+		roll_one_block();
+
+		// Replaying the open grant, a leaf still under every later root, is ignored.
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(0, open)));
+		let state = OutChannels::<Test>::get(out_channel()).unwrap();
+		assert_eq!(state.register.map(|read| read.register), Some(suspended));
+		// A zero grant also allows no message size, so any send is refused.
+		assert_err!(
+			SpecMessaging::send(out_channel(), b"x".to_vec()),
+			Error::<Test>::MessageTooBig
+		);
+	});
+}
+
+#[test]
+fn a_forged_register_position_lifts_to_no_committed_root() {
+	new_test_ext().execute_with(|| {
+		open_out_channel();
+		roll_one_block();
+		// The peer's `Ack` stream holds three registers, committed under its `StreamsRoot`.
+		let registers: Vec<Vec<u8>> =
+			(0..3).map(|up_to| register(up_to, TestGrant::get()).encode()).collect();
+		let mut before_head = MmrFrontier::new();
+		for leaf in &registers[..2] {
+			before_head.append(leaf_hash(LEAF_VERSION, leaf));
+		}
+		let mut head = before_head.clone();
+		head.append(leaf_hash(LEAF_VERSION, &registers[2]));
+		let entries = BTreeMap::from([(peer_ack(), head.root().0)]);
+		let committed = streams_root(&entries).unwrap();
+		let (_, tree_proof) = gen_stream_proof(&entries, peer_ack()).unwrap();
+		let lift = RequiresLift {
+			advances: Vec::new(),
+			extension: MMRExtensionProof::identity(),
+			tree_proof,
+		};
+		let read = |base: u64| {
+			assert_ok!(SpecMessaging::enact_messages(
+				RuntimeOrigin::none(),
+				inherent(vec![(
+					peer(),
+					peer_ack(),
+					ConsumeItem::Events {
+						base: MessagePosition(base),
+						start_peaks: before_head.peaks().to_vec(),
+						payloads: vec![registers[2].clone()],
+					},
+				)])
+			));
+			let record = SpecMessaging::consumption_record();
+			roll_one_block();
+			let streams = record.entries[&peer()]
+				.iter()
+				.map(|(stream, interval)| (*stream, vec![interval.clone()]))
+				.collect();
+			build_requires_entry(&streams, &[lift.clone()])
+		};
+
+		// The same peaks fit position `2^47`. The runtime cannot tell (it never sees the peer's
+		// count) and applies the read; the lift is what rejects it, since its root is not
+		// committed, so no candidate carrying this block can be backed.
+		assert_ne!(read(1 << 47), Ok(committed));
+		let applied = OutChannels::<Test>::get(out_channel()).unwrap().register.unwrap();
+		assert_eq!(applied.at, MessagePosition(1 << 47));
+		// The true position lifts.
+		assert_eq!(read(2), Ok(committed));
 	});
 }
 
@@ -977,13 +1067,13 @@ fn rereading_an_unchanged_register_head_is_harmless() {
 		open_and_accepted();
 		roll_one_block();
 
-		// Reads keep no position state: the same head again is accepted and changes nothing.
+		// The same head again is accepted and changes nothing.
 		assert_ok!(SpecMessaging::enact_messages(
 			RuntimeOrigin::none(),
 			read_register(0, register(0, TestGrant::get()))
 		));
 		let state = OutChannels::<Test>::get(out_channel()).expect("opened");
-		assert_eq!(state.register, Some(register(0, TestGrant::get())));
+		assert_eq!(state.register.map(|read| read.register), Some(register(0, TestGrant::get())));
 
 		// The read is still recorded at its context: the rebuilt frontier plus the register leaf.
 		let record = SpecMessaging::consumption_record();
