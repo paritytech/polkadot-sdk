@@ -167,7 +167,7 @@ impl MMRExtensionProof {
 			old_positions.into_iter().zip(from.peaks().iter().copied()).collect();
 		NodeMerkleProof::<Hash, SpecMerge>::new(new_mmr_size, proof)
 			.calculate_root(nodes)
-			.map(MmrRoot)
+			.map(|bag| MmrRoot::from_bag(self.leaf_count, bag))
 			.map_err(|_| ProofError::InvalidProof)
 	}
 }
@@ -276,7 +276,7 @@ impl MmrInclusionProof {
 		let pos = leaf_index_to_pos(position.0);
 		MerkleProof::<Hash, SpecMerge>::new(self.mmr_size, self.items.clone())
 			.calculate_root(vec![(pos, leaf)])
-			.map(MmrRoot)
+			.map(|bag| MmrRoot::from_bag(self.leaf_count(), bag))
 			.map_err(|_| ProofError::InvalidProof)
 	}
 }

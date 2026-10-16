@@ -14,7 +14,7 @@ sorts like the field tuple.
 
 ## 1. Hash domain tags
 
-One byte, always the first preimage byte. All six values are disjoint and frozen; a new hashing
+One byte, always the first preimage byte. All seven values are disjoint and frozen; a new hashing
 context takes a fresh tag.
 
 | Tag | Value | Preimage |
@@ -25,6 +25,7 @@ context takes a fresh tag.
 | `EMPTY_TAG` | `0x04` | empty-frontier root (§3.3) |
 | `TREE_LEAF_TAG` | `0x05` | commitment-tree leaf (`STREAMS_LEAF_TAG` in code) |
 | `TREE_INNER_TAG` | `0x06` | commitment-tree inner node (`STREAMS_INNER_TAG` in code) |
+| `ROOT_TAG` | `0x07` | stream root: leaf count over the bagged peaks (§3.2) |
 
 Values, not names, are consensus.
 
@@ -61,16 +62,24 @@ source, destination, position, or length prefix (design §Leaf Hashing).
 Pinned: `H(0x01 ‖ 0x00 ‖ "hello")` =
 `cd31917fb8992dae762dbaaf276d8eb65aa89cdfb87daf69e05f8c08b490e78b`.
 
-### 3.2 Inner node and peak bagging
+### 3.2 Inner node, peak bagging and root
 
 ```
 inner = H(INNER_TAG ‖ left ‖ right)
-root  = bag(peaks):  bag([p]) = p
-        bag([p1..pn]) = H(PEAK_TAG ‖ bag([p2..pn]) ‖ p1)
+bag([p])      = p
+bag([p1..pn]) = H(PEAK_TAG ‖ bag([p2..pn]) ‖ p1)
+root          = H(ROOT_TAG ‖ leaf_count:8 LE ‖ bag(peaks))    (41-byte preimage; leaf_count ≥ 1)
 ```
 
 Peaks are ordered highest (largest subtree, leftmost) to lowest. Bagging is a right fold with the
-accumulated right side as the first hash argument (`mmr_lib`'s `merge_peaks(right, left)`).
+accumulated right side as the first hash argument (`mmr_lib`'s `merge_peaks(right, left)`), so
+`bag(peaks)` equals `mmr_lib`'s `get_root`.
+
+The root binds the leaf count because peak hashes do not commit their heights: the same peaks bag
+identically at many counts (the two peaks of 3 leaves are also a valid frontier of `2^47 + 1`).
+Without the count, a peer could present a committed root at a forged position (`base`,
+`MmrInclusionProof.mmr_size`, `MMRExtensionProof.leaf_count`). With it, every root comparison is also
+a count comparison. The empty frontier keeps its constant root (§3.3).
 
 ### 3.3 Frontier and position
 
@@ -258,9 +267,11 @@ struct Interval { start: MmrRoot, end: MmrFrontier }
   exactly one payload, the head `Register`. The frontier is rebuilt with
   `MmrFrontier::from_parts(start_peaks, base)` and the head appended; `end` = that frontier and
   `start` = its root, so the interval is empty: a read advances nothing. `base` and `start_peaks`
-  are unproven hints; a lie yields a root no lift can bind. A read is never rejected for its
-  position; the STF ignores one older than the last applied read, or whose monotonic fields go
-  backwards. Any other `Events` stream invalidates the block.
+  are unproven hints; a lie yields a root no lift can bind, since the root binds the leaf count
+  (§3.2). A read is never rejected for its position; the STF ignores one below the last applied
+  read's position (`RegisterRead.at` in `OutChannelState`), or whose monotonic fields go backwards. Ordering by
+  position is needed: a suspend, a resume or a close leaves `up_to` and `version` unchanged. Any
+  other `Events` stream invalidates the block.
 - Broadcast event streams (not implemented): `payloads.len() ≥ 1`, and the replay guard is a
   highwater: `base` must exceed it, and it then becomes `base + len − 1`.
 - One interval per stream per block; at most one inherent item per stream; strict-on-import, one
@@ -299,8 +310,8 @@ A conforming implementation reproduces every family. Status of the Rust pins in 
 crate:
 
 1. **StreamId**: encode/decode round-trips per kind, reserved-kind rejection, ordering. Pinned.
-2. **MMR**: leaf known-answer (§3.1), empty root (§3.3), bagging at 5, 64 and 65 leaves (the last
-   two from an independent implementation of §3.2), frontier round-trips. Pinned.
+2. **MMR**: leaf known-answer (§3.1), empty root (§3.3), roots at 5, 64 and 65 leaves (all three
+   from an independent implementation of §3.2), frontier round-trips. Pinned.
 3. **Tree**: `tree_hash` known-answer, proof round-trip, non-decreasing step order rejected. Pinned.
    Adversarially-close keys and key-aliasing negatives: not pinned.
 4. **Extension/advance**: the 3-vs-4-leaf equal-node-count case, identity (including the empty-root

@@ -50,7 +50,7 @@ pub mod mmr;
 pub mod stream;
 pub mod streams_root;
 
-pub use channel::{ChannelId, ChannelPhase, InChannelState, OutChannelState};
+pub use channel::{ChannelId, ChannelPhase, InChannelState, OutChannelState, RegisterRead};
 pub use flow_control::{Register, SpecMsgKind, SpecMsgSignal, WindowGrant};
 pub use inherent::{
 	ConsumeItem, ConsumedStream, MessagingInherentData, Payload, INHERENT_IDENTIFIER,
@@ -95,6 +95,10 @@ pub const STREAMS_LEAF_TAG: u8 = 0x5;
 
 /// Commitment-tree inner node: `H(STREAMS_INNER_TAG ++ split_bit ++ left[32] ++ right[32])`.
 pub const STREAMS_INNER_TAG: u8 = 0x6;
+
+/// Stream root: `H(ROOT_TAG ++ leaf_count[8, LE] ++ bag(peaks)[32])` ([`mmr::MmrRoot::from_bag`]).
+/// Binding the count stops a peer from presenting the same peaks at a forged position.
+pub const ROOT_TAG: u8 = 0x7;
 
 /// Leaf preimage version. Versions are hash-disjoint, so the layout can change without old leaves
 /// colliding with new ones.

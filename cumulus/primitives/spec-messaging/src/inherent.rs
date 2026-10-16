@@ -97,11 +97,11 @@ impl ConsumedStream {
 /// The messaging inherent: this block's consumption, per `(source, stream)`.
 ///
 /// Strict on import. Dispatch is mandatory and first in the block. One invalid item (duplicate or
-/// undeclared stream, cap violation, kind/discipline mismatch, `base` at or below the highwater)
-/// invalidates the block. Bad items are filtered when building, not tolerated on import: inherent
-/// items pay no fees, so tolerance would let a collator pad blocks. It also keeps
-/// [`crate::ConsumptionRecord`] simple: every item, no rejected-item bookkeeping. A block that
-/// fetched nothing carries no inherent.
+/// undeclared stream, cap violation, kind/discipline mismatch, `base` at or below an event
+/// stream's highwater) invalidates the block. Bad items are filtered when building, not tolerated
+/// on import: inherent items pay no fees, so tolerance would let a collator pad blocks. It also
+/// keeps [`crate::ConsumptionRecord`] simple: every item, no rejected-item bookkeeping. A block
+/// that fetched nothing carries no inherent.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct MessagingInherentData {
 	/// One item per stream consumed this block.
@@ -155,8 +155,10 @@ pub enum ConsumeItem {
 	/// consumer does not keep. `payloads.len() >= 1`; a register or head read is the
 	/// single-payload case at the head. `base` and `start_peaks` are hints: the STF rebuilds the
 	/// frontier with `MmrFrontier::from_parts`, and a lie in either yields a root no lift can
-	/// bind. Replay is stopped by the highwater rule: `base` must exceed the stream's highwater,
-	/// consumption is ascending, and the highwater becomes `base + len - 1`.
+	/// bind, since the stream root binds the leaf count (`MmrRoot::from_bag`). Replay of an older
+	/// leaf is stopped by position: a register read below the stored `RegisterRead::at` is
+	/// ignored; an event read must exceed the stream's highwater, consumption is ascending, and
+	/// the highwater becomes `base + len - 1`.
 	#[codec(index = 1)]
 	Events { base: MessagePosition, start_peaks: Vec<Hash>, payloads: Vec<Payload> },
 }

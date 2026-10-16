@@ -358,12 +358,13 @@ mod tests {
 			build_requires, ConsumptionRecord, Interval, LiftsBySource, MmrInclusionProof,
 			RequiresLift,
 		},
-		mmr::{root_from_peaks, SpecMerge},
+		mmr::{MmrRoot, SpecMerge},
 		streams_root::{gen_stream_proof, streams_root, TreeStep},
 	};
 	use alloc::collections::BTreeMap;
 	use codec::Encode;
 	use mmr_lib::{
+		helper::get_peak_map,
 		leaf_index_to_mmr_size,
 		util::{MemMMR, MemStore},
 	};
@@ -391,6 +392,11 @@ mod tests {
 		frontier
 	}
 
+	/// The stream root of an `mmr_lib` MMR: its bag bound to the leaf count.
+	fn bound(mmr_size: u64, bag: Hash) -> Hash {
+		MmrRoot::from_bag(get_peak_map(mmr_size), bag).0
+	}
+
 	/// The stream root over the first `n` leaves.
 	fn current_root(leaves: &[Hash], n: usize) -> Hash {
 		let store = MemStore::<Hash>::default();
@@ -398,7 +404,7 @@ mod tests {
 		for l in &leaves[..n] {
 			mmr.push(*l).unwrap();
 		}
-		mmr.get_root().unwrap()
+		bound(mmr.mmr_size(), mmr.get_root().unwrap())
 	}
 
 	/// O(log n) ancestry extension from `k` leaves to `n` leaves.
@@ -516,7 +522,7 @@ mod tests {
 		for p in &payloads {
 			src.push(leaf_hash(0, p)).unwrap();
 		}
-		let stream_root = src.get_root().unwrap();
+		let stream_root = bound(src.mmr_size(), src.get_root().unwrap());
 
 		let stream = ch(2000);
 		let entries = BTreeMap::from([(stream, stream_root)]);
@@ -539,7 +545,7 @@ mod tests {
 		for p in &resp.payloads {
 			mmr.append(leaf_hash(0, p));
 		}
-		assert_eq!(root_from_peaks(mmr.peaks()), Some(stream_root));
+		assert_eq!(mmr.root().0, stream_root);
 	}
 
 	#[test]
@@ -551,7 +557,7 @@ mod tests {
 			src.push(leaf_hash(0, p)).unwrap();
 		}
 		let stream = ch(2000);
-		let entries = BTreeMap::from([(stream, src.get_root().unwrap())]);
+		let entries = BTreeMap::from([(stream, bound(src.mmr_size(), src.get_root().unwrap()))]);
 		let under = streams_root(&entries).unwrap();
 		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
@@ -603,7 +609,7 @@ mod tests {
 			src.push(leaf_hash(0, p)).unwrap();
 		}
 		let stream = ch(2000);
-		let entries = BTreeMap::from([(stream, src.get_root().unwrap())]);
+		let entries = BTreeMap::from([(stream, bound(src.mmr_size(), src.get_root().unwrap()))]);
 		let under = streams_root(&entries).unwrap();
 		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
@@ -726,7 +732,7 @@ mod tests {
 		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		let positions: Vec<u64> =
 			payloads.iter().map(|p| src.push(leaf_hash(0, p)).unwrap()).collect();
-		let stream_root = src.get_root().unwrap();
+		let stream_root = bound(src.mmr_size(), src.get_root().unwrap());
 
 		let entries = BTreeMap::from([(stream, stream_root)]);
 		let under = streams_root(&entries).unwrap();
@@ -793,6 +799,30 @@ mod tests {
 	}
 
 	#[test]
+	fn event_response_rejects_a_forged_head_position() {
+		// The two peaks of 3 leaves also form a frontier of `2^47 + 1` leaves, and bag identically.
+		// A server claiming that size in `mmr_size` must not pass the head off at position `2^47`.
+		let stream = ch(2000);
+		let payloads: Vec<Vec<u8>> = (0..3u8).map(|i| vec![i]).collect();
+		let leaves: Vec<Hash> = payloads.iter().map(|p| leaf_hash(0, p)).collect();
+		let entries = BTreeMap::from([(stream, frontier_at(&leaves, 3).root().0)]);
+		let under = streams_root(&entries).unwrap();
+		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
+
+		let forged_count = (1u64 << 47) + 1;
+		let resp = EventResponse {
+			payload: payloads[2].clone(),
+			leaf_version: 0,
+			inclusion: MmrInclusionProof {
+				mmr_size: leaf_index_to_mmr_size(forged_count - 1),
+				items: frontier_at(&leaves, 2).peaks().to_vec(),
+			},
+			tree_proof,
+		};
+		assert_eq!(verify_event_response(stream, under, &resp), Err(VerifyError::RootMismatch));
+	}
+
+	#[test]
 	fn positional_event_response_round_trips_under_streams_root() {
 		let stream = ch(2000);
 		let payloads: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i, i.wrapping_add(7)]).collect();
@@ -801,7 +831,7 @@ mod tests {
 		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		let positions: Vec<u64> =
 			payloads.iter().map(|p| src.push(leaf_hash(0, p)).unwrap()).collect();
-		let stream_root = src.get_root().unwrap();
+		let stream_root = bound(src.mmr_size(), src.get_root().unwrap());
 
 		let entries = BTreeMap::from([(stream, stream_root)]);
 		let under = streams_root(&entries).unwrap();
@@ -895,7 +925,8 @@ mod tests {
 			msrc.push(leaf_hash(0, p)).unwrap();
 		}
 		let mstream = ch(2000);
-		let mentries = BTreeMap::from([(mstream, msrc.get_root().unwrap())]);
+		let mentries =
+			BTreeMap::from([(mstream, bound(msrc.mmr_size(), msrc.get_root().unwrap()))]);
 		let munder = streams_root(&mentries).unwrap();
 		let (_r, mtree) = gen_stream_proof(&mentries, mstream).unwrap();
 		let mresp = MessagesResponse {
@@ -921,7 +952,8 @@ mod tests {
 		let epos: Vec<u64> =
 			epayloads.iter().map(|p| esrc.push(leaf_hash(0, p)).unwrap()).collect();
 		let estream = ch(3000);
-		let eentries = BTreeMap::from([(estream, esrc.get_root().unwrap())]);
+		let eentries =
+			BTreeMap::from([(estream, bound(esrc.mmr_size(), esrc.get_root().unwrap()))]);
 		let eunder = streams_root(&eentries).unwrap();
 		let (_r2, etree) = gen_stream_proof(&eentries, estream).unwrap();
 		let ehead = epayloads.len() - 1;

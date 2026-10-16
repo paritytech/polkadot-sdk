@@ -25,7 +25,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use scale_info::TypeInfo;
 
-use crate::flow_control::Register;
+use crate::{flow_control::Register, mmr::MessagePosition};
 
 /// Channel discriminator. `peer` is the other end: the recipient of an outbound channel, the sender
 /// of an inbound one. Mirrors the fields of the channel's `StreamId`.
@@ -63,6 +63,30 @@ pub enum ChannelPhase {
 	Closed,
 }
 
+/// A register as read: the peer's latest `Register` and its position on the peer's `Ack` stream.
+/// Kept together so no register can be stored without its position.
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Debug,
+	TypeInfo,
+)]
+pub struct RegisterRead {
+	/// Position of `register` on the peer's `Ack` stream. A read below it is ignored, so an older
+	/// grant or `closed` flag cannot replace a newer one: `up_to` and `version` stay unchanged
+	/// across a suspend, a resume or a close, so they cannot order registers. Sound only because
+	/// the stream root binds the leaf count.
+	pub at: MessagePosition,
+	/// The peer's watermark, credit, version announcement and closed flag.
+	pub register: Register,
+}
+
 /// Sender side, per outbound channel.
 #[derive(
 	Clone,
@@ -82,21 +106,20 @@ pub struct OutChannelState {
 	pub closed_by_us: bool,
 	/// Our latest in-band version announcement.
 	pub announced_version: u8,
-	/// Latest register read: the peer's watermark, credit, version announcement and closed flag.
-	/// `None` until the first read.
-	pub register: Option<Register>,
+	/// Latest register read, with its position. `None` until the first read.
+	pub register: Option<RegisterRead>,
 }
 
 impl OutChannelState {
 	/// The lower of our announced version and the peer's. `None` while `Opening`: no register has
 	/// been read, so the peer's is unknown.
 	pub fn effective_version(&self) -> Option<u8> {
-		self.register.map(|register| self.announced_version.min(register.version))
+		self.register.map(|read| self.announced_version.min(read.register.version))
 	}
 
 	/// The phase this state is in.
 	pub fn phase(&self) -> ChannelPhase {
-		if self.closed_by_us || self.register.is_some_and(|register| register.closed) {
+		if self.closed_by_us || self.register.is_some_and(|read| read.register.closed) {
 			ChannelPhase::Closed
 		} else if self.register.is_none() {
 			ChannelPhase::Opening
@@ -142,20 +165,24 @@ impl InChannelState {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{flow_control::WindowGrant, mmr::MessagePosition};
+	use crate::flow_control::WindowGrant;
 
 	fn register(version: u8, closed: bool) -> Register {
 		Register { version, up_to: MessagePosition(0), grant: WindowGrant::default(), closed }
+	}
+
+	fn read(version: u8, closed: bool) -> RegisterRead {
+		RegisterRead { at: MessagePosition(0), register: register(version, closed) }
 	}
 
 	#[test]
 	fn out_channel_phase_is_a_view() {
 		let mut out = OutChannelState { closed_by_us: false, announced_version: 1, register: None };
 		assert_eq!(out.phase(), ChannelPhase::Opening);
-		out.register = Some(register(1, false));
+		out.register = Some(read(1, false));
 		assert_eq!(out.phase(), ChannelPhase::Open);
 		// Either side's close closes the channel. Ours counts before any register read.
-		out.register = Some(register(1, true));
+		out.register = Some(read(1, true));
 		assert_eq!(out.phase(), ChannelPhase::Closed);
 		let ours = OutChannelState { closed_by_us: true, announced_version: 1, register: None };
 		assert_eq!(ours.phase(), ChannelPhase::Closed);
@@ -169,7 +196,7 @@ mod tests {
 
 		let mut out = OutChannelState { closed_by_us: false, announced_version: 3, register: None };
 		assert_eq!(out.effective_version(), None, "unknown until the first register read");
-		out.register = Some(register(2, false));
+		out.register = Some(read(2, false));
 		assert_eq!(out.effective_version(), Some(2));
 	}
 

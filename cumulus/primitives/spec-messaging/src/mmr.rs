@@ -19,7 +19,8 @@
 //! Hashing is [`SpecHasher`] with domain tags: leaves by [`crate::message::leaf_hash`]
 //! (`LEAF_TAG`), inner nodes by [`SpecMerge::merge`] (`INNER_TAG`), peak bagging by
 //! [`SpecMerge::merge_peaks`] (`PEAK_TAG`). `mmr_lib` calls `merge` for tree nodes and
-//! `merge_peaks` when bagging, so no two roles collide.
+//! `merge_peaks` when bagging, so no two roles collide. The stream root binds the leaf count over
+//! the bagged peaks (`ROOT_TAG`, [`MmrRoot::from_bag`]).
 //!
 //! [`SpecMerge`] is the `mmr_lib::Merge` for inclusion proofs (`gen_proof` / `MerkleProof::verify`)
 //! and ancestry proofs (`gen_ancestry_proof` / `verify_incremental`). [`MmrFrontier`] is the
@@ -33,7 +34,7 @@ use scale_info::TypeInfo;
 use sp_core::ConstU32;
 use sp_runtime::{traits::Hash as HashT, BoundedVec};
 
-use crate::{SpecHasher, EMPTY_TAG, INNER_TAG, PEAK_TAG};
+use crate::{SpecHasher, EMPTY_TAG, INNER_TAG, PEAK_TAG, ROOT_TAG};
 
 /// Upper bound on any leaf count node positions are derived from. `mmr_lib`'s node count, `2 *
 /// leaf_count - leaf_count.count_ones()`, overflows `u64` above `2^63`. Peer-supplied counts are
@@ -92,24 +93,37 @@ pub fn empty_root() -> Hash {
 	<SpecHasher as HashT>::hash(&[EMPTY_TAG])
 }
 
-/// Bag the peaks (highest to lowest) into a root with `mmr_lib`'s own bagging, so the result equals
-/// `MMR::get_root`. `None` for no peaks; the empty root is the constant [`empty_root`], which
-/// `MmrFrontier::root` substitutes.
-pub fn root_from_peaks(peaks: &[Hash]) -> Option<Hash> {
+/// Bag the peaks (highest to lowest) with `mmr_lib`'s own bagging, so the result equals
+/// `MMR::get_root`. Not a stream root: [`MmrRoot::from_bag`] binds the leaf count over it. `None`
+/// for no peaks.
+pub fn bag_peaks(peaks: &[Hash]) -> Option<Hash> {
 	// `SpecMerge` is infallible, so `Err` means no peaks.
 	bagging_peaks_hashes::<Hash, SpecMerge>(peaks.to_vec()).ok()
 }
 
-/// A bagged MMR root: a stream's committed root at some point in its history. A newtype so it
-/// cannot be confused with a `StreamsRoot`, the commitment-tree root.
+/// A stream's committed root at some point in its history: the leaf count bound over the bagged
+/// peaks. A newtype so it cannot be confused with a `StreamsRoot`, the commitment-tree root.
 #[derive(Clone, Copy, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct MmrRoot(pub Hash);
+
+impl MmrRoot {
+	/// `H(ROOT_TAG ++ leaf_count[8, LE] ++ bag)` (encoding spec §3.2). Peak hashes do not commit
+	/// their heights, so the same peaks bag identically at many leaf counts; binding the count
+	/// makes a forged count, and so a forged position, yield a root nothing commits to.
+	pub fn from_bag(leaf_count: u64, bag: Hash) -> Self {
+		let mut preimage = [0u8; 1 + 8 + 32];
+		preimage[0] = ROOT_TAG;
+		preimage[1..9].copy_from_slice(&leaf_count.to_le_bytes());
+		preimage[9..41].copy_from_slice(bag.as_bytes());
+		Self(<SpecHasher as HashT>::hash(&preimage))
+	}
+}
 
 /// A peaks-only MMR frontier: the O(log n) state a stream continues from, and the accumulator that
 /// continues it. `leaf_count` fixes where an extension proof's connecting nodes go.
 ///
-/// Peak hashes equal `mmr_lib`'s, so [`root`](Self::root) equals `mmr_lib::MMR::get_root` and
-/// proofs from a full `mmr_lib::MMR` over the same leaves verify against it.
+/// Peak hashes equal `mmr_lib`'s, so [`root`](Self::root) is `mmr_lib::MMR::get_root` bound to the
+/// leaf count, and proofs from a full `mmr_lib::MMR` over the same leaves verify against it.
 ///
 /// Fields are private. [`new`](Self::new), [`from_parts`](Self::from_parts) and `Decode` are the
 /// only constructors, and each enforces one peak per set bit of `leaf_count` and `leaf_count <=
@@ -171,11 +185,14 @@ impl MmrFrontier {
 		self.leaf_count += 1;
 	}
 
-	/// The bagged root. The empty frontier has the defined root `H(EMPTY_TAG)` ([`empty_root`],
-	/// encoding spec §3.4), so a frontier that has consumed nothing compares and extends like any
-	/// other.
+	/// The root: the leaf count bound over the bagged peaks ([`MmrRoot::from_bag`]). The empty
+	/// frontier has the defined root `H(EMPTY_TAG)` ([`empty_root`], encoding spec §3.4), so a
+	/// frontier that has consumed nothing compares and extends like any other.
 	pub fn root(&self) -> MmrRoot {
-		MmrRoot(root_from_peaks(&self.peaks).unwrap_or_else(empty_root))
+		match bag_peaks(&self.peaks) {
+			Some(bag) => MmrRoot::from_bag(self.leaf_count, bag),
+			None => MmrRoot(empty_root()),
+		}
 	}
 
 	/// The `mmr_lib` node count (size) of this frontier's MMR. Total under the leaf-count
@@ -264,14 +281,14 @@ mod tests {
 			reference.push(h(i)).unwrap();
 			assert_eq!(acc.peaks().len() as u32, acc.leaf_count().count_ones());
 		}
-		assert_eq!(acc.root().0, reference.get_root().unwrap());
+		assert_eq!(acc.root(), MmrRoot::from_bag(5, reference.get_root().unwrap()));
 	}
 
 	#[test]
 	fn empty_accumulator_root_is_empty_root() {
 		// A fresh accumulator is valid, and its root is the defined constant, not a panic in
-		// `root_from_peaks`.
-		assert_eq!(root_from_peaks(&[]), None);
+		// `bag_peaks`.
+		assert_eq!(bag_peaks(&[]), None);
 		assert_eq!(MmrFrontier::new().root().0, empty_root());
 		assert_eq!(MmrFrontier::from_parts(Vec::new(), 0).unwrap().root().0, empty_root());
 	}
@@ -311,7 +328,7 @@ mod tests {
 		// FROZEN consensus vector: appending these fixed leaves must always bag to this exact root.
 		// Any change to `SpecMerge`'s inner/peak domain tags or the peak-bagging order is a
 		// consensus break and breaks this test. (Round-trip tests can't catch a silent
-		// byte-format change.) Pinned for `LEAF/INNER/PEAK = 0x1/0x2/0x3`.
+		// byte-format change.) Pinned for `LEAF/INNER/PEAK/ROOT = 0x1/0x2/0x3/0x7`.
 		let mut acc = MmrFrontier::new();
 		for i in 1..=5u8 {
 			acc.append(h(i));
@@ -319,7 +336,7 @@ mod tests {
 		assert_eq!(
 			acc.root().0,
 			Hash::from(hex_literal::hex!(
-				"2cfe88aae5315b66e2252889957efd68c4749d1cfbcba31d0ca00b902117e862"
+				"0bb9712a55a73a0c70a089f9be2f022076ffc28976d4d77925ec10c3b3dd76e1"
 			))
 		);
 	}
@@ -337,7 +354,7 @@ mod tests {
 		assert_eq!(
 			acc.root().0,
 			Hash::from(hex_literal::hex!(
-				"6dc59753f520a0cd93409dd10b81e73601bb54524366c616ef386ddc18e2e951"
+				"56c221bd71540e5c3e5ed27a869ea339dc62579c5de7b3dea39e5a4d574ef15d"
 			))
 		);
 		acc.append(h(65));
@@ -345,7 +362,7 @@ mod tests {
 		assert_eq!(
 			acc.root().0,
 			Hash::from(hex_literal::hex!(
-				"9f4bf61fd4315662e635c43f237c2f6e74badbd28124d8117e4a5567aaf14edc"
+				"423a3bde0480d9f41c44dbd992ff0d4ecaa6f99821ec979d04c1c9b40d1aa709"
 			))
 		);
 	}
