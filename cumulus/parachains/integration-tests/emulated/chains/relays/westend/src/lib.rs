@@ -25,7 +25,7 @@ use emulated_integration_tests_common::{
 
 // Westend declaration
 decl_test_relay_chains! {
-	#[api_version(16)]
+	#[api_version(17)]
 	pub struct Westend {
 		genesis = genesis::genesis(),
 		on_init = (),
