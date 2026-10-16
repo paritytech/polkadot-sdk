@@ -66,7 +66,7 @@ pub use lift::{
 pub use message::{
 	leaf_hash, verify_event, verify_exchange, verify_messages, EventRequest, EventResponse,
 	ExchangeRequest, ExchangeResponse, ExchangeVerified, MessagesRequest, MessagesResponse,
-	VerifiedEvent, VerifyError, MAX_SPECULATIVE_MESSAGE_LEN,
+	VerifiedEvent, VerifyError, MAX_MESSAGES_PER_RESPONSE, MAX_SPECULATIVE_MESSAGE_LEN,
 };
 pub use mmr::{MessagePosition, MmrFrontier, MmrRoot};
 pub use stream::{PrivateKind, StreamId, STREAM_ID_LEN};

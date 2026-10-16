@@ -35,7 +35,8 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
-use sp_runtime::traits::Hash as HashT;
+use sp_core::ConstU32;
+use sp_runtime::{traits::Hash as HashT, BoundedVec};
 
 use crate::{
 	lift::{MMRExtensionProof, MmrInclusionProof, ProofError},
@@ -58,8 +59,8 @@ pub enum VerifyError {
 	RootMismatch,
 	/// The response's `base` is not the requested `start`. Only surfaced by [`verify_messages`].
 	UnexpectedBase,
-	/// The payloads total more than the request's `max_bytes`. With `max_bytes == 0` any payload
-	/// exceeds it. Only surfaced by [`verify_messages`].
+	/// The payloads total more than the request's `max_bytes`, or `max_bytes == 0` and the
+	/// response carries any payload, even an empty one. Only surfaced by [`verify_messages`].
 	ExceedsBudget,
 	/// The response envelope variant does not match the request's. Only surfaced by
 	/// [`verify_exchange`].
@@ -79,6 +80,12 @@ impl From<ProofError> for VerifyError {
 
 /// Maximum size in bytes of a single speculative message payload.
 pub const MAX_SPECULATIVE_MESSAGE_LEN: u32 = 102_400;
+
+/// Maximum payloads in one [`MessagesResponse`], enforced at decode. The byte budget does not bound
+/// the count: an empty payload costs one wire byte and no budget, yet is hashed into a leaf, so
+/// without this bound one response could carry millions. A consumer fetches the rest under a later
+/// request.
+pub const MAX_MESSAGES_PER_RESPONSE: u32 = 1024;
 
 /// Hash a payload into a stream MMR leaf: `H(LEAF_TAG ++ leaf_version ++ payload)`. Source, stream
 /// and position are structural and not in the preimage. Versions are hash-disjoint, so only the
@@ -117,8 +124,9 @@ pub struct MessagesResponse {
 	/// Leaf-format version for these payloads. A hint; only the correct version reproduces a
 	/// committed root. A response never spans a version change.
 	pub leaf_version: u8,
-	/// The payloads, in MMR order; payload `i` has position `base + i`.
-	pub payloads: Vec<Vec<u8>>,
+	/// The payloads, in MMR order; payload `i` has position `base + i`. At most
+	/// [`MAX_MESSAGES_PER_RESPONSE`], rejected at the length prefix.
+	pub payloads: BoundedVec<Vec<u8>, ConstU32<MAX_MESSAGES_PER_RESPONSE>>,
 	/// The stream's peak set at `base`, at most 64 hashes, for a consumer that holds no frontier.
 	/// Fabricated peaks cannot extend to a committed root.
 	pub start_peaks: Vec<Hash>,
@@ -140,9 +148,9 @@ pub fn verify_messages(
 		return Err(VerifyError::UnexpectedBase);
 	}
 	// Total payload bytes must fit the requester's budget (the server may cap harder, i.e. return
-	// less). `max_bytes == 0` requests proofs only, so any payload trips this.
+	// less). `max_bytes == 0` requests proofs only, so any payload trips this, even an empty one.
 	let total = resp.payloads.iter().map(|p| p.len() as u64).fold(0u64, u64::saturating_add);
-	if total > req.max_bytes as u64 {
+	if total > req.max_bytes as u64 || (req.max_bytes == 0 && !resp.payloads.is_empty()) {
 		return Err(VerifyError::ExceedsBudget);
 	}
 	verify_messages_response(req.stream, req.under, resp)
@@ -190,7 +198,7 @@ pub(crate) fn verify_messages_response(
 	let current = resp.extension.verify(&frontier)?;
 	let root = streams_root_from_proof(stream, current.0, &resp.tree_proof)
 		.ok_or(VerifyError::TreeProof)?;
-	(root == under).then(|| resp.payloads.clone()).ok_or(VerifyError::RootMismatch)
+	(root == under).then(|| resp.payloads.to_vec()).ok_or(VerifyError::RootMismatch)
 }
 
 /// Request for a single event of a lossy stream (`Ack` / `Broadcast` / `Private`), verified under a
@@ -445,7 +453,7 @@ mod tests {
 		let resp = MessagesResponse {
 			base: MessagePosition(2),
 			leaf_version: 0,
-			payloads: vec![payloads[2].clone(), payloads[3].clone()],
+			payloads: vec![payloads[2].clone(), payloads[3].clone()].try_into().unwrap(),
 			start_peaks: frontier_at(&leaves, 2).peaks().to_vec(),
 			extension: ancestry(&leaves, 4, 6),
 			tree_proof: tree_proof.clone(),
@@ -533,7 +541,7 @@ mod tests {
 		let resp = MessagesResponse {
 			base: MessagePosition(0),
 			leaf_version: 0,
-			payloads: payloads.clone(),
+			payloads: payloads.clone().try_into().unwrap(),
 			start_peaks: Vec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
@@ -565,7 +573,7 @@ mod tests {
 		let resp = MessagesResponse {
 			base: MessagePosition(0),
 			leaf_version: 0,
-			payloads: payloads.clone(),
+			payloads: payloads.clone().try_into().unwrap(),
 			start_peaks: Vec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
@@ -601,6 +609,54 @@ mod tests {
 	}
 
 	#[test]
+	fn zero_budget_refuses_even_empty_payloads() {
+		// A stream of two empty payloads: they total 0 bytes, so only the "proofs only" rule
+		// refuses them under `max_bytes == 0`.
+		let payloads: Vec<Vec<u8>> = vec![Vec::new(), Vec::new()];
+		let stream = ch(2000);
+		let entries = BTreeMap::from([(
+			stream,
+			frontier_at(&payloads.iter().map(|p| leaf_hash(0, p)).collect::<Vec<_>>(), 2)
+				.root()
+				.0,
+		)]);
+		let under = streams_root(&entries).unwrap();
+		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
+		let resp = MessagesResponse {
+			base: MessagePosition(0),
+			leaf_version: 0,
+			payloads: payloads.clone().try_into().unwrap(),
+			start_peaks: Vec::new(),
+			extension: MMRExtensionProof::identity(),
+			tree_proof,
+		};
+		let req =
+			|max_bytes| MessagesRequest { stream, start: MessagePosition(0), under, max_bytes };
+		assert_eq!(verify_messages(&req(1), &resp), Ok(payloads));
+		assert_eq!(verify_messages(&req(0), &resp), Err(VerifyError::ExceedsBudget));
+	}
+
+	#[test]
+	fn a_response_past_the_payload_cap_fails_to_decode() {
+		// Empty payloads cost one wire byte each and no budget, but each would be hashed: the
+		// count is bounded at the length prefix, before anything is allocated or hashed.
+		let cap = MAX_MESSAGES_PER_RESPONSE as usize;
+		let encoded = |count: usize| {
+			(
+				MessagePosition(0),
+				0u8,
+				vec![Vec::<u8>::new(); count],
+				Vec::<Hash>::new(),
+				MMRExtensionProof::identity(),
+				StreamProof { steps: Default::default() },
+			)
+				.encode()
+		};
+		assert!(MessagesResponse::decode(&mut &encoded(cap)[..]).is_ok());
+		assert!(MessagesResponse::decode(&mut &encoded(cap + 1)[..]).is_err());
+	}
+
+	#[test]
 	fn messages_response_rejects_wrong_root_or_tampered_payload() {
 		let payloads: Vec<Vec<u8>> = (0..3u8).map(|i| vec![i]).collect();
 		let store = MemStore::<Hash>::default();
@@ -616,7 +672,7 @@ mod tests {
 		let resp = MessagesResponse {
 			base: MessagePosition(0),
 			leaf_version: 0,
-			payloads,
+			payloads: payloads.try_into().unwrap(),
 			start_peaks: Vec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
@@ -643,7 +699,7 @@ mod tests {
 		let crafted = MessagesResponse {
 			base: MessagePosition(1),
 			leaf_version: 0,
-			payloads: vec![vec![0x01]],
+			payloads: vec![vec![0x01]].try_into().unwrap(),
 			start_peaks: Vec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof: StreamProof { steps: Default::default() },
@@ -659,7 +715,7 @@ mod tests {
 		let too_large = MessagesResponse {
 			base: MessagePosition(1 << 63),
 			leaf_version: 0,
-			payloads: vec![vec![0x01]],
+			payloads: vec![vec![0x01]].try_into().unwrap(),
 			start_peaks: vec![H256::zero(); 1],
 			extension: MMRExtensionProof::identity(),
 			tree_proof: StreamProof { steps: Default::default() },
@@ -674,7 +730,7 @@ mod tests {
 		let overflow = MessagesResponse {
 			base: MessagePosition(u64::MAX),
 			leaf_version: 0,
-			payloads: vec![vec![0x01]],
+			payloads: vec![vec![0x01]].try_into().unwrap(),
 			start_peaks: vec![H256::zero(); 64],
 			extension: MMRExtensionProof::identity(),
 			tree_proof: StreamProof { steps: Default::default() },
@@ -702,7 +758,7 @@ mod tests {
 		let mresp = MessagesResponse {
 			base: MessagePosition(0),
 			leaf_version: 0,
-			payloads: Vec::new(),
+			payloads: Vec::new().try_into().unwrap(),
 			start_peaks: Vec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof: StreamProof { steps: Default::default() },
@@ -932,7 +988,7 @@ mod tests {
 		let mresp = MessagesResponse {
 			base: MessagePosition(0),
 			leaf_version: 0,
-			payloads: mpayloads.clone(),
+			payloads: mpayloads.clone().try_into().unwrap(),
 			start_peaks: Vec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof: mtree,

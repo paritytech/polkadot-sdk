@@ -253,7 +253,9 @@ EventResponse    { payload, leaf_version, inclusion, tree_proof }
 ```
 
 Every response verifies against the requester-named `under`; `max_bytes = 0` requests lift
-material only. The versioned libp2p protocol string is pinned by the node crate (§13 #6).
+material only, so a response to it carries no payload at all, not even an empty one. `payloads` holds
+at most `MAX_MESSAGES_PER_RESPONSE` entries, rejected at the length prefix: the byte budget does not
+bound the count, since an empty payload costs one wire byte and no budget but is still hashed. The versioned libp2p protocol string is pinned by the node crate (§13 #6).
 
 ## 10. PVF synthesis semantics (consensus in `validate_block`)
 
@@ -296,6 +298,7 @@ Reference algorithms: design §Requires Lifting (`stitch`, `build_requires_entry
 | `MAX_COMMITMENT_ENTRIES` | 256 | frozen, §7.3 |
 | `MAX_UMP_SIGNALS` | 4 | = variant count |
 | `MAX_SPECULATIVE_MESSAGE_LEN` | 102 400 B | frozen; wire-enforced payload bound (`PayloadTooLarge`) |
+| `MAX_MESSAGES_PER_RESPONSE` | 1024 | decode ceiling on a `MessagesResponse`'s payloads; not consensus |
 | `MAX_EXTENSION_CONNECTING_NODES` | 256 | decode ceiling; must exceed the valid maxima, not consensus |
 | `MAX_INCLUSION_PROOF_ITEMS` | 128 | decode ceiling; must exceed the valid maxima, not consensus |
 | `SPMS_ENGINE_ID` | `*b"SPMS"` | implemented; freeze before cross-chain ships |
