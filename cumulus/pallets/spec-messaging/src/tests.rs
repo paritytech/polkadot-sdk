@@ -390,21 +390,28 @@ fn events_items_other_than_register_reads_are_undeclared() {
 #[test]
 fn an_events_item_at_the_leaf_count_ceiling_is_rejected() {
 	new_test_ext().execute_with(|| {
-		// A message on one stream, then an `Events` item whose hints put the frontier at the
-		// ceiling. Were its payload appended, the record would not decode and would read as empty:
-		// no `Requires`, so the first message would never be checked. The block is invalid instead.
-		let (a, s) = (src(), stream(0));
+		accept(0);
+		open_out_channel();
+		roll_one_block();
+		// A message on an accepted inbound channel, then a register read whose hints put the
+		// frontier at the ceiling. Were the register appended, the record would not decode and
+		// would read as empty: no `Requires`, so the message would never be checked. The block is
+		// invalid instead.
 		let at_ceiling = ConsumeItem::Events {
 			base: MessagePosition(cumulus_primitives_spec_messaging::mmr::MAX_MMR_LEAF_COUNT),
 			start_peaks: BoundedVec::truncate_from(vec![polkadot_core_primitives::Hash::zero()]),
-			payloads: vec![data_payload(b"reg")],
+			payloads: vec![register(0, TestGrant::get()).encode()],
 		};
 		assert_err!(
 			SpecMessaging::enact_messages(
 				RuntimeOrigin::none(),
 				inherent(vec![
-					(a, s, ConsumeItem::Channel { payloads: vec![data_payload(b"forged")] }),
-					(a, stream(1), at_ceiling),
+					(
+						src(),
+						stream(0),
+						ConsumeItem::Channel { payloads: vec![data_payload(b"forged")] }
+					),
+					(peer(), peer_ack(), at_ceiling),
 				]),
 			),
 			Error::<Test>::BadFrontier
@@ -479,7 +486,7 @@ fn read_register(base: u64, register: Register) -> MessagingInherentData {
 		peer_ack(),
 		ConsumeItem::Events {
 			base: MessagePosition(base),
-			start_peaks: peaks,
+			start_peaks: BoundedVec::truncate_from(peaks),
 			payloads: vec![register.encode()],
 		},
 	)])
@@ -780,7 +787,7 @@ fn a_forged_register_position_lifts_to_no_committed_root() {
 					peer_ack(),
 					ConsumeItem::Events {
 						base: MessagePosition(base),
-						start_peaks: before_head.peaks().to_vec(),
+						start_peaks: BoundedVec::truncate_from(before_head.peaks().to_vec()),
 						payloads: vec![registers[2].clone()],
 					},
 				)])
@@ -880,7 +887,11 @@ fn register_reads_must_target_an_outbound_channel_and_decode() {
 			inherent(vec![(
 				peer(),
 				peer_ack(),
-				ConsumeItem::Events { base: MessagePosition(0), start_peaks: Default::default(), payloads },
+				ConsumeItem::Events {
+					base: MessagePosition(0),
+					start_peaks: Default::default(),
+					payloads,
+				},
 			)])
 		};
 		assert_err!(
@@ -905,7 +916,7 @@ fn register_reads_must_target_an_outbound_channel_and_decode() {
 					for_another,
 					ConsumeItem::Events {
 						base: MessagePosition(0),
-						start_peaks: vec![],
+						start_peaks: Default::default(),
 						payloads: vec![register(0, TestGrant::get()).encode()],
 					},
 				)])
@@ -925,7 +936,7 @@ fn register_reads_beyond_the_context_gap_cap_are_rejected() {
 				StreamId::Ack { recipient: ParaId::from(SELF_PARA), domain: 0, num },
 				ConsumeItem::Events {
 					base: MessagePosition(0),
-					start_peaks: vec![],
+					start_peaks: Default::default(),
 					payloads: vec![register(0, TestGrant::get()).encode()],
 				},
 			)
