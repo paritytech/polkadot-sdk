@@ -184,6 +184,17 @@ impl<T: frame_system::Config> pallet_referenda::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `Referenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `Referenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(366), added: 2841, mode: `MaxEncodedLen`)
+	fn slash_submission_deposit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `161`
+		//  Estimated: `3831`
+		// Minimum execution time: 24_799_000 picoseconds.
+		Weight::from_parts(25_604_000, 3831)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Referenda::ReferendumInfoFor` (r:1 w:1)
 	/// Proof: `Referenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(936), added: 3411, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Agenda` (r:2 w:2)
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(38963), added: 41438, mode: `MaxEncodedLen`)
