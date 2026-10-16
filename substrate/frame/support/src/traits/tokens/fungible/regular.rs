@@ -326,8 +326,8 @@ where
 	/// return, in which case it exceeds `amount` by up to `minimum_balance() - 1` and that
 	/// remainder is credited to `dest` as well.
 	///
-	/// A transfer where the source and destination account are identical is treated as No-OP after
-	/// checking the preconditions.
+	/// A transfer where the source and destination account are identical, or where `amount` is
+	/// zero, is treated as No-OP after checking the preconditions.
 	fn transfer(
 		source: &AccountId,
 		dest: &AccountId,
