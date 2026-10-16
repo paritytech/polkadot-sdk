@@ -1,20 +1,21 @@
-title: 'pallet-revive: measure the contract's own account in host function benchmarks'
+title: "pallet-revive: measure the contract's own account in host function benchmarks"
 doc:
 - audience: Runtime Dev
   description: |-
     `CallSetup` no longer whitelists the executing contract's `System::Account`, so its accesses
-    are now part of the weights of `seal_call_transfer`, `seal_instantiate`,
-    `seal_instantiate_transfer`, `evm_instantiate`, `evm_instantiate_transfer`, `seal_balance`,
-    `seal_terminate` and `seal_terminate_logic`. Runtimes with their own `pallet_revive` weights
+    are now included in the weights of `seal_call_transfer`, `seal_instantiate`,
+    `seal_instantiate_transfer`, `evm_instantiate`, `evm_instantiate_transfer`, `seal_terminate`
+    and `seal_terminate_logic`. Runtimes with their own `pallet_revive` weights
     have to re-run the benchmarks. So do precompile benchmarks built with
-    `pallet_revive::precompiles::run::CallSetup` that access the calling contract's account.
-    A benchmark that relied on the whitelist in `CallSetup::new` or `CallSetup::default` now has
-    to whitelist the account explicitly.
+    `pallet_revive::precompiles::run::CallSetup` that access the executing contract's account.
+    A benchmark that relied on the previous behavior of `CallSetup::new` or `CallSetup::default`
+    now has to whitelist the account explicitly.
 - audience: Runtime User
   description: |-
-    A call with value, creating a contract, `SELFBALANCE` and `SELFDESTRUCT` now also pay for the
-    contract's own account: one read, a write where the balance or the nonce changes, and its
-    proof size. Previously, a nested contract called without value did not pay for it.
+    A call with value, creating a contract, `SELFDESTRUCT` and the System precompile's
+    `terminate` now also pay for the contract's own account: one read, a write where the balance
+    or the nonce changes, and its proof size. Previously, a nested contract called without value
+    did not pay for it.
 crates:
 - name: pallet-revive
   bump: patch
