@@ -22,7 +22,7 @@ mod explicit_affinity;
 mod metrics;
 mod peer_steering;
 mod peers_index;
-pub mod peers_topology;
+pub(crate) mod peers_topology;
 
 pub(crate) use metrics::V2DhtMetrics;
 
@@ -81,6 +81,18 @@ impl RetentionReasonMask {
 	/// Whether the statement should be persisted.
 	pub fn is_persistent(&self) -> bool {
 		self.0 != 0
+	}
+
+	pub fn label(&self) -> &'static str {
+		if *self == Self::persistent() {
+			return "persistent";
+		}
+		match (self.contains(Self::DHT_AFFINITY), self.contains(Self::EXPLICIT_AFFINITY)) {
+			(false, false) => "transient",
+			(true, false) => "dht",
+			(false, true) => "explicit",
+			(true, true) => "both",
+		}
 	}
 }
 
@@ -256,23 +268,7 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.take_local_filter_if_changed()
 	}
 
-	// === Peer-set events ===
-
-	pub(crate) fn on_peer_connected(&mut self, peer: PeerId) {
-		// TODO: we may need it for the topology, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_peer_connected {peer} (stub)");
-	}
-
-	pub(crate) fn on_peer_disconnected(&mut self, peer: PeerId) {
-		self.explicit_affinity.on_peer_disconnected(peer);
-	}
-
 	// === Notification-substream events ===
-
-	pub(crate) fn on_validate_inbound_substream(&mut self, peer: PeerId) {
-		// TODO: we may need it for the peer steering, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_validate_inbound_substream {peer} (stub)");
-	}
 
 	pub(crate) fn on_substream_opened(&mut self, peer: PeerId) {
 		self.peers_topology.on_substream_opened(peer);
@@ -286,6 +282,8 @@ impl V2DhtOrchestrator {
 	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
 		self.peers_topology.on_substream_closed(peer);
 		self.peer_steering.on_substream_closed(peer);
+		// The filter arrived over this substream, so it lives exactly as long.
+		self.explicit_affinity.on_substream_closed(peer);
 		self.report_topology_size();
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_closed {peer}");
 	}
@@ -295,11 +293,6 @@ impl V2DhtOrchestrator {
 	}
 
 	// === Forward decision ===
-
-	/// Whether the peer is a DHT routing target for the topic.
-	pub(crate) fn peer_is_dht_target_for_topic(&self, peer: PeerId, topic: Topic) -> bool {
-		self.peers_topology.routing_targets(topic).contains(&peer)
-	}
 
 	/// Whether `peer` is a DHT routing target for a statement.
 	///
@@ -312,7 +305,7 @@ impl V2DhtOrchestrator {
 				*topics
 					.borrow_mut()
 					.entry(*topic)
-					.or_insert_with(|| self.peer_is_dht_target_for_topic(peer, *topic))
+					.or_insert_with(|| self.peers_topology.routing_targets(*topic).contains(&peer))
 			})
 		}
 	}
@@ -371,16 +364,14 @@ impl V2DhtOrchestrator {
 		statements_by_peer.into_iter().collect()
 	}
 
-	pub(crate) async fn on_initial_sync(&mut self) {
-		// TODO: We need to know what to propagate
-		log::trace!(target: LOG_TARGET, "v2dht: on_initial_sync (stub)");
-	}
-
 	/// Recompute the peers needed to cover the node's topics and hand them to peer steering.
 	pub(crate) fn on_pending_affinities(&mut self) {
 		let topics = self.explicit_affinity.topics();
 		let desired = self.peers_topology.peers_for_topics(&topics);
 		self.peer_steering.update_peers_needing_connections(desired);
+		if let Some(metrics) = &self.metrics {
+			metrics.set_desired_unconnected_peers(self.peer_steering.peers_to_connect().len());
+		}
 	}
 
 	/// Align the connected peers with the peers needed to cover the node's subscriptions, opening
@@ -709,12 +700,13 @@ mod tests {
 	}
 
 	#[test]
-	fn on_peer_disconnected_drops_the_filter() {
+	fn substream_close_drops_the_filter() {
 		let mut orchestrator = orchestrator();
 		let peer = PeerId::random();
+		orchestrator.on_substream_opened(peer);
 		orchestrator.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
-		orchestrator.on_peer_disconnected(peer);
+		orchestrator.on_substream_closed(peer);
 
 		assert!(!orchestrator
 			.explicit_affinity

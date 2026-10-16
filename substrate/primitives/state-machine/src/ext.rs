@@ -71,6 +71,8 @@ where
 	/// Extensions registered with this instance.
 	#[cfg(feature = "std")]
 	extensions: Option<OverlayedExtensions<'a>>,
+	/// State version used by `storage_root` and `child_storage_root` to compute the trie layout.
+	state_version: StateVersion,
 }
 
 impl<'a, H, B> Ext<'a, H, B>
@@ -80,8 +82,12 @@ where
 {
 	/// Create a new `Ext`.
 	#[cfg(not(feature = "std"))]
-	pub fn new(overlay: &'a mut OverlayedChanges<H>, backend: &'a B) -> Self {
-		Ext { overlay, backend, id: 0 }
+	pub fn new(
+		overlay: &'a mut OverlayedChanges<H>,
+		backend: &'a B,
+		state_version: StateVersion,
+	) -> Self {
+		Ext { overlay, backend, id: 0, state_version }
 	}
 
 	/// Create a new `Ext` from overlayed changes and read-only backend
@@ -90,12 +96,14 @@ where
 		overlay: &'a mut OverlayedChanges<H>,
 		backend: &'a B,
 		extensions: Option<&'a mut sp_externalities::Extensions>,
+		state_version: StateVersion,
 	) -> Self {
 		Self {
 			overlay,
 			backend,
 			id: rand::random(),
 			extensions: extensions.map(OverlayedExtensions::new),
+			state_version,
 		}
 	}
 }
@@ -475,7 +483,11 @@ where
 		});
 	}
 
-	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
+	fn storage_root(&mut self) -> Vec<u8> {
+		self.storage_root_with_version(self.state_version)
+	}
+
+	fn storage_root_with_version(&mut self, state_version: StateVersion) -> Vec<u8> {
 		let _guard = guard();
 
 		let (root, _cached) = self.overlay.storage_root(self.backend, state_version);
@@ -491,7 +503,11 @@ where
 		root.encode()
 	}
 
-	fn child_storage_root(
+	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
+		self.child_storage_root_with_version(child_info, self.state_version)
+	}
+
+	fn child_storage_root_with_version(
 		&mut self,
 		child_info: &ChildInfo,
 		state_version: StateVersion,
@@ -591,14 +607,12 @@ where
 	}
 
 	fn commit(&mut self) {
-		// Bench always use latest state.
-		let state_version = StateVersion::default();
 		for _ in 0..self.overlay.transaction_depth() {
 			self.overlay.commit_transaction().expect(BENCHMARKING_FN);
 		}
 		let changes = self
 			.overlay
-			.drain_storage_changes(self.backend, state_version)
+			.drain_storage_changes(self.backend, self.state_version)
 			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 		self.backend
 			.commit(
@@ -839,6 +853,7 @@ mod tests {
 		storage::{Storage, StorageChild},
 		Blake2Hasher,
 	};
+	use sp_trie::{LayoutV0, TrieConfiguration};
 
 	type TestBackend = InMemoryBackend<Blake2Hasher>;
 	type TestExt<'a> = Ext<'a, Blake2Hasher, TestBackend>;
@@ -861,7 +876,7 @@ mod tests {
 		)
 			.into();
 
-		let mut ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		// next_backend < next_overlay
 		assert_eq!(ext.next_storage_key(&[5]), Some(vec![10]));
@@ -877,7 +892,7 @@ mod tests {
 
 		drop(ext);
 		overlay.set_storage(vec![50], Some(vec![50]));
-		let mut ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		// next_overlay exist but next_backend doesn't exist
 		assert_eq!(ext.next_storage_key(&[40]), Some(vec![50]));
@@ -907,7 +922,7 @@ mod tests {
 		)
 			.into();
 
-		let mut ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		assert_eq!(ext.next_storage_key(&[5]), Some(vec![30]));
 
@@ -940,7 +955,7 @@ mod tests {
 		)
 			.into();
 
-		let mut ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		// next_backend < next_overlay
 		assert_eq!(ext.next_child_storage_key(child_info, &[5]), Some(vec![10]));
@@ -956,7 +971,7 @@ mod tests {
 
 		drop(ext);
 		overlay.set_child_storage(child_info, vec![50], Some(vec![50]));
-		let mut ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		// next_overlay exist but next_backend doesn't exist
 		assert_eq!(ext.next_child_storage_key(child_info, &[40]), Some(vec![50]));
@@ -987,7 +1002,7 @@ mod tests {
 		)
 			.into();
 
-		let mut ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		assert_eq!(ext.child_storage(child_info, &[10]), Some(vec![10]));
 		assert_eq!(
@@ -1026,7 +1041,7 @@ mod tests {
 		)
 			.into();
 
-		let ext = TestExt::new(&mut overlay, &backend, None);
+		let ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		use sp_core::storage::well_known_keys;
 		let mut ext = ext;
@@ -1064,5 +1079,31 @@ mod tests {
 		drop(append);
 
 		assert_eq!(Vec::<u32>::decode(&mut &data[..]).unwrap(), vec![1, 2]);
+	}
+
+	#[test]
+	fn state_version_is_used_for_root() {
+		let backend = TestBackend::default();
+		let mut overlay = OverlayedChanges::default();
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::V1);
+
+		// A value of at least `TRIE_VALUE_NODE_THRESHOLD` bytes is inlined under V0 but stored as
+		// a separate hashed node under V1, producing distinct roots.
+		let key = b"key".to_vec();
+		let value = vec![0x42; sp_core::storage::TRIE_VALUE_NODE_THRESHOLD as usize + 1];
+		ext.set_storage(key.clone(), value.clone());
+
+		let root_v1 = ext.storage_root();
+
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::V0);
+		let root_v0 = ext.storage_root();
+		assert_ne!(root_v0, root_v1);
+
+		let expected_v0 = LayoutV0::<Blake2Hasher>::trie_root(
+			vec![(key, value)].into_iter().collect::<std::collections::BTreeMap<_, _>>(),
+		)
+		.as_ref()
+		.to_vec();
+		assert_eq!(root_v0, expected_v0);
 	}
 }
