@@ -5979,6 +5979,42 @@ mod tests {
 		);
 	}
 
+	#[tokio::test]
+	async fn a_peer_silent_past_the_grace_period_is_asked_for_everything() {
+		let (mut handler, _statement_store, _network, notification_service) =
+			build_handler_no_peers();
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+		// With the gate off a full peer owes no filter, so the wait is set up by hand.
+		handler
+			.awaiting_affinity_filter
+			.insert(peer_id, Instant::now() - AFFINITY_FILTER_GRACE_PERIOD);
+		notification_service.clear_sent_notifications();
+
+		handler.assume_match_all_after_filter_grace().await;
+
+		let peer = handler.peers.get(&peer_id).unwrap();
+		assert!(peer.assumed_match_all);
+		assert!(peer.topic_affinity.as_ref().is_some_and(|filter| filter.contains(&[0xAA; 32])));
+		let match_all =
+			StatementMessage::ExplicitTopicAffinity(AffinityFilter::match_all(0)).encode();
+		assert_eq!(notification_service.get_sent_notifications(), vec![(peer_id, match_all)]);
+
+		// A late filter clears the mark and gets the real filter in return.
+		send_affinity(&mut handler, peer_id, [0xAA; 32]).await;
+
+		assert!(!handler.peers.get(&peer_id).unwrap().assumed_match_all);
+		let local = StatementMessage::ExplicitTopicAffinity(handler.v2dht.local_filter()).encode();
+		assert_eq!(notification_service.get_sent_notifications().last(), Some(&(peer_id, local)));
+	}
+
 	async fn send_affinity(
 		handler: &mut StatementHandler<TestNetwork, TestSync>,
 		peer_id: PeerId,
