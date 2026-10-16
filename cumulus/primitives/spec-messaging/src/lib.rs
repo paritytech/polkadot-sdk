@@ -50,6 +50,9 @@ pub mod mmr;
 pub mod stream;
 pub mod streams_root;
 
+#[cfg(test)]
+mod adversarial_tests;
+
 pub use channel::{ChannelId, ChannelPhase, InChannelState, OutChannelState, RegisterRead};
 pub use flow_control::{Register, SpecMsgKind, SpecMsgSignal, WindowGrant};
 pub use inherent::{

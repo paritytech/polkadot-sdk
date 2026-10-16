@@ -312,8 +312,8 @@ crate:
 1. **StreamId**: encode/decode round-trips per kind, reserved-kind rejection, ordering. Pinned.
 2. **MMR**: leaf known-answer (§3.1), empty root (§3.3), roots at 5, 64 and 65 leaves (all three
    from an independent implementation of §3.2), frontier round-trips. Pinned.
-3. **Tree**: `tree_hash` known-answer, proof round-trip, non-decreasing step order rejected. Pinned.
-   Adversarially-close keys and key-aliasing negatives: not pinned.
+3. **Tree**: `tree_hash` known-answer, proof round-trip, non-decreasing step order rejected,
+   adversarially-close keys and key-aliasing negatives. Pinned.
 4. **Extension/advance**: the 3-vs-4-leaf equal-node-count case, identity (including the empty-root
    result on an empty frontier), regression, wrong node count. Pinned. Position derivation is
    cross-checked against `gen_ancestry_proof` to 256 leaves in mmr-lib itself.
@@ -322,6 +322,10 @@ crate:
 6. **End-to-end synthesis**: records + lifts → `RequiresSet`, covering the bare tree-proof path, a
    bundle gap bridged by an advance, multi-stream and multi-source convergence, divergent-root
    rejection. Pinned. Fixture generators are implementation-derived, not conformance evidence.
+7. **Adversarial**: well-formed proofs that lie about a count, a position, a key or a node's role
+   (a forged frontier count, inclusion size or extension count; a payload posing as a node; a key
+   one bit away; a range read relabelled to a lower position) must fail or yield an uncommitted
+   root. Pinned (`adversarial_tests`).
 7. **Wire objects** (§9): envelope discriminants, request/response round-trips, `MmrInclusionProof`
    verification, header-digest extraction and canonical-digest rejection. Pinned.
 
