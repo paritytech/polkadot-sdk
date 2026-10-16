@@ -3426,6 +3426,7 @@ dependencies = [
  "parity-scale-codec",
  "rococo-westend-system-emulated-network",
  "scale-info",
+ "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
  "snowbridge-outbound-queue-primitives",
@@ -24577,6 +24578,7 @@ dependencies = [
 name = "snowbridge-beacon-primitives"
 version = "0.2.0"
 dependencies = [
+ "alloy-rlp",
  "byte-slice-cast",
  "frame-support",
  "hex",
