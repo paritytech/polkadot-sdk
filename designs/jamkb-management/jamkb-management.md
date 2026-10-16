@@ -93,10 +93,11 @@ Any signed account
    │  execute_release(id)
    ▼
 pallet-jamkb
-   │  records the operation and appends a TransferOut to the send queue
+   │  records the operation and adds a TransferOut to the send queue of
+   │  pallet-parachain-system
    ▼
 pallet-parachain-system
-   │  pulls the send queue, calls the Parachain Service's
+   │  takes it from the queue, calls the Parachain Service's
    │  send_upward_message(TransferOut{..})
 
 ━━ B's work report: Accumulate, on-chain on JAM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -221,9 +222,12 @@ const RECOVERY_DEPOSIT: Balance;
 /// `RECOVERY_DEPOSIT_PER_KEY` per key of a `cleanup_storage` page.
 const RECOVERY_DEPOSIT_PER_KEY: Balance;
 
-/// A raw storage key of a supervised service (required for `cleanup_storage`,
-/// §4.3), and the keys in one page.
+/// The longest raw storage key of a supervised service (`cleanup_storage`,
+/// §4.3).
 const MAX_KEY_LEN: u32;
+/// The most keys one `cleanup_storage` call removes. Each key is one message
+/// and can cause one failure entry, so a full page must fit within the log
+/// limit.
 const MAX_KEYS_PER_PAGE: u32;
 type Key = BoundedVec<u8, MAX_KEY_LEN>;
 
@@ -771,8 +775,9 @@ The generic pallet checks the inherent against the state root after the
 lookup-anchor block and delivers the validation inputs to `pallet-jamkb`
 (`ValidationInputsHandler`).
 
-It also accepts the messages `pallet-jamkb` queues and sends them through
-`send_upward_message`.
+It holds the send queue, as `parachain-system` does for upward XCM today:
+`pallet-jamkb` adds each operation's messages to it, and it sends them
+through `send_upward_message` within the limits below.
 
 The pallet needs from it:
 
@@ -788,6 +793,11 @@ The pallet needs from it:
   the memo gas. The limit is large enough
   for any single message, so every queued message is sent; messages that do
   not fit in this block are sent in a later one;
+- a bound on the log entries not yet delivered: each message counts the
+  largest entry it can cause in `parachain_log` until the entries of its
+  block are delivered, and the messages of one operation are sent in one
+  block; the total stays within the 64 KiB log, so no entry is evicted
+  before Asset Hub reads it;
 - `CleanUpBucketsUpTo` sent after the booked `incoming_transfers` buckets.
 
 ---
@@ -944,9 +954,9 @@ id: its `TransferOut` carries the `OperationId` as its `id` field, and a
 
 A recovery operation has no id in its message. Its failure entry
 (`ServiceStoreFailed`, `ServiceEjectFailed`, `ServiceSupervisorFailed`)
-names the service, so it correlates by target and entry
-class. The pallet keeps at most one unsettled operation per allocation and at
-most one unsettled recovery operation per target.
+names the service, so it correlates by target and entry class. The pallet
+keeps at most one unsettled operation per allocation and at most one
+unsettled recovery operation per target.
 
 ### 5.2 Memo Requirements
 
