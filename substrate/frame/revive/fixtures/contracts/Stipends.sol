@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
+
+import "@revive/IStorage.sol";
+import "@revive/ISystem.sol";
 
 /**
  * @title DoNothingReceiver
@@ -193,10 +196,10 @@ contract StipendTest {
         require(complexReceiver.counter() == counterBefore + 1, "ComplexReceiver counter not incremented");
     }
 
-    // Test that the transfer stipend prevents reentrancy. The attacker's receive()
-    // tries to call back into attemptTransfer() to drain more ETH, but the stipend
-    // starves that call, so it drains nothing: the attacker receives only `amount`.
-    function testTransferReentrancy() public payable {
+    // Test that the receiver of a `transfer` cannot drain the sender. The attacker's
+    // receive() calls back into attemptTransfer() to drain more ETH, but a frame entered
+    // through `transfer` cannot move value, so the attacker receives only `amount`.
+    function testTransferReentrantDrain() public payable {
         uint256 amount = msg.value / 4;
         uint256 attackerBefore = address(reentrancyAttacker).balance;
         uint256 selfBefore = address(this).balance;
@@ -212,8 +215,8 @@ contract StipendTest {
         );
     }
 
-    // Test that the send stipend prevents reentrancy.
-    function testSendReentrancy() public payable {
+    // Test that the receiver of a `send` cannot drain the sender.
+    function testSendReentrantDrain() public payable {
         uint256 amount = msg.value / 4;
         uint256 attackerBefore = address(reentrancyAttacker).balance;
         uint256 selfBefore = address(this).balance;
@@ -231,4 +234,364 @@ contract StipendTest {
     }
 
     receive() external payable {}
+}
+
+/**
+ * @title ReentrancyProbe
+ * @dev Checks whether reentry is admitted. The reentrant call is cheap enough to fit the stipend,
+ * and reverts when denied.
+ */
+contract ReentrancyProbe {
+    receive() external payable {
+        (bool reentered, ) = msg.sender.call("");
+        require(reentered, "reentry denied");
+    }
+}
+
+/**
+ * @title BumpableCounter
+ * @dev Stores a `counter`, and `bump` adds one to it.
+ */
+abstract contract BumpableCounter {
+    uint256 public counter;
+
+    function bump() external {
+        counter += 1;
+    }
+
+    function counterSlot() internal pure returns (bytes32 slot) {
+        assembly {
+            slot := counter.slot
+        }
+    }
+}
+
+/**
+ * @title StipendSender
+ * @dev Calls the receiver in each call form that the stipend rule checks.
+ */
+contract StipendSender is BumpableCounter {
+    address payable immutable receiver;
+
+    constructor(address payable _receiver) {
+        receiver = _receiver;
+    }
+
+    function transferToReceiver() public payable {
+        receiver.transfer(msg.value);
+    }
+
+    function isSendDenied() public payable returns (bool) {
+        return !receiver.send(msg.value);
+    }
+
+    function isCallWithGasDenied(uint64 gasLimit) public payable returns (bool) {
+        (bool ok, ) = receiver.call{value: msg.value, gas: gasLimit}("");
+        return !ok;
+    }
+
+    function isStaticCallWithGasDenied(uint64 gasLimit) public view returns (bool) {
+        (bool ok, ) = address(receiver).staticcall{gas: gasLimit}("");
+        return !ok;
+    }
+
+    function isSelfSendAllowed() public payable returns (bool) {
+        return payable(address(this)).send(msg.value);
+    }
+
+    receive() external payable {}
+}
+
+/**
+ * @title WarmWriteSender
+ * @dev Makes a slot hot with a normal write, then reaches it again on a limited gas budget.
+ */
+contract WarmWriteSender {
+    uint256 public counter;
+
+    function isWarmWriteDenied(BumpableCounter receiver) public payable returns (bool) {
+        receiver.bump();
+        bool ok = payable(address(receiver)).send(msg.value);
+        counter += 1;
+        return !ok;
+    }
+
+    function isWarmWriteDeniedWithGas(
+        BumpableCounter receiver,
+        uint64 gasLimit
+    ) public payable returns (bool) {
+        receiver.bump();
+        (bool ok, ) = payable(address(receiver)).call{value: msg.value, gas: gasLimit}("");
+        counter += 1;
+        return !ok;
+    }
+
+    function isWarmStaticReadDenied(
+        BumpableCounter receiver,
+        uint64 gasLimit
+    ) public returns (bool) {
+        receiver.bump();
+        (bool ok, ) =
+            address(receiver).staticcall{gas: gasLimit}(abi.encodeCall(receiver.counter, ()));
+        return !ok;
+    }
+
+    function isWarmDelegateCallDenied(
+        BumpableCounter receiver,
+        uint64 gasLimit,
+        bytes calldata data
+    ) public returns (bool) {
+        counter += 1;
+        (bool ok, ) = address(receiver).delegatecall{gas: gasLimit}(data);
+        return !ok;
+    }
+}
+
+/**
+ * @title StorageHelpers
+ * @dev Storage helpers shared by the receivers.
+ */
+library StorageHelpers {
+    // The `flags` bit of the storage precompile that selects transient storage.
+    uint32 internal constant TRANSIENT = 1;
+
+    function clearStorage(uint32 flags, bytes32 key) internal returns (bool success) {
+        (success, ) = STORAGE_ADDR.delegatecall(
+            abi.encodeCall(IStorage.clearStorage, (flags, true, abi.encodePacked(key)))
+        );
+    }
+
+    function takeStorage(uint32 flags, bytes32 key) internal returns (bool success) {
+        (success, ) = STORAGE_ADDR.delegatecall(
+            abi.encodeCall(IStorage.takeStorage, (flags, true, abi.encodePacked(key)))
+        );
+    }
+
+    // Writes 1 to transient slot 0, failing unless the write is visible.
+    function writeTransient() internal {
+        uint256 value;
+        assembly {
+            tstore(0, 1)
+            value := tload(0)
+        }
+        require(value == 1, "transient write denied");
+    }
+
+    function transientValue() internal view returns (uint256 value) {
+        assembly {
+            value := tload(0)
+        }
+    }
+}
+
+/**
+ * @title WritingReceiver
+ * @dev Increments `counter` on `bump` and on receiving value.
+ */
+contract WritingReceiver is BumpableCounter {
+    receive() external payable {
+        counter += 1;
+    }
+}
+
+/**
+ * @title ReentrantWritingReceiver
+ * @dev Calls back into the sender to increment its `counter` on receiving value.
+ */
+contract ReentrantWritingReceiver {
+    receive() external payable {
+        BumpableCounter(msg.sender).bump();
+    }
+}
+
+/**
+ * @title ClearingReceiver
+ * @dev Increments `counter` on `bump` and zeroes it on receiving value.
+ */
+contract ClearingReceiver is BumpableCounter {
+    receive() external payable {
+        counter = 0;
+    }
+}
+
+/**
+ * @title PrecompileClearingReceiver
+ * @dev Increments `counter` on `bump` and clears its slot through the storage precompile on
+ * receiving value.
+ */
+contract PrecompileClearingReceiver is BumpableCounter {
+    receive() external payable {
+        require(StorageHelpers.clearStorage(0, counterSlot()), "clear denied");
+    }
+}
+
+/**
+ * @title PrecompileTakingReceiver
+ * @dev Increments `counter` on `bump` and takes its slot through the storage precompile on
+ * receiving value.
+ */
+contract PrecompileTakingReceiver is BumpableCounter {
+    receive() external payable {
+        require(StorageHelpers.takeStorage(0, counterSlot()), "take denied");
+    }
+}
+
+/**
+ * @title NestedWritingReceiver
+ * @dev On receiving value, writes storage from a nested call or delegate call.
+ */
+contract NestedWritingReceiver {
+    enum Nesting { Call, DelegateCall }
+
+    uint256 public counter;
+    WritingReceiver immutable target;
+    Nesting immutable nesting;
+
+    constructor(WritingReceiver _target, Nesting _nesting) {
+        target = _target;
+        nesting = _nesting;
+    }
+
+    receive() external payable {
+        if (nesting == Nesting.Call) {
+            target.bump();
+        } else {
+            (bool success, ) =
+                address(target).delegatecall(abi.encodeCall(BumpableCounter.bump, ()));
+            require(success, "delegate call failed");
+        }
+    }
+}
+
+/**
+ * @title ValueForwardingReceiver
+ * @dev Moves `amount` to `beneficiary` on receiving a call.
+ */
+contract ValueForwardingReceiver {
+    address payable immutable beneficiary;
+    uint256 immutable amount;
+
+    constructor(address payable _beneficiary, uint256 _amount) payable {
+        beneficiary = _beneficiary;
+        amount = _amount;
+    }
+
+    receive() external payable {
+        beneficiary.call{value: amount}("");
+    }
+}
+
+/**
+ * @title CallingReceiver
+ * @dev Calls `target` with `data` on receiving a call, failing unless the call succeeds.
+ */
+contract CallingReceiver {
+    address immutable target;
+    bytes data;
+
+    constructor(address _target, bytes memory _data) {
+        target = _target;
+        data = _data;
+    }
+
+    receive() external payable {
+        (bool success, ) = target.call(data);
+        require(success, "call failed");
+    }
+}
+
+/**
+ * @title CreatingReceiver
+ * @dev Creates a contract with `CREATE` or `CREATE2` on receiving a call.
+ */
+contract CreatingReceiver {
+    enum Creation { Create, Create2 }
+
+    Creation immutable creation;
+
+    constructor(Creation _creation) {
+        creation = _creation;
+    }
+
+    receive() external payable {
+        if (creation == Creation.Create) {
+            new DoNothingReceiver();
+        } else {
+            new DoNothingReceiver{salt: bytes32(0)}();
+        }
+    }
+}
+
+/**
+ * @title TerminatingReceiver
+ * @dev Terminates itself with `SELFDESTRUCT` or through the system precompile on receiving a call.
+ */
+contract TerminatingReceiver {
+    enum Termination { SelfDestruct, SystemPrecompile }
+
+    Termination immutable termination;
+    address payable immutable beneficiary;
+
+    constructor(Termination _termination, address payable _beneficiary) payable {
+        termination = _termination;
+        beneficiary = _beneficiary;
+    }
+
+    receive() external payable {
+        if (termination == Termination.SelfDestruct) {
+            selfdestruct(beneficiary);
+        } else {
+            (bool success, ) = SYSTEM_ADDR.call(abi.encodeCall(ISystem.terminate, (beneficiary)));
+            require(success, "terminate failed");
+        }
+    }
+}
+
+/**
+ * @title TransientWritingReceiver
+ * @dev Writes transient storage on receiving value, failing unless the write is visible.
+ */
+contract TransientWritingReceiver {
+    receive() external payable {
+        StorageHelpers.writeTransient();
+    }
+}
+
+/**
+ * @title TransientClearingReceiver
+ * @dev Writes and then zeroes transient storage on receiving value, failing unless the slot ends
+ * empty.
+ */
+contract TransientClearingReceiver {
+    receive() external payable {
+        StorageHelpers.writeTransient();
+        assembly {
+            tstore(0, 0)
+        }
+        require(StorageHelpers.transientValue() == 0, "transient clear denied");
+    }
+}
+
+/**
+ * @title TransientPrecompileClearingReceiver
+ * @dev Writes transient storage and clears it through the storage precompile on receiving value.
+ */
+contract TransientPrecompileClearingReceiver {
+    receive() external payable {
+        StorageHelpers.writeTransient();
+        require(StorageHelpers.clearStorage(StorageHelpers.TRANSIENT, bytes32(0)), "clear denied");
+        require(StorageHelpers.transientValue() == 0, "transient clear denied");
+    }
+}
+
+/**
+ * @title TransientPrecompileTakingReceiver
+ * @dev Writes transient storage and takes it through the storage precompile on receiving value.
+ */
+contract TransientPrecompileTakingReceiver {
+    receive() external payable {
+        StorageHelpers.writeTransient();
+        require(StorageHelpers.takeStorage(StorageHelpers.TRANSIENT, bytes32(0)), "take denied");
+        require(StorageHelpers.transientValue() == 0, "transient take denied");
+    }
 }

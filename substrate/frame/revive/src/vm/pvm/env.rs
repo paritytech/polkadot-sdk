@@ -24,7 +24,9 @@ use crate::{
 	exec::Ext,
 	limits,
 	primitives::ExecReturnValue,
-	vm::{BytecodeType, ExportedFunction, RuntimeCosts, calculate_code_deposit},
+	vm::{
+		BytecodeType, ExportedFunction, RuntimeCosts, StipendAndProtections, calculate_code_deposit,
+	},
 };
 use alloc::vec::Vec;
 use core::mem;
@@ -305,7 +307,7 @@ pub mod env {
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::Call { value_ptr },
+			CallType::Call { value_ptr, stipend_limited: false },
 			callee_ptr,
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			input_data_ptr,
@@ -329,20 +331,26 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-		let resources = if gas == u64::MAX {
-			CallResources::NoLimits
+		let (resources, stipend_limited) = if gas == u64::MAX {
+			(CallResources::NoLimits, false)
 		} else {
 			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
 			let value = memory.read_u256(value_ptr)?;
-			// We also need to detect the 2300: We need to add something scaled.
-			let add_stipend = !value.is_zero() || gas == revm::interpreter::gas::CALL_STIPEND;
-			CallResources::from_ethereum_gas(gas.into(), add_stipend)
+			let read_only = CallFlags::from_bits_truncate(flags).contains(CallFlags::READ_ONLY);
+			let stipend_and_protections = StipendAndProtections::new(value, Some(gas), read_only);
+			(
+				CallResources::from_ethereum_gas(
+					gas.into(),
+					stipend_and_protections.gets_stipend(),
+				),
+				stipend_and_protections.is_transfer_or_send(),
+			)
 		};
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::Call { value_ptr },
+			CallType::Call { value_ptr, stipend_limited },
 			callee,
 			&resources,
 			input_data_ptr,
@@ -430,6 +438,7 @@ pub mod env {
 		output_data: u64,
 		address_and_salt: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		self.ext.ensure_not_stipend_limited()?;
 		let (deposit_ptr, value_ptr) = extract_hi_lo(deposit_and_value);
 		let (input_data_len, code_hash_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
@@ -953,6 +962,7 @@ pub mod env {
 	/// See [`pallet_revive_uapi::HostFn::terminate`].
 	#[mutating]
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
+		self.ext.ensure_not_stipend_limited()?;
 		let charged = self.charge_gas(RuntimeCosts::Terminate { code_removed: true })?;
 		let beneficiary = memory.read_h160(beneficiary_ptr)?;
 		if matches!(self.ext.terminate_if_same_tx(&beneficiary)?, crate::CodeRemoved::No) {
