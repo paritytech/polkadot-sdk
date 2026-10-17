@@ -191,11 +191,19 @@ fn root_accumulates_across_blocks_and_multiple_streams() {
 }
 
 #[test]
-fn idle_block_emits_no_root() {
+fn idle_block_emits_no_root_and_rejects_a_later_send() {
 	new_test_ext().execute_with(|| {
 		// No sends this block.
 		assert_eq!(SpecMessaging::commit_streams_root(), None);
 		assert_eq!(SpecMessaging::current_streams_root(), None);
+
+		// A pallet finalized after `parachain-system` sends: its root would never be provided.
+		assert_err!(
+			SpecMessaging::append_to_stream(stream(0), b"a".to_vec()),
+			crate::Error::<Test>::RootCommitted
+		);
+		assert_eq!(SpecMessaging::commit_streams_root(), None);
+		assert!(SpecMessaging::outbound_messages().is_empty());
 	});
 }
 
@@ -364,7 +372,7 @@ fn events_item_rebuilds_frontier_and_guards_replay() {
 				s,
 				ConsumeItem::Events {
 					base: MessagePosition(0),
-					start_peaks: vec![],
+					start_peaks: Default::default(),
 					payloads: vec![reg.clone()],
 				},
 			)]),
@@ -380,7 +388,7 @@ fn events_item_rebuilds_frontier_and_guards_replay() {
 					s,
 					ConsumeItem::Events {
 						base: MessagePosition(0),
-						start_peaks: vec![],
+						start_peaks: Default::default(),
 						payloads: vec![reg],
 					},
 				)]),
@@ -399,7 +407,7 @@ fn an_events_item_at_the_leaf_count_ceiling_is_rejected() {
 		let (a, s) = (src(), stream(0));
 		let at_ceiling = ConsumeItem::Events {
 			base: MessagePosition(cumulus_primitives_spec_messaging::mmr::MAX_MMR_LEAF_COUNT),
-			start_peaks: vec![polkadot_core_primitives::Hash::zero()],
+			start_peaks: BoundedVec::truncate_from(vec![polkadot_core_primitives::Hash::zero()]),
 			payloads: vec![data_payload(b"reg")],
 		};
 		assert_err!(
@@ -438,7 +446,7 @@ fn a_second_enact_in_one_block_is_rejected() {
 				s,
 				ConsumeItem::Events {
 					base: MessagePosition(0),
-					start_peaks: vec![],
+					start_peaks: Default::default(),
 					payloads: vec![data_payload(payload)],
 				},
 			)])
@@ -449,7 +457,8 @@ fn a_second_enact_in_one_block_is_rejected() {
 		let mut second = read(b"genuine");
 		if let ConsumeItem::Events { base, start_peaks, .. } = &mut second.items[0].2 {
 			*base = MessagePosition(1);
-			*start_peaks = vec![leaf_hash(LEAF_VERSION, &data_payload(b"forged"))];
+			*start_peaks =
+				BoundedVec::truncate_from(vec![leaf_hash(LEAF_VERSION, &data_payload(b"forged"))]);
 		}
 		assert_err!(
 			SpecMessaging::enact_messages(RuntimeOrigin::none(), second),

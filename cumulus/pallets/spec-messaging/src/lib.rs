@@ -118,9 +118,10 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// This block's committed [`StreamsRoot`] (the `Provides` source); transient.
+	/// This block's committed [`StreamsRoot`] (the `Provides` source); transient. `Some(None)` once
+	/// an idle block has committed, so a later send is rejected there too.
 	#[pallet::storage]
-	pub type BlockStreamsRoot<T: Config> = StorageValue<_, StreamsRoot, OptionQuery>;
+	pub type BlockStreamsRoot<T: Config> = StorageValue<_, Option<StreamsRoot>, OptionQuery>;
 
 	/// The block whose roll-over has run, with the number of sends it drained. See
 	/// [`Pallet::roll_over`].
@@ -227,7 +228,7 @@ pub mod pallet {
 							source,
 							stream,
 							base,
-							start_peaks,
+							start_peaks.into_inner(),
 							payloads,
 						)
 					},
@@ -327,35 +328,34 @@ impl<T: Config> Pallet<T> {
 	/// Idempotent; `None` on idle blocks so an unchanged root is never re-emitted.
 	pub fn commit_streams_root() -> Option<StreamsRoot> {
 		Self::roll_over();
-		if let Some(root) = BlockStreamsRoot::<T>::get() {
-			return Some(root);
+		if let Some(committed) = BlockStreamsRoot::<T>::get() {
+			return committed;
 		}
 
-		// Root over every stream ever touched: persisted frontiers, then this block's sends
-		// overlaid (a first-touch stream is not yet persisted, so no double count).
+		// Root over every stream ever touched: this block's sends, then the persisted frontiers
+		// of the streams it did not touch. The sends go first, so an idle block reads no
+		// frontier.
 		//
 		// TODO(spec-msg): O(all-streams) per touched block, growing without bound. Replace with the
 		// incremental updater tracked on `streams_root`.
 		let mut entries: BTreeMap<StreamId, Hash> = BTreeMap::new();
-		for (stream, frontier) in OutboundFrontier::<T>::iter() {
-			entries.insert(stream, frontier.root().0);
-		}
-
-		let mut touched = false;
 		for (stream, messages) in OutboundMessages::<T>::iter() {
 			let mut frontier = OutboundFrontier::<T>::get(stream);
 			for payload in &messages {
 				frontier.append(leaf_hash(LEAF_VERSION, payload));
 			}
 			entries.insert(stream, frontier.root().0);
-			touched = true;
 		}
-		if !touched {
+		if entries.is_empty() {
+			BlockStreamsRoot::<T>::put(None::<StreamsRoot>);
 			return None;
+		}
+		for (stream, frontier) in OutboundFrontier::<T>::iter() {
+			entries.entry(stream).or_insert_with(|| frontier.root().0);
 		}
 
 		let root = streams_root(&entries).expect("touched, so non-empty; qed");
-		BlockStreamsRoot::<T>::put(root);
+		BlockStreamsRoot::<T>::put(Some(root));
 		frame_system::Pallet::<T>::deposit_log(DigestItem::Consensus(
 			SPMS_ENGINE_ID,
 			root.encode(),
@@ -371,7 +371,7 @@ impl<T: Config> Pallet<T> {
 
 	/// This block's committed [`StreamsRoot`], if any.
 	pub fn current_streams_root() -> Option<StreamsRoot> {
-		BlockStreamsRoot::<T>::get()
+		BlockStreamsRoot::<T>::get().flatten()
 	}
 
 	/// This block's outbound sends per stream, in [`StreamId`] order.
