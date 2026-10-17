@@ -581,6 +581,9 @@ pub use sc_network_statement::config::DEFAULT_REPLICATION_FACTOR;
 /// Default gossip target for v2 DHT-affinity statement routing.
 pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 
+/// Default inbound and outbound slots of the statement protocol on the v2 DHT path.
+pub use sc_network_statement::config::{DEFAULT_IN_PEERS, DEFAULT_OUT_PEERS};
+
 /// Parameters of the v2 DHT statement path.
 pub use sc_network_statement::{AffinityTopicsFile, V2DhtConfig};
 

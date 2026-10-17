@@ -1,0 +1,22 @@
+title: 'statement-store: configurable statement protocol slots on the v2 DHT path'
+
+doc:
+- audience: Node Operator
+  description: |-
+    Hidden `--statement-in-peers` and `--statement-out-peers` set the statement protocol slots on
+    the v2 DHT path, 50 each by default. Hidden `--statement-reserved-peers` caps the peers reserved
+    to cover the node's topics, unlimited by default.
+- audience: Node Dev
+  description: |-
+    `StatementHandlerPrototype::new` takes `Option<&V2DhtConfig>`, which gains `in_peers`,
+    `out_peers` and `reserved_peers`.
+
+crates:
+- name: sc-network-statement
+  bump: major
+- name: sc-statement-store
+  bump: major
+- name: staging-node-cli
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: major

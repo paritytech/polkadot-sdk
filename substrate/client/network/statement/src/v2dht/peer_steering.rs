@@ -23,13 +23,13 @@
 //!
 //! It tracks the connected peers and the peers needed for coverage.
 //! [`PeerSteering::peers_to_connect`] and [`PeerSteering::peers_to_disconnect`] decide how to align
-//! the former with the latter — the desired peers that are not connected and the connected peers no
+//! the former with the latter — the desired peers that are not connected and the reserved peers no
 //! longer desired — closing at most [`MAX_DISCONNECT_PERCENT`] of the connected peers per refresh
 //! so the set converges over several refreshes rather than churning at once.
 //! [`PeerSteering::refresh_connections`] applies that decision by editing the statement protocol's
 //! reserved set: adding a peer dials it and keeps the notification substream open, removing one
-//! drops it. The orchestrator supplies the coverage set via
-//! [`PeerSteering::update_peers_needing_connections`].
+//! drops it. Reserved peers bypass the protocol's slots, so it reserves at most `max_reserved`. The
+//! orchestrator supplies the coverage set via [`PeerSteering::update_peers_needing_connections`].
 //!
 //! Each connected peer carries a score based on its actions. Undesired peers are
 //! dropped lowest-score first.
@@ -67,12 +67,16 @@ const MAX_DISCONNECT_PERCENT: usize = 20;
 pub(crate) struct PeerSteering {
 	/// Statement protocol whose reserved set the connections are steered through.
 	protocol: ProtocolName,
+	/// Most peers held in the reserved set at once.
+	max_reserved: usize,
 	/// Peers with an open statement notification substream.
 	connected: HashMap<PeerId, ConnectedPeer>,
 	/// Monotonic counter handing each new connection its sequence.
 	next_connection_seq: u64,
-	/// Peers needed to cover the node's subscriptions.
-	desired: HashSet<PeerId>,
+	/// Peers needed to cover the node's subscriptions, most coverage first.
+	desired: Vec<PeerId>,
+	/// Peers this steering added to the reserved set.
+	reserved: HashSet<PeerId>,
 }
 
 /// The state of one connected peer.
@@ -85,12 +89,14 @@ struct ConnectedPeer {
 }
 
 impl PeerSteering {
-	pub(crate) fn new(protocol: ProtocolName) -> Self {
+	pub(crate) fn new(protocol: ProtocolName, max_reserved: usize) -> Self {
 		Self {
 			protocol,
+			max_reserved,
 			connected: HashMap::new(),
 			next_connection_seq: 0,
-			desired: HashSet::new(),
+			desired: Vec::new(),
+			reserved: HashSet::new(),
 		}
 	}
 
@@ -144,21 +150,41 @@ impl PeerSteering {
 			.collect()
 	}
 
-	/// Connected peers no longer desired, capped at [`MAX_DISCONNECT_PERCENT`] of the connected
+	/// Reserved peers no longer desired, capped at [`MAX_DISCONNECT_PERCENT`] of the connected
 	/// peers (at least one while any remain) so the set converges step by step.
 	pub(crate) fn peers_to_disconnect(&self) -> Vec<PeerId> {
 		let limit = (self.connected.len() * MAX_DISCONNECT_PERCENT / 100).max(1);
-		// Drop the lowest-scored peers first. Among peers of equal score, the longest-connected one
-		// goes first, spreading disconnects across peers.
+		// Drop the unconnected peers first, then the lowest-scored. Among peers of equal score, the
+		// longest-connected one goes first, spreading disconnects across peers.
 		let mut peers: Vec<(i32, u64, PeerId)> = self
-			.connected
+			.reserved
 			.iter()
-			.filter(|(peer, _)| !self.desired.contains(peer))
-			.map(|(peer, entry)| (entry.score, entry.seq, *peer))
+			.filter(|peer| !self.desired.contains(peer))
+			.map(|peer| {
+				let (score, seq) =
+					self.connected.get(peer).map_or((i32::MIN, 0), |e| (e.score, e.seq));
+				(score, seq, *peer)
+			})
 			.collect();
 		peers.sort();
 		peers.truncate(limit);
 		peers.into_iter().map(|(_, _, peer)| peer).collect()
+	}
+
+	/// Peers to remove from and add to the reserved set, recorded in `reserved`.
+	fn plan_refresh(&mut self) -> (Vec<PeerId>, Vec<PeerId>) {
+		let disconnect = self.peers_to_disconnect();
+		for peer in &disconnect {
+			self.reserved.remove(peer);
+		}
+		let room = self.max_reserved.saturating_sub(self.reserved.len());
+		let (pending, new): (Vec<_>, Vec<_>) = self
+			.peers_to_connect()
+			.into_iter()
+			.partition(|peer| self.reserved.contains(peer));
+		let connect: Vec<_> = pending.into_iter().chain(new.into_iter().take(room)).collect();
+		self.reserved.extend(&connect);
+		(disconnect, connect)
 	}
 
 	/// Align the connected set with the desired set by editing the statement protocol's reserved
@@ -166,9 +192,8 @@ impl PeerSteering {
 	///
 	/// The connected set tracks open substreams, so it updates through the substream events as the
 	/// changes take effect, not here.
-	pub(crate) fn refresh_connections<N: NetworkPeers>(&self, network: &N) {
-		let connect = self.peers_to_connect();
-		let disconnect = self.peers_to_disconnect();
+	pub(crate) fn refresh_connections<N: NetworkPeers>(&mut self, network: &N) {
+		let (disconnect, connect) = self.plan_refresh();
 
 		log::trace!(
 			target: LOG_TARGET,
@@ -207,7 +232,7 @@ mod tests {
 
 	#[test]
 	fn substream_events_maintain_the_connected_set() {
-		let mut steering = PeerSteering::new("/statement/test".into());
+		let mut steering = PeerSteering::new("/statement/test".into(), usize::MAX);
 
 		steering.on_substream_opened(peer(1));
 		steering.on_substream_opened(peer(2));
@@ -219,11 +244,12 @@ mod tests {
 
 	#[test]
 	fn connects_desired_and_disconnects_undesired() {
-		let mut steering = PeerSteering::new("/statement/test".into());
+		let mut steering = PeerSteering::new("/statement/test".into(), usize::MAX);
 		// peer(1) is connected and desired; peer(2) is connected but undesired; peer(3) is desired
 		// but not connected.
 		steering.on_substream_opened(peer(1));
 		steering.on_substream_opened(peer(2));
+		steering.reserved.extend([peer(1), peer(2)]);
 		steering.update_peers_needing_connections([peer(1), peer(3)]);
 
 		assert_eq!(steering.peers_to_connect(), vec![peer(3)]);
@@ -232,7 +258,7 @@ mod tests {
 
 	#[test]
 	fn converged_set_has_no_work() {
-		let mut steering = PeerSteering::new("/statement/test".into());
+		let mut steering = PeerSteering::new("/statement/test".into(), usize::MAX);
 		steering.on_substream_opened(peer(1));
 		steering.on_substream_opened(peer(2));
 		steering.update_peers_needing_connections([peer(1), peer(2)]);
@@ -243,10 +269,11 @@ mod tests {
 
 	#[test]
 	fn disconnects_are_capped_at_twenty_percent() {
-		let mut steering = PeerSteering::new("/statement/test".into());
+		let mut steering = PeerSteering::new("/statement/test".into(), usize::MAX);
 		for seed in 1..=10 {
 			steering.on_substream_opened(peer(seed));
 		}
+		steering.reserved.extend(connected_set(&steering));
 
 		assert!(steering.peers_to_connect().is_empty());
 		// Two of ten connected peers, the longest-connected, with none desired.
@@ -255,11 +282,12 @@ mod tests {
 
 	#[test]
 	fn disconnects_drop_the_longest_connected_not_the_lowest_peer_id() {
-		let mut steering = PeerSteering::new("/statement/test".into());
+		let mut steering = PeerSteering::new("/statement/test".into(), usize::MAX);
 		// Connect the high peer ids first, so connection age and peer id rank disagree.
 		for seed in [10u8, 9, 1, 2] {
 			steering.on_substream_opened(peer(seed));
 		}
+		steering.reserved.extend(connected_set(&steering));
 
 		// peer(10) connected first, so it is dropped before the lower-id peers.
 		assert_eq!(steering.peers_to_disconnect(), vec![peer(10)]);
@@ -267,10 +295,11 @@ mod tests {
 
 	#[test]
 	fn score_outranks_connection_age_when_disconnecting() {
-		let mut steering = PeerSteering::new("/statement/test".into());
+		let mut steering = PeerSteering::new("/statement/test".into(), usize::MAX);
 		// peer(1) connects first, so connection age alone would drop it before peer(2).
 		steering.on_substream_opened(peer(1));
 		steering.on_substream_opened(peer(2));
+		steering.reserved.extend(connected_set(&steering));
 		// The longest-connected peer behaves well, the younger one misbehaves.
 		steering.update_score(peer(1), score::GOOD_ACTION);
 		steering.update_score(peer(2), score::BAD_ACTION);
@@ -281,7 +310,7 @@ mod tests {
 
 	#[test]
 	fn update_score_ignores_unconnected_peers_and_resets_on_reconnect() {
-		let mut steering = PeerSteering::new("/statement/test".into());
+		let mut steering = PeerSteering::new("/statement/test".into(), usize::MAX);
 
 		// Reporting a peer without an open substream changes nothing.
 		steering.update_score(peer(1), score::BAD_ACTION);
@@ -291,20 +320,22 @@ mod tests {
 		// down over this connection is dropped first.
 		steering.on_substream_opened(peer(1));
 		steering.on_substream_opened(peer(2));
+		steering.reserved.extend(connected_set(&steering));
 		steering.update_score(peer(2), score::BAD_ACTION);
 		assert_eq!(steering.peers_to_disconnect(), vec![peer(2)]);
 	}
 
 	#[test]
 	fn capped_disconnects_drain_over_successive_refreshes() {
-		let mut steering = PeerSteering::new("/statement/test".into());
+		let mut steering = PeerSteering::new("/statement/test".into(), usize::MAX);
 		for seed in 1..=10 {
 			steering.on_substream_opened(peer(seed));
 		}
+		steering.reserved.extend(connected_set(&steering));
 
 		let mut dropped = HashSet::new();
 		while !steering.connected.is_empty() {
-			let disconnect = steering.peers_to_disconnect();
+			let (disconnect, _) = steering.plan_refresh();
 			assert!(disconnect.len() <= 2, "each refresh drops at most a fifth");
 			for peer in disconnect {
 				assert!(dropped.insert(peer), "no peer dropped twice");
