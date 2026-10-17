@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792206323420,
+  "lastUpdate": 1792210541890,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "996adb4757eee544ad30e919ea31bc54f442db54",
-          "message": "Fix links (#11554)",
-          "timestamp": "2026-04-05T01:52:39Z",
-          "tree_id": "ec9f1f13ffc6249c5cb7b4040164b0bd5855f17b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/996adb4757eee544ad30e919ea31bc54f442db54"
-        },
-        "date": 1775359321631,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002646305640000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0095460672,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00914813878999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025035489900000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "264c36dd72329280589b6de2312c8df1e114bfee",
+          "message": "Remove the construct_runtime! where clause (#13349)\n\n## Summary\n\nThis is part of #11561. The `where` clause on `construct_runtime!` has\nwarned since December 2023, and no production runtime still uses it. The\nblock type is already read from `frame_system::Config::Block`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-10-16T20:15:45Z",
+          "tree_id": "c6dae9bb1f7be1abebb5ffd3f5c04a1dc9930b57",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/264c36dd72329280589b6de2312c8df1e114bfee"
+        },
+        "date": 1792210512181,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009106901839999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009826125100000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00255791447,
             "unit": "seconds"
           }
         ]
