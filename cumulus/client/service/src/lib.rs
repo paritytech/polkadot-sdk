@@ -33,7 +33,7 @@ use polkadot_primitives::{CandidateEvent, CollatorPair, OccupiedCoreAssumption};
 use prometheus::{Histogram, HistogramOpts, Registry};
 use sc_client_api::{
 	AuxStore, Backend as BackendT, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider,
-	Finalizer, ProofProvider, UsageProvider,
+	Finalizer, PartialStateImport, ProofProvider, UsageProvider,
 };
 use sc_consensus::{
 	import_queue::{ImportQueue, ImportQueueService},
@@ -315,6 +315,7 @@ where
 		+ sp_consensus::block_validation::Chain<Block>
 		+ BlockBackend<Block>
 		+ ProofProvider<Block>
+		+ PartialStateImport<Block>
 		+ HeaderBackend<Block>
 		+ BlockchainEvents<Block>
 		+ 'static,

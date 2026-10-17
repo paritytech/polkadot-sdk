@@ -518,8 +518,13 @@ mod execution {
 		/// State root of the level, for
 		/// top trie it is as an empty byte array.
 		pub state_root: Vec<u8>,
-		/// Storage of parents, empty for top root or
-		/// when exporting (building proof).
+		/// The top-trie keys this child trie is stored under: the `:child_storage:` keys whose
+		/// value is `state_root`. Usually one key. More than one when several child tries have
+		/// the same root, so the same content. Empty for the top trie, which has no parent.
+		///
+		/// Only the range proof verifier fills this. It reads a root's content once, under the
+		/// first key it meets, so `key_values` belongs to the first key. The later keys are
+		/// copies the client fills from the first one (see `child_trie_copies`).
 		pub parent_storage_keys: Vec<Vec<u8>>,
 		/// Pair of key and values from this state.
 		pub key_values: Vec<(Vec<u8>, Vec<u8>)>,
@@ -546,6 +551,18 @@ mod execution {
 		/// Return total number of key values in states.
 		pub fn len(&self) -> usize {
 			self.0.iter().fold(0, |nb, state| nb + state.key_values.len())
+		}
+
+		/// Child tries whose content was not read because an earlier key has the same root, as
+		/// `(key, source key)` pairs. See `parent_storage_keys`.
+		pub fn child_trie_copies(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
+			self.0
+				.iter()
+				.filter_map(|level| level.parent_storage_keys.split_first())
+				.flat_map(|(source, copies)| {
+					copies.iter().map(move |copy| (copy.clone(), source.clone()))
+				})
+				.collect()
 		}
 
 		/// Update last keys accessed from this state.
@@ -1050,14 +1067,15 @@ mod execution {
 			return Err(Box::new("Invalid start of range."));
 		}
 
-		let mut child_roots = HashSet::new();
+		// Roots we already entered, with the index of their level. A root's content is read only
+		// once: a later key holding the same root just gets noted on that level.
+		let mut child_roots: std::collections::HashMap<Vec<u8>, usize> = Default::default();
 		let (mut child_key, mut start_at) = if start_at.len() == 2 {
 			let storage_key = start_at.get(0).expect("Checked length.").clone();
 			let child_key = if let Some(state_root) = proving_backend
 				.storage(&storage_key)
 				.map_err(|e| Box::new(e) as Box<dyn Error>)?
 			{
-				child_roots.insert(state_root.clone());
 				Some((storage_key, state_root))
 			} else {
 				return Err(Box::new("Invalid range start child trie key."));
@@ -1073,8 +1091,9 @@ mod execution {
 				result.push(KeyValueStorageLevel {
 					state_root: state_root.clone(),
 					key_values: Default::default(),
-					parent_storage_keys: Default::default(),
+					parent_storage_keys: vec![storage_key.clone()],
 				});
+				child_roots.insert(state_root.clone(), result.len() - 1);
 
 				let storage_key = PrefixedStorageKey::new_ref(storage_key);
 				(
@@ -1090,11 +1109,7 @@ mod execution {
 				(None, 1)
 			};
 
-			let values = if child_info.is_some() {
-				&mut result.last_mut().expect("Added above").key_values
-			} else {
-				&mut result[0].key_values
-			};
+			let level = if child_info.is_some() { result.len() - 1 } else { 0 };
 			let start_at_ref = start_at.as_ref().map(AsRef::as_ref);
 			let mut switch_child_key = None;
 
@@ -1110,16 +1125,19 @@ mod execution {
 
 			while let Some(item) = iter.next() {
 				let (key, value) = item.map_err(|e| Box::new(e) as Box<dyn Error>)?;
-				values.push((key.to_vec(), value.to_vec()));
+				result[level].key_values.push((key.to_vec(), value.to_vec()));
 
 				if depth < MAX_NESTED_TRIE_DEPTH &&
 					sp_core::storage::well_known_keys::is_child_storage_key(key.as_slice())
 				{
-					// Do not add two chid trie with same root.
-					if !child_roots.contains(value.as_slice()) {
-						child_roots.insert(value.clone());
-						switch_child_key = Some((key, value));
-						break;
+					// Seen this root before: don't read the content again, just note the key on
+					// the level it was read under. The client copies the content from there.
+					match child_roots.get(value.as_slice()) {
+						Some(level) => result[*level].parent_storage_keys.push(key),
+						None => {
+							switch_child_key = Some((key, value));
+							break;
+						},
 					}
 				}
 			}

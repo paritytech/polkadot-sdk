@@ -2612,6 +2612,9 @@ impl BlockNumberProvider for () {
 	}
 }
 
+#[cfg(feature = "std")]
+pub type PartialStateFor<B> = sp_trie::partial_state::PartialState<HashingFor<B>>;
+
 #[cfg(test)]
 mod tests {
 	use super::*;

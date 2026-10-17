@@ -378,6 +378,11 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 		}
 	}
 
+	/// True while no block state was recorded, see [`StateDb::is_empty`].
+	fn is_empty(&self) -> bool {
+		self.mode != PruningMode::ArchiveAll && self.non_canonical.is_empty()
+	}
+
 	fn is_pruned(&self, hash: &BlockHash, number: u64) -> IsPruned {
 		match self.mode {
 			PruningMode::ArchiveAll => IsPruned::NotPruned,
@@ -652,6 +657,13 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 		self.db.read().last_canonicalized()
 	}
 
+	/// True while no block state is recorded: nothing canonicalized and no non-canonical block.
+	/// Trie nodes written past state-db, like those of a state sync in progress, do not count.
+	/// Always `false` in `ArchiveAll` mode, which records nothing.
+	pub fn is_empty(&self) -> bool {
+		self.db.read().is_empty()
+	}
+
 	/// Check if block is pruned away.
 	pub fn is_pruned(&self, hash: &BlockHash, number: u64) -> IsPruned {
 		self.db.read().is_pruned(hash, number)
@@ -791,6 +803,56 @@ mod tests {
 	fn canonical_archive_keeps_canonical() {
 		let (db, _) = make_test_db(PruningMode::ArchiveCanonical);
 		assert!(db.data_eq(&make_db(&[1, 21, 3, 91, 921, 922, 93, 94])));
+	}
+
+	#[test]
+	fn is_empty_until_the_first_block_except_in_archive_all() {
+		let mut db = make_db(&[]);
+		let (state_db_init, state_db) = StateDb::open(
+			db.clone(),
+			Some(PruningMode::Constrained(Constraints { max_blocks: Some(1) })),
+			false,
+			true,
+		)
+		.unwrap();
+		db.commit(&state_db_init);
+		assert!(state_db.is_empty());
+
+		db.commit(
+			&state_db
+				.insert_block(
+					&H256::from_low_u64_be(1),
+					1,
+					&H256::from_low_u64_be(0),
+					make_changeset(&[1], &[]),
+				)
+				.unwrap(),
+		);
+		assert!(!state_db.is_empty(), "a non-canonical block counts");
+
+		// The journal survives a restart.
+		let (_, reopened) = StateDb::<H256, H256, TestDb>::open(
+			db.clone(),
+			Some(PruningMode::Constrained(Constraints { max_blocks: Some(1) })),
+			false,
+			false,
+		)
+		.unwrap();
+		assert!(!reopened.is_empty());
+
+		db.commit(&state_db.canonicalize_block(&H256::from_low_u64_be(1)).unwrap());
+		assert!(!state_db.is_empty(), "a canonical block counts");
+
+		let mut db = make_db(&[]);
+		let (state_db_init, state_db) = StateDb::<H256, H256, TestDb>::open(
+			db.clone(),
+			Some(PruningMode::ArchiveAll),
+			false,
+			true,
+		)
+		.unwrap();
+		db.commit(&state_db_init);
+		assert!(!state_db.is_empty(), "archive-all never is");
 	}
 
 	#[test]

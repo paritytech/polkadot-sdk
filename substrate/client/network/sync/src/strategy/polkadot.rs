@@ -26,6 +26,7 @@ use crate::{
 	strategy::{
 		chain_sync::{ChainSync, ChainSyncMode, GapSyncBodyPolicyProvider},
 		state::StateStrategy,
+		state_sync::{resumable_state_sync, StateSync},
 		warp::{WarpSync, WarpSyncConfig},
 		StrategyKey, SyncingAction, SyncingStrategy,
 	},
@@ -34,7 +35,7 @@ use crate::{
 };
 use log::{debug, error, info, warn};
 use prometheus_endpoint::Registry;
-use sc_client_api::{BlockBackend, ProofProvider};
+use sc_client_api::{BlockBackend, PartialStateImport, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus};
 use sc_network::ProtocolName;
 use sc_network_common::sync::{message::BlockAnnounce, SyncMode};
@@ -47,7 +48,7 @@ use std::{any::Any, collections::HashMap, sync::Arc};
 fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
 	match sync_mode {
 		SyncMode::Full => ChainSyncMode::Full,
-		SyncMode::LightState { skip_proofs } => ChainSyncMode::LightState { skip_proofs },
+		SyncMode::LightState => ChainSyncMode::LightState,
 		SyncMode::Warp => ChainSyncMode::Full,
 	}
 }
@@ -100,6 +101,7 @@ where
 		+ BlockBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
 		+ ProofProvider<B>
+		+ PartialStateImport<B>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -339,6 +341,7 @@ where
 		+ BlockBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
 		+ ProofProvider<B>
+		+ PartialStateImport<B>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -409,17 +412,32 @@ where
 						target: LOG_TARGET,
 						"Warp sync is complete, continuing with state sync."
 					);
-					let state_sync = StateStrategy::new(
-						self.client.clone(),
-						res.target_header,
-						res.target_body,
-						res.target_justifications,
-						false,
-						self.peer_best_blocks
-							.iter()
-							.map(|(peer_id, (_, best_number))| (*peer_id, *best_number)),
-						self.config.state_request_protocol_name.clone(),
-					);
+					let peers = self
+						.peer_best_blocks
+						.iter()
+						.map(|(peer_id, (_, best_number))| (*peer_id, *best_number));
+					let protocol_name = self.config.state_request_protocol_name.clone();
+					// Resume what an earlier run left behind if its target still fits, else start
+					// a new attempt.
+					let state_sync = match resumable_state_sync(
+						&*self.client,
+						*res.target_header.number(),
+						res.highest_proof_header,
+					) {
+						Some(resumable) => StateStrategy::new_with_provider(
+							Box::new(StateSync::resume(self.client.clone(), resumable)),
+							peers,
+							protocol_name,
+						),
+						None => StateStrategy::new(
+							self.client.clone(),
+							res.target_header,
+							res.target_body,
+							res.target_justifications,
+							peers,
+							protocol_name,
+						)?,
+					};
 
 					self.warp = None;
 					self.state = Some(state_sync);
