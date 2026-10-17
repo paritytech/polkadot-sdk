@@ -227,3 +227,49 @@ pub type MigrateV0ToV1<T, TransferWeight> = frame_support::migrations::Versioned
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
+
+pub mod v2 {
+	use super::*;
+
+	/// Removes `ChildBountyCount`.
+	///
+	/// v1 moved child-bounty ids onto `ParentTotalChildBounties`. This value is no longer read.
+	pub struct MigrateToV2Impl<T>(PhantomData<T>);
+
+	#[storage_alias]
+	pub type ChildBountyCount<T: Config> = StorageValue<Pallet<T>, BountyIndex, ValueQuery>;
+
+	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV2Impl<T> {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			let existed = ChildBountyCount::<T>::exists();
+			if existed {
+				log::info!(target: LOG_TARGET, "Removing unused ChildBountyCount storage");
+			}
+			ChildBountyCount::<T>::kill();
+			T::DbWeight::get().reads_writes(1, 1)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			Ok(ChildBountyCount::<T>::exists().encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			frame_support::ensure!(
+				!ChildBountyCount::<T>::exists(),
+				"ChildBountyCount was not removed"
+			);
+			Ok(())
+		}
+	}
+}
+
+/// Migrate the pallet storage from `1` to `2` by deleting `ChildBountyCount`.
+pub type MigrateV1ToV2<T> = frame_support::migrations::VersionedMigration<
+	1,
+	2,
+	v2::MigrateToV2Impl<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
