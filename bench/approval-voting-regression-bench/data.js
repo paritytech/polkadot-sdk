@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792217778834,
+  "lastUpdate": 1792223081048,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "20d65ad1febe16991b847d5d57c8d2cbdbf2979c",
-          "message": "[Release|CI/CD] Trigger check-sync flow in callable flows only if they are triggered manually and not with the workflow_call trigger (#11631)\n\nhttps://github.com/paritytech/release-engineering/issues/291",
-          "timestamp": "2026-04-07T10:40:36Z",
-          "tree_id": "2ad6bae28a6e46a10cba89ebf3c59d74ce1ac35d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/20d65ad1febe16991b847d5d57c8d2cbdbf2979c"
-        },
-        "date": 1775563297619,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63628.62999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52945.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8358371754400005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002241843,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.783999374159942,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.852942801810001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000025003740000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7645686126899537,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.92242779557,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.907347743440001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000025003740000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.495606332309984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002241843,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0052689129000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.350769840792778,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.147949495539994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f70f263f11a4ee2c25731f9fcf8759be5e510a0",
+          "message": "eth-rpc: send only new latest blocks to newHeads subscribers (#13477)\n\n### Summary\nThe newHeads subscription sent every block from the best block stream,\nincluding blocks eth-rpc does not take as the latest one: a repeat of\nthe latest block, a lower block replayed while the latest block is still\ncanonical, or a block that contradicts the finalized block. Subscribers\nare now notified only when the latest block changes, so a lower or\nrepeated block is sent only when the latest block moves back, after a\nreorg or a reconnect to a node that is behind.\n\n### Changes\n- `BlockInfoProvider::update_latest` returns the new latest block, or\n`None` if it did not change.\n- The finalized block stream now also notifies subscribers when it\nchanges the latest block.",
+          "timestamp": "2026-10-17T06:07:15Z",
+          "tree_id": "80821c44c74e8fce2c7199728ba9eaad5acef1c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4f70f263f11a4ee2c25731f9fcf8759be5e510a0"
+        },
+        "date": 1792223050733,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63568.909999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52945.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018938429999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8071217173300124,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.380397314872738,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.779937361119999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.356509667770023,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001989472,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018938429999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.787726548779999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.828830725450001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3707771078100133,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7770770356999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001989472,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005039171579999998,
             "unit": "seconds"
           }
         ]
