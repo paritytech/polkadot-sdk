@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792210451533,
+  "lastUpdate": 1792217778834,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c9e84992741de0136fbf7ca66727a1aa42fb8433",
-          "message": "statement-store: add concurrent and multi-peer propagation tests (#11611)\n\n# Description\n\nImplement unit tests for \"Propagation under normal load\" #11534 \n\n## Summary\n- Add 3 multi-peer propagation tests for the network handler (all-peers\ndelivery, known-statement filtering, same-statement deduplication)\n- Refactor 3 duplicate test builder functions into a single canonical\n`build_handler_multi_peers(n)` with thin wrappers\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-04-07T09:07:33Z",
-          "tree_id": "d4e9da1978b569e219ad7f518379490cb6b2604a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c9e84992741de0136fbf7ca66727a1aa42fb8433"
-        },
-        "date": 1775560472473,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52937.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63622.11,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7296559419899571,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4923224412099945,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.702910293279947,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005732882800000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.869304779129999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8275016608900008,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.497058611683029,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000025727710000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002258097,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002258097,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8771823031499983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.901210284109999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000025727710000000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.723404955560001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "03215dcacd1313785052a8eb6e69dd5f07ee01de",
+          "message": "statement-store: deliver statements to light peers on the v2 DHT path (#13456)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13307.\n\nWith the v2 DHT path on, a light peer got only the initial sync. The\npropagation plan took the filter matches from the peers in the topology,\nand light peers never enter it. The plan now takes them from the stored\npeer filters, so a light peer reaches the plan through its filter alone,\nwhile staying out of the DHT index, routing targets and peer steering.\n\nThe two TODO(#11288) comments are settled without a code change. A light\npeer stays out of the orchestrator because it stores and routes nothing.\nThe `can_receive` check before queueing stays because a V2 peer skipped\nfor a missing filter gets the skipped statements from the initial sync\nthat follows its filter.\n\n# Integration\n\nNo changes needed.",
+          "timestamp": "2026-10-17T04:41:50Z",
+          "tree_id": "00bcafa9d0111e6b4ea8cb9596afa4bd6ef59f4d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/03215dcacd1313785052a8eb6e69dd5f07ee01de"
+        },
+        "date": 1792217746860,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63559.409999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001949851,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.341483003020001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7630374664199997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002192646,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001949851,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7852220225599945,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.730943716279998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.257719306722437,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7334092306900017,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005033914010000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7888201425600005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002192646,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.147949495539994,
             "unit": "seconds"
           }
         ]
