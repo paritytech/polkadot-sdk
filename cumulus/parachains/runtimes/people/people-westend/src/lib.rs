@@ -229,7 +229,7 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-	type EventHandler = (CollatorSelection,);
+	type EventHandler = (CollatorSelection, ValidatorCollators);
 }
 
 parameter_types! {
@@ -433,7 +433,76 @@ impl pallet_validator_collators::Config for Runtime {
 	type MaxValidators =
 		ConstU32<{ testnet_parachains_constants::westend::staking::MAX_VALIDATOR_SET }>;
 	type PeriodicSession = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
+	type BlockReporter = ReportBlocksToAssetHub;
+	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
+	type MaxEntriesPerReport =
+		ConstU32<{ testnet_parachains_constants::westend::staking::MAX_ENTRIES_PER_REPORT }>;
+	type UnixTime = Timestamp;
+	type DefaultExpectedEraDuration =
+		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;
+	type DefaultReportMargin = ConstU64<300_000>;
+	type MaxReportMargin = ConstU64<1_800_000>;
 	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
+}
+
+// `people-westend-integration-tests` decodes this encoding on the Asset Hub Westend runtime and
+// fails if it drifts.
+#[derive(Encode)]
+enum AssetHubRuntimePallets {
+	// index of `StakingPointsConverter` in the Asset Hub Westend runtime.
+	#[codec(index = 27)]
+	StakingPointsConverter(StakingPointsConverterCalls),
+}
+
+#[derive(Encode)]
+enum StakingPointsConverterCalls {
+	// index of `fn report_authored_blocks` in `pallet-staking-async-points-converter`.
+	#[codec(index = 1)]
+	ReportAuthoredBlocks { blocks: Vec<(AccountId, u32)> },
+}
+
+/// Sends the block counts to Asset Hub as an unpaid `Transact` of `report_authored_blocks`, which
+/// Asset Hub dispatches with this chain's sibling parachain origin.
+pub struct ReportBlocksToAssetHub;
+
+impl ReportBlocksToAssetHub {
+	/// The encoded Asset Hub call that reports `blocks`.
+	pub fn encoded_call(blocks: &[(AccountId, u32)]) -> Vec<u8> {
+		AssetHubRuntimePallets::StakingPointsConverter(
+			StakingPointsConverterCalls::ReportAuthoredBlocks { blocks: blocks.to_vec() },
+		)
+		.encode()
+	}
+}
+
+impl pallet_validator_collators::ReportAuthoredBlocks<AccountId> for ReportBlocksToAssetHub {
+	fn report(blocks: &[(AccountId, u32)]) -> Result<(), ()> {
+		let xcm = Xcm(vec![
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+			Transact {
+				origin_kind: OriginKind::Native,
+				fallback_max_weight: None,
+				call: Self::encoded_call(blocks).into(),
+			},
+		]);
+		send_xcm::<xcm_config::XcmRouter>(AssetHubLocation::get(), xcm)
+			.map(|_| ())
+			.map_err(|error| {
+				tracing::warn!(
+					target: "runtime::validator-collators",
+					?error,
+					"failed to report the blocks of {} authors",
+					blocks.len(),
+				);
+			})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_report(_: &[(AccountId, u32)]) {
+		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
+			testnet_parachains_constants::westend::locations::AssetHubParaId::get(),
+		)
+	}
 }
 
 parameter_types! {

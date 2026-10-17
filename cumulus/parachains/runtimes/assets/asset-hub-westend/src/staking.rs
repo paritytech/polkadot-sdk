@@ -17,7 +17,7 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::traits::EitherOf;
+use frame_support::traits::{EitherOf, EnsureOrigin};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
@@ -28,7 +28,8 @@ use sp_runtime::{
 };
 use sp_staking::EraIndex;
 use testnet_parachains_constants::westend::{
-	locations::PeopleLocation, staking::MAX_VALIDATOR_SET,
+	locations::{PeopleLocation, PeopleParaId},
+	staking::MAX_VALIDATOR_SET,
 };
 use xcm::latest::prelude::*;
 
@@ -529,9 +530,69 @@ impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSe
 		match destination {
 			ValidatorSetDestination::People => {
 				ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
-					testnet_parachains_constants::westend::locations::PeopleParaId::get(),
+					PeopleParaId::get(),
 				)
 			},
+		}
+	}
+}
+
+/// Accepts the sibling parachain origin of a system chain allowed to report the blocks authored
+/// on it, and returns its parachain id.
+pub struct EnsureReportingSibling;
+impl EnsureOrigin<RuntimeOrigin> for EnsureReportingSibling {
+	type Success = ParaId;
+
+	fn try_origin(o: RuntimeOrigin) -> Result<ParaId, RuntimeOrigin> {
+		match o.clone().into() {
+			Ok(cumulus_pallet_xcm::Origin::SiblingParachain(id)) if id == PeopleParaId::get() => {
+				Ok(id)
+			},
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(cumulus_pallet_xcm::Origin::SiblingParachain(PeopleParaId::get()).into())
+	}
+}
+
+/// Credits the block counts of this chain's own blocks.
+pub struct CreditBlocksLocally;
+impl pallet_validator_collators::ReportAuthoredBlocks<AccountId> for CreditBlocksLocally {
+	fn report(blocks: &[(AccountId, u32)]) -> Result<(), ()> {
+		StakingPointsConverter::credit_authored_blocks(
+			ParachainInfo::parachain_id(),
+			blocks.iter().cloned(),
+		);
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_report(blocks: &[(AccountId, u32)]) {
+		// Weight this chain's blocks and expose every account in an active era, so that the
+		// credit reaches staking and accrues every entry.
+		pallet_staking_async_points_converter::PointsPerService::<Runtime>::insert(
+			ParachainInfo::parachain_id(),
+			sp_staking::ValidatorServiceKind::Collation,
+			1,
+		);
+		let era = pallet_staking_async::ActiveEra::<Runtime>::get()
+			.map(|active| active.index)
+			.unwrap_or_else(|| {
+				pallet_staking_async::ActiveEra::<Runtime>::put(
+					pallet_staking_async::ActiveEraInfo { index: 1, start: Some(0) },
+				);
+				1
+			});
+		for (who, _) in blocks {
+			Staking::add_era_stakers(
+				era,
+				who.clone(),
+				sp_staking::Exposure { total: 1, own: 1, others: vec![] },
+			);
+			pallet_staking_async::ErasValidatorIncentiveWeight::<Runtime>::insert(era, who, 1);
 		}
 	}
 }

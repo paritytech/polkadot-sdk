@@ -3892,3 +3892,150 @@ fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 	// THEN the randomness key is requested
 	assert!(keys.contains(&RelayStorageKey::Top(ONE_EPOCH_AGO_RANDOMNESS.to_vec())));
 }
+
+#[test]
+fn full_report_of_authored_blocks_fits_the_message_queue_and_the_block() {
+	use asset_hub_westend_runtime::{MessageQueueServiceWeight, StakingPointsConverter};
+	use frame_support::traits::Get;
+	use pallet_validator_collators::{Config, WeightInfo};
+	use testnet_parachains_constants::westend::staking::MAX_ENTRIES_PER_REPORT;
+	type MaxValidators = <Runtime as Config>::MaxValidators;
+	// GIVEN the largest report a system chain sends over XCM, all credited
+	let message = StakingPointsConverter::report_authored_blocks_weight(MAX_ENTRIES_PER_REPORT);
+	// WHEN it is processed from the message queue
+	// THEN it fits the service weight, so it is not set aside as overweight
+	assert!(
+		MessageQueueServiceWeight::get().all_gte(message),
+		"a full report of {MAX_ENTRIES_PER_REPORT} entries weighs {message:?}",
+	);
+	// GIVEN this chain counted blocks for every validator of the largest set
+	let local = <Runtime as Config>::WeightInfo::report_blocks(<MaxValidators as Get<u32>>::get());
+	// WHEN they are credited locally in one block's `on_initialize`
+	// THEN the mandatory weight fits the block
+	assert!(
+		RuntimeBlockWeights::get().max_block.all_gte(local),
+		"crediting {} validators locally weighs {local:?}",
+		<MaxValidators as Get<u32>>::get()
+	);
+}
+
+// `fast-runtime` shortens the era, not the expected era duration.
+#[cfg(not(feature = "fast-runtime"))]
+#[test]
+fn expected_era_duration_matches_the_staking_era() {
+	use testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS;
+	// GIVEN the era length of Asset Hub's staking
+	let era = staking::SessionsPerEra::get() as u64 *
+		staking::RelaySessionDuration::get() as u64 *
+		RELAY_CHAIN_SLOT_DURATION_MILLIS as u64;
+	// WHEN system chains expect the end of an era after the arrival of its set
+	// THEN they expect it after one era, so they report shortly before the rotation
+	assert_eq!(
+		EXPECTED_ERA_DURATION_MILLIS, era,
+		"update `testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS` \
+		to the era length of {era} ms",
+	);
+}
+
+#[test]
+fn own_blocks_are_credited_to_staking_under_this_chain_id() {
+	use asset_hub_westend_runtime::{ParachainInfo, StakingPointsConverter, ValidatorCollators};
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let alice = AccountId::from(ALICE);
+		let bob = AccountId::from(BOB);
+		let own = ParachainInfo::parachain_id();
+		// GIVEN era 1 is active with Alice exposed, this chain's blocks earn 5 points, and the
+		// stored set of Alice and Bob
+		pallet_staking_async::ActiveEra::<Runtime>::put(pallet_staking_async::ActiveEraInfo {
+			index: 1,
+			start: Some(0),
+		});
+		pallet_staking_async::session_rotation::Eras::<Runtime>::upsert_exposure(
+			1,
+			&alice,
+			pallet_staking_async::Exposure { total: 1, own: 1, others: vec![] },
+		);
+		assert_ok!(StakingPointsConverter::set_points_per_service(
+			RuntimeOrigin::root(),
+			own,
+			sp_staking::ValidatorServiceKind::Collation,
+			5
+		));
+		assert_ok!(ValidatorCollators::receive_validator_set(1, [alice.clone(), bob.clone()]));
+		// AND Alice authored 3 blocks here
+		for _ in 0..3 {
+			<ValidatorCollators as pallet_authorship::EventHandler<_, _>>::note_author(
+				alice.clone(),
+			);
+		}
+		// WHEN the report block comes
+		let period = pallet_validator_collators::ReportPeriod::<Runtime>::get();
+		frame_system::Pallet::<Runtime>::reset_events();
+		ValidatorCollators::on_initialize(period);
+		// THEN Alice's blocks reach staking as collation points of this chain, with no message
+		// sent
+		assert_eq!(
+			pallet_staking_async::ErasRewardPoints::<Runtime>::get(1)
+				.individual
+				.into_iter()
+				.collect::<Vec<_>>(),
+			vec![(alice.clone(), 15)]
+		);
+		assert_eq!(
+			pallet_staking_async::ErasRewardPointsByService::<Runtime>::get(
+				1,
+				sp_staking::ValidatorServiceKind::Collation
+			)
+			.individual
+			.into_iter()
+			.collect::<Vec<_>>(),
+			vec![(alice, 15)]
+		);
+		let events = frame_system::Pallet::<Runtime>::events()
+			.into_iter()
+			.map(|r| r.event)
+			.collect::<Vec<_>>();
+		assert!(events.contains(&RuntimeEvent::StakingPointsConverter(
+			pallet_staking_async_points_converter::Event::BlocksCredited {
+				source: own,
+				entries: 1
+			}
+		)));
+		assert!(events.contains(&RuntimeEvent::Staking(
+			pallet_staking_async::Event::ServicePointsCredited {
+				service: sp_staking::ValidatorServiceKind::Collation,
+				era: 1,
+				credited: 1,
+				dropped: 0
+			}
+		)));
+	});
+}
+
+#[test]
+fn only_people_reports_blocks_and_only_as_itself() {
+	use asset_hub_westend_runtime::staking::EnsureReportingSibling;
+	use frame_support::traits::EnsureOrigin;
+	use testnet_parachains_constants::westend::locations::{PeopleLocation, PeopleParaId};
+	let sibling =
+		|id: u32| RuntimeOrigin::from(cumulus_pallet_xcm::Origin::SiblingParachain(id.into()));
+	// GIVEN People as a sibling parachain origin
+	// WHEN it reports THEN it is accepted under People's id
+	assert_eq!(
+		EnsureReportingSibling::try_origin(sibling(PeopleParaId::get().into())).ok(),
+		Some(PeopleParaId::get())
+	);
+	// GIVEN another sibling, the relay chain, People's location as an XCM origin, or People's
+	// sovereign account through a `Transact` with another origin kind
+	let people_account = LocationToAccountId::convert_location(&PeopleLocation::get()).unwrap();
+	for origin in [
+		sibling(2000),
+		RuntimeOrigin::from(cumulus_pallet_xcm::Origin::Relay),
+		RuntimeOrigin::from(pallet_xcm::Origin::Xcm(PeopleLocation::get())),
+		RuntimeOrigin::signed(people_account),
+		RuntimeOrigin::root(),
+	] {
+		// WHEN it reports THEN it is rejected
+		assert!(EnsureReportingSibling::try_origin(origin).is_err());
+	}
+}

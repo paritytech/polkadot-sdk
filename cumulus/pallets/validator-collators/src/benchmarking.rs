@@ -21,13 +21,16 @@ use super::*;
 
 #[allow(unused)]
 use crate::Pallet as ValidatorCollators;
-use alloc::collections::BTreeSet;
+use alloc::{collections::BTreeSet, vec::Vec};
 use cumulus_pallet_parachain_system::OnSystemEvent;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
-	traits::{EnsureOrigin, Get},
+	traits::{EnsureOrigin, Get, Hooks},
 	BoundedBTreeSet, BoundedVec,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
+use pallet_session::ShouldEndSession;
+use sp_runtime::traits::Saturating;
 
 #[benchmarks]
 mod benchmarks {
@@ -92,6 +95,108 @@ mod benchmarks {
 		}
 
 		assert_eq!(EpochRandomness::<T>::get(), Some([2; 32]));
+	}
+
+	#[benchmark]
+	fn set_report_period() -> Result<(), BenchmarkError> {
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let period = T::DefaultReportPeriod::get().saturating_add(1u32.into());
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, period);
+
+		assert_eq!(ReportPeriod::<T>::get(), period);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_expected_era_duration() -> Result<(), BenchmarkError> {
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let duration = T::DefaultExpectedEraDuration::get().saturating_add(1);
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, duration);
+
+		assert_eq!(ExpectedEraDuration::<T>::get(), duration);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_report_margin() -> Result<(), BenchmarkError> {
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let margin = T::MaxReportMargin::get();
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, margin);
+
+		assert_eq!(ReportMargin::<T>::get(), margin);
+		Ok(())
+	}
+
+	/// The first block of an author, which inserts its entry and bumps the counter.
+	#[benchmark]
+	fn note_author() {
+		let author: T::AccountId = account("author", 0, 0);
+
+		#[block]
+		{
+			<Pallet<T> as pallet_authorship::EventHandler<_, _>>::note_author(author.clone());
+		}
+
+		assert_eq!(AuthoredBlocks::<T>::get(&author), 1);
+	}
+
+	/// A block at a multiple of `ReportPeriod` that makes the early report of the stored set with
+	/// no counts, and the `PendingRotation` read of `should_end_session`.
+	#[benchmark]
+	fn on_initialize() -> Result<(), BenchmarkError> {
+		let validators = BoundedBTreeSet::try_from(BTreeSet::from([account("validator", 0, 0)]))
+			.map_err(|_| BenchmarkError::Stop("the set exceeds MaxValidators"))?;
+		Pallet::<T>::do_receive_validator_set(0, validators)?;
+		// The early report is due at any time with a zero expected era duration.
+		ExpectedEraDuration::<T>::put(0);
+		let now = ReportPeriod::<T>::get();
+
+		#[block]
+		{
+			<Pallet<T> as Hooks<BlockNumberFor<T>>>::on_initialize(now);
+			<Pallet<T> as ShouldEndSession<_>>::should_end_session(now);
+		}
+
+		assert_eq!(SetReceivedAt::<T>::get(), None);
+		Ok(())
+	}
+
+	/// A stored set of `MaxValidators` validators, `n` of them with counts, every count handed
+	/// to the runtime's reporter.
+	#[benchmark]
+	fn report_blocks(n: Linear<1, { T::MaxValidators::get() }>) -> Result<(), BenchmarkError> {
+		let validators = (0..T::MaxValidators::get())
+			.map(|i| account("validator", i, 0))
+			.collect::<Vec<T::AccountId>>();
+		Pallet::<T>::receive_validator_set(0, validators.iter().cloned())?;
+		let blocks = validators.into_iter().take(n as usize).map(|v| (v, 1)).collect::<Vec<_>>();
+		for (who, count) in &blocks {
+			AuthoredBlocks::<T>::insert(who, count);
+		}
+		T::BlockReporter::ensure_successful_report(&blocks);
+
+		#[block]
+		{
+			Pallet::<T>::report_blocks();
+		}
+
+		assert_eq!(AuthoredBlocks::<T>::count(), 0);
+		frame_system::Pallet::<T>::assert_last_event(
+			<T as frame_system::Config>::RuntimeEvent::from(Event::<T>::BlocksReported {
+				authors: n,
+				reported: n,
+			}),
+		);
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(ValidatorCollators, crate::mock::new_test_ext(), crate::mock::Test);
