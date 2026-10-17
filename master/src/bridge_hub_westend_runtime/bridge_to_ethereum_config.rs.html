@@ -400,226 +400,236 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#250 id=250 data-nosnippet>250</a>			version: <span class="macro">hex!</span>(<span class="string">"90000075"</span>),
 <a href=#251 id=251 data-nosnippet>251</a>			epoch: <span class="number">272640</span>, <span class="comment">// https://notes.ethereum.org/@bbusa/fusaka-bpo-timeline
 <a href=#252 id=252 data-nosnippet>252</a>		</span>},
-<a href=#253 id=253 data-nosnippet>253</a>	};
-<a href=#254 id=254 data-nosnippet>254</a>}
-<a href=#255 id=255 data-nosnippet>255</a>
-<a href=#256 id=256 data-nosnippet>256</a><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"fast-runtime"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
-<a href=#257 id=257 data-nosnippet>257</a></span><span class="macro">parameter_types!</span> {
-<a href=#258 id=258 data-nosnippet>258</a>	<span class="kw">pub const </span>ChainForkVersions: ForkVersions = ForkVersions {
-<a href=#259 id=259 data-nosnippet>259</a>		genesis: Fork {
-<a href=#260 id=260 data-nosnippet>260</a>			version: <span class="macro">hex!</span>(<span class="string">"00000000"</span>),
-<a href=#261 id=261 data-nosnippet>261</a>			epoch: <span class="number">0</span>,
-<a href=#262 id=262 data-nosnippet>262</a>		},
-<a href=#263 id=263 data-nosnippet>263</a>		altair: Fork {
-<a href=#264 id=264 data-nosnippet>264</a>			version: <span class="macro">hex!</span>(<span class="string">"01000000"</span>),
-<a href=#265 id=265 data-nosnippet>265</a>			epoch: <span class="number">0</span>,
-<a href=#266 id=266 data-nosnippet>266</a>		},
-<a href=#267 id=267 data-nosnippet>267</a>		bellatrix: Fork {
-<a href=#268 id=268 data-nosnippet>268</a>			version: <span class="macro">hex!</span>(<span class="string">"02000000"</span>),
-<a href=#269 id=269 data-nosnippet>269</a>			epoch: <span class="number">0</span>,
-<a href=#270 id=270 data-nosnippet>270</a>		},
-<a href=#271 id=271 data-nosnippet>271</a>		capella: Fork {
-<a href=#272 id=272 data-nosnippet>272</a>			version: <span class="macro">hex!</span>(<span class="string">"03000000"</span>),
-<a href=#273 id=273 data-nosnippet>273</a>			epoch: <span class="number">0</span>,
-<a href=#274 id=274 data-nosnippet>274</a>		},
-<a href=#275 id=275 data-nosnippet>275</a>		deneb: Fork {
-<a href=#276 id=276 data-nosnippet>276</a>			version: <span class="macro">hex!</span>(<span class="string">"04000000"</span>),
-<a href=#277 id=277 data-nosnippet>277</a>			epoch: <span class="number">0</span>,
-<a href=#278 id=278 data-nosnippet>278</a>		},
-<a href=#279 id=279 data-nosnippet>279</a>		electra: Fork {
-<a href=#280 id=280 data-nosnippet>280</a>			version: <span class="macro">hex!</span>(<span class="string">"05000000"</span>),
-<a href=#281 id=281 data-nosnippet>281</a>			epoch: <span class="number">0</span>,
-<a href=#282 id=282 data-nosnippet>282</a>		},
-<a href=#283 id=283 data-nosnippet>283</a>		fulu: Fork {
-<a href=#284 id=284 data-nosnippet>284</a>			version: <span class="macro">hex!</span>(<span class="string">"06000000"</span>),
-<a href=#285 id=285 data-nosnippet>285</a>			epoch: <span class="number">5000000</span>,
-<a href=#286 id=286 data-nosnippet>286</a>		}
-<a href=#287 id=287 data-nosnippet>287</a>	};
-<a href=#288 id=288 data-nosnippet>288</a>}
-<a href=#289 id=289 data-nosnippet>289</a>
-<a href=#290 id=290 data-nosnippet>290</a><span class="kw">impl </span>snowbridge_pallet_ethereum_client::Config <span class="kw">for </span>Runtime {
-<a href=#291 id=291 data-nosnippet>291</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-<a href=#292 id=292 data-nosnippet>292</a>	<span class="kw">type </span>ForkVersions = ChainForkVersions;
-<a href=#293 id=293 data-nosnippet>293</a>	<span class="kw">type </span>FreeHeadersInterval = ConstU32&lt;SLOTS_PER_EPOCH&gt;;
-<a href=#294 id=294 data-nosnippet>294</a>	<span class="kw">type </span>WeightInfo = <span class="kw">crate</span>::weights::snowbridge_pallet_ethereum_client::WeightInfo&lt;Runtime&gt;;
-<a href=#295 id=295 data-nosnippet>295</a>}
-<a href=#296 id=296 data-nosnippet>296</a>
-<a href=#297 id=297 data-nosnippet>297</a><span class="kw">impl </span>snowbridge_pallet_system::Config <span class="kw">for </span>Runtime {
-<a href=#298 id=298 data-nosnippet>298</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-<a href=#299 id=299 data-nosnippet>299</a>	<span class="kw">type </span>OutboundQueue = EthereumOutboundQueue;
-<a href=#300 id=300 data-nosnippet>300</a>	<span class="kw">type </span>SiblingOrigin = EnsureXcm&lt;AllowSiblingsOnly&gt;;
-<a href=#301 id=301 data-nosnippet>301</a>	<span class="kw">type </span>AgentIdOf = snowbridge_core::AgentIdOf;
-<a href=#302 id=302 data-nosnippet>302</a>	<span class="kw">type </span>TreasuryAccount = AccumulateAccount;
-<a href=#303 id=303 data-nosnippet>303</a>	<span class="kw">type </span>Token = Balances;
-<a href=#304 id=304 data-nosnippet>304</a>	<span class="kw">type </span>WeightInfo = <span class="kw">crate</span>::weights::snowbridge_pallet_system::WeightInfo&lt;Runtime&gt;;
-<a href=#305 id=305 data-nosnippet>305</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#306 id=306 data-nosnippet>306</a>	</span><span class="kw">type </span>Helper = ();
-<a href=#307 id=307 data-nosnippet>307</a>	<span class="kw">type </span>DefaultPricingParameters = Parameters;
-<a href=#308 id=308 data-nosnippet>308</a>	<span class="kw">type </span>InboundDeliveryCost = EthereumInboundQueue;
-<a href=#309 id=309 data-nosnippet>309</a>	<span class="kw">type </span>UniversalLocation = UniversalLocation;
-<a href=#310 id=310 data-nosnippet>310</a>	<span class="kw">type </span>EthereumLocation = EthereumLocation;
-<a href=#311 id=311 data-nosnippet>311</a>}
-<a href=#312 id=312 data-nosnippet>312</a>
-<a href=#313 id=313 data-nosnippet>313</a><span class="kw">pub struct </span>AllowFromEthereumFrontend;
-<a href=#314 id=314 data-nosnippet>314</a><span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>AllowFromEthereumFrontend {
-<a href=#315 id=315 data-nosnippet>315</a>	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
-<a href=#316 id=316 data-nosnippet>316</a>		<span class="kw">match </span>location.unpack() {
-<a href=#317 id=317 data-nosnippet>317</a>			(<span class="number">1</span>, [Parachain(para_id), PalletInstance(index)]) =&gt; {
-<a href=#318 id=318 data-nosnippet>318</a>				<span class="kw">return </span><span class="kw-2">*</span>para_id == ASSET_HUB_ID &amp;&amp; <span class="kw-2">*</span>index == FRONTEND_PALLET_INDEX
-<a href=#319 id=319 data-nosnippet>319</a>			},
-<a href=#320 id=320 data-nosnippet>320</a>			<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
-<a href=#321 id=321 data-nosnippet>321</a>		}
-<a href=#322 id=322 data-nosnippet>322</a>	}
-<a href=#323 id=323 data-nosnippet>323</a>}
-<a href=#324 id=324 data-nosnippet>324</a>
-<a href=#325 id=325 data-nosnippet>325</a><span class="kw">impl </span>snowbridge_pallet_system_v2::Config <span class="kw">for </span>Runtime {
-<a href=#326 id=326 data-nosnippet>326</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-<a href=#327 id=327 data-nosnippet>327</a>	<span class="kw">type </span>OutboundQueue = EthereumOutboundQueueV2;
-<a href=#328 id=328 data-nosnippet>328</a>	<span class="kw">type </span>InboundQueue = EthereumInboundQueueV2;
-<a href=#329 id=329 data-nosnippet>329</a>	<span class="kw">type </span>FrontendOrigin = EnsureXcm&lt;AllowFromEthereumFrontend&gt;;
-<a href=#330 id=330 data-nosnippet>330</a>	<span class="kw">type </span>WeightInfo = <span class="kw">crate</span>::weights::snowbridge_pallet_system_v2::WeightInfo&lt;Runtime&gt;;
-<a href=#331 id=331 data-nosnippet>331</a>	<span class="kw">type </span>GovernanceOrigin = EnsureRootWithSuccess&lt;<span class="kw">crate</span>::AccountId, RootLocation&gt;;
-<a href=#332 id=332 data-nosnippet>332</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#333 id=333 data-nosnippet>333</a>	</span><span class="kw">type </span>Helper = ();
-<a href=#334 id=334 data-nosnippet>334</a>}
-<a href=#335 id=335 data-nosnippet>335</a>
-<a href=#336 id=336 data-nosnippet>336</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#337 id=337 data-nosnippet>337</a></span><span class="kw">pub mod </span>benchmark_helpers {
-<a href=#338 id=338 data-nosnippet>338</a>	<span class="kw">use crate</span>::{
-<a href=#339 id=339 data-nosnippet>339</a>		bridge_to_ethereum_config::{
-<a href=#340 id=340 data-nosnippet>340</a>			CreateAssetCall, EthereumGatewayAddress, InboundQueueV2Location, TargetLocation,
-<a href=#341 id=341 data-nosnippet>341</a>		},
-<a href=#342 id=342 data-nosnippet>342</a>		vec,
-<a href=#343 id=343 data-nosnippet>343</a>		xcm_config::{RelayNetwork, XcmConfig},
-<a href=#344 id=344 data-nosnippet>344</a>		EthereumBeaconClient, EthereumSystem, Runtime, RuntimeOrigin, System,
-<a href=#345 id=345 data-nosnippet>345</a>	};
-<a href=#346 id=346 data-nosnippet>346</a>	<span class="kw">use </span>codec::Encode;
-<a href=#347 id=347 data-nosnippet>347</a>	<span class="kw">use </span>frame_support::assert_ok;
-<a href=#348 id=348 data-nosnippet>348</a>	<span class="kw">use </span>hex_literal::hex;
-<a href=#349 id=349 data-nosnippet>349</a>	<span class="kw">use </span>snowbridge_beacon_primitives::BeaconHeader;
-<a href=#350 id=350 data-nosnippet>350</a>	<span class="kw">use </span>snowbridge_inbound_queue_primitives::{
-<a href=#351 id=351 data-nosnippet>351</a>		v2::{MessageToXcm, XcmMessageProcessor <span class="kw">as </span>InboundXcmMessageProcessor},
-<a href=#352 id=352 data-nosnippet>352</a>		EventFixture,
-<a href=#353 id=353 data-nosnippet>353</a>	};
-<a href=#354 id=354 data-nosnippet>354</a>	<span class="kw">use </span>snowbridge_pallet_inbound_queue::BenchmarkHelper;
-<a href=#355 id=355 data-nosnippet>355</a>	<span class="kw">use </span>snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
-<a href=#356 id=356 data-nosnippet>356</a>	<span class="kw">use </span>snowbridge_pallet_inbound_queue_v2::BenchmarkHelper <span class="kw">as </span>InboundQueueBenchmarkHelperV2;
-<a href=#357 id=357 data-nosnippet>357</a>	<span class="kw">use </span>snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message <span class="kw">as </span>make_register_token_message_v2;
-<a href=#358 id=358 data-nosnippet>358</a>	<span class="kw">use </span>snowbridge_pallet_outbound_queue_v2::BenchmarkHelper <span class="kw">as </span>OutboundQueueBenchmarkHelperV2;
-<a href=#359 id=359 data-nosnippet>359</a>	<span class="kw">use </span>sp_core::H256;
-<a href=#360 id=360 data-nosnippet>360</a>	<span class="kw">use </span>testnet_parachains_constants::westend::snowbridge::{AssetHubParaId, EthereumNetwork};
-<a href=#361 id=361 data-nosnippet>361</a>	<span class="kw">use </span>xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
-<a href=#362 id=362 data-nosnippet>362</a>	<span class="kw">use </span>xcm_executor::XcmExecutor;
-<a href=#363 id=363 data-nosnippet>363</a>
-<a href=#364 id=364 data-nosnippet>364</a>	<span class="kw">impl</span>&lt;T: snowbridge_pallet_ethereum_client::Config&gt; BenchmarkHelper&lt;T&gt; <span class="kw">for </span>Runtime {
-<a href=#365 id=365 data-nosnippet>365</a>		<span class="kw">fn </span>initialize_storage() -&gt; EventFixture {
-<a href=#366 id=366 data-nosnippet>366</a>			<span class="kw">let </span>message = make_register_token_message();
-<a href=#367 id=367 data-nosnippet>367</a>			EthereumBeaconClient::store_finalized_header(
-<a href=#368 id=368 data-nosnippet>368</a>				message.finalized_header,
-<a href=#369 id=369 data-nosnippet>369</a>				message.block_roots_root,
-<a href=#370 id=370 data-nosnippet>370</a>			)
-<a href=#371 id=371 data-nosnippet>371</a>			.unwrap();
-<a href=#372 id=372 data-nosnippet>372</a>			System::set_storage(
-<a href=#373 id=373 data-nosnippet>373</a>				RuntimeOrigin::root(),
-<a href=#374 id=374 data-nosnippet>374</a>				<span class="macro">vec!</span>[(
-<a href=#375 id=375 data-nosnippet>375</a>					EthereumGatewayAddress::key().to_vec(),
-<a href=#376 id=376 data-nosnippet>376</a>					<span class="macro">hex!</span>(<span class="string">"EDa338E4dC46038493b885327842fD3E301CaB39"</span>).to_vec(),
-<a href=#377 id=377 data-nosnippet>377</a>				)],
-<a href=#378 id=378 data-nosnippet>378</a>			)
-<a href=#379 id=379 data-nosnippet>379</a>			.unwrap();
-<a href=#380 id=380 data-nosnippet>380</a>			message
-<a href=#381 id=381 data-nosnippet>381</a>		}
-<a href=#382 id=382 data-nosnippet>382</a>	}
-<a href=#383 id=383 data-nosnippet>383</a>
-<a href=#384 id=384 data-nosnippet>384</a>	<span class="kw">impl</span>&lt;T: snowbridge_pallet_inbound_queue_v2::Config&gt; InboundQueueBenchmarkHelperV2&lt;T&gt; <span class="kw">for </span>Runtime {
-<a href=#385 id=385 data-nosnippet>385</a>		<span class="kw">fn </span>initialize_storage() -&gt; EventFixture {
-<a href=#386 id=386 data-nosnippet>386</a>			<span class="kw">let </span>message = make_register_token_message_v2();
-<a href=#387 id=387 data-nosnippet>387</a>
-<a href=#388 id=388 data-nosnippet>388</a>			<span class="macro">assert_ok!</span>(EthereumBeaconClient::store_finalized_header(
-<a href=#389 id=389 data-nosnippet>389</a>				message.finalized_header,
-<a href=#390 id=390 data-nosnippet>390</a>				message.block_roots_root,
-<a href=#391 id=391 data-nosnippet>391</a>			));
-<a href=#392 id=392 data-nosnippet>392</a>
-<a href=#393 id=393 data-nosnippet>393</a>			message
-<a href=#394 id=394 data-nosnippet>394</a>		}
-<a href=#395 id=395 data-nosnippet>395</a>	}
-<a href=#396 id=396 data-nosnippet>396</a>
-<a href=#397 id=397 data-nosnippet>397</a>	<span class="kw">impl</span>&lt;T: snowbridge_pallet_outbound_queue_v2::Config&gt; OutboundQueueBenchmarkHelperV2&lt;T&gt; <span class="kw">for </span>Runtime {
-<a href=#398 id=398 data-nosnippet>398</a>		<span class="kw">fn </span>initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
-<a href=#399 id=399 data-nosnippet>399</a>			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
-<a href=#400 id=400 data-nosnippet>400</a>		}
-<a href=#401 id=401 data-nosnippet>401</a>	}
+<a href=#253 id=253 data-nosnippet>253</a>		gloas: Fork {
+<a href=#254 id=254 data-nosnippet>254</a>			<span class="comment">// Sepolia activation 2026-10-06 13:53:36 UTC, per the Glamsterdam deployment table.
+<a href=#255 id=255 data-nosnippet>255</a>			// https://github.com/eth-clients/sepolia/blob/main/metadata/config.yaml
+<a href=#256 id=256 data-nosnippet>256</a>			</span>version: <span class="macro">hex!</span>(<span class="string">"90000076"</span>),
+<a href=#257 id=257 data-nosnippet>257</a>			epoch: <span class="number">353024</span>, <span class="comment">// https://github.com/ethereum/pm/blob/master/glamsterdam-pm.md
+<a href=#258 id=258 data-nosnippet>258</a>		</span>},
+<a href=#259 id=259 data-nosnippet>259</a>	};
+<a href=#260 id=260 data-nosnippet>260</a>}
+<a href=#261 id=261 data-nosnippet>261</a>
+<a href=#262 id=262 data-nosnippet>262</a><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"fast-runtime"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
+<a href=#263 id=263 data-nosnippet>263</a></span><span class="macro">parameter_types!</span> {
+<a href=#264 id=264 data-nosnippet>264</a>	<span class="kw">pub const </span>ChainForkVersions: ForkVersions = ForkVersions {
+<a href=#265 id=265 data-nosnippet>265</a>		genesis: Fork {
+<a href=#266 id=266 data-nosnippet>266</a>			version: <span class="macro">hex!</span>(<span class="string">"00000000"</span>),
+<a href=#267 id=267 data-nosnippet>267</a>			epoch: <span class="number">0</span>,
+<a href=#268 id=268 data-nosnippet>268</a>		},
+<a href=#269 id=269 data-nosnippet>269</a>		altair: Fork {
+<a href=#270 id=270 data-nosnippet>270</a>			version: <span class="macro">hex!</span>(<span class="string">"01000000"</span>),
+<a href=#271 id=271 data-nosnippet>271</a>			epoch: <span class="number">0</span>,
+<a href=#272 id=272 data-nosnippet>272</a>		},
+<a href=#273 id=273 data-nosnippet>273</a>		bellatrix: Fork {
+<a href=#274 id=274 data-nosnippet>274</a>			version: <span class="macro">hex!</span>(<span class="string">"02000000"</span>),
+<a href=#275 id=275 data-nosnippet>275</a>			epoch: <span class="number">0</span>,
+<a href=#276 id=276 data-nosnippet>276</a>		},
+<a href=#277 id=277 data-nosnippet>277</a>		capella: Fork {
+<a href=#278 id=278 data-nosnippet>278</a>			version: <span class="macro">hex!</span>(<span class="string">"03000000"</span>),
+<a href=#279 id=279 data-nosnippet>279</a>			epoch: <span class="number">0</span>,
+<a href=#280 id=280 data-nosnippet>280</a>		},
+<a href=#281 id=281 data-nosnippet>281</a>		deneb: Fork {
+<a href=#282 id=282 data-nosnippet>282</a>			version: <span class="macro">hex!</span>(<span class="string">"04000000"</span>),
+<a href=#283 id=283 data-nosnippet>283</a>			epoch: <span class="number">0</span>,
+<a href=#284 id=284 data-nosnippet>284</a>		},
+<a href=#285 id=285 data-nosnippet>285</a>		electra: Fork {
+<a href=#286 id=286 data-nosnippet>286</a>			version: <span class="macro">hex!</span>(<span class="string">"05000000"</span>),
+<a href=#287 id=287 data-nosnippet>287</a>			epoch: <span class="number">0</span>,
+<a href=#288 id=288 data-nosnippet>288</a>		},
+<a href=#289 id=289 data-nosnippet>289</a>		fulu: Fork {
+<a href=#290 id=290 data-nosnippet>290</a>			version: <span class="macro">hex!</span>(<span class="string">"06000000"</span>),
+<a href=#291 id=291 data-nosnippet>291</a>			epoch: <span class="number">2000</span>,
+<a href=#292 id=292 data-nosnippet>292</a>		},
+<a href=#293 id=293 data-nosnippet>293</a>		gloas: Fork {
+<a href=#294 id=294 data-nosnippet>294</a>			version: <span class="macro">hex!</span>(<span class="string">"80733183"</span>),
+<a href=#295 id=295 data-nosnippet>295</a>			epoch: <span class="number">3000</span>,
+<a href=#296 id=296 data-nosnippet>296</a>		}
+<a href=#297 id=297 data-nosnippet>297</a>	};
+<a href=#298 id=298 data-nosnippet>298</a>}
+<a href=#299 id=299 data-nosnippet>299</a>
+<a href=#300 id=300 data-nosnippet>300</a><span class="kw">impl </span>snowbridge_pallet_ethereum_client::Config <span class="kw">for </span>Runtime {
+<a href=#301 id=301 data-nosnippet>301</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+<a href=#302 id=302 data-nosnippet>302</a>	<span class="kw">type </span>ForkVersions = ChainForkVersions;
+<a href=#303 id=303 data-nosnippet>303</a>	<span class="kw">type </span>FreeHeadersInterval = ConstU32&lt;SLOTS_PER_EPOCH&gt;;
+<a href=#304 id=304 data-nosnippet>304</a>	<span class="kw">type </span>WeightInfo = <span class="kw">crate</span>::weights::snowbridge_pallet_ethereum_client::WeightInfo&lt;Runtime&gt;;
+<a href=#305 id=305 data-nosnippet>305</a>}
+<a href=#306 id=306 data-nosnippet>306</a>
+<a href=#307 id=307 data-nosnippet>307</a><span class="kw">impl </span>snowbridge_pallet_system::Config <span class="kw">for </span>Runtime {
+<a href=#308 id=308 data-nosnippet>308</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+<a href=#309 id=309 data-nosnippet>309</a>	<span class="kw">type </span>OutboundQueue = EthereumOutboundQueue;
+<a href=#310 id=310 data-nosnippet>310</a>	<span class="kw">type </span>SiblingOrigin = EnsureXcm&lt;AllowSiblingsOnly&gt;;
+<a href=#311 id=311 data-nosnippet>311</a>	<span class="kw">type </span>AgentIdOf = snowbridge_core::AgentIdOf;
+<a href=#312 id=312 data-nosnippet>312</a>	<span class="kw">type </span>TreasuryAccount = AccumulateAccount;
+<a href=#313 id=313 data-nosnippet>313</a>	<span class="kw">type </span>Token = Balances;
+<a href=#314 id=314 data-nosnippet>314</a>	<span class="kw">type </span>WeightInfo = <span class="kw">crate</span>::weights::snowbridge_pallet_system::WeightInfo&lt;Runtime&gt;;
+<a href=#315 id=315 data-nosnippet>315</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#316 id=316 data-nosnippet>316</a>	</span><span class="kw">type </span>Helper = ();
+<a href=#317 id=317 data-nosnippet>317</a>	<span class="kw">type </span>DefaultPricingParameters = Parameters;
+<a href=#318 id=318 data-nosnippet>318</a>	<span class="kw">type </span>InboundDeliveryCost = EthereumInboundQueue;
+<a href=#319 id=319 data-nosnippet>319</a>	<span class="kw">type </span>UniversalLocation = UniversalLocation;
+<a href=#320 id=320 data-nosnippet>320</a>	<span class="kw">type </span>EthereumLocation = EthereumLocation;
+<a href=#321 id=321 data-nosnippet>321</a>}
+<a href=#322 id=322 data-nosnippet>322</a>
+<a href=#323 id=323 data-nosnippet>323</a><span class="kw">pub struct </span>AllowFromEthereumFrontend;
+<a href=#324 id=324 data-nosnippet>324</a><span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>AllowFromEthereumFrontend {
+<a href=#325 id=325 data-nosnippet>325</a>	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
+<a href=#326 id=326 data-nosnippet>326</a>		<span class="kw">match </span>location.unpack() {
+<a href=#327 id=327 data-nosnippet>327</a>			(<span class="number">1</span>, [Parachain(para_id), PalletInstance(index)]) =&gt; {
+<a href=#328 id=328 data-nosnippet>328</a>				<span class="kw">return </span><span class="kw-2">*</span>para_id == ASSET_HUB_ID &amp;&amp; <span class="kw-2">*</span>index == FRONTEND_PALLET_INDEX
+<a href=#329 id=329 data-nosnippet>329</a>			},
+<a href=#330 id=330 data-nosnippet>330</a>			<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+<a href=#331 id=331 data-nosnippet>331</a>		}
+<a href=#332 id=332 data-nosnippet>332</a>	}
+<a href=#333 id=333 data-nosnippet>333</a>}
+<a href=#334 id=334 data-nosnippet>334</a>
+<a href=#335 id=335 data-nosnippet>335</a><span class="kw">impl </span>snowbridge_pallet_system_v2::Config <span class="kw">for </span>Runtime {
+<a href=#336 id=336 data-nosnippet>336</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+<a href=#337 id=337 data-nosnippet>337</a>	<span class="kw">type </span>OutboundQueue = EthereumOutboundQueueV2;
+<a href=#338 id=338 data-nosnippet>338</a>	<span class="kw">type </span>InboundQueue = EthereumInboundQueueV2;
+<a href=#339 id=339 data-nosnippet>339</a>	<span class="kw">type </span>FrontendOrigin = EnsureXcm&lt;AllowFromEthereumFrontend&gt;;
+<a href=#340 id=340 data-nosnippet>340</a>	<span class="kw">type </span>WeightInfo = <span class="kw">crate</span>::weights::snowbridge_pallet_system_v2::WeightInfo&lt;Runtime&gt;;
+<a href=#341 id=341 data-nosnippet>341</a>	<span class="kw">type </span>GovernanceOrigin = EnsureRootWithSuccess&lt;<span class="kw">crate</span>::AccountId, RootLocation&gt;;
+<a href=#342 id=342 data-nosnippet>342</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#343 id=343 data-nosnippet>343</a>	</span><span class="kw">type </span>Helper = ();
+<a href=#344 id=344 data-nosnippet>344</a>}
+<a href=#345 id=345 data-nosnippet>345</a>
+<a href=#346 id=346 data-nosnippet>346</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#347 id=347 data-nosnippet>347</a></span><span class="kw">pub mod </span>benchmark_helpers {
+<a href=#348 id=348 data-nosnippet>348</a>	<span class="kw">use crate</span>::{
+<a href=#349 id=349 data-nosnippet>349</a>		bridge_to_ethereum_config::{
+<a href=#350 id=350 data-nosnippet>350</a>			CreateAssetCall, EthereumGatewayAddress, InboundQueueV2Location, TargetLocation,
+<a href=#351 id=351 data-nosnippet>351</a>		},
+<a href=#352 id=352 data-nosnippet>352</a>		vec,
+<a href=#353 id=353 data-nosnippet>353</a>		xcm_config::{RelayNetwork, XcmConfig},
+<a href=#354 id=354 data-nosnippet>354</a>		EthereumBeaconClient, EthereumSystem, Runtime, RuntimeOrigin, System,
+<a href=#355 id=355 data-nosnippet>355</a>	};
+<a href=#356 id=356 data-nosnippet>356</a>	<span class="kw">use </span>codec::Encode;
+<a href=#357 id=357 data-nosnippet>357</a>	<span class="kw">use </span>frame_support::assert_ok;
+<a href=#358 id=358 data-nosnippet>358</a>	<span class="kw">use </span>hex_literal::hex;
+<a href=#359 id=359 data-nosnippet>359</a>	<span class="kw">use </span>snowbridge_beacon_primitives::BeaconHeader;
+<a href=#360 id=360 data-nosnippet>360</a>	<span class="kw">use </span>snowbridge_inbound_queue_primitives::{
+<a href=#361 id=361 data-nosnippet>361</a>		v2::{MessageToXcm, XcmMessageProcessor <span class="kw">as </span>InboundXcmMessageProcessor},
+<a href=#362 id=362 data-nosnippet>362</a>		EventFixture,
+<a href=#363 id=363 data-nosnippet>363</a>	};
+<a href=#364 id=364 data-nosnippet>364</a>	<span class="kw">use </span>snowbridge_pallet_inbound_queue::BenchmarkHelper;
+<a href=#365 id=365 data-nosnippet>365</a>	<span class="kw">use </span>snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
+<a href=#366 id=366 data-nosnippet>366</a>	<span class="kw">use </span>snowbridge_pallet_inbound_queue_v2::BenchmarkHelper <span class="kw">as </span>InboundQueueBenchmarkHelperV2;
+<a href=#367 id=367 data-nosnippet>367</a>	<span class="kw">use </span>snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message <span class="kw">as </span>make_register_token_message_v2;
+<a href=#368 id=368 data-nosnippet>368</a>	<span class="kw">use </span>snowbridge_pallet_outbound_queue_v2::BenchmarkHelper <span class="kw">as </span>OutboundQueueBenchmarkHelperV2;
+<a href=#369 id=369 data-nosnippet>369</a>	<span class="kw">use </span>sp_core::H256;
+<a href=#370 id=370 data-nosnippet>370</a>	<span class="kw">use </span>testnet_parachains_constants::westend::snowbridge::{AssetHubParaId, EthereumNetwork};
+<a href=#371 id=371 data-nosnippet>371</a>	<span class="kw">use </span>xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
+<a href=#372 id=372 data-nosnippet>372</a>	<span class="kw">use </span>xcm_executor::XcmExecutor;
+<a href=#373 id=373 data-nosnippet>373</a>
+<a href=#374 id=374 data-nosnippet>374</a>	<span class="kw">impl</span>&lt;T: snowbridge_pallet_ethereum_client::Config&gt; BenchmarkHelper&lt;T&gt; <span class="kw">for </span>Runtime {
+<a href=#375 id=375 data-nosnippet>375</a>		<span class="kw">fn </span>initialize_storage() -&gt; EventFixture {
+<a href=#376 id=376 data-nosnippet>376</a>			<span class="kw">let </span>message = make_register_token_message();
+<a href=#377 id=377 data-nosnippet>377</a>			EthereumBeaconClient::store_finalized_header(
+<a href=#378 id=378 data-nosnippet>378</a>				message.finalized_header,
+<a href=#379 id=379 data-nosnippet>379</a>				message.block_roots_root,
+<a href=#380 id=380 data-nosnippet>380</a>			)
+<a href=#381 id=381 data-nosnippet>381</a>			.unwrap();
+<a href=#382 id=382 data-nosnippet>382</a>			System::set_storage(
+<a href=#383 id=383 data-nosnippet>383</a>				RuntimeOrigin::root(),
+<a href=#384 id=384 data-nosnippet>384</a>				<span class="macro">vec!</span>[(
+<a href=#385 id=385 data-nosnippet>385</a>					EthereumGatewayAddress::key().to_vec(),
+<a href=#386 id=386 data-nosnippet>386</a>					<span class="macro">hex!</span>(<span class="string">"EDa338E4dC46038493b885327842fD3E301CaB39"</span>).to_vec(),
+<a href=#387 id=387 data-nosnippet>387</a>				)],
+<a href=#388 id=388 data-nosnippet>388</a>			)
+<a href=#389 id=389 data-nosnippet>389</a>			.unwrap();
+<a href=#390 id=390 data-nosnippet>390</a>			message
+<a href=#391 id=391 data-nosnippet>391</a>		}
+<a href=#392 id=392 data-nosnippet>392</a>	}
+<a href=#393 id=393 data-nosnippet>393</a>
+<a href=#394 id=394 data-nosnippet>394</a>	<span class="kw">impl</span>&lt;T: snowbridge_pallet_inbound_queue_v2::Config&gt; InboundQueueBenchmarkHelperV2&lt;T&gt; <span class="kw">for </span>Runtime {
+<a href=#395 id=395 data-nosnippet>395</a>		<span class="kw">fn </span>initialize_storage() -&gt; EventFixture {
+<a href=#396 id=396 data-nosnippet>396</a>			<span class="kw">let </span>message = make_register_token_message_v2();
+<a href=#397 id=397 data-nosnippet>397</a>
+<a href=#398 id=398 data-nosnippet>398</a>			<span class="macro">assert_ok!</span>(EthereumBeaconClient::store_finalized_header(
+<a href=#399 id=399 data-nosnippet>399</a>				message.finalized_header,
+<a href=#400 id=400 data-nosnippet>400</a>				message.block_roots_root,
+<a href=#401 id=401 data-nosnippet>401</a>			));
 <a href=#402 id=402 data-nosnippet>402</a>
-<a href=#403 id=403 data-nosnippet>403</a>	<span class="kw">pub struct </span>DoNothingRouter;
-<a href=#404 id=404 data-nosnippet>404</a>	<span class="kw">impl </span>SendXcm <span class="kw">for </span>DoNothingRouter {
-<a href=#405 id=405 data-nosnippet>405</a>		<span class="kw">type </span>Ticket = Xcm&lt;()&gt;;
+<a href=#403 id=403 data-nosnippet>403</a>			message
+<a href=#404 id=404 data-nosnippet>404</a>		}
+<a href=#405 id=405 data-nosnippet>405</a>	}
 <a href=#406 id=406 data-nosnippet>406</a>
-<a href=#407 id=407 data-nosnippet>407</a>		<span class="kw">fn </span>validate(
-<a href=#408 id=408 data-nosnippet>408</a>			_dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
-<a href=#409 id=409 data-nosnippet>409</a>			xcm: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
-<a href=#410 id=410 data-nosnippet>410</a>		) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt; {
-<a href=#411 id=411 data-nosnippet>411</a>			<span class="prelude-val">Ok</span>((xcm.clone().unwrap(), Assets::new()))
-<a href=#412 id=412 data-nosnippet>412</a>		}
-<a href=#413 id=413 data-nosnippet>413</a>		<span class="kw">fn </span>deliver(xcm: Xcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, SendError&gt; {
-<a href=#414 id=414 data-nosnippet>414</a>			<span class="kw">let </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-<a href=#415 id=415 data-nosnippet>415</a>			<span class="prelude-val">Ok</span>(hash)
-<a href=#416 id=416 data-nosnippet>416</a>		}
-<a href=#417 id=417 data-nosnippet>417</a>	}
-<a href=#418 id=418 data-nosnippet>418</a>
-<a href=#419 id=419 data-nosnippet>419</a>	<span class="kw">pub type </span>DummyXcmProcessor = InboundXcmMessageProcessor&lt;
-<a href=#420 id=420 data-nosnippet>420</a>		Runtime,
-<a href=#421 id=421 data-nosnippet>421</a>		DoNothingRouter,
-<a href=#422 id=422 data-nosnippet>422</a>		XcmExecutor&lt;XcmConfig&gt;,
-<a href=#423 id=423 data-nosnippet>423</a>		MessageToXcm&lt;
-<a href=#424 id=424 data-nosnippet>424</a>			CreateAssetCall,
-<a href=#425 id=425 data-nosnippet>425</a>			EthereumNetwork,
-<a href=#426 id=426 data-nosnippet>426</a>			RelayNetwork,
-<a href=#427 id=427 data-nosnippet>427</a>			EthereumGatewayAddress,
-<a href=#428 id=428 data-nosnippet>428</a>			InboundQueueV2Location,
-<a href=#429 id=429 data-nosnippet>429</a>			AssetHubParaId,
-<a href=#430 id=430 data-nosnippet>430</a>			EthereumSystem,
-<a href=#431 id=431 data-nosnippet>431</a>			&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId,
-<a href=#432 id=432 data-nosnippet>432</a>		&gt;,
-<a href=#433 id=433 data-nosnippet>433</a>		xcm_builder::AliasesIntoAccountId32&lt;
-<a href=#434 id=434 data-nosnippet>434</a>			RelayNetwork,
-<a href=#435 id=435 data-nosnippet>435</a>			&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId,
-<a href=#436 id=436 data-nosnippet>436</a>		&gt;,
-<a href=#437 id=437 data-nosnippet>437</a>		TargetLocation,
-<a href=#438 id=438 data-nosnippet>438</a>	&gt;;
-<a href=#439 id=439 data-nosnippet>439</a>
-<a href=#440 id=440 data-nosnippet>440</a>	<span class="kw">impl </span>snowbridge_pallet_system::BenchmarkHelper&lt;RuntimeOrigin&gt; <span class="kw">for </span>() {
-<a href=#441 id=441 data-nosnippet>441</a>		<span class="kw">fn </span>make_xcm_origin(location: Location) -&gt; RuntimeOrigin {
-<a href=#442 id=442 data-nosnippet>442</a>			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
-<a href=#443 id=443 data-nosnippet>443</a>		}
-<a href=#444 id=444 data-nosnippet>444</a>	}
-<a href=#445 id=445 data-nosnippet>445</a>
-<a href=#446 id=446 data-nosnippet>446</a>	<span class="kw">impl </span>snowbridge_pallet_system_v2::BenchmarkHelper&lt;RuntimeOrigin&gt; <span class="kw">for </span>() {
-<a href=#447 id=447 data-nosnippet>447</a>		<span class="kw">fn </span>make_xcm_origin(location: Location) -&gt; RuntimeOrigin {
-<a href=#448 id=448 data-nosnippet>448</a>			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
-<a href=#449 id=449 data-nosnippet>449</a>		}
-<a href=#450 id=450 data-nosnippet>450</a>	}
-<a href=#451 id=451 data-nosnippet>451</a>}
-<a href=#452 id=452 data-nosnippet>452</a>
-<a href=#453 id=453 data-nosnippet>453</a><span class="attr">#[cfg(test)]
-<a href=#454 id=454 data-nosnippet>454</a></span><span class="kw">mod </span>tests {
-<a href=#455 id=455 data-nosnippet>455</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#456 id=456 data-nosnippet>456</a>
-<a href=#457 id=457 data-nosnippet>457</a>	<span class="attr">#[test]
-<a href=#458 id=458 data-nosnippet>458</a>	</span><span class="kw">fn </span>bridge_hub_inbound_queue_pallet_index_is_correct() {
-<a href=#459 id=459 data-nosnippet>459</a>		<span class="macro">assert_eq!</span>(
-<a href=#460 id=460 data-nosnippet>460</a>			INBOUND_QUEUE_PALLET_INDEX_V1,
-<a href=#461 id=461 data-nosnippet>461</a>			&lt;EthereumInboundQueue <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::index() <span class="kw">as </span>u8
-<a href=#462 id=462 data-nosnippet>462</a>		);
-<a href=#463 id=463 data-nosnippet>463</a>	}
-<a href=#464 id=464 data-nosnippet>464</a>
-<a href=#465 id=465 data-nosnippet>465</a>	<span class="attr">#[test]
-<a href=#466 id=466 data-nosnippet>466</a>	</span><span class="kw">fn </span>bridge_hub_inbound_v2_queue_pallet_index_is_correct() {
-<a href=#467 id=467 data-nosnippet>467</a>		<span class="macro">assert_eq!</span>(
-<a href=#468 id=468 data-nosnippet>468</a>			INBOUND_QUEUE_PALLET_INDEX_V2,
-<a href=#469 id=469 data-nosnippet>469</a>			&lt;EthereumInboundQueueV2 <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::index() <span class="kw">as </span>u8
-<a href=#470 id=470 data-nosnippet>470</a>		);
-<a href=#471 id=471 data-nosnippet>471</a>	}
-<a href=#472 id=472 data-nosnippet>472</a>}
+<a href=#407 id=407 data-nosnippet>407</a>	<span class="kw">impl</span>&lt;T: snowbridge_pallet_outbound_queue_v2::Config&gt; OutboundQueueBenchmarkHelperV2&lt;T&gt; <span class="kw">for </span>Runtime {
+<a href=#408 id=408 data-nosnippet>408</a>		<span class="kw">fn </span>initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
+<a href=#409 id=409 data-nosnippet>409</a>			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
+<a href=#410 id=410 data-nosnippet>410</a>		}
+<a href=#411 id=411 data-nosnippet>411</a>	}
+<a href=#412 id=412 data-nosnippet>412</a>
+<a href=#413 id=413 data-nosnippet>413</a>	<span class="kw">pub struct </span>DoNothingRouter;
+<a href=#414 id=414 data-nosnippet>414</a>	<span class="kw">impl </span>SendXcm <span class="kw">for </span>DoNothingRouter {
+<a href=#415 id=415 data-nosnippet>415</a>		<span class="kw">type </span>Ticket = Xcm&lt;()&gt;;
+<a href=#416 id=416 data-nosnippet>416</a>
+<a href=#417 id=417 data-nosnippet>417</a>		<span class="kw">fn </span>validate(
+<a href=#418 id=418 data-nosnippet>418</a>			_dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
+<a href=#419 id=419 data-nosnippet>419</a>			xcm: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
+<a href=#420 id=420 data-nosnippet>420</a>		) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt; {
+<a href=#421 id=421 data-nosnippet>421</a>			<span class="prelude-val">Ok</span>((xcm.clone().unwrap(), Assets::new()))
+<a href=#422 id=422 data-nosnippet>422</a>		}
+<a href=#423 id=423 data-nosnippet>423</a>		<span class="kw">fn </span>deliver(xcm: Xcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, SendError&gt; {
+<a href=#424 id=424 data-nosnippet>424</a>			<span class="kw">let </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+<a href=#425 id=425 data-nosnippet>425</a>			<span class="prelude-val">Ok</span>(hash)
+<a href=#426 id=426 data-nosnippet>426</a>		}
+<a href=#427 id=427 data-nosnippet>427</a>	}
+<a href=#428 id=428 data-nosnippet>428</a>
+<a href=#429 id=429 data-nosnippet>429</a>	<span class="kw">pub type </span>DummyXcmProcessor = InboundXcmMessageProcessor&lt;
+<a href=#430 id=430 data-nosnippet>430</a>		Runtime,
+<a href=#431 id=431 data-nosnippet>431</a>		DoNothingRouter,
+<a href=#432 id=432 data-nosnippet>432</a>		XcmExecutor&lt;XcmConfig&gt;,
+<a href=#433 id=433 data-nosnippet>433</a>		MessageToXcm&lt;
+<a href=#434 id=434 data-nosnippet>434</a>			CreateAssetCall,
+<a href=#435 id=435 data-nosnippet>435</a>			EthereumNetwork,
+<a href=#436 id=436 data-nosnippet>436</a>			RelayNetwork,
+<a href=#437 id=437 data-nosnippet>437</a>			EthereumGatewayAddress,
+<a href=#438 id=438 data-nosnippet>438</a>			InboundQueueV2Location,
+<a href=#439 id=439 data-nosnippet>439</a>			AssetHubParaId,
+<a href=#440 id=440 data-nosnippet>440</a>			EthereumSystem,
+<a href=#441 id=441 data-nosnippet>441</a>			&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId,
+<a href=#442 id=442 data-nosnippet>442</a>		&gt;,
+<a href=#443 id=443 data-nosnippet>443</a>		xcm_builder::AliasesIntoAccountId32&lt;
+<a href=#444 id=444 data-nosnippet>444</a>			RelayNetwork,
+<a href=#445 id=445 data-nosnippet>445</a>			&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId,
+<a href=#446 id=446 data-nosnippet>446</a>		&gt;,
+<a href=#447 id=447 data-nosnippet>447</a>		TargetLocation,
+<a href=#448 id=448 data-nosnippet>448</a>	&gt;;
+<a href=#449 id=449 data-nosnippet>449</a>
+<a href=#450 id=450 data-nosnippet>450</a>	<span class="kw">impl </span>snowbridge_pallet_system::BenchmarkHelper&lt;RuntimeOrigin&gt; <span class="kw">for </span>() {
+<a href=#451 id=451 data-nosnippet>451</a>		<span class="kw">fn </span>make_xcm_origin(location: Location) -&gt; RuntimeOrigin {
+<a href=#452 id=452 data-nosnippet>452</a>			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+<a href=#453 id=453 data-nosnippet>453</a>		}
+<a href=#454 id=454 data-nosnippet>454</a>	}
+<a href=#455 id=455 data-nosnippet>455</a>
+<a href=#456 id=456 data-nosnippet>456</a>	<span class="kw">impl </span>snowbridge_pallet_system_v2::BenchmarkHelper&lt;RuntimeOrigin&gt; <span class="kw">for </span>() {
+<a href=#457 id=457 data-nosnippet>457</a>		<span class="kw">fn </span>make_xcm_origin(location: Location) -&gt; RuntimeOrigin {
+<a href=#458 id=458 data-nosnippet>458</a>			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+<a href=#459 id=459 data-nosnippet>459</a>		}
+<a href=#460 id=460 data-nosnippet>460</a>	}
+<a href=#461 id=461 data-nosnippet>461</a>}
+<a href=#462 id=462 data-nosnippet>462</a>
+<a href=#463 id=463 data-nosnippet>463</a><span class="attr">#[cfg(test)]
+<a href=#464 id=464 data-nosnippet>464</a></span><span class="kw">mod </span>tests {
+<a href=#465 id=465 data-nosnippet>465</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#466 id=466 data-nosnippet>466</a>
+<a href=#467 id=467 data-nosnippet>467</a>	<span class="attr">#[test]
+<a href=#468 id=468 data-nosnippet>468</a>	</span><span class="kw">fn </span>bridge_hub_inbound_queue_pallet_index_is_correct() {
+<a href=#469 id=469 data-nosnippet>469</a>		<span class="macro">assert_eq!</span>(
+<a href=#470 id=470 data-nosnippet>470</a>			INBOUND_QUEUE_PALLET_INDEX_V1,
+<a href=#471 id=471 data-nosnippet>471</a>			&lt;EthereumInboundQueue <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::index() <span class="kw">as </span>u8
+<a href=#472 id=472 data-nosnippet>472</a>		);
+<a href=#473 id=473 data-nosnippet>473</a>	}
+<a href=#474 id=474 data-nosnippet>474</a>
+<a href=#475 id=475 data-nosnippet>475</a>	<span class="attr">#[test]
+<a href=#476 id=476 data-nosnippet>476</a>	</span><span class="kw">fn </span>bridge_hub_inbound_v2_queue_pallet_index_is_correct() {
+<a href=#477 id=477 data-nosnippet>477</a>		<span class="macro">assert_eq!</span>(
+<a href=#478 id=478 data-nosnippet>478</a>			INBOUND_QUEUE_PALLET_INDEX_V2,
+<a href=#479 id=479 data-nosnippet>479</a>			&lt;EthereumInboundQueueV2 <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::index() <span class="kw">as </span>u8
+<a href=#480 id=480 data-nosnippet>480</a>		);
+<a href=#481 id=481 data-nosnippet>481</a>	}
+<a href=#482 id=482 data-nosnippet>482</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

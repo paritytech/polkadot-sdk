@@ -156,8 +156,13 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#6 id=6 data-nosnippet>6</a><span class="kw">pub const </span>EXTRA_DATA_SIZE: usize = <span class="number">32</span>;
 <a href=#7 id=7 data-nosnippet>7</a><span class="kw">pub const </span>LOGS_BLOOM_SIZE: usize = <span class="number">256</span>;
 <a href=#8 id=8 data-nosnippet>8</a>
-<a href=#9 id=9 data-nosnippet>9</a><span class="kw">pub const </span>PUBKEY_SIZE: usize = <span class="number">48</span>;
-<a href=#10 id=10 data-nosnippet>10</a><span class="kw">pub const </span>SIGNATURE_SIZE: usize = <span class="number">96</span>;
+<a href=#9 id=9 data-nosnippet>9</a><span class="doccomment">/// Caps unmetered work: `submit` has a fixed weight but keccaks and walks these bytes. The
+<a href=#10 id=10 data-nosnippet>10</a>/// worst case for the 23-field Gloas header is 952 bytes, with every integer at full width
+<a href=#11 id=11 data-nosnippet>11</a>/// and `extra_data` at its cap, so 2048 leaves room for ~30 more fields.
+<a href=#12 id=12 data-nosnippet>12</a></span><span class="kw">pub const </span>MAX_EXECUTION_HEADER_RLP_SIZE: u32 = <span class="number">2048</span>;
+<a href=#13 id=13 data-nosnippet>13</a>
+<a href=#14 id=14 data-nosnippet>14</a><span class="kw">pub const </span>PUBKEY_SIZE: usize = <span class="number">48</span>;
+<a href=#15 id=15 data-nosnippet>15</a><span class="kw">pub const </span>SIGNATURE_SIZE: usize = <span class="number">96</span>;
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

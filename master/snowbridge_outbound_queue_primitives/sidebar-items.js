@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["OperatingMode","SendError","VerificationError"],"mod":["receipt","v1","v2"],"struct":["EventFixture","EventProof","Log","Proof"],"trait":["SendMessageFeeProvider","Verifier"]};
+window.SIDEBAR_ITEMS = {"enum":["OperatingMode","SendError","VerificationError"],"mod":["dispatch_gas","receipt","v1","v2"],"struct":["EventFixture","EventProof","Log","Proof"],"trait":["SendMessageFeeProvider","Verifier"]};

@@ -158,7 +158,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span>sp_core::{H160, H256};
 <a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span>sp_std::vec::Vec;
 <a href=#10 id=10 data-nosnippet>10</a>
-<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use crate</span>::{OperatingMode, SendError};
+<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use crate</span>::{dispatch_gas, OperatingMode, SendError};
 <a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>abi::{
 <a href=#13 id=13 data-nosnippet>13</a>	CallContractParams, MintForeignTokenParams, RegisterForeignTokenParams, SetOperatingModeParams,
 <a href=#14 id=14 data-nosnippet>14</a>	UnlockNativeTokenParams, UpgradeParams,
@@ -428,38 +428,31 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#278 id=278 data-nosnippet>278</a>	</span><span class="kw">fn </span>maximum_dispatch_gas_used_at_most(command: <span class="kw-2">&amp;</span>Command) -&gt; u64;
 <a href=#279 id=279 data-nosnippet>279</a>}
 <a href=#280 id=280 data-nosnippet>280</a>
-<a href=#281 id=281 data-nosnippet>281</a><span class="doccomment">/// A meter that assigns a constant amount of gas for the execution of a command
+<a href=#281 id=281 data-nosnippet>281</a><span class="doccomment">/// A meter that assigns a constant amount of gas for the execution of a command.
 <a href=#282 id=282 data-nosnippet>282</a>///
-<a href=#283 id=283 data-nosnippet>283</a>/// The gas figures are extracted from this report:
-<a href=#284 id=284 data-nosnippet>284</a>/// &gt; forge test --match-path test/Gateway.t.sol --gas-report
-<a href=#285 id=285 data-nosnippet>285</a>///
-<a href=#286 id=286 data-nosnippet>286</a>/// A healthy buffer is added on top of these figures to account for:
-<a href=#287 id=287 data-nosnippet>287</a>/// * The EIP-150 63/64 rule
-<a href=#288 id=288 data-nosnippet>288</a>/// * Future EVM upgrades that may increase gas cost
-<a href=#289 id=289 data-nosnippet>289</a></span><span class="kw">pub struct </span>ConstantGasMeter;
-<a href=#290 id=290 data-nosnippet>290</a>
-<a href=#291 id=291 data-nosnippet>291</a><span class="kw">impl </span>GasMeter <span class="kw">for </span>ConstantGasMeter {
-<a href=#292 id=292 data-nosnippet>292</a>	<span class="kw">fn </span>maximum_dispatch_gas_used_at_most(command: <span class="kw-2">&amp;</span>Command) -&gt; u64 {
-<a href=#293 id=293 data-nosnippet>293</a>		<span class="kw">match </span>command {
-<a href=#294 id=294 data-nosnippet>294</a>			Command::SetOperatingMode { .. } =&gt; <span class="number">40_000</span>,
-<a href=#295 id=295 data-nosnippet>295</a>			Command::Upgrade { initializer, .. } =&gt; {
-<a href=#296 id=296 data-nosnippet>296</a>				<span class="comment">// total maximum gas must also include the gas used for updating the proxy before
-<a href=#297 id=297 data-nosnippet>297</a>				// the the initializer is called.
-<a href=#298 id=298 data-nosnippet>298</a>				</span><span class="number">50_000 </span>+ initializer.maximum_required_gas
-<a href=#299 id=299 data-nosnippet>299</a>			},
-<a href=#300 id=300 data-nosnippet>300</a>			Command::UnlockNativeToken { .. } =&gt; <span class="number">200_000</span>,
-<a href=#301 id=301 data-nosnippet>301</a>			Command::RegisterForeignToken { .. } =&gt; <span class="number">1_200_000</span>,
-<a href=#302 id=302 data-nosnippet>302</a>			Command::MintForeignToken { .. } =&gt; <span class="number">100_000</span>,
-<a href=#303 id=303 data-nosnippet>303</a>			Command::CallContract { gas: gas_limit, .. } =&gt; <span class="kw-2">*</span>gas_limit,
-<a href=#304 id=304 data-nosnippet>304</a>		}
-<a href=#305 id=305 data-nosnippet>305</a>	}
-<a href=#306 id=306 data-nosnippet>306</a>}
-<a href=#307 id=307 data-nosnippet>307</a>
-<a href=#308 id=308 data-nosnippet>308</a><span class="kw">impl </span>GasMeter <span class="kw">for </span>() {
-<a href=#309 id=309 data-nosnippet>309</a>	<span class="kw">fn </span>maximum_dispatch_gas_used_at_most(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Command) -&gt; u64 {
-<a href=#310 id=310 data-nosnippet>310</a>		<span class="number">1
-<a href=#311 id=311 data-nosnippet>311</a>	</span>}
-<a href=#312 id=312 data-nosnippet>312</a>}
+<a href=#283 id=283 data-nosnippet>283</a>/// The ceilings live in [`crate::dispatch_gas`].
+<a href=#284 id=284 data-nosnippet>284</a></span><span class="kw">pub struct </span>ConstantGasMeter;
+<a href=#285 id=285 data-nosnippet>285</a>
+<a href=#286 id=286 data-nosnippet>286</a><span class="kw">impl </span>GasMeter <span class="kw">for </span>ConstantGasMeter {
+<a href=#287 id=287 data-nosnippet>287</a>	<span class="kw">fn </span>maximum_dispatch_gas_used_at_most(command: <span class="kw-2">&amp;</span>Command) -&gt; u64 {
+<a href=#288 id=288 data-nosnippet>288</a>		<span class="kw">match </span>command {
+<a href=#289 id=289 data-nosnippet>289</a>			Command::SetOperatingMode { .. } =&gt; dispatch_gas::SET_OPERATING_MODE,
+<a href=#290 id=290 data-nosnippet>290</a>			Command::Upgrade { initializer, .. } =&gt; {
+<a href=#291 id=291 data-nosnippet>291</a>				dispatch_gas::UPGRADE_BASE + initializer.maximum_required_gas
+<a href=#292 id=292 data-nosnippet>292</a>			},
+<a href=#293 id=293 data-nosnippet>293</a>			Command::UnlockNativeToken { .. } =&gt; dispatch_gas::UNLOCK_NATIVE_TOKEN,
+<a href=#294 id=294 data-nosnippet>294</a>			Command::RegisterForeignToken { .. } =&gt; dispatch_gas::REGISTER_FOREIGN_TOKEN,
+<a href=#295 id=295 data-nosnippet>295</a>			Command::MintForeignToken { .. } =&gt; dispatch_gas::MINT_FOREIGN_TOKEN,
+<a href=#296 id=296 data-nosnippet>296</a>			Command::CallContract { gas: gas_limit, .. } =&gt; <span class="kw-2">*</span>gas_limit,
+<a href=#297 id=297 data-nosnippet>297</a>		}
+<a href=#298 id=298 data-nosnippet>298</a>	}
+<a href=#299 id=299 data-nosnippet>299</a>}
+<a href=#300 id=300 data-nosnippet>300</a>
+<a href=#301 id=301 data-nosnippet>301</a><span class="kw">impl </span>GasMeter <span class="kw">for </span>() {
+<a href=#302 id=302 data-nosnippet>302</a>	<span class="kw">fn </span>maximum_dispatch_gas_used_at_most(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Command) -&gt; u64 {
+<a href=#303 id=303 data-nosnippet>303</a>		<span class="number">1
+<a href=#304 id=304 data-nosnippet>304</a>	</span>}
+<a href=#305 id=305 data-nosnippet>305</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
