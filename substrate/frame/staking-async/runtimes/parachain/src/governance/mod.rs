@@ -22,8 +22,9 @@ use crate::xcm_config::Collectives;
 use frame_support::{
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse,
-		FromContains, LinearStoragePrice, PalletInfoAccess,
+		fungible::HoldConsideration,
+		tokens::{NoAssetCategories, UnityOrOuterConversion},
+		EitherOf, EitherOfDiverse, FromContains, LinearStoragePrice, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRootWithSuccess;
@@ -168,6 +169,7 @@ impl pallet_treasury::Config for Runtime {
 		AssetRate,
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
+	type AssetCategories = NoAssetCategories<VersionedLocatableAsset, Balance>;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;

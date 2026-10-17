@@ -88,14 +88,16 @@
     "metadata": [],
     "accounts": [],
     "nextAssetId": null,
-    "reserves": []
+    "reserves": [],
+    "categories": []
   },
   "poolAssets": {
     "assets": [],
     "metadata": [],
     "accounts": [],
     "nextAssetId": null,
-    "reserves": []
+    "reserves": [],
+    "categories": []
   },
   "transactionStorage": {
     "byteFee": 10,

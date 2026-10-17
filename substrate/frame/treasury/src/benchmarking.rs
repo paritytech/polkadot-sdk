@@ -192,7 +192,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(
 			origin as T::RuntimeOrigin,
-			Box::new(asset_kind.clone()),
+			Box::new(SpendAsset::Specific(asset_kind.clone())),
 			amount,
 			Box::new(beneficiary_lookup),
 			None,
@@ -203,7 +203,7 @@ mod benchmarks {
 		assert_last_event::<T, I>(
 			Event::AssetSpendApproved {
 				index: 0,
-				asset_kind,
+				asset: SpendAsset::Specific(asset_kind),
 				amount,
 				beneficiary,
 				valid_from,
@@ -223,7 +223,7 @@ mod benchmarks {
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
 			Treasury::<T, _>::spend(
 				origin,
-				Box::new(asset_kind.clone()),
+				Box::new(SpendAsset::Specific(asset_kind.clone())),
 				amount,
 				Box::new(beneficiary_lookup),
 				None,
@@ -234,7 +234,7 @@ mod benchmarks {
 			false
 		};
 
-		T::Paymaster::ensure_successful(&beneficiary, asset_kind, amount);
+		T::Paymaster::ensure_successful(&beneficiary, asset_kind.clone(), amount);
 		let caller: T::AccountId = account("caller", 0, SEED);
 
 		#[block]
@@ -249,14 +249,14 @@ mod benchmarks {
 		}
 
 		if spend_exists {
-			let id = match Spends::<T, I>::get(0).unwrap().status {
-				PaymentState::Attempted { id, .. } => {
-					assert_ne!(T::Paymaster::check_payment(id), PaymentStatus::Failure);
-					id
+			let execution = match Spends::<T, I>::get(0).unwrap().status {
+				PaymentState::Attempted { executions, .. } => {
+					executions.first().expect("payout made one execution; qed").clone()
 				},
 				_ => panic!("No payout attempt made"),
 			};
-			assert_last_event::<T, I>(Event::Paid { index: 0, payment_id: id }.into());
+			assert_ne!(T::Paymaster::check_payment(execution.id), PaymentStatus::Failure);
+			assert_last_event::<T, I>(Event::Paid { index: 0, execution }.into());
 			assert!(Treasury::<T, _>::payout(RawOrigin::Signed(caller).into(), 0u32).is_err());
 		}
 
@@ -275,7 +275,7 @@ mod benchmarks {
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
 			Treasury::<T, _>::spend(
 				origin,
-				Box::new(asset_kind),
+				Box::new(SpendAsset::Specific(asset_kind)),
 				amount,
 				Box::new(beneficiary_lookup),
 				None,
@@ -283,7 +283,8 @@ mod benchmarks {
 
 			Treasury::<T, _>::payout(RawOrigin::Signed(caller.clone()).into(), 0u32)?;
 			match Spends::<T, I>::get(0).unwrap().status {
-				PaymentState::Attempted { id, .. } => {
+				PaymentState::Attempted { executions, .. } => {
+					let id = executions.first().expect("payout made one execution; qed").id;
 					T::Paymaster::ensure_concluded(id);
 				},
 				_ => panic!("No payout attempt made"),
@@ -320,7 +321,7 @@ mod benchmarks {
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
 			Treasury::<T, _>::spend(
 				origin,
-				Box::new(asset_kind.clone()),
+				Box::new(SpendAsset::Specific(asset_kind.clone())),
 				amount,
 				Box::new(beneficiary_lookup),
 				None,

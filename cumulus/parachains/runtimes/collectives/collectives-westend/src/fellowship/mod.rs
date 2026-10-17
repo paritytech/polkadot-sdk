@@ -29,8 +29,8 @@ use cumulus_primitives_core::ParaId;
 use frame_support::{
 	parameter_types,
 	traits::{
-		tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse, FromContains, MapSuccess,
-		OriginTrait, TryWithMorphedArg,
+		tokens::{NoAssetCategories, UnityOrOuterConversion},
+		EitherOf, EitherOfDiverse, FromContains, MapSuccess, OriginTrait, TryWithMorphedArg,
 	},
 	PalletId,
 };
@@ -335,6 +335,7 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 		AssetRate,
 	>;
 	type PayoutPeriod = ConstU32<{ 30 * DAYS }>;
+	type AssetCategories = NoAssetCategories<VersionedLocatableAsset, Balance>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments<
 		sp_core::ConstU8<1>,
