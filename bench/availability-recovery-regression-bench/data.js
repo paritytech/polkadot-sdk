@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792210358516,
+  "lastUpdate": 1792217682028,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "20d65ad1febe16991b847d5d57c8d2cbdbf2979c",
-          "message": "[Release|CI/CD] Trigger check-sync flow in callable flows only if they are triggered manually and not with the workflow_call trigger (#11631)\n\nhttps://github.com/paritytech/release-engineering/issues/291",
-          "timestamp": "2026-04-07T10:40:36Z",
-          "tree_id": "2ad6bae28a6e46a10cba89ebf3c59d74ce1ac35d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/20d65ad1febe16991b847d5d57c8d2cbdbf2979c"
-        },
-        "date": 1775563237678,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.733041514566667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1268456504,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12714410913333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "03215dcacd1313785052a8eb6e69dd5f07ee01de",
+          "message": "statement-store: deliver statements to light peers on the v2 DHT path (#13456)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13307.\n\nWith the v2 DHT path on, a light peer got only the initial sync. The\npropagation plan took the filter matches from the peers in the topology,\nand light peers never enter it. The plan now takes them from the stored\npeer filters, so a light peer reaches the plan through its filter alone,\nwhile staying out of the DHT index, routing targets and peer steering.\n\nThe two TODO(#11288) comments are settled without a code change. A light\npeer stays out of the orchestrator because it stores and routes nothing.\nThe `can_receive` check before queueing stays because a V2 peer skipped\nfor a missing filter gets the skipped statements from the initial sync\nthat follows its filter.\n\n# Integration\n\nNo changes needed.",
+          "timestamp": "2026-10-17T04:41:50Z",
+          "tree_id": "00bcafa9d0111e6b4ea8cb9596afa4bd6ef59f4d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/03215dcacd1313785052a8eb6e69dd5f07ee01de"
+        },
+        "date": 1792217650257,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12469767343333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.688388267133332,
             "unit": "seconds"
           }
         ]
