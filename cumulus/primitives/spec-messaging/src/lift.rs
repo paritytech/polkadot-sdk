@@ -56,10 +56,11 @@ use crate::{
 /// `TreeInclusionProof`, concretely [`StreamProof`].
 pub type TreeInclusionProof = StreamProof;
 
-/// Upper bound on an [`MMRExtensionProof`]'s connecting nodes. A valid ancestry proof needs O(log
-/// n) nodes, a small multiple of the 64-bit height; `4 * 64` is a ceiling no valid proof reaches.
-/// Defence in depth: the PoV size already bounds the decoded length.
-pub const MAX_EXTENSION_CONNECTING_NODES: usize = 4 * 64;
+/// Upper bound on an [`MMRExtensionProof`]'s connecting nodes: the design's ceiling, which the
+/// lift's PoV reservation assumes. A valid ancestry proof needs at most one node per bit of the
+/// leaf count, so at most 48 under [`MAX_MMR_LEAF_COUNT`]; a proof with any other count than the
+/// one derived from the two leaf counts fails anyway. Checked before positions are derived.
+pub const MAX_EXTENSION_CONNECTING_NODES: usize = 64;
 
 /// Upper bound on an [`MmrInclusionProof`]'s items. A single-leaf proof needs at most the subtree
 /// height plus the other peaks, each at most 63; `2 * 64` is a ceiling no valid proof reaches.
@@ -674,6 +675,17 @@ mod tests {
 			MMRExtensionProof::identity().verify(&MmrFrontier::default()),
 			Ok(MmrFrontier::default().root()),
 		);
+	}
+
+	#[test]
+	fn the_longest_valid_extension_fits_the_node_ceiling() {
+		// The worst shape: one leaf extended to the largest count with every bit set, one
+		// connecting node per bit. The lift's PoV reservation assumes this stays within the
+		// ceiling.
+		let nodes =
+			ancestry_positions(mmr_size(1), mmr_size((MAX_MMR_LEAF_COUNT - 1) as usize)).len();
+		assert_eq!(nodes, 48);
+		assert!(nodes <= MAX_EXTENSION_CONNECTING_NODES);
 	}
 
 	#[test]

@@ -78,8 +78,8 @@ accumulated right side as the first hash argument (`mmr_lib`'s `merge_peaks(righ
 The root binds the leaf count because peak hashes do not commit their heights: the same peaks bag
 identically at many counts (the two peaks of 3 leaves are also a valid frontier of `2^47 + 1`).
 Without the count, a peer could present a committed root at a forged position (`base`,
-`MmrInclusionProof.mmr_size`, `MMRExtensionProof.leaf_count`). With it, every root comparison is also
-a count comparison.
+`MmrInclusionProof.mmr_size`, `MMRExtensionProof.leaf_count`). With it, every root comparison is
+also a count comparison.
 
 The empty frontier has no peaks, so its bag is 32 zero bytes and its root is the count-0 case:
 
@@ -88,9 +88,9 @@ empty_root = H(ROOT_TAG ‖ 0:8 ‖ 0^32) =
   3efd2c3528b8f163c2e2349211af73f86181b748be1b6a5eebfbadc9428643ce
 ```
 
-Every non-empty stream has `leaf_count ≥ 1`, so no other root can equal it. It compares like any other
-root: the `Interval.start` of a stream's first consumption is this constant (§10), and the identity
-extension on an empty frontier yields it.
+Every non-empty stream has `leaf_count ≥ 1`, so no other root can equal it. It compares like any
+other root: the `Interval.start` of a stream's first consumption is this constant (§10), and the
+identity extension on an empty frontier yields it.
 
 ### 3.3 Frontier and position
 
@@ -164,9 +164,9 @@ self.leaf_count)` fixes every connecting-node position; the derivation is mmr-li
 prev-peaks-proof order. Out-of-range positions are unrepresentable. A positioned `Vec<(u64, Hash)>`
 form is not conformant.
 
-From an empty frontier there is no old MMR, so no ancestry proof: `connecting_nodes` are the new MMR's
-peaks, highest first, exactly one per set bit of `leaf_count`, and the result is their root. This
-case is reached by a payload-free fetch at position 0 and by a skip on a never-consumed stream.
+From an empty frontier there is no old MMR, so no ancestry proof: `connecting_nodes` are the new
+MMR's peaks, highest first, exactly one per set bit of `leaf_count`, and the result is their root.
+This case is reached by a payload-free fetch at position 0 and by a skip on a never-consumed stream.
 
 ### 5.2 Identity and regression rules
 
@@ -175,8 +175,8 @@ root unchanged (the caught-up case, and the head check for register reads). It i
 because a genuine extension to an empty MMR cannot exist. Otherwise `leaf_count > old.leaf_count`
 strictly; an equal count is rejected (`NotForward`). The design's Appendix B writes `≥`; strict is
 the implemented and specified form. More than `MAX_EXTENSION_CONNECTING_NODES` connecting nodes are
-rejected (`NodeLimitExceeded`) before any position is derived or hash computed. Verification computes
-and returns the new root and fails if the node count is not exactly right for the pair.
+rejected (`NodeLimitExceeded`) before any position is derived or hash computed. Verification
+computes and returns the new root and fails if the node count is not exactly right for the pair.
 
 ### 5.3 `leaf_count` encoding
 
@@ -257,10 +257,11 @@ EventRequest     { stream, under, at: Option<MessagePosition> }
 EventResponse    { payload, leaf_version, inclusion, tree_proof }
 ```
 
-Every response verifies against the requester-named `under`; `max_bytes = 0` requests lift
-material only, so a response to it carries no payload at all, not even an empty one. `payloads` holds
-at most `MAX_MESSAGES_PER_RESPONSE` entries, rejected at the length prefix: the byte budget does not
-bound the count, since an empty payload costs one wire byte and no budget but is still hashed. The versioned libp2p protocol string is pinned by the node crate (§13 #6).
+Every response verifies against the requester-named `under`; `max_bytes = 0` requests lift material
+only, so a response to it carries no payload at all, not even an empty one. `payloads` holds at most
+`MAX_MESSAGES_PER_RESPONSE` entries, rejected at the length prefix: the byte budget does not bound
+the count, since an empty payload costs one wire byte and no budget but is still hashed. The
+versioned libp2p protocol string is pinned by the node crate (§13 #6).
 
 ## 10. PVF synthesis semantics (consensus in `validate_block`)
 
@@ -274,12 +275,13 @@ struct Interval { start: MmrRoot, end: MmrFrontier }
 - `ConsumeItem::Events { base, start_peaks, payloads }` on an `Ack` stream (a register read):
   exactly one payload, the head `Register`. The frontier is rebuilt with
   `MmrFrontier::from_parts(start_peaks, base)` and the head appended; `end` = that frontier and
-  `start` = its root, so the interval is empty: a read advances nothing. `base` and `start_peaks`
-  are unproven hints; a lie yields a root no lift can bind, since the root binds the leaf count
-  (§3.2). A read is never rejected for its position; the STF ignores one below the last applied
-  read's position (`RegisterRead.at` in `OutChannelState`), or whose monotonic fields go backwards. Ordering by
-  position is needed: a suspend, a resume or a close leaves `up_to` and `version` unchanged. Any
-  other `Events` stream invalidates the block.
+  `start` = its root, so the interval is empty: a read advances nothing, and two reads of one head
+  in a bundle chain with no advance (starting at the root at `base` would break that chain).
+  `base` and `start_peaks` are unproven hints; a lie yields a root no lift can bind, since the root
+  binds the leaf count (§3.2). A read is never rejected for its position; the STF ignores one below
+  the last applied read's position (`RegisterRead.at` in `OutChannelState`), or whose monotonic
+  fields go backwards. Ordering by position is needed: a suspend, a resume or a close leaves
+  `up_to` and `version` unchanged. Any other `Events` stream invalidates the block.
 - Broadcast event streams (not implemented): `payloads.len() ≥ 1`, and the replay guard is a
   highwater: `base` must exceed it, and it then becomes `base + len − 1`.
 - One interval per stream per block; at most one inherent item per stream; strict-on-import, one
@@ -304,7 +306,7 @@ Reference algorithms: design §Requires Lifting (`stitch`, `build_requires_entry
 | `MAX_UMP_SIGNALS` | 4 | = variant count |
 | `MAX_SPECULATIVE_MESSAGE_LEN` | 102 400 B | frozen; wire-enforced payload bound (`PayloadTooLarge`) |
 | `MAX_MESSAGES_PER_RESPONSE` | 1024 | decode ceiling on a `MessagesResponse`'s payloads; not consensus |
-| `MAX_EXTENSION_CONNECTING_NODES` | 256 | checked before verifying, not at decode; must exceed the valid maxima, not consensus |
+| `MAX_EXTENSION_CONNECTING_NODES` | 64 | checked before verifying, not at decode; the design's ceiling, which the lift reservation assumes (a valid proof has at most 48) |
 | `MAX_INCLUSION_PROOF_ITEMS` | 128 | checked before verifying, not at decode; must exceed the valid maxima, not consensus |
 | `SPMS_ENGINE_ID` | `*b"SPMS"` | implemented; freeze before cross-chain ships |
 | `W` (RecentProvides ring) | 128 | relay-side constant; changed by runtime upgrade |
