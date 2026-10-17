@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792217874498,
+  "lastUpdate": 1792223174209,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "rohit.sarpotdar@parity.io",
-            "name": "Rohit Sarpotdar",
-            "username": "rosarp"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8e64bb2e4d7554a813fe5a99805c9898123c1366",
-          "message": "Fix bridges integration test failure for the Westend network (#11643)\n\n## Description\n\nFix bridges **integration test failure** for the Westend network by\nusing the slot-based collator for asset-hub-westend nodes.\n\nThe `asset-hub-westend` runtime configures `RelayParentOffset = 1` (at\n`cumulus/parachains/runtimes/assets/asset-hub-westend/src/lib.rs:138`)\nin this\n[commit](https://github.com/paritytech/polkadot-sdk/commit/8e911a6ebc6965480621db8e89b1ecb157df9eba)\n, which requires relay parent descendant headers in the parachain\ninherent data. However, the **zombienet** test was launching the\ncollators with the default look ahead authoring policy, which passes an\nempty `relay_parent_descendants` vec. This caused a runtime panic on\nevery block build attempt:\n\n```\n  Unable to verify provided relay parent descendants.\n  expected_rp_descendants_num: 1\n  error: InvalidNumberOfDescendants { expected: 2, received: 0 }\n```\n\n  The parachain remained stuck at block #0, failing the test assertion:\nasset-hub-westend-collator1: reports block height is at least 10 within\n180 seconds\n\nOnly the slot-based collator\n(`collators/slot_based/block_builder_task.rs`) calls\n`create_inherent_data_with_rp_offset()` with the required descendant\ndata. The look ahead and basic collators call `create_inherent_data()`\nwhich passes `None`.\n\n## Integration\n\nThis change only affects a zombienet test TOML configuration file. No\ncrate changes.\n\n## Review Notes\n\nThe fix adds \"--authoring\", \"slot-based\" to both\nasset-hub-westend-collator1 and asset-hub-westend-collator2 in\n\nbridges/testing/environments/rococo-westend/bridge_hub_westend_local_network.toml.\n\n  This is only needed for the Westend side because:\n- asset-hub-westend has RelayParentOffset = ConstU32<1> — requires\ndescendant headers\n- asset-hub-rococo has RelayParentOffset = ConstU32<0> — no descendant\nverification, works with any collator\n\nThe Rococo TOML (bridge_hub_rococo_local_network.toml) is unchanged\nsince its asset-hub runtime doesn't require relay parent descendants.",
-          "timestamp": "2026-04-06T15:48:46Z",
-          "tree_id": "b7667e3cec15f4d82df4349b96eb57ddb06a7a41",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8e64bb2e4d7554a813fe5a99805c9898123c1366"
-        },
-        "date": 1775495372212,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.01060324692,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00268483067,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009551708919999975,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025114538399999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f70f263f11a4ee2c25731f9fcf8759be5e510a0",
+          "message": "eth-rpc: send only new latest blocks to newHeads subscribers (#13477)\n\n### Summary\nThe newHeads subscription sent every block from the best block stream,\nincluding blocks eth-rpc does not take as the latest one: a repeat of\nthe latest block, a lower block replayed while the latest block is still\ncanonical, or a block that contradicts the finalized block. Subscribers\nare now notified only when the latest block changes, so a lower or\nrepeated block is sent only when the latest block moves back, after a\nreorg or a reconnect to a node that is behind.\n\n### Changes\n- `BlockInfoProvider::update_latest` returns the new latest block, or\n`None` if it did not change.\n- The finalized block stream now also notifies subscribers when it\nchanges the latest block.",
+          "timestamp": "2026-10-17T06:07:15Z",
+          "tree_id": "80821c44c74e8fce2c7199728ba9eaad5acef1c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4f70f263f11a4ee2c25731f9fcf8759be5e510a0"
+        },
+        "date": 1792223144468,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009318556549999978,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010562433409999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002549715969999999,
             "unit": "seconds"
           }
         ]
