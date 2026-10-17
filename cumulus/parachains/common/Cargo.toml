@@ -16,6 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 tracing = { workspace = true }
 
@@ -27,7 +28,9 @@ pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-multi-asset-bounties = { workspace = true }
+pallet-session = { workspace = true }
 pallet-treasury = { workspace = true }
+sp-authority-discovery = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
@@ -55,12 +58,14 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-assets/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
 	"pallet-multi-asset-bounties/std",
+	"pallet-session/std",
 	"pallet-treasury/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
@@ -68,6 +73,7 @@ std = [
 	"polkadot-primitives/std",
 	"polkadot-runtime-common/std",
 	"scale-info/std",
+	"sp-authority-discovery/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -86,6 +92,7 @@ runtime-benchmarks = [
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multi-asset-bounties/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
@@ -104,6 +111,7 @@ try-runtime = [
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-multi-asset-bounties/try-runtime",
+	"pallet-session/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
