@@ -1,0 +1,53 @@
+title: '[pallet-revive] capture long execution traces one window at a time'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The execution tracer collected every step into one buffer, which the allocator rejects past
+    `MAX_POSSIBLE_ALLOCATION` (32 MiB), so transactions over roughly 262k steps could not be
+    traced at all.
+
+    `ExecutionTracerConfig` gains `step_offset`, which pairs with `limit` to select the window
+    `step_offset..step_offset + limit`. Replaying with successive offsets returns a long trace one
+    window at a time, and the windows concatenate into the whole: each step keeps the gas, weight,
+    storage snapshot and error it would have had in one piece, and every window reports the
+    transaction's own totals. A window covers one execution, as `limit` already does, so under
+    `trace_block` it applies per transaction.
+
+    At the default `step_offset: 0` the tracer captures what it captured before, with one
+    exception: a call whose callee ran past `limit` and then failed is no longer annotated with
+    that error, which would otherwise move with the window.
+
+    The window is reached through `ExecutionTracerConfigV2`, selected by a new `TracerTypeV2` and
+    carried by new `V3` input payloads of `trace_block`, `trace_tx` and `trace_call`, whose
+    `version_declarations` are bumped to `3`. Each also gains a `V3` output payload, of the same
+    shape as its `V2`. The `V1` and `V2` payloads are unchanged. `trace_block` gets a `V3` payload
+    because `TracerType` is in its containment chain, as the versioning guide requires, though
+    nothing sends it yet.
+
+    Nothing to configure, but two source breaks: a `match` on a versioned `trace_block`,
+    `trace_tx` or `trace_call` payload must handle `V3`, on the output side as well as the input,
+    and an `ExecutionTracerConfig` struct literal must set `step_offset` or add
+    `..Default::default()`.
+- audience: Node Dev
+  description: |-
+    `eth-rpc` pages internally. `debug_traceTransaction` and `debug_traceCall` call the runtime
+    with an increasing `step_offset` until a window comes back short, so transactions past the
+    former step ceiling can now be traced; each window replays the block up to the transaction
+    again. Windows are sized from what the previous one measured, and one the node refuses as too
+    large is halved and asked again, up to eight attempts.
+
+    A trace is still bounded by what one response can carry. Where the steps do not fit within
+    `--rpc-max-response-size` the request fails rather than return a prefix indistinguishable
+    from a whole trace, and the error names the largest `limit` that would succeed; a `limit` the
+    response can hold is returned as asked for. `limit` counts from the start and there is no
+    `stepOffset` over JSON, so a later part of a trace cannot be asked for.
+
+    Nothing to configure: `debug_traceBlockByNumber` is unchanged, and raising
+    `--rpc-max-response-size` raises the longest trace a request can return.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-types
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: major
