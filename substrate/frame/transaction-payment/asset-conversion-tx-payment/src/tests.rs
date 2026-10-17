@@ -169,6 +169,12 @@ fn transaction_payment_in_native_possible() {
 			let mut info = info_from_weight(WEIGHT_5);
 			let ext = ChargeAssetTxPayment::<Runtime>::from(0, None);
 			info.extension_weight = ext.weight(CALL);
+
+			assert_eq!(
+				ext.quote_fee(Some(1).into(), &info, len as u32),
+				Some(FeeQuote::Native(5 + 5 + 15 + 10))
+			);
+
 			let (pre, _) = ext.validate_and_prepare(Some(1).into(), CALL, &info, len, 0).unwrap();
 			let initial_balance = 10 * balance_factor;
 			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 15 - 10);
@@ -255,15 +261,16 @@ fn transaction_payment_in_asset_possible() {
 			let fee_in_asset = input_quote.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 
-			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
-				.validate_and_prepare(
-					Some(caller).into(),
-					CALL,
-					&info_from_weight(WEIGHT_5),
-					len,
-					0,
-				)
-				.unwrap();
+			let info = info_from_weight(WEIGHT_5);
+			let ext = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()));
+
+			assert_eq!(
+				ext.quote_fee(Some(caller).into(), &info, len as u32),
+				Some(FeeQuote::Asset((NativeOrWithId::WithId(asset_id), fee_in_asset)))
+			);
+
+			let (pre, _) =
+				ext.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0).unwrap();
 			// assert that native balance is not used
 			assert_eq!(Balances::free_balance(caller), 10 * balance_factor);
 
@@ -278,8 +285,8 @@ fn transaction_payment_in_asset_possible() {
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
-				&info_from_weight(WEIGHT_5), // estimated tx weight
-				&default_post_info(),        // weight actually used == estimated
+				&info,                // estimated tx weight
+				&default_post_info(), // weight actually used == estimated
 				len,
 				&Ok(()),
 			));
@@ -800,6 +807,12 @@ fn fee_with_native_asset_passed_with_id() {
 
 			let mut info = info_from_weight(WEIGHT_100);
 			info.extension_weight = extension_weight;
+
+			assert_eq!(
+				ext.quote_fee(Some(caller).into(), &info, len as u32),
+				Some(FeeQuote::Asset((NativeOrWithId::Native, initial_fee)))
+			);
+
 			let (pre, _) =
 				ext.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0).unwrap();
 			assert_eq!(Balances::free_balance(caller), caller_balance - initial_fee);
@@ -1726,5 +1739,259 @@ fn validate_rejects_zero_asset_fee_but_accepts_small_nonzero() {
 				0,
 			);
 			assert!(result.is_ok(), "Small but non-zero fee should pass validation");
+		});
+}
+
+#[test]
+fn quote_fee_in_native_possible() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			let len = 10;
+			let info = info_from_weight(WEIGHT_5);
+
+			let expected =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len, &info, 0);
+			assert!(expected > 0);
+
+			let caller = 1;
+			let native_before = Balances::free_balance(caller);
+			let ext = ChargeAssetTxPayment::<Runtime>::from(0, None);
+			assert_eq!(
+				ext.quote_fee(Some(caller).into(), &info, len),
+				Some(FeeQuote::Native(expected))
+			);
+			// Quote must not withdraw funds.
+			assert_eq!(Balances::free_balance(caller), native_before);
+		});
+}
+
+#[test]
+fn quote_fee_in_asset_possible() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			let asset_id = 1;
+			let min_balance = 2;
+			assert_ok!(Assets::force_create(
+				RuntimeOrigin::root(),
+				asset_id.into(),
+				42,
+				true,
+				min_balance,
+			));
+			setup_lp(asset_id, balance_factor);
+
+			let caller = 1;
+			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
+			let balance = 1000;
+			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
+
+			let len = 10;
+			let info = info_from_weight(WEIGHT_5);
+			let fee_in_native =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len, &info, 0);
+			let expected_asset_fee = AssetConversion::quote_price_tokens_for_exact_tokens(
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
+				fee_in_native,
+				true,
+			)
+			.unwrap();
+
+			let ext = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()));
+			let native_before = Balances::free_balance(caller);
+			let asset_before = Assets::balance(asset_id, caller);
+
+			assert_eq!(
+				ext.quote_fee(Some(caller).into(), &info, len),
+				Some(FeeQuote::Asset((NativeOrWithId::WithId(asset_id), expected_asset_fee)))
+			);
+			assert_eq!(Balances::free_balance(caller), native_before);
+			assert_eq!(Assets::balance(asset_id, caller), asset_before);
+		});
+}
+
+#[test]
+fn quote_fee_in_asset_fails_if_no_pool_for_that_asset() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			let asset_id = 1;
+			let min_balance = 2;
+			assert_ok!(Assets::force_create(
+				RuntimeOrigin::root(),
+				asset_id.into(),
+				42,
+				true,
+				min_balance,
+			));
+
+			let len = 10;
+			let info = info_from_weight(WEIGHT_5);
+			let fee = pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len, &info, 0);
+			assert!(fee > 0);
+
+			let ext = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()));
+			assert!(ext.quote_fee(Some(1).into(), &info, len).is_none());
+		});
+}
+
+#[test]
+fn quote_fee_possible_when_validate_fails() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			let asset_id = 1;
+			let min_balance = 2;
+			assert_ok!(Assets::force_create(
+				RuntimeOrigin::root(),
+				asset_id.into(),
+				42,
+				true,
+				min_balance,
+			));
+			setup_lp(asset_id, balance_factor);
+
+			let caller = 99;
+			assert_eq!(Balances::free_balance(caller), 0);
+			assert_eq!(Assets::balance(asset_id, caller), 0);
+
+			let len = 10;
+			let info = info_from_weight(WEIGHT_5);
+			let origin: RuntimeOrigin = Some(caller).into();
+			let ext_native = ChargeAssetTxPayment::<Runtime>::from(0, None);
+			let ext_asset = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()));
+
+			assert!(ext_native.quote_fee(origin.clone(), &info, len).is_some());
+			assert!(ext_asset.quote_fee(origin.clone(), &info, len).is_some());
+			assert!(ext_native
+				.validate_and_prepare(origin.clone(), CALL, &info, len as usize, 0)
+				.is_err());
+			assert!(ext_asset.validate_and_prepare(origin, CALL, &info, len as usize, 0).is_err());
+		});
+}
+
+#[test]
+fn quote_fee_with_tip() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			let asset_id = 1;
+			let min_balance = 2;
+			assert_ok!(Assets::force_create(
+				RuntimeOrigin::root(),
+				asset_id.into(),
+				42,
+				true,
+				min_balance,
+			));
+			setup_lp(asset_id, balance_factor);
+
+			let len = 10;
+			let tip = 5;
+			let info = info_from_weight(WEIGHT_5);
+
+			let fee_with_tip =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len, &info, tip);
+
+			// Native: tip is part of the quoted amount.
+			let ext_native = ChargeAssetTxPayment::<Runtime>::from(tip, None);
+			assert_eq!(
+				ext_native.quote_fee(Some(1).into(), &info, len),
+				Some(FeeQuote::Native(fee_with_tip))
+			);
+
+			// Asset: quoted amount follows conversion of the tipped native fee.
+			let expected_asset_fee = AssetConversion::quote_price_tokens_for_exact_tokens(
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
+				fee_with_tip,
+				true,
+			)
+			.unwrap();
+			let ext_asset = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.into()));
+			assert_eq!(
+				ext_asset.quote_fee(Some(1).into(), &info, len),
+				Some(FeeQuote::Asset((NativeOrWithId::WithId(asset_id), expected_asset_fee)))
+			);
+		});
+}
+
+#[test]
+fn quote_fee_nothing_for_zero_fee() {
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			let asset_id = 1;
+			let min_balance = 2;
+			assert_ok!(Assets::force_create(
+				RuntimeOrigin::root(),
+				asset_id.into(),
+				42,
+				true,
+				min_balance,
+			));
+
+			let len = 10;
+			let info = info_from_pays(Pays::No);
+
+			let fee = pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len, &info, 0);
+			assert!(fee.is_zero());
+
+			let ext_native = ChargeAssetTxPayment::<Runtime>::from(0, None);
+			assert_eq!(ext_native.quote_fee(Some(1).into(), &info, len), Some(FeeQuote::Nothing));
+
+			let ext_asset = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()));
+			assert_eq!(ext_asset.quote_fee(Some(1).into(), &info, len), Some(FeeQuote::Nothing));
+		});
+}
+
+#[test]
+fn quote_fee_nothing_for_non_signer_origin() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			let asset_id = 1;
+			let len = 10;
+			let info = info_from_weight(WEIGHT_5);
+			let fee = pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len, &info, 0);
+			assert!(fee > 0);
+
+			let origin: <Runtime as frame_system::Config>::RuntimeOrigin =
+				frame_system::RawOrigin::Root.into();
+
+			let ext_native = ChargeAssetTxPayment::<Runtime>::from(0, None);
+			assert_eq!(ext_native.quote_fee(origin.clone(), &info, len), Some(FeeQuote::Nothing));
+
+			let ext_asset = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()));
+			assert_eq!(ext_asset.quote_fee(origin, &info, len), Some(FeeQuote::Nothing));
 		});
 }
