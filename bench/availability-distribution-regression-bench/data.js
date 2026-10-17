@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792206197229,
+  "lastUpdate": 1792210406176,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5e1f597fd9ff388bf3315d6d805de4fdf88ae4d4",
-          "message": "Update PolkaVM to latest version (#11650)",
-          "timestamp": "2026-04-07T08:53:13Z",
-          "tree_id": "aea557c47a059041d5337471d3f6872e4202dd4b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5e1f597fd9ff388bf3315d6d805de4fdf88ae4d4"
-        },
-        "date": 1775557936797,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009587068886666649,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1436258057733334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025568179833333326,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007382068373333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007919146293333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "264c36dd72329280589b6de2312c8df1e114bfee",
+          "message": "Remove the construct_runtime! where clause (#13349)\n\n## Summary\n\nThis is part of #11561. The `where` clause on `construct_runtime!` has\nwarned since December 2023, and no production runtime still uses it. The\nblock type is already read from `frame_system::Config::Block`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-10-16T20:15:45Z",
+          "tree_id": "c6dae9bb1f7be1abebb5ffd3f5c04a1dc9930b57",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/264c36dd72329280589b6de2312c8df1e114bfee"
+        },
+        "date": 1792210376371,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14473183970000011,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02505896132666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010164742819999975,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007757864320000001,
             "unit": "seconds"
           }
         ]
