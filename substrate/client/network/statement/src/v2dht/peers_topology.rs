@@ -249,6 +249,29 @@ impl PeersTopology {
 		selected
 	}
 
+	/// Known statement-protocol peers to keep connected: the `replication_factor` nearest peers,
+	/// then the nearest peer of every distance bucket they leave uncovered.
+	///
+	/// The nearest peers are the replicas the node shares its topics with. A bucket holds the
+	/// peers whose key shares a prefix of one length with the local key, as in Kademlia, so the
+	/// uncovered buckets are the far ones, holding most of the network. One peer in each gives a
+	/// statement for any topic a connected next hop closer to the topic.
+	pub fn peers_for_routing(&self) -> Vec<PeerId> {
+		let nearest = self.config.replication_factor.get();
+		let mut routing = Vec::new();
+		let mut covered = HashSet::new();
+		// Nearest-first order visits each bucket as one run, its first peer being its nearest.
+		for (peer, key) in self.discovered_index.closest(self.local_key) {
+			let bucket = common_prefix_len(&self.local_key, &key);
+			let among_nearest = routing.len() < nearest;
+			let first_of_bucket = covered.insert(bucket);
+			if among_nearest || first_of_bucket {
+				routing.push(peer);
+			}
+		}
+		routing
+	}
+
 	/// Insert `peer` if absent, refresh its `last_seen`, and return its record.
 	fn get_or_insert_peer(&mut self, peer: PeerId) -> &mut PeerInfo {
 		let now = Instant::now();
@@ -336,6 +359,19 @@ fn pool_contains(pool: &[(PeerId, Key)], peer: &PeerId) -> bool {
 /// litep2p's SHA-256 Kademlia keys because the topology never queries Kademlia by topic.
 fn peer_key(peer: &PeerId) -> Key {
 	sp_crypto_hashing::blake2_256(&peer.to_bytes())
+}
+
+/// Number of leading bits `a` and `b` share: the distance bucket of `b` as seen from `a`.
+fn common_prefix_len(a: &Key, b: &Key) -> u32 {
+	let mut len = 0;
+	for (a, b) in a.iter().zip(b) {
+		let shared = (a ^ b).leading_zeros();
+		len += shared;
+		if shared < 8 {
+			break;
+		}
+	}
+	len
 }
 
 fn xor_distance(a: Key, b: Key) -> Key {
@@ -677,6 +713,60 @@ mod tests {
 			})
 			.collect::<Vec<u8>>();
 		assert_eq!(selected_seeds, vec![13]);
+	}
+
+	#[test]
+	fn peers_for_routing_takes_the_nearest_then_one_peer_per_uncovered_bucket() {
+		let local = peer(1);
+		let local_key = peer_key(&local);
+		let mut topology = PeersTopology::new(local, topology_config(12, 3));
+		let mut candidates = Vec::new();
+		for seed in 2..=200 {
+			let peer = peer(seed);
+			dht_peer(&mut topology, peer);
+			candidates.push(peer);
+		}
+		candidates.sort_by(|a, b| cmp_distance_then_peer(Topic(local_key), a, b));
+
+		// Naive model: the 12 nearest, then the nearest peer of every bucket without one of them.
+		let bucket_of = |peer: &PeerId| common_prefix_len(&local_key, &peer_key(peer));
+		let mut expected: Vec<PeerId> = candidates[..12].to_vec();
+		let mut buckets: std::collections::HashSet<u32> = expected.iter().map(bucket_of).collect();
+		for peer in &candidates[12..] {
+			if buckets.insert(bucket_of(peer)) {
+				expected.push(*peer);
+			}
+		}
+		assert!(expected.len() > 12, "the far buckets add peers beyond the nearest");
+
+		let mut routing = topology.peers_for_routing();
+		routing.sort();
+		expected.sort();
+		assert_eq!(routing, expected);
+	}
+
+	#[test]
+	fn common_prefix_len_counts_the_shared_leading_bits() {
+		let zero = [0u8; 32];
+		assert_eq!(common_prefix_len(&zero, &zero), 256);
+
+		let mut first_bit = zero;
+		first_bit[0] = 0x80;
+		assert_eq!(common_prefix_len(&zero, &first_bit), 0);
+
+		let mut bit_ten = zero;
+		bit_ten[1] = 0x20;
+		bit_ten[2] = 0xff;
+		assert_eq!(common_prefix_len(&zero, &bit_ten), 10);
+	}
+
+	#[test]
+	fn peers_for_routing_takes_every_known_peer_below_k() {
+		let mut topology = PeersTopology::new(peer(1), topology_config(12, 3));
+		for seed in 2..=6 {
+			dht_peer(&mut topology, peer(seed));
+		}
+		assert_eq!(topology.peers_for_routing().len(), 5);
 	}
 
 	#[test]
