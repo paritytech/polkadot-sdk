@@ -74,10 +74,10 @@ impl<AccountId: IdentifierT, P: PerThing128> Assignment<AccountId, P> {
 	///
 	/// ### Errors
 	///
-	/// This will return only if the internal `normalize` fails. This can happen if sum of
-	/// `self.distribution.map(|p| p.deconstruct())` fails to fit inside `UpperOf<P>`. A user of
-	/// this crate may statically assert that this can never happen and safely `expect` this to
-	/// return `Ok`.
+	/// This returns an error if the internal `normalize` fails: if `self.distribution` is empty
+	/// (since the target is 100%), if its length cannot fit in `UpperOf<P>`, or if the sum of
+	/// `self.distribution.map(|p| p.deconstruct())` cannot fit in `UpperOf<P>`. A caller may
+	/// safely `expect` success only after ruling out these conditions.
 	pub fn try_normalize(&mut self) -> Result<(), &'static str> {
 		self.distribution
 			.iter()
@@ -140,11 +140,11 @@ impl<AccountId> StakedAssignment<AccountId> {
 	/// If `Ok(())` is returned, then the assignment MUST have been successfully normalized to
 	/// `stake`.
 	///
-	/// NOTE: current implementation of `.normalize` is almost safe to `expect()` upon. The only
-	/// error case is when the input cannot fit in `T`, or the sum of input cannot fit in `T`.
-	/// Sadly, both of these are dependent upon the implementation of `VoteLimit`, i.e. the limit of
-	/// edges per voter which is enforced from upstream. Hence, at this crate, we prefer returning a
-	/// result and a use the name prefix `try_`.
+	/// NOTE: `.normalize` returns an error if the distribution is empty while `stake` is nonzero,
+	/// if its length cannot fit in `ExtendedBalance`, or if the sum of its weights cannot fit in
+	/// `ExtendedBalance`. The length and sum bounds depend on upstream constraints such as
+	/// `VoteLimit`, the limit of edges per voter. Hence this method returns a result and uses the
+	/// `try_` prefix.
 	pub fn try_normalize(&mut self, stake: ExtendedBalance) -> Result<(), &'static str> {
 		self.distribution
 			.iter()

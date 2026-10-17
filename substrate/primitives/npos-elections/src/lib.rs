@@ -415,8 +415,9 @@ impl<AccountId: IdentifierT> Voter<AccountId> {
 	///
 	/// ### Errors
 	///
-	/// This will return only if the internal `normalize` fails. This can happen if the sum of the
-	/// weights exceeds `ExtendedBalance::max_value()`.
+	/// This returns an error if the internal `normalize` fails. This can happen if the sum of the
+	/// weights exceeds `ExtendedBalance::max_value()`, or if there are no edges for a nonzero
+	/// budget.
 	pub fn try_normalize(&mut self) -> Result<(), &'static str> {
 		let edge_weights = self.edges.iter().map(|e| e.weight).collect::<Vec<_>>();
 		edge_weights.normalize(self.budget).map(|normalized| {
@@ -433,6 +434,7 @@ impl<AccountId: IdentifierT> Voter<AccountId> {
 	}
 
 	/// Same as [`Self::try_normalize`] but the normalization is only limited between elected edges.
+	/// An empty elected subset with a nonzero budget returns an error.
 	pub fn try_normalize_elected(&mut self) -> Result<(), &'static str> {
 		let elected_edge_weights = self
 			.edges
