@@ -126,17 +126,16 @@ fn drop_history_works() {
 			assert_ok!(Broker::do_pool(region, Some(1), 1, Final));
 			assert_ok!(Broker::do_purchase_credit(2, 50, 2));
 			advance_to(6);
-			// In the stable state with no pending payouts, we expect to see 3 items in
-			// InstaPoolHistory here since there is a latency of 1 timeslice (for generating the
-			// revenue report), the forward notice period (equivalent to another timeslice) and a
-			// block between the revenue report being requested and the response being processed.
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
+			// In the stable state with no pending payouts, we expect to see 2 items in
+			// InstaPoolHistory here since there is a latency of 1 timeslice (for collecting the
+			// revenue) and the forward notice period (equivalent to another timeslice).
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 2);
 			advance_to(7);
-			// One block later, the most recent report will have been processed, so the effective
-			// queue drops to 2 items.
+			// The revenue is claimed and processed in the same block it is collected in, so
+			// nothing else arrives in between two timeslices.
 			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 2);
 			advance_to(8);
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 2);
 			assert_ok!(TestCoretimeProvider::spend_instantaneous(2, 10));
 			advance_to(10);
 			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
@@ -147,30 +146,30 @@ fn drop_history_works() {
 			advance_to(14);
 			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 5);
 			advance_to(16);
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 6);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 5);
 			advance_to(17);
 			assert_noop!(Broker::do_drop_history(u32::MAX), Error::<Test>::StillValid);
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::StillValid);
 			advance_to(18);
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 6);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 5);
 			// Block 18 is 8 blocks ()= 4 timeslices = contribution timeout) after first region.
 			// Its revenue should now be droppable.
 			assert_ok!(Broker::do_drop_history(region.begin));
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 5);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 4);
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::NoHistory);
 			advance_to(19);
 			region.begin += 1;
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::StillValid);
 			advance_to(20);
 			assert_ok!(Broker::do_drop_history(region.begin));
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 4);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::NoHistory);
 			advance_to(21);
 			region.begin += 1;
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::StillValid);
 			advance_to(22);
 			assert_ok!(Broker::do_drop_history(region.begin));
-			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 2);
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::NoHistory);
 		});
 }
@@ -687,6 +686,243 @@ fn renewal_price_adjusts_to_lower_market_end() {
 #[test]
 fn instapool_payouts_work() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
+		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
+		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
+		assert_ok!(Broker::do_start_sales(100, 2));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_eq!(revenue(), 100);
+		assert_ok!(Broker::do_pool(region, None, 2, Final));
+		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+		assert_eq!(pot(), 0);
+		assert_eq!(revenue(), 100);
+		advance_to(8);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		// The revenue is claimed from the local market and distributed in the same block, so there
+		// is nothing to wait for beyond the timeslice it belongs to.
+		advance_to(10);
+		// Should get revenue amount 10 from the market, from which 6 is system payout (goes to
+		// account0 instantly) and the rest is private (kept in the pot until claimed)
+		assert_eq!(pot(), 4);
+		assert_eq!(revenue(), 106);
+
+		// Cannot claim for 0 timeslices.
+		assert_noop!(Broker::do_claim_revenue(region, 0), Error::<Test>::NoClaimTimeslices);
+
+		// Revenue can be claimed.
+		assert_ok!(Broker::do_claim_revenue(region, 100));
+		assert_eq!(pot(), 0);
+		assert_eq!(revenue(), 106);
+		assert_eq!(balance(2), 4);
+	});
+}
+
+/// Pool a whole core in the Instantaneous Coretime Pool, and spend `10` on it in timeslice 4.
+fn setup_instapool_revenue() {
+	let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
+	assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
+	assert_ok!(Broker::do_start_sales(100, 2));
+	advance_to(2);
+	let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+	assert_ok!(Broker::do_pool(region, None, 2, Final));
+	assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+	advance_to(8);
+	assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+	advance_to(9);
+}
+
+/// Whether the broker emitted an event distributing the revenue of timeslice `when`.
+fn revenue_distributed_for(when: Timeslice) -> bool {
+	System::events().iter().any(|record| {
+		matches!(
+			record.event,
+			RuntimeEvent::Broker(
+				Event::ClaimsReady { when: w, .. } | Event::HistoryDropped { when: w, .. }
+			) if w == when
+		)
+	})
+}
+
+#[test]
+fn revenue_reports_from_the_relay_chain_are_ignored_when_claiming_locally() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		setup_instapool_revenue();
+		RevenueInbox::<Test>::put(OnDemandRevenueRecord { until: 8, amount: 10 });
+
+		System::reset_events();
+		advance_to(12);
+		// The report is left alone, and timeslice 3 gets nothing from it. Nothing is requested
+		// from the Relay chain either, as the mock would report it straight into the inbox.
+		assert_eq!(
+			RevenueInbox::<Test>::get(),
+			Some(OnDemandRevenueRecord { until: 8, amount: 10 })
+		);
+		assert!(!revenue_distributed_for(3));
+		// The revenue claimed locally is distributed as usual.
+		System::assert_has_event(
+			Event::ClaimsReady { when: 4, system_payout: 6, private_payout: 4 }.into(),
+		);
+	});
+}
+
+#[test]
+fn revenue_which_fails_to_be_claimed_is_distributed_for_its_timeslice_later() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		setup_instapool_revenue();
+
+		// Timeslice 4 ends, but the market cannot pay out its revenue.
+		RevenueClaimFunds::set(Some(0));
+		System::reset_events();
+		advance_to(10);
+		assert!(!revenue_distributed_for(4));
+		// Its history is kept, for the revenue to be distributed by once it is claimed.
+		assert_eq!(InstaPoolHistory::<Test>::get(4).map(|r| r.maybe_payout), Some(None));
+
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		RevenueClaimFunds::set(None);
+
+		// Timeslice 5 ends, and the revenue of both timeslices is claimed and distributed, each
+		// for its own timeslice.
+		System::reset_events();
+		advance_to(12);
+		System::assert_has_event(
+			Event::ClaimsReady { when: 4, system_payout: 6, private_payout: 4 }.into(),
+		);
+		assert!(revenue_distributed_for(5));
+		assert!(CoretimeSpending::get().is_empty());
+	});
+}
+
+#[test]
+fn revenue_which_is_partially_claimed_is_distributed_for_its_timeslices() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		setup_instapool_revenue();
+
+		// Timeslice 4 ends, but the market cannot pay out its revenue.
+		RevenueClaimFunds::set(Some(0));
+		advance_to(10);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 7));
+
+		// Timeslice 5 ends, and the market can pay out the revenue of timeslice 4, but not that
+		// of timeslice 5 on top of it.
+		RevenueClaimFunds::set(Some(15));
+		System::reset_events();
+		advance_to(12);
+		System::assert_has_event(
+			Event::ClaimsReady { when: 4, system_payout: 6, private_payout: 4 }.into(),
+		);
+		assert!(!revenue_distributed_for(5));
+		assert!(InstaPoolHistory::<Test>::get(5).is_some());
+
+		// Once the market can pay again, the revenue of timeslice 5 is distributed for it.
+		RevenueClaimFunds::set(None);
+		System::reset_events();
+		advance_to(14);
+		assert!(revenue_distributed_for(5));
+		assert!(CoretimeSpending::get().is_empty());
+	});
+}
+
+#[test]
+fn timeslices_older_than_a_settled_one_are_settled_too() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		setup_instapool_revenue();
+
+		// Timeslices 4 and 5 end, but the market cannot pay out the revenue of timeslice 4, so
+		// neither of them is settled. Nothing is ordered in timeslice 5.
+		RevenueClaimFunds::set(Some(0));
+		advance_to(12);
+		assert!(InstaPoolHistory::<Test>::get(4).is_some());
+		assert!(InstaPoolHistory::<Test>::get(5).is_some());
+
+		// Timeslice 6 ends, and the market pays out the revenue of timeslices 4 and 6 (which had
+		// none). Timeslice 5 is not listed, but as it is older than timeslice 6, it is settled.
+		RevenueClaimFunds::set(None);
+		System::reset_events();
+		advance_to(14);
+		System::assert_has_event(
+			Event::ClaimsReady { when: 4, system_payout: 6, private_payout: 4 }.into(),
+		);
+		assert!(revenue_distributed_for(5));
+		assert!(revenue_distributed_for(6));
+		assert!(InstaPoolHistory::<Test>::get(5).is_none());
+		assert!(InstaPoolHistory::<Test>::get(6).is_none());
+		// The walk back stops at the first timeslice which was settled before.
+		assert!(!revenue_distributed_for(3));
+	});
+}
+
+#[test]
+fn drop_history_works_with_revenue_from_the_relay_chain() {
+	TestExt::new()
+		.contribution_timeout(4)
+		.endow(1, 1000)
+		.endow(2, 50)
+		.execute_with(|| {
+			// Request the revenue from the Relay chain, as before it could be claimed locally.
+			ClaimRevenueLocally::set(false);
+			assert_ok!(Broker::do_start_sales(100, 1));
+			advance_to(2);
+			let mut region = Broker::do_purchase(1, u64::max_value()).unwrap();
+			// Place region in pool. Active in pool timeslices 4, 5, 6 = rcblocks 8, 10, 12; we
+			// expect to make/receive revenue reports on blocks 10, 12, 14.
+			assert_ok!(Broker::do_pool(region, Some(1), 1, Final));
+			assert_ok!(Broker::do_purchase_credit(2, 50, 2));
+			advance_to(6);
+			// In the stable state with no pending payouts, we expect to see 3 items in
+			// InstaPoolHistory here since there is a latency of 1 timeslice (for generating the
+			// revenue report), the forward notice period (equivalent to another timeslice) and a
+			// block between the revenue report being requested and the response being processed.
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
+			advance_to(7);
+			// One block later, the most recent report will have been processed, so the effective
+			// queue drops to 2 items.
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 2);
+			advance_to(8);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
+			assert_ok!(TestCoretimeProvider::spend_instantaneous(2, 10));
+			advance_to(10);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
+			assert_ok!(TestCoretimeProvider::spend_instantaneous(2, 10));
+			advance_to(12);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 4);
+			assert_ok!(TestCoretimeProvider::spend_instantaneous(2, 10));
+			advance_to(14);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 5);
+			advance_to(16);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 6);
+			advance_to(17);
+			assert_noop!(Broker::do_drop_history(u32::MAX), Error::<Test>::StillValid);
+			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::StillValid);
+			advance_to(18);
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 6);
+			// Block 18 is 8 blocks ()= 4 timeslices = contribution timeout) after first region.
+			// Its revenue should now be droppable.
+			assert_ok!(Broker::do_drop_history(region.begin));
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 5);
+			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::NoHistory);
+			advance_to(19);
+			region.begin += 1;
+			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::StillValid);
+			advance_to(20);
+			assert_ok!(Broker::do_drop_history(region.begin));
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 4);
+			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::NoHistory);
+			advance_to(21);
+			region.begin += 1;
+			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::StillValid);
+			advance_to(22);
+			assert_ok!(Broker::do_drop_history(region.begin));
+			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 3);
+			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::NoHistory);
+		});
+}
+
+#[test]
+fn instapool_payouts_work_with_revenue_from_the_relay_chain() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// Request the revenue from the Relay chain, as before it could be claimed locally.
+		ClaimRevenueLocally::set(false);
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
 		assert_ok!(Broker::do_start_sales(100, 2));

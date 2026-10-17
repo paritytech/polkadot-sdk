@@ -34,7 +34,7 @@ mod imports {
 		coretime_westend_emulated_chain::{
 			self,
 			coretime_westend_runtime::{
-				xcm_config::XcmConfig as CoretimeWestendXcmConfig,
+				xcm_config::XcmConfig as CoretimeWestendXcmConfig, ClaimRevenueLocally,
 				ExistentialDeposit as CoretimeWestendExistentialDeposit,
 			},
 			genesis::ED as CORETIME_WESTEND_ED,

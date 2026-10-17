@@ -27,6 +27,7 @@ use frame_support::{
 		tokens::{Fortitude, Precision, Preservation},
 		EitherOfDiverse, Hooks, OnUnbalanced,
 	},
+	weights::Weight,
 	PalletId,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
@@ -71,6 +72,11 @@ parameter_types! {
 	pub static CoretimeWorkplan: BTreeMap<(u32, CoreIndex), Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeUsage: BTreeMap<CoreIndex, Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeInPool: CoreMaskBitCount = 0;
+	/// The funds the on-demand market can pay revenue out of, or `None` for unlimited funds.
+	pub static RevenueClaimFunds: Option<u64> = None;
+	/// Whether the revenue is claimed from `TestLocalRevenue`, rather than requested from
+	/// `TestCoretimeProvider`.
+	pub static ClaimRevenueLocally: bool = true;
 }
 
 pub struct TestCoretimeProvider;
@@ -129,6 +135,49 @@ impl CoretimeInterface for TestCoretimeProvider {
 			},
 		);
 		CoretimeTrace::mutate(|v| v.push(item));
+	}
+}
+
+/// Stands in for the on-demand Coretime market living on this chain, such as
+/// `pallet-on-demand-para`.
+pub struct TestLocalRevenue;
+impl OnDemandRevenue<u64, u64> for TestLocalRevenue {
+	fn claim_revenue(up_to: Timeslice, beneficiary: &u64) -> RevenueClaim<u64> {
+		assert_eq!(*beneficiary, Broker::account_id(), "Revenue is paid into the broker pot");
+
+		let period = <<Test as crate::Config>::TimeslicePeriod as Get<u64>>::get();
+		let mut booked = BTreeMap::<Timeslice, u64>::new();
+		for (n, a) in CoretimeSpending::get() {
+			let when = (n as u64 / period) as Timeslice;
+			if when <= up_to {
+				*booked.entry(when).or_default() += a;
+			}
+		}
+
+		// Pay out the revenue of as many timeslices as the market's funds allow, oldest first.
+		let mut funds = RevenueClaimFunds::get().unwrap_or(u64::MAX);
+		let mut paid = Vec::new();
+		for (when, amount) in booked {
+			if amount > funds {
+				break;
+			}
+			funds -= amount;
+			paid.push((when, amount));
+		}
+		let timeslice_of = |n: &u32| (*n as u64 / period) as Timeslice;
+		CoretimeSpending::mutate(|s| {
+			s.retain(|(n, _)| !paid.iter().any(|(w, _)| *w == timeslice_of(n)))
+		});
+		// Once all revenue up to `up_to` is paid out, `up_to` is settled even without revenue.
+		let complete = CoretimeSpending::get().iter().all(|(n, _)| timeslice_of(n) > up_to);
+		if complete && paid.last().map_or(true, |&(when, _)| when != up_to) {
+			paid.push((up_to, 0));
+		}
+
+		// The market holds the revenue on this chain, so paying it out is a transfer rather than a
+		// teleport. `mint_to_pot` stands in for the transfer out of the market's pot.
+		mint_to_pot(paid.iter().map(|(_, amount)| amount).sum());
+		RevenueClaim { paid, weight: Weight::zero() }
 	}
 }
 
@@ -209,6 +258,8 @@ impl crate::Config for Test {
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = TestCoretimeProvider;
+	type OnDemandRevenue = TestLocalRevenue;
+	type ClaimRevenueLocally = ClaimRevenueLocally;
 	type ConvertBalance = Identity;
 	type WeightInfo = ();
 	type PalletId = TestBrokerId;
