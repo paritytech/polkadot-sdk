@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792112175799,
+  "lastUpdate": 1792206281646,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "996adb4757eee544ad30e919ea31bc54f442db54",
-          "message": "Fix links (#11554)",
-          "timestamp": "2026-04-05T01:52:39Z",
-          "tree_id": "ec9f1f13ffc6249c5cb7b4040164b0bd5855f17b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/996adb4757eee544ad30e919ea31bc54f442db54"
-        },
-        "date": 1775359292644,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.05800000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07772124333799994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03801711495199999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038442190951999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@gmail.com",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bd8f292bf13f898a52b81cafd84d124bb837a2c6",
+          "message": "Snowbridge: Ethereum Glamsterdam Upgrade Support (#13122)\n\nContext\n- [EIP-7688](https://eips.ethereum.org/EIPS/eip-7688) turns BeaconState\nand BeaconBlockBody into progressive containers, so every generalized\nindex moves; the light client selects the Gloas indices by slot.\n\n- [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732) removes\n`execution_payload` from BeaconBlockBody, leaving a builder's bid that\ncommits to the *parent* execution block hash. A proof carries that\nblock's canonical RLP header, authenticated by `keccak256(bytes) ==\ncommitted hash`, and reads `receipts_root` out of it.\n\n- [EIP-8037](https://eips.ethereum.org/EIPS/eip-8037) prices new state\nand [EIP-8038](https://eips.ethereum.org/EIPS/eip-8038) reprices state\naccess. The outbound dispatch gas limits are raised to match; they now\nlive in `snowbridge_outbound_queue_primitives::dispatch_gas`, shared by\nv1 and v2.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-10-16T14:53:10Z",
+          "tree_id": "7e136dda0556810278b12a572caa621e09371660",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bd8f292bf13f898a52b81cafd84d124bb837a2c6"
+        },
+        "date": 1792206251423,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.14,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0854393170899999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039532644213999976,
             "unit": "seconds"
           }
         ]
