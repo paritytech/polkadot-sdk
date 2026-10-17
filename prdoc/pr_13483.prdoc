@@ -1,0 +1,35 @@
+title: 'pallet-validator-collators: drop validators that author no blocks'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-validator-collators` can stop returning validators that do not run a collator node.
+
+    Governance sets the rule with the new `set_drop_rule` call. There is no rule by default, so
+    nobody is dropped.
+
+    The pallet checks the validators when a new set arrives or the cap changes. A validator that
+    missed at least `min_missed_turns` of its own Aura turns without authoring a block is not
+    returned for one era. Each further drop doubles that time, up to a limit the rule sets. A
+    floor keeps a minimum number of validators.
+
+    Missed turns are counted in blocks, so time when the chain is halted does not count.
+
+    New storage items: `CurrentDropRule`, `LastActivity` and `Dropped`. No migration.
+
+    `pallet_validator_collators::Config` changes:
+    - It now requires `pallet_session::Config` with `ValidatorId = AccountId`.
+    - New item `MaxBlocksPerSlot`: the most blocks the chain can build in one Aura slot. Asset
+      Hub Westend and People Westend set it.
+crates:
+- name: pallet-validator-collators
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: pallet-validator-set-announcer
+  bump: none
+- name: people-westend-integration-tests
+  bump: none
+- name: cumulus-zombienet-sdk-tests
+  bump: none

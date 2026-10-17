@@ -28,6 +28,8 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
+		Balances: pallet_balances,
+		Session: pallet_session,
 		ValidatorCollators: pallet_validator_collators,
 		ValidatorSetAnnouncer: pallet_validator_set_announcer,
 	}
@@ -36,6 +38,27 @@ frame_support::construct_runtime!(
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type AccountData = pallet_balances::AccountData<u64>;
+}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Test {
+	type AccountStore = System;
+}
+
+impl pallet_session::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorId = u64;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
+	type ShouldEndSession = ValidatorCollators;
+	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager = ValidatorCollators;
+	type SessionHandler = pallet_session::TestSessionHandler;
+	type Keys = sp_runtime::testing::UintAuthorityId;
+	type DisablingStrategy = ();
+	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 /// Every account counts as having registered session keys.
@@ -64,6 +87,7 @@ impl pallet_validator_collators::Config for Test {
 	type DefaultExpectedEraDuration = ConstU64<1000>;
 	type DefaultReportMargin = ConstU64<100>;
 	type MaxReportMargin = ConstU64<500>;
+	type MaxBlocksPerSlot = ConstU32<1>;
 	type WeightInfo = ();
 }
 

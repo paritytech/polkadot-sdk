@@ -25,10 +25,12 @@
 //!    carries it.
 
 use super::common::{
-	account, build_network_config, fetch, fetch_at, fetch_raw_at, init_logging, keypair, node_seed,
-	open_hrmp_channels, wait_for_event, wait_for_finalized_block, wait_for_hrmp_channel,
-	NetworkOptions, ASSET_HUB_ID, ASSET_HUB_INVULNERABLE, CALL_TIMEOUT, CLIENT_TIMEOUT_SECS,
-	PARA_BLOCKS, PEOPLE_ID, PEOPLE_INVULNERABLE, POLL_INTERVAL,
+	account, build_network_config, current_index, fetch, fetch_at, fetch_raw_at, init_logging,
+	keypair, node_seed, open_hrmp_channels, root_transact, session_key_items, storage_item,
+	transact_as_root, wait_for_authorities_change, wait_for_event, wait_for_finalized_block,
+	wait_for_hrmp_channel, Chain, NetworkOptions, RotationBlock, StorageItems, ASSET_HUB_ID,
+	ASSET_HUB_INVULNERABLE, CALL_TIMEOUT, CLIENT_TIMEOUT_SECS, PARA_BLOCKS, PARA_BLOCKS_TIMEOUT,
+	PEOPLE_ID, PEOPLE_INVULNERABLE, POLL_INTERVAL,
 };
 use crate::utils::initialize_network;
 
@@ -36,20 +38,13 @@ use anyhow::anyhow;
 use codec::{Decode, Encode};
 use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success_with_timeout;
 use polkadot_primitives::async_backing::Constraints;
-use sp_consensus_aura::{sr25519::AuthorityId, ConsensusLog, AURA_ENGINE_ID};
-use sp_core::crypto::key_types;
 use sp_runtime::{generic::Header, traits::BlakeTwo256};
 use std::{collections::BTreeSet, time::Duration};
 use zombienet_sdk::{
 	subxt::{
 		self,
-		config::substrate::DigestItem,
 		dynamic::Value,
-		ext::{
-			scale_encode::EncodeAsType,
-			scale_value::{At, Composite},
-		},
-		utils::H256,
+		ext::scale_value::{At, Composite},
 		OnlineClient, PolkadotConfig,
 	},
 	subxt_signer::sr25519::dev,
@@ -93,25 +88,6 @@ const RELAY_FINALITY_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 /// From the relay chain finality to the collator's log holding the PoV of the rotation block.
 const POV_LOG_TIMEOUT: Duration = Duration::from_secs(60);
 
-/// A parachain under test.
-struct Chain<'a> {
-	name: &'static str,
-	id: u32,
-	client: &'a OnlineClient<PolkadotConfig>,
-	invulnerable: &'static str,
-}
-
-/// The block that enacts a new Aura authority list.
-/// Raw storage keys and values for `System::set_storage`.
-type StorageItems = Vec<(Vec<u8>, Vec<u8>)>;
-
-struct RotationBlock {
-	hash: H256,
-	number: u32,
-	header_size: usize,
-	authorities: usize,
-}
-
 /// The whole test, below the 60-minute CI step so that the step ends with this error and the log
 /// collection steps run.
 const TEST_TIMEOUT: Duration = Duration::from_secs(30 * 60);
@@ -129,6 +105,7 @@ async fn rotation_to_a_polkadot_sized_authority_list_on_asset_hub_and_people(
 async fn run() -> Result<(), anyhow::Error> {
 	log::info!("Spawning network");
 	let config = build_network_config(NetworkOptions {
+		asset_hub: true,
 		validator_collators: false,
 		election: false,
 		hrmp_channel_max_total_size: Some(HRMP_CHANNEL_MAX_TOTAL_SIZE),
@@ -166,8 +143,13 @@ async fn run() -> Result<(), anyhow::Error> {
 	open_hrmp_channels(&relay_client, HRMP_MAX_MESSAGE_SIZE).await?;
 	log::info!("Waiting for both parachains to finalize {PARA_BLOCKS} blocks");
 	tokio::try_join!(
-		wait_for_finalized_block(&asset_hub_client, asset_hub.name, PARA_BLOCKS),
-		wait_for_finalized_block(&people_client, people.name, PARA_BLOCKS),
+		wait_for_finalized_block(
+			&asset_hub_client,
+			asset_hub.name,
+			PARA_BLOCKS,
+			PARA_BLOCKS_TIMEOUT
+		),
+		wait_for_finalized_block(&people_client, people.name, PARA_BLOCKS, PARA_BLOCKS_TIMEOUT),
 	)?;
 	wait_for_hrmp_channel(&relay_client, ASSET_HUB_ID, PEOPLE_ID).await?;
 
@@ -238,60 +220,6 @@ fn is_set_of_era_1_at_scale(fields: &Composite<u32>) -> bool {
 		fields.at("count").and_then(|count| count.as_u128()) == Some(SCALE_ACCOUNTS.into())
 }
 
-/// A raw storage item of `pallet` and `item` at `keys`, with the key hashed and the value
-/// encoded as the chain's metadata describes them.
-fn storage_item(
-	client: &OnlineClient<PolkadotConfig>,
-	pallet: &str,
-	item: &str,
-	keys: Vec<Value>,
-	value: Value,
-) -> Result<(Vec<u8>, Vec<u8>), anyhow::Error> {
-	let key = client.storage().address_bytes(&subxt::dynamic::storage(pallet, item, keys))?;
-	let metadata = client.metadata();
-	let value_ty = metadata
-		.pallet_by_name(pallet)
-		.and_then(|pallet| pallet.storage())
-		.and_then(|storage| storage.entry_by_name(item))
-		.ok_or_else(|| anyhow!("no storage item `{pallet}::{item}` in the metadata"))?
-		.entry_type()
-		.value_ty();
-	let value = value.encode_as_type(value_ty, metadata.types())?;
-	Ok((key, value))
-}
-
-/// `Session::NextKeys` and `Session::KeyOwner` for each account, whose own public key is its
-/// Aura key. `is_registered` reads `NextKeys`, and `KeyOwner` keeps pallet-session consistent.
-fn session_key_items(
-	client: &OnlineClient<PolkadotConfig>,
-	accounts: &[[u8; 32]],
-) -> Result<StorageItems, anyhow::Error> {
-	let aura = key_types::AURA.0;
-	accounts
-		.iter()
-		.flat_map(|account| {
-			let keys = Value::named_composite([(
-				"aura",
-				Value::unnamed_composite([Value::from_bytes(account)]),
-			)]);
-			let key_owner = Value::unnamed_composite([
-				Value::unnamed_composite([Value::from_bytes(aura)]),
-				Value::from_bytes(account),
-			]);
-			[
-				storage_item(client, "Session", "NextKeys", vec![Value::from_bytes(account)], keys),
-				storage_item(
-					client,
-					"Session",
-					"KeyOwner",
-					vec![key_owner],
-					Value::from_bytes(account),
-				),
-			]
-		})
-		.collect()
-}
-
 /// Starts era 1 on Asset Hub with `accounts` as its validators, without an election.
 ///
 /// The relay chain writes era 1 as the planned era and as staking's kept copy of its validators,
@@ -332,20 +260,12 @@ async fn start_era_1(
 		),
 		("leftover", Value::bool(false)),
 	]);
-	let call = asset_hub.client.tx().call_data(&subxt::dynamic::tx(
-		"StakingRcClient",
-		"relay_session_report",
-		vec![report],
-	))?;
-	submit_extrinsic_and_wait_for_finalization_success_with_timeout(
+	transact_as_root(
 		relay_client,
-		&root_transact(asset_hub.id, call),
-		&dev::alice(),
-		CALL_TIMEOUT.as_secs(),
+		asset_hub,
+		subxt::dynamic::tx("StakingRcClient", "relay_session_report", vec![report]),
 	)
-	.await
-	.map_err(|e| anyhow!("sending the session report to {}: {e}", asset_hub.name))?;
-	log::info!("Sent the session report that starts era 1 to {}", asset_hub.name);
+	.await?;
 	Ok(())
 }
 
@@ -409,55 +329,6 @@ async fn write_storage(
 	Ok(last_keys)
 }
 
-/// `Sudo::sudo(XcmPallet::send)` of an unpaid `Transact` of `call` to parachain `para_id`, which
-/// the parachain dispatches as root.
-fn root_transact(para_id: u32, call: Vec<u8>) -> subxt::tx::DynamicPayload {
-	let dest = Value::unnamed_variant(
-		"V5",
-		[Value::named_composite([
-			("parents", Value::u128(0)),
-			(
-				"interior",
-				Value::unnamed_variant(
-					"X1",
-					[Value::unnamed_composite([Value::unnamed_variant(
-						"Parachain",
-						[Value::u128(para_id.into())],
-					)])],
-				),
-			),
-		])],
-	);
-	let message = Value::unnamed_variant(
-		"V5",
-		[Value::unnamed_composite([Value::unnamed_composite([
-			Value::named_variant(
-				"UnpaidExecution",
-				[
-					("weight_limit", Value::unnamed_variant("Unlimited", [])),
-					("check_origin", Value::unnamed_variant("None", [])),
-				],
-			),
-			Value::named_variant(
-				"Transact",
-				[
-					("origin_kind", Value::unnamed_variant("Superuser", [])),
-					("fallback_max_weight", Value::unnamed_variant("None", [])),
-					("call", Value::named_composite([("encoded", Value::from_bytes(call))])),
-				],
-			),
-		])])],
-	);
-	subxt::dynamic::tx(
-		"Sudo",
-		"sudo",
-		vec![Value::unnamed_variant(
-			"XcmPallet",
-			[Value::named_variant("send", [("dest", dest), ("message", message)])],
-		)],
-	)
-}
-
 /// Waits until the finalized state of `chain` holds every key in `keys`.
 async fn wait_for_keys(chain: &Chain<'_>, keys: &[Vec<u8>]) -> Result<(), anyhow::Error> {
 	let wait = async {
@@ -479,54 +350,6 @@ async fn wait_for_keys(chain: &Chain<'_>, keys: &[Vec<u8>]) -> Result<(), anyhow
 	tokio::time::timeout(KEYS_WRITTEN_TIMEOUT, wait).await.map_err(|_| {
 		anyhow!("{} did not store the session keys within {KEYS_WRITTEN_TIMEOUT:?}", chain.name)
 	})?
-}
-
-async fn current_index(client: &OnlineClient<PolkadotConfig>) -> Result<u32, anyhow::Error> {
-	Ok(fetch(client, "Session", "CurrentIndex", vec![]).await?.unwrap_or_default())
-}
-
-/// Waits for a finalized block whose header carries Aura's `AuthoritiesChange` digest. Only
-/// finalized blocks count, since the collator may build blocks that do not become canonical.
-async fn wait_for_authorities_change(
-	client: OnlineClient<PolkadotConfig>,
-	chain: &'static str,
-	timeout: Duration,
-) -> Result<RotationBlock, anyhow::Error> {
-	let wait = async {
-		let mut blocks = client.blocks().subscribe_finalized().await?;
-		while let Some(block) = blocks.next().await {
-			let block = block?;
-			let header = block.header();
-			let authorities = header.digest.logs.iter().find_map(|log| match log {
-				DigestItem::Consensus(engine, data) if *engine == AURA_ENGINE_ID => {
-					match ConsensusLog::<AuthorityId>::decode(&mut &data[..]) {
-						Ok(ConsensusLog::AuthoritiesChange(authorities)) => Some(authorities.len()),
-						_ => None,
-					}
-				},
-				_ => None,
-			});
-			if let Some(authorities) = authorities {
-				let rotation = RotationBlock {
-					hash: block.hash(),
-					number: block.number(),
-					header_size: header.encoded_size(),
-					authorities,
-				};
-				log::info!(
-					"{chain} #{} {:?} enacts {authorities} Aura authorities, header of {} bytes",
-					rotation.number,
-					rotation.hash,
-					rotation.header_size
-				);
-				return Ok(rotation);
-			}
-		}
-		Err(anyhow!("{chain} block subscription ended"))
-	};
-	tokio::time::timeout(timeout, wait)
-		.await
-		.map_err(|_| anyhow!("no Aura authorities change on {chain} within {timeout:?}"))?
 }
 
 /// Checks the rotation block of `chain`: its authorities and session, its header size, its

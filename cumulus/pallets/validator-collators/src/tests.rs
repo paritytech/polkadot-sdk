@@ -14,10 +14,10 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, relay_proof::relay_state_proof, AuthoredBlocks, Call, Collators, Config,
-	DrawnCollators, EpochRandomness, EraValidatorSet, Error, Event, ExpectedEraDuration,
-	MaxCollators, PendingRotation, ReportMargin, ReportPeriod, RotationState, SetReceivedAt,
-	ValidatorSet,
+	mock::*, relay_proof::relay_state_proof, Activity, AuthoredBlocks, Call, Collators, Config,
+	CurrentDropRule, DrawnCollators, DropRecord, DropRule, Dropped, EpochRandomness,
+	EraValidatorSet, Error, Event, ExpectedEraDuration, LastActivity, MaxCollators,
+	PendingRotation, ReportMargin, ReportPeriod, RotationState, SetReceivedAt, ValidatorSet,
 };
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::{
@@ -90,12 +90,16 @@ fn expected_seed(era: EraIndex, randomness: [u8; 32]) -> [u8; 32] {
 }
 
 /// The draw the pallet must make: shuffle the whole set in account order with `seed`, then keep
-/// the first `cap` validators with registered keys.
-fn reference_draw(seed: [u8; 32], set: &[u64], cap: usize) -> Vec<u64> {
+/// the first `cap` validators with registered keys and not in `dropped`.
+fn reference_draw(seed: [u8; 32], set: &[u64], cap: usize, dropped: &[u64]) -> Vec<u64> {
 	let mut order = set.to_vec();
 	order.sort();
 	order.shuffle(&mut ChaCha20Rng::from_seed(seed));
-	order.into_iter().filter(Session::is_registered).take(cap).collect()
+	order
+		.into_iter()
+		.filter(|v| Session::is_registered(v) && !dropped.contains(v))
+		.take(cap)
+		.collect()
 }
 
 #[test]
@@ -134,6 +138,10 @@ fn calls_reject_wrong_origin() {
 		);
 		assert_noop!(
 			ValidatorCollators::set_report_margin(RuntimeOrigin::signed(not_update_origin), 1),
+			BadOrigin
+		);
+		assert_noop!(
+			ValidatorCollators::set_drop_rule(RuntimeOrigin::signed(not_update_origin), None),
 			BadOrigin
 		);
 		assert_ok!(ValidatorCollators::do_try_state());
@@ -347,7 +355,7 @@ fn cap_limits_only_the_validator_side_after_the_key_filter() {
 			// AND under a cap the drawn list is exactly the reference draw with the seed of
 			// era 1 and the cached randomness
 			if let Some(cap) = cap {
-				let reference = reference_draw(expected_seed(1, [7; 32]), &set, cap as usize);
+				let reference = reference_draw(expected_seed(1, [7; 32]), &set, cap as usize, &[]);
 				assert_eq!(returned, reference, "cap {cap:?}");
 				assert_eq!(drawn(), reference);
 				System::assert_has_event(
@@ -389,7 +397,11 @@ fn each_new_set_is_drawn_with_the_seed_of_its_era() {
 			assert_ok!(ValidatorCollators::do_try_state());
 			// AND the next rotation draws with the seed of that era
 			initialize_to_block(System::block_number() + 1);
-			assert_eq!(drawn(), reference_draw(expected_seed(era, [7; 32]), &set, 1), "era {era}");
+			assert_eq!(
+				drawn(),
+				reference_draw(expected_seed(era, [7; 32]), &set, 1, &[]),
+				"era {era}"
+			);
 		}
 	});
 }
@@ -408,7 +420,7 @@ fn cap_change_redraws_with_the_current_randomness_and_forces_two_rotations() {
 		initialize_to_block(4);
 		// THEN it draws with the seed of era 1 and the value cached before the rotation
 		let three = drawn();
-		assert_eq!(three, reference_draw(expected_seed(1, [7; 32]), &set, 3));
+		assert_eq!(three, reference_draw(expected_seed(1, [7; 32]), &set, 3, &[]));
 		initialize_to_block(5);
 		assert_eq!(returned(), Some(three.clone()));
 
@@ -424,7 +436,7 @@ fn cap_change_redraws_with_the_current_randomness_and_forces_two_rotations() {
 		initialize_to_block(8);
 		assert_eq!(Session::current_index(), session + 2);
 		// AND the rotation at block 7 drew anew from the stored set with the current randomness
-		let five = reference_draw(expected_seed(1, [8; 32]), &set, 5);
+		let five = reference_draw(expected_seed(1, [8; 32]), &set, 5, &[]);
 		assert_eq!(drawn(), five);
 		System::assert_has_event(Event::CollatorsDrawn { era: 1, validators: five.clone() }.into());
 		assert_eq!(
@@ -438,7 +450,7 @@ fn cap_change_redraws_with_the_current_randomness_and_forces_two_rotations() {
 		set_cap(Some(2));
 		initialize_to_block(10);
 		// THEN the redraw at block 10 uses the randomness cached then
-		let two = reference_draw(expected_seed(1, [9; 32]), &set, 2);
+		let two = reference_draw(expected_seed(1, [9; 32]), &set, 2, &[]);
 		assert_eq!(drawn(), two);
 
 		// WHEN a drawn validator purges its keys
@@ -522,7 +534,7 @@ fn capped_set_draws_with_a_zero_value_without_cache_or_with_the_key_absent() {
 		assert_ok!(receive(1, vec![10, 11]));
 		initialize_to_block(2);
 		// THEN it is drawn with a zero randomness value instead of being skipped
-		assert_eq!(drawn(), reference_draw(expected_seed(1, [0; 32]), &[10, 11], 1));
+		assert_eq!(drawn(), reference_draw(expected_seed(1, [0; 32]), &[10, 11], 1, &[]));
 		// AND try-state flags drawn collators without a cached randomness
 		assert_eq!(
 			ValidatorCollators::do_try_state(),
@@ -538,7 +550,7 @@ fn capped_set_draws_with_a_zero_value_without_cache_or_with_the_key_absent() {
 		assert_ok!(receive(2, vec![10, 11]));
 		initialize_to_block(4);
 		// THEN the draw uses the cached zero value and try-state holds
-		assert_eq!(drawn(), reference_draw(expected_seed(2, [0; 32]), &[10, 11], 1));
+		assert_eq!(drawn(), reference_draw(expected_seed(2, [0; 32]), &[10, 11], 1, &[]));
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
@@ -722,6 +734,24 @@ fn try_state_detects_drawn_collators_that_break_the_invariants() {
 			assert!(ValidatorCollators::do_try_state().is_err(), "{cap:?} {collators:?} {cached}");
 		});
 	}
+	new_test_ext().execute_with(|| {
+		// GIVEN 10 and 11 with keys under a cap of 1, brought into force
+		set_keys(10);
+		set_keys(11);
+		set_cap(Some(1));
+		assert_ok!(receive(1, vec![10, 11]));
+		initialize_to_block(2);
+		let outside =
+			if Collators::<Test>::get().unwrap().validators.contains(&10) { 11 } else { 10 };
+		assert_ok!(ValidatorCollators::do_try_state());
+		// WHEN a validator of the set that is not drawn has an activity record
+		LastActivity::<Test>::insert(outside, Activity { authored: false, idle_since: 0 });
+		// THEN try_state fails
+		assert_eq!(
+			ValidatorCollators::do_try_state(),
+			Err("an activity record belongs to a validator that is not drawn".into())
+		);
+	});
 }
 
 fn note_blocks(author: u64, blocks: u32) {
@@ -1113,5 +1143,420 @@ fn setters_are_bounded_and_announced() {
 				assert_eq!(ValidatorCollators::do_try_state(), Err(error.into()));
 			});
 		}
+	});
+}
+
+fn set_rule(min_missed_turns: u32, min_collators: u32, max_drop_eras: u32) {
+	assert_ok!(ValidatorCollators::set_drop_rule(
+		RuntimeOrigin::signed(RootAccount::get()),
+		Some(DropRule { min_missed_turns, min_collators, max_drop_eras })
+	));
+}
+
+fn activity(who: u64) -> Option<Activity<u64>> {
+	LastActivity::<Test>::get(who)
+}
+
+fn active(authored: bool, idle_since: u64) -> Option<Activity<u64>> {
+	Some(Activity { authored, idle_since })
+}
+
+fn record(until: EraIndex, drops: u32) -> DropRecord {
+	DropRecord { until, drops }
+}
+
+fn dropped() -> Vec<(u64, DropRecord)> {
+	Dropped::<Test>::get().into_iter().collect()
+}
+
+/// The validators queued by the last rotation, in force from the next one.
+fn queued() -> Vec<u64> {
+	Session::queued_keys().into_iter().map(|(who, _)| who).collect()
+}
+
+/// Turn on [`Authoring`], give `validators` keys and receive them for era 1 at block 3, so the
+/// forced rotation at block 4 judges and records them, and the one at block 5 enacts them after
+/// invulnerables 1 and 2.
+fn enact_with_authoring(validators: &[u64]) {
+	Authoring::set(true);
+	validators.iter().copied().for_each(set_keys);
+	initialize_to_block(3);
+	assert_ok!(receive(1, validators.to_vec()));
+	initialize_to_block(5);
+	assert_eq!(Session::validators(), [vec![1, 2], validators.to_vec()].concat());
+}
+
+/// Receive the set of `era` in the current block, so the next block judges.
+fn judge_at_next_block(era: EraIndex, validators: Vec<u64>) {
+	assert_ok!(receive(era, validators));
+	initialize_to_block(System::block_number() + 1);
+}
+
+// With at most one block per slot in the mock and the list [1, 2, 10, 11], `min_missed_turns`
+// turns are `4 × min_missed_turns` blocks.
+
+#[test]
+fn validator_is_dropped_after_its_missed_turns_for_doubling_eras() {
+	new_test_ext().execute_with(|| {
+		// GIVEN drops after 3 missed turns, so 12 idle blocks, of at most 4 eras, and 10 and 11
+		// recorded at block 4 and enacted at block 5, where 11 authors nothing
+		initialize_to_block(1);
+		set_rule(3, 0, 4);
+		enact_with_authoring(&[10, 11]);
+		Silent::set(vec![11]);
+		// WHEN the set of era 2 is judged at block 11, after 7 idle blocks
+		initialize_to_block(10);
+		judge_at_next_block(2, vec![10, 11]);
+		// THEN nobody is dropped, 11 stays idle from block 4, and 10, which authored, is idle
+		// from block 11
+		assert_eq!(dropped(), vec![]);
+		assert_eq!((activity(10), activity(11)), (active(false, 11), active(false, 4)));
+		frame_support::hypothetically!({
+			// WHEN the set of era 3 is judged at block 15, after 11 idle blocks
+			initialize_to_block(14);
+			judge_at_next_block(3, vec![10, 11]);
+			// THEN 11 is not dropped
+			assert_eq!(dropped(), vec![]);
+		});
+		// WHEN it is judged at block 16, after 12 idle blocks
+		initialize_to_block(15);
+		frame_support::hypothetically!({
+			// THEN with two blocks per slot at most, 12 blocks are too few to drop it
+			MaxBlocksPerSlot::set(2);
+			judge_at_next_block(3, vec![10, 11]);
+			MaxBlocksPerSlot::set(1);
+			assert_eq!(dropped(), vec![]);
+		});
+		judge_at_next_block(3, vec![10, 11]);
+		// THEN 11 is dropped for one era
+		assert_eq!(dropped(), vec![(11, record(4, 1))]);
+		System::assert_has_event(
+			Event::CollatorsDropped { validators: vec![(11, 4)], kept_by_floor: 0 }.into(),
+		);
+		// (era of the set, drop record of 11 after the judgement, whether 11 is returned)
+		let expected = [
+			(4, record(4, 1), true),
+			(5, record(7, 2), false),
+			(6, record(7, 2), false),
+			(7, record(7, 2), true),
+			(8, record(12, 3), false),
+			(11, record(12, 3), false),
+			(12, record(12, 3), true),
+			// The fourth drop would last 8 eras and is capped at 4.
+			(13, record(17, 4), false),
+			(17, record(17, 4), true),
+		];
+		for (era, drop_record, is_returned) in expected {
+			// WHEN the set of `era` arrives 13 blocks after the previous judgement
+			initialize_to_block(System::block_number() + 12);
+			judge_at_next_block(era, vec![10, 11]);
+			// THEN 11, idle from the judgement that returned it, is dropped for twice its
+			// previous drop, and 10 never is
+			assert_eq!(Dropped::<Test>::get().get(&11).copied(), Some(drop_record), "era {era}");
+			assert_eq!(queued().contains(&11), is_returned, "era {era}");
+			assert!(queued().contains(&10));
+		}
+
+		// WHEN 11, returned at era 17, authors a block before the next judgement
+		Silent::set(vec![]);
+		initialize_to_block(System::block_number() + 12);
+		judge_at_next_block(18, vec![10, 11]);
+		// THEN its drop record is removed and it is idle from that judgement
+		assert_eq!(dropped(), vec![]);
+		assert_eq!(activity(11), active(false, System::block_number()));
+		// AND its next 3 missed turns drop it for one era
+		Silent::set(vec![11]);
+		initialize_to_block(System::block_number() + 12);
+		judge_at_next_block(19, vec![10, 11]);
+		assert_eq!(dropped(), vec![(11, record(20, 1))]);
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn validator_returned_first_at_a_regular_rotation_is_idle_from_the_next_judgement() {
+	new_test_ext().execute_with(|| {
+		// GIVEN a rule of 3 missed turns and the set of 10 and 12 enacted at block 5, while 12
+		// has no keys and runs no node
+		initialize_to_block(1);
+		set_rule(3, 0, 4);
+		Silent::set(vec![12]);
+		enact_with_authoring(&[10]);
+		assert_ok!(receive(2, vec![10, 12]));
+		initialize_to_block(7);
+		// WHEN 12 registers keys at block 12, is returned at the regular rotation at block 20 and
+		// enacted at block 30
+		initialize_to_block(12);
+		set_keys(12);
+		initialize_to_block(20);
+		assert!(queued().contains(&12));
+		assert_eq!(activity(12), None);
+		initialize_to_block(30);
+		assert!(Session::validators().contains(&12));
+		// AND the next set is judged at block 31
+		judge_at_next_block(3, vec![10, 12]);
+		// THEN 12 is idle from there
+		assert_eq!(activity(12), active(false, 31));
+		// WHEN the next set is judged 11 blocks later, with the list [1, 2, 10, 12]
+		initialize_to_block(41);
+		judge_at_next_block(4, vec![10, 12]);
+		// THEN it is not dropped, and stays idle from block 31
+		assert_eq!(dropped(), vec![]);
+		assert_eq!(activity(12), active(false, 31));
+		// WHEN the next set is judged 10 blocks after that one
+		initialize_to_block(System::block_number() + 9);
+		judge_at_next_block(5, vec![10, 12]);
+		// THEN it is dropped
+		assert_eq!(dropped(), vec![(12, record(6, 1))]);
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn floor_keeps_the_idle_validators_with_the_fewest_drops() {
+	new_test_ext().execute_with(|| {
+		// GIVEN 10, 11, 12, 13 and 14 enacted at block 5, where only 14 authors
+		initialize_to_block(1);
+		Silent::set(vec![10, 11, 12, 13]);
+		enact_with_authoring(&[10, 11, 12, 13, 14]);
+		initialize_to_block(20);
+		// WHEN 10 to 13 had `drops` earlier drops, and a set arrives under a rule of one missed
+		// turn and a floor of `min_collators`
+		let judge = |drops: [u32; 4], min_collators: u32| {
+			set_rule(1, min_collators, 10);
+			let records = [10, 11, 12, 13]
+				.into_iter()
+				.zip(drops)
+				.filter(|(_, drops)| *drops > 0)
+				.map(|(v, drops)| (v, record(1, drops)))
+				.collect::<std::collections::BTreeMap<_, _>>();
+			Dropped::<Test>::put(crate::DropRecords::<Test>::try_from(records).unwrap());
+			judge_at_next_block(2, vec![10, 11, 12, 13, 14]);
+			dropped()
+				.into_iter()
+				.filter(|(_, record)| record.until > 2)
+				.map(|(v, _)| v)
+				.collect::<Vec<_>>()
+		};
+		frame_support::hypothetically!({
+			// THEN with a floor of 3 and equal counts the two lowest idle accounts are kept
+			assert_eq!(judge([0, 0, 0, 0], 3), vec![12, 13]);
+			assert_eq!(queued(), vec![1, 2, 10, 11, 14]);
+		});
+		frame_support::hypothetically!({
+			// THEN with a floor above the number of validators nobody is dropped, and the event
+			// counts the idle validators kept
+			assert_eq!(judge([3, 1, 2, 1], 6), Vec::<u64>::new());
+			System::assert_has_event(
+				Event::CollatorsDropped { validators: vec![], kept_by_floor: 4 }.into(),
+			);
+		});
+		// THEN with a floor of 3 the two with the most drops are dropped, each for twice its
+		// previous drop
+		assert_eq!(judge([3, 1, 2, 1], 3), vec![10, 12]);
+		System::assert_has_event(
+			Event::CollatorsDropped { validators: vec![(12, 6), (10, 10)], kept_by_floor: 2 }
+				.into(),
+		);
+		assert_eq!(queued(), vec![1, 2, 11, 13, 14]);
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn a_judgement_drops_idle_validators_even_if_no_judged_validator_authored() {
+	new_test_ext().execute_with(|| {
+		// GIVEN a rule of one missed turn, and 10 and 11 enacted at block 5, neither of them
+		// authoring, while the invulnerables keep the chain going
+		initialize_to_block(1);
+		set_rule(1, 0, 4);
+		Silent::set(vec![10, 11]);
+		enact_with_authoring(&[10, 11]);
+		// WHEN the next set is judged at block 16, both idle for 12 blocks
+		initialize_to_block(15);
+		judge_at_next_block(2, vec![10, 11]);
+		// THEN both are dropped, since the blocks the invulnerables authored hold their turns
+		assert_eq!(dropped(), vec![(10, record(3, 1)), (11, record(3, 1))]);
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn under_a_cap_only_drawn_validators_are_judged_and_the_draw_skips_dropped_ones() {
+	new_test_ext().execute_with(|| {
+		// GIVEN a cap of 2 over 10, 11, 12 and 13 with keys, and the drawn a and b enacted at
+		// block 5, where a authors nothing
+		initialize_to_block(1);
+		let set = vec![10, 11, 12, 13];
+		set_cap(Some(2));
+		set_rule(1, 0, 4);
+		Authoring::set(true);
+		set.iter().copied().for_each(set_keys);
+		initialize_to_block(3);
+		assert_ok!(receive(1, set.clone()));
+		initialize_to_block(5);
+		let (a, b) = (drawn()[0], drawn()[1]);
+		let outside = set.iter().copied().filter(|v| *v != a && *v != b).collect::<Vec<_>>();
+		Silent::set(vec![a]);
+		assert!(outside.iter().all(|v| activity(*v).is_none()));
+		// WHEN the next set arrives at block 15
+		initialize_to_block(15);
+		judge_at_next_block(2, set.clone());
+		// THEN only a is dropped, and the draw skips it and still fills the cap
+		assert_eq!(dropped(), vec![(a, record(3, 1))]);
+		let redrawn = drawn();
+		assert_eq!(redrawn, reference_draw(expected_seed(2, [7; 32]), &set, 2, &[a]));
+		assert_eq!(redrawn.len(), 2);
+		assert_eq!(queued(), [vec![1, 2], redrawn].concat());
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn drop_rule_is_set_by_governance_validated_and_lifted() {
+	new_test_ext().execute_with(|| {
+		let set_drop_rule = |rule| {
+			ValidatorCollators::set_drop_rule(RuntimeOrigin::signed(RootAccount::get()), rule)
+		};
+		initialize_to_block(1);
+		// WHEN a rule with no missed turn or a longest drop of zero eras is set THEN it is
+		// rejected
+		for (min_missed_turns, max_drop_eras) in [(0, 4), (3, 0)] {
+			assert_noop!(
+				set_drop_rule(Some(DropRule { min_missed_turns, min_collators: 0, max_drop_eras })),
+				Error::<Test>::InvalidDropRule
+			);
+		}
+		// GIVEN 10 and 11 recorded at block 4 and enacted at block 5 without a rule, where 11
+		// authors nothing
+		enact_with_authoring(&[10, 11]);
+		Silent::set(vec![11]);
+		initialize_to_block(15);
+		// WHEN a rule of 3 missed turns, so 12 idle blocks, is set at block 15, and the cap
+		// changes
+		let rule = DropRule { min_missed_turns: 3, min_collators: 0, max_drop_eras: 4 };
+		assert_ok!(set_drop_rule(Some(rule)));
+		System::assert_last_event(Event::DropRuleSet { rule: Some(rule) }.into());
+		assert_eq!(CurrentDropRule::<Test>::get(), Some(rule));
+		set_cap(None);
+		initialize_to_block(16);
+		// THEN the judgement at block 16 counts the idle blocks before the rule and drops 11,
+		// until the set of the next era
+		assert_eq!(dropped(), vec![(11, record(2, 1))]);
+		assert!(!queued().contains(&11));
+
+		frame_support::hypothetically!({
+			// WHEN the rule is removed
+			assert_ok!(set_drop_rule(None));
+			// THEN every drop record is removed at once and 11 is returned at the next rotation
+			System::assert_last_event(Event::DropRuleSet { rule: None }.into());
+			assert!(!Dropped::<Test>::exists());
+			initialize_to_block(20);
+			assert!(queued().contains(&11));
+			assert_ok!(ValidatorCollators::do_try_state());
+		});
+
+		// WHEN the set of era 2 arrives
+		judge_at_next_block(2, vec![10, 11]);
+		// THEN the drop that started at the cap change ends, and 11 is returned, idle from there
+		assert!(queued().contains(&11));
+		assert_eq!(activity(11), active(false, 17));
+		// WHEN a set that leaves 11 out arrives
+		initialize_to_block(System::block_number() + 10);
+		judge_at_next_block(3, vec![10]);
+		// THEN its drop record is removed
+		assert_eq!(dropped(), vec![]);
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn activity_entries_follow_the_returned_list() {
+	new_test_ext().execute_with(|| {
+		// GIVEN 10 and 11 enacted at block 5, and 12 in the set without keys
+		initialize_to_block(1);
+		set_keys(10);
+		set_keys(11);
+		initialize_to_block(3);
+		assert_ok!(receive(1, vec![10, 11, 12]));
+		initialize_to_block(5);
+		// WHEN invulnerable 1, 10 and 12, which is not returned, author blocks
+		note_blocks(1, 1);
+		note_blocks(10, 1);
+		note_blocks(12, 1);
+		// THEN neither 1 nor 12 gets a record, 10 is marked as authored and 11 is not
+		assert_eq!(activity(1), None);
+		assert_eq!(activity(12), None);
+		assert_eq!((activity(10), activity(11)), (active(true, 4), active(false, 4)));
+		// WHEN 11 purges its keys and the next rotation does not return it
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(11)));
+		initialize_to_block(10);
+		// THEN its record is removed and 10 keeps its record
+		assert_eq!(activity(11), None);
+		assert_eq!(activity(10), active(true, 4));
+		assert_ok!(ValidatorCollators::do_try_state());
+
+		// WHEN 12 registers keys and is returned first at the regular rotation at block 20
+		set_keys(12);
+		initialize_to_block(20);
+		assert!(queued().contains(&12));
+		// THEN it has no record until the next judgement, and its blocks create none
+		note_blocks(12, 1);
+		assert_eq!(activity(12), None);
+		assert_ok!(ValidatorCollators::do_try_state());
+
+		// AND the invariants reject a record outside the stored set, a dropped validator with a
+		// record, a drop record without a rule, a drop record outside the stored set and drop
+		// records that do not decode
+		let records = |v: u64, until: EraIndex| {
+			let records = [(v, record(until, 1))]
+				.into_iter()
+				.collect::<std::collections::BTreeMap<_, _>>();
+			crate::DropRecords::<Test>::try_from(records).unwrap()
+		};
+		frame_support::hypothetically!({
+			set_rule(1, 0, 4);
+			Dropped::<Test>::put(records(13, 2));
+			assert_eq!(
+				ValidatorCollators::do_try_state(),
+				Err("a drop record belongs to a validator outside the stored set".into())
+			);
+		});
+		frame_support::hypothetically!({
+			set_rule(1, 0, 4);
+			frame_support::storage::unhashed::put_raw(
+				&Dropped::<Test>::hashed_key(),
+				&(100..151u64).map(|v| (v, record(2, 1))).collect::<Vec<_>>().encode(),
+			);
+			assert_eq!(
+				ValidatorCollators::do_try_state(),
+				Err("the drop records do not decode".into())
+			);
+		});
+		frame_support::hypothetically!({
+			LastActivity::<Test>::insert(13, Activity { authored: false, idle_since: 0 });
+			assert_eq!(
+				ValidatorCollators::do_try_state(),
+				Err("an activity record belongs to a validator outside the stored set".into())
+			);
+		});
+		frame_support::hypothetically!({
+			set_rule(1, 0, 4);
+			// A drop that has ended leaves the record in place for the next judgement.
+			Dropped::<Test>::put(records(10, 1));
+			assert_ok!(ValidatorCollators::do_try_state());
+			Dropped::<Test>::put(records(10, 2));
+			assert_eq!(
+				ValidatorCollators::do_try_state(),
+				Err("a dropped validator has an activity record".into())
+			);
+		});
+		frame_support::hypothetically!({
+			Dropped::<Test>::put(records(11, 2));
+			assert_eq!(
+				ValidatorCollators::do_try_state(),
+				Err("validators are dropped without a drop rule".into())
+			);
+		});
 	});
 }
