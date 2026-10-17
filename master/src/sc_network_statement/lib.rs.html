@@ -1822,401 +1822,401 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1672 id=1672 data-nosnippet>1672</a>				});
 <a href=#1673 id=1673 data-nosnippet>1673</a>
 <a href=#1674 id=1674 data-nosnippet>1674</a>				<span class="kw">if </span>v2dht_enabled() {
-<a href=#1675 id=1675 data-nosnippet>1675</a>					<span class="kw">if </span>!is_light {
-<a href=#1676 id=1676 data-nosnippet>1676</a>						<span class="comment">// TODO: Do we need to pass light nodes to the Orchestrator?
-<a href=#1677 id=1677 data-nosnippet>1677</a>						</span><span class="self">self</span>.v2dht.on_substream_opened(peer);
-<a href=#1678 id=1678 data-nosnippet>1678</a>					}
-<a href=#1679 id=1679 data-nosnippet>1679</a>					<span class="self">self</span>.send_local_filter(<span class="kw-2">&amp;</span>peer).<span class="kw">await</span>;
-<a href=#1680 id=1680 data-nosnippet>1680</a>				}
-<a href=#1681 id=1681 data-nosnippet>1681</a>
-<a href=#1682 id=1682 data-nosnippet>1682</a>				<span class="comment">// Peers awaiting their affinity filter are synced by the pending-affinity tick.
-<a href=#1683 id=1683 data-nosnippet>1683</a>				// Light peers owe the filter by protocol; full peers owe it only with the v2 DHT
-<a href=#1684 id=1684 data-nosnippet>1684</a>				// path on, so they get [`AFFINITY_FILTER_GRACE_PERIOD`] to deliver it.
-<a href=#1685 id=1685 data-nosnippet>1685</a>				</span><span class="kw">if </span><span class="self">self</span>.peers.get(<span class="kw-2">&amp;</span>peer).map_or(<span class="bool-val">false</span>, |p| p.can_receive()) {
-<a href=#1686 id=1686 data-nosnippet>1686</a>					<span class="self">self</span>.schedule_initial_sync_for_peer(peer);
-<a href=#1687 id=1687 data-nosnippet>1687</a>				} <span class="kw">else if </span>!is_light {
-<a href=#1688 id=1688 data-nosnippet>1688</a>					<span class="self">self</span>.awaiting_affinity_filter.insert(peer, Instant::now());
-<a href=#1689 id=1689 data-nosnippet>1689</a>				}
-<a href=#1690 id=1690 data-nosnippet>1690</a>			},
-<a href=#1691 id=1691 data-nosnippet>1691</a>			NotificationEvent::NotificationStreamClosed { peer } =&gt; {
-<a href=#1692 id=1692 data-nosnippet>1692</a>				<span class="kw">if </span>v2dht_enabled() {
-<a href=#1693 id=1693 data-nosnippet>1693</a>					<span class="self">self</span>.v2dht.on_substream_closed(peer);
-<a href=#1694 id=1694 data-nosnippet>1694</a>				}
-<a href=#1695 id=1695 data-nosnippet>1695</a>				<span class="kw">let </span>removed_peer = <span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer);
-<a href=#1696 id=1696 data-nosnippet>1696</a>				<span class="macro">debug_assert!</span>(removed_peer.is_some());
-<a href=#1697 id=1697 data-nosnippet>1697</a>				<span class="self">self</span>.awaiting_affinity_filter.remove(<span class="kw-2">&amp;</span>peer);
-<a href=#1698 id=1698 data-nosnippet>1698</a>
-<a href=#1699 id=1699 data-nosnippet>1699</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(removed_peer) = removed_peer {
-<a href=#1700 id=1700 data-nosnippet>1700</a>					<span class="self">self</span>.metrics.as_ref().map(|metrics| {
-<a href=#1701 id=1701 data-nosnippet>1701</a>						metrics.peers_connected.with_label_values(<span class="kw-2">&amp;</span>[removed_peer.kind()]).dec();
-<a href=#1702 id=1702 data-nosnippet>1702</a>					});
-<a href=#1703 id=1703 data-nosnippet>1703</a>				}
-<a href=#1704 id=1704 data-nosnippet>1704</a>
-<a href=#1705 id=1705 data-nosnippet>1705</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(pending) = <span class="self">self</span>.pending_initial_syncs.remove(<span class="kw-2">&amp;</span>peer) {
-<a href=#1706 id=1706 data-nosnippet>1706</a>					<span class="self">self</span>.record_initial_sync_completion(
-<a href=#1707 id=1707 data-nosnippet>1707</a>						sync_outcome::ABANDONED,
-<a href=#1708 id=1708 data-nosnippet>1708</a>						pending.started_at,
-<a href=#1709 id=1709 data-nosnippet>1709</a>					);
-<a href=#1710 id=1710 data-nosnippet>1710</a>				}
-<a href=#1711 id=1711 data-nosnippet>1711</a>				<span class="self">self</span>.initial_sync_peer_queue.retain(|p| <span class="kw-2">*</span><span class="macro">p !</span>= peer);
-<a href=#1712 id=1712 data-nosnippet>1712</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(outbox) = <span class="self">self</span>.propagation_outboxes.remove(<span class="kw-2">&amp;</span>peer) {
-<a href=#1713 id=1713 data-nosnippet>1713</a>					<span class="kw">if </span>!outbox.is_empty() {
-<a href=#1714 id=1714 data-nosnippet>1714</a>						<span class="self">self</span>.record_abandoned_send(send_failure::DISCONNECTED, outbox.len());
-<a href=#1715 id=1715 data-nosnippet>1715</a>					}
-<a href=#1716 id=1716 data-nosnippet>1716</a>				}
-<a href=#1717 id=1717 data-nosnippet>1717</a>				<span class="self">self</span>.in_flight_chunks.remove(<span class="kw-2">&amp;</span>peer);
-<a href=#1718 id=1718 data-nosnippet>1718</a>			},
-<a href=#1719 id=1719 data-nosnippet>1719</a>			NotificationEvent::NotificationReceived { peer, notification } =&gt; {
-<a href=#1720 id=1720 data-nosnippet>1720</a>				<span class="kw">let </span>bytes_received = notification.len() <span class="kw">as </span>u64;
-<a href=#1721 id=1721 data-nosnippet>1721</a>				<span class="self">self</span>.metrics.as_ref().map(|metrics| {
-<a href=#1722 id=1722 data-nosnippet>1722</a>					metrics.bytes_received_total.inc_by(bytes_received);
-<a href=#1723 id=1723 data-nosnippet>1723</a>				});
-<a href=#1724 id=1724 data-nosnippet>1724</a>
-<a href=#1725 id=1725 data-nosnippet>1725</a>				<span class="comment">// Accept statements only when node is not major syncing
-<a href=#1726 id=1726 data-nosnippet>1726</a>				</span><span class="kw">if </span><span class="self">self</span>.sync.is_major_syncing() &amp;&amp;
-<a href=#1727 id=1727 data-nosnippet>1727</a>					!<span class="self">self</span>.allowed_during_major_sync(<span class="kw-2">&amp;</span>peer, notification.as_ref())
-<a href=#1728 id=1728 data-nosnippet>1728</a>				{
-<a href=#1729 id=1729 data-nosnippet>1729</a>					<span class="macro">log::trace!</span>(
-<a href=#1730 id=1730 data-nosnippet>1730</a>						target: LOG_TARGET,
-<a href=#1731 id=1731 data-nosnippet>1731</a>						<span class="string">"{peer}: Ignoring statements while major syncing or offline"
-<a href=#1732 id=1732 data-nosnippet>1732</a>					</span>);
-<a href=#1733 id=1733 data-nosnippet>1733</a>					<span class="comment">// With the v2 DHT path on, a v2 peer replays on the re-advertised filter; a v1
-<a href=#1734 id=1734 data-nosnippet>1734</a>					// peer has no such request and is reconnected once the sync ends.
-<a href=#1735 id=1735 data-nosnippet>1735</a>					</span><span class="kw">let </span>from_v1_peer = <span class="self">self</span>.peers.get(<span class="kw-2">&amp;</span>peer).is_some_and(|peer_data| {
-<a href=#1736 id=1736 data-nosnippet>1736</a>						peer_data.protocol_version == PeerProtocolVersion::V1
-<a href=#1737 id=1737 data-nosnippet>1737</a>					});
-<a href=#1738 id=1738 data-nosnippet>1738</a>					<span class="kw">if </span>!v2dht_enabled() || from_v1_peer {
-<a href=#1739 id=1739 data-nosnippet>1739</a>						<span class="self">self</span>.dropped_statements_during_sync = <span class="bool-val">true</span>;
-<a href=#1740 id=1740 data-nosnippet>1740</a>					}
-<a href=#1741 id=1741 data-nosnippet>1741</a>					<span class="kw">return</span>;
-<a href=#1742 id=1742 data-nosnippet>1742</a>				}
-<a href=#1743 id=1743 data-nosnippet>1743</a>
-<a href=#1744 id=1744 data-nosnippet>1744</a>				<span class="kw">let </span><span class="prelude-val">Some</span>(peer_data) = <span class="self">self</span>.peers.get(<span class="kw-2">&amp;</span>peer) <span class="kw">else </span>{
-<a href=#1745 id=1745 data-nosnippet>1745</a>					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Received notification from unknown peer {peer}"</span>);
-<a href=#1746 id=1746 data-nosnippet>1746</a>					<span class="kw">return</span>;
-<a href=#1747 id=1747 data-nosnippet>1747</a>				};
-<a href=#1748 id=1748 data-nosnippet>1748</a>
-<a href=#1749 id=1749 data-nosnippet>1749</a>				<span class="kw">match </span>peer_data.protocol_version {
-<a href=#1750 id=1750 data-nosnippet>1750</a>					PeerProtocolVersion::V1 =&gt; {
-<a href=#1751 id=1751 data-nosnippet>1751</a>						<span class="comment">// V1 peers send raw Vec&lt;Statement&gt;.
-<a href=#1752 id=1752 data-nosnippet>1752</a>						</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(statements) =
-<a href=#1753 id=1753 data-nosnippet>1753</a>							&lt;StatementBatch <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut </span>notification.as_ref())
-<a href=#1754 id=1754 data-nosnippet>1754</a>						{
-<a href=#1755 id=1755 data-nosnippet>1755</a>							<span class="self">self</span>.on_statements(peer, statements.into_inner());
-<a href=#1756 id=1756 data-nosnippet>1756</a>						} <span class="kw">else </span>{
-<a href=#1757 id=1757 data-nosnippet>1757</a>							<span class="macro">log::debug!</span>(
-<a href=#1758 id=1758 data-nosnippet>1758</a>								target: LOG_TARGET,
-<a href=#1759 id=1759 data-nosnippet>1759</a>								<span class="string">"Failed to decode v1 statement list from {peer}"
-<a href=#1760 id=1760 data-nosnippet>1760</a>							</span>);
-<a href=#1761 id=1761 data-nosnippet>1761</a>							<span class="self">self</span>.network.report_peer(peer, rep::BAD_MESSAGE);
-<a href=#1762 id=1762 data-nosnippet>1762</a>							<span class="kw">if </span>v2dht_enabled() {
-<a href=#1763 id=1763 data-nosnippet>1763</a>								<span class="self">self</span>.v2dht.on_peer_misbehaved(peer);
-<a href=#1764 id=1764 data-nosnippet>1764</a>							}
-<a href=#1765 id=1765 data-nosnippet>1765</a>						}
-<a href=#1766 id=1766 data-nosnippet>1766</a>					},
-<a href=#1767 id=1767 data-nosnippet>1767</a>					PeerProtocolVersion::V2 =&gt; {
-<a href=#1768 id=1768 data-nosnippet>1768</a>						<span class="comment">// V2 peers send StatementMessage enum.
-<a href=#1769 id=1769 data-nosnippet>1769</a>						</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(message) = StatementMessage::decode(<span class="kw-2">&amp;mut </span>notification.as_ref()) {
-<a href=#1770 id=1770 data-nosnippet>1770</a>							<span class="kw">match </span>message {
-<a href=#1771 id=1771 data-nosnippet>1771</a>								StatementMessage::Statements(statements) =&gt; {
-<a href=#1772 id=1772 data-nosnippet>1772</a>									<span class="self">self</span>.on_statements(peer, statements.into_inner());
-<a href=#1773 id=1773 data-nosnippet>1773</a>								},
-<a href=#1774 id=1774 data-nosnippet>1774</a>								StatementMessage::ExplicitTopicAffinity(filter) =&gt; {
-<a href=#1775 id=1775 data-nosnippet>1775</a>									<span class="kw">if </span>peer_data.affinity_rate_limiter.is_flooding(<span class="number">1</span>) {
-<a href=#1776 id=1776 data-nosnippet>1776</a>										<span class="macro">log::debug!</span>(
-<a href=#1777 id=1777 data-nosnippet>1777</a>											target: LOG_TARGET,
-<a href=#1778 id=1778 data-nosnippet>1778</a>											<span class="string">"Dropping rate-limited ExplicitTopicAffinity from {peer}"
-<a href=#1779 id=1779 data-nosnippet>1779</a>										</span>);
-<a href=#1780 id=1780 data-nosnippet>1780</a>										<span class="self">self</span>.network.report_peer(peer, rep::AFFINITY_FLOODING);
-<a href=#1781 id=1781 data-nosnippet>1781</a>										<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
-<a href=#1782 id=1782 data-nosnippet>1782</a>											metrics.affinity_flooding_detected.inc();
-<a href=#1783 id=1783 data-nosnippet>1783</a>										}
-<a href=#1784 id=1784 data-nosnippet>1784</a>										<span class="kw">if </span>v2dht_enabled() {
-<a href=#1785 id=1785 data-nosnippet>1785</a>											<span class="self">self</span>.v2dht.on_peer_misbehaved(peer);
-<a href=#1786 id=1786 data-nosnippet>1786</a>										}
-<a href=#1787 id=1787 data-nosnippet>1787</a>										<span class="kw">return</span>;
-<a href=#1788 id=1788 data-nosnippet>1788</a>									}
-<a href=#1789 id=1789 data-nosnippet>1789</a>									<span class="kw">if </span>v2dht_enabled() {
-<a href=#1790 id=1790 data-nosnippet>1790</a>										<span class="self">self</span>.v2dht.on_peer_filter_update(peer, filter.clone());
-<a href=#1791 id=1791 data-nosnippet>1791</a>									}
-<a href=#1792 id=1792 data-nosnippet>1792</a>
-<a href=#1793 id=1793 data-nosnippet>1793</a>									<span class="comment">// Record the filter for propagation decisions, and route it
-<a href=#1794 id=1794 data-nosnippet>1794</a>									// through the pending-affinity path so
-<a href=#1795 id=1795 data-nosnippet>1795</a>									// `schedule_initial_sync_for_peer` replays the matching
-<a href=#1796 id=1796 data-nosnippet>1796</a>									// already-stored statements (filtered by `topic_affinity`
-<a href=#1797 id=1797 data-nosnippet>1797</a>									// and DHT routing targets). Without this a late subscriber
-<a href=#1798 id=1798 data-nosnippet>1798</a>									// sees only the statements that arrive after it subscribes.
-<a href=#1799 id=1799 data-nosnippet>1799</a>									</span><span class="kw">if let </span><span class="prelude-val">Some</span>(peer_data) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>peer) {
-<a href=#1800 id=1800 data-nosnippet>1800</a>										<span class="macro">log::debug!</span>(
-<a href=#1801 id=1801 data-nosnippet>1801</a>											target: LOG_TARGET,
-<a href=#1802 id=1802 data-nosnippet>1802</a>											<span class="string">"Received topic affinity filter from {peer}"
-<a href=#1803 id=1803 data-nosnippet>1803</a>										</span>);
-<a href=#1804 id=1804 data-nosnippet>1804</a>										<span class="comment">// Defer both the affinity update and sync scheduling
-<a href=#1805 id=1805 data-nosnippet>1805</a>										// to the main loop tick.
-<a href=#1806 id=1806 data-nosnippet>1806</a>										</span>peer_data.pending_topic_affinity = <span class="prelude-val">Some</span>(filter);
-<a href=#1807 id=1807 data-nosnippet>1807</a>										<span class="self">self</span>.awaiting_affinity_filter.remove(<span class="kw-2">&amp;</span>peer);
-<a href=#1808 id=1808 data-nosnippet>1808</a>									}
-<a href=#1809 id=1809 data-nosnippet>1809</a>								},
-<a href=#1810 id=1810 data-nosnippet>1810</a>							}
-<a href=#1811 id=1811 data-nosnippet>1811</a>						} <span class="kw">else </span>{
-<a href=#1812 id=1812 data-nosnippet>1812</a>							<span class="macro">log::debug!</span>(
-<a href=#1813 id=1813 data-nosnippet>1813</a>								target: LOG_TARGET,
-<a href=#1814 id=1814 data-nosnippet>1814</a>								<span class="string">"Failed to decode v2 statement message from {peer}"
-<a href=#1815 id=1815 data-nosnippet>1815</a>							</span>);
-<a href=#1816 id=1816 data-nosnippet>1816</a>							<span class="self">self</span>.network.report_peer(peer, rep::BAD_MESSAGE);
-<a href=#1817 id=1817 data-nosnippet>1817</a>							<span class="kw">if </span>v2dht_enabled() {
-<a href=#1818 id=1818 data-nosnippet>1818</a>								<span class="self">self</span>.v2dht.on_peer_misbehaved(peer);
-<a href=#1819 id=1819 data-nosnippet>1819</a>							}
-<a href=#1820 id=1820 data-nosnippet>1820</a>						}
-<a href=#1821 id=1821 data-nosnippet>1821</a>					},
-<a href=#1822 id=1822 data-nosnippet>1822</a>				}
-<a href=#1823 id=1823 data-nosnippet>1823</a>			},
-<a href=#1824 id=1824 data-nosnippet>1824</a>		}
-<a href=#1825 id=1825 data-nosnippet>1825</a>	}
-<a href=#1826 id=1826 data-nosnippet>1826</a>
-<a href=#1827 id=1827 data-nosnippet>1827</a>	<span class="doccomment">/// Handle a batch of statements received from a peer.
-<a href=#1828 id=1828 data-nosnippet>1828</a>	///
-<a href=#1829 id=1829 data-nosnippet>1829</a>	/// For the batch:
-<a href=#1830 id=1830 data-nosnippet>1830</a>	/// - Enforces the per-peer rate limit — on abuse, disconnects the peer and reports
-<a href=#1831 id=1831 data-nosnippet>1831</a>	///   `rep::STATEMENT_FLOODING`.
-<a href=#1832 id=1832 data-nosnippet>1832</a>	/// - Skips statements already in the store, reporting `rep::DUPLICATE_STATEMENT` if the same
-<a href=#1833 id=1833 data-nosnippet>1833</a>	///   peer sent it twice.
-<a href=#1834 id=1834 data-nosnippet>1834</a>	/// - Enqueues unknown statements onto the bounded validation queue.
-<a href=#1835 id=1835 data-nosnippet>1835</a>	/// - Drops the remaining statements in the batch if the queue is full
-<a href=#1836 id=1836 data-nosnippet>1836</a>	///   (`MAX_PENDING_STATEMENTS`).
-<a href=#1837 id=1837 data-nosnippet>1837</a>	</span><span class="attr">#[cfg_attr(not(any(test, feature = <span class="string">"test-helpers"</span>)), doc(hidden))]
-<a href=#1838 id=1838 data-nosnippet>1838</a>	</span><span class="kw">pub fn </span>on_statements(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: PeerId, statements: Statements) {
-<a href=#1839 id=1839 data-nosnippet>1839</a>		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"Received {} statements from {}"</span>, statements.len(), who);
-<a href=#1840 id=1840 data-nosnippet>1840</a>
-<a href=#1841 id=1841 data-nosnippet>1841</a>		<span class="self">self</span>.metrics.as_ref().map(|metrics| {
-<a href=#1842 id=1842 data-nosnippet>1842</a>			metrics.statements_received.inc_by(statements.len() <span class="kw">as </span>u64);
-<a href=#1843 id=1843 data-nosnippet>1843</a>		});
-<a href=#1844 id=1844 data-nosnippet>1844</a>
-<a href=#1845 id=1845 data-nosnippet>1845</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>peer) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>who) {
-<a href=#1846 id=1846 data-nosnippet>1846</a>			<span class="kw">if </span>peer.statement_rate_limiter.is_flooding(statements.len()) {
-<a href=#1847 id=1847 data-nosnippet>1847</a>				<span class="macro">log::warn!</span>(
-<a href=#1848 id=1848 data-nosnippet>1848</a>					target: LOG_TARGET,
-<a href=#1849 id=1849 data-nosnippet>1849</a>					<span class="string">"Peer {} exceeded statement rate limit ({} statements/sec). Disconnecting."</span>,
-<a href=#1850 id=1850 data-nosnippet>1850</a>					who,
-<a href=#1851 id=1851 data-nosnippet>1851</a>					<span class="self">self</span>.statements_per_second
-<a href=#1852 id=1852 data-nosnippet>1852</a>				);
-<a href=#1853 id=1853 data-nosnippet>1853</a>
-<a href=#1854 id=1854 data-nosnippet>1854</a>				<span class="self">self</span>.network.report_peer(who, rep::STATEMENT_FLOODING);
-<a href=#1855 id=1855 data-nosnippet>1855</a>
-<a href=#1856 id=1856 data-nosnippet>1856</a>				<span class="comment">// Initiate peer state cleanup in the `NotificationStreamClosed` handler
-<a href=#1857 id=1857 data-nosnippet>1857</a>				</span><span class="self">self</span>.network.disconnect_peer(who, <span class="self">self</span>.protocol_name.clone());
-<a href=#1858 id=1858 data-nosnippet>1858</a>
-<a href=#1859 id=1859 data-nosnippet>1859</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
-<a href=#1860 id=1860 data-nosnippet>1860</a>					metrics.statement_flooding_detected.inc();
-<a href=#1861 id=1861 data-nosnippet>1861</a>				}
-<a href=#1862 id=1862 data-nosnippet>1862</a>
-<a href=#1863 id=1863 data-nosnippet>1863</a>				<span class="kw">return</span>;
-<a href=#1864 id=1864 data-nosnippet>1864</a>			}
-<a href=#1865 id=1865 data-nosnippet>1865</a>
-<a href=#1866 id=1866 data-nosnippet>1866</a>			<span class="kw">let </span><span class="kw-2">mut </span>statements_left = statements.len() <span class="kw">as </span>u64;
-<a href=#1867 id=1867 data-nosnippet>1867</a>			<span class="kw">for </span>s <span class="kw">in </span>statements {
-<a href=#1868 id=1868 data-nosnippet>1868</a>				<span class="kw">if </span><span class="self">self</span>.pending_statements.len() &gt; MAX_PENDING_STATEMENTS {
-<a href=#1869 id=1869 data-nosnippet>1869</a>					<span class="macro">log::debug!</span>(
-<a href=#1870 id=1870 data-nosnippet>1870</a>						target: LOG_TARGET,
-<a href=#1871 id=1871 data-nosnippet>1871</a>						<span class="string">"Ignoring {} statements that exceed `MAX_PENDING_STATEMENTS`({}) limit"</span>,
-<a href=#1872 id=1872 data-nosnippet>1872</a>						statements_left,
-<a href=#1873 id=1873 data-nosnippet>1873</a>						MAX_PENDING_STATEMENTS,
-<a href=#1874 id=1874 data-nosnippet>1874</a>					);
-<a href=#1875 id=1875 data-nosnippet>1875</a>					<span class="self">self</span>.metrics.as_ref().map(|metrics| {
-<a href=#1876 id=1876 data-nosnippet>1876</a>						metrics.ignored_statements.inc_by(statements_left);
-<a href=#1877 id=1877 data-nosnippet>1877</a>					});
-<a href=#1878 id=1878 data-nosnippet>1878</a>					<span class="kw">break</span>;
-<a href=#1879 id=1879 data-nosnippet>1879</a>				}
-<a href=#1880 id=1880 data-nosnippet>1880</a>
-<a href=#1881 id=1881 data-nosnippet>1881</a>				<span class="kw">let </span>hash = s.hash();
-<a href=#1882 id=1882 data-nosnippet>1882</a>
-<a href=#1883 id=1883 data-nosnippet>1883</a>				<span class="kw">if </span><span class="self">self</span>.statement_store.has_statement(<span class="kw-2">&amp;</span>hash) {
-<a href=#1884 id=1884 data-nosnippet>1884</a>					<span class="self">self</span>.metrics.as_ref().map(|metrics| {
-<a href=#1885 id=1885 data-nosnippet>1885</a>						metrics.known_statements_received.inc();
-<a href=#1886 id=1886 data-nosnippet>1886</a>					});
-<a href=#1887 id=1887 data-nosnippet>1887</a>
-<a href=#1888 id=1888 data-nosnippet>1888</a>					<span class="comment">// If the statement still awaits its propagation pass, record the
-<a href=#1889 id=1889 data-nosnippet>1889</a>					// peer so the pass does not send it back. Only join an existing
-<a href=#1890 id=1890 data-nosnippet>1890</a>					// entry, or replays would grow the map without bound. Peers that
-<a href=#1891 id=1891 data-nosnippet>1891</a>					// sent a not yet imported statement are tracked in
-<a href=#1892 id=1892 data-nosnippet>1892</a>					// `pending_statements_peers` and move here on import.
-<a href=#1893 id=1893 data-nosnippet>1893</a>					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(peers) = <span class="self">self</span>.recently_received_statements.get_mut(<span class="kw-2">&amp;</span>hash) {
-<a href=#1894 id=1894 data-nosnippet>1894</a>						peers.insert(who);
-<a href=#1895 id=1895 data-nosnippet>1895</a>					}
-<a href=#1896 id=1896 data-nosnippet>1896</a>
-<a href=#1897 id=1897 data-nosnippet>1897</a>					<span class="comment">// The store can already hold the statement while its validation
-<a href=#1898 id=1898 data-nosnippet>1898</a>					// completion still awaits processing by the event loop. Join the
-<a href=#1899 id=1899 data-nosnippet>1899</a>					// pending entry so the peer moves to `recently_received_statements`
-<a href=#1900 id=1900 data-nosnippet>1900</a>					// on import, exactly as if the message had arrived before the
-<a href=#1901 id=1901 data-nosnippet>1901</a>					// store insert.
-<a href=#1902 id=1902 data-nosnippet>1902</a>					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(peers) = <span class="self">self</span>.pending_statements_peers.get_mut(<span class="kw-2">&amp;</span>hash) {
-<a href=#1903 id=1903 data-nosnippet>1903</a>						<span class="kw">if </span>peers.insert(who) {
-<a href=#1904 id=1904 data-nosnippet>1904</a>							<span class="self">self</span>.network.report_peer(who, rep::ANY_STATEMENT);
-<a href=#1905 id=1905 data-nosnippet>1905</a>						} <span class="kw">else </span>{
-<a href=#1906 id=1906 data-nosnippet>1906</a>							<span class="macro">log::trace!</span>(
-<a href=#1907 id=1907 data-nosnippet>1907</a>								target: LOG_TARGET,
-<a href=#1908 id=1908 data-nosnippet>1908</a>								<span class="string">"Already received the statement from the same peer {who}."</span>,
-<a href=#1909 id=1909 data-nosnippet>1909</a>							);
-<a href=#1910 id=1910 data-nosnippet>1910</a>							<span class="self">self</span>.network.report_peer(who, rep::DUPLICATE_STATEMENT);
-<a href=#1911 id=1911 data-nosnippet>1911</a>							<span class="kw">if </span>v2dht_enabled() {
-<a href=#1912 id=1912 data-nosnippet>1912</a>								<span class="self">self</span>.v2dht.on_peer_misbehaved(who);
-<a href=#1913 id=1913 data-nosnippet>1913</a>							}
-<a href=#1914 id=1914 data-nosnippet>1914</a>						}
-<a href=#1915 id=1915 data-nosnippet>1915</a>					}
-<a href=#1916 id=1916 data-nosnippet>1916</a>					<span class="kw">continue</span>;
-<a href=#1917 id=1917 data-nosnippet>1917</a>				}
-<a href=#1918 id=1918 data-nosnippet>1918</a>
-<a href=#1919 id=1919 data-nosnippet>1919</a>				<span class="self">self</span>.network.report_peer(who, rep::ANY_STATEMENT);
-<a href=#1920 id=1920 data-nosnippet>1920</a>
-<a href=#1921 id=1921 data-nosnippet>1921</a>				<span class="kw">match </span><span class="self">self</span>.pending_statements_peers.entry(hash) {
-<a href=#1922 id=1922 data-nosnippet>1922</a>					Entry::Vacant(entry) =&gt; {
-<a href=#1923 id=1923 data-nosnippet>1923</a>						<span class="kw">let </span>(completion_sender, completion_receiver) = oneshot::channel();
-<a href=#1924 id=1924 data-nosnippet>1924</a>						<span class="kw">match </span><span class="self">self</span>.queue_sender.try_send((s, completion_sender)) {
-<a href=#1925 id=1925 data-nosnippet>1925</a>							<span class="prelude-val">Ok</span>(()) =&gt; {
-<a href=#1926 id=1926 data-nosnippet>1926</a>								<span class="self">self</span>.pending_statements.push(
-<a href=#1927 id=1927 data-nosnippet>1927</a>									<span class="kw">async move </span>{
-<a href=#1928 id=1928 data-nosnippet>1928</a>										<span class="kw">let </span>res = completion_receiver.<span class="kw">await</span>;
-<a href=#1929 id=1929 data-nosnippet>1929</a>										(hash, res.ok())
-<a href=#1930 id=1930 data-nosnippet>1930</a>									}
-<a href=#1931 id=1931 data-nosnippet>1931</a>									.boxed(),
-<a href=#1932 id=1932 data-nosnippet>1932</a>								);
-<a href=#1933 id=1933 data-nosnippet>1933</a>								entry.insert(HashSet::from_iter([who]));
-<a href=#1934 id=1934 data-nosnippet>1934</a>							},
-<a href=#1935 id=1935 data-nosnippet>1935</a>							<span class="prelude-val">Err</span>(async_channel::TrySendError::Full(<span class="kw">_</span>)) =&gt; {
-<a href=#1936 id=1936 data-nosnippet>1936</a>								<span class="macro">log::debug!</span>(
-<a href=#1937 id=1937 data-nosnippet>1937</a>									target: LOG_TARGET,
-<a href=#1938 id=1938 data-nosnippet>1938</a>									<span class="string">"Dropped statement because validation channel is full"</span>,
-<a href=#1939 id=1939 data-nosnippet>1939</a>								);
-<a href=#1940 id=1940 data-nosnippet>1940</a>							},
-<a href=#1941 id=1941 data-nosnippet>1941</a>							<span class="prelude-val">Err</span>(async_channel::TrySendError::Closed(<span class="kw">_</span>)) =&gt; {
-<a href=#1942 id=1942 data-nosnippet>1942</a>								<span class="macro">log::trace!</span>(
-<a href=#1943 id=1943 data-nosnippet>1943</a>									target: LOG_TARGET,
-<a href=#1944 id=1944 data-nosnippet>1944</a>									<span class="string">"Dropped statement because validation channel is closed"</span>,
-<a href=#1945 id=1945 data-nosnippet>1945</a>								);
-<a href=#1946 id=1946 data-nosnippet>1946</a>							},
-<a href=#1947 id=1947 data-nosnippet>1947</a>						}
-<a href=#1948 id=1948 data-nosnippet>1948</a>					},
-<a href=#1949 id=1949 data-nosnippet>1949</a>					Entry::Occupied(<span class="kw-2">mut </span>entry) =&gt; {
-<a href=#1950 id=1950 data-nosnippet>1950</a>						<span class="kw">if </span>!entry.get_mut().insert(who) {
-<a href=#1951 id=1951 data-nosnippet>1951</a>							<span class="comment">// Already received this from the same peer.
-<a href=#1952 id=1952 data-nosnippet>1952</a>							</span><span class="self">self</span>.network.report_peer(who, rep::DUPLICATE_STATEMENT);
-<a href=#1953 id=1953 data-nosnippet>1953</a>							<span class="kw">if </span>v2dht_enabled() {
-<a href=#1954 id=1954 data-nosnippet>1954</a>								<span class="self">self</span>.v2dht.on_peer_misbehaved(who);
-<a href=#1955 id=1955 data-nosnippet>1955</a>							}
-<a href=#1956 id=1956 data-nosnippet>1956</a>						}
-<a href=#1957 id=1957 data-nosnippet>1957</a>					},
-<a href=#1958 id=1958 data-nosnippet>1958</a>				}
-<a href=#1959 id=1959 data-nosnippet>1959</a>
-<a href=#1960 id=1960 data-nosnippet>1960</a>				statements_left -= <span class="number">1</span>;
-<a href=#1961 id=1961 data-nosnippet>1961</a>			}
-<a href=#1962 id=1962 data-nosnippet>1962</a>		}
-<a href=#1963 id=1963 data-nosnippet>1963</a>	}
-<a href=#1964 id=1964 data-nosnippet>1964</a>
-<a href=#1965 id=1965 data-nosnippet>1965</a>	<span class="doccomment">/// Adjust the sending peer's reputation based on the outcome of importing a statement it sent.
-<a href=#1966 id=1966 data-nosnippet>1966</a>	///
-<a href=#1967 id=1967 data-nosnippet>1967</a>	/// Every newly received statement is first charged `rep::ANY_STATEMENT` (a small **decrease**)
-<a href=#1968 id=1968 data-nosnippet>1968</a>	/// in [`on_statements`](Self::on_statements); this method applies the follow-up adjustment
-<a href=#1969 id=1969 data-nosnippet>1969</a>	/// once the statement has been validated:
-<a href=#1970 id=1970 data-nosnippet>1970</a>	///
-<a href=#1971 id=1971 data-nosnippet>1971</a>	/// - `New` → **increase** by `rep::GOOD_STATEMENT` — a valid, previously unknown statement; the
-<a href=#1972 id=1972 data-nosnippet>1972</a>	///   net change is positive (the reward outweighs the initial charge).
-<a href=#1973 id=1973 data-nosnippet>1973</a>	/// - `Known` → **increase** by `rep::ANY_STATEMENT_REFUND`, which exactly cancels the initial
-<a href=#1974 id=1974 data-nosnippet>1974</a>	///   `rep::ANY_STATEMENT` charge (net zero) — valid but already in the store.
-<a href=#1975 id=1975 data-nosnippet>1975</a>	/// - `Invalid` → **decrease** by `rep::INVALID_STATEMENT`, a large penalty — the statement
-<a href=#1976 id=1976 data-nosnippet>1976</a>	///   failed validation.
-<a href=#1977 id=1977 data-nosnippet>1977</a>	/// - `KnownExpired`, `Rejected`, `InternalError` → no follow-up change, so the peer keeps the
-<a href=#1978 id=1978 data-nosnippet>1978</a>	///   initial `rep::ANY_STATEMENT` charge.
-<a href=#1979 id=1979 data-nosnippet>1979</a>	</span><span class="kw">fn </span>on_handle_statement_import(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: PeerId, import: <span class="kw-2">&amp;</span>SubmitResult) {
-<a href=#1980 id=1980 data-nosnippet>1980</a>		<span class="kw">if </span>v2dht_enabled() {
-<a href=#1981 id=1981 data-nosnippet>1981</a>			<span class="self">self</span>.v2dht.on_statement_imported(who, import);
-<a href=#1982 id=1982 data-nosnippet>1982</a>		}
-<a href=#1983 id=1983 data-nosnippet>1983</a>		<span class="kw">match </span>import {
-<a href=#1984 id=1984 data-nosnippet>1984</a>			SubmitResult::New =&gt; <span class="self">self</span>.network.report_peer(who, rep::GOOD_STATEMENT),
-<a href=#1985 id=1985 data-nosnippet>1985</a>			SubmitResult::Known =&gt; <span class="self">self</span>.network.report_peer(who, rep::ANY_STATEMENT_REFUND),
-<a href=#1986 id=1986 data-nosnippet>1986</a>			SubmitResult::KnownExpired =&gt; {},
-<a href=#1987 id=1987 data-nosnippet>1987</a>			SubmitResult::Rejected(<span class="kw">_</span>) =&gt; {},
-<a href=#1988 id=1988 data-nosnippet>1988</a>			SubmitResult::Invalid(<span class="kw">_</span>) =&gt; <span class="self">self</span>.network.report_peer(who, rep::INVALID_STATEMENT),
-<a href=#1989 id=1989 data-nosnippet>1989</a>			SubmitResult::InternalError(<span class="kw">_</span>) =&gt; {},
-<a href=#1990 id=1990 data-nosnippet>1990</a>		}
-<a href=#1991 id=1991 data-nosnippet>1991</a>	}
-<a href=#1992 id=1992 data-nosnippet>1992</a>
-<a href=#1993 id=1993 data-nosnippet>1993</a>	<span class="doccomment">/// Handle a completed validation task. Adjusts the reputation of every peer
-<a href=#1994 id=1994 data-nosnippet>1994</a>	/// that sent us the statement and, if the statement awaits propagation,
-<a href=#1995 id=1995 data-nosnippet>1995</a>	/// records those peers so it is not sent back to them.
-<a href=#1996 id=1996 data-nosnippet>1996</a>	</span><span class="kw">fn </span>on_statement_submit_result(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: Hash, result: <span class="prelude-ty">Option</span>&lt;SubmitResult&gt;) {
-<a href=#1997 id=1997 data-nosnippet>1997</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(peers) = <span class="self">self</span>.pending_statements_peers.remove(<span class="kw-2">&amp;</span>hash) {
-<a href=#1998 id=1998 data-nosnippet>1998</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(result) = result {
-<a href=#1999 id=1999 data-nosnippet>1999</a>				<span class="kw">for </span>peer <span class="kw">in </span><span class="kw-2">&amp;</span>peers {
-<a href=#2000 id=2000 data-nosnippet>2000</a>					<span class="self">self</span>.on_handle_statement_import(<span class="kw-2">*</span>peer, <span class="kw-2">&amp;</span>result);
-<a href=#2001 id=2001 data-nosnippet>2001</a>				}
-<a href=#2002 id=2002 data-nosnippet>2002</a>				<span class="comment">// `New` and `Known` mean the statement awaits the next propagation
-<a href=#2003 id=2003 data-nosnippet>2003</a>				// pass. Remember who sent it so the pass does not send it back.
-<a href=#2004 id=2004 data-nosnippet>2004</a>				</span><span class="kw">if </span><span class="macro">matches!</span>(result, SubmitResult::New | SubmitResult::Known) {
-<a href=#2005 id=2005 data-nosnippet>2005</a>					<span class="self">self</span>.recently_received_statements.entry(hash).or_default().extend(peers);
-<a href=#2006 id=2006 data-nosnippet>2006</a>				}
-<a href=#2007 id=2007 data-nosnippet>2007</a>			}
-<a href=#2008 id=2008 data-nosnippet>2008</a>		} <span class="kw">else </span>{
-<a href=#2009 id=2009 data-nosnippet>2009</a>			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Inconsistent state, no peers for pending statement!"</span>);
-<a href=#2010 id=2010 data-nosnippet>2010</a>		}
-<a href=#2011 id=2011 data-nosnippet>2011</a>	}
-<a href=#2012 id=2012 data-nosnippet>2012</a>
-<a href=#2013 id=2013 data-nosnippet>2013</a>	<span class="doccomment">/// Queue the given `statements` for propagation to the given `peer`.
-<a href=#2014 id=2014 data-nosnippet>2014</a>	///
-<a href=#2015 id=2015 data-nosnippet>2015</a>	/// Internally filters out statements the peer sent to us.
-<a href=#2016 id=2016 data-nosnippet>2016</a>	/// For v2 peers with a topic affinity filter, also filters by topic match.
-<a href=#2017 id=2017 data-nosnippet>2017</a>	/// Surviving hashes are appended to the peer's outbox.
-<a href=#2018 id=2018 data-nosnippet>2018</a>	</span><span class="kw">fn </span>queue_statements_for_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId, statements: <span class="kw-2">&amp;</span>[(u64, Hash, Statement)]) {
-<a href=#2019 id=2019 data-nosnippet>2019</a>		<span class="kw">let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get(who) <span class="kw">else </span>{
-<a href=#2020 id=2020 data-nosnippet>2020</a>			<span class="kw">return</span>;
-<a href=#2021 id=2021 data-nosnippet>2021</a>		};
-<a href=#2022 id=2022 data-nosnippet>2022</a>
-<a href=#2023 id=2023 data-nosnippet>2023</a>		<span class="kw">if </span>!peer.can_receive() {
-<a href=#2024 id=2024 data-nosnippet>2024</a>			<span class="kw">return</span>;
-<a href=#2025 id=2025 data-nosnippet>2025</a>		}
-<a href=#2026 id=2026 data-nosnippet>2026</a>
-<a href=#2027 id=2027 data-nosnippet>2027</a>		<span class="kw">let </span>to_send: Vec&lt;<span class="kw">_</span>&gt; = statements
-<a href=#2028 id=2028 data-nosnippet>2028</a>			.iter()
-<a href=#2029 id=2029 data-nosnippet>2029</a>			.filter_map(|(seq, hash, stmt)| {
-<a href=#2030 id=2030 data-nosnippet>2030</a>				<span class="kw">if </span><span class="kw-2">*</span>seq &lt; peer.sync_watermark {
-<a href=#2031 id=2031 data-nosnippet>2031</a>					<span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#2032 id=2032 data-nosnippet>2032</a>				}
-<a href=#2033 id=2033 data-nosnippet>2033</a>				<span class="comment">// The peer supplied this statement, do not send it back.
-<a href=#2034 id=2034 data-nosnippet>2034</a>				</span><span class="kw">if </span>has_received_from(
-<a href=#2035 id=2035 data-nosnippet>2035</a>					<span class="kw-2">&amp;</span><span class="self">self</span>.recently_received_statements,
-<a href=#2036 id=2036 data-nosnippet>2036</a>					<span class="kw-2">&amp;</span><span class="self">self</span>.pending_statements_peers,
-<a href=#2037 id=2037 data-nosnippet>2037</a>					hash,
-<a href=#2038 id=2038 data-nosnippet>2038</a>					who,
-<a href=#2039 id=2039 data-nosnippet>2039</a>				) {
-<a href=#2040 id=2040 data-nosnippet>2040</a>					<span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#2041 id=2041 data-nosnippet>2041</a>				}
-<a href=#2042 id=2042 data-nosnippet>2042</a>				<span class="comment">// For v2 peers with topic affinity, filter by topic match.
-<a href=#2043 id=2043 data-nosnippet>2043</a>				</span><span class="kw">if </span>peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
-<a href=#2044 id=2044 data-nosnippet>2044</a>					<span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#2045 id=2045 data-nosnippet>2045</a>				}
-<a href=#2046 id=2046 data-nosnippet>2046</a>				<span class="prelude-val">Some</span>(<span class="kw-2">*</span>hash)
-<a href=#2047 id=2047 data-nosnippet>2047</a>			})
-<a href=#2048 id=2048 data-nosnippet>2048</a>			.collect();
-<a href=#2049 id=2049 data-nosnippet>2049</a>
-<a href=#2050 id=2050 data-nosnippet>2050</a>		<span class="self">self</span>.push_outbox_hashes(who, to_send);
-<a href=#2051 id=2051 data-nosnippet>2051</a>	}
-<a href=#2052 id=2052 data-nosnippet>2052</a>
-<a href=#2053 id=2053 data-nosnippet>2053</a>	<span class="doccomment">/// Queue the `indices` of `statements` for each peer the orchestrator chose as a target.
-<a href=#2054 id=2054 data-nosnippet>2054</a>	///
-<a href=#2055 id=2055 data-nosnippet>2055</a>	/// The orchestrator already picked the peer, so neither its sync watermark nor its affinity
-<a href=#2056 id=2056 data-nosnippet>2056</a>	/// filter applies and only statements the peer sent to us are dropped.
-<a href=#2057 id=2057 data-nosnippet>2057</a>	</span><span class="kw">fn </span>queue_statements_for_targets(
-<a href=#2058 id=2058 data-nosnippet>2058</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#2059 id=2059 data-nosnippet>2059</a>		statements: <span class="kw-2">&amp;</span>[(u64, Hash, Statement)],
-<a href=#2060 id=2060 data-nosnippet>2060</a>		targets: Vec&lt;(PeerId, Vec&lt;usize&gt;)&gt;,
-<a href=#2061 id=2061 data-nosnippet>2061</a>	) {
-<a href=#2062 id=2062 data-nosnippet>2062</a>		<span class="kw">for </span>(who, indices) <span class="kw">in </span>targets {
-<a href=#2063 id=2063 data-nosnippet>2063</a>			<span class="kw">let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get(<span class="kw-2">&amp;</span>who) <span class="kw">else </span>{
-<a href=#2064 id=2064 data-nosnippet>2064</a>				<span class="kw">continue</span>;
-<a href=#2065 id=2065 data-nosnippet>2065</a>			};
-<a href=#2066 id=2066 data-nosnippet>2066</a>
-<a href=#2067 id=2067 data-nosnippet>2067</a>			<span class="comment">// TODO(#11288): light peers may need different gating on the v2 DHT path. The
-<a href=#2068 id=2068 data-nosnippet>2068</a>			// orchestrator already chose the peer, so blocking it until it advertises a filter
-<a href=#2069 id=2069 data-nosnippet>2069</a>			// may be redundant here.
+<a href=#1675 id=1675 data-nosnippet>1675</a>					<span class="comment">// A light peer stores and routes nothing, so it stays out of the topology
+<a href=#1676 id=1676 data-nosnippet>1676</a>					// and reaches the propagation plan through its filter alone.
+<a href=#1677 id=1677 data-nosnippet>1677</a>					</span><span class="kw">if </span>!is_light {
+<a href=#1678 id=1678 data-nosnippet>1678</a>						<span class="self">self</span>.v2dht.on_substream_opened(peer);
+<a href=#1679 id=1679 data-nosnippet>1679</a>					}
+<a href=#1680 id=1680 data-nosnippet>1680</a>					<span class="self">self</span>.send_local_filter(<span class="kw-2">&amp;</span>peer).<span class="kw">await</span>;
+<a href=#1681 id=1681 data-nosnippet>1681</a>				}
+<a href=#1682 id=1682 data-nosnippet>1682</a>
+<a href=#1683 id=1683 data-nosnippet>1683</a>				<span class="comment">// Peers awaiting their affinity filter are synced by the pending-affinity tick.
+<a href=#1684 id=1684 data-nosnippet>1684</a>				// Light peers owe the filter by protocol; full peers owe it only with the v2 DHT
+<a href=#1685 id=1685 data-nosnippet>1685</a>				// path on, so they get [`AFFINITY_FILTER_GRACE_PERIOD`] to deliver it.
+<a href=#1686 id=1686 data-nosnippet>1686</a>				</span><span class="kw">if </span><span class="self">self</span>.peers.get(<span class="kw-2">&amp;</span>peer).map_or(<span class="bool-val">false</span>, |p| p.can_receive()) {
+<a href=#1687 id=1687 data-nosnippet>1687</a>					<span class="self">self</span>.schedule_initial_sync_for_peer(peer);
+<a href=#1688 id=1688 data-nosnippet>1688</a>				} <span class="kw">else if </span>!is_light {
+<a href=#1689 id=1689 data-nosnippet>1689</a>					<span class="self">self</span>.awaiting_affinity_filter.insert(peer, Instant::now());
+<a href=#1690 id=1690 data-nosnippet>1690</a>				}
+<a href=#1691 id=1691 data-nosnippet>1691</a>			},
+<a href=#1692 id=1692 data-nosnippet>1692</a>			NotificationEvent::NotificationStreamClosed { peer } =&gt; {
+<a href=#1693 id=1693 data-nosnippet>1693</a>				<span class="kw">if </span>v2dht_enabled() {
+<a href=#1694 id=1694 data-nosnippet>1694</a>					<span class="self">self</span>.v2dht.on_substream_closed(peer);
+<a href=#1695 id=1695 data-nosnippet>1695</a>				}
+<a href=#1696 id=1696 data-nosnippet>1696</a>				<span class="kw">let </span>removed_peer = <span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer);
+<a href=#1697 id=1697 data-nosnippet>1697</a>				<span class="macro">debug_assert!</span>(removed_peer.is_some());
+<a href=#1698 id=1698 data-nosnippet>1698</a>				<span class="self">self</span>.awaiting_affinity_filter.remove(<span class="kw-2">&amp;</span>peer);
+<a href=#1699 id=1699 data-nosnippet>1699</a>
+<a href=#1700 id=1700 data-nosnippet>1700</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(removed_peer) = removed_peer {
+<a href=#1701 id=1701 data-nosnippet>1701</a>					<span class="self">self</span>.metrics.as_ref().map(|metrics| {
+<a href=#1702 id=1702 data-nosnippet>1702</a>						metrics.peers_connected.with_label_values(<span class="kw-2">&amp;</span>[removed_peer.kind()]).dec();
+<a href=#1703 id=1703 data-nosnippet>1703</a>					});
+<a href=#1704 id=1704 data-nosnippet>1704</a>				}
+<a href=#1705 id=1705 data-nosnippet>1705</a>
+<a href=#1706 id=1706 data-nosnippet>1706</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(pending) = <span class="self">self</span>.pending_initial_syncs.remove(<span class="kw-2">&amp;</span>peer) {
+<a href=#1707 id=1707 data-nosnippet>1707</a>					<span class="self">self</span>.record_initial_sync_completion(
+<a href=#1708 id=1708 data-nosnippet>1708</a>						sync_outcome::ABANDONED,
+<a href=#1709 id=1709 data-nosnippet>1709</a>						pending.started_at,
+<a href=#1710 id=1710 data-nosnippet>1710</a>					);
+<a href=#1711 id=1711 data-nosnippet>1711</a>				}
+<a href=#1712 id=1712 data-nosnippet>1712</a>				<span class="self">self</span>.initial_sync_peer_queue.retain(|p| <span class="kw-2">*</span><span class="macro">p !</span>= peer);
+<a href=#1713 id=1713 data-nosnippet>1713</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(outbox) = <span class="self">self</span>.propagation_outboxes.remove(<span class="kw-2">&amp;</span>peer) {
+<a href=#1714 id=1714 data-nosnippet>1714</a>					<span class="kw">if </span>!outbox.is_empty() {
+<a href=#1715 id=1715 data-nosnippet>1715</a>						<span class="self">self</span>.record_abandoned_send(send_failure::DISCONNECTED, outbox.len());
+<a href=#1716 id=1716 data-nosnippet>1716</a>					}
+<a href=#1717 id=1717 data-nosnippet>1717</a>				}
+<a href=#1718 id=1718 data-nosnippet>1718</a>				<span class="self">self</span>.in_flight_chunks.remove(<span class="kw-2">&amp;</span>peer);
+<a href=#1719 id=1719 data-nosnippet>1719</a>			},
+<a href=#1720 id=1720 data-nosnippet>1720</a>			NotificationEvent::NotificationReceived { peer, notification } =&gt; {
+<a href=#1721 id=1721 data-nosnippet>1721</a>				<span class="kw">let </span>bytes_received = notification.len() <span class="kw">as </span>u64;
+<a href=#1722 id=1722 data-nosnippet>1722</a>				<span class="self">self</span>.metrics.as_ref().map(|metrics| {
+<a href=#1723 id=1723 data-nosnippet>1723</a>					metrics.bytes_received_total.inc_by(bytes_received);
+<a href=#1724 id=1724 data-nosnippet>1724</a>				});
+<a href=#1725 id=1725 data-nosnippet>1725</a>
+<a href=#1726 id=1726 data-nosnippet>1726</a>				<span class="comment">// Accept statements only when node is not major syncing
+<a href=#1727 id=1727 data-nosnippet>1727</a>				</span><span class="kw">if </span><span class="self">self</span>.sync.is_major_syncing() &amp;&amp;
+<a href=#1728 id=1728 data-nosnippet>1728</a>					!<span class="self">self</span>.allowed_during_major_sync(<span class="kw-2">&amp;</span>peer, notification.as_ref())
+<a href=#1729 id=1729 data-nosnippet>1729</a>				{
+<a href=#1730 id=1730 data-nosnippet>1730</a>					<span class="macro">log::trace!</span>(
+<a href=#1731 id=1731 data-nosnippet>1731</a>						target: LOG_TARGET,
+<a href=#1732 id=1732 data-nosnippet>1732</a>						<span class="string">"{peer}: Ignoring statements while major syncing or offline"
+<a href=#1733 id=1733 data-nosnippet>1733</a>					</span>);
+<a href=#1734 id=1734 data-nosnippet>1734</a>					<span class="comment">// With the v2 DHT path on, a v2 peer replays on the re-advertised filter; a v1
+<a href=#1735 id=1735 data-nosnippet>1735</a>					// peer has no such request and is reconnected once the sync ends.
+<a href=#1736 id=1736 data-nosnippet>1736</a>					</span><span class="kw">let </span>from_v1_peer = <span class="self">self</span>.peers.get(<span class="kw-2">&amp;</span>peer).is_some_and(|peer_data| {
+<a href=#1737 id=1737 data-nosnippet>1737</a>						peer_data.protocol_version == PeerProtocolVersion::V1
+<a href=#1738 id=1738 data-nosnippet>1738</a>					});
+<a href=#1739 id=1739 data-nosnippet>1739</a>					<span class="kw">if </span>!v2dht_enabled() || from_v1_peer {
+<a href=#1740 id=1740 data-nosnippet>1740</a>						<span class="self">self</span>.dropped_statements_during_sync = <span class="bool-val">true</span>;
+<a href=#1741 id=1741 data-nosnippet>1741</a>					}
+<a href=#1742 id=1742 data-nosnippet>1742</a>					<span class="kw">return</span>;
+<a href=#1743 id=1743 data-nosnippet>1743</a>				}
+<a href=#1744 id=1744 data-nosnippet>1744</a>
+<a href=#1745 id=1745 data-nosnippet>1745</a>				<span class="kw">let </span><span class="prelude-val">Some</span>(peer_data) = <span class="self">self</span>.peers.get(<span class="kw-2">&amp;</span>peer) <span class="kw">else </span>{
+<a href=#1746 id=1746 data-nosnippet>1746</a>					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Received notification from unknown peer {peer}"</span>);
+<a href=#1747 id=1747 data-nosnippet>1747</a>					<span class="kw">return</span>;
+<a href=#1748 id=1748 data-nosnippet>1748</a>				};
+<a href=#1749 id=1749 data-nosnippet>1749</a>
+<a href=#1750 id=1750 data-nosnippet>1750</a>				<span class="kw">match </span>peer_data.protocol_version {
+<a href=#1751 id=1751 data-nosnippet>1751</a>					PeerProtocolVersion::V1 =&gt; {
+<a href=#1752 id=1752 data-nosnippet>1752</a>						<span class="comment">// V1 peers send raw Vec&lt;Statement&gt;.
+<a href=#1753 id=1753 data-nosnippet>1753</a>						</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(statements) =
+<a href=#1754 id=1754 data-nosnippet>1754</a>							&lt;StatementBatch <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut </span>notification.as_ref())
+<a href=#1755 id=1755 data-nosnippet>1755</a>						{
+<a href=#1756 id=1756 data-nosnippet>1756</a>							<span class="self">self</span>.on_statements(peer, statements.into_inner());
+<a href=#1757 id=1757 data-nosnippet>1757</a>						} <span class="kw">else </span>{
+<a href=#1758 id=1758 data-nosnippet>1758</a>							<span class="macro">log::debug!</span>(
+<a href=#1759 id=1759 data-nosnippet>1759</a>								target: LOG_TARGET,
+<a href=#1760 id=1760 data-nosnippet>1760</a>								<span class="string">"Failed to decode v1 statement list from {peer}"
+<a href=#1761 id=1761 data-nosnippet>1761</a>							</span>);
+<a href=#1762 id=1762 data-nosnippet>1762</a>							<span class="self">self</span>.network.report_peer(peer, rep::BAD_MESSAGE);
+<a href=#1763 id=1763 data-nosnippet>1763</a>							<span class="kw">if </span>v2dht_enabled() {
+<a href=#1764 id=1764 data-nosnippet>1764</a>								<span class="self">self</span>.v2dht.on_peer_misbehaved(peer);
+<a href=#1765 id=1765 data-nosnippet>1765</a>							}
+<a href=#1766 id=1766 data-nosnippet>1766</a>						}
+<a href=#1767 id=1767 data-nosnippet>1767</a>					},
+<a href=#1768 id=1768 data-nosnippet>1768</a>					PeerProtocolVersion::V2 =&gt; {
+<a href=#1769 id=1769 data-nosnippet>1769</a>						<span class="comment">// V2 peers send StatementMessage enum.
+<a href=#1770 id=1770 data-nosnippet>1770</a>						</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(message) = StatementMessage::decode(<span class="kw-2">&amp;mut </span>notification.as_ref()) {
+<a href=#1771 id=1771 data-nosnippet>1771</a>							<span class="kw">match </span>message {
+<a href=#1772 id=1772 data-nosnippet>1772</a>								StatementMessage::Statements(statements) =&gt; {
+<a href=#1773 id=1773 data-nosnippet>1773</a>									<span class="self">self</span>.on_statements(peer, statements.into_inner());
+<a href=#1774 id=1774 data-nosnippet>1774</a>								},
+<a href=#1775 id=1775 data-nosnippet>1775</a>								StatementMessage::ExplicitTopicAffinity(filter) =&gt; {
+<a href=#1776 id=1776 data-nosnippet>1776</a>									<span class="kw">if </span>peer_data.affinity_rate_limiter.is_flooding(<span class="number">1</span>) {
+<a href=#1777 id=1777 data-nosnippet>1777</a>										<span class="macro">log::debug!</span>(
+<a href=#1778 id=1778 data-nosnippet>1778</a>											target: LOG_TARGET,
+<a href=#1779 id=1779 data-nosnippet>1779</a>											<span class="string">"Dropping rate-limited ExplicitTopicAffinity from {peer}"
+<a href=#1780 id=1780 data-nosnippet>1780</a>										</span>);
+<a href=#1781 id=1781 data-nosnippet>1781</a>										<span class="self">self</span>.network.report_peer(peer, rep::AFFINITY_FLOODING);
+<a href=#1782 id=1782 data-nosnippet>1782</a>										<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
+<a href=#1783 id=1783 data-nosnippet>1783</a>											metrics.affinity_flooding_detected.inc();
+<a href=#1784 id=1784 data-nosnippet>1784</a>										}
+<a href=#1785 id=1785 data-nosnippet>1785</a>										<span class="kw">if </span>v2dht_enabled() {
+<a href=#1786 id=1786 data-nosnippet>1786</a>											<span class="self">self</span>.v2dht.on_peer_misbehaved(peer);
+<a href=#1787 id=1787 data-nosnippet>1787</a>										}
+<a href=#1788 id=1788 data-nosnippet>1788</a>										<span class="kw">return</span>;
+<a href=#1789 id=1789 data-nosnippet>1789</a>									}
+<a href=#1790 id=1790 data-nosnippet>1790</a>									<span class="kw">if </span>v2dht_enabled() {
+<a href=#1791 id=1791 data-nosnippet>1791</a>										<span class="self">self</span>.v2dht.on_peer_filter_update(peer, filter.clone());
+<a href=#1792 id=1792 data-nosnippet>1792</a>									}
+<a href=#1793 id=1793 data-nosnippet>1793</a>
+<a href=#1794 id=1794 data-nosnippet>1794</a>									<span class="comment">// Record the filter for propagation decisions, and route it
+<a href=#1795 id=1795 data-nosnippet>1795</a>									// through the pending-affinity path so
+<a href=#1796 id=1796 data-nosnippet>1796</a>									// `schedule_initial_sync_for_peer` replays the matching
+<a href=#1797 id=1797 data-nosnippet>1797</a>									// already-stored statements (filtered by `topic_affinity`
+<a href=#1798 id=1798 data-nosnippet>1798</a>									// and DHT routing targets). Without this a late subscriber
+<a href=#1799 id=1799 data-nosnippet>1799</a>									// sees only the statements that arrive after it subscribes.
+<a href=#1800 id=1800 data-nosnippet>1800</a>									</span><span class="kw">if let </span><span class="prelude-val">Some</span>(peer_data) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>peer) {
+<a href=#1801 id=1801 data-nosnippet>1801</a>										<span class="macro">log::debug!</span>(
+<a href=#1802 id=1802 data-nosnippet>1802</a>											target: LOG_TARGET,
+<a href=#1803 id=1803 data-nosnippet>1803</a>											<span class="string">"Received topic affinity filter from {peer}"
+<a href=#1804 id=1804 data-nosnippet>1804</a>										</span>);
+<a href=#1805 id=1805 data-nosnippet>1805</a>										<span class="comment">// Defer both the affinity update and sync scheduling
+<a href=#1806 id=1806 data-nosnippet>1806</a>										// to the main loop tick.
+<a href=#1807 id=1807 data-nosnippet>1807</a>										</span>peer_data.pending_topic_affinity = <span class="prelude-val">Some</span>(filter);
+<a href=#1808 id=1808 data-nosnippet>1808</a>										<span class="self">self</span>.awaiting_affinity_filter.remove(<span class="kw-2">&amp;</span>peer);
+<a href=#1809 id=1809 data-nosnippet>1809</a>									}
+<a href=#1810 id=1810 data-nosnippet>1810</a>								},
+<a href=#1811 id=1811 data-nosnippet>1811</a>							}
+<a href=#1812 id=1812 data-nosnippet>1812</a>						} <span class="kw">else </span>{
+<a href=#1813 id=1813 data-nosnippet>1813</a>							<span class="macro">log::debug!</span>(
+<a href=#1814 id=1814 data-nosnippet>1814</a>								target: LOG_TARGET,
+<a href=#1815 id=1815 data-nosnippet>1815</a>								<span class="string">"Failed to decode v2 statement message from {peer}"
+<a href=#1816 id=1816 data-nosnippet>1816</a>							</span>);
+<a href=#1817 id=1817 data-nosnippet>1817</a>							<span class="self">self</span>.network.report_peer(peer, rep::BAD_MESSAGE);
+<a href=#1818 id=1818 data-nosnippet>1818</a>							<span class="kw">if </span>v2dht_enabled() {
+<a href=#1819 id=1819 data-nosnippet>1819</a>								<span class="self">self</span>.v2dht.on_peer_misbehaved(peer);
+<a href=#1820 id=1820 data-nosnippet>1820</a>							}
+<a href=#1821 id=1821 data-nosnippet>1821</a>						}
+<a href=#1822 id=1822 data-nosnippet>1822</a>					},
+<a href=#1823 id=1823 data-nosnippet>1823</a>				}
+<a href=#1824 id=1824 data-nosnippet>1824</a>			},
+<a href=#1825 id=1825 data-nosnippet>1825</a>		}
+<a href=#1826 id=1826 data-nosnippet>1826</a>	}
+<a href=#1827 id=1827 data-nosnippet>1827</a>
+<a href=#1828 id=1828 data-nosnippet>1828</a>	<span class="doccomment">/// Handle a batch of statements received from a peer.
+<a href=#1829 id=1829 data-nosnippet>1829</a>	///
+<a href=#1830 id=1830 data-nosnippet>1830</a>	/// For the batch:
+<a href=#1831 id=1831 data-nosnippet>1831</a>	/// - Enforces the per-peer rate limit — on abuse, disconnects the peer and reports
+<a href=#1832 id=1832 data-nosnippet>1832</a>	///   `rep::STATEMENT_FLOODING`.
+<a href=#1833 id=1833 data-nosnippet>1833</a>	/// - Skips statements already in the store, reporting `rep::DUPLICATE_STATEMENT` if the same
+<a href=#1834 id=1834 data-nosnippet>1834</a>	///   peer sent it twice.
+<a href=#1835 id=1835 data-nosnippet>1835</a>	/// - Enqueues unknown statements onto the bounded validation queue.
+<a href=#1836 id=1836 data-nosnippet>1836</a>	/// - Drops the remaining statements in the batch if the queue is full
+<a href=#1837 id=1837 data-nosnippet>1837</a>	///   (`MAX_PENDING_STATEMENTS`).
+<a href=#1838 id=1838 data-nosnippet>1838</a>	</span><span class="attr">#[cfg_attr(not(any(test, feature = <span class="string">"test-helpers"</span>)), doc(hidden))]
+<a href=#1839 id=1839 data-nosnippet>1839</a>	</span><span class="kw">pub fn </span>on_statements(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: PeerId, statements: Statements) {
+<a href=#1840 id=1840 data-nosnippet>1840</a>		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"Received {} statements from {}"</span>, statements.len(), who);
+<a href=#1841 id=1841 data-nosnippet>1841</a>
+<a href=#1842 id=1842 data-nosnippet>1842</a>		<span class="self">self</span>.metrics.as_ref().map(|metrics| {
+<a href=#1843 id=1843 data-nosnippet>1843</a>			metrics.statements_received.inc_by(statements.len() <span class="kw">as </span>u64);
+<a href=#1844 id=1844 data-nosnippet>1844</a>		});
+<a href=#1845 id=1845 data-nosnippet>1845</a>
+<a href=#1846 id=1846 data-nosnippet>1846</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>peer) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>who) {
+<a href=#1847 id=1847 data-nosnippet>1847</a>			<span class="kw">if </span>peer.statement_rate_limiter.is_flooding(statements.len()) {
+<a href=#1848 id=1848 data-nosnippet>1848</a>				<span class="macro">log::warn!</span>(
+<a href=#1849 id=1849 data-nosnippet>1849</a>					target: LOG_TARGET,
+<a href=#1850 id=1850 data-nosnippet>1850</a>					<span class="string">"Peer {} exceeded statement rate limit ({} statements/sec). Disconnecting."</span>,
+<a href=#1851 id=1851 data-nosnippet>1851</a>					who,
+<a href=#1852 id=1852 data-nosnippet>1852</a>					<span class="self">self</span>.statements_per_second
+<a href=#1853 id=1853 data-nosnippet>1853</a>				);
+<a href=#1854 id=1854 data-nosnippet>1854</a>
+<a href=#1855 id=1855 data-nosnippet>1855</a>				<span class="self">self</span>.network.report_peer(who, rep::STATEMENT_FLOODING);
+<a href=#1856 id=1856 data-nosnippet>1856</a>
+<a href=#1857 id=1857 data-nosnippet>1857</a>				<span class="comment">// Initiate peer state cleanup in the `NotificationStreamClosed` handler
+<a href=#1858 id=1858 data-nosnippet>1858</a>				</span><span class="self">self</span>.network.disconnect_peer(who, <span class="self">self</span>.protocol_name.clone());
+<a href=#1859 id=1859 data-nosnippet>1859</a>
+<a href=#1860 id=1860 data-nosnippet>1860</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
+<a href=#1861 id=1861 data-nosnippet>1861</a>					metrics.statement_flooding_detected.inc();
+<a href=#1862 id=1862 data-nosnippet>1862</a>				}
+<a href=#1863 id=1863 data-nosnippet>1863</a>
+<a href=#1864 id=1864 data-nosnippet>1864</a>				<span class="kw">return</span>;
+<a href=#1865 id=1865 data-nosnippet>1865</a>			}
+<a href=#1866 id=1866 data-nosnippet>1866</a>
+<a href=#1867 id=1867 data-nosnippet>1867</a>			<span class="kw">let </span><span class="kw-2">mut </span>statements_left = statements.len() <span class="kw">as </span>u64;
+<a href=#1868 id=1868 data-nosnippet>1868</a>			<span class="kw">for </span>s <span class="kw">in </span>statements {
+<a href=#1869 id=1869 data-nosnippet>1869</a>				<span class="kw">if </span><span class="self">self</span>.pending_statements.len() &gt; MAX_PENDING_STATEMENTS {
+<a href=#1870 id=1870 data-nosnippet>1870</a>					<span class="macro">log::debug!</span>(
+<a href=#1871 id=1871 data-nosnippet>1871</a>						target: LOG_TARGET,
+<a href=#1872 id=1872 data-nosnippet>1872</a>						<span class="string">"Ignoring {} statements that exceed `MAX_PENDING_STATEMENTS`({}) limit"</span>,
+<a href=#1873 id=1873 data-nosnippet>1873</a>						statements_left,
+<a href=#1874 id=1874 data-nosnippet>1874</a>						MAX_PENDING_STATEMENTS,
+<a href=#1875 id=1875 data-nosnippet>1875</a>					);
+<a href=#1876 id=1876 data-nosnippet>1876</a>					<span class="self">self</span>.metrics.as_ref().map(|metrics| {
+<a href=#1877 id=1877 data-nosnippet>1877</a>						metrics.ignored_statements.inc_by(statements_left);
+<a href=#1878 id=1878 data-nosnippet>1878</a>					});
+<a href=#1879 id=1879 data-nosnippet>1879</a>					<span class="kw">break</span>;
+<a href=#1880 id=1880 data-nosnippet>1880</a>				}
+<a href=#1881 id=1881 data-nosnippet>1881</a>
+<a href=#1882 id=1882 data-nosnippet>1882</a>				<span class="kw">let </span>hash = s.hash();
+<a href=#1883 id=1883 data-nosnippet>1883</a>
+<a href=#1884 id=1884 data-nosnippet>1884</a>				<span class="kw">if </span><span class="self">self</span>.statement_store.has_statement(<span class="kw-2">&amp;</span>hash) {
+<a href=#1885 id=1885 data-nosnippet>1885</a>					<span class="self">self</span>.metrics.as_ref().map(|metrics| {
+<a href=#1886 id=1886 data-nosnippet>1886</a>						metrics.known_statements_received.inc();
+<a href=#1887 id=1887 data-nosnippet>1887</a>					});
+<a href=#1888 id=1888 data-nosnippet>1888</a>
+<a href=#1889 id=1889 data-nosnippet>1889</a>					<span class="comment">// If the statement still awaits its propagation pass, record the
+<a href=#1890 id=1890 data-nosnippet>1890</a>					// peer so the pass does not send it back. Only join an existing
+<a href=#1891 id=1891 data-nosnippet>1891</a>					// entry, or replays would grow the map without bound. Peers that
+<a href=#1892 id=1892 data-nosnippet>1892</a>					// sent a not yet imported statement are tracked in
+<a href=#1893 id=1893 data-nosnippet>1893</a>					// `pending_statements_peers` and move here on import.
+<a href=#1894 id=1894 data-nosnippet>1894</a>					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(peers) = <span class="self">self</span>.recently_received_statements.get_mut(<span class="kw-2">&amp;</span>hash) {
+<a href=#1895 id=1895 data-nosnippet>1895</a>						peers.insert(who);
+<a href=#1896 id=1896 data-nosnippet>1896</a>					}
+<a href=#1897 id=1897 data-nosnippet>1897</a>
+<a href=#1898 id=1898 data-nosnippet>1898</a>					<span class="comment">// The store can already hold the statement while its validation
+<a href=#1899 id=1899 data-nosnippet>1899</a>					// completion still awaits processing by the event loop. Join the
+<a href=#1900 id=1900 data-nosnippet>1900</a>					// pending entry so the peer moves to `recently_received_statements`
+<a href=#1901 id=1901 data-nosnippet>1901</a>					// on import, exactly as if the message had arrived before the
+<a href=#1902 id=1902 data-nosnippet>1902</a>					// store insert.
+<a href=#1903 id=1903 data-nosnippet>1903</a>					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(peers) = <span class="self">self</span>.pending_statements_peers.get_mut(<span class="kw-2">&amp;</span>hash) {
+<a href=#1904 id=1904 data-nosnippet>1904</a>						<span class="kw">if </span>peers.insert(who) {
+<a href=#1905 id=1905 data-nosnippet>1905</a>							<span class="self">self</span>.network.report_peer(who, rep::ANY_STATEMENT);
+<a href=#1906 id=1906 data-nosnippet>1906</a>						} <span class="kw">else </span>{
+<a href=#1907 id=1907 data-nosnippet>1907</a>							<span class="macro">log::trace!</span>(
+<a href=#1908 id=1908 data-nosnippet>1908</a>								target: LOG_TARGET,
+<a href=#1909 id=1909 data-nosnippet>1909</a>								<span class="string">"Already received the statement from the same peer {who}."</span>,
+<a href=#1910 id=1910 data-nosnippet>1910</a>							);
+<a href=#1911 id=1911 data-nosnippet>1911</a>							<span class="self">self</span>.network.report_peer(who, rep::DUPLICATE_STATEMENT);
+<a href=#1912 id=1912 data-nosnippet>1912</a>							<span class="kw">if </span>v2dht_enabled() {
+<a href=#1913 id=1913 data-nosnippet>1913</a>								<span class="self">self</span>.v2dht.on_peer_misbehaved(who);
+<a href=#1914 id=1914 data-nosnippet>1914</a>							}
+<a href=#1915 id=1915 data-nosnippet>1915</a>						}
+<a href=#1916 id=1916 data-nosnippet>1916</a>					}
+<a href=#1917 id=1917 data-nosnippet>1917</a>					<span class="kw">continue</span>;
+<a href=#1918 id=1918 data-nosnippet>1918</a>				}
+<a href=#1919 id=1919 data-nosnippet>1919</a>
+<a href=#1920 id=1920 data-nosnippet>1920</a>				<span class="self">self</span>.network.report_peer(who, rep::ANY_STATEMENT);
+<a href=#1921 id=1921 data-nosnippet>1921</a>
+<a href=#1922 id=1922 data-nosnippet>1922</a>				<span class="kw">match </span><span class="self">self</span>.pending_statements_peers.entry(hash) {
+<a href=#1923 id=1923 data-nosnippet>1923</a>					Entry::Vacant(entry) =&gt; {
+<a href=#1924 id=1924 data-nosnippet>1924</a>						<span class="kw">let </span>(completion_sender, completion_receiver) = oneshot::channel();
+<a href=#1925 id=1925 data-nosnippet>1925</a>						<span class="kw">match </span><span class="self">self</span>.queue_sender.try_send((s, completion_sender)) {
+<a href=#1926 id=1926 data-nosnippet>1926</a>							<span class="prelude-val">Ok</span>(()) =&gt; {
+<a href=#1927 id=1927 data-nosnippet>1927</a>								<span class="self">self</span>.pending_statements.push(
+<a href=#1928 id=1928 data-nosnippet>1928</a>									<span class="kw">async move </span>{
+<a href=#1929 id=1929 data-nosnippet>1929</a>										<span class="kw">let </span>res = completion_receiver.<span class="kw">await</span>;
+<a href=#1930 id=1930 data-nosnippet>1930</a>										(hash, res.ok())
+<a href=#1931 id=1931 data-nosnippet>1931</a>									}
+<a href=#1932 id=1932 data-nosnippet>1932</a>									.boxed(),
+<a href=#1933 id=1933 data-nosnippet>1933</a>								);
+<a href=#1934 id=1934 data-nosnippet>1934</a>								entry.insert(HashSet::from_iter([who]));
+<a href=#1935 id=1935 data-nosnippet>1935</a>							},
+<a href=#1936 id=1936 data-nosnippet>1936</a>							<span class="prelude-val">Err</span>(async_channel::TrySendError::Full(<span class="kw">_</span>)) =&gt; {
+<a href=#1937 id=1937 data-nosnippet>1937</a>								<span class="macro">log::debug!</span>(
+<a href=#1938 id=1938 data-nosnippet>1938</a>									target: LOG_TARGET,
+<a href=#1939 id=1939 data-nosnippet>1939</a>									<span class="string">"Dropped statement because validation channel is full"</span>,
+<a href=#1940 id=1940 data-nosnippet>1940</a>								);
+<a href=#1941 id=1941 data-nosnippet>1941</a>							},
+<a href=#1942 id=1942 data-nosnippet>1942</a>							<span class="prelude-val">Err</span>(async_channel::TrySendError::Closed(<span class="kw">_</span>)) =&gt; {
+<a href=#1943 id=1943 data-nosnippet>1943</a>								<span class="macro">log::trace!</span>(
+<a href=#1944 id=1944 data-nosnippet>1944</a>									target: LOG_TARGET,
+<a href=#1945 id=1945 data-nosnippet>1945</a>									<span class="string">"Dropped statement because validation channel is closed"</span>,
+<a href=#1946 id=1946 data-nosnippet>1946</a>								);
+<a href=#1947 id=1947 data-nosnippet>1947</a>							},
+<a href=#1948 id=1948 data-nosnippet>1948</a>						}
+<a href=#1949 id=1949 data-nosnippet>1949</a>					},
+<a href=#1950 id=1950 data-nosnippet>1950</a>					Entry::Occupied(<span class="kw-2">mut </span>entry) =&gt; {
+<a href=#1951 id=1951 data-nosnippet>1951</a>						<span class="kw">if </span>!entry.get_mut().insert(who) {
+<a href=#1952 id=1952 data-nosnippet>1952</a>							<span class="comment">// Already received this from the same peer.
+<a href=#1953 id=1953 data-nosnippet>1953</a>							</span><span class="self">self</span>.network.report_peer(who, rep::DUPLICATE_STATEMENT);
+<a href=#1954 id=1954 data-nosnippet>1954</a>							<span class="kw">if </span>v2dht_enabled() {
+<a href=#1955 id=1955 data-nosnippet>1955</a>								<span class="self">self</span>.v2dht.on_peer_misbehaved(who);
+<a href=#1956 id=1956 data-nosnippet>1956</a>							}
+<a href=#1957 id=1957 data-nosnippet>1957</a>						}
+<a href=#1958 id=1958 data-nosnippet>1958</a>					},
+<a href=#1959 id=1959 data-nosnippet>1959</a>				}
+<a href=#1960 id=1960 data-nosnippet>1960</a>
+<a href=#1961 id=1961 data-nosnippet>1961</a>				statements_left -= <span class="number">1</span>;
+<a href=#1962 id=1962 data-nosnippet>1962</a>			}
+<a href=#1963 id=1963 data-nosnippet>1963</a>		}
+<a href=#1964 id=1964 data-nosnippet>1964</a>	}
+<a href=#1965 id=1965 data-nosnippet>1965</a>
+<a href=#1966 id=1966 data-nosnippet>1966</a>	<span class="doccomment">/// Adjust the sending peer's reputation based on the outcome of importing a statement it sent.
+<a href=#1967 id=1967 data-nosnippet>1967</a>	///
+<a href=#1968 id=1968 data-nosnippet>1968</a>	/// Every newly received statement is first charged `rep::ANY_STATEMENT` (a small **decrease**)
+<a href=#1969 id=1969 data-nosnippet>1969</a>	/// in [`on_statements`](Self::on_statements); this method applies the follow-up adjustment
+<a href=#1970 id=1970 data-nosnippet>1970</a>	/// once the statement has been validated:
+<a href=#1971 id=1971 data-nosnippet>1971</a>	///
+<a href=#1972 id=1972 data-nosnippet>1972</a>	/// - `New` → **increase** by `rep::GOOD_STATEMENT` — a valid, previously unknown statement; the
+<a href=#1973 id=1973 data-nosnippet>1973</a>	///   net change is positive (the reward outweighs the initial charge).
+<a href=#1974 id=1974 data-nosnippet>1974</a>	/// - `Known` → **increase** by `rep::ANY_STATEMENT_REFUND`, which exactly cancels the initial
+<a href=#1975 id=1975 data-nosnippet>1975</a>	///   `rep::ANY_STATEMENT` charge (net zero) — valid but already in the store.
+<a href=#1976 id=1976 data-nosnippet>1976</a>	/// - `Invalid` → **decrease** by `rep::INVALID_STATEMENT`, a large penalty — the statement
+<a href=#1977 id=1977 data-nosnippet>1977</a>	///   failed validation.
+<a href=#1978 id=1978 data-nosnippet>1978</a>	/// - `KnownExpired`, `Rejected`, `InternalError` → no follow-up change, so the peer keeps the
+<a href=#1979 id=1979 data-nosnippet>1979</a>	///   initial `rep::ANY_STATEMENT` charge.
+<a href=#1980 id=1980 data-nosnippet>1980</a>	</span><span class="kw">fn </span>on_handle_statement_import(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: PeerId, import: <span class="kw-2">&amp;</span>SubmitResult) {
+<a href=#1981 id=1981 data-nosnippet>1981</a>		<span class="kw">if </span>v2dht_enabled() {
+<a href=#1982 id=1982 data-nosnippet>1982</a>			<span class="self">self</span>.v2dht.on_statement_imported(who, import);
+<a href=#1983 id=1983 data-nosnippet>1983</a>		}
+<a href=#1984 id=1984 data-nosnippet>1984</a>		<span class="kw">match </span>import {
+<a href=#1985 id=1985 data-nosnippet>1985</a>			SubmitResult::New =&gt; <span class="self">self</span>.network.report_peer(who, rep::GOOD_STATEMENT),
+<a href=#1986 id=1986 data-nosnippet>1986</a>			SubmitResult::Known =&gt; <span class="self">self</span>.network.report_peer(who, rep::ANY_STATEMENT_REFUND),
+<a href=#1987 id=1987 data-nosnippet>1987</a>			SubmitResult::KnownExpired =&gt; {},
+<a href=#1988 id=1988 data-nosnippet>1988</a>			SubmitResult::Rejected(<span class="kw">_</span>) =&gt; {},
+<a href=#1989 id=1989 data-nosnippet>1989</a>			SubmitResult::Invalid(<span class="kw">_</span>) =&gt; <span class="self">self</span>.network.report_peer(who, rep::INVALID_STATEMENT),
+<a href=#1990 id=1990 data-nosnippet>1990</a>			SubmitResult::InternalError(<span class="kw">_</span>) =&gt; {},
+<a href=#1991 id=1991 data-nosnippet>1991</a>		}
+<a href=#1992 id=1992 data-nosnippet>1992</a>	}
+<a href=#1993 id=1993 data-nosnippet>1993</a>
+<a href=#1994 id=1994 data-nosnippet>1994</a>	<span class="doccomment">/// Handle a completed validation task. Adjusts the reputation of every peer
+<a href=#1995 id=1995 data-nosnippet>1995</a>	/// that sent us the statement and, if the statement awaits propagation,
+<a href=#1996 id=1996 data-nosnippet>1996</a>	/// records those peers so it is not sent back to them.
+<a href=#1997 id=1997 data-nosnippet>1997</a>	</span><span class="kw">fn </span>on_statement_submit_result(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: Hash, result: <span class="prelude-ty">Option</span>&lt;SubmitResult&gt;) {
+<a href=#1998 id=1998 data-nosnippet>1998</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(peers) = <span class="self">self</span>.pending_statements_peers.remove(<span class="kw-2">&amp;</span>hash) {
+<a href=#1999 id=1999 data-nosnippet>1999</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(result) = result {
+<a href=#2000 id=2000 data-nosnippet>2000</a>				<span class="kw">for </span>peer <span class="kw">in </span><span class="kw-2">&amp;</span>peers {
+<a href=#2001 id=2001 data-nosnippet>2001</a>					<span class="self">self</span>.on_handle_statement_import(<span class="kw-2">*</span>peer, <span class="kw-2">&amp;</span>result);
+<a href=#2002 id=2002 data-nosnippet>2002</a>				}
+<a href=#2003 id=2003 data-nosnippet>2003</a>				<span class="comment">// `New` and `Known` mean the statement awaits the next propagation
+<a href=#2004 id=2004 data-nosnippet>2004</a>				// pass. Remember who sent it so the pass does not send it back.
+<a href=#2005 id=2005 data-nosnippet>2005</a>				</span><span class="kw">if </span><span class="macro">matches!</span>(result, SubmitResult::New | SubmitResult::Known) {
+<a href=#2006 id=2006 data-nosnippet>2006</a>					<span class="self">self</span>.recently_received_statements.entry(hash).or_default().extend(peers);
+<a href=#2007 id=2007 data-nosnippet>2007</a>				}
+<a href=#2008 id=2008 data-nosnippet>2008</a>			}
+<a href=#2009 id=2009 data-nosnippet>2009</a>		} <span class="kw">else </span>{
+<a href=#2010 id=2010 data-nosnippet>2010</a>			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Inconsistent state, no peers for pending statement!"</span>);
+<a href=#2011 id=2011 data-nosnippet>2011</a>		}
+<a href=#2012 id=2012 data-nosnippet>2012</a>	}
+<a href=#2013 id=2013 data-nosnippet>2013</a>
+<a href=#2014 id=2014 data-nosnippet>2014</a>	<span class="doccomment">/// Queue the given `statements` for propagation to the given `peer`.
+<a href=#2015 id=2015 data-nosnippet>2015</a>	///
+<a href=#2016 id=2016 data-nosnippet>2016</a>	/// Internally filters out statements the peer sent to us.
+<a href=#2017 id=2017 data-nosnippet>2017</a>	/// For v2 peers with a topic affinity filter, also filters by topic match.
+<a href=#2018 id=2018 data-nosnippet>2018</a>	/// Surviving hashes are appended to the peer's outbox.
+<a href=#2019 id=2019 data-nosnippet>2019</a>	</span><span class="kw">fn </span>queue_statements_for_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId, statements: <span class="kw-2">&amp;</span>[(u64, Hash, Statement)]) {
+<a href=#2020 id=2020 data-nosnippet>2020</a>		<span class="kw">let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get(who) <span class="kw">else </span>{
+<a href=#2021 id=2021 data-nosnippet>2021</a>			<span class="kw">return</span>;
+<a href=#2022 id=2022 data-nosnippet>2022</a>		};
+<a href=#2023 id=2023 data-nosnippet>2023</a>
+<a href=#2024 id=2024 data-nosnippet>2024</a>		<span class="kw">if </span>!peer.can_receive() {
+<a href=#2025 id=2025 data-nosnippet>2025</a>			<span class="kw">return</span>;
+<a href=#2026 id=2026 data-nosnippet>2026</a>		}
+<a href=#2027 id=2027 data-nosnippet>2027</a>
+<a href=#2028 id=2028 data-nosnippet>2028</a>		<span class="kw">let </span>to_send: Vec&lt;<span class="kw">_</span>&gt; = statements
+<a href=#2029 id=2029 data-nosnippet>2029</a>			.iter()
+<a href=#2030 id=2030 data-nosnippet>2030</a>			.filter_map(|(seq, hash, stmt)| {
+<a href=#2031 id=2031 data-nosnippet>2031</a>				<span class="kw">if </span><span class="kw-2">*</span>seq &lt; peer.sync_watermark {
+<a href=#2032 id=2032 data-nosnippet>2032</a>					<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#2033 id=2033 data-nosnippet>2033</a>				}
+<a href=#2034 id=2034 data-nosnippet>2034</a>				<span class="comment">// The peer supplied this statement, do not send it back.
+<a href=#2035 id=2035 data-nosnippet>2035</a>				</span><span class="kw">if </span>has_received_from(
+<a href=#2036 id=2036 data-nosnippet>2036</a>					<span class="kw-2">&amp;</span><span class="self">self</span>.recently_received_statements,
+<a href=#2037 id=2037 data-nosnippet>2037</a>					<span class="kw-2">&amp;</span><span class="self">self</span>.pending_statements_peers,
+<a href=#2038 id=2038 data-nosnippet>2038</a>					hash,
+<a href=#2039 id=2039 data-nosnippet>2039</a>					who,
+<a href=#2040 id=2040 data-nosnippet>2040</a>				) {
+<a href=#2041 id=2041 data-nosnippet>2041</a>					<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#2042 id=2042 data-nosnippet>2042</a>				}
+<a href=#2043 id=2043 data-nosnippet>2043</a>				<span class="comment">// For v2 peers with topic affinity, filter by topic match.
+<a href=#2044 id=2044 data-nosnippet>2044</a>				</span><span class="kw">if </span>peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+<a href=#2045 id=2045 data-nosnippet>2045</a>					<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#2046 id=2046 data-nosnippet>2046</a>				}
+<a href=#2047 id=2047 data-nosnippet>2047</a>				<span class="prelude-val">Some</span>(<span class="kw-2">*</span>hash)
+<a href=#2048 id=2048 data-nosnippet>2048</a>			})
+<a href=#2049 id=2049 data-nosnippet>2049</a>			.collect();
+<a href=#2050 id=2050 data-nosnippet>2050</a>
+<a href=#2051 id=2051 data-nosnippet>2051</a>		<span class="self">self</span>.push_outbox_hashes(who, to_send);
+<a href=#2052 id=2052 data-nosnippet>2052</a>	}
+<a href=#2053 id=2053 data-nosnippet>2053</a>
+<a href=#2054 id=2054 data-nosnippet>2054</a>	<span class="doccomment">/// Queue the `indices` of `statements` for each peer the orchestrator chose as a target.
+<a href=#2055 id=2055 data-nosnippet>2055</a>	///
+<a href=#2056 id=2056 data-nosnippet>2056</a>	/// The orchestrator already picked the peer, so neither its sync watermark nor its affinity
+<a href=#2057 id=2057 data-nosnippet>2057</a>	/// filter applies and only statements the peer sent to us are dropped.
+<a href=#2058 id=2058 data-nosnippet>2058</a>	</span><span class="kw">fn </span>queue_statements_for_targets(
+<a href=#2059 id=2059 data-nosnippet>2059</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#2060 id=2060 data-nosnippet>2060</a>		statements: <span class="kw-2">&amp;</span>[(u64, Hash, Statement)],
+<a href=#2061 id=2061 data-nosnippet>2061</a>		targets: Vec&lt;(PeerId, Vec&lt;usize&gt;)&gt;,
+<a href=#2062 id=2062 data-nosnippet>2062</a>	) {
+<a href=#2063 id=2063 data-nosnippet>2063</a>		<span class="kw">for </span>(who, indices) <span class="kw">in </span>targets {
+<a href=#2064 id=2064 data-nosnippet>2064</a>			<span class="kw">let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get(<span class="kw-2">&amp;</span>who) <span class="kw">else </span>{
+<a href=#2065 id=2065 data-nosnippet>2065</a>				<span class="kw">continue</span>;
+<a href=#2066 id=2066 data-nosnippet>2066</a>			};
+<a href=#2067 id=2067 data-nosnippet>2067</a>
+<a href=#2068 id=2068 data-nosnippet>2068</a>			<span class="comment">// A V2 peer without a filter is skipped: the initial sync that follows its filter,
+<a href=#2069 id=2069 data-nosnippet>2069</a>			// or the match-all filter after the grace period, resends everything skipped here.
 <a href=#2070 id=2070 data-nosnippet>2070</a>			</span><span class="kw">if </span>!peer.can_receive() {
 <a href=#2071 id=2071 data-nosnippet>2071</a>				<span class="kw">continue</span>;
 <a href=#2072 id=2072 data-nosnippet>2072</a>			}
