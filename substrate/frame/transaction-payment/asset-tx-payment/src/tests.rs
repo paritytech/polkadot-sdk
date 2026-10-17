@@ -111,6 +111,10 @@ fn default_post_info() -> PostDispatchInfo {
 	PostDispatchInfo { actual_weight: None, pays_fee: Default::default() }
 }
 
+fn op_info_from_weight(w: Weight) -> DispatchInfo {
+	DispatchInfo { call_weight: w, class: DispatchClass::Operational, ..Default::default() }
+}
+
 #[test]
 fn transaction_payment_in_native_possible() {
 	let balance_factor = 100;
@@ -648,4 +652,186 @@ fn no_fee_and_no_weight_for_other_origins() {
 
 		assert_eq!(post_info.actual_weight, Some(info.call_weight));
 	})
+}
+
+#[test]
+fn operational_surcharge_in_native_kept_on_failure() {
+	let base_weight = 5;
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+			OperationalFeeSurcharge::set(10);
+
+			let weight = 100;
+			let len = 10;
+			let info = op_info_from_weight(Weight::from_parts(weight, 0));
+			// fee = 5 base + 10 len + 100 weight = 115, surcharge = 10 * 115 = 1150.
+			let fee = base_weight + len as u64 + weight;
+			let surcharge = 10 * fee;
+			let prev_balance = Balances::free_balance(2);
+
+			// `None` selects native payment, which delegates to `ChargeTransactionPayment`.
+			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, None)
+				.validate_and_prepare(Some(2).into(), CALL, &info, len, 0)
+				.unwrap();
+			// Fee and surcharge are both withdrawn upfront.
+			assert_eq!(Balances::free_balance(2), prev_balance - fee - surcharge);
+
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
+				pre,
+				&info,
+				&default_post_info(),
+				len,
+				&Err(DispatchError::BadOrigin),
+			));
+			// The failing dispatch forfeits the surcharge.
+			assert_eq!(Balances::free_balance(2), prev_balance - fee - surcharge);
+		});
+}
+
+#[test]
+fn operational_surcharge_in_native_refunded_on_success() {
+	let base_weight = 5;
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+			OperationalFeeSurcharge::set(10);
+
+			let weight = 100;
+			let len = 10;
+			let info = op_info_from_weight(Weight::from_parts(weight, 0));
+			let fee = base_weight + len as u64 + weight;
+			let surcharge = 10 * fee;
+			let prev_balance = Balances::free_balance(2);
+
+			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, None)
+				.validate_and_prepare(Some(2).into(), CALL, &info, len, 0)
+				.unwrap();
+			assert_eq!(Balances::free_balance(2), prev_balance - fee - surcharge);
+
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
+				pre,
+				&info,
+				&default_post_info(),
+				len,
+				&Ok(()),
+			));
+			// Only the regular fee is paid.
+			assert_eq!(Balances::free_balance(2), prev_balance - fee);
+		});
+}
+
+#[test]
+fn operational_surcharge_in_asset_kept_on_failure() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+			OperationalFeeSurcharge::set(10);
+
+			let asset_id = 1;
+			let min_balance = 2;
+			assert_ok!(Assets::force_create(
+				RuntimeOrigin::root(),
+				asset_id.into(),
+				42,   // owner
+				true, // is_sufficient
+				min_balance
+			));
+
+			let caller = 1;
+			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
+			let balance = 1000;
+			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
+
+			let weight = 5;
+			let len = 10;
+			let info = op_info_from_weight(Weight::from_parts(weight, 0));
+			let native_fee = base_weight + weight + len as u64;
+			let total = native_fee + 10 * native_fee;
+			// Native amounts are converted at the ratio between the asset's min balance and the
+			// existential deposit.
+			let converted = total * min_balance / ExistentialDeposit::get();
+
+			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+				.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0)
+				.unwrap();
+			// Fee and surcharge are both withdrawn upfront, in the asset.
+			assert_eq!(Assets::balance(asset_id, caller), balance - converted);
+
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
+				pre,
+				&info,
+				&default_post_info(),
+				len,
+				&Err(DispatchError::BadOrigin),
+			));
+			// The failing dispatch forfeits the surcharge: nothing is refunded.
+			assert_eq!(Assets::balance(asset_id, caller), balance - converted);
+			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), converted);
+		});
+}
+
+#[test]
+fn operational_surcharge_in_asset_refunded_on_success() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+			OperationalFeeSurcharge::set(10);
+
+			let asset_id = 1;
+			let min_balance = 2;
+			assert_ok!(Assets::force_create(
+				RuntimeOrigin::root(),
+				asset_id.into(),
+				42,
+				true,
+				min_balance
+			));
+
+			let caller = 1;
+			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
+			let balance = 1000;
+			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
+
+			let weight = 5;
+			let len = 10;
+			let info = op_info_from_weight(Weight::from_parts(weight, 0));
+			let native_fee = base_weight + weight + len as u64;
+			let convert = |native: u64| native * min_balance / ExistentialDeposit::get();
+
+			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+				.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0)
+				.unwrap();
+			assert_eq!(
+				Assets::balance(asset_id, caller),
+				balance - convert(native_fee + 10 * native_fee)
+			);
+
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
+				pre,
+				&info,
+				&default_post_info(),
+				len,
+				&Ok(()),
+			));
+			// Only the regular fee is kept, the surcharge is refunded in the asset.
+			assert_eq!(Assets::balance(asset_id, caller), balance - convert(native_fee));
+			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), convert(native_fee));
+		});
 }

@@ -222,6 +222,9 @@ pub mod pallet {
 				// Add the weight of this call.
 				weight = weight.saturating_add(extract_actual_weight(&result, &info));
 				if let Err(e) = result {
+					// This call reports success to the outside, so the failure of the inner
+					// dispatch is noted for any post dispatch logic that needs to know about it.
+					frame_system::Pallet::<T>::note_nested_dispatch_failure();
 					Self::deposit_event(Event::BatchInterrupted {
 						index: index as u32,
 						error: e.error,
@@ -430,6 +433,9 @@ pub mod pallet {
 				weight = weight.saturating_add(extract_actual_weight(&result, &info));
 				if let Err(e) = result {
 					has_error = true;
+					// This call reports success to the outside, so the failure of the inner
+					// dispatch is noted for any post dispatch logic that needs to know about it.
+					frame_system::Pallet::<T>::note_nested_dispatch_failure();
 					Self::deposit_event(Event::ItemFailed { error: e.error });
 				} else {
 					Self::deposit_event(Event::ItemCompleted);
@@ -545,6 +551,9 @@ pub mod pallet {
 
 			let Err(fallback_error) = fallback_result else {
 				// Fallback succeeded.
+				// This call reports success to the outside, so the failure of the main dispatch
+				// is noted for any post dispatch logic that needs to know about it.
+				frame_system::Pallet::<T>::note_nested_dispatch_failure();
 				Self::deposit_event(Event::IfElseFallbackCalled { main_error: main_error.error });
 				return Ok(Some(weight).into());
 			};

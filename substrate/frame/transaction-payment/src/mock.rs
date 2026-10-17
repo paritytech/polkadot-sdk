@@ -35,6 +35,7 @@ frame_support::construct_runtime!(
 		System: system,
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
+		Utility: pallet_utility,
 	}
 );
 
@@ -64,6 +65,7 @@ parameter_types! {
 	pub static WeightToFee: u64 = 1;
 	pub static TransactionByteFee: u64 = 1;
 	pub static OperationalFeeMultiplier: u8 = 5;
+	pub static OperationalFeeSurcharge: u32 = 0;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -132,10 +134,18 @@ impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
+	type OperationalFeeSurcharge = OperationalFeeSurcharge;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
 	type FeeMultiplierUpdate = ();
 	type WeightInfo = MockWeights;
+}
+
+impl pallet_utility::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
 }
 
 #[cfg(feature = "runtime-benchmarks")]

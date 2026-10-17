@@ -1026,6 +1026,41 @@ fn if_else_with_signed_works() {
 }
 
 #[test]
+fn nested_dispatch_failures_are_noted() {
+	new_test_ext().execute_with(|| {
+		// `batch` stops at the failing call and reports success.
+		assert_ok!(Utility::batch(RuntimeOrigin::signed(1), vec![call_transfer(2, 11)]));
+		assert!(System::nested_dispatch_failed());
+	});
+
+	new_test_ext().execute_with(|| {
+		// `force_batch` skips the failing call and reports success.
+		assert_ok!(Utility::force_batch(RuntimeOrigin::signed(1), vec![call_transfer(2, 11)]));
+		assert!(System::nested_dispatch_failed());
+	});
+
+	new_test_ext().execute_with(|| {
+		// `if_else` falls back after the main call failed and reports success.
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::signed(1),
+			call_transfer(2, 11).into(),
+			call_transfer(2, 5).into()
+		));
+		assert!(System::nested_dispatch_failed());
+	});
+
+	new_test_ext().execute_with(|| {
+		// Nothing failed, so nothing is noted.
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::signed(1),
+			call_transfer(2, 5).into(),
+			call_transfer(2, 1).into()
+		));
+		assert!(!System::nested_dispatch_failed());
+	});
+}
+
+#[test]
 fn if_else_successful_main_call() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(1), 10);

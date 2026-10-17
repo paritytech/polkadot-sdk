@@ -316,6 +316,28 @@ fn proxy_announced_removes_announcement_and_returns_deposit() {
 }
 
 #[test]
+fn nested_dispatch_failure_is_noted() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&1, 1000);
+		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+
+		// A successfully proxied call notes nothing.
+		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, Box::new(call_transfer(6, 1))));
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		assert!(!System::nested_dispatch_failed());
+
+		// `proxy` reports success even when the proxied call fails, so the failure is noted.
+		assert_ok!(Proxy::proxy(
+			RuntimeOrigin::signed(2),
+			1,
+			None,
+			Box::new(call_transfer(6, 10_000))
+		));
+		assert!(System::nested_dispatch_failed());
+	});
+}
+
+#[test]
 fn filtering_works() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&1, 1000);

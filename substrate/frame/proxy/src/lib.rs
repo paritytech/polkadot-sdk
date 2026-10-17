@@ -1022,6 +1022,11 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 		let e = call.dispatch(origin);
+		if e.is_err() {
+			// This call reports success to the outside, so the failure of the proxied dispatch is
+			// noted for any post dispatch logic that needs to know about it.
+			frame_system::Pallet::<T>::note_nested_dispatch_failure();
+		}
 		Self::deposit_event(Event::ProxyExecuted { result: e.map(|_| ()).map_err(|e| e.error) });
 	}
 
