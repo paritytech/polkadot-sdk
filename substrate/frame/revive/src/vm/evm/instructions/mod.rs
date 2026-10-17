@@ -17,7 +17,10 @@
 
 /// EVM opcode implementations.
 use super::interpreter::Interpreter;
-use crate::vm::{Ext, evm::Halt};
+use crate::vm::{
+	Ext,
+	evm::{EvmDispatch, Halt},
+};
 use revm::bytecode::opcode::*;
 
 /// Arithmetic operations (ADD, SUB, MUL, DIV, etc.).
@@ -46,10 +49,46 @@ pub mod utility;
 #[cfg(feature = "runtime-benchmarks")]
 pub const BENCH_INIT_CODE: u8 = 0x1F; // Arbitrary unused opcode for benchmarking
 
+/// Whether the op-code pays [`EvmDispatch`] before it runs.
+///
+/// The benchmarks of `PUSH`, `DUP` and `SWAP` already run their op-codes in a pseudo-random order,
+/// so their charges include a mispredicted dispatch. Every other op-code pays it, including those
+/// charged through `RuntimeCosts`. Every byte is listed, so each new op-code has to be placed on
+/// one side.
+fn pays_dispatch(opcode: u8) -> bool {
+	match opcode {
+		PUSH0..=PUSH32 | DUP1..=DUP16 | SWAP1..=SWAP16 => false,
+
+		STOP | ADD | MUL | SUB | DIV | SDIV | MOD | SMOD | ADDMOD | MULMOD | EXP | SIGNEXTEND |
+		LT | GT | SLT | SGT | EQ | ISZERO | AND | OR | XOR | NOT | BYTE | SHL | SHR | SAR |
+		CLZ | KECCAK256 | ADDRESS | BALANCE | ORIGIN | CALLER | CALLVALUE | CALLDATALOAD |
+		CALLDATASIZE | CALLDATACOPY | CODESIZE | CODECOPY | GASPRICE | EXTCODESIZE |
+		EXTCODECOPY | RETURNDATASIZE | RETURNDATACOPY | EXTCODEHASH | BLOCKHASH | COINBASE |
+		TIMESTAMP | NUMBER | DIFFICULTY | GASLIMIT | CHAINID | SELFBALANCE | BASEFEE |
+		BLOBHASH | BLOBBASEFEE | POP | MLOAD | MSTORE | MSTORE8 | SLOAD | SSTORE | JUMP |
+		JUMPI | PC | MSIZE | GAS | JUMPDEST | TLOAD | TSTORE | MCOPY | LOG0 | LOG1 | LOG2 |
+		LOG3 | LOG4 | CREATE | CREATE2 | CALL | STATICCALL | DELEGATECALL | CALLCODE | RETURN |
+		REVERT | SELFDESTRUCT | INVALID => true,
+
+		// Undefined op-codes, which halt.
+		0x0C..=0x0F |
+		0x1F |
+		0x21..=0x2F |
+		0x4B..=0x4F |
+		0xA5..=0xEF |
+		0xF6..=0xF9 |
+		0xFB..=0xFC => true,
+	}
+}
+
 pub fn exec_instruction<E: Ext>(
 	interpreter: &mut Interpreter<E>,
 	opcode: u8,
 ) -> core::ops::ControlFlow<Halt> {
+	if pays_dispatch(opcode) {
+		interpreter.ext.charge_or_halt(EvmDispatch)?;
+	}
+
 	match opcode {
 		STOP => control::stop(interpreter),
 		ADD => arithmetic::add(interpreter),

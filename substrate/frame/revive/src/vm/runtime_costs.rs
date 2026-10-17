@@ -44,6 +44,11 @@ const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 pub enum RuntimeCosts {
 	/// Base Weight of calling a host function.
 	HostFn,
+	/// Weight of exposing zeroed EVM memory and, when needed, allocating a replacement buffer.
+	/// Both sizes are in 32-byte words. Zero allocation words means the existing buffer is kept.
+	EvmMemoryGrow { words: u32, allocation_words: u32 },
+	/// Weight of allocating and copying EVM output data, in bytes.
+	EvmMemoryCopyOut(u32),
 	/// Weight charged for executing the extcodecopy instruction.
 	ExtCodeCopy(u32),
 	/// Weight charged for copying data from the sandbox.
@@ -304,6 +309,22 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
+			EvmMemoryGrow { words, allocation_words } => {
+				let grow = cost_args!(evm_memory_grow, words);
+				let allocate = if allocation_words == 0 {
+					Weight::zero()
+				} else {
+					T::WeightInfo::evm_memory_reallocate(allocation_words)
+				};
+				grow.saturating_add(allocate)
+			},
+			EvmMemoryCopyOut(len) => {
+				if len == 0 {
+					Weight::zero()
+				} else {
+					T::WeightInfo::evm_memory_copy_out(len)
+				}
+			},
 			// `extcodecopy` charges `CodeSize` separately; subtract it so its read isn't counted
 			// twice.
 			ExtCodeCopy(len) => {

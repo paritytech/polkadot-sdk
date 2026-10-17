@@ -79,6 +79,27 @@ fn make_initcode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
 	init_code
 }
 
+/// The weight consumed by calling the Solc build of `fixture` with `data` on a fresh chain.
+///
+/// Two calls that run the same op-codes consume the same weight, apart from the charges that their
+/// operands change.
+fn weight_of_solc_call(fixture: &str, data: Vec<u8>) -> Weight {
+	let (code, _) = compile_module_with_type(fixture, FixtureType::Solc).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let output = builder::bare_call(addr).data(data).build();
+		assert!(!output.result.unwrap().did_revert(), "the call reverted");
+		output.weight_consumed
+	})
+}
+
+/// The weight of one repetition of a benchmark that is linear in its component.
+fn slope(weight_fn: fn(u32) -> Weight) -> Weight {
+	weight_fn(1).saturating_sub(weight_fn(0))
+}
+
 /// Init code for a contract that `EXTCODECOPY`s `copy_len` bytes from the address in calldata.
 fn make_extcodecopy_reader(copy_len: u32) -> Vec<u8> {
 	let [b0, b1, b2, b3] = copy_len.to_be_bytes();
