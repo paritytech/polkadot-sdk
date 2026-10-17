@@ -22,8 +22,8 @@ pub(crate) mod version_aware_runtime_api;
 
 use crate::{
 	BlockId, BlockInfoProvider, BlockNumberOrTag, FeeHistoryProvider, FeeHistoryResult, Filter,
-	Log, ReceiptInfo, ReceiptProvider, SubxtBlockInfoProvider, SyncLabel, SyncingProgress,
-	SyncingStatus, TraceOutcome, TransactionTrace,
+	FilterError, Log, ReceiptInfo, ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
+	SyncingProgress, SyncingStatus, TraceOutcome, TransactionTrace,
 	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::EthTransact},
 };
@@ -165,8 +165,8 @@ pub enum ClientError {
 	#[error("failed to recover eth address")]
 	RecoverEthAddressFailed,
 	/// Failed to filter logs.
-	#[error("Failed to filter logs")]
-	LogFilterFailed(#[from] anyhow::Error),
+	#[error("Failed to filter logs: {0}")]
+	LogFilterFailed(#[source] anyhow::Error),
 	/// Receipt storage was not found.
 	#[error("Receipt storage not found")]
 	ReceiptDataNotFound,
@@ -290,6 +290,16 @@ impl From<ClientError> for ErrorObjectOwned {
 			},
 			ClientError::TransactError(EthTransactError::Message(msg)) => {
 				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None)
+			},
+			ClientError::LogFilterFailed(error) => {
+				let message = match error.downcast_ref::<FilterError>() {
+					Some(error) => format!("Failed to filter logs: {error}"),
+					None => {
+						log::error!(target: LOG_TARGET, "Log query failed: {error:#}");
+						"Failed to filter logs".to_string()
+					},
+				};
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, message, None)
 			},
 			_ => {
 				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
