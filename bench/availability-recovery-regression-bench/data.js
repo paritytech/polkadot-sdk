@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792112030089,
+  "lastUpdate": 1792206154171,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5e1f597fd9ff388bf3315d6d805de4fdf88ae4d4",
-          "message": "Update PolkaVM to latest version (#11650)",
-          "timestamp": "2026-04-07T08:53:13Z",
-          "tree_id": "aea557c47a059041d5337471d3f6872e4202dd4b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5e1f597fd9ff388bf3315d6d805de4fdf88ae4d4"
-        },
-        "date": 1775557905983,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.879673532666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13134459110000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.89539288196666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@gmail.com",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bd8f292bf13f898a52b81cafd84d124bb837a2c6",
+          "message": "Snowbridge: Ethereum Glamsterdam Upgrade Support (#13122)\n\nContext\n- [EIP-7688](https://eips.ethereum.org/EIPS/eip-7688) turns BeaconState\nand BeaconBlockBody into progressive containers, so every generalized\nindex moves; the light client selects the Gloas indices by slot.\n\n- [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732) removes\n`execution_payload` from BeaconBlockBody, leaving a builder's bid that\ncommits to the *parent* execution block hash. A proof carries that\nblock's canonical RLP header, authenticated by `keccak256(bytes) ==\ncommitted hash`, and reads `receipts_root` out of it.\n\n- [EIP-8037](https://eips.ethereum.org/EIPS/eip-8037) prices new state\nand [EIP-8038](https://eips.ethereum.org/EIPS/eip-8038) reprices state\naccess. The outbound dispatch gas limits are raised to match; they now\nlive in `snowbridge_outbound_queue_primitives::dispatch_gas`, shared by\nv1 and v2.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-10-16T14:53:10Z",
+          "tree_id": "7e136dda0556810278b12a572caa621e09371660",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bd8f292bf13f898a52b81cafd84d124bb837a2c6"
+        },
+        "date": 1792206113972,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1312489912,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.991734170400001,
             "unit": "seconds"
           }
         ]
