@@ -642,9 +642,9 @@ async fn propose_and_import_block(
 		.unwrap();
 
 	let seal = {
-		// sign the pre-sealed hash of the block and then
-		// add it to a digest item.
-		let pair = AuthorityPair::from_seed(&[1; 32]);
+		// sign the pre-sealed hash of the block with the key of authority 0 (Alice in the
+		// test runtime) and then add it to a digest item.
+		let pair: AuthorityPair = Sr25519Keyring::Alice.pair().into();
 		let pre_hash = block.header.hash();
 		let signature = pair.sign(pre_hash.as_ref());
 		Item::babe_seal(signature)
@@ -994,6 +994,69 @@ async fn verify_slots_are_strictly_increasing() {
 	// we should fail to import this block since the slot number didn't increase.
 	// we will panic due to the `PanickingBlockImport` defined above.
 	propose_and_import_block(&b1, Some(999.into()), &mut proposer_factory, &mut block_import).await;
+}
+
+#[tokio::test]
+async fn equivocation_proof_is_built_from_sealed_headers() {
+	let mut net = BabeTestNet::new(1);
+
+	let peer = net.peer(0);
+	let data = peer.data.as_ref().expect("babe link set up during initialization");
+
+	let client = peer.client().as_client();
+	let mut block_import = data.block_import.lock().take().expect("import set up during init");
+
+	let mut proposer_factory = DummyFactory {
+		client: client.clone(),
+		epoch_changes: data.link.epoch_changes.clone(),
+		mutator: Arc::new(|_, _| ()),
+	};
+
+	let genesis_header = client.header(client.chain_info().genesis_hash).unwrap().unwrap();
+
+	// Equivocations are only tracked for recent slots, so we author at the current slot.
+	let slot =
+		Slot::from_timestamp(Timestamp::current(), SlotDuration::from_millis(SLOT_DURATION_MS));
+
+	// Authority 0 produces a block at `slot` on top of genesis.
+	let first_hash = propose_and_import_block(
+		&genesis_header,
+		Some(slot),
+		&mut proposer_factory,
+		&mut block_import,
+	)
+	.await;
+	let first_header = client.header(first_hash).unwrap().unwrap();
+
+	// The same authority produces a different block at the same slot, on top of another block.
+	let fork_hash = propose_and_import_block(
+		&genesis_header,
+		Some(slot.saturating_sub(1u64)),
+		&mut proposer_factory,
+		&mut block_import,
+	)
+	.await;
+	let fork_header = client.header(fork_hash).unwrap().unwrap();
+	let second_hash = propose_and_import_block(
+		&fork_header,
+		Some(slot),
+		&mut proposer_factory,
+		&mut block_import,
+	)
+	.await;
+	let second_header = client.header(second_hash).unwrap().unwrap();
+
+	// The block import recorded the first header for this slot. Checking the second header
+	// against it yields the same proof that the block import reported to the runtime.
+	let author: AuthorityId = Sr25519Keyring::Alice.public().into();
+	let proof = check_equivocation(&*client, slot, slot, &second_header, &author)
+		.unwrap()
+		.expect("two different headers by the same author at the same slot are an equivocation");
+
+	// The proof must contain the sealed headers, otherwise the runtime rejects it.
+	assert_eq!(proof.first_header, first_header);
+	assert_eq!(proof.second_header, second_header);
+	assert!(sp_consensus_babe::check_equivocation_proof(proof));
 }
 
 #[tokio::test]
