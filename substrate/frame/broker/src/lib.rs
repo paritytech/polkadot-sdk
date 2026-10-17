@@ -837,6 +837,8 @@ pub mod pallet {
 		///   must be greater than 0. This may affect the weight of the call but should be ideally
 		///   made equivalent to the length of the Region `region_id`. If less, further dispatches
 		///   will be required with the same `region_id` to claim revenue for the remainder.
+		///   Processing stops at the first timeslice whose revenue the relay chain has not yet
+		///   reported; the remainder can be claimed once it has been.
 		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::claim_revenue(*max_timeslices))]
 		pub fn claim_revenue(
