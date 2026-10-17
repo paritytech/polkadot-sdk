@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792207862337,
+  "lastUpdate": 1792216770575,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -134783,6 +134783,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2659584916,
             "range": "± 18769531",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "03215dcacd1313785052a8eb6e69dd5f07ee01de",
+          "message": "statement-store: deliver statements to light peers on the v2 DHT path (#13456)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13307.\n\nWith the v2 DHT path on, a light peer got only the initial sync. The\npropagation plan took the filter matches from the peers in the topology,\nand light peers never enter it. The plan now takes them from the stored\npeer filters, so a light peer reaches the plan through its filter alone,\nwhile staying out of the DHT index, routing targets and peer steering.\n\nThe two TODO(#11288) comments are settled without a code change. A light\npeer stays out of the orchestrator because it stores and routes nothing.\nThe `can_receive` check before queueing stays because a V2 peer skipped\nfor a missing filter gets the skipped statements from the initial sync\nthat follows its filter.\n\n# Integration\n\nNo changes needed.",
+          "timestamp": "2026-10-17T04:41:50Z",
+          "tree_id": "00bcafa9d0111e6b4ea8cb9596afa4bd6ef59f4d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/03215dcacd1313785052a8eb6e69dd5f07ee01de"
+        },
+        "date": 1792216739452,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20059874,
+            "range": "± 213449",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20092273,
+            "range": "± 212324",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21887063,
+            "range": "± 266395",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26933499,
+            "range": "± 409646",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63579456,
+            "range": "± 642633",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 387960029,
+            "range": "± 7641596",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2877075432,
+            "range": "± 53797475",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17405046,
+            "range": "± 190444",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17651407,
+            "range": "± 165659",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17765449,
+            "range": "± 166603",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22773378,
+            "range": "± 167801",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63152559,
+            "range": "± 980450",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 360836295,
+            "range": "± 6927048",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2690678659,
+            "range": "± 19306042",
             "unit": "ns/iter"
           }
         ]
