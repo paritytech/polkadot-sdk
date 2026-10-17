@@ -49,6 +49,7 @@ mod control;
 mod host;
 mod memory;
 mod stack;
+mod storage_precompile;
 mod system;
 mod terminate;
 mod terminate_storage;
