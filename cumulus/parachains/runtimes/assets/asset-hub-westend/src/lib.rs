@@ -1883,6 +1883,8 @@ parameter_types! {
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	// unreleased
+	pallet_treasury::migration::MigrateV0ToV1<Runtime, (), governance::MaxApprovals>,
+	// unreleased
 	// no-op if member has no trapped balance, so second run is safe.
 	pallet_nomination_pools::migration::unversioned::ClaimTrappedBalance<
 		Runtime,
