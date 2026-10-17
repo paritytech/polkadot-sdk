@@ -1,0 +1,80 @@
+title: 'pallet-revive: cold/hot pricing for calls, transfers, code loads and contract creation'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    The cold/hot pricing introduced in #12104 now also covers the state items accessed by the call
+    opcodes (EVM `CALL`, `STATICCALL`, `DELEGATECALL` and the PVM call and delegate-call host
+    functions), a call's value transfer, code loads and contract creation, following EIP-2929. An
+    item is hot if it was accessed earlier in the same transaction. Each operation is charged the
+    cold benchmark if any of the items it accesses is cold, and the hot benchmark if all are hot.
+- audience: Runtime Dev
+  description: |-
+    `WeightInfo` has 13 new required methods: `code_load`, `account_info_read`, `seal_call_hot`,
+    `seal_call_transfer_hot`, `seal_delegate_call_hot`, `call_with_pvm_code_per_byte_hot`,
+    `call_with_evm_code_per_byte_hot`, `access_list_touch_hot_upgrade`,
+    `access_list_touch_cold_address_empty`, `access_list_touch_cold_address_full`,
+    `access_list_touch_hot_address_single_element`, `access_list_touch_hot_address_full` and
+    `access_list_rollback_address_amortization`.
+    Some existing benchmarks also measure different work now, so runtimes with their own
+    `pallet_revive` weights must regenerate them:
+    - `call`, `eth_call`, `seal_call`, `seal_delegate_call`, `instantiate` and `seal_instantiate`
+      no longer measure the code reads, which `code_load` charges separately. Their weights drop,
+      but a cold call or instantiation now also pays `code_load`.
+    - `seal_instantiate` and `evm_instantiate` also measure a read of the new address's
+      `OriginalAccount` entry.
+    - `access_list_touch_hot_full` now touches a read-paid entry with a read, so it no longer
+      measures an upgrade; `access_list_touch_hot_upgrade` measures that.
+    - Since the access list grew from 2,048 to 4,096 entries, the benchmarks that fill it now go
+      up to 4,096.
+
+    Code outside the pallet that uses `pallet_revive::precompiles`:
+    - `Ext` no longer has `touch_storage_access` and `peek_storage_access`, and
+      `StorageAccessKind::Persistent` no longer holds a plain `Warmth`, so `StorageAccessKind::new`
+      no longer takes one either. Code that charged a storage access should charge the cold price
+      with the new `StorageAccessKind::persistent_cold`, or use `StorageAccessKind::Transient` for
+      transient storage, for example:
+      ```rust
+      env.frame_meter_mut().charge_weight_token(RuntimeCosts::GetStorage {
+          len,
+          kind: StorageAccessKind::persistent_cold(),
+      })?;
+      ```
+    - `StorageOp` and `Warmth` are no longer re-exported.
+    - In `RuntimeCosts`, `DelegateCallBase` is removed, `CallBase` takes the warmth of the call's
+      entries as a new parameter, `CallTransferSurcharge` takes the transfer's warmth in place of
+      `dust_transfer`, and `AccountInfoRead` and `AccessListRegistration` are new. Code that
+      charged `CallBase`, `DelegateCallBase` or `CallTransferSurcharge` can no longer build these
+      variants; it should charge the cold price from `WeightInfo` instead, for example
+      `env.charge(T::WeightInfo::seal_call(transfer, dust, 0))`, or `seal_delegate_call()` for a
+      delegate call.
+
+    `ContractBlob::store_code` now returns `Option<BalanceOf<T>>`: the deposit collected for newly
+    stored code, or `None` when the code was already stored.
+
+    `ExecConfig` has a new field, `first_frame_reads_paid`, which `with_first_frame_reads_paid`
+    sets. It adds the called contract's entries to the access list, so a call back into the
+    contract is charged hot. The `call` and `eth_call` dispatchables set it, because their weights
+    already cover these reads. Code that calls `bare_call` directly should leave it unset, unless
+    its weight already covers them too. Code that builds an `ExecConfig` by listing all its
+    fields, instead of calling a constructor such as `ExecConfig::new_substrate_tx()`, must add
+    the new one.
+
+    The access list holds up to 4,096 entries per transaction (was 2,048). The memory budgeted
+    for its worst case, which `integrity_test` counts against `RuntimeMemory`, grows from 1.5 MiB
+    to 2.5 MiB, so a runtime close to its memory limit can now fail that check. `integrity_test`
+    now also checks that the normal-class block proof limit allows at most 1,024 cold storage
+    slots per transaction, unless that limit is above `PVFMemory`.
+
+    No storage migration is needed.
+- audience: Runtime User
+  description: |-
+    A call or delegate call to an EIP-7702 delegated account whose delegation target is not a
+    deployed contract now also pays for reading the target's account info, which tells whether
+    the target is itself delegated.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch
