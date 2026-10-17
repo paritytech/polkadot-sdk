@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792216770575,
+  "lastUpdate": 1792221930486,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -134891,6 +134891,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2690678659,
             "range": "± 19306042",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f70f263f11a4ee2c25731f9fcf8759be5e510a0",
+          "message": "eth-rpc: send only new latest blocks to newHeads subscribers (#13477)\n\n### Summary\nThe newHeads subscription sent every block from the best block stream,\nincluding blocks eth-rpc does not take as the latest one: a repeat of\nthe latest block, a lower block replayed while the latest block is still\ncanonical, or a block that contradicts the finalized block. Subscribers\nare now notified only when the latest block changes, so a lower or\nrepeated block is sent only when the latest block moves back, after a\nreorg or a reconnect to a node that is behind.\n\n### Changes\n- `BlockInfoProvider::update_latest` returns the new latest block, or\n`None` if it did not change.\n- The finalized block stream now also notifies subscribers when it\nchanges the latest block.",
+          "timestamp": "2026-10-17T06:07:15Z",
+          "tree_id": "80821c44c74e8fce2c7199728ba9eaad5acef1c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4f70f263f11a4ee2c25731f9fcf8759be5e510a0"
+        },
+        "date": 1792221900026,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20388351,
+            "range": "± 245931",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20346581,
+            "range": "± 110352",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21947895,
+            "range": "± 209987",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27785001,
+            "range": "± 208457",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 65032881,
+            "range": "± 581129",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 396458086,
+            "range": "± 10854402",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2651891077,
+            "range": "± 117731764",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18103863,
+            "range": "± 161680",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18180811,
+            "range": "± 225156",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18482574,
+            "range": "± 358548",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22601279,
+            "range": "± 124406",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 66231082,
+            "range": "± 793980",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 392178581,
+            "range": "± 5020209",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2830838562,
+            "range": "± 7813065",
             "unit": "ns/iter"
           }
         ]
