@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792111106383,
+  "lastUpdate": 1792203818069,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -134567,6 +134567,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2647497961,
             "range": "± 17475492",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@gmail.com",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bd8f292bf13f898a52b81cafd84d124bb837a2c6",
+          "message": "Snowbridge: Ethereum Glamsterdam Upgrade Support (#13122)\n\nContext\n- [EIP-7688](https://eips.ethereum.org/EIPS/eip-7688) turns BeaconState\nand BeaconBlockBody into progressive containers, so every generalized\nindex moves; the light client selects the Gloas indices by slot.\n\n- [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732) removes\n`execution_payload` from BeaconBlockBody, leaving a builder's bid that\ncommits to the *parent* execution block hash. A proof carries that\nblock's canonical RLP header, authenticated by `keccak256(bytes) ==\ncommitted hash`, and reads `receipts_root` out of it.\n\n- [EIP-8037](https://eips.ethereum.org/EIPS/eip-8037) prices new state\nand [EIP-8038](https://eips.ethereum.org/EIPS/eip-8038) reprices state\naccess. The outbound dispatch gas limits are raised to match; they now\nlive in `snowbridge_outbound_queue_primitives::dispatch_gas`, shared by\nv1 and v2.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-10-16T14:53:10Z",
+          "tree_id": "7e136dda0556810278b12a572caa621e09371660",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bd8f292bf13f898a52b81cafd84d124bb837a2c6"
+        },
+        "date": 1792203782977,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19527566,
+            "range": "± 182398",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19936807,
+            "range": "± 216687",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21545560,
+            "range": "± 158084",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26234703,
+            "range": "± 207104",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61471384,
+            "range": "± 790202",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 377637837,
+            "range": "± 7645142",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2546027450,
+            "range": "± 66876429",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17117154,
+            "range": "± 238884",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17180689,
+            "range": "± 174190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17644377,
+            "range": "± 228227",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22237957,
+            "range": "± 322252",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63694135,
+            "range": "± 625893",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 371032752,
+            "range": "± 7427051",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2709104414,
+            "range": "± 8130260",
             "unit": "ns/iter"
           }
         ]
