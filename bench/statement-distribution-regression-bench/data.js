@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792210496758,
+  "lastUpdate": 1792217826752,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "rohit.sarpotdar@parity.io",
-            "name": "Rohit Sarpotdar",
-            "username": "rosarp"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8e64bb2e4d7554a813fe5a99805c9898123c1366",
-          "message": "Fix bridges integration test failure for the Westend network (#11643)\n\n## Description\n\nFix bridges **integration test failure** for the Westend network by\nusing the slot-based collator for asset-hub-westend nodes.\n\nThe `asset-hub-westend` runtime configures `RelayParentOffset = 1` (at\n`cumulus/parachains/runtimes/assets/asset-hub-westend/src/lib.rs:138`)\nin this\n[commit](https://github.com/paritytech/polkadot-sdk/commit/8e911a6ebc6965480621db8e89b1ecb157df9eba)\n, which requires relay parent descendant headers in the parachain\ninherent data. However, the **zombienet** test was launching the\ncollators with the default look ahead authoring policy, which passes an\nempty `relay_parent_descendants` vec. This caused a runtime panic on\nevery block build attempt:\n\n```\n  Unable to verify provided relay parent descendants.\n  expected_rp_descendants_num: 1\n  error: InvalidNumberOfDescendants { expected: 2, received: 0 }\n```\n\n  The parachain remained stuck at block #0, failing the test assertion:\nasset-hub-westend-collator1: reports block height is at least 10 within\n180 seconds\n\nOnly the slot-based collator\n(`collators/slot_based/block_builder_task.rs`) calls\n`create_inherent_data_with_rp_offset()` with the required descendant\ndata. The look ahead and basic collators call `create_inherent_data()`\nwhich passes `None`.\n\n## Integration\n\nThis change only affects a zombienet test TOML configuration file. No\ncrate changes.\n\n## Review Notes\n\nThe fix adds \"--authoring\", \"slot-based\" to both\nasset-hub-westend-collator1 and asset-hub-westend-collator2 in\n\nbridges/testing/environments/rococo-westend/bridge_hub_westend_local_network.toml.\n\n  This is only needed for the Westend side because:\n- asset-hub-westend has RelayParentOffset = ConstU32<1> — requires\ndescendant headers\n- asset-hub-rococo has RelayParentOffset = ConstU32<0> — no descendant\nverification, works with any collator\n\nThe Rococo TOML (bridge_hub_rococo_local_network.toml) is unchanged\nsince its asset-hub runtime doesn't require relay parent descendants.",
-          "timestamp": "2026-04-06T15:48:46Z",
-          "tree_id": "b7667e3cec15f4d82df4349b96eb57ddb06a7a41",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8e64bb2e4d7554a813fe5a99805c9898123c1366"
-        },
-        "date": 1775495342406,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.052,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03837356042999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08331091706399996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038436125485999985,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "03215dcacd1313785052a8eb6e69dd5f07ee01de",
+          "message": "statement-store: deliver statements to light peers on the v2 DHT path (#13456)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13307.\n\nWith the v2 DHT path on, a light peer got only the initial sync. The\npropagation plan took the filter matches from the peers in the topology,\nand light peers never enter it. The plan now takes them from the stored\npeer filters, so a light peer reaches the plan through its filter alone,\nwhile staying out of the DHT index, routing targets and peer steering.\n\nThe two TODO(#11288) comments are settled without a code change. A light\npeer stays out of the orchestrator because it stores and routes nothing.\nThe `can_receive` check before queueing stays because a V2 peer skipped\nfor a missing filter gets the skipped statements from the initial sync\nthat follows its filter.\n\n# Integration\n\nNo changes needed.",
+          "timestamp": "2026-10-17T04:41:50Z",
+          "tree_id": "00bcafa9d0111e6b4ea8cb9596afa4bd6ef59f4d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/03215dcacd1313785052a8eb6e69dd5f07ee01de"
+        },
+        "date": 1792217794887,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.07399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03837909777399999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.07910189046999992,
             "unit": "seconds"
           }
         ]
