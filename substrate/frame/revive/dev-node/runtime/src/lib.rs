@@ -422,6 +422,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			block: <Block as BlockT>::LazyBlock,
 			data: InherentData,
 		) -> CheckInherentsResult {
+			// The first block after a runtime upgrade is checked by the new runtime on top of the
+			// state the old runtime left behind: apply the upgrade's migrations first.
+			Executive::ensure_runtime_upgrade_applied();
 			data.check_extrinsics(&block)
 		}
 	}
