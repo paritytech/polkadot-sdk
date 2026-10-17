@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792217682028,
+  "lastUpdate": 1792222987096,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "99be95da17c08dfc8388be26c213157db86dba22",
-          "message": "[Staking] Fix LastValidatorEra false positive (#11647)\n\nresolves partially:\nhttps://github.com/paritytech/polkadot-sdk/issues/11646",
-          "timestamp": "2026-04-07T11:18:18Z",
-          "tree_id": "a1cb6cf5bf48f5937e698339fdeaba306731eb0b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/99be95da17c08dfc8388be26c213157db86dba22"
-        },
-        "date": 1775566260577,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1201964418,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.5995613916,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.688388267133332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f70f263f11a4ee2c25731f9fcf8759be5e510a0",
+          "message": "eth-rpc: send only new latest blocks to newHeads subscribers (#13477)\n\n### Summary\nThe newHeads subscription sent every block from the best block stream,\nincluding blocks eth-rpc does not take as the latest one: a repeat of\nthe latest block, a lower block replayed while the latest block is still\ncanonical, or a block that contradicts the finalized block. Subscribers\nare now notified only when the latest block changes, so a lower or\nrepeated block is sent only when the latest block moves back, after a\nreorg or a reconnect to a node that is behind.\n\n### Changes\n- `BlockInfoProvider::update_latest` returns the new latest block, or\n`None` if it did not change.\n- The finalized block stream now also notifies subscribers when it\nchanges the latest block.",
+          "timestamp": "2026-10-17T06:07:15Z",
+          "tree_id": "80821c44c74e8fce2c7199728ba9eaad5acef1c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4f70f263f11a4ee2c25731f9fcf8759be5e510a0"
+        },
+        "date": 1792222956728,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.519527529233335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12922881936666666,
             "unit": "seconds"
           }
         ]
