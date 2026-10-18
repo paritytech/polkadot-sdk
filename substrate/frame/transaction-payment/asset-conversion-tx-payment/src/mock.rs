@@ -200,6 +200,7 @@ impl pallet_assets::Config for Runtime {
 	type Freezer = ();
 	type Extra = ();
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	type WeightInfo = ();
 	type RemoveItemsLimit = ConstU32<1000>;
 	pallet_assets::runtime_benchmarks_enabled! {
@@ -228,6 +229,7 @@ impl pallet_assets::Config<Instance2> for Runtime {
 	type Extra = ();
 	type WeightInfo = ();
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	pallet_assets::runtime_benchmarks_enabled! {
 		type BenchmarkHelper = ();
 	}

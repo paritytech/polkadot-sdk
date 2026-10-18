@@ -34,7 +34,10 @@ use sc_network_sync::{
 	engine::SyncingEngine,
 	service::network::NetworkServiceProvider,
 	state_request_handler::StateRequestHandler,
-	strategy::polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
+	strategy::{
+		chain_sync::GapSyncBodyPolicy,
+		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
+	},
 };
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Zero};
@@ -188,7 +191,7 @@ impl TestNetworkBuilder {
 					substrate_test_runtime_client::runtime::Block,
 					substrate_test_runtime_client::runtime::Hash,
 				>,
-			>(&protocol_id, None, client.clone());
+			>(&protocol_id, None, client.clone(), None);
 			tokio::spawn(handler.run().boxed());
 			protocol_config
 		};
@@ -212,7 +215,9 @@ impl TestNetworkBuilder {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
-			archive_blocks: false,
+			// Keep gap sync header-only in this harness, matching the previous
+			// non-archive behavior.
+			gap_sync_body_policy: Arc::new(|| Ok(GapSyncBodyPolicy::HeadersOnly)),
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(

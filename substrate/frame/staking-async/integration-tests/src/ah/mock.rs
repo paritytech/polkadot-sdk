@@ -32,7 +32,7 @@ use pallet_staking_async::{ActiveEra, CurrentEra, Forcing, PotAccountProvider};
 use pallet_staking_async_rc_client::{
 	OutgoingValidatorSet, SendKeysError, SendOperationError, SessionReport, ValidatorSetReport,
 };
-use sp_staking::{budget::BudgetRecipient, SessionIndex};
+use sp_staking::{budget::BudgetRecipient, EraIndex, SessionIndex};
 use xcm::latest::{prelude::*, Asset, AssetId, Assets, Fungibility, Junction, Location};
 use xcm_builder::{FungibleAdapter, IsConcrete};
 use xcm_executor::{
@@ -308,7 +308,8 @@ frame_election_provider_support::generate_solution_type!(
 	>(16)
 );
 
-type Extrinsic = TestXt<RuntimeCall, ()>;
+type TxExtension = frame_system::AuthorizeCall<Runtime>;
+type Extrinsic = TestXt<RuntimeCall, TxExtension>;
 impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
@@ -317,12 +318,23 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-		Extrinsic::new_bare(call)
+	type Extension = TxExtension;
+
+	fn create_transaction(call: RuntimeCall, extension: Self::Extension) -> Self::Extrinsic {
+		Extrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<LocalCall> frame_system::offchain::CreateAuthorizedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_extension() -> Self::Extension {
+		TxExtension::new()
 	}
 }
 
@@ -420,6 +432,8 @@ parameter_types! {
 	pub static DepositPerPage: Balance = 1;
 	pub static MaxSubmissions: u32 = 2;
 	pub static RewardBase: Balance = 5;
+	/// The DAP buffer account, used as the signed-phase reward pot.
+	pub SignedRewardPot: Option<AccountId> = Some(Dap::buffer_account());
 }
 
 impl multi_block::signed::Config for Runtime {
@@ -430,8 +444,11 @@ impl multi_block::signed::Config for Runtime {
 	type DepositBase = DepositBase;
 	type DepositPerPage = DepositPerPage;
 	type EstimateCallFee = ConstU32<1>;
+	type MaxFeeRefund = multi_block::signed::FullSubmissionFee<Runtime, ConstU32<1>>;
 	type MaxSubmissions = MaxSubmissions;
 	type RewardBase = RewardBase;
+	type Slash = Dap;
+	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
 	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
 }
 
@@ -493,6 +510,32 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = super::weights::StakingAsyncWeightInfo;
 
 	type IsValidatorInactive = ();
+	type OnEraStart = EraStartRecorder;
+}
+
+parameter_types! {
+	/// Whether [`EraStartRecorder`] is in use. Off by default, which makes it behave as `()`.
+	pub static EraStartHookEnabled: bool = false;
+	/// The eras and validators [`EraStartRecorder`] was called with.
+	pub static StartedEras: Vec<(EraIndex, Vec<AccountId>)> = Vec::new();
+	/// The weight [`EraStartRecorder`] reports for any set.
+	pub const EraStartHookWeight: Weight = Weight::from_parts(1_000_000, 1_000);
+}
+
+/// An `OnEraStart` hook that records its calls while [`EraStartHookEnabled`] is set.
+pub struct EraStartRecorder;
+impl pallet_staking_async::OnEraStart<AccountId> for EraStartRecorder {
+	fn enabled() -> bool {
+		EraStartHookEnabled::get()
+	}
+
+	fn on_era_start(era: EraIndex, validators: &[AccountId]) {
+		StartedEras::mutate(|started| started.push((era, validators.to_vec())));
+	}
+
+	fn weight(_validators: u32) -> Weight {
+		EraStartHookWeight::get()
+	}
 }
 
 // Session keys type that must match RC's SessionKeys.
@@ -965,6 +1008,23 @@ parameter_types! {
 	static ElectionEventsIndex: usize = 0;
 	static VerifierEventsIndex: usize = 0;
 	static RcClientEventsIndex: usize = 0;
+	static SignedEventsIndex: usize = 0;
+}
+
+pub(crate) fn signed_events_since_last_call() -> Vec<multi_block::signed::Event<T>> {
+	let all: Vec<_> = System::events()
+		.into_iter()
+		.filter_map(|r| {
+			if let RuntimeEvent::MultiBlockSigned(inner) = r.event {
+				Some(inner)
+			} else {
+				None
+			}
+		})
+		.collect();
+	let seen = SignedEventsIndex::get();
+	SignedEventsIndex::set(all.len());
+	all.into_iter().skip(seen).collect()
 }
 
 pub(crate) fn rc_client_events_since_last_call() -> Vec<pallet_staking_async_rc_client::Event<T>> {
