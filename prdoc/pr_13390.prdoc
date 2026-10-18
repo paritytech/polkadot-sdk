@@ -1,0 +1,14 @@
+title: 'frame-benchmarking: fall back to median value for same-x samples in `min_squares_iqr`'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes a regression where `benchmark pallet --output` has been failing with
+      "Parameter `n` only has 1 unique value(s)" for benchmarks touching a distinct storage key
+      per item. The per-prefix proof-size analysis can see one or two samples sharing a single
+      component value, and `min_squares_iqr` now uses the median value for those instead of
+      erroring. Two samples at distinct values still get a fitted slope.
+
+crates:
+  - name: frame-benchmarking
+    bump: patch
