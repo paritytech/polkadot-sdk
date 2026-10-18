@@ -306,8 +306,8 @@ Reference algorithms: design §Requires Lifting (`stitch`, `build_requires_entry
 | `MAX_UMP_SIGNALS` | 4 | = variant count |
 | `MAX_SPECULATIVE_MESSAGE_LEN` | 102 400 B | frozen; wire-enforced payload bound (`PayloadTooLarge`) |
 | `MAX_MESSAGES_PER_RESPONSE` | 1024 | decode ceiling on a `MessagesResponse`'s payloads; not consensus |
-| `MAX_EXTENSION_CONNECTING_NODES` | 64 | checked before verifying, not at decode; the design's ceiling, which the lift reservation assumes (a valid proof has at most 48) |
-| `MAX_INCLUSION_PROOF_ITEMS` | 128 | checked before verifying, not at decode; must exceed the valid maxima, not consensus |
+| `MAX_EXTENSION_CONNECTING_NODES` | 64 | checked before verifying; the design's ceiling, which the lift reserves for |
+| `MAX_INCLUSION_PROOF_ITEMS` | 128 | checked before verifying; must exceed the valid maxima, not consensus |
 | `SPMS_ENGINE_ID` | `*b"SPMS"` | implemented; freeze before cross-chain ships |
 | `W` (RecentProvides ring) | 128 | relay-side constant; changed by runtime upgrade |
 | `MaxTouchedStreams` | per-chain receiver | inherent bound; `≤ MAX_COMMITMENT_ENTRIES`; integrity-checked |
@@ -337,7 +337,7 @@ crate:
    (a forged frontier count, inclusion size or extension count; a payload posing as a node; a key
    one bit away; a range read relabelled to a lower position) must fail or yield an uncommitted
    root. Pinned (`adversarial_tests`).
-7. **Wire objects** (§9): envelope discriminants, request/response round-trips, `MmrInclusionProof`
+8. **Wire objects** (§9): envelope discriminants, request/response round-trips, `MmrInclusionProof`
    verification, header-digest extraction and canonical-digest rejection. Pinned.
 
 Language-neutral vector files are not yet extracted (§13 #7). This document is the authority on the
