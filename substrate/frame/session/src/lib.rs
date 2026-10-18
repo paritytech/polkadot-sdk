@@ -607,7 +607,8 @@ pub mod pallet {
 
 			let initial_validators_0 =
 				T::SessionManager::new_session_genesis(0).unwrap_or_else(|| {
-					frame_support::print(
+					log!(
+						warn,
 						"No initial validator provided by `SessionManager`, use \
 						session config keys to generate initial validator set.",
 					);
