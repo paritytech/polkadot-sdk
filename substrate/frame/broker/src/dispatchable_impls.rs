@@ -609,14 +609,7 @@ impl<T: Config> Pallet<T> {
 				Err(pos) => pos,
 			};
 			renewals
-				.try_insert(
-					pos,
-					AutoRenewalRecord {
-						core,
-						task,
-						next_renewal: workload_end_hint.unwrap_or(sale.region_end),
-					},
-				)
+				.try_insert(pos, AutoRenewalRecord { core, task, next_renewal })
 				.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
 			Ok(())
 		})?;
