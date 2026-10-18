@@ -127,6 +127,12 @@ impl<B: BlockT> GossipEngine<B> {
 		self.state_machine.register_message(topic, message);
 	}
 
+	/// Marks a message as known without registering it, so it is never propagated. Incoming
+	/// copies of the message are ignored, as for a registered message.
+	pub fn mark_message_known(&mut self, message: &[u8]) {
+		self.state_machine.mark_message_known(message);
+	}
+
 	/// Broadcast all messages with given topic.
 	pub fn broadcast_topic(&mut self, topic: B::Hash, force: bool) {
 		self.state_machine.broadcast_topic(&mut self.notification_service, topic, force);

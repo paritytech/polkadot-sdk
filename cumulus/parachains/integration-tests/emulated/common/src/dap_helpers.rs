@@ -28,11 +28,8 @@ use xcm_emulator::{Chain, TestExt};
 /// Tests that the accumulate-and-forward pallet accumulates native tokens, teleports them to
 /// the staging account of `pallet-dap` on AssetHub, and that `pallet-dap`'s `on_idle`
 /// subsequently drains and deactivates those funds into the main DAP buffer account.
-pub fn test_accumulate_forward_transfers_to_asset_hub<Sender, AH>(
-	fund_sender: fn(AccountId, Balance),
-	get_relay_block: fn() -> u32,
-	set_relay_block: fn(u32),
-) where
+pub fn test_accumulate_forward_transfers_to_asset_hub<Sender, AH>()
+where
 	Sender: Chain + TestExt,
 	Sender::Runtime: pallet_accumulate_and_forward::Config
 		+ pallet_balances::Config<Balance = Balance>
@@ -40,7 +37,6 @@ pub fn test_accumulate_forward_transfers_to_asset_hub<Sender, AH>(
 	Sender::RuntimeEvent: TryInto<pallet_accumulate_and_forward::Event<Sender::Runtime>>,
 	pallet_accumulate_and_forward::Pallet<Sender::Runtime>: Hooks<u32>,
 	<Sender::Runtime as pallet_accumulate_and_forward::Config>::MinTransferAmount: Get<Balance>,
-	<Sender::Runtime as pallet_accumulate_and_forward::Config>::TransferPeriod: Get<u32>,
 	AH: Chain + TestExt,
 	AH::Runtime: pallet_xcm::Config
 		+ pallet_dap::Config
@@ -60,7 +56,6 @@ pub fn test_accumulate_forward_transfers_to_asset_hub<Sender, AH>(
 	// The fund amount should slightly exceed MinTransferAmount to trigger a transfer.
 	let fund_amount =
 		<Sender::Runtime as pallet_accumulate_and_forward::Config>::MinTransferAmount::get() + 1;
-	fund_sender(accumulation_account.clone(), sender_ed + fund_amount);
 
 	// Pre-fund AH's CheckingAccount, as during testing the sender mints its own tokens rather
 	// than receiving them from AH via teleport (which would normally accrue them).
@@ -73,12 +68,6 @@ pub fn test_accumulate_forward_transfers_to_asset_hub<Sender, AH>(
 		));
 	});
 
-	let accumulation_balance_before = Sender::account_data_of(accumulation_account.clone()).free;
-	let available_funds = accumulation_balance_before - sender_ed;
-
-	let sender_total_issuance_before =
-		Sender::execute_with(|| pallet_balances::Pallet::<Sender::Runtime>::total_issuance());
-
 	let (ah_total_issuance_before, ah_inactive_issuance_before, buffer_balance_before) =
 		AH::execute_with(|| {
 			(
@@ -88,18 +77,19 @@ pub fn test_accumulate_forward_transfers_to_asset_hub<Sender, AH>(
 			)
 		});
 
-	let transfer_period =
-		<Sender::Runtime as pallet_accumulate_and_forward::Config>::TransferPeriod::get();
+	// Fund and forward in the same block: every emulated block ends with `on_idle`, which would
+	// forward the funds before this block gets to observe it.
+	let (available_funds, sender_total_issuance_before) = Sender::execute_with(|| {
+		assert_ok!(pallet_balances::Pallet::<Sender::Runtime>::mint_into(
+			&accumulation_account,
+			sender_ed + fund_amount
+		));
+		let available_funds =
+			pallet_balances::Pallet::<Sender::Runtime>::balance(&accumulation_account) - sender_ed;
+		let total_issuance_before = pallet_balances::Pallet::<Sender::Runtime>::total_issuance();
 
-	// Trigger `on_idle` to initiate a transfer to DAP. The block number used by
-	// `BlockNumberProvider` must be an exact multiple of `TransferPeriod`.
-	Sender::execute_with(|| {
-		// Save the current relay block so we can restore it before `on_finalize` runs.
-		let orig_relay_block = get_relay_block();
-
-		set_relay_block(transfer_period.saturating_mul(3));
 		let _ = <pallet_accumulate_and_forward::Pallet<Sender::Runtime> as Hooks<u32>>::on_idle(
-			transfer_period.saturating_mul(3),
+			1,
 			Weight::MAX,
 		);
 		let forward_succeeded = Sender::events().into_iter().any(|e| {
@@ -110,9 +100,7 @@ pub fn test_accumulate_forward_transfers_to_asset_hub<Sender, AH>(
 		});
 		assert!(forward_succeeded, "Expected AccumulateForward::ForwardSucceeded event");
 
-		// Restore the relay block so `on_finalize` writes the correct value into
-		// `LastRelayChainBlockNumber`.
-		set_relay_block(orig_relay_block);
+		(available_funds, total_issuance_before)
 	});
 
 	// Delivery fees are waived for the accumulation account, so it retains exactly the ED.

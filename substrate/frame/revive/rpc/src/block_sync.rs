@@ -19,7 +19,7 @@
 
 use crate::{
 	BlockInfoProvider,
-	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber, runtime_api::RuntimeApi},
+	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
 };
 use pallet_revive::evm::H256;
 use tokio::sync::mpsc;
@@ -313,13 +313,24 @@ impl Client {
 			let block_number = block.block_number();
 			let block_hash = block.block_hash();
 
-			let ethereum_hash = match RuntimeApi::new((*block).clone())
-				.eth_block_hash(pallet_revive::evm::U256::from(block_number))
-				.await
-			{
-				Ok(h) => h,
+			// A block whose runtime does not expose `eth_block_hash` predates pallet-revive and
+			// is treated exactly like a block without an EVM hash: it marks the end of the
+			// backward sync.
+			let ethereum_hash = match self.runtime_api(block_hash).await {
+				Ok(runtime_api) => {
+					match runtime_api.eth_block_hash(pallet_revive::evm::U256::from(block_number)) {
+						Some(future) => match future.await {
+							Ok(hash) => hash,
+							Err(err) => {
+								log::error!(target: LOG_TARGET,	"⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping");
+								break Err(err);
+							},
+						},
+						None => None,
+					}
+				},
 				Err(err) => {
-					log::error!(target: LOG_TARGET, "⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping");
+					log::error!(target: LOG_TARGET,	"⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping");
 					break Err(err);
 				},
 			};

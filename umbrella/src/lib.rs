@@ -130,10 +130,6 @@ pub use cumulus_client_service;
 #[cfg(feature = "cumulus-pallet-aura-ext")]
 pub use cumulus_pallet_aura_ext;
 
-/// Migrates messages from the old DMP queue pallet.
-#[cfg(feature = "cumulus-pallet-dmp-queue")]
-pub use cumulus_pallet_dmp_queue;
-
 /// Base pallet for cumulus-based parachains.
 #[cfg(feature = "cumulus-pallet-parachain-system")]
 pub use cumulus_pallet_parachain_system;
@@ -612,6 +608,10 @@ pub use pallet_offences;
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
 
+/// Sale of on-demand Coretime from the Coretime chain.
+#[cfg(feature = "pallet-on-demand-para")]
+pub use pallet_on_demand_para;
+
 /// FRAME oracle pallet for off-chain data.
 #[cfg(feature = "pallet-oracle")]
 pub use pallet_oracle;
@@ -705,10 +705,6 @@ pub use pallet_salary;
 /// FRAME Scheduler pallet.
 #[cfg(feature = "pallet-scheduler")]
 pub use pallet_scheduler;
-
-/// FRAME pallet for scored pools.
-#[cfg(feature = "pallet-scored-pool")]
-pub use pallet_scored_pool;
 
 /// FRAME sessions pallet.
 #[cfg(feature = "pallet-session")]
@@ -808,6 +804,14 @@ pub use pallet_uniques;
 /// FRAME utilities pallet.
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
+
+/// Pallet that selects the relay-chain validators with registered keys as collators.
+#[cfg(feature = "pallet-validator-collators")]
+pub use pallet_validator_collators;
+
+/// Pallet that announces each era's validator set to other system chains.
+#[cfg(feature = "pallet-validator-set-announcer")]
+pub use pallet_validator_set_announcer;
 
 /// FRAME verify signature pallet.
 #[cfg(feature = "pallet-verify-signature")]
@@ -1183,6 +1187,10 @@ pub use sc_mixnet;
 /// Substrate network protocol.
 #[cfg(feature = "sc-network")]
 pub use sc_network;
+
+/// Substrate Bitswap client/server service.
+#[cfg(feature = "sc-network-bitswap")]
+pub use sc_network_bitswap;
 
 /// Substrate network common.
 #[cfg(feature = "sc-network-common")]

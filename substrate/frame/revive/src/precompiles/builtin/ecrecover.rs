@@ -54,6 +54,7 @@ impl<T: Config> PrimitivePrecompile for EcRecover<T> {
 			return Ok(Vec::new());
 		}
 
+		// Unlike transaction validation, the ECRecover precompile accepts high-S signatures.
 		let data = match sp_io::crypto::secp256k1_ecdsa_recover(&sig, &msg) {
 			Ok(pubkey) => {
 				let mut address = sp_io::hashing::keccak_256(&pubkey);
