@@ -1248,12 +1248,24 @@ where
 			},
 		};
 
-		if self.has_view(&hash_and_number.hash) {
+		if let Some((view, _)) = self.view_store.get_view_at(hash_and_number.hash, false) {
 			debug!(
 				target: LOG_TARGET,
 				?hash_and_number,
 				"view already exists for block"
 			);
+			// The existing view was not built along this tree route (e.g. it was created before the
+			// retracted blocks were imported), so it does not contain their transactions.
+			// Transactions unknown to the mempool would otherwise be lost for this view and its
+			// descendants.
+			if !tree_route.retracted().is_empty() {
+				let mut included = HashSet::new();
+				for block in tree_route.enacted() {
+					included.extend(self.fetch_block_transactions(block).await);
+				}
+				self.resubmit_retracted_transactions(&view, tree_route, hash_and_number, &included)
+					.await;
+			}
 			return;
 		}
 
@@ -1757,14 +1769,30 @@ where
 		self.metrics
 			.report(|metrics| metrics.unknown_from_block_import_txs.inc_by(unknown_count as _));
 
-		// resubmit
+		self.resubmit_retracted_transactions(view, tree_route, &hash_and_number, &pruned_log)
+			.await;
+	}
+
+	/// Resubmits transactions from the retracted blocks of the given `tree_route` to the given
+	/// view.
+	///
+	/// Transactions contained in `included` (included in the blocks on the enacted path) are
+	/// skipped.
+	async fn resubmit_retracted_transactions(
+		&self,
+		view: &View<ChainApi>,
+		tree_route: &TreeRoute<Block>,
+		hash_and_number: &HashAndNumber<Block>,
+		included: &HashSet<ExtrinsicHash<ChainApi>>,
+	) {
 		{
 			let mut resubmit_transactions = Vec::new();
 
 			for retracted in tree_route.retracted().iter().rev() {
 				let hash = retracted.hash;
 
-				let block_transactions = api
+				let block_transactions = self
+					.api
 					.block_body(hash)
 					.await
 					.unwrap_or_else(|error| {
@@ -1782,7 +1810,7 @@ where
 
 				let txs = block_transactions.into_iter().map(|tx| (self.hash_of(&tx), tx)).filter(
 					|(tx_hash, _)| {
-						let contains = pruned_log.contains(&tx_hash);
+						let contains = included.contains(&tx_hash);
 
 						// need to count all transactions, not just filtered, here
 						resubmitted_to_report += 1;
@@ -1823,7 +1851,7 @@ where
 			let _ = view
 				.pool
 				.resubmit_at(
-					&hash_and_number,
+					hash_and_number,
 					resubmit_transactions,
 					ValidateTransactionPriority::Maintained,
 				)

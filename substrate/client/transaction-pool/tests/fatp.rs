@@ -1497,6 +1497,108 @@ fn fatp_retract_all_forks() {
 	assert_pool_status!(header02c.hash(), &pool, 2, 0);
 }
 
+/// Transactions from a retracted block must be resubmitted even if the newly enacted block already
+/// has a view (e.g. it was imported as non-best before, or it gets finalized while a sibling is the
+/// best block).
+///
+/// `xt0` is known only from the block body (it was never submitted to this pool), so the only way
+/// to get it back after the re-org is the resubmission of retracted transactions.
+///
+/// ```text
+///    01a[xt0]  <- best, then retracted
+///   /
+/// G
+///   \
+///    01b - 02b <- 01b has a view before 01a was notified, 01b gets finalized
+/// ```
+#[test]
+fn fatp_retracted_txs_are_resubmitted_to_existing_view() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	let genesis = api.genesis_hash();
+
+	let xt0 = uxt(Alice, 200);
+
+	let header01b = api.push_block_with_parent(genesis, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(genesis), header01b.hash())));
+
+	let header01a = api.push_block_with_parent(genesis, vec![xt0.clone()], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01b.hash()), header01a.hash())));
+	assert_pool_status!(header01a.hash(), &pool, 0, 0);
+
+	// 01a is retracted by finalizing 01b, xt0 shall be ready again on 01b.
+	block_on(pool.maintain(finalized_block_event(&pool, genesis, header01b.hash())));
+
+	// The iterator used by block production must provide xt0 when building on 01b and 02b.
+	let block_production_ready = |at| {
+		block_on(pool.ready_at_with_timeout(at, Duration::ZERO))
+			.map(|tx| tx.hash)
+			.collect::<Vec<_>>()
+	};
+	let xt0_hash = pool.api().hash_and_length(&xt0).0;
+
+	assert_eq!(block_production_ready(header01b.hash()), vec![xt0_hash]);
+	assert_pool_status!(header01b.hash(), &pool, 1, 0);
+
+	let header02b = api.push_block_with_parent(header01b.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01b.hash()), header02b.hash())));
+	assert_eq!(block_production_ready(header02b.hash()), vec![xt0_hash]);
+	assert_pool_status!(header02b.hash(), &pool, 1, 0);
+}
+
+/// A late `NewBlock` notification for an old fork block must not cause the maintenance of the
+/// following finalization to be skipped.
+///
+/// ```text
+///         02[xt0] - 03 - ... - 23 <- best, 23 gets finalized
+///        /
+/// G - 01
+///        \
+///         f02                     <- imported (non-best) after 23
+/// ```
+#[test]
+fn fatp_finalization_not_skipped_after_old_fork_block() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	let genesis = api.genesis_hash();
+
+	let header01 = api.push_block_with_parent(genesis, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(genesis), header01.hash())));
+
+	let xt0 = uxt(Alice, 200);
+	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+
+	let header02 = api.push_block_with_parent(header01.hash(), vec![xt0.clone()], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
+
+	// 23 is the first height where finalizing the tip after the notification of f02 exceeds
+	// `SKIP_MAINTENANCE_THRESHOLD` (20) in `enactment_state.rs`: 23 - 2 > 20.
+	let mut tip = header02.hash();
+	for _ in 3..=23 {
+		let header = api.push_block_with_parent(tip, vec![], true);
+		block_on(pool.maintain(new_best_block_event(&pool, Some(tip), header.hash())));
+		tip = header.hash();
+	}
+
+	let fork02 = api.push_block_with_parent(header01.hash(), vec![], false);
+	block_on(pool.maintain(ChainEvent::NewBlock { hash: fork02.hash() }));
+
+	block_on(pool.maintain(finalized_block_event(&pool, genesis, tip)));
+
+	// finalized xt0 shall be purged from the mempool
+	assert_eq!(block_on(pool.mempool_len()), (0, 0));
+	assert_watcher_stream!(
+		xt0_watcher,
+		[
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header02.hash(), 0)),
+			TransactionStatus::Finalized((header02.hash(), 0))
+		]
+	);
+}
+
 #[test]
 fn fatp_watcher_finalizing_forks() {
 	sp_tracing::try_init_simple();
