@@ -1,0 +1,10 @@
+title: 'pallet-alliance: reject an item repeated within one add_unscrupulous_items batch'
+doc:
+  - audience: Runtime Dev
+    description: |
+      add_unscrupulous_items now returns AlreadyUnscrupulous when the same account or website
+      appears more than once in one call. Before, both copies were stored, and a single later
+      removal left the item listed.
+crates:
+  - name: pallet-alliance
+    bump: patch
