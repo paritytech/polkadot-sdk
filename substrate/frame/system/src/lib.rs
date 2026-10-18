@@ -154,6 +154,9 @@ use sp_weights::{RuntimeDbWeight, Weight, WeightMeter};
 #[cfg(any(feature = "std", test))]
 use sp_io::TestExternalities;
 
+// Set while the runtime is validating a transaction for the transaction pool.
+environmental::environmental!(POOL_TRANSACTION_VALIDATION: ());
+
 pub mod limits;
 #[cfg(test)]
 pub(crate) mod mock;
@@ -1938,6 +1941,37 @@ impl<T: Config> Pallet<T> {
 	/// Returns the current active execution phase.
 	pub fn execution_phase() -> Option<Phase> {
 		ExecutionPhase::<T>::get()
+	}
+
+	/// Returns whether the runtime is currently validating a transaction for the
+	/// transaction pool, and not executing a block or running in any other context.
+	///
+	/// # WARNING: This call can open up vulnerabilities if misused.
+	///
+	/// This call enables conditional execution depending on whether the runtime is
+	/// validating a transaction for the transaction pool or executing in a block. Any code executed
+	/// solely during the transaction validation in the pool can be bypassed by a block author. The
+	/// code executed for the block execution must still enforce all the necessary checks.
+	///
+	/// Furthermore the validation in the transaction pool happens on a different block and state
+	/// than the execution.
+	pub fn is_pool_transaction_validation() -> bool {
+		POOL_TRANSACTION_VALIDATION::with(|_| ()).is_some()
+	}
+
+	/// Execute `f` in the transaction pool validation environment.
+	///
+	/// It must be called when validating a transaction in the pool and only at this time. Not for
+	/// block execution or any other context.
+	///
+	/// This is meant to be called only by `frame_executive::Executive::validate_transaction`.
+	///
+	/// # WARNING
+	///
+	/// The transaction pool validation environment may be used for conditional execution, this
+	/// function must not be called in any other context.
+	pub fn run_in_pool_transaction_validation<R>(f: impl FnOnce() -> R) -> R {
+		POOL_TRANSACTION_VALIDATION::using(&mut (), f)
 	}
 
 	/// Inform the system pallet of some additional weight that should be accounted for, in the
