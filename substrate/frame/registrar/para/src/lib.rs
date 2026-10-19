@@ -49,9 +49,10 @@
 //!
 //! ## Giving up a para id
 //!
-//! [`Pallet::deregister`] drops an id that was never registered on the spot. One that was
-//! onboarded has to go on the relay chain first, so both deposits stay held until it answers. If
-//! the answer never arrives, the manager calls [`Pallet::deregister`] again.
+//! [`Pallet::deregister`] on an id that is only reserved releases the reservation right away, as
+//! the relay chain never heard of it. A registered para has to be dropped on the relay chain
+//! first, so both deposits stay held until it answers. If the answer never arrives, the manager
+//! calls [`Pallet::deregister`] again.
 //!
 //! ## Locking
 //!
@@ -655,8 +656,8 @@ pub mod pallet {
 
 		/// Give up a para id, releasing every consideration held for it.
 		///
-		/// An id that was never registered is dropped here and now; one the relay chain onboarded
-		/// has to be dropped there first, so the considerations stay taken until it answers.
+		/// An id that is only reserved is released immediately. A registered para has to be
+		/// dropped on the relay chain first, so the considerations stay taken until it answers.
 		///
 		/// Can be called again on a para that is already deregistering, once `can_retry_after`
 		/// has passed. This resends the request.

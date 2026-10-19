@@ -613,19 +613,21 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		)
 	}
 
+	// No origin, manager or lock check: the parachain registrar does those before asking.
 	fn deregister(para_id: u32) -> DispatchResult {
 		let id = ParaId::from(para_id);
-		// A retry after a lost answer: cleanup is already scheduled.
-		if matches!(
-			paras::Pallet::<T>::lifecycle(id),
-			Some(ParaLifecycle::OffboardingParathread) | Some(ParaLifecycle::OffboardingParachain)
-		) {
-			return Ok(());
-		}
-
-		// Using storage layer to ensure the transaction is rolled back if the schedule_para_cleanup
-		// fails.
-		with_storage_layer(|| Self::do_deregister(id))
+		// Rolls back if `schedule_para_cleanup` fails after earlier writes.
+		with_storage_layer(|| {
+			// A retry after a lost answer: cleanup is already scheduled.
+			if matches!(
+				paras::Pallet::<T>::lifecycle(id),
+				Some(ParaLifecycle::OffboardingParathread) |
+					Some(ParaLifecycle::OffboardingParachain)
+			) {
+				return Ok(());
+			}
+			Self::do_deregister(id)
+		})
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
