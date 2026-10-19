@@ -131,7 +131,7 @@ where
 		Self::MIGRATION_ID.encode().try_into().ok()
 	}
 
-	#[cfg(test)]
+	#[cfg(any(test, feature = "try-runtime"))]
 	fn was_executed() -> bool {
 		let Some(id) = Self::bounded_id() else {
 			return false;
