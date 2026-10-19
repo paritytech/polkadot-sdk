@@ -77,9 +77,30 @@ back the service's state footprint. The service can transfer its regular
 balance, but the supervisor balance can be transferred only by the effective
 supervisor. In this design the supervisor is the Parachain Service.
 
-At JAM genesis, the Parachain Service balance holds the full JAMKB supply, and no
-other service holds a balance. Asset Hub manages distribution on behalf of
-the DAO.
+At JAM genesis, the Parachain Service balance holds the full JAMKB supply, and no other service holds a balance. Asset Hub manages distribution on behalf of the DAO.
+
+Once every operation has settled, this holds:
+
+```
+PS regular balance = JAMKB total supply − released − leased
+```
+
+`released` is the units transferred to other JAM services; `leased` is the
+units of delivered leases.
+
+It can drift in two cases:
+
+- The Parachain Service does not record an incoming transfer: it cannot pay
+  for its queue entry, or its processing fails. The funds stay on the
+  Parachain Service and Asset Hub does not see them.
+- A failure entry is lost before Asset Hub reads it, because `parachain_log`
+  was overwritten. Asset Hub settles a transfer that never happened.
+
+Both can be addressed.
+
+A third case cannot be addressed: a deferred transfer is discarded because
+its destination was ejected before it was accumulated. The units are burnt on
+JAM. Asset Hub still counts them as released.
 
 Example flow for governance permanent release, from approval through settlement.
 
@@ -165,6 +186,8 @@ It keeps JAMKB in four keyless accounts derived from its `PalletId`,
 | `custodial` | `into_sub_account_truncating(b"cstd")` | returns awaiting `claim` (§4.4) |
 | `excess`    | `into_sub_account_truncating(b"xces")` | unattributed inflows (§4.4)     |
 
+The Parachain Service regular balance is the one these accounts mirror.
+
 Before any action like a permanent release or a lease is triggered, the units
 are locked in place: a hold is placed on them, and only then does the transfer
 execute on the JAM side. Every cross-system operation is asynchronous and is
@@ -179,6 +202,11 @@ entries of `parachain_log` as `Failed`.
 For voluntary return (§4.4) it processes `incoming_transfers`. A valid
 beneficiary memo credits `Custodial`; a missing or malformed memo credits
 `Excess`.
+
+A transfer may land on the Parachain Service's supervisor balance. The pallet
+books it and queues a plain transfer moving the amount
+from the supervisor balance to the regular balance. It is queued before any
+operation that could use the units.
 
 The pallet starts inactive. Governance verifies, against public JAM state at a
 defined block, that the Parachain Service holds `CAP`. It records the result
@@ -718,6 +746,8 @@ interface IJamkb {
     function claimableOf(bytes32 beneficiary) external view returns (uint128);
     function serviceAccount(uint32 target) external view returns (bytes32);
     function isFrozen(uint32 target) external view returns (bool);
+    /// The target's accepted leases: `Delivering`, `Delivered` or `Reclaiming`.
+    /// At most `MAX_LEASES_PER_TARGET`. Offers are not listed.
     function leasesOf(uint32 target) external view returns (uint64[] memory allocationIds);
     function gracePeriod() external view returns (uint32);
     function maxLeasesPerTarget() external view returns (uint32);
