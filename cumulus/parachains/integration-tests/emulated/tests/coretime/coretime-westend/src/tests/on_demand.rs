@@ -187,9 +187,9 @@ fn build_block<R>(claims: &mut Claims, f: impl FnOnce() -> R) -> R {
 	})
 }
 
-/// Place an order for `para_id` in a new Coretime chain block, returning the spot price paid and
-/// the timeslice the order was placed in.
-fn place_order_in_new_block(claims: &mut Claims, para_id: u32) -> (Balance, Timeslice) {
+/// Place an order for `para_id` in a new Coretime chain block, returning the timeslice the order
+/// was placed in and the spot price paid.
+fn place_order_in_new_block(claims: &mut Claims, para_id: u32) -> (Timeslice, Balance) {
 	build_block(claims, || {
 		let sender = CoretimeWestendSender::get();
 		let before = Balances::free_balance(&sender);
@@ -200,7 +200,7 @@ fn place_order_in_new_block(claims: &mut Claims, para_id: u32) -> (Balance, Time
 			BASE_FEE * 2
 		));
 		let ordered_at = RelaychainDataProvider::<CoretimeRuntime>::current_block_number();
-		(before - Balances::free_balance(&sender), ordered_at / TIMESLICE_PERIOD)
+		(ordered_at / TIMESLICE_PERIOD, before - Balances::free_balance(&sender))
 	})
 }
 
@@ -353,13 +353,13 @@ fn on_demand_revenue_is_attributed_to_its_timeslice_when_the_chain_skips_one() {
 	wait_for_pool();
 
 	let mut claims = Claims::new();
-	let (first, first_ts) = place_order_in_new_block(&mut claims, para_id);
+	let (first_ts, first) = place_order_in_new_block(&mut claims, para_id);
 
 	// The next block is built two timeslices later, so no blocks are built in the timeslice in
 	// between. The broker only ends one timeslice per block, so it ends the skipped timeslice
 	// while orders are already placed in the one after it.
 	jump_relay_chain_to((first_ts + 2) * TIMESLICE_PERIOD + 1);
-	let (second, second_ts) = place_order_in_new_block(&mut claims, para_id);
+	let (second_ts, second) = place_order_in_new_block(&mut claims, para_id);
 	assert_eq!(second_ts, first_ts + 2);
 
 	run_until_broker_ends(&mut claims, second_ts);
@@ -376,15 +376,15 @@ fn on_demand_revenue_is_attributed_to_its_timeslice_when_catching_up_crosses_a_b
 	wait_for_pool();
 
 	let mut claims = Claims::new();
-	let (first, first_ts) = place_order_in_new_block(&mut claims, para_id);
+	let (first_ts, first) = place_order_in_new_block(&mut claims, para_id);
 
 	// The chain resumes at the very end of a timeslice several timeslices later, so the Relay
 	// chain moves on to the next timeslice while the broker is still catching up.
 	let resumed_ts = first_ts + 5;
 	jump_relay_chain_to((resumed_ts + 1) * TIMESLICE_PERIOD - 1);
-	let (second, second_ts) = place_order_in_new_block(&mut claims, para_id);
+	let (second_ts, second) = place_order_in_new_block(&mut claims, para_id);
 	assert_eq!(second_ts, resumed_ts);
-	let (third, third_ts) = place_order_in_new_block(&mut claims, para_id);
+	let (third_ts, third) = place_order_in_new_block(&mut claims, para_id);
 	assert_eq!(third_ts, resumed_ts + 1);
 	assert!(broker_last_timeslice() < second_ts, "the broker is still catching up");
 
@@ -403,7 +403,7 @@ fn on_demand_revenue_stays_booked_while_the_revenue_is_requested_from_the_relay_
 	let pot = CoretimeWestend::ext_wrapper(OnDemand::account_id);
 
 	let mut claims = Claims::new();
-	let (revenue, ordered_in) = place_order_in_new_block(&mut claims, 2000);
+	let (ordered_in, revenue) = place_order_in_new_block(&mut claims, 2000);
 
 	// Run until the broker has distributed the revenue of the order's timeslice, which it
 	// requests from the Relay chain once the timeslice has ended.
