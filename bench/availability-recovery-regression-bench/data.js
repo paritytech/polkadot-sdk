@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792399903618,
+  "lastUpdate": 1792402611352,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "jfanatiker@gmx.at",
-            "name": "eskimor",
-            "username": "eskimor"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1b71ca68ca00771d4bb5bd7b192ca42e873c8538",
-          "message": "Fix zombienet tests: Use compressed runtimes & log errors. (#11641)\n\nTest runtimes grew too large, we need compression now to fit the limits.\nThis fixes the runtime upgrading zombienet tests. In addition I added\nlogging, such that errors like this will be easier to find next time.\n\nFixes: https://github.com/paritytech/polkadot-sdk/issues/11568\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-07T15:04:47Z",
-          "tree_id": "73da9efd76dd118c59af6512c3b024573c2a0c52",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1b71ca68ca00771d4bb5bd7b192ca42e873c8538"
-        },
-        "date": 1775579592117,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1315623081,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.570298365400001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1238232556,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "09476c778a37494e60c650372b17126f5a6b85ed",
+          "message": "Remove `Printable` trait (#13491)\n\nThis removes the `Printable` trait. There was almost no usage left and\nwhat was left was replaced by `log`.",
+          "timestamp": "2026-10-19T07:41:38Z",
+          "tree_id": "fb25bf1be9ee322080b5789a78cd213c8718f99b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/09476c778a37494e60c650372b17126f5a6b85ed"
+        },
+        "date": 1792402578558,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.707030093066669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12293539166666663,
             "unit": "seconds"
           }
         ]
