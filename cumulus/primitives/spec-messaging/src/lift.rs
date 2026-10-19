@@ -1218,11 +1218,11 @@ mod tests {
 		assert!(one.items.is_empty());
 		assert_eq!(one.verify_leaf(MessagePosition(0), all[0]), Ok(root_at(&all, 1)));
 		let mut padded = one.clone();
-		padded.items.push(H256::repeat_byte(0xAB));
+		padded.items.try_push(H256::repeat_byte(0xAB)).expect("below the bound; qed");
 		assert_eq!(padded.verify_leaf(MessagePosition(0), all[0]), Err(ProofError::InvalidProof));
 
 		let mut longer = inclusion(&all, 6, 3);
-		longer.items.push(H256::zero());
+		longer.items.try_push(H256::zero()).expect("below the bound; qed");
 		assert_eq!(longer.verify_leaf(MessagePosition(3), all[3]), Err(ProofError::InvalidProof));
 	}
 

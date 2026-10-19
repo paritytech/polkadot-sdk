@@ -187,7 +187,10 @@ SCALE `Compact<u64>`: the proof is carried in the PoV. `MmrFrontier.leaf_count` 
 
 mmr-lib `MerkleProof` form (`mmr_size` + items). It never crosses the node–runtime boundary (design
 §Messaging Inherent): it is carried in `EventResponse` and verified node-side; the runtime's only
-discipline is recomputation. Normative for interoperability, not for the STF.
+discipline is recomputation. Normative for interoperability, not for the STF. `items` must have
+exactly the count `gen_proof` emits for that leaf (its path, the peaks to its left, and one bagged
+item if any peaks are to its right); `mmr_lib` ignores the items of a 1-leaf proof, so padding would
+otherwise verify.
 
 ## 7. Relay-visible objects
 

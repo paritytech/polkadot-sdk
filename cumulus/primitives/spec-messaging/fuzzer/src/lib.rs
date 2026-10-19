@@ -45,7 +45,7 @@ use mmr_lib::{
 	util::{MemMMR, MemStore},
 	MMRStoreReadOps,
 };
-use sp_core::H256 as Hash;
+use sp_core::{bounded::BoundedVec, Get, H256 as Hash};
 use std::collections::{BTreeSet, HashMap};
 
 mod pipeline;
@@ -141,6 +141,8 @@ impl Oracle {
 									.map(|(_, hash)| *hash)
 									.collect()
 							};
+							let connecting_nodes = BoundedVec::try_from(connecting_nodes)
+								.expect("an honest proof fits the bound; qed");
 							MMRExtensionProof { leaf_count: m as u64, connecting_nodes }
 						})
 					})
@@ -154,11 +156,14 @@ impl Oracle {
 					.map(|n| {
 						(i < n).then(|| MmrInclusionProof {
 							mmr_size: mmr_size(n as u64),
-							items: at(n)
-								.gen_proof(vec![leaf_index_to_pos(i as u64)])
-								.expect("leaf i < n is in the n-leaf MMR; qed")
-								.proof_items()
-								.to_vec(),
+							items: BoundedVec::try_from(
+								at(n)
+									.gen_proof(vec![leaf_index_to_pos(i as u64)])
+									.expect("leaf i < n is in the n-leaf MMR; qed")
+									.proof_items()
+									.to_vec(),
+							)
+							.expect("an honest proof fits the bound; qed"),
 						})
 					})
 					.collect()
@@ -218,6 +223,16 @@ impl Oracle {
 		}
 	}
 
+	/// [`Self::apply`] on a bounded list. An edit that would pass the bound is dropped: such a
+	/// list cannot decode, which `lift_decode` covers.
+	fn apply_bounded<S: Get<u32>>(&self, items: &mut BoundedVec<Hash, S>, edits: &[Edit]) {
+		let mut edited = items.to_vec();
+		self.apply(&mut edited, edits);
+		if let Ok(edited) = BoundedVec::try_from(edited) {
+			*items = edited;
+		}
+	}
+
 	fn apply(&self, items: &mut Vec<Hash>, edits: &[Edit]) {
 		for edit in edits {
 			let len = items.len();
@@ -245,7 +260,7 @@ impl Oracle {
 		if let Some(count) = input.leaf_count {
 			proof.leaf_count = count.get();
 		}
-		self.apply(&mut proof.connecting_nodes, &input.edits);
+		self.apply_bounded(&mut proof.connecting_nodes, &input.edits);
 		self.check_extension(&from, &proof)
 	}
 
@@ -254,7 +269,7 @@ impl Oracle {
 		let Ok(root) = proof.verify(from) else { return Outcome::Rejected };
 		let Some(&m) = self.roots.get(&root.0) else { return Outcome::Unbound };
 		let k = from.leaf_count();
-		if proof.is_identity() {
+		if proof.leaf_count == 0 && proof.connecting_nodes.is_empty() {
 			assert!(
 				self.frontier(k) == Some(from) && k == m as u64,
 				"FORGERY: identity extension on a forged {k}-leaf frontier yields the real root of \
@@ -286,12 +301,12 @@ impl Oracle {
 		});
 		let (leaf, mut proof) = match template {
 			Some((i, proof)) => (self.leaves[i as usize], proof),
-			None => (self.leaves[0], MmrInclusionProof { mmr_size: 0, items: Vec::new() }),
+			None => (self.leaves[0], MmrInclusionProof { mmr_size: 0, items: BoundedVec::new() }),
 		};
 		if let Some(size) = input.mmr_size {
 			proof.mmr_size = size.get();
 		}
-		self.apply(&mut proof.items, &input.edits);
+		self.apply_bounded(&mut proof.items, &input.edits);
 		(proof, input.leaf.map_or(leaf, |c| self.hash(c)))
 	}
 

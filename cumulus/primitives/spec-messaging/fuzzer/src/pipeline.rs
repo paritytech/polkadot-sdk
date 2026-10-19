@@ -287,7 +287,7 @@ impl Oracle {
 			AdvanceNodes { source, stream, item, edit } => {
 				if let Some(c) = consumed_mut(sources, *source, *stream) {
 					if let Some(a) = pick(&mut c.lift.advances, *item) {
-						self.apply(&mut a.connecting_nodes, &[*edit]);
+						self.apply_bounded(&mut a.connecting_nodes, &[*edit]);
 					}
 				}
 			},
@@ -316,7 +316,7 @@ impl Oracle {
 			},
 			ExtensionNodes { source, stream, edit } => {
 				if let Some(c) = consumed_mut(sources, *source, *stream) {
-					self.apply(&mut c.lift.extension.connecting_nodes, &[*edit]);
+					self.apply_bounded(&mut c.lift.extension.connecting_nodes, &[*edit]);
 				}
 			},
 			ExtensionCount { source, stream, count } => {
