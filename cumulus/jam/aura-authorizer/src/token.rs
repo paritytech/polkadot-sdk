@@ -25,7 +25,7 @@ use crate::{
 	AuthorizationError,
 };
 
-/// Raw public key bytes for either supported signature scheme.
+/// Raw 32-byte collator public key.
 pub type CollatorKey = [u8; 32];
 
 /// A collator's signature over an authorization token's signing payload.
