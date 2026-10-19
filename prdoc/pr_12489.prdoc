@@ -27,4 +27,8 @@ crates:
   - name: yet-another-parachain-runtime
     bump: major
   - name: emulated-integration-tests-common
+    bump: patch
+  - name: pallet-migrations
+    bump: none
+  - name: pallet-session
     bump: major

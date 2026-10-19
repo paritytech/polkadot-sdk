@@ -112,22 +112,22 @@ macro_rules! impl_keys_translator {
 }
 
 /// Extend `pallet_session` session-key records with an authority-discovery placeholder.
-pub struct AppendAuthorityDiscoveryKeys<Runtime, SpecVersion, Translator>(
-	PhantomData<(Runtime, SpecVersion, Translator)>,
+pub struct AppendAuthorityDiscoveryKeys<Runtime, RuntimeUpgradeVersion, Translator>(
+	PhantomData<(Runtime, RuntimeUpgradeVersion, Translator)>,
 );
 
-impl<Runtime, SpecVersion, Translator>
-	AppendAuthorityDiscoveryKeys<Runtime, SpecVersion, Translator>
+impl<Runtime, RuntimeUpgradeVersion, Translator>
+	AppendAuthorityDiscoveryKeys<Runtime, RuntimeUpgradeVersion, Translator>
 where
 	Runtime: frame_system::Config,
-	SpecVersion: Get<codec::Compact<u32>>,
+	RuntimeUpgradeVersion: Get<codec::Compact<u32>>,
 {
 	fn was_executed() -> bool {
 		let Some(last_runtime_upgrade) = frame_system::LastRuntimeUpgrade::<Runtime>::get() else {
 			return false;
 		};
 
-		last_runtime_upgrade.spec_version >= SpecVersion::get()
+		last_runtime_upgrade.spec_version >= RuntimeUpgradeVersion::get()
 	}
 
 	fn try_execute(execute: impl Fn(&mut Weight)) -> Weight {
@@ -150,11 +150,11 @@ where
 	}
 }
 
-impl<Runtime, SpecVersion, Translator> OnRuntimeUpgrade
-	for AppendAuthorityDiscoveryKeys<Runtime, SpecVersion, Translator>
+impl<Runtime, RuntimeUpgradeVersion, Translator> OnRuntimeUpgrade
+	for AppendAuthorityDiscoveryKeys<Runtime, RuntimeUpgradeVersion, Translator>
 where
 	Runtime: pallet_session::Config<Keys = Translator::NewSessionKeys>,
-	SpecVersion: Get<codec::Compact<u32>>,
+	RuntimeUpgradeVersion: Get<codec::Compact<u32>>,
 	Translator: KeysTranslatorT,
 {
 	fn on_runtime_upgrade() -> Weight {
