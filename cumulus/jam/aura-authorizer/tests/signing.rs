@@ -19,8 +19,8 @@
 
 use codec::DecodeAll;
 use cumulus_aura_authorizer::{
-	build_collator_proof, hash_signing_payload, AuthConfig, AuthToken, AuthTrace,
-	AuthorizationError, SignatureVerifier, TokenError, WorkPackageBody, WORK_PACKAGE_SIGN_CTX,
+	build_collator_proof, AuthConfig, AuthToken, AuthTrace, AuthorizationError, SignatureVerifier,
+	TokenError, WorkPackageBody, WORK_PACKAGE_SIGN_CTX,
 };
 use jam_types::Encode as JamEncode;
 
@@ -92,7 +92,6 @@ fn published_package_works() {
 
 	expected.extend_from_slice(&payload);
 	assert_eq!(hash.as_bytes(), &sp_crypto_hashing::blake2_256(&expected));
-	assert_eq!(hash, hash_signing_payload(&payload));
 
 	let (root, _) = build_collator_proof(&[[7; 32]], 0).expect("valid test collator set");
 	let config = AuthConfig {

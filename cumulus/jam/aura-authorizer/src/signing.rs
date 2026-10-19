@@ -70,50 +70,18 @@ impl<'a> From<&'a WorkPackageBody> for SigningPayload<'a> {
 
 impl SigningPayload<'_> {
 	pub(crate) fn hash(&self) -> H256 {
-		hash_signing_payload(&self.encode())
+		let mut state = blake2b_simd::Params::new().hash_length(32).to_state();
+		state.update(WORK_PACKAGE_SIGN_CTX);
+		state.update(&self.encode());
+
+		H256::from_slice(state.finalize().as_bytes())
 	}
-}
-
-/// Hash the JAM-encoded tuple of code host, authorizer code hash, refinement context,
-/// authorizer config, and work items, with the AURA domain separator.
-///
-/// Adapters for other JAM versions must preserve their version's complete context encoding
-/// and exclude the authorization token.
-pub fn hash_signing_payload(payload: &[u8]) -> H256 {
-	let mut state = blake2b_simd::Params::new().hash_length(32).to_state();
-	state.update(WORK_PACKAGE_SIGN_CTX);
-	state.update(payload);
-
-	H256::from_slice(state.finalize().as_bytes())
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use alloc::vec;
-
-	#[test]
-	fn hash_signing_payload_vectors_works() {
-		// Generated independently with Python hashlib.blake2b, digest_size=32.
-		for (payload, expected) in [
-			(
-				&b""[..],
-				[
-					92, 48, 36, 169, 96, 170, 208, 175, 233, 209, 68, 13, 243, 6, 61, 5, 71, 14,
-					62, 229, 8, 46, 35, 108, 118, 228, 45, 206, 124, 197, 222, 7,
-				],
-			),
-			(
-				&b"aura test payload"[..],
-				[
-					207, 253, 53, 34, 162, 129, 199, 102, 172, 226, 162, 199, 31, 95, 152, 172,
-					210, 82, 208, 135, 33, 102, 203, 221, 252, 107, 165, 253, 201, 128, 186, 160,
-				],
-			),
-		] {
-			assert_eq!(hash_signing_payload(payload), H256::from(expected));
-		}
-	}
 
 	#[test]
 	fn signing_payload_signed_fields_works() {

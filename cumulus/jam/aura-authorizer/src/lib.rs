@@ -34,7 +34,7 @@ pub use polkadot_parachain_primitives::primitives::Id as ParaId;
 
 pub use config::{AuthConfig, ConfigError};
 pub use merkle::{build_collator_proof, CollatorProofError};
-pub use signing::{hash_signing_payload, WORK_PACKAGE_SIGN_CTX};
+pub use signing::WORK_PACKAGE_SIGN_CTX;
 pub use token::{AuthToken, CollatorKey, CollatorSignature, SignatureVerifier, TokenError};
 pub use work_package::WorkPackageBody;
 
