@@ -329,6 +329,7 @@ pub mod env {
 		input_data: u64,
 		output_data: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		let call_flags = CallFlags::from_bits(flags);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
 		let (resources, stipend_limited) = if gas == u64::MAX {
@@ -336,7 +337,7 @@ pub mod env {
 		} else {
 			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
 			let value = memory.read_u256(value_ptr)?;
-			let read_only = CallFlags::from_bits_truncate(flags).contains(CallFlags::READ_ONLY);
+			let read_only = call_flags.is_some_and(|flags| flags.contains(CallFlags::READ_ONLY));
 			let stipend_and_protections = StipendAndProtections::new(value, Some(gas), read_only);
 			(
 				CallResources::from_ethereum_gas(
@@ -349,7 +350,7 @@ pub mod env {
 
 		self.call(
 			memory,
-			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
+			call_flags.ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::Call { value_ptr, stipend_limited },
 			callee,
 			&resources,
@@ -404,13 +405,15 @@ pub mod env {
 		input_data: u64,
 		output_data: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		let call_flags = CallFlags::from_bits(flags);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
 		let (resources, stipend_limited) = if gas == u64::MAX {
 			(CallResources::NoLimits, false)
 		} else {
+			let read_only = call_flags.is_some_and(|flags| flags.contains(CallFlags::READ_ONLY));
 			let stipend_and_protections =
-				StipendAndProtections::new(U256::zero(), Some(gas), false);
+				StipendAndProtections::new(U256::zero(), Some(gas), read_only);
 			(
 				CallResources::from_ethereum_gas(
 					gas.into(),
@@ -422,7 +425,7 @@ pub mod env {
 
 		self.call(
 			memory,
-			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
+			call_flags.ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::DelegateCall { stipend_limited },
 			callee,
 			&resources,
