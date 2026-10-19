@@ -185,6 +185,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
+	pub const AdMigrationVersion: codec::Compact<u32> = codec::Compact::<u32>(1_025_003);
 	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
 		.max_length(5 * 1024 * 1024)
 		.modify_max_length_for_class(DispatchClass::Normal, |m| {
@@ -1922,7 +1923,11 @@ pub type Migrations = (
 	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
 	// unreleased
 	// Appends a placeholder authority-discovery key to every collator's session keys.
-	ad_migration::AppendAuthorityDiscoveryKeys<Runtime, ad_migration::KeysTranslator>,
+	ad_migration::AppendAuthorityDiscoveryKeys<
+		Runtime,
+		AdMigrationVersion,
+		ad_migration::KeysTranslator,
+	>,
 );
 
 /// Executive: handles dispatch to the various modules.

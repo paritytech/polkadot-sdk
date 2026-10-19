@@ -105,7 +105,11 @@ mod ad_migration {
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	RemoveCollectiveFlip,
-	ad_migration::AppendAuthorityDiscoveryKeys<Runtime, ad_migration::KeysTranslator>,
+	ad_migration::AppendAuthorityDiscoveryKeys<
+		Runtime,
+		AdMigrationVersion,
+		ad_migration::KeysTranslator,
+	>,
 );
 
 /// This runtime version.
@@ -164,6 +168,7 @@ const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;
 	pub const Version: RuntimeVersion = VERSION;
+	pub const AdMigrationVersion: codec::Compact<u32> = codec::Compact::<u32>(1_003_003);
 	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
 		.max_length(5 * 1024 * 1024)
 		.modify_max_length_for_class(DispatchClass::Normal, |m| {
@@ -236,7 +241,6 @@ impl frame_system::Config for Runtime {
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type SingleBlockMigrations = Migrations;
-	type MultiBlockMigrator = MultiBlockMigrations;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -402,7 +406,6 @@ impl pallet_message_queue::Config for Runtime {
 }
 parameter_types! {
 	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
-	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
 }
 
 impl pallet_authorship::Config for Runtime {
@@ -460,17 +463,6 @@ impl pallet_aura::Config for Runtime {
 
 impl pallet_authority_discovery::Config for Runtime {
 	type MaxAuthorities = ConstU32<1000>;
-}
-
-impl pallet_migrations::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Migrations = ();
-	type CursorMaxLen = ConstU32<65_536>;
-	type IdentifierMaxLen = ConstU32<256>;
-	type MigrationStatusHandler = ();
-	type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
-	type MaxServiceWeight = MbmServiceWeight;
-	type WeightInfo = pallet_migrations::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -531,8 +523,6 @@ mod runtime {
 	pub type TransactionPayment = pallet_transaction_payment;
 	#[runtime::pallet_index(4)]
 	pub type WeightReclaim = cumulus_pallet_weight_reclaim;
-	#[runtime::pallet_index(5)]
-	pub type MultiBlockMigrations = pallet_migrations;
 
 	#[runtime::pallet_index(20)]
 	pub type ParachainSystem = cumulus_pallet_parachain_system;

@@ -26,7 +26,6 @@ use codec::DecodeAll;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{
-	migrations::MigrationId,
 	traits::{Get, OnRuntimeUpgrade},
 	weights::Weight,
 };
@@ -113,49 +112,30 @@ macro_rules! impl_keys_translator {
 }
 
 /// Extend `pallet_session` session-key records with an authority-discovery placeholder.
-pub struct AppendAuthorityDiscoveryKeys<R, Translator>(PhantomData<(R, Translator)>);
+pub struct AppendAuthorityDiscoveryKeys<Runtime, SpecVersion, Translator>(
+	PhantomData<(Runtime, SpecVersion, Translator)>,
+);
 
-impl<R, Translator> AppendAuthorityDiscoveryKeys<R, Translator>
+impl<Runtime, SpecVersion, Translator>
+	AppendAuthorityDiscoveryKeys<Runtime, SpecVersion, Translator>
 where
-	R: pallet_migrations::Config,
+	Runtime: frame_system::Config,
+	SpecVersion: Get<codec::Compact<u32>>,
 {
-	/// Identifier recorded in [`pallet_migrations::Historic`] once this migration has been
-	/// executed.
-	///
-	/// `pallet_migrations` only tracks multi-block migrations, but we reuse its `Historic` set so
-	/// that all executed migrations are recorded in a single place.
-	const MIGRATION_ID: MigrationId<16> =
-		MigrationId { pallet_id: *b"para_cmn_add_adi", version_from: 0, version_to: 1 };
-
-	fn bounded_id() -> Option<pallet_migrations::IdentifierOf<R>> {
-		Self::MIGRATION_ID.encode().try_into().ok()
-	}
-
-	#[cfg(any(test, feature = "try-runtime"))]
 	fn was_executed() -> bool {
-		let Some(id) = Self::bounded_id() else {
+		let Some(last_runtime_upgrade) = frame_system::LastRuntimeUpgrade::<Runtime>::get() else {
 			return false;
 		};
 
-		pallet_migrations::Historic::<R>::contains_key(id)
+		last_runtime_upgrade.spec_version >= SpecVersion::get()
 	}
 
 	fn try_execute(execute: impl Fn(&mut Weight)) -> Weight {
 		let mut weight = Weight::zero();
-		let db = <R as frame_system::Config>::DbWeight::get();
-
-		let Some(id) = Self::bounded_id() else {
-			log::error!(
-				target: LOG_TARGET,
-				"AppendAuthorityDiscoveryKeys: Invalid ID. Skipping",
-			);
-
-			return weight;
-		};
+		let db = <Runtime as frame_system::Config>::DbWeight::get();
 
 		weight = weight.saturating_add(db.reads(1));
-		let was_executed = pallet_migrations::Historic::<R>::contains_key(&id);
-		if was_executed {
+		if Self::was_executed() {
 			log::error!(
 				target: LOG_TARGET,
 				"AppendAuthorityDiscoveryKeys: Migration was already executed. Skipping",
@@ -166,32 +146,32 @@ where
 
 		execute(&mut weight);
 
-		weight = weight.saturating_add(db.writes(1));
-		pallet_migrations::Historic::<R>::insert(&id, ());
-
 		weight
 	}
 }
 
-impl<R, Translator> OnRuntimeUpgrade for AppendAuthorityDiscoveryKeys<R, Translator>
+impl<Runtime, SpecVersion, Translator> OnRuntimeUpgrade
+	for AppendAuthorityDiscoveryKeys<Runtime, SpecVersion, Translator>
 where
-	R: pallet_session::Config<Keys = Translator::NewSessionKeys> + pallet_migrations::Config,
+	Runtime: pallet_session::Config<Keys = Translator::NewSessionKeys>,
+	SpecVersion: Get<codec::Compact<u32>>,
 	Translator: KeysTranslatorT,
 {
 	fn on_runtime_upgrade() -> Weight {
 		let weight = Self::try_execute(|weight| {
-			let db = <R as frame_system::Config>::DbWeight::get();
+			let db = <Runtime as frame_system::Config>::DbWeight::get();
 
-			let num_keys = pallet_session::Pallet::<R>::upgrade_keys::<Translator::OldSessionKeys, _>(
-				|collator, old| {
-					log::info!(
-						target: LOG_TARGET,
-						"Collator {:?}: authority-discovery placeholder installed; rotate to activate",
-						collator,
-					);
-					Translator::translate(old)
-				},
-			);
+			let num_keys = pallet_session::Pallet::<Runtime>::upgrade_keys::<
+				Translator::OldSessionKeys,
+				_,
+			>(|collator, old| {
+				log::info!(
+					target: LOG_TARGET,
+					"Collator {:?}: authority-discovery placeholder installed; rotate to activate",
+					collator,
+				);
+				Translator::translate(old)
+			});
 
 			// Per `NextKeys` entry translated by `upgrade_keys`:
 			//   - 1 read  + 1 write : NextKeys translate
@@ -220,14 +200,16 @@ where
 
 		// Snapshot the pre-migration NextKeys, decoding the existing values with the same
 		// `OldSessionKeys` type that `upgrade_keys` consumes.
-		let next_keys_state: Vec<(<R as pallet_session::Config>::ValidatorId, Translator::AuraId)> =
-			pallet_session::NextKeys::<R>::iter_keys()
-				.filter_map(|id| {
-					let key = pallet_session::NextKeys::<R>::hashed_key_for(&id);
-					frame_support::storage::unhashed::get::<Translator::OldSessionKeys>(&key)
-						.map(|old| (id, Translator::aura(&old).clone()))
-				})
-				.collect();
+		let next_keys_state: Vec<(
+			<Runtime as pallet_session::Config>::ValidatorId,
+			Translator::AuraId,
+		)> = pallet_session::NextKeys::<Runtime>::iter_keys()
+			.filter_map(|id| {
+				let key = pallet_session::NextKeys::<Runtime>::hashed_key_for(&id);
+				frame_support::storage::unhashed::get::<Translator::OldSessionKeys>(&key)
+					.map(|old| (id, Translator::aura(&old).clone()))
+			})
+			.collect();
 
 		log::info!(
 			target: LOG_TARGET,
@@ -246,7 +228,7 @@ where
 		}
 
 		let pre_next_keys: Vec<(
-			<R as pallet_session::Config>::ValidatorId,
+			<Runtime as pallet_session::Config>::ValidatorId,
 			Translator::OldSessionKeys,
 		)> = DecodeAll::decode_all(&mut &state[..]).map_err(|_| {
 			sp_runtime::TryRuntimeError::Other("post_upgrade: invalid state encoding")
@@ -256,7 +238,7 @@ where
 		// preserves the original aura key and carries the generated authority discovery key.
 		for (id, pre_next_key) in &pre_next_keys {
 			let aura = Translator::aura(&pre_next_key);
-			let next_keys = pallet_session::NextKeys::<R>::get(id).ok_or(
+			let next_keys = pallet_session::NextKeys::<Runtime>::get(id).ok_or(
 				sp_runtime::TryRuntimeError::Other(
 					"post_upgrade: NextKeys entry missing after migration",
 				),
@@ -285,22 +267,39 @@ where
 mod tests {
 	use super::*;
 	use frame_support::{derive_impl, parameter_types, traits::ConstU64};
-	use frame_system::pallet_prelude::HeaderFor;
+	use frame_system::{pallet_prelude::HeaderFor, LastRuntimeUpgradeInfo};
 	use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 	use sp_core::H256;
 	use sp_runtime::{
 		traits::{Block as _, Header as _},
 		BuildStorage, KeyTypeId,
 	};
+	use sp_version::RuntimeVersion;
 
 	fn new_test_ext() -> sp_io::TestExternalities {
-		frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
+		let mut externalities: sp_io::TestExternalities =
+			frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into();
+		externalities.execute_with(|| set_last_runtime_upgrade(1_000_000));
+		externalities
 	}
 
 	pub type AccountId = u64;
 
+	fn runtime_version(spec_version: u32) -> RuntimeVersion {
+		RuntimeVersion { spec_version, ..Default::default() }
+	}
+
+	fn set_last_runtime_upgrade(spec_version: u32) {
+		frame_system::LastRuntimeUpgrade::<Test>::put(LastRuntimeUpgradeInfo {
+			spec_version: codec::Compact(spec_version),
+			spec_name: Version::get().spec_name,
+		});
+	}
+
 	parameter_types! {
 		pub const Period: u64 = 10;
+		pub static Version: RuntimeVersion = runtime_version(1_000_001);
+		pub const AdMigrationVersion: codec::Compact<u32> = codec::Compact(1_000_001);
 	}
 
 	pub struct IdentityValidator;
@@ -329,14 +328,13 @@ mod tests {
 
 	impl_keys_translator!(MockSessionKeys, AuraId, AuthorityDiscoveryId);
 
-	type Migration = AppendAuthorityDiscoveryKeys<Test, KeysTranslator>;
+	type Migration = AppendAuthorityDiscoveryKeys<Test, AdMigrationVersion, KeysTranslator>;
 
 	frame_support::construct_runtime!(
 		pub enum Test {
 			System: frame_system,
 			Balances: pallet_balances,
 			Session: pallet_session,
-			MultiBlockMigrations: pallet_migrations,
 		}
 	);
 
@@ -354,12 +352,7 @@ mod tests {
 		type AccountData = pallet_balances::AccountData<u64>;
 		type DbWeight = frame_support::weights::constants::RocksDbWeight;
 		type SingleBlockMigrations = Migration;
-		type MultiBlockMigrator = MultiBlockMigrations;
-	}
-
-	#[derive_impl(pallet_migrations::config_preludes::TestDefaultConfig)]
-	impl pallet_migrations::Config for Test {
-		type Migrations = ();
+		type Version = Version;
 	}
 
 	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -419,18 +412,38 @@ mod tests {
 		pallet_session::Validators::<Test>::put(validators.to_vec());
 	}
 
-	/// Run the migration. When `try-runtime` is enabled also exercises the `pre_upgrade` →
-	/// `on_runtime_upgrade` → `post_upgrade` hooks the try-runtime CLI runs in CI.
-	fn run_migration() -> Weight {
-		#[cfg(feature = "try-runtime")]
-		let state = Migration::pre_upgrade().unwrap();
+	/// Author an empty block on top of the current state, then import it with
+	/// `Executive::execute_block`, like a node does.
+	///
+	/// Authoring follows the `BlockBuilder` runtime API (`initialize_block` + `finalize_block`)
+	/// inside a storage transaction that is rolled back; this only computes a header with the
+	/// correct state root. Importing then runs the full `execute_block` logic on the original
+	/// state, including its `final_checks` against that header.
+	fn run_block(number: u64, parent_hash: H256) -> H256 {
+		let header = HeaderFor::<Test>::new(
+			number,
+			Default::default(),
+			Default::default(),
+			parent_hash,
+			Default::default(),
+		);
 
-		let weight = Migration::on_runtime_upgrade();
+		sp_io::storage::start_transaction();
+		Executive::initialize_block(&header);
+		let header = Executive::finalize_block();
+		sp_io::storage::rollback_transaction();
 
-		#[cfg(feature = "try-runtime")]
-		Migration::post_upgrade(state).unwrap();
+		Executive::execute_block(Block::new(header.clone(), vec![]).into());
+		header.hash()
+	}
 
-		weight
+	/// Enact a runtime upgrade at `upgrade_block` and keep producing blocks until `last_block`.
+	fn upgrade_and_run_blocks(upgrade_block: u64, last_block: u64) {
+		frame_system::Pallet::<Test>::set_block_number(upgrade_block - 1);
+		let mut parent_hash = H256::default();
+		for number in upgrade_block..=last_block {
+			parent_hash = run_block(number, parent_hash);
+		}
 	}
 
 	#[test]
@@ -439,7 +452,7 @@ mod tests {
 			let validators = [1, 2, 3];
 			seed_old_layout(&validators);
 
-			run_migration();
+			upgrade_and_run_blocks(5, 6);
 
 			for v in validators {
 				assert_eq!(pallet_session::NextKeys::<Test>::get(v), Some(migrated_keys(v)));
@@ -470,63 +483,40 @@ mod tests {
 			let validators = [1, 2];
 			seed_old_layout(&validators);
 
-			let db = <Test as frame_system::Config>::DbWeight::get();
-			assert_eq!(run_migration(), db.reads_writes(4, 8));
+			assert!(!Migration::was_executed());
+			upgrade_and_run_blocks(5, 6);
 			assert!(Migration::was_executed());
 
 			// A second run must not touch the (already migrated) keys again.
 			let next_keys = pallet_session::NextKeys::<Test>::iter().collect::<Vec<_>>();
 			let queued_keys = pallet_session::QueuedKeys::<Test>::get();
-			assert_eq!(run_migration(), db.reads(1));
+			upgrade_and_run_blocks(6, 7);
 			assert_eq!(pallet_session::NextKeys::<Test>::iter().collect::<Vec<_>>(), next_keys);
 			assert_eq!(pallet_session::QueuedKeys::<Test>::get(), queued_keys);
 		});
 	}
 
 	#[test]
-	fn works_with_empty_session_storage() {
+	fn does_not_run_if_chain_is_past_migration_version() {
 		new_test_ext().execute_with(|| {
-			let db = <Test as frame_system::Config>::DbWeight::get();
-			assert_eq!(run_migration(), db.reads_writes(2, 2));
+			set_last_runtime_upgrade(1_000_002);
+			Version::set(runtime_version(1_000_003));
+			let validators = [1, 2];
+			seed_old_layout(&validators);
+
+			let next_keys = pallet_session::NextKeys::<Test>::iter().collect::<Vec<_>>();
+			let queued_keys = pallet_session::QueuedKeys::<Test>::get();
 			assert!(Migration::was_executed());
-			assert_eq!(pallet_session::NextKeys::<Test>::iter().count(), 0);
+			upgrade_and_run_blocks(5, 6);
+
+			// Check that `Executive` did enact the upgrade, but `Migration` was skipped.
+			assert_eq!(
+				frame_system::LastRuntimeUpgrade::<Test>::get().map(|v| v.spec_version),
+				Some(codec::Compact(1_000_003))
+			);
+			assert_eq!(pallet_session::NextKeys::<Test>::iter().collect::<Vec<_>>(), next_keys);
+			assert_eq!(pallet_session::QueuedKeys::<Test>::get(), queued_keys);
 		});
-	}
-
-	/// Author an empty block on top of the current state, then import it with
-	/// `Executive::execute_block`, like a node does.
-	///
-	/// Authoring follows the `BlockBuilder` runtime API (`initialize_block` + `finalize_block`)
-	/// inside a storage transaction that is rolled back; this only computes a header with the
-	/// correct state root. Importing then runs the full `execute_block` logic on the original
-	/// state, including its `final_checks` against that header.
-	fn run_block(number: u64, parent_hash: H256) -> H256 {
-		let header = HeaderFor::<Test>::new(
-			number,
-			Default::default(),
-			Default::default(),
-			parent_hash,
-			Default::default(),
-		);
-
-		sp_io::storage::start_transaction();
-		Executive::initialize_block(&header);
-		let header = Executive::finalize_block();
-		sp_io::storage::rollback_transaction();
-
-		Executive::execute_block(Block::new(header.clone(), vec![]).into());
-		header.hash()
-	}
-
-	/// Enact a runtime upgrade at `upgrade_block` and keep producing blocks until `last_block`.
-	fn upgrade_and_run_blocks(upgrade_block: u64, last_block: u64) {
-		// Make `Executive` think the runtime code changed, so it runs `on_runtime_upgrade`.
-		frame_system::LastRuntimeUpgrade::<Test>::kill();
-		frame_system::Pallet::<Test>::set_block_number(upgrade_block - 1);
-		let mut parent_hash = H256::default();
-		for number in upgrade_block..=last_block {
-			parent_hash = run_block(number, parent_hash);
-		}
 	}
 
 	/// Upgrade exactly at a session boundary: `Executive` runs `on_runtime_upgrade` before
