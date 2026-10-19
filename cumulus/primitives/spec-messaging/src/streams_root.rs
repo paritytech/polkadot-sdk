@@ -88,7 +88,7 @@ fn bit(key: &[u8; STREAM_ID_LEN], i: usize) -> bool {
 
 /// First bit index (from the MSB) at which two distinct keys differ. Callers guarantee `a != b`.
 fn first_diverging_bit(a: &[u8; STREAM_ID_LEN], b: &[u8; STREAM_ID_LEN]) -> usize {
-	(0..KEY_BITS).find(|&i| bit(a, i) != bit(b, i)).expect("keys are distinct; qed")
+	(u64::from_be_bytes(*a) ^ u64::from_be_bytes(*b)).leading_zeros() as usize
 }
 
 /// `H(TREE_LEAF_TAG ++ key ++ stream_root)`.
