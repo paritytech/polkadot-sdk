@@ -2391,6 +2391,7 @@ where
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
+
 		ensure!(!self.is_read_only(), Error::<T>::StateChangeDenied);
 		self.ensure_not_stipend_limited()?;
 

@@ -24,9 +24,13 @@ doc:
     and transient storage still work. Calls with any other explicit gas limit are not affected, even
     one below 2300.
 
-    A delegate call with a gas limit of exactly 2300 (an EVM `DELEGATECALL` or a PolkaVM
-    `delegate_call_evm`) now gets the stipend and the same limits. Before, the EVM gave such a
-    delegate call the stipend but not the limits, and PolkaVM gave it neither.
+    A delegate call (an EVM `DELEGATECALL` or a PolkaVM `delegate_call_evm`) with a gas limit of
+    exactly 2300 now gets the stipend and the same limits. Before, such a delegate call got the
+    stipend but not the limits on the EVM, and neither on PolkaVM.
+
+    These limits can break deployed contracts that perform one of the listed operations in the
+    callee of a call shaped like a `transfer()` or `send()`, for example a `receive()` that writes
+    storage, or in a delegate call with a gas limit of exactly 2300.
 
     The receiver may call back into the sender, as on Ethereum, under the same limits. Before, the
     EVM denied this after a zero-value `transfer()` or `send()` and in the callee of a `STATICCALL`
@@ -58,11 +62,10 @@ doc:
     `PrecompileWithInfoExt::instantiate` and a value transfer through `PrecompileExt::call` return
     `OutOfGas`. In a read-only frame, they return `StateChangeDenied` instead, and so do
     `PrecompileExt::set_transient_storage` and a value transfer through `PrecompileExt::call` with
-    `read_only` set. Before, only their callers checked read-only; now they check it themselves.
-    A precompile that changes state by calling into another
-    pallet, for example to move balances or assets, must call the new
-    `PrecompileExt::ensure_not_stipend_limited` first. The assets, asset-conversion, XCM and
-    vesting precompiles do so.
+    `read_only` set. Before, the caller had to check the read-only flag; now these functions
+    enforce it. A precompile that changes state by calling into another pallet, for example to move
+    balances or assets, must call the new `PrecompileExt::ensure_not_stipend_limited` first. The
+    assets, asset-conversion, XCM and vesting precompiles do so.
 
     `integrity_test` checks that a block cannot write more contract storage than a validator has
     memory for. It scaled a write's weight by the memory that write uses before dividing the block
