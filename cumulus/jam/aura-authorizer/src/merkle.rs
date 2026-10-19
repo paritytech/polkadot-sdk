@@ -84,7 +84,12 @@ pub fn build_collator_proof(
 mod tests {
 	#[test]
 	fn build_collator_proof_empty_set_errors() {
-		assert_eq!(super::build_collator_proof(&[], 0), Err(super::CollatorProofError::EmptySet));
+		for index in [0, 1, u32::MAX] {
+			assert_eq!(
+				super::build_collator_proof(&[], index),
+				Err(super::CollatorProofError::EmptySet)
+			);
+		}
 	}
 
 	#[test]
