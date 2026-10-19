@@ -33,7 +33,7 @@ mod work_package;
 pub use polkadot_parachain_primitives::primitives::Id as ParaId;
 
 pub use config::{AuthConfig, ConfigError};
-pub use merkle::{build_collator_proofs, CollatorProofError};
+pub use merkle::{build_collator_proof, CollatorProofError};
 pub use signing::{hash_signing_payload, WORK_PACKAGE_SIGN_CTX};
 pub use token::{AuthToken, CollatorKey, CollatorSignature, SignatureVerifier, TokenError};
 pub use work_package::WorkPackageBody;
@@ -110,11 +110,11 @@ mod tests {
 			items: Default::default(),
 		};
 
-		let (root, proofs) =
-			build_collator_proofs(&[[1; 32], [2; 32]]).expect("two collators form a valid set");
+		let (root, proof) =
+			build_collator_proof(&[[1; 32], [2; 32]], 1).expect("two collators form a valid set");
 
 		let hash = signing::SigningPayload::from(&package).hash();
-		let mut token = AuthToken { proof: proofs[1].clone(), key: [2; 32], signature: [0; 64] };
+		let mut token = AuthToken { proof, key: [2; 32], signature: [0; 64] };
 		token.signature[..32].copy_from_slice(hash.as_bytes());
 
 		let config = AuthConfig {

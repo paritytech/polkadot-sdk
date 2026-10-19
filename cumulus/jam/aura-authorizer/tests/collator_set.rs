@@ -17,15 +17,16 @@
 
 //! Collator membership proofs, including padded trees and invalid membership.
 
-use cumulus_aura_authorizer::{build_collator_proofs, AuthConfig, AuthToken, CollatorKey, ParaId};
+use cumulus_aura_authorizer::{build_collator_proof, AuthConfig, AuthToken, CollatorKey, ParaId};
 use primitive_types::H256;
 
 fn keys(count: u32) -> Vec<CollatorKey> {
 	(0..count).map(|index| [index as u8 + 1; 32]).collect()
 }
 
-fn config(keys: &[CollatorKey]) -> (AuthConfig, Vec<Vec<H256>>) {
-	let (collator_set_root, proofs) = build_collator_proofs(keys).expect("valid test collator set");
+fn config(keys: &[CollatorKey], index: u32) -> (AuthConfig, Vec<H256>) {
+	let (collator_set_root, proof) =
+		build_collator_proof(keys, index).expect("valid test collator set");
 
 	let config = AuthConfig {
 		para_ids: vec![ParaId::new(0)],
@@ -36,7 +37,7 @@ fn config(keys: &[CollatorKey]) -> (AuthConfig, Vec<Vec<H256>>) {
 		slot_duration: core::num::NonZero::new(1).expect("nonzero configuration"),
 	};
 
-	(config, proofs)
+	(config, proof)
 }
 
 fn token(key: CollatorKey, proof: Vec<H256>) -> AuthToken {
@@ -47,10 +48,9 @@ fn token(key: CollatorKey, proof: Vec<H256>) -> AuthToken {
 fn built_proofs_works() {
 	for size in [1u32, 2, 3, 4, 5, 15, 16, 17] {
 		let keys = keys(size);
-		let (config, proofs) = config(&keys);
-
 		for index in 0..size {
-			let token = token(keys[index as usize], proofs[index as usize].clone());
+			let (config, proof) = config(&keys, index);
+			let token = token(keys[index as usize], proof);
 
 			assert!(
 				token.check_proof(&config, index).is_ok(),
@@ -63,9 +63,9 @@ fn built_proofs_works() {
 #[test]
 fn wrong_index_errors() {
 	let keys = keys(4);
-	let (config, proofs) = config(&keys);
+	let (config, proof) = config(&keys, 1);
 
-	let token = token(keys[1], proofs[1].clone());
+	let token = token(keys[1], proof);
 	assert!(token.check_proof(&config, 1).is_ok());
 
 	for index in [0u32, 2, 3] {
@@ -77,8 +77,8 @@ fn wrong_index_errors() {
 #[test]
 fn nonmember_errors() {
 	let keys = keys(2);
-	let (config, proofs) = config(&keys);
-	let outsider = token([0xaa; 32], proofs[0].clone());
+	let (config, proof) = config(&keys, 0);
+	let outsider = token([0xaa; 32], proof);
 
 	assert!(outsider.check_proof(&config, 0).is_err());
 }
@@ -86,17 +86,17 @@ fn nonmember_errors() {
 #[test]
 fn malformed_proof_errors() {
 	let keys = keys(3);
-	let (config, proofs) = config(&keys);
-	let mut token = token(keys[2], proofs[2].clone());
+	let (config, proof) = config(&keys, 2);
+	let mut token = token(keys[2], proof.clone());
 
 	token.proof.pop();
 	assert!(token.check_proof(&config, 2).is_err());
 
-	token.proof = proofs[2].clone();
+	token.proof = proof.clone();
 	token.proof.push(H256::zero());
 	assert!(token.check_proof(&config, 2).is_err());
 
-	token.proof = proofs[2].clone();
+	token.proof = proof;
 	token.proof[0] = H256::repeat_byte(1);
 	assert!(token.check_proof(&config, 2).is_err());
 }
@@ -104,9 +104,9 @@ fn malformed_proof_errors() {
 #[test]
 fn invalid_set_size_and_index_errors() {
 	let keys = keys(1);
-	let (mut config, proofs) = config(&keys);
+	let (mut config, proof) = config(&keys, 0);
 
-	let token = token(keys[0], proofs[0].clone());
+	let token = token(keys[0], proof);
 	assert!(token.check_proof(&config, 1).is_err());
 
 	config.collator_set_size = core::num::NonZero::new(u32::MAX).expect("nonzero test size");
@@ -117,9 +117,9 @@ fn invalid_set_size_and_index_errors() {
 #[test]
 fn aliased_index_errors() {
 	let keys = keys(4);
-	let (config, proofs) = config(&keys);
+	let (config, proof) = config(&keys, 1);
 
-	let token = token(keys[1], proofs[1].clone());
+	let token = token(keys[1], proof);
 	assert!(token.check_proof(&config, 1).is_ok());
 
 	// These indices have the same low two bits as the valid index.
@@ -131,9 +131,9 @@ fn aliased_index_errors() {
 #[test]
 fn populated_padding_leaf_errors() {
 	let keys = keys(4);
-	let (mut config, proofs) = config(&keys);
+	let (mut config, proof) = config(&keys, 3);
 
-	let token = token(keys[3], proofs[3].clone());
+	let token = token(keys[3], proof);
 	assert!(token.check_proof(&config, 3).is_ok());
 
 	// Even a cryptographically valid proof cannot authorize a leaf outside the declared set.
@@ -145,9 +145,8 @@ fn populated_padding_leaf_errors() {
 #[test]
 fn tampered_siblings_errors() {
 	let keys = keys(8);
-	let (config, proofs) = config(&keys);
-
-	for (index, proof) in proofs.iter().enumerate() {
+	for index in 0..keys.len() {
+		let (config, proof) = config(&keys, index as u32);
 		for level in 0..proof.len() {
 			let mut forged = token(keys[index], proof.clone());
 			forged.proof[level].0[0] ^= 1;
@@ -172,9 +171,9 @@ fn tampered_siblings_errors() {
 #[test]
 fn empty_proof_matching_root_errors() {
 	let keys = keys(1);
-	let (mut config, proofs) = config(&keys);
+	let (mut config, proof) = config(&keys, 0);
 
-	let token = token(keys[0], proofs[0].clone());
+	let token = token(keys[0], proof);
 	assert!(token.check_proof(&config, 0).is_ok());
 
 	// Root equality alone must not allow an empty proof for a multi-leaf tree.
