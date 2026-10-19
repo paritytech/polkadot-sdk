@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792223081048,
+  "lastUpdate": 1792400000523,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "99be95da17c08dfc8388be26c213157db86dba22",
-          "message": "[Staking] Fix LastValidatorEra false positive (#11647)\n\nresolves partially:\nhttps://github.com/paritytech/polkadot-sdk/issues/11646",
-          "timestamp": "2026-04-07T11:18:18Z",
-          "tree_id": "a1cb6cf5bf48f5937e698339fdeaba306731eb0b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/99be95da17c08dfc8388be26c213157db86dba22"
-        },
-        "date": 1775566320755,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63611.71,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52937.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.826197112870002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4648896134399982,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005537878910000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8632549353600005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.741761367339956,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002338116,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002338116,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7525858025499543,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.877110687270001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020145770000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9521853369400004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.386229435512863,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020145770000000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.005039171579999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "a.pastushenka@gmail.com",
+            "name": "Alexander Pastushenka",
+            "username": "apastushenka"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "de321b34ee0b31d1c58aa5e556d3e353beb0c70e",
+          "message": "pallet-proxy: refund unused weight of the proxied call (#13462)\n\n# Description\n\n`proxy` and `proxy_announced` drop the post-dispatch info of the proxied\ncall: its result only goes into the `ProxyExecuted` event, and both\ncalls return `DispatchResult`. So the proxied call is always charged its\nfull declared weight, even when it reports a lower actual weight, and\nthe unused block space is not reclaimed. The overcharge is largest for\ncalls that declare their worst case, e.g. a `utility::batch` interrupted\nby an error.\n\nThis PR makes both calls return `DispatchResultWithPostInfo` with the\nproxy overhead plus the actual weight of the proxied call, the same\napproach `pallet-multisig` and `pallet-whitelist` use when they dispatch\na call. If the proxied call does not report its actual weight, `None` is\nreturned and the full declared weight is charged, as before. The\ndeclared weight does not change. `pays_fee` of `proxy` and\n`proxy_announced` stays `Pays::Yes`.\n\n## Integration\n\nThe encoding of calls does not change, so clients and wallets are not\naffected. The bump is major because of two API changes:\n\n- `Pallet::proxy` and `Pallet::proxy_announced` return\n`DispatchResultWithPostInfo` instead of `DispatchResult`. Callers that\ncheck the result with `assert_ok!` keep working.\n- `Config::RuntimeCall` now requires `PostInfo = PostDispatchInfo`, as\nin `pallet-utility` and `pallet-multisig`. `RuntimeCall` generated by\n`construct_runtime!` already satisfies it, so runtimes need no changes.\n\n```diff\n type RuntimeCall: Parameter\n-\t+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>\n+\t+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>\n```\n\n## Review Notes\n\n- `do_proxy` returns the result of the proxied call; the `ProxyExecuted`\nevent is unchanged.\n- `get_result_weight` is the same helper as in `pallet-multisig` and\n`pallet-collective`.\n- The weight calculation moved into `proxy_weight` /\n`proxy_announced_weight`, used by both `#[pallet::weight]` and the\npost-dispatch weight, so it is not duplicated.",
+          "timestamp": "2026-10-19T07:12:45Z",
+          "tree_id": "d8db3a695c2d489459e0ac6d838d008d0bcbecc9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/de321b34ee0b31d1c58aa5e556d3e353beb0c70e"
+        },
+        "date": 1792399968678,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63565.6,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7754508601600003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002251596,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.747631771239999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.725788153319999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021266290000000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.10656085296003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.324330001110007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.004874913989999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002251596,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7867261039700242,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.422480870612649,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021266290000000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7417590491699997,
             "unit": "seconds"
           }
         ]
