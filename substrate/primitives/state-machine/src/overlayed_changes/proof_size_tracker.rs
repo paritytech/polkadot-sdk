@@ -85,7 +85,8 @@ pub type DefaultHashBuilder = sp_trie::RandomState;
 ///
 /// Only removals are applied to the estimation trie. An update is estimated by reading the key's
 /// path in the block-start trie, while a removal restructures the trie and may load sibling nodes
-/// that later removals depend on. The trie therefore accumulates removals across flushes.
+/// that later removals depend on. The trie therefore accumulates removals across size estimation
+/// calls.
 ///
 /// # Note on performance profile
 ///
@@ -99,8 +100,8 @@ pub struct ProofSizeTracker<K, H: Hasher, HB = DefaultHashBuilder> {
 	current: TransactionLayer<K, H>,
 	/// Hash builder for computing key hashes.
 	hasher: HB,
-	/// In-memory trie kept for PoV size estimation across flushes, so removals accumulate as they
-	/// do in the real storage root computation.
+	/// In-memory trie kept across PoV size estimation calls, so removals accumulate as they do in
+	/// the real storage root computation.
 	estimation_trie: EstimationTrie<H>,
 }
 
@@ -1001,8 +1002,8 @@ mod tests {
 			}
 		}
 
-		/// A rolled back extrinsic must not leave its removals in the trie, or later flushes
-		/// would estimate collapses that the real storage root computation never performs.
+		/// A rolled back extrinsic must not leave its removals in the trie, or later size
+		/// estimation calls would estimate collapses the real storage root computation never does.
 		#[test]
 		fn rollback_undoes_a_removal() {
 			let mut fixture = Fixture::new();
@@ -1016,7 +1017,7 @@ mod tests {
 			assert!(!fixture.contains(THIRD));
 		}
 
-		/// A committed removal is part of the block, so later flushes must build on it.
+		/// A committed removal is part of the block, so later size estimation calls build on it.
 		#[test]
 		fn commit_keeps_a_removal() {
 			let mut fixture = Fixture::new();
@@ -1049,10 +1050,10 @@ mod tests {
 			assert!(fixture.contains(SECOND));
 		}
 
-		/// Rolling back to before the first flush leaves an empty trie, which must continue from
-		/// the block-start root instead of a state built on it.
+		/// Rolling back to before the first size estimation call leaves an empty trie, which must
+		/// continue from the block-start root instead of a state built on it.
 		#[test]
-		fn rollback_before_any_flush_continues_from_the_given_root() {
+		fn rollback_before_any_size_estimation_continues_from_the_given_root() {
 			let mut fixture = Fixture::new();
 
 			fixture.tracker.start_transaction();

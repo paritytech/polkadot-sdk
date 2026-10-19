@@ -203,8 +203,8 @@ pub struct OverlayedMap<K, V, H: Hasher> {
 	/// Determines whether the node is using the overlay from the client or the runtime.
 	execution_mode: ExecutionMode,
 
-	/// Keys written since the last flush with their op, the ops already reported in earlier
-	/// flushes, and the trie kept for PoV size estimation with one snapshot per open transaction.
+	/// Keys written since the last PoV size estimation call with their op, the ops already
+	/// reported by earlier calls, and the estimation trie with one snapshot per open transaction.
 	proof_size_tracker: ProofSizeTracker<K, H>,
 }
 

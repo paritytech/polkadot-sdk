@@ -1221,10 +1221,10 @@ mod tests {
 		recorder.rollback_transaction().expect("transaction is open");
 	}
 
-	/// Each flush must see the deletes of the earlier ones, otherwise a collapse that only
-	/// happens jointly is never recorded and the block may overshoot its PoV budget.
+	/// Each size estimation call must see the deletes of the earlier ones, otherwise a collapse
+	/// that only happens jointly is never recorded and the block may overshoot its PoV budget.
 	#[test]
-	fn joint_collapse_across_flushes_is_estimated_exactly() {
+	fn joint_collapse_across_size_estimations_is_estimated_exactly() {
 		for (first, second) in [(K1, K2), (K2, K1)] {
 			assert_estimation_matches_storage_root(collapse_scenario_backend(), |ext| {
 				ext.clear_storage(first);
@@ -1270,7 +1270,7 @@ mod tests {
 	}
 
 	/// Committing an inner transaction hands its deletes to the outer one, so an outer rollback
-	/// must undo them along with its own, back to the flush made before it started.
+	/// must undo them along with its own, back to the size estimation made before it started.
 	#[test]
 	fn outer_host_rollback_undoes_committed_inner_transaction() {
 		let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_with_recorder(
@@ -1319,7 +1319,7 @@ mod tests {
 	}
 
 	#[test]
-	fn joint_collapse_across_flushes_in_child_trie_is_estimated_exactly() {
+	fn joint_collapse_across_size_estimations_in_child_trie_is_estimated_exactly() {
 		let child_info = ChildInfo::new_default(b"Child1");
 		for (first, second) in [(K1, K2), (K2, K1)] {
 			assert_estimation_matches_storage_root(
