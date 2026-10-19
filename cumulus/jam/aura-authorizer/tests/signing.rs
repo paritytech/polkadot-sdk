@@ -20,7 +20,7 @@
 use codec::DecodeAll;
 use cumulus_aura_authorizer::{
 	build_collator_proofs, hash_signing_payload, signable_work_package_hash, AuthConfig, AuthToken,
-	AuthTrace, AuthorizationError, SignatureVerifier, TokenError, UnauthorizedWorkPackage,
+	AuthTrace, AuthorizationError, SignatureVerifier, TokenError, WorkPackageBody,
 	WORK_PACKAGE_SIGN_CTX,
 };
 use jam_types::Encode as JamEncode;
@@ -34,7 +34,7 @@ impl SignatureVerifier for Verifier {
 
 #[test]
 fn published_package_works() {
-	let package = UnauthorizedWorkPackage {
+	let package = WorkPackageBody {
 		auth_code_host: 1,
 		authorizer: jam_types::Authorizer { code_hash: [3; 32].into(), config: vec![4, 5].into() },
 		context: jam_types::RefineContext {
@@ -85,7 +85,7 @@ fn published_package_works() {
 	let mut token = AuthToken { proof: vec![], key: [7; 32], signature: [0; 64] };
 	token.signature[..32].copy_from_slice(hash.as_bytes());
 	let expected_fields = payload;
-	let mut package = package.authorize(&token);
+	let mut package = package.with_authorization(&token);
 	assert_eq!(signable_work_package_hash(&package), hash);
 	assert_eq!(
 		JamEncode::encode(&(

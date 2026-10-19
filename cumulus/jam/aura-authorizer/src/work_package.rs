@@ -27,7 +27,7 @@ use crate::{signing::SigningPayload, AuthToken};
 ///
 /// Nodes can compute the signing hash before attaching the completed token.
 #[derive(Clone, Debug)]
-pub struct UnauthorizedWorkPackage {
+pub struct WorkPackageBody {
 	/// Service hosting the authorizer code.
 	pub auth_code_host: ServiceId,
 	/// Authorizer code hash and configuration.
@@ -38,7 +38,7 @@ pub struct UnauthorizedWorkPackage {
 	pub items: BoundedVec<WorkItem, MaxWorkItems>,
 }
 
-impl UnauthorizedWorkPackage {
+impl WorkPackageBody {
 	/// Hash to be signed by the collator when constructing an AURA token.
 	pub fn signing_hash(&self) -> H256 {
 		SigningPayload::from(self).hash()
@@ -47,7 +47,7 @@ impl UnauthorizedWorkPackage {
 	/// Attach an existing AURA token and return the complete work package.
 	///
 	/// SCALE-encodes the token without creating a signature or verifying authorization.
-	pub fn authorize(self, token: &AuthToken) -> WorkPackage {
+	pub fn with_authorization(self, token: &AuthToken) -> WorkPackage {
 		WorkPackage {
 			authorization: ScaleEncode::encode(token).into(),
 			auth_code_host: self.auth_code_host,

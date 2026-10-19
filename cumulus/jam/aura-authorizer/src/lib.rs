@@ -36,7 +36,7 @@ pub use config::{AuthConfig, ConfigError};
 pub use merkle::{build_collator_proofs, CollatorProofError};
 pub use signing::{hash_signing_payload, signable_work_package_hash, WORK_PACKAGE_SIGN_CTX};
 pub use token::{AuthToken, CollatorKey, CollatorSignature, SignatureVerifier, TokenError};
-pub use work_package::UnauthorizedWorkPackage;
+pub use work_package::WorkPackageBody;
 
 /// The collator authenticated by AURA for the work package.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen)]

@@ -23,7 +23,7 @@ use jam_types::{
 use primitive_types::H256;
 use sp_crypto_hashing::blake2_256;
 
-use crate::UnauthorizedWorkPackage;
+use crate::WorkPackageBody;
 
 /// Domain separator for the token-free work-package hash signed by AURA collators.
 pub const WORK_PACKAGE_SIGN_CTX: &[u8] = b"jam:parachain-service:aura:work-package:v1";
@@ -53,9 +53,9 @@ impl<'a> From<&'a WorkPackage> for SigningPayload<'a> {
 	}
 }
 
-impl<'a> From<&'a UnauthorizedWorkPackage> for SigningPayload<'a> {
-	fn from(package: &'a UnauthorizedWorkPackage) -> Self {
-		let UnauthorizedWorkPackage { auth_code_host, authorizer, context, items } = package;
+impl<'a> From<&'a WorkPackageBody> for SigningPayload<'a> {
+	fn from(package: &'a WorkPackageBody) -> Self {
+		let WorkPackageBody { auth_code_host, authorizer, context, items } = package;
 		Self { auth_code_host: *auth_code_host, authorizer, context, items }
 	}
 }
