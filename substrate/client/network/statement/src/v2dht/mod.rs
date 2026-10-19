@@ -337,7 +337,7 @@ impl V2DhtOrchestrator {
 	///
 	/// A peer is a target for a statement when it is a DHT routing target for one of the
 	/// statement's topics ([`PeersTopology::routing_targets`]) or its advertised filter matches the
-	/// statement ([`ExplicitAffinity::peer_has_explicit_affinity`]).
+	/// statement ([`ExplicitAffinity::peers_with_explicit_affinity`]).
 	pub(crate) fn propagation_plan(
 		&self,
 		statements: &[(u64, Hash, Statement)],
@@ -350,11 +350,7 @@ impl V2DhtOrchestrator {
 			for topic in statement.topics() {
 				targets.extend(self.peers_topology.routing_targets(*topic));
 			}
-			for peer in self.peers_topology.connected_peers() {
-				if self.explicit_affinity.peer_has_explicit_affinity(peer, statement) {
-					targets.insert(peer);
-				}
-			}
+			targets.extend(self.explicit_affinity.peers_with_explicit_affinity(statement));
 
 			for peer_id in targets {
 				statements_by_peer.entry(peer_id).or_default().push(index);
@@ -697,6 +693,18 @@ mod tests {
 		assert!(!orchestrator
 			.explicit_affinity
 			.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
+	}
+
+	#[test]
+	fn plans_a_light_peer_by_its_filter_alone() {
+		let mut orchestrator = orchestrator();
+		let light_peer = PeerId::random();
+		orchestrator.on_peer_filter_update(light_peer, filter_over(&[topic(1)]));
+		let statements = [statement(1, &[topic(1)]), statement(2, &[topic(2)])];
+
+		let plan = orchestrator.propagation_plan(&statements);
+
+		assert_eq!(plan, vec![(light_peer, vec![0])]);
 	}
 
 	#[test]
