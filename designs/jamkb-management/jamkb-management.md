@@ -630,9 +630,10 @@ Contracts access the pallet through a precompile at a fixed address. It
 exposes the calls and reads a contract needs. Each precompile function calls
 the internal pallet method that holds the logic shared with the dispatchable
 of the same name. The call origin is the account that calls the precompile.
-The precompile returns the new allocation id, or the operation id that
-`settle` resolves later. On failure the call reverts with the pallet error
-name.
+No governance call is exposed, and a Root caller is rejected. The precompile
+rejects a delegate call and a state-changing call in a read-only frame. It
+returns the new allocation id, or the operation id that `settle` resolves
+later. On failure the call reverts with the pallet error name.
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -992,9 +993,9 @@ defined.
    only selling JAMKB for DOT, is open.
 2. **Storage footprint cleanup.** The pallet does not know the value length of
    a deleted key, so it cannot reclaim what a cleanup page freed. The freeing
-   and the reclaim must also be atomic, since concurrent reclaims race for the
-   freed funds and the caller of the cleanup should be the one to get them
-   back.
+   and the reclaim must also be atomic: with several leases on one target,
+   their reclaims race for the freed funds, and the lease the cleanup was done
+   for should be the one to get them back.
 3. **Storage key removal.** `ServiceStoreError` has no variant for a key that
    is not present, so `cleanup_storage` cannot tell whether keys were removed.
    `settle` slashes the deposit on Failed.
