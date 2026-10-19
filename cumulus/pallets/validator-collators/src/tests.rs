@@ -14,8 +14,9 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, relay_proof::relay_state_proof, Call, Collators, Config, DrawnCollators,
-	EpochRandomness, EraValidatorSet, Error, Event, MaxCollators, PendingRotation, RotationState,
+	mock::*, relay_proof::relay_state_proof, AuthoredBlocks, Call, Collators, Config,
+	DrawnCollators, EpochRandomness, EraValidatorSet, Error, Event, ExpectedEraDuration,
+	MaxCollators, PendingRotation, ReportMargin, ReportPeriod, RotationState, SetReceivedAt,
 	ValidatorSet,
 };
 use codec::{Decode, Encode};
@@ -26,7 +27,7 @@ use cumulus_pallet_parachain_system::{
 use cumulus_primitives_core::relay_chain::well_known_keys::ONE_EPOCH_AGO_RANDOMNESS;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{UnfilteredDispatchable, ValidatorRegistration},
+	traits::{Hooks, UnfilteredDispatchable, ValidatorRegistration},
 	BoundedBTreeSet,
 };
 use pallet_session::SessionManager;
@@ -103,8 +104,8 @@ fn calls_reject_wrong_origin() {
 		// GIVEN accounts other than the configured origin of each call
 		let not_set_origin = RootAccount::get();
 		let not_update_origin = SetAccount::get();
-		// WHEN they submit a validator set or a cap
-		// THEN both calls fail with BadOrigin
+		// WHEN they submit a validator set or change a setting
+		// THEN every call fails with BadOrigin
 		assert_noop!(
 			ValidatorCollators::set_validators(
 				RuntimeOrigin::signed(not_set_origin),
@@ -118,6 +119,21 @@ fn calls_reject_wrong_origin() {
 				RuntimeOrigin::signed(not_update_origin),
 				Some(1)
 			),
+			BadOrigin
+		);
+		assert_noop!(
+			ValidatorCollators::set_report_period(RuntimeOrigin::signed(not_update_origin), 3),
+			BadOrigin
+		);
+		assert_noop!(
+			ValidatorCollators::set_expected_era_duration(
+				RuntimeOrigin::signed(not_update_origin),
+				1
+			),
+			BadOrigin
+		);
+		assert_noop!(
+			ValidatorCollators::set_report_margin(RuntimeOrigin::signed(not_update_origin), 1),
 			BadOrigin
 		);
 		assert_ok!(ValidatorCollators::do_try_state());
@@ -706,4 +722,396 @@ fn try_state_detects_drawn_collators_that_break_the_invariants() {
 			assert!(ValidatorCollators::do_try_state().is_err(), "{cap:?} {collators:?} {cached}");
 		});
 	}
+}
+
+fn note_blocks(author: u64, blocks: u32) {
+	(0..blocks).for_each(|_| {
+		<ValidatorCollators as pallet_authorship::EventHandler<_, _>>::note_author(author)
+	});
+}
+
+fn counts() -> Vec<(u64, u32)> {
+	let mut counts = AuthoredBlocks::<Test>::iter().collect::<Vec<_>>();
+	counts.sort();
+	counts
+}
+
+fn reported_entries() -> Vec<(u64, u32)> {
+	let mut entries = reported().concat();
+	entries.sort();
+	entries
+}
+
+#[test]
+fn report_sends_counts_of_stored_validators_only() {
+	new_test_ext().execute_with(|| {
+		// GIVEN the set of 10 and 11 is stored, and 10, 11 and invulnerable 1 authored blocks
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10, 11]));
+		note_blocks(10, 3);
+		note_blocks(11, 1);
+		note_blocks(1, 2);
+		assert_eq!(AuthoredBlocks::<Test>::count(), 3);
+		assert_ok!(ValidatorCollators::do_try_state());
+		// AND the invariants reject an author counted with zero blocks
+		frame_support::hypothetically!({
+			AuthoredBlocks::<Test>::insert(12, 0);
+			assert_eq!(
+				ValidatorCollators::do_try_state(),
+				Err("an author is counted with zero blocks".into())
+			);
+		});
+
+		// WHEN the report block comes without a stored set
+		// THEN nothing reaches the reporter and every count is dropped
+		frame_support::hypothetically!({
+			ValidatorSet::<Test>::kill();
+			PendingRotation::<Test>::kill();
+			initialize_to_block(5);
+			assert_eq!(reported(), Vec::<Vec<(u64, u32)>>::new());
+			assert_eq!(counts(), vec![]);
+			System::assert_has_event(Event::BlocksReported { authors: 3, reported: 0 }.into());
+		});
+
+		// WHEN the report block comes with the stored set
+		initialize_to_block(4);
+		assert!(reported().is_empty());
+		initialize_to_block(5);
+
+		// THEN the reporter got the counts of the validators only, and the map is empty, so
+		// a non-validator never reaches the chain that credits the counts
+		assert_eq!(reported_entries(), vec![(10, 3), (11, 1)]);
+		assert_eq!(counts(), vec![]);
+		assert_eq!(AuthoredBlocks::<Test>::count(), 0);
+		System::assert_has_event(Event::BlocksReported { authors: 3, reported: 2 }.into());
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn report_is_split_into_chunks() {
+	new_test_ext().execute_with(|| {
+		// GIVEN at most two entries per report and three validators with counts
+		MaxEntriesPerReport::set(2);
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10, 11, 12]));
+		note_blocks(10, 1);
+		note_blocks(11, 2);
+		note_blocks(12, 3);
+
+		// WHEN the report block comes
+		initialize_to_block(5);
+
+		// THEN every validator is reported in this period, in a chunk of two and one of one
+		assert_eq!(reported().iter().map(Vec::len).collect::<Vec<_>>(), vec![2, 1]);
+		assert_eq!(reported_entries(), vec![(10, 1), (11, 2), (12, 3)]);
+		assert_eq!(counts(), vec![]);
+	});
+}
+
+#[test]
+fn failed_report_keeps_the_counts_for_the_next_period() {
+	new_test_ext().execute_with(|| {
+		// GIVEN counts of three validators over two chunks, of invulnerable 1, and a reporter
+		// that rejects the second chunk
+		MaxEntriesPerReport::set(2);
+		FailingReportCall::set(Some(2));
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10, 11, 12]));
+		note_blocks(10, 1);
+		note_blocks(11, 2);
+		note_blocks(12, 3);
+		note_blocks(1, 1);
+		let before = counts();
+
+		// WHEN the report block comes
+		initialize_to_block(5);
+
+		// THEN the first chunk is rolled back and every count is kept, invulnerable 1 included
+		assert_eq!(ReportCalls::get(), 2);
+		assert!(reported().is_empty());
+		assert_eq!(counts(), before);
+		assert_eq!(AuthoredBlocks::<Test>::count(), 4);
+		System::assert_has_event(Event::BlocksReportFailed { authors: 4 }.into());
+
+		// WHEN more blocks are authored and the reporter accepts the next report
+		note_blocks(10, 4);
+		initialize_to_block(10);
+
+		// THEN it carries the sum of both periods, so nothing is lost or reported twice
+		assert_eq!(reported_entries(), vec![(10, 5), (11, 2), (12, 3)]);
+		assert_eq!(counts(), vec![]);
+		System::assert_has_event(Event::BlocksReported { authors: 4, reported: 3 }.into());
+	});
+}
+
+fn root() -> RuntimeOrigin {
+	RuntimeOrigin::signed(RootAccount::get())
+}
+
+/// Number of reports made so far.
+fn reports() -> usize {
+	System::events()
+		.into_iter()
+		.filter(|record| {
+			matches!(record.event, RuntimeEvent::ValidatorCollators(Event::BlocksReported { .. }))
+		})
+		.count()
+}
+
+/// Run the next block at `time` milliseconds, with validator 10 as its author.
+fn block_at(time: u64) {
+	Now::set(time);
+	note_blocks(10, 1);
+	initialize_to_block(System::block_number() + 1);
+}
+
+#[test]
+fn reports_once_before_the_expected_era_end() {
+	new_test_ext().execute_with(|| {
+		// GIVEN an expected era of 1000 ms, a margin of 100 ms, no report period in the test
+		// blocks, and the set of 10 received at time 0
+		initialize_to_block(1);
+		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
+		assert_eq!((ExpectedEraDuration::<Test>::get(), ReportMargin::<Test>::get()), (1000, 100));
+		assert_ok!(receive(1, vec![10]));
+		assert_eq!(SetReceivedAt::<Test>::get(), Some(0));
+
+		// WHEN blocks run up to time 899
+		block_at(500);
+		block_at(899);
+		// THEN nothing is reported and the arrival is kept
+		assert_eq!(reports(), 0);
+		assert_eq!(SetReceivedAt::<Test>::get(), Some(0));
+
+		// WHEN a block runs at time 900
+		block_at(900);
+		// THEN the counts are reported once and the arrival is removed
+		assert_eq!(reports(), 1);
+		assert_eq!(reported_entries(), vec![(10, 3)]);
+		assert_eq!(SetReceivedAt::<Test>::get(), None);
+		assert_ok!(ValidatorCollators::do_try_state());
+
+		// WHEN later blocks run past the expected era end
+		block_at(950);
+		block_at(1500);
+		// THEN there is no second early report
+		assert_eq!(reports(), 1);
+
+		// WHEN the next set arrives
+		Now::set(1600);
+		assert_ok!(receive(2, vec![10]));
+		// THEN its arrival is recorded and times the next early report
+		assert_eq!(SetReceivedAt::<Test>::get(), Some(1600));
+		block_at(2499);
+		assert_eq!(reports(), 1);
+		block_at(2500);
+		assert_eq!(reports(), 2);
+		assert_eq!(SetReceivedAt::<Test>::get(), None);
+	});
+}
+
+#[test]
+fn report_timing_edge_cases() {
+	// The early report and a `ReportPeriod` block in the same block report once.
+	new_test_ext().execute_with(|| {
+		// GIVEN the default period of 5 blocks and a set received at time 0
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10]));
+		block_at(0);
+		block_at(0);
+		block_at(0);
+		assert_eq!(reports(), 0);
+		Now::set(900);
+		note_blocks(10, 1);
+		System::set_block_number(5);
+		// AND the charge of block 5 at the due time if it were not a `ReportPeriod` block
+		let early_only = frame_support::hypothetically!({
+			ReportPeriod::<Test>::put(1000);
+			ValidatorCollators::on_initialize(5)
+		});
+		// WHEN block 5 runs at the due time
+		let both = ValidatorCollators::on_initialize(5);
+		// THEN one report is made and charged, and the arrival is removed
+		assert_eq!(both, early_only);
+		assert_eq!(reports(), 1);
+		assert_eq!(reported().len(), 1);
+		assert_eq!(SetReceivedAt::<Test>::get(), None);
+	});
+
+	// A rejected early report is not retried, and the next `ReportPeriod` block carries its counts.
+	new_test_ext().execute_with(|| {
+		// GIVEN the default period of 5 blocks, a set received at time 0 and a reporter that
+		// rejects its first call
+		FailingReportCall::set(Some(1));
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10]));
+		// WHEN block 2 runs at the due time
+		block_at(900);
+		// THEN the report fails, the arrival is removed and the counts are kept
+		System::assert_has_event(Event::BlocksReportFailed { authors: 1 }.into());
+		assert_eq!(SetReceivedAt::<Test>::get(), None);
+		assert_eq!(counts(), vec![(10, 1)]);
+		// WHEN blocks 3 and 4 run
+		block_at(1000);
+		block_at(1100);
+		// THEN the reporter is not called again
+		assert_eq!(ReportCalls::get(), 1);
+		// WHEN block 5, a multiple of the period, runs
+		block_at(1200);
+		// THEN the reporter accepts the counts of every block since the failed report
+		assert_eq!(ReportCalls::get(), 2);
+		assert_eq!(reported_entries(), vec![(10, 4)]);
+		assert_eq!(counts(), vec![]);
+		System::assert_has_event(Event::BlocksReported { authors: 1, reported: 1 }.into());
+	});
+
+	// A margin above half of the expected era reports in the middle of the expected era.
+	new_test_ext().execute_with(|| {
+		// GIVEN an expected era of 100 ms, a margin of 200 ms and a set received at time 0
+		initialize_to_block(1);
+		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
+		assert_ok!(ValidatorCollators::set_expected_era_duration(root(), 100));
+		assert_ok!(ValidatorCollators::set_report_margin(root(), 200));
+		assert_ok!(receive(1, vec![10]));
+		// WHEN blocks run at 49 and 50 ms
+		// THEN the report is made at 50 ms, after the arrival
+		block_at(49);
+		assert_eq!(reports(), 0);
+		block_at(50);
+		assert_eq!(reports(), 1);
+	});
+
+	// A set that arrives before the due time of the previous one replaces its arrival.
+	new_test_ext().execute_with(|| {
+		// GIVEN a set received at time 0, due at 900
+		initialize_to_block(1);
+		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
+		assert_ok!(receive(1, vec![10]));
+		// WHEN the next set arrives at 500
+		Now::set(500);
+		assert_ok!(receive(2, vec![10]));
+		// THEN the early report follows the new arrival, due at 1400
+		block_at(900);
+		assert_eq!(reports(), 0);
+		block_at(1400);
+		assert_eq!(reports(), 1);
+	});
+
+	// Without an arrival, only `ReportPeriod` blocks report.
+	new_test_ext().execute_with(|| {
+		// GIVEN a stored set without an arrival, as after the upgrade that adds the timing
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10]));
+		SetReceivedAt::<Test>::kill();
+		// WHEN blocks 2 to 4 run long past any due time
+		block_at(10_000);
+		block_at(10_000);
+		block_at(10_000);
+		// THEN nothing is reported until block 5, a multiple of the period
+		assert_eq!(reports(), 0);
+		block_at(10_000);
+		assert_eq!(reports(), 1);
+		assert_eq!(reported_entries(), vec![(10, 4)]);
+	});
+
+	// A change of `ReportMargin` after the arrival moves the due time.
+	new_test_ext().execute_with(|| {
+		// GIVEN a set received at time 0, due at 900 with the default margin
+		initialize_to_block(1);
+		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
+		assert_ok!(receive(1, vec![10]));
+		// WHEN the margin is raised to 300
+		assert_ok!(ValidatorCollators::set_report_margin(root(), 300));
+		// THEN the report is made at 700
+		block_at(699);
+		assert_eq!(reports(), 0);
+		block_at(700);
+		assert_eq!(reports(), 1);
+	});
+
+	// A stored margin above `MaxReportMargin`, as after a runtime upgrade that lowers it, is
+	// used up to `MaxReportMargin`.
+	new_test_ext().execute_with(|| {
+		// GIVEN an expected era of 2000 ms, a stored margin of 600 ms above the maximum of
+		// 500 ms, and a set received at time 0
+		initialize_to_block(1);
+		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
+		assert_ok!(ValidatorCollators::set_expected_era_duration(root(), 2000));
+		ReportMargin::<Test>::put(600);
+		assert_ok!(receive(1, vec![10]));
+		// WHEN blocks run at 1499 and 1500 ms
+		// THEN the report is made at 1500 ms, with the margin capped
+		block_at(1499);
+		assert_eq!(reports(), 0);
+		block_at(1500);
+		assert_eq!(reports(), 1);
+		// AND the stored margin passes the invariants
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn setters_are_bounded_and_announced() {
+	new_test_ext().execute_with(|| {
+		let max_margin =
+			<<Test as Config>::MaxReportMargin as frame_support::traits::Get<u64>>::get();
+		// GIVEN validator 10 authored a block
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10]));
+		note_blocks(10, 1);
+
+		// WHEN the update origin sets a zero period, a zero margin, a margin above the maximum
+		// or a zero duration
+		// THEN each call fails and the stored values are unchanged
+		assert_noop!(
+			ValidatorCollators::set_report_period(root(), 0),
+			Error::<Test>::ZeroReportPeriod
+		);
+		assert_noop!(
+			ValidatorCollators::set_report_margin(root(), 0),
+			Error::<Test>::ZeroReportMargin
+		);
+		assert_noop!(
+			ValidatorCollators::set_report_margin(root(), max_margin + 1),
+			Error::<Test>::ReportMarginTooHigh
+		);
+		assert_noop!(
+			ValidatorCollators::set_expected_era_duration(root(), 0),
+			Error::<Test>::ZeroExpectedEraDuration
+		);
+
+		// WHEN it sets a period of 3 instead of the default 5
+		assert_ok!(ValidatorCollators::set_report_period(root(), 3));
+		System::assert_last_event(Event::ReportPeriodSet { period: 3 }.into());
+		assert_eq!(ReportPeriod::<Test>::get(), 3);
+		// THEN the next report is made at block 3
+		initialize_to_block(2);
+		assert!(reported().is_empty());
+		initialize_to_block(3);
+		assert_eq!(reported_entries(), vec![(10, 1)]);
+
+		// WHEN it sets the smallest and the largest margin, and the smallest duration
+		// THEN each is stored and announced
+		assert_ok!(ValidatorCollators::set_report_margin(root(), 1));
+		System::assert_last_event(Event::ReportMarginSet { margin: 1 }.into());
+		assert_ok!(ValidatorCollators::set_report_margin(root(), max_margin));
+		System::assert_last_event(Event::ReportMarginSet { margin: max_margin }.into());
+		assert_eq!(ReportMargin::<Test>::get(), max_margin);
+		assert_ok!(ValidatorCollators::set_expected_era_duration(root(), 1));
+		System::assert_last_event(Event::ExpectedEraDurationSet { duration: 1 }.into());
+		assert_eq!(ExpectedEraDuration::<Test>::get(), 1);
+		assert_ok!(ValidatorCollators::do_try_state());
+
+		// AND the invariants reject the zero values the calls refuse
+		for (duration, margin, error) in
+			[(0, 1, "the expected era duration is zero"), (1, 0, "the report margin is zero")]
+		{
+			frame_support::hypothetically!({
+				ExpectedEraDuration::<Test>::put(duration);
+				ReportMargin::<Test>::put(margin);
+				assert_eq!(ValidatorCollators::do_try_state(), Err(error.into()));
+			});
+		}
+	});
 }

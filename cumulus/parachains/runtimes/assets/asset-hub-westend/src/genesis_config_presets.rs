@@ -28,8 +28,9 @@ use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::AccountIdConversion;
+use sp_staking::ValidatorServiceKind;
 use testnet_parachains_constants::westend::{
-	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
+	currency::UNITS as WND, locations::PeopleParaId, xcm_version::SAFE_XCM_VERSION,
 };
 use xcm::latest::prelude::*;
 use xcm_builder::GlobalConsensusConvertsFor;
@@ -45,6 +46,7 @@ fn asset_hub_westend_genesis(
 	id: ParaId,
 	foreign_assets: Vec<(Location, AccountId, Balance)>,
 	foreign_assets_endowed_accounts: Vec<(Location, AccountId, Balance)>,
+	points_per_service: Vec<(ParaId, ValidatorServiceKind, u32)>,
 ) -> serde_json::Value {
 	let mut balances: Vec<_> = endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect();
 	// The DAP buffer receives slashes and is the signed-phase reward pot. Payouts transfer with
@@ -75,6 +77,7 @@ fn asset_hub_westend_genesis(
 				.collect(),
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
+		staking_points_converter: StakingPointsConverterConfig { points_per_service },
 		staking: StakingConfig {
 			stakers: vec![
 				(
@@ -154,8 +157,10 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			1000.into(),
 			vec![],
 			vec![],
+			vec![],
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => {
+			let id: ParaId = 1000.into();
 			asset_hub_westend_genesis(
 				// initial collators.
 				vec![
@@ -165,7 +170,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 				WND * 1_000_000,
 				dev_stakers,
-				1000.into(),
+				id,
 				vec![
 			// bridged ROC
 			(
@@ -185,6 +190,11 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 						10_000_000 * 4096 * 4096,
 					),
 				],
+				// Era points per block authored on each chain that reports its blocks.
+				vec![
+					(id, ValidatorServiceKind::Collation, 20),
+					(PeopleParaId::get(), ValidatorServiceKind::Collation, 20),
+				],
 			)
 		},
 		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_westend_genesis(
@@ -199,6 +209,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			WND * 1_000_000,
 			dev_stakers,
 			1000.into(),
+			vec![],
 			vec![],
 			vec![],
 		),

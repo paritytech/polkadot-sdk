@@ -133,7 +133,10 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 		// GIVEN: incentive budget enabled (45% staker, 5% incentive).
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (21, 1)],
+		);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
@@ -186,7 +189,10 @@ fn no_incentive_when_budget_is_zero() {
 
 		// GIVEN: 50% staker, 0% incentive.
 		setup_incentive_with_budget(50, 0);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (21, 1)],
+		);
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
 
@@ -208,7 +214,10 @@ fn enabling_incentive_budget_mid_flight() {
 
 		// GIVEN: era 1 has no incentive budget.
 		setup_incentive_with_budget(50, 0);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (21, 1)],
+		);
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
 		make_all_reward_payment(1);
@@ -217,7 +226,10 @@ fn enabling_incentive_budget_mid_flight() {
 
 		// WHEN: governance enables 10% incentive for era 2.
 		setup_incentive_with_budget(40, 10);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (21, 1)],
+		);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 		make_all_reward_payment(2);
@@ -243,7 +255,7 @@ fn zero_reward_points_means_no_payout() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		// Only bob earns points in era 2.
-		Eras::<Test>::reward_active_era(vec![(bob, 1)]);
+		Eras::<Test>::reward_active_era(ValidatorServiceKind::RelayConsensus, vec![(bob, 1)]);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
@@ -284,7 +296,10 @@ fn incentive_weight_stored_correctly() {
 		// GIVEN: incentive config with optimum=30_000, cap=100_000.
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (21, 1)],
+		);
 		Session::roll_until_active_era(3);
 
 		// THEN: weight = √1000 ≈ 31.
@@ -312,7 +327,10 @@ fn incentive_paid_to_custom_account() {
 		));
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (21, 1)],
+		);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 		let before = asset::total_balance::<Test>(&reward_account);
@@ -418,7 +436,10 @@ fn multiple_validators_share_incentive_pot_correctly() {
 		// GIVEN: two validators with equal reward points, incentive budget enabled.
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (bob, 1)],
+		);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
@@ -460,7 +481,10 @@ fn validator_incentive_prorated_across_pages() {
 		// GIVEN: incentive enabled.
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (21, 1)],
+		);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
@@ -509,7 +533,10 @@ fn incentive_sum_across_multiple_exposure_pages_equals_share_times_budget() {
 			// GIVEN: incentive enabled; both validators earn equal points.
 			setup_incentive_with_budget(45, 5);
 			Session::roll_until_active_era(2);
-			Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
+			Eras::<Test>::reward_active_era(
+				ValidatorServiceKind::RelayConsensus,
+				vec![(alice, 1), (bob, 1)],
+			);
 			Session::roll_until_active_era(3);
 			let _ = staking_events_since_last_call();
 
@@ -560,7 +587,10 @@ fn chilled_validator_can_still_claim_past_era() {
 		// GIVEN: alice earns weight in era 2.
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (21, 1)],
+		);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 		assert!(ErasValidatorIncentiveWeight::<Test>::get(2, alice).is_some());
@@ -593,7 +623,10 @@ fn payee_change_before_payout_uses_new_destination() {
 		));
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (21, 1)],
+		);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
@@ -644,7 +677,10 @@ fn missing_payee_emits_unexpected_and_skips_payout() {
 		// GIVEN: incentive enabled, validator has weight.
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (21, 1)],
+		);
 		Session::roll_until_active_era(3);
 
 		// WHEN: alice's payee is missing at payout time.
@@ -686,7 +722,10 @@ fn validator_with_points_but_zero_weight_gets_no_incentive() {
 		ErasSumValidatorIncentiveWeight::<Test>::mutate(2, |s| *s = s.saturating_sub(alice_weight));
 
 		// Both validators earn the same reward points.
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (bob, 1)],
+		);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
@@ -716,7 +755,10 @@ fn defensive_panic_on_transfer_failure() {
 		// GIVEN: incentive enabled, validator has weight.
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (21, 1)],
+		);
 		Session::roll_until_active_era(3);
 
 		// WHEN: drain the incentive pot so transfer fails.
@@ -757,7 +799,10 @@ fn reward_active_era_defends_individual_map_capacity() {
 		// validator, the point delta must not enter `ErasSumWeightedPoints` either; otherwise
 		// payout and try-state recomputation would see different denominators.
 		MaxValidatorSet::set(1);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (bob, 1)],
+		);
 
 		#[cfg(not(debug_assertions))]
 		{
@@ -779,7 +824,10 @@ fn incentive_scales_with_relative_performance() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		// Bob earns twice as many points as alice.
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 2)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (bob, 2)],
+		);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
@@ -824,7 +872,10 @@ fn outlier_top_performer_scales_others_down() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		// Alice earns 10× more points than bob.
-		Eras::<Test>::reward_active_era(vec![(alice, 10), (bob, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 10), (bob, 1)],
+		);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
@@ -865,7 +916,10 @@ fn uniform_performance_distributes_full_budget() {
 		// GIVEN: two validators with equal weight and equal points (5 each).
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 5), (bob, 5)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 5), (bob, 5)],
+		);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
@@ -905,7 +959,10 @@ fn zero_performer_alongside_unequal_others() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		// Alice gets 0 points (will be gated out); bob and carol earn unequal points.
-		Eras::<Test>::reward_active_era(vec![(bob, 5), (carol, 2)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(bob, 5), (carol, 2)],
+		);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
@@ -952,7 +1009,7 @@ fn single_validator_earning_points_gets_full_budget() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		// Only alice earns points. Denominator = w_a · 3, numerator = w_a · 3 → share = 1.
-		Eras::<Test>::reward_active_era(vec![(alice, 3)]);
+		Eras::<Test>::reward_active_era(ValidatorServiceKind::RelayConsensus, vec![(alice, 3)]);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
@@ -1008,7 +1065,7 @@ fn sum_weighted_points_single_validator_equals_weight_times_points() {
 		let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
 
 		// WHEN: credit alice 7 points.
-		Eras::<Test>::reward_active_era(vec![(alice, 7)]);
+		Eras::<Test>::reward_active_era(ValidatorServiceKind::RelayConsensus, vec![(alice, 7)]);
 
 		// THEN: sum == w_alice · 7.
 		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), alice_weight * 7);
@@ -1028,7 +1085,10 @@ fn sum_weighted_points_uniform_inputs_sum_equally() {
 		assert_eq!(ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap(), w);
 
 		// WHEN: credit each validator 5 points.
-		Eras::<Test>::reward_active_era(vec![(alice, 5), (bob, 5)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 5), (bob, 5)],
+		);
 
 		// THEN: sum == 2 · (w · 5).
 		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), 2 * w * 5);
@@ -1051,7 +1111,10 @@ fn sum_weighted_points_unequal_points_contribute_proportionally() {
 		let w_c = ErasValidatorIncentiveWeight::<Test>::get(2, carol).unwrap();
 
 		// WHEN: credit alice 10, bob 1, carol 1.
-		Eras::<Test>::reward_active_era(vec![(alice, 10), (bob, 1), (carol, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 10), (bob, 1), (carol, 1)],
+		);
 
 		// THEN: sum == w_a · 10 + w_b · 1 + w_c · 1.
 		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), w_a * 10 + w_b + w_c);
@@ -1073,7 +1136,10 @@ fn sum_weighted_points_unequal_weights_propagate() {
 		ErasSumValidatorIncentiveWeight::<Test>::mutate(2, |s| *s = s.saturating_add(natural));
 
 		// WHEN: alice 2 points, bob 1 point.
-		Eras::<Test>::reward_active_era(vec![(alice, 2), (bob, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 2), (bob, 1)],
+		);
 
 		// THEN: sum == 2w · 2 + w · 1 = 5w.
 		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), 5 * natural);
@@ -1096,7 +1162,10 @@ fn sum_weighted_points_validator_without_weight_excluded_from_sum() {
 		let bob_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
 
 		// WHEN: both credited points, but alice has no weight.
-		Eras::<Test>::reward_active_era(vec![(alice, 5), (bob, 3)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 5), (bob, 3)],
+		);
 
 		// THEN: only bob's contribution lands in the sum; alice is gated out by the
 		// `if !weight.is_zero()` check, matching the gate in
@@ -1115,7 +1184,7 @@ fn sum_weighted_points_zero_points_yields_no_delta() {
 		let before = ErasSumWeightedPoints::<Test>::get(2);
 
 		// WHEN: alice credited zero points.
-		Eras::<Test>::reward_active_era(vec![(alice, 0)]);
+		Eras::<Test>::reward_active_era(ValidatorServiceKind::RelayConsensus, vec![(alice, 0)]);
 
 		// THEN: sum is unchanged (w · 0 contributes nothing; short-circuit also avoids
 		// a pointless storage write).
@@ -1136,10 +1205,10 @@ fn sum_weighted_points_accrues_across_sequential_calls() {
 		let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
 
 		// WHEN: two back-to-back credits for the same validator.
-		Eras::<Test>::reward_active_era(vec![(alice, 3)]);
+		Eras::<Test>::reward_active_era(ValidatorServiceKind::RelayConsensus, vec![(alice, 3)]);
 		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), alice_weight * 3);
 
-		Eras::<Test>::reward_active_era(vec![(alice, 4)]);
+		Eras::<Test>::reward_active_era(ValidatorServiceKind::RelayConsensus, vec![(alice, 4)]);
 
 		// THEN: sum accrued — w · (3 + 4) = w · 7.
 		assert_eq!(ErasSumWeightedPoints::<Test>::get(2), alice_weight * 7);
@@ -1166,7 +1235,10 @@ fn legacy_formula_used_for_eras_before_cutoff() {
 		Session::roll_until_active_era(2);
 		// Unequal points; under the new formula this would yield a 10:1 split,
 		// under the legacy formula (equal weights) this is a 1:1 split.
-		Eras::<Test>::reward_active_era(vec![(alice, 10), (bob, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 10), (bob, 1)],
+		);
 		Session::roll_until_active_era(3);
 
 		// WHEN: pin era 2 as pre-cutoff and wipe its weighted-points denominator to mimic an era
@@ -1206,7 +1278,10 @@ fn new_formula_used_for_eras_at_and_after_cutoff() {
 		Session::roll_until_active_era(2);
 		WeightedPointsFormulaStartEra::<Test>::put(2);
 
-		Eras::<Test>::reward_active_era(vec![(alice, 2), (bob, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 2), (bob, 1)],
+		);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
@@ -1234,7 +1309,7 @@ fn new_formula_zero_denominator_emits_unexpected_and_skips_payout() {
 
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Eras::<Test>::reward_active_era(ValidatorServiceKind::RelayConsensus, vec![(alice, 1)]);
 		Session::roll_until_active_era(3);
 
 		// WHEN: corrupt the denominator to zero on a weighted-points era.
@@ -1268,7 +1343,10 @@ fn legacy_era_pays_out_even_without_weighted_points_storage() {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		// Both validators earn points so the caller's zero-points gate is open.
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(alice, 1), (bob, 1)],
+		);
 		Session::roll_until_active_era(3);
 
 		// Model a pre-cutoff era whose weighted-points denominator was not maintained.
@@ -1293,7 +1371,10 @@ fn try_state_skips_weighted_points_check_for_pre_cutoff_eras() {
 	ExtBuilder::default().build_and_execute(|| {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(11, 1), (21, 1)]);
+		Eras::<Test>::reward_active_era(
+			ValidatorServiceKind::RelayConsensus,
+			vec![(11, 1), (21, 1)],
+		);
 
 		// GIVEN: the genesis cutoff makes era 2 a weighted-points era, so a missing
 		// denominator must trip try-state.
