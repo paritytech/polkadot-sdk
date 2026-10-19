@@ -129,49 +129,18 @@ mod tests {
 	}
 
 	#[test]
-	fn work_item_constraints_works() {
-		let (mut config, mut token, mut package) = fixture();
-		package.items = vec![jam_types::WorkItem {
-			service: config.parachain_service,
-			code_hash: Default::default(),
-			refine_gas_limit: 1,
-			accumulate_gas_limit: 1,
-			export_count: 0,
-			payload: Default::default(),
-			import_segments: Default::default(),
-			extrinsics: Default::default(),
-		}]
-		.try_into()
-		.expect("one work item fits");
-		let hash = signing::SigningPayload::from(&package).hash();
-		token.signature[..32].copy_from_slice(hash.as_bytes());
+	fn try_from_token_bad_config_errors() {
+		let (mut config, token, package) = fixture();
+		config.para_ids.push(ParaId::new(0));
 
-		// Missing and surplus assignments fail before signature verification.
-		for para_ids in [vec![], vec![ParaId::new(0), ParaId::new(1)]] {
-			config.para_ids = para_ids;
-			assert!(matches!(
-				AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
-				Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemCount))
-			));
-		}
-		config.para_ids = vec![ParaId::new(0)];
-		assert!(AuthTrace::try_from_token::<Verifier>(&config, &token, &package, 2).is_ok());
-
-		package.items[0].service += 1;
-		assert!(matches!(
-			AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
-			Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemService))
-		));
-		// Item-count errors take precedence when both constraints fail.
-		config.para_ids.clear();
-		assert!(matches!(
+		assert_eq!(
 			AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
 			Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemCount))
-		));
+		);
 	}
 
 	#[test]
-	fn authorize_selected_collator_works() {
+	fn try_from_token_selected_collator_works() {
 		let (config, token, package) = fixture();
 
 		for slot in [2, 3, 6, 7] {
@@ -186,7 +155,7 @@ mod tests {
 	}
 
 	#[test]
-	fn authorize_wrong_slot_errors() {
+	fn try_from_token_wrong_slot_errors() {
 		let (config, token, package) = fixture();
 
 		assert!(matches!(
@@ -196,7 +165,7 @@ mod tests {
 	}
 
 	#[test]
-	fn authorize_invalid_proof_errors() {
+	fn try_from_token_invalid_proof_errors() {
 		let (config, mut token, package) = fixture();
 		token.proof.clear();
 
@@ -207,7 +176,7 @@ mod tests {
 	}
 
 	#[test]
-	fn authorize_changed_package_errors() {
+	fn try_from_token_changed_package_errors() {
 		let (config, token, mut package) = fixture();
 		package.auth_code_host += 1;
 
@@ -218,7 +187,7 @@ mod tests {
 	}
 
 	#[test]
-	fn authorize_invalid_signature_errors() {
+	fn try_from_token_invalid_signature_errors() {
 		let (config, mut token, package) = fixture();
 		token.signature[63] ^= 1;
 

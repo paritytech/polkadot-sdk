@@ -88,6 +88,43 @@ impl AuthConfig {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use alloc::vec;
+
+	#[test]
+	fn work_item_constraints_works() {
+		let mut config = AuthConfig {
+			para_ids: vec![],
+			parachain_service: 1,
+			collator_set_root: H256::zero(),
+			collator_set_size: NonZero::new(1).expect("nonzero test size"),
+			slot_duration: NonZero::new(1).expect("nonzero test duration"),
+		};
+		let mut items = [WorkItem {
+			service: config.parachain_service,
+			code_hash: Default::default(),
+			refine_gas_limit: 1,
+			accumulate_gas_limit: 1,
+			export_count: 0,
+			payload: Default::default(),
+			import_segments: Default::default(),
+			extrinsics: Default::default(),
+		}];
+
+		// Missing and surplus assignments fail.
+		for para_ids in [vec![], vec![ParaId::new(0), ParaId::new(1)]] {
+			config.para_ids = para_ids;
+			assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidWorkItemCount));
+		}
+		config.para_ids = vec![ParaId::new(0)];
+		assert_eq!(config.check_work_items(&items), Ok(()));
+
+		items[0].service += 1;
+		assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidWorkItemService));
+
+		// Item-count errors take precedence when both constraints fail.
+		config.para_ids.clear();
+		assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidWorkItemCount));
+	}
 
 	#[test]
 	fn expected_collator_index_works() {
