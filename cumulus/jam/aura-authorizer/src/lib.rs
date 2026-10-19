@@ -66,8 +66,13 @@ impl AuthTrace {
 		config.check_work_items(&package.items).map_err(AuthorizationError::BadConfig)?;
 
 		token
-			.try_into_trace::<S>(config, package, collator_index)
-			.map_err(AuthorizationError::BadToken)
+			.check_proof(config, collator_index)
+			.map_err(AuthorizationError::BadToken)?;
+		token
+			.check_signature::<S>(signing::SigningPayload::from(package).hash())
+			.map_err(AuthorizationError::BadToken)?;
+
+		Ok(Self { author_key: token.key })
 	}
 }
 
@@ -200,6 +205,17 @@ mod tests {
 		assert!(matches!(
 			AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
 			Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
+		));
+	}
+
+	#[test]
+	fn authorize_changed_package_errors() {
+		let (config, token, mut package) = fixture();
+		package.auth_code_host += 1;
+
+		assert!(matches!(
+			AuthTrace::try_from_token::<Verifier>(&config, &token, &package, 2),
+			Err(AuthorizationError::BadToken(TokenError::BadCollatorSignature))
 		));
 	}
 

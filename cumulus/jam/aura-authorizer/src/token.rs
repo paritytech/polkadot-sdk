@@ -17,14 +17,11 @@
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use jam_types::WorkPackage;
 use primitive_types::H256;
 
 use crate::{
 	config::AuthConfig,
 	merkle::{padded_leaf_count, CollatorHasher},
-	signing::SigningPayload,
-	AuthTrace,
 };
 
 /// Raw public key bytes for either supported signature scheme.
@@ -118,29 +115,15 @@ impl AuthToken {
 			.then_some(())
 			.ok_or(TokenError::BadCollatorSignature)
 	}
-
-	/// Validate the token and produce the trace carrying the author key.
-	///
-	/// Runs the token checks for the slot-selected `collator_index`.
-	pub fn try_into_trace<S: SignatureVerifier>(
-		&self,
-		config: &AuthConfig,
-		wp: &WorkPackage,
-		collator_index: u32,
-	) -> Result<AuthTrace, TokenError> {
-		let wp_hash = SigningPayload::from(wp).hash();
-
-		self.check_proof(config, collator_index)?;
-		self.check_signature::<S>(wp_hash)?;
-
-		Ok(AuthTrace { author_key: self.key })
-	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::tests::{fixture, NeverVerify, Verifier};
+	use crate::{
+		signing::SigningPayload,
+		tests::{fixture, Verifier},
+	};
 
 	#[test]
 	fn check_signature_arguments_works() {
@@ -169,49 +152,6 @@ mod tests {
 				Err(TokenError::BadCollatorSignature)
 			));
 		}
-	}
-
-	#[test]
-	fn try_into_trace_works() {
-		let (config, token, package) = fixture();
-
-		assert_eq!(
-			token.try_into_trace::<Verifier>(&config, &package, 1).expect("valid token"),
-			AuthTrace { author_key: token.key }
-		);
-	}
-
-	#[test]
-	fn try_into_trace_bad_proof_errors() {
-		let (config, mut token, package) = fixture();
-		token.proof.clear();
-
-		assert!(matches!(
-			token.try_into_trace::<NeverVerify>(&config, &package, 1),
-			Err(TokenError::BadCollatorSetProof)
-		));
-	}
-
-	#[test]
-	fn try_into_trace_bad_signature_errors() {
-		let (config, mut token, package) = fixture();
-		token.signature[0] ^= 1;
-
-		assert!(matches!(
-			token.try_into_trace::<Verifier>(&config, &package, 1),
-			Err(TokenError::BadCollatorSignature)
-		));
-	}
-
-	#[test]
-	fn try_into_trace_changed_package_errors() {
-		let (config, token, mut package) = fixture();
-		package.auth_code_host += 1;
-
-		assert!(matches!(
-			token.try_into_trace::<Verifier>(&config, &package, 1),
-			Err(TokenError::BadCollatorSignature)
-		));
 	}
 
 	#[test]
