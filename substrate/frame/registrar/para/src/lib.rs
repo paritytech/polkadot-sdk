@@ -83,7 +83,7 @@ use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlockNumberProvider, Saturating},
-	DispatchResult,
+	DispatchError, DispatchResult,
 };
 
 pub use pallet::*;
@@ -374,6 +374,8 @@ pub mod pallet {
 		StaleResponse { para_id: ParaId, message_id: u64, expected: u64 },
 		/// The relay chain never answered this request and the manager gave up waiting.
 		ResponseNeverArrived { para_id: ParaId, message_id: u64 },
+		/// Releasing a deposit failed while applying a relay chain answer, so it is still held.
+		DepositNotReleased { para_id: ParaId, error: DispatchError },
 	}
 
 	#[pallet::error]
@@ -802,6 +804,17 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::Unexpected(kind));
 	}
 
+	/// Drop `ticket` without failing: the relay chain already acted on the answer being applied.
+	fn release_or_report<C: Consideration<T::AccountId, Footprint>>(
+		ticket: C,
+		who: &T::AccountId,
+		para_id: ParaId,
+	) {
+		if let Err(error) = ticket.drop(who) {
+			Self::report_unexpected(UnexpectedKind::DepositNotReleased { para_id, error });
+		}
+	}
+
 	/// Take the id for the next message to the relay chain.
 	fn next_message_id() -> u64 {
 		NextMessageId::<T>::mutate(|next| {
@@ -848,7 +861,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::Registered { para_id, message_id, manager });
 			},
 			Err(reason) => {
-				ticket.drop(&info.manager)?;
+				Self::release_or_report(ticket, &manager, para_id);
 				info.state = RegistrationState::Reserved;
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::RegistrationFailed {
@@ -922,7 +935,7 @@ impl<T: Config> Pallet<T> {
 		let manager = info.manager.clone();
 		match outcome {
 			Ok(()) => {
-				ticket.drop(&info.manager)?;
+				Self::release_or_report(ticket, &manager, para_id);
 				info.state = RegistrationState::Reserved;
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::RegistrationCancelled { para_id, message_id, manager });
@@ -982,8 +995,8 @@ impl<T: Config> Pallet<T> {
 		let manager = info.manager.clone();
 		match outcome {
 			Ok(()) => {
-				ticket.drop(&manager)?;
-				info.reservation.drop(&manager)?;
+				Self::release_or_report(ticket, &manager, para_id);
+				Self::release_or_report(info.reservation, &manager, para_id);
 				Paras::<T>::remove(para_id);
 				Self::deposit_event(Event::Deregistered { para_id, message_id, manager });
 			},
