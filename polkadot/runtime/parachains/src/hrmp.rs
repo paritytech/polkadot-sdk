@@ -1068,6 +1068,14 @@ impl<T: Config> Pallet<T> {
 							v.insert(i, channel_id.recipient);
 						}
 					});
+				} else {
+					// The channel is not created, so the deposits taken for it are given back, as
+					// `close_hrmp_channel` would have done for an opened channel.
+					Self::release_deposits(
+						&channel_id,
+						Some(sender_deposit),
+						Some(recipient_deposit),
+					);
 				}
 
 				Self::decrease_open_channel_request_count(channel_id.sender);

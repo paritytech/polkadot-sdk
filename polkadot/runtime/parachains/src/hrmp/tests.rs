@@ -1298,3 +1298,72 @@ fn hrmp_notifications_works() {
 		);
 	});
 }
+
+#[test]
+fn accept_incoming_request_and_offboard_refunds_recipient_deposit() {
+	let para_a = 2032.into();
+	let para_b = 2064.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 110);
+
+		run_to_block(5, Some(vec![4, 5]));
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		Hrmp::accept_open_channel(para_b, para_a).unwrap();
+		let b_account = para_b.into_account_truncating();
+		assert_eq!(<Test as Config>::Currency::reserved_balance(&b_account), 15);
+		deregister_parachain(para_a);
+
+		// Same timing as `accept_incoming_request_and_offboard`.
+		run_to_block(7, Some(vec![6, 7]));
+		assert!(!Paras::is_valid_para(para_a));
+		assert!(!channel_exists(para_a, para_b));
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// Nothing refunds it later either.
+		run_to_block(12, Some(vec![8, 9, 10, 11, 12]));
+		assert!(HrmpOpenChannelRequests::<Test>::get(&HrmpChannelId {
+			sender: para_a,
+			recipient: para_b
+		})
+		.is_none());
+
+		// The channel was never opened, so `para_b` must get its deposit back.
+		assert_eq!(<Test as Config>::Currency::reserved_balance(&b_account), 0);
+		assert_eq!(<Test as Config>::Currency::free_balance(&b_account), 110);
+	});
+}
+
+#[test]
+fn accept_incoming_request_and_recipient_offboards_refunds_sender_deposit() {
+	let para_a = 2032.into();
+	let para_b = 2064.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 110);
+
+		run_to_block(5, Some(vec![4, 5]));
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		Hrmp::accept_open_channel(para_b, para_a).unwrap();
+		let a_account = para_a.into_account_truncating();
+		assert_eq!(<Test as Config>::Currency::reserved_balance(&a_account), 20);
+		deregister_parachain(para_b);
+
+		run_to_block(12, Some(vec![6, 7, 8, 9, 10, 11, 12]));
+		assert!(!Paras::is_valid_para(para_b));
+		assert!(!channel_exists(para_a, para_b));
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// The channel was never opened, so `para_a` must get its deposit back.
+		assert_eq!(<Test as Config>::Currency::reserved_balance(&a_account), 0);
+		assert_eq!(<Test as Config>::Currency::free_balance(&a_account), 100);
+	});
+}
