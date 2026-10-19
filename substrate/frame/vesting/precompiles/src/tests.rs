@@ -18,14 +18,21 @@
 //! Unit tests for the vesting precompile.
 
 use crate::{IVesting, Vesting, VestingBalance, mock::*};
-use alloy_core::sol_types::{SolInterface, SolValue};
-use frame_support::traits::{Currency, VestingSchedule};
-use pallet_revive::{
-	AddressMapper, ExecReturnValue,
-	precompiles::{Precompile, U256},
-	test_utils::builder::BareCallBuilder,
+use alloy_core::sol_types::{SolCall, SolInterface, SolValue};
+use frame_support::{
+	traits::{Currency, VestingSchedule},
+	weights::Weight,
 };
+use pallet_revive::{
+	AddressMapper, Code, ExecReturnValue, TransactionLimits,
+	evm::CallTracer,
+	precompiles::{Precompile, U256},
+	test_utils::builder::{BareCallBuilder, BareInstantiateBuilder},
+	tracing::trace,
+};
+use pallet_revive_fixtures::{Caller, FixtureType, compile_module_with_type};
 use sp_core::H160;
+use test_case::test_case;
 
 type CurrencyOf<T> = <T as pallet_vesting::Config>::Currency;
 
@@ -313,56 +320,81 @@ fn guard_test_cases() -> Vec<GuardTestCase> {
 	]
 }
 
-fn call_with_flags(
+/// Deploys the `Caller` fixture compiled with `fixture_type` and returns its address.
+fn deploy_caller(fixture_type: FixtureType) -> H160 {
+	CurrencyOf::<Test>::make_free_balance_be(&ALICE, 1_000_000_000_000_000);
+	let (code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+	BareInstantiateBuilder::<Test>::bare_instantiate(
+		RuntimeOrigin::signed(ALICE),
+		Code::Upload(code),
+	)
+	.transaction_limits(TransactionLimits::WeightAndDeposit {
+		weight_limit: Weight::MAX,
+		deposit_limit: u64::MAX,
+	})
+	.build_and_unwrap_contract()
+	.addr
+}
+
+/// Calls the precompile with `input` through `caller`, as a static call if `static_call` is set and
+/// as a delegate call otherwise, and returns the error of the precompile's frame.
+fn static_or_delegate_call_precompile(
+	caller: H160,
 	input: &IVesting::IVestingCalls,
-	read_only: bool,
-	delegate: bool,
-) -> Result<alloc::vec::Vec<u8>, pallet_revive::precompiles::Error> {
-	let mut call_setup = pallet_revive::call_builder::CallSetup::<Test>::default();
-	call_setup.set_read_only(read_only);
-	call_setup.set_delegate_call(delegate);
-	let (mut ext, _) = call_setup.ext();
-	Vesting::<Test>::call(&Vesting::<Test>::MATCHER.base_address(), input, &mut ext)
+	static_call: bool,
+) -> Option<String> {
+	let callee = precompile_address().0.into();
+	let data = input.abi_encode().into();
+	let call = if static_call {
+		Caller::staticCallCall { _callee: callee, _data: data, _gas: u64::MAX }.abi_encode()
+	} else {
+		Caller::delegateCall { _callee: callee, _data: data, _gas: u64::MAX }.abi_encode()
+	};
+	let mut tracer = CallTracer::new(Default::default());
+	trace(&mut tracer, || {
+		BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), caller)
+			.data(call)
+			.build_and_unwrap_result()
+	});
+	tracer.collect_trace().unwrap().calls.pop().unwrap().error
 }
 
 fn assert_guard(
+	caller: H160,
 	case: &GuardTestCase,
 	read_only: bool,
-	delegate: bool,
 	should_reject: bool,
-	expected_error: sp_runtime::DispatchError,
+	expected_error: &pallet_revive::Error<Test>,
 ) {
 	let context = if read_only { "read-only" } else { "delegate call" };
-	let result = call_with_flags(&case.input, read_only, delegate);
-	if should_reject {
-		match result {
-			Err(pallet_revive::precompiles::Error::Error(err)) => {
-				assert_eq!(err.error, expected_error, "{}: wrong error in {context}", case.name);
-			},
-			Err(other) => panic!("{}: unexpected error type in {context}: {other:?}", case.name),
-			Ok(_) => panic!("{}: should be rejected in {context}", case.name),
-		}
-	} else {
-		assert!(result.is_ok(), "{}: should succeed in {context}, got: {:?}", case.name, result);
-	}
+	assert_eq!(
+		static_or_delegate_call_precompile(caller, &case.input, read_only),
+		should_reject.then(|| expected_error.as_str().to_string()),
+		"{}: wrong error reported for {context}",
+		case.name
+	);
 }
 
-#[test]
-fn read_only_guards() {
+#[test_case(FixtureType::Solc; "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn read_only_guards(fixture_type: FixtureType) {
 	new_test_ext().execute_with(|| {
-		let error = pallet_revive::Error::<Test>::StateChangeDenied.into();
+		let caller = deploy_caller(fixture_type);
+		let expected_error = pallet_revive::Error::<Test>::StateChangeDenied;
 		for case in guard_test_cases() {
-			assert_guard(&case, true, false, case.reject_read_only, error);
+			assert_guard(caller, &case, true, case.reject_read_only, &expected_error);
 		}
 	});
 }
 
-#[test]
-fn delegate_call_guards() {
+#[test_case(FixtureType::Solc; "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn delegate_call_guards(fixture_type: FixtureType) {
 	new_test_ext().execute_with(|| {
-		let error = pallet_revive::Error::<Test>::PrecompileDelegateDenied.into();
+		let caller = deploy_caller(fixture_type);
+		let expected_error = pallet_revive::Error::<Test>::PrecompileDelegateDenied;
 		for case in guard_test_cases() {
-			assert_guard(&case, false, true, case.reject_delegate, error);
+			assert_guard(caller, &case, false, case.reject_delegate, &expected_error);
 		}
 	});
 }
@@ -384,20 +416,81 @@ mod stipend_limited_frame {
 
 	const SCHEDULE_AMOUNT: u64 = 10_000;
 
-	/// A gas scale high enough that 2300 gas pays for the operation under test, so only the
-	/// stipend check can deny it.
-	const RAISED_GAS_SCALE: u32 = 50_000_000;
+	struct StipendTestCase {
+		name: &'static str,
+		input: IVesting::IVestingCalls,
+		changes_state: bool,
+		/// Creates the state the call needs to succeed, given the receiver's account.
+		setup: fn(u64),
+		/// Reads the state the call would change, given the receiver's account.
+		read_state: fn(u64) -> bool,
+	}
 
-	/// Calls the vesting pre-compile with `call` from a `CallingReceiver` reached with `gas_limit`,
-	/// after `setup` prepares the receiver's account. Returns whether the call was denied and what
-	/// `read_state` reads from the receiver's account.
-	fn call_precompile_via_receiver<R>(
+	#[derive(Clone, Copy, Debug, PartialEq)]
+	struct StipendTestCaseOutcome {
+		denied: bool,
+		state_changed: bool,
+	}
+
+	fn stipend_test_cases() -> Vec<StipendTestCase> {
+		vec![
+			StipendTestCase {
+				name: "vest",
+				input: IVesting::IVestingCalls::vest(IVesting::vestCall {}),
+				changes_state: true,
+				setup: add_fully_vested_schedule,
+				read_state: |receiver| pallet_vesting::Vesting::<Test>::contains_key(receiver),
+			},
+			StipendTestCase {
+				name: "vestOther",
+				input: IVesting::IVestingCalls::vestOther(IVesting::vestOtherCall {
+					target: target_alloy(),
+				}),
+				changes_state: true,
+				setup: |_| add_fully_vested_schedule(TARGET),
+				read_state: |_| pallet_vesting::Vesting::<Test>::contains_key(TARGET),
+			},
+			StipendTestCase {
+				name: "vestedTransfer",
+				input: IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
+					target: target_alloy(),
+					locked: alloy_core::primitives::U256::from(SCHEDULE_AMOUNT),
+					perBlock: alloy_core::primitives::U256::from(500u64),
+					startingBlock: alloy_core::primitives::U256::from(0u64),
+				}),
+				changes_state: true,
+				setup: |receiver| {
+					CurrencyOf::<Test>::make_free_balance_be(&receiver, SCHEDULE_AMOUNT * 10);
+				},
+				read_state: |_| pallet_vesting::Vesting::<Test>::contains_key(TARGET),
+			},
+			StipendTestCase {
+				name: "vestingBalance",
+				input: IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {}),
+				changes_state: false,
+				setup: |_| {},
+				read_state: |_| false,
+			},
+			StipendTestCase {
+				name: "vestingBalanceOf",
+				input: IVesting::IVestingCalls::vestingBalanceOf(IVesting::vestingBalanceOfCall {
+					target: target_alloy(),
+				}),
+				changes_state: false,
+				setup: |_| {},
+				read_state: |_| false,
+			},
+		]
+	}
+
+	/// Makes `vesting_call` from a `CallingReceiver` reached with `gas_limit`, after its `setup`,
+	/// and returns whether it was denied and whether it changed what `read_state` returns.
+	fn call_precompile_via_receiver(
 		fixture_type: FixtureType,
 		gas_limit: u64,
-		call: &impl SolCall,
-		setup: impl FnOnce(u64),
-		read_state: impl FnOnce(u64) -> R,
-	) -> (bool, R) {
+		vesting_call: &StipendTestCase,
+	) -> StipendTestCaseOutcome {
+		let StipendTestCase { input, setup, read_state, .. } = vesting_call;
 		new_test_ext().execute_with(|| {
 			// ALICE pays the storage deposits of the two deployments.
 			CurrencyOf::<Test>::make_free_balance_be(&ALICE, 1_000_000_000_000_000);
@@ -420,7 +513,7 @@ mod stipend_limited_frame {
 				"CallingReceiver",
 				CallingReceiver::constructorCall {
 					_target: precompile_address().0.into(),
-					_data: call.abi_encode().into(),
+					_data: input.abi_encode().into(),
 				}
 				.abi_encode(),
 			);
@@ -429,13 +522,17 @@ mod stipend_limited_frame {
 				StipendSender::constructorCall { _receiver: receiver.addr.0.into() }.abi_encode(),
 			);
 			setup(receiver.account_id);
+			let state_before = read_state(receiver.account_id);
 			let result =
 				BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), sender.addr)
 					.data(
 						StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
 					)
 					.build_and_unwrap_result();
-			(bool::abi_decode(&result.data).unwrap(), read_state(receiver.account_id))
+			StipendTestCaseOutcome {
+				denied: bool::abi_decode(&result.data).unwrap(),
+				state_changed: read_state(receiver.account_id) != state_before,
+			}
 		})
 	}
 
@@ -456,89 +553,32 @@ mod stipend_limited_frame {
 
 	#[test_case(FixtureType::Solc; "solc")]
 	#[test_case(FixtureType::Resolc; "resolc")]
-	fn vest_is_denied(fixture_type: FixtureType) {
-		let [with_2300_gas, with_2299_gas, with_2301_gas] =
-			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
-				[2300, 2299, 2301].map(|gas_limit| {
-					call_precompile_via_receiver(
-						fixture_type,
-						gas_limit,
-						&IVesting::vestCall {},
-						add_fully_vested_schedule,
-						|receiver| pallet_vesting::Vesting::<Test>::contains_key(receiver),
-					)
-				})
-			});
-		assert_eq!(with_2300_gas, (true, true), "the receiver of a `send` should not vest");
-		assert_eq!(
-			[with_2299_gas, with_2301_gas],
-			[(false, false); 2],
-			"only a `send` denies vesting"
-		);
-	}
-
-	#[test_case(FixtureType::Solc; "solc")]
-	#[test_case(FixtureType::Resolc; "resolc")]
-	fn vest_other_is_denied(fixture_type: FixtureType) {
-		let [with_2300_gas, with_2299_gas, with_2301_gas] =
-			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
-				[2300, 2299, 2301].map(|gas_limit| {
-					call_precompile_via_receiver(
-						fixture_type,
-						gas_limit,
-						&IVesting::vestOtherCall { target: target_alloy() },
-						|_| add_fully_vested_schedule(TARGET),
-						|_| pallet_vesting::Vesting::<Test>::contains_key(TARGET),
-					)
-				})
-			});
-		assert_eq!(
-			with_2300_gas,
-			(true, true),
-			"the receiver of a `send` should not vest another account"
-		);
-		assert_eq!(
-			[with_2299_gas, with_2301_gas],
-			[(false, false); 2],
-			"only a `send` denies vesting another account"
-		);
-	}
-
-	#[test_case(FixtureType::Solc; "solc")]
-	#[test_case(FixtureType::Resolc; "resolc")]
-	fn vested_transfer_is_denied(fixture_type: FixtureType) {
-		let vested_transfer = IVesting::vestedTransferCall {
-			target: target_alloy(),
-			locked: alloy_core::primitives::U256::from(SCHEDULE_AMOUNT),
-			perBlock: alloy_core::primitives::U256::from(500u64),
-			startingBlock: alloy_core::primitives::U256::from(0u64),
-		};
-		let [with_2300_gas, with_2299_gas, with_2301_gas] =
-			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
-				[2300, 2299, 2301].map(|gas_limit| {
-					call_precompile_via_receiver(
-						fixture_type,
-						gas_limit,
-						&vested_transfer,
-						|receiver| {
-							CurrencyOf::<Test>::make_free_balance_be(
-								&receiver,
-								SCHEDULE_AMOUNT * 10,
-							);
-						},
-						|_| pallet_vesting::Vesting::<Test>::contains_key(TARGET),
-					)
-				})
-			});
-		assert_eq!(
-			with_2300_gas,
-			(true, false),
-			"the receiver of a `send` should not make a vested transfer"
-		);
-		assert_eq!(
-			[with_2299_gas, with_2301_gas],
-			[(false, true); 2],
-			"only a `send` denies a vested transfer"
-		);
+	fn stipend_limited_guards(fixture_type: FixtureType) {
+		// High enough that 2300 gas pays for the operation under test, so only the stipend check
+		// can deny it.
+		const RAISED_GAS_SCALE: u32 = 50_000_000;
+		for vesting_call in stipend_test_cases() {
+			let [with_2300_gas, with_2299_gas, with_2301_gas] =
+				with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
+					[2300, 2299, 2301].map(|gas_limit| {
+						call_precompile_via_receiver(fixture_type, gas_limit, &vesting_call)
+					})
+				});
+			assert_eq!(
+				with_2300_gas,
+				StipendTestCaseOutcome { denied: vesting_call.changes_state, state_changed: false },
+				"{}: wrong outcome for the receiver of a `send`",
+				vesting_call.name
+			);
+			assert_eq!(
+				[with_2299_gas, with_2301_gas],
+				[StipendTestCaseOutcome {
+					denied: false,
+					state_changed: vesting_call.changes_state,
+				}; 2],
+				"{}: wrong outcome for a call that is not a `send`",
+				vesting_call.name
+			);
+		}
 	}
 }

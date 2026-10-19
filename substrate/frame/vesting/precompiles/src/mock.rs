@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Mock runtime for benchmarking the vesting precompile.
+//! Mock runtime for testing and benchmarking the vesting precompile.
 
 use frame_support::{derive_impl, parameter_types, traits::WithdrawReasons};
 use sp_runtime::BuildStorage;

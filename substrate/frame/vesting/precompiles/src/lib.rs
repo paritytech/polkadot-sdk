@@ -40,10 +40,10 @@ pub use weights::WeightInfo;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-#[cfg(all(test, feature = "runtime-benchmarks"))]
+#[cfg(test)]
 pub mod mock;
 
-#[cfg(all(test, feature = "runtime-benchmarks"))]
+#[cfg(test)]
 mod tests;
 
 fn ensure_mutable<T: Config>(env: &impl Ext<T = T>) -> Result<(), Error> {
