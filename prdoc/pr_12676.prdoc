@@ -27,6 +27,6 @@ crates:
 - name: polkadot-primitives-test-helpers
   bump: patch
 - name: sp-mmr-primitives
-  bump: patch
+  bump: minor
 - name: polkadot-sdk
   bump: minor
