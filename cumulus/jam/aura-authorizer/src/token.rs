@@ -48,7 +48,7 @@ pub struct AuthToken {
 }
 
 /// Authorization token validation failed.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenError {
 	BadCollatorSetProof,
 	BadCollatorSignature,

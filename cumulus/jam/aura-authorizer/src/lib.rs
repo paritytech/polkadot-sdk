@@ -45,7 +45,7 @@ pub struct AuthTrace {
 }
 
 /// AURA authorization failed.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthorizationError {
 	BadConfig(ConfigError),
 	BadToken(TokenError),

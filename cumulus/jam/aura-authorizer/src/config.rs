@@ -23,7 +23,7 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use primitive_types::H256;
 
 /// Work items do not satisfy the AURA configuration.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfigError {
 	/// A work item does not target the configured Parachain Service.
 	InvalidWorkItemService,
