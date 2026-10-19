@@ -217,24 +217,10 @@ pub mod pallet {
 	/// Orders are only accepted while it is, as the revenue from them is only claimed through
 	/// [`OnDemandRevenue::claim_revenue`] while it is; otherwise it would never be distributed.
 	/// Revenue booked before it was disabled stays booked until it is enabled again.
+	///
+	/// It is `false` until enabled with [`Pallet::set_enabled`].
 	#[pallet::storage]
 	pub type Enabled<T> = StorageValue<_, bool, ValueQuery>;
-
-	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config> {
-		/// Whether on-demand Coretime is sold from genesis on.
-		pub enabled: bool,
-		#[serde(skip)]
-		pub _config: core::marker::PhantomData<T>,
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			Enabled::<T>::put(self.enabled);
-		}
-	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

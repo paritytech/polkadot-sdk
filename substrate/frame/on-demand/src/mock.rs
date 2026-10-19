@@ -184,13 +184,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	pallet_on_demand_para::GenesisConfig::<Test> { enabled: true, ..Default::default() }
-		.assimilate_storage(&mut t)
-		.unwrap();
 
 	let mut ext: sp_io::TestExternalities = t.into();
 	// Get past the genesis block so that events are recorded, and let the pallet initialize.
 	ext.execute_with(|| {
+		// Sell on-demand Coretime, as most tests expect.
+		pallet_on_demand_para::Enabled::<Test>::put(true);
 		System::set_block_number(1);
 		OnDemand::on_initialize(1);
 	});

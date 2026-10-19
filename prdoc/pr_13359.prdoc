@@ -35,10 +35,10 @@ doc:
 
     On-demand coretime sales in `pallet-on-demand-para` can be enabled and disabled with the
     new `set_enabled` call, which requires Root or `AdminOrigin`, is free, and emits an
-    `EnabledSet` event. They are disabled by default, and can also be enabled from genesis.
-    While they are disabled, `place_order` fails with the new `Disabled` error, so no revenue
-    is booked which would never be distributed; revenue booked before they were disabled
-    stays booked until they are enabled again.
+    `EnabledSet` event. They are disabled until enabled that way. While they are disabled,
+    `place_order` fails with the new `Disabled` error, so no revenue is booked which would
+    never be distributed; revenue booked before they were disabled stays booked until they
+    are enabled again.
 
     `pallet-broker` follows that switch through the new `OnDemandRevenue::is_enabled`. While
     the on-demand market is disabled, `pallet-broker` behaves as before: it requests the
