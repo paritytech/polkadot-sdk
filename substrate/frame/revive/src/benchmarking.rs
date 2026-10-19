@@ -1348,9 +1348,8 @@ mod benchmarks {
 			Pallet::<T>::min_balance() * 2u32.into(),
 			42u32,
 		));
-		// A `transfer` or `send` receiver runs on a stipend without proof size, and must still be
-		// able to read its own balance. The incoming transfer has already paid for this account,
-		// but a contract called without value reads it unpaid.
+		// A `transfer` or `send` receiver runs on a stipend too small for a storage read, and must
+		// still be able to read its own balance.
 		let account_id = &contract.account_id;
 		whitelist_account!(account_id);
 

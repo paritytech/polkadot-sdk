@@ -14,8 +14,8 @@ doc:
   description: |-
     A call with value, creating a contract, `SELFDESTRUCT` and the System precompile's
     `terminate` now also pay for the contract's own account: one read, a write where the balance
-    or the nonce changes, and its proof size. Previously, a nested contract called without value
-    did not pay for it.
+    or the nonce changes, and its proof size. `SELFDESTRUCT` and `terminate` pay for the read
+    twice. Previously, a nested contract called without value did not pay for it.
 crates:
 - name: pallet-revive
   bump: patch
