@@ -18,19 +18,41 @@ the latency test), and the first check then fails.
 
 ```
 export ZOMBIENET_SDK_BASE_DIR=$(mktemp -d)
-NO_PROXY=127.0.0.1,localhost RUST_LOG=info ZOMBIE_PROVIDER=native PATH=$PWD/target/release:$PATH \
-  cargo test --release -p cumulus-zombienet-sdk-tests --features zombie-ci spec_msg_delivers -- --nocapture
+export NO_PROXY=127.0.0.1,localhost RUST_LOG=info ZOMBIE_PROVIDER=native PATH=$PWD/target/release:$PATH
 ```
 
 - `RUST_LOG=info` is needed. A value such as `RUST_LOG=xcm=trace` hides the test output.
 - `NO_PROXY` is needed only behind a system proxy.
-- For a live presentation, you can boot the network ahead of time with `SPEC_MSG_STANDBY=1` on the command above,
-  then trigger the ~2 min channel-open + XCM run from a second terminal with `SPEC_MSG_ATTACH=1`.
-  Stop standby with Ctrl-C.
-- Set `ZOMBIENET_SDK_BASE_DIR` for the standby run. The node logs are then in a known directory, for the
-  `tail -F` commands in section 3.
-- One standby network serves one attach run. A second run fails at the channel open, because the channel exists.
-  Restart standby before each run.
+
+### One command
+
+```
+cargo test --release -p cumulus-zombienet-sdk-tests --features zombie-ci spec_msg_delivers -- --nocapture
+```
+
+### Two steps, for a live presentation
+
+Step 1 is the warmup. It boots the relay chain and both parachains, and waits until both parachains finalize a
+block. This takes about 4 minutes. Start it before the talk, in a first terminal:
+
+```
+SPEC_MSG_STANDBY=1 cargo test --release -p cumulus-zombienet-sdk-tests --features zombie-ci spec_msg_delivers -- --nocapture
+```
+
+The test prints `Standby ready: 2000 and 2001 are producing blocks` and then waits. Ctrl-C stops the nodes.
+
+Step 2 is the demo. It connects to the running nodes (RPC ports 30510 for alice, 30511 for 2000, 30512 for 2001),
+opens and accepts the channel, sends the XCM, and prints the six checkpoints. This takes about 2 minutes. Run it in
+a second terminal with the same `export` lines:
+
+```
+SPEC_MSG_ATTACH=1 cargo test --release -p cumulus-zombienet-sdk-tests --features zombie-ci spec_msg_delivers -- --nocapture
+```
+
+- Use the same `ZOMBIENET_SDK_BASE_DIR` in both terminals, so the node logs are in a known place (section 3).
+- One standby network serves one step 2. A second run fails at the channel open, because the channel exists.
+  Stop and restart step 1 before each run.
+- Run the `cargo test` command once before the talk, so the test crate is already compiled.
 
 The test prints six checkpoints. Each one is read from chain state:
 
@@ -45,7 +67,8 @@ The test prints six checkpoints. Each one is read from chain state:
 
 ## 3. Follow the node logs
 
-Open a second terminal in the same shell about 40 s after the start. The node log files appear then.
+Open another terminal in the same shell about 40 s after the start (in two steps: before step 2). The node log files
+appear then.
 charlie is the sender collator (2000), dave the receiver collator (2001), alice a relay validator.
 
 ```
