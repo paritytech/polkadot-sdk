@@ -133,6 +133,7 @@ impl Config for Test {
 	type DefaultExpectedEraDuration = ConstU64<1000>;
 	type DefaultReportMargin = ConstU64<100>;
 	type MaxReportMargin = ConstU64<500>;
+	type MaxBlocksPerSlot = MaxBlocksPerSlot;
 	type WeightInfo = ();
 }
 
@@ -150,6 +151,14 @@ impl frame_support::traits::UnixTime for MockTime {
 
 parameter_types! {
 	pub static MaxEntriesPerReport: u32 = 10;
+	pub static MaxBlocksPerSlot: u32 = 1;
+	/// The Aura slot of the last block.
+	pub static LastSlot: u64 = 0;
+	/// Whether each block is authored by the owner of its slot, the session validator at the slot
+	/// modulo their number. Without it, blocks have no author.
+	pub static Authoring: bool = false;
+	/// Session validators that author no blocks, so [`Authoring`] skips their slots.
+	pub static Silent: Vec<u64> = vec![];
 	/// Number of calls to [`MockReporter`] so far.
 	pub static ReportCalls: u32 = 0;
 	/// The call to [`MockReporter`], counted from one, that is rejected.
@@ -186,6 +195,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_tracing::try_init_simple();
 	Now::set(0);
 	MaxEntriesPerReport::set(10);
+	MaxBlocksPerSlot::set(1);
+	LastSlot::set(0);
+	Authoring::set(false);
+	Silent::set(vec![]);
 	ReportCalls::set(0);
 	FailingReportCall::set(None);
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -217,11 +230,35 @@ parameter_types! {
 	pub static RelayEpochRandomness: Option<[u8; 32]> = Some([7; 32]);
 }
 
+/// The session validator Aura gives `slot` to.
+pub fn slot_owner(slot: u64) -> Option<u64> {
+	let validators = Session::validators();
+	validators.get((slot % validators.len().max(1) as u64) as usize).copied()
+}
+
 /// Produce blocks up to `n`, each with a relay chain state proof carrying
-/// [`RelayEpochRandomness`].
+/// [`RelayEpochRandomness`], and in the Aura slot after [`LastSlot`].
+///
+/// With [`Authoring`], each block is in the first slot from there whose owner is not
+/// [`Silent`], and that owner authors it before the hooks run, as the authorship pallet does.
 pub fn initialize_to_block(n: u64) {
 	for i in System::block_number() + 1..=n {
-		System::set_block_number(i);
+		let mut slot = LastSlot::get() + 1;
+		let mut author = None;
+		if Authoring::get() {
+			let silent = Silent::get();
+			let first_live = (slot..slot + Session::validators().len() as u64)
+				.find(|s| slot_owner(*s).is_some_and(|owner| !silent.contains(&owner)));
+			if let Some(live) = first_live {
+				slot = live;
+				author = slot_owner(live);
+			}
+		}
+		LastSlot::set(slot);
+		System::initialize(&i, &System::block_hash(i - 1), &Default::default());
+		if let Some(author) = author {
+			<ValidatorCollators as pallet_authorship::EventHandler<u64, u64>>::note_author(author);
+		}
 		<AllPalletsWithSystem as frame_support::traits::OnInitialize<u64>>::on_initialize(i);
 		if let Some(randomness) = RelayEpochRandomness::get() {
 			<ValidatorCollators as OnSystemEvent>::on_relay_state_proof(

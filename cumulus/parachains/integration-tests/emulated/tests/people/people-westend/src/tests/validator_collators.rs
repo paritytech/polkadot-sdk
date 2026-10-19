@@ -15,7 +15,10 @@
 
 use crate::imports::*;
 use codec::Encode;
-use emulated_integration_tests_common::{collators, xcm_emulator::pallet_aura};
+use emulated_integration_tests_common::{
+	collators,
+	xcm_emulator::{self, pallet_aura},
+};
 use pallet_staking_async::OnEraStart;
 use parachains_common::{AccountId, AuraId};
 use sp_externalities::ExternalitiesExt;
@@ -367,4 +370,115 @@ fn people_report_call_decodes_on_asset_hub() {
 		)) => assert_eq!(decoded, blocks),
 		other => panic!("People's report decodes on Asset Hub as {other:?}"),
 	}
+}
+
+/// The account Aura assigns People slot `slot` to.
+fn author_on_people(slot: u64) -> AccountId {
+	type Runtime = <PeopleWestend as Chain>::Runtime;
+	let validators = pallet_session::Pallet::<Runtime>::validators();
+	validators[(slot % validators.len() as u64) as usize].clone()
+}
+
+/// Put the next People block in slot `slot`, through the relay chain block number the emulator
+/// derives the slot from.
+fn next_people_block_in_slot(slot: u64) {
+	type Runtime = <PeopleWestend as Chain>::Runtime;
+	let relay_blocks_per_slot = pallet_aura::Pallet::<Runtime>::slot_duration() /
+		xcm_emulator::RELAY_CHAIN_SLOT_DURATION_MILLIS;
+	<<PeopleWestend as Chain>::Network as xcm_emulator::Network>::set_relay_block_number(
+		(slot * relay_blocks_per_slot - 1) as u32,
+	);
+}
+
+#[test]
+fn validator_without_blocks_is_dropped_on_people_at_the_next_set() {
+	type Runtime = <PeopleWestend as Chain>::Runtime;
+	type RuntimeOrigin = <PeopleWestend as Chain>::RuntimeOrigin;
+	type ValidatorCollators = pallet_validator_collators::Pallet<Runtime>;
+	type Session = pallet_session::Pallet<Runtime>;
+	let alice = Sr25519Keyring::Alice.to_account_id();
+	let bob = Sr25519Keyring::Bob.to_account_id();
+	let collators_with = |validators: Vec<AccountId>| {
+		invulnerables()
+			.into_iter()
+			.map(|(who, _)| who)
+			.chain(validators)
+			.collect::<Vec<_>>()
+	};
+	let mut both = vec![alice.clone(), bob.clone()];
+	both.sort();
+	let set_of = |era: u32, validators: &[AccountId]| {
+		assert_ok!(ValidatorCollators::set_validators(
+			RuntimeOrigin::root(),
+			era,
+			validators
+				.iter()
+				.cloned()
+				.collect::<std::collections::BTreeSet<_>>()
+				.try_into()
+				.unwrap(),
+		));
+	};
+	let rule = pallet_validator_collators::DropRule {
+		min_missed_turns: 2,
+		min_collators: 0,
+		max_drop_eras: 4,
+	};
+
+	// GIVEN a rule of two missed turns without a floor, and the set of era 1 with Alice and Bob
+	// with keys, set by root
+	PeopleWestend::execute_with(|| {
+		register_keys_on_people(&alice);
+		register_keys_on_people(&bob);
+		assert_ok!(ValidatorCollators::set_drop_rule(RuntimeOrigin::root(), Some(rule)));
+		set_of(1, &both);
+	});
+	PeopleWestend::execute_with(|| {});
+	// AND the second forced rotation enacts both, and the next block is in Alice's first slot
+	let next_slot = PeopleWestend::execute_with(|| {
+		assert_eq!(Session::validators(), collators_with(both.clone()));
+		let enacted_slot = u64::from(pallet_aura::CurrentSlot::<Runtime>::get());
+		let alice_slot =
+			(enacted_slot + 1..).find(|slot| author_on_people(*slot) == alice).unwrap();
+		next_people_block_in_slot(alice_slot);
+		// AND the block after it is in a slot that is not Bob's, so Bob authors nothing in the
+		// period
+		(alice_slot + 1..).find(|slot| author_on_people(*slot) != bob).unwrap()
+	});
+	// WHEN Alice authors her block, where the set of era 2 arrives, and the next block is
+	// `min_missed_turns × n × MaxBlocksPerSlot` blocks, for `n` authorities, after the
+	// judgement from which Bob is idle
+	PeopleWestend::execute_with(|| {
+		type System = <PeopleWestend as Chain>::System;
+		let activity = |who| pallet_validator_collators::LastActivity::<Runtime>::get(who).unwrap();
+		assert!(activity(&alice).authored);
+		set_of(2, &both);
+		next_people_block_in_slot(next_slot);
+		let idle_since = activity(&bob).idle_since;
+		let authorities = pallet_aura::Pallet::<Runtime>::authorities_len() as u32;
+		let max_blocks_per_slot: u32 =
+			<Runtime as pallet_validator_collators::Config>::MaxBlocksPerSlot::get();
+		System::set_block_number(
+			idle_since + rule.min_missed_turns * authorities * max_blocks_per_slot - 1,
+		);
+	});
+	// THEN the next block judges the period: only Bob is dropped, for one era
+	PeopleWestend::execute_with(|| {
+		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			PeopleWestend,
+			vec![
+				RuntimeEvent::ValidatorCollators(
+					pallet_validator_collators::Event::CollatorsDropped { validators, kept_by_floor: 0 }
+				) => { validators: *validators == vec![(bob.clone(), 3)], },
+			]
+		);
+		let dropped = pallet_validator_collators::Dropped::<Runtime>::get();
+		assert_eq!(dropped.into_iter().map(|(v, _)| v).collect::<Vec<_>>(), vec![bob.clone()]);
+		assert_eq!(pallet_validator_collators::LastActivity::<Runtime>::get(&bob), None);
+	});
+	// AND the rotation after it enacts the list without him
+	PeopleWestend::execute_with(|| {
+		assert_eq!(Session::validators(), collators_with(vec![alice.clone()]));
+	});
 }
